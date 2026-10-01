@@ -3,9 +3,9 @@
  * the "unsupported" driver factory. Kept separate from `naming.ts` (pure
  * strings) because these read nodes.
  */
-import type { CompileContext, ResourceDriver, TofuFragment } from "@/lib/drivers/types";
+import type { ResourceDriver, TofuFragment } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
-import { OciCompileError, OciUnsupportedError } from "../errors";
+import { OciCompileError } from "../errors";
 import { ociCapabilities, ociDriverId } from "../evidence";
 import { tfLabel } from "../naming";
 import type { OciSession } from "../transport";
@@ -46,18 +46,15 @@ export const res = (type: string, node: ResourceNode, suffix = ""): { label: str
 
 /**
  * A driver for a native type OCI (or this workstream) cannot honestly realize.
- * It is REGISTERED so `findDriver` answers with the reason instead of "no
- * driver"; every operation is off and `compile` throws `OciUnsupportedError`.
+ * It is registered so callers can inspect its empty capabilities. Unsupported
+ * methods are absent; the reasons are documented beside the registrations.
  */
-export function unsupportedDriver(nativeType: string, kind: ResourceDriver["kind"], reason: string): ResourceDriver<OciSession> {
+export function unsupportedDriver(nativeType: string, kind: ResourceDriver["kind"]): ResourceDriver<OciSession> {
   return {
     id: ociDriverId(nativeType),
     provider: "oci",
     kind,
     nativeType,
     capabilities: ociCapabilities({}),
-    compile(node: ResourceNode, _ctx: CompileContext): TofuFragment {
-      throw new OciUnsupportedError(`${node.address}: ${nativeType} is not supported by the OCI drivers. ${reason}`);
-    },
   };
 }

@@ -95,6 +95,8 @@ export interface DriverRow {
   driverId: string;
   core: Record<CoreOperation, CoreCell>;
   operations: OperationCell[];
+  refuses: OperationCell[];
+  experimental: boolean;
 }
 
 export interface MatrixProblem {
@@ -274,27 +276,33 @@ export function buildMatrix(input: BuildMatrixInput): MatrixData {
     }
 
     const declaredOps = [...new Set(caps.operations)].sort(cmp);
+    const refusedOps = [...new Set(caps.refuses ?? [])].sort(cmp);
     const implementedOps = Object.keys(driver.operations ?? {}).sort(cmp);
-    const operations: OperationCell[] = declaredOps.map((capability) => {
+    const operationCell = (capability: string): OperationCell => {
       const evidence = cellEvidence(driver, capability);
       const known = Object.prototype.hasOwnProperty.call(input.capabilities, capability);
       if (!known) problems.push({ driver: driver.id, message: `declares the operation \`${capability}\`, which is not in the capability catalog` });
       if (evidence === "undeclared") problems.push({ driver: driver.id, message: `declares the operation \`${capability}\` but no evidence level for it` });
       if (evidence === "real") realClaims.push(`${driver.id} ${capability}`);
-      if (!implementedOps.includes(capability)) problems.push({ driver: driver.id, message: `declares the operation \`${capability}\` but has no implementation for it` });
+      if (typeof driver.operations?.[capability] !== "function") problems.push({ driver: driver.id, message: `declares the operation \`${capability}\` but has no implementation for it` });
       return { capability, evidence, known };
-    });
-    for (const name of implementedOps) {
-      if (!declaredOps.includes(name)) problems.push({ driver: driver.id, message: `implements the operation \`${name}\` but does not declare it in capabilities.operations` });
+    };
+    const operations = declaredOps.map(operationCell);
+    const refuses = refusedOps.map(operationCell);
+    for (const name of refusedOps) {
+      if (declaredOps.includes(name)) problems.push({ driver: driver.id, message: `declares the operation \`${name}\` as both executable and refusal-only` });
     }
-    const allowedKeys = new Set<string>([...CORE_OPERATIONS, ...declaredOps]);
+    for (const name of implementedOps) {
+      if (!declaredOps.includes(name) && !refusedOps.includes(name)) problems.push({ driver: driver.id, message: `implements the operation \`${name}\` but does not declare it in capabilities.operations` });
+    }
+    const allowedKeys = new Set<string>([...CORE_OPERATIONS, ...declaredOps, ...refusedOps]);
     for (const key of Object.keys(caps.evidence)) {
       if (!allowedKeys.has(key)) {
         problems.push({ driver: driver.id, message: `declares evidence for \`${key}\`, which is neither a core operation nor a declared operation` });
       }
     }
 
-    rows.push({ registration: input.registration ? input.registration(driver) : "registered", provider: driver.provider, nativeType: driver.nativeType, kind: driver.kind, driverId: driver.id, core, operations });
+    rows.push({ registration: input.registration ? input.registration(driver) : "registered", provider: driver.provider, nativeType: driver.nativeType, kind: driver.kind, driverId: driver.id, core, operations, refuses, experimental: caps.experimental === true });
   }
 
   for (const d of input.discovery) {
@@ -501,7 +509,7 @@ export function renderMatrix(data: MatrixData): string {
             .map((r) => [
               code(r.nativeType),
               code(r.kind),
-              code(r.driverId),
+              `${code(r.driverId)}${r.experimental ? " (experimental)" : ""}`,
               r.registration === "registered" ? "yes" : r.registration === "registrable" ? "registrable" : "no",
               ...CORE_OPERATIONS.map((op) => coreCell(r.core[op])),
               r.operations.length === 0 ? "—" : r.operations.map((o) => `${code(o.capability)}: ${o.evidence === "undeclared" ? "**undeclared**" : code(o.evidence)}`).join("<br>"),
@@ -511,6 +519,18 @@ export function renderMatrix(data: MatrixData): string {
       );
     }
   }
+
+  push(
+    "## Refusal-only operations",
+    "",
+    "These handlers decline execution. Their evidence covers refusal paths; they are excluded from executable provider support above and below.",
+    "",
+    table(
+      ["Driver", "Refused operation", "Refusal evidence"],
+      data.rows.flatMap((r) => r.refuses.map((op) => [code(r.driverId), code(op.capability), op.evidence === "undeclared" ? "**undeclared**" : code(op.evidence)]))
+    ),
+    ""
+  );
 
   /* ------------------------------- observability ----------------------------- */
   push(

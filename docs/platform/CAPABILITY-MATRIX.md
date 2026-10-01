@@ -30,18 +30,16 @@ No entry claims `real`: there is no live-account acceptance evidence yet.
 
 | Provider | Provider-level drivers index | Driver group modules | Drivers merged | Registered by the app | Registrable, not registered | Module only |
 |---|---|---|---|---|---|---|
-| aws | `src/lib/providers/aws/drivers/index.ts` | `compute`, `data`, `network` | 21 | 0 | 21 | 0 |
-| gcp | `src/lib/providers/gcp/drivers/index.ts` | `build`, `compute`, `data`, `edge`, `identity`, `network`, `observability` | 18 | 0 | 18 | 0 |
-| azure | `src/lib/providers/azure/drivers/index.ts` | `compute`, `data`, `dns`, `identity`, `network`, `platform` | 19 | 0 | 19 | 0 |
-| oci | `src/lib/providers/oci/drivers/index.ts` | `compute`, `data`, `edge`, `network`, `platform` | 20 | 0 | 20 | 0 |
-| kubernetes | `src/lib/providers/kubernetes/drivers/index.ts` | `identity`, `network`, `storage`, `workload` | 11 | 0 | 11 | 0 |
-| zenith | `src/lib/providers/zenith/drivers/index.ts` | none | 12 | 0 | 12 | 0 |
+| aws | `src/lib/providers/aws/drivers/index.ts` | `compute`, `data`, `network` | 21 | 21 | 0 | 0 |
+| gcp | `src/lib/providers/gcp/drivers/index.ts` | `build`, `compute`, `data`, `edge`, `identity`, `network`, `observability` | 18 | 18 | 0 | 0 |
+| azure | `src/lib/providers/azure/drivers/index.ts` | `compute`, `data`, `dns`, `identity`, `network`, `platform` | 19 | 19 | 0 | 0 |
+| oci | `src/lib/providers/oci/drivers/index.ts` | `compute`, `data`, `edge`, `network`, `platform` | 20 | 20 | 0 | 0 |
+| kubernetes | `src/lib/providers/kubernetes/drivers/index.ts` | `identity`, `network`, `storage`, `workload` | 11 | 11 | 0 | 0 |
+| zenith | `src/lib/providers/zenith/drivers/index.ts` | none | 12 | 12 | 0 | 0 |
 | sandbox | none | none | none | none | none | none |
 | localstack | none | none | none | none | none | none |
 
 **No resource drivers are merged yet for:** sandbox, localstack. Driver sets are delivered by separate workstreams and appear here once they are merged and this file is regenerated.
-
-**101 of 101 merged drivers are not registered by the application:** 101 are registrable (their provider's `register<Provider>Drivers` exists) but nothing in the application calls it. Until application code registers them, `getDriver()` finds none of them at runtime and no operation can use them. (The registration column below describes the application; generating this file calls the registrars itself.)
 
 This matrix covers the **resource-driver** path (`src/lib/drivers`). The product engine's sandbox, LocalStack and AWS Preview providers use the older `ProviderAdapter` interface and have no per-operation evidence table; their honest status is in [`docs/LIMITATIONS.md`](../LIMITATIONS.md#providers).
 
@@ -51,132 +49,141 @@ This matrix covers the **resource-driver** path (`src/lib/drivers`). The product
 
 | Native type | Kind | Driver | Registered | compile | observe | runtime | verify | discover | Day-two operations |
 |---|---|---|---|---|---|---|---|---|---|
-| `aws:acm_certificate` | `tls_certificate` | `aws.acm_certificate@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:alb` | `load_balancer` | `aws.alb@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `aws:cloudwatch_log_group` | `log_group` | `aws.cloudwatch_log_group@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:codebuild_project` | `build_pipeline` | `aws.codebuild_project@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:ec2_instance` | `compute_instance` | `aws.ec2_instance@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `aws:ecr_repository` | `container_registry` | `aws.ecr_repository@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:ecs_scheduled_task` | `scheduled_job` | `aws.ecs_scheduled_task@1` | registrable | `contract` | `contract` | `contract` | `contract` | — | — |
-| `aws:ecs_service` | `container_service` | `aws.ecs_service@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | `deployment.deploy`: `contract`<br>`service.restart`: `contract`<br>`service.scale`: `contract` |
-| `aws:elasticache_replication_group` | `redis` | `aws.elasticache_replication_group@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `aws:iam_role` | `identity` | `aws.iam_role@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:lambda_function` | `function` | `aws.lambda_function@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | `function.invoke`: `contract` |
-| `aws:rds_instance` | `postgres` | `aws.rds_instance@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | `database.snapshot`: `contract` |
-| `aws:route53_record` | `dns_record` | `aws.route53_record@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
-| `aws:route53_zone` | `dns_zone` | `aws.route53_zone@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:s3_bucket` | `object_store` | `aws.s3_bucket@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:s3_static_site` | `static_site` | `aws.s3_static_site@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
-| `aws:secretsmanager_secret` | `secret` | `aws.secretsmanager_secret@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:security_group_rule` | `firewall` | `aws.security_group_rule@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | `firewall.inspect`: `contract` |
-| `aws:sqs_queue` | `queue` | `aws.sqs_queue@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `aws:subnet` | `subnet` | `aws.subnet@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:vpc` | `network` | `aws.vpc@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:acm_certificate` | `tls_certificate` | `aws.acm_certificate@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:alb` | `load_balancer` | `aws.alb@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `aws:cloudwatch_log_group` | `log_group` | `aws.cloudwatch_log_group@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:codebuild_project` | `build_pipeline` | `aws.codebuild_project@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:ec2_instance` | `compute_instance` | `aws.ec2_instance@1` (experimental) | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `aws:ecr_repository` | `container_registry` | `aws.ecr_repository@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:ecs_scheduled_task` | `scheduled_job` | `aws.ecs_scheduled_task@1` | yes | `contract` | `contract` | `contract` | `contract` | — | — |
+| `aws:ecs_service` | `container_service` | `aws.ecs_service@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `deployment.deploy`: `contract`<br>`service.restart`: `contract`<br>`service.scale`: `contract` |
+| `aws:elasticache_replication_group` | `redis` | `aws.elasticache_replication_group@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `aws:iam_role` | `identity` | `aws.iam_role@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:lambda_function` | `function` | `aws.lambda_function@1` (experimental) | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `function.invoke`: `contract` |
+| `aws:rds_instance` | `postgres` | `aws.rds_instance@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `database.snapshot`: `contract` |
+| `aws:route53_record` | `dns_record` | `aws.route53_record@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `aws:route53_zone` | `dns_zone` | `aws.route53_zone@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:s3_bucket` | `object_store` | `aws.s3_bucket@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:s3_static_site` | `static_site` | `aws.s3_static_site@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `aws:secretsmanager_secret` | `secret` | `aws.secretsmanager_secret@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:security_group_rule` | `firewall` | `aws.security_group_rule@1` | yes | `contract` | `contract` | — | `contract` | `contract` | `firewall.inspect`: `contract` |
+| `aws:sqs_queue` | `queue` | `aws.sqs_queue@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `aws:subnet` | `subnet` | `aws.subnet@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:vpc` | `network` | `aws.vpc@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 
 ### gcp
 
 | Native type | Kind | Driver | Registered | compile | observe | runtime | verify | discover | Day-two operations |
 |---|---|---|---|---|---|---|---|---|---|
-| `gcp:artifact_registry_repository` | `container_registry` | `gcp.artifact_registry_repository@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `gcp:cloud_build_trigger` | `build_pipeline` | `gcp.cloud_build_trigger@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
-| `gcp:cloud_run_job` | `scheduled_job` | `gcp.cloud_run_job@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `gcp:cloud_run_service` | `container_service` | `gcp.cloud_run_service@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | `service.restart`: `contract`<br>`service.scale`: `contract` |
-| `gcp:cloud_sql_instance` | `postgres` | `gcp.cloud_sql_instance@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | `database.snapshot`: `contract` |
-| `gcp:dns_managed_zone` | `dns_zone` | `gcp.dns_managed_zone@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `gcp:dns_record_set` | `dns_record` | `gcp.dns_record_set@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
-| `gcp:firewall_rule` | `firewall` | `gcp.firewall_rule@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `gcp:global_http_lb` | `load_balancer` | `gcp.global_http_lb@1` | registrable | `contract` | `contract` | `contract` | `contract` | — | — |
-| `gcp:log_bucket` | `log_group` | `gcp.log_bucket@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
-| `gcp:managed_ssl_certificate` | `tls_certificate` | `gcp.managed_ssl_certificate@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `gcp:memorystore_instance` | `redis` | `gcp.memorystore_instance@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `gcp:pubsub_topic` | `queue` | `gcp.pubsub_topic@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `gcp:secret_manager_secret` | `secret` | `gcp.secret_manager_secret@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `gcp:service_account` | `identity` | `gcp.service_account@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `gcp:storage_bucket` | `object_store` | `gcp.storage_bucket@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `gcp:subnetwork` | `subnet` | `gcp.subnetwork@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `gcp:vpc_network` | `network` | `gcp.vpc_network@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
+| `gcp:artifact_registry_repository` | `container_registry` | `gcp.artifact_registry_repository@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `gcp:cloud_build_trigger` | `build_pipeline` | `gcp.cloud_build_trigger@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `gcp:cloud_run_job` | `scheduled_job` | `gcp.cloud_run_job@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `gcp:cloud_run_service` | `container_service` | `gcp.cloud_run_service@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `service.restart`: `contract`<br>`service.scale`: `contract` |
+| `gcp:cloud_sql_instance` | `postgres` | `gcp.cloud_sql_instance@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `database.snapshot`: `contract` |
+| `gcp:dns_managed_zone` | `dns_zone` | `gcp.dns_managed_zone@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `gcp:dns_record_set` | `dns_record` | `gcp.dns_record_set@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `gcp:firewall_rule` | `firewall` | `gcp.firewall_rule@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `gcp:global_http_lb` | `load_balancer` | `gcp.global_http_lb@1` | yes | `contract` | `contract` | `contract` | `contract` | — | — |
+| `gcp:log_bucket` | `log_group` | `gcp.log_bucket@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `gcp:managed_ssl_certificate` | `tls_certificate` | `gcp.managed_ssl_certificate@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `gcp:memorystore_instance` | `redis` | `gcp.memorystore_instance@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `gcp:pubsub_topic` | `queue` | `gcp.pubsub_topic@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `gcp:secret_manager_secret` | `secret` | `gcp.secret_manager_secret@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `gcp:service_account` | `identity` | `gcp.service_account@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `gcp:storage_bucket` | `object_store` | `gcp.storage_bucket@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `gcp:subnetwork` | `subnet` | `gcp.subnetwork@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `gcp:vpc_network` | `network` | `gcp.vpc_network@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 
 ### azure
 
 | Native type | Kind | Driver | Registered | compile | observe | runtime | verify | discover | Day-two operations |
 |---|---|---|---|---|---|---|---|---|---|
-| `azure:acr_task` | `build_pipeline` | `azure.acr_task@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
-| `azure:application_gateway` | `load_balancer` | `azure.application_gateway@1` | registrable | `contract` | `contract` | `contract` | `contract` | — | — |
-| `azure:container_app` | `container_service` | `azure.container_app@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | `service.restart`: `contract`<br>`service.scale`: `contract` |
-| `azure:container_app_job` | `scheduled_job` | `azure.container_app_job@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `azure:container_registry` | `container_registry` | `azure.container_registry@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `azure:dns_record_set` | `dns_record` | `azure.dns_record_set@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
-| `azure:dns_zone` | `dns_zone` | `azure.dns_zone@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `azure:key_vault_secret` | `secret` | `azure.key_vault_secret@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `azure:log_analytics_workspace` | `log_group` | `azure.log_analytics_workspace@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `azure:managed_certificate` | `tls_certificate` | `azure.managed_certificate@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
-| `azure:network_security_rule` | `firewall` | `azure.network_security_rule@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
-| `azure:postgresql_flexible_server` | `postgres` | `azure.postgresql_flexible_server@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | `database.snapshot`: `contract` |
-| `azure:redis_cache` | `redis` | `azure.redis_cache@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `azure:service_bus_queue` | `queue` | `azure.service_bus_queue@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `azure:service_bus_topic` | `pubsub` | `azure.service_bus_topic@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `azure:storage_container` | `object_store` | `azure.storage_container@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `azure:subnet` | `subnet` | `azure.subnet@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
-| `azure:user_assigned_identity` | `identity` | `azure.user_assigned_identity@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `azure:virtual_network` | `network` | `azure.virtual_network@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
+| `azure:acr_task` | `build_pipeline` | `azure.acr_task@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `azure:application_gateway` | `load_balancer` | `azure.application_gateway@1` | yes | `contract` | `contract` | `contract` | `contract` | — | — |
+| `azure:container_app` | `container_service` | `azure.container_app@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `service.restart`: `contract`<br>`service.scale`: `contract` |
+| `azure:container_app_job` | `scheduled_job` | `azure.container_app_job@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `azure:container_registry` | `container_registry` | `azure.container_registry@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `azure:dns_record_set` | `dns_record` | `azure.dns_record_set@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `azure:dns_zone` | `dns_zone` | `azure.dns_zone@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `azure:key_vault_secret` | `secret` | `azure.key_vault_secret@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `azure:log_analytics_workspace` | `log_group` | `azure.log_analytics_workspace@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `azure:managed_certificate` | `tls_certificate` | `azure.managed_certificate@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `azure:network_security_rule` | `firewall` | `azure.network_security_rule@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `azure:postgresql_flexible_server` | `postgres` | `azure.postgresql_flexible_server@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `database.snapshot`: `contract` |
+| `azure:redis_cache` | `redis` | `azure.redis_cache@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `azure:service_bus_queue` | `queue` | `azure.service_bus_queue@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `azure:service_bus_topic` | `pubsub` | `azure.service_bus_topic@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `azure:storage_container` | `object_store` | `azure.storage_container@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `azure:subnet` | `subnet` | `azure.subnet@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `azure:user_assigned_identity` | `identity` | `azure.user_assigned_identity@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `azure:virtual_network` | `network` | `azure.virtual_network@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 
 ### oci
 
 | Native type | Kind | Driver | Registered | compile | observe | runtime | verify | discover | Day-two operations |
 |---|---|---|---|---|---|---|---|---|---|
-| `oci:block_volume` | `volume` | `oci.block_volume@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `oci:certificate` | `tls_certificate` | `oci.certificate@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `oci:compute_instance` | `compute_instance` | `oci.compute_instance@1` | registrable | — | — | — | — | — | — |
-| `oci:container_instance` | `container_service` | `oci.container_instance@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | `service.restart`: `contract` |
-| `oci:container_repository` | `container_registry` | `oci.container_repository@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `oci:dns_rrset` | `dns_record` | `oci.dns_rrset@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
-| `oci:dns_zone` | `dns_zone` | `oci.dns_zone@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `oci:dynamic_group` | `identity` | `oci.dynamic_group@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
-| `oci:load_balancer` | `load_balancer` | `oci.load_balancer@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `oci:log_group` | `log_group` | `oci.log_group@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `oci:mysql_db_system` | `mysql` | `oci.mysql_db_system@1` | registrable | — | — | — | — | — | — |
-| `oci:object_storage_bucket` | `object_store` | `oci.object_storage_bucket@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `oci:oke_cluster` | `kubernetes_cluster` | `oci.oke_cluster@1` | registrable | — | — | — | — | — | — |
-| `oci:postgresql_db_system` | `postgres` | `oci.postgresql_db_system@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | `database.snapshot`: `contract` |
-| `oci:queue` | `queue` | `oci.queue@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `oci:redis_cluster` | `redis` | `oci.redis_cluster@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `oci:security_list_rule` | `firewall` | `oci.security_list_rule@1` | registrable | `contract` | `contract` | — | `contract` | — | `firewall.inspect`: `contract` |
-| `oci:subnet` | `subnet` | `oci.subnet@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
-| `oci:vault_secret` | `secret` | `oci.vault_secret@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | `secret.write`: `contract` |
-| `oci:vcn` | `network` | `oci.vcn@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
+| `oci:block_volume` | `volume` | `oci.block_volume@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `oci:certificate` | `tls_certificate` | `oci.certificate@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `oci:compute_instance` | `compute_instance` | `oci.compute_instance@1` | yes | — | — | — | — | — | — |
+| `oci:container_instance` | `container_service` | `oci.container_instance@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `service.restart`: `contract` |
+| `oci:container_repository` | `container_registry` | `oci.container_repository@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `oci:dns_rrset` | `dns_record` | `oci.dns_rrset@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `oci:dns_zone` | `dns_zone` | `oci.dns_zone@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `oci:dynamic_group` | `identity` | `oci.dynamic_group@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `oci:load_balancer` | `load_balancer` | `oci.load_balancer@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `oci:log_group` | `log_group` | `oci.log_group@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `oci:mysql_db_system` | `mysql` | `oci.mysql_db_system@1` | yes | — | — | — | — | — | — |
+| `oci:object_storage_bucket` | `object_store` | `oci.object_storage_bucket@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `oci:oke_cluster` | `kubernetes_cluster` | `oci.oke_cluster@1` | yes | — | — | — | — | — | — |
+| `oci:postgresql_db_system` | `postgres` | `oci.postgresql_db_system@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `database.snapshot`: `contract` |
+| `oci:queue` | `queue` | `oci.queue@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `oci:redis_cluster` | `redis` | `oci.redis_cluster@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `oci:security_list_rule` | `firewall` | `oci.security_list_rule@1` | yes | `contract` | `contract` | — | `contract` | — | `firewall.inspect`: `contract` |
+| `oci:subnet` | `subnet` | `oci.subnet@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `oci:vault_secret` | `secret` | `oci.vault_secret@1` | yes | `contract` | `contract` | — | `contract` | `contract` | `secret.write`: `contract` |
+| `oci:vcn` | `network` | `oci.vcn@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 
 ### kubernetes
 
 | Native type | Kind | Driver | Registered | compile | observe | runtime | verify | discover | Day-two operations |
 |---|---|---|---|---|---|---|---|---|---|
-| `k8s:Certificate` | `tls_certificate` | `kubernetes.certificate@1` | registrable | — | `contract` | `contract` | `contract` | `contract` | — |
-| `k8s:CronJob` | `scheduled_job` | `kubernetes.cronjob@1` | registrable | — | `contract` | `contract` | `contract` | `contract` | `events.read`: `contract` |
-| `k8s:DNSEndpoint` | `dns_record` | `kubernetes.dnsendpoint@1` | registrable | — | `contract` | — | `contract` | `contract` | — |
-| `k8s:Deployment` | `container_service` | `kubernetes.deployment@1` | registrable | — | `contract` | `contract` | `contract` | `contract` | `container.logs`: `contract`<br>`deployment.rollback`: `contract`<br>`events.read`: `contract`<br>`service.restart`: `contract`<br>`service.scale`: `contract` |
-| `k8s:Ingress` | `load_balancer` | `kubernetes.ingress@1` | registrable | — | `contract` | `contract` | `contract` | `contract` | — |
-| `k8s:Namespace` | `network` | `kubernetes.namespace@1` | registrable | — | `contract` | `contract` | `contract` | `contract` | — |
-| `k8s:NetworkPolicy` | `firewall` | `kubernetes.networkpolicy@1` | registrable | — | `contract` | — | `contract` | `contract` | — |
-| `k8s:PersistentVolumeClaim` | `volume` | `kubernetes.persistentvolumeclaim@1` | registrable | — | `contract` | `contract` | `contract` | `contract` | — |
-| `k8s:Secret` | `secret` | `kubernetes.secret@1` | registrable | — | `contract` | — | `contract` | `contract` | — |
-| `k8s:ServiceAccount` | `identity` | `kubernetes.serviceaccount@1` | registrable | — | `contract` | — | `contract` | `contract` | — |
-| `k8s:StatefulSet` | `postgres` | `kubernetes.statefulset@1` | registrable | — | `contract` | `contract` | `contract` | `contract` | `container.logs`: `contract`<br>`events.read`: `contract`<br>`service.restart`: `contract` |
+| `k8s:Certificate` | `tls_certificate` | `kubernetes.certificate@1` | yes | — | `contract` | `contract` | `contract` | `contract` | — |
+| `k8s:CronJob` | `scheduled_job` | `kubernetes.cronjob@1` | yes | — | `contract` | `contract` | `contract` | `contract` | `events.read`: `contract` |
+| `k8s:DNSEndpoint` | `dns_record` | `kubernetes.dnsendpoint@1` | yes | — | `contract` | — | `contract` | `contract` | — |
+| `k8s:Deployment` | `container_service` | `kubernetes.deployment@1` | yes | — | `contract` | `contract` | `contract` | `contract` | `container.logs`: `contract`<br>`deployment.rollback`: `contract`<br>`events.read`: `contract`<br>`service.restart`: `contract`<br>`service.scale`: `contract` |
+| `k8s:Ingress` | `load_balancer` | `kubernetes.ingress@1` | yes | — | `contract` | `contract` | `contract` | `contract` | — |
+| `k8s:Namespace` | `network` | `kubernetes.namespace@1` | yes | — | `contract` | `contract` | `contract` | `contract` | — |
+| `k8s:NetworkPolicy` | `firewall` | `kubernetes.networkpolicy@1` | yes | — | `contract` | — | `contract` | `contract` | — |
+| `k8s:PersistentVolumeClaim` | `volume` | `kubernetes.persistentvolumeclaim@1` | yes | — | `contract` | `contract` | `contract` | `contract` | — |
+| `k8s:Secret` | `secret` | `kubernetes.secret@1` | yes | — | `contract` | — | `contract` | `contract` | — |
+| `k8s:ServiceAccount` | `identity` | `kubernetes.serviceaccount@1` | yes | — | `contract` | — | `contract` | `contract` | — |
+| `k8s:StatefulSet` | `postgres` | `kubernetes.statefulset@1` | yes | — | `contract` | `contract` | `contract` | `contract` | `container.logs`: `contract`<br>`events.read`: `contract`<br>`service.restart`: `contract` |
 
 ### zenith
 
 | Native type | Kind | Driver | Registered | compile | observe | runtime | verify | discover | Day-two operations |
 |---|---|---|---|---|---|---|---|---|---|
-| `k8s:Certificate` | `tls_certificate` | `zenith.platform_tls@1` | registrable | — | `contract` | — | `contract` | — | — |
-| `k8s:CronJob` | `scheduled_job` | `zenith.cronjob@1` | registrable | — | `contract` | `contract` | `contract` | — | `events.read`: `contract` |
-| `k8s:DNSEndpoint` | `dns_record` | `zenith.platform_dns@1` | registrable | — | `contract` | — | `contract` | — | — |
-| `k8s:Deployment` | `container_service` | `zenith.deployment@1` | registrable | — | `contract` | `contract` | `contract` | — | `container.logs`: `contract`<br>`deployment.rollback`: `contract`<br>`events.read`: `contract`<br>`service.restart`: `contract`<br>`service.scale`: `contract` |
-| `k8s:Ingress` | `load_balancer` | `zenith.http_route@1` | registrable | — | `contract` | `contract` | `contract` | — | — |
-| `k8s:Namespace` | `network` | `zenith.tenant_namespace@1` | registrable | — | `contract` | `contract` | `contract` | — | — |
-| `k8s:NetworkPolicy` | `firewall` | `zenith.network_policy@1` | registrable | — | `contract` | — | `contract` | — | — |
-| `k8s:PersistentVolumeClaim` | `volume` | `zenith.persistentvolumeclaim@1` | registrable | — | `contract` | `contract` | `contract` | — | — |
-| `k8s:Secret` | `secret` | `zenith.secret@1` | registrable | — | `contract` | — | `contract` | — | — |
-| `k8s:ServiceAccount` | `identity` | `zenith.serviceaccount@1` | registrable | — | `contract` | — | `contract` | — | — |
-| `zenith:managed_postgres` | `postgres` | `zenith.managed_postgres@1` | registrable | — | `contract` | `contract` | `contract` | — | — |
-| `zenith:object_store` | `object_store` | `zenith.object_store@1` | registrable | — | `contract` | — | `contract` | — | — |
+| `k8s:Certificate` | `tls_certificate` | `zenith.platform_tls@1` | yes | — | `contract` | — | `contract` | — | — |
+| `k8s:CronJob` | `scheduled_job` | `zenith.cronjob@1` | yes | — | `contract` | `contract` | `contract` | — | `events.read`: `contract` |
+| `k8s:DNSEndpoint` | `dns_record` | `zenith.platform_dns@1` | yes | — | `contract` | — | `contract` | — | — |
+| `k8s:Deployment` | `container_service` | `zenith.deployment@1` | yes | — | `contract` | `contract` | `contract` | — | `container.logs`: `contract`<br>`deployment.rollback`: `contract`<br>`events.read`: `contract`<br>`service.restart`: `contract`<br>`service.scale`: `contract` |
+| `k8s:Ingress` | `load_balancer` | `zenith.http_route@1` | yes | — | `contract` | `contract` | `contract` | — | — |
+| `k8s:Namespace` | `network` | `zenith.tenant_namespace@1` | yes | — | `contract` | `contract` | `contract` | — | — |
+| `k8s:NetworkPolicy` | `firewall` | `zenith.network_policy@1` | yes | — | `contract` | — | `contract` | — | — |
+| `k8s:PersistentVolumeClaim` | `volume` | `zenith.persistentvolumeclaim@1` | yes | — | `contract` | `contract` | `contract` | — | — |
+| `k8s:Secret` | `secret` | `zenith.secret@1` | yes | — | `contract` | — | `contract` | — | — |
+| `k8s:ServiceAccount` | `identity` | `zenith.serviceaccount@1` | yes | — | `contract` | — | `contract` | — | — |
+| `zenith:managed_postgres` | `postgres` | `zenith.managed_postgres@1` | yes | — | `contract` | `contract` | `contract` | — | — |
+| `zenith:object_store` | `object_store` | `zenith.object_store@1` | yes | — | `contract` | — | `contract` | — | — |
+
+## Refusal-only operations
+
+These handlers decline execution. Their evidence covers refusal paths; they are excluded from executable provider support above and below.
+
+| Driver | Refused operation | Refusal evidence |
+|---|---|---|
+| `aws.rds_instance@1` | `database.delete` | `contract` |
+| `aws.rds_instance@1` | `database.restore` | `contract` |
 
 ## Observability sources
 
@@ -263,14 +270,4 @@ Non-mutating capabilities are not gated by autonomy: the policy rule `autonomy_b
 
 ## Problems
 
-Each line is an inconsistency between a driver's declaration and its shape. Fix the driver (it is another workstream's file); do not edit this file.
-
-- `aws.ec2_instance@1` declares evidence for `experimental`, which is neither a core operation nor a declared operation.
-- `aws.lambda_function@1` declares evidence for `experimental`, which is neither a core operation nor a declared operation.
-- `aws.rds_instance@1` declares evidence for `database.delete`, which is neither a core operation nor a declared operation.
-- `aws.rds_instance@1` declares evidence for `database.restore`, which is neither a core operation nor a declared operation.
-- `aws.rds_instance@1` implements the operation `database.delete` but does not declare it in capabilities.operations.
-- `aws.rds_instance@1` implements the operation `database.restore` but does not declare it in capabilities.operations.
-- `oci.compute_instance@1` has a `compile` implementation but declares `compile: false`.
-- `oci.mysql_db_system@1` has a `compile` implementation but declares `compile: false`.
-- `oci.oke_cluster@1` has a `compile` implementation but declares `compile: false`.
+None: every merged driver's declaration is consistent with its shape.

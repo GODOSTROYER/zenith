@@ -5,7 +5,7 @@
  * table's exact strings.
  */
 import { describe, expect, it } from "vitest";
-import { findDriver, listDrivers } from "@/lib/drivers/types";
+import { findDriver, listDrivers, type ResourceDriver } from "@/lib/drivers/types";
 import { NATIVE_TYPE_TABLE } from "@/lib/resources";
 import { ociDrivers, registerOciDrivers } from "@/lib/providers/oci/drivers";
 import { OciCompileError } from "@/lib/providers/oci/errors";
@@ -113,8 +113,7 @@ describe("what the drivers claim", () => {
         expect(["compile", "observe", "runtime", "verify", "discover", ...c.operations]).toContain(k);
       }
       expect(Object.keys(c.evidence).sort(), d.id).toEqual([...["compile", "observe", "runtime", "verify", "discover"].filter((k) => c[k as "compile"]), ...c.operations].sort());
-      // an unsupported driver keeps a `compile` that throws the reason; it claims no compile capability
-      if (c.compile) expect(d.compile, `${d.id} compile`).toBeDefined();
+      expect(!!d.compile, `${d.id} compile`).toBe(c.compile);
       expect(!!d.observe, `${d.id} observe`).toBe(c.observe);
       expect(!!d.runtime, `${d.id} runtime`).toBe(c.runtime);
       expect(!!d.verify, `${d.id} verify`).toBe(c.verify || false);
@@ -139,5 +138,14 @@ describe("what the drivers claim", () => {
 
   it("ids follow <provider>.<suffix>@1", () => {
     for (const d of ociDrivers) expect(d.id).toMatch(/^oci\.[a-z_]+@1$/);
+  });
+
+  it("can register again after a registry rebuild", () => {
+    registerOciDrivers();
+    const global = globalThis as typeof globalThis & { __zenithDrivers?: Map<string, ResourceDriver> };
+    global.__zenithDrivers!.delete("oci|oci:compute_instance");
+    expect(findDriver("oci", "oci:compute_instance")).toBeUndefined();
+    registerOciDrivers();
+    expect(findDriver("oci", "oci:compute_instance")).toBe(ociDrivers.find((d) => d.nativeType === "oci:compute_instance"));
   });
 });

@@ -14,9 +14,6 @@ export const dataDrivers: ResourceDriver<OciSession>[] = [
   queueDriver,
   redisDriver,
   volumeDriver,
-  unsupportedDriver(
-    "oci:mysql_db_system",
-    "mysql",
-    "HeatWave MySQL is not compiled or observed; expansion never produces a mysql node today, and a half-built database driver would be worse than none."
-  ),
+  // HeatWave MySQL is not compiled or observed; expansion does not produce it.
+  unsupportedDriver("oci:mysql_db_system", "mysql"),
 ];

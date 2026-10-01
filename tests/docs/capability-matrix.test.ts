@@ -114,29 +114,21 @@ describe("the committed capability matrix", () => {
     // severe: these change what the matrix claims
     expect(data.problems.filter((p) => /invalid evidence level|not in the capability catalog|declares the operation .* but no evidence level|supports .* but declares no evidence/.test(p.message)).map(line)).toEqual([]);
     // everything else must already be known; fix the driver, then delete the line here
-    const KNOWN = [
-      "aws.ec2_instance@1 declares evidence for `experimental`, which is neither a core operation nor a declared operation",
-      "aws.lambda_function@1 declares evidence for `experimental`, which is neither a core operation nor a declared operation",
-      "aws.rds_instance@1 implements the operation `database.delete` but does not declare it in capabilities.operations",
-      "aws.rds_instance@1 implements the operation `database.restore` but does not declare it in capabilities.operations",
-      // RDS restore/delete are refusing stubs: deliberately undeclared (never advertised as executable),
-      // while the AWS contract test requires evidence for every key in `operations`, refusals included.
-      "aws.rds_instance@1 declares evidence for `database.delete`, which is neither a core operation nor a declared operation",
-      "aws.rds_instance@1 declares evidence for `database.restore`, which is neither a core operation nor a declared operation",
-      "oci.compute_instance@1 has a `compile` implementation but declares `compile: false`",
-      "oci.mysql_db_system@1 has a `compile` implementation but declares `compile: false`",
-      "oci.oke_cluster@1 has a `compile` implementation but declares `compile: false`",
-    ];
+    const KNOWN: string[] = [];
     expect(data.problems.map(line).filter((l) => !KNOWN.includes(l))).toEqual([]);
   });
 
-  it("no merged driver is registered by the application, and every one is `contract` evidence", async () => {
+  it("the platform registers all six cloud providers, and every driver has `contract` evidence", async () => {
     const data = await collectMatrix({ repoRoot: REPO_ROOT });
     expect(data.rows.length).toBeGreaterThan(90);
-    expect(data.rows.filter((r) => r.registration === "registered").map((r) => r.driverId)).toEqual([]);
+    for (const provider of ["aws", "gcp", "azure", "oci", "kubernetes", "zenith"]) {
+      const rows = data.rows.filter((r) => r.provider === provider);
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.every((r) => r.registration === "registered"), provider).toBe(true);
+    }
     for (const row of data.rows) {
       for (const cell of Object.values(row.core)) if (cell.supported) expect(cell.evidence, row.driverId).toBe("contract");
-      for (const op of row.operations) expect(op.evidence, `${row.driverId} ${op.capability}`).toBe("contract");
+      for (const op of [...row.operations, ...row.refuses]) expect(op.evidence, `${row.driverId} ${op.capability}`).toBe("contract");
     }
   });
 
@@ -270,6 +262,34 @@ describe("generator: output", () => {
 });
 
 describe("generator: negative controls (what it must catch)", () => {
+  it("renders experimental metadata and refusal evidence without advertising execution", () => {
+    const data = buildMatrix(input([driver({
+      capabilities: { experimental: true, refuses: ["database.delete"], evidence: { compile: "contract", observe: "contract", "database.delete": "contract" } },
+      operations: { "database.delete": async () => ({ ok: false, summary: "refused", simulated: false }) },
+    })]));
+    expect(data.problems).toEqual([]);
+    expect(data.rows[0].operations).toEqual([]);
+    expect(data.rows[0].refuses).toEqual([{ capability: "database.delete", known: true, evidence: "contract" }]);
+    expect(providerSupport(data.rows, "database.delete")).toEqual([]);
+    expect(renderMatrix(data)).toContain("`aws.ecs_service@1` (experimental)");
+    expect(renderMatrix(data)).toContain("| `aws.ecs_service@1` | `database.delete` | `contract` |");
+  });
+
+  it("validates refusal declarations: catalog, evidence, implementation and disjointness", () => {
+    const data = buildMatrix(input([driver({ capabilities: { refuses: ["service.teleport", "database.delete"] } })]));
+    expect(data.problems.map((p) => p.message)).toEqual(expect.arrayContaining([
+      "declares the operation `service.teleport`, which is not in the capability catalog",
+      "declares the operation `database.delete` but no evidence level for it",
+      "declares the operation `database.delete` but has no implementation for it",
+    ]));
+    const overlap = buildMatrix(input([driver({
+      capabilities: { operations: ["database.delete"], refuses: ["database.delete"], evidence: { compile: "contract", observe: "contract", "database.delete": "real" } },
+      operations: { "database.delete": async () => ({ ok: false, summary: "refused", simulated: false }) },
+    })]));
+    expect(overlap.problems.map((p) => p.message)).toContain("declares the operation `database.delete` as both executable and refusal-only");
+    expect(overlap.realClaims).toContain("aws.ecs_service@1 database.delete");
+  });
+
   it("records a `real` claim and prints the warning, so the gate above would fail", () => {
     const data = buildMatrix(input([driver({ capabilities: { evidence: { compile: "real", observe: "contract" } } })]));
     expect(data.realClaims).toEqual(["aws.ecs_service@1 compile"]);

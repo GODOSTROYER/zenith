@@ -4,7 +4,7 @@
  * Expansion does not produce `compute_instance` nodes yet, so this driver
  * reads the private `ComputeInstanceSpec` (types.ts) from hand-built graphs.
  * Evidence is `contract` for everything and the driver marks itself
- * experimental with the extra evidence key `experimental`.
+ * experimental with `capabilities.experimental`.
  *
  * The instance exists to be managed through the MACHINE PLANE (SSM), not SSH:
  *   - Amazon Linux 2023, resolved at PLAN time from the public SSM parameter
@@ -243,13 +243,14 @@ export const ec2InstanceDriver: ResourceDriver<AwsSession> = {
   kind: "compute_instance",
   nativeType: "aws:ec2_instance",
   capabilities: {
+    experimental: true,
     compile: true,
     observe: true,
     runtime: true,
     verify: true,
     discover: true,
     operations: [],
-    evidence: { compile: "contract", observe: "contract", runtime: "contract", verify: "contract", discover: "contract", experimental: "contract" },
+    evidence: { compile: "contract", observe: "contract", runtime: "contract", verify: "contract", discover: "contract" },
   },
   compile,
   observe,

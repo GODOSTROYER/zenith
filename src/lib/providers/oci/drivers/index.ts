@@ -26,11 +26,7 @@ import { platformDrivers } from "./platform";
 
 export const ociDrivers: ResourceDriver<OciSession>[] = [...networkDrivers, ...edgeDrivers, ...computeDrivers, ...dataDrivers, ...platformDrivers];
 
-let registered = false;
-
-/** Idempotent: registers every OCI driver once. */
+/** Idempotent registry writes, including after the registry is rebuilt or Next HMR. */
 export function registerOciDrivers(): void {
-  if (registered) return;
   for (const d of ociDrivers) registerDriver(d as ResourceDriver);
-  registered = true;
 }

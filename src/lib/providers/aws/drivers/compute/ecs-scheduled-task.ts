@@ -18,12 +18,12 @@
  * target retries a failed invocation twice within an hour (the EventBridge
  * default of 185 attempts over 24 hours would repeat a broken job all day).
  *
- * Observe / runtime / verify: the task definition is read through ECS and the
- * rule's existence through the Resource Groups Tagging API. HONEST LIMIT: the
- * rule's schedule expression, state and target cannot be read because
- * `@aws-sdk/client-eventbridge` is not an installed dependency (this worker
- * may not add one), so `verify` reports a `schedule_observable` check as
- * `unknown` rather than claiming the schedule matches.
+ * Observe / verify read the ECS task definition and the EventBridge rule and
+ * RunTask target. Tag lookup joins the job's cluster and newest task definition;
+ * targets are paginated with a three-page bound. Partial or denied reads stay
+ * unknown. Only target identifiers/configuration are retained, never Input or
+ * transformers. Evidence is mocked SDK contracts, not live AWS acceptance.
+ * Verification checks a same-account IAM role reference, not its policy/trust.
  *
  * A built job picks up a new image at the next `infrastructure.apply` (the
  * task definition reads the image pointer, see ecs-task.ts); there is no fast
@@ -31,11 +31,12 @@
  * writes.
  */
 import { DescribeTaskDefinitionCommand, ECSClient, ListTasksCommand, type TaskDefinition } from "@aws-sdk/client-ecs";
+import { DescribeRuleCommand, EventBridgeClient, ListTargetsByRuleCommand, type Target } from "@aws-sdk/client-eventbridge";
 import type { AwsSession } from "@/lib/credentials/types";
 import type { CompileContext, ResourceDriver, TofuFragment } from "@/lib/drivers/types";
 import type { HealthState, Observation, ResourceNode, RuntimeState } from "@/lib/resources/types";
 import type { ScheduledJobSpec } from "@/lib/resources/specs";
-import { attempt, attributesOf, boundNative, cloudName, failedObservation, nodeName, parseArn, runtimeState, standardVerification, tfLabel, unknownReasonOf, unknownValue } from "@/lib/providers/aws/drivers/shared";
+import { attempt, attributesOf, boundNative, cloudName, failedObservation, nodeName, paginate, parseArn, runtimeState, standardVerification, tfLabel, unknownReasonOf, unknownValue, type AwsFailure } from "@/lib/providers/aws/drivers/shared";
 import { toEventBridgeCron } from "./support/cron";
 import { compileNode, specOf } from "./support/driver-util";
 import { dependencies } from "./support/refs";
@@ -123,6 +124,16 @@ function expected(node: ResourceNode): Record<string, unknown> {
     cpu: size.cpu,
     memoryMb: size.memoryMb,
     ...(spec.artifact?.type === "image" ? { image: parseImageRef(spec.artifact.ref).ref } : {}),
+    ...(spec.schedule?.trim() ? {
+      scheduleExpression: toEventBridgeCron(spec.schedule).expression,
+      ruleState: "ENABLED",
+      targetPresent: true,
+      targetClusterMatches: true,
+      targetTaskDefinitionMatches: true,
+      targetRolePresent: true,
+      targetLaunchType: "FARGATE",
+      targetTaskCount: 1,
+    } : {}),
   };
 }
 
@@ -140,7 +151,7 @@ interface JobObjects {
 async function locate(ctx: AwsCtx, node: ResourceNode, externalId?: string): Promise<JobObjects> {
   const spec = specOf<ScheduledJobSpec>(node);
   const out: JobObjects = { tags: {} };
-  if (spec.schedule) {
+  if (spec.schedule?.trim()) {
     const arn = externalId && parseArn(externalId)?.service === "events" ? externalId : undefined;
     if (arn) out.ruleArn = arn;
     else {
@@ -156,9 +167,10 @@ async function locate(ctx: AwsCtx, node: ResourceNode, externalId?: string): Pro
   const latest = [...tds].sort((a, c) => revisionOf(c.arn) - revisionOf(a.arn))[0];
   if (latest) {
     out.taskDefinitionArn = latest.arn;
-    if (!spec.schedule) out.tags = latest.tags;
+    if (!spec.schedule?.trim()) out.tags = latest.tags;
   }
   const clusters = await findByTags(ctx, node, "ecs:cluster");
+  if (clusters.length > 1) throw Object.assign(new Error(`${clusters.length} ECS clusters carry the tags of ${node.address}.`), { name: "Ambiguous" });
   if (clusters[0]) out.clusterArn = clusters[0].arn;
   return out;
 }
@@ -173,20 +185,58 @@ const observe: NonNullable<ResourceDriver<AwsSession>["observe"]> = async (ctx, 
     const f = failureOf(ctx, e);
     return failedObservation(ctx, node, ID, names, f.code === "Ambiguous" ? { ...f, kind: "error" } : f, externalId);
   }
-  const primary = spec.schedule ? objects.ruleArn : objects.taskDefinitionArn;
+  const primary = spec.schedule?.trim() ? objects.ruleArn : objects.taskDefinitionArn;
   if (!primary || !objects.taskDefinitionArn) {
     return failedObservation(ctx, node, ID, names, { kind: "missing", code: "NotFoundByTags", summary: `${spec.schedule && !objects.ruleArn ? "The EventBridge rule" : "The task definition"} of ${node.address} was not found by its Zenith tags (the tag index is eventually consistent).` }, primary);
+  }
+  const values: Record<string, unknown> = {};
+  let target: Target | undefined;
+  let targetFailure: AwsFailure | undefined;
+  if (objects.ruleArn) {
+    const resource = parseArn(objects.ruleArn)?.resource;
+    const parts = resource?.startsWith("rule/") ? resource.slice(5).split("/") : [];
+    const name = parts.at(-1);
+    if (!name || parts.length > 2) return failedObservation(ctx, node, ID, names, { kind: "error", code: "InvalidRuleArn", summary: "The rule ARN has no valid rule name." }, primary);
+    const events = ctx.session.client(EventBridgeClient);
+    const bus = parts.length === 2 ? { EventBusName: parts[0] } : {};
+    const rule = await attempt(() => events.send(new DescribeRuleCommand({ Name: name, ...bus }), { abortSignal: ctx.signal }), ctx.signal);
+    if (!rule.ok) return failedObservation(ctx, node, ID, names, rule.failure, primary);
+    if (rule.value.ScheduleExpression !== undefined) values.scheduleExpression = rule.value.ScheduleExpression;
+    if (rule.value.State !== undefined) values.ruleState = rule.value.State;
+    const targets = await attempt(() => paginate<Target>(async (token) => {
+      const page = await events.send(new ListTargetsByRuleCommand({ Rule: name, ...bus, Limit: 100, ...(token ? { NextToken: token } : {}) }), { abortSignal: ctx.signal });
+      if (!page.Targets || page.Targets.some((t) => !t.Id)) throw new Error("The rule target response is incomplete.");
+      return { items: page.Targets, next: page.NextToken };
+    }, { maxPages: 3, signal: ctx.signal }), ctx.signal);
+    if (!targets.ok) targetFailure = targets.failure;
+    else if (!targets.value.truncated) {
+      const matches = targets.value.items.filter((t) => t.Id === "run-task");
+      if (matches.length <= 1) {
+        target = matches[0];
+        values.targetPresent = target !== undefined;
+        if (target?.Arn && objects.clusterArn) values.targetClusterMatches = target.Arn === objects.clusterArn;
+        if (target?.EcsParameters?.TaskDefinitionArn) values.targetTaskDefinitionMatches = target.EcsParameters.TaskDefinitionArn === objects.taskDefinitionArn;
+        if (target?.RoleArn !== undefined) {
+          const role = parseArn(target.RoleArn);
+          values.targetRolePresent = role?.service === "iam" && role.accountId === ctx.session.accountId && role.resource.startsWith("role/");
+        }
+        if (target?.EcsParameters?.LaunchType !== undefined) values.targetLaunchType = target.EcsParameters.LaunchType;
+        if (target?.EcsParameters?.TaskCount !== undefined) values.targetTaskCount = target.EcsParameters.TaskCount;
+      }
+    }
   }
   const ecs = ctx.session.client(ECSClient);
   const td = await attempt(async () => (await ecs.send(new DescribeTaskDefinitionCommand({ taskDefinition: objects.taskDefinitionArn }), { abortSignal: ctx.signal })).taskDefinition, ctx.signal);
   const def: TaskDefinition | undefined = td.ok ? td.value : undefined;
   const container = def?.containerDefinitions?.find((c) => c.name === nodeName(node.address)) ?? def?.containerDefinitions?.[0];
-  const values: Record<string, unknown> = {};
   if (def?.cpu !== undefined && Number.isFinite(Number(def.cpu))) values.cpu = Number(def.cpu);
   if (def?.memory !== undefined && Number.isFinite(Number(def.memory))) values.memoryMb = Number(def.memory);
   if (container?.image) values.image = container.image;
   const attributes = attributesOf(ctx, names, values);
-  if (!td.ok) for (const n of names) attributes[n] = unknownValue(unknownReasonOf(td.failure), td.failure.summary);
+  if (!td.ok) for (const n of ["cpu", "memoryMb", "image"]) {
+    if (n in attributes) attributes[n] = unknownValue(unknownReasonOf(td.failure), td.failure.summary);
+  }
+  if (targetFailure) for (const n of names.filter((n) => n.startsWith("target"))) attributes[n] = unknownValue(unknownReasonOf(targetFailure), targetFailure.summary);
   return {
     address: node.address,
     externalId: primary,
@@ -196,6 +246,11 @@ const observe: NonNullable<ResourceDriver<AwsSession>["observe"]> = async (ctx, 
       {
         ...(objects.ruleArn ? { ruleArn: objects.ruleArn } : {}),
         taskDefinitionArn: objects.taskDefinitionArn,
+        ...(objects.ruleArn ? {
+          scheduleExpression: values.scheduleExpression,
+          ruleState: values.ruleState,
+          target: target ? { id: target.Id, clusterArn: target.Arn, taskDefinitionArn: target.EcsParameters?.TaskDefinitionArn, roleArn: target.RoleArn, launchType: target.EcsParameters?.LaunchType, taskCount: target.EcsParameters?.TaskCount } : undefined,
+        } : {}),
         ...(objects.clusterArn ? { clusterArn: objects.clusterArn, clusterName: objects.clusterArn.slice(objects.clusterArn.lastIndexOf("/") + 1) } : {}),
         ...(container?.logConfiguration?.options?.["awslogs-group"] ? { logGroupName: container.logConfiguration.options["awslogs-group"] } : {}),
         tags: objects.tags,
@@ -263,18 +318,5 @@ export const ecsScheduledTaskDriver: ResourceDriver<AwsSession> = {
   observe,
   runtime,
   expectedAttributes: expected,
-  verify: async (ctx, node, observation) => {
-    const result = standardVerification(ctx, node, observation, expected(node), "The scheduled job");
-    if (observation.presence !== "present") return result;
-    const checks = [
-      ...result.checks,
-      {
-        id: "schedule_observable",
-        description: "The EventBridge rule's schedule and target match the desired configuration",
-        passed: "unknown" as const,
-        detail: "The rule's schedule, state and target cannot be read: @aws-sdk/client-eventbridge is not installed. Only its existence (by tags) and the task definition are verified.",
-      },
-    ];
-    return { ...result, checks, status: checks.some((c) => c.passed === false) ? "failed" : "unknown" };
-  },
+  verify: async (ctx, node, observation) => standardVerification(ctx, node, observation, expected(node), "The scheduled job"),
 };

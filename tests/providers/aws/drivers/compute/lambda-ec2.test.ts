@@ -82,7 +82,7 @@ describe("aws:lambda_function compile", () => {
 
   it("is deterministic, marks itself experimental, and declares contract evidence", () => {
     expect(JSON.stringify(lambda.compile!(fx.fn, ctx()))).toBe(JSON.stringify(f));
-    expect(lambda.capabilities.evidence.experimental).toBe("contract");
+    expect(lambda.capabilities.experimental).toBe(true);
     expect(Object.values(lambda.capabilities.evidence).every((v) => v === "contract")).toBe(true);
     expect(lambda.capabilities.operations).toEqual(["function.invoke"]);
   });
@@ -319,7 +319,7 @@ describe("aws:ec2_instance compile", () => {
 
   it("is deterministic, marks itself experimental and declares contract evidence", () => {
     expect(JSON.stringify(ec2.compile!(fx.box, ctx()))).toBe(JSON.stringify(f));
-    expect(ec2.capabilities.evidence.experimental).toBe("contract");
+    expect(ec2.capabilities.experimental).toBe(true);
     expect(Object.values(ec2.capabilities.evidence).every((v) => v === "contract")).toBe(true);
   });
 });

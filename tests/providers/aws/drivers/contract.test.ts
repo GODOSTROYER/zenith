@@ -39,11 +39,16 @@ describe("the consolidated AWS registry", () => {
       expect(driver.capabilities[capability]).toBe(typeof driver[capability] === "function");
       if (driver.capabilities[capability]) expect(driver.capabilities.evidence[capability]).toBe("contract");
     }
-    const refusalOperations = driver.nativeType === "aws:rds_instance" ? ["database.delete", "database.restore"] : [];
+    const refusalOperations = driver.capabilities.refuses ?? [];
+    expect(refusalOperations.filter((op) => driver.capabilities.operations.includes(op))).toEqual([]);
     expect(Object.keys(driver.operations ?? {}).sort()).toEqual([...driver.capabilities.operations, ...refusalOperations].sort());
     for (const operation of Object.keys(driver.operations ?? {})) expect(driver.capabilities.evidence[operation]).toBe("contract");
     for (const operation of driver.capabilities.operations) expect(driver.capabilities.evidence[operation]).toBe("contract");
     for (const evidence of Object.values(driver.capabilities.evidence)) expect(evidence).toBe("contract");
+    expect(Object.keys(driver.capabilities.evidence).sort()).toEqual([
+      ...capabilities.filter((capability) => driver.capabilities[capability]),
+      ...driver.capabilities.operations, ...refusalOperations,
+    ].sort());
     const node = graph.nodes.find((n) => n.nativeType === driver.nativeType) ?? nodes.find((n) => n.nativeType === driver.nativeType)!;
     expect(node, driver.id).toBeDefined();
     const before = JSON.stringify(nodes);

@@ -60,7 +60,7 @@ describe("COMPUTE_DRIVERS", () => {
   });
 
   it("marks the two experimental drivers and only those", () => {
-    expect(COMPUTE_DRIVERS.filter((d) => "experimental" in d.capabilities.evidence).map((d) => d.nativeType).sort()).toEqual(["aws:ec2_instance", "aws:lambda_function"]);
+    expect(COMPUTE_DRIVERS.filter((d) => d.capabilities.experimental).map((d) => d.nativeType).sort()).toEqual(["aws:ec2_instance", "aws:lambda_function"]);
   });
 });
 

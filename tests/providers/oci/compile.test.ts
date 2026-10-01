@@ -638,13 +638,11 @@ describe("identity, secrets, logs", () => {
 });
 
 describe("explicitly unsupported", () => {
-  it.each(["oci:oke_cluster", "oci:mysql_db_system", "oci:compute_instance"])("%s is registered, declares nothing, and compile throws OciUnsupportedError with a reason", (nativeType) => {
+  it.each(["oci:oke_cluster", "oci:mysql_db_system", "oci:compute_instance"])("%s is registered, declares nothing, and has no compile implementation", (nativeType) => {
     const d = ociDrivers.find((x) => x.nativeType === nativeType)!;
     expect(d.capabilities).toMatchObject({ compile: false, observe: false, runtime: false, verify: false, discover: false, operations: [], evidence: {} });
     expect(d.observe).toBeUndefined();
-    const node = { ...nodeOf(staging, "postgres/db"), nativeType } as ResourceNode;
-    expect(() => d.compile!(node, compileContext(staging))).toThrow(OciUnsupportedError);
-    expect(() => d.compile!(node, compileContext(staging))).toThrow(new RegExp(nativeType));
+    expect(d.compile).toBeUndefined();
   });
 
   it("expansion keeps unsupported kinds visible instead of dropping them", () => {

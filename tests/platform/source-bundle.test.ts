@@ -331,7 +331,7 @@ describe("customer source bucket uploads", () => {
     w.rows[1].externalId = w.pipeline.externalRef;
     s3.on(GetBucketTaggingCommand).resolves({ TagSet: Object.entries({ ...w.tags, "zenith:workspace": "foreign" }).map(([Key, Value]) => ({ Key, Value })) });
     await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("outside this workspace");
-    for (const ctx of [{ ...w.ctx, provider: "azure" as const }, { ...w.ctx, region: "other" }]) await expect(w.port.prepare(ctx, { service: w.service, source })).rejects.toThrow("matching AWS or GCP");
+    for (const ctx of [{ ...w.ctx, provider: "azure" as const }, { ...w.ctx, region: "other" }]) await expect(w.port.prepare(ctx, { service: w.service, source })).rejects.toThrow("matching AWS, GCP or Azure");
     expect(w.fetchImpl).not.toHaveBeenCalled(); expect(s3.commandCalls(PutObjectCommand)).toHaveLength(0);
   });
   it("does not leak SDK/connector errors or claim success after an uncertain upload", async () => {

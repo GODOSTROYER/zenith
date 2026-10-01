@@ -15,6 +15,8 @@ import { mintWorkloadToken, type WorkloadTokenDeps } from "@/lib/credentials/oid
 import { CredentialDeniedError, type CredentialBroker, type CredentialRequest, type DenialReason, type ProviderConnection, type ProviderSession } from "@/lib/credentials/types";
 import { createGcpSession } from "@/lib/providers/gcp";
 import { createAzureSession } from "@/lib/providers/azure";
+import { AzureSourceStorageRefusedError } from "@/lib/providers/azure/release/source-storage";
+import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
 import { createKubernetesSession } from "@/lib/providers/kubernetes";
 import { createK8sClient } from "@/lib/providers/kubernetes/client";
 import { isDnsLabel } from "@/lib/providers/kubernetes/naming";
@@ -162,7 +164,7 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
 
   // One private callback lifecycle for regular operations and onboarding.
   // The public broker still refuses pending connections for general use.
-  const withProviderSession = async <T>(connection: ProviderConnection, purpose: "observe" | "deploy", ttlSec: number, operationId: string, cap: string, assumed: () => void | Promise<void>, fn: (session: ProviderSession) => Promise<T>): Promise<T> => {
+  const withProviderSession = async <T>(connection: ProviderConnection, purpose: "observe" | "deploy", ttlSec: number, operationId: string, cap: string, assumed: () => void | Promise<void>, fn: (session: ProviderSession) => Promise<T>, sourceScope?: { environmentId: string; resourceId?: string }): Promise<T> => {
     const mint = (audience: string) => mintWorkloadToken({ workspaceId: connection.workspaceId, connectionId: connection.id, operationId, capability: cap, audience, ttlSec: Math.min(120, ttlSec) }, { ...options.oidc, now: now() });
     const c = connection.config;
     let session: ProviderSession;
@@ -173,7 +175,14 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
         session = handle; close = () => handle.close(); break;
       }
       case "azure": {
-        const handle = await createAzureSession({ connection: c, purpose, mintClientAssertion: mint, fetchImpl: options.fetchImpl, now, durationSec: ttlSec });
+        // Missing/unready source storage disables Blob access without blocking the
+        // infrastructure session needed to create that account in the first place.
+        const sourceStorage = sourceScope && purpose === "deploy" && c.sourceStorage && Object.hasOwn(c.sourceStorage, sourceScope.environmentId)
+          ? await createAzureSourceStorageResolver(db)({ workspaceId: connection.workspaceId, environmentId: sourceScope.environmentId, resourceId: sourceScope.resourceId, connectionId: connection.id, subscriptionId: c.subscriptionId, region: c.region }).catch((error: unknown) => {
+            if (error instanceof AzureSourceStorageRefusedError) return null;
+            throw error;
+          }) : null;
+        const handle = await createAzureSession({ connection: c, sourceStorage: sourceStorage ?? undefined, purpose, mintClientAssertion: mint, fetchImpl: options.fetchImpl, now, durationSec: ttlSec });
         session = handle; close = () => handle.revoke(); break;
       }
       case "kubernetes": {
@@ -235,7 +244,7 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
           created = true;
           try { await emit({ ...base, type: "credential.assumed", data: { connectionId: connection.id, provider: connection.config.provider, purpose: req.purpose } }); }
           catch { return deny("audit_failed", "Credential audit could not be recorded; session refused."); }
-        }, fn);
+        }, fn, grant.env ? { environmentId: grant.env, resourceId: grant.res } : undefined);
       } catch (error) {
         if (!created && connection.config.provider === "oci" && error instanceof CredentialDeniedError) return deny(error.reason ?? "runner_unavailable", error.message);
         if (!created) return deny("not_supported", "Provider session could not be created; check federation or vault configuration.");

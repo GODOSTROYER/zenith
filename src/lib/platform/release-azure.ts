@@ -5,3 +5,4 @@ export { createMigrationsPort as createAzureMigrationsPort } from "@/lib/provide
 export type { LaunchJournal as AzureReleaseLaunchJournal, LaunchScope as AzureReleaseLaunchScope } from "@/lib/providers/azure/release/support";
 export { createLaunchJournal as createAzureReleaseLaunchJournal } from "@/lib/providers/azure/release/journal";
 export { createSourceBundlePort as createAzureSourceBundlePort, type AzureSourceReader } from "@/lib/providers/azure/release/source";
+export { createAzureSourceStorage, type AzureSourceStorageBinding, type AzureSourceStorageResolver } from "@/lib/providers/azure/release/source-storage";

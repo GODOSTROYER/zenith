@@ -2,6 +2,7 @@
 
 Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01).
 Image pinning and its guard updated on `ws/image-pins` (2026-10-01).
+Azure source storage, broker audience and default composition updated by `WS-AZURE-SOURCE-WIRE` (2026-10-01).
 
 Customer repository code runs in the provider's build service, not in the
 control-plane or worker process. The worker downloads, validates and packages
@@ -121,7 +122,7 @@ Neither that lane nor the existing public network check was run in this sandbox.
 |---|---|---|
 | AWS | Deterministic **ZIP**, uploaded to the customer's tagged S3 source bucket. CodeBuild uses native `S3` source and the exact object key; image output goes to ECR. | Pipeline and bucket ownership/account/region are checked before upload. No live CodeBuild acceptance. |
 | GCP | Deterministic **tar.gz**, uploaded to the pipeline's GCS bucket, then Cloud Build uses `storageSource` and publishes to Artifact Registry. | Upload identity/size/integrity and scope are checked. No live Cloud Build acceptance. |
-| Azure | Deterministic **tar.gz** through the shared reader, uploaded to ACR's short-lived Blob SAS URL, then a `DockerBuildRequest` is scheduled in the customer registry. | The build adapter and durable tenant-scoped launch journal exist, but default worker composition supplies neither the Azure source reader nor a provider-dispatched source preparation port. It refuses; operators cannot enable this with an environment variable alone. |
+| Azure | Deterministic **tar.gz** uploaded by C3 to a bound customer Blob container. Build start rereads and hashes that object, uploads the verified bytes to ACR's short-lived Blob SAS URL, then schedules a `DockerBuildRequest` in the customer registry. | Default composition supplies preparation, stored-source reading and the durable launch journal. A trusted environment storage binding is required. The broker requests the Storage audience for exactly the trusted account host and refuses redirects. No live Azure build acceptance. |
 | Kubernetes | Pre-built image digests; owned Deployment/StatefulSet image rollout and migration Jobs are wired into release dispatch. | The default build port refuses source builds. Supply an image pinned by SHA-256, or explicitly inject external build and source ports. Contract evidence only. |
 | OCI | Build port explicitly refuses: bring a pre-built OCIR image pinned to a SHA-256 digest. | Runner-backed release ports verify the manifest image applied by OpenTofu and wait for ACTIVE replicas; one-off migrations require trusted runner-local resource bindings. No OCI DevOps build or live acceptance. |
 | Zenith-managed | No source-build release adapter in the default composed worker. | Supply an existing image supported by the relevant path; do not infer source-build readiness from driver registration or the separate hosted-apps builder. |
@@ -134,13 +135,68 @@ object is checked against the bundle. Both use scoped, digest-addressed keys
 `src/lib/providers/aws/drivers/compute/codebuild-project.ts`; Cloud Build's
 storage source is in `src/lib/providers/gcp/drivers/build/build-api.ts`.
 
-Azure integration must pass the shared reader to `createReleasePorts` as
-`azure.sourceBundles` and dispatch Azure preparation through
-`createAzureSourceBundlePort`, retaining the AWS/GCP C3 port for those providers.
-The reader runs again at build start and must match the recorded digest.
-`src/lib/providers/azure/release/source.ts`,
+Default Azure composition passes C3's `readAzureSource` to `createReleasePorts`
+as `azure.readSource`. The same C3 preparation call dispatches AWS ZIP and
+GCP/Azure tar.gz. Azure returns only the digest, scoped object key, account/container
+identifier and unsigned object URI. Build start reads the stored bytes, not the
+GitHub ref again, and must match the recorded SHA-256. This avoids changing build
+input when a branch moves between preparation and launch. Explicit legacy
+`azure.sourceBundles`/`createAzureSourceBundlePort` overrides remain available;
+those reread the repository and refuse a changed digest.
+
+The worker and app share `createAzureSourceStorageResolver`. Operators must add
+non-secret `AzureConnectionConfig.sourceStorage[environmentId]` metadata to the
+verified environment connection:
+
+```json
+{
+  "accountResourceId": "/subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.Storage/storageAccounts/<account>",
+  "container": "source-bundles",
+  "resourceAddress": "object_store/build-source",
+  "cloud": "public"
+}
+```
+
+The environment must be registered in `platform.reconcile_state` with that
+connection. The resolver checks the workspace, environment, verified Azure
+connection, subscription, region and current managed resource identity. A
+resource-scoped credential grant cannot borrow another resource's binding.
+Account/container metadata comes from this trusted connection configuration,
+never a manifest, model, state backend or another environment. Missing bindings
+refuse before GitHub acquisition or Blob writes. Creating infrastructure may
+proceed before the source account exists; Blob access remains disabled until the
+binding matches the owned account. The explicit
+`ComposeExecutionOptions.sourceBundles.azureStorage` override remains available
+for trusted composition and contract tests, with the same ARM checks.
+
+`src/lib/providers/azure/release/source-storage.ts` verifies the ARM account's
+workspace/environment/resource/managed tags, subscription, region, endpoint and
+Entra-only private posture, then the exact private container identity. Blob keys
+are `zenith/<environment>/<service>/<sha256>.tar.gz`. Uploads use `Put Blob`,
+create-only `If-None-Match: *` and transport MD5; both new and existing objects
+are reread and checked for SHA-256 and size. The reader caps streamed and declared
+lengths at C3's 32 MiB compressed ceiling (or a lower injected ceiling), checks
+empty/truncated responses, and bounds stalled requests and body reads.
+See Microsoft's [Put Blob contract](https://learn.microsoft.com/en-us/rest/api/storageservices/put-blob).
+
+All customer Blob calls use the current broker session's `authorizedFetch`, request
+`redirect: "error"`, reject redirected/foreign response URLs, and supply no bearer.
+`src/lib/providers/azure/credentials.ts` exchanges a token for the Storage audience
+`https://storage.azure.com/.default`; an ARM token is never sent to Blob Storage.
+Only the exact trusted `<account>.blob.core.windows.net` host is allowed, over
+HTTPS on its default port. `cloud: "usgov"` and `cloud: "china"` select exact
+`<account>.blob.core.usgovcloudapi.net` and
+`<account>.blob.core.chinacloudapi.cn` hosts respectively. Lookalikes, another
+account/cloud, extra labels, credentials in the URL and redirects are refused.
+Token exchange also refuses redirects. These host contracts do not add sovereign
+Entra authority/ARM support; the complete session remains public-cloud only.
+The worker identity needs container-scoped Blob data read/write permission and
+network reachability to the customer account. These are requirements, not
+verified permissions or live acceptance. The source transport never exchanges
+credentials itself.
+
 `src/lib/providers/azure/release/build.ts` and
-`src/lib/providers/azure/release/acr-task.ts` implement this contract. The SAS URL
+`src/lib/providers/azure/release/acr-task.ts` implement the ACR contract. The SAS URL
 stays inside the call, goes only to the validated plain upload transport and
 never receives the broker's ARM bearer. A consumed launch key without a receipt
 is unknown and is not launched again automatically; investigate the ACR run.

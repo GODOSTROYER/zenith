@@ -1,7 +1,7 @@
 /**
  * C3: bounded GitHub source archives and canonical customer-bucket uploads.
- * AWS uses deterministic ZIP for CodeBuild's native S3 source; GCP and standalone
- * reads keep tar.gz. Both preserve binary bytes, paths and executable intent.
+ * AWS uses deterministic ZIP for CodeBuild's native S3 source; GCP/Azure and
+ * standalone reads keep tar.gz. All preserve bytes, paths and executable intent.
  * Uses the product intake's codeload endpoint/header-only source access convention
  * (analysis/github.ts); its lossy analysis snapshot is deliberately not build input.
  * Files, binary assets and executable bits are preserved. Links/special entries and
@@ -11,11 +11,13 @@
  * bindings use the GitHub App connector. HTTP/SDK tests are not live evidence.
  * CodeBuild source consumption and bootstrap IAM are covered by contract tests;
  * no live customer build is claimed.
+ * Azure requires a trusted storage binding and a Blob-capable broker session;
+ * the default broker authorizes only the bound account with a Storage token.
  */
 import { createHash } from "node:crypto";
 import { crc32, deflateRawSync, gunzipSync, gzipSync } from "node:zlib";
 import { GetBucketTaggingCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import type { AwsSession, GcpSession } from "@/lib/credentials/types";
+import type { AwsSession, AzureSession, GcpSession } from "@/lib/credentials/types";
 import { canonical, sha256Hex } from "@/lib/controlplane/digest";
 import type { DriverContext } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
@@ -24,6 +26,7 @@ import { StepFailedError } from "@/lib/execution/errors";
 import { loadProject, sourceBucketOf } from "@/lib/providers/aws/drivers/compute/codebuild-project";
 import { assertLabels, context as gcpContext, get, pipelineNames } from "@/lib/providers/gcp/release/support";
 import { defaultGithubAccess } from "@/lib/sources/github/runtime";
+import { AzureSourceStorageRefusedError, createAzureSourceStorage, type AzureSourceStorageResolver } from "@/lib/providers/azure/release/source-storage";
 
 export interface BundleSource { repo: string; ref: string; dockerfile?: string }
 export interface SourceBundle { archive: Uint8Array; sha256: string; bytes: number }
@@ -39,6 +42,8 @@ export interface SourceBundleDeps {
   limits?: Partial<SourceBundleLimits>;
   /** Whole download/prepare deadline; defaults to 60 seconds, maximum 5 minutes. */
   timeoutMs?: number;
+  /** Trusted worker binding lookup; no credential or SAS URL may be returned. */
+  azureStorage?: AzureSourceStorageResolver;
   /** Standalone read requires a connector already bound to its workspace. */
   withGithubAccess?<T>(input: { owner: string; repo: string; workspaceId?: string; environmentId?: string }, fn: (token?: string) => Promise<T>): Promise<T>;
 }
@@ -348,11 +353,13 @@ async function uploadGcp(ctx: DriverContext<GcpSession>, bucket: string, key: st
 
 export function createSourceBundles(deps: SourceBundleDeps = {}): {
   read(source: BundleSource, signal?: AbortSignal): Promise<SourceBundle>;
+  readAzureSource(ctx: DriverContext<AzureSession>, source: { s3Key: string; digest: string; bucket?: string }): Promise<Uint8Array>;
   port: PreparedSourceBundlePort;
 } {
   const limits = { ...SOURCE_BUNDLE_LIMITS, ...deps.limits }; const timeoutMs = deps.timeoutMs ?? 60_000;
   for (const key of Object.keys(SOURCE_BUNDLE_LIMITS) as (keyof SourceBundleLimits)[]) if (!Number.isSafeInteger(limits[key]) || limits[key] <= 0 || limits[key] > SOURCE_BUNDLE_LIMITS[key]) refuse("Source limits must be positive integers within the hard ceilings.");
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 300_000) refuse("Source deadline must be 1–300000 milliseconds.");
+  const azureStorage = createAzureSourceStorage({ resolveStorage: deps.azureStorage, maxBytes: limits.maxArchiveBytes, timeoutMs });
   const boundedSignal = (signal?: AbortSignal) => AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(timeoutMs)]);
   const acquire = async (source: BundleSource, signal: AbortSignal, scope: { workspaceId?: string; environmentId?: string } = {}, format: "tar.gz" | "zip" = "tar.gz"): Promise<SourceBundle> => {
     checkSignal(signal); const location = coordinates(source);
@@ -367,38 +374,44 @@ export function createSourceBundles(deps: SourceBundleDeps = {}): {
   };
   return {
     read: (source, signal) => acquire(source, boundedSignal(signal)),
+    readAzureSource: azureStorage.readSource,
     port: {
       async prepare(raw, input): Promise<PreparedSourceBundle> {
         const ctx = { ...raw, signal: boundedSignal(raw.signal) };
         checkSignal(ctx.signal); coordinates(input.source);
         if (!/^[a-z0-9][a-z0-9-]{0,47}$/.test(ctx.environmentId) || !ctx.workspaceId || !/^[a-z_]+\/[A-Za-z0-9_.-]{1,128}$/.test(input.service.address) || [".", ".."].includes(input.service.address.split("/")[1])) refuse("Source scope or service identifier is invalid.");
         const provider = (ctx.session as { provider?: string } | undefined)?.provider;
-        if (!["aws", "gcp"].includes(ctx.provider) || provider !== ctx.provider || (ctx.session as { region?: string } | undefined)?.region !== ctx.region) refuse("Source preparation requires a matching AWS or GCP brokered session.");
+        if (!["aws", "gcp", "azure"].includes(ctx.provider) || provider !== ctx.provider || (ctx.session as { region?: string } | undefined)?.region !== ctx.region) refuse("Source preparation requires a matching AWS, GCP or Azure brokered session.");
         try {
           const pipeline = await abortable(pipelineFor(deps, ctx, input.service, input.source), ctx.signal);
           let bucket: string;
+          let azureLocation: Awaited<ReturnType<typeof azureStorage.resolve>> | undefined;
           if (ctx.provider === "aws") {
             const aws = ctx as DriverContext<AwsSession>;
             if (!/^\d{12}$/.test(aws.session.accountId)) refuse("Source AWS session account is invalid.");
             bucket = await abortable(awsBucket(aws, pipeline), ctx.signal);
-          } else {
+          } else if (ctx.provider === "gcp") {
             const gcp = gcpContext(ctx); bucket = pipelineNames(gcp, pipeline).bucket;
             if (pipeline.externalRef && ![bucket, `projects/_/buckets/${bucket}`].includes(pipeline.externalRef)) refuse("Source bucket is outside this build pipeline.");
             const metadata = await abortable(get(gcp, `https://storage.googleapis.com/storage/v1/b/${bucket}`), ctx.signal);
             if (metadata.name !== bucket) refuse("Source bucket identity does not match the pipeline.");
             assertLabels(gcp, pipeline, metadata);
+          } else {
+            azureLocation = await azureStorage.resolve(ctx); bucket = azureLocation.bucket;
           }
           const format = ctx.provider === "aws" ? "zip" : "tar.gz";
           const bundle = await acquire(input.source, ctx.signal, { workspaceId: ctx.workspaceId, environmentId: ctx.environmentId }, format);
           const key = `zenith/${ctx.environmentId}/${input.service.address.split("/")[1]}/${bundle.sha256}.${format}`;
           checkSignal(ctx.signal);
           if (ctx.provider === "aws") await abortable(uploadAws(ctx as DriverContext<AwsSession>, bucket, key, bundle), ctx.signal);
-          else await abortable(uploadGcp(ctx as DriverContext<GcpSession>, bucket, key, bundle, limits), ctx.signal);
+          else if (ctx.provider === "gcp") await abortable(uploadGcp(ctx as DriverContext<GcpSession>, bucket, key, bundle, limits), ctx.signal);
+          else await azureStorage.upload(ctx, azureLocation!, key, bundle);
           checkSignal(ctx.signal);
-          return { s3Key: key, digest: bundle.sha256, bucket, objectKey: key, uri: `${ctx.provider === "aws" ? "s3" : "gs"}://${bucket}/${key}` };
+          const uri = azureLocation ? `${azureLocation.origin}/${azureLocation.container}/${key}` : `${ctx.provider === "aws" ? "s3" : "gs"}://${bucket}/${key}`;
+          return { s3Key: key, digest: bundle.sha256, bucket, objectKey: key, uri };
         } catch (err) {
           if (ctx.signal.aborted) throw interrupted();
-          if (err instanceof Refused) throw err;
+          if (err instanceof Refused || err instanceof AzureSourceStorageRefusedError) throw err;
           throw new Error("Source bundle preparation could not be confirmed; outcome is unknown.");
         }
       },

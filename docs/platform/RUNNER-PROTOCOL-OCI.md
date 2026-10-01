@@ -1,6 +1,6 @@
 # Runner protocol extension — `oci.http` (OCI request-signing proxy)
 
-**Status: IMPLEMENTED MODULE; INTEGRATION PENDING.** This extends `zenith.runner/v1`
+**Status: IMPLEMENTED AND WIRED; NOT LIVE-VERIFIED.** This extends `zenith.runner/v1`
 ([RUNNER-PROTOCOL.md](RUNNER-PROTOCOL.md)) with one new job kind. Request validation,
 principal loading, RSA signing, HTTP execution, bounded results and local audit
 are implemented in `go/internal/oci/` and `go/internal/runner/kinds/ocihttp*.go`.

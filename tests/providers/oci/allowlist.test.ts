@@ -244,10 +244,11 @@ describe("the protocol document and the code agree", () => {
     }
   });
 
-  it("states the sensitive-payload requirement and that nothing here is implemented in go/", () => {
-    expect(doc).toMatch(/PROPOSAL/);
+  it("states the implemented scope, that nothing is live-verified, and the sensitive-payload requirement", () => {
+    expect(doc).toMatch(/IMPLEMENTED AND WIRED; NOT LIVE-VERIFIED/);
     expect(doc).toMatch(/sealedBodyB64/);
     expect(doc).toMatch(/oci\.secretWrite: false/);
-    expect(doc).toMatch(/Nothing here\s+is implemented in `go\/`/);
+    expect(doc).toContain("go/internal/oci/");
+    expect(doc).toContain("go/internal/runner/kinds/ocihttp");
   });
 });

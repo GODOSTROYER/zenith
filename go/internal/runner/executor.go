@@ -68,6 +68,16 @@ func NewExecutor(cfg *Config, id *agent.Identity, keys *protocol.KeySet, replay 
 		log.Info("aws.http enabled", "credentialSource", a.CredentialSource())
 		e.kinds[kinds.KindAWSHTTP] = a
 	}
+	// oci.http is opt-in (Enabled must be explicitly true); EnabledKinds advertises it
+	// only then, so a runner never advertises a kind it did not construct.
+	if k := cfg.Kinds.OCIHTTP; k != nil && k.Enabled {
+		o, err := kinds.NewOCI(*k, kinds.OCIDeps{Getenv: deps.Getenv, Now: deps.Now})
+		if err != nil {
+			return nil, err
+		}
+		log.Info("oci.http enabled", "auth", k.Auth)
+		e.kinds[kinds.KindOCIHTTP] = o
+	}
 	if k := cfg.Kinds.K8sHTTP; k != nil && k.IsOn() {
 		s, err := kinds.NewK8s(*k, deps.Getenv)
 		if err != nil {

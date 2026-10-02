@@ -19,6 +19,9 @@
  * match) is the precise boundary where the service supports it.
  */
 
+import { isBootstrapNameSuffix, isSupportedAwsConnectionRegion } from "../../aws-bootstrap-input";
+export { BOOTSTRAP_NAME_SUFFIX_PATTERN, AWS_CONNECTION_REGIONS, isBootstrapNameSuffix, isSupportedAwsConnectionRegion } from "../../aws-bootstrap-input";
+
 export const TAG_MANAGED = "zenith:managed";
 export const TAG_ENVIRONMENT = "zenith:environment";
 export const TAG_WORKSPACE = "zenith:workspace";
@@ -52,20 +55,12 @@ export const AWS_ROLE_BOUNDARIES = {
 } as const;
 export type AwsRoleFamily = keyof typeof AWS_ROLE_BOUNDARIES;
 export const roleFamilyPatterns = (family: AwsRoleFamily): string[] => AWS_ROLE_BOUNDARIES[family].suffixes.map((suffix) => `${NAME_PREFIX}*${suffix}`);
-export const BOOTSTRAP_NAME_SUFFIX_PATTERN = /^(-[a-z0-9-]{1,19})?$/;
-export const isBootstrapNameSuffix = (value: unknown): value is string =>
-  typeof value === "string" && value.length <= 20 && BOOTSTRAP_NAME_SUFFIX_PATTERN.exec(value)?.[0] === value;
 
 export interface AwsBootstrapContext {
   readonly accountId: string;
   readonly partition: "aws" | "aws-cn" | "aws-us-gov";
   readonly bootstrapNameSuffix: string;
 }
-
-/** Current connection registration regions; sovereign runtime remains unsupported. */
-export const AWS_CONNECTION_REGIONS = ["us-east-1", "us-west-2", "eu-west-1", "eu-central-1", "ap-south-1", "ap-southeast-2"] as const;
-export const isSupportedAwsConnectionRegion = (value: unknown): value is string =>
-  typeof value === "string" && (AWS_CONNECTION_REGIONS as readonly string[]).includes(value);
 
 /** State encryption belongs to the connection's backend region, not a workload region. */
 export function isAwsStateKmsArn(value: unknown, accountId: string, backendRegion: string): boolean {

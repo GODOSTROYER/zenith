@@ -10,7 +10,7 @@
  */
 
 /** Where the customer bootstrap template lives in the Zenith repository. */
-import { isBootstrapNameSuffix, isSupportedAwsConnectionRegion } from "@/lib/credentials/aws/naming";
+import { isBootstrapNameSuffix, isSupportedAwsConnectionRegion } from "@/lib/aws-bootstrap-input";
 
 export const CFN_TEMPLATE_PATH = "deploy/aws/zenith-connection.cfn.yaml";
 export const TOFU_MODULE_PATH = "deploy/aws/tofu-module";

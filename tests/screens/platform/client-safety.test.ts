@@ -39,6 +39,13 @@ const importsOf = (src: string): { line: string; spec: string; typeOnly: boolean
   }));
 
 describe("src/components/platform is client-safe", () => {
+  it("keeps the shared AWS bootstrap input module free of dependencies and environment APIs", () => {
+    const src = readFileSync(join(process.cwd(), "src/lib/aws-bootstrap-input.ts"), "utf8");
+    expect(importsOf(src)).toEqual([]);
+    expect(src).not.toMatch(/^\s*import\s*["']|\b(?:import|require)\s*\(/gm);
+    expect(src).not.toMatch(/\b(?:process|Buffer|globalThis|window|document|fetch|XMLHttpRequest|WebSocket|eval|Deno|Bun)\b|node:|child_process|server-only|@\/lib\/(?:credentials|execution)\//);
+  });
+
   it("looks at the files it claims to", () => {
     expect(files.length).toBeGreaterThan(25);
     expect(files).toContain("approval-eligibility.ts");
@@ -69,7 +76,7 @@ describe("src/components/platform is client-safe", () => {
   });
 
   it("imports only from the kit, screens badges, and its own folder among components", () => {
-    const allowed = /^(@\/components\/ui\/|@\/components\/screens\/badges$|\.\/|@\/lib\/(format|controlplane\/types|resources\/types|incidents\/types|placement\/types|policy\/types|credentials\/types|tofu\/types|tofu\/plan|capabilities\/catalog)$)/;
+    const allowed = /^(@\/components\/ui\/|@\/components\/screens\/badges$|\.\/|@\/lib\/(format|controlplane\/types|resources\/types|incidents\/types|placement\/types|policy\/types|credentials\/types|tofu\/types|tofu\/plan|capabilities\/catalog|aws-bootstrap-input)$)/;
     const offenders: string[] = [];
     for (const file of files) {
       for (const imp of importsOf(readFileSync(join(DIR, file), "utf8"))) {

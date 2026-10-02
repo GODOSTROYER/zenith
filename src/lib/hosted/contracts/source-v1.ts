@@ -10,6 +10,7 @@
  */
 import { z } from "zod";
 import type { RecipeSpec } from "./types";
+import { SUPPORTED_NODE_RANGE } from "../../node-runtime";
 
 export const SOURCE_CONTRACT_VERSION = 1 as const;
 
@@ -19,7 +20,7 @@ export const RECIPE_V1: RecipeSpec = {
   vite: "7.3.6",
   pluginReact: "5.1.4",
   react: "19.1.0",
-  node: ">=22.16",
+  node: SUPPORTED_NODE_RANGE,
 };
 
 /** `zenith.app.json` at the source root. Required. */
@@ -114,4 +115,3 @@ export interface ValidatedSource {
   digest: string;
   totalBytes: number;
 }
-

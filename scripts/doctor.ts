@@ -15,6 +15,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { decodeSecretKey, SECRET_KEY_FIX, SMTP_FIX } from "../src/lib/env";
 import { isSupabaseConfigured, SUPABASE_URL } from "../src/lib/supabase/env";
+import { nodeIsSupported, SUPPORTED_NODE_RANGE } from "../src/lib/node-runtime";
 
 type Status = "ok" | "warn" | "fail";
 
@@ -34,15 +35,14 @@ const val = (key: string): string => (process.env[key] ?? "").trim();
 /* --------------------------------- checks ---------------------------------- */
 
 function nodeAndNpm(): Check[] {
-  const major = Number(process.versions.node.split(".")[0]);
   const node: Check =
-    major >= 20
+    nodeIsSupported(process.versions.node)
       ? { label: "Node", status: "ok", detail: `v${process.versions.node}` }
       : {
           label: "Node",
           status: "fail",
-          detail: `v${process.versions.node} — Zenith needs 20 or newer (Next 15 and the --env-file flags this repo's scripts use).`,
-          fix: "Install Node 20+ from https://nodejs.org (or `nvm install 22`), then re-run.",
+          detail: `v${process.versions.node} — Zenith requires ${SUPPORTED_NODE_RANGE} for the locked toolchain.`,
+          fix: "Install supported Node 22 from https://nodejs.org (or `nvm install 22.23.3`), then re-run.",
         };
 
   // Already in the environment when launched as `npm run doctor`, which is the

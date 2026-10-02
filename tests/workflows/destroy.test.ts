@@ -1,8 +1,8 @@
 /** Deterministic workflow contracts with a mocked Temporal runtime, not a live worker. */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { ApplicationFailure } from "@temporalio/common";
 
-const state = vi.hoisted(() => ({ fns: {} as Record<string, ReturnType<typeof vi.fn>>, options: [] as unknown[] }));
+const state = vi.hoisted(() => ({ fns: {} as Record<string, Mock<(...args: unknown[]) => Promise<unknown>>>, options: [] as unknown[] }));
 vi.mock("@temporalio/workflow", async () => ({
   ...await import("@temporalio/common"),
   proxyActivities: (options: unknown) => { state.options.push(options); return new Proxy({}, { get: (_obj, name: string) => (...args: unknown[]) => state.fns[name](...args) }); },

@@ -1,11 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { AWS_CONNECTION_REGIONS, AWS_ROLE_BOUNDARIES, awsBootstrapContextForConnection, isBootstrapNameSuffix, resolveAwsRoleBoundaries, type AwsBootstrapContext } from "@/lib/credentials/aws/naming";
+import { AWS_CONNECTION_REGIONS, AWS_ROLE_BOUNDARIES, BOOTSTRAP_NAME_SUFFIX_PATTERN, awsBootstrapContextForConnection, isBootstrapNameSuffix, isSupportedAwsConnectionRegion, resolveAwsRoleBoundaries, type AwsBootstrapContext } from "@/lib/credentials/aws/naming";
+import * as sharedInput from "@/lib/aws-bootstrap-input";
+import { validateAwsForm } from "@/components/platform/aws-connection-validation";
 import type { AwsConnectionConfig } from "@/lib/credentials/types";
 import { awsProvider } from "@/lib/providers/aws/provider";
 
 const config: AwsConnectionConfig = { provider: "aws", mode: "oidc_web_identity", accountId: "123456789012", region: "us-east-1", observeRoleArn: "arn:aws:iam::123456789012:role/ZenithObserve-team-a", deployRoleArn: "arn:aws:iam::123456789012:role/ZenithDeploy-team-a" };
 
 it("keeps connection region validation aligned with the existing commercial provider registration", () => expect([...AWS_CONNECTION_REGIONS]).toEqual(awsProvider.regions.map((region) => region.id)));
+
+it("reexports the identical browser-safe constraints instead of duplicating AWS validation policy", () => {
+  expect(isBootstrapNameSuffix).toBe(sharedInput.isBootstrapNameSuffix);
+  expect(isSupportedAwsConnectionRegion).toBe(sharedInput.isSupportedAwsConnectionRegion);
+  expect(BOOTSTRAP_NAME_SUFFIX_PATTERN).toBe(sharedInput.BOOTSTRAP_NAME_SUFFIX_PATTERN);
+  expect(AWS_CONNECTION_REGIONS).toBe(sharedInput.AWS_CONNECTION_REGIONS);
+});
+
+it.each(["", "-team-a", `-${"a".repeat(19)}`, "-", "-TEAM", "-a/b", "-a\n", `-${"a".repeat(20)}`])("keeps browser and saved-runtime suffix acceptance aligned for %j", (bootstrapNameSuffix) => {
+  const accepted = sharedInput.isBootstrapNameSuffix(bootstrapNameSuffix);
+  expect(validateAwsForm({ ...config, bootstrapNameSuffix }).errors.bootstrapNameSuffix === undefined).toBe(accepted);
+  if (accepted) expect(awsBootstrapContextForConnection({ ...config, bootstrapNameSuffix }).bootstrapNameSuffix).toBe(bootstrapNameSuffix);
+  else expect(() => awsBootstrapContextForConnection({ ...config, bootstrapNameSuffix })).toThrow();
+});
+
+it.each([...sharedInput.AWS_CONNECTION_REGIONS, "eu-central-2", "cn-north-1", "us-gov-west-1", "US-EAST-1"])("keeps browser and saved-runtime region acceptance aligned for %s", (region) => {
+  const accepted = sharedInput.isSupportedAwsConnectionRegion(region);
+  expect(validateAwsForm({ ...config, region }).errors.region === undefined).toBe(accepted);
+  if (accepted) expect(awsBootstrapContextForConnection({ ...config, region }).partition).toBe("aws");
+  else expect(() => awsBootstrapContextForConnection({ ...config, region })).toThrow();
+});
 
 it.each(["", "-a", "-team-a", `-${"a".repeat(19)}`])("accepts exact bootstrap suffix %j", (suffix) => expect(isBootstrapNameSuffix(suffix)).toBe(true));
 it.each([undefined, null, 1, "a", "-", "-A", "-a_b", "-a/b", " -a", "-a ", "-a\n", `-${"a".repeat(20)}`, "${file(\"x\")}"])("rejects malformed suffix without echo %j", (suffix) => {

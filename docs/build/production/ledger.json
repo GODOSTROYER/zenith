@@ -96,6 +96,14 @@
           "level": "local_engine",
           "commit": "018c7446bcdf609ff267bbffe9ce539243a8991d",
           "result": "Disposable PostgreSQL16.15: all14Supabase files apply/reapply;264 passed,0 failed,3 unrelated platform concurrency skips. Known-name and checksum corruption refused. Dedicated container deleted. BarePostgreSQL only; noPostgREST/TLS/pooler proof."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "f36a98482d1379ae42b723d8fb6ebbc83deafa32",
+          "runId": 36956453026,
+          "result": "Remote postgres job110680349229 passed:251 tests,0 failures,0 skips,9 required groups; full Supabase SQL applied. Bare PostgreSQL does not prove hosted PostgREST/TLS/pooler.",
+          "artifact": "docs/build/production/ci-36956453026.md",
+          "executionReceiptComplete": false
         }
       ],
       "requiredEvidence": [
@@ -127,6 +135,14 @@
           "level": "local_engine",
           "commit": "e9ee01f4dd87f6dda2ad7c734e079fc444d09aed",
           "result": "Fresh disposablePG16.15 canonical lane:1324 passed,0 failed,0 skipped,39 requiredbackend/scenario groups, strictrevalidationpassed. Root firstcaught1323P/1F wallclockexpiryassertion; captureddeadlinefixforces1.1sboundary. Bothownedcontainersdeleted."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "f36a98482d1379ae42b723d8fb6ebbc83deafa32",
+          "runId": 36956453026,
+          "result": "Remote platform-postgres job110680349507 passed:1324 tests,0 failures,0 skips,39 required groups on real PostgreSQL16.15.",
+          "artifact": "docs/build/production/ci-36956453026.md",
+          "executionReceiptComplete": false
         }
       ],
       "requiredEvidence": [
@@ -166,6 +182,14 @@
           "commit": "4a6bab7597ea3710875e19383d3a224409e902e4",
           "result": "Clean canonical Temporal/platform/public GitHub immutable-source lane:861 passed,0 failed,0 skipped in40files;37 requiredgroups strictpass, observed commandexit0. Sanitized commit/environment/lock/source-bound artifact committed. ExternalmTLS/private source and liveproviderwrites remain unverified.",
           "artifact": "docs/build/production/evidence/fresh-workflows-4a6bab7.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "f36a98482d1379ae42b723d8fb6ebbc83deafa32",
+          "runId": 36956453026,
+          "result": "Remote workflows job110680349401 passed:861 tests,0 failures,0 skips,37 required groups, real local Temporal and pinned public source. External mTLS/private source remain blocked.",
+          "artifact": "docs/build/production/ci-36956453026.md",
+          "executionReceiptComplete": false
         }
       ],
       "requiredEvidence": [
@@ -198,6 +222,24 @@
           "level": "contract",
           "commit": "c6f3631c2c4ca9592640d3a792a9429eba24a273",
           "result": "315CItests+5realTOFU=320P0F0S; fulltypecheck/lint/Go and independentreviewpassed. StandardVitestJSON lacksindividualcaseIDs; canonicalgroups use trustedsource/backend/ancestry. Duplicatefiles/missinggroups/allfailedorskippedsiblings/zerotests/counterrorsstillrejected."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "f36a98482d1379ae42b723d8fb6ebbc83deafa32",
+          "runId": 36956453026,
+          "result": "Five final sanitized remote lane artifacts retain source/counts but lost observed command exits during revalidation. Immutable receipts and mandatory receipt binding are required; common mismatch cause not yet proved.",
+          "artifact": "docs/build/production/ci-36956453026.md",
+          "executionReceiptComplete": false
+        },
+        {
+          "level": "contract",
+          "commit": "6eb9a1c4a64cd610dd05e5e29b75043c92870dfb",
+          "result": "Root independently verified336 affectedCI/report tests including5realTOFU,0failed,0skipped;fulltypecheck/lint/Go pass. Immutable fixed-scalar origin receipts preserve real exit/signal/launchfailure. Changedbindings,missing/malformed receipts and hiddenGitindexflags fail; only sanitized validated receipt fields export. Synthetic negative fixtures are contract proof, notrealengineacceptance. Actualremoteenvironmentmismatch stillunproved."
+        },
+        {
+          "level": "contract",
+          "commit": "2b2b056c9070cec3e31e87deed2e491c6cda06cd",
+          "result": "Root493affectedCI/configurationtests passed,0failures,0skips,including5realTOFU;fulltypecheck,lints,Go,mandatorylockedallcategoryaudit0,andbothledgerchecks passed. CI nowrequiresactualexecutionreceipts,no continue-on-error,onlysanitizedartifactuploads,30mouterverifybudgetwithunchangedtestdeadlines. Entirepushedrun and Linuxproof pending."
         }
       ],
       "requiredEvidence": [
@@ -247,6 +289,17 @@
           "level": "contract",
           "commit": "5a82f26a95dba6fe448b8e48f57c1f0f4114f12a",
           "result": "Root fresh mandatory audit correctly exits1 for8 unresolved entries/24GHSA IDs. No exceptions granted. Legacy rootlock remains vulnerable. Updated lock candidate independently installed/audited0 by worker, compatibility/fullsuite/build/Linux integration pending."
+        },
+        {
+          "level": "contract",
+          "commit": "d8e457fd5add185cc9df13f8bee38076e1c1d53f",
+          "result": "Root independently verified exact frozen dependency patch:502 representative tests and5realTOFU checks included,fulltypecheck/lint/Go;fullNode/DOM16062P0F194S;realTemporal861P0F0S37groups;Nextproductionbuild;freshinstallandcomplete mandatory locked audit0knownfindings. Safe scoped overrides and two typedmock annotations, no assertion/deadline weakening. Linux installation and realSMTP/TLS are not proved.",
+          "artifact": "docs/build/production/dependency-remediation-2026-10-02.json"
+        },
+        {
+          "level": "contract",
+          "commit": "2b2b056c9070cec3e31e87deed2e491c6cda06cd",
+          "result": "Root493affectedCI/configurationtests passed,0failures,0skips,including5realTOFU;fulltypecheck,lints,Go,mandatorylockedallcategoryaudit0,andbothledgerchecks passed. CI nowrequiresactualexecutionreceipts,no continue-on-error,onlysanitizedartifactuploads,30mouterverifybudgetwithunchangedtestdeadlines. Entirepushedrun and Linuxproof pending."
         }
       ],
       "requiredEvidence": [
@@ -305,7 +358,16 @@
         "PROD-CI-05"
       ],
       "implementationStatus": "in_progress",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "remote_ci",
+          "commit": "f36a98482d1379ae42b723d8fb6ebbc83deafa32",
+          "runId": 36956453026,
+          "result": "Run36956453026 completed cancelled:13 successful jobs,verify cancelled by confirmed15m job timeout. Allthreeoriginaljobs passed. Smoke/Gimbal skipped in verify; whole pushedCI notgreen. Next job budget30m leaves test deadlines unchanged.",
+          "artifact": "docs/build/production/ci-36956453026.md",
+          "executionReceiptComplete": false
+        }
+      ],
       "requiredEvidence": [
         "remote_ci"
       ],
@@ -326,7 +388,8 @@
       "evidence": [],
       "requiredEvidence": [
         "contract",
-        "local_engine"
+        "local_linux_arm64",
+        "local_linux_amd64"
       ],
       "owner": "PROD-WS-WORKER-STARTUP",
       "testPaths": []
@@ -345,7 +408,8 @@
       "evidence": [],
       "requiredEvidence": [
         "contract",
-        "local_engine"
+        "local_linux_arm64",
+        "local_linux_amd64"
       ],
       "owner": "PROD-WS-WORKER-STARTUP",
       "testPaths": []
@@ -380,7 +444,14 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "in_progress",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "a9fea8968d41e4639d4c2566eb238cec74ef957a",
+          "result": "Root62installationcontracttests+5realTOFU checks passed,0failed,0skipped;fulltypecheck/lint/Go passed. ActualComposeconfig--quiet acceptsproduction/disposable variants withfixture-onlyinputs;servicesStartedfalse. DedicatedplatformPostgres/Temporaloverlay, explicitmigrator, separateprivatevolumes, immutableimages, strictTLS/keys/symlink/cacheguards. NoAPI/serverstarted; authenticatedjourney/TLS/pooler/recovery andadditionalworkerkeysharing remainunproved.",
+          "artifact": "docs/platform/INSTALLATION.md"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -1817,7 +1888,9 @@
       "state": "not_requested",
       "blocks": [
         "PROD-PKG-05"
-      ]
+      ],
+      "requested": "2026-10-02",
+      "status": "pending"
     },
     {
       "id": "DEC-CLOUD",
@@ -1829,7 +1902,9 @@
         "PROD-LIFE-04",
         "PROD-LIFE-05",
         "PROD-REL-03"
-      ]
+      ],
+      "requested": "2026-10-02",
+      "status": "pending"
     },
     {
       "id": "DEC-RETENTION",

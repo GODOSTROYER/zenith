@@ -1,4 +1,4 @@
-**Dependency remediation — 2026-10-02, PROD-CI-07, baseline `99c64ca`**
+**Dependency remediation, 2026-10-02, PROD-CI-07, baseline `99c64ca`**
 
 The updated locked audit now reports **zero known findings**, and the frozen
 mandatory audit checker exits 0 against this checkout. An isolated fresh

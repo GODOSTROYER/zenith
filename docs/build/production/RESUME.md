@@ -32,14 +32,31 @@ zero skips; all 37 required groups and the checker pass. OPA213 and Go race
 226 top-level + 539 subtests pass, with three Linux-only skips on this Mac.
 See `fresh-baseline-2026-10-02.md` for the exact reference and evidence limits.
 
-Immediate next steps: push staging normally and observe every CI job. Then
+Pushed run `36956453026` at `f36a98482d1379ae42b723d8fb6ebbc83deafa32`
+finished with 13 successful jobs and one cancelled verification job. GitHub
+confirmed the 15-minute job timeout; all three original failures now pass.
+Five sanitized artifacts lost their command observations during later
+validation. See `ci-36956453026.md`; remote CI is not green.
+
+Execution receipts `6eb9a1c` are integrated by `63dcf0d`; root336affected
+checks, fulltypecheck/lint/Go pass. CI wiring `2b2b056` is independently
+verified by493CI/configurationchecks plusmandatoryaudit0 andledgerchecks.
+Actualcommandorigins are immutable; CI uploads only validated scalar receipt
+fields inside sanitized JSON. No raw receipt sidecars are uploaded. Remote
+environment-binding compatibility remains unproved.
+
+Immediate next steps: push normally and observe every CI job. Then
 verify/start the actual packaged worker harness on ARM64 and AMD64 serially.
-The dependency candidate has a fresh zero-finding audit and eight real-package
-checks; root full typecheck exposed two broad mock-type declarations incompatible
-with Vitest4, now assigned for bounded fixes. Full-suite/build/Linux proof is
-still pending; current root lock remains blocked by eight findings, no exceptions.
-Installation configuration is staged separately; API startup requires the
-existing narrow permission. AWS suffix propagation is being implemented in
+Dependency remediation `d8e457fd5add185cc9df13f8bee38076e1c1d53f` is
+integrated by `0f8cabb1c3abf061708f9c1a32b713d96329bf07`. Root verified
+502 focused checks, full typecheck/lint/Go, 16,062 full-suite passes with 194
+explicit skips, real Temporal861/861, production build and a zero-finding
+complete locked audit. Linux installation and SMTP/TLS acceptance remain
+unproved. Mandatory audit wiring is integrated; no exceptions are granted.
+Installation configuration `a9fea8968d41e4639d4c2566eb238cec74ef957a` is
+integrated by `d697c4ef63b2ed64bd02e129315c2a35ae6a2829`. Root62contract
+tests and both real Compose config parses pass; no services started. API
+startup and dedicated AWS sandbox details were requested; both remain pending. AWS suffix propagation is source-complete, awaiting root checks in
 `ws/prod-aws-suffix`; retain stack-first/live IAM permission blockers.
 
 All new commits use Saivedant Hava `<saivedant169@gmail.com>` as author and

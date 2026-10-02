@@ -34,7 +34,10 @@ src/lib/controlplane/db/repos/plan-artifacts.ts
 src/lib/controlplane/db/repos/operations.ts (fence-before-operation claim ordering only)
 src/lib/controlplane/db/repos/index.ts
 src/lib/controlplane/types.ts
+src/lib/controlplane/operations/index.ts (atomic undecided-round supersession guard only)
 src/lib/capabilities/destroy-review.ts (immutable source-original association only)
+src/lib/capabilities/ports.ts (BrokerStore undecided-round cancellation flag only)
+src/lib/capabilities/memory-store.ts (matching isolated cancellation guard only)
 supabase/migrations/0014_platform_core.sql (generated only)
 src/lib/platform/plan-artifacts.ts
 src/lib/platform/execution.ts
@@ -50,6 +53,7 @@ src/lib/tofu/types.ts
 src/lib/tofu/binary.ts
 workers/execution/startup.ts
 workers/execution/worker.ts
+workers/execution/packaged-client.ts (real PostgreSQL logical-expiry and retained-ciphertext acceptance only)
 scripts/ci/gate-manifest.mjs
 .github/workflows/ci.yml (platform-postgres pinned OpenTofu and mandatory combined handoff lane only)
 scripts/acceptance/packaged-worker.mjs
@@ -64,6 +68,8 @@ tests/execution/plan.test.ts
 tests/execution/apply.test.ts
 tests/execution/destroy.test.ts
 tests/execution/destroy-review.test.ts (original association and approval race regressions)
+tests/execution/deletion-guards-real.test.ts (explicit isolated real-engine custody fixture only)
+tests/execution/journey.test.ts (explicit isolated paired custody fixture only)
 tests/execution/fakes/tofu.ts
 tests/execution/fakes/world.ts
 tests/workers/plan-janitor.test.ts

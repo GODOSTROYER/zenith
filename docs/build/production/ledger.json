@@ -215,7 +215,7 @@
       "acceptance": [
         "One manifest drives local/CI commands, strict requirements and explicit external gates; commit/environment/dependency-bound artifacts omit secrets and untrusted diagnostic payloads."
       ],
-      "state": "paused",
+      "state": "in_progress",
       "dependencies": [],
       "implementationStatus": "in_progress",
       "evidence": [
@@ -281,6 +281,14 @@
           "runId": 36968422504,
           "result": "All five canonical engine artifacts preserve observed schema2 origins and match all12bindings across GitHub steps. Four exit0/passed; platformPG actual exit1/failed cannot be hidden. Missing/failed/skipped/zero/malformed report gates remain. Wider production gate manifests and stable case-ID coverage remain outstanding.",
           "artifact": "docs/build/production/evidence/ci-36968422504/terminal-summary.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "fbfa456e0111b106f039e2800b2c276b63d01b86",
+          "runId": 36990123532,
+          "result": "Terminal failure:12 successful jobs/2failed. Unit16254P4F388S;generated106P3F0S;Smoke/Gimbal skipped. Five mandatory engine artifacts passed without failures/skips:Postgres251,platformPG1331,policy238,OpenTofu3874,workflows870;all12schema2bindings match. Canonical AWS context regression and documentation defects require corrections and fresh complete pushed run.",
+          "artifact": "docs/build/production/evidence/ci-36990123532/terminal-summary.json",
+          "executionReceiptComplete": true
         }
       ],
       "requiredEvidence": [
@@ -290,7 +298,8 @@
       "owner": "PROD-WS-GATE-REPORT",
       "testPaths": [],
       "pausedFrom": "in_progress",
-      "pausedAt": "2026-10-02T07:32:03.553814+00:00"
+      "pausedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-CI-06",
@@ -324,7 +333,7 @@
       "acceptance": [
         "Reconcile advisories by ID/version/platform and production/build/dev reachability; safe patches, mandatory gates, reviewed expiring exceptions, no force upgrades."
       ],
-      "state": "paused",
+      "state": "in_progress",
       "dependencies": [],
       "implementationStatus": "in_progress",
       "evidence": [
@@ -362,7 +371,8 @@
         "Historical eight-versus-seven audit reconciliation needs original advisory reports; currently locked dependencies report zero known findings and mandatory audit passes. No vulnerability exceptions are granted."
       ],
       "pausedFrom": "in_progress",
-      "pausedAt": "2026-10-02T07:32:03.553814+00:00"
+      "pausedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-CI-08",
@@ -370,7 +380,7 @@
       "acceptance": [
         "Clean installation, migrations, typecheck/lint/generated artifacts, real OpenTofu, OPA, Go race/interoperability, PostgreSQL, Temporal and real browser gates run with exact counts."
       ],
-      "state": "paused",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
@@ -404,7 +414,8 @@
       "owner": null,
       "testPaths": [],
       "pausedFrom": "in_progress",
-      "pausedAt": "2026-10-02T07:32:03.553814+00:00"
+      "pausedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-CI-09",
@@ -499,7 +510,7 @@
       "acceptance": [
         "Build AMD64 and ARM64 execution-worker images and exercise actual entrypoint; distinguish native/emulated architecture evidence."
       ],
-      "state": "paused",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
@@ -554,7 +565,8 @@
       "owner": "PROD-WS-WORKER-STARTUP",
       "testPaths": [],
       "pausedFrom": "in_progress",
-      "pausedAt": "2026-10-02T07:32:03.553814+00:00"
+      "pausedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-PKG-02",
@@ -562,7 +574,7 @@
       "acceptance": [
         "Actual schema, signer, policy loading, Temporal polling, authorized operation, readiness/liveness and graceful shutdown pass with real disposable stores."
       ],
-      "state": "paused",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
@@ -611,7 +623,8 @@
       "owner": "PROD-WS-WORKER-STARTUP",
       "testPaths": [],
       "pausedFrom": "in_progress",
-      "pausedAt": "2026-10-02T07:32:03.553814+00:00"
+      "pausedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-PKG-03",
@@ -619,7 +632,7 @@
       "acceptance": [
         "Nonroot permissions, SSM assets, private plan storage, cleanup and runtime filesystem constraints pass under actual image execution."
       ],
-      "state": "paused",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
@@ -632,7 +645,8 @@
       "owner": "PROD-WS-WORKER-STARTUP",
       "testPaths": [],
       "pausedFrom": "in_progress",
-      "pausedAt": "2026-10-02T07:32:03.553814+00:00"
+      "pausedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-PKG-04",
@@ -640,7 +654,7 @@
       "acceptance": [
         "Reproducible API, durable product/platform stores, Temporal, workers and customer agents deploy from a clean host without hidden injected ports."
       ],
-      "state": "paused",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
@@ -660,7 +674,8 @@
       "owner": "PROD-WS-INSTALLATION",
       "testPaths": [],
       "pausedFrom": "in_progress",
-      "pausedAt": "2026-10-02T07:32:03.553814+00:00"
+      "pausedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-PKG-05",
@@ -668,7 +683,7 @@
       "acceptance": [
         "Actual default composition handles browser/API/MCP proposal and human approval; independent application behavior proves outcomes."
       ],
-      "state": "paused",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
@@ -681,7 +696,8 @@
       "owner": "PROD-WS-INSTALLATION",
       "testPaths": [],
       "pausedFrom": "in_progress",
-      "pausedAt": "2026-10-02T07:32:03.553814+00:00"
+      "pausedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-PKG-06",
@@ -689,7 +705,7 @@
       "acceptance": [
         "Complete Supabase/hosted migrations, production TLS/pooler/authorization/concurrency/recovery acceptance is distinct from local PostgreSQL contracts."
       ],
-      "state": "paused",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
@@ -702,7 +718,8 @@
       "owner": "PROD-WS-INSTALLATION",
       "testPaths": [],
       "pausedFrom": "in_progress",
-      "pausedAt": "2026-10-02T07:32:03.553814+00:00"
+      "pausedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-MIX-01",
@@ -897,7 +914,7 @@
       "acceptance": [
         "Operation authority versus UI projection defined; independent workers and concurrent writers preserve state without treating local locks as external atomicity."
       ],
-      "state": "paused",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
@@ -926,7 +943,8 @@
         "Bounded workflow-start and worker-product uncertainty projection repair underway. Full durable outbox, independent readback, operator-authorized continuation and recovery acceptance remain required."
       ],
       "pausedFrom": "in_progress",
-      "pausedAt": "2026-10-02T07:32:03.553814+00:00"
+      "pausedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-DUR-03",
@@ -1010,7 +1028,7 @@
       "acceptance": [
         "Partitions/stale fences/delayed calls/revocation/renewal preserve uncertain/conflict/tombstones; provider idempotency or receipts/readback enable evidence-based operator resolution and new authorization."
       ],
-      "state": "paused",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
@@ -1039,7 +1057,8 @@
         "Bounded workflow-start and worker-product uncertainty projection repair underway. Full durable outbox, independent readback, operator-authorized continuation and recovery acceptance remain required."
       ],
       "pausedFrom": "in_progress",
-      "pausedAt": "2026-10-02T07:32:03.553814+00:00"
+      "pausedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-DUR-08",
@@ -1104,7 +1123,7 @@
       "acceptance": [
         "Stack-first boundaries and bootstrap suffix propagate into connection/compiler/role selection; maximum names/partitions/zones fit IAM and actual permissions independently verified without widening privilege."
       ],
-      "state": "paused",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
@@ -1141,7 +1160,8 @@
         "Stack-first boundary migration/preflight and independent live IAM permission validation remain required; dedicated account/budget authorization requested and pending."
       ],
       "pausedFrom": "in_progress",
-      "pausedAt": "2026-10-02T07:32:03.553814+00:00"
+      "pausedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-LIFE-04",
@@ -1434,7 +1454,7 @@
       "acceptance": [
         "Reconcile Temporal/HTTP/controller reuse one observe/diagnose/brokered proposal/policy/approval/remediate/verify lifecycle; repair:not_implemented removed with implementation."
       ],
-      "state": "paused",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
@@ -1462,7 +1482,8 @@
         "Canonical HTTP/Temporal integration locally verified and merged. ECS execution adapter remains frozen/unverified/unmerged; observation proposal support is not complete remediation. Durable fleet scheduling, full diagnosis/telemetry and live proof remain separate paused or pending requirements."
       ],
       "pausedFrom": "in_progress",
-      "pausedAt": "2026-10-02T07:32:03.553814+00:00"
+      "pausedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-OBS-02",
@@ -2260,7 +2281,7 @@
         "PROD-LIFE-03"
       ],
       "branch": "ws/prod-ecs-replica-repair",
-      "state": "paused",
+      "state": "in_progress",
       "ownedPaths": [
         "src/lib/execution/ecs-replica-repair*.ts",
         "src/lib/providers/aws/drivers/compute/ecs-replica-repair-read.ts",
@@ -2276,7 +2297,8 @@
         "src/lib/workflows/definitions/runtime.ts (patched recipe cancellation option only)"
       ],
       "pausedFrom": "in_progress",
-      "pauseHandoff": "docs/build/production/handoffs/2026-10-02/ECS-REPLICA-REPAIR.md"
+      "pauseHandoff": "docs/build/production/handoffs/2026-10-02/ECS-REPLICA-REPAIR.md",
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
     },
     {
       "id": "PROD-WS-INTEGRATED-CI",
@@ -2463,16 +2485,42 @@
     }
   ],
   "sessionState": {
-    "status": "paused",
-    "requestedBy": "user",
-    "recordedAt": "2026-10-02T07:32:03.553814+00:00",
-    "resumeRequiresExplicitUserInstruction": true,
-    "sourceCheckpoint": "ee8b604a552ea6e569e5ab401e596377ed7c2ed5",
-    "lastPushedCommit": "633d1e12f0debf07b1fdcae65e6c1fc0450fd234",
-    "lastPushedRun": 36975762619,
+    "status": "active",
+    "resumedBy": "user",
+    "recordedAt": "2026-10-02T18:48:58.665019+00:00",
+    "sourceCheckpoint": "fbfa456e0111b106f039e2800b2c276b63d01b86",
+    "lastPushedCommit": "fbfa456e0111b106f039e2800b2c276b63d01b86",
+    "lastPushedRun": 36990123532,
     "lastPushedRunStatus": "failure",
     "lastGreenCommit": "2c9d6fa1ee5821d6b90fef4b8aab08a9ba32352a",
-    "activeWorkers": 0,
-    "next": "Resume from handoffs/2026-10-02/PAUSE.md; verify ECS freeze before any rebase or fast-forward. No automatic continuation."
-  }
+    "activeWorkers": 3,
+    "concurrency": "one heavy local process",
+    "next": "Reconcile exactfbfa failures; independently verify preservedECS candidate; genuinePG/strictmanifest; packagedworker architectures; fullgate and observedpushedCI; remainingproductionrequirements.",
+    "lastObservedCiSummary": "docs/build/production/ci-36990123532.md",
+    "currentEcsCheck": {
+      "label": "prod-ecs-resume-public-error-root",
+      "passed": 98,
+      "failed": 7,
+      "skipped": 0,
+      "typecheck": "passed",
+      "lint": "passed",
+      "go": "not executed after failed Vitest",
+      "failures": "Seven exact error-message assertions omitted the final period; correction and genuine PostgreSQL matrix delegated."
+    }
+  },
+  "sessionHistory": [
+    {
+      "status": "paused",
+      "requestedBy": "user",
+      "recordedAt": "2026-10-02T07:32:03.553814+00:00",
+      "resumeRequiresExplicitUserInstruction": true,
+      "sourceCheckpoint": "ee8b604a552ea6e569e5ab401e596377ed7c2ed5",
+      "lastPushedCommit": "633d1e12f0debf07b1fdcae65e6c1fc0450fd234",
+      "lastPushedRun": 36975762619,
+      "lastPushedRunStatus": "failure",
+      "lastGreenCommit": "2c9d6fa1ee5821d6b90fef4b8aab08a9ba32352a",
+      "activeWorkers": 0,
+      "next": "Resume from handoffs/2026-10-02/PAUSE.md; verify ECS freeze before any rebase or fast-forward. No automatic continuation."
+    }
+  ]
 }

@@ -1,0 +1,260 @@
+{
+  "run": {
+    "id": 36990123532,
+    "head_sha": "fbfa456e0111b106f039e2800b2c276b63d01b86",
+    "run_attempt": 1,
+    "status": "completed",
+    "conclusion": "failure",
+    "html_url": "https://github.com/GODOSTROYER/zenith/actions/runs/36990123532",
+    "created_at": "2026-10-02T09:30:01Z",
+    "updated_at": "2026-10-02T09:48:03Z"
+  },
+  "jobs": [
+    {
+      "id": 110784134219,
+      "name": "hosted",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 110784134313,
+      "name": "ledger",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 110784134325,
+      "name": "docker",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 110784134328,
+      "name": "postgres",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 110784134336,
+      "name": "generated",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "id": 110784134350,
+      "name": "tofu",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 110784134361,
+      "name": "policy",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 110784134402,
+      "name": "agent",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 110784134411,
+      "name": "platform-postgres",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 110784134435,
+      "name": "verify",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "id": 110784134440,
+      "name": "build",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 110784134451,
+      "name": "supply-chain",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 110784134487,
+      "name": "go",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 110784134659,
+      "name": "workflows",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "verify": {
+    "passed": 16254,
+    "failed": 4,
+    "skipped": 388,
+    "total": 16646,
+    "smoke": "skipped",
+    "gimbal": "skipped"
+  },
+  "generated": {
+    "passed": 106,
+    "failed": 3,
+    "skipped": 0,
+    "total": 109
+  },
+  "lanes": {
+    "postgres": {
+      "counts": {
+        "total": 251,
+        "passed": 251,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 9,
+      "observedExitCode": 0,
+      "receiptChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "artifact": "docs/build/production/evidence/ci-36990123532/postgres.json",
+      "sha256": "f1543078a1d7a018160c70edd10a83407d3ee6e774c6df780983944efab7e62d"
+    },
+    "platform-postgres": {
+      "counts": {
+        "total": 1331,
+        "passed": 1331,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 39,
+      "observedExitCode": 0,
+      "receiptChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "artifact": "docs/build/production/evidence/ci-36990123532/platform-postgres.json",
+      "sha256": "b8a5cffd036ed87a536a1e80925537a9bed7209eede219b153c63371927ccd4f"
+    },
+    "policy": {
+      "counts": {
+        "total": 238,
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 7,
+      "observedExitCode": 0,
+      "receiptChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "artifact": "docs/build/production/evidence/ci-36990123532/policy.json",
+      "sha256": "e9a287be7f63366d9aefa7ec056880852bda34d503102d8f980fa0edf737990d"
+    },
+    "tofu": {
+      "counts": {
+        "total": 3874,
+        "passed": 3874,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 27,
+      "observedExitCode": 0,
+      "receiptChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "artifact": "docs/build/production/evidence/ci-36990123532/tofu.json",
+      "sha256": "739e3f2b9702a297907331e5cb8e0fccc3286d7f9b9e1a3157b788f333c4dc43"
+    },
+    "workflows": {
+      "counts": {
+        "total": 870,
+        "passed": 870,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 38,
+      "observedExitCode": 0,
+      "receiptChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "artifact": "docs/build/production/evidence/ci-36990123532/workflows.json",
+      "sha256": "fd40a138de9ccad7918cd11e904707f07fa450a5e8fbb5418a7fa547868a0afd"
+    }
+  },
+  "audit": {
+    "completeLockedAuditFindings": 0,
+    "exceptions": 0
+  },
+  "go": {
+    "passingRacePackages": 11,
+    "packagesWithoutTests": 6,
+    "individualGoCaseCounts": "not emitted by CI command",
+    "typescriptInteropCases": 19
+  },
+  "scope": "Exact failed checkpoint; positive dedicated engine receipts do not establish CI green, real cloud mutation or whole-product readiness. Raw private reports, logs and environment inventories remain outside Git."
+}

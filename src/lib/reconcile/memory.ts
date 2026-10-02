@@ -159,7 +159,7 @@ export class MemoryReconcileBackend {
     listRepairOperations: async (env, sinceIso) => {
       this.assertTenant(env);
       const since = Date.parse(sinceIso);
-      const terminal = new Set(["rejected", "denied", "succeeded", "failed", "uncertain", "cancelled", "expired"]);
+      const terminal = new Set(["rejected", "denied", "succeeded", "failed", "cancelled", "expired"]);
       return this.operations
         .filter((o) => o.workspaceId === env.workspaceId && o.environmentId === env.environmentId && (!terminal.has(o.status) || Date.parse(o.createdAt) >= since))
         .map(({ workspaceId: _w, environmentId: _e, ...ref }) => ref);
@@ -253,6 +253,10 @@ export class MemoryReconcileBackend {
       guard: this.guard,
       signals: this.signals,
       loadGraph: this.loadGraph,
+      loadEnvironment: async (workspaceId, environmentId) => {
+        const environment = this.environments.get(environmentId);
+        return environment?.workspaceId === workspaceId ? environment : null;
+      },
       broker: overrides.broker ?? inertBroker,
       startRepair: overrides.startRepair ?? (async () => undefined),
       withObserveSession: overrides.withObserveSession ?? ((_request, fn) => fn(undefined)),

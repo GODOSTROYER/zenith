@@ -206,7 +206,7 @@ describe("reconcile workflow", () => {
   scenario("takes the reconcile lease, observes, reports the counts and releases", async (h) => {
     const input = reconcileInput();
     const result = await h.run(() => runReconcile(h, input));
-    expect(result).toEqual({ environmentId: input.environmentId, status: "observed", drift: 1, unknown: 0, repair: "not_requested" });
+    expect(result).toMatchObject({ environmentId: input.environmentId, status: "observed", drift: 1, unknown: 0, repair: "not_requested", repairs: { proposed: 0, started: 0 } });
     expect(h.fake.names()).toEqual(["acquireLease", "reconcileObserve", "releaseLease"]);
     expect(h.fake.lease.acquired[0]).toMatchObject({ scope: `reconcile:${input.environmentId}`, holder: RECONCILE_WORKFLOW_ID(input.environmentId) });
     expect(h.fake.callsTo("reconcileObserve")[0]!.input).toMatchObject({ workspaceId: "ws-1", environmentId: input.environmentId, passId: RECONCILE_WORKFLOW_ID(input.environmentId) });
@@ -216,18 +216,19 @@ describe("reconcile workflow", () => {
     expect(findCredentialKeys(h.fake.calls.map((c) => [c.input, c.result]))).toEqual([]);
   });
 
-  scenario("allowAutoRepair does not repair: drift is reported and the repair is marked not implemented", async (h) => {
+  scenario("allowAutoRepair requests canonical proposal consideration without a workflow execution bypass", async (h) => {
     const input = reconcileInput({ allowAutoRepair: true });
     const result = await h.run(() => runReconcile(h, input));
-    expect(result).toMatchObject({ status: "observed", drift: 1, repair: "not_implemented" });
-    // Observe-only: none of the mutating activities were even reachable.
+    expect(result).toMatchObject({ status: "observed", drift: 1, repair: "considered" });
+    expect(h.fake.callsTo("reconcileObserve")[0]?.input).toMatchObject({ allowAutoRepair: true });
+    // Execution remains a separate brokered operation, never a workflow shortcut.
     expect(h.fake.names()).toEqual(["acquireLease", "reconcileObserve", "releaseLease"]);
   });
 
   scenario("no drift with auto-repair allowed reports nothing to repair", async (h) => {
-    h.fake.setResult("reconcileObserve", { drift: 0, unknown: 2 });
+    h.fake.setResult("reconcileObserve", { drift: 0, unknown: 2, repairs: { proposed: 0, started: 0, awaitingApproval: 0, denied: 0, blockedUncertain: 0, unsupported: 0, failed: 0, skipped: 0, digest: "0".repeat(64) } });
     const result = await h.run(() => runReconcile(h, reconcileInput({ allowAutoRepair: true })));
-    expect(result).toMatchObject({ status: "observed", drift: 0, unknown: 2, repair: "not_requested" });
+    expect(result).toMatchObject({ status: "observed", drift: 0, unknown: 2, repair: "considered" });
   });
 
   scenario("another pass holding the lease means this one is skipped, without observing", async (h) => {
@@ -236,6 +237,15 @@ describe("reconcile workflow", () => {
     expect(result.status).toBe("skipped");
     expect(h.fake.callsTo("reconcileObserve")).toHaveLength(0);
     expect(h.fake.callsTo("releaseLease")).toHaveLength(0);
+  });
+
+  scenario("a patched history rejects an old count-only activity response instead of claiming repair consideration", async (h) => {
+    h.fake.setResult("reconcileObserve", { drift: 1, unknown: 0 });
+    const result = await h.run(() => runReconcile(h, reconcileInput({ allowAutoRepair: true })));
+    expect(result.status).toBe("failed");
+    expect(result.repair).toBe("not_requested");
+    expect(result.repairs).toBeUndefined();
+    expect(h.fake.lease.released).toHaveLength(1);
   });
 
   scenario("an observation failure is reported as a failed pass, and the lease is still released", async (h) => {

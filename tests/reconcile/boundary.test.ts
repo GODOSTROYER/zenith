@@ -32,6 +32,7 @@ const PLATFORM_ALLOWED = [
   /^@\/lib\/controlplane\/db\/(repos\/[a-z-]+|sql)$/,
   /^@\/lib\/controlplane\/leases$/,
   /^@\/lib\/policy\/types$/,
+  /^@\/lib\/capabilities\/catalog$/,
   /^@\/lib\/resources(\/types)?$/,
 ];
 

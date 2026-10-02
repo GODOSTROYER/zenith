@@ -21,9 +21,10 @@
  */
 import { reconcileEnvironment } from "./core";
 import { ReconcileError } from "./errors";
+import { digest } from "@/lib/controlplane/digest";
 import type { FenceRef, ReconcileEnvironment, ReconcileOptions, ReconcilePorts } from "./types";
 import type { ResourceGraph } from "@/lib/resources/types";
-import type { LeaseRef } from "@/lib/workflows/types";
+import type { ReconcileActivities, ReconcileRepairSummary } from "@/lib/workflows/types";
 
 export interface ReconcileOnceDeps {
   ports: ReconcilePorts;
@@ -41,6 +42,8 @@ export interface ReconcileOnceInput {
   autoRepair?: boolean;
   fence?: FenceRef;
   signal?: AbortSignal;
+  /** New histories request a count/digest summary; old activity results retain their shape. */
+  includeRepairSummary?: boolean;
 }
 
 export interface ReconcileOnceResult {
@@ -50,14 +53,20 @@ export interface ReconcileOnceResult {
   status: "reconciled" | "nothing_to_reconcile";
   /** repair proposals submitted to the broker (any outcome) */
   repairsProposed: number;
+  repairs?: ReconcileRepairSummary;
 }
 
+const emptyRepairs = (): ReconcileRepairSummary => ({ proposed: 0, started: 0, awaitingApproval: 0, denied: 0, blockedUncertain: 0, unsupported: 0, failed: 0, skipped: 0, digest: digest({ repairs: [] }) });
+
 export async function reconcileObserveOnce(input: ReconcileOnceInput, deps: ReconcileOnceDeps): Promise<ReconcileOnceResult> {
+  input.signal?.throwIfAborted();
+  if (input.fence) await deps.ports.assertFence?.(input.fence);
   const environment = await deps.loadEnvironment(input.workspaceId, input.environmentId);
-  if (!environment || environment.workspaceId !== input.workspaceId)
-    throw new ReconcileError("invalid_input", `Environment ${input.environmentId} is not known to the reconciliation controller in this workspace; register it first.`);
+  if (!environment || environment.workspaceId !== input.workspaceId || environment.environmentId !== input.environmentId)
+    throw new ReconcileError("invalid_input", "Environment is not known to the reconciliation controller in this workspace.");
   const graph = await deps.loadGraph(environment);
-  if (!graph) return { drift: 0, unknown: 0, status: "nothing_to_reconcile", repairsProposed: 0 };
+  input.signal?.throwIfAborted();
+  if (!graph) return { drift: 0, unknown: 0, status: "nothing_to_reconcile", repairsProposed: 0, ...(input.includeRepairSummary ? { repairs: emptyRepairs() } : {}) };
 
   const result = await reconcileEnvironment({
     environment,
@@ -72,6 +81,17 @@ export async function reconcileObserveOnce(input: ReconcileOnceInput, deps: Reco
     unknown: result.counts.unknown + result.counts.inaccessible,
     status: result.status,
     repairsProposed: result.repairs.filter((r) => r.status === "proposed").length,
+    ...(input.includeRepairSummary ? { repairs: {
+      proposed: result.repairs.filter((r) => r.status === "proposed").length,
+      started: result.repairs.filter((r) => r.started === true).length,
+      awaitingApproval: result.repairs.filter((r) => r.outcome === "require_approval").length,
+      denied: result.repairs.filter((r) => r.outcome === "deny").length,
+      blockedUncertain: result.repairs.filter((r) => r.reason === "repair_uncertain").length,
+      unsupported: result.repairs.filter((r) => r.reason === "repair_not_supported").length,
+      failed: result.repairs.filter((r) => r.status === "failed" || r.started === false).length,
+      skipped: result.repairs.filter((r) => r.status === "skipped").length,
+      digest: digest({ graphDigest: result.report?.graphDigest ?? null, repairs: result.repairs.map(({ address, class: findingClass, status, outcome, operationId, started, reason }) => ({ address, findingClass, status, outcome, operationId, started, reason })) }),
+    } } : {}),
   };
 }
 
@@ -83,18 +103,17 @@ export async function reconcileObserveOnce(input: ReconcileOnceInput, deps: Reco
  * so a mis-wired workflow cannot reconcile under a lease that protects
  * something else.
  *
- * `allowAutoRepair` is not part of the activity's input today, so this defaults
- * to observe-and-report only; pass `autoRepair: true` in `deps` to let the
- * repair policy PROPOSE repairs from this path too.
+ * The request permits broker proposals only. Without the patched request field
+ * it remains observe-only and returns the historical two-count result.
  */
-export function createReconcileObserveActivity(deps: ReconcileOnceDeps & { autoRepair?: boolean }) {
-  return async (input: { passId: string; workspaceId: string; environmentId: string; lease: LeaseRef }): Promise<{ drift: number; unknown: number }> => {
-    if (input.lease.scope !== `reconcile:${input.environmentId}`)
-      throw new ReconcileError("invalid_input", `The reconcile pass holds lease ${input.lease.scope}, not reconcile:${input.environmentId}; refusing to observe under a lease that protects something else.`);
-    const { drift, unknown } = await reconcileObserveOnce(
-      { workspaceId: input.workspaceId, environmentId: input.environmentId, autoRepair: deps.autoRepair ?? false, fence: { scope: input.lease.scope, token: input.lease.fenceToken } },
+export function createReconcileObserveActivity(deps: ReconcileOnceDeps & { signal?: AbortSignal }): ReconcileActivities["reconcileObserve"] {
+  return async (input) => {
+    if (input.passId !== `reconcile-${input.environmentId}` || input.lease.scope !== `reconcile:${input.environmentId}`)
+      throw new ReconcileError("invalid_input", "The reconcile pass does not match its environment or held lease.");
+    const { drift, unknown, repairs } = await reconcileObserveOnce(
+      { workspaceId: input.workspaceId, environmentId: input.environmentId, autoRepair: input.allowAutoRepair === true, includeRepairSummary: input.allowAutoRepair !== undefined, fence: { scope: input.lease.scope, token: input.lease.fenceToken }, signal: deps.signal },
       deps
     );
-    return { drift, unknown };
+    return { drift, unknown, ...(repairs ? { repairs } : {}) };
   };
 }

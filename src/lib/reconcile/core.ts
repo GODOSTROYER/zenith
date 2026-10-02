@@ -31,6 +31,7 @@
  * skipped.
  */
 import { findDriver } from "@/lib/drivers/types";
+import { supportsDeclarativeRepair } from "@/lib/resources";
 import { computeDriftV2, defaultExpectedAttributes } from "@/lib/resources/drift";
 import type { DriftClass, DriftReport, ResourceGraph, ResourceNode } from "@/lib/resources/types";
 import { diffFindings, driftEvents, findingKey, nextFindingSince } from "./diff";
@@ -105,7 +106,7 @@ export interface ReconcileEnvironmentInput {
   options?: ReconcileOptions;
   /** the `reconcile:<environmentId>` lease this pass holds, if any: asserted at commit */
   fence?: FenceRef;
-  /** aborts when the lease is lost: outstanding reads are cancelled and the rest are reported unread */
+  /** Aborts reads and prevents stale persistence/proposals when cancellation or lease loss occurs. */
   signal?: AbortSignal;
 }
 
@@ -114,6 +115,15 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
   const options = resolveOptions(input.options);
   if (graph.environmentId !== environment.environmentId)
     throw new ReconcileError("invalid_input", `The graph is for environment ${graph.environmentId}, not ${environment.environmentId}; refusing to reconcile a graph against another environment.`);
+  if (input.fence && input.fence.scope !== `reconcile:${environment.environmentId}`)
+    throw new ReconcileError("invalid_input", "The held reconcile fence does not protect this environment.");
+
+  const assertCurrent = async (): Promise<void> => {
+    input.signal?.throwIfAborted();
+    if (input.fence) await ports.assertFence?.(input.fence);
+    input.signal?.throwIfAborted();
+  };
+  await assertCurrent();
 
   const startedAt = ports.now();
   const driverFor = ports.driverFor ?? ((node: ResourceNode) => findDriver(node.provider, node.nativeType));
@@ -176,6 +186,7 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
   const findingSince = nextFindingSince(previous, report);
   const events = driftEvents({ environment, report, diff, previous, findingSince, resources });
 
+  await assertCurrent();
   await ports.store.commit({
     environment,
     ...(input.fence ? { fence: input.fence } : {}),
@@ -195,8 +206,9 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
     environment,
     options,
     previousKeys,
+    supportsRepair: (node, finding) => typeof driverFor(node)?.operations?.["drift.repair"] === "function" || supportsDeclarativeRepair(node, finding),
   });
-  const proposed = await proposeRepairs({ environment, report, selection, ports, options, findingSince });
+  const proposed = await proposeRepairs({ environment, report, selection, ports, options, findingSince, assertCurrent, fence: input.fence, signal: input.signal });
   if (proposed.events.length > 0) {
     try {
       await ports.store.appendEvents(environment, proposed.events);

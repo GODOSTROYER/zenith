@@ -19,6 +19,9 @@
  */
 import type { Sql } from "@/lib/controlplane/types";
 import type { OperationStatus } from "@/lib/controlplane/types";
+import { CAPABILITIES } from "@/lib/capabilities/catalog";
+import { textArray } from "@/lib/controlplane/db/sql";
+import { ReconcileError } from "../errors";
 import * as drift from "@/lib/controlplane/db/repos/drift";
 import * as events from "@/lib/controlplane/db/repos/events";
 import * as leases from "@/lib/controlplane/db/repos/leases";
@@ -66,7 +69,8 @@ export async function loadGraphFromStore(db: Sql, environment: ReconcileEnvironm
   };
 }
 
-const OPEN_STATUSES: readonly OperationStatus[] = ["proposed", "awaiting_approval", "approved", "queued", "running"];
+const OPEN_STATUSES: readonly OperationStatus[] = ["proposed", "awaiting_approval", "approved", "queued", "running", "uncertain"];
+const MUTATING_CAPABILITIES = Object.values(CAPABILITIES).filter((c) => c.mutates).map((c) => c.name);
 
 export function createPlatformStore(db: Sql): ReconcileStore {
   return {
@@ -118,15 +122,18 @@ export function createPlatformStore(db: Sql): ReconcileStore {
     },
 
     async listRepairOperations(environment, sinceIso) {
-      const rows = await db.query<{ id: string; resource_id: string | null; status: OperationStatus; created_at: string; principal_id: string | null; principal_kind: string | null }>(
-        `select id, resource_id, status, created_at, principal ->> 'id' as principal_id, principal ->> 'kind' as principal_kind
+      const rows = await db.query<{ id: string; capability: string; resource_id: string | null; status: OperationStatus; created_at: string; principal_id: string | null; principal_kind: string | null }>(
+        `select id, capability, resource_id, status, created_at, principal ->> 'id' as principal_id, principal ->> 'kind' as principal_kind
            from platform.operations
-          where workspace_id = $1 and environment_id = $2 and capability = 'drift.repair'
-            and (status = any($3::text[]) or created_at >= $4::timestamptz)
+          where workspace_id = $1 and environment_id = $2
+            and ((capability = 'drift.repair' and (status = any($3::text[]) or created_at >= $4::timestamptz))
+              or (status = 'uncertain' and capability = any($5::text[])))
           order by seq desc
-          limit 500`,
-        [environment.workspaceId, environment.environmentId, `{${OPEN_STATUSES.map((s) => `"${s}"`).join(",")}}`, sinceIso]
+          limit 501`,
+        [environment.workspaceId, environment.environmentId, textArray(OPEN_STATUSES), sinceIso, textArray(MUTATING_CAPABILITIES)]
       );
+      // Never mistake a truncated ledger for evidence that no conflict exists.
+      if (rows.length > 500) throw new ReconcileError("platform_store_unavailable", "Repair operation inventory exceeds the bounded complete read; proposals require inspection.");
       return rows.map(
         (r): RepairOperationRef => ({
           operationId: r.id,
@@ -134,6 +141,7 @@ export function createPlatformStore(db: Sql): ReconcileStore {
           status: r.status,
           createdAt: r.created_at,
           byReconciler: r.principal_kind === RECONCILER_PRINCIPAL.kind && r.principal_id === RECONCILER_PRINCIPAL.id,
+          ...(r.capability !== "drift.repair" ? { blocksEnvironment: true } : {}),
         })
       );
     },

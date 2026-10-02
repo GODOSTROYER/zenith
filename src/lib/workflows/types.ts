@@ -148,8 +148,9 @@ export interface ReconcileWorkflowResult {
   status: "observed" | "skipped" | "failed";
   drift?: number;
   unknown?: number;
-  /** auto-repair is not implemented by this workflow; drift is only ever reported */
-  repair: "not_requested" | "not_implemented";
+  /** `not_implemented` is retained only for replay of pre-controller histories. */
+  repair: "not_requested" | "not_implemented" | "considered";
+  repairs?: ReconcileRepairSummary;
   error?: string;
 }
 
@@ -260,7 +261,20 @@ export interface ReconcileActivities {
    * `passId` is the workflow id (`reconcile-<environmentId>`); it identifies the
    * pass, and is the lease holder for `reconcile:<environmentId>`.
    */
-  reconcileObserve(input: { passId: string; workspaceId: string; environmentId: string; lease: LeaseRef }): Promise<{ drift: number; unknown: number }>;
+  reconcileObserve(input: { passId: string; workspaceId: string; environmentId: string; lease: LeaseRef; allowAutoRepair?: boolean }): Promise<{ drift: number; unknown: number; repairs?: ReconcileRepairSummary }>;
+}
+
+/** Counts and a digest only; provider values, reasons and resource names stay in the scoped store. */
+export interface ReconcileRepairSummary {
+  proposed: number;
+  started: number;
+  awaitingApproval: number;
+  denied: number;
+  blockedUncertain: number;
+  unsupported: number;
+  failed: number;
+  skipped: number;
+  digest: string;
 }
 
 /** Everything the execution worker registers. */

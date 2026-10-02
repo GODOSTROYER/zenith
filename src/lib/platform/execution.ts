@@ -8,7 +8,8 @@ import type { Sql } from "@/lib/controlplane/types";
 import { createExecutionActivities, createPlatformPorts, createProductPort, createSafeProber, defaultCostPort, type ExecutionDeps } from "@/lib/execution";
 import { createObservabilityFabric, sourcesForEnvironment } from "@/lib/observability";
 import { planWorkspace, applyVerifiedPlan } from "@/lib/tofu";
-import { createReconcileObserveActivity } from "@/lib/reconcile/activity";
+import { createHeldReconcileActivity } from "@/lib/execution/verify";
+import { createRuntime } from "@/lib/execution/runtime";
 import { loadPlatformEnvironment, loadGraphFromStore, registerEnvironment } from "@/lib/reconcile/platform";
 import { parseOperationInput } from "@/lib/execution/context";
 import { withFailureMapping } from "@/lib/workflows/activities/failures";
@@ -80,6 +81,6 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
       }
       return result;
     },
-    reconcileObserve: createReconcileObserveActivity({ ports: reconcilePorts, loadEnvironment: (ws, env) => loadPlatformEnvironment(opts.db, ws, env), loadGraph: (env) => loadGraphFromStore(opts.db, env) }),
+    reconcileObserve: createHeldReconcileActivity(createRuntime(deps), { ports: reconcilePorts, loadEnvironment: (ws, env) => loadPlatformEnvironment(opts.db, ws, env), loadGraph: (env) => loadGraphFromStore(opts.db, env) }),
   });
 }

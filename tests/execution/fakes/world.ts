@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { createExecutionActivities, type ExecutionWorkerActivities } from "@/lib/execution/activities";
 import type { CostPort, ExecutionDeps, ExecutionLimits } from "@/lib/execution/ports";
-import type { LeaseRef } from "@/lib/workflows/types";
+import type { LeaseRef, ReconcileActivities } from "@/lib/workflows/types";
 import { FakeBroker, FakeCredentialBroker } from "./broker";
 import { genericDrivers, type DriverScript } from "./drivers";
 import { ENV, OP } from "./fixtures";
@@ -55,7 +55,9 @@ export interface World {
   logs: { level: string; message: string; data?: Record<string, unknown> }[];
   planDir: string;
   deps: ExecutionDeps;
-  activities: ExecutionWorkerActivities;
+  activities: Omit<ExecutionWorkerActivities, "reconcileObserve"> & {
+    reconcileObserve: ReconcileActivities["reconcileObserve"];
+  };
   /** acquire the environment lease for the seeded operation, through the real activity */
   lease(): Promise<LeaseRef>;
   /** everything the activities persisted, as one string, for canary scans */

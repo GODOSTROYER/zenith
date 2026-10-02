@@ -12,6 +12,15 @@ const MISSING = ["log_group/web", "subnet/private-a", "subnet/private-b", "subne
 const missing = (h: Harness, addresses: string[]) => addresses.forEach((a) => h.world.patch(a, { presence: "missing" }));
 
 describe("repair candidates: only what policy could ever allow is proposed", () => {
+  it("does not offer an executable proposal when the actual driver has no repair adapter", async () => {
+    const h = harness();
+    missing(h, ["log_group/web"]);
+    const ports: ReconcilePorts = { ...h.ports, driverFor: () => ({ ...h.world.driver, operations: {} }) };
+    const result = await reconcileEnvironment({ environment: ENV, graph: graph(), ports });
+    expect(decision(result, "log_group/web")).toMatchObject({ status: "skipped", reason: "repair_not_supported" });
+    expect(h.broker.proposals).toEqual([]);
+    expect(h.started).toEqual([]);
+  });
   it("proposes a drift.repair for a managed, non-stateful missing node, scoped to the resource, with origin reconciler", async () => {
     const h = harness();
     missing(h, ["log_group/web"]);
@@ -253,6 +262,62 @@ describe("broker outcomes: allow, approval, deny, failure", () => {
 });
 
 describe("pacing: rate limit, open operations, cooldown", () => {
+  it.each([3, 25, 365 * 24])("an unresolved uncertain repair still blocks after %s hours, without dispatching it", async (hours) => {
+    const h = harness();
+    missing(h, ["log_group/web"]);
+    h.backend.operations.push({ operationId: "op-uncertain", workspaceId: ENV.workspaceId, environmentId: ENV.environmentId, resourceId: h.backend.resourceId(ENV.environmentId, "log_group/web"), status: "uncertain", createdAt: new Date(h.clock.now().getTime() - hours * HOUR).toISOString(), byReconciler: true });
+    const result = await run(h);
+    expect(decision(result, "log_group/web")).toMatchObject({ status: "skipped", reason: "repair_uncertain", operationId: "op-uncertain" });
+    expect(h.broker.proposals).toEqual([]);
+    expect(h.started).toEqual([]);
+  });
+
+  it("an unresolved environment mutation blocks every candidate, and a different resource repair stays scoped", async () => {
+    const h = harness();
+    missing(h, ["log_group/web", "subnet/private-a"]);
+    h.backend.operations.push({ operationId: "op-environment-uncertain", workspaceId: ENV.workspaceId, environmentId: ENV.environmentId, status: "uncertain", blocksEnvironment: true, createdAt: new Date(h.clock.now().getTime() - 100 * HOUR).toISOString(), byReconciler: false });
+    const result = await run(h);
+    expect(result.repairs.filter((r) => r.reason === "repair_uncertain")).toHaveLength(2);
+    expect(h.broker.proposals).toEqual([]);
+    const scoped = harness();
+    missing(scoped, ["log_group/web", "subnet/private-a"]);
+    scoped.backend.operations.push({ operationId: "op-scoped-uncertain", workspaceId: ENV.workspaceId, environmentId: ENV.environmentId, resourceId: scoped.backend.resourceId(ENV.environmentId, "subnet/private-a"), status: "uncertain", createdAt: new Date(scoped.clock.now().getTime() - 100 * HOUR).toISOString(), byReconciler: false });
+    const next = await run(scoped);
+    expect(decision(next, "subnet/private-a")).toMatchObject({ reason: "repair_uncertain" });
+    expect(decision(next, "log_group/web")).toMatchObject({ outcome: "allow" });
+  });
+
+  it("cancellation between proposal and dispatch leaves the proposal durable without starting it", async () => {
+    const h = harness();
+    missing(h, ["log_group/web"]);
+    const aborted = new AbortController();
+    const propose = h.ports.broker.propose.bind(h.ports.broker);
+    const ports: ReconcilePorts = { ...h.ports, broker: { propose: async (input) => {
+      const result = await propose(input);
+      aborted.abort(new Error("pass cancelled"));
+      return result;
+    } } };
+    await expect(reconcileEnvironment({ environment: ENV, graph: graph(), ports, signal: aborted.signal })).rejects.toThrow("pass cancelled");
+    expect(h.backend.operations).toHaveLength(1);
+    expect(h.started).toEqual([]);
+    expect(h.backend.reportsOf(ENV.environmentId)).toHaveLength(1);
+  });
+
+  it("lease loss after the observation commit prevents every proposal and dispatch", async () => {
+    const h = harness();
+    missing(h, ["log_group/web"]);
+    let lost = false;
+    const ports: ReconcilePorts = { ...h.ports, assertFence: async () => {
+      if (lost) throw new Error("fence lost");
+    }, store: { ...h.ports.store, commit: async (input) => {
+      await h.ports.store.commit(input);
+      lost = true;
+    } } };
+    await expect(reconcileEnvironment({ environment: ENV, graph: graph(), ports, fence: { scope: `reconcile:${ENV.environmentId}`, token: 7 } })).rejects.toThrow("fence lost");
+    expect(h.broker.proposals).toEqual([]);
+    expect(h.started).toEqual([]);
+    expect(h.backend.reportsOf(ENV.environmentId)).toHaveLength(1);
+  });
   it("proposes at most 3 per environment per hour, deterministically, and says what it held back", async () => {
     const h = harness();
     missing(h, MISSING);

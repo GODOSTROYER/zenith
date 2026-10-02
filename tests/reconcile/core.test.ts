@@ -1,8 +1,102 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { DescribeServicesCommand, DescribeTaskDefinitionCommand, ECSClient } from "@aws-sdk/client-ecs";
+import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/client-resource-groups-tagging-api";
+import { mockClient } from "aws-sdk-client-mock";
+import type { AwsSession } from "@/lib/credentials/types";
+import { findDriver } from "@/lib/drivers/types";
+import { registerAwsDrivers } from "@/lib/providers/aws/drivers";
+import { ecsServiceDriver } from "@/lib/providers/aws/drivers/compute/ecs-service";
+import type { ResourceGraph } from "@/lib/resources/types";
 import { ReconcileError, reconcileEnvironment, type ReconcileEvent } from "@/lib/reconcile";
 import { ENV, MIN, SESSION_CANARY, graph, harness, persistedText } from "./_support";
 
 const driftEvents = (events: ReconcileEvent[], type: ReconcileEvent["type"]) => events.filter((e) => e.type === type);
+
+describe("canonical declarative repair selection with the registered ECS driver", () => {
+  const ecs = mockClient(ECSClient);
+  const tagging = mockClient(ResourceGroupsTaggingAPIClient);
+  afterAll(() => { ecs.restore(); tagging.restore(); });
+  beforeEach(() => { ecs.reset(); tagging.reset(); });
+  const arn = "arn:aws:ecs:us-east-1:123456789012:service/cluster/web";
+  const image = `ghcr.io/acme/web@sha256:${"d".repeat(64)}`;
+  const session: AwsSession = {
+    provider: "aws", accountId: "123456789012", region: ENV.region, expiresAt: "2099-01-01T00:00:00.000Z", transport: "direct",
+    client: (ctor, overrides) => new ctor({ region: overrides?.region ?? ENV.region,
+      credentials: { accessKeyId: "unit-access-key", secretAccessKey: "unit-secret-key", sessionToken: "unit-session-token" } }),
+    childProcessEnv: () => ({}),
+  };
+  function fixture(failure?: "other-field" | "referenced" | "missing" | "mutable-image") {
+    registerAwsDrivers();
+    const registered = findDriver("aws", "aws:ecs_service");
+    expect(registered).toBe(ecsServiceDriver);
+    expect(registered?.operations?.["drift.repair"]).toBeUndefined();
+    const base = graph();
+    const original = base.nodes.find((node) => node.address === "container_service/web");
+    if (!original) throw new Error("The repair fixture requires its ECS node.");
+    const node = { ...original, ownership: failure === "referenced" ? "referenced" as const : "managed" as const,
+      spec: { ...original.spec, replicas: 2, artifact: { type: "image", ref: failure === "mutable-image" ? "nginx:latest" : image } } };
+    const desired: ResourceGraph = { ...base, nodes: [node], edges: [] };
+    const expected = ecsServiceDriver.expectedAttributes?.(node);
+    if (!expected) throw new Error("The registered driver must define desired attributes.");
+    tagging.on(GetResourcesCommand).resolves({ ResourceTagMappingList: [{ ResourceARN: arn, Tags: Object.entries({
+      "zenith:managed": "true", "zenith:workspace": ENV.workspaceId, "zenith:environment": ENV.environmentId,
+      "zenith:resource": node.address, "zenith:project": ENV.projectId ?? "",
+    }).map(([Key, Value]) => ({ Key, Value })) }] });
+    ecs.on(DescribeServicesCommand).resolves({ services: failure === "missing" ? [] : [{ serviceArn: arn,
+      serviceName: "web", clusterArn: "arn:aws:ecs:us-east-1:123456789012:cluster/cluster", status: "ACTIVE", desiredCount: 3,
+      launchType: "FARGATE", taskDefinition: "arn:aws:ecs:us-east-1:123456789012:task-definition/web:7",
+      networkConfiguration: { awsvpcConfiguration: { assignPublicIp: "DISABLED", subnets: ["subnet-0123456789abcdef0"] } },
+    }] });
+    ecs.on(DescribeTaskDefinitionCommand).resolves({ taskDefinition: { cpu: String(expected.cpu), memory: String(expected.memoryMb),
+      containerDefinitions: [{ name: "web", image: failure === "other-field" ? "nginx:other" : String(expected.image),
+        ...(expected.port === undefined ? {} : { portMappings: [{ containerPort: Number(expected.port) }] }) }],
+    } });
+    const h = harness({ graph: desired });
+    // Real registered driver and real SDK commands; only provider responses,
+    // credential acquisition and broker persistence are scripted test ports.
+    h.ports.driverFor = undefined;
+    h.ports.withObserveSession = async (_request, callback) => callback(session);
+    return { h, desired, node };
+  }
+  it("creates the canonical proposal for the exact declared recipe without a dummy native handler", async () => {
+    const { h, desired, node } = fixture();
+    const result = await reconcileEnvironment({ environment: ENV, graph: desired, ports: h.ports,
+      options: { autoRepair: true, minConfirmations: 1, observeRuntime: false } });
+    expect(result.repairs).toContainEqual(expect.objectContaining({ address: node.address, status: "proposed", started: true }));
+    expect(h.broker.proposals).toHaveLength(1);
+    expect(h.broker.proposals[0].request).toMatchObject({ capability: "drift.repair", input: {
+      action: "reapply_desired_state", address: node.address, findingClass: "changed", attributes: ["replicas"], graphDigest: desired.graphDigest,
+    } });
+    expect(ecs.commandCalls(DescribeServicesCommand)).toHaveLength(1);
+    expect(ecs.commandCalls(DescribeTaskDefinitionCommand)).toHaveLength(1);
+    expect(ecs.calls()).toHaveLength(2);
+    expect(tagging.commandCalls(GetResourcesCommand)).toHaveLength(1);
+    expect(result.report?.findings[0]).toMatchObject({ class: "changed", fields: [{ attribute: "replicas", desired: 2, observed: 3 }] });
+    expect(h.backend.observations[0].observation.externalId).toBe(arn);
+    expect(h.started).toHaveLength(1);
+    expect(h.world.operationCalls).toEqual([]);
+  });
+  it.each(["other-field", "referenced", "missing", "mutable-image"] as const)("retains %s refusal through canonical observation and selection", async (failure) => {
+    const { h, desired } = fixture(failure);
+    const result = await reconcileEnvironment({ environment: ENV, graph: desired, ports: h.ports,
+      options: { autoRepair: true, minConfirmations: 1, observeRuntime: false } });
+    expect(result.report?.findings).toHaveLength(1);
+    expect(h.broker.proposals).toHaveLength(0);
+    expect(h.started).toHaveLength(0);
+  });
+  it("keeps an unsupported provider's replica drift visible without offering a repair", async () => {
+    const { desired } = fixture();
+    const unsupported: ResourceGraph = { ...desired, nodes: desired.nodes.map((node) => ({ ...node, provider: "gcp" as const, nativeType: "gcp:cloud_run" })) };
+    const h = harness({ graph: unsupported });
+    h.world.patch(unsupported.nodes[0].address, { attrs: { replicas: 3 }, expected: { replicas: 2 } });
+    h.ports.driverFor = () => ({ ...h.world.driver, operations: {} });
+    const result = await reconcileEnvironment({ environment: ENV, graph: unsupported, ports: h.ports,
+      options: { autoRepair: true, minConfirmations: 1, observeRuntime: false } });
+    expect(result.repairs).toContainEqual(expect.objectContaining({ reason: "repair_not_supported" }));
+    expect(result.report?.findings[0]).toMatchObject({ class: "changed" });
+    expect(h.broker.proposals).toHaveLength(0);
+  });
+});
 
 describe("reconcileEnvironment: persistence and the happy path", () => {
   it("observes every managed and referenced node, persists observations, runtime and a report, and reports nothing when in sync", async () => {
@@ -288,15 +382,14 @@ describe("reconcileEnvironment: what could not be read is reported, never skippe
     expect(h.world.observed).toEqual([]);
   });
 
-  it("a lost lease (the outer signal) stops the reads and reports the rest unread", async () => {
+  it("a lost lease (the outer signal) stops the reads without persisting or proposing a stale pass", async () => {
     const lost = new AbortController();
     const slow = harness();
     for (const node of graph().nodes) if (node.ownership !== "external") slow.world.patch(node.address, { delayMs: 40 });
     setTimeout(() => lost.abort(new Error("lease lost")), 60);
-    const r = await reconcileEnvironment({ environment: ENV, graph: graph(), ports: slow.ports, options: { nodeConcurrency: 1 }, signal: lost.signal });
-    expect(r.unread).toBeGreaterThan(0);
-    expect(r.observed).toBeLessThan(graph().nodes.length);
-    expect(r.report?.findings.some((f) => f.class === "unknown")).toBe(true);
+    await expect(reconcileEnvironment({ environment: ENV, graph: graph(), ports: slow.ports, options: { nodeConcurrency: 1 }, signal: lost.signal })).rejects.toThrow("lease lost");
+    expect(slow.backend.reportsOf(ENV.environmentId)).toEqual([]);
+    expect(slow.broker.proposals).toEqual([]);
   });
 
   it("a pass deadline that has already passed reports every node as unread, for that reason", async () => {

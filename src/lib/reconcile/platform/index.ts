@@ -16,11 +16,12 @@
  * scoped by `workspace_id`; nothing in this directory touches the product store.
  */
 import type { Sql } from "@/lib/controlplane/types";
+import { assertFence } from "@/lib/controlplane/db/repos/leases";
 import type { ReconcilePassPorts } from "../pass-types";
 import type { SchedulerConfig } from "../scheduler";
 import type { ReconcilePorts } from "../types";
 import { createPlatformGuard, createPlatformSignals, type PlatformGuardOptions } from "./guard";
-import { createPlatformState } from "./state";
+import { createPlatformState, loadPlatformEnvironment } from "./state";
 import { createPlatformStore, loadGraphFromStore } from "./store";
 
 export { createPlatformGuard, createPlatformSignals, type PlatformGuardOptions } from "./guard";
@@ -41,7 +42,9 @@ export function createPlatformReconcilePorts(deps: PlatformReconcileDeps): Recon
   return {
     now: deps.now ?? (() => new Date()),
     store: createPlatformStore(db),
+    assertFence: (fence) => assertFence(db, fence.scope, fence.token),
     state: createPlatformState(db, deps.scheduler),
+    loadEnvironment: (workspaceId, environmentId) => loadPlatformEnvironment(db, workspaceId, environmentId),
     guard: createPlatformGuard(db, deps.guard),
     signals: createPlatformSignals(db),
     loadGraph: (environment) => loadGraphFromStore(db, environment),

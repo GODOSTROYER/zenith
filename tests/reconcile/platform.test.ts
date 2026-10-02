@@ -94,6 +94,34 @@ describe.each(LANES)("reconcile platform adapter [$name]", (lane: Lane) => {
   }
 
   describe("store", () => {
+    it("retains old uncertain repairs and other scoped mutations beyond every cooldown", async () => {
+      const { env } = await seed();
+      const web = await repos.resources.getByAddress(db, env.workspaceId, env.environmentId, "log_group/web");
+      const repair = await seedApprovedOperation(db, env.workspaceId, { requester: RECONCILER_PRINCIPAL, proposal: { capability: "drift.repair", scope: { workspaceId: env.workspaceId, projectId: env.projectId, environmentId: env.environmentId, resourceId: web?.id } } });
+      const mutation = await seedApprovedOperation(db, env.workspaceId, { proposal: { capability: "deployment.deploy", scope: { workspaceId: env.workspaceId, projectId: env.projectId, environmentId: env.environmentId } } });
+      await db.query("update platform.operations set status='uncertain', created_at=clock_timestamp() - interval '1 year' where id=any($1::text[])", [`{${repair.operation.id},${mutation.operation.id}}`]);
+      const refs = await createPlatformStore(db).listRepairOperations(env, new Date(Date.now() - HOUR).toISOString());
+      expect(refs).toContainEqual(expect.objectContaining({ operationId: repair.operation.id, status: "uncertain", resourceId: web?.id }));
+      expect(refs).toContainEqual(expect.objectContaining({ operationId: mutation.operation.id, status: "uncertain", blocksEnvironment: true }));
+      const world = new World().allPresent(graph()).patch("log_group/web", { presence: "missing" });
+      const broker = new FakeBrokerSql();
+      const result = await reconcileEnvironment({ environment: env, graph: (await loadGraphFromStore(db, env)) ?? graph(), ports: portsFor(world, broker) });
+      expect(result.repairs.find((r) => r.address === "log_group/web")).toMatchObject({ reason: "repair_uncertain" });
+      expect(broker.proposals).toEqual([]);
+    });
+
+    it("refuses proposals when the bounded operations inventory would be incomplete", async () => {
+      const { env } = await seed();
+      const seeded = await seedApprovedOperation(db, env.workspaceId, { proposal: { capability: "drift.repair", scope: { workspaceId: env.workspaceId, environmentId: env.environmentId } } });
+      await db.query(`insert into platform.operations (id,workspace_id,environment_id,capability,principal,status,proposal,proposal_digest,input_digest,correlation_id,expires_at)
+        select id || '-bound-' || n::text, workspace_id, environment_id, capability, principal, status, proposal, proposal_digest, input_digest, correlation_id, expires_at
+        from platform.operations cross join generate_series(1,500) n where id=$1`, [seeded.operation.id]);
+      await expect(createPlatformStore(db).listRepairOperations(env, new Date(0).toISOString())).rejects.toMatchObject({ code: "platform_store_unavailable" });
+      const world = new World().allPresent(graph()).patch("log_group/web", { presence: "missing" });
+      const broker = new FakeBrokerSql();
+      await expect(reconcileEnvironment({ environment: env, graph: (await loadGraphFromStore(db, env)) ?? graph(), ports: portsFor(world, broker) })).rejects.toMatchObject({ code: "platform_store_unavailable" });
+      expect(broker.proposals).toEqual([]);
+    });
     it("commits observations, runtime, the report, events and the first-seen map together, and reads them back", async () => {
       const { env } = await seed();
       const world = new World();

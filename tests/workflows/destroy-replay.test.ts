@@ -8,21 +8,21 @@ import { startDestroy, startDeploy } from "@/lib/workflows/client";
 import { deployInput, makeHarness, startTestServer, workflowBundlePath, uniqueId, type TestServer } from "./support";
 
 let server: TestServer | undefined;
-let skipReason: string | undefined;
 let bundle: string;
 const enabled = process.env.ZENITH_TEST_TEMPORAL === "1";
 beforeAll(async () => {
   if (!enabled) return;
   const result = await startTestServer("time-skipping");
-  server = result.server; skipReason = result.skipReason;
-  if (server) bundle = await workflowBundlePath();
+  server = result.server;
+  if (!server) throw new Error(result.skipReason ?? "Required time-skipping Temporal test server unavailable");
+  bundle = await workflowBundlePath();
 }, 90_000);
 afterAll(async () => { await server?.teardown(); });
 
 describe.skipIf(!enabled)("real destroy workflow histories (ZENITH_TEST_TEMPORAL=1)", () => {
   for (const kind of ["happy", "plan_changed", "lease_lost", "approval_reject", "unknown_absence"] as const) {
-  it(`${kind} runs and replays against the current definitions`, async (ctx) => {
-    if (!server) { ctx.skip(skipReason ?? "Temporal test server unavailable"); return; }
+  it(`${kind} runs and replays against the current definitions`, async () => {
+    if (!server) throw new Error("Required time-skipping Temporal test server unavailable");
     const fake = createFakeActivities();
     fake.approve();
     if (kind === "approval_reject") fake.activities.checkApproval = async () => ({ approved: false, rejected: true });
@@ -49,8 +49,8 @@ describe.skipIf(!enabled)("real destroy workflow histories (ZENITH_TEST_TEMPORAL
     expect(calls.filter((c) => c === "apply")).toHaveLength(["plan_changed", "approval_reject"].includes(kind) ? 0 : 1);
   }, 90_000);
   }
-  it("preserves and replays the deploy command sequence", async (ctx) => {
-    if (!server) { ctx.skip(skipReason ?? "Temporal test server unavailable"); return; }
+  it("preserves and replays the deploy command sequence", async () => {
+    if (!server) throw new Error("Required time-skipping Temporal test server unavailable");
     const fake = createFakeActivities();
     const h = makeHarness(server, bundle, fake);
     const input = deployInput();

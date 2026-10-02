@@ -14,20 +14,19 @@ const CURRENT = "11".repeat(32);
 const NEXT = "22".repeat(32);
 const enabled = process.env.ZENITH_TEST_TEMPORAL === "1";
 let server: TestServer | undefined;
-let skipReason: string | undefined;
 let bundle: string;
 beforeAll(async () => {
   if (!enabled) return;
   const started = await startTestServer("local");
   server = started.server;
-  skipReason = started.skipReason;
-  if (server) bundle = await workflowBundlePath();
+  if (!server) throw new Error(started.skipReason ?? "Required local Temporal test server unavailable");
+  bundle = await workflowBundlePath();
 }, 240_000);
 afterAll(async () => { await server?.teardown(); });
 
 describe.skipIf(!enabled)("codec histories on local Temporal (ZENITH_TEST_TEMPORAL=1)", () => {
-  it("encrypts workflow/activity payloads, supports queries/signals and replays with retained keys", async (ctx) => {
-    if (!server) { ctx.skip(skipReason ?? "Temporal test server unavailable"); return; }
+  it("encrypts workflow/activity payloads, supports queries/signals and replays with retained keys", async () => {
+    if (!server) throw new Error("Required local Temporal test server unavailable");
     const dataConverter = temporalDataConverterFromEnv({ NODE_ENV: "production", ZENITH_SECRET_KEY: CURRENT });
     const client = new Client({ connection: server.env.connection, namespace: server.env.namespace, dataConverter });
     const fake = createFakeActivities();
@@ -52,8 +51,8 @@ describe.skipIf(!enabled)("codec histories on local Temporal (ZENITH_TEST_TEMPOR
     expect(fake.callsTo("applyInfrastructure")).toHaveLength(1);
   }, 90_000);
 
-  it("replays a legacy plaintext history with an encrypted converter", async (ctx) => {
-    if (!server) { ctx.skip(skipReason ?? "Temporal test server unavailable"); return; }
+  it("replays a legacy plaintext history with an encrypted converter", async () => {
+    if (!server) throw new Error("Required local Temporal test server unavailable");
     const fake = createFakeActivities();
     const input = deployInput();
     const config = executionWorkerConfigFromEnv({ ZENITH_TEMPORAL_ADDRESS: server.env.address, ZENITH_WORKER_TASK_QUEUE: uniqueId("legacy"), ZENITH_WORKER_SHUTDOWN_GRACE_MS: "2000" });

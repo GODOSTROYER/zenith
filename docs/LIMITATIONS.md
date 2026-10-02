@@ -2,6 +2,16 @@
 
 Status legend: ✅ implemented · 🟡 partial · ⬜ not yet built
 
+## Current production continuation, 2026-10-03
+
+The user resumed the production program after the preserved pause handoff. Latest pushed checkpoint remains `fbfa456`; run36990123532 finished with 12 successful jobs and two failures. Main unit suites recorded16,254 passed/4failed/388skipped; generated documentation106passed/3failed/0skipped. Smoke and Gimbal skipped. Five dedicated engine lanes passed with no failures/skips and all12receiptbindings matched. See [exact checkpoint CI evidence](build/production/ci-36990123532.md). Earlier14/14green evidence applies to2c9d6fa only.
+
+AWS canonical reconciliation context and documentation corrections source43de51a merged d6be440 after root448P0F0S, fulltypecheck/lint/realOpenTofu/Go, fresh actualPG1409P0F0S/all39groups/all12receiptbindings and local kind6/6+1/1, with verified cleanup. Independent review closed authorization/loading request mutation while preserving saved connection identity, configuration/session binding and unread-state uncertainty. A final saved-configuration check cannot make later provider calls atomically revocable. Suppressing false clearance does not retain active finding identity through an unread report; original detection events remain durable. These limits still need wider operational acceptance.
+
+ECS replica repair remains unmerged. Root compiler verification found an incomplete SDK test fixture; runtime retries exposed stale public-error assertions, including a missing trailing period. Their corrected source and six real PostgreSQL grant scenarios are prepared with explicit mandatory gate requirements. Root isolated ECS26candidate passed595focused cases,1344actualPGcases/all45groups including6genuinePGgrantbehaviors,fulltypecheck/lint/realOpenTofu/Go,locked audit0 and local kind6/6+1/1; cleanup verified. Combined-source integration and pushed acceptance remain pending. Scripted SDK/OpenTofu behavior, real SQL/browser authority and local Temporal behavior are distinct evidence; none proves a live AWS mutation. Broad existing environment deploy IAM, external writers, durable outbox/recovery epochs and operator continuation remain limits.
+
+Only one heavy local process runs on this8GBMac. Disposable PostgreSQL/Temporal/kind and execution-worker startup are authorized; owned resources must be removed. API/server startup and live AWS region/account/budget remain pending. All78requirements retain stable IDs;6verified/13inprogress/59planned. Implementation complete, sandbox verified, pilot ready and production approved remain false. Historical pause facts below are preserved as historical evidence and are superseded by the explicit resume.
+
 ## Platform
 - ✅ Canonical manifest, diffing/changesets, cost model, validation
 - ✅ Typed action registry with plan/execute/audit/idempotency + autonomy enforcement
@@ -129,7 +139,7 @@ Still-open control-plane gaps (2026-10-02), one line per gap:
 - Canonical observation-to-repair composition is under implementation. Production drivers currently lack a `drift.repair` execution handler; proposal generation alone cannot establish remediation. Durable scheduling, full diagnosis and provider readback acceptance remain outstanding.
 
 
-## Explicit production pause checkpoint, 2026-10-02
+## Historical production pause checkpoint, 2026-10-02
 
 The user paused all remaining work, allowing two near-complete local integrations to finish. Canonical reconciliation source8657abd merged616a6f4 after root692P0F0S, fulltypecheck/lint/realOpenTofu/Go, fresh actualPostgreSQL1331P0F0S and both local kind suites6/6+1/1. Owned services, cluster, containers and kubeconfig were deleted. Final worker cleanup/docs regression source3f7e522 mergedee8b604 after root205P0F0S and fulltypecheck/lint/realOpenTofu/Go. Those source integrations do not complete production remediation, packaged acceptance or whole combined-source verification.
 

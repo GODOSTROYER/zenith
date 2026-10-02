@@ -1,0 +1,257 @@
+{
+  "recordedAt": "2026-10-02T19:17:38.270533+00:00",
+  "testedCandidateCommit": "fbfa456e0111b106f039e2800b2c276b63d01b86",
+  "candidateBranch": "ws/prod-ecs-replica-repair",
+  "candidateDirty": true,
+  "ownedFiles": [
+    {
+      "path": "docs/platform/operations/ECS-REPLICA-REPAIR.md",
+      "sha256": "431fec3d1e63123adab7a616a597c9b438f7e85de80e0b6e5ecf2b61b186868b"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d"
+    },
+    {
+      "path": "package.json",
+      "sha256": "d6526ae80835df230c035c707460595259b071a3573d175def2a578637e0771d"
+    },
+    {
+      "path": "src/lib/capabilities/evaluate.ts",
+      "sha256": "722da0ce5d2912163edf0f554f2044bc92ab7fcd6babbcac95874e35edeb4177"
+    },
+    {
+      "path": "src/lib/capabilities/execution.ts",
+      "sha256": "526743c6af98e8e91e2c010dd4e5ca8b67e32b2c44dc4aa5decca0a378ac7745"
+    },
+    {
+      "path": "src/lib/execution/apply.ts",
+      "sha256": "57bbbb299ebfe7bcbb1255f930fa01c3f8fb1e9a9437df7230f1ecddd534ce0e"
+    },
+    {
+      "path": "src/lib/execution/context.ts",
+      "sha256": "f604d62a52d872a3d25069851d95dbacda96142fa286027eb4d8e664f9168045"
+    },
+    {
+      "path": "src/lib/execution/ecs-replica-repair-binding.ts",
+      "sha256": "3ecac9d4ac8cc09c6d142a77eeb31fe746adb861aa04a52186ecc22a1ae7d4cd"
+    },
+    {
+      "path": "src/lib/execution/ecs-replica-repair.ts",
+      "sha256": "cde3d03fe4b60e85ceb4373576467d824f69b57a04a1b9530774371eb9e8aadb"
+    },
+    {
+      "path": "src/lib/execution/plan-evidence.ts",
+      "sha256": "f73e63ee15a381327bf0e585d9da0dbc2f4111937d154b0789b8bd07113e42d0"
+    },
+    {
+      "path": "src/lib/execution/plan.ts",
+      "sha256": "29e5265fab1661399b0dd573ce76c3635b8974dc56ac783e2c7c0a3d1c3451b9"
+    },
+    {
+      "path": "src/lib/platform/broker.ts",
+      "sha256": "d08857293e0b0f818c13c29171bd5f5a73ad299776a524035e670098e485aa21"
+    },
+    {
+      "path": "src/lib/providers/aws/drivers/compute/ecs-replica-repair-read.ts",
+      "sha256": "4cacd25f5413342aae71cfc8e31470aaf59e9ef14ce0408a0eda763847088768"
+    },
+    {
+      "path": "src/lib/workflows/definitions/dayTwo.ts",
+      "sha256": "bbc9b74b512b15c1cf4efb28f8c216cab026bae5369eeec4907482daba9a60f5"
+    },
+    {
+      "path": "src/lib/workflows/definitions/ecsReplicaRepair.ts",
+      "sha256": "4873ddf650d7932068243734b3c1e93c8d5169629c1a6e35867d7bb2ac1dff4a"
+    },
+    {
+      "path": "src/lib/workflows/definitions/runtime.ts",
+      "sha256": "b5ab7e8164cc960727a799713275df68a8c0b8b7c93e1967804c3357ce80af9a"
+    },
+    {
+      "path": "tests/execution/ecs-replica-repair.test.ts",
+      "sha256": "aedefc3bfc5d237c4a85058378486b72c28d2bd790a04bfa38bca3f3493c5986"
+    },
+    {
+      "path": "tests/platform/ecs-replica-repair-grants.test.ts",
+      "sha256": "7ed39ebbd9475b419999bea6ff2f2a8f3a0288d0b3c101320221528e62d59ee3"
+    },
+    {
+      "path": "tests/providers/aws/drivers/compute/ecs-replica-repair-read.test.ts",
+      "sha256": "0b0d2d3cf1b4364af15011eb0232d348e70d00f444bf89ef6bbacef68533d67b"
+    },
+    {
+      "path": "tests/workflows/ecs-replica-repair.test.ts",
+      "sha256": "901afd58c12294ed00fa7e4620e17d0d8a4f4704df4faf6de26f32e8ceacc5ee"
+    },
+    {
+      "path": "tests/workflows/fixtures/ecs-replica-cancellation.ts",
+      "sha256": "060da87e045d2dbefe9010c6e7affbd7d41e18e6f10515060ccba59685ea75a2"
+    },
+    {
+      "path": "tests/workflows/fixtures/legacy-day-two.ts",
+      "sha256": "67b16d0f51a0389f61767c2dc05fcd915c72b3c8d3df493ab99f77a908d2d9e0"
+    },
+    {
+      "path": "scripts/ci/gate-manifest.mjs",
+      "sha256": "16c388f6f0a9e6df26aed2c13d13d831e3246eb4f283ceb6e1aee4898e1532e6"
+    },
+    {
+      "path": "tests/ci/gate-manifest.test.ts",
+      "sha256": "8ccac3a90536ee4800e5a34ddc328f89ee38fb0081dd77af39a3ceb6b97c02e7"
+    },
+    {
+      "path": "tests/ci/assert-lane-report.test.ts",
+      "sha256": "0a93af14c8b2f289e818abed2d98a6adebed2ef562e84d45e742e9e2105f7c8a"
+    },
+    {
+      "path": "tests/ci/evidence-sanitizer.test.ts",
+      "sha256": "a7d7f2158ca4e6ae42c3a3f586671449a8f57ea0e72d10ed0d391a3308387ea1"
+    }
+  ],
+  "freezeReceiptSha256": "4ba8e1d01c8c2203c09da478071825625ad7d8fb3233bb619a4f2459ec7ad9fc",
+  "scope": "Root independently verified candidate; later source/base/documentation changes require separate evidence. Provider SDK and saved-plan contracts use scripted responses; grant cases use real signer/browser/SQL authority; workflow tests use real local Temporal with scripted activities. No live AWS mutation.",
+  "checks": [
+    {
+      "name": "diff-check",
+      "exitCode": 0,
+      "seconds": 0.0
+    },
+    {
+      "name": "tsc",
+      "exitCode": 0,
+      "seconds": 10.6
+    },
+    {
+      "name": "eslint",
+      "exitCode": 0,
+      "seconds": 2.2
+    },
+    {
+      "name": "vitest",
+      "exitCode": 0,
+      "seconds": 59.3
+    },
+    {
+      "name": "gofmt",
+      "exitCode": 0,
+      "seconds": 0.0
+    },
+    {
+      "name": "go-vet",
+      "exitCode": 0,
+      "seconds": 1.3
+    },
+    {
+      "name": "go-test",
+      "exitCode": 0,
+      "seconds": 21.4
+    }
+  ],
+  "vitest": {
+    "passed": 595,
+    "failed": 0,
+    "skipped": 0,
+    "includesActualNetworkOpenTofu": 5,
+    "ecsFocalCasesWithoutPostgres": 101
+  },
+  "go": {
+    "passedTopLevel": 226,
+    "passedSubtests": 539,
+    "failed": 0,
+    "skippedLinuxOnlyOnMac": 3,
+    "race": "not requested by this focused helper; required separately by full release gate"
+  },
+  "platformPostgres": {
+    "passed": 1344,
+    "failed": 0,
+    "skipped": 0,
+    "requiredGroups": 45,
+    "ecsPostgresScenarios": 6,
+    "allTwelveSchema2ReceiptBindings": true,
+    "observedExitCode": 0,
+    "separateRequireExecutionValidation": "passed",
+    "cleanup": {
+      "container": "zenith-prod-pg-80d2842f",
+      "ownershipVerified": true,
+      "removed": true,
+      "absenceVerified": true
+    }
+  },
+  "kind": {
+    "provider": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0
+    },
+    "release": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "cleanup": {
+      "deleteSucceeded": true,
+      "clusterAbsent": true,
+      "ownedContainersAbsent": true,
+      "kubeconfigRemoved": true
+    },
+    "level": "local_cluster",
+    "limitations": [
+      "Disposable local kind cluster; no live or managed-cloud evidence.",
+      "Default kind CNI does not establish NetworkPolicy enforcement.",
+      "No StatefulSet, persistent-data recovery or default source-build credential proof."
+    ]
+  },
+  "dependencyAudit": {
+    "label": "prod-ecs-final-locked-audit-root",
+    "checkedAt": "2026-10-02T19:12:31.071550+00:00",
+    "commit": "fbfa456e0111b106f039e2800b2c276b63d01b86",
+    "lockfileSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+    "exitCode": 0,
+    "knownFindings": 0,
+    "exceptions": 0,
+    "scope": "All production/build/dev/optional/peer locked dependencies; current registry findings only."
+  },
+  "limitations": [
+    "No live-cloud provisioning or repair proof.",
+    "Existing environment deploy IAM remains broad; software saved-plan checks constrain the supported recipe.",
+    "External writers and policy timing cannot be made atomic by environment fences.",
+    "Durable outbox, cross-worker plan handoff, recovery epochs and operator continuation remain separate incomplete requirements.",
+    "No StatefulSet recovery or enforced managed-CNI NetworkPolicy evidence."
+  ],
+  "earlierAttempts": [
+    {
+      "label": "prod-ecs-resume-focal-root",
+      "typecheck": "failed: incomplete ScalableTarget fixture",
+      "lint": "not executed",
+      "vitest": "not executed",
+      "go": "not executed"
+    },
+    {
+      "label": "prod-ecs-resume-focal-retry-root",
+      "typecheck": "passed",
+      "lint": "passed",
+      "vitest": {
+        "passed": 97,
+        "failed": 8,
+        "skipped": 0
+      },
+      "go": "not executed after failed suites",
+      "cause": "Seven stale public error assertions and one wrong ownership-refusal expectation."
+    },
+    {
+      "label": "prod-ecs-resume-public-error-root",
+      "typecheck": "passed",
+      "lint": "passed",
+      "vitest": {
+        "passed": 98,
+        "failed": 7,
+        "skipped": 0
+      },
+      "go": "not executed after failed suites",
+      "cause": "Exact public error literal omitted final period."
+    }
+  ]
+}

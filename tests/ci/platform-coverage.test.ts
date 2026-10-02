@@ -8,6 +8,7 @@ import path from "node:path";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
 import vitestConfig from "../../vitest.config";
+import { CORE_CHECKS, manifestFor } from "../../scripts/ci/gate-manifest.mjs";
 import { requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
 
 interface Step {
@@ -40,7 +41,8 @@ function gate(jobName: string, command: string, condition?: string): Step {
 
 describe("platform suite coverage", () => {
   it("runs both Vitest projects with every Node and DOM suite included", () => {
-    gate("verify", "npx vitest run --project=node --project=dom --maxWorkers=2");
+    gate("verify", "node scripts/ci/run-gate.mjs core --run --step unit");
+    expect(CORE_CHECKS.find((check) => check.id === "unit")?.command).toEqual(["node", "node_modules/vitest/vitest.mjs", "run", "--project=node", "--project=dom", "--maxWorkers=1"]);
     const config = vitestConfig as { test?: { include?: string[]; exclude?: string[]; projects?: { test?: { name?: string; include?: string[]; exclude?: string[] } }[] } };
     expect(config.test?.include).toBeUndefined();
     expect(config.test?.exclude).toBeUndefined();
@@ -54,11 +56,12 @@ describe("platform suite coverage", () => {
 
   it.each(["agent-v3", "cli", "placement", "platform-ui", "security", "ci"])("keeps tests/%s behind the unfiltered unit gate", (directory) => {
     expect(testsUnder(`tests/${directory}`).length).toBeGreaterThan(0);
-    gate("verify", "npx vitest run --project=node --project=dom --maxWorkers=2");
+    gate("verify", "node scripts/ci/run-gate.mjs core --run --step unit");
+    expect(CORE_CHECKS.find((check) => check.id === "unit")?.command).toEqual(["node", "node_modules/vitest/vitest.mjs", "run", "--project=node", "--project=dom", "--maxWorkers=1"]);
   });
 
   it.each([
-    ["verify", "npm run lint"], ["verify", "npm run typecheck"],
+    ["verify", "node scripts/ci/run-gate.mjs core --run --step lint"], ["verify", "node scripts/ci/run-gate.mjs core --run --step typecheck"],
     ["policy", "npm run policy:check"],
     ["generated", "npm run platform:emit-sql -- --check"],
     ["generated", "npx tsx scripts/docs/capability-matrix.ts --check"],
@@ -66,18 +69,23 @@ describe("platform suite coverage", () => {
     ["ledger", "node scripts/build/ledger.mjs --check"],
   ])("requires %s: %s", (job, command) => { gate(job, command); });
 
-  it.each([["tofu", "tofu"], ["workflows", "workflows"], ["platform-postgres", "platform"]])("requires real-engine evidence in %s even when Vitest fails", (lane, reportName) => {
+  it.each([["postgres", "postgres"], ["policy", "policy"], ["tofu", "tofu"], ["workflows", "workflows"], ["platform-postgres", "platform"]])("requires real-engine evidence in %s even when Vitest fails", (lane, reportName) => {
     const job = workflow.jobs[lane];
     const report = `.data-ci-lane/${reportName}-lane.json`;
-    const assertion = gate(lane, `node tests/ci/assert-lane-report.mjs ${lane} ${report}`, "always()");
-    const suiteSteps = job.steps.filter((step) => step.run?.startsWith("npx vitest run ") && step.run.includes(`--outputFile.json=${report}`));
+    const assertion = gate(lane, `node scripts/ci/run-gate.mjs ${lane} --validate ${report}`, "always()");
+    const manifest = manifestFor(lane, root);
+    expect(manifest.report).toBe(report);
+    const suiteSteps = job.steps.filter((step) => step.run === `node scripts/ci/run-gate.mjs ${lane} --run`);
     expect(suiteSteps).toHaveLength(1);
     const suites = suiteSteps[0];
     expect(suites.if).toBeUndefined();
     expect(suites["continue-on-error"]).toBeUndefined();
-    expect(suites.run).not.toContain("--passWithNoTests");
+    expect(manifest.command).not.toContain("--passWithNoTests");
+    expect(manifest.command).toContain(`--outputFile.json=${report}`);
+    expect(manifest.command).toContain("--no-file-parallelism");
+    expect(manifest.command).toContain("--maxWorkers=1");
     expect(job.steps.indexOf(assertion)).toBeGreaterThan(job.steps.indexOf(suites));
-    const filters = suites.run!.split(/\s+/).filter((arg) => arg.startsWith("tests/"));
+    const filters = manifest.files;
     for (const required of requirementsFor(lane, root)) {
       expect(filters.some((filter) => required.file === filter || required.file.startsWith(`${filter}/`)), `${lane} must execute ${required.file}`).toBe(true);
     }
@@ -106,7 +114,9 @@ describe("platform suite coverage", () => {
 
   it("requires migrations, capability contracts and reconciliation to exercise Postgres", () => {
     const requirements = requirementsFor("platform-postgres", root);
-    for (const file of ["tests/controlplane/migrations.test.ts", "tests/capabilities/store-contract.test.ts", "tests/reconcile/platform.test.ts"]) expect(requirements).toContainEqual({ file, postgres: true });
+    for (const file of ["tests/controlplane/migrations.test.ts", "tests/capabilities/store-contract.test.ts", "tests/reconcile/platform.test.ts"]) expect(requirements).toContainEqual(expect.objectContaining({ file, postgres: true, id: expect.stringContaining(`platform-postgres:${file}:`) }));
+    expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/migrations.test.ts", suite: "migrator [postgres]", postgres: true }));
+    expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/migrations.test.ts", suite: "migrator [postgres] concurrency and fail-closed open", backend: "postgres" }));
   });
 });
 

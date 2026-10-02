@@ -26,7 +26,7 @@ function evidence(requirements: Requirement[]) {
   return { success: true, testResults: [...files.values()] };
 }
 
-describe.each(["tofu", "workflows", "platform-postgres"])("%s real-engine report gate", (lane) => {
+describe.each(["postgres", "policy", "tofu", "workflows", "platform-postgres"])("%s real-engine report gate", (lane) => {
   const requirements = requirementsFor(lane, root);
 
   it("accepts evidence only when every required scenario passed", () => {
@@ -64,13 +64,13 @@ describe.each(["tofu", "workflows", "platform-postgres"])("%s real-engine report
 
   it("normalizes Windows and POSIX path separators", () => {
     const report = evidence(requirements);
-    for (const file of report.testResults) file.name = file.name.replaceAll("\\", "/");
+    for (const file of report.testResults) file.name = file.name.replaceAll("/", "\\");
     expect(reportFailures(requirements, report, root)).toEqual([]);
   });
 });
 
 describe("evidence boundaries", () => {
-  it.each(requirementsFor("tofu", root))("rejects skipped $file: $suite even when the other required suites and unit tests pass", (required) => {
+  it.each(requirementsFor("tofu", root).filter((required: Requirement) => required.suite))("rejects skipped $file: $suite even when the other required suites and unit tests pass", (required) => {
     const requirements = requirementsFor("tofu", root);
     const report = evidence(requirements);
     const file = report.testResults.find((entry) => entry.name === path.resolve(root, required.file))!;
@@ -98,11 +98,14 @@ describe("evidence boundaries", () => {
     expect(reportFailures(requirements, report, root)).toHaveLength(1);
   });
 
-  it("does not let PGlite or memory count as Postgres evidence", () => {
-    const requirements = requirementsFor("platform-postgres", root);
+  it.each(["pglite", "memory"])("does not let %s count as Postgres evidence", (backend) => {
+    const requirements = requirementsFor("platform-postgres", root).filter((required: Requirement) => required.postgres);
     const report = evidence(requirements);
     for (const file of report.testResults) {
-      for (const assertion of file.assertionResults) assertion.fullName = assertion.fullName.replace("[postgres]", "[pglite]");
+      for (const assertion of file.assertionResults) {
+        assertion.fullName = assertion.fullName.replace("[postgres]", `[${backend}]`);
+        assertion.ancestorTitles = assertion.ancestorTitles?.map((title) => title.replace("[postgres]", `[${backend}]`));
+      }
     }
     expect(reportFailures(requirements, report, root)).toHaveLength(requirements.length);
   });

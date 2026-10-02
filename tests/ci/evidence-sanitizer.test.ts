@@ -20,7 +20,7 @@ function reportFor(lane = "platform-postgres") {
   for (const required of requirementsFor(lane, root)) {
     const name = path.resolve(root, required.file);
     const file = files.get(name) ?? { name, status: "passed", assertionResults: [] };
-    file.assertionResults.push({ fullName: `${required.suite ?? "required scenario"} passes`, ancestorTitles: [required.suite ?? "required scenario"], status: "passed" });
+    file.assertionResults.push({ fullName: `${required.ancestorSuite ? `${required.ancestorSuite} ` : ""}${required.suite ?? "required scenario"} passes`, ancestorTitles: [...(required.ancestorSuite ? [required.ancestorSuite] : []), required.suite ?? "required scenario"], status: "passed" });
     files.set(name, file);
   }
   return { success: true, testResults: [...files.values()] };
@@ -48,7 +48,8 @@ describe("sanitized evidence boundary", () => {
   it("exports count-only requirement evidence bound to commit, dependencies, source and environment", () => {
     const evidence = sanitizedEvidence("platform-postgres", reportFor(), root, provenance);
     expect(evidence.verdict).toBe("passed");
-    expect(evidence.required).toHaveLength(39);
+    expect(evidence.required).toHaveLength(45);
+    expect(evidence.required.filter((required: { file: string }) => required.file !== "tests/platform/ecs-replica-repair-grants.test.ts")).toHaveLength(39);
     expect(evidence.provenance.commit).toMatch(/^[a-f0-9]{40}$/);
     expect(evidence.provenance.sourceBindingComplete).toBe(true);
     expect(evidence.provenance.environment.sha256).toMatch(/^[a-f0-9]{64}$/);
@@ -97,8 +98,8 @@ describe("sanitized evidence boundary", () => {
     const report = { ...reportFor(), numTotalTests: 99999, numPassedTests: 99999 };
     const evidence = sanitizedEvidence("platform-postgres", report, root, provenance);
     expect(evidence.verdict).toBe("failed");
-    expect(evidence.counts.total).toBe(39);
-    expect(evidence.counts.passed).toBe(39);
+    expect(evidence.counts.total).toBe(45);
+    expect(evidence.counts.passed).toBe(45);
   });
 
   it("binds untracked source bytes and explicitly identifies a dirty worktree", () => {

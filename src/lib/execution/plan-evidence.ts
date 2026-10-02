@@ -26,6 +26,7 @@ import { planView, type PlanView } from "@/lib/tofu/plan";
 import type { NormalizedPlan } from "@/lib/tofu/types";
 import type { PlanSummary } from "@/lib/workflows/types";
 import { safeText } from "./text";
+import { repairBindingDigest, type EcsReplicaRepairBindingV1 } from "./ecs-replica-repair-binding";
 
 const MAX_VIEW_BYTES = 40_000;
 const bytes = (v: unknown): number => Buffer.byteLength(JSON.stringify(v));
@@ -98,6 +99,7 @@ export interface PlanEvidenceInput {
   stage: "plan" | "final_plan";
   /** final_plan only: the digest that was approved */
   approvedDigest?: string;
+  repairBinding?: EcsReplicaRepairBindingV1;
 }
 
 export function planEvidence(input: PlanEvidenceInput): { digest: string; key: string; summary: Record<string, unknown> } {
@@ -116,6 +118,7 @@ export function planEvidence(input: PlanEvidenceInput): { digest: string; key: s
     cost: input.cost,
     diagnostics: plan.diagnostics.slice(0, 10).map((d) => ({ severity: d.severity, summary: safeText(d.summary, 300) })),
     view: boundedPlanView(plan),
+    ...(input.repairBinding ? { repairBinding: input.repairBinding, repairBindingDigest: repairBindingDigest(input.repairBinding) } : {}),
     ...(input.stage === "final_plan" && input.approvedDigest ? { approvedDigest: input.approvedDigest, matchesApproved: input.approvedDigest === plan.planDigest } : {}),
   };
   return { digest: plan.planDigest, key: `${input.stage}:${plan.planDigest}`, summary };

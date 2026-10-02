@@ -66,7 +66,9 @@ export async function loadExecContext(rt: Runtime, operationId: string): Promise
   const input = parseOperationInput(op);
   let product: ProductContext;
   try {
-    product = await rt.d.product.loadContext({ workspaceId: op.workspaceId, environmentId: op.environmentId, revisionId: input.revisionId, deploymentId: input.deploymentId });
+    // Repair desired values come from the deployed revision, never caller ids.
+    product = await rt.d.product.loadContext({ workspaceId: op.workspaceId, environmentId: op.environmentId,
+      ...(op.capability === "drift.repair" ? {} : { revisionId: input.revisionId, deploymentId: input.deploymentId }) });
   } catch (err) {
     throw productFailure(err);
   }

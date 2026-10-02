@@ -274,6 +274,15 @@ export async function evaluate(deps: BrokerDeps, req: EvaluationRequest): Promis
       separationOfDuties: decision.approval?.separationOfDuties ?? false,
     } };
   }
+  // A repair proposal can authorize read-only planning. Its concrete effect
+  // always requires a human, even where workspace policy allows automation.
+  if (def.name === "drift.repair" && req.plan && req.planDigest && decision.outcome !== "deny") {
+    decision = { ...decision, outcome: "require_approval", approval: {
+      count: Math.max(1, decision.approval?.count ?? 1),
+      minRole: decision.approval?.minRole ?? "editor",
+      separationOfDuties: decision.approval?.separationOfDuties ?? false,
+    } };
+  }
 
   return { def, access, resolved, autonomy, input, evaluated, decision, risk: req.risk };
 }

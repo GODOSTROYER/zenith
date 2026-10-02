@@ -65,7 +65,7 @@ const progressQuery = defineQuery<WorkflowProgress>(QUERIES.progress);
  */
 export class OperationHalt extends Error {
   constructor(
-    readonly status: Exclude<WorkflowTerminalStatus, "succeeded" | "cancelled">,
+    readonly status: Exclude<WorkflowTerminalStatus, "succeeded">,
     message: string
   ) {
     super(message);
@@ -81,6 +81,8 @@ export interface OperationRunOptions {
   leaseScope: string;
   /** the steps this workflow will report, in order */
   steps: readonly StepName[];
+  /** Opt-in versioned recipes must retain unknown outcomes after cancellation. */
+  preserveMutationUncertaintyOnCancellation?: boolean;
 }
 
 interface Outcome {
@@ -102,6 +104,7 @@ export class OperationRun {
   private lease: LeaseRef | undefined;
   /** latches once a step that may have acted has been entered */
   private mutationStarted = false;
+  private readonly preserveMutationUncertaintyOnCancellation: boolean;
   private approvalSignals = 0;
   private cancelRequested = false;
   private scope: CancellationScope | undefined;
@@ -110,6 +113,7 @@ export class OperationRun {
     this.operationId = opts.operationId;
     this.deploymentId = opts.deploymentId;
     this.leaseScope = opts.leaseScope;
+    this.preserveMutationUncertaintyOnCancellation = opts.preserveMutationUncertaintyOnCancellation ?? false;
     this.steps = opts.steps.map((step) => ({ step, status: "pending" as const }));
 
     setHandler(progressQuery, () => this.snapshot());
@@ -336,6 +340,10 @@ export class OperationRun {
   }
 
   private outcomeOf(err: unknown): Outcome {
+    if (this.preserveMutationUncertaintyOnCancellation && this.mutationStarted
+      && (isCancellation(err) || (err instanceof OperationHalt && err.status === "cancelled"))) {
+      return { status: "uncertain", error: "Cancellation stopped this repair after an apply attempt; its outcome is unconfirmed. Inspect this operation before any further write." };
+    }
     if (isCancellation(err)) {
       const partial = this.mutationStarted
         ? " Steps that change the environment had started; nothing was rolled back or destroyed and reconcile will observe the environment."

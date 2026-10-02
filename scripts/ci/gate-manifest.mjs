@@ -52,6 +52,24 @@ export const CORE_CHECKS = [
   { id: "gimbal", command: ["npm", "run", "gimbal:verify"] },
 ];
 
+const ECS_REPLICA_REPAIR_FILES = {
+  execution: "tests/execution/ecs-replica-repair.test.ts",
+  ownership: "tests/providers/aws/drivers/compute/ecs-replica-repair-read.test.ts",
+  grants: "tests/platform/ecs-replica-repair-grants.test.ts",
+  workflows: "tests/workflows/ecs-replica-repair.test.ts",
+};
+const ECS_REPLICA_REPAIR_WORKFLOW_REQUIREMENTS = [
+  ...["immutable ECS replica materialization", "raw full-environment repair plan", "existing plan/apply activity integration"]
+    .map((suite) => ({ file: ECS_REPLICA_REPAIR_FILES.execution, suite })),
+  { file: ECS_REPLICA_REPAIR_FILES.ownership, suite: "ECS replica ownership reads" },
+  { file: ECS_REPLICA_REPAIR_FILES.grants },
+  { file: ECS_REPLICA_REPAIR_FILES.workflows },
+];
+const ECS_REPLICA_REPAIR_POSTGRES_SUITES = [
+  "initial planning authority", "planning policy denial", "browser plan approval",
+  "resumed planning authority", "stricter approval policy", "immutable repair evidence",
+];
+
 export const GATE_LANES = {
   postgres: {
     files: ["tests/hosted/authority/contract", "tests/scripts/migrate-hosted-to-postgres.test.ts", "tests/agent-link/pg-contract.test.ts", "tests/agent-control/pg-contract.test.ts", "tests/db/contract/workspace-sharing.test.ts", "tests/waitlist/pg-contract.test.ts"],
@@ -71,7 +89,7 @@ export const GATE_LANES = {
     tools: { node: "22.23.3", tofu: "1.12.5" },
   },
   workflows: {
-    files: ["tests/workflows", "tests/platform", "tests/security/workflow-history.test.ts"],
+    files: ["tests/workflows", "tests/platform", "tests/security/workflow-history.test.ts", ECS_REPLICA_REPAIR_FILES.execution, ECS_REPLICA_REPAIR_FILES.ownership],
     excludeFiles: ["tests/workflows/mtls-live.test.ts"],
     env: { ZENITH_COMPOSE_TEMPORAL_MODE: "time-skipping", ZENITH_TEST_TEMPORAL_DOWNLOAD: "1", ZENITH_SEC_TEMPORAL: "1", ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REPO: "https://github.com/GODOSTROYER/zenith", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b" },
     report: ".data-ci-lane/workflows-lane.json",
@@ -79,7 +97,7 @@ export const GATE_LANES = {
     tools: { node: "22.23.3", temporal: "1.9.1" },
   },
   "platform-postgres": {
-    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts"],
+    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", ECS_REPLICA_REPAIR_FILES.grants],
     env: { ZENITH_FAST: "1" }, report: ".data-ci-lane/platform-lane.json",
     prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh"],
     tools: { node: "22.23.3", postgres: "16.15" },
@@ -103,6 +121,7 @@ export function assertionMatches(required, assertion) {
   if (!assertion || typeof assertion.fullName !== "string") return false;
   const ancestors = Array.isArray(assertion.ancestorTitles) ? assertion.ancestorTitles : [];
   if (required.suite && !ancestors.some((title) => typeof title === "string" && canonicalSuite(title) === canonicalSuite(required.suite))) return false;
+  if (required.ancestorSuite && !ancestors.some((title) => typeof title === "string" && canonicalSuite(title) === canonicalSuite(required.ancestorSuite))) return false;
   if (required.excludeSuites?.some((suite) => ancestors.includes(suite))) return false;
   if (!required.postgres) return true;
   // Prefer suite ancestry. A test title mentioning PostgreSQL cannot turn a
@@ -113,11 +132,12 @@ export function assertionMatches(required, assertion) {
 
 /** Stable IDs contain only trusted source paths and a digest of the owned suite. */
 export function requirementId(lane, required) {
-  const suffix = createHash("sha256").update(`${required.suite ?? ""}:${required.postgres ?? false}`).digest("hex").slice(0, 12);
+  const identity = `${required.suite ?? ""}:${required.postgres ?? false}${required.ancestorSuite !== undefined ? `:${required.ancestorSuite}` : ""}`;
+  const suffix = createHash("sha256").update(identity).digest("hex").slice(0, 12);
   return `${lane}:${required.file}:${suffix}`;
 }
 
-/** @typedef {Readonly<{ file: string, suite?: string, postgres?: boolean, backend?: string, id: string, excludeSuites?: readonly string[] }>} GateRequirement */
+/** @typedef {Readonly<{ file: string, suite?: string, ancestorSuite?: string, postgres?: boolean, backend?: string, id: string, excludeSuites?: readonly string[] }>} GateRequirement */
 /**
  * Backend suite identity comes from committed gate declarations, never assertions.
  * @param {string} lane
@@ -145,9 +165,11 @@ export function requirementsFor(lane, root) {
     case "workflows":
       requirements = [...testFiles(root, "tests/workflows"), ...testFiles(root, "tests/platform"), "tests/security/workflow-history.test.ts"]
         .filter((file) => !EXTERNAL_ACCEPTANCE.some((group) => group.wholeFile && group.file === file))
+        .filter((file) => !Object.values(ECS_REPLICA_REPAIR_FILES).includes(file))
         .flatMap((file) => file === "tests/platform/source-bundle.test.ts"
           ? ["source acquisition and canonical archives", "customer source bucket uploads", "GCS source upload through authorizedFetch", "live public GitHub source (opt-in network)"].map((suite) => ({ file, suite }))
           : [{ file }]);
+      requirements.push(...ECS_REPLICA_REPAIR_WORKFLOW_REQUIREMENTS);
       break;
     case "platform-postgres":
       requirements = ["tests/controlplane", "tests/capabilities", "tests/reconcile"].flatMap((directory) => testFiles(root, directory).flatMap((file) => {
@@ -158,6 +180,7 @@ export function requirementsFor(lane, root) {
         const postgresOnly = [...source.matchAll(/describe\.skipIf\(!PG_URL\)\(\s*(["'])(.*?)\1/g)].map((match) => ({ file, suite: match[2], backend: "postgres" }));
         return [...backendSuites, ...postgresOnly];
       }));
+      requirements.push(...ECS_REPLICA_REPAIR_POSTGRES_SUITES.map((suite) => ({ file: ECS_REPLICA_REPAIR_FILES.grants, suite, ancestorSuite: "replica repair authority [postgres]", postgres: true })));
       break;
     default:
       throw new Error("Unknown CI lane");

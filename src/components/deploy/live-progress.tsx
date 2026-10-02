@@ -149,12 +149,14 @@ export function DeploymentView({
     return reconcileDeployment(base, patch);
   }, [data, patch, deploymentId]);
 
+  const needsInspection = Boolean(deployment && !TERMINAL.includes(deployment.status) && deployment.error);
+
   const liveTargets = useMemo(
     () =>
-      (deployment?.steps ?? [])
+      (needsInspection ? [] : deployment?.steps ?? [])
         .filter((s) => s.status === "running" && s.targetId)
         .map((s) => s.targetId),
-    [deployment]
+    [deployment, needsInspection]
   );
 
   // Two effects on purpose. One effect with a clearing cleanup runs
@@ -193,15 +195,17 @@ export function DeploymentView({
   const running = !TERMINAL.includes(deployment.status);
   const isProd = selectedEnv?.class === "production";
   const selectedStep = deployment.steps.find((s) => s.id === selectedStepId);
-  const timeline = <><PhaseTimeline steps={deployment.steps} selectedStepId={selectedStepId ?? undefined} onSelectStep={(step: DeploymentStep) => setSelectedStepId(step.id)} /><ConnectedDetail open={Boolean(selectedStep)} onClose={() => setSelectedStepId(null)} title={selectedStep?.title ?? "Deployment step"} resourceId={selectedStep?.targetId || undefined} environment={selectedEnv?.name} context={`${simulated ? "Simulation · " : ""}Deployment ${deployment.id}`}>
-    {selectedStep && <div className="space-y-4"><dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 text-[13px]"><dt className="text-ink-mute">Phase</dt><dd className="capitalize">{selectedStep.phase}</dd><dt className="text-ink-mute">State</dt><dd className="capitalize">{selectedStep.status}</dd><dt className="text-ink-mute">Scope</dt><dd>{selectedStep.targetId ? "Selected resource" : "Whole system"}</dd></dl>{selectedStep.detail && <pre className="whitespace-pre-wrap break-words border border-line bg-bg1 p-3 font-mono text-[12px]">{selectedStep.detail}</pre>}{selectedStep.error && <Callout tone="err">{selectedStep.error}</Callout>}<p className="text-[12px] text-ink-mute">Read-only evidence from this deployment. Resource configuration is edited in System.</p></div>}
+  // Historical running steps remain inspectable without a live pulse or an
+  // assertion that their last reported state is still current.
+  const timeline = <>{needsInspection ? <section aria-label="Last reported deployment steps" className="space-y-2"><p className="text-[12px] text-ink-mute">Last reported steps. Their current state has not been confirmed.</p><ul className="space-y-1">{deployment.steps.map((step) => <li key={step.id}><button type="button" className={cx("flex w-full items-center justify-between gap-3 rounded-ctl px-2 py-1.5 text-left hover:bg-bg2", selectedStepId === step.id && "bg-bg2")} onClick={() => setSelectedStepId(step.id)}><span className="text-[13px] text-ink">{step.title}</span><span className="text-[12px] text-ink-mute">Last reported: {step.status}</span></button>{step.error && <p className="px-2 text-[12px] text-err">{step.error}</p>}</li>)}</ul></section> : <PhaseTimeline steps={deployment.steps} selectedStepId={selectedStepId ?? undefined} onSelectStep={(step: DeploymentStep) => setSelectedStepId(step.id)} />}<ConnectedDetail open={Boolean(selectedStep)} onClose={() => setSelectedStepId(null)} title={selectedStep?.title ?? "Deployment step"} resourceId={selectedStep?.targetId || undefined} environment={selectedEnv?.name} context={`${simulated ? "Simulation · " : ""}Deployment ${deployment.id}`}>
+    {selectedStep && <div className="space-y-4"><dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 text-[13px]"><dt className="text-ink-mute">Phase</dt><dd className="capitalize">{selectedStep.phase}</dd><dt className="text-ink-mute">{needsInspection ? "Last reported state" : "State"}</dt><dd className="capitalize">{selectedStep.status}</dd><dt className="text-ink-mute">Scope</dt><dd>{selectedStep.targetId ? "Selected resource" : "Whole system"}</dd></dl>{selectedStep.detail && <pre className="whitespace-pre-wrap break-words border border-line bg-bg1 p-3 font-mono text-[12px]">{selectedStep.detail}</pre>}{selectedStep.error && <Callout tone="err">{selectedStep.error}</Callout>}<p className="text-[12px] text-ink-mute">Read-only evidence from this deployment. Resource configuration is edited in System.</p></div>}
   </ConnectedDetail></>;
   const context = <div className="space-y-2 border-b border-line pb-4"><p className="text-[14px] font-medium text-ink">{deployment.changeSummary}</p><div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[12px] text-ink-mute"><span>{deployment.id}</span><span>{revisions.find((r) => r.id === deployment.revisionId)?.number ? `r${revisions.find((r) => r.id === deployment.revisionId)!.number}` : deployment.revisionId}</span><span>{fmtUsd(deployment.estCostDeltaUsd, { sign: true })}/mo estimated change</span></div></div>;
   const logs = <section className="space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-[13px] font-medium text-ink">Deployment logs</h3>{patch.logs.length > 0 && <Button size="sm" variant="ghost" onClick={() => downloadFile(`zenith-deployment-${deployment.id}.log`, patch.logs.map((line) => `${line.ts ?? ""} ${line.stream} ${line.line}`).join("\n") + "\n", "text/plain")}>Download all {patch.logs.length} lines</Button>}</div><LogViewer lines={patch.logs} height={200} label="Deployment logs" /></section>;
 
   if (deployment.status === "succeeded") return <div className="space-y-5">{simulationBadge}<SuccessPanel deployment={deployment} onAddRoute={onAddRoute} /><details className="border-t border-line pt-4" open={selectedStepId ? true : undefined}><summary className="cursor-pointer text-[13px] font-medium text-ink">Inspect completed steps and logs</summary><div className="mt-4 space-y-4">{context}{timeline}{logs}</div></details></div>;
 
-  if (deployment.status === "awaiting_approval")
+  if (deployment.status === "awaiting_approval" && !needsInspection)
     return (
       <div
         className={cx(
@@ -345,9 +349,9 @@ export function DeploymentView({
   return (
     <div className="animate-enter space-y-4">
       <div className="flex flex-wrap items-center gap-2.5">
-        <StatusDot status={running ? "running" : "idle"} />
+        <StatusDot status={needsInspection ? "idle" : running ? "running" : "idle"} />
         <h2 className="text-[15px] font-medium text-ink">
-          {deployment.status === "rolling_back" ? "Rolling back" : "Deploying"} to{" "}
+          {needsInspection ? "Deployment needs attention in" : deployment.status === "rolling_back" ? "Rolling back to" : "Deploying to"}{" "}
           {selectedEnv?.name ?? "the environment"}
         </h2>
         {isProd && <Chip tone="prod">production</Chip>}
@@ -356,7 +360,11 @@ export function DeploymentView({
           {connected ? "Live updates" : "Reconnecting updates…"}
         </span>
       </div>
-      <p role="status" className="text-[13px] text-ink-mute">{simulated && deployment.status === "verifying" ? "Running the Sandbox provider’s simulated checks." : STATUS_COPY[deployment.status]}</p>
+      <p role="status" className="text-[13px] text-ink-mute">{needsInspection ? "Showing the last reported deployment state. Read the notice below before continuing." : simulated && deployment.status === "verifying" ? "Running the Sandbox provider’s simulated checks." : STATUS_COPY[deployment.status]}</p>
+      {needsInspection && <Callout tone="warn" live="alert" title="Review this deployment">
+        <p>{deployment.error}</p>
+        {deployment.operationId && <Link className="mt-2 inline-block text-info underline" href={`/platform/operations/${encodeURIComponent(deployment.operationId)}`}>Inspect platform operation</Link>}
+      </Callout>}
       {!connected && <Callout tone="warn">Live events are reconnecting. The deployment record continues to refresh; execution may still be running.</Callout>}
       {loadError && <Callout tone="warn">The last deployment refresh failed. Showing the last available record. <Button variant="ghost" size="sm" onClick={refresh}>Refresh now</Button></Callout>}
       {context}
@@ -364,7 +372,7 @@ export function DeploymentView({
       {timeline}
       {logs}
 
-      <div className="border-t border-line pt-3">
+      {!needsInspection && <div className="border-t border-line pt-3">
         <PlanFirst
           actionId="deploy.cancel"
           input={{ deploymentId }}
@@ -373,7 +381,7 @@ export function DeploymentView({
           variant="quiet"
           onDone={refresh}
         />
-      </div>
+      </div>}
     </div>
   );
 }

@@ -29,3 +29,10 @@ export function finishUnstartedDeployment(d: Deployment, status: "failed" | "can
   setProjectedStatus(d, status, error);
 }
 export const failDeployment = (d: Deployment, error: string): void => finishUnstartedDeployment(d, "failed", error);
+
+/** An unconfirmed start must not end steps, release the writer or replace worker progress. */
+export function noteUnconfirmedDeployment(d: Deployment, error: string): void {
+  if (["succeeded", "failed", "cancelled", "rolled_back"].includes(d.status)) return;
+  d.error = error;
+  save(d.projectId);
+}

@@ -26,15 +26,16 @@
  *     commits `deployedRevisionId` / `revision.deployedTo` — and only if this
  *     deployment is still the environment's writer (compare-and-swap, as the
  *     engine does); a deployment that was superseded becomes `cancelled`;
- *   - `uncertain` has no product status: it is shown as `failed` with an error
- *     that says the outcome is unknown, never as success and never as a clean
- *     failure.
+ *   - `uncertain` retains the current nonterminal status, steps and writer
+ *     pointer, with explicit inspection guidance. The operation ledger owns
+ *     uncertainty; an unknown outcome is not a confirmed product failure.
  */
 import type { Deployment, DeploymentEvent, DeploymentStatus, DeploymentStep, Output, StepStatus } from "@/lib/domain/types";
 import { isPostgres, appendEvent, flushPendingAsync, q, readEvents, revisionManifestAsync, save, db } from "@/lib/db/store";
 import type { StepName } from "@/lib/workflows/types";
 import type { DeploymentOutcome, ProductContext, ProductPort, ProductRevision } from "./ports";
 import { safeText } from "./text";
+import { noteUnconfirmedDeployment } from "@/lib/bridge/projection";
 
 export class ProductNotFoundError extends Error {
   constructor(
@@ -278,6 +279,14 @@ export function createProductPort(options: ProductPortOptions = {}): ProductPort
         if (isTerminal(d.status)) return;
         const env = q.environment(d.environmentId);
         const message = error ? safeText(error, 1000) : undefined;
+        if (outcome === "uncertain") {
+          const uncertainty = `The outcome of this deployment is uncertain: Zenith cannot prove whether every change was applied. Inspect the platform operation before retrying or proposing another change. Nothing was retried or rolled back.${message ? ` (${message})` : ""}`;
+          if (d.error !== uncertainty) {
+            noteUnconfirmedDeployment(d, uncertainty);
+            await emit(d.id, at, { type: "log", stepId: "step-finalize", line: uncertainty, stream: "info" });
+          }
+          return;
+        }
 
         let status: DeploymentStatus;
         let finalError = message;
@@ -297,8 +306,7 @@ export function createProductPort(options: ProductPortOptions = {}): ProductPort
         } else if (outcome === "cancelled") status = "cancelled";
         else {
           status = "failed";
-          if (outcome === "uncertain") finalError = `The outcome of this deployment is uncertain: Zenith cannot prove whether every change was applied, so the environment may be partly changed. It will be observed and reconciled; nothing was retried or rolled back.${message ? ` (${message})` : ""}`;
-          else if (outcome === "expired") finalError = message ?? "No approval was recorded in time; nothing was changed.";
+          if (outcome === "expired") finalError = message ?? "No approval was recorded in time; nothing was changed.";
         }
         // Whatever never ran is skipped, as the engine does on a failed step.
         if (status !== "succeeded") {
@@ -311,6 +319,7 @@ export function createProductPort(options: ProductPortOptions = {}): ProductPort
           }
         }
         if (finalError) d.error = finalError;
+        else if (status === "succeeded") delete d.error;
         await setDeploymentStatus(d, status, at);
         releaseActive(d);
         save(d.projectId);

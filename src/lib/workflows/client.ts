@@ -63,6 +63,7 @@ export class TemporalUnavailableError extends Error {
   readonly code = "temporal_unavailable";
   constructor(message: string) {
     super(message);
+    this.name = "TemporalUnavailableError";
   }
 }
 

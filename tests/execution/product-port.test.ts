@@ -283,13 +283,51 @@ describe("commitOutcome", () => {
     expect(q.environment(ENVIRONMENT)!.activeDeploymentId).toBeUndefined();
   });
 
-  it("shows an uncertain outcome as failed with an error that says the outcome is unknown — never as success or as a clean failure", async () => {
+  it("preserves progress and the writer slot for an uncertain outcome without projecting a definitive failure", async () => {
+    await port.recordStep({ ...base, step: "plan", status: "done" });
+    await port.recordStep({ ...base, step: "apply_infrastructure", status: "running", deploymentStatus: "applying" });
+    const steps = structuredClone(deploymentNow().steps);
     await port.commitOutcome({ ...base, outcome: "uncertain", error: "The environment lease was lost during apply_infrastructure." });
     const d = deploymentNow();
-    expect(d.status).toBe("failed");
+    expect(d.status).toBe("applying");
+    expect(d.endedAt).toBeUndefined();
+    expect(d.steps).toEqual(steps);
+    expect(q.environment(ENVIRONMENT)!.activeDeploymentId).toBe(DEP);
+    expect(q.environment(ENVIRONMENT)!.deployedRevisionId).toBeUndefined();
     expect(d.error).toMatch(/outcome of this deployment is uncertain/i);
-    expect(d.error).toMatch(/nothing was retried or rolled back/);
+    expect(d.error).toMatch(/Nothing was retried or rolled back/);
+    expect(d.error).toMatch(/Inspect the platform operation/);
     expect(d.error).toMatch(/lease was lost/);
+    expect(readEvents(DEP).filter((e) => e.type === "status" && e.status === "failed")).toEqual([]);
+    const events = readEvents(DEP);
+    await port.commitOutcome({ ...base, outcome: "uncertain", error: "The environment lease was lost during apply_infrastructure." });
+    expect(readEvents(DEP)).toEqual(events);
+  });
+
+  it("uncertainty cannot clear or replace another deployment's writer slot", async () => {
+    seed({ activeDeploymentId: "dep-newer" });
+    await port.commitOutcome({ ...base, outcome: "uncertain" });
+    expect(deploymentNow().status).toBe("planning");
+    expect(deploymentNow().endedAt).toBeUndefined();
+    expect(q.environment(ENVIRONMENT)!.activeDeploymentId).toBe("dep-newer");
+  });
+
+  it("a late uncertain receipt cannot overwrite confirmed terminal success", async () => {
+    await port.commitOutcome({ ...base, outcome: "succeeded" });
+    const confirmed = structuredClone(deploymentNow());
+    const events = readEvents(DEP);
+    await port.commitOutcome({ ...base, outcome: "uncertain", error: "lost response" });
+    expect(deploymentNow()).toEqual(confirmed);
+    expect(readEvents(DEP)).toEqual(events);
+    expect(q.environment(ENVIRONMENT)!.deployedRevisionId).toBe(REV2);
+  });
+
+  it("confirmed success clears an earlier unconfirmed-start warning", async () => {
+    seed({ deployments: [deployment({ error: "Workflow start could not be confirmed. Inspect the platform operation." })] });
+    await port.commitOutcome({ ...base, outcome: "succeeded" });
+    expect(deploymentNow().status).toBe("succeeded");
+    expect(deploymentNow().error).toBeUndefined();
+    expect(q.environment(ENVIRONMENT)!.deployedRevisionId).toBe(REV2);
   });
 
   it("maps cancelled and expired", async () => {

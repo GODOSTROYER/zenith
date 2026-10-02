@@ -998,18 +998,21 @@
       "acceptance": [
         "Encrypted immutable plan artifacts work across independent workers with tenant access/integrity/expiry; sanitized PlanViews stay separate from raw sensitive data."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "in_progress",
       "evidence": [],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "PROD-WS-DURABLE-PLAN-HANDOFF",
+      "testPaths": [],
+      "followUps": [
+        "Source audit found original binary is not consumed and shared digest-file writes/unlinks race. Authenticated immutable PostgreSQL artifact handoff, original-file apply and non-destructive lifecycle are being implemented; no passing evidence claimed."
+      ]
     },
     {
       "id": "PROD-DUR-06",
@@ -1017,18 +1020,21 @@
       "acceptance": [
         "Janitor writer/unlink race closed; supported backends prove locking/encryption/versioning/restore without unsafe deletion."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "in_progress",
       "evidence": [],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "PROD-WS-DURABLE-PLAN-HANDOFF",
+      "testPaths": [],
+      "followUps": [
+        "Source audit found original binary is not consumed and shared digest-file writes/unlinks race. Authenticated immutable PostgreSQL artifact handoff, original-file apply and non-destructive lifecycle are being implemented; no passing evidence claimed."
+      ]
     },
     {
       "id": "PROD-DUR-07",
@@ -1156,6 +1162,13 @@
           "level": "contract",
           "commit": "ae0f8546aaac6cc0b6354b2eaa4590c5d22c19da",
           "result": "Root1355focused CI/browser/AWS checks0F0S plusfulltypecheck/lint/Go; frozenpurevalidators preserve commercialregion/suffix/ARN/IAMsemantics, allcredentialsruntimeclientimports remain denied. Root641 priorUI/CIchecks andrealworkflow861P0F0S prove actual action request fixtures. Maximum identifiers/stack-firstmigration/independentliveIAMproof remain separate blockers."
+        },
+        {
+          "level": "local_engine",
+          "commit": "4895569451641624b6e761aeabb0bd8c762ab1c8",
+          "testedCandidateCommit": "b46fb8a2617f59448f943088e3ed1a446a9a7c38",
+          "result": "Root independently verified combined ECS candidate: 1,232 tests passed, zero failures or skips; full typecheck/lint, five real network OpenTofu checks and Go 226 top-level plus 539 subtests passed, with three Linux-only skips on macOS. Fresh actual PostgreSQL 16.15 passed 1,422 cases and all 45 mandatory groups, including six genuine PostgreSQL grant behaviors; all 12 schema-2 bindings and separate required-execution validation passed. Fresh local kind provider 6/6 and release 1/1 passed. Owned database, cluster, containers and kubeconfig were removed. Final guide-only clarification passed 109 documentation cases and independent exact-source review. Source 4895569 merged cb33a61. This bounded recipe retains browser-human plan approval, immutable ownership/autoscaler binding, raw one-field guards and durable owned readback; original approval-time binary handoff, live AWS/IAM and broader production acceptance remain incomplete.",
+          "artifact": "docs/build/production/evidence/ecs-replica-repair/combined-root-verification.json"
         }
       ],
       "requiredEvidence": [
@@ -1481,6 +1494,13 @@
           "testedCandidateCommit": "fbfa456e0111b106f039e2800b2c276b63d01b86",
           "result": "Root448P0F0S/fulltypecheck/affectedlint/5realTOFU/Go226top+539sub0F3MacLinux-onlyS. Fresh actualPG1409P0F0S/39groups/all12schema2bindings/separate execution validation. Fresh local kind provider6P0F0S+release1P0F0S; all owned resources removed. Exact14source frame unchanged through verification, source43de51a merged d6be440. Independent review closed request-mutation gap; saved bootstrap/session/expected attributes bound and unread drift cannot claim clearance. Live repair, active finding identity across unread and full OBS acceptance remain incomplete.",
           "artifact": "docs/build/production/evidence/reconcile-context/root-verification.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "4895569451641624b6e761aeabb0bd8c762ab1c8",
+          "testedCandidateCommit": "b46fb8a2617f59448f943088e3ed1a446a9a7c38",
+          "result": "Root independently verified combined ECS candidate: 1,232 tests passed, zero failures or skips; full typecheck/lint, five real network OpenTofu checks and Go 226 top-level plus 539 subtests passed, with three Linux-only skips on macOS. Fresh actual PostgreSQL 16.15 passed 1,422 cases and all 45 mandatory groups, including six genuine PostgreSQL grant behaviors; all 12 schema-2 bindings and separate required-execution validation passed. Fresh local kind provider 6/6 and release 1/1 passed. Owned database, cluster, containers and kubeconfig were removed. Final guide-only clarification passed 109 documentation cases and independent exact-source review. Source 4895569 merged cb33a61. This bounded recipe retains browser-human plan approval, immutable ownership/autoscaler binding, raw one-field guards and durable owned readback; original approval-time binary handoff, live AWS/IAM and broader production acceptance remain incomplete.",
+          "artifact": "docs/build/production/evidence/ecs-replica-repair/combined-root-verification.json"
         }
       ],
       "requiredEvidence": [
@@ -1494,7 +1514,7 @@
         "tests/execution/verify.test.ts"
       ],
       "followUps": [
-        "Canonical HTTP/Temporal proposal integration and trusted AWS reconciliation context verified locally. ECS adapter locally verified on its isolated unmerged candidate; exact combined-source integration and remote checks still required. Durable fleet scheduling, full telemetry/diagnosis, active finding identity across unread and live remediation remain incomplete."
+        "Canonical HTTP/Temporal proposal and bounded ECS replica repair are locally integrated. Durable fleet scheduling, full telemetry/diagnosis, finding identity across unread, original approved binary handoff and live remediation remain incomplete."
       ],
       "pausedFrom": "in_progress",
       "pausedAt": "2026-10-02T07:32:03.553814+00:00",
@@ -2296,7 +2316,7 @@
         "PROD-LIFE-03"
       ],
       "branch": "ws/prod-ecs-replica-repair",
-      "state": "in_progress",
+      "state": "integrated",
       "ownedPaths": [
         "src/lib/execution/ecs-replica-repair*.ts",
         "src/lib/providers/aws/drivers/compute/ecs-replica-repair-read.ts",
@@ -2309,11 +2329,16 @@
         "related focal capability/binding/readback/workflow tests",
         "docs/platform/operations/ECS-REPLICA-REPAIR.md",
         "src/lib/resources/repair-recipes.ts,index.ts (shared pure contract)",
-        "src/lib/workflows/definitions/runtime.ts (patched recipe cancellation option only)"
+        "src/lib/workflows/definitions/runtime.ts (patched recipe cancellation option only)",
+        "scripts/ci/gate-manifest.mjs and strict report regression fixtures",
+        "docs/platform/operations/README.md",
+        "tests/docs/operator-docs.test.ts"
       ],
       "pausedFrom": "in_progress",
       "pauseHandoff": "docs/build/production/handoffs/2026-10-02/ECS-REPLICA-REPAIR.md",
-      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00",
+      "commit": "4895569451641624b6e761aeabb0bd8c762ab1c8",
+      "mergeCommit": "cb33a6176e74b218276eb1230ecaa898bccc8366"
     },
     {
       "id": "PROD-WS-INTEGRATED-CI",
@@ -2357,6 +2382,27 @@
         "tests/reconcile/observe.test.ts",
         "tests/reconcile/platform.test.ts"
       ]
+    },
+    {
+      "id": "PROD-WS-DURABLE-PLAN-HANDOFF",
+      "title": "Authenticated original plan handoff and safe artifact lifecycle",
+      "requirements": [
+        "PROD-DUR-05",
+        "PROD-DUR-06"
+      ],
+      "branch": "ws/prod-durable-plan-handoff",
+      "state": "in_progress",
+      "baseline": "cb33a6176e74b218276eb1230ecaa898bccc8366",
+      "ownedPaths": [
+        "platform migration7 and artifact repository",
+        "execution planning/apply/destroy and artifact ports",
+        "OpenTofu authenticated original-file import and execution",
+        "worker/default installation key custody and startup",
+        "strict PostgreSQL/OpenTofu/race/secrecy regressions",
+        "ADR and operator deployment instructions"
+      ],
+      "verification": "No worker heavy checks authorized; root will verify frozen candidate.",
+      "limits": "No physical pruning policy, live backend restore, recovery epoch or cloud authorization inferred."
     }
   ],
   "executionOrder": [
@@ -2534,20 +2580,27 @@
       "recordedAt": "2026-10-02T19:30:24.436656+00:00",
       "verificationArtifact": "docs/build/production/evidence/reconcile-context/root-verification.json",
       "remoteStatus": "pending new pushed run"
+    },
+    {
+      "workstream": "PROD-WS-ECS-REPLICA-REPAIR",
+      "sourceCommit": "4895569451641624b6e761aeabb0bd8c762ab1c8",
+      "mergeCommit": "cb33a6176e74b218276eb1230ecaa898bccc8366",
+      "verificationArtifact": "docs/build/production/evidence/ecs-replica-repair/combined-root-verification.json",
+      "status": "locally_verified_not_live_cloud"
     }
   ],
   "sessionState": {
     "status": "active",
     "resumedBy": "user",
-    "recordedAt": "2026-10-02T20:06:47.117716+00:00",
+    "recordedAt": "2026-10-02T20:26:58.401816+00:00",
     "sourceCheckpoint": "fbfa456e0111b106f039e2800b2c276b63d01b86",
     "lastPushedCommit": "b46fb8a2617f59448f943088e3ed1a446a9a7c38",
     "lastPushedRun": 37054646025,
     "lastPushedRunStatus": "completed_success",
     "lastGreenCommit": "b46fb8a2617f59448f943088e3ed1a446a9a7c38",
-    "activeWorkers": 2,
+    "activeWorkers": 1,
     "concurrency": "one heavy local process",
-    "next": "Finish exact ECS combined verification, fresh kind and independent final documentation review; integrate before serial actual worker images and full canonical gates. Push normally and observe new complete CI before calling later commit green. Continue durable original-plan handoff and remaining requirements.",
+    "next": "Run actual combined execution-worker images serially on Linux AMD64 and ARM64. Continue isolated source-only durable original-plan handoff. Full canonical/fresh gates and complete new pushed CI remain required.",
     "lastObservedCiSummary": "docs/build/production/ci-37054646025.md",
     "currentEcsCheck": {
       "label": "prod-ecs-combined-final-root",
@@ -2558,9 +2611,9 @@
       "lint": "passed",
       "go": "226top+539subpassed,3Linux-onlyMacskips",
       "postgres": "1422P0F0S,45groups,6genuinePGgrantcases,12matchedschema2bindings,cleanupverified",
-      "kind": "provider6/6+release1/1,0failures/skips,ownedcluster/containers/kubeconfigcleanupverified",
+      "kind": "provider6/6+release1/1,0failures/skips,ownedcleanupverified",
       "audit": "priorfrozenlock0knownfindings,0exceptions;lockbytesunchanged",
-      "integration": "unmerged; final guide clarification and independent review pending",
+      "integration": "source4895569 mergedcb33a61,finaldocs109P0F0S,independentreviewpassed",
       "failedAttempt": {
         "label": "prod-ecs-combined-root",
         "passed": 1185,
@@ -2569,7 +2622,7 @@
         "reason": "Obsolete operator-doc direct inspector literal; corrected mapping retains digest/deletion-before-repair assertions. Go did not run on failed attempt."
       }
     },
-    "lastIntegration": "d6be4404407afd02b2f2ec211c47d3e8e0dd80d5"
+    "lastIntegration": "cb33a6176e74b218276eb1230ecaa898bccc8366"
   },
   "sessionHistory": [
     {

@@ -1,0 +1,382 @@
+{
+  "recordedAt": "2026-10-02T20:26:58.400061+00:00",
+  "testedCandidateCommit": "b46fb8a2617f59448f943088e3ed1a446a9a7c38",
+  "candidateBranch": "ws/prod-ecs-replica-repair",
+  "candidateDirty": true,
+  "sourceCommit": "4895569451641624b6e761aeabb0bd8c762ab1c8",
+  "mergeCommit": "cb33a6176e74b218276eb1230ecaa898bccc8366",
+  "testedFreezeSha256": "e1c142fccac35463af33c5c2def363626d968118567da2ad0874f13c5a20e245",
+  "publicationFreezeSha256": "52b8cb26f30e08f52a51a8687ac931cf14529bcb326d1dee50beb8359a9de25b",
+  "testedFiles": [
+    {
+      "path": "docs/platform/operations/ECS-REPLICA-REPAIR.md",
+      "sha256": "e574283a7c4c36d6e4f165c702e3622bb6883a7a1e4ee7fd8f97da2ffb7a54e0"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d"
+    },
+    {
+      "path": "package.json",
+      "sha256": "d6526ae80835df230c035c707460595259b071a3573d175def2a578637e0771d"
+    },
+    {
+      "path": "src/lib/capabilities/evaluate.ts",
+      "sha256": "722da0ce5d2912163edf0f554f2044bc92ab7fcd6babbcac95874e35edeb4177"
+    },
+    {
+      "path": "src/lib/capabilities/execution.ts",
+      "sha256": "526743c6af98e8e91e2c010dd4e5ca8b67e32b2c44dc4aa5decca0a378ac7745"
+    },
+    {
+      "path": "src/lib/execution/apply.ts",
+      "sha256": "57bbbb299ebfe7bcbb1255f930fa01c3f8fb1e9a9437df7230f1ecddd534ce0e"
+    },
+    {
+      "path": "src/lib/execution/context.ts",
+      "sha256": "f604d62a52d872a3d25069851d95dbacda96142fa286027eb4d8e664f9168045"
+    },
+    {
+      "path": "src/lib/execution/ecs-replica-repair-binding.ts",
+      "sha256": "3ecac9d4ac8cc09c6d142a77eeb31fe746adb861aa04a52186ecc22a1ae7d4cd"
+    },
+    {
+      "path": "src/lib/execution/ecs-replica-repair.ts",
+      "sha256": "cde3d03fe4b60e85ceb4373576467d824f69b57a04a1b9530774371eb9e8aadb"
+    },
+    {
+      "path": "src/lib/execution/plan-evidence.ts",
+      "sha256": "f73e63ee15a381327bf0e585d9da0dbc2f4111937d154b0789b8bd07113e42d0"
+    },
+    {
+      "path": "src/lib/execution/plan.ts",
+      "sha256": "29e5265fab1661399b0dd573ce76c3635b8974dc56ac783e2c7c0a3d1c3451b9"
+    },
+    {
+      "path": "src/lib/platform/broker.ts",
+      "sha256": "d08857293e0b0f818c13c29171bd5f5a73ad299776a524035e670098e485aa21"
+    },
+    {
+      "path": "src/lib/providers/aws/drivers/compute/ecs-replica-repair-read.ts",
+      "sha256": "4cacd25f5413342aae71cfc8e31470aaf59e9ef14ce0408a0eda763847088768"
+    },
+    {
+      "path": "src/lib/workflows/definitions/dayTwo.ts",
+      "sha256": "bbc9b74b512b15c1cf4efb28f8c216cab026bae5369eeec4907482daba9a60f5"
+    },
+    {
+      "path": "src/lib/workflows/definitions/ecsReplicaRepair.ts",
+      "sha256": "4873ddf650d7932068243734b3c1e93c8d5169629c1a6e35867d7bb2ac1dff4a"
+    },
+    {
+      "path": "src/lib/workflows/definitions/runtime.ts",
+      "sha256": "b5ab7e8164cc960727a799713275df68a8c0b8b7c93e1967804c3357ce80af9a"
+    },
+    {
+      "path": "tests/execution/ecs-replica-repair.test.ts",
+      "sha256": "aedefc3bfc5d237c4a85058378486b72c28d2bd790a04bfa38bca3f3493c5986"
+    },
+    {
+      "path": "tests/platform/ecs-replica-repair-grants.test.ts",
+      "sha256": "7ed39ebbd9475b419999bea6ff2f2a8f3a0288d0b3c101320221528e62d59ee3"
+    },
+    {
+      "path": "tests/providers/aws/drivers/compute/ecs-replica-repair-read.test.ts",
+      "sha256": "0b0d2d3cf1b4364af15011eb0232d348e70d00f444bf89ef6bbacef68533d67b"
+    },
+    {
+      "path": "tests/workflows/ecs-replica-repair.test.ts",
+      "sha256": "901afd58c12294ed00fa7e4620e17d0d8a4f4704df4faf6de26f32e8ceacc5ee"
+    },
+    {
+      "path": "tests/workflows/fixtures/ecs-replica-cancellation.ts",
+      "sha256": "060da87e045d2dbefe9010c6e7affbd7d41e18e6f10515060ccba59685ea75a2"
+    },
+    {
+      "path": "tests/workflows/fixtures/legacy-day-two.ts",
+      "sha256": "67b16d0f51a0389f61767c2dc05fcd915c72b3c8d3df493ab99f77a908d2d9e0"
+    },
+    {
+      "path": "scripts/ci/gate-manifest.mjs",
+      "sha256": "16c388f6f0a9e6df26aed2c13d13d831e3246eb4f283ceb6e1aee4898e1532e6"
+    },
+    {
+      "path": "tests/ci/gate-manifest.test.ts",
+      "sha256": "8ccac3a90536ee4800e5a34ddc328f89ee38fb0081dd77af39a3ceb6b97c02e7"
+    },
+    {
+      "path": "tests/ci/assert-lane-report.test.ts",
+      "sha256": "0a93af14c8b2f289e818abed2d98a6adebed2ef562e84d45e742e9e2105f7c8a"
+    },
+    {
+      "path": "tests/ci/evidence-sanitizer.test.ts",
+      "sha256": "a7d7f2158ca4e6ae42c3a3f586671449a8f57ea0e72d10ed0d391a3308387ea1"
+    },
+    {
+      "path": "docs/platform/operations/README.md",
+      "sha256": "2203c594dbbf000565fcaad9033e371121a450c6f215f04f0be5c9a1f1b3e365"
+    },
+    {
+      "path": "tests/docs/operator-docs.test.ts",
+      "sha256": "0a86fd92af450c76677fc9624b887d01fcc1af977561d4928cac734bc7ebb7f0"
+    }
+  ],
+  "publishedFiles": [
+    {
+      "path": "docs/platform/operations/ECS-REPLICA-REPAIR.md",
+      "sha256": "7a672ad7768ae9f1b9269d7e0ce6af82fa92bf174504504b93acd9bd734a726a"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d"
+    },
+    {
+      "path": "package.json",
+      "sha256": "d6526ae80835df230c035c707460595259b071a3573d175def2a578637e0771d"
+    },
+    {
+      "path": "src/lib/capabilities/evaluate.ts",
+      "sha256": "722da0ce5d2912163edf0f554f2044bc92ab7fcd6babbcac95874e35edeb4177"
+    },
+    {
+      "path": "src/lib/capabilities/execution.ts",
+      "sha256": "526743c6af98e8e91e2c010dd4e5ca8b67e32b2c44dc4aa5decca0a378ac7745"
+    },
+    {
+      "path": "src/lib/execution/apply.ts",
+      "sha256": "57bbbb299ebfe7bcbb1255f930fa01c3f8fb1e9a9437df7230f1ecddd534ce0e"
+    },
+    {
+      "path": "src/lib/execution/context.ts",
+      "sha256": "f604d62a52d872a3d25069851d95dbacda96142fa286027eb4d8e664f9168045"
+    },
+    {
+      "path": "src/lib/execution/ecs-replica-repair-binding.ts",
+      "sha256": "3ecac9d4ac8cc09c6d142a77eeb31fe746adb861aa04a52186ecc22a1ae7d4cd"
+    },
+    {
+      "path": "src/lib/execution/ecs-replica-repair.ts",
+      "sha256": "cde3d03fe4b60e85ceb4373576467d824f69b57a04a1b9530774371eb9e8aadb"
+    },
+    {
+      "path": "src/lib/execution/plan-evidence.ts",
+      "sha256": "f73e63ee15a381327bf0e585d9da0dbc2f4111937d154b0789b8bd07113e42d0"
+    },
+    {
+      "path": "src/lib/execution/plan.ts",
+      "sha256": "29e5265fab1661399b0dd573ce76c3635b8974dc56ac783e2c7c0a3d1c3451b9"
+    },
+    {
+      "path": "src/lib/platform/broker.ts",
+      "sha256": "d08857293e0b0f818c13c29171bd5f5a73ad299776a524035e670098e485aa21"
+    },
+    {
+      "path": "src/lib/providers/aws/drivers/compute/ecs-replica-repair-read.ts",
+      "sha256": "4cacd25f5413342aae71cfc8e31470aaf59e9ef14ce0408a0eda763847088768"
+    },
+    {
+      "path": "src/lib/workflows/definitions/dayTwo.ts",
+      "sha256": "bbc9b74b512b15c1cf4efb28f8c216cab026bae5369eeec4907482daba9a60f5"
+    },
+    {
+      "path": "src/lib/workflows/definitions/ecsReplicaRepair.ts",
+      "sha256": "4873ddf650d7932068243734b3c1e93c8d5169629c1a6e35867d7bb2ac1dff4a"
+    },
+    {
+      "path": "src/lib/workflows/definitions/runtime.ts",
+      "sha256": "b5ab7e8164cc960727a799713275df68a8c0b8b7c93e1967804c3357ce80af9a"
+    },
+    {
+      "path": "tests/execution/ecs-replica-repair.test.ts",
+      "sha256": "aedefc3bfc5d237c4a85058378486b72c28d2bd790a04bfa38bca3f3493c5986"
+    },
+    {
+      "path": "tests/platform/ecs-replica-repair-grants.test.ts",
+      "sha256": "7ed39ebbd9475b419999bea6ff2f2a8f3a0288d0b3c101320221528e62d59ee3"
+    },
+    {
+      "path": "tests/providers/aws/drivers/compute/ecs-replica-repair-read.test.ts",
+      "sha256": "0b0d2d3cf1b4364af15011eb0232d348e70d00f444bf89ef6bbacef68533d67b"
+    },
+    {
+      "path": "tests/workflows/ecs-replica-repair.test.ts",
+      "sha256": "901afd58c12294ed00fa7e4620e17d0d8a4f4704df4faf6de26f32e8ceacc5ee"
+    },
+    {
+      "path": "tests/workflows/fixtures/ecs-replica-cancellation.ts",
+      "sha256": "060da87e045d2dbefe9010c6e7affbd7d41e18e6f10515060ccba59685ea75a2"
+    },
+    {
+      "path": "tests/workflows/fixtures/legacy-day-two.ts",
+      "sha256": "67b16d0f51a0389f61767c2dc05fcd915c72b3c8d3df493ab99f77a908d2d9e0"
+    },
+    {
+      "path": "scripts/ci/gate-manifest.mjs",
+      "sha256": "16c388f6f0a9e6df26aed2c13d13d831e3246eb4f283ceb6e1aee4898e1532e6"
+    },
+    {
+      "path": "tests/ci/gate-manifest.test.ts",
+      "sha256": "8ccac3a90536ee4800e5a34ddc328f89ee38fb0081dd77af39a3ceb6b97c02e7"
+    },
+    {
+      "path": "tests/ci/assert-lane-report.test.ts",
+      "sha256": "0a93af14c8b2f289e818abed2d98a6adebed2ef562e84d45e742e9e2105f7c8a"
+    },
+    {
+      "path": "tests/ci/evidence-sanitizer.test.ts",
+      "sha256": "a7d7f2158ca4e6ae42c3a3f586671449a8f57ea0e72d10ed0d391a3308387ea1"
+    },
+    {
+      "path": "docs/platform/operations/README.md",
+      "sha256": "2203c594dbbf000565fcaad9033e371121a450c6f215f04f0be5c9a1f1b3e365"
+    },
+    {
+      "path": "tests/docs/operator-docs.test.ts",
+      "sha256": "0a86fd92af450c76677fc9624b887d01fcc1af977561d4928cac734bc7ebb7f0"
+    }
+  ],
+  "finalDocumentationOnlyChange": "ECS guide adds exact completed combined scope and clarifies regenerated digest-matching saved file versus incomplete original approval-time binary handoff. All other27 files stayed identical. Root final docs109P0F0S and independent final source review passed.",
+  "checks": [
+    {
+      "name": "diff-check",
+      "exitCode": 0,
+      "seconds": 0.0
+    },
+    {
+      "name": "tsc",
+      "exitCode": 0,
+      "seconds": 10.3
+    },
+    {
+      "name": "eslint",
+      "exitCode": 0,
+      "seconds": 2.6
+    },
+    {
+      "name": "vitest",
+      "exitCode": 0,
+      "seconds": 140.0
+    },
+    {
+      "name": "gofmt",
+      "exitCode": 0,
+      "seconds": 0.1
+    },
+    {
+      "name": "go-vet",
+      "exitCode": 0,
+      "seconds": 0.5
+    },
+    {
+      "name": "go-test",
+      "exitCode": 0,
+      "seconds": 0.3
+    }
+  ],
+  "vitest": {
+    "passed": 1232,
+    "failed": 0,
+    "skipped": 0,
+    "actualNetworkOpenTofuCases": 5
+  },
+  "go": {
+    "passedTopLevel": 226,
+    "passedSubtests": 539,
+    "failed": 0,
+    "skippedLinuxOnlyOnMac": 3,
+    "race": "Focused helper did not request race; separate full release gate."
+  },
+  "postgres": {
+    "counts": {
+      "total": 1422,
+      "passed": 1422,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0
+    },
+    "requiredGroups": 45,
+    "genuinePostgresGrantBehaviors": 6,
+    "grantFileCases": 13,
+    "schema2ReceiptBindings": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true,
+      "environmentInventoryIntegrity": true
+    },
+    "separateRequiredExecutionValidation": true,
+    "cleanup": {
+      "container": "zenith-prod-pg-faf79529",
+      "ownershipVerified": true,
+      "removed": true,
+      "absenceVerified": true
+    },
+    "artifact": "docs/build/production/evidence/engine-acceptance/platform-postgres-ecs-repair-combined.json"
+  },
+  "kind": {
+    "provider": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0
+    },
+    "release": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "cleanup": {
+      "deleteSucceeded": true,
+      "clusterAbsent": true,
+      "ownedContainersAbsent": true,
+      "kubeconfigRemoved": true
+    },
+    "artifact": "docs/build/production/evidence/local-kind/ecs-replica-repair-combined.json"
+  },
+  "finalGuideCheck": {
+    "exitCode": 0,
+    "seconds": 10.99,
+    "counts": {
+      "numTotalTests": 109,
+      "numPassedTests": 109,
+      "numFailedTests": 0,
+      "numPendingTests": 0
+    },
+    "freezeReceiptSha256": "52b8cb26f30e08f52a51a8687ac931cf14529bcb326d1dee50beb8359a9de25b",
+    "filesUnchanged": true
+  },
+  "completeLockAudit": {
+    "knownFindings": 0,
+    "exceptions": 0,
+    "scope": "Prior independently audited frozen26 lockfile remains byte-identical in tested and published28 source. Updated Linux image proof remains pending."
+  },
+  "independentReview": {
+    "receiptSha256": "0c11dcb628fc423ebf1e5093f6472c1085a615541e8d870b90ba5d29d67e931b",
+    "scope": "Exact28 source and final guide-only review; root executes gates separately."
+  },
+  "failedCombinedAttempt": {
+    "passed": 1185,
+    "failed": 1,
+    "skipped": 0,
+    "typecheck": "passed",
+    "lint": "passed",
+    "go": "not_run",
+    "reason": "Obsolete operator-doc direct-inspector literal. Correction retains approved-digest-before-inspection and deletion-before-repair assertions. Existing actual deletion/runner regressions were included in successful rerun."
+  },
+  "limitations": [
+    "Local SDK/saved-plan contracts use scripted AWS responses; local Temporal orchestration uses scripted activities. Genuine PostgreSQL validates SQL, signer and browser approval authority with synthetic plans/policy. No live AWS mutation or independent live IAM proof.",
+    "Existing broad deploy IAM is constrained by software and exact replica-only plan checks; provider external writers can race final reads.",
+    "Engine regenerates a matching full-environment plan and applies its exact newly generated saved file; original approval-time binary and durable cross-worker handoff are incomplete.",
+    "No durable outbox/recovery epoch/operator continuation, blind-retry authorization or distributed atomicity proof.",
+    "Local kind evidence establishes neither managed CNI/NetworkPolicy nor StatefulSet recovery.",
+    "Current whole pushed CI, packaged Linux images and wider production acceptance remain required."
+  ]
+}

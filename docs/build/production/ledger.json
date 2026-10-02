@@ -248,6 +248,12 @@
           "result": "Observed terminal failure:9 successful jobs,5 failed receipt validators. Five real-engine commands passed with observed exit0 and zero skips:postgres251,platform-postgres1324,policy238,tofu3861,workflows861. Only effective environment binding differed; all other receipt checks matched. Full unit job15950P0F384S; remote baseline remains red.",
           "artifact": "docs/build/production/ci-36961474315.md",
           "executionReceiptComplete": false
+        },
+        {
+          "level": "contract",
+          "commit": "4d3ed078ab49310c89f97913170c8674f43331b0",
+          "testedCandidateCommit": "8cba8037d1925c78bf8f691fe3704dc6c0ad958b",
+          "result": "Root independently verified499affectedCI/AWSchecks,0failed,0skipped,including5actualnetwork-gatedOpenTofuchecks;fulltypecheck/lint/Go226top+539sub,0failed,3MacLinux-onlyskips. Realcanonicalpolicy238P0F0Srunandmandatoryrevalidatepasswithobservedexit0/schema2/matchedprivateinventory. Independentreviewclosedmissinginventoryproofandnonregular/unboundedreaderdefects. Strictv1originoutcomespreservedwithoutnewauthority. Noexclusionsadded;remotechangingkeyunmeasured. Allprogrammanifest/caseidentityremainsincomplete."
         }
       ],
       "requiredEvidence": [
@@ -417,6 +423,15 @@
           "result": "Actual fresh native ARM64 execution-worker derivative image built. Three secret/schema/signer refusal checks passed and real PostgreSQL migrations1through6 applied. Worker readiness failed; Temporal polling/operation/shutdown unproved. Every created resource and private input removed. Candidate is not merged.",
           "logs": "/Users/saivedanthava/.codex/zenith-production/logs/prod-packaged-worker-arm64.json",
           "passed": false
+        },
+        {
+          "level": "local_linux_arm64",
+          "commit": "1cfedd4a036f939df56e747f678a46e900dda63f",
+          "dirtyCandidate": true,
+          "sourceInputSha256": "29f6cddcd2e29cb9eab7d64bfe8b1e9506530fbdf06d9ed878072ce6de4d116e",
+          "result": "NativefreshARM64actualworkerharnesspassesafterTemporalownedhomedata/readinessfix. PlatformPostgresmigrations1through6,signer/policyloading,realTemporalpolling,emptyreconcile,signedreadexpectedno-targetrefusal,uid/SSM/TOFU/assets,readiness/liveness,dependencyoutages/recovery,planretentionsentinelsandidleSIGTERMdrainpass. Allownedresourcesremoved. Productfilestorefixture/devTemporal; nocloudwrites/browserapproval/executableplanhandoff/inflightmutationdrain. Candidateunmerged;newcombinedsourceandAMD64proofpending.",
+          "logs": "/Users/saivedanthava/.codex/zenith-production/logs/prod-packaged-worker-arm64-retry.json",
+          "passed": true
         }
       ],
       "requiredEvidence": [
@@ -447,6 +462,15 @@
           "result": "Actual fresh native ARM64 execution-worker derivative image built. Three secret/schema/signer refusal checks passed and real PostgreSQL migrations1through6 applied. Worker readiness failed; Temporal polling/operation/shutdown unproved. Every created resource and private input removed. Candidate is not merged.",
           "logs": "/Users/saivedanthava/.codex/zenith-production/logs/prod-packaged-worker-arm64.json",
           "passed": false
+        },
+        {
+          "level": "local_linux_arm64",
+          "commit": "1cfedd4a036f939df56e747f678a46e900dda63f",
+          "dirtyCandidate": true,
+          "sourceInputSha256": "29f6cddcd2e29cb9eab7d64bfe8b1e9506530fbdf06d9ed878072ce6de4d116e",
+          "result": "NativefreshARM64actualworkerharnesspassesafterTemporalownedhomedata/readinessfix. PlatformPostgresmigrations1through6,signer/policyloading,realTemporalpolling,emptyreconcile,signedreadexpectedno-targetrefusal,uid/SSM/TOFU/assets,readiness/liveness,dependencyoutages/recovery,planretentionsentinelsandidleSIGTERMdrainpass. Allownedresourcesremoved. Productfilestorefixture/devTemporal; nocloudwrites/browserapproval/executableplanhandoff/inflightmutationdrain. Candidateunmerged;newcombinedsourceandAMD64proofpending.",
+          "logs": "/Users/saivedanthava/.codex/zenith-production/logs/prod-packaged-worker-arm64-retry.json",
+          "passed": true
         }
       ],
       "requiredEvidence": [
@@ -915,13 +939,32 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "in_progress",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "b0ebac7708c7b5cc3e495ad33c26b512fdd697f2",
+          "result": "Root883P0F2explicitgatedS;fulltypecheck/lint/Go pass. CanonicalsavedconnectionNameSuffixpropagatesintosixfamilyARNs,compile/plan/destroy/readback;fullARNverificationrejectswrongaccount/path/partitionandmissingcontext. Commercialregistrationonly;purethreepartitionrenderingdoesnotenable sovereignexecution. RealbuiltinOpenTofuapproveddeletionguard1P0F0S."
+        },
+        {
+          "level": "local_engine",
+          "commit": "b0ebac7708c7b5cc3e495ad33c26b512fdd697f2",
+          "result": "FreshPostgreSQL16.15canonicalplatformsuite1324P0F0S,includinggateddestroyreview;mandatoryrevalidationpasses. Owneddatabase deleted."
+        },
+        {
+          "level": "local_cluster",
+          "commit": "b0ebac7708c7b5cc3e495ad33c26b512fdd697f2",
+          "result": "Freshlocal kindclusterprovider6P0F0S andrelease1P0F0S. Dedicatedkubeconfigasserted;publicdigest-pinnedARM64image loaded. Clusterandkubeconfigdeleted. Notlivecloud,StatefulSetorCNIisolationproof."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
       "owner": "PROD-WS-AWS-SUFFIX",
-      "testPaths": []
+      "testPaths": [],
+      "operatorBlockers": [
+        "Stack-first boundary migration/preflight and independent live IAM permission validation remain required; dedicated account/budget authorization requested and pending."
+      ]
     },
     {
       "id": "PROD-LIFE-04",

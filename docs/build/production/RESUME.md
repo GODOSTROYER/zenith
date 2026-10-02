@@ -51,12 +51,18 @@ exit0 receipts; later validators rejected only the effective environment hash.
 All other bindings matched. Full unit job15950P0F384S, build, Docker and the
 mandatory zero-finding audit passed. See `ci-36961474315.md`. Measure the
 changing runner key before excluding any additional transport metadata.
+Private diagnostics `4d3ed07` are integrated by `e56088c`; root499checks,
+fulltypecheck/lint/Go and actual policy238/238 with mandatory schema2 receipt
+revalidation pass. Source review closed inventory-proof and bounded-reader
+defects. Exact old schema1 origins survive, but cannot pass new authority.
 
 Immediate next steps: review and verify private environment diagnostics,
 push normally, diagnose measured drift and observe every new CI job. The
 first fresh native ARM64 worker image built and passed three startup refusals
 and migrations1through6, but actual readiness failed. Owned resources were
-deleted. Repair Temporal volume ownership/readiness, rerun ARM64, then AMD64
+deleted. Corrected Temporal storage/readiness retry passed actual polling,
+signed read refusal, empty reconcile, assets, dependency recovery and idle
+shutdown; resources deleted. Repeat on newly combined source, then AMD64
 serially. Preserve native versus emulated evidence. Candidate worktree:
 `/Users/saivedanthava/.codex/zenith-production/worktrees/worker-startup`.
 Dependency remediation `d8e457fd5add185cc9df13f8bee38076e1c1d53f` is
@@ -70,9 +76,10 @@ Installation configuration `a9fea8968d41e4639d4c2566eb238cec74ef957a` is
 integrated by `d697c4ef63b2ed64bd02e129315c2a35ae6a2829`. Root62contract
 tests and both real Compose config parses pass; no services started. API
 startup and dedicated AWS sandbox details were requested; both remain pending.
-AWS suffix propagation root checks883P0F2gatedS, fulltypecheck/lint/Go and
-fresh platformPostgres1324P0F0S pass; remaining real deletion/kind checks and
-integration pending. Retain stack-first/live IAM permission blockers.
+AWS suffix propagation `b0ebac7` is integrated by `8cba803`. Root checks
+883P0F2gatedS, fulltypecheck/lint/Go, fresh platformPostgres1324P0F0S, real
+approved deletion1/1 and fresh kindprovider6/6+release1/1 pass. All owned
+dependencies removed. Retain stack-first/live IAM permission blockers.
 `ws/prod-start-uncertainty` repairs actual Temporal error classification and
 competing product projections; durable outbox/recovery remains separate work.
 

@@ -504,6 +504,14 @@
           "result": "Observed green pushed baseline at exact b46fb8a: all 14 jobs passed. Unit suites passed 16,301 tests with zero failures and 388 skips; generated checks passed 109 with zero failures or skips. Smoke and Gimbal ran and passed. Canonical postgres 251, platform-postgres 1,409, policy 238, OpenTofu 3,874 and workflows 870 all passed with zero failures, skips or unknown cases. All 9/39/7/27/38 mandatory groups and 12 schema-2 receipt bindings matched, with observed exit 0. Exact source, runtime, gate, lock and manifest hashes were independently reviewed. Complete locked audit reported zero known findings. Go race output recorded 11 passing packages and six without tests; individual Go case counts were not emitted. TypeScript interop passed 19 cases. This evidence excludes later ECS source and wider external release gates.",
           "artifact": "docs/build/production/ci-37054646025.md",
           "executionReceiptComplete": true
+        },
+        {
+          "level": "remote_ci",
+          "commit": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
+          "runId": 37060964289,
+          "result": "Observed terminal failure:12 successful jobs and2failed (Verify and Workflows), both strict sandbox filename inventory omits ecsReplicaRepair.ts. Unit16418P1F399S; workflows973P1F0S with failed observedexit1 and44groups unverified. Othercanonical lanes postgres251/platformPG1422/policy238/tofu3900 pass0F0S. Allfiveartifacts match exactcommit/gates/lock and12schema2bindings; root independently re-downloaded each archive and matched GitHub digests and published bytes. Generated109P0F0S; Smoke/Gimbal skipped; Go11racepackages pass plus19TSinterop; completeaudit0. Failed result remains preserved.",
+          "artifact": "docs/build/production/ci-37060964289.md",
+          "executionReceiptComplete": true
         }
       ],
       "requiredEvidence": [
@@ -563,6 +571,15 @@
           "commit": "bbf50fcfb0f4a785fde1ed9f103399bd147d1d76",
           "result": "Root fresh disposablekind provider6P0F0S/release1P0F0S; exact pinned release image loaded, cluster/ownedcontainers removed and kubeconfig deleted. Tested provenance dde1298 plus worker candidate; this guards shared managed/Kubernetes behavior and does not prove packaged runtime startup.",
           "artifact": "docs/build/production/evidence/local-kind/packaged-worker.json"
+        },
+        {
+          "level": "local_linux_amd64",
+          "commit": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
+          "dirtyCandidate": false,
+          "sourceInputSha256": "ee02415913c26f13ee5e51b9121a096918d280b8c4d4a3d55240d8ce36046222",
+          "result": "Fresh clean-source AMD64 execution-worker derivative image built under ARM64 emulation. Actual missing-schema refusal passed. Invalid secret exited1 non-OOM with module-load category instead of required configuration; strict startup-refusal gate failed. Signer refusal, normal startup/polling/operations/shutdown not reached. Allnineownedresources and privateinputs removed with ownership and absence checks. Failed attempt preserved.",
+          "artifact": "docs/build/production/evidence/packaged-worker/amd64-482f8b6-failed.json",
+          "passed": false
         }
       ],
       "requiredEvidence": [
@@ -621,6 +638,15 @@
           "commit": "bbf50fcfb0f4a785fde1ed9f103399bd147d1d76",
           "result": "Root120P0F0S,fulltypecheck/affectedlint/actualnetworkOpenTofu/Go226top+539subP0F3MacLinux-onlyS pass. Independent review fixes outside-source canonical temporary secret admission, complete COPY-input hash, bounded secret-free evidence version/image admission, detached real exit1 refusal and label/absence cleanup. One initial fixture-only JSON concatenation failed3tests and is retained; corrected separate-line canary keeps refusal assertion exact. Ten owned source paths committed unchangedbbf50fc, merged e2a5c4f. Actual fresh perarchitecture image runs remain pending; source hashing explicitly live-context/nonimmutable.",
           "artifact": "docs/platform/EXECUTION-WORKER.md"
+        },
+        {
+          "level": "local_linux_amd64",
+          "commit": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
+          "dirtyCandidate": false,
+          "sourceInputSha256": "ee02415913c26f13ee5e51b9121a096918d280b8c4d4a3d55240d8ce36046222",
+          "result": "Fresh clean-source AMD64 execution-worker derivative image built under ARM64 emulation. Actual missing-schema refusal passed. Invalid secret exited1 non-OOM with module-load category instead of required configuration; strict startup-refusal gate failed. Signer refusal, normal startup/polling/operations/shutdown not reached. Allnineownedresources and privateinputs removed with ownership and absence checks. Failed attempt preserved.",
+          "artifact": "docs/build/production/evidence/packaged-worker/amd64-482f8b6-failed.json",
+          "passed": false
         }
       ],
       "requiredEvidence": [
@@ -2403,6 +2429,24 @@
       ],
       "verification": "No worker heavy checks authorized; root will verify frozen candidate.",
       "limits": "No physical pruning policy, live backend restore, recovery epoch or cloud authorization inferred."
+    },
+    {
+      "id": "PROD-WS-STARTUP-CI-FIX",
+      "title": "Strict workflow inventory and early worker configuration admission",
+      "requirements": [
+        "PROD-CI-09",
+        "PROD-PKG-01",
+        "PROD-PKG-02"
+      ],
+      "branch": "ws/prod-worker-startup",
+      "state": "in_progress",
+      "baseline": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
+      "ownedPaths": [
+        "tests/workflows/sandbox.test.ts",
+        "workers/execution/entrypoint.ts",
+        "tests/workflows/worker.test.ts"
+      ],
+      "verification": "Root full typecheck, affected lint, actual Temporal touched suites, strict refusal harness, real OpenTofu and Go in progress; no packaged startup pass claimed."
     }
   ],
   "executionOrder": [
@@ -2592,16 +2636,16 @@
   "sessionState": {
     "status": "active",
     "resumedBy": "user",
-    "recordedAt": "2026-10-02T20:26:58.401816+00:00",
+    "recordedAt": "2026-10-02T21:03:40.304063+00:00",
     "sourceCheckpoint": "fbfa456e0111b106f039e2800b2c276b63d01b86",
-    "lastPushedCommit": "b46fb8a2617f59448f943088e3ed1a446a9a7c38",
-    "lastPushedRun": 37054646025,
-    "lastPushedRunStatus": "completed_success",
+    "lastPushedCommit": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
+    "lastPushedRun": 37060964289,
+    "lastPushedRunStatus": "failure",
     "lastGreenCommit": "b46fb8a2617f59448f943088e3ed1a446a9a7c38",
-    "activeWorkers": 1,
+    "activeWorkers": 3,
     "concurrency": "one heavy local process",
-    "next": "Run actual combined execution-worker images serially on Linux AMD64 and ARM64. Continue isolated source-only durable original-plan handoff. Full canonical/fresh gates and complete new pushed CI remain required.",
-    "lastObservedCiSummary": "docs/build/production/ci-37054646025.md",
+    "next": "Correct workflow sandbox filename expectation found by remote CI and packaged startup classification. Continue durable original-plan custody source work; full independent gates and exact pushed CI remain required.",
+    "lastObservedCiSummary": "docs/build/production/ci-37060964289.md",
     "currentEcsCheck": {
       "label": "prod-ecs-combined-final-root",
       "passed": 1232,
@@ -2622,7 +2666,27 @@
         "reason": "Obsolete operator-doc direct inspector literal; corrected mapping retains digest/deletion-before-repair assertions. Go did not run on failed attempt."
       }
     },
-    "lastIntegration": "cb33a6176e74b218276eb1230ecaa898bccc8366"
+    "lastIntegration": "cb33a6176e74b218276eb1230ecaa898bccc8366",
+    "currentPackagedCheck": {
+      "label": "prod-packaged-ecs-combined-amd64-root",
+      "commit": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
+      "platform": "linux/amd64",
+      "emulatedOnHost": "linux/arm64",
+      "status": "failed",
+      "next": "Diagnose and fix early configuration classification; preserve strict refusal check, then run both architectures serially.",
+      "failurePhase": "startup-refusals",
+      "reason": "Invalid secret produced module-load rather than required configuration refusal; exit 1, non-OOM. Missing-schema refusal passed. Startup, operations and shutdown not reached.",
+      "cleanup": "All nine owned resources removed with ownership and absence verification.",
+      "privateEvidence": "prod-packaged-ecs-combined-amd64-root-evidence.json"
+    },
+    "currentCiFailure": {
+      "runId": 37060964289,
+      "jobs": "12 passed, 2 failed, 14 terminal",
+      "unit": "16418P1F399S",
+      "workflows": "973P1F0S, observed exit1, all44mandatory groups unverified",
+      "cause": "Strict workflow filename list omits ecsReplicaRepair.ts. Smoke and Gimbal skipped.",
+      "correction": "Frozen source-only three-file startup/sandbox candidate undergoing root verification."
+    }
   },
   "sessionHistory": [
     {

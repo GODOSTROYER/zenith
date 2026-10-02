@@ -18,6 +18,7 @@ The existing engine regenerates a semantic-digest-matching plan and applies that
 - Use a dedicated artifact keyring and artifact-domain authenticated data. Reuse the existing VaultCipher implementation; never silently share vault keys or duplicate encryption code. Previous keys are decrypt-only. Plaintext is worker callback data, never evidence, operation JSON, Temporal results, logs or URLs.
 - Another worker retrieves the scoped original, authenticates its provenance and bytes, performs separate fresh semantic, ownership, policy, human approval and fence checks, then applies the original private exclusive file with state locking. Refuse stale originals and incompatible context without a fresh-file fallback.
 - Record a durable use attempt and dispatch boundary. Lost responses or crashes after dispatch preserve uncertainty and block automatic replay. A fence cannot undo an accepted provider call.
+- Preserve the original teardown review artifact through a separate immutable association with the later destroy proposal. The planning source operation already has a live execution claim; no unclaimed approval-wait exception is allowed. Bind the destination's exact immutable broker source reference, digests and scope without copying or reattesting binary bytes. Destination dispatch requires its own live claim plus successful source completion and authenticated association. An approval that wins the association window blocks execution; never cancel an already-approved proposal.
 - Remove canonical shared digest-file overwrite/unlink paths. Maintenance is logical expiry only. No ciphertext purge, legacy-file deletion or new retention policy is authorized.
 - Production composition requires PostgreSQL, the canonical schema, usable artifact keys and executable identity before polling. Explicit isolated test adapters are distinct from production and from cross-worker evidence. Missing old-plan provenance requires new review; local files cannot be retroactively attested.
 - Cover deploy and IaC destroy, default worker/installation custody, safe migration/drain and recovery limitations. The matching executable hash is distinct from independent distribution attestation. Existing packaged archives have verified checksums; preserve that build boundary.
@@ -30,8 +31,10 @@ Primary references checked by the lead: [OpenTofu 1.12 plan](https://opentofu.or
 src/lib/controlplane/db/migrations/0007_plan_artifacts.ts
 src/lib/controlplane/db/migrations/index.ts
 src/lib/controlplane/db/repos/plan-artifacts.ts
+src/lib/controlplane/db/repos/operations.ts (fence-before-operation claim ordering only)
 src/lib/controlplane/db/repos/index.ts
 src/lib/controlplane/types.ts
+src/lib/capabilities/destroy-review.ts (immutable source-original association only)
 supabase/migrations/0014_platform_core.sql (generated only)
 src/lib/platform/plan-artifacts.ts
 src/lib/platform/execution.ts
@@ -48,16 +51,19 @@ src/lib/tofu/binary.ts
 workers/execution/startup.ts
 workers/execution/worker.ts
 scripts/ci/gate-manifest.mjs
+.github/workflows/ci.yml (platform-postgres pinned OpenTofu and mandatory combined handoff lane only)
 scripts/acceptance/packaged-worker.mjs
 scripts/deploy/installation.mjs
 docker/worker.Dockerfile
 deploy/self-hosted/compose.yml
 tests/controlplane/plan-artifacts.test.ts
+tests/controlplane/operations.test.ts (real PostgreSQL claim/fence ordering regression)
 tests/controlplane/migrations.test.ts
 tests/tofu/plan-artifact-handoff.test.ts
 tests/execution/plan.test.ts
 tests/execution/apply.test.ts
 tests/execution/destroy.test.ts
+tests/execution/destroy-review.test.ts (original association and approval race regressions)
 tests/execution/fakes/tofu.ts
 tests/execution/fakes/world.ts
 tests/workers/plan-janitor.test.ts

@@ -1,0 +1,372 @@
+{
+  "schemaVersion": 1,
+  "runId": 37060964289,
+  "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37060964289",
+  "commit": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
+  "branch": "codex/production-2026-10-02",
+  "attempt": 1,
+  "status": "completed",
+  "conclusion": "failure",
+  "startedAt": "2026-10-02T20:29:59Z",
+  "lastJobCompletedAt": "2026-10-02T20:47:47Z",
+  "jobs": [
+    {
+      "id": 111017228884,
+      "name": "postgres",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:30:59Z"
+    },
+    {
+      "id": 111017228984,
+      "name": "hosted",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:31:37Z"
+    },
+    {
+      "id": 111017228990,
+      "name": "docker",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:35:13Z"
+    },
+    {
+      "id": 111017229067,
+      "name": "supply-chain",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:30:12Z"
+    },
+    {
+      "id": 111017229068,
+      "name": "verify",
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:47:47Z"
+    },
+    {
+      "id": 111017229069,
+      "name": "agent",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:31:48Z"
+    },
+    {
+      "id": 111017229108,
+      "name": "build",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:35:04Z"
+    },
+    {
+      "id": 111017229194,
+      "name": "tofu",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:34:47Z"
+    },
+    {
+      "id": 111017229216,
+      "name": "workflows",
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:37:30Z"
+    },
+    {
+      "id": 111017229241,
+      "name": "go",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:31:03Z"
+    },
+    {
+      "id": 111017229272,
+      "name": "ledger",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:30:11Z"
+    },
+    {
+      "id": 111017229285,
+      "name": "platform-postgres",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:32:58Z"
+    },
+    {
+      "id": 111017229411,
+      "name": "generated",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:30:56Z"
+    },
+    {
+      "id": 111017229541,
+      "name": "policy",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-02T20:30:03Z",
+      "completed_at": "2026-10-02T20:30:43Z"
+    }
+  ],
+  "jobCounts": {
+    "successful": 12,
+    "failed": 2,
+    "skipped": 0,
+    "total": 14
+  },
+  "unit": {
+    "tests": {
+      "passed": 16418,
+      "failed": 1,
+      "skipped": 399,
+      "total": 16818
+    },
+    "files": {
+      "passed": 784,
+      "failed": 1,
+      "skipped": 22,
+      "total": 807
+    }
+  },
+  "generated": {
+    "tests": {
+      "passed": 109,
+      "failed": 0,
+      "skipped": 0,
+      "total": 109
+    },
+    "files": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "total": 4
+    }
+  },
+  "core": {
+    "typecheck": "success",
+    "lint": "success",
+    "smoke": "skipped",
+    "gimbal": "skipped"
+  },
+  "failure": {
+    "file": "tests/workflows/sandbox.test.ts",
+    "case": "definitions/ is sandbox-safe deterministic code > has the files it should",
+    "cause": "Exact expected definition filename list omits added ecsReplicaRepair.ts (13 actual files versus 12 expected).",
+    "jobs": [
+      "verify",
+      "workflows"
+    ]
+  },
+  "go": {
+    "racePackageResultsPassed": 11,
+    "racePackagesWithoutTests": 6,
+    "additionalNonRaceResultGoldenPackagePassed": 1,
+    "typescriptInteropTestsPassed": 19,
+    "individualGoCaseCount": "not emitted by non-verbose CI command"
+  },
+  "lockedSecurityAudit": {
+    "conclusion": "success",
+    "knownFindings": 0,
+    "basis": "complete locked audit log statement"
+  },
+  "canonicalLanes": [
+    {
+      "lane": "policy",
+      "verdict": "passed",
+      "counts": {
+        "total": 238,
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 7,
+      "requiredStatuses": {
+        "passed": 7
+      },
+      "observedExitCode": 0,
+      "twelveChecks": true,
+      "sourceRuntimeGateLockManifestRecomputed": true,
+      "environmentComparison": {
+        "unchanged": 107,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [],
+      "sha256": "4363559b55b998e6caf9987bc45c177f95cc2370ec18343fbbee138e6cc46455"
+    },
+    {
+      "lane": "tofu",
+      "verdict": "passed",
+      "counts": {
+        "total": 3900,
+        "passed": 3900,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 27,
+      "requiredStatuses": {
+        "passed": 27
+      },
+      "observedExitCode": 0,
+      "twelveChecks": true,
+      "sourceRuntimeGateLockManifestRecomputed": true,
+      "environmentComparison": {
+        "unchanged": 109,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [],
+      "sha256": "a8a3e111fe387206a6bbce5c202716db31a20c62b95566f3ea06ca505fd88eeb"
+    },
+    {
+      "lane": "platform-postgres",
+      "verdict": "passed",
+      "counts": {
+        "total": 1422,
+        "passed": 1422,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 45,
+      "requiredStatuses": {
+        "passed": 45
+      },
+      "observedExitCode": 0,
+      "twelveChecks": true,
+      "sourceRuntimeGateLockManifestRecomputed": true,
+      "environmentComparison": {
+        "unchanged": 109,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [],
+      "sha256": "4d16a3f1d8cb20cb57adc050f6762a01354b76d4035d6c2ff517e0614563f0d2"
+    },
+    {
+      "lane": "workflows",
+      "verdict": "failed",
+      "counts": {
+        "total": 974,
+        "passed": 973,
+        "failed": 1,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 44,
+      "requiredStatuses": {
+        "unverified": 44
+      },
+      "observedExitCode": 1,
+      "twelveChecks": true,
+      "sourceRuntimeGateLockManifestRecomputed": true,
+      "environmentComparison": {
+        "unchanged": 114,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [
+        {
+          "id": "external-temporal-mtls",
+          "file": "tests/workflows/mtls-live.test.ts",
+          "status": "unverified",
+          "releaseBlocker": "External Temporal mTLS execution remains unverified until separate authorized acceptance passes."
+        }
+      ],
+      "sha256": "58b6ea465b4cdaa69b7cb894f28394a10d04785949a89b5b365bb4948351ee53"
+    },
+    {
+      "lane": "postgres",
+      "verdict": "passed",
+      "counts": {
+        "total": 251,
+        "passed": 251,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 9,
+      "requiredStatuses": {
+        "passed": 9
+      },
+      "observedExitCode": 0,
+      "twelveChecks": true,
+      "sourceRuntimeGateLockManifestRecomputed": true,
+      "environmentComparison": {
+        "unchanged": 110,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [],
+      "sha256": "b268b2008ef4a5cdf629ba2cb17c8db353f755b1b65930c00b3d97cf5a2190b8"
+    }
+  ],
+  "runtime": {
+    "platform": "linux",
+    "architecture": "x64",
+    "node": "22.23.3",
+    "lockedAndInstalledDependencyVersions": [
+      {
+        "name": "vitest",
+        "locked": "4.1.11",
+        "installed": "4.1.11"
+      },
+      {
+        "name": "postgres",
+        "locked": "3.4.7",
+        "installed": "3.4.7"
+      },
+      {
+        "name": "@electric-sql/pglite",
+        "locked": "0.5.8",
+        "installed": "0.5.8"
+      },
+      {
+        "name": "@temporalio/worker",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@temporalio/testing",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@open-policy-agent/opa-wasm",
+        "locked": "1.10.0",
+        "installed": "1.10.0"
+      }
+    ]
+  },
+  "limits": [
+    "Failed outcomes are preserved, not replaced by counts from another commit or later retry.",
+    "Workflows failed: all 44 mandatory group statuses remain unverified despite individual passing assertions.",
+    "Unit suites retain 399 skips; Smoke and Gimbal did not run.",
+    "External Temporal mTLS remains explicitly unverified and a release blocker.",
+    "No live AWS repair or independent live IAM proof.",
+    "Original raw reports and environment inventories are not published.",
+    "Go individual test counts are not inferred."
+  ]
+}

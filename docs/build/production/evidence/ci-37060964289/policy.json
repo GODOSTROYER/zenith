@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "lane": "policy",
+  "validatedAt": "2026-10-02T20:30:39.146Z",
+  "verdict": "passed",
+  "provenance": {
+    "commit": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
+    "trackedChangesSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untrackedContentSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "worktreeDirty": false,
+    "sourceBindingComplete": true,
+    "index": {
+      "inventoryComplete": true,
+      "assumeUnchanged": 0,
+      "skipWorktree": 0,
+      "unmerged": 0
+    },
+    "gateSources": [
+      {
+        "file": "scripts/ci/gate-manifest.mjs",
+        "sha256": "16c388f6f0a9e6df26aed2c13d13d831e3246eb4f283ceb6e1aee4898e1532e6"
+      },
+      {
+        "file": "scripts/ci/run-gate.mjs",
+        "sha256": "fe9ff29bf99f70495f3ac27d1ab94cb3630b50b41e632fb3b50d79a10767b68f"
+      },
+      {
+        "file": "scripts/ci/sanitize-evidence.mjs",
+        "sha256": "63a69e0b4d8bacfa5a2f530cfb7d4688e469e870e3f28ff2c018ff8bc6211fba"
+      },
+      {
+        "file": "scripts/ci/lane-report.mjs",
+        "sha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8"
+      },
+      {
+        "file": "tests/ci/assert-lane-report.mjs",
+        "sha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b"
+      },
+      {
+        "file": "vitest.config.ts",
+        "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08"
+      }
+    ],
+    "lockfileSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+    "dependencies": [
+      {
+        "name": "vitest",
+        "locked": "4.1.11",
+        "installed": "4.1.11"
+      },
+      {
+        "name": "postgres",
+        "locked": "3.4.7",
+        "installed": "3.4.7"
+      },
+      {
+        "name": "@electric-sql/pglite",
+        "locked": "0.5.8",
+        "installed": "0.5.8"
+      },
+      {
+        "name": "@temporalio/worker",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@temporalio/testing",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@open-policy-agent/opa-wasm",
+        "locked": "1.10.0",
+        "installed": "1.10.0"
+      }
+    ],
+    "environment": {
+      "sha256": "74a575dced20392c3e501157f95483e05853da5cc849c7441778a11dc9673406",
+      "inventorySha256": "3aa3ef66ea64d31a353d79183a856039e73ec3389d5ccf1c9ffb7199a3ec03af",
+      "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+      "excludedKeys": [
+        "GITHUB_ACTION",
+        "GITHUB_ENV",
+        "GITHUB_PATH",
+        "GITHUB_OUTPUT",
+        "GITHUB_STEP_SUMMARY",
+        "GITHUB_STATE",
+        "GITHUB_ARTIFACTS",
+        "GITHUB_ARTIFACTS_LIST"
+      ],
+      "platform": "linux",
+      "architecture": "x64",
+      "node": "22.23.3"
+    }
+  },
+  "reportSha256": "a11d862d09adedb1c67e18401f82576f289df862b2b1919a54627ab1264e6093",
+  "manifestSha256": "4c78a7b43e04eebd4ada7cf5bb912038b7957fac724da6f3887a9d62e7b7d8b3",
+  "expectedTools": {
+    "node": "22.23.3",
+    "opa": "1.19.1"
+  },
+  "counts": {
+    "total": 238,
+    "passed": 238,
+    "failed": 0,
+    "skipped": 0,
+    "unknown": 0
+  },
+  "required": [
+    {
+      "id": "policy:tests/policy/bundle.test.ts:4ee93ed6c454",
+      "file": "tests/policy/bundle.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "policy:tests/policy/defaults.test.ts:4ee93ed6c454",
+      "file": "tests/policy/defaults.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 22,
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "policy:tests/policy/delete.test.ts:4ee93ed6c454",
+      "file": "tests/policy/delete.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 21,
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "policy:tests/policy/engine.test.ts:4ee93ed6c454",
+      "file": "tests/policy/engine.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 70,
+        "passed": 70,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "policy:tests/policy/parity.test.ts:4ee93ed6c454",
+      "file": "tests/policy/parity.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "policy:tests/policy/plan-facts.test.ts:4ee93ed6c454",
+      "file": "tests/policy/plan-facts.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 44,
+        "passed": 44,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "policy:tests/policy/scenarios.test.ts:4ee93ed6c454",
+      "file": "tests/policy/scenarios.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 72,
+        "passed": 72,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    }
+  ],
+  "validation": {
+    "failureCount": 0,
+    "complete": true,
+    "caseIdentity": "not-exported-by-standard-vitest-json"
+  },
+  "execution": {
+    "exitCode": 0,
+    "termination": "exit",
+    "signal": null,
+    "observed": true,
+    "binding": "matched",
+    "receiptSha256": "f7f93be2ed841a9be59106b18152339157c0b5d1715f6413fa7dc8734d652100",
+    "originReceipt": {
+      "schemaVersion": 2,
+      "lane": "policy",
+      "reportSha256": "a11d862d09adedb1c67e18401f82576f289df862b2b1919a54627ab1264e6093",
+      "manifestSha256": "4c78a7b43e04eebd4ada7cf5bb912038b7957fac724da6f3887a9d62e7b7d8b3",
+      "sourceSha256": "028ee46e85beb44c2bd30f4613edf7d204ef11b84fa14378214323e39487fbc9",
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": "74a575dced20392c3e501157f95483e05853da5cc849c7441778a11dc9673406",
+      "environmentInventorySha256": "3aa3ef66ea64d31a353d79183a856039e73ec3389d5ccf1c9ffb7199a3ec03af",
+      "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+      "runtimeSha256": "4256bb807777bd14f06dd2c7ffb08a901449b8317eb1db0a3722a63844b63fa8",
+      "exitCode": 0,
+      "termination": "exit",
+      "signal": null
+    },
+    "checks": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true,
+      "environmentInventoryIntegrity": true
+    },
+    "environmentComparison": {
+      "complete": true,
+      "status": "matched",
+      "originSha256": "3aa3ef66ea64d31a353d79183a856039e73ec3389d5ccf1c9ffb7199a3ec03af",
+      "counts": {
+        "unchanged": 107,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "changes": [],
+      "truncated": false
+    }
+  },
+  "externalAcceptance": []
+}

@@ -26,15 +26,21 @@ independently while remote CI runs, within this resource limit.
 Current integration has canonical schema checks, 39 required PostgreSQL groups,
 real replay/source flags, sanitized artifacts, exact runner expiry assertions
 and aligned runtime admission. Root PostgreSQL rerun passed 1,324/1,324, zero
-skips. Root Temporal/platform/public-source run passed 861/861; its checker
-caught a legitimate repeated-label incompatibility, now repaired and reviewed.
+skips. Root fresh clean full Node/DOM suite passed 16,054/16,248, with 194
+explicit skips. Canonical Temporal/platform/public-source rerun passed 861/861,
+zero skips; all 37 required groups and the checker pass. OPA213 and Go race
+226 top-level + 539 subtests pass, with three Linux-only skips on this Mac.
+See `fresh-baseline-2026-10-02.md` for the exact reference and evidence limits.
 
-Immediate next steps: rerun the canonical workflow gate; verify fresh install
-and the integrated full gate; push staging normally; observe every CI job.
-Then run the actual packaged worker harness on ARM64 and AMD64 serially.
-Dependency-remediation worktree has a fresh zero-finding locked audit and eight
-real-package compatibility tests; full-suite/build/Linux proof is still pending.
-Current root lock remains blocked by eight findings; no exceptions granted.
+Immediate next steps: push staging normally and observe every CI job. Then
+verify/start the actual packaged worker harness on ARM64 and AMD64 serially.
+The dependency candidate has a fresh zero-finding audit and eight real-package
+checks; root full typecheck exposed two broad mock-type declarations incompatible
+with Vitest4, now assigned for bounded fixes. Full-suite/build/Linux proof is
+still pending; current root lock remains blocked by eight findings, no exceptions.
+Installation configuration is staged separately; API startup requires the
+existing narrow permission. AWS suffix propagation is being implemented in
+`ws/prod-aws-suffix`; retain stack-first/live IAM permission blockers.
 
 All new commits use Saivedant Hava `<saivedant169@gmail.com>` as author and
 committer on this Mac. No history rewrite, force push or secret-scanning bypass.

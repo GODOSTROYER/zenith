@@ -83,7 +83,7 @@
       "acceptance": [
         "Fresh/reapplied complete Supabase SQL passes canonical checksums, names and compatible schema checks; tampered/missing/incompatible schemas fail."
       ],
-      "state": "implemented",
+      "state": "verified",
       "dependencies": [],
       "implementationStatus": "complete",
       "evidence": [
@@ -114,7 +114,7 @@
       "acceptance": [
         "Real PostgreSQL JSON identifies each backend/scenario despite quoted labels; missing/failed/skipped/zero/malformed evidence fails, PGlite cannot substitute."
       ],
-      "state": "implemented",
+      "state": "verified",
       "dependencies": [],
       "implementationStatus": "complete",
       "evidence": [
@@ -142,9 +142,9 @@
       "acceptance": [
         "Real local codec/destroy replay and pinned public source acquisition execute; externally authorized mTLS/private source have explicit prerequisites and release blockers."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [],
-      "implementationStatus": "in_progress",
+      "implementationStatus": "complete",
       "evidence": [
         {
           "level": "local_engine",
@@ -155,6 +155,17 @@
           "level": "local_engine",
           "commit": "8e36be68b087cd7c72c2e6af1927e14700808b03",
           "result": "CanonicalrealTemporal/platform/publicGitHub fixture run861P0F0S in40files; oldstrictchecker failedonlegitimate repeateddisplaynames. Report-onlycompatibilityfixc6f3631 isrootverified315CItests+5realTOFU; canonicalrerunpending."
+        },
+        {
+          "level": "contract",
+          "commit": "4a6bab7597ea3710875e19383d3a224409e902e4",
+          "result": "Root clean fresh full Node/DOM suite:16054 passed,0 failed,194 explicit skips; report/checker fixtures pass. Typecheck/lint/generated artifacts/Go race/OPA passed. Counts overlap dedicated lanes."
+        },
+        {
+          "level": "local_engine",
+          "commit": "4a6bab7597ea3710875e19383d3a224409e902e4",
+          "result": "Clean canonical Temporal/platform/public GitHub immutable-source lane:861 passed,0 failed,0 skipped in40files;37 requiredgroups strictpass, observed commandexit0. Sanitized commit/environment/lock/source-bound artifact committed. ExternalmTLS/private source and liveproviderwrites remain unverified.",
+          "artifact": "docs/build/production/evidence/fresh-workflows-4a6bab7.json"
         }
       ],
       "requiredEvidence": [
@@ -254,7 +265,7 @@
       "acceptance": [
         "Clean installation, migrations, typecheck/lint/generated artifacts, real OpenTofu, OPA, Go race/interoperability, PostgreSQL, Temporal and real browser gates run with exact counts."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
@@ -263,11 +274,19 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "not_assessed",
-      "evidence": [],
+      "implementationStatus": "in_progress",
+      "evidence": [
+        {
+          "level": "local_engine",
+          "commit": "4a6bab7597ea3710875e19383d3a224409e902e4",
+          "result": "Fresh install791 packages; Node/DOM16054P0F194S; OPA213P0F0S; uncached Go-race226top+539subP0F3Linux-onlyS; whole typecheck/lint/SQL/matrix/AWS18templates/ledgers/sandboxsmoke/Gimbal pass. Newly pushed browser/remoteCI and security-remediated lock remain pending.",
+          "artifact": "docs/build/production/fresh-baseline-2026-10-02.md"
+        }
+      ],
       "requiredEvidence": [
         "contract",
-        "local_engine"
+        "local_engine",
+        "remote_ci"
       ],
       "owner": null,
       "testPaths": []
@@ -278,18 +297,17 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "in_progress",
       "evidence": [],
       "requiredEvidence": [
-        "contract",
-        "local_engine"
+        "remote_ci"
       ],
       "owner": null,
       "testPaths": []
@@ -357,17 +375,17 @@
       "acceptance": [
         "Reproducible API, durable product/platform stores, Temporal, workers and customer agents deploy from a clean host without hidden injected ports."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "in_progress",
       "evidence": [],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
-      "owner": null,
+      "owner": "PROD-WS-INSTALLATION",
       "testPaths": []
     },
     {
@@ -376,17 +394,17 @@
       "acceptance": [
         "Actual default composition handles browser/API/MCP proposal and human approval; independent application behavior proves outcomes."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "in_progress",
       "evidence": [],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
-      "owner": null,
+      "owner": "PROD-WS-INSTALLATION",
       "testPaths": []
     },
     {
@@ -395,17 +413,17 @@
       "acceptance": [
         "Complete Supabase/hosted migrations, production TLS/pooler/authorization/concurrency/recovery acceptance is distinct from local PostgreSQL contracts."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "in_progress",
       "evidence": [],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
-      "owner": null,
+      "owner": "PROD-WS-INSTALLATION",
       "testPaths": []
     },
     {
@@ -772,17 +790,17 @@
       "acceptance": [
         "Stack-first boundaries and bootstrap suffix propagate into connection/compiler/role selection; maximum names/partitions/zones fit IAM and actual permissions independently verified without widening privilege."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "in_progress",
       "evidence": [],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
-      "owner": null,
+      "owner": "PROD-WS-AWS-SUFFIX",
       "testPaths": []
     },
     {

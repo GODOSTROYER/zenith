@@ -19,6 +19,8 @@
  * and nothing else.
  */
 import type { DriverContext, ResourceDriver } from "@/lib/drivers/types";
+import { CredentialDeniedError } from "@/lib/credentials/types";
+import { defaultExpectedAttributes } from "@/lib/resources/drift";
 import type { Observation, Presence, ProviderKey, ResourceNode, RuntimeState } from "@/lib/resources/types";
 import { describeError, isAccessDenied, redactText, scrubValue } from "./redact";
 import type { ObserveSessionRequest, ReconcileEnvironment, ReconcilePorts, ResolvedReconcileOptions, StoredResourceRef } from "./types";
@@ -34,6 +36,8 @@ export interface ObservedNode {
   node: ResourceNode;
   resource: StoredResourceRef;
   observation: Observation;
+  /** Computed inside the session with the same trusted context as its reads. */
+  expectedAttributes?: Record<string, unknown>;
   /** absent when the driver has no runtime capability */
   runtime?: RuntimeState;
 }
@@ -43,6 +47,8 @@ type RuntimeDriver = ResourceDriver & Required<Pick<ResourceDriver, "runtime">>;
 interface ReadableNode extends ObservableNode {
   driver: ObservingDriver;
 }
+
+type AwsBootstrapContext = NonNullable<DriverContext["awsBootstrap"]>;
 
 const PRESENCES: readonly Presence[] = ["present", "missing", "inaccessible", "unknown"];
 const MAX_SIGNALS = 20;
@@ -127,7 +133,7 @@ function placeholderRuntime(item: ObservableNode, observation: Observation, at: 
 interface ObserveArgs {
   environment: ReconcileEnvironment;
   items: readonly ObservableNode[];
-  ports: Pick<ReconcilePorts, "now" | "withObserveSession" | "log">;
+  ports: Pick<ReconcilePorts, "now" | "withObserveSession" | "resolveAwsBootstrap" | "log">;
   options: ResolvedReconcileOptions;
   correlationId: string;
   /** epoch ms: nothing may start, and nothing may run past, this instant */
@@ -168,8 +174,15 @@ export async function observeNodes(args: ObserveArgs): Promise<ObservedNode[]> {
         signal: groupAbort.signal,
       };
       const reading = ports.withObserveSession(request, async (session) => {
+        let awsBootstrap: AwsBootstrapContext | undefined;
+        if (provider === "aws" && ports.resolveAwsBootstrap) {
+          const resolved = await ports.resolveAwsBootstrap(request, session);
+          if (resolved.partition !== "aws") throw new Error("AWS reconciliation requires a supported connection partition.");
+          awsBootstrap = Object.freeze({ accountId: resolved.accountId, partition: resolved.partition, bootstrapNameSuffix: resolved.bootstrapNameSuffix });
+        }
+        groupAbort.signal.throwIfAborted();
         await mapPool(group, options.nodeConcurrency, async (item) => {
-          results.set(item.node.address, await observeOne({ item, session, args, signal: groupAbort.signal }));
+          results.set(item.node.address, await observeOne({ item, session, awsBootstrap, args, signal: groupAbort.signal }));
         });
       });
       await abortable(reading, groupAbort.signal);
@@ -193,12 +206,13 @@ export async function observeNodes(args: ObserveArgs): Promise<ObservedNode[]> {
   return [...results.values()].sort((a, b) => cmp(a.node.address, b.node.address));
 }
 
-async function observeOne(input: { item: ReadableNode; session: unknown; args: ObserveArgs; signal: AbortSignal }): Promise<ObservedNode> {
-  const { item, session, args, signal } = input;
+async function observeOne(input: { item: ReadableNode; session: unknown; awsBootstrap?: AwsBootstrapContext; args: ObserveArgs; signal: AbortSignal }): Promise<ObservedNode> {
+  const { item, session, awsBootstrap, args, signal } = input;
   const { environment, ports, options, deadlineAt } = args;
   const { driver } = item;
   const externalId = item.node.externalRef ?? item.resource.externalId;
   const context = (s: AbortSignal): DriverContext => ({
+    ...(awsBootstrap ? { awsBootstrap } : {}),
     provider: item.node.provider,
     region: item.node.region || environment.region,
     workspaceId: environment.workspaceId,
@@ -212,9 +226,12 @@ async function observeOne(input: { item: ReadableNode; session: unknown; args: O
   const budget = (): number => Math.min(options.nodeTimeoutMs, deadlineAt - Date.now());
 
   let observation: Observation;
+  let expectedAttributes: Record<string, unknown> | undefined;
   if (budget() <= 0) observation = failureObservation(item, "the observation deadline was reached before this resource was read", ports.now());
   else {
     try {
+      if (awsBootstrap && (item.node.region || environment.region) !== environment.region) throw new CredentialDeniedError("AWS resource region does not match the selected reconciliation connection.");
+      expectedAttributes = driver.expectedAttributes?.(item.node, { awsBootstrap }) ?? defaultExpectedAttributes(item.node);
       const answer = normalizeObservation(await raceTimeout((s) => driver.observe(context(s), item.node, externalId), budget(), signal), item, ports.now());
       observation = typeof answer === "string" ? failureObservation(item, answer, ports.now()) : answer;
     } catch (err) {
@@ -235,5 +252,5 @@ async function observeOne(input: { item: ReadableNode; session: unknown; args: O
       }
     }
   }
-  return { ...item, observation, ...(runtime ? { runtime } : {}) };
+  return { ...item, observation, ...(expectedAttributes ? { expectedAttributes } : {}), ...(runtime ? { runtime } : {}) };
 }

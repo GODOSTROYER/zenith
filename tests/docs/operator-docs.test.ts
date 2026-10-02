@@ -42,11 +42,15 @@ describe("the guide set", () => {
     expect(linked).toContain("../CAPABILITY-MATRIX.md");
   });
 
-  it("every guide names this sync snapshot and the deployment/recovery limits", () => {
+  it("every guide names its source snapshot and the deployment/recovery limits", () => {
     for (const file of GUIDES) {
       const text = read(file);
-      expect(text, path.basename(file)).toContain("Written against branch `ws/docs-sync-2`");
-      expect(text, path.basename(file)).toContain("`3c1fa66`");
+      const name = path.basename(file);
+      const snapshot = name === "OBSERVATION-REPAIR.md"
+        ? { branch: "codex/production-2026-10-02", commit: "8657abd" }
+        : { branch: "ws/docs-sync-2", commit: "3c1fa66" };
+      expect(text, name).toContain(`Written against branch \`${snapshot.branch}\``);
+      expect(text, name).toContain(`\`${snapshot.commit}\``);
     }
     for (const name of ["DEPLOYING.md", "RECOVERY.md"]) {
       expect(guide(name), name).toMatch(/not verified|Not verified|not rehearsed|Not rehearsed/);
@@ -680,7 +684,13 @@ describe("operator claims match current wiring", () => {
     for (const call of ["validateExecutionConfiguration()", "openExecutionStore()", "ensurePlatformApp(db)", "createActivities({ db", "Context.current().heartbeat(detail)", "Context.current().cancellationSignal"]) expect(worker).toContain(call);
     expect(worker).not.toContain("createStubActivities");
     const composition = source("src/lib/platform/execution.ts");
-    for (const call of ["derivePlanFingerprintKey(opts.secretKey)", "createExecutionActivities(deps)", "createPlatformPorts(opts.db)", "createExecutionBroker(opts.db)", "platformCredentialBroker(opts.db)", "createReconcileObserveActivity("]) expect(composition).toContain(call);
+    for (const call of ["derivePlanFingerprintKey(opts.secretKey)", "createExecutionActivities(deps)", "createPlatformPorts(opts.db)", "createExecutionBroker(opts.db)", "platformCredentialBroker(opts.db)", "composeReconcilePorts(opts.db, credentials)", "createHeldReconcileActivity(createRuntime(deps)", "loadPlatformEnvironment(opts.db, ws, env)", "loadGraphFromStore(opts.db, env)"]) expect(composition).toContain(call);
+    const verification = source("src/lib/execution/verify.ts");
+    const held = verification.slice(verification.indexOf("export function createHeldReconcileActivity("), verification.indexOf("const MAX_LISTED"));
+    for (const call of ["withKeepAlive(rt, { lease: input.lease", "createReconcileObserveActivity({ ...deps, signal", "rt.d.leases.assertFence(input.lease.scope, input.lease.fenceToken)", "rt.d.leases.assertFence(fence.scope, fence.token)", "deps.ports.assertFence?.(fence)", "signal.throwIfAborted()"]) expect(held).toContain(call);
+    expect(held).not.toContain("acquireLease(");
+    const once = source("src/lib/reconcile/activity.ts");
+    for (const call of ["environment.workspaceId !== input.workspaceId", "environment.environmentId !== input.environmentId", "input.lease.scope !== `reconcile:${input.environmentId}`", "fence: { scope: input.lease.scope, token: input.lease.fenceToken }"]) expect(once).toContain(call);
     expect(composition).toContain("tofu: { planWorkspace, applyVerifiedPlan }");
     expect(deploying).toContain("createStubActivities");
   });

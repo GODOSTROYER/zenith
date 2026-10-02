@@ -1,5 +1,7 @@
 # Observation and repair proposals
 
+Written against branch `codex/production-2026-10-02`, based on canonical reconciliation source `8657abd` (2026-10-02). This guide records source wiring and remaining release blockers; it does not claim live provider remediation acceptance.
+
 Temporal reconciliation and the HTTP controller use `reconcileObserveOnce`, `reconcileEnvironment` and `proposeRepairs`. The worker renews its existing `reconcile:<environmentId>` lease, heartbeats, receives cancellation, and asserts the same fence before persistence, proposals and dispatch. It does not acquire a second reconcile lease. Cancelled or stale passes stop without committing a stale observation or starting another repair.
 
 `allowAutoRepair` permits proposal consideration. It grants no execution authority. A candidate needs a real observation, managed ownership in both graph and store, a safe resource kind, hysteresis/pacing eligibility and either an actual registered `drift.repair` driver handler or admission by the shared pure declarative repair recipe. That recipe admits only the exact managed AWS ECS replica-count finding with a digest-pinned image and bounded desired/observed counts; other fields, providers, ownership and unsupported targets remain refused. Unknown, inaccessible, simulated and external targets cannot become repair proposals. Partial observations retain their unknown/inaccessible provenance; readable safe candidates remain resource-scoped.

@@ -412,8 +412,24 @@ against a fleet.
 Repair proposals go through broker policy and approval. Allowed repairs call
 `startDayTwo` in `src/lib/platform/reconcile.ts`; the controller itself performs
 no mutation. Dispatch is not a successful repair: the execution capability path
-can refuse unsupported work. The separate Temporal reconcile workflow remains
-observe-only (`allowAutoRepair` reports `not_implemented`).
+can refuse unsupported work. Temporal reconciliation and the HTTP controller
+share `reconcileObserveOnce`, `reconcileEnvironment` and `proposeRepairs`.
+The worker renews its held `reconcile:<environmentId>` lease, heartbeats,
+receives cancellation and checks the same fence before persistence, proposals
+and dispatch. `allowAutoRepair` permits brokered proposal consideration; it
+grants no mutation authority. Current workflow histories return counts and a
+repair-decision digest; the retained legacy history branch preserves its
+historical `not_implemented` result.
+
+The shared declarative recipe admits only its bounded, managed AWS ECS
+replica-count finding with a digest-pinned image. Its execution adapter remains
+unmerged at this source snapshot, so proposal admission does not establish
+executable remediation or production acceptance. Human approvals remain bound
+to the immutable proposal digest and verified browser session; execution
+retains current policy, saved-plan approval, scoped credentials and readback
+verification. Uncertain operations block another dispatch until settled.
+See [OBSERVATION-REPAIR.md](OBSERVATION-REPAIR.md) for the controller's bounds,
+workflow history compatibility and remaining release blockers.
 
 ### 2.10 Tooling only (not runtime)
 

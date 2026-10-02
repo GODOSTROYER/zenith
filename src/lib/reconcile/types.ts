@@ -30,7 +30,7 @@
 import type { CapabilityRequest } from "@/lib/capabilities/catalog";
 import type { OperationStatus, PlatformEventType, Principal } from "@/lib/controlplane/types";
 import type { ProviderConnection } from "@/lib/credentials/types";
-import type { DriverLog, ResourceDriver } from "@/lib/drivers/types";
+import type { DriverContext, DriverLog, ResourceDriver } from "@/lib/drivers/types";
 import type { AutonomyLevel, EnvironmentClass } from "@/lib/policy/types";
 import type { DriftClass, DriftReport, Observation, ProviderKey, ResourceNode, ResourceOwnership, RuntimeState } from "@/lib/resources/types";
 
@@ -222,6 +222,12 @@ export interface ReconcilePorts {
    * `DriverContext.session`; it is never stored or returned.
    */
   withObserveSession<T>(request: ObserveSessionRequest, fn: (session: unknown) => Promise<T>): Promise<T>;
+  /**
+   * Resolve non-secret AWS naming context from this request's saved connection,
+   * inside its authorized session. Production adapters always wire this port;
+   * direct scripted/memory ports may omit it. Never infer it from graph input.
+   */
+  resolveAwsBootstrap?(request: ObserveSessionRequest, session: unknown): Promise<NonNullable<DriverContext["awsBootstrap"]>>;
   /**
    * Hand an ALLOWED repair operation to the durable workflow. MUST be
    * idempotent (the workflow id is `op-<operationId>`, so a second start is

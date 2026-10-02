@@ -159,7 +159,7 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
   const observed = await observeNodes({ environment, items, ports, options, correlationId: observeCorrelation, deadlineAt, ...(input.signal ? { signal: input.signal } : {}) });
 
   const reconciledGraph: ResourceGraph = { ...graph, nodes: reconcile.map((r) => r.node) };
-  const drivers = new Map(items.map((i) => [i.node.address, i.driver]));
+  const expected = new Map(observed.map((item) => [item.node.address, item.expectedAttributes]));
   // Compare first, then scrub the complete report before diffing, persistence,
   // repair proposals or return. Driver expected values need the same boundary
   // as observations; replacing them before comparison can hide real drift.
@@ -167,7 +167,7 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
     reconciledGraph,
     observed.map((o) => o.observation),
     {
-      expectedAttributes: (node) => drivers.get(node.address)?.expectedAttributes?.(node) ?? defaultExpectedAttributes(node),
+      expectedAttributes: (node) => expected.get(node.address) ?? defaultExpectedAttributes(node),
       computedAt: ports.now().toISOString(),
     }
   );

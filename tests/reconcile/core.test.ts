@@ -3,6 +3,7 @@ import { DescribeServicesCommand, DescribeTaskDefinitionCommand, ECSClient } fro
 import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/client-resource-groups-tagging-api";
 import { mockClient } from "aws-sdk-client-mock";
 import type { AwsSession } from "@/lib/credentials/types";
+import { CredentialDeniedError } from "@/lib/credentials/types";
 import { findDriver } from "@/lib/drivers/types";
 import { registerAwsDrivers } from "@/lib/providers/aws/drivers";
 import { ecsServiceDriver } from "@/lib/providers/aws/drivers/compute/ecs-service";
@@ -11,6 +12,36 @@ import { ReconcileError, reconcileEnvironment, type ReconcileEvent } from "@/lib
 import { ENV, MIN, SESSION_CANARY, graph, harness, persistedText } from "./_support";
 
 const driftEvents = (events: ReconcileEvent[], type: ReconcileEvent["type"]) => events.filter((e) => e.type === type);
+
+describe("trusted context refusal preserves unread drift", () => {
+  it.each(["unknown", "inaccessible"] as const)("does not clear earlier drift or propose repairs on an %s pass, then accepts a fresh healthy read", async (presence) => {
+    const h = harness();
+    const address = "log_group/web";
+    h.world.patch(address, { attrs: { size: "large" }, expected: { size: "small" } });
+    const first = await reconcileEnvironment({ environment: ENV, graph: graph(), ports: h.ports, options: { autoRepair: false } });
+    expect(first.report?.findings).toContainEqual(expect.objectContaining({ address, class: "changed" }));
+    const readBefore = h.world.observed.length;
+    h.ports.resolveAwsBootstrap = async () => {
+      throw presence === "inaccessible" ? new CredentialDeniedError("Selected saved connection refused.") : new Error("Trusted context is unavailable.");
+    };
+    const unread = await reconcileEnvironment({ environment: ENV, graph: graph(), ports: h.ports, options: { autoRepair: true, minConfirmations: 1 } });
+    expect(unread.report?.findings).toContainEqual(expect.objectContaining({ address, class: presence, repairable: false, autoRepairEligible: false }));
+    expect(unread.report?.findings.some((finding) => finding.class === "changed" || finding.class === "missing")).toBe(false);
+    expect(h.world.observed).toHaveLength(readBefore);
+    expect(driftEvents(h.backend.events, "drift.cleared").filter((event) => event.data.address === address)).toEqual([]);
+    expect(h.broker.proposals).toEqual([]);
+    expect(h.started).toEqual([]);
+    expect(unread.repairs.some((repair) => repair.status === "proposed")).toBe(false);
+
+    h.ports.resolveAwsBootstrap = async () => ({ accountId: "123456789012", partition: "aws", bootstrapNameSuffix: "-team-a" });
+    h.world.patch(address, { attrs: { size: "small" } });
+    const healthy = await reconcileEnvironment({ environment: ENV, graph: graph(), ports: h.ports, options: { autoRepair: true, minConfirmations: 1 } });
+    expect(healthy.report?.findings).toEqual([]);
+    expect(h.world.observed.length).toBeGreaterThan(readBefore);
+    expect(driftEvents(h.backend.events, "drift.cleared")).toContainEqual(expect.objectContaining({ data: expect.objectContaining({ address, class: presence, reason: "resolved" }) }));
+    expect(driftEvents(h.backend.events, "drift.detected")).toContainEqual(expect.objectContaining({ data: expect.objectContaining({ address, class: "changed" }) }));
+  });
+});
 
 describe("canonical declarative repair selection with the registered ECS driver", () => {
   const ecs = mockClient(ECSClient);

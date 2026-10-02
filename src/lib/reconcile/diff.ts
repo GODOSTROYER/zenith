@@ -44,6 +44,7 @@ export interface FindingDiff {
 export function diffFindings(previous: readonly DriftFinding[] | null, next: readonly DriftFinding[], reconciledAddresses: ReadonlySet<string>): FindingDiff {
   const before = new Map((previous ?? []).map((f) => [findingKey(f), f]));
   const after = new Map(next.map((f) => [findingKey(f), f]));
+  const unread = new Set(next.filter((finding) => finding.class === "unknown" || finding.class === "inaccessible").map((finding) => finding.address));
   const detected: FindingDiff["detected"] = [];
   const cleared: FindingDiff["cleared"] = [];
   let unchanged = 0;
@@ -56,6 +57,8 @@ export function diffFindings(previous: readonly DriftFinding[] | null, next: rea
   }
   for (const [key, finding] of before) {
     if (after.has(key)) continue;
+    // A new unread finding cannot establish that earlier drift was resolved.
+    if (reconciledAddresses.has(finding.address) && unread.has(finding.address)) continue;
     cleared.push({ finding, reason: reconciledAddresses.has(finding.address) ? "resolved" : "no_longer_reconciled" });
   }
   const order = (a: { finding: DriftFinding }, b: { finding: DriftFinding }): number => cmp(findingKey(a.finding), findingKey(b.finding));

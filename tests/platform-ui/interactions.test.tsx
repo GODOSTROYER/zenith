@@ -150,31 +150,50 @@ describe("resource selection and safe text", () => {
   });
 });
 
+function awsField(el: HTMLElement, label: string): HTMLInputElement {
+  const input = [...el.querySelectorAll<HTMLInputElement>("input")].find((candidate) => [...(candidate.labels ?? [])].some((associated) => text(associated).startsWith(label)));
+  if (!input) throw new Error(`No AWS field labelled ${label}`);
+  return input;
+}
 function fillAws(el: HTMLElement) {
-  const inputs = [...el.querySelectorAll<HTMLInputElement>("input")];
-  for (const [index, value] of ["123456789012", "us-east-1", "arn:aws:iam::123456789012:role/ZenithObserveRole", "arn:aws:iam::123456789012:role/ZenithDeployRole"].entries()) type(inputs[index], value);
+  type(awsField(el, "Bootstrap name suffix"), "-team-a");
+  type(awsField(el, "AWS account ID"), "123456789012");
+  type(awsField(el, "Region"), "us-east-1");
+  type(awsField(el, "Observe role ARN"), "arn:aws:iam::123456789012:role/ZenithObserveRole-team-a");
+  type(awsField(el, "Deploy role ARN"), "arn:aws:iam::123456789012:role/ZenithDeployRole-team-a");
 }
 describe("AWS action wiring", () => {
   it("saves identifiers, displays the exact generated trust, then verifies the saved connection", async () => {
     fetchMock.mockResolvedValueOnce(jsonReply({ result: { ok: true, data: { connectionId: "conn_real_id", subject: "zenith:ws:ws_1:conn:conn_real_id", issuerHost: "issuer.zenith.test/api/oidc" } } }));
     fetchMock.mockResolvedValueOnce(jsonReply({ result: { ok: true } }));
     const el = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="admin" />);
-    fillAws(el); expect(button(el, "Verify connection").disabled).toBe(true);
+    fillAws(el); expect(button(el, "Verify connection").disabled).toBe(true); expect(button(el, "Save connection identifiers").disabled).toBe(false);
     click(button(el, "Save connection identifiers")); await flush();
+    expect(fetchMock).toHaveBeenCalledOnce();
     expect(request().path).toBe("/platform/connections/aws/action"); expect(request().body.actionId).toBe("connection.createAws"); expect(request().body.input.provider).toBeUndefined(); expect(request().body.input.externalId).toBeUndefined(); expect(request().body.idempotencyKey).toBeTruthy();
+    const input = request().body.input;
+    expect(input.bootstrapNameSuffix).toBe("-team-a");
+    expect(input.accountId).toBe("123456789012"); expect(input.region).toBe("us-east-1");
+    expect(input.observeRoleArn).toBe("arn:aws:iam::123456789012:role/ZenithObserveRole-team-a");
+    expect(input.deployRoleArn).toBe("arn:aws:iam::123456789012:role/ZenithDeployRole-team-a");
+    expect(input.mode).toBe("oidc_web_identity");
     expect(text(el)).toContain("zenith:ws:ws_1:conn:conn_real_id"); expect(text(el)).toContain("remain unverified");
     expect(button(el, "Verify connection").disabled).toBe(false); click(button(el, "Verify connection")); await flush();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(request(1).path).toBe("/platform/connections/aws/action"); expect(request(1).body.actionId).toBe("connection.verifyAws"); expect(request(1).body.input).toEqual({ connectionId: "conn_real_id" });
     expect(request(1).headers.has("authorization")).toBe(false); expect(text(el)).toContain("Deploy-role permissions and worker health remain unverified");
   });
   it("blocks verification when the form no longer matches the saved identifiers", async () => {
     fetchMock.mockResolvedValueOnce(jsonReply({ result: { ok: true, data: { connectionId: "conn_real_id", subject: "zenith:ws:ws_1:conn:conn_real_id", issuerHost: "issuer.test" } } }));
-    const el = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="admin" />); fillAws(el); click(button(el, "Save connection identifiers")); await flush();
-    type(el.querySelectorAll<HTMLInputElement>("input")[1], "us-west-2"); expect(button(el, "Verify connection").disabled).toBe(true); expect(text(el)).toContain("differ from the saved connection");
+    const el = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="admin" />); fillAws(el); expect(button(el, "Save connection identifiers").disabled).toBe(false); click(button(el, "Save connection identifiers")); await flush();
+    expect(fetchMock).toHaveBeenCalledOnce(); expect(button(el, "Verify connection").disabled).toBe(false);
+    type(awsField(el, "Region"), "us-west-2"); expect(button(el, "Verify connection").disabled).toBe(true); expect(text(el)).toContain("differ from the saved connection"); expect(fetchMock).toHaveBeenCalledOnce();
   });
-  it("never claims verification after a failed create or verify action", async () => {
+  it("never claims verification after an attempted create action fails", async () => {
     fetchMock.mockResolvedValueOnce(jsonReply({ result: { ok: false, error: "secret-should-not-be-echoed" } }));
-    const el = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="admin" />); fillAws(el); click(button(el, "Save connection identifiers")); await flush();
+    const el = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="admin" />); fillAws(el); expect(button(el, "Save connection identifiers").disabled).toBe(false); click(button(el, "Save connection identifiers")); await flush();
+    expect(fetchMock).toHaveBeenCalledOnce(); expect(request().body.actionId).toBe("connection.createAws"); expect(request().body.input.bootstrapNameSuffix).toBe("-team-a");
+    expect(text(el)).toContain("The action could not be confirmed");
     expect(button(el, "Verify connection").disabled).toBe(true); expect(text(el)).not.toContain("secret-should-not-be-echoed"); expect(text(el)).not.toContain("Connection verified");
   });
   it("requires an admin for creation and an operator ARN for AssumeRole", async () => {

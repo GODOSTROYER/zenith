@@ -58,7 +58,9 @@ are recorded in
 
 No requested implementation workstream remains paused. Remaining acceptance
 needs real cloud accounts, Temporal Cloud or production self-hosted Temporal,
-live private GitHub access, and a real Postgres server. Local kind evidence does
+live private GitHub access, and production Supabase/PostgREST/TLS/pooler acceptance.
+Bare PostgreSQL 16 tests ran in the failed baseline CI and in production continuation;
+see `production/RESUME.md` for the separate current evidence. Local kind evidence does
 not establish live-cloud readiness, StatefulSet acceptance or enforced
 NetworkPolicy behavior. The default managed Zenith session opener and hosted
 substrate are still absent.

@@ -23,10 +23,18 @@ and the ledger. Only one heavy verification process may run on this 8 GB host.
 Use serial Vitest. Runtime/security and packaged-worker followups can proceed
 independently while remote CI runs, within this resource limit.
 
-Immediate next steps: verify real PG16 migration apply/reapply and contracts;
-verify actual Temporal replay; integrate canonical manifest and sanitized
-artifacts; push staging normally; observe every job before claiming CI green.
-Then continue actual worker-image startup and the remaining product requirements.
+Current integration has canonical schema checks, 39 required PostgreSQL groups,
+real replay/source flags, sanitized artifacts, exact runner expiry assertions
+and aligned runtime admission. Root PostgreSQL rerun passed 1,324/1,324, zero
+skips. Root Temporal/platform/public-source run passed 861/861; its checker
+caught a legitimate repeated-label incompatibility, now repaired and reviewed.
+
+Immediate next steps: rerun the canonical workflow gate; verify fresh install
+and the integrated full gate; push staging normally; observe every CI job.
+Then run the actual packaged worker harness on ARM64 and AMD64 serially.
+Dependency-remediation worktree has a fresh zero-finding locked audit and eight
+real-package compatibility tests; full-suite/build/Linux proof is still pending.
+Current root lock remains blocked by eight findings; no exceptions granted.
 
 All new commits use Saivedant Hava `<saivedant169@gmail.com>` as author and
 committer on this Mac. No history rewrite, force push or secret-scanning bypass.

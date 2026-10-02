@@ -83,16 +83,30 @@
       "acceptance": [
         "Fresh/reapplied complete Supabase SQL passes canonical checksums, names and compatible schema checks; tampered/missing/incompatible schemas fail."
       ],
-      "state": "in_progress",
+      "state": "implemented",
       "dependencies": [],
-      "implementationStatus": "in_progress",
-      "evidence": [],
+      "implementationStatus": "complete",
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "018c7446bcdf609ff267bbffe9ce539243a8991d",
+          "result": "Root verifier/migration/CI checks:134 passed,0 failed,3 PostgreSQL-gated skips; full typecheck, lint, Go passed. Source content committed unchanged after verification."
+        },
+        {
+          "level": "local_engine",
+          "commit": "018c7446bcdf609ff267bbffe9ce539243a8991d",
+          "result": "Disposable PostgreSQL16.15: all14Supabase files apply/reapply;264 passed,0 failed,3 unrelated platform concurrency skips. Known-name and checksum corruption refused. Dedicated container deleted. BarePostgreSQL only; noPostgREST/TLS/pooler proof."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
       "owner": "PROD-WS-CI-SCHEMA",
-      "testPaths": []
+      "testPaths": [
+        "tests/ci/platform-schema-verifier.test.ts",
+        "tests/controlplane/migrations.test.ts"
+      ]
     },
     {
       "id": "PROD-CI-03",
@@ -100,10 +114,21 @@
       "acceptance": [
         "Real PostgreSQL JSON identifies each backend/scenario despite quoted labels; missing/failed/skipped/zero/malformed evidence fails, PGlite cannot substitute."
       ],
-      "state": "in_progress",
+      "state": "implemented",
       "dependencies": [],
-      "implementationStatus": "in_progress",
-      "evidence": [],
+      "implementationStatus": "complete",
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "19c969bdbf44c28c383314d8c7580b1c31c10f13",
+          "result": "Root:307 CI/report/manifest/sanitizer/coverage tests plus5 realOpenTofu tests passed,0 failed,0 skipped; fullprojecttypecheck/lint/Go passed. Independent reviewer found and closed mandatory lowercase migration-suite coverage gap;39 requiredPGgroups. WholepushedCI and allprogramgates pending."
+        },
+        {
+          "level": "local_engine",
+          "commit": "e9ee01f4dd87f6dda2ad7c734e079fc444d09aed",
+          "result": "Fresh disposablePG16.15 canonical lane:1324 passed,0 failed,0 skipped,39 requiredbackend/scenario groups, strictrevalidationpassed. Root firstcaught1323P/1F wallclockexpiryassertion; captureddeadlinefixforces1.1sboundary. Bothownedcontainersdeleted."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -120,13 +145,28 @@
       "state": "in_progress",
       "dependencies": [],
       "implementationStatus": "in_progress",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "local_engine",
+          "commit": "1b98f8e6650b9bde5eef853f96843821050b25a9",
+          "result": "Root real Temporal codec2+destroy/deploy6 and realOpenTofu5:13 passed,0 failed,0 skipped; fulltypecheck/lint/Go passed. Same current workflow definitions/scripted activities; externalmTLS and providerwrites unverified. Source content committed unchanged after verification."
+        },
+        {
+          "level": "local_engine",
+          "commit": "8e36be68b087cd7c72c2e6af1927e14700808b03",
+          "result": "CanonicalrealTemporal/platform/publicGitHub fixture run861P0F0S in40files; oldstrictchecker failedonlegitimate repeateddisplaynames. Report-onlycompatibilityfixc6f3631 isrootverified315CItests+5realTOFU; canonicalrerunpending."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
       "owner": "PROD-WS-WORKFLOWS",
-      "testPaths": []
+      "testPaths": [
+        "tests/workflows/codec-replay.test.ts",
+        "tests/workflows/destroy-replay.test.ts",
+        "tests/platform/source-bundle.test.ts"
+      ]
     },
     {
       "id": "PROD-CI-05",
@@ -137,7 +177,18 @@
       "state": "in_progress",
       "dependencies": [],
       "implementationStatus": "in_progress",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "19c969bdbf44c28c383314d8c7580b1c31c10f13",
+          "result": "Root:307 CI/report/manifest/sanitizer/coverage tests plus5 realOpenTofu tests passed,0 failed,0 skipped; fullprojecttypecheck/lint/Go passed. Independent reviewer found and closed mandatory lowercase migration-suite coverage gap;39 requiredPGgroups. WholepushedCI and allprogramgates pending."
+        },
+        {
+          "level": "contract",
+          "commit": "c6f3631c2c4ca9592640d3a792a9429eba24a273",
+          "result": "315CItests+5realTOFU=320P0F0S; fulltypecheck/lint/Go and independentreviewpassed. StandardVitestJSON lacksindividualcaseIDs; canonicalgroups use trustedsource/backend/ancestry. Duplicatefiles/missinggroups/allfailedorskippedsiblings/zerotests/counterrorsstillrejected."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -151,16 +202,25 @@
       "acceptance": [
         "Node22 compatible patch and upper bound agree across metadata, CI, setup, doctor, hosted and recipe admission; fresh hosts reject unsupported runtimes."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [],
-      "implementationStatus": "in_progress",
-      "evidence": [],
+      "implementationStatus": "complete",
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "5a82f26a95dba6fe448b8e48f57c1f0f4114f12a",
+          "result": "Root admission/hosted/audit tests120P +realOpenTofu5P=125P0F0S; fulltypecheck/lint/Go passed. Setup, doctor, hostedSQLite and recipe admission now share >=22.22.2<23. Stable boundary/malformed-version/legacy-demo tests passed."
+        }
+      ],
       "requiredEvidence": [
-        "contract",
-        "local_engine"
+        "contract"
       ],
       "owner": "PROD-WS-RUNTIME-SECURITY",
-      "testPaths": []
+      "testPaths": [
+        "tests/scripts/runtime-admission.test.ts",
+        "tests/hosted/config.test.ts",
+        "tests/hosted/source/validate.test.ts"
+      ]
     },
     {
       "id": "PROD-CI-07",
@@ -171,13 +231,22 @@
       "state": "in_progress",
       "dependencies": [],
       "implementationStatus": "in_progress",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "5a82f26a95dba6fe448b8e48f57c1f0f4114f12a",
+          "result": "Root fresh mandatory audit correctly exits1 for8 unresolved entries/24GHSA IDs. No exceptions granted. Legacy rootlock remains vulnerable. Updated lock candidate independently installed/audited0 by worker, compatibility/fullsuite/build/Linux integration pending."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
       "owner": "PROD-WS-RUNTIME-SECURITY",
-      "testPaths": []
+      "testPaths": [],
+      "operatorBlockers": [
+        "Eight audited package entries covering24GHSA advisoryIDs unresolved; no exceptions granted. Mandatory gate cannot pass until safe remediation or explicitly reviewed expiring exceptions."
+      ]
     },
     {
       "id": "PROD-CI-08",
@@ -1625,7 +1694,7 @@
         "PROD-CI-02"
       ],
       "branch": "ws/prod-ci-schema",
-      "state": "in_progress",
+      "state": "integrated",
       "ownedPaths": [
         "scripts/ci/apply-supabase-migrations.sh",
         "scripts/platform/verify-schema.ts",
@@ -1639,14 +1708,15 @@
         "PROD-CI-05"
       ],
       "branch": "ws/prod-gate-report",
-      "state": "in_progress",
+      "state": "integrated",
       "ownedPaths": [
         "tests/ci/assert-lane-report.mjs",
         "scripts/ci/lane-report.mjs",
         "scripts/ci/gate-manifest.mjs",
         "scripts/ci/run-gate.mjs",
         "scripts/ci/sanitize-evidence.mjs",
-        "related focused tests"
+        "related focused tests",
+        "tests/ci/platform-coverage.test.ts"
       ]
     },
     {
@@ -1655,7 +1725,7 @@
         "PROD-CI-04"
       ],
       "branch": "ws/prod-workflows",
-      "state": "in_progress",
+      "state": "integrated",
       "ownedPaths": [
         "tests/workflows/support.ts",
         "tests/workflows/codec-replay.test.ts",
@@ -1670,7 +1740,7 @@
         "PROD-CI-07"
       ],
       "branch": "ws/prod-runtime-security",
-      "state": "in_progress",
+      "state": "integrated",
       "ownedPaths": [
         "src/lib/node-runtime.ts",
         "scripts/setup.ts",
@@ -1696,6 +1766,21 @@
         "tests/workflows/worker.test.ts",
         "scripts/acceptance/packaged-worker.mjs",
         "docs/platform/EXECUTION-WORKER.md"
+      ]
+    },
+    {
+      "id": "PROD-WS-DEPENDENCY-REMEDIATION",
+      "requirements": [
+        "PROD-CI-07"
+      ],
+      "branch": "ws/prod-dependency-remediation",
+      "state": "in_progress",
+      "ownedPaths": [
+        "package.json",
+        "package-lock.json",
+        "vitest.config.ts",
+        "docs/build/production/dependency-remediation-2026-10-02.json",
+        "docs/build/production/dependency-remediation-2026-10-02.md"
       ]
     }
   ],
@@ -1747,5 +1832,42 @@
       ]
     }
   ],
-  "integrations": []
+  "integrations": [
+    {
+      "date": "2026-10-02",
+      "commit": "99c64cac9bc06541b70fff0ca4785c27dd112aa2",
+      "workstreams": [
+        "PROD-WS-CI-SCHEMA",
+        "PROD-WS-WORKFLOWS"
+      ],
+      "workerCommits": [
+        "018c7446bcdf609ff267bbffe9ce539243a8991d",
+        "1b98f8e6650b9bde5eef853f96843821050b25a9"
+      ],
+      "status": "targeted verified; full integrated/remote gates pending",
+      "preservedBaseline": "37be7340536ccb68ae4bb49294e8ab3799d1f01b"
+    },
+    {
+      "date": "2026-10-02",
+      "commit": "04752dd67f31be06ac53084f19179e567a107a8b",
+      "workstreams": [
+        "PROD-WS-GATE-REPORT"
+      ],
+      "workerCommits": [
+        "19c969bdbf44c28c383314d8c7580b1c31c10f13"
+      ],
+      "status": "independently reviewed/targeted verified; real engine reproduction/fullpushedrun pending"
+    },
+    {
+      "date": "2026-10-02",
+      "commit": "5c4730620bf9964a41c70525baa63e31dc3459a5",
+      "workstreams": [
+        "PROD-WS-RUNTIME-SECURITY"
+      ],
+      "workerCommits": [
+        "5a82f26a95dba6fe448b8e48f57c1f0f4114f12a"
+      ],
+      "status": "root verified and independently reviewed; dependency-remediation candidate not integrated"
+    }
+  ]
 }

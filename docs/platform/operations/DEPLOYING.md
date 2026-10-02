@@ -696,6 +696,14 @@ database and the clouds. It uses `tini`
 as PID 1 so SIGTERM reaches the worker and orphaned provider processes are
 reaped.
 
+The default `production` image target excludes the packaged fixture client and
+its store-seeding code. The separate `acceptance` derivative requires an
+explicit build target. Its fixture client requires
+`ZENITH_PACKAGED_ACCEPTANCE=1` plus the harness's exact disposable PostgreSQL,
+Temporal, file-store and private plan-directory configuration; otherwise it
+refuses to run. This switch is acceptance-only and does not enable a production
+startup mode or grant cloud execution authority.
+
 **Status: local `linux/arm64` image built successfully on 2026-10-02.** The image
 ID is `sha256:ce29c543b82224ffd4db107351b33d671a16ce70754d1b478fc0493480e6b1ac`.
 CLI probes with networking disabled and a read-only root filesystem verified

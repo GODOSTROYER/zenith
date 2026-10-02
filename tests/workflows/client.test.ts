@@ -8,6 +8,7 @@
  */
 
 import { createServer, type Server } from "node:net";
+import type { Client, WorkflowHandle } from "@temporalio/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { WORKFLOW_ID, RECONCILE_WORKFLOW_ID, type WorkflowResult, type ReconcileWorkflowResult } from "@/lib/workflows/types";
 import { temporalConfigFromEnv, type TemporalConnectionConfig } from "@/lib/workflows/config";
@@ -35,7 +36,46 @@ afterEach(() => {
   resetAvailabilityCache();
 });
 
+it("gives actual TemporalUnavailableError instances their public error identity", () => {
+  const error = new TemporalUnavailableError("starting infrastructureDeployWorkflow timed out after 10000 ms");
+  expect(error).toBeInstanceOf(Error);
+  expect(error.name).toBe("TemporalUnavailableError");
+  expect(error.code).toBe("temporal_unavailable");
+});
+
 describe("startDeploy is idempotent on the operation id", () => {
+  scenario("a real accepted start can complete after its response times out, and its operation id still prevents another execution", async (h) => {
+    const input = deployInput();
+    const accepted = Promise.withResolvers<WorkflowHandle>();
+    const response = Promise.withResolvers<WorkflowHandle>();
+    const client = { workflow: { start: async (...args: Parameters<Client["workflow"]["start"]>) => {
+      try {
+        const handle = await h.client.workflow.start(...args);
+        accepted.resolve(handle);
+        // Only the response is withheld. The real isolated server and worker
+        // accept and execute the request through the actual SDK above.
+        return response.promise;
+      } catch (error) { accepted.reject(error); throw error; }
+    } } } as unknown as Client;
+    await h.run(async () => {
+      try {
+        const failure = await startDeploy(input, { client, taskQueue: h.taskQueue, timeoutMs: 2000 }).catch((error: unknown) => error);
+        expect(failure).toBeInstanceOf(TemporalUnavailableError);
+        expect(failure).toMatchObject({ name: "TemporalUnavailableError", message: "starting infrastructureDeployWorkflow timed out after 2000 ms" });
+        const handle = await accepted.promise;
+        expect(((await handle.result()) as WorkflowResult).status).toBe("succeeded");
+        const completed = await handle.describe();
+        const again = await startDeploy(input, { client: h.client, taskQueue: h.taskQueue });
+        expect(again.runId).toBe(completed.runId);
+        expect(h.fake.callsTo("validateDesiredState")).toHaveLength(1);
+        response.resolve(handle);
+      } finally {
+        // Release the held response even if an assertion fails.
+        response.resolve(h.client.workflow.getHandle(WORKFLOW_ID(input.operationId)));
+      }
+    });
+  });
+
   scenario("a duplicate start while running returns the same execution, and only one workflow runs", async (h) => {
     h.fake.setResult("evaluatePolicy", { outcome: "require_approval", decisionId: "d-1", reasons: [] });
     const input = deployInput();

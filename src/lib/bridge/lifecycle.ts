@@ -11,8 +11,9 @@ import type { OperationView } from "@/lib/capabilities/types";
 import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
 import { q, revisionManifestAsync, save } from "@/lib/db/store";
 import type { Deployment } from "@/lib/domain/types";
+import { InvalidWorkflowInputError } from "@/lib/workflows/client";
 import { bridgeDeps } from "@/lib/bridge/deps";
-import { failDeployment, finishUnstartedDeployment, setProjectedStatus } from "@/lib/bridge/projection";
+import { failDeployment, finishUnstartedDeployment, noteUnconfirmedDeployment, setProjectedStatus } from "@/lib/bridge/projection";
 
 export function bridgeFailure(error: unknown): ActionResult {
   return { ok: false, summary: "The platform operation could not proceed.", error: isBrokerError(error) ? `${error.message}${error.fix ? ` Fix: ${error.fix}` : ""}` : "The platform service is unavailable. Restore it and retry from the web app." };
@@ -49,48 +50,82 @@ export function beginWorkflow(ctx: ActionContext, d: Deployment): Promise<Action
 }
 
 async function start(ctx: ActionContext, d: Deployment): Promise<ActionResult> {
-  if (d.workflowStartedAt) return { ok: true, summary: "Deployment is already underway.", data: deploymentData(d) };
   const deps = bridgeDeps();
   let claimed = false;
   let startAttempted = false;
+  let authorityRead = false;
   let broker: Awaited<ReturnType<typeof deps.broker>> | undefined;
+  let op: OperationView | undefined;
+  const unconfirmed = (message: string): ActionResult => {
+    // A worker may have completed while the start response or settlement was lost.
+    // Its projection and the operation ledger take precedence over this caller.
+    const confirmedStatus = op && ["succeeded", "failed", "cancelled", "denied", "rejected", "expired"].includes(op.status) ? op.status : undefined;
+    if (!confirmedStatus) {
+      try { noteUnconfirmedDeployment(d, message); } catch { /* Inspection remains required even if the projection cannot be saved. */ }
+    }
+    return { ok: false, summary: confirmedStatus ? "The platform operation has a recorded outcome." : "Workflow startup could not be confirmed.", error: confirmedStatus ? `The platform operation is ${confirmedStatus}; its recorded outcome was preserved. Inspect the platform operation for the result.` : message, data: deploymentData(d, op) };
+  };
+  const refreshOperation = async (): Promise<boolean> => {
+    try { ({ op } = await detailFor(ctx, d)); return true; }
+    catch { op = undefined; return false; }
+  };
   try {
+    ({ broker, op } = await detailFor(ctx, d));
+    authorityRead = true;
+    if (op.status === "uncertain") return unconfirmed("The platform operation is uncertain. Inspect it before retrying or proposing another change; no new workflow start was attempted.");
+    if (d.workflowStartedAt) return { ok: true, summary: "Deployment workflow was already started.", data: deploymentData(d, op) };
+    if (!["approved", "queued"].includes(op.status)) return { ok: false, summary: "Workflow startup refused.", error: `The platform operation is ${op.status}; no new workflow start was attempted. Inspect the platform operation.`, data: deploymentData(d, op) };
     const env = q.environment(d.environmentId);
     const manifest = await revisionManifestAsync(d.revisionId);
     if (!env || !manifest || !d.operationId) throw new Error("Missing deployment context.");
-    ({ broker } = await detailFor(ctx, d));
-    // Never return, log or save the compact grant.
-    await broker.beginExecution({ workspaceId: ctx.workspaceId, operationId: d.operationId, holder: `workflow:${d.operationId}`, audience: "worker", leaseMs: 5 * 60_000 });
-    claimed = true;
-    startAttempted = true;
-    await deps.workflows.startDeploy({
+    const input = {
       operationId: d.operationId, workspaceId: ctx.workspaceId, projectId: d.projectId,
       environmentId: d.environmentId, revisionId: d.revisionId, deploymentId: d.id,
       connectionId: env.connectionId, preApproved: true,
       build: manifest.services.some((s) => s.ownership === "managed" && s.source.type === "git"),
-    });
+    };
+    // Never return, log or save the compact grant.
+    await broker.beginExecution({ workspaceId: ctx.workspaceId, operationId: d.operationId, holder: `workflow:${d.operationId}`, audience: "worker", leaseMs: 5 * 60_000 });
+    claimed = true;
+    startAttempted = true;
+    await deps.workflows.startDeploy(input);
     d.workflowStartedAt = new Date().toISOString();
     // A fast worker may have already projected progress: do not overwrite it.
     save(d.projectId);
     return { ok: true, summary: "Deployment workflow started; the worker will project progress here.", data: deploymentData(d) };
   } catch (error) {
-    if (isBrokerError(error) && error.code === "already_claimed") return bridgeFailure(error);
-    const timeout = startAttempted && error instanceof Error && error.name === "TemporalUnavailableError" && /timed out$/.test(error.message);
-    const message = timeout
-      ? "Workflow start timed out; whether it started is unknown. The operation is uncertain; inspect it before proposing another change."
-      : startAttempted ? "Workflow startup failed; no confirmed workflow start was recorded. Check Temporal and the execution worker." : bridgeFailure(error).error!;
+    // A failed initial authority read cannot prove that an earlier start was
+    // absent. Do not settle the operation or release its product writer here.
+    if (!authorityRead) return unconfirmed("The platform operation could not be inspected. Its outcome is unconfirmed; restore access and inspect it before retrying or proposing another change. No new workflow start was attempted.");
+    if (!startAttempted && isBrokerError(error) && error.code === "already_claimed") return bridgeFailure(error);
+    // The actual client validates payloads before connecting or dispatching.
+    // Other gateway errors, including non-timeout failures, prove no absence.
+    const ambiguous = startAttempted && !(error instanceof InvalidWorkflowInputError);
+    const message = ambiguous
+      ? "Workflow start could not be confirmed; it may already be running. Inspect the platform operation before retrying or proposing another change."
+      : bridgeFailure(error).error!;
+    let failedSettled = false;
     if (claimed && broker) {
       try {
-        if (timeout) await broker.markUncertain({ workspaceId: ctx.workspaceId, operationId: d.operationId!, reason: message });
-        else await broker.completeExecution({ workspaceId: ctx.workspaceId, operationId: d.operationId!, outcome: "failed", error: message });
+        if (ambiguous) op = await broker.markUncertain({ workspaceId: ctx.workspaceId, operationId: d.operationId!, reason: message });
+        else {
+          op = await broker.completeExecution({ workspaceId: ctx.workspaceId, operationId: d.operationId!, outcome: "failed", error: message });
+          failedSettled = true;
+        }
       } catch {
         // Do not hide a failed ledger settlement or claim certainty.
-        failDeployment(d, `${message} Ledger settlement also failed; inspect the platform operation (its claim will expire).`);
-        return { ok: false, summary: "Workflow startup could not be confirmed.", error: d.error, data: deploymentData(d) };
+        await refreshOperation();
+        return unconfirmed(`${message} Ledger settlement also failed; inspect the platform operation for its authoritative outcome.`);
       }
     }
+    if (ambiguous) return unconfirmed(message);
+    // A lost claim response or another executor's progress cannot be projected
+    // as this caller's failure, even though this caller never reached Temporal.
+    if (!failedSettled && broker && (!await refreshOperation() || (op && (["running", "uncertain", "succeeded", "failed", "cancelled"].includes(op.status) || approvalRoundOf(op) > 0)))) {
+      return unconfirmed("Workflow startup was not attempted by this request, but the platform outcome cannot be settled here. Inspect the platform operation before retrying.");
+    }
     failDeployment(d, message);
-    return { ok: false, summary: "Workflow startup could not proceed.", error: message, data: deploymentData(d) };
+    return { ok: false, summary: "Workflow startup could not proceed.", error: message, data: deploymentData(d, op) };
   }
 }
 
@@ -102,7 +137,7 @@ export async function workflowApprovalPlan(ctx: ActionContext, d: Deployment): P
   try {
     const { op } = await detailFor(ctx, d);
     plan.details.push(`Operation: ${op.id}. Proposal digest: ${op.proposalDigest}. Review: /api/platform/v1/operations/${op.id}`);
-    if (d.workflowStartedAt && op.approvalRound && op.status === "awaiting_approval") {
+    if (approvalRoundOf(op) > 0 && op.status === "awaiting_approval") {
       awaiting = true;
       plan.details.push(`Review and approve the concrete plan at /platform/operations/${op.id}. Plan digest: ${op.planDigest ?? "unavailable"}.`);
     }
@@ -119,7 +154,9 @@ export async function approveWorkflowDeployment(ctx: ActionContext, d: Deploymen
     const { broker, op: initial } = await detailFor(ctx, d);
     let op = initial;
     if (op.status === "running" && d.workflowStartedAt) return { ok: true, summary: "Deployment is already underway.", data: deploymentData(d, op) };
-    const planGate = d.workflowStartedAt && op.approvalRound && ["awaiting_approval", "approved", "queued"].includes(op.status);
+    // The worker's recorded plan round proves an existing workflow gate even
+    // when this caller never received its start acknowledgement.
+    const planGate = approvalRoundOf(op) > 0 && ["awaiting_approval", "approved", "queued"].includes(op.status);
     if (d.status !== "awaiting_approval" && !planGate) return { ok: false, summary: "Approval refused.", error: `This deployment is ${d.status}; only a deployment awaiting approval can be approved.` };
     if (op.status === "awaiting_approval") {
       const approved = await broker.approve({ workspaceId: ctx.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: reviewedPlanDigest, approver: { kind: "user", id: ctx.actor.id, name: ctx.actor.name }, session });
@@ -127,7 +164,7 @@ export async function approveWorkflowDeployment(ctx: ActionContext, d: Deploymen
       if (!approved.finalized) return { ok: true, summary: `Approval recorded (${approved.approvals.have}/${approved.approvals.need}); waiting for other approvers.`, data: deploymentData(d, op) };
     }
     if (op.status !== "approved" && op.status !== "queued") return { ok: false, summary: "Approval refused.", error: `The platform operation is ${op.status}; review it in the web app.` };
-    if (!d.workflowStartedAt) {
+    if (!d.workflowStartedAt && approvalRoundOf(op) === 0) {
       setProjectedStatus(d, "planning");
       return beginWorkflow(ctx, d);
     }

@@ -1,5 +1,9 @@
 # Resume here: wave 8 integration (2026-10-02)
 
+Production continuation now starts at [production/RESUME.md](production/RESUME.md)
+from `37be734`, on `codex/production-2026-10-02`. The sections below preserve
+historical wave-8 instructions and evidence; do not restart their completed work.
+
 Source checkpoint: `platform/checkpoint-2026-10-01` at `6d1359a`.
 Resumed staging: `ws/integrate-w8`, `/Users/saivedanthava/Desktop/zenith`,
 on Saivedant Hava's Mac. Read this first, then `IMPLEMENTATION-LEDGER.md`

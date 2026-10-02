@@ -1,0 +1,1751 @@
+{
+  "schema": 1,
+  "program": "Zenith complete production product",
+  "directiveDate": "2026-10-02",
+  "baseline": {
+    "branch": "codex/wave8-integration-2026-10-02",
+    "commit": "37be7340536ccb68ae4bb49294e8ab3799d1f01b",
+    "functionalTestCommit": "b9e1b2fc54a77b2346e0ff6a9f7589267a6afb2e",
+    "ancestryVerified": true,
+    "historicalWave8Ledger": "docs/build/ledger.json",
+    "historicalEvidence": "docs/build/verification/2026-10-02-wave8.json",
+    "localEvidence": "15,854 passed, 194 skipped; OPA213; Go226+539,3 skips; kind6+1; ARM64 image CLI probes only",
+    "remoteEvidence": "Run36925770382 completed failure:11 passed jobs,3 failed",
+    "completedImplementation": [
+      "teardown approval protection",
+      "Azure C3 source binding",
+      "six AWS boundary families",
+      "GitHub migration6/navigation",
+      "machine docs",
+      "OCI binding/cleanup receipts",
+      "runtime/lockfile/worker packaging",
+      "kind apply/release repairs"
+    ]
+  },
+  "stagingBranch": "codex/production-2026-10-02",
+  "identity": "Saivedant Hava <saivedant169@gmail.com>",
+  "host": "Saivedants-MacBook-Air.local",
+  "resourcePolicy": {
+    "ramGB": 8,
+    "maximumActiveImplementationWorkers": 3,
+    "maximumHeavyVerificationProcesses": 1,
+    "fullVitestWorkers": 1,
+    "workersCommit": false,
+    "rootReviewsAndVerifies": true
+  },
+  "evidenceLevels": [
+    "contract",
+    "local_engine",
+    "local_cluster",
+    "local_linux_amd64",
+    "local_linux_arm64",
+    "remote_ci",
+    "live_sandbox",
+    "operational_rehearsal",
+    "production_signoff"
+  ],
+  "releaseStatus": {
+    "implementationComplete": false,
+    "sandboxVerified": false,
+    "pilotReady": false,
+    "productionApproved": false
+  },
+  "requirements": [
+    {
+      "id": "PROD-CI-01",
+      "title": "Remote baseline reconciliation",
+      "acceptance": [
+        "Fetch current run36925770382/job logs, preserve exact11 success/3 failure facts and separate local/remote evidence."
+      ],
+      "state": "verified",
+      "dependencies": [],
+      "implementationStatus": "complete",
+      "evidence": [
+        {
+          "level": "remote_ci",
+          "commit": "37be7340536ccb68ae4bb49294e8ab3799d1f01b",
+          "runId": 36925770382,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/36925770382",
+          "result": "11 successful jobs, 3 failed jobs; baseline CI not green",
+          "logs": "/Users/saivedanthava/.codex/zenith-production/logs/baseline-*.log",
+          "jsonArtifactsAvailable": false
+        }
+      ],
+      "requiredEvidence": [
+        "remote_ci"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-CI-02",
+      "title": "Canonical migration compatibility",
+      "acceptance": [
+        "Fresh/reapplied complete Supabase SQL passes canonical checksums, names and compatible schema checks; tampered/missing/incompatible schemas fail."
+      ],
+      "state": "in_progress",
+      "dependencies": [],
+      "implementationStatus": "in_progress",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": "PROD-WS-CI-SCHEMA",
+      "testPaths": []
+    },
+    {
+      "id": "PROD-CI-03",
+      "title": "Strict PostgreSQL scenario evidence",
+      "acceptance": [
+        "Real PostgreSQL JSON identifies each backend/scenario despite quoted labels; missing/failed/skipped/zero/malformed evidence fails, PGlite cannot substitute."
+      ],
+      "state": "in_progress",
+      "dependencies": [],
+      "implementationStatus": "in_progress",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": "PROD-WS-GATE-REPORT",
+      "testPaths": []
+    },
+    {
+      "id": "PROD-CI-04",
+      "title": "Reproducible Temporal and source scenarios",
+      "acceptance": [
+        "Real local codec/destroy replay and pinned public source acquisition execute; externally authorized mTLS/private source have explicit prerequisites and release blockers."
+      ],
+      "state": "in_progress",
+      "dependencies": [],
+      "implementationStatus": "in_progress",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": "PROD-WS-WORKFLOWS",
+      "testPaths": []
+    },
+    {
+      "id": "PROD-CI-05",
+      "title": "Canonical gates and sanitized artifacts",
+      "acceptance": [
+        "One manifest drives local/CI commands, strict requirements and explicit external gates; commit/environment/dependency-bound artifacts omit secrets and untrusted diagnostic payloads."
+      ],
+      "state": "in_progress",
+      "dependencies": [],
+      "implementationStatus": "in_progress",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": "PROD-WS-GATE-REPORT",
+      "testPaths": []
+    },
+    {
+      "id": "PROD-CI-06",
+      "title": "Supported runtime admission",
+      "acceptance": [
+        "Node22 compatible patch and upper bound agree across metadata, CI, setup, doctor, hosted and recipe admission; fresh hosts reject unsupported runtimes."
+      ],
+      "state": "in_progress",
+      "dependencies": [],
+      "implementationStatus": "in_progress",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": "PROD-WS-RUNTIME-SECURITY",
+      "testPaths": []
+    },
+    {
+      "id": "PROD-CI-07",
+      "title": "Dependency vulnerability clearance",
+      "acceptance": [
+        "Reconcile advisories by ID/version/platform and production/build/dev reachability; safe patches, mandatory gates, reviewed expiring exceptions, no force upgrades."
+      ],
+      "state": "in_progress",
+      "dependencies": [],
+      "implementationStatus": "in_progress",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": "PROD-WS-RUNTIME-SECURITY",
+      "testPaths": []
+    },
+    {
+      "id": "PROD-CI-08",
+      "title": "Fresh complete verification",
+      "acceptance": [
+        "Clean installation, migrations, typecheck/lint/generated artifacts, real OpenTofu, OPA, Go race/interoperability, PostgreSQL, Temporal and real browser gates run with exact counts."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-02",
+        "PROD-CI-03",
+        "PROD-CI-04",
+        "PROD-CI-05",
+        "PROD-CI-06",
+        "PROD-CI-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-CI-09",
+      "title": "Observed green pushed baseline",
+      "acceptance": [
+        "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-02",
+        "PROD-CI-03",
+        "PROD-CI-04",
+        "PROD-CI-05"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-PKG-01",
+      "title": "Linux worker image startup",
+      "acceptance": [
+        "Build AMD64 and ARM64 execution-worker images and exercise actual entrypoint; distinguish native/emulated architecture evidence."
+      ],
+      "state": "in_progress",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "in_progress",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": "PROD-WS-WORKER-STARTUP",
+      "testPaths": []
+    },
+    {
+      "id": "PROD-PKG-02",
+      "title": "Composed worker operation and shutdown",
+      "acceptance": [
+        "Actual schema, signer, policy loading, Temporal polling, authorized operation, readiness/liveness and graceful shutdown pass with real disposable stores."
+      ],
+      "state": "in_progress",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "in_progress",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": "PROD-WS-WORKER-STARTUP",
+      "testPaths": []
+    },
+    {
+      "id": "PROD-PKG-03",
+      "title": "Filesystem and plan lifecycle",
+      "acceptance": [
+        "Nonroot permissions, SSM assets, private plan storage, cleanup and runtime filesystem constraints pass under actual image execution."
+      ],
+      "state": "in_progress",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "in_progress",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": "PROD-WS-WORKER-STARTUP",
+      "testPaths": []
+    },
+    {
+      "id": "PROD-PKG-04",
+      "title": "Supported installation topology",
+      "acceptance": [
+        "Reproducible API, durable product/platform stores, Temporal, workers and customer agents deploy from a clean host without hidden injected ports."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-PKG-05",
+      "title": "Default browser API and MCP journey",
+      "acceptance": [
+        "Actual default composition handles browser/API/MCP proposal and human approval; independent application behavior proves outcomes."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-PKG-06",
+      "title": "Durable database acceptance",
+      "acceptance": [
+        "Complete Supabase/hosted migrations, production TLS/pooler/authorization/concurrency/recovery acceptance is distinct from local PostgreSQL contracts."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MIX-01",
+      "title": "Execution partitions and authorities",
+      "acceptance": [
+        "Partition graph by provider/account/region/backend; bind separate authorized connections before replacing existing cross-provider refusal."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-03",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MIX-02",
+      "title": "Parent and immutable child plans",
+      "acceptance": [
+        "Dependency-ordered child workflows have immutable subplans, parent approval/evidence and durable receipts; stable resource addresses survive resume."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-03",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MIX-03",
+      "title": "Typed scoped dependency outputs",
+      "acceptance": [
+        "Typed outputs/secret references preserve provenance and scope; newly materialized effects require review unless precisely preauthorized."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-03",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MIX-04",
+      "title": "Distributed failure and teardown order",
+      "acceptance": [
+        "Cycles, partial success, timeout, expiry, cancellation, outage, drift/migration/teardown order fail safely; no fictional transaction or destructive automatic compensation."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-03",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MIX-05",
+      "title": "Protected cross-cloud connectivity",
+      "acceptance": [
+        "Prove cross-provider network/DNS/TLS/identity/secret bindings, overlap handling and private connectivity or explicitly approved protected endpoints; databases never silently public."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-03",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MIX-06",
+      "title": "Real mixed application traffic",
+      "acceptance": [
+        "GCP compute, Azure PostgreSQL and AWS functions or justified equivalent serve actual application traffic with independently checked readback."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-03",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MIX-07",
+      "title": "Mixed-cloud recovery and economics",
+      "acceptance": [
+        "Transfer/latency/residency costs included; one-provider failure recovery demonstrated; full acceptance harness exists even when live accounts unavailable."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-03",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-DUR-01",
+      "title": "Durable intent and outbox",
+      "acceptance": [
+        "Product, platform, Temporal and runner authorities have durable intent/outbox and idempotent start/signal across every crash window."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-DUR-02",
+      "title": "Authoritative state and projections",
+      "acceptance": [
+        "Operation authority versus UI projection defined; independent workers and concurrent writers preserve state without treating local locks as external atomicity."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-DUR-03",
+      "title": "Exact approved executable semantics",
+      "acceptance": [
+        "Approval binds revision, recipe, scripts/migrations, targets/configuration, provider locks/backend and saved plan; changed relevant semantics invalidates approval."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-DUR-04",
+      "title": "Dispatch authorization and bounded autonomy",
+      "acceptance": [
+        "Policy/authorization rechecked at dispatch; browser-human approvals unforgeable; destructive/high-risk gates mandatory; standing grants are explicitly bounded."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-DUR-05",
+      "title": "Durable encrypted plan handoff",
+      "acceptance": [
+        "Encrypted immutable plan artifacts work across independent workers with tenant access/integrity/expiry; sanitized PlanViews stay separate from raw sensitive data."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-DUR-06",
+      "title": "Artifact cleanup and state backend recovery",
+      "acceptance": [
+        "Janitor writer/unlink race closed; supported backends prove locking/encryption/versioning/restore without unsafe deletion."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-DUR-07",
+      "title": "Uncertain external mutation resolution",
+      "acceptance": [
+        "Partitions/stale fences/delayed calls/revocation/renewal preserve uncertain/conflict/tombstones; provider idempotency or receipts/readback enable evidence-based operator resolution and new authorization."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-DUR-08",
+      "title": "Build and cleanup deduplication",
+      "acceptance": [
+        "Build launches and external cleanup effects use durable receipts, independent readback and deduplicated retry rather than blind replay."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-LIFE-01",
+      "title": "Connection administration lifecycle",
+      "acceptance": [
+        "Default create/onboard/verify/revoke/rotate flows work through UI/API/CLI for supported providers and customer runners."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-LIFE-02",
+      "title": "Versioned offered capability catalog",
+      "acceptance": [
+        "Explicit matrix covers VM/container/serverless/triggers/jobs/data/cache/storage/messaging/network/firewall/DNS/TLS/identity/secrets/day-two; schema/refusal/mock-only paths are not offered services."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-LIFE-03",
+      "title": "AWS family migration and suffixes",
+      "acceptance": [
+        "Stack-first boundaries and bootstrap suffix propagate into connection/compiler/role selection; maximum names/partitions/zones fit IAM and actual permissions independently verified without widening privilege."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-LIFE-04",
+      "title": "Azure data plane and sovereign identity",
+      "acceptance": [
+        "Trusted source wiring preserved; data-plane permission, sovereign identity/ARM endpoints and real source builds accepted."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-LIFE-05",
+      "title": "OCI replacement and deletion evidence",
+      "acceptance": [
+        "Same-runner receipts/lost-response uncertainty preserved; independent deletion completion and runner replacement recovery proven; MySQL remains unsupported pending safe secret sink."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-LIFE-06",
+      "title": "Non-AWS ownership-safe DNS teardown",
+      "acceptance": [
+        "GCP/Azure/OCI DNS teardown proves ownership and refuses foreign/unreadable targets with human destructive approval."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-LIFE-07",
+      "title": "Kubernetes full lifecycle acceptance",
+      "acceptance": [
+        "Default build/guest credentials, StatefulSets, CronJobs, persistent data, real CNI NetworkPolicy and supported managed-cluster acceptance proven."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-LIFE-08",
+      "title": "GitHub source binding lifecycle",
+      "acceptance": [
+        "Bind/remove/uninstall/revoke and private-source acceptance; monorepo/Dockerfile/buildpack acquisition avoids arbitrary host execution."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-LIFE-09",
+      "title": "Isolated untrusted build provenance",
+      "acceptance": [
+        "Build identity/network/filesystem/resources deny deployment credentials and metadata; dependency downloads controlled, artifacts have verified provenance."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-LIFE-10",
+      "title": "Release and data migration safety",
+      "acceptance": [
+        "Source to build/digest/migration/readiness/cutover/readback works; progressive rollout/code rollback/compatible migrations separate from reviewed data restore."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-LIFE-11",
+      "title": "Backup export import and adoption",
+      "acceptance": [
+        "Supported backup/export/import/adoption and ownership-safe decommissioning pass with independently readable restored data."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-LIFE-12",
+      "title": "Single owner per mutable field",
+      "acceptance": [
+        "Native operations, IaC and autoscalers have explicit field ownership and conflict detection; no competing writers."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MACH-01",
+      "title": "Typed safe guest configuration",
+      "acceptance": [
+        "file.write/file.upload/package.install and convergent services use atomic changes, safe paths/symlinks, allowlists, privilege separation, backups and postconditions."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MACH-02",
+      "title": "Kubernetes guest credentials",
+      "acceptance": [
+        "Default supported Kubernetes guest credential resolution is tenant-scoped, revocable and never falls back to higher privilege."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MACH-03",
+      "title": "Signed automation and scheduling",
+      "acceptance": [
+        "Versioned signed scripts/runbooks, bounded targets/windows/cancellation/audit; raw exec remains approved high-risk escape hatch, argv parsing never claimed sandbox."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MACH-04",
+      "title": "Linux runner delivery and lifecycle",
+      "acceptance": [
+        "Actual Linux registration/revocation, durable results, reconnect/offline recovery, key rotation and update/rollback pass."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MACH-05",
+      "title": "Local customer credential custody",
+      "acceptance": [
+        "Supported runner modes keep credentials local; revoked bindings cannot trigger privileged fallback; model-visible results contain no secrets."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MACH-06",
+      "title": "Bounded evaluated coding agents",
+      "acceptance": [
+        "Analysis and requirements lead to actual deployment journey; token/tool/runtime/spend budgets and task/unsafe/recovery evaluations enforced; repository/plugin data is not authority."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-OBS-01",
+      "title": "Canonical observation-to-repair engine",
+      "acceptance": [
+        "Reconcile Temporal/HTTP/controller reuse one observe/diagnose/brokered proposal/policy/approval/remediate/verify lifecycle; repair:not_implemented removed with implementation."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-OBS-02",
+      "title": "Fresh scoped telemetry provenance",
+      "acceptance": [
+        "Logs/metrics/traces/provider events/resource events/machine health use scoped sessions, timestamps/provenance and explicit unknown/inaccessible results."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-OBS-03",
+      "title": "Incident stability and escalation",
+      "acceptance": [
+        "Deduplication/hysteresis/cooldowns/attempt and blast-radius limits/windows/escalation/postmortem; inconclusive diagnosis escalates, repair storms and autoscaler conflicts blocked."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-OBS-04",
+      "title": "Durable critical schedules",
+      "acceptance": [
+        "Critical observation/reaping use durable scheduling across restart, not only best-effort GitHub cron."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MAN-01",
+      "title": "Default managed substrate and sessions",
+      "acceptance": [
+        "Default Zenith session opener/substrate/source build/release composition operates without manually injected test ports."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MAN-02",
+      "title": "Managed serving integrations",
+      "acceptance": [
+        "Supported registry/gateway/DNS/TLS/secret delivery/storage/managed database integrations operate; established managed DB services reused."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MAN-03",
+      "title": "Tenant storage domains and service catalog",
+      "acceptance": [
+        "Tenant object storage, domain ownership proof/renewal, DB export/restore, autoscaling and promised services function."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MAN-04",
+      "title": "Two untrusted tenant isolation",
+      "acceptance": [
+        "Two tenants prove route/storage/CNI/metadata/FQDN-egress/pod security/quota/operator separation; sandboxed or stronger runtime evaluated against threat model."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MAN-05",
+      "title": "Resource isolation under load",
+      "acceptance": [
+        "Noisy-neighbor/resource-exhaustion tests prove bounded tenant impact; namespaces alone do not establish isolation."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MAN-06",
+      "title": "Separable metering and billing",
+      "acceptance": [
+        "Metering/quotas/plan assignment/invoice/payment-webhook reconciliation and safe suspension/export operate; BYOC/selfhosted do not require Zenith billing."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-MAN-07",
+      "title": "Operator commercial decisions",
+      "acceptance": [
+        "Pricing/terms/payment accounts and destructive retention await accountable decisions; nonpayment never silently destroys data."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09",
+        "PROD-PKG-05",
+        "PROD-LIFE-07"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-OPS-01",
+      "title": "Measured service and recovery objectives",
+      "acceptance": [
+        "Measurable availability/latency/capacity/RPO/RTO objectives defined and tested, with provisional targets clearly separated from accountable approval."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-OPS-02",
+      "title": "Fair bounded control plane",
+      "acceptance": [
+        "Backpressure/fair tenant scheduling/bounded queues/maintenance controls and correlated OpenTelemetry dashboards/alerts; workloads keep serving during control-plane outage."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-OPS-03",
+      "title": "Rolling upgrades and replay",
+      "acceptance": [
+        "API/worker/runner upgrades with in-flight histories and schema/protocol compatibility/rollback pass."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-OPS-04",
+      "title": "Clean-host restore and recovery epochs",
+      "acceptance": [
+        "Restore product/platform/agent/hosted/source stores, Temporal/artifacts/customer state and keys; consumed approvals/mutations cannot resurrect, controlled epoch reconciliation/reopen required."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-OPS-05",
+      "title": "Purpose-separated key custody",
+      "acceptance": [
+        "Production signing and vault/result/Temporal encryption rotation retain decrypt-only histories with separated purposes and safe operator codec diagnostics."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-OPS-06",
+      "title": "Sensitive persistence minimization",
+      "acceptance": [
+        "Protect unavoidable raw plans/state, minimize persistence and test leaks; no claim redaction catches every unknown secret."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-OPS-07",
+      "title": "Configurable non-destructive retention",
+      "acceptance": [
+        "Archive/holds/bounded pruning preserve active/audit/receipts/replay prevention; implementation and dry-run allowed, deletion awaits approved policy."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-OPS-08",
+      "title": "Independent adversarial security acceptance",
+      "acceptance": [
+        "Tenant/role/stale-approval/SSRF/rebinding/prompt injection/archive/build/exfiltration/forgery/escalation/integration compromise tested independently."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-OPS-09",
+      "title": "Verified release supply chain",
+      "acceptance": [
+        "Pinned verified dependencies/SBOM/provenance/signed releases/updater verification/vulnerability triage/tamper-evident audit export ship; no unperformed certification claim."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-UX-01",
+      "title": "Accessible privileged operator journey",
+      "acceptance": [
+        "Connection admin/onboarding/readiness/plan/progress/cancellation/replan/reapproval/uncertainty/accessibility with consistent legacy/platform projections; MFA/step-up and workspace controls for privileged humans."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-UX-02",
+      "title": "Configured client interoperability",
+      "acceptance": [
+        "Actual coding-agent clients over MCP/SDK/CLI prove exact OAuth audiences/issuers/scoped consent/revocation/streaming/reconnect/cancellation/version compatibility using current primary docs."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-UX-03",
+      "title": "Reviewed revocable plugin boundaries",
+      "acceptance": [
+        "Plugin capability declarations/provenance/schemas/isolation/revocation; no token passthrough or direct credential/store access."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-COST-01",
+      "title": "Source-backed dated price catalog",
+      "acceptance": [
+        "Refreshable official-source-backed catalogs replace weak values and distinguish estimates/forecasts/actual spend."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-COST-02",
+      "title": "Complete placement costs and constraints",
+      "acceptance": [
+        "Include egress/NAT/IPv4/IO/requests/backups; reject infeasible budgets/residency/availability; estimates never represented as hard billing caps."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-COST-03",
+      "title": "Bounded economic optimization",
+      "acceptance": [
+        "Measurable bounded nonflapping optimizations respect approval/field ownership and transfer/latency/residency cost."
+      ],
+      "state": "planned",
+      "dependencies": [
+        "PROD-CI-09"
+      ],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-REL-01",
+      "title": "Required end-to-end release evidence",
+      "acceptance": [
+        "Clean install/private source/plan approval/DNS-TLS/stateful traffic/update-rollback/machine schedules/drift-repair/revocation/crash-partition-writers/key rotation/upgrade/restore/mixed traffic/two tenants/export/teardown independently verified."
+      ],
+      "state": "planned",
+      "dependencies": [],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-REL-02",
+      "title": "Requirement-to-evidence release dossier",
+      "acceptance": [
+        "Every requirement maps implementation/tests/environment/commit/evidence and deployment/upgrade/recovery instructions; skipped/unperformed items remain visible."
+      ],
+      "state": "planned",
+      "dependencies": [],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-REL-03",
+      "title": "Separate release status and signoff",
+      "acceptance": [
+        "Implementation complete, sandbox verified, pilot ready and production approved are separate; production requires relevant live/operational evidence and accountable signoff."
+      ],
+      "state": "planned",
+      "dependencies": [],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    },
+    {
+      "id": "PROD-REL-04",
+      "title": "Scope permission and resumable execution",
+      "acceptance": [
+        "Approved budgets/disposable resources only; no unrelated services/purchases/terms/production/secret bypass/protected branches/history rewrites; consolidate decisions and checkpoint exact next commands without unattended-work claims."
+      ],
+      "state": "planned",
+      "dependencies": [],
+      "implementationStatus": "not_assessed",
+      "evidence": [],
+      "requiredEvidence": [
+        "contract",
+        "local_engine",
+        "live_sandbox",
+        "operational_rehearsal"
+      ],
+      "owner": null,
+      "testPaths": []
+    }
+  ],
+  "workstreams": [
+    {
+      "id": "PROD-WS-CI-SCHEMA",
+      "requirements": [
+        "PROD-CI-02"
+      ],
+      "branch": "ws/prod-ci-schema",
+      "state": "in_progress",
+      "ownedPaths": [
+        "scripts/ci/apply-supabase-migrations.sh",
+        "scripts/platform/verify-schema.ts",
+        "tests/ci/platform-schema-verifier.test.ts"
+      ]
+    },
+    {
+      "id": "PROD-WS-GATE-REPORT",
+      "requirements": [
+        "PROD-CI-03",
+        "PROD-CI-05"
+      ],
+      "branch": "ws/prod-gate-report",
+      "state": "in_progress",
+      "ownedPaths": [
+        "tests/ci/assert-lane-report.mjs",
+        "scripts/ci/lane-report.mjs",
+        "scripts/ci/gate-manifest.mjs",
+        "scripts/ci/run-gate.mjs",
+        "scripts/ci/sanitize-evidence.mjs",
+        "related focused tests"
+      ]
+    },
+    {
+      "id": "PROD-WS-WORKFLOWS",
+      "requirements": [
+        "PROD-CI-04"
+      ],
+      "branch": "ws/prod-workflows",
+      "state": "in_progress",
+      "ownedPaths": [
+        "tests/workflows/support.ts",
+        "tests/workflows/codec-replay.test.ts",
+        "tests/workflows/destroy-replay.test.ts"
+      ]
+    },
+    {
+      "id": "PROD-WS-RUNTIME-SECURITY",
+      "title": "Runtime admission and advisory clearance",
+      "requirements": [
+        "PROD-CI-06",
+        "PROD-CI-07"
+      ],
+      "branch": "ws/prod-runtime-security",
+      "state": "in_progress",
+      "ownedPaths": [
+        "src/lib/node-runtime.ts",
+        "scripts/setup.ts",
+        "scripts/doctor.ts",
+        "src/lib/hosted/index.ts",
+        "src/lib/hosted/contracts/source-v1.ts",
+        "scripts/ci/security-audit.mjs"
+      ]
+    },
+    {
+      "id": "PROD-WS-WORKER-STARTUP",
+      "title": "Actual worker image operation",
+      "requirements": [
+        "PROD-PKG-01",
+        "PROD-PKG-02",
+        "PROD-PKG-03"
+      ],
+      "branch": "ws/prod-worker-startup",
+      "state": "in_progress",
+      "ownedPaths": [
+        "docker/worker.Dockerfile",
+        "workers/execution/",
+        "tests/workflows/worker.test.ts",
+        "scripts/acceptance/packaged-worker.mjs",
+        "docs/platform/EXECUTION-WORKER.md"
+      ]
+    }
+  ],
+  "executionOrder": [
+    "Remote CI/evidence",
+    "Packaged worker and real local dependencies",
+    "Authorized AWS lifecycle and recovery",
+    "Kubernetes/provider acceptance",
+    "Mixed-provider execution and managed hosting",
+    "Security/load/upgrade/recovery release gates"
+  ],
+  "operatorDecisions": [
+    {
+      "id": "DEC-STARTUP",
+      "scope": "Disposable default API/browser installation startup; approve concrete isolated topology before dependent startup if existing startup restriction still applies",
+      "state": "not_requested",
+      "blocks": [
+        "PROD-PKG-05"
+      ]
+    },
+    {
+      "id": "DEC-CLOUD",
+      "scope": "Dedicated cloud accounts, owned DNS/private GitHub fixtures, explicit regions and approved test budget; credential file references only, no secrets in chat",
+      "state": "not_requested",
+      "blocks": [
+        "PROD-MIX-06",
+        "PROD-LIFE-03",
+        "PROD-LIFE-04",
+        "PROD-LIFE-05",
+        "PROD-REL-03"
+      ]
+    },
+    {
+      "id": "DEC-RETENTION",
+      "scope": "Retention/archive/legal holds/pruning configuration; implementation/dry-run continues, deletion disabled pending approval",
+      "state": "not_requested",
+      "blocks": [
+        "PROD-OPS-07"
+      ]
+    },
+    {
+      "id": "DEC-BUSINESS",
+      "scope": "Managed pricing, terms, payment accounts and final SLO/RPO/RTO signoff",
+      "state": "not_requested",
+      "blocks": [
+        "PROD-MAN-07",
+        "PROD-OPS-01",
+        "PROD-REL-03"
+      ]
+    }
+  ],
+  "integrations": []
+}

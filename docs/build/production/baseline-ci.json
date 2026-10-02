@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "commit": "37be7340536ccb68ae4bb49294e8ab3799d1f01b",
+  "runId": 36925770382,
+  "url": "https://github.com/GODOSTROYER/zenith/actions/runs/36925770382",
+  "status": "completed",
+  "conclusion": "failure",
+  "jobCounts": {
+    "passed": 11,
+    "failed": 3
+  },
+  "vitestJsonArtifactsAvailable": false,
+  "capturedJsonInspected": false,
+  "failedJobs": [
+    {
+      "name": "postgres",
+      "id": 110582588819,
+      "logSha256": "f6a60f3ae5a6380d5a7cb671dbafd0e4808d8732873076f7cfa5f26877c04bf8",
+      "testsPassed": null,
+      "testsFailed": null,
+      "testsSkipped": null
+    },
+    {
+      "name": "platform-postgres",
+      "id": 110582588970,
+      "logSha256": "d1a19373a04275fdd3ba17e8f2803aacb62023d1ec03e72edd47618bf63206a1",
+      "testsPassed": 1324,
+      "testsFailed": 0,
+      "testsSkipped": 0
+    },
+    {
+      "name": "workflows",
+      "id": 110582588854,
+      "logSha256": "73f9a2da1257dc9e3f009fede676e00cc702ab7cab4d7317051ce88571d3efee",
+      "testsPassed": 852,
+      "testsFailed": 0,
+      "testsSkipped": 11
+    }
+  ],
+  "limits": [
+    "Counts are captured log evidence; the old run uploaded no Vitest JSON artifacts.",
+    "Local wave-8 green does not establish remote CI green.",
+    "Supply-chain job used informational audit; successful job is not vulnerability clearance."
+  ]
+}

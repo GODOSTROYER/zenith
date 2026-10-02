@@ -1,0 +1,465 @@
+{
+  "audit": {
+    "completeLockedAudit": true,
+    "findings": 0,
+    "jobId": 110725465903,
+    "privateLogSha256": "095329f2f180e1193e14cf85a0576fcec21b4d15bb8e38f17b1889fe43273f35",
+    "resultMessage": "No known dependency findings in the complete locked audit.",
+    "resultTimestamp": "2026-10-02T05:57:14.0251434Z",
+    "step": {
+      "completed_at": "2026-10-02T05:57:14Z",
+      "conclusion": "success",
+      "name": "Known dependency findings block release",
+      "number": 5,
+      "started_at": "2026-10-02T05:57:12Z"
+    }
+  },
+  "go": {
+    "individualTestCount": null,
+    "individualTestCountReason": "Nonverbose go test output does not emit individual case counts.",
+    "jobId": 110725465635,
+    "packageCountMethod": "Counted within the exact race-command log section, until the next step header.",
+    "privateLogSha256": "0210ebe87dfeb475034c9f9e36faf9cfaa46a0e405a6006d3943f3d43fa04e9f",
+    "racePackagesWithoutTestFiles": 6,
+    "racePassingPackageLines": 11,
+    "raceStep": {
+      "completed_at": "2026-10-02T05:57:43Z",
+      "conclusion": "success",
+      "name": "go test with the race detector",
+      "number": 8,
+      "started_at": "2026-10-02T05:57:27Z"
+    },
+    "typeScriptMachineGoldenTests": {
+      "Test Files": {
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0,
+        "total": 1
+      },
+      "Tests": {
+        "failed": 0,
+        "passed": 19,
+        "skipped": 0,
+        "total": 19
+      }
+    }
+  },
+  "jobs": [
+    {
+      "completed_at": "2026-10-02T06:01:12Z",
+      "conclusion": "success",
+      "id": 110725465453,
+      "name": "build",
+      "started_at": "2026-10-02T05:57:08Z",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-10-02T06:00:02Z",
+      "conclusion": "success",
+      "id": 110725465596,
+      "name": "tofu",
+      "started_at": "2026-10-02T05:57:07Z",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-10-02T06:01:38Z",
+      "conclusion": "success",
+      "id": 110725465618,
+      "name": "docker",
+      "started_at": "2026-10-02T05:57:07Z",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-10-02T05:58:43Z",
+      "conclusion": "success",
+      "id": 110725465619,
+      "name": "hosted",
+      "started_at": "2026-10-02T05:57:07Z",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-10-02T05:58:03Z",
+      "conclusion": "success",
+      "id": 110725465633,
+      "name": "postgres",
+      "started_at": "2026-10-02T05:57:08Z",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-10-02T05:58:16Z",
+      "conclusion": "success",
+      "id": 110725465635,
+      "name": "go",
+      "started_at": "2026-10-02T05:57:08Z",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-10-02T05:59:02Z",
+      "conclusion": "success",
+      "id": 110725465681,
+      "name": "agent",
+      "started_at": "2026-10-02T05:57:07Z",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-10-02T06:11:32Z",
+      "conclusion": "success",
+      "id": 110725465682,
+      "name": "verify",
+      "started_at": "2026-10-02T05:57:07Z",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-10-02T05:57:57Z",
+      "conclusion": "success",
+      "id": 110725465832,
+      "name": "generated",
+      "started_at": "2026-10-02T05:57:07Z",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-10-02T06:03:55Z",
+      "conclusion": "success",
+      "id": 110725465875,
+      "name": "workflows",
+      "started_at": "2026-10-02T05:57:07Z",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-10-02T05:57:51Z",
+      "conclusion": "success",
+      "id": 110725465878,
+      "name": "policy",
+      "started_at": "2026-10-02T05:57:08Z",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-10-02T06:00:02Z",
+      "conclusion": "success",
+      "id": 110725465891,
+      "name": "platform-postgres",
+      "started_at": "2026-10-02T05:57:07Z",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-10-02T05:57:15Z",
+      "conclusion": "success",
+      "id": 110725465903,
+      "name": "supply-chain",
+      "started_at": "2026-10-02T05:57:07Z",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-10-02T05:57:23Z",
+      "conclusion": "success",
+      "id": 110725465935,
+      "name": "ledger",
+      "started_at": "2026-10-02T05:57:09Z",
+      "status": "completed"
+    }
+  ],
+  "lanes": [
+    {
+      "allBindingChecksMatched": true,
+      "artifactCreatedAt": "2026-10-02T05:57:55Z",
+      "artifactId": 11212211264,
+      "artifactSha256": "61a452ecadeb2bea247cbff52c299bc51d2c8028be850de0dd36dcb762febf1e",
+      "bindingCheckCount": 12,
+      "counts": {
+        "failed": 0,
+        "passed": 251,
+        "skipped": 0,
+        "total": 251,
+        "unknown": 0
+      },
+      "environmentInventoryMatched": true,
+      "environmentKeyCounts": {
+        "added": 0,
+        "changed": 0,
+        "removed": 0,
+        "unchanged": 110
+      },
+      "execution": {
+        "binding": "matched",
+        "exitCode": 0,
+        "observed": true,
+        "receiptSha256": "9260284b3f310b18862fbe4761659f7625666e97e31c3952c045a8a2d4a27a15",
+        "signal": null,
+        "termination": "exit"
+      },
+      "index": {
+        "assumeUnchanged": 0,
+        "inventoryComplete": true,
+        "skipWorktree": 0,
+        "unmerged": 0
+      },
+      "jobCompletedAt": "2026-10-02T05:58:03Z",
+      "jobConclusion": "success",
+      "jobId": 110725465633,
+      "jobStartedAt": "2026-10-02T05:57:08Z",
+      "lane": "postgres",
+      "originSchemaVersion": 2,
+      "privateLogSha256": "d6feb6150724d293a3978a058ae100ab4f3e8036ac46071edcad08682d80a994",
+      "requiredGroupCount": 9,
+      "requiredStatuses": [
+        "passed"
+      ],
+      "sourceBindingComplete": true,
+      "validatedAt": "2026-10-02T05:57:54.229Z",
+      "validationComplete": true,
+      "verdict": "passed"
+    },
+    {
+      "allBindingChecksMatched": true,
+      "artifactCreatedAt": "2026-10-02T06:00:00Z",
+      "artifactId": 11211063405,
+      "artifactSha256": "ca32f5fea5e8f0bc163cf5dd247a39b7c57907000132eb3b60a91f6ab86870b3",
+      "bindingCheckCount": 12,
+      "counts": {
+        "failed": 0,
+        "passed": 1327,
+        "skipped": 0,
+        "total": 1327,
+        "unknown": 0
+      },
+      "environmentInventoryMatched": true,
+      "environmentKeyCounts": {
+        "added": 0,
+        "changed": 0,
+        "removed": 0,
+        "unchanged": 109
+      },
+      "execution": {
+        "binding": "matched",
+        "exitCode": 0,
+        "observed": true,
+        "receiptSha256": "782dec1379f4362010c21d6c81d8ff092e114dc2770fc5f2686f513b7b030380",
+        "signal": null,
+        "termination": "exit"
+      },
+      "index": {
+        "assumeUnchanged": 0,
+        "inventoryComplete": true,
+        "skipWorktree": 0,
+        "unmerged": 0
+      },
+      "jobCompletedAt": "2026-10-02T06:00:02Z",
+      "jobConclusion": "success",
+      "jobId": 110725465891,
+      "jobStartedAt": "2026-10-02T05:57:07Z",
+      "lane": "platform-postgres",
+      "originSchemaVersion": 2,
+      "privateLogSha256": "8692a2ee62ca253419579f41811f88e5381c55d52f5bdacd3fe99300b45b5e93",
+      "requiredGroupCount": 39,
+      "requiredStatuses": [
+        "passed"
+      ],
+      "sourceBindingComplete": true,
+      "validatedAt": "2026-10-02T05:59:59.390Z",
+      "validationComplete": true,
+      "verdict": "passed"
+    },
+    {
+      "allBindingChecksMatched": true,
+      "artifactCreatedAt": "2026-10-02T05:57:47Z",
+      "artifactId": 11211352338,
+      "artifactSha256": "f4e1ba70b6bfdfa0f395ea2b459b70f8dab47b77c413b6fdc372d10fc1e2fcbd",
+      "bindingCheckCount": 12,
+      "counts": {
+        "failed": 0,
+        "passed": 238,
+        "skipped": 0,
+        "total": 238,
+        "unknown": 0
+      },
+      "environmentInventoryMatched": true,
+      "environmentKeyCounts": {
+        "added": 0,
+        "changed": 0,
+        "removed": 0,
+        "unchanged": 107
+      },
+      "execution": {
+        "binding": "matched",
+        "exitCode": 0,
+        "observed": true,
+        "receiptSha256": "cc6db865fed29a6486108a52c78facb1885bbd1be1c91baf7acf37d2baf3b312",
+        "signal": null,
+        "termination": "exit"
+      },
+      "index": {
+        "assumeUnchanged": 0,
+        "inventoryComplete": true,
+        "skipWorktree": 0,
+        "unmerged": 0
+      },
+      "jobCompletedAt": "2026-10-02T05:57:51Z",
+      "jobConclusion": "success",
+      "jobId": 110725465878,
+      "jobStartedAt": "2026-10-02T05:57:08Z",
+      "lane": "policy",
+      "originSchemaVersion": 2,
+      "privateLogSha256": "e61a903c296a2e2e8093a41b202bf8142ab01481ef11aa8502c7177b1cee2a08",
+      "requiredGroupCount": 7,
+      "requiredStatuses": [
+        "passed"
+      ],
+      "sourceBindingComplete": true,
+      "validatedAt": "2026-10-02T05:57:46.734Z",
+      "validationComplete": true,
+      "verdict": "passed"
+    },
+    {
+      "allBindingChecksMatched": true,
+      "artifactCreatedAt": "2026-10-02T05:59:45Z",
+      "artifactId": 11211812635,
+      "artifactSha256": "2999a31d533d0b1e12ac7df71663368e48fb59d42ad96aa6f1a955fbe59b4d3f",
+      "bindingCheckCount": 12,
+      "counts": {
+        "failed": 0,
+        "passed": 3874,
+        "skipped": 0,
+        "total": 3874,
+        "unknown": 0
+      },
+      "environmentInventoryMatched": true,
+      "environmentKeyCounts": {
+        "added": 0,
+        "changed": 0,
+        "removed": 0,
+        "unchanged": 109
+      },
+      "execution": {
+        "binding": "matched",
+        "exitCode": 0,
+        "observed": true,
+        "receiptSha256": "30989c9b690634d62a2e6c10a61cca1afefb3aaf371eb9928645310f1adfd4f7",
+        "signal": null,
+        "termination": "exit"
+      },
+      "index": {
+        "assumeUnchanged": 0,
+        "inventoryComplete": true,
+        "skipWorktree": 0,
+        "unmerged": 0
+      },
+      "jobCompletedAt": "2026-10-02T06:00:02Z",
+      "jobConclusion": "success",
+      "jobId": 110725465596,
+      "jobStartedAt": "2026-10-02T05:57:07Z",
+      "lane": "tofu",
+      "originSchemaVersion": 2,
+      "privateLogSha256": "85f4b253017a22ae368323c421225277191d897b12539e8319b58887cee1bc2e",
+      "requiredGroupCount": 27,
+      "requiredStatuses": [
+        "passed"
+      ],
+      "sourceBindingComplete": true,
+      "validatedAt": "2026-10-02T05:59:44.358Z",
+      "validationComplete": true,
+      "verdict": "passed"
+    },
+    {
+      "allBindingChecksMatched": true,
+      "artifactCreatedAt": "2026-10-02T06:03:54Z",
+      "artifactId": 11211848084,
+      "artifactSha256": "568703dfbcbfe0658006d35335505a90e3403d31418ab576b777b0af479caf87",
+      "bindingCheckCount": 12,
+      "counts": {
+        "failed": 0,
+        "passed": 861,
+        "skipped": 0,
+        "total": 861,
+        "unknown": 0
+      },
+      "environmentInventoryMatched": true,
+      "environmentKeyCounts": {
+        "added": 0,
+        "changed": 0,
+        "removed": 0,
+        "unchanged": 114
+      },
+      "execution": {
+        "binding": "matched",
+        "exitCode": 0,
+        "observed": true,
+        "receiptSha256": "e9ebbc6cbaf9a3f5f5df7da62bf89f658ba62bd8a368eeb7256b3e5fef4fb29d",
+        "signal": null,
+        "termination": "exit"
+      },
+      "index": {
+        "assumeUnchanged": 0,
+        "inventoryComplete": true,
+        "skipWorktree": 0,
+        "unmerged": 0
+      },
+      "jobCompletedAt": "2026-10-02T06:03:55Z",
+      "jobConclusion": "success",
+      "jobId": 110725465875,
+      "jobStartedAt": "2026-10-02T05:57:07Z",
+      "lane": "workflows",
+      "originSchemaVersion": 2,
+      "privateLogSha256": "128b21aca75553b3682f4057ba4594cae574a12223b13f89e9b770ef4874b5e3",
+      "requiredGroupCount": 37,
+      "requiredStatuses": [
+        "passed"
+      ],
+      "sourceBindingComplete": true,
+      "validatedAt": "2026-10-02T06:03:53.389Z",
+      "validationComplete": true,
+      "verdict": "passed"
+    }
+  ],
+  "run": {
+    "conclusion": "success",
+    "created_at": "2026-10-02T05:57:04Z",
+    "head_sha": "2c9d6fa1ee5821d6b90fef4b8aab08a9ba32352a",
+    "id": 36971241225,
+    "run_started_at": "2026-10-02T05:57:04Z",
+    "status": "completed",
+    "updated_at": "2026-10-02T06:11:33Z"
+  },
+  "scope": "Observed green applies only to this pushed commit; later local source is not covered.",
+  "verify": {
+    "checks": [
+      {
+        "completed_at": "2026-10-02T06:11:25Z",
+        "conclusion": "success",
+        "name": "Unit suites (Node and DOM projects)",
+        "number": 9,
+        "started_at": "2026-10-02T05:58:53Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-10-02T06:11:29Z",
+        "conclusion": "success",
+        "name": "Smoke",
+        "number": 10,
+        "started_at": "2026-10-02T06:11:25Z",
+        "status": "completed"
+      },
+      {
+        "completed_at": "2026-10-02T06:11:29Z",
+        "conclusion": "success",
+        "name": "Verify Gimbal assets",
+        "number": 11,
+        "started_at": "2026-10-02T06:11:29Z",
+        "status": "completed"
+      }
+    ],
+    "jobId": 110725465682,
+    "privateLogSha256": "6f88f5f6a781580f325e0aba611f0619475948255b17faf0fae857da0ea40241",
+    "testFiles": {
+      "failed": 0,
+      "passed": 776,
+      "skipped": 22,
+      "total": 798
+    },
+    "unitTests": {
+      "failed": 0,
+      "passed": 16095,
+      "skipped": 384,
+      "total": 16479
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "label": "prod-packaged-worker-kind",
+  "level": "local_cluster",
+  "cluster": "zenith-prod-c753917a",
+  "nodeImage": "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+  "nodeImageSource": "https://github.com/kubernetes-sigs/kind/releases/tag/v0.33.0",
+  "releaseImage": "busybox@sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c",
+  "status": "passed",
+  "stages": [
+    {
+      "name": "create",
+      "exitCode": 0,
+      "seconds": 29.14
+    },
+    {
+      "name": "release-image-pull",
+      "exitCode": 0,
+      "seconds": 2.18
+    },
+    {
+      "name": "release-image-load",
+      "exitCode": 0,
+      "seconds": 0.77
+    },
+    {
+      "name": "provider",
+      "exitCode": 0,
+      "seconds": 101.41
+    },
+    {
+      "name": "release",
+      "exitCode": 0,
+      "seconds": 20.38
+    }
+  ],
+  "limitations": [
+    "Disposable local kind cluster; no live or managed-cloud evidence.",
+    "Default kind CNI does not establish NetworkPolicy enforcement.",
+    "No StatefulSet, persistent-data recovery or default source-build credential proof."
+  ],
+  "commit": "dde129854ced283434cb9cfecd930d11714d1b88",
+  "trackedChangesSha256": "5508c3ee65115910e926ffbc7c7e5539f4f70550d9d153bf4a553b7a4129d3f1",
+  "dirty": true,
+  "kindVersion": "kind v0.33.0 go1.26.7 darwin/arm64",
+  "provider": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0
+  },
+  "release": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "cleanup": {
+    "deleteSucceeded": true,
+    "clusterAbsent": true,
+    "ownedContainersAbsent": true,
+    "kubeconfigRemoved": true
+  }
+}

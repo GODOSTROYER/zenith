@@ -1,136 +1,114 @@
 # Production continuation
 
-Source: `codex/wave8-integration-2026-10-02` at
-`37be7340536ccb68ae4bb49294e8ab3799d1f01b`. Production staging:
-`codex/production-2026-10-02`. Preserve descendants and local changes. Never
-reset to the historical checkpoint or reapply completed wave-8 patches.
-
+Source baseline: `codex/wave8-integration-2026-10-02` at
+`37be7340536ccb68ae4bb49294e8ab3799d1f01b`. Staging is
+`codex/production-2026-10-02`. Preserve descendants, existing work and identity;
+never reset to the historical checkpoint or reapply completed wave-8 patches.
 Read `ledger.json`, generated `REQUIREMENTS.md`, `../../LIMITATIONS.md`,
-`../../platform/ACCEPTANCE.md` and the relevant source. Wave-8 test evidence is
-in `../verification/2026-10-02-wave8.{md,json}`. It does not establish production
-approval or remote CI success.
+`../../platform/ACCEPTANCE.md` and relevant source. Historical wave evidence is
+in `../verification/2026-10-02-wave8.{md,json}`.
 
-Current baseline CI run `36925770382` completed with 11 successful and three
-failed jobs. Failures: stale Supabase platform ledger check, quoted PostgreSQL
-suite labels, and skipped required Temporal/public-source scenarios. Old run
-uploaded no JSON artifacts; downloaded logs are available on this Mac only.
-Reproduce real-engine JSON and bind sanitized evidence to its actual commit.
+## Verified pushed baseline
 
-Three isolated CI repair worktrees are under
-`/Users/saivedanthava/.codex/zenith-production/worktrees`. Root independently
-reviews and checks each patch before committing or merging. Root owns CI wiring
-and the ledger. Only one heavy verification process may run on this 8 GB host.
-Use serial Vitest. Runtime/security and packaged-worker followups can proceed
-independently while remote CI runs, within this resource limit.
+Run `36971241225` at `2c9d6fa1ee5821d6b90fef4b8aab08a9ba32352a`
+is observed terminal green: all14 jobs passed. Unit16095P0F384S;
+canonical postgres251,platformPostgres1327,policy238,tofu3874,workflows861
+all0F0S. All required groups and12receiptbindings match in every lane, retaining
+observed schema2 exit0. Smoke/Gimbal actually ran; mandatory complete locked
+audit0. Go race11testedpackages pass, individualcasecounts not emitted;
+TypeScript/Go machine interoperability19P0F0S. See `ci-36971241225.md` and
+its exact sanitized artifacts. Prior red/cancelled run reports remain preserved.
+Later local integrations are not covered by that green commit.
 
-Current integration has canonical schema checks, 39 required PostgreSQL groups,
-real replay/source flags, sanitized artifacts, exact runner expiry assertions
-and aligned runtime admission. Root PostgreSQL rerun passed 1,324/1,324, zero
-skips. Root fresh clean full Node/DOM suite passed 16,054/16,248, with 194
-explicit skips. Canonical Temporal/platform/public-source rerun passed 861/861,
-zero skips; all 37 required groups and the checker pass. OPA213 and Go race
-226 top-level + 539 subtests pass, with three Linux-only skips on this Mac.
-See `fresh-baseline-2026-10-02.md` for the exact reference and evidence limits.
+Ledger:78stable requirements,6verified,13inprogress,59planned. Allfour
+release states remain false. CI05 wider gate/case manifest coverage, fresh
+production browser composition and externally authorized acceptance stay open.
 
-Pushed run `36956453026` at `f36a98482d1379ae42b723d8fb6ebbc83deafa32`
-finished with 13 successful jobs and one cancelled verification job. GitHub
-confirmed the 15-minute job timeout; all three original failures now pass.
-Five sanitized artifacts lost their command observations during later
-validation. See `ci-36956453026.md`; remote CI is not green.
+## Integrated local work
 
-Execution receipts `6eb9a1c` are integrated by `63dcf0d`; root336affected
-checks, fulltypecheck/lint/Go pass. CI wiring `2b2b056` is independently
-verified by493CI/configurationchecks plusmandatoryaudit0 andledgerchecks.
-Actualcommandorigins are immutable; CI uploads only validated scalar receipt
-fields inside sanitized JSON. No raw receipt sidecars are uploaded. Remote
-environment-binding compatibility remains unproved.
+Workflow-start safeguards `7d75b21` are integrated by `dde1298`. Root105P0F0S
+includes actual isolated Temporal accepted-start/lost-response/late-completion
+and idempotent duplicate refusal plus real networkOpenTofu. Fulltypecheck/lint,
+Go226top+539subP0F3Linux-onlyMacS, fresh canonicalPostgres1327P0F0S and
+freshkindprovider6/6+release1/1 pass; owned dependencies removed. Preserve the
+writer and recorded plan round; uncertain cannot mean failed or permit another
+start. Durable outbox/recoveryepochs/operator continuation remain separate.
+See `workflow-start-recovery-2026-10-02.md`.
 
-Pushed run `36961474315` at `ef67f47` completed with nine successful and five
-failed jobs. All five engine commands passed without skips and retain observed
-exit0 receipts; later validators rejected only the effective environment hash.
-All other bindings matched. Full unit job15950P0F384S, build, Docker and the
-mandatory zero-finding audit passed. See `ci-36961474315.md`. Measure the
-changing runner key before excluding any additional transport metadata.
-Private diagnostics `4d3ed07` are integrated by `e56088c`; root499checks,
-fulltypecheck/lint/Go and actual policy238/238 with mandatory schema2 receipt
-revalidation pass. Source review closed inventory-proof and bounded-reader
-defects. Exact old schema1 origins survive, but cannot pass new authority.
+Packaged worker harness `bbf50fc` is integrated by `e2a5c4f`. Root120P0F0S,
+fulltypecheck/lint/realOpenTofu/Go and freshkind6+1 pass; cluster deleted.
+Source review closed temporary-secret build-context, source-hash, evidence
+whitelist, refusal-exit and ownership-cleanup gaps. One fixture correction
+preserves all assertions; failed run remains private. Actual fresh perarchitecture
+startup on combined source is still pending. Earlier nativeARM64 scoped retry
+passed, but current AMD64 emulated run failed before proving worker refusal;
+separate ownership-verified cleanup removed leftovers. Keep both failures and
+native/emulated limits. File product fixtures, empty reconciliation, signed
+no-target read refusal, sentinels and idle shutdown are not cloud mutation,
+executable plan handoff, production product/Temporal or default API proof.
+Source hashing explicitly does not establish an immutable context snapshot.
 
-Run `36965544610` at `83ec97f` completed red:8 successful jobs,6 failed.
-All five complete private comparisons measured only GITHUB_ARTIFACTS and
-GITHUB_ARTIFACTS_LIST changes. Bounded compatibility `c464c06` is integrated
-by `3c5a2b3`; root507checks and actual policy238/238 mandatory receipt
-validation pass. Credentials/source/run/shell and nonzero outcomes remain
-fatal. Workflow859P2F0S and fullunit16057P4F384S expose two AWS form fixtures
-and two browser dependency-boundary assertions. Smoke/Gimbal skipped. See
-`ci-36965544610.md`; current remote baseline is not green.
+## Active isolated work
 
-AWS UI request fixture `6d94c11` is integrated by `f67e9c4`; root641checks
-and canonical realworkflow861P0F0S pass with37requiredgroups/matchedreceipt.
-Browser-safe shared constraints `ae0f854` are integrated by `c325c28`, with
-root1355checks,fulltypecheck/lint/Go and independent review. Credential-tree
-runtime imports remain denied; one exact pure module is allowed.
+Worktrees live under `/Users/saivedanthava/.codex/zenith-production/worktrees`.
+Root owns review, verification, integration and ledger; only one heavy process
+may run on this8GB host. Workers are source-only unless root grants an exclusive
+slot. Do not start tests during another worker's npm/Docker/database checks.
 
-Run `36968422504` at `e0d2f6b` completed red:13 successful jobs,1 failed.
-All five schema2 execution receipts are observed and all12bindings match;
-effective inventories have zero changes/additions/removals. Four engine lanes
-pass without skips. PlatformPostgres1323P1F0S exposes fixture-clock divergence,
-with the authoritative expiry assertion passing. Unit16093P0F384S and actual
-Smoke/Gimbal pass. Clock fixture88f6d99 is mergedcb4f9de after root599P0F0S,
-fulltypecheck/lint/realOpenTofu/Go and fresh realPostgres1327P0F0S with39groups
-and strict receipt revalidation. Owned database deleted. See ci-36968422504.md.
+- `canonical-repair`:30 frozen paths. Canonical HTTP/Temporal core under the
+  existing heartbeat/fenced lease, history patch/replay, uncertain conflicts and
+  honest unsupported handling. Shared pure `repair-recipes.ts` admits only
+  managed AWS ECS replica-only drift; it grants nothing. First root compiler
+  caught two stale signatures/SDK fixture defects; corrected public/test type
+  reuse and valid subnet fixture need full root rerun. Freeze manifestSHA
+  `c2755db18fe0950f4d35fe57057599350587aabfa930e05878de5a7d6e5ac987`.
+- `ecs-replica-repair`:24 frozen paths, with the new locked SDK. Exact fullenvironment
+  saved plan, immutable owned target/binding, browser current-plan approval,
+  read-only initial grants, complete unique tag lookup, autoscaler refusal,
+  durable readback receipt and uncertainty after mutation cancellation. All100
+  prepared cases unrun. Pinned SDK3.1121.0 lock update and private fresh
+  DarwinARM64 installation passed; mandatory complete audit0. Exclusive slot
+  released. Shared contract lives in the pure resource layer. Root checks,
+  manifest inclusion and live proof remain pending. Shared contract SHA
+  `58f37f3fa05cb92426853f31a2c8a77fb16b342defa3d535ee72d6783634df2b`.
 
-Immediate next steps: push normally and observe all14 jobs. Only one heavy
-local verification may run. Frozen
-uncertainty and canonical repair candidates need root checks next. Preserve
-existing uncertain operations and exact browser plan approvals.
+Next on this Mac, with the exclusive slot free:
 
-Native ARM64 retry passed bounded actual polling, signed no-target read
-refusal, empty reconcile, assets, dependency recovery and idle shutdown;
-resources deleted. Current AMD64 image built under emulation, but its first
-refusal Docker command timed out before proving a worker exit. Initial
-cleanup failed; a separate ownership-verified receipt confirms all owned
-resources were subsequently removed. Review frozen detached-refusal and
-bounded cleanup fixes, outside-source temporary secret admission and complete
-COPY-input bindings, then run AMD64 and native ARM64 serially on combined
-source. Preserve failed runs and native/emulated limits. Candidate worktree:
-`/Users/saivedanthava/.codex/zenith-production/worktrees/worker-startup`.
-Dependency remediation `d8e457fd5add185cc9df13f8bee38076e1c1d53f` is
-integrated by `0f8cabb1c3abf061708f9c1a32b713d96329bf07`. Root verified
-502 focused checks, full typecheck/lint/Go, 16,062 full-suite passes with 194
-explicit skips, real Temporal861/861, production build and a zero-finding
-complete locked audit. Fresh Linux CI installation and mandatory audit now
-pass. Historical advisory reconciliation and real SMTP/TLS acceptance remain
-unproved. No exceptions are granted.
-Installation configuration `a9fea8968d41e4639d4c2566eb238cec74ef957a` is
-integrated by `d697c4ef63b2ed64bd02e129315c2a35ae6a2829`. Root62contract
-tests and both real Compose config parses pass; no services started. API
-startup and dedicated AWS sandbox details were requested; both remain pending.
-AWS suffix propagation `b0ebac7` is integrated by `8cba803`. Root checks
-883P0F2gatedS, fulltypecheck/lint/Go, fresh platformPostgres1324P0F0S, real
-approved deletion1/1 and fresh kindprovider6/6+release1/1 pass. All owned
-dependencies removed. Retain stack-first/live IAM permission blockers.
-`ws/prod-start-uncertainty` repairs actual Temporal error classification and
-competing product projections; durable outbox/recovery remains separate work.
-`ws/prod-canonical-repair` composes the existing canonical core with Temporal
-history compatibility and uncertain-operation conflicts. Production drivers
-currently lack `drift.repair`; a real authorized remediation adapter remains
-required before observation-to-repair acceptance can complete.
-`ws/prod-ecs-replica-repair` implements one bounded ECS desired-count repair
-through exact full-environment saved plans and browser plan approval. Source
-review, pinned SDK lock installation and all runtime checks remain pending;
-do not claim this is an executable supported repair yet.
+```sh
+python3 /Users/saivedanthava/.codex/zenith-production/check_candidate.py prod-canonical-repair-resource-root /Users/saivedanthava/.codex/zenith-production/worktrees/canonical-repair tests/reconcile tests/resources tests/workflows/reconcile.test.ts tests/workflows/operations.test.ts tests/execution/verify.test.ts
+```
 
-All new commits use Saivedant Hava `<saivedant169@gmail.com>` as author and
-committer on this Mac. No history rewrite, force push or secret-scanning bypass.
-No LocalStack or unrelated services. Isolated test dependencies and execution
-worker startup are authorized by the production directive. Obtain a narrowly
-scoped decision before starting the Zenith API/server where the existing
-restriction applies. Live accounts/budgets, destructive retention, payment
-accounts/terms and production signoff remain explicit operator decisions.
+Then root fresh PostgreSQL/kind, review and merge only passing exact source.
+Independently compile/test ECS against private locked dependencies, audit and
+real engines; add required replay/suites to canonical manifest. Actual packaged
+runs on combined source are serial and opt-in:
 
-Update `ledger.json` as evidence changes, then run
-`node scripts/build/production-ledger.mjs` and its `--check` mode. Preserve the
-historical wave ledger; do not represent all 116 historical rows as production
-completion. Missing live authorization remains a visible release blocker while
-independent implementation continues.
+```sh
+ZENITH_PACKAGED_WORKER_ACCEPTANCE=1 node scripts/acceptance/packaged-worker.mjs --platform linux/amd64
+ZENITH_PACKAGED_WORKER_ACCEPTANCE=1 node scripts/acceptance/packaged-worker.mjs --platform linux/arm64
+```
+
+Verify ownership cleanup after every run. Publish only sanitized evidence;
+raw logs/inventories/diagnostics remain private outside Git. Local helpers/logs
+are not automatically present on a different machine. Re-run full gate, push
+normally and observe the whole resulting run before calling newer source green.
+
+## Operator boundaries
+
+Every new source, integration and evidence commit uses Saivedant Hava
+`<saivedant169@gmail.com>` as author and committer on this Mac; no trailers,
+force push, history rewrite or secret-scanning bypass. GitHub auth is
+`saivedant169`. No LocalStack or unrelated services. Disposable local test
+Postgres/Temporal/kind and actual execution-worker startup are authorized;
+use only dedicated kubeconfig and delete all owned resources.
+
+API/server startup remains restricted pending the already-requested narrow
+approval. Dedicated AWS sandbox access/region/budget also remain pending. Never
+put secrets in chat. Live accounts/budgets, destructive audit retention,
+payment accounts/terms and production signoff require operator decisions.
+Continue unblocked work; a missing decision is a visible release blocker.
+
+Update `ledger.json`, render with `node scripts/build/production-ledger.mjs`,
+then run its `--check`. Preserve historical ledger/evidence. Finish the whole
+production program beyond this green baseline; report implementation, sandbox,
+pilot and production approval separately without unattended-work claims.

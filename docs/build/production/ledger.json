@@ -382,6 +382,14 @@
           "commit": "4a6bab7597ea3710875e19383d3a224409e902e4",
           "result": "Fresh install791 packages; Node/DOM16054P0F194S; OPA213P0F0S; uncached Go-race226top+539subP0F3Linux-onlyS; whole typecheck/lint/SQL/matrix/AWS18templates/ledgers/sandboxsmoke/Gimbal pass. Newly pushed browser/remoteCI and security-remediated lock remain pending.",
           "artifact": "docs/build/production/fresh-baseline-2026-10-02.md"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "2c9d6fa1ee5821d6b90fef4b8aab08a9ba32352a",
+          "runId": 36971241225,
+          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04\u201306:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
+          "artifact": "docs/build/production/ci-36971241225.md",
+          "executionReceiptComplete": true
         }
       ],
       "requiredEvidence": [
@@ -398,14 +406,14 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "in_progress",
+      "implementationStatus": "complete",
       "evidence": [
         {
           "level": "remote_ci",
@@ -449,6 +457,14 @@
           "commit": "88f6d99284612d6c2443ba80dba9ab67cfdede98",
           "result": "Root599P0F0S including real network OpenTofu, fulltypecheck/affectedlint/Go pass. Fresh disposable PostgreSQL16.15 canonical lane1327P0F0S,39requiredgroups, separate mandatory execution revalidation/all12schema2bindings pass; ownership-verified cleanup removed the database. Fixture aligns controlled clock to authoritative operation time, retains both expiry assertions and adds2s divergence coverage across all three stores. Artifact preserves actual e0d2f6b dirty source/diff4361a650 verified before unchanged source was committed88f6d99 and mergedcb4f9de. Remote complete rerun pending.",
           "artifact": "docs/build/production/evidence/engine-acceptance/platform-postgres-grant-clock.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "2c9d6fa1ee5821d6b90fef4b8aab08a9ba32352a",
+          "runId": 36971241225,
+          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04\u201306:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
+          "artifact": "docs/build/production/ci-36971241225.md",
+          "executionReceiptComplete": true
         }
       ],
       "requiredEvidence": [
@@ -496,6 +512,18 @@
           "artifact": "docs/build/production/evidence/packaged-worker/amd64-83ec97f-failed.json",
           "cleanupArtifact": "docs/build/production/evidence/packaged-worker/amd64-83ec97f-cleanup.json",
           "passed": false
+        },
+        {
+          "level": "contract",
+          "commit": "bbf50fcfb0f4a785fde1ed9f103399bd147d1d76",
+          "result": "Root120P0F0S,fulltypecheck/affectedlint/actualnetworkOpenTofu/Go226top+539subP0F3MacLinux-onlyS pass. Independent review fixes outside-source canonical temporary secret admission, complete COPY-input hash, bounded secret-free evidence version/image admission, detached real exit1 refusal and label/absence cleanup. One initial fixture-only JSON concatenation failed3tests and is retained; corrected separate-line canary keeps refusal assertion exact. Ten owned source paths committed unchangedbbf50fc, merged e2a5c4f. Actual fresh perarchitecture image runs remain pending; source hashing explicitly live-context/nonimmutable.",
+          "artifact": "docs/platform/EXECUTION-WORKER.md"
+        },
+        {
+          "level": "local_cluster",
+          "commit": "bbf50fcfb0f4a785fde1ed9f103399bd147d1d76",
+          "result": "Root fresh disposablekind provider6P0F0S/release1P0F0S; exact pinned release image loaded, cluster/ownedcontainers removed and kubeconfig deleted. Tested provenance dde1298 plus worker candidate; this guards shared managed/Kubernetes behavior and does not prove packaged runtime startup.",
+          "artifact": "docs/build/production/evidence/local-kind/packaged-worker.json"
         }
       ],
       "requiredEvidence": [
@@ -545,6 +573,12 @@
           "artifact": "docs/build/production/evidence/packaged-worker/amd64-83ec97f-failed.json",
           "cleanupArtifact": "docs/build/production/evidence/packaged-worker/amd64-83ec97f-cleanup.json",
           "passed": false
+        },
+        {
+          "level": "contract",
+          "commit": "bbf50fcfb0f4a785fde1ed9f103399bd147d1d76",
+          "result": "Root120P0F0S,fulltypecheck/affectedlint/actualnetworkOpenTofu/Go226top+539subP0F3MacLinux-onlyS pass. Independent review fixes outside-source canonical temporary secret admission, complete COPY-input hash, bounded secret-free evidence version/image admission, detached real exit1 refusal and label/absence cleanup. One initial fixture-only JSON concatenation failed3tests and is retained; corrected separate-line canary keeps refusal assertion exact. Ten owned source paths committed unchangedbbf50fc, merged e2a5c4f. Actual fresh perarchitecture image runs remain pending; source hashing explicitly live-context/nonimmutable.",
+          "artifact": "docs/platform/EXECUTION-WORKER.md"
         }
       ],
       "requiredEvidence": [
@@ -836,7 +870,20 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "in_progress",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "local_engine",
+          "commit": "7d75b21d884da6f3beae2889740b0a52d9118eee",
+          "result": "Root105P0F0S including real accepted Temporal start/lost response/latecompletion/idempotent duplicate refusal and actual networkOpenTofu; fulltypecheck/lint,Go226top+539subP0F3MacLinux-onlyS pass. Fresh canonical platformPostgres1327P0F0S/all39groups/mandatory observed schema2 revalidation passed; dedicated database deleted. Product projection preserves nonterminal writer/steps, uncertain blocksstart, recorded browser-plan round survives lost ACK and late success clears notice. This bounded correction is merged by dde1298; it does not implement outbox/recoveryepochs/operator continuation or prove real PostgreSQL product projection persistence.",
+          "artifact": "docs/build/production/workflow-start-recovery-2026-10-02.md"
+        },
+        {
+          "level": "local_cluster",
+          "commit": "7d75b21d884da6f3beae2889740b0a52d9118eee",
+          "result": "Root fresh disposablekind provider6P0F0S and release1P0F0S; dedicated kubeconfig only, pinned release image loaded. Cluster and owned containers absent; kubeconfig removed. Actual tested provenance2c9d6fa plus exact UNCdiff16aa6c92; source committed unchanged7d75b21. No managed CNI/stateful/live-cloud proof.",
+          "artifact": "docs/build/production/evidence/local-kind/start-uncertainty.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -934,7 +981,20 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "in_progress",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "local_engine",
+          "commit": "7d75b21d884da6f3beae2889740b0a52d9118eee",
+          "result": "Root105P0F0S including real accepted Temporal start/lost response/latecompletion/idempotent duplicate refusal and actual networkOpenTofu; fulltypecheck/lint,Go226top+539subP0F3MacLinux-onlyS pass. Fresh canonical platformPostgres1327P0F0S/all39groups/mandatory observed schema2 revalidation passed; dedicated database deleted. Product projection preserves nonterminal writer/steps, uncertain blocksstart, recorded browser-plan round survives lost ACK and late success clears notice. This bounded correction is merged by dde1298; it does not implement outbox/recoveryepochs/operator continuation or prove real PostgreSQL product projection persistence.",
+          "artifact": "docs/build/production/workflow-start-recovery-2026-10-02.md"
+        },
+        {
+          "level": "local_cluster",
+          "commit": "7d75b21d884da6f3beae2889740b0a52d9118eee",
+          "result": "Root fresh disposablekind provider6P0F0S and release1P0F0S; dedicated kubeconfig only, pinned release image loaded. Cluster and owned containers absent; kubeconfig removed. Actual tested provenance2c9d6fa plus exact UNCdiff16aa6c92; source committed unchanged7d75b21. No managed CNI/stateful/live-cloud proof.",
+          "artifact": "docs/build/production/evidence/local-kind/start-uncertainty.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -2026,7 +2086,7 @@
         "PROD-PKG-03"
       ],
       "branch": "ws/prod-worker-startup",
-      "state": "in_progress",
+      "state": "integrated",
       "ownedPaths": [
         "docker/worker.Dockerfile",
         "workers/execution/",
@@ -2067,7 +2127,10 @@
         "src/lib/workflows/types.ts",
         "tests/reconcile/",
         "related reconcile workflow/execution tests",
-        "docs/platform/operations/OBSERVATION-REPAIR.md"
+        "docs/platform/operations/OBSERVATION-REPAIR.md",
+        "src/lib/execution/activities.ts (shared reconcile type only)",
+        "tests/execution/fakes/world.ts (same activity type only)",
+        "src/lib/resources/repair-recipes.ts,index.ts (shared pure recipe contract)"
       ]
     },
     {
@@ -2118,7 +2181,7 @@
         "PROD-DUR-07"
       ],
       "branch": "ws/prod-start-uncertainty",
-      "state": "in_progress",
+      "state": "integrated",
       "ownedPaths": [
         "src/lib/workflows/client.ts",
         "src/lib/bridge/lifecycle.ts",
@@ -2152,13 +2215,15 @@
         "src/lib/execution/ecs-replica-repair*.ts",
         "src/lib/providers/aws/drivers/compute/ecs-replica-repair-read.ts",
         "src/lib/workflows/definitions/ecsReplicaRepair.ts",
-        "src/lib/workflows/activities/dayTwo.ts (repair handler only)",
+        "src/lib/workflows/definitions/dayTwo.ts (patched repair route only)",
         "src/lib/execution/context.ts,plan.ts,plan-evidence.ts,apply.ts (binding guards only)",
         "src/lib/capabilities/evaluate.ts,execution.ts (repair attenuation only)",
         "src/lib/platform/broker.ts (repair plan gate only)",
         "package.json,package-lock.json (pinned Auto Scaling SDK only)",
         "related focal capability/binding/readback/workflow tests",
-        "docs/platform/operations/ECS-REPLICA-REPAIR.md"
+        "docs/platform/operations/ECS-REPLICA-REPAIR.md",
+        "src/lib/resources/repair-recipes.ts,index.ts (shared pure contract)",
+        "src/lib/workflows/definitions/runtime.ts (patched recipe cancellation option only)"
       ]
     }
   ],

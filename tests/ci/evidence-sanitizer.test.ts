@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { countsFor, effectiveEnvironmentFor, ENVIRONMENT_FINGERPRINT_EXCLUSIONS, executionReceiptFor, executionReceiptPath, main as sanitizeMain, preserveExecutionObservation, provenanceFor, sanitizedEvidence, writeExecutionReceipt } from "../../scripts/ci/sanitize-evidence.mjs";
+import { countsFor, effectiveEnvironmentFor, environmentDiagnosticsFor, environmentInventoryFor, environmentInventoryPath, ENVIRONMENT_FINGERPRINT_EXCLUSIONS, executionReceiptFor, executionReceiptPath, main as sanitizeMain, preserveExecutionObservation, provenanceFor, readEnvironmentInventory, sanitizedEvidence, writeEnvironmentInventory, writeExecutionReceipt } from "../../scripts/ci/sanitize-evidence.mjs";
 import { manifestFor, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { validateGate } from "../../scripts/ci/run-gate.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
@@ -26,11 +26,21 @@ function reportFor(lane = "platform-postgres") {
   return { success: true, testResults: [...files.values()] };
 }
 
-const provenance = provenanceFor(root, { NODE_ENV: "test", GATE_INPUT: "public contract" });
+const fixtureEnvironment = { NODE_ENV: "test", GATE_INPUT: "public contract" };
+const provenance = provenanceFor(root, fixtureEnvironment);
+
+function comparisonFor(receipt: ReturnType<typeof executionReceiptFor>, originEnv: Record<string, string | undefined>, currentEnv = originEnv) {
+  const output = path.join(scratch, `helper-inventory-${randomBytes(8).toString("hex")}.json`);
+  writeEnvironmentInventory(output, environmentInventoryFor(originEnv));
+  return environmentDiagnosticsFor(receipt, readEnvironmentInventory(output), environmentInventoryFor(currentEnv));
+}
 
 function observe(lane: string, input: string, output: string, exitCode: number) {
   const raw = fs.readFileSync(input, "utf8");
-  const origin = sanitizedEvidence(lane, JSON.parse(raw), root, provenanceFor(root, effectiveEnvironmentFor(lane, root)), raw, manifestFor(lane, root, input));
+  const env = effectiveEnvironmentFor(lane, root);
+  fs.rmSync(environmentInventoryPath(output), { force: true });
+  writeEnvironmentInventory(output, environmentInventoryFor(env));
+  const origin = sanitizedEvidence(lane, JSON.parse(raw), root, provenanceFor(root, env), raw, manifestFor(lane, root, input));
   writeExecutionReceipt(output, executionReceiptFor(origin, exitCode));
 }
 
@@ -153,7 +163,7 @@ describe("sanitized evidence boundary", () => {
     const candidate = sanitizedEvidence("platform-postgres", reportFor(), root, second);
     const previous = executionReceiptFor(sanitizedEvidence("platform-postgres", reportFor(), root, first), 1);
     expect(first.environment.sha256).not.toBe(second.environment.sha256);
-    expect(preserveExecutionObservation(candidate, previous)).toBe(1);
+    expect(preserveExecutionObservation(candidate, previous, false, undefined, comparisonFor(previous, { [name]: "first-input" }, { [name]: "second-input" }))).toBe(1);
     expect(candidate.execution).toMatchObject({ exitCode: 1, observed: true, binding: "mismatch" });
     expect(candidate.verdict).toBe("failed");
   });
@@ -171,7 +181,7 @@ describe("sanitized evidence boundary", () => {
       case "installed-version": candidate.provenance.dependencies[0].installed = "0.0.1"; break;
       case "locked-version": candidate.provenance.dependencies[0].locked = "0.0.1"; break;
     }
-    expect(preserveExecutionObservation(candidate, previous)).toBe(1);
+    expect(preserveExecutionObservation(candidate, previous, false, undefined, comparisonFor(previous, fixtureEnvironment))).toBe(1);
     expect(candidate.execution).toMatchObject({ exitCode: 1, observed: true, binding: "mismatch" });
     expect(candidate.verdict).toBe("failed");
     expect(candidate.required.every((required: { status: string }) => required.status === "unverified")).toBe(true);
@@ -180,7 +190,7 @@ describe("sanitized evidence boundary", () => {
   it("retains a different trusted lane's exact origin and fails the lane binding", () => {
     const previous = executionReceiptFor(sanitizedEvidence("policy", reportFor("policy"), root, provenance), 23);
     const candidate = sanitizedEvidence("platform-postgres", reportFor(), root, provenance);
-    expect(preserveExecutionObservation(candidate, previous)).toBe(23);
+    expect(preserveExecutionObservation(candidate, previous, false, undefined, comparisonFor(previous, fixtureEnvironment))).toBe(23);
     expect(candidate).toMatchObject({ verdict: "failed", execution: { observed: true, exitCode: 23, termination: "exit", binding: "mismatch", originReceipt: { lane: "policy", exitCode: 23 }, checks: { lane: false } } });
     const untrusted = { ...previous, lane: "untrusted-lane-payload" };
     const next = sanitizedEvidence("platform-postgres", reportFor(), root, provenance);
@@ -307,6 +317,8 @@ describe("sanitized evidence boundary", () => {
       const reportPath = ".data-ci-lane/policy-lane.json";
       const raw = fs.readFileSync(path.join(fixture.root, reportPath), "utf8");
       const env: NodeJS.ProcessEnv = { ...effectiveEnvironmentFor("policy", fixture.root), NODE_ENV: "test" };
+      fs.rmSync(environmentInventoryPath(fixture.evidence));
+      writeEnvironmentInventory(fixture.evidence, environmentInventoryFor(env));
       const origin = sanitizedEvidence("policy", JSON.parse(raw), fixture.root, provenanceFor(fixture.root, env), raw, manifestFor("policy", fixture.root, reportPath));
       const failed = spawnSync(path.join(fixture.root, "missing-canonical-command"), [], { cwd: fixture.root, env });
       expect(failed.status).toBeNull();
@@ -332,6 +344,249 @@ describe("sanitized evidence boundary", () => {
     expect(first).toEqual(second);
     expect(first.ZENITH_FAST).toBe("1");
     expect(effectiveEnvironmentFor("platform-postgres", root, { API_KEY: "second" })).not.toEqual(first);
+  });
+
+  it.each(["omitted", "unrelated-origin"])("retains exact origin but rejects %s inventory authority in the direct helper", (kind) => {
+    const candidate = sanitizedEvidence("policy", reportFor("policy"), root, provenance);
+    const receipt = executionReceiptFor(candidate, 0);
+    const comparison = kind === "omitted" ? undefined : comparisonFor(receipt, fixtureEnvironment);
+    if (comparison) comparison.originSha256 = "0".repeat(64);
+    expect(preserveExecutionObservation(candidate, receipt, true, undefined, comparison)).toBe(0);
+    expect(candidate).toMatchObject({ verdict: "failed", execution: { observed: true, exitCode: 0, termination: "exit", binding: "mismatch", checks: { environmentInventoryIntegrity: false } } });
+    expect(candidate.execution.originReceipt).toEqual(receipt);
+    expect(candidate.required.every((required: { status: string }) => required.status === "unverified")).toBe(true);
+  });
+
+  it("accepts a direct helper's successful origin only with its complete bound inventory comparison", () => {
+    const candidate = sanitizedEvidence("policy", reportFor("policy"), root, provenance);
+    const receipt = executionReceiptFor(candidate, 0);
+    const comparison = comparisonFor(receipt, fixtureEnvironment);
+    expect(comparison).toMatchObject({ complete: true, status: "matched", originSha256: receipt.environmentInventorySha256 });
+    expect(preserveExecutionObservation(candidate, receipt, true, undefined, comparison)).toBe(0);
+    expect(candidate).toMatchObject({ verdict: "passed", execution: { observed: true, exitCode: 0, binding: "matched", checks: { environmentInventoryIntegrity: true } } });
+  });
+
+  it("exports exact official runner IDs and double-hashed unknown IDs without names, values or value hashes", () => {
+    const nameSecret = ["gh", "p_"].join("") + randomBytes(20).toString("hex");
+    const valueSecret = ["AK", "IA"].join("") + randomBytes(8).toString("hex").toUpperCase();
+    const before = { GITHUB_ARTIFACTS: valueSecret, GITHUB_ARTIFACTS_LIST: "first-readonly-handle", [nameSecret]: valueSecret, REMOVED_INPUT: valueSecret, SHARED_INPUT: valueSecret };
+    const after = { GITHUB_ARTIFACTS: "second-write-handle", GITHUB_ARTIFACTS_LIST: "second-readonly-handle", [nameSecret]: "second-sensitive-value", ADDED_INPUT: valueSecret, SHARED_INPUT: valueSecret };
+    const output = path.join(scratch, "diagnostic-evidence.json");
+    writeEnvironmentInventory(output, environmentInventoryFor(before));
+    const origin = sanitizedEvidence("policy", reportFor("policy"), root, provenanceFor(root, before));
+    const receipt = executionReceiptFor(origin, 0);
+    const current = sanitizedEvidence("policy", reportFor("policy"), root, provenanceFor(root, after));
+    const inventory = readEnvironmentInventory(output);
+    const comparison = environmentDiagnosticsFor(receipt, inventory, environmentInventoryFor(after));
+    expect(comparison).toMatchObject({ complete: true, status: "changed", counts: { unchanged: 1, changed: 3, added: 1, removed: 1 }, truncated: false });
+    expect(comparison.changes).toContainEqual({ id: "GITHUB_ARTIFACTS", status: "changed" });
+    expect(comparison.changes).toContainEqual({ id: "GITHUB_ARTIFACTS_LIST", status: "changed" });
+    const nameHash = createHash("sha256").update(nameSecret).digest("hex");
+    const opaqueId = `opaque:${createHash("sha256").update(nameHash).digest("hex")}`;
+    expect(comparison.changes).toContainEqual({ id: opaqueId, status: "changed" });
+    preserveExecutionObservation(current, receipt, true, undefined, comparison);
+    expect(current).toMatchObject({ verdict: "failed", execution: { exitCode: 0, observed: true, binding: "mismatch", checks: { effectiveEnvironmentSha256: false, environmentInventorySha256: false, environmentInventoryIntegrity: true } } });
+    const serialized = JSON.stringify(current);
+    for (const tainted of [nameSecret, valueSecret, "second-sensitive-value", "REMOVED_INPUT", "ADDED_INPUT", "SHARED_INPUT", nameHash, "valueSha256"]) expect(serialized).not.toContain(tainted);
+    for (const entry of inventory.inventory!.entries) expect(serialized).not.toContain(entry.valueSha256);
+    const raw = fs.readFileSync(environmentInventoryPath(output), "utf8");
+    expect(raw).not.toContain(nameSecret);
+    expect(raw).not.toContain(valueSecret);
+    expect(receipt.environmentInventorySha256).toBe(createHash("sha256").update(raw).digest("hex"));
+    expect(fs.statSync(environmentInventoryPath(output)).mode & 0o777).toBe(0o600);
+    expect(() => writeEnvironmentInventory(output, environmentInventoryFor(after))).toThrow();
+    expect(fs.readFileSync(environmentInventoryPath(output), "utf8")).toBe(raw);
+  });
+
+  it.each(["missing", "malformed", "unknown-field", "tainted-key", "duplicate-key", "value-type", "digest-mismatch"])("fails a %s private inventory without exporting its payload or losing the observed origin", (kind) => {
+    const input = path.join(scratch, `inventory-${kind}-report.json`);
+    const output = path.join(scratch, `inventory-${kind}-evidence.json`);
+    const secret = ["gh", "p_"].join("") + randomBytes(20).toString("hex");
+    fs.writeFileSync(input, JSON.stringify(reportFor()));
+    observe("platform-postgres", input, output, 0);
+    const origin = fs.readFileSync(executionReceiptPath(output), "utf8");
+    const inventory = JSON.parse(fs.readFileSync(environmentInventoryPath(output), "utf8"));
+    if (kind === "unknown-field") inventory.error = secret;
+    if (kind === "tainted-key") inventory.entries[0].keySha256 = secret;
+    if (kind === "duplicate-key") inventory.entries.splice(1, 0, { ...inventory.entries[0] });
+    if (kind === "value-type") inventory.entries[0].valueSha256 = { error: secret };
+    if (kind === "digest-mismatch") inventory.entries[0].valueSha256 = "0".repeat(64);
+    if (kind === "missing") fs.rmSync(environmentInventoryPath(output));
+    else fs.writeFileSync(environmentInventoryPath(output), kind === "malformed" ? secret : JSON.stringify(inventory));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      expect(validateGate("platform-postgres", input, output, root, { requireExecution: true })).toBe(1);
+      expect(sanitizeMain(["platform-postgres", input, output])).toBe(1);
+      const serialized = fs.readFileSync(output, "utf8");
+      expect(serialized).not.toContain(secret);
+      expect(serialized).not.toContain("valueSha256");
+      expect(JSON.parse(serialized)).toMatchObject({ verdict: "failed", execution: { observed: true, exitCode: 0, binding: "mismatch", checks: { environmentInventoryIntegrity: false }, environmentComparison: { complete: false, changes: [] } } });
+      expect(fs.readFileSync(executionReceiptPath(output), "utf8")).toBe(origin);
+    } finally { error.mockRestore(); log.mockRestore(); }
+  });
+
+  it.each(["exit", "signal"])("retains a historical v1 %s origin but never accepts its missing inventory binding", (kind) => {
+    const input = path.join(scratch, `historical-${kind}-report.json`);
+    const output = path.join(scratch, `historical-${kind}-evidence.json`);
+    fs.writeFileSync(input, JSON.stringify(reportFor()));
+    observe("platform-postgres", input, output, 0);
+    const historical = JSON.parse(fs.readFileSync(executionReceiptPath(output), "utf8"));
+    historical.schemaVersion = 1;
+    delete historical.environmentInventorySha256;
+    if (kind === "signal") {
+      historical.exitCode = null;
+      historical.termination = "signal";
+      historical.signal = "SIGTERM";
+    }
+    const origin = `${JSON.stringify(historical, null, 2)}\n`;
+    fs.writeFileSync(executionReceiptPath(output), origin);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      expect(validateGate("platform-postgres", input, output, root, { requireExecution: true })).toBe(1);
+      expect(sanitizeMain(["platform-postgres", input, output])).toBe(1);
+      const evidence = JSON.parse(fs.readFileSync(output, "utf8"));
+      expect(evidence).toMatchObject({ verdict: "failed", execution: { observed: true, exitCode: historical.exitCode, termination: historical.termination, signal: historical.signal, binding: "mismatch", checks: { environmentInventorySha256: false, environmentInventoryIntegrity: false } } });
+      expect(evidence.execution.originReceipt).toEqual(historical);
+      expect(evidence.execution.originReceipt).not.toHaveProperty("environmentInventorySha256");
+      expect(fs.readFileSync(executionReceiptPath(output), "utf8")).toBe(origin);
+    } finally { error.mockRestore(); log.mockRestore(); }
+  });
+
+  it.each(["unknown-version", "string-version", "v1-extra-inventory", "v2-missing-inventory"])("rejects a %s receipt without exporting origin fields", (kind) => {
+    const input = path.join(scratch, `version-${kind}-report.json`);
+    const output = path.join(scratch, `version-${kind}-evidence.json`);
+    fs.writeFileSync(input, JSON.stringify(reportFor()));
+    observe("platform-postgres", input, output, 0);
+    const invalid = JSON.parse(fs.readFileSync(executionReceiptPath(output), "utf8"));
+    if (kind === "unknown-version") invalid.schemaVersion = 3;
+    if (kind === "string-version") invalid.schemaVersion = "2";
+    if (kind === "v1-extra-inventory") invalid.schemaVersion = 1;
+    if (kind === "v2-missing-inventory") delete invalid.environmentInventorySha256;
+    fs.writeFileSync(executionReceiptPath(output), JSON.stringify(invalid));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      expect(validateGate("platform-postgres", input, output, root, { requireExecution: true })).toBe(1);
+      expect(JSON.parse(fs.readFileSync(output, "utf8"))).toMatchObject({ verdict: "failed", execution: { observed: false, originReceipt: null, binding: "mismatch", environmentComparison: { complete: false, changes: [] } } });
+    } finally { error.mockRestore(); log.mockRestore(); }
+  });
+
+  it("records a strict v2 receipt whose bound private inventory matches the effective command inputs", () => {
+    const fixture = executionBindingFixture();
+    try {
+      expect(fixture.step("run", { env: { FIXTURE_EXIT: "0" } }).status).toBe(0);
+      const origin = fs.readFileSync(fixture.receipt, "utf8");
+      const inventory = fs.readFileSync(environmentInventoryPath(fixture.evidence), "utf8");
+      expect(JSON.parse(origin)).toMatchObject({ schemaVersion: 2, environmentInventorySha256: createHash("sha256").update(inventory).digest("hex") });
+      expect(fixture.step("validate", { env: { FIXTURE_EXIT: "0" }, flags: ["--require-execution"] }).status).toBe(0);
+      expect(JSON.parse(fs.readFileSync(fixture.evidence, "utf8"))).toMatchObject({ verdict: "passed", execution: { observed: true, exitCode: 0, binding: "matched", originReceipt: { schemaVersion: 2 }, checks: { environmentInventorySha256: true, environmentInventoryIntegrity: true }, environmentComparison: { complete: true, status: "matched", changes: [] } } });
+      expect(fs.readFileSync(fixture.receipt, "utf8")).toBe(origin);
+      expect(fs.readFileSync(environmentInventoryPath(fixture.evidence), "utf8")).toBe(inventory);
+    } finally { fixture.cleanup(); }
+  });
+
+  it("identifies changed official artifact handles across actual separate shell steps and keeps full binding failed", () => {
+    const fixture = executionBindingFixture();
+    try {
+      expect(fixture.step("run", { env: { FIXTURE_EXIT: "0", GITHUB_ARTIFACTS: "first-handle", GITHUB_ARTIFACTS_LIST: "first-list" } }).status).toBe(0);
+      const origin = fs.readFileSync(fixture.receipt, "utf8");
+      const inventory = fs.readFileSync(environmentInventoryPath(fixture.evidence), "utf8");
+      expect(fixture.step("validate", { env: { FIXTURE_EXIT: "0", GITHUB_ARTIFACTS: "second-handle", GITHUB_ARTIFACTS_LIST: "second-list" }, flags: ["--require-execution"] }).status).toBe(1);
+      const evidence = JSON.parse(fs.readFileSync(fixture.evidence, "utf8"));
+      expect(evidence).toMatchObject({ verdict: "failed", execution: { observed: true, exitCode: 0, binding: "mismatch", checks: { shellContextSha256: true, shellLevelSha256: true, shellCommandSha256: true, effectiveEnvironmentSha256: false, environmentInventoryIntegrity: true }, environmentComparison: { complete: true, counts: { changed: 2, added: 0, removed: 0 } } } });
+      expect(evidence.execution.environmentComparison.changes).toEqual(expect.arrayContaining([{ id: "GITHUB_ARTIFACTS", status: "changed" }, { id: "GITHUB_ARTIFACTS_LIST", status: "changed" }]));
+      expect(fs.readFileSync(fixture.receipt, "utf8")).toBe(origin);
+      expect(fs.readFileSync(environmentInventoryPath(fixture.evidence), "utf8")).toBe(inventory);
+    } finally { fixture.cleanup(); }
+  });
+
+  it("bounds private inventory reads and exported changes while retaining complete mismatch counts", () => {
+    const before: Record<string, string> = {};
+    const after: Record<string, string> = {};
+    for (let index = 0; index < 129; index++) {
+      before[`PRIVATE_INPUT_${index}`] = "first";
+      after[`PRIVATE_INPUT_${index}`] = "second";
+    }
+    const output = path.join(scratch, "bounded-inventory-evidence.json");
+    writeEnvironmentInventory(output, environmentInventoryFor(before));
+    const receipt = executionReceiptFor(sanitizedEvidence("policy", reportFor("policy"), root, provenanceFor(root, before)), 0);
+    const comparison = environmentDiagnosticsFor(receipt, readEnvironmentInventory(output), environmentInventoryFor(after));
+    expect(comparison).toMatchObject({ complete: true, status: "changed", counts: { changed: 129 }, truncated: true });
+    expect(comparison.changes).toHaveLength(128);
+    expect(comparison.changes.every((change) => /^opaque:[a-f0-9]{64}$/.test(change.id))).toBe(true);
+    fs.writeFileSync(environmentInventoryPath(output), "x".repeat(1024 * 1024 + 1));
+    expect(readEnvironmentInventory(output)).toEqual({ inventory: null, sha256: null, status: "invalid" });
+    const excessive: Record<string, string> = {};
+    for (let index = 0; index < 4097; index++) excessive[`PRIVATE_INPUT_${index}`] = "value";
+    expect(() => environmentInventoryFor(excessive)).toThrow("Environment inventory exceeds its bound");
+  });
+
+  it("rejects symlink and directory inventories before opening either target", () => {
+    const realOutput = path.join(scratch, "regular-inventory.json");
+    writeEnvironmentInventory(realOutput, environmentInventoryFor(fixtureEnvironment));
+    const linkedOutput = path.join(scratch, "linked-inventory.json");
+    fs.symlinkSync(environmentInventoryPath(realOutput), environmentInventoryPath(linkedOutput));
+    const directoryOutput = path.join(scratch, "directory-inventory.json");
+    fs.mkdirSync(environmentInventoryPath(directoryOutput));
+    const open = vi.spyOn(fs, "openSync");
+    try {
+      for (const output of [linkedOutput, directoryOutput]) expect(readEnvironmentInventory(output)).toEqual({ inventory: null, sha256: null, status: "invalid" });
+      expect(open).not.toHaveBeenCalled();
+      expect(readEnvironmentInventory(realOutput).status).toBe("available");
+    } finally { open.mockRestore(); }
+  });
+
+  it("rejects a FIFO inventory within a bounded isolated process without waiting for a writer", () => {
+    const output = path.join(scratch, "fifo-inventory.json");
+    expect(spawnSync("mkfifo", [environmentInventoryPath(output)], { timeout: 3000 }).status).toBe(0);
+    const script = `import { readEnvironmentInventory } from ${JSON.stringify(path.join(root, "scripts/ci/sanitize-evidence.mjs"))}; process.stdout.write(JSON.stringify(readEnvironmentInventory(process.argv[1])));`;
+    const result = spawnSync(process.execPath, ["--input-type=module", "--eval", script, output], { encoding: "utf8", timeout: 3000 });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ inventory: null, sha256: null, status: "invalid" });
+  });
+
+  it("rejects an opened descriptor that is nonregular and closes it without reading", () => {
+    const output = path.join(scratch, "nonregular-descriptor-inventory.json");
+    writeEnvironmentInventory(output, environmentInventoryFor(fixtureEnvironment));
+    const stat = vi.spyOn(fs, "fstatSync").mockReturnValueOnce(fs.statSync(scratch));
+    const read = vi.spyOn(fs, "readSync");
+    const close = vi.spyOn(fs, "closeSync");
+    try {
+      expect(readEnvironmentInventory(output)).toEqual({ inventory: null, sha256: null, status: "invalid" });
+      expect(read).not.toHaveBeenCalled();
+      expect(close).toHaveBeenCalledTimes(1);
+    } finally { stat.mockRestore(); read.mockRestore(); close.mockRestore(); }
+  });
+
+  it.each(["within-limit", "over-limit"])("rejects %s growth after the descriptor size check and closes it with bounded reads", (kind) => {
+    const output = path.join(scratch, `growing-${kind}-inventory.json`);
+    writeEnvironmentInventory(output, environmentInventoryFor(fixtureEnvironment));
+    const target = environmentInventoryPath(output);
+    const opened = fs.statSync(target);
+    fs.appendFileSync(target, kind === "over-limit" ? "x".repeat(1024 * 1024 + 1) : " ");
+    // A stale descriptor snapshot models growth immediately after fstat; all reads remain real.
+    const stat = vi.spyOn(fs, "fstatSync").mockReturnValueOnce(opened);
+    const read = vi.spyOn(fs, "readSync");
+    const close = vi.spyOn(fs, "closeSync");
+    try {
+      expect(readEnvironmentInventory(output)).toEqual({ inventory: null, sha256: null, status: "invalid" });
+      expect(read).toHaveBeenCalled();
+      expect(read).toHaveBeenCalledWith(expect.any(Number), expect.any(Buffer), 0, 1024 * 1024 + 1, null);
+      if (kind === "over-limit") expect(read).toHaveBeenCalledTimes(1);
+      expect(close).toHaveBeenCalledTimes(1);
+    } finally { stat.mockRestore(); read.mockRestore(); close.mockRestore(); }
+  });
+
+  it("hashes malformed non-UTF8 inventory bytes exactly before decoding", () => {
+    const output = path.join(scratch, "invalid-utf8-inventory.json");
+    const raw = Buffer.from([0xff, 0xfe, 0x7b]);
+    fs.writeFileSync(environmentInventoryPath(output), raw);
+    const actualDigest = createHash("sha256").update(raw).digest("hex");
+    expect(actualDigest).not.toBe(createHash("sha256").update(raw.toString("utf8")).digest("hex"));
+    expect(readEnvironmentInventory(output)).toEqual({ inventory: null, sha256: actualDigest, status: "invalid" });
   });
 
   it("reports installed and locked versions independently instead of treating expectations as measurements", () => {

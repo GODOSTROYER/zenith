@@ -36,13 +36,14 @@ import { temporalDataConverterFromEnv } from "@/lib/workflows/codec";
 import { executionWorkerConfigFromEnv } from "./config";
 import { installShutdownHandlers } from "./lifecycle";
 import { workerOptions, workflowSource } from "./run";
-import { ExecutionStartupError, validateExecutionConfiguration, openExecutionStore } from "./startup";
+import { ExecutionStartupError, validateExecutionConfiguration, openExecutionStore, closeExecutionStore, type ExecutionFailureCategory } from "./startup";
 import { HEALTH_CHECK_TIMEOUT_MS, healthPortFromEnv, startHealthServer } from "./health";
 
 function log(level: "info" | "warn" | "error", msg: string, fields: Record<string, unknown> = {}): void {
   process.stdout.write(`${JSON.stringify({ time: new Date().toISOString(), level, msg, component: "execution-worker", ...fields })}\n`);
 }
 
+let failureCategory: ExecutionFailureCategory = "configuration";
 async function main(): Promise<void> {
   const config = executionWorkerConfigFromEnv();
   const dataConverter = temporalDataConverterFromEnv();
@@ -53,6 +54,7 @@ async function main(): Promise<void> {
   let stopping = () => false;
   let janitor: ReturnType<typeof startPlanJanitor> | undefined;
   let healthLog: ReturnType<typeof setInterval> | undefined;
+  failureCategory = "health-listener";
   const endpoint = await startHealthServer({ port: healthPortFromEnv(), checks: {
     async temporal() {
       if (!connection || !worker) return undefined;
@@ -65,21 +67,31 @@ async function main(): Promise<void> {
     drivers: () => ["aws", "kubernetes", "zenith", "gcp", "azure", "oci"].every((provider) => listDrivers().some((driver) => driver.provider === provider)),
   } });
   try {
+    failureCategory = "configuration";
     await validateExecutionConfiguration();
+    failureCategory = "platform-store";
     db = await openExecutionStore();
+    failureCategory = "platform-composition";
     if (!(await ensurePlatformApp(db))) throw new ExecutionStartupError("Platform runtime composition failed; check platform schema and configuration.");
     // Load the actual verified bundle before advertising readiness, not a flag
     // inferred from platform composition (which intentionally needs no policy).
+    failureCategory = "policy-assets";
     await loadPolicyEngine();
     policyLoaded = true;
     const planDir = path.resolve(process.env.ZENITH_WORKER_PLAN_DIR ?? path.join(process.env.ZENITH_DATA ?? ".data", "platform-plans"));
+    failureCategory = "plan-directory";
     await mkdir(planDir, { recursive: true, mode: 0o700 });
+    failureCategory = "activity-composition";
     const activities = createActivities({ db, workerIdentity: config.identity, planDir, sourceBundles: { azureStorage: createAzureSourceStorageResolver(db) }, ports: { heartbeat: (detail) => Context.current().heartbeat(detail), activitySignal: () => Context.current().cancellationSignal } });
+    failureCategory = "temporal-runtime";
     Runtime.install({ logger: new DefaultLogger(config.logLevel) });
 
+    failureCategory = "workflow-bundle";
     const workflows = await workflowSource(config);
     if (workflows.fallbackReason) log("warn", "swc could not compile the workflows; used the esbuild fallback", { reason: workflows.fallbackReason });
+    failureCategory = "temporal-connect";
     connection = await NativeConnection.connect(connectionOptionsFor(config.temporal));
+    failureCategory = "temporal-worker";
     worker = await Worker.create({
       ...workerOptions({
         config,
@@ -90,6 +102,7 @@ async function main(): Promise<void> {
       dataConverter,
     });
 
+    failureCategory = "worker-lifecycle";
     stopping = installShutdownHandlers({ worker, graceMs: config.shutdownGraceMs, log, signals: process, exit: (code) => process.exit(code) });
     janitor = startPlanJanitor(db, { planDir, maxAgeMs: planMaxAgeFromEnv() }, (result) => {
       if (result) log("info", "plan maintenance", { ...result });
@@ -115,21 +128,29 @@ async function main(): Promise<void> {
         : undefined;
     healthLog?.unref();
 
+    failureCategory = "worker-run";
     await worker.run();
     log("info", "execution worker stopped");
+    failureCategory = "resource-close";
   } finally {
     stopping = () => true;
     if (healthLog) clearInterval(healthLog);
-    await endpoint.close();
-    await janitor?.stop();
-    await connection?.close();
+    // A failed close must not strand another owned resource during shutdown.
+    try { await endpoint.close(); }
+    finally {
+      try { await janitor?.stop(); }
+      finally {
+        try { await connection?.close(); }
+        finally { await closeExecutionStore(db); }
+      }
+    }
   }
 }
 
 main().then(
   () => process.exit(0),
   (err: unknown) => {
-    log("error", "execution worker failed", { error: err instanceof ExecutionStartupError ? err.message : "Execution stopped unexpectedly; check platform store, Temporal and worker configuration." });
+    log("error", "execution worker failed", { failureCategory, error: err instanceof ExecutionStartupError ? err.message : "Execution stopped unexpectedly; check platform store, Temporal and worker configuration." });
     process.exit(1);
   }
 );

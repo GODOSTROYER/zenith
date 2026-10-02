@@ -14,8 +14,8 @@
 # production operation remain unverified for this image.
 #
 # Contents: Node 22.23.3 (Debian slim) + OpenTofu 1.12.5 + the bundled worker +
-# a prebuilt workflow bundle. The worker runs as a non-root user and needs no
-# inbound port: it only dials Temporal and the cloud/store APIs.
+# a prebuilt workflow bundle. The worker runs as a non-root user; its health
+# listener is loopback-only and needs no published inbound port.
 #
 # Everything downloaded is pinned and verified:
 #   - the base image by tag AND digest (the multi-arch index digest of
@@ -74,15 +74,21 @@ COPY workers/execution ./workers/execution
 COPY deploy/aws/ssm-documents ./deploy/aws/ssm-documents
 # `@/` imports are resolved from tsconfig `paths` and bundled; every package
 # import stays external and is satisfied by node_modules in the runtime stage.
-RUN npx esbuild workers/execution/worker.ts \
+RUN npx esbuild workers/execution/entrypoint.ts \
       --bundle --platform=node --target=node22 --format=cjs \
       --packages=external --tsconfig=tsconfig.json \
       --outfile=dist/execution/worker.cjs \
+ && npx esbuild workers/execution/packaged-client.ts \
+      --bundle --platform=node --target=node22 --format=cjs \
+      --packages=external --tsconfig=tsconfig.json \
+      --outfile=dist/acceptance/packaged-client.cjs \
  && npx tsx workers/execution/build-bundle.ts dist/execution/workflow-bundle.js
 
 # --------------------------------- runtime ----------------------------------
 FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production \
+    ZENITH_DATA=/var/lib/zenith \
+    ZENITH_WORKER_PLAN_DIR=/var/lib/zenith/platform-plans \
     ZENITH_WORKER_WORKFLOW_BUNDLE=/app/dist/execution/workflow-bundle.js
 # tini: PID 1 that forwards SIGTERM to the worker (which drains) and reaps the
 # orphaned provider processes an interrupted `tofu` can leave behind.
@@ -91,8 +97,9 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 10001 zenith \
  && useradd --system --uid 10001 --gid zenith --home-dir /home/zenith --create-home --shell /usr/sbin/nologin zenith \
- && mkdir -p /var/lib/zenith \
- && chown zenith:zenith /var/lib/zenith
+ && mkdir -p /var/lib/zenith/platform-plans \
+ && chown -R zenith:zenith /var/lib/zenith \
+ && chmod 0700 /var/lib/zenith /var/lib/zenith/platform-plans
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
@@ -107,4 +114,13 @@ COPY --chown=zenith:zenith policy/dist ./policy/dist
 # those two as writable volumes. No secrets are baked in: the Temporal API key
 # (ZENITH_TEMPORAL_API_KEY) and everything else arrive as environment at run time.
 USER zenith
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.ZENITH_WORKER_HEALTH_PORT||9464)+'/readyz',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.status===200?0:1),()=>process.exit(1))"
 ENTRYPOINT ["/usr/bin/tini", "--", "node", "dist/execution/worker.cjs"]
+
+# Explicit opt-in derivative only. The default production target below excludes
+# the fixture client and all store-seeding code.
+FROM runtime AS acceptance
+COPY --from=build --chown=zenith:zenith /app/dist/acceptance ./dist/acceptance
+
+FROM runtime AS production

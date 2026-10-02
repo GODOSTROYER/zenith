@@ -6,6 +6,10 @@ import type { Sql } from "@/lib/controlplane/types";
 
 export class ExecutionStartupError extends Error {}
 
+/** Fixed diagnostic categories. Never derive these from exception messages. */
+export const EXECUTION_FAILURE_CATEGORIES = ["module-load", "configuration", "health-listener", "platform-store", "platform-composition", "policy-assets", "plan-directory", "activity-composition", "temporal-runtime", "workflow-bundle", "temporal-connect", "temporal-worker", "worker-lifecycle", "worker-run", "resource-close"] as const;
+export type ExecutionFailureCategory = (typeof EXECUTION_FAILURE_CATEGORIES)[number];
+
 export async function validateExecutionConfiguration(env: Readonly<Record<string, string | undefined>> = process.env): Promise<void> {
   if (!env.ZENITH_TEMPORAL_ADDRESS?.trim()) throw new ExecutionStartupError("Set ZENITH_TEMPORAL_ADDRESS explicitly for the execution worker.");
   try { derivePlanFingerprintKey(env.ZENITH_SECRET_KEY ?? ""); }
@@ -25,4 +29,10 @@ export async function openExecutionStore(open: () => Promise<Sql> = platformDb):
   try { await assertPlatformSchemaCurrent(db); }
   catch { throw new ExecutionStartupError(`Platform schema is behind or incompatible; run ${MIGRATE_COMMAND} before starting the worker.`); }
   return db;
+}
+
+/** Close the worker-owned store after polling, maintenance and probes stop. */
+export async function closeExecutionStore(db?: Sql): Promise<void> {
+  const handle = db as (Sql & { close?: () => Promise<void> }) | undefined;
+  if (typeof handle?.close === "function") await handle.close();
 }

@@ -14,6 +14,9 @@ import { describe, expect, it, vi } from "vitest";
 import { createExecutionWorker } from "../../workers/execution/run";
 import { executionWorkerConfigFromEnv } from "../../workers/execution/config";
 import { installShutdownHandlers } from "../../workers/execution/lifecycle";
+import { startExecutionWorker } from "../../workers/execution/entrypoint";
+import { closeExecutionStore } from "../../workers/execution/startup";
+import type { Sql } from "@/lib/controlplane/types";
 import { WORKFLOW_ID, WORKFLOW_TYPES, type WorkflowResult } from "@/lib/workflows/types";
 import { deployInput, serverSuite, waitFor } from "./support";
 
@@ -50,6 +53,41 @@ describe("installShutdownHandlers", () => {
     expect(exit).toHaveBeenCalledWith(1);
     expect(worker.shutdown).toHaveBeenCalledTimes(1);
     expect(log).toHaveBeenCalledWith("error", "second signal: exiting immediately", { signal: "SIGINT" });
+  });
+});
+
+describe("packaged execution worker bootstrap and store lifecycle", () => {
+  it("loads the actual worker without logging module values", async () => {
+    const load = vi.fn(async () => {});
+    const output = { write: vi.fn() };
+    expect(await startExecutionWorker(load, output)).toBe(0);
+    expect(load).toHaveBeenCalledOnce();
+    expect(output.write).not.toHaveBeenCalled();
+  });
+
+  it("refuses a module-load failure without printing URLs, keys or SQL", async () => {
+    const output = { write: vi.fn() };
+    const privateMessage = "postgresql://user:private-password@private-host/db select 'private-value' signing-private-key";
+    expect(await startExecutionWorker(async () => { throw new Error(privateMessage); }, output)).toBe(1);
+    const logged = output.write.mock.calls[0][0];
+    expect(JSON.parse(logged)).toMatchObject({ level: "error", msg: "execution worker failed", component: "execution-worker", failureCategory: "module-load" });
+    expect(logged).not.toContain(privateMessage);
+    expect(logged).not.toContain("private-password");
+    expect(logged).not.toContain("private-value");
+  });
+
+  it("closes the worker-owned store and tolerates no opened store", async () => {
+    const close = vi.fn(async () => {});
+    const store: Sql & { close(): Promise<void> } = { query: vi.fn(), tx: vi.fn(), close };
+    await closeExecutionStore(store);
+    expect(close).toHaveBeenCalledOnce();
+    await expect(closeExecutionStore()).resolves.toBeUndefined();
+  });
+
+  it("preserves store-close failure so shutdown cannot claim clean completion", async () => {
+    const failure = new Error("Close failed");
+    const store: Sql & { close(): Promise<void> } = { query: vi.fn(), tx: vi.fn(), close: async () => { throw failure; } };
+    await expect(closeExecutionStore(store)).rejects.toBe(failure);
   });
 });
 

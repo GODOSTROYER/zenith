@@ -53,6 +53,12 @@ const replacing = (entries: TarEntry[], target: string, bytes: Buffer): TarEntry
   entries.map((e) => (e.path === target ? { ...e, bytes } : e));
 
 describe("validateSource — the supported v1 tarball", () => {
+  it("advertises the supported Node range without changing the v1 source or package protocol", () => {
+    expect(contracts.SOURCE_CONTRACT_VERSION).toBe(1);
+    expect(contracts.RECIPE_V1).toEqual({
+      id: "vite-react-v1", vite: "7.3.6", pluginReact: "5.1.4", react: "19.1.0", node: ">=22.22.2 <23",
+    });
+  });
   it("accepts the minimal-app fixture and pins a digest", async () => {
     const validated = source.validateSource({ kind: "tarball", bytes: writeTar(fixtureEntries()) });
     expect(validated.kind).toBe("tarball");

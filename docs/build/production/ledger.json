@@ -240,6 +240,14 @@
           "level": "contract",
           "commit": "2b2b056c9070cec3e31e87deed2e491c6cda06cd",
           "result": "Root493affectedCI/configurationtests passed,0failures,0skips,including5realTOFU;fulltypecheck,lints,Go,mandatorylockedallcategoryaudit0,andbothledgerchecks passed. CI nowrequiresactualexecutionreceipts,no continue-on-error,onlysanitizedartifactuploads,30mouterverifybudgetwithunchangedtestdeadlines. Entirepushedrun and Linuxproof pending."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "ef67f47b398a1b17bedc68b433db48bb3d83baae",
+          "runId": 36961474315,
+          "result": "Observed terminal failure:9 successful jobs,5 failed receipt validators. Five real-engine commands passed with observed exit0 and zero skips:postgres251,platform-postgres1324,policy238,tofu3861,workflows861. Only effective environment binding differed; all other receipt checks matched. Full unit job15950P0F384S; remote baseline remains red.",
+          "artifact": "docs/build/production/ci-36961474315.md",
+          "executionReceiptComplete": false
         }
       ],
       "requiredEvidence": [
@@ -300,6 +308,13 @@
           "level": "contract",
           "commit": "2b2b056c9070cec3e31e87deed2e491c6cda06cd",
           "result": "Root493affectedCI/configurationtests passed,0failures,0skips,including5realTOFU;fulltypecheck,lints,Go,mandatorylockedallcategoryaudit0,andbothledgerchecks passed. CI nowrequiresactualexecutionreceipts,no continue-on-error,onlysanitizedartifactuploads,30mouterverifybudgetwithunchangedtestdeadlines. Entirepushedrun and Linuxproof pending."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "ef67f47b398a1b17bedc68b433db48bb3d83baae",
+          "runId": 36961474315,
+          "result": "Linux fresh locked installation reports0 vulnerabilities; mandatory complete locked audit passes without exceptions. Historical8versus7 discrepancy cannot be reconciled by exact advisory inputs because old raw audit reports are unavailable. Real SMTP/TLS interoperability remains unproved.",
+          "artifact": "docs/build/production/ci-36961474315.md"
         }
       ],
       "requiredEvidence": [
@@ -309,7 +324,7 @@
       "owner": "PROD-WS-RUNTIME-SECURITY",
       "testPaths": [],
       "operatorBlockers": [
-        "Eight audited package entries covering24GHSA advisoryIDs unresolved; no exceptions granted. Mandatory gate cannot pass until safe remediation or explicitly reviewed expiring exceptions."
+        "Historical eight-versus-seven audit reconciliation needs original advisory reports; currently locked dependencies report zero known findings and mandatory audit passes. No vulnerability exceptions are granted."
       ]
     },
     {
@@ -366,6 +381,14 @@
           "result": "Run36956453026 completed cancelled:13 successful jobs,verify cancelled by confirmed15m job timeout. Allthreeoriginaljobs passed. Smoke/Gimbal skipped in verify; whole pushedCI notgreen. Next job budget30m leaves test deadlines unchanged.",
           "artifact": "docs/build/production/ci-36956453026.md",
           "executionReceiptComplete": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "ef67f47b398a1b17bedc68b433db48bb3d83baae",
+          "runId": 36961474315,
+          "result": "Observed terminal failure:9 successful jobs,5 failed receipt validators. Five real-engine commands passed with observed exit0 and zero skips:postgres251,platform-postgres1324,policy238,tofu3861,workflows861. Only effective environment binding differed; all other receipt checks matched. Full unit job15950P0F384S; remote baseline remains red.",
+          "artifact": "docs/build/production/ci-36961474315.md",
+          "executionReceiptComplete": false
         }
       ],
       "requiredEvidence": [
@@ -385,7 +408,17 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "in_progress",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "local_linux_arm64",
+          "commit": "ef67f47b398a1b17bedc68b433db48bb3d83baae",
+          "dirtyCandidate": true,
+          "sourceInputSha256": "98bb671881be531aa29a426a390c65998f9dc889a99cdb84f5a6a69dd2e59b04",
+          "result": "Actual fresh native ARM64 execution-worker derivative image built. Three secret/schema/signer refusal checks passed and real PostgreSQL migrations1through6 applied. Worker readiness failed; Temporal polling/operation/shutdown unproved. Every created resource and private input removed. Candidate is not merged.",
+          "logs": "/Users/saivedanthava/.codex/zenith-production/logs/prod-packaged-worker-arm64.json",
+          "passed": false
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_linux_arm64",
@@ -405,7 +438,17 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "in_progress",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "local_linux_arm64",
+          "commit": "ef67f47b398a1b17bedc68b433db48bb3d83baae",
+          "dirtyCandidate": true,
+          "sourceInputSha256": "98bb671881be531aa29a426a390c65998f9dc889a99cdb84f5a6a69dd2e59b04",
+          "result": "Actual fresh native ARM64 execution-worker derivative image built. Three secret/schema/signer refusal checks passed and real PostgreSQL migrations1through6 applied. Worker readiness failed; Temporal polling/operation/shutdown unproved. Every created resource and private input removed. Candidate is not merged.",
+          "logs": "/Users/saivedanthava/.codex/zenith-production/logs/prod-packaged-worker-arm64.json",
+          "passed": false
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_linux_arm64",
@@ -690,18 +733,21 @@
       "acceptance": [
         "Operation authority versus UI projection defined; independent workers and concurrent writers preserve state without treating local locks as external atomicity."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "in_progress",
       "evidence": [],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "PROD-WS-START-UNCERTAINTY",
+      "testPaths": [],
+      "followUps": [
+        "Bounded workflow-start and worker-product uncertainty projection repair underway. Full durable outbox, independent readback, operator-authorized continuation and recovery acceptance remain required."
+      ]
     },
     {
       "id": "PROD-DUR-03",
@@ -785,18 +831,21 @@
       "acceptance": [
         "Partitions/stale fences/delayed calls/revocation/renewal preserve uncertain/conflict/tombstones; provider idempotency or receipts/readback enable evidence-based operator resolution and new authorization."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "in_progress",
       "evidence": [],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "PROD-WS-START-UNCERTAINTY",
+      "testPaths": [],
+      "followUps": [
+        "Bounded workflow-start and worker-product uncertainty projection repair underway. Full durable outbox, independent readback, operator-authorized continuation and recovery acceptance remain required."
+      ]
     },
     {
       "id": "PROD-DUR-08",

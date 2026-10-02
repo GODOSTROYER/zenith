@@ -45,19 +45,36 @@ Actualcommandorigins are immutable; CI uploads only validated scalar receipt
 fields inside sanitized JSON. No raw receipt sidecars are uploaded. Remote
 environment-binding compatibility remains unproved.
 
-Immediate next steps: push normally and observe every CI job. Then
-verify/start the actual packaged worker harness on ARM64 and AMD64 serially.
+Pushed run `36961474315` at `ef67f47` completed with nine successful and five
+failed jobs. All five engine commands passed without skips and retain observed
+exit0 receipts; later validators rejected only the effective environment hash.
+All other bindings matched. Full unit job15950P0F384S, build, Docker and the
+mandatory zero-finding audit passed. See `ci-36961474315.md`. Measure the
+changing runner key before excluding any additional transport metadata.
+
+Immediate next steps: review and verify private environment diagnostics,
+push normally, diagnose measured drift and observe every new CI job. The
+first fresh native ARM64 worker image built and passed three startup refusals
+and migrations1through6, but actual readiness failed. Owned resources were
+deleted. Repair Temporal volume ownership/readiness, rerun ARM64, then AMD64
+serially. Preserve native versus emulated evidence. Candidate worktree:
+`/Users/saivedanthava/.codex/zenith-production/worktrees/worker-startup`.
 Dependency remediation `d8e457fd5add185cc9df13f8bee38076e1c1d53f` is
 integrated by `0f8cabb1c3abf061708f9c1a32b713d96329bf07`. Root verified
 502 focused checks, full typecheck/lint/Go, 16,062 full-suite passes with 194
 explicit skips, real Temporal861/861, production build and a zero-finding
-complete locked audit. Linux installation and SMTP/TLS acceptance remain
-unproved. Mandatory audit wiring is integrated; no exceptions are granted.
+complete locked audit. Fresh Linux CI installation and mandatory audit now
+pass. Historical advisory reconciliation and real SMTP/TLS acceptance remain
+unproved. No exceptions are granted.
 Installation configuration `a9fea8968d41e4639d4c2566eb238cec74ef957a` is
 integrated by `d697c4ef63b2ed64bd02e129315c2a35ae6a2829`. Root62contract
 tests and both real Compose config parses pass; no services started. API
-startup and dedicated AWS sandbox details were requested; both remain pending. AWS suffix propagation is source-complete, awaiting root checks in
-`ws/prod-aws-suffix`; retain stack-first/live IAM permission blockers.
+startup and dedicated AWS sandbox details were requested; both remain pending.
+AWS suffix propagation root checks883P0F2gatedS, fulltypecheck/lint/Go and
+fresh platformPostgres1324P0F0S pass; remaining real deletion/kind checks and
+integration pending. Retain stack-first/live IAM permission blockers.
+`ws/prod-start-uncertainty` repairs actual Temporal error classification and
+competing product projections; durable outbox/recovery remains separate work.
 
 All new commits use Saivedant Hava `<saivedant169@gmail.com>` as author and
 committer on this Mac. No history rewrite, force push or secret-scanning bypass.

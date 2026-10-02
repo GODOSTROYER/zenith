@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "lane": "postgres",
+  "validatedAt": "2026-10-02T03:45:17.480Z",
+  "verdict": "failed",
+  "provenance": {
+    "commit": "ef67f47b398a1b17bedc68b433db48bb3d83baae",
+    "trackedChangesSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untrackedContentSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "worktreeDirty": false,
+    "sourceBindingComplete": true,
+    "index": {
+      "inventoryComplete": true,
+      "assumeUnchanged": 0,
+      "skipWorktree": 0,
+      "unmerged": 0
+    },
+    "gateSources": [
+      {
+        "file": "scripts/ci/gate-manifest.mjs",
+        "sha256": "b3c6a010336bbdce651ee454fb659285c8e5c42f782160af49858b8e8951fed0"
+      },
+      {
+        "file": "scripts/ci/run-gate.mjs",
+        "sha256": "080b3466c696c7259ad6322e73c54cc7523c8a864039c61f68b3e97801e86cf7"
+      },
+      {
+        "file": "scripts/ci/sanitize-evidence.mjs",
+        "sha256": "237a9a428b2ee6cffe7183c4e791ff3e75536732031ebf76d0db0ebd3de3682a"
+      },
+      {
+        "file": "scripts/ci/lane-report.mjs",
+        "sha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8"
+      },
+      {
+        "file": "tests/ci/assert-lane-report.mjs",
+        "sha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b"
+      },
+      {
+        "file": "vitest.config.ts",
+        "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08"
+      }
+    ],
+    "lockfileSha256": "edd1349503c4dd7ef0510223e17f7e9de03049336cacee2fe0bb2d8b1a882500",
+    "dependencies": [
+      {
+        "name": "vitest",
+        "locked": "4.1.11",
+        "installed": "4.1.11"
+      },
+      {
+        "name": "postgres",
+        "locked": "3.4.7",
+        "installed": "3.4.7"
+      },
+      {
+        "name": "@electric-sql/pglite",
+        "locked": "0.5.8",
+        "installed": "0.5.8"
+      },
+      {
+        "name": "@temporalio/worker",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@temporalio/testing",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@open-policy-agent/opa-wasm",
+        "locked": "1.10.0",
+        "installed": "1.10.0"
+      }
+    ],
+    "environment": {
+      "sha256": "fceb605e4a169bfd9f9deee3f8600e82b07aa9da11df6c44a7f4adcbb5493c39",
+      "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+      "excludedKeys": [
+        "GITHUB_ACTION",
+        "GITHUB_ENV",
+        "GITHUB_PATH",
+        "GITHUB_OUTPUT",
+        "GITHUB_STEP_SUMMARY",
+        "GITHUB_STATE"
+      ],
+      "platform": "linux",
+      "architecture": "x64",
+      "node": "22.23.3"
+    }
+  },
+  "reportSha256": "a90e519aba5f5f37e8b502fe85d5a2a1a1f92cc2096ba2cca8428e484d0902f4",
+  "manifestSha256": "9576cc4f9ab9107f986ab3a2a0df29074daedb44f11d7bd706fec96d24c636d8",
+  "expectedTools": {
+    "node": "22.23.3",
+    "postgres": "16.15"
+  },
+  "counts": {
+    "total": 251,
+    "passed": 251,
+    "failed": 0,
+    "skipped": 0,
+    "unknown": 0
+  },
+  "required": [
+    {
+      "id": "postgres:tests/hosted/authority/contract/access.test.ts:34e3ff02f3af",
+      "file": "tests/hosted/authority/contract/access.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "unverified"
+    },
+    {
+      "id": "postgres:tests/hosted/authority/contract/contract.test.ts:34e3ff02f3af",
+      "file": "tests/hosted/authority/contract/contract.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "unverified"
+    },
+    {
+      "id": "postgres:tests/hosted/authority/contract/ledgers.test.ts:749ea47aebd3",
+      "file": "tests/hosted/authority/contract/ledgers.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "unverified"
+    },
+    {
+      "id": "postgres:tests/hosted/authority/contract/release.test.ts:34e3ff02f3af",
+      "file": "tests/hosted/authority/contract/release.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 18,
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "unverified"
+    },
+    {
+      "id": "postgres:tests/scripts/migrate-hosted-to-postgres.test.ts:2b050f3ed9be",
+      "file": "tests/scripts/migrate-hosted-to-postgres.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "unverified"
+    },
+    {
+      "id": "postgres:tests/agent-link/pg-contract.test.ts:5246000cb75e",
+      "file": "tests/agent-link/pg-contract.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "unverified"
+    },
+    {
+      "id": "postgres:tests/agent-control/pg-contract.test.ts:a22aa1702a27",
+      "file": "tests/agent-control/pg-contract.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "unverified"
+    },
+    {
+      "id": "postgres:tests/db/contract/workspace-sharing.test.ts:420737db2f8f",
+      "file": "tests/db/contract/workspace-sharing.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 22,
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "unverified"
+    },
+    {
+      "id": "postgres:tests/waitlist/pg-contract.test.ts:3d9c4f3951d7",
+      "file": "tests/waitlist/pg-contract.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 38,
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "unverified"
+    }
+  ],
+  "validation": {
+    "failureCount": 1,
+    "complete": false,
+    "caseIdentity": "not-exported-by-standard-vitest-json"
+  },
+  "execution": {
+    "exitCode": 0,
+    "termination": "exit",
+    "signal": null,
+    "observed": true,
+    "binding": "mismatch",
+    "receiptSha256": "2d23dc2e3412f33290d31b5f140abbeef1699b33125bf2953ffd0fec6b0abe61",
+    "originReceipt": {
+      "schemaVersion": 1,
+      "lane": "postgres",
+      "reportSha256": "a90e519aba5f5f37e8b502fe85d5a2a1a1f92cc2096ba2cca8428e484d0902f4",
+      "manifestSha256": "9576cc4f9ab9107f986ab3a2a0df29074daedb44f11d7bd706fec96d24c636d8",
+      "sourceSha256": "0858e718afe569618292fe34a702f3c8b03daf6d88fc7965972fe01b879f6d27",
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": "1b20d82a0b8c75921da8f5d2351a8edb0ac8dcbaf87c0955ede61bbd003b0ddf",
+      "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+      "runtimeSha256": "b25a0f3d2485d5225addc8503ddb04aa0e7141aa03cd6c1b079f32eb258970df",
+      "exitCode": 0,
+      "termination": "exit",
+      "signal": null
+    },
+    "checks": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": false,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true
+    }
+  },
+  "externalAcceptance": []
+}

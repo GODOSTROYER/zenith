@@ -6,17 +6,19 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { manifestFor } from "./gate-manifest.mjs";
 import { reportFailures } from "../../tests/ci/assert-lane-report.mjs";
-import { effectiveEnvironmentFor, executionReceiptFor, executionReceiptPath, preserveExecutionObservation, provenanceFor, readExecutionReceipt, sanitizedEvidence, writeExecutionReceipt } from "./sanitize-evidence.mjs";
+import { effectiveEnvironmentFor, environmentDiagnosticsFor, environmentInventoryFor, environmentInventoryPath, executionReceiptFor, executionReceiptPath, preserveExecutionObservation, provenanceFor, readEnvironmentInventory, readExecutionReceipt, sanitizedEvidence, writeEnvironmentInventory, writeExecutionReceipt } from "./sanitize-evidence.mjs";
 
 export function validateGate(lane, reportPath, evidencePath, root = process.cwd(), options = {}) {
   const manifest = manifestFor(lane, root, reportPath);
   let raw = "unavailable";
   let report = null;
   try { raw = fs.readFileSync(path.resolve(root, reportPath), "utf8"); report = JSON.parse(raw); } catch { /* Missing/malformed evidence fails closed and still produces a sanitized artifact. */ }
-  const evidence = sanitizedEvidence(lane, report, root, provenanceFor(root, effectiveEnvironmentFor(lane, root)), raw, manifest);
+  const env = effectiveEnvironmentFor(lane, root);
+  const evidence = sanitizedEvidence(lane, report, root, provenanceFor(root, env), raw, manifest);
   const output = path.resolve(root, evidencePath ?? `.data-ci-lane/${lane}-evidence.json`);
   const receipt = readExecutionReceipt(output);
-  const observedStatus = preserveExecutionObservation(evidence, receipt.receipt, options.requireExecution === true, receipt.sha256);
+  const comparison = environmentDiagnosticsFor(receipt.receipt, readEnvironmentInventory(output), environmentInventoryFor(env));
+  const observedStatus = preserveExecutionObservation(evidence, receipt.receipt, options.requireExecution === true, receipt.sha256, comparison);
   const failures = reportFailures(manifest.requirements, report, root);
   if (observedStatus !== undefined && observedStatus !== 0) failures.push("Canonical test command did not succeed");
   if (evidence.execution.binding === "mismatch") failures.push("Canonical execution receipt is invalid or does not match current source, report, manifest or effective environment");
@@ -70,9 +72,12 @@ export function main(args) {
     const output = path.resolve(values.evidence ?? `.data-ci-lane/${lane}-evidence.json`);
     // A new invocation owns a new receipt. Validators never remove or rewrite it.
     fs.rmSync(executionReceiptPath(output), { force: true });
-    const origin = provenanceFor(process.cwd(), effectiveEnvironmentFor(lane, process.cwd()));
+    fs.rmSync(environmentInventoryPath(output), { force: true });
+    const env = effectiveEnvironmentFor(lane, process.cwd());
+    writeEnvironmentInventory(output, environmentInventoryFor(env));
+    const origin = provenanceFor(process.cwd(), env);
     const [, ...command] = runnable.command;
-    const run = spawnSync(process.execPath, command, { cwd: process.cwd(), env: effectiveEnvironmentFor(lane, process.cwd()), stdio: "inherit" });
+    const run = spawnSync(process.execPath, command, { cwd: process.cwd(), env, stdio: "inherit" });
     let raw = "unavailable";
     let report = null;
     try { raw = fs.readFileSync(reportPath, "utf8"); report = JSON.parse(raw); } catch { /* The command observation survives missing/malformed reports. */ }

@@ -18,6 +18,7 @@ import { approvalRoundOf, operationPlanReview } from "@/lib/controlplane/db/repo
 import type { ApprovalRequirement, CapabilityGrantClaims, OperationRecord, Sql } from "@/lib/controlplane/types";
 import { createOperationsPort, workerStoreScope, StepFailedError, type BrokerPort, type PlanPolicyInput } from "@/lib/execution";
 import { readPlanEvidence } from "@/lib/execution/plan-evidence";
+import { EcsReplicaRepairInput, readRepairBinding, repairBindingDigest, repairBindingEvidenceId } from "@/lib/execution/ecs-replica-repair-binding";
 import { secretResourcesForOperation } from "./secret-grants";
 
 type BrokerFactory = () => Promise<Broker>;
@@ -36,6 +37,25 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
     const parsed = review ? readPlanEvidence({ ...review }) : undefined;
     if (!parsed) throw new StepFailedError("The operation's plan has no authoritative evidence.");
     return { ...parsed.facts, ...(parsed.cost.deltaUsdMonthly !== undefined ? { costDeltaUsdMonthly: parsed.cost.deltaUsdMonthly } : {}), ...(parsed.cost.projectedMonthlyUsd !== undefined ? { projectedMonthlyUsd: parsed.cost.projectedMonthlyUsd } : {}) };
+  };
+  const repairReview = async (op: OperationRecord): Promise<string> => {
+    const input = EcsReplicaRepairInput.safeParse(op.proposal.input);
+    if (!input.success || !op.planDigest || !op.resourceId) throw new StepFailedError("Replica repair requires its supported recipe and concrete reviewed plan.");
+    const evidence = await repos.evidence.get(db, op.workspaceId, repairBindingEvidenceId(op.id));
+    const binding = evidence ? readRepairBinding(evidence.summary.binding) : undefined;
+    const rows = await db.query<{ summary: Record<string, unknown> }>(
+      `select summary from platform.evidence where workspace_id = $1 and operation_id = $2
+       and kind = 'tofu_plan' and digest = $3 and simulated = false and summary->>'stage' = 'plan'
+       order by created_at, id limit 1`, [op.workspaceId, op.id, op.planDigest]);
+    const summary = rows[0]?.summary;
+    const reviewedBinding = summary ? readRepairBinding(summary.repairBinding) : undefined;
+    if (!evidence || evidence.simulated || evidence.operationId !== op.id || !binding || !reviewedBinding
+      || binding.workspaceId !== op.workspaceId || binding.environmentId !== op.environmentId || binding.operationId !== op.id
+      || binding.resourceId !== op.resourceId || binding.address !== input.data.address || binding.graphDigest !== input.data.graphDigest
+      || binding.projectId !== op.projectId || evidence.digest !== repairBindingDigest(binding)
+      || summary?.repairBindingDigest !== evidence.digest || repairBindingDigest(reviewedBinding) !== evidence.digest
+      || summary?.planDigest !== op.planDigest || !readPlanEvidence(summary)) throw new StepFailedError("Replica repair has no matching immutable target binding and reviewed plan evidence.");
+    return evidence.digest;
   };
   const decisionFor = async (broker: Broker, op: OperationRecord, facts?: PlanPolicyInput, cap = op.capability) => {
     const req = requestFromOperation(op);
@@ -89,6 +109,9 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
       if (cap !== op.capability && (!op.environmentId || !capability(op.capability).mutates)) throw new StepFailedError("This operation cannot issue an environment read grant.");
       const broker = await getBroker();
       const facts = cap === op.capability || secretSync ? await latestFacts(op) : undefined;
+      const replicaRepair = cap === "drift.repair";
+      const bindingDigest = replicaRepair ? await repairReview(op) : undefined;
+      if (replicaRepair && (!facts || audience !== "worker" || approvalRoundOf(op) === 0)) throw new StepFailedError("Replica repair needs a concrete plan in the current human approval round.");
       let parentDuration = 3600;
       let parentTargets: unknown;
       if (secretSync) {
@@ -109,6 +132,14 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
         await repos.leases.assertFence(db, fence.scope, fence.fenceToken);
       }
       let constraints = decision.constraints;
+      if (replicaRepair) {
+        if (decision.outcome !== "require_approval" || !decision.approval) throw new StepFailedError("Replica repair requires current human approval.");
+        // Unknown restrictions cannot be ignored by this narrowly scoped adapter.
+        if (Object.keys(constraints ?? {}).some((key) => key !== "grantDurationSec")) throw new StepFailedError("Replica repair cannot enforce this policy constraint; nothing was authorized.");
+        constraints = { ...constraints, repairPlanDigest: op.planDigest!, repairBindingDigest: bindingDigest! };
+        const current = await load(id);
+        if (current.status !== "running" || current.planDigest !== op.planDigest || approvalRoundOf(current) !== approvalRoundOf(op)) throw new StepFailedError("Replica repair authority changed before grant issuance.");
+      }
       if (secretSync) {
         const targets = await secretResourcesForOperation(db, op);
         for (const allowed of [parentTargets, decision.constraints?.secretResources]) {
@@ -118,7 +149,7 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
         if ((await load(id)).status !== "running") throw new StepFailedError("The operation stopped before secret grant issuance.");
       }
       // Target reads may take time; never sign after this environment fence is lost.
-      if (secretSync && fence) await repos.leases.assertFence(db, fence.scope, fence.fenceToken);
+      if ((secretSync || replicaRepair) && fence) await repos.leases.assertFence(db, fence.scope, fence.fenceToken);
       const iat = Math.floor(broker.deps.clock.now().getTime() / 1000);
       const requested = opts?.durationSec ?? 900;
       const policySec = typeof decision.constraints?.grantDurationSec === "number" ? decision.constraints.grantDurationSec : 900;

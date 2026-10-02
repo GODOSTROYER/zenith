@@ -48,7 +48,9 @@ describe("the guide set", () => {
       const name = path.basename(file);
       const snapshot = name === "OBSERVATION-REPAIR.md"
         ? { branch: "codex/production-2026-10-02", commit: "8657abd" }
-        : { branch: "ws/docs-sync-2", commit: "3c1fa66" };
+        : name === "ECS-REPLICA-REPAIR.md"
+          ? { branch: "ws/prod-ecs-replica-repair", commit: "b46fb8a" }
+          : { branch: "ws/docs-sync-2", commit: "3c1fa66" };
       expect(text, name).toContain(`Written against branch \`${snapshot.branch}\``);
       expect(text, name).toContain(`\`${snapshot.commit}\``);
     }
@@ -176,7 +178,13 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     const refuse = apply.indexOf("if (current.planDigest !== args.expectedPlanDigest) throw new TofuPlanChangedError");
     expect(refuse).toBeGreaterThanOrEqual(0);
     expect(refuse).toBeLessThan(apply.indexOf("await args.inspectPlan?.(current, raw)"));
-    expect(source("src/lib/execution/plan.ts")).toContain("expectedDigest, deletionNodes, inspectPlan: inspectDeployDeletions(");
+    const plan = source("src/lib/execution/plan.ts");
+    const stage = plan.slice(plan.indexOf("async function runPlanStage("), plan.indexOf("export function createPlanActivities("));
+    expect(stage).toContain("const deletionGuard = inspectDeployDeletions(rt, ec, deletionNodes, dnsNodes, session, signal, lease)");
+    expect(stage).toContain("expectedDigest, deletionNodes, inspectPlan: async (plan, raw) => {");
+    const deletion = stage.indexOf("await deletionGuard(plan, raw)");
+    expect(deletion).toBeGreaterThan(stage.indexOf("inspectPlan: async (plan, raw) => {"));
+    expect(deletion).toBeLessThan(stage.indexOf("assertEcsReplicaRepairPlan(plan, raw, repairBinding, ws)"));
     expect(squash(guide("POLICY.md"))).toContain("before deletion guards run");
   });
 

@@ -1,15 +1,26 @@
 /** Shared gate commands preserve required local engines and precisely scoped external acceptance. */
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, manifestFor, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 
 const root = process.cwd();
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-manifest-"));
 afterAll(() => fs.rmSync(scratch, { recursive: true, force: true }));
+const ecsGrantFile = "tests/platform/ecs-replica-repair-grants.test.ts";
+const ecsFiles = ["tests/execution/ecs-replica-repair.test.ts", "tests/providers/aws/drivers/compute/ecs-replica-repair-read.test.ts", ecsGrantFile, "tests/workflows/ecs-replica-repair.test.ts"];
+const ecsPostgresSuites = ["initial planning authority", "planning policy denial", "browser plan approval", "resumed planning authority", "stricter approval policy", "immutable repair evidence"];
+const ecsPostgresRequirements = () => requirementsFor("platform-postgres", root).filter((required) => required.file === ecsGrantFile);
+const ecsGrantReport = (outer = "replica repair authority [postgres]") => ({
+  success: true,
+  testResults: [{ name: path.resolve(root, ecsGrantFile), status: "passed", assertionResults: ecsPostgresSuites.map((suite) => ({
+    fullName: `${outer} ${suite} scenario`, ancestorTitles: [outer, suite], status: "passed",
+  })) }],
+});
 
 describe("canonical gate manifest", () => {
   it.each(Object.keys(GATE_LANES))("%s uses serial commands, stable unique IDs and retained prerequisites", (lane) => {
@@ -51,7 +62,8 @@ describe("canonical gate manifest", () => {
 
   it("covers direct PG-only suites and each parameterized backend suite independently", () => {
     const requirements = requirementsFor("platform-postgres", root);
-    expect(requirements).toHaveLength(39);
+    expect(requirements).toHaveLength(45);
+    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(39);
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/open.test.ts", suite: "platformDb() against PostgreSQL", backend: "postgres" }));
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/executor.test.ts", suite: "cross-engine shape identity", backend: "postgres" }));
     expect(requirements.filter((required: { file: string }) => required.file === "tests/capabilities/tenancy.test.ts")).toHaveLength(5);
@@ -94,6 +106,90 @@ describe("canonical gate manifest", () => {
     for (const lane of ["constructor", "unknown"]) {
       expect(() => manifestFor(lane, root)).toThrow("Unknown CI lane");
       expect(spawnSync(process.execPath, [script, lane], { encoding: "utf8" }).status).toBe(2);
+    }
+  });
+});
+
+describe("mandatory ECS replica repair gates", () => {
+  it("executes both adapter contracts explicitly and pins all four focal files without duplicate requirements", () => {
+    const workflow = manifestFor("workflows", root);
+    for (const file of ecsFiles.slice(0, 2)) expect(workflow.command).toContain(file);
+    for (const file of ecsFiles) {
+      expect(workflow.requirements.filter((required) => required.file === file)).toHaveLength(file === ecsFiles[0] ? 3 : 1);
+    }
+    expect(manifestFor("platform-postgres", root).command).toContain(ecsGrantFile);
+    expect(ecsPostgresRequirements().map((required) => required.suite)).toEqual(ecsPostgresSuites);
+    for (const required of ecsPostgresRequirements()) {
+      expect(required).toMatchObject({ ancestorSuite: "replica repair authority [postgres]", postgres: true });
+    }
+  });
+
+  it("preserves every existing PostgreSQL requirement ID and binds new IDs to the exact outer suite", () => {
+    for (const required of requirementsFor("platform-postgres", root).filter((item) => item.file !== ecsGrantFile)) {
+      const suffix = createHash("sha256").update(`${required.suite ?? ""}:${required.postgres ?? false}`).digest("hex").slice(0, 12);
+      expect(required.id).toBe(`platform-postgres:${required.file}:${suffix}`);
+    }
+    const required = ecsPostgresRequirements()[0];
+    expect(requirementId("platform-postgres", { ...required, ancestorSuite: "other [postgres]" })).not.toBe(required.id);
+    expect(assertionMatches({ ...required, postgres: true, ancestorSuite: "replica repair authority [pglite]" }, {
+      fullName: "scenario", ancestorTitles: ["replica repair authority [pglite]", required.suite ?? ""],
+    })).toBe(false);
+  });
+
+  it.each(["[postgres]", "['postgres']", '["postgres"]', "[ 'postgres' ]"])("accepts all six behaviors with genuine complete outer %s labels", (label) => {
+    expect(reportFailures(ecsPostgresRequirements(), ecsGrantReport(`replica repair authority ${label}`), root)).toEqual([]);
+  });
+
+  it.each(["pglite", "failed", "skipped", "malformed"])("rejects %s grant evidence despite passing sibling behaviors", (failure) => {
+    const report = ecsGrantReport();
+    const assertion = report.testResults[0].assertionResults[0];
+    if (failure === "pglite") assertion.ancestorTitles[0] = "replica repair authority [pglite]";
+    else if (failure === "malformed") assertion.fullName = "";
+    else assertion.status = failure;
+    expect(reportFailures(ecsPostgresRequirements(), report, root).length).toBeGreaterThan(0);
+  });
+
+  it.each(ecsPostgresSuites)("requires the %s behavior independently", (missing) => {
+    const report = ecsGrantReport();
+    report.testResults[0].assertionResults = report.testResults[0].assertionResults.filter((assertion) => assertion.ancestorTitles[1] !== missing);
+    expect(reportFailures(ecsPostgresRequirements(), report, root)).toHaveLength(1);
+  });
+
+  it.each(["other repair authority [postgres]", "replica repair authority ['postgres\"]", "replica repair authority [postgres-replica]", "replica repair authority [pglite]"])("rejects wrong or malformed outer %s even with a postgres test title", (outer) => {
+    const report = ecsGrantReport(outer);
+    for (const assertion of report.testResults[0].assertionResults) assertion.fullName += " mentions [postgres]";
+    expect(reportFailures(ecsPostgresRequirements(), report, root)).toHaveLength(6);
+  });
+
+  it("rejects matching outer PostgreSQL ancestry when only leaf titles claim the required behavior", () => {
+    const report = ecsGrantReport();
+    for (const assertion of report.testResults[0].assertionResults) assertion.ancestorTitles = ["replica repair authority [postgres]", "other behavior"];
+    expect(reportFailures(ecsPostgresRequirements(), report, root)).toHaveLength(6);
+  });
+
+  it.each(ecsFiles)("retains mandatory requirements when trusted source %s is deleted", (deleted) => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-ecs-"));
+    for (const directory of ["tests/workflows", "tests/platform", "tests/controlplane", "tests/capabilities", "tests/reconcile"]) {
+      fs.cpSync(path.join(root, directory), path.join(sourceRoot, directory), { recursive: true });
+    }
+    for (const file of ecsFiles) {
+      fs.mkdirSync(path.dirname(path.join(sourceRoot, file)), { recursive: true });
+      fs.copyFileSync(path.join(root, file), path.join(sourceRoot, file));
+    }
+    const beforeWorkflows = requirementsFor("workflows", sourceRoot);
+    const beforePostgres = requirementsFor("platform-postgres", sourceRoot);
+    fs.unlinkSync(path.join(sourceRoot, deleted));
+    const workflows = requirementsFor("workflows", sourceRoot);
+    const postgres = requirementsFor("platform-postgres", sourceRoot);
+    expect(workflows).toEqual(beforeWorkflows);
+    expect(postgres).toEqual(beforePostgres);
+    const required = workflows.filter((item) => item.file === deleted);
+    expect(required.length).toBeGreaterThan(0);
+    expect(reportFailures(required, { success: true, testResults: [] }, sourceRoot)).toHaveLength(required.length);
+    if (deleted === ecsGrantFile) {
+      const sql = postgres.filter((item) => item.file === ecsGrantFile);
+      expect(sql).toHaveLength(6);
+      expect(reportFailures(sql, { success: true, testResults: [] }, sourceRoot)).toHaveLength(6);
     }
   });
 });

@@ -51,6 +51,8 @@ import { assessRecordDeletion as assessOciRecordDeletion } from "@/lib/providers
 import { assertDeletionAllowed, TofuDeletionRefusedError } from "@/lib/tofu/plan";
 import type { PlanInspector } from "@/lib/tofu/runner";
 import type { LeaseRef } from "@/lib/workflows/types";
+import { assertEcsReplicaRepairPlan, prepareEcsReplicaRepair } from "./ecs-replica-repair";
+import type { EcsReplicaRepairBindingV1 } from "./ecs-replica-repair-binding";
 
 type PlanActivities = Pick<ExecutionActivities, "validateDesiredState" | "planInfrastructure" | "evaluatePolicy" | "checkApproval" | "finalPlan">;
 
@@ -61,6 +63,7 @@ interface PlanStage {
   cost: PlanCost;
   graphDigest: string;
   deletions: DeployDeletionFacts;
+  repairBinding?: EcsReplicaRepairBindingV1;
 }
 
 /** Additive policy facts, kept alongside the legacy facts schema in evidence. */
@@ -206,15 +209,28 @@ async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<Exec
   assertLeaseFor(ec, lease);
   const { graph } = requireExecutable(rt, ec);
   const connection = await resolveConnection(rt, ec);
-  const { ws, deletionNodes, dnsNodes } = await buildDeployWorkspace(rt, ec, graph, connection);
+  const { ws: baseWorkspace, deletionNodes, dnsNodes } = await buildDeployWorkspace(rt, ec, graph, connection);
+  let ws = baseWorkspace;
+  let repairBinding: EcsReplicaRepairBindingV1 | undefined;
 
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
   const result = await withKeepAlive(rt, { lease, detail, operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, (signal) =>
-    withProviderSession(rt, ec, { purpose: "observe", capability: PLAN_CAPABILITY, fence: lease, connection, durationSec: LONG_SESSION_SEC }, (session) =>
+    withProviderSession(rt, ec, { purpose: "observe", capability: PLAN_CAPABILITY, fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
+      if (ec.op.capability === "drift.repair") {
+        const repair = await prepareEcsReplicaRepair(rt, ec, graph, baseWorkspace, connection, session, signal, lease);
+        ws = repair.ws; repairBinding = repair.binding;
+      }
+      const deletionGuard = inspectDeployDeletions(rt, ec, deletionNodes, dnsNodes, session, signal, lease);
       // lock: false — the read-only observe role cannot write the S3 state-lock object; the fenced env lease
       // (held, renewed and asserted around this call) is what serialises work on the environment. Apply always locks.
-      rt.tofu.planWorkspace(ws, tofuSession(session), { signal, planDir: rt.d.planDir, lock: false, expectedDigest, deletionNodes, inspectPlan: inspectDeployDeletions(rt, ec, deletionNodes, dnsNodes, session, signal, lease), normalize: { fingerprintKey: rt.d.fingerprintKey } })
-    )
+      return rt.tofu.planWorkspace(ws, tofuSession(session), { signal, planDir: rt.d.planDir, lock: false, expectedDigest, deletionNodes, inspectPlan: async (plan, raw) => {
+        await deletionGuard(plan, raw);
+        if (repairBinding) {
+          await prepareEcsReplicaRepair(rt, ec, graph, baseWorkspace, connection, session, signal, lease);
+          assertEcsReplicaRepairPlan(plan, raw, repairBinding, ws);
+        }
+      }, normalize: { fingerprintKey: rt.d.fingerprintKey } });
+    })
   );
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
 
@@ -229,7 +245,7 @@ async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<Exec
     dnsChanges: [...new Set([...extracted.dnsChanges, ...deletions.dnsDeletes])].sort(),
   };
   const cost = await costOf(rt, ec, graph);
-  return { plan: result.plan, planFilePath: result.planFilePath, facts, cost, graphDigest: graph.graphDigest, deletions };
+  return { plan: result.plan, planFilePath: result.planFilePath, facts, cost, graphDigest: graph.graphDigest, deletions, repairBinding };
 }
 
 export function createPlanActivities(rt: Runtime): PlanActivities {
@@ -263,7 +279,7 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
     async planInfrastructure({ operationId, lease }) {
       const ec = await loadExecContext(rt, operationId);
       const stage = await runPlanStage(rt, ec, lease, "tofu plan");
-      const evidence = planEvidence({ plan: stage.plan, facts: stage.facts, cost: stage.cost, graphDigest: stage.graphDigest, stage: "plan" });
+      const evidence = planEvidence({ plan: stage.plan, facts: stage.facts, cost: stage.cost, graphDigest: stage.graphDigest, stage: "plan", repairBinding: stage.repairBinding });
       await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, summary: { ...evidence.summary, ...stage.deletions }, simulated: false, key: evidence.key }, { critical: false });
       await rt.d.ops.setPlanDigest({ workspaceId: ec.workspaceId, operationId: ec.op.id, planDigest: stage.plan.planDigest });
       await rt.emit(ec.scope, "resource.planned", `plan:${stage.plan.planDigest}`, {
@@ -307,7 +323,7 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
     async finalPlan({ operationId, approvedPlanDigest, lease }) {
       const ec = await loadExecContext(rt, operationId);
       const stage = await runPlanStage(rt, ec, lease, "tofu plan (final)", approvedPlanDigest);
-      const evidence = planEvidence({ plan: stage.plan, facts: stage.facts, cost: stage.cost, graphDigest: stage.graphDigest, stage: "final_plan", approvedDigest: approvedPlanDigest });
+      const evidence = planEvidence({ plan: stage.plan, facts: stage.facts, cost: stage.cost, graphDigest: stage.graphDigest, stage: "final_plan", approvedDigest: approvedPlanDigest, repairBinding: stage.repairBinding });
       await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, summary: { ...evidence.summary, ...stage.deletions }, simulated: false, key: evidence.key }, { critical: false });
       if (stage.plan.planDigest !== approvedPlanDigest) {
         // The plan that just moved was never approved: do not leave its file around.

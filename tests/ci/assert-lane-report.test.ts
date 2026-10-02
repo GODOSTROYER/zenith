@@ -10,7 +10,7 @@ const root = process.cwd();
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-ci-engine-report-"));
 afterAll(() => fs.rmSync(scratch, { recursive: true, force: true }));
 
-interface Requirement { file: string; suite?: string; postgres?: boolean }
+interface Requirement { file: string; suite?: string; ancestorSuite?: string; postgres?: boolean }
 interface Assertion { fullName: string; status: string; ancestorTitles?: string[] }
 interface FileResult { name: string; status: string; assertionResults: Assertion[] }
 
@@ -20,7 +20,8 @@ function evidence(requirements: Requirement[]) {
   for (const required of requirements) {
     const name = path.resolve(root, required.file);
     const file = files.get(name) ?? { name, status: "passed", assertionResults: [] };
-    file.assertionResults.push({ fullName: `${required.suite ?? (required.postgres ? "contract [postgres]" : "scenario")} passed`, ancestorTitles: required.suite ? [required.file, required.suite] : [required.file], status: "passed" });
+    const ancestors = [required.file, ...(required.ancestorSuite ? [required.ancestorSuite] : []), ...(required.suite ? [required.suite] : [])];
+    file.assertionResults.push({ fullName: `${required.ancestorSuite ? `${required.ancestorSuite} ` : ""}${required.suite ?? (required.postgres ? "contract [postgres]" : "scenario")} passed`, ancestorTitles: ancestors, status: "passed" });
     files.set(name, file);
   }
   return { success: true, testResults: [...files.values()] };

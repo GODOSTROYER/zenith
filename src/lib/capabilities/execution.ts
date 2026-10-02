@@ -38,10 +38,11 @@ import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
 import type { ApprovalRecord, CapabilityGrantClaims, OperationRecord, PolicyDecisionRecord } from "@/lib/controlplane/types";
 import type { NormalizedPlan } from "@/lib/tofu/types";
 import { BrokerError, isBrokerError, notFound } from "./errors";
-import { buildPlanFacts } from "./evaluate";
+import { buildPlanFacts, evaluate } from "./evaluate";
+import { capability } from "./catalog";
 import { newId, requesterOf } from "./internal";
 import { ROLE_RANK, type BrokerDeps } from "./ports";
-import { reevaluate } from "./reevaluate";
+import { reevaluate, requestFromOperation } from "./reevaluate";
 import { scrubSecrets } from "./secret-guard";
 import type { BrokerProposal, OperationView } from "./types";
 import { operationView } from "./views";
@@ -205,6 +206,19 @@ export async function beginExecution(deps: BrokerDeps, input: BeginExecutionInpu
     }
   }
 
+  // Claiming a repair starts read-only planning, including after a browser
+  // approval wakes its workflow. It never mints early write authority. Only
+  // the worker's binding/digest/current-round gate can issue drift.repair.
+  let grantCapability = op.capability;
+  let grantDecision = decision;
+  if (op.capability === "drift.repair") {
+    const planning = capability("infrastructure.plan");
+    const read = await evaluate(deps, { ...requestFromOperation(op), def: planning, risk: planning.risk, plan: undefined, planDigest: undefined });
+    if (read.decision.outcome !== "allow") throw new BrokerError("policy_denied", "Current policy does not allow this repair's read-only planning claim; no grant was issued.");
+    grantCapability = planning.name;
+    grantDecision = read.decision;
+  }
+
   // Refuse before consuming anything if a grant cannot be signed.
   await deps.signer.ready();
 
@@ -250,7 +264,9 @@ export async function beginExecution(deps: BrokerDeps, input: BeginExecutionInpu
 
   const now = deps.clock.now();
   const iat = Math.floor(now.getTime() / 1000);
-  const policySec = typeof decision.constraints?.grantDurationSec === "number" ? decision.constraints.grantDurationSec : EXECUTION_GRANT_DEFAULT_SEC;
+  const policySec = Math.min(
+    typeof decision.constraints?.grantDurationSec === "number" ? decision.constraints.grantDurationSec : EXECUTION_GRANT_DEFAULT_SEC,
+    typeof grantDecision.constraints?.grantDurationSec === "number" ? grantDecision.constraints.grantDurationSec : EXECUTION_GRANT_DEFAULT_SEC);
   const lifetime = Math.max(1, Math.min(policySec, EXECUTION_GRANT_MAX_SEC));
   const exp = Math.min(iat + lifetime, Math.floor(Date.parse(claimed.expiresAt) / 1000));
   const jti = newId(deps, "grt");
@@ -261,7 +277,7 @@ export async function beginExecution(deps: BrokerDeps, input: BeginExecutionInpu
     sub: requesterOf(claimed.principal),
     iat,
     exp,
-    cap: claimed.capability,
+    cap: grantCapability,
     op: claimed.id,
     digest: claimed.proposalDigest,
     ws: claimed.workspaceId,
@@ -269,7 +285,7 @@ export async function beginExecution(deps: BrokerDeps, input: BeginExecutionInpu
     ...(claimed.environmentId ? { env: claimed.environmentId } : {}),
     ...(claimed.resourceId ? { res: claimed.resourceId } : {}),
     ...(input.lease ? { fence: input.lease.fenceToken } : {}),
-    ...(decision.constraints ? { constraints: decision.constraints } : {}),
+    ...(grantDecision.constraints ? { constraints: grantDecision.constraints } : {}),
   };
 
   try {

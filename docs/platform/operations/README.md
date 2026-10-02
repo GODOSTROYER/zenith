@@ -38,6 +38,7 @@ and limits in [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-bran
 | [BUILDS.md](BUILDS.md) | Whoever deploys customer source | Canonical GitHub archives, ZIP versus tar.gz, provider uploads/builds, digest release and required Azure integration |
 | [OCI-SIGNALS.md](OCI-SIGNALS.md) | Whoever reads OCI logs, metrics or incidents | Registered runner setup, migration 5 read jobs, capability split, resource/compartment scope and partial coverage |
 | [OBSERVATION-REPAIR.md](OBSERVATION-REPAIR.md) | Whoever reviews drift and repair proposals | Shared HTTP/Temporal controller, held lease and fencing, broker policy and human approval, uncertainty blocks, workflow history compatibility and remaining remediation limits |
+| [ECS-REPLICA-REPAIR.md](ECS-REPLICA-REPAIR.md) | Whoever reviews an ECS replica repair | Bounded replica counts, read-only planning, immutable ownership and autoscaler proof, exact saved-plan browser approval, durable readback, uncertainty and recorded local verification limits |
 | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md) | Anyone deciding what to trust | **Generated.** Provider by native type by operation, with the evidence level each driver declares, the observability sources and the capability catalog |
 
 The committed matrix reflects the registry and is checked by

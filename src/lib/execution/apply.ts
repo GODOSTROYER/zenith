@@ -38,7 +38,10 @@ import { LeaseLostError, StepFailedError, TofuPlanChangedError } from "./errors"
 import { withKeepAlive } from "./keepalive";
 import { outputsDigest } from "./plan-evidence";
 import type { Runtime } from "./runtime";
-import { LONG_SESSION_SEC, withProviderSession } from "./session";
+import { LONG_SESSION_SEC, OBSERVE_CAPABILITY, withProviderSession } from "./session";
+import { assertEcsReplicaRepairPlan, prepareEcsReplicaRepair, recordEcsReplicaRepairReadback } from "./ecs-replica-repair";
+import { readRepairBinding, repairBindingDigest } from "./ecs-replica-repair-binding";
+import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
 import { errorText, safeText } from "./text";
 import type { ApplyVerifiedResult } from "@/lib/tofu/engine";
 import type { NormalizedPlan } from "@/lib/tofu/types";
@@ -112,28 +115,58 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
         assertLeaseFor(ec, lease);
         const { graph } = requireExecutable(rt, ec);
         const connection = await resolveConnection(rt, ec);
-        const { ws, deletionNodes, dnsNodes } = await buildDeployWorkspace(rt, ec, graph, connection);
+        const { ws: baseWorkspace, deletionNodes, dnsNodes } = await buildDeployWorkspace(rt, ec, graph, connection);
+        let ws = baseWorkspace;
 
         await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
         await rt.emit(ec.scope, "resource.applying", `apply:${planDigest}`, { planDigest });
 
-        const result = await withKeepAlive(rt, { lease, detail: "tofu apply", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, (signal) =>
-          withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
+        const result = await withKeepAlive(rt, { lease, detail: "tofu apply", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
+          const readRepair = () => withProviderSession(rt, ec, { purpose: "observe", capability: OBSERVE_CAPABILITY, fence: lease, connection },
+            (session) => prepareEcsReplicaRepair(rt, ec, graph, baseWorkspace, connection, session, signal, lease));
+          const repair = ec.op.capability === "drift.repair" ? await readRepair() : undefined;
+          if (repair) {
+            if (ec.op.planDigest !== planDigest || approvalRoundOf(ec.op) === 0) throw new StepFailedError("Replica repair requires this operation's concrete current-round plan.");
+            const row = await rt.d.evidence.find({ workspaceId: ec.workspaceId, operationId, kind: "tofu_plan", digest: planDigest });
+            const reviewed = row ? readRepairBinding(row.summary.repairBinding) : undefined;
+            const approval = await rt.d.broker.approvalStatus(operationId);
+            if (!row || row.simulated || row.workspaceId !== ec.workspaceId || row.operationId !== operationId || row.summary.planDigest !== planDigest
+              || !reviewed || repairBindingDigest(reviewed) !== repairBindingDigest(repair.binding)
+              || !approval.approved || approval.rejected || !approval.approvalId) throw new StepFailedError("Replica repair requires its exact immutable target and digest-bound human approval.");
+            ws = repair.ws;
+          }
+          const applied = await withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session, claims) => {
+            if (repair && (claims.constraints?.repairPlanDigest !== planDigest || claims.constraints?.repairBindingDigest !== repairBindingDigest(repair.binding))) throw new StepFailedError("Replica repair grant does not bind this reviewed plan and target.");
             toolStarted = true;
             const guard = inspectDeployDeletions(rt, ec, deletionNodes, dnsNodes, session, signal, lease);
             finished = await rt.tofu.applyVerifiedPlan(ws, { approvedDigest: planDigest, session: tofuSession(session), signal, deletionNodes, normalize: { fingerprintKey: rt.d.fingerprintKey }, inspectPlan: async (plan, raw) => {
               await guard(plan, raw);
               await assertDeployDeletionApproval(rt, ec, plan, deletionNodes, planDigest);
+              if (repair) {
+                await readRepair();
+                assertEcsReplicaRepairPlan(plan, raw, repair.binding, ws);
+                const approval = await rt.d.broker.approvalStatus(operationId);
+                if (!approval.approved || approval.rejected || !approval.approvalId) throw new StepFailedError("Replica repair approval expired or changed before the exact saved-plan apply.");
+              }
               await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
             } });
             return finished;
-          })
-        );
+          });
+          if (repair) {
+            try {
+              await withProviderSession(rt, ec, { purpose: "observe", capability: OBSERVE_CAPABILITY, fence: lease, connection },
+                (session) => recordEcsReplicaRepairReadback(rt, ec, repair.binding, repair.node, connection, session, signal, lease, planDigest));
+            } catch {
+              throw new Error("ECS replica repair may have applied, but readback authority or evidence is unavailable. Inspect this operation before any further write.");
+            }
+          }
+          return applied;
+        });
         const summary = await record(result);
         await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
         return summary;
       } catch (err) {
-        if (finished && err instanceof LeaseLostError) await record(finished).catch((e) => rt.log("error", "could not record an apply that completed", { error: errorText(e) }));
+        if (finished && (err instanceof LeaseLostError || ec.op.capability === "drift.repair")) await record(finished).catch((e) => rt.log("error", "could not record an apply that completed", { error: errorText(e) }));
         throw await classifyApplyFailure(rt, ec, err, toolStarted);
       } finally {
         await rm(planFile, { force: true }).catch(() => undefined);
@@ -156,6 +189,10 @@ async function classifyApplyFailure(rt: Runtime, ec: ExecContext, err: unknown, 
     const command = err.result.command;
     if (err.code === "tofu_command_failed") {
       if (command === "apply" || command === "output") {
+        if (ec.op.capability === "drift.repair") {
+          await markUncertain(rt, ec, "OpenTofu reported failure after the replica repair apply began; the exact field outcome is unconfirmed.");
+          return new Error("ECS replica repair may have applied despite the command failure. Inspect this operation before any further write.");
+        }
         return new StepFailedError(`OpenTofu ${command} failed (exit code ${err.result.exitCode}) after it began applying: ${PARTIAL}.`);
       }
       return new StepFailedError(`OpenTofu ${command} failed (exit code ${err.result.exitCode}) before anything was applied; nothing was changed.`);

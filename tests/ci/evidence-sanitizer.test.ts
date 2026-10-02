@@ -153,18 +153,24 @@ describe("sanitized evidence boundary", () => {
       const validated = JSON.parse(fs.readFileSync(output, "utf8"));
       expect(validated).toMatchObject({ verdict: "failed", execution: { exitCode: 1, observed: true } });
       expect(validated.provenance.environment.sha256).toBe(executed.provenance.environment.sha256);
-      expect(validated.provenance.environment.excludedKeys).toEqual(["GITHUB_ACTION", "GITHUB_ENV", "GITHUB_PATH", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY", "GITHUB_STATE"]);
+      expect(validated.provenance.environment.excludedKeys).toEqual(["GITHUB_ACTION", "GITHUB_ENV", "GITHUB_PATH", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY", "GITHUB_STATE", "GITHUB_ARTIFACTS", "GITHUB_ARTIFACTS_LIST"]);
     } finally { vi.unstubAllEnvs(); error.mockRestore(); log.mockRestore(); }
   });
 
-  it.each(["ZENITH_TEST_PLATFORM_PG_URL", "API_KEY", "PATH", "GITHUB_SHA", "GITHUB_REPOSITORY", "GITHUB_REF", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT"])("retains the real %s execution input in environment binding", (name) => {
-    const first = provenanceFor(root, { [name]: "first-input" });
-    const second = provenanceFor(root, { [name]: "second-input" });
+  it.each(["ZENITH_TEST_PLATFORM_PG_URL", "API_KEY", "PATH", "GITHUB_SHA", "GITHUB_REPOSITORY", "GITHUB_REF", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "ACTIONS_RUNTIME_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_URL", "AWS_PROFILE", "AWS_ACCESS_KEY_ID", "PRIVATE_ENGINE_SETTING", "github_artifacts", "_", "SHLVL", "PWD", "OLDPWD"])("fails changed %s execution authority even when the two measured artifact handles also drift", (name) => {
+    const before = { GITHUB_ARTIFACTS: "first-handle", GITHUB_ARTIFACTS_LIST: "first-list", [name]: "first-input" };
+    const after = { GITHUB_ARTIFACTS: "second-handle", GITHUB_ARTIFACTS_LIST: "second-list", [name]: "second-input" };
+    const first = provenanceFor(root, before);
+    const second = provenanceFor(root, after);
     const candidate = sanitizedEvidence("platform-postgres", reportFor(), root, second);
-    const previous = executionReceiptFor(sanitizedEvidence("platform-postgres", reportFor(), root, first), 1);
+    const previous = executionReceiptFor(sanitizedEvidence("platform-postgres", reportFor(), root, first), 0);
     expect(first.environment.sha256).not.toBe(second.environment.sha256);
-    expect(preserveExecutionObservation(candidate, previous, false, undefined, comparisonFor(previous, { [name]: "first-input" }, { [name]: "second-input" }))).toBe(1);
-    expect(candidate.execution).toMatchObject({ exitCode: 1, observed: true, binding: "mismatch" });
+    const comparison = comparisonFor(previous, before, after);
+    expect(comparison).toMatchObject({ complete: true, counts: { changed: 1, added: 0, removed: 0 } });
+    expect(comparison.changes).not.toContainEqual(expect.objectContaining({ id: "GITHUB_ARTIFACTS" }));
+    expect(comparison.changes).not.toContainEqual(expect.objectContaining({ id: "GITHUB_ARTIFACTS_LIST" }));
+    expect(preserveExecutionObservation(candidate, previous, true, undefined, comparison)).toBe(0);
+    expect(candidate.execution).toMatchObject({ exitCode: 0, observed: true, binding: "mismatch", checks: { effectiveEnvironmentSha256: false, environmentInventorySha256: false, environmentInventoryIntegrity: true } });
     expect(candidate.verdict).toBe("failed");
   });
 
@@ -369,8 +375,8 @@ describe("sanitized evidence boundary", () => {
   it("exports exact official runner IDs and double-hashed unknown IDs without names, values or value hashes", () => {
     const nameSecret = ["gh", "p_"].join("") + randomBytes(20).toString("hex");
     const valueSecret = ["AK", "IA"].join("") + randomBytes(8).toString("hex").toUpperCase();
-    const before = { GITHUB_ARTIFACTS: valueSecret, GITHUB_ARTIFACTS_LIST: "first-readonly-handle", [nameSecret]: valueSecret, REMOVED_INPUT: valueSecret, SHARED_INPUT: valueSecret };
-    const after = { GITHUB_ARTIFACTS: "second-write-handle", GITHUB_ARTIFACTS_LIST: "second-readonly-handle", [nameSecret]: "second-sensitive-value", ADDED_INPUT: valueSecret, SHARED_INPUT: valueSecret };
+    const before = { GITHUB_RUN_ID: valueSecret, GITHUB_REF: "first-ref", [nameSecret]: valueSecret, REMOVED_INPUT: valueSecret, SHARED_INPUT: valueSecret };
+    const after = { GITHUB_RUN_ID: "second-run", GITHUB_REF: "second-ref", [nameSecret]: "second-sensitive-value", ADDED_INPUT: valueSecret, SHARED_INPUT: valueSecret };
     const output = path.join(scratch, "diagnostic-evidence.json");
     writeEnvironmentInventory(output, environmentInventoryFor(before));
     const origin = sanitizedEvidence("policy", reportFor("policy"), root, provenanceFor(root, before));
@@ -379,8 +385,8 @@ describe("sanitized evidence boundary", () => {
     const inventory = readEnvironmentInventory(output);
     const comparison = environmentDiagnosticsFor(receipt, inventory, environmentInventoryFor(after));
     expect(comparison).toMatchObject({ complete: true, status: "changed", counts: { unchanged: 1, changed: 3, added: 1, removed: 1 }, truncated: false });
-    expect(comparison.changes).toContainEqual({ id: "GITHUB_ARTIFACTS", status: "changed" });
-    expect(comparison.changes).toContainEqual({ id: "GITHUB_ARTIFACTS_LIST", status: "changed" });
+    expect(comparison.changes).toContainEqual({ id: "GITHUB_RUN_ID", status: "changed" });
+    expect(comparison.changes).toContainEqual({ id: "GITHUB_REF", status: "changed" });
     const nameHash = createHash("sha256").update(nameSecret).digest("hex");
     const opaqueId = `opaque:${createHash("sha256").update(nameHash).digest("hex")}`;
     expect(comparison.changes).toContainEqual({ id: opaqueId, status: "changed" });
@@ -487,16 +493,16 @@ describe("sanitized evidence boundary", () => {
     } finally { fixture.cleanup(); }
   });
 
-  it("identifies changed official artifact handles across actual separate shell steps and keeps full binding failed", () => {
+  it.each([0, 23])("preserves exit %s across separate shell steps when only the two measured artifact handles drift", (exitCode) => {
     const fixture = executionBindingFixture();
     try {
-      expect(fixture.step("run", { env: { FIXTURE_EXIT: "0", GITHUB_ARTIFACTS: "first-handle", GITHUB_ARTIFACTS_LIST: "first-list" } }).status).toBe(0);
+      expect(fixture.step("run", { env: { FIXTURE_EXIT: String(exitCode), GITHUB_ARTIFACTS: "first-handle", GITHUB_ARTIFACTS_LIST: "first-list" } }).status).toBe(exitCode === 0 ? 0 : 1);
       const origin = fs.readFileSync(fixture.receipt, "utf8");
       const inventory = fs.readFileSync(environmentInventoryPath(fixture.evidence), "utf8");
-      expect(fixture.step("validate", { env: { FIXTURE_EXIT: "0", GITHUB_ARTIFACTS: "second-handle", GITHUB_ARTIFACTS_LIST: "second-list" }, flags: ["--require-execution"] }).status).toBe(1);
+      expect(fixture.step("validate", { env: { FIXTURE_EXIT: String(exitCode), GITHUB_ARTIFACTS: "second-handle", GITHUB_ARTIFACTS_LIST: "second-list" }, flags: ["--require-execution"] }).status).toBe(exitCode === 0 ? 0 : 1);
       const evidence = JSON.parse(fs.readFileSync(fixture.evidence, "utf8"));
-      expect(evidence).toMatchObject({ verdict: "failed", execution: { observed: true, exitCode: 0, binding: "mismatch", checks: { shellContextSha256: true, shellLevelSha256: true, shellCommandSha256: true, effectiveEnvironmentSha256: false, environmentInventoryIntegrity: true }, environmentComparison: { complete: true, counts: { changed: 2, added: 0, removed: 0 } } } });
-      expect(evidence.execution.environmentComparison.changes).toEqual(expect.arrayContaining([{ id: "GITHUB_ARTIFACTS", status: "changed" }, { id: "GITHUB_ARTIFACTS_LIST", status: "changed" }]));
+      expect(evidence).toMatchObject({ verdict: exitCode === 0 ? "passed" : "failed", execution: { observed: true, exitCode, binding: "matched", checks: { shellContextSha256: true, shellLevelSha256: true, shellCommandSha256: true, effectiveEnvironmentSha256: true, environmentInventorySha256: true, environmentInventoryIntegrity: true }, environmentComparison: { complete: true, status: "matched", counts: { changed: 0, added: 0, removed: 0 }, changes: [] } } });
+      expect(evidence.execution.originReceipt.exitCode).toBe(exitCode);
       expect(fs.readFileSync(fixture.receipt, "utf8")).toBe(origin);
       expect(fs.readFileSync(environmentInventoryPath(fixture.evidence), "utf8")).toBe(inventory);
     } finally { fixture.cleanup(); }

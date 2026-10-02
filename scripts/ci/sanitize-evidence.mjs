@@ -38,13 +38,20 @@ function validExecutionReceipt(receipt) {
       || (receipt.termination === "launch-failed" && receipt.exitCode === null && receipt.signal === null)));
 }
 
-/** Per-step runner output handles change between execution and validation; they are not engine inputs. */
+/**
+ * Fixed per-step runner file handles are regenerated between execution and validation.
+ * Run 36965544610 measured only ARTIFACTS/ARTIFACTS_LIST drift in all five canonical lanes.
+ * https://github.com/actions/runner/blob/main/src/Runner.Worker/FileCommandManager.cs
+ * https://github.com/actions/runner/blob/main/src/Runner.Worker/ArtifactsListFileCommand.cs
+ * https://github.com/actions/runner/blob/main/src/Runner.Worker/CreateArtifactsFileCommand.cs
+ */
 export const ENVIRONMENT_FINGERPRINT_EXCLUSIONS = Object.freeze([
   "GITHUB_ACTION", "GITHUB_ENV", "GITHUB_PATH", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY", "GITHUB_STATE",
+  "GITHUB_ARTIFACTS", "GITHUB_ARTIFACTS_LIST",
 ]);
 
 /**
- * Diagnostic IDs only, never exclusions. Fixed names from official runner sources:
+ * Fixed diagnostic IDs; exclusions remain separately enumerated above. Official runner sources:
  * https://github.com/actions/runner/blob/main/src/Runner.Worker/GitHubContext.cs
  * https://github.com/actions/runner/blob/main/src/Runner.Worker/Handlers/ScriptHandler.cs
  * https://github.com/actions/runner/blob/main/src/Runner.Worker/Handlers/NodeScriptActionHandler.cs
@@ -225,8 +232,8 @@ export function provenanceFor(root, env = process.env) {
     return { name, locked: typeof expected === "string" && VERSION.test(expected) ? expected : null, installed: typeof installed === "string" && VERSION.test(installed) ? installed : null };
   });
   // Hash configuration, credentials, tool paths and GitHub commit/repository/run
-  // identity without exporting values. Only these six trusted per-step output
-  // handles are omitted. All remaining execution inputs stay bound; a later
+  // identity without exporting values. Only the fixed trusted per-step file
+  // handles listed above are omitted. All remaining execution inputs stay bound; a later
   // validation step must retain the origin receipt even when they differ.
   const environment = effectiveEnvironmentEntries(env);
   return {

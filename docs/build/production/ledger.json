@@ -143,6 +143,12 @@
           "result": "Remote platform-postgres job110680349507 passed:1324 tests,0 failures,0 skips,39 required groups on real PostgreSQL16.15.",
           "artifact": "docs/build/production/ci-36956453026.md",
           "executionReceiptComplete": false
+        },
+        {
+          "level": "local_engine",
+          "commit": "88f6d99284612d6c2443ba80dba9ab67cfdede98",
+          "result": "Root599P0F0S including real network OpenTofu, fulltypecheck/affectedlint/Go pass. Fresh disposable PostgreSQL16.15 canonical lane1327P0F0S,39requiredgroups, separate mandatory execution revalidation/all12schema2bindings pass; ownership-verified cleanup removed the database. Fixture aligns controlled clock to authoritative operation time, retains both expiry assertions and adds2s divergence coverage across all three stores. Artifact preserves actual e0d2f6b dirty source/diff4361a650 verified before unchanged source was committed88f6d99 and mergedcb4f9de. Remote complete rerun pending.",
+          "artifact": "docs/build/production/evidence/engine-acceptance/platform-postgres-grant-clock.json"
         }
       ],
       "requiredEvidence": [
@@ -268,6 +274,13 @@
           "commit": "c464c067286daab2261719b6b640403f96103a1e",
           "testedCandidateCommit": "83ec97fb896b3d9edf801c71fb4fd8cf6360773e",
           "result": "Root independently verified507focused CI/AWS checks,0failures,0skips,including5actual network OpenTofu tests;fulltypecheck/lint/Go pass. Actual canonical policy238P0F0S passed run and mandatory separate validation while only the two measured artifact handles changed;origin exit0/privateinventory/schema2 stayed matched. Independent source review confirmed credential/OIDC/PATH/run/source/shell changes and nonzero outcomes remain fatal. Normal merge3c5a2b3. New complete pushed run required; allprogrammanifest/caseidentity still incomplete."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "e0d2f6b3b7b1ca0eb4ec1ded2ae81c28e09ec89e",
+          "runId": 36968422504,
+          "result": "All five canonical engine artifacts preserve observed schema2 origins and match all12bindings across GitHub steps. Four exit0/passed; platformPG actual exit1/failed cannot be hidden. Missing/failed/skipped/zero/malformed report gates remain. Wider production gate manifests and stable case-ID coverage remain outstanding.",
+          "artifact": "docs/build/production/evidence/ci-36968422504/terminal-summary.json"
         }
       ],
       "requiredEvidence": [
@@ -422,6 +435,20 @@
           "level": "contract",
           "commit": "ae0f8546aaac6cc0b6354b2eaa4590c5d22c19da",
           "result": "Measured metadata compatibility c464c06 merged3c5a2b3; named-field AWS fixture6d94c11 mergedf67e9c4; pure browser/backend validation ae0f854 mergedc325c28. Root507,641 and1355 focused checks all0F0S,including actual network OpenTofu; fulltypecheck/lint/Go eachpass. Canonical real Temporal workflow861P0F0S and37requiredgroups passwithobservedexit0/matchedschema2 receipt. Actualpolicy238P0F0S passes separate validation across measuredhandlechanges. Independent reviewers clear all three. No new complete pushed run observed yet."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "e0d2f6b3b7b1ca0eb4ec1ded2ae81c28e09ec89e",
+          "runId": 36968422504,
+          "result": "Observed terminal failure:13 successful jobs,1 failed platform-postgres job. Four canonical lanes passed with zero skips:postgres251,policy238,tofu3874,workflows861. Platform PostgreSQL1323P1F0S retains observed exit1. All five schema2 receipts are observed, source complete, all12bindings matched, zero effective environment changes/add/remove. Unit16093P0F384S across776 passing and22 skipped files; Smoke and Gimbal actually ran and passed. Only failure is a frozen test clock61s comparison against60s; the independent stored-operation expiry assertion passed. No complete green pushed run yet.",
+          "artifact": "docs/build/production/ci-36968422504.md",
+          "executionReceiptComplete": true
+        },
+        {
+          "level": "local_engine",
+          "commit": "88f6d99284612d6c2443ba80dba9ab67cfdede98",
+          "result": "Root599P0F0S including real network OpenTofu, fulltypecheck/affectedlint/Go pass. Fresh disposable PostgreSQL16.15 canonical lane1327P0F0S,39requiredgroups, separate mandatory execution revalidation/all12schema2bindings pass; ownership-verified cleanup removed the database. Fixture aligns controlled clock to authoritative operation time, retains both expiry assertions and adds2s divergence coverage across all three stores. Artifact preserves actual e0d2f6b dirty source/diff4361a650 verified before unchanged source was committed88f6d99 and mergedcb4f9de. Remote complete rerun pending.",
+          "artifact": "docs/build/production/evidence/engine-acceptance/platform-postgres-grant-clock.json"
         }
       ],
       "requiredEvidence": [
@@ -2099,6 +2126,39 @@
         "src/lib/execution/product-port.ts",
         "src/components/deploy/live-progress.tsx",
         "related bridge/workflow/product/DOM uncertainty tests"
+      ]
+    },
+    {
+      "id": "PROD-WS-PG-GRANT-CLOCK",
+      "requirements": [
+        "PROD-CI-03",
+        "PROD-CI-09"
+      ],
+      "branch": "ws/prod-pg-grant-clock",
+      "state": "integrated",
+      "ownedPaths": [
+        "tests/capabilities/execution.test.ts"
+      ]
+    },
+    {
+      "id": "PROD-WS-ECS-REPLICA-REPAIR",
+      "requirements": [
+        "PROD-OBS-01",
+        "PROD-LIFE-03"
+      ],
+      "branch": "ws/prod-ecs-replica-repair",
+      "state": "in_progress",
+      "ownedPaths": [
+        "src/lib/execution/ecs-replica-repair*.ts",
+        "src/lib/providers/aws/drivers/compute/ecs-replica-repair-read.ts",
+        "src/lib/workflows/definitions/ecsReplicaRepair.ts",
+        "src/lib/workflows/activities/dayTwo.ts (repair handler only)",
+        "src/lib/execution/context.ts,plan.ts,plan-evidence.ts,apply.ts (binding guards only)",
+        "src/lib/capabilities/evaluate.ts,execution.ts (repair attenuation only)",
+        "src/lib/platform/broker.ts (repair plan gate only)",
+        "package.json,package-lock.json (pinned Auto Scaling SDK only)",
+        "related focal capability/binding/readback/workflow tests",
+        "docs/platform/operations/ECS-REPLICA-REPAIR.md"
       ]
     }
   ],

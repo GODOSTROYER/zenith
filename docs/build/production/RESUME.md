@@ -71,6 +71,15 @@ Browser-safe shared constraints `ae0f854` are integrated by `c325c28`, with
 root1355checks,fulltypecheck/lint/Go and independent review. Credential-tree
 runtime imports remain denied; one exact pure module is allowed.
 
+Run `36968422504` at `e0d2f6b` completed red:13 successful jobs,1 failed.
+All five schema2 execution receipts are observed and all12bindings match;
+effective inventories have zero changes/additions/removals. Four engine lanes
+pass without skips. PlatformPostgres1323P1F0S exposes fixture-clock divergence,
+with the authoritative expiry assertion passing. Unit16093P0F384S and actual
+Smoke/Gimbal pass. Clock fixture88f6d99 is mergedcb4f9de after root599P0F0S,
+fulltypecheck/lint/realOpenTofu/Go and fresh realPostgres1327P0F0S with39groups
+and strict receipt revalidation. Owned database deleted. See ci-36968422504.md.
+
 Immediate next steps: push normally and observe all14 jobs. Only one heavy
 local verification may run. Frozen
 uncertainty and canonical repair candidates need root checks next. Preserve
@@ -82,7 +91,8 @@ resources deleted. Current AMD64 image built under emulation, but its first
 refusal Docker command timed out before proving a worker exit. Initial
 cleanup failed; a separate ownership-verified receipt confirms all owned
 resources were subsequently removed. Review frozen detached-refusal and
-bounded cleanup fixes, then run AMD64 and native ARM64 serially on combined
+bounded cleanup fixes, outside-source temporary secret admission and complete
+COPY-input bindings, then run AMD64 and native ARM64 serially on combined
 source. Preserve failed runs and native/emulated limits. Candidate worktree:
 `/Users/saivedanthava/.codex/zenith-production/worktrees/worker-startup`.
 Dependency remediation `d8e457fd5add185cc9df13f8bee38076e1c1d53f` is
@@ -106,6 +116,10 @@ competing product projections; durable outbox/recovery remains separate work.
 history compatibility and uncertain-operation conflicts. Production drivers
 currently lack `drift.repair`; a real authorized remediation adapter remains
 required before observation-to-repair acceptance can complete.
+`ws/prod-ecs-replica-repair` implements one bounded ECS desired-count repair
+through exact full-environment saved plans and browser plan approval. Source
+review, pinned SDK lock installation and all runtime checks remain pending;
+do not claim this is an executable supported repair yet.
 
 All new commits use Saivedant Hava `<saivedant169@gmail.com>` as author and
 committer on this Mac. No history rewrite, force push or secret-scanning bypass.

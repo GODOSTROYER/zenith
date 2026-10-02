@@ -1,9 +1,11 @@
 /** Scripted execution contracts only; no cloud or OpenTofu process is started. */
 import { afterEach, expect, it, vi } from "vitest";
 import type { CompileContext, DriverContext } from "@/lib/drivers/types";
-import { trustedAwsBoundaryArn } from "@/lib/credentials/aws/naming";
+import { awsBootstrapContextForConnection, trustedAwsBoundaryArn } from "@/lib/credentials/aws/naming";
 import { compileGraph } from "@/lib/execution/compile";
-import { findGraphProblems } from "@/lib/execution/graph";
+import { buildDesiredState, findGraphProblems } from "@/lib/execution/graph";
+import { MemoryReconcileBackend } from "@/lib/reconcile/memory";
+import { wireReconcilePorts } from "@/lib/reconcile/ports";
 import { createWorld, type World } from "./fakes/world";
 import { ENV, OP, REVISION, WS, bucketManifest, makePlan, providerConnection } from "./fakes/fixtures";
 import { presentObservation, passedVerification } from "./fakes/drivers";
@@ -13,6 +15,7 @@ const suffix = "-team-a";
 const worlds: World[] = [];
 const unexpectedProviderSend = vi.fn(() => { throw new Error("Unexpected provider SDK send in context-only regression."); });
 afterEach(() => {
+  wireReconcilePorts(null);
   worlds.splice(0).forEach((world) => world.dispose());
   expect(unexpectedProviderSend).not.toHaveBeenCalled();
   unexpectedProviderSend.mockClear();
@@ -69,12 +72,51 @@ it("verify, drift and reconcile pass trusted suffix context to drivers and expec
   await w.activities.validateDesiredState({ operationId: OP });
   const expected: unknown[] = [];
   for (const driver of w.drivers.cache.values()) driver.expectedAttributes = (_node, ctx) => { expected.push(ctx?.awsBootstrap); return {}; };
+  const assertNewContexts = (observedBefore: number, expectedBefore?: number) => {
+    expect(contexts.length).toBeGreaterThan(observedBefore);
+    expect(contexts.slice(observedBefore).every((ctx) => ctx.awsBootstrap?.bootstrapNameSuffix === suffix)).toBe(true);
+    if (expectedBefore !== undefined) {
+      expect(expected.length).toBeGreaterThan(expectedBefore);
+      expect(expected.slice(expectedBefore).every((ctx) => (ctx as { bootstrapNameSuffix?: string } | undefined)?.bootstrapNameSuffix === suffix)).toBe(true);
+    }
+  };
   await w.activities.verifyInfrastructure({ operationId: OP });
+  assertNewContexts(0); // verification checks drivers; expected-value comparisons belong to drift/reconcile
+  let observedBefore = contexts.length;
+  let expectedBefore = expected.length;
   await w.activities.observeEnvironment({ operationId: OP });
+  assertNewContexts(observedBefore, expectedBefore);
   w.product.base.environment.deployedRevisionId = REVISION;
+  const product = await w.product.loadContext({ workspaceId: WS, environmentId: ENV });
+  const desired = buildDesiredState(product).graph;
+  if (!desired) throw new Error("fixture desired graph is missing");
+  const connection = saved();
+  const backend = new MemoryReconcileBackend({ now: w.deps.clock });
+  backend.addEnvironment({ workspaceId: WS, projectId: product.project.id, environmentId: ENV, class: product.environment.class, provider: "aws", region: product.environment.region, connection: { id: connection.id, status: "verified" } }, desired);
+  const ports = backend.passPorts({
+    driverFor: (node) => w.drivers(node.provider, node.nativeType),
+    withObserveSession: async (request, callback) => {
+      expect(request).toMatchObject({ workspaceId: WS, projectId: product.project.id, environmentId: ENV, provider: "aws", connectionId: connection.id, region: product.environment.region });
+      return callback({ provider: "aws", accountId: "123456789012", region: product.environment.region, client: <C>() => ({ send: unexpectedProviderSend } as C) });
+    },
+  });
+  ports.resolveAwsBootstrap = async (request, session) => {
+    if (!request.connectionId) throw new Error("fixture requires its selected connection");
+    const selected = await w.connections.resolve({ workspaceId: request.workspaceId, connectionId: request.connectionId });
+    expect(selected).toMatchObject({ id: connection.id, workspaceId: WS, status: "verified" });
+    if (!selected || selected.config.provider !== "aws") throw new Error("fixture requires its saved AWS connection");
+    expect(session).toMatchObject({ provider: "aws", accountId: selected.config.accountId, region: request.region });
+    return awsBootstrapContextForConnection(selected.config, request.region);
+  };
+  wireReconcilePorts(() => ports);
   const passId = `reconcile-${ENV}`;
   const lease = await w.activities.acquireLease({ operationId: passId, scope: `reconcile:${ENV}`, ttlMs: 60_000 });
+  observedBefore = contexts.length;
+  expectedBefore = expected.length;
   await w.activities.reconcileObserve({ passId, workspaceId: WS, environmentId: ENV, lease });
+  assertNewContexts(observedBefore, expectedBefore);
+  expect(backend.observations.length).toBeGreaterThan(0);
+  expect(backend.reportsOf(ENV)).toHaveLength(1);
   expect(contexts.length).toBeGreaterThan(0);
   expect(contexts.every((ctx) => ctx.awsBootstrap?.bootstrapNameSuffix === suffix)).toBe(true);
   expect(expected.length).toBeGreaterThan(0);

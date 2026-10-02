@@ -20,6 +20,7 @@ import { assertFence } from "@/lib/controlplane/db/repos/leases";
 import type { ReconcilePassPorts } from "../pass-types";
 import type { SchedulerConfig } from "../scheduler";
 import type { ReconcilePorts } from "../types";
+import { ReconcileError } from "../errors";
 import { createPlatformGuard, createPlatformSignals, type PlatformGuardOptions } from "./guard";
 import { createPlatformState, loadPlatformEnvironment } from "./state";
 import { createPlatformStore, loadGraphFromStore } from "./store";
@@ -33,6 +34,7 @@ export interface PlatformReconcileDeps extends Pick<ReconcilePorts, "broker" | "
   now?: () => Date;
   driverFor?: ReconcilePorts["driverFor"];
   log?: ReconcilePorts["log"];
+  resolveAwsBootstrap?: ReconcilePorts["resolveAwsBootstrap"];
   scheduler?: Partial<SchedulerConfig>;
   guard?: PlatformGuardOptions;
 }
@@ -50,6 +52,7 @@ export function createPlatformReconcilePorts(deps: PlatformReconcileDeps): Recon
     loadGraph: (environment) => loadGraphFromStore(db, environment),
     broker: deps.broker,
     withObserveSession: deps.withObserveSession,
+    resolveAwsBootstrap: deps.resolveAwsBootstrap ?? (async () => { throw new ReconcileError("platform_store_unavailable", "The trusted AWS reconciliation context resolver is not configured."); }),
     startRepair: deps.startRepair,
     ...(deps.driverFor ? { driverFor: deps.driverFor } : {}),
     ...(deps.log ? { log: deps.log } : {}),

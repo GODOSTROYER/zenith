@@ -8,8 +8,8 @@
  * the commit, the claim, the guard, the signals. The fake "cloud" is the same
  * scripted World the in-memory tests use; nothing here talks to a provider.
  */
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { LeaseLostError } from "@/lib/controlplane/types";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { LeaseLostError, type CapabilityGrantClaims, type Sql } from "@/lib/controlplane/types";
 import type { PlatformDbHandle } from "@/lib/controlplane/db";
 import * as repos from "@/lib/controlplane/db/repos";
 import { acquire, release } from "@/lib/controlplane/db/repos/leases";
@@ -22,8 +22,12 @@ import {
   type SchedulableEnvironment,
 } from "@/lib/reconcile";
 import { createPlatformReconcilePorts, createPlatformState, createPlatformStore, loadGraphFromStore, loadPlatformEnvironment, registerEnvironment, requestReconcileNow } from "@/lib/reconcile/platform";
+import { composeReconcilePorts, createReconcileAwsBootstrapResolver } from "@/lib/platform/reconcile";
+import type { Broker } from "@/lib/capabilities/platform";
+import type { AwsSession, CredentialBroker } from "@/lib/credentials/types";
 import { LANES, openLane, seedApprovedOperation, uid, type Lane } from "../controlplane/_support/harness";
-import { FakeBroker, HOUR, MIN, SESSION_CANARY, World, graph } from "./_support";
+import { HOUR, MIN, SESSION_CANARY, World, graph } from "./_support";
+import type { ObserveSessionRequest } from "@/lib/reconcile/types";
 
 const AWS = {
   provider: "aws" as const,
@@ -53,10 +57,10 @@ describe.each(LANES)("reconcile platform adapter [$name]", (lane: Lane) => {
   });
 
   /** A workspace with a verified connection, an environment with the fixture graph stored as `active` resources, registered with the controller. */
-  async function seed(over: { workspaceId?: string; status?: "active" | "planned"; verified?: boolean; class?: SchedulableEnvironment["class"]; provider?: SchedulableEnvironment["provider"]; register?: boolean; nodes?: number } = {}): Promise<Seeded> {
+  async function seed(over: { workspaceId?: string; status?: "active" | "planned"; verified?: boolean; class?: SchedulableEnvironment["class"]; provider?: SchedulableEnvironment["provider"]; register?: boolean; nodes?: number; bootstrapNameSuffix?: string } = {}): Promise<Seeded> {
     const workspaceId = over.workspaceId ?? uid("ws");
     const environmentId = uid("env");
-    const conn = await repos.connections.create(db, { workspaceId, config: AWS, createdBy: "user_1" });
+    const conn = await repos.connections.create(db, { workspaceId, config: { ...AWS, ...(over.bootstrapNameSuffix ? { bootstrapNameSuffix: over.bootstrapNameSuffix } : {}) }, createdBy: "user_1" });
     if (over.verified !== false) await repos.connections.recordVerification(db, { workspaceId, id: conn.id, ok: true });
     const g = graph();
     for (const node of g.nodes.slice(0, over.nodes ?? g.nodes.length))
@@ -78,10 +82,11 @@ describe.each(LANES)("reconcile platform adapter [$name]", (lane: Lane) => {
   const portsFor = (world: World, broker = new FakeBrokerSql()) =>
     createPlatformReconcilePorts({
       db,
+      resolveAwsBootstrap: createReconcileAwsBootstrapResolver(db),
       broker,
       driverFor: world.driverFor,
       startRepair: async () => undefined,
-      withObserveSession: async (_r, fn) => fn({ token: SESSION_CANARY }),
+      withObserveSession: async (_r, fn) => fn({ provider: "aws", accountId: AWS.accountId, region: AWS.region, token: SESSION_CANARY }),
     });
 
   /** The broker for this suite: records proposals and creates NO operation (the store-backed ledger is asserted separately). */
@@ -92,6 +97,227 @@ describe.each(LANES)("reconcile platform adapter [$name]", (lane: Lane) => {
       return { outcome: "require_approval" as const, operationId: uid("op") };
     }
   }
+
+  describe("trusted AWS connection context", () => {
+    const requestFor = (env: SchedulableEnvironment): ObserveSessionRequest => ({ workspaceId: env.workspaceId, projectId: env.projectId, environmentId: env.environmentId, provider: "aws", region: env.region, connectionId: env.connection?.id, correlationId: "saved-context-regression", signal: new AbortController().signal });
+    const session = { provider: "aws", accountId: AWS.accountId, region: AWS.region };
+    const composedFor = (env: SchedulableEnvironment, duringOpen?: () => Promise<void>, duringAuthorization?: () => void, claimsOverride?: Partial<CapabilityGrantClaims>, store: Sql = db) => {
+      const opened: AwsSession = { provider: "aws", accountId: AWS.accountId, region: AWS.region, expiresAt: "2099-01-01T00:00:00.000Z", transport: "emulator", client: () => { throw new Error("Unexpected provider SDK send in context regression."); }, childProcessEnv: () => { throw new Error("Unexpected credential export in context regression."); } };
+      const opens = vi.fn();
+      const credentials: CredentialBroker = {
+        async withSession(request, callback) {
+          opens(request);
+          expect(request.connectionId).toBe(env.connection?.id);
+          expect(request.purpose).toBe("observe");
+          await duringOpen?.();
+          return callback(opened);
+        },
+        verifyConnection: async () => ({ ok: true, detail: "scripted identity" }),
+      };
+      const broker = { authorizeRead: vi.fn(async () => {
+        duringAuthorization?.();
+        return { decision: { outcome: "allow" }, claims: { jti: "scripted-read", iss: "zenith-control", aud: "worker", sub: "reconciler", iat: 1, exp: 4_102_444_800, cap: "infrastructure.observe", op: "scripted-read", digest: "a".repeat(64), ws: env.workspaceId, proj: env.projectId, env: env.environmentId, ...claimsOverride } };
+      }) } as unknown as Broker;
+      return { ports: composeReconcilePorts(store, credentials, async () => broker), opened, opens };
+    };
+
+    it("uses only the selected verified saved connection's suffix", async () => {
+      const { env } = await seed({ bootstrapNameSuffix: "-team-a" });
+      const resolve = createReconcileAwsBootstrapResolver(db);
+      const bootstrap = await resolve(requestFor(env), { ...session, awsBootstrap: { bootstrapNameSuffix: "-foreign" } });
+      expect(bootstrap).toEqual({ accountId: AWS.accountId, partition: "aws", bootstrapNameSuffix: "-team-a" });
+      expect(Object.isFrozen(bootstrap)).toBe(true);
+    });
+
+    it.each(["workspace", "environment", "project", "connection", "provider", "region", "session-provider", "session-account", "session-region"] as const)("refuses a mismatched %s binding", async (binding) => {
+      const { env } = await seed();
+      const request = requestFor(env);
+      const opened = { ...session };
+      switch (binding) {
+        case "workspace": request.workspaceId = uid("foreign-ws"); break;
+        case "environment": request.environmentId = uid("foreign-env"); break;
+        case "project": request.projectId = uid("foreign-project"); break;
+        case "connection": request.connectionId = uid("foreign-connection"); break;
+        case "provider": request.provider = "gcp"; break;
+        case "region": request.region = "eu-west-1"; break;
+        case "session-provider": opened.provider = "gcp"; break;
+        case "session-account": opened.accountId = "210987654321"; break;
+        case "session-region": opened.region = "eu-west-1"; break;
+      }
+      await expect(createReconcileAwsBootstrapResolver(db)(request, opened)).rejects.toThrow();
+    });
+
+    it.each(["pending", "failed", "revoked"] as const)("does not read or repair a %s connection", async (status) => {
+      const { env, connectionId } = await seed({ verified: status !== "pending" });
+      if (status === "failed") await repos.connections.recordVerification(db, { workspaceId: env.workspaceId, id: connectionId, ok: false });
+      if (status === "revoked") await repos.connections.revoke(db, env.workspaceId, connectionId);
+      const world = new World().allPresent(graph()).patch("log_group/web", { presence: "missing" });
+      const broker = new FakeBrokerSql();
+      const desired = await loadGraphFromStore(db, env);
+      if (!desired) throw new Error("fixture desired graph is missing");
+      const result = await reconcileEnvironment({ environment: env, graph: desired, ports: portsFor(world, broker), options: { autoRepair: true, minConfirmations: 1 } });
+      expect(result.observed).toBe(0);
+      expect(result.report?.findings.length).toBeGreaterThan(0);
+      expect(result.report?.findings.every((finding) => finding.class === "unknown" || finding.class === "inaccessible")).toBe(true);
+      expect(world.observed).toEqual([]);
+      expect(broker.proposals).toEqual([]);
+    });
+
+    it("does not adopt a different verified legacy match after the selected connection is revoked", async () => {
+      const { env, connectionId } = await seed();
+      const replacement = await repos.connections.create(db, { workspaceId: env.workspaceId, config: { ...AWS, bootstrapNameSuffix: "-foreign" }, createdBy: "user_1", legacyConnectionId: connectionId });
+      await repos.connections.recordVerification(db, { workspaceId: env.workspaceId, id: replacement.id, ok: true });
+      await repos.connections.revoke(db, env.workspaceId, connectionId);
+      await expect(createReconcileAwsBootstrapResolver(db)(requestFor(env), session)).rejects.toThrow();
+    });
+
+    it.each(["bootstrapNameSuffix", "observeRoleArn", "revoked"] as const)("refuses a same-account %s change while credentials open before any driver read", async (change) => {
+      const { env, connectionId } = await seed({ bootstrapNameSuffix: "-team-a" });
+      const world = new World().allPresent(graph());
+      const { ports } = composedFor(env, async () => {
+        if (change === "revoked") await repos.connections.revoke(db, env.workspaceId, connectionId);
+        else await db.query("update platform.provider_connections set config=jsonb_set(config,$3::text[],$4::jsonb) where workspace_id=$1 and id=$2", [env.workspaceId, connectionId, `{${change}}`, JSON.stringify(change === "bootstrapNameSuffix" ? "-team-b" : "arn:aws:iam::123456789012:role/other-observe")]);
+      });
+      ports.driverFor = world.driverFor;
+      const desired = await loadGraphFromStore(db, env);
+      if (!desired) throw new Error("fixture desired graph is missing");
+      const result = await reconcileEnvironment({ environment: env, graph: desired, ports, options: { autoRepair: false } });
+      expect(result.observed).toBe(0);
+      expect(result.report?.findings.every((finding) => finding.class === "unknown" || finding.class === "inaccessible")).toBe(true);
+      expect(world.observed).toEqual([]);
+    });
+
+    it("binds context to the actual authorized session and exact request, then removes and consumes that binding", async () => {
+      const { env } = await seed({ bootstrapNameSuffix: "-team-a" });
+      const { ports, opened } = composedFor(env);
+      const request = requestFor(env);
+      await expect(ports.resolveAwsBootstrap!(request, opened)).rejects.toThrow();
+      await ports.withObserveSession(request, async (actual) => {
+        await expect(ports.resolveAwsBootstrap!(request, { ...opened })).rejects.toThrow();
+        await expect(ports.resolveAwsBootstrap!({ ...request }, actual)).rejects.toThrow();
+        expect(await ports.resolveAwsBootstrap!(request, actual)).toMatchObject({ bootstrapNameSuffix: "-team-a" });
+        await expect(ports.resolveAwsBootstrap!(request, actual)).rejects.toThrow();
+      });
+      await expect(ports.resolveAwsBootstrap!(request, opened)).rejects.toThrow();
+      const callback = vi.fn(async () => undefined);
+      await expect(ports.withObserveSession(request, callback)).rejects.toThrow();
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it("rechecks the bound saved config before observation when the suffix changes inside the callback", async () => {
+      const { env, connectionId } = await seed({ bootstrapNameSuffix: "-team-a" });
+      const { ports } = composedFor(env);
+      const request = requestFor(env);
+      await ports.withObserveSession(request, async (actual) => {
+        await db.query("update platform.provider_connections set config=jsonb_set(config,'{bootstrapNameSuffix}', '\"-team-b\"'::jsonb) where workspace_id=$1 and id=$2", [env.workspaceId, connectionId]);
+        await expect(ports.resolveAwsBootstrap!(request, actual)).rejects.toThrow();
+      });
+    });
+
+    it.each(["workspace", "project", "environment", "provider", "region", "connection", "correlation"] as const)("refuses a %s request change during policy before credentials or reads", async (changed) => {
+      const { env } = await seed();
+      const request = requestFor(env);
+      const { ports, opens } = composedFor(env, undefined, () => {
+        switch (changed) {
+          case "workspace": request.workspaceId = uid("foreign-ws"); break;
+          case "project": request.projectId = uid("foreign-project"); break;
+          case "environment": request.environmentId = uid("foreign-env"); break;
+          case "provider": request.provider = "gcp"; break;
+          case "region": request.region = "eu-west-1"; break;
+          case "connection": request.connectionId = uid("foreign-connection"); break;
+          case "correlation": request.correlationId = "other-read"; break;
+        }
+      });
+      const read = vi.fn(async () => undefined);
+      await expect(ports.withObserveSession(request, read)).rejects.toThrow();
+      expect(opens).not.toHaveBeenCalled();
+      expect(read).not.toHaveBeenCalled();
+    });
+
+    it.each(["workspace", "project", "environment", "capability", "audience"] as const)("refuses a policy grant with the wrong %s before credentials or reads", async (changed) => {
+      const { env } = await seed();
+      const claims: Partial<CapabilityGrantClaims> = {};
+      switch (changed) {
+        case "workspace": claims.ws = uid("foreign-ws"); break;
+        case "project": claims.proj = uid("foreign-project"); break;
+        case "environment": claims.env = uid("foreign-env"); break;
+        case "capability": claims.cap = "drift.repair"; break;
+        case "audience": claims.aud = "runner"; break;
+      }
+      const { ports, opens } = composedFor(env, undefined, undefined, claims);
+      const read = vi.fn(async () => undefined);
+      await expect(ports.withObserveSession(requestFor(env), read)).rejects.toThrow();
+      expect(opens).not.toHaveBeenCalled();
+      expect(read).not.toHaveBeenCalled();
+    });
+
+    it.each(["connection", "project", "signal"] as const)("refuses a %s request mutation while saved snapshots load before credential acquisition", async (changed) => {
+      const { env } = await seed();
+      const request = requestFor(env);
+      let queried = false;
+      const store: Sql = {
+        async query<T>(text: string, params?: readonly unknown[]): Promise<T[]> {
+          const rows = await db.query<T>(text, params);
+          if (!queried) {
+            queried = true;
+            if (changed === "connection") request.connectionId = uid("foreign-connection");
+            else if (changed === "project") request.projectId = uid("foreign-project");
+            else request.signal = new AbortController().signal;
+          }
+          return rows;
+        },
+        tx: (callback) => db.tx(callback),
+      };
+      const { ports, opens } = composedFor(env, undefined, undefined, undefined, store);
+      const read = vi.fn(async () => undefined);
+      await expect(ports.withObserveSession(request, read)).rejects.toThrow();
+      expect(queried).toBe(true);
+      expect(opens).not.toHaveBeenCalled();
+      expect(read).not.toHaveBeenCalled();
+    });
+
+    it.each(["connection", "environment", "signal"] as const)("rejects a non-AWS %s request mutation while credentials open before reads", async (changed) => {
+      const { env } = await seed({ provider: "gcp" });
+      const request = { ...requestFor(env), provider: "gcp" as const };
+      // This fixture isolates request consistency; its scripted session never reaches a driver.
+      const { ports, opens } = composedFor(env, async () => {
+        if (changed === "connection") request.connectionId = uid("foreign-connection");
+        else if (changed === "environment") request.environmentId = uid("foreign-env");
+        else request.signal = new AbortController().signal;
+      });
+      const read = vi.fn(async () => undefined);
+      await expect(ports.withObserveSession(request, read)).rejects.toThrow();
+      expect(opens).toHaveBeenCalledTimes(1);
+      expect(opens.mock.calls[0][0].connectionId).toBe(env.connection?.id);
+      expect(read).not.toHaveBeenCalled();
+    });
+
+    it("refuses unconfigured production AWS context instead of claiming an empty match", async () => {
+      const { env } = await seed();
+      const world = new World().allPresent(graph());
+      const broker = new FakeBrokerSql();
+      const ports = createPlatformReconcilePorts({ db, broker, driverFor: world.driverFor, startRepair: async () => undefined, withObserveSession: async (_request, callback) => callback(session) });
+      const desired = await loadGraphFromStore(db, env);
+      if (!desired) throw new Error("fixture desired graph is missing");
+      const result = await reconcileEnvironment({ environment: env, graph: desired, ports, options: { autoRepair: true, minConfirmations: 1 } });
+      expect(result.observed).toBe(0);
+      expect(result.counts.unknown).toBeGreaterThan(0);
+      expect(world.observed).toEqual([]);
+      expect(broker.proposals).toEqual([]);
+    });
+
+    it("rejects a node whose region differs from the authorized saved connection before its driver reads", async () => {
+      const { env } = await seed();
+      const desired = await loadGraphFromStore(db, env);
+      if (!desired) throw new Error("fixture desired graph is missing");
+      const address = desired.nodes.find((node) => node.kind === "log_group")!.address;
+      const changed = { ...desired, nodes: desired.nodes.map((node) => node.address === address ? { ...node, region: "eu-west-1" } : node) };
+      const world = new World().allPresent(changed);
+      const result = await reconcileEnvironment({ environment: env, graph: changed, ports: portsFor(world), options: { autoRepair: false } });
+      expect(world.observed.some((node) => node.address === address)).toBe(false);
+      expect(result.report?.findings).toContainEqual(expect.objectContaining({ address, class: "inaccessible", repairable: false }));
+    });
+  });
 
   describe("store", () => {
     it("retains old uncertain repairs and other scoped mutations beyond every cooldown", async () => {
@@ -225,7 +451,7 @@ describe.each(LANES)("reconcile platform adapter [$name]", (lane: Lane) => {
       const world = new World().allPresent(graph());
       world.patch("log_group/web", { presence: "missing" });
       const broker = new FakeBrokerSql();
-      const ports = createPlatformReconcilePorts({ db, broker: broker as unknown as FakeBroker, driverFor: world.driverFor, startRepair: async () => undefined, withObserveSession: async (_r, fn) => fn(undefined) });
+      const ports = portsFor(world, broker);
       const loaded = await loadGraphFromStore(db, env);
       const first = await reconcileEnvironment({ environment: env, graph: loaded ?? graph(), ports });
       expect(first.repairs.filter((d) => d.status === "proposed")).toHaveLength(1);
@@ -434,7 +660,7 @@ describe.each(LANES)("reconcile platform adapter [$name]", (lane: Lane) => {
       const world = new World().allPresent(graph());
       world.patch("log_group/web", { presence: "missing" });
       const broker = new FakeBrokerSql();
-      const ports = createPlatformReconcilePorts({ db, broker: broker as unknown as FakeBroker, driverFor: world.driverFor, startRepair: async () => undefined, withObserveSession: async (_r, fn) => fn(undefined) });
+      const ports = portsFor(world, broker);
       const r = await reconcilePass({ ports, maxEnvironments: 500 });
       // (on a shared Postgres schema other suites' environments may also be claimed; ours must be among them)
       expect(r.failed).toBe(0);
@@ -455,7 +681,7 @@ describe.each(LANES)("reconcile platform adapter [$name]", (lane: Lane) => {
       world.patch("log_group/web", { presence: "missing" });
       world.patch("network/main", { throws: new Error("socket hang up") });
       const broker = new FakeBrokerSql();
-      const ports = createPlatformReconcilePorts({ db, broker: broker as unknown as FakeBroker, driverFor: world.driverFor, startRepair: async () => undefined, withObserveSession: async (_r, fn) => fn(undefined) });
+      const ports = portsFor(world, broker);
       const deps = { ports, loadEnvironment: (w: string, e: string) => loadPlatformEnvironment(db, w, e), loadGraph: (e: ReconcileEnvironment) => loadGraphFromStore(db, e) };
 
       const observeOnly = await reconcileObserveOnce({ workspaceId: env.workspaceId, environmentId: env.environmentId }, deps);

@@ -81,23 +81,23 @@ jobs:
       - run: npm ci --ignore-scripts
 
       - name: Typecheck
-        run: npm run typecheck
+        run: node scripts/ci/run-gate.mjs core --run --step typecheck
 
       - name: Lint
-        run: npm run lint
+        run: node scripts/ci/run-gate.mjs core --run --step lint
 
       - name: Unit suites (Node and DOM projects)
         # No path filter: this includes agent-v3, cli, placement, platform-ui,
         # security and every other suite in both committed Vitest projects.
-        run: npx vitest run --project=node --project=dom --maxWorkers=2
+        run: node scripts/ci/run-gate.mjs core --run --step unit
 
       - name: Smoke
         # scripts/smoke.ts sets its own ZENITH_DATA (.data-smoke) and clears it
         # on start, so this is end-to-end against a directory it owns.
-        run: npm run smoke
+        run: node scripts/ci/run-gate.mjs core --run --step smoke
 
       - name: Verify Gimbal assets
-        run: npm run gimbal:verify
+        run: node scripts/ci/run-gate.mjs core --run --step gimbal
 
   # The PostgreSQL lane.
   #
@@ -199,7 +199,7 @@ jobs:
       - name: Postgres contract lanes
         # Serialize suites that share database fixtures. Individual race tests
         # open independent connections to verify database concurrency.
-        run: npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts tests/agent-link/pg-contract.test.ts tests/agent-control/pg-contract.test.ts tests/db/contract/workspace-sharing.test.ts tests/waitlist/pg-contract.test.ts --maxWorkers=2 --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json
+        run: node scripts/ci/run-gate.mjs postgres --run
 
       - name: Lane report - fail if a lane ran zero tests, and list what is blocked
         # `always()` so the blocked-lane table reaches the summary even when the
@@ -208,6 +208,19 @@ jobs:
         # failure, not a pass.
         if: always()
         run: node scripts/ci/postgres-lane-report.mjs .data-ci-lane/postgres-lane.json
+
+      - name: Every PostgreSQL contract must pass
+        if: always()
+        run: node scripts/ci/run-gate.mjs postgres --validate .data-ci-lane/postgres-lane.json
+
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-postgres-evidence-${{ github.sha }}
+          path: .data-ci-lane/postgres-evidence.json
+          if-no-files-found: error
+          retention-days: 14
 
   # The hosted-apps path: every hosted suite, the twelve-gate acceptance
   # record, and the end-to-end journey script. Kept out of `verify` because it
@@ -461,13 +474,26 @@ jobs:
         run: npm run policy:check
 
       - name: Policy suites
-        run: npx vitest run tests/policy --maxWorkers=2 --reporter=default --reporter=json --outputFile.json=.data-ci-lane/policy-lane.json
+        run: node scripts/ci/run-gate.mjs policy --run
 
       - name: Lane report - fail if a required suite ran zero tests
         # `always()` so the not-verified table reaches the summary even when the
         # suites above failed; the step still fails the job on its own terms.
         if: always()
         run: node scripts/ci/lane-report.mjs policy .data-ci-lane/policy-lane.json
+
+      - name: Every policy scenario must pass
+        if: always()
+        run: node scripts/ci/run-gate.mjs policy --validate .data-ci-lane/policy-lane.json
+
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-policy-evidence-${{ github.sha }}
+          path: .data-ci-lane/policy-evidence.json
+          if-no-files-found: error
+          retention-days: 14
 
   # The OpenTofu lane (ADR-0005).
   #
@@ -551,7 +577,7 @@ jobs:
       - name: OpenTofu and all provider suites
         # Serial: every test shares one plugin cache directory and a first-time
         # provider install is not something two processes should race on.
-        run: npx vitest run tests/tofu tests/providers/aws/drivers tests/providers/aws/identity tests/providers/gcp tests/providers/azure tests/providers/oci tests/execution/compile-refs-providers.test.ts tests/execution/journey.test.ts tests/security/tofu-secrets.test.ts tests/security/tofu-runner-env.test.ts tests/security/tofu-workspace-injection.test.ts --maxWorkers=2 --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/tofu-lane.json
+        run: node scripts/ci/run-gate.mjs tofu --run
 
       - name: Lane report - fail if a required suite ran zero tests
         if: always()
@@ -559,7 +585,16 @@ jobs:
 
       - name: Every real provider validation must pass
         if: always()
-        run: node tests/ci/assert-lane-report.mjs tofu .data-ci-lane/tofu-lane.json
+        run: node scripts/ci/run-gate.mjs tofu --validate .data-ci-lane/tofu-lane.json
+
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-tofu-evidence-${{ github.sha }}
+          path: .data-ci-lane/tofu-evidence.json
+          if-no-files-found: error
+          retention-days: 14
 
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
@@ -746,7 +781,11 @@ jobs:
       # download/start failures must fail the report gate rather than skip green.
       ZENITH_COMPOSE_TEMPORAL_MODE: time-skipping
       ZENITH_TEST_TEMPORAL_DOWNLOAD: "1"
+      ZENITH_TEST_TEMPORAL: "1"
       ZENITH_SEC_TEMPORAL: "1"
+      ZENITH_TEST_SOURCE_GITHUB: "1"
+      ZENITH_TEST_SOURCE_REPO: https://github.com/GODOSTROYER/zenith
+      ZENITH_TEST_SOURCE_REF: 37be7340536ccb68ae4bb49294e8ab3799d1f01b
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -783,7 +822,7 @@ jobs:
       - name: Workflow suites
         # Serial: each suite starts its own dev server, and two of them on a
         # two-core runner only make both slower and flakier.
-        run: npx vitest run tests/workflows tests/platform tests/security/workflow-history.test.ts --maxWorkers=2 --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/workflows-lane.json
+        run: node scripts/ci/run-gate.mjs workflows --run
 
       - name: Lane report - fail if a required suite ran zero tests
         if: always()
@@ -791,7 +830,16 @@ jobs:
 
       - name: Every Temporal and platform e2e scenario must pass
         if: always()
-        run: node tests/ci/assert-lane-report.mjs workflows .data-ci-lane/workflows-lane.json
+        run: node scripts/ci/run-gate.mjs workflows --validate .data-ci-lane/workflows-lane.json
+
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-workflows-evidence-${{ github.sha }}
+          path: .data-ci-lane/workflows-evidence.json
+          if-no-files-found: error
+          retention-days: 14
 
   # The platform control store on real PostgreSQL (ADR-0002).
   #
@@ -888,7 +936,7 @@ jobs:
       - name: Platform control store suites
         # Serialize suites that share the database. Race tests open their own
         # independent connections to exercise database concurrency.
-        run: npx vitest run tests/controlplane tests/capabilities tests/runners tests/reconcile/platform.test.ts --maxWorkers=2 --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/platform-lane.json
+        run: node scripts/ci/run-gate.mjs platform-postgres --run
 
       - name: Lane report - fail if the control store ran zero tests, or none on Postgres
         if: always()
@@ -896,7 +944,16 @@ jobs:
 
       - name: Every platform Postgres contract must pass
         if: always()
-        run: node tests/ci/assert-lane-report.mjs platform-postgres .data-ci-lane/platform-lane.json
+        run: node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json
+
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-platform-postgres-evidence-${{ github.sha }}
+          path: .data-ci-lane/platform-postgres-evidence.json
+          if-no-files-found: error
+          retention-days: 14
 
   # Generated SQL, capability documentation and operator-doc/link drift. The
   # check modes compare committed bytes without rewriting the checkout.

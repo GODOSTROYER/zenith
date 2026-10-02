@@ -23,8 +23,11 @@ export function reportFailures(requirements, report, root) {
     if (fileNames.has(key)) return ["Duplicate Vitest file evidence"];
     fileNames.add(key);
     if (entry.assertionResults.some((assertion) => !assertion || typeof assertion.fullName !== "string" || assertion.fullName.trim().length === 0 || typeof assertion.status !== "string" || (assertion.ancestorTitles !== undefined && (!Array.isArray(assertion.ancestorTitles) || assertion.ancestorTitles.some((title) => typeof title !== "string"))))) return ["Malformed Vitest assertion evidence"];
-    const assertionNames = entry.assertionResults.map((assertion) => assertion.fullName);
-    if (new Set(assertionNames).size !== assertionNames.length) return ["Duplicate Vitest assertion evidence"];
+    // fullName is a display label, not a case ID: distinct it.each inputs can
+    // produce identical names. Standard Vitest JSON does not export task IDs,
+    // so case deduplication cannot be verified from this format. File identity,
+    // exact required suite ancestry, every assertion status and totals remain
+    // mandatory; repeated displays cannot satisfy a different missing suite.
     if (entry.status !== "passed" || entry.assertionResults.some((assertion) => !["passed", "failed", "pending", "skipped", "todo"].includes(assertion.status) || assertion.status === "failed")) return ["Vitest file or assertion did not succeed"];
   }
   const total = report.testResults.reduce((count, entry) => count + entry.assertionResults.length, 0);

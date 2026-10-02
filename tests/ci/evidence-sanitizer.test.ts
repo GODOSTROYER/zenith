@@ -222,9 +222,44 @@ describe("strict malformed and expected-failure evidence", () => {
     expect(reportFailures(required, value, root)).toHaveLength(1);
   });
 
-  it("rejects duplicate assertions rather than counting a replayed record twice", () => {
-    const value = report(); value.testResults[0].assertionResults.push(value.testResults[0].assertionResults[0]);
-    expect(reportFailures(required, value, root)).toEqual(["Duplicate Vitest assertion evidence"]);
+  /** Standard JSON reporter fields for separate it.each cases with one display title. */
+  function repeatedDisplayReport() {
+    const suite = "provider-dispatched Azure source preparation";
+    const title = "clearly refuses missing storage bindings before downloading source";
+    const assertion = { ancestorTitles: [suite], fullName: `${suite} ${title}`, title, status: "passed", duration: 1, failureMessages: [], meta: {} };
+    return { success: true, numTotalTests: 2, numFailedTests: 0, testResults: [{ name: path.resolve(root, "tests/platform/source-bundle-azure.test.ts"), status: "passed", assertionResults: [assertion, { ...assertion, duration: 2 }] }] };
+  }
+  const repeatedRequired = [{ file: "tests/platform/source-bundle-azure.test.ts", suite: "provider-dispatched Azure source preparation" }];
+
+  it("accepts distinct parameterized cases with identical display names in the actual standard JSON shape", () => {
+    const value = repeatedDisplayReport();
+    expect(value.testResults[0].assertionResults[0].fullName).toBe(value.testResults[0].assertionResults[1].fullName);
+    expect(value.testResults[0].assertionResults[0]).not.toHaveProperty("testId");
+    expect(reportFailures(repeatedRequired, value, root)).toEqual([]);
+    expect(sanitizedEvidence("platform-postgres", reportFor(), root, provenance).validation.caseIdentity).toBe("not-exported-by-standard-vitest-json");
+  });
+
+  it.each(["failed", "pending", "skipped", "todo", "unknown"])("does not let a passing repeated display hide its %s sibling case", (status) => {
+    const value = repeatedDisplayReport();
+    value.testResults[0].assertionResults[1].status = status;
+    expect(reportFailures(repeatedRequired, value, root)).toHaveLength(1);
+  });
+
+  it("does not let repeated case displays satisfy a missing distinct required suite", () => {
+    const value = repeatedDisplayReport();
+    expect(reportFailures([...repeatedRequired, { ...repeatedRequired[0], suite: "another required suite" }], value, root)).toHaveLength(1);
+  });
+
+  it("still rejects duplicate files containing legitimate repeated displays", () => {
+    const value = repeatedDisplayReport();
+    value.testResults.push(value.testResults[0]);
+    expect(reportFailures(repeatedRequired, value, root)).toEqual(["Duplicate Vitest file evidence"]);
+  });
+
+  it("still checks report totals against every repeated case record", () => {
+    const value = repeatedDisplayReport();
+    value.numTotalTests = 1;
+    expect(reportFailures(repeatedRequired, value, root)).toEqual(["Inconsistent Vitest report counts"]);
   });
 
   it.each([null, {}, { success: true, testResults: [null] }, { success: true, testResults: [{ name: required[0].file, status: "passed", assertionResults: [null] }] }, { success: true, testResults: [{ name: required[0].file, status: "passed", assertionResults: [{ fullName: "", status: "passed" }] }] }, { success: true, testResults: [{ name: required[0].file, status: "passed", assertionResults: [{ fullName: "assertion", status: "passed", ancestorTitles: [null] }] }] }])("rejects malformed report structures without exposing arbitrary content: %j", (value) => {

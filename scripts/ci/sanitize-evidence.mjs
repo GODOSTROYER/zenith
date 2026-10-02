@@ -92,7 +92,7 @@ export function sanitizedEvidence(lane, report, root, provenance, rawReport = JS
     schemaVersion: 1, lane, validatedAt: new Date().toISOString(), verdict: failures.length === 0 ? "passed" : "failed",
     provenance, reportSha256: hash(rawReport ?? "unavailable"), manifestSha256: hash(JSON.stringify(manifest)),
     expectedTools: manifest.tools, counts: countsFor(assertions), required: requirementEvidence,
-    validation: { failureCount: failures.length, complete: failures.length === 0 },
+    validation: { failureCount: failures.length, complete: failures.length === 0, caseIdentity: "not-exported-by-standard-vitest-json" },
     execution: { exitCode: null, observed: false },
     externalAcceptance: manifest.externalAcceptance.map((group) => ({ id: group.id, file: group.file, status: "unverified", releaseBlocker: group.releaseBlocker })),
   };
@@ -108,7 +108,7 @@ export function preserveExecutionObservation(evidence, previous, observedStatus)
   evidence.execution = { exitCode: executionStatus ?? null, observed: executionStatus !== undefined };
   if (executionStatus !== undefined && executionStatus !== 0) {
     evidence.verdict = "failed";
-    evidence.validation = { failureCount: evidence.validation.failureCount + 1, complete: false };
+    evidence.validation = { ...evidence.validation, failureCount: evidence.validation.failureCount + 1, complete: false };
     for (const required of evidence.required) required.status = "unverified";
   }
   return executionStatus;

@@ -100,7 +100,7 @@ const CHECKOUT_PREFIX = "actions/checkout@";
 
 /** CI invokes the same owned manifest used for local execution and validation. */
 const gateRun = (lane: string): string => `node scripts/ci/run-gate.mjs ${lane} --run`;
-const gateValidate = (lane: string): string => `node scripts/ci/run-gate.mjs ${lane} --validate ${manifestFor(lane).report}`;
+const gateValidate = (lane: string): string => `node scripts/ci/run-gate.mjs ${lane} --validate ${manifestFor(lane).report} --require-execution`;
 const POLICY_VITEST = gateRun("policy");
 const TOFU_VITEST = gateRun("tofu");
 const WORKFLOWS_VITEST = gateRun("workflows");
@@ -139,7 +139,7 @@ const requiredCommands: Record<string, string[]> = {
   "platform-postgres": [INSTALL, PLATFORM_VITEST],
   generated: [INSTALL, "npm run platform:emit-sql -- --check", "npx tsx scripts/docs/capability-matrix.ts --check", "npx vitest run tests/docs --maxWorkers=2"],
   ledger: ["node scripts/build/ledger.mjs --check"],
-  "supply-chain": ["node scripts/ci/lockfile-integrity.mjs"],
+  "supply-chain": ["node scripts/ci/lockfile-integrity.mjs", "node scripts/ci/security-audit.mjs"],
 };
 
 describe("release gate policy", () => {
@@ -699,14 +699,16 @@ describe("toolchain and trust rules that hold for every workflow", () => {
       expect(typeof j["timeout-minutes"], name).toBe("number");
       expect(Number(j["timeout-minutes"]), name).toBeLessThanOrEqual(45);
     }
+    // Serial full-suite runs take about 16 minutes before setup/typecheck/lint.
+    expect(Number(workflow.jobs.verify["timeout-minutes"])).toBeGreaterThanOrEqual(30);
   });
 
-  it("allows exactly one continue-on-error in ci.yml: the informational npm audit", () => {
+  it("allows no continue-on-error for CI gates", () => {
     const tolerant = Object.entries(workflow.jobs).flatMap(([name, j]) => {
       expect(j["continue-on-error"] ?? false, `${name} must not continue on error`).toBe(false);
       return j.steps.filter((step) => step["continue-on-error"]).map((step) => `${name}: ${step.name}`);
     });
-    expect(tolerant).toEqual(["supply-chain: npm audit (informational, never blocks)"]);
+    expect(tolerant).toEqual([]);
   });
 
   it("keeps every cloud credential and the live sandbox out of ci.yml, agent-control.yml and tick.yml", () => {
@@ -798,6 +800,8 @@ describe("canonical execution and evidence in CI", () => {
     expect(upload.uses).toBe("actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02");
     expect(upload.if).toBe("always()");
     expect(upload["continue-on-error"] ?? false).toBe(false);
+    // The artifact embeds only a validated scalar receipt. The immutable local
+    // sidecar must never be uploaded raw after malformed or hostile input.
     expect(upload.with?.path).toBe(`.data-ci-lane/${lane}-evidence.json`);
     expect(upload.with?.["if-no-files-found"]).toBe("error");
     expect(upload.with?.name).toBe(`canonical-${lane}-evidence-` + "${{ github.sha }}");
@@ -1015,21 +1019,17 @@ describe("the ledger and supply-chain jobs", () => {
     expect(ledger.steps.map(cmd)).not.toContain(INSTALL);
   });
 
-  it("blocks on the lockfile check and only reports on npm audit", () => {
+  it("blocks on lockfile integrity and the complete dependency audit", () => {
     const supply = jobOf("supply-chain");
     const lockfile = supply.steps[indexOfCommand(supply, "node scripts/ci/lockfile-integrity.mjs")];
     expect(lockfile["continue-on-error"] ?? false).toBe(false);
     expect(lockfile.if).toBeUndefined();
 
-    const audit = supply.steps[indexOfCommand(supply, "npm audit --omit=dev --audit-level=high")];
-    expect(audit, "the job must run npm audit for production dependencies at high severity").toBeDefined();
-    expect(audit["continue-on-error"]).toBe(true);
-    expect(audit.id).toBe("audit");
-
-    const surface = supply.steps.find((step) => step.if === "steps.audit.outcome == 'failure'");
-    expect(surface?.run, "a failed audit must still be visible").toContain("::warning::");
-    expect(surface?.run).toContain("GITHUB_STEP_SUMMARY");
-    expect(surface?.["continue-on-error"] ?? false).toBe(false);
+    const audit = supply.steps[indexOfCommand(supply, "node scripts/ci/security-audit.mjs")];
+    expect(audit, "the job must run the complete locked audit").toBeDefined();
+    expect(audit["continue-on-error"] ?? false).toBe(false);
+    expect(audit.if).toBeUndefined();
+    expect(supply.steps.filter((step) => step["continue-on-error"])).toEqual([]);
   });
 });
 

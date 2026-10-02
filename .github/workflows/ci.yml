@@ -41,7 +41,9 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Serial full-suite execution takes about 16 minutes before setup, typecheck
+    # and lint. Keep enough job budget without changing test-level deadlines.
+    timeout-minutes: 30
 
     env:
       # Use an ignored directory in the disposable CI checkout. github.workspace
@@ -211,7 +213,7 @@ jobs:
 
       - name: Every PostgreSQL contract must pass
         if: always()
-        run: node scripts/ci/run-gate.mjs postgres --validate .data-ci-lane/postgres-lane.json
+        run: node scripts/ci/run-gate.mjs postgres --validate .data-ci-lane/postgres-lane.json --require-execution
 
       - name: Preserve sanitized gate evidence
         if: always()
@@ -484,7 +486,7 @@ jobs:
 
       - name: Every policy scenario must pass
         if: always()
-        run: node scripts/ci/run-gate.mjs policy --validate .data-ci-lane/policy-lane.json
+        run: node scripts/ci/run-gate.mjs policy --validate .data-ci-lane/policy-lane.json --require-execution
 
       - name: Preserve sanitized gate evidence
         if: always()
@@ -585,7 +587,7 @@ jobs:
 
       - name: Every real provider validation must pass
         if: always()
-        run: node scripts/ci/run-gate.mjs tofu --validate .data-ci-lane/tofu-lane.json
+        run: node scripts/ci/run-gate.mjs tofu --validate .data-ci-lane/tofu-lane.json --require-execution
 
       - name: Preserve sanitized gate evidence
         if: always()
@@ -830,7 +832,7 @@ jobs:
 
       - name: Every Temporal and platform e2e scenario must pass
         if: always()
-        run: node scripts/ci/run-gate.mjs workflows --validate .data-ci-lane/workflows-lane.json
+        run: node scripts/ci/run-gate.mjs workflows --validate .data-ci-lane/workflows-lane.json --require-execution
 
       - name: Preserve sanitized gate evidence
         if: always()
@@ -944,7 +946,7 @@ jobs:
 
       - name: Every platform Postgres contract must pass
         if: always()
-        run: node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json
+        run: node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution
 
       - name: Preserve sanitized gate evidence
         if: always()
@@ -1015,7 +1017,7 @@ jobs:
 
   # Dependency supply chain.
   #
-  # Two checks with deliberately different authority:
+  # Both checks block release:
   #
   #   - The lockfile check is BLOCKING. It is deterministic - a function of
   #     package-lock.json alone - so a failure is always a real change in this
@@ -1023,15 +1025,12 @@ jobs:
   #     https://registry.npmjs.org with a sha512 integrity hash (scripts/ci/
   #     lockfile-integrity.mjs explains the attack it guards against). It does
   #     not prove a registry tarball is benign.
-  #   - `npm audit` is INFORMATIONAL (`continue-on-error`). Its verdict depends
-  #     on an advisory database that changes without any commit here: a required
-  #     gate on it turns every unrelated pull request red the day an advisory is
-  #     published against a transitive dependency, and the fix is an upgrade that
-  #     is not the author's to make. So it reports, loudly, in the job summary
-  #     and as a warning annotation, and never blocks; Dependabot
-  #     (.github/dependabot.yml) is the path that acts on it. It audits
-  #     production dependencies only (`--omit=dev`) at severity high and above,
-  #     and needs no install because it reads the lockfile.
+  #   - The complete locked dependency audit includes production, development,
+  #     optional and peer dependencies at every severity. Known findings,
+  #     malformed reports and registry failures block. No exceptions are
+  #     granted. Dependabot proposes updates; compatibility checks must pass
+  #     before those updates are integrated. This gate reads the lockfile and
+  #     never runs dependency installation scripts.
   supply-chain:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -1048,18 +1047,5 @@ jobs:
       - name: Lockfile pins only registry tarballs with integrity hashes
         run: node scripts/ci/lockfile-integrity.mjs
 
-      - name: npm audit (informational, never blocks)
-        id: audit
-        continue-on-error: true
-        run: npm audit --omit=dev --audit-level=high
-
-      - name: Surface a failed audit without failing the job
-        if: steps.audit.outcome == 'failure'
-        shell: bash
-        run: |
-          echo "::warning::npm audit reported production advisories at high severity or above. This job is informational and did not fail; see the audit step's log."
-          {
-            echo "## npm audit"
-            echo
-            echo "**Advisories found** at high severity or above in production dependencies. This check is informational and does not block the build; see the audit step's log."
-          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Known dependency findings block release
+        run: node scripts/ci/security-audit.mjs

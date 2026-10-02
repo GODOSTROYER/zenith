@@ -72,7 +72,7 @@ describe("platform suite coverage", () => {
   it.each([["postgres", "postgres"], ["policy", "policy"], ["tofu", "tofu"], ["workflows", "workflows"], ["platform-postgres", "platform"]])("requires real-engine evidence in %s even when Vitest fails", (lane, reportName) => {
     const job = workflow.jobs[lane];
     const report = `.data-ci-lane/${reportName}-lane.json`;
-    const assertion = gate(lane, `node scripts/ci/run-gate.mjs ${lane} --validate ${report}`, "always()");
+    const assertion = gate(lane, `node scripts/ci/run-gate.mjs ${lane} --validate ${report} --require-execution`, "always()");
     const manifest = manifestFor(lane, root);
     expect(manifest.report).toBe(report);
     const suiteSteps = job.steps.filter((step) => step.run === `node scripts/ci/run-gate.mjs ${lane} --run`);

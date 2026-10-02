@@ -31,6 +31,8 @@ export interface ReconcileSignalsPort {
 }
 
 export interface ReconcilePassPorts extends ReconcilePorts {
+  /** Tenant-scoped lookup for the on-demand activity using the same registered controller. */
+  loadEnvironment?(workspaceId: string, environmentId: string): Promise<ReconcileEnvironment | null>;
   state: ReconcileStatePort;
   /**
    * The desired graph of what is deployed in the environment (the graph of its

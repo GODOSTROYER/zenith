@@ -37,7 +37,10 @@ import type { Output } from "@/lib/domain/types";
 import { computeDriftV2, defaultExpectedAttributes } from "@/lib/resources/drift";
 import type { DriftReport, Observation, ResourceGraph, ResourceNode } from "@/lib/resources/types";
 import type { DnsRecordSpec, LoadBalancerSpec } from "@/lib/resources/specs";
-import type { ExecutionActivities, LeaseRef, VerifyStepResult } from "@/lib/workflows/types";
+import type { ExecutionActivities, LeaseRef, ReconcileActivities, VerifyStepResult } from "@/lib/workflows/types";
+import { createReconcileObserveActivity, type ReconcileOnceDeps } from "@/lib/reconcile/activity";
+import { reconcilePassPorts } from "@/lib/reconcile/ports";
+import { ReconcileError } from "@/lib/reconcile/errors";
 import { createObservabilityFabric, sourcesForEnvironment } from "@/lib/observability";
 import { mapLimit } from "./concurrency";
 import { loadExecContext, resolveConnection, type ExecLike } from "./context";
@@ -52,9 +55,25 @@ import type { Runtime, WorkScope } from "./runtime";
 import { OBSERVE_CAPABILITY, withProviderSession } from "./session";
 import { errorText, safeText } from "./text";
 
-type VerifyActivities = Pick<ExecutionActivities, "verifyInfrastructure" | "verifyApplication" | "observeEnvironment"> & {
-  reconcileObserve(input: { passId: string; workspaceId: string; environmentId: string; lease: LeaseRef }): Promise<{ drift: number; unknown: number }>;
-};
+type VerifyActivities = Pick<ExecutionActivities, "verifyInfrastructure" | "verifyApplication" | "observeEnvironment"> & ReconcileActivities;
+
+/** Reuse execution heartbeats/cancellation/renewals without acquiring a second lease. */
+export function createHeldReconcileActivity(rt: Runtime, deps: ReconcileOnceDeps): ReconcileActivities["reconcileObserve"] {
+  return async (input) => withKeepAlive(rt, { lease: input.lease, detail: "reconcile controller" }, async (signal) => {
+    await rt.d.leases.assertFence(input.lease.scope, input.lease.fenceToken);
+    const activity = createReconcileObserveActivity({ ...deps, signal, ports: {
+      ...deps.ports,
+      assertFence: async (fence) => {
+        await rt.d.leases.assertFence(fence.scope, fence.token);
+        await deps.ports.assertFence?.(fence);
+      },
+    } });
+    const result = await activity(input);
+    signal.throwIfAborted();
+    await rt.d.leases.assertFence(input.lease.scope, input.lease.fenceToken);
+    return result;
+  });
+}
 
 const MAX_LISTED = 100;
 
@@ -325,29 +344,16 @@ export function createVerifyActivities(rt: Runtime): VerifyActivities {
       return observeAndDiff(rt, ec, graph, undefined, "observe environment", ec.op.id);
     },
 
-    async reconcileObserve({ passId, workspaceId, environmentId, lease }) {
+    async reconcileObserve(input) {
+      const { passId, workspaceId, environmentId, lease } = input;
       if (passId !== `reconcile-${environmentId}` || lease.scope !== `reconcile:${environmentId}`) {
         throw new StepFailedError("The reconcile pass does not match its environment or lease; refusing to observe.");
       }
       const owner = await rt.d.product.resolveEnvironment(environmentId);
       if (!owner || owner.workspaceId !== workspaceId) throw new StepFailedError("The environment to reconcile was not found in this workspace.");
-      const product = await rt.d.product.loadContext({ workspaceId, environmentId });
-      const ec: ExecLike = {
-        op: { id: passId },
-        workspaceId,
-        environmentId,
-        product,
-        scope: { id: passId, workspaceId, projectId: product.project.id, environmentId, correlationId: passId },
-      };
-      const desired = buildDesiredState(product);
-      if (!desired.graph) {
-        if (!product.revision) return { drift: 0, unknown: 0 }; // never deployed: there is nothing to observe against
-        throw new StepFailedError(`The deployed revision cannot be expanded: ${desired.problems[0] ?? "no graph"}`);
-      }
-      await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
-      const counts = await observeAndDiff(rt, ec, desired.graph, lease, "reconcile observe", undefined);
-      await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
-      return counts;
+      const ports = await reconcilePassPorts();
+      if (!ports.loadEnvironment) throw new ReconcileError("platform_store_unavailable", "The canonical reconciliation environment lookup is not configured.");
+      return createHeldReconcileActivity(rt, { ports, loadEnvironment: ports.loadEnvironment, loadGraph: ports.loadGraph })(input);
     },
   };
 }

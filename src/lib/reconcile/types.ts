@@ -126,8 +126,9 @@ export interface ReconcileCommit {
 /**
  * A `drift.repair` operation in the operations ledger, as the controller needs
  * it to avoid duplicates and to rate-limit. The adapter returns every such
- * operation of the environment that is either NOT terminal or was created at
- * or after `sinceIso`.
+ * operation of the environment that is open, unresolved uncertain, or was
+ * created at or after `sinceIso`. Other unresolved mutations may block the
+ * environment. An incomplete inventory must throw, never silently truncate.
  */
 export interface RepairOperationRef {
   operationId: string;
@@ -137,6 +138,8 @@ export interface RepairOperationRef {
   createdAt: string;
   /** proposed by this controller (principal `reconciler`), as opposed to a person or an agent */
   byReconciler: boolean;
+  /** Unresolved mutations outside drift.repair conservatively block the entire environment. */
+  blocksEnvironment?: boolean;
 }
 
 export interface ReconcileStore {
@@ -198,6 +201,9 @@ export interface StartRepairRequest {
   projectId?: string;
   environmentId: string;
   correlationId: string;
+  /** The already held reconcile fence, never an execution grant. */
+  fence?: FenceRef;
+  signal?: AbortSignal;
 }
 
 /* ---------------------------------- ports ---------------------------------- */
@@ -206,6 +212,8 @@ export interface StartRepairRequest {
 export interface ReconcilePorts {
   now(): Date;
   store: ReconcileStore;
+  /** Assert the caller's held lease before persistence and every proposal/dispatch. */
+  assertFence?(fence: FenceRef): Promise<void>;
   broker: RepairBroker;
   /**
    * Run `fn` inside ONE read-only credential session for the environment's
@@ -299,8 +307,10 @@ export type RepairSkipReason =
   | "firewall_opened"
   | "high_severity"
   | "not_auto_eligible"
+  | "repair_not_supported"
   | "awaiting_confirmation"
   | "repair_open"
+  | "repair_uncertain"
   | "cooldown"
   | "rate_limited";
 

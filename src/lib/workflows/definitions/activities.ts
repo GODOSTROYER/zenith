@@ -7,9 +7,16 @@
  * Node code, store or environment reaches the workflow bundle.
  */
 
-import { proxyActivities } from "@temporalio/workflow";
+import { ActivityCancellationType, proxyActivities } from "@temporalio/workflow";
 import type { WorkerActivities } from "../types";
 import { ACTIVITY_OPTIONS, type ActivityName } from "./policies";
+
+/** Only the patched reconcile branch uses these changed history options. */
+export const canonicalReconcileActivities = proxyActivities<Pick<WorkerActivities, "reconcileObserve">>({
+  ...ACTIVITY_OPTIONS.reconcileObserve,
+  heartbeatTimeout: "60s",
+  cancellationType: ActivityCancellationType.WAIT_CANCELLATION_COMPLETED,
+});
 
 function proxyFor<K extends ActivityName>(name: K): WorkerActivities[K] {
   return proxyActivities<WorkerActivities>(ACTIVITY_OPTIONS[name])[name];

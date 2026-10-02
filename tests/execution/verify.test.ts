@@ -9,6 +9,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { StepFailedError } from "@/lib/execution/errors";
 import type { ObservabilityFactory } from "@/lib/execution/ports";
 import { routeTargets } from "@/lib/execution/verify";
+import { wireReconcilePorts } from "@/lib/reconcile";
+import { ENV as CONTROLLER_ENV, graph as controllerGraph, harness as controllerHarness } from "../reconcile/_support";
 import { expandManifest } from "@/lib/resources/expand";
 import { upgradeManifest } from "@/lib/resources/upgrade";
 import type { Observation } from "@/lib/resources/types";
@@ -23,6 +25,7 @@ const world = (opts: WorldOptions = {}): World => {
   return w;
 };
 afterEach(() => {
+  wireReconcilePorts(null);
   while (worlds.length) worlds.pop()!.dispose();
 });
 
@@ -400,16 +403,16 @@ describe("reconcileObserve (a pass with no operation row)", () => {
   const PASS = `reconcile-${ENV}`;
   const scope = `reconcile:${ENV}`;
 
-  it("takes the reconcile lease without an operation, observes the deployed revision and reports the counts", async () => {
-    const replicas = { current: 1 };
-    const w = world({
-      overrides: {
-        "aws:ecs_service": {
-          expectedAttributes: () => ({ replicas: 2 }),
-          observe: async (ctx, node) => presentObservation(ctx, node, { replicas: { state: "known", value: replicas.current, observedAt: ctx.now().toISOString() } }),
-        },
-      },
-    });
+  const canonical = () => {
+    const h = controllerHarness({ env: { ...CONTROLLER_ENV, workspaceId: WS, environmentId: ENV }, graph: { ...controllerGraph(), environmentId: ENV } });
+    wireReconcilePorts(() => h.ports);
+    return h;
+  };
+
+  it("uses the registered canonical controller under its held lease, with count-only output and no synthetic operation grant", async () => {
+    const w = world();
+    const h = canonical();
+    h.world.patch("log_group/web", { presence: "missing" });
     w.product.base.environment.deployedRevisionId = REVISION;
     await prepared(w);
     const lease = await w.activities.acquireLease({ operationId: PASS, scope, ttlMs: 60_000 });
@@ -418,20 +421,47 @@ describe("reconcileObserve (a pass with no operation row)", () => {
 
     const result = await w.activities.reconcileObserve({ passId: PASS, workspaceId: WS, environmentId: ENV, lease });
     expect(result).toEqual({ drift: 1, unknown: 0 });
-    expect(w.resources.reports.at(-1)!.report.environmentId).toBe(ENV);
-    const grant = w.broker.grants.at(-1)!;
-    expect(grant).toMatchObject({ operationId: PASS, capability: "infrastructure.observe", fence: { scope, fenceToken: lease.fenceToken } });
-    const detected = w.events.ofType("drift.detected").at(-1)!;
+    expect(h.backend.reportsOf(ENV)).toHaveLength(1);
+    expect(h.broker.proposals).toEqual([]);
+    expect(w.broker.grants).toEqual([]);
+    expect(w.heartbeats).toContain("reconcile controller");
+    expect(w.leases.assertCalls).toContainEqual({ scope, fenceToken: lease.fenceToken });
+    const detected = h.backend.eventsOf(ENV, "drift.detected").at(-1)!;
     expect(detected.operationId).toBeUndefined(); // a pass is not an operation
-    expect(detected.correlationId).toBe(PASS);
+    expect(detected.correlationId).toMatch(/^drift-/);
     await w.activities.releaseLease({ lease });
   });
 
   it("has nothing to observe for an environment that was never deployed", async () => {
     const w = world();
+    const h = canonical();
+    h.backend.graphs.clear();
     const lease = await w.activities.acquireLease({ operationId: PASS, scope, ttlMs: 60_000 });
     expect(await w.activities.reconcileObserve({ passId: PASS, workspaceId: WS, environmentId: ENV, lease })).toEqual({ drift: 0, unknown: 0 });
     expect(w.credentials.sessions).toHaveLength(0);
+  });
+
+  it("fails closed when the canonical controller was not wired, instead of running a parallel observer", async () => {
+    const w = world();
+    const lease = await w.activities.acquireLease({ operationId: PASS, scope, ttlMs: 60_000 });
+    await expect(w.activities.reconcileObserve({ passId: PASS, workspaceId: WS, environmentId: ENV, lease })).rejects.toMatchObject({ code: "platform_store_unavailable" });
+    expect(w.credentials.sessions).toEqual([]);
+  });
+
+  it("cancellation prevents persistence and proposals, while the activity renews the original lease", async () => {
+    const cancelled = new AbortController();
+    const w = world({ signal: cancelled.signal });
+    const h = canonical();
+    h.world.patch("log_group/web", { hang: true });
+    const lease = await w.activities.acquireLease({ operationId: PASS, scope, ttlMs: 60_000 });
+    const timer = setTimeout(() => cancelled.abort(new Error("pass cancelled")), 30);
+    try {
+      await expect(w.activities.reconcileObserve({ passId: PASS, workspaceId: WS, environmentId: ENV, lease, allowAutoRepair: true })).rejects.toThrow("pass cancelled");
+    } finally { clearTimeout(timer); }
+    expect(w.leases.renewCalls).toBeGreaterThan(0);
+    expect(w.leases.acquireCalls).toHaveLength(1);
+    expect(h.backend.reportsOf(ENV)).toEqual([]);
+    expect(h.broker.proposals).toEqual([]);
   });
 
   it("refuses a pass that does not match its environment or lease, and an environment of another workspace", async () => {

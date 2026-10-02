@@ -35,6 +35,7 @@ import { describeError, redactText } from "./redact";
 import {
   RECONCILER_PRINCIPAL,
   type ReconcileEnvironment,
+  type FenceRef,
   type ReconcileEvent,
   type ReconcilePorts,
   type RepairDecision,
@@ -71,7 +72,8 @@ function firewallOpened(f: DriftFinding): boolean {
   });
 }
 
-const isOpen = (status: RepairOperationRef["status"]): boolean => !(TERMINAL_OPERATION_STATUSES as readonly string[]).includes(status);
+// Uncertain is terminal for workflow bookkeeping, but unresolved for mutation exclusion.
+const isOpen = (status: RepairOperationRef["status"]): boolean => status === "uncertain" || !(TERMINAL_OPERATION_STATUSES as readonly string[]).includes(status);
 
 export interface Candidate {
   finding: DriftFinding;
@@ -92,6 +94,8 @@ export interface SelectInput {
   options: ResolvedReconcileOptions;
   /** finding keys present in the previous report(s), for `minConfirmations` */
   previousKeys: ReadonlySet<string>;
+  /** Supplied by the core from a real native handler or shared declarative recipe. */
+  supportsRepair?: (node: ResourceNode, finding: DriftFinding) => boolean;
 }
 
 /**
@@ -137,6 +141,7 @@ export function selectRepairCandidates(input: SelectInput): CandidateSelection {
     else if (node.kind === "firewall" && firewallOpened(f)) skip(f, "firewall_opened");
     else if (f.severity === "high") skip(f, "high_severity");
     else if (!f.repairable || !f.autoRepairEligible) skip(f, f.repairable ? "not_auto_eligible" : "not_repairable");
+    else if (input.supportsRepair && !input.supportsRepair(node, f)) skip(f, "repair_not_supported");
     else {
       const resource = resources.get(f.address);
       if (!resource) skip(f, "no_resource_row");
@@ -186,6 +191,9 @@ interface ProposeInput {
   ports: Pick<ReconcilePorts, "now" | "broker" | "startRepair" | "store">;
   options: ResolvedReconcileOptions;
   findingSince: Readonly<Record<string, string>>;
+  assertCurrent?: () => Promise<void>;
+  fence?: FenceRef;
+  signal?: AbortSignal;
 }
 
 export interface ProposeOutcome {
@@ -216,16 +224,25 @@ export async function proposeRepairs(input: ProposeInput): Promise<ProposeOutcom
     const key = findingKey({ class: class_, address });
     return correlationIdFor(environment.environmentId, key, findingSince[key] ?? report.computedAt);
   };
-  const start = (operationId: string, correlationId: string): Promise<void> =>
-    ports.startRepair({ operationId, workspaceId: environment.workspaceId, ...(environment.projectId ? { projectId: environment.projectId } : {}), environmentId: environment.environmentId, correlationId });
+  const start = async (operationId: string, correlationId: string): Promise<void> => {
+    await input.assertCurrent?.();
+    await ports.startRepair({ operationId, workspaceId: environment.workspaceId, ...(environment.projectId ? { projectId: environment.projectId } : {}), environmentId: environment.environmentId, correlationId, fence: input.fence, signal: input.signal });
+  };
 
   const windowStart = now.getTime() - options.repairWindowMs;
   let budget = Math.max(0, options.maxRepairProposals - ops.filter((o) => o.byReconciler && Date.parse(o.createdAt) >= windowStart).length);
 
   for (const candidate of selection.candidates) {
+    await input.assertCurrent?.();
     const { finding, node, resource } = candidate;
     const correlationId = correlation(node.address, finding.class);
-    const mine = ops.filter((o) => o.resourceId === resource.id);
+    const mine = ops.filter((o) => o.resourceId === resource.id || o.blocksEnvironment || (o.status === "uncertain" && !o.resourceId));
+
+    const uncertain = mine.find((o) => o.status === "uncertain");
+    if (uncertain) {
+      decisions.push({ address: node.address, class: finding.class, status: "skipped", reason: "repair_uncertain", operationId: uncertain.operationId });
+      continue;
+    }
 
     const open = mine.filter((o) => isOpen(o.status));
     if (open.length > 0) {
@@ -236,6 +253,7 @@ export async function proposeRepairs(input: ProposeInput): Promise<ProposeOutcom
           await start(stranded.operationId, correlationId);
           decision.started = true;
         } catch (err) {
+          await input.assertCurrent?.();
           decision.started = false;
           decision.error = describeError(err);
         }
@@ -258,6 +276,7 @@ export async function proposeRepairs(input: ProposeInput): Promise<ProposeOutcom
     }
 
     let result: RepairProposalResult;
+    await input.assertCurrent?.();
     try {
       result = await ports.broker.propose({
         request: buildRepairRequest({ environment, candidate, report, options, now }),
@@ -266,6 +285,7 @@ export async function proposeRepairs(input: ProposeInput): Promise<ProposeOutcom
         correlationId,
       });
     } catch (err) {
+      await input.assertCurrent?.();
       decisions.push({ address: node.address, class: finding.class, status: "failed", reason: "broker_error", error: describeError(err) });
       continue;
     }
@@ -282,6 +302,7 @@ export async function proposeRepairs(input: ProposeInput): Promise<ProposeOutcom
         await start(result.operationId, correlationId);
         decision.started = true;
       } catch (err) {
+        await input.assertCurrent?.();
         decision.started = false;
         decision.reason = "start_failed";
         decision.error = describeError(err);

@@ -73,3 +73,4 @@ export { expandManifest, ManifestExpansionError, manifestDigest, type ExpandEnv 
 export { graphDigestOf, specDigestOf, canonicalManifest } from "./expand-support";
 export { computeDriftV2, defaultExpectedAttributes, type DriftOptions, type ExpectedAttributes } from "./drift";
 export { findInlineSecretPaths, looksSecretKey, stripUrlCredentials, urlHasCredentials } from "./secrets";
+export { EcsReplicaRepairInput, ecsReplicaRepairRecipe, supportsDeclarativeRepair, type EcsReplicaRepairInputV1, type EcsReplicaRepairRecipeV1 } from "./repair-recipes";

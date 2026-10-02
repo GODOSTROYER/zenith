@@ -4,12 +4,9 @@
  *
  * Deterministic (workflow sandbox).
  *
- * Observe-and-report only. `allowAutoRepair` is accepted and reported back
- * (`repair: "not_implemented"` when drift was found), but this workflow never
- * proposes or runs a repair: doing so needs a `proposeRepair` activity that
- * files a NEW operation through the capability broker (so policy, approval and
- * the operation ledger all apply). That activity does not exist yet, so the
- * honest behaviour is to say so rather than to pretend a repair was considered.
+ * The patched path uses the same controller as HTTP reconciliation. A request
+ * permits proposals, while policy, approval and the separate day-two workflow
+ * retain execution authority. Pre-patch histories preserve their command shape.
  *
  * A reconcile pass is not an operation: it has no operation record, so it does
  * not call `markOperation`; the workflow id (`reconcile-<environmentId>`) is the
@@ -22,11 +19,18 @@
  * is released first).
  */
 
-import { CancellationScope, isCancellation, log, workflowInfo } from "@temporalio/workflow";
-import { FAILURE_TYPES, type LeaseRef, type ReconcileWorkflowInput, type ReconcileWorkflowResult } from "../types";
-import { activities } from "./activities";
+import { CancellationScope, isCancellation, log, patched, workflowInfo } from "@temporalio/workflow";
+import { FAILURE_TYPES, type LeaseRef, type ReconcileRepairSummary, type ReconcileWorkflowInput, type ReconcileWorkflowResult } from "../types";
+import { activities, canonicalReconcileActivities } from "./activities";
 import { describeError, failureTypeOf } from "./failures";
 import { LEASE_TTL_MS } from "./policies";
+
+function repairSummary(value: ReconcileRepairSummary | undefined): ReconcileRepairSummary {
+  const counts = ["proposed", "started", "awaitingApproval", "denied", "blockedUncertain", "unsupported", "failed", "skipped"] as const;
+  if (!value || !counts.every((key) => Number.isSafeInteger(value[key]) && value[key] >= 0) || typeof value.digest !== "string" || !/^[a-f0-9]{64}$/.test(value.digest))
+    throw new Error("Canonical reconciliation did not return a valid count/digest repair summary.");
+  return { proposed: value.proposed, started: value.started, awaitingApproval: value.awaitingApproval, denied: value.denied, blockedUncertain: value.blockedUncertain, unsupported: value.unsupported, failed: value.failed, skipped: value.skipped, digest: value.digest };
+}
 
 export async function reconcileEnvironmentWorkflow(input: ReconcileWorkflowInput): Promise<ReconcileWorkflowResult> {
   const passId = workflowInfo().workflowId;
@@ -41,13 +45,19 @@ export async function reconcileEnvironmentWorkflow(input: ReconcileWorkflowInput
       throw err;
     }
 
-    const observed = await activities.reconcileObserve({ passId, workspaceId: input.workspaceId, environmentId: input.environmentId, lease });
+    // Keep until all pre-controller histories have left retention. See Temporal
+    // https://docs.temporal.io/develop/typescript/workflows/versioning#patching
+    const canonical = patched("reconcile-canonical-proposals-v1");
+    const observed = await (canonical ? canonicalReconcileActivities : activities).reconcileObserve({ passId, workspaceId: input.workspaceId, environmentId: input.environmentId, lease, ...(canonical ? { allowAutoRepair: input.allowAutoRepair } : {}) });
+    if (canonical && (!Number.isSafeInteger(observed.drift) || observed.drift < 0 || !Number.isSafeInteger(observed.unknown) || observed.unknown < 0))
+      throw new Error("Canonical reconciliation did not return valid observation counts.");
     return {
       environmentId: input.environmentId,
       status: "observed",
       drift: observed.drift,
       unknown: observed.unknown,
-      repair: input.allowAutoRepair && observed.drift > 0 ? "not_implemented" : "not_requested",
+      repair: canonical ? (input.allowAutoRepair ? "considered" : "not_requested") : (input.allowAutoRepair && observed.drift > 0 ? "not_implemented" : "not_requested"),
+      ...(canonical ? { repairs: repairSummary(observed.repairs) } : {}),
     };
   } catch (err) {
     if (isCancellation(err)) throw err;

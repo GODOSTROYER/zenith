@@ -32,14 +32,34 @@ describe("the Temporal reconcileObserve activity body", () => {
   it("observes and reports only unless auto repair is explicitly enabled, and then only PROPOSES", async () => {
     const h = harness();
     h.world.patch("log_group/web", { presence: "missing" });
-    await createReconcileObserveActivity(deps(h))({ passId: "p", workspaceId: "ws-1", environmentId: "env-prod", lease: lease() });
+    await createReconcileObserveActivity(deps(h))({ passId: "reconcile-env-prod", workspaceId: "ws-1", environmentId: "env-prod", lease: lease() });
     expect(h.broker.proposals).toEqual([]);
 
     const g = harness();
     g.world.patch("log_group/web", { presence: "missing" });
-    await createReconcileObserveActivity(deps(g, { autoRepair: true }))({ passId: "p", workspaceId: "ws-1", environmentId: "env-prod", lease: lease() });
+    const result = await createReconcileObserveActivity(deps(g))({ passId: "reconcile-env-prod", workspaceId: "ws-1", environmentId: "env-prod", lease: lease(), allowAutoRepair: true });
     expect(g.broker.proposals).toHaveLength(1);
+    expect(result.repairs).toMatchObject({ proposed: 1, started: 1, awaitingApproval: 0, denied: 0 });
+    expect(result.repairs?.digest).toMatch(/^[a-f0-9]{64}$/);
     expect(g.world.operationCalls).toEqual([]); // proposed through the broker, never executed here
+  });
+
+  it.each(["require_approval", "deny", "throw"] as const)("proposal permission preserves the broker's %s authority", async (outcome) => {
+    const h = harness();
+    h.broker.script = outcome;
+    h.world.patch("log_group/web", { presence: "missing" });
+    const out = await createReconcileObserveActivity(deps(h))({ passId: "reconcile-env-prod", workspaceId: "ws-1", environmentId: "env-prod", lease: lease(), allowAutoRepair: true });
+    expect(h.started).toEqual([]);
+    expect(out.repairs).toMatchObject({ started: 0, awaitingApproval: outcome === "require_approval" ? 1 : 0, denied: outcome === "deny" ? 1 : 0, failed: outcome === "throw" ? 1 : 0 });
+    expect(JSON.stringify(out)).not.toContain("log_group/web");
+    expect(JSON.stringify(out)).not.toContain("broker unavailable");
+  });
+
+  it("configuration cannot enable proposals when the workflow did not request them", async () => {
+    const h = harness();
+    h.world.patch("log_group/web", { presence: "missing" });
+    await createReconcileObserveActivity({ ...deps(h), options: { autoRepair: true } })({ passId: "reconcile-env-prod", workspaceId: "ws-1", environmentId: "env-prod", lease: lease(), allowAutoRepair: false });
+    expect(h.broker.proposals).toEqual([]);
   });
 
   it("refuses a lease that is not this environment's reconcile lease, before reading anything", async () => {
@@ -55,6 +75,7 @@ describe("the Temporal reconcileObserve activity body", () => {
     const h = harness();
     await expect(reconcileObserveOnce({ workspaceId: "ws-other", environmentId: "env-prod" }, deps(h))).rejects.toMatchObject({ code: "invalid_input" });
     await expect(reconcileObserveOnce({ workspaceId: "ws-1", environmentId: "env-ghost" }, deps(h))).rejects.toMatchObject({ code: "invalid_input" });
+    await expect(reconcileObserveOnce({ workspaceId: "ws-1", environmentId: "env-ghost" }, { ...deps(h), loadEnvironment: async () => ENV })).rejects.toMatchObject({ code: "invalid_input" });
   });
 
   it("nothing deployed yet is zero drift, honestly labelled, and reads nothing", async () => {

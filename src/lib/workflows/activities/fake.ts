@@ -277,7 +277,7 @@ export function createFakeActivities(): FakeActivities {
     verifyApplication: wrap("verifyApplication", async () => ({ status: "passed" as const, checks: 2, failed: 0, url: "https://app.example.test" })),
     observeEnvironment: wrap("observeEnvironment", async () => ({ drift: 0, unknown: 0 })),
     executeCapability: wrap("executeCapability", async () => ({ ok: true, summary: "restarted 2 tasks" })),
-    reconcileObserve: wrap("reconcileObserve", async () => ({ drift: 1, unknown: 0 })),
+    reconcileObserve: wrap("reconcileObserve", async (input) => ({ drift: 1, unknown: 0, ...(input.allowAutoRepair !== undefined ? { repairs: { proposed: 0, started: 0, awaitingApproval: 0, denied: 0, blockedUncertain: 0, unsupported: 0, failed: 0, skipped: 0, digest: "0".repeat(64) } } : {}) })),
   };
 
   return {

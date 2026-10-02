@@ -38,7 +38,7 @@
  * Every activity returns ids, digests, counts and short scrubbed strings; none
  * returns or persists a credential, a plan file or a raw provider payload.
  */
-import type { ExecutionActivities, LeaseRef } from "@/lib/workflows/types";
+import type { ExecutionActivities, ReconcileActivities } from "@/lib/workflows/types";
 import { createApplyActivities } from "./apply";
 import { createDestroyActivities, checkDestroyApproval } from "./destroy";
 import { loadOperation } from "./context";
@@ -53,7 +53,7 @@ import { createVerifyActivities } from "./verify";
 
 /** Structurally identical to `WorkerActivities` (`ExecutionActivities & ReconcileActivities`) in workflows/types.ts. */
 export interface ExecutionWorkerActivities extends ExecutionActivities, DestroyActivities {
-  reconcileObserve(input: { passId: string; workspaceId: string; environmentId: string; lease: LeaseRef }): Promise<{ drift: number; unknown: number }>;
+  reconcileObserve: ReconcileActivities["reconcileObserve"];
 }
 
 export function createExecutionActivities(deps: ExecutionDeps): ExecutionWorkerActivities {

@@ -496,6 +496,14 @@
           "commit": "3f7e522a5f0b09ee748e80587c9e80b8545d09d7",
           "result": "Root independently verified final3-path correction205P0F0S including5 actual network OpenTofu tests; fulltypecheck/lint/Go pass. Faithful owned-store cleanup mocks and success/failure cleanup assertions, acceptance-onlyswitch docs; no skipped/relaxed/deleted gates or production changes. Mergedee8b604 locally. Fresh combined full gate, push and terminal remote-green observation deliberately deferred at explicit userpause.",
           "artifact": "docs/build/production/handoffs/2026-10-02/CI-CORRECTION.md"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "b46fb8a2617f59448f943088e3ed1a446a9a7c38",
+          "runId": 37054646025,
+          "result": "Observed green pushed baseline at exact b46fb8a: all 14 jobs passed. Unit suites passed 16,301 tests with zero failures and 388 skips; generated checks passed 109 with zero failures or skips. Smoke and Gimbal ran and passed. Canonical postgres 251, platform-postgres 1,409, policy 238, OpenTofu 3,874 and workflows 870 all passed with zero failures, skips or unknown cases. All 9/39/7/27/38 mandatory groups and 12 schema-2 receipt bindings matched, with observed exit 0. Exact source, runtime, gate, lock and manifest hashes were independently reviewed. Complete locked audit reported zero known findings. Go race output recorded 11 passing packages and six without tests; individual Go case counts were not emitted. TypeScript interop passed 19 cases. This evidence excludes later ECS source and wider external release gates.",
+          "artifact": "docs/build/production/ci-37054646025.md",
+          "executionReceiptComplete": true
         }
       ],
       "requiredEvidence": [
@@ -2531,28 +2539,35 @@
   "sessionState": {
     "status": "active",
     "resumedBy": "user",
-    "recordedAt": "2026-10-02T19:30:24.436656+00:00",
+    "recordedAt": "2026-10-02T20:06:47.117716+00:00",
     "sourceCheckpoint": "fbfa456e0111b106f039e2800b2c276b63d01b86",
-    "lastPushedCommit": "fbfa456e0111b106f039e2800b2c276b63d01b86",
-    "lastPushedRun": 36990123532,
-    "lastPushedRunStatus": "failure",
-    "lastGreenCommit": "2c9d6fa1ee5821d6b90fef4b8aab08a9ba32352a",
-    "activeWorkers": 3,
+    "lastPushedCommit": "b46fb8a2617f59448f943088e3ed1a446a9a7c38",
+    "lastPushedRun": 37054646025,
+    "lastPushedRunStatus": "completed_success",
+    "lastGreenCommit": "b46fb8a2617f59448f943088e3ed1a446a9a7c38",
+    "activeWorkers": 2,
     "concurrency": "one heavy local process",
-    "next": "Push verified CI context correction, observe complete run. Preserve and fast-forward frozen ECS26candidate; finish documentation/gates/combined checks. Then actual worker images serially and full program gates.",
-    "lastObservedCiSummary": "docs/build/production/ci-36990123532.md",
+    "next": "Finish exact ECS combined verification, fresh kind and independent final documentation review; integrate before serial actual worker images and full canonical gates. Push normally and observe new complete CI before calling later commit green. Continue durable original-plan handoff and remaining requirements.",
+    "lastObservedCiSummary": "docs/build/production/ci-37054646025.md",
     "currentEcsCheck": {
-      "label": "prod-ecs-final-gates-root",
-      "passed": 595,
+      "label": "prod-ecs-combined-final-root",
+      "passed": 1232,
       "failed": 0,
       "skipped": 0,
       "typecheck": "passed",
       "lint": "passed",
       "go": "226top+539subpassed,3Linux-onlyMacskips",
-      "postgres": "1344P0F0S,45groups,6genuinePGgrantcases",
-      "kind": "provider6/6+release1/1,cleanupverified",
-      "audit": "0knownlockedfindings,0exceptions",
-      "integration": "unmerged; fast-forward and documentation follow-up next"
+      "postgres": "1422P0F0S,45groups,6genuinePGgrantcases,12matchedschema2bindings,cleanupverified",
+      "kind": "provider6/6+release1/1,0failures/skips,ownedcluster/containers/kubeconfigcleanupverified",
+      "audit": "priorfrozenlock0knownfindings,0exceptions;lockbytesunchanged",
+      "integration": "unmerged; final guide clarification and independent review pending",
+      "failedAttempt": {
+        "label": "prod-ecs-combined-root",
+        "passed": 1185,
+        "failed": 1,
+        "skipped": 0,
+        "reason": "Obsolete operator-doc direct inspector literal; corrected mapping retains digest/deletion-before-repair assertions. Go did not run on failed attempt."
+      }
     },
     "lastIntegration": "d6be4404407afd02b2f2ec211c47d3e8e0dd80d5"
   },

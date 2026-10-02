@@ -1,0 +1,23 @@
+{
+  "mode": "production",
+  "apiPort": 36400,
+  "images": {
+    "api": "<immutable API repository@sha256:digest>",
+    "worker": "<immutable execution worker repository@sha256:digest>",
+    "migration": "<immutable migration repository@sha256:digest>"
+  },
+  "environment": {
+    "NEXT_PUBLIC_SITE_URL": "<exact HTTPS Zenith origin>",
+    "SUPABASE_URL": "<real HTTPS Supabase origin>",
+    "NEXT_PUBLIC_SUPABASE_URL": "<same real HTTPS Supabase origin>",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "<public Supabase publishable key>",
+    "SUPABASE_SERVICE_ROLE_KEY": "<private Supabase service role key>",
+    "SUPABASE_DB_URL": "<postgresql transaction pooler URI, port 6543, sslmode=verify-full>",
+    "ZENITH_PLATFORM_DB_URL": "<separate platform server application URI, sslmode=verify-full>",
+    "ZENITH_PLATFORM_MIGRATION_URL": "<same platform server/database migration-role URI, sslmode=verify-full>",
+    "ZENITH_TEMPORAL_ADDRESS": "<authenticated managed Temporal host:7233>",
+    "ZENITH_TEMPORAL_NAMESPACE": "<existing dedicated namespace>",
+    "ZENITH_TEMPORAL_TLS": "true",
+    "ZENITH_TEMPORAL_API_KEY": "<private Temporal API key>"
+  }
+}

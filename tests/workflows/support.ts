@@ -14,7 +14,8 @@
  *      attached with createFromExistingServer.
  * `startTestServer("time-skipping")` uses createTimeSkipping() (the SDK's cached
  * or downloaded test server); there is no equivalent fallback, so a suite that
- * needs time skipping skips itself with the reason when it is unavailable.
+ * needs time skipping reports the reason when it is unavailable. Required runs
+ * (`ZENITH_TEST_TEMPORAL=1`) fail on unavailable servers instead of skipping.
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
@@ -127,6 +128,12 @@ function quietRuntime(): void {
 export async function startTestServer(kind: "local" | "time-skipping"): Promise<StartResult> {
   quietRuntime();
   const attempts: string[] = [];
+  const unavailable = (reason: string): StartResult => {
+    if (process.env.ZENITH_TEST_TEMPORAL === "1") {
+      throw new Error(`Required Temporal ${kind} server unavailable: ${reason}`);
+    }
+    return { skipReason: reason };
+  };
   const done = (env: TestWorkflowEnvironment, mode: ServerMode, extra?: () => Promise<void>): StartResult => {
     refuseDefaultPort(env);
     return {
@@ -145,12 +152,12 @@ export async function startTestServer(kind: "local" | "time-skipping"): Promise<
   if (kind === "time-skipping") {
     const executable = process.env.ZENITH_TEST_TEMPORAL_SERVER;
     if (!executable && process.env.ZENITH_TEST_TEMPORAL_DOWNLOAD !== "1") {
-      return { skipReason: "Time-skipping server unavailable offline. Set ZENITH_TEST_TEMPORAL_SERVER to an existing test-server binary, or ZENITH_TEST_TEMPORAL_DOWNLOAD=1 to permit downloads." };
+      return unavailable("Time-skipping server unavailable offline. Set ZENITH_TEST_TEMPORAL_SERVER to an existing test-server binary, or ZENITH_TEST_TEMPORAL_DOWNLOAD=1 to permit downloads.");
     }
     try {
       return done(await TestWorkflowEnvironment.createTimeSkipping(executable ? { server: { executable: { type: "existing-path", path: executable } } } : undefined), "time-skipping");
     } catch (err) {
-      return { skipReason: `createTimeSkipping failed: ${(err as Error).message}` };
+      return unavailable(`createTimeSkipping failed: ${(err as Error).message}`);
     }
   }
 
@@ -184,7 +191,7 @@ export async function startTestServer(kind: "local" | "time-skipping"): Promise<
       attempts.push(`spawned dev server: ${(err as Error).message}`);
     }
   }
-  return { skipReason: `no Temporal test server could be started:\n  ${attempts.join("\n  ")}` };
+  return unavailable(`no Temporal test server could be started:\n  ${attempts.join("\n  ")}`);
 }
 
 /* ---------------------------- workflow bundle cache --------------------------- */

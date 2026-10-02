@@ -1,14 +1,15 @@
 /** Synthetic reports test sanitization; they are never engine acceptance evidence. */
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { countsFor, ENVIRONMENT_FINGERPRINT_EXCLUSIONS, main as sanitizeMain, preserveExecutionObservation, provenanceFor, sanitizedEvidence } from "../../scripts/ci/sanitize-evidence.mjs";
-import { requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { countsFor, effectiveEnvironmentFor, ENVIRONMENT_FINGERPRINT_EXCLUSIONS, executionReceiptFor, executionReceiptPath, main as sanitizeMain, preserveExecutionObservation, provenanceFor, sanitizedEvidence, writeExecutionReceipt } from "../../scripts/ci/sanitize-evidence.mjs";
+import { manifestFor, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { validateGate } from "../../scripts/ci/run-gate.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
+import { executionBindingFixture } from "./execution-binding-fixture.mjs";
 
 const root = process.cwd();
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-sanitized-evidence-"));
@@ -26,6 +27,12 @@ function reportFor(lane = "platform-postgres") {
 }
 
 const provenance = provenanceFor(root, { NODE_ENV: "test", GATE_INPUT: "public contract" });
+
+function observe(lane: string, input: string, output: string, exitCode: number) {
+  const raw = fs.readFileSync(input, "utf8");
+  const origin = sanitizedEvidence(lane, JSON.parse(raw), root, provenanceFor(root, effectiveEnvironmentFor(lane, root)), raw, manifestFor(lane, root, input));
+  writeExecutionReceipt(output, executionReceiptFor(origin, exitCode));
+}
 
 describe("sanitized evidence boundary", () => {
   it("exports count-only requirement evidence bound to commit, dependencies, source and environment", () => {
@@ -104,13 +111,17 @@ describe("sanitized evidence boundary", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     try {
-      expect(validateGate("platform-postgres", input, output, root, 1)).toBe(1);
+      observe("platform-postgres", input, output, 1);
+      const origin = fs.readFileSync(executionReceiptPath(output), "utf8");
       expect(validateGate("platform-postgres", input, output, root)).toBe(1);
       expect(sanitizeMain(["platform-postgres", input, output])).toBe(1);
       expect(validateGate("platform-postgres", input, output, root)).toBe(1);
-      expect(JSON.parse(fs.readFileSync(output, "utf8"))).toMatchObject({ verdict: "failed", execution: { exitCode: 1, observed: true } });
+      expect(JSON.parse(fs.readFileSync(output, "utf8"))).toMatchObject({ verdict: "failed", execution: { exitCode: 1, observed: true, binding: "matched" } });
+      expect(fs.readFileSync(executionReceiptPath(output), "utf8")).toBe(origin);
       // A newly observed successful command supersedes the previous attempt.
-      expect(validateGate("platform-postgres", input, output, root, 0)).toBe(0);
+      fs.rmSync(executionReceiptPath(output));
+      observe("platform-postgres", input, output, 0);
+      expect(validateGate("platform-postgres", input, output, root)).toBe(0);
       expect(JSON.parse(fs.readFileSync(output, "utf8"))).toMatchObject({ verdict: "passed", execution: { exitCode: 0, observed: true } });
     } finally { error.mockRestore(); log.mockRestore(); }
   });
@@ -123,7 +134,8 @@ describe("sanitized evidence boundary", () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     try {
       for (const name of ENVIRONMENT_FINGERPRINT_EXCLUSIONS) vi.stubEnv(name, path.join(scratch, "execution-" + name));
-      expect(validateGate("platform-postgres", input, output, root, 1)).toBe(1);
+      observe("platform-postgres", input, output, 1);
+      expect(validateGate("platform-postgres", input, output, root)).toBe(1);
       const executed = JSON.parse(fs.readFileSync(output, "utf8"));
       for (const name of ENVIRONMENT_FINGERPRINT_EXCLUSIONS) vi.stubEnv(name, path.join(scratch, "validation-" + name));
       expect(validateGate("platform-postgres", input, output, root)).toBe(1);
@@ -139,15 +151,16 @@ describe("sanitized evidence boundary", () => {
     const first = provenanceFor(root, { [name]: "first-input" });
     const second = provenanceFor(root, { [name]: "second-input" });
     const candidate = sanitizedEvidence("platform-postgres", reportFor(), root, second);
-    const previous = { ...sanitizedEvidence("platform-postgres", reportFor(), root, first), execution: { exitCode: 1, observed: true } };
+    const previous = executionReceiptFor(sanitizedEvidence("platform-postgres", reportFor(), root, first), 1);
     expect(first.environment.sha256).not.toBe(second.environment.sha256);
-    expect(preserveExecutionObservation(candidate, previous)).toBeUndefined();
-    expect(candidate.execution).toEqual({ exitCode: null, observed: false });
+    expect(preserveExecutionObservation(candidate, previous)).toBe(1);
+    expect(candidate.execution).toMatchObject({ exitCode: 1, observed: true, binding: "mismatch" });
+    expect(candidate.verdict).toBe("failed");
   });
 
-  it.each(["report", "manifest", "tracked-source", "untracked-source", "environment", "installed-version", "locked-version"])("does not reuse a prior failed invocation when the %s binding changed", (binding) => {
+  it.each(["report", "manifest", "tracked-source", "untracked-source", "environment", "installed-version", "locked-version"])("retains origin failure and unverifies execution when the %s binding changed", (binding) => {
     const baseline = sanitizedEvidence("platform-postgres", reportFor(), root, provenance);
-    const previous = { ...structuredClone(baseline), execution: { exitCode: 1, observed: true } };
+    const previous = executionReceiptFor(baseline, 1);
     const candidate = structuredClone(baseline);
     switch (binding) {
       case "report": candidate.reportSha256 = "different-report"; break;
@@ -158,9 +171,167 @@ describe("sanitized evidence boundary", () => {
       case "installed-version": candidate.provenance.dependencies[0].installed = "0.0.1"; break;
       case "locked-version": candidate.provenance.dependencies[0].locked = "0.0.1"; break;
     }
-    expect(preserveExecutionObservation(candidate, previous)).toBeUndefined();
-    expect(candidate.execution).toEqual({ exitCode: null, observed: false });
-    expect(candidate.verdict).toBe("passed");
+    expect(preserveExecutionObservation(candidate, previous)).toBe(1);
+    expect(candidate.execution).toMatchObject({ exitCode: 1, observed: true, binding: "mismatch" });
+    expect(candidate.verdict).toBe("failed");
+    expect(candidate.required.every((required: { status: string }) => required.status === "unverified")).toBe(true);
+  });
+
+  it("retains a different trusted lane's exact origin and fails the lane binding", () => {
+    const previous = executionReceiptFor(sanitizedEvidence("policy", reportFor("policy"), root, provenance), 23);
+    const candidate = sanitizedEvidence("platform-postgres", reportFor(), root, provenance);
+    expect(preserveExecutionObservation(candidate, previous)).toBe(23);
+    expect(candidate).toMatchObject({ verdict: "failed", execution: { observed: true, exitCode: 23, termination: "exit", binding: "mismatch", originReceipt: { lane: "policy", exitCode: 23 }, checks: { lane: false } } });
+    const untrusted = { ...previous, lane: "untrusted-lane-payload" };
+    const next = sanitizedEvidence("platform-postgres", reportFor(), root, provenance);
+    expect(preserveExecutionObservation(next, untrusted)).toBeUndefined();
+    expect(next.execution).toMatchObject({ observed: false, binding: "mismatch", originReceipt: null });
+    expect(JSON.stringify(next)).not.toContain("untrusted-lane-payload");
+  });
+
+  it("never treats report-only validation as observed execution, and CI can require its receipt", () => {
+    const input = path.join(scratch, "report-only.json");
+    const output = path.join(scratch, "report-only-evidence.json");
+    fs.writeFileSync(input, JSON.stringify(reportFor()));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      expect(validateGate("platform-postgres", input, output, root)).toBe(0);
+      expect(JSON.parse(fs.readFileSync(output, "utf8")).execution).toMatchObject({ observed: false, exitCode: null, binding: "missing" });
+      expect(fs.existsSync(executionReceiptPath(output))).toBe(false);
+      expect(validateGate("platform-postgres", input, output, root, { requireExecution: true })).toBe(1);
+      expect(JSON.parse(fs.readFileSync(output, "utf8"))).toMatchObject({ verdict: "failed", execution: { observed: false, binding: "missing" } });
+      expect(fs.existsSync(executionReceiptPath(output))).toBe(false);
+    } finally { error.mockRestore(); log.mockRestore(); }
+  });
+
+  it.each(["malformed", "unknown-fields", "missing-fields"])("fails closed on a %s execution receipt without exporting its payload", (kind) => {
+    const input = path.join(scratch, `invalid-${kind}.json`);
+    const output = path.join(scratch, `invalid-${kind}-evidence.json`);
+    const secret = ["gh", "p_"].join("") + randomBytes(20).toString("hex");
+    fs.writeFileSync(input, JSON.stringify(reportFor()));
+    observe("platform-postgres", input, output, 0);
+    const value = JSON.parse(fs.readFileSync(executionReceiptPath(output), "utf8"));
+    if (kind === "unknown-fields") value.error = secret;
+    if (kind === "missing-fields") delete value.sourceSha256;
+    const origin = kind === "malformed" ? secret : JSON.stringify(value);
+    fs.writeFileSync(executionReceiptPath(output), origin);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      expect(validateGate("platform-postgres", input, output, root)).toBe(1);
+      expect(sanitizeMain(["platform-postgres", input, output])).toBe(1);
+      const evidence = fs.readFileSync(output, "utf8");
+      expect(evidence).not.toContain(secret);
+      expect(JSON.parse(evidence)).toMatchObject({ verdict: "failed", execution: { observed: false, binding: "mismatch", originReceipt: null, receiptSha256: createHash("sha256").update(origin).digest("hex") } });
+      expect(fs.readFileSync(executionReceiptPath(output), "utf8")).toBe(origin);
+    } finally { error.mockRestore(); log.mockRestore(); }
+  });
+
+  it("records the failed canonical command across separate default-shell steps and an intermediary report", () => {
+    const fixture = executionBindingFixture();
+    try {
+      expect(fixture.step("run").status).toBe(1);
+      const origin = fs.readFileSync(fixture.receipt, "utf8");
+      expect(JSON.parse(origin).exitCode).toBe(23);
+      expect(fixture.step("lane-report").status).toBe(0);
+      expect(fixture.step("validate", { flags: ["--require-execution"] }).status).toBe(1);
+      expect(JSON.parse(fs.readFileSync(fixture.evidence, "utf8"))).toMatchObject({ verdict: "failed", counts: { passed: 1, failed: 0 }, execution: { observed: true, exitCode: 23, binding: "matched" } });
+      expect(JSON.parse(fs.readFileSync(fixture.evidence, "utf8")).execution.originReceipt).toEqual(JSON.parse(origin));
+      expect(JSON.parse(fs.readFileSync(fixture.evidence, "utf8")).execution.receiptSha256).toBe(createHash("sha256").update(origin).digest("hex"));
+      expect(fixture.step("validate", { env: { SHLVL: "1" }, flags: ["--require-execution"] }).status).toBe(1);
+      expect(JSON.parse(fs.readFileSync(fixture.evidence, "utf8"))).toMatchObject({ verdict: "failed", execution: { observed: true, exitCode: 23, binding: "mismatch", checks: { effectiveEnvironmentSha256: false, shellContextSha256: false } } });
+      expect(fs.readFileSync(fixture.receipt, "utf8")).toBe(origin);
+    } finally { fixture.cleanup(); }
+  });
+
+  it.each(["environment", "source", "lockfile", "report"])("unverifies a successful command when its later %s binding changes", (binding) => {
+    const fixture = executionBindingFixture();
+    try {
+      expect(fixture.step("run", { env: { FIXTURE_EXIT: "0" } }).status).toBe(0);
+      const origin = fs.readFileSync(fixture.receipt, "utf8");
+      const env: Record<string, string> = { FIXTURE_EXIT: "0" };
+      if (binding === "environment") env.API_KEY = "changed-sensitive-input";
+      if (binding === "source") fs.appendFileSync(path.join(fixture.root, "tests/policy/receipt.test.ts"), "// source changed\n");
+      if (binding === "lockfile") fs.writeFileSync(path.join(fixture.root, "package-lock.json"), JSON.stringify({ packages: {} }));
+      if (binding === "report") fs.appendFileSync(path.join(fixture.root, ".data-ci-lane/policy-lane.json"), "\n");
+      expect(fixture.step("validate", { env, flags: ["--require-execution"] }).status).toBe(1);
+      expect(JSON.parse(fs.readFileSync(fixture.evidence, "utf8"))).toMatchObject({ verdict: "failed", execution: { observed: true, exitCode: 0, binding: "mismatch" } });
+      expect(fs.readFileSync(fixture.receipt, "utf8")).toBe(origin);
+    } finally { fixture.cleanup(); }
+  });
+
+  it("captures source before the command and rejects command-time source changes", () => {
+    const fixture = executionBindingFixture();
+    try {
+      fs.appendFileSync(path.join(fixture.root, "node_modules/vitest/vitest.mjs"), '\nfs.appendFileSync("tests/policy/receipt.test.ts", "// changed during command\\n");\n');
+      expect(fixture.step("run", { env: { FIXTURE_EXIT: "0" } }).status).toBe(1);
+      expect(JSON.parse(fs.readFileSync(fixture.evidence, "utf8"))).toMatchObject({ verdict: "failed", execution: { observed: true, exitCode: 0, binding: "mismatch", checks: { sourceSha256: false } } });
+    } finally { fixture.cleanup(); }
+  });
+
+  it.each(["assume-unchanged", "skip-worktree"])("rejects %s index flags that hide edited tracked source", (flag) => {
+    const fixture = executionBindingFixture();
+    try {
+      const source = "tests/policy/receipt.test.ts";
+      expect(spawnSync("git", ["update-index", `--${flag}`, source], { cwd: fixture.root }).status).toBe(0);
+      fs.appendFileSync(path.join(fixture.root, source), "// hidden source edit\n");
+      expect(spawnSync("git", ["diff", "--no-ext-diff", "--no-textconv", "--exit-code", "HEAD"], { cwd: fixture.root }).status).toBe(0);
+      expect(fixture.step("run", { env: { FIXTURE_EXIT: "0" } }).status).toBe(1);
+      const evidence = JSON.parse(fs.readFileSync(fixture.evidence, "utf8"));
+      expect(evidence).toMatchObject({ verdict: "failed", provenance: { sourceBindingComplete: false, index: { inventoryComplete: true } }, execution: { observed: true, exitCode: 0, binding: "mismatch" } });
+      expect(evidence.provenance.index[flag === "assume-unchanged" ? "assumeUnchanged" : "skipWorktree"]).toBe(1);
+      expect(evidence.required.every((required: { status: string }) => required.status === "unverified")).toBe(true);
+    } finally { fixture.cleanup(); }
+  });
+
+  it("retains the actual signal without manufacturing a command exit code", () => {
+    const fixture = executionBindingFixture();
+    const env = { FIXTURE_EXIT: "0", FIXTURE_SIGNAL: "SIGTERM" };
+    try {
+      expect(fixture.step("run", { env }).status).toBe(1);
+      const origin = fs.readFileSync(fixture.receipt, "utf8");
+      expect(JSON.parse(origin)).toMatchObject({ exitCode: null, termination: "signal", signal: "SIGTERM" });
+      expect(fixture.step("validate", { env, flags: ["--require-execution"] }).status).toBe(1);
+      expect(JSON.parse(fs.readFileSync(fixture.evidence, "utf8"))).toMatchObject({ verdict: "failed", counts: { passed: 1 }, execution: { observed: true, exitCode: null, termination: "signal", signal: "SIGTERM", binding: "matched" } });
+      expect(fs.readFileSync(fixture.receipt, "utf8")).toBe(origin);
+    } finally { fixture.cleanup(); }
+  });
+
+  it("records a real launch failure as unobserved execution and never copies its error", () => {
+    const fixture = executionBindingFixture();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      expect(fixture.step("run", { env: { FIXTURE_EXIT: "0" } }).status).toBe(0);
+      const reportPath = ".data-ci-lane/policy-lane.json";
+      const raw = fs.readFileSync(path.join(fixture.root, reportPath), "utf8");
+      const env: NodeJS.ProcessEnv = { ...effectiveEnvironmentFor("policy", fixture.root), NODE_ENV: "test" };
+      const origin = sanitizedEvidence("policy", JSON.parse(raw), fixture.root, provenanceFor(fixture.root, env), raw, manifestFor("policy", fixture.root, reportPath));
+      const failed = spawnSync(path.join(fixture.root, "missing-canonical-command"), [], { cwd: fixture.root, env });
+      expect(failed.status).toBeNull();
+      expect(failed.error).toBeDefined();
+      const secret = ["gh", "p_"].join("") + randomBytes(20).toString("hex");
+      failed.error!.message += secret;
+      fs.rmSync(fixture.receipt);
+      writeExecutionReceipt(fixture.evidence, executionReceiptFor(origin, failed));
+      const bytes = fs.readFileSync(fixture.receipt, "utf8");
+      expect(bytes).not.toContain(secret);
+      expect(JSON.parse(bytes)).toMatchObject({ exitCode: null, termination: "launch-failed", signal: null });
+      expect(validateGate("policy", reportPath, fixture.evidence, fixture.root, { requireExecution: true })).toBe(1);
+      const evidence = fs.readFileSync(fixture.evidence, "utf8");
+      expect(evidence).not.toContain(secret);
+      expect(JSON.parse(evidence)).toMatchObject({ verdict: "failed", execution: { observed: false, exitCode: null, termination: "launch-failed", signal: null, binding: "matched" } });
+      expect(fs.readFileSync(fixture.receipt, "utf8")).toBe(bytes);
+    } finally { fixture.cleanup(); error.mockRestore(); log.mockRestore(); }
+  });
+
+  it("normalizes only canonical effective manifest overrides for execution and validation", () => {
+    const first = effectiveEnvironmentFor("platform-postgres", root, { ZENITH_FAST: "0", API_KEY: "first" });
+    const second = effectiveEnvironmentFor("platform-postgres", root, { API_KEY: "first" });
+    expect(first).toEqual(second);
+    expect(first.ZENITH_FAST).toBe("1");
+    expect(effectiveEnvironmentFor("platform-postgres", root, { API_KEY: "second" })).not.toEqual(first);
   });
 
   it("reports installed and locked versions independently instead of treating expectations as measurements", () => {

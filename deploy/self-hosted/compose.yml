@@ -1,0 +1,76 @@
+# External real Supabase/auth, a separate platform Postgres authority and
+# authenticated durable Temporal are prerequisites; see INSTALLATION.md.
+x-ownership: &ownership
+  io.zenith.installation: ${ZENITH_INSTALLATION_ID:?prepare private configuration}
+x-restrictions: &restrictions
+  restart: unless-stopped
+  read_only: true
+  init: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  labels: *ownership
+  networks: [installation]
+  logging:
+    driver: local
+    options: {max-size: 10m, max-file: '3'}
+services:
+  api:
+    <<: *restrictions
+    image: ${ZENITH_API_IMAGE:?supply immutable API image}
+    user: '1001:1001'
+    env_file:
+      - path: ${ZENITH_PRIVATE_DIR:?prepare private configuration}/api.env
+        format: raw
+    ports: ['127.0.0.1:${ZENITH_API_PORT:?choose API port}:3400']
+    volumes:
+      - api-data:/data
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m,uid=1001,gid=1001,mode=1770
+      - /app/.next/cache:rw,noexec,nosuid,size=512m,uid=1001,gid=1001,mode=1770
+    cpus: 2
+    mem_limit: 2g
+    pids_limit: 256
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3400/api/me').then(async r=>{if(!r.ok||(await r.json()).configured!==true)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 45s
+      retries: 4
+  execution-worker:
+    <<: *restrictions
+    image: ${ZENITH_WORKER_IMAGE:?supply immutable execution image}
+    user: '10001:10001'
+    env_file:
+      - path: ${ZENITH_PRIVATE_DIR:?prepare private configuration}/worker.env
+        format: raw
+    volumes: [worker-data:/var/lib/zenith]
+    tmpfs: ['/tmp:rw,nosuid,size=1g,uid=10001,gid=10001,mode=1770']
+    cpus: 2
+    mem_limit: 3g
+    pids_limit: 512
+    stop_grace_period: 11m
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:9464/readyz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 4
+  platform-migrate:
+    <<: *restrictions
+    profiles: [maintenance]
+    restart: 'no'
+    image: ${ZENITH_MIGRATION_IMAGE:?supply immutable migration image}
+    user: '1001:1001'
+    env_file:
+      - path: ${ZENITH_PRIVATE_DIR:?prepare private configuration}/migration.env
+        format: raw
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=128m,uid=1001,gid=1001,mode=1770']
+    cpus: 1
+    mem_limit: 1g
+    pids_limit: 128
+networks:
+  installation:
+    labels: *ownership
+volumes:
+  api-data: {labels: *ownership}
+  worker-data: {labels: *ownership}

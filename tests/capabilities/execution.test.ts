@@ -120,7 +120,25 @@ describe.each(STORE_KINDS)("beginExecution [%s]", (kind) => {
   it("never outlives the operation", async () => {
     const h = await makeHarness({ kind });
     const op = await proposeOk(h, requestFor(h, "service.restart", "sbx"), user("bob"), { ttlMs: 60_000 });
+    // SQL timestamps the operation on its own clock; the broker's fixture clock
+    // must start from that same authoritative time when comparing its lifetime.
+    const operationStart = Date.parse(op.operation.expiresAt) - 60_000;
+    h.clock.advance(operationStart - h.clock.now().getTime());
     const begun = await begin(h, op.id);
+    expect(begun.claims.exp).toBeLessThanOrEqual(Math.floor(Date.parse(op.operation.expiresAt) / 1000));
+    expect(begun.claims.exp - begun.claims.iat).toBeLessThanOrEqual(60);
+  });
+
+  it("aligns a frozen fixture clock more than a second behind the stored operation before checking its lifetime", async () => {
+    const h = await makeHarness({ kind });
+    const op = await proposeOk(h, requestFor(h, "service.restart", "sbx"), user("bob"), { ttlMs: 60_000 });
+    const operationStart = Date.parse(op.operation.expiresAt) - 60_000;
+    h.clock.advance(operationStart - h.clock.now().getTime() - 2_000);
+    expect(operationStart - h.clock.now().getTime()).toBe(2_000);
+
+    h.clock.advance(operationStart - h.clock.now().getTime());
+    const begun = await begin(h, op.id);
+    expect(begun.claims.iat).toBe(Math.floor(operationStart / 1000));
     expect(begun.claims.exp).toBeLessThanOrEqual(Math.floor(Date.parse(op.operation.expiresAt) / 1000));
     expect(begun.claims.exp - begun.claims.iat).toBeLessThanOrEqual(60);
   });

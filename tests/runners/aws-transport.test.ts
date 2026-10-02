@@ -314,16 +314,22 @@ describe("the credential broker's runner transport (RunnerAwsTransportFactory)",
     await expect(transport.client(ECSClient).send(new DescribeServicesCommand({ services: ["w"] }))).rejects.toBeInstanceOf(RunnerTransportError);
   });
 
-  it("clamps the runner grant to the session's expiry and refuses a connection that names no runner", async () => {
+  it("clamps the runner grant to the session's expiry across a wall-clock second boundary and refuses a connection that names no runner", async () => {
     const grant = await workerGrant();
+    const expiresAt = new Date(plane.rt.now() + 60_000);
     await start((job) => {
       const g = agent.decodeJob(job.claims.grant, "zenith-grant+jwt").claims;
-      expect(Number(g.exp)).toBe(Math.floor(plane.rt.now() / 1000) + 60 - 0);
+      expect(Number(g.exp)).toBe(Math.floor(expiresAt.getTime() / 1000));
       return reply(200, { "content-type": "application/x-amz-json-1.1" }, JSON.stringify({ services: [], failures: [] }));
     });
     const factory = createRunnerAwsTransportFactory({ runtime: plane.rt });
-    const short = await factory.open({ connection, config: { ...config, runnerId: agent.id }, grant, purpose: "observe", roleArn: "arn:aws:iam::111122223333:role/x", expiresAt: new Date(plane.rt.now() + 60_000) });
+    const short = await factory.open({ connection, config: { ...config, runnerId: agent.id }, grant, purpose: "observe", roleArn: "arn:aws:iam::111122223333:role/x", expiresAt });
+    const openedAt = plane.rt.now();
+    // Polling and SDK serialization can cross a second after the session opens.
+    // Its signed expiry must still equal the original session deadline exactly.
+    await new Promise((resolve) => setTimeout(resolve, 1_100));
+    expect(Math.floor(plane.rt.now() / 1000)).toBeGreaterThan(Math.floor(openedAt / 1000));
     await short.client(ECSClient).send(new DescribeServicesCommand({ services: ["w"] }));
-    await expect(factory.open({ connection, config, grant, purpose: "observe", roleArn: "arn:aws:iam::111122223333:role/x", expiresAt: new Date(plane.rt.now() + 60_000) })).rejects.toMatchObject({ code: "invalid_input" });
+    await expect(factory.open({ connection, config, grant, purpose: "observe", roleArn: "arn:aws:iam::111122223333:role/x", expiresAt })).rejects.toMatchObject({ code: "invalid_input" });
   });
 });

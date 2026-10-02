@@ -38,7 +38,8 @@
 # unlike `hosted`/`agent` — turns RLS on for every table with no policies, and
 # grants only `service_role`. The application never runs DDL against Postgres; it
 # checks that ledger on start (`assertPlatformSchemaCurrent`) and fails closed.
-# The verification block below asks the same questions as for `agent`.
+# CI uses that same runtime verifier, plus the canonical migration names, before
+# checking the platform tables, grants and RLS boundaries below.
 #
 # ## Supabase role stand-ins
 #
@@ -107,18 +108,25 @@ if ! command -v psql >/dev/null 2>&1; then
   exit 1
 fi
 
-# The URL carries a password. Everything this script prints uses the redacted
-# form, and `set -x` is never turned on.
-# Pure parameter expansion, so this depends on nothing but the shell: drop the
-# scheme, then drop everything up to and including the last `@`, which is where
-# the credential ends.
-redacted() {
-  local rest="${SUPABASE_DB_URL#*://}"
-  printf 'postgres://%s' "${rest##*@}"
+# This verifier uses the installed runtime, never an npx download. Check the
+# prerequisite before applying DDL so missing dependencies fail immediately.
+PLATFORM_VERIFIER="scripts/platform/verify-schema.ts"
+TSX="node_modules/.bin/tsx"
+if [ ! -f "$PLATFORM_VERIFIER" ] || [ ! -x "$TSX" ]; then
+  echo "::error::The platform schema verifier or installed tsx is missing. Run npm ci --ignore-scripts before applying migrations." >&2
+  exit 1
+fi
+
+# libpq failures can include a URI/password and SQL CONTEXT can include payloads.
+# Preserve failure status while reporting only the current file/check phase.
+psql_safe() {
+  if ! command psql "$@" 2>/dev/null; then
+    echo "::error::psql_failed (${PSQL_PHASE}): Postgres migration or schema check failed." >&2
+    return 1
+  fi
 }
 
-TARGET="$(redacted)"
-echo "Applying ${#MIGRATIONS[@]} migrations to ${TARGET}"
+echo "Applying ${#MIGRATIONS[@]} migrations to the configured CI database."
 
 # --- wait for the service container -----------------------------------------
 #
@@ -131,7 +139,7 @@ attempt=0
 until psql --quiet --no-align --tuples-only --command 'select 1' "$SUPABASE_DB_URL" >/dev/null 2>&1; do
   attempt=$((attempt + 1))
   if [ "$attempt" -ge 30 ]; then
-    echo "::error::${TARGET} did not accept a connection after 30 attempts." >&2
+    echo "::error::The configured CI database did not accept a connection after 30 attempts." >&2
     exit 1
   fi
   sleep 1
@@ -141,7 +149,9 @@ echo "Connected after ${attempt} retr$([ "$attempt" -eq 1 ] && echo y || echo ie
 # --- the service_role stand-in ----------------------------------------------
 #
 # Idempotent, so re-running the script against the same container is a no-op.
-psql --quiet --set ON_ERROR_STOP=1 "$SUPABASE_DB_URL" <<'SQL'
+PSQL_PHASE="role_stand_ins"
+echo "--- role stand-ins"
+psql_safe --quiet --set ON_ERROR_STOP=1 "$SUPABASE_DB_URL" <<'SQL'
 do $$
 begin
   if not exists (select 1 from pg_roles where rolname = 'service_role') then
@@ -179,7 +189,8 @@ for file in "${MIGRATIONS[@]}"; do
     exit 1
   fi
   echo "--- ${file}"
-  psql \
+  PSQL_PHASE="migration:${file}"
+  psql_safe \
     --quiet \
     --single-transaction \
     --set ON_ERROR_STOP=1 \
@@ -195,23 +206,23 @@ done
 #   2. the partial unique index the boot check probes for exists;
 #   3. both schemas hold tables.
 echo "--- verification"
-ledger="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+PSQL_PHASE="hosted_schema"
+ledger="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select string_agg(version || ':' || name, ', ' order by version) from hosted.schema_migrations" "$SUPABASE_DB_URL")"
-echo "hosted.schema_migrations = ${ledger}"
 if [ "$ledger" != "1:control-authority-v1, 2:invite-delivery-transport-none, 3:one-pending-invite-per-app-email" ]; then
   echo "::error::The migration ledger is not what src/lib/hosted/authority/schema.ts expects; the authority will refuse to boot." >&2
   exit 1
 fi
 
-index_def="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+index_def="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select coalesce(indexdef, '') from pg_indexes where schemaname = 'hosted' and indexname = 'app_invites_pending_email'" "$SUPABASE_DB_URL")"
 if [ -z "$index_def" ]; then
   echo "::error::hosted.app_invites_pending_email is missing; migration 0005 did not apply." >&2
   exit 1
 fi
-echo "app_invites_pending_email = ${index_def}"
+echo "hosted ledger and app_invites_pending_email verified."
 
-counts="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+counts="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select schemaname || '=' || count(*) from pg_tables where schemaname in ('public','hosted','agent','platform') group by schemaname order by schemaname" "$SUPABASE_DB_URL")"
 echo "tables: $(echo "$counts" | tr '\n' ' ')"
 
@@ -223,9 +234,9 @@ echo "tables: $(echo "$counts" | tr '\n' ' ')"
 # `pgCredentialAuthority()` refuse every read and write until both rows are
 # present, so a lane that applied the DDL but not the ledger row would fail
 # later, with a less useful message.
-agent_ledger="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+PSQL_PHASE="agent_schema"
+agent_ledger="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select string_agg(version || ':' || name, ', ' order by version) from agent.schema_migrations" "$SUPABASE_DB_URL")"
-echo "agent.schema_migrations = ${agent_ledger}"
 if [ "$agent_ledger" != "1:agent-link-v1, 2:agent-control-v1" ]; then
   echo "::error::agent.schema_migrations is not 1:agent-link-v1, 2:agent-control-v1; the agent journal and credential authority will refuse every request." >&2
   exit 1
@@ -247,9 +258,8 @@ AGENT_INDEXES=(
   agent_rate_limits_bucket
   agent_uploads_workspace
 )
-present="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+present="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select indexname from pg_indexes where schemaname = 'agent' order by 1" "$SUPABASE_DB_URL")"
-echo "agent indexes: $(echo "$present" | tr '\n' ' ')"
 for index in "${AGENT_INDEXES[@]}"; do
   if ! printf '%s\n' "$present" | grep -qx -- "$index"; then
     echo "::error::agent.${index} is missing; 0006/0007 did not apply the index the runbook names." >&2
@@ -261,7 +271,7 @@ done
 # thing these migrations need. On the container `service_role` is the NOLOGIN
 # stand-in created above, so this proves the statement applied — not that
 # Supabase's own role graph is correct. Nothing here authenticates as it.
-agent_usage="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+agent_usage="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select has_schema_privilege('service_role','agent','USAGE')" "$SUPABASE_DB_URL")"
 if [ "$agent_usage" != "t" ]; then
   echo "::error::service_role has no USAGE on schema agent; the grant block at the tail of 0006/0007 did not apply." >&2
@@ -272,36 +282,22 @@ echo "service_role USAGE on schema agent = ${agent_usage}"
 # RLS on with no policies is the `hosted` rule, repeated for `agent`. A table
 # that reached production with RLS off would be readable by `anon` the moment
 # somebody exposed the schema to the Data API by mistake.
-unprotected="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+unprotected="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select string_agg(relname, ', ' order by relname) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'agent' and c.relkind = 'r' and not c.relrowsecurity" "$SUPABASE_DB_URL")"
 if [ -n "$unprotected" ]; then
-  echo "::error::row level security is off on agent.{${unprotected}}; every table in the agent schema must enable it." >&2
+  echo "::error::row level security is off on an agent table; every table in the agent schema must enable it." >&2
   exit 1
 fi
 echo "row level security enabled on every table in schema agent."
 
 # --- the platform schema (0014) ---------------------------------------------
 #
-# The platform control store's ledger: `platform.schema_migrations` holds version
-# 1 ("core") with a SHA-256 checksum, which is what `assertPlatformSchemaCurrent`
-# verifies against the TypeScript migration text at application start. Only the
-# version, the name and the checksum's shape are checkable here (the checksum
-# itself is computed by TypeScript; tests/controlplane/migrations.test.ts compares
-# it). A lane that applied the DDL but not the ledger row would boot-fail later
-# with a less useful message, so it is checked by exact string.
-platform_ledger="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
-  --command "select string_agg(version || ':' || name, ', ' order by version) from platform.schema_migrations" "$SUPABASE_DB_URL")"
-echo "platform.schema_migrations = ${platform_ledger}"
-if [ "$platform_ledger" != "1:core" ]; then
-  echo "::error::platform.schema_migrations is not 1:core; the platform control store will refuse to start (assertPlatformSchemaCurrent)." >&2
-  exit 1
-fi
-bad_checksums="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
-  --command "select count(*) from platform.schema_migrations where checksum !~ '^[0-9a-f]{64}\$'" "$SUPABASE_DB_URL")"
-if [ "$bad_checksums" != "0" ]; then
-  echo "::error::platform.schema_migrations holds a row whose checksum is not a SHA-256 hex digest." >&2
-  exit 1
-fi
+# Use the application's checksum/version verifier and canonical known names.
+# No pinned migration count: newly shipped versions follow the runtime manifest,
+# and additive versions from a newer deploy retain the runtime's compatibility.
+PSQL_PHASE="platform_schema"
+echo "--- platform verification"
+"$TSX" "$PLATFORM_VERIFIER"
 
 # Tables the runtime code addresses by name. A subset check, like the agent one.
 PLATFORM_TABLES=(
@@ -310,9 +306,8 @@ PLATFORM_TABLES=(
   resource_runtime drift_reports runners runner_registration_tokens runner_jobs runner_job_logs
   agent_nonces machines incidents investigations cost_estimates
 )
-platform_present="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+platform_present="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select tablename from pg_tables where schemaname = 'platform' order by 1" "$SUPABASE_DB_URL")"
-echo "platform tables: $(echo "$platform_present" | tr '\n' ' ')"
 for table in "${PLATFORM_TABLES[@]}"; do
   if ! printf '%s\n' "$platform_present" | grep -qx -- "$table"; then
     echo "::error::platform.${table} is missing; 0014 did not create it." >&2
@@ -320,7 +315,7 @@ for table in "${PLATFORM_TABLES[@]}"; do
   fi
 done
 
-platform_usage="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+platform_usage="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select has_schema_privilege('service_role','platform','USAGE')" "$SUPABASE_DB_URL")"
 if [ "$platform_usage" != "t" ]; then
   echo "::error::service_role has no USAGE on schema platform; the hardening block at the tail of 0014 did not apply." >&2
@@ -329,7 +324,7 @@ fi
 echo "service_role USAGE on schema platform = ${platform_usage}"
 
 # anon and authenticated must hold nothing on the platform schema.
-platform_leak="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+platform_leak="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select has_schema_privilege('anon','platform','USAGE') or has_schema_privilege('authenticated','platform','USAGE')" "$SUPABASE_DB_URL")"
 if [ "$platform_leak" != "f" ]; then
   echo "::error::anon or authenticated has USAGE on schema platform; the revoke block at the tail of 0014 did not apply." >&2
@@ -337,22 +332,24 @@ if [ "$platform_leak" != "f" ]; then
 fi
 
 # RLS on with no policies: the `hosted`/`agent` rule, repeated for `platform`.
-platform_unprotected="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+platform_unprotected="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select string_agg(relname, ', ' order by relname) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'platform' and c.relkind = 'r' and not c.relrowsecurity" "$SUPABASE_DB_URL")"
 if [ -n "$platform_unprotected" ]; then
-  echo "::error::row level security is off on platform.{${platform_unprotected}}; every table in the platform schema must enable it." >&2
+  echo "::error::row level security is off on a platform table; every table in the platform schema must enable it." >&2
   exit 1
 fi
-platform_policies="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+platform_policies="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select count(*) from pg_policies where schemaname = 'platform'" "$SUPABASE_DB_URL")"
 if [ "$platform_policies" != "0" ]; then
   echo "::error::the platform schema has RLS policies; it is service-role-only by design (RLS on, no policies)." >&2
   exit 1
 fi
-echo "platform schema verified: ledger, tables, service-role-only grants, RLS on with no policies."
+echo "platform schema verified: known migration ledger, tables, service-role-only grants, RLS on with no policies."
 
 # Verify the new public RPC boundary independently of the TypeScript tests.
-psql --quiet --set ON_ERROR_STOP=1 "$SUPABASE_DB_URL" <<'SQL'
+PSQL_PHASE="product_rpc"
+echo "--- product RPC verification"
+psql_safe --quiet --set ON_ERROR_STOP=1 "$SUPABASE_DB_URL" <<'SQL'
 do $$
 declare
   signature text;

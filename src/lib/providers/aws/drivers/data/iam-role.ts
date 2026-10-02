@@ -19,19 +19,16 @@
  *   data sources          `aws_caller_identity`, `aws_partition` and the two
  *                         `aws_iam_policy_document`s (trust, grants)
  *
- * Permissions boundary: the workspace assembler cannot declare tofu
- * `variable`s (`TofuFragment` has no variable member), so the boundary ARN is
- * assembled in the fragment as
- * `arn:<partition>:iam::<account>:policy/ZenithAppBoundary` from two data
- * sources instead of the `workload_permissions_boundary_arn` variable the
- * design named. The name is the platform convention (DRIVER-CONVENTIONS); the
- * policy is assumed to sit at path `/`. When the assembler grows a variable
- * channel only `boundaryArn()` below changes. Bootstrap policy parity is
- * tested locally; policy existence in a customer account is not live-verified.
+ * Permissions boundary: production compilation derives the exact canonical
+ * family ARN from saved connection account, partition and bootstrapNameSuffix.
+ * Standalone rendering without connection context retains unsuffixed data-source
+ * references. Policy path is always `/`; graph fields cannot override it.
+ * Bootstrap policy parity is tested locally; customer policy existence is not
+ * live-verified.
  *
  * Observe: GetRole, ListRolePolicies + GetRolePolicy (policy documents are
  * URL-decoded and normalized to sorted actions), ListAttachedRolePolicies.
- * Reported: the trust principals, the boundary's policy NAME, the sorted set of
+ * Reported: the trust principals, the boundary's full policy ARN, the sorted set of
  * actions in Allow statements, whether any Allow statement uses a wildcard
  * action or resource, and the number of attached managed policies (Zenith
  * attaches none, so anything above 0 widened access outside Zenith).
@@ -42,7 +39,7 @@
  * action set, wildcard check, boundary and attachments are. `contract` evidence
  * only.
  */
-import { AWS_ROLE_BOUNDARIES, awsBoundaryArn } from "@/lib/credentials/aws/naming";
+import { AWS_ROLE_BOUNDARIES, awsBoundaryArn, trustedAwsBoundaryArn } from "@/lib/credentials/aws/naming";
 import {
   GetRoleCommand,
   GetRolePolicyCommand,
@@ -192,7 +189,7 @@ export function compileIamRole(node: ResourceNode, ctx: CompileContext): TofuFra
     name,
     description: `Zenith workload role for ${node.address.replace(/[^A-Za-z0-9/_.-]/g, "-")}`,
     assume_role_policy: `\${data.aws_iam_policy_document.${label}_trust.json}`,
-    permissions_boundary: boundaryArn(acct),
+    permissions_boundary: trustedAwsBoundaryArn(ctx.awsBootstrap, "app") ?? boundaryArn(acct),
     force_detach_policies: true,
     tags: resourceTags(ctx.tags, node.address),
   });
@@ -255,13 +252,13 @@ export function compileIamRole(node: ResourceNode, ctx: CompileContext): TofuFra
 
 /* --------------------------------- reading --------------------------------- */
 
-const EXPECTED_NAMES = ["permissionsBoundaryName", "trustPrincipals", "inlinePolicyActions", "wildcardAccess", "attachedPolicyCount"] as const;
+const EXPECTED_NAMES = ["permissionsBoundaryArn", "trustPrincipals", "inlinePolicyActions", "wildcardAccess", "attachedPolicyCount"] as const;
 const INFORMATIONAL_NAMES = ["inlinePolicyCount"] as const;
 export const IAM_ATTRIBUTE_NAMES: readonly string[] = [...EXPECTED_NAMES, ...INFORMATIONAL_NAMES];
 
-export function expectedIamAttributes(node: ResourceNode): Record<string, unknown> {
+export function expectedIamAttributes(node: ResourceNode, ctx?: Pick<CompileContext, "awsBootstrap">): Record<string, unknown> {
   if (!isManaged(node)) return {};
-  const out: Record<string, unknown> = { permissionsBoundaryName: PERMISSIONS_BOUNDARY_NAME, wildcardAccess: false, attachedPolicyCount: 0 };
+  const out: Record<string, unknown> = { permissionsBoundaryArn: trustedAwsBoundaryArn(ctx?.awsBootstrap, "app"), wildcardAccess: false, attachedPolicyCount: 0 };
   try {
     const spec = readIdentitySpec(node);
     out.inlinePolicyActions = expectedGrantActions(node.address, spec.grants);
@@ -414,7 +411,7 @@ async function observeRole(ctx: AwsDriverContext, node: ResourceNode, externalId
 
       const a = new Attributes(ctx);
       const boundary = role.PermissionsBoundary?.PermissionsBoundaryArn;
-      a.set("permissionsBoundaryName", boundary ? (boundary.split("/").pop() ?? "") : "none");
+      a.set("permissionsBoundaryArn", boundary ?? "none");
       const trust = trustPrincipalsOf(role.AssumeRolePolicyDocument);
       if (trust) a.set("trustPrincipals", trust);
       else a.unknown("trustPrincipals", "error", "the trust policy could not be parsed");
@@ -533,11 +530,14 @@ export const iamRoleDriver: ResourceDriver<AwsSession> = {
   observe: observeRole,
   expectedAttributes: expectedIamAttributes,
   async verify(ctx, node, observation) {
+    const expectedBoundary = trustedAwsBoundaryArn(ctx.awsBootstrap, "app");
     const checks = [
-      attrCheck(observation, "boundary_attached", `the ${PERMISSIONS_BOUNDARY_NAME} permissions boundary is attached`, "permissionsBoundaryName", (v) => v === PERMISSIONS_BOUNDARY_NAME),
+      expectedBoundary
+        ? attrCheck(observation, "boundary_attached", "the saved connection's exact app permissions boundary is attached", "permissionsBoundaryArn", (v) => v === expectedBoundary)
+        : { id: "boundary_attached", description: "the saved connection's exact app permissions boundary is attached", passed: "unknown" as const, detail: "Trusted AWS connection context is unavailable." },
       attrCheck(observation, "no_wildcard_access", "no Allow statement uses a wildcard action or resource", "wildcardAccess", (v) => v === false),
       attrCheck(observation, "no_managed_policies", "no managed policy is attached outside Zenith's grants", "attachedPolicyCount", (v) => v === 0),
-      matchesExpectedCheck(expectedIamAttributes(node), observation),
+      matchesExpectedCheck(expectedIamAttributes(node, ctx), observation),
     ];
     return verificationOf(ctx, node, observation, checks);
   },

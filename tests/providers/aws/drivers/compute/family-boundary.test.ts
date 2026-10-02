@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { AWS_ROLE_BOUNDARIES, awsBoundaryArn, roleFamilyPatterns, type AwsRoleFamily } from "@/lib/credentials/aws/naming";
+import { AWS_ROLE_BOUNDARIES, awsBoundaryArn, roleFamilyPatterns, resolveAwsRoleBoundaries, type AwsRoleFamily } from "@/lib/credentials/aws/naming";
 import { codebuildProjectDriver, ec2InstanceDriver, ecsScheduledTaskDriver, ecsServiceDriver, lambdaFunctionDriver } from "@/lib/providers/aws/drivers/compute";
 import { iamRoleDriver } from "@/lib/providers/aws/drivers/data/iam-role";
 import { GRANT_RULES } from "@/lib/providers/aws/drivers/data/iam-grants";
@@ -59,6 +59,33 @@ const attachmentFixtures = {
   AmazonEKS_CNI_Policy: cniPolicy,
   AmazonEC2ContainerRegistryReadOnly: registryPolicy,
 };
+
+describe.each(["aws", "aws-cn", "aws-us-gov"] as const)("connection suffix rendering in %s (pure rendering only)", (partition) => {
+  it.each(["", `-${"a".repeat(19)}`])("all eight role creators use canonical families for suffix %j and preserve role names", (bootstrapNameSuffix) => {
+    const awsBootstrap = { accountId: ACCOUNT, partition, bootstrapNameSuffix };
+    const trusted = { ...ctx, awsBootstrap };
+    const suffixed: TofuFragment[] = [
+      ecsServiceDriver.compile!(fixture.service, trusted), lambdaFunctionDriver.compile!(fixture.fn, trusted),
+      ecsScheduledTaskDriver.compile!(fixture.job, trusted), ec2InstanceDriver.compile!(fixture.box, trusted),
+      codebuildProjectDriver.compile!(fixture.pipeline, trusted), codebuildProjectDriver.compile!(fixture.siteBuild, trusted),
+      iamRoleDriver.compile!(identity, compileCtx(nodes, { namePrefix: PREFIX, awsBootstrap })),
+      compileEksCluster(mkNode("kubernetes_cluster/apps", "kubernetes_cluster", "aws:eks_cluster", { version: "1.35" }, { dependsOn: ["subnet/private-a", "subnet/private-b"] }), trusted),
+      vpcDriver.compile!(flowNode, trusted),
+    ];
+    const canonical = resolveAwsRoleBoundaries(awsBootstrap);
+    const seen = new Set<string>();
+    suffixed.forEach((fragment, index) => {
+      const oldRoles = fragments[index][1].resource!.aws_iam_role;
+      for (const [label, role] of Object.entries(fragment.resource!.aws_iam_role)) {
+        expect(role.name).toBe(oldRoles[label].name);
+        const family = families.find((candidate) => String(oldRoles[label].permissions_boundary).endsWith(`:policy/${AWS_ROLE_BOUNDARIES[candidate].policyName}`))!;
+        expect(role.permissions_boundary).toBe(canonical[family]);
+        seen.add(family);
+      }
+    });
+    expect([...seen].sort()).toEqual([...families].sort());
+  });
+});
 
 function managedRequests(policy: unknown, partition: string, principal: string) {
   const arn = (service: string, resource: string) => `arn:${partition}:${service}:eu-west-1:${ACCOUNT}:${resource}`;

@@ -24,6 +24,7 @@
  *   - Discovery returns candidates only; it never marks anything `managed`.
  */
 import type { Observation, ResourceNode, RuntimeState, ProviderKey, PortableKind } from "@/lib/resources/types";
+import type { AwsBootstrapContext } from "@/lib/credentials/aws/naming";
 
 /* ------------------------------- evidence --------------------------------- */
 
@@ -65,6 +66,8 @@ export interface DriverLog {
  * credentials, read env credentials, or cache sessions across operations.
  */
 export interface DriverContext<Session = unknown> {
+  /** Trusted saved connection context, never node configuration. */
+  awsBootstrap?: AwsBootstrapContext;
   provider: ProviderKey;
   region: string;
   workspaceId: string;
@@ -100,6 +103,8 @@ export interface TofuFragment {
 }
 
 export interface CompileContext {
+  /** Present for production AWS compilation; absent only for standalone rendering. */
+  awsBootstrap?: AwsBootstrapContext;
   environmentId: string;
   /** deterministic short name prefix, lowercase, ≤ 20 chars */
   namePrefix: string;
@@ -198,7 +203,7 @@ export interface ResourceDriver<Session = unknown> {
    * Map desired spec → comparable attribute values, so drift compares like
    * with like: `{ replicas: 3, cpu: 256 }`. Only attributes `observe` reads.
    */
-  expectedAttributes?(node: ResourceNode): Record<string, unknown>;
+  expectedAttributes?(node: ResourceNode, ctx?: Pick<DriverContext, "awsBootstrap">): Record<string, unknown>;
 
   /** Day-two operations keyed by capability name (e.g. `service.restart`). */
   operations?: Record<string, NativeOperation<Session>>;

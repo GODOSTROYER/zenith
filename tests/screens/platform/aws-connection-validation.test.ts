@@ -9,6 +9,15 @@ const GOOD: AwsFormValues = {
 };
 
 describe("validateAwsForm", () => {
+  it.each(["", "-team-a", `-${"a".repeat(19)}`])("accepts the exact bootstrap suffix %j", (bootstrapNameSuffix) => {
+    expect(validateAwsForm({ ...GOOD, bootstrapNameSuffix }).valid).toBe(true);
+  });
+  it.each(["-", "team-a", "-TEAM", "-a/b", "-a\n", " -a", `-${"a".repeat(20)}`])("rejects malformed bootstrap suffix %j without trimming", (bootstrapNameSuffix) => {
+    const result = validateAwsForm({ ...GOOD, bootstrapNameSuffix });
+    expect(result.valid).toBe(false);
+    expect(result.errors.bootstrapNameSuffix).toBeDefined();
+    expect(result.errors.bootstrapNameSuffix).not.toContain(bootstrapNameSuffix);
+  });
   it("accepts a complete, consistent form", () => {
     expect(validateAwsForm(GOOD)).toEqual({ errors: {}, valid: true, warnings: [] });
   });
@@ -28,25 +37,25 @@ describe("validateAwsForm", () => {
     expect(v.errors.accountId).toContain(says);
   });
 
-  it.each(["us-east-1", "ap-south-1", "eu-central-2", "us-gov-west-1", "cn-north-1", "ap-southeast-2"])("accepts region %s", (region) => {
+  it.each(["us-east-1", "ap-south-1", "eu-central-1", "ap-southeast-2"])("accepts region %s", (region) => {
     expect(validateAwsForm({ ...GOOD, region }).errors.region).toBeUndefined();
   });
 
-  it.each(["", "useast1", "US-EAST-1", "us-east", "us-east-1a", "global"])("rejects region %j", (region) => {
+  it.each(["", "useast1", "US-EAST-1", "us-east", "us-east-1a", "global", "eu-central-2", "us-gov-west-1", "cn-north-1"])("rejects region %j", (region) => {
     expect(validateAwsForm({ ...GOOD, region }).errors.region).toBeDefined();
   });
 
   it.each([
     "arn:aws:iam::123456789012:role/ZenithObserveRole",
     "arn:aws:iam::123456789012:role/path/to/Role-1.2_x+y=z,w@v",
-    "arn:aws-us-gov:iam::123456789012:role/Gov",
-    "arn:aws-cn:iam::123456789012:role/Cn",
   ])("accepts role ARN %s", (observeRoleArn) => {
     expect(validateAwsForm({ ...GOOD, observeRoleArn }).errors.observeRoleArn).toBeUndefined();
   });
 
   it.each([
     "",
+    "arn:aws-us-gov:iam::123456789012:role/Gov",
+    "arn:aws-cn:iam::123456789012:role/Cn",
     "ZenithObserveRole",
     "arn:aws:iam::123456789012:user/alice",
     "arn:aws:iam::12345:role/Short",
@@ -94,7 +103,7 @@ describe("access keys are refused and never echoed", () => {
     expect(looksLikeAccessKey(GOOD.accountId)).toBe(false);
   });
 
-  it.each(["accountId", "region", "observeRoleArn", "deployRoleArn"] as const)("refuses a key pasted into %s without repeating it", (field) => {
+  it.each(["accountId", "region", "observeRoleArn", "deployRoleArn", "bootstrapNameSuffix"] as const)("refuses a key pasted into %s without repeating it", (field) => {
     for (const secret of [ACCESS_KEY_ID, SECRET]) {
       const v = validateAwsForm({ ...GOOD, [field]: secret });
       expect(v.valid).toBe(false);

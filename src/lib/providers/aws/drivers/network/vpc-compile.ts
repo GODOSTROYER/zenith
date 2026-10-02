@@ -39,7 +39,7 @@
  * `cidr_block`, `internet_gateway_id`, `public_route_table_id`,
  * `private_route_table_id:<zone letter>` (every zone letter, whatever the NAT mode).
  */
-import { AWS_ROLE_BOUNDARIES, awsBoundaryArn } from "@/lib/credentials/aws/naming";
+import { AWS_ROLE_BOUNDARIES, awsBoundaryArn, trustedAwsBoundaryArn } from "@/lib/credentials/aws/naming";
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { NetworkSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
@@ -196,7 +196,7 @@ export function compileVpc(node: ResourceNode, ctx: CompileContext): TofuFragmen
   b.resource("aws_iam_role", flow, {
     name: `${cloudName(ctx.namePrefix, `flowlogs-${nodeName(node.address)}`, 64 - "-flow".length)}-flow`,
     assume_role_policy: json(assumeRole),
-    permissions_boundary: awsBoundaryArn("app", partition, account),
+    permissions_boundary: trustedAwsBoundaryArn(ctx.awsBootstrap, "app") ?? awsBoundaryArn("app", partition, account),
     tags: tag("flow-logs-role"),
   });
   const logGroupArn = `\${aws_cloudwatch_log_group.${flow}.arn}`;

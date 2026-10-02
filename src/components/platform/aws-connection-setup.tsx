@@ -40,6 +40,7 @@ import {
 export type AwsTrust =
   | {
       mode: "oidc_web_identity";
+      bootstrapNameSuffix?: string;
       /** the Zenith OIDC issuer host and path, without https:// */
       issuerHost: string;
       /** zenith:ws:<workspace>:conn:<connection> */
@@ -47,13 +48,14 @@ export type AwsTrust =
     }
   | {
       mode: "aws_assume_role";
+      bootstrapNameSuffix?: string;
       /** only for a Zenith control plane that itself runs on AWS */
       zenithPrincipalArn: string;
       /** per-connection, Zenith-generated; a confused-deputy guard, not a password */
       externalId: string;
     };
 
-export type AwsConnectionInput = Pick<AwsConnectionConfig, "provider" | "accountId" | "observeRoleArn" | "deployRoleArn" | "region"> & {
+export type AwsConnectionInput = Pick<AwsConnectionConfig, "provider" | "accountId" | "observeRoleArn" | "deployRoleArn" | "region" | "bootstrapNameSuffix"> & {
   mode: "oidc_web_identity" | "aws_assume_role";
   externalId?: string;
 };
@@ -87,10 +89,10 @@ function CopyRow({ name, value, note }: { name: string; value?: string; note: st
       </th>
       <td className="py-2.5 pr-4 text-[12.5px] text-ink-mute">{note}</td>
       <td className="py-2.5">
-        {value ? (
+        {value !== undefined ? (
           <span className="inline-flex items-center gap-1">
-            <code className="break-all font-mono text-[12px] text-ink">{value}</code>
-            <CopyButton value={value} what={name} />
+            <code className="break-all font-mono text-[12px] text-ink">{value || "(empty)"}</code>
+            {value && <CopyButton value={value} what={name} />}
           </span>
         ) : (
           <span className="text-[12.5px] text-ink-faint">Your choice</span>
@@ -100,7 +102,7 @@ function CopyRow({ name, value, note }: { name: string; value?: string; note: st
   );
 }
 
-function ParameterTable({ trust }: { trust?: AwsTrust }) {
+function ParameterTable({ trust, bootstrapNameSuffix }: { trust?: AwsTrust; bootstrapNameSuffix: string }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] table-fixed border-collapse text-left">
@@ -163,7 +165,7 @@ function ParameterTable({ trust }: { trust?: AwsTrust }) {
             name="EnvironmentTagValue"
             note='"*" lets the deploy role manage any Zenith environment in this account. Enter one environment id to confine it to that environment.'
           />
-          <CopyRow name="NameSuffix" note="Only if you connect several Zenith workspaces to one account: a suffix such as -team-a keeps the stacks apart." />
+          <CopyRow name="NameSuffix" value={bootstrapNameSuffix} note="Use the exact suffix saved with this connection, such as -team-a. For an empty suffix, leave the stack parameter empty." />
           <CopyRow
             name="Route53HostedZoneArns"
             note="The hosted zones Zenith may change DNS records in. Leave it empty to give Zenith no DNS write access."
@@ -192,6 +194,7 @@ export function AwsConnectionSetup({
     region: initialValues?.region ?? "",
     observeRoleArn: initialValues?.observeRoleArn ?? "",
     deployRoleArn: initialValues?.deployRoleArn ?? "",
+    bootstrapNameSuffix: initialValues?.bootstrapNameSuffix ?? "",
   });
   const [touched, setTouched] = useState<Partial<Record<keyof AwsFormValues, boolean>>>({});
   const [verifying, setVerifying] = useState(false);
@@ -207,6 +210,7 @@ export function AwsConnectionSetup({
     region: v.region.trim(),
     observeRoleArn: v.observeRoleArn.trim(),
     deployRoleArn: v.deployRoleArn.trim(),
+    bootstrapNameSuffix: v.bootstrapNameSuffix ?? "",
     ...(trust?.mode === "aws_assume_role" ? { externalId: trust.externalId } : {}),
   });
 
@@ -255,7 +259,7 @@ export function AwsConnectionSetup({
               Deploy the CloudFormation template <code className="font-mono text-[12.5px] text-ink">{templatePath}</code> as a stack in the AWS account you want to
               connect. An equivalent OpenTofu module is in <code className="font-mono text-[12.5px] text-ink">{TOFU_MODULE_PATH}</code>. Enter these parameters:
             </p>
-            <ParameterTable trust={trust} />
+            <ParameterTable trust={trust} bootstrapNameSuffix={trust?.bootstrapNameSuffix ?? (validation.errors.bootstrapNameSuffix ? "" : values.bootstrapNameSuffix ?? "")} />
             <p className="text-[12.5px] text-ink-mute">
               When the stack finishes, copy the <code className="font-mono">ObserveRoleArn</code> and <code className="font-mono">DeployRoleArn</code> outputs into
               step 3. Deleting the stack revokes Zenith&apos;s access.
@@ -284,6 +288,9 @@ export function AwsConnectionSetup({
           <section aria-label="Enter the connection details" className="space-y-3">
             <h4 className="text-[14px] font-medium text-ink">3. Tell Zenith which account and roles</h4>
             <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Bootstrap name suffix" help="The exact NameSuffix used by the stack. Leave empty for the default stack, or use a suffix such as -team-a." error={shown("bootstrapNameSuffix")} className="md:col-span-2">
+                <Input mono autoComplete="off" spellCheck={false} placeholder="-team-a" value={values.bootstrapNameSuffix ?? ""} onChange={(e) => change("bootstrapNameSuffix", e.target.value)} onBlur={() => blur("bootstrapNameSuffix")} />
+              </Field>
               <Field label="AWS account ID" help="The 12-digit account the stack was created in." error={shown("accountId")} required>
                 <Input
                   mono

@@ -361,6 +361,128 @@ gRPC client: Node runtime only (route handlers with `runtime = "nodejs"`), not
 edge, not client components. It may need `serverExternalPackages` in
 `next.config.ts` for `@temporalio/*` if Next's bundler objects; not checked.
 
+## Packaged worker acceptance
+
+`scripts/acceptance/packaged-worker.mjs` is an opt-in harness for the actual
+Linux image entrypoint. It uses only Node built-ins on the host, builds the
+requested architecture with `--pull --no-cache`, and installs dependencies from
+the committed lockfile inside the build. It never mounts host `node_modules`,
+source files, workflow bundles or replacement activities into the worker.
+
+Run each architecture separately:
+
+```sh
+ZENITH_PACKAGED_WORKER_ACCEPTANCE=1 node scripts/acceptance/packaged-worker.mjs --platform linux/amd64
+ZENITH_PACKAGED_WORKER_ACCEPTANCE=1 node scripts/acceptance/packaged-worker.mjs --platform linux/arm64
+```
+
+The explicit Docker `acceptance` target adds an image-local fixture client to
+the production runtime. The final/default `production` target excludes that
+client and its store-seeding code. Both targets inherit the same worker bundle,
+workflow bundle, policy assets, production dependencies, uid 10001 and entrypoint
+`tini -- node dist/execution/worker.cjs`. The image now defaults `ZENITH_DATA` to
+`/var/lib/zenith` and `ZENITH_WORKER_PLAN_DIR` to its private `platform-plans`
+subdirectory; an unconfigured nonroot worker no longer attempts to create plans
+under root-owned `/app/.data`. Its Docker health check calls the loopback
+readiness endpoint. Writable volumes at `/var/lib/zenith` and `/tmp` are required
+with a read-only root filesystem.
+
+The harness creates a unique internal network and dedicated Postgres, Temporal
+and worker volumes. It publishes no host ports, reuses no existing database and
+starts no Zenith API/app server, cloud emulator or provider resource. It uses
+pinned Postgres 16.15 and the multiarch
+[official Temporal CLI image](https://github.com/temporalio/cli/blob/main/README.md)
+for a development server with isolated persistence. Random database credentials,
+an Ed25519 signer and the payload/plan key are generated into private temporary
+environment files. Raw Docker output is bounded and kept private. Completion,
+failure, timeout and SIGINT/SIGTERM all enter cleanup; resource deletion requires
+this invocation's ownership label. SIGKILL or a Docker daemon outage can prevent
+cleanup and must be handled by the operator using the reported run id.
+
+Before generating any credentials or calling Docker, the harness resolves the
+source and temporary base to canonical paths and rejects temporary storage
+inside the source tree, including symlink aliases. It verifies the created
+scratch directory's location and mode 0700. Private diagnostics use the same
+outside-source guard. Prior runs used an outside-source temporary base; the
+guard does not assert that a credential leak occurred.
+
+Each removal has at most two ownership-checked attempts. A successful exact-name
+listing must prove absence, including after a removal command times out; the
+report records a bounded outcome for every resource.
+
+The pinned Temporal CLI runs as uid 1000. Its disposable persistence volume
+mounts at the image's owned `/home/temporal`, and the harness requires a real
+`operator cluster health` response before testing worker startup. A fresh volume
+at an unowned path is not a supported fixture. The worker still has to pass all
+four readiness checks through its actual entrypoint on a read-only filesystem.
+
+Failure evidence contains only fixed container roles, allowlisted container
+status, running/OOM flags, exit codes and worker startup categories. It never
+exports arbitrary daemon errors or worker/native messages. Before cleanup, the
+harness captures at most 200 log lines per label-owned dependency, worker or
+startup-refusal container into
+an outside-source temporary directory named with the run id and `diagnostics`.
+Directories are mode 0700 and files are mode 0600; every generated database
+password, payload key, private signer value and full database URL is scrubbed.
+These files remain private for failure diagnosis and must not be uploaded as
+CI evidence. Only capture counts appear in the public report. Runtime secret
+files and labeled containers, volumes, networks and images are still removed
+on failure. The operator should delete the private diagnostic directory after
+review. A startup category identifies the failed stage, not a verified cause.
+
+Its intended checks are:
+
+- Actual entrypoint refusals for a missing platform schema, invalid secret key
+  and unusable signer, without secret output. Detached launch is bounded to
+  120 seconds, followed by a 45-second observation window. Only a verified
+  non-OOM worker exit of one and its expected startup category count as refusal;
+  a Docker client timeout does not establish a worker outcome.
+- A migrated Postgres control store, verified policy/signer, real Temporal
+  polling and registered production activities.
+- A successful reconciliation of an environment with no deployed resources.
+- A real read-only `infrastructure.observe` proposal through the production
+  broker, signed read-grant verification, policy reevaluation by the worker and
+  an expected safe refusal because the fixture has no resource target. Both the
+  workflow and operation ledger must end `failed`; this is a refusal contract,
+  not a successful provider observation.
+- Readiness loss during separate store/Temporal outages while liveness stays
+  available, recovery, uid/filesystem checks and real plan-janitor retention of
+  active/unowned sentinel files while deleting an aged terminal-owned sentinel.
+- SIGTERM draining and exit zero for the idle packaged worker.
+
+Evidence reports the commit, dirty source-input hash, harness hash, lockfile and
+installed versions, image id, actual Node/OpenTofu architecture, Docker host
+architecture and whether execution was emulated. Client evidence is checked
+against fixed schemas before logging.
+Locked dependency versions must pass the fixed version-format checks before
+any are added to public evidence, and the inspected image id must be a SHA-256
+identifier. Invalid values cause a fixed failure and never enter the report.
+The source-input digest binds the worker
+Dockerfile, root and optional Dockerfile-specific ignore controls, and every
+regular file and directory in the declared host COPY roots, including
+Git-ignored files. This is a conservative superset of Docker's filtered inputs;
+symlinks, special files, missing inputs, unsupported COPY declarations and ADD
+inputs fail admission. Paths, file modes and contents are framed in the digest,
+with bounded inventory reads. A second capture must match after the fresh
+build, before starting services. Evidence calls this an inventory-complete
+pre/post check of a live context, with `immutableBuildContext: false`. A
+transient change and restoration during Docker's read can evade that check;
+immutable snapshot handoff remains a separate production requirement. The
+digest exports no source contents or private paths.
+
+The product metadata is a disclosed isolated **file-store fixture**; its members
+and unconnected provider metadata
+are not browser authentication or a verified cloud connection. The platform
+store, policy, signer, workflow client, registered activities and Temporal service
+are real. No activity port is replaced. No browser approval or cloud write is
+performed. Retention sentinels are not real OpenTofu plans. In-flight cloud
+activity drain, a production Postgres product authority, plan/apply and live
+provider transports remain separate acceptance requirements.
+
+Source/lint validation of this harness alone does not satisfy PROD-PKG-01..03.
+Only a completed per-architecture run can establish the scoped checks above;
+each report keeps the remaining limits explicit.
+
 ## Temporal Cloud
 
 Set `ZENITH_TEMPORAL_ADDRESS=<namespace>.<account>.tmprl.cloud:7233`,

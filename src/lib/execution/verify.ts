@@ -46,6 +46,7 @@ import { StepFailedError } from "./errors";
 import { buildDesiredState } from "./graph";
 import { withKeepAlive } from "./keepalive";
 import { collectState, persistState, storedResources, type NodeState } from "./observe";
+import { awsBootstrapContextForConnection } from "@/lib/credentials/aws/naming";
 import type { ObservabilityFactory, ProbeResult } from "./ports";
 import type { Runtime, WorkScope } from "./runtime";
 import { OBSERVE_CAPABILITY, withProviderSession } from "./session";
@@ -200,13 +201,13 @@ async function observeAndDiff(rt: Runtime, ec: ExecLike, graph: ResourceGraph, l
   const connection = await resolveConnection(rt, ec);
   const stored = await storedResources(rt, ec);
   const states = await withKeepAlive(rt, { lease, detail, ...(operationId ? { operation: { workspaceId: ec.workspaceId, operationId } } : {}) }, (signal) =>
-    withProviderSession(rt, ec, { purpose: "observe", capability: OBSERVE_CAPABILITY, connection, fence: lease }, (session) => collectState(rt, ec, graph, session, signal, { verify: false, stored }))
+    withProviderSession(rt, ec, { purpose: "observe", capability: OBSERVE_CAPABILITY, connection, fence: lease }, (session) => collectState(rt, ec, graph, session, signal, { verify: false, stored, connection }))
   );
   const persistFailures = await persistState(rt, ec, states, stored);
   const observations = states.flatMap((s) => (s.observation ? [s.observation] : []));
   const driverFor = new Map(states.flatMap((s) => (s.driver ? [[s.node.address, s.driver] as const] : [])));
   const report = computeDriftV2(graph, observations, {
-    expectedAttributes: (node: ResourceNode) => driverFor.get(node.address)?.expectedAttributes?.(node) ?? defaultExpectedAttributes(node),
+    expectedAttributes: (node: ResourceNode) => driverFor.get(node.address)?.expectedAttributes?.(node, node.provider === "aws" ? { awsBootstrap: awsBootstrapContextForConnection(connection.config, node.region || ec.product.environment.region) } : undefined) ?? defaultExpectedAttributes(node),
     computedAt: rt.iso(),
   });
   const previous = await rt.d.resources.latestDriftReport(ec.workspaceId, ec.environmentId);
@@ -237,7 +238,7 @@ export function createVerifyActivities(rt: Runtime): VerifyActivities {
 
       const { states, diagnostics } = await withKeepAlive(rt, { detail: "verify infrastructure", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, (signal) =>
         withProviderSession(rt, ec, { purpose: "observe", capability: OBSERVE_CAPABILITY, connection }, async (session) => {
-          const states = await collectState(rt, ec, graph, session, signal, { verify: true, stored });
+          const states = await collectState(rt, ec, graph, session, signal, { verify: true, stored, connection });
           const summary = summarizeVerification(states);
           const addresses = summary.verdicts.filter((v) => v.status !== "passed").map((v) => v.address);
           const diagnostics = await diagnosticsFor(rt, ec, graph, session, signal, addresses, states.flatMap((s) => (s.observation ? [s.observation] : [])));

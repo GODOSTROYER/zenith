@@ -17,7 +17,10 @@ import { normalizePolicyDocument, roleNameOf, summarizePolicies, trustPrincipals
 import type { IdentityGrant } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
 import { driftOf } from "./_drift";
-import { awsError, compileCtx, driverCtx, mkNode, standardNodes, tagList } from "./_helpers";
+import { awsError, compileCtx, driverCtx as unboundDriverCtx, mkNode, standardNodes, tagList } from "./_helpers";
+const awsBootstrap = { accountId: "123456789012", partition: "aws" as const, bootstrapNameSuffix: "" };
+const driverCtx = () => ({ ...unboundDriverCtx(), awsBootstrap });
+const expectedAttributes = (node: Parameters<NonNullable<typeof driver.expectedAttributes>>[0]) => driver.expectedAttributes!(node, { awsBootstrap });
 
 const iam = mockClient(IAMClient);
 const tagging = mockClient(ResourceGroupsTaggingAPIClient);
@@ -271,7 +274,7 @@ const trustDoc = { Version: "2012-10-17", Statement: [{ Effect: "Allow", Princip
 const expectedActions = expectedGrantActions(id.address, (id.spec as { grants: IdentityGrant[] }).grants);
 const policyDoc = (actions: string[], resource: string | string[] = ["arn:aws:s3:::b/*"]) => ({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: actions, Resource: resource }] });
 
-function healthyRole(actions = expectedActions) {
+function healthyRole(actions = expectedActions, boundary: string | undefined = "arn:aws:iam::123456789012:policy/ZenithAppBoundary") {
   iam.on(GetRoleCommand).resolves({
     Role: {
       RoleName: "zen-prod-web-role",
@@ -280,7 +283,7 @@ function healthyRole(actions = expectedActions) {
       CreateDate: new Date(),
       Arn: ROLE_ARN,
       AssumeRolePolicyDocument: enc(trustDoc),
-      PermissionsBoundary: { PermissionsBoundaryType: "PermissionsBoundaryPolicy", PermissionsBoundaryArn: "arn:aws:iam::123456789012:policy/ZenithAppBoundary" },
+      PermissionsBoundary: boundary ? { PermissionsBoundaryType: "PermissionsBoundaryPolicy", PermissionsBoundaryArn: boundary } : undefined,
       Tags: tagList("identity/web"),
     },
   });
@@ -290,18 +293,45 @@ function healthyRole(actions = expectedActions) {
 }
 
 describe("aws:iam_role observe", () => {
+  it.each([
+    "arn:aws:iam::123456789012:policy/ZenithAppBoundary-team-a",
+    "arn:aws:iam::210987654321:policy/ZenithAppBoundary-team-a",
+    "arn:aws-cn:iam::123456789012:policy/ZenithAppBoundary-team-a",
+    "arn:aws:iam::123456789012:policy/foreign/ZenithAppBoundary-team-a",
+    "arn:aws:iam::123456789012:policy/ZenithAppBoundary",
+    "none",
+  ])("observes and verifies the entire boundary ARN %s", async (boundary) => {
+    healthyRole(expectedActions, boundary === "none" ? undefined : boundary);
+    // Override the default fixture explicitly for the boundary-absent response.
+    if (boundary === "none") iam.on(GetRoleCommand).resolves({ Role: { RoleName: "zen-prod-web-role", Path: "/", RoleId: "x", CreateDate: new Date(), Arn: ROLE_ARN, AssumeRolePolicyDocument: enc(trustDoc) } });
+    const c = { ...driverCtx(), awsBootstrap: { ...awsBootstrap, bootstrapNameSuffix: "-team-a" } };
+    const observation = await driver.observe!(c, id, ROLE_ARN);
+    expect(observation.attributes.permissionsBoundaryArn).toMatchObject({ state: "known", value: boundary });
+    const good = boundary === "arn:aws:iam::123456789012:policy/ZenithAppBoundary-team-a";
+    expect((await driver.verify!(c, id, observation)).status).toBe(good ? "passed" : "failed");
+    const findings = driftOf(id, observation, (node) => driver.expectedAttributes!(node, c));
+    expect(findings.some((finding) => finding.fields?.some((field) => field.attribute === "permissionsBoundaryArn"))).toBe(!good);
+  });
+
+  it("keeps missing trusted context or unreadable boundary verification unknown", async () => {
+    healthyRole();
+    const observation = await driver.observe!(driverCtx(), id, ROLE_ARN);
+    expect((await driver.verify!(unboundDriverCtx(), id, observation)).status).toBe("unknown");
+    observation.attributes.permissionsBoundaryArn = { state: "unknown", reason: "access_denied" };
+    expect((await driver.verify!(driverCtx(), id, observation)).status).toBe("unknown");
+  });
   it("reads boundary, trust, normalized inline actions and attachments; matches the spec", async () => {
     healthyRole();
     const obs = await driver.observe!(driverCtx(), id, ROLE_ARN);
     expect(obs).toMatchObject({ presence: "present", externalId: ROLE_ARN, source: "aws.iam_role@1" });
     const v = (n: string) => (obs.attributes[n] as { value: unknown }).value;
-    expect(v("permissionsBoundaryName")).toBe("ZenithAppBoundary");
+    expect(v("permissionsBoundaryArn")).toBe("arn:aws:iam::123456789012:policy/ZenithAppBoundary");
     expect(v("trustPrincipals")).toEqual(["ecs-tasks.amazonaws.com"]);
     expect(v("wildcardAccess")).toBe(false);
     expect(v("attachedPolicyCount")).toBe(0);
     expect(v("inlinePolicyActions")).toEqual(expectedActions);
     expect((obs.native as { tags: Record<string, string> }).tags["zenith:resource"]).toBe("identity/web");
-    expect(driftOf(id, obs, driver.expectedAttributes!)).toEqual([]);
+    expect(driftOf(id, obs, expectedAttributes)).toEqual([]);
     expect(iam.commandCalls(GetRoleCommand)[0].args[0].input).toEqual({ RoleName: "zen-prod-web-role" });
   });
 
@@ -310,9 +340,9 @@ describe("aws:iam_role observe", () => {
     iam.on(GetRoleCommand).resolves({ Role: { RoleName: "zen-prod-web-role", Path: "/", RoleId: "x", CreateDate: new Date(), Arn: ROLE_ARN, AssumeRolePolicyDocument: enc(trustDoc), Tags: [] } });
     iam.on(ListAttachedRolePoliciesCommand).resolves({ AttachedPolicies: [{ PolicyName: "AdministratorAccess", PolicyArn: "arn:aws:iam::aws:policy/AdministratorAccess" }] });
     const obs = await driver.observe!(driverCtx(), id, ROLE_ARN);
-    const f = driftOf(id, obs, driver.expectedAttributes!);
+    const f = driftOf(id, obs, expectedAttributes);
     expect(f[0]).toMatchObject({ class: "changed", severity: "high" });
-    expect(f[0].fields!.map((x) => x.attribute).sort()).toEqual(["attachedPolicyCount", "inlinePolicyActions", "permissionsBoundaryName", "wildcardAccess"]);
+    expect(f[0].fields!.map((x) => x.attribute).sort()).toEqual(["attachedPolicyCount", "inlinePolicyActions", "permissionsBoundaryArn", "wildcardAccess"]);
   });
 
   it("detects a Resource '*' and NotAction as wildcard access", () => {
@@ -339,7 +369,7 @@ describe("aws:iam_role observe", () => {
     expect(obs.presence).toBe("present");
     expect(obs.attributes.inlinePolicyActions).toMatchObject({ state: "unknown", reason: "access_denied" });
     expect(obs.attributes.wildcardAccess).toMatchObject({ state: "unknown", reason: "access_denied" });
-    expect(obs.attributes.permissionsBoundaryName).toMatchObject({ state: "known", value: "ZenithAppBoundary" });
+    expect(obs.attributes.permissionsBoundaryArn).toMatchObject({ state: "known", value: "arn:aws:iam::123456789012:policy/ZenithAppBoundary" });
     expect(obs.attributes.attachedPolicyCount).toMatchObject({ state: "known", value: 0 });
   });
 
@@ -371,7 +401,7 @@ describe("aws:iam_role observe", () => {
     iam.on(GetRoleCommand).rejects(awsError("AccessDenied", "no", 403));
     const denied = await driver.observe!(driverCtx(), id, ROLE_ARN);
     expect(denied.presence).toBe("inaccessible");
-    expect(driftOf(id, denied, driver.expectedAttributes!)[0].class).toBe("inaccessible");
+    expect(driftOf(id, denied, expectedAttributes)[0].class).toBe("inaccessible");
     iam.on(GetRoleCommand).rejects(awsError("Throttling", "slow", 400));
     expect((await driver.observe!(driverCtx(), id, ROLE_ARN)).presence).toBe("unknown");
   });
@@ -407,9 +437,9 @@ describe("aws:iam_role observe", () => {
 
   it("expectedAttributes omits the action set for an invalid spec instead of throwing, so drift stays computable", () => {
     const broken = identity([grant("object_store/uploads", "frobnicate")]);
-    const expected = driver.expectedAttributes!(broken);
+    const expected = expectedAttributes(broken);
     expect(expected).not.toHaveProperty("inlinePolicyActions");
-    expect(expected).toMatchObject({ permissionsBoundaryName: "ZenithAppBoundary", wildcardAccess: false, attachedPolicyCount: 0 });
+    expect(expected).toMatchObject({ permissionsBoundaryArn: "arn:aws:iam::123456789012:policy/ZenithAppBoundary", wildcardAccess: false, attachedPolicyCount: 0 });
   });
 
   it("discover skips service-linked and reserved roles, reads tags within a bound, marks Zenith-tagged ones", async () => {

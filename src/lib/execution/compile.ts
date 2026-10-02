@@ -34,6 +34,7 @@
  */
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { ProviderConnection } from "@/lib/credentials/types";
+import { awsBootstrapContextForConnection } from "@/lib/credentials/aws/naming";
 import type { ProviderKey, ResourceGraph } from "@/lib/resources/types";
 import { refLocalName } from "@/lib/providers/aws/drivers/shared/refs";
 import { assembleWorkspace, TofuWorkspaceError, type BackendConfig } from "@/lib/tofu/workspace";
@@ -117,12 +118,16 @@ function substituteReferences(value: unknown, source: string, resolved: Readonly
   return value;
 }
 
-export function compileGraph(input: { graph: ResourceGraph; environmentId: string; region: string; tags: Record<string, string>; drivers: DriverLookup }): CompiledGraph {
+export function compileGraph(input: { graph: ResourceGraph; environmentId: string; region: string; tags: Record<string, string>; drivers: DriverLookup; connection?: ProviderConnection }): CompiledGraph {
   const { graph, drivers } = input;
   const nodes = new Map(graph.nodes.map((n) => [n.address, n]));
   const pending = new Map<string, PendingReference>();
   const fragments = new Map<string, TofuFragment>();
   const prefix = namePrefix(input.environmentId);
+  const hasAwsNodes = graph.nodes.some((node) => node.provider === "aws" && node.ownership !== "external");
+  const awsBootstrap = input.connection && hasAwsNodes
+    ? awsBootstrapContextForConnection(input.connection.config, input.region) : undefined;
+  if (input.connection && hasAwsNodes && input.connection.status !== "verified") throw new StepFailedError("AWS compilation requires a verified connection.");
 
   const compileNode = (address: string): TofuFragment | null => {
     const node = nodes.get(address);
@@ -142,6 +147,7 @@ export function compileGraph(input: { graph: ResourceGraph; environmentId: strin
       namePrefix: prefix,
       region: node.region || input.region,
       tags: nodeTags(input.tags, node),
+      ...(node.provider === "aws" && awsBootstrap ? { awsBootstrap: awsBootstrapContextForConnection(input.connection!.config, node.region || input.region) } : {}),
       node: (a) => nodes.get(a),
       ref: (target, attribute) => {
         const reference = { source: node.address, target, attribute };
@@ -227,7 +233,12 @@ export function buildWorkspace(input: {
   const { ec, graph, connection } = input;
   const env = ec.product.environment;
   const tags = baseTags(ec);
-  const { fragments } = compileGraph({ graph, environmentId: ec.environmentId, region: env.region, tags, drivers: input.drivers });
+  if (env.provider === "aws" && connection.config.provider !== "aws") throw new StepFailedError("AWS compilation requires an AWS connection.");
+  if (env.provider === "aws") {
+    if (connection.status !== "verified") throw new StepFailedError("AWS compilation requires a verified connection.");
+    awsBootstrapContextForConnection(connection.config, env.region);
+  }
+  const { fragments } = compileGraph({ graph, environmentId: ec.environmentId, region: env.region, tags, drivers: input.drivers, connection });
   const { backend, stateKey } = backendFor(ec, connection, input.overrides);
   const providerSet = providerSetFor(env.provider, input.overrides);
   try {

@@ -85,7 +85,7 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
     const role = b.resource("aws_iam_role", label, {
       name: roleName,
       assume_role_policy: assumeRoleJson("lambda.amazonaws.com"),
-      permissions_boundary: boundaryArn(env),
+      permissions_boundary: boundaryArn(env, "app", ctx),
       tags: tagsFor(ctx, node, roleName),
     });
     const policy = b.resource("aws_iam_role_policy", label, {

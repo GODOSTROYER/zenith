@@ -10,6 +10,8 @@
  */
 
 /** Where the customer bootstrap template lives in the Zenith repository. */
+import { isBootstrapNameSuffix, isSupportedAwsConnectionRegion } from "@/lib/credentials/aws/naming";
+
 export const CFN_TEMPLATE_PATH = "deploy/aws/zenith-connection.cfn.yaml";
 export const TOFU_MODULE_PATH = "deploy/aws/tofu-module";
 
@@ -29,6 +31,7 @@ export function looksLikeAccessKey(value: string): boolean {
 }
 
 export interface AwsFormValues {
+  bootstrapNameSuffix?: string;
   accountId: string;
   region: string;
   observeRoleArn: string;
@@ -54,6 +57,9 @@ export function validateAwsForm(values: AwsFormValues): AwsValidation {
   const region = values.region.trim();
   const observe = values.observeRoleArn.trim();
   const deploy = values.deployRoleArn.trim();
+  const suffix = values.bootstrapNameSuffix ?? "";
+  if (looksLikeAccessKey(suffix)) errors.bootstrapNameSuffix = KEY_MESSAGE;
+  else if (!isBootstrapNameSuffix(suffix)) errors.bootstrapNameSuffix = "Leave empty or use a dash followed by 1 to 19 lowercase letters, digits or dashes.";
 
   if (looksLikeAccessKey(accountId)) errors.accountId = KEY_MESSAGE;
   else if (!accountId) errors.accountId = "Enter your 12-digit AWS account ID.";
@@ -62,12 +68,14 @@ export function validateAwsForm(values: AwsFormValues): AwsValidation {
   if (looksLikeAccessKey(region)) errors.region = KEY_MESSAGE;
   else if (!region) errors.region = "Enter the region your roles and state bucket are in.";
   else if (!REGION_RE.test(region)) errors.region = "That does not look like an AWS region. Use a name like us-east-1 or ap-south-1.";
+  else if (!isSupportedAwsConnectionRegion(region)) errors.region = "Choose a supported AWS connection region, such as us-east-1 or ap-south-1.";
 
   const roleError = (value: string, which: "observe" | "deploy"): string | undefined => {
     if (looksLikeAccessKey(value)) return KEY_MESSAGE;
     if (!value) return `Paste the ${which} role ARN from the stack outputs.`;
     const m = ROLE_ARN_RE.exec(value);
     if (!m) return "A role ARN looks like arn:aws:iam::123456789012:role/ZenithObserveRole. Copy it from the stack outputs.";
+    if (!value.startsWith("arn:aws:")) return "Use a role in the supported commercial AWS partition.";
     if (ACCOUNT_ID_RE.test(accountId) && m[1] !== accountId) {
       return `This role is in account ${m[1]}, but you entered account ${accountId}. Check that both belong to the account you are connecting.`;
     }

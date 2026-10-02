@@ -24,7 +24,7 @@ import type { OperationRecord } from "@/lib/controlplane/types";
 import type { CredentialPurpose, ProviderConnection, ProviderSession } from "@/lib/credentials/types";
 import type { DriverContext } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
-import { ENVIRONMENT_ID_PATTERN, TAG_ENVIRONMENT, TAG_MANAGED, TAG_WORKSPACE, environmentName } from "@/lib/credentials/aws/naming";
+import { ENVIRONMENT_ID_PATTERN, TAG_ENVIRONMENT, TAG_MANAGED, TAG_WORKSPACE, environmentName, awsBootstrapContextForConnection } from "@/lib/credentials/aws/naming";
 import type { ExecLike } from "./context";
 import type { FenceRef } from "./ports";
 import type { Runtime } from "./runtime";
@@ -128,13 +128,18 @@ export function driverContext(
   ec: Pick<ExecLike, "op" | "workspaceId" | "environmentId" | "product">,
   session: ProviderSession,
   signal: AbortSignal,
-  opts: { node?: ResourceNode; fence?: FenceRef } = {}
+  opts: { node?: ResourceNode; fence?: FenceRef; connection?: ProviderConnection } = {}
 ): DriverContext {
   const { node, fence } = opts;
   const env = ec.product.environment;
   const tags = node ? nodeTags(baseTags(ec), node) : baseTags(ec);
+  const provider = node?.provider ?? env.provider;
+  const awsBootstrap = provider === "aws" && opts.connection
+    ? awsBootstrapContextForConnection(opts.connection.config, node?.region ?? env.region) : undefined;
+  if (awsBootstrap && (session.provider !== "aws" || session.accountId !== awsBootstrap.accountId || opts.connection?.status !== "verified")) throw new Error("AWS observation requires a matching verified connection and session.");
   return {
-    provider: node?.provider ?? env.provider,
+    provider,
+    ...(awsBootstrap ? { awsBootstrap } : {}),
     region: node?.region ?? env.region,
     workspaceId: ec.workspaceId,
     environmentId: ec.environmentId,

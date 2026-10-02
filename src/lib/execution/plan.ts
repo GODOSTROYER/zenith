@@ -127,7 +127,7 @@ export async function buildDeployWorkspace(rt: Runtime, ec: ExecContext, graph: 
   }
   // Compile the historical graph solely to recover the driver's exact address
   // list (including auxiliary resources). No names are guessed from tofu output.
-  const { fragments } = compileGraph({ graph: { ...previous, nodes: [...prior.values()] }, environmentId: ec.environmentId, region: ec.product.environment.region, tags: baseTags(ec), drivers: rt.drivers });
+  const { fragments } = compileGraph({ graph: { ...previous, nodes: [...prior.values()] }, environmentId: ec.environmentId, region: ec.product.environment.region, tags: baseTags(ec), drivers: rt.drivers, connection });
   const owner = new Map<string, string>();
   const addressMap: Record<string, string[]> = {};
   const add = (nodeAddress: string, addresses: readonly string[]): void => {

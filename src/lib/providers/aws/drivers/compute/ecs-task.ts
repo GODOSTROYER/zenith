@@ -228,7 +228,7 @@ export function emitTask(b: Frag, node: ResourceNode, ctx: CompileContext, spec:
   const execRole = b.resource("aws_iam_role", `${label}_exec`, {
     name: execName,
     assume_role_policy: assumeRoleJson("ecs-tasks.amazonaws.com"),
-    permissions_boundary: boundaryArn(env),
+    permissions_boundary: boundaryArn(env, "app", ctx),
     tags: tagsFor(ctx, node, execName),
   });
   const execPolicyResource = b.resource("aws_iam_role_policy", `${label}_exec`, {

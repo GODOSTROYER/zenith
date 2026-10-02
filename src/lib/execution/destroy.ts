@@ -305,7 +305,7 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
             let presence = "unknown", simulated = false;
             if (node && driver?.observe) {
               try {
-                const obs = await driver.observe(driverContext(rt, ec, session, signal, { node, fence: lease }), node, stored.get(address)?.externalId);
+                const obs = await driver.observe(driverContext(rt, ec, session, signal, { node, fence: lease, connection }), node, stored.get(address)?.externalId);
                 simulated = obs.simulated;
                 if (obs.address === address && !simulated) presence = obs.presence;
               } catch { /* An unreadable API cannot prove absence. */ }

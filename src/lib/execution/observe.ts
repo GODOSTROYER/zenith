@@ -18,7 +18,7 @@
  * and one bad row must not hide everything else that was observed. Failures are
  * counted and reported in the caller's evidence.
  */
-import type { ProviderSession } from "@/lib/credentials/types";
+import type { ProviderConnection, ProviderSession } from "@/lib/credentials/types";
 import type { ResourceDriver, VerificationResult } from "@/lib/drivers/types";
 import type { Observation, ResourceGraph, ResourceNode, RuntimeState } from "@/lib/resources/types";
 import { mapLimit, raceAbort } from "./concurrency";
@@ -52,7 +52,7 @@ export async function collectState(
   graph: ResourceGraph,
   session: ProviderSession,
   signal: AbortSignal,
-  opts: { verify: boolean; stored: ReadonlyMap<string, StoredResource> }
+  opts: { verify: boolean; stored: ReadonlyMap<string, StoredResource>; connection?: ProviderConnection }
 ): Promise<NodeState[]> {
   const nodes = graph.nodes.filter((n) => n.ownership !== "external");
   return mapLimit(nodes, rt.limits.concurrency, async (node): Promise<NodeState> => {
@@ -61,7 +61,7 @@ export async function collectState(
     if (!driver) return state;
     const externalId = opts.stored.get(node.address)?.externalId;
     const bounded = AbortSignal.any([signal, AbortSignal.timeout(rt.limits.nodeTimeoutMs)]);
-    const ctx = driverContext(rt, ec, session, bounded, { node });
+    const ctx = driverContext(rt, ec, session, bounded, { node, connection: opts.connection });
 
     if (driver.observe) {
       try {

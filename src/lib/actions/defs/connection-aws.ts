@@ -14,9 +14,9 @@ import type { AwsConnectionConfig } from "@/lib/credentials/types";
 import { isAccountId, isExternalId, parseRoleArn } from "@/lib/credentials/aws/arn";
 import { loadCredentialsConfig } from "@/lib/credentials/config";
 import { workloadSubject } from "@/lib/credentials/oidc/issuer";
-import { awsProvider } from "@/lib/providers/aws/provider";
 import { bridgeDeps } from "@/lib/bridge/deps";
 import { findSecret } from "@/lib/capabilities/secret-guard";
+import { isAwsStateKmsArn, isBootstrapNameSuffix, isSupportedAwsConnectionRegion } from "@/lib/credentials/aws/naming";
 
 export const AWS_CONNECTION_PERMISSIONS = [
   "Observe role: read-only describe/list/get inventory; cannot read secret values.",
@@ -28,8 +28,9 @@ export const AWS_CONNECTION_PERMISSIONS = [
 const role = z.string().max(2048).refine((v) => !!parseRoleArn(v), "Use an IAM role ARN.");
 const Input = z.object({
   label: z.string().trim().min(1).max(120).refine((v) => !findSecret(v), "Use a label without secret material.").optional(),
-  region: z.string().refine((v) => awsProvider.regions.some((r) => r.id === v), "Choose a supported AWS region."),
+  region: z.string().refine(isSupportedAwsConnectionRegion, "Choose a supported AWS region."),
   accountId: z.string().refine(isAccountId, "Use a 12-digit AWS account id."),
+  bootstrapNameSuffix: z.string().max(20).refine(isBootstrapNameSuffix, "Use an empty suffix or a dash followed by 1 to 19 lowercase letters, digits or dashes.").default(""),
   observeRoleArn: role, deployRoleArn: role,
   mode: z.enum(["oidc_web_identity", "aws_assume_role"]).default("oidc_web_identity"),
   stateBucket: z.string().min(3).max(63).regex(/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/, "Use an S3 bucket name.").refine((v) => !v.includes("..") && !/^\d+\.\d+\.\d+\.\d+$/.test(v) && !v.startsWith("xn--") && !v.endsWith("-s3alias") && !v.endsWith("--ol-s3") && !v.endsWith(".mrap") && !v.endsWith("--x-s3") && !v.endsWith("--table-s3"), "Use a valid S3 bucket name.").optional(),
@@ -40,10 +41,12 @@ const Input = z.object({
 }).strict().superRefine((input, ctx) => {
   for (const key of ["observeRoleArn", "deployRoleArn", "codeBuildRoleArn"] as const) {
     if (input[key] && parseRoleArn(input[key])?.accountId !== input.accountId) ctx.addIssue({ code: "custom", path: [key], message: "Role account must match accountId." });
+    if (input[key] && parseRoleArn(input[key])?.partition !== "aws") ctx.addIssue({ code: "custom", path: [key], message: "Choose a role in the supported commercial AWS partition." });
   }
   for (const key of ["permissionsBoundaryArn", "stateKmsKeyArn"] as const) {
     if (input[key] && input[key].split(":")[4] !== input.accountId) ctx.addIssue({ code: "custom", path: [key], message: "ARN account must match accountId." });
   }
+  if (input.stateKmsKeyArn !== undefined && !isAwsStateKmsArn(input.stateKmsKeyArn, input.accountId, input.region)) ctx.addIssue({ code: "custom", path: ["stateKmsKeyArn"], message: "State encryption key must match the account, commercial partition and connection region." });
 });
 type Input = z.input<typeof Input>;
 const TEMPLATE = "deploy/aws/zenith-connection.cfn.yaml";
@@ -69,6 +72,7 @@ function creationPlan(ctx: ActionContext, input: Input): ActionPlan {
     details: [
       ...AWS_CONNECTION_PERMISSIONS,
       `Run ${TEMPLATE} or deploy/aws/tofu-module in your AWS account; Zenith does not create this bootstrap stack.`,
+      `Bootstrap NameSuffix: ${input.bootstrapNameSuffix || "empty"}. Use the same value in the bootstrap stack and this connection.`,
       `OIDC subject: ${values?.subject ?? `zenith:ws:${ctx.workspaceId}:conn:<connection-id>`}. The exact connection id and subject are shown right after creation.`,
       `Issuer host (no scheme): ${values?.issuerHost ?? "unset (ZENITH_OIDC_ISSUER)"}. AWS must reach it over public HTTPS.`,
       ...(input.mode === "aws_assume_role" ? ["Zenith generates a random ExternalId (not a secret) at creation and returns it for the template. Supply ZenithPrincipalArn for the control plane's AWS principal; never supply an access key."] : []),

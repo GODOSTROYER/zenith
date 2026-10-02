@@ -87,7 +87,7 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
     const role = b.resource("aws_iam_role", label, {
       name: roleName,
       assume_role_policy: assumeRoleJson("ec2.amazonaws.com"),
-      permissions_boundary: boundaryArn(env, "machine"),
+      permissions_boundary: boundaryArn(env, "machine", ctx),
       tags: tagsFor(ctx, node, roleName),
     });
     const ssm = b.resource("aws_iam_role_policy_attachment", `${label}_ssm`, {

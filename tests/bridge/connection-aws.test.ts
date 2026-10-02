@@ -33,6 +33,11 @@ describe("strict validation", () => {
     { region: "moon-1" }, { accountId: "12345678901" }, { accessKeyId: "CANARY" }, { secretAccessKey: "CANARY" },
     { externalId: "caller-supplied" }, { sessionDurationSec: 899 }, { sessionDurationSec: 3601 }, { stateBucket: "bad..bucket" },
     { permissionsBoundaryArn: "arn:aws:iam::000000000000:policy/foreign" }, { stateKmsKeyArn: "invalid" }, { codeBuildRoleArn: "not-an-arn" },
+    { bootstrapNameSuffix: "team-a" }, { bootstrapNameSuffix: "-" }, { bootstrapNameSuffix: "-Team-a" }, { bootstrapNameSuffix: "-team/a" }, { bootstrapNameSuffix: "-team-a\n" }, { bootstrapNameSuffix: `-${"a".repeat(20)}` },
+    { observeRoleArn: "arn:aws-cn:iam::123456789012:role/Observe" }, { deployRoleArn: "arn:aws-us-gov:iam::123456789012:role/Deploy" },
+    { codeBuildRoleArn: "arn:aws-cn:iam::123456789012:role/build" }, { codeBuildRoleArn: "arn:aws:iam::210987654321:role/build" },
+    { stateKmsKeyArn: "arn:aws-cn:kms:cn-north-1:123456789012:key/abcd" }, { stateKmsKeyArn: "arn:aws-us-gov:kms:us-gov-west-1:123456789012:key/abcd" },
+    { stateKmsKeyArn: "arn:aws:kms:us-east-1:210987654321:key/abcd" }, { stateKmsKeyArn: "arn:aws:kms:us-west-2:123456789012:key/abcd" },
   ])("rejects invalid input %j before any write", async (bad) => {
     const r = await exec("connection.createAws", { ...input, ...bad }); expect(r.ok).toBe(false); expect(r.summary).toBe("Invalid input."); expect(JSON.stringify(r)).not.toContain("CANARY"); expect(db().connections).toHaveLength(1);
   });
@@ -46,8 +51,14 @@ it("creates linked records with exactly the same id, pending verification and re
   const data = r.data as { connectionId: string; subject: string };
   const conn = q.connection(data.connectionId)!; const platform = await repos.connections.get(sql, ctx.workspaceId, data.connectionId);
   expect(conn).toMatchObject({ provider: "aws", status: "connecting", platformConnectionId: data.connectionId });
-  expect(platform).toMatchObject({ id: data.connectionId, legacyConnectionId: data.connectionId, status: "pending_verification", config: { mode: "oidc_web_identity", accountId: input.accountId } });
+  expect(platform).toMatchObject({ id: data.connectionId, legacyConnectionId: data.connectionId, status: "pending_verification", config: { mode: "oidc_web_identity", accountId: input.accountId, bootstrapNameSuffix: "" } });
   expect(data.subject).toBe(`zenith:ws:${ctx.workspaceId}:conn:${data.connectionId}`); expect(verify).not.toHaveBeenCalled();
+});
+it.each(["-team-a", `-${"a".repeat(19)}`])("round trips bootstrap suffix %j through the saved connection", async (bootstrapNameSuffix) => {
+  const result = await exec("connection.createAws", { ...input, bootstrapNameSuffix });
+  expect(result.ok).toBe(true);
+  const { connectionId } = result.data as { connectionId: string };
+  expect(await repos.connections.get(sql, ctx.workspaceId, connectionId)).toMatchObject({ config: { bootstrapNameSuffix } });
 });
 it("assume-role generates distinct valid ExternalIds and names ZenithPrincipalArn", async () => {
   const a = await exec("connection.createAws", { ...input, mode: "aws_assume_role" }); const b = await exec("connection.createAws", { ...input, mode: "aws_assume_role" });

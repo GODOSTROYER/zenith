@@ -33,6 +33,19 @@ function fill(el: Element, values: Partial<typeof GOOD> = GOOD) {
 }
 
 describe("<AwsConnectionSetup> instructions", () => {
+  it("submits and displays the exact saved bootstrap suffix, and clears verification when it changes", async () => {
+    const onVerify = vi.fn().mockResolvedValue({ ok: true, detail: "Identity verified" });
+    const onConfigChange = vi.fn();
+    const el = mount(<AwsConnectionSetup trust={OIDC} initialValues={GOOD} onVerify={onVerify} onConfigChange={onConfigChange} />);
+    typeInto(field(el, "Bootstrap name suffix"), "-team-a");
+    expect(onConfigChange).toHaveBeenLastCalledWith(expect.objectContaining({ bootstrapNameSuffix: "-team-a" }));
+    expect(button(el, "Copy NameSuffix")).toBeDefined();
+    click(button(el, "Verify connection"));
+    await flush();
+    expect(onVerify).toHaveBeenLastCalledWith(expect.objectContaining({ bootstrapNameSuffix: "-team-a" }));
+    typeInto(field(el, "Bootstrap name suffix"), "-team-b");
+    expect(text(el)).not.toContain("Identity verified");
+  });
   it("names the CloudFormation template and its parameters", () => {
     const el = mount(<AwsConnectionSetup trust={OIDC} onVerify={vi.fn()} />);
     expect(text(el)).toContain("deploy/aws/zenith-connection.cfn.yaml");
@@ -81,7 +94,7 @@ describe("<AwsConnectionSetup> instructions", () => {
     const el = mount(<AwsConnectionSetup trust={OIDC} onVerify={vi.fn()} />);
     expect(text(el)).toContain("never asks for access keys or secrets");
     const inputs = [...el.querySelectorAll("input")];
-    expect(inputs).toHaveLength(4);
+    expect(inputs).toHaveLength(5);
     for (const i of inputs) {
       expect(i.type).not.toBe("password");
       expect(`${i.name}${i.id}${i.placeholder}`).not.toMatch(/secret|access.?key|token/i);
@@ -160,6 +173,7 @@ describe("<AwsConnectionSetup> form", () => {
       region: GOOD.region,
       observeRoleArn: GOOD.observeRoleArn,
       deployRoleArn: GOOD.deployRoleArn,
+      bootstrapNameSuffix: "",
     });
   });
 
@@ -195,7 +209,7 @@ describe("<AwsConnectionSetup> verify", () => {
     fill(el, { ...GOOD, region: " ap-south-1 " });
     click(button(el, "Verify connection"));
     await flush();
-    expect(onVerify).toHaveBeenCalledWith({ provider: "aws", mode: "oidc_web_identity", ...GOOD });
+    expect(onVerify).toHaveBeenCalledWith({ provider: "aws", mode: "oidc_web_identity", bootstrapNameSuffix: "", ...GOOD });
     expect(text(el)).toContain("Connection verified");
     expect(text(el)).toContain("Assumed the observe role as 123456789012.");
     expect(text(el)).toContain("Zenith reached account 123456789012.");

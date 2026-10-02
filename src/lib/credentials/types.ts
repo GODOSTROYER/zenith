@@ -52,6 +52,8 @@ export interface AwsConnectionConfig {
   /** per-connection, Zenith-generated; required for aws_assume_role */
   externalId?: string;
   region: string;
+  /** Exact bootstrap NameSuffix, default empty; never inferred from role names. */
+  bootstrapNameSuffix?: string;
   /** default 900, max 3600 */
   sessionDurationSec?: number;
   /** S3 bucket for OpenTofu state in the customer account */
@@ -62,8 +64,7 @@ export interface AwsConnectionConfig {
    * Legacy ZenithWorkloadBoundary ARN retained during stack-first migration
    * (output `WorkloadBoundaryArn`). Current AWS drivers select their family
    * from credentials/aws/naming.ts and do not consume this legacy override.
-   * Custom bootstrap name suffixes need a connection-to-compiler family ARN
-   * mapping; the current compiler supports unsuffixed family policy names.
+   * Family policies use the separately validated bootstrapNameSuffix.
    */
   permissionsBoundaryArn?: string;
   /** The `zenith-codebuild` service role ARN from the bootstrap stack (builds run in the customer account). */

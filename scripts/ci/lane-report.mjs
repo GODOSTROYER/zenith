@@ -49,6 +49,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { assertionMatches, requirementsFor } from "./gate-manifest.mjs";
+import { reportFailures } from "../../tests/ci/assert-lane-report.mjs";
 
 /* --------------------------------- matchers -------------------------------- */
 
@@ -58,7 +60,7 @@ const file = (relative) => (a) => norm(a.file) === relative || norm(a.file).ends
 /** Anything under a directory. */
 const under = (dir) => (a) => norm(a.file).startsWith(`${dir}/`) || norm(a.file).includes(`/${dir}/`);
 /** The `[$name]` the platform harness gives its Postgres lane. */
-const POSTGRES_TAG = /\[\s*['"]?postgres['"]?\s*\]/;
+const isPostgres = (a) => assertionMatches({ postgres: true }, a);
 const both = (...fns) => (a) => fns.every((fn) => fn(a));
 
 /* ---------------------------------- lanes ---------------------------------- */
@@ -165,7 +167,7 @@ const LANES = {
       },
       {
         label: "tests/controlplane/** (the PostgreSQL half of describe.each(LANES))",
-        match: both(under("tests/controlplane"), (a) => POSTGRES_TAG.test(a.fullName)),
+        match: both(under("tests/controlplane"), (a) => isPostgres(a)),
         whenExists: "src/lib/controlplane/db",
         why: "Every suite also runs on PGlite, so a job with ZENITH_TEST_PLATFORM_PG_URL unset is green having touched no Postgres. The Postgres lane is named `[postgres]` by tests/controlplane/_support/harness.ts.",
       },
@@ -206,12 +208,15 @@ if (!lane || !reportPath || (rootFlag >= 0 && !root)) {
 let report;
 try {
   report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
-} catch (error) {
+} catch {
   // An unreadable report means the run did not get far enough to write one. It
   // must not be reported as "nothing was skipped".
-  console.error(
-    `::error::Could not read the vitest JSON report at ${reportPath}: ${error instanceof Error ? error.message : String(error)}`
-  );
+  console.error("::error::Could not read the vitest JSON report; evidence is unavailable or invalid.");
+  process.exit(1);
+}
+
+if (!report || typeof report !== "object" || !Array.isArray(report.testResults) || report.success !== true || report.testResults.some((entry) => !entry || typeof entry.name !== "string" || !Array.isArray(entry.assertionResults) || entry.assertionResults.some((assertion) => !assertion || typeof assertion.fullName !== "string" || !["passed", "failed", "pending", "skipped", "todo"].includes(assertion.status)))) {
+  console.error("::error::Malformed or unsuccessful Vitest report.");
   process.exit(1);
 }
 
@@ -222,6 +227,7 @@ for (const testFile of report.testResults ?? [])
       file: testFile.name ?? "",
       fullName: assertion.fullName ?? [...(assertion.ancestorTitles ?? []), assertion.title ?? ""].join(" "),
       status: assertion.status ?? "unknown",
+      ancestorTitles: assertion.ancestorTitles,
     });
 
 const isSkipped = (a) => a.status === "pending" || a.status === "skipped" || a.status === "todo";
@@ -245,6 +251,17 @@ const requirements = lane.required.map((req) => {
   return { ...req, live, ran, lost, ok: !live || ran > 0 };
 });
 const missing = requirements.filter((req) => !req.ok);
+// Historical pre-implementation roots remain explicitly not-yet-required. In
+// the actual checkout, summaries and the execution gate share strict contracts.
+let strictFailures = [];
+const testDirectory = laneName === "platform-postgres" ? "tests/controlplane" : `tests/${laneName}`;
+if (fs.existsSync(path.join(root, testDirectory))) {
+  try { strictFailures = reportFailures(requirementsFor(laneName, root), report, root); }
+  catch { strictFailures = ["Canonical required source scenarios are unavailable or invalid"]; }
+}
+if (report.testResults.some((entry) => entry.status !== "passed") || failed.length > 0) strictFailures.push("Vitest files or assertions failed");
+const names = report.testResults.map((entry) => norm(entry.name));
+if (new Set(names).size !== names.length) strictFailures.push("Duplicate Vitest file evidence");
 
 say(`## ${lane.title}`);
 say();
@@ -290,4 +307,5 @@ else process.stdout.write(summary);
 
 for (const req of missing) console.error(`::error::"${req.label}" produced 0 passing tests. ${req.why}`);
 
-process.exit(missing.length > 0 ? 1 : 0);
+for (const failure of strictFailures) console.error(`::error::${failure}`);
+process.exit(missing.length > 0 || strictFailures.length > 0 ? 1 : 0);

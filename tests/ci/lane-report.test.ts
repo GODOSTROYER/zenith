@@ -37,12 +37,14 @@ function writeReport(files: F[]): string {
   fs.writeFileSync(
     file,
     JSON.stringify({
+      success: true,
       numTotalTests: files.reduce((n, f) => n + f.tests.length, 0),
       testResults: files.map((f) => ({
         name: f.name,
+        status: "passed",
         assertionResults: f.tests.map((x) => ({
           fullName: x.fullName,
-          ancestorTitles: [x.fullName.split(" ")[0]],
+          ancestorTitles: [x.fullName.slice(0, x.fullName.lastIndexOf(" "))],
           title: x.fullName.split(" ").slice(1).join(" "),
           status: x.status ?? "passed",
         })),

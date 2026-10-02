@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
+import { CORE_CHECKS, GATE_LANES, manifestFor } from "../../scripts/ci/gate-manifest.mjs";
 
 interface Step {
   name?: string;
@@ -97,23 +98,24 @@ const NODE_VERSION = "22.23.3";
  */
 const CHECKOUT_PREFIX = "actions/checkout@";
 
-/** The vitest invocations the platform lanes run, written once so the job and its lane-report step cannot drift. */
-const vitestLane = (paths: string, extra: string, lane: string): string =>
-  `npx vitest run ${paths}${extra} --reporter=default --reporter=json --outputFile.json=.data-ci-lane/${lane}-lane.json`;
-const POLICY_VITEST = vitestLane("tests/policy", " --maxWorkers=2", "policy");
-const TOFU_VITEST = vitestLane("tests/tofu tests/providers/aws/drivers tests/providers/aws/identity tests/providers/gcp tests/providers/azure tests/providers/oci tests/execution/compile-refs-providers.test.ts tests/execution/journey.test.ts tests/security/tofu-secrets.test.ts tests/security/tofu-runner-env.test.ts tests/security/tofu-workspace-injection.test.ts", " --maxWorkers=2 --no-file-parallelism", "tofu");
-const WORKFLOWS_VITEST = vitestLane("tests/workflows tests/platform tests/security/workflow-history.test.ts", " --maxWorkers=2 --no-file-parallelism", "workflows");
-const PLATFORM_VITEST = vitestLane("tests/controlplane tests/capabilities tests/runners tests/reconcile/platform.test.ts", " --maxWorkers=2 --no-file-parallelism", "platform");
+/** CI invokes the same owned manifest used for local execution and validation. */
+const gateRun = (lane: string): string => `node scripts/ci/run-gate.mjs ${lane} --run`;
+const gateValidate = (lane: string): string => `node scripts/ci/run-gate.mjs ${lane} --validate ${manifestFor(lane).report}`;
+const POLICY_VITEST = gateRun("policy");
+const TOFU_VITEST = gateRun("tofu");
+const WORKFLOWS_VITEST = gateRun("workflows");
+const PLATFORM_VITEST = gateRun("platform-postgres");
+const coreRun = (step: string): string => `node scripts/ci/run-gate.mjs core --run --step ${step}`;
 
 const requiredCommands: Record<string, string[]> = {
   verify: [
     '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml .github/workflows/live-acceptance.yml',
     INSTALL,
-    "npm run typecheck",
-    "npm run lint",
-    "npx vitest run --project=node --project=dom --maxWorkers=2",
-    "npm run smoke",
-    "npm run gimbal:verify",
+    coreRun("typecheck"),
+    coreRun("lint"),
+    coreRun("unit"),
+    coreRun("smoke"),
+    coreRun("gimbal"),
   ],
   build: [INSTALL, "npm run build"],
   docker: ["docker build -t zenith:ci ."],
@@ -126,7 +128,7 @@ const requiredCommands: Record<string, string[]> = {
   postgres: [
     INSTALL,
     "bash scripts/ci/apply-supabase-migrations.sh",
-    "npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts tests/agent-link/pg-contract.test.ts tests/agent-control/pg-contract.test.ts tests/db/contract/workspace-sharing.test.ts tests/waitlist/pg-contract.test.ts --maxWorkers=2 --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json",
+    gateRun("postgres"),
   ],
   agent: [INSTALL, "npm run agent:acceptance", "npm run agent:browser"],
   // The platform module gates. Steps behind a `hashFiles` guard (the Go lane's,
@@ -173,7 +175,7 @@ describe("release gate policy", () => {
     const actions = Object.values(workflow.jobs).flatMap((job) => job.steps).filter((step) => step.uses);
     expect(actions.length).toBeGreaterThan(0);
     for (const step of actions) {
-      expect(step.uses).toMatch(/^actions\/(checkout|setup-node|setup-go|cache)@[a-f0-9]{40}$/);
+      expect(step.uses).toMatch(/^actions\/(checkout|setup-node|setup-go|cache|upload-artifact)@[a-f0-9]{40}$/);
     }
   });
 
@@ -417,7 +419,7 @@ describe("release gate policy", () => {
       const order = pg().steps.map((step) => step.run?.trim() ?? "");
       const at = (command: string): number => order.indexOf(command);
       expect(at("bash scripts/ci/apply-supabase-migrations.sh")).toBeGreaterThan(at(INSTALL));
-      expect(order.findIndex((run) => run.startsWith("npx vitest run"))).toBeGreaterThan(
+      expect(at(gateRun("postgres"))).toBeGreaterThan(
         at("bash scripts/ci/apply-supabase-migrations.sh")
       );
     });
@@ -661,6 +663,7 @@ describe("toolchain and trust rules that hold for every workflow", () => {
       "actions/checkout",
       "actions/setup-go",
       "actions/setup-node",
+      "actions/upload-artifact",
       "aws-actions/configure-aws-credentials",
     ]);
     for (const [action, shas] of byAction) expect([...shas], `${action} must have one pin`).toHaveLength(1);
@@ -736,12 +739,72 @@ describe("toolchain and trust rules that hold for every workflow", () => {
       expect(known, `${name} names an unknown lane`).toContain(args[0]);
       expect(step.if, `${name}: the lane report must run even when the suites failed`).toBe("always()");
       expect(step["continue-on-error"] ?? false).toBe(false);
-      const vitest = j.steps.map(cmd).find((command) => command.startsWith("npx vitest run"));
-      expect(vitest, `${name} must write the report it reads`).toContain(`--outputFile.json=${args[1]}`);
-      expect(vitest).toContain("--reporter=json");
+      const run = gateRun(args[0]);
+      expect(j.steps.map(cmd), `${name} must invoke the canonical gate`).toContain(run);
+      const manifest = manifestFor(args[0]);
+      expect(manifest.report).toBe(args[1]);
+      expect(manifest.command).toContain(`--outputFile.json=${args[1]}`);
+      expect(manifest.command).toContain("--reporter=json");
       expect(args).toHaveLength(2);
-      expect(indexOfCommand(j, cmd(step))).toBeGreaterThan(j.steps.map(cmd).findIndex((command) => command.startsWith("npx vitest run")));
+      expect(indexOfCommand(j, cmd(step))).toBeGreaterThan(indexOfCommand(j, run));
     }
+  });
+});
+
+describe("canonical execution and evidence in CI", () => {
+  it.each(Object.keys(GATE_LANES))("%s always validates the exact report its shared command writes", (lane) => {
+    const job = jobOf(lane);
+    const manifest = manifestFor(lane);
+    const execute = job.steps.filter((step) => cmd(step) === gateRun(lane));
+    const validate = job.steps.filter((step) => cmd(step) === gateValidate(lane));
+    expect(execute).toHaveLength(1);
+    expect(execute[0].if).toBeUndefined();
+    expect(execute[0]["continue-on-error"] ?? false).toBe(false);
+    expect(validate).toHaveLength(1);
+    expect(validate[0].if).toBe("always()");
+    expect(validate[0]["continue-on-error"] ?? false).toBe(false);
+    expect(job.steps.indexOf(validate[0])).toBeGreaterThan(job.steps.indexOf(execute[0]));
+    expect(manifest.command).toContain(`--outputFile.json=${manifest.report}`);
+    expect(manifest.command).toContain("--reporter=json");
+    expect(manifest.command).toContain("--maxWorkers=1");
+    expect(manifest.command).toContain("--no-file-parallelism");
+    expect(manifest.command).not.toContain("--passWithNoTests");
+    expect(manifest.requirements.length).toBeGreaterThan(0);
+    // The canonical runner applies these flags even if ambient job env is absent.
+    for (const [name, value] of Object.entries(manifest.env)) if (job.env?.[name] !== undefined) expect(String(job.env[name])).toBe(value);
+  });
+
+  it("keeps every core command in the same manifest and invokes each mandatory step", () => {
+    for (const check of CORE_CHECKS) expect(workflow.jobs.verify.steps.map(cmd)).toContain(coreRun(check.id));
+    expect(CORE_CHECKS.find((check: { id: string }) => check.id === "unit")?.command).toContain("--project=node");
+    expect(CORE_CHECKS.find((check: { id: string }) => check.id === "unit")?.command).toContain("--project=dom");
+    expect(manifestFor("fresh").steps[0].command).toEqual(["npm", "ci", "--ignore-scripts"]);
+  });
+
+  it("requires local Temporal replay and pinned public source acquisition, with only mTLS external", () => {
+    const manifest = manifestFor("workflows");
+    expect(manifest.env).toMatchObject({ ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b" });
+    for (const file of ["tests/workflows/codec-replay.test.ts", "tests/workflows/destroy-replay.test.ts", "tests/platform/source-bundle.test.ts"]) expect(manifest.requirements).toContainEqual(expect.objectContaining({ file }));
+    expect(manifest.excludeFiles).toEqual(["tests/workflows/mtls-live.test.ts"]);
+    expect(manifest.externalAcceptance).toEqual([expect.objectContaining({ id: "external-temporal-mtls", releaseBlocker: expect.stringContaining("unverified") })]);
+    expect(manifest.tools).toMatchObject({ node: NODE_VERSION, temporal: "1.9.1" });
+  });
+
+  it.each(Object.keys(GATE_LANES))("%s uploads only sanitized evidence after validation even on failure", (lane) => {
+    const job = jobOf(lane);
+    const uploads = job.steps.filter((step) => step.uses?.startsWith("actions/upload-artifact@"));
+    expect(uploads).toHaveLength(1);
+    const upload = uploads[0];
+    expect(upload.uses).toBe("actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02");
+    expect(upload.if).toBe("always()");
+    expect(upload["continue-on-error"] ?? false).toBe(false);
+    expect(upload.with?.path).toBe(`.data-ci-lane/${lane}-evidence.json`);
+    expect(upload.with?.["if-no-files-found"]).toBe("error");
+    expect(upload.with?.name).toBe(`canonical-${lane}-evidence-` + "${{ github.sha }}");
+    expect(upload.with?.["retention-days"]).toBe(14);
+    expect(job.steps.indexOf(upload)).toBeGreaterThan(indexOfCommand(job, gateValidate(lane)));
+    expect(String(upload.with?.path)).not.toContain("*");
+    expect(String(upload.with?.path)).not.toContain("lane.json");
   });
 });
 
@@ -778,7 +841,8 @@ describe("the tofu job", () => {
   });
 
   it("runs all provider suites and fails when no suites exist, serially", () => {
-    const command = cmd(tofu().steps[indexOfCommand(tofu(), TOFU_VITEST)]);
+    expect(cmd(tofu().steps[indexOfCommand(tofu(), TOFU_VITEST)])).toBe(gateRun("tofu"));
+    const command = manifestFor("tofu").command.join(" ");
     expect(command).toContain("tests/tofu tests/providers/aws/drivers");
     expect(command).toContain("tests/providers/aws/identity");
     expect(command).not.toContain("--passWithNoTests");
@@ -876,7 +940,8 @@ describe("the workflows job", () => {
   });
 
   it("runs serially and fails when the committed suites are absent", () => {
-    const command = cmd(wf().steps[indexOfCommand(wf(), WORKFLOWS_VITEST)]);
+    expect(cmd(wf().steps[indexOfCommand(wf(), WORKFLOWS_VITEST)])).toBe(gateRun("workflows"));
+    const command = manifestFor("workflows").command.join(" ");
     expect(command).not.toContain("--passWithNoTests");
     expect(command).toContain("--no-file-parallelism");
   });
@@ -923,7 +988,8 @@ describe("the platform PostgreSQL job", () => {
   });
 
   it("runs the control store, capabilities, runners and reconciliation serially", () => {
-    const command = cmd(pg().steps[indexOfCommand(pg(), PLATFORM_VITEST)]);
+    expect(cmd(pg().steps[indexOfCommand(pg(), PLATFORM_VITEST)])).toBe(gateRun("platform-postgres"));
+    const command = manifestFor("platform-postgres").command.join(" ");
     for (const dir of ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts"]) expect(command).toContain(dir);
     expect(command).not.toContain("--passWithNoTests");
     expect(command).toContain("--no-file-parallelism");

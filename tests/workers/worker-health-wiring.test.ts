@@ -5,7 +5,8 @@ import type { ReadinessChecks } from "../../workers/execution/health";
 const fake = vi.hoisted(() => ({
   checks: undefined as ReadinessChecks | undefined,
   state: "CREATED", stopping: false,
-  store: { query: vi.fn(async () => [{}]) },
+  store: { query: vi.fn(async () => [{}]), close: vi.fn(async () => undefined) },
+  closeStore: vi.fn(),
   endpointClose: vi.fn(async () => undefined), janitorStop: vi.fn(async () => undefined),
   temporalCheck: vi.fn(async () => ({})), connectionClose: vi.fn(async () => undefined),
   policy: vi.fn(async () => ({})), createWorker: vi.fn(), run: vi.fn(),
@@ -23,7 +24,7 @@ vi.mock("@/lib/providers/azure/release/source-binding", () => ({ createAzureSour
 vi.mock("@/lib/drivers/types", () => ({ listDrivers: () => ["aws", "kubernetes", "zenith", "gcp", "azure", "oci"].map((provider) => ({ provider })) }));
 vi.mock("@/lib/policy", () => ({ loadPolicyEngine: fake.policy }));
 vi.mock("@/lib/execution/plan-janitor", () => ({ planMaxAgeFromEnv: () => 86400_000, startPlanJanitor: () => ({ stop: fake.janitorStop }) }));
-vi.mock("../../workers/execution/startup", () => ({ ExecutionStartupError: class extends Error {}, validateExecutionConfiguration: fake.validate, openExecutionStore: async () => fake.store }));
+vi.mock("../../workers/execution/startup", () => ({ ExecutionStartupError: class extends Error {}, validateExecutionConfiguration: fake.validate, openExecutionStore: async () => fake.store, closeExecutionStore: fake.closeStore }));
 vi.mock("../../workers/execution/config", () => ({ executionWorkerConfigFromEnv: () => ({ temporal: {}, identity: "synthetic-worker", healthLogIntervalMs: 0 }) }));
 vi.mock("@/lib/workflows/config", () => ({ connectionOptionsFor: () => ({}), describeTemporalConfig: () => ({}) }));
 vi.mock("../../workers/execution/lifecycle", () => ({ installShutdownHandlers: () => () => fake.stopping }));
@@ -38,6 +39,9 @@ let output: MockInstance<typeof process.stdout.write>;
 beforeEach(() => {
   vi.resetModules(); vi.clearAllMocks(); fake.checks = undefined; fake.state = "CREATED"; fake.stopping = false;
   fake.policy.mockResolvedValue({}); fake.temporalCheck.mockResolvedValue({});
+  fake.closeStore.mockImplementation(async (db?: { close?: () => Promise<void> }) => {
+    if (typeof db?.close === "function") await db.close();
+  });
   finish = Promise.withResolvers<void>();
   fake.run.mockImplementation(() => { fake.state = "RUNNING"; return finish.promise; });
   fake.createWorker.mockResolvedValue({ getState: () => fake.state, run: fake.run });
@@ -63,12 +67,19 @@ describe("worker health lifecycle wiring", () => {
     expect(await probe()).toMatchObject({ ready: false, checks: { temporal: "unavailable" } });
     finish.resolve(); await vi.waitFor(() => expect(exited).toHaveBeenCalledWith(0));
     expect(fake.endpointClose).toHaveBeenCalledOnce(); expect(fake.janitorStop).toHaveBeenCalledOnce(); expect(fake.connectionClose).toHaveBeenCalledOnce();
+    expect(fake.closeStore).toHaveBeenCalledExactlyOnceWith(fake.store); expect(fake.store.close).toHaveBeenCalledOnce();
+    expect(fake.endpointClose.mock.invocationCallOrder[0]).toBeLessThan(fake.janitorStop.mock.invocationCallOrder[0]);
+    expect(fake.janitorStop.mock.invocationCallOrder[0]).toBeLessThan(fake.connectionClose.mock.invocationCallOrder[0]);
+    expect(fake.connectionClose.mock.invocationCallOrder[0]).toBeLessThan(fake.store.close.mock.invocationCallOrder[0]);
   });
 
   it("refuses polling with an unloaded policy and closes health without logging the failed bundle input", async () => {
     fake.policy.mockRejectedValue(new Error("synthetic-policy-secret"));
     await import("../../workers/execution/worker"); await vi.waitFor(() => expect(exited).toHaveBeenCalledWith(1));
     expect(fake.createWorker).not.toHaveBeenCalled(); expect(fake.endpointClose).toHaveBeenCalledOnce();
+    expect(fake.closeStore).toHaveBeenCalledExactlyOnceWith(fake.store); expect(fake.store.close).toHaveBeenCalledOnce();
+    expect(fake.janitorStop).not.toHaveBeenCalled(); expect(fake.connectionClose).not.toHaveBeenCalled();
+    expect(fake.endpointClose.mock.invocationCallOrder[0]).toBeLessThan(fake.store.close.mock.invocationCallOrder[0]);
     expect(output.mock.calls.map(([text]) => String(text)).join("")).not.toContain("synthetic-policy-secret");
   });
 
@@ -76,6 +87,10 @@ describe("worker health lifecycle wiring", () => {
     fake.createWorker.mockRejectedValue(new Error("synthetic-worker-secret"));
     await import("../../workers/execution/worker"); await vi.waitFor(() => expect(exited).toHaveBeenCalledWith(1));
     expect(fake.endpointClose).toHaveBeenCalledOnce(); expect(fake.connectionClose).toHaveBeenCalledOnce();
+    expect(fake.closeStore).toHaveBeenCalledExactlyOnceWith(fake.store); expect(fake.store.close).toHaveBeenCalledOnce();
+    expect(fake.janitorStop).not.toHaveBeenCalled();
+    expect(fake.endpointClose.mock.invocationCallOrder[0]).toBeLessThan(fake.connectionClose.mock.invocationCallOrder[0]);
+    expect(fake.connectionClose.mock.invocationCallOrder[0]).toBeLessThan(fake.store.close.mock.invocationCallOrder[0]);
     expect(output.mock.calls.map(([text]) => String(text)).join("")).not.toContain("synthetic-worker-secret");
   });
 });

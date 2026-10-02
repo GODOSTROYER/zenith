@@ -24,6 +24,9 @@ const directories: string[] = [];
 const intercepted = vi.hoisted(() => ({
   client: vi.fn(), connect: vi.fn(), nativeConnect: vi.fn(), createWorker: vi.fn(),
   health: vi.fn(), validate: vi.fn(),
+  openStore: vi.fn(), closeStore: vi.fn(),
+  store: { query: vi.fn(), close: vi.fn() },
+  healthClose: vi.fn(), janitorStop: vi.fn(), nativeClose: vi.fn(),
 }));
 
 vi.mock("@temporalio/client", async (original) => {
@@ -41,13 +44,14 @@ vi.mock("@temporalio/worker", async (original) => {
 vi.mock("node:fs/promises", async (original) => ({ ...await original<typeof import("node:fs/promises")>(), mkdir: vi.fn() }));
 vi.mock("@/lib/platform/app", () => ({ ensurePlatformApp: vi.fn(async () => true) }));
 vi.mock("@/lib/policy", () => ({ loadPolicyEngine: vi.fn() }));
-vi.mock("@/lib/execution/plan-janitor", () => ({ planMaxAgeFromEnv: () => 1000, startPlanJanitor: () => ({ stop: vi.fn() }) }));
+vi.mock("@/lib/execution/plan-janitor", () => ({ planMaxAgeFromEnv: () => 1000, startPlanJanitor: () => ({ stop: intercepted.janitorStop }) }));
 vi.mock("@/lib/workflows/activities", () => ({ createActivities: () => ({}) }));
 vi.mock("../../workers/execution/lifecycle", () => ({ installShutdownHandlers: () => () => false }));
 vi.mock("../../workers/execution/startup", () => ({
   ExecutionStartupError: class extends Error {},
   validateExecutionConfiguration: intercepted.validate,
-  openExecutionStore: async () => ({ query: vi.fn() }),
+  openExecutionStore: intercepted.openStore,
+  closeExecutionStore: intercepted.closeStore,
 }));
 vi.mock("../../workers/execution/health", () => ({ healthPortFromEnv: () => 9464, startHealthServer: intercepted.health, HEALTH_CHECK_TIMEOUT_MS: 2000 }));
 vi.mock("../../workers/execution/run", async (original) => ({
@@ -60,6 +64,11 @@ beforeEach(() => {
   vi.stubEnv("NODE_ENV", "production");
   vi.stubEnv("ZENITH_SECRET_KEY", CURRENT);
   vi.stubEnv("ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS", undefined);
+  intercepted.openStore.mockResolvedValue(intercepted.store);
+  intercepted.closeStore.mockImplementation(async (db?: { close?: () => Promise<void> }) => {
+    if (typeof db?.close === "function") await db.close();
+  });
+  intercepted.store.close.mockResolvedValue(undefined);
   intercepted.connect.mockResolvedValue({ close: vi.fn(async () => undefined), workflowService: { describeNamespace: vi.fn(async () => ({})) } });
 });
 afterEach(async () => {
@@ -192,10 +201,22 @@ describe("execution worker process codec wiring", () => {
     vi.stubEnv("ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS", "0");
     const exit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    intercepted.health.mockResolvedValue({ port: 9464, close: vi.fn() });
-    intercepted.nativeConnect.mockResolvedValue({ close: vi.fn() });
+    intercepted.health.mockResolvedValue({ port: 9464, close: intercepted.healthClose });
+    intercepted.nativeConnect.mockResolvedValue({ close: intercepted.nativeClose });
     intercepted.createWorker.mockResolvedValue({ run: vi.fn(), getState: () => "RUNNING" });
     return { exit, stdout };
+  }
+
+  function expectSuccessfulCleanup() {
+    expect(intercepted.openStore).toHaveBeenCalledOnce();
+    expect(intercepted.closeStore).toHaveBeenCalledExactlyOnceWith(intercepted.store);
+    expect(intercepted.store.close).toHaveBeenCalledOnce();
+    expect(intercepted.healthClose).toHaveBeenCalledOnce();
+    expect(intercepted.janitorStop).toHaveBeenCalledOnce();
+    expect(intercepted.nativeClose).toHaveBeenCalledOnce();
+    expect(intercepted.healthClose.mock.invocationCallOrder[0]).toBeLessThan(intercepted.janitorStop.mock.invocationCallOrder[0]);
+    expect(intercepted.janitorStop.mock.invocationCallOrder[0]).toBeLessThan(intercepted.nativeClose.mock.invocationCallOrder[0]);
+    expect(intercepted.nativeClose.mock.invocationCallOrder[0]).toBeLessThan(intercepted.store.close.mock.invocationCallOrder[0]);
   }
 
   function configureTlsFiles() {
@@ -219,6 +240,7 @@ describe("execution worker process codec wiring", () => {
     configureTlsFiles();
     await import("../../workers/execution/worker");
     await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
+    expectSuccessfulCleanup();
     expect(intercepted.nativeConnect).toHaveBeenCalledWith({ address: "localhost:7233", tls: TLS });
     const options = intercepted.createWorker.mock.calls[0][0] as WorkerOptions;
     expect(options).not.toHaveProperty("tls");
@@ -238,6 +260,8 @@ describe("execution worker process codec wiring", () => {
     expect(intercepted.health).not.toHaveBeenCalled();
     expect(intercepted.validate).not.toHaveBeenCalled();
     expect(intercepted.nativeConnect).not.toHaveBeenCalled();
+    expect(intercepted.openStore).not.toHaveBeenCalled();
+    expect(intercepted.closeStore).not.toHaveBeenCalled();
     expect(JSON.stringify(stdout.mock.calls)).not.toContain("synthetic-private-path");
   });
 
@@ -249,6 +273,12 @@ describe("execution worker process codec wiring", () => {
     await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
     expect(intercepted.nativeConnect).toHaveBeenCalledOnce();
     expect(intercepted.createWorker).not.toHaveBeenCalled();
+    expect(intercepted.closeStore).toHaveBeenCalledExactlyOnceWith(intercepted.store);
+    expect(intercepted.store.close).toHaveBeenCalledOnce();
+    expect(intercepted.healthClose).toHaveBeenCalledOnce();
+    expect(intercepted.nativeClose).not.toHaveBeenCalled();
+    expect(intercepted.janitorStop).not.toHaveBeenCalled();
+    expect(intercepted.healthClose.mock.invocationCallOrder[0]).toBeLessThan(intercepted.store.close.mock.invocationCallOrder[0]);
     expect(JSON.stringify(stdout.mock.calls)).not.toMatch(/BEGIN|synthetic-|"data":/);
   });
 
@@ -257,6 +287,7 @@ describe("execution worker process codec wiring", () => {
     vi.stubEnv("ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS", JSON.stringify([PREVIOUS]));
     await import("../../workers/execution/worker");
     await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
+    expectSuccessfulCleanup();
     expect(intercepted.validate).toHaveBeenCalledOnce();
     const options = intercepted.createWorker.mock.calls[0][0] as WorkerOptions;
     expect(options).toMatchObject({ taskQueue: "zenith-execution", maxConcurrentActivityTaskExecutions: 8, workflowBundle: { code: "intercepted-bundle" } });
@@ -278,6 +309,8 @@ describe("execution worker process codec wiring", () => {
     expect(intercepted.validate).not.toHaveBeenCalled();
     expect(intercepted.nativeConnect).not.toHaveBeenCalled();
     expect(intercepted.createWorker).not.toHaveBeenCalled();
+    expect(intercepted.openStore).not.toHaveBeenCalled();
+    expect(intercepted.closeStore).not.toHaveBeenCalled();
     expect(JSON.stringify(stdout.mock.calls)).not.toContain("invalid-test-key");
   });
 });

@@ -56,14 +56,34 @@ fulltypecheck/lint/Go and actual policy238/238 with mandatory schema2 receipt
 revalidation pass. Source review closed inventory-proof and bounded-reader
 defects. Exact old schema1 origins survive, but cannot pass new authority.
 
-Immediate next steps: review and verify private environment diagnostics,
-push normally, diagnose measured drift and observe every new CI job. The
-first fresh native ARM64 worker image built and passed three startup refusals
-and migrations1through6, but actual readiness failed. Owned resources were
-deleted. Corrected Temporal storage/readiness retry passed actual polling,
-signed read refusal, empty reconcile, assets, dependency recovery and idle
-shutdown; resources deleted. Repeat on newly combined source, then AMD64
-serially. Preserve native versus emulated evidence. Candidate worktree:
+Run `36965544610` at `83ec97f` completed red:8 successful jobs,6 failed.
+All five complete private comparisons measured only GITHUB_ARTIFACTS and
+GITHUB_ARTIFACTS_LIST changes. Bounded compatibility `c464c06` is integrated
+by `3c5a2b3`; root507checks and actual policy238/238 mandatory receipt
+validation pass. Credentials/source/run/shell and nonzero outcomes remain
+fatal. Workflow859P2F0S and fullunit16057P4F384S expose two AWS form fixtures
+and two browser dependency-boundary assertions. Smoke/Gimbal skipped. See
+`ci-36965544610.md`; current remote baseline is not green.
+
+AWS UI request fixture `6d94c11` is integrated by `f67e9c4`; root641checks
+and canonical realworkflow861P0F0S pass with37requiredgroups/matchedreceipt.
+Browser-safe shared constraints `ae0f854` are integrated by `c325c28`, with
+root1355checks,fulltypecheck/lint/Go and independent review. Credential-tree
+runtime imports remain denied; one exact pure module is allowed.
+
+Immediate next steps: push normally and observe all14 jobs. Only one heavy
+local verification may run. Frozen
+uncertainty and canonical repair candidates need root checks next. Preserve
+existing uncertain operations and exact browser plan approvals.
+
+Native ARM64 retry passed bounded actual polling, signed no-target read
+refusal, empty reconcile, assets, dependency recovery and idle shutdown;
+resources deleted. Current AMD64 image built under emulation, but its first
+refusal Docker command timed out before proving a worker exit. Initial
+cleanup failed; a separate ownership-verified receipt confirms all owned
+resources were subsequently removed. Review frozen detached-refusal and
+bounded cleanup fixes, then run AMD64 and native ARM64 serially on combined
+source. Preserve failed runs and native/emulated limits. Candidate worktree:
 `/Users/saivedanthava/.codex/zenith-production/worktrees/worker-startup`.
 Dependency remediation `d8e457fd5add185cc9df13f8bee38076e1c1d53f` is
 integrated by `0f8cabb1c3abf061708f9c1a32b713d96329bf07`. Root verified
@@ -82,6 +102,10 @@ approved deletion1/1 and fresh kindprovider6/6+release1/1 pass. All owned
 dependencies removed. Retain stack-first/live IAM permission blockers.
 `ws/prod-start-uncertainty` repairs actual Temporal error classification and
 competing product projections; durable outbox/recovery remains separate work.
+`ws/prod-canonical-repair` composes the existing canonical core with Temporal
+history compatibility and uncertain-operation conflicts. Production drivers
+currently lack `drift.repair`; a real authorized remediation adapter remains
+required before observation-to-repair acceptance can complete.
 
 All new commits use Saivedant Hava `<saivedant169@gmail.com>` as author and
 committer on this Mac. No history rewrite, force push or secret-scanning bypass.

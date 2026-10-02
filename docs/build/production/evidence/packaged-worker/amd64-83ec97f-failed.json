@@ -1,0 +1,77 @@
+{
+  "runId": "zenith-pkg-amd64-c8b6fe0ac012",
+  "platform": "linux/amd64",
+  "startedAt": "2026-10-02T04:42:46.286Z",
+  "status": "failed",
+  "checks": {},
+  "limitations": [
+    "Temporal CLI development server, not Temporal Cloud or production Temporal topology.",
+    "Product metadata uses an isolated file-store fixture; platform control store is real Postgres.",
+    "No deployed cloud resources: reconcile observes an empty environment; read operation safely refuses a missing target.",
+    "No cloud writes or browser approval are performed; plan files are retention sentinels, not executable plans.",
+    "Shutdown check drains an idle packaged worker; in-flight cloud activity drain remains outside this harness."
+  ],
+  "commit": "83ec97fb896b3d9edf801c71fb4fd8cf6360773e",
+  "dirty": true,
+  "sourceInputSha256": "50c7964af3eb1cfe52c40309c4715aadea06911c123efe26d74089c6f42e9574",
+  "acceptanceHarnessSha256": "04a8127e5631c74b9db7e8166968d03797e6eb0102bb7ca7f466af338f430a35",
+  "lockedDependencies": {
+    "@temporalio/worker": "1.24.0",
+    "@temporalio/client": "1.24.0",
+    "postgres": "3.4.7",
+    "jose": "6.2.12"
+  },
+  "environment": {
+    "dockerServerOS": "linux",
+    "dockerServerArch": "arm64",
+    "dockerVersion": "29.1.3",
+    "emulated": true
+  },
+  "image": {
+    "id": "sha256:a7abed5938c64053df2a9010c322c00c5deb89896f47b877b3550c7a1e0b9b58",
+    "platform": "linux/amd64",
+    "user": "zenith",
+    "entrypoint": [
+      "/usr/bin/tini",
+      "--",
+      "node",
+      "dist/execution/worker.cjs"
+    ],
+    "acceptanceDerivative": true
+  },
+  "dependencies": {
+    "postgres": "postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+    "temporal": "temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e",
+    "hostPortsPublished": false,
+    "networkInternal": true
+  },
+  "failurePhase": "startup-refusals",
+  "failureCommand": {
+    "category": "command-timeout",
+    "exitCode": null,
+    "signal": "SIGKILL"
+  },
+  "failureContainers": {
+    "postgres": {
+      "status": "running",
+      "running": true,
+      "exitCode": 0,
+      "oomKilled": false
+    },
+    "temporal": {
+      "status": "running",
+      "running": true,
+      "exitCode": 0,
+      "oomKilled": false
+    }
+  },
+  "privateDiagnostics": {
+    "captured": true,
+    "files": 2
+  },
+  "cleanup": {
+    "privateFilesRemoved": true,
+    "allCreatedResourcesRemoved": false
+  },
+  "finishedAt": "2026-10-02T04:47:21.150Z"
+}

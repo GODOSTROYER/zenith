@@ -254,6 +254,20 @@
           "commit": "4d3ed078ab49310c89f97913170c8674f43331b0",
           "testedCandidateCommit": "8cba8037d1925c78bf8f691fe3704dc6c0ad958b",
           "result": "Root independently verified499affectedCI/AWSchecks,0failed,0skipped,including5actualnetwork-gatedOpenTofuchecks;fulltypecheck/lint/Go226top+539sub,0failed,3MacLinux-onlyskips. Realcanonicalpolicy238P0F0Srunandmandatoryrevalidatepasswithobservedexit0/schema2/matchedprivateinventory. Independentreviewclosedmissinginventoryproofandnonregular/unboundedreaderdefects. Strictv1originoutcomespreservedwithoutnewauthority. Noexclusionsadded;remotechangingkeyunmeasured. Allprogrammanifest/caseidentityremainsincomplete."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "83ec97fb896b3d9edf801c71fb4fd8cf6360773e",
+          "runId": 36965544610,
+          "result": "Observed terminal failure:8 successful jobs,6 failed jobs. Four real engine commands passed without skips:Postgres251,platformPostgres1324,policy238,OpenTofu3874. Workflows859P2F0S retains observed exit1; both failures are AWS UI fixtures using positional inputs after the suffix field was added. All five complete private inventory comparisons measured only GITHUB_ARTIFACTS and GITHUB_ARTIFACTS_LIST drift,0added/removed; other10 receipt checks matched. Full unit16057P4F384S:two AWS form fixture failures and two client-safety assertions rejecting the new runtime credentials import. Smoke/Gimbal skipped. Remote baseline remains red.",
+          "artifact": "docs/build/production/ci-36965544610.md",
+          "executionReceiptComplete": false
+        },
+        {
+          "level": "contract",
+          "commit": "c464c067286daab2261719b6b640403f96103a1e",
+          "testedCandidateCommit": "83ec97fb896b3d9edf801c71fb4fd8cf6360773e",
+          "result": "Root independently verified507focused CI/AWS checks,0failures,0skips,including5actual network OpenTofu tests;fulltypecheck/lint/Go pass. Actual canonical policy238P0F0S passed run and mandatory separate validation while only the two measured artifact handles changed;origin exit0/privateinventory/schema2 stayed matched. Independent source review confirmed credential/OIDC/PATH/run/source/shell changes and nonzero outcomes remain fatal. Normal merge3c5a2b3. New complete pushed run required; allprogrammanifest/caseidentity still incomplete."
         }
       ],
       "requiredEvidence": [
@@ -395,6 +409,19 @@
           "result": "Observed terminal failure:9 successful jobs,5 failed receipt validators. Five real-engine commands passed with observed exit0 and zero skips:postgres251,platform-postgres1324,policy238,tofu3861,workflows861. Only effective environment binding differed; all other receipt checks matched. Full unit job15950P0F384S; remote baseline remains red.",
           "artifact": "docs/build/production/ci-36961474315.md",
           "executionReceiptComplete": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "83ec97fb896b3d9edf801c71fb4fd8cf6360773e",
+          "runId": 36965544610,
+          "result": "Observed terminal failure:8 successful jobs,6 failed jobs. Four real engine commands passed without skips:Postgres251,platformPostgres1324,policy238,OpenTofu3874. Workflows859P2F0S retains observed exit1; both failures are AWS UI fixtures using positional inputs after the suffix field was added. All five complete private inventory comparisons measured only GITHUB_ARTIFACTS and GITHUB_ARTIFACTS_LIST drift,0added/removed; other10 receipt checks matched. Full unit16057P4F384S:two AWS form fixture failures and two client-safety assertions rejecting the new runtime credentials import. Smoke/Gimbal skipped. Remote baseline remains red.",
+          "artifact": "docs/build/production/ci-36965544610.md",
+          "executionReceiptComplete": false
+        },
+        {
+          "level": "contract",
+          "commit": "ae0f8546aaac6cc0b6354b2eaa4590c5d22c19da",
+          "result": "Measured metadata compatibility c464c06 merged3c5a2b3; named-field AWS fixture6d94c11 mergedf67e9c4; pure browser/backend validation ae0f854 mergedc325c28. Root507,641 and1355 focused checks all0F0S,including actual network OpenTofu; fulltypecheck/lint/Go eachpass. Canonical real Temporal workflow861P0F0S and37requiredgroups passwithobservedexit0/matchedschema2 receipt. Actualpolicy238P0F0S passes separate validation across measuredhandlechanges. Independent reviewers clear all three. No new complete pushed run observed yet."
         }
       ],
       "requiredEvidence": [
@@ -432,6 +459,16 @@
           "result": "NativefreshARM64actualworkerharnesspassesafterTemporalownedhomedata/readinessfix. PlatformPostgresmigrations1through6,signer/policyloading,realTemporalpolling,emptyreconcile,signedreadexpectedno-targetrefusal,uid/SSM/TOFU/assets,readiness/liveness,dependencyoutages/recovery,planretentionsentinelsandidleSIGTERMdrainpass. Allownedresourcesremoved. Productfilestorefixture/devTemporal; nocloudwrites/browserapproval/executableplanhandoff/inflightmutationdrain. Candidateunmerged;newcombinedsourceandAMD64proofpending.",
           "logs": "/Users/saivedanthava/.codex/zenith-production/logs/prod-packaged-worker-arm64-retry.json",
           "passed": true
+        },
+        {
+          "level": "local_linux_amd64",
+          "commit": "83ec97fb896b3d9edf801c71fb4fd8cf6360773e",
+          "dirtyCandidate": true,
+          "sourceInputSha256": "50c7964af3eb1cfe52c40309c4715aadea06911c123efe26d74089c6f42e9574",
+          "result": "Actual fresh LinuxAMD64 derivative image built on ARM64 Docker host via emulation. First startup-refusal Docker command timed out/SIGKILL before any refusal check obtained an actual worker exit. Harness cleanup failed; root subsequently verified labels and removed remaining Created refusal container,volume and image. Independent lists confirm0owned resources remain. Original failed evidence preserved with separate cleanup receipt. No composed operation proof. Bounded harness diagnosis/cleanup repair underway.",
+          "artifact": "docs/build/production/evidence/packaged-worker/amd64-83ec97f-failed.json",
+          "cleanupArtifact": "docs/build/production/evidence/packaged-worker/amd64-83ec97f-cleanup.json",
+          "passed": false
         }
       ],
       "requiredEvidence": [
@@ -471,6 +508,16 @@
           "result": "NativefreshARM64actualworkerharnesspassesafterTemporalownedhomedata/readinessfix. PlatformPostgresmigrations1through6,signer/policyloading,realTemporalpolling,emptyreconcile,signedreadexpectedno-targetrefusal,uid/SSM/TOFU/assets,readiness/liveness,dependencyoutages/recovery,planretentionsentinelsandidleSIGTERMdrainpass. Allownedresourcesremoved. Productfilestorefixture/devTemporal; nocloudwrites/browserapproval/executableplanhandoff/inflightmutationdrain. Candidateunmerged;newcombinedsourceandAMD64proofpending.",
           "logs": "/Users/saivedanthava/.codex/zenith-production/logs/prod-packaged-worker-arm64-retry.json",
           "passed": true
+        },
+        {
+          "level": "local_linux_amd64",
+          "commit": "83ec97fb896b3d9edf801c71fb4fd8cf6360773e",
+          "dirtyCandidate": true,
+          "sourceInputSha256": "50c7964af3eb1cfe52c40309c4715aadea06911c123efe26d74089c6f42e9574",
+          "result": "Actual fresh LinuxAMD64 derivative image built on ARM64 Docker host via emulation. First startup-refusal Docker command timed out/SIGKILL before any refusal check obtained an actual worker exit. Harness cleanup failed; root subsequently verified labels and removed remaining Created refusal container,volume and image. Independent lists confirm0owned resources remain. Original failed evidence preserved with separate cleanup receipt. No composed operation proof. Bounded harness diagnosis/cleanup repair underway.",
+          "artifact": "docs/build/production/evidence/packaged-worker/amd64-83ec97f-failed.json",
+          "cleanupArtifact": "docs/build/production/evidence/packaged-worker/amd64-83ec97f-cleanup.json",
+          "passed": false
         }
       ],
       "requiredEvidence": [
@@ -954,6 +1001,11 @@
           "level": "local_cluster",
           "commit": "b0ebac7708c7b5cc3e495ad33c26b512fdd697f2",
           "result": "Freshlocal kindclusterprovider6P0F0S andrelease1P0F0S. Dedicatedkubeconfigasserted;publicdigest-pinnedARM64image loaded. Clusterandkubeconfigdeleted. Notlivecloud,StatefulSetorCNIisolationproof."
+        },
+        {
+          "level": "contract",
+          "commit": "ae0f8546aaac6cc0b6354b2eaa4590c5d22c19da",
+          "result": "Root1355focused CI/browser/AWS checks0F0S plusfulltypecheck/lint/Go; frozenpurevalidators preserve commercialregion/suffix/ARN/IAMsemantics, allcredentialsruntimeclientimports remain denied. Root641 priorUI/CIchecks andrealworkflow861P0F0S prove actual action request fixtures. Maximum identifiers/stack-firstmigration/independentliveIAMproof remain separate blockers."
         }
       ],
       "requiredEvidence": [
@@ -1257,18 +1309,25 @@
       "acceptance": [
         "Reconcile Temporal/HTTP/controller reuse one observe/diagnose/brokered proposal/policy/approval/remediate/verify lifecycle; repair:not_implemented removed with implementation."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "in_progress",
       "evidence": [],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "PROD-WS-CANONICAL-REPAIR",
+      "testPaths": [
+        "tests/reconcile/",
+        "tests/workflows/operations.test.ts",
+        "tests/execution/verify.test.ts"
+      ],
+      "followUps": [
+        "Reuse existing canonical core through Temporal under the same held lease and version history changes. Automatic repair remains a brokered proposal; unresolved uncertainty blocks repeated repair. Source candidate underway; no runtime proof yet. Full diagnosis, durable fleet scheduling and telemetry acceptance remain separate requirements."
+      ]
     },
     {
       "id": "PROD-OBS-02",
@@ -1955,13 +2014,91 @@
         "PROD-CI-07"
       ],
       "branch": "ws/prod-dependency-remediation",
-      "state": "in_progress",
+      "state": "integrated",
       "ownedPaths": [
         "package.json",
         "package-lock.json",
         "vitest.config.ts",
         "docs/build/production/dependency-remediation-2026-10-02.json",
         "docs/build/production/dependency-remediation-2026-10-02.md"
+      ]
+    },
+    {
+      "id": "PROD-WS-CANONICAL-REPAIR",
+      "requirements": [
+        "PROD-OBS-01"
+      ],
+      "branch": "ws/prod-canonical-repair",
+      "state": "in_progress",
+      "ownedPaths": [
+        "src/lib/reconcile/",
+        "src/lib/platform/reconcile.ts",
+        "src/lib/platform/execution.ts (canonical reconcile adapter only)",
+        "src/lib/execution/verify.ts",
+        "src/lib/workflows/definitions/reconcile.ts",
+        "src/lib/workflows/activities/ (reconcile composition only)",
+        "src/lib/workflows/types.ts",
+        "tests/reconcile/",
+        "related reconcile workflow/execution tests",
+        "docs/platform/operations/OBSERVATION-REPAIR.md"
+      ]
+    },
+    {
+      "id": "PROD-WS-EVIDENCE-BINDING",
+      "requirements": [
+        "PROD-CI-05",
+        "PROD-CI-09"
+      ],
+      "branch": "ws/prod-evidence-binding",
+      "state": "integrated",
+      "ownedPaths": [
+        "scripts/ci/run-gate.mjs",
+        "scripts/ci/sanitize-evidence.mjs",
+        "tests/ci/evidence-sanitizer.test.ts"
+      ]
+    },
+    {
+      "id": "PROD-WS-AWS-UI-FIXTURES",
+      "requirements": [
+        "PROD-CI-09"
+      ],
+      "branch": "ws/prod-aws-ui-fixtures",
+      "state": "integrated",
+      "ownedPaths": [
+        "tests/platform-ui/interactions.test.tsx"
+      ]
+    },
+    {
+      "id": "PROD-WS-AWS-BROWSER-CONTRACT",
+      "requirements": [
+        "PROD-CI-09",
+        "PROD-LIFE-03"
+      ],
+      "branch": "ws/prod-aws-browser-contract",
+      "state": "integrated",
+      "ownedPaths": [
+        "src/lib/aws-bootstrap-input.ts",
+        "src/lib/credentials/aws/naming.ts",
+        "src/components/platform/aws-connection-validation.ts",
+        "tests/screens/platform/client-safety.test.ts",
+        "tests/credentials/aws/bootstrap-context.test.ts"
+      ]
+    },
+    {
+      "id": "PROD-WS-START-UNCERTAINTY",
+      "requirements": [
+        "PROD-DUR-02",
+        "PROD-DUR-07"
+      ],
+      "branch": "ws/prod-start-uncertainty",
+      "state": "in_progress",
+      "ownedPaths": [
+        "src/lib/workflows/client.ts",
+        "src/lib/bridge/lifecycle.ts",
+        "src/lib/bridge/projection.ts",
+        "src/lib/execution/product-port.ts",
+        "src/components/deploy/live-progress.tsx",
+        "related bridge/workflow/product/DOM uncertainty tests"
       ]
     }
   ],
@@ -2053,6 +2190,39 @@
         "5a82f26a95dba6fe448b8e48f57c1f0f4114f12a"
       ],
       "status": "root verified and independently reviewed; dependency-remediation candidate not integrated"
+    },
+    {
+      "date": "2026-10-02",
+      "commit": "3c5a2b3ac43ee1c79740e5b4279c14efa98b3ba0",
+      "workstreams": [
+        "PROD-WS-EVIDENCE-BINDING"
+      ],
+      "workerCommits": [
+        "c464c067286daab2261719b6b640403f96103a1e"
+      ],
+      "status": "Root independently verified and reviewed; new whole pushed run pending."
+    },
+    {
+      "date": "2026-10-02",
+      "commit": "f67e9c485a876ae870b4444b67139c82efda3feb",
+      "workstreams": [
+        "PROD-WS-AWS-UI-FIXTURES"
+      ],
+      "workerCommits": [
+        "6d94c11a8122ee7a4d0d698736f16d3966d981e3"
+      ],
+      "status": "Root independently verified and reviewed; new whole pushed run pending."
+    },
+    {
+      "date": "2026-10-02",
+      "commit": "c325c28e982631d218d3ff8196f66137b4950105",
+      "workstreams": [
+        "PROD-WS-AWS-BROWSER-CONTRACT"
+      ],
+      "workerCommits": [
+        "ae0f8546aaac6cc0b6354b2eaa4590c5d22c19da"
+      ],
+      "status": "Root independently verified and reviewed; new whole pushed run pending."
     }
   ]
 }

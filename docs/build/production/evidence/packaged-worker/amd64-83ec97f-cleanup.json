@@ -1,0 +1,23 @@
+{
+  "runId": "zenith-pkg-amd64-c8b6fe0ac012",
+  "initialHarnessCleanupPassed": false,
+  "manualOwnershipVerifiedCleanup": {
+    "containers": {
+      "checked": true,
+      "remaining": 0
+    },
+    "volumes": {
+      "checked": true,
+      "remaining": 0
+    },
+    "networks": {
+      "checked": true,
+      "remaining": 0
+    },
+    "images": {
+      "checked": true,
+      "remaining": 0
+    }
+  },
+  "allCreatedResourcesRemoved": true
+}

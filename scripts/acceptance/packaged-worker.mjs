@@ -28,6 +28,9 @@ const workerFailureCategories = new Set(["module-load", "configuration", "health
 const refusalKinds = ["missing-schema", "invalid-secret", "invalid-signer", "plaintext-temporal", "missing-namespace", "wrong-queue"];
 const diagnosticRoles = new Set(["postgres", "temporal", "worker", ...refusalKinds]);
 const refusalCommandPhases = new Set(refusalKinds.flatMap((kind) => [`refusal-launch-${kind}`, `refusal-exit-${kind}`, `refusal-logs-${kind}`]));
+const diagnosticCommandPhases = new Set([...refusalCommandPhases,
+  "private-tls-tool", "private-tls-ca", "private-tls-leaf", "private-tls-sign", "private-tls-verify"]);
+const commandFailureCategories = new Set(["command-launch", "command-timeout", "command-output-limit", "command-exit", "command-signal"]);
 export const REFUSAL_LAUNCH_TIMEOUT_MS = 120_000;
 export const REFUSAL_EXIT_TIMEOUT_MS = 45_000;
 
@@ -231,6 +234,18 @@ export class PackagedCommandError extends Error {
     this.diagnostic = { category, exitCode: Number.isSafeInteger(exitCode) ? exitCode : null,
       signal: ["SIGTERM", "SIGKILL", "SIGINT", "SIGABRT", "SIGSEGV", "SIGBUS"].includes(signal ?? "") ? signal : null };
   }
+}
+/** Export only fixed command diagnostics, never output, paths or error text.
+ * @param {unknown} error
+ */
+export function sanitizePackagedCommandFailure(error) {
+  if (!(error instanceof PackagedCommandError)) return undefined;
+  const diagnostic = error.diagnostic;
+  if (!diagnostic || typeof diagnostic !== "object" || !commandFailureCategories.has(diagnostic.category)) return undefined;
+  return { category: diagnostic.category,
+    exitCode: Number.isSafeInteger(diagnostic.exitCode) ? diagnostic.exitCode : null,
+    signal: ["SIGTERM", "SIGKILL", "SIGINT", "SIGABRT", "SIGSEGV", "SIGBUS"].includes(diagnostic.signal ?? "") ? diagnostic.signal : null,
+    ...(diagnosticCommandPhases.has(error.phase) ? { phase: error.phase } : {}) };
 }
 export async function command(binary, args, phase, { timeout = 120_000, allowFailure = false } = {}) {
   return new Promise((resolve, reject) => {
@@ -1047,8 +1062,8 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     evidence.status = "passed";
   } catch (error) {
     evidence.failurePhase = phase;
-    if (error instanceof PackagedCommandError) evidence.failureCommand = { ...error.diagnostic,
-      ...(refusalCommandPhases.has(error.phase) ? { phase: error.phase } : {}) };
+    const failureCommand = sanitizePackagedCommandFailure(error);
+    if (failureCommand) evidence.failureCommand = failureCommand;
     await failureDiagnostics();
     // No raw docker/driver error, database URL, private env or SQL payload.
     console.error(`Packaged worker acceptance failed during ${phase}.`);

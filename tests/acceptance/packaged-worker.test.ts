@@ -5,7 +5,7 @@ import { load as loadYaml } from "js-yaml";
 import { chmod, lstat, mkdir, mkdtemp, readdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, packagedSourceDigest, packagedTemporalControlSource, PackagedCommandError, parsePackagedArgs, prepareTemporalTls, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedReadiness, sanitizePgWaiterEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
+import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, packagedSourceDigest, packagedTemporalControlSource, PackagedCommandError, parsePackagedArgs, prepareTemporalTls, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedReadiness, sanitizePgWaiterEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
 import { assertPackagedAcceptanceTarget } from "../../workers/execution/packaged-target";
 import { EXECUTION_FAILURE_CATEGORIES } from "../../workers/execution/startup";
 
@@ -84,7 +84,12 @@ describe("packaged real-server admission contracts [source and scalar models]", 
   it("requires distinct actual observer, claimant and blocker PIDs", () => {
     expect(sanitizePgWaiterEvidence([{ observerPid: 11, waiterPid: 12, blockerPid: 13, query: "private-canary" }])).toEqual({ observerPid: 11, waiterPid: 12, blockerPid: 13 });
   });
-  it.each([[], [{ observerPid: 11, waiterPid: 11, blockerPid: 13 }], [{ observerPid: 11, waiterPid: 12, blockerPid: 12 }], [{ observerPid: 0, waiterPid: 12, blockerPid: 13 }], [{ observerPid: 11, waiterPid: "private-canary", blockerPid: 13 }]])("refuses missing or ambiguous waiter observations (%j)", value => {
+  it.each([
+    { value: [] }, { value: [{ observerPid: 11, waiterPid: 11, blockerPid: 13 }] },
+    { value: [{ observerPid: 11, waiterPid: 12, blockerPid: 12 }] },
+    { value: [{ observerPid: 0, waiterPid: 12, blockerPid: 13 }] },
+    { value: [{ observerPid: 11, waiterPid: "private-canary", blockerPid: 13 }] },
+  ])("refuses missing or ambiguous waiter observations (%j)", ({ value }) => {
     expect(() => sanitizePgWaiterEvidence(value)).toThrow("not confirmed");
   });
   it("scopes the real wait query to its exact disposable database, blocker and schema read", () => {
@@ -355,6 +360,60 @@ describe("packaged worker acceptance safety", () => {
   it("suppresses raw child-process errors", async () => {
     await expect(command(process.execPath, ["-e", "console.error('private-password private-sql'); process.exit(1)"], "fixture-phase"))
       .rejects.toThrow("Packaged acceptance phase failed: fixture-phase");
+  });
+  it.each(["private-tls-tool", "private-tls-ca", "private-tls-leaf", "private-tls-sign", "private-tls-verify"])("exports the fixed private TLS subphase (%s) without raw diagnostic data", phase => {
+    const error = new PackagedCommandError(phase, "command-exit", 1);
+    Object.assign(error.diagnostic, { output: "private-canary", path: "/private-canary", certificate: "private-canary" });
+    Object.assign(error, { message: "private-canary" });
+    expect(sanitizePackagedCommandFailure(error)).toEqual({ category: "command-exit", exitCode: 1, signal: null, phase });
+    expect(JSON.stringify(sanitizePackagedCommandFailure(error))).not.toContain("private-canary");
+  });
+  it.each(["missing-schema", "invalid-secret", "invalid-signer", "plaintext-temporal", "missing-namespace", "wrong-queue"])("retains all three fixed refusal command subphases (%s)", kind => {
+    for (const step of ["launch", "exit", "logs"]) {
+      const phase = `refusal-${step}-${kind}`;
+      expect(sanitizePackagedCommandFailure(new PackagedCommandError(phase, "command-exit", 1)))
+        .toEqual({ category: "command-exit", exitCode: 1, signal: null, phase });
+    }
+  });
+  it.each(["private-tls-tool-private-canary", "/private-canary", "private-tls-copy"])("omits every unrecognized command phase (%s)", phase => {
+    expect(sanitizePackagedCommandFailure(new PackagedCommandError(phase, "command-exit", 23)))
+      .toEqual({ category: "command-exit", exitCode: 23, signal: null });
+  });
+  it.each(["command-launch", "command-timeout", "command-output-limit", "command-exit", "command-signal"] as const)("retains a fixed command category (%s)", category => {
+    expect(sanitizePackagedCommandFailure(new PackagedCommandError("private-tls-tool", category, null, "SIGKILL")))
+      .toEqual({ category, exitCode: null, signal: "SIGKILL", phase: "private-tls-tool" });
+  });
+  it("refuses a generic error or a damaged command category instead of exporting its payload", () => {
+    expect(sanitizePackagedCommandFailure(new Error("private-canary"))).toBeUndefined();
+    const error = new PackagedCommandError("private-tls-tool", "command-exit", 1);
+    Object.assign(error.diagnostic, { category: "private-canary", output: "private-canary" });
+    expect(sanitizePackagedCommandFailure(error)).toBeUndefined();
+  });
+  it.each([NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, "private-canary"])("drops damaged command scalar data (%s)", exitCode => {
+    const error = new PackagedCommandError("private-tls-tool", "command-exit", 1);
+    Object.assign(error.diagnostic, { exitCode, signal: "private-canary" });
+    expect(sanitizePackagedCommandFailure(error))
+      .toEqual({ category: "command-exit", exitCode: null, signal: null, phase: "private-tls-tool" });
+  });
+  it("preserves a failed TLS tool admission and exports only its fixed phase", async () => {
+    const temporary = await mkdtemp(path.join(await realpath(os.tmpdir()), "zenith-tls-diagnostic-contract-"));
+    let calls = 0;
+    try {
+      await chmod(temporary, 0o700);
+      try {
+        await prepareTemporalTls(temporary, async (_binary, _args, phase) => {
+          calls++;
+          expect(phase).toBe("private-tls-tool");
+          throw new PackagedCommandError(phase, "command-exit", 1);
+        });
+        throw new Error("Expected TLS tool failure.");
+      } catch (error) {
+        expect(sanitizePackagedCommandFailure(error))
+          .toEqual({ category: "command-exit", exitCode: 1, signal: null, phase: "private-tls-tool" });
+      }
+      expect(calls).toBe(1);
+      expect(await readdir(temporary)).toEqual([]);
+    } finally { await rm(temporary, { recursive: true, force: true }); }
   });
   it("uses a pinned real server and private read-only config, requiring authenticated health before worker startup", () => {
     const harness = readFileSync(new URL("../../scripts/acceptance/packaged-worker.mjs", import.meta.url), "utf8");

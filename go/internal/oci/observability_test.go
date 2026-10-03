@@ -50,10 +50,12 @@ func TestLoggingCompartmentScopes(t *testing.T) {
 	log := "ocid1.log.oc1.iad.fixture"
 	bindings := map[string]string{group: compartment, log: compartment}
 	r := Request{Service: "loggingsearch", Region: "us-ashburn-1", Method: "POST", Path: "/20190909/search"}
-	for _, scope := range []string{compartment, compartment + "/" + group, compartment + "/" + group + "/" + log} {
-		for _, suffix := range []string{"", " | sort by datetime desc"} {
-			t.Run("allowed/"+scope+suffix, func(t *testing.T) {
-				body := []byte(`{"searchQuery":"search \"` + scope + `\"` + suffix + `","timeStart":"2026-10-01T00:00:00Z","timeEnd":"2026-10-01T00:01:00Z","isReturnFieldInfo":false}`)
+	for _, scope := range []struct{ name, value string }{
+		{"compartment", compartment}, {"group", compartment + "/" + group}, {"log", compartment + "/" + group + "/" + log},
+	} {
+		for _, suffix := range []struct{ name, value string }{{"plain", ""}, {"sorted", " | sort by datetime desc"}} {
+			t.Run("allowed-"+scope.name+"-"+suffix.name, func(t *testing.T) {
+				body := []byte(`{"searchQuery":"search \"` + scope.value + `\"` + suffix.value + `","timeStart":"2026-10-01T00:00:00Z","timeEnd":"2026-10-01T00:01:00Z","isReturnFieldInfo":false}`)
 				if err := BindCompartments(r, body, []string{compartment}, bindings, r.Path); err != nil {
 					t.Fatal(err)
 				}

@@ -33,7 +33,7 @@ func TestMonitoringComputeQuery(t *testing.T) {
 	bindings := map[string]string{instance: compartment}
 	for _, metric := range []string{"CpuUtilization", "MemoryUtilization"} {
 		for _, interval := range []string{"1m", "5m", "1h", "1d"} {
-			t.Run(metric+"/"+interval, func(t *testing.T) {
+			t.Run(metric+"-"+interval, func(t *testing.T) {
 				if err := BindCompartments(r, metricBody(t, metric, interval, instance, nil), []string{compartment}, bindings, r.Path); err != nil {
 					t.Fatal("reader compute query refused")
 				}

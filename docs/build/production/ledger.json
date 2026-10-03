@@ -475,6 +475,19 @@
           "commit": "3503019e9acff3e5d1ed0ad24a256f7c0a4b7b7a",
           "result": "Root host correction full compiler/lint/Python syntax/gofmt/vet/Go race/OPA and affected real OpenTofu checks pass.296P1F0S first targeted run retained; exact command expectation corrected, final affected194P0F0S. Five-path CI-only change does not imply fresh native Linux acceptance.",
           "artifact": "docs/build/production/ci-37122200675.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "b9eea30f7b68fc67bc9b7f62857141fd60b6cbd6",
+          "runId": 37124764251,
+          "result": "Terminal13passed1failedGo; real ancestor ACL refusal before native execution. All5canonical source/lock/manifest/environment bindings independently matched; whole CI failed.",
+          "artifact": "docs/build/production/ci-37124764251.json"
+        },
+        {
+          "level": "local_linux_arm64",
+          "commit": "79baec03c69935797871c94a99473a9aa66de835",
+          "result": "Fresh actual ext4 CLI12P0F0S and native801passed leaves0failed3declared skips/five authentic file.write goldens. Targeted341P0F0S/compiler/lint/Go/OPAgenerated/realTOFU passed. Integration25b6d1e preserves reviewed3path bytes; fresh pushed whole native CI required.",
+          "artifact": "docs/build/production/ci-37124764251.json"
         }
       ],
       "requiredEvidence": [
@@ -501,7 +514,7 @@
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "native_guest_host_correction_integrated_new_remote_run_required",
+      "implementationStatus": "native_acl_correction_integrated_fresh_pushed_whole_run_required",
       "evidence": [
         {
           "level": "remote_ci",
@@ -629,6 +642,19 @@
           "result": "Terminal13passed/1failedGo. Five canonical exported receipts/all12bindings/required groups independently match exact source. Units16747P0F401S/generated109P0F0S; Smoke/Gimbal pass. Actual native fixture never executed because writable /opt refusal; old artifacts rejected. Dependency security passes. Whole CI remains red.",
           "artifact": "docs/build/production/ci-37122200675.json",
           "executionReceiptComplete": true
+        },
+        {
+          "level": "remote_ci",
+          "commit": "b9eea30f7b68fc67bc9b7f62857141fd60b6cbd6",
+          "runId": 37124764251,
+          "result": "Terminal13passed1failedGo; real ancestor ACL refusal before native execution. All5canonical source/lock/manifest/environment bindings independently matched; whole CI failed.",
+          "artifact": "docs/build/production/ci-37124764251.json"
+        },
+        {
+          "level": "local_linux_arm64",
+          "commit": "79baec03c69935797871c94a99473a9aa66de835",
+          "result": "Fresh actual ext4 CLI12P0F0S and native801passed leaves0failed3declared skips/five authentic file.write goldens. Targeted341P0F0S/compiler/lint/Go/OPAgenerated/realTOFU passed. Integration25b6d1e preserves reviewed3path bytes; fresh pushed whole native CI required.",
+          "artifact": "docs/build/production/ci-37124764251.json"
         }
       ],
       "requiredEvidence": [
@@ -1379,7 +1405,14 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "local_engine",
+          "commit": "e64d00fc3a6f4ae305925059e441628f57a37ddc",
+          "result": "Clean isolated candidate actualPostgreSQL1678P0F0S/141requiredgroups and Temporal1035P0F0S/53requiredgroups with strict revalidation passed. Not integrated; later broker/current-policy/source/late-agent candidates require new checks. No private GitHub/App or AWS live journey claim.",
+          "artifact": "docs/build/production/ci-37124764251.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -1572,7 +1605,14 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "local_engine",
+          "commit": "e64d00fc3a6f4ae305925059e441628f57a37ddc",
+          "result": "Clean isolated candidate actualPostgreSQL1678P0F0S/141requiredgroups and Temporal1035P0F0S/53requiredgroups with strict revalidation passed. Not integrated; later broker/current-policy/source/late-agent candidates require new checks. No private GitHub/App or AWS live journey claim.",
+          "artifact": "docs/build/production/ci-37124764251.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"

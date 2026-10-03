@@ -1,6 +1,6 @@
 # Production progress
 
-Reviewed source integrated at `6814da5`, functional verification source `0772854`, on `codex/production-2026-10-02`. Known dependency findings cleared locally and in fresh pushed CIcd8942b. Run37122200675 completed13passed/1failedGo; guarded native preparation merged20716ea and next complete run remains required.
+Reviewed source integrated at `6814da5`, functional verification source `0772854`, on `codex/production-2026-10-02`. Known dependency findings cleared locally and in fresh pushed CIcd8942b. Run37124764251 completed13passed/1failedGo ACL prerequisite; reviewed native ACL preparation merged25b6d1e and next complete run remains required.
 
 Acceptance states: **6 verified / 26 in progress / 46 planned**, all78 requirements retained. Counts are acceptance states, not completion percentages. All four release statuses remain false; no current task paused.
 
@@ -13,13 +13,13 @@ Acceptance states: **6 verified / 26 in progress / 46 planned**, all78 requireme
 - [x] OPA213; compiler/lint/generated; Go241parents+542subtests passed,0failed/3Linux-only Mac skips. Overlapping counts remain separate.
 - [x] Native Linux801passed leaf cases/0failed/3allowed skips and five authentic goldens;28real fixture tamper/cleanup checks passed. Original4bf source binding preserved.
 - [x] Current kind provider6/6/release1/1; ARM64 native/AMD64 emulated worker startup, outage recovery and idle shutdown passed.
-- [x] Owned Docker/cluster/builder/cache/new-image resources removed; latest19.36GiB free. One heavy local workload only.
+- [x] Owned Docker/cluster/builder/cache/new-image resources removed; latest16.9GiB free. One heavy local workload only.
 
 ## In progress and blocked
 
-- [ ] Observe fresh native correction CI. Priorcd run13passed/1failedGo; Smoke/Gimbal passed, native setup refused before execution. Current native Linux whole-source evidence remains required.
-- [ ] Isolated reviewed88cc783: durable CodeBuild launches and GitHub browser/webhook revocation, migrations8–10. Root compiler/lint/emitted SQL passed after bounded corrections; initial actual PostgreSQL1638P39F0S failed. Source-test repairs/actual rerun/canonical140groups plus tenant sweep/Temporal53groups pending; no live source journey claim.
-- [ ] Accepted late agent receipt source11: root import/schema/gates and actual runtime pending. It does not establish provider certainty or cleanup success.
+- [ ] Observe fresh native ACL correction CI. Priorb9 run13passed/1failedGo; Smoke/Gimbal passed, native setup refused before execution. Fresh local79baec03 Linux801P0F3declaredS/five goldens and12realACLCLIcases passed; exact pushed native whole CI still required.
+- [ ] Isolated clean e64d00f: durable CodeBuild/GitHub source8–10; actualPG1678P0F0S/141groups and Temporal1035P0F0S/53groups with strict revalidation passed. Initial1638P39F0S retained. Further broker/current-role/current-policy source corrections remain blocked pending review/runtime; no live source journey claim.
+- [ ] Accepted late agent receipt source11 imported into7a3accf with canonical registration/schema role checks/40strictPGcases. Compiler/lint/generated passed; first481P3F13S contract run requires bounded old-fixture corrections and actualPG. Provider certainty/cleanup success unproved.
 - [ ] Corrected durable scheduler r2: final source challenge, worker/config wiring and PostgreSQL/Temporal execution pending.
 - [ ] Durable workflow start intent12 and mixed-provider partition contracts: source work continuing; existing cross-provider execution guard stays enforced.
 - [ ] Authoritative cleanup quiescence and independently confirmed deletion remain open.

@@ -14,7 +14,8 @@
  *  1. Tenancy is explicit. Every row that belongs to a tenant carries
  *     `workspace_id`; every read that could cross tenants takes a workspace id
  *     and filters on it in SQL, never in application code after the fact.
- *  2. No secret values. Rows hold references (`vault:…`, ARNs, secret names),
+ *  2. No secret values. Raw secrets remain prohibited; the immutable plan-artifact authority holds only authenticated ciphertext.
+ *     Rows hold references (`vault:…`, ARNs, secret names),
  *     digests and redacted summaries. A credential, token or password never
  *     reaches this store, an event, a log line, or a model-visible response.
  *  3. Mutations that protect a scope carry a fence token; a write whose fence

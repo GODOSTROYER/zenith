@@ -5,7 +5,7 @@
  *   1. the lease is this operation's, and its fence is live (`assertFence`)
  *   2. inside a brokered DEPLOY session, `applyVerifiedPlan(ws, { approvedDigest })`:
  *      the engine re-plans, refuses with `TofuPlanChangedError` if the digest
- *      moved, and applies exactly the plan file it just verified
+ *      moved, and applies the authenticated original saved review bytes
  *   3. while tofu runs, a keep-alive ticker heartbeats and renews the lease; a
  *      lost lease aborts tofu and the activity ends with `LeaseLostError`
  *   4. the fence is asserted again after the call (before and after)
@@ -24,10 +24,8 @@
  *   - lease lost: `LeaseLostError`.
  * Nothing is rolled back and nothing is destroyed on failure: reconcile observes.
  *
- * The plan file written by planning is deleted at the end (success or failure).
+ * Private callback files are cleaned up; immutable ciphertext remains retained.
  */
-import { rm } from "node:fs/promises";
-import path from "node:path";
 import { digest } from "@/lib/controlplane/digest";
 import { TofuCommandError } from "@/lib/tofu/runner";
 import type { ExecutionActivities } from "@/lib/workflows/types";
@@ -37,14 +35,14 @@ import { assertDeployDeletionApproval, buildDeployWorkspace, inspectDeployDeleti
 import { LeaseLostError, StepFailedError, TofuPlanChangedError } from "./errors";
 import { withKeepAlive } from "./keepalive";
 import { outputsDigest } from "./plan-evidence";
-import type { Runtime } from "./runtime";
+import { planCustody, type Runtime } from "./runtime";
 import { LONG_SESSION_SEC, OBSERVE_CAPABILITY, withProviderSession } from "./session";
 import { assertEcsReplicaRepairPlan, prepareEcsReplicaRepair, recordEcsReplicaRepairReadback } from "./ecs-replica-repair";
 import { readRepairBinding, repairBindingDigest } from "./ecs-replica-repair-binding";
 import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
 import { errorText, safeText } from "./text";
 import type { ApplyVerifiedResult } from "@/lib/tofu/engine";
-import type { NormalizedPlan } from "@/lib/tofu/types";
+import { TofuPlanProvenanceError, type NormalizedPlan } from "@/lib/tofu/types";
 import { TofuDeletionRefusedError } from "@/lib/tofu/plan";
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -75,7 +73,6 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
     async applyInfrastructure({ operationId, planDigest, lease }) {
       if (!HEX64.test(planDigest)) throw new StepFailedError("The plan digest is not a SHA-256 hex digest; refusing to apply.");
       const ec = await loadExecContext(rt, operationId);
-      const planFile = path.join(rt.d.planDir, `${planDigest}.tfplan`);
       let toolStarted = false;
       let finished: ApplyVerifiedResult | undefined;
 
@@ -137,9 +134,23 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
           }
           const applied = await withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session, claims) => {
             if (repair && (claims.constraints?.repairPlanDigest !== planDigest || claims.constraints?.repairBindingDigest !== repairBindingDigest(repair.binding))) throw new StepFailedError("Replica repair grant does not bind this reviewed plan and target.");
-            toolStarted = true;
+            if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required; a new review is required.");
+            const custody = planCustody(ec, graph.graphDigest, connection);
             const guard = inspectDeployDeletions(rt, ec, deletionNodes, dnsNodes, session, signal, lease);
-            finished = await rt.tofu.applyVerifiedPlan(ws, { approvedDigest: planDigest, session: tofuSession(session), signal, deletionNodes, normalize: { fingerprintKey: rt.d.fingerprintKey }, inspectPlan: async (plan, raw) => {
+            finished = await rt.d.planArtifacts.consume({ custody, planDigest, lease }, (original, dispatch) => rt.tofu.applyVerifiedPlan(ws, { approvedDigest: planDigest, original, custody,
+              beforeDispatch: async () => {
+                const current = await loadExecContext(rt,operationId);
+                const currentGraph = requireExecutable(rt,current).graph;
+                const currentConnection = await resolveConnection(rt,current);
+                if (digest(planCustody(current,currentGraph.graphDigest,currentConnection)) !== digest(custody)) throw new StepFailedError("Reviewed plan source or connection changed; a new review is required.");
+                if (!repair) {
+                  const currentWorkspace = (await buildDeployWorkspace(rt,current,currentGraph,currentConnection)).ws;
+                  if (digest(currentWorkspace) !== digest(ws)) throw new StepFailedError("Reviewed workspace changed; a new review is required.");
+                }
+                const authority = await rt.d.broker.approvalStatus(operationId);
+                if (!authority.approved || authority.rejected || (current.op.approvalRequired && !authority.approvalId)) throw new StepFailedError("Current policy or human approval changed before the reviewed original dispatch.");
+                await rt.d.leases.assertFence(lease.scope, lease.fenceToken); toolStarted = true; await dispatch();
+              }, session: tofuSession(session), signal, deletionNodes, normalize: { fingerprintKey: rt.d.fingerprintKey }, inspectPlan: async (plan, raw) => {
               await guard(plan, raw);
               await assertDeployDeletionApproval(rt, ec, plan, deletionNodes, planDigest);
               if (repair) {
@@ -149,7 +160,7 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
                 if (!approval.approved || approval.rejected || !approval.approvalId) throw new StepFailedError("Replica repair approval expired or changed before the exact saved-plan apply.");
               }
               await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
-            } });
+            } }));
             return finished;
           });
           if (repair) {
@@ -168,8 +179,6 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
       } catch (err) {
         if (finished && (err instanceof LeaseLostError || ec.op.capability === "drift.repair")) await record(finished).catch((e) => rt.log("error", "could not record an apply that completed", { error: errorText(e) }));
         throw await classifyApplyFailure(rt, ec, err, toolStarted);
-      } finally {
-        await rm(planFile, { force: true }).catch(() => undefined);
       }
     },
   };
@@ -182,6 +191,7 @@ async function classifyApplyFailure(rt: Runtime, ec: ExecContext, err: unknown, 
     if (toolStarted) await markUncertain(rt, ec, "The environment lease was lost while OpenTofu was applying.");
     return err;
   }
+  if (!toolStarted && err instanceof TofuPlanProvenanceError) return new StepFailedError("Reviewed plan provenance changed; a new review is required.");
   if (!toolStarted) {
     return new StepFailedError(`The apply did not start; nothing was changed: ${errorText(err)}`);
   }

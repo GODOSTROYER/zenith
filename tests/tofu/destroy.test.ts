@@ -1,5 +1,6 @@
 /** Engine contracts with a scripted port. These are not real tofu executions. */
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { planDestroy, planWorkspace, applyVerifiedPlan } from "@/lib/tofu/engine";
 import { TofuRunner, type TofuRun, type TofuRunContext, type PlanNormalizeBase, type PlanInspector } from "@/lib/tofu/runner";
@@ -15,10 +16,12 @@ function fake() {
   const ws = builtinWorkspace(path.join(temp.dir, "state.tfstate"), { "resource/test": dataFragment("test", "local") });
   const raw = { format_version: "1.2", terraform_version: TOFU_VERSION, resource_changes: [{ address: "terraform_data.test", type: "terraform_data", mode: "managed", change: { actions: ["delete"], before: { input: "SECRET-CANARY-012345", output: "SECRET-CANARY-012345" }, after: null, before_sensitive: { input: true } } }] };
   const plan = normalizePlan(raw, { configDigest: ws.configDigest, lockDigest: ws.lockDigest, addressMap: ws.addressMap, fingerprintKey: "test-key-01234567890123" });
+  const planBytes=Buffer.from("binary-server-only");
   const run = {
     init: vi.fn(async () => undefined), plan: vi.fn(async () => undefined),
     normalizedPlan: vi.fn(async (_base?: PlanNormalizeBase, inspect?: PlanInspector) => { await inspect?.(plan, raw); return plan; }),
-    readPlanFile: vi.fn(async () => Buffer.from("binary-server-only")),
+    readPlanFile: vi.fn(async () => Buffer.from(planBytes)),
+    planFileSha: vi.fn(async()=>createHash("sha256").update(planBytes).digest("hex")),
     apply: vi.fn(async (args: Parameters<TofuRun["apply"]>[0]) => { if (args.expectedPlanDigest !== plan.planDigest) throw new TofuPlanChangedError(args.expectedPlanDigest, plan.planDigest); await args.inspectPlan?.(plan, raw); return { plan, result: { command: "apply", exitCode: 0 } }; }),
     output: vi.fn(async () => ({})),
   };
@@ -33,7 +36,8 @@ describe("digest-bound destroy engine", () => {
     const f = fake();
     const result = await planDestroy(f.ws, undefined, { runner: f.runner, lock: false, planDir: f.temp.dir });
     expect(f.run.plan).toHaveBeenCalledWith({ destroy: true, lock: false });
-    expect(result.planFilePath).toBe(path.join(f.temp.dir, `${f.plan.planDigest}.tfplan`));
+    expect(path.dirname(path.dirname(result.planFilePath!))).toBe(f.temp.dir);
+    expect(path.basename(result.planFilePath!)).toBe("reviewed.tfplan");
     expect(JSON.stringify(planView(result.plan))).not.toContain("SECRET-CANARY");
     expect(result.plan.summary.delete).toBe(1);
   });

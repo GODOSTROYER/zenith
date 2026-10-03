@@ -36,10 +36,10 @@
  * not been run against a cloud.
  */
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { checkTofuVersion, resolveTofuBinary, type TofuVersionInfo } from "@/lib/tofu/binary";
+import { checkTofuVersion, describeTofuBinary, resolveTofuBinary, type TofuExecutableIdentity, type TofuVersionInfo } from "@/lib/tofu/binary";
 import { buildChildEnv, validateExtraEnv, type HostEnv, type SessionEnvProvider } from "@/lib/tofu/env";
 import { generateLockfile } from "@/lib/tofu/lockgen";
 import { runProcess, type RunProcessResult } from "@/lib/tofu/process";
@@ -52,6 +52,8 @@ import { assertWorkspaceIntact } from "@/lib/tofu/workspace";
 import { TOFU_VERSION, TofuPlanChangedError, type NormalizedPlan, type TofuRunLimits, type TofuRunResult, type TofuWorkspace } from "@/lib/tofu/types";
 
 export const PLAN_FILE = "tfplan";
+const ORIGINAL_PLAN_FILE = "reviewed.tfplan";
+export const MAX_PLAN_BYTES = 16 * 1024 * 1024;
 const MAX_SHOW_JSON_BYTES = 64 * 1024 * 1024;
 const MAX_OUTPUT_JSON_BYTES = 8 * 1024 * 1024;
 
@@ -78,6 +80,8 @@ export interface TofuRunnerOptions {
   /** environment read ONLY for ZENITH_TOFU_BIN / ZENITH_TOFU_PLUGIN_CACHE / PATH lookups */
   hostEnv?: HostEnv;
   expectedVersion?: string;
+  /** Production uses the checksum-verified packaged identity. Tests may omit it explicitly. */
+  identityFile?: string;
 }
 
 export interface TofuRunContext {
@@ -130,6 +134,11 @@ export class TofuRunner {
       });
     }
     return this.binaryReady;
+  }
+
+  async identity(): Promise<TofuExecutableIdentity> {
+    const { bin, info } = await this.binary();
+    return describeTofuBinary(bin, info, this.opts.identityFile ?? this.hostEnv.ZENITH_TOFU_IDENTITY_FILE ?? (this.hostEnv.NODE_ENV === "production" ? "/usr/local/share/zenith/tofu-identity.json" : undefined));
   }
 
   /** Materialize `ws` into a fresh private directory and return a handle. */
@@ -356,15 +365,15 @@ export class TofuRun {
   }
 
   /** `tofu show -json tfplan`, parsed. The raw document contains unmasked values: never log or return it. */
-  async showJson(): Promise<{ result: TofuRunResult; json: ShowJson }> {
-    const out = await this.command("show", ["show", "-json", "-no-color", PLAN_FILE], { captureStdoutBytes: MAX_SHOW_JSON_BYTES });
+  async showJson(file: typeof PLAN_FILE | typeof ORIGINAL_PLAN_FILE = PLAN_FILE): Promise<{ result: TofuRunResult; json: ShowJson }> {
+    const out = await this.command("show", ["show", "-json", "-no-color", file], { captureStdoutBytes: MAX_SHOW_JSON_BYTES });
     const json = parseShowJson(out.stdout ?? "");
     return { result: out.result, json };
   }
 
   /** Read and normalize the current plan file with this workspace's context. */
-  async normalizedPlan(base: PlanNormalizeBase = {}, inspect?: PlanInspector): Promise<NormalizedPlan> {
-    const { json } = await this.showJson();
+  async normalizedPlan(base: PlanNormalizeBase = {}, inspect?: PlanInspector, file: typeof PLAN_FILE | typeof ORIGINAL_PLAN_FILE = PLAN_FILE): Promise<NormalizedPlan> {
+    const { json } = await this.showJson(file);
     const sessionEnv = this.i.session?.childProcessEnv?.() ?? {};
     const plan = normalizePlan(json, {
       configDigest: this.i.ws.configDigest,
@@ -384,13 +393,26 @@ export class TofuRun {
    * from elsewhere: a saved plan embeds its own configuration, so applying one
    * that this run's workspace did not produce would bypass `configDigest`.
    */
-  async readPlanFile(): Promise<Buffer> {
-    return readFile(path.join(this.i.work, PLAN_FILE));
+  async readPlanFile(file: typeof PLAN_FILE | typeof ORIGINAL_PLAN_FILE = PLAN_FILE): Promise<Buffer> {
+    const handle = await open(path.join(this.i.work, file), "r");
+    try {
+      const size = (await handle.stat()).size;
+      if (size < 1 || size > MAX_PLAN_BYTES) throw new Error("Binary plan exceeds its size bound.");
+      const bytes = await handle.readFile();
+      if (bytes.length !== size || bytes.length > MAX_PLAN_BYTES) throw new Error("Binary plan changed while being read.");
+      return bytes;
+    } finally { await handle.close(); }
   }
 
-  private async planFileSha(): Promise<string> {
+  /** Only the trusted engine calls this after authenticating the producer receipt. Never a caller pathname. */
+  async installReviewedPlan(bytes: Buffer): Promise<void> {
+    if (bytes.length < 1 || bytes.length > MAX_PLAN_BYTES) throw new Error("Binary plan exceeds its size bound.");
+    await writeFile(path.join(this.i.work, ORIGINAL_PLAN_FILE), bytes, { flag: "wx", mode: 0o600 });
+  }
+
+  async planFileSha(file: typeof PLAN_FILE | typeof ORIGINAL_PLAN_FILE = PLAN_FILE): Promise<string> {
     return createHash("sha256")
-      .update(await this.readPlanFile())
+      .update(await this.readPlanFile(file))
       .digest("hex");
   }
 
@@ -399,14 +421,17 @@ export class TofuRun {
    * normalizes to `expectedPlanDigest`. A different digest throws
    * `TofuPlanChangedError` before anything is applied.
    */
-  async apply(args: { expectedPlanDigest: string; normalize?: PlanNormalizeBase; inspectPlan?: PlanInspector }): Promise<{ result: TofuRunResult; plan: NormalizedPlan }> {
-    const before = await this.planFileSha();
+  async apply(args: { expectedPlanDigest: string; normalize?: PlanNormalizeBase; inspectPlan?: PlanInspector; originalSha256?: string; beforeDispatch?: () => Promise<void> }): Promise<{ result: TofuRunResult; plan: NormalizedPlan }> {
+    const file = args.originalSha256 ? ORIGINAL_PLAN_FILE : PLAN_FILE;
+    const before = await this.planFileSha(file);
+    if (args.originalSha256 && before !== args.originalSha256) throw new Error("Reviewed plan integrity check failed.");
     const plan = await this.normalizedPlan(args.normalize, async (current, raw) => {
       if (current.planDigest !== args.expectedPlanDigest) throw new TofuPlanChangedError(args.expectedPlanDigest, current.planDigest);
       await args.inspectPlan?.(current, raw);
-    });
+    }, file);
     if (plan.planDigest !== args.expectedPlanDigest) throw new TofuPlanChangedError(args.expectedPlanDigest, plan.planDigest);
-    if ((await this.planFileSha()) !== before) {
+    await args.beforeDispatch?.();
+    if ((await this.planFileSha(file)) !== before) {
       throw new TofuCommandError("tofu_command_failed", "The saved plan file changed while it was being verified; refusing to apply.", {
         command: "apply",
         exitCode: -1,
@@ -415,7 +440,7 @@ export class TofuRun {
         durationMs: 0,
       });
     }
-    const out = await this.command("apply", ["apply", "-input=false", "-lock-timeout=60s", "-no-color", "-json", PLAN_FILE], { uiStream: true });
+    const out = await this.command("apply", ["apply", "-input=false", "-lock-timeout=60s", "-no-color", "-json", file], { uiStream: true });
     this.lastDiagnostics = out.diagnostics;
     return { result: out.result, plan };
   }

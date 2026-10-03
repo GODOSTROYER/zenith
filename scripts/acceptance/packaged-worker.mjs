@@ -349,11 +349,11 @@ export function sanitizeClientEvidence(action, value) {
       || !Array.isArray(value.tofu) || !/^OpenTofu v\d+\.\d+\.\d+$/.test(value.tofu[0]) || !/^on linux_(amd64|arm64)$/.test(value.tofu[1])
       || !digest(value.policySha256) || !Number.isSafeInteger(value.ssmDocuments?.count) || value.ssmDocuments.count < 1
       || !digest(value.ssmDocuments.sha256) || dependencies.some((name) => !version(value.dependencies?.[name]))
-      || value.plans?.terminalRemoved !== true || value.plans.activeRetained !== true || value.plans.unownedRetained !== true || value.plans.sentinelFiles !== true) fail();
+      || value.plans?.logicallyExpired !== true || value.plans.ciphertextRetained !== true || value.plans.terminalRetained !== true || value.plans.encryptedLifecycleFixture !== true || value.plans.activeRetained !== true || value.plans.unownedRetained !== true || value.plans.sentinelFiles !== true) fail();
     return { uid: 10001, arch: value.arch, node: value.node, tofu: value.tofu.slice(0, 2), policySha256: value.policySha256,
       ssmDocuments: { count: value.ssmDocuments.count, sha256: value.ssmDocuments.sha256 },
       dependencies: Object.fromEntries(dependencies.map((name) => [name, value.dependencies[name]])),
-      plans: { terminalRemoved: true, activeRetained: true, unownedRetained: true, sentinelFiles: true } };
+      plans: { logicallyExpired: true, ciphertextRetained: true, terminalRetained: true, activeRetained: true, unownedRetained: true, sentinelFiles: true, encryptedLifecycleFixture: true } };
   }
   fail();
 }
@@ -456,11 +456,12 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
   const envFile = path.join(scratch, "worker.env");
   const password = randomBytes(32).toString("hex");
   const secret = randomBytes(32).toString("hex");
+  const artifactKey = randomBytes(32).toString("hex");
   const jwk = { ...generateKeyPairSync("ed25519").privateKey.export({ format: "jwk" }), alg: "EdDSA", kid: runId };
   const url = `postgresql://postgres:${password}@postgres:5432/zenith_packaged`;
   const workerEnv = { ZENITH_PACKAGED_ACCEPTANCE: "1", ZENITH_STORE: "file", ZENITH_DATA: "/var/lib/zenith",
     ZENITH_WORKER_PLAN_DIR: "/var/lib/zenith/platform-plans", ZENITH_PLATFORM_DB: "postgres", ZENITH_PLATFORM_DB_URL: url,
-    ZENITH_SECRET_KEY: secret, ZENITH_CONTROL_SIGNING_JWK: JSON.stringify(jwk), ZENITH_TEMPORAL_ADDRESS: "temporal:7233",
+    ZENITH_SECRET_KEY: secret, ZENITH_PLAN_ARTIFACT_KEY: artifactKey, ZENITH_CONTROL_SIGNING_JWK: JSON.stringify(jwk), ZENITH_TEMPORAL_ADDRESS: "temporal:7233",
     ZENITH_TEMPORAL_NAMESPACE: "default", ZENITH_WORKER_TASK_QUEUE: runId, ZENITH_WORKER_IDENTITY: runId,
     ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS: "0", ZENITH_WORKER_LOG_LEVEL: "WARN", ZENITH_WORKER_SHUTDOWN_GRACE_MS: "15000",
     ZENITH_WORKER_MAX_CONCURRENT_ACTIVITIES: "1", ZENITH_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS: "2" };
@@ -498,7 +499,7 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
         const text = captured.out + captured.err;
         if (role === "worker") evidence.workerFailureCategory = workerFailureCategory(text);
         if (refusalKinds.includes(role)) (evidence.refusalFailureCategories ??= {})[role] = workerFailureCategory(text);
-        logs.push({ role, text: redactDiagnosticLogs(text, [password, secret, jwk.d ?? "", url, JSON.stringify(jwk)]) });
+        logs.push({ role, text: redactDiagnosticLogs(text, [password, secret, artifactKey, jwk.d ?? "", url, JSON.stringify(jwk)]) });
       } catch { /* Diagnostics cannot obstruct owned-resource cleanup. */ }
     }
     evidence.failureContainers = states;
@@ -576,7 +577,7 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
       await docker([...isolated(name, file), "-d", image], `refusal-launch-${kind}`, { timeout: REFUSAL_LAUNCH_TIMEOUT_MS });
       const state = await waitForRefusalExit(name, runId, docker, { phase: `refusal-exit-${kind}` });
       const result = await docker(["logs", "--tail", "200", name], `refusal-logs-${kind}`, { timeout: 10_000 });
-      const category = refusalFailureCategory(kind, result.out + result.err, [password, secret, jwk.d, url]);
+      const category = refusalFailureCategory(kind, result.out + result.err, [password, secret, artifactKey, jwk.d, url]);
       evidence.checks[kind] = "refused-without-secret-output";
       (evidence.refusalExits ??= {})[kind] = { ...state, failureCategory: category, launchBudgetMs: REFUSAL_LAUNCH_TIMEOUT_MS, exitBudgetMs: REFUSAL_EXIT_TIMEOUT_MS };
     }
@@ -623,7 +624,7 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     const stopped = JSON.parse((await docker(["inspect", worker], "stopped-worker")).out)[0];
     const logs = await docker(["logs", worker], "worker-lifecycle-logs");
     if (stopped.State.ExitCode !== 0 || !logs.out.includes("shutdown requested: draining") || !logs.out.includes("execution worker stopped")) throw new Error("Packaged worker did not drain cleanly on SIGTERM.");
-    for (const value of [password, secret, jwk.d, url]) if ((logs.out + logs.err).includes(value)) throw new Error("Worker lifecycle logs contained secret material.");
+    for (const value of [password, secret, artifactKey, jwk.d, url]) if ((logs.out + logs.err).includes(value)) throw new Error("Worker lifecycle logs contained secret material.");
     evidence.checks.shutdown = { signal: "SIGTERM", exitCode: stopped.State.ExitCode, drained: true, inFlightActivity: false };
     evidence.status = "passed";
   } catch (error) {

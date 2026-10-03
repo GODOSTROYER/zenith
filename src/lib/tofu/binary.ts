@@ -8,6 +8,8 @@
  * tofu would change plan output and provider behaviour under an approved
  * digest.
  */
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { accessSync, constants, statSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -97,4 +99,23 @@ export async function checkTofuVersion(bin: string, expected: string = TOFU_VERS
   } finally {
     await rm(root, { recursive: true, force: true, maxRetries: 3 }).catch(() => undefined);
   }
+}
+
+/** Matching file identity is distinct from independently authenticated distribution provenance. */
+export interface TofuExecutableIdentity {
+  version: string;
+  platform: string;
+  sha256: string;
+  archiveSha256: string | null;
+}
+
+export async function describeTofuBinary(bin: string, info: TofuVersionInfo, identityFile?: string): Promise<TofuExecutableIdentity> {
+  const sha256 = createHash("sha256").update(await readFile(bin)).digest("hex");
+  if (!identityFile) return { ...info, sha256, archiveSha256: null };
+  try {
+    const record = JSON.parse(await readFile(identityFile, "utf8")) as TofuExecutableIdentity;
+    if (record.version !== info.version || record.platform !== info.platform || record.sha256 !== sha256
+      || !record.archiveSha256 || !/^[a-f0-9]{64}$/.test(record.archiveSha256)) throw new Error();
+    return { version: info.version, platform: info.platform, sha256, archiveSha256: record.archiveSha256 };
+  } catch { throw new Error("OpenTofu packaged executable identity is unavailable or mismatched."); }
 }

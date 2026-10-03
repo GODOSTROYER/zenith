@@ -12,7 +12,7 @@ import { extractPlanFacts } from "@/lib/policy/plan-facts";
 import { assessRecordDeletion } from "@/lib/providers/aws/drivers/network/route53-record";
 import { assertDeletionAllowed, TofuDeletionRefusedError } from "@/lib/tofu/plan";
 import { TofuCommandError } from "@/lib/tofu/runner";
-import type { NormalizedPlan } from "@/lib/tofu/types";
+import { TofuPlanProvenanceError, type NormalizedPlan } from "@/lib/tofu/types";
 import type { DestroyActivities } from "@/lib/workflows/definitions/destroy";
 import type { LeaseRef, PlanSummary } from "@/lib/workflows/types";
 import { buildWorkspace } from "./compile";
@@ -21,7 +21,7 @@ import { assertLeaseFor, requireExecutable, tofuSession } from "./desired";
 import { LeaseLostError, StepFailedError, TofuPlanChangedError } from "./errors";
 import { withKeepAlive } from "./keepalive";
 import { planEvidence, toPlanSummary } from "./plan-evidence";
-import type { Runtime } from "./runtime";
+import { planCustody, type Runtime } from "./runtime";
 import { driverContext, LONG_SESSION_SEC, OBSERVE_CAPABILITY, PLAN_CAPABILITY, withProviderSession } from "./session";
 import { safeText } from "./text";
 import { buildDesiredState } from "./graph";
@@ -176,12 +176,19 @@ async function planStage(rt: Runtime, operationId: string, lease: LeaseRef, port
   if (approvedDigest !== undefined && !HEX64.test(approvedDigest)) throw new StepFailedError("The approved plan digest is invalid.");
   const { ec, graph } = await context(rt, operationId, lease, true);
   if (isDirect(ec)) return directPlanStage(rt, ec, graph, lease, ports, approvedDigest);
+  const destroyRef=(ec.op.proposal as {broker?:{destroyPlan?:{operationId?:string;evidenceId?:string}}}).broker?.destroyPlan;
+  const originalDigest=approvedDigest ?? (destroyRef ? ec.op.proposal.planDigest : undefined);
+  if (destroyRef && (!destroyRef.operationId || !destroyRef.evidenceId || !originalDigest || originalDigest!==ec.op.proposal.planDigest || originalDigest!==ec.op.planDigest)) throw new StepFailedError("The source destroy review is unavailable; a new review is required.");
   const connection = await resolveConnection(rt, ec);
   const { ws } = buildWorkspace({ ec, graph, connection, drivers: rt.drivers, overrides: rt.d.tofuWorkspace });
   const result = await withKeepAlive(rt, { lease, detail: "tofu destroy plan", operation: { workspaceId: ec.workspaceId, operationId } }, (signal) =>
     withProviderSession(rt, ec, { purpose: "observe", capability: PLAN_CAPABILITY, fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
       await guardDns(rt, ec, graph.nodes, session, signal, lease);
-      return rt.tofu.planWorkspace(ws, tofuSession(session), { destroy: true, lock: false, signal, deletionNodes: graph.nodes, inspectPlan: (plan) => guard(plan, graph.nodes), normalize: { fingerprintKey: rt.d.fingerprintKey } });
+      if (originalDigest) {
+        if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required; a new review is required.");
+        await rt.d.planArtifacts.inspect({ custody: planCustody(ec,graph.graphDigest,connection), planDigest: originalDigest, lease }, async () => undefined);
+      }
+      return rt.tofu.planWorkspace(ws, tofuSession(session), { destroy: true, custody: planCustody(ec, graph.graphDigest, connection), lock: false, signal, deletionNodes: graph.nodes, inspectPlan: (plan) => guard(plan, graph.nodes), normalize: { fingerprintKey: rt.d.fingerprintKey } });
     })
   );
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
@@ -191,10 +198,15 @@ async function planStage(rt: Runtime, operationId: string, lease: LeaseRef, port
   // Even an empty state plan needs observation: an out-of-band resource may
   // still exist, and refresh may already have removed missing resources.
   const destroyAddresses = graph.nodes.filter((node) => node.ownership === "managed").map((node) => node.address).sort();
-  await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, key: `destroy:${evidence.key}`, summary: { ...evidence.summary, destroy: true, destroyAddresses, statefulDeletes: facts.destroyedStatefulAddresses }, simulated: false }, { critical: false });
   if (approvedDigest && result.plan.planDigest !== approvedDigest) throw new TofuPlanChangedError(approvedDigest, result.plan.planDigest);
   if (!approvedDigest && ec.op.planDigest && ec.op.planDigest !== result.plan.planDigest) throw new TofuPlanChangedError(ec.op.planDigest, result.plan.planDigest);
-  if (!approvedDigest) await rt.d.ops.setPlanDigest({ workspaceId: ec.workspaceId, operationId, planDigest: result.plan.planDigest });
+  const summary = { ...evidence.summary, destroy: true, destroyAddresses, statefulDeletes: facts.destroyedStatefulAddresses };
+  if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required.");
+  if (!originalDigest) await rt.d.planArtifacts.publish({ produced: result.produced, lease, evidence: {
+    id: `evd_${digest({ w: ec.scope.id, kind: "tofu_plan", key: `destroy:${evidence.key}` }).slice(0,32)}`,
+    workspaceId: ec.workspaceId, operationId, kind: "tofu_plan", digest: evidence.digest, summary, simulated: false,
+  } });
+  else await rt.evidence(ec.scope,{ kind:"tofu_plan",digest:evidence.digest,key:`destroy:${evidence.key}`,summary,simulated:false },{critical:false});
   return toPlanSummary(result.plan, facts, {});
 }
 
@@ -254,12 +266,22 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
         const result = await withKeepAlive(rt, { lease, detail: "tofu destroy apply", operation: { workspaceId: ec.workspaceId, operationId } }, (signal) =>
           withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
             await guardDns(rt, ec, graph.nodes, session, signal, lease);
-            started = true;
-            return rt.tofu.applyVerifiedPlan(ws, { approvedDigest: planDigest, destroy: true, deletionNodes: graph.nodes, session: tofuSession(session), signal, normalize: { fingerprintKey: rt.d.fingerprintKey }, inspectPlan: async (plan) => {
+            if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required; a new review is required.");
+            const custody = planCustody(ec, graph.graphDigest, connection);
+            return rt.d.planArtifacts.consume({ custody, planDigest, lease }, (original, dispatch) => rt.tofu.applyVerifiedPlan(ws, { approvedDigest: planDigest, original, custody,
+              beforeDispatch: async () => {
+                const freshContext = await context(rt,operationId,lease);
+                const freshConnection = await resolveConnection(rt,freshContext.ec);
+                const freshWorkspace = buildWorkspace({ec:freshContext.ec,graph:freshContext.graph,connection:freshConnection,drivers:rt.drivers,overrides:rt.d.tofuWorkspace}).ws;
+                if (digest(planCustody(freshContext.ec,freshContext.graph.graphDigest,freshConnection)) !== digest(custody) || digest(freshWorkspace) !== digest(ws)) throw new StepFailedError("Reviewed destroy provenance changed; a new review is required.");
+                const current = await checkDestroyApproval(rt, operationId);
+                if (!current.approved || current.rejected) throw new StepFailedError("The human approval is no longer valid.");
+                await rt.d.leases.assertFence(lease.scope,lease.fenceToken); started=true; await dispatch();
+              }, destroy: true, deletionNodes: graph.nodes, session: tofuSession(session), signal, normalize: { fingerprintKey: rt.d.fingerprintKey }, inspectPlan: async (plan) => {
               guard(plan, graph.nodes);
               await guardDns(rt, ec, graph.nodes, session, signal, lease);
               await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
-            } });
+            } }));
           })
         );
         await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
@@ -269,6 +291,7 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
       } catch (err) {
         if (err instanceof TofuPlanChangedError || err instanceof StepFailedError) throw err;
         if (err instanceof TofuDeletionRefusedError) throw new StepFailedError(err.message);
+        if (!started && err instanceof TofuPlanProvenanceError) throw new StepFailedError("Reviewed plan provenance changed; a new review is required.");
         if (started) await rt.d.ops.markUncertain({ workspaceId: ec.workspaceId, operationId, reason: "Teardown did not complete; resource absence is unconfirmed." }).catch(() => undefined);
         if (err instanceof LeaseLostError) throw err;
         if (!started) throw new StepFailedError("Teardown did not start; nothing was applied.");

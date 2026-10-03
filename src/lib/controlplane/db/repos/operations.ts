@@ -455,6 +455,8 @@ export async function claimForExecution(sql: Sql, input: ClaimInput): Promise<Op
   const leaseMs = boundedMs("leaseMs", input.leaseMs ?? 60_000, 1000, 24 * 60 * 60 * 1000);
 
   return sql.tx(async (tx) => {
+    // Live fence first: all fenced writers retain the same lock order. A stale fence takes failure priority.
+    if (input.lease) await assertFence(tx, input.lease.scope, input.lease.fenceToken);
     const locked = await tx.query<OperationRow & { is_expired: boolean }>(
       `select ${OPERATION_COLUMNS}, (expires_at <= clock_timestamp()) as is_expired
          from platform.operations where workspace_id = $1 and id = $2 for update`,
@@ -467,7 +469,7 @@ export async function claimForExecution(sql: Sql, input: ClaimInput): Promise<Op
     if (op.proposal_digest !== expectedDigest)
       throw new ControlStoreError("digest_mismatch", "The digest to execute does not match the reviewed proposal digest.", { id });
     if (op.is_expired) throw new ControlStoreError("operation_expired", "The operation expired before it could be executed.", { id });
-    if (input.lease) await assertFence(tx, input.lease.scope, input.lease.fenceToken);
+
 
     if (op.approval_required) {
       const required = await requiredApprovalCount(tx, workspaceId, op.policy_decision_id);

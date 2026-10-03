@@ -901,10 +901,14 @@ jobs:
     env:
       ZENITH_DATA: ${{ github.workspace }}/.data-ci-platform
       ZENITH_FAST: "1"
+      ZENITH_TEST_TOFU_NETWORK: "1"
       # The one switch that adds the Postgres lane to tests/controlplane's
       # describe.each(LANES). Loopback only: apply-platform-migrations.sh
       # refuses any other host.
       ZENITH_TEST_PLATFORM_PG_URL: postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/zenith_platform_ci
+      # Use server-major clients explicitly; the restore scenario refuses missing/mismatched versions.
+      ZENITH_TEST_PG_DUMP_BIN: /usr/lib/postgresql/16/bin/pg_dump
+      ZENITH_TEST_PG_RESTORE_BIN: /usr/lib/postgresql/16/bin/pg_restore
       # SUPABASE_DB_URL / ZENITH_PLATFORM_DB* are deliberately unset so nothing
       # can resolve the platform database to anything but the URL above.
 
@@ -919,6 +923,28 @@ jobs:
           cache: npm
 
       - run: npm ci --ignore-scripts
+
+      - name: Install pinned OpenTofu
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          mkdir -p tofu-bin
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 15 --max-time 300 --output tofu.tar.gz https://github.com/opentofu/opentofu/releases/download/v1.12.5/tofu_1.12.5_linux_amd64.tar.gz
+          printf '%s  %s\n' 'a6894d45ae7a17ce83189cce8fe04b5a65f68cefceb62455b5a6a89fa53ab38f' 'tofu.tar.gz' | sha256sum --check --strict
+          tar -xzf tofu.tar.gz -C tofu-bin tofu
+          # src/lib/tofu/binary.ts resolves the binary from ZENITH_TOFU_BIN and
+          # refuses any version but the pinned one.
+          echo "ZENITH_TOFU_BIN=$RUNNER_TEMP/tofu-bin/tofu" >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/tofu-bin/tofu" version
+
+      - name: Choose the provider plugin cache directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tofu-plugin-cache"
+          echo "ZENITH_TOFU_PLUGIN_CACHE=$RUNNER_TEMP/tofu-plugin-cache" >> "$GITHUB_ENV"
+
 
       - name: Say so when there is no platform migrator yet
         if: hashFiles('scripts/platform/migrate.ts') == ''

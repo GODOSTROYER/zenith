@@ -170,9 +170,16 @@ export async function completeOperation(
  */
 export async function cancelOperation(
   db: Sql,
-  input: { workspaceId: string; id: string; reason?: string; actor?: Principal; expectedStatus?: "awaiting_approval" }
+  input: { workspaceId: string; id: string; reason?: string; actor?: Principal; expectedStatus?: "awaiting_approval"; requireUndecidedApprovalRound?: boolean }
 ): Promise<OperationRecord | null> {
+  if (input.requireUndecidedApprovalRound && input.expectedStatus!=="awaiting_approval") throw new ControlStoreError("invalid_input","Undecided-round cancellation requires awaiting_approval.");
   return db.tx(async (tx) => {
+    if (input.requireUndecidedApprovalRound) {
+      const rows=await tx.query<{approval_round:number;status:string}>("select approval_round,status from platform.operations where workspace_id=$1 and id=$2 for update",[input.workspaceId,input.id]);
+      if (rows[0]?.status!=="awaiting_approval") return null;
+      const decisions=await tx.query("select id from platform.approvals where workspace_id=$1 and operation_id=$2 and approval_round=$3",[input.workspaceId,input.id,rows[0].approval_round]);
+      if (decisions.length) return null;
+    }
     const op = await transition(tx, {
       workspaceId: input.workspaceId,
       id: input.id,

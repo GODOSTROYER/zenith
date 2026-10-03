@@ -1,8 +1,9 @@
-/** Mandatory dependency gate. All unresolved findings block; no exceptions are granted. */
+/** Mandatory complete dependency gate. Only exact reviewed, expiring repository policy may accept risk. */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { applySecurityExceptions, securityFindingScope, SECURITY_EXCEPTION_FILE } from "./security-exceptions.mjs";
 
 export const AUDIT_ARGS = [
   "audit", "--json", "--package-lock-only", "--include=dev", "--include=optional", "--include=peer",
@@ -30,6 +31,8 @@ export function assessAudit(report, status) {
       throw new Error("Incomplete or inconsistent npm audit counts.");
     }
     const idsByPackage = new Map();
+    const advisoryContent = new Map();
+    const scopesByPackage = new Map();
     for (const [name, finding] of entries) {
       if (!packageName.test(name) || !record(finding) || finding.name !== name ||
           !severities.includes(finding.severity) || typeof finding.isDirect !== "boolean" ||
@@ -41,6 +44,17 @@ export function assessAudit(report, status) {
       if (entries.filter(([, item]) => item.severity === finding.severity).length !== counts[finding.severity]) {
         throw new Error("Inconsistent npm audit severity counts.");
       }
+      try {
+        const scope = securityFindingScope(finding);
+        scopesByPackage.set(name, scope);
+        for (const via of scope.via) {
+          if (typeof via === "string") continue;
+          const content = JSON.stringify(via);
+          if (advisoryContent.has(via.url) && advisoryContent.get(via.url) !== content) throw new Error("inconsistent advisory");
+          advisoryContent.set(via.url, content);
+        }
+      }
+      catch { throw new Error("Malformed vulnerability scope."); }
     }
     const advisoryIds = (name, visiting = new Set()) => {
       if (idsByPackage.has(name)) return idsByPackage.get(name);
@@ -62,22 +76,26 @@ export function assessAudit(report, status) {
       idsByPackage.set(name, ids);
       return ids;
     };
-    const findings = entries.map(([name]) => ({ package: name, advisoryIds: [...advisoryIds(name)].sort() }));
+    const findings = entries.map(([name]) => ({ package: name, advisoryIds: [...advisoryIds(name)].sort(), scope: scopesByPackage.get(name) }));
     if (status !== 0 && status !== 1) throw new Error("npm audit did not complete successfully.");
-    if (status === 1 && findings.length === 0) throw new Error("npm audit exited with an error despite reporting no findings.");
+    const aboveThreshold = entries.some(([, finding]) => finding.severity !== "info");
+    if ((status === 0 && aboveThreshold) || (status === 1 && !aboveThreshold)) throw new Error("npm audit exit status disagrees with the configured severity threshold.");
     return {
+      validated: true,
       ok: findings.length === 0,
       reason: findings.length ? `${findings.length} unresolved dependency findings block release.` : "No known dependency findings in the complete locked audit.",
       findings,
     };
   } catch (error) {
-    return { ok: false, reason: error.message, findings: [] };
+    return { ok: false, validated: false, reason: error.message, findings: [] };
   }
 }
 
 export function runSecurityAudit(root = process.cwd()) {
+  let lockBytes;
   try {
-    const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
+    lockBytes = fs.readFileSync(path.join(root, "package-lock.json"));
+    const lock = JSON.parse(lockBytes.toString("utf8"));
     if (![2, 3].includes(lock.lockfileVersion) || !record(lock.packages) || !lock.packages[""] || Object.keys(lock.packages).length < 2) {
       throw new Error("invalid lock");
     }
@@ -94,8 +112,18 @@ export function runSecurityAudit(root = process.cwd()) {
   if (result.error || result.signal || result.status === null) {
     return { ok: false, reason: "npm audit unavailable, timed out or was interrupted.", findings: [] };
   }
-  try { return assessAudit(JSON.parse(result.stdout), result.status); }
+  let report;
+  try { report = JSON.parse(result.stdout); }
   catch { return { ok: false, reason: "npm audit returned malformed JSON.", findings: [] }; }
+  const assessment = assessAudit(report, result.status);
+  if (assessment.validated !== true) return assessment;
+  try {
+    const registry = JSON.parse(fs.readFileSync(path.join(root, SECURITY_EXCEPTION_FILE), "utf8"));
+    // The CLI clock and fixed committed registry have no environment/flag override.
+    return applySecurityExceptions(assessment, report, lockBytes, registry, root);
+  } catch {
+    return { ...assessment, ok: false, reason: "The committed security exception registry is missing, unreadable or malformed; the gate remains blocked.", accepted: [], unaccepted: assessment.findings, exceptions: [] };
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
@@ -103,6 +131,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   // Never print the raw registry response: errors may contain private details.
   const emit = result.ok ? console.log : console.error;
   emit(result.reason);
-  for (const finding of result.findings) emit(`${finding.package}: ${finding.advisoryIds.join(", ")}`);
+  const accepted = new Set((result.accepted ?? []).map((f) => f.package));
+  for (const finding of result.findings) emit(`${accepted.has(finding.package) ? "REVIEWED EXCEPTION: " : ""}${finding.package}: ${finding.advisoryIds.join(", ")}`);
+  for (const exception of result.exceptions ?? []) emit(`${exception.id}: ${exception.advisoryId}; review due ${exception.reviewDueAt}; expires ${exception.expiresAt}`);
   process.exitCode = result.ok ? 0 : 1;
 }

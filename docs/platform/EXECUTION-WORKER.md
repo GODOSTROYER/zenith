@@ -310,7 +310,10 @@ fail fast with a message that never contains a secret.
 | `ZENITH_WORKER_IDENTITY` | `zenith-exec-<host>-<pid>` | worker | lease-holder identity, 1–64 letters/digits/dots/underscores/hyphens; invalid values refuse startup |
 | `ZENITH_WORKER_PLAN_DIR` | `<ZENITH_DATA or .data>/platform-plans` | worker | private binary-plan directory, created with mode `0700`; plans may contain secrets |
 | `ZENITH_WORKER_HEALTH_PORT` | `9464` | worker | loopback `/healthz` and `/readyz`; 1–65535 |
-| `ZENITH_WORKER_PLAN_MAX_AGE_HOURS` | `24` | worker | retention threshold for terminal-owner binary plans; 1–8760 |
+| `ZENITH_WORKER_PLAN_MAX_AGE_HOURS` | `24` | legacy inspection | scan threshold only; 1–8760, never authorizes deletion |
+| `ZENITH_PLAN_ARTIFACT_KEY` | unset | worker | dedicated 64-hex original-plan encryption key; disjoint from all vault keys, shared by cooperating workers |
+| `ZENITH_PLAN_ARTIFACT_PREVIOUS_KEYS` | unset | worker | private JSON array of earlier 32-byte artifact keys (hex/base64), decrypt-only |
+| `ZENITH_TOFU_IDENTITY_FILE` | packaged path | worker | checksum-verified packaged executable identity; required before polling |
 | `ZENITH_SECRET_KEY` | unset | client, worker | 64-hex secret for payload encryption; required in production; worker also requires it for plan fingerprints |
 | `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` | unset | client, worker | private JSON array of previous 64-hex keys for decrypting retained histories; see payload encryption below |
 
@@ -327,8 +330,8 @@ temporal server start-dev --headless --port 7233
 # 2. the worker (from the repo root)
 $env:ZENITH_TEMPORAL_ADDRESS = "127.0.0.1:7233"
 $env:ZENITH_WORKER_IDENTITY = "zenith-exec-01"
-# Supply the secret key, control signer and explicitly configured store privately.
-# Migrate Postgres before starting; do not share a PGlite directory with the app.
+# Supply the secret key, dedicated artifact key, control signer and PostgreSQL privately.
+# Migrate through version 7 and supply the packaged OpenTofu identity before starting.
 npm run worker
 ```
 
@@ -446,8 +449,9 @@ Its intended checks are:
   workflow and operation ledger must end `failed`; this is a refusal contract,
   not a successful provider observation.
 - Readiness loss during separate store/Temporal outages while liveness stays
-  available, recovery, uid/filesystem checks and real plan-janitor retention of
-  active/unowned sentinel files while deleting an aged terminal-owned sentinel.
+  available, recovery, uid/filesystem checks and real PostgreSQL logical expiry of
+  an encrypted lifecycle fixture. Ciphertext and every legacy sentinel remain
+  retained; these sentinels are not executable plans or producer-provenance evidence.
 - SIGTERM draining and exit zero for the idle packaged worker.
 
 Evidence reports the commit, dirty source-input hash, harness hash, lockfile and
@@ -575,12 +579,8 @@ against a local Temporal server with scripted activities.
   providers (200 or 503). Checks are bounded to two seconds and return only
   `ok`/`unavailable`/`unknown`; readiness does not prove cloud permissions. Use an
   in-container probe; remote pod probes cannot reach the loopback listener.
-- Plan retention: `src/lib/execution/plan-janitor.ts` starts immediately and runs
-  every five minutes. It scans at most 100 entries per pass and removes only
-  regular digest-named `.tfplan` files older than the configured threshold with
-  known, exclusively terminal owners. Active/unowned plans and symlinks stay;
-  ownership and metadata are rechecked before unlink. The producer does not take
-  the maintenance lease, so the final writer/unlink race remains a limit.
+- Durable originals: migration 7 stores authenticated ciphertext and separate use/expiry state in PostgreSQL. Workers need the same dedicated artifact keyring and matching source/backend/lock/executable context. Another worker applies the original after separate fresh drift, ownership, policy and human checks; fresh files cannot replace it.
+- Plan maintenance: `src/lib/execution/plan-janitor.ts` starts immediately and runs every five minutes, marking at most 100 expired artifact uses per pass. It retains ciphertext and all historical local files. `ZENITH_WORKER_PLAN_MAX_AGE_HOURS` applies only to legacy inspection and does not authorize deletion.
 - Run the container with an init (`tini` is in the image entrypoint) so orphaned
   provider processes are reaped; use a read-only root filesystem with `/tmp` and
   `/var/lib/zenith` writable.
@@ -661,3 +661,42 @@ time-skipping server's fidelity to a production server (it is used only for the
   replica failover. The HTTP reconcile controller is already scheduled by
   `.github/workflows/tick.yml`; this does not schedule the observe-only Temporal
   reconcile workflow.
+
+
+### Durable plan rollout and recovery
+Drain workers using local-only plans before migration 7 and the custody-aware worker
+are installed. Configure `ZENITH_PLAN_ARTIFACT_KEY` privately and back it up separately
+from PostgreSQL; install the checksum-verified packaged OpenTofu identity. Startup
+refuses PGlite, missing/overlapping artifact keys, an incompatible schema or executable
+identity before polling. Old pending approvals without original producer provenance
+need a new review; local files cannot be imported or retroactively attested.
+
+A destroy source review already has a running claim. Its exact original is associated
+with the separate awaiting-approval destroy proposal before the first human decision.
+A decision that wins that window causes a safe refusal, including partial approval;
+refresh cannot cancel an approved or partly decided proposal. The source completion
+binds the destination ID/digest. Destination planning inspects that association and
+makes only a fresh guard plan, without republishing the original.
+
+The engine owns the durable dispatch CAS, using canonical current policy/roles and
+exact current-round human approval IDs/count/digests whose expiry SQL rechecks at the
+last clock boundary. After dispatch, lost replies or crashes keep the attempt uncertain
+and block automatic replay. Inspect provider state and operation evidence before a
+new reviewed action. A fence or policy change cannot revoke an already accepted
+provider call atomically.
+
+Restore requires matching artifact keys, fingerprint key, source/backend/lock context
+and executable identity as well as the platform records. Previous artifact keys decrypt
+only; every new seal uses the current key. Preserve old keys while originals may still
+need authentication. Physical retention/pruning, immutable re-encryption/key retirement,
+recovery epochs, live backend restore and cross-platform portability require separate
+verification and policy. No such deletion is implemented by maintenance.
+
+The mandatory PostgreSQL restore scenario checks actual `pg_dump --version` and
+`pg_restore --version` before copying data. Both clients must report the same full
+version and match the server major. Set absolute `ZENITH_TEST_PG_DUMP_BIN` and
+`ZENITH_TEST_PG_RESTORE_BIN` paths to select the matching clients; otherwise validated
+PATH clients are used. Missing or mismatched tools fail the scenario. Private backup
+bytes and credential-bearing connection URLs never enter command arguments or results.
+The five independent-handle cases formerly registered as PGlite skips now register
+only in PostgreSQL; their exact titles remain mandatory, including missing-PG detection.

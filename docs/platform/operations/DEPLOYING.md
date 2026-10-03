@@ -264,7 +264,10 @@ Read by `executionWorkerConfigFromEnv`. Details and defaults:
 | `ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS` | `60000` | Period of the `health` log line; `0` disables. The HTTP endpoints are on `ZENITH_WORKER_HEALTH_PORT`. |
 | `ZENITH_WORKER_IDENTITY` | `zenith-exec-<host>-<pid>` (sanitised, at most 64 characters) | Worker identity shown in Temporal and used in every lease holder: 1-64 letters, digits, `.`, `_` or `-`; any other explicit value is refused at startup. |
 | `ZENITH_WORKER_HEALTH_PORT` | `9464` | Loopback port for `/healthz` (process up) and `/readyz` (Temporal, platform store, policy bundle, drivers). |
-| `ZENITH_WORKER_PLAN_MAX_AGE_HOURS` | `24` | The plan janitor deletes binary plans of terminal operations older than this; plans of active operations are never touched. |
+| `ZENITH_WORKER_PLAN_MAX_AGE_HOURS` | `24` | Legacy inspection threshold only; maintenance never deletes plan files. |
+| `ZENITH_PLAN_ARTIFACT_KEY` | unset | **Secret**, required for workers: a dedicated 64-hex key disjoint from every product-vault key; share across cooperating workers and back up separately from PostgreSQL. |
+| `ZENITH_PLAN_ARTIFACT_PREVIOUS_KEYS` | unset | **Secret**, optional: private JSON array of previous 32-byte artifact keys (hex/base64), decrypt-only. Retain while originals may need authentication. |
+| `ZENITH_TOFU_IDENTITY_FILE` | packaged path | Checksum-verified packaged OpenTofu identity; version, platform and binary hash must match before polling. |
 | `ZENITH_WORKER_PLAN_DIR` | `<ZENITH_DATA or .data>/platform-plans` | Worker-local binary plan directory, resolved to an absolute path and created with mode `0700`. Keep it private; binary plans may contain secrets. Cross-replica filesystem access and Windows ACL equivalence are not verified. |
 | `ZENITH_SECRET_KEY` | unset | **Secret**, required: 64 hex characters. `derivePlanFingerprintKey` uses HKDF-SHA256 with `zenith.tofu.plan.fingerprint.v1`; there is no public default. The key also protects product vault secrets and encrypts Temporal workflow payloads (AES-256-GCM, HKDF info `zenith.temporal.payload.v1`); give the web app and cooperating workers the same key and back it up separately. |
 | `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` | unset | **Secret**, optional: a JSON array of earlier 64-hex `ZENITH_SECRET_KEY` values. Payloads carry a key id; after rotating `ZENITH_SECRET_KEY`, list the old keys here (on the web app and every worker) so workflow histories written under them still decode. A malformed value is refused at startup. |
@@ -565,13 +568,19 @@ applied), turns row level security on for every table with no policies, and
 revokes `anon` and `authenticated`. **`platform` must never be added to the Data
 API's exposed schemas.**
 
-Six migrations exist today: `core` (1), `reconcile` (2), `machine_requests` (3,
+Seven migrations exist today: `core` (1), `reconcile` (2), `machine_requests` (3,
 the `zenithd` request queue), `approval_rounds` (4: a plan-level approval after
 execution starts opens a new approval round, so the same human can review again once
 per round while earlier decisions stay as immutable history), `read_jobs` (5:
 runner read jobs, such as OCI log and metric reads, that belong to no operation and
 store a NULL operation) and `github_sources` (6: tenant-scoped GitHub App source
-bindings and expiring install intents, storing identifiers and proof digests only).
+bindings and expiring install intents, storing identifiers and proof digests only),
+and `plan_artifacts` (7: immutable original ciphertext and source associations,
+with separate mutable use attempts and logical expiry).
+Canonical migration 7 enables RLS on each new artifact table and applies guarded
+existing Supabase-role revocations and grants even when the migration owner differs
+from the schema-6 emitted bootstrap owner. Custom runtime-role grants and RLS
+bypass remain operator-owned and must be verified for the actual deployment.
 Migration 6 also accepts tables installed by the former explicit GitHub schema
 installer, preserving bindings and intents while recording the platform ledger.
 A database that applied the emitted SQL before a later
@@ -582,8 +591,8 @@ The emitted file keeps one name as migrations are added; it grows. If you apply
 migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any
-schema version after the first. The emitted file holds all six
-migrations, so a database that applied it before migration 2, 3, 4, 5 or 6 landed is exactly
+schema version after the first. The emitted file holds all seven
+migrations, so a database that applied it before migration 2, 3, 4, 5, 6 or 7 landed is exactly
 this case. I did not exercise it through the Supabase CLI.
 
 ### 3.3 What the application does about the schema
@@ -772,13 +781,9 @@ production operation remain unverified for this image.
   `unknown`, never configuration or raw errors. Readiness does not verify cloud
   permissions. Probe from inside the container; a remote pod probe cannot reach
   this loopback listener. JSON health logs and Temporal pollers remain useful.
-- Plans: `src/lib/execution/plan-janitor.ts` runs immediately and every five
-  minutes, scanning at most 100 entries per pass. Only regular digest-named
-  `.tfplan` files older than `ZENITH_WORKER_PLAN_MAX_AGE_HOURS` (default 24) whose
-  **every** known owner is terminal can be removed. Unowned/active plans and
-  symlinks are retained; store failures cannot authorize deletion. Ownership
-  and file metadata are rechecked, but plan producers do not take the janitor
-  lease, so the last writer/unlink race and replica sharing remain unverified.
+- Plans: maintenance performs logical expiry only. Migration 7 stores authenticated original ciphertext in PostgreSQL, separate from sanitized evidence and mutable use attempts. `src/lib/execution/plan-janitor.ts` runs immediately and every five minutes, marking at most 100 expired uses per pass. Ciphertext and historical local files remain retained; there is no physical purge or new retention policy. Another worker uses the original after separate fresh checks, with no fresh-file fallback.
+
+Drain old local-plan workers before migrating and installing custody-aware workers. Configure the dedicated artifact keyring and packaged executable identity before polling. Pending local-only plans require new review because their producer provenance cannot be reconstructed. Restore needs the original records, matching artifact/fingerprint keys and source/backend/lock/executable context. Previous artifact keys decrypt only. A lost dispatch response preserves uncertainty and blocks automatic replay; inspect provider state before proposing another reviewed write. Fences and policy revocation cannot atomically undo an accepted provider call.
 
 What happens when a worker dies mid-operation is in
 [RECOVERY.md](RECOVERY.md#4-what-happens-to-an-operation-when-something-crashes).

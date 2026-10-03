@@ -33,7 +33,7 @@ const NEXT = PLATFORM_MIGRATIONS.length + 1;
 
 const EXPECTED_TABLES = [
   "agent_nonces", "approvals", "capability_grants", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
-  "github_install_intents", "github_source_bindings", "idempotency_keys", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machines", "operations", "policy_decisions", "provider_connections",
+  "github_install_intents", "github_source_bindings", "idempotency_keys", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machines", "operations", "plan_artifact_associations", "plan_artifact_uses", "plan_artifacts", "policy_decisions", "provider_connections",
   "reconcile_state", "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners",
   "schema_migrations", "workspace_policy",
 ];
@@ -167,6 +167,12 @@ describe.each(lanes)("migrator [$name]", (lane) => {
 
       const tables = await db.query<{ table_name: string }>("select table_name from information_schema.tables where table_schema = 'platform' order by table_name");
       expect(tables.map((t) => t.table_name)).toEqual(EXPECTED_TABLES);
+      // Explicit isolated PGlite fixtures have no Supabase roles; guarded migration-7 hardening must still apply.
+      if(lane.name==="pglite")expect(await db.query("select rolname from pg_roles where rolname in ('anon','authenticated','service_role')")).toEqual([]);
+      expect(await db.query(`select c.relname as name,c.relrowsecurity as rls from pg_class c join pg_namespace n on n.oid=c.relnamespace
+        where n.nspname='platform' and c.relname in ('plan_artifacts','plan_artifact_associations','plan_artifact_uses') order by c.relname`)).toEqual([
+          {name:"plan_artifact_associations",rls:true},{name:"plan_artifact_uses",rls:true},{name:"plan_artifacts",rls:true},
+        ]);
     });
   }, 60_000);
 
@@ -276,6 +282,12 @@ describe.each(lanes)("migrator [$name]", (lane) => {
       expect(await migratePlatformDb(db)).toEqual({ applied: [], alreadyApplied: ALL });
       const tables = await db.query<{ table_name: string }>("select table_name from information_schema.tables where table_schema = 'platform' order by table_name");
       expect(tables.map((t) => t.table_name)).toEqual(EXPECTED_TABLES);
+      // Explicit isolated PGlite fixtures have no Supabase roles; guarded migration-7 hardening must still apply.
+      if(lane.name==="pglite")expect(await db.query("select rolname from pg_roles where rolname in ('anon','authenticated','service_role')")).toEqual([]);
+      expect(await db.query(`select c.relname as name,c.relrowsecurity as rls from pg_class c join pg_namespace n on n.oid=c.relnamespace
+        where n.nspname='platform' and c.relname in ('plan_artifacts','plan_artifact_associations','plan_artifact_uses') order by c.relname`)).toEqual([
+          {name:"plan_artifact_associations",rls:true},{name:"plan_artifact_uses",rls:true},{name:"plan_artifacts",rls:true},
+        ]);
 
       // hardening: RLS is on for every table, and there are NO policies
       const unprotected = await db.query<{ relname: string }>(
@@ -336,6 +348,88 @@ describe.each(lanes)("migrator [$name]", (lane) => {
 });
 
 describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open", () => {
+  it("schema 6 emitted hardening upgrades through the canonical migrator under a distinct owner with RLS, role isolation and immutable artifacts",async()=>{
+    await withScratchDatabase(async url=>{
+      const db=await openPlatformDb({kind:"postgres",url,migrate:false,max:1});
+      const rollback=new Error("Deliberate private upgrade fixture rollback");
+      try {
+        const result=await db.tx(async tx=>{
+          // Test roles are transaction-local DDL and roll back; existing roles are never altered.
+          await db.exec(`do $$ begin
+            if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
+            if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
+            if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin bypassrls; end if;
+          end $$;`);
+          const emitted=renderSupabaseMigration();
+          const seventh=emitted.indexOf("-- ============================ migration 7: plan_artifacts");
+          const hardening=emitted.indexOf("-- ============================ hardening (Supabase roles)");
+          if(seventh<0 || hardening<seventh)throw new Error("Canonical emitted migration boundaries are unavailable.");
+          // Exact shipped 1–6 text/checksums plus the existing emitted hardening, without pending migration 7.
+          await db.exec(emitted.slice(0,seventh)+emitted.slice(hardening));
+          expect((await platformSchemaStatus(db)).pending.map(m=>m.version)).toEqual([7]);
+          await expect(assertPlatformSchemaCurrent(db)).rejects.toMatchObject({code:"schema_behind"});
+          const originalUser=(await tx.query<{name:string}>("select current_user as name"))[0].name;
+          const migrationOwner=uid("zt_plan_migration").replace(/-/g,"");
+          // A distinct authorized migration owner has schema-create, ledger DML/RLS bypass, and FK references.
+          const databaseName=(await tx.query<{name:string}>("select current_database() as name"))[0].name;
+          await db.exec(`create role ${migrationOwner} nologin bypassrls;
+            grant create on database "${databaseName.replace(/"/g,'""')}" to ${migrationOwner};
+            grant usage,create on schema platform to ${migrationOwner} with grant option;
+            grant select,insert,update,delete on all tables in schema platform to ${migrationOwner};
+            grant references on table platform.operations to ${migrationOwner};`);
+          await tx.query(`set local role ${migrationOwner}`);
+          expect((await tx.query<{name:string}>("select current_user as name"))[0].name).toBe(migrationOwner);
+          expect(migrationOwner).not.toBe(originalUser);
+          expect(await migratePlatformDb(db)).toEqual({applied:[7],alreadyApplied:[1,2,3,4,5,6]});
+          await assertPlatformSchemaCurrent(db);
+          const ledger=(await platformSchemaStatus(db)).applied.find(m=>m.version===7);
+          expect(ledger?.checksum).toBe(migrationChecksum(PLATFORM_MIGRATIONS[6]));
+          expect(await migratePlatformDb(db)).toEqual({applied:[],alreadyApplied:ALL});
+          await tx.query("reset role");
+          const tables=await tx.query<{name:string;rls:boolean;owner:string}>(`select c.relname as name,c.relrowsecurity as rls,pg_get_userbyid(c.relowner) as owner
+            from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='platform'
+            and c.relname in ('plan_artifacts','plan_artifact_associations','plan_artifact_uses') order by c.relname`);
+          expect(tables).toHaveLength(3);
+          for(const table of tables) {
+            expect(table.rls).toBe(true);expect(table.owner).toBe(migrationOwner);
+            for(const role of ["anon","authenticated"]) {
+              for(const privilege of ["SELECT","INSERT","UPDATE","DELETE"])
+                expect((await tx.query<{allowed:boolean}>("select has_table_privilege($1,$2,$3) as allowed",[role,`platform.${table.name}`,privilege]))[0].allowed).toBe(false);
+              await expect(db.tx(async denied=>{await denied.query(`set local role ${role}`);await denied.query(`select count(*) from platform.${table.name}`);})).rejects.toMatchObject({sqlstate:"42501"});
+            }
+            for(const privilege of ["SELECT","INSERT","UPDATE","DELETE"])
+              expect((await tx.query<{allowed:boolean}>("select has_table_privilege('service_role',$1,$2) as allowed",[`platform.${table.name}`,privilege]))[0].allowed).toBe(true);
+          }
+          for(const role of ["anon","authenticated"])
+            expect((await tx.query<{allowed:boolean}>("select has_schema_privilege($1,'platform','USAGE') as allowed",[role]))[0].allowed).toBe(false);
+          expect((await tx.query<{allowed:boolean}>("select has_schema_privilege('service_role','platform','USAGE') as allowed"))[0].allowed).toBe(true);
+          expect(await tx.query("select policyname from pg_policies where schemaname='platform' and tablename in ('plan_artifacts','plan_artifact_associations','plan_artifact_uses')")).toEqual([]);
+          const ws=uid("ws_upgrade"),planDigest="d".repeat(64);
+          const source=await repos.operations.create(tx,{workspaceId:ws,principal:user(),proposal:proposalFor(ws,{capability:"infrastructure.plan",planDigest})});
+          const destination=await repos.operations.create(tx,{workspaceId:ws,principal:user(),proposal:proposalFor(ws,{capability:"infrastructure.destroy",planDigest})});
+          // Synthetic ciphertext exercises upgrade triggers/ACLs only; this is not producer or dispatch evidence.
+          await tx.query(`insert into platform.plan_artifacts(workspace_id,operation_id,manifest,manifest_digest,plan_digest,iv,auth_tag,ciphertext,expires_at)
+            values($1,$2,$3::jsonb,$4,$4,$5,$6,'synthetic-ciphertext',clock_timestamp()+interval '1 hour')`,
+            [ws,source.operation.id,JSON.stringify({workspaceId:ws,operationId:source.operation.id,planDigest}),planDigest,"A".repeat(16),"A".repeat(24)]);
+          await tx.query(`insert into platform.plan_artifact_associations(workspace_id,operation_id,source_operation_id,source_evidence_id,source_manifest_digest,source_raw_sha256,proposal_digest,input_digest,expires_at)
+            values($1,$2,$3,'synthetic-evidence',$4,$4,$5,$6,clock_timestamp()+interval '1 hour')`,[ws,destination.operation.id,source.operation.id,planDigest,destination.operation.proposalDigest,destination.operation.inputDigest]);
+          for(const table of ["plan_artifacts","plan_artifact_associations"]) {
+            await expect(db.tx(inner=>inner.query(`update platform.${table} set expires_at=clock_timestamp() where workspace_id=$1`,[ws]))).rejects.toMatchObject({sqlstate:"23514"});
+            await expect(db.tx(inner=>inner.query(`delete from platform.${table} where workspace_id=$1`,[ws]))).rejects.toMatchObject({sqlstate:"23514"});
+          }
+          // No inferred custom runtime grants: the existing service-role RLS bypass is an explicit prerequisite.
+          expect((await tx.query<{bypass:boolean}>("select rolbypassrls as bypass from pg_roles where rolname='service_role'"))[0].bypass).toBe(true);
+          await db.tx(async service=>{await service.query("set local role service_role");expect(await service.query("select operation_id from platform.plan_artifacts where workspace_id=$1",[ws])).toEqual([{operation_id:source.operation.id}]);});
+          await tx.query("reset role");
+          await db.exec(renderSupabaseMigration());await assertPlatformSchemaCurrent(db);
+          expect(await migratePlatformDb(db)).toEqual({applied:[],alreadyApplied:ALL});
+          throw rollback;
+        }).catch((error:unknown)=>error);
+        expect(result).toBe(rollback);
+      } finally {await db.close();}
+    });
+  },60000);
+
   it("two migrators racing on an empty database converge: one applies, the other finds it done", async () => {
     await withScratchDatabase(async (url) => {
       const a = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 2 });

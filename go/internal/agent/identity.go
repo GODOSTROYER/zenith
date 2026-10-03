@@ -70,7 +70,9 @@ func (id *Identity) String() string {
 	return fmt.Sprintf("identity{%s %s ws=%s}", id.Kind, id.ID, id.WorkspaceID)
 }
 
-// SaveIdentity writes the identity atomically with mode 0600 (directory 0700).
+// SaveIdentity writes a private replacement, syncs it, then renames it into place.
+// The parent directory is synced on Unix. Windows directory sync is unsupported;
+// neither this function nor its tests establish power-loss durability there.
 func SaveIdentity(stateDir string, id *Identity) error {
 	if err := os.MkdirAll(stateDir, 0o700); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
@@ -80,11 +82,13 @@ func SaveIdentity(stateDir string, id *Identity) error {
 		return err
 	}
 	path := filepath.Join(stateDir, IdentityFileName)
-	tmp := path + ".tmp"
-	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	f, err := os.CreateTemp(stateDir, ".identity-*.tmp")
 	if err != nil {
 		return fmt.Errorf("write identity: %w", err)
 	}
+	tmp := f.Name()
+	defer os.Remove(tmp)
+	defer f.Close()
 	if _, err := f.Write(append(raw, '\n')); err != nil {
 		f.Close()
 		return fmt.Errorf("write identity: %w", err)
@@ -98,6 +102,9 @@ func SaveIdentity(stateDir string, id *Identity) error {
 	}
 	if err := os.Rename(tmp, path); err != nil {
 		return fmt.Errorf("write identity: %w", err)
+	}
+	if err := syncIdentityDirectory(stateDir); err != nil {
+		return fmt.Errorf("sync identity directory: %w", err)
 	}
 	return nil
 }

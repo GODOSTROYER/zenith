@@ -94,10 +94,42 @@ describe("platform suite coverage", () => {
   it("checks every network-gated file and the actual gated suite titles", () => {
     const networkFiles = testsUnder("tests").filter((file) => /process\.env\.ZENITH_TEST_TOFU_NETWORK\s*(?:===|!==)/.test(fs.readFileSync(path.join(root, file), "utf8")));
     expect(networkFiles.length).toBeGreaterThan(0);
-    const tracked = new Set(TOFU_SUITES.map(([file]) => file));
+    const dispatchModes = ["expired approval", "revoked approver role", "new policy denial", "expiry after authority check", "expiry during role lookup"];
+    const handoffCases = [
+      "producer exits and loses its directory; another worker applies ORIGINAL bytes after a separate fresh check, then destroys",
+      "fresh semantic drift refuses before dispatch and has no original/fresh fallback",
+      "source/config/backend/address-map/lock/tool and operation swaps refuse before mutation",
+      "tampering with the original after inspection refuses before apply and preserves uncertainty after dispatch",
+      "stale original state serial refuses even when independent fresh semantic plan is unchanged, with no fallback",
+      "source review completes, browser human approval is consumed, and destination destroys the associated ORIGINAL",
+      "restore into a fresh PostgreSQL store with matching keys preserves the original; missing keys refuse",
+      "fake cipher authority and arbitrary runner handles cannot mint production admission",
+    ];
+    const platformSuites = [
+      { file: "tests/execution/apply.test.ts", suite: "dispatch current authority [postgres]", cases: dispatchModes.map((mode) => `refuses ${mode} after fresh replan and before durable dispatch`), sourceTitles: ["refuses %s after fresh replan and before durable dispatch", ...dispatchModes] },
+      { file: "tests/tofu/plan-artifact-handoff.test.ts", suite: "authenticated original cross-worker handoff [postgres]", cases: handoffCases, sourceTitles: handoffCases },
+      { file: "tests/security/plan-artifact-secrecy.test.ts", suite: "encrypted plan artifact secrecy [postgres]", cases: [], sourceTitles: ["sensitive read-only originals persist only ciphertext; key rotation, tenant domains and tampering fail closed"] },
+    ];
+    const platformManifest = manifestFor("platform-postgres", root);
+    const platformNetwork = platformSuites.flatMap(({ file, suite, cases, sourceTitles }) => {
+      const required = platformManifest.requirements.filter((requirement) => requirement.file === file);
+      expect(required.map((requirement) => ({ suite: requirement.suite, test: requirement.test, postgres: requirement.postgres })), `${file}: exact mandatory PostgreSQL scenarios`).toEqual(
+        (cases.length > 0 ? cases : [undefined]).map((test) => ({ suite, test, postgres: true }))
+      );
+      const source = fs.readFileSync(path.join(root, file), "utf8");
+      for (const title of [suite, ...sourceTitles]) expect(source, `${file}: gated suite or case title drifted`).toContain(JSON.stringify(title));
+      expect(platformManifest.files, `${file}: must execute in the canonical PostgreSQL lane`).toContain(file);
+      expect(platformManifest.excludeFiles, `${file}: cannot be excluded from real-engine execution`).not.toContain(file);
+      return required;
+    });
+    const tracked = new Set([...TOFU_SUITES.map(([file]) => file), ...platformNetwork.map((required) => required.file)]);
     for (const file of networkFiles) expect(tracked.has(file), `${file} needs a real-engine requirement`).toBe(true);
     for (const [file, suite] of TOFU_SUITES) expect(fs.readFileSync(path.join(root, file), "utf8"), `${file}: suite title drifted`).toContain(JSON.stringify(suite));
     expect(workflow.jobs.tofu.env?.ZENITH_TEST_TOFU_NETWORK).toBe("1");
+    expect(platformManifest.env.ZENITH_TEST_TOFU_NETWORK).toBe("1");
+    expect(platformManifest.tools).toEqual({ node: "22.23.3", postgres: "16.15", tofu: "1.12.5" });
+    expect(workflow.jobs["platform-postgres"].env?.ZENITH_TEST_TOFU_NETWORK).toBe("1");
+    expect(workflow.jobs["platform-postgres"].env?.ZENITH_TEST_PLATFORM_PG_URL).toBe("postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/zenith_platform_ci");
   });
 
   it("exports the Temporal variable its helper reads and enables e2e/time skipping/history checks", () => {

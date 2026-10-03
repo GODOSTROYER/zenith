@@ -58,6 +58,12 @@ root `docker-compose.yml` remains a separate LocalStack development fixture.
   migration-role credential separately from the runtime credential and grant the
   runtime role only the necessary platform access, including RLS bypass where
   required by the shipped schema. Validate privileges with the real deployment.
+  Migration 7 enables RLS on the three artifact tables and carries the existing
+  guarded `anon`/`authenticated` revocations and `service_role` table grants through
+  a canonical schema-6 upgrade. Grants for a custom runtime role remain
+  operator-owned; verify its table access and necessary RLS bypass before polling.
+  The migration credential must be authorized to create the new tables/functions,
+  reference operations, write the ledger and apply the existing guarded grants.
 - Production Temporal requires an existing explicit namespace, address and TLS
   API key. This preparation package implements the API-key form. A self-managed
   cluster requiring mTLS needs an operator-reviewed certificate mount extension;
@@ -183,3 +189,30 @@ authorization/revocation, concurrent API/workers, a real customer agent executio
 and backup/restore and interrupted-execution recovery. `plan.json` and readiness
 receipts keep `productionReady: false` until that independently observed program
 has been completed; they never mark unobserved acceptance passed.
+
+
+## Original-plan custody
+Preparation generates an independent `ZENITH_PLAN_ARTIFACT_KEY` in private
+configuration and supplies it only to `worker.env`, separately from vault/Temporal
+keys. Cooperating workers must share that artifact keyring. Back it up independently
+of PostgreSQL; without matching keys, retained originals cannot be authenticated.
+
+Drain existing local-plan workers, apply canonical platform migration 7, and install
+the checksum-verified worker image before polling. Startup requires PostgreSQL,
+current schema, usable dedicated artifact keys and matching packaged executable
+identity. Pending approvals with no authenticated original need new review; neither
+legacy files nor newly generated plans can substitute for the reviewed original.
+
+Worker scratch directories remain private and independent. Original ciphertext is
+retained in PostgreSQL, so loss of the producing worker directory is recoverable when
+source/backend/lock/executable and key context still match. A destroy source review
+associates the original with its exact immutable destination before any human decision.
+Destination execution requires its own claim, browser human approval and successful
+source completion. Dispatch is durable and single-use; a lost reply requires inspection
+because provider effects may already have occurred. Fences cannot undo accepted calls.
+
+Maintenance performs logical expiry only, retaining ciphertext and all historical local
+files. No backup pruning, physical artifact purge, key retirement, immutable re-encryption
+or cross-platform portability policy is introduced. Previous artifact keys are private
+`ZENITH_PLAN_ARTIFACT_PREVIOUS_KEYS` JSON values and are decrypt-only; test restore with
+the matching keyring and backend context before relying on recovery.

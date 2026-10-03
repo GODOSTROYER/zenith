@@ -29,7 +29,8 @@ import { proposeOperation } from "@/lib/controlplane/operations";
 import type { OperationRecord } from "@/lib/controlplane/types";
 import { createExecutionActivities } from "@/lib/execution/activities";
 import { createPlatformPorts } from "@/lib/execution/platform";
-import { TofuPlanChangedError } from "@/lib/execution/errors";
+import { StepFailedError, TofuPlanChangedError } from "@/lib/execution/errors";
+import { createWorld, type World } from "./fakes/world";
 import { planWorkspace } from "@/lib/tofu/engine";
 import { tempDataDir } from "../_support/data-dir";
 import { builtinWorkspace, dataFragment, tofuOnPath } from "../tofu/_helpers";
@@ -67,11 +68,14 @@ describe.skipIf(!hasTofu)("deploy journey on the real OpenTofu engine, platform 
   let statePath: string;
   let planDir: string;
   let compileSalt = "v1";
+  let isolated: World;
   const credentials = new FakeCredentialBroker();
   const prober = new FakeProber();
   let broker: FakeBroker;
   let activities: ReturnType<typeof createExecutionActivities>;
   let ports: ReturnType<typeof createPlatformPorts>;
+  let fixturePlanArtifacts: NonNullable<World["deps"]["planArtifacts"]>;
+  const captured=new Map<string,Parameters<NonNullable<World["deps"]["planArtifacts"]>["publish"]>[0]>();
 
   const deployment = (id: string, revisionId: string) => ({
     id,
@@ -141,6 +145,23 @@ describe.skipIf(!hasTofu)("deploy journey on the real OpenTofu engine, platform 
 
     // the broker only needs operation lookups from the real ledger
     broker = new FakeBroker({ ops: new Map(), get: ports.ops.get } as unknown as FakeOps);
+    isolated = createWorld();
+    // Explicit PGlite fixture: paired private custody, with no PostgreSQL durability claim.
+    const fixtureArtifacts = isolated.deps.planArtifacts!;
+    fixturePlanArtifacts = { ...fixtureArtifacts,
+        async publish(input) {
+          if(!input.produced)throw new Error("Isolated journey producer is missing.");
+          const id=input.produced.manifest.operationId;
+          // The isolated fixture owns encryption; the actual journey ledger owns the reviewed digest/evidence.
+          if(!captured.has(id)) {
+            isolated.ops.seed({id,workspaceId:WS,projectId:PROJECT,environmentId:ENVIRONMENT});
+            await fixtureArtifacts.publish(input);
+            await ports.ops.setPlanDigest({workspaceId:WS,operationId:id,planDigest:input.produced.manifest.planDigest});
+            await ports.evidence.append(input.evidence);
+            captured.set(id,input);
+          }
+        },
+      };
     activities = createExecutionActivities({
       ...ports,
       product: createProductPort(),
@@ -148,7 +169,8 @@ describe.skipIf(!hasTofu)("deploy journey on the real OpenTofu engine, platform 
       credentials,
       // each node compiles to a built-in terraform_data resource; `compileSalt` lets a test move the compiled configuration
       drivers: genericDrivers({ script: { compileExtra: () => ({ triggers_replace: [compileSalt] }) } }),
-      // NO `tofu` here: the merged real engine is the default
+      tofu: isolated.isolatedRealTofu,
+      planArtifacts: fixturePlanArtifacts,
       tofuWorkspace: { providerSet: () => "builtin", backend: () => ({ backend: { kind: "local", path: statePath } }) },
       fingerprintKey: "journey-fingerprint-key-0123456789",
       cost: { estimate: async () => null },
@@ -160,6 +182,7 @@ describe.skipIf(!hasTofu)("deploy journey on the real OpenTofu engine, platform 
   }, 60_000);
 
   afterAll(async () => {
+    isolated?.dispose();
     await db?.close();
     if (dir) rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
   });
@@ -191,7 +214,8 @@ describe.skipIf(!hasTofu)("deploy journey on the real OpenTofu engine, platform 
         expect(plan).toMatchObject({ create: 1, update: 0, delete: 0, replace: 0, empty: false, destroysData: false });
         expect(plan.planDigest).toMatch(/^[0-9a-f]{64}$/);
         await step("plan", "done");
-        expect(existsSync(path.join(planDir, `${plan.planDigest}.tfplan`))).toBe(true); // the plan file is in planDir
+        expect(existsSync(path.join(planDir, `${plan.planDigest}.tfplan`))).toBe(false); // No shared digest-named plaintext publication.
+        expect(captured.get(operationId)?.produced?.manifest.planDigest).toBe(plan.planDigest); // Private isolated custody retained the original.
         expect(existsSync(statePath)).toBe(false); // planning changed nothing
 
         const evidence = await repos.evidence.list(db, WS, { operationId });
@@ -205,6 +229,8 @@ describe.skipIf(!hasTofu)("deploy journey on the real OpenTofu engine, platform 
         expect(policy.outcome).toBe("allow");
         expect(broker.reevaluations.at(-1)?.plan).toMatchObject({ create: 1, destroysData: false });
         expect((await activities.checkApproval({ operationId })).approved).toBe(false);
+        // Explicit scoped allow-policy fixture at dispatch; this journey does not claim real human authority.
+        broker.approval={approved:true,rejected:false};
 
         // final plan: an independent re-plan has the SAME digest
         const final = await activities.finalPlan({ operationId, approvedPlanDigest: plan.planDigest, lease });
@@ -299,7 +325,9 @@ describe.skipIf(!hasTofu)("deploy journey on the real OpenTofu engine, platform 
           expect((err as TofuPlanChangedError).approvedDigest).toBe(approved.planDigest);
 
           const applyErr = await activities.applyInfrastructure({ operationId, planDigest: approved.planDigest, lease }).catch((e: unknown) => e);
-          expect(applyErr).toBeInstanceOf(TofuPlanChangedError);
+          expect(applyErr).toBeInstanceOf(StepFailedError);
+          expect(applyErr).toMatchObject({ code: "step_failed", nonRetryable: true, message: "Reviewed plan provenance changed; a new review is required." });
+          expect(applyErr).not.toHaveProperty("currentDigest");
 
           // nothing was applied: no apply evidence, the operation is not uncertain, "uploads" still does not exist
           const kinds = (await repos.evidence.list(db, WS, { operationId })).map((e) => e.kind);
@@ -331,6 +359,7 @@ describe.skipIf(!hasTofu)("deploy journey on the real OpenTofu engine, platform 
       const state2 = path.join(dir, "state2", "terraform.tfstate");
       const localActivities = createExecutionActivities({
         ...ports,
+        tofu:isolated.isolatedRealTofu,planArtifacts:fixturePlanArtifacts,
         product: createProductPort(),
         broker,
         credentials,

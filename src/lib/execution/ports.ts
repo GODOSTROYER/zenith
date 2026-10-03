@@ -39,7 +39,7 @@ import type { ManifestPolicies } from "@/lib/domain/types";
 import type { ObservabilityFabric } from "@/lib/observability/types";
 import type { PlanFacts } from "@/lib/policy/types";
 import type { DriftReport, Observation, ProviderKey, ResourceGraph, ResourceNode, ResourceOwnership, RuntimeState } from "@/lib/resources/types";
-import type { ApplyVerifiedResult, EngineOptions, PlanWorkspaceOptions, PlanWorkspaceResult } from "@/lib/tofu/engine";
+import type { ApprovedPlan, ProducedPlan, ApplyVerifiedResult, EngineOptions, PlanCustodyInput, PlanWorkspaceOptions, PlanWorkspaceResult } from "@/lib/tofu/engine";
 import type { BackendConfig } from "@/lib/tofu/workspace";
 import type { ProviderSetName, ProviderSetSpec } from "@/lib/tofu/providers";
 import type { TofuSessionEnv } from "@/lib/tofu/runner";
@@ -302,9 +302,17 @@ export interface PlanPolicyInput extends PlanFacts {
  * it by policy; when it grants less, a run longer than the grant fails with
  * expired credentials part-way (see the handoff).
  */
+/** Worker-private current-policy proof. Public approval activities project only booleans and one display ID. */
+export interface DispatchApprovalSnapshot {
+  approvalIds: readonly string[];
+  requiredApprovalCount: number;
+  approvalRound: number;
+  proposalDigest: string;
+  planDigest?: string;
+}
 export interface BrokerPort {
   reevaluate(operationId: string, plan?: PlanPolicyInput): Promise<PolicyStepResult>;
-  approvalStatus(operationId: string): Promise<{ approved: boolean; rejected: boolean; approvalId?: string }>;
+  approvalStatus(operationId: string): Promise<{ approved: boolean; rejected: boolean; approvalId?: string; dispatchApproval?: DispatchApprovalSnapshot }>;
   issueGrant(
     operationId: string,
     audience: string,
@@ -323,7 +331,7 @@ export type DriverLookup = (provider: ProviderKey, nativeType: string) => Resour
 /** The two engine entry points. Default: the merged real ones from `@/lib/tofu`. */
 export interface TofuPort {
   planWorkspace(ws: TofuWorkspace, session?: TofuSessionEnv, opts?: PlanWorkspaceOptions): Promise<PlanWorkspaceResult>;
-  applyVerifiedPlan(ws: TofuWorkspace, args: { approvedDigest: string; session?: TofuSessionEnv } & EngineOptions): Promise<ApplyVerifiedResult>;
+  applyVerifiedPlan(ws: TofuWorkspace, args: { approvedDigest: string; session?: TofuSessionEnv; original?: ApprovedPlan; custody?: PlanCustodyInput; beforeDispatch?: () => Promise<void> } & EngineOptions): Promise<ApplyVerifiedResult>;
 }
 
 /**
@@ -505,6 +513,15 @@ export interface MachineExecutionPort {
   drivers?: MachineDrivers;
 }
 
+export interface PlanArtifactsPort {
+  readonly kind: "postgres" | "isolated-test";
+  associate(input: { workspaceId:string; sourceOperationId:string; destinationOperationId:string; sourceEvidenceId:string; planDigest:string; lease:LeaseRef }): Promise<void>;
+  publish(input: { produced?: ProducedPlan; lease: LeaseRef; evidence: NewEvidence }): Promise<void>;
+  inspect<T>(input: ArtifactAccess, fn: (approved: ApprovedPlan) => Promise<T>): Promise<T>;
+  consume<T>(input: ArtifactAccess, fn: (approved: ApprovedPlan, dispatch: () => Promise<void>) => Promise<T>): Promise<T>;
+}
+export interface ArtifactAccess { custody: PlanCustodyInput; planDigest: string; lease: LeaseRef }
+
 export interface ExecutionDeps {
   /* platform store */
   ops: OperationsPort;
@@ -519,6 +536,8 @@ export interface ExecutionDeps {
   broker: BrokerPort;
   credentials: CredentialBroker;
   machines?: MachineExecutionPort;
+  /** Required by canonical production planning/apply. Explicit isolated adapters are for tests only. */
+  planArtifacts?: PlanArtifactsPort;
   /* engine */
   /** default: the global driver registry */
   drivers?: DriverLookup;

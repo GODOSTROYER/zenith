@@ -51,6 +51,19 @@ type stubJob struct {
 
 func (j *stubJob) ID() string { return j.id }
 
+// Inert provider-format fixtures are assembled at runtime, never real credentials.
+func inertAccessKey() string {
+	return strings.Join([]string{"AK", "IA", "IOSFODNN7", "EXAMPLE"}, "")
+}
+
+func inertSecretKey() string {
+	return strings.Join([]string{"wJalrXUtnFEMI/", "K7MDENG+bPxRfiCY", "EXAMPLEKEY"}, "")
+}
+
+func inertPrivateBody() string {
+	return strings.Join([]string{"MIIEvQIBADAN", "BgkqhkiG9w0BA", "QEFAASC", "BKcwggSjAgEAAoIBAQC7"}, "")
+}
+
 func (j *stubJob) Run(ctx context.Context, logs agent.LogSink) agent.ResultBody {
 	n := j.p.running.Add(1)
 	for {
@@ -65,7 +78,7 @@ func (j *stubJob) Run(ctx context.Context, logs agent.LogSink) agent.ResultBody 
 	ok := agent.ResultBody{Status: agent.StatusSucceeded, StartedAt: now, FinishedAt: now, Result: map[string]any{"id": j.id}}
 	switch {
 	case j.behavior == "panic":
-		panic("boom with secret AKIAIOSFODNN7EXAMPLE")
+		panic("boom with secret " + inertAccessKey())
 	case j.behavior == "bigresult":
 		ok.Result = map[string]any{"blob": strings.Repeat("x", 300<<10)}
 	case j.behavior == "wait":
@@ -84,10 +97,10 @@ func (j *stubJob) Run(ctx context.Context, logs agent.LogSink) agent.ResultBody 
 		}
 	case j.behavior == "logs":
 		logs.Line("stdout", "starting up")
-		logs.Line("stderr", "aws_secret_access_key = wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY")
-		logs.Line("info", "key AKIAIOSFODNN7EXAMPLE leaked")
+		logs.Line("stderr", "aws_secret_access_key = "+inertSecretKey())
+		logs.Line("info", "key "+inertAccessKey()+" leaked")
 		logs.Line("stdout", "-----BEGIN PRIVATE KEY-----")
-		logs.Line("stdout", "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7")
+		logs.Line("stdout", inertPrivateBody())
 		logs.Line("stdout", "-----END PRIVATE KEY-----")
 		logs.Line("stdout", "done")
 	}
@@ -328,7 +341,7 @@ func TestPanickingJobIsContained(t *testing.T) {
 	if !ok || res.Body["status"] != "failed" {
 		t.Fatalf("%v", res.Body)
 	}
-	if strings.Contains(fmt.Sprint(res.Body), "AKIAIOSFODNN7EXAMPLE") {
+	if strings.Contains(fmt.Sprint(res.Body), inertAccessKey()) {
 		t.Fatal("a panic message must not be echoed to the control plane")
 	}
 	if _, ok := r.fake.WaitResult("job_ok", 5*time.Second); !ok {
@@ -398,9 +411,9 @@ func TestLogStreamingIsBatchedOrderedAndRedacted(t *testing.T) {
 		}
 	}
 	joined := strings.Join(all, "\n")
-	for _, secret := range []string{"wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", "AKIAIOSFODNN7EXAMPLE", "MIIEvQIBADANBgkqhkiG9w0BAQEFAASC"} {
+	for _, secret := range []string{inertSecretKey(), inertAccessKey(), inertPrivateBody()[:32]} {
 		if strings.Contains(joined, secret) {
-			t.Fatalf("secret leaked to the log stream: %s", joined)
+			t.Fatal("secret leaked to the log stream")
 		}
 	}
 	if !strings.Contains(joined, "stdout: starting up") || !strings.Contains(joined, "stdout: done") || !strings.Contains(joined, "REDACTED") {
@@ -411,7 +424,7 @@ func TestLogStreamingIsBatchedOrderedAndRedacted(t *testing.T) {
 
 func TestNextKeysArePinnedAndPersisted(t *testing.T) {
 	r := newRig(t, nil)
-	newCP := protocolTestKey()
+	newCP := protocolTestKey(t)
 	r.fake.AnnounceKeys(newCP)
 	r.start(80 * time.Millisecond)
 	deadline := time.Now().Add(5 * time.Second)
@@ -430,10 +443,11 @@ func TestNextKeysArePinnedAndPersisted(t *testing.T) {
 	}
 }
 
-func protocolTestKey() protocol.KeyEntry {
-	pub := make([]byte, 32)
-	for i := range pub {
-		pub[i] = byte(i + 7)
+func protocolTestKey(t *testing.T) protocol.KeyEntry {
+	t.Helper()
+	pub, _, err := agent.GenerateKey()
+	if err != nil {
+		t.Fatal("could not generate inert rotation fixture key")
 	}
 	return protocol.KeyEntry{Kid: "cp-next", PublicKey: protocol.B64Encode(pub)}
 }

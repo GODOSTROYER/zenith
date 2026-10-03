@@ -66,8 +66,9 @@ async function assertSourceColumns(db: PlatformDbHandle): Promise<void> {
 
 describe("GitHub source platform migration 6 [PGlite]", () => {
   it("pins the append-only version and checksum, with compatibility SQL owned by the migration", () => {
-    expect(PLATFORM_SCHEMA_VERSION).toBe(6);
-    expect(PLATFORM_MIGRATIONS[5]).toBe(migration0006GithubSources);
+    expect(PLATFORM_SCHEMA_VERSION).toBe(7);
+    expect(PLATFORM_MIGRATIONS.find((migration) => migration.version === 6)).toBe(migration0006GithubSources);
+    expect(PLATFORM_MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(migration0006GithubSources).toMatchObject({ version: 6, name: "github_sources" });
     expect(migrationChecksum(migration0006GithubSources)).toBe(CHECKSUM);
     expect(GITHUB_SOURCE_SCHEMA_SQL).toBe(migration0006GithubSources.sql);
@@ -76,7 +77,7 @@ describe("GitHub source platform migration 6 [PGlite]", () => {
 
   it("normal fresh migration provides both source tables and usable workspace bindings", async () => {
     await fresh(async (db) => {
-      expect((await migratePlatformDb(db)).applied).toEqual([1, 2, 3, 4, 5, 6]);
+      expect((await migratePlatformDb(db)).applied).toEqual([1, 2, 3, 4, 5, 6, 7]);
       await assertSourceColumns(db);
       const store = createGithubSourceStore(db);
       await store.bind({ ...binding, actorId: "human", expectedVersion: 0 });
@@ -86,7 +87,7 @@ describe("GitHub source platform migration 6 [PGlite]", () => {
       await store.authorize(input, 7);
       expect(await store.consume(input)).toMatchObject({ installationId: 7, expectedVersion: 1 });
       await expect(store.consume(input)).rejects.toThrow("refused");
-      expect(await migratePlatformDb(db)).toEqual({ applied: [], alreadyApplied: [1, 2, 3, 4, 5, 6] });
+      expect(await migratePlatformDb(db)).toEqual({ applied: [], alreadyApplied: [1, 2, 3, 4, 5, 6, 7] });
       await assertPlatformSchemaCurrent(db);
     });
   }, 60_000);
@@ -102,10 +103,10 @@ describe("GitHub source platform migration 6 [PGlite]", () => {
       const before = await db.query("select * from platform.github_source_bindings order by workspace_id");
       const intents = await db.query("select * from platform.github_install_intents order by workspace_id, state_digest");
       const oldLedger = await db.query("select * from platform.schema_migrations order by version");
-      expect((await platformSchemaStatus(db)).pending.map((migration) => migration.version)).toEqual([6]);
+      expect((await platformSchemaStatus(db)).pending.map((migration) => migration.version)).toEqual([6, 7]);
       await expect(assertPlatformSchemaCurrent(db)).rejects.toMatchObject({ code: "schema_behind" });
       if (mode === "platform migrator") {
-        expect(await migratePlatformDb(db)).toEqual({ applied: [6], alreadyApplied: [1, 2, 3, 4, 5] });
+        expect(await migratePlatformDb(db)).toEqual({ applied: [6, 7], alreadyApplied: [1, 2, 3, 4, 5] });
       } else {
         await db.exec(renderSupabaseMigration());
         await db.exec(renderSupabaseMigration());

@@ -1,0 +1,227 @@
+{
+  "commit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
+  "status": "passed_executed_gates_only",
+  "environment": {
+    "host": "Saivedants Mac",
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "22.23.3",
+    "go": "1.27.1",
+    "openTofu": "1.12.5",
+    "opa": "1.19.1"
+  },
+  "steps": [
+    {
+      "name": "typecheck",
+      "exitCode": 0,
+      "seconds": 10.06,
+      "logSha256": "67bfbc2a439139104f888754cfda372370c2dcbeddb1689431dd3df637150145"
+    },
+    {
+      "name": "lint",
+      "exitCode": 0,
+      "seconds": 22.7,
+      "logSha256": "553ac5e34bf28988f11bd351006e9db23c09e02320357311140e1d2683940fa8"
+    },
+    {
+      "name": "gofmt",
+      "exitCode": 0,
+      "seconds": 0.06,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "go-vet",
+      "exitCode": 0,
+      "seconds": 0.55,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "go-race",
+      "exitCode": 0,
+      "seconds": 29.26,
+      "logSha256": "55c69deaff5c68a15b3cf0181a15d327af45318aa958782e48c801583f60559c"
+    },
+    {
+      "name": "policy-generated",
+      "exitCode": 0,
+      "seconds": 0.63,
+      "logSha256": "c4cd4167f3f19624e344a285c2ac171888bfba695757641dcc756a127888a557"
+    },
+    {
+      "name": "emit-sql",
+      "exitCode": 0,
+      "seconds": 0.47,
+      "logSha256": "eaca05df81b59d3424574f94d0441effd033c9ef9f63b3fe45374bc3e688c878"
+    },
+    {
+      "name": "matrix",
+      "exitCode": 0,
+      "seconds": 3.76,
+      "logSha256": "1772d93c0f907830506cb1f2b91ed2deb41f7a8dc15b5b3eff31a269e2d710a8"
+    },
+    {
+      "name": "aws-templates",
+      "exitCode": 0,
+      "seconds": 0.28,
+      "logSha256": "302317440f9e8c29eeb4961bcb5ba3a80e6bbcf31f9ab2dbbe559ab30fbda6dd"
+    },
+    {
+      "name": "ledger",
+      "exitCode": 0,
+      "seconds": 0.04,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "unit",
+      "exitCode": 0,
+      "seconds": 976.44,
+      "counts": {
+        "passed": 16630,
+        "failed": 0,
+        "skipped": 196,
+        "total": 16826
+      },
+      "logSha256": "24cd2b87d34dcb6bf5396f5c4fe43b90488df17167b31c2554b0f01f74278c02"
+    },
+    {
+      "name": "security",
+      "exitCode": 0,
+      "seconds": 0.97,
+      "logSha256": "dad5ff63a0e8e4c84e5dfbcbe56268054b7de50ef68fe181629a3f07b3e93a42"
+    },
+    {
+      "name": "workflows",
+      "exitCode": 0,
+      "seconds": 331.39,
+      "counts": {
+        "passed": 982,
+        "failed": 0,
+        "skipped": 0,
+        "total": 982
+      },
+      "logSha256": "7cbdb0ee57cb06f40e3d8859d7f78cf37c2cd4c6adc31343a7b34ae89c4a6bbd"
+    },
+    {
+      "name": "workflows-revalidate",
+      "exitCode": 0,
+      "seconds": 0.15,
+      "logSha256": "38a9d3deb28c6b5077771abd011e6aadbca7a860403f5a8eb4c602613a5b6fec"
+    },
+    {
+      "name": "policy",
+      "exitCode": 0,
+      "seconds": 1.97,
+      "counts": {
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "total": 238
+      },
+      "logSha256": "16b4a5921a6c84e533fc1b39d07bd3e57edfde4f0ae47b904f237f524cc5a397"
+    },
+    {
+      "name": "policy-revalidate",
+      "exitCode": 0,
+      "seconds": 0.14,
+      "logSha256": "556c56ed8c86876453ab6a0bb1de63d51af18e456c50f59de23dbafaa9430c74"
+    },
+    {
+      "name": "tofu",
+      "exitCode": 0,
+      "seconds": 143.54,
+      "counts": {
+        "passed": 3900,
+        "failed": 0,
+        "skipped": 0,
+        "total": 3900
+      },
+      "logSha256": "8d079ae4ea82003340b3bac73079f77b1aa6a0710bcabb8f5bf0a71f34a7d4a1"
+    },
+    {
+      "name": "tofu-revalidate",
+      "exitCode": 0,
+      "seconds": 0.16,
+      "logSha256": "f6e916a8eb367790565d0e0a60a36b89bddaa4ef070dfd442dca7d1f57cec1ca"
+    }
+  ],
+  "unexecuted": [
+    "Local API server Smoke/Gimbal require still-pending local startup authorization. Exact pushed CI runs browser gates.",
+    "External Temporal mTLS, live clouds and operational release acceptance remain separate blockers."
+  ],
+  "go": {
+    "topLevelPassed": 226,
+    "subtestsPassed": 539,
+    "failed": 0,
+    "skipped": 3,
+    "skipReason": "Linux-only real host tests on macOS"
+  },
+  "supabasePostgres": {
+    "passed": 251,
+    "failed": 0,
+    "skipped": 0,
+    "requiredGroups": 9,
+    "receiptBindings": 12,
+    "applyAndReapplyPassed": true,
+    "schemaNameTamperRejected": true,
+    "schemaChecksumTamperRejected": true,
+    "cleanup": {
+      "container": "zenith-prod-pg-e15e1da8",
+      "ownershipVerified": true,
+      "removed": true,
+      "absenceVerified": true,
+      "newImageRemoved": true,
+      "baselineImagesPreserved": true,
+      "hostFreeGiB": 32.03
+    }
+  },
+  "platformPostgres": {
+    "passed": 1422,
+    "failed": 0,
+    "skipped": 0,
+    "requiredGroups": 45,
+    "receiptBindings": 12,
+    "canonicalExecutionRevalidationPassed": true,
+    "cleanup": {
+      "container": "zenith-prod-pg-e73edaf0",
+      "ownershipVerified": true,
+      "removed": true,
+      "absenceVerified": true,
+      "newImageRemoved": true,
+      "baselineImagesPreserved": true,
+      "hostFreeGiB": 27.37
+    },
+    "evidenceSha256": "6c99366b887a537833e6a4352e9c006a446697819b0b60971aa24fe2afe413e4",
+    "steps": [
+      {
+        "name": "pull",
+        "exitCode": 0,
+        "seconds": 21.62,
+        "logSha256": "dd8bf3071db89b0b894d29b1301ee9162d5a6957fa7d9ee65f26101351dd2565"
+      },
+      {
+        "name": "start",
+        "exitCode": 0,
+        "seconds": 0.53,
+        "logSha256": "fd9a2f7f37922ea98ccbafcbc5a83bd84c5ca8dbd79738923045a3b433ed0704"
+      },
+      {
+        "name": "apply-platform",
+        "exitCode": 0,
+        "seconds": 1.69,
+        "logSha256": "fbbe11e7f88b5f2ab4dc1d2a004bab25689e015ac0bbcd2ee4644672d667be72"
+      },
+      {
+        "name": "canonical-platform",
+        "exitCode": 0,
+        "seconds": 92.52,
+        "logSha256": "3b28e537fcc306064adc43d6bc2aa2a6716e286da3cc7a3d9577e23389b0a500"
+      },
+      {
+        "name": "canonical-revalidate",
+        "exitCode": 0,
+        "seconds": 0.17,
+        "logSha256": "cf06b7d2e4cd03a6a28420ac1e955ef292e844a367252a3027c2350dd033d2eb"
+      }
+    ]
+  }
+}

@@ -241,6 +241,8 @@ function hostAclSnapshot(mode=0o777, access=true, defaultAcl=true):HostSnapshot 
   snapshot.opt.acl={access:access?metadata:null,default:defaultAcl?metadata:null};snapshot.opt.noAcl=!access&&!defaultAcl;
   return snapshot;
 }
+// Adapter models provide Linux-only xattr names explicitly on every host.
+// Actual Linux acceptance runs the unpatched CLI against real kernel syscalls.
 const aclProbeModel=String.raw`
 import errno, importlib.util, json, stat, sys
 from types import SimpleNamespace
@@ -264,11 +266,11 @@ try:
             calls.append([fd,name])
             if case.get('removeError'):
                 raise OSError(getattr(errno,case['removeError']),'inert-private-remove-error')
-        with patch.object(module.os,'removexattr',side_effect=remove):
+        with patch.object(module.os,'removexattr',side_effect=remove,create=True):
             host.remove_opt_acl(case['remove'])
         result={'calls':calls}
     else:
-        with patch.object(module.os,'listxattr',side_effect=OSError(errno.ENOTSUP,'inert-private-list-error') if case.get('listError') else None,return_value=case.get('names',[])),patch.object(module.os,'getxattr',side_effect=read):
+        with patch.object(module.os,'listxattr',side_effect=OSError(errno.ENOTSUP,'inert-private-list-error') if case.get('listError') else None,return_value=case.get('names',[]),create=True),patch.object(module.os,'getxattr',side_effect=read,create=True):
             if 'inodeMode' in case:
                 item=SimpleNamespace(st_dev=8,st_ino=90,st_uid=0,st_gid=0,st_mode=stat.S_IFDIR|case['inodeMode'])
                 with patch.object(module.os,'fstat',return_value=item),patch.object(module,'mount_id',return_value=40):

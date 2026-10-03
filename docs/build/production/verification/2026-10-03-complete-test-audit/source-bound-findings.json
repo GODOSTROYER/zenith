@@ -1,0 +1,76 @@
+[
+  {
+    "findingId": "AUDIT-SSM-SHELL-01",
+    "recordedAt": "2026-10-03T07:40:55.683875+00:00",
+    "sourceCommit": "9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+    "sourceFiles": [
+      {
+        "file": "tests/machines/_sh.ts",
+        "sha256": "d21387ea1c19a6d783065f519d171efe4875ead1f67554e8d69f6e2fb41e9dff"
+      },
+      {
+        "file": "tests/machines/ssm-documents.test.ts",
+        "sha256": "b46b7a6544496f90a3e3f265f36ab647c351ab604beaec5ba593f34854b16824"
+      },
+      {
+        "file": "tests/machines/ssm-transport.test.ts",
+        "sha256": "332411a4f190d3ef7b2d1cac042dddab3381d7d377ee0f51cbe63169a7ae7f1c"
+      }
+    ],
+    "observations": [
+      {
+        "argv": [
+          "sh",
+          "sh",
+          "-s"
+        ],
+        "exitCode": 126,
+        "expectedOutputMatched": false,
+        "stderr": "/bin/sh: /bin/sh: cannot execute binary file"
+      },
+      {
+        "argv": [
+          "sh",
+          "-s"
+        ],
+        "exitCode": 0,
+        "expectedOutputMatched": true,
+        "stderr": ""
+      }
+    ],
+    "scope": "Root independently reproduced argv shape defect with harmless shell stdin probe on macOS; no SSM/cloud call or product source change. False shell-unavailable probe skips guarded cases and allows unguarded hostile-argv test to return without assertions.",
+    "status": "unfixed_test_harness_verification_gap",
+    "productionMutationVulnerabilityProven": false
+  },
+  {
+    "findingId": "AUDIT-BRIDGE-PATH-02",
+    "recordedAt": "2026-10-03T08:01:32.732178+00:00",
+    "sourceCommit": "9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+    "status": "unfixed_nonportable_test_prerequisite",
+    "observations": {
+      "testPointsAtHistoricalExternalWindowsWorktree": true,
+      "historicalPathExistsOnCurrentHost": false,
+      "currentRepositoryProductPortExists": true,
+      "independentSourceTableEntriesCompared": 23,
+      "orderAndPhaseTitleRowsMatch": true
+    },
+    "sourceFiles": [
+      {
+        "file": "src/lib/bridge/steps.ts",
+        "sha256": "ab3a9c83ed25e535788816c3f9a9f1a2f548b5fd7bfdc23b79e44d6baf4a815e"
+      },
+      {
+        "file": "src/lib/execution/product-port.ts",
+        "sha256": "5a61300370f127b9ee370d75adb6c4f58608df0bbc19c54d0e9a0c3ab009d57b"
+      },
+      {
+        "file": "tests/bridge/steps.test.ts",
+        "sha256": "d40a42c9962537260b50d80e3a1c218839e554452509dce2057dbec23d41d572"
+      }
+    ],
+    "limits": [
+      "Original Vitest case remains skipped; independent source text comparison is separate evidence, not a replay of that case.",
+      "No product/runtime mutation defect established."
+    ]
+  }
+]

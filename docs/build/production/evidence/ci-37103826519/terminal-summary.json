@@ -1,0 +1,560 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T07:46:08.855222+00:00",
+  "commit": "9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+  "branch": "codex/production-2026-10-02",
+  "runId": 37103826519,
+  "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37103826519",
+  "status": "completed",
+  "conclusion": "failure",
+  "jobCounts": {
+    "passed": 13,
+    "failed": 1,
+    "skipped": 0,
+    "total": 14
+  },
+  "jobs": [
+    {
+      "name": "hosted",
+      "id": 111148396862,
+      "conclusion": "success",
+      "startedAt": "2026-10-03T06:40:30Z",
+      "completedAt": "2026-10-03T06:41:58Z",
+      "logSha256": "44ed54e54d7c0c3018e7030970043d54c5491764b66b5966e54b2bd43cb696d6",
+      "skippedSteps": []
+    },
+    {
+      "name": "verify",
+      "id": 111148396918,
+      "conclusion": "success",
+      "startedAt": "2026-10-03T06:40:30Z",
+      "completedAt": "2026-10-03T06:59:17Z",
+      "logSha256": "a40f085ec81b26664ad17120edd96e2f81ff517b522fd801c4928da4f6f39e31",
+      "skippedSteps": []
+    },
+    {
+      "name": "workflows",
+      "id": 111148396932,
+      "conclusion": "success",
+      "startedAt": "2026-10-03T06:40:30Z",
+      "completedAt": "2026-10-03T06:47:43Z",
+      "logSha256": "39dc27a3b05109633840322aa563022f8f1ba4f69278c8d3a6216d2cd68dc5d3",
+      "skippedSteps": []
+    },
+    {
+      "name": "build",
+      "id": 111148396938,
+      "conclusion": "success",
+      "startedAt": "2026-10-03T06:40:29Z",
+      "completedAt": "2026-10-03T06:45:29Z",
+      "logSha256": "340f6022a42b78f5a8b67bcaf80637674ae0824f96662a90c2c0f029a8b192f1",
+      "skippedSteps": []
+    },
+    {
+      "name": "agent",
+      "id": 111148396939,
+      "conclusion": "success",
+      "startedAt": "2026-10-03T06:40:30Z",
+      "completedAt": "2026-10-03T06:42:21Z",
+      "logSha256": "f1fb54be3da60a47d196bdd9df97a97878a8d41fdb47f95fb0e8873fe175b196",
+      "skippedSteps": []
+    },
+    {
+      "name": "go",
+      "id": 111148396951,
+      "conclusion": "success",
+      "startedAt": "2026-10-03T06:40:29Z",
+      "completedAt": "2026-10-03T06:41:32Z",
+      "logSha256": "84bcfdff79d3c7bc7ecd5ba8675055c9848cca0670526fcdb408fc1282094710",
+      "skippedSteps": [
+        {
+          "number": 3,
+          "name": "Say so when there is no Go module yet"
+        }
+      ]
+    },
+    {
+      "name": "docker",
+      "id": 111148396953,
+      "conclusion": "success",
+      "startedAt": "2026-10-03T06:40:29Z",
+      "completedAt": "2026-10-03T06:44:41Z",
+      "logSha256": "ce8259d2428bc9bc661d26d0434d09a6af1ba7bab5b94c2232f69329b2297267",
+      "skippedSteps": []
+    },
+    {
+      "name": "postgres",
+      "id": 111148396960,
+      "conclusion": "success",
+      "startedAt": "2026-10-03T06:40:29Z",
+      "completedAt": "2026-10-03T06:41:23Z",
+      "logSha256": "92d90d9ce1c1aa029bd05f91b68e50c44b6ac5c0a23be732957385103f15b2e4",
+      "skippedSteps": []
+    },
+    {
+      "name": "policy",
+      "id": 111148396972,
+      "conclusion": "success",
+      "startedAt": "2026-10-03T06:40:30Z",
+      "completedAt": "2026-10-03T06:41:07Z",
+      "logSha256": "b114934d44ee62294573f034b1649458eff035ee1846f18135f4bfbf3843e571",
+      "skippedSteps": []
+    },
+    {
+      "name": "platform-postgres",
+      "id": 111148396999,
+      "conclusion": "success",
+      "startedAt": "2026-10-03T06:40:29Z",
+      "completedAt": "2026-10-03T06:43:12Z",
+      "logSha256": "371f1eeb6b27e394667548df2319622f8e4ea9985f92338159220d2ab6133081",
+      "skippedSteps": [
+        {
+          "number": 6,
+          "name": "Say so when there is no platform migrator yet"
+        }
+      ]
+    },
+    {
+      "name": "tofu",
+      "id": 111148397021,
+      "conclusion": "success",
+      "startedAt": "2026-10-03T06:40:29Z",
+      "completedAt": "2026-10-03T06:44:33Z",
+      "logSha256": "62b9e293ee6740df2d89b6b3d8dfa992e803dc9b11e9a2f6e2bc53d941f51763",
+      "skippedSteps": []
+    },
+    {
+      "name": "ledger",
+      "id": 111148397034,
+      "conclusion": "success",
+      "startedAt": "2026-10-03T06:40:31Z",
+      "completedAt": "2026-10-03T06:40:39Z",
+      "logSha256": "09ac63f83688ec02b213d1afc7ad03fde5bdfe71a255a91b7e628a4b14d2cca2",
+      "skippedSteps": []
+    },
+    {
+      "name": "supply-chain",
+      "id": 111148397074,
+      "conclusion": "failure",
+      "startedAt": "2026-10-03T06:40:29Z",
+      "completedAt": "2026-10-03T06:40:39Z",
+      "logSha256": "a3483b0ec395fbf1d72d1debf4a9a8cad50bbf7f2f1009104da7b4cba490b016",
+      "skippedSteps": [
+        {
+          "number": 9,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
+        }
+      ]
+    },
+    {
+      "name": "generated",
+      "id": 111148397094,
+      "conclusion": "success",
+      "startedAt": "2026-10-03T06:40:31Z",
+      "completedAt": "2026-10-03T06:41:06Z",
+      "logSha256": "7c795aa2b7fa35f1b7b65d4a79f27b6fe69c63bc0755093efd1ba92a324cab64",
+      "skippedSteps": []
+    }
+  ],
+  "unitReporterCounts": {
+    "files": 807,
+    "total": 16826,
+    "passed": 16427,
+    "skipped": 399,
+    "reporterPassedFiles": 785,
+    "reporterSkippedFiles": 22
+  },
+  "canonicalArtifacts": [
+    {
+      "id": 11268025080,
+      "name": "canonical-platform-postgres-evidence-9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+      "apiDigest": "sha256:f113d53fc18c1b267891807fafe0b6d617b653a6d6c8bf7f28fda03b6be27600",
+      "archiveDigest": "sha256:f113d53fc18c1b267891807fafe0b6d617b653a6d6c8bf7f28fda03b6be27600",
+      "digestMatched": true,
+      "members": [
+        "platform-postgres-evidence.json"
+      ]
+    },
+    {
+      "id": 11267740182,
+      "name": "canonical-policy-evidence-9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+      "apiDigest": "sha256:e1324189a5dcfbf4343386273485432f45bee6b7de92dbee9d2e85d2ed84e137",
+      "archiveDigest": "sha256:e1324189a5dcfbf4343386273485432f45bee6b7de92dbee9d2e85d2ed84e137",
+      "digestMatched": true,
+      "members": [
+        "policy-evidence.json"
+      ]
+    },
+    {
+      "id": 11267425856,
+      "name": "canonical-tofu-evidence-9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+      "apiDigest": "sha256:607fc0fc919b86ae63ad7b93e4995128752f065c0bdf7493cb91c1ca45f8a0eb",
+      "archiveDigest": "sha256:607fc0fc919b86ae63ad7b93e4995128752f065c0bdf7493cb91c1ca45f8a0eb",
+      "digestMatched": true,
+      "members": [
+        "tofu-evidence.json"
+      ]
+    },
+    {
+      "id": 11267186377,
+      "name": "canonical-workflows-evidence-9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+      "apiDigest": "sha256:7528b38241ef7928e3592b73be8e47a86ac7e0fb61cea6287b3c82cf44229d72",
+      "archiveDigest": "sha256:7528b38241ef7928e3592b73be8e47a86ac7e0fb61cea6287b3c82cf44229d72",
+      "digestMatched": true,
+      "members": [
+        "workflows-evidence.json"
+      ]
+    },
+    {
+      "id": 11266119704,
+      "name": "canonical-postgres-evidence-9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+      "apiDigest": "sha256:1c9acab6d648e96c3fe9556e161a730aaa099491cbb259fcd01a569d7b74f3f5",
+      "archiveDigest": "sha256:1c9acab6d648e96c3fe9556e161a730aaa099491cbb259fcd01a569d7b74f3f5",
+      "digestMatched": true,
+      "members": [
+        "postgres-evidence.json"
+      ]
+    }
+  ],
+  "independentSourceChecks": {
+    "commit": "9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+    "verifiedFromExactGitObjects": true,
+    "sourceFiles": [
+      {
+        "file": "scripts/ci/gate-manifest.mjs",
+        "sha256": "16c388f6f0a9e6df26aed2c13d13d831e3246eb4f283ceb6e1aee4898e1532e6",
+        "verifiedFromExactGitObject": true
+      },
+      {
+        "file": "scripts/ci/run-gate.mjs",
+        "sha256": "fe9ff29bf99f70495f3ac27d1ab94cb3630b50b41e632fb3b50d79a10767b68f",
+        "verifiedFromExactGitObject": true
+      },
+      {
+        "file": "scripts/ci/sanitize-evidence.mjs",
+        "sha256": "63a69e0b4d8bacfa5a2f530cfb7d4688e469e870e3f28ff2c018ff8bc6211fba",
+        "verifiedFromExactGitObject": true
+      },
+      {
+        "file": "scripts/ci/lane-report.mjs",
+        "sha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8",
+        "verifiedFromExactGitObject": true
+      },
+      {
+        "file": "tests/ci/assert-lane-report.mjs",
+        "sha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b",
+        "verifiedFromExactGitObject": true
+      },
+      {
+        "file": "vitest.config.ts",
+        "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08",
+        "verifiedFromExactGitObject": true
+      },
+      {
+        "file": "package-lock.json",
+        "sha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+        "verifiedFromExactGitObject": true
+      },
+      {
+        "file": ".github/workflows/ci.yml",
+        "sha256": "cc76429ae8ae5f7550e3ecd59a6cc02479b0dca7edd94010a0116b16264a0450",
+        "verifiedFromExactGitObject": true
+      },
+      {
+        "file": "scripts/ci/security-audit.mjs",
+        "sha256": "43ecf6a4c5b23b2d99c1e116aba7d1790ef9cd3abc996ce10d53606e55c0996a",
+        "verifiedFromExactGitObject": true
+      }
+    ],
+    "manifestsUnchangedFromPriorRun": true,
+    "localUserUntrackedFilesPreserved": true
+  },
+  "canonicalValidation": [
+    {
+      "lane": "policy",
+      "evidenceSha256": "04d1c7a41060a3eef40e9eb33c04f316c2ce820e31ea6f40774d626b50eec389",
+      "counts": {
+        "total": 238,
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "countsWellFormedAllPassed": true,
+      "requiredGroups": 7,
+      "verdict": "passed",
+      "evidenceSchema1": true,
+      "indexInventoryClean": true,
+      "schema2Receipt": true,
+      "independentTwelveChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "exportedTwelveChecksMatch": true,
+      "receiptSha256Matched": true,
+      "sourceFilesAndLockExact": true,
+      "requiredInventoryExact": true,
+      "requiredGroupsAllPassedNonzero": true,
+      "dependencyVersionsExact": true,
+      "commitAndCleanSourceExact": true,
+      "toolExpectationsExact": true,
+      "validationComplete": true,
+      "executionExit": 0,
+      "originExit": 0,
+      "zeroExitsIntact": true,
+      "binding": "matched",
+      "environmentCounts": {
+        "unchanged": 107,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [],
+      "fullyPassed": true
+    },
+    {
+      "lane": "tofu",
+      "evidenceSha256": "6571fa6ed74e79d47cbb1899167c9d96c1da9eafdc6054e28df8d501b7b0044e",
+      "counts": {
+        "total": 3900,
+        "passed": 3900,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "countsWellFormedAllPassed": true,
+      "requiredGroups": 27,
+      "verdict": "passed",
+      "evidenceSchema1": true,
+      "indexInventoryClean": true,
+      "schema2Receipt": true,
+      "independentTwelveChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "exportedTwelveChecksMatch": true,
+      "receiptSha256Matched": true,
+      "sourceFilesAndLockExact": true,
+      "requiredInventoryExact": true,
+      "requiredGroupsAllPassedNonzero": true,
+      "dependencyVersionsExact": true,
+      "commitAndCleanSourceExact": true,
+      "toolExpectationsExact": true,
+      "validationComplete": true,
+      "executionExit": 0,
+      "originExit": 0,
+      "zeroExitsIntact": true,
+      "binding": "matched",
+      "environmentCounts": {
+        "unchanged": 109,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [],
+      "fullyPassed": true
+    },
+    {
+      "lane": "platform-postgres",
+      "evidenceSha256": "ca6f57a670100abc70b565c161c3d49a936c44f8302458ff382f707eafa0cdd7",
+      "counts": {
+        "total": 1422,
+        "passed": 1422,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "countsWellFormedAllPassed": true,
+      "requiredGroups": 45,
+      "verdict": "passed",
+      "evidenceSchema1": true,
+      "indexInventoryClean": true,
+      "schema2Receipt": true,
+      "independentTwelveChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "exportedTwelveChecksMatch": true,
+      "receiptSha256Matched": true,
+      "sourceFilesAndLockExact": true,
+      "requiredInventoryExact": true,
+      "requiredGroupsAllPassedNonzero": true,
+      "dependencyVersionsExact": true,
+      "commitAndCleanSourceExact": true,
+      "toolExpectationsExact": true,
+      "validationComplete": true,
+      "executionExit": 0,
+      "originExit": 0,
+      "zeroExitsIntact": true,
+      "binding": "matched",
+      "environmentCounts": {
+        "unchanged": 109,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [],
+      "fullyPassed": true
+    },
+    {
+      "lane": "workflows",
+      "evidenceSha256": "a5f04f9f216656d8e653dfc8837ad20c889220763c9aabb6bd88a187684c27de",
+      "counts": {
+        "total": 982,
+        "passed": 982,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "countsWellFormedAllPassed": true,
+      "requiredGroups": 44,
+      "verdict": "passed",
+      "evidenceSchema1": true,
+      "indexInventoryClean": true,
+      "schema2Receipt": true,
+      "independentTwelveChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "exportedTwelveChecksMatch": true,
+      "receiptSha256Matched": true,
+      "sourceFilesAndLockExact": true,
+      "requiredInventoryExact": true,
+      "requiredGroupsAllPassedNonzero": true,
+      "dependencyVersionsExact": true,
+      "commitAndCleanSourceExact": true,
+      "toolExpectationsExact": true,
+      "validationComplete": true,
+      "executionExit": 0,
+      "originExit": 0,
+      "zeroExitsIntact": true,
+      "binding": "matched",
+      "environmentCounts": {
+        "unchanged": 114,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [
+        {
+          "id": "external-temporal-mtls",
+          "file": "tests/workflows/mtls-live.test.ts",
+          "status": "unverified",
+          "releaseBlocker": "External Temporal mTLS execution remains unverified until separate authorized acceptance passes."
+        }
+      ],
+      "fullyPassed": true
+    },
+    {
+      "lane": "postgres",
+      "evidenceSha256": "564a0faec4f6d6b4e0ec7934126ef72726a2e34a10ff343673832ef1b3cc3058",
+      "counts": {
+        "total": 251,
+        "passed": 251,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "countsWellFormedAllPassed": true,
+      "requiredGroups": 9,
+      "verdict": "passed",
+      "evidenceSchema1": true,
+      "indexInventoryClean": true,
+      "schema2Receipt": true,
+      "independentTwelveChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "exportedTwelveChecksMatch": true,
+      "receiptSha256Matched": true,
+      "sourceFilesAndLockExact": true,
+      "requiredInventoryExact": true,
+      "requiredGroupsAllPassedNonzero": true,
+      "dependencyVersionsExact": true,
+      "commitAndCleanSourceExact": true,
+      "toolExpectationsExact": true,
+      "validationComplete": true,
+      "executionExit": 0,
+      "originExit": 0,
+      "zeroExitsIntact": true,
+      "binding": "matched",
+      "environmentCounts": {
+        "unchanged": 110,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [],
+      "fullyPassed": true
+    }
+  ],
+  "securityFailure": {
+    "jobId": 111148397074,
+    "step": "Known dependency findings block release",
+    "packages": [
+      "@next/eslint-plugin-next",
+      "braces",
+      "eslint-config-next",
+      "fast-glob",
+      "micromatch"
+    ],
+    "advisory": "GHSA-vfj7-8cjw-p6xm",
+    "approvedExceptions": 0
+  },
+  "limits": [
+    "Raw remote assertion reports and private environment inventories are absent; exported hashes/counts/eleven reconstructible receipt bindings plus internally consistent private-inventory flag do not establish independent replay.",
+    "Lane scopes overlap; no cross-lane unique total.",
+    "Browser scripted step checks are not Playwright test-case totals; fixture identity providers do not establish external human/account acceptance.",
+    "No production approval, current staged source integration or live-cloud claim."
+  ]
+}

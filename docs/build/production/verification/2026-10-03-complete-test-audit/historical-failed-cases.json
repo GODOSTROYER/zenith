@@ -1,0 +1,2580 @@
+[
+  {
+    "attempt": "prod-durable-artifact-postgres-root-contracts",
+    "fileOrdinal": 19,
+    "assertionOrdinal": 23,
+    "file": "tests/controlplane/migrations.test.ts",
+    "fullName": "migrator [postgres] concurrency and fail-closed open schema 6 emitted hardening upgrades through the canonical migrator under a distinct owner with RLS, role isolation and immutable artifacts",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 13,
+      "skipped": 4
+    },
+    "lastChangeAtStaging": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a Preserve approved OpenTofu plans across execution workers",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 19,
+        "assertionOrdinal": 23,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-artifact-postgres-root-contracts",
+    "fileOrdinal": 28,
+    "assertionOrdinal": 1,
+    "file": "tests/controlplane/tenancy.test.ts",
+    "fullName": "completeness guard every repository function is classified: swept, a workspace-bound write, or exempt with a reason",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 4
+    },
+    "lastChangeAtStaging": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a Preserve approved OpenTofu plans across execution workers",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 156,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 164,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 28,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-artifact-postgres-root-contracts",
+    "fileOrdinal": 29,
+    "assertionOrdinal": 21,
+    "file": "tests/execution/apply.test.ts",
+    "fullName": "dispatch current authority [postgres] refuses expired approval after fresh replan and before durable dispatch",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 20,
+      "skipped": 5
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 29,
+        "assertionOrdinal": 21,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-artifact-postgres-root-contracts",
+    "fileOrdinal": 29,
+    "assertionOrdinal": 22,
+    "file": "tests/execution/apply.test.ts",
+    "fullName": "dispatch current authority [postgres] refuses revoked approver role after fresh replan and before durable dispatch",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 20,
+      "skipped": 5
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 29,
+        "assertionOrdinal": 22,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-artifact-postgres-root-contracts",
+    "fileOrdinal": 29,
+    "assertionOrdinal": 23,
+    "file": "tests/execution/apply.test.ts",
+    "fullName": "dispatch current authority [postgres] refuses new policy denial after fresh replan and before durable dispatch",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 20,
+      "skipped": 5
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 29,
+        "assertionOrdinal": 23,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-artifact-postgres-root-contracts",
+    "fileOrdinal": 29,
+    "assertionOrdinal": 24,
+    "file": "tests/execution/apply.test.ts",
+    "fullName": "dispatch current authority [postgres] refuses expiry after authority check after fresh replan and before durable dispatch",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 20,
+      "skipped": 5
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 29,
+        "assertionOrdinal": 24,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-artifact-postgres-root-contracts",
+    "fileOrdinal": 29,
+    "assertionOrdinal": 25,
+    "file": "tests/execution/apply.test.ts",
+    "fullName": "dispatch current authority [postgres] refuses expiry during role lookup after fresh replan and before durable dispatch",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 20,
+      "skipped": 5
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 29,
+        "assertionOrdinal": 25,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-artifact-postgres-root-contracts",
+    "fileOrdinal": 52,
+    "assertionOrdinal": 1,
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "fullName": "authenticated original cross-worker handoff [postgres] producer exits and loses its directory; another worker applies ORIGINAL bytes after a separate fresh check, then destroys",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "skipped": 8
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 52,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-artifact-postgres-root-contracts",
+    "fileOrdinal": 52,
+    "assertionOrdinal": 4,
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "fullName": "authenticated original cross-worker handoff [postgres] tampering with the original after inspection refuses before apply and preserves uncertainty after dispatch",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "skipped": 8
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 52,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-artifact-postgres-root-contracts",
+    "fileOrdinal": 52,
+    "assertionOrdinal": 5,
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "fullName": "authenticated original cross-worker handoff [postgres] source review completes, browser human approval is consumed, and destination destroys the associated ORIGINAL",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "skipped": 8
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 52,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-artifact-postgres-root-contracts",
+    "fileOrdinal": 52,
+    "assertionOrdinal": 6,
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "fullName": "authenticated original cross-worker handoff [postgres] restore into a fresh PostgreSQL store with matching keys preserves the original; missing keys refuse",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "skipped": 8
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 52,
+        "assertionOrdinal": 6,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-corrections-real-pg-root-contracts",
+    "fileOrdinal": 29,
+    "assertionOrdinal": 21,
+    "file": "tests/execution/apply.test.ts",
+    "fullName": "dispatch current authority [postgres] refuses expired approval after fresh replan and before durable dispatch",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 20,
+      "skipped": 5
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 29,
+        "assertionOrdinal": 21,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-corrections-real-pg-root-contracts",
+    "fileOrdinal": 29,
+    "assertionOrdinal": 22,
+    "file": "tests/execution/apply.test.ts",
+    "fullName": "dispatch current authority [postgres] refuses revoked approver role after fresh replan and before durable dispatch",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 20,
+      "skipped": 5
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 29,
+        "assertionOrdinal": 22,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-corrections-real-pg-root-contracts",
+    "fileOrdinal": 29,
+    "assertionOrdinal": 23,
+    "file": "tests/execution/apply.test.ts",
+    "fullName": "dispatch current authority [postgres] refuses new policy denial after fresh replan and before durable dispatch",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 20,
+      "skipped": 5
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 29,
+        "assertionOrdinal": 23,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-corrections-real-pg-root-contracts",
+    "fileOrdinal": 29,
+    "assertionOrdinal": 24,
+    "file": "tests/execution/apply.test.ts",
+    "fullName": "dispatch current authority [postgres] refuses expiry after authority check after fresh replan and before durable dispatch",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 20,
+      "skipped": 5
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 29,
+        "assertionOrdinal": 24,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-corrections-real-pg-root-contracts",
+    "fileOrdinal": 29,
+    "assertionOrdinal": 25,
+    "file": "tests/execution/apply.test.ts",
+    "fullName": "dispatch current authority [postgres] refuses expiry during role lookup after fresh replan and before durable dispatch",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 20,
+      "skipped": 5
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-platform-postgres",
+        "fileOrdinal": 29,
+        "assertionOrdinal": 25,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 144,
+    "assertionOrdinal": 41,
+    "file": "tests/ci/assert-lane-report.test.ts",
+    "fullName": "platform-postgres real-engine report gate accepts evidence only when every required scenario passed",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 92
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 249,
+        "assertionOrdinal": 41,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 134,
+        "assertionOrdinal": 41,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 144,
+    "assertionOrdinal": 50,
+    "file": "tests/ci/assert-lane-report.test.ts",
+    "fullName": "platform-postgres real-engine report gate normalizes Windows and POSIX path separators",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 92
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 249,
+        "assertionOrdinal": 50,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 134,
+        "assertionOrdinal": 50,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 146,
+    "assertionOrdinal": 1,
+    "file": "tests/ci/evidence-sanitizer.test.ts",
+    "fullName": "sanitized evidence boundary exports count-only requirement evidence bound to commit, dependencies, source and environment",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 105
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 251,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 136,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 146,
+    "assertionOrdinal": 5,
+    "file": "tests/ci/evidence-sanitizer.test.ts",
+    "fullName": "sanitized evidence boundary does not trust summary totals from a malformed report",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 105
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 251,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 136,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 146,
+    "assertionOrdinal": 7,
+    "file": "tests/ci/evidence-sanitizer.test.ts",
+    "fullName": "sanitized evidence boundary preserves a failed command observation when a later validation sees passing assertions",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 105
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 251,
+        "assertionOrdinal": 7,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 136,
+        "assertionOrdinal": 7,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 146,
+    "assertionOrdinal": 36,
+    "file": "tests/ci/evidence-sanitizer.test.ts",
+    "fullName": "sanitized evidence boundary never treats report-only validation as observed execution, and CI can require its receipt",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 105
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 251,
+        "assertionOrdinal": 36,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 136,
+        "assertionOrdinal": 36,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 146,
+    "assertionOrdinal": 78,
+    "file": "tests/ci/evidence-sanitizer.test.ts",
+    "fullName": "sanitized evidence boundary reports installed and locked versions independently instead of treating expectations as measurements",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 105
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 251,
+        "assertionOrdinal": 78,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 136,
+        "assertionOrdinal": 78,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 147,
+    "assertionOrdinal": 9,
+    "file": "tests/ci/gate-manifest.test.ts",
+    "fullName": "canonical gate manifest covers direct PG-only suites and each parameterized backend suite independently",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 56
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 252,
+        "assertionOrdinal": 9,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 137,
+        "assertionOrdinal": 9,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 147,
+    "assertionOrdinal": 10,
+    "file": "tests/ci/gate-manifest.test.ts",
+    "fullName": "canonical gate manifest requires both the fresh/reapply/checksum/rollback/emitted-SQL migrator and PostgreSQL concurrency suites",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 56
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 252,
+        "assertionOrdinal": 10,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 147,
+    "assertionOrdinal": 11,
+    "file": "tests/ci/gate-manifest.test.ts",
+    "fullName": "canonical gate manifest rejects pglite replacement of the real fresh migration suite even when concurrency passed",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 56
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 252,
+        "assertionOrdinal": 11,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 137,
+        "assertionOrdinal": 11,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 147,
+    "assertionOrdinal": 12,
+    "file": "tests/ci/gate-manifest.test.ts",
+    "fullName": "canonical gate manifest rejects skipped replacement of the real fresh migration suite even when concurrency passed",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 56
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 252,
+        "assertionOrdinal": 12,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 137,
+        "assertionOrdinal": 12,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 147,
+    "assertionOrdinal": 17,
+    "file": "tests/ci/gate-manifest.test.ts",
+    "fullName": "mandatory ECS replica repair gates preserves every existing PostgreSQL requirement ID and binds new IDs to the exact outer suite",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 56
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 252,
+        "assertionOrdinal": 17,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 150,
+    "assertionOrdinal": 20,
+    "file": "tests/ci/platform-coverage.test.ts",
+    "fullName": "platform suite coverage checks every network-gated file and the actual gated suite titles",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 25
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 255,
+        "assertionOrdinal": 20,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 140,
+        "assertionOrdinal": 20,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 153,
+    "assertionOrdinal": 40,
+    "file": "tests/ci/release-gates.test.ts",
+    "fullName": "downloaded tools are checksum-verified before anything touches them has a pinned URL, output name and sha256 for every curl in every workflow, and no others",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 97
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 258,
+        "assertionOrdinal": 40,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 143,
+        "assertionOrdinal": 40,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 199,
+    "assertionOrdinal": 1,
+    "file": "tests/execution/aws-bootstrap-context.test.ts",
+    "fullName": "deployment and destroy workspaces bind the saved suffix into reviewed plan digests",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 4
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 194,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 200,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 206,
+    "assertionOrdinal": 18,
+    "file": "tests/execution/deletion-guards.test.ts",
+    "fullName": "normal deploy deletion guards does not require destructive approval for a stateless deletion",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 27
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 201,
+        "assertionOrdinal": 18,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 207,
+        "assertionOrdinal": 18,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 208,
+    "assertionOrdinal": 1,
+    "file": "tests/execution/destroy-review-temporal.test.ts",
+    "fullName": "Temporal read-only teardown review workflow records evidence and a pending proposal once, and preserves approval winning a refresh race without apply",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 1
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 209,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 211,
+    "assertionOrdinal": 45,
+    "file": "tests/execution/ecs-replica-repair.test.ts",
+    "fullName": "existing plan/apply activity integration uses saved-plan apply and exact readback, with no generic native dispatch or zero-probe clearance",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 57
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 206,
+        "assertionOrdinal": 45,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 212,
+        "assertionOrdinal": 45,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 5,
+        "assertionOrdinal": 45,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 211,
+    "assertionOrdinal": 46,
+    "file": "tests/execution/ecs-replica-repair.test.ts",
+    "fullName": "existing plan/apply activity integration refuses missing human approval before invoking saved-plan apply",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 57
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 206,
+        "assertionOrdinal": 46,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 212,
+        "assertionOrdinal": 46,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 5,
+        "assertionOrdinal": 46,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 211,
+    "assertionOrdinal": 47,
+    "file": "tests/execution/ecs-replica-repair.test.ts",
+    "fullName": "existing plan/apply activity integration retains uncertainty after one apply when all three verification appends fail",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 57
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 206,
+        "assertionOrdinal": 47,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 212,
+        "assertionOrdinal": 47,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 5,
+        "assertionOrdinal": 47,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 211,
+    "assertionOrdinal": 48,
+    "file": "tests/execution/ecs-replica-repair.test.ts",
+    "fullName": "existing plan/apply activity integration refuses a mismatched verification receipt after apply (workspace)",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 57
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 206,
+        "assertionOrdinal": 48,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 212,
+        "assertionOrdinal": 48,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 5,
+        "assertionOrdinal": 48,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 211,
+    "assertionOrdinal": 49,
+    "file": "tests/execution/ecs-replica-repair.test.ts",
+    "fullName": "existing plan/apply activity integration refuses a mismatched verification receipt after apply (operation)",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 57
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 206,
+        "assertionOrdinal": 49,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 212,
+        "assertionOrdinal": 49,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 5,
+        "assertionOrdinal": 49,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 211,
+    "assertionOrdinal": 50,
+    "file": "tests/execution/ecs-replica-repair.test.ts",
+    "fullName": "existing plan/apply activity integration refuses a mismatched verification receipt after apply (kind)",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 57
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 206,
+        "assertionOrdinal": 50,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 212,
+        "assertionOrdinal": 50,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 5,
+        "assertionOrdinal": 50,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 211,
+    "assertionOrdinal": 51,
+    "file": "tests/execution/ecs-replica-repair.test.ts",
+    "fullName": "existing plan/apply activity integration refuses a mismatched verification receipt after apply (digest)",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 57
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 206,
+        "assertionOrdinal": 51,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 212,
+        "assertionOrdinal": 51,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 5,
+        "assertionOrdinal": 51,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 211,
+    "assertionOrdinal": 52,
+    "file": "tests/execution/ecs-replica-repair.test.ts",
+    "fullName": "existing plan/apply activity integration refuses a mismatched verification receipt after apply (simulated)",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 57
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 206,
+        "assertionOrdinal": 52,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 212,
+        "assertionOrdinal": 52,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 5,
+        "assertionOrdinal": 52,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 211,
+    "assertionOrdinal": 53,
+    "file": "tests/execution/ecs-replica-repair.test.ts",
+    "fullName": "existing plan/apply activity integration refuses a mismatched verification receipt after apply (summary)",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 57
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 206,
+        "assertionOrdinal": 53,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 212,
+        "assertionOrdinal": 53,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 5,
+        "assertionOrdinal": 53,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 211,
+    "assertionOrdinal": 54,
+    "file": "tests/execution/ecs-replica-repair.test.ts",
+    "fullName": "existing plan/apply activity integration preserves uncertainty after an attempted apply (readback)",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 57
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 206,
+        "assertionOrdinal": 54,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 212,
+        "assertionOrdinal": 54,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 5,
+        "assertionOrdinal": 54,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 211,
+    "assertionOrdinal": 55,
+    "file": "tests/execution/ecs-replica-repair.test.ts",
+    "fullName": "existing plan/apply activity integration preserves uncertainty after an attempted apply (lost-response)",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 57
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 206,
+        "assertionOrdinal": 55,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 212,
+        "assertionOrdinal": 55,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 5,
+        "assertionOrdinal": 55,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 211,
+    "assertionOrdinal": 56,
+    "file": "tests/execution/ecs-replica-repair.test.ts",
+    "fullName": "existing plan/apply activity integration preserves uncertainty after an attempted apply (nonzero-exit)",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 57
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 206,
+        "assertionOrdinal": 56,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 212,
+        "assertionOrdinal": 56,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 5,
+        "assertionOrdinal": 56,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 211,
+    "assertionOrdinal": 57,
+    "file": "tests/execution/ecs-replica-repair.test.ts",
+    "fullName": "existing plan/apply activity integration preserves uncertainty after an attempted apply (fence)",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 57
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 206,
+        "assertionOrdinal": 57,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 212,
+        "assertionOrdinal": 57,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 5,
+        "assertionOrdinal": 57,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 1,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed deploy workflow (contract evidence) proposes through the bridge without a plan, records two browser rounds, signals, and resumes with a new fence",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 2,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed deploy workflow (contract evidence) approves the plan as a browser human, deploys every step, and reads actual mocked steady state/health",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 2,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 2,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 3,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed deploy workflow (contract evidence) denies a discovered public database before apply",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 3,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 3,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 4,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed deploy workflow (contract evidence) a reject in the plan round halts without applying",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 5,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed deploy workflow (contract evidence) a plan changed after plan approval fails before apply",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 6,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed deploy workflow (contract evidence) loses its lease while apply is in flight and ends uncertain without retrying apply",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 6,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 6,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 7,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed activities against local stores (no Temporal fallback) refuses infrastructure verification when an application identity carries ZenithWorkloadBoundary",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 287,
+        "assertionOrdinal": 7,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 8,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 8,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 8,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed activities against local stores (no Temporal fallback) refuses infrastructure verification when an application identity carries ZenithBuildBoundary",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 287,
+        "assertionOrdinal": 8,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 9,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 9,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 9,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed activities against local stores (no Temporal fallback) runs a real bridge proposal and two browser rounds through the complete activity chain (gateway is fake)",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 287,
+        "assertionOrdinal": 9,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 10,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 10,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 10,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed activities against local stores (no Temporal fallback) refuses a changed final plan after the second browser approval and never applies",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 287,
+        "assertionOrdinal": 10,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 11,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 11,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 11,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed activities against local stores (no Temporal fallback) runs the complete deploy activity chain with real policy, credentials and driver reads",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 287,
+        "assertionOrdinal": 11,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 12,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 12,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 12,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed activities against local stores (no Temporal fallback) evaluates a public database plan as deny without any apply call",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 287,
+        "assertionOrdinal": 12,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 13,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 13,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 13,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed activities against local stores (no Temporal fallback) maps a lost apply fence to a non-retryable LeaseLost and permits only uncertain finalization",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 287,
+        "assertionOrdinal": 13,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 14,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 14,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 14,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed activities against local stores (no Temporal fallback) atomically reaps runner and machine jobs, marks owning operations uncertain, and audits once",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 287,
+        "assertionOrdinal": 14,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 16,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 16,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 15,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed activities against local stores (no Temporal fallback) resolves platform repair resource ids only through the owning workspace/environment chain",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 287,
+        "assertionOrdinal": 15,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 17,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 17,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 321,
+    "assertionOrdinal": 16,
+    "file": "tests/platform/deploy-e2e.test.ts",
+    "fullName": "composed activities against local stores (no Temporal fallback) refuses grants after a human approver loses their required role",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 18
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 287,
+        "assertionOrdinal": 16,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 302,
+        "assertionOrdinal": 18,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 11,
+        "assertionOrdinal": 18,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 324,
+    "assertionOrdinal": 1,
+    "file": "tests/platform/machine-composition.test.ts",
+    "fullName": "default machine composition supplies a machine port lazily and honors explicit overrides",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 6
+    },
+    "lastChangeAtStaging": "b5254a73ddd4bd9ca959d810c5af36b126208590 machines: default composition supplies a provider-dispatched machine port (AWS SSM, Azure Run Command, GCP read-only, zenithd) behind the existing gates (Codex WS-MACHINE-PORT)",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 290,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 305,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 14,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 324,
+    "assertionOrdinal": 2,
+    "file": "tests/platform/machine-composition.test.ts",
+    "fullName": "default machine composition reads only tenant-scoped observations and reports unknown resources as null",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 6
+    },
+    "lastChangeAtStaging": "b5254a73ddd4bd9ca959d810c5af36b126208590 machines: default composition supplies a provider-dispatched machine port (AWS SSM, Azure Run Command, GCP read-only, zenithd) behind the existing gates (Codex WS-MACHINE-PORT)",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 290,
+        "assertionOrdinal": 2,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 305,
+        "assertionOrdinal": 2,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 14,
+        "assertionOrdinal": 2,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 324,
+    "assertionOrdinal": 3,
+    "file": "tests/platform/machine-composition.test.ts",
+    "fullName": "default machine composition runs AWS fixed documents inside the observe session and replays without another SDK call",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 6
+    },
+    "lastChangeAtStaging": "b5254a73ddd4bd9ca959d810c5af36b126208590 machines: default composition supplies a provider-dispatched machine port (AWS SSM, Azure Run Command, GCP read-only, zenithd) behind the existing gates (Codex WS-MACHINE-PORT)",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 290,
+        "assertionOrdinal": 3,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 305,
+        "assertionOrdinal": 3,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 14,
+        "assertionOrdinal": 3,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 324,
+    "assertionOrdinal": 4,
+    "file": "tests/platform/machine-composition.test.ts",
+    "fullName": "default machine composition runs Azure mutations with deploy grants and persists only sealed redacted output",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 6
+    },
+    "lastChangeAtStaging": "b5254a73ddd4bd9ca959d810c5af36b126208590 machines: default composition supplies a provider-dispatched machine port (AWS SSM, Azure Run Command, GCP read-only, zenithd) behind the existing gates (Codex WS-MACHINE-PORT)",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 290,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 305,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 14,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 324,
+    "assertionOrdinal": 5,
+    "file": "tests/platform/machine-composition.test.ts",
+    "fullName": "default machine composition uses GCP read-only cached inventory and refuses mutations before obtaining credentials",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 6
+    },
+    "lastChangeAtStaging": "b5254a73ddd4bd9ca959d810c5af36b126208590 machines: default composition supplies a provider-dispatched machine port (AWS SSM, Azure Run Command, GCP read-only, zenithd) behind the existing gates (Codex WS-MACHINE-PORT)",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 290,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 305,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 14,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 324,
+    "assertionOrdinal": 6,
+    "file": "tests/platform/machine-composition.test.ts",
+    "fullName": "default machine composition resolves unique registered bindings and dispatches a signed zenithd request exactly once",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 6
+    },
+    "lastChangeAtStaging": "b5254a73ddd4bd9ca959d810c5af36b126208590 machines: default composition supplies a provider-dispatched machine port (AWS SSM, Azure Run Command, GCP read-only, zenithd) behind the existing gates (Codex WS-MACHINE-PORT)",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 290,
+        "assertionOrdinal": 6,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 305,
+        "assertionOrdinal": 6,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 14,
+        "assertionOrdinal": 6,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 332,
+    "assertionOrdinal": 1,
+    "file": "tests/platform/source-bundle-composition.test.ts",
+    "fullName": "source-bundle execution wiring provides a source port using the platform resource store by default",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 8
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 298,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 313,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 22,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 332,
+    "assertionOrdinal": 2,
+    "file": "tests/platform/source-bundle-composition.test.ts",
+    "fullName": "source-bundle execution wiring keeps an explicit sourceBundle override authoritative",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 8
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 298,
+        "assertionOrdinal": 2,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 313,
+        "assertionOrdinal": 3,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 22,
+        "assertionOrdinal": 3,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 332,
+    "assertionOrdinal": 3,
+    "file": "tests/platform/source-bundle-composition.test.ts",
+    "fullName": "source-bundle execution wiring forwards the download configuration and preserves resource overrides",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 8
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 298,
+        "assertionOrdinal": 3,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 313,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 22,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 332,
+    "assertionOrdinal": 4,
+    "file": "tests/platform/source-bundle-composition.test.ts",
+    "fullName": "source-bundle execution wiring uses the injected resource store with the activity's workspace and environment",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 8
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 298,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 313,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 22,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 332,
+    "assertionOrdinal": 5,
+    "file": "tests/platform/source-bundle-composition.test.ts",
+    "fullName": "source-bundle execution wiring composes Azure preparation, stored-source reading and the SQL launch journal by default",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 8
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 298,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 313,
+        "assertionOrdinal": 6,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 22,
+        "assertionOrdinal": 6,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 332,
+    "assertionOrdinal": 6,
+    "file": "tests/platform/source-bundle-composition.test.ts",
+    "fullName": "source-bundle execution wiring uses the trusted connection binding without a source resolver override through ACR launch",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 8
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 298,
+        "assertionOrdinal": 6,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 313,
+        "assertionOrdinal": 7,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 22,
+        "assertionOrdinal": 7,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 332,
+    "assertionOrdinal": 7,
+    "file": "tests/platform/source-bundle-composition.test.ts",
+    "fullName": "source-bundle execution wiring refuses an Azure environment without a binding in the composed preparation port",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 8
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 298,
+        "assertionOrdinal": 7,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 313,
+        "assertionOrdinal": 8,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 22,
+        "assertionOrdinal": 8,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 406,
+    "assertionOrdinal": 5,
+    "file": "tests/security/controlplane-sql-scoping.test.ts",
+    "fullName": "control-store repositories: workspace scoping is present in every function that touches a tenant table SQL that carries a tenant id takes it as a bound parameter, never by string concatenation",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 5
+    },
+    "lastChangeAtStaging": "cb346a78fd1c5dca1fb28fc7aef8ce963422ccad security: getForSystem reviewed as the execution worker's only unscoped operation lookup, callers pinned; ledger: WS-SEC-LEAKS integrated",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 440,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 386,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 449,
+    "assertionOrdinal": 1,
+    "file": "tests/workers/worker-health-wiring.test.ts",
+    "fullName": "worker health lifecycle wiring stays unready until polling with a loaded policy, probes live connections, drains unready and closes resources",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 6
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 491,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 468,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 454,
+    "assertionOrdinal": 18,
+    "file": "tests/workflows/codec-wiring.test.ts",
+    "fullName": "execution worker process codec wiring passes mTLS files to NativeConnection.connect and keeps ready logs and worker payloads safe",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 27
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 473,
+        "assertionOrdinal": 18,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 481,
+        "assertionOrdinal": 18,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 30,
+        "assertionOrdinal": 18,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 454,
+    "assertionOrdinal": 21,
+    "file": "tests/workflows/codec-wiring.test.ts",
+    "fullName": "execution worker process codec wiring attaches the same decrypt-compatible codec to Worker.create without changing other options",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 27
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 473,
+        "assertionOrdinal": 21,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 481,
+        "assertionOrdinal": 24,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-workflows",
+        "fileOrdinal": 30,
+        "assertionOrdinal": 24,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 473,
+    "assertionOrdinal": 1,
+    "file": "tests/sources/github-migrations.test.ts",
+    "fullName": "GitHub source platform migration 6 [PGlite] pins the append-only version and checksum, with compatibility SQL owned by the migration",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 6
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 412,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 415,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 473,
+    "assertionOrdinal": 2,
+    "file": "tests/sources/github-migrations.test.ts",
+    "fullName": "GitHub source platform migration 6 [PGlite] normal fresh migration provides both source tables and usable workspace bindings",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 6
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 412,
+        "assertionOrdinal": 2,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 415,
+        "assertionOrdinal": 2,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 473,
+    "assertionOrdinal": 3,
+    "file": "tests/sources/github-migrations.test.ts",
+    "fullName": "GitHub source platform migration 6 [PGlite] adopts manually installed tables without losing rows via platform migrator",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 6
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 412,
+        "assertionOrdinal": 3,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 415,
+        "assertionOrdinal": 3,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 473,
+    "assertionOrdinal": 4,
+    "file": "tests/sources/github-migrations.test.ts",
+    "fullName": "GitHub source platform migration 6 [PGlite] adopts manually installed tables without losing rows via emitted SQL",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 6
+    },
+    "lastChangeAtStaging": "cd60f8bec935cf0e8287d27849e23ca2637482d2 Update strict gate fixtures for durable plan migration",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 412,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 415,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 479,
+    "assertionOrdinal": 1,
+    "file": "tests/tofu/destroy.test.ts",
+    "fullName": "digest-bound destroy engine plans -destroy without the state lock, masks sensitive echoes and keeps the binary server-side",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 65
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 422,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 423,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-tofu",
+        "fileOrdinal": 9,
+        "assertionOrdinal": 1,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 479,
+    "assertionOrdinal": 4,
+    "file": "tests/tofu/destroy.test.ts",
+    "fullName": "digest-bound destroy engine does not change the normal planning flags",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 65
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 422,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 423,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-tofu",
+        "fileOrdinal": 9,
+        "assertionOrdinal": 4,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-durable-full-root-unit",
+    "fileOrdinal": 492,
+    "assertionOrdinal": 5,
+    "file": "tests/tofu/runner.test.ts",
+    "fullName": "tofu lifecycle on terraform_data (real tofu 1.12.5, local backend) keeps the plan file only where the caller says, mode 0600, and never in the result text",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": true,
+    "latestStagingFileCounts": {
+      "passed": 19
+    },
+    "lastChangeAtStaging": "c121f89e1e4a200096abe12f8268e3c6acdbddf0 Keep approved plans immutable during replan and worker dispatch",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": [
+      {
+        "lane": "public-unit",
+        "fileOrdinal": 434,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-unit",
+        "fileOrdinal": 436,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      },
+      {
+        "lane": "staging-tofu",
+        "fileOrdinal": 22,
+        "assertionOrdinal": 5,
+        "limit": "Exact unique display-name match at later source; fixes intentionally change source bytes."
+      }
+    ]
+  },
+  {
+    "attempt": "prod-platform-pg16-contracts",
+    "fileOrdinal": 30,
+    "assertionOrdinal": 19,
+    "file": "tests/runners/aws-transport.test.ts",
+    "fullName": "the credential broker's runner transport (RunnerAwsTransportFactory) clamps the runner grant to the session's expiry and refuses a connection that names no runner",
+    "status": "failed",
+    "latestStagingUniqueNamePassed": false,
+    "latestStagingFileCounts": {
+      "passed": 19
+    },
+    "lastChangeAtStaging": "e9ee01f4dd87f6dda2ad7c734e079fc444d09aed Compare runner grant expiry with captured session deadline",
+    "resolutionLimit": "Last source change is indexed, not necessarily the sole causal fix; exact later name match is reported separately. Raw failure messages deliberately omitted.",
+    "latestUniquePassingObservations": []
+  }
+]

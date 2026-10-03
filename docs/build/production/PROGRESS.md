@@ -1,8 +1,10 @@
 # Production progress
 
-Last fully inspected published CI source: `746e4eef8dde0c94cf4850ac0222a20b5b07205c` on `codex/production-2026-10-02`. Its [GitHub run 37098189258](https://github.com/GODOSTROYER/zenith/actions/runs/37098189258) finished with 13 passing jobs and one failing mandatory dependency-security job. Corrected source remains isolated in staging `356b7d014836e6cb39e54d4848f20d508fe31fde`; it is not integrated into the published branch. This documentation snapshot can advance the branch; inspect its exact newly pushed CI separately.
+Last fully inspected published CI source: `9e62a15f57034bf21d8924a6c6e1e1c558bfe854` on `codex/production-2026-10-02`. Its [GitHub run 37103826519](https://github.com/GODOSTROYER/zenith/actions/runs/37103826519) finished with 13 passing jobs and one failing mandatory dependency-security job. Corrected source remains isolated in staging `356b7d014836e6cb39e54d4848f20d508fe31fde`; it is not integrated into the published branch. This documentation snapshot can advance the branch; inspect its exact newly pushed CI separately.
 
 The production ledger retains 78 acceptance requirements: **5 verified, 19 in progress and 54 planned**. These counts measure acceptance state, not implementation effort or completion percentage. No current task is paused. Implementation complete, sandbox verified, pilot ready and production approved remain false.
+
+[Whole-project test dossier](verification/2026-10-03-complete-test-audit/REPORT.md): fresh published units **16,462 passed / 0 failed / 364 skipped**, remote units **16,427/0/399**. Exact-source follow-ups executed **25 PostgreSQL + 6 Python** formerly skipped cases; original unit statuses retained. Two harness gaps remain: thirteen falsely skipped SSM cases and stale bridge path; one SSM hostile-argv case can return without its shell assertions. Full skip prerequisites and identities are catalogued. Three read-only audit agents completed.
 
 ## Completed and verified
 
@@ -158,4 +160,4 @@ External Temporal mTLS, cloud/managed-cluster traffic, production TLS/pooler/aut
 
 Latest independent storage observation: **23.67 GiB free**, zero Docker images/containers/volumes and 0B cache after both image gates. Owned 4 GiB builders sampled storage every 30 seconds, required 12 GiB before launch and removed all owned resources/cache/new images. One heavy local process runs on this 8 GB Mac. No global prune or unrelated-resource deletion.
 
-Next verified source checkpoint estimate: **2–4 hours**, conditional on Linux and image findings. Full production ETA cannot be fixed until remaining implementation, access and operational acceptance are resolved. See [exact current CI evidence](ci-37098189258.md), [local staging gate receipt](evidence/durable-plan/rotation-full-gate.json), [requirement details](REQUIREMENTS.md) and [resume instructions](RESUME.md).
+Next verified source checkpoint estimate: **2–4 hours**, conditional on Linux and image findings. Full production ETA cannot be fixed until remaining implementation, access and operational acceptance are resolved. See [exact current CI evidence](ci-37103826519.md), [local staging gate receipt](evidence/durable-plan/rotation-full-gate.json), [requirement details](REQUIREMENTS.md) and [resume instructions](RESUME.md).

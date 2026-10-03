@@ -1,8 +1,10 @@
 # Production continuation
 
-Main branch: `codex/production-2026-10-02`, last fully inspected CI source `746e4ee` on Saivedant's Mac. Corrected source remains isolated in `ws/prod-durable-full-integration` at `356b7d014836e6cb39e54d4848f20d508fe31fde`. Preserve `37be734` ancestry, all newer commits and user-owned changes. No reset, historical patch replay or history rewrite.
+Main branch: `codex/production-2026-10-02`, last fully inspected CI source `9e62a15` on Saivedant's Mac. Corrected source remains isolated in `ws/prod-durable-full-integration` at `356b7d014836e6cb39e54d4848f20d508fe31fde`. Preserve `37be734` ancestry, all newer commits and user-owned changes. No reset, historical patch replay or history rewrite.
 
-Current pushed [CI 37098189258](ci-37098189258.md) finished **13 passed / 1 failed**. Mandatory complete-lock dependency audit blocks release; no exception is approved or active. All five canonical lanes passed. Independent evidence review distinguishes captured source-bound CI flags from unavailable raw reports. Historical a14/run 37080857980 remains separately 14/14 green.
+Current pushed [CI 37103826519](ci-37103826519.md) finished **13 passed / 1 failed**. Mandatory complete-lock dependency audit blocks release; no exception is approved or active. All five canonical lanes passed. Independent evidence review distinguishes captured source-bound CI flags from unavailable raw reports. Historical a14/run 37080857980 remains separately 14/14 green.
+
+Whole-project test audit: fresh published units **16,462 passed / 0 failed / 364 skipped**; terminal remote units **16,427/0/399**. All skipped cases/prerequisites, complete file/case inventories and 78 acceptance records are in [the dossier](verification/2026-10-03-complete-test-audit/REPORT.md). Separate exact-source PostgreSQL **153/0/0** and Python **6/0/0** executed31 formerly skipped cases. Broken SSM shell probing and stale bridge path remain test-harness gaps; no source repair or acceptance promotion occurred. Three read-only auditors completed.
 
 Original durable source `15e4453` failed full unit regression **16,588 passed / 70 failed / 212 skipped**. Preserve that receipt and subsequent failed attempts. Checked durable/CI/inactive security corrections were committed as Saivedant at `c121f89`, `cd60f8b` and `50aa292`, then merged only into staging `1ce6191`. Its first full gate exposed a genuine Go rotation failure before later phases ran.
 

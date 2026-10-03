@@ -1,0 +1,274 @@
+{
+  "public-unit-9e62a15-receipt.json": {
+    "commit": "9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+    "startedAt": "2026-10-03T07:31:41.709874+00:00",
+    "finishedAt": "2026-10-03T07:41:48.654563+00:00",
+    "seconds": 606.97,
+    "command": [
+      "/Users/saivedanthava/.codex/zenith-w8/tools/node-current/bin/node",
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      "--maxWorkers=1",
+      "--reporter=default",
+      "--reporter=json",
+      "--outputFile=PRIVATE_REPORT"
+    ],
+    "exitCode": 0,
+    "environmentScope": "macOS ARM64, supported Node22.23.3, default unit opt-ins disabled, current locked shared fresh-install dependencies; no Docker/API startup",
+    "lockSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+    "reportSha256": "0fffacd75c608651fa38e0a3f19c768ee6f7ac47915dbd8f4bce198e0975dbfd",
+    "logSha256": "39b7070e96508c3d16f0ce30a0761a23b6c2daee5e4aede1b3350a836241d8fa",
+    "summary": {
+      "numTotalTests": 16826,
+      "numPassedTests": 16462,
+      "numFailedTests": 0,
+      "numPendingTests": 364,
+      "numTodoTests": 0,
+      "success": true,
+      "files": 807
+    },
+    "sourceTrackedUnchanged": true
+  },
+  "uncovered-postgres-followup.json": {
+    "sourceCommit": "9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+    "recordedAt": "2026-10-03T08:08:20.750481+00:00",
+    "unitSkippedHeaderUnchanged": 364,
+    "additionalPassesAtSameFileAndUniqueDisplayName": 25,
+    "matchingLimit": "Display-name/ordinal source-identical correspondence; standard Vitest does not export stable task IDs. Original unit statuses remain skipped.",
+    "followupCounts": {
+      "passed": 153,
+      "failed": 0,
+      "skipped": 0
+    },
+    "unitReportSha256": "0fffacd75c608651fa38e0a3f19c768ee6f7ac47915dbd8f4bce198e0975dbfd",
+    "followupReportSha256": "e16419352f782a105faa44dd21494884ec59db383111403c43606ea537806dc9",
+    "matches": [
+      {
+        "file": "tests/agent-control-journal-fixes.test.ts",
+        "fullName": "postgres agent journal: lease, un-approve and the queue (live) refuses a finalize after the lease lapsed, and the row is resolved as uncertain, never as a success",
+        "unitOrdinal": 23,
+        "followupOrdinal": 23,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/agent-control-journal-fixes.test.ts",
+        "fullName": "postgres agent journal: lease, un-approve and the queue (live) still finalizes while the lease holds",
+        "unitOrdinal": 24,
+        "followupOrdinal": 24,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/agent-control-journal-fixes.test.ts",
+        "fullName": "postgres agent journal: lease, un-approve and the queue (live) withdraws an approval: phase, columns and document all go back, and it cannot be claimed",
+        "unitOrdinal": 25,
+        "followupOrdinal": 25,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/agent-control-journal-fixes.test.ts",
+        "fullName": "postgres agent journal: lease, un-approve and the queue (live) refuses to withdraw a claimed, foreign, changed or unapproved operation, and changes nothing",
+        "unitOrdinal": 26,
+        "followupOrdinal": 26,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/agent-control-journal-fixes.test.ts",
+        "fullName": "postgres agent journal: lease, un-approve and the queue (live) an un-approve racing a claim on two connections has exactly one winner, whichever gets the row first",
+        "unitOrdinal": 27,
+        "followupOrdinal": 27,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/agent-control-journal-fixes.test.ts",
+        "fullName": "postgres agent journal: lease, un-approve and the queue (live) lists an uncertain operation in the review queue, read-only",
+        "unitOrdinal": 28,
+        "followupOrdinal": 28,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/agent-control-journal.test.ts",
+        "fullName": "postgres agent journal (live) two connections racing one claim: exactly one wins, the other sees the row unchanged",
+        "unitOrdinal": 21,
+        "followupOrdinal": 21,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/agent-control-journal.test.ts",
+        "fullName": "postgres agent journal (live) a lease past its end reconciles to uncertain, and is never re-dispatched",
+        "unitOrdinal": 22,
+        "followupOrdinal": 22,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/agent-control-journal.test.ts",
+        "fullName": "postgres agent journal (live) a finalize with a stale fence changes zero rows",
+        "unitOrdinal": 23,
+        "followupOrdinal": 23,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/agent-control-journal.test.ts",
+        "fullName": "postgres agent journal (live) an application authority that moved during dispatch refuses to finalize",
+        "unitOrdinal": 24,
+        "followupOrdinal": 24,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/agent-control-journal.test.ts",
+        "fullName": "postgres agent journal (live) (workspace, subject, request_key) is unique, so prepare is idempotent in the database",
+        "unitOrdinal": 25,
+        "followupOrdinal": 25,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/agent-control-journal.test.ts",
+        "fullName": "postgres agent journal (live) claims, finalizes and reads back through the same interface the file store satisfies",
+        "unitOrdinal": 26,
+        "followupOrdinal": 26,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/agent-control-journal.test.ts",
+        "fullName": "postgres agent journal (live) refuses every read and write until the schema ledger is what this build needs",
+        "unitOrdinal": 27,
+        "followupOrdinal": 27,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/execution/destroy-review.test.ts",
+        "fullName": "real Postgres destroy-review lane persists the first pending review with a readable PlanView",
+        "unitOrdinal": 18,
+        "followupOrdinal": 18,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/secrets/rewrap.test.ts",
+        "fullName": "real Postgres vault re-wrap commits product rows and audit together, then resumes idempotently",
+        "unitOrdinal": 56,
+        "followupOrdinal": 56,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/sources/github-store.test.ts",
+        "fullName": "GitHub source Postgres store (opt-in) persists only identifiers and proof digests, and resolves bindings by workspace",
+        "unitOrdinal": 10,
+        "followupOrdinal": 10,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/sources/github-store.test.ts",
+        "fullName": "GitHub source Postgres store (opt-in) refuses a changed callback workspace without consuming the legitimate intent",
+        "unitOrdinal": 11,
+        "followupOrdinal": 11,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/sources/github-store.test.ts",
+        "fullName": "GitHub source Postgres store (opt-in) refuses a changed callback actor without consuming the legitimate intent",
+        "unitOrdinal": 12,
+        "followupOrdinal": 12,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/sources/github-store.test.ts",
+        "fullName": "GitHub source Postgres store (opt-in) refuses a changed callback browser without consuming the legitimate intent",
+        "unitOrdinal": 13,
+        "followupOrdinal": 13,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/sources/github-store.test.ts",
+        "fullName": "GitHub source Postgres store (opt-in) refuses a changed callback state without consuming the legitimate intent",
+        "unitOrdinal": 14,
+        "followupOrdinal": 14,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/sources/github-store.test.ts",
+        "fullName": "GitHub source Postgres store (opt-in) refuses expired intents at both transitions using database time",
+        "unitOrdinal": 15,
+        "followupOrdinal": 15,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/sources/github-store.test.ts",
+        "fullName": "GitHub source Postgres store (opt-in) allows only one racing setup and one racing OAuth callback",
+        "unitOrdinal": 16,
+        "followupOrdinal": 16,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/sources/github-store.test.ts",
+        "fullName": "GitHub source Postgres store (opt-in) stores hashed state/proof and never lets an install callback skip OAuth",
+        "unitOrdinal": 17,
+        "followupOrdinal": 17,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/sources/github-store.test.ts",
+        "fullName": "GitHub source Postgres store (opt-in) rejects stale/racing bind intents rather than overwriting another admin's binding",
+        "unitOrdinal": 18,
+        "followupOrdinal": 18,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      },
+      {
+        "file": "tests/sources/github-store.test.ts",
+        "fullName": "GitHub source Postgres store (opt-in) validates identifiers and numeric IDs without reflecting malicious data",
+        "unitOrdinal": 19,
+        "followupOrdinal": 19,
+        "unitStatus": "skipped",
+        "followupStatus": "passed"
+      }
+    ],
+    "unresolved": [],
+    "cleanup": {
+      "container": "zenith-prod-pg-f4bed474",
+      "ownershipVerified": true,
+      "removed": true,
+      "absenceVerified": true,
+      "newImageRemoved": true,
+      "baselineImagesPreserved": true,
+      "hostFreeGiB": 22.66
+    }
+  },
+  "azure-python-followup-receipt.json": {
+    "commit": "9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+    "recordedAt": "2026-10-03T08:18:50.524939+00:00",
+    "exitCode": 0,
+    "counts": {
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0
+    },
+    "pythonVersion": "3.14.5",
+    "pythonSha256": "2477b47fa3ae65b9574eb18a15edb364e96948eaa1875ad3f1c80d780efc9c12",
+    "temporaryAliasRemoved": true,
+    "sourceFileSha256": "8d54fce197f429e3f5da2b7c9a6d859bf8db03d331483cf0ebcd71227475655a",
+    "reportSha256": "3eb112025b82387b0d5b2693fa61b0fd408cc4176e3bb3be869059dcf97c9427",
+    "scope": "Real local Python collector execution with temporary python alias to existing python3; no Azure VM/agent/cloud delivery claim; original six unit skips remain unchanged."
+  }
+}

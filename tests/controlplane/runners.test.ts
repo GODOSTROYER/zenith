@@ -255,17 +255,24 @@ describe.each(LANES)("runners and agents [$name]", (lane) => {
 
     it("revoking a runner cancels its queued and claimed jobs but leaves a running one for the reaper", async () => {
       const { ws, runner } = await registeredRunner();
-      const queued = await enqueue(ws, runner.id);
       const claimed = await enqueue(ws, runner.id);
+      expect((await repos.jobs.claimNext(db(), { workspaceId: ws, runnerId: runner.id, max: 1 })).map(job => job.id)).toEqual([claimed.id]);
       const running = await enqueue(ws, runner.id);
-      await repos.jobs.claimNext(db(), { workspaceId: ws, runnerId: runner.id, max: 2 }); // queued + claimed → claimed
-      await db().query("update platform.runner_jobs set status = 'queued', claimed_at = null, lease_until = null where id = $1", [queued.id]);
-      await db().query("update platform.runner_jobs set status = 'running', started_at = clock_timestamp() where id = $1", [running.id]);
+      expect((await repos.jobs.claimNext(db(), { workspaceId: ws, runnerId: runner.id, max: 1 })).map(job => job.id)).toEqual([running.id]);
+      expect(await repos.jobs.markRunning(db(), { workspaceId: ws, runnerId: runner.id, jobId: running.id, leaseMs: 60_000 })).toBe(true);
+      const queued = await enqueue(ws, runner.id);
+      const claimedAt = (await repos.jobs.get(db(), ws, claimed.id))?.claimedAt;
+      expect(claimedAt).toBeDefined();
+      expect((await repos.jobs.get(db(), ws, queued.id))?.status).toBe("queued");
       const result = await repos.runners.revokeRunner(db(), ws, runner.id);
-      expect(result?.cancelledJobs).toBeGreaterThanOrEqual(2);
+      expect(result?.cancelledJobs).toBe(2);
       expect((await repos.jobs.get(db(), ws, queued.id))?.status).toBe("cancelled");
       expect((await repos.jobs.get(db(), ws, claimed.id))?.status).toBe("cancelled");
+      expect((await repos.jobs.get(db(), ws, claimed.id))?.claimedAt).toBe(claimedAt);
       expect((await repos.jobs.get(db(), ws, running.id))?.status).toBe("running");
+      await backdate(db(), "runner_jobs", "lease_until", running.id);
+      expect((await repos.jobs.expireStale(db(), 1000)).find(job => job.id === running.id)?.status).toBe("timed_out");
+      expect(await repos.jobs.claimNext(db(), { workspaceId: ws, runnerId: runner.id })).toEqual([]);
     });
 
     it("job reads are workspace scoped", async () => {

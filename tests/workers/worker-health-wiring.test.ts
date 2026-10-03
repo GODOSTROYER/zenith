@@ -6,7 +6,7 @@ const fake = vi.hoisted(() => ({
   checks: undefined as ReadinessChecks | undefined,
   state: "CREATED", stopping: false,
   store: { query: vi.fn(async () => [{}]), close: vi.fn(async () => undefined) },
-  closeStore: vi.fn(),
+  openStore: vi.fn(), closeStore: vi.fn(), artifactJanitor: vi.fn(),
   endpointClose: vi.fn(async () => undefined), janitorStop: vi.fn(async () => undefined),
   temporalCheck: vi.fn(async () => ({})), connectionClose: vi.fn(async () => undefined),
   policy: vi.fn(async () => ({})), createWorker: vi.fn(), run: vi.fn(),
@@ -23,8 +23,8 @@ vi.mock("@/lib/workflows/activities", () => ({ createActivities: fake.createActi
 vi.mock("@/lib/providers/azure/release/source-binding", () => ({ createAzureSourceStorageResolver: (db: unknown) => { expect(db).toBe(fake.store); return fake.azureResolver; } }));
 vi.mock("@/lib/drivers/types", () => ({ listDrivers: () => ["aws", "kubernetes", "zenith", "gcp", "azure", "oci"].map((provider) => ({ provider })) }));
 vi.mock("@/lib/policy", () => ({ loadPolicyEngine: fake.policy }));
-vi.mock("@/lib/execution/plan-janitor", () => ({ planMaxAgeFromEnv: () => 86400_000, startPlanJanitor: () => ({ stop: fake.janitorStop }) }));
-vi.mock("../../workers/execution/startup", () => ({ ExecutionStartupError: class extends Error {}, validateExecutionConfiguration: fake.validate, openExecutionStore: async () => fake.store, closeExecutionStore: fake.closeStore }));
+vi.mock("@/lib/execution/plan-janitor", () => ({ startPlanArtifactJanitor: fake.artifactJanitor }));
+vi.mock("../../workers/execution/startup", () => ({ ExecutionStartupError: class extends Error {}, validateExecutionConfiguration: fake.validate, openExecutionStore: fake.openStore, closeExecutionStore: fake.closeStore }));
 vi.mock("../../workers/execution/config", () => ({ executionWorkerConfigFromEnv: () => ({ temporal: {}, identity: "synthetic-worker", healthLogIntervalMs: 0 }) }));
 vi.mock("@/lib/workflows/config", () => ({ connectionOptionsFor: () => ({}), describeTemporalConfig: () => ({}) }));
 vi.mock("../../workers/execution/lifecycle", () => ({ installShutdownHandlers: () => () => fake.stopping }));
@@ -39,6 +39,9 @@ let output: MockInstance<typeof process.stdout.write>;
 beforeEach(() => {
   vi.resetModules(); vi.clearAllMocks(); fake.checks = undefined; fake.state = "CREATED"; fake.stopping = false;
   fake.policy.mockResolvedValue({}); fake.temporalCheck.mockResolvedValue({});
+  fake.validate.mockResolvedValue(undefined);
+  fake.openStore.mockResolvedValue(fake.store);
+  fake.artifactJanitor.mockReturnValue({ stop: fake.janitorStop });
   fake.closeStore.mockImplementation(async (db?: { close?: () => Promise<void> }) => {
     if (typeof db?.close === "function") await db.close();
   });
@@ -58,6 +61,14 @@ describe("worker health lifecycle wiring", () => {
     const probe = readinessProbe(fake.checks!);
     expect(await probe()).toMatchObject({ ready: false, checks: { temporal: "unknown", policy: "unavailable" } });
     loaded.resolve({}); await vi.waitFor(() => expect(fake.run).toHaveBeenCalledOnce());
+    expect(fake.validate).toHaveBeenCalledOnce();
+    expect(fake.openStore).toHaveBeenCalledOnce();
+    expect(fake.validate.mock.invocationCallOrder[0]).toBeLessThan(fake.openStore.mock.invocationCallOrder[0]);
+    expect(fake.openStore.mock.invocationCallOrder[0]).toBeLessThan(fake.policy.mock.invocationCallOrder[0]);
+    expect(fake.policy.mock.invocationCallOrder[0]).toBeLessThan(fake.createWorker.mock.invocationCallOrder[0]);
+    expect(fake.artifactJanitor).toHaveBeenCalledExactlyOnceWith(fake.store, expect.any(Function));
+    expect(fake.createWorker.mock.invocationCallOrder[0]).toBeLessThan(fake.artifactJanitor.mock.invocationCallOrder[0]);
+    expect(fake.artifactJanitor.mock.invocationCallOrder[0]).toBeLessThan(fake.run.mock.invocationCallOrder[0]);
     expect(fake.createActivities).toHaveBeenCalledWith(expect.objectContaining({ sourceBundles: { azureStorage: fake.azureResolver } }));
     expect(fake.createWorker).toHaveBeenCalledWith(expect.objectContaining({ dataConverter: fake.dataConverter })); // payloads are encrypted
     expect(await probe()).toMatchObject({ ready: true }); expect(fake.temporalCheck).toHaveBeenCalledOnce();
@@ -71,6 +82,24 @@ describe("worker health lifecycle wiring", () => {
     expect(fake.endpointClose.mock.invocationCallOrder[0]).toBeLessThan(fake.janitorStop.mock.invocationCallOrder[0]);
     expect(fake.janitorStop.mock.invocationCallOrder[0]).toBeLessThan(fake.connectionClose.mock.invocationCallOrder[0]);
     expect(fake.connectionClose.mock.invocationCallOrder[0]).toBeLessThan(fake.store.close.mock.invocationCallOrder[0]);
+  });
+
+  it.each(["postgres-store", "artifact-key", "packaged-tofu-identity"])("refuses a failed %s prerequisite before store composition or polling", async (prerequisite) => {
+    const privateDetail = `synthetic-${prerequisite}-input`;
+    fake.validate.mockRejectedValue(new Error(privateDetail));
+    await import("../../workers/execution/worker");
+    await vi.waitFor(() => expect(exited).toHaveBeenCalledWith(1));
+    expect(fake.validate).toHaveBeenCalledOnce();
+    expect(fake.openStore).not.toHaveBeenCalled();
+    expect(fake.policy).not.toHaveBeenCalled();
+    expect(fake.createActivities).not.toHaveBeenCalled();
+    expect(fake.createWorker).not.toHaveBeenCalled();
+    expect(fake.run).not.toHaveBeenCalled();
+    expect(fake.artifactJanitor).not.toHaveBeenCalled();
+    expect(fake.endpointClose).toHaveBeenCalledOnce();
+    expect(fake.closeStore).toHaveBeenCalledExactlyOnceWith(undefined);
+    expect(fake.store.close).not.toHaveBeenCalled();
+    expect(output.mock.calls.map(([text]) => String(text)).join("")).not.toContain(privateDetail);
   });
 
   it("refuses polling with an unloaded policy and closes health without logging the failed bundle input", async () => {

@@ -18,6 +18,10 @@ import { workflowClient, closeWorkflowClients } from "@/lib/workflows/client";
 import { WORKFLOW_ID, WORKFLOW_TYPES, type ReconcileWorkflowResult, type WorkflowResult } from "@/lib/workflows/types";
 import { validateExecutionConfiguration } from "./startup";
 import { assertPackagedAcceptanceTarget, PACKAGED_PLAN_DIR } from "./packaged-target";
+import { planArtifactCipherFromEnv } from "@/lib/platform/plan-artifacts";
+import { digest } from "@/lib/controlplane/digest";
+import { stableJson } from "@/lib/tofu/stable";
+import type { PlanArtifactManifest } from "@/lib/tofu/engine";
 import { executionHolder } from "@/lib/execution/platform";
 import { ZENITH_SSM_DOCUMENTS } from "@/lib/machines/transports/aws-ssm-docs";
 
@@ -28,6 +32,7 @@ const HUMAN = "packaged-member";
 const CONNECTION = "packaged-unconnected-provider";
 const PLAN_DIR = PACKAGED_PLAN_DIR;
 const PLAN_DIGESTS = { terminal: "a".repeat(64), active: "b".repeat(64), unowned: "c".repeat(64) };
+const ARTIFACT_OPERATION = "packaged-artifact-maintenance";
 const principal = { kind: "user" as const, id: HUMAN, name: "Packaged acceptance member" };
 const scope = { workspaceId: WS, projectId: PROJECT, environmentId: ENVIRONMENT };
 
@@ -63,6 +68,24 @@ async function prepare(): Promise<Record<string, unknown>> {
       const old = new Date(Date.now() - 48 * 3600_000);
       await utimes(file, old, old);
     }
+    // Encrypted SQL lifecycle fixture only; these bytes carry no executable producer provenance.
+    const {operation}=await repos.operations.create(db,{id:ARTIFACT_OPERATION,workspaceId:WS,principal,status:"approved",
+      proposal:{capability:"infrastructure.plan",scope,input:{},summary:"Encrypted lifecycle fixture",details:[],risk:"low"}});
+    await db.query("update platform.operations set expires_at=clock_timestamp()+interval '2 seconds' where workspace_id=$1 and id=$2",[WS,operation.id]);
+    const owner=(await repos.operations.get(db,WS,operation.id))!;
+    await repos.operations.claimForExecution(db,{workspaceId:WS,id:owner.id,expectedDigest:owner.proposalDigest,holder:executionHolder(owner.id),leaseMs:60000});
+    const lease=await repos.leases.acquire(db,{scope:`env:${ENVIRONMENT}`,workspaceId:WS,holder:`worker:maintenance-fixture:${owner.id}`,ttlMs:60000});
+    if(!lease)throw new Error("Lifecycle fixture lease unavailable.");
+    const raw=Buffer.from("Explicit encrypted lifecycle sentinel; never an executable plan.");
+    const manifest:PlanArtifactManifest={workspaceId:WS,operationId:owner.id,projectId:PROJECT,environmentId:ENVIRONMENT,proposalDigest:owner.proposalDigest,inputDigest:owner.inputDigest,
+      expiresAt:owner.expiresAt,sourceDigest:digest("lifecycle-source"),graphDigest:digest("lifecycle-graph"),format:"zenith.plan-artifact.v1",purpose:"deploy",
+      configDigest:digest("lifecycle-config"),lockDigest:digest("lifecycle-lock"),backendDigest:digest("lifecycle-backend"),addressMapDigest:digest("lifecycle-addresses"),
+      planDigest:digest("lifecycle-plan"),rawSha256:createHash("sha256").update(raw).digest("hex"),bytes:raw.length,
+      executable:{version:"maintenance-fixture",platform:"maintenance-fixture",sha256:digest("lifecycle-tool"),archiveSha256:null}};
+    const sealed=planArtifactCipherFromEnv().seal(WS,`zenith.tofu.plan-artifact.v1:${createHash("sha256").update(stableJson(manifest)).digest("hex")}`,raw.toString("base64"));
+    await repos.planArtifacts.publish(db,{manifest,sealed,lease,evidence:{id:"evd_packaged_lifecycle",workspaceId:WS,operationId:owner.id,kind:"tofu_plan",digest:manifest.planDigest,summary:{planDigest:manifest.planDigest,lifecycleFixture:true},simulated:false}});
+    await repos.leases.release(db,lease);
+    await new Promise(resolve=>setTimeout(resolve,Math.max(0,Date.parse(owner.expiresAt)-Date.now()+20)));
     return { prepared: true, appliedVersions: migrated.applied, productStore: "isolated-file-fixture", platformStore: "postgres" };
   } finally { await db.close(); }
 }
@@ -110,11 +133,20 @@ async function operations(): Promise<Record<string, unknown>> {
 
 async function assets(): Promise<Record<string, unknown>> {
   const exists = async (digest: string) => stat(path.join(PLAN_DIR, `${digest}.tfplan`)).then(() => true, () => false);
-  for (let attempt = 0; attempt < 20 && await exists(PLAN_DIGESTS.terminal); attempt++) await new Promise((resolve) => setTimeout(resolve, 250));
-  const terminalRemoved = !(await exists(PLAN_DIGESTS.terminal));
+  const db=await platformDb();
+  let logicallyExpired=false;
+  for(let attempt=0;attempt<20;attempt++) {
+    const rows=await db.query<{phase:string}>("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[WS,ARTIFACT_OPERATION]);
+    logicallyExpired=rows[0]?.phase==="expired";
+    if(logicallyExpired)break;
+    await new Promise(resolve=>setTimeout(resolve,250));
+  }
+  const rows=await db.query<{ciphertext:string}>("select ciphertext from platform.plan_artifacts where workspace_id=$1 and operation_id=$2",[WS,ARTIFACT_OPERATION]);
+  const ciphertextRetained=rows.length===1 && rows[0].ciphertext.length>0;
+  const terminalRetained = await exists(PLAN_DIGESTS.terminal);
   const activeRetained = await exists(PLAN_DIGESTS.active);
   const unownedRetained = await exists(PLAN_DIGESTS.unowned);
-  if (!terminalRemoved || !activeRetained || !unownedRetained) throw new Error("Packaged plan retention contract failed.");
+  if (!logicallyExpired || !ciphertextRetained || !terminalRetained || !activeRetained || !unownedRetained) throw new Error("Packaged logical artifact expiry contract failed.");
   const data = await stat("/var/lib/zenith");
   const plans = await stat(PLAN_DIR);
   if (process.getuid?.() !== 10001 || data.uid !== 10001 || plans.uid !== 10001 || (plans.mode & 0o077) !== 0) throw new Error("Worker filesystem permissions failed.");
@@ -127,7 +159,7 @@ async function assets(): Promise<Record<string, unknown>> {
       const metadata = JSON.parse(await readFile(path.join("node_modules", name, "package.json"), "utf8")) as { version: string };
       return [name, metadata.version];
     }))),
-    plans: { terminalRemoved, activeRetained, unownedRetained, sentinelFiles: true } };
+    plans: { logicallyExpired, ciphertextRetained, terminalRetained, activeRetained, unownedRetained, sentinelFiles: true, encryptedLifecycleFixture: true } };
 }
 
 async function main(): Promise<void> {

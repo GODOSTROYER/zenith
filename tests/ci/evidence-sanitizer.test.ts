@@ -16,11 +16,12 @@ const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-sanitized-evidence
 afterAll(() => fs.rmSync(scratch, { recursive: true, force: true }));
 
 function reportFor(lane = "platform-postgres") {
-  const files = new Map<string, { name: string; status: string; assertionResults: { fullName: string; ancestorTitles: string[]; status: string; failureMessages?: string[] }[] }>();
+  const files = new Map<string, { name: string; status: string; assertionResults: { fullName: string; title?: string; ancestorTitles: string[]; status: string; failureMessages?: string[] }[] }>();
   for (const required of requirementsFor(lane, root)) {
     const name = path.resolve(root, required.file);
     const file = files.get(name) ?? { name, status: "passed", assertionResults: [] };
-    file.assertionResults.push({ fullName: `${required.ancestorSuite ? `${required.ancestorSuite} ` : ""}${required.suite ?? "required scenario"} passes`, ancestorTitles: [...(required.ancestorSuite ? [required.ancestorSuite] : []), required.suite ?? "required scenario"], status: "passed" });
+    const title = required.test ?? "passes";
+    file.assertionResults.push({ fullName: `${required.ancestorSuite ? `${required.ancestorSuite} ` : ""}${required.suite ?? "required scenario"} ${title}`, title, ancestorTitles: [...(required.ancestorSuite ? [required.ancestorSuite] : []), required.suite ?? "required scenario"], status: "passed" });
     files.set(name, file);
   }
   return { success: true, testResults: [...files.values()] };
@@ -48,8 +49,8 @@ describe("sanitized evidence boundary", () => {
   it("exports count-only requirement evidence bound to commit, dependencies, source and environment", () => {
     const evidence = sanitizedEvidence("platform-postgres", reportFor(), root, provenance);
     expect(evidence.verdict).toBe("passed");
-    expect(evidence.required).toHaveLength(45);
-    expect(evidence.required.filter((required: { file: string }) => required.file !== "tests/platform/ecs-replica-repair-grants.test.ts")).toHaveLength(39);
+    expect(evidence.required).toHaveLength(70);
+    expect(evidence.required.filter((required: { file: string }) => required.file !== "tests/platform/ecs-replica-repair-grants.test.ts")).toHaveLength(64);
     expect(evidence.provenance.commit).toMatch(/^[a-f0-9]{40}$/);
     expect(evidence.provenance.sourceBindingComplete).toBe(true);
     expect(evidence.provenance.environment.sha256).toMatch(/^[a-f0-9]{64}$/);
@@ -98,8 +99,8 @@ describe("sanitized evidence boundary", () => {
     const report = { ...reportFor(), numTotalTests: 99999, numPassedTests: 99999 };
     const evidence = sanitizedEvidence("platform-postgres", report, root, provenance);
     expect(evidence.verdict).toBe("failed");
-    expect(evidence.counts.total).toBe(45);
-    expect(evidence.counts.passed).toBe(45);
+    expect(evidence.counts.total).toBe(70);
+    expect(evidence.counts.passed).toBe(70);
   });
 
   it("binds untracked source bytes and explicitly identifies a dirty worktree", () => {
@@ -603,7 +604,7 @@ describe("sanitized evidence boundary", () => {
     fs.writeFileSync(path.join(checkout, "package-lock.json"), JSON.stringify({ packages: { "node_modules/vitest": { version: "4.5.6" } } }));
     expect(provenanceFor(checkout, {}).dependencies).toContainEqual({ name: "vitest", installed: "1.2.3", locked: "4.5.6" });
     const evidence = sanitizedEvidence("platform-postgres", reportFor(), root, provenance);
-    expect(evidence.expectedTools).toEqual({ node: "22.23.3", postgres: "16.15" });
+    expect(evidence.expectedTools).toEqual({ node: "22.23.3", postgres: "16.15", tofu: "1.12.5" });
     expect(evidence).not.toHaveProperty("measuredTools");
   });
 

@@ -16,8 +16,7 @@
  * Logs are JSON lines on stdout. Secrets (the Temporal API key, cloud
  * credentials) are never logged.
  * Loopback probes listen on ZENITH_WORKER_HEALTH_PORT (default 9464).
- * Local terminal-operation plans age out after ZENITH_WORKER_PLAN_MAX_AGE_HOURS
- * (default 24); unowned/active plans are retained conservatively.
+ * Artifact access expires durably. No ciphertext or legacy plan files are physically pruned.
  */
 
 import { DefaultLogger, NativeConnection, Runtime, Worker } from "@temporalio/worker";
@@ -28,7 +27,7 @@ import { ensurePlatformApp } from "@/lib/platform/app";
 import type { Sql } from "@/lib/controlplane/types";
 import { listDrivers } from "@/lib/drivers/types";
 import { loadPolicyEngine } from "@/lib/policy";
-import { planMaxAgeFromEnv, startPlanJanitor } from "@/lib/execution/plan-janitor";
+import { startPlanArtifactJanitor } from "@/lib/execution/plan-janitor";
 import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
 import { createActivities } from "@/lib/workflows/activities";
 import { connectionOptionsFor, describeTemporalConfig } from "@/lib/workflows/config";
@@ -52,7 +51,7 @@ async function main(): Promise<void> {
   let worker: Worker | undefined;
   let policyLoaded = false;
   let stopping = () => false;
-  let janitor: ReturnType<typeof startPlanJanitor> | undefined;
+  let janitor: ReturnType<typeof startPlanArtifactJanitor> | undefined;
   let healthLog: ReturnType<typeof setInterval> | undefined;
   failureCategory = "health-listener";
   const endpoint = await startHealthServer({ port: healthPortFromEnv(), checks: {
@@ -104,7 +103,7 @@ async function main(): Promise<void> {
 
     failureCategory = "worker-lifecycle";
     stopping = installShutdownHandlers({ worker, graceMs: config.shutdownGraceMs, log, signals: process, exit: (code) => process.exit(code) });
-    janitor = startPlanJanitor(db, { planDir, maxAgeMs: planMaxAgeFromEnv() }, (result) => {
+    janitor = startPlanArtifactJanitor(db, (result) => {
       if (result) log("info", "plan maintenance", { ...result });
       else log("warn", "plan maintenance unavailable; check plan directory and control store");
     });

@@ -22,6 +22,8 @@ import { randomUUID } from "node:crypto";
 import type { EvidenceRecord, PlatformEventType } from "@/lib/controlplane/types";
 import { digest } from "@/lib/controlplane/digest";
 import { findDriver } from "@/lib/drivers/types";
+import type { PlanCustodyInput } from "@/lib/tofu/engine";
+import type { ExecContext } from "./context";
 import { applyVerifiedPlan, planWorkspace } from "@/lib/tofu/engine";
 import { sleepMs } from "./concurrency";
 import { defaultCostPort } from "./cost";
@@ -154,4 +156,14 @@ export function createRuntime(deps: ExecutionDeps): Runtime {
 /** `WorkScope` of a stored operation record. */
 export function scopeOf(op: { id: string; workspaceId: string; projectId?: string; environmentId?: string; correlationId: string }): WorkScope {
   return { id: op.id, operationId: op.id, workspaceId: op.workspaceId, projectId: op.projectId, environmentId: op.environmentId, correlationId: op.correlationId };
+}
+
+/** Derived only from trusted loaded authorities, never workflow/LLM supplied manifest claims. */
+export function planCustody(ec: ExecContext, graphDigest: string, connection: { id: string; workspaceId: string; config: unknown }): PlanCustodyInput {
+  if (ec.op.projectId !== ec.product.project.id || ec.op.workspaceId !== ec.product.workspace.id || ec.op.environmentId !== ec.product.environment.id
+    || connection.workspaceId !== ec.workspaceId) throw new Error("Plan custody scope is inconsistent.");
+  return Object.freeze({ workspaceId: ec.workspaceId, projectId: ec.product.project.id, environmentId: ec.environmentId, operationId: ec.op.id,
+    proposalDigest: ec.op.proposalDigest, inputDigest: ec.op.inputDigest, expiresAt: ec.op.expiresAt, graphDigest,
+    sourceDigest: digest({ revision: ec.product.revision ?? null, deployedRevisionId: ec.product.environment.deployedRevisionId ?? null,
+      connectionId: connection.id, connectionConfig: connection.config, provider: ec.product.environment.provider, region: ec.product.environment.region }) });
 }

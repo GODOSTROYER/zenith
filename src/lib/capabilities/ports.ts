@@ -297,7 +297,7 @@ export interface BrokerStore {
    * running/terminal. Teardown supersession supplies `expectedStatus`; the
    * check is atomic with cancellation, so a concurrent approval wins safely.
    */
-  cancelOperation(input: { workspaceId: string; id: string; reason?: string; actor?: Principal; expectedStatus?: "awaiting_approval" }): Promise<OperationRecord | null>;
+  cancelOperation(input: { workspaceId: string; id: string; reason?: string; actor?: Principal; expectedStatus?: "awaiting_approval"; requireUndecidedApprovalRound?: boolean }): Promise<OperationRecord | null>;
   /** Move a pre-execution operation that is past its `expiresAt` to `expired`. `null` when it is not in such a state. */
   expireOperation(input: { workspaceId: string; id: string }): Promise<OperationRecord | null>;
   /**

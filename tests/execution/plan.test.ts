@@ -40,7 +40,7 @@ const publicDb = () =>
   });
 
 describe("planInfrastructure", () => {
-  it("plans with an observe session under a plan-only grant, without the state lock, and keeps the plan file in planDir only", async () => {
+  it("plans with an observe-only grant and atomically publishes private original custody without shared local files", async () => {
     const w = world();
     const lease = await w.lease();
     const summary = await w.activities.planInfrastructure({ operationId: OP, lease });
@@ -48,7 +48,8 @@ describe("planInfrastructure", () => {
     const plan = w.tofu.planCalls[0];
     expect(summary).toMatchObject({ create: 1, update: 0, delete: 0, replace: 0, destroysData: false, empty: false });
     expect(plan.opts.lock).toBe(false); // the read-only role cannot write the S3 lock object; the env lease serialises
-    expect(plan.opts.planDir).toBe(w.planDir);
+    expect(plan.opts.planDir).toBeUndefined();
+    expect(plan.opts.custody).toMatchObject({workspaceId:plan.opts.custody?.workspaceId,operationId:OP});
     expect(plan.opts.normalize?.fingerprintKey).toBe(FINGERPRINT_KEY);
     expect(plan.envKeys).toEqual(expect.arrayContaining(["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"]));
 
@@ -56,9 +57,10 @@ describe("planInfrastructure", () => {
     expect(w.broker.grants).toEqual([{ operationId: OP, audience: "worker", fence: { scope: `env:${ENV}`, fenceToken: lease.fenceToken }, capability: "infrastructure.plan", durationSec: 3600 }]);
     expect(w.credentials.sessions).toMatchObject([{ purpose: "observe", capability: "infrastructure.plan", durationSec: 3600, fence: lease.fenceToken, revoked: true }]);
 
-    // the binary plan file is in planDir and nowhere else
+    // The canonical activity publishes original custody through its artifact port.
     const files = readdirSync(w.planDir);
-    expect(files).toEqual([`${summary.planDigest}.tfplan`]);
+    expect(files).toEqual([]);
+    expect(w.evidence.ofKind("tofu_plan").some(row=>row.digest===summary.planDigest)).toBe(true);
     expect(w.stored()).not.toContain(PLAN_FILE_CANARY);
   });
 
@@ -393,7 +395,7 @@ describe("finalPlan", () => {
     const moved = w.evidence.ofKind("tofu_plan").find((e) => e.summary.stage === "final_plan")!;
     expect(moved.summary).toMatchObject({ matchesApproved: false, approvedDigest: approved.planDigest });
     const files = readdirSync(w.planDir);
-    expect(files).toEqual([`${approved.planDigest}.tfplan`]); // only the approved plan's file remains
+    expect(files).toEqual([]); // Refused fresh plans cannot overwrite immutable original custody.
     expect(existsSync(path.join(w.planDir, `${(err as TofuPlanChangedError).currentDigest}.tfplan`))).toBe(false);
   });
 

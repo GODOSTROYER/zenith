@@ -14,6 +14,7 @@
  */
 import { z } from "zod";
 import { isSafeRelativePath } from "@/lib/tofu/config-digest";
+import { parseMachineArgs } from "@/lib/machines/args";
 import { MACHINE_OPERATIONS, type MachineOperation } from "@/lib/machines/types";
 import type { RunnerJobKind } from "@/lib/runners/types";
 import { OCI_SERVICE_HOSTS, type OciServiceId } from "@/lib/providers/oci/services";
@@ -178,11 +179,11 @@ export function validateRunnerPayload(kind: RunnerJobKind, payload: unknown): un
 /* ------------------------------- zenithd (machine) ------------------------------- */
 
 /**
- * Operations zenithd implements. `file.write`, `file.upload` and
+ * Operations zenithd implements. `file.upload` and
  * `package.install` exist in the platform vocabulary but zenithd deliberately
  * does not implement them (the Go agent refuses them), so they are never dispatched.
  */
-export const ZENITHD_OPERATIONS: readonly MachineOperation[] = MACHINE_OPERATIONS.filter((op) => op !== "file.write" && op !== "file.upload" && op !== "package.install");
+export const ZENITHD_OPERATIONS: readonly MachineOperation[] = MACHINE_OPERATIONS.filter((op) => op !== "file.upload" && op !== "package.install");
 
 export const MAX_MACHINE_ARGS_BYTES = 64 * 1024;
 
@@ -201,5 +202,10 @@ export function validateMachineArgs(operation: string, args: unknown): Record<st
     throw new PayloadError(operation, "args must be JSON-serializable");
   }
   if (size > MAX_MACHINE_ARGS_BYTES) throw new PayloadError(operation, `args are larger than ${MAX_MACHINE_ARGS_BYTES} bytes`);
+  if (operation === "file.write") {
+    const parsed = parseMachineArgs("file.write", args);
+    if (!parsed.ok) throw new PayloadError(operation, "args do not match the strict local-template write contract");
+    return parsed.args;
+  }
   return JSON.parse(JSON.stringify(args)) as Record<string, unknown>;
 }

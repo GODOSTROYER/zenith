@@ -181,6 +181,24 @@ func TestResultGoldens(t *testing.T) {
 		}
 		compareGolden(t, "machine.exec-failed", map[string]any{"operation": OpExec, "args": args, "result": res})
 	})
+	t.Run("file.write-filesystem", compareFileWriteGoldens)
+}
+
+// File writes must come from actual Linux filesystem execution. Opaque
+// transaction IDs are normalized only after checking retained custody files.
+type fileWriteGoldenFixture struct {
+	name   string
+	args   fileWriteArgs
+	result Result
+}
+
+func compareFileWriteGoldens(t *testing.T) {
+	if !fileWritePlatform() && os.Getenv("ZENITH_UPDATE_MACHINE_GOLDENS") == "1" {
+		t.Fatal("successful file.write golden generation requires actual unprivileged Linux; non-Linux refusal is not mutation mapper proof")
+	}
+	for _, fixture := range fileWriteGoldenFixtures(t) {
+		compareGolden(t, fixture.name, map[string]any{"operation": OpFileWrite, "args": fixture.args, "result": fixture.result})
+	}
 }
 
 func compareGolden(t *testing.T, name string, v any) {

@@ -285,9 +285,13 @@ export class MemoryBrokerStore implements BrokerStore {
   }
 
   async cancelOperation(input: Parameters<BrokerStore["cancelOperation"]>[0]): Promise<OperationRecord | null> {
+    if (input.requireUndecidedApprovalRound && input.expectedStatus !== "awaiting_approval") throw new BrokerError("invalid_request", "Undecided-round cancellation requires awaiting_approval.");
     const stored = this.operations.get(opKey(input.workspaceId, input.id));
     if (!stored || !PRE_EXECUTION.includes(stored.record.status)) return null;
     if (input.expectedStatus && stored.record.status !== input.expectedStatus) return null;
+    // This synchronous section shares the operation record with recordApproval: no decision can interleave.
+    if (input.requireUndecidedApprovalRound && this.approvals.some(a => a.record.workspaceId === input.workspaceId && a.record.operationId === input.id
+      && ((a.record as { approvalRound?: number }).approvalRound ?? 0) === ((stored.record as { approvalRound?: number }).approvalRound ?? 0))) return null;
     const op = stored.record;
     op.status = "cancelled";
     op.updatedAt = this.nowIso();

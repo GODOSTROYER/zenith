@@ -471,6 +471,7 @@ describe("AWS error mapping", () => {
 
 describe("machine.exec through AWS-RunShellScript", () => {
   const exec = (argv: string[], extra: Record<string, unknown> = {}) => requestFor("machine.exec", { argv, timeoutSec: 20, ...extra });
+  const sh = findSh();
 
   it("golden quoting: every element single-quoted, embedded quotes as '\\'' and nothing else escaped", () => {
     const golden: [string[], string][] = [
@@ -488,11 +489,9 @@ describe("machine.exec through AWS-RunShellScript", () => {
     for (const [argv, line] of golden) expect(argvToCommandLine(argv), JSON.stringify(argv)).toBe(line);
   });
 
-  it("a shell reading the quoted line recovers exactly the original argv (real sh, hostile elements)", () => {
-    const sh = findSh();
-    if (!sh) return;
+  it.skipIf(!sh)("a shell reading the quoted line recovers exactly the original argv (real sh, hostile elements)", () => {
     const argv = ["echo", "it's", "$(touch /tmp/zenith-pwned)", "`id`", "a b;c|d&e", "line1\nline2", "", "'", "''", "\\", '"', "$HOME", "${X}", "*", "~", "!x", "#c", "{a,b}", "tab\there"];
-    const r = sh(`set -- ${argvToCommandLine(argv)}\nprintf '%s\\n' "$#"\nfor a in "$@"; do printf '[%s]\\n' "$a"; done\ntest ! -e /tmp/zenith-pwned && echo clean`);
+    const r = sh!(`set -- ${argvToCommandLine(argv)}\nprintf '%s\\n' "$#"\nfor a in "$@"; do printf '[%s]\\n' "$a"; done\ntest ! -e /tmp/zenith-pwned && echo clean`);
     expect(r.status, r.stderr).toBe(0);
     const out = r.stdout.split("\n");
     expect(out[0]).toBe(String(argv.length));

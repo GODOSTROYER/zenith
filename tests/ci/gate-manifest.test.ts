@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 
 const root = process.cwd();
@@ -62,19 +62,23 @@ describe("canonical gate manifest", () => {
 
   it("covers direct PG-only suites and each parameterized backend suite independently", () => {
     const requirements = requirementsFor("platform-postgres", root);
-    expect(requirements).toHaveLength(45);
-    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(39);
+    expect(requirements).toHaveLength(70);
+    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(64);
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/open.test.ts", suite: "platformDb() against PostgreSQL", backend: "postgres" }));
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/executor.test.ts", suite: "cross-engine shape identity", backend: "postgres" }));
     expect(requirements.filter((required: { file: string }) => required.file === "tests/capabilities/tenancy.test.ts")).toHaveLength(5);
   });
 
-  it("requires both the fresh/reapply/checksum/rollback/emitted-SQL migrator and PostgreSQL concurrency suites", () => {
+  it("requires fresh migration, PostgreSQL concurrency and the exact schema 6 hardening upgrade case", () => {
     const requirements = requirementsFor("platform-postgres", root).filter((required) => required.file === "tests/controlplane/migrations.test.ts");
-    expect(requirements.map((required) => required.suite)).toEqual(["migrator [postgres]", "migrator [postgres] concurrency and fail-closed open"]);
+    expect(requirements.map((required) => ({ suite: required.suite, test: required.test }))).toEqual([
+      { suite: "migrator [postgres]", test: undefined },
+      { suite: "migrator [postgres] concurrency and fail-closed open", test: undefined },
+      { suite: "migrator [postgres] concurrency and fail-closed open", test: "schema 6 emitted hardening upgrades through the canonical migrator under a distinct owner with RLS, role isolation and immutable artifacts" },
+    ]);
     const report = {
       success: true,
-      testResults: [{ name: path.resolve(root, "tests/controlplane/migrations.test.ts"), status: "passed", assertionResults: requirements.map((required) => ({ fullName: required.suite + " scenario", ancestorTitles: [required.suite], status: "passed" })) }],
+      testResults: [{ name: path.resolve(root, "tests/controlplane/migrations.test.ts"), status: "passed", assertionResults: requirements.map((required) => ({ fullName: required.suite + " " + (required.test ?? "scenario"), title: required.test ?? "scenario", ancestorTitles: [required.suite], status: "passed" })) }],
     };
     expect(reportFailures(requirements, report, root)).toEqual([]);
     report.testResults[0].assertionResults.shift();
@@ -83,7 +87,7 @@ describe("canonical gate manifest", () => {
 
   it.each(["pglite", "skipped", "failed"])("rejects %s replacement of the real fresh migration suite even when concurrency passed", (replacement) => {
     const requirements = requirementsFor("platform-postgres", root).filter((required) => required.file === "tests/controlplane/migrations.test.ts");
-    const assertions = requirements.map((required) => ({ fullName: required.suite + " scenario", ancestorTitles: [required.suite ?? ""], status: "passed" }));
+    const assertions = requirements.map((required) => ({ fullName: required.suite + " " + (required.test ?? "scenario"), title: required.test ?? "scenario", ancestorTitles: [required.suite ?? ""], status: "passed" }));
     if (replacement === "pglite") {
       assertions[0].ancestorTitles = ["migrator ['pglite']"];
       assertions[0].fullName = "migrator ['pglite'] scenario";
@@ -124,10 +128,12 @@ describe("mandatory ECS replica repair gates", () => {
     }
   });
 
-  it("preserves every existing PostgreSQL requirement ID and binds new IDs to the exact outer suite", () => {
+  it("preserves suite-only PostgreSQL requirement IDs and binds case IDs to exact ancestry and titles", () => {
     for (const required of requirementsFor("platform-postgres", root).filter((item) => item.file !== ecsGrantFile)) {
-      const suffix = createHash("sha256").update(`${required.suite ?? ""}:${required.postgres ?? false}`).digest("hex").slice(0, 12);
+      const identity = `${required.suite ?? ""}:${required.postgres ?? false}${required.ancestorSuite !== undefined ? `:${required.ancestorSuite}` : ""}${required.test ? `:test:${required.test}` : ""}`;
+      const suffix = createHash("sha256").update(identity).digest("hex").slice(0, 12);
       expect(required.id).toBe(`platform-postgres:${required.file}:${suffix}`);
+      if (required.test) expect(requirementId("platform-postgres", { ...required, test: "other case" })).not.toBe(required.id);
     }
     const required = ecsPostgresRequirements()[0];
     expect(requirementId("platform-postgres", { ...required, ancestorSuite: "other [postgres]" })).not.toBe(required.id);
@@ -230,4 +236,49 @@ describe("stable backend ancestry", () => {
     const assertions = requirements.slice(0, 3).map((required) => ({ fullName: required.suite + " scenario", ancestorTitles: [required.suite], status: "passed" }));
     expect(reportFailures(requirements, { success: true, testResults: [{ name: path.resolve(root, requirements[0].file), status: "passed", assertionResults: assertions }] }, root)).toHaveLength(1);
   });
+});
+
+
+describe("canonical native Linux guest contract", () => {
+  it("exposes Linux guest through the same manifest without adding a Vitest lane", () => {
+    expect(Object.hasOwn(GATE_LANES, "linux-guest")).toBe(false);
+    expect(manifestFor("linux-guest")).toEqual(linuxGuestManifest());
+    const result = spawnSync(process.execPath, ["scripts/ci/gate-manifest.mjs", "linux-guest"], { encoding: "utf8" });
+    expect(result.status).toBe(0); expect(JSON.parse(result.stdout)).toEqual(linuxGuestManifest());
+  });
+  it("preserves full race, exact authentic golden generation, byte/untracked comparisons and tool pins", () => {
+    const manifest = linuxGuestManifest();
+    expect(manifest.tools).toEqual({ node: "22.23.3", go: "1.27.1" });
+    expect(manifest.env.GOTOOLCHAIN).toBe("local");
+    expect(manifest.report).toBe(".data-ci-guest/attempt-{attemptId}/sanitized.json");
+    expect(manifest.artifactSelection).toContain("observed CI runner outcome");
+    expect(manifest.steps.map((step) => step.command)).toEqual([
+      ["go", "test", "-json", "-race", "-count=1", "./..."],
+      ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"],
+      ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"],
+      ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"],
+    ]);
+    expect(new Set(manifest.requiredCases.map((item) => item.id)).size).toBe(manifest.requiredCases.length);
+    for (const test of ["TestWriteExactMountAnchorsAndEscapes", "TestWriteConcurrentWritersAndDirectorySwapStress", "TestWriteFaultAndCancelPhases/after_renametrue", "TestWriteCrashCustodyAndRestart/directory_sync", "TestWriteRejectsActualAccessAndDefaultACLs/parent-default", "TestWriteImmutableVersionCannotBeReused/pinned-bytes", "TestResultGoldens/file.write-filesystem"]) {
+      expect(manifest.requiredCases.some((item) => item.test === test)).toBe(true);
+    }
+    expect(manifest.allowedSkips.map((item) => item.test)).toEqual(["TestRealSystemctlAndJournalctl", "TestRealOpenTofuPlanShowApply", "TestRealOpenTofuWithProviderAndLockfile"]);
+    expect(manifest.allowedSkips.every((skip) => !manifest.requiredCases.some((item) => item.package === skip.package && item.test === skip.test))).toBe(true);
+  });
+});
+
+
+it("CI uploads one exact selected current-attempt file only after independent outcome binding", () => {
+  const workflow = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+  const native = workflow.slice(workflow.indexOf("  go:"), workflow.indexOf("  # The Temporal workflows lane"));
+  expect(native).toContain("id: native_guest");
+  expect(native).toContain('echo "expected_attempt_id=$attempt_id" >> "$GITHUB_OUTPUT"');
+  expect(native).toContain('ZENITH_GUEST_ATTEMPT_ID="$attempt_id" node scripts/ci/run-guest-file-write-gate.mjs --run');
+  expect(native).toContain("ZENITH_EXPECTED_GUEST_ATTEMPT: ${{ steps.native_guest.outputs.expected_attempt_id }}");
+  expect(native).toContain("ZENITH_GUEST_RUNNER_OUTCOME: ${{ steps.native_guest.outcome }}");
+  expect(native).toContain("run: node scripts/ci/run-guest-file-write-gate.mjs --select-current");
+  expect(native).toContain("steps.guest_evidence.outcome == 'success' && steps.guest_evidence.outputs.evidence_path != ''");
+  expect(native).toContain("path: ${{ steps.guest_evidence.outputs.evidence_path }}");
+  expect(native).not.toContain("path: .data-ci-guest/evidence.json");
+  expect(native).not.toContain("path: .data-ci-guest/");
 });

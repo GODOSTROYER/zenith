@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { createExecutionActivities } from "@/lib/execution/activities";
-import { planWorkspace, applyVerifiedPlan } from "@/lib/tofu/engine";
 import { upgradeManifest } from "@/lib/resources/upgrade";
 import { tofuOnPath } from "../tofu/_helpers";
 import { createWorld, type World } from "./fakes/world";
@@ -29,7 +28,7 @@ describe.skipIf(!enabled)("real tofu deploy removal (ZENITH_TEST_DELETION_GUARDS
     operation.proposal.input = { revisionId: old };
     const state = path.join(w.planDir, "terraform.tfstate");
     w.deps.tofuWorkspace = { providerSet: () => "builtin", backend: () => ({ backend: { kind: "local", path: state } }) };
-    w.activities = createExecutionActivities({ ...w.deps, tofu: { planWorkspace, applyVerifiedPlan } });
+    w.activities = createExecutionActivities({ ...w.deps, tofu: w.isolatedRealTofu });
     const lease = await w.lease();
     await w.activities.validateDesiredState({ operationId: OP });
     const created = await w.activities.planInfrastructure({ operationId: OP, lease });

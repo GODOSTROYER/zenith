@@ -346,20 +346,23 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     expect(squash(guide("README.md"))).toContain("EKS, SNS, EventBridge and CloudFront");
   });
 
-  it("worker health and plan cleanup are started and housekeeping prunes with locks", () => {
+  it("worker health and non-deleting plan expiry are started while housekeeping retains its own locks", () => {
     const worker = source("workers/execution/worker.ts");
-    for (const value of ["await startHealthServer(", "await loadPolicyEngine()", "connection!.workflowService.getSystemInfo({})", 'db.query("select 1")', "startPlanJanitor(db", "await janitor?.stop()", "await endpoint.close()"]) expect(worker).toContain(value);
+    for (const value of ["await startHealthServer(", "await loadPolicyEngine()", "connection!.workflowService.getSystemInfo({})", 'db.query("select 1")', "startPlanArtifactJanitor(db", "await janitor?.stop()", "await endpoint.close()"]) expect(worker).toContain(value);
     const health = source("workers/execution/health.ts");
     for (const value of ['"/healthz"', '"/readyz"', 'server.listen(options.port, "127.0.0.1"', 'env.ZENITH_WORKER_HEALTH_PORT?.trim() || "9464"', "HEALTH_CHECK_TIMEOUT_MS = 2000", "result.ready ? 200 : 503"]) expect(health).toContain(value);
     const janitor = source("src/lib/execution/plan-janitor.ts");
-    for (const value of ["PLAN_JANITOR_INTERVAL_MS = 5 * 60_000", "await terminalOwners(db, match[1])", "after.mtimeMs !== before.mtimeMs", "await unlink(file)"]) expect(janitor).toContain(value);
+    for (const value of ["PLAN_JANITOR_INTERVAL_MS = 5 * 60_000", "await terminalOwners(db, match[1])", "after.mtimeMs !== before.mtimeMs"]) expect(janitor).toContain(value);
+    expect(janitor).not.toContain("await unlink(file)");
+    expect(janitor).toContain("repos.planArtifacts.expire(db)");
+    expect(deploying).toContain("logical expiry");
     const housekeeping = source("src/lib/platform/housekeeping.ts");
     for (const value of ["repos.leases.assertFence(tx", "repos.idempotency.prune(tx, limit)", "repos.nonces.prune(tx", "reconcileOperations(tx, { limit })"]) expect(housekeeping).toContain(value);
     for (const file of ["idempotency.ts", "nonces.ts"]) expect(source(`src/lib/controlplane/db/repos/${file}`)).toContain("for update skip locked");
     expect(source(".github/workflows/tick.yml")).toContain("jobs?housekeeping=1");
     expect(deploying).toContain("`/healthz` returns 200");
-    expect(deploying).toContain("**every** known owner is terminal");
-    expect(deploying).toContain("rechecks expiry before deletion");
+    expect(deploying).toContain("Ciphertext and historical local files remain retained");
+    expect(deploying).toContain("there is no physical purge or new retention policy");
   });
 });
 
@@ -699,7 +702,15 @@ describe("operator claims match current wiring", () => {
     expect(held).not.toContain("acquireLease(");
     const once = source("src/lib/reconcile/activity.ts");
     for (const call of ["environment.workspaceId !== input.workspaceId", "environment.environmentId !== input.environmentId", "input.lease.scope !== `reconcile:${input.environmentId}`", "fence: { scope: input.lease.scope, token: input.lease.fenceToken }"]) expect(once).toContain(call);
-    expect(composition).toContain("tofu: { planWorkspace, applyVerifiedPlan }");
+    expect(composition).toMatch(/const custodyDb\s*=\s*opts\.db/);
+    expect(composition).toMatch(/const custodyEnv\s*=\s*Object\.freeze\(\{\.\.\.process\.env\}\)/);
+    expect(composition).toMatch(/custodyRuntime\s*\?\?=\s*createPlanArtifactRuntime\(custodyDb,\s*custodyEnv\)/);
+    expect(composition).toContain("Production execution requires PostgreSQL durable plan custody.");
+    expect(composition).toContain("Engine overrides require an explicit isolated test adapter.");
+    expect(composition).toContain("An isolated artifact adapter requires an explicit isolated engine.");
+    expect(composition).toMatch(/planWorkspace:\s*\(\.\.\.args\)\s*=>\s*custody\(\)\.tofu\.planWorkspace\(\.\.\.args\)/);
+    expect(composition).toMatch(/applyVerifiedPlan:\s*\(\.\.\.args\)\s*=>\s*custody\(\)\.tofu\.applyVerifiedPlan\(\.\.\.args\)/);
+    expect(composition).toContain('process.env.NODE_ENV !== "test"');
     expect(deploying).toContain("createStubActivities");
   });
 
@@ -747,11 +758,15 @@ describe("operator claims match current wiring", () => {
     const broker = source("src/lib/platform/broker.ts");
     expect(broker).toContain("operationPlanReview(reviewed)");
     expect(broker).toContain("approvalRoundOf(a) === round");
-    expect(broker).toContain("if (op.planDigest && round === 0) return { approved: false, rejected }");
+    expect(broker).toContain("if (op.planDigest && round === 0)");
+    expect(broker).toContain('op.capability!=="infrastructure.destroy"');
+    expect(broker).toContain("op.proposal.planDigest!==op.planDigest");
+    expect(broker).toContain("await loadDestroyPlan(broker.deps,op.proposal.scope");
+    expect(broker).toContain("original.evidenceId!==ref.destroyPlan.evidenceId");
     expect(guide("POLICY.md")).toContain("current approval round");
   });
 
-  it("closed middleware/bundle gaps stay closed and six migrations are documented", () => {
+  it("closed middleware/bundle gaps stay closed and seven migrations are documented", () => {
     const middleware = source("src/middleware.ts");
     expect(middleware).toContain("isPlatformBearerRequest");
     expect(middleware).toContain("isAgentSignedPath");
@@ -759,9 +774,9 @@ describe("operator claims match current wiring", () => {
     expect(next).toContain("outputFileTracingIncludes");
     expect(next).toContain("policy/dist");
     expect(source("docker/worker.Dockerfile")).toContain("policy/dist");
-    expect(source("src/lib/controlplane/db/migrations/index.ts")).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources]");
-    expect(deploying).toContain("Six migrations exist today");
-    expect(deploying).toContain("all six migrations");
+    expect(source("src/lib/controlplane/db/migrations/index.ts")).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts]");
+    expect(deploying).toContain("Seven migrations exist today");
+    expect(deploying).toContain("all seven");
     expect(deploying).toContain("`github_sources` (6:");
   });
 

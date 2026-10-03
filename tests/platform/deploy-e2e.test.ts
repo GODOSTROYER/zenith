@@ -5,6 +5,7 @@ import { defaultPayloadConverter } from "@temporalio/common";
 import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import type { World } from "../execution/fakes/world";
 import type { WorkflowResult, WorkerActivities, StepName } from "@/lib/workflows/types";
 import { tempDataDir } from "../_support/data-dir";
 
@@ -19,14 +20,16 @@ const { loadPolicyEngine } = await import("@/lib/policy");
 const { generateSigningJwk, serializePrivateJwk, resetSignerCache } = await import("@/lib/credentials/signing");
 const { composeExecutionActivities } = await import("@/lib/platform/execution");
 const { createExecutionBroker } = await import("@/lib/platform/broker");
+const { approvalRoundOf } = await import("@/lib/controlplane/db/repos/operation-review");
 const { createProductPort, executionHolder, CLAIM_LEASE_MS } = await import("@/lib/execution");
 const { createSafeProber } = await import("@/lib/execution/prober");
 const { buildDesiredState } = await import("@/lib/execution/graph");
 const { startDeploy } = await import("@/lib/workflows/client");
 const { createExecutionWorker } = await import("../../workers/execution/run");
 const { executionWorkerConfigFromEnv } = await import("../../workers/execution/config");
-const { startTestServer, workflowBundlePath, uniqueId, findTemporalCli } = await import("../workflows/support");
-const { FakeTofu } = await import("../execution/fakes/tofu");
+const { startTestServer, workflowBundlePath, uniqueId, findTemporalCli, waitFor } = await import("../workflows/support");
+const { LeaseLostError } = await import("@/lib/execution/errors");
+const { createWorld,createSqlPlanArtifactFixture } = await import("../execution/fakes/world");
 const { webDbManifest, makePlan, change, connectionConfig, WS, PROJECT, ENV, REVISION, DEPLOYMENT, PRODUCT_CONNECTION, PLATFORM_CONNECTION } = await import("../execution/fakes/fixtures");
 const { mockAwsCloud, SESSION_CANARY } = await import("./aws-cloud");
 
@@ -39,7 +42,8 @@ let server: Awaited<ReturnType<typeof startTestServer>>["server"];
 let skipReason: string | undefined;
 let bundle: string, planDir: string;
 let cloud: ReturnType<typeof mockAwsCloud>;
-let tofu: InstanceType<typeof FakeTofu>;
+let tofu: World["tofu"];
+let custodyWorld:World;
 let broker: ReturnType<typeof createBroker>;
 let activities: WorkerActivities;
 const reviewedPlan = makePlan({ changes: [change({ address: "aws_db_instance.postgres_db", nodeAddress: "postgres/db", type: "aws_db_instance", action: "create", changes: [{ path: "publicly_accessible", before: false, after: false, sensitive: false, forcesReplacement: false }] })] });
@@ -74,17 +78,18 @@ beforeEach(async () => {
   const product = await createProductPort().loadContext({ workspaceId: WS, environmentId: ENV, revisionId: REVISION, deploymentId: DEPLOYMENT });
   const desired = buildDesiredState(product); expect(desired.problems).toEqual([]); expect(desired.graph).toBeDefined();
   cloud = mockAwsCloud(desired.graph!, WS, ENV, image);
-  tofu = new FakeTofu(); tofu.planFactory = () => reviewedPlan;
+  custodyWorld=createWorld();tofu=custodyWorld.tofu; tofu.planFactory = () => reviewedPlan;
   activities = composed();
 }, 60_000);
-afterEach(async () => { cloud?.restore(); await db?.close(); });
+afterEach(async () => { cloud?.restore(); custodyWorld?.dispose(); await db?.close(); });
 afterAll(async () => { await server?.env.teardown(); vi.unstubAllEnvs(); resetSignerCache(); });
 function composed(temporal = true) {
   const prober = createSafeProber({ resolve: async () => [{ address: "8.8.8.8", family: 4 }], transport: async (req) => {
     expect(req.host).toBe("app.atlas.zenith.test"); expect(req.path).toBe("/healthz");
     return { status: 200, latencyMs: 5, bytes: 2, truncated: false, bodyDigest: "0".repeat(64), tlsExpiresAt: new Date(Date.now() + 365 * 86400_000).toISOString() };
   } });
-  return composeExecutionActivities({ db, workerIdentity: "compose-contract", planDir, secretKey: "1".repeat(64), ports: { tofu, prober, broker: createExecutionBroker(db, async () => broker), heartbeat: temporal ? (d) => Context.current().heartbeat(d) : () => undefined, activitySignal: temporal ? () => Context.current().cancellationSignal : () => undefined } });
+  const executionBroker=createExecutionBroker(db,async()=>broker);
+  return composeExecutionActivities({ db, workerIdentity: "compose-contract", planDir, secretKey: "1".repeat(64), ports: { tofu, planArtifacts:createSqlPlanArtifactFixture(custodyWorld,db,executionBroker), prober, broker: executionBroker, heartbeat: temporal ? (d) => Context.current().heartbeat(d) : () => undefined, activitySignal: temporal ? () => Context.current().cancellationSignal : () => undefined } });
 }
 
 async function approvedOperation() {
@@ -264,6 +269,37 @@ describe("composed deploy workflow (contract evidence)", () => {
 });
 
 describe("composed activities against local stores (no Temporal fallback)", () => {
+  it("requires a distinct human-approved proposal when repeated planning observes a different digest",async()=>{
+    activities=composed(false);
+    const firstId=await approvedOperation();await activities.validateDesiredState({operationId:firstId});
+    let firstLease=await activities.acquireLease({operationId:firstId,scope:`env:${ENV}`,ttlMs:180000});
+    const first=await activities.planInfrastructure({operationId:firstId,lease:firstLease});
+    await activities.evaluatePolicy({operationId:firstId,planDigest:first.planDigest});
+    firstLease=await planRound(firstId,firstLease);
+    const original=await db.query("select manifest_digest,md5(ciphertext) as ciphertext_digest from platform.plan_artifacts where workspace_id=$1 and operation_id=$2",[WS,firstId]);
+    const moved=makePlan({changes:[change({address:"aws_db_instance.postgres_db",nodeAddress:"postgres/db",type:"aws_db_instance",action:"update",changes:[{path:"allocated_storage",before:20,after:40,sensitive:false,forcesReplacement:false}]})]});
+    tofu.planFactory=()=>moved;
+    try {
+      await expect(activities.planInfrastructure({operationId:firstId,lease:firstLease})).rejects.toMatchObject({type:"plan_changed",nonRetryable:true});
+      expect((await repos.operations.get(db,WS,firstId))?.planDigest).toBe(first.planDigest);
+      expect(await db.query("select manifest_digest,md5(ciphertext) as ciphertext_digest from platform.plan_artifacts where workspace_id=$1 and operation_id=$2",[WS,firstId])).toEqual(original);
+      expect(tofu.applyCalls).toHaveLength(0);
+    } finally {await activities.releaseLease({lease:firstLease});}
+    const nextId=await approvedOperation();expect(nextId).not.toBe(firstId);
+    await activities.validateDesiredState({operationId:nextId});
+    let nextLease=await activities.acquireLease({operationId:nextId,scope:`env:${ENV}`,ttlMs:180000});
+    try {
+      const next=await activities.planInfrastructure({operationId:nextId,lease:nextLease});expect(next.planDigest).toBe(moved.planDigest);
+      expect((await activities.evaluatePolicy({operationId:nextId,planDigest:next.planDigest})).outcome).toBe("require_approval");
+      expect((await activities.checkApproval({operationId:nextId})).approved).toBe(false);
+      nextLease=await planRound(nextId,nextLease);
+      expect((await activities.checkApproval({operationId:nextId})).approved).toBe(true);
+      expect((await repos.approvals.listForOperation(db,WS,nextId)).map(a=>approvalRoundOf(a))).toEqual([0,1]);
+      expect(tofu.applyCalls).toHaveLength(0);
+      expect((await repos.operations.get(db,WS,firstId))?.planDigest).toBe(first.planDigest);
+    } finally {await activities.releaseLease({lease:nextLease});}
+  });
+
   it.each(["ZenithWorkloadBoundary", "ZenithBuildBoundary"])("refuses infrastructure verification when an application identity carries %s", async (boundaryName) => {
     activities = composed(false);
     const operationId = await approvedOperation();
@@ -412,15 +448,55 @@ describe("composed activities against local stores (no Temporal fallback)", () =
     await activities.evaluatePolicy({ operationId, planDigest: plan.planDigest });
     lease = await planRound(operationId, lease);
     let finish!: () => void; tofu.applyGate = new Promise<void>((resolve) => { finish = resolve; });
+    let applySignal:AbortSignal|undefined;
+    const scriptedApply=tofu.applyVerifiedPlan.bind(tofu);
+    tofu.applyVerifiedPlan=(ws,args)=>{applySignal=args.signal;return scriptedApply(ws,args);};
     const pending = activities.applyInfrastructure({ operationId, planDigest: plan.planDigest, lease });
     const assertion = expect(pending).rejects.toMatchObject({ type: "LeaseLost", nonRetryable: true });
     await tofu.applyStarted;
     await db.query("update platform.leases set expires_at=clock_timestamp()-interval '1 second' where workspace_id=$1 and scope=$2", [WS, lease.scope]);
-    finish(); await assertion;
+    try {
+      // Keep the write held until the real keepalive observes loss, rather than racing SQL completion.
+      await waitFor("apply lease-loss signal",()=>applySignal?.aborted ? true : false,20_000);
+      expect(applySignal?.reason).toBeInstanceOf(LeaseLostError);
+    } finally {finish();await assertion;}
     await activities.markOperation({ operationId, status: "uncertain", error: "Apply lease lost; external outcome unknown." });
     expect((await repos.operations.get(db, WS, operationId))?.status).toBe("uncertain");
     expect(tofu.applyCalls).toHaveLength(1);
+    const artifactUse=await db.query<{phase:string}>("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[WS,operationId]);
+    expect(artifactUse.map(row=>row.phase)).toEqual(["uncertain"]);
+    await expect(activities.applyInfrastructure({operationId,planDigest:plan.planDigest,lease})).rejects.toThrow();
+    expect(tofu.applyCalls).toHaveLength(1);
   }, 60_000);
+  it("refuses SQL completion after an unobserved apply fence expiry and never replays the dispatched original",async()=>{
+    activities=composed(false);
+    const operationId=await approvedOperation();
+    await activities.validateDesiredState({operationId});
+    let lease=await activities.acquireLease({operationId,scope:`env:${ENV}`,ttlMs:180_000});
+    const plan=await activities.planInfrastructure({operationId,lease});
+    await activities.evaluatePolicy({operationId,planDigest:plan.planDigest});
+    lease=await planRound(operationId,lease);
+    let finish!:()=>void;tofu.applyGate=new Promise<void>(resolve=>{finish=resolve;});
+    let applySignal:AbortSignal|undefined;
+    const scriptedApply=tofu.applyVerifiedPlan.bind(tofu);
+    tofu.applyVerifiedPlan=(ws,args)=>{applySignal=args.signal;return scriptedApply(ws,args);};
+    // Isolate SQL's last-clock refusal: pause only interval callbacks, never Date or PostgreSQL's clock.
+    vi.useFakeTimers({toFake:["setInterval","clearInterval"]});
+    try {
+      const pending=activities.applyInfrastructure({operationId,planDigest:plan.planDigest,lease});
+      const assertion=expect(pending).rejects.toThrow("Isolated original plan dispatch outcome is unconfirmed.");
+      await tofu.applyStarted;
+      await db.query("update platform.leases set expires_at=clock_timestamp()-interval '1 second' where workspace_id=$1 and scope=$2",[WS,lease.scope]);
+      expect(applySignal?.aborted).toBe(false);
+      finish();await assertion;
+      expect((await repos.operations.get(db,WS,operationId))?.status).toBe("uncertain");
+      const artifactUse=await db.query<{phase:string}>("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[WS,operationId]);
+      expect(artifactUse.map(row=>row.phase)).toEqual(["uncertain"]);
+      expect((await repos.evidence.list(db,WS,{operationId})).filter(row=>row.kind==="tofu_apply")).toHaveLength(0);
+      await expect(activities.applyInfrastructure({operationId,planDigest:plan.planDigest,lease})).rejects.toThrow();
+      expect(tofu.applyCalls).toHaveLength(1);
+    } finally {finish();vi.useRealTimers();}
+  },60_000);
   it("atomically reaps runner and machine jobs, marks owning operations uncertain, and audits once", async () => {
     const { ensurePlatformApp, platformRunnerReaperPass, resetPlatformAppForTests } = await import("@/lib/platform/app");
     const { resetPlatformBrokerForTests } = await import("@/lib/capabilities/platform");

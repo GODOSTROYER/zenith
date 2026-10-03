@@ -1,5 +1,7 @@
 /** Startup errors are fixed operator guidance, never database/provider error strings. */
 import { platformDb, platformDbConfigFromEnv, assertPlatformSchemaCurrent, MIGRATE_COMMAND } from "@/lib/controlplane/db";
+import { planArtifactCipherFromEnv } from "@/lib/platform/plan-artifacts";
+import { TofuRunner } from "@/lib/tofu/runner";
 import { getControlSigner } from "@/lib/credentials/signing";
 import { derivePlanFingerprintKey } from "@/lib/platform/execution";
 import type { Sql } from "@/lib/controlplane/types";
@@ -20,6 +22,12 @@ export async function validateExecutionConfiguration(env: Readonly<Record<string
   try { configured = platformDbConfigFromEnv(env).source !== "default"; }
   catch { throw new ExecutionStartupError("Platform store configuration is invalid; check ZENITH_PLATFORM_DB and ZENITH_PLATFORM_DB_URL."); }
   if (!configured) throw new ExecutionStartupError("Execution requires an explicitly configured platform store (ZENITH_PLATFORM_DB or ZENITH_PLATFORM_DB_URL).");
+  if (platformDbConfigFromEnv(env).kind !== "postgres") throw new ExecutionStartupError("Execution requires PostgreSQL for durable cross-worker plan custody.");
+  try { planArtifactCipherFromEnv(env); } catch { throw new ExecutionStartupError("Execution requires dedicated ZENITH_PLAN_ARTIFACT_KEY and valid previous artifact keys."); }
+  try {
+    const identity = await new TofuRunner({ hostEnv: env, identityFile: env.ZENITH_TOFU_IDENTITY_FILE ?? "/usr/local/share/zenith/tofu-identity.json" }).identity();
+    if (!identity.archiveSha256) throw new Error();
+  } catch { throw new ExecutionStartupError("Execution requires a matching checksum-verified packaged OpenTofu identity."); }
 }
 
 export async function openExecutionStore(open: () => Promise<Sql> = platformDb): Promise<Sql> {
@@ -28,6 +36,7 @@ export async function openExecutionStore(open: () => Promise<Sql> = platformDb):
   catch { throw new ExecutionStartupError(`Platform store could not open. Check its configuration and schema; run ${MIGRATE_COMMAND} before starting a Postgres worker.`); }
   try { await assertPlatformSchemaCurrent(db); }
   catch { throw new ExecutionStartupError(`Platform schema is behind or incompatible; run ${MIGRATE_COMMAND} before starting the worker.`); }
+  if ((db as Sql & {kind?:string}).kind !== "postgres") throw new ExecutionStartupError("Execution requires PostgreSQL for durable cross-worker plan custody.");
   return db;
 }
 

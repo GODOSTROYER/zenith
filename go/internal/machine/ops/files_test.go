@@ -162,7 +162,7 @@ func TestFileReadRefusesSymlinkEscapes(t *testing.T) {
 	links := map[string]string{
 		"file link to outside":      filepath.Join(f.outside, "secret.txt"),
 		"directory link to outside": f.outside,
-		"link to /etc/passwd":       "/etc/passwd",
+		"protected host file":       "/etc/passwd",
 		"relative escape":           "../outside/secret.txt",
 	}
 	for name, target := range links {

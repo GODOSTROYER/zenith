@@ -336,10 +336,11 @@ describe("the reaper", () => {
 
 describe("zenithd requests", () => {
   it("refuse operations zenithd does not implement, non-object args, a foreign-audience grant and a machine without the operation", async () => {
-    const machine = await registerFakeAgent(plane, registerMachine, { kind: "machine", capabilities: ["service.status", "file.write"] });
+    const machine = await registerFakeAgent(plane, registerMachine, { kind: "machine", capabilities: ["service.status", "file.upload", "file.write"] });
     const base = { workspaceId: "w-a", machineId: machine.id, operationId: OPERATION, operation: "service.status", args: { unit: "nginx.service" }, grant: await issueGrant(plane, { aud: `machine:${machine.id}`, cap: "service.status", op: OPERATION, ws: "w-a" }) };
     expect(await refused(enqueueMachineRequest(base))).toBe("accepted");
-    expect(await refused(enqueueMachineRequest({ ...base, operation: "file.write", grant: await issueGrant(plane, { aud: `machine:${machine.id}`, cap: "file.write", op: OPERATION, ws: "w-a" }) }))).toMatch(/^invalid_payload.*does not implement/);
+    expect(await refused(enqueueMachineRequest({ ...base, operation: "file.upload", grant: await issueGrant(plane, { aud: `machine:${machine.id}`, cap: "file.upload", op: OPERATION, ws: "w-a" }) }))).toMatch(/^invalid_payload.*does not implement/);
+    expect(await refused(enqueueMachineRequest({ ...base, operation: "file.write", args: { path: "/opt/customer/settings.txt", content: "inert-plaintext-marker" }, grant: await issueGrant(plane, { aud: `machine:${machine.id}`, cap: "file.write", op: OPERATION, ws: "w-a" }) }))).toMatch(/^invalid_payload.*strict local-template/);
     expect(await refused(enqueueMachineRequest({ ...base, args: [] as never }))).toMatch(/^invalid_payload.*object/);
     expect(await refused(enqueueMachineRequest({ ...base, args: { blob: "x".repeat(70_000) } }))).toMatch(/^invalid_payload.*larger/);
     expect(await refused(enqueueMachineRequest({ ...base, grant: await issueGrant(plane, { aud: "machine:mac_other", cap: "service.status", op: OPERATION, ws: "w-a" }) }))).toMatch(/^grant_invalid/);

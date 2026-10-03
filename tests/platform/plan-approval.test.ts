@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { tempDataDir } from "../_support/data-dir";
 
 tempDataDir("zenith-plan-approval-", { fast: true });
-const { makeHarness, closeSharedPgliteAfterAll, scriptedEngine, requireApproval, user, sessionFor } = await import("../capabilities/support");
+const { makeHarness, closeSharedPgliteAfterAll, scriptedEngine, requireApproval, allowDecision, user, sessionFor, PG_URL } = await import("../capabilities/support");
 const { makePlan, change } = await import("../execution/fakes/fixtures");
 const { repos } = await import("@/lib/controlplane/db");
 const { approvalRoundOf, projectPlanReview } = await import("@/lib/controlplane/db/repos/operation-review");
@@ -139,5 +139,54 @@ describe("concrete plan approval rounds", () => {
     await expect(decide("erin", plan.planDigest)).rejects.toMatchObject({ code: "invalid_state" });
     await h.expireOperation(op.id); await ports.transition({ workspaceId: h.ids.wsA, operationId: op.id, to: "expired" });
     expect((await h.store.getOperation(h.ids.wsA, op.id))?.status).toBe("expired");
+  });
+});
+
+
+/** Initial source review is immutable before the destroy proposal exists. Synthetic plan bytes remain outside this authority test. */
+async function immutableDestroyReview(kind:"pglite"|"postgres") {
+  const h=await makeHarness({kind,engine:scriptedEngine("source-review-policy",input=>input.request.capability==="infrastructure.destroy"?requireApproval(1,"admin"):allowDecision())});
+  const scope={workspaceId:h.ids.wsA,projectId:h.ids.projA,environmentId:h.ids.envASbx};
+  const initial=await h.broker.propose({capability:"infrastructure.plan",scope,input:{environmentId:scope.environmentId,teardownReview:true}},user("bob"));
+  const source=initial.operation;
+  await h.broker.beginExecution({workspaceId:scope.workspaceId,operationId:source.id,holder:`workflow:${source.id}`,audience:"worker"});
+  const removed=makePlan({changes:[change({address:"terraform_data.reviewed",type:"terraform_data",action:"delete",destroysData:false})]});
+  const destroyFacts=buildPlanFacts(removed)!;
+  const summary={...planEvidence({plan:removed,facts:destroyFacts,cost:{},graphDigest:"a".repeat(64),stage:"plan"}).summary,destroy:true,destroyAddresses:["terraform_data.reviewed"],statefulDeletes:[]};
+  const evidence=await repos.evidence.insert(h.db!,{workspaceId:scope.workspaceId,operationId:source.id,kind:"tofu_plan",digest:removed.planDigest,summary,simulated:false});
+  const ports=createOperationsPort(h.db!);await ports.setPlanDigest({workspaceId:scope.workspaceId,operationId:source.id,planDigest:removed.planDigest});
+  const proposed=await h.broker.propose({capability:"infrastructure.destroy",scope,input:{environmentId:scope.environmentId}},user("bob"),{via:"workflow",teardownReview:true,destroyPlan:{operationId:source.id,planDigest:removed.planDigest}});
+  const op=proposed.operation;
+  await repos.evidence.insert(h.db!,{workspaceId:scope.workspaceId,operationId:op.id,kind:"tofu_plan",digest:removed.planDigest,summary,simulated:false});
+  await h.broker.completeExecution({workspaceId:scope.workspaceId,operationId:source.id,outcome:"succeeded",result:{operationId:op.id,planDigest:removed.planDigest}});
+  await h.broker.approve({workspaceId:scope.workspaceId,operationId:op.id,proposalDigest:op.proposalDigest,planDigest:removed.planDigest,approver:user("erin"),session:sessionFor("erin")});
+  const worker=createExecutionBroker(h.db!,async()=>h.broker);
+  return {h,source,op,evidence,scope,removed,ports,worker};
+}
+for(const kind of ["pglite",...(PG_URL?["postgres" as const]:[])] as const) describe(`immutable source review approval [${kind}]`,()=>{
+  it("accepts the exact initial immutable source review and its digest-bound browser human approval",async()=>{
+    const f=await immutableDestroyReview(kind);
+    expect(approvalRoundOf(f.op)).toBe(0);expect((await f.worker.approvalStatus(f.op.id)).approved).toBe(true);
+    await f.ports.transition({workspaceId:f.scope.workspaceId,operationId:f.op.id,to:"running"});
+    const fence=await f.h.acquireLease(f.scope.environmentId);const grant=await f.worker.issueGrant(f.op.id,"worker",fence);
+    expect(grant.claims.cap).toBe("infrastructure.destroy");
+    expect((await f.worker.approvalStatus(f.op.id)).dispatchApproval?.approvalIds).toHaveLength(1);
+  });
+  it.each(["failed source","expired source","simulated source evidence","missing source evidence","foreign source scope","foreign source workspace reference","moved source digest"])("refuses %s for an initial destroy proposal",async(mode)=>{
+    const f=await immutableDestroyReview(kind);
+    if(mode==="failed source")await f.h.db!.query("update platform.operations set status='failed' where workspace_id=$1 and id=$2",[f.scope.workspaceId,f.source.id]);
+    if(mode==="expired source")await f.h.expireOperation(f.source.id);
+    if(mode==="simulated source evidence")await f.h.db!.query("update platform.evidence set simulated=true where workspace_id=$1 and id=$2",[f.scope.workspaceId,f.evidence.id]);
+    if(mode==="missing source evidence")await f.h.db!.query("delete from platform.evidence where workspace_id=$1 and id=$2",[f.scope.workspaceId,f.evidence.id]);
+    if(mode==="foreign source scope")await f.h.db!.query("update platform.operations set environment_id=$3 where workspace_id=$1 and id=$2",[f.scope.workspaceId,f.source.id,f.h.ids.envBProd]);
+    if(mode==="foreign source workspace reference") {
+      const foreign=await repos.operations.create(f.h.db!,{workspaceId:f.h.ids.wsB,principal:user("foreign-reviewer"),proposal:{capability:"infrastructure.plan",scope:{workspaceId:f.h.ids.wsB,environmentId:f.h.ids.envBProd},input:{environmentId:f.h.ids.envBProd,teardownReview:true},planDigest:f.removed.planDigest,summary:"Independent foreign review",details:[],risk:"high"}});
+      await f.h.db!.query("update platform.operations set status='succeeded' where workspace_id=$1 and id=$2",[f.h.ids.wsB,foreign.operation.id]);
+      const foreignEvidence=await repos.evidence.insert(f.h.db!,{workspaceId:f.h.ids.wsB,operationId:foreign.operation.id,kind:"tofu_plan",digest:f.removed.planDigest,summary:f.evidence.summary,simulated:false});
+      // Corrupt only the destination's immutable source reference; lookup must stay in its own workspace.
+      await f.h.db!.query("update platform.operations set proposal=jsonb_set(proposal,'{broker,destroyPlan}',$3::jsonb) where workspace_id=$1 and id=$2",[f.scope.workspaceId,f.op.id,JSON.stringify({operationId:foreign.operation.id,evidenceId:foreignEvidence.id})]);
+    }
+    if(mode==="moved source digest")await f.h.db!.query("update platform.operations set plan_digest=$3 where workspace_id=$1 and id=$2",[f.scope.workspaceId,f.source.id,"f".repeat(64)]);
+    expect((await f.worker.approvalStatus(f.op.id)).approved).toBe(false);
   });
 });

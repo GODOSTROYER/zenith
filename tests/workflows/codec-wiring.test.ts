@@ -26,7 +26,7 @@ const intercepted = vi.hoisted(() => ({
   health: vi.fn(), validate: vi.fn(),
   openStore: vi.fn(), closeStore: vi.fn(),
   store: { query: vi.fn(), close: vi.fn() },
-  healthClose: vi.fn(), janitorStop: vi.fn(), nativeClose: vi.fn(),
+  healthClose: vi.fn(), janitorStop: vi.fn(), nativeClose: vi.fn(), artifactJanitor: vi.fn(),
 }));
 
 vi.mock("@temporalio/client", async (original) => {
@@ -44,7 +44,7 @@ vi.mock("@temporalio/worker", async (original) => {
 vi.mock("node:fs/promises", async (original) => ({ ...await original<typeof import("node:fs/promises")>(), mkdir: vi.fn() }));
 vi.mock("@/lib/platform/app", () => ({ ensurePlatformApp: vi.fn(async () => true) }));
 vi.mock("@/lib/policy", () => ({ loadPolicyEngine: vi.fn() }));
-vi.mock("@/lib/execution/plan-janitor", () => ({ planMaxAgeFromEnv: () => 1000, startPlanJanitor: () => ({ stop: intercepted.janitorStop }) }));
+vi.mock("@/lib/execution/plan-janitor", () => ({ startPlanArtifactJanitor: intercepted.artifactJanitor }));
 vi.mock("@/lib/workflows/activities", () => ({ createActivities: () => ({}) }));
 vi.mock("../../workers/execution/lifecycle", () => ({ installShutdownHandlers: () => () => false }));
 vi.mock("../../workers/execution/startup", () => ({
@@ -64,7 +64,9 @@ beforeEach(() => {
   vi.stubEnv("NODE_ENV", "production");
   vi.stubEnv("ZENITH_SECRET_KEY", CURRENT);
   vi.stubEnv("ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS", undefined);
+  intercepted.validate.mockResolvedValue(undefined);
   intercepted.openStore.mockResolvedValue(intercepted.store);
+  intercepted.artifactJanitor.mockReturnValue({ stop: intercepted.janitorStop });
   intercepted.closeStore.mockImplementation(async (db?: { close?: () => Promise<void> }) => {
     if (typeof db?.close === "function") await db.close();
   });
@@ -208,7 +210,12 @@ describe("execution worker process codec wiring", () => {
   }
 
   function expectSuccessfulCleanup() {
+    expect(intercepted.validate).toHaveBeenCalledOnce();
     expect(intercepted.openStore).toHaveBeenCalledOnce();
+    expect(intercepted.validate.mock.invocationCallOrder[0]).toBeLessThan(intercepted.openStore.mock.invocationCallOrder[0]);
+    expect(intercepted.openStore.mock.invocationCallOrder[0]).toBeLessThan(intercepted.nativeConnect.mock.invocationCallOrder[0]);
+    expect(intercepted.artifactJanitor).toHaveBeenCalledExactlyOnceWith(intercepted.store, expect.any(Function));
+    expect(intercepted.createWorker.mock.invocationCallOrder[0]).toBeLessThan(intercepted.artifactJanitor.mock.invocationCallOrder[0]);
     expect(intercepted.closeStore).toHaveBeenCalledExactlyOnceWith(intercepted.store);
     expect(intercepted.store.close).toHaveBeenCalledOnce();
     expect(intercepted.healthClose).toHaveBeenCalledOnce();
@@ -249,6 +256,24 @@ describe("execution worker process codec wiring", () => {
     expect(logs).toContain('\\"tlsKey\\":\\"set\\"');
     expect(logs).not.toMatch(/BEGIN|synthetic-|\.pem|mtls-server/);
     expect(logs).not.toContain(CURRENT);
+  });
+
+  it.each(["postgres-store", "artifact-key", "packaged-tofu-identity"])("refuses a failed %s startup prerequisite while preserving private codec and transport inputs", async (prerequisite) => {
+    const { exit, stdout } = interceptProcess();
+    const privateDetail = `synthetic-${prerequisite}-input`;
+    intercepted.validate.mockRejectedValue(new Error(privateDetail));
+    await import("../../workers/execution/worker");
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
+    expect(intercepted.validate).toHaveBeenCalledOnce();
+    expect(intercepted.openStore).not.toHaveBeenCalled();
+    expect(intercepted.nativeConnect).not.toHaveBeenCalled();
+    expect(intercepted.createWorker).not.toHaveBeenCalled();
+    expect(intercepted.artifactJanitor).not.toHaveBeenCalled();
+    expect(intercepted.healthClose).toHaveBeenCalledOnce();
+    expect(intercepted.closeStore).toHaveBeenCalledExactlyOnceWith(undefined);
+    expect(intercepted.store.close).not.toHaveBeenCalled();
+    expect(JSON.stringify(stdout.mock.calls)).not.toContain(privateDetail);
+    expect(JSON.stringify(stdout.mock.calls)).not.toContain(CURRENT);
   });
 
   it("rejects an incomplete mTLS identity before worker startup side effects", async () => {

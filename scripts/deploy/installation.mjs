@@ -17,7 +17,7 @@ const fields = new Set([
   'ZENITH_TEMPORAL_API_KEY', 'ZENITH_AGENT_OAUTH_ISSUER', 'ZENITH_AGENT_OAUTH_JWKS',
   'ZENITH_AGENT_OAUTH_CLIENT_CLAIM', 'ZENITH_AGENT_OAUTH_SUBJECT_CLAIM',
 ]);
-const generated = new Set(['ZENITH_SECRET_KEY', 'ZENITH_CONTROL_SIGNING_JWK', 'ZENITH_OIDC_SIGNING_JWK']);
+const generated = new Set(['ZENITH_SECRET_KEY', 'ZENITH_PLAN_ARTIFACT_KEY', 'ZENITH_CONTROL_SIGNING_JWK', 'ZENITH_OIDC_SIGNING_JWK']);
 const hash = (/** @type {string|Buffer} */ value) => createHash('sha256').update(value).digest('hex');
 const refuse = (/** @type {string} */ id) => { throw new Error(`installation:${id}`); };
 const loopback = (/** @type {string} */ host) => ['localhost', '127.0.0.1', '[::1]'].includes(host);
@@ -112,6 +112,7 @@ export function validateInput(input, prepared = false) {
     if (Object.keys(binding).some(key => !['head', 'contentSha256', 'dirty'].includes(key))) refuse('unknown-source-field');
     if (!/^[a-f0-9]{40}$/.test(binding.head) || !/^[a-f0-9]{64}$/.test(binding.contentSha256) || typeof binding.dirty !== 'boolean') refuse('source-binding');
     if (!/^[a-f0-9]{64}$/.test(env.ZENITH_SECRET_KEY)) refuse('ZENITH_SECRET_KEY');
+    if (!/^[a-f0-9]{64}$/.test(env.ZENITH_PLAN_ARTIFACT_KEY) || env.ZENITH_PLAN_ARTIFACT_KEY === env.ZENITH_SECRET_KEY) refuse('ZENITH_PLAN_ARTIFACT_KEY');
     for (const [field, kty] of [['ZENITH_CONTROL_SIGNING_JWK', 'OKP'], ['ZENITH_OIDC_SIGNING_JWK', 'RSA']]) {
       try {
         const key = JSON.parse(env[field]);
@@ -170,12 +171,12 @@ function writeEnv(location, env) { fs.writeFileSync(location, Object.entries(env
 
 /** @param {PreparedInstallation} config @param {string} dir @returns {Record<string,Record<string,string>>} */
 function environmentsFor(config, dir) {
-  const { ZENITH_PLATFORM_MIGRATION_URL: migrationUrl, ...runtime } = config.environment;
+  const { ZENITH_PLATFORM_MIGRATION_URL: migrationUrl, ZENITH_PLAN_ARTIFACT_KEY: artifactKey, ...runtime } = config.environment;
   const common = { ...runtime, NODE_ENV: 'production', ZENITH_STORE: 'postgres', ZENITH_HOSTED_STORE: 'postgres', ZENITH_PLATFORM_DB: 'postgres', ZENITH_PLATFORM_DB_MAX: '5',
     ZENITH_AGENT_CONTROL: '1', ZENITH_AGENT_ORIGIN: runtime.NEXT_PUBLIC_SITE_URL, ZENITH_OIDC_ISSUER: `${runtime.NEXT_PUBLIC_SITE_URL}/api/oidc` };
   return {
     'api.env': { ...common, PORT: '3400', HOSTNAME: '0.0.0.0', ZENITH_DATA: '/data' },
-    'worker.env': { ...common, ZENITH_DATA: '/var/lib/zenith', HOME: '/var/lib/zenith', ZENITH_WORKER_PLAN_DIR: '/var/lib/zenith/plans', ZENITH_WORKER_HEALTH_PORT: '9464', ZENITH_WORKER_TASK_QUEUE: 'zenith-execution' },
+    'worker.env': { ...common, ZENITH_PLAN_ARTIFACT_KEY: artifactKey, ZENITH_DATA: '/var/lib/zenith', HOME: '/var/lib/zenith', ZENITH_WORKER_PLAN_DIR: '/var/lib/zenith/plans', ZENITH_WORKER_HEALTH_PORT: '9464', ZENITH_WORKER_TASK_QUEUE: 'zenith-execution' },
     'migration.env': { NODE_ENV: 'production', ZENITH_PLATFORM_DB: 'postgres', ZENITH_PLATFORM_DB_URL: migrationUrl, ZENITH_PLATFORM_DB_MAX: '1' },
     'compose.env': { ZENITH_INSTALLATION_ID: config.installationId, ZENITH_PRIVATE_DIR: dir, ZENITH_API_PORT: String(config.apiPort), ZENITH_API_IMAGE: config.images.api, ZENITH_WORKER_IMAGE: config.images.worker, ZENITH_MIGRATION_IMAGE: config.images.migration },
     ...(config.mode === 'disposable' ? { 'platform.env': { POSTGRES_DB: 'zenith_platform', POSTGRES_USER: 'postgres', POSTGRES_PASSWORD: decodeURIComponent(new URL(runtime.ZENITH_PLATFORM_DB_URL).password) } } : {}),
@@ -190,6 +191,7 @@ export function prepare(input, directory) {
   const environment = { ...input.environment };
   const id = randomBytes(12).toString('hex');
   environment.ZENITH_SECRET_KEY = randomBytes(32).toString('hex');
+  environment.ZENITH_PLAN_ARTIFACT_KEY = randomBytes(32).toString('hex');
   const control = generateKeyPairSync('ed25519');
   const oidc = generateKeyPairSync('rsa', { modulusLength: 2048 });
   environment.ZENITH_CONTROL_SIGNING_JWK = JSON.stringify({ ...control.privateKey.export({ format: 'jwk' }), kid: `control-${id}`, alg: 'EdDSA' });

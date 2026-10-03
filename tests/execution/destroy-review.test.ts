@@ -10,7 +10,7 @@ import { loadDestroyPlan } from "@/lib/capabilities/destroy-plan";
 import { createWorld, type World } from "./fakes/world";
 import { bucketManifest, change, makePlan, REVISION, CANARY_SECRET, CANARY_SESSION_KEY } from "./fakes/fixtures";
 import { upgradeManifest } from "@/lib/resources/upgrade";
-import { closeSharedPgliteAfterAll, integrationOf, makeHarness, sessionFor, user, PG_URL } from "../capabilities/support";
+import { closeSharedPgliteAfterAll, integrationOf, makeHarness, sessionFor, user, PG_URL, scriptedEngine, requireApproval } from "../capabilities/support";
 import { deliverPlanApproval } from "@/lib/bridge/lifecycle";
 import { setBridgeDepsForTests } from "@/lib/bridge/deps";
 import { planEvidence, toPlanSummary } from "@/lib/execution/plan-evidence";
@@ -34,7 +34,19 @@ async function setup(kind: "pglite" | "postgres" = "pglite") {
     changes: [change({ address: "aws_s3_bucket.object_store_assets", nodeAddress: "object_store/assets", type: "aws_s3_bucket", action: "delete", destroysData: true })] });
   vi.spyOn(w.connections, "resolve").mockResolvedValue({ ...w.connections.connections.values().next().value!, workspaceId: scope.workspaceId });
   const platform = createPlatformPorts(h.db!);
-  const rt = createRuntime({ ...w.deps, ...platform, product: w.product, connections: w.connections,
+  const fixtureArtifacts=w.deps.planArtifacts;
+  if(!fixtureArtifacts)throw new Error("Isolated custody fixture is missing.");
+  const planArtifacts={...fixtureArtifacts,async publish(input:Parameters<typeof fixtureArtifacts.publish>[0]) {
+    if(!input.produced)throw new Error("Isolated review producer is missing.");
+    const operation=await platform.ops.get(input.produced.manifest.operationId);
+    if(!operation)throw new Error("Isolated review operation is missing.");
+    w.ops.seed({...operation});
+    await fixtureArtifacts.publish(input);
+    // Explicit PGlite fixture: the composed ledger, read by the real broker, owns the digest and sanitized evidence.
+    await platform.ops.setPlanDigest({workspaceId:operation.workspaceId,operationId:operation.id,planDigest:input.produced.manifest.planDigest});
+    await platform.evidence.append(input.evidence);
+  }};
+  const rt = createRuntime({ ...w.deps, ...platform, planArtifacts, product: w.product, connections: w.connections,
     broker: createExecutionBroker(h.db!, async () => h.broker), clock: () => h.clock.now(), limits: { heartbeatIntervalMs: 1000 } });
   const activities = createDestroyActivities(rt, { reviewBroker: async () => h.broker });
   const agent = integrationOf(h, "intRO");
@@ -262,5 +274,46 @@ describe.skipIf(!PG_URL)("real Postgres destroy-review lane", () => {
   it("persists the first pending review with a readable PlanView", async () => {
     const { h, scope, review } = await setup("postgres"); const result = await review();
     expect((await h.broker.getOperationDetail({ workspaceId: scope.workspaceId, operationId: result.operationId, principal: user("erin") })).planReview?.planDigest).toBe(result.planDigest);
+  });
+});
+
+
+/** Current-record guard on a partially decided proposal; these fixtures perform no OpenTofu/provider calls. */
+import { seedAwaitingApproval } from "../controlplane/_support/harness";
+import { repos } from "@/lib/controlplane/db";
+function supersessionBarrier(){let release!:()=>void;const promise=new Promise<void>(resolve=>{release=resolve;});return {release,promise};}
+describe.skipIf(!PG_URL)("undecided teardown supersession [postgres]",()=>{
+  it("an independent partial approval wins the operation lock and prevents refresh cancellation without revoking grants",async()=>{
+    const h=await makeHarness({kind:"postgres"});
+    const seeded=await seedAwaitingApproval(h.db!,{workspaceId:h.ids.wsA,count:2,minRole:"admin",proposal:{capability:"infrastructure.destroy"}});
+    const op=seeded.operation;const entered=supersessionBarrier(),release=supersessionBarrier();
+    const jti=`partial_grant_${op.id}`;await h.store.insertGrant({jti,workspaceId:op.workspaceId,operationId:op.id,capability:"infrastructure.destroy",audience:"worker",issuedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+60000).toISOString()});
+    const deciding=h.db!.tx(async tx=>{
+      await repos.approvals.record(tx,{workspaceId:op.workspaceId,operationId:op.id,proposalDigest:op.proposalDigest,approver:user("erin"),approverRole:"admin",decision:"approve",policyVersion:seeded.decision.policyVersion});
+      entered.release();await release.promise;
+    });
+    await entered.promise;let finished=false;
+    const cancelling=h.store.cancelOperation({workspaceId:op.workspaceId,id:op.id,expectedStatus:"awaiting_approval",requireUndecidedApprovalRound:true,reason:"refresh"}).then(value=>{finished=true;return value;});
+    await new Promise(resolve=>setTimeout(resolve,30));expect(finished).toBe(false);
+    release.release();await deciding;expect(await cancelling).toBeNull();
+    expect((await h.store.getOperation(op.workspaceId,op.id))?.status).toBe("awaiting_approval");
+    expect(await h.store.listApprovals(op.workspaceId,op.id)).toHaveLength(1);
+    expect(await h.store.consumeGrant({workspaceId:op.workspaceId,jti})).toBe(true);
+    expect((await h.store.listEvents(op.workspaceId,{operationId:op.id})).some(event=>event.type==="operation.cancelled")).toBe(false);
+    // An explicitly requested ordinary cancellation keeps its original behavior.
+    expect((await h.store.cancelOperation({workspaceId:op.workspaceId,id:op.id,reason:"user cancellation"}))?.status).toBe("cancelled");
+  });
+});
+describe("undecided teardown supersession [isolated memory]",()=>{
+  it("a partial current-record human decision blocks internal refresh while general cancellation remains available",async()=>{
+    const h=await makeHarness({kind:"memory",engine:scriptedEngine("memory-partial-review",()=>requireApproval(2,"admin"))});
+    const proposal=await h.broker.propose({capability:"deployment.deploy",scope:{workspaceId:h.ids.wsA,projectId:h.ids.projA,environmentId:h.ids.envAProd},input:{}},user("alice"));
+    const op=proposal.operation;
+    await h.broker.approve({workspaceId:op.workspaceId,operationId:op.id,proposalDigest:op.proposalDigest,approver:user("erin"),session:sessionFor("erin")});
+    expect((await h.store.getOperation(op.workspaceId,op.id))?.status).toBe("awaiting_approval");
+    const before=await h.store.listEvents(op.workspaceId,{operationId:op.id});
+    expect(await h.store.cancelOperation({workspaceId:op.workspaceId,id:op.id,expectedStatus:"awaiting_approval",requireUndecidedApprovalRound:true})).toBeNull();
+    expect(await h.store.listEvents(op.workspaceId,{operationId:op.id})).toEqual(before);
+    expect((await h.store.cancelOperation({workspaceId:op.workspaceId,id:op.id}))?.status).toBe("cancelled");
   });
 });

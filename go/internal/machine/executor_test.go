@@ -1,9 +1,15 @@
 package machine
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/GODOSTROYER/zenith/go/internal/agent"
+	"io"
+	"log/slog"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/GODOSTROYER/zenith/go/internal/machine/ops"
 )
@@ -47,5 +53,52 @@ func TestExecFailureWireIncludesUnknownExitCodeAndOutput(t *testing.T) {
 		if output["stdout"] != "" || output["stderr"] != "" || output["truncated"] != false || output["exitCode"] != nil {
 			t.Fatalf("missing output must have the exec shape: %s", b)
 		}
+	}
+}
+
+func TestWriteWirePreservesUncertainCustodyWithoutOutput(t *testing.T) {
+	j := &job{op: ops.OpFileWrite}
+	data := map[string]any{"error": "mutation_uncertain", "phase": "rename", "effect": "unknown", "postcondition": "unverified", "backupRef": "fw_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+	wire := j.resultBody(ops.Result{OK: false, Data: data, Err: "file.write rename: unknown"})
+	if wire["operation"] != ops.OpFileWrite || wire["output"] != nil {
+		t.Fatal("write wire must preserve semantic operation without exec output")
+	}
+	b, err := json.Marshal(wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded map[string]any
+	if json.Unmarshal(b, &decoded) != nil {
+		t.Fatal("write receipt is not JSON")
+	}
+	receipt := decoded["data"].(map[string]any)
+	if receipt["effect"] != "unknown" || receipt["backupRef"] != data["backupRef"] {
+		t.Fatal("uncertain mutation custody was discarded")
+	}
+	raw := json.RawMessage(`{"path":"/opt/customer/settings.txt","contentRef":"settings","contentVersion":"v1","expectedSha256":null}`)
+	target := auditTarget(ops.OpFileWrite, raw)
+	if target["path"] != "/opt/customer/settings.txt" || target["content"] != nil || target["contentRef"] != nil {
+		t.Fatal("write audit target must contain metadata only")
+	}
+}
+
+func TestWriteAuditCompletionFailureIsUncertain(t *testing.T) {
+	audit, err := OpenAudit(filepath.Join(t.TempDir(), "audit.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	audit.Close()
+	e := &Executor{now: time.Now, audit: audit, log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	receipt := "fw_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	j := &job{e: e, op: ops.OpFileWrite, timeout: time.Second, run: func(context.Context) (ops.Result, error) {
+		return ops.Result{OK: true, Data: map[string]any{"effect": "committed", "phase": "verified", "postcondition": "verified", "transactionRef": receipt, "backupRef": receipt}}, nil
+	}}
+	body := j.Run(context.Background(), nil)
+	if body.Status != agent.StatusFailed {
+		t.Fatal("write claimed success without completion audit custody")
+	}
+	data := body.Result.(map[string]any)["data"].(map[string]any)
+	if data["effect"] != "unknown" || data["phase"] != "audit" || data["backupRef"] != receipt {
+		t.Fatal("completion audit failure lost uncertain receipt")
 	}
 }

@@ -1,7 +1,7 @@
 /** Composition contracts; all federation responses and vault credentials are synthetic. */
 import { beforeAll, beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { decodeJwt } from "jose";
-import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
+import type { CapabilityGrantClaims, Sql } from "@/lib/controlplane/types";
 import type { ConnectionConfig, ProviderSession } from "@/lib/credentials/types";
 import { tempDataDir } from "../_support/data-dir";
 tempDataDir("zenith-compose-contract-", { fast: true });
@@ -48,6 +48,98 @@ describe("platform composition", () => {
     expect(() => composeExecutionActivities({ db, workerIdentity: "test", planDir: "unused" })).toThrow("ZENITH_SECRET_KEY");
     expect(() => derivePlanFingerprintKey("invalid")).toThrow("64 hex");
   });
+  it("refuses production PGlite custody and admits only an explicit isolated adapter with an explicit engine",async()=> {
+    const {createWorld}=await import("../execution/fakes/world");
+    const world=createWorld();
+    try {
+      const activities=composeExecutionActivities({db,workerIdentity:"test",planDir:world.planDir,secretKey:"1".repeat(64),ports:{
+        ops:world.ops,leases:world.leases,evidence:world.evidence,resources:world.resources,product:world.product,broker:world.broker,
+        credentials:world.credentials,connections:world.connections,drivers:world.drivers,sourceBundle:world.sourceBundle,machines:world.deps.machines,
+      }});
+      // Composition remains available to machine/source reads; the first infrastructure request fails closed.
+      const lease=await world.lease();
+      const op=world.ops.ops.values().next().value;
+      if(!op)throw new Error("Composition fixture operation is unavailable.");
+      await expect(activities.planInfrastructure({operationId:op.id,lease})).rejects.toThrow("PostgreSQL");
+      expect(world.tofu.planCalls).toHaveLength(0);expect(world.tofu.applyCalls).toHaveLength(0);
+      expect(world.evidence.ofKind("tofu_plan")).toHaveLength(0);expect(world.ops.uncertain).toHaveLength(0);
+      expect(()=>composeExecutionActivities({db,workerIdentity:"test",planDir:world.planDir,secretKey:"1".repeat(64),ports:{planArtifacts:world.deps.planArtifacts}})).toThrow("explicit isolated engine");
+      expect(()=>composeExecutionActivities({db,workerIdentity:"test",planDir:world.planDir,secretKey:"1".repeat(64),ports:{planArtifacts:world.deps.planArtifacts,tofu:world.tofu,sourceBundle:world.sourceBundle,machines:world.deps.machines}})).not.toThrow();
+      vi.stubEnv("NODE_ENV","production");
+      expect(()=>composeExecutionActivities({db,workerIdentity:"test",planDir:world.planDir,secretKey:"1".repeat(64),ports:{planArtifacts:world.deps.planArtifacts,tofu:world.tofu}})).toThrow("only in the test environment");
+    } finally {world.dispose();}
+  });
+  for (const initiallyPresent of [false,true]) it(`captures optional tool authority ${initiallyPresent ? "present" : "absent"} at composition before lazy resolution`,async()=> {
+    const {createWorld}=await import("../execution/fakes/world");
+    const binary=await import("@/lib/tofu/binary");
+    const world=createWorld();
+    const optional=["ZENITH_TOFU_BIN","ZENITH_TOFU_IDENTITY_FILE","ZENITH_TOFU_PLUGIN_CACHE"];
+    for(const key of optional)vi.stubEnv(key,initiallyPresent ? `/captured/${key}` : undefined);
+    vi.stubEnv("ZENITH_PLAN_ARTIFACT_KEY","2".repeat(64));
+    vi.stubEnv("ZENITH_SECRET_KEY","1".repeat(64));
+    vi.stubEnv("ZENITH_WORKER_PLAN_DIR",world.planDir);
+    const expected=Object.freeze({...process.env});
+    let observed:Readonly<Record<string,string|undefined>>|undefined;
+    const resolve=vi.spyOn(binary,"resolveTofuBinary").mockImplementation(host=>{
+      observed=host;
+      throw new Error("Captured tool authority fixture stopped before executing OpenTofu.");
+    });
+    try {
+      // Only the composition wiring is under test. No SQL/tool execution or PostgreSQL evidence is claimed.
+      const capturedStore:Sql & {kind:"postgres"}={...db,kind:"postgres"};
+      const activities=composeExecutionActivities({db:capturedStore,workerIdentity:"capture-contract",planDir:world.planDir,secretKey:"1".repeat(64),ports:{
+        ops:world.ops,leases:world.leases,evidence:world.evidence,resources:world.resources,product:world.product,broker:world.broker,
+        credentials:world.credentials,connections:world.connections,drivers:world.drivers,sourceBundle:world.sourceBundle,machines:world.deps.machines,
+      }});
+      for(const key of optional)vi.stubEnv(key,`/late/${key}`);
+      vi.stubEnv("ZENITH_PLAN_ARTIFACT_KEY","3".repeat(64));
+      vi.stubEnv("ZENITH_SECRET_KEY","4".repeat(64));
+      vi.stubEnv("ZENITH_WORKER_PLAN_DIR","/late/plan-root");
+      vi.stubEnv("PATH","/late/path");
+      vi.stubEnv("NODE_ENV","production");
+      const lease=await world.lease();
+      const op=world.ops.ops.values().next().value;
+      if(!op)throw new Error("Composition fixture operation is unavailable.");
+      await expect(activities.planInfrastructure({operationId:op.id,lease})).rejects.toThrow("Captured tool authority fixture");
+      expect(resolve).toHaveBeenCalledOnce();
+      expect(Object.isFrozen(observed)).toBe(true);
+      if(!observed)throw new Error("Captured runner environment is unavailable.");
+      // Boolean comparisons avoid exposing environment values in assertion diagnostics.
+      for(const key of [...optional,"PATH","NODE_ENV","ZENITH_WORKER_PLAN_DIR","ZENITH_PLAN_ARTIFACT_KEY","ZENITH_SECRET_KEY","ZENITH_PLAN_ARTIFACT_PREVIOUS_KEYS","ZENITH_VAULT_PREVIOUS_SECRET_KEYS"]) {
+        expect(observed[key]===expected[key]).toBe(true);
+        expect(Object.hasOwn(observed,key)).toBe(Object.hasOwn(expected,key));
+      }
+      expect(world.tofu.applyCalls).toHaveLength(0);
+      expect(world.evidence.ofKind("tofu_plan")).toHaveLength(0);
+      expect(world.ops.uncertain).toHaveLength(0);
+    } finally {resolve.mockRestore();world.dispose();}
+  });
+  it("uses only an explicit partial engine environment and preserves omitted-environment defaults",async()=> {
+    const binary=await import("@/lib/tofu/binary");
+    const {createPlanEngineAuthority}=await import("@/lib/tofu/engine");
+    const {planArtifactCipherFromEnv}=await import("@/lib/platform/plan-artifacts");
+    const {builtinWorkspace,dataFragment}=await import("../tofu/_helpers");
+    const ws=builtinWorkspace("/tmp/zenith-captured-tool-authority-state.tfstate",{"resource/test":dataFragment("test","fixture")});
+    const cipher=planArtifactCipherFromEnv({ZENITH_PLAN_ARTIFACT_KEY:"2".repeat(64)});
+    let observed:Readonly<Record<string,string|undefined>>|undefined;
+    const resolve=vi.spyOn(binary,"resolveTofuBinary").mockImplementation(host=>{
+      observed=host;throw new Error("Captured tool authority fixture stopped before executing OpenTofu.");
+    });
+    try {
+      const explicit={PATH:"/explicit/path",NODE_ENV:"test"};
+      const partial=createPlanEngineAuthority(cipher,()=>undefined,explicit);
+      vi.stubEnv("ZENITH_TOFU_BIN","/late/bin");
+      await expect(partial.tofu.planWorkspace(ws)).rejects.toThrow("Captured tool authority fixture");
+      expect(Object.keys(observed??{}).sort()).toEqual(Object.keys(explicit).sort());
+      expect(observed?.PATH).toBe(explicit.PATH);
+      const captured=Object.freeze({...process.env});
+      const defaults=createPlanEngineAuthority(cipher,()=>undefined);
+      vi.stubEnv("ZENITH_TOFU_BIN","/later/bin");
+      await expect(defaults.tofu.planWorkspace(ws)).rejects.toThrow("Captured tool authority fixture");
+      expect(observed?.ZENITH_TOFU_BIN===captured.ZENITH_TOFU_BIN).toBe(true);
+      expect(Object.isFrozen(observed)).toBe(true);
+    } finally {resolve.mockRestore();}
+  });
   it("leaves the legacy app and reconcile 503 behavior alone without platform configuration", async () => {
     vi.stubEnv("ZENITH_PLATFORM_DB", ""); vi.stubEnv("ZENITH_PLATFORM_DB_URL", "");
     expect(await ensurePlatformApp()).toBe(false);
@@ -70,7 +162,7 @@ describe("platform composition", () => {
     await expect(validateExecutionConfiguration({ ...base, ZENITH_SECRET_KEY: "" })).rejects.toThrow("SECRET_KEY");
     await expect(validateExecutionConfiguration({ ...base, ZENITH_CONTROL_SIGNING_JWK: "PRIVATE-CONTRACT-CANARY" })).rejects.toThrow("usable ZENITH_CONTROL_SIGNING_JWK");
     await expect(openExecutionStore(async () => { throw new Error("DATABASE-CONTRACT-CANARY"); })).rejects.toThrow("Platform store could not open");
-    expect(await openExecutionStore(async () => db)).toBe(db);
+    await expect(openExecutionStore(async () => db)).rejects.toThrow("requires PostgreSQL");
     await db.query("delete from platform.schema_migrations where version=(select max(version) from platform.schema_migrations)");
     await expect(openExecutionStore(async () => db)).rejects.toThrow("Platform schema is behind");
   });

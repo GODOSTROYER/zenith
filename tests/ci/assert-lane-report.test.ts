@@ -10,8 +10,8 @@ const root = process.cwd();
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-ci-engine-report-"));
 afterAll(() => fs.rmSync(scratch, { recursive: true, force: true }));
 
-interface Requirement { file: string; suite?: string; ancestorSuite?: string; postgres?: boolean }
-interface Assertion { fullName: string; status: string; ancestorTitles?: string[] }
+interface Requirement { file: string; suite?: string; test?: string; ancestorSuite?: string; postgres?: boolean }
+interface Assertion { fullName: string; title?: string; status: string; ancestorTitles?: string[] }
 interface FileResult { name: string; status: string; assertionResults: Assertion[] }
 
 /** Synthetic execution reports exercise the gate, never claim engine execution. */
@@ -21,7 +21,8 @@ function evidence(requirements: Requirement[]) {
     const name = path.resolve(root, required.file);
     const file = files.get(name) ?? { name, status: "passed", assertionResults: [] };
     const ancestors = [required.file, ...(required.ancestorSuite ? [required.ancestorSuite] : []), ...(required.suite ? [required.suite] : [])];
-    file.assertionResults.push({ fullName: `${required.ancestorSuite ? `${required.ancestorSuite} ` : ""}${required.suite ?? (required.postgres ? "contract [postgres]" : "scenario")} passed`, ancestorTitles: ancestors, status: "passed" });
+    const title = required.test ?? "passed";
+    file.assertionResults.push({ fullName: `${required.ancestorSuite ? `${required.ancestorSuite} ` : ""}${required.suite ?? (required.postgres ? "contract [postgres]" : "scenario")} ${title}`, title, ancestorTitles: ancestors, status: "passed" });
     files.set(name, file);
   }
   return { success: true, testResults: [...files.values()] };
@@ -71,6 +72,20 @@ describe.each(["postgres", "policy", "tofu", "workflows", "platform-postgres"])(
 });
 
 describe("evidence boundaries", () => {
+  it.each(["missing title", "different title", "skipped", "omitted"])("rejects every exact PostgreSQL case with %s even when its suite and display name match", (failure) => {
+    const requirements = requirementsFor("platform-postgres", root).filter((required: Requirement) => required.test !== undefined);
+    expect(requirements.length).toBeGreaterThan(0);
+    for (const required of requirements) {
+      const report = evidence([required]);
+      const assertion = report.testResults[0].assertionResults[0];
+      if (failure === "missing title") delete assertion.title;
+      else if (failure === "different title") assertion.title = "unrelated case";
+      else if (failure === "skipped") assertion.status = "skipped";
+      else report.testResults[0].assertionResults = [];
+      expect(reportFailures([required], report, root), `${required.file}: ${required.test}`).toHaveLength(1);
+    }
+  });
+
   it.each(requirementsFor("tofu", root).filter((required: Requirement) => required.suite))("rejects skipped $file: $suite even when the other required suites and unit tests pass", (required) => {
     const requirements = requirementsFor("tofu", root);
     const report = evidence(requirements);

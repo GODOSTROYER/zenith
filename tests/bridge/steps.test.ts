@@ -1,5 +1,5 @@
 /** Text comparisons avoid loading Temporal's workflow sandbox into Node. */
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DEPLOY_WORKFLOW_STEPS, plannedWorkflowSteps, STEP_ORDER, STEP_TABLE } from "@/lib/bridge/steps";
 const text = (path: string) => readFileSync(path, "utf8");
@@ -16,8 +16,8 @@ it("covers the StepName union exactly (the product port owns display order)", ()
   const union = text("src/lib/workflows/types.ts").match(/export type StepName =([\s\S]*?);/)![1];
   expect([...STEP_ORDER].sort()).toEqual(literals(union).sort());
 });
-const port = "Z:/Projects/Spawned.ai/zenith-wt/ws-act/src/lib/execution/product-port.ts";
-describe.skipIf(!existsSync(port))("worker projection compatibility", () => {
+const port = "src/lib/execution/product-port.ts";
+describe("worker projection compatibility", () => {
   it("matches its title/phase table and row order", () => {
     const table = text(port).match(/const STEPS:[\s\S]*?= \{([\s\S]*?)\n\};/)![1];
     const entries = [...table.matchAll(/(\w+): \{ phase: "(\w+)", title: "([^"]+)" \}/g)];

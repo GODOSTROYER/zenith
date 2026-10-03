@@ -64,7 +64,8 @@ Two kinds of non-success:
 | `system.metrics` | always | none | CPU usage (250 ms sample), load, memory, network counters, file descriptors, disks |
 | `system.logs` | always | `unit?`, `since` (default `1h`), `lines` (1–5000, default 200) | `journalctl` with an argv built only from validated fields; newest lines kept within the byte budget, redacted |
 | `machine.exec` | `exec.enabled` | `argv[]`, `cwd?`, `timeoutSec` | see §4 |
-| `file.write`, `file.upload`, `package.install` | **never** | — | in the platform vocabulary, deliberately not implemented: answered with `unsupported_operation` |
+| `file.write` | Linux + `fileWrite.enabled` + exact local template profile | canonical `path`, opaque `contentRef`, immutable `contentVersion`, required `expectedSha256` (64 lowercase hex or null for create-only) | bounded unprivileged customer application files only; see below |
+| `file.upload`, `package.install` | **never** | — | in the platform vocabulary, deliberately not implemented: answered with `unsupported_operation` |
 
 Unit names must match `^[A-Za-z0-9@._:-]{1,128}\.(service|socket|timer)$` and, in
 addition, must **not start with `-`** (a regex alone would let `--help.service`
@@ -186,7 +187,7 @@ files, manage Docker without the group trick), you can run it as root with a
 drop-in (`User=root`) and **keep every other hardening option**; the empty
 capability set then still removes `CAP_SYS_ADMIN` and friends, but root can read
 and write nearly everything, so the local guards (`restartAllow`, `readAllow`,
-`allowArgv0`) become your only layer. Prefer the polkit route.
+`allowArgv0`) become your only layer. Prefer the polkit route. The `file.write` slice refuses execution as root regardless of this legacy option for other operations.
 
 **Verified:** the unit file with `systemd-analyze verify`/`security`, and that the
 built binary runs (`zenithd check`) under the same seccomp filter,
@@ -237,3 +238,143 @@ Memory and disk fields ending in `Kb` mean KiB, uptime is whole seconds, `load`
 is a three-number tuple, and network metrics aggregate interface byte counters.
 Fields that were not measured are absent; a CPU sample with no tick delta does
 not invent a usage percentage.
+
+### Customer-local template writes (partial PROD-MACH-01)
+
+`file.write` is an opt-in Linux primitive, not full guest lifecycle acceptance.
+Its signed arguments contain only the exact canonical destination, bounded
+opaque local content reference, deterministic 64-hex immutable profile version, and prior SHA256 (or explicit null for
+create-only). Contents, source paths, URLs, credentials, arbitrary modes,
+owners, substitutions and validation commands never enter the envelope.
+Signed resource scope and the existing policy decision remain mandatory.
+Under the current high-risk policy, agent-origin writes require human approval;
+human-origin requests at autonomy level 5 can be allowed without a separate
+per-operation approval. When required, human approval comes only through the
+authenticated browser and binds the immutable proposal digest. The global
+autonomy tier is not an explicit bounded standing grant. Acceptance of scoped
+standing grants and the complete guest approval journey remains release work
+under PROD-DUR-04; this primitive does not establish that acceptance.
+Unknown write-grant constraints are refused; `pathPrefixes` means
+canonical directory boundaries and intersects the exact local allowlist.
+Existing operations retain their previous constraint behavior.
+
+The operator configures a versioned `fileWrite` profile locally. Versions cannot
+be reused with changed profile semantics. `zenithd file-write-versions --config
+/absolute/local/config.yaml` reads metadata only and prints exact path/ref/version
+triples; copy each version into its local profile before ordinary `check` or
+execution. It never reads template bytes, starts an agent, rewrites config or
+changes files. A source digest must already be independently pinned locally.
+
+The single Go `FileWriteProfileVersion` helper computes lowercase SHA256 of
+UTF-8 `zenith.file.write.profile/v1`, then one NUL byte, then compact JSON in
+exact field order: `path`, `contentRef`, `sourcePath`, `sha256`, `mode`, `maxBytes`,
+`backupDir`, `maxBackupBytes`, `maxBackups`. Values are canonical exact strings
+and integer decimal counts, with no whitespace and no version field. Source
+identity is its exact local path plus pinned bytes digest; per-execution inode/
+mount identity is separately pinned and rechecked. Every relevant profile or
+backup-authority change requires a freshly reviewed version. Config loading
+rejects a mismatched reused version; execution recomputes it before any effects
+and again before commit. The expected prior digest remains separately signed.
+This binding prevents a local profile edit from changing previously approved
+request semantics, while preserving the trusted host-operator boundary. Each destination
+maps to one ref/version, one regular source file pinned by SHA256, fixed `0600`
+or `0640`, and a byte ceiling (at most 1 MiB). Sources and destination parents
+must be provisioned already and owned by the service UID; source files may also
+be root-owned. Ancestors must belong to root or the service UID, have no group/
+world write bits, special directory bits or access/default ACLs, and contain no
+symlinks. Existing targets must be regular single-link service-owned files in
+0600/0640; templates may additionally be 0400/0440. `0640` uses the process group;
+no caller supplies a group. The private backup directory must be service-owned
+0700 and has bounded retained transaction/byte capacity. Exhaustion refuses
+new writes. The agent never prunes backup, intent or audit files.
+
+All descriptors are opened component-by-component with no-follow semantics.
+Exact parent/store anchors must use persistent local ext-family, XFS or Btrfs
+filesystems; volatile, network, FUSE and overlay stores are refused. Fsync-based
+durability still depends on the operator's storage guarantees; power-loss
+acceptance is not established by these source tests.
+Targets, templates and backups are verified independently, including mount IDs,
+identity, digest, size and permissions. The primitive refuses executable files,
+protected system/configuration directories, dotfiles, identity/replay/audit
+state, its actual config/audit/state paths and other configured template paths.
+Template sources also cannot read the agent's actual state/config/audit/backup
+custody.
+It makes an exclusive temp file in the pinned parent, writes bounded pinned
+bytes, applies fixed mode and fsyncs. Before replacement, it retains a durable
+0600 prior-content backup and intent record in private storage. Create also
+retains a durable intent. A backup/store failure refuses destination mutation.
+Rename uses the same parent descriptor; directory fsync and an independent
+no-follow reopen must measure the expected inode/content/size/mode before success.
+Noop also measures and fsyncs existing postconditions.
+
+The implementation serializes its own writers and takes a private-store advisory
+lock across instances. This is not a filesystem compare-and-swap against an
+external process with the same UID. The operator must exclude concurrent writers
+sharing that UID or root privilege. Directory/target changes detected after
+rename yield `mutation_uncertain`, with phase/effect and opaque retained backup/
+transaction references. Cancellation, fsync, readback or completion-audit failure after rename
+never says that nothing ran. There is no retry, root/sudo/Docker/raw-exec fallback
+or automatic rollback. The service surfaces unknown writes as uncertainty,
+including a cached unknown receipt, and retains available bounded phase/backup/
+transport evidence. A precommit `effect: none` refusal remains a definitive
+failure. A retained intent says `commit-may-have-run`; after crash
+or lost reply, independently inspect customer-local state. Any repair requires a
+new approval and expected current digest. Reusing an old prior digest refuses.
+Temporary files left by process death are not automatically swept.
+
+Only bounded metadata reaches result/evidence/audit; prior/desired template
+hashes and plaintext backups stay customer-local except the caller-supplied
+prior digest in the signed request. Hashes can identify low-entropy content;
+choose profiles accordingly. Sandbox transport refuses this operation.
+Non-Linux agents do not advertise it and cannot mutate through this primitive.
+
+Each exact operator-configured destination parent is a trusted mount anchor.
+The full ancestor chain is opened no-follow and checked for trusted ownership,
+permissions and ACLs. A mount transition is allowed only at that final local
+parent, independently at the exact template parent and private backup root;
+all earlier transitions and file mounts below an anchor are refused. The
+operator may therefore provision a narrow systemd `ReadWritePaths` bind mount.
+The agent pins and rechecks directory inode/device/mount identity and rejects
+unexpected target/temp/backup cross-mount effects. There is no caller mount
+option and no protection promised against hostile host root or an authorized
+operator changing the approved mount. `/tmp`, writable ancestors, root
+execution and arbitrary mounted subtrees remain refused. `/proc/self/fdinfo`
+and local ACL queries must be accessible; failures close the guard.
+
+Required Linux tests run as an unprivileged UID in an owned root-mount tree
+(`ZENITH_FILE_WRITE_TEST_ROOT`). The required ACL suite provisions real Linux
+POSIX access/default ACL xattrs on its owned fixture and fails if the fixture
+filesystem cannot support that check. The separate actual-mount suite requires
+operator-provisioned mount fixtures in `ZENITH_FILE_WRITE_MOUNT_FIXTURES`: an
+owned `anchor` directory bind-mounted at the exact final parent, `nested/parent`
+with a bind mount in an ancestor, and `file-anchor/target.txt` with a mounted
+regular file, plus `backup-anchor` as a separate trusted private directory
+mount. These are real fixtures, not mocked mount identities. That required
+suite fails explicitly when the fixtures are absent. Root coordinates their
+provisioning and teardown in Linux verification; source work starts no mount
+or service. The candidate hardened example
+`deploy/zenithd/zenithd-file-write.conf.example` retains `User=zenithd`,
+`NoNewPrivileges=yes`, empty capabilities and only exact application/backup
+paths writable. Disposable actual systemd install acceptance remains unverified.
+Never broadly open `/etc`, `/usr`, `/var` or host system paths.
+
+Authentic file.write golden generation additionally requires an empty private
+service-UID-owned `/opt/zenith-file-write-golden` on a supported local filesystem.
+Generic `-run '^TestResultGoldens$'` generation includes its `file.write-filesystem`
+subtest;
+Linux fails if the owned fixture root is absent, and non-Linux generation fails
+explicitly rather than silently omitting new success fixtures. Ordinary
+non-Linux comparison does not manufacture a successful mutation mapper.
+The helper executes real create/noop/replace/prior-refusal/post-rename-uncertainty
+operations and checks retained files before normalizing random opaque receipt
+IDs. No other result field is fabricated. That fixed path makes profile versions
+reproducible across golden regeneration and comparison. Source work does not
+emit these JSON fixtures.
+
+Source changes and written tests are not executed verification. Required gates
+remain Node 22 full typecheck, scoped lint/Vitest, Linux gofmt/vet/race and real
+fault/swap/crash suites without skipped required cases, actual Linux-generated
+Go result fixtures parsed by TS, preserved provider/revocation/security policy
+regressions, and separately disposable systemd install/guest acceptance. Upload,
+packages, service configuration and privilege-separated host changes remain
+unimplemented follow-ups.

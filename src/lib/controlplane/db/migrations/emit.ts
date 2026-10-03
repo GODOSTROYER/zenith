@@ -7,13 +7,14 @@
  *
  * What the emitted file is: the schema, every migration's DDL, the ledger rows
  * (with the same checksums the in-process migrator computes, so the migrator
- * recognises a Supabase-applied migration as applied), and the Supabase-only
- * hardening the TypeScript migrations deliberately do not carry because PGlite
- * and a plain Postgres have no such roles:
+ * recognises a Supabase-applied migration as applied), and aggregate hardening
+ * for the entire schema. Pending migration 7 also carries table-specific RLS
+ * and guarded known-role privileges for canonical upgrades from schema 6:
  *   - row level security ON for every table in `platform`, with NO policies
  *     (the service role bypasses RLS; nothing else may read these tables);
  *   - `anon` / `authenticated` lose every privilege on the schema;
- *   - `service_role` gets USAGE and table/sequence DML (mirrors 0007).
+ *   - `service_role` gets USAGE and table/sequence DML. Migration 7 applies
+ *     its matching table grants only to the three new artifact tables.
  * The role statements are guarded by `pg_roles`, so the same file also applies
  * to a plain PostgreSQL (CI, self-hosted) where those roles may not exist.
  *

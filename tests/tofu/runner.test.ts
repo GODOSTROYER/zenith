@@ -184,7 +184,8 @@ describe.skipIf(!hasTofu)("tofu lifecycle on terraform_data (real tofu 1.12.5, l
       const ws = builtinWorkspace(state, { "resource/a": dataFragment("a", "x") });
       const planDir = path.join(dir, "plans");
       const res = await planWorkspace(ws, undefined, { runner, planDir });
-      expect(res.planFilePath).toBe(path.join(planDir, `${res.plan.planDigest}.tfplan`));
+      expect(path.dirname(path.dirname(res.planFilePath!))).toBe(planDir);
+      expect(path.basename(res.planFilePath!)).toBe("reviewed.tfplan");
       expect(readFileSync(res.planFilePath!).equals(res.planFile)).toBe(true);
       if (process.platform !== "win32") expect(statSync(res.planFilePath!).mode & 0o777).toBe(0o600);
     },

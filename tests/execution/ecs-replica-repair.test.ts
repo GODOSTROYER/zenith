@@ -207,9 +207,12 @@ describe("raw full-environment repair plan", () => {
 describe("existing plan/apply activity integration", () => {
   async function reviewed() {
     const f = await fixture();
-    f.w.tofu.planWorkspace = async (ws, _session, opts = {}) => {
-      const document = raw(); const plan = normalizePlan(document, { configDigest: ws.configDigest, lockDigest: ws.lockDigest, addressMap: ws.addressMap });
-      await opts.inspectPlan?.(plan, document); return { plan, planFile: Buffer.from("private-fixture") };
+    const scriptedPlan=f.w.tofu.planWorkspace.bind(f.w.tofu);
+    f.w.tofu.planFactory=ws=>normalizePlan(raw(),{configDigest:ws.configDigest,lockDigest:ws.lockDigest,addressMap:ws.addressMap});
+    f.w.tofu.planWorkspace = async (ws, session, opts = {}) => {
+      const result=await scriptedPlan(ws,session,opts);
+      await opts.inspectPlan?.(result.plan,raw());
+      return result; // Retain this isolated engine's produced handle and private bytes.
     };
     const planned = await f.w.activities.planInfrastructure({ operationId: OP, lease: f.lease });
     Object.assign(f.w.ops.ops.get(OP)!, { approvalRound: 1 });
@@ -218,7 +221,7 @@ describe("existing plan/apply activity integration", () => {
     let applies = 0;
     f.w.tofu.applyVerifiedPlan = async (ws, args) => {
       const document = raw(); const plan = normalizePlan(document, { configDigest: ws.configDigest, lockDigest: ws.lockDigest, addressMap: ws.addressMap });
-      expect(plan.planDigest).toBe(args.approvedDigest); await args.inspectPlan?.(plan, document); applies++;
+      expect(plan.planDigest).toBe(args.approvedDigest); await args.inspectPlan?.(plan, document); await args.beforeDispatch?.(); applies++;
       replicas = 3;
       return { plan, apply: { command: "apply", exitCode: 0, output: "", truncated: false, durationMs: 1 }, outputs: {} };
     };

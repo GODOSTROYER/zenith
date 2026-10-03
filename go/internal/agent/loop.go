@@ -92,6 +92,9 @@ type Agent struct {
 	log    *slog.Logger
 	keys   *protocol.KeySet
 
+	// Only rotation writes shared trust. Readers continue using the same KeySet.
+	rotationMu sync.Mutex
+
 	sem       chan struct{}
 	slotFreed chan struct{}
 	wg        sync.WaitGroup
@@ -112,6 +115,10 @@ func New(opts Options) (*Agent, error) {
 	if opts.Config == nil || opts.Identity == nil || opts.Processor == nil || opts.Keys == nil {
 		return nil, errors.New("agent: Config, Identity, Keys and Processor are required")
 	}
+	// Keep registration metadata immutable for the running agent and its request paths.
+	identity := *opts.Identity
+	identity.ControlPlaneKeys = append([]protocol.KeyEntry(nil), opts.Identity.ControlPlaneKeys...)
+	opts.Identity = &identity
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
 	}
@@ -514,30 +521,50 @@ const maxPinnedKeys = 8
 // acceptNextKeys pins announced rotation keys (delivered over the verified
 // TLS channel, at least 24 h before use) and persists them.
 func (a *Agent) acceptNextKeys(next []protocol.KeyEntry) {
-	added := false
+	a.rotationMu.Lock()
+	defer a.rotationMu.Unlock()
+
+	// Validation and merging must not expose new trust before persistence succeeds.
+	candidate, err := protocol.NewKeySet(a.keys.Entries())
+	if err != nil {
+		a.log.Error("could not stage pinned control-plane keys")
+		return
+	}
+	var added []protocol.KeyEntry
 	for _, k := range next {
-		if _, known := a.keys.Get(k.Kid); known {
+		if pinned, known := candidate.Get(k.Kid); known {
+			if protocol.B64Encode(pinned) != k.PublicKey {
+				a.log.Warn("ignoring conflicting announced control-plane key")
+			}
 			continue
 		}
-		if a.keys.Len() >= maxPinnedKeys {
+		if candidate.Len() >= maxPinnedKeys {
 			a.log.Warn("not pinning announced control-plane key: pinned-key limit reached", "kid", k.Kid)
 			continue
 		}
-		if err := a.keys.Add(k); err != nil {
-			a.log.Warn("ignoring invalid announced control-plane key", "err", err)
+		if err := candidate.Add(k); err != nil {
+			a.log.Warn("ignoring invalid announced control-plane key")
 			continue
 		}
-		added = true
-		a.log.Info("pinned announced control-plane key", "kid", k.Kid)
+		added = append(added, k)
 	}
-	if !added {
+	if len(added) == 0 {
 		return
 	}
-	entries := a.keys.Entries()
+	entries := candidate.Entries()
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Kid < entries[j].Kid })
 	id := *a.opts.Identity
 	id.ControlPlaneKeys = entries
 	if err := SaveIdentity(a.cfg.StateDir, &id); err != nil {
 		a.log.Error("could not persist announced control-plane keys", "err", err)
+		return
+	}
+	for _, k := range added {
+		// Candidate validation already succeeded; keep the processor's shared pointer.
+		if err := a.keys.Add(k); err != nil {
+			a.log.Error("could not publish persisted control-plane key")
+			return
+		}
+		a.log.Info("pinned announced control-plane key", "kid", k.Kid)
 	}
 }

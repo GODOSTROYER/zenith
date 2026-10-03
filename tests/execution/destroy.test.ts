@@ -113,9 +113,19 @@ describe("destroy execution activities", () => {
   });
   it("reports lease loss without retrying or claiming absence", async () => {
     const w = world(); const args = await reviewed(w);
-    vi.spyOn(w.tofu, "applyVerifiedPlan").mockRejectedValue(new LeaseLostError(`env:${ENV}`, args.lease.fenceToken));
+    vi.spyOn(w.tofu, "applyVerifiedPlan").mockImplementation(async (_ws,options)=>{
+      await options.beforeDispatch?.(); // The engine accepted the dispatch boundary before losing its lease.
+      throw new LeaseLostError(`env:${ENV}`,args.lease.fenceToken);
+    });
     await expect(w.activities.applyDestroyInfrastructure(args)).rejects.toBeInstanceOf(LeaseLostError);
     expect(w.ops.ops.get(OP)!.status).toBe("uncertain");
+  });
+  it("lease loss before the engine reaches dispatch does not claim a provider write or uncertainty",async()=>{
+    const w=world();const args=await reviewed(w);
+    vi.spyOn(w.tofu,"applyVerifiedPlan").mockRejectedValue(new LeaseLostError(`env:${ENV}`,args.lease.fenceToken));
+    await expect(w.activities.applyDestroyInfrastructure(args)).rejects.toBeInstanceOf(LeaseLostError);
+    expect(w.ops.ops.get(OP)!.status).toBe("running");
+    expect(w.evidence.ofKind("tofu_apply")).toHaveLength(0);
   });
   it.each(["missing", "present", "unknown", "inaccessible"] as const)("observes %s with honest absence semantics", async (presence) => {
     const w = world(); const args = await reviewed(w);

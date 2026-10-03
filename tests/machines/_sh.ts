@@ -31,7 +31,7 @@ function build(program: string, files: Record<string, string>): string {
 
 function attempt(cmd: string, pre: string[]): ShRunner | null {
   const run: ShRunner = (program, files = {}) => {
-    const r = spawnSync(cmd, [...pre, "sh", "-s"], { input: build(program, files), encoding: "utf8", timeout: 60_000, windowsHide: true });
+    const r = spawnSync(cmd, [...pre, "-s"], { input: build(program, files), encoding: "utf8", timeout: 60_000, windowsHide: true });
     return { status: r.status, stdout: (r.stdout ?? "").replace(/\r\n/g, "\n"), stderr: (r.stderr ?? "").replace(/\r\n/g, "\n") };
   };
   try {
@@ -44,7 +44,7 @@ function attempt(cmd: string, pre: string[]): ShRunner | null {
 
 /** a working POSIX `sh` runner, or null (tests then skip) */
 export function findSh(): ShRunner | null {
-  if (process.platform === "win32") return (process.env.ZENITH_MACHINE_TEST_WSL === "1" ? attempt("wsl", ["-e"]) : null) ?? attempt("sh", []);
+  if (process.platform === "win32") return (process.env.ZENITH_MACHINE_TEST_WSL === "1" ? attempt("wsl", ["-e", "sh"]) : null) ?? attempt("sh", []);
   return attempt("sh", []);
 }
 

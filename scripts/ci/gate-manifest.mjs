@@ -97,12 +97,64 @@ export const GATE_LANES = {
     tools: { node: "22.23.3", temporal: "1.9.1" },
   },
   "platform-postgres": {
-    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", ECS_REPLICA_REPAIR_FILES.grants],
-    env: { ZENITH_FAST: "1" }, report: ".data-ci-lane/platform-lane.json",
-    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh"],
-    tools: { node: "22.23.3", postgres: "16.15" },
+    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants],
+    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1" }, report: ".data-ci-lane/platform-lane.json",
+    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache"],
+    tools: { node: "22.23.3", postgres: "16.15", tofu: "1.12.5" },
   },
 };
+
+// Native Go evidence is a separate contract, never a Vitest lane. IDs are
+// committed requirements, not discovered from a possibly incomplete report.
+const GO_MODULE = "github.com/GODOSTROYER/zenith/go";
+const OPS = `${GO_MODULE}/internal/machine/ops`;
+const MACHINE = `${GO_MODULE}/internal/machine`;
+const cases = (packageName, names) => names.map((test) => ({ package: packageName, test, id: `linux-guest:${packageName}:${test}` }));
+const subcases = (test, names) => names.map((name) => `${test}/${name}`);
+export const LINUX_GUEST_CASES = [
+  ...cases(OPS, [
+    "TestWriteCreateReplaceNoop", "TestWriteStrictArgsAndConstraints", "TestWriteDisabledAndInvalidProfiles",
+    "TestImmutableProfileVersionCanonicalContract", "TestFileWriteDefaultsDisabled",
+    "TestWriteSymlinkFIFODeviceMountAndOwnership", "TestWriteConcurrentWritersAndDirectorySwapStress",
+    "TestWriteExactMountAnchorsAndEscapes", "TestWriteBackupByteBudgetRetainsSparseCustody",
+    ...subcases("TestWritePriorVersionSourceAndCapacityRefusal", ["prior", "create-only", "version", "source", "capacity", "private-store", "target-mode", "target-hardlink", "source-hardlink", "source-symlink", "parent-mode"]),
+    ...subcases("TestWriteSymlinkFIFODeviceMountAndOwnership", ["symlink", "parent-symlink", "fifo"]),
+    ...subcases("TestWriteFaultAndCancelPhases", ["file_sync", "prepared", "backup_file_sync", "intent_file_sync", "backup_directory_sync", "backup", "before_rename", "after_rename", "before_directory_sync", "directory_sync", "postcondition"].flatMap((phase) => [phase + "false", phase + "true"])),
+    ...subcases("TestWriteIndependentPostconditionAndTargetSwap", ["before_rename", "postcondition", "noop"]),
+    ...subcases("TestWriteCrashCustodyAndRestart", ["file_sync", "prepared", "backup", "after_rename", "before_directory_sync", "directory_sync"]),
+    ...subcases("TestWriteModeBoundsBackupExhaustionAndSourceSwap", ["fixed0640", "bounded-source", "retained-capacity", "source-swapped-before-commit"]),
+    ...subcases("TestWriteImmutableVersionCannotBeReused", ["pinned-bytes", "mode", "path", "ref", "source", "byte-bound", "backup-dir", "backup-bytes", "backup-count"]),
+    ...subcases("TestWriteRejectsActualAccessAndDefaultACLs", ["target-access", "parent-default"]),
+    "TestResultGoldens/file.write-filesystem",
+  ]),
+  ...cases(MACHINE, ["TestLocalTemplateConfigDefaultAndValidation", "TestFileWriteVersionsCLIUsesMetadataOnlyAndLoadingEnforcesVersion", "TestWriteWirePreservesUncertainCustodyWithoutOutput", "TestWriteAuditCompletionFailureIsUncertain"]),
+];
+export const LINUX_GUEST_PACKAGES = ["internal/agent", "internal/awsauth", "internal/machine", "internal/machine/ops", "internal/miniyaml", "internal/netguard", "internal/oci", "internal/protocol", "internal/redact", "internal/runner", "internal/runner/kinds"].map((name) => `${GO_MODULE}/${name}`);
+export const LINUX_GUEST_NO_TEST_PACKAGES = ["cmd/zenith-runner", "cmd/zenithd", "internal/agent/fakecp", "internal/proc", "internal/protocol/protocoltest", "internal/version"].map((name) => `${GO_MODULE}/${name}`);
+export const LINUX_GUEST_ALLOWED_SKIPS = [
+  { package: OPS, test: "TestRealSystemctlAndJournalctl", reason: "Separately opted-in actual systemd acceptance; this gate starts no services." },
+  ...cases(`${GO_MODULE}/internal/runner/kinds`, ["TestRealOpenTofuPlanShowApply", "TestRealOpenTofuWithProviderAndLockfile"]).map(({ package: packageName, test }) => ({ package: packageName, test, reason: "The existing dedicated OpenTofu workflow gate retains actual binary/provider evidence." })),
+];
+export function linuxGuestManifest() {
+  return {
+    schemaVersion: 1, lane: "linux-guest", kind: "native-go", files: [], excludeFiles: [], requirements: [], externalAcceptance: [], report: ".data-ci-guest/attempt-{attemptId}/sanitized.json",
+    artifactSelection: "Fresh wrapper attempt ID, exact runner outputs, sanitized digest and observed CI runner outcome must agree; missing/mismatched selection fails.",
+    env: { GOTOOLCHAIN: "local", CGO_ENABLED: "1", ZENITH_FILE_WRITE_TEST_ROOT: "/opt/zenith-file-write-tests", ZENITH_FILE_WRITE_MOUNT_FIXTURES: "/opt/zenith-file-write-mounts" },
+    tools: { node: "22.23.3", go: "1.27.1" },
+    command: ["node", "scripts/ci/run-guest-file-write-gate.mjs", "--run"],
+    steps: [
+      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./..."] },
+      { id: "goldens", command: ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"] },
+      { id: "golden-diff", command: ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"] },
+      { id: "golden-status", command: ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"] },
+    ],
+    requiredCases: LINUX_GUEST_CASES,
+    goldenCases: cases(OPS, ["TestResultGoldens/file.write-filesystem"]),
+    requiredPackages: LINUX_GUEST_PACKAGES, noTestPackages: LINUX_GUEST_NO_TEST_PACKAGES, allowedSkips: LINUX_GUEST_ALLOWED_SKIPS,
+    prerequisites: ["Linux; unprivileged test UID/GID", "Node 22.23.3; Go 1.27.1; GOTOOLCHAIN=local; cgo C compiler", "Persistent ext-family, XFS or Btrfs root filesystem (no overlay/tmpfs/FUSE/network filesystem)", "/proc/self/fdinfo mount IDs; POSIX access/default ACL xattrs", "Python 3; util-linux mount/umount/flock; explicitly authorized disposable root fixture setup", "Owned exact /opt fixture roots and four actual bind mounts checked by guest-file-write-fixtures.sh", "Integrated frozen writer source and five actual Linux-generated committed file.write goldens", "No active fixture users during validated cleanup"],
+    reportValidation: "Strict complete Go JSON lifecycles plus observed successful exits; absent or skipped required cases fail. Raw streams remain private.",
+  };
+}
 
 /** @param {string} root @param {string} directory @returns {string[]} */
 export function testFiles(root, directory) {
@@ -123,6 +175,7 @@ export function assertionMatches(required, assertion) {
   if (required.suite && !ancestors.some((title) => typeof title === "string" && canonicalSuite(title) === canonicalSuite(required.suite))) return false;
   if (required.ancestorSuite && !ancestors.some((title) => typeof title === "string" && canonicalSuite(title) === canonicalSuite(required.ancestorSuite))) return false;
   if (required.excludeSuites?.some((suite) => ancestors.includes(suite))) return false;
+  if (required.test && assertion.title !== required.test) return false;
   if (!required.postgres) return true;
   // Prefer suite ancestry. A test title mentioning PostgreSQL cannot turn a
   // PGlite suite into real-engine evidence. Older reports omit the ancestry.
@@ -133,11 +186,11 @@ export function assertionMatches(required, assertion) {
 /** Stable IDs contain only trusted source paths and a digest of the owned suite. */
 export function requirementId(lane, required) {
   const identity = `${required.suite ?? ""}:${required.postgres ?? false}${required.ancestorSuite !== undefined ? `:${required.ancestorSuite}` : ""}`;
-  const suffix = createHash("sha256").update(identity).digest("hex").slice(0, 12);
+  const suffix = createHash("sha256").update(identity + (required.test ? `:test:${required.test}` : "")).digest("hex").slice(0, 12);
   return `${lane}:${required.file}:${suffix}`;
 }
 
-/** @typedef {Readonly<{ file: string, suite?: string, ancestorSuite?: string, postgres?: boolean, backend?: string, id: string, excludeSuites?: readonly string[] }>} GateRequirement */
+/** @typedef {Readonly<{ file: string, suite?: string, test?: string, ancestorSuite?: string, postgres?: boolean, backend?: string, id: string, excludeSuites?: readonly string[] }>} GateRequirement */
 /**
  * Backend suite identity comes from committed gate declarations, never assertions.
  * @param {string} lane
@@ -180,6 +233,32 @@ export function requirementsFor(lane, root) {
         const postgresOnly = [...source.matchAll(/describe\.skipIf\(!PG_URL\)\(\s*(["'])(.*?)\1/g)].map((match) => ({ file, suite: match[2], backend: "postgres" }));
         return [...backendSuites, ...postgresOnly];
       }));
+      requirements.push({file:"tests/controlplane/migrations.test.ts",suite:"migrator [postgres] concurrency and fail-closed open",test:"schema 6 emitted hardening upgrades through the canonical migrator under a distinct owner with RLS, role isolation and immutable artifacts",postgres:true});
+      // These require independent PostgreSQL handles; they are not registered as isolated PGlite skips.
+      requirements.push(...[
+        "publisher and reader barriers serialize visible commit, then losing fence cannot dispatch",
+        "a committed dispatch CAS with lost response remains uncertain and refuses another claim",
+        "source association locks both operations and loses safely to a partially decided browser round",
+        "lost durable completion response refuses replay even when the commit succeeded",
+        "a serialized canonical proof with 0 required humans permits exactly one live durable dispatch",
+        "a serialized canonical proof with 2 required humans permits exactly one live durable dispatch",
+      ].map(test=>({file:"tests/controlplane/plan-artifacts.test.ts",suite:"plan artifacts [postgres]",test,postgres:true})));
+      requirements.push({file:"tests/controlplane/operations.test.ts",suite:"operations [postgres]",ancestorSuite:"claimForExecution",test:"a blocked environment fence is acquired before the operation row across independent PostgreSQL handles",postgres:true});
+      // Explicit combined contract: each scenario is mandatory, with no discovery/skip fallback.
+      requirements.push(...[
+        "producer exits and loses its directory; another worker applies ORIGINAL bytes after a separate fresh check, then destroys",
+        "fresh semantic drift refuses before dispatch and has no original/fresh fallback",
+        "source/config/backend/address-map/lock/tool and operation swaps refuse before mutation",
+        "tampering with the original after inspection refuses before apply and preserves uncertainty after dispatch",
+        "stale original state serial refuses even when independent fresh semantic plan is unchanged, with no fallback",
+        "source review completes, browser human approval is consumed, and destination destroys the associated ORIGINAL",
+        "restore into a fresh PostgreSQL store with matching keys preserves the original; missing keys refuse",
+        "fake cipher authority and arbitrary runner handles cannot mint production admission",
+      ].map(test => ({file:"tests/tofu/plan-artifact-handoff.test.ts",suite:"authenticated original cross-worker handoff [postgres]",test,postgres:true})));
+      requirements.push(...["expired approval","revoked approver role","new policy denial","expiry after authority check","expiry during role lookup"].map(mode=>({file:"tests/execution/apply.test.ts",suite:"dispatch current authority [postgres]",test:`refuses ${mode} after fresh replan and before durable dispatch`,postgres:true})));
+      requirements.push({file:"tests/platform/plan-approval.test.ts",suite:"immutable source review approval [postgres]",postgres:true});
+      requirements.push({file:"tests/execution/destroy-review.test.ts",suite:"undecided teardown supersession [postgres]",postgres:true});
+      requirements.push({file:"tests/security/plan-artifact-secrecy.test.ts",suite:"encrypted plan artifact secrecy [postgres]",postgres:true});
       requirements.push(...ECS_REPLICA_REPAIR_POSTGRES_SUITES.map((suite) => ({ file: ECS_REPLICA_REPAIR_FILES.grants, suite, ancestorSuite: "replica repair authority [postgres]", postgres: true })));
       break;
     default:
@@ -206,6 +285,7 @@ export function requirementsFor(lane, root) {
  */
 /** @param {string} lane @param {string} [root] @param {string} [reportPath] @returns {GateManifest} */
 export function manifestFor(lane, root = process.cwd(), reportPath) {
+  if (lane === "linux-guest") return linuxGuestManifest();
   if (lane === "core" || lane === "fresh") return { schemaVersion: 1, lane, files: [], excludeFiles: [], env: {}, report: "", command: [], requirements: [], externalAcceptance: [], tools: { node: "22.23.3" }, prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts"], steps: lane === "fresh" ? [{ id: "install", command: ["npm", "ci", "--ignore-scripts"] }, ...CORE_CHECKS] : CORE_CHECKS, reportValidation: "Command exits establish core checks; real-engine requirements are validated by their dedicated lanes." };
   if (!Object.hasOwn(GATE_LANES, lane)) throw new Error("Unknown CI lane");
   const config = GATE_LANES[lane];
@@ -217,11 +297,11 @@ export function manifestFor(lane, root = process.cwd(), reportPath) {
 export function main(args) {
   try {
     if (args.length > 1) throw new Error("usage");
-    const result = args[0] === "external-acceptance" ? { schemaVersion: 1, groups: EXTERNAL_ACCEPTANCE.map((group) => ({ ...group, status: "unverified", command: ["node", "node_modules/vitest/vitest.mjs", "run", group.file, "--testNamePattern", group.suite.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "--maxWorkers=1"] })) } : args[0] ? manifestFor(args[0]) : { schemaVersion: 1, lanes: ["fresh", "core", ...Object.keys(GATE_LANES)].map((lane) => manifestFor(lane)) };
+    const result = args[0] === "external-acceptance" ? { schemaVersion: 1, groups: EXTERNAL_ACCEPTANCE.map((group) => ({ ...group, status: "unverified", command: ["node", "node_modules/vitest/vitest.mjs", "run", group.file, "--testNamePattern", group.suite.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "--maxWorkers=1"] })) } : args[0] ? manifestFor(args[0]) : { schemaVersion: 1, lanes: ["fresh", "core", ...Object.keys(GATE_LANES), "linux-guest"].map((lane) => manifestFor(lane)) };
     console.log(JSON.stringify(result, null, 2));
     return 0;
   } catch {
-    console.error("usage: node scripts/ci/gate-manifest.mjs [fresh|core|postgres|policy|tofu|workflows|platform-postgres|external-acceptance]");
+    console.error("usage: node scripts/ci/gate-manifest.mjs [fresh|core|postgres|policy|tofu|workflows|platform-postgres|linux-guest|external-acceptance]");
     return 2;
   }
 }

@@ -79,3 +79,22 @@ it("agent-reported timeout is distinct from silence and pre-delivery expiry", as
   await expect(d.await(id, ac.signal)).rejects.toBeDefined();
   expect(driver.supports).toContain(req.operation);
 });
+
+it("queues exact signed template metadata and refuses a revoked file.write machine", async () => {
+  const p = await createPlane();
+  const agent = await registerFakeAgent(p, register, { kind: "machine", capabilities: ["file.write"] });
+  const dispatcher = createRunnerMachineDispatcher(p.rt);
+  const args = { path: "/opt/customer/settings.txt", contentRef: "settings", contentVersion: "c".repeat(64), expectedSha256: null };
+  const req: MachineRequest = { operationId: "op_template", target: { workspaceId: agent.workspaceId, resourceId: "res_fixture", transport: "zenithd", targetId: agent.id }, operation: "file.write", args, timeoutSec: 5, maxOutputBytes: 4096 };
+  const grant = await issueGrant(p, { aud: `machine:${agent.id}`, cap: req.operation, op: req.operationId, ws: agent.workspaceId, res: "res_fixture" });
+  await expect(dispatcher.enqueue({ ...req, args: { ...args, content: "inert-plaintext-marker" } }, grant)).rejects.toMatchObject({ code: "invalid_args" });
+  const id = await dispatcher.enqueue(req, grant);
+  const delivery = await agent.post(poll, "/poll", { max: 1, waitSec: 0 });
+  const envelope = agent.decodeJob((delivery.body.jobs as string[])[0], agent.jobTyp());
+  expect(envelope.claims).toMatchObject({ jti: id, operation: "file.write", args, grant });
+  expect(JSON.stringify(envelope.claims)).not.toContain("inert-plaintext-marker");
+  await p.store.machines.revoke(agent.workspaceId, agent.id);
+  await expect(dispatcher.enqueue({ ...req, operationId: "op_revoked" }, grant)).rejects.toMatchObject({ code: "agent_revoked" });
+  expect((await agent.post(poll, "/poll", { max: 1, waitSec: 0 })).status).not.toBe(200);
+  expect(await p.store.machineRequests.listForOperation(agent.workspaceId, req.operationId)).toHaveLength(1);
+});

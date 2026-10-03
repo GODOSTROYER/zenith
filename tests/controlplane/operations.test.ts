@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { digest } from "@/lib/controlplane/digest";
 import * as repos from "@/lib/controlplane/db/repos";
 import { IdempotencyConflictError } from "@/lib/controlplane/db";
-import { LeaseLostError, type OperationRecord } from "@/lib/controlplane/types";
+import { LeaseLostError, type OperationRecord, type Sql } from "@/lib/controlplane/types";
 import { proposeOperation } from "@/lib/controlplane/operations";
 import {
   LANES,
@@ -347,6 +347,32 @@ describe.each(LANES)("operations [$name]", (lane) => {
       expect(a.consumedAt).toBeUndefined();
       await claim(seeded.workspaceId, decided.operation, { expectedPolicyVersion: "a".repeat(64) });
     });
+
+    if (lane.independent) {
+      it("a blocked environment fence is acquired before the operation row across independent PostgreSQL handles", async () => {
+        const seeded=await seedApprovedOperation(db());
+        const scope=`env:${seeded.operation.environmentId}`;
+        const lease=(await repos.leases.acquire(db(),{scope,holder:"worker-order",workspaceId:seeded.workspaceId,ttlMs:60000}))!;
+        let entered!:()=>void;const fenceEntered=new Promise<void>(resolve=>{entered=resolve;});
+        const observed:Sql={query:(text,params)=>ctx.db2.query(text,params),tx:fn=>ctx.db2.tx(tx=>fn({
+          query:(text,params)=>{if(text.includes("from platform.leases") && text.includes("for share"))entered();return tx.query(text,params);},
+          tx:nested=>tx.tx(nested),
+        }))};
+        let claiming:Promise<OperationRecord>|undefined;
+        try {
+          await db().tx(async tx=>{
+            await tx.query("select scope from platform.leases where scope=$1 for update",[scope]);
+            claiming=repos.operations.claimForExecution(observed,{workspaceId:seeded.workspaceId,id:seeded.operation.id,expectedDigest:seeded.operation.proposalDigest,holder:"worker-order",lease:{scope,fenceToken:lease.fenceToken}});
+            // Attach immediately so a failed lock-order assertion cannot leave an unhandled rejection.
+            void claiming.catch(()=>undefined);
+            await fenceEntered;
+            const rows=await tx.query("select id from platform.operations where workspace_id=$1 and id=$2 for update nowait",[seeded.workspaceId,seeded.operation.id]);
+            expect(rows).toHaveLength(1);
+          });
+          expect((await claiming!)?.status).toBe("running");
+        } finally {await claiming?.catch(()=>undefined);await repos.leases.release(db(),lease);}
+      });
+    }
 
     it("asserts the environment lease atomically: a stale fence changes nothing", async () => {
       const seeded = await seedAwaitingApproval(db());

@@ -23,7 +23,8 @@
  * are the broker's job and are deliberately not repeated here.
  *
  * Errors: a request that cannot run throws `MachineOperationError`; a request
- * that ran and failed returns `ok: false` (see `errors.ts`).
+ * that ran and definitively failed returns `ok: false`. An unknown write
+ * outcome throws uncertainty after retaining its bounded receipt.
  */
 import { capability, isCapability } from "@/lib/capabilities/catalog";
 import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
@@ -31,7 +32,8 @@ import { z } from "zod";
 import { isImplementedOperation, MachineRequestSchema, parseMachineArgs, describeIssues } from "./args";
 import { evidenceForRejection, evidenceForResult } from "./evidence";
 import { MachineOperationError, isMachineOperationError } from "./errors";
-import { isDeniedFilePath, pathAllowed } from "./guards";
+import { isDeniedFilePath, isCanonicalWritePath, writePathAllowed, pathAllowed } from "./guards";
+import { FileWriteFailureDataSchema, MachineResultDataSchemas } from "./results";
 import { MAX_OUTPUT_BYTES, MAX_TIMEOUT_SEC } from "./limits";
 import { redactDeep, truncateUtf8 } from "./redact";
 import type { MachineDriver, MachineDrivers, MachineEvidenceSink, MachineOperation, MachineRequest, MachineResult, MachineSessionProvider } from "./types";
@@ -73,7 +75,15 @@ function assertGrant(req: MachineRequest, grant: CapabilityGrantClaims, nowMs: n
   if (capability(req.operation).scopeLevel === "resource" && grant.res === undefined) throw mismatch("grant is not scoped to a resource");
 }
 
-function parseConstraints(grant: CapabilityGrantClaims): z.infer<typeof ConstraintsSchema> {
+function parseConstraints(grant: CapabilityGrantClaims, op: MachineOperation): z.infer<typeof ConstraintsSchema> {
+  if (op === "file.write") {
+    const c = grant.constraints ?? {};
+    if (Object.keys(c).some((k) => !["maxTimeoutSec", "maxOutputBytes", "pathPrefixes"].includes(k)) ||
+      (Array.isArray(c.pathPrefixes) && c.pathPrefixes.some((p) => typeof p !== "string" || !isCanonicalWritePath(p))) ||
+      [c.maxTimeoutSec, c.maxOutputBytes].some((n) => typeof n === "number" && n > 1073741824)) {
+      throw new MachineOperationError("grant_mismatch", "the write grant carries constraints this executor cannot enforce");
+    }
+  }
   const parsed = ConstraintsSchema.safeParse(grant.constraints ?? {});
   if (!parsed.success) throw new MachineOperationError("grant_mismatch", "the capability grant carries constraints this executor cannot interpret", { issues: describeIssues(parsed.error) });
   return parsed.data;
@@ -82,6 +92,9 @@ function parseConstraints(grant: CapabilityGrantClaims): z.infer<typeof Constrai
 function enforceConstraints(op: MachineOperation, args: Record<string, unknown>, c: z.infer<typeof ConstraintsSchema>): void {
   if (c.maxLines !== undefined && typeof args.lines === "number" && args.lines > c.maxLines) {
     throw new MachineOperationError("limit_exceeded", `lines exceeds the grant's maxLines constraint (${c.maxLines})`);
+  }
+  if (op === "file.write" && c.pathPrefixes && !writePathAllowed(String(args.path), c.pathPrefixes)) {
+    throw new MachineOperationError("denied", "write path is outside signed scope");
   }
   if (op === "file.read" && c.pathPrefixes) {
     const path = String(args.path);
@@ -99,6 +112,15 @@ function postProcess(req: MachineRequest, driver: MachineDriver, result: Machine
   if (result.operation !== req.operation) throw new MachineOperationError("protocol_violation", "the driver returned a result for a different operation");
   if (result.transport !== driver.transport) throw new MachineOperationError("protocol_violation", "the driver returned a result for a different transport");
 
+  if (req.operation === "file.write") {
+    const parsed = (result.ok ? MachineResultDataSchemas["file.write"] : FileWriteFailureDataSchema).safeParse(result.data);
+    if (!parsed.success) throw new MachineOperationError("uncertain", "the write result could not establish an outcome", { transportRef: result.transportRef });
+    const data = parsed.data as Record<string, unknown>;
+    if (!result.ok && data.effect !== "none" && data.effect !== "unknown") throw new MachineOperationError("uncertain", "the write failure omitted its effect receipt", { transportRef: result.transportRef });
+    if (result.ok && (data.path !== req.args.path || data.contentVersion !== req.args.contentVersion)) throw new MachineOperationError("uncertain", "the write receipt does not bind the approved destination/version", { transportRef: result.transportRef });
+    const { output: _output, ...safe } = result;
+    return { ...safe, data };
+  }
   const max = req.maxOutputBytes;
   const state = { changed: false };
   // Redact complete strings first: truncating a credential can defeat its pattern,
@@ -126,6 +148,7 @@ function postProcess(req: MachineRequest, driver: MachineDriver, result: Machine
 }
 
 export async function executeMachineOperation(req: MachineRequest, ctx: MachineExecutionContext): Promise<MachineResult> {
+  let completed: MachineResult;
   const now = ctx.now ?? (() => new Date());
   if (ctx.signal.aborted) throw new MachineOperationError("aborted", "the machine request was aborted before it started");
 
@@ -148,7 +171,7 @@ export async function executeMachineOperation(req: MachineRequest, ctx: MachineE
 
   try {
     assertGrant(request, ctx.grant, now().getTime());
-    const constraints = parseConstraints(ctx.grant);
+    const constraints = parseConstraints(ctx.grant, request.operation);
 
     if (!driver) throw new MachineOperationError("unsupported_transport", `no machine driver is configured for transport ${request.target.transport}`);
     if (!isImplementedOperation(request.operation)) {
@@ -167,6 +190,7 @@ export async function executeMachineOperation(req: MachineRequest, ctx: MachineE
     if (typeof parsedArgs.timeoutSec === "number" && request.operation.endsWith("exec") && parsedArgs.timeoutSec > timeoutSec) {
       throw new MachineOperationError("limit_exceeded", `the command's timeoutSec (${parsedArgs.timeoutSec}) exceeds the request's time budget (${timeoutSec}s)`);
     }
+    if (request.operation === "file.write" && maxOutputBytes < 2048) throw new MachineOperationError("limit_exceeded", "file.write requires a 2048-byte metadata result budget");
     enforceConstraints(request.operation, parsedArgs, constraints);
 
     const effective: MachineRequest = { ...request, args: parsedArgs, timeoutSec, maxOutputBytes };
@@ -184,7 +208,7 @@ export async function executeMachineOperation(req: MachineRequest, ctx: MachineE
         throw new MachineOperationError("evidence_failed", "the request completed but its evidence record could not be written", { result, cause });
       }
     };
-    return ctx.evidence.runOnce ? await ctx.evidence.runOnce(effective, execute, driver.simulated === true) : await execute();
+    completed = ctx.evidence.runOnce ? await ctx.evidence.runOnce(effective, execute, driver.simulated === true) : await execute();
   } catch (e) {
     if (isMachineOperationError(e)) {
       if (e.code === "evidence_failed") throw e;
@@ -197,4 +221,13 @@ export async function executeMachineOperation(req: MachineRequest, ctx: MachineE
     // a driver bug or an unexpected throw: still a refusal with evidence, not an unhandled rejection
     return reject(new MachineOperationError("transport_error", "the machine driver failed unexpectedly", { cause: e }));
   }
+  // Classify after recording and caching, including a cached result on replay.
+  // Preserve the genuine phase/backup receipt instead of recording a rejection.
+  if (request.operation === "file.write" && !completed.ok && completed.data.effect === "unknown") {
+    throw new MachineOperationError("uncertain", "the machine write's durable outcome is unknown; it must never be re-dispatched", {
+      result: completed,
+      transportRef: completed.transportRef,
+    });
+  }
+  return completed;
 }

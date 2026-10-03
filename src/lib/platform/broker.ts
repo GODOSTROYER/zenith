@@ -10,6 +10,7 @@
 import { randomUUID } from "node:crypto";
 import { platformBroker, type Broker } from "@/lib/capabilities/platform";
 import { capability, isCapability } from "@/lib/capabilities/catalog";
+import { loadDestroyPlan } from "@/lib/capabilities/destroy-plan";
 import { evaluate } from "@/lib/capabilities/evaluate";
 import { requestFromOperation } from "@/lib/capabilities/reevaluate";
 import { ROLE_RANK } from "@/lib/capabilities/ports";
@@ -67,20 +68,36 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
     const round = approvalRoundOf(op);
     const live = all.filter((a) => approvalRoundOf(a) === round && a.proposalDigest === op.proposalDigest && Date.parse(a.expiresAt) > time);
     const rejected = live.some((a) => a.decision === "reject") || ["rejected", "cancelled", "denied"].includes(op.status);
-    if (!requirement) return { approved: !rejected, rejected };
+    if (!requirement) return { approved: !rejected, rejected, dispatchApproval: { approvalIds: [],requiredApprovalCount:0,approvalRound:round,proposalDigest:op.proposalDigest,planDigest:op.planDigest } };
     // Round zero cannot authorize the subsequently gated concrete plan.
-    if (op.planDigest && round === 0) return { approved: false, rejected };
-    const users = new Set<string>();
-    let approvalId: string | undefined;
+    if (op.planDigest && round === 0) {
+      // A destroy proposal can include its already-reviewed source in the immutable initial proposal.
+      // This never attests bytes: dispatch still requires the authenticated artifact association.
+      const ref=(op.proposal as {broker?:{v?:number;destroyPlan?:{operationId?:string;evidenceId?:string}}}).broker;
+      if(op.capability!=="infrastructure.destroy" || op.proposal.planDigest!==op.planDigest || ref?.v!==1 || !ref.destroyPlan?.operationId || !ref.destroyPlan.evidenceId) return {approved:false,rejected};
+      try {
+        const source=await broker.deps.store.getOperation(op.workspaceId,ref.destroyPlan.operationId);
+        const intent=source?.proposal.input as {environmentId?:string;teardownReview?:boolean}|undefined;
+        const original=await loadDestroyPlan(broker.deps,op.proposal.scope,{operationId:ref.destroyPlan.operationId,planDigest:op.planDigest});
+        if(source?.capability!=="infrastructure.plan" || !intent?.teardownReview || intent.environmentId!==op.environmentId
+          || original.evidenceId!==ref.destroyPlan.evidenceId || original.planDigest!==op.planDigest) return {approved:false,rejected};
+      } catch { return {approved:false,rejected}; }
+    }
+    const validated: typeof live = [];
     for (const a of live) {
       if (a.decision !== "approve" || a.approver.kind !== "user") continue;
       if (a.consumedAt && op.status !== "running") continue;
       if (requirement.separationOfDuties && a.approver.id === (op.principal.onBehalfOf ?? op.principal.id)) continue;
       const access = await broker.deps.roles.resolve(a.approver, op.workspaceId);
       if (ROLE_RANK[access.role] < ROLE_RANK[requirement.minRole]) continue;
-      users.add(a.approver.id); approvalId = a.id;
+      validated.push(a);
     }
-    return { approved: !rejected && users.size >= requirement.count, rejected, approvalId };
+    // Role resolution can await external stores. Recheck time after the final await, then bind exact IDs for the SQL boundary.
+    const finalTime=broker.deps.clock.now().getTime();
+    const current=validated.filter(a=>Date.parse(a.expiresAt)>finalTime);
+    const currentUsers=new Set(current.map(a=>a.approver.id));
+    return { approved: !rejected && currentUsers.size >= requirement.count, rejected, approvalId: current.at(-1)?.id,
+      dispatchApproval: { approvalIds:current.map(a=>a.id),requiredApprovalCount:requirement.count,approvalRound:round,proposalDigest:op.proposalDigest,planDigest:op.planDigest } };
   };
   return {
     reevaluate: (id, facts) => workerStoreScope(async () => {

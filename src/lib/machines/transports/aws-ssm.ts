@@ -456,7 +456,7 @@ export function createAwsSsmMachineDriver(options: AwsSsmDriverOptions = {}): Ma
 
 const UNSUPPORTED: Partial<Record<MachineOperation, string>> = {
   "container.exec": "container.exec is not offered over SSM; use machine.exec (escape hatch) or a zenithd-managed machine",
-  "file.write": "file.write is not implemented by any machine transport yet",
+  "file.write": "file.write requires an opt-in Linux zenithd local-template profile and is not supported by this transport",
   "file.upload": "file.upload is not implemented by any machine transport yet",
   "package.install": "package.install is not implemented by any machine transport yet",
 };

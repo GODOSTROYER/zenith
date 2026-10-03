@@ -45,9 +45,9 @@ const (
 )
 
 // Unsupported lists operations that exist in the platform vocabulary but that
-// zenithd deliberately does not implement (writing files and installing
-// packages need a reviewed design of their own; see docs/platform/ZENITHD.md).
-var Unsupported = map[string]bool{OpFileWrite: true, OpFileUpload: true, OpPackageInstall: true}
+// zenithd deliberately does not implement (uploads and package installation
+// need separate reviewed designs; see docs/platform/ZENITHD.md).
+var Unsupported = map[string]bool{OpFileUpload: true, OpPackageInstall: true}
 
 // Config is the operation-relevant part of the zenithd configuration.
 type Config struct {
@@ -55,6 +55,7 @@ type Config struct {
 	Containers ContainersConfig `json:"containers"`
 	Exec       ExecConfig       `json:"exec"`
 	Files      FilesConfig      `json:"files"`
+	FileWrite  FileWriteConfig  `json:"fileWrite"`
 	// SystemctlPath and JournalctlPath default to /usr/bin/...
 	SystemctlPath  string `json:"systemctlPath"`
 	JournalctlPath string `json:"journalctlPath"`
@@ -97,6 +98,7 @@ type FilesConfig struct {
 type Env struct {
 	Cfg        Config
 	StateDir   string // never readable through file.read
+	AuditFile  string
 	ConfigFile string
 	ProcRoot   string // default /proc
 	OSRelease  string // default /etc/os-release
@@ -106,10 +108,11 @@ type Env struct {
 	Docker     *Docker
 	Version    string
 	// Injectable host reads for deterministic contract fixtures; nil uses the host.
-	hostname func() (string, error)
-	cpuCount func() int
-	arch     string
-	statfs   func(string) (uint64, uint64, uint64, bool)
+	fileWriteFault func(string) error
+	hostname       func() (string, error)
+	cpuCount       func() int
+	arch           string
+	statfs         func(string) (uint64, uint64, uint64, bool)
 }
 
 // Request is one validated request to run an operation.
@@ -157,7 +160,7 @@ func register(op Operation) { registry[op.Name] = op }
 // (containers, exec) are omitted.
 func Supported(cfg Config) []string {
 	var out []string
-	for _, name := range []string{OpInspect, OpProcessList, OpServiceStatus, OpServiceRestart, OpContainerList, OpContainerInspect, OpContainerLogs, OpContainerExec, OpFileRead, OpPortCheck, OpDNSCheck, OpMetrics, OpLogs, OpExec} {
+	for _, name := range []string{OpInspect, OpProcessList, OpServiceStatus, OpServiceRestart, OpContainerList, OpContainerInspect, OpContainerLogs, OpContainerExec, OpFileRead, OpFileWrite, OpPortCheck, OpDNSCheck, OpMetrics, OpLogs, OpExec} {
 		switch name {
 		case OpContainerList, OpContainerInspect, OpContainerLogs:
 			if !cfg.Containers.Enabled {
@@ -173,6 +176,10 @@ func Supported(cfg Config) []string {
 			}
 		case OpServiceRestart:
 			if len(cfg.Services.RestartAllow) == 0 {
+				continue
+			}
+		case OpFileWrite:
+			if !fileWritePlatform() || !cfg.FileWrite.Enabled || len(cfg.FileWrite.Profiles) == 0 {
 				continue
 			}
 		case OpFileRead:

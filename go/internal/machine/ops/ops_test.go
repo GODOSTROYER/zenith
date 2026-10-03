@@ -302,10 +302,16 @@ func TestSystemLogsKeepsTheNewestLinesWithinTheByteBudget(t *testing.T) {
 
 func TestUnsupportedAndUnknownOperationsAreRefused(t *testing.T) {
 	e := &ops.Env{}
-	for _, name := range []string{ops.OpFileWrite, ops.OpFileUpload, ops.OpPackageInstall, "machine.reboot", "", "service.status; id"} {
+	for _, name := range []string{ops.OpFileUpload, ops.OpPackageInstall, "machine.reboot", "", "service.status; id"} {
 		_, err := e.Prepare(name, &ops.Request{Args: json.RawMessage(`{}`)})
 		wantCode(t, err, protocol.CodeUnsupportedOp)
 	}
+}
+
+func TestFileWriteDefaultsDisabled(t *testing.T) {
+	e := &ops.Env{}
+	_, err := e.Prepare(ops.OpFileWrite, &ops.Request{Args: json.RawMessage(`{}`)})
+	wantCode(t, err, protocol.CodeDisabledByConfig)
 }
 
 func TestSupportedReflectsLocalGuards(t *testing.T) {

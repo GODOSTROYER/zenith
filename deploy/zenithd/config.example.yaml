@@ -46,3 +46,23 @@ limits:
 log:
   level: info
   format: json
+
+# Customer-local immutable-template writes: disabled by default, Linux only.
+# All directories already exist; no writable/symlinked ancestors, ACLs, root
+# execution or executable/system configuration targets are allowed. Exact local
+# final-parent mount anchors are permitted; unexpected ancestor/file mounts fail.
+# Local persistent ext-family/XFS/Btrfs only; volatile/network/FUSE/overlay refused.
+# Provision a private customer application tree; modes are fixed per profile.
+fileWrite:
+  enabled: false
+  # backupDir: /opt/customer/fw-backups  # existing 0700, owned by zenithd
+  # maxBackupBytes: 16777216            # all retained intent/backup bytes
+  # maxBackups: 128                     # retained transactions; no pruning
+  # profiles:
+  #   - path: /opt/customer/app/settings.txt
+  #     contentRef: app-settings
+  #     contentVersion: REPLACE_WITH_FILE_WRITE_VERSIONS_CLI_HASH
+  #     sourcePath: /opt/customer/templates/settings.txt
+  #     sha256: REPLACE_WITH_LOCAL_PINNED_SHA256
+  #     mode: "0600"                   # only "0600" or "0640"
+  #     maxBytes: 65536                 # hard maximum 1048576

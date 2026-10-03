@@ -150,6 +150,16 @@ export const MachineResultDataSchemas = {
     sha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
     redacted: z.boolean().optional(),
   }),
+  "file.write": z.object({
+    path: str(1024), contentVersion: z.string().length(64).regex(/^[0-9a-f]{64}$/),
+    changed: z.boolean(), created: z.boolean(), bytesWritten: count.max(1048576),
+    postcondition: z.literal("verified"), phase: z.literal("verified"),
+    effect: z.enum(["none", "committed"]),
+    backupRef: z.string().length(35).regex(/^fw_[0-9a-f]{32}$/).optional(),
+    transactionRef: z.string().length(35).regex(/^fw_[0-9a-f]{32}$/).optional(),
+  }).superRefine((d, ctx) => {
+    if (d.changed !== (d.effect === "committed") || (d.created && !d.changed) || (!d.changed && d.bytesWritten !== 0) || (d.changed && !d.transactionRef) || (d.created && d.backupRef) || (d.changed && !d.created && !d.backupRef)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "inconsistent write receipt" });
+  }),
   "network.portCheck": z.object({
     host: str(253),
     port: z.number().int().min(1).max(65535),
@@ -190,6 +200,7 @@ export type MachineData<Op extends ImplementedOperation> = z.output<(typeof Mach
 export const MACHINE_FAILURE_CODES = [
   /** the command ran and exited non-zero */
   "command_failed",
+  "mutation_uncertain",
   /** a tool the operation needs is not on the target (docker, systemctl, ps) */
   "unavailable",
   "not_found",
@@ -209,9 +220,26 @@ export type MachineFailureCode = (typeof MACHINE_FAILURE_CODES)[number];
 
 export const MachineFailureDataSchema = z.object({
   error: z.enum(MACHINE_FAILURE_CODES),
+  phase: z.enum(["guard", "prepare", "backup", "commit", "rename", "directory_sync", "postcondition", "audit"]).optional(),
+  effect: z.enum(["none", "unknown"]).optional(),
+  postcondition: z.literal("unverified").optional(),
+  backupRef: z.string().length(35).regex(/^fw_[0-9a-f]{32}$/).optional(),
+  transactionRef: z.string().length(35).regex(/^fw_[0-9a-f]{32}$/).optional(),
   reason: str(1000).optional(),
   status: str(64).optional(),
   timedOut: z.boolean().optional(),
   exitCode: z.number().int().nullable().optional(),
 });
 export type MachineFailureData = z.output<typeof MachineFailureDataSchema>;
+
+/** A write failure cannot carry arbitrary agent text or command output. */
+export const FileWriteFailureDataSchema = z.object({
+  error: z.enum(["refused", "mutation_uncertain"]),
+  phase: z.enum(["guard", "prepare", "backup", "commit", "rename", "directory_sync", "postcondition", "audit"]),
+  effect: z.enum(["none", "unknown"]),
+  postcondition: z.literal("unverified"),
+  backupRef: z.string().length(35).regex(/^fw_[0-9a-f]{32}$/).optional(),
+  transactionRef: z.string().length(35).regex(/^fw_[0-9a-f]{32}$/).optional(),
+}).superRefine((d, ctx) => {
+  if ((d.effect === "unknown") !== (d.error === "mutation_uncertain") || (["rename", "directory_sync", "audit"].includes(d.phase) && d.effect !== "unknown")) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "inconsistent mutation effect receipt" });
+});

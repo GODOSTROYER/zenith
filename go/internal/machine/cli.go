@@ -2,6 +2,7 @@ package machine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -24,6 +25,9 @@ const binaryName = "zenithd"
 func Main(args []string, stdout, stderr io.Writer, getenv func(string) string) int {
 	if getenv == nil {
 		getenv = os.Getenv
+	}
+	if len(args) > 0 && args[0] == "file-write-versions" {
+		return fileWriteVersions(args[1:], stdout, stderr)
 	}
 	p, err := agent.ParseArgs(binaryName, args, stderr)
 	if err != nil {
@@ -115,4 +119,40 @@ func Run(ctx context.Context, cfg *Config, configPath string, stderr io.Writer, 
 		return agent.ExitError
 	}
 	return a.Run(ctx)
+}
+
+// file-write-versions reads local config metadata only. It does not read source
+// contents, start the agent, install anything, or silently rewrite versions.
+func fileWriteVersions(args []string, stdout, stderr io.Writer) int {
+	if len(args) != 2 || args[0] != "--config" || !filepath.IsAbs(args[1]) {
+		fmt.Fprintln(stderr, "usage: zenithd file-write-versions --config /absolute/local/config.yaml")
+		return agent.ExitUsage
+	}
+	var cfg Config
+	if err := agent.LoadFile(args[1], &cfg); err != nil {
+		fmt.Fprintln(stderr, "zenithd: could not read strict local profile metadata")
+		return agent.ExitUsage
+	}
+	if len(cfg.FileWrite.Profiles) < 1 || len(cfg.FileWrite.Profiles) > 64 {
+		fmt.Fprintln(stderr, "zenithd: configure bounded local profiles before computing versions")
+		return agent.ExitUsage
+	}
+	type item struct {
+		Path           string `json:"path"`
+		ContentRef     string `json:"contentRef"`
+		ContentVersion string `json:"contentVersion"`
+	}
+	out := make([]item, 0, len(cfg.FileWrite.Profiles))
+	for _, p := range cfg.FileWrite.Profiles {
+		version, err := ops.FileWriteProfileVersion(cfg.FileWrite, p)
+		if err != nil {
+			fmt.Fprintln(stderr, "zenithd: invalid canonical local profile semantics")
+			return agent.ExitUsage
+		}
+		out = append(out, item{p.Path, p.ContentRef, version})
+	}
+	if json.NewEncoder(stdout).Encode(out) != nil {
+		return agent.ExitError
+	}
+	return agent.ExitOK
 }

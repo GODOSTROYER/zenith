@@ -534,6 +534,12 @@ const DOWNLOADS = [
     sha256: "a6894d45ae7a17ce83189cce8fe04b5a65f68cefceb62455b5a6a89fa53ab38f",
   },
   {
+    job: "platform-postgres",
+    url: "https://github.com/opentofu/opentofu/releases/download/v1.12.5/tofu_1.12.5_linux_amd64.tar.gz",
+    file: "tofu.tar.gz",
+    sha256: "a6894d45ae7a17ce83189cce8fe04b5a65f68cefceb62455b5a6a89fa53ab38f",
+  },
+  {
     job: "workflows",
     url: "https://github.com/temporalio/cli/releases/download/v1.9.1/temporal_cli_1.9.1_linux_amd64.tar.gz",
     file: "temporal_cli.tar.gz",
@@ -639,6 +645,7 @@ describe("downloaded tools are checksum-verified before anything touches them", 
     expect(tofu).toBeDefined();
     expect(DOWNLOADS.find((one) => one.job === "policy")?.url).toContain(`/v${opa}/`);
     expect(DOWNLOADS.find((one) => one.job === "tofu")?.url).toContain(`/v${tofu}/`);
+    expect(DOWNLOADS.find((one) => one.job === "platform-postgres")?.url).toContain(`/v${tofu}/`);
   });
 });
 

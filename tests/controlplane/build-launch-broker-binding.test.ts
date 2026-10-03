@@ -20,7 +20,7 @@ import { buildPlanFacts } from "@/lib/capabilities/evaluate";
 import { planEvidence } from "@/lib/execution/plan-evidence";
 import { createOperationsPort } from "@/lib/execution/platform";
 import { createExecutionBroker } from "@/lib/platform/broker";
-import { mkDriverContext, mkNode } from "../providers/aws/drivers/compute/fixtures";
+import { fakeSession, mkDriverContext, mkNode } from "../providers/aws/drivers/compute/fixtures";
 
 const model = vi.hoisted(() => ({
   active: undefined as Harness | undefined,
@@ -122,8 +122,10 @@ describe.skipIf(!PG_URL)("CodeBuild transaction-bound broker [postgres]", () => 
     await registerEnvironment(world.db, { environment: { workspaceId, environmentId, provider: "aws", region, class: "development", connection: { id: connection.id, status: "verified" } } });
     const sourceDigest = digest("source"), sourceBucket = "zenith-build-source", sourceS3Key = `zenith/${environmentId}/web/${sourceDigest}.zip`;
     const input = { sourceS3Key, sourceDigest, externalId: projectArn, service };
-    const ctx = mkDriverContext({ workspaceId, environmentId, operationId: op.id, fence: { scope: lease.scope, token: lease.fenceToken } });
-    const tags = Object.entries({ "zenith:workspace": workspaceId, "zenith:environment": environmentId, "zenith:resource": pipeline.address, "zenith:managed": "true" }).map(([key, value]) => ({ key, value }));
+    const ctx = mkDriverContext({ workspaceId, environmentId, region, session: fakeSession({ accountId, region }), now: () => new Date(),
+      tags: { "zenith:workspace": workspaceId, "zenith:environment": environmentId, "zenith:managed": "true" },
+      operationId: op.id, fence: { scope: lease.scope, token: lease.fenceToken } });
+    const tags = Object.entries({ ...ctx.tags, "zenith:resource": pipeline.address }).map(([key, value]) => ({ key, value }));
     const repositoryUri=`${accountId}.dkr.ecr.${region}.amazonaws.com/zenith-web`;
     const project: Project = { name: projectName, arn: projectArn, tags, source: { type: "S3", location: `${sourceBucket}/zenith/${environmentId}/bootstrap.zip`, buildspec: "version: 0.2" }, artifacts: { type: "NO_ARTIFACTS" }, serviceRole: `arn:aws:iam::${accountId}:role/build`, timeoutInMinutes: 30, queuedTimeoutInMinutes: 60, environment: { type: "LINUX_CONTAINER", image: "aws/codebuild/standard:7.0", computeType: "BUILD_GENERAL1_MEDIUM", privilegedMode:true,imagePullCredentialsType:"CODEBUILD", environmentVariables: [{ name: "ZENITH_DOCKERFILE", value: "Dockerfile", type: "PLAINTEXT" }, {name:"ZENITH_REPO_URL",value:repositoryUri,type:"PLAINTEXT"}] } };
     cb.on(BatchGetProjectsCommand).resolves({ projects: [project] });

@@ -446,7 +446,8 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
             grant create on database "${databaseName.replace(/"/g,'""')}" to ${migrationOwner};
             grant usage,create on schema platform to ${migrationOwner} with grant option;
             grant select,insert,update,delete on all tables in schema platform to ${migrationOwner};
-            grant references on table platform.operations,platform.github_source_bindings to ${migrationOwner};`);
+            grant references on table platform.operations,platform.github_source_bindings,platform.runner_jobs,platform.machine_requests to ${migrationOwner};
+            grant trigger on table platform.runner_jobs,platform.machine_requests to ${migrationOwner};`);
           await tx.query(`set local role ${migrationOwner}`);
           expect((await tx.query<{name:string}>("select current_user as name"))[0].name).toBe(migrationOwner);
           expect(migrationOwner).not.toBe(originalUser);

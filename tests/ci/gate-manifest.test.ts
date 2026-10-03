@@ -62,19 +62,23 @@ describe("canonical gate manifest", () => {
 
   it("covers direct PG-only suites and each parameterized backend suite independently", () => {
     const requirements = requirementsFor("platform-postgres", root);
-    expect(requirements).toHaveLength(45);
-    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(39);
+    expect(requirements).toHaveLength(70);
+    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(64);
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/open.test.ts", suite: "platformDb() against PostgreSQL", backend: "postgres" }));
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/executor.test.ts", suite: "cross-engine shape identity", backend: "postgres" }));
     expect(requirements.filter((required: { file: string }) => required.file === "tests/capabilities/tenancy.test.ts")).toHaveLength(5);
   });
 
-  it("requires both the fresh/reapply/checksum/rollback/emitted-SQL migrator and PostgreSQL concurrency suites", () => {
+  it("requires fresh migration, PostgreSQL concurrency and the exact schema 6 hardening upgrade case", () => {
     const requirements = requirementsFor("platform-postgres", root).filter((required) => required.file === "tests/controlplane/migrations.test.ts");
-    expect(requirements.map((required) => required.suite)).toEqual(["migrator [postgres]", "migrator [postgres] concurrency and fail-closed open"]);
+    expect(requirements.map((required) => ({ suite: required.suite, test: required.test }))).toEqual([
+      { suite: "migrator [postgres]", test: undefined },
+      { suite: "migrator [postgres] concurrency and fail-closed open", test: undefined },
+      { suite: "migrator [postgres] concurrency and fail-closed open", test: "schema 6 emitted hardening upgrades through the canonical migrator under a distinct owner with RLS, role isolation and immutable artifacts" },
+    ]);
     const report = {
       success: true,
-      testResults: [{ name: path.resolve(root, "tests/controlplane/migrations.test.ts"), status: "passed", assertionResults: requirements.map((required) => ({ fullName: required.suite + " scenario", ancestorTitles: [required.suite], status: "passed" })) }],
+      testResults: [{ name: path.resolve(root, "tests/controlplane/migrations.test.ts"), status: "passed", assertionResults: requirements.map((required) => ({ fullName: required.suite + " " + (required.test ?? "scenario"), title: required.test ?? "scenario", ancestorTitles: [required.suite], status: "passed" })) }],
     };
     expect(reportFailures(requirements, report, root)).toEqual([]);
     report.testResults[0].assertionResults.shift();
@@ -83,7 +87,7 @@ describe("canonical gate manifest", () => {
 
   it.each(["pglite", "skipped", "failed"])("rejects %s replacement of the real fresh migration suite even when concurrency passed", (replacement) => {
     const requirements = requirementsFor("platform-postgres", root).filter((required) => required.file === "tests/controlplane/migrations.test.ts");
-    const assertions = requirements.map((required) => ({ fullName: required.suite + " scenario", ancestorTitles: [required.suite ?? ""], status: "passed" }));
+    const assertions = requirements.map((required) => ({ fullName: required.suite + " " + (required.test ?? "scenario"), title: required.test ?? "scenario", ancestorTitles: [required.suite ?? ""], status: "passed" }));
     if (replacement === "pglite") {
       assertions[0].ancestorTitles = ["migrator ['pglite']"];
       assertions[0].fullName = "migrator ['pglite'] scenario";
@@ -124,10 +128,12 @@ describe("mandatory ECS replica repair gates", () => {
     }
   });
 
-  it("preserves every existing PostgreSQL requirement ID and binds new IDs to the exact outer suite", () => {
+  it("preserves suite-only PostgreSQL requirement IDs and binds case IDs to exact ancestry and titles", () => {
     for (const required of requirementsFor("platform-postgres", root).filter((item) => item.file !== ecsGrantFile)) {
-      const suffix = createHash("sha256").update(`${required.suite ?? ""}:${required.postgres ?? false}`).digest("hex").slice(0, 12);
+      const identity = `${required.suite ?? ""}:${required.postgres ?? false}${required.ancestorSuite !== undefined ? `:${required.ancestorSuite}` : ""}${required.test ? `:test:${required.test}` : ""}`;
+      const suffix = createHash("sha256").update(identity).digest("hex").slice(0, 12);
       expect(required.id).toBe(`platform-postgres:${required.file}:${suffix}`);
+      if (required.test) expect(requirementId("platform-postgres", { ...required, test: "other case" })).not.toBe(required.id);
     }
     const required = ecsPostgresRequirements()[0];
     expect(requirementId("platform-postgres", { ...required, ancestorSuite: "other [postgres]" })).not.toBe(required.id);

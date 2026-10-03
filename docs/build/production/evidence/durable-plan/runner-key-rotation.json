@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T05:26:23.572742+00:00",
+  "scope": "Bounded runner trust-persistence correction, independently reviewed and root-verified on macOS ARM64. Isolated staging only.",
+  "sourceCommit": "c355eeeff579f4c648f1ee9fce99429727513910",
+  "stagingCommit": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+  "mainIntegrated": false,
+  "pushedSource": false,
+  "identity": "Saivedant Hava <saivedant169@gmail.com>",
+  "sourceFreezeSha256": "5ac5b8c6b3ecba63f70d81b26a26ab5265563c8ba4d9e9ffab15fac685c1944b",
+  "sourceInventorySha256": "1e5516be6f9368c3505bba41a3d28b2e3192918acbac43b9b787bec608925793",
+  "sourcePathCount": 7,
+  "sourcePaths": [
+    {
+      "path": "go/internal/agent/agent_test.go",
+      "sha256": "fe7359dad981408843663d042629e0c6fdb034f23ee5113c45e1d5d3fbe2d889"
+    },
+    {
+      "path": "go/internal/agent/core_test.go",
+      "sha256": "88e28e8f9dd0fa19882a0a45adabab10383c5a8f93c336cb1c2890db3fc8d6fa"
+    },
+    {
+      "path": "go/internal/agent/identity.go",
+      "sha256": "dcb46b6842b981e7f311d84feba6b43de62199b07e57e437e0e1c6f7575864d0"
+    },
+    {
+      "path": "go/internal/agent/identity_sync_unix.go",
+      "sha256": "832bad4b016db0cdf05944d0f7e3fce6b6514bd4b15c000efd81d963e27e8d50"
+    },
+    {
+      "path": "go/internal/agent/identity_sync_windows.go",
+      "sha256": "8279717467e6a25c6787ddbcf0aef67491701e0e3b4c069ea5eab978ff0064c2"
+    },
+    {
+      "path": "go/internal/agent/loop.go",
+      "sha256": "4d9a6bf828540194ad402230db30cebf1f661fe30fdc867afc4fecad5c75c18e"
+    },
+    {
+      "path": "go/internal/agent/rotation_internal_test.go",
+      "sha256": "ba8e0a5959df7f94cb67f4637947d306743b689d2d59f1ddc7b3a5300854b6fe"
+    }
+  ],
+  "preservedDependencies": {
+    "count": 59,
+    "inventorySha256": "6fd000978be485f077862cd6c9f3b68cc6ce0fdff1732312e10ba0ad68210fe9"
+  },
+  "independentReview": {
+    "verdict": "source_clear_with_documented_single_writer_and_trusted_directory_boundary",
+    "receiptSha256": "4857e478b766995b157e12471319ffe241bfe7dbabc3013632d3097a00e3af22",
+    "runtimeTestsByReviewer": false
+  },
+  "rootChecks": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "gofmt": "passed",
+    "goVet": "passed",
+    "goNonRace": "passed",
+    "affectedVitest": {
+      "passed": 86,
+      "failed": 0,
+      "skipped": 0,
+      "total": 86,
+      "includesRealNetworkOpenTofu": 5
+    },
+    "goRace": {
+      "exitCode": 0,
+      "seconds": 23.8,
+      "passTopLevel": 232,
+      "passSubtests": 541,
+      "failTopLevel": 0,
+      "failSubtests": 0,
+      "skipTopLevel": 3,
+      "skipSubtests": 0,
+      "packagesPassed": 11,
+      "packagesFailed": 0,
+      "logSha256": "6d46726cc0a629eb244b6ec79213a612a833077b7c0ec5784e49fa4426897045"
+    },
+    "focusedRaceRepeated20Times": {
+      "passedTopLevel": 180,
+      "passedSubtests": 40,
+      "failed": 0,
+      "skipped": 0,
+      "cases": 9
+    }
+  },
+  "sourceAndDependenciesUnchangedBeforeAfterChecks": true,
+  "behavior": [
+    "Validate and persist complete old/new trust before shared publication.",
+    "Refuse publication on persistence failure and retry the same verified TLS announcement after storage recovery.",
+    "Keep registration metadata immutable and preserve shared verifier pointer.",
+    "Use randomized exclusive private temporary files with file sync and Unix parent directory sync."
+  ],
+  "limits": [
+    "Single agent writer and trusted state-directory ancestors required.",
+    "Post-rename directory-sync failure can leave new verified keys on disk; this is not rollback.",
+    "Windows ACL, rename, directory durability and power-loss proof remain outstanding.",
+    "Three Linux-only cases skipped on macOS; actual Linux package and lifecycle checks remain required.",
+    "Full staging gate, architecture startup, main integration and exact pushed corrected-source CI remain outstanding.",
+    "No retention, key eviction, external account, full identity lifecycle or production release acceptance inferred."
+  ]
+}

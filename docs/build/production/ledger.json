@@ -542,6 +542,15 @@
           "result": "Terminal13passed/1failed, sole complete-lock allseverity dependency audit5findings GHSA-vfj7-8cjw-p6xm. Root independently verified allfive canonical artifacts/source/schema2/all12bindings; unit16427P0F399S/generated109P0F0S/Smoke6stages/Gimbal2assets/OPA213 pass. Canonicalpostgres251/platformPG1422/policy238/tofu3900/workflows982 all0F0S;9/45/7/27/44 groups. No exception accepted, current baseline red.",
           "artifact": "docs/build/production/ci-37087774593.md",
           "executionReceiptComplete": true
+        },
+        {
+          "level": "remote_ci",
+          "commit": "746e4eef8dde0c94cf4850ac0222a20b5b07205c",
+          "runId": 37098189258,
+          "result": "Observed terminal13passed/1failed; sole complete-lock audit5findings. Canonicalpostgres251/platformPG1422/policy238/tofu3900/workflows982 overall0F0S, exact9/45/7/27/44groups. Unit16427P0F399S, generated109P0F0S, OPA213,Go11racepackages+TS19P; browser44/24scriptedchecks, journeys35/22. Root archives/exactsource and independent exported-binding review clear with explicit raw-report/private-inventory limits. Current head remains red.",
+          "artifact": "docs/build/production/ci-37098189258.md",
+          "executionReceiptComplete": true,
+          "rawReportsIndependentlyReplayable": false
         }
       ],
       "requiredEvidence": [
@@ -1527,13 +1536,21 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "bounded_implementation_in_progress",
+      "implementationStatus": "bounded_file_write_source_reviewed_runtime_unverified",
       "evidence": [
         {
           "level": "contract",
           "commit": "290540c88f54e878e716c1f0b20466dd55b71a06",
           "result": "Read-only assessment checked37 unchanged source files. Typed file.write/file.upload/package.install and convergent service configuration remain unimplemented. Customer-local template slice and exact admission contracts proposed; no implementation/runtime acceptance.",
           "artifact": "docs/build/production/handoffs/2026-10-03/REGRESSION-CHECKPOINT.md"
+        },
+        {
+          "level": "contract",
+          "commit": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
+          "result": "Customer-local Linux approved-template file.write frozen in 35 paths with source review; unknown outcomes retain receipts and project uncertain. Canonical profile version binds execution metadata. Runtime, actual persistent root/ACL/mounts, authentic goldens, signed approval journey, upload/packages/services remain unverified.",
+          "artifact": "docs/build/production/evidence/durable-plan/guest-write-source-review.json",
+          "sourceDirty": true,
+          "sourceFreezeSha256": "94ef95c6d808c4ed80f95126c7622de845cb41da357997b5be1d248c9a94ef4a"
         }
       ],
       "requiredEvidence": [
@@ -1591,13 +1608,20 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "bounded_key_rotation_correction_in_progress",
-      "evidence": [],
+      "implementationStatus": "bounded_rotation_root_verified_in_isolated_staging",
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "c355eeeff579f4c648f1ee9fce99429727513910",
+          "result": "Root macOS ARM64 Go race232top+541subP/0F/3Linux-onlyMacS; repeated focused180top+40subP/0F/0S; affected86P0F0S including5realnetworkOpenTofu; compiler/lint/gofmt/vet passed. Source clear and isolated staging356b7d0; actual Linux and full lifecycle acceptance remain outstanding.",
+          "artifact": "docs/build/production/evidence/durable-plan/runner-key-rotation.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
-      "owner": null,
+      "owner": "root",
       "testPaths": []
     },
     {
@@ -2702,8 +2726,8 @@
         "meaningful Linux filesystem and TS interop tests",
         "narrow opt-in config/systemd example and zenithd docs"
       ],
-      "verification": "Source-only implementation started after read-only assessment. No runtime, production or offered-service acceptance claimed.",
-      "limits": "Partial file.write slice only; upload/packages/service/privileged configuration, actual Linux/systemd and lifecycle proof remain incomplete. No backup/audit pruning."
+      "verification": "35 source paths independently reviewed; root compiler/lint and 267 contracts passed with zero failures/skips. Formatting of 15 Go files and both Linux-target vet/build/test compilations passed. Actual Linux/race/goldens/signed journey pending.",
+      "limits": "Partial default-disabled file.write only. Canonical signed profile version binds local metadata; actual Linux filesystem/mount fixtures and generated protocol goldens pending. Upload/packages/service/privileged/systemd lifecycle and backup pruning remain outside current acceptance."
     },
     {
       "id": "PROD-WS-RUNNER-KEY-ROTATION",
@@ -2718,8 +2742,30 @@
         "Go agent loop/identity and focused key rotation tests",
         "bounded platform directory-sync helpers if required"
       ],
-      "verification": "Source-only bounded correction active. Root full Go race failure225top+539subP/1F/3Linux-onlyMacS retained. No correction runtime claim.",
-      "limits": "Existing TLS source/shared KeySet/pinned-key limit8 preserved; no key eviction, cloud authority or broader identity lifecycle acceptance inferred."
+      "verification": "Independent source review clear; root232top+541subP0F3Linux-onlyMacS/180top+40subfocusedP0F0S/86VitestP0F0S/compiler/lint/vet. Isolated staging only; full gate and Linux image proof remain.",
+      "limits": "Existing TLS source/shared KeySet/pinned-key limit8 preserved; no key eviction, cloud authority or broader identity lifecycle acceptance inferred.",
+      "commit": "c355eeeff579f4c648f1ee9fce99429727513910",
+      "stagingMergeCommit": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+      "verificationArtifact": "docs/build/production/evidence/durable-plan/runner-key-rotation.json"
+    },
+    {
+      "id": "PROD-WS-GUEST-LINUX-CI",
+      "title": "Required local and CI Linux guest filesystem evidence",
+      "requirements": [
+        "PROD-CI-05",
+        "PROD-MACH-01"
+      ],
+      "branch": "ws/prod-guest-linux-ci",
+      "state": "in_progress",
+      "baseline": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+      "ownedPaths": [
+        "Go CI prerequisite/race/golden/cleanup wiring",
+        "additive canonical native Linux guest gate manifest/runner",
+        "owned fixture setup/cleanup helper",
+        "meaningful report parser tests and reproducible gate docs"
+      ],
+      "verification": "Seven r2 source paths reviewed; root compiler/lint/script syntax and 102 strict-report/current-artifact contracts passed with zero failures/skips. Actual supported-root Linux/Go/mount/ACL/golden and hosted CI acceptance pending.",
+      "limits": "Required actual persistent filesystem/ACL/mount/unprivileged process proof; no simulation or production systemd/cloud acceptance."
     }
   ],
   "executionOrder": [
@@ -2916,16 +2962,16 @@
   "sessionState": {
     "status": "active",
     "resumedBy": "user",
-    "recordedAt": "2026-10-03T04:56:15.642728+00:00",
+    "recordedAt": "2026-10-03T06:36:24.140494+00:00",
     "sourceCheckpoint": "fbfa456e0111b106f039e2800b2c276b63d01b86",
-    "lastPushedCommit": "290540c88f54e878e716c1f0b20466dd55b71a06",
-    "lastPushedRun": 37087774593,
+    "lastPushedCommit": "746e4eef8dde0c94cf4850ac0222a20b5b07205c",
+    "lastPushedRun": 37098189258,
     "lastPushedRunStatus": "completed_failure_13_passed_1_failed",
     "lastGreenCommit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
-    "activeWorkers": 2,
+    "activeWorkers": 0,
     "concurrency": "one heavy local process; root verifies frozen source",
-    "next": "Correct bounded Go agent key rotation persistence ordering, independent review and root race checks, then staging full-gate retry. Separate source-only Linux file.write implementation active. Fresh staging packages and dependency disposition still required.",
-    "lastObservedCiSummary": "docs/build/production/ci-37087774593.md",
+    "next": "Provision authorized disposable supported-root Linux guest; execute actual mount/ACL/race/crash/goldens and Linux gate. Do not repeat completed staging checks without changes. Mandatory dependency disposition/default API/live and broader production work remain.",
+    "lastObservedCiSummary": "docs/build/production/ci-37098189258.md",
     "currentEcsCheck": {
       "label": "prod-ecs-combined-final-root",
       "passed": 1232,
@@ -2983,9 +3029,9 @@
       "kind": "provider6/6+release1/1,0failed/skipped,cluster/kubeconfig/newimages removed"
     },
     "storage": {
-      "hostFreeGiB": 26.47,
+      "hostFreeGiB": 23.67,
       "dockerHealthy": true,
-      "dockerInventory": "0 images, 0 containers, 0 volumes, 0B build cache; independently checked after corrected kind cleanup.",
+      "dockerInventory": "Zero images, containers, volumes and 0B build cache after both architecture image gates and matching-client kind cluster cleanup.",
       "historicalBlocker": "ARM64 fresh image build failed while376MiB free; Docker metadata I/O errors persisted after disk recovery until user-authorized restart",
       "cleanupScope": "owned test resources and dedicated builder cache only",
       "dependencyConsolidation": "Root-owned ECS duplicate1.14GiB reclaimed; same lockfile links verified worker-startup install, source preserved."
@@ -3304,6 +3350,13 @@
         "actualFindings": 5,
         "registryEmpty": true,
         "independentReviewSha256": "fc363a5dd0f0f196201c09aea364653977f38d2f836f4d47fa110e9227eb3259"
+      },
+      "parentRemediation": {
+        "checkedAt": "2026-10-03T05:47:48Z",
+        "receiptSha256": "cd240b40287d2b4f475410ce25520b702e9c8d171dd982907bdcead4de8eb8aa",
+        "result": "No compatible published Next15/16 or fast-glob/micromatch release removes vulnerable braces chain. Next14 downgrade introduces ESLint incompatibility and vulnerable oldglob; no override/downgrade proposed.",
+        "sourceEdits": false,
+        "riskAcceptance": false
       }
     },
     "guestConfigurationAssessment": {
@@ -3318,58 +3371,45 @@
     },
     "workerSnapshot": [
       {
-        "agent": "/root/durable_plan_resume",
-        "state": "running_source_only",
-        "task": "Persist announced runner trust keys before shared publication; actual storage failure/retry/restart regressions",
-        "branch": "ws/prod-runner-key-rotation",
-        "baseCommit": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
-        "ownedPaths": 66,
-        "changedPaths": 18,
-        "checkpointSha256": "7d04ca7412f6c38c34b59dcc5ce156716c438e318c7f3ce359bbc8ae66d26264",
+        "agent": "/root/guest_file_write",
+        "state": "completed_source_only_correction",
+        "task": "Correct stale passed-artifact selection after a failed Linux gate attempt",
+        "branch": "ws/prod-guest-linux-ci",
+        "baseCommit": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+        "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/guest-linux-ci",
+        "brief": "/Users/saivedanthava/.codex/zenith-production/briefs/2026-10-03-guest-linux-ci.md",
         "runtimeClaim": false,
-        "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/runner-key-rotation",
-        "scope": "Exact Go agent loop/identity/tests, no shared protocol/machine/module edits"
-      },
-      {
-        "agent": "/root/guest_configuration_gap",
-        "state": "completed_source_frozen",
-        "task": "Eight strict CI/migration/startup fixture corrections, including explicit network-gated coverage",
-        "branch": "ws/prod-durable-ci-fixtures",
-        "baseCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
-        "ownedPaths": 8,
-        "diffSha256": "b55993f12d379961d0dd5f35c2c89fad24c9ba75ca1bb2e04296f6be53f62e0e",
-        "runtimeClaim": false
-      },
-      {
-        "agent": "/root/security_exception_corrections",
-        "state": "completed_source_frozen",
-        "task": "Inactive exact-scope/time/symlink/SemVer security-exception corrections; registry remains empty",
-        "branch": "ws/prod-security-exceptions",
-        "baseCommit": "290540c88f54e878e716c1f0b20466dd55b71a06",
-        "ownedPaths": 6,
-        "rootVerification": "295P0F0S; actual audit exit1 with five findings",
-        "activeException": false
+        "sourcePaths": 7,
+        "sourceFreezeSha256": "95585fa3d62b16248896784847818f93293f02a0c3144898c4ade471839fc28a",
+        "initialIndependentReviewSha256": "472ec10939593e628a66103ca848dc22ff0fb3a3db6238c4b005a50f1b0465db",
+        "independentReviewSha256": "3fdf656253d02b1bdbdf880699464fe69bad12a55ce77c45f20c6f59853a9b33"
       },
       {
         "agent": "/root/durable_security_review",
-        "state": "completed",
-        "task": "Final one-line PostgreSQL fixture reviewed; all66 hashes unchanged, production findings remain closed",
-        "reviewReceiptSha256": "a9420d6fdbf2018db328e54e16328c778024b8c04e14ade24eb6f08b747277f7",
-        "runtimeClaim": false
-      },
-      {
-        "agent": "/root/guest_file_write",
-        "state": "running_source_only",
-        "task": "Actual Linux customer-local approved-template file.write, partial PROD-MACH-01",
+        "state": "completed_frozen_source_only",
+        "task": "Correct guest unknown-result classification and actual policy documentation",
         "branch": "ws/prod-guest-configuration",
         "baseCommit": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
-        "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/guest-configuration",
-        "scope": "Exact machine/runner payload/Go file primitive contracts in private brief; no runtime/Git/service/Docker writes",
-        "brief": "/Users/saivedanthava/.codex/zenith-production/briefs/2026-10-03-guest-file-write.md",
-        "runtimeClaim": false
+        "ownedPaths": [
+          "src/lib/machines/service.ts",
+          "tests/machines/file-write.test.ts",
+          "docs/platform/ZENITHD.md",
+          "tests/execution/machine-file-write-uncertainty.test.ts"
+        ],
+        "runtimeClaim": false,
+        "sourcePaths": 35,
+        "sourceFreezeSha256": "94ef95c6d808c4ed80f95126c7622de845cb41da357997b5be1d248c9a94ef4a",
+        "independentReviewSha256": "bf110f0b3f8bf77d83f64ca7f6c91e6a6c9337c667759d92703a561d23c89f12"
+      },
+      {
+        "agent": "/root/durable_plan_resume",
+        "state": "completed_read_only_review",
+        "task": "Guest correction and Linux gate r2 independently reviewed; no remaining actionable source findings",
+        "runtimeClaim": false,
+        "independentReviewSha256": "3fdf656253d02b1bdbdf880699464fe69bad12a55ce77c45f20c6f59853a9b33"
       }
     ],
-    "pausedCurrentTasks": [],
+    "pausedCurrentTasks": 0,
     "eta": {
       "nextReviewedCheckpoint": "2-4 hours estimate; depends on regression corrections and serial verification",
       "fullProduction": "Not schedulable without cloud access, remaining implementation and operational acceptance.",
@@ -3377,7 +3417,7 @@
     },
     "currentVerification": {
       "label": "prod-durable-corrections-full-root",
-      "state": "staging_full_failed_go_rotation_fix_running",
+      "state": "isolated_staging_regressions_passed_mandatory_security_failed",
       "typecheck": "passed",
       "lint": "passed",
       "sourcePaths": 31,
@@ -3418,7 +3458,7 @@
       "total": 1099,
       "go": "gofmt/vet/test passed",
       "artifact": "docs/build/production/evidence/durable-plan/corrections-targeted.json",
-      "next": "Finish Supabase and fresh kind; commit verified worker branches and merge into isolated staging, then full combined gate. Dependency clearance remains blocking.",
+      "next": "Finish clean356b7d0 canonical lanes with audit failure preserved, then refreshed architecture packages. Correct reviewed guest findings, provision actual Linux fixtures/goldens and integrate only after required checks and advisory disposition.",
       "actualPostgres": {
         "total": 1532,
         "passed": 1532,
@@ -3500,17 +3540,226 @@
         "failedPackages": 1
       },
       "fullUnit": "not_run_after_go_failure",
-      "canonicalLanes": "not_run_after_go_failure"
+      "canonicalLanes": "not_run_after_go_failure",
+      "rotationRetry": {
+        "label": "prod-durable-rotation-full-root",
+        "commit": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+        "state": "finished_failed_mandatory_security",
+        "prechecks": "typecheck/lint/gofmt/vet/Go-race/policy-generated/emit-sql/matrix/AWS-templates/ledger passed",
+        "unit": {
+          "passed": 16842,
+          "failed": 0,
+          "skipped": 212,
+          "total": 17054,
+          "seconds": 968.06
+        },
+        "remaining": "Mandatory dependency audit, default browser and remaining production acceptance; separate guest actual Linux/golden acceptance",
+        "mandatoryAudit": "failed; five current dependency findings, no exception",
+        "artifact": "docs/build/production/evidence/durable-plan/rotation-full-gate.json",
+        "workflows": "1000P0F0S/44groups/all12bindings/revalidation",
+        "policy": "238P0F0S/7groups/all12bindings/revalidation",
+        "tofu": "3900P0F8S/27requiredgroups0skips/all12bindings/revalidation;8mandatoryPGhandoffcasesrequireseparatedatabasegate",
+        "goRace": "232top+541subP0F3Linux-onlyMacS",
+        "overallResult": "failed",
+        "next": "Provision authorized disposable supported-root Linux guest; execute actual mount/ACL/race/crash/goldens and Linux gate. Do not repeat completed staging checks without changes. Mandatory dependency disposition/default API/live and broader production work remain.",
+        "actualPostgres": {
+          "passed": 1532,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0,
+          "requiredGroups": 70,
+          "executionBindings": 12,
+          "cleanup": "passed"
+        },
+        "actualPostgresArtifact": "docs/build/production/evidence/durable-plan/rotation-platform-postgres.json",
+        "supabase": {
+          "passed": 251,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0,
+          "requiredGroups": 9,
+          "executionBindings": 12,
+          "cleanup": "passed",
+          "nameAndChecksumTamper": "refused_as_expected"
+        },
+        "supabaseArtifact": "docs/build/production/evidence/durable-plan/rotation-supabase-postgres.json",
+        "nativeOpa": {
+          "passed": 213,
+          "failed": 0,
+          "skipped": 0
+        },
+        "nativeOpaArtifact": "docs/build/production/evidence/durable-plan/rotation-native-opa.json",
+        "arm64Worker": {
+          "state": "passed",
+          "seconds": 216.02,
+          "artifact": "docs/build/production/evidence/durable-plan/rotation-arm64-worker.json",
+          "createdResourcesRemoved": 14,
+          "builderCacheNewImagesRemoved": true
+        },
+        "amd64Worker": {
+          "state": "passed",
+          "seconds": 280.02,
+          "architectureEvidence": "AMD64 under emulation on Apple Silicon",
+          "artifact": "docs/build/production/evidence/durable-plan/rotation-amd64-worker.json",
+          "createdResourcesRemoved": 14,
+          "builderCacheNewImagesRemoved": true
+        },
+        "kind": {
+          "state": "passed",
+          "level": "local_cluster",
+          "provider": {
+            "total": 6,
+            "passed": 6,
+            "failed": 0,
+            "skipped": 0
+          },
+          "release": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0
+          },
+          "cleanup": "passed",
+          "kubectlClient": "1.37.0",
+          "kubernetesServer": "1.37.0",
+          "supportedClientServerSkew": true,
+          "artifact": "docs/build/production/evidence/durable-plan/rotation-kind-supported.json"
+        }
+      }
     },
     "checkpointPublication": {
-      "state": "prepared_documentation_snapshot",
-      "sourceCiCommit": "290540c88f54e878e716c1f0b20466dd55b71a06",
-      "sourceCiRun": 37087774593,
+      "state": "documentation_snapshot_ready_to_push",
+      "sourceCiCommit": "746e4eef8dde0c94cf4850ac0222a20b5b07205c",
+      "sourceCiRun": 37098189258,
       "branch": "codex/production-2026-10-02",
-      "isolatedStaging": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
+      "isolatedStaging": "356b7d014836e6cb39e54d4848f20d508fe31fde",
       "sourceMainIntegrated": false,
-      "activeWorkers": 2,
-      "note": "This checkpoint binds documented local evidence; its own exact pushed CI must be inspected separately."
+      "activeWorkers": 0,
+      "note": "This documentation snapshot records completed local checks and last fully inspected published CI. Its own pushed commit/run must be inspected separately; no source integration or green CI claim.",
+      "publishedCommit": "746e4eef8dde0c94cf4850ac0222a20b5b07205c",
+      "activeReviewers": 0
+    },
+    "activeReviewers": 0,
+    "runnerKeyRotation": {
+      "sourceCommit": "c355eeeff579f4c648f1ee9fce99429727513910",
+      "stagingCommit": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+      "state": "root_verified_isolated_staging",
+      "artifact": "docs/build/production/evidence/durable-plan/runner-key-rotation.json",
+      "goRace": "232top+541subP/0F/3Linux-onlyMacS",
+      "focusedRace": "180top+40subP/0F/0S,9cases20times",
+      "affectedVitest": "86P0F0S,including5realnetworkOpenTofu",
+      "mainIntegrated": false
+    },
+    "guestFileWriteCheck": {
+      "state": "corrected_35_path_source_independently_reviewed_runtime_unverified",
+      "sourcePaths": 35,
+      "sourceFreezeSha256": "94ef95c6d808c4ed80f95126c7622de845cb41da357997b5be1d248c9a94ef4a",
+      "unchangedTrackedPaths": 3511,
+      "independentReviewSha256": "757bbf3a33e766ccb4e82b7dfd3ac72a3201ac541676acbf3304c7aca9fbadfa",
+      "findings": [
+        "GUEST-UNKNOWN-01 closed at source; runtime proof pending",
+        "GUEST-DOC-AUTH-02 closed at source; policy behavior unchanged"
+      ],
+      "runtimeTestsExecuted": false,
+      "goldensGenerated": false,
+      "mainIntegrated": false,
+      "originalSourcePaths": 34,
+      "originalSourceFreezeSha256": "0ca7f4c9701feeb58ae97a738152f8e63518d2de0b19d58352bbf2f7364535f0",
+      "independentCorrectionReviewSha256": "bf110f0b3f8bf77d83f64ca7f6c91e6a6c9337c667759d92703a561d23c89f12",
+      "artifact": "docs/build/production/evidence/durable-plan/guest-write-source-review.json",
+      "rootTypescript": {
+        "typecheck": "passed",
+        "scopedEslint": "passed",
+        "tests": {
+          "total": 267,
+          "passed": 267,
+          "failed": 0,
+          "skipped": 0
+        },
+        "actualNetworkOpenTofuIncluded": 5,
+        "artifact": "docs/build/production/evidence/durable-plan/guest-write-typescript.json"
+      },
+      "typescriptFixtureContractsExecuted": true,
+      "gofmt": {
+        "state": "passed_only_go_formatting",
+        "goFiles": 15,
+        "artifact": "docs/build/production/evidence/durable-plan/guest-write-gofmt.json",
+        "currentSourceSha256": {
+          "deploy/zenithd/config.example.yaml": "4f656699ac433a47ee479098b5deebc57960e649e17aed029bdaa53006c025e6",
+          "deploy/zenithd/zenithd-file-write.conf.example": "173f90378e3a8070fba0d8370dd99ed4163f868b7e742785d611bddf3f04b16b",
+          "docs/platform/ZENITHD.md": "a5a78fde822e855c084b639ce96d34bb30e5e82dbd0d8eed08a07504e94b4a5c",
+          "go/internal/machine/cli.go": "1f893524b1ec2f52b7739b9903c2c45d2bc519cb20def37ca35dc76adf4452a8",
+          "go/internal/machine/config.go": "ea72f3160763760d056f53ae55ada118d0a435e19eea1d76046b482e660330d0",
+          "go/internal/machine/config_test.go": "d29386ca182ad18b3081b0615a0f732368b99fe3a4661cfb126bff6be35bc56f",
+          "go/internal/machine/e2e_test.go": "de2e6ee39a5acb116801ec62b966eec8f6b85da01ffa7039c9f3e1f79895550e",
+          "go/internal/machine/executor.go": "6423f4b36e1547a3f575c84145d4ed3869d91f97d7dc6d7bd48a2daf3b421026",
+          "go/internal/machine/executor_test.go": "015b3d46a5fe784af29c8b8e98879c2cf2f6e26bdfedbbbd8816831fe5555e03",
+          "go/internal/machine/ops/filewrite.go": "594c6c4b39a283b72286147052aecaf6708ce6e7741ca93f4ec741ae1ceebacc",
+          "go/internal/machine/ops/filewrite_linux.go": "35b34a91585acf2efc8d70e4ae87d24b0de1f61e66abfcc0f39a4b97c10514b6",
+          "go/internal/machine/ops/filewrite_linux_test.go": "e2d7783301f64b70224155a66a628d1559d5a039817b72d0a12d94a63d7da508",
+          "go/internal/machine/ops/filewrite_other.go": "2b808b57b50de90b09c7ad58648bb2a6bcd8be5cb6a62a02fef7beeba76e2a5a",
+          "go/internal/machine/ops/filewrite_other_test.go": "bd7f6b75864280aad47773872ac7cc30c7b57fd54222db5852523ef3c1a669dc",
+          "go/internal/machine/ops/filewrite_test.go": "af09dd206ab04ad5855f9e7410430a9e9d5bc9c470f5325471c7e12916163a0b",
+          "go/internal/machine/ops/ops.go": "78c503149ef46555177281a79cc6866bc7c284a3b34f52239d0d87fe37c6d9a8",
+          "go/internal/machine/ops/ops_test.go": "2221b48cf7cfc8d6996329dfe2bd03b50793a92a50cfe99452e20e8b687379c7",
+          "go/internal/machine/ops/results_golden_test.go": "e143fb1bf52d91259448efa6d32c5f39f94876d77082a80fbe5a8683e78f68f5",
+          "src/lib/machines/args.ts": "300cb60a9facb6ae1c45bdf43e9fa225a6b2184fc45000158f3d8ab318204cdb",
+          "src/lib/machines/evidence.ts": "67db91652a6483d1bb9acd66c4d2652fee82e0e6f378bfe5f11a4e553c5f2868",
+          "src/lib/machines/guards.ts": "db6e5300e2d51fff11b2ea8e321cce1b61d814a8393c1c7bf1bf011be4d88b25",
+          "src/lib/machines/results.ts": "3754e42bbe7e7288eb411fa6b30dab05c574a5e0e08f6a19bca976de46c72477",
+          "src/lib/machines/service.ts": "c6f31e28e194532b90684d5ab848199de43dd5f14f8487d70a3c08732055347f",
+          "src/lib/machines/transports/aws-ssm.ts": "e20f4b44ab6d1eee226e9be7aac70f75ca8c40fafc2de6067f57554b68bfa0d3",
+          "src/lib/machines/transports/kubernetes.ts": "de1136c4d27ce00e78c12d60525ef838727ad14c77e5d5f94061d22ce108bc78",
+          "src/lib/machines/transports/simulated.ts": "2f37a4a13e0e896721121467f62e813bcb426d16ce3d7e85e8f1ac454dfde36e",
+          "src/lib/machines/transports/zenithd.ts": "f71af10c6fe2c1007025872e9d07e02cb758e87b83848cf41dfc5bb212aedfff",
+          "src/lib/runners/payloads.ts": "ba69093f0d84392cc15d9e296b199068405f59d6596e0e74eab0bbd429983c7a",
+          "tests/execution/machine-file-write-uncertainty.test.ts": "dc2025b5f8e290cb94738c0e7a457dd5b10bb39982b24dde00f42d2f22c3aee3",
+          "tests/machines/args.test.ts": "0140965ab451ff384b4903347773097cd08122e04c49ccc1ef951783aecb7f47",
+          "tests/machines/dispatcher.test.ts": "7a0c4c7cb56b09cd87e06cc3edfcb0afc2706498ed0cc6a53c461fdfc66065b0",
+          "tests/machines/file-write.test.ts": "1f633767f4933ca60218e5bea9cdb93cefff1e22ebe0bb5cd3ff5ff5e144bca9",
+          "tests/machines/service.test.ts": "1ff21e8250abce8e1d9e22dcb3ac2a7d68c5787411dd60f9b81e907ddaae6c33",
+          "tests/machines/zenithd.test.ts": "ecd39154503c83ef9e6df9a9ff08883c0d0afe3a45bf82c3170b801848500f6a",
+          "tests/runners/dispatch.test.ts": "9afa4c00d36ce1e527221139ffc539efbfcbb949a2961bd0b3eb7716c2279406"
+        }
+      },
+      "linuxTargetCompilation": {
+        "status": "passed",
+        "architectures": [
+          "arm64",
+          "amd64"
+        ],
+        "steps": [
+          "vet",
+          "zenithd-build",
+          "ops-test-compile"
+        ],
+        "nativeLinuxExecution": false,
+        "artifact": "docs/build/production/evidence/durable-plan/guest-write-go-compile.json"
+      }
+    },
+    "guestLinuxGateCheck": {
+      "state": "reviewed_and_root_contracts_passed_native_acceptance_pending",
+      "sourcePaths": 7,
+      "sourceFreezeSha256": "95585fa3d62b16248896784847818f93293f02a0c3144898c4ade471839fc28a",
+      "artifact": "docs/build/production/evidence/durable-plan/guest-linux-r2-contracts.json",
+      "runtimeTestsExecuted": false,
+      "mainIntegrated": false,
+      "finding": "GUEST-LINUX-STALE-01 closed at source; root102 contracts passed, native/CI acceptance pending",
+      "independentReviewSha256": "3fdf656253d02b1bdbdf880699464fe69bad12a55ce77c45f20c6f59853a9b33",
+      "rootContracts": {
+        "total": 102,
+        "passed": 102,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    "sourceDiskCheckpoint": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/checkpoints/progress-20261003T063411Z",
+      "guestPaths": 35,
+      "linuxCiPaths": 7,
+      "ownedUntrackedSourceIncluded": true,
+      "gitAndDependencyTreesExcluded": true,
+      "notPublishedSource": true
     }
   },
   "sessionHistory": [

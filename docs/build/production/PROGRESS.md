@@ -1,36 +1,38 @@
 # Production progress
 
-Recorded 2026-10-03T04:56:15.642728+00:00. Last fully observed pushed source CI: `290540c88f54e878e716c1f0b20466dd55b71a06`, branch `codex/production-2026-10-02`, [run37087774593](ci-37087774593.md): 13 passed and 1 failed. Mandatory dependency audit blocks release. This documentation checkpoint advances branch metadata, not isolated staging source.
+Last fully inspected published CI source: `746e4eef8dde0c94cf4850ac0222a20b5b07205c` on `codex/production-2026-10-02`. Its [GitHub run 37098189258](https://github.com/GODOSTROYER/zenith/actions/runs/37098189258) finished with 13 passing jobs and one failing mandatory dependency-security job. Corrected source remains isolated in staging `356b7d014836e6cb39e54d4848f20d508fe31fde`; it is not integrated into the published branch. This documentation snapshot can advance the branch; inspect its exact newly pushed CI separately.
 
-78 acceptance requirements:5verified,19inprogress,54planned. Current-head green CI reopened after fresh advisory; historicala14 green retained. These are acceptance states, not percentages of implementation effort. No current task is paused. Implementation complete, sandbox verified, pilot ready and production approved remain false.
+The production ledger retains 78 acceptance requirements: **5 verified, 19 in progress and 54 planned**. These counts measure acceptance state, not implementation effort or completion percentage. No current task is paused. Implementation complete, sandbox verified, pilot ready and production approved remain false.
 
-## Verified checkpoints
+## Completed and verified
 
-- [x] Historical a14 pushed CI: 14/14 jobs; remote unit16,427P/0F/399S; generated109P/0F/0S; actual Smoke/Gimbal passed.
-- [x] Root local a14: unit16,630P/0F/196S; workflows982, policy238, OpenTofu3900 all0F0S. Typecheck, lint, generated artifacts, OPA213/213, Go race226top+539subP/0F/3Linux-onlyMacS and mandatory audit passed.
-- [x] Fresh platform PostgreSQL:1,422P/0F/0S,45mandatory groups,12receipt bindings; execution revalidation and owned cleanup passed.
-- [x] Fresh full Supabase migrations and reapply: PostgreSQL251P/0F/0S, schema name/checksum tamper rejected, owned resources removed.
-- [x] Real execution-worker images: clean e109 source AMD64 emulated and ARM64 native startup checks passed. Idle shutdown only; broader operations remain incomplete.
-- [x] Fresh kind: provider6/6 and release1/1; local cluster evidence only; owned resources removed.
+- [x] Completed wave-8 implementation and ancestry preserved. No historical patch replay, reset or history rewrite.
+- [x] Exact published CI evidence independently reviewed: all 14 job logs and five canonical artifacts captured; ZIP digests, exact source objects and manifests checked. Current run remains **13 passed / 1 failed**, distinct from historical a14's 14/14 green run.
+- [x] Runner trust rotation corrected and independently reviewed. Keys persist before publication; failed persistence preserves retry behavior. Root repeated focused race checks: **180 top-level and 40 subtests passed, zero failed/skipped**. Root affected TypeScript/OpenTofu suites: **86 passed, zero failed/skipped**.
+- [x] Seven checked runner paths committed as Saivedant at `c355eeeff579f4c648f1ee9fce99429727513910` and merged only into isolated staging `356b7d0`.
+- [x] Exact clean staging full unit suites: **16,842 passed, 0 failed, 212 skipped**. Typecheck, lint, generated artifacts, SQL, capability matrix, AWS templates and ledger checks passed.
+- [x] Exact staging Go race: **232 top-level and 541 subtests passed, 0 failed, 3 Linux-only skips on this Mac**. Native OPA: **213 passed, 0 failed, 0 skipped**.
+- [x] Canonical local Temporal: **1,000 passed, 0 failed, 0 skipped**; policy: **238 passed, 0 failed, 0 skipped**. Required groups, all 12 execution bindings and execution revalidation passed.
+- [x] Canonical local OpenTofu: **3,900 passed, 0 failed, 8 skipped**. All 27 required OpenTofu groups passed without matched skips. Those eight cases require the separate real PostgreSQL handoff lane, which passed below; no blanket skip waiver.
+- [x] Fresh exact-staging PostgreSQL 16.15: **1,532 passed, 0 failed, 0 skipped**, 70 required groups, all 12 execution bindings and revalidation. Owned database resources and newly pulled image removed.
+- [x] Fresh exact-staging Supabase migration application and reapplication: **251 passed, 0 failed, 0 skipped**, 9 required groups. Changed migration name and checksum each refused as expected. Owned resources removed.
+- [x] Guest file.write source frozen in 35 paths and independently reviewed. Root typecheck, scoped lint and **267 tests passed, zero failures/skips**, including five actual-network OpenTofu cases. Both initial findings corrected at source: unknown writes retain their receipt and project uncertainty; documentation reflects actual policy. No actual Linux or signed-agent acceptance claim.
+- [x] Linux CI prerequisite source frozen in seven owned paths, with 3,536 unchanged parent hashes and zero outside-owned changes. Independent r2 review and root 102 contract tests/compiler/lint/syntax passed; native Linux verification remains required.
+- [x] Historical correction kind evidence: provider **6/6**, release **1/1**, zero failures/skips; local cluster removed. Original isolated durable source also passed AMD64 emulated and ARM64 native worker startup. Those results do not establish acceptance for later source changes or live cloud behavior.
 
-## Current execution
+## Ongoing, blocked and pending
 
-- [x] Original durable-plan source `15e4453`: 57 frozen paths, independent review, root verification, Saivedant author and committer. Source remains isolated.
-- [x] Original actual PostgreSQL/OpenTofu: 1,532 passed, 0 failed, 0 skipped; 70 mandatory groups and all 12 execution bindings. Supabase: 251 passed, schema 7 apply/reapply and checksum/name tamper refusal.
-- [x] Original fresh kind: provider 6 passed, release 1 passed, no failures/skips. Both packaged architectures passed, AMD64 under emulation in 335.76s and native ARM64 in 300.27s. Owned resources removed. These proofs bind original commit only.
-- [ ] Original full regression: 16,588 passed, 70 failed, 212 skipped across 16,870 cases and 18 affected files. Prechecks passed, including OPA 213 and Go race. Later canonical phases did not run. [Failure retained](evidence/durable-plan/full-regression-failed.json).
-- [x] Correction workers finished and froze source: 18 durable files, eight CI fixtures and six inactive security-support files. Independent source reviews clear. No source integration yet.
-- [x] Root combined affected checks: **1,079 passed, 0 failed, 20 skipped**; compiler, lint, gofmt, Go vet/test and five real network OpenTofu cases passed. Twenty PostgreSQL-gated skips require fresh real database proof. [Receipt](evidence/durable-plan/corrections-targeted.json).
-- [x] Corrected 32-path candidate actual PostgreSQL/OpenTofu: **1,532 passed, 0 failed, 0 skipped**, 70 mandatory groups, all 12 execution bindings and separate execution revalidation passed. Owned resources removed. Previous1527P5F0S remains [recorded](evidence/durable-plan/corrections-real-postgres-failed.json); fixture correction preserved genuine SQL authority cases. [Passed receipt](evidence/durable-plan/corrections-platform-postgres.json).
-- [x] Corrected-byte Supabase251P0F0S and fresh kindprovider6P0F0S/release1P0F0S passed. Cluster/kubeconfig/newimages removed.
-- [x] Checked worker commits c121f89,cd60f8b,50aa292 merged into isolated staging1ce6191; Saivedant author/committer verified.
-- [ ] Clean staging full gate failed Go race:225top+539subtests passed,1failed,3Linux-onlyMacskips. Runner key persistence ordering defect identified; source-only correction active. Full unit and later canonical phases did not run. [Failure retained](evidence/durable-plan/corrections-full-go-failed.json). Architecture startup still required.
-- [x] Inactive security-support r3 checks: 295 passed, 0 failed, 0 skipped; typecheck, lint, Go and real network OpenTofu passed. Exact signed advisory scope, final clock, symlink and SemVer corrections reviewed.
-- [ ] Dependency audit still exits 1 with five findings. Registry empty; no approved exception, installed trust anchor or risk acceptance. Inactive support does not clear vulnerabilities.
-- [ ] Partial cleanup guard remains unmerged: initial 79 passed/1 failed retained, corrected failed-suite retry 7 passed. Execute refuses destruction; durable quiescence authority and legitimate authorized success path remain missing.
-- [ ] Linux customer-local approved-template file.write implementation active in isolated worktree. Upload/packages/service/privileged host and actual Linux/systemd acceptance remain outstanding. Live AWS lifecycle/default API/broader operational acceptance remain incomplete.
+- [ ] Current mandatory complete-lock audit fails with five packages referencing one braces advisory. No published compatible parent upgrade removes the vulnerable chain. Registry remains empty; no approved exception or risk acceptance. Gate remains mandatory.
+- [x] Fresh exact-staging ARM64 execution-worker startup passed in **216.02 seconds**. All 14 resources, owned builder/cache and new images removed. Readiness, outage recovery and idle shutdown passed; no live cloud write or in-flight shutdown proof.
+- [x] Fresh AMD64 execution-worker startup on staging `356b7d0` passed under emulation in **280.02 seconds**. All 14 resources, owned builder/cache and new images removed.
+- [ ] Guest Linux gate independent review found a stale passed-artifact upload on failed attempts. Current-attempt correction independently reviewed; root **102 tests passed, zero failures/skips**, compiler/lint/script syntax passed. Actual Go parsing/native root-filesystem/mount/ACL and guarded-cleanup acceptance remain required. Root TypeScript checks passed; Go formatting and both Linux-target vet/build/test compilation passed; actual race, unprivileged Linux and five authentic filesystem goldens still pending.
+- [x] Fresh matching-client kind provider **6/6** and release **1/1** passed on staging `356b7d0`; kubectl/server **1.37.0**, cluster/kubeconfig/new images removed. Local cluster evidence only.
+- [ ] Current source integration and pushed-source CI observation remain blocked by required checks and dependency disposition. No current green CI claim.
+- [ ] Partial acceptance-cleanup guard remains unmerged. Initial **79 passed / 1 failed** retained; corrected failed-suite retry **7 passed**. Authoritative durable quiescence and a legitimately authorized success path remain missing; execution refuses destruction.
+- [ ] Default API/browser/MCP startup permission and live AWS account, region and budget remain pending. No unrelated services or live cloud changes performed.
+- [ ] Remaining product work includes mixed-provider execution and traffic, provider lifecycles, managed two-tenant hosting, typed upload/package/service configuration, scheduling, recovery, security/load/upgrade gates, UX/client integration and accurate economics.
 
-Two source-only implementation workers active: bounded runner key persistence correction and Linux file.write. Root owns reviews, serial checks and Git integration. No current task paused. [Agent/workstream checkpoint](handoffs/2026-10-03/REGRESSION-CHECKPOINT.md).
+Agents: all three native workers/reviewers completed their current source assignments. Root owns serial runtime verification, Git integration and the ledger. Linux gate re-review and 102 contract tests passed; native Linux acceptance remains pending. [Complete workstream and handoff checklist](handoffs/2026-10-03/REGRESSION-CHECKPOINT.md).
 
 ## Requirements checklist
 
@@ -152,10 +154,8 @@ Each unchecked row remains incomplete at its stated acceptance level; existing c
 
 ## Access, storage and next checkpoint
 
-API/server startup and live AWS account/region/budget remain pending. External Temporal mTLS, cloud/managed-cluster traffic, production TLS/pooler/RLS and operational signoff require separate acceptance. Retention/pruning policy, pricing/terms/payment accounts and destructive business decisions require user decisions; unblocked coding continues.
+External Temporal mTLS, cloud/managed-cluster traffic, production TLS/pooler/authorization and operational signoff require separate acceptance. Destructive retention, pricing, terms and payment accounts require operator decisions; independent implementation continues.
 
-Docker restart authorized and completed. Current independently checked Docker inventory: zero images, containers and volumes, 0B cache; approximately26GiB free. Corrected PostgreSQL/Supabase/kind owned resources removed. Both durable-plan image gates removed owned resources. Earlier duplicate dependency consolidation reclaimed1.14GiB. PostgreSQL16.15 clients installed without starting server/service. Keep12GiB before image gates; one heavy local process; remove only owned test resources and dedicated cache.
+Latest independent storage observation: **23.67 GiB free**, zero Docker images/containers/volumes and 0B cache after both image gates. Owned 4 GiB builders sampled storage every 30 seconds, required 12 GiB before launch and removed all owned resources/cache/new images. One heavy local process runs on this 8 GB Mac. No global prune or unrelated-resource deletion.
 
-Next reviewed checkpoint estimate: **2–4hours**, dependent on correction scope and serial verification. Previous45–90minute estimate superseded by70new full-suite failures. Full production ETA unavailable until live access, remaining implementation and operational acceptance resolved.
-
-Evidence: [exact CI report](ci-37080857980.md), [local gate summary](evidence/local-gates/a14e57f.json), [resume instructions](RESUME.md).
+Next verified source checkpoint estimate: **2–4 hours**, conditional on Linux and image findings. Full production ETA cannot be fixed until remaining implementation, access and operational acceptance are resolved. See [exact current CI evidence](ci-37098189258.md), [local staging gate receipt](evidence/durable-plan/rotation-full-gate.json), [requirement details](REQUIREMENTS.md) and [resume instructions](RESUME.md).

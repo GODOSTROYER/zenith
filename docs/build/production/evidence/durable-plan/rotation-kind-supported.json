@@ -1,0 +1,86 @@
+{
+  "label": "prod-durable-rotation-kind-supported-root",
+  "level": "local_cluster",
+  "cluster": "zenith-prod-e75decd0",
+  "nodeImage": "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+  "nodeImageSource": "https://github.com/kubernetes-sigs/kind/releases/tag/v0.33.0",
+  "releaseImage": "busybox@sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c",
+  "status": "passed",
+  "stages": [
+    {
+      "name": "create",
+      "exitCode": 0,
+      "seconds": 67.52
+    },
+    {
+      "name": "release-image-pull",
+      "exitCode": 0,
+      "seconds": 3.73
+    },
+    {
+      "name": "release-image-load",
+      "exitCode": 0,
+      "seconds": 0.68
+    },
+    {
+      "name": "provider",
+      "exitCode": 0,
+      "seconds": 78.88
+    },
+    {
+      "name": "release",
+      "exitCode": 0,
+      "seconds": 10.49
+    }
+  ],
+  "limitations": [
+    "Disposable local kind cluster; no live or managed-cloud evidence.",
+    "Default kind CNI does not establish NetworkPolicy enforcement.",
+    "No StatefulSet, persistent-data recovery or default source-build credential proof."
+  ],
+  "storageBefore": {
+    "hostFreeGiB": 24.12
+  },
+  "commit": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+  "trackedChangesSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "dirty": false,
+  "kindVersion": "kind v0.33.0 go1.26.7 darwin/arm64",
+  "kubectlClientVersion": "v1.37.0",
+  "kubernetesServerVersion": "v1.37.0",
+  "supportedClientServerSkew": true,
+  "provider": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0
+  },
+  "release": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "cleanup": {
+    "deleteSucceeded": true,
+    "clusterAbsent": true,
+    "ownedContainersAbsent": true,
+    "kubeconfigRemoved": true,
+    "newDependencyImages": [
+      {
+        "reference": "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+        "exitCode": 0,
+        "removed": true
+      },
+      {
+        "reference": "busybox@sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c",
+        "exitCode": 0,
+        "removed": true
+      }
+    ]
+  },
+  "storageAfter": {
+    "hostFreeGiB": 21.58,
+    "dockerUsage": "TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE\nImages          0         0         0B        0B\nContainers      0         0         0B        0B\nLocal Volumes   0         0         0B        0B\nBuild Cache     0         0         0B        0B"
+  },
+  "privateEvidenceSha256": "0238d955bf7564dbebb9f166fe59623bf5e571a1caaef958f6c7cd1bc5677407"
+}

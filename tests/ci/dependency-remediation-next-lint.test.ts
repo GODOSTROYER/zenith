@@ -170,7 +170,7 @@ describe("Next lint dependency replacement", () => {
     `;
     const child = spawnSync(process.execPath, ["-e", script], {
       cwd: root, timeout: 10_000, encoding: "utf8", maxBuffer: 4096,
-      env: { PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin`, NODE_OPTIONS: "--max-old-space-size=256" },
+      env: { NODE_ENV: "test", PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin`, NODE_OPTIONS: "--max-old-space-size=256" },
     });
     expect(child.error).toBeUndefined();
     expect(child.signal).toBeNull();

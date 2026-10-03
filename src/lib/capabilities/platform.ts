@@ -5,7 +5,8 @@
  * WHICH STORE. `platformBroker()` never guesses:
  *  - `ZENITH_PLATFORM_BROKER_MEMORY=1` → a process-wide `MemoryBrokerStore`.
  *    For tests and local development ONLY: state is per-process and lost on
- *    restart, and two instances share nothing. Never set it in production.
+ *    restart, and two instances share nothing. In production an enabled flag
+ *    refuses before overrides, registrations, cache or default store selection.
  *  - otherwise, a store the orchestrator registered with
  *    `registerPlatformBrokerStore()` (tests, or a pre-opened adapter).
  *  - otherwise the PLATFORM CONTROL STORE: `PlatformBrokerStore` over
@@ -18,7 +19,7 @@
  *  lives in RAM is worse than one that refuses to start.
  *
  * The other ports default to the product store (`productScopeResolver`,
- * `productRoleResolver`), the credential broker's control-plane signer
+ * `currentProductRoleResolver`), the credential broker's control-plane signer
  * (`CredentialGrantSigner`, key from `ZENITH_CONTROL_SIGNING_JWK`), the system
  * clock and the committed OPA bundle.
  */
@@ -36,7 +37,8 @@ import { PlatformBrokerStore } from "./platform-store";
 import { cancelOperation, getOperationDetail, listOperationEvents, listOperations } from "./operations";
 import { getWorkspacePolicy, setWorkspacePolicy } from "./policy-settings";
 import { systemClock, type BrokerDeps, type BrokerStore, type GrantSigner, type RoleResolver, type ScopeResolver } from "./ports";
-import { productRoleResolver, productScopeResolver } from "./product-adapters";
+import { productScopeResolver } from "./product-adapters";
+import { currentProductRoleResolver } from "./current-product-roles";
 import type { BrowserSessionProof, ProposeContext } from "./types";
 
 export const MEMORY_STORE_ENV = "ZENITH_PLATFORM_BROKER_MEMORY";
@@ -159,6 +161,9 @@ const storeUnavailable = (message: string): BrokerError =>
   );
 
 export async function platformBroker(): Promise<Broker> {
+  if (process.env.NODE_ENV === "production" && isMemoryStoreEnabled()) {
+    throw storeUnavailable("This production build cannot use an in-memory capability ledger. Remove ZENITH_PLATFORM_BROKER_MEMORY and configure a durable platform control store.");
+  }
   const s = state();
   if (s.override) return s.override;
 
@@ -171,7 +176,9 @@ export async function platformBroker(): Promise<Broker> {
   const broker = createBroker({
     store,
     scopes: s.ports.scopes ?? productScopeResolver(),
-    roles: s.ports.roles ?? productRoleResolver(),
+    // Cache the resolver, never its membership result. Each check and consumed
+    // approver read uses the shared bounded, tenant-scoped current authority.
+    roles: s.ports.roles ?? currentProductRoleResolver(),
     signer: s.ports.signer ?? new CredentialGrantSigner(),
     clock: systemClock,
     policy: () => loadPolicyEngine(),

@@ -12,7 +12,9 @@ const { CredentialGrantSigner } = await import("@/lib/capabilities/credential-si
 const { MemoryBrokerStore } = await import("@/lib/capabilities/memory-store");
 const { PlatformBrokerStore } = await import("@/lib/capabilities/platform-store");
 const { findSecret, scrubSecrets, REDACTED } = await import("@/lib/capabilities/secret-guard");
-const { platformBroker, registerPlatformBrokerStore, resetPlatformBrokerForTests, registerPlatformBrokerPorts } = await import("@/lib/capabilities/platform");
+const { platformBroker, registerPlatformBrokerStore, resetPlatformBrokerForTests, registerPlatformBrokerPorts, setPlatformBrokerForTests, isMemoryStoreEnabled } = await import("@/lib/capabilities/platform");
+const controlDb = await import("@/lib/controlplane/db");
+const policy = await import("@/lib/policy");
 const { resetPlatformDbForTests } = await import("@/lib/controlplane/db");
 const { openPlatformDb } = await import("@/lib/controlplane/db");
 const { makeHarness, requestFor, user } = await import("./support");
@@ -36,6 +38,7 @@ beforeEach(() => {
   resetPlatformBrokerForTests();
 });
 afterEach(async () => {
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
   resetPlatformBrokerForTests();
   await resetPlatformDbForTests();
@@ -56,12 +59,54 @@ describe("platformBroker() store selection", () => {
     }
   });
 
-  it("uses memory only when ZENITH_PLATFORM_BROKER_MEMORY=1, and the same store every time", async () => {
+  it.each(["development", "test"])("%s uses explicit memory with the same store every time", async mode => {
+    vi.stubEnv("NODE_ENV", mode);
     vi.stubEnv("ZENITH_PLATFORM_BROKER_MEMORY", "1");
+    expect(isMemoryStoreEnabled()).toBe(true);
     const a = await platformBroker();
     const b = await platformBroker();
     expect(a).toBe(b);
     expect(a.deps.store).toBeInstanceOf(MemoryBrokerStore);
+  });
+
+  it.each(["fresh default", "registered SQL", "cached SQL", "test override"])("production memory refuses before %s selection or dependency work", async selection => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("ZENITH_PLATFORM_BROKER_MEMORY", "");
+    // Actual SQL adapter, over a disposable PGlite fixture, for wiring controls;
+    // production PostgreSQL durability is proved by its separate required lane.
+    const db = selection === "fresh default" ? undefined : await openPlatformDb({ kind: "pglite" });
+    try {
+      if (db) registerPlatformBrokerStore(new PlatformBrokerStore(db));
+      if (selection === "cached SQL" || selection === "test override") {
+        const cached = await platformBroker();
+        expect(cached.deps.store).toBeInstanceOf(PlatformBrokerStore);
+        expect(await platformBroker()).toBe(cached);
+        if (selection === "test override") setPlatformBrokerForTests(cached);
+      }
+      const configure = vi.spyOn(controlDb, "platformDbConfigFromEnv");
+      const open = vi.spyOn(controlDb, "platformDb").mockRejectedValue(new Error("Unexpected platform store open."));
+      const load = vi.spyOn(policy, "loadPolicyEngine").mockRejectedValue(new Error("Unexpected policy load."));
+      // Observe access to the existing wiring object: rejection must precede
+      // every override, registered store, cache, memory constructor and port.
+      const descriptor = Object.getOwnPropertyDescriptor(globalThis, "__zenithPlatformBroker");
+      expect(descriptor && "value" in descriptor).toBe(true);
+      const readState = vi.fn(() => descriptor!.value);
+      Object.defineProperty(globalThis, "__zenithPlatformBroker", { configurable: true, get: readState });
+      try {
+        vi.stubEnv("NODE_ENV", "production");
+        vi.stubEnv("ZENITH_PLATFORM_BROKER_MEMORY", "1");
+        expect(isMemoryStoreEnabled()).toBe(true);
+        await expect(platformBroker()).rejects.toMatchObject({ code: "platform_store_unavailable", status: 503,
+          message: "This production build cannot use an in-memory capability ledger. Remove ZENITH_PLATFORM_BROKER_MEMORY and configure a durable platform control store. Capability requests are refused until it is available." });
+        expect(readState).not.toHaveBeenCalled();
+        expect(configure).not.toHaveBeenCalled();
+        expect(open).not.toHaveBeenCalled();
+        expect(load).not.toHaveBeenCalled();
+      } finally { Object.defineProperty(globalThis, "__zenithPlatformBroker", descriptor!); }
+    } finally {
+      resetPlatformBrokerForTests();
+      await db?.close();
+    }
   });
 
   it("uses a registered store, which the orchestrator plugs in", async () => {

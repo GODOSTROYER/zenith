@@ -263,6 +263,59 @@ func TestIdentityFileMustBePrivate(t *testing.T) {
 	}
 }
 
+func TestRotationIdentityPersistenceUsesPrivateExclusiveReplacement(t *testing.T) {
+	r := newRig(t, nil)
+	oldTemp := filepath.Join(r.cfg.StateDir, agent.IdentityFileName+".tmp")
+	sentinel := "existing predictable temporary path must remain unchanged"
+	if err := os.WriteFile(oldTemp, []byte(sentinel), 0o644); err != nil {
+		t.Fatal("could not prepare predictable-path persistence fixture")
+	}
+	if err := agent.SaveIdentity(r.cfg.StateDir, r.id); err != nil {
+		t.Fatal("private identity replacement failed")
+	}
+	untouched, err := os.ReadFile(oldTemp)
+	if err != nil || string(untouched) != sentinel {
+		t.Fatal("identity persistence must not reuse or truncate a predictable temporary path")
+	}
+	st, err := os.Stat(filepath.Join(r.cfg.StateDir, agent.IdentityFileName))
+	if err != nil || (runtime.GOOS != "windows" && st.Mode().Perm() != 0o600) {
+		t.Fatal("replacement identity must remain a private file")
+	}
+	if _, err := agent.LoadIdentity(r.cfg.StateDir, agent.RunnerKind); err != nil {
+		t.Fatal("replacement identity must remain valid on restart")
+	}
+	if leftovers, err := filepath.Glob(filepath.Join(r.cfg.StateDir, ".identity-*.tmp")); err != nil || len(leftovers) != 0 {
+		t.Fatal("successful persistence must remove its exclusive temporary file")
+	}
+}
+
+func TestRotationIdentityPersistenceDoesNotFollowPredictableTempSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX symlink fixture")
+	}
+	r := newRig(t, nil)
+	target := filepath.Join(t.TempDir(), "unrelated.txt")
+	sentinel := "unrelated file must not receive identity contents"
+	if err := os.WriteFile(target, []byte(sentinel), 0o600); err != nil {
+		t.Fatal("could not prepare unrelated persistence fixture")
+	}
+	oldTemp := filepath.Join(r.cfg.StateDir, agent.IdentityFileName+".tmp")
+	if err := os.Symlink(target, oldTemp); err != nil {
+		t.Fatal("could not prepare predictable temporary symlink")
+	}
+	if err := agent.SaveIdentity(r.cfg.StateDir, r.id); err != nil {
+		t.Fatal("exclusive identity replacement failed")
+	}
+	untouched, err := os.ReadFile(target)
+	if err != nil || string(untouched) != sentinel {
+		t.Fatal("identity persistence followed a predictable temporary symlink")
+	}
+	st, err := os.Lstat(oldTemp)
+	if err != nil || st.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("identity replacement must leave unrelated existing paths untouched")
+	}
+}
+
 func TestClientTLSVerificationAndRedirects(t *testing.T) {
 	// A server with a certificate the agent does not trust must be refused.
 	untrusted := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }))

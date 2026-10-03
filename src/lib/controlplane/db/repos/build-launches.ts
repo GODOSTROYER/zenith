@@ -2,6 +2,8 @@
 import { digest } from "@/lib/controlplane/digest";
 import type { Sql } from "@/lib/controlplane/types";
 import type { Broker } from "@/lib/capabilities/platform";
+import type { BrokerDeps } from "@/lib/capabilities/ports";
+import type { AutonomyLevel } from "@/lib/policy";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { assertFence } from "./leases";
@@ -51,6 +53,86 @@ function checked(row: BuildLaunch): BuildLaunch {
   return { ...row, binding };
 }
 
+type AuthorityDependencies = Readonly<Omit<BrokerDeps, "store">>;
+const AUTHORITY_DEADLINE_MS = 8_000;
+
+/** Test adapters retain their actual evaluator/ports, never their SQL store. */
+function captureDependencies(broker: Broker): AuthorityDependencies {
+  const { scopes, roles, signer, clock, policy, issuer, newId } = broker.deps;
+  return Object.freeze({ scopes, roles, signer, clock, policy, issuer, newId });
+}
+
+async function canonicalDependencies(tx: Sql, signal: AbortSignal): Promise<AuthorityDependencies> {
+  const [{ currentProductRoleResolver }, { platformScopeResolver }, { CredentialGrantSigner }, { systemClock }, { loadPolicyEngine }] = await Promise.all([
+    import("@/lib/capabilities/current-product-roles"), import("@/lib/platform/scopes"),
+    import("@/lib/capabilities/credential-signer"), import("@/lib/capabilities/ports"), import("@/lib/policy"),
+  ]);
+  return Object.freeze({ scopes: platformScopeResolver(tx), roles: currentProductRoleResolver({ signal }),
+    signer: new CredentialGrantSigner(), clock: systemClock, policy: () => loadPolicyEngine() });
+}
+
+interface SettingsSnapshot {
+  workspaceId: string; environmentId: string;
+  policy: { present: boolean; version: number; params: Record<string, unknown> };
+  environment: { present: boolean; version: number; autonomyLevel: AutonomyLevel; policyParams: Record<string, unknown> };
+}
+function freezeSnapshot<T>(value: T): T {
+  if (value && typeof value === "object") { Object.values(value).forEach(freezeSnapshot); Object.freeze(value); }
+  return value;
+}
+/** Fixed owning SQL reads only; no caller snapshot or default-row creation. */
+async function captureSettings(tx: Sql, binding: BuildLaunchBinding): Promise<SettingsSnapshot> {
+  const [policies, environments] = await Promise.all([
+    tx.query<{ workspace_id: string; version: number; params: Record<string, unknown> }>(
+      "select workspace_id,version,params from platform.workspace_policy where workspace_id=$1", [binding.workspaceId]),
+    // The environment key is globally unique. A foreign existing row must not
+    // be mistaken for an absent/default row of this workspace.
+    tx.query<{ workspace_id: string; environment_id: string; version: number; autonomy_level: number; policy_params: Record<string, unknown> }>(
+      "select workspace_id,environment_id,version,autonomy_level,policy_params from platform.environment_settings where environment_id=$1", [binding.environmentId]),
+  ]);
+  const policy=policies[0], environment=environments[0];
+  if (policies.length>1 || environments.length>1
+    || policy && (policy.workspace_id!==binding.workspaceId || !Number.isInteger(policy.version) || policy.version<1)
+    || environment && (environment.workspace_id!==binding.workspaceId || environment.environment_id!==binding.environmentId
+      || !Number.isInteger(environment.version) || environment.version<1 || !Number.isInteger(environment.autonomy_level)
+      || environment.autonomy_level<0 || environment.autonomy_level>5)) refuse();
+  const snapshot: SettingsSnapshot = {
+    workspaceId:binding.workspaceId,environmentId:binding.environmentId,
+    policy:{present:!!policy,version:policy?.version??0,params:policy?.params??{}},
+    environment:{present:!!environment,version:environment?.version??0,
+      autonomyLevel:(environment?.autonomy_level??1) as AutonomyLevel,policyParams:environment?.policy_params??{}},
+  };
+  // Detach SQL JSON objects; the evaluator cannot mutate the final CAS inputs.
+  return freezeSnapshot(structuredClone(snapshot));
+}
+/** Exact captured state, including absence, must still hold at either final CAS. */
+function settingsChecks(parameter: string, workspace: string, environment: string): string {
+  return `${parameter}->>'workspaceId'=${workspace} and ${parameter}->>'environmentId'=${environment}
+    and (case when (${parameter}->'policy'->>'present')::boolean then exists (
+      select 1 from platform.workspace_policy p where p.workspace_id=${workspace}
+        and p.version=(${parameter}->'policy'->>'version')::integer and p.params=${parameter}->'policy'->'params')
+      else not exists (select 1 from platform.workspace_policy p where p.workspace_id=${workspace}) end)
+    and (case when (${parameter}->'environment'->>'present')::boolean then exists (
+      select 1 from platform.environment_settings s where s.workspace_id=${workspace} and s.environment_id=${environment}
+        and s.version=(${parameter}->'environment'->>'version')::integer
+        and s.autonomy_level=(${parameter}->'environment'->>'autonomyLevel')::integer
+        and s.policy_params=${parameter}->'environment'->'policyParams')
+      else not exists (select 1 from platform.environment_settings s where s.environment_id=${environment}) end)`;
+}
+
+/** A late read-only completion cannot continue the claim after its deadline. */
+function beforeDeadline<T>(signal: AbortSignal, pending: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => { signal.removeEventListener("abort", abort); reject(new BuildLaunchError()); };
+    signal.addEventListener("abort", abort, { once: true });
+    void pending.then(value => {
+      signal.removeEventListener("abort", abort);
+      if (signal.aborted) reject(new BuildLaunchError()); else resolve(value);
+    }, () => { signal.removeEventListener("abort", abort); reject(new BuildLaunchError()); });
+    if (signal.aborted) abort();
+  });
+}
+
 /** Commit BEFORE StartBuild. Neither a lease expiry nor another idempotency key reopens this natural operation/service identity. */
 export async function claim(sql: Sql, raw: BuildLaunchBinding, fence: { scope: string; token: number }): Promise<{ claimed: boolean; launch: BuildLaunch }> {
   return claimBuildLaunch(sql,raw,fence);
@@ -59,13 +141,14 @@ export async function claim(sql: Sql, raw: BuildLaunchBinding, fence: { scope: s
 /** Captures a real isolated broker once; callers cannot provide per-claim authority. */
 export function createIsolatedBuildClaimerForTests(broker: Broker): typeof claim {
   if(process.env.NODE_ENV!=="test") refuse();
+  const dependencies = captureDependencies(broker);
   return (sql,raw,fence)=>{
     if(process.env.NODE_ENV!=="test") refuse();
-    return claimBuildLaunch(sql,raw,fence,broker);
+    return claimBuildLaunch(sql,raw,fence,dependencies);
   };
 }
 
-async function claimBuildLaunch(sql: Sql, raw: BuildLaunchBinding, fence: { scope: string; token: number }, isolatedBroker?: Broker): Promise<{ claimed: boolean; launch: BuildLaunch }> {
+async function claimBuildLaunch(sql: Sql, raw: BuildLaunchBinding, fence: { scope: string; token: number }, isolatedDependencies?: AuthorityDependencies): Promise<{ claimed: boolean; launch: BuildLaunch }> {
   const binding = bindingOf(raw);
   fence=Object.freeze({...fence});
   if (fence.scope !== `env:${binding.environmentId}`) refuse();
@@ -102,10 +185,31 @@ async function claimBuildLaunch(sql: Sql, raw: BuildLaunchBinding, fence: { scop
       [binding.workspaceId,binding.operationId,binding.serviceAddress]);
     // Evaluate only AFTER every potentially blocking lock. A pre-lock snapshot
     // cannot authorize dispatch after policy or approver roles changed in a wait.
-    // Resolve the fixed canonical adapter lazily to avoid a DB/platform import cycle.
-    const {createExecutionBroker}=await import("@/lib/platform/broker");
-    const broker=createExecutionBroker(tx,isolatedBroker?async()=>isolatedBroker:undefined);
-    const status=await broker.approvalStatus(binding.operationId).catch(()=>refuse());
+    // Construct the fixed canonical broker internally; the process-global
+    // broker's memory/registered/override store cannot authorize this claim.
+    // Lazy imports avoid the DB/platform initialization cycle.
+    const signal = AbortSignal.timeout(AUTHORITY_DEADLINE_MS);
+    const [{ createExecutionBroker }, { createBroker }, { PlatformBrokerStore }] = await Promise.all([
+      import("@/lib/platform/broker"), import("@/lib/capabilities/platform"), import("@/lib/capabilities/platform-store"),
+    ]);
+    const dependencies = isolatedDependencies ?? await canonicalDependencies(tx, signal);
+    if (signal.aborted) refuse();
+    const settings = await beforeDeadline(signal, captureSettings(tx, binding));
+    const store = new PlatformBrokerStore(tx);
+    // Evaluation and final SQL fencing share ONE detached owning snapshot. The
+    // fixed internal reads cannot refresh/retry to a different authority state.
+    store.getWorkspacePolicy = async workspaceId => {
+      if (workspaceId!==settings.workspaceId) refuse();
+      return {workspaceId,params:settings.policy.params,version:settings.policy.version,isDefault:!settings.policy.present};
+    };
+    store.getEnvironmentSettings = async (workspaceId,environmentId) => {
+      if (workspaceId!==settings.workspaceId || environmentId!==settings.environmentId) refuse();
+      return {workspaceId,environmentId,autonomyLevel:settings.environment.autonomyLevel,
+        version:settings.environment.version,isDefault:!settings.environment.present};
+    };
+    const authorityBroker = createBroker({ ...dependencies, store });
+    const broker = createExecutionBroker(tx, async () => authorityBroker);
+    const status = await beforeDeadline(signal, broker.approvalStatus(binding.operationId));
     if(!status.approved || status.rejected || !status.dispatchApproval) refuse();
     const authority=status.dispatchApproval;
     if(!Number.isInteger(authority.approvalRound) || authority.approvalRound<0
@@ -128,14 +232,15 @@ async function claimBuildLaunch(sql: Sql, raw: BuildLaunchBinding, fence: { scop
         and a.consumed_at is not null and a.expires_at > clock_timestamp()))
       and not exists (select 1 from platform.approvals a where a.workspace_id=o.workspace_id and a.operation_id=o.id
         and a.approval_round=o.approval_round and a.decision='reject')`;
-    const live = `exists (select 1 from platform.leases l where l.scope=$12 and l.fence_token=$11
+    const live = `(${settingsChecks("$14::text::jsonb", "$1", "$3")})
+      and exists (select 1 from platform.leases l where l.scope=$12 and l.fence_token=$11
       and l.expires_at > clock_timestamp() and l.released_at is null)
       and exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2 and o.environment_id=$3
         and o.status='running' and o.capability in ('deployment.deploy','infrastructure.apply')
         and o.expires_at > clock_timestamp() and o.lease_until > clock_timestamp() and o.lease_holder='workflow:' || o.id
         and o.lease_scope=$12 and o.fence_token=$11 and o.proposal_digest=$8 and o.input_digest=$9 and o.plan_digest=$10
         and (${approvalChecks("$13::text::jsonb")}))`;
-    const parameters=[binding.workspaceId,binding.operationId,binding.environmentId,binding.serviceAddress,randomUUID(),JSON.stringify(binding),digest(binding),operation.proposal_digest,operation.input_digest,operation.plan_digest,fence.token,fence.scope,JSON.stringify(approval)];
+    const parameters=[binding.workspaceId,binding.operationId,binding.environmentId,binding.serviceAddress,randomUUID(),JSON.stringify(binding),digest(binding),operation.proposal_digest,operation.input_digest,operation.plan_digest,fence.token,fence.scope,JSON.stringify(approval),JSON.stringify(settings)];
     const inserted = await tx.query<BuildLaunch>(`insert into platform.build_launches
       (workspace_id,operation_id,environment_id,service_address,attempt_id,binding,binding_digest,proposal_digest,input_digest,plan_digest,fence_token)
       select $1,$2,$3,$4,$5,$6::text::jsonb,$7,$8,$9,$10,$11 where ${live}
@@ -143,6 +248,7 @@ async function claimBuildLaunch(sql: Sql, raw: BuildLaunchBinding, fence: { scop
       parameters);
     const rows = inserted.length ? inserted : await tx.query<BuildLaunch>(`select * from platform.build_launches
       where workspace_id=$1 and operation_id=$2 and service_address=$3
+      and (${settingsChecks("$11::text::jsonb", "$1", "$6")})
       and exists (select 1 from platform.leases l where l.scope=$4 and l.fence_token=$5
         and l.expires_at > clock_timestamp() and l.released_at is null)
       and exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2 and o.environment_id=$6
@@ -150,7 +256,7 @@ async function claimBuildLaunch(sql: Sql, raw: BuildLaunchBinding, fence: { scop
         and o.lease_holder='workflow:' || o.id and o.lease_scope=$4 and o.fence_token=$5
         and o.proposal_digest=$7 and o.input_digest=$8 and o.plan_digest=$9
         and (${approvalChecks("$10::text::jsonb")})) for update`,
-      [binding.workspaceId,binding.operationId,binding.serviceAddress,fence.scope,fence.token,binding.environmentId,operation.proposal_digest,operation.input_digest,operation.plan_digest,JSON.stringify(approval)]);
+      [binding.workspaceId,binding.operationId,binding.serviceAddress,fence.scope,fence.token,binding.environmentId,operation.proposal_digest,operation.input_digest,operation.plan_digest,JSON.stringify(approval),JSON.stringify(settings)]);
     const launch=rows[0] ? checked(rows[0]) : refuse();
     if (launch.binding_digest!==digest(binding) || launch.proposal_digest!==operation.proposal_digest
       || launch.input_digest!==operation.input_digest || launch.plan_digest!==operation.plan_digest) refuse();

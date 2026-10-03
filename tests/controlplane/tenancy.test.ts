@@ -398,7 +398,7 @@ describe.skipIf(!PG_URL)("build launch tenant isolation sweep [postgres]",()=>{
     const fence={scope:lease.scope,token:lease.fenceToken},claim=repos.buildLaunches.createIsolatedBuildClaimerForTests(h.broker);
     const first=await claim(db,binding,fence);
     expect(first).toMatchObject({claimed:true,launch:{workspace_id:A,phase:"dispatched",build_id:null}});
-    let current=first.launch,finishedAt!:Date;
+    let current=first.launch;
     const foreignBinding={...binding,workspaceId:B};
     const foreignLaunch=():repos.buildLaunches.BuildLaunch=>({...current,workspace_id:B,binding:foreignBinding,binding_digest:digest(foreignBinding)});
     const receiptRows=()=>db.query("select * from platform.build_launches where workspace_id=$1 and operation_id=$2 order by service_address",[A,op.id]);
@@ -436,7 +436,7 @@ describe.skipIf(!PG_URL)("build launch tenant isolation sweep [postgres]",()=>{
       date_trunc('milliseconds',clock_timestamp())>=created_at as within_receipt_window
       from platform.build_launches where workspace_id=$1 and operation_id=$2 and phase='accepted'`,[A,op.id]);
     expect(provider.within_receipt_window).toBe(true);
-    finishedAt=new Date(provider.finished_at);
+    const finishedAt=new Date(provider.finished_at);
     await foreignAttempt("buildLaunches.observeTerminal");
     const terminal=await repos.buildLaunches.observeTerminal(db,current,{status:"STOPPED",finishedAt,requestId:"tenant-terminal-read"});
     expect(terminal).toMatchObject({phase:"terminal",terminal_status:"STOPPED"});

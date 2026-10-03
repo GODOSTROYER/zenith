@@ -28,6 +28,7 @@ export const RECONCILE_SWEEP_LEASE = "reconcile-sweep:v1";
 export const RECONCILE_SCHEDULE_OWNER = defineSearchAttributeKey("ZenithScheduleOwner", SearchAttributeType.KEYWORD);
 const CADENCE_MS = 60_000;
 const CREATE_NOTE = "Zenith reconciliation awaiting verified prerequisites.";
+const ACTIVE_NOTE = "Zenith durable reconciliation active.";
 const RPC_MS = 10_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const COUNT_KEYS = ["claimed", "reconciled", "nothingToReconcile", "busy", "ineligible", "failed", "deferred", "nudged", "driftDetected", "driftCleared", "openFindings", "unreadNodes", "repairsProposed", "repairsStarted", "repairsAwaitingApproval", "repairsDenied", "ms"] as const;
@@ -170,7 +171,7 @@ export async function ensureReconcileSchedule(client: Client, prerequisites: Rec
   try {
     await rpc(client, () => client.schedule.workflowService.updateSchedule({
       namespace: client.schedule.options.namespace, scheduleId: RECONCILE_SCHEDULE_ID,
-      schedule: { ...current.raw.schedule!, state: { ...current.raw.schedule!.state, paused: false, notes: "Zenith durable reconciliation active." } },
+      schedule: { ...current.raw.schedule!, state: { ...current.raw.schedule!.state, paused: false, notes: ACTIVE_NOTE } },
       conflictToken: current.raw.conflictToken, requestId: randomUUID(), identity: client.schedule.options.identity,
     }));
   } catch (error) {
@@ -182,7 +183,10 @@ export async function ensureReconcileSchedule(client: Client, prerequisites: Rec
   }
   const active = await rpc(client, () => handle.describe());
   assertCompatibleReconcileSchedule(active, args);
-  return { created: true, paused: active.state.paused, handle };
+  // An accepted update does not prove that a concurrent human pause was removed.
+  // Confirm only our exact activation; never repeat an update to override operator state.
+  if (active.state.paused !== false || active.state.note !== ACTIVE_NOTE) throw new ReconcileScheduleError("incompatible_schedule");
+  return { created: true, paused: false, handle };
 }
 
 /** Log-safe maintenance projection; no provider payloads, arguments or memo. */
@@ -266,13 +270,16 @@ function runtime(db: Sql, ports: (signal: AbortSignal) => Promise<ReconcilePassP
         const context = Context.current();
         context.cancellationSignal.throwIfAborted();
         const signal = AbortSignal.any([context.cancellationSignal, AbortSignal.timeout(70_000)]);
-        let composed: ReconcilePassPorts;
-        try { composed = await boundedReadiness(ports(signal)); } catch { if (context.cancellationSignal.aborted) throw new CancelledFailure(undefined); return { status: "deferred", reason: "prerequisites_unavailable" }; }
-        const beat = setInterval(() => context.heartbeat({ phase: "sweeping" }), 5_000);
+        // Cancellation is delivered through heartbeats even before prerequisite SQL returns.
+        // Emit below the bounded store's five-second lock wait; Worker throttling still applies.
+        const beat = setInterval(() => context.heartbeat({ phase: "sweeping" }), 1_000);
         beat.unref();
         try {
-          signal.throwIfAborted();
           context.heartbeat({ phase: "sweeping" });
+          let composed: ReconcilePassPorts;
+          try { composed = await boundedReadiness(ports(signal)); } catch { if (context.cancellationSignal.aborted) throw new CancelledFailure(undefined); return { status: "deferred", reason: "prerequisites_unavailable" }; }
+          context.cancellationSignal.throwIfAborted();
+          signal.throwIfAborted();
           return await withLease(boundedStore(db), { scope: RECONCILE_SWEEP_LEASE, holder: `reconcile-sweep:${passId}`, ttlMs: 90_000, signal }, async (_lease, heldSignal) => {
             const result = await reconcilePass({ ports: cancellablePorts(composed, heldSignal), holder: `reconcile-sweep:${passId}`, maxEnvironments: args.maxEnvironments, environmentConcurrency: args.environmentConcurrency, budgetMs: 20_000, includeSandbox: false, reconcile: { autoRepair: true, deadlineAt: Date.now() + 50_000 } });
             heldSignal.throwIfAborted();

@@ -157,8 +157,11 @@ describe("durable schedule on an actual isolated Temporal service", () => {
     const cap = runtime();
     const attempts = await Promise.all(Array.from({ length: 4 }, () => ensureReconcileSchedule(client(), cap)));
     expect(attempts.filter((value) => value.created)).toHaveLength(1);
+    expect(attempts.find((value) => value.created)).toMatchObject({ created: true, paused: false });
     const handle = attempts[0].handle;
-    assertCompatibleReconcileSchedule(await handle.describe());
+    const active = await handle.describe();
+    assertCompatibleReconcileSchedule(active);
+    expect(active.state).toMatchObject({ paused: false, note: "Zenith durable reconciliation active." });
     await handle.pause("Operator investigation.");
     expect(await ensureReconcileSchedule(client(), cap)).toMatchObject({ created: false, paused: true });
     expect((await handle.describe()).state.note).toBe("Operator investigation.");
@@ -169,7 +172,9 @@ describe("durable schedule on an actual isolated Temporal service", () => {
     await handle.pause("Fixture pause.");
     await expect(ensureReconcileSchedule(client(), cap, { ...reconcileSweepInput(), environmentConcurrency: 1 })).rejects.toMatchObject({ code: "incompatible_schedule" });
     const before = await handle.describe();
-    await handle.update((current) => ({ spec: current.spec, action: { ...current.action, taskQueue: "foreign-fixture-queue" }, policies: current.policies, state: current.state, typedSearchAttributes: current.typedSearchAttributes }));
+    // SDK 1.24 cannot re-encode its decoded zero backoff; this intentional routing
+    // mutation keeps the same one-attempt policy with canonical encodeable defaults.
+    await handle.update((current) => ({ spec: current.spec, action: { ...current.action, retry: { ...current.action.retry, maximumAttempts: 1, backoffCoefficient: 2 }, taskQueue: "foreign-fixture-queue" }, policies: current.policies, state: current.state, typedSearchAttributes: current.typedSearchAttributes }));
     await expect(ensureReconcileSchedule(client(), cap)).rejects.toMatchObject({ code: "incompatible_schedule" });
     const after = await handle.describe();
     expect(after.action).toMatchObject({ taskQueue: "foreign-fixture-queue", args: before.action.args });
@@ -186,6 +191,7 @@ describe("durable schedule on an actual isolated Temporal service", () => {
     await expect(ensureReconcileSchedule(client(), runtime())).rejects.toMatchObject({ code: "incompatible_schedule" });
     const current = await client().schedule.getHandle(RECONCILE_SCHEDULE_ID).describe();
     expect(injected).toBe(true);
+    expect(service.updateSchedule).toHaveBeenCalledTimes(1);
     expect(current.state).toMatchObject({ paused: true, note: "Operator paused during activation." });
     assertCompatibleReconcileSchedule(current);
   });

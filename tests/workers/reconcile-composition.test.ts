@@ -360,7 +360,9 @@ describe("actual default activity composition: PostgreSQL and owned durable Temp
       await prepareReconcileWorkerSchedule(client, runtime, cfg.reconcile!);
       expect(await inspectReconcileObservation(client)).toMatchObject({ phase: "paused", observationCurrent: false });
       expect((await handle.describe()).state.note).toBe("Owned operator hold.");
-      await handle.update(current => ({ spec: current.spec, action: { ...current.action, taskQueue: "owned-incompatible-queue" }, policies: current.policies, state: current.state, typedSearchAttributes: current.typedSearchAttributes }));
+      // Re-encode only canonical one-attempt retry defaults; SDK 1.24 describes
+      // zero backoff but rejects that decoded default when encoding an update.
+      await handle.update(current => ({ spec: current.spec, action: { ...current.action, retry: { ...current.action.retry, maximumAttempts: 1, backoffCoefficient: 2 }, taskQueue: "owned-incompatible-queue" }, policies: current.policies, state: current.state, typedSearchAttributes: current.typedSearchAttributes }));
       await expect(prepareReconcileWorkerSchedule(client, runtime, cfg.reconcile!)).rejects.toMatchObject({ code: "incompatible_schedule" });
       await prepareReconcileWorkerSchedule(client, runtime, { ...cfg.reconcile!, mode: "observe" });
       expect(await inspectReconcileObservation(client)).toMatchObject({ phase: "incompatible", observationCurrent: false });
@@ -415,6 +417,11 @@ describe("actual default activity composition: PostgreSQL and owned durable Temp
   actual("pre-acquisition cancellation during an observed schema prerequisite waiter starts no compensation", async () => {
     await withWorker(async (client, runtime, cfg) => {
       await prepareReconcileWorkerSchedule(client, runtime, cfg.reconcile!);
+      // No automatic next pass may obscure the cancelled pass's lease projection.
+      await client.schedule.getHandle(RECONCILE_SCHEDULE_ID).pause("Owned prerequisite cancellation fixture.");
+      expect(await repos.leases.current(observer, RECONCILE_SWEEP_LEASE)).toBeNull();
+      const leaseRows = () => observer.query("select scope,holder,fence_token,acquired_at,renewed_at,expires_at,released_at from platform.leases where scope=$1", [RECONCILE_SWEEP_LEASE]);
+      const leasesBefore = await leaseRows();
       let acquired = false;
       let release!: () => void;
       let blockerPid = 0;
@@ -431,16 +438,42 @@ describe("actual default activity composition: PostgreSQL and owned durable Temp
         handle = await scheduled(client);
         await waitFor("actual cancelled sweep SQL waiter", async () => {
           await observer.query("select pg_stat_clear_snapshot()");
-          const rows = await observer.query<{ pid: number }>("select pid from pg_stat_activity where application_name=$1 and pid<>pg_backend_pid() and wait_event_type='Lock' and query like 'select version, name, applied_at, checksum from platform.schema_migrations%' and $2::integer=any(pg_blocking_pids(pid))", [workerApplication, blockerPid]);
-          return rows.length === 1 && rows[0].pid !== blockerPid ? rows[0] : false;
+          const rows = await observer.query<{ pid: number; observer_pid: number }>("select pid,pg_backend_pid() as observer_pid from pg_stat_activity where application_name=$1 and pid<>pg_backend_pid() and wait_event_type='Lock' and query like 'select version, name, applied_at, checksum from platform.schema_migrations%' and $2::integer=any(pg_blocking_pids(pid))", [workerApplication, blockerPid]);
+          if (rows.length !== 1) return false;
+          expect(rows[0].pid).not.toBe(blockerPid);
+          expect(rows[0].observer_pid).not.toBe(blockerPid);
+          expect(rows[0].observer_pid).not.toBe(rows[0].pid);
+          return rows[0];
         }, 4_000);
         await handle.cancel();
+        // A cancel request is not delivery. Keep the actual prerequisite lock held
+        // through heartbeat delivery and WAIT_CANCELLATION_COMPLETED's terminal ack.
+        await expect(handle.result()).rejects.toThrow();
+        expect((await handle.describe()).status.name).toBe("CANCELLED");
+        const history = await handle.fetchHistory();
+        const scheduledActivities = history.events?.filter(event => event.activityTaskScheduledEventAttributes);
+        expect(scheduledActivities).toHaveLength(1);
+        expect(scheduledActivities?.[0].activityTaskScheduledEventAttributes?.activityType?.name).toBe("sweepReconcilePass");
+        expect(history.events?.filter(event => event.activityTaskStartedEventAttributes)).toHaveLength(1);
+        expect(history.events?.filter(event => event.activityTaskCancelRequestedEventAttributes)).toHaveLength(1);
+        expect(history.events?.filter(event => event.activityTaskCanceledEventAttributes)).toHaveLength(1);
+        expect(history.events?.filter(event => event.activityTaskCompletedEventAttributes)).toHaveLength(0);
+        expect(history.events?.filter(event => event.workflowExecutionCanceledEventAttributes)).toHaveLength(1);
+        const activityCancelRequested = history.events!.findIndex(event => event.activityTaskCancelRequestedEventAttributes);
+        const activityCanceled = history.events!.findIndex(event => event.activityTaskCanceledEventAttributes);
+        const workflowCanceled = history.events!.findIndex(event => event.workflowExecutionCanceledEventAttributes);
+        expect(activityCancelRequested).toBeLessThan(activityCanceled);
+        expect(activityCanceled).toBeLessThan(workflowCanceled);
+        expect(await observer.query("select pid from pg_locks where pid=$1::integer and relation='platform.schema_migrations'::regclass and mode='AccessExclusiveLock' and granted", [blockerPid])).toEqual([{ pid: blockerPid }]);
+        expect(await repos.leases.current(observer, RECONCILE_SWEEP_LEASE)).toBeNull();
+        expect(await leaseRows()).toEqual(leasesBefore);
+        expect(await observer.query("select id from platform.operations limit 1")).toEqual([]);
       } finally { release(); await blocking; }
-      await expect(handle!.result()).rejects.toThrow();
-      expect((await handle!.describe()).status.name).toBe("CANCELLED");
-      expect(await repos.leases.current(db, RECONCILE_SWEEP_LEASE)).toBeNull();
-      expect(await db.query("select id from platform.operations limit 1")).toEqual([]);
-      expect(await inspectReconcileObservation(client)).toMatchObject({ phase: "unknown", observationCurrent: false });
+      expect(await repos.leases.current(observer, RECONCILE_SWEEP_LEASE)).toBeNull();
+      expect(await leaseRows()).toEqual(leasesBefore);
+      expect(await observer.query("select id from platform.operations limit 1")).toEqual([]);
+      // Schedule is intentionally paused; read the terminal workflow above for cancellation.
+      expect(await inspectReconcileObservation(client)).toMatchObject({ phase: "paused", observationCurrent: false });
     }, "provision");
   });
   actual("default controller cancellation after an observed post-acquisition SQL waiter releases its exact live fleet lease", async () => {

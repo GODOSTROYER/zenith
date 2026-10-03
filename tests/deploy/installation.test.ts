@@ -130,6 +130,8 @@ describe('supported installation structural preflight', () => {
 describe('private preparation and ownership', () => {
   it('generates private keys and a unique project at runtime, with separate scratch paths', () => {
     expect(production.installationId).not.toBe(disposable.installationId);
+    expect(production.environment.ZENITH_PLAN_ARTIFACT_KEY).toMatch(/^[a-f0-9]{64}$/);
+    expect(production.environment.ZENITH_PLAN_ARTIFACT_KEY).not.toBe(production.environment.ZENITH_SECRET_KEY);
     expect(production.environment.ZENITH_SECRET_KEY).toMatch(/^[a-f0-9]{64}$/);
     expect(JSON.parse(production.environment.ZENITH_CONTROL_SIGNING_JWK)).toMatchObject({ kty: 'OKP', crv: 'Ed25519' });
     expect(JSON.parse(production.environment.ZENITH_OIDC_SIGNING_JWK)).toMatchObject({ kty: 'RSA' });
@@ -137,6 +139,8 @@ describe('private preparation and ownership', () => {
     for (const file of fs.readdirSync(privateDir)) expect(fs.statSync(path.join(privateDir, file)).mode & 0o077).toBe(0);
     expect(fs.readFileSync(path.join(privateDir, 'api.env'), 'utf8')).toContain('ZENITH_DATA=/data');
     const worker = fs.readFileSync(path.join(privateDir, 'worker.env'), 'utf8');
+    expect(worker).toContain('ZENITH_PLAN_ARTIFACT_KEY=');
+    expect(fs.readFileSync(path.join(privateDir, 'api.env'), 'utf8')).not.toContain('ZENITH_PLAN_ARTIFACT_KEY=');
     expect(worker).toContain('ZENITH_DATA=/var/lib/zenith');
     expect(worker).toContain('ZENITH_WORKER_PLAN_DIR=/var/lib/zenith/plans');
     expect(worker).toContain('ZENITH_STORE=postgres');
@@ -159,7 +163,7 @@ describe('private preparation and ownership', () => {
     expect(plan).toMatchObject({ externalSupabaseRequired: true, fullyLocal: false, apiStartupApprovalRequired: true, networkValidated: false, productionReady: false });
     expect(plan.source.contentSha256).toMatch(/^[a-f0-9]{64}$/);
     expect(plan.pendingAcceptance).toContain('customer-agent-registration-and-real-execution');
-    for (const key of ['SUPABASE_DB_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'ZENITH_SECRET_KEY', 'ZENITH_CONTROL_SIGNING_JWK', 'ZENITH_TEMPORAL_API_KEY']) expect(serialized).not.toContain(production.environment[key]);
+    for (const key of ['SUPABASE_DB_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'ZENITH_SECRET_KEY', 'ZENITH_PLAN_ARTIFACT_KEY', 'ZENITH_CONTROL_SIGNING_JWK', 'ZENITH_TEMPORAL_API_KEY']) expect(serialized).not.toContain(production.environment[key]);
     expect(planFor(disposable)).toMatchObject({ services: ['api', 'execution-worker', 'platform-db', 'temporal'], publishedEnginePorts: [] });
   });
   it('uses an explicit project and private env file, never the root fixture', () => {

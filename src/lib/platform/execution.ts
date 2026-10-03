@@ -3,6 +3,7 @@
  * explicit ports support contract tests without pretending to reach a cloud.
  * The secret-derived fingerprint key is mandatory even when tofu is injected.
  */
+import { createPlanArtifactRuntime } from "./plan-artifacts";
 import { hkdfSync } from "node:crypto";
 import type { Sql } from "@/lib/controlplane/types";
 import { createExecutionActivities, createPlatformPorts, createProductPort, createSafeProber, defaultCostPort, type ExecutionDeps } from "@/lib/execution";
@@ -43,6 +44,14 @@ export function derivePlanFingerprintKey(secretKey = process.env.ZENITH_SECRET_K
 
 export function composeExecutionActivities(opts: ComposeExecutionOptions): WorkerActivities {
   const fingerprintKey = derivePlanFingerprintKey(opts.secretKey);
+  const injectedArtifacts = opts.ports?.planArtifacts;
+  if (!injectedArtifacts && (opts.db as Sql & {kind?: string}).kind !== "postgres") throw new Error("Production execution requires PostgreSQL durable plan custody.");
+  if (injectedArtifacts && process.env.NODE_ENV !== "test") throw new Error("Artifact overrides are available only in the test environment.");
+  if (injectedArtifacts && injectedArtifacts.kind !== "isolated-test") throw new Error("Artifact overrides require an explicit isolated test adapter.");
+  if (opts.ports?.tofu && injectedArtifacts?.kind !== "isolated-test") throw new Error("Engine overrides require an explicit isolated test adapter.");
+  if (injectedArtifacts?.kind === "isolated-test" && !opts.ports?.tofu) throw new Error("An isolated artifact adapter requires an explicit isolated engine.");
+  const custodyRuntime = injectedArtifacts ? undefined : createPlanArtifactRuntime(opts.db);
+  const planArtifacts = injectedArtifacts ?? custodyRuntime!.planArtifacts;
   registerAllDrivers();
   const credentials = opts.ports?.credentials ?? platformCredentialBroker(opts.db);
   const platformPorts = createPlatformPorts(opts.db);
@@ -55,10 +64,10 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     }).readSource(ctx, source)),
   };
   const deps: ExecutionDeps = {
-    ...platformPorts,
+    ...platformPorts, planArtifacts,
     drivers: platformDriverLookup,
     product: createProductPort(), broker: createExecutionBroker(opts.db), credentials,
-    tofu: { planWorkspace, applyVerifiedPlan }, cost: defaultCostPort(),
+    tofu: custodyRuntime?.tofu ?? { planWorkspace, applyVerifiedPlan }, cost: defaultCostPort(),
     observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} })),
     prober: createSafeProber(), ...createReleasePorts({ db: opts.db, azure }),
     sourceBundle: opts.ports?.sourceBundle ?? sourceBundles!.port,

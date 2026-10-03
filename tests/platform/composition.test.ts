@@ -48,6 +48,17 @@ describe("platform composition", () => {
     expect(() => composeExecutionActivities({ db, workerIdentity: "test", planDir: "unused" })).toThrow("ZENITH_SECRET_KEY");
     expect(() => derivePlanFingerprintKey("invalid")).toThrow("64 hex");
   });
+  it("refuses production PGlite custody and admits only an explicit isolated adapter with an explicit engine",async()=> {
+    const {createWorld}=await import("../execution/fakes/world");
+    const world=createWorld();
+    try {
+      expect(()=>composeExecutionActivities({db,workerIdentity:"test",planDir:world.planDir,secretKey:"1".repeat(64)})).toThrow("PostgreSQL");
+      expect(()=>composeExecutionActivities({db,workerIdentity:"test",planDir:world.planDir,secretKey:"1".repeat(64),ports:{planArtifacts:world.deps.planArtifacts}})).toThrow("explicit isolated engine");
+      expect(()=>composeExecutionActivities({db,workerIdentity:"test",planDir:world.planDir,secretKey:"1".repeat(64),ports:{planArtifacts:world.deps.planArtifacts,tofu:world.tofu,sourceBundle:world.sourceBundle,machines:world.deps.machines}})).not.toThrow();
+      vi.stubEnv("NODE_ENV","production");
+      expect(()=>composeExecutionActivities({db,workerIdentity:"test",planDir:world.planDir,secretKey:"1".repeat(64),ports:{planArtifacts:world.deps.planArtifacts,tofu:world.tofu}})).toThrow("only in the test environment");
+    } finally {world.dispose();}
+  });
   it("leaves the legacy app and reconcile 503 behavior alone without platform configuration", async () => {
     vi.stubEnv("ZENITH_PLATFORM_DB", ""); vi.stubEnv("ZENITH_PLATFORM_DB_URL", "");
     expect(await ensurePlatformApp()).toBe(false);
@@ -70,7 +81,7 @@ describe("platform composition", () => {
     await expect(validateExecutionConfiguration({ ...base, ZENITH_SECRET_KEY: "" })).rejects.toThrow("SECRET_KEY");
     await expect(validateExecutionConfiguration({ ...base, ZENITH_CONTROL_SIGNING_JWK: "PRIVATE-CONTRACT-CANARY" })).rejects.toThrow("usable ZENITH_CONTROL_SIGNING_JWK");
     await expect(openExecutionStore(async () => { throw new Error("DATABASE-CONTRACT-CANARY"); })).rejects.toThrow("Platform store could not open");
-    expect(await openExecutionStore(async () => db)).toBe(db);
+    await expect(openExecutionStore(async () => db)).rejects.toThrow("requires PostgreSQL");
     await db.query("delete from platform.schema_migrations where version=(select max(version) from platform.schema_migrations)");
     await expect(openExecutionStore(async () => db)).rejects.toThrow("Platform schema is behind");
   });

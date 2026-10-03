@@ -7,7 +7,12 @@ import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createExecutionActivities, type ExecutionWorkerActivities } from "@/lib/execution/activities";
-import type { CostPort, ExecutionDeps, ExecutionLimits } from "@/lib/execution/ports";
+import { randomBytes } from "node:crypto";
+import { createPlanEngineAuthority, type PlanAdmission } from "@/lib/tofu/engine";
+import { planArtifactCipherFromEnv } from "@/lib/platform/plan-artifacts";
+import type { Sealed } from "@/lib/secrets";
+import type { ApprovedPlan, ProducedPlan } from "@/lib/tofu/engine";
+import type { CostPort, ExecutionDeps, ExecutionLimits, TofuPort } from "@/lib/execution/ports";
 import type { LeaseRef, ReconcileActivities } from "@/lib/workflows/types";
 import { FakeBroker, FakeCredentialBroker } from "./broker";
 import { genericDrivers, type DriverScript } from "./drivers";
@@ -45,6 +50,8 @@ export interface World {
   broker: FakeBroker;
   credentials: FakeCredentialBroker;
   tofu: FakeTofu;
+  /** Real tool with explicitly isolated fake-store custody. Never PostgreSQL durability evidence. */
+  isolatedRealTofu: TofuPort;
   prober: FakeProber;
   sourceBundle: FakeSourceBundle;
   build: FakeBuild;
@@ -87,7 +94,50 @@ export function createWorld(opts: WorldOptions = {}): World {
   const logs: World["logs"] = [];
   const planDir = mkdtempSync(path.join(os.tmpdir(), "zenith-act-plans-"));
 
+  const reviewed = new Map<string,ProducedPlan>();
+  const sealedReviews = new Map<string,Sealed>();
+  const isolatedAdmissions = new WeakMap<ApprovedPlan,PlanAdmission>();
+  const {codec,tofu:isolatedRealTofu}=createPlanEngineAuthority(planArtifactCipherFromEnv({ZENITH_PLAN_ARTIFACT_KEY:randomBytes(32).toString("hex")}),original=>isolatedAdmissions.get(original),{ZENITH_WORKER_PLAN_DIR:planDir});
+  const readReview = async <T>(plan: ProducedPlan,input: {custody: PlanAdmission["custody"];lease:LeaseRef}, executable:boolean,fn:(approved:ApprovedPlan)=>Promise<T>):Promise<T> => {
+    const sealed=sealedReviews.get(plan.manifest.operationId);
+    if (!sealed) return fn(plan as ApprovedPlan);
+    return codec.withDecoded({...plan.manifest},sealed,async (manifest,bytes)=> {
+      const original:ApprovedPlan=Object.freeze({manifest});
+      if (executable) isolatedAdmissions.set(original,Object.freeze({manifest,bytes,custody:input.custody,lease:input.lease,attemptId:"isolated-test",associated:manifest.operationId!==input.custody.operationId,dispatch:async()=>undefined}));
+      try { return await fn(original); } finally {isolatedAdmissions.delete(original);}
+    });
+  };
   const deps: ExecutionDeps = {
+    planArtifacts: {
+      kind: "isolated-test",
+      async associate(input) {
+        const source=reviewed.get(input.sourceOperationId);
+        if (!source || source.manifest.planDigest!==input.planDigest) throw new Error("Isolated source review missing");
+        reviewed.set(input.destinationOperationId,source);
+      },
+      async publish(input) {
+        if (!input.produced) throw new Error("Isolated producer missing");
+        const m=input.produced.manifest;
+        const prior=reviewed.get(m.operationId);
+        if (prior && prior.manifest.planDigest !== m.planDigest) throw new Error("Isolated immutable plan conflict");
+        if (!prior) {
+          await ops.setPlanDigest({workspaceId:m.workspaceId,operationId:m.operationId,planDigest:m.planDigest});
+          await evidence.append(input.evidence);
+          if (m.executable.version !== "isolated-test") sealedReviews.set(m.operationId,codec.sealProduced(input.produced).sealed);
+          reviewed.set(m.operationId,input.produced);
+        }
+      },
+      async inspect(input,fn) {
+        const plan=reviewed.get(input.custody.operationId);
+        if (!plan || plan.manifest.planDigest !== input.planDigest) throw new Error("Isolated reviewed plan missing");
+        return readReview(plan,input,false,fn);
+      },
+      async consume(input,fn) {
+        const plan=reviewed.get(input.custody.operationId);
+        if (!plan || plan.manifest.planDigest !== input.planDigest) throw new Error("Isolated reviewed plan missing");
+        return readReview(plan,input,true,approved => fn(approved,async () => undefined));
+      },
+    },
     ops,
     leases,
     events,
@@ -130,6 +180,7 @@ export function createWorld(opts: WorldOptions = {}): World {
     broker,
     credentials,
     tofu,
+    isolatedRealTofu,
     prober,
     sourceBundle,
     build,

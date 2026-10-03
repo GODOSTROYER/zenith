@@ -11,8 +11,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as repos from "@/lib/controlplane/db/repos";
 import { bindRepos } from "@/lib/controlplane/db/repos";
 import { ControlStoreError } from "@/lib/controlplane/db";
+import type { BrokerProposal } from "@/lib/capabilities/types";
+import { executionHolder } from "@/lib/execution/platform";
+import type { PlanArtifactManifest } from "@/lib/tofu/engine";
 import type { ResourceNode } from "@/lib/resources/types";
-import { LANES, approve, newWorkspace, openLane, seedApprovedOperation, seedAwaitingApproval, uid, user } from "./_support/harness";
+import { LANES, approve, newWorkspace, openLane, proposalFor, seedApprovedOperation, seedAwaitingApproval, uid, user } from "./_support/harness";
 
 /** Functions exercised by the sweep (each named `namespace.function`). */
 const SWEPT = new Set([
@@ -31,6 +34,7 @@ const SWEPT = new Set([
   "operations.claimForExecution", "operations.get", "operations.heartbeat", "operations.list", "operations.transition",
   "operationExecution.suspendForApproval", "operationExecution.setPlanDigest", "operationExecution.setPolicyDecision", "operationExecution.deny",
   "policyDecisions.get", "policyDecisions.listForOperation",
+  "planArtifacts.publish", "planArtifacts.read", "planArtifacts.associate", "planArtifacts.claim", "planArtifacts.dispatch", "planArtifacts.finish",
   "resources.changeOwnership", "resources.get", "resources.getByAddress", "resources.listByEnvironment", "resources.setStatus",
   "runners.getRunner", "runners.heartbeat", "runners.listRunners", "runners.revokeRunner",
   "settings.getEnvironmentSettings", "settings.getWorkspacePolicy",
@@ -45,6 +49,8 @@ const WRITES = new Set([
 
 /** Deliberately not workspace-filtered, with the reason. */
 const EXEMPT: Record<string, string> = {
+  "planArtifacts.PlanArtifactError": "pure error class, contains no SQL or tenant data",
+  "planArtifacts.expire": "system logical-expiry maintenance; workspace taken from database candidates, never from tenant input",
   "leases.acquire": "keyed by a globally unique scope string; a workspace-tagged scope refuses a foreign workspace (tested in leases.test.ts)",
   "leases.renew": "keyed by scope + holder + fence",
   "leases.release": "keyed by scope + holder + fence",
@@ -100,6 +106,7 @@ describe("completeness guard", () => {
     expect(Object.keys(bound.operations)).toEqual(expect.arrayContaining(["create", "get", "list", "transition", "claimForExecution"]));
     expect(Object.keys(bound.operations)).not.toContain("toOperation");
     expect(Object.keys(bound.runners)).not.toContain("generateRegistrationToken");
+    expect(Object.keys(bound.planArtifacts)).not.toContain("PlanArtifactError");
     expect(await bound.events.list("ws_x")).toEqual([]);
   });
 });
@@ -110,6 +117,7 @@ async function seen<T>(promise: Promise<T>): Promise<unknown> {
     return await promise;
   } catch (err) {
     if (err instanceof ControlStoreError && ["operation_not_found", "not_found", "tenant_mismatch"].includes(err.code)) return null;
+    if (err instanceof repos.planArtifacts.PlanArtifactError) return null;
     throw err;
   }
 }
@@ -182,9 +190,44 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     expect(decision.length).toBeGreaterThan(0);
     expect(investigations).toHaveLength(1);
 
+    // Synthetic ciphertext exercises SQL tenancy only; no engine authenticity or durable runtime claim.
+    const artifactSource=await seedApprovedOperation(db,A,{proposal:{capability:"infrastructure.plan",scope:{workspaceId:A,projectId:"proj_1",environmentId:envId},input:{environmentId:envId,teardownReview:true}}});
+    await repos.operations.claimForExecution(db,{workspaceId:A,id:artifactSource.operation.id,expectedDigest:artifactSource.operation.proposalDigest,holder:executionHolder(artifactSource.operation.id)});
+    const artifactLease=await repos.leases.current(db,`env:${envId}`);
+    if(!artifactLease)throw new Error("Tenant artifact fixture lease is unavailable.");
+    const source=artifactSource.operation,artifactDigest=hex("d");
+    const manifest:PlanArtifactManifest={workspaceId:A,operationId:source.id,projectId:"proj_1",environmentId:envId,proposalDigest:source.proposalDigest,inputDigest:source.inputDigest,expiresAt:source.expiresAt,
+      sourceDigest:hex("a"),graphDigest:hex("b"),format:"zenith.plan-artifact.v1",purpose:"destroy",configDigest:hex("c"),lockDigest:hex("e"),backendDigest:hex("f"),addressMapDigest:hex("a"),planDigest:artifactDigest,
+      rawSha256:hex("b"),bytes:1,executable:{version:"synthetic",platform:"synthetic",sha256:hex("c"),archiveSha256:null}};
+    const artifactEvidenceId=uid("evd_artifact");
+    const artifactInput:repos.planArtifacts.PublishArtifact={manifest,sealed:{iv:"A".repeat(16),authTag:"A".repeat(24),ciphertext:"synthetic-tenant-fixture"},lease:artifactLease,evidence:{id:artifactEvidenceId,workspaceId:A,operationId:source.id,kind:"tofu_plan",digest:artifactDigest,summary:{planDigest:artifactDigest},simulated:false}};
+    await repos.planArtifacts.publish(db,artifactInput);
+    const destroyProposal:BrokerProposal={
+      ...proposalFor(A,{capability:"infrastructure.destroy",scope:{workspaceId:A,projectId:"proj_1",environmentId:envId},input:{environmentId:envId},planDigest:artifactDigest}),
+      broker:{v:1,risk:"medium",destroyPlan:{operationId:source.id,evidenceId:artifactEvidenceId,retained:[]}},
+    };
+    const destination=await seedAwaitingApproval(db,{workspaceId:A,proposal:destroyProposal});
+    const associationInput={workspaceId:A,sourceOperationId:source.id,destinationOperationId:destination.operation.id,sourceEvidenceId:artifactEvidenceId,planDigest:artifactDigest,lease:artifactLease};
+    await repos.planArtifacts.associate(db,associationInput);
+    const artifactAccess={custody:manifest,planDigest:artifactDigest,lease:artifactLease};
+    const artifactBefore=await repos.planArtifacts.read(db,artifactAccess);
+    const associationsBefore=await db.query("select * from platform.plan_artifact_associations where workspace_id=$1",[A]);
+    let usesBefore=await db.query("select * from platform.plan_artifact_uses where workspace_id=$1 order by operation_id",[A]);
+    const foreignAccess={...artifactAccess,custody:{...manifest,workspaceId:B}};
+
     // ------------------------ workspace B tries everything -------------------------
     const dig = seeded.operation.proposalDigest;
     const attempts: Record<string, () => Promise<unknown>> = {
+      "planArtifacts.publish": () => seen(repos.planArtifacts.publish(db,{...artifactInput,manifest:{...manifest,workspaceId:B},evidence:{...artifactInput.evidence,workspaceId:B}})),
+      "planArtifacts.read": () => seen(repos.planArtifacts.read(db,foreignAccess)),
+      "planArtifacts.associate": () => seen(repos.planArtifacts.associate(db,{...associationInput,workspaceId:B})),
+      "planArtifacts.claim": () => seen(repos.planArtifacts.claim(db,foreignAccess,"foreign-attempt")),
+      "planArtifacts.dispatch": async () => {
+        await repos.planArtifacts.claim(db,artifactAccess,"tenant-owner-attempt");
+        usesBefore=await db.query("select * from platform.plan_artifact_uses where workspace_id=$1 order by operation_id",[A]);
+        return seen(repos.planArtifacts.dispatch(db,foreignAccess,"tenant-owner-attempt"));
+      },
+      "planArtifacts.finish": () => repos.planArtifacts.finish(db,foreignAccess,"tenant-owner-attempt",false),
       "operationExecution.suspendForApproval": () => repos.operationExecution.suspendForApproval(db, { workspaceId: B, id: active.operation.id }),
       "operationExecution.setPlanDigest": () => repos.operationExecution.setPlanDigest(db, { workspaceId: B, id: opId, planDigest: hex("d") }),
       "operationExecution.setPolicyDecision": () => repos.operationExecution.setPolicyDecision(db, { workspaceId: B, id: active.operation.id, decisionId: activeDecision.id }),
@@ -263,6 +306,15 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     }
 
     // ------------------------ and A's data is exactly as it was -------------------------
+    expect(await repos.planArtifacts.read(db,artifactAccess)).toEqual(artifactBefore);
+    expect(await db.query("select * from platform.plan_artifact_associations where workspace_id=$1",[A])).toEqual(associationsBefore);
+    expect(await db.query("select * from platform.plan_artifact_uses where workspace_id=$1 order by operation_id",[A])).toEqual(usesBefore);
+    for(const table of ["plan_artifacts","plan_artifact_associations","plan_artifact_uses"])
+      expect(await db.query(`select operation_id from platform.${table} where workspace_id=$1`,[B])).toHaveLength(0);
+    expect((await repos.operations.get(db,A,source.id))?.planDigest).toBe(artifactDigest);
+    expect((await repos.operations.get(db,A,destination.operation.id))?.status).toBe("awaiting_approval");
+    expect(await repos.approvals.listForOperation(db,A,destination.operation.id)).toHaveLength(0);
+    expect(await repos.evidence.list(db,A,{operationId:source.id})).toHaveLength(1);
     expect((await repos.operations.get(db, A, opId))?.status).toBe("approved");
     expect((await repos.operations.get(db, A, opId))?.planDigest).toBeUndefined();
     expect((await repos.operations.get(db, A, active.operation.id))?.status).toBe("running");

@@ -1,17 +1,10 @@
 /**
- * Local binary-plan retention. Only reads control-store ownership and deletes
- * regular digest-named files directly inside the configured directory. No plan
- * contents are read, no operation/infrastructure state is changed, and paths or
- * raw errors never leave the pass. The scheduling lease is the only DB write.
- *
- * A digest may be shared across operations/workspaces. Every known owner must
- * be terminal; unowned files and missing owners are retained. Evidence also
- * covers re-plans whose digest is not the operation's approved plan_digest.
- * Terminal is irreversible in the operation contract. We recheck ownership and
- * file identity/mtime immediately before unlink, but the producer does not take
- * this lease: a new writer in that final filesystem race cannot be fenced here.
+ * Legacy plan directory inspection retains every file. Historical producers do
+ * not share the maintenance fence, so unlink cannot safely exclude a producer.
+ * Production maintenance marks encrypted database artifacts logically expired;
+ * physical retention and pruning require a separate operator policy.
  */
-import { lstat, opendir, realpath, unlink } from "node:fs/promises";
+import { lstat, opendir, realpath } from "node:fs/promises";
 import type { Dir } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -130,8 +123,8 @@ async function runPlanJanitorPass(db: Sql, options: PlanJanitorOptions, cursor?:
             if (!after.isFile() || after.isSymbolicLink() || after.ino !== before.ino || after.dev !== before.dev
               || after.mtimeMs !== before.mtimeMs || after.size !== before.size) { result.retained++; continue; }
             signal.throwIfAborted();
-            await unlink(file);
-            result.removed++;
+            // Legacy producers cannot be fenced against unlink. Retain bytes until separately authorized migration/pruning.
+            result.retained++;
           } catch {
             // A failed ownership read or filesystem operation never authorizes deletion.
             signal.throwIfAborted();
@@ -153,7 +146,7 @@ async function runPlanJanitorPass(db: Sql, options: PlanJanitorOptions, cursor?:
   }
 }
 
-/** Immediate then periodic local cleanup, single-flight, with awaited shutdown. */
+/** Immediate then periodic non-deleting legacy inspection, single-flight, with awaited shutdown. */
 export function startPlanJanitor(db: Sql, options: PlanJanitorOptions, report: (result?: PlanJanitorResult) => void): { stop(): Promise<void> } {
   let active: Promise<void> | undefined;
   const cursor: ScanCursor = {};
@@ -166,4 +159,17 @@ export function startPlanJanitor(db: Sql, options: PlanJanitorOptions, report: (
   const timer = setInterval(tick, PLAN_JANITOR_INTERVAL_MS);
   timer.unref();
   return { async stop() { clearInterval(timer); await active; await closeCursor(cursor); } };
+}
+
+/** Durable maintenance records expiry only; content and legacy files are never physically pruned. */
+export function startPlanArtifactJanitor(db: Sql, report: (result?: { expired: number }) => void): { stop(): Promise<void> } {
+  let active: Promise<void> | undefined;
+  const tick = () => {
+    if (active) return;
+    active = repos.planArtifacts.expire(db).then(expired => { try { report({expired}); } catch {} }, () => { try { report(); } catch {} })
+      .finally(() => { active=undefined; });
+  };
+  tick();
+  const timer=setInterval(tick,PLAN_JANITOR_INTERVAL_MS); timer.unref();
+  return { async stop() { clearInterval(timer); await active; } };
 }

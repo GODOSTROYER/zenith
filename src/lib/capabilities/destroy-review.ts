@@ -128,7 +128,7 @@ export async function runDestroyReview(rt: Runtime, broker: Broker, input: { wor
           : intent.data.refresh ? "Superseded by an explicitly refreshed teardown review."
           : pending.length > 1 ? "Superseded by a new teardown review: multiple pending reviews were consolidated."
           : "Superseded by a new teardown review: the environment inputs changed.";
-        const cancelled = await broker.deps.store.cancelOperation({ workspaceId: op.workspaceId, id: stale.id, reason, actor: op.principal, expectedStatus: "awaiting_approval" });
+        const cancelled = await broker.deps.store.cancelOperation({ workspaceId: op.workspaceId, id: stale.id, reason, actor: op.principal, expectedStatus: "awaiting_approval", requireUndecidedApprovalRound:true });
         if (!cancelled) throw new BrokerError("conflict", "The previous teardown changed while it was being superseded. Inspect it before proceeding.");
       }
       const proposal = await broker.propose({ capability: "infrastructure.destroy", scope: op.proposal.scope,
@@ -138,6 +138,12 @@ export async function runDestroyReview(rt: Runtime, broker: Broker, input: { wor
       const stored = await broker.deps.store.getOperation(op.workspaceId, proposal.operation.id);
       if (!stored) throw new BrokerError("invalid_state", "The teardown proposal could not be read back.");
       await ensureReviewEvidence(rt, broker, stored);
+      // Direct object teardown has no OpenTofu binary; IaC must associate the source original before any human decision.
+      if (!["kubernetes","zenith"].includes(product.environment.provider)) {
+        if (!rt.d.planArtifacts) throw new BrokerError("invalid_state","Durable source review custody is unavailable; request a new review.");
+        await rt.d.planArtifacts.associate({workspaceId:op.workspaceId,sourceOperationId:op.id,destinationOperationId:stored.id,
+          sourceEvidenceId:source.id,planDigest:reviewed.planDigest,lease});
+      }
       await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
       return { operationId: stored.id, planDigest: reviewed.planDigest, replayed: false };
     });

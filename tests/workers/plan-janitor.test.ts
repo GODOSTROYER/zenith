@@ -29,10 +29,10 @@ async function owner(digest: string, status: string, workspaceId = "ws-a", evide
 }
 
 describe("plan janitor", () => {
-  it("deletes old plans for each terminal outcome, at inclusive retention, without changing any rows", async () => {
+  it("retains legacy bytes for every terminal outcome without changing rows or applying a pruning policy", async () => {
     for (const [i, status] of TERMINAL_OPERATION_STATUSES.entries()) { const digest = sha256Hex(String(i)); await file(digest, 1); await owner(digest, status); }
     const before = await db.query("select * from platform.operations order by seq");
-    expect(await planJanitorPass(db, options())).toMatchObject({ removed: 7, retained: 0, errors: 0 });
+    expect(await planJanitorPass(db, options())).toMatchObject({ removed: 0, retained: 7, errors: 0 });
     expect(await db.query("select * from platform.operations order by seq")).toEqual(before);
     expect(await planJanitorPass(db, options())).toMatchObject({ removed: 0 });
   });
@@ -55,7 +55,7 @@ describe("plan janitor", () => {
     const shared = "a".repeat(64); await file(shared); await owner(shared, "succeeded"); const active = await owner(shared, "awaiting_approval", "ws-b", true);
     expect(await planJanitorPass(db, options())).toMatchObject({ removed: 0, retained: 1 });
     await db.query("update platform.operations set status='cancelled' where workspace_id=$1 and id=$2", [active.workspaceId, active.id]);
-    expect(await planJanitorPass(db, options())).toMatchObject({ removed: 1 });
+    expect(await planJanitorPass(db, options())).toMatchObject({ removed: 0, retained: 1 });
   });
 
   it("retains a digest with evidence that cannot be bound to an operation", async () => {
@@ -73,10 +73,10 @@ describe("plan janitor", () => {
     await expect(planJanitorPass(db, { ...options(), planDir: link })).rejects.toThrow("unsafe");
   });
 
-  it("bounds scanning/deletions and reports a missing directory without creating it", async () => {
+  it("bounds non-deleting scans and reports a missing directory without creating it", async () => {
     for (let i = 0; i < 3; i++) { const digest = sha256Hex(String(i)); await file(digest); await owner(digest, "expired"); }
-    expect(await planJanitorPass(db, { ...options(), limit: 2 })).toMatchObject({ scanned: 2, removed: 2 });
-    expect(await planJanitorPass(db, options())).toMatchObject({ removed: 1 });
+    expect(await planJanitorPass(db, { ...options(), limit: 2 })).toMatchObject({ scanned: 2, removed: 0, retained: 2 });
+    expect(await planJanitorPass(db, options())).toMatchObject({ removed: 0, retained: 3 });
     expect(await planJanitorPass(db, { ...options(), planDir: path.join(temp, "missing") })).toMatchObject({ status: "missing" });
   });
 
@@ -125,7 +125,7 @@ describe("plan janitor", () => {
     await vi.advanceTimersByTimeAsync(PLAN_JANITOR_INTERVAL_MS); expect(acquisitions).toBe(1);
   });
 
-  it("continues bounded scans beyond retained entries so later terminal plans are eventually removed", async () => {
+  it("continues bounded scans beyond retained entries without deleting terminal plans", async () => {
     for (let i = 0; i < 5; i++) { const digest = sha256Hex(String(i)); await file(digest); await owner(digest, i === 4 ? "cancelled" : "running"); }
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const report = vi.fn(); const janitor = startPlanJanitor(db, { ...options(), limit: 2 }, report);
@@ -133,9 +133,10 @@ describe("plan janitor", () => {
       await vi.waitFor(() => expect(report).toHaveBeenCalledTimes(1));
       for (let i = 2; i <= 4; i++) { await vi.advanceTimersByTimeAsync(PLAN_JANITOR_INTERVAL_MS); await vi.waitFor(() => expect(report).toHaveBeenCalledTimes(i)); }
       const results = report.mock.calls.map(([result]) => result);
-      expect(results.reduce((count, result) => count + result.removed, 0)).toBe(1);
+      expect(results.reduce((count, result) => count + result.removed, 0)).toBe(0);
+      expect(results.reduce((count,result)=>count+result.scanned,0)).toBeGreaterThanOrEqual(5);
       expect(results.every((result) => result.scanned <= 2)).toBe(true);
-      for (let i = 0; i < 4; i++) expect(await lstat(path.join(planDir, `${sha256Hex(String(i))}.tfplan`))).toBeDefined();
+      for (let i = 0; i < 5; i++) expect(await lstat(path.join(planDir, `${sha256Hex(String(i))}.tfplan`))).toBeDefined();
     } finally { await janitor.stop(); }
   });
 

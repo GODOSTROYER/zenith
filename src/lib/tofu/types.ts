@@ -5,7 +5,7 @@
  *     ─init/plan─▶ binary plan + `tofu show -json` ─normalize─▶ NormalizedPlan
  *     ─▶ policy / cost / risk ─▶ approval bound to `planDigest`
  *     ─▶ re-plan immediately before apply; refuse if the digest moved
- *     ─▶ `tofu apply <saved plan file>` (exactly what was re-verified)
+ *     ─▶ `tofu apply <original saved plan file>` (authenticated review bytes)
  *
  * Pins: the tofu binary version, every provider version (exact `=`), and the
  * `.terraform.lock.hcl` (multi-platform hashes) are part of the workspace and
@@ -109,5 +109,13 @@ export class TofuPlanChangedError extends Error {
     readonly currentDigest: string
   ) {
     super(`The infrastructure plan changed since it was approved (${approvedDigest.slice(0, 12)} → ${currentDigest.slice(0, 12)}); a new approval is required.`);
+  }
+}
+
+/** Authenticated review inputs no longer match; no fresh plan digest was observed. */
+export class TofuPlanProvenanceError extends Error {
+  readonly code = "plan_provenance_changed";
+  constructor() {
+    super("Reviewed plan provenance changed; a new review is required.");
   }
 }

@@ -25,7 +25,6 @@
  * Normal deploy deletions use trusted historical nodes and live DNS ownership
  * reads inside broker callbacks. Cloud behavior is contract-tested, not live.
  */
-import { rm } from "node:fs/promises";
 import type { PlanFacts } from "@/lib/policy/types";
 import { extractPlanFacts } from "@/lib/policy/plan-facts";
 import type { ExecutionActivities } from "@/lib/workflows/types";
@@ -37,7 +36,8 @@ import { errorCode, StepFailedError, TofuPlanChangedError } from "./errors";
 import { buildDesiredState, findGraphProblems } from "./graph";
 import { withKeepAlive } from "./keepalive";
 import { planEvidence, readPlanEvidence, toPlanSummary, type PlanCost } from "./plan-evidence";
-import type { Runtime } from "./runtime";
+import { planCustody, type Runtime } from "./runtime";
+import { digest } from "@/lib/controlplane/digest";
 import { baseTags, driverContext, environmentIdProblem, LONG_SESSION_SEC, PLAN_CAPABILITY, withProviderSession } from "./session";
 import { safeList, safeText } from "./text";
 import type { NormalizedPlan } from "@/lib/tofu/types";
@@ -58,7 +58,7 @@ type PlanActivities = Pick<ExecutionActivities, "validateDesiredState" | "planIn
 
 interface PlanStage {
   plan: NormalizedPlan;
-  planFilePath?: string;
+  produced?: import("@/lib/tofu/engine").ProducedPlan;
   facts: PlanFacts;
   cost: PlanCost;
   graphDigest: string;
@@ -220,10 +220,14 @@ async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<Exec
         const repair = await prepareEcsReplicaRepair(rt, ec, graph, baseWorkspace, connection, session, signal, lease);
         ws = repair.ws; repairBinding = repair.binding;
       }
+      if (expectedDigest) {
+        if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required; a new review is required.");
+        await rt.d.planArtifacts.inspect({ custody: planCustody(ec, graph.graphDigest, connection), planDigest: expectedDigest, lease }, async () => undefined);
+      }
       const deletionGuard = inspectDeployDeletions(rt, ec, deletionNodes, dnsNodes, session, signal, lease);
       // lock: false — the read-only observe role cannot write the S3 state-lock object; the fenced env lease
       // (held, renewed and asserted around this call) is what serialises work on the environment. Apply always locks.
-      return rt.tofu.planWorkspace(ws, tofuSession(session), { signal, planDir: rt.d.planDir, lock: false, expectedDigest, deletionNodes, inspectPlan: async (plan, raw) => {
+      return rt.tofu.planWorkspace(ws, tofuSession(session), { signal, custody: planCustody(ec, graph.graphDigest, connection), lock: false, expectedDigest, deletionNodes, inspectPlan: async (plan, raw) => {
         await deletionGuard(plan, raw);
         if (repairBinding) {
           await prepareEcsReplicaRepair(rt, ec, graph, baseWorkspace, connection, session, signal, lease);
@@ -245,7 +249,7 @@ async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<Exec
     dnsChanges: [...new Set([...extracted.dnsChanges, ...deletions.dnsDeletes])].sort(),
   };
   const cost = await costOf(rt, ec, graph);
-  return { plan: result.plan, planFilePath: result.planFilePath, facts, cost, graphDigest: graph.graphDigest, deletions, repairBinding };
+  return { plan: result.plan, produced: result.produced, facts, cost, graphDigest: graph.graphDigest, deletions, repairBinding };
 }
 
 export function createPlanActivities(rt: Runtime): PlanActivities {
@@ -280,8 +284,12 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
       const ec = await loadExecContext(rt, operationId);
       const stage = await runPlanStage(rt, ec, lease, "tofu plan");
       const evidence = planEvidence({ plan: stage.plan, facts: stage.facts, cost: stage.cost, graphDigest: stage.graphDigest, stage: "plan", repairBinding: stage.repairBinding });
-      await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, summary: { ...evidence.summary, ...stage.deletions }, simulated: false, key: evidence.key }, { critical: false });
-      await rt.d.ops.setPlanDigest({ workspaceId: ec.workspaceId, operationId: ec.op.id, planDigest: stage.plan.planDigest });
+      if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required.");
+      await rt.d.planArtifacts.publish({ produced: stage.produced, lease, evidence: {
+        id: `evd_${digest({ w: ec.scope.id, kind: "tofu_plan", key: evidence.key }).slice(0,32)}`,
+        workspaceId: ec.workspaceId, operationId: ec.op.id, kind: "tofu_plan", digest: evidence.digest,
+        summary: { ...evidence.summary, ...stage.deletions, ...(stage.repairBinding ? { repairBinding: stage.repairBinding } : {}) }, simulated: false,
+      } });
       await rt.emit(ec.scope, "resource.planned", `plan:${stage.plan.planDigest}`, {
         planDigest: stage.plan.planDigest,
         create: stage.plan.summary.create,
@@ -327,7 +335,6 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
       await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, summary: { ...evidence.summary, ...stage.deletions }, simulated: false, key: evidence.key }, { critical: false });
       if (stage.plan.planDigest !== approvedPlanDigest) {
         // The plan that just moved was never approved: do not leave its file around.
-        if (stage.planFilePath) await rm(stage.planFilePath, { force: true }).catch(() => undefined);
         throw new TofuPlanChangedError(approvedPlanDigest, stage.plan.planDigest);
       }
       return toPlanSummary(stage.plan, stage.facts, stage.cost);

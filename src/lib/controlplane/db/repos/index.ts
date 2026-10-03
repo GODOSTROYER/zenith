@@ -16,6 +16,7 @@
  * must commit together.
  */
 import type { Sql } from "@/lib/controlplane/types";
+import * as planArtifacts from "./plan-artifacts";
 import * as approvals from "./approvals";
 import * as connections from "./connections";
 import * as cost from "./cost";
@@ -38,6 +39,7 @@ import * as runners from "./runners";
 import * as settings from "./settings";
 
 export {
+  planArtifacts,
   approvals,
   connections,
   cost,
@@ -68,7 +70,7 @@ export type Bound<M> = {
 };
 
 /** Exports that are pure helpers, not repository functions: they take no `Sql`. */
-const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken"]);
+const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError"]);
 
 function bind<M extends object>(mod: M, sql: Sql): Bound<M> {
   const out: Record<string, unknown> = {};
@@ -80,6 +82,7 @@ function bind<M extends object>(mod: M, sql: Sql): Bound<M> {
 
 export function bindRepos(sql: Sql) {
   return {
+    planArtifacts: bind(planArtifacts, sql),
     approvals: bind(approvals, sql),
     connections: bind(connections, sql),
     cost: bind(cost, sql),

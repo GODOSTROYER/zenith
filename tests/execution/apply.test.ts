@@ -16,6 +16,8 @@ const worlds: World[] = [];
 const world = (opts: WorldOptions = {}): World => {
   const w = createWorld(opts);
   w.product.setManifest(bucketManifest());
+  // Explicit isolated human-authority fixture; real canonical expiry/revocation tests below use the actual broker.
+  w.broker.approval={approved:true,rejected:false,approvalId:"isolated-reviewed-human-fixture"};
   worlds.push(w);
   return w;
 };
@@ -78,6 +80,15 @@ describe("applyInfrastructure", () => {
     const everything = `${w.stored()}${JSON.stringify(result)}${JSON.stringify(w.logs)}`;
     for (const secret of [CANARY_SECRET, CANARY_SESSION_KEY, CANARY_GRANT, PLAN_FILE_CANARY, "session-token-canary"]) expect(everything).not.toContain(secret);
     expect(existsSync(path.join(w.planDir, `${plan.planDigest}.tfplan`))).toBe(false);
+  });
+
+  it.each([{approved:false,rejected:false},{approved:true,rejected:true}])("refuses changed current authority before an external write ($approved/$rejected)",async authority=>{
+    const w=world();const {lease,plan}=await planned(w);
+    let dispatched=false;void w.tofu.applyStarted.then(()=>{dispatched=true;});
+    w.broker.approval=authority;
+    await expect(w.activities.applyInfrastructure({operationId:OP,planDigest:plan.planDigest,lease})).rejects.toThrow("Current policy or human approval changed");
+    expect(dispatched).toBe(false);expect(w.evidence.ofKind("tofu_apply")).toHaveLength(0);
+    expect(w.ops.ops.get(OP)?.status).toBe("running");
   });
 
   it("marks deleted nodes deleted when the plan deleted them", async () => {
@@ -191,10 +202,16 @@ describe("applyInfrastructure", () => {
     const w = world();
     const { lease, plan } = await planned(w);
     w.tofu.apply = "fail_plan_before_apply";
+    let providerStarted = false;
+    void w.tofu.applyStarted.then(() => { providerStarted = true; });
     const err = await w.activities.applyInfrastructure({ operationId: OP, planDigest: plan.planDigest, lease }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(StepFailedError);
-    expect((err as Error).message).toMatch(/before anything was applied; nothing was changed/);
+    expect((err as Error).message).toMatch(/The apply did not start; nothing was changed/);
     expect((err as Error).message).not.toMatch(/partial/);
+    expect(providerStarted).toBe(false);
+    expect(w.evidence.ofKind("tofu_apply")).toHaveLength(0);
+    expect(w.ops.uncertain).toHaveLength(0);
+    expect(w.ops.ops.get(OP)?.status).toBe("running");
   });
 
   it("leaves a timeout or an unclassified error PLAIN (unknown outcome → uncertain) and marks the operation uncertain", async () => {
@@ -282,4 +299,78 @@ describe("applyInfrastructure", () => {
     expect(w.events.ofType("resource.applied")).toHaveLength(1);
     expect(w.events.ofType("resource.applying")).toHaveLength(1);
   });
+});
+
+/** Real PostgreSQL authority and pinned OpenTofu; scope/roles/credentials/drivers are explicit fixtures. */
+import { randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { vi } from "vitest";
+import { createExecutionActivities } from "@/lib/execution/activities";
+import { createPlatformPorts } from "@/lib/execution/platform";
+import { createExecutionBroker } from "@/lib/platform/broker";
+import { createIsolatedPlanArtifactRuntimeForTests } from "@/lib/platform/plan-artifacts";
+import { PG_URL, makeHarness, closeSharedPgliteAfterAll, scriptedEngine, requireApproval, allowDecision, sessionFor, user } from "../capabilities/support";
+import { tofuOnPath } from "../tofu/_helpers";
+import { REVISION, DEPLOYMENT, connectionConfig } from "./fakes/fixtures";
+import * as repos from "@/lib/controlplane/db/repos";
+closeSharedPgliteAfterAll();
+
+function dispatchBarrier() {let release!:()=>void;const promise=new Promise<void>(resolve=>{release=resolve;});return {release,promise};}
+describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK!=="1")("dispatch current authority [postgres]",()=>{
+  it.each(["expired approval","revoked approver role","new policy denial","expiry after authority check","expiry during role lookup"])("refuses %s after fresh replan and before durable dispatch",async(mode)=>{
+    const h=await makeHarness({kind:"postgres",engine:scriptedEngine("original-dispatch-policy",input=>input.plan?requireApproval(1,"admin"):allowDecision())});
+    h.deps.clock={now:()=>new Date()};
+    const w=world();const scope={workspaceId:h.ids.wsA,projectId:h.ids.projA,environmentId:h.ids.envASbx};
+    w.product.base.workspace.id=scope.workspaceId;w.product.base.project.id=scope.projectId;w.product.base.environment.id=scope.environmentId;w.product.base.environment.class="sandbox";
+    vi.spyOn(w.product,"loadContext").mockImplementation(async input=>({...structuredClone(w.product.base),revision:structuredClone(w.product.revisions.get(REVISION)!),...(input.deploymentId?{deploymentId:input.deploymentId}:{})}));
+    const connection=await repos.connections.create(h.db!,{workspaceId:scope.workspaceId,createdBy:"dispatch-authority-fixture",config:connectionConfig});
+    const verified=await repos.connections.recordVerification(h.db!,{workspaceId:scope.workspaceId,id:connection.id,ok:true});
+    if(!verified || verified.status!=="verified")throw new Error("Dispatch fixture connection was not verified.");
+    w.product.base.environment.connectionId=verified.id;
+    const proposed=await h.broker.propose({capability:"deployment.deploy",scope,input:{revisionId:REVISION,deploymentId:DEPLOYMENT}},user("alice"));
+    const operationId=proposed.operation.id;
+    await h.broker.beginExecution({workspaceId:scope.workspaceId,operationId,holder:`workflow:${operationId}`,audience:"worker",leaseMs:120000});
+    const ports=createPlatformPorts(h.db!);const canonicalBroker=createExecutionBroker(h.db!,async()=>h.broker);
+    let armed=false,postPlanAuthorityChecks=0;
+    const broker={...canonicalBroker,approvalStatus:async(id:string)=>{
+      const result=await canonicalBroker.approvalStatus(id);
+      if(armed)postPlanAuthorityChecks++;
+      if(armed && postPlanAuthorityChecks===2 && mode==="expiry after authority check")await h.expireApprovals(id);
+      return result;
+    }};
+    const roles=h.deps.roles;
+    h.deps.roles={resolve:async(principal,workspaceId)=>{
+      const result=await roles.resolve(principal,workspaceId);
+      if(armed && mode==="expiry during role lookup" && principal.id==="erin") {
+        await new Promise(resolve=>setTimeout(resolve,200));
+      }
+      return result;
+    }};
+    const runtime=createIsolatedPlanArtifactRuntimeForTests(h.db!,{ZENITH_PLAN_ARTIFACT_KEY:randomBytes(32).toString("hex"),ZENITH_WORKER_PLAN_DIR:w.planDir},broker);
+    const entered=dispatchBarrier(),release=dispatchBarrier();const state=path.join(w.planDir,"customer-state.tfstate");
+    const tofu={planWorkspace:runtime.tofu.planWorkspace,applyVerifiedPlan:(ws:Parameters<typeof runtime.tofu.applyVerifiedPlan>[0],args:Parameters<typeof runtime.tofu.applyVerifiedPlan>[1])=>
+      runtime.tofu.applyVerifiedPlan(ws,{...args,beforeDispatch:async()=>{entered.release();await release.promise;await args.beforeDispatch?.();}})};
+    const activities=createExecutionActivities({...w.deps,...ports,broker,tofu,planArtifacts:runtime.planArtifacts,
+      tofuWorkspace:{providerSet:()=>"builtin",backend:()=>({backend:{kind:"local",path:state}})},clock:()=>new Date(),limits:{heartbeatIntervalMs:1000}});
+    await activities.validateDesiredState({operationId});const lease=await activities.acquireLease({operationId,scope:`env:${scope.environmentId}`,ttlMs:120000});
+    try {
+      const plan=await activities.planInfrastructure({operationId,lease});
+      expect((await activities.evaluatePolicy({operationId,planDigest:plan.planDigest})).outcome).toBe("require_approval");
+      await ports.ops.transition({workspaceId:scope.workspaceId,operationId,to:"awaiting_approval"});
+      await h.broker.approve({workspaceId:scope.workspaceId,operationId,proposalDigest:proposed.operation.proposalDigest,planDigest:plan.planDigest,approver:user("erin"),session:sessionFor("erin")});
+      await ports.ops.transition({workspaceId:scope.workspaceId,operationId,to:"running"});
+      const applying=activities.applyInfrastructure({operationId,planDigest:plan.planDigest,lease});
+      const rejected=expect(applying).rejects.toThrow();
+      await entered.promise;
+      // A grant was already issued, and the actual original/fresh inspections finished before this barrier.
+      if(mode==="expired approval")await h.expireApprovals(operationId);
+      if(mode==="revoked approver role")h.world.members.set(`${scope.workspaceId}|erin`,"viewer");
+      if(mode==="new policy denial")h.setEngine(scriptedEngine("denied-before-dispatch",()=>({outcome:"deny",reasons:[{code:"changed",message:"Policy changed."}]})));
+      if(mode==="expiry during role lookup")await h.db!.query("update platform.approvals set expires_at=clock_timestamp()+interval '100 milliseconds' where workspace_id=$1 and operation_id=$2",[scope.workspaceId,operationId]);
+      armed=true;release.release();await rejected;
+      expect(await readFile(state).catch(()=>null)).toBeNull();
+      expect(await h.db!.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[scope.workspaceId,operationId])).toEqual([{phase:"ready"}]);
+      expect(await h.db!.query("select id from platform.evidence where workspace_id=$1 and operation_id=$2 and kind='tofu_apply'",[scope.workspaceId,operationId])).toHaveLength(0);
+    } finally {release.release();await activities.releaseLease({lease});}
+  },240000);
 });

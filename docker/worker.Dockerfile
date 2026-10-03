@@ -57,7 +57,10 @@ RUN set -eu; \
     echo "${expected}  /tmp/tofu.zip" | sha256sum -c -; \
     unzip -q /tmp/tofu.zip tofu -d /usr/local/bin; \
     chmod 0755 /usr/local/bin/tofu; \
-    /usr/local/bin/tofu version | head -n 1 | grep -F "OpenTofu v${TOFU_VERSION}"
+    /usr/local/bin/tofu version | head -n 1 | grep -F "OpenTofu v${TOFU_VERSION}"; \
+    mkdir -p /usr/local/share/zenith; \
+    binary_sha="$(sha256sum /usr/local/bin/tofu | cut -d ' ' -f 1)"; \
+    printf '{"version":"%s","platform":"linux_%s","sha256":"%s","archiveSha256":"%s"}\n' "${TOFU_VERSION}" "$arch" "$binary_sha" "$expected" > /usr/local/share/zenith/tofu-identity.json
 
 # --------------------------------- build ------------------------------------
 # Full install (dev dependencies: tsx, esbuild), then compile the worker and
@@ -87,6 +90,7 @@ RUN npx esbuild workers/execution/entrypoint.ts \
 # --------------------------------- runtime ----------------------------------
 FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production \
+    ZENITH_TOFU_IDENTITY_FILE=/usr/local/share/zenith/tofu-identity.json \
     ZENITH_DATA=/var/lib/zenith \
     ZENITH_WORKER_PLAN_DIR=/var/lib/zenith/platform-plans \
     ZENITH_WORKER_WORKFLOW_BUNDLE=/app/dist/execution/workflow-bundle.js
@@ -104,6 +108,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=tofu /usr/local/bin/tofu /usr/local/bin/tofu
+COPY --from=tofu /usr/local/share/zenith/tofu-identity.json /usr/local/share/zenith/tofu-identity.json
 COPY --from=build --chown=zenith:zenith /app/dist/execution ./dist/execution
 # loadPolicyEngine resolves <cwd>/policy/dist/policy.wasm and verifies the
 # sibling manifest. Ship the committed bundle; no OPA compiler is needed here.

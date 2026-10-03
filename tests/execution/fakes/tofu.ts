@@ -10,9 +10,10 @@
  * the file stays in `planDir`, is removed after the apply, and never reaches the
  * evidence ledger or an activity result.
  */
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { ApplyVerifiedResult, EngineOptions, PlanWorkspaceOptions, PlanWorkspaceResult } from "@/lib/tofu/engine";
+import type { ApprovedPlan, PlanCustodyInput, ProducedPlan, ApplyVerifiedResult, EngineOptions, PlanWorkspaceOptions, PlanWorkspaceResult } from "@/lib/tofu/engine";
 import type { TofuSessionEnv } from "@/lib/tofu/runner";
 import { TofuCommandError } from "@/lib/tofu/runner";
 import { TofuPlanChangedError, type NormalizedPlan, type TofuRunResult, type TofuWorkspace } from "@/lib/tofu/types";
@@ -60,18 +61,24 @@ export class FakeTofu implements TofuPort {
       planFilePath = path.join(opts.planDir, `${plan.planDigest}.tfplan`);
       await writeFile(planFilePath, PLAN_FILE_CANARY, { mode: 0o600 });
     }
-    return { plan, planFile: Buffer.from(PLAN_FILE_CANARY), planFilePath };
+    const produced: ProducedPlan | undefined = opts.custody ? Object.freeze({ manifest: Object.freeze({ ...opts.custody,
+      format: "zenith.plan-artifact.v1" as const, purpose: opts.destroy ? "destroy" as const : "deploy" as const,
+      configDigest: ws.configDigest, lockDigest: ws.lockDigest, backendDigest: "0".repeat(64), addressMapDigest: "0".repeat(64),
+      planDigest: plan.planDigest, rawSha256: createHash("sha256").update(PLAN_FILE_CANARY).digest("hex"), bytes: Buffer.byteLength(PLAN_FILE_CANARY),
+      executable: { version:"isolated-test",platform:"isolated-test",sha256:"0".repeat(64),archiveSha256:null },
+    }) }) : undefined;
+    // This handle is deliberately NOT registered in the trusted engine WeakMap and cannot be published by production.
+    return { plan, planFile: Buffer.from(PLAN_FILE_CANARY), planFilePath, produced };
   }
 
-  async applyVerifiedPlan(ws: TofuWorkspace, args: { approvedDigest: string; session?: TofuSessionEnv } & EngineOptions): Promise<ApplyVerifiedResult> {
+  async applyVerifiedPlan(ws: TofuWorkspace, args: { approvedDigest: string; session?: TofuSessionEnv; original?: ApprovedPlan; custody?: PlanCustodyInput; beforeDispatch?: () => Promise<void> } & EngineOptions): Promise<ApplyVerifiedResult> {
     this.applyCalls.push({ ws, approvedDigest: args.approvedDigest, envKeys: Object.keys(args.session?.childProcessEnv?.() ?? {}), fingerprintKey: args.normalize?.fingerprintKey });
+    if (this.apply === "fail_plan_before_apply") throw new TofuCommandError("tofu_command_failed", "tofu plan failed with exit code 1.", run("plan"));
+    if (this.apply === "plan_changed") throw new TofuPlanChangedError(args.approvedDigest, this.planFactory(ws,this.planCalls.length+1).planDigest);
+    await args.beforeDispatch?.();
     this.markApplyStarted();
     const plan = this.planFactory(ws, this.planCalls.length + 1);
     switch (this.apply) {
-      case "fail_plan_before_apply":
-        throw new TofuCommandError("tofu_command_failed", "tofu plan failed with exit code 1.", run("plan"));
-      case "plan_changed":
-        throw new TofuPlanChangedError(args.approvedDigest, plan.planDigest);
       case "fail_apply":
         throw new TofuCommandError("tofu_command_failed", "tofu apply failed with exit code 1.", run("apply"));
       case "fail_output":

@@ -702,8 +702,14 @@ describe("operator claims match current wiring", () => {
     expect(held).not.toContain("acquireLease(");
     const once = source("src/lib/reconcile/activity.ts");
     for (const call of ["environment.workspaceId !== input.workspaceId", "environment.environmentId !== input.environmentId", "input.lease.scope !== `reconcile:${input.environmentId}`", "fence: { scope: input.lease.scope, token: input.lease.fenceToken }"]) expect(once).toContain(call);
-    expect(composition).toContain("createPlanArtifactRuntime(opts.db)");
-    expect(composition).toContain("tofu: custodyRuntime?.tofu");
+    expect(composition).toMatch(/const custodyDb\s*=\s*opts\.db/);
+    expect(composition).toMatch(/const custodyEnv\s*=\s*Object\.freeze\(\{\.\.\.process\.env\}\)/);
+    expect(composition).toMatch(/custodyRuntime\s*\?\?=\s*createPlanArtifactRuntime\(custodyDb,\s*custodyEnv\)/);
+    expect(composition).toContain("Production execution requires PostgreSQL durable plan custody.");
+    expect(composition).toContain("Engine overrides require an explicit isolated test adapter.");
+    expect(composition).toContain("An isolated artifact adapter requires an explicit isolated engine.");
+    expect(composition).toMatch(/planWorkspace:\s*\(\.\.\.args\)\s*=>\s*custody\(\)\.tofu\.planWorkspace\(\.\.\.args\)/);
+    expect(composition).toMatch(/applyVerifiedPlan:\s*\(\.\.\.args\)\s*=>\s*custody\(\)\.tofu\.applyVerifiedPlan\(\.\.\.args\)/);
     expect(composition).toContain('process.env.NODE_ENV !== "test"');
     expect(deploying).toContain("createStubActivities");
   });

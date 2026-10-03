@@ -24,7 +24,7 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
       const logs=[vi.spyOn(console,"log").mockImplementation(()=>{}),vi.spyOn(console,"warn").mockImplementation(()=>{}),vi.spyOn(console,"error").mockImplementation(()=>{})];
       try {
         const key=randomBytes(32).toString("hex"), next=randomBytes(32).toString("hex"), vault=randomBytes(32).toString("hex");
-        const env={ZENITH_PLAN_ARTIFACT_KEY:key,ZENITH_SECRET_KEY:vault,ZENITH_WORKER_PLAN_DIR:temp};
+        const env={...process.env,ZENITH_PLAN_ARTIFACT_KEY:key,ZENITH_SECRET_KEY:vault,ZENITH_WORKER_PLAN_DIR:temp};
         const runtime=createPlanArtifactRuntime(db,env);
         const seeded=await seedApprovedOperation(db),op=seeded.operation;
         await repos.operations.claimForExecution(db,{workspaceId:op.workspaceId,id:op.id,expectedDigest:op.proposalDigest,holder:executionHolder(op.id),leaseMs:120000});

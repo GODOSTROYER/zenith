@@ -8,6 +8,7 @@ import type { ResourceNode } from "@/lib/resources/types";
 import { azureSourceWorld } from "./source-bundle-azure-fixtures";
 import { binding, accountId } from "../providers/azure/source-storage-fixtures";
 import { connection } from "../providers/azure/_helpers";
+import { builtinWorkspace } from "../tofu/_helpers";
 import { IMAGE, DIGEST } from "../providers/azure/release-fixtures";
 
 const captured = vi.hoisted(() => ({ deps: undefined as ExecutionDeps | undefined }));
@@ -24,6 +25,17 @@ describe("source-bundle execution wiring", () => {
   it("provides a source port using the platform resource store by default", () => {
     composeExecutionActivities(options);
     expect(captured.deps?.sourceBundle?.prepare).toBeTypeOf("function"); expect(captured.deps?.resources.list).toBeTypeOf("function");
+  });
+  it("keeps read-only source composition available while refusing a default infrastructure engine without PostgreSQL",async()=>{
+    composeExecutionActivities(options);
+    expect(captured.deps?.sourceBundle?.prepare).toBeTypeOf("function");
+    const deps=captured.deps;
+    if(!deps?.tofu || !deps.planArtifacts)throw new Error("Default lazy custody ports were not composed.");
+    const ws=builtinWorkspace("isolated-read-only-source-state",{});
+    const tofu=deps.tofu;const callsBefore=vi.mocked(db.query).mock.calls.length;
+    await expect(async()=>tofu.planWorkspace(ws)).rejects.toThrow("PostgreSQL");
+    await expect(async()=>tofu.applyVerifiedPlan(ws,{approvedDigest:"a".repeat(64)})).rejects.toThrow("PostgreSQL");
+    expect(db.query).toHaveBeenCalledTimes(callsBefore);
   });
   it("keeps an explicit sourceBundle override authoritative", () => {
     const sourceBundle: SourceBundlePort = { prepare: vi.fn() };

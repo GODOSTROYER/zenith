@@ -67,7 +67,8 @@ import { createPlanArtifactRuntime } from './src/lib/platform/plan-artifacts.ts'
 let raw=''; for await (const part of process.stdin) raw+=part; const c=JSON.parse(raw);
 let db; try {
  db=await openPlatformDb({kind:'postgres',url:c.url,max:1});
- const runtime=createPlanArtifactRuntime(db,{ZENITH_PLAN_ARTIFACT_KEY:c.key,ZENITH_WORKER_PLAN_DIR:c.workRoot,ZENITH_TOFU_PLUGIN_CACHE:c.cache});
+ // The child process itself has a private allowlisted environment; capture its intended tool settings explicitly.
+ const runtime=createPlanArtifactRuntime(db,{...process.env,ZENITH_PLAN_ARTIFACT_KEY:c.key,ZENITH_WORKER_PLAN_DIR:c.workRoot,ZENITH_TOFU_PLUGIN_CACHE:c.cache});
  const produced=await runtime.tofu.planWorkspace(c.ws,undefined,{custody:c.custody,lock:false,destroy:c.destroy,normalize:{fingerprintKey:c.fingerprint}});
  const port=runtime.planArtifacts;
  await port.publish({produced:produced.produced,lease:c.lease,evidence:{id:c.evidenceId,workspaceId:c.custody.workspaceId,operationId:c.custody.operationId,
@@ -106,7 +107,7 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
       return {approved:!op.approvalRequired,rejected:false,dispatchApproval:{approvalIds:[],requiredApprovalCount:0,approvalRound:approvalRoundOf(op),proposalDigest:op.proposalDigest,planDigest:op.planDigest}};
     }});
     let dispatchBroker=fixtureBroker(b);
-    const custodyRuntime=createIsolatedPlanArtifactRuntimeForTests(b,{ZENITH_PLAN_ARTIFACT_KEY:key,ZENITH_WORKER_PLAN_DIR:temp,ZENITH_TOFU_PLUGIN_CACHE:cache},{approvalStatus:id=>dispatchBroker.approvalStatus(id)});
+    const custodyRuntime=createIsolatedPlanArtifactRuntimeForTests(b,{...process.env,ZENITH_PLAN_ARTIFACT_KEY:key,ZENITH_WORKER_PLAN_DIR:temp,ZENITH_TOFU_PLUGIN_CACHE:cache},{approvalStatus:id=>dispatchBroker.approvalStatus(id)});
     const port=custodyRuntime.planArtifacts;
     const ws=(value="v1")=>builtinWorkspace(state,{"resource/test":dataFragment("test",value)});
     async function review(workspace=ws(),destroy=false,sourceReview=false) {
@@ -262,7 +263,7 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
         await privatePostgresTool(tools.restore,["--no-owner","--no-acl","--dbname",new URL(restored).pathname.slice(1),dump],restored);
         const db=await openPlatformDb({kind:"postgres",url:restored,max:2});
         try {
-          const restoredRuntime=createIsolatedPlanArtifactRuntimeForTests(db,{ZENITH_PLAN_ARTIFACT_KEY:f.key,ZENITH_TOFU_BIN:bin,ZENITH_WORKER_PLAN_DIR:f.temp,ZENITH_TOFU_PLUGIN_CACHE:f.cache},f.fixtureBroker(db));
+          const restoredRuntime=createIsolatedPlanArtifactRuntimeForTests(db,{...process.env,ZENITH_PLAN_ARTIFACT_KEY:f.key,ZENITH_TOFU_BIN:bin,ZENITH_WORKER_PLAN_DIR:f.temp,ZENITH_TOFU_PLUGIN_CACHE:f.cache},f.fixtureBroker(db));
           expect(()=>createPlanArtifactRuntime(db,{})).toThrow();
           const wrong=createPlanArtifactRuntime(db,{ZENITH_PLAN_ARTIFACT_KEY:randomBytes(32).toString("hex"),ZENITH_TOFU_BIN:bin});
           await expect(wrong.planArtifacts.inspect(r,async()=>undefined)).rejects.toThrow();

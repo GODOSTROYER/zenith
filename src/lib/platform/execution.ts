@@ -8,7 +8,6 @@ import { hkdfSync } from "node:crypto";
 import type { Sql } from "@/lib/controlplane/types";
 import { createExecutionActivities, createPlatformPorts, createProductPort, createSafeProber, defaultCostPort, type ExecutionDeps } from "@/lib/execution";
 import { createObservabilityFabric, sourcesForEnvironment } from "@/lib/observability";
-import { planWorkspace, applyVerifiedPlan } from "@/lib/tofu";
 import { createHeldReconcileActivity } from "@/lib/execution/verify";
 import { createRuntime } from "@/lib/execution/runtime";
 import { loadPlatformEnvironment, loadGraphFromStore, registerEnvironment } from "@/lib/reconcile/platform";
@@ -45,13 +44,30 @@ export function derivePlanFingerprintKey(secretKey = process.env.ZENITH_SECRET_K
 export function composeExecutionActivities(opts: ComposeExecutionOptions): WorkerActivities {
   const fingerprintKey = derivePlanFingerprintKey(opts.secretKey);
   const injectedArtifacts = opts.ports?.planArtifacts;
-  if (!injectedArtifacts && (opts.db as Sql & {kind?: string}).kind !== "postgres") throw new Error("Production execution requires PostgreSQL durable plan custody.");
   if (injectedArtifacts && process.env.NODE_ENV !== "test") throw new Error("Artifact overrides are available only in the test environment.");
   if (injectedArtifacts && injectedArtifacts.kind !== "isolated-test") throw new Error("Artifact overrides require an explicit isolated test adapter.");
   if (opts.ports?.tofu && injectedArtifacts?.kind !== "isolated-test") throw new Error("Engine overrides require an explicit isolated test adapter.");
   if (injectedArtifacts?.kind === "isolated-test" && !opts.ports?.tofu) throw new Error("An isolated artifact adapter requires an explicit isolated engine.");
-  const custodyRuntime = injectedArtifacts ? undefined : createPlanArtifactRuntime(opts.db);
-  const planArtifacts = injectedArtifacts ?? custodyRuntime!.planArtifacts;
+  // Machine/source composition needs no OpenTofu authority. Capture the canonical store/environment now,
+  // and resolve its paired custody once when infrastructure planning or mutation is actually requested.
+  const custodyDb=opts.db;
+  const custodyEnv=Object.freeze({...process.env});
+  let custodyRuntime:ReturnType<typeof createPlanArtifactRuntime>|undefined;
+  const custody=()=>{
+    if ((custodyDb as Sql & {kind?:string}).kind!=="postgres") throw new Error("Production execution requires PostgreSQL durable plan custody.");
+    return custodyRuntime??=createPlanArtifactRuntime(custodyDb,custodyEnv);
+  };
+  const planArtifacts:NonNullable<ExecutionDeps["planArtifacts"]>=injectedArtifacts??{
+    kind:"postgres",
+    associate:input=>custody().planArtifacts.associate(input),
+    publish:input=>custody().planArtifacts.publish(input),
+    inspect:(input,fn)=>custody().planArtifacts.inspect(input,fn),
+    consume:(input,fn)=>custody().planArtifacts.consume(input,fn),
+  };
+  const tofu:NonNullable<ExecutionDeps["tofu"]>=opts.ports?.tofu??{
+    planWorkspace:(...args)=>custody().tofu.planWorkspace(...args),
+    applyVerifiedPlan:(...args)=>custody().tofu.applyVerifiedPlan(...args),
+  };
   registerAllDrivers();
   const credentials = opts.ports?.credentials ?? platformCredentialBroker(opts.db);
   const platformPorts = createPlatformPorts(opts.db);
@@ -67,7 +83,7 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     ...platformPorts, planArtifacts,
     drivers: platformDriverLookup,
     product: createProductPort(), broker: createExecutionBroker(opts.db), credentials,
-    tofu: custodyRuntime?.tofu ?? { planWorkspace, applyVerifiedPlan }, cost: defaultCostPort(),
+    tofu, cost: defaultCostPort(),
     observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} })),
     prober: createSafeProber(), ...createReleasePorts({ db: opts.db, azure }),
     sourceBundle: opts.ports?.sourceBundle ?? sourceBundles!.port,

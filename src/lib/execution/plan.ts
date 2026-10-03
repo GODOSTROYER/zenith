@@ -283,6 +283,8 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
     async planInfrastructure({ operationId, lease }) {
       const ec = await loadExecContext(rt, operationId);
       const stage = await runPlanStage(rt, ec, lease, "tofu plan");
+      // A fresh observation can require a new proposal; it cannot replace this operation's reviewed original.
+      if (ec.op.planDigest && ec.op.planDigest !== stage.plan.planDigest) throw new TofuPlanChangedError(ec.op.planDigest, stage.plan.planDigest);
       const evidence = planEvidence({ plan: stage.plan, facts: stage.facts, cost: stage.cost, graphDigest: stage.graphDigest, stage: "plan", repairBinding: stage.repairBinding });
       if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required.");
       await rt.d.planArtifacts.publish({ produced: stage.produced, lease, evidence: {

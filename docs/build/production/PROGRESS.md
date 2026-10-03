@@ -1,12 +1,12 @@
 # Production progress
 
-Recorded 2026-10-03T01:51:40.507074+00:00. Pushed baseline: `a14e57f7106fb1602f7c1e02db79fe137818cb80`, branch `codex/production-2026-10-02`. Preserve newer local source and historical failed evidence.
+Recorded 2026-10-03T04:56:15.642728+00:00. Last fully observed pushed source CI: `290540c88f54e878e716c1f0b20466dd55b71a06`, branch `codex/production-2026-10-02`, [run37087774593](ci-37087774593.md): 13 passed and 1 failed. Mandatory dependency audit blocks release. This documentation checkpoint advances branch metadata, not isolated staging source.
 
-78 acceptance requirements: 6 verified, 16 in progress, 56 planned. These are acceptance states, not percentages of implementation effort. No current task is paused. Implementation complete, sandbox verified, pilot ready and production approved remain false.
+78 acceptance requirements:5verified,19inprogress,54planned. Current-head green CI reopened after fresh advisory; historicala14 green retained. These are acceptance states, not percentages of implementation effort. No current task is paused. Implementation complete, sandbox verified, pilot ready and production approved remain false.
 
 ## Verified checkpoints
 
-- [x] Exact pushed CI: 14/14 jobs; remote unit16,427P/0F/399S; generated109P/0F/0S; actual Smoke/Gimbal passed.
+- [x] Historical a14 pushed CI: 14/14 jobs; remote unit16,427P/0F/399S; generated109P/0F/0S; actual Smoke/Gimbal passed.
 - [x] Root local a14: unit16,630P/0F/196S; workflows982, policy238, OpenTofu3900 all0F0S. Typecheck, lint, generated artifacts, OPA213/213, Go race226top+539subP/0F/3Linux-onlyMacS and mandatory audit passed.
 - [x] Fresh platform PostgreSQL:1,422P/0F/0S,45mandatory groups,12receipt bindings; execution revalidation and owned cleanup passed.
 - [x] Fresh full Supabase migrations and reapply: PostgreSQL251P/0F/0S, schema name/checksum tamper rejected, owned resources removed.
@@ -15,11 +15,22 @@ Recorded 2026-10-03T01:51:40.507074+00:00. Pushed baseline: `a14e57f7106fb1602f7
 
 ## Current execution
 
-- [ ] Durable-plan original54-path snapshot preserved. Root compiler/lint passed after corrections; first runtime396P/39F/25S. Runtime source fixes and canonical schema6-to-7 RLS/grant parity fix source-reviewed; final56-path candidate compiler/lint passed;435P/3F/26S, three narrow corrections underway. No passing combined artifact runtime gate yet.
-- [ ] Root runs compiler/lint/touched suites, then mandatory real PostgreSQL plus OpenTofu original-byte custody cases. Independent reviewer checks correction delta.
-- [ ] Fresh combined package/kind/full gates precede integration and a new exact pushed CI observation.
-- [ ] Cleanup safety12-path guard lint passed;79P/1F/0S, finalized-recorder fixture correction underway. Execute currently refuses all destruction. Source remains unmerged pending real authority and successful authorized cleanup path.
-- [ ] Live AWS lifecycle, production API journey and broader operational acceptance remain outstanding.
+- [x] Original durable-plan source `15e4453`: 57 frozen paths, independent review, root verification, Saivedant author and committer. Source remains isolated.
+- [x] Original actual PostgreSQL/OpenTofu: 1,532 passed, 0 failed, 0 skipped; 70 mandatory groups and all 12 execution bindings. Supabase: 251 passed, schema 7 apply/reapply and checksum/name tamper refusal.
+- [x] Original fresh kind: provider 6 passed, release 1 passed, no failures/skips. Both packaged architectures passed, AMD64 under emulation in 335.76s and native ARM64 in 300.27s. Owned resources removed. These proofs bind original commit only.
+- [ ] Original full regression: 16,588 passed, 70 failed, 212 skipped across 16,870 cases and 18 affected files. Prechecks passed, including OPA 213 and Go race. Later canonical phases did not run. [Failure retained](evidence/durable-plan/full-regression-failed.json).
+- [x] Correction workers finished and froze source: 18 durable files, eight CI fixtures and six inactive security-support files. Independent source reviews clear. No source integration yet.
+- [x] Root combined affected checks: **1,079 passed, 0 failed, 20 skipped**; compiler, lint, gofmt, Go vet/test and five real network OpenTofu cases passed. Twenty PostgreSQL-gated skips require fresh real database proof. [Receipt](evidence/durable-plan/corrections-targeted.json).
+- [x] Corrected 32-path candidate actual PostgreSQL/OpenTofu: **1,532 passed, 0 failed, 0 skipped**, 70 mandatory groups, all 12 execution bindings and separate execution revalidation passed. Owned resources removed. Previous1527P5F0S remains [recorded](evidence/durable-plan/corrections-real-postgres-failed.json); fixture correction preserved genuine SQL authority cases. [Passed receipt](evidence/durable-plan/corrections-platform-postgres.json).
+- [x] Corrected-byte Supabase251P0F0S and fresh kindprovider6P0F0S/release1P0F0S passed. Cluster/kubeconfig/newimages removed.
+- [x] Checked worker commits c121f89,cd60f8b,50aa292 merged into isolated staging1ce6191; Saivedant author/committer verified.
+- [ ] Clean staging full gate failed Go race:225top+539subtests passed,1failed,3Linux-onlyMacskips. Runner key persistence ordering defect identified; source-only correction active. Full unit and later canonical phases did not run. [Failure retained](evidence/durable-plan/corrections-full-go-failed.json). Architecture startup still required.
+- [x] Inactive security-support r3 checks: 295 passed, 0 failed, 0 skipped; typecheck, lint, Go and real network OpenTofu passed. Exact signed advisory scope, final clock, symlink and SemVer corrections reviewed.
+- [ ] Dependency audit still exits 1 with five findings. Registry empty; no approved exception, installed trust anchor or risk acceptance. Inactive support does not clear vulnerabilities.
+- [ ] Partial cleanup guard remains unmerged: initial 79 passed/1 failed retained, corrected failed-suite retry 7 passed. Execute refuses destruction; durable quiescence authority and legitimate authorized success path remain missing.
+- [ ] Linux customer-local approved-template file.write implementation active in isolated worktree. Upload/packages/service/privileged host and actual Linux/systemd acceptance remain outstanding. Live AWS lifecycle/default API/broader operational acceptance remain incomplete.
+
+Two source-only implementation workers active: bounded runner key persistence correction and Linux file.write. Root owns reviews, serial checks and Git integration. No current task paused. [Agent/workstream checkpoint](handoffs/2026-10-03/REGRESSION-CHECKPOINT.md).
 
 ## Requirements checklist
 
@@ -35,7 +46,7 @@ Each unchecked row remains incomplete at its stated acceptance level; existing c
 - [x] PROD-CI-06: Supported runtime admission (verified).
 - [ ] PROD-CI-07: Dependency vulnerability clearance (in progress).
 - [ ] PROD-CI-08: Fresh complete verification (in progress).
-- [x] PROD-CI-09: Observed green pushed baseline (verified).
+- [ ] PROD-CI-09: Observed green pushed baseline (reopened; current-head dependency gate red).
 
 ### PKG
 
@@ -84,10 +95,10 @@ Each unchecked row remains incomplete at its stated acceptance level; existing c
 
 ### MACH
 
-- [ ] PROD-MACH-01: Typed safe guest configuration (planned).
+- [ ] PROD-MACH-01: Typed safe guest configuration (in progress; Linux file.write slice).
 - [ ] PROD-MACH-02: Kubernetes guest credentials (planned).
 - [ ] PROD-MACH-03: Signed automation and scheduling (planned).
-- [ ] PROD-MACH-04: Linux runner delivery and lifecycle (planned).
+- [ ] PROD-MACH-04: Linux runner delivery and lifecycle (in progress; key rotation persistence).
 - [ ] PROD-MACH-05: Local customer credential custody (planned).
 - [ ] PROD-MACH-06: Bounded evaluated coding agents (planned).
 
@@ -143,8 +154,8 @@ Each unchecked row remains incomplete at its stated acceptance level; existing c
 
 API/server startup and live AWS account/region/budget remain pending. External Temporal mTLS, cloud/managed-cluster traffic, production TLS/pooler/RLS and operational signoff require separate acceptance. Retention/pruning policy, pricing/terms/payment accounts and destructive business decisions require user decisions; unblocked coding continues.
 
-Docker restart was authorized and completed. After owned database cleanup Docker images, containers, volumes and build cache were empty. Most recent sample28.92GiB free after consolidating same-lock root-owned dependency install,1.14GiB reclaimed; Docker inventory zero. Maintain12GiB before image gates; one heavy local process; remove only owned test resources and dedicated build cache.
+Docker restart authorized and completed. Current independently checked Docker inventory: zero images, containers and volumes, 0B cache; approximately26GiB free. Corrected PostgreSQL/Supabase/kind owned resources removed. Both durable-plan image gates removed owned resources. Earlier duplicate dependency consolidation reclaimed1.14GiB. PostgreSQL16.15 clients installed without starting server/service. Keep12GiB before image gates; one heavy local process; remove only owned test resources and dedicated cache.
 
-Next durable-plan verification checkpoint estimate:45–90minutes, dependent on regression results. Full production ETA remains unavailable until access and operational acceptance prerequisites are resolved.
+Next reviewed checkpoint estimate: **2–4hours**, dependent on correction scope and serial verification. Previous45–90minute estimate superseded by70new full-suite failures. Full production ETA unavailable until live access, remaining implementation and operational acceptance resolved.
 
 Evidence: [exact CI report](ci-37080857980.md), [local gate summary](evidence/local-gates/a14e57f.json), [resume instructions](RESUME.md).

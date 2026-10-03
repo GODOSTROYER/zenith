@@ -1,0 +1,586 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-03T02:15:27.376253+00:00",
+  "runId": 37087774593,
+  "runUrl": "https://github.com/GODOSTROYER/zenith/actions/runs/37087774593",
+  "runAttempt": 1,
+  "commit": "290540c88f54e878e716c1f0b20466dd55b71a06",
+  "branch": "codex/production-2026-10-02",
+  "status": "completed",
+  "conclusion": "failure",
+  "exactBaselineVerifiedGreen": false,
+  "mandatoryStepsPassed": false,
+  "scope": "Exact 290 checkpoint CI failed its mandatory full dependency audit. Other job/lane evidence is preserved separately; no whole-product or live cloud acceptance claim.",
+  "emittedTestCaseTotals": {
+    "unit": {
+      "total": 16826,
+      "passed": 16427,
+      "failed": 0,
+      "skipped": 399,
+      "unknown": 0,
+      "basis": "Parsed complete emitted Vitest summary; absent zero-count fields normalized to zero."
+    },
+    "generated": {
+      "total": 109,
+      "passed": 109,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0,
+      "basis": "Parsed complete emitted Vitest summary; absent zero-count fields normalized to zero."
+    },
+    "go-ts-interop": {
+      "total": 19,
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0,
+      "basis": "Parsed complete emitted Vitest summary; absent zero-count fields normalized to zero."
+    },
+    "hosted": {
+      "total": 1159,
+      "passed": 1146,
+      "failed": 0,
+      "skipped": 13,
+      "unknown": 0,
+      "basis": "Parsed complete emitted Vitest summary; absent zero-count fields normalized to zero."
+    },
+    "postgres": {
+      "total": 251,
+      "passed": 251,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0,
+      "basis": "Parsed complete emitted Vitest summary; absent zero-count fields normalized to zero."
+    },
+    "policy": {
+      "total": 238,
+      "passed": 238,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0,
+      "basis": "Parsed complete emitted Vitest summary; absent zero-count fields normalized to zero."
+    },
+    "tofu": {
+      "total": 3900,
+      "passed": 3900,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0,
+      "basis": "Parsed complete emitted Vitest summary; absent zero-count fields normalized to zero."
+    },
+    "workflows": {
+      "total": 982,
+      "passed": 982,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0,
+      "basis": "Parsed complete emitted Vitest summary; absent zero-count fields normalized to zero."
+    },
+    "platform-postgres": {
+      "total": 1422,
+      "passed": 1422,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0,
+      "basis": "Parsed complete emitted Vitest summary; absent zero-count fields normalized to zero."
+    }
+  },
+  "smoke": {
+    "passedMarkerEmitted": true,
+    "emittedStageChecks": 6,
+    "countKind": "Emitted workflow stage checks, not Vitest test cases"
+  },
+  "gimbal": {
+    "passedMarkerEmitted": true,
+    "assets": [
+      {
+        "triangles": 17506,
+        "bones": 17,
+        "drawCalls": 4,
+        "clips": 30,
+        "atlas": "1024\u00b2 Basis",
+        "meshoptDecodePassed": true
+      },
+      {
+        "triangles": 7930,
+        "bones": 17,
+        "drawCalls": 4,
+        "clips": 30,
+        "atlas": "1024\u00b2 Basis",
+        "meshoptDecodePassed": true
+      }
+    ]
+  },
+  "hostedAcceptanceChecks": 22,
+  "agentAcceptanceChecks": 35,
+  "rego": {
+    "passed": 213,
+    "total": 213
+  },
+  "goRace": {
+    "passedPackages": 11,
+    "noTestPackages": 6,
+    "caseCount": null,
+    "caseCountReason": "Nonverbose go test emits package results, not a test-case count."
+  },
+  "goRealTofu": {
+    "jobStep": "Go runner exercises real OpenTofu and provider lock enforcement",
+    "packagePassEmitted": true,
+    "caseCount": null
+  },
+  "mandatoryAudit": {
+    "scope": "Complete locked production, development, optional and peer dependencies; all severities; no exceptions.",
+    "noKnownFindingsEmitted": false,
+    "lockfileIntegrityStepPassed": true,
+    "jobConclusion": "failure",
+    "findingsCount": 5,
+    "packageAdvisories": [
+      {
+        "package": "@next/eslint-plugin-next",
+        "advisory": "GHSA-vfj7-8cjw-p6xm"
+      },
+      {
+        "package": "braces",
+        "advisory": "GHSA-vfj7-8cjw-p6xm"
+      },
+      {
+        "package": "eslint-config-next",
+        "advisory": "GHSA-vfj7-8cjw-p6xm"
+      },
+      {
+        "package": "fast-glob",
+        "advisory": "GHSA-vfj7-8cjw-p6xm"
+      },
+      {
+        "package": "micromatch",
+        "advisory": "GHSA-vfj7-8cjw-p6xm"
+      }
+    ]
+  },
+  "observedToolVersions": {
+    "policy": {
+      "node": [
+        "22.23.3"
+      ],
+      "opa": [
+        "1.19.1"
+      ]
+    },
+    "go": {
+      "node": [
+        "22.23.3"
+      ],
+      "go": [
+        "1.27.1"
+      ]
+    },
+    "verify": {
+      "node": [
+        "22.23.3"
+      ]
+    },
+    "hosted": {
+      "node": [
+        "22.23.3"
+      ]
+    },
+    "ledger": {
+      "node": [
+        "22.23.3"
+      ]
+    },
+    "supply-chain": {
+      "node": [
+        "22.23.3"
+      ]
+    },
+    "tofu": {
+      "node": [
+        "22.23.3"
+      ],
+      "tofu": [
+        "1.12.5"
+      ],
+      "go": [
+        "1.27.1"
+      ]
+    },
+    "agent": {
+      "node": [
+        "22.23.3"
+      ]
+    },
+    "build": {
+      "node": [
+        "22.23.3"
+      ]
+    },
+    "workflows": {
+      "node": [
+        "22.23.3"
+      ],
+      "temporal": [
+        "1.9.1"
+      ]
+    },
+    "platform-postgres": {
+      "node": [
+        "22.23.3"
+      ],
+      "postgres": [
+        "16.15"
+      ]
+    },
+    "postgres": {
+      "node": [
+        "22.23.3"
+      ],
+      "postgres": [
+        "16.15"
+      ]
+    },
+    "generated": {
+      "node": [
+        "22.23.3"
+      ]
+    }
+  },
+  "historicalRuns": [
+    {
+      "runId": 37080857980,
+      "commit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
+      "conclusion": "success",
+      "successfulJobs": 14,
+      "distinctBaseline": true
+    },
+    {
+      "runId": 37060964289,
+      "commit": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
+      "conclusion": "failure",
+      "successfulJobs": 12,
+      "failedJobs": 2
+    },
+    {
+      "runId": 37054646025,
+      "conclusion": "success",
+      "distinctBaseline": true
+    }
+  ],
+  "failedJobs": [
+    {
+      "name": "supply-chain",
+      "id": 111101510962,
+      "failedSteps": [
+        "Known dependency findings block release"
+      ]
+    }
+  ],
+  "jobs": [
+    {
+      "id": 111101510823,
+      "name": "policy",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111101510897,
+      "name": "go",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111101510905,
+      "name": "verify",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111101510932,
+      "name": "hosted",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111101510943,
+      "name": "docker",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111101510960,
+      "name": "ledger",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111101510962,
+      "name": "supply-chain",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "id": 111101510968,
+      "name": "tofu",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111101510977,
+      "name": "agent",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111101510986,
+      "name": "build",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111101510990,
+      "name": "workflows",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111101510996,
+      "name": "platform-postgres",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111101511015,
+      "name": "postgres",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111101511022,
+      "name": "generated",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "canonicalLanes": [
+    {
+      "lane": "postgres",
+      "counts": {
+        "total": 251,
+        "passed": 251,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 9,
+      "checks": {
+        "exactCommit": true,
+        "clean": true,
+        "completeIndex": true,
+        "exactGateSources": true,
+        "exactLock": true,
+        "exactManifest": true,
+        "exactDependencies": true,
+        "linuxNode": true,
+        "schema2": true,
+        "exactReceipt": true,
+        "receiptHash": true,
+        "all12Bindings": true,
+        "originExecution": true,
+        "environmentIntegrity": true,
+        "realRequired": true,
+        "counts": true,
+        "verdict": true
+      },
+      "failed": [],
+      "passed": true
+    },
+    {
+      "lane": "platform-postgres",
+      "counts": {
+        "total": 1422,
+        "passed": 1422,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 45,
+      "checks": {
+        "exactCommit": true,
+        "clean": true,
+        "completeIndex": true,
+        "exactGateSources": true,
+        "exactLock": true,
+        "exactManifest": true,
+        "exactDependencies": true,
+        "linuxNode": true,
+        "schema2": true,
+        "exactReceipt": true,
+        "receiptHash": true,
+        "all12Bindings": true,
+        "originExecution": true,
+        "environmentIntegrity": true,
+        "realRequired": true,
+        "counts": true,
+        "verdict": true
+      },
+      "failed": [],
+      "passed": true
+    },
+    {
+      "lane": "policy",
+      "counts": {
+        "total": 238,
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 7,
+      "checks": {
+        "exactCommit": true,
+        "clean": true,
+        "completeIndex": true,
+        "exactGateSources": true,
+        "exactLock": true,
+        "exactManifest": true,
+        "exactDependencies": true,
+        "linuxNode": true,
+        "schema2": true,
+        "exactReceipt": true,
+        "receiptHash": true,
+        "all12Bindings": true,
+        "originExecution": true,
+        "environmentIntegrity": true,
+        "realRequired": true,
+        "counts": true,
+        "verdict": true
+      },
+      "failed": [],
+      "passed": true
+    },
+    {
+      "lane": "tofu",
+      "counts": {
+        "total": 3900,
+        "passed": 3900,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 27,
+      "checks": {
+        "exactCommit": true,
+        "clean": true,
+        "completeIndex": true,
+        "exactGateSources": true,
+        "exactLock": true,
+        "exactManifest": true,
+        "exactDependencies": true,
+        "linuxNode": true,
+        "schema2": true,
+        "exactReceipt": true,
+        "receiptHash": true,
+        "all12Bindings": true,
+        "originExecution": true,
+        "environmentIntegrity": true,
+        "realRequired": true,
+        "counts": true,
+        "verdict": true
+      },
+      "failed": [],
+      "passed": true
+    },
+    {
+      "lane": "workflows",
+      "counts": {
+        "total": 982,
+        "passed": 982,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 44,
+      "checks": {
+        "exactCommit": true,
+        "clean": true,
+        "completeIndex": true,
+        "exactGateSources": true,
+        "exactLock": true,
+        "exactManifest": true,
+        "exactDependencies": true,
+        "linuxNode": true,
+        "schema2": true,
+        "exactReceipt": true,
+        "receiptHash": true,
+        "all12Bindings": true,
+        "originExecution": true,
+        "environmentIntegrity": true,
+        "realRequired": true,
+        "counts": true,
+        "verdict": true
+      },
+      "failed": [],
+      "passed": true
+    }
+  ],
+  "artifacts": [
+    {
+      "lane": "postgres",
+      "artifactId": 11261062843,
+      "zipDigest": "sha256:3ea11cd413f22b7c919bb2780144218caef4b5e860e6f8d2704ceb42cb667a85",
+      "apiDigestMatched": true,
+      "evidenceSha256": "6ffd4521699bd4d05fa4483952eb7be7991d39c72af77849655b8383cef21a6e",
+      "candidateBytesMatched": true
+    },
+    {
+      "lane": "platform-postgres",
+      "artifactId": 11261545512,
+      "zipDigest": "sha256:382bba944b2bb33c1966b088dd7e373313932dc95caa44e7600b18efb041aafe",
+      "apiDigestMatched": true,
+      "evidenceSha256": "66ebc2d448eaf8a1bf292b07fb5a29c87310a5bd7def9524df2424360cd733ed",
+      "candidateBytesMatched": true
+    },
+    {
+      "lane": "policy",
+      "artifactId": 11260833149,
+      "zipDigest": "sha256:0cfbec57e913ee0c32a68abfa939042cad418ca4c9119b0a131d36dae0b5eddf",
+      "apiDigestMatched": true,
+      "evidenceSha256": "f2f25cf6d2f6723650143f5127340aace22479ece0ad5db7734add10c75abca4",
+      "candidateBytesMatched": true
+    },
+    {
+      "lane": "tofu",
+      "artifactId": 11261755437,
+      "zipDigest": "sha256:d9c7d1cd91960d0670cd7f1eec311a5467e68d924ff63eaecc30bc84c00a1569",
+      "apiDigestMatched": true,
+      "evidenceSha256": "2a3e1f0b16b0c582fa023673aa43a7a12d871f50f506ae233ca2daa0719346b3",
+      "candidateBytesMatched": true
+    },
+    {
+      "lane": "workflows",
+      "artifactId": 11261033601,
+      "zipDigest": "sha256:d222032b90d3c659cf87d689a20ebc5613a38e60398c8705adf450a86ab75c6a",
+      "apiDigestMatched": true,
+      "evidenceSha256": "6540b8684fc918e20712c461cef87f557a325b80aef2d1b337d8d985e8e8ba79",
+      "candidateBytesMatched": true
+    }
+  ],
+  "rootIndependentReview": {
+    "terminalApiFetched": true,
+    "allCanonicalArtifactsDownloaded": true,
+    "apiZipDigestsMatched": true,
+    "all12Schema2BindingsMatched": true,
+    "exactSourceAndDependencyBindingsMatched": true,
+    "verificationLogBytes": 344930,
+    "verificationLogSha256": "1e89c7b21260fcf0d93853b033f4a8e0ffcb3b70ce4cf5ea56942dba731a9c23",
+    "rawPrivateReceiptSha256": "2cffcb36618ed4b5c06a5c0bc019d0b4f5d4c27d5351bf1f2fae1c68bca7ad33"
+  },
+  "limitations": [
+    "Unit and hosted informational skips remain separately reported by their totals; no canonical required group was skipped.",
+    "External Temporal mTLS is explicitly unverified.",
+    "Cloud APIs, deployed Supabase/PostgREST/RLS roles, persistent or clustered Temporal, and previous-release replay compatibility are outside this CI baseline.",
+    "Go race output reports packages only; no fabricated test-case count.",
+    "The standard Vitest JSON does not export test-case identity.",
+    "The separate acceptance cleanup guard and durable original-plan worktrees are not integrated into this checkpoint."
+  ]
+}

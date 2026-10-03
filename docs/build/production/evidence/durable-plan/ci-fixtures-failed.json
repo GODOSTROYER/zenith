@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T03:41:33.958162+00:00",
+  "baseCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+  "sourceBranch": "ws/prod-durable-ci-fixtures",
+  "status": "failed_not_integrated",
+  "sourceDiffSha256": "4481237027b6d2cb10d3db1455b9a7ca0bda213078df617e051e5f7fc402199f",
+  "sourceSha256": {
+    "tests/ci/assert-lane-report.test.ts": "23c35b04959159b4b1bf9e3e0a6e62f64662e592ab6a1a51aa18c519dbbeb938",
+    "tests/ci/evidence-sanitizer.test.ts": "a68df94989f2a7d01a52dc311b5fccd7ae7bb9836ad9d02b77a2aa424bba2ffd",
+    "tests/ci/gate-manifest.test.ts": "acb3587769dd02c06f31be970354321b3ca1481c73688a5d3f940b811ad8fd2b",
+    "tests/ci/platform-coverage.test.ts": "0d5bee0886c6dfdf74ea161da26b0f0140edfb02691d0229fdd43e2bd41ca6cc",
+    "tests/ci/release-gates.test.ts": "1fbab671c967f36b53473b0e246195e933fa737471c21de0df12d5c7b1cb41ae",
+    "tests/sources/github-migrations.test.ts": "ec3eb23aa05b132085d87183eb9b3031a956ce92effcf4907fea07b41010f92e",
+    "tests/workers/worker-health-wiring.test.ts": "0e046f8ecf7c0a93c1e49434acd4568585e3d9e479b8641ae1d8d1dc60e95aee",
+    "tests/workflows/codec-wiring.test.ts": "bd3a0e510cf1b30bd9e1d80a7133db6f8af68fc209ea084e0a406fafd2e8e3a1"
+  },
+  "checks": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "vitest": {
+      "passed": 418,
+      "failed": 1,
+      "skipped": 0,
+      "total": 419
+    },
+    "go": "not_run_after_failure"
+  },
+  "failedCase": {
+    "file": "tests/ci/platform-coverage.test.ts",
+    "reason": "Gated plan-artifact secrecy suite missing explicit real-engine coverage fixture."
+  },
+  "privateReportSha256": "6b633e424e537eb2881f4d54b7cd8a434a3c44b353a1c9d9716dd854ba563625",
+  "independentSourceReview": "source_clear_runtime_not_claimed",
+  "reviewReceiptSha256": "ebb504405238382640af9b3d2b2350dc85e19f20529197b2f461d4a781c246e8",
+  "limitations": [
+    "No merge; one bounded fixture correction pending.",
+    "First-attempt failure preserved; source review cannot establish runtime success."
+  ]
+}

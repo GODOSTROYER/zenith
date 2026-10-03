@@ -1,0 +1,86 @@
+{
+  "builder": "zenith-owned-59e41d0c68b4",
+  "builderImage": "moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea",
+  "platform": "linux/arm64",
+  "minimumFreeGiBBeforeLaunch": 12,
+  "warningFreeGiB": 8,
+  "samples": [
+    {
+      "at": "2026-10-03T02:50:54Z",
+      "freeGiB": 25.35
+    },
+    {
+      "at": "2026-10-03T02:51:24Z",
+      "freeGiB": 24.97
+    },
+    {
+      "at": "2026-10-03T02:51:55Z",
+      "freeGiB": 23.45
+    },
+    {
+      "at": "2026-10-03T02:52:25Z",
+      "freeGiB": 21.61
+    },
+    {
+      "at": "2026-10-03T02:52:55Z",
+      "freeGiB": 21.83
+    },
+    {
+      "at": "2026-10-03T02:53:25Z",
+      "freeGiB": 21.83
+    },
+    {
+      "at": "2026-10-03T02:53:55Z",
+      "freeGiB": 21.56
+    },
+    {
+      "at": "2026-10-03T02:54:25Z",
+      "freeGiB": 20.94
+    },
+    {
+      "at": "2026-10-03T02:54:55Z",
+      "freeGiB": 19.83
+    },
+    {
+      "at": "2026-10-03T02:55:25Z",
+      "freeGiB": 18.85
+    },
+    {
+      "at": "2026-10-03T02:55:55Z",
+      "freeGiB": 18.85
+    },
+    {
+      "at": "2026-10-03T02:56:03Z",
+      "freeGiB": 22.78
+    }
+  ],
+  "cleanup": [
+    {
+      "reference": "moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea",
+      "imageId": "sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea",
+      "exitCode": 0,
+      "removed": true
+    },
+    {
+      "reference": "postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "exitCode": 0,
+      "removed": true
+    },
+    {
+      "reference": "temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e",
+      "imageId": "sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e",
+      "exitCode": 0,
+      "removed": true
+    }
+  ],
+  "baselineImageIds": [],
+  "acceptanceExitCode": 0,
+  "builderCleanup": {
+    "exitCode": 0,
+    "builderAbsent": true,
+    "containerAbsent": true,
+    "cacheVolumeAbsent": true
+  },
+  "dockerUsageAfter": "TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE\nImages          0         0         0B        0B\nContainers      0         0         0B        0B\nLocal Volumes   0         0         0B        0B\nBuild Cache     0         0         0B        0B\n"
+}

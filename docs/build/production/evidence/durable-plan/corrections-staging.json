@@ -1,0 +1,65 @@
+{
+  "recordedAt": "2026-10-03T04:40:36.722471+00:00",
+  "host": "Saivedant Mac, local checkout",
+  "baseCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+  "sourceFreezeSha256": "63eebf6959b49dc7320a4c558c978155de670c48959f466ca84ff0ece2f4e739",
+  "verification": [
+    "root typecheck/lint/gofmt/vet/Go",
+    "affected1079P0F20S; focused123P0F5S",
+    "actual PostgreSQL/OpenTofu1532P0F0S/70groups/all12bindings, execution revalidated",
+    "Supabase251P0F0S/apply/reapply/tamper refusals",
+    "local kind6P0F0S +1P0F0S; owned cleanup"
+  ],
+  "mandatoryAudit": "Still exits1, five findings, no active exception",
+  "merges": [
+    {
+      "commit": "f3a5c0a2308b42d0ad8ca7a6b588acd0bcd0c401",
+      "author": "Saivedant Hava <saivedant169@gmail.com>",
+      "committer": "Saivedant Hava <saivedant169@gmail.com>",
+      "title": "Integrate reviewed durable plan corrections"
+    },
+    {
+      "commit": "b0cba690da8adf3f180a8202b27381a8f45d5fe1",
+      "author": "Saivedant Hava <saivedant169@gmail.com>",
+      "committer": "Saivedant Hava <saivedant169@gmail.com>",
+      "title": "Integrate strict durable plan gate fixtures"
+    },
+    {
+      "commit": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
+      "author": "Saivedant Hava <saivedant169@gmail.com>",
+      "committer": "Saivedant Hava <saivedant169@gmail.com>",
+      "title": "Integrate inactive security exception validation"
+    }
+  ],
+  "mainIntegrated": false,
+  "pushed": false,
+  "stagingCommit": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
+  "status": "verified_workers_merged_into_isolated_staging_full_gate_pending",
+  "workers": [
+    {
+      "commit": "c121f89e1e4a200096abe12f8268e3c6acdbddf0",
+      "author": "Saivedant Hava <saivedant169@gmail.com>",
+      "committer": "Saivedant Hava <saivedant169@gmail.com>",
+      "title": "Keep approved plans immutable during replan and worker dispatch",
+      "branch": "ws/prod-durable-plan-verify",
+      "sourcePaths": 18
+    },
+    {
+      "commit": "cd60f8bec935cf0e8287d27849e23ca2637482d2",
+      "author": "Saivedant Hava <saivedant169@gmail.com>",
+      "committer": "Saivedant Hava <saivedant169@gmail.com>",
+      "title": "Update strict gate fixtures for durable plan migration",
+      "branch": "ws/prod-durable-ci-fixtures",
+      "sourcePaths": 8
+    },
+    {
+      "commit": "50aa292e5e8fc45409e6681eb3c0874550a617c3",
+      "author": "Saivedant Hava <saivedant169@gmail.com>",
+      "committer": "Saivedant Hava <saivedant169@gmail.com>",
+      "title": "Add inactive signed security exception validation",
+      "branch": "ws/prod-security-exceptions",
+      "sourcePaths": 6
+    }
+  ],
+  "privateReceiptSha256": "4aa3ea80aee5578a4156d551c9f2ded84592bd5a2147d988ad4be3e84bcf8b97"
+}

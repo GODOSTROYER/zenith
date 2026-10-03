@@ -361,6 +361,11 @@
           "runId": 36961474315,
           "result": "Linux fresh locked installation reports0 vulnerabilities; mandatory complete locked audit passes without exceptions. Historical8versus7 discrepancy cannot be reconciled by exact advisory inputs because old raw audit reports are unavailable. Real SMTP/TLS interoperability remains unproved.",
           "artifact": "docs/build/production/ci-36961474315.md"
+        },
+        {
+          "level": "contract",
+          "commit": "290540c88f54e878e716c1f0b20466dd55b71a06",
+          "result": "Fresh locked audit now fails on Linux CI and rootdarwin-arm64:5 dev-chain findings allGHSA-vfj7-8cjw-p6xm/braces3.0.3. Same lock as earlierzero finding evidence; no patch or exception accepted, gates remain strict."
         }
       ],
       "requiredEvidence": [
@@ -370,7 +375,8 @@
       "owner": "PROD-WS-RUNTIME-SECURITY",
       "testPaths": [],
       "operatorBlockers": [
-        "Historical eight-versus-seven audit reconciliation needs original advisory reports; currently locked dependencies report zero known findings and mandatory audit passes. No vulnerability exceptions are granted."
+        "Current exact complete-lock audit fails five findings for GHSA-vfj7-8cjw-p6xm on Linux and macOS. No published fix or approved exception; inactive exception mechanism still under review.",
+        "Historical eight-versus-seven reconciliation requires missing original raw advisory reports. Historical zero-finding audit is time-bound evidence."
       ],
       "pausedFrom": "in_progress",
       "pausedAt": "2026-10-02T07:32:03.553814+00:00",
@@ -406,6 +412,12 @@
           "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04\u201306:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
           "artifact": "docs/build/production/ci-36971241225.md",
           "executionReceiptComplete": true
+        },
+        {
+          "level": "contract",
+          "commit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+          "result": "Isolated candidate targeted actual PostgreSQL1532P0F0S and Supabase251P0F0S; kind6+1 and both packaged worker architectures passed. Full unit16588P70F212S failed after compiler/lint/Go/OPA/generated checks passed. Root integration blocked; corrective work active.",
+          "artifact": "docs/build/production/evidence/durable-plan/root-verification.json"
         }
       ],
       "requiredEvidence": [
@@ -425,14 +437,14 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "verified",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "complete_for_exact_a14_baseline",
+      "implementationStatus": "green_historical_baseline_new_advisory_reopens_current_head",
       "evidence": [
         {
           "level": "remote_ci",
@@ -522,15 +534,23 @@
           "result": "Observed complete success14/14. Root independently downloaded five canonical ZIPs/GitHub digests and checked exact source/lock/manifests/runtime/schema2/all12bindings. Remote unit16427P0F399S; generated109P0F0S; actualSmoke6stagechecks/Gimbal2assets passed. Canonicalpostgres251/platformPG1422/policy238/tofu3900/workflows982 all0F0S0unknown and9/45/7/27/44 requiredgroups. OPA213/213; Go11racepackages plus19interop; completeaudit0knownfindings/noexceptions. Baseline excludes pending durable-plan source and wider release acceptance.",
           "artifact": "docs/build/production/ci-37080857980.md",
           "executionReceiptComplete": true
+        },
+        {
+          "level": "remote_ci",
+          "commit": "290540c88f54e878e716c1f0b20466dd55b71a06",
+          "runId": 37087774593,
+          "result": "Terminal13passed/1failed, sole complete-lock allseverity dependency audit5findings GHSA-vfj7-8cjw-p6xm. Root independently verified allfive canonical artifacts/source/schema2/all12bindings; unit16427P0F399S/generated109P0F0S/Smoke6stages/Gimbal2assets/OPA213 pass. Canonicalpostgres251/platformPG1422/policy238/tofu3900/workflows982 all0F0S;9/45/7/27/44 groups. No exception accepted, current baseline red.",
+          "artifact": "docs/build/production/ci-37087774593.md",
+          "executionReceiptComplete": true
         }
       ],
       "requiredEvidence": [
         "remote_ci"
       ],
-      "owner": null,
+      "owner": "root",
       "testPaths": [],
       "followUps": [
-        "Observe complete CI after each new implementation integration. Exact a14 is green; durable-plan source and external release gates remain separate."
+        "Resolve current unpatched advisory safely, then observe complete exact pushed CI; historical a14 remains distinct."
       ]
     },
     {
@@ -1127,7 +1147,14 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "in_progress",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+          "result": "Isolated candidate targeted actual PostgreSQL1532P0F0S and Supabase251P0F0S; kind6+1 and both packaged worker architectures passed. Full unit16588P70F212S failed after compiler/lint/Go/OPA/generated checks passed. Root integration blocked; corrective work active.",
+          "artifact": "docs/build/production/evidence/durable-plan/root-verification.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -1135,7 +1162,7 @@
       "owner": "PROD-WS-DURABLE-PLAN-HANDOFF",
       "testPaths": [],
       "followUps": [
-        "Source audit found original binary is not consumed and shared digest-file writes/unlinks race. Authenticated immutable PostgreSQL artifact handoff, original-file apply and non-destructive lifecycle are being implemented; no passing evidence claimed."
+        "Original-byte independent-worker custody locally proved on isolated15e4453; full regression failed70 and source remains unmerged. Preserve immutable artifact identity and require newly authorized operation on plan change; verify bounded correction."
       ]
     },
     {
@@ -1149,7 +1176,14 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "in_progress",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+          "result": "Isolated candidate targeted actual PostgreSQL1532P0F0S and Supabase251P0F0S; kind6+1 and both packaged worker architectures passed. Full unit16588P70F212S failed after compiler/lint/Go/OPA/generated checks passed. Root integration blocked; corrective work active.",
+          "artifact": "docs/build/production/evidence/durable-plan/root-verification.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -1157,7 +1191,7 @@
       "owner": "PROD-WS-DURABLE-PLAN-HANDOFF",
       "testPaths": [],
       "followUps": [
-        "Source audit found original binary is not consumed and shared digest-file writes/unlinks race. Authenticated immutable PostgreSQL artifact handoff, original-file apply and non-destructive lifecycle are being implemented; no passing evidence claimed."
+        "Non-destructive logical expiry and no-unlink custody locally proved on isolated15e4453; full regression failed70 and source remains unmerged. Backend locking/encryption/versioning/restore matrix, recovery epochs and physical retention approval remain outstanding."
       ]
     },
     {
@@ -1489,12 +1523,19 @@
       "acceptance": [
         "file.write/file.upload/package.install and convergent services use atomic changes, safe paths/symlinks, allowlists, privilege separation, backups and postconditions."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
-      "evidence": [],
+      "implementationStatus": "bounded_implementation_in_progress",
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "290540c88f54e878e716c1f0b20466dd55b71a06",
+          "result": "Read-only assessment checked37 unchanged source files. Typed file.write/file.upload/package.install and convergent service configuration remain unimplemented. Customer-local template slice and exact admission contracts proposed; no implementation/runtime acceptance.",
+          "artifact": "docs/build/production/handoffs/2026-10-03/REGRESSION-CHECKPOINT.md"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -1546,11 +1587,11 @@
       "acceptance": [
         "Actual Linux registration/revocation, durable results, reconnect/offline recovery, key rotation and update/rollback pass."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "bounded_key_rotation_correction_in_progress",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2529,7 +2570,7 @@
         "strict PostgreSQL/OpenTofu/race/secrecy regressions",
         "ADR and operator deployment instructions"
       ],
-      "verification": "No worker heavy checks authorized; root will verify frozen candidate.",
+      "verification": "Final32-path corrected candidate source reviewed; root1079P0F20S affected,123P0F5S focused/typecheck/lint/Go; actual PostgreSQL/OpenTofu1532P0F0S across70requiredgroups/all12bindings and execution revalidation passed. Earlier failures retained. Supabase/kind/full combined gate pending; source unmerged. Checked source committed as Saivedant and merged into isolated staging1ce6191; full gate failed one Go runner rotation case, no main integration.",
       "limits": "No physical pruning policy, live backend restore, recovery epoch or cloud authorization inferred."
     },
     {
@@ -2585,8 +2626,100 @@
         "tests/acceptance/{lifecycle,runner,cleanup,safety,scenario-live}.test.ts",
         "docs/platform/ACCEPTANCE.md"
       ],
-      "verification": "12-path source frozen, root runtime pending; source-only authority audit in progress.",
+      "verification": "Partial diagnostic79P1F0S retained; failed-suite correction7P0F0S plus lint/Go passed. No passing authorized cleanup success path; unmerged.",
       "limits": "Current execute refusal is partial safety work. Legitimate authorized cleanup success, adoption reread and live teardown remain missing."
+    },
+    {
+      "id": "PROD-WS-BRACES-ADVISORY",
+      "title": "New braces advisory reachability and safe remediation",
+      "requirements": [
+        "PROD-CI-07",
+        "PROD-CI-09"
+      ],
+      "branch": "ws/prod-braces-advisory",
+      "state": "in_progress",
+      "baseline": "290540c88f54e878e716c1f0b20466dd55b71a06",
+      "ownedPaths": [
+        "private read-only dependency triage receipt; no source edit authority yet"
+      ],
+      "verification": "Source triage complete: no published patched release, exact5dev-chain nodes; root fresh mandatory audit failed5. Proposed exception remains unapproved/unapplied.",
+      "limits": "No patched version or risk acceptance invented; no gate change, force upgrade or lint rule removal."
+    },
+    {
+      "id": "PROD-WS-SECURITY-EXCEPTIONS",
+      "title": "Inactive fail-closed reviewed expiring advisory exceptions",
+      "requirements": [
+        "PROD-CI-07"
+      ],
+      "branch": "ws/prod-security-exceptions",
+      "state": "in_progress",
+      "baseline": "290540c88f54e878e716c1f0b20466dd55b71a06",
+      "ownedPaths": [
+        "scripts/ci/security-audit.mjs",
+        "scripts/ci/security-exceptions.mjs and empty registry",
+        "focused security audit exception tests",
+        "docs/build/production/security-exceptions.md"
+      ],
+      "verification": "Frozen six-file r3 source independently clear; root typecheck/lint/gofmt/vet/Go and295P0F0S including five real network OpenTofu cases passed. Actual complete-lock audit exit1 with five findings, registry empty. Source unmerged; activation prerequisites not met. Checked source committed as Saivedant and merged into isolated staging1ce6191; full gate failed one Go runner rotation case, no main integration.",
+      "limits": "No active exception or human risk acceptance; complete-lock all-severity gate remains blocking."
+    },
+    {
+      "id": "PROD-WS-DURABLE-CI-REGRESSIONS",
+      "title": "Strict CI fixture reconciliation after durable plan migration",
+      "requirements": [
+        "PROD-CI-05",
+        "PROD-CI-08"
+      ],
+      "branch": "ws/prod-durable-ci-fixtures",
+      "state": "in_progress",
+      "baseline": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+      "ownedPaths": [
+        "tests/ci/assert-lane-report.test.ts",
+        "tests/ci/evidence-sanitizer.test.ts",
+        "tests/ci/gate-manifest.test.ts",
+        "tests/ci/platform-coverage.test.ts",
+        "tests/ci/release-gates.test.ts",
+        "tests/sources/github-migrations.test.ts",
+        "tests/workers/worker-health-wiring.test.ts",
+        "tests/workflows/codec-wiring.test.ts"
+      ],
+      "verification": "Final32-path corrected candidate source reviewed; root1079P0F20S affected,123P0F5S focused/typecheck/lint/Go; actual PostgreSQL/OpenTofu1532P0F0S across70requiredgroups/all12bindings and execution revalidation passed. Earlier failures retained. Supabase/kind/full combined gate pending; source unmerged. Checked source committed as Saivedant and merged into isolated staging1ce6191; full gate failed one Go runner rotation case, no main integration.",
+      "limits": "Strict missing/failed/skipped/malformed/zero checks and actual PostgreSQL evidence preserved."
+    },
+    {
+      "id": "PROD-WS-GUEST-FILE-WRITE",
+      "title": "Linux customer-local approved-template file.write",
+      "requirements": [
+        "PROD-MACH-01"
+      ],
+      "branch": "ws/prod-guest-configuration",
+      "state": "in_progress",
+      "baseline": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
+      "ownedPaths": [
+        "typed machine args/results/grant/evidence and zenithd admission",
+        "runner machine payload capability admission",
+        "Go local configuration/executor and new Linux no-follow file primitive",
+        "meaningful Linux filesystem and TS interop tests",
+        "narrow opt-in config/systemd example and zenithd docs"
+      ],
+      "verification": "Source-only implementation started after read-only assessment. No runtime, production or offered-service acceptance claimed.",
+      "limits": "Partial file.write slice only; upload/packages/service/privileged configuration, actual Linux/systemd and lifecycle proof remain incomplete. No backup/audit pruning."
+    },
+    {
+      "id": "PROD-WS-RUNNER-KEY-ROTATION",
+      "title": "Persist runner trust rotation before publication",
+      "requirements": [
+        "PROD-MACH-04"
+      ],
+      "branch": "ws/prod-runner-key-rotation",
+      "state": "in_progress",
+      "baseline": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
+      "ownedPaths": [
+        "Go agent loop/identity and focused key rotation tests",
+        "bounded platform directory-sync helpers if required"
+      ],
+      "verification": "Source-only bounded correction active. Root full Go race failure225top+539subP/1F/3Linux-onlyMacS retained. No correction runtime claim.",
+      "limits": "Existing TLS source/shared KeySet/pinned-key limit8 preserved; no key eviction, cloud authority or broader identity lifecycle acceptance inferred."
     }
   ],
   "executionOrder": [
@@ -2601,7 +2734,7 @@
     {
       "id": "DEC-STARTUP",
       "scope": "Disposable default API/browser installation startup; approve concrete isolated topology before dependent startup if existing startup restriction still applies",
-      "state": "not_requested",
+      "state": "pending",
       "blocks": [
         "PROD-PKG-05"
       ],
@@ -2611,7 +2744,7 @@
     {
       "id": "DEC-CLOUD",
       "scope": "Dedicated cloud accounts, owned DNS/private GitHub fixtures, explicit regions and approved test budget; credential file references only, no secrets in chat",
-      "state": "not_requested",
+      "state": "pending",
       "blocks": [
         "PROD-MIX-06",
         "PROD-LIFE-03",
@@ -2783,16 +2916,16 @@
   "sessionState": {
     "status": "active",
     "resumedBy": "user",
-    "recordedAt": "2026-10-03T01:51:40.507074+00:00",
+    "recordedAt": "2026-10-03T04:56:15.642728+00:00",
     "sourceCheckpoint": "fbfa456e0111b106f039e2800b2c276b63d01b86",
-    "lastPushedCommit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
-    "lastPushedRun": 37080857980,
-    "lastPushedRunStatus": "success",
+    "lastPushedCommit": "290540c88f54e878e716c1f0b20466dd55b71a06",
+    "lastPushedRun": 37087774593,
+    "lastPushedRunStatus": "completed_failure_13_passed_1_failed",
     "lastGreenCommit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
     "activeWorkers": 2,
-    "concurrency": "one heavy local process",
-    "next": "Independently verify final durable-plan source with compiler/lint/touched suites, actualPG plus OpenTofu, default package/kind gates. Design legitimate cleanup authority before integrating refusal-only guard.",
-    "lastObservedCiSummary": "docs/build/production/ci-37080857980.md",
+    "concurrency": "one heavy local process; root verifies frozen source",
+    "next": "Correct bounded Go agent key rotation persistence ordering, independent review and root race checks, then staging full-gate retry. Separate source-only Linux file.write implementation active. Fresh staging packages and dependency disposition still required.",
+    "lastObservedCiSummary": "docs/build/production/ci-37087774593.md",
     "currentEcsCheck": {
       "label": "prod-ecs-combined-final-root",
       "passed": 1232,
@@ -2850,9 +2983,9 @@
       "kind": "provider6/6+release1/1,0failed/skipped,cluster/kubeconfig/newimages removed"
     },
     "storage": {
-      "hostFreeGiB": 28.92,
+      "hostFreeGiB": 26.47,
       "dockerHealthy": true,
-      "dockerInventory": "0 images/containers/volumes/cache after root-owned platform PostgreSQL cleanup.",
+      "dockerInventory": "0 images, 0 containers, 0 volumes, 0B build cache; independently checked after corrected kind cleanup.",
       "historicalBlocker": "ARM64 fresh image build failed while376MiB free; Docker metadata I/O errors persisted after disk recovery until user-authorized restart",
       "cleanupScope": "owned test resources and dedicated builder cache only",
       "dependencyConsolidation": "Root-owned ECS duplicate1.14GiB reclaimed; same lockfile links verified worker-startup install, source preserved."
@@ -2883,7 +3016,7 @@
       "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/durable-plan-verify",
       "base": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
       "originalFrozenInventorySha256": "8959e6c30f1b5be551063586cee8e52e9a87586fd250e475e3bbf6c9b1147ef3",
-      "status": "three_runtime_regressions_under_correction",
+      "status": "full_unit_failed_corrections_active",
       "failedGate": "prod-durable-first-root tsc exit2",
       "runtimeTestsExecuted": true,
       "originalHandoffPreserved": true,
@@ -2897,31 +3030,235 @@
         "label": "prod-durable-runtime-first-root"
       },
       "runtimeCorrectionFreeze": "a01d58b8485dcf167ad3adf5dffbe99293ed1e2c2199b2ed3ea66bdbee360a59",
-      "upgradeFinding": "Bounded pendingm7 RLS/guarded role grants and actual distinct-owner6-to-7 upgrade regression source-reviewed; runtime proof pending.",
-      "sourceInventorySha256": "73326794f4135d5e00eb3cb185c0af603455a0cd3045780429906ebe729718b0",
-      "sourcePaths": 56,
+      "upgradeFinding": "Frozen57 source includes pendingm7 RLS/guarded grants; actual distinct-owner6-to-7 upgrade and fresh emitted SQL/Supabase checks passed. Full regression failed separately.",
+      "sourceInventorySha256": "76e0d54820a0aa5915f62cecacf37e93574745cf4ceb8db8dac24653efd9ce6d",
+      "sourcePaths": 57,
       "latestRuntime": {
-        "label": "prod-durable-final-combined-root",
-        "passed": 435,
-        "failed": 3,
-        "skipped": 26,
+        "label": "prod-durable-real-pg-tenancy-corrected-root",
+        "passed": 444,
+        "failed": 0,
+        "skipped": 21,
+        "total": 465,
         "compiler": "passed",
         "lint": "passed",
-        "go": "not run after Vitest failure",
-        "limitations": "PostgreSQL-gated cases skipped in diagnostic touched run; mandatory actualPG/TOFU required separately."
+        "go": "gofmt/vet/test passed",
+        "limitations": "Diagnostic21 real PostgreSQL prerequisite skips; separate mandatory actual PostgreSQL1532P0F0S passed."
+      },
+      "postgresLabel": "prod-durable-real-pg-final-root",
+      "failedPostgres": {
+        "label": "prod-durable-artifact-postgres-root",
+        "passed": 1517,
+        "failed": 11,
+        "skipped": 5,
+        "total": 1533,
+        "cause": "Real postgres.js JSON proof encoding differs from PGlite; upgrade/connection/tenancy/restore fixtures also failed. Owned resources removed."
+      },
+      "correctionTypecheck": {
+        "label": "prod-durable-real-pg-corrections-root",
+        "exitCode": 2,
+        "diagnostic": "Internal broker field unavailable on Partial<OperationProposal> in new tenancy fixture; corrected through existing typed BrokerProposal persistence interface."
+      },
+      "restoreClients": "Separate keg-only libpq@16 clients16.15 installed; no server/service/initdb and existing18.1 clients preserved.",
+      "independentReview": {
+        "inventorySha256": "76e0d54820a0aa5915f62cecacf37e93574745cf4ceb8db8dac24653efd9ce6d",
+        "pathCount": 57,
+        "verdict": "source_clear_runtime_unverified",
+        "receiptSha256": "342a2c4cfa7d154a67452af39b3f7d8d973a68a966a2fe2c6b3a5aa66e66b949"
+      },
+      "latestPostgres": {
+        "label": "prod-durable-real-pg-final-root",
+        "passed": 1532,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0,
+        "requiredGroups": 70,
+        "receiptBindings": 12,
+        "executionRevalidation": "passed",
+        "cleanup": "ownershipVerified/removed/absenceVerified/newImageRemoved/baselineImagesPreserved",
+        "hostFreeGiB": 27.88,
+        "limits": "Dirty frozen57source local actual PostgreSQL+OpenTofu; no cloud writes or whole product acceptance."
+      },
+      "sourceCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+      "verificationArtifact": "docs/build/production/evidence/durable-plan/root-verification.json",
+      "latestSupabase": {
+        "passed": 251,
+        "failed": 0,
+        "skipped": 0,
+        "fullApplyAndReapply": true,
+        "nameAndChecksumTamperRejected": true,
+        "ownedCleanupVerified": true
+      },
+      "sourceIntegrated": false,
+      "latestKind": {
+        "provider": "6P0F0S",
+        "release": "1P0F0S",
+        "sourceCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+        "cleanup": "cluster/kubeconfig/newnodeandreleaseimages removed",
+        "level": "local_cluster"
+      },
+      "latestAmd64": {
+        "sourceCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+        "status": "passed",
+        "seconds": 335.76,
+        "cleanupVerified": true,
+        "minimumObservedFreeGiB": 18.75
+      },
+      "latestArm64": {
+        "sourceCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+        "status": "passed",
+        "seconds": 300.27,
+        "cleanupVerified": true,
+        "minimumObservedFreeGiB": 18.85
+      },
+      "fullGate": {
+        "label": "prod-durable-full-root",
+        "sourceCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+        "status": "failed_unit",
+        "completed": "typecheck/lint/gofmt/vet/race/policygenerated/emitsql/matrix/AWStemplates/ledger all0",
+        "goRace": {
+          "topLevelPassed": 226,
+          "subtestsPassed": 539,
+          "failed": 0,
+          "linuxOnlyMacSkipped": 3,
+          "passedPackages": 11
+        },
+        "counts": {
+          "passed": 16588,
+          "failed": 70,
+          "skipped": 212,
+          "total": 16870
+        },
+        "seconds": 946.98,
+        "artifact": "docs/build/production/evidence/durable-plan/full-regression-failed.json",
+        "notExecuted": [
+          "mandatory security audit",
+          "canonical workflows",
+          "canonical policy",
+          "canonical OpenTofu",
+          "local API/browser startup",
+          "live cloud acceptance"
+        ]
+      },
+      "corrections": {
+        "state": "isolated_staging_full_failed_go_race",
+        "baseCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+        "ownedPaths": 66,
+        "changedPaths": 18,
+        "combinedPaths": 32,
+        "sourceSha256": {
+          "docs/build/production/security-exceptions.md": "916472c991f9ad0d42ce637d85ba9e08246aea98811f0c165b385d701b3f1dcd",
+          "scripts/ci/security-audit.mjs": "ba899f0c1a8759a33b0aad0401da63ed7dbc35ba0c0d3db913009a97ec70d941",
+          "scripts/ci/security-exceptions.json": "af779c1dea4c6b472330c33e22f55b6e880c3973478e0a3639ed3e4a9fa62ac4",
+          "scripts/ci/security-exceptions.mjs": "14c237e203b81aade75024c0d35bb62e0d05ddcb9423bee27ff6cdaed214730e",
+          "src/lib/controlplane/db/repos/plan-artifacts.ts": "12d991504d589c2667e5505220953ef325631facbd32097e612ba6cf2906d74e",
+          "src/lib/execution/plan.ts": "f3af3638d287dc40ad32711b2b29155c8f2397e52b257e585e8ace348d824b64",
+          "src/lib/platform/execution.ts": "935be3a9166e58b2cb3c14736ad3af2140f2792038d5c8cfb60b3bd3d6da7188",
+          "src/lib/tofu/engine.ts": "cff24238b8bc9d249fdd3f94c6d5fd5c220cff8e36b947cfaf33a5b486aaa5da",
+          "tests/ci/assert-lane-report.test.ts": "23c35b04959159b4b1bf9e3e0a6e62f64662e592ab6a1a51aa18c519dbbeb938",
+          "tests/ci/evidence-sanitizer.test.ts": "a68df94989f2a7d01a52dc311b5fccd7ae7bb9836ad9d02b77a2aa424bba2ffd",
+          "tests/ci/gate-manifest.test.ts": "acb3587769dd02c06f31be970354321b3ca1481c73688a5d3f940b811ad8fd2b",
+          "tests/ci/platform-coverage.test.ts": "584cc0233bd9c0317124827cdc5246c2b3eb43e1efe75f7604ffa29eed8f97f0",
+          "tests/ci/release-gates.test.ts": "1fbab671c967f36b53473b0e246195e933fa737471c21de0df12d5c7b1cb41ae",
+          "tests/ci/security-audit.test.ts": "bf3eeb01a1237fa3acd3e90bb55dbff99a0ba5ed5c7179b82cde4104b79419ba",
+          "tests/ci/security-exceptions.test.ts": "8e315e928eb8f021041e060a020eb0d445554ba45b696771f7b78ba78efa037e",
+          "tests/docs/operator-docs.test.ts": "1fef8d13cf98080dd7af95be14b2b66b25fc29d9ddb5bcf36cebafb23963e2d6",
+          "tests/execution/apply.test.ts": "3b0b12a3c6bccee331be1140073aa9ea413c6f3f7ebe4430721ad2c3284a9437",
+          "tests/execution/aws-bootstrap-context.test.ts": "4059eef6c1c641517f62d18e3340def3087c2b05d2ab6ff4c3bfebb871065df8",
+          "tests/execution/deletion-guards.test.ts": "451bab264b3e237336c772a169f8793dc23d676af4953f2f14a2614884b438bc",
+          "tests/execution/destroy-review-temporal.test.ts": "7b715fd9dfcefc752badd318c823312995498879ff7ec597d4fd49010fc7b8d1",
+          "tests/execution/ecs-replica-repair.test.ts": "ccd4fc6bd4f3b009a3622d5192c5119b73d979f7720406911b1f70161e434617",
+          "tests/execution/fakes/world.ts": "cce2ae0ff962e2db72adc3279eaeca10a42bb9e9d58fb0279de7b69510ebc21c",
+          "tests/platform/composition.test.ts": "93206d5650c8ea1704131a82db7c81fd48cec9fc64920aef1da9cfadf827d9a1",
+          "tests/platform/deploy-e2e.test.ts": "521827a2c3268818ae36c075cc6c2732c6bf5d44d8c7a7f193b1a9a840252bd2",
+          "tests/platform/source-bundle-composition.test.ts": "619438ff311d505d085ba1e5ddebae60976bf675a4a252b70b729794fec0731e",
+          "tests/security/plan-artifact-secrecy.test.ts": "6a013d1b5cf59a6b6acbeea8e96a8eda0c214c557d387f42703ec1fc904b2b08",
+          "tests/sources/github-migrations.test.ts": "ec3eb23aa05b132085d87183eb9b3031a956ce92effcf4907fea07b41010f92e",
+          "tests/tofu/destroy.test.ts": "799ec00bf1929894a2f8147f27d82a860551b581f0c2574bd8af2355ccd4c9d8",
+          "tests/tofu/plan-artifact-handoff.test.ts": "a2ea25484c9b8956c66507f2769700c29c6879e589d6061071fd02ba66fa154d",
+          "tests/tofu/runner.test.ts": "c7110f787ccb9fec0a2a34c987e61755ac24b1e08eaeee5857e7d69f3d81c94c",
+          "tests/workers/worker-health-wiring.test.ts": "0e046f8ecf7c0a93c1e49434acd4568585e3d9e479b8641ae1d8d1dc60e95aee",
+          "tests/workflows/codec-wiring.test.ts": "bd3a0e510cf1b30bd9e1d80a7133db6f8af68fc209ea084e0a406fafd2e8e3a1"
+        },
+        "sourceCheckpointSha256": "6eed6836c09c22c6c189818aeca3c4e3f06727d773496df5e2f2fa37c38ed736",
+        "independentReviewSha256": "cfddd5a401d115b88732be9c0758c880f140038848e28d7c4bff1d0607f2370a",
+        "previousCombinedReviewSha256": "3d804eea79fab5db68954f8fb501386514c6222f0b713f1ec9906e134f943d48",
+        "sourceIntegrated": false,
+        "historical57PathProofsApplyToOriginalCommitOnly": true,
+        "targeted": {
+          "passed": 1079,
+          "failed": 0,
+          "skipped": 20,
+          "total": 1099
+        },
+        "typecheck": "passed",
+        "lint": "passed",
+        "go": "gofmt/vet/test passed",
+        "actualPostgres": {
+          "total": 1532,
+          "passed": 1532,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "actualPostgresRevalidation": "passed",
+        "latestSourceCheckpointSha256": "7d04ca7412f6c38c34b59dcc5ce156716c438e318c7f3ce359bbc8ae66d26264",
+        "latestRootSourceFreezeSha256": "63eebf6959b49dc7320a4c558c978155de670c48959f466ca84ff0ece2f4e739",
+        "latestIndependentReviewSha256": "a9420d6fdbf2018db328e54e16328c778024b8c04e14ade24eb6f08b747277f7",
+        "actualPostgresGroups": 70,
+        "supabase": {
+          "total": 251,
+          "passed": 251,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "stagingCommit": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
+        "workerCommits": [
+          "c121f89e1e4a200096abe12f8268e3c6acdbddf0",
+          "cd60f8bec935cf0e8287d27849e23ca2637482d2",
+          "50aa292e5e8fc45409e6681eb3c0874550a617c3"
+        ],
+        "kind": {
+          "provider": {
+            "total": 6,
+            "passed": 6,
+            "failed": 0,
+            "skipped": 0
+          },
+          "release": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0
+          },
+          "cleanup": "passed"
+        },
+        "fullGateFailure": {
+          "phase": "go-race",
+          "test": "TestNextKeysArePinnedAndPersisted",
+          "counts": {
+            "topLevelPassed": 225,
+            "subtestsPassed": 539,
+            "failed": 1,
+            "linuxOnlyMacSkipped": 3,
+            "passedPackages": 10,
+            "failedPackages": 1
+          },
+          "artifact": "docs/build/production/evidence/durable-plan/corrections-full-go-failed.json"
+        }
       }
     },
     "acceptanceCleanupCheck": {
       "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/acceptance-cleanup",
       "base": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
-      "status": "partial_guard_fixture_correction_authority_missing",
+      "status": "partial_guard_corrected_authority_missing",
       "requirements": [
         "PROD-DUR-07",
         "PROD-LIFE-11"
       ],
       "runtimeEvidence": false,
       "sourcePaths": 12,
-      "diffSha256": "78b50f4510bf67c9cc02eceebe246ec61762ea17e1ba0f6c0066d1aa308e16b2",
+      "diffSha256": "abe0b36a7dd49af874b25fb10ac948fab5775440f536b8e09287c0c0f8528ee7",
       "limitation": "Execute currently always refuses; safe authorized success contract missing, source remains unmerged.",
       "latestRuntime": {
         "label": "prod-acceptance-cleanup-partial-root",
@@ -2932,7 +3269,248 @@
         "typecheck": "not run in this partial diagnostic",
         "go": "not run after Vitest failure"
       },
-      "authorityDesign": "Complete durable intents, current shared writer barrier, exact non-delivery or execution receipts+provider terminal readback, fresh authorized ownership-bound teardown; existing acceptance interfaces insufficient."
+      "authorityDesign": "Complete durable intents, current shared writer barrier, exact non-delivery or execution receipts+provider terminal readback, fresh authorized ownership-bound teardown; existing acceptance interfaces insufficient.",
+      "retry": {
+        "label": "prod-acceptance-cleanup-partial-corrected-root",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "lint": "passed",
+        "go": "gofmt/vet/test passed",
+        "scope": "Failed scenario-live suite only; historical79P1F0S full diagnostic retained."
+      }
+    },
+    "dependencyRefresh": {
+      "advisoryId": "GHSA-vfj7-8cjw-p6xm",
+      "source": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+      "affectedLockedVersion": "braces3.0.3",
+      "findings": 5,
+      "platforms": "remoteLinux + rootdarwin-arm64 both failed1",
+      "lockSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+      "rootAuditLogSha256": "7609a42c858df85e8026be290724665a6b59820a06489d9109743ab9905a3f59",
+      "patchedVersion": "none as primary checked2026-10-03",
+      "currentClassification": "Exact five locked nodes dev-only, no production ancestor identified; build/lint contain dev dependencies. No fixed release as primary checked 2026-10-03. Inactive exception support source-reviewed and root295P0F0S; actual complete-lock audit still exits1. Registry empty, no risk acceptance.",
+      "exceptionAccepted": false,
+      "gatesRelaxed": false,
+      "exceptionSupportRoot": {
+        "label": "prod-security-exceptions-r3-root",
+        "passed": 295,
+        "failed": 0,
+        "skipped": 0,
+        "typecheck": "passed",
+        "lint": "passed",
+        "go": "gofmt/vet/test passed",
+        "actualAuditExitCode": 1,
+        "actualFindings": 5,
+        "registryEmpty": true,
+        "independentReviewSha256": "fc363a5dd0f0f196201c09aea364653977f38d2f836f4d47fa110e9227eb3259"
+      }
+    },
+    "guestConfigurationAssessment": {
+      "branch": "ws/prod-guest-configuration",
+      "base": "290540c88f54e878e716c1f0b20466dd55b71a06",
+      "state": "assessment_complete_bounded_implementation_running",
+      "requirement": "PROD-MACH-01",
+      "limits": "No implementation or acceptance claim; no code edits/tests/services authorized.",
+      "sourceFilesUnchanged": 37,
+      "reportSha256": "efa5a3c3c3ffa8aefc229aae39d572d9146f016b4c95aa6dc064325efa9335fb",
+      "next": "Source-only file.write slice on isolated worktree off current staging. Upload/packages/service/privileged host and actual Linux/systemd proof remain outstanding."
+    },
+    "workerSnapshot": [
+      {
+        "agent": "/root/durable_plan_resume",
+        "state": "running_source_only",
+        "task": "Persist announced runner trust keys before shared publication; actual storage failure/retry/restart regressions",
+        "branch": "ws/prod-runner-key-rotation",
+        "baseCommit": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
+        "ownedPaths": 66,
+        "changedPaths": 18,
+        "checkpointSha256": "7d04ca7412f6c38c34b59dcc5ce156716c438e318c7f3ce359bbc8ae66d26264",
+        "runtimeClaim": false,
+        "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/runner-key-rotation",
+        "scope": "Exact Go agent loop/identity/tests, no shared protocol/machine/module edits"
+      },
+      {
+        "agent": "/root/guest_configuration_gap",
+        "state": "completed_source_frozen",
+        "task": "Eight strict CI/migration/startup fixture corrections, including explicit network-gated coverage",
+        "branch": "ws/prod-durable-ci-fixtures",
+        "baseCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+        "ownedPaths": 8,
+        "diffSha256": "b55993f12d379961d0dd5f35c2c89fad24c9ba75ca1bb2e04296f6be53f62e0e",
+        "runtimeClaim": false
+      },
+      {
+        "agent": "/root/security_exception_corrections",
+        "state": "completed_source_frozen",
+        "task": "Inactive exact-scope/time/symlink/SemVer security-exception corrections; registry remains empty",
+        "branch": "ws/prod-security-exceptions",
+        "baseCommit": "290540c88f54e878e716c1f0b20466dd55b71a06",
+        "ownedPaths": 6,
+        "rootVerification": "295P0F0S; actual audit exit1 with five findings",
+        "activeException": false
+      },
+      {
+        "agent": "/root/durable_security_review",
+        "state": "completed",
+        "task": "Final one-line PostgreSQL fixture reviewed; all66 hashes unchanged, production findings remain closed",
+        "reviewReceiptSha256": "a9420d6fdbf2018db328e54e16328c778024b8c04e14ade24eb6f08b747277f7",
+        "runtimeClaim": false
+      },
+      {
+        "agent": "/root/guest_file_write",
+        "state": "running_source_only",
+        "task": "Actual Linux customer-local approved-template file.write, partial PROD-MACH-01",
+        "branch": "ws/prod-guest-configuration",
+        "baseCommit": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
+        "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/guest-configuration",
+        "scope": "Exact machine/runner payload/Go file primitive contracts in private brief; no runtime/Git/service/Docker writes",
+        "brief": "/Users/saivedanthava/.codex/zenith-production/briefs/2026-10-03-guest-file-write.md",
+        "runtimeClaim": false
+      }
+    ],
+    "pausedCurrentTasks": [],
+    "eta": {
+      "nextReviewedCheckpoint": "2-4 hours estimate; depends on regression corrections and serial verification",
+      "fullProduction": "Not schedulable without cloud access, remaining implementation and operational acceptance.",
+      "supersedes": "Prior45-90minute checkpoint estimate predates70 full-suite failures."
+    },
+    "currentVerification": {
+      "label": "prod-durable-corrections-full-root",
+      "state": "staging_full_failed_go_rotation_fix_running",
+      "typecheck": "passed",
+      "lint": "passed",
+      "sourcePaths": 31,
+      "sourceFreezeSha256": "562b1340fc4ae9fa5b2c4b3c734737b42e89a90273562e56eb8e1e899e391c7b",
+      "copiedForVerificationOnly": true,
+      "merged": false,
+      "previousAttempts": [
+        {
+          "label": "prod-durable-ci-fixtures-root",
+          "passed": 418,
+          "failed": 1,
+          "skipped": 0,
+          "typecheck": "passed",
+          "lint": "passed",
+          "go": "not_run_after_failure"
+        },
+        {
+          "label": "prod-durable-regressions-combined-root",
+          "passed": 823,
+          "failed": 1,
+          "skipped": 20,
+          "typecheck": "passed",
+          "lint": "passed",
+          "go": "not_run_after_failure"
+        },
+        {
+          "label": "prod-durable-regressions-final-root",
+          "state": "typecheck_failed_fixture",
+          "diagnostic": "tests/platform/composition.test.ts(89,62): TS2353",
+          "lint": "not_run",
+          "vitest": "not_run",
+          "go": "not_run"
+        }
+      ],
+      "passed": 1079,
+      "failed": 0,
+      "skipped": 20,
+      "total": 1099,
+      "go": "gofmt/vet/test passed",
+      "artifact": "docs/build/production/evidence/durable-plan/corrections-targeted.json",
+      "next": "Finish Supabase and fresh kind; commit verified worker branches and merge into isolated staging, then full combined gate. Dependency clearance remains blocking.",
+      "actualPostgres": {
+        "total": 1532,
+        "passed": 1532,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "actualPostgresArtifact": "docs/build/production/evidence/durable-plan/corrections-platform-postgres.json",
+      "latestFocusedRetry": {
+        "label": "prod-durable-pg-apply-env-root",
+        "passed": 123,
+        "failed": 0,
+        "skipped": 5,
+        "total": 128,
+        "typecheck": "passed",
+        "lint": "passed",
+        "go": "gofmt/vet/test passed",
+        "purpose": "One-line intended host environment fixture correction; five SQL cases still require fresh real PostgreSQL proof."
+      },
+      "supabase": {
+        "total": 251,
+        "passed": 251,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "supabaseArtifact": "docs/build/production/evidence/durable-plan/corrections-supabase-postgres.json",
+      "stagingCommit": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
+      "kind": {
+        "provider": {
+          "total": 6,
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0
+        },
+        "release": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        "cleanup": "passed"
+      },
+      "stagingArtifact": "docs/build/production/evidence/durable-plan/corrections-staging.json",
+      "fullGateArtifact": "docs/build/production/evidence/durable-plan/corrections-full-go-failed.json",
+      "fullGate": [
+        {
+          "name": "typecheck",
+          "exitCode": 0,
+          "seconds": 39.54
+        },
+        {
+          "name": "lint",
+          "exitCode": 0,
+          "seconds": 23.13
+        },
+        {
+          "name": "gofmt",
+          "exitCode": 0,
+          "seconds": 0.04
+        },
+        {
+          "name": "go-vet",
+          "exitCode": 0,
+          "seconds": 1.35
+        },
+        {
+          "name": "go-race",
+          "exitCode": 1,
+          "seconds": 26.17
+        }
+      ],
+      "goRace": {
+        "topLevelPassed": 225,
+        "subtestsPassed": 539,
+        "failed": 1,
+        "linuxOnlyMacSkipped": 3,
+        "passedPackages": 10,
+        "failedPackages": 1
+      },
+      "fullUnit": "not_run_after_go_failure",
+      "canonicalLanes": "not_run_after_go_failure"
+    },
+    "checkpointPublication": {
+      "state": "prepared_documentation_snapshot",
+      "sourceCiCommit": "290540c88f54e878e716c1f0b20466dd55b71a06",
+      "sourceCiRun": 37087774593,
+      "branch": "codex/production-2026-10-02",
+      "isolatedStaging": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
+      "sourceMainIntegrated": false,
+      "activeWorkers": 2,
+      "note": "This checkpoint binds documented local evidence; its own exact pushed CI must be inspected separately."
     }
   },
   "sessionHistory": [

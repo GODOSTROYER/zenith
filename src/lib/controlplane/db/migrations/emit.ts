@@ -53,6 +53,12 @@ begin
     if to_regclass('platform.agent_effect_receipts') is not null then
       revoke update, delete on table platform.agent_effect_receipts from service_role;
     end if;
+    -- Workflow-start attempt tombstones must survive aggregate hardening.
+    -- Exact rights also remove inherited TRUNCATE, REFERENCES and TRIGGER.
+    if to_regclass('platform.workflow_start_intents') is not null then
+      revoke all on table platform.workflow_start_intents from service_role;
+      grant select, insert, update on table platform.workflow_start_intents to service_role;
+    end if;
   end if;
 end
 $$;

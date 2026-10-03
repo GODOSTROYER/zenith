@@ -37,8 +37,8 @@ export interface BridgeDeps {
 const defaults: BridgeDeps = {
   broker: async () => (await import("@/lib/capabilities/platform")).platformBroker(),
   workflows: {
-    startDeploy: async (input) => (await import("@/lib/workflows/client")).startDeploy(input),
-    startDestroy: async (input) => (await import("@/lib/workflows/client")).startDestroy(input),
+    startDeploy: async (input) => (await import("./workflow-start")).startDeploymentWorkflow(input),
+    startDestroy: async (input) => (await import("./workflow-start")).startDestroyWorkflow(input),
     signalApproval: async (id) => (await import("@/lib/workflows/client")).signalApproval(id),
     cancelOperation: async (id) => (await import("@/lib/workflows/client")).cancelOperation(id),
   },

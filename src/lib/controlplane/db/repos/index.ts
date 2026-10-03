@@ -18,6 +18,7 @@
 import type { Sql } from "@/lib/controlplane/types";
 import * as planArtifacts from "./plan-artifacts";
 import * as buildLaunches from "./build-launches";
+import * as workflowStartIntents from "./workflow-start-intents";
 import * as approvals from "./approvals";
 import * as connections from "./connections";
 import * as cost from "./cost";
@@ -42,6 +43,7 @@ import * as settings from "./settings";
 export {
   planArtifacts,
   buildLaunches,
+  workflowStartIntents,
   approvals,
   connections,
   cost,
@@ -72,7 +74,7 @@ export type Bound<M> = {
 };
 
 /** Exports that are pure helpers, not repository functions: they take no `Sql`. */
-const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError", "BuildLaunchError", "createIsolatedBuildClaimerForTests"]);
+const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError", "BuildLaunchError", "createIsolatedBuildClaimerForTests", "assertIsolatedBuildTestAdmission", "WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests"]);
 
 function bind<M extends object>(mod: M, sql: Sql): Bound<M> {
   const out: Record<string, unknown> = {};
@@ -86,6 +88,7 @@ export function bindRepos(sql: Sql) {
   return {
     planArtifacts: bind(planArtifacts, sql),
     buildLaunches: bind(buildLaunches, sql),
+    workflowStartIntents: bind(workflowStartIntents, sql),
     approvals: bind(approvals, sql),
     connections: bind(connections, sql),
     cost: bind(cost, sql),

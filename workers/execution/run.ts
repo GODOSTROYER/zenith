@@ -10,6 +10,8 @@ import { Worker, type NativeConnection, type WorkerOptions } from "@temporalio/w
 import type { WorkerActivities } from "@/lib/workflows/types";
 import { bundleDefinitions, type BundlerKind } from "./bundle";
 import type { ExecutionWorkerConfig } from "./config";
+import type { Client } from "@temporalio/client";
+import { TASK_QUEUE } from "@/lib/workflows/types";
 
 /** Where the TypeScript workflow definitions live, relative to this file. */
 export function defaultWorkflowsPath(): string {
@@ -77,4 +79,32 @@ export function workerOptions({ config, connection, activities, workflows }: Cre
 
 export function createExecutionWorker(input: CreateWorkerInput): Promise<Worker> {
   return Worker.create(workerOptions(input));
+}
+
+/** Worker.run must already be active. Observe our fresh normal workflow AND activity pollers. */
+export async function awaitReconcilePollers(worker: Pick<Worker, "getState">, client: Client, config: Pick<ExecutionWorkerConfig, "identity" | "taskQueue" | "temporal">, startedAt: number): Promise<void> {
+  if (config.taskQueue !== TASK_QUEUE) throw new Error("This worker cannot service the fixed reconciliation task queue.");
+  if (!Number.isSafeInteger(startedAt) || startedAt < 0 || startedAt > Date.now()) throw new Error("The reconciliation polling start is invalid.");
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    if (worker.getState() !== "RUNNING") throw new Error("The execution worker is not polling.");
+    let observed = true;
+    for (const taskQueueType of [1, 2]) {
+      const response = await client.connection.withDeadline(deadline, () => client.workflowService.describeTaskQueue({
+        namespace: config.temporal.namespace, taskQueue: { name: TASK_QUEUE, kind: 1 }, taskQueueType,
+      }));
+      if (!response.pollers?.some(poller => {
+        const stamp = poller.lastAccessTime;
+        const seconds = Number(stamp?.seconds?.toString());
+        const nanos = stamp?.nanos ?? 0;
+        const accessedAt = seconds * 1000 + nanos / 1_000_000;
+        return poller.identity === config.identity && Number.isSafeInteger(seconds)
+          && Number.isInteger(nanos) && nanos >= 0 && nanos < 1_000_000_000
+          && accessedAt >= startedAt && accessedAt <= Date.now() + 5_000;
+      })) observed = false;
+    }
+    if (observed && worker.getState() === "RUNNING") return;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  throw new Error("Fresh reconciliation workflow/activity pollers were not observed.");
 }

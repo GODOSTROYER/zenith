@@ -24,7 +24,9 @@ import { Context } from "@temporalio/activity";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { ensurePlatformApp } from "@/lib/platform/app";
-import type { Sql } from "@/lib/controlplane/types";
+import type { PlatformDbHandle } from "@/lib/controlplane/db";
+import { composeReconcileSweepRuntime } from "@/lib/platform/execution";
+import type { RegisteredWorkerActivities } from "@/lib/workflows/types";
 import { listDrivers } from "@/lib/drivers/types";
 import { loadPolicyEngine } from "@/lib/policy";
 import { startPlanArtifactJanitor } from "@/lib/execution/plan-janitor";
@@ -34,8 +36,8 @@ import { connectionOptionsFor, describeTemporalConfig } from "@/lib/workflows/co
 import { temporalDataConverterFromEnv } from "@/lib/workflows/codec";
 import { executionWorkerConfigFromEnv } from "./config";
 import { installShutdownHandlers } from "./lifecycle";
-import { workerOptions, workflowSource } from "./run";
-import { ExecutionStartupError, validateExecutionConfiguration, openExecutionStore, closeExecutionStore, type ExecutionFailureCategory } from "./startup";
+import { awaitReconcilePollers, workerOptions, workflowSource } from "./run";
+import { ExecutionStartupError, validateExecutionConfiguration, validateReconcileWorkerConfiguration, openExecutionStore, closeExecutionStore, openReconcileWorkerClient, prepareReconcileWorkerSchedule, reconcileWorkerMonitor, type ExecutionFailureCategory } from "./startup";
 import { HEALTH_CHECK_TIMEOUT_MS, healthPortFromEnv, startHealthServer } from "./health";
 
 function log(level: "info" | "warn" | "error", msg: string, fields: Record<string, unknown> = {}): void {
@@ -46,13 +48,17 @@ let failureCategory: ExecutionFailureCategory = "configuration";
 async function main(): Promise<void> {
   const config = executionWorkerConfigFromEnv();
   const dataConverter = temporalDataConverterFromEnv();
-  let db: Sql | undefined;
+  let db: PlatformDbHandle | undefined;
   let connection: NativeConnection | undefined;
   let worker: Worker | undefined;
   let policyLoaded = false;
   let stopping = () => false;
   let janitor: ReturnType<typeof startPlanArtifactJanitor> | undefined;
   let healthLog: ReturnType<typeof setInterval> | undefined;
+  let reconcileLog: ReturnType<typeof setInterval> | undefined;
+  let reconcileClient: Awaited<ReturnType<typeof openReconcileWorkerClient>> | undefined;
+  let monitor: ReturnType<typeof reconcileWorkerMonitor> | undefined;
+  let workerRun: Promise<void> | undefined;
   failureCategory = "health-listener";
   const endpoint = await startHealthServer({ port: healthPortFromEnv(), checks: {
     async temporal() {
@@ -64,10 +70,16 @@ async function main(): Promise<void> {
     async store() { if (!db) return undefined; await db.query("select 1"); return true; },
     policy: () => policyLoaded,
     drivers: () => ["aws", "kubernetes", "zenith", "gcp", "azure", "oci"].every((provider) => listDrivers().some((driver) => driver.provider === provider)),
+    async reconciliation() {
+      if (!monitor) return undefined;
+      if (stopping()) return false;
+      return (await monitor.refresh()).observationCurrent && !stopping();
+    },
   } });
   try {
     failureCategory = "configuration";
     await validateExecutionConfiguration();
+    validateReconcileWorkerConfiguration(config);
     failureCategory = "platform-store";
     db = await openExecutionStore();
     failureCategory = "platform-composition";
@@ -77,11 +89,13 @@ async function main(): Promise<void> {
     failureCategory = "policy-assets";
     await loadPolicyEngine();
     policyLoaded = true;
+    failureCategory = "reconcile-composition";
+    const sweep = await composeReconcileSweepRuntime(db);
     const planDir = path.resolve(process.env.ZENITH_WORKER_PLAN_DIR ?? path.join(process.env.ZENITH_DATA ?? ".data", "platform-plans"));
     failureCategory = "plan-directory";
     await mkdir(planDir, { recursive: true, mode: 0o700 });
     failureCategory = "activity-composition";
-    const activities = createActivities({ db, workerIdentity: config.identity, planDir, sourceBundles: { azureStorage: createAzureSourceStorageResolver(db) }, ports: { heartbeat: (detail) => Context.current().heartbeat(detail), activitySignal: () => Context.current().cancellationSignal } });
+    const activities: RegisteredWorkerActivities = { ...createActivities({ db, workerIdentity: config.identity, planDir, sourceBundles: { azureStorage: createAzureSourceStorageResolver(db) }, ports: { heartbeat: (detail) => Context.current().heartbeat(detail), activitySignal: () => Context.current().cancellationSignal } }), ...sweep.activities };
     failureCategory = "temporal-runtime";
     Runtime.install({ logger: new DefaultLogger(config.logLevel) });
 
@@ -103,13 +117,32 @@ async function main(): Promise<void> {
 
     failureCategory = "worker-lifecycle";
     stopping = installShutdownHandlers({ worker, graceMs: config.shutdownGraceMs, log, signals: process, exit: (code) => process.exit(code) });
+    // Run even if the separately owned client cannot connect: shutdown must
+    // drain/finalize this created native worker before its connection closes.
+    const pollingStartedAt = Date.now();
+    workerRun = worker.run();
+    void workerRun.catch(() => undefined);
+    failureCategory = "reconcile-client";
+    reconcileClient = await openReconcileWorkerClient(config, dataConverter);
+    failureCategory = "reconcile-pollers";
+    await awaitReconcilePollers(worker, reconcileClient.client, config, pollingStartedAt);
+    if (stopping()) throw new ExecutionStartupError("Worker stopped before durable reconciliation preparation.");
+    failureCategory = "reconcile-schedule";
+    await prepareReconcileWorkerSchedule(reconcileClient.client, sweep, config.reconcile!);
+    monitor = reconcileWorkerMonitor(reconcileClient.client, config.reconcile!);
+    const reconciliation = await monitor.refresh();
+    log(reconciliation.observationCurrent ? "info" : "warn", "durable reconciliation status", { ...reconciliation });
+    reconcileLog = setInterval(() => {
+      void monitor!.refresh().then(observed => log(observed.observationCurrent ? "info" : "warn", "durable reconciliation status", { ...observed }));
+    }, 30_000);
+    reconcileLog.unref();
     janitor = startPlanArtifactJanitor(db, (result) => {
       if (result) log("info", "plan maintenance", { ...result });
       else log("warn", "plan maintenance unavailable; check plan directory and control store");
     });
 
     const startedAt = Date.now();
-    log("info", "execution worker ready", {
+    log("info", "execution worker polling", {
       ...describeTemporalConfig(config.temporal),
       taskQueue: config.taskQueue,
       identity: config.identity,
@@ -128,19 +161,33 @@ async function main(): Promise<void> {
     healthLog?.unref();
 
     failureCategory = "worker-run";
-    await worker.run();
+    await workerRun;
     log("info", "execution worker stopped");
     failureCategory = "resource-close";
   } finally {
     stopping = () => true;
     if (healthLog) clearInterval(healthLog);
-    // A failed close must not strand another owned resource during shutdown.
-    try { await endpoint.close(); }
+    if (reconcileLog) clearInterval(reconcileLog);
+    // A failed shutdown or close must not strand another owned resource.
+    try {
+      // Drain before closing the client or database used by activities.
+      if (worker?.getState() === "RUNNING") worker.shutdown();
+      await workerRun?.catch(() => undefined);
+    }
     finally {
-      try { await janitor?.stop(); }
+      try { await endpoint.close(); }
       finally {
-        try { await connection?.close(); }
-        finally { await closeExecutionStore(db); }
+        try { await monitor?.stop(); }
+        finally {
+          try { await janitor?.stop(); }
+          finally {
+            try { await reconcileClient?.close(); }
+            finally {
+              try { await connection?.close(); }
+              finally { await closeExecutionStore(db); }
+            }
+          }
+        }
       }
     }
   }

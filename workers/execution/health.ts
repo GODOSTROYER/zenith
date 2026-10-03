@@ -1,7 +1,8 @@
 /**
  * Loopback-only worker probes. Liveness reports the HTTP process; readiness
  * requires current Temporal/store reachability, a loaded policy and registered
- * drivers. Probe errors and configuration/identity never enter HTTP responses.
+ * drivers. The actual worker also requires a current durable sweep observation.
+ * Probe errors and configuration/identity never enter HTTP responses.
  * Checks are bounded in time and shared by concurrent requests. A stuck check
  * remains single-flight rather than accumulating new background checks.
  */
@@ -14,10 +15,12 @@ export interface ReadinessChecks {
   store: HealthCheck;
   policy: HealthCheck;
   drivers: HealthCheck;
+  /** Actual worker supplies this; older pure health callers keep their four checks. */
+  reconciliation?: HealthCheck;
 }
 export interface ReadinessResult {
   ready: boolean;
-  checks: Record<keyof ReadinessChecks, CheckStatus>;
+  checks: Record<"temporal" | "store" | "policy" | "drivers", CheckStatus> & { reconciliation?: CheckStatus };
 }
 export const HEALTH_CHECK_TIMEOUT_MS = 2000;
 
@@ -31,13 +34,14 @@ export function healthPortFromEnv(env: Readonly<Record<string, string | undefine
 
 export function readinessProbe(checks: ReadinessChecks, timeoutMs = HEALTH_CHECK_TIMEOUT_MS): () => Promise<ReadinessResult> {
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30_000) throw new Error("Health check timeout must be from 1 to 30000 milliseconds.");
-  const keys = ["temporal", "store", "policy", "drivers"] as const;
+  const keys: (keyof ReadinessChecks)[] = ["temporal", "store", "policy", "drivers"];
+  if (checks.reconciliation) keys.push("reconciliation");
   const pending = new Map<keyof ReadinessChecks, Promise<CheckStatus>>();
   return async () => {
     const statuses = await Promise.all(keys.map(async (key): Promise<CheckStatus> => {
       let check = pending.get(key);
       if (!check) {
-        check = Promise.resolve().then(() => checks[key]()).then((ok): CheckStatus => ok === undefined ? "unknown" : ok === true ? "ok" : "unavailable", (): CheckStatus => "unavailable");
+        check = Promise.resolve().then(() => checks[key]?.()).then((ok): CheckStatus => ok === undefined ? "unknown" : ok === true ? "ok" : "unavailable", (): CheckStatus => "unavailable");
         pending.set(key, check);
         void check.then(() => { if (pending.get(key) === check) pending.delete(key); });
       }

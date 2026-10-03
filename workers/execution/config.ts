@@ -21,6 +21,13 @@
 import { hostname } from "node:os";
 import { TASK_QUEUE } from "@/lib/workflows/types";
 import { temporalConfigFromEnv, type TemporalConnectionConfig } from "@/lib/workflows/config";
+import type { ReconcileSweepInput } from "@/lib/workflows/definitions/reconcileSweep";
+
+export interface ReconcileWorkerConfig {
+  /** Observe never creates or updates a schedule. Provision is an explicit operator permission. */
+  mode: "observe" | "provision";
+  input: ReconcileSweepInput;
+}
 
 export interface ExecutionWorkerConfig {
   temporal: TemporalConnectionConfig;
@@ -33,6 +40,8 @@ export interface ExecutionWorkerConfig {
   logLevel: "TRACE" | "DEBUG" | "INFO" | "WARN" | "ERROR";
   healthLogIntervalMs: number;
   identity: string;
+  /** Older pure worker-option callers need not configure durable scheduling. */
+  reconcile?: ReconcileWorkerConfig;
 }
 
 export class WorkerConfigError extends Error {
@@ -85,5 +94,16 @@ export function executionWorkerConfigFromEnv(env: Env = process.env): ExecutionW
     logLevel: level,
     healthLogIntervalMs: intFrom(env, "ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS", 60_000, 0, 24 * 3600_000),
     identity: workerIdentity(env.ZENITH_WORKER_IDENTITY),
+    reconcile: reconcileWorkerConfigFromEnv(env),
   };
+}
+
+export function reconcileWorkerConfigFromEnv(env: Env = process.env): ReconcileWorkerConfig {
+  const mode = env.ZENITH_WORKER_RECONCILE_SCHEDULE_MODE?.trim() || "observe";
+  if (mode !== "observe" && mode !== "provision") throw new WorkerConfigError("ZENITH_WORKER_RECONCILE_SCHEDULE_MODE must be observe or provision.");
+  // Pure configuration must not initialize product/platform stores. The runtime
+  // boundary independently validates this exact typed contract before use.
+  return Object.freeze({ mode, input: Object.freeze({ contract: "zenith.reconcile-sweep.v1" as const,
+    maxEnvironments: intFrom(env, "ZENITH_WORKER_RECONCILE_MAX_ENVIRONMENTS", 25, 1, 25),
+    environmentConcurrency: intFrom(env, "ZENITH_WORKER_RECONCILE_CONCURRENCY", 3, 1, 3) }) });
 }

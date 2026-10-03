@@ -44,7 +44,7 @@ function runtimeImports(source: string): string[] {
 
 describe("definitions/ is sandbox-safe deterministic code", () => {
   it("has the files it should", () => {
-    expect(definitionFiles.sort()).toEqual(["activities.ts", "capability.ts", "dayTwo.ts", "deploy.ts", "destroy-review.ts", "destroy.ts", "ecsReplicaRepair.ts", "failures.ts", "index.ts", "policies.ts", "reconcile.ts", "remediation.ts", "runtime.ts"]);
+    expect(definitionFiles.sort()).toEqual(["activities.ts", "capability.ts", "dayTwo.ts", "deploy.ts", "destroy-review.ts", "destroy.ts", "ecsReplicaRepair.ts", "failures.ts", "index.ts", "policies.ts", "reconcile.ts", "reconcileSweep.ts", "remediation.ts", "runtime.ts"]);
   });
 
   it.each(definitionFiles)("%s imports only @temporalio/workflow and relative workflow modules", (file) => {
@@ -75,10 +75,10 @@ describe("definitions/ is sandbox-safe deterministic code", () => {
     }
   });
 
-  it("exports exactly the six workflows from the entry point (helpers must not leak as workflow types)", async () => {
+  it("exports exactly the seven workflows from the entry point (helpers must not leak as workflow types)", async () => {
     const source = readFileSync(DEFINITIONS_ENTRY, "utf8");
     const exported = [...source.matchAll(/export\s*\{\s*(\w+)\s*\}\s*from/g)].map((m) => m[1]);
-    expect(exported.sort()).toEqual(["dayTwoOperationWorkflow", "infrastructureDeployWorkflow", "infrastructureDestroyWorkflow", "reconcileEnvironmentWorkflow", "remediationWorkflow", "teardownReviewWorkflow"]);
+    expect(exported.sort()).toEqual(["dayTwoOperationWorkflow", "infrastructureDeployWorkflow", "infrastructureDestroyWorkflow", "reconcileEnvironmentWorkflow", "reconcileSweepWorkflow", "remediationWorkflow", "teardownReviewWorkflow"]);
     expect(source).not.toMatch(/export\s+\*/);
   });
 });
@@ -88,7 +88,7 @@ describe("Temporal's bundler and the @/ alias", () => {
     const { code, bundler } = await bundleDefinitions(DEFINITIONS_ENTRY);
     expect(["swc", "esbuild"]).toContain(bundler);
     expect(code.length).toBeGreaterThan(100_000);
-    for (const name of ["infrastructureDeployWorkflow", "infrastructureDestroyWorkflow", "dayTwoOperationWorkflow", "remediationWorkflow", "reconcileEnvironmentWorkflow", "teardownReviewWorkflow"]) expect(code).toContain(name);
+    for (const name of ["infrastructureDeployWorkflow", "infrastructureDestroyWorkflow", "dayTwoOperationWorkflow", "remediationWorkflow", "reconcileEnvironmentWorkflow", "reconcileSweepWorkflow", "teardownReviewWorkflow"]) expect(code).toContain(name);
     expect(code).not.toContain("node:fs");
   }, 120_000);
 

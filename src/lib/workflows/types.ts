@@ -182,6 +182,7 @@ export const WORKFLOW_TYPES = {
   dayTwo: "dayTwoOperationWorkflow",
   remediation: "remediationWorkflow",
   reconcile: "reconcileEnvironmentWorkflow",
+  reconcileSweep: "reconcileSweepWorkflow",
 } as const;
 
 /* ------------------------------- activities ------------------------------- */
@@ -279,3 +280,6 @@ export interface ReconcileRepairSummary {
 
 /** Everything the execution worker registers. */
 export type WorkerActivities = ExecutionActivities & ReconcileActivities;
+
+/** Production worker registration; legacy activities/stubs retain their replay contract. */
+export type RegisteredWorkerActivities = WorkerActivities & import("./definitions/reconcileSweep").ReconcileSweepActivities;

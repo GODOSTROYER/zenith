@@ -24,6 +24,16 @@ import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/
 import { createSourceBundles, type SourceBundleDeps } from "./source-bundle";
 import { createDefaultMachinePort } from "@/lib/machines/composition";
 import { createAzureSourceStorage, type AzureBuildOptions } from "./release-azure";
+import type { PlatformDbHandle } from "@/lib/controlplane/db";
+import { createReconcileSweepRuntime, type ReconcileSweepRuntime } from "@/lib/workflows/reconcile-schedule";
+
+/** Fixed production observation composition; no dependency or readiness overrides. */
+export async function composeReconcileSweepRuntime(db: PlatformDbHandle): Promise<ReconcileSweepRuntime> {
+  registerAllDrivers();
+  const runtime = createReconcileSweepRuntime(db);
+  await runtime.assertReady();
+  return runtime;
+}
 
 export interface ComposeExecutionOptions {
   db: Sql;

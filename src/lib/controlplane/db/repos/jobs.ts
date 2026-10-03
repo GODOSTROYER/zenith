@@ -26,6 +26,8 @@ import type { Sql } from "@/lib/controlplane/types";
 import { ControlStoreError, requireText } from "../errors";
 import { assertNoSecretValues } from "../secrets";
 import { boundedMs, clampLimit, jsonOrNull, opt } from "../sql";
+import { recordRunnerOutcome } from "./agent-effect-receipts";
+import type { SettleOutcomeInput, SettledOutcome } from "@/lib/runners/ports";
 
 export const RUNNER_JOB_STATUSES = ["queued", "claimed", "running", "succeeded", "failed", "rejected", "timed_out", "expired", "cancelled"] as const;
 export type RunnerJobStatus = (typeof RUNNER_JOB_STATUSES)[number];
@@ -197,6 +199,9 @@ export interface SettleJobInput {
   result?: unknown;
   error?: string;
 }
+
+/** Current signed agent outcomes: permanent evidence and optional active settlement commit together. */
+export const settleOutcome = (sql: Sql, input: SettleOutcomeInput): Promise<SettledOutcome> => recordRunnerOutcome(sql, input);
 
 /**
  * Record a runner's result. Returns true for the FIRST result of a job that this

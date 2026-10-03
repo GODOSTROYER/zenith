@@ -19,8 +19,11 @@
  * unless `operationExists` is supplied.
  */
 import { randomUUID } from "node:crypto";
+import { sha256Hex } from "@/lib/controlplane/digest";
 import {
   RunnerStoreError,
+  snapshotOutcome,
+  type AgentEffectReceipt,
   type AgentJob,
   type AgentJobResultStatus,
   type AgentJobStatus,
@@ -34,7 +37,7 @@ import {
   type RegisterAgentInput,
   type RunnerStore,
 } from "@/lib/runners/ports";
-import { AGENT_KINDS, STALE_AFTER_SEC, STORE_LOG_BATCH_LINES, MAX_LOG_LINES_PER_JOB, MAX_LOG_LINE_CHARS, MAX_ENVELOPE_BYTES, type AgentKind } from "@/lib/runners/types";
+import { AGENT_KINDS, STALE_AFTER_SEC, STORE_LOG_BATCH_LINES, MAX_LOG_LINES_PER_JOB, MAX_LOG_LINE_CHARS, MAX_ENVELOPE_BYTES, isValidId, type AgentKind } from "@/lib/runners/types";
 
 export interface MemoryStoreOptions {
   /** epoch milliseconds; inject a fake clock to test expiry, staleness and leases */
@@ -149,6 +152,7 @@ export function createMemoryRunnerStore(options: MemoryStoreOptions = {}): Runne
 
   function makeQueue(kind: AgentKind): { queue: JobQueue; cancelOpenFor: (workspaceId: string, agentId: string) => number } {
     const jobs = new Map<string, JobRow>();
+    const receipts = new Map<string, AgentEffectReceipt>();
     const logs = new Map<string, LogRow[]>();
     const logKeys = new Map<string, Set<string>>();
     let seq = 0;
@@ -185,6 +189,39 @@ export function createMemoryRunnerStore(options: MemoryStoreOptions = {}): Runne
     };
 
     const queue: JobQueue = {
+      async settleOutcome(input) {
+        const i = snapshotOutcome(input);
+        const agent = agents[kind].get(i.agentId);
+        if (!agent || agent.workspaceId !== i.workspaceId || agent.status !== "active" || agent.publicKey !== i.authenticatedPublicKey)
+          throw new RunnerStoreError("agent_revoked", "The authenticated agent is no longer active under this key.");
+        const j = jobs.get(i.jobId);
+        if (!j || j.workspaceId !== i.workspaceId || j.agentId !== i.agentId)
+          throw new RunnerStoreError("not_found", "No such job for this agent.");
+        const old = receipts.get(j.id);
+        if (old) {
+          if (old.logicalDigest !== i.logicalDigest || old.agentId !== i.agentId || old.agentKeyDigest !== sha256Hex(i.authenticatedPublicKey) || old.envelopeDigest !== sha256Hex(j.envelope))
+            throw new RunnerStoreError("conflict", "A different authenticated outcome is already retained for this job.");
+          return { disposition: "duplicate", receipt: structuredClone(old) };
+        }
+        if (j.claimedAt === undefined || !["claimed", "running", "cancelled", "timed_out"].includes(j.status))
+          throw new RunnerStoreError("conflict", "This job has no eligible delivered outcome to retain.");
+        if ((j.operationId && !isValidId(j.operationId)) || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(j.kind) || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(j.capability))
+          throw new RunnerStoreError("invalid_input", "Invalid original agent assignment.");
+        const r: AgentEffectReceipt = { workspaceId: j.workspaceId, agentKind: kind, agentId: j.agentId, jobId: j.id,
+          operationId: j.operationId || undefined, jobKind: j.kind, capability: j.capability, envelopeDigest: sha256Hex(j.envelope),
+          agentKeyDigest: sha256Hex(i.authenticatedPublicKey), logicalDigest: i.logicalDigest,
+          projectionStatus: j.status as AgentEffectReceipt["projectionStatus"], reportedStatus: i.status,
+          claimedAt: iso(j.claimedAt), receivedAt: iso(now()), sealed: structuredClone(i.sealed) };
+        const late = j.status === "cancelled" || j.status === "timed_out";
+        // No await between the original-assignment check, receipt and projection write.
+        if (!late) { j.result = structuredClone(i.result); j.error = i.error; settleRow(j, i.status); }
+        receipts.set(j.id, r);
+        return { disposition: late ? "late" : "settled", receipt: structuredClone(r) };
+      },
+      async getEffectReceipt(workspaceId, jobId) {
+        const r = receipts.get(jobId);
+        return r?.workspaceId === workspaceId ? structuredClone(r) : null;
+      },
       async enqueue(input: EnqueueJobInput) {
         if (input.envelope.length === 0 || input.envelope.length > MAX_ENVELOPE_BYTES)
           throw new RunnerStoreError("invalid_input", "envelope must be a non-empty compact JWS of at most 256 KiB.");

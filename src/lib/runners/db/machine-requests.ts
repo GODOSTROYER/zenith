@@ -18,6 +18,7 @@ import { requireText } from "@/lib/controlplane/db/errors";
 import { assertNoSecretValues } from "@/lib/controlplane/db/secrets";
 import { jsonOrNull } from "@/lib/controlplane/db/sql";
 import type { Sql } from "@/lib/controlplane/types";
+import { get as getEffectReceipt, recordMachineOutcome } from "@/lib/controlplane/db/repos/agent-effect-receipts";
 import {
   RunnerStoreError,
   type AgentJob,
@@ -83,6 +84,8 @@ const limit = (n: number | undefined, fallback: number, max: number): number => 
 
 export function createMachineRequestQueue(sql: Sql): JobQueue {
   return {
+    settleOutcome: input => recordMachineOutcome(sql, input),
+    getEffectReceipt: (workspaceId, jobId) => getEffectReceipt(sql, { workspaceId, jobId, agentKind: "machine" }),
     async enqueue(input: EnqueueJobInput) {
       if (input.envelope.length === 0 || input.envelope.length > MAX_ENVELOPE_BYTES) throw new RunnerStoreError("invalid_input", "envelope must be a non-empty compact JWS of at most 256 KiB.");
       const ttl = ms("ttlMs", input.ttlMs ?? 5 * 60 * 1000, 1000, 60 * 60 * 1000);

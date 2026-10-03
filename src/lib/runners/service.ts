@@ -8,21 +8,22 @@
  * scoped by `agent.workspaceId` — the workspace of the agent's own row.
  *
  * Delivery and settlement guarantees:
- *  - A job is delivered at most once: `claimNext` is exclusive, and each claimed
- *    job is moved to `running` (lease = its timeout + grace) BEFORE the poll
- *    response leaves, so any job an agent holds is `running` and any job still
- *    `claimed`/`queued` was provably never handed over.
- *  - A result settles a job at most once; a duplicate is `409 already_settled`.
- *  - The whole result is sealed (`seal.ts`) before it reaches the store; error
- *    strings and log lines are redacted (`redact.ts`).
+ *  - `claimNext` is exclusive and nothing is re-queued. A claimed job is moved
+ *    to `running` (lease = its timeout + grace) before the poll response leaves;
+ *    response loss can still leave delivery uncertain.
+ *  - A result settles an active job at most once. The first authenticated
+ *    outcome is retained independently; exact logical retries are accepted,
+ *    divergent retries conflict, and late evidence cannot reopen a job.
+ *  - Outcomes are sealed (`seal.ts`) before persistence. Historical active
+ *    error projections and log lines are redacted (`redact.ts`).
  *  - A result or log for a job that is not this agent's is `404 job_not_found`
  *    (never a hint that the job exists for someone else).
  */
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import { sha256Hex } from "@/lib/controlplane/digest";
+import { canonical, digest, sha256Hex } from "@/lib/controlplane/digest";
 import { log } from "@/lib/log";
-import { queueOf, registryOf, RunnerStoreError, type AgentJob, type AgentRecord, type JobLogLine, type RunnerEvent } from "@/lib/runners/ports";
+import { queueOf, registryOf, RunnerStoreError, type AgentEffectReceipt, type AgentJob, type AgentRecord, type JobLogLine, type RunnerEvent, type SettledOutcome } from "@/lib/runners/ports";
 import { redactText } from "@/lib/runners/redact";
 import { announcedNextKeys, controlPlaneKeys, type RunnerRuntime } from "@/lib/runners/runtime";
 import { unverifiedClaims } from "@/lib/runners/signing";
@@ -33,6 +34,7 @@ import {
   DEFAULT_POLL_INTERVAL_SEC,
   LEASE_GRACE_SEC,
   MAX_LOG_BYTES_PER_JOB,
+  MAX_RESULT_BODY_BYTES,
   MAX_LOG_LINES_PER_JOB,
   MAX_LOG_LINE_CHARS,
   MAX_POLL_WAIT_SEC,
@@ -119,7 +121,7 @@ const ResultBody = z.object({
   exitCode: z.number().int().optional(),
   result: z.unknown().optional(),
   error: z.string().max(100_000).optional(),
-});
+}).strict();
 
 const LogsBody = z.object({
   seq: z.number().int().min(0).max(500_000_000),
@@ -245,6 +247,10 @@ export interface StoredResult {
 }
 
 export const sealAad = (workspaceId: string, jobId: string): string => `${workspaceId}|${jobId}`;
+/** Tenant/job and authenticated assignment associations are part of ciphertext integrity. */
+export const effectReceiptAad = (workspaceId: string, kind: AgentKind, jobId: string,
+  binding: Pick<AgentEffectReceipt, "agentId" | "agentKeyDigest" | "envelopeDigest">): string =>
+  `${workspaceId}|${kind}|${jobId}|${binding.agentId}|${binding.agentKeyDigest}|${binding.envelopeDigest}|effect-receipt:v1`;
 
 const isoOrUndefined = (s: string | undefined): string | undefined => {
   if (!s) return undefined;
@@ -257,31 +263,74 @@ const NOT_AWAITING = "This job is not awaiting a result: it already has one, was
 
 export const redactError = (s: string): string => redactText(s).slice(0, MAX_ERROR_CHARS);
 
-/** `POST /{runners|machines}/{id}/jobs/{jti}/result` — exactly one result per job. */
+/** Bounded plain JSON only; generic errors never echo untrusted result keys/values. */
+function outcomeBody(value: unknown): z.infer<typeof ResultBody> {
+  const parsed = ResultBody.safeParse(value);
+  const invalid = (): never => { throw new AgentApiError(400, "invalid_request", "Invalid result body."); };
+  if (!parsed.success) return invalid();
+  const seen = new WeakSet<object>();
+  const pending: { value: unknown; depth: number }[] = [{ value: parsed.data.result ?? null, depth: 0 }];
+  let nodes = 0;
+  while (pending.length) {
+    const { value: current, depth } = pending.pop()!;
+    if (++nodes > 100_000 || depth > 64) return invalid();
+    if (current === null || typeof current === "string" || typeof current === "boolean") continue;
+    if (typeof current === "number" && Number.isFinite(current)) continue;
+    if (typeof current !== "object" || seen.has(current)) return invalid();
+    if (!Array.isArray(current) && Object.getPrototypeOf(current) !== Object.prototype && Object.getPrototypeOf(current) !== null) return invalid();
+    seen.add(current);
+    // Bound queued work too: a broad JSON array/object must not allocate an
+    // unbounded pending list before the visited-node limit can reject it.
+    for (const key in current) {
+      if (!Object.prototype.hasOwnProperty.call(current, key)) continue;
+      if (nodes + pending.length >= 100_000) return invalid();
+      pending.push({ value: (current as Record<string, unknown>)[key], depth: depth + 1 });
+    }
+  }
+  if (parsed.data.exitCode !== undefined && !Number.isSafeInteger(parsed.data.exitCode)) return invalid();
+  const normalized = { ...parsed.data, result: parsed.data.result ?? null };
+  const text = canonical(normalized);
+  if (Buffer.byteLength(text, "utf8") > MAX_RESULT_BODY_BYTES) throw new AgentApiError(413, "payload_too_large", "The parsed result exceeds the supported bound.");
+  return JSON.parse(text) as z.infer<typeof ResultBody>;
+}
+
+/** Signed current-agent outcome: active settlement or independent late evidence, never reopening a terminal job. */
 export async function settleResult(rt: RunnerRuntime, agent: AgentRecord, jobId: string, body: unknown): Promise<{ status: "accepted" }> {
   if (!isValidId(jobId)) throw new AgentApiError(404, "job_not_found", "No such job for this agent.");
-  const b = parse(ResultBody, body);
+  const b = outcomeBody(body);
   const queue = queueOf(rt.store, agent.kind);
   const job = await queue.get(agent.workspaceId, jobId);
   if (!job || job.agentId !== agent.id) throw new AgentApiError(404, "job_not_found", "No such job for this agent.");
-  if (job.status !== "claimed" && job.status !== "running") throw new AgentApiError(409, "already_settled", NOT_AWAITING);
-
-  const stored: StoredResult = {
+  // The assignment trigger prevents substitution after this read. The store
+  // independently derives these same hashes under its original-job lock and
+  // holds the authenticated current-key predicate until receipt commit.
+  const receiptBinding = { agentId: agent.id, agentKeyDigest: sha256Hex(agent.publicKey), envelopeDigest: sha256Hex(job.envelope) };
+  const stored = {
     startedAt: isoOrUndefined(b.startedAt),
     finishedAt: isoOrUndefined(b.finishedAt),
     exitCode: b.exitCode,
     sealed: rt.sealer.seal(sealAad(agent.workspaceId, jobId), b.result ?? null),
   };
-  const won = await queue.settle({
-    workspaceId: agent.workspaceId,
-    agentId: agent.id,
-    jobId,
-    status: b.status,
-    result: stored,
-    error: b.error === undefined ? undefined : redactError(b.error),
-  });
-  if (!won) throw new AgentApiError(409, "already_settled", NOT_AWAITING);
-  await emit(rt, {
+  let settled: SettledOutcome;
+  try {
+    settled = await queue.settleOutcome({
+      workspaceId: agent.workspaceId, agentId: agent.id, jobId, authenticatedPublicKey: agent.publicKey,
+      logicalDigest: digest(b), status: b.status,
+      sealed: rt.sealer.seal(effectReceiptAad(agent.workspaceId, agent.kind, jobId, receiptBinding), b), result: stored,
+      error: b.error === undefined ? undefined : redactError(b.error),
+    });
+  } catch (error) {
+    if (error instanceof RunnerStoreError) {
+      if (error.code === "agent_revoked") throw revokedError();
+      if (error.code === "not_found") throw new AgentApiError(404, "job_not_found", "No such job for this agent.");
+      if (error.code === "conflict") throw new AgentApiError(409, "already_settled", NOT_AWAITING);
+    }
+    throw error;
+  }
+  // Historical completion events mean an active job actually settled. Late
+  // evidence is audited in the permanent receipt, with no misleading completion
+  // event or new operation transition. A sink failure cannot erase that receipt.
+  if (settled.disposition === "settled") await emit(rt, {
     type: agent.kind === "runner" ? "runner.job.completed" : "machine.request.completed",
     workspaceId: agent.workspaceId,
     operationId: job.operationId,

@@ -58,7 +58,9 @@ const SWEPT = new Set([
 /** Writes that bind the new row to the workspace they are given; their tenant checks are tested with the owning suite. */
 const WRITES = new Set([
   "connections.create", "cost.insert", "drift.insert", "events.append", "evidence.insert", "grants.insert", "incidents.openIncident", "incidents.insertInvestigation",
-  "jobs.enqueue", "machines.upsertTarget", "observations.appendObservation", "observations.upsertRuntime", "operations.create", "policyDecisions.insert",
+  // Signed outcome settlement has direct foreign-scope refusal and owning controls
+  // in tests/runners/late-effect-receipts.test.ts on both agent domains.
+  "jobs.settleOutcome", "jobs.enqueue", "machines.upsertTarget", "observations.appendObservation", "observations.upsertRuntime", "operations.create", "policyDecisions.insert",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "idempotency.reserve", "idempotency.complete",
 ]);
 

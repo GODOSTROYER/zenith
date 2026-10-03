@@ -494,6 +494,34 @@ const GITHUB_WEBHOOK_POSTGRES_CASES = [
 ].map(test => ({ file: "tests/sources/github-webhook.test.ts", suite: "GitHub webhook SQL [postgres]", test, postgres: true }));
 const GITHUB_WEBHOOK_POSTGRES_REQUIREMENT = { file: "tests/sources/github-webhook.test.ts", suite: "GitHub webhook SQL [postgres]", postgres: true };
 
+// Permanent signed outcome evidence must execute every owning/refusal case on real PostgreSQL.
+const AGENT_EFFECT_POSTGRES_CASES = [
+  "settles active work atomically and accepts an identical signed retry without replacing the first evidence",
+  "retains a cancelled-after-claimed outcome without reopening the job or clearing operation uncertainty",
+  "retains a cancelled-after-running outcome without reopening the job or clearing operation uncertainty",
+  "retains an authenticated result after reaper timeout independently of its terminal projection",
+  "refuses queued work with no original claim and retains no synthetic receipt",
+  "refuses cancelled-unclaimed work with no original claim and retains no synthetic receipt",
+  "refuses expired work with no original claim and retains no synthetic receipt",
+  "refuses foreign workspace, agent, job and invalid signature without recording evidence",
+  "refuses valid encrypted outcomes under foreign SQL scope while retaining owning evidence",
+  "rechecks revocation after request authentication and refuses the previously valid identity",
+  "refuses unknown fields and non-JSON/deep result values with fixed-safe errors",
+  "serializes independent matching deliveries and retains exactly the first immutable receipt",
+  "serializes divergent deliveries across independent workers and refuses the losing logical outcome",
+  "retains committed evidence when the caller loses the acknowledgement and refuses any replay of work",
+  "commits active settlement and receipt before advisory audit delivery, retaining evidence when delivery fails",
+  "binds sealed evidence to workspace, agent kind, job, agent key and original envelope without an old-key fallback",
+  "copies returned evidence and validates ciphertext rather than accepting raw proof-shaped results",
+  "rolls back the receipt and active projection together, then accepts a fresh delivery",
+  "makes receipt update/delete and original assignment substitution fail at the database boundary",
+  "observes a blocked PostgreSQL result writer and retains late evidence when cancellation wins the job lock",
+];
+const AGENT_EFFECT_POSTGRES_REQUIREMENTS = ["runner", "machine"].flatMap(kind => AGENT_EFFECT_POSTGRES_CASES.map(test => ({
+  file: "tests/runners/late-effect-receipts.test.ts", suite: `${kind} authenticated outcomes`,
+  ancestorSuite: "agent effect receipts [postgres]", test, postgres: true,
+})));
+
 export const GATE_LANES = {
   postgres: {
     files: ["tests/hosted/authority/contract", "tests/scripts/migrate-hosted-to-postgres.test.ts", "tests/agent-link/pg-contract.test.ts", "tests/agent-control/pg-contract.test.ts", "tests/db/contract/workspace-sharing.test.ts", "tests/waitlist/pg-contract.test.ts"],
@@ -685,6 +713,7 @@ export function requirementsFor(lane, root) {
       requirements.push({file:"tests/execution/destroy-review.test.ts",suite:"undecided teardown supersession [postgres]",postgres:true});
       requirements.push({file:"tests/security/plan-artifact-secrecy.test.ts",suite:"encrypted plan artifact secrecy [postgres]",postgres:true});
       requirements.push(...ECS_REPLICA_REPAIR_POSTGRES_SUITES.map((suite) => ({ file: ECS_REPLICA_REPAIR_FILES.grants, suite, ancestorSuite: "replica repair authority [postgres]", postgres: true })));
+      requirements.push(...AGENT_EFFECT_POSTGRES_REQUIREMENTS);
       requirements.push(...BUILD_SOURCE_POSTGRES_REQUIREMENTS, GITHUB_WEBHOOK_POSTGRES_REQUIREMENT, ...GITHUB_WEBHOOK_POSTGRES_CASES);
       break;
     default:

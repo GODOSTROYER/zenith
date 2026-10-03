@@ -32,7 +32,7 @@ const ALL = PLATFORM_MIGRATIONS.map((m) => m.version);
 const NEXT = PLATFORM_MIGRATIONS.length + 1;
 
 const EXPECTED_TABLES = [
-  "agent_nonces", "approvals", "build_launches", "capability_grants", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
+  "agent_effect_receipts", "agent_nonces", "approvals", "build_launches", "capability_grants", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
   "github_binding_events", "github_install_intents", "github_source_bindings", "github_webhook_deliveries", "github_webhook_installation_epochs", "idempotency_keys", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machines", "operations", "plan_artifact_associations", "plan_artifact_uses", "plan_artifacts", "policy_decisions", "provider_connections",
   "reconcile_state", "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners",
   "schema_migrations", "workspace_policy",
@@ -414,8 +414,8 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           await tx.query("reset role");
           const tables=await tx.query<{name:string;rls:boolean;owner:string}>(`select c.relname as name,c.relrowsecurity as rls,pg_get_userbyid(c.relowner) as owner
             from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='platform'
-            and c.relname in ('plan_artifacts','plan_artifact_associations','plan_artifact_uses','build_launches','github_binding_events','github_webhook_deliveries','github_webhook_installation_epochs') order by c.relname`);
-          expect(tables).toHaveLength(7);
+            and c.relname in ('plan_artifacts','plan_artifact_associations','plan_artifact_uses','build_launches','github_binding_events','github_webhook_deliveries','github_webhook_installation_epochs','agent_effect_receipts') order by c.relname`);
+          expect(tables).toHaveLength(8);
           for(const table of tables) {
             expect(table.rls).toBe(true);expect(table.owner).toBe(migrationOwner);
             for(const role of ["anon","authenticated"]) {
@@ -430,6 +430,7 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
               plan_artifact_associations: ["SELECT", "INSERT", "UPDATE", "DELETE"],
               plan_artifact_uses: ["SELECT", "INSERT", "UPDATE", "DELETE"],
               build_launches: ["SELECT", "INSERT", "UPDATE"],
+              agent_effect_receipts: ["SELECT", "INSERT"],
               github_binding_events: ["SELECT", "INSERT"],
               github_webhook_deliveries: ["SELECT", "INSERT", "UPDATE"],
               github_webhook_installation_epochs: ["SELECT", "INSERT", "UPDATE"],

@@ -22,16 +22,20 @@
  *    claimable; an expired job is never claimable.
  *  - `settle` is a conditional update from `claimed`/`running`: first writer
  *    wins, everyone else gets `false`.
+ *  - Signed `settleOutcome` commits the first immutable receipt atomically
+ *    with active settlement, or retains only evidence for claimed work now
+ *    cancelled/timed out. Identical logical retries do not replace evidence.
  *  - Nothing is re-queued. A lapsed lease becomes `timed_out`, an unclaimed
  *    job past its expiry becomes `expired`; callers reconcile the operation to
  *    `uncertain`.
  *  - Time is the store's clock (`clock_timestamp()` in SQL).
  */
-import type { AgentKind } from "@/lib/runners/types";
+import { isValidId, MAX_RESULT_BODY_BYTES, type AgentKind } from "@/lib/runners/types";
+import type { SealedBox } from "@/lib/runners/seal";
 
 /* --------------------------------- errors ---------------------------------- */
 
-export type RunnerStoreErrorCode = "not_found" | "invalid_input" | "invalid_registration_token" | "conflict";
+export type RunnerStoreErrorCode = "not_found" | "invalid_input" | "invalid_registration_token" | "conflict" | "agent_revoked";
 
 export class RunnerStoreError extends Error {
   constructor(
@@ -170,6 +174,71 @@ export interface JobLogEntry extends JobLogLine {
   batchSeq: number;
 }
 
+/** An authenticated outcome, independently retained even after projection cancellation. */
+export interface AgentEffectReceipt {
+  workspaceId: string;
+  agentKind: AgentKind;
+  agentId: string;
+  jobId: string;
+  operationId?: string;
+  jobKind: string;
+  capability: string;
+  envelopeDigest: string;
+  agentKeyDigest: string;
+  logicalDigest: string;
+  projectionStatus: "claimed" | "running" | "cancelled" | "timed_out";
+  reportedStatus: AgentJobResultStatus;
+  claimedAt: string;
+  receivedAt: string;
+  sealed: SealedBox;
+}
+
+/** Only trusted service code constructs this after the existing signed route authenticates. */
+export interface SettleOutcomeInput {
+  workspaceId: string;
+  agentId: string;
+  jobId: string;
+  /** Current request verifier's registered key; never taken from the result body. */
+  authenticatedPublicKey: string;
+  logicalDigest: string;
+  status: AgentJobResultStatus;
+  /** Full parsed outcome, including error and timing, sealed under receipt-specific AAD. */
+  sealed: SealedBox;
+  /** Existing active-job projection, sealed separately under the historical result AAD. */
+  result: { startedAt?: string; finishedAt?: string; exitCode?: number; sealed: SealedBox };
+  error?: string;
+}
+
+export interface SettledOutcome {
+  disposition: "settled" | "late" | "duplicate";
+  receipt: AgentEffectReceipt;
+}
+
+/** Bound and copy before a lock wait; ciphertext is opaque, never caller-supplied raw result storage. */
+export function snapshotOutcome(input: SettleOutcomeInput): Readonly<SettleOutcomeInput> {
+  const fail = (): never => { throw new RunnerStoreError("invalid_input", "Invalid sealed agent outcome."); };
+  if (!input || ![input.workspaceId, input.agentId, input.jobId].every(isValidId)
+    || typeof input.authenticatedPublicKey !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(input.authenticatedPublicKey)
+    || typeof input.logicalDigest !== "string" || !/^[a-f0-9]{64}$/.test(input.logicalDigest)
+    || !["succeeded", "failed", "rejected", "timed_out"].includes(input.status)) fail();
+  const box = (value: SealedBox): SealedBox => {
+    if (!value || Object.keys(value).sort().join(",") !== "alg,ct,iv,tag,v" || value.v !== 1 || value.alg !== "A256GCM"
+      || typeof value.iv !== "string" || !/^[A-Za-z0-9_-]{16}$/.test(value.iv)
+      || typeof value.tag !== "string" || !/^[A-Za-z0-9_-]{22}$/.test(value.tag)
+      || typeof value.ct !== "string" || value.ct.length > Math.ceil(MAX_RESULT_BODY_BYTES * 4 / 3) + 4
+      || !/^[A-Za-z0-9_-]+$/.test(value.ct)) fail();
+    return Object.freeze({ v: 1, alg: "A256GCM", iv: value.iv, ct: value.ct, tag: value.tag });
+  };
+  const r = input.result;
+  if (!r || Object.keys(r).some(key => !["startedAt", "finishedAt", "exitCode", "sealed"].includes(key))
+    || [r.startedAt, r.finishedAt].some(value => value !== undefined && (typeof value !== "string" || value.length > 64 || !Number.isFinite(Date.parse(value))))
+    || (r.exitCode !== undefined && !Number.isSafeInteger(r.exitCode))
+    || (input.error !== undefined && (typeof input.error !== "string" || input.error.length > 4000))) fail();
+  return Object.freeze({ workspaceId: input.workspaceId, agentId: input.agentId, jobId: input.jobId,
+    authenticatedPublicKey: input.authenticatedPublicKey, logicalDigest: input.logicalDigest, status: input.status,
+    sealed: box(input.sealed), result: Object.freeze({ startedAt: r.startedAt, finishedAt: r.finishedAt, exitCode: r.exitCode, sealed: box(r.sealed) }), error: input.error });
+}
+
 export interface JobQueue {
   /**
    * Queue a job. The agent must exist in this workspace and be active, and
@@ -182,10 +251,15 @@ export interface JobQueue {
   markRunning(input: { workspaceId: string; agentId: string; jobId: string; leaseMs: number }): Promise<boolean>;
   /** First result of a job this agent holds (claimed/running) wins: true. Anything else: false. */
   settle(input: { workspaceId: string; agentId: string; jobId: string; status: AgentJobResultStatus; result?: unknown; error?: string }): Promise<boolean>;
+  /** Atomic current-agent/original-assignment check + permanent receipt + optional active settlement. */
+  settleOutcome(input: SettleOutcomeInput): Promise<SettledOutcome>;
+  /** Tenant-scoped encrypted evidence; this does not reopen a queue or establish cleanup clearance. */
+  getEffectReceipt(workspaceId: string, jobId: string): Promise<AgentEffectReceipt | null>;
   /**
    * Cancel a job that has not finished (control-plane initiated — also how the
    * awaiting side stops waiting). Null when unknown or already settled; a late
-   * result then gets `settle() === false` (HTTP 409 `already_settled`).
+   * `settle()` remains false afterwards. The signed result protocol may retain
+   * a late encrypted receipt through `settleOutcome`, without changing the job.
    */
   cancel(workspaceId: string, jobId: string, reason?: string): Promise<AgentJob | null>;
   get(workspaceId: string, jobId: string): Promise<AgentJob | null>;

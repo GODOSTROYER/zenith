@@ -48,6 +48,11 @@ begin
     grant usage, select, update on all sequences in schema platform to service_role;
     alter default privileges in schema platform grant select, insert, update, delete on tables to service_role;
     alter default privileges in schema platform grant usage, select, update on sequences to service_role;
+    -- Permanent agent receipts keep their narrower migration-specific grants.
+    -- Guard absence for the exact legacy schema6 upgrade fixture.
+    if to_regclass('platform.agent_effect_receipts') is not null then
+      revoke update, delete on table platform.agent_effect_receipts from service_role;
+    end if;
   end if;
 end
 $$;

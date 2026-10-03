@@ -23,6 +23,7 @@ import { ControlStoreError, PlatformDbError, repos } from "@/lib/controlplane/db
 import type { Sql } from "@/lib/controlplane/types";
 import type { RunnerJob } from "@/lib/controlplane/db/repos/jobs";
 import { createMachineRequestQueue } from "@/lib/runners/db/machine-requests";
+import { get as getEffectReceipt } from "@/lib/controlplane/db/repos/agent-effect-receipts";
 import {
   RunnerStoreError,
   type AgentJob,
@@ -116,6 +117,8 @@ const jobRecord = (j: RunnerJob): AgentJob => ({
 
 function runnerJobQueue(sql: Sql): JobQueue {
   return {
+    settleOutcome: i => guard(() => repos.jobs.settleOutcome(sql, i)),
+    getEffectReceipt: (workspaceId, jobId) => guard(() => getEffectReceipt(sql, { workspaceId, jobId, agentKind: "runner" })),
     enqueue: (i) => guard(async () => jobRecord(await repos.jobs.enqueue(sql, { id: i.id, workspaceId: i.workspaceId, runnerId: i.agentId, operationId: i.operationId, kind: i.kind, capability: i.capability, envelope: i.envelope, ttlMs: i.ttlMs }))),
     claimNext: (i) => guard(async () => (await repos.jobs.claimNext(sql, { workspaceId: i.workspaceId, runnerId: i.agentId, max: i.max, leaseMs: i.leaseMs })).map(jobRecord)),
     markRunning: (i) => guard(() => repos.jobs.markRunning(sql, { workspaceId: i.workspaceId, runnerId: i.agentId, jobId: i.jobId, leaseMs: i.leaseMs })),
@@ -149,6 +152,8 @@ function runnerJobQueue(sql: Sql): JobQueue {
 /** The same error translation for a queue that talks to the database directly. */
 function guardQueue(q: JobQueue): JobQueue {
   return {
+    settleOutcome: i => guard(() => q.settleOutcome(i)),
+    getEffectReceipt: (workspaceId, jobId) => guard(() => q.getEffectReceipt(workspaceId, jobId)),
     enqueue: (i) => guard(() => q.enqueue(i)),
     claimNext: (i) => guard(() => q.claimNext(i)),
     markRunning: (i) => guard(() => q.markRunning(i)),

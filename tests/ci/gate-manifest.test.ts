@@ -62,7 +62,7 @@ describe("canonical gate manifest", () => {
 
   it("covers direct PG-only suites and each parameterized backend suite independently", () => {
     const requirements = requirementsFor("platform-postgres", root);
-    expect(requirements).toHaveLength(141);
+    expect(requirements).toHaveLength(181);
     expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(135);
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/open.test.ts", suite: "platformDb() against PostgreSQL", backend: "postgres" }));
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/executor.test.ts", suite: "cross-engine shape identity", backend: "postgres" }));
@@ -318,5 +318,37 @@ describe("durable build and source revocation release contracts", () => {
     else if (mode === "malformed") assertion.fullName = "";
     else assertion.status = mode;
     expect(reportFailures(requirements, report, root).length).toBeGreaterThan(0);
+  });
+});
+
+
+describe("permanent authenticated agent outcomes", () => {
+  const file = "tests/runners/late-effect-receipts.test.ts";
+  const requirements = () => requirementsFor("platform-postgres", root).filter(item => item.file === file);
+  it("requires both agent domains and every refusal, concurrency and immutable receipt case on PostgreSQL", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    expect(manifest.command).toContain("tests/runners");
+    expect(requirements()).toHaveLength(40);
+    for (const kind of ["runner", "machine"]) {
+      const cases = requirements().filter(item => item.suite === `${kind} authenticated outcomes`);
+      expect(cases).toHaveLength(20);
+      expect(cases.every(item => item.postgres && item.ancestorSuite === "agent effect receipts [postgres]")).toBe(true);
+      expect(cases.some(item => item.test?.startsWith("refuses valid encrypted outcomes under foreign SQL scope"))).toBe(true);
+      expect(cases.some(item => item.test?.startsWith("observes a blocked PostgreSQL result writer"))).toBe(true);
+    }
+  });
+  it.each(["missing", "failed", "pending", "pglite", "malformed", "zero"])("rejects %s agent receipt evidence", mode => {
+    const needed = requirements();
+    const report = { success: true, testResults: [{ name: path.resolve(root, file), status: "passed", assertionResults: needed.map(item => ({
+      title: item.test!, fullName: `${item.ancestorSuite} ${item.suite} ${item.test}`, ancestorTitles: [item.ancestorSuite!, item.suite!], status: "passed",
+    })) }] };
+    expect(reportFailures(needed, report, root)).toEqual([]);
+    const row = report.testResults[0].assertionResults[0];
+    if (mode === "missing") report.testResults[0].assertionResults.shift();
+    else if (mode === "zero") report.testResults[0].assertionResults = [];
+    else if (mode === "pglite") row.ancestorTitles[0] = "agent effect receipts [pglite]";
+    else if (mode === "malformed") row.fullName = "";
+    else row.status = mode;
+    expect(reportFailures(needed, report, root).length).toBeGreaterThan(0);
   });
 });

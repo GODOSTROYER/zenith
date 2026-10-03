@@ -69,6 +69,17 @@ export function reconcileScheduleOptions(input?: unknown): ScheduleOptions {
 }
 
 const empty = (value: unknown): boolean => value === undefined || value === null || (Array.isArray(value) ? value.length === 0 : typeof value === "object" && Object.keys(value).length === 0);
+/** SDK 1.24 decodes absent priority into three undefined fields. No routing override. */
+function noPriorityOverride(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  if (typeof value !== "object" || Array.isArray(value)) return false;
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  if (Reflect.ownKeys(value).some((key) => typeof key !== "string" || !["priorityKey", "fairnessKey", "fairnessWeight"].includes(key) || !("value" in descriptors[key]))) return false;
+  const fields = value as Record<string, unknown>;
+  return [undefined, null, 0].includes(fields.priorityKey as undefined | null | number)
+    && [undefined, null, ""].includes(fields.fairnessKey as undefined | null | string)
+    && [undefined, null, 0, 1].includes(fields.fairnessWeight as undefined | null | number);
+}
 function sameMemo(actual: Record<string, unknown> | undefined, expected: Record<string, unknown>): boolean {
   return !!actual && Object.keys(actual).sort().join(",") === Object.keys(expected).sort().join(",") && Object.keys(expected).every((key) => actual[key] === expected[key]);
 }
@@ -101,6 +112,7 @@ export function assertCompatibleReconcileSchedule(actual: ScheduleDescription, i
   if (!rawAction || rawAction.taskQueue?.name !== TASK_QUEUE
     || ![undefined, null, 0, 1].includes(rawAction.taskQueue.kind)
     || ![undefined, null, ""].includes(rawAction.taskQueue.normalName)
+    || !noPriorityOverride(rawAction.priority)
     || !noVersioningOverride(rawAction.versioningOverride)
     || ![undefined, null, false].includes(raw?.policies?.keepOriginalWorkflowId)
     || !empty(rawAction.header?.fields)) incompatible();
@@ -108,9 +120,9 @@ export function assertCompatibleReconcileSchedule(actual: ScheduleDescription, i
   try { existing = reconcileSweepInput(actionArgs[0]); } catch { return incompatible(); }
   const actionAttributes = action.typedSearchAttributes;
   const actionOwnership = Array.isArray(actionAttributes) ? actionAttributes : actionAttributes?.getAll();
-  if (configDigest(existing) !== configDigest(args) || action.workflowExecutionTimeout !== 180_000 || action.workflowRunTimeout !== 180_000 || action.workflowTaskTimeout !== 10_000 || action.retry?.maximumAttempts !== 1 || !empty(action.memo) || !empty(actionOwnership) || !empty(action.searchAttributes) || action.staticSummary !== undefined || action.staticDetails !== undefined || action.priority !== undefined) incompatible();
+  if (configDigest(existing) !== configDigest(args) || action.workflowExecutionTimeout !== 180_000 || action.workflowRunTimeout !== 180_000 || action.workflowTaskTimeout !== 10_000 || action.retry?.maximumAttempts !== 1 || !empty(action.memo) || !empty(actionOwnership) || !empty(action.searchAttributes) || action.staticSummary !== undefined || action.staticDetails !== undefined || !noPriorityOverride(action.priority)) incompatible();
   // Backoff is inert at one attempt; reject extra error selectors and noncanonical retry values.
-  if (action.retry && (!empty(action.retry.nonRetryableErrorTypes) || (action.retry.initialInterval !== undefined && action.retry.initialInterval !== 1_000) || (action.retry.backoffCoefficient !== undefined && action.retry.backoffCoefficient !== 2) || (action.retry.maximumInterval !== undefined && action.retry.maximumInterval !== 100_000))) incompatible();
+  if (action.retry && (!empty(action.retry.nonRetryableErrorTypes) || (action.retry.initialInterval !== undefined && action.retry.initialInterval !== 1_000) || ![undefined, 0, 2].includes(action.retry.backoffCoefficient) || (action.retry.maximumInterval !== undefined && action.retry.maximumInterval !== 100_000))) incompatible();
   if (policies.overlap !== ScheduleOverlapPolicy.SKIP || policies.catchupWindow !== CADENCE_MS || policies.pauseOnFailure !== false || actual.state.remainingActions !== undefined) incompatible();
   if (spec.intervals?.length !== 1 || spec.intervals[0].every !== CADENCE_MS || (spec.intervals[0].offset ?? 0) !== 0 || !empty(spec.calendars) || !empty(spec.skip) || spec.startAt !== undefined || spec.endAt !== undefined || (spec.jitter ?? 0) !== 0 || ![undefined, "", "UTC"].includes(spec.timezone)) incompatible();
 }

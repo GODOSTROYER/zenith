@@ -6,6 +6,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { runInNewContext } from "node:vm";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { Context } from "@temporalio/activity";
 import { Connection, ScheduleNotFoundError, ScheduleOverlapPolicy, type Client, type ScheduleDescription, type WorkflowHandle } from "@temporalio/client";
@@ -36,6 +37,12 @@ describe("durable reconciliation scalar boundary", () => {
     expect(getter).not.toHaveBeenCalled();
     expect(() => reconcileSweepInput({ ...reconcileSweepInput(), toJSON: vi.fn() })).toThrow();
     expect(() => reconcileSweepInput({ ...reconcileSweepInput(), [Symbol("extra")]: true })).toThrow();
+  });
+  it("refuses a cross-realm plain record at the strict caller boundary", () => {
+    // Deliberately modeled foreign-realm input; the actual describe below remains unmodified.
+    const foreign = runInNewContext('({ contract: "zenith.reconcile-sweep.v1", maxEnvironments: 25, environmentConcurrency: 3 })');
+    expect(Object.getPrototypeOf(foreign)).not.toBe(Object.prototype);
+    expect(() => reconcileSweepInput(foreign)).toThrow("configuration is invalid");
   });
   it("defines finite no-retry passes, SKIP overlap and bounded catchup", () => {
     const options = reconcileScheduleOptions();
@@ -378,6 +385,39 @@ describe("durable schedule on an actual isolated Temporal service", () => {
     for (const changed of copies) expect(() => assertCompatibleReconcileSchedule(changed)).toThrow("existing reconciliation schedule is incompatible");
     const raw = current.raw.schedule!;
     const rawAction = raw.action!.startWorkflow!;
+    // Supplemental mutations of an actual describe, not evidence that the server persisted
+    // these modeled variants. Check both the SDK result and fields it may discard.
+    const priorityCopy = (priority: unknown, rawPriority: unknown): ScheduleDescription => ({
+      ...current,
+      action: { ...current.action, priority },
+      raw: { ...current.raw, schedule: { ...raw, action: { startWorkflow: { ...rawAction, priority: rawPriority } } } },
+    } as unknown as ScheduleDescription);
+    for (const priority of [undefined, null, {}, { priorityKey: undefined, fairnessKey: undefined, fairnessWeight: undefined }, { priorityKey: 0, fairnessKey: "", fairnessWeight: 0 }, { priorityKey: 0, fairnessKey: "", fairnessWeight: 1 }]) {
+      expect(() => assertCompatibleReconcileSchedule(priorityCopy(priority, priority))).not.toThrow();
+    }
+    const priorityGetter = vi.fn(() => 0);
+    const refusedPriorities = [
+      { priorityKey: 1 }, { fairnessKey: "foreign" }, { fairnessWeight: 2 },
+      { priorityKey: "0" }, { fairnessKey: 0 }, { fairnessWeight: "1" },
+      { priorityKey: Number.NaN }, { fairnessWeight: Number.POSITIVE_INFINITY },
+      { priorityKey: 0, unknown: undefined }, { [Symbol("unknown")]: 0 },
+      Object.defineProperty({}, "unknown", { value: undefined }),
+      { get priorityKey() { return priorityGetter(); } }, [], false,
+    ];
+    for (const priority of refusedPriorities) {
+      expect(() => assertCompatibleReconcileSchedule(priorityCopy(priority, null))).toThrow("existing reconciliation schedule is incompatible");
+      expect(() => assertCompatibleReconcileSchedule(priorityCopy({}, priority))).toThrow("existing reconciliation schedule is incompatible");
+    }
+    expect(priorityGetter).not.toHaveBeenCalled();
+    for (const backoffCoefficient of [undefined, 0, 2]) {
+      expect(() => assertCompatibleReconcileSchedule({ ...current, action: { ...current.action, retry: { ...current.action.retry, maximumAttempts: 1, backoffCoefficient } } })).not.toThrow();
+    }
+    for (const retry of [
+      { maximumAttempts: 0 }, { maximumAttempts: 2 },
+      { maximumAttempts: 1, backoffCoefficient: 1 }, { maximumAttempts: 1, backoffCoefficient: 3 },
+      { maximumAttempts: 1, initialInterval: 2_000 }, { maximumAttempts: 1, maximumInterval: 200_000 },
+      { maximumAttempts: 1, nonRetryableErrorTypes: ["foreign"] },
+    ]) expect(() => assertCompatibleReconcileSchedule({ ...current, action: { ...current.action, retry } })).toThrow("existing reconciliation schedule is incompatible");
     const rawCopies: ScheduleDescription[] = [
       { ...current, raw: { ...current.raw, schedule: { ...raw, policies: { ...raw.policies, keepOriginalWorkflowId: true } } } },
       ...([{ behavior: 1, pinnedVersion: "owned-foreign-deployment.build" }, { autoUpgrade: true }, { autoUpgrade: false }] as const).map((versioningOverride) => ({ ...current, raw: { ...current.raw, schedule: { ...raw, action: { startWorkflow: { ...rawAction, versioningOverride } } } } })),

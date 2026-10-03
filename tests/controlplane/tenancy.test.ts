@@ -11,14 +11,29 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as repos from "@/lib/controlplane/db/repos";
 import { bindRepos } from "@/lib/controlplane/db/repos";
 import { ControlStoreError } from "@/lib/controlplane/db";
+import { digest } from "@/lib/controlplane/digest";
 import type { BrokerProposal } from "@/lib/capabilities/types";
 import { executionHolder } from "@/lib/execution/platform";
 import type { PlanArtifactManifest } from "@/lib/tofu/engine";
 import type { ResourceNode } from "@/lib/resources/types";
-import { LANES, approve, newWorkspace, openLane, proposalFor, seedApprovedOperation, seedAwaitingApproval, uid, user } from "./_support/harness";
+import { LANES, PG_URL, approve, newWorkspace, openLane, proposalFor, seedApprovedOperation, seedAwaitingApproval, uid, user } from "./_support/harness";
+import { makeHarness, closeSharedPgliteAfterAll, scriptedEngine, requireApproval, sessionFor } from "../capabilities/support";
+import { makePlan, change } from "../execution/fakes/fixtures";
+import { buildPlanFacts } from "@/lib/capabilities/evaluate";
+import { planEvidence } from "@/lib/execution/plan-evidence";
+import { createOperationsPort } from "@/lib/execution/platform";
+import { createExecutionBroker } from "@/lib/platform/broker";
+import { registerEnvironment } from "@/lib/reconcile/platform";
+import { mkNode } from "../providers/aws/drivers/compute/fixtures";
+
+closeSharedPgliteAfterAll();
+
+/** These run in the real-PostgreSQL canonical-broker sweep below, never as PGlite authority. */
+const BUILD_LAUNCH_SWEPT = new Set(["buildLaunches.claim", "buildLaunches.get", "buildLaunches.acknowledge", "buildLaunches.observeTerminal"]);
 
 /** Functions exercised by the sweep (each named `namespace.function`). */
 const SWEPT = new Set([
+  ...BUILD_LAUNCH_SWEPT,
   "approvals.consume", "approvals.listForOperation", "approvals.record", "approvals.requiredApprovalCount", "approvals.consumeApprovals",
   "connections.get", "connections.list", "connections.recordVerification", "connections.revoke",
   "cost.get", "cost.list",
@@ -49,6 +64,8 @@ const WRITES = new Set([
 
 /** Deliberately not workspace-filtered, with the reason. */
 const EXEMPT: Record<string, string> = {
+  "buildLaunches.BuildLaunchError": "pure error class, contains no SQL or tenant data",
+  "buildLaunches.createIsolatedBuildClaimerForTests": "NODE_ENV=test-only factory captures one actual isolated broker; returns the same scoped claim implementation, takes no tenant data or SQL itself, and is excluded from bindRepos",
   "planArtifacts.PlanArtifactError": "pure error class, contains no SQL or tenant data",
   "planArtifacts.expire": "system logical-expiry maintenance; workspace taken from database candidates, never from tenant input",
   "leases.acquire": "keyed by a globally unique scope string; a workspace-tagged scope refuses a foreign workspace (tested in leases.test.ts)",
@@ -107,6 +124,9 @@ describe("completeness guard", () => {
     expect(Object.keys(bound.operations)).not.toContain("toOperation");
     expect(Object.keys(bound.runners)).not.toContain("generateRegistrationToken");
     expect(Object.keys(bound.planArtifacts)).not.toContain("PlanArtifactError");
+    expect(Object.keys(bound.buildLaunches)).toEqual(expect.arrayContaining(["claim", "get", "acknowledge", "observeTerminal"]));
+    expect(Object.keys(bound.buildLaunches)).not.toContain("BuildLaunchError");
+    expect(Object.keys(bound.buildLaunches)).not.toContain("createIsolatedBuildClaimerForTests");
     expect(await bound.events.list("ws_x")).toEqual([]);
   });
 });
@@ -298,7 +318,9 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "settings.getEnvironmentSettings": () => repos.settings.getEnvironmentSettings(db, B, envId),
       "settings.getWorkspacePolicy": () => repos.settings.getWorkspacePolicy(db, B),
     };
-    expect(new Set(Object.keys(attempts))).toEqual(SWEPT); // the sweep runs exactly what is classified as swept
+    // The four build-launch functions have actual broker/PG positive controls
+    // in the separate sweep below; all remaining functions run in both lanes.
+    expect(new Set(Object.keys(attempts))).toEqual(new Set([...SWEPT].filter(key=>!BUILD_LAUNCH_SWEPT.has(key))));
 
     for (const [name, attempt] of Object.entries(attempts)) {
       const result = await attempt();
@@ -335,4 +357,89 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     expect(await repos.observations.latestObservation(db, A, resource.id)).not.toBeNull();
     expect(await repos.leases.listActive(db, A)).toHaveLength(1);
   });
+});
+
+describe.skipIf(!PG_URL)("build launch tenant isolation sweep [postgres]",()=>{
+  let ctx: Awaited<ReturnType<typeof openLane>>;
+  beforeAll(async()=>{ctx=await openLane(LANES.find(l=>l.name==="postgres")!);},60000);
+  afterAll(async()=>{await ctx?.close();});
+
+  it("sweeps claim/get/acknowledge/observeTerminal with current owning authority and preserves A exactly",async()=>{
+    const db=ctx.db, h=await makeHarness({kind:"postgres",engine:scriptedEngine("tenant-build-policy",()=>requireApproval(1,"admin",true))});
+    const A=h.ids.wsA,B=newWorkspace(),environmentId=h.ids.envAProd,accountId="123456789012",region="eu-west-1";
+    h.deps.clock={now:()=>new Date()};
+    h.world.environments.get(environmentId)!.region=region;
+    const {operation:op}=await h.broker.propose({capability:"deployment.deploy",scope:{workspaceId:A,projectId:h.ids.projA,environmentId},input:{}},user("alice"));
+    const decide=(planDigest?:string)=>h.broker.approve({workspaceId:A,operationId:op.id,proposalDigest:op.proposalDigest,planDigest,approver:user("erin"),session:sessionFor("erin")});
+    await decide();
+    await h.broker.beginExecution({workspaceId:A,operationId:op.id,holder:`workflow:${op.id}`,audience:"worker"});
+    const ports=createOperationsPort(db),worker=createExecutionBroker(db,async()=>h.broker);
+    const plan=makePlan({changes:[change({address:"aws_codebuild_project.web",type:"aws_codebuild_project",action:"create"})]}),facts=buildPlanFacts(plan)!;
+    await repos.evidence.insert(db,{workspaceId:A,operationId:op.id,kind:"tofu_plan",digest:plan.planDigest,summary:planEvidence({plan,facts,cost:{},graphDigest:digest("tenant-graph"),stage:"plan"}).summary,simulated:false});
+    await ports.setPlanDigest({workspaceId:A,operationId:op.id,planDigest:plan.planDigest});
+    const policy=await worker.reevaluate(op.id,facts);
+    await ports.setPolicyDecision({workspaceId:A,operationId:op.id,decisionId:policy.decisionId});
+    await ports.transition({workspaceId:A,operationId:op.id,to:"awaiting_approval"});
+    await decide(plan.planDigest);
+    const lease=await repos.leases.acquire(db,{workspaceId:A,scope:`env:${environmentId}`,holder:`worker:${op.id}`,ttlMs:60000});
+    if(!lease)throw new Error("Tenant build fixture lease unavailable.");
+    await repos.operations.claimForExecution(db,{workspaceId:A,id:op.id,expectedDigest:op.proposalDigest,holder:`workflow:${op.id}`,leaseMs:60000,lease,expectedPolicyVersion:"tenant-build-policy"});
+    // Synthetic completed-plan use is fixture provenance, not provider/apply acceptance.
+    await db.query("insert into platform.plan_artifact_uses(workspace_id,operation_id,phase) values ($1,$2,'succeeded')",[A,op.id]);
+    const pipeline=mkNode("build_pipeline/web","build_pipeline","aws:codebuild_project",{source:{repo:"https://github.com/acme/web",ref:"revision"}},{region,specDigest:digest("tenant-pipeline")});
+    const service=mkNode("container_service/web","container_service","aws:ecs_service",{artifact:{type:"built",pipeline:pipeline.address}},{region,specDigest:digest("tenant-service")});
+    for(const node of [pipeline,service])await repos.resources.upsertDesired(db,{workspaceId:A,environmentId,node,status:"active"});
+    const connection=await repos.connections.create(db,{workspaceId:A,createdBy:"tenant-fixture-admin",config:{provider:"aws",mode:"oidc_web_identity",accountId,region,observeRoleArn:`arn:aws:iam::${accountId}:role/observe`,deployRoleArn:`arn:aws:iam::${accountId}:role/deploy`}});
+    await repos.connections.recordVerification(db,{workspaceId:A,id:connection.id,ok:true});
+    await registerEnvironment(db,{environment:{workspaceId:A,environmentId,provider:"aws",region,class:"development",connection:{id:connection.id,status:"verified"}}});
+    const sourceDigest=digest("tenant-source"),buildId="zenith-build-web:11111111-2222-3333-4444-555555555555";
+    const binding:repos.buildLaunches.BuildLaunchBinding={workspaceId:A,operationId:op.id,environmentId,serviceAddress:service.address,serviceSpecDigest:service.specDigest,pipelineAddress:pipeline.address,pipelineSpecDigest:pipeline.specDigest,
+      accountId,region,projectName:"zenith-build-web",projectArn:`arn:aws:codebuild:${region}:${accountId}:project/zenith-build-web`,sourceBucket:"zenith-source-fixture",sourceKey:`zenith/${environmentId}/web/${sourceDigest}.zip`,sourceDigest,settingsDigest:digest("tenant-settings"),executedSettingsDigest:digest("tenant-executed-settings")};
+    const fence={scope:lease.scope,token:lease.fenceToken},claim=repos.buildLaunches.createIsolatedBuildClaimerForTests(h.broker);
+    const first=await claim(db,binding,fence);
+    expect(first).toMatchObject({claimed:true,launch:{workspace_id:A,phase:"dispatched",build_id:null}});
+    let current=first.launch,finishedAt!:Date;
+    const foreignBinding={...binding,workspaceId:B};
+    const foreignLaunch=():repos.buildLaunches.BuildLaunch=>({...current,workspace_id:B,binding:foreignBinding,binding_digest:digest(foreignBinding)});
+    const receiptRows=()=>db.query("select * from platform.build_launches where workspace_id=$1 and operation_id=$2 order by service_address",[A,op.id]);
+    const authorityRows=async()=>({
+      operation:await db.query("select * from platform.operations where workspace_id=$1 and id=$2",[A,op.id]),
+      approvals:await db.query("select * from platform.approvals where workspace_id=$1 and operation_id=$2 order by id",[A,op.id]),
+      lease:await db.query("select * from platform.leases where scope=$1",[fence.scope]),
+      resources:await db.query("select * from platform.resources where workspace_id=$1 and environment_id=$2 order by address",[A,environmentId]),
+      connection:await db.query("select * from platform.provider_connections where workspace_id=$1 and id=$2",[A,connection.id]),
+      planUse:await db.query("select * from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[A,op.id]),
+    });
+    const authorityBefore=await authorityRows();
+    const attempts:Record<string,()=>Promise<void>>={
+      "buildLaunches.claim":async()=>{await expect(claim(ctx.db2,foreignBinding,fence)).rejects.toBeInstanceOf(repos.buildLaunches.BuildLaunchError);},
+      "buildLaunches.acknowledge":async()=>{await expect(repos.buildLaunches.acknowledge(ctx.db2,foreignLaunch(),buildId,["tenant-accepted-request"])).rejects.toBeInstanceOf(repos.buildLaunches.BuildLaunchError);},
+      "buildLaunches.get":async()=>{expect(await repos.buildLaunches.get(ctx.db2,B,op.id,buildId)).toBeNull();},
+      "buildLaunches.observeTerminal":async()=>{await expect(repos.buildLaunches.observeTerminal(ctx.db2,foreignLaunch(),{status:"STOPPED",finishedAt,requestId:"tenant-terminal-read"})).rejects.toBeInstanceOf(repos.buildLaunches.BuildLaunchError);},
+    };
+    expect(new Set(Object.keys(attempts))).toEqual(BUILD_LAUNCH_SWEPT);
+    const foreignAttempt=async(name:string)=>{
+      const before=await receiptRows();
+      await attempts[name]();
+      expect(await receiptRows(),`${name} preserved A's immutable receipt`).toEqual(before);
+      expect(await authorityRows(),`${name} preserved A's authority`).toEqual(authorityBefore);
+      expect(await db.query("select * from platform.build_launches where workspace_id=$1",[B])).toHaveLength(0);
+    };
+    await foreignAttempt("buildLaunches.claim");
+    await foreignAttempt("buildLaunches.acknowledge");
+    current=await repos.buildLaunches.acknowledge(db,first.launch,buildId,["tenant-accepted-request"]);
+    expect(current.phase).toBe("accepted");
+    expect(await repos.buildLaunches.get(db,A,op.id,buildId)).toEqual(current);
+    await foreignAttempt("buildLaunches.get");
+    await db.query("select pg_sleep(0.002)");
+    const [provider]=await db.query<{finished_at:string;within_receipt_window:boolean}>(`select date_trunc('milliseconds',clock_timestamp())::text as finished_at,
+      date_trunc('milliseconds',clock_timestamp())>=created_at as within_receipt_window
+      from platform.build_launches where workspace_id=$1 and operation_id=$2 and phase='accepted'`,[A,op.id]);
+    expect(provider.within_receipt_window).toBe(true);
+    finishedAt=new Date(provider.finished_at);
+    await foreignAttempt("buildLaunches.observeTerminal");
+    const terminal=await repos.buildLaunches.observeTerminal(db,current,{status:"STOPPED",finishedAt,requestId:"tenant-terminal-read"});
+    expect(terminal).toMatchObject({phase:"terminal",terminal_status:"STOPPED"});
+    expect(await authorityRows()).toEqual(authorityBefore);
+  },15000);
 });

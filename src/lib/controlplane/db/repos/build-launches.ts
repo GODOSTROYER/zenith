@@ -5,6 +5,7 @@ import type { Broker } from "@/lib/capabilities/platform";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { assertFence } from "./leases";
+import { textArray } from "../sql";
 
 const Id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 const Hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -32,7 +33,7 @@ export class BuildLaunchError extends Error {
   readonly code = "build_launch_unconfirmed";
   constructor() { super("Build launch authority or outcome is unconfirmed. Inspect its retained receipt; another build will not be started."); }
 }
-const refuse = (): never => { throw new BuildLaunchError(); };
+function refuse(): never { throw new BuildLaunchError(); }
 function bindingOf(raw: BuildLaunchBinding): BuildLaunchBinding {
   const parsed = Binding.safeParse(raw);
   if (!parsed.success) refuse();
@@ -90,7 +91,7 @@ async function claimBuildLaunch(sql: Sql, raw: BuildLaunchBinding, fence: { scop
     const nodes = await tx.query<{ address: string; spec_digest: string; spec: { artifact?: { type?: string; pipeline?: string } } }>(`select address,spec_digest,spec from platform.resources
       where workspace_id=$1 and environment_id=$2 and address=any($3::text[]) and provider='aws'
       and ownership='managed' and region=$4 and status <> 'deleted' for share`,
-      [binding.workspaceId,binding.environmentId,[binding.serviceAddress,binding.pipelineAddress],binding.region]);
+      [binding.workspaceId,binding.environmentId,textArray([binding.serviceAddress,binding.pipelineAddress]),binding.region]);
     const service=nodes.find(n=>n.address===binding.serviceAddress), pipeline=nodes.find(n=>n.address===binding.pipelineAddress);
     if (!service || !pipeline || service.spec_digest!==binding.serviceSpecDigest || pipeline.spec_digest!==binding.pipelineSpecDigest
       || service.spec.artifact?.type!=="built" || service.spec.artifact.pipeline!==binding.pipelineAddress) refuse();

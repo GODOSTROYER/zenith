@@ -13,6 +13,7 @@ import type { PlatformDb } from "@/lib/controlplane/types";
 import { openPlatformDb } from "@/lib/controlplane/db";
 import { installGithubSourceSchema } from "@/lib/sources/github/schema";
 import { createGithubSourceStore } from "@/lib/sources/github/store";
+import { captureGithubWebhookFence } from "@/lib/sources/github/webhook-store";
 import { createSourceBundles } from "@/lib/platform/source-bundle";
 import { api, binding, INSTALL_TOKEN, keys } from "../sources/fixtures";
 import { writeTar } from "../_support/tar";
@@ -22,7 +23,8 @@ vi.mock("@/lib/controlplane/db/open", async (original) => ({ ...await original<t
 let material: Awaited<ReturnType<typeof keys>>;
 beforeAll(async () => {
   material = await keys(); capture.db = await openPlatformDb({ kind: "pglite" }); await installGithubSourceSchema(capture.db);
-  await createGithubSourceStore(capture.db).bind({ ...binding, actorId: "human", expectedVersion: 0 });
+  const fence = await captureGithubWebhookFence(capture.db, binding.appId, binding.installationId);
+  await createGithubSourceStore(capture.db).bind({ ...binding, actorId: "human", expectedVersion: 0, installationGeneration: fence.generation });
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 afterAll(async () => { await capture.db?.close(); await material.close(); });

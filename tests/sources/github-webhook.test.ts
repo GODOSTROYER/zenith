@@ -71,7 +71,7 @@ describe("GitHub webhook authentication and custody", () => {
     expect((await handler(request(body, { headers: { "x-hub-signature-256": "sha256=" + "0".repeat(64) } }))).status).toBe(403);
     expect(db).not.toHaveBeenCalled();
   });
-  it.each([
+  it.each<Record<string, string>>([
     { "x-hub-signature-256": "" },
     { "x-hub-signature-256": "sha1=" + "a".repeat(40) }, { "x-hub-signature-256": "sha256=" + "a".repeat(63) },
     { "x-hub-signature-256": "sha256=" + "a".repeat(64) + ", sha256=" + "a".repeat(64) },

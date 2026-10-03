@@ -1,10 +1,11 @@
 /** Actual PostgreSQL claims plus SDK contract readback; no live AWS acceptance. */
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockClient } from "aws-sdk-client-mock";
 import { BatchGetBuildsCommand, BatchGetProjectsCommand, CodeBuildClient, StartBuildCommand, type Build, type Project } from "@aws-sdk/client-codebuild";
 import { HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { DescribeRepositoriesCommand, ECRClient } from "@aws-sdk/client-ecr";
 import { digest } from "@/lib/controlplane/digest";
+import type { Sql } from "@/lib/controlplane/types";
 import * as repos from "@/lib/controlplane/db/repos";
 import { createIsolatedBuildLauncherForTests, waitForBuild } from "@/lib/providers/aws/drivers/compute/codebuild-builds";
 import { createAwsBuildPort } from "@/lib/platform/release";
@@ -16,15 +17,20 @@ import { buildPlanFacts } from "@/lib/capabilities/evaluate";
 import { planEvidence } from "@/lib/execution/plan-evidence";
 import { createOperationsPort } from "@/lib/execution/platform";
 import { createExecutionBroker } from "@/lib/platform/broker";
-import { mkDriverContext, mkNode } from "../providers/aws/drivers/compute/fixtures";
+import { fakeSession, mkDriverContext, mkNode } from "../providers/aws/drivers/compute/fixtures";
 
 closeSharedPgliteAfterAll();
 
 describe.skipIf(!PG_URL)("CodeBuild launch authority [postgres]", () => {
   let world: Awaited<ReturnType<typeof openLane>>;
+  let observer: Awaited<ReturnType<(typeof LANES)[number]["open"]>>;
   const cb = mockClient(CodeBuildClient), s3 = mockClient(S3Client), ecr = mockClient(ECRClient);
-  beforeAll(async () => { world = await openLane(LANES.find(l => l.name === "postgres")!); }, 60_000);
-  afterAll(async () => { cb.restore(); s3.restore(); ecr.restore(); await world?.close(); });
+  beforeAll(async () => {
+    const lane=LANES.find(l=>l.name==="postgres")!;
+    world=await openLane(lane);
+    observer=await lane.open();
+  }, 60_000);
+  afterAll(async () => { cb.restore(); s3.restore(); ecr.restore(); await observer?.close(); await world?.close(); });
   beforeEach(() => { cb.reset(); s3.reset(); ecr.reset(); });
 
   async function fixture() {
@@ -53,16 +59,18 @@ describe.skipIf(!PG_URL)("CodeBuild launch authority [postgres]", () => {
     // This is only the build adapter's authority fixture, not plan/apply acceptance.
     await world.db.query("insert into platform.plan_artifact_uses(workspace_id,operation_id,phase) values ($1,$2,'succeeded')", [workspaceId, op.id]);
     const projectName = "zenith-build-web", projectArn = `arn:aws:codebuild:${region}:${accountId}:project/${projectName}`;
-    const pipeline = mkNode("build_pipeline/web", "build_pipeline", "aws:codebuild_project", { source: { repo: "https://github.com/acme/web", ref: "revision" } }, { specDigest: digest("pipeline"), externalRef: projectArn });
-    const service = mkNode("container_service/web", "container_service", "aws:ecs_service", { artifact: { type: "built", pipeline: pipeline.address } }, { specDigest: digest("service") });
+    const pipeline = mkNode("build_pipeline/web", "build_pipeline", "aws:codebuild_project", { source: { repo: "https://github.com/acme/web", ref: "revision" } }, { region, specDigest: digest("pipeline"), externalRef: projectArn });
+    const service = mkNode("container_service/web", "container_service", "aws:ecs_service", { artifact: { type: "built", pipeline: pipeline.address } }, { region, specDigest: digest("service") });
     for (const node of [pipeline, service]) await repos.resources.upsertDesired(world.db, { workspaceId, environmentId, node, status: "active" });
     const connection = await repos.connections.create(world.db, { workspaceId, createdBy: "fixture-admin", config: { provider: "aws", mode: "oidc_web_identity", accountId, region, observeRoleArn: `arn:aws:iam::${accountId}:role/observe`, deployRoleArn: `arn:aws:iam::${accountId}:role/deploy` } });
     await repos.connections.recordVerification(world.db, { workspaceId, id: connection.id, ok: true });
     await registerEnvironment(world.db, { environment: { workspaceId, environmentId, provider: "aws", region, class: "development", connection: { id: connection.id, status: "verified" } } });
     const sourceDigest = digest("source"), sourceBucket = "zenith-build-source", sourceS3Key = `zenith/${environmentId}/web/${sourceDigest}.zip`;
     const input = { sourceS3Key, sourceDigest, externalId: projectArn, service };
-    const ctx = mkDriverContext({ workspaceId, environmentId, operationId: op.id, fence: { scope: lease.scope, token: lease.fenceToken } });
-    const tags = Object.entries({ "zenith:workspace": workspaceId, "zenith:environment": environmentId, "zenith:resource": pipeline.address, "zenith:managed": "true" }).map(([key, value]) => ({ key, value }));
+    const ctx = mkDriverContext({ workspaceId, environmentId, region, session:fakeSession({accountId,region}), now:()=>new Date(),
+      tags:{"zenith:workspace":workspaceId,"zenith:environment":environmentId,"zenith:managed":"true"},
+      operationId: op.id, fence: { scope: lease.scope, token: lease.fenceToken } });
+    const tags = Object.entries({ ...ctx.tags, "zenith:resource": pipeline.address }).map(([key, value]) => ({ key, value }));
     const repositoryUri=`${accountId}.dkr.ecr.${region}.amazonaws.com/zenith-web`;
     const project: Project = { name: projectName, arn: projectArn, tags, source: { type: "S3", location: `${sourceBucket}/zenith/${environmentId}/bootstrap.zip`, buildspec: "version: 0.2" }, artifacts: { type: "NO_ARTIFACTS" }, serviceRole: `arn:aws:iam::${accountId}:role/build`, timeoutInMinutes: 30, queuedTimeoutInMinutes: 60, environment: { type: "LINUX_CONTAINER", image: "aws/codebuild/standard:7.0", computeType: "BUILD_GENERAL1_MEDIUM", privilegedMode:true,imagePullCredentialsType:"CODEBUILD", environmentVariables: [{ name: "ZENITH_DOCKERFILE", value: "Dockerfile", type: "PLAINTEXT" }, {name:"ZENITH_REPO_URL",value:repositoryUri,type:"PLAINTEXT"}] } };
     cb.on(BatchGetProjectsCommand).resolves({ projects: [project] });
@@ -74,13 +82,33 @@ describe.skipIf(!PG_URL)("CodeBuild launch authority [postgres]", () => {
     return { ctx, input, pipeline, service, project, build, op, repositoryUri, h, startBuild, worker };
   }
 
+  async function terminalTimestamp(workspaceId:string,operationId:string):Promise<Date> {
+    const hostFinishedAt=new Date();
+    const [clock]=await observer.query<{accepted:boolean;database_now:string;host_after_created:boolean;host_not_future:boolean;host_delta_ms:number;database_after_created:boolean}>(`select phase='accepted' as accepted,clock_timestamp()::text as database_now,
+      $3::timestamptz>=created_at as host_after_created,$3::timestamptz<=clock_timestamp() as host_not_future,
+      (extract(epoch from ($3::timestamptz-clock_timestamp()))*1000)::double precision as host_delta_ms,
+      clock_timestamp()>=created_at as database_after_created
+      from platform.build_launches where workspace_id=$1 and operation_id=$2`,[workspaceId,operationId,hostFinishedAt.toISOString()]);
+    expect(clock,`terminal timestamp predicate diagnostics: ${JSON.stringify(clock)}`).toMatchObject({accepted:true,database_after_created:true});
+    expect(Number.isFinite(clock.host_delta_ms)).toBe(true);
+    console.info("CodeBuild terminal clock diagnostics",clock);
+    // Mocked provider times follow the authoritative database clock, after
+    // acknowledgement; production rejects out-of-window values unchanged.
+    await observer.query("select pg_sleep(0.002)");
+    const [provider]=await observer.query<{finished_at:string;within_receipt_window:boolean}>(`select date_trunc('milliseconds',clock_timestamp())::text as finished_at,
+      date_trunc('milliseconds',clock_timestamp())>=created_at as within_receipt_window
+      from platform.build_launches where workspace_id=$1 and operation_id=$2 and phase='accepted'`,[workspaceId,operationId]);
+    expect(provider.within_receipt_window).toBe(true);
+    return new Date(provider.finished_at);
+  }
+
   it("keeps the isolated actual-broker launcher unavailable in production",async()=>{
     const f=await fixture(), prior=process.env.NODE_ENV;
     try {
-      process.env.NODE_ENV="production";
+      vi.stubEnv("NODE_ENV", "production");
       expect(()=>createIsolatedBuildLauncherForTests(f.h.broker)).toThrow();
       expect(()=>f.startBuild(f.ctx,f.pipeline,f.input,world.db)).toThrow();
-    } finally {process.env.NODE_ENV=prior;}
+    } finally {vi.stubEnv("NODE_ENV", prior);}
     expect(cb.commandCalls(StartBuildCommand)).toHaveLength(0);
   });
 
@@ -104,19 +132,40 @@ describe.skipIf(!PG_URL)("CodeBuild launch authority [postgres]", () => {
   it.each(["unchanged authority","revoked approver role","new approval count","current policy deny"] as const)("reevaluates %s after an observed PostgreSQL resource lock wait before any launch",async change=>{
     const f=await fixture();
     let outcome!:Promise<{error?:unknown;buildId?:string}>;
-    await world.db.tx(async blocker=>{
+    let claimantPid=0;
+    let backendReady!:()=>void;
+    const ready=new Promise<void>(resolve=>{backendReady=resolve;});
+    // This wrapper observes the real claim transaction's backend. All queries,
+    // locks and broker evaluation still run on the independent PostgreSQL handle.
+    const claimant:Sql & {kind:"postgres"}={kind:"postgres",query:world.db2.query.bind(world.db2),
+      tx:async fn=>world.db2.tx(async tx=>{
+        const [{pid}]=await tx.query<{pid:number}>("select pg_backend_pid() as pid");
+        claimantPid=pid;backendReady();return fn(tx);
+      })};
+    try { await world.db.tx(async blocker=>{
       await blocker.query("select id from platform.resources where workspace_id=$1 and environment_id=$2 and address=$3 for update",[f.ctx.workspaceId,f.ctx.environmentId,f.service.address]);
       const [{pid}]=await blocker.query<{pid:number}>("select pg_backend_pid() as pid");
       // A normal independent handle owns the launch transaction. No provider
       // request is nested inside this blocker's database transaction.
-      outcome=f.startBuild(f.ctx,f.pipeline,f.input,world.db2).then(result=>({buildId:result.buildId}),error=>({error}));
+      outcome=f.startBuild(f.ctx,f.pipeline,f.input,claimant).then(result=>({buildId:result.buildId}),error=>({error}));
+      await Promise.race([ready,outcome.then(()=>{throw new Error("Build finished before entering its PostgreSQL claim transaction.");})]);
+      expect(claimantPid).toBeGreaterThan(0);
+      expect(claimantPid).not.toBe(pid);
       let blocked=false;
-      for(let attempt=0;attempt<100;attempt++) {
-        const [state]=await blocker.query<{blocked:boolean}>(`select exists (select 1 from pg_stat_activity
-          where wait_event_type='Lock' and query like '%select address,spec_digest,spec from platform.resources%'
-          and $1=any(pg_blocking_pids(pid))) as blocked`,[pid]);
+      const deadline=Date.now()+3000;
+      while(Date.now()<deadline) {
+        const state=await observer.tx(async fresh=>{
+          await fresh.query("select pg_stat_clear_snapshot()");
+          const [state]=await fresh.query<{blocked:boolean;observer_pid:number}>(`select pg_backend_pid() as observer_pid,
+            exists (select 1 from pg_stat_activity where pid=$1 and wait_event_type='Lock'
+              and query like '%select address,spec_digest,spec from platform.resources%'
+              and $2=any(pg_blocking_pids(pid))) as blocked`,[claimantPid,pid]);
+          return state;
+        });
+        expect(state.observer_pid).not.toBe(claimantPid);
+        expect(state.observer_pid).not.toBe(pid);
         if(state?.blocked) {blocked=true;break;}
-        await new Promise(resolve=>setTimeout(resolve,5));
+        await new Promise(resolve=>setTimeout(resolve,10));
       }
       expect(blocked).toBe(true);
       // Mutation happens only after the DB proves this launch is waiting.
@@ -132,7 +181,7 @@ describe.skipIf(!PG_URL)("CodeBuild launch authority [postgres]", () => {
       expect(live).toEqual({operation:true,fence:true,approvals:1});
       expect(cb.commandCalls(StartBuildCommand)).toHaveLength(0);
       // Commit releases the exact resource lock after current authority changed.
-    });
+    }); } finally { if(outcome) await outcome; }
     const result=await outcome;
     const retained=await world.db.query<{phase:string;build_id:string}>("select phase,build_id from platform.build_launches where workspace_id=$1 and operation_id=$2",[f.ctx.workspaceId,f.op.id]);
     if(change==="unchanged authority") {
@@ -144,7 +193,7 @@ describe.skipIf(!PG_URL)("CodeBuild launch authority [postgres]", () => {
       expect(cb.commandCalls(StartBuildCommand)).toHaveLength(0);
       expect(retained).toHaveLength(0);
     }
-  });
+  },15000);
 
   it("commits one claim across competing workers and sends the bound ZIP once", async () => {
     const f = await fixture();
@@ -194,7 +243,8 @@ describe.skipIf(!PG_URL)("CodeBuild launch authority [postgres]", () => {
   it("retains a provider-complete failure receipt independently of cancelled UI status", async () => {
     const f = await fixture(); const handle = await f.startBuild(f.ctx, f.pipeline, f.input, world.db);
     await repos.operations.transition(world.db2, { workspaceId: f.ctx.workspaceId, id: f.op.id, from: ["running"], to: "cancelled" });
-    cb.on(BatchGetBuildsCommand).resolves({ builds: [{ ...f.build, buildStatus: "FAILED", buildComplete: true, endTime: new Date() }], $metadata: { requestId: "terminal-read" } });
+    const endTime=await terminalTimestamp(f.ctx.workspaceId,f.op.id);
+    cb.on(BatchGetBuildsCommand).resolves({ builds: [{ ...f.build, buildStatus: "FAILED", buildComplete: true, endTime }], $metadata: { requestId: "terminal-read" } });
     expect(await waitForBuild(f.ctx, handle.buildId, {}, world.db2)).toMatchObject({ status: "FAILED" });
     expect(await repos.buildLaunches.get(world.db, f.ctx.workspaceId, f.op.id, handle.buildId)).toMatchObject({ phase: "terminal", terminal_status: "FAILED" });
     expect(cb.commandCalls(StartBuildCommand)).toHaveLength(1);
@@ -204,7 +254,8 @@ describe.skipIf(!PG_URL)("CodeBuild launch authority [postgres]", () => {
     const f=await fixture(); const handle=await f.startBuild(f.ctx,f.pipeline,f.input,world.db);
     const imageDigest=`sha256:${"a".repeat(64)}`;
     const artifacts=artifactShape==="omitted"?undefined:artifactShape==="empty"?{}:{encryptionDisabled:false,overrideArtifactName:false,bucketOwnerAccess:"NONE" as const};
-    cb.on(BatchGetBuildsCommand).resolves({builds:[{...f.build,buildStatus:"SUCCEEDED",buildComplete:true,endTime:new Date(),artifacts,autoRetryConfig:{autoRetryLimit:0,autoRetryNumber:0},exportedEnvironmentVariables:[{name:"ZENITH_IMAGE_DIGEST",value:imageDigest}]}],$metadata:{requestId:"successful-terminal-read"}});
+    const endTime=await terminalTimestamp(f.ctx.workspaceId,f.op.id);
+    cb.on(BatchGetBuildsCommand).resolves({builds:[{...f.build,buildStatus:"SUCCEEDED",buildComplete:true,endTime,artifacts,autoRetryConfig:{autoRetryLimit:0,autoRetryNumber:0},exportedEnvironmentVariables:[{name:"ZENITH_IMAGE_DIGEST",value:imageDigest}]}],$metadata:{requestId:"successful-terminal-read"}});
     ecr.on(DescribeRepositoriesCommand).resolves({repositories:[{repositoryName:"zenith-web",repositoryUri:f.repositoryUri}]});
     const before=cb.commandCalls(BatchGetProjectsCommand).length;
     expect(await createAwsBuildPort(world.db2).waitForBuild(f.ctx,handle,{timeoutMs:1000})).toEqual({status:"succeeded",digest:imageDigest,imageUri:`${f.repositoryUri}@${imageDigest}`});

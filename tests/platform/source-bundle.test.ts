@@ -295,8 +295,15 @@ describe("customer source bucket uploads", () => {
   });
   it("bounds ZIP output before uploading and keeps rejecting hostile source archives", async () => {
     const w = fixture(); const tar = writeTar(entries);
-    const port = createSourceBundles({ resources: w.resources, fetchImpl: w.fetchImpl, limits: { maxArchiveBytes: gzipSync(tar).length } }).port;
-    await expect(port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("ZIP exceeds");
+    // Prove this valid source succeeds, but its canonical ZIP exceeds the
+    // tighter accepted download bound. Failure must occur before another upload.
+    await w.port.prepare(w.ctx, { service: w.service, source });
+    const downloadBound = gzipSync(tar).length;
+    const uploaded = s3.commandCalls(PutObjectCommand)[0].args[0].input;
+    expect(uploaded.ContentLength).toBeGreaterThan(downloadBound);
+    s3.resetHistory();
+    const port = createSourceBundles({ resources: w.resources, fetchImpl: w.fetchImpl, limits: { maxArchiveBytes: downloadBound } }).port;
+    await expect(port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("Source bundle preparation could not be confirmed; outcome is unknown.");
     for (const hostile of [[{ path: "root/link", type: "symlink" as const }], [{ path: "root/../outside" }]]) {
       w.fetchImpl.mockImplementation(async () => response(writeTar(hostile)));
       await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow();

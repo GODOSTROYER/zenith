@@ -1,5 +1,5 @@
 /** Actual PostgreSQL authority acceptance. Synthetic completed-plan use is a fixture, not provider/apply provenance. */
-import { beforeAll, afterAll, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 import { digest } from "@/lib/controlplane/digest";
 import * as launches from "@/lib/controlplane/db/repos/build-launches";
 import * as repos from "@/lib/controlplane/db/repos";
@@ -17,8 +17,13 @@ closeSharedPgliteAfterAll();
 
 describe.skipIf(!PG_URL)("build launch authority [postgres]",()=>{
   let world: Awaited<ReturnType<typeof openLane>>;
-  beforeAll(async()=>{world=await openLane(LANES.find(l=>l.name==="postgres")!);},60000);
-  afterAll(async()=>{await world?.close();});
+  let observer: Awaited<ReturnType<(typeof LANES)[number]["open"]>>;
+  beforeAll(async()=>{
+    const lane=LANES.find(l=>l.name==="postgres")!;
+    world=await openLane(lane);
+    observer=await lane.open();
+  },60000);
+  afterAll(async()=>{await observer?.close();await world?.close();});
   async function fixture() {
     const h=await makeHarness({kind:"postgres",engine:scriptedEngine("build-policy",()=>requireApproval(1,"admin",true))});
     const workspaceId=h.ids.wsA, environmentId=h.ids.envAProd, region="eu-west-1", accountId="123456789012";
@@ -44,8 +49,8 @@ describe.skipIf(!PG_URL)("build launch authority [postgres]",()=>{
     if(!status.approved || !status.dispatchApproval) throw new Error("Fixture has no current dispatch approval.");
     const claim=launches.createIsolatedBuildClaimerForTests(h.broker);
     await world.db.query("insert into platform.plan_artifact_uses (workspace_id,operation_id,phase) values ($1,$2,'succeeded')",[workspaceId,op.id]);
-    const pipeline=mkNode("build_pipeline/web","build_pipeline","aws:codebuild_project",{source:{repo:"https://github.com/acme/web",ref:"revision"}},{specDigest:digest("pipeline")});
-    const service=mkNode("container_service/web","container_service","aws:ecs_service",{artifact:{type:"built",pipeline:pipeline.address}},{specDigest:digest("service")});
+    const pipeline=mkNode("build_pipeline/web","build_pipeline","aws:codebuild_project",{source:{repo:"https://github.com/acme/web",ref:"revision"}},{region,specDigest:digest("pipeline")});
+    const service=mkNode("container_service/web","container_service","aws:ecs_service",{artifact:{type:"built",pipeline:pipeline.address}},{region,specDigest:digest("service")});
     for(const node of [pipeline,service]) await repos.resources.upsertDesired(world.db,{workspaceId,environmentId,node,status:"active"});
     const connection=await repos.connections.create(world.db,{workspaceId,createdBy:"fixture-admin",config:{provider:"aws",mode:"oidc_web_identity",accountId,region,observeRoleArn:`arn:aws:iam::${accountId}:role/observe`,deployRoleArn:`arn:aws:iam::${accountId}:role/deploy`}});
     await repos.connections.recordVerification(world.db,{workspaceId,id:connection.id,ok:true});
@@ -82,32 +87,48 @@ describe.skipIf(!PG_URL)("build launch authority [postgres]",()=>{
     const ready=new Promise<void>(resolve=>{backendReady=resolve;});
     let pid=0;
     let outcome!:Promise<{error?:unknown;claimed?:boolean}>;
-    await world.db.tx(async blocker=>{
+    const table=kind==="fence"?"leases":kind==="consumed-approval"?"approvals":"operations", column=kind==="execution-lease"?"lease_until":"expires_at";
+    const target=kind==="fence"?f.fence.scope:kind==="consumed-approval"?(await f.worker.approvalStatus(f.op.id)).dispatchApproval!.approvalIds[0]:f.op.id;
+    // Commit this update before either transaction: the claimant locks the
+    // operation before the resource, and each handle has its own ALS scope.
+    const [expires]=await observer.query<{expiry:string}>(`update platform.${table} set ${column}=clock_timestamp()+interval '5 seconds'
+      where workspace_id=$1 and ${kind==="fence"?"scope=$2":"id=$2"} returning ${column}::text as expiry`,[f.binding.workspaceId,target]);
+    expect(expires).toBeDefined();
+    try { await world.db.tx(async blocker=>{
       await blocker.query("select id from platform.resources where workspace_id=$1 and environment_id=$2 and address=$3 for update",[f.binding.workspaceId,f.binding.environmentId,f.binding.serviceAddress]);
-      const table=kind==="fence"?"leases":kind==="consumed-approval"?"approvals":"operations", column=kind==="execution-lease"?"lease_until":"expires_at";
-      const target=kind==="fence"?f.fence.scope:kind==="consumed-approval"?(await f.worker.approvalStatus(f.op.id)).dispatchApproval!.approvalIds[0]:f.op.id;
-      const [expires]=await world.db.query<{expiry:string}>(`update platform.${table} set ${column}=clock_timestamp()+interval '2 seconds'
-        where ${kind==="fence"?"scope=$1":"id=$1"} returning ${column}::text as expiry`,[target]);
+      const [{pid:blockerPid}]=await blocker.query<{pid:number}>("select pg_backend_pid() as pid");
       outcome=world.db2.tx(async claimant=>{
         [ { pid } ]=await claimant.query<{pid:number}>("select pg_backend_pid() as pid");
         backendReady();
         return f.claim(claimant,f.binding,f.fence);
       }).then(result=>({claimed:result.claimed}),error=>({error}));
-      await ready;
+      await Promise.race([ready,outcome.then(()=>{throw new Error("Claim finished before its PostgreSQL backend was observed.");})]);
+      expect(pid).toBeGreaterThan(0);
+      expect(pid).not.toBe(blockerPid);
       let blocked=false;
-      for(let attempt=0;attempt<100;attempt++) {
-        const [state]=await world.db.query<{blocked:boolean}>("select wait_event_type='Lock' and query like '%select address,spec_digest,spec from platform.resources%' as blocked from pg_stat_activity where pid=$1",[pid]);
+      const deadline=Date.now()+3000;
+      while(Date.now()<deadline) {
+        const state=await observer.tx(async fresh=>{
+          await fresh.query("select pg_stat_clear_snapshot()");
+          const [state]=await fresh.query<{blocked:boolean;observer_pid:number}>(`select pg_backend_pid() as observer_pid,
+            exists (select 1 from pg_stat_activity where pid=$1 and wait_event_type='Lock'
+              and query like '%select address,spec_digest,spec from platform.resources%'
+              and $2=any(pg_blocking_pids(pid))) as blocked`,[pid,blockerPid]);
+          return state;
+        });
+        expect(state.observer_pid).not.toBe(pid);
+        expect(state.observer_pid).not.toBe(blockerPid);
         if(state?.blocked) {blocked=true;break;}
-        await new Promise(resolve=>setTimeout(resolve,5));
+        await new Promise(resolve=>setTimeout(resolve,10));
       }
       expect(blocked).toBe(true);
-      await world.db.query("select pg_sleep(greatest(0,extract(epoch from ($1::timestamptz-clock_timestamp())))+0.05)",[expires.expiry]);
+      await observer.query("select pg_sleep(greatest(0,extract(epoch from ($1::timestamptz-clock_timestamp())))+0.05)",[expires.expiry]);
       // COMMIT releases the real PostgreSQL resource lock after authority expiry.
-    });
+    }); } finally { if(outcome) await outcome; }
     expect((await outcome).error).toBeDefined();
     const rows=await world.db.query("select operation_id from platform.build_launches where workspace_id=$1 and operation_id=$2",[f.binding.workspaceId,f.op.id]);
     expect(rows).toHaveLength(0);
-  });
+  },15000);
   it("refuses expired consumed approvals at the CAS while operation and fence remain live",async()=>{
     const f=await fixture();
     await f.h.expireApprovals(f.op.id);
@@ -122,10 +143,10 @@ describe.skipIf(!PG_URL)("build launch authority [postgres]",()=>{
     const f=await fixture(), prior=process.env.NODE_ENV;
     expect(repos.bindRepos(world.db).buildLaunches).not.toHaveProperty("createIsolatedBuildClaimerForTests");
     try {
-      process.env.NODE_ENV="production";
+      vi.stubEnv("NODE_ENV", "production");
       expect(()=>launches.createIsolatedBuildClaimerForTests(f.h.broker)).toThrow();
       expect(()=>f.claim(world.db,f.binding,f.fence)).toThrow();
-    } finally {process.env.NODE_ENV=prior;}
+    } finally {vi.stubEnv("NODE_ENV", prior);}
     expect(await world.db.query("select operation_id from platform.build_launches where workspace_id=$1 and operation_id=$2",[f.binding.workspaceId,f.op.id])).toHaveLength(0);
   });
   it("records a late accepted receipt after cancellation without reopening the writer",async()=>{
@@ -150,7 +171,31 @@ describe.skipIf(!PG_URL)("build launch authority [postgres]",()=>{
   it("retains an immutable terminal receipt independently of operation projections and provider-token expiry",async()=>{
     const f=await fixture(); const first=await f.claim(world.db,f.binding,f.fence);
     const accepted=await launches.acknowledge(world.db2,first.launch,f.buildId,["accepted-request"]);
-    const finishedAt=new Date();
+    const hostFinishedAt=new Date();
+    const [clock]=await observer.query<{accepted:boolean;database_now:string;host_after_created:boolean;host_not_future:boolean;host_delta_ms:number;database_after_created:boolean}>(`select phase='accepted' as accepted,clock_timestamp()::text as database_now,
+      $3::timestamptz>=created_at as host_after_created,$3::timestamptz<=clock_timestamp() as host_not_future,
+      (extract(epoch from ($3::timestamptz-clock_timestamp()))*1000)::double precision as host_delta_ms,
+      clock_timestamp()>=created_at as database_after_created
+      from platform.build_launches where workspace_id=$1 and operation_id=$2`,[f.binding.workspaceId,f.op.id,hostFinishedAt.toISOString()]);
+    expect(clock,`terminal timestamp predicate diagnostics: ${JSON.stringify(clock)}`).toMatchObject({accepted:true,database_after_created:true});
+    expect(Number.isFinite(clock.host_delta_ms)).toBe(true);
+    console.info("build terminal clock diagnostics",clock);
+    // A deterministic out-of-window provider clock proves that an otherwise
+    // accepted receipt gets no terminal update; host skew alone is diagnostic.
+    const futureFinishedAt=new Date(Date.parse(clock.database_now)+60000);
+    const [future]=await observer.query<{within_receipt_window:boolean}>(`select $3::timestamptz>=created_at and $3::timestamptz<=clock_timestamp() as within_receipt_window
+      from platform.build_launches where workspace_id=$1 and operation_id=$2 and phase='accepted'`,[f.binding.workspaceId,f.op.id,futureFinishedAt.toISOString()]);
+    expect(future.within_receipt_window).toBe(false);
+    await expect(launches.observeTerminal(world.db,accepted,{status:"STOPPED",finishedAt:futureFinishedAt,requestId:"future-clock-probe"})).rejects.toMatchObject({code:"build_launch_unconfirmed"});
+    expect(await launches.get(world.db,f.binding.workspaceId,f.op.id,f.buildId)).toEqual(accepted);
+    // The provider response is synthetic. Derive its bounded timestamp from
+    // the database after acknowledgement, without widening production clocks.
+    await observer.query("select pg_sleep(0.002)");
+    const [provider]=await observer.query<{finished_at:string;within_receipt_window:boolean}>(`select date_trunc('milliseconds',clock_timestamp())::text as finished_at,
+      date_trunc('milliseconds',clock_timestamp())>=created_at as within_receipt_window
+      from platform.build_launches where workspace_id=$1 and operation_id=$2 and phase='accepted'`,[f.binding.workspaceId,f.op.id]);
+    expect(provider.within_receipt_window).toBe(true);
+    const finishedAt=new Date(provider.finished_at);
     const terminal=await launches.observeTerminal(world.db,accepted,{status:"STOPPED",finishedAt,requestId:"terminal-read-request"});
     expect(terminal).toMatchObject({phase:"terminal",terminal_status:"STOPPED"});
     await world.db.query("update platform.operations set expires_at=clock_timestamp()-interval '6 minutes' where workspace_id=$1 and id=$2",[f.binding.workspaceId,f.op.id]);

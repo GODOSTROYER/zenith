@@ -65,7 +65,7 @@ describe("buildArtifacts", () => {
 
   it.each(["lost-response", "polling-deadline"] as const)("retains a later parallel %s uncertainty over an earlier definitive failure and starts no fourth build", async kind => {
     const w=world(), manifest=builtManifest();
-    manifest.services=["a","b","c","d"].map(name=>({...manifest.services[0],id:`svc-${name}`,name}));
+    manifest.services=["aa","bb","cc","dd"].map(name=>({...manifest.services[0],id:`svc-${name}`,name}));
     w.product.setManifest(manifest);
     const original=w.build.startBuild.bind(w.build);
     let allStarted!:()=>void, firstFailure!:()=>void;
@@ -76,17 +76,17 @@ describe("buildArtifacts", () => {
       const handle=await original(ctx,input);
       if(w.build.started.length===3) allStarted();
       await started;
-      if(input.service.address==="container_service/a") {firstFailure();throw new StepFailedError("Provider confirmed the first build failed.");}
+      if(input.service.address==="container_service/aa") {firstFailure();throw new StepFailedError("Provider confirmed the first build failed.");}
       await failed;
       // Let the first rejection arrive before this already-started sibling's
       // later unknown result; classification must not depend on that ordering.
       await Promise.resolve(); await Promise.resolve();
-      if(input.service.address==="container_service/b") throw uncertainty;
+      if(input.service.address==="container_service/bb") throw uncertainty;
       return handle;
     };
     const lease=await ready(w);
     await expect(w.activities.buildArtifacts({operationId:OP,lease})).rejects.toBe(uncertainty);
-    expect(w.build.started.map(b=>b.service)).toEqual(["container_service/a","container_service/b","container_service/c"]);
+    expect(w.build.started.map(b=>b.service)).toEqual(["container_service/aa","container_service/bb","container_service/cc"]);
     expect(w.workloads.deployed).toHaveLength(0);
   });
 

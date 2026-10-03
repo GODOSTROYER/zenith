@@ -62,8 +62,8 @@ describe("canonical gate manifest", () => {
 
   it("covers direct PG-only suites and each parameterized backend suite independently", () => {
     const requirements = requirementsFor("platform-postgres", root);
-    expect(requirements).toHaveLength(140);
-    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(134);
+    expect(requirements).toHaveLength(141);
+    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(135);
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/open.test.ts", suite: "platformDb() against PostgreSQL", backend: "postgres" }));
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/executor.test.ts", suite: "cross-engine shape identity", backend: "postgres" }));
     expect(requirements.filter((required: { file: string }) => required.file === "tests/capabilities/tenancy.test.ts")).toHaveLength(5);
@@ -288,10 +288,11 @@ describe("durable build and source revocation release contracts", () => {
   const files = ["tests/controlplane/build-launches.test.ts", "tests/platform/codebuild-launch-authority.test.ts", "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts"];
   it("requires every build authority case and source lock regression on real PostgreSQL", () => {
     const manifest = manifestFor("platform-postgres", root);
-    for (const file of files) expect(manifest.command).toContain(file);
+    for (const file of files) expect(manifest.command.some(argument => argument === file || file.startsWith(`${argument}/`)), `${file} executes explicitly or through its directory`).toBe(true);
     expect(manifest.requirements.filter(item => item.file === files[1])).toHaveLength(34);
     expect(manifest.requirements.filter(item => item.file === files[2])).toHaveLength(13);
     expect(manifest.requirements.filter(item => item.file === files[3])).toHaveLength(9);
+    expect(manifest.requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/tenancy.test.ts", suite: "build launch tenant isolation sweep [postgres]", backend: "postgres" }));
     expect(manifest.requirements).toContainEqual(expect.objectContaining({ file: files[3], test: "serializes webhook revocation with a first-binding transaction holding the same epoch lock", postgres: true }));
     expect(manifest.requirements).toContainEqual(expect.objectContaining({ file: files[3], test: "refuses an actual consumed first binding after signed installation revocation", postgres: true }));
   });

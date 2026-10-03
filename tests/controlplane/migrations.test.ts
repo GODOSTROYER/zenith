@@ -39,7 +39,9 @@ const EXPECTED_TABLES = [
 ];
 
 /** Tables that hold no tenant-visible rows keyed by workspace (see the header of 0001_core.ts). */
-const NO_WORKSPACE_COLUMN = new Set(["schema_migrations", "agent_nonces"]);
+// Signed installation events can revoke multiple tenants. These two tables
+// are global App-scoped fences/receipts, never tenant-addressable resources.
+const NO_WORKSPACE_COLUMN = new Set(["schema_migrations", "agent_nonces", "github_webhook_deliveries", "github_webhook_installation_epochs"]);
 
 interface Lane {
   name: string;
@@ -199,6 +201,23 @@ describe.each(lanes)("migrator [$name]", (lane) => {
       );
       const leading = new Set(indexed.map((r) => r.table_name));
       for (const t of tables) expect(leading.has(t), `${t} has an index leading with workspace_id`).toBe(true);
+
+      for (const [table, keys] of [
+        ["github_webhook_installation_epochs", ["app_id", "installation_id"]],
+        ["github_webhook_deliveries", ["app_id", "delivery_id"]],
+      ] as const) {
+        expect(withWorkspace.has(table), `${table} is explicitly App-scoped`).toBe(false);
+        const columns = await db.query<{ column_name: string; is_nullable: string }>(
+          "select column_name, is_nullable from information_schema.columns where table_schema='platform' and table_name=$1", [table]);
+        for (const key of keys) expect(columns.find(column => column.column_name === key)?.is_nullable, `${table}.${key} cannot be unscoped`).toBe("NO");
+        const primary = await db.query<{ column_name: string }>(`select k.column_name from information_schema.table_constraints c
+          join information_schema.key_column_usage k on k.constraint_schema=c.constraint_schema and k.constraint_name=c.constraint_name
+          where c.table_schema='platform' and c.table_name=$1 and c.constraint_type='PRIMARY KEY' order by k.ordinal_position`, [table]);
+        expect(primary.map(column => column.column_name)).toEqual(keys);
+        const [security] = await db.query<{ rls: boolean }>(`select c.relrowsecurity as rls from pg_class c join pg_namespace n on n.oid=c.relnamespace
+          where n.nspname='platform' and c.relname=$1`, [table]);
+        expect(security.rls).toBe(true);
+      }
     });
   }, 60_000);
 

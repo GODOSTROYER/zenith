@@ -346,7 +346,7 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
       }
       return result;
     }};
-    const runtime=createIsolatedPlanArtifactRuntimeForTests(h.db!,{ZENITH_PLAN_ARTIFACT_KEY:randomBytes(32).toString("hex"),ZENITH_WORKER_PLAN_DIR:w.planDir},broker);
+    const runtime=createIsolatedPlanArtifactRuntimeForTests(h.db!,{...process.env,ZENITH_PLAN_ARTIFACT_KEY:randomBytes(32).toString("hex"),ZENITH_WORKER_PLAN_DIR:w.planDir},broker);
     const entered=dispatchBarrier(),release=dispatchBarrier();const state=path.join(w.planDir,"customer-state.tfstate");
     const tofu={planWorkspace:runtime.tofu.planWorkspace,applyVerifiedPlan:(ws:Parameters<typeof runtime.tofu.applyVerifiedPlan>[0],args:Parameters<typeof runtime.tofu.applyVerifiedPlan>[1])=>
       runtime.tofu.applyVerifiedPlan(ws,{...args,beforeDispatch:async()=>{entered.release();await release.promise;await args.beforeDispatch?.();}})};

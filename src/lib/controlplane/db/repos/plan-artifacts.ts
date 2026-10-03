@@ -157,7 +157,7 @@ export async function read(sql: Sql, input: ArtifactAccess): Promise<ArtifactRow
   });
 }
 // Checked at the CAS itself: row locks serialize mutations, not passage of time.
-const liveUseAuthority = `and exists (select 1 from platform.operations o join platform.leases l on l.scope=o.lease_scope
+const LIVE_USE_AUTHORITY = `exists (select 1 from platform.operations o join platform.leases l on l.scope=o.lease_scope
   where o.workspace_id=$1 and o.id=$2 and o.status='running' and o.expires_at > clock_timestamp() and o.lease_until > clock_timestamp()
   and o.lease_holder='workflow:' || o.id and o.lease_scope='env:' || o.environment_id and o.fence_token=$5
   and (not o.approval_required or exists (select 1 from platform.approvals approved
@@ -172,7 +172,7 @@ export async function claim(sql: Sql, input: ArtifactAccess, attemptId: string):
   return sql.tx(async (tx) => {
     const row = await read(tx,input);
     const changed = await tx.query(`update platform.plan_artifact_uses set phase='claimed',attempt_id=$3,holder=$4,fence_token=$5,updated_at=clock_timestamp()
-      where workspace_id=$1 and operation_id=$2 and phase='ready' ${liveUseAuthority} returning operation_id`,
+      where workspace_id=$1 and operation_id=$2 and phase='ready' and (${LIVE_USE_AUTHORITY}) returning operation_id`,
       [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken]);
     if (!changed.length) refuse();
     return row;
@@ -188,7 +188,7 @@ export async function dispatch(sql: Sql, input: ArtifactAccess, attemptId: strin
   await sql.tx(async (tx) => {
     await read(tx,input);
     const changed = await tx.query(`update platform.plan_artifact_uses set phase='dispatched',updated_at=clock_timestamp()
-      where workspace_id=$1 and operation_id=$2 and phase='claimed' and attempt_id=$3 and holder=$4 and fence_token=$5 ${liveUseAuthority}
+      where workspace_id=$1 and operation_id=$2 and phase='claimed' and attempt_id=$3 and holder=$4 and fence_token=$5 and (${LIVE_USE_AUTHORITY})
       and ($6::text::jsonb is null or exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2
         and o.approval_round=($6::text::jsonb->>'approvalRound')::integer and o.proposal_digest=$6::text::jsonb->>'proposalDigest'
         and o.plan_digest=$6::text::jsonb->>'planDigest'
@@ -208,7 +208,7 @@ export async function finish(sql: Sql, input: ArtifactAccess, attemptId: string,
   const update=async(tx:Sql)=> {
     const rows = await tx.query<{phase:string}>(`update platform.plan_artifact_uses set phase=case when phase='claimed' then 'ready' when $6::boolean then 'succeeded' else 'uncertain' end,
       updated_at=clock_timestamp() where workspace_id=$1 and operation_id=$2 and attempt_id=$3 and holder=$4 and fence_token=$5
-      and phase in ('claimed','dispatched') and (not $6::boolean or phase='dispatched') ${success?liveUseAuthority:""} returning phase`,
+      and phase in ('claimed','dispatched') and (not $6::boolean or phase='dispatched') and (not $6::boolean or (${LIVE_USE_AUTHORITY})) returning phase`,
       [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken,success]);
     if (success && rows[0]?.phase !== "succeeded") refuse();
   };

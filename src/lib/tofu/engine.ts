@@ -254,7 +254,9 @@ export const applyVerifiedPlan = (ws: TofuWorkspace, args: Parameters<typeof app
 /** Server composition captures one executable and two private registries. Neither is returned by the runtime. */
 export function createPlanEngineAuthority(cipher:VaultCipher, resolve: (original:ApprovedPlan)=>PlanAdmission|undefined, env:Readonly<Record<string,string|undefined>>=process.env) {
   const producers=new WeakMap<ProducedPlan,ProducerRecord>();
-  const runner=new TofuRunner({hostEnv:Object.freeze({...process.env,...env}),workRoot:env.ZENITH_WORKER_PLAN_DIR});
+  // An explicitly supplied environment is the complete authority snapshot, including absent keys.
+  const hostEnv=Object.freeze({...env});
+  const runner=new TofuRunner({hostEnv,workRoot:hostEnv.ZENITH_WORKER_PLAN_DIR});
   const codec=createPlanArtifactCodec(cipher,handle=>producers.get(handle));
   const tofu=Object.freeze({
     async planWorkspace(ws:TofuWorkspace,session?:TofuSessionEnv,opts:PlanWorkspaceOptions={}) {

@@ -223,7 +223,10 @@ describe("normal deploy deletion guards", () => {
   });
 
   it("does not require destructive approval for a stateless deletion", async () => {
-    const { w } = world(); const manifest = webDbManifest(); manifest.resources = []; manifest.routes = []; manifest.bindings = [];
+    const { w } = world();
+    // Current allow-policy authorization is still required; this deletion needs no extra destructive human gate.
+    w.broker.approval={approved:true,rejected:false};
+    const manifest = webDbManifest(); manifest.resources = []; manifest.routes = []; manifest.bindings = [];
     drop(w, manifest); scripted(w, [change({ address: "terraform_data.container_service_web", type: "terraform_data", action: "delete" })]);
     await expect(w.activities.applyInfrastructure(await plan(w))).resolves.toMatchObject({ applied: 1 });
   });

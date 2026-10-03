@@ -11,7 +11,7 @@ import { dispatchDestroyReview } from "@/lib/capabilities/destroy-review-dispatc
 import { TASK_QUEUE } from "@/lib/workflows/types";
 import { startTestServer, workflowBundlePath, type TestServer } from "../workflows/support";
 import { closeSharedPgliteAfterAll, makeHarness, integrationOf, user, sessionFor } from "../capabilities/support";
-import { createWorld, type World } from "./fakes/world";
+import { createWorld, createSqlPlanArtifactFixture, type World } from "./fakes/world";
 import { bucketManifest, makePlan, change, REVISION } from "./fakes/fixtures";
 import { upgradeManifest } from "@/lib/resources/upgrade";
 
@@ -46,8 +46,9 @@ async function setup(kind: "pglite" | "postgres" = "pglite") {
     changes: [change({ address: "aws_s3_bucket.object_store_assets", nodeAddress: "object_store/assets", type: "aws_s3_bucket", action: "delete", destroysData: true })] });
   vi.spyOn(w.connections, "resolve").mockResolvedValue({ ...w.connections.connections.values().next().value!, workspaceId: scope.workspaceId });
   const platform = createPlatformPorts(h.db!);
+  const executionBroker=createExecutionBroker(h.db!,async()=>h.broker);
   const rt = createRuntime({ ...w.deps, ...platform, product: w.product, connections: w.connections,
-    broker: createExecutionBroker(h.db!, async () => h.broker), clock: () => h.clock.now(), limits: { heartbeatIntervalMs: 1000 } });
+    planArtifacts:createSqlPlanArtifactFixture(w,h.db!,executionBroker),broker: executionBroker, clock: () => h.clock.now(), limits: { heartbeatIntervalMs: 1000 } });
   const activities = createDestroyActivities(rt, { reviewBroker: async () => h.broker });
   const agent = integrationOf(h, "intRO");
   h.world.integrations.get(`${scope.workspaceId}|${agent.id}`)!.scopes = ["plan"];

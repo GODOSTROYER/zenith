@@ -22,6 +22,44 @@ const ecsGrantReport = (outer = "replica repair authority [postgres]") => ({
   })) }],
 });
 
+const intentSqlFile = "tests/controlplane/workflow-start-intents.test.ts";
+const intentAuthorityFile = "tests/controlplane/workflow-start-authority.test.ts";
+const intentTemporalFile = "tests/workflows/start-intent.test.ts";
+const membershipFile = "tests/capabilities/default-current-membership.test.ts";
+const operationPostgresFiles = [intentSqlFile, intentAuthorityFile, membershipFile];
+type Requirement = ReturnType<typeof requirementsFor>[number];
+interface ContractAssertion { title: string; fullName: string; ancestorTitles: string[]; status: string }
+interface ContractFile { name: string; status: string; assertionResults: ContractAssertion[] }
+// These synthetic reports test the validator; they are never engine acceptance evidence.
+function contractReport(requirements: Requirement[]) {
+  const files = new Map<string, ContractFile>();
+  for (const required of requirements) {
+    const entry: ContractFile = files.get(required.file) ?? { name: path.resolve(root, required.file), status: "passed", assertionResults: [] };
+    const title = required.test ?? "contract fixture for whole-file requirement";
+    const ancestorTitles = [required.ancestorSuite, required.suite].filter((value): value is string => value !== undefined);
+    entry.assertionResults.push({ title, fullName: [...ancestorTitles, title].join(" "), ancestorTitles, status: "passed" });
+    files.set(required.file, entry);
+  }
+  return { success: true, testResults: [...files.values()] };
+}
+interface NamedGroup { label: string; lane: string; file: string; suite?: string; models?: boolean; count: number; sha256: string }
+// Hashes pin the ordered, literal declarations, independently of source/report discovery.
+const namedOperationGroups: NamedGroup[] = [
+  {"label": "schedule", "lane": "reconciliation", "file": "tests/workflows/reconcile-schedule.test.ts", "count": 14, "sha256": "f5c6a5811670d9f4d7399be0dac29a43b56b0e32578abe9f0a8e82b323ec48bc", "suite": "durable schedule on an actual isolated Temporal service"},
+  {"label": "composition", "lane": "reconciliation", "file": "tests/workers/reconcile-composition.test.ts", "count": 12, "sha256": "6441c9ced5b775293e17e46f6d5da1bb577e780dbca819959268cce4d1c93f12", "suite": "actual default activity composition: PostgreSQL and owned durable Temporal"},
+  {"label": "intent SQL", "lane": "workflow-intents", "file": "tests/controlplane/workflow-start-intents.test.ts", "count": 20, "sha256": "9c9adf74665847d3f7957949ee7fb459ed2d7f69436ac12eaf3c8fd32a392a07", "suite": "workflow start intents [postgres]"},
+  {"label": "tombstone privileges", "lane": "workflow-intents", "file": "tests/controlplane/workflow-start-intents.test.ts", "count": 2, "sha256": "71a45363befadbf623b1ef7b745ebcc21d92afa90d1f3cc3f9e8c34dc7b91e31", "suite": "workflow start tombstone privileges [postgres]"},
+  {"label": "final authority", "lane": "workflow-intents", "file": "tests/controlplane/workflow-start-authority.test.ts", "count": 53, "sha256": "f07152c999ea91d78200a8565954dc1c4e8d21da5a3d7a519088c1a503f703c9", "suite": "workflow start final authority [postgres]"},
+  {"label": "actual SQL and Temporal", "lane": "workflow-intents", "file": "tests/workflows/start-intent.test.ts", "count": 27, "sha256": "105f680615b41d8ee312fd5f2452f18fe05d5520b246442ceacc6e05fd1932af"},
+  {"label": "supplemental wire models", "lane": "workflow-intents", "file": "tests/workflows/start-intent.test.ts", "count": 21, "sha256": "05401f52635fad996a6097bf9d0b829fe5fd5c1201756afcf540cff1aa78617a", "models": true},
+  {"label": "current membership with modeled product reads", "lane": "platform-postgres", "file": "tests/capabilities/default-current-membership.test.ts", "count": 21, "sha256": "8a55df9f223ce253dbe0a96e2554c7b849fa2cfee432411f94f639ccdd2acb65", "suite": "cached default broker current membership [postgres; modeled product reads]"},
+];
+function namedGroup(group: NamedGroup, sourceRoot = root): Requirement[] {
+  return requirementsFor(group.lane, sourceRoot).filter((required) => required.file === group.file && required.test !== undefined
+    && (group.suite !== undefined ? required.suite === group.suite
+      : group.models ? required.test.startsWith("pinned raw response model ") : required.backend === "postgres"));
+}
+
 describe("canonical gate manifest", () => {
   it.each(Object.keys(GATE_LANES))("%s uses serial commands, stable unique IDs and retained prerequisites", (lane) => {
     const manifest = manifestFor(lane, root);
@@ -49,7 +87,7 @@ describe("canonical gate manifest", () => {
     expect(suites).toHaveLength(4);
     expect(suites).toContainEqual(expect.objectContaining({ suite: "live public GitHub source (opt-in network)" }));
     expect(manifest.env).toMatchObject({ ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REPO: "https://github.com/GODOSTROYER/zenith", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b" });
-    expect(manifest.excludeFiles).toEqual(["tests/workflows/mtls-live.test.ts", "tests/platform/codebuild-launch-authority.test.ts"]);
+    expect(manifest.excludeFiles).toEqual(["tests/workflows/mtls-live.test.ts", "tests/platform/codebuild-launch-authority.test.ts", "tests/workflows/start-intent.test.ts"]);
   });
 
   it("declares mTLS prerequisites and an unverified release blocker rather than a pass", () => {
@@ -62,8 +100,10 @@ describe("canonical gate manifest", () => {
 
   it("covers direct PG-only suites and each parameterized backend suite independently", () => {
     const requirements = requirementsFor("platform-postgres", root);
-    expect(requirements).toHaveLength(228);
-    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(222);
+    const existing = requirements.filter((required) => !operationPostgresFiles.includes(required.file));
+    expect(existing).toHaveLength(228);
+    expect(existing.filter((required) => required.file !== ecsGrantFile)).toHaveLength(222);
+    expect(requirements.filter((required) => operationPostgresFiles.includes(required.file) && required.test)).toHaveLength(96);
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/open.test.ts", suite: "platformDb() against PostgreSQL", backend: "postgres" }));
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/executor.test.ts", suite: "cross-engine shape identity", backend: "postgres" }));
     expect(requirements.filter((required: { file: string }) => required.file === "tests/capabilities/tenancy.test.ts")).toHaveLength(5);
@@ -113,6 +153,119 @@ describe("canonical gate manifest", () => {
       expect(() => manifestFor(lane, root)).toThrow("Unknown CI lane");
       expect(spawnSync(process.execPath, [script, lane], { encoding: "utf8" }).status).toBe(2);
     }
+  });
+});
+
+
+describe("mandatory operation gates", () => {
+  it.each(namedOperationGroups)("$label pins every exact named case and honest backend metadata", (group) => {
+    const required = namedGroup(group);
+    expect(required).toHaveLength(group.count);
+    expect(createHash("sha256").update(JSON.stringify(required.map((item) => item.test))).digest("hex")).toBe(group.sha256);
+    expect(new Set(required.map((item) => item.test)).size).toBe(group.count);
+    for (const item of required) {
+      if (group.models) { expect(item.backend).toBeUndefined(); expect(item.postgres).toBeUndefined(); }
+      else expect(item.postgres === true || item.backend === "postgres").toBe(true);
+    }
+    expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+  });
+
+  it.each(namedOperationGroups)("$label rejects each independently missing, failed or skipped requirement", (group) => {
+    const required = namedGroup(group);
+    for (const missing of required) {
+      expect(reportFailures(required, contractReport(required.filter((item) => item.id !== missing.id)), root), missing.id).toHaveLength(1);
+      for (const status of ["failed", "skipped", "pending", "todo"]) {
+        const report = contractReport(required);
+        const assertion = report.testResults.flatMap((file) => file.assertionResults).find((item) => item.title === missing.test)!;
+        assertion.status = status;
+        expect(reportFailures(required, report, root).length, `${missing.id}: ${status}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it.each(["reconciliation", "workflow-intents"])("%s has fixed serial engine requirements even when source is absent", (lane) => {
+    const manifest = manifestFor(lane, root);
+    expect(manifest.requirements).toHaveLength(lane === "reconciliation" ? 26 : 141);
+    expect(requirementsFor(lane, scratch)).toEqual(manifest.requirements);
+    expect(manifest.tools).toEqual({ node: "22.23.3", postgres: "16.15", temporal: "1.9.1" });
+    expect(manifest.env).toMatchObject({ ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_TEMPORAL_DOWNLOAD: lane === "reconciliation" ? "0" : "1" });
+    expect(manifest.command).not.toContain("--passWithNoTests");
+    expect(manifest.excludeFiles).toEqual([]);
+    if (lane === "reconciliation") {
+      expect(manifest.files).toEqual(["tests/workflows/reconcile-schedule.test.ts", "tests/workers/reconcile-composition.test.ts"]);
+      expect(manifest.env).toMatchObject({ ZENITH_TEST_RECONCILE_SCHEDULE: "1", ZENITH_TEST_RECONCILE_COMPOSITION: "1" });
+    } else {
+      expect(manifest.env.ZENITH_TEST_WORKFLOW_START_REQUIRED).toBe("1");
+      expect(manifest.files).toEqual([intentSqlFile, intentAuthorityFile, intentTemporalFile, "tests/workflows/replay.test.ts", "tests/workflows/codec-replay.test.ts", "tests/workflows/destroy-replay.test.ts"]);
+      expect(manifest.requirements.filter((item) => item.test?.startsWith("pinned raw response model "))).toHaveLength(21);
+      expect(manifest.requirements.filter((item) => item.postgres || item.backend === "postgres")).toHaveLength(102);
+      expect(manifest.requirements.every((item) => typeof item.test === "string")).toBe(true);
+      expect(manifest.requirements.filter((item) => item.file.endsWith("replay.test.ts"))).toHaveLength(15);
+    }
+  });
+
+  it("pins all 15 unchanged actual Temporal replay cases, independently of passing scripted siblings", () => {
+    const required = requirementsFor("workflow-intents", root).filter((item) => item.file.endsWith("replay.test.ts"));
+    expect(required).toHaveLength(15);
+    expect(createHash("sha256").update(JSON.stringify(required.map(({ file, suite, test }) => ({ file, suite, test })))).digest("hex")).toBe("6a7656788a2343b6ccde67c0a730fb16f4f5c4338d6c835f65b4674e08459bfa");
+    expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+    for (const missing of required) {
+      expect(reportFailures(required, contractReport(required.filter((item) => item.id !== missing.id)), root)).toHaveLength(1);
+      const report = contractReport(required);
+      report.testResults.flatMap((file) => file.assertionResults).find((item) => item.title === missing.test)!.status = "skipped";
+      expect(reportFailures(required, report, root).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("requires the same 75 SQL/authority and 21 named current-membership cases in the standalone PostgreSQL lane", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    expect(manifest.env).toMatchObject({ ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1" });
+    const named = manifest.requirements.filter((item) => operationPostgresFiles.includes(item.file) && item.test);
+    expect(named).toHaveLength(96);
+    const intent = named.filter((item) => item.file !== membershipFile);
+    expect(intent.map(({ id: _id, ...item }) => item)).toEqual(requirementsFor("workflow-intents", root)
+      .filter((item) => item.postgres).map(({ id: _id, ...item }) => item));
+    // Retain the existing automatic whole-suite discovery when the integrated files are present.
+    for (const file of operationPostgresFiles) {
+      if (!fs.existsSync(path.join(root, file))) continue;
+      expect(manifest.requirements.some((item) => item.file === file && !item.test && item.backend === "postgres")).toBe(true);
+    }
+  });
+
+  it.each(operationPostgresFiles)("deleting %s cannot remove any named PostgreSQL contract", (deleted) => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-operation-"));
+    for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"]) fs.cpSync(path.join(root, directory), path.join(sourceRoot, directory), { recursive: true });
+    const named = requirementsFor("platform-postgres", sourceRoot).filter((item) => operationPostgresFiles.includes(item.file) && item.test);
+    fs.rmSync(path.join(sourceRoot, deleted), { force: true });
+    expect(requirementsFor("platform-postgres", sourceRoot).filter((item) => operationPostgresFiles.includes(item.file) && item.test)).toEqual(named);
+    expect(reportFailures(named, { success: true, testResults: [] }, sourceRoot)).toHaveLength(96);
+  });
+
+  it("cannot use wire models or a passing scalar/suite sibling as actual SQL or Temporal acceptance", () => {
+    const intent = requirementsFor("workflow-intents", root);
+    const actual = intent.filter((item) => item.postgres || item.backend === "postgres");
+    const models = intent.filter((item) => item.test?.startsWith("pinned raw response model "));
+    expect(reportFailures(actual, contractReport(models), root)).toHaveLength(102);
+    const reconciliation = requirementsFor("reconciliation", root);
+    const report = contractReport(reconciliation);
+    for (const file of report.testResults) for (const assertion of file.assertionResults) assertion.ancestorTitles = ["supplemental modeled scheduler behavior"];
+    expect(reportFailures(reconciliation, report, root)).toHaveLength(26);
+    const sql = intent.filter((item) => item.postgres);
+    const pglite = contractReport(sql);
+    for (const file of pglite.testResults) for (const assertion of file.assertionResults) assertion.ancestorTitles = assertion.ancestorTitles.map((title) => title.replace("[postgres]", "[pglite]"));
+    expect(reportFailures(sql, pglite, root)).toHaveLength(75);
+  });
+
+  it.each(["reconciliation", "workflow-intents"])("%s refuses zero, malformed, duplicate and inconsistent reports", (lane) => {
+    const required = requirementsFor(lane, root);
+    for (const report of [null, {}, { success: true }, { success: false, testResults: [] }, { success: true, testResults: [] }]) expect(reportFailures(required, report, root).length).toBeGreaterThan(0);
+    const malformed = contractReport(required);
+    malformed.testResults[0].assertionResults[0].fullName = "";
+    expect(reportFailures(required, malformed, root)).toEqual(["Malformed Vitest assertion evidence"]);
+    const duplicate = contractReport(required);
+    duplicate.testResults.push(duplicate.testResults[0]);
+    expect(reportFailures(required, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+    expect(reportFailures(required, { ...contractReport(required), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
   });
 });
 

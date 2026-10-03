@@ -1,5 +1,7 @@
 # Agent outcome receipts
 
+Written against branch `ws/prod-default-accepted-20261003`, based on integrated receipt guide source at `dc40ee9ad590640c78659796c9b932436ea1e426` (2026-10-03). This metadata refresh is source-only; the runtime and live-provider limits below remain unchanged. The [signed result service](../../../src/lib/runners/service.ts) and [receipt migration](../../../src/lib/controlplane/db/migrations/0011_agent_effect_receipts.ts) define the retained contract.
+
 An agent can finish an accepted provider request after the control plane has stopped waiting. The signed result endpoint now retains that outcome as permanent encrypted evidence. A cancelled or timed-out job stays terminal, and its operation stays uncertain. Receipt acknowledgement authorizes neither replay nor cleanup.
 
 ## Protocol and persistence

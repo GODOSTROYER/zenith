@@ -106,7 +106,7 @@ async function captureSettings(tx: Sql, binding: BuildLaunchBinding): Promise<Se
   return freezeSnapshot(structuredClone(snapshot));
 }
 /** Exact captured state, including absence, must still hold at either final CAS. */
-function settingsChecks(parameter: string, workspace: string, environment: string): string {
+function settingsChecks(parameter: "$14::text::jsonb" | "$11::text::jsonb", workspace: "$1", environment: "$3" | "$6"): string {
   return `${parameter}->>'workspaceId'=${workspace} and ${parameter}->>'environmentId'=${environment}
     and (case when (${parameter}->'policy'->>'present')::boolean then exists (
       select 1 from platform.workspace_policy p where p.workspace_id=${workspace}
@@ -119,6 +119,34 @@ function settingsChecks(parameter: string, workspace: string, environment: strin
         and s.policy_params=${parameter}->'environment'->'policyParams')
       else not exists (select 1 from platform.environment_settings s where s.environment_id=${environment}) end)`;
 }
+
+/** Private SQL fragments expand only the fixed bind addresses of these two statements. */
+const INSERT_SETTINGS_AUTHORITY = settingsChecks("$14::text::jsonb", "$1", "$3");
+const RECOVERY_SETTINGS_AUTHORITY = settingsChecks("$11::text::jsonb", "$1", "$6");
+function approvalChecks(parameter: "$13::text::jsonb" | "$10::text::jsonb"): string {
+  return `o.approval_round=(${parameter}->>'approvalRound')::integer
+      and o.proposal_digest=${parameter}->>'proposalDigest' and o.plan_digest=${parameter}->>'planDigest'
+      and (select count(distinct a.approver_id) from platform.approvals a where a.workspace_id=o.workspace_id and a.operation_id=o.id
+        and a.id in (select jsonb_array_elements_text(${parameter}->'approvalIds')) and a.decision='approve'
+        and a.approver->>'kind'='user' and a.approval_round=o.approval_round and a.proposal_digest=o.proposal_digest
+        and a.consumed_at is not null and a.expires_at > clock_timestamp()) >= (${parameter}->>'requiredApprovalCount')::integer
+      and (not o.approval_required or exists (select 1 from platform.approvals a where a.workspace_id=o.workspace_id and a.operation_id=o.id
+        and a.id in (select jsonb_array_elements_text(${parameter}->'approvalIds')) and a.decision='approve'
+        and a.approver->>'kind'='user' and a.approval_round=o.approval_round and a.proposal_digest=o.proposal_digest
+        and a.consumed_at is not null and a.expires_at > clock_timestamp()))
+      and not exists (select 1 from platform.approvals a where a.workspace_id=o.workspace_id and a.operation_id=o.id
+        and a.approval_round=o.approval_round and a.decision='reject')`;
+}
+const INSERT_APPROVAL_AUTHORITY = approvalChecks("$13::text::jsonb");
+const RECOVERY_APPROVAL_AUTHORITY = approvalChecks("$10::text::jsonb");
+const INSERT_LIVE_AUTHORITY = `(${INSERT_SETTINGS_AUTHORITY})
+      and exists (select 1 from platform.leases l where l.scope=$12 and l.fence_token=$11
+      and l.expires_at > clock_timestamp() and l.released_at is null)
+      and exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2 and o.environment_id=$3
+        and o.status='running' and o.capability in ('deployment.deploy','infrastructure.apply')
+        and o.expires_at > clock_timestamp() and o.lease_until > clock_timestamp() and o.lease_holder='workflow:' || o.id
+        and o.lease_scope=$12 and o.fence_token=$11 and o.proposal_digest=$8 and o.input_digest=$9 and o.plan_digest=$10
+        and (${INSERT_APPROVAL_AUTHORITY}))`;
 
 /** A late read-only completion cannot continue the claim after its deadline. */
 function beforeDeadline<T>(signal: AbortSignal, pending: Promise<T>): Promise<T> {
@@ -138,12 +166,17 @@ export async function claim(sql: Sql, raw: BuildLaunchBinding, fence: { scope: s
   return claimBuildLaunch(sql,raw,fence);
 }
 
+/** Fixed test admission only; no SQL, broker state, provider access or authority input. */
+export function assertIsolatedBuildTestAdmission(): void {
+  if(process.env.NODE_ENV!=="test") refuse();
+}
+
 /** Captures a real isolated broker once; callers cannot provide per-claim authority. */
 export function createIsolatedBuildClaimerForTests(broker: Broker): typeof claim {
-  if(process.env.NODE_ENV!=="test") refuse();
+  assertIsolatedBuildTestAdmission();
   const dependencies = captureDependencies(broker);
   return (sql,raw,fence)=>{
-    if(process.env.NODE_ENV!=="test") refuse();
+    assertIsolatedBuildTestAdmission();
     return claimBuildLaunch(sql,raw,fence,dependencies);
   };
 }
@@ -220,42 +253,22 @@ async function claimBuildLaunch(sql: Sql, raw: BuildLaunchBinding, fence: { scop
     const approval=Object.freeze({...authority,approvalIds:Object.freeze([...authority.approvalIds])});
     // Canonical role resolution can await external stores. Final CAS checks all
     // database clocks again, along with exact consumed approval identities.
-    const approvalChecks=(parameter:string)=>`o.approval_round=(${parameter}->>'approvalRound')::integer
-      and o.proposal_digest=${parameter}->>'proposalDigest' and o.plan_digest=${parameter}->>'planDigest'
-      and (select count(distinct a.approver_id) from platform.approvals a where a.workspace_id=o.workspace_id and a.operation_id=o.id
-        and a.id in (select jsonb_array_elements_text(${parameter}->'approvalIds')) and a.decision='approve'
-        and a.approver->>'kind'='user' and a.approval_round=o.approval_round and a.proposal_digest=o.proposal_digest
-        and a.consumed_at is not null and a.expires_at > clock_timestamp()) >= (${parameter}->>'requiredApprovalCount')::integer
-      and (not o.approval_required or exists (select 1 from platform.approvals a where a.workspace_id=o.workspace_id and a.operation_id=o.id
-        and a.id in (select jsonb_array_elements_text(${parameter}->'approvalIds')) and a.decision='approve'
-        and a.approver->>'kind'='user' and a.approval_round=o.approval_round and a.proposal_digest=o.proposal_digest
-        and a.consumed_at is not null and a.expires_at > clock_timestamp()))
-      and not exists (select 1 from platform.approvals a where a.workspace_id=o.workspace_id and a.operation_id=o.id
-        and a.approval_round=o.approval_round and a.decision='reject')`;
-    const live = `(${settingsChecks("$14::text::jsonb", "$1", "$3")})
-      and exists (select 1 from platform.leases l where l.scope=$12 and l.fence_token=$11
-      and l.expires_at > clock_timestamp() and l.released_at is null)
-      and exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2 and o.environment_id=$3
-        and o.status='running' and o.capability in ('deployment.deploy','infrastructure.apply')
-        and o.expires_at > clock_timestamp() and o.lease_until > clock_timestamp() and o.lease_holder='workflow:' || o.id
-        and o.lease_scope=$12 and o.fence_token=$11 and o.proposal_digest=$8 and o.input_digest=$9 and o.plan_digest=$10
-        and (${approvalChecks("$13::text::jsonb")}))`;
     const parameters=[binding.workspaceId,binding.operationId,binding.environmentId,binding.serviceAddress,randomUUID(),JSON.stringify(binding),digest(binding),operation.proposal_digest,operation.input_digest,operation.plan_digest,fence.token,fence.scope,JSON.stringify(approval),JSON.stringify(settings)];
     const inserted = await tx.query<BuildLaunch>(`insert into platform.build_launches
       (workspace_id,operation_id,environment_id,service_address,attempt_id,binding,binding_digest,proposal_digest,input_digest,plan_digest,fence_token)
-      select $1,$2,$3,$4,$5,$6::text::jsonb,$7,$8,$9,$10,$11 where ${live}
+      select $1,$2,$3,$4,$5,$6::text::jsonb,$7,$8,$9,$10,$11 where ${INSERT_LIVE_AUTHORITY}
       on conflict (workspace_id,operation_id,service_address) do nothing returning *`,
       parameters);
     const rows = inserted.length ? inserted : await tx.query<BuildLaunch>(`select * from platform.build_launches
       where workspace_id=$1 and operation_id=$2 and service_address=$3
-      and (${settingsChecks("$11::text::jsonb", "$1", "$6")})
+      and (${RECOVERY_SETTINGS_AUTHORITY})
       and exists (select 1 from platform.leases l where l.scope=$4 and l.fence_token=$5
         and l.expires_at > clock_timestamp() and l.released_at is null)
       and exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2 and o.environment_id=$6
         and o.status='running' and o.expires_at > clock_timestamp() and o.lease_until > clock_timestamp()
         and o.lease_holder='workflow:' || o.id and o.lease_scope=$4 and o.fence_token=$5
         and o.proposal_digest=$7 and o.input_digest=$8 and o.plan_digest=$9
-        and (${approvalChecks("$10::text::jsonb")})) for update`,
+        and (${RECOVERY_APPROVAL_AUTHORITY})) for update`,
       [binding.workspaceId,binding.operationId,binding.serviceAddress,fence.scope,fence.token,binding.environmentId,operation.proposal_digest,operation.input_digest,operation.plan_digest,JSON.stringify(approval),JSON.stringify(settings)]);
     const launch=rows[0] ? checked(rows[0]) : refuse();
     if (launch.binding_digest!==digest(binding) || launch.proposal_digest!==operation.proposal_digest

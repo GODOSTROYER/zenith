@@ -33,6 +33,7 @@ interface Job {
   permissions?: unknown;
   environment?: unknown;
   concurrency?: unknown;
+  strategy?: { "fail-fast"?: unknown; matrix?: { lane?: unknown; include?: unknown; exclude?: unknown } };
   defaults?: { run?: { "working-directory"?: string } };
   env?: Record<string, unknown>;
   services?: Record<string, Service>;
@@ -137,6 +138,7 @@ const requiredCommands: Record<string, string[]> = {
   tofu: [INSTALL, TOFU_VITEST],
   workflows: [INSTALL, WORKFLOWS_VITEST],
   "platform-postgres": [INSTALL, PLATFORM_VITEST],
+  "operation-gates": [INSTALL, "bash scripts/ci/apply-platform-migrations.sh", "node scripts/ci/run-gate.mjs ${{ matrix.lane }} --run"],
   generated: [INSTALL, "npm run platform:emit-sql -- --check", "npx tsx scripts/docs/capability-matrix.ts --check", "npx vitest run tests/docs --maxWorkers=2"],
   ledger: ["node scripts/build/ledger.mjs --check"],
   "supply-chain": ["node scripts/ci/lockfile-integrity.mjs", "node scripts/ci/security-audit.mjs"],
@@ -489,11 +491,31 @@ describe("release gate policy", () => {
  * =============================================================================
  */
 
-const jobOf = (name: string): Job => {
-  const found = workflow.jobs[name];
+const OPERATION_MATRIX_LANES = ["reconciliation", "workflow-intents"];
+/** Resolve only the committed matrix's lane scalar, as GitHub does per item. */
+function matrixStrings(value: unknown, lane: string): unknown {
+  if (typeof value === "string") return value.replaceAll("${{ matrix.lane }}", lane);
+  if (Array.isArray(value)) return value.map((item) => matrixStrings(item, lane));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, matrixStrings(item, lane)]));
+  return value;
+}
+function laneJob(w: Workflow, name: string): Job {
+  if (OPERATION_MATRIX_LANES.includes(name)) {
+    // Separate/direct jobs cannot silently displace the required matrix item.
+    expect(w.jobs[name]).toBeUndefined();
+    const job = w.jobs["operation-gates"];
+    expect(job, "ci.yml must define the required operation-gates matrix").toBeDefined();
+    expect(job.strategy?.matrix).toEqual({ lane: OPERATION_MATRIX_LANES });
+    expect(job.strategy?.["fail-fast"]).toBe(false);
+    expect(job.if).toBeUndefined();
+    expect(job["continue-on-error"] ?? false).toBe(false);
+    return matrixStrings(job, name) as Job;
+  }
+  const found = w.jobs[name];
   expect(found, `ci.yml must define a \`${name}\` job`).toBeDefined();
   return found;
-};
+}
+const jobOf = (name: string): Job => laneJob(workflow, name);
 const cmd = (step: Step): string => step.run?.trim() ?? "";
 const indexOfCommand = (j: Job, command: string): number => j.steps.findIndex((step) => cmd(step) === command);
 const indexOfName = (j: Job, name: string): number => j.steps.findIndex((step) => step.name === name);
@@ -541,6 +563,12 @@ const DOWNLOADS = [
   },
   {
     job: "workflows",
+    url: "https://github.com/temporalio/cli/releases/download/v1.9.1/temporal_cli_1.9.1_linux_amd64.tar.gz",
+    file: "temporal_cli.tar.gz",
+    sha256: "09a0326a51db84d02735e53542b9ebd8c4758daf47482a9ab0abce15844e60d5",
+  },
+  {
+    job: "operation-gates",
     url: "https://github.com/temporalio/cli/releases/download/v1.9.1/temporal_cli_1.9.1_linux_amd64.tar.gz",
     file: "temporal_cli.tar.gz",
     sha256: "09a0326a51db84d02735e53542b9ebd8c4758daf47482a9ab0abce15844e60d5",
@@ -794,7 +822,17 @@ describe("canonical execution and evidence in CI", () => {
     const manifest = manifestFor("workflows");
     expect(manifest.env).toMatchObject({ ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b" });
     for (const file of ["tests/workflows/codec-replay.test.ts", "tests/workflows/destroy-replay.test.ts", "tests/platform/source-bundle.test.ts"]) expect(manifest.requirements).toContainEqual(expect.objectContaining({ file }));
-    expect(manifest.excludeFiles).toEqual(["tests/workflows/mtls-live.test.ts"]);
+    expect(manifest.excludeFiles).toEqual(["tests/workflows/mtls-live.test.ts", "tests/platform/codebuild-launch-authority.test.ts", "tests/workflows/start-intent.test.ts"]);
+    for (const file of manifest.excludeFiles.slice(1)) {
+      const requiredLane = file === "tests/platform/codebuild-launch-authority.test.ts" ? "platform-postgres" : "workflow-intents";
+      const required = manifestFor(requiredLane);
+      expect(required.files).toContain(file);
+      expect(required.excludeFiles).not.toContain(file);
+      expect(required.requirements.filter((item) => item.file === file && item.test && (item.postgres || item.backend === "postgres")).length).toBeGreaterThan(0);
+      expect(jobOf(requiredLane).steps.map(cmd)).toContain(gateRun(requiredLane));
+      expect(jobOf(requiredLane).steps.map(cmd)).toContain(gateValidate(requiredLane));
+      expect(manifest.requirements.some((item) => item.file === file)).toBe(false);
+    }
     expect(manifest.externalAcceptance).toEqual([expect.objectContaining({ id: "external-temporal-mtls", releaseBlocker: expect.stringContaining("unverified") })]);
     expect(manifest.tools).toMatchObject({ node: NODE_VERSION, temporal: "1.9.1" });
   });
@@ -1034,6 +1072,74 @@ describe("the workflows job", () => {
     const command = manifestFor("workflows").command.join(" ");
     expect(command).not.toContain("--passWithNoTests");
     expect(command).toContain("--no-file-parallelism");
+  });
+});
+
+describe("the mandatory operation matrix", () => {
+  const operations = (): Job => jobOf("operation-gates");
+  it("expands only two exact mandatory lanes without conditional, included or excluded variants", () => {
+    expect(operations().strategy).toEqual({ "fail-fast": false, matrix: { lane: OPERATION_MATRIX_LANES } });
+    for (const lane of OPERATION_MATRIX_LANES) {
+      const job = jobOf(lane);
+      expect(job.steps.map(cmd)).toContain(gateRun(lane));
+      expect(job.steps.map(cmd)).toContain(gateValidate(lane));
+      expect(JSON.stringify(job)).not.toContain("${{ matrix.lane }}");
+      expect(job.env?.ZENITH_DATA).toBe(`\${{ github.workspace }}/.data-ci-operation-${lane}`);
+    }
+  });
+
+  it.each(["missing", "skipped", "include", "exclude", "direct override"])("rejects a %s required matrix item in the structural resolver", (mode) => {
+    const altered = structuredClone(workflow);
+    const job = altered.jobs["operation-gates"];
+    if (mode === "missing") job.strategy!.matrix!.lane = ["reconciliation"];
+    if (mode === "skipped") job.if = false;
+    if (mode === "include") job.strategy!.matrix!.include = [{ lane: "workflow-intents" }];
+    if (mode === "exclude") job.strategy!.matrix!.exclude = [{ lane: "workflow-intents" }];
+    if (mode === "direct override") altered.jobs["workflow-intents"] = structuredClone(job);
+    expect(() => laneJob(altered, "workflow-intents")).toThrow();
+  });
+
+  it("gives every matrix item its own healthy disposable loopback PostgreSQL service", () => {
+    expect(operations().services?.postgres?.image).toBe(workflow.jobs.postgres.services?.postgres?.image);
+    expect(operations().services?.postgres?.image).toMatch(/^postgres:16\.15-alpine@sha256:[a-f0-9]{64}$/);
+    expect(operations().services?.postgres?.ports).toEqual(["5432:5432"]);
+    expect(operations().services?.postgres?.options).toContain("pg_isready");
+    const database = operations().services?.postgres?.env?.POSTGRES_DB;
+    expect(operations().env?.ZENITH_TEST_PLATFORM_PG_URL).toBe(`postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/${database}`);
+    expect(database).toBe("zenith_operations_ci");
+    for (const name of ["SUPABASE_DB_URL", "ZENITH_PLATFORM_DB", "ZENITH_PLATFORM_DB_URL", "ZENITH_CONTRACT_POSTGRES", "ZENITH_TEMPORAL_ADDRESS"]) expect(operations().env?.[name]).toBeUndefined();
+    expect(operations().env?.ZENITH_DATA).toBe("${{ github.workspace }}/.data-ci-operation-${{ matrix.lane }}");
+    expect(operations()["timeout-minutes"]).toBe(45);
+  });
+
+  it("copies the verified Temporal installation and requires migrations and committed OPA assets before each engine gate", () => {
+    const temporal = stepNamed(operations(), "Install pinned Temporal CLI");
+    expect(temporal.run).toBe(stepNamed(jobOf("workflows"), "Install pinned Temporal CLI").run);
+    expect(temporal.shell).toBe("bash");
+    expect(temporal.if).toBeUndefined();
+    const assets = stepNamed(operations(), "Check committed policy assets");
+    expect(assets.if).toBeUndefined();
+    expect(assets.run).toContain('"policy/dist/manifest.json"');
+    expect(assets.run).toContain('"policy/dist/policy.wasm"');
+    expect(assets.run).toContain('manifest.opaVersion !== "1.19.1"');
+    expect(assets.run).toContain('manifest.entrypoint !== "zenith/decision/result"');
+    expect(assets.run).toContain('manifest.wasmBytes !== wasm.length');
+    expect(assets.run).toContain('manifest.wasmSha256 !== createHash("sha256").update(wasm).digest("hex")');
+    expect(assets.run).toContain('throw new Error("Committed policy asset integrity is unavailable.")');
+    for (const lane of OPERATION_MATRIX_LANES) {
+      const job = jobOf(lane);
+      const migrations = job.steps.filter((step) => cmd(step) === "bash scripts/ci/apply-platform-migrations.sh");
+      expect(migrations).toHaveLength(1);
+      expect(migrations[0].if).toBeUndefined();
+      expect(migrations[0]["continue-on-error"] ?? false).toBe(false);
+      expect(job.steps.some((step) => String(step.if ?? "").includes("hashFiles"))).toBe(false);
+      expect(indexOfCommand(job, INSTALL)).toBeLessThan(indexOfName(job, "Install pinned Temporal CLI"));
+      expect(indexOfName(job, "Install pinned Temporal CLI")).toBeLessThan(indexOfName(job, "Check committed policy assets"));
+      expect(indexOfName(job, "Check committed policy assets")).toBeLessThan(indexOfCommand(job, "bash scripts/ci/apply-platform-migrations.sh"));
+      expect(indexOfCommand(job, "bash scripts/ci/apply-platform-migrations.sh")).toBeLessThan(indexOfCommand(job, gateRun(lane)));
+      const upload = job.steps.find((step) => step.uses?.startsWith("actions/upload-artifact@"));
+      expect(upload?.with?.["include-hidden-files"]).toBe(true);
+    }
   });
 });
 

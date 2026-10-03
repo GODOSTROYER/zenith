@@ -47,10 +47,15 @@ function observe(lane: string, input: string, output: string, exitCode: number) 
 
 describe("sanitized evidence boundary", () => {
   it("exports count-only requirement evidence bound to commit, dependencies, source and environment", () => {
+    const required = requirementsFor("platform-postgres", root);
     const evidence = sanitizedEvidence("platform-postgres", reportFor(), root, provenance);
     expect(evidence.verdict).toBe("passed");
-    expect(evidence.required).toHaveLength(70);
-    expect(evidence.required.filter((required: { file: string }) => required.file !== "tests/platform/ecs-replica-repair-grants.test.ts")).toHaveLength(64);
+    expect(required.length).toBeGreaterThan(0);
+    expect(new Set(required.map(group => group.id)).size).toBe(required.length);
+    expect(evidence.required.map((group: { id: string; file: string }) => ({ id: group.id, file: group.file })))
+      .toEqual(required.map(group => ({ id: group.id, file: group.file })));
+    expect(evidence.required.filter((group: { file: string }) => group.file !== "tests/platform/ecs-replica-repair-grants.test.ts").map((group: { id: string }) => group.id))
+      .toEqual(required.filter(group => group.file !== "tests/platform/ecs-replica-repair-grants.test.ts").map(group => group.id));
     expect(evidence.provenance.commit).toMatch(/^[a-f0-9]{40}$/);
     expect(evidence.provenance.sourceBindingComplete).toBe(true);
     expect(evidence.provenance.environment.sha256).toMatch(/^[a-f0-9]{64}$/);
@@ -96,11 +101,17 @@ describe("sanitized evidence boundary", () => {
   });
 
   it("does not trust summary totals from a malformed report", () => {
-    const report = { ...reportFor(), numTotalTests: 99999, numPassedTests: 99999 };
+    const required = requirementsFor("platform-postgres", root);
+    const report = { ...reportFor(), numTotalTests: required.length + 1, numPassedTests: required.length + 1 };
     const evidence = sanitizedEvidence("platform-postgres", report, root, provenance);
     expect(evidence.verdict).toBe("failed");
-    expect(evidence.counts.total).toBe(70);
-    expect(evidence.counts.passed).toBe(70);
+    expect(evidence.counts.total).toBe(required.length);
+    expect(evidence.counts.passed).toBe(required.length);
+    expect(evidence.counts.total).not.toBe(report.numTotalTests);
+    expect(evidence.counts.passed).not.toBe(report.numPassedTests);
+    expect(evidence.validation.complete).toBe(false);
+    expect(evidence.required.map((group: { id: string }) => group.id)).toEqual(required.map(group => group.id));
+    expect(evidence.required.every((group: { status: string }) => group.status === "unverified")).toBe(true);
   });
 
   it("binds untracked source bytes and explicitly identifies a dirty worktree", () => {

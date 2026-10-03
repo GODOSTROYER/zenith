@@ -1,5 +1,7 @@
 # CodeBuild launch authority
 
+Written against branch `ws/prod-default-accepted-20261003`, based on reviewed authority guide source at `15ce74f81a4919d1d12780d1e7c95445595bbceb` (2026-10-03). This metadata refresh is source-only; prepared tests and live identity/provider limits below are not new runtime evidence. The [launch repository](../../../src/lib/controlplane/db/repos/build-launches.ts) and [current-role resolver](../../../src/lib/capabilities/current-product-roles.ts) supply the canonical authority boundary.
+
 The permanent CodeBuild claim reads policy, environment settings and consumed
 approval identities through a new `PlatformBrokerStore(tx)` attached to the same
 PostgreSQL transaction that owns the launch locks and receipt insertion. It

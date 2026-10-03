@@ -86,7 +86,7 @@ export function main(args) {
     const status = validateGate(lane, reportPath, values.evidence, process.cwd(), { requireExecution: true });
     return run.status === 0 && status === 0 ? 0 : 1;
   } catch {
-    console.error("usage: node scripts/ci/run-gate.mjs <fresh|core|postgres|policy|tofu|workflows|platform-postgres> <--run [--report PATH]|--validate REPORT [--require-execution]> [--evidence PATH] [--step CORE_CHECK]");
+    console.error("usage: node scripts/ci/run-gate.mjs <fresh|core|postgres|policy|tofu|workflows|reconciliation|workflow-intents|platform-postgres> <--run [--report PATH]|--validate REPORT [--require-execution]> [--evidence PATH] [--step CORE_CHECK]");
     return 2;
   }
 }

@@ -1,5 +1,7 @@
 # Mixed-provider logical partition contracts
 
+Written against branch `ws/prod-default-accepted-20261003`, based on reviewed partition guide source at `3755d4d8eae0b3f6b681dfd5a33c6eeac4694d31` (2026-10-03). This metadata refresh is source-only; mixed-provider execution and live acceptance remain unverified. The [logical planner](../../../src/lib/execution/mixed-partitions.ts) retains the execution refusal described below.
+
 `src/lib/execution/mixed-partitions.ts` prepares bounded logical planning data
 for PROD-MIX-01 through PROD-MIX-04. It does not replace the current
 `findGraphProblems()` multi-provider execution refusal. Every result has

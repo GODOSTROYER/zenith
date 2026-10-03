@@ -361,6 +361,7 @@ How the bundle ships:
 | `ZENITH_GITHUB_APP_PRIVATE_KEY_FILE` | unset | path only; file contents are **secret** | Absolute server path to the RSA App PEM, on web and worker. Read on demand to sign bounded RS256 JWTs. Never copy the PEM into an environment value or diagnostics. Partial/invalid configuration refuses access. |
 | `ZENITH_GITHUB_APP_CLIENT_ID` | unset | no | GitHub App OAuth client id, web host only. Required by the browser install/bind flow to verify that the initiating GitHub user can access the installation repository. |
 | `ZENITH_GITHUB_APP_CLIENT_SECRET_FILE` | unset | path only; file contents are **secret** | Absolute server path to the GitHub App OAuth client secret, web host only. Codes exchange server-side with PKCE; user tokens are discarded after verification and never stored or sent to the browser. |
+| `ZENITH_GITHUB_APP_WEBHOOK_SECRET_FILE` | unset | path only; file contents are **secret** | Absolute server path to the GitHub App webhook secret, web host only. The signed revocation endpoint requires 32–4096 printable ASCII bytes in a regular file owned by the service identity, mode `0400` or `0600`, beneath its immediate private `0700` directory and trusted ancestors, with no symlink or multiply linked file; raw-body HMAC-SHA256 is verified before payload or database authority. Missing/invalid custody refuses. Configure the App to send supported installation/repository removal and suspension events; delivery never grants or re-enables a binding. Live GitHub delivery acceptance remains separate. |
 | `ZENITH_TEST_SOURCE_GITHUB_APP`, `ZENITH_TEST_SOURCE_GITHUB_BINDING`, `ZENITH_TEST_SOURCE_REF` | private gate unset | no; identifiers only | Tests only: set the gate to `1` to authorize the opt-in private GitHub archive check, a strict JSON binding of non-secret identifiers, and a pinned 40-hex commit. Live private access was not run here. The existing public gate is `ZENITH_TEST_SOURCE_GITHUB` with `ZENITH_TEST_SOURCE_REPO` and the same ref variable. |
 
 Identity is not new configuration: browsers use the product's Supabase setup
@@ -385,6 +386,9 @@ that drives it is gated like every other tick route.
 |---|---|---|---|
 | `CRON_SECRET` | unset | **yes** | Bearer token for `/api/internal/tick/*` (the product's name for it; see [RUNNING.md](../../RUNNING.md#environment-variables)). Unset, the route answers 503 and runs nothing; a wrong bearer is 401. |
 | `ZENITH_RECONCILE_MEMORY` | unset | no | `1` runs the pass against an in-memory backend that is empty unless something seeded it. Local development and route smoke tests only: nothing is durable. |
+| `ZENITH_WORKER_RECONCILE_SCHEDULE_MODE` | `observe` | no | Execution worker only: `observe` checks the existing owned schedule without creating, activating or unpausing it. Explicit `provision` reconciles only the fixed owned schedule after both pollers start; operator-pause state and ownership remain mandatory. Production requires an explicit namespace and authenticated TLS. See [RECONCILE-WORKER.md](RECONCILE-WORKER.md). |
+| `ZENITH_WORKER_RECONCILE_MAX_ENVIRONMENTS` | `25` | no | Bounded sweep limit from 1 through 25. Fresh completed SQL observations determine readiness; an omitted, failed or deferred observation never reports healthy. |
+| `ZENITH_WORKER_RECONCILE_CONCURRENCY` | `3` | no | Bounded per-sweep environment concurrency from 1 through 3, separate from host workload capacity. |
 
 `src/lib/platform/app.ts` registers the production ports with
 `wireReconcilePorts`. The route calls `ensurePlatformCron` after verifying its
@@ -568,15 +572,50 @@ applied), turns row level security on for every table with no policies, and
 revokes `anon` and `authenticated`. **`platform` must never be added to the Data
 API's exposed schemas.**
 
-Seven migrations exist today: `core` (1), `reconcile` (2), `machine_requests` (3,
-the `zenithd` request queue), `approval_rounds` (4: a plan-level approval after
-execution starts opens a new approval round, so the same human can review again once
-per round while earlier decisions stay as immutable history), `read_jobs` (5:
-runner read jobs, such as OCI log and metric reads, that belong to no operation and
-store a NULL operation) and `github_sources` (6: tenant-scoped GitHub App source
-bindings and expiring install intents, storing identifiers and proof digests only),
-and `plan_artifacts` (7: immutable original ciphertext and source associations,
-with separate mutable use attempts and logical expiry).
+The ordered canonical registry is `PLATFORM_MIGRATIONS` in
+`src/lib/controlplane/db/migrations/index.ts`; each SQL checksum comes from
+`migrationChecksum`. The following inventory was refreshed from the committed
+aggregate emitter output based on input `dc40ee9ad590640c78659796c9b932436ea1e426` with additive migration 12 registered in this candidate. Runtime source binding remains the exact integrated commit.
+`tests/docs/operator-docs.test.ts` imports that canonical registry and checksum
+function, then verifies every row, the count and highest version. A new migration
+requires a regenerated inventory; changing a literal count alone does not pass.
+
+Registered migrations: **12**; highest version: **12**.
+
+<!-- platform-migrations:start -->
+| Version | Name | SQL SHA-256 |
+|---|---|---|
+| 1 | `core` | `ec4e2c1a7185e25ea6afa803e87abcc1fe8a06cb65651773f573f0b66de13764` |
+| 2 | `reconcile` | `af708ba78998ba35b05966afc4f037bacec9b38905853e6f43c8fdab92cb47f0` |
+| 3 | `machine_requests` | `e1eccac97c7852592bcad8cd0e441b67a442c7405735ee9e2619e9e9b100bec6` |
+| 4 | `approval_rounds` | `1e5d84e018bd35c3638bbd23bab8e5b0e7d9b6c3173a430259480508aca6f311` |
+| 5 | `read_jobs` | `e8349e5ddf50a5396304850bd84bbffe81be1f4b0b7189677c1c1ad36ad4a387` |
+| 6 | `github_sources` | `0e256ace8f784b996b2e6687dc42bb4705f91c4579b4ecb1da38987d9f68d78d` |
+| 7 | `plan_artifacts` | `eb445d8479b4b8ba8c9c6e8df38fb95c3f9ca59f8949218e3c07f68727f62ae3` |
+| 8 | `build_launches` | `90a025fd0c76ee84b14a26c9d8b1794e215ececec24333848904c22bc0f86e9d` |
+| 9 | `github_revocation` | `7d00eb79279b57c682dda67af0a5eaffc5ff3825d5e6a370235dd0dfdb502060` |
+| 10 | `github_deliveries` | `a4436e385563b8bd3b3528708b1db757c5a9872e1927dbd8ef5bd595e1e62bfd` |
+| 11 | `agent_effect_receipts` | `f6c9d90f69447e430ad9ef2b8368b137b26cadcd05776d689959c99da9e0430b` |
+| 12 | `workflow_start_intents` | `7eaa5e87e594d741e772e0cd9b77010c796d36c2c9ceac41f8f47720c804d811` |
+<!-- platform-migrations:end -->
+
+For the actual target, `npm run migrate:platform -- --status` calls the canonical
+`platformSchemaStatus` verifier; the running build's registry and recorded ledger
+checksums decide whether it is current. The documentation inventory is not an
+installer or evidence that an operator's database has these migrations.
+
+The historical migrations retain their purposes: `core` (1), `reconcile` (2),
+`machine_requests` (3: the `zenithd` request queue), `approval_rounds` (4: a
+plan-level review opens a new approval round while old decisions remain history),
+`read_jobs` (5: runner reads that belong to no operation), `github_sources` (6:
+tenant-scoped App source bindings and expiring install intents), and
+`plan_artifacts` (7: immutable original ciphertext and source associations).
+Subsequent registered migrations add permanent `build_launches` (8), monotonic
+`github_revocation` (9), signed idempotent `github_deliveries` (10), and encrypted
+immutable `agent_effect_receipts` (11), and permanent single-attempt `workflow_start_intents` (12). See [BUILD-LAUNCH-AUTHORITY.md](BUILD-LAUNCH-AUTHORITY.md),
+[BUILDS.md](BUILDS.md) and [AGENT-EFFECT-RECEIPTS.md](AGENT-EFFECT-RECEIPTS.md)
+for their authority and recovery limits; schema presence does not prove live
+provider acceptance.
 Canonical migration 7 enables RLS on each new artifact table and applies guarded
 existing Supabase-role revocations and grants even when the migration owner differs
 from the schema-6 emitted bootstrap owner. Custom runtime-role grants and RLS
@@ -591,9 +630,9 @@ The emitted file keeps one name as migrations are added; it grows. If you apply
 migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any
-schema version after the first. The emitted file holds all seven
-migrations, so a database that applied it before migration 2, 3, 4, 5, 6 or 7 landed is exactly
-this case. I did not exercise it through the Supabase CLI.
+schema version after the first. The emitted file holds every registered migration
+in the inventory above. A database that applied it before a subsequent migration
+landed is exactly this case. I did not exercise it through the Supabase CLI.
 
 ### 3.3 What the application does about the schema
 

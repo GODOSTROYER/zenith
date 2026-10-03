@@ -536,6 +536,299 @@ const AGENT_EFFECT_POSTGRES_REQUIREMENTS = ["runner", "machine"].flatMap(kind =>
   ancestorSuite: "agent effect receipts [postgres]", test, postgres: true,
 })));
 
+// Fixed operation contracts survive missing source files and reports. Backend
+// metadata describes actual SQL; product-port and wire models remain labelled.
+const WORKFLOW_INTENT_SQL_FILE = "tests/controlplane/workflow-start-intents.test.ts";
+const WORKFLOW_INTENT_AUTHORITY_FILE = "tests/controlplane/workflow-start-authority.test.ts";
+const WORKFLOW_INTENT_TEMPORAL_FILE = "tests/workflows/start-intent.test.ts";
+const CURRENT_MEMBERSHIP_FILE = "tests/capabilities/default-current-membership.test.ts";
+const RECONCILE_SCHEDULE_CASES = [
+  "creates one compatible schedule, provisions concurrently and preserves an operator pause",
+  "refuses changed configuration and foreign ownership without updating the existing action",
+  "a real concurrent operator pause invalidates activation CAS and is preserved",
+  "refuses absent prerequisites and a production PGlite store before schedule creation",
+  "proves SKIP overlap while the first scheduled activity is actually held",
+  "the global database lease refuses a direct concurrent sweep despite distinct workflow IDs",
+  "the valid sweep-v1 environment retains its distinct lease while the global sweep runs",
+  "keeps durable minute scheduling active after an actual database statement failure and recovers",
+  "preserves the schedule and queued execution through an actual server process restart",
+  "a completed pass replays after a worker restart without rerunning its SQL activity",
+  "cancellation reaches a held controller read, releases the global lease and runs no compensation",
+  "claims a bounded fair SQL batch and leaves unvisited environments due for the next pass",
+  "checks every authority-bearing schedule field on a genuine describe result",
+  "refuses persisted raw versioning and workflow-ID policies that SDK decoding omits"
+];
+const RECONCILE_COMPOSITION_CASES = [
+  "refuses actual PGlite, closes a refused handle, and does not inherit a global broker ready flag",
+  "confirms its real configured namespace, closes its client, and refuses an unavailable namespace",
+  "owning PostgreSQL canonical broker with modeled current product membership: unchanged",
+  "owning PostgreSQL canonical broker with modeled current product membership: demoted",
+  "owning PostgreSQL canonical broker with modeled current product membership: cancelled",
+  "polls the full default activity set before provisioning and observes encrypted real SQL results",
+  "preserves operator pause and refuses incompatible ownership/routing in both permission modes",
+  "a held actual fleet lease reports busy and cannot advertise successful observation",
+  "bounded real PostgreSQL lock outage defers a pass and the unpaused schedule recovers",
+  "pre-acquisition cancellation during an observed schema prerequisite waiter starts no compensation",
+  "default controller cancellation after an observed post-acquisition SQL waiter releases its exact live fleet lease",
+  "a canonical eligible empty graph completes in SQL, then owned worker restart services the same schedule"
+];
+const WORKFLOW_INTENT_SQL_CASES = [
+  "commits typed immutable intent before a sole claim; competing workers retain one permanent attempt",
+  "rebinds an alternative broker store to the actual locked SQL authority rather than trusting another approval ledger",
+  "rollback leaves no prepared intent or attempt; commit acknowledgement loss preserves the attempted tombstone",
+  "different arguments, kind, destination, queue and foreign tenant cannot replace the first binding",
+  "refuses new dispatch under expired approval",
+  "refuses new dispatch under revoked role",
+  "refuses new dispatch under raised count",
+  "refuses new dispatch under policy deny",
+  "refuses new dispatch under expired operation",
+  "refuses new dispatch under cancelled",
+  "refuses new dispatch under lost fence",
+  "late matching acknowledgement survives cancellation and reaper; first receipt wins and queue never reopens",
+  "proposal-approved deploy starts before executable plan approval; preApproved cannot supply missing authority",
+  "approved read-only teardown review may be admitted before its worker claims the operation",
+  "an approved but unclaimed mutation operation cannot use workflow admission to consume or bypass its execution claim",
+  "after an observed final intent-row lock wait, unchanged is evaluated freshly",
+  "after an observed final intent-row lock wait, demoted approver is evaluated freshly",
+  "after an observed final intent-row lock wait, raised count is evaluated freshly",
+  "after an observed final intent-row lock wait, current deny is evaluated freshly",
+  "after an observed final intent-row lock wait, approval expiry is evaluated freshly"
+];
+const WORKFLOW_INTENT_PRIVILEGE_CASES = [
+  "fresh migration12 refuses inherited TRUNCATE and retains the attempted tombstone",
+  "same-owner schema6 migration12 refuses inherited TRUNCATE and retains the attempted tombstone"
+];
+const WORKFLOW_INTENT_AUTHORITY_CASES = [
+  "uses the owning single-connection transaction through production composition",
+  "uses the owning single-connection transaction through isolated composition",
+  "ignores a permissive global memory broker at prepare with authentic owning consumed approvals",
+  "ignores a permissive global memory broker at claim with authentic owning consumed approvals",
+  "refuses explicit process memory mode before prepare reads the durable store",
+  "refuses explicit process memory mode before claim reads the durable store",
+  "captures isolated ports once and discards the broker's mutable/alternative store",
+  "refuses freshly removed requester at prepare despite the old bulk snapshot",
+  "refuses freshly removed approver at prepare despite the old bulk snapshot",
+  "refuses freshly removed requester at claim despite the old bulk snapshot",
+  "refuses freshly removed approver at claim despite the old bulk snapshot",
+  "prepare fences unchanged settings committed during a delayed consumed-approver read",
+  "prepare fences two-person policy committed during a delayed consumed-approver read",
+  "prepare fences denying policy committed during a delayed consumed-approver read",
+  "prepare fences policy version committed during a delayed consumed-approver read",
+  "prepare fences policy JSON same version committed during a delayed consumed-approver read",
+  "prepare fences deleted policy committed during a delayed consumed-approver read",
+  "prepare fences replaced policy same version committed during a delayed consumed-approver read",
+  "prepare fences autonomy committed during a delayed consumed-approver read",
+  "prepare fences environment version committed during a delayed consumed-approver read",
+  "prepare fences autonomy same version committed during a delayed consumed-approver read",
+  "prepare fences environment JSON same version committed during a delayed consumed-approver read",
+  "prepare fences deleted environment committed during a delayed consumed-approver read",
+  "prepare fences unchanged defaults committed during a delayed consumed-approver read",
+  "prepare fences insert default policy committed during a delayed consumed-approver read",
+  "prepare fences insert default environment committed during a delayed consumed-approver read",
+  "prepare fences insert foreign environment committed during a delayed consumed-approver read",
+  "claim fences unchanged settings committed during a delayed consumed-approver read",
+  "claim fences two-person policy committed during a delayed consumed-approver read",
+  "claim fences denying policy committed during a delayed consumed-approver read",
+  "claim fences policy version committed during a delayed consumed-approver read",
+  "claim fences policy JSON same version committed during a delayed consumed-approver read",
+  "claim fences deleted policy committed during a delayed consumed-approver read",
+  "claim fences replaced policy same version committed during a delayed consumed-approver read",
+  "claim fences autonomy committed during a delayed consumed-approver read",
+  "claim fences environment version committed during a delayed consumed-approver read",
+  "claim fences autonomy same version committed during a delayed consumed-approver read",
+  "claim fences environment JSON same version committed during a delayed consumed-approver read",
+  "claim fences deleted environment committed during a delayed consumed-approver read",
+  "claim fences unchanged defaults committed during a delayed consumed-approver read",
+  "claim fences insert default policy committed during a delayed consumed-approver read",
+  "claim fences insert default environment committed during a delayed consumed-approver read",
+  "claim fences insert foreign environment committed during a delayed consumed-approver read",
+  "refuses an already foreign globally keyed environment before prepare",
+  "refuses an already foreign globally keyed environment before claim",
+  "prepare resolves unchanged after an exact observed operation-row lock waiter",
+  "prepare resolves removed requester after an exact observed operation-row lock waiter",
+  "prepare resolves demoted approver after an exact observed operation-row lock waiter",
+  "claim resolves unchanged after an exact observed operation-row lock waiter",
+  "claim resolves removed requester after an exact observed operation-row lock waiter",
+  "claim resolves demoted approver after an exact observed operation-row lock waiter",
+  "prepare authority abort rolls back and a late member answer cannot commit",
+  "claim authority abort rolls back and a late member answer cannot commit"
+];
+const WORKFLOW_INTENT_TEMPORAL_CASES = [
+  "independent SQL workers and SDK connections commit one exact accepted start and retain the same completed execution",
+  "accepted start followed by connection loss is recovered by an independent reader without another Start RPC",
+  "SQL claim commit acknowledgement loss prevents transport and remains unconfirmed when Temporal has no execution",
+  "a prepared-intent commit acknowledgement loss recovers that same row and permits only its first authorized transport",
+  "an accepted start whose readback cannot be committed recovers the retained original, never a new execution",
+  "foreign legacy execution with the same workflow ID is refused rather than adopted or restarted",
+  "mutated argument, type, namespace or queue requests cannot replace the retained writer",
+  "actual Temporal original with wrong type cannot acknowledge a retained attempt",
+  "actual Temporal original with wrong arguments cannot acknowledge a retained attempt",
+  "actual Temporal original with wrong memo cannot acknowledge a retained attempt",
+  "actual Temporal raw Start with priority key is not the retained canonical configuration",
+  "actual Temporal raw Start with fairness key is not the retained canonical configuration",
+  "actual Temporal raw Start with fairness weight is not the retained canonical configuration",
+  "actual Temporal raw Start with enabled time skipping is not the retained canonical configuration",
+  "actual Temporal raw Start with disabled propagation is not the retained canonical configuration",
+  "actual Temporal raw Start with skip-count override is not the retained canonical configuration",
+  "actual Temporal raw Start with continued failure is not the retained canonical configuration",
+  "actual Temporal raw Start with last completion result is not the retained canonical configuration",
+  "actual Temporal raw Start with explicit parentless priority and disabled time-skipping defaults confirms the same original",
+  "real PostgreSQL final lock waiter unchanged permits only a fresh canonical Temporal dispatch",
+  "real PostgreSQL final lock waiter demoted approver permits only a fresh canonical Temporal dispatch",
+  "real PostgreSQL final lock waiter raised approval count permits only a fresh canonical Temporal dispatch",
+  "real PostgreSQL final lock waiter current policy deny permits only a fresh canonical Temporal dispatch",
+  "retention-equivalent deletion of this owned closed Temporal history preserves the SQL tombstone and never authorizes replay",
+  "encrypted original input and memo round-trip through the configured codecs on independent readers",
+  "cancelled operation keeps an exact late accepted-start receipt and denies a new attempted writer",
+  "current role or policy revocation refuses a prepared intent before any Temporal Start call"
+];
+const WORKFLOW_INTENT_WIRE_MODELS = [
+  "pinned raw response model omitted accepts defaults without another Start",
+  "pinned raw response model null accepts defaults without another Start",
+  "pinned raw response model empty nested messages accepts defaults without another Start",
+  "pinned raw response model explicit zero knobs accepts defaults without another Start",
+  "pinned raw response model documented unit fairness weight accepts defaults without another Start",
+  "pinned raw response model eager acceptance refuses confirmation without another Start",
+  "pinned raw response model priority key refuses confirmation without another Start",
+  "pinned raw response model fairness key refuses confirmation without another Start",
+  "pinned raw response model fairness weight refuses confirmation without another Start",
+  "pinned raw response model time skipping enabled refuses confirmation without another Start",
+  "pinned raw response model empty fast-forward wrapper refuses confirmation without another Start",
+  "pinned raw response model propagation disabled refuses confirmation without another Start",
+  "pinned raw response model skip-count override refuses confirmation without another Start",
+  "pinned raw response model propagated skipped seconds refuses confirmation without another Start",
+  "pinned raw response model propagated skipped nanos refuses confirmation without another Start",
+  "pinned raw response model invalid duration cancelling to zero refuses confirmation without another Start",
+  "pinned raw response model propagated skip count refuses confirmation without another Start",
+  "pinned raw response model empty fast-forward target wrapper refuses confirmation without another Start",
+  "pinned raw response model declined unversioned target wrapper refuses confirmation without another Start",
+  "pinned raw response model empty continued-failure wrapper refuses confirmation without another Start",
+  "pinned raw response model empty last-completion-result wrapper refuses confirmation without another Start"
+];
+const DEFAULT_CURRENT_MEMBERSHIP_CASES = [
+  "same owning current requester and approver permit one canonical signed claim",
+  "the same cached broker refuses a demoted requester without a snapshot fallback",
+  "the same cached broker refuses a deleted requester without a snapshot fallback",
+  "missing hosted member bob receives no empty-workspace or local authority",
+  "missing hosted member local receives no empty-workspace or local authority",
+  "a cached requester approval cannot survive a demoted consumed human approver",
+  "a cached requester approval cannot survive a deleted consumed human approver",
+  "a demoted requester cannot claim an already approved operation",
+  "a deleted requester cannot claim an already approved operation",
+  "current membership response error refuses before proposal authority or privileged fallback",
+  "current membership thrown error refuses before proposal authority or privileged fallback",
+  "current membership foreign workspace refuses before proposal authority or privileged fallback",
+  "current membership foreign human refuses before proposal authority or privileged fallback",
+  "current membership unsupported role refuses before proposal authority or privileged fallback",
+  "a real eight-second role deadline refuses late successful modeled PostgREST completion on the cached broker",
+  "integration authority retains credential scope and target attenuation while rereading its human",
+  "a revoked integration credential cannot be restored by current admin membership",
+  "a expired integration credential cannot be restored by current admin membership",
+  "a foreign workspace integration credential cannot be restored by current admin membership",
+  "a missing integration credential cannot be restored by current admin membership",
+  "system principals remain nonmembers governed by canonical policy, never human approvers"
+];
+const RECONCILIATION_REQUIREMENTS = [
+  ...RECONCILE_SCHEDULE_CASES.map(test => ({file:"tests/workflows/reconcile-schedule.test.ts",suite:"durable schedule on an actual isolated Temporal service",test,backend:"postgres"})),
+  ...RECONCILE_COMPOSITION_CASES.map(test => ({file:"tests/workers/reconcile-composition.test.ts",suite:"actual default activity composition: PostgreSQL and owned durable Temporal",test,backend:"postgres"})),
+];
+const WORKFLOW_INTENT_POSTGRES_REQUIREMENTS = [
+  ...WORKFLOW_INTENT_SQL_CASES.map(test=>({file:WORKFLOW_INTENT_SQL_FILE,suite:"workflow start intents [postgres]",test,postgres:true})),
+  ...WORKFLOW_INTENT_PRIVILEGE_CASES.map(test=>({file:WORKFLOW_INTENT_SQL_FILE,suite:"workflow start tombstone privileges [postgres]",test,postgres:true})),
+  ...WORKFLOW_INTENT_AUTHORITY_CASES.map(test=>({file:WORKFLOW_INTENT_AUTHORITY_FILE,suite:"workflow start final authority [postgres]",test,postgres:true})),
+];
+const DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS = DEFAULT_CURRENT_MEMBERSHIP_CASES.map(test=>({
+  file:CURRENT_MEMBERSHIP_FILE,suite:"cached default broker current membership [postgres; modeled product reads]",test,backend:"postgres",
+}));
+// Real Temporal replay with scripted activities; these do not claim provider effects.
+const WORKFLOW_INTENT_REPLAY_REQUIREMENTS = [
+  {
+    "file": "tests/workflows/replay.test.ts",
+    "suite": "replaying histories recorded by the current workflows",
+    "test": "deploy: happy path"
+  },
+  {
+    "file": "tests/workflows/replay.test.ts",
+    "suite": "replaying histories recorded by the current workflows",
+    "test": "deploy: approval wait, signal, and a second lease"
+  },
+  {
+    "file": "tests/workflows/replay.test.ts",
+    "suite": "replaying histories recorded by the current workflows",
+    "test": "deploy: a failure path (lease lost during apply)"
+  },
+  {
+    "file": "tests/workflows/replay.test.ts",
+    "suite": "replaying histories recorded by the current workflows",
+    "test": "deploy: cancellation mid-flight"
+  },
+  {
+    "file": "tests/workflows/replay.test.ts",
+    "suite": "replaying histories recorded by the current workflows",
+    "test": "deploy: retried reads (activity attempts do not disturb replay)"
+  },
+  {
+    "file": "tests/workflows/replay.test.ts",
+    "suite": "replaying histories recorded by the current workflows",
+    "test": "day-two, remediation and reconcile"
+  },
+  {
+    "file": "tests/workflows/replay.test.ts",
+    "suite": "the replay check has teeth",
+    "test": "the same history is rejected by a workflow that schedules its activities in a different order"
+  },
+  {
+    "file": "tests/workflows/codec-replay.test.ts",
+    "suite": "codec histories on local Temporal (ZENITH_TEST_TEMPORAL=1)",
+    "test": "encrypts workflow/activity payloads, supports queries/signals and replays with retained keys"
+  },
+  {
+    "file": "tests/workflows/codec-replay.test.ts",
+    "suite": "codec histories on local Temporal (ZENITH_TEST_TEMPORAL=1)",
+    "test": "replays a legacy plaintext history with an encrypted converter"
+  },
+  {
+    "file": "tests/workflows/destroy-replay.test.ts",
+    "suite": "real destroy workflow histories (ZENITH_TEST_TEMPORAL=1)",
+    "test": "happy runs and replays against the current definitions"
+  },
+  {
+    "file": "tests/workflows/destroy-replay.test.ts",
+    "suite": "real destroy workflow histories (ZENITH_TEST_TEMPORAL=1)",
+    "test": "plan_changed runs and replays against the current definitions"
+  },
+  {
+    "file": "tests/workflows/destroy-replay.test.ts",
+    "suite": "real destroy workflow histories (ZENITH_TEST_TEMPORAL=1)",
+    "test": "lease_lost runs and replays against the current definitions"
+  },
+  {
+    "file": "tests/workflows/destroy-replay.test.ts",
+    "suite": "real destroy workflow histories (ZENITH_TEST_TEMPORAL=1)",
+    "test": "approval_reject runs and replays against the current definitions"
+  },
+  {
+    "file": "tests/workflows/destroy-replay.test.ts",
+    "suite": "real destroy workflow histories (ZENITH_TEST_TEMPORAL=1)",
+    "test": "unknown_absence runs and replays against the current definitions"
+  },
+  {
+    "file": "tests/workflows/destroy-replay.test.ts",
+    "suite": "real destroy workflow histories (ZENITH_TEST_TEMPORAL=1)",
+    "test": "preserves and replays the deploy command sequence"
+  }
+];
+const WORKFLOW_INTENT_REQUIREMENTS = [
+  ...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,
+  ...WORKFLOW_INTENT_TEMPORAL_CASES.map(test=>({file:WORKFLOW_INTENT_TEMPORAL_FILE,test,backend:"postgres"})),
+  // Supplemental wire models cannot match any actual scenario's exact title.
+  ...WORKFLOW_INTENT_WIRE_MODELS.map(test=>({file:WORKFLOW_INTENT_TEMPORAL_FILE,test})),
+  {file:WORKFLOW_INTENT_SQL_FILE,test:"test-only captured broker authority is unavailable in production at creation and invocation"},
+  ...["own scalar snapshot rejects accessors before store or SDK and strips extra serialization hooks","production start refuses missing durable store and test seam is unavailable in production"]
+    .map(test=>({file:WORKFLOW_INTENT_TEMPORAL_FILE,test})),
+  ...WORKFLOW_INTENT_REPLAY_REQUIREMENTS,
+];
+
 export const GATE_LANES = {
   postgres: {
     files: ["tests/hosted/authority/contract", "tests/scripts/migrate-hosted-to-postgres.test.ts", "tests/agent-link/pg-contract.test.ts", "tests/agent-control/pg-contract.test.ts", "tests/db/contract/workspace-sharing.test.ts", "tests/waitlist/pg-contract.test.ts"],
@@ -556,15 +849,29 @@ export const GATE_LANES = {
   },
   workflows: {
     files: ["tests/workflows", "tests/platform", "tests/security/workflow-history.test.ts", ECS_REPLICA_REPAIR_FILES.execution, ECS_REPLICA_REPAIR_FILES.ownership, "tests/execution/release.test.ts"],
-    excludeFiles: ["tests/workflows/mtls-live.test.ts", CODEBUILD_POSTGRES_FILE],
+    excludeFiles: ["tests/workflows/mtls-live.test.ts", CODEBUILD_POSTGRES_FILE, WORKFLOW_INTENT_TEMPORAL_FILE],
     env: { ZENITH_COMPOSE_TEMPORAL_MODE: "time-skipping", ZENITH_TEST_TEMPORAL_DOWNLOAD: "1", ZENITH_SEC_TEMPORAL: "1", ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REPO: "https://github.com/GODOSTROYER/zenith", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b" },
     report: ".data-ci-lane/workflows-lane.json",
     prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "Temporal CLI 1.9.1 at ZENITH_TEST_TEMPORAL_CLI", "Local Temporal dev and time-skipping servers; SDK test-server cache or download access", "Public GitHub codeload access for the immutable source fixture"],
     tools: { node: "22.23.3", temporal: "1.9.1" },
   },
+  reconciliation: {
+    files:["tests/workflows/reconcile-schedule.test.ts","tests/workers/reconcile-composition.test.ts"],
+    env:{ZENITH_TEST_TEMPORAL:"1",ZENITH_TEST_TEMPORAL_DOWNLOAD:"0",ZENITH_TEST_RECONCILE_SCHEDULE:"1",ZENITH_TEST_RECONCILE_COMPOSITION:"1"},
+    report:".data-ci-lane/reconciliation-lane.json",
+    prerequisites:["Node 22.23.3","npm ci --ignore-scripts","PostgreSQL 16.15: fresh owned loopback database at ZENITH_TEST_PLATFORM_PG_URL","Platform migrator applied/current via scripts/ci/apply-platform-migrations.sh","Temporal CLI 1.9.1 at ZENITH_TEST_TEMPORAL_CLI; owned durable SQLite dev servers, no ambient frontend or test-server download","Committed policy/dist WASM and manifest hash checked; canonical in-process OPA loader"],
+    tools:{node:"22.23.3",postgres:"16.15",temporal:"1.9.1"},
+  },
+  "workflow-intents": {
+    files:[WORKFLOW_INTENT_SQL_FILE,WORKFLOW_INTENT_AUTHORITY_FILE,WORKFLOW_INTENT_TEMPORAL_FILE,"tests/workflows/replay.test.ts","tests/workflows/codec-replay.test.ts","tests/workflows/destroy-replay.test.ts"],
+    env:{ZENITH_TEST_TEMPORAL:"1",ZENITH_TEST_TEMPORAL_DOWNLOAD:"1",ZENITH_TEST_WORKFLOW_START_REQUIRED:"1"},
+    report:".data-ci-lane/workflow-intents-lane.json",
+    prerequisites:["Node 22.23.3","npm ci --ignore-scripts","PostgreSQL 16.15 at ZENITH_TEST_PLATFORM_PG_URL; owned scratch CREATEDB and test-role administration","Platform migration12 registered/applied/current via scripts/ci/apply-platform-migrations.sh","Temporal CLI 1.9.1 at ZENITH_TEST_TEMPORAL_CLI; owned persistent local servers for new outbox cases; unchanged historical destroy replay also needs SDK time-skipping cache/binary or existing permitted download policy (ZENITH_TEST_TEMPORAL_DOWNLOAD=1, optional ZENITH_TEST_TEMPORAL_SERVER)","Committed policy/dist WASM and manifest hash checked; product REST/directory/policy fixtures remain explicit models"],
+    tools:{node:"22.23.3",postgres:"16.15",temporal:"1.9.1"},
+  },
   "platform-postgres": {
     files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts"],
-    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1" }, report: ".data-ci-lane/platform-lane.json",
+    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
     prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache"],
     tools: { node: "22.23.3", postgres: "16.15", tofu: "1.12.5" },
   },
@@ -685,11 +992,17 @@ export function requirementsFor(lane, root) {
       requirements = [...testFiles(root, "tests/workflows"), ...testFiles(root, "tests/platform"), "tests/security/workflow-history.test.ts"]
         .filter((file) => !EXTERNAL_ACCEPTANCE.some((group) => group.wholeFile && group.file === file))
         .filter((file) => !Object.values(ECS_REPLICA_REPAIR_FILES).includes(file))
-        .filter((file) => file !== CODEBUILD_POSTGRES_FILE)
+        .filter((file) => file !== CODEBUILD_POSTGRES_FILE && file !== WORKFLOW_INTENT_TEMPORAL_FILE)
         .flatMap((file) => file === "tests/platform/source-bundle.test.ts"
           ? ["source acquisition and canonical archives", "customer source bucket uploads", "GCS source upload through authorizedFetch", "live public GitHub source (opt-in network)"].map((suite) => ({ file, suite }))
           : [{ file }]);
       requirements.push(...ECS_REPLICA_REPAIR_WORKFLOW_REQUIREMENTS, ...BUILD_WORKFLOW_REQUIREMENTS);
+      break;
+    case "reconciliation":
+      requirements = RECONCILIATION_REQUIREMENTS;
+      break;
+    case "workflow-intents":
+      requirements = WORKFLOW_INTENT_REQUIREMENTS;
       break;
     case "platform-postgres":
       requirements = ["tests/controlplane", "tests/capabilities", "tests/reconcile"].flatMap((directory) => testFiles(root, directory).flatMap((file) => {
@@ -734,6 +1047,8 @@ export function requirementsFor(lane, root) {
       })));
       requirements.push(...AGENT_EFFECT_POSTGRES_REQUIREMENTS);
       requirements.push(...BUILD_SOURCE_POSTGRES_REQUIREMENTS, GITHUB_WEBHOOK_POSTGRES_REQUIREMENT, ...GITHUB_WEBHOOK_POSTGRES_CASES);
+      // Discovery above remains; these named cases survive source deletion.
+      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS);
       break;
     default:
       throw new Error("Unknown CI lane");
@@ -775,7 +1090,7 @@ export function main(args) {
     console.log(JSON.stringify(result, null, 2));
     return 0;
   } catch {
-    console.error("usage: node scripts/ci/gate-manifest.mjs [fresh|core|postgres|policy|tofu|workflows|platform-postgres|linux-guest|external-acceptance]");
+    console.error("usage: node scripts/ci/gate-manifest.mjs [fresh|core|postgres|policy|tofu|workflows|reconciliation|workflow-intents|platform-postgres|linux-guest|external-acceptance]");
     return 2;
   }
 }

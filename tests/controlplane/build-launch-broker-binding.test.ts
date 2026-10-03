@@ -382,3 +382,36 @@ describe.skipIf(!PG_URL)("CodeBuild transaction-bound broker [postgres]", () => 
     expect(cb.commandCalls(StartBuildCommand)).toHaveLength(0); expect(await inventory(f)).toHaveLength(0);
   });
 });
+
+
+// Admission ordering models only: no SQL, provider read or SDK transport runs.
+describe("CodeBuild isolated admission [contract model]", () => {
+  it.each(["production", "development"] as const)("%s refuses factory creation before broker dependency access", async mode => {
+    const h=await makeHarness({kind:"memory"});
+    const dependencies=vi.fn(()=>h.deps);
+    Object.defineProperty(h.broker,"deps",{get:dependencies});
+    try {
+      vi.stubEnv("NODE_ENV",mode);
+      expect(()=>createIsolatedBuildLauncherForTests(h.broker)).toThrow(repos.buildLaunches.BuildLaunchError);
+      expect(dependencies).not.toHaveBeenCalled();
+    } finally {vi.unstubAllEnvs();}
+  });
+
+  it.each(["production", "development"] as const)("%s refuses a captured launcher before context, provider or SQL access", async mode => {
+    const h=await makeHarness({kind:"memory"});
+    const dependencies=vi.fn(()=>h.deps),contextRead=vi.fn(),sqlRead=vi.fn();
+    Object.defineProperty(h.broker,"deps",{get:dependencies});
+    const ctx=new Proxy({} as Parameters<typeof startBuild>[0],{get(){contextRead();throw new Error("Unexpected context/provider access.");}});
+    const sql=new Proxy({} as Sql,{get(){sqlRead();throw new Error("Unexpected SQL access.");}});
+    try {
+      vi.stubEnv("NODE_ENV","test");
+      const launch=createIsolatedBuildLauncherForTests(h.broker);
+      expect(dependencies).toHaveBeenCalledTimes(1);
+      expect(repos.bindRepos(sql).buildLaunches).not.toHaveProperty("assertIsolatedBuildTestAdmission");
+      vi.stubEnv("NODE_ENV",mode);
+      expect(()=>launch(ctx,{} as Parameters<typeof startBuild>[1],{} as Parameters<typeof startBuild>[2],sql)).toThrow(repos.buildLaunches.BuildLaunchError);
+      expect(contextRead).not.toHaveBeenCalled();expect(sqlRead).not.toHaveBeenCalled();
+      expect(dependencies).toHaveBeenCalledTimes(1);
+    } finally {vi.unstubAllEnvs();}
+  });
+});

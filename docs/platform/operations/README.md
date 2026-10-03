@@ -39,6 +39,15 @@ and limits in [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-bran
 | [OCI-SIGNALS.md](OCI-SIGNALS.md) | Whoever reads OCI logs, metrics or incidents | Registered runner setup, migration 5 read jobs, capability split, resource/compartment scope and partial coverage |
 | [OBSERVATION-REPAIR.md](OBSERVATION-REPAIR.md) | Whoever reviews drift and repair proposals | Shared HTTP/Temporal controller, held lease and fencing, broker policy and human approval, uncertainty blocks, workflow history compatibility and remaining remediation limits |
 | [ECS-REPLICA-REPAIR.md](ECS-REPLICA-REPAIR.md) | Whoever reviews an ECS replica repair | Bounded replica counts, read-only planning, immutable ownership and autoscaler proof, exact saved-plan browser approval, durable readback, uncertainty and recorded local verification limits |
+| [AGENT-EFFECT-RECEIPTS.md](AGENT-EFFECT-RECEIPTS.md) | Whoever resolves a late agent outcome | Authenticated encrypted receipts, permanent terminal projections, immutable retries, current-key custody and provider/crash evidence limits |
+| [BUILD-LAUNCH-AUTHORITY.md](BUILD-LAUNCH-AUTHORITY.md) | Whoever admits a CodeBuild launch | Owning transaction authority, captured policy/autonomy CAS, current human membership and observed PostgreSQL waiter requirements |
+| [MIXED-PARTITIONS.md](MIXED-PARTITIONS.md) | Whoever reviews a mixed-provider plan | Logical partition digests, disjoint state/lock objects, typed references and the retained mixed-provider execution refusal |
+| [GITHUB-WEBHOOKS.md](GITHUB-WEBHOOKS.md) | Whoever manages private GitHub source bindings | Signed revocation transport, file-only secret custody, permanent delivery receipts and live-delivery limits |
+| [RECONCILE-SCHEDULING.md](RECONCILE-SCHEDULING.md) | Whoever owns critical observation schedules | Fixed Temporal schedule ownership, pause preservation and real-engine prerequisites |
+| [RECONCILE-WORKER.md](RECONCILE-WORKER.md) | Whoever operates execution workers | Default polling composition, authenticated Temporal, observation freshness and readiness |
+| [WORKFLOW-START-INTENTS.md](WORKFLOW-START-INTENTS.md) | Whoever resolves workflow-start uncertainty | Permanent single-attempt intents, exact authority, raw-history recovery and no blind resend |
+| [CURRENT-HUMAN-AUTHORITY.md](CURRENT-HUMAN-AUTHORITY.md) | Whoever administers privileged humans | Fresh membership at dispatch and approval use, production memory-store refusal |
+| [OPERATION-GATES.md](OPERATION-GATES.md) | Whoever verifies operation changes | Required actual PostgreSQL/Temporal cases, separate model/replay coverage and immutable receipts |
 | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md) | Anyone deciding what to trust | **Generated.** Provider by native type by operation, with the evidence level each driver declares, the observability sources and the capability catalog |
 
 The committed matrix reflects the registry and is checked by
@@ -164,4 +173,8 @@ matrix has no `real` entry and `tests/docs/` fails if one appears.
   Docker build says it is not verified.
 - **Source snapshot.** Each guide names its base commit. The wiring assertions
   must fail when the documented composition calls are removed. Historical run
-  records remain dated; they are not rerun evidence for this snapshot.
+  records remain dated; they are not rerun evidence for this snapshot. The three
+  newer guides carry their own committed input pins, rather than inheriting this
+  index's historical branch. The shallow-checkout metadata contract checks the
+  declared branch and commit against those pins; it does not prove Git ancestry
+  or live acceptance.

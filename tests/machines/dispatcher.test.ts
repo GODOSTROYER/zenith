@@ -4,6 +4,7 @@ import { POST as register } from "@/app/api/platform/v1/machines/register/route"
 import { POST as poll } from "@/app/api/platform/v1/machines/[id]/poll/route";
 import { POST as report } from "@/app/api/platform/v1/machines/[id]/jobs/[jti]/result/route";
 import { createRunnerMachineDispatcher, createZenithdMachineDriver, type MachineRequest } from "@/lib/machines";
+import { effectReceiptAad } from "@/lib/runners/service";
 import { createPlane, issueGrant, openDbPlane, registerFakeAgent, teardownPlane, type DbPlane } from "../runners/_support";
 
 const signal = () => new AbortController().signal;
@@ -45,7 +46,7 @@ it("normalizes direct requests and refuses invalid arguments before enqueueing",
   expect(agent.decodeJob((delivery.body.jobs as string[])[0], agent.jobTyp()).claims).toMatchObject({ jti: id, args: { limit: 50, sortBy: "cpu" } });
 });
 
-it("a silent agent past its lease is uncertain, never re-dispatched, and late reports lose", async () => {
+it("a silent agent stays terminal and uncertain while an authenticated late receipt is retained without redispatch", async () => {
   const p = await createPlane();
   const agent = await registerFakeAgent(p, register, { kind: "machine", capabilities: ["machine.service.restart"] });
   const d = createRunnerMachineDispatcher(p.rt);
@@ -54,7 +55,27 @@ it("a silent agent past its lease is uncertain, never re-dispatched, and late re
   const id = await d.enqueue(req, jws);
   await agent.post(poll, "/poll", { max: 1, waitSec: 0 });
   expect(await d.await(id, signal())).toEqual({ status: "uncertain" });
-  expect((await agent.post(report, `/jobs/${id}/result`, { status: "succeeded", result: {} }, {}, { jti: id })).status).toBe(409);
+  const terminal = await p.store.machineRequests.get(agent.workspaceId, id);
+  expect(terminal?.status).toBe("cancelled");
+  expect(terminal?.startedAt).toBeTypeOf("string");
+  const outcome = { status: "succeeded", startedAt: terminal!.startedAt, finishedAt: new Date(p.rt.now()).toISOString(), exitCode: 0,
+    result: { ok: true, operation: req.operation, data: { restarted: true, detail: "inert-private-restart-detail" } }, error: "inert-private-agent-diagnostic" };
+  expect((await agent.post(report, `/jobs/${id}/result`, outcome, {}, { jti: id })).status).toBe(200);
+  const receipt = await p.store.machineRequests.getEffectReceipt(agent.workspaceId, id);
+  expect(receipt).toMatchObject({ workspaceId: agent.workspaceId, agentKind: "machine", agentId: agent.id,
+    jobId: id, operationId: req.operationId, projectionStatus: "cancelled", reportedStatus: "succeeded" });
+  expect(p.rt.sealer.open(effectReceiptAad(agent.workspaceId, "machine", id, receipt!), receipt!.sealed)).toEqual(outcome);
+  expect(JSON.stringify(receipt)).not.toContain("inert-private-restart-detail");
+  expect(JSON.stringify(receipt)).not.toContain("inert-private-agent-diagnostic");
+  expect(await p.store.machineRequests.get(agent.workspaceId, id)).toEqual(terminal);
+  expect(await d.await(id, signal())).toEqual({ status: "uncertain" });
+  expect((await agent.post(report, `/jobs/${id}/result`, outcome, {}, { jti: id })).status).toBe(200);
+  expect(await p.store.machineRequests.getEffectReceipt(agent.workspaceId, id)).toEqual(receipt);
+  expect((await agent.post(report, `/jobs/${id}/result`, { ...outcome, result: { changed: true } }, {}, { jti: id })).status).toBe(409);
+  expect(await p.store.machineRequests.getEffectReceipt(agent.workspaceId, id)).toEqual(receipt);
+  expect(await p.store.machineRequests.get(agent.workspaceId, id)).toEqual(terminal);
+  expect(await d.await(id, signal())).toEqual({ status: "uncertain" });
+  expect(p.events.filter(event => event.type === "machine.request.completed")).toEqual([]);
   expect((await agent.post(poll, "/poll", { max: 1, waitSec: 0 })).body.jobs).toEqual([]);
   expect(await p.store.machineRequests.listForOperation(agent.workspaceId, req.operationId)).toHaveLength(1);
 });

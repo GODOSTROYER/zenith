@@ -76,10 +76,10 @@ export async function startBuild(ctx: Ctx, node: ResourceNode, input: StartBuild
 
 /** Isolated real-broker composition for authority acceptance, unavailable in production. */
 export function createIsolatedBuildLauncherForTests(broker: Broker): typeof startBuild {
-  if(process.env.NODE_ENV!=="test") throw new launches.BuildLaunchError();
+  launches.assertIsolatedBuildTestAdmission();
   const claim=launches.createIsolatedBuildClaimerForTests(broker);
   return (ctx,node,input,db) => {
-    if(process.env.NODE_ENV!=="test") throw new launches.BuildLaunchError();
+    launches.assertIsolatedBuildTestAdmission();
     return launchBuild(ctx,node,input,db,claim);
   };
 }

@@ -1,5 +1,7 @@
 # GitHub source revocation webhooks
 
+Written against branch `ws/prod-default-integrated-20261003`, based on signed webhook source and migration contracts at `e64d00fc3a6f4ae305925059e441628f57a37ddc` (2026-10-03). This source-input pin does not establish runtime acceptance of the additive changes or live-provider behavior. Exact integrated verification remains separate.
+
 This source candidate wires signed POST transport at `/api/platform/v1/github/webhook`, migrations 9 and 10, exact middleware admission, and revoked-aware browser/store/runtime behavior. Independent review and exact-source runtime gates remain required before publication or endpoint enablement. Prepared contracts do not prove a live GitHub installation.
 
 GitHub signs the original body with HMAC SHA256 in `X-Hub-Signature-256`. The transport bounds the original bytes to 1 MiB, allows eight seconds to read them, verifies the signature with `timingSafeEqual`, then parses JSON and opens the control database. It rejects invalid UTF8, duplicate JSON keys, ambiguous headers, malformed identifiers, body length mismatches and encoded bodies. No URL or repository name in the webhook becomes a request destination or authority selector. [GitHub signature documentation](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries).

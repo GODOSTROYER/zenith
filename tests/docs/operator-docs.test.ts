@@ -20,6 +20,7 @@ import { describe, expect, it } from "vitest";
 import { CAPABILITIES } from "@/lib/capabilities/catalog";
 import { estimateGraphCost, loadDefaultCatalog, type CostNode } from "@/lib/placement";
 import { DEFAULT_WORKSPACE_POLICY } from "@/lib/policy/types";
+import { PLATFORM_MIGRATIONS, PLATFORM_SCHEMA_VERSION, migrationChecksum } from "@/lib/controlplane/db/migrations";
 import { REPO_ROOT, extractLinks, read, stripFences, walk } from "./markdown";
 
 const OPS = path.join(REPO_ROOT, "docs", "platform", "operations");
@@ -27,6 +28,24 @@ const guide = (name: string): string => read(path.join(OPS, name));
 const GUIDES = walk(OPS);
 const exists = (rel: string): boolean => fs.existsSync(path.join(REPO_ROOT, rel));
 const squash = (text: string): string => text.replace(/\s+/g, " ");
+
+// Committed guide-input pins; shallow CI need not have historical Git objects.
+// These verify the declared documentation contract, not remote ancestry or live acceptance.
+const SOURCE_SNAPSHOTS: Record<string, { branch: string; commit: string }> = {
+  ...Object.fromEntries(["README.md", "DEPLOYING.md", "RECOVERY.md", "AWS-SETUP.md", "POLICY.md", "COST.md", "TEARDOWN.md", "BUILDS.md", "OCI-SIGNALS.md"]
+    .map(name => [name, { branch: "ws/docs-sync-2", commit: "3c1fa66" }])),
+  "OBSERVATION-REPAIR.md": { branch: "codex/production-2026-10-02", commit: "8657abd" },
+  "ECS-REPLICA-REPAIR.md": { branch: "ws/prod-ecs-replica-repair", commit: "b46fb8a" },
+  "AGENT-EFFECT-RECEIPTS.md": { branch: "ws/prod-default-accepted-20261003", commit: "dc40ee9ad590640c78659796c9b932436ea1e426" },
+  "BUILD-LAUNCH-AUTHORITY.md": { branch: "ws/prod-default-accepted-20261003", commit: "15ce74f81a4919d1d12780d1e7c95445595bbceb" },
+  "MIXED-PARTITIONS.md": { branch: "ws/prod-default-accepted-20261003", commit: "3755d4d8eae0b3f6b681dfd5a33c6eeac4694d31" },
+  "GITHUB-WEBHOOKS.md": { branch: "ws/prod-default-integrated-20261003", commit: "e64d00fc3a6f4ae305925059e441628f57a37ddc" },
+  "RECONCILE-SCHEDULING.md": { branch: "ws/prod-reconcile-worker-wiring-20261003", commit: "b9eea30f7b68fc67bc9b7f62857141fd60b6cbd6" },
+  "RECONCILE-WORKER.md": { branch: "ws/prod-reconcile-worker-wiring-20261003", commit: "b9eea30f7b68fc67bc9b7f62857141fd60b6cbd6" },
+  "WORKFLOW-START-INTENTS.md": { branch: "codex/workflow-start-outbox-r4-20261003", commit: "15ce74f81a4919d1d12780d1e7c95445595bbceb" },
+  "CURRENT-HUMAN-AUTHORITY.md": { branch: "ws/prod-default-current-membership-20261003", commit: "dc40ee9ad590640c78659796c9b932436ea1e426" },
+  "OPERATION-GATES.md": { branch: "ws/prod-operation-gates-20261003", commit: "dc40ee9ad590640c78659796c9b932436ea1e426" },
+};
 
 /* -------------------------------- structure ------------------------------- */
 
@@ -46,13 +65,12 @@ describe("the guide set", () => {
     for (const file of GUIDES) {
       const text = read(file);
       const name = path.basename(file);
-      const snapshot = name === "OBSERVATION-REPAIR.md"
-        ? { branch: "codex/production-2026-10-02", commit: "8657abd" }
-        : name === "ECS-REPLICA-REPAIR.md"
-          ? { branch: "ws/prod-ecs-replica-repair", commit: "b46fb8a" }
-          : { branch: "ws/docs-sync-2", commit: "3c1fa66" };
-      expect(text, name).toContain(`Written against branch \`${snapshot.branch}\``);
-      expect(text, name).toContain(`\`${snapshot.commit}\``);
+      const snapshot = SOURCE_SNAPSHOTS[name];
+      expect(snapshot, `${name} needs its own committed guide-input pin`).toBeDefined();
+      const declared = /Written against branch `([A-Za-z0-9][A-Za-z0-9._/-]{0,127})`,[^\n]*?`([a-f0-9]{7}|[a-f0-9]{40})`/.exec(text);
+      expect(declared, `${name} needs an explicit branch and 7/40-hex commit header`).not.toBeNull();
+      expect(declared![1], name).toBe(snapshot.branch);
+      expect(declared![2], name).toBe(snapshot.commit);
     }
     for (const name of ["DEPLOYING.md", "RECOVERY.md"]) {
       expect(guide(name), name).toMatch(/not verified|Not verified|not rehearsed|Not rehearsed/);
@@ -766,7 +784,7 @@ describe("operator claims match current wiring", () => {
     expect(guide("POLICY.md")).toContain("current approval round");
   });
 
-  it("closed middleware/bundle gaps stay closed and seven migrations are documented", () => {
+  it("closed middleware/bundle gaps stay closed and documented migrations match the canonical registry and checksums", () => {
     const middleware = source("src/middleware.ts");
     expect(middleware).toContain("isPlatformBearerRequest");
     expect(middleware).toContain("isAgentSignedPath");
@@ -774,9 +792,25 @@ describe("operator claims match current wiring", () => {
     expect(next).toContain("outputFileTracingIncludes");
     expect(next).toContain("policy/dist");
     expect(source("docker/worker.Dockerfile")).toContain("policy/dist");
-    expect(source("src/lib/controlplane/db/migrations/index.ts")).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts]");
-    expect(deploying).toContain("Seven migrations exist today");
-    expect(deploying).toContain("all seven");
+    const migrationGuide = guide("DEPLOYING.md");
+    const inventory = /<!-- platform-migrations:start -->([\s\S]*?)<!-- platform-migrations:end -->/.exec(migrationGuide);
+    expect(inventory, "DEPLOYING.md needs the complete generated migration inventory").not.toBeNull();
+    const lines = inventory![1].trim().split(/\r?\n/);
+    expect(lines.slice(0, 2)).toEqual(["| Version | Name | SQL SHA-256 |", "|---|---|---|"]);
+    const documented = lines.slice(2).map(line => {
+      const row = /^\| ([1-9][0-9]*) \| `([a-z][a-z0-9_]*)` \| `([a-f0-9]{64})` \|$/.exec(line);
+      expect(row, "Every inventory row must have an exact version, name and checksum").not.toBeNull();
+      return { version: Number(row![1]), name: row![2], checksum: row![3] };
+    });
+    const canonical = PLATFORM_MIGRATIONS.map(migration => ({ version: migration.version, name: migration.name, checksum: migrationChecksum(migration) }));
+    expect(documented).toEqual(canonical);
+    const count = /Registered migrations: \*\*([0-9]+)\*\*; highest version: \*\*([0-9]+)\*\*\./.exec(migrationGuide);
+    expect(count).not.toBeNull();
+    expect(Number(count![1])).toBe(PLATFORM_MIGRATIONS.length);
+    expect(Number(count![2])).toBe(PLATFORM_SCHEMA_VERSION);
+    expect(deploying).toContain("npm run migrate:platform -- --status");
+    expect(deploying).toContain("platformSchemaStatus");
+    expect(source("src/lib/controlplane/db/migrator.ts")).toContain("migrationChecksum(m)");
     expect(deploying).toContain("`github_sources` (6:");
   });
 

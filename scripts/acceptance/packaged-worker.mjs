@@ -18,7 +18,7 @@ export const TEMPORAL_IMAGE = "temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b41
 // The pinned image creates /home/temporal for its UID1000 user. A volume at a
 // nonexistent /var/lib/temporal would instead be initialized root-owned.
 export const TEMPORAL_DATA_DIR = "/home/temporal";
-const workerFailureCategories = new Set(["module-load", "configuration", "health-listener", "platform-store", "platform-composition", "policy-assets", "plan-directory", "activity-composition", "temporal-runtime", "workflow-bundle", "temporal-connect", "temporal-worker", "worker-lifecycle", "worker-run", "resource-close"]);
+const workerFailureCategories = new Set(["module-load", "configuration", "health-listener", "platform-store", "platform-composition", "policy-assets", "plan-directory", "activity-composition", "reconcile-composition", "reconcile-client", "reconcile-pollers", "reconcile-schedule", "temporal-runtime", "workflow-bundle", "temporal-connect", "temporal-worker", "worker-lifecycle", "worker-run", "resource-close"]);
 const refusalKinds = ["missing-schema", "invalid-secret", "invalid-signer"];
 const diagnosticRoles = new Set(["postgres", "temporal", "worker", ...refusalKinds]);
 const refusalCommandPhases = new Set(refusalKinds.flatMap((kind) => [`refusal-launch-${kind}`, `refusal-exit-${kind}`, `refusal-logs-${kind}`]));

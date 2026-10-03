@@ -886,6 +886,107 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  # Separate mandatory PG/Temporal contracts; each matrix item owns a fresh DB.
+  # Exact named actual cases are independent of supplemental response/port models.
+  operation-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [reconciliation, workflow-intents]
+
+    services:
+      postgres:
+        image: postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: zenith-ci-throwaway
+          POSTGRES_DB: zenith_operations_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username postgres --dbname zenith_operations_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-operation-${{ matrix.lane }}
+      ZENITH_TEST_PLATFORM_PG_URL: postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/zenith_operations_ci
+      # Required flags are canonical manifest overrides, retained in receipt binding.
+      # No hosted database, provider credentials, ambient frontend or downloads.
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Install pinned Temporal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          mkdir -p temporal-cli
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 15 --max-time 300 --output temporal_cli.tar.gz https://github.com/temporalio/cli/releases/download/v1.9.1/temporal_cli_1.9.1_linux_amd64.tar.gz
+          printf '%s  %s\n' '09a0326a51db84d02735e53542b9ebd8c4758daf47482a9ab0abce15844e60d5' 'temporal_cli.tar.gz' | sha256sum --check --strict
+          tar -xzf temporal_cli.tar.gz -C temporal-cli temporal
+          version="$("$RUNNER_TEMP/temporal-cli/temporal" --version)"
+          case "$version" in
+            "temporal version 1.9.1 "*) ;;
+            *)
+              echo "::error::Expected temporal version 1.9.1, got: ${version}" >&2
+              exit 1
+              ;;
+          esac
+          echo "$version"
+          echo "ZENITH_TEST_TEMPORAL_CLI=$RUNNER_TEMP/temporal-cli/temporal" >> "$GITHUB_ENV"
+
+      - name: Check committed policy assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import { createHash } from "node:crypto";
+          const manifest = JSON.parse(fs.readFileSync("policy/dist/manifest.json", "utf8"));
+          const wasm = fs.readFileSync("policy/dist/policy.wasm");
+          if (manifest.schema !== 1 || manifest.opaVersion !== "1.19.1"
+            || manifest.entrypoint !== "zenith/decision/result" || manifest.wasmBytes !== wasm.length
+            || manifest.wasmSha256 !== createHash("sha256").update(wasm).digest("hex")) {
+            throw new Error("Committed policy asset integrity is unavailable.");
+          }
+          NODE
+          # The canonical in-process loader checks the same manifest when OPA loads.
+          # Rebuilding/parity remains the existing separately pinned policy gate.
+
+      - name: Apply and require current platform migrations
+        run: bash scripts/ci/apply-platform-migrations.sh
+
+      - name: Required operation scenarios
+        run: node scripts/ci/run-gate.mjs ${{ matrix.lane }} --run
+
+      - name: Independently revalidate canonical execution and every required scenario
+        if: always()
+        run: node scripts/ci/run-gate.mjs ${{ matrix.lane }} --validate .data-ci-lane/${{ matrix.lane }}-lane.json --require-execution
+
+      - name: Preserve sanitized operation gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-${{ matrix.lane }}-evidence-${{ github.sha }}
+          path: .data-ci-lane/${{ matrix.lane }}-evidence.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
   # The platform control store on real PostgreSQL (ADR-0002).
   #
   # This is the platform's own lane, separate from `postgres` above, which is
@@ -944,6 +1045,8 @@ jobs:
     env:
       ZENITH_DATA: ${{ github.workspace }}/.data-ci-platform
       ZENITH_FAST: "1"
+      ZENITH_TEST_WORKFLOW_START_REQUIRED: "1"
+      ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1"
       ZENITH_TEST_TOFU_NETWORK: "1"
       # The one switch that adds the Postgres lane to tests/controlplane's
       # describe.each(LANES). Loopback only: apply-platform-migrations.sh

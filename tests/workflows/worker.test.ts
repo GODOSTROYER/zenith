@@ -9,6 +9,7 @@
  * timeout scenario in approval-time.test.ts.)
  */
 
+import { randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { createExecutionWorker } from "../../workers/execution/run";
@@ -57,23 +58,56 @@ describe("installShutdownHandlers", () => {
 });
 
 describe("packaged execution worker bootstrap and store lifecycle", () => {
-  it("loads the actual worker without logging module values", async () => {
+  it.each(["lowercase", "uppercase"])("permits loading with a valid %s fingerprint key without logging module values", async (letterCase) => {
+    const key = randomBytes(32).toString("hex");
+    const env = { ZENITH_SECRET_KEY: letterCase === "uppercase" ? key.toUpperCase() : key };
     const load = vi.fn(async () => {});
     const output = { write: vi.fn() };
-    expect(await startExecutionWorker(load, output)).toBe(0);
+    expect(await startExecutionWorker(load, output, env)).toBe(0);
     expect(load).toHaveBeenCalledOnce();
     expect(output.write).not.toHaveBeenCalled();
   });
 
-  it("refuses a module-load failure without printing URLs, keys or SQL", async () => {
+  it.each([
+    { label: "missing", key: undefined },
+    { label: "empty", key: "" },
+    { label: "malformed", key: "private-secret-input" },
+    { label: "base64 vault", key: randomBytes(32).toString("base64") },
+    { label: "short hex", key: randomBytes(32).toString("hex").slice(1) },
+    { label: "long hex", key: `${randomBytes(32).toString("hex")}0` },
+    { label: "padded hex", key: ` ${randomBytes(32).toString("hex")}` },
+  ])("refuses a $label fingerprint key before loading without logging its value", async ({ key }) => {
+    const load = vi.fn(async () => {});
     const output = { write: vi.fn() };
-    const privateMessage = "postgresql://user:private-password@private-host/db select 'private-value' signing-private-key";
-    expect(await startExecutionWorker(async () => { throw new Error(privateMessage); }, output)).toBe(1);
+    expect(await startExecutionWorker(load, output, { ZENITH_SECRET_KEY: key })).toBe(1);
+    expect(load).not.toHaveBeenCalled();
+    expect(output.write).toHaveBeenCalledOnce();
     const logged = output.write.mock.calls[0][0];
-    expect(JSON.parse(logged)).toMatchObject({ level: "error", msg: "execution worker failed", component: "execution-worker", failureCategory: "module-load" });
+    expect(JSON.parse(logged)).toEqual({
+      level: "error", msg: "execution worker failed", component: "execution-worker",
+      failureCategory: "configuration",
+      error: "Execution requires ZENITH_SECRET_KEY (64 hex characters); plan fingerprints cannot use the public default.",
+    });
+    if (key) expect(logged).not.toContain(key);
+  });
+
+  it("refuses a module-load failure without printing URLs, keys or SQL", async () => {
+    const env = { ZENITH_SECRET_KEY: randomBytes(32).toString("hex") };
+    const privateMessage = "postgresql://user:private-password@private-host/db select 'private-value' signing-private-key";
+    const load = vi.fn(async () => { throw new Error(privateMessage); });
+    const output = { write: vi.fn() };
+    expect(await startExecutionWorker(load, output, env)).toBe(1);
+    expect(load).toHaveBeenCalledOnce();
+    expect(output.write).toHaveBeenCalledOnce();
+    const logged = output.write.mock.calls[0][0];
+    expect(JSON.parse(logged)).toEqual({
+      level: "error", msg: "execution worker failed", component: "execution-worker", failureCategory: "module-load",
+      error: "Worker modules could not load; check packaged dependencies and configuration.",
+    });
     expect(logged).not.toContain(privateMessage);
     expect(logged).not.toContain("private-password");
     expect(logged).not.toContain("private-value");
+    expect(logged).not.toContain(env.ZENITH_SECRET_KEY);
   });
 
   it("closes the worker-owned store and tolerates no opened store", async () => {

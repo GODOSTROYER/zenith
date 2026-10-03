@@ -44,7 +44,7 @@ function runtimeImports(source: string): string[] {
 
 describe("definitions/ is sandbox-safe deterministic code", () => {
   it("has the files it should", () => {
-    expect(definitionFiles.sort()).toEqual(["activities.ts", "capability.ts", "dayTwo.ts", "deploy.ts", "destroy-review.ts", "destroy.ts", "failures.ts", "index.ts", "policies.ts", "reconcile.ts", "remediation.ts", "runtime.ts"]);
+    expect(definitionFiles.sort()).toEqual(["activities.ts", "capability.ts", "dayTwo.ts", "deploy.ts", "destroy-review.ts", "destroy.ts", "ecsReplicaRepair.ts", "failures.ts", "index.ts", "policies.ts", "reconcile.ts", "remediation.ts", "runtime.ts"]);
   });
 
   it.each(definitionFiles)("%s imports only @temporalio/workflow and relative workflow modules", (file) => {

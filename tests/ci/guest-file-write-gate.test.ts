@@ -280,7 +280,7 @@ except module.Refusal as error:
     print(json.dumps({'verdict':'refused','reason':str(error),**({'calls':calls} if 'remove' in case else {})}))
 `;
 function aclProbe(input:Record<string,unknown>):{verdict:string;reason?:string;metadata?:unknown} {
-  const child=spawnSync("python3",["-B","-c",aclProbeModel,hostHelper,JSON.stringify(input)],{encoding:"utf8",env:{PATH:process.env.PATH},maxBuffer:1024*1024});
+  const child=spawnSync("python3",["-B","-c",aclProbeModel,hostHelper,JSON.stringify(input)],{encoding:"utf8",env:{PATH:process.env.PATH,NODE_ENV:"test"},maxBuffer:1024*1024});
   expect(child.error).toBeUndefined();expect(child.status).toBe(0);expect(child.stderr).toBe("");
   expect(child.stdout).not.toContain("inert-private");
   return JSON.parse(child.stdout);

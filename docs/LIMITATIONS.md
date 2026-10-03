@@ -2,7 +2,19 @@
 
 Status legend: ✅ implemented · 🟡 partial · ⬜ not yet built
 
-## Current production continuation, 2026-10-03
+## Current integrated engineering candidate (3 October 2026)
+
+Reviewed plan custody/migration7, runner rotation, guarded Linux file.write and dependency remediation are integrated on `codex/production-2026-10-02` at `6814da5`, with exact functional source `0772854`. [Current receipt](build/production/verification/2026-10-03-g1-integration.md) records root units16944P0F204S, Temporal1000P0F0S, policy238P0F0S, real OpenTofu3900P0F8S plus separate real PostgreSQL1532P0F0S and Supabase251P0F0S, OPA213, compiler/lint/generated checks and fresh clean-clone Next build. Scoped tooling replacement clears current known locked dependency findings without exception; new advisories remain fresh gate inputs. Last inspected published24e CI37110507951 is still13passed/1failed; complete new pushed CI remains required.
+
+Native Linux file.write/rotation slice executed801passed leaf cases/0failed/3allowed skips with actual privileged/unprivileged ext4/mount/ACL/crash/uncertainty behavior and five authentic result goldens;28additional fixture identity/cleanup adversarial checks passed. Canonical native receipt retains source4bf and its original lock; integrated Go/guest/CI inputs are byte-identical, not a relabeled exact-current whole receipt. Pushed native CI must bind current source/lock. Typed upload/package/service/signed automation, supported systemd and signed default browser/machine acceptance remain open.
+
+Fresh local kind provider6/6 and release1/1 passed on077. ARM64 native and AMD64 emulated execution-worker startup/readiness/polling/outage recovery/idle shutdown passed; no native AMD64, mutation-in-flight shutdown, StatefulSet/CronJob, real managed-CNI isolation or live cloud acceptance inferred. All positively owned Docker/cluster resources were removed; unrelated resources preserved.
+
+Durable build launches and GitHub browser/webhook revocation source with migrations8–10 is reviewed but isolated at88cc783; combined compiler/real PostgreSQL140groups/Temporal53groups remain pending. Late encrypted agent receipts11, corrected durable scheduler, start intents12 and mixed-provider partitions are separate source work. Receipts do not establish provider certainty, cleanup quiescence or deletion completion. Existing cross-provider execution guard remains enforced; no mixed-cloud application or managed two-tenant serving proof exists.
+
+Default API/server startup remains restricted until concrete isolated permission; private Supabase/GitHub/AWS fixtures/account/region/budget remain missing. Production TLS/poolers/auth/failover, in-flight shutdown, full restore/upgrade/load/security and external mTLS/live operational evidence remain open. All78 acceptance criteria persist; G1 exit and implementation complete/sandbox verified/pilot ready/production approved remain false. Earlier checkpoints below are retained historical evidence and are superseded where this section identifies an integrated or executed correction.
+
+## Historical checkpoints before the integrated G1 candidate
 
 Historical pushed baseline `a14e57f` completed [run37080857980](build/production/ci-37080857980.md) with all14jobs passed. Remoteunit16427P0F399S/generated109P0F0S; actualSmoke6stagechecks/Gimbal2assets passed. Fivecanonical lanes postgres251/platformPG1422/policy238/tofu3900/workflows982 all0F0S0unknown, all12bindings matched. Root independently checked terminalAPI, each ZIP/digest/sourcebinding and emitted verification totals. This is exact baseline CI evidence, excluding durable-plan changes and whole-product release acceptance.
 

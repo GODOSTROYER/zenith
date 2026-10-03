@@ -63,7 +63,7 @@ describe("canonical gate manifest", () => {
   it("covers direct PG-only suites and each parameterized backend suite independently", () => {
     const requirements = requirementsFor("platform-postgres", root);
     expect(requirements).toHaveLength(181);
-    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(135);
+    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(175);
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/open.test.ts", suite: "platformDb() against PostgreSQL", backend: "postgres" }));
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/executor.test.ts", suite: "cross-engine shape identity", backend: "postgres" }));
     expect(requirements.filter((required: { file: string }) => required.file === "tests/capabilities/tenancy.test.ts")).toHaveLength(5);

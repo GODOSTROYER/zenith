@@ -93,15 +93,20 @@ describe("results", () => {
     expect((await plane.store.jobs.get("w-a", queued))?.status).toBe("queued");
   });
 
-  it("discards a late result once the control plane has stopped waiting (the operation is uncertain, not re-dispatched)", async () => {
+  it("retains encrypted late evidence after control plane timeout without reopening uncertain work", async () => {
     const id = await delivered(runner, { timeoutSec: 30 });
     plane.clock.t += 40 * 60 * 1000; // far past the lease (timeout + grace)
     const awaited = await awaitRunnerJob(id, { workspaceId: "w-a" });
     expect(awaited).toMatchObject({ status: "timed_out", uncertain: true });
+    const before = await plane.store.jobs.get("w-a", id);
+    expect(before?.status).toBe("cancelled");
     const late = await result(runner, id, ok);
-    expect(late.status).toBe(409);
-    expect(late.body.error?.code).toBe("already_settled");
-    expect((await plane.store.jobs.get("w-a", id))?.status).toBe("cancelled");
+    expect(late.status).toBe(200);
+    const receipt = await plane.store.jobs.getEffectReceipt("w-a", id);
+    expect(receipt).toMatchObject({ projectionStatus: "cancelled", reportedStatus: "succeeded" });
+    expect(receipt?.sealed.alg).toBe("A256GCM");
+    expect(await plane.store.jobs.get("w-a", id)).toEqual(before);
+    expect(await awaitRunnerJob(id, { workspaceId: "w-a" })).toMatchObject({ status: "timed_out", uncertain: true });
     // and nothing was queued again
     expect((await runner.post(pollRunner, "/poll", { max: 5, waitSec: 0 })).body.jobs).toEqual([]);
   });

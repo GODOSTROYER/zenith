@@ -229,13 +229,18 @@ describe("awaitRunnerJob never re-dispatches", () => {
     expect(await plane.store.jobs.listForOperation("w-a", OPERATION)).toHaveLength(1);
   });
 
-  it("a job handed to the agent whose result never arrives is `timed_out` and UNCERTAIN, and a late result is refused", async () => {
+  it("a delivered job stays timed out and uncertain while a signed late outcome is retained without replay", async () => {
     const id = await enqueueProbeJob(plane, runner, { timeoutSec: 60 });
     expect(((await poll()).body.jobs as string[]).length).toBe(1);
     const awaited = await awaitRunnerJob(id, { workspaceId: "w-a" });
     expect(awaited).toMatchObject({ status: "timed_out", uncertain: true });
     expect(plane.rt.now() - T0).toBeGreaterThanOrEqual((60 + 150) * 1000); // it waited out the job's timeout plus the reporting grace
-    expect((await report(id, { status: "succeeded", result: {} })).status).toBe(409);
+    const before = await plane.store.jobs.get("w-a", id);
+    expect(before?.status).toBe("cancelled");
+    expect((await report(id, { status: "succeeded", result: {} })).status).toBe(200);
+    expect(await plane.store.jobs.getEffectReceipt("w-a", id)).toMatchObject({ projectionStatus: "cancelled", reportedStatus: "succeeded" });
+    expect(await plane.store.jobs.get("w-a", id)).toEqual(before);
+    expect(await awaitRunnerJob(id, { workspaceId: "w-a" })).toMatchObject({ status: "timed_out", uncertain: true });
     expect((await poll()).body.jobs).toEqual([]); // and it was not handed out again
     expect(await plane.store.jobs.listForOperation("w-a", OPERATION)).toHaveLength(1);
   });

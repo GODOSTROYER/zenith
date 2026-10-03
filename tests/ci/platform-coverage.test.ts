@@ -8,11 +8,11 @@ import path from "node:path";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
 import vitestConfig from "../../vitest.config";
-import { CORE_CHECKS, manifestFor } from "../../scripts/ci/gate-manifest.mjs";
+import { CORE_CHECKS, linuxGuestManifest, manifestFor } from "../../scripts/ci/gate-manifest.mjs";
 import { requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
 
 interface Step {
-  name?: string; run?: string; if?: string; shell?: string;
+  name?: string; run?: string; if?: string; shell?: string; id?: string;
   env?: Record<string, unknown>;
   "working-directory"?: string; "continue-on-error"?: boolean;
 }
@@ -154,23 +154,50 @@ describe("platform suite coverage", () => {
 
 describe("cross-language Go gates", () => {
   const condition = "hashFiles('go/go.mod') != ''";
+  const nativeCommand = [
+    "set -euo pipefail",
+    'attempt_id="$(node --input-type=module -e \'import { randomBytes } from "node:crypto"; console.log(randomBytes(16).toString("hex"))\')"',
+    'echo "expected_attempt_id=$attempt_id" >> "$GITHUB_OUTPUT"',
+    'ZENITH_GUEST_ATTEMPT_ID="$attempt_id" node scripts/ci/run-guest-file-write-gate.mjs --run',
+  ].join("\n");
 
   it("vets and race-tests all Go packages including OCI", () => {
     expect(fs.existsSync(path.join(root, "go/internal/oci"))).toBe(true);
     gate("go", "go vet ./...", condition);
-    gate("go", "go test -race -count=1 ./...", condition);
+    const native = gate("go", nativeCommand, condition);
+    expect(native.id).toBe("native_guest");
+    expect(native.shell).toBe("bash");
+    expect(native["working-directory"]).toBe(".");
+    const manifest = linuxGuestManifest();
+    expect(manifest.command).toEqual(["node", "scripts/ci/run-guest-file-write-gate.mjs", "--run"]);
+    expect(manifest.steps.find((step) => step.id === "race")?.command).toEqual(["go", "test", "-json", "-race", "-count=1", "./..."]);
+    expect(manifest.env.CGO_ENABLED).toBe("1");
+    expect(manifest.env.GOTOOLCHAIN).toBe("local");
+    expect(manifest.requiredPackages).toContain("github.com/GODOSTROYER/zenith/go/internal/oci");
+    expect(manifest.allowedSkips.map(({ package: packageName, test }) => ({ package: packageName, test }))).toEqual([
+      { package: "github.com/GODOSTROYER/zenith/go/internal/machine/ops", test: "TestRealSystemctlAndJournalctl" },
+      { package: "github.com/GODOSTROYER/zenith/go/internal/runner/kinds", test: "TestRealOpenTofuPlanShowApply" },
+      { package: "github.com/GODOSTROYER/zenith/go/internal/runner/kinds", test: "TestRealOpenTofuWithProviderAndLockfile" },
+    ]);
   });
 
   it("regenerates and compares machine fixtures before TypeScript validates them", () => {
     const job = workflow.jobs.go;
-    const command = [
-      "set -euo pipefail",
-      "ZENITH_UPDATE_MACHINE_GOLDENS=1 go test -count=1 ./internal/machine/ops -run '^TestResultGoldens$'",
-      "git diff --exit-code -- internal/machine/testdata/results",
-      'test -z "$(git --no-optional-locks status --porcelain -- internal/machine/testdata/results)"',
-    ].join("\n");
-    const regenerate = gate("go", command, condition);
-    expect(regenerate.shell).toBe("bash");
+    const regenerate = gate("go", nativeCommand, condition);
+    const manifest = linuxGuestManifest();
+    // The runner observes exits and validates complete JSON lifecycles; the
+    // dedicated guest gate suite checks malformed, missing and skipped reports.
+    expect(manifest.steps).toEqual([
+      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./..."] },
+      { id: "goldens", command: ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"] },
+      { id: "golden-diff", command: ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"] },
+      { id: "golden-status", command: ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"] },
+    ]);
+    expect(manifest.goldenCases).toEqual([{
+      package: "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+      test: "TestResultGoldens/file.write-filesystem",
+      id: "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestResultGoldens/file.write-filesystem",
+    }]);
     const validate = gate("go", "npx vitest run tests/machines/go-results.test.ts --maxWorkers=2", condition);
     expect(validate["working-directory"]).toBe(".");
     expect(job.steps.indexOf(regenerate)).toBeLessThan(job.steps.indexOf(validate));

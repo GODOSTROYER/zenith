@@ -18,10 +18,11 @@
  *   expired                         never claimed before its expiry: provably not delivered
  *   cancelled                       cancelled by the control plane; uncertain only if it had been handed over
  * When the control plane stops waiting (queue window over, or the lease of a
- * running job lapsed) it cancels the job itself, so a late result from the agent
- * gets `409 already_settled` and is discarded — the operation is reconciled by
- * observing reality, not by trusting a stale report. A job it cancelled that had
- * been handed over reads `timed_out` (uncertain); one never handed over reads `expired`.
+ * running job lapsed) it cancels the job itself. An authenticated late result
+ * from the active assigned agent is retained as encrypted evidence without
+ * replacing that terminal projection. Independent readback remains necessary.
+ * That first waiter returns `timed_out` for delivered work or `expired` for work
+ * never delivered. Later waiters read `cancelled`; delivered work stays uncertain.
  */
 import { randomUUID } from "node:crypto";
 import { isCapability } from "@/lib/capabilities/catalog";

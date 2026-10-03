@@ -75,6 +75,8 @@ describe("canonical gate manifest", () => {
       { suite: "migrator [postgres]", test: undefined },
       { suite: "migrator [postgres] concurrency and fail-closed open", test: undefined },
       { suite: "migrator [postgres] concurrency and fail-closed open", test: "schema 6 emitted hardening upgrades through the canonical migrator under a distinct owner with RLS, role isolation and immutable artifacts" },
+      { suite: "migrator [postgres] concurrency and fail-closed open", test: "fresh canonical migrations keep permanent agent receipts select/insert-only" },
+      { suite: "migrator [postgres] concurrency and fail-closed open", test: "same-owner schema6 canonical migrations keep permanent agent receipts select/insert-only" },
     ]);
     const report = {
       success: true,

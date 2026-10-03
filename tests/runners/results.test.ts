@@ -106,7 +106,7 @@ describe("results", () => {
     expect(receipt).toMatchObject({ projectionStatus: "cancelled", reportedStatus: "succeeded" });
     expect(receipt?.sealed.alg).toBe("A256GCM");
     expect(await plane.store.jobs.get("w-a", id)).toEqual(before);
-    expect(await awaitRunnerJob(id, { workspaceId: "w-a" })).toMatchObject({ status: "timed_out", uncertain: true });
+    expect(await awaitRunnerJob(id, { workspaceId: "w-a" })).toMatchObject({ status: "cancelled", uncertain: true });
     // and nothing was queued again
     expect((await runner.post(pollRunner, "/poll", { max: 5, waitSec: 0 })).body.jobs).toEqual([]);
   });

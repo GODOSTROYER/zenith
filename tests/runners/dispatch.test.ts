@@ -240,7 +240,7 @@ describe("awaitRunnerJob never re-dispatches", () => {
     expect((await report(id, { status: "succeeded", result: {} })).status).toBe(200);
     expect(await plane.store.jobs.getEffectReceipt("w-a", id)).toMatchObject({ projectionStatus: "cancelled", reportedStatus: "succeeded" });
     expect(await plane.store.jobs.get("w-a", id)).toEqual(before);
-    expect(await awaitRunnerJob(id, { workspaceId: "w-a" })).toMatchObject({ status: "timed_out", uncertain: true });
+    expect(await awaitRunnerJob(id, { workspaceId: "w-a" })).toMatchObject({ status: "cancelled", uncertain: true });
     expect((await poll()).body.jobs).toEqual([]); // and it was not handed out again
     expect(await plane.store.jobs.listForOperation("w-a", OPERATION)).toHaveLength(1);
   });

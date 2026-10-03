@@ -35,13 +35,48 @@ their actual inode/device/mount/ownership/mode/ACL state, supported root
 filesystem, effective bind-mount capability, required utilities and absence of
 the three fixed fixture namespaces. Unsupported filesystems, separate `/opt`
 mounts, wrong owners, ancestor ACLs, unexpected modes, missing mount authority
-and preexisting fixtures refuse before mutation. Only observed root-owned
-mode0777 may be narrowed to0755, using `fchmod` on that exact `/opt` descriptor;
-already0755 causes no mutation. The helper neither recursively changes contents
-nor changes ownership, ACLs, mount flags or root durability settings. It reopens
+and preexisting fixtures refuse before mutation, except for the narrowly
+authorized `/opt` POSIX ACL preparation below. Root `/` ACLs still refuse.
+Observed root-owned mode0777 may be narrowed to0755, using `fchmod` on that exact
+`/opt` descriptor; already0755 with no ACL causes no mutation. The helper neither
+recursively changes contents nor changes ownership, mount flags or root durability settings. It reopens
 the exact ancestor names and compares identities before and after the change,
 requiring preserved owner/device/inode/mount and final mode0755. Races and failed
 readback refuse; it never restores0777 or attempts another chmod.
+
+Fresh run `37124764251`, Go job `111207712219`, on source `b9eea30` refused
+preparation before native tests with `ancestor_acl_present`. Its current receipt
+observed root/opt on the same ext4 mount and device, root ownership, root with no
+ACL, `/opt` mode0777 with an ACL, mount capability/tools and absent fixture
+namespaces. The receipt did not identify which ACL attribute or any named ACL
+entries. This failure remains failed. The completed run has 13 passed jobs and
+one Go preparation failure; it supplies no hosted native acceptance evidence.
+
+Only on this explicitly disposable hosted VM, preparation may remove the two
+fixed `system.posix_acl_access` and `system.posix_acl_default` attributes from
+the pinned `/opt` descriptor. It observes both attributes and the bounded
+attribute-name inventory, refuses unsupported ACL attribute names and every
+observation error (including unsupported xattrs), and validates present bytes
+against the [Linux v2 ACL xattr layout](https://github.com/torvalds/linux/blob/v6.18/include/uapi/linux/posix_acl_xattr.h)
+and [permission/tag-order rules](https://github.com/torvalds/linux/blob/v6.18/fs/posix_acl.c#L218-L280).
+The stricter canonical preparation boundary accepts at most 4096 bytes, requires
+valid tag/permission/ID encodings, sorted unique named IDs, complete owner/group/
+other entries, and the mask when named entries exist. Access ACL mode bits must
+agree with the observed inode. Unrelated attributes are preserved; their names
+are represented only by a digest. Raw ACL bytes, named users/groups and unrelated
+attribute names or values never enter the report.
+
+Linux documents [descriptor-based attribute removal and error semantics](https://man7.org/linux/man-pages/man2/removexattr.2.html).
+Before each descriptor-based `removexattr`, the helper reopens exact names and
+compares pinned root/opt identity, ACL digests and all prerequisite observations.
+It reobserves after each removal, rechecks before `fchmod(0755)`, and requires
+both ACL attributes absent, mode0755 and unchanged owner/device/inode/mount/root
+and unrelated attribute-name digest after completion. A lost attribute, malformed
+ACL, inode/name/digest race, failed removal/chmod or incomplete readback refuses.
+Successful removals are recorded as fixed `access`/`default` IDs, even if a later
+step fails. Partial hardening stays a refused current attempt; the helper never
+restores unsafe permissions, reapplies ACLs, retries removal, modifies fixture
+contents or imports an old pass. The disposable VM is discarded after that job.
 
 A closed JSON report in this step's job log carries only the fresh fixture run
 ID, test UID/GID, observed ancestor metadata, fixed prerequisite booleans and
@@ -52,7 +87,10 @@ prove ACL writes/readbacks and all four bind mounts, and the unprivileged native
 runner must still produce the separate fresh attempt's race/golden evidence.
 Existing guarded setup/cleanup and current-attempt-only artifact selection are
 unchanged. A preparation failure remains a failed job with no accepted native
-artifact. The preparation contract tests use a Python observation contract model; they supply
+artifact. The preparation tests use a whole-`SystemHost` observation contract model,
+synthetic binary ACL parser cases and patched syscall adapter models. They
+exercise refusal, partial removal and metadata contracts without opening `/`,
+executing descriptor/xattr syscalls or mutating a host filesystem. They supply
 no hosted VM or filesystem execution evidence. Fresh whole-pipeline CI on the
 reviewed correction is mandatory before claiming hosted native acceptance.
 
@@ -139,4 +177,11 @@ Bootstrap output stays private and is removed only through the validated disposa
 
 The first hosted CI execution, local prepared guest execution, authentic new goldens and all validation remain unverified. Systemd sandbox/deployed service, production startup/retention, worker image execution, cloud access and release acceptance remain separate follow-ups outside this module. No release ledger or production limitations claim is changed.
 
-The preparation tests replace `SystemHost`. They exercise `main`, `prepare` and `validate` against observation snapshots; they do not execute `SystemHost` descriptor opens, xattrs, `fstat`, `fchmod` or reopens. Fresh disposable hosted CI must execute those operations and the unchanged actual ACL/bind-mount/native acceptance gate.
+The preparation tests replace `SystemHost`. They exercise `main`, `prepare` and
+`validate` against observation snapshots, including successful/partial removals,
+lost attributes, errors and races. Separate pure binary-parser and patched-xattr
+adapter models exercise canonical format, malformed/unsupported/lost metadata
+and sanitized digests. Their synthetic named entries do not describe the actual
+hosted ACL. They do not execute physical descriptor opens, xattrs, `fstat`,
+`removexattr`, `fchmod` or reopens. Fresh disposable hosted CI must execute those
+operations and the unchanged actual ACL/bind-mount/native acceptance gate.

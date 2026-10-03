@@ -12,11 +12,33 @@ const database = (rows: unknown[] = [row]): Sql => ({ query: vi.fn(async () => r
 const env = () => ({ ZENITH_GITHUB_APP_ID: "42", ZENITH_GITHUB_APP_PRIVATE_KEY_FILE: material.config.privateKeyFile });
 
 describe("default C3 GitHub connector", () => {
-  it("keeps unconfigured and standalone public reads anonymous without opening SQL", async () => {
+  it("keeps standalone public reads anonymous without opening SQL", async () => {
     const db = vi.fn(async () => database());
-    expect(await createGithubAccess({ db, env: {} })({ owner: "acme", repo: "app", workspaceId: "ws-a" }, async (token) => token === undefined)).toBe(true);
+    expect(await createGithubAccess({ db, env: {} })({ owner: "acme", repo: "app" }, async (token) => token === undefined)).toBe(true);
     expect(await createGithubAccess({ db, env: env() })({ owner: "acme", repo: "app" }, async (token) => token === undefined)).toBe(true);
     expect(db).not.toHaveBeenCalled();
+  });
+  it("reads workspace authority before allowing unconfigured public source access", async () => {
+    const db = vi.fn(async () => database([]));
+    expect(await createGithubAccess({ db, env: {} })({ owner: "acme", repo: "app", workspaceId: "ws-a" }, async (token) => token === undefined)).toBe(true);
+    expect(db).toHaveBeenCalledOnce();
+    const callback = vi.fn(async () => "ok");
+    await expect(createGithubAccess({ db: async () => database(), env: {} })({ owner: "acme", repo: "app", workspaceId: "ws-a" }, callback)).rejects.toThrow("could not be confirmed");
+    expect(callback).not.toHaveBeenCalled();
+  });
+  it("refuses revoked bindings and another App without HTTP or anonymous fallback", async () => {
+    const fetchImpl = api(); const callback = vi.fn(async () => "ok");
+    for (const denied of [{ ...row, revoked_at: new Date() }, { ...row, app_id: "43" }]) {
+      await expect(createGithubAccess({ db: async () => database([denied]), env: env(), fetchImpl })({ owner: "acme", repo: "app", workspaceId: "ws-a" }, callback)).rejects.toThrow("could not be confirmed");
+    }
+    expect(fetchImpl).not.toHaveBeenCalled(); expect(callback).not.toHaveBeenCalled();
+  });
+  it.each(["revocation", "replacement"])("rechecks a %s during token acquisition before using the token", async (change) => {
+    const fetchImpl = api(); const callback = vi.fn(async () => "ok");
+    const db = database();
+    vi.mocked(db.query).mockResolvedValueOnce([row]).mockResolvedValueOnce([change === "revocation" ? { ...row, revoked_at: new Date(), version: 2 } : { ...row, repository_id: 100, version: 2 }]);
+    await expect(createGithubAccess({ db: async () => db, env: env(), fetchImpl })({ owner: "acme", repo: "app", workspaceId: "ws-a" }, callback)).rejects.toThrow("could not be confirmed");
+    expect(fetchImpl).toHaveBeenCalledTimes(2); expect(callback).not.toHaveBeenCalled();
   });
   it("keeps a workspace without a binding anonymous, even when an App is configured", async () => {
     const db = database([]); const fetchImpl = api();

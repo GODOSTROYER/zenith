@@ -49,7 +49,7 @@ describe("canonical gate manifest", () => {
     expect(suites).toHaveLength(4);
     expect(suites).toContainEqual(expect.objectContaining({ suite: "live public GitHub source (opt-in network)" }));
     expect(manifest.env).toMatchObject({ ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REPO: "https://github.com/GODOSTROYER/zenith", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b" });
-    expect(manifest.excludeFiles).toEqual(["tests/workflows/mtls-live.test.ts"]);
+    expect(manifest.excludeFiles).toEqual(["tests/workflows/mtls-live.test.ts", "tests/platform/codebuild-launch-authority.test.ts"]);
   });
 
   it("declares mTLS prerequisites and an unverified release blocker rather than a pass", () => {
@@ -62,8 +62,8 @@ describe("canonical gate manifest", () => {
 
   it("covers direct PG-only suites and each parameterized backend suite independently", () => {
     const requirements = requirementsFor("platform-postgres", root);
-    expect(requirements).toHaveLength(70);
-    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(64);
+    expect(requirements).toHaveLength(140);
+    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(134);
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/open.test.ts", suite: "platformDb() against PostgreSQL", backend: "postgres" }));
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/executor.test.ts", suite: "cross-engine shape identity", backend: "postgres" }));
     expect(requirements.filter((required: { file: string }) => required.file === "tests/capabilities/tenancy.test.ts")).toHaveLength(5);
@@ -281,4 +281,41 @@ it("CI uploads one exact selected current-attempt file only after independent ou
   expect(native).toContain("path: ${{ steps.guest_evidence.outputs.evidence_path }}");
   expect(native).not.toContain("path: .data-ci-guest/evidence.json");
   expect(native).not.toContain("path: .data-ci-guest/");
+});
+
+
+describe("durable build and source revocation release contracts", () => {
+  const files = ["tests/controlplane/build-launches.test.ts", "tests/platform/codebuild-launch-authority.test.ts", "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts"];
+  it("requires every build authority case and source lock regression on real PostgreSQL", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    for (const file of files) expect(manifest.command).toContain(file);
+    expect(manifest.requirements.filter(item => item.file === files[1])).toHaveLength(34);
+    expect(manifest.requirements.filter(item => item.file === files[2])).toHaveLength(13);
+    expect(manifest.requirements.filter(item => item.file === files[3])).toHaveLength(9);
+    expect(manifest.requirements).toContainEqual(expect.objectContaining({ file: files[3], test: "serializes webhook revocation with a first-binding transaction holding the same epoch lock", postgres: true }));
+    expect(manifest.requirements).toContainEqual(expect.objectContaining({ file: files[3], test: "refuses an actual consumed first binding after signed installation revocation", postgres: true }));
+  });
+  it("assigns PostgreSQL SDK authority cases to their real database lane while retaining required replay and uncertainty tests", () => {
+    const manifest = manifestFor("workflows", root);
+    expect(manifest.excludeFiles).toContain(files[1]);
+    expect(manifest.requirements.some(item => item.file === files[1])).toBe(false);
+    expect(manifest.command).toContain("tests/execution/release.test.ts");
+    expect(manifest.requirements.filter(item => item.file === "tests/execution/release.test.ts")).toHaveLength(2);
+    expect(manifest.requirements).toContainEqual(expect.objectContaining({ test: "pre-patch build retry history retains its original commands and failed classification on replay" }));
+    expect(manifest.requirements).toContainEqual(expect.objectContaining({ test: "pre-patch build cancellation history retains its cancelled outcome on replay" }));
+  });
+  it.each(["missing", "failed", "pending", "pglite", "malformed", "zero"])("rejects %s current source/build evidence", (mode) => {
+    const requirements = requirementsFor("platform-postgres", root).filter(item => files.includes(item.file) && item.test);
+    const byFile = new Map<string, typeof requirements>();
+    for (const item of requirements) byFile.set(item.file, [...(byFile.get(item.file) ?? []), item]);
+    const report = { success: true, testResults: [...byFile].map(([file, items]) => ({ name: path.resolve(root, file), status: "passed", assertionResults: items.map(item => ({ title: item.test!, fullName: `${item.suite} ${item.test}`, ancestorTitles: [item.suite!], status: "passed" })) })) };
+    expect(reportFailures(requirements, report, root)).toEqual([]);
+    const assertion = report.testResults[0].assertionResults[0];
+    if (mode === "missing") report.testResults[0].assertionResults.shift();
+    else if (mode === "zero") report.testResults[0].assertionResults = [];
+    else if (mode === "pglite") assertion.ancestorTitles = ["build launch authority [pglite]"];
+    else if (mode === "malformed") assertion.fullName = "";
+    else assertion.status = mode;
+    expect(reportFailures(requirements, report, root).length).toBeGreaterThan(0);
+  });
 });

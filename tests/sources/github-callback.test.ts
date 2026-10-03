@@ -11,19 +11,24 @@ import { api, INSTALL_TOKEN, USER_TOKEN, json, keys } from "./fixtures";
 
 tempDataDir("zenith-github-callback-", { fast: true });
 process.env.ZENITH_STORE = "file";
-const state = vi.hoisted(() => ({ user: { id: "human", email: "human@zenith.test", name: "Human" } as SessionUser | null, verified: true, db: undefined as PlatformDb | undefined }));
+const state = vi.hoisted(() => ({ user: { id: "human", email: "human@zenith.test", name: "Human" } as SessionUser | null, verified: true, db: undefined as PlatformDb | undefined, identityGate: undefined as { entered: () => void; wait: Promise<void> } | undefined }));
 vi.mock("@/lib/server/boot", () => ({ ensureBoot: async () => undefined }));
 vi.mock("@/lib/supabase/env", async (original) => ({ ...await original<typeof import("@/lib/supabase/env")>(), isSupabaseConfigured: () => true }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => state.user }));
 vi.mock("@/lib/waitlist/enforcement", () => ({ requireProductRequestAccess: async () => undefined }));
-vi.mock("@/lib/hosted/access/identity", () => ({ verifyRequestIdentity: async () => ({ subject: state.user?.id, email: state.user?.email, emailVerified: state.verified }) }));
+vi.mock("@/lib/hosted/access/identity", () => ({ verifyRequestIdentity: async () => {
+  const gate = state.identityGate;
+  if (gate) { state.identityGate = undefined; gate.entered(); await gate.wait; }
+  return { subject: state.user?.id, email: state.user?.email, emailVerified: state.verified };
+} }));
 vi.mock("@/lib/controlplane/db/open", async (original) => ({ ...await original<typeof import("@/lib/controlplane/db/open")>(), platformDb: async () => state.db! }));
 
-const { resetDb } = await import("@/lib/db/store");
+const { db, resetDb } = await import("@/lib/db/store");
 const { NextRequest } = await import("next/server");
 const { openPlatformDb } = await import("@/lib/controlplane/db");
 const { createGithubSourceStore } = await import("@/lib/sources/github/store");
 const { digest } = await import("@/lib/sources/github/store");
+const { captureGithubWebhookFence } = await import("@/lib/sources/github/webhook-store");
 const { GET, POST } = await import("@/app/api/platform/v1/github/callback/route");
 const ROOT = "https://zenith.test/api/platform/v1/github/callback";
 const AGENT_HEADERS: Record<string, string>[] = [{ authorization: "Bearer synthetic-agent-canary" }, { authorization: "" }, { "x-zenith-actor": "navigator" }, { "x-zenith-actor-key": "synthetic-navigator-canary" }];
@@ -37,17 +42,17 @@ beforeEach(async () => {
   vi.stubEnv("ZENITH_PLATFORM_ORIGIN", "https://zenith.test"); vi.stubEnv("ZENITH_HOSTED_MODE", "0");
   vi.stubEnv("ZENITH_GITHUB_APP_ID", "42"); vi.stubEnv("ZENITH_GITHUB_APP_PRIVATE_KEY_FILE", material.config.privateKeyFile);
   vi.stubEnv("ZENITH_GITHUB_APP_CLIENT_ID", "Iv1.synthetic"); vi.stubEnv("ZENITH_GITHUB_APP_CLIENT_SECRET_FILE", material.config.clientSecretFile!);
-  fetchImpl = api(); vi.stubGlobal("fetch", fetchImpl); state.verified = true;
+  fetchImpl = api(); vi.stubGlobal("fetch", fetchImpl); state.verified = true; state.identityGate = undefined;
   state.user = { id: "human", email: "human@zenith.test", name: "Human" };
   resetDb({ workspaces: ["ws-a", "ws-b"].map((id) => ({ id, name: id, slug: id, createdAt: new Date(0).toISOString() } as Workspace)), members: [
     { id: "human", workspaceId: "ws-a", email: "human@zenith.test", name: "Human", role: "admin" },
     { id: "editor", workspaceId: "ws-a", email: "editor@zenith.test", name: "Editor", role: "editor" },
   ] as Member[] });
-  for (const table of ["github_install_intents", "github_source_bindings"]) await state.db!.query(`delete from platform.${table} where workspace_id = $1`, ["ws-a"]);
+  for (const table of ["github_binding_events", "github_install_intents", "github_source_bindings"]) await state.db!.query(`delete from platform.${table} where workspace_id = $1`, ["ws-a"]);
 });
-async function call(method: "GET" | "POST", query = "", opts: { cookie?: string; body?: string; headers?: Record<string, string> } = {}) {
+async function call(method: "GET" | "POST", query = "", opts: { cookie?: string; body?: string; headers?: Record<string, string>; signal?: AbortSignal } = {}) {
   return (method === "GET" ? GET : POST)(new NextRequest(ROOT + query, {
-    method, headers: { cookie: `zenith-workspace=ws-a${opts.cookie ? `; ${opts.cookie}` : ""}`, ...(method === "POST" ? { origin: "https://zenith.test", "content-type": "application/x-www-form-urlencoded" } : {}), ...opts.headers },
+    method, signal: opts.signal, headers: { cookie: `zenith-workspace=ws-a${opts.cookie ? `; ${opts.cookie}` : ""}`, ...(method === "POST" ? { origin: "https://zenith.test", "content-type": "application/x-www-form-urlencoded" } : {}), ...opts.headers },
     ...(method === "POST" ? { body: opts.body ?? "repository=acme%2Fapp" } : {}),
   }), { params: Promise.resolve({}) });
 }
@@ -61,6 +66,103 @@ async function authorize(input: { state: string; cookie: string }) {
 }
 
 describe("GitHub browser install callback", () => {
+  it.each(["request abort", "body deadline"])("bounds a stalled form on %s before any source mutation", async mode => {
+    const controller = new AbortController();
+    let reached!: () => void; let release!: () => void;
+    const started = new Promise<void>(resolve => { reached = resolve; });
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    const request = new NextRequest(ROOT, { method: "POST", signal: controller.signal,
+      headers: { cookie: "zenith-workspace=ws-a", origin: "https://zenith.test", "content-type": "application/x-www-form-urlencoded" }, body: "placeholder" });
+    Object.defineProperty(request, "body", { value: new ReadableStream<Uint8Array>({ async pull() { reached(); await waiting; } }, { highWaterMark: 0 }) });
+    const result = POST(request, { params: Promise.resolve({}) });
+    try { await started; if (mode === "request abort") controller.abort(); expect((await result).status).toBe(400); }
+    finally { release(); }
+    expect(await state.db!.query("select workspace_id from platform.github_install_intents where workspace_id=$1", ["ws-a"])).toEqual([]);
+    expect(await state.db!.query("select action from platform.github_binding_events where workspace_id=$1", ["ws-a"])).toEqual([]);
+  }, 15_000);
+
+  it.each(["request abort", "authority deadline"])("releases the installation lock on %s without accepting the late identity grant", async mode => {
+    const started = await start(); await authorize(started);
+    let resumeHttp!: () => void; let httpEntered!: () => void; let resumeIdentity!: () => void; let identityEntered!: () => void;
+    const httpWait = new Promise<void>(resolve => { resumeHttp = resolve; });
+    const httpReached = new Promise<void>(resolve => { httpEntered = resolve; });
+    const identityWait = new Promise<void>(resolve => { resumeIdentity = resolve; });
+    const identityReached = new Promise<void>(resolve => { identityEntered = resolve; });
+    fetchImpl.mockImplementationOnce(async () => { httpEntered(); await httpWait; return json({ access_token: USER_TOKEN, token_type: "bearer" }); });
+    const controller = new AbortController();
+    const result = call("GET", `?code=synthetic-code&state=${started.state}`, { cookie: started.cookie, signal: controller.signal });
+    await httpReached;
+    state.identityGate = { entered: identityEntered, wait: identityWait }; resumeHttp();
+    try {
+      await identityReached;
+      if (mode === "request abort") controller.abort();
+      expect((await result).status).toBe(503);
+      // Actual SQL must become available while the original identity promise
+      // still waits. A late successful response cannot run the bind callback.
+      expect(await captureGithubWebhookFence(state.db!, "42", 7)).toMatchObject({ generation: "0" });
+    } finally { resumeIdentity(); resumeHttp(); }
+    expect(await createGithubSourceStore(state.db!).getBinding("ws-a")).toBeUndefined();
+    expect(await state.db!.query("select action from platform.github_binding_events where workspace_id=$1", ["ws-a"])).toEqual([]);
+  }, 15_000);
+  it.each(["demoted", "removed", "disabled"] as const)("refuses revocation when admin becomes %s during a streamed body", async mode => {
+    const store = createGithubSourceStore(state.db!);
+    const fence = await captureGithubWebhookFence(state.db!, "42", 7);
+    await store.bind({ workspaceId: "ws-a", actorId: "human", appId: "42", installationId: 7, repositoryId: 99, owner: "acme", repo: "app", expectedVersion: 0, installationGeneration: fence.generation });
+    let release!: () => void;
+    let reached!: () => void;
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    const reachedRead = new Promise<void>(resolve => { reached = resolve; });
+    // NextRequest buffering cannot consume this stream: the route reads it directly.
+    const request = new NextRequest(ROOT, { method: "POST", headers: { cookie: "zenith-workspace=ws-a", origin: "https://zenith.test", "content-type": "application/x-www-form-urlencoded" }, body: "placeholder" });
+    const stream = new ReadableStream<Uint8Array>({ async pull(controller) {
+      reached(); await waiting; controller.enqueue(new TextEncoder().encode("action=revoke&version=1")); controller.close();
+    } }, { highWaterMark: 0 });
+    Object.defineProperty(request, "body", { value: stream });
+    const result = POST(request, { params: Promise.resolve({}) });
+    await reachedRead;
+    if (mode === "disabled") state.verified = false;
+    else if (mode === "removed") db().members = db().members.filter(m => !(m.workspaceId === "ws-a" && m.id === "human"));
+    else db().members.find(m => m.workspaceId === "ws-a" && m.id === "human")!.role = "viewer";
+    release();
+    expect((await result).status).toBe(mode === "disabled" ? 401 : 403);
+    expect(await store.getBinding("ws-a")).toMatchObject({ version: 1 });
+    expect(await state.db!.query("select action from platform.github_binding_events where workspace_id=$1", ["ws-a"])).toEqual([{ action: "bound" }]);
+  });
+  it.each(["demoted", "removed", "disabled"] as const)("refuses binding when admin becomes %s during GitHub verification", async mode => {
+    const started = await start(); await authorize(started);
+    let release!: () => void; let reached!: () => void;
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    const reachedHttp = new Promise<void>(resolve => { reached = resolve; });
+    fetchImpl.mockImplementationOnce(async () => { reached(); await waiting; return json({ access_token: USER_TOKEN, token_type: "bearer" }); });
+    const result = call("GET", `?code=synthetic-code&state=${started.state}`, { cookie: started.cookie });
+    await reachedHttp;
+    if (mode === "disabled") state.verified = false;
+    else if (mode === "removed") db().members = db().members.filter(m => !(m.workspaceId === "ws-a" && m.id === "human"));
+    else db().members.find(m => m.workspaceId === "ws-a" && m.id === "human")!.role = "viewer";
+    release();
+    expect((await result).status).toBe(mode === "disabled" ? 401 : 403);
+    expect(await createGithubSourceStore(state.db!).getBinding("ws-a")).toBeUndefined();
+    expect(await state.db!.query("select action from platform.github_binding_events where workspace_id=$1", ["ws-a"])).toEqual([]);
+  });
+  it("requires a current admin browser and exact binding version for source revocation", async () => {
+    const store = createGithubSourceStore(state.db!);
+    const fence = await captureGithubWebhookFence(state.db!, "42", 7);
+    await store.bind({ workspaceId: "ws-a", actorId: "human", appId: "42", installationId: 7, repositoryId: 99, owner: "acme", repo: "app", expectedVersion: 0, installationGeneration: fence.generation });
+    expect(await (await call("GET")).text()).toContain('name="version" value="1"');
+    for (const headers of [...AGENT_HEADERS, ...CROSS_SITE_HEADERS]) expect((await call("POST", "", { body: "action=revoke&version=1", headers })).status).toBe(403);
+    expect((await call("POST", "", { body: "action=revoke&version=2" })).status).toBe(409);
+    expect(await store.getBinding("ws-a")).toMatchObject({ version: 1 });
+    const result = await call("POST", "", { body: "action=revoke&version=1" });
+    expect(result.status).toBe(200); expect(await result.text()).toContain("GitHub source revoked");
+    expect(result.headers.get("set-cookie")).toContain("Max-Age=0");
+    await expect(store.getBinding("ws-a")).rejects.toThrow("refused");
+    expect((await store.getState("ws-a"))?.binding.version).toBe(2);
+    expect((await call("POST", "", { body: "action=revoke&version=1" })).status).toBe(409);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+  it.each(["action=revoke&version=1&version=1", "action=revoke&action=revoke&version=1", "action=revoke&version=1&repository=acme%2Fapp", "action=revoke&version=0", "action=revoke&version=-1", "action=delete&version=1"])("rejects ambiguous revoke input: %s", async (body) => {
+    expect((await call("POST", "", { body })).status).toBe(400); expect(fetchImpl).not.toHaveBeenCalled();
+  });
   it("serves a browser form and redirects installation with protected expiring proof cookies", async () => {
     const form = await call("GET"); expect(form.status).toBe(200); expect(await form.text()).toContain("Install and bind repository");
     const started = await start(); expect(started.state).toMatch(/^[A-Za-z0-9_-]{43}$/);

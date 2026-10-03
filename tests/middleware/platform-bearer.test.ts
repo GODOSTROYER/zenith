@@ -36,6 +36,18 @@ beforeEach(() => {
 });
 
 describe("platform bearer cookie-gate bypass", () => {
+  it("admits only the exact signed webhook POST transport, keeping browser mutations gated", async () => {
+    const path = `${ROOT}/github/webhook`;
+    expect(platformAccess(path, "POST")).toBe("webhook-signed");
+    expect(isPlatformBearerRequest(path, "POST", TOKEN)).toBe(false);
+    expect((await middleware(new NextRequest(`https://zenith.test${path}`, { method: "POST" }))).headers.get("x-middleware-next")).toBe("1");
+    expect(gate.session).not.toHaveBeenCalled();
+    for (const [method, suffix] of [["GET", "/github/webhook"], ["PUT", "/github/webhook"], ["POST", "/github/webhook/"], ["POST", "/github/webhook/more"], ["POST", "/github/callback"]]) {
+      vi.clearAllMocks();
+      expect((await middleware(new NextRequest(`https://zenith.test${ROOT}${suffix}`, { method, headers: { authorization: TOKEN } }))).status).toBe(401);
+      expect(gate.session).toHaveBeenCalledOnce();
+    }
+  });
   it.each(bearerRoutes)("lets %s %s reach credential authentication", async (method, suffix) => {
     const response = await middleware(new NextRequest(`https://zenith.test${ROOT}${suffix}`, { method, headers: { authorization: TOKEN } }));
     expect(response.headers.get("x-middleware-next")).toBe("1");
@@ -128,7 +140,7 @@ describe("platform route inventory", () => {
         expect(isAgentSignedPath(normalized), normalized).toBe(access === "agent-signed");
       }
     }
-    expect(seen.size).toBe(35);
+    expect(seen.size).toBe(36);
     for (const entry of PLATFORM_PATHS) {
       expect(entry.path.source.startsWith("^")).toBe(true);
       expect(entry.path.source.endsWith("$")).toBe(true);

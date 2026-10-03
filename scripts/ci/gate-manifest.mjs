@@ -70,6 +70,430 @@ const ECS_REPLICA_REPAIR_POSTGRES_SUITES = [
   "resumed planning authority", "stricter approval policy", "immutable repair evidence",
 ];
 
+
+// Predispatch, uncertainty and legacy replay contracts stay mandatory even when source files disappear.
+const BUILD_SOURCE_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/build-launches.test.ts",
+    "suite": "build launch authority [postgres]",
+    "test": "commits one permanent predispatch claim across independent workers",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/build-launches.test.ts",
+    "suite": "build launch authority [postgres]",
+    "test": "a committed claim without a provider receipt never becomes dispatchable again",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/build-launches.test.ts",
+    "suite": "build launch authority [postgres]",
+    "test": "a rollback before commit leaves no external launch intent and can be claimed",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/build-launches.test.ts",
+    "suite": "build launch authority [postgres]",
+    "test": "refuses expired consumed approvals at the CAS while operation and fence remain live",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/build-launches.test.ts",
+    "suite": "build launch authority [postgres]",
+    "test": "keeps the isolated actual-broker claimer unavailable in production and outside bound SQL repositories",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/build-launches.test.ts",
+    "suite": "build launch authority [postgres]",
+    "test": "records a late accepted receipt after cancellation without reopening the writer",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/build-launches.test.ts",
+    "suite": "build launch authority [postgres]",
+    "test": "rejects stale fences, foreign tenants, absent original-use authority and revoked account bindings",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/build-launches.test.ts",
+    "suite": "build launch authority [postgres]",
+    "test": "retains an immutable terminal receipt independently of operation projections and provider-token expiry",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/build-launches.test.ts",
+    "suite": "build launch authority [postgres]",
+    "test": "refuses receipt substitution and preserves the first acknowledgement",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/build-launches.test.ts",
+    "suite": "build launch authority [postgres]",
+    "test": "rechecks fence expiry after an observed resource lock wait before committing dispatch",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/build-launches.test.ts",
+    "suite": "build launch authority [postgres]",
+    "test": "rechecks execution-lease expiry after an observed resource lock wait before committing dispatch",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/build-launches.test.ts",
+    "suite": "build launch authority [postgres]",
+    "test": "rechecks operation expiry after an observed resource lock wait before committing dispatch",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/build-launches.test.ts",
+    "suite": "build launch authority [postgres]",
+    "test": "rechecks consumed-approval expiry after an observed resource lock wait before committing dispatch",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "keeps the isolated actual-broker launcher unavailable in production",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "commits one claim across competing workers and sends the bound ZIP once",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "keeps an accepted-but-lost response permanently unconfirmed, including after token expiry",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "rejects altered input/settings and missing ownership or stored checksum before another dispatch",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "retains a provider-complete failure receipt independently of cancelled UI status",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses terminal status without completion, a foreign build, and a polling deadline as clean failure",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses expired approval through canonical current authority with a live operation and fence",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses revoked approver role through canonical current authority with a live operation and fence",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses new approval count through canonical current authority with a live operation and fence",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses current policy deny through canonical current authority with a live operation and fence",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses missing plan evidence through canonical current authority with a live operation and fence",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses moved approval round through canonical current authority with a live operation and fence",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "reevaluates unchanged authority after an observed PostgreSQL resource lock wait before any launch",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "reevaluates revoked approver role after an observed PostgreSQL resource lock wait before any launch",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "reevaluates new approval count after an observed PostgreSQL resource lock wait before any launch",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "reevaluates current policy deny after an observed PostgreSQL resource lock wait before any launch",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "returns verified executed output with omitted NO_ARTIFACTS readback through canonical authority",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "returns verified executed output with empty NO_ARTIFACTS readback through canonical authority",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "returns verified executed output with default-flags NO_ARTIFACTS readback through canonical authority",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed image even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed environment even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed repository even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed role even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed encryption even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed vpc even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed source even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed artifacts even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed secondaryArtifacts even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed missingEnvironment even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed duplicateEnvironment even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed duplicateDigest even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed digestType even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed retryLimit even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/codebuild-launch-authority.test.ts",
+    "suite": "CodeBuild launch authority [postgres]",
+    "test": "refuses a changed executed retryAncestor even after the project was restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/sources/github-store.test.ts",
+    "suite": "GitHub source Postgres store (opt-in)",
+    "test": "persists only identifiers and proof digests, and resolves bindings by workspace",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/sources/github-store.test.ts",
+    "suite": "GitHub source Postgres store (opt-in)",
+    "test": "refuses a changed callback workspace without consuming the legitimate intent",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/sources/github-store.test.ts",
+    "suite": "GitHub source Postgres store (opt-in)",
+    "test": "refuses a changed callback actor without consuming the legitimate intent",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/sources/github-store.test.ts",
+    "suite": "GitHub source Postgres store (opt-in)",
+    "test": "refuses a changed callback browser without consuming the legitimate intent",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/sources/github-store.test.ts",
+    "suite": "GitHub source Postgres store (opt-in)",
+    "test": "refuses a changed callback state without consuming the legitimate intent",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/sources/github-store.test.ts",
+    "suite": "GitHub source Postgres store (opt-in)",
+    "test": "refuses expired intents at both transitions using database time",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/sources/github-store.test.ts",
+    "suite": "GitHub source Postgres store (opt-in)",
+    "test": "allows only one racing setup and one racing OAuth callback",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/sources/github-store.test.ts",
+    "suite": "GitHub source Postgres store (opt-in)",
+    "test": "stores hashed state/proof and never lets an install callback skip OAuth",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/sources/github-store.test.ts",
+    "suite": "GitHub source Postgres store (opt-in)",
+    "test": "rejects stale/racing bind intents rather than overwriting another admin's binding",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/sources/github-store.test.ts",
+    "suite": "GitHub source Postgres store (opt-in)",
+    "test": "revokes new access, preserves a monotonic version and requires a new install intent",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/sources/github-store.test.ts",
+    "suite": "GitHub source Postgres store (opt-in)",
+    "test": "blocks a consumed callback and serializes competing revocation and replacement",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/sources/github-store.test.ts",
+    "suite": "GitHub source Postgres store (opt-in)",
+    "test": "scopes revocation by workspace and exact version; failed attempts retain legitimate intents",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/sources/github-store.test.ts",
+    "suite": "GitHub source Postgres store (opt-in)",
+    "test": "validates identifiers and numeric IDs without reflecting malicious data",
+    "backend": "postgres"
+  }
+];
+const BUILD_WORKFLOW_REQUIREMENTS = [
+  {
+    "file": "tests/workflows/deploy.test.ts",
+    "suite": "deploy: lease loss and mutating-step failures",
+    "test": "an unknown build launch outcome is uncertain and never automatically retried"
+  },
+  {
+    "file": "tests/workflows/deploy.test.ts",
+    "suite": "deploy: lease loss and mutating-step failures",
+    "test": "pre-patch build retry history retains its original commands and failed classification on replay"
+  },
+  {
+    "file": "tests/workflows/deploy.test.ts",
+    "suite": "deploy: lease loss and mutating-step failures",
+    "test": "a build that fails after the apply is failed, and says the apply stays"
+  },
+  {
+    "file": "tests/workflows/deploy.test.ts",
+    "suite": "deploy: cancellation",
+    "test": "cancelling a pending build retains an uncertain accepted writer"
+  },
+  {
+    "file": "tests/workflows/deploy.test.ts",
+    "suite": "deploy: cancellation",
+    "test": "pre-patch build cancellation history retains its cancelled outcome on replay"
+  },
+  {
+    "file": "tests/workflows/failures.test.ts",
+    "suite": "classifyFailure: the failure -> status table",
+    "test": "retains unconfirmed patched build errors and timeouts as uncertain without changing legacy classification"
+  },
+  {
+    "file": "tests/workflows/failures.test.ts",
+    "suite": "the may-have-acted table and retry policies (policies.ts)",
+    "test": "gives the patched build one attempt and waits for cancellation while retaining historical build options"
+  },
+  {
+    "file": "tests/execution/release.test.ts",
+    "suite": "buildArtifacts",
+    "test": "retains a later parallel lost-response uncertainty over an earlier definitive failure and starts no fourth build"
+  },
+  {
+    "file": "tests/execution/release.test.ts",
+    "suite": "buildArtifacts",
+    "test": "retains a later parallel polling-deadline uncertainty over an earlier definitive failure and starts no fourth build"
+  }
+];
+const CODEBUILD_POSTGRES_FILE = "tests/platform/codebuild-launch-authority.test.ts";
+const GITHUB_WEBHOOK_POSTGRES_CASES = [
+  "duplicates and concurrent redeliveries commit one receipt, version change and audit per tenant",
+  "refuses a delivery GUID reused with a different signed body without partial mutations",
+  "changing the unsigned GUID cannot replay signed bytes against a freshly rebound row",
+  "receipt, epoch, audit and intent invalidation roll back on an actual SQL audit failure",
+  "fences consumed callbacks including expectedVersion=0 before any binding row exists",
+  "refuses an actual consumed first binding after signed installation revocation",
+  "refuses an actual consumed existing binding after signed installation revocation",
+  "serializes webhook revocation with a first-binding transaction holding the same epoch lock"
+].map(test => ({ file: "tests/sources/github-webhook.test.ts", suite: "GitHub webhook SQL [postgres]", test, postgres: true }));
+const GITHUB_WEBHOOK_POSTGRES_REQUIREMENT = { file: "tests/sources/github-webhook.test.ts", suite: "GitHub webhook SQL [postgres]", postgres: true };
+
 export const GATE_LANES = {
   postgres: {
     files: ["tests/hosted/authority/contract", "tests/scripts/migrate-hosted-to-postgres.test.ts", "tests/agent-link/pg-contract.test.ts", "tests/agent-control/pg-contract.test.ts", "tests/db/contract/workspace-sharing.test.ts", "tests/waitlist/pg-contract.test.ts"],
@@ -89,15 +513,15 @@ export const GATE_LANES = {
     tools: { node: "22.23.3", tofu: "1.12.5" },
   },
   workflows: {
-    files: ["tests/workflows", "tests/platform", "tests/security/workflow-history.test.ts", ECS_REPLICA_REPAIR_FILES.execution, ECS_REPLICA_REPAIR_FILES.ownership],
-    excludeFiles: ["tests/workflows/mtls-live.test.ts"],
+    files: ["tests/workflows", "tests/platform", "tests/security/workflow-history.test.ts", ECS_REPLICA_REPAIR_FILES.execution, ECS_REPLICA_REPAIR_FILES.ownership, "tests/execution/release.test.ts"],
+    excludeFiles: ["tests/workflows/mtls-live.test.ts", CODEBUILD_POSTGRES_FILE],
     env: { ZENITH_COMPOSE_TEMPORAL_MODE: "time-skipping", ZENITH_TEST_TEMPORAL_DOWNLOAD: "1", ZENITH_SEC_TEMPORAL: "1", ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REPO: "https://github.com/GODOSTROYER/zenith", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b" },
     report: ".data-ci-lane/workflows-lane.json",
     prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "Temporal CLI 1.9.1 at ZENITH_TEST_TEMPORAL_CLI", "Local Temporal dev and time-skipping servers; SDK test-server cache or download access", "Public GitHub codeload access for the immutable source fixture"],
     tools: { node: "22.23.3", temporal: "1.9.1" },
   },
   "platform-postgres": {
-    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants],
+    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts"],
     env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1" }, report: ".data-ci-lane/platform-lane.json",
     prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache"],
     tools: { node: "22.23.3", postgres: "16.15", tofu: "1.12.5" },
@@ -219,10 +643,11 @@ export function requirementsFor(lane, root) {
       requirements = [...testFiles(root, "tests/workflows"), ...testFiles(root, "tests/platform"), "tests/security/workflow-history.test.ts"]
         .filter((file) => !EXTERNAL_ACCEPTANCE.some((group) => group.wholeFile && group.file === file))
         .filter((file) => !Object.values(ECS_REPLICA_REPAIR_FILES).includes(file))
+        .filter((file) => file !== CODEBUILD_POSTGRES_FILE)
         .flatMap((file) => file === "tests/platform/source-bundle.test.ts"
           ? ["source acquisition and canonical archives", "customer source bucket uploads", "GCS source upload through authorizedFetch", "live public GitHub source (opt-in network)"].map((suite) => ({ file, suite }))
           : [{ file }]);
-      requirements.push(...ECS_REPLICA_REPAIR_WORKFLOW_REQUIREMENTS);
+      requirements.push(...ECS_REPLICA_REPAIR_WORKFLOW_REQUIREMENTS, ...BUILD_WORKFLOW_REQUIREMENTS);
       break;
     case "platform-postgres":
       requirements = ["tests/controlplane", "tests/capabilities", "tests/reconcile"].flatMap((directory) => testFiles(root, directory).flatMap((file) => {
@@ -260,6 +685,7 @@ export function requirementsFor(lane, root) {
       requirements.push({file:"tests/execution/destroy-review.test.ts",suite:"undecided teardown supersession [postgres]",postgres:true});
       requirements.push({file:"tests/security/plan-artifact-secrecy.test.ts",suite:"encrypted plan artifact secrecy [postgres]",postgres:true});
       requirements.push(...ECS_REPLICA_REPAIR_POSTGRES_SUITES.map((suite) => ({ file: ECS_REPLICA_REPAIR_FILES.grants, suite, ancestorSuite: "replica repair authority [postgres]", postgres: true })));
+      requirements.push(...BUILD_SOURCE_POSTGRES_REQUIREMENTS, GITHUB_WEBHOOK_POSTGRES_REQUIREMENT, ...GITHUB_WEBHOOK_POSTGRES_CASES);
       break;
     default:
       throw new Error("Unknown CI lane");

@@ -3,7 +3,7 @@
  * it admits a bearer header to authentication, never authenticates one itself.
  * Unknown methods and paths keep the browser cookie gate.
  */
-export type PlatformAccess = "bearer-capable" | "browser-only" | "agent-signed" | "admin";
+export type PlatformAccess = "bearer-capable" | "browser-only" | "agent-signed" | "webhook-signed" | "admin";
 
 // Match the broker's id alphabet. No slashes, encoding, or dot segments.
 const ID = "[A-Za-z0-9_-]{1,100}";
@@ -28,6 +28,7 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/workspace/policy$`), methods: { GET: "bearer-capable", PUT: "browser-only" } },
   // Installation and repository binding require the human admin's browser session.
   { path: new RegExp(`^${ROOT}/github/callback$`), methods: { GET: "browser-only", POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/github/webhook$`), methods: { POST: "webhook-signed" } },
   { path: new RegExp(`^${ROOT}/(?:runners|machines)$`), methods: { GET: "admin" } },
   { path: new RegExp(`^${ROOT}/runners/tokens$`), methods: { POST: "admin" } },
   { path: new RegExp(`^${ROOT}/(?:runners|machines)/${AGENT_ID}/revoke$`), methods: { POST: "admin" } },

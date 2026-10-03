@@ -38,8 +38,10 @@ not deployment evidence.
 
 The operator registers the App in GitHub; Zenith cannot register it on the
 operator's behalf. Configure **Contents: read-only** (Metadata: read-only is
-automatic), no additional repository or organization permissions, and disable
-webhooks. Set both the **Setup URL** and the **Callback URL** to
+automatic), no additional repository or organization permissions. For revocation
+webhooks, configure the signed endpoint and private secret file described in
+[GITHUB-WEBHOOKS.md](GITHUB-WEBHOOKS.md); enable it only after its required
+acceptance checks. Set both the **Setup URL** and the **Callback URL** to
 `https://<zenith-origin>/api/platform/v1/github/callback`. Enable redirect on
 installation update. Leave **Request user authorization during installation**
 unchecked: Zenith performs an explicit OAuth redirect with PKCE after setup.
@@ -107,8 +109,11 @@ again on acquisition. See GitHub's
 [installation token contract](https://docs.github.com/en/rest/apps/apps#create-an-installation-access-token-for-an-app).
 
 Limits: one repository binding per workspace; reconnecting replaces it. The
-form is at the endpoint above and linked from Platform navigation. There is no
-uninstall webhook or unbind UI. The connector uses GitHub.com, not Enterprise Server. Standalone private readers must inject
+form is at the endpoint above and linked from Platform navigation. The browser form
+provides exact-version workspace revocation; signed uninstall, suspension and
+repository-removal webhooks are wired in this source candidate. Required
+current-source and live acceptance remain pending. The connector uses GitHub.com,
+not Enterprise Server. Standalone private readers must inject
 an explicitly workspace-bound callback. Authorization, archive transport and
 production Postgres behavior have **not** been verified against live GitHub or
 production services here. OAuth callback codes and state arrive in query strings;

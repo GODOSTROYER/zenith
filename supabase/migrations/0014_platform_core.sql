@@ -810,6 +810,98 @@ insert into platform.schema_migrations (version, name, checksum)
 values (8, 'build_launches', '90a025fd0c76ee84b14a26c9d8b1794e215ececec24333848904c22bc0f86e9d')
 on conflict (version) do nothing;
 
+-- ============================ migration 9: github_revocation ============================
+
+alter table platform.github_source_bindings add column if not exists revoked_at timestamptz;
+alter table platform.github_source_bindings add column if not exists revoked_by text;
+create table if not exists platform.github_binding_events (
+  workspace_id text not null,
+  version integer not null check (version > 0),
+  action text not null check (action in ('bound', 'revoked')),
+  actor_id text not null,
+  app_id text not null,
+  installation_id bigint not null check (installation_id > 0),
+  repository_id bigint not null check (repository_id > 0),
+  owner text not null,
+  repo text not null,
+  created_at timestamptz not null default clock_timestamp(),
+  primary key (workspace_id, version),
+  foreign key (workspace_id) references platform.github_source_bindings (workspace_id)
+);
+-- This table records changes after this migration, never reconstructed history.
+alter table platform.github_binding_events enable row level security;
+do $$
+declare r text;
+begin
+  foreach r in array array['anon', 'authenticated'] loop
+    if exists (select 1 from pg_roles where rolname = r) then
+      execute format('revoke all on table platform.github_binding_events from %I', r);
+    end if;
+  end loop;
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant select, insert on table platform.github_binding_events to service_role;
+  end if;
+end
+$$;
+
+insert into platform.schema_migrations (version, name, checksum)
+values (9, 'github_revocation', '7d00eb79279b57c682dda67af0a5eaffc5ff3825d5e6a370235dd0dfdb502060')
+on conflict (version) do nothing;
+
+-- ============================ migration 10: github_deliveries ============================
+
+-- Old callbacks have no signed-event fence. Integration must refuse their
+-- OAuth transition/consumption until a new browser intent is authorized.
+alter table platform.github_install_intents add column if not exists app_id text
+  check (app_id ~ '^[1-9][0-9]{0,15}$');
+alter table platform.github_install_intents add column if not exists installation_generation bigint
+  check (installation_generation >= 0);
+create table if not exists platform.github_webhook_installation_epochs (
+  app_id text not null check (app_id ~ '^[1-9][0-9]{0,15}$'),
+  installation_id bigint not null check (installation_id > 0),
+  generation bigint not null default 0 check (generation >= 0),
+  primary key (app_id, installation_id)
+);
+create table if not exists platform.github_webhook_deliveries (
+  app_id text not null check (app_id ~ '^[1-9][0-9]{0,15}$'),
+  delivery_id text not null check (delivery_id ~ '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'),
+  body_sha256 text not null check (body_sha256 ~ '^[a-f0-9]{64}$'),
+  event text not null,
+  action text not null,
+  installation_id bigint not null check (installation_id > 0),
+  repository_ids bigint[] not null,
+  revoked_count integer not null default 0 check (revoked_count >= 0),
+  replayed boolean not null default false,
+  received_at timestamptz not null default clock_timestamp(),
+  primary key (app_id, delivery_id),
+  check ((event = 'installation' and action in ('deleted', 'suspend') and cardinality(repository_ids) = 0)
+    or (event = 'installation_repositories' and action = 'removed' and cardinality(repository_ids) between 1 and 1000)),
+  check (0 < all(repository_ids))
+);
+-- Signed body replay may change the unsigned delivery GUID. The installation
+-- epoch lock serializes digest checks; aliases retain their own durable receipt.
+create index if not exists github_webhook_deliveries_body
+  on platform.github_webhook_deliveries (app_id, body_sha256);
+alter table platform.github_webhook_installation_epochs enable row level security;
+alter table platform.github_webhook_deliveries enable row level security;
+do $$
+declare r text;
+begin
+  foreach r in array array['anon', 'authenticated'] loop
+    if exists (select 1 from pg_roles where rolname = r) then
+      execute format('revoke all on table platform.github_webhook_installation_epochs, platform.github_webhook_deliveries from %I', r);
+    end if;
+  end loop;
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant select, insert, update on table platform.github_webhook_installation_epochs, platform.github_webhook_deliveries to service_role;
+  end if;
+end
+$$;
+
+insert into platform.schema_migrations (version, name, checksum)
+values (10, 'github_deliveries', 'a4436e385563b8bd3b3528708b1db757c5a9872e1927dbd8ef5bd595e1e62bfd')
+on conflict (version) do nothing;
+
 -- ============================ hardening (Supabase roles) ============================
 
 do $$

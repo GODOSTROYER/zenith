@@ -2,12 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { hostedRewrite, isPlatformStaticPath } from "@/lib/hosted/edge";
 import { updateSession } from "@/lib/supabase/middleware";
 import { isAgentSignedPath } from "@/lib/runners/paths";
-import { isPlatformBearerRequest } from "@/app/api/platform/v1/_lib/bearer-paths";
+import { isPlatformBearerRequest, platformAccess } from "@/app/api/platform/v1/_lib/bearer-paths";
 
 export async function middleware(request: NextRequest) {
   const hosted = hostedRewrite(request);
   if (hosted) return hosted;
   if (isPlatformStaticPath(request.nextUrl.pathname)) return NextResponse.next({ request });
+  // Only this POST transport authenticates raw bytes with the configured App
+  // webhook secret before boot, identity lookup, or platform database access.
+  if (platformAccess(request.nextUrl.pathname, request.method) === "webhook-signed") return NextResponse.next({ request });
   // This exact endpoint enforces its own credential and scope on every request.
   // Never let the browser-cookie gate turn it into a login redirect or demo admin.
   // `/agent/link` is deliberately absent — the page must keep getting the

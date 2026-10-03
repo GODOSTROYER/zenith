@@ -2546,14 +2546,15 @@
         "PROD-PKG-02"
       ],
       "branch": "ws/prod-worker-startup",
-      "state": "reviewed",
+      "state": "integrated",
       "commit": "e1092550b80a90dc816721c952ed991ec9e9f1f2",
       "ownedPaths": [
         "tests/workflows/sandbox.test.ts",
         "workers/execution/entrypoint.ts",
         "tests/workflows/worker.test.ts"
       ],
-      "verificationArtifact": "docs/build/production/evidence/worker-bootstrap/root-verification.json"
+      "verificationArtifact": "docs/build/production/evidence/worker-bootstrap/root-verification.json",
+      "mergeCommit": "5e92e86582da7d5a2700796a80ece70bd50bf29a"
     }
   ],
   "executionOrder": [
@@ -2738,12 +2739,19 @@
       "mergeCommit": "cb33a6176e74b218276eb1230ecaa898bccc8366",
       "verificationArtifact": "docs/build/production/evidence/ecs-replica-repair/combined-root-verification.json",
       "status": "locally_verified_not_live_cloud"
+    },
+    {
+      "workstream": "PROD-WS-WORKER-BOOTSTRAP",
+      "sourceCommit": "e1092550b80a90dc816721c952ed991ec9e9f1f2",
+      "mergeCommit": "5e92e86582da7d5a2700796a80ece70bd50bf29a",
+      "verificationArtifact": "docs/build/production/evidence/worker-bootstrap/root-verification.json",
+      "status": "independently_verified_no_live_cloud_proof"
     }
   ],
   "sessionState": {
     "status": "active",
     "resumedBy": "user",
-    "recordedAt": "2026-10-03T00:08:55.017988+00:00",
+    "recordedAt": "2026-10-03T00:09:34.322718+00:00",
     "sourceCheckpoint": "fbfa456e0111b106f039e2800b2c276b63d01b86",
     "lastPushedCommit": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
     "lastPushedRun": 37060964289,
@@ -2751,7 +2759,7 @@
     "lastGreenCommit": "b46fb8a2617f59448f943088e3ed1a446a9a7c38",
     "activeWorkers": 2,
     "concurrency": "one heavy local process",
-    "next": "Finish corrected ARM64 startup and fresh kind on clean e109255 source; independently integrate bootstrap and strict sandbox inventory, push normally and observe complete CI. Continue preserved durable original-plan implementation and review.",
+    "next": "Push integrated bootstrap/sandbox fixes to same branch; observe complete exact CI while root runs full canonical local gates. Continue durable encrypted original-plan source and independent review.",
     "lastObservedCiSummary": "docs/build/production/ci-37060964289.md",
     "currentEcsCheck": {
       "label": "prod-ecs-combined-final-root",
@@ -2773,7 +2781,7 @@
         "reason": "Obsolete operator-doc direct inspector literal; corrected mapping retains digest/deletion-before-repair assertions. Go did not run on failed attempt."
       }
     },
-    "lastIntegration": "cb33a6176e74b218276eb1230ecaa898bccc8366",
+    "lastIntegration": "5e92e86582da7d5a2700796a80ece70bd50bf29a",
     "currentPackagedCheck": {
       "label": "prod-packaged-bootstrap-arm64-build-diagnostics-root",
       "commit": "e1092550b80a90dc816721c952ed991ec9e9f1f2",

@@ -425,14 +425,14 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "current_pushed_regression",
+      "implementationStatus": "complete_for_exact_a14_baseline",
       "evidence": [
         {
           "level": "remote_ci",
@@ -514,6 +514,14 @@
           "result": "Observed terminal failure:12 successful jobs and2failed (Verify and Workflows), both strict sandbox filename inventory omits ecsReplicaRepair.ts. Unit16418P1F399S; workflows973P1F0S with failed observedexit1 and44groups unverified. Othercanonical lanes postgres251/platformPG1422/policy238/tofu3900 pass0F0S. Allfiveartifacts match exactcommit/gates/lock and12schema2bindings; root independently re-downloaded each archive and matched GitHub digests and published bytes. Generated109P0F0S; Smoke/Gimbal skipped; Go11racepackages pass plus19TSinterop; completeaudit0. Failed result remains preserved.",
           "artifact": "docs/build/production/ci-37060964289.md",
           "executionReceiptComplete": true
+        },
+        {
+          "level": "remote_ci",
+          "commit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
+          "runId": 37080857980,
+          "result": "Observed complete success14/14. Root independently downloaded five canonical ZIPs/GitHub digests and checked exact source/lock/manifests/runtime/schema2/all12bindings. Remote unit16427P0F399S; generated109P0F0S; actualSmoke6stagechecks/Gimbal2assets passed. Canonicalpostgres251/platformPG1422/policy238/tofu3900/workflows982 all0F0S0unknown and9/45/7/27/44 requiredgroups. OPA213/213; Go11racepackages plus19interop; completeaudit0knownfindings/noexceptions. Baseline excludes pending durable-plan source and wider release acceptance.",
+          "artifact": "docs/build/production/ci-37080857980.md",
+          "executionReceiptComplete": true
         }
       ],
       "requiredEvidence": [
@@ -522,7 +530,7 @@
       "owner": null,
       "testPaths": [],
       "followUps": [
-        "Historical b46 run green; current pushed482 run red. Sandbox filename correction is locally verified, not pushed yet. Exact complete next pushed run required."
+        "Observe complete CI after each new implementation integration. Exact a14 is green; durable-plan source and external release gates remain separate."
       ]
     },
     {
@@ -2751,16 +2759,16 @@
   "sessionState": {
     "status": "active",
     "resumedBy": "user",
-    "recordedAt": "2026-10-03T00:09:34.322718+00:00",
+    "recordedAt": "2026-10-03T00:44:47.513897+00:00",
     "sourceCheckpoint": "fbfa456e0111b106f039e2800b2c276b63d01b86",
-    "lastPushedCommit": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
-    "lastPushedRun": 37060964289,
-    "lastPushedRunStatus": "failure",
-    "lastGreenCommit": "b46fb8a2617f59448f943088e3ed1a446a9a7c38",
+    "lastPushedCommit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
+    "lastPushedRun": 37080857980,
+    "lastPushedRunStatus": "success",
+    "lastGreenCommit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
     "activeWorkers": 2,
     "concurrency": "one heavy local process",
-    "next": "Push integrated bootstrap/sandbox fixes to same branch; observe complete exact CI while root runs full canonical local gates. Continue durable encrypted original-plan source and independent review.",
-    "lastObservedCiSummary": "docs/build/production/ci-37060964289.md",
+    "next": "Correct frozen durable-plan compiler failures in isolated verification worktree, then independently verify real PostgreSQL/OpenTofu, startup, kind and architecture-specific packages before integration.",
+    "lastObservedCiSummary": "docs/build/production/ci-37080857980.md",
     "currentEcsCheck": {
       "label": "prod-ecs-combined-final-root",
       "passed": 1232,
@@ -2796,15 +2804,7 @@
         "initial storage I/O build exit100,376MiB free",
         "post-restart disposable build exit1, cause not captured;225.97s diagnostic retry passed"
       ],
-      "next": "Integrate independently verified source and observe complete pushed CI."
-    },
-    "currentCiFailure": {
-      "runId": 37060964289,
-      "jobs": "12 passed, 2 failed, 14 terminal",
-      "unit": "16418P1F399S",
-      "workflows": "973P1F0S, observed exit1, all44mandatory groups unverified",
-      "cause": "Strict workflow filename list omits ecsReplicaRepair.ts. Smoke and Gimbal skipped.",
-      "correction": "Frozen source-only three-file startup/sandbox candidate undergoing root verification."
+      "next": "Durable-plan changes need independent image verification on their own exact integrated source."
     },
     "currentStartupCheck": {
       "label": "prod-worker-startup-bootstrap-final-root",
@@ -2826,11 +2826,41 @@
       "kind": "provider6/6+release1/1,0failed/skipped,cluster/kubeconfig/newimages removed"
     },
     "storage": {
-      "hostFreeGiB": 30.68,
+      "hostFreeGiB": 29.2,
       "dockerHealthy": true,
-      "dockerInventory": "0 retained owned test images/containers/volumes/cache after ARM64 run; kind owned resources and new image refs removed",
+      "dockerInventory": "0 images/containers/volumes/cache after root-owned Supabase PostgreSQL cleanup.",
       "historicalBlocker": "ARM64 fresh image build failed while376MiB free; Docker metadata I/O errors persisted after disk recovery until user-authorized restart",
       "cleanupScope": "owned test resources and dedicated builder cache only"
+    },
+    "historicalCiFailure": {
+      "runId": 37060964289,
+      "jobs": "12 passed, 2 failed, 14 terminal",
+      "unit": "16418P1F399S",
+      "workflows": "973P1F0S, observed exit1, all44mandatory groups unverified",
+      "cause": "Strict workflow filename list omits ecsReplicaRepair.ts. Smoke and Gimbal skipped.",
+      "correction": "Integrated at5e92e86; exacta14 run37080857980 all14jobs passed."
+    },
+    "currentLocalGate": {
+      "commit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
+      "status": "passed_executed_gates_only",
+      "unit": "16630P0F196S",
+      "workflows": "982P0F0S",
+      "policy": "238P0F0S",
+      "tofu": "3900P0F0S",
+      "supabasePostgres": "251P0F0S/fullapplyandreapply/nameandchecksumtamperrefused/cleanupverified",
+      "typecheck": "passed",
+      "lint": "passed",
+      "goRace": "226top+539subP0F3Linux-onlyMacS",
+      "artifact": "docs/build/production/evidence/local-gates/a14e57f.json"
+    },
+    "durablePlanCheck": {
+      "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/durable-plan-verify",
+      "base": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
+      "originalFrozenInventorySha256": "8959e6c30f1b5be551063586cee8e52e9a87586fd250e475e3bbf6c9b1147ef3",
+      "status": "compiler_failed_source_correction",
+      "failedGate": "prod-durable-first-root tsc exit2",
+      "runtimeTestsExecuted": false,
+      "originalHandoffPreserved": true
     }
   },
   "sessionHistory": [

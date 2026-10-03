@@ -7,6 +7,7 @@
  * function is added without being classified below, so a new function cannot
  * quietly skip the tenancy check.
  */
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as repos from "@/lib/controlplane/db/repos";
 import { bindRepos } from "@/lib/controlplane/db/repos";
@@ -17,7 +18,7 @@ import { executionHolder } from "@/lib/execution/platform";
 import type { PlanArtifactManifest } from "@/lib/tofu/engine";
 import type { ResourceNode } from "@/lib/resources/types";
 import { LANES, PG_URL, approve, newWorkspace, openLane, proposalFor, seedApprovedOperation, seedAwaitingApproval, uid, user } from "./_support/harness";
-import { makeHarness, closeSharedPgliteAfterAll, scriptedEngine, requireApproval, sessionFor } from "../capabilities/support";
+import { makeHarness, closeSharedPgliteAfterAll, scriptedEngine, requireApproval, sessionFor, approveAs, proposeOk, requestFor } from "../capabilities/support";
 import { makePlan, change } from "../execution/fakes/fixtures";
 import { buildPlanFacts } from "@/lib/capabilities/evaluate";
 import { planEvidence } from "@/lib/execution/plan-evidence";
@@ -26,14 +27,19 @@ import { createExecutionBroker } from "@/lib/platform/broker";
 import { registerEnvironment } from "@/lib/reconcile/platform";
 import { mkNode } from "../providers/aws/drivers/compute/fixtures";
 
+if (process.env.ZENITH_TEST_WORKFLOW_START_REQUIRED === "1" && !PG_URL) {
+  throw new Error("Workflow start tenant acceptance requires an owned PostgreSQL database.");
+}
 closeSharedPgliteAfterAll();
 
 /** These run in the real-PostgreSQL canonical-broker sweep below, never as PGlite authority. */
 const BUILD_LAUNCH_SWEPT = new Set(["buildLaunches.claim", "buildLaunches.get", "buildLaunches.acknowledge", "buildLaunches.observeTerminal"]);
+const WORKFLOW_START_SWEPT = new Set(["workflowStartIntents.get", "workflowStartIntents.prepare", "workflowStartIntents.claim", "workflowStartIntents.acknowledge"]);
 
 /** Functions exercised by the sweep (each named `namespace.function`). */
 const SWEPT = new Set([
   ...BUILD_LAUNCH_SWEPT,
+  ...WORKFLOW_START_SWEPT,
   "approvals.consume", "approvals.listForOperation", "approvals.record", "approvals.requiredApprovalCount", "approvals.consumeApprovals",
   "connections.get", "connections.list", "connections.recordVerification", "connections.revoke",
   "cost.get", "cost.list",
@@ -66,6 +72,10 @@ const WRITES = new Set([
 
 /** Deliberately not workspace-filtered, with the reason. */
 const EXEMPT: Record<string, string> = {
+  "buildLaunches.assertIsolatedBuildTestAdmission": "zero-argument NODE_ENV admission guard; reads no SQL or tenant data, cannot supply approval authority, and is excluded from bindRepos",
+  "workflowStartIntents.WorkflowStartIntentError": "pure error class, contains no SQL or tenant data",
+  "workflowStartIntents.snapshotWorkflowArguments": "pure own-scalar whitelist parser; returns detached frozen planning arguments, reads no SQL or authority, and is excluded from bindRepos",
+  "workflowStartIntents.createIsolatedStartIntentStoreForTests": "NODE_ENV=test-only factory captures one actual broker dependency set; takes no SQL or tenant data itself, returns the same scoped SQL implementations, and is excluded from bindRepos",
   "buildLaunches.BuildLaunchError": "pure error class, contains no SQL or tenant data",
   "buildLaunches.createIsolatedBuildClaimerForTests": "NODE_ENV=test-only factory captures one actual isolated broker; returns the same scoped claim implementation, takes no tenant data or SQL itself, and is excluded from bindRepos",
   "planArtifacts.PlanArtifactError": "pure error class, contains no SQL or tenant data",
@@ -129,6 +139,13 @@ describe("completeness guard", () => {
     expect(Object.keys(bound.buildLaunches)).toEqual(expect.arrayContaining(["claim", "get", "acknowledge", "observeTerminal"]));
     expect(Object.keys(bound.buildLaunches)).not.toContain("BuildLaunchError");
     expect(Object.keys(bound.buildLaunches)).not.toContain("createIsolatedBuildClaimerForTests");
+    expect(Object.keys(bound.buildLaunches)).not.toContain("assertIsolatedBuildTestAdmission");
+    expect(new Set(Object.keys(bound.workflowStartIntents))).toEqual(new Set(
+      [...WORKFLOW_START_SWEPT].map(key => key.split(".")[1]),
+    ));
+    for (const helper of ["WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests"]) {
+      expect(Object.keys(bound.workflowStartIntents)).not.toContain(helper);
+    }
     expect(await bound.events.list("ws_x")).toEqual([]);
   });
 });
@@ -320,9 +337,11 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "settings.getEnvironmentSettings": () => repos.settings.getEnvironmentSettings(db, B, envId),
       "settings.getWorkspacePolicy": () => repos.settings.getWorkspacePolicy(db, B),
     };
-    // The four build-launch functions have actual broker/PG positive controls
-    // in the separate sweep below; all remaining functions run in both lanes.
-    expect(new Set(Object.keys(attempts))).toEqual(new Set([...SWEPT].filter(key=>!BUILD_LAUNCH_SWEPT.has(key))));
+    // Build launches and workflow starts use actual broker/PG positive controls
+    // in their separate sweeps below; all remaining functions run in both lanes.
+    expect(new Set(Object.keys(attempts))).toEqual(new Set([...SWEPT].filter(
+      key => !BUILD_LAUNCH_SWEPT.has(key) && !WORKFLOW_START_SWEPT.has(key),
+    )));
 
     for (const [name, attempt] of Object.entries(attempts)) {
       const result = await attempt();
@@ -444,4 +463,120 @@ describe.skipIf(!PG_URL)("build launch tenant isolation sweep [postgres]",()=>{
     expect(terminal).toMatchObject({phase:"terminal",terminal_status:"STOPPED"});
     expect(await authorityRows()).toEqual(authorityBefore);
   },15000);
+});
+
+/**
+ * Actual independent PostgreSQL handles and canonical Broker/signing/evaluation.
+ * Product scope, membership and browser-session ports are isolated fixture data.
+ * The acknowledgement below models a SQL evidence sink, not Temporal transport,
+ * authenticated history, namespace permissions or cloud acceptance.
+ */
+describe.skipIf(!PG_URL)("workflow start tenant isolation sweep [postgres]", () => {
+  let ctx: Awaited<ReturnType<typeof openLane>>;
+  beforeAll(async () => {
+    ctx = await openLane(LANES.find(lane => lane.name === "postgres")!);
+  }, 60_000);
+  afterAll(async () => { await ctx?.close(); });
+
+  it("sweeps get/prepare/claim/acknowledge with owning approval and fence while preserving A's immutable attempt and authority", async () => {
+    const { db, db2 } = ctx;
+    expect(db2).not.toBe(db);
+    const [ownBackend] = await db.query<{ pid: number }>("select pg_backend_pid() as pid");
+    const [foreignBackend] = await db2.query<{ pid: number }>("select pg_backend_pid() as pid");
+    expect(ownBackend.pid).not.toBe(foreignBackend.pid);
+    const h = await makeHarness({ kind: "postgres", engine: scriptedEngine("tenant-start-policy", () => requireApproval(1, "admin", true)) });
+    h.deps.clock = { now: () => new Date() };
+    const A = h.ids.wsA, B = h.ids.wsB, environmentId = h.ids.envAProd;
+    const op = await proposeOk(h, requestFor(h, "service.restart", "prod"), user("bob"));
+    await approveAs(h, op.operation, "erin");
+    const fence = await h.acquireLease(environmentId);
+    await h.broker.beginExecution({ workspaceId: A, operationId: op.id, holder: `workflow:${op.id}`,
+      audience: "worker", leaseMs: 60_000, lease: fence });
+    // This captures the actual isolated canonical broker once. Its alternate
+    // pool/store is discarded; each repository transaction rebinds its SQL store.
+    const store = repos.workflowStartIntents.createIsolatedStartIntentStoreForTests(h.broker);
+    const request: repos.workflowStartIntents.StartRequest = {
+      kind: "dayTwo", arguments: { workspaceId: A, operationId: op.id, environmentId, capability: "service.restart" },
+      namespace: "default", endpointDigest: digest("tenant-owned-frontend"), taskQueue: "tenant-start-contract",
+    };
+    const foreignRequest: repos.workflowStartIntents.StartRequest = {
+      ...request, arguments: { ...request.arguments, workspaceId: B },
+    };
+    const rows = () => db.query("select * from platform.workflow_start_intents where workspace_id=$1 and operation_id=$2", [A, op.id]);
+    const authority = async () => ({
+      operation: await db.query("select * from platform.operations where workspace_id=$1 and id=$2", [A, op.id]),
+      approvals: await db.query("select * from platform.approvals where workspace_id=$1 and operation_id=$2 order by id", [A, op.id]),
+      fence: await db.query("select * from platform.leases where workspace_id=$1 and scope=$2", [A, fence.scope]),
+      decisions: await db.query("select * from platform.policy_decisions where workspace_id=$1 and operation_id=$2 order by id", [A, op.id]),
+      grants: await db.query("select * from platform.capability_grants where workspace_id=$1 and operation_id=$2 order by jti", [A, op.id]),
+    });
+    const [live] = await db.query<{ operation: boolean; fence: boolean; approvals: number }>(`select
+      o.status='running' and o.expires_at>clock_timestamp() and o.lease_until>clock_timestamp() as operation,
+      l.expires_at>clock_timestamp() and l.released_at is null and l.fence_token=o.fence_token as fence,
+      (select count(*)::integer from platform.approvals a where a.workspace_id=o.workspace_id and a.operation_id=o.id
+        and a.approval_round=o.approval_round and a.proposal_digest=o.proposal_digest and a.decision='approve'
+        and a.approver->>'kind'='user' and a.approver_id='erin' and a.consumed_at is not null
+        and a.expires_at>clock_timestamp()) as approvals
+      from platform.operations o join platform.leases l on l.scope=o.lease_scope and l.workspace_id=o.workspace_id
+      where o.workspace_id=$1 and o.id=$2`, [A, op.id]);
+    expect(live).toEqual({ operation: true, fence: true, approvals: 1 });
+    const authorityBefore = await authority();
+    const prepared = await store.prepare(db, request);
+    expect(prepared).toMatchObject({ workspace_id: A, operation_id: op.id, phase: "prepared", attempt_id: null, run_id: null });
+    expect(await repos.workflowStartIntents.get(db2, A, op.id)).toEqual(prepared);
+    expect(await authority()).toEqual(authorityBefore);
+
+    let current = prepared;
+    // A foreign acknowledgement supplies a self-consistent forged tenant binding,
+    // rather than relying on an unrelated malformed-input failure.
+    const foreignIntent = (): repos.workflowStartIntents.WorkflowStartIntent => {
+      const argumentsDigest = digest(foreignRequest.arguments);
+      const binding = { ...current.binding, arguments: foreignRequest.arguments, argumentsDigest,
+        sourceDigest: digest({ proposalDigest: current.binding.proposalDigest, inputDigest: current.binding.inputDigest, argumentsDigest }) };
+      return { ...current, workspace_id: B, binding, binding_digest: digest(binding) };
+    };
+    const attempts: Record<string, () => Promise<void>> = {
+      "workflowStartIntents.get": async () => { expect(await repos.workflowStartIntents.get(db2, B, op.id)).toBeNull(); },
+      "workflowStartIntents.prepare": async () => { await expect(store.prepare(db2, foreignRequest)).rejects.toBeInstanceOf(repos.workflowStartIntents.WorkflowStartIntentError); },
+      "workflowStartIntents.claim": async () => { await expect(store.claim(db2, foreignRequest)).rejects.toBeInstanceOf(repos.workflowStartIntents.WorkflowStartIntentError); },
+      "workflowStartIntents.acknowledge": async () => { await expect(repos.workflowStartIntents.acknowledge(db2, foreignIntent(), observed)).rejects.toBeInstanceOf(repos.workflowStartIntents.WorkflowStartIntentError); },
+    };
+    expect(new Set(Object.keys(attempts))).toEqual(WORKFLOW_START_SWEPT);
+    const foreignAttempt = async (name: string) => {
+      const before = await rows();
+      await attempts[name]();
+      expect(await rows(), `${name} preserved A's immutable ${current.phase} row`).toEqual(before);
+      expect(await authority(), `${name} preserved A's operation, consumed approvals and live fence`).toEqual(authorityBefore);
+      expect(await db.query("select * from platform.workflow_start_intents where workspace_id=$1", [B])).toHaveLength(0);
+    };
+    // Prepared acknowledgement would fail before looking up the tenant because
+    // it has no attempt. Exercise this method only with a valid retained attempt.
+    for (const name of [...WORKFLOW_START_SWEPT].filter(key => key !== "workflowStartIntents.acknowledge")) await foreignAttempt(name);
+    const claimed = await store.claim(db, request);
+    expect(claimed.dispatch).toBe(true);
+    expect(claimed.intent).toMatchObject({ phase: "attempted", run_id: null, binding_digest: prepared.binding_digest });
+    expect(claimed.intent.attempt_id).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/);
+    current = claimed.intent;
+    // Valid UUID/time/digest deliberately model reader output only. No actual
+    // engine request, history result or another transport Start is constructed.
+    const [databaseClock] = await db.query<{ started_at: string }>("select clock_timestamp()::text as started_at");
+    const observed: repos.workflowStartIntents.StartReadback = {
+      runId: randomUUID(), startedAt: new Date(databaseClock.started_at).toISOString(), evidenceDigest: digest("modeled owning SQL readback"),
+    };
+    expect(await authority()).toEqual(authorityBefore);
+    for (const name of WORKFLOW_START_SWEPT) await foreignAttempt(name);
+    const repeated = await store.claim(db2, request);
+    expect(repeated).toEqual({ dispatch: false, intent: current });
+    expect(await rows()).toHaveLength(1);
+    expect(await authority()).toEqual(authorityBefore);
+    current = await repos.workflowStartIntents.acknowledge(db, current, observed);
+    expect(current).toMatchObject({ phase: "acknowledged", run_id: observed.runId, attempt_id: claimed.intent.attempt_id,
+      binding_digest: prepared.binding_digest, evidence_digest: observed.evidenceDigest });
+    expect(await repos.workflowStartIntents.get(db2, A, op.id)).toEqual(current);
+    for (const name of WORKFLOW_START_SWEPT) await foreignAttempt(name);
+    expect(await store.claim(db2, request)).toEqual({ dispatch: false, intent: current });
+    expect(await repos.workflowStartIntents.acknowledge(db2, current, observed)).toEqual(current);
+    expect(await rows()).toHaveLength(1);
+    expect(await authority()).toEqual(authorityBefore);
+  }, 20_000);
 });

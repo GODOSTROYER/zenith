@@ -12,6 +12,50 @@ The process must see a persistent ext2/ext3/ext4, XFS or Btrfs **root filesystem
 
 POSIX access and default ACL xattrs must really work. Setup writes and reads an actual version-2 extended access/default ACL on disposable inert probes, then removes the probes. The Go tests independently set actual ACLs and demand refusal. `/proc/self/fdinfo` must return mount identities. No production filesystem guard is weakened for CI.
 
+### Disposable GitHub-hosted ancestor preparation
+
+The native Go CI lane explicitly invokes `scripts/ci/prepare-native-guest-host.py`
+before fixture setup, only as root on a GitHub-hosted Linux VM. The failed job
+`111200375007` in run `37122200675` on source `cd8942b` refused fixture setup
+before any native attempt ran; its cleanup also refused and its current-attempt
+selector correctly rejected absent outputs. The public failure log suppressed
+prerequisite details. It supplies no measured mount, ACL or native acceptance.
+
+The exact logged image `ubuntu24/20260927.320` has a
+[published build step that recursively makes `/opt` mode0777](https://github.com/actions/runner-images/blob/ubuntu24/20260927.320/images/ubuntu/scripts/build/configure-system.sh#L12-L13),
+which conflicts with the unchanged nonwritable-ancestor guard. That image source
+explains a prerequisite mismatch; it does not replace the next attempt's actual
+runtime observations. GitHub documents the
+[hosted-environment flags](https://docs.github.com/en/actions/reference/workflows-and-actions/variables#default-environment-variables)
+that this explicit disposable-host invocation requires. Those flags are an
+operator scope check, not protection against hostile root or environment forgery.
+
+Preparation pins `/` and `/opt` with no-follow directory descriptors and observes
+their actual inode/device/mount/ownership/mode/ACL state, supported root
+filesystem, effective bind-mount capability, required utilities and absence of
+the three fixed fixture namespaces. Unsupported filesystems, separate `/opt`
+mounts, wrong owners, ancestor ACLs, unexpected modes, missing mount authority
+and preexisting fixtures refuse before mutation. Only observed root-owned
+mode0777 may be narrowed to0755, using `fchmod` on that exact `/opt` descriptor;
+already0755 causes no mutation. The helper neither recursively changes contents
+nor changes ownership, ACLs, mount flags or root durability settings. It reopens
+the exact ancestor names and compares identities before and after the change,
+requiring preserved owner/device/inode/mount and final mode0755. Races and failed
+readback refuse; it never restores0777 or attempts another chmod.
+
+A closed JSON report in this step's job log carries only the fresh fixture run
+ID, test UID/GID, observed ancestor metadata, fixed prerequisite booleans and
+fixed verdict/reason IDs. It reads no historical report or caller-selected path
+and prints no raw exception or environment inventory. This prerequisite report
+is not the canonical native-gate artifact. Actual fixture setup must still
+prove ACL writes/readbacks and all four bind mounts, and the unprivileged native
+runner must still produce the separate fresh attempt's race/golden evidence.
+Existing guarded setup/cleanup and current-attempt-only artifact selection are
+unchanged. A preparation failure remains a failed job with no accepted native
+artifact. The preparation contract tests use a Python observation contract model; they supply
+no hosted VM or filesystem execution evidence. Fresh whole-pipeline CI on the
+reviewed correction is mandatory before claiming hosted native acceptance.
+
 The three exact namespaces must be absent before setup:
 
 - `/opt/zenith-file-write-tests`: test UID/GID-owned0700 root on the supported root mount. Ordinary writer fixtures use unique private children here.
@@ -94,3 +138,5 @@ go -C go test -json -count=1 ./internal/machine/ops -run '^TestResultGoldens$' \
 Bootstrap output stays private and is removed only through the validated disposable cleanup. Independently inspect those actual Go observations and filesystem assertions, review the generated five JSON files, then commit them as Saivedant before the required native gate. Bootstrap alone is not the full native gate. A fixture failure, missing required case or unsupported hosted runner filesystem blocks the Go CI job and must be resolved through actual prerequisite setup.
 
 The first hosted CI execution, local prepared guest execution, authentic new goldens and all validation remain unverified. Systemd sandbox/deployed service, production startup/retention, worker image execution, cloud access and release acceptance remain separate follow-ups outside this module. No release ledger or production limitations claim is changed.
+
+The preparation tests replace `SystemHost`. They exercise `main`, `prepare` and `validate` against observation snapshots; they do not execute `SystemHost` descriptor opens, xattrs, `fstat`, `fchmod` or reopens. Fresh disposable hosted CI must execute those operations and the unchanged actual ACL/bind-mount/native acceptance gate.

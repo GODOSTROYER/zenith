@@ -206,7 +206,7 @@ print(json.dumps({'status': status, 'stdout': output.getvalue(), 'stderr': error
 `;
 function hostContract(input: HostContractInput = {}) {
   const child = spawnSync("python3", ["-B", "-c", hostModel, hostHelper, JSON.stringify({ snapshot: hostSnapshot(), runId: hostRun, ...input })], {
-    encoding: "utf8", env: { PATH: process.env.PATH }, maxBuffer: 1024 * 1024,
+    encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, maxBuffer: 1024 * 1024,
   });
   expect(child.error).toBeUndefined(); expect(child.status).toBe(0); expect(child.stderr).toBe("");
   return JSON.parse(child.stdout) as { status: number; stdout: string; stderr: string; observations: number; chmods: number; entries: number };

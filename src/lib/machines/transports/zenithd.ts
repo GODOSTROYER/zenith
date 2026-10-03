@@ -9,13 +9,15 @@
  * `MachineResultDataSchemas` (the contract the Go agent implements; see
  * `results.ts`). Unknown keys in an agent result are stripped; a result that
  * does not parse is reported as `malformed_result`, never passed through.
+ * Writes require a phase/effect receipt; malformed or absent mutation custody
+ * is uncertain even when the agent labels it failed or timed out.
  *
  * Status mapping (agent statuses from the wire protocol):
  *   succeeded → ok: true
  *   failed    → ok: false (command/tool failure; agent's `result` may carry a failure code)
  *   rejected  → ok: false, `refused` (a local guard on the machine said no:
  *               `exec.enabled: false`, `files.readAllow`, `services.restartAllow`, …)
- *   timed_out → ok: false, `timeout` (the agent's own deadline; definitive)
+ *   timed_out → ok: false, `timeout` for reads/commands; writes require effect custody
  *   uncertain → throws `uncertain` (the control plane lost the agent past the
  *               deadline, RUNNER-PROTOCOL §6; never re-dispatched)
  * A local deadline or a failed wait after dispatch is uncertain for every
@@ -26,7 +28,7 @@ import { capability } from "@/lib/capabilities/catalog";
 import { isImplementedOperation, parseMachineArgs, type ImplementedOperation } from "../args";
 import { MachineOperationError } from "../errors";
 import { redactText, truncateUtf8 } from "../redact";
-import { MachineFailureDataSchema, MachineResultDataSchemas, type MachineFailureCode } from "../results";
+import { FileWriteFailureDataSchema, MachineFailureDataSchema, MachineResultDataSchemas, type MachineFailureCode } from "../results";
 import type { MachineDispatchOutcome, MachineDriver, MachineOperation, MachineRequest, MachineRequestDispatcher, MachineResult, ZenithdSession } from "../types";
 
 export interface ZenithdDriverOptions {
@@ -46,6 +48,7 @@ const SUPPORTED: readonly MachineOperation[] = [
   "container.logs",
   "container.exec",
   "file.read",
+  "file.write",
   "network.portCheck",
   "network.dnsCheck",
   "system.metrics",
@@ -54,7 +57,6 @@ const SUPPORTED: readonly MachineOperation[] = [
 ];
 
 const UNSUPPORTED: Partial<Record<MachineOperation, string>> = {
-  "file.write": "file.write is not implemented by zenithd or any machine transport yet",
   "file.upload": "file.upload is not implemented by zenithd or any machine transport yet",
   "package.install": "package.install is not implemented by zenithd or any machine transport yet",
 };
@@ -129,6 +131,19 @@ export function createZenithdMachineDriver(options: ZenithdDriverOptions): Machi
 
     if (o.status === "uncertain") {
       throw new MachineOperationError("uncertain", "the machine went silent past the request deadline; the request may or may not have run", { transportRef: id });
+    }
+    if (req.operation === "file.write") {
+      if (o.status === "succeeded") {
+        const parsed = MachineResultDataSchemas["file.write"].safeParse(o.result);
+        if (!parsed.success || parsed.data.path !== req.args.path || parsed.data.contentVersion !== req.args.contentVersion) throw new MachineOperationError("uncertain", "the machine write receipt is invalid or does not bind approved arguments", { transportRef: id });
+        return result(true, parsed.data);
+      }
+      const parsed = FileWriteFailureDataSchema.safeParse(o.result);
+      if (parsed.success && parsed.data.phase && parsed.data.effect && parsed.data.postcondition === "unverified" && (parsed.data.effect !== "unknown" || parsed.data.error === "mutation_uncertain")) {
+        return result(false, { ...parsed.data, reason: "file.write did not establish verified durable postconditions" });
+      }
+      if (o.status === "rejected") return result(false, { error: "refused", phase: "guard", effect: "none", postcondition: "unverified" });
+      throw new MachineOperationError("uncertain", "the machine did not supply a valid write effect receipt", { transportRef: id });
     }
     if (o.status === "rejected") {
       const coded = MachineFailureDataSchema.safeParse(o.result);

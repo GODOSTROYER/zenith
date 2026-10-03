@@ -171,6 +171,20 @@ export function isDeniedFilePath(path: string): boolean {
   return DENY_REGEXES.some((r) => r.test(path));
 }
 
+/** Writes use canonical exact paths, with no normalization after approval. */
+export function isCanonicalWritePath(input: string): boolean {
+  const normalized = normalizeAbsolutePath(input);
+  return normalized.ok && normalized.path === input && input !== "/" && !/\s/.test(input);
+}
+export function isDeniedWritePath(input: string): boolean {
+  const roots = ["/etc", "/usr", "/bin", "/sbin", "/lib", "/lib64", "/boot", "/proc", "/sys", "/dev", "/run", "/var/lib/zenithd", "/var/spool", "/var/log", "/root"];
+  if (roots.some((p) => input === p || input.startsWith(`${p}/`))) return true;
+  return input.toLowerCase().split("/").some((c) => c.startsWith(".") || ["systemd", "cron", "crontabs", "sudoers", "sudoers.d", "polkit-1", "bin", "sbin", "identity.json", "replay.jsonl", "audit.jsonl", "config.yaml", "config.json"].includes(c) || /\.(service|socket|timer|sh)$/.test(c));
+}
+export function writePathAllowed(input: string, prefixes: readonly string[]): boolean {
+  return prefixes.some((p) => input === p || input.startsWith(`${p}/`));
+}
+
 /* ---------------------------------- units ---------------------------------- */
 
 /** `systemctl restart` of these would cut Zenith's own channel or the host's control plane. */

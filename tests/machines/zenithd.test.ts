@@ -79,7 +79,7 @@ describe("dispatch", () => {
     await expect(run(req("machine.inspect"), { grantJws: "" })).rejects.toMatchObject({ code: "transport_error" });
     await expect(run(req("machine.inspect", {}, { targetId: "mac abc; id" }))).rejects.toMatchObject({ code: "invalid_request" });
     await expect(run(req("service.status", { unit: "x;id.service" }))).rejects.toMatchObject({ code: "invalid_args" });
-    await expect(run(req("file.write", {}))).rejects.toMatchObject({ code: "unsupported_operation" });
+    await expect(run(req("file.write", {}))).rejects.toMatchObject({ code: "invalid_args" });
     expect(d.enqueued).toHaveLength(0);
   });
 
@@ -261,7 +261,7 @@ describe("simulated transport", () => {
   const go = (op: Parameters<typeof requestFor>[0], args: Record<string, unknown> = {}, over: NonNullable<Parameters<typeof requestFor>[2]> = {}) => sim.execute(requestFor(op, args, over), undefined, new AbortController().signal);
 
   it("every implemented operation returns schema-valid data labelled simulated", async () => {
-    const minimal: Record<ImplementedOperation, Record<string, unknown>> = {
+    const minimal: Record<Exclude<ImplementedOperation, "file.write">, Record<string, unknown>> = {
       "machine.inspect": {},
       "process.list": { limit: 5 },
       "service.status": { unit: "nginx.service" },
@@ -277,7 +277,7 @@ describe("simulated transport", () => {
       "system.logs": { lines: 5 },
       "machine.exec": { argv: ["ls"], timeoutSec: 5 },
     };
-    for (const op of IMPLEMENTED_OPERATIONS) {
+    for (const op of sim.supports as Exclude<ImplementedOperation, "file.write">[]) {
       const r = await go(op, minimal[op]);
       expect(r, op).toMatchObject({ ok: true, simulated: true, transport: "aws_ssm", operation: op });
       expect(r.transportRef, op).toMatch(/^sim-[0-9a-f]{8}$/);

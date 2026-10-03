@@ -1,7 +1,8 @@
 /**
  * Simulated machine transport for sandbox environments.
  *
- * Returns deterministic, plausible results for every implemented operation
+ * Returns deterministic, plausible results for the existing generators; the
+ * customer-local file.write capability is explicitly refused
  * WITHOUT touching anything: the same target, operation and arguments always
  * yield the same data, nothing is executed, read or contacted, and every
  * result carries `simulated: true` (and every text payload says so). It
@@ -14,7 +15,7 @@
  */
 import { digest } from "@/lib/controlplane/digest";
 import { sha256Hex } from "@/lib/controlplane/digest";
-import { IMPLEMENTED_OPERATIONS, parseMachineArgs, type ImplementedOperation } from "../args";
+import { parseMachineArgs, type ImplementedOperation } from "../args";
 import { MachineOperationError } from "../errors";
 import { truncateUtf8 } from "../redact";
 import { MachineResultDataSchemas } from "../results";
@@ -47,7 +48,7 @@ function logLines(r: () => number, n: number, label: string): string {
 
 type Gen = (r: () => number, args: Record<string, unknown>, req: MachineRequest) => Record<string, unknown>;
 
-const GENERATORS: Record<ImplementedOperation, Gen> = {
+const GENERATORS: Record<Exclude<ImplementedOperation, "file.write">, Gen> = {
   "machine.inspect": (r, _a, req) => {
     const total = int(r, 4, 32) * 1024 * 1024;
     return {
@@ -144,13 +145,13 @@ const GENERATORS: Record<ImplementedOperation, Gen> = {
 
 export function createSimulatedMachineDriver(transport: MachineTransport, options: SimulatedDriverOptions = {}): MachineDriver {
   const now = options.now ?? Date.now;
-  const supports = IMPLEMENTED_OPERATIONS as readonly MachineOperation[];
+  const supports = Object.keys(GENERATORS) as readonly MachineOperation[];
 
   async function execute(req: MachineRequest): Promise<MachineResult> {
-    if (!IMPLEMENTED_OPERATIONS.includes(req.operation as ImplementedOperation)) {
+    if (!supports.includes(req.operation)) {
       throw new MachineOperationError("unsupported_operation", `${req.operation} is not implemented`);
     }
-    const op = req.operation as ImplementedOperation;
+    const op = req.operation as Exclude<ImplementedOperation, "file.write">;
     const parsed = parseMachineArgs(op, req.args);
     if (!parsed.ok) throw new MachineOperationError("invalid_args", "arguments failed validation", { issues: parsed.issues });
     const args = parsed.args as Record<string, unknown>;

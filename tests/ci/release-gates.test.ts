@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
-import { CORE_CHECKS, GATE_LANES, manifestFor } from "../../scripts/ci/gate-manifest.mjs";
+import { CORE_CHECKS, GATE_LANES, linuxGuestManifest, manifestFor } from "../../scripts/ci/gate-manifest.mjs";
 
 interface Step {
   name?: string;
@@ -882,6 +882,13 @@ describe("the tofu job", () => {
 describe("the Go job", () => {
   const go = (): Job => jobOf("go");
   const GUARD = "hashFiles('go/go.mod') != ''";
+  const NATIVE = "Required native Linux race and authentic golden comparison";
+  const SETUP = "Provision strictly disposable Linux guest fixtures";
+  const CLEANUP = "Remove only owned drained Linux guest fixtures";
+  const SELECT = "Select only current-attempt sanitized guest evidence";
+  const UPLOAD = "Preserve sanitized native guest evidence";
+  const alwaysGuard = "always() && " + GUARD;
+  const uploadGuard = "always() && steps.guest_evidence.outcome == 'success' && steps.guest_evidence.outputs.evidence_path != ''";
 
   it("works in go/ and refuses to fetch another toolchain", () => {
     expect(go().defaults?.run?.["working-directory"]).toBe("go");
@@ -899,8 +906,11 @@ describe("the Go job", () => {
     expect(skipNotice[0].run).toContain("GITHUB_STEP_SUMMARY");
     // `defaults.run.working-directory: go` would point at a directory that does not exist yet.
     expect(skipNotice[0]["working-directory"]).toBe(".");
-    for (const step of rest.filter((one) => !skipNotice.includes(one)))
-      expect(step.if, `${step.name ?? step.uses} must be guarded`).toBe(GUARD);
+    const specialConditions = new Map([[CLEANUP, alwaysGuard], [SELECT, alwaysGuard], [UPLOAD, uploadGuard]]);
+    for (const step of rest.filter((one) => !skipNotice.includes(one))) {
+      expect(step.if, `${step.name ?? step.uses} must be guarded`).toBe(specialConditions.get(step.name ?? "") ?? GUARD);
+      expect(step["continue-on-error"] ?? false).toBe(false);
+    }
   });
 
   it("sets up exactly Go 1.27.1 and checks it", () => {
@@ -920,18 +930,83 @@ describe("the Go job", () => {
 
     expect(indexOfCommand(go(), "go vet ./...")).toBeGreaterThan(0);
 
-    const race = go().steps[indexOfCommand(go(), "go test -race -count=1 ./...")];
-    expect(race, "go test -race ./... must run").toBeDefined();
-    expect(race.env?.CGO_ENABLED, "the race detector needs cgo").toBe("1");
+    const race = stepNamed(go(), NATIVE);
+    expect(race.id).toBe("native_guest");
+    expect(race.shell).toBe("bash");
+    expect(race["working-directory"]).toBe(".");
+    expect(cmd(race)).toBe([
+      "set -euo pipefail",
+      'attempt_id="$(node --input-type=module -e \'import { randomBytes } from "node:crypto"; console.log(randomBytes(16).toString("hex"))\')"',
+      'echo "expected_attempt_id=$attempt_id" >> "$GITHUB_OUTPUT"',
+      'ZENITH_GUEST_ATTEMPT_ID="$attempt_id" node scripts/ci/run-guest-file-write-gate.mjs --run',
+    ].join("\n"));
+    const native = linuxGuestManifest();
+    expect(native.command).toEqual(["node", "scripts/ci/run-guest-file-write-gate.mjs", "--run"]);
+    expect(native.steps.find((step) => step.id === "race")?.command).toEqual(["go", "test", "-json", "-race", "-count=1", "./..."]);
+    expect(native.env.CGO_ENABLED, "the race detector needs cgo").toBe("1");
 
-    const build = stepNamed(go(), "Cross-build linux/amd64 and linux/arm64 without cgo").run ?? "";
-    expect(build).toContain("for target in linux/amd64 linux/arm64; do");
-    expect(build).toContain('CGO_ENABLED=0 GOOS="${target%/*}" GOARCH="${target#*/}" go build -trimpath ./...');
-    expect(build).toContain("set -euo pipefail");
+    const build = stepNamed(go(), "Cross-build linux/amd64 and linux/arm64 without cgo");
+    expect(build.shell).toBe("bash");
+    expect(cmd(build)).toBe([
+      "set -euo pipefail",
+      "for target in linux/amd64 linux/arm64; do",
+      '  echo "--- ${target}"',
+      '  CGO_ENABLED=0 GOOS="${target%/*}" GOARCH="${target#*/}" go build -trimpath ./...',
+      "done",
+    ].join("\n"));
 
-    const order = ["gofmt", "go vet", "go test with the race detector", "Cross-build linux/amd64 and linux/arm64 without cgo"].map((name) =>
+    const order = ["gofmt", "go vet", SETUP, NATIVE, "Cross-build linux/amd64 and linux/arm64 without cgo"].map((name) =>
       indexOfName(go(), name)
     );
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(order.every((at) => at > 0)).toBe(true);
+  });
+
+  it("sets up owned fixtures, always attempts drained cleanup, and selects only the observed current report", () => {
+    const job = go();
+    for (const name of [SETUP, NATIVE, CLEANUP, SELECT, UPLOAD]) expect(job.steps.filter((step) => step.name === name)).toHaveLength(1);
+    const setup = stepNamed(job, SETUP);
+    const cleanup = stepNamed(job, CLEANUP);
+    for (const step of [setup, cleanup]) {
+      expect(step["working-directory"]).toBe(".");
+      expect(step.shell).toBe("bash");
+    }
+    expect(cmd(setup)).toBe([
+      "set -euo pipefail",
+      'fixture_run_id="$(node --input-type=module -e \'import { randomBytes } from "node:crypto"; console.log(randomBytes(16).toString("hex"))\')"',
+      'echo "ZENITH_GUEST_FIXTURE_RUN_ID=$fixture_run_id" >> "$GITHUB_ENV"',
+      'sudo -- bash scripts/ci/guest-file-write-fixtures.sh setup "$(id -u)" "$(id -g)" "$fixture_run_id"',
+    ].join("\n"));
+    expect(cleanup.if).toBe(alwaysGuard);
+    expect(cmd(cleanup)).toBe([
+      "set -euo pipefail",
+      'test -n "${ZENITH_GUEST_FIXTURE_RUN_ID:-}"',
+      'sudo -- bash scripts/ci/guest-file-write-fixtures.sh cleanup "$(id -u)" "$(id -g)" "$ZENITH_GUEST_FIXTURE_RUN_ID"',
+    ].join("\n"));
+    const select = stepNamed(job, SELECT);
+    expect(select.id).toBe("guest_evidence");
+    expect(select.if).toBe(alwaysGuard);
+    expect(select["working-directory"]).toBe(".");
+    expect(cmd(select)).toBe("node scripts/ci/run-guest-file-write-gate.mjs --select-current");
+    expect(select.env).toEqual({
+      ZENITH_EXPECTED_GUEST_ATTEMPT: "${{ steps.native_guest.outputs.expected_attempt_id }}",
+      ZENITH_GUEST_EVIDENCE_ATTEMPT: "${{ steps.native_guest.outputs.attempt_id }}",
+      ZENITH_GUEST_EVIDENCE_PATH: "${{ steps.native_guest.outputs.evidence_path }}",
+      ZENITH_GUEST_EVIDENCE_SHA256: "${{ steps.native_guest.outputs.evidence_sha256 }}",
+      ZENITH_GUEST_RUNNER_EXIT_CODE: "${{ steps.native_guest.outputs.runner_exit_code }}",
+      ZENITH_GUEST_RUNNER_OUTCOME: "${{ steps.native_guest.outcome }}",
+    });
+    const upload = stepNamed(job, UPLOAD);
+    expect(upload.if).toBe(uploadGuard);
+    expect(upload.uses).toMatch(/^actions\/upload-artifact@[a-f0-9]{40}$/);
+    expect(upload.with).toEqual({
+      name: "canonical-linux-guest-evidence-${{ github.sha }}-${{ steps.native_guest.outputs.expected_attempt_id }}",
+      path: "${{ steps.guest_evidence.outputs.evidence_path }}",
+      "include-hidden-files": true,
+      "if-no-files-found": "error",
+      "retention-days": 14,
+    });
+    const order = [SETUP, NATIVE, "TypeScript validates the Go machine result goldens", "Cross-build linux/amd64 and linux/arm64 without cgo", CLEANUP, SELECT, UPLOAD].map((name) => indexOfName(job, name));
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(order.every((at) => at > 0)).toBe(true);
   });

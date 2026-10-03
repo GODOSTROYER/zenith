@@ -65,7 +65,7 @@ func NewExecutor(cfg *Config, id *agent.Identity, keys *protocol.KeySet, replay 
 		now:      deps.Now,
 		enabled:  map[string]bool{},
 		env: &ops.Env{
-			Cfg: cfg.Config, StateDir: cfg.StateDir, ConfigFile: deps.ConfigFile, ProcRoot: deps.ProcRoot, OSRelease: deps.OSRelease,
+			Cfg: cfg.Config, AuditFile: cfg.Audit.Path, StateDir: cfg.StateDir, ConfigFile: deps.ConfigFile, ProcRoot: deps.ProcRoot, OSRelease: deps.OSRelease,
 			Now: deps.Now, Resolver: deps.Resolver, Runner: deps.Runner, Docker: deps.Docker, Version: deps.Version,
 		},
 	}
@@ -101,10 +101,24 @@ func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Re
 	}
 	env := vm.Envelope
 
+	if env.Operation == ops.OpFileWrite {
+		if vm.Grant.Res == "" {
+			e.auditReject(env.JTI, env.Operation, env.Args, protocol.CodeConstraint, "file.write requires a resource scoped grant", true)
+			return nil, &agent.Rejection{ID: env.JTI, Code: protocol.CodeConstraint, Message: "file.write requires a resource scoped grant"}
+		}
+		if err := ops.ValidateFileWriteConstraints(env.Args, vm.Grant.Constraints); err != nil {
+			e.auditReject(env.JTI, env.Operation, env.Args, protocol.CodeOf(err), protocol.MessageOf(err), true)
+			return nil, &agent.Rejection{ID: env.JTI, Code: protocol.CodeOf(err), Message: protocol.MessageOf(err)}
+		}
+	}
 	timeout, maxOut, err := e.limits(&env, &vm.Grant)
 	if err != nil {
 		e.auditReject(env.JTI, env.Operation, env.Args, protocol.CodeOf(err), protocol.MessageOf(err), true)
 		return nil, &agent.Rejection{ID: env.JTI, Code: protocol.CodeOf(err), Message: protocol.MessageOf(err)}
+	}
+	if env.Operation == ops.OpFileWrite && maxOut < 2048 {
+		e.auditReject(env.JTI, env.Operation, env.Args, protocol.CodeConstraint, "file.write requires a 2048-byte metadata result budget", true)
+		return nil, &agent.Rejection{ID: env.JTI, Code: protocol.CodeConstraint, Message: "file.write requires a 2048-byte metadata result budget"}
 	}
 	run, err := e.env.Prepare(env.Operation, &ops.Request{JTI: env.JTI, Args: env.Args, Timeout: timeout, MaxOutputBytes: maxOut})
 	if err != nil {
@@ -161,6 +175,13 @@ func (e *Executor) limits(env *protocol.MachineEnvelope, g *protocol.GrantClaims
 				return 0, 0, protocol.Errorf(protocol.CodeConstraint, "constraint maxTimeoutSec must be a number >= 1")
 			}
 			timeoutSec = min(timeoutSec, int(n))
+		case "pathPrefixes":
+			if env.Operation == ops.OpFileWrite {
+				continue
+			}
+			if e.cfg.RejectUnknownConstraints {
+				return 0, 0, protocol.Errorf(protocol.CodeConstraint, "the grant carries constraint %q, which this machine cannot enforce", clip(k, 40))
+			}
 		case "maxOutputBytes":
 			n, ok := v.(float64)
 			if !ok || n < 1 {
@@ -241,8 +262,29 @@ func (j *job) Run(ctx context.Context, _ agent.LogSink) agent.ResultBody {
 	if body.Error != "" {
 		entry.Reason = clip(body.Error, 200)
 	}
+	if j.op == ops.OpFileWrite && res.Data != nil {
+		entry.Extra = map[string]string{}
+		for _, key := range []string{"phase", "effect", "postcondition", "backupRef", "transactionRef"} {
+			if value, ok := res.Data[key].(string); ok {
+				entry.Extra[key] = value
+			}
+		}
+	}
 	if aerr := j.e.audit.Append(entry); aerr != nil {
 		j.e.log.Error("could not write the audit entry for a finished operation", "request", j.id, "err", aerr)
+		if j.op == ops.OpFileWrite && res.OK {
+			// The files may be durably committed, but completion custody is incomplete.
+			// Keep the private intent/backup receipt and forbid a success/replay claim.
+			uncertain := map[string]any{"error": "mutation_uncertain", "phase": "audit", "effect": "unknown", "postcondition": "unverified"}
+			for _, key := range []string{"backupRef", "transactionRef"} {
+				if value, ok := res.Data[key].(string); ok {
+					uncertain[key] = value
+				}
+			}
+			body.Status = agent.StatusFailed
+			body.Error = "file.write audit: unknown"
+			body.Result = j.resultBody(ops.Result{Data: uncertain})
+		}
 	}
 	return body
 }

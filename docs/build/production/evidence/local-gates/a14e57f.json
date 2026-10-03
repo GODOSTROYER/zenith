@@ -146,7 +146,6 @@
   ],
   "unexecuted": [
     "Local API server Smoke/Gimbal require still-pending local startup authorization. Exact pushed CI runs browser gates.",
-    "Real PostgreSQL/Supabase lanes run separately after this serialized gate.",
     "External Temporal mTLS, live clouds and operational release acceptance remain separate blockers."
   ],
   "go": {
@@ -174,5 +173,55 @@
       "baselineImagesPreserved": true,
       "hostFreeGiB": 32.03
     }
+  },
+  "platformPostgres": {
+    "passed": 1422,
+    "failed": 0,
+    "skipped": 0,
+    "requiredGroups": 45,
+    "receiptBindings": 12,
+    "canonicalExecutionRevalidationPassed": true,
+    "cleanup": {
+      "container": "zenith-prod-pg-e73edaf0",
+      "ownershipVerified": true,
+      "removed": true,
+      "absenceVerified": true,
+      "newImageRemoved": true,
+      "baselineImagesPreserved": true,
+      "hostFreeGiB": 27.37
+    },
+    "evidenceSha256": "6c99366b887a537833e6a4352e9c006a446697819b0b60971aa24fe2afe413e4",
+    "steps": [
+      {
+        "name": "pull",
+        "exitCode": 0,
+        "seconds": 21.62,
+        "logSha256": "dd8bf3071db89b0b894d29b1301ee9162d5a6957fa7d9ee65f26101351dd2565"
+      },
+      {
+        "name": "start",
+        "exitCode": 0,
+        "seconds": 0.53,
+        "logSha256": "fd9a2f7f37922ea98ccbafcbc5a83bd84c5ca8dbd79738923045a3b433ed0704"
+      },
+      {
+        "name": "apply-platform",
+        "exitCode": 0,
+        "seconds": 1.69,
+        "logSha256": "fbbe11e7f88b5f2ab4dc1d2a004bab25689e015ac0bbcd2ee4644672d667be72"
+      },
+      {
+        "name": "canonical-platform",
+        "exitCode": 0,
+        "seconds": 92.52,
+        "logSha256": "3b28e537fcc306064adc43d6bc2aa2a6716e286da3cc7a3d9577e23389b0a500"
+      },
+      {
+        "name": "canonical-revalidate",
+        "exitCode": 0,
+        "seconds": 0.17,
+        "logSha256": "cf06b7d2e4cd03a6a28420ac1e955ef292e844a367252a3027c2350dd033d2eb"
+      }
+    ]
   }
 }

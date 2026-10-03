@@ -1192,7 +1192,8 @@
       "owner": "PROD-WS-START-UNCERTAINTY",
       "testPaths": [],
       "followUps": [
-        "Bounded workflow-start and worker-product uncertainty projection repair underway. Full durable outbox, independent readback, operator-authorized continuation and recovery acceptance remain required."
+        "Bounded workflow-start and worker-product uncertainty projection repair underway. Full durable outbox, independent readback, operator-authorized continuation and recovery acceptance remain required.",
+        "Separate acceptance-cleanup worker closes uncertain/cancelled/late-response destructive-cleanup bypass; current APIs do not prove accepted-call quiescence. No passing evidence yet."
       ],
       "pausedFrom": "in_progress",
       "pausedAt": "2026-10-02T07:32:03.553814+00:00",
@@ -1447,18 +1448,21 @@
       "acceptance": [
         "Supported backup/export/import/adoption and ownership-safe decommissioning pass with independently readable restored data."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "partial_cleanup_admission_in_progress",
       "evidence": [],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "PROD-WS-ACCEPTANCE-CLEANUP",
+      "testPaths": [],
+      "followUps": [
+        "Acceptance cleanup must preserve unresolved mutation blockers across original/follow-up CLI runs. No quiescence authority from terminal operation projection alone. Backup/export/import/adoption and live ownership-safe teardown remain incomplete."
+      ]
     },
     {
       "id": "PROD-LIFE-12",
@@ -2537,14 +2541,16 @@
         "PROD-PKG-02"
       ],
       "branch": "ws/prod-worker-startup",
-      "state": "in_progress",
+      "state": "integrated",
       "baseline": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
       "ownedPaths": [
         "tests/workflows/sandbox.test.ts",
         "workers/execution/entrypoint.ts",
         "tests/workflows/worker.test.ts"
       ],
-      "verification": "Root full typecheck, affected lint, actual Temporal touched suites, strict refusal harness, real OpenTofu and Go in progress; no packaged startup pass claimed."
+      "verification": "Root293P0F0S/typecheck/lint/realOpenTofu/Go; AMD64+ARM64 actual packaged startup,kind6+1 and exacta14 CI14/14 passed; broader product acceptance incomplete.",
+      "commit": "e1092550b80a90dc816721c952ed991ec9e9f1f2",
+      "mergeCommit": "5e92e86582da7d5a2700796a80ece70bd50bf29a"
     },
     {
       "id": "PROD-WS-WORKER-BOOTSTRAP",
@@ -2563,6 +2569,24 @@
       ],
       "verificationArtifact": "docs/build/production/evidence/worker-bootstrap/root-verification.json",
       "mergeCommit": "5e92e86582da7d5a2700796a80ece70bd50bf29a"
+    },
+    {
+      "id": "PROD-WS-ACCEPTANCE-CLEANUP",
+      "title": "Uncertain mutation cleanup admission and recovery",
+      "requirements": [
+        "PROD-DUR-07",
+        "PROD-LIFE-11"
+      ],
+      "branch": "ws/prod-acceptance-cleanup",
+      "state": "in_progress",
+      "baseline": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
+      "ownedPaths": [
+        "scripts/acceptance/{lifecycle,runner,run-state,cleanup,cleanup-cli,types,aws-live}.ts",
+        "tests/acceptance/{lifecycle,runner,cleanup,safety,scenario-live}.test.ts",
+        "docs/platform/ACCEPTANCE.md"
+      ],
+      "verification": "12-path source frozen, root runtime pending; source-only authority audit in progress.",
+      "limits": "Current execute refusal is partial safety work. Legitimate authorized cleanup success, adoption reread and live teardown remain missing."
     }
   ],
   "executionOrder": [
@@ -2759,7 +2783,7 @@
   "sessionState": {
     "status": "active",
     "resumedBy": "user",
-    "recordedAt": "2026-10-03T00:44:47.513897+00:00",
+    "recordedAt": "2026-10-03T01:51:40.507074+00:00",
     "sourceCheckpoint": "fbfa456e0111b106f039e2800b2c276b63d01b86",
     "lastPushedCommit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
     "lastPushedRun": 37080857980,
@@ -2767,7 +2791,7 @@
     "lastGreenCommit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
     "activeWorkers": 2,
     "concurrency": "one heavy local process",
-    "next": "Correct frozen durable-plan compiler failures in isolated verification worktree, then independently verify real PostgreSQL/OpenTofu, startup, kind and architecture-specific packages before integration.",
+    "next": "Independently verify final durable-plan source with compiler/lint/touched suites, actualPG plus OpenTofu, default package/kind gates. Design legitimate cleanup authority before integrating refusal-only guard.",
     "lastObservedCiSummary": "docs/build/production/ci-37080857980.md",
     "currentEcsCheck": {
       "label": "prod-ecs-combined-final-root",
@@ -2826,11 +2850,12 @@
       "kind": "provider6/6+release1/1,0failed/skipped,cluster/kubeconfig/newimages removed"
     },
     "storage": {
-      "hostFreeGiB": 29.2,
+      "hostFreeGiB": 28.92,
       "dockerHealthy": true,
-      "dockerInventory": "0 images/containers/volumes/cache after root-owned Supabase PostgreSQL cleanup.",
+      "dockerInventory": "0 images/containers/volumes/cache after root-owned platform PostgreSQL cleanup.",
       "historicalBlocker": "ARM64 fresh image build failed while376MiB free; Docker metadata I/O errors persisted after disk recovery until user-authorized restart",
-      "cleanupScope": "owned test resources and dedicated builder cache only"
+      "cleanupScope": "owned test resources and dedicated builder cache only",
+      "dependencyConsolidation": "Root-owned ECS duplicate1.14GiB reclaimed; same lockfile links verified worker-startup install, source preserved."
     },
     "historicalCiFailure": {
       "runId": 37060964289,
@@ -2851,16 +2876,63 @@
       "typecheck": "passed",
       "lint": "passed",
       "goRace": "226top+539subP0F3Linux-onlyMacS",
-      "artifact": "docs/build/production/evidence/local-gates/a14e57f.json"
+      "artifact": "docs/build/production/evidence/local-gates/a14e57f.json",
+      "platformPostgres": "1422P0F0S/45mandatorygroups/12receiptbindings/canonicalexecutionrevalidation/ownedcleanupverified"
     },
     "durablePlanCheck": {
       "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/durable-plan-verify",
       "base": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
       "originalFrozenInventorySha256": "8959e6c30f1b5be551063586cee8e52e9a87586fd250e475e3bbf6c9b1147ef3",
-      "status": "compiler_failed_source_correction",
+      "status": "three_runtime_regressions_under_correction",
       "failedGate": "prod-durable-first-root tsc exit2",
-      "runtimeTestsExecuted": false,
-      "originalHandoffPreserved": true
+      "runtimeTestsExecuted": true,
+      "originalHandoffPreserved": true,
+      "compiler": "passed_after_eight_path_correction",
+      "lint": "passed_after_three_path_cleanup",
+      "failedRuntime": {
+        "passed": 396,
+        "failed": 39,
+        "skipped": 25,
+        "files": "6failed/11passed/3skipped",
+        "label": "prod-durable-runtime-first-root"
+      },
+      "runtimeCorrectionFreeze": "a01d58b8485dcf167ad3adf5dffbe99293ed1e2c2199b2ed3ea66bdbee360a59",
+      "upgradeFinding": "Bounded pendingm7 RLS/guarded role grants and actual distinct-owner6-to-7 upgrade regression source-reviewed; runtime proof pending.",
+      "sourceInventorySha256": "73326794f4135d5e00eb3cb185c0af603455a0cd3045780429906ebe729718b0",
+      "sourcePaths": 56,
+      "latestRuntime": {
+        "label": "prod-durable-final-combined-root",
+        "passed": 435,
+        "failed": 3,
+        "skipped": 26,
+        "compiler": "passed",
+        "lint": "passed",
+        "go": "not run after Vitest failure",
+        "limitations": "PostgreSQL-gated cases skipped in diagnostic touched run; mandatory actualPG/TOFU required separately."
+      }
+    },
+    "acceptanceCleanupCheck": {
+      "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/acceptance-cleanup",
+      "base": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
+      "status": "partial_guard_fixture_correction_authority_missing",
+      "requirements": [
+        "PROD-DUR-07",
+        "PROD-LIFE-11"
+      ],
+      "runtimeEvidence": false,
+      "sourcePaths": 12,
+      "diffSha256": "78b50f4510bf67c9cc02eceebe246ec61762ea17e1ba0f6c0066d1aa308e16b2",
+      "limitation": "Execute currently always refuses; safe authorized success contract missing, source remains unmerged.",
+      "latestRuntime": {
+        "label": "prod-acceptance-cleanup-partial-root",
+        "passed": 79,
+        "failed": 1,
+        "skipped": 0,
+        "lint": "passed",
+        "typecheck": "not run in this partial diagnostic",
+        "go": "not run after Vitest failure"
+      },
+      "authorityDesign": "Complete durable intents, current shared writer barrier, exact non-delivery or execution receipts+provider terminal readback, fresh authorized ownership-bound teardown; existing acceptance interfaces insufficient."
     }
   },
   "sessionHistory": [

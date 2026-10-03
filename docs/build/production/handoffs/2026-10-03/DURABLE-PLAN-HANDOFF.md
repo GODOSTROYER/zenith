@@ -7,7 +7,7 @@ Branch: `ws/prod-durable-plan-handoff`, based on `cb33a6176e74b218276eb1230ecaa8
 
 ## Current state
 
-Source implementation started. No artifact tests, compiler, installs, services or image runs have executed. Root owns verification, commits, merge, ledger and release evidence. Only one heavy local process is allowed on this 8 GB Mac; this worker currently has a source-only slot.
+Original54-path handoff remains preserved at the worktree above. Root matched source into isolated `ws/prod-durable-plan-verify` off exact greena14. Final56-path inventory `73326794f4135d5e00eb3cb185c0af603455a0cd3045780429906ebe729718b0` includes runtime fixture corrections and source-reviewed pendingm7 RLS/grant parity. Root compiler/lint passed; initial396P/39F/25S and latest435P/3F/26S failures retained. Remaining replacement-fence fixture, predispatch wording and provenance classification regressions under narrow correction. Mandatory actualPG+OpenTofu, packaged architectures, kind and combined full gates remain pending. Worker source-only; root owns checks, commits, integration and evidence. One heavy local process on8GB host.
 
 The existing engine regenerates a semantic-digest-matching plan and applies that newly generated saved file. Retained approval-time bytes are not consumed. Digest-named local writes, final-plan cleanup and apply cleanup race with other writers and the janitor. Existing browser approval, policy, leases, ownership, destructive gates and the newly integrated ECS binding remain mandatory.
 
@@ -30,6 +30,7 @@ Primary references checked by the lead: [OpenTofu 1.12 plan](https://opentofu.or
 ```text
 src/lib/controlplane/db/migrations/0007_plan_artifacts.ts
 src/lib/controlplane/db/migrations/index.ts
+src/lib/controlplane/db/migrations/emit.ts (header comment only)
 src/lib/controlplane/db/repos/plan-artifacts.ts
 src/lib/controlplane/db/repos/operations.ts (fence-before-operation claim ordering only)
 src/lib/controlplane/db/repos/index.ts
@@ -90,7 +91,7 @@ docs/platform/INSTALLATION.md
 
 List anything outside these files as a follow-up; do not edit it. Root owns ledger, generated requirement status, resume notes, limitations and published evidence. No package changes are needed. Never write full provider-format fake keys; construct test values at runtime.
 
-## Required verification, not yet executed
+## Required remaining verification
 
 Prepare real PostgreSQL tests using independent handles/processes, publication/use/expiry barriers, stale fences and crash windows. Test tenant/operation/provenance/cipher corruption and key failures. A real pinned OpenTofu journey must lose worker A's local directory and prove worker B applies A's original bytes after fresh checks. Include create, destroy, fresh drift refusal and stale-state refusal without fallback. Sensitive read-only plans must persist only ciphertext and produce secret-free surfaces. Test restoring into fresh PostgreSQL with matching keys and refusing missing/incompatible context.
 

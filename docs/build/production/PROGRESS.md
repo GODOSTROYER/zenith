@@ -1,22 +1,24 @@
 # Production progress
 
-Recorded 2026-10-03T00:47:28.198453+00:00. Pushed baseline: `a14e57f7106fb1602f7c1e02db79fe137818cb80`, branch `codex/production-2026-10-02`. Preserve newer local source and historical failed evidence.
+Recorded 2026-10-03T01:51:40.507074+00:00. Pushed baseline: `a14e57f7106fb1602f7c1e02db79fe137818cb80`, branch `codex/production-2026-10-02`. Preserve newer local source and historical failed evidence.
 
-78 acceptance requirements: 6 verified, 15 in progress, 57 planned. These are acceptance states, not percentages of implementation effort. No current task is paused. Implementation complete, sandbox verified, pilot ready and production approved remain false.
+78 acceptance requirements: 6 verified, 16 in progress, 56 planned. These are acceptance states, not percentages of implementation effort. No current task is paused. Implementation complete, sandbox verified, pilot ready and production approved remain false.
 
 ## Verified checkpoints
 
 - [x] Exact pushed CI: 14/14 jobs; remote unit16,427P/0F/399S; generated109P/0F/0S; actual Smoke/Gimbal passed.
 - [x] Root local a14: unit16,630P/0F/196S; workflows982, policy238, OpenTofu3900 all0F0S. Typecheck, lint, generated artifacts, OPA213/213, Go race226top+539subP/0F/3Linux-onlyMacS and mandatory audit passed.
+- [x] Fresh platform PostgreSQL:1,422P/0F/0S,45mandatory groups,12receipt bindings; execution revalidation and owned cleanup passed.
 - [x] Fresh full Supabase migrations and reapply: PostgreSQL251P/0F/0S, schema name/checksum tamper rejected, owned resources removed.
 - [x] Real execution-worker images: clean e109 source AMD64 emulated and ARM64 native startup checks passed. Idle shutdown only; broader operations remain incomplete.
 - [x] Fresh kind: provider6/6 and release1/1; local cluster evidence only; owned resources removed.
 
 ## Current execution
 
-- [ ] Durable-plan source54-path snapshot preserved. Root compiler found defects; eight-path correction frozen and independent rerun underway. No passing artifact runtime evidence yet.
+- [ ] Durable-plan original54-path snapshot preserved. Root compiler/lint passed after corrections; first runtime396P/39F/25S. Runtime source fixes and canonical schema6-to-7 RLS/grant parity fix source-reviewed; final56-path candidate compiler/lint passed;435P/3F/26S, three narrow corrections underway. No passing combined artifact runtime gate yet.
 - [ ] Root runs compiler/lint/touched suites, then mandatory real PostgreSQL plus OpenTofu original-byte custody cases. Independent reviewer checks correction delta.
 - [ ] Fresh combined package/kind/full gates precede integration and a new exact pushed CI observation.
+- [ ] Cleanup safety12-path guard lint passed;79P/1F/0S, finalized-recorder fixture correction underway. Execute currently refuses all destruction. Source remains unmerged pending real authority and successful authorized cleanup path.
 - [ ] Live AWS lifecycle, production API journey and broader operational acceptance remain outstanding.
 
 ## Requirements checklist
@@ -77,7 +79,7 @@ Each unchecked row remains incomplete at its stated acceptance level; existing c
 - [ ] PROD-LIFE-08: GitHub source binding lifecycle (planned).
 - [ ] PROD-LIFE-09: Isolated untrusted build provenance (planned).
 - [ ] PROD-LIFE-10: Release and data migration safety (planned).
-- [ ] PROD-LIFE-11: Backup export import and adoption (planned).
+- [ ] PROD-LIFE-11: Backup export import and adoption (in progress; cleanup admission portion only).
 - [ ] PROD-LIFE-12: Single owner per mutable field (planned).
 
 ### MACH
@@ -141,7 +143,7 @@ Each unchecked row remains incomplete at its stated acceptance level; existing c
 
 API/server startup and live AWS account/region/budget remain pending. External Temporal mTLS, cloud/managed-cluster traffic, production TLS/pooler/RLS and operational signoff require separate acceptance. Retention/pruning policy, pricing/terms/payment accounts and destructive business decisions require user decisions; unblocked coding continues.
 
-Docker restart was authorized and completed. After owned database cleanup Docker images, containers, volumes and build cache were empty. Most recent host sample:29GiB free. Maintain12GiB before image gates; one heavy local process; remove only owned test resources and dedicated build cache.
+Docker restart was authorized and completed. After owned database cleanup Docker images, containers, volumes and build cache were empty. Most recent sample28.92GiB free after consolidating same-lock root-owned dependency install,1.14GiB reclaimed; Docker inventory zero. Maintain12GiB before image gates; one heavy local process; remove only owned test resources and dedicated build cache.
 
 Next durable-plan verification checkpoint estimate:45–90minutes, dependent on regression results. Full production ETA remains unavailable until access and operational acceptance prerequisites are resolved.
 

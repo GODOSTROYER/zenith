@@ -975,6 +975,10 @@ describe("the Go job", () => {
       "set -euo pipefail",
       'fixture_run_id="$(node --input-type=module -e \'import { randomBytes } from "node:crypto"; console.log(randomBytes(16).toString("hex"))\')"',
       'echo "ZENITH_GUEST_FIXTURE_RUN_ID=$fixture_run_id" >> "$GITHUB_ENV"',
+      "# The pinned hosted image makes /opt writable. Observe the actual",
+      "# disposable VM, then harden only its no-follow /opt inode to0755;",
+      "# unsupported roots/ACLs/mount authority still refuse before setup.",
+      'sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,RUNNER_OS -- python3 scripts/ci/prepare-native-guest-host.py --github-hosted-disposable "$(id -u)" "$(id -g)" "$fixture_run_id"',
       'sudo -- bash scripts/ci/guest-file-write-fixtures.sh setup "$(id -u)" "$(id -g)" "$fixture_run_id"',
     ].join("\n"));
     expect(cleanup.if).toBe(alwaysGuard);

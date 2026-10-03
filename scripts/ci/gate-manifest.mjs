@@ -104,6 +104,58 @@ export const GATE_LANES = {
   },
 };
 
+// Native Go evidence is a separate contract, never a Vitest lane. IDs are
+// committed requirements, not discovered from a possibly incomplete report.
+const GO_MODULE = "github.com/GODOSTROYER/zenith/go";
+const OPS = `${GO_MODULE}/internal/machine/ops`;
+const MACHINE = `${GO_MODULE}/internal/machine`;
+const cases = (packageName, names) => names.map((test) => ({ package: packageName, test, id: `linux-guest:${packageName}:${test}` }));
+const subcases = (test, names) => names.map((name) => `${test}/${name}`);
+export const LINUX_GUEST_CASES = [
+  ...cases(OPS, [
+    "TestWriteCreateReplaceNoop", "TestWriteStrictArgsAndConstraints", "TestWriteDisabledAndInvalidProfiles",
+    "TestImmutableProfileVersionCanonicalContract", "TestFileWriteDefaultsDisabled",
+    "TestWriteSymlinkFIFODeviceMountAndOwnership", "TestWriteConcurrentWritersAndDirectorySwapStress",
+    "TestWriteExactMountAnchorsAndEscapes", "TestWriteBackupByteBudgetRetainsSparseCustody",
+    ...subcases("TestWritePriorVersionSourceAndCapacityRefusal", ["prior", "create-only", "version", "source", "capacity", "private-store", "target-mode", "target-hardlink", "source-hardlink", "source-symlink", "parent-mode"]),
+    ...subcases("TestWriteSymlinkFIFODeviceMountAndOwnership", ["symlink", "parent-symlink", "fifo"]),
+    ...subcases("TestWriteFaultAndCancelPhases", ["file_sync", "prepared", "backup_file_sync", "intent_file_sync", "backup_directory_sync", "backup", "before_rename", "after_rename", "before_directory_sync", "directory_sync", "postcondition"].flatMap((phase) => [phase + "false", phase + "true"])),
+    ...subcases("TestWriteIndependentPostconditionAndTargetSwap", ["before_rename", "postcondition", "noop"]),
+    ...subcases("TestWriteCrashCustodyAndRestart", ["file_sync", "prepared", "backup", "after_rename", "before_directory_sync", "directory_sync"]),
+    ...subcases("TestWriteModeBoundsBackupExhaustionAndSourceSwap", ["fixed0640", "bounded-source", "retained-capacity", "source-swapped-before-commit"]),
+    ...subcases("TestWriteImmutableVersionCannotBeReused", ["pinned-bytes", "mode", "path", "ref", "source", "byte-bound", "backup-dir", "backup-bytes", "backup-count"]),
+    ...subcases("TestWriteRejectsActualAccessAndDefaultACLs", ["target-access", "parent-default"]),
+    "TestResultGoldens/file.write-filesystem",
+  ]),
+  ...cases(MACHINE, ["TestLocalTemplateConfigDefaultAndValidation", "TestFileWriteVersionsCLIUsesMetadataOnlyAndLoadingEnforcesVersion", "TestWriteWirePreservesUncertainCustodyWithoutOutput", "TestWriteAuditCompletionFailureIsUncertain"]),
+];
+export const LINUX_GUEST_PACKAGES = ["internal/agent", "internal/awsauth", "internal/machine", "internal/machine/ops", "internal/miniyaml", "internal/netguard", "internal/oci", "internal/protocol", "internal/redact", "internal/runner", "internal/runner/kinds"].map((name) => `${GO_MODULE}/${name}`);
+export const LINUX_GUEST_NO_TEST_PACKAGES = ["cmd/zenith-runner", "cmd/zenithd", "internal/agent/fakecp", "internal/proc", "internal/protocol/protocoltest", "internal/version"].map((name) => `${GO_MODULE}/${name}`);
+export const LINUX_GUEST_ALLOWED_SKIPS = [
+  { package: OPS, test: "TestRealSystemctlAndJournalctl", reason: "Separately opted-in actual systemd acceptance; this gate starts no services." },
+  ...cases(`${GO_MODULE}/internal/runner/kinds`, ["TestRealOpenTofuPlanShowApply", "TestRealOpenTofuWithProviderAndLockfile"]).map(({ package: packageName, test }) => ({ package: packageName, test, reason: "The existing dedicated OpenTofu workflow gate retains actual binary/provider evidence." })),
+];
+export function linuxGuestManifest() {
+  return {
+    schemaVersion: 1, lane: "linux-guest", kind: "native-go", files: [], excludeFiles: [], requirements: [], externalAcceptance: [], report: ".data-ci-guest/attempt-{attemptId}/sanitized.json",
+    artifactSelection: "Fresh wrapper attempt ID, exact runner outputs, sanitized digest and observed CI runner outcome must agree; missing/mismatched selection fails.",
+    env: { GOTOOLCHAIN: "local", CGO_ENABLED: "1", ZENITH_FILE_WRITE_TEST_ROOT: "/opt/zenith-file-write-tests", ZENITH_FILE_WRITE_MOUNT_FIXTURES: "/opt/zenith-file-write-mounts" },
+    tools: { node: "22.23.3", go: "1.27.1" },
+    command: ["node", "scripts/ci/run-guest-file-write-gate.mjs", "--run"],
+    steps: [
+      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./..."] },
+      { id: "goldens", command: ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"] },
+      { id: "golden-diff", command: ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"] },
+      { id: "golden-status", command: ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"] },
+    ],
+    requiredCases: LINUX_GUEST_CASES,
+    goldenCases: cases(OPS, ["TestResultGoldens/file.write-filesystem"]),
+    requiredPackages: LINUX_GUEST_PACKAGES, noTestPackages: LINUX_GUEST_NO_TEST_PACKAGES, allowedSkips: LINUX_GUEST_ALLOWED_SKIPS,
+    prerequisites: ["Linux; unprivileged test UID/GID", "Node 22.23.3; Go 1.27.1; GOTOOLCHAIN=local; cgo C compiler", "Persistent ext-family, XFS or Btrfs root filesystem (no overlay/tmpfs/FUSE/network filesystem)", "/proc/self/fdinfo mount IDs; POSIX access/default ACL xattrs", "Python 3; util-linux mount/umount/flock; explicitly authorized disposable root fixture setup", "Owned exact /opt fixture roots and four actual bind mounts checked by guest-file-write-fixtures.sh", "Integrated frozen writer source and five actual Linux-generated committed file.write goldens", "No active fixture users during validated cleanup"],
+    reportValidation: "Strict complete Go JSON lifecycles plus observed successful exits; absent or skipped required cases fail. Raw streams remain private.",
+  };
+}
+
 /** @param {string} root @param {string} directory @returns {string[]} */
 export function testFiles(root, directory) {
   return fs.readdirSync(path.join(root, directory), { withFileTypes: true }).flatMap((entry) => {
@@ -233,6 +285,7 @@ export function requirementsFor(lane, root) {
  */
 /** @param {string} lane @param {string} [root] @param {string} [reportPath] @returns {GateManifest} */
 export function manifestFor(lane, root = process.cwd(), reportPath) {
+  if (lane === "linux-guest") return linuxGuestManifest();
   if (lane === "core" || lane === "fresh") return { schemaVersion: 1, lane, files: [], excludeFiles: [], env: {}, report: "", command: [], requirements: [], externalAcceptance: [], tools: { node: "22.23.3" }, prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts"], steps: lane === "fresh" ? [{ id: "install", command: ["npm", "ci", "--ignore-scripts"] }, ...CORE_CHECKS] : CORE_CHECKS, reportValidation: "Command exits establish core checks; real-engine requirements are validated by their dedicated lanes." };
   if (!Object.hasOwn(GATE_LANES, lane)) throw new Error("Unknown CI lane");
   const config = GATE_LANES[lane];
@@ -244,11 +297,11 @@ export function manifestFor(lane, root = process.cwd(), reportPath) {
 export function main(args) {
   try {
     if (args.length > 1) throw new Error("usage");
-    const result = args[0] === "external-acceptance" ? { schemaVersion: 1, groups: EXTERNAL_ACCEPTANCE.map((group) => ({ ...group, status: "unverified", command: ["node", "node_modules/vitest/vitest.mjs", "run", group.file, "--testNamePattern", group.suite.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "--maxWorkers=1"] })) } : args[0] ? manifestFor(args[0]) : { schemaVersion: 1, lanes: ["fresh", "core", ...Object.keys(GATE_LANES)].map((lane) => manifestFor(lane)) };
+    const result = args[0] === "external-acceptance" ? { schemaVersion: 1, groups: EXTERNAL_ACCEPTANCE.map((group) => ({ ...group, status: "unverified", command: ["node", "node_modules/vitest/vitest.mjs", "run", group.file, "--testNamePattern", group.suite.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "--maxWorkers=1"] })) } : args[0] ? manifestFor(args[0]) : { schemaVersion: 1, lanes: ["fresh", "core", ...Object.keys(GATE_LANES), "linux-guest"].map((lane) => manifestFor(lane)) };
     console.log(JSON.stringify(result, null, 2));
     return 0;
   } catch {
-    console.error("usage: node scripts/ci/gate-manifest.mjs [fresh|core|postgres|policy|tofu|workflows|platform-postgres|external-acceptance]");
+    console.error("usage: node scripts/ci/gate-manifest.mjs [fresh|core|postgres|policy|tofu|workflows|platform-postgres|linux-guest|external-acceptance]");
     return 2;
   }
 }

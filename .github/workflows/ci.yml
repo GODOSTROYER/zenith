@@ -708,27 +708,34 @@ jobs:
         if: hashFiles('go/go.mod') != ''
         run: go vet ./...
 
-      - name: go test with the race detector
-        if: hashFiles('go/go.mod') != ''
-        # The race detector needs cgo; the release build below turns it off.
-        env:
-          CGO_ENABLED: "1"
-        run: go test -race -count=1 ./...
-
-      - name: Regenerate and compare machine result goldens
-        if: hashFiles('go/go.mod') != ''
-        shell: bash
-        run: |
-          set -euo pipefail
-          ZENITH_UPDATE_MACHINE_GOLDENS=1 go test -count=1 ./internal/machine/ops -run '^TestResultGoldens$'
-          git diff --exit-code -- internal/machine/testdata/results
-          test -z "$(git --no-optional-locks status --porcelain -- internal/machine/testdata/results)"
-
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         if: hashFiles('go/go.mod') != ''
         with:
           node-version: '22.23.3'
           cache: npm
+
+      - name: Provision strictly disposable Linux guest fixtures
+        if: hashFiles('go/go.mod') != ''
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          fixture_run_id="$(node --input-type=module -e 'import { randomBytes } from "node:crypto"; console.log(randomBytes(16).toString("hex"))')"
+          echo "ZENITH_GUEST_FIXTURE_RUN_ID=$fixture_run_id" >> "$GITHUB_ENV"
+          sudo -- bash scripts/ci/guest-file-write-fixtures.sh setup "$(id -u)" "$(id -g)" "$fixture_run_id"
+
+      - name: Required native Linux race and authentic golden comparison
+        id: native_guest
+        if: hashFiles('go/go.mod') != ''
+        working-directory: .
+        # Canonical manifest retains go test -race -count=1 ./..., exact
+        # ^TestResultGoldens$ regeneration, byte diff and untracked detection.
+        shell: bash
+        run: |
+          set -euo pipefail
+          attempt_id="$(node --input-type=module -e 'import { randomBytes } from "node:crypto"; console.log(randomBytes(16).toString("hex"))')"
+          echo "expected_attempt_id=$attempt_id" >> "$GITHUB_OUTPUT"
+          ZENITH_GUEST_ATTEMPT_ID="$attempt_id" node scripts/ci/run-guest-file-write-gate.mjs --run
 
       - run: npm ci --ignore-scripts
         if: hashFiles('go/go.mod') != ''
@@ -748,6 +755,38 @@ jobs:
             echo "--- ${target}"
             CGO_ENABLED=0 GOOS="${target%/*}" GOARCH="${target#*/}" go build -trimpath ./...
           done
+
+      - name: Remove only owned drained Linux guest fixtures
+        if: always() && hashFiles('go/go.mod') != ''
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ZENITH_GUEST_FIXTURE_RUN_ID:-}"
+          sudo -- bash scripts/ci/guest-file-write-fixtures.sh cleanup "$(id -u)" "$(id -g)" "$ZENITH_GUEST_FIXTURE_RUN_ID"
+
+      - name: Select only current-attempt sanitized guest evidence
+        id: guest_evidence
+        if: always() && hashFiles('go/go.mod') != ''
+        working-directory: .
+        env:
+          ZENITH_EXPECTED_GUEST_ATTEMPT: ${{ steps.native_guest.outputs.expected_attempt_id }}
+          ZENITH_GUEST_EVIDENCE_ATTEMPT: ${{ steps.native_guest.outputs.attempt_id }}
+          ZENITH_GUEST_EVIDENCE_PATH: ${{ steps.native_guest.outputs.evidence_path }}
+          ZENITH_GUEST_EVIDENCE_SHA256: ${{ steps.native_guest.outputs.evidence_sha256 }}
+          ZENITH_GUEST_RUNNER_EXIT_CODE: ${{ steps.native_guest.outputs.runner_exit_code }}
+          ZENITH_GUEST_RUNNER_OUTCOME: ${{ steps.native_guest.outcome }}
+        run: node scripts/ci/run-guest-file-write-gate.mjs --select-current
+
+      - name: Preserve sanitized native guest evidence
+        if: always() && steps.guest_evidence.outcome == 'success' && steps.guest_evidence.outputs.evidence_path != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-linux-guest-evidence-${{ github.sha }}-${{ steps.native_guest.outputs.expected_attempt_id }}
+          path: ${{ steps.guest_evidence.outputs.evidence_path }}
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
 
   # The Temporal workflows lane (ADR-0009).
   #

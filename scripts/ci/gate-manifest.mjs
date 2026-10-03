@@ -494,6 +494,20 @@ const GITHUB_WEBHOOK_POSTGRES_CASES = [
 ].map(test => ({ file: "tests/sources/github-webhook.test.ts", suite: "GitHub webhook SQL [postgres]", test, postgres: true }));
 const GITHUB_WEBHOOK_POSTGRES_REQUIREMENT = { file: "tests/sources/github-webhook.test.ts", suite: "GitHub webhook SQL [postgres]", postgres: true };
 
+const BOUND_BUILD_POSTGRES_CASES = [
+  ...["production", "isolated"].map(mode => `launches with valid owning approvals on a single-connection pool through ${mode} composition`),
+  "ignores a permissive global memory policy and authentic approval IDs when owning PostgreSQL policy denies",
+  "rebinds the captured isolated broker store instead of admitting its memory policy",
+  ...["unchanged authority", "current approver demotion", "current requester removal", "raised policy count", "current policy deny"].map(change => `uses ${change} after an observed PostgreSQL resource lock wait`),
+  ...["unchanged settings", "two-person policy", "denying policy", "lower autonomy", "same-value policy version", "same-value environment version", "same-version policy params", "same-version autonomy", "same-version environment params", "deleted policy row", "deleted environment row"].map(change => `fences insertion when ${change} is observed during a delayed approver read`),
+  ...["unchanged defaults", "new default policy row", "new default environment row", "new foreign environment row"].map(change => `fences explicit absent settings when ${change} occurs during approver lookup`),
+  ...["unchanged recovery", "two-person policy", "denying policy", "lower autonomy", "same-value policy version", "same-value environment version", "same-version policy params", "same-version autonomy", "same-version environment params", "deleted policy row", "deleted environment row", "new default policy row", "new default environment row", "new foreign environment row"].map(change => `fences retained-launch recovery under ${change} without a second SDK attempt`),
+  "cannot continue a claim from a late membership success after the bounded read is aborted",
+  "captures isolated evaluator ports once while always rebinding its store",
+  ...["foreign membership", "malformed membership", "inaccessible membership"].map(change => `refuses ${change} with live owning approval before any launch`),
+  "refuses expired consumed approval even with current product admin and live operation/fence",
+].map(test => ({ file: "tests/controlplane/build-launch-broker-binding.test.ts", suite: "CodeBuild transaction-bound broker [postgres]", test, postgres: true }));
+
 // Permanent signed outcome evidence must execute every owning/refusal case on real PostgreSQL.
 const AGENT_EFFECT_POSTGRES_CASES = [
   "settles active work atomically and accepts an identical signed retry without replacing the first evidence",
@@ -713,6 +727,11 @@ export function requirementsFor(lane, root) {
       requirements.push({file:"tests/execution/destroy-review.test.ts",suite:"undecided teardown supersession [postgres]",postgres:true});
       requirements.push({file:"tests/security/plan-artifact-secrecy.test.ts",suite:"encrypted plan artifact secrecy [postgres]",postgres:true});
       requirements.push(...ECS_REPLICA_REPAIR_POSTGRES_SUITES.map((suite) => ({ file: ECS_REPLICA_REPAIR_FILES.grants, suite, ancestorSuite: "replica repair authority [postgres]", postgres: true })));
+      requirements.push(...BOUND_BUILD_POSTGRES_CASES);
+      requirements.push(...["fresh", "same-owner schema6"].map(mode => ({
+        file: "tests/controlplane/migrations.test.ts", suite: "migrator [postgres] concurrency and fail-closed open",
+        test: `${mode} canonical migrations keep permanent agent receipts select/insert-only`, postgres: true,
+      })));
       requirements.push(...AGENT_EFFECT_POSTGRES_REQUIREMENTS);
       requirements.push(...BUILD_SOURCE_POSTGRES_REQUIREMENTS, GITHUB_WEBHOOK_POSTGRES_REQUIREMENT, ...GITHUB_WEBHOOK_POSTGRES_CASES);
       break;

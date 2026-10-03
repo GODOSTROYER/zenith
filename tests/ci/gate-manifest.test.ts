@@ -62,8 +62,8 @@ describe("canonical gate manifest", () => {
 
   it("covers direct PG-only suites and each parameterized backend suite independently", () => {
     const requirements = requirementsFor("platform-postgres", root);
-    expect(requirements).toHaveLength(181);
-    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(175);
+    expect(requirements).toHaveLength(228);
+    expect(requirements.filter((required) => required.file !== ecsGrantFile)).toHaveLength(222);
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/open.test.ts", suite: "platformDb() against PostgreSQL", backend: "postgres" }));
     expect(requirements).toContainEqual(expect.objectContaining({ file: "tests/controlplane/executor.test.ts", suite: "cross-engine shape identity", backend: "postgres" }));
     expect(requirements.filter((required: { file: string }) => required.file === "tests/capabilities/tenancy.test.ts")).toHaveLength(5);
@@ -351,4 +351,16 @@ describe("permanent authenticated agent outcomes", () => {
     else row.status = mode;
     expect(reportFailures(needed, report, root).length).toBeGreaterThan(0);
   });
+});
+
+
+it("keeps transaction-bound dispatch and same-owner receipt privileges mandatory on real PostgreSQL", () => {
+  const required = requirementsFor("platform-postgres", root);
+  const file = "tests/controlplane/build-launch-broker-binding.test.ts";
+  expect(required.filter(item => item.file === file && item.test)).toHaveLength(44);
+  for (const mode of ["production", "isolated"])
+    expect(required).toContainEqual(expect.objectContaining({ file, test: `launches with valid owning approvals on a single-connection pool through ${mode} composition`, postgres: true }));
+  for (const mode of ["fresh", "same-owner schema6"])
+    expect(required).toContainEqual(expect.objectContaining({ file: "tests/controlplane/migrations.test.ts", suite: "migrator [postgres] concurrency and fail-closed open",
+      test: `${mode} canonical migrations keep permanent agent receipts select/insert-only`, postgres: true }));
 });

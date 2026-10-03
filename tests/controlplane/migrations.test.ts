@@ -340,7 +340,11 @@ describe.each(lanes)("migrator [$name]", (lane) => {
                     has_table_privilege('service_role', 'platform.github_source_bindings', 'SELECT,INSERT,UPDATE,DELETE') as github_binding_dml,
                     has_table_privilege('service_role', 'platform.github_install_intents', 'SELECT,INSERT,UPDATE,DELETE') as github_intent_dml,
                     has_table_privilege('anon', 'platform.github_source_bindings', 'SELECT') as anon_github_select,
-                    has_table_privilege('authenticated', 'platform.github_install_intents', 'SELECT') as auth_github_select`
+                    has_table_privilege('authenticated', 'platform.github_install_intents', 'SELECT') as auth_github_select,
+                    has_table_privilege('service_role', 'platform.agent_effect_receipts', 'SELECT') as receipt_select,
+                    has_table_privilege('service_role', 'platform.agent_effect_receipts', 'INSERT') as receipt_insert,
+                    has_table_privilege('service_role', 'platform.agent_effect_receipts', 'UPDATE') as receipt_update,
+                    has_table_privilege('service_role', 'platform.agent_effect_receipts', 'DELETE') as receipt_delete`
           );
           throw Object.assign(rollback, { rows });
         })
@@ -358,6 +362,10 @@ describe.each(lanes)("migrator [$name]", (lane) => {
         github_intent_dml: true,
         anon_github_select: false,
         auth_github_select: false,
+        receipt_select: true,
+        receipt_insert: true,
+        receipt_update: false,
+        receipt_delete: false,
       });
       // the rollback left no roles and no schema behind
       expect(await db.query("select 1 from pg_roles where rolname = 'service_role'")).toEqual([]);
@@ -367,6 +375,42 @@ describe.each(lanes)("migrator [$name]", (lane) => {
 });
 
 describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open", () => {
+  it.each(["fresh", "same-owner schema6"] as const)("%s canonical migrations keep permanent agent receipts select/insert-only", async mode => {
+    await withScratchDatabase(async url => {
+      const db = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 1 });
+      const rollback = new Error("Deliberate private receipt privilege fixture rollback.");
+      try {
+        const result = await db.tx(async tx => {
+          await db.exec(`do $$ begin
+            if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin noinherit bypassrls; end if;
+          end $$;`);
+          const owner = (await tx.query<{ name: string }>("select current_user as name"))[0].name;
+          if (mode === "same-owner schema6") {
+            const emitted = renderSupabaseMigration();
+            const seventh = emitted.indexOf("-- ============================ migration 7: plan_artifacts");
+            const hardening = emitted.indexOf("-- ============================ hardening (Supabase roles)");
+            if (seventh < 0 || hardening < seventh) throw new Error("Canonical legacy fixture boundaries are unavailable.");
+            await db.exec(emitted.slice(0, seventh) + emitted.slice(hardening));
+            await tx.query("create table platform.agent_receipt_acl_probe(id integer)");
+            for (const privilege of ["UPDATE", "DELETE"])
+              expect((await tx.query<{ inherited: boolean }>("select has_table_privilege('service_role','platform.agent_receipt_acl_probe',$1) as inherited", [privilege]))[0].inherited).toBe(true);
+            await tx.query("drop table platform.agent_receipt_acl_probe");
+          }
+          await migratePlatformDb(db);
+          await assertPlatformSchemaCurrent(db);
+          expect((await tx.query<{ owner: string }>("select pg_get_userbyid(relowner) as owner from pg_class where oid='platform.agent_effect_receipts'::regclass"))[0].owner).toBe(owner);
+          for (const privilege of ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"])
+            expect((await tx.query<{ allowed: boolean }>("select has_table_privilege('service_role','platform.agent_effect_receipts',$1) as allowed", [privilege]))[0].allowed,
+              `${mode}: ${privilege}`).toBe(["SELECT", "INSERT"].includes(privilege));
+          for (const statement of ["update platform.agent_effect_receipts set logical_digest=logical_digest", "delete from platform.agent_effect_receipts"])
+            await expect(db.tx(async denied => { await denied.query("set local role service_role"); await denied.query(statement); })).rejects.toMatchObject({ sqlstate: "42501" });
+          throw rollback;
+        }).catch((error: unknown) => error);
+        expect(result).toBe(rollback);
+      } finally { await db.close(); }
+    });
+  }, 60_000);
+
   it("schema 6 emitted hardening upgrades through the canonical migrator under a distinct owner with RLS, role isolation and immutable artifacts",async()=>{
     await withScratchDatabase(async url=>{
       const db=await openPlatformDb({kind:"postgres",url,migrate:false,max:1});

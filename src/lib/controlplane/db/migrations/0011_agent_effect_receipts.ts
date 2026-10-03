@@ -81,6 +81,8 @@ do $$ declare r text; begin
     end if;
   end loop;
   if exists (select 1 from pg_roles where rolname = 'service_role') then
+    -- The same creator can inherit older emitted default UPDATE/DELETE grants.
+    revoke all on table platform.agent_effect_receipts from service_role;
     grant select, insert on table platform.agent_effect_receipts to service_role;
   end if;
 end $$;

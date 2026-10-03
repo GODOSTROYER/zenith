@@ -980,12 +980,14 @@ do $$ declare r text; begin
     end if;
   end loop;
   if exists (select 1 from pg_roles where rolname = 'service_role') then
+    -- The same creator can inherit older emitted default UPDATE/DELETE grants.
+    revoke all on table platform.agent_effect_receipts from service_role;
     grant select, insert on table platform.agent_effect_receipts to service_role;
   end if;
 end $$;
 
 insert into platform.schema_migrations (version, name, checksum)
-values (11, 'agent_effect_receipts', 'bfab76e51a7b49b44b2fae37ddcccd0c4f03041773b26a544e3df578a475216c')
+values (11, 'agent_effect_receipts', 'f6c9d90f69447e430ad9ef2b8368b137b26cadcd05776d689959c99da9e0430b')
 on conflict (version) do nothing;
 
 -- ============================ hardening (Supabase roles) ============================

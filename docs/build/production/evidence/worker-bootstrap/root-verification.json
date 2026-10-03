@@ -1,0 +1,99 @@
+{
+  "sourceCommit": "e1092550b80a90dc816721c952ed991ec9e9f1f2",
+  "sourceCommits": [
+    "752eb62",
+    "e109255"
+  ],
+  "frozenFiles": [
+    {
+      "path": "tests/workflows/sandbox.test.ts",
+      "sha256": "a6ebfcf61d00030c7e1f521494e9385d606d43513319d240a8fc9b5e5f7067b8",
+      "baseSha256": "8c419e8e406d4bdc348dee0d3e050459da9a5f748add6f6f5c4306d8b6fa2be4"
+    },
+    {
+      "path": "workers/execution/entrypoint.ts",
+      "sha256": "7187417e8b5fe94e6623d55f2014e6c4f8afbef319431a697449b9d83afc18cd",
+      "baseSha256": "ee1fe2ef8ed6d3fdbe9a8b2d050146da7938c88cd450fb27bd038bcead926a33"
+    },
+    {
+      "path": "tests/workflows/worker.test.ts",
+      "sha256": "524d297b8656a7bb0b1fe5c93a245f271874ee09e6f39c4eebffe0d90c850f49",
+      "baseSha256": "4bc8c40734591fbb04e2a2191dd0b85f54a9bdbbed47fce6398c58a3c0548051"
+    }
+  ],
+  "independentReviewSha256": "1728ca458b4517d508870ad80e1f4606910e0fce3501824adb887470eea1722b",
+  "sourceMatches": true,
+  "host": "Saivedant Mac, darwin/arm64,8GB RAM",
+  "counts": {
+    "passed": 293,
+    "failed": 0,
+    "skipped": 0
+  },
+  "steps": [
+    {
+      "name": "diff-check",
+      "command": "git diff HEAD --check",
+      "exitCode": 0,
+      "seconds": 0.0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "tsc",
+      "command": "npx tsc --noEmit",
+      "exitCode": 0,
+      "seconds": 44.8,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "eslint",
+      "command": "npx eslint tests/workflows/sandbox.test.ts tests/workflows/worker.test.ts workers/execution/entrypoint.ts",
+      "exitCode": 0,
+      "seconds": 2.5,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "vitest",
+      "command": "npx vitest run --maxWorkers=1 tests/workflows/sandbox.test.ts tests/workflows/worker.test.ts tests/workflows/config.test.ts tests/workflows/codec-wiring.test.ts tests/workers/worker-health-wiring.test.ts tests/acceptance/packaged-worker.test.ts tests/docs/operator-docs.test.ts tests/tofu/ephemeral-network.test.ts --reporter=default --reporter=json --outputFile.json=/Users/saivedanthava/.codex/zenith-w8/logs/prod-worker-startup-bootstrap-final-root-vitest.json",
+      "exitCode": 0,
+      "seconds": 27.5,
+      "logSha256": "427014204be92d5b43d9622cbeb2907d8edad0bfff76c1cd3d932e78f9aaf07b"
+    },
+    {
+      "name": "gofmt",
+      "command": "cd go && gofmt -l .",
+      "exitCode": 0,
+      "seconds": 0.1,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "go-vet",
+      "command": "cd go && go vet ./...",
+      "exitCode": 0,
+      "seconds": 0.5,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "go-test",
+      "command": "cd go && go test -json ./...",
+      "exitCode": 0,
+      "seconds": 0.3,
+      "logSha256": "0a26f1d67aeb71d53f1797964222559cccf118342be85476c55cc7367a1ac8e8"
+    }
+  ],
+  "go": {
+    "topPassed": 226,
+    "subPassed": 539,
+    "skipped": 3,
+    "failed": 0,
+    "race": false
+  },
+  "kindArtifact": "docs/build/production/evidence/local-kind/worker-bootstrap.json",
+  "amd64Artifact": "docs/build/production/evidence/packaged-worker/amd64-e109255-passed.json",
+  "arm64Artifact": "docs/build/production/evidence/packaged-worker/arm64-e109255-passed.json",
+  "limitations": [
+    "Actual packaged expected no-target read refusal and empty reconcile, not cloud writes or browser approval.",
+    "Idle packaged shutdown only; local Temporal rolling replacement is a separate test.",
+    "Local kind does not prove NetworkPolicy enforcement, StatefulSets or managed-cloud acceptance.",
+    "Complete pushed CI pending; original binary plan handoff still under implementation."
+  ]
+}

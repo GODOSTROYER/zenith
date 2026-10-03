@@ -425,14 +425,14 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "verified",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "complete",
+      "implementationStatus": "current_pushed_regression",
       "evidence": [
         {
           "level": "remote_ci",
@@ -520,7 +520,10 @@
         "remote_ci"
       ],
       "owner": null,
-      "testPaths": []
+      "testPaths": [],
+      "followUps": [
+        "Historical b46 run green; current pushed482 run red. Sandbox filename correction is locally verified, not pushed yet. Exact complete next pushed run required."
+      ]
     },
     {
       "id": "PROD-PKG-01",
@@ -600,6 +603,16 @@
           "result": "Clean same-source native ARM64 fresh build failed exit100 after60.47s before services. Root diagnostic exit1 shows Docker metadata I/O failure while376MiB disk free. Owned image absent and privateinputs removed. No ARM64 startup proof; retry after authorized Docker recovery required.",
           "artifact": "docs/build/production/evidence/packaged-worker/arm64-e109255-build-failed.json",
           "passed": false
+        },
+        {
+          "level": "local_linux_arm64",
+          "commit": "e1092550b80a90dc816721c952ed991ec9e9f1f2",
+          "dirtyCandidate": false,
+          "sourceInputSha256": "97e945c6b418fd2ae726e5bec6e6e8c451d06b8eacc6f081aa07d57114d6be",
+          "result": "Clean native ARM64 packaged derivative passed225.97s: three strict secret-free actual exit1 refusals; PostgreSQL migrations1-6; development Temporal polling; empty reconcile and signed expected no-target read refusal; UID10001/SSM/policy/TOFU assets; readiness/liveness/outage recovery; idle SIGTERM exit0. All14run resources, owned disposable builder/cache and newly pulled dependencies removed; Docker inventory0. Earlier build failures remain recorded. No cloud writes/browser approval/original executable plans/inflight shutdown/production topology proof.",
+          "artifact": "docs/build/production/evidence/packaged-worker/arm64-e109255-passed.json",
+          "storageArtifact": "docs/build/production/evidence/packaged-worker/arm64-e109255-storage-cleanup.json",
+          "passed": true
         }
       ],
       "requiredEvidence": [
@@ -685,6 +698,16 @@
           "result": "Clean same-source native ARM64 fresh build failed exit100 after60.47s before services. Root diagnostic exit1 shows Docker metadata I/O failure while376MiB disk free. Owned image absent and privateinputs removed. No ARM64 startup proof; retry after authorized Docker recovery required.",
           "artifact": "docs/build/production/evidence/packaged-worker/arm64-e109255-build-failed.json",
           "passed": false
+        },
+        {
+          "level": "local_linux_arm64",
+          "commit": "e1092550b80a90dc816721c952ed991ec9e9f1f2",
+          "dirtyCandidate": false,
+          "sourceInputSha256": "97e945c6b418fd2ae726e5bec6e6e8c451d06b8eacc6f081aa07d57114d6be",
+          "result": "Clean native ARM64 packaged derivative passed225.97s: three strict secret-free actual exit1 refusals; PostgreSQL migrations1-6; development Temporal polling; empty reconcile and signed expected no-target read refusal; UID10001/SSM/policy/TOFU assets; readiness/liveness/outage recovery; idle SIGTERM exit0. All14run resources, owned disposable builder/cache and newly pulled dependencies removed; Docker inventory0. Earlier build failures remain recorded. No cloud writes/browser approval/original executable plans/inflight shutdown/production topology proof.",
+          "artifact": "docs/build/production/evidence/packaged-worker/arm64-e109255-passed.json",
+          "storageArtifact": "docs/build/production/evidence/packaged-worker/arm64-e109255-storage-cleanup.json",
+          "passed": true
         }
       ],
       "requiredEvidence": [
@@ -727,6 +750,16 @@
           "result": "Clean same-source native ARM64 fresh build failed exit100 after60.47s before services. Root diagnostic exit1 shows Docker metadata I/O failure while376MiB disk free. Owned image absent and privateinputs removed. No ARM64 startup proof; retry after authorized Docker recovery required.",
           "artifact": "docs/build/production/evidence/packaged-worker/arm64-e109255-build-failed.json",
           "passed": false
+        },
+        {
+          "level": "local_linux_arm64",
+          "commit": "e1092550b80a90dc816721c952ed991ec9e9f1f2",
+          "dirtyCandidate": false,
+          "sourceInputSha256": "97e945c6b418fd2ae726e5bec6e6e8c451d06b8eacc6f081aa07d57114d6be",
+          "result": "Clean native ARM64 packaged derivative passed225.97s: three strict secret-free actual exit1 refusals; PostgreSQL migrations1-6; development Temporal polling; empty reconcile and signed expected no-target read refusal; UID10001/SSM/policy/TOFU assets; readiness/liveness/outage recovery; idle SIGTERM exit0. All14run resources, owned disposable builder/cache and newly pulled dependencies removed; Docker inventory0. Earlier build failures remain recorded. No cloud writes/browser approval/original executable plans/inflight shutdown/production topology proof.",
+          "artifact": "docs/build/production/evidence/packaged-worker/arm64-e109255-passed.json",
+          "storageArtifact": "docs/build/production/evidence/packaged-worker/arm64-e109255-storage-cleanup.json",
+          "passed": true
         }
       ],
       "requiredEvidence": [
@@ -2504,6 +2537,23 @@
         "tests/workflows/worker.test.ts"
       ],
       "verification": "Root full typecheck, affected lint, actual Temporal touched suites, strict refusal harness, real OpenTofu and Go in progress; no packaged startup pass claimed."
+    },
+    {
+      "id": "PROD-WS-WORKER-BOOTSTRAP",
+      "requirements": [
+        "PROD-CI-09",
+        "PROD-PKG-01",
+        "PROD-PKG-02"
+      ],
+      "branch": "ws/prod-worker-startup",
+      "state": "reviewed",
+      "commit": "e1092550b80a90dc816721c952ed991ec9e9f1f2",
+      "ownedPaths": [
+        "tests/workflows/sandbox.test.ts",
+        "workers/execution/entrypoint.ts",
+        "tests/workflows/worker.test.ts"
+      ],
+      "verificationArtifact": "docs/build/production/evidence/worker-bootstrap/root-verification.json"
     }
   ],
   "executionOrder": [
@@ -2693,7 +2743,7 @@
   "sessionState": {
     "status": "active",
     "resumedBy": "user",
-    "recordedAt": "2026-10-02T23:57:07.267463+00:00",
+    "recordedAt": "2026-10-03T00:08:55.017988+00:00",
     "sourceCheckpoint": "fbfa456e0111b106f039e2800b2c276b63d01b86",
     "lastPushedCommit": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
     "lastPushedRun": 37060964289,
@@ -2725,25 +2775,20 @@
     },
     "lastIntegration": "cb33a6176e74b218276eb1230ecaa898bccc8366",
     "currentPackagedCheck": {
-      "label": "prod-packaged-bootstrap-arm64-root",
+      "label": "prod-packaged-bootstrap-arm64-build-diagnostics-root",
       "commit": "e1092550b80a90dc816721c952ed991ec9e9f1f2",
       "platform": "linux/arm64",
-      "status": "failed",
-      "precedingAmd64": {
-        "label": "prod-packaged-bootstrap-amd64-root",
-        "status": "passed",
-        "seconds": 263.39,
-        "emulatedOnHost": "linux/arm64",
-        "refusals": "3 exact exited1 non-OOM, expected categories and secret-free logs",
-        "operations": "empty reconcile and signed expected no-target read refusal",
-        "shutdown": "idle SIGTERM exit0, no in-flight activity",
-        "cleanup": "All14ownedresources removed and absence verified"
-      },
-      "next": "Disk recovered to36GiB. User authorized Docker restart; engine healthy, inventory empty. Retry native ARM64 using owned disposable builder, then fresh kind.",
-      "failurePhase": "fresh-image-build",
-      "seconds": 60.47,
-      "exitCode": 100,
-      "diagnostic": "Root clean diagnostic build exit1, Docker metadata input/output error; 376MiB disk free. No ARM64 startup proof."
+      "status": "passed",
+      "seconds": 225.97,
+      "amd64": "clean same-source passed263.39s under ARM64 emulation",
+      "operations": "empty reconcile and signed expected no-target read refusal, no cloud writes/browser approval",
+      "shutdown": "idle SIGTERM exit0",
+      "cleanup": "all14run resources plus owned builder/cache and newly pulled known images removed; Docker inventory0",
+      "failedAttempts": [
+        "initial storage I/O build exit100,376MiB free",
+        "post-restart disposable build exit1, cause not captured;225.97s diagnostic retry passed"
+      ],
+      "next": "Integrate independently verified source and observe complete pushed CI."
     },
     "currentCiFailure": {
       "runId": 37060964289,
@@ -2769,12 +2814,13 @@
       ],
       "independentSourceReview": "1728ca458b4517d508870ad80e1f4606910e0fce3501824adb887470eea1722b",
       "freshInstall": "npm ci Node22.23.3 exit0, private worktree10.56s, shared dependencies preserved",
-      "priorFailedCheck": "Stale installed worktree symlink lacked locked Auto Scaling SDK; source unchanged, fresh install fixed verification prerequisites."
+      "priorFailedCheck": "Stale installed worktree symlink lacked locked Auto Scaling SDK; source unchanged, fresh install fixed verification prerequisites.",
+      "kind": "provider6/6+release1/1,0failed/skipped,cluster/kubeconfig/newimages removed"
     },
     "storage": {
-      "hostFreeGiB": 36,
+      "hostFreeGiB": 30.68,
       "dockerHealthy": true,
-      "dockerInventory": "0 images,0 containers,0 volumes,0B build cache after authorized restart",
+      "dockerInventory": "0 retained owned test images/containers/volumes/cache after ARM64 run; kind owned resources and new image refs removed",
       "historicalBlocker": "ARM64 fresh image build failed while376MiB free; Docker metadata I/O errors persisted after disk recovery until user-authorized restart",
       "cleanupScope": "owned test resources and dedicated builder cache only"
     }

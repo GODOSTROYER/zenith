@@ -41,6 +41,7 @@ src/lib/capabilities/memory-store.ts (matching isolated cancellation guard only)
 supabase/migrations/0014_platform_core.sql (generated only)
 src/lib/platform/plan-artifacts.ts
 src/lib/platform/execution.ts
+src/lib/platform/broker.ts (initial immutable destroy-plan approval round only)
 src/lib/execution/ports.ts
 src/lib/execution/runtime.ts
 src/lib/execution/plan.ts
@@ -80,6 +81,7 @@ tests/acceptance/packaged-worker.test.ts
 tests/workflows/worker.test.ts
 tests/deploy/installation.test.ts
 tests/platform/composition.test.ts (explicit isolated test admission only)
+tests/platform/plan-approval.test.ts (initial destroy concrete-plan approval distinction only)
 docs/adr/0005-opentofu-hybrid.md
 docs/platform/operations/DEPLOYING.md
 docs/platform/EXECUTION-WORKER.md

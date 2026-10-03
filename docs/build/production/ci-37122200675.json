@@ -1,0 +1,400 @@
+{
+  "schemaVersion": 1,
+  "commit": "cd8942b40375b83c2b05fb6160a1b45a246e336a",
+  "runId": 37122200675,
+  "status": "completed",
+  "conclusion": "failure",
+  "jobs": [
+    {
+      "id": 111200374879,
+      "name": "verify",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111200374982,
+      "name": "tofu",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111200374986,
+      "name": "build",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111200374998,
+      "name": "agent",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111200375007,
+      "name": "go",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "id": 111200375012,
+      "name": "platform-postgres",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111200375022,
+      "name": "docker",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111200375065,
+      "name": "policy",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111200375086,
+      "name": "postgres",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111200375100,
+      "name": "hosted",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111200375104,
+      "name": "generated",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111200375131,
+      "name": "workflows",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111200375160,
+      "name": "ledger",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 111200375168,
+      "name": "supply-chain",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "jobCounts": {
+    "passed": 13,
+    "failed": 1,
+    "cancelled": 0
+  },
+  "canonical": [
+    {
+      "lane": "postgres",
+      "counts": {
+        "total": 251,
+        "passed": 251,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 9,
+      "checks": {
+        "exactCommit": true,
+        "clean": true,
+        "completeIndex": true,
+        "exactGateSources": true,
+        "exactLock": true,
+        "exactManifest": true,
+        "exactDependencies": true,
+        "linuxNode": true,
+        "schema2": true,
+        "exactReceipt": true,
+        "receiptHash": true,
+        "all12Bindings": true,
+        "originExecution": true,
+        "environmentIntegrity": true,
+        "realRequired": true,
+        "counts": true,
+        "skipHandoff": true,
+        "verdict": true
+      },
+      "failed": [],
+      "passed": true
+    },
+    {
+      "lane": "platform-postgres",
+      "counts": {
+        "total": 1532,
+        "passed": 1532,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 70,
+      "checks": {
+        "exactCommit": true,
+        "clean": true,
+        "completeIndex": true,
+        "exactGateSources": true,
+        "exactLock": true,
+        "exactManifest": true,
+        "exactDependencies": true,
+        "linuxNode": true,
+        "schema2": true,
+        "exactReceipt": true,
+        "receiptHash": true,
+        "all12Bindings": true,
+        "originExecution": true,
+        "environmentIntegrity": true,
+        "realRequired": true,
+        "counts": true,
+        "skipHandoff": true,
+        "verdict": true
+      },
+      "failed": [],
+      "passed": true
+    },
+    {
+      "lane": "policy",
+      "counts": {
+        "total": 238,
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 7,
+      "checks": {
+        "exactCommit": true,
+        "clean": true,
+        "completeIndex": true,
+        "exactGateSources": true,
+        "exactLock": true,
+        "exactManifest": true,
+        "exactDependencies": true,
+        "linuxNode": true,
+        "schema2": true,
+        "exactReceipt": true,
+        "receiptHash": true,
+        "all12Bindings": true,
+        "originExecution": true,
+        "environmentIntegrity": true,
+        "realRequired": true,
+        "counts": true,
+        "skipHandoff": true,
+        "verdict": true
+      },
+      "failed": [],
+      "passed": true
+    },
+    {
+      "lane": "tofu",
+      "counts": {
+        "total": 3908,
+        "passed": 3900,
+        "failed": 0,
+        "skipped": 8,
+        "unknown": 0
+      },
+      "requiredGroups": 27,
+      "checks": {
+        "exactCommit": true,
+        "clean": true,
+        "completeIndex": true,
+        "exactGateSources": true,
+        "exactLock": true,
+        "exactManifest": true,
+        "exactDependencies": true,
+        "linuxNode": true,
+        "schema2": true,
+        "exactReceipt": true,
+        "receiptHash": true,
+        "all12Bindings": true,
+        "originExecution": true,
+        "environmentIntegrity": true,
+        "realRequired": true,
+        "counts": true,
+        "skipHandoff": true,
+        "verdict": true
+      },
+      "failed": [],
+      "passed": true
+    },
+    {
+      "lane": "workflows",
+      "counts": {
+        "total": 1000,
+        "passed": 1000,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 44,
+      "checks": {
+        "exactCommit": true,
+        "clean": true,
+        "completeIndex": true,
+        "exactGateSources": true,
+        "exactLock": true,
+        "exactManifest": true,
+        "exactDependencies": true,
+        "linuxNode": true,
+        "schema2": true,
+        "exactReceipt": true,
+        "receiptHash": true,
+        "all12Bindings": true,
+        "originExecution": true,
+        "environmentIntegrity": true,
+        "realRequired": true,
+        "counts": true,
+        "skipHandoff": true,
+        "verdict": true
+      },
+      "failed": [],
+      "passed": true
+    }
+  ],
+  "artifacts": [
+    {
+      "lane": "postgres",
+      "artifactId": 11273976203,
+      "zipDigest": "sha256:cb3bd261f496d1cca018515c2ef1d7478a9349c30a4f09f3abdaaa64409b25e2",
+      "apiDigestMatched": true,
+      "evidenceSha256": "d7befe01d3e9875899f85b0a7403886bf375dca085c0651a71d19ace54bfa0f1",
+      "candidateBytesMatched": true
+    },
+    {
+      "lane": "platform-postgres",
+      "artifactId": 11273427366,
+      "zipDigest": "sha256:6b618bd70805823da27f89bac5ee931838fe7df8704490abd3e98bd282b57ea3",
+      "apiDigestMatched": true,
+      "evidenceSha256": "6ae7457825afd4f52f5a047df76b54a65124c2a9698785ea8a94391ed33fbe86",
+      "candidateBytesMatched": true
+    },
+    {
+      "lane": "policy",
+      "artifactId": 11273686526,
+      "zipDigest": "sha256:b40881e9a4aa39e5ae311b0000ad1ae9004c164165207c8c414e3291bf37b077",
+      "apiDigestMatched": true,
+      "evidenceSha256": "47f5fb95a9dc0900e4eb3389c8d21e37962784f47fde567ff3a6bb76bbeb53a1",
+      "candidateBytesMatched": true
+    },
+    {
+      "lane": "tofu",
+      "artifactId": 11273701712,
+      "zipDigest": "sha256:3332f66b7c6ce4628a210ce7b9dcc4ce2da88a295a17be757f38cc2382591edb",
+      "apiDigestMatched": true,
+      "evidenceSha256": "2be977a67a10866abad2208965477b5239bc3471ebff77463e939846690487fd",
+      "candidateBytesMatched": true
+    },
+    {
+      "lane": "workflows",
+      "artifactId": 11274176391,
+      "zipDigest": "sha256:d4d4a2c1b16236de854a613718eeba3084277f48602961f1ffe798e876609922",
+      "apiDigestMatched": true,
+      "evidenceSha256": "51f01ab97e86af9c6853d9a1e837ca47c5c2f097c85f63afc9fca186df6aefc7",
+      "candidateBytesMatched": true
+    }
+  ],
+  "units": {
+    "passed": 16747,
+    "failed": 0,
+    "skipped": 401,
+    "total": 17148
+  },
+  "generated": {
+    "passed": 109,
+    "failed": 0,
+    "skipped": 0
+  },
+  "hosted": {
+    "passed": 1146,
+    "failed": 0,
+    "skipped": 13
+  },
+  "opa": {
+    "passed": 213,
+    "failed": 0
+  },
+  "browserAndJourneyScope": "Smoke and two Gimbal asset checks executed and passed. Hosted and agent browser jobs passed. These scripted/local interfaces do not establish live source/cloud deployment or two-tenant runtime isolation.",
+  "nativeGuest": {
+    "status": "not_executed",
+    "fixtureSetup": "refused_unsafe_opt_ancestor",
+    "fixtureCleanup": "refused_same_unsafe_ancestor",
+    "nativeAttempts": 0,
+    "oldArtifactAccepted": false
+  },
+  "rootReviewScope": "GitHub API terminal state and ZIP digests, exact exported source/lock/gate/runtime/schema2 receipt bindings and every required group independently checked. Raw Vitest JSON/environment inventories not exported by standard artifacts; raw logs captured privately. Exactly eight OpenTofu handoff skips were checked against eight successful required real-PostgreSQL groups; no broad skip waiver.",
+  "correction": {
+    "sourceCommit": "3503019e9acff3e5d1ed0ad24a256f7c0a4b7b7a",
+    "mergeCommit": "20716ea593f5ad1606782ee0d9b221c1c9638fa0",
+    "paths": 5,
+    "behavior": "Fresh disposable GitHub Linux VM observations precede descriptor-pinned root-owned /opt permission hardening only. Native fixture guards and cleanup stay unchanged.",
+    "localChecks": [
+      {
+        "name": "typecheck",
+        "exitCode": 0,
+        "seconds": 8.86,
+        "logSha256": "67bfbc2a439139104f888754cfda372370c2dcbeddb1689431dd3df637150145"
+      },
+      {
+        "name": "lint",
+        "exitCode": 0,
+        "seconds": 22.1,
+        "logSha256": "553ac5e34bf28988f11bd351006e9db23c09e02320357311140e1d2683940fa8"
+      },
+      {
+        "name": "python-syntax",
+        "exitCode": 0,
+        "seconds": 0.04,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "gofmt",
+        "exitCode": 0,
+        "seconds": 0.09,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "go-vet",
+        "exitCode": 0,
+        "seconds": 2.38,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "go-race",
+        "exitCode": 0,
+        "seconds": 110.19,
+        "logSha256": "1a2e1e6e0431a8f34bbefdc0a896e645ab0bd78b08ec4d864024b9d7b38b9ce7"
+      },
+      {
+        "name": "policy-generated",
+        "exitCode": 0,
+        "seconds": 0.74,
+        "logSha256": "c4cd4167f3f19624e344a285c2ac171888bfba695757641dcc756a127888a557"
+      }
+    ],
+    "finalTargeted": {
+      "passed": 194,
+      "failed": 0,
+      "skipped": 0
+    },
+    "finalTypecheckExit": 0,
+    "affectedLintExit": 0,
+    "runtimeLimit": "Observation-contract tests are not actual host syscall/mount acceptance. New whole native CI must execute."
+  },
+  "preservedFailures": [
+    "Initial correction TypeScript check failed on missing NODE_ENV in isolated child environment; corrected narrowly.",
+    "First five-suite correction run:296 passed/1 failed/0 skipped, stale exact setup command expectation; final affected two suites194/0/0.",
+    "Isolated default journey real PostgreSQL:1638 passed/39 failed/0 skipped. Source-test repairs await actual rerun."
+  ],
+  "releaseVerdict": "Whole pushed CI failed; G1 and all four release states remain open."
+}

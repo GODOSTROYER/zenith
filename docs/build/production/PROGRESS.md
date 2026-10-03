@@ -1,6 +1,6 @@
 # Production progress
 
-Reviewed source integrated at `6814da5`, functional verification source `0772854`, on `codex/production-2026-10-02`. Known dependency findings cleared; complete new pushed CI remains pending. Last inspected published24e run37110507951 remains13passed/1failed.
+Reviewed source integrated at `6814da5`, functional verification source `0772854`, on `codex/production-2026-10-02`. Known dependency findings cleared locally and in fresh pushed CIcd8942b. Run37122200675 completed13passed/1failedGo; guarded native preparation merged20716ea and next complete run remains required.
 
 Acceptance states: **6 verified / 26 in progress / 46 planned**, all78 requirements retained. Counts are acceptance states, not completion percentages. All four release statuses remain false; no current task paused.
 
@@ -17,8 +17,8 @@ Acceptance states: **6 verified / 26 in progress / 46 planned**, all78 requireme
 
 ## In progress and blocked
 
-- [ ] Observe complete newly pushed source CI; pending is not passed. Current native Linux whole-source binding and Smoke/Gimbal gates remain required.
-- [ ] Isolated reviewed88cc783: durable CodeBuild launches and GitHub browser/webhook revocation, migrations8–10. Root compiler/real PostgreSQL140groups/Temporal53groups pending; no live source journey claim.
+- [ ] Observe fresh native correction CI. Priorcd run13passed/1failedGo; Smoke/Gimbal passed, native setup refused before execution. Current native Linux whole-source evidence remains required.
+- [ ] Isolated reviewed88cc783: durable CodeBuild launches and GitHub browser/webhook revocation, migrations8–10. Root compiler/lint/emitted SQL passed after bounded corrections; initial actual PostgreSQL1638P39F0S failed. Source-test repairs/actual rerun/canonical140groups plus tenant sweep/Temporal53groups pending; no live source journey claim.
 - [ ] Accepted late agent receipt source11: root import/schema/gates and actual runtime pending. It does not establish provider certainty or cleanup success.
 - [ ] Corrected durable scheduler r2: final source challenge, worker/config wiring and PostgreSQL/Temporal execution pending.
 - [ ] Durable workflow start intent12 and mixed-provider partition contracts: source work continuing; existing cross-provider execution guard stays enforced.
@@ -26,7 +26,7 @@ Acceptance states: **6 verified / 26 in progress / 46 planned**, all78 requireme
 - [ ] Default API/browser/MCP startup permission and isolated private Supabase/GitHub/AWS scopes pending. No default API/server or live cloud startup performed.
 - [ ] Native AMD64, mutation-in-flight shutdown, supported systemd, TLS/pooler, restore/load/upgrade/security, mixed-cloud traffic and managed two-tenant serving acceptance remain open.
 
-Three current source/review lanes: mixed partition implementation; independent mixed security review; durable start intents. Root owns serial verification, integration and release verdict. Frozen scheduler and late receipts remain resumable in private worktrees; original candidates and failed evidence preserved.
+Three current source/review lanes: CodeBuild current-authority challenge and mixed state/lock correction; independent build runtime-test challenge; independent durable start intent review. Root owns serial verification, integration and release verdict. Frozen scheduler and late receipts remain resumable in private worktrees; original candidates and failed evidence preserved.
 
 ## Requirement checklist
 

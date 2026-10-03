@@ -157,6 +157,186 @@ describe("native Go evidence admission", () => {
 });
 
 
+// A stdlib Python observation contract model checks the narrow hosted-VM preparation
+// contract. No root filesystem is opened or mutated by these fixtures. Real
+// hosted prerequisite/ACL/bind-mount/native acceptance must pass separately.
+const hostHelper = path.resolve("scripts/ci/prepare-native-guest-host.py");
+const hostRun = "c".repeat(32);
+const hostSnapshot = (optMode = 0o777) => ({
+  root: { device: 8, inode: 2, mount: 40, uid: 0, gid: 0, mode: 0o755, directory: true, noAcl: true },
+  opt: { device: 8, inode: 90, mount: 40, uid: 0, gid: 0, mode: optMode, directory: true, noAcl: true },
+  rootFilesystem: "ext4", sysAdmin: true, toolsPresent: true, fixtureRootsAbsent: true,
+});
+type HostSnapshot = ReturnType<typeof hostSnapshot>;
+type HostContractInput = { snapshot?: HostSnapshot; runId?: string; sequence?: HostSnapshot[]; environment?: Record<string, string>; system?: string; effectiveUid?: number; failObservation?: number; args?: string[] };
+const hostModel = String.raw`
+import contextlib, copy, importlib.util, io, json, os, sys
+from unittest.mock import patch
+spec = importlib.util.spec_from_file_location('native_host', sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+case = json.loads(sys.argv[2])
+class Host:
+    def __init__(self):
+        self.current = copy.deepcopy(case['snapshot'])
+        self.observations = 0
+        self.chmods = 0
+        self.entries = 0
+    def __enter__(self):
+        self.entries += 1
+        return self
+    def __exit__(self, *_):
+        return False
+    def observe(self):
+        self.observations += 1
+        if self.observations == case.get('failObservation'):
+            raise OSError('inert-private-system-error-must-not-leak')
+        sequence = case.get('sequence')
+        return copy.deepcopy(sequence[min(self.observations - 1, len(sequence) - 1)] if sequence else self.current)
+    def harden_opt(self):
+        self.chmods += 1
+        self.current['opt']['mode'] = 0o755
+host = Host()
+environment = {'GITHUB_ACTIONS': 'true', 'RUNNER_ENVIRONMENT': 'github-hosted', 'RUNNER_OS': 'Linux'}
+environment.update(case.get('environment', {}))
+output, errors = io.StringIO(), io.StringIO()
+with patch.object(module, 'SystemHost', return_value=host), patch.object(module.platform, 'system', return_value=case.get('system', 'Linux')), patch.object(module.os, 'geteuid', return_value=case.get('effectiveUid', 0)), patch.dict(os.environ, environment, clear=True), contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+    status = module.main(case.get('args', ['--github-hosted-disposable', '1001', '1001', case['runId']]))
+print(json.dumps({'status': status, 'stdout': output.getvalue(), 'stderr': errors.getvalue(), 'observations': host.observations, 'chmods': host.chmods, 'entries': host.entries}))
+`;
+function hostContract(input: HostContractInput = {}) {
+  const child = spawnSync("python3", ["-B", "-c", hostModel, hostHelper, JSON.stringify({ snapshot: hostSnapshot(), runId: hostRun, ...input })], {
+    encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, maxBuffer: 1024 * 1024,
+  });
+  expect(child.error).toBeUndefined(); expect(child.status).toBe(0); expect(child.stderr).toBe("");
+  return JSON.parse(child.stdout) as { status: number; stdout: string; stderr: string; observations: number; chmods: number; entries: number };
+}
+
+describe("GUEST-NATIVE-HOST-01 disposable hosted ancestor preparation model", () => {
+  it.each([0o755, 0o777])("admits supported root-owned %o and only hardens the pinned opt inode", (mode) => {
+    const result = hostContract({ snapshot: hostSnapshot(mode) });
+    const report = JSON.parse(result.stdout);
+    expect(result.status).toBe(0); expect(result.stderr).toBe("");
+    expect(result.chmods).toBe(mode === 0o777 ? 1 : 0); expect(result.observations).toBe(4);
+    expect(report).toEqual({ schemaVersion: 1, kind: "native-guest-host-prerequisites", fixtureRunId: hostRun,
+      testUid: 1001, testGid: 1001, verdict: "ready", hardenedOpt: mode === 0o777,
+      before: hostSnapshot(mode), after: hostSnapshot(0o755), reason: "prerequisites_observed" });
+    expect(report.after.root).toEqual(report.before.root);
+    expect({ ...report.after.opt, mode }).toEqual(report.before.opt);
+  });
+
+  it.each(["ext2", "ext3", "ext4", "xfs", "btrfs"])("admits only an already supported %s root without remounting", (rootFilesystem) => {
+    const result = hostContract({ snapshot: { ...hostSnapshot(0o755), rootFilesystem } });
+    expect(result.status).toBe(0); expect(result.chmods).toBe(0);
+  });
+
+  it.each(["overlay", "tmpfs", "fuse", "nfs", "cifs", "", "unknown"])("refuses unsupported %s before chmod", (rootFilesystem) => {
+    const result = hostContract({ snapshot: { ...hostSnapshot(), rootFilesystem } });
+    expect(result.status).toBe(1); expect(result.chmods).toBe(0);
+    expect(JSON.parse(result.stdout).reason).toBe("unsupported_root_filesystem");
+  });
+
+  it.each([
+    ["unsafe-root-owner", (s: HostSnapshot) => { s.root.uid = 1001; }, "unsafe_root_ancestor"],
+    ["unsafe-root-mode", (s: HostSnapshot) => { s.root.mode = 0o777; }, "unsafe_root_ancestor"],
+    ["root-special-bit", (s: HostSnapshot) => { s.root.mode = 0o1755; }, "unsafe_root_ancestor"],
+    ["opt-owner", (s: HostSnapshot) => { s.opt.uid = 1001; }, "unsafe_opt_ownership"],
+    ["opt-nondirectory", (s: HostSnapshot) => { s.opt.directory = false; }, "unsafe_opt_ownership"],
+    ["root-acl", (s: HostSnapshot) => { s.root.noAcl = false; }, "ancestor_acl_present"],
+    ["opt-acl", (s: HostSnapshot) => { s.opt.noAcl = false; }, "ancestor_acl_present"],
+    ["opt-special-bit", (s: HostSnapshot) => { s.opt.mode = 0o1777; }, "unexpected_opt_mode"],
+    ["opt-other-mode", (s: HostSnapshot) => { s.opt.mode = 0o775; }, "unexpected_opt_mode"],
+    ["opt-mount", (s: HostSnapshot) => { s.opt.mount += 1; }, "opt_not_on_root_mount"],
+    ["opt-device", (s: HostSnapshot) => { s.opt.device += 1; }, "opt_not_on_root_mount"],
+    ["mount-capability", (s: HostSnapshot) => { s.sysAdmin = false; }, "bind_mount_authority_unavailable"],
+    ["tools", (s: HostSnapshot) => { s.toolsPresent = false; }, "required_mount_tool_unavailable"],
+    ["preexisting-namespace", (s: HostSnapshot) => { s.fixtureRootsAbsent = false; }, "fixture_namespace_preexists"],
+  ] as const)("refuses %s without physical mutation", (_, change, reason) => {
+    const snapshot = hostSnapshot(); change(snapshot);
+    const result = hostContract({ snapshot });
+    expect(result.status).toBe(1); expect(result.chmods).toBe(0); expect(result.observations).toBe(1);
+    expect(JSON.parse(result.stdout).reason).toBe(reason);
+  });
+
+  it.each(["device", "inode", "mount", "uid", "gid", "mode"] as const)("refuses a pre-chmod %s race", (field) => {
+    const before = hostSnapshot(); const changed = hostSnapshot(); changed.opt[field] += 1;
+    const result = hostContract({ sequence: [before, changed] });
+    expect(result.status).toBe(1); expect(result.chmods).toBe(0);
+    expect(JSON.parse(result.stdout).reason).toBe("ancestor_identity_changed");
+  });
+
+  it.each(["device", "inode", "mount", "uid", "gid", "mode"] as const)("refuses a post-chmod %s race without a second chmod", (field) => {
+    const before = hostSnapshot(); const changed = hostSnapshot(0o755); changed.opt[field] += 1;
+    const result = hostContract({ sequence: [before, before, changed] });
+    expect(result.status).toBe(1); expect(result.chmods).toBe(1);
+    expect(JSON.parse(result.stdout).verdict).toBe("refused");
+    expect(JSON.parse(result.stdout).reason).toBe("ancestor_identity_changed");
+  });
+
+  it("refuses a final namespace replacement and root/ACL races", () => {
+    for (const mutate of [
+      (s: HostSnapshot) => { s.opt.inode += 1; },
+      (s: HostSnapshot) => { s.root.inode += 1; },
+      (s: HostSnapshot) => { s.opt.noAcl = false; },
+    ]) {
+      const before = hostSnapshot(); const after = hostSnapshot(0o755); const changed = hostSnapshot(0o755); mutate(changed);
+      const result = hostContract({ sequence: [before, before, after, changed] });
+      expect(result.status).toBe(1); expect(result.chmods).toBe(1);
+      expect(JSON.parse(result.stdout).reason).toBe("ancestor_identity_changed");
+    }
+  });
+
+  const authorizationCases: HostContractInput[] = [
+    { environment: { GITHUB_ACTIONS: "false" } }, { environment: { RUNNER_ENVIRONMENT: "self-hosted" } },
+    { environment: { RUNNER_OS: "Windows" } }, { effectiveUid: 1001 }, { system: "Darwin" },
+  ];
+  it.each(authorizationCases)("requires the explicit root disposable hosted Linux context: %j", (input) => {
+    const result = hostContract(input);
+    expect(result.status).toBe(1); expect(result.entries).toBe(0); expect(result.chmods).toBe(0);
+    expect(JSON.parse(result.stdout).reason).toBe("disposable_host_authorization_absent");
+  });
+
+  it.each([
+    { args: [] }, { args: ["--prepare", "1001", "1001", hostRun] },
+    { args: ["--github-hosted-disposable", "0", "1001", hostRun] },
+    { args: ["--github-hosted-disposable", "1001", "0", hostRun] },
+    { args: ["--github-hosted-disposable", "1001", "1001", "../old"] },
+  ])("refuses invalid scope arguments before opening any host: %j", ({ args }) => {
+    const result = hostContract({ args });
+    expect(result.status).toBe(2); expect(result.entries).toBe(0); expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("native guest host: invalid invocation\n");
+  });
+
+  it("reports only this invocation after an observation failure, with no imported prior pass or raw exception", () => {
+    expect(JSON.parse(hostContract().stdout).verdict).toBe("ready");
+    const runId = "d".repeat(32); const failed = hostContract({ runId, failObservation: 1 });
+    expect(failed.status).toBe(1); expect(failed.chmods).toBe(0);
+    expect(JSON.parse(failed.stdout)).toEqual({ schemaVersion: 1, kind: "native-guest-host-prerequisites", fixtureRunId: runId,
+      testUid: 1001, testGid: 1001, verdict: "refused", hardenedOpt: false, reason: "system_observation_failed" });
+    expect(failed.stdout).not.toContain(hostRun); expect(failed.stdout).not.toContain("inert-private-system-error");
+  });
+
+  it("wires preparation only before native fixture setup and preserves the production fixture guards", () => {
+    const workflow = fs.readFileSync(".github/workflows/ci.yml", "utf8");
+    const goJob = workflow.slice(workflow.indexOf("\n  go:\n"), workflow.indexOf("\n  workflows:\n"));
+    expect(workflow.match(/prepare-native-guest-host\.py/g)).toHaveLength(1);
+    expect(goJob.indexOf('echo "ZENITH_GUEST_FIXTURE_RUN_ID=')).toBeLessThan(goJob.indexOf("prepare-native-guest-host.py"));
+    expect(goJob.indexOf("prepare-native-guest-host.py")).toBeLessThan(goJob.indexOf("guest-file-write-fixtures.sh setup"));
+    expect(goJob).toContain("sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,RUNNER_OS -- python3");
+    expect(goJob).toContain('"$(id -u)" "$(id -g)" "$fixture_run_id"');
+    expect(goJob).toContain("sudo -- bash scripts/ci/guest-file-write-fixtures.sh cleanup");
+    const fixture = fs.readFileSync("scripts/ci/guest-file-write-fixtures.sh", "utf8");
+    expect(fixture).toContain("stat.S_IMODE(st.st_mode) & 0o7022");
+    expect(fixture).toContain("['ext2', 'ext3', 'ext4', 'xfs', 'btrfs']");
+    const helper = fs.readFileSync(hostHelper, "utf8");
+    expect(helper).toContain("os.fchmod(self.opt_fd, 0o755)");
+    expect(helper).toContain("os.O_NOFOLLOW");
+    expect(helper).not.toMatch(/os\.(?:chmod|chown|fchown)\(/);
+    expect(helper).not.toContain("subprocess");
+  });
+});
+
+
 // These are actual temporary-file publication checks with synthetic metadata.
 // They do not execute Go or supply Linux filesystem/deployment acceptance.
 const artifactRoots: string[] = [];

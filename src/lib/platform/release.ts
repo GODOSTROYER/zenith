@@ -1,8 +1,9 @@
-/** Provider-selected release ports. AWS behavior is unchanged; sessions never leave a call. */
+/** Provider-selected release ports. AWS launches use PostgreSQL authority; sessions never leave a call. */
 import { ECRClient, DescribeRepositoriesCommand } from "@aws-sdk/client-ecr";
 import { ECSClient, DescribeTaskDefinitionCommand, DescribeTasksCommand, RunTaskCommand } from "@aws-sdk/client-ecs";
 import type { AwsSession } from "@/lib/credentials/types";
 import type { Sql } from "@/lib/controlplane/types";
+import { BuildLaunchError } from "@/lib/controlplane/db/repos/build-launches";
 import type { DriverContext } from "@/lib/drivers/types";
 import type { ArtifactSpec } from "@/lib/resources/specs";
 import { digest } from "@/lib/controlplane/digest";
@@ -20,7 +21,7 @@ import { createKubernetesBuildPort, createKubernetesWorkloadsPort, createKuberne
 export function createReleasePorts(options: { db?: Sql; azure?: AzureBuildOptions } = {}): { build: BuildPort; workloads: WorkloadsPort; migrations: MigrationsPort } {
   const azure = { ...options.azure, launches: options.azure?.launches ?? (options.db ? createAzureReleaseLaunchJournal(options.db) : undefined) };
   const ports = {
-    aws: { build: createAwsBuildPort(), workloads: createAwsWorkloadsPort(), migrations: createAwsMigrationsPort() },
+    aws: { build: createAwsBuildPort(options.db), workloads: createAwsWorkloadsPort(), migrations: createAwsMigrationsPort() },
     gcp: { build: createGcpBuildPort(), workloads: createGcpWorkloadsPort(), migrations: createGcpMigrationsPort() },
     azure: { build: createAzureBuildPort(azure), workloads: createAzureWorkloadsPort(), migrations: createAzureMigrationsPort(azure.launches) },
     kubernetes: { build: createKubernetesBuildPort(), workloads: createKubernetesWorkloadsPort(), migrations: createKubernetesMigrationsPort() },
@@ -44,28 +45,22 @@ const awsContext = (ctx: DriverContext): DriverContext<AwsSession> => {
   return { ...ctx, session: session as AwsSession };
 };
 
-export function createAwsBuildPort(): BuildPort {
-  // Metadata only, keyed by build id. The CodeBuild project is authoritative;
-  // a wait on a different worker recovers its output repository from AWS.
+export function createAwsBuildPort(db?: Sql): BuildPort {
+  // Receipt-bound executed settings provide output identity across workers.
   return {
     async startBuild(ctx, input) {
-      return startBuild(awsContext(ctx), input.pipeline, { sourceS3Key: input.source.s3Key, sourceDigest: input.source.digest, externalId: input.pipeline.externalRef });
+      return startBuild(awsContext(ctx), input.pipeline, { sourceS3Key: input.source.s3Key, sourceDigest: input.source.digest, externalId: input.pipeline.externalRef, service:input.service }, db);
     },
     async waitForBuild(ctx, handle, opts) {
+      if ((db as Sql & {kind?:string} | undefined)?.kind !== "postgres") throw new BuildLaunchError();
       const aws = awsContext(ctx);
-      const result = await waitForBuild(aws, handle.buildId, opts);
+      const result = await waitForBuild(aws, handle.buildId, opts, db);
+      // A polling deadline is not provider termination. Preserve the retained
+      // accepted writer as uncertain instead of classifying a clean failure.
+      if (result.status === "WAIT_TIMEOUT") throw new BuildLaunchError();
       if (result.status !== "SUCCEEDED") return { status: result.status === "STOPPED" ? "stopped" : ["TIMED_OUT", "WAIT_TIMEOUT"].includes(result.status) ? "timed_out" : "failed", detail: result.failureReason ?? result.failedPhase ?? result.status };
-      // CodeBuild's export contains the digest; its project pins the registry
-      // URI. Read that identifier, never arbitrary exported environment values.
-      const { CodeBuildClient, BatchGetBuildsCommand, BatchGetProjectsCommand } = await import("@aws-sdk/client-codebuild");
-      const cb = aws.session.client(CodeBuildClient);
-      const build = (await cb.send(new BatchGetBuildsCommand({ ids: [handle.buildId] }), { abortSignal: ctx.signal })).builds?.[0];
-      if (!build?.projectName) throw new StepFailedError("Build project metadata is unavailable.");
-      const project = (await cb.send(new BatchGetProjectsCommand({ names: [build.projectName] }), { abortSignal: ctx.signal })).projects?.[0];
-      const projectTags = lowerTagMap(project?.tags);
-      if (projectTags["zenith:workspace"] !== ctx.workspaceId || projectTags["zenith:environment"] !== ctx.environmentId || projectTags["zenith:managed"] !== "true" || !projectTags["zenith:resource"]?.startsWith("build_pipeline/")) throw new StepFailedError("Build output project is outside this environment.");
-      const uri = project?.environment?.environmentVariables?.find((v) => v.name === "ZENITH_REPO_URL" && v.type === "PLAINTEXT")?.value;
-      if (!uri || !result.imageDigest) throw new StepFailedError("Build finished without an output repository and digest.");
+      const uri = result.repositoryUri;
+      if (!uri || !result.imageDigest) throw new BuildLaunchError();
       const match = /^(\d{12})\.dkr\.ecr\.([a-z0-9-]+)\.amazonaws\.com\/([a-z0-9._/-]+)$/.exec(uri);
       if (!match || match[1] !== aws.session.accountId || match[2] !== aws.region) throw new StepFailedError("Build output registry is outside this AWS session.");
       const repos = await aws.session.client(ECRClient).send(new DescribeRepositoriesCommand({ repositoryNames: [match[3]] }), { abortSignal: ctx.signal });

@@ -10,7 +10,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { TofuFragment } from "@/lib/drivers/types";
 import { BUILD_TIMEOUT_MINUTES, CODEBUILD_IMAGE, buildExpectsImage, codebuildProjectDriver as driver, dockerBuildspec, staticBuildspec } from "@/lib/providers/aws/drivers/compute/codebuild-project";
 import { startBuild, stopBuild, waitForBuild } from "@/lib/providers/aws/drivers/compute/codebuild-builds";
-import { DriverCompileError, hash6, refLocalName } from "@/lib/providers/aws/drivers/shared";
+import { DriverCompileError, refLocalName } from "@/lib/providers/aws/drivers/shared";
 import { buildFullFixture, mkCompileContext, mkDriverContext, zenithTagList } from "./fixtures";
 import { ACCOUNT } from "./ecs-mocks";
 import { boundaryAllows, familyBoundary } from "../../../../credentials/workload-boundary";
@@ -324,38 +324,11 @@ describe("startBuild", () => {
   const input = { sourceS3Key: `zenith/env_1/web/${SOURCE_DIGEST}.zip`, sourceDigest: `sha256:${SOURCE_DIGEST}` };
   const ctxOp = (op = "op_build_1") => mkDriverContext({ operationId: op });
 
-  it("starts the build from the uploaded bundle with the source digest as an override and an idempotency token", async () => {
+  it("refuses a launch without canonical PostgreSQL authority before touching AWS", async () => {
     installProject();
-    cb.on(StartBuildCommand).resolves({ build: { id: BUILD_ID, buildStatus: "IN_PROGRESS", buildNumber: 4 }, $metadata: { requestId: "req-sb" } });
-    const r = await startBuild(ctxOp(), node, input);
-    expect(r).toEqual({ buildId: BUILD_ID, status: "IN_PROGRESS", buildNumber: 4, requestIds: ["req-sb"] });
-    expect(cb.commandCalls(StartBuildCommand)[0].args[0].input).toEqual({
-      projectName: "zn-acme-web",
-      sourceLocationOverride: `zn-acme-web-src-1a2b3c4d/zenith/env_1/web/${SOURCE_DIGEST}.zip`,
-      environmentVariablesOverride: [{ name: "ZENITH_SOURCE_DIGEST", value: SOURCE_DIGEST, type: "PLAINTEXT" }],
-      idempotencyToken: `zn-op_build_1-${hash6("build_pipeline/web")}`,
-    });
-  });
-
-  it("derives the same token for the same operation and node, and different tokens for different operations or nodes", async () => {
-    installProject();
-    cb.on(StartBuildCommand).resolves({ build: { id: BUILD_ID } });
-    await startBuild(ctxOp("op_a"), node, input);
-    await startBuild(ctxOp("op_a"), node, input);
-    await startBuild(ctxOp("op_b"), node, input);
-    const tokens = cb.commandCalls(StartBuildCommand).map((c) => c.args[0].input.idempotencyToken);
-    expect(tokens[0]).toBe(tokens[1]);
-    expect(tokens[2]).not.toBe(tokens[0]);
-    expect(tokens.join()).toMatch(/^zn-op_a-[0-9a-f]{6},zn-op_a-[0-9a-f]{6},zn-op_b-/);
-  });
-
-  it("sends no token without an operation id and sanitizes one that has odd characters", async () => {
-    installProject();
-    cb.on(StartBuildCommand).resolves({ build: { id: BUILD_ID } });
-    await startBuild(mkDriverContext({ operationId: undefined }), node, input);
-    expect(cb.commandCalls(StartBuildCommand)[0].args[0].input).not.toHaveProperty("idempotencyToken");
-    await startBuild(ctxOp("op with spaces/and;odd$chars"), node, input);
-    expect(cb.commandCalls(StartBuildCommand)[1].args[0].input.idempotencyToken).toMatch(/^zn-op-with-spaces-and-odd-chars-[0-9a-f]{6}$/);
+    await expect(startBuild(ctxOp(), node, input)).rejects.toMatchObject({ code: "build_launch_unconfirmed" });
+    expect(cb.calls()).toHaveLength(0);
+    expect(tagging.calls()).toHaveLength(0);
   });
 
   it.each([
@@ -387,32 +360,7 @@ describe("startBuild", () => {
     expect(cb.calls()).toHaveLength(0); expect(tagging.calls()).toHaveLength(0);
   });
 
-  it("refuses a project that does not carry this node's tags, and a missing project", async () => {
-    installProject({ tags: cbTags("build_pipeline/other") });
-    await expect(startBuild(ctxOp(), node, input)).rejects.toMatchObject({ name: "OperationRefused", message: expect.stringMatching(/does not carry the Zenith tags/) });
-    cb.reset();
-    tagging.reset();
-    tagging.on(GetResourcesCommand).resolves({ ResourceTagMappingList: [] });
-    await expect(startBuild(ctxOp(), node, input)).rejects.toMatchObject({ name: "OperationRefused", message: expect.stringMatching(/cannot find the build project/) });
-    expect(cb.commandCalls(StartBuildCommand)).toHaveLength(0);
-  });
 
-  it("refuses a project that names no source bucket", async () => {
-    installProject({ source: { type: "NO_SOURCE" } });
-    await expect(startBuild(ctxOp(), node, input)).rejects.toMatchObject({ message: expect.stringMatching(/names a source bucket|source bucket/) });
-  });
-
-  it("refuses non-S3 projects even when their location resembles a source bucket", async () => {
-    installProject({ source: { type: "GITHUB", location: "zn-acme-web-src-1a2b3c4d/zenith/env_1/bootstrap.zip" } });
-    await expect(startBuild(ctxOp(), node, input)).rejects.toMatchObject({ name: "OperationRefused" });
-    expect(cb.commandCalls(StartBuildCommand)).toHaveLength(0);
-  });
-
-  it("lets provider errors propagate for the activity to classify and retry", async () => {
-    installProject();
-    cb.on(StartBuildCommand).rejects(Object.assign(new Error("Rate exceeded"), { name: "ThrottlingException" }));
-    await expect(startBuild(ctxOp(), node, input)).rejects.toMatchObject({ name: "ThrottlingException" });
-  });
 });
 
 describe("waitForBuild", () => {

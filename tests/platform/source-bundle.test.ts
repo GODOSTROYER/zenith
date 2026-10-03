@@ -283,13 +283,15 @@ describe("customer source bucket uploads", () => {
     expect(await w.port.prepare(w.ctx, { service: w.service, source: { ...source, dockerfile: undefined } })).toEqual(a);
     expect(s3.commandCalls(PutObjectCommand)[1].args[0].input.Body).toEqual(s3.commandCalls(PutObjectCommand)[0].args[0].input.Body);
   });
-  it("starts CodeBuild with exactly the ZIP key and digest uploaded by C3", async () => {
+  it("keeps the prepared ZIP bound but refuses launch without durable authority", async () => {
     const w = fixture(); const prepared = await w.port.prepare(w.ctx, { service: w.service, source });
-    const id = "zenith-env-1-web:11111111-2222-3333-4444-555555555555";
-    cb.on(StartBuildCommand).resolves({ build: { id } });
-    await startBuild(w.ctx as DriverContext<AwsSession>, w.pipeline, { sourceS3Key: prepared.s3Key, sourceDigest: prepared.digest, externalId: w.pipeline.externalRef });
     const upload = s3.commandCalls(PutObjectCommand)[0].args[0].input;
-    expect(cb.commandCalls(StartBuildCommand)[0].args[0].input).toMatchObject({ sourceLocationOverride: `${upload.Bucket}/${upload.Key}`, environmentVariablesOverride: [{ name: "ZENITH_SOURCE_DIGEST", value: sha256Hex(upload.Body as Uint8Array), type: "PLAINTEXT" }] });
+    expect(prepared.s3Key).toBe(upload.Key);
+    expect(prepared.digest).toBe(sha256Hex(upload.Body as Uint8Array));
+    await expect(startBuild(w.ctx as DriverContext<AwsSession>, w.pipeline, {
+      sourceS3Key: prepared.s3Key, sourceDigest: prepared.digest, externalId: w.pipeline.externalRef, service: w.service,
+    })).rejects.toMatchObject({ code: "build_launch_unconfirmed" });
+    expect(cb.commandCalls(StartBuildCommand)).toHaveLength(0);
   });
   it("bounds ZIP output before uploading and keeps rejecting hostile source archives", async () => {
     const w = fixture(); const tar = writeTar(entries);

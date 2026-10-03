@@ -1,8 +1,8 @@
 /** Release adapters over native SDK helpers: contract evidence, synthetic sessions. */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { mockClient } from "aws-sdk-client-mock";
-import { BatchGetBuildsCommand, BatchGetProjectsCommand, CodeBuildClient } from "@aws-sdk/client-codebuild";
-import { DescribeRepositoriesCommand, ECRClient } from "@aws-sdk/client-ecr";
+import { CodeBuildClient } from "@aws-sdk/client-codebuild";
+import { ECRClient } from "@aws-sdk/client-ecr";
 import { DescribeServicesCommand, DescribeTaskDefinitionCommand, DescribeTasksCommand, ECSClient, RunTaskCommand, ListTasksCommand } from "@aws-sdk/client-ecs";
 import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/client-resource-groups-tagging-api";
 import { createAwsBuildPort, createAwsMigrationsPort, createAwsWorkloadsPort } from "@/lib/platform/release";
@@ -11,32 +11,18 @@ import { ACCOUNT, DIGEST, IMAGE, SERVICE_ARN, TD_ARN, service as fakeService, ta
 
 const cb = mockClient(CodeBuildClient), ecr = mockClient(ECRClient), ecs = mockClient(ECSClient), tagging = mockClient(ResourceGroupsTaggingAPIClient);
 const buildId = "zn-acme-web:00000000-0000-0000-0000-000000000001";
-const repo = `${ACCOUNT}.dkr.ecr.eu-west-1.amazonaws.com/zn-acme-web`;
 beforeEach(() => { cb.reset(); ecr.reset(); ecs.reset(); tagging.reset(); });
 afterAll(() => { cb.restore(); ecr.restore(); ecs.restore(); tagging.restore(); });
 
 describe("AWS build output adapter", () => {
-  const install = (over: { account?: string; workspace?: string; digest?: string; status?: "SUCCEEDED" | "TIMED_OUT" } = {}) => {
-    cb.on(BatchGetBuildsCommand).resolves({ builds: [{ id: buildId, projectName: "zn-acme-web", buildStatus: over.status ?? "SUCCEEDED", exportedEnvironmentVariables: [{ name: "ZENITH_IMAGE_DIGEST", value: over.digest ?? DIGEST }] }] });
-    cb.on(BatchGetProjectsCommand).resolves({ projects: [{ name: "zn-acme-web", tags: Object.entries({ ...CTX_TAGS, "zenith:workspace": over.workspace ?? CTX_TAGS["zenith:workspace"], "zenith:resource": "build_pipeline/web" }).map(([key, value]) => ({ key, value })), environment: { type: "LINUX_CONTAINER", image: "aws/codebuild/standard:7.0", computeType: "BUILD_GENERAL1_SMALL", environmentVariables: [{ name: "ZENITH_REPO_URL", value: over.account ? repo.replace(ACCOUNT, over.account) : repo, type: "PLAINTEXT" }] } }] });
-    ecr.on(DescribeRepositoriesCommand).resolves({ repositories: [{ repositoryUri: repo, repositoryName: "zn-acme-web" }] });
-  };
-  it("recovers the pinned repository from the tagged project and verifies ECR before returning a digest", async () => {
-    install();
-    expect(await createAwsBuildPort().waitForBuild(mkDriverContext(), { buildId }, { timeoutMs: 1000 })).toEqual({ status: "succeeded", digest: DIGEST, imageUri: IMAGE });
-    expect(ecr.commandCalls(DescribeRepositoriesCommand)).toHaveLength(1);
-  });
-  it("refuses a recovered project's foreign workspace or output account", async () => {
-    install({ workspace: "foreign" });
-    await expect(createAwsBuildPort().waitForBuild(mkDriverContext(), { buildId }, { timeoutMs: 1000 })).rejects.toThrow("outside this environment");
-    install({ account: "999999999999" });
-    await expect(createAwsBuildPort().waitForBuild(mkDriverContext(), { buildId }, { timeoutMs: 1000 })).rejects.toThrow("outside this AWS session");
+  it("refuses output recovery without canonical receipt authority before provider calls", async () => {
+    await expect(createAwsBuildPort().waitForBuild(mkDriverContext(), { buildId }, { timeoutMs: 1000 }))
+      .rejects.toMatchObject({ code: "build_launch_unconfirmed" });
+    expect(cb.calls()).toHaveLength(0);
     expect(ecr.calls()).toHaveLength(0);
   });
-  it("returns failed for an absent digest and timed_out for a timed-out build", async () => {
-    install({ digest: "bad" }); expect(await createAwsBuildPort().waitForBuild(mkDriverContext(), { buildId }, { timeoutMs: 1000 })).toMatchObject({ status: "failed" });
-    install({ status: "TIMED_OUT" }); expect(await createAwsBuildPort().waitForBuild(mkDriverContext(), { buildId }, { timeoutMs: 1000 })).toMatchObject({ status: "timed_out" });
-  });
+  // Positive output/digest and ownership readback contracts use actual PostgreSQL
+  // launch authority in codebuild-launch-authority.test.ts.
 });
 
 describe("AWS one-off migration adapter", () => {

@@ -9,10 +9,12 @@
  */
 
 import { describe, expect } from "vitest";
+import path from "node:path";
+import { Worker } from "@temporalio/worker";
 import { WorkflowFailedError } from "@temporalio/client";
 import { FAILURE_TYPES, SIGNALS, WORKFLOW_ID, WORKFLOW_TYPES, type DeployWorkflowInput, type WorkflowResult } from "@/lib/workflows/types";
 import { cancelOperation, signalApproval } from "@/lib/workflows/client";
-import { deployInput, findCredentialKeys, serverSuite, waitFor, waitForStatus, type Harness } from "./support";
+import { deployInput, findCredentialKeys, makeHarness, serverSuite, waitFor, waitForStatus, workflowBundlePath, type Harness } from "./support";
 
 const { scenario } = serverSuite("local", { concurrent: true });
 
@@ -388,8 +390,29 @@ describe("deploy: lease loss and mutating-step failures", () => {
     h.fake.failOn("buildArtifacts", { type: FAILURE_TYPES.stepFailed, message: "docker build exited 1" });
     const result = await h.run(() => runDeploy(h, deployInput()));
     expect(result.status).toBe("failed");
-    expect(result.error).toMatch(/Earlier steps had already changed the environment; nothing was rolled back/);
+    expect(result.error).toMatch(/build failed; it may have partially completed/);
     expect(h.fake.callsTo("deployWorkloads")).toHaveLength(0);
+  });
+
+  scenario("an unknown build launch outcome is uncertain and never automatically retried", async (h) => {
+    h.fake.failOn("buildArtifacts", { message: "launch response lost", nonRetryable: false });
+    const result = await h.run(() => runDeploy(h, deployInput()));
+    expect(result.status).toBe("uncertain");
+    expect(result.error).toMatch(/build did not complete cleanly and may have acted/);
+    expect(h.fake.callsTo("buildArtifacts")).toHaveLength(1);
+    expect(h.fake.callsTo("deployWorkloads")).toHaveLength(0);
+  });
+
+  scenario("pre-patch build retry history retains its original commands and failed classification on replay", async (h) => {
+    const legacy = makeHarness(h.server, await workflowBundlePath(path.resolve(__dirname, "fixtures/legacy-build-deploy.ts")), h.fake);
+    h.fake.failOn("buildArtifacts", { message: "legacy build error", nonRetryable: false });
+    const handle = await legacy.run(async () => {
+      const handle = await start(legacy, deployInput());
+      expect((await handle.result() as WorkflowResult).status).toBe("failed");
+      return handle;
+    });
+    expect(h.fake.callsTo("buildArtifacts")).toHaveLength(3);
+    await Worker.runReplayHistory({ workflowBundle: { codePath: await workflowBundlePath() } }, await handle.fetchHistory(), handle.workflowId);
   });
 });
 
@@ -475,6 +498,35 @@ describe("deploy: cancellation", () => {
     const suspicious = h.fake.names().filter((n) => /destroy|delete|teardown|rollback|remove/i.test(n));
     expect(suspicious).toEqual([]);
   };
+
+  scenario("cancelling a pending build retains an uncertain accepted writer", async (h) => {
+    const held = h.fake.hold("buildArtifacts");
+    const input = deployInput();
+    const result = await h.run(async () => {
+      const handle = await start(h, input);
+      await held.started;
+      await cancelOperation(input.operationId, { client: h.client });
+      return (await handle.result()) as WorkflowResult;
+    });
+    expect(result.status).toBe("uncertain");
+    expect(result.error).toMatch(/accepted provider build may still be running/);
+    expect(h.fake.callsTo("buildArtifacts")).toHaveLength(1);
+    expect(h.fake.callsTo("deployWorkloads")).toHaveLength(0);
+    expect(h.fake.callsTo("releaseLease")).toHaveLength(1);
+    noDestroy(h);
+  });
+
+  scenario("pre-patch build cancellation history retains its cancelled outcome on replay", async (h) => {
+    const legacy = makeHarness(h.server, await workflowBundlePath(path.resolve(__dirname, "fixtures/legacy-build-deploy.ts")), h.fake);
+    const held = h.fake.hold("buildArtifacts"), input = deployInput();
+    const handle = await legacy.run(async () => {
+      const handle = await start(legacy, input); await held.started;
+      await cancelOperation(input.operationId, { client: legacy.client });
+      expect((await handle.result() as WorkflowResult).status).toBe("cancelled");
+      return handle;
+    });
+    await Worker.runReplayHistory({ workflowBundle: { codePath: await workflowBundlePath() } }, await handle.fetchHistory(), handle.workflowId);
+  });
 
   scenario("a cancel signal during deploy cancels the activity, marks cancelled, releases the lease, destroys nothing", async (h) => {
     const held = h.fake.hold("deployWorkloads");

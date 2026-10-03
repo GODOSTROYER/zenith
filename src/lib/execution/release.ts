@@ -12,8 +12,10 @@
  *   evidence. Services with an `image` artifact pass through; an image in the
  *   connection's own ECR is pinned to a digest, anything else is kept as written
  *   and reported NOT pinned (`digest: ""`).
- *   A build creates content-addressed images and changes nothing in the
- *   environment, so it may be retried and its failures are clean failures.
+ *   AWS launches require a permanent operation/service claim before StartBuild.
+ *   Unknown dispatch outcomes are unconfirmed failures, never automatic retries.
+ *   A provider-confirmed terminal failure stops continuation; it does not prove
+ *   customer code had no external effects or authorize cleanup.
  *
  * deployWorkloads — first sync current vault values under a separate exact-resource
  * secret.write grant. A refused or partial sync stops the rollout. Then, for
@@ -67,20 +69,29 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
 
       await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
       const images = await withKeepAlive(rt, { lease, detail: "build artifacts", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, (signal) =>
-        withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, (session) =>
-          mapLimit(workloads, 3, async (node) => {
-            const artifact = artifactOf(node);
-            const ctx = driverContext(rt, ec, session, signal, { node, fence: lease });
-            if (!artifact || artifact.type === "blueprint") {
-              throw new StepFailedError(`${node.address} has no runnable artifact (${artifact ? "a blueprint source" : "none"}).`);
-            }
-            if (artifact.type === "image") {
-              const pinned = await pinImage(session, artifact.ref, signal);
-              if (pinned.note) rt.log("info", "image left unpinned", { service: node.address, note: pinned.note });
-              return { service: node.address, imageUri: pinned.imageUri, digest: pinned.digest };
-            }
-            return buildOne(rt, ec, graph, node, artifact, ctx);
-          })
+        withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
+          const failures: unknown[] = [];
+          const built = await mapLimit(workloads, 3, async (node) => {
+            // Stop new builds, await every already-started sibling, and retain
+            // uncertainty even when a definitive failure arrived first.
+            if (failures.length) return undefined;
+            try {
+              const artifact = artifactOf(node);
+              const ctx = driverContext(rt, ec, session, signal, { node, fence: lease });
+              if (!artifact || artifact.type === "blueprint") {
+                throw new StepFailedError(`${node.address} has no runnable artifact (${artifact ? "a blueprint source" : "none"}).`);
+              }
+              if (artifact.type === "image") {
+                const pinned = await pinImage(session, artifact.ref, signal);
+                if (pinned.note) rt.log("info", "image left unpinned", { service: node.address, note: pinned.note });
+                return { service: node.address, imageUri: pinned.imageUri, digest: pinned.digest };
+              }
+              return await buildOne(rt, ec, graph, node, artifact, ctx);
+            } catch (error) { failures.push(error); return undefined; }
+          });
+          if (failures.length) throw failures.find(error => !(error instanceof StepFailedError)) ?? failures[0];
+          return built.filter((result): result is NonNullable<typeof result> => result !== undefined);
+        }
         )
       );
       await rt.d.leases.assertFence(lease.scope, lease.fenceToken);

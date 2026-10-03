@@ -9,6 +9,7 @@ import { DescribeImagesCommand, ECRClient } from "@aws-sdk/client-ecr";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { LeaseLostError, StepFailedError } from "@/lib/execution/errors";
+import { BuildLaunchError } from "@/lib/controlplane/db/repos/build-launches";
 import { CANARY_SECRET, ENV, OP, builtManifest, migratingManifest, webDbManifest } from "./fakes/fixtures";
 import { createWorld, type World, type WorldOptions } from "./fakes/world";
 
@@ -51,7 +52,7 @@ describe("buildArtifacts", () => {
     expect(row.simulated).toBe(false);
   });
 
-  it("starts each build with a stable idempotency key, so a retried activity cannot double-build", async () => {
+  it("passes stable port keys; provider launch deduplication is verified separately against PostgreSQL", async () => {
     const w = world();
     w.product.setManifest(builtManifest());
     const lease = await ready(w);
@@ -60,6 +61,33 @@ describe("buildArtifacts", () => {
     expect(w.build.started).toHaveLength(2);
     expect(w.build.started[0].idempotencyKey).toBe(w.build.started[1].idempotencyKey);
     expect(w.evidence.ofKind("build")).toHaveLength(1);
+  });
+
+  it.each(["lost-response", "polling-deadline"] as const)("retains a later parallel %s uncertainty over an earlier definitive failure and starts no fourth build", async kind => {
+    const w=world(), manifest=builtManifest();
+    manifest.services=["a","b","c","d"].map(name=>({...manifest.services[0],id:`svc-${name}`,name}));
+    w.product.setManifest(manifest);
+    const original=w.build.startBuild.bind(w.build);
+    let allStarted!:()=>void, firstFailure!:()=>void;
+    const started=new Promise<void>(resolve=>{allStarted=resolve;});
+    const failed=new Promise<void>(resolve=>{firstFailure=resolve;});
+    const uncertainty=kind==="lost-response" ? new BuildLaunchError() : new Error("Provider polling ended before terminal readback.");
+    w.build.startBuild=async(ctx,input)=>{
+      const handle=await original(ctx,input);
+      if(w.build.started.length===3) allStarted();
+      await started;
+      if(input.service.address==="container_service/a") {firstFailure();throw new StepFailedError("Provider confirmed the first build failed.");}
+      await failed;
+      // Let the first rejection arrive before this already-started sibling's
+      // later unknown result; classification must not depend on that ordering.
+      await Promise.resolve(); await Promise.resolve();
+      if(input.service.address==="container_service/b") throw uncertainty;
+      return handle;
+    };
+    const lease=await ready(w);
+    await expect(w.activities.buildArtifacts({operationId:OP,lease})).rejects.toBe(uncertainty);
+    expect(w.build.started.map(b=>b.service)).toEqual(["container_service/a","container_service/b","container_service/c"]);
+    expect(w.workloads.deployed).toHaveLength(0);
   });
 
   it.each([

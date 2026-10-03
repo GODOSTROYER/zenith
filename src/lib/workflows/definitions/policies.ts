@@ -54,8 +54,10 @@ export const MAX_DETAIL_CHARS = 500;
  * step has been entered, a later lost lease is `uncertain` too, because the
  * environment is known to have been touched and another writer may now be acting.
  *
- * `build` is `false` on purpose: it produces content-addressed images and does
- * not touch the environment. `plan`, `final_plan`, `policy`, `validate`,
+ * `build` remains false for histories predating the durable build patch.
+ * New build histories use the explicit buildMayAct override: CodeBuild runs
+ * customer code and can retain an accepted write after a lost response.
+ * `plan`, `final_plan`, `policy`, `validate`,
  * `verify_*`, `observe` and the lease/approval bookkeeping are reads.
  *
  * Typed as an exhaustive Record so adding a StepName forces a decision here.
@@ -137,6 +139,9 @@ const mutating = (startToCloseTimeout: string): ActivityOptions => ({
   retry: MUTATING_RETRY,
   cancellationType: ActivityCancellationType.WAIT_CANCELLATION_COMPLETED,
 });
+
+/** Selected only behind the durable-build-launch-v1 Temporal patch. */
+export const DURABLE_BUILD_ACTIVITY_OPTIONS: ActivityOptions = mutating("45m");
 
 export type ActivityName = keyof ExecutionActivities | keyof ReconcileActivities;
 

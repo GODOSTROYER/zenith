@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { ActivityFailure, ApplicationFailure, CancelledFailure, RetryState, TimeoutFailure, TimeoutType } from "@temporalio/common";
 import { classifyFailure, describeError, failureTypeOf, redactDetail } from "@/lib/workflows/definitions/failures";
-import { ACTIVITY_OPTIONS, MAX_DETAIL_CHARS, STEP_MAY_HAVE_ACTED } from "@/lib/workflows/definitions/policies";
+import { ACTIVITY_OPTIONS, DURABLE_BUILD_ACTIVITY_OPTIONS, MAX_DETAIL_CHARS, STEP_MAY_HAVE_ACTED } from "@/lib/workflows/definitions/policies";
 import { FAILURE_TYPES, type StepName } from "@/lib/workflows/types";
 
 const wrap = (cause: Error, activityType = "someActivity"): ActivityFailure =>
@@ -55,6 +55,15 @@ const TABLE: Row[] = [
 ];
 
 describe("classifyFailure: the failure -> status table", () => {
+  it("retains unconfirmed patched build errors and timeouts as uncertain without changing legacy classification", () => {
+    for (const err of [plain("launch response lost"), timeout(), typed(FAILURE_TYPES.leaseLost)]) {
+      expect(classifyFailure({ step: "build", err, mutationStarted: false, buildMayAct: true }).status).toBe("uncertain");
+    }
+    expect(classifyFailure({ step: "build", err: plain(), mutationStarted: false }).status).toBe("failed");
+    const confirmed = classifyFailure({ step: "build", err: typed(FAILURE_TYPES.stepFailed), mutationStarted: true, buildMayAct: true });
+    expect(confirmed.status).toBe("failed");
+    expect(confirmed.message).toMatch(/may have partially completed/);
+  });
   it.each(TABLE)("$name -> $status", ({ step, mutationStarted, err, status, message }) => {
     const result = classifyFailure({ step, err, mutationStarted });
     expect(result.status).toBe(status);
@@ -82,6 +91,11 @@ describe("classifyFailure: the failure -> status table", () => {
 });
 
 describe("the may-have-acted table and retry policies (policies.ts)", () => {
+  it("gives the patched build one attempt and waits for cancellation while retaining historical build options", () => {
+    expect(DURABLE_BUILD_ACTIVITY_OPTIONS).toMatchObject({ startToCloseTimeout: "45m", heartbeatTimeout: "60s", cancellationType: "WAIT_CANCELLATION_COMPLETED", retry: { maximumAttempts: 1 } });
+    expect(ACTIVITY_OPTIONS.buildArtifacts.retry?.maximumAttempts).toBe(3);
+    expect(ACTIVITY_OPTIONS.buildArtifacts.cancellationType).toBeUndefined();
+  });
   it("marks exactly the steps that change something outside the workflow", () => {
     const acts: StepName[] = ["apply_network", "apply_data", "apply_infrastructure", "publish", "deploy", "secrets", "ingress", "dns_tls", "migrate", "execute_capability"];
     for (const step of acts) expect(STEP_MAY_HAVE_ACTED[step], step).toBe(true);

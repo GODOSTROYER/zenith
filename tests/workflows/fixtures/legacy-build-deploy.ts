@@ -1,3 +1,4 @@
+/** Frozen pre-durable-build deploy command shape from 356b7d0, replay fixture only. */
 /**
  * infrastructureDeployWorkflow — the deploy step sequence (spec §16):
  *
@@ -21,14 +22,10 @@
  * the workflow waits for one. Policy is authoritative, never the hint.
  */
 
-import { patched, proxyActivities } from "@temporalio/workflow";
-import type { DeployWorkflowInput, ExecutionActivities, PlanSummary, WorkflowResult } from "../types";
-import { activities } from "./activities";
-import { redactDetail } from "./failures";
-import { OperationRun } from "./runtime";
-import { DURABLE_BUILD_ACTIVITY_OPTIONS } from "./policies";
-
-const durableBuild = proxyActivities<Pick<ExecutionActivities, "buildArtifacts">>(DURABLE_BUILD_ACTIVITY_OPTIONS);
+import type { DeployWorkflowInput, PlanSummary, WorkflowResult } from "../../../src/lib/workflows/types";
+import { activities } from "../../../src/lib/workflows/definitions/activities";
+import { redactDetail } from "../../../src/lib/workflows/definitions/failures";
+import { OperationRun } from "../../../src/lib/workflows/definitions/runtime";
 
 const DEPLOY_STEPS = [
   "validate",
@@ -128,9 +125,7 @@ export async function infrastructureDeployWorkflow(input: DeployWorkflowInput): 
 
     let images: { service: string; imageUri: string; digest: string }[] = [];
     if (input.build) {
-      const durable = patched("durable-build-launch-v1");
-      if (durable) run.enableDurableBuild();
-      const built = await run.step("build", () => (durable ? durableBuild : activities).buildArtifacts({ operationId, lease: run.requireLease() }), (r) => `${r.images.length} image(s)`);
+      const built = await run.step("build", () => activities.buildArtifacts({ operationId, lease: run.requireLease() }), (r) => `${r.images.length} image(s)`);
       images = built.images;
     } else {
       await run.skip("build", "images are pinned by the manifest");

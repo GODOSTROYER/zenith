@@ -104,6 +104,8 @@ export class OperationRun {
   private lease: LeaseRef | undefined;
   /** latches once a step that may have acted has been entered */
   private mutationStarted = false;
+  private buildMayAct = false;
+  private buildUnconfirmed = false;
   private readonly preserveMutationUncertaintyOnCancellation: boolean;
   private approvalSignals = 0;
   private cancelRequested = false;
@@ -173,6 +175,9 @@ export class OperationRun {
 
   /* -------------------------------- steps -------------------------------- */
 
+  /** Called only by the versioned deploy branch, preserving historical replay. */
+  enableDurableBuild(): void { this.buildMayAct = true; }
+
   /**
    * Run one step: renew the lease, record running, run `fn`, record the
    * outcome. A failure is classified into an `OperationHalt` (see failures.ts);
@@ -187,7 +192,8 @@ export class OperationRun {
         throw await this.failed("lease", err);
       }
     }
-    if (STEP_MAY_HAVE_ACTED[step]) this.mutationStarted = true;
+    if (STEP_MAY_HAVE_ACTED[step] || (step === "build" && this.buildMayAct)) this.mutationStarted = true;
+    if (step === "build" && this.buildMayAct) this.buildUnconfirmed = true;
     await this.mark(step, "running");
     let result: T;
     try {
@@ -195,6 +201,7 @@ export class OperationRun {
     } catch (err) {
       throw await this.failed(step, err);
     }
+    if (step === "build") this.buildUnconfirmed = false;
     // The step finished; a cancellation that arrives now must not hide that.
     await CancellationScope.nonCancellable(() => this.mark(step, "done", describe?.(result)));
     return result;
@@ -224,7 +231,7 @@ export class OperationRun {
       await CancellationScope.nonCancellable(() => this.mark(step, "failed", err.message));
       return err;
     }
-    const classified = classifyFailure({ step, err, mutationStarted: this.mutationStarted });
+    const classified = classifyFailure({ step, err, mutationStarted: this.mutationStarted, buildMayAct: this.buildMayAct });
     await CancellationScope.nonCancellable(() => this.mark(step, "failed", classified.message));
     return new OperationHalt(classified.status, classified.message);
   }
@@ -340,6 +347,9 @@ export class OperationRun {
   }
 
   private outcomeOf(err: unknown): Outcome {
+    if (this.buildUnconfirmed && (isCancellation(err) || (err instanceof OperationHalt && err.status === "cancelled"))) {
+      return { status: "uncertain", error: "Cancellation stopped the build activity; an accepted provider build may still be running. Inspect its retained launch and provider receipt before any further write." };
+    }
     if (this.preserveMutationUncertaintyOnCancellation && this.mutationStarted
       && (isCancellation(err) || (err instanceof OperationHalt && err.status === "cancelled"))) {
       return { status: "uncertain", error: "Cancellation stopped this repair after an apply attempt; its outcome is unconfirmed. Inspect this operation before any further write." };

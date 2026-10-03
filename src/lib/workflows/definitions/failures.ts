@@ -103,12 +103,14 @@ export interface ClassifyInput {
   err: unknown;
   /** an earlier step that may have acted has been entered */
   mutationStarted: boolean;
+  /** Opt-in for the patched build branch; omitted for historical replay. */
+  buildMayAct?: boolean;
 }
 
-export function classifyFailure({ step, err, mutationStarted }: ClassifyInput): ClassifiedFailure {
+export function classifyFailure({ step, err, mutationStarted, buildMayAct = false }: ClassifyInput): ClassifiedFailure {
   const failureType = failureTypeOf(err);
   const raw = describeError(err);
-  const stepMayAct = STEP_MAY_HAVE_ACTED[step];
+  const stepMayAct = STEP_MAY_HAVE_ACTED[step] || (step === "build" && buildMayAct);
   const base = { failureType };
   const where = step === "lease" ? "lease renewal" : step;
   const earlier = mutationStarted && !stepMayAct ? " Earlier steps had already changed the environment; nothing was rolled back." : "";
@@ -130,7 +132,7 @@ export function classifyFailure({ step, err, mutationStarted }: ClassifyInput): 
         status: "failed",
         message: isPlanApplyStep(step)
           ? `apply failed (partial apply; reconcile will observe the environment). (${raw})`
-          : STEP_MAY_HAVE_ACTED[step]
+          : stepMayAct
             ? `${step} failed; it may have partially completed and reconcile will observe the environment. (${raw})`
             : `${step} failed.${earlier} (${raw})`,
       };

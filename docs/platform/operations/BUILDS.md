@@ -142,6 +142,75 @@ object is checked against the bundle. Both use scoped, digest-addressed keys
 `src/lib/providers/aws/drivers/compute/codebuild-project.ts`; Cloud Build's
 storage source is in `src/lib/providers/gcp/drivers/build/build-api.ts`.
 
+AWS CodeBuild dispatch uses `platform.build_launches` (schema 8) on the canonical
+PostgreSQL authority. Before `StartBuild`, one permanent operation/workload claim
+commits under the live environment fence and running operation lease, with the
+operation's proposal/input/plan digests and original applied-plan use. It also
+checks the verified environment account and current managed pipeline/workload
+specs. The claim binds account, region, project ARN, settings digest, exact
+digest-addressed source key and its S3 checksum. Missing authority refuses; there
+is no production memory/file fallback. Settings and environment values are
+hashed in memory, never copied into the launch journal.
+
+After all potentially blocking fence, operation, resource and retained-receipt
+locks finish, the claim's transaction-bound canonical execution broker reevaluates
+current policy and approver roles against authoritative plan evidence. Its private
+snapshot binds exact human approval IDs, required distinct count, current round,
+proposal and plan. The final database claim rechecks consumed approvals, expiry
+and absence of a rejection using the database clock after resource lock waits.
+Expired approval cannot launch a new build while its operation and fence remain
+live. Policy denial, a raised approval count or a revoked approver role during a
+lock wait refuses the launch. Callers cannot supply approval booleans, callbacks
+or dispatch proofs.
+
+Only the claim's first worker may send `StartBuild`; its SDK client makes one
+attempt and CodeBuild automatic retries are disabled. A returned build ID and
+provider request ID are retained even if cancellation or lease loss arrives
+after acceptance. A second worker can read an acknowledged build, but an intent
+without an acknowledgement remains unconfirmed forever. Lease/provider-token
+expiry never permits another dispatch. A lost response or worker crash is not
+evidence that AWS rejected the call. Inspect the retained operation/workload
+record and provider account; do not blindly retry, delete the inventory, or
+launch a compensating build.
+
+Fresh `BatchGetProjects` and `BatchGetBuilds` reads verify exact ownership,
+account/region/project, bound source and digest, and unchanged settings. A
+second immutable digest compares configuration returned by the build itself:
+source configuration/version, environment, service role, encryption key, VPC,
+timeouts, cache, filesystems and secondary sources. Only primary source location
+and the single `ZENITH_SOURCE_DIGEST` override are validated separately. Missing
+or duplicate environment fields refuse. Restoring a changed project cannot hide
+different settings in the executed build. These fields come from AWS's
+[Build API](https://docs.aws.amazon.com/codebuild/latest/APIReference/API_Build.html)
+and [Project API](https://docs.aws.amazon.com/codebuild/latest/APIReference/API_Project.html).
+The release image route supports `NO_ARTIFACTS` without secondary artifacts;
+other modes and any returned build artifact output refuse. This adapter currently
+supports only commercial `arn:aws` and `amazonaws.com` identities; GovCloud and
+China partitions require a separate reviewed contract.
+Returned automatic retry limits or ancestry that contradict the single launch
+refuse certainty. The release output URI comes from the verified build's executed
+environment; a later mutable project read cannot select a different repository.
+
+A terminal receipt requires `buildComplete`, terminal status, provider end time
+and read request ID; an operation/UI status or polling deadline is insufficient.
+New deploy histories select a Temporal patch with one build-activity attempt and
+wait for activity cancellation. Unknown outcomes and cancellation during an
+unconfirmed build remain `uncertain`. A provider-confirmed failed build stops
+deployment continuation and records failure; customer code may already have
+made external changes.
+All already-started parallel builds settle before reporting failure; any
+unconfirmed sibling takes precedence over a definitive failed sibling.
+
+This contract does not make PostgreSQL and AWS atomic, pin a mutable Git ref to
+its originally reviewed contents, or prove the downloaded source/project could
+not change between independent reads and dispatch. It does not inventory builds
+started before schema 8 or clear sessions, runner effects, other provider writers,
+or cleanup authority. Full authoritative quiescence and explicitly approved
+cleanup remain open; the existing partial-cleanup refusal remains in effect.
+Live IAM access, original source approval and atomic source availability remain
+unverified. PostgreSQL race/crash source tests and SDK readback contracts provide local
+verification only after they run; live CodeBuild acceptance remains unverified.
+
 Default Azure composition passes C3's `readAzureSource` to `createReleasePorts`
 as `azure.readSource`. The same C3 preparation call dispatches AWS ZIP and
 GCP/Azure tar.gz. Azure returns only the digest, scoped object key, account/container

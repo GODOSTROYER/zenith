@@ -135,8 +135,16 @@ func TestParseRequestRefusals(t *testing.T) {
 	for _, name := range []string{"Authorization", "Host", "Date", "x-date", "x-content-sha256", "Content-Length", "Content-Type", "Signature", "Cookie", "Proxy-Foo", "User-Agent"} {
 		cases["header-"+name] = map[string]any{"headers": map[string]string{name: "synthetic"}}
 	}
-	for _, path := range []string{"/", "/a//b", "/a/..", "/a/%2e%2e", "/a/%2F", "/a/%5c", "/a/%00", "/a/%ff", "/a?query", "/a#fragment", "/a\\b", "/a b", "/café", "/" + strings.Repeat("x", 2048)} {
-		cases["path-"+path] = map[string]any{"path": path}
+	// Fixed labels preserve scenario identity without logging hostile input or
+	// treating slash-bearing values as nested Go test names.
+	for name, path := range map[string]string{
+		"root": "/", "double-slash": "/a//b", "parent": "/a/..",
+		"encoded-parent": "/a/%2e%2e", "encoded-slash": "/a/%2F", "encoded-backslash": "/a/%5c",
+		"encoded-null": "/a/%00", "encoded-invalid-utf8": "/a/%ff", "query": "/a?query",
+		"fragment": "/a#fragment", "backslash": "/a\\b", "space": "/a b",
+		"unicode": "/café", "overlong": "/" + strings.Repeat("x", 2048),
+	} {
+		cases["path-"+name] = map[string]any{"path": path}
 	}
 	for name, patch := range cases {
 		t.Run(name, func(t *testing.T) {

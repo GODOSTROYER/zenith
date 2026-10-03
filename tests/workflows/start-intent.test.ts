@@ -1,10 +1,12 @@
 /** Owned real Temporal frontend plus actual SQL/Broker; transport faults are explicitly injected after actual acceptance/commit. */
-import { randomBytes } from "node:crypto";
-import { Client, Connection } from "@temporalio/client";
+import { randomBytes, randomUUID } from "node:crypto";
+import { Client, Connection, isGrpcServiceError, WorkflowNotFoundError } from "@temporalio/client";
+import { TestWorkflowEnvironment } from "@temporalio/testing";
+import { DefaultLogger, Runtime, makeTelemetryFilterString } from "@temporalio/worker";
 import { temporal } from "@temporalio/proto";
 import { msToTs } from "@temporalio/common/lib/time";
 import { encodeMapToPayloads, encodeToPayloadsWithContext } from "@temporalio/common/lib/internal-non-workflow/codec-helpers";
-import { afterAll, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { digest } from "@/lib/controlplane/digest";
 import { openPlatformDb, type PlatformDbHandle } from "@/lib/controlplane/db";
 import { migration0012WorkflowStartIntents } from "@/lib/controlplane/db/migrations/0012_workflow_start_intents";
@@ -17,11 +19,45 @@ import { startDayTwo } from "@/lib/workflows/client";
 import type { WorkflowResult } from "@/lib/workflows/types";
 import { approveAs, closeSharedPgliteAfterAll, makeHarness as brokerHarness, PG_URL, proposeOk, requestFor,
   requireApproval, scriptedEngine, user } from "../capabilities/support";
-import { serverSuite, waitFor, type Harness as TemporalHarness } from "./support";
+import { findTemporalCli, makeHarness as temporalHarness, workflowBundlePath, waitFor,
+  type Harness as TemporalHarness, type ScenarioBody, type TestServer } from "./support";
 
 if (process.env.ZENITH_TEST_WORKFLOW_START_REQUIRED === "1" && !PG_URL) throw new Error("Workflow start acceptance requires an owned PostgreSQL database.");
 closeSharedPgliteAfterAll();
-const {scenario}=serverSuite("local");
+// This file needs the real v1.32 namespace feature, distinct from the Java time-skipping server.
+// Immutable server provenance and genuine readback requirements are in the owned handoff.
+function intentEngineSuite() {
+  let server:TestServer|undefined, bundle="";
+  const skipReason="Owned Temporal CLI is unavailable.";
+  beforeAll(async()=>{
+    const cli=findTemporalCli();
+    if(!cli) {
+      if(process.env.ZENITH_TEST_TEMPORAL === "1" || process.env.ZENITH_TEST_WORKFLOW_START_REQUIRED === "1") throw new Error(skipReason);
+      return;
+    }
+    try {
+      Runtime.install({logger:new DefaultLogger("ERROR"),telemetryOptions:{logging:{
+        filter:makeTelemetryFilterString({core:"ERROR",other:"ERROR"}),forward:{}}}});
+    } catch { /* The shared process may already have its SDK Runtime. */ }
+    const env=await TestWorkflowEnvironment.createLocal({server:{
+      executable:{type:"existing-path",path:cli},ip:"127.0.0.1",namespace:`zenith-start-intents-${randomUUID()}`,
+      extraArgs:["--dynamic-config-value","frontend.WorkflowTimeSkippingEnabled=true"],
+    }});
+    if(/:7233$/.test(env.address)) {
+      await env.teardown();throw new Error("Owned intent engine refuses the default Temporal port.");
+    }
+    server={env,mode:"local-cli",timeSkipping:env.supportsTimeSkipping,teardown:()=>env.teardown()};
+    bundle=await workflowBundlePath();
+  },240_000);
+  afterAll(async()=>{await server?.teardown();});
+  return {scenario(name:string,body:ScenarioBody,timeoutMs=60_000) {
+    it(name,async ctx=>{
+      if(!server)return ctx.skip(skipReason);
+      await body(temporalHarness(server,bundle));
+    },timeoutMs);
+  }};
+}
+const {scenario}=intentEngineSuite();
 let independentPg: Promise<PlatformDbHandle>|undefined;
 let observerPg: Promise<PlatformDbHandle>|undefined;
 afterAll(async()=>{await (await independentPg)?.close();await (await observerPg)?.close();});
@@ -227,7 +263,12 @@ for(const {name,settings} of nondefaultStarts) scenario(`actual Temporal raw Sta
     const original=await startRawOriginal(f,settings);
     // The real server must retain the altered field. A dropped/unsupported setting is not a passing refusal test.
     if(settings.priority)expect(original.attributes.priority).toMatchObject(settings.priority);
-    if(settings.timeSkippingConfig)expect(original.attributes.timeSkippingConfig).toMatchObject(settings.timeSkippingConfig);
+    if(settings.timeSkippingConfig) {
+      expect(original.attributes.timeSkippingConfig).toBeDefined();
+      expect(original.attributes.timeSkippingConfig).toMatchObject(settings.timeSkippingConfig);
+      // The pinned frontend fills an unset/nonpositive count even when enabled is false.
+      expect(original.attributes.timeSkippingConfig?.maxSessionSkipCount).toBe(settings.timeSkippingConfig.maxSessionSkipCount ?? 200);
+    }
     if(settings.continuedFailure)expect(original.attributes.continuedFailure).toMatchObject(settings.continuedFailure);
     if(settings.lastCompletionResult) {
       const actual=original.attributes.lastCompletionResult?.payloads?.[0];
@@ -244,13 +285,26 @@ for(const {name,settings} of nondefaultStarts) scenario(`actual Temporal raw Sta
 scenario("actual Temporal raw Start with explicit parentless priority and disabled time-skipping defaults confirms the same original",async t=>{
   const f=await fixture(t);
   try {
-    const original=await startRawOriginal(f,{priority:{priorityKey:0,fairnessKey:"",fairnessWeight:1},
-      timeSkippingConfig:{enabled:false,disablePropagation:false,maxSessionSkipCount:0}});
+    // Genuine absence is the disabled default. An explicit zero config is populated by the server.
+    const original=await startRawOriginal(f,{priority:{priorityKey:0,fairnessKey:"",fairnessWeight:1}});
+    expect(original.attributes.priority).toMatchObject({priorityKey:0,fairnessKey:"",fairnessWeight:1});
+    expect(original.attributes.timeSkippingConfig ?? null).toBeNull();
     expect(original.attributes.continuedFailure ?? null).toBeNull();expect(original.attributes.lastCompletionResult ?? null).toBeNull();
     const spy=vi.spyOn(f.client2.workflowService,"startWorkflowExecution");
     const confirmed=await f.second.start("dayTwo",f.input);
     expect(confirmed.runId).toBe(original.runId);expect(confirmed.intent.phase).toBe("acknowledged");expect(spy).not.toHaveBeenCalled();
   } finally {await f.close();}
+  // A separate owning operation proves explicit disabled/zero was accepted and materialized,
+  // while the conservative production confirmation still refuses it without another Start.
+  const explicit=await fixture(t);
+  try {
+    const original=await startRawOriginal(explicit,{timeSkippingConfig:{enabled:false,disablePropagation:false,maxSessionSkipCount:0}});
+    expect(original.attributes.timeSkippingConfig).toBeDefined();
+    expect(original.attributes.timeSkippingConfig).toMatchObject({enabled:false,disablePropagation:false,maxSessionSkipCount:200});
+    const retained=await inventory(explicit),spy=vi.spyOn(explicit.client2.workflowService,"startWorkflowExecution");
+    await expect(explicit.second.start("dayTwo",explicit.input)).rejects.toBeInstanceOf(WorkflowStartUnconfirmedError);
+    expect(await inventory(explicit)).toEqual(retained);expect(retained?.phase).toBe("attempted");expect(spy).not.toHaveBeenCalled();
+  } finally {await explicit.close();}
 });
 
 // Supplementary pinned-wire response models, not provider acceptance receipts.
@@ -373,11 +427,34 @@ scenario("retention-equivalent deletion of this owned closed Temporal history pr
   try {
     await t.run(async()=>{
       const original=await f.starter.start("dayTwo",f.input);await original.handle.result();
-      await f.client.workflowService.deleteWorkflowExecution({namespace:f.config.namespace,workflowExecution:{workflowId:original.workflowId,runId:original.runId}});
+      const execution={workflowId:original.workflowId,runId:original.runId};
+      const independent=f.client2.workflow.getHandle(original.workflowId,original.runId);
+      const before=await f.client2.withDeadline(Date.now()+2_000,()=>f.client2.workflowService.getWorkflowExecutionHistory({
+        namespace:f.config.namespace,execution,maximumPageSize:1,
+      }));
+      expect(before.history?.events?.[0]?.workflowExecutionStartedEventAttributes?.originalExecutionRunId).toBe(original.runId);
+      expect((await independent.describe()).runId).toBe(original.runId);
+      await f.client.withDeadline(Date.now()+2_000,()=>f.client.workflowService.deleteWorkflowExecution({namespace:f.config.namespace,workflowExecution:execution}));
+      // Delete acknowledges a queued server task. Only independent Describe AND raw History
+      // readback on this still-existing namespace prove removal of the exact owned run.
+      const deletionDeadline=Date.now()+30_000;
       await waitFor("owned history removal",async()=>{
-        try {await f.client2.workflow.getHandle(original.workflowId,original.runId).describe();return false;}
-        catch(error){return error instanceof Error && error.name === "WorkflowNotFoundError";}
-      },5000);
+        if(Date.now()>=deletionDeadline)throw new Error("Owned Temporal history was not independently removed before its deadline.");
+        return f.client2.withDeadline(Math.min(deletionDeadline,Date.now()+2_000),async()=>{
+          const namespace=await f.client2.workflowService.describeNamespace({namespace:f.config.namespace});
+          expect(namespace.namespaceInfo?.name).toBe(f.config.namespace);
+          let descriptionAbsent=false,historyAbsent=false;
+          try {await independent.describe();} catch(error) {
+            if(!(error instanceof WorkflowNotFoundError))throw new Error("Owned Temporal deletion Describe did not prove exact absence.");
+            descriptionAbsent=true;
+          }
+          try {await f.client2.workflowService.getWorkflowExecutionHistory({namespace:f.config.namespace,execution,maximumPageSize:1});} catch(error) {
+            if(!isGrpcServiceError(error) || error.code !== 5)throw new Error("Owned Temporal deletion History did not prove exact absence.");
+            historyAbsent=true;
+          }
+          return descriptionAbsent && historyAbsent;
+        });
+      },30_000);
       const spy=vi.spyOn(f.client2.workflowService,"startWorkflowExecution");
       await expect(f.second.start("dayTwo",f.input)).rejects.toBeInstanceOf(WorkflowStartUnconfirmedError);
       expect((await inventory(f))?.phase).toBe("acknowledged");expect((await inventory(f))?.run_id).toBe(original.runId);

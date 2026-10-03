@@ -1,16 +1,129 @@
 /** Safety unit evidence only; this suite never starts Docker or Temporal. */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { load as loadYaml } from "js-yaml";
 import { chmod, lstat, mkdir, mkdtemp, readdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, packagedSourceDigest, PackagedCommandError, parsePackagedArgs, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, TEMPORAL_DATA_DIR, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
+import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, packagedSourceDigest, packagedTemporalControlSource, PackagedCommandError, parsePackagedArgs, prepareTemporalTls, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedReadiness, sanitizePgWaiterEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
 import { assertPackagedAcceptanceTarget } from "../../workers/execution/packaged-target";
 import { EXECUTION_FAILURE_CATEGORIES } from "../../workers/execution/startup";
 
 const env = { ZENITH_PACKAGED_ACCEPTANCE: "1", ZENITH_STORE: "file", ZENITH_DATA: "/var/lib/zenith",
   ZENITH_WORKER_PLAN_DIR: "/var/lib/zenith/platform-plans", ZENITH_TEMPORAL_ADDRESS: "temporal:7233",
   ZENITH_PLATFORM_DB_URL: "postgresql://postgres:private-fixture-password@postgres:5432/zenith_packaged" };
+
+describe("packaged real-server admission contracts [source and scalar models]", () => {
+  const template = readFileSync(new URL("../../deploy/acceptance/temporal-worker-test.yaml", import.meta.url), "utf8");
+  const builder = "zenith-owned-0123456789ab";
+  const buildImage = "moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea";
+  const inspected = `Name: ${builder}\nDriver: docker-container\nNodes:\nName: ${builder}0\nEndpoint: desktop-linux\nDriver Options: image="${buildImage}" memory="4g" default-load="true"\n`;
+  it("admits the exact external bounded builder observation, without treating it as a creation receipt", () => {
+    expect(assertOwnedPackagedBuilder(builder, inspected, "desktop-linux")).toBe(builder);
+  });
+  it.each([
+    { name: "default", observed: inspected }, { name: builder, observed: inspected.replace(builder, "foreign") },
+    { name: builder, observed: inspected.replace("docker-container", "docker") },
+    { name: builder, observed: inspected.replace('memory="4g"', 'memory="8g"') },
+    { name: builder, observed: inspected.replace(buildImage, "moby/buildkit:latest") },
+    { name: builder, observed: inspected.replace("Endpoint: desktop-linux", "Endpoint: remote") },
+  ])("refuses an unconfirmed or unbounded builder ($name)", ({ name, observed }) => {
+    expect(() => assertOwnedPackagedBuilder(name, observed, "desktop-linux")).toThrow("externally owned bounded builder");
+  });
+  it("renders only bounded hex credentials, retaining real mutual TLS and disabled HTTP", () => {
+    const rendered = renderTemporalServerConfiguration(template, "a".repeat(64));
+    const config = loadYaml(rendered) as {
+      persistence: { datastores: Record<string, { sql: { databaseName: string; connectAddr: string; password: string } }> };
+      global: { tls: Record<"frontend" | "internode", { server: { requireClientAuth: boolean; certFile: string; keyFile: string; clientCaFiles: string[] }; client: { serverName: string; rootCaFiles: string[]; disableHostVerification?: boolean } }> };
+      services: { frontend: { rpc: { httpPort: number } } };
+    };
+    expect(config.persistence.datastores.default.sql).toMatchObject({ databaseName: "temporal", connectAddr: "postgres:5432", password: "a".repeat(64) });
+    expect(config.persistence.datastores.visibility.sql).toMatchObject({ databaseName: "temporal_visibility", connectAddr: "postgres:5432", password: "a".repeat(64) });
+    for (const role of ["frontend", "internode"] as const) {
+      expect(config.global.tls[role].server).toEqual({ requireClientAuth: true, certFile: "/etc/zenith-temporal/server.crt", keyFile: "/etc/zenith-temporal/server.key", clientCaFiles: ["/etc/zenith-temporal/ca.crt"] });
+      expect(config.global.tls[role].client).toEqual({ serverName: "temporal", rootCaFiles: ["/etc/zenith-temporal/ca.crt"] });
+    }
+    expect(config.services.frontend.rpc.httpPort).toBe(0);
+    expect(rendered).not.toContain("__OWNED_POSTGRES_PASSWORD__");
+  });
+  it.each(["", "a".repeat(63), "a".repeat(65), "a\npermissions: admin", "private-canary"])("refuses malformed password data before YAML insertion", password => {
+    expect(() => renderTemporalServerConfiguration(template, password)).toThrow("configuration is invalid");
+  });
+  it("refuses missing or additional template authority rather than substituting a partial config", () => {
+    expect(() => renderTemporalServerConfiguration(template.replaceAll("__OWNED_POSTGRES_PASSWORD__", "unbound"), "a".repeat(64))).toThrow();
+    expect(() => renderTemporalServerConfiguration(template + "\n__OWNED_POSTGRES_PASSWORD__", "a".repeat(64))).toThrow();
+  });
+  it("refuses nonprivate TLS scratch before invoking any certificate command", async () => {
+    const temporary = await mkdtemp(path.join(await realpath(os.tmpdir()), "zenith-tls-mode-contract-"));
+    let calls = 0;
+    try {
+      await chmod(temporary, 0o755);
+      await expect(prepareTemporalTls(temporary, async () => { calls++; throw new Error("Unexpected certificate command."); })).rejects.toThrow("Private TLS custody");
+      expect(calls).toBe(0);
+      expect(await readdir(temporary)).toEqual([]);
+    } finally { await rm(temporary, { recursive: true, force: true }); }
+  });
+  it("requires the fifth current observation check and exports no arbitrary readiness payload", () => {
+    expect(sanitizePackagedReadiness({ ready: true, checks: { temporal: "ok", store: "ok", policy: "ok", drivers: "ok", reconciliation: "ok" }, privatePayload: "private-canary" }))
+      .toEqual({ ready: true, checks: { temporal: "ok", store: "ok", policy: "ok", drivers: "ok", reconciliation: "ok" } });
+  });
+  it.each([undefined, "unavailable", "unknown", true])("refuses absent or unsuccessful current observation (%s)", reconciliation => {
+    expect(() => sanitizePackagedReadiness({ ready: true, checks: { temporal: "ok", store: "ok", policy: "ok", drivers: "ok", reconciliation } })).toThrow("incomplete");
+  });
+  it("bounds returned schedule metadata and never promotes the old operation to a cloud write", () => {
+    const result = { scheduleOwned: true, encryptedInput: true, paused: false, status: "completed", runId: "01234567-0123-4123-8123-0123456789ab", completedAt: 1_791_000_000_000, current: true };
+    expect(sanitizeTemporalControlEvidence("observe", { ...result, password: "private-canary", cloudWritesProven: true })).toEqual(result);
+    expect(JSON.stringify(sanitizeTemporalControlEvidence("observe", { ...result, privatePayload: "private-canary" }))).not.toContain("private-canary");
+  });
+  it.each([
+    { scheduleOwned: false }, { encryptedInput: false }, { runId: "private-canary" }, { completedAt: "private-canary" },
+    { status: "deferred", current: true }, { paused: true, current: true }, { status: "unconfirmed" },
+  ])("refuses damaged schedule evidence (%j)", change => {
+    expect(() => sanitizeTemporalControlEvidence("observe", { scheduleOwned: true, encryptedInput: true, paused: false, status: "completed", runId: "01234567-0123-4123-8123-0123456789ab", completedAt: 1_791_000_000_000, current: true, ...change })).toThrow("unconfirmed");
+  });
+  it("requires distinct actual observer, claimant and blocker PIDs", () => {
+    expect(sanitizePgWaiterEvidence([{ observerPid: 11, waiterPid: 12, blockerPid: 13, query: "private-canary" }])).toEqual({ observerPid: 11, waiterPid: 12, blockerPid: 13 });
+  });
+  it.each([[], [{ observerPid: 11, waiterPid: 11, blockerPid: 13 }], [{ observerPid: 11, waiterPid: 12, blockerPid: 12 }], [{ observerPid: 0, waiterPid: 12, blockerPid: 13 }], [{ observerPid: 11, waiterPid: "private-canary", blockerPid: 13 }]])("refuses missing or ambiguous waiter observations (%j)", value => {
+    expect(() => sanitizePgWaiterEvidence(value)).toThrow("not confirmed");
+  });
+  it("scopes the real wait query to its exact disposable database, blocker and schema read", () => {
+    const query = schemaOutageObserverSql("zenith-pkg-arm64-0123456789ab");
+    expect(query).toContain("b.pid=any(pg_blocking_pids(a.pid))");
+    expect(query).toContain("a.pid<>pg_backend_pid()");
+    expect(query).toContain("a.datname='zenith_packaged'");
+    expect(query).toContain("select version, name, applied_at, checksum from platform.schema_migrations%");
+    expect(query).toContain("b.application_name='zenith-pkg-arm64-0123456789ab-schema-outage'");
+    expect(() => schemaOutageObserverSql("foreign'; select 1; --")).toThrow("identity is invalid");
+  });
+  it("uses only image-local authenticated control with a read-only production codec and pinned targets", () => {
+    const source = packagedTemporalControlSource();
+    expect(source).toContain("process.env.NODE_ENV!=='production'");
+    expect(source).toContain("process.env.ZENITH_TEMPORAL_ADDRESS!=='temporal:7233'");
+    expect(source).toContain("encode:async()=>{throw new Error();}");
+    expect(source).toContain("clientCertPair");
+    expect(source).toContain("serverNameOverride:auth==='wrong-server-name'?'unowned.acceptance.invalid':'temporal'");
+    expect(source).toContain("getHandle('zenith-reconcile-sweep-v1')");
+    expect(source).not.toContain("workflow.start(");
+    expect(source).not.toContain("Worker.create(");
+  });
+  it("prepares actual server client-auth and SAN negatives, current-result recovery and owned cleanup without a TLS bypass", () => {
+    const harness = readFileSync(new URL("../../scripts/acceptance/packaged-worker.mjs", import.meta.url), "utf8");
+    expect(harness).toContain('for (const auth of ["none", "rogue", "wrong-server-name"])');
+    expect(harness).toContain('NODE_ENV: "production"');
+    expect(harness).toContain('ZENITH_TEMPORAL_NAMESPACE: runId');
+    expect(harness).toContain('ZENITH_WORKER_RECONCILE_SCHEDULE_MODE: "provision"');
+    expect(harness).toContain('await observation("completed", previous.runId)');
+    expect(harness).toContain('await observation("completed", beforeRestart.runId)');
+    expect(harness).toContain('schemaOutageObserverSql(runId)');
+    expect(harness).toContain('for (const name of ["ca.crt", "server.crt", "server.key", "server.yaml"])');
+    expect(harness).not.toContain('"--tls-disable-host-verification"');
+    expect(harness).not.toContain('"--allow-no-auth"');
+    expect(harness).not.toContain('"--privileged"');
+    expect(harness).not.toContain('type=bind');
+    expect(harness).not.toMatch(/docker\s+system\s+prune|builder\s+prune/);
+  });
+});
 
 async function sourceFixture(run: (source: string, base: string) => Promise<void>): Promise<void> {
   const base = await mkdtemp(path.join(await realpath(os.tmpdir()), "zenith-packaged-source-fixture-"));
@@ -243,13 +356,15 @@ describe("packaged worker acceptance safety", () => {
     await expect(command(process.execPath, ["-e", "console.error('private-password private-sql'); process.exit(1)"], "fixture-phase"))
       .rejects.toThrow("Packaged acceptance phase failed: fixture-phase");
   });
-  it("uses the pinned Temporal user's writable home and requires actual health before worker startup", () => {
+  it("uses a pinned real server and private read-only config, requiring authenticated health before worker startup", () => {
     const harness = readFileSync(new URL("../../scripts/acceptance/packaged-worker.mjs", import.meta.url), "utf8");
-    expect(TEMPORAL_DATA_DIR).toBe("/home/temporal");
-    expect(harness).toContain("target=${TEMPORAL_DATA_DIR}");
-    expect(harness).toContain("`${TEMPORAL_DATA_DIR}/acceptance.db`");
-    expect(harness).not.toContain("target=/var/lib/temporal");
-    expect(harness).toContain('"operator", "cluster", "health", "--address", "127.0.0.1:7233"');
+    expect(TEMPORAL_CONFIG_DIR).toBe("/etc/zenith-temporal");
+    expect(TEMPORAL_IMAGE).toMatch(/^temporalio\/server:1\.32\.0@sha256:[a-f0-9]{64}$/);
+    expect(TEMPORAL_ADMIN_IMAGE).toMatch(/^temporalio\/admin-tools:1\.32\.0@sha256:[a-f0-9]{64}$/);
+    expect(harness).toContain("target=${TEMPORAL_CONFIG_DIR},readonly");
+    expect(harness).toContain('"--config-file", `${TEMPORAL_CONFIG_DIR}/server.yaml`, "start"');
+    expect(harness).not.toContain('"start-dev"');
+    expect(harness).toContain('await control("health", "client", true)');
     expect(harness.indexOf('phase = "temporal-ready"')).toBeLessThan(harness.indexOf('phase = "actual-worker-entrypoint"'));
   });
   it("exports only fixed container state without arbitrary daemon errors or config", () => {

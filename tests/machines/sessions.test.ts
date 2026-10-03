@@ -1,8 +1,10 @@
 /** Transport scope, credential purpose, namespace guards and callback lifetime. */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AzureSession, CredentialBroker, CredentialRequest, GcpSession, ProviderConnection } from "@/lib/credentials/types";
 import { createMachineSessionProvider, redactText, type KubernetesMachineSession, type MachineSessionRequest } from "@/lib/machines";
 import { awsSession, grantFor, requestFor, T0 } from "./_helpers";
+
+afterEach(() => { vi.unstubAllEnvs(); });
 
 function setup() {
   const requests: CredentialRequest[] = [];
@@ -68,6 +70,46 @@ describe("machine sessions", () => {
     })).rejects.toThrow(/callback failed/);
     expect(() => held!.kubeConfig()).toThrow(/ended/);
   });
+  it("test-only Kubernetes resolvers are captured once and refused in production at creation and invocation", async () => {
+    const s = setup();
+    const connection: ProviderConnection = { ...s.connection, config: { provider: "kubernetes", mode: "kubeconfig_ref", server: "https://cluster.example", credentialRef: "vault:cluster", namespaces: ["app"] } };
+    const original = vi.fn(async () => "fixture-token"), replacement = vi.fn(async () => "replacement-token");
+    const deps = { resolveCredential: original };
+    const options = { credentials: s.credentials, grantJws: "compact", connection, now: () => new Date(T0), kubernetes: deps };
+    const p = createMachineSessionProvider(options);
+    deps.resolveCredential = replacement;
+    await p.withSession(s.req("container.list", "kubernetes"), async () => undefined);
+    expect(original).toHaveBeenCalledOnce(); expect(replacement).not.toHaveBeenCalled();
+    vi.stubEnv("NODE_ENV", "production");
+    expect(() => createMachineSessionProvider(options)).toThrow(/only in tests/);
+    const callback = vi.fn(async () => undefined);
+    await expect(p.withSession(s.req("container.list", "kubernetes"), callback)).rejects.toMatchObject({ code: "denied" });
+    expect(callback).not.toHaveBeenCalled(); expect(original).toHaveBeenCalledOnce();
+    expect(s.requests).toHaveLength(0);
+  });
+  it("default Kubernetes guest sessions use the broker's live namespace scope and original grant", async () => {
+    const s = setup();
+    const connection: ProviderConnection = { ...s.connection, config: { provider: "kubernetes", mode: "kubeconfig_ref", server: "https://cluster.example", credentialRef: "vault:cluster", namespaces: ["app", "removed"] } };
+    const credentialObject = {};
+    const credentials: CredentialBroker = { verifyConnection: s.credentials.verifyConnection, withSession: async (request, fn) => {
+      s.requests.push(request);
+      return fn({ provider: "kubernetes", server: "https://current.example", expiresAt: new Date(T0 + 900_000).toISOString(),
+        namespaces: ["app"], kubeConfig: () => credentialObject } as KubernetesMachineSession);
+    } };
+    const req = s.req("container.list", "kubernetes");
+    let held!: KubernetesMachineSession;
+    const provider = createMachineSessionProvider({ credentials, connection, grantJws: "compact", now: () => new Date(T0) });
+    expect(await provider.withSession(req, async session => {
+      held = session as KubernetesMachineSession;
+      expect(held.namespaces).toEqual(["app"]); expect(Object.isFrozen(held.namespaces)).toBe(true);
+      expect(held.server).toBe("https://current.example"); expect(held.kubeConfig()).toBe(credentialObject);
+      expect(held.expiresAt).toBe(new Date(req.grant.exp * 1000).toISOString());
+      return "safe metadata";
+    })).toBe("safe metadata");
+    expect(s.requests).toEqual([{ connectionId: connection.id, purpose: "observe", grant: req.grant }]);
+    expect(() => held.kubeConfig()).toThrow(/ended/);
+  });
+
   it("uses shared credential patterns and preserves the tofu redactor's assignment coverage", () => {
     for (const text of ["zrt_abcdefghijklmnopqrstuvwxyz", "za_abcdefghijklmnopqrstuvwxyz", "password=fixture-secret", "Bearer abcdefghijklmnop"]) {
       const r = redactText(text);

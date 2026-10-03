@@ -7,7 +7,7 @@
  */
 import { capability, isCapability } from "@/lib/capabilities/catalog";
 import { randomUUID } from "node:crypto";
-import { canonical } from "@/lib/controlplane/digest";
+import { canonical, digest } from "@/lib/controlplane/digest";
 import { repos } from "@/lib/controlplane/db";
 import type { Sql } from "@/lib/controlplane/types";
 import { AwsCredentialBroker, type AwsBrokerOptions } from "@/lib/credentials/aws";
@@ -167,6 +167,9 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
   const withProviderSession = async <T>(connection: ProviderConnection, purpose: "observe" | "deploy", ttlSec: number, operationId: string, cap: string, assumed: () => void | Promise<void>, fn: (session: ProviderSession) => Promise<T>, sourceScope?: { environmentId: string; resourceId?: string }): Promise<T> => {
     const mint = (audience: string) => mintWorkloadToken({ workspaceId: connection.workspaceId, connectionId: connection.id, operationId, capability: cap, audience, ttlSec: Math.min(120, ttlSec) }, { ...options.oidc, now: now() });
     const c = connection.config;
+    // Capture before any asynchronous vault/token/audit work. No caller proof
+    // can substitute the current scoped SQL connection at callback admission.
+    const kubernetesConfigDigest = c.provider === "kubernetes" ? digest(c) : undefined;
     let session: ProviderSession;
     let close: () => void;
     switch (c.provider) {
@@ -201,7 +204,25 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
       }
       default: throw new CredentialDeniedError("This provider does not expose direct sessions.");
     }
-    try { await assumed(); return await fn(session); } finally { close(); }
+    try {
+      await assumed();
+      if (kubernetesConfigDigest !== undefined) {
+        // This shared path also serves onboarding: its captured pending/failed
+        // status must stay unchanged; regular withSession already requires verified.
+        let current: ProviderConnection | null;
+        try { current = await repos.connections.get(db, connection.workspaceId, connection.id); }
+        catch { throw new CredentialDeniedError("The current Kubernetes connection is unavailable.", { reason: "session_ended" }); }
+        if (!current || current.id !== connection.id || current.workspaceId !== connection.workspaceId
+          || current.status === "revoked" || current.status !== connection.status
+          || digest(current.config) !== kubernetesConfigDigest) {
+          throw new CredentialDeniedError("The Kubernetes connection changed or was revoked before session admission.", { reason: "session_ended" });
+        }
+        if (now().getTime() >= Date.parse(session.expiresAt)) {
+          throw new CredentialDeniedError("The Kubernetes session expired before admission.", { reason: "session_ended" });
+        }
+      }
+      return await fn(session);
+    } finally { close(); }
   };
 
   return {

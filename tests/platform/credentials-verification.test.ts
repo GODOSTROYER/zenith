@@ -317,6 +317,87 @@ describe("Kubernetes namespace verification", () => {
   });
 });
 
+/** Actual scoped SQL/vault/audit with a controlled asynchronous port delay; no live cluster. */
+describe("Kubernetes callback admission after credential and audit waits", () => {
+  function barrier() { let release!: () => void; const promise = new Promise<void>(resolve => { release = resolve; }); return { promise, release }; }
+  it.each((["vault", "audit"] as const).flatMap(phase =>
+    (["unchanged", "revoke", "namespace reduction", "credential rebinding", "provider rebinding"] as const).map(change => ({ phase, change }))))(
+    "$phase wait admits only unchanged current SQL authority after $change", async ({ phase, change }) => {
+      await putSecretAsync(ws, vault, secret, "operator");
+      const created = await connection(kubernetes);
+      await repos.connections.recordVerification(db, { workspaceId: ws, id: created.id, ok: true, detail: "Controlled credential fixture only." });
+      const secretStore = await import("@/lib/secrets"), entered = barrier(), release = barrier();
+      if (phase === "vault") {
+        const read = secretStore.readSecretValueAsync;
+        vi.spyOn(secretStore, "readSecretValueAsync").mockImplementation(async (...args) => {
+          const value = await read(...args);
+          if (args[0] === ws && args[1] === vault) { entered.release(); await release.promise; }
+          return value;
+        });
+      } else {
+        const append = repos.events.append;
+        vi.spyOn(repos.events, "append").mockImplementation(async (sql, event) => {
+          const result = await append(sql, event);
+          if (event.type === "credential.assumed" && event.data?.connectionId === created.id) { entered.release(); await release.promise; }
+          return result;
+        });
+      }
+      let held: ProviderSession | undefined;
+      const callback = vi.fn(async (session: ProviderSession) => {
+        held = session;
+        if (session.provider !== "kubernetes") throw new Error("Unexpected fixture provider.");
+        expect(session.kubeConfig()).toBeDefined();
+        return { admitted: true };
+      });
+      const pending = broker().withSession({ connectionId: created.id, purpose: "observe", grant: credentialGrant({ ws, cap: "container.list" }) }, callback)
+        .then(value => ({ value }), error => ({ error }));
+      let observationFailure: unknown;
+      try {
+        await Promise.race([entered.promise, pending.then(() => { throw new Error("Broker completed before the controlled credential/audit barrier."); })]);
+        expect(callback).not.toHaveBeenCalled();
+        if (change === "revoke") await repos.connections.revoke(db, ws, created.id);
+        if (change === "namespace reduction" || change === "credential rebinding" || change === "provider rebinding") {
+          const config = change === "namespace reduction" ? { ...kubernetes, namespaces: ["payments"] }
+            : change === "credential rebinding" ? { ...kubernetes, credentialRef: "vault:project/service/OTHER_KUBE_TOKEN" } : gcp;
+          await db.query("update platform.provider_connections set config=$3::text::jsonb where workspace_id=$1 and id=$2", [ws, created.id, JSON.stringify(config)]);
+        }
+        const current = await repos.connections.get(db, ws, created.id);
+        if (change === "revoke") expect(current?.status).toBe("revoked");
+        if (change === "namespace reduction") expect(current?.config).toMatchObject({ namespaces: ["payments"] });
+        if (change === "credential rebinding") expect(current?.config).toMatchObject({ credentialRef: "vault:project/service/OTHER_KUBE_TOKEN" });
+        if (change === "provider rebinding") expect(current?.config.provider).toBe("gcp");
+      } catch (error) { observationFailure = error; }
+      finally { release.release(); }
+      const result = await pending;
+      if (observationFailure) throw observationFailure;
+      if (change === "unchanged") {
+        expect(result).toEqual({ value: { admitted: true } }); expect(callback).toHaveBeenCalledOnce();
+        if (held?.provider === "kubernetes") {
+          const session = held;
+          expect(() => session.kubeConfig()).toThrow("ended");
+        }
+      } else {
+        expect(result).toHaveProperty("error"); expect((result as { error: unknown }).error).toMatchObject({ reason: "session_ended" });
+        expect(callback).not.toHaveBeenCalled();
+      }
+      await assertNoSecret(result);
+    }, 10_000,
+  );
+  it("fresh scoped SQL read failure is sanitized and cannot enter the callback", async () => {
+    await putSecretAsync(ws, vault, secret, "operator"); const created = await connection(kubernetes);
+    await repos.connections.recordVerification(db, { workspaceId: ws, id: created.id, ok: true });
+    const get = repos.connections.get; let scopedReads = 0;
+    vi.spyOn(repos.connections, "get").mockImplementation(async (sql, workspaceId, id) => {
+      if (workspaceId === ws && id === created.id && ++scopedReads === 2) throw new Error(secret);
+      return get(sql, workspaceId, id);
+    });
+    const callback = vi.fn(async () => undefined);
+    const error = await broker().withSession({ connectionId: created.id, purpose: "observe", grant: credentialGrant({ ws, cap: "container.list" }) }, callback).catch(value => value);
+    expect(error).toMatchObject({ reason: "session_ended", message: "The current Kubernetes connection is unavailable." });
+    expect(scopedReads).toBe(2); expect(callback).not.toHaveBeenCalled(); await assertNoSecret(error);
+  });
+});
+
 describe("OCI registration-only verification", () => {
   it("accepts only an active, current workspace runner advertising oci.http, without cloud calls", async () => {
     const generated = repos.runners.generateRegistrationToken("runner");

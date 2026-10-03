@@ -29,7 +29,8 @@ const refusalKinds = ["missing-schema", "invalid-secret", "invalid-signer", "pla
 const diagnosticRoles = new Set(["postgres", "temporal", "worker", ...refusalKinds]);
 const refusalCommandPhases = new Set(refusalKinds.flatMap((kind) => [`refusal-launch-${kind}`, `refusal-exit-${kind}`, `refusal-logs-${kind}`]));
 const diagnosticCommandPhases = new Set([...refusalCommandPhases,
-  "private-tls-tool", "private-tls-ca", "private-tls-leaf", "private-tls-sign", "private-tls-verify"]);
+  "private-tls-tool", "private-tls-ca", "private-tls-leaf", "private-tls-sign", "private-tls-verify",
+  "private-installer-start", "private-server-copy", "private-client-copy", "private-volume-custody", "private-installer-stop"]);
 const commandFailureCategories = new Set(["command-launch", "command-timeout", "command-output-limit", "command-exit", "command-signal"]);
 export const REFUSAL_LAUNCH_TIMEOUT_MS = 120_000;
 export const REFUSAL_EXIT_TIMEOUT_MS = 45_000;
@@ -247,6 +248,85 @@ export function sanitizePackagedCommandFailure(error) {
     signal: ["SIGTERM", "SIGKILL", "SIGINT", "SIGABRT", "SIGSEGV", "SIGBUS"].includes(diagnostic.signal ?? "") ? diagnostic.signal : null,
     ...(diagnosticCommandPhases.has(error.phase) ? { phase: error.phase } : {}) };
 }
+
+/** Fixed, content-free initializer. Serialized below for the actual Linux child.
+ * @param {typeof import("node:fs")} f
+ */
+function establishPackagedVolumeCustody(f) {
+  const refuse = () => { throw new Error("Private volume custody is unconfirmed."); };
+  const fields = ["dev", "ino", "uid", "gid", "mode", "size", "nlink"];
+  const same = (a, b) => fields.every(key => a[key] === b[key]);
+  const descriptors = [];
+  if (process.getuid() !== 0 || process.getgid() !== 0
+    || !Number.isInteger(f.constants.O_NOFOLLOW) || f.constants.O_NOFOLLOW === 0
+    || !Number.isInteger(f.constants.O_DIRECTORY) || f.constants.O_DIRECTORY === 0) refuse();
+  const open = (name, directory) => {
+    const state = f.lstatSync(name);
+    if (state.isSymbolicLink() || (directory ? !state.isDirectory() : !state.isFile())
+      || state.uid !== 0 || state.gid !== 0
+      || (directory ? ![0o700, 0o755].includes(state.mode & 0o7777) : state.size < 1 || state.size > 65536 || state.nlink !== 1)) refuse();
+    const fd = f.openSync(name, f.constants.O_RDONLY | f.constants.O_NOFOLLOW | (directory ? f.constants.O_DIRECTORY : 0));
+    descriptors.push(fd);
+    const entry = { name, fd, state };
+    if (!same(state, f.fstatSync(fd)) || !same(state, f.lstatSync(name))) refuse();
+    return entry;
+  };
+  const check = entry => {
+    if (!same(entry.state, f.fstatSync(entry.fd)) || !same(entry.state, f.lstatSync(entry.name))) refuse();
+  };
+  const parent = group => {
+    check(group.root);
+    if (JSON.stringify(f.readdirSync(group.root.name).sort()) !== JSON.stringify(group.names)) refuse();
+  };
+  try {
+    // Open and validate every fixed name before the first mutation.
+    const groups = [
+      { name: "/server", uid: 1000, names: ["ca.crt", "server.crt", "server.key", "server.yaml"] },
+      { name: "/client", uid: 10001, names: ["ca.crt", "client.crt", "client.key", "rogue-client.crt", "rogue-client.key"] },
+    ].map(spec => {
+      const root = open(spec.name, true);
+      const group = { ...spec, root, names: [...spec.names].sort(), files: [] };
+      parent(group);
+      group.files = group.names.map(name => open(`${spec.name}/${name}`, false));
+      parent(group);
+      return group;
+    });
+    for (const group of groups) {
+      parent(group);
+      f.fchmodSync(group.root.fd, 0o700);
+      group.root.state = { ...group.root.state, mode: (group.root.state.mode & ~0o7777) | 0o700 };
+      parent(group);
+      for (const file of group.files) {
+        parent(group); check(file);
+        // CAP_CHOWN permits transfer, not chmod after the owner has changed.
+        f.fchmodSync(file.fd, 0o600);
+        file.state = { ...file.state, mode: (file.state.mode & ~0o7777) | 0o600 };
+        parent(group); check(file);
+        f.fchownSync(file.fd, group.uid, group.uid);
+        file.state = { ...file.state, uid: group.uid, gid: group.uid };
+        parent(group); check(file);
+      }
+      parent(group);
+      f.fchownSync(group.root.fd, group.uid, group.uid);
+      group.root.state = { ...group.root.state, uid: group.uid, gid: group.uid };
+      check(group.root);
+    }
+    // CHOWN-only root cannot traverse a transferred 0700 directory. Retained
+    // descriptors prove file metadata without adding a DAC/FOWNER capability.
+    for (const group of groups) {
+      check(group.root);
+      if (group.files.some(file => !same(file.state, f.fstatSync(file.fd)))) refuse();
+    }
+  } finally {
+    for (const fd of descriptors.reverse()) f.closeSync(fd);
+  }
+}
+
+/** Same fixed body is used by the initializer and independent kernel probe. */
+export function packagedVolumeCustodySource() {
+  return `try { (${establishPackagedVolumeCustody.toString()})(require('node:fs')); console.log('CUSTODY_VERIFIED'); } catch { process.exit(1); }`;
+}
+
 export async function command(binary, args, phase, { timeout = 120_000, allowFailure = false } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -897,10 +977,11 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
       "--label", `io.zenith.acceptance.run=${runId}`, "--read-only", "--cap-drop=ALL", "--cap-add=CHOWN",
       "--security-opt=no-new-privileges", "--memory", "128m", "--pids-limit", "32",
       "--mount", `type=volume,source=${volumes[1]},target=/server`, "--mount", `type=volume,source=${volumes[3]},target=/client`,
-      "--entrypoint", "node", image, "-e", "const f=require('node:fs');for(const p of ['/server','/client'])if(f.readdirSync(p).length)process.exit(1);setInterval(()=>{},1000)"], phase);
+      "--entrypoint", "node", image, "-e", "const f=require('node:fs');for(const p of ['/server','/client'])if(f.readdirSync(p).length)process.exit(1);setInterval(()=>{},1000)"], "private-installer-start");
     for (const name of ["ca.crt", "server.crt", "server.key", "server.yaml"]) await docker(["cp", path.join(scratch, name), `${installer}:/server/${name}`], "private-server-copy");
     for (const name of ["ca.crt", "client.crt", "client.key", "rogue-client.crt", "rogue-client.key"]) await docker(["cp", path.join(scratch, name), `${installer}:/client/${name}`], "private-client-copy");
-    await docker(["exec", installer, "node", "-e", `const f=require('node:fs');for(const [p,uid,expected]of [['/server',1000,['ca.crt','server.crt','server.key','server.yaml']],['/client',10001,['ca.crt','client.crt','client.key','rogue-client.crt','rogue-client.key']]]){if(JSON.stringify(f.readdirSync(p).sort())!==JSON.stringify(expected.sort()))throw Error();for(const n of expected){const q=p+'/'+n,s=f.lstatSync(q);if(!s.isFile()||s.isSymbolicLink()||s.uid!==0||s.size<1||s.size>65536)throw Error();f.chownSync(q,uid,uid);f.chmodSync(q,0o600);const a=f.lstatSync(q);if(a.ino!==s.ino||a.uid!==uid||(a.mode&0o777)!==0o600)throw Error();}f.chownSync(p,uid,uid);f.chmodSync(p,0o700);}console.log('CUSTODY_VERIFIED')`], "private-volume-custody");
+    const custody = await docker(["exec", installer, "node", "-e", packagedVolumeCustodySource()], "private-volume-custody");
+    if (custody.out.trim() !== "CUSTODY_VERIFIED") throw new Error("Private volume custody is unconfirmed.");
     await docker(["stop", "--time", "5", installer], "private-installer-stop");
     evidence.checks.tlsCustody = { generatedPrivateFiles: true, caPrivateKeysHostOnly: true, privateDirectories: true, privateLeafFiles: true,
       workerUid: 10001, serverUid: 1000, hostMounts: false, certificateSha256: tls.certificateSha256 };

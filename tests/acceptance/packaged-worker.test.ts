@@ -5,13 +5,115 @@ import { load as loadYaml } from "js-yaml";
 import { chmod, lstat, mkdir, mkdtemp, readdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, packagedSourceDigest, packagedTemporalControlSource, PackagedCommandError, parsePackagedArgs, prepareTemporalTls, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedReadiness, sanitizePgWaiterEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
+import { runInNewContext } from "node:vm";
+import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, packagedSourceDigest, packagedTemporalControlSource, packagedVolumeCustodySource, PackagedCommandError, parsePackagedArgs, prepareTemporalTls, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedReadiness, sanitizePgWaiterEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
 import { assertPackagedAcceptanceTarget } from "../../workers/execution/packaged-target";
 import { EXECUTION_FAILURE_CATEGORIES } from "../../workers/execution/startup";
 
 const env = { ZENITH_PACKAGED_ACCEPTANCE: "1", ZENITH_STORE: "file", ZENITH_DATA: "/var/lib/zenith",
   ZENITH_WORKER_PLAN_DIR: "/var/lib/zenith/platform-plans", ZENITH_TEMPORAL_ADDRESS: "temporal:7233",
   ZENITH_PLATFORM_DB_URL: "postgresql://postgres:private-fixture-password@postgres:5432/zenith_packaged" };
+
+/** Exact initializer program with modeled owner/CHOWN-only fs ports, not Linux proof. */
+function volumeCustodyModel() {
+  type Entry = { ino: number; dev: number; uid: number; gid: number; mode: number; size: number; nlink: number; kind: "file" | "directory" | "symlink" };
+  const nodes = new Map<string, Entry>(), held = new Map<number, { path: string; node: Entry }>();
+  const output: unknown[] = [], events: { action: string; path: string }[] = [], closed: number[] = [];
+  let nextInode = 1, nextFd = 10, exits = 0;
+  const model = { nodes, held, output, events, closed, hook: undefined as ((action: string, path: string) => void) | undefined };
+  for (const [directory, names] of [["/server", ["ca.crt", "server.crt", "server.key", "server.yaml"]],
+    ["/client", ["ca.crt", "client.crt", "client.key", "rogue-client.crt", "rogue-client.key"]]] as const) {
+    nodes.set(directory, { ino: nextInode++, dev: 1, uid: 0, gid: 0, mode: 0o40755, size: 4096, nlink: 2, kind: "directory" });
+    for (const name of names) nodes.set(`${directory}/${name}`, { ino: nextInode++, dev: 1, uid: 0, gid: 0, mode: 0o100600, size: 32, nlink: 1, kind: "file" });
+  }
+  const search = (name: string) => {
+    const parent = nodes.get(name.slice(0, name.lastIndexOf("/")));
+    if (parent && parent.uid !== 0 && (parent.mode & 1) === 0) throw new Error("Modeled directory search refused.");
+  };
+  const node = (name: string) => { search(name); const found = nodes.get(name); if (!found) throw new Error("Modeled entry missing."); return found; };
+  const descriptor = (fd: number) => { const found = held.get(fd); if (!found) throw new Error("Modeled descriptor missing."); return found; };
+  const stat = (entry: Entry) => ({ ...entry, isFile: () => entry.kind === "file", isDirectory: () => entry.kind === "directory", isSymbolicLink: () => entry.kind === "symlink" });
+  const fs = {
+    constants: { O_RDONLY: 0, O_NOFOLLOW: 0x20000, O_DIRECTORY: 0x10000 },
+    lstatSync: (name: string) => stat(node(name)), fstatSync: (fd: number) => stat(descriptor(fd).node),
+    readdirSync: (name: string) => {
+      const directory = node(name);
+      if (directory.uid !== 0 && (directory.mode & 5) !== 5) throw new Error("Modeled directory read refused.");
+      return [...nodes.keys()].filter(p => p.startsWith(name + "/") && !p.slice(name.length + 1).includes("/")).map(p => p.slice(name.length + 1));
+    },
+    openSync: (name: string, flags: number) => {
+      model.hook?.("open", name);
+      const entry = node(name);
+      if (!(flags & fs.constants.O_NOFOLLOW) || entry.kind === "symlink" || (entry.kind === "directory" && !(flags & fs.constants.O_DIRECTORY))) throw new Error("Modeled descriptor flags refused.");
+      const fd = nextFd++; held.set(fd, { path: name, node: entry }); return fd;
+    },
+    fchmodSync: (fd: number, mode: number) => {
+      const entry = descriptor(fd);
+      // Root without FOWNER cannot chmod after transferring this inode.
+      if (entry.node.uid !== 0) throw new Error("Modeled EPERM: owner changed before chmod.");
+      events.push({ action: "chmod", path: entry.path }); entry.node.mode = (entry.node.mode & ~0o7777) | mode;
+      model.hook?.("chmod", entry.path);
+    },
+    fchownSync: (fd: number, uid: number, gid: number) => {
+      const entry = descriptor(fd); events.push({ action: "chown", path: entry.path });
+      entry.node.uid = uid; entry.node.gid = gid; model.hook?.("chown", entry.path);
+    },
+    closeSync: (fd: number) => { descriptor(fd); held.delete(fd); closed.push(fd); },
+  };
+  return { ...model, model, run: () => runInNewContext(packagedVolumeCustodySource(), {
+    require: (name: string) => { if (name !== "node:fs") throw new Error("Modeled module refused."); return fs; },
+    process: { getuid: () => 0, getgid: () => 0, exit: () => { exits++; throw new Error("Modeled initializer refused."); } },
+    console: { log: (value: unknown) => { output.push(value); } },
+  }, { timeout: 1000 }), exits: () => exits };
+}
+
+describe("private volume initializer [exact program; filesystem permission models]", () => {
+  it("sets private modes while owned, then transfers each retained inode with CHOWN only", () => {
+    const m = volumeCustodyModel(); m.run();
+    expect(m.output).toEqual(["CUSTODY_VERIFIED"]); expect(m.exits()).toBe(0);
+    for (const [name, entry] of m.nodes) {
+      const uid = name.startsWith("/server") ? 1000 : 10001;
+      expect(entry.uid).toBe(uid); expect(entry.gid).toBe(uid);
+      expect(entry.mode & 0o7777).toBe(entry.kind === "directory" ? 0o700 : 0o600);
+      expect(m.events.filter(event => event.path === name).map(event => event.action)).toEqual(["chmod", "chown"]);
+    }
+    expect(m.held.size).toBe(0); expect(m.closed).toHaveLength(11);
+  });
+  it.each(["extra file", "missing file", "symlink file", "foreign owner", "foreign group", "empty file", "oversized file", "hard link", "symlink parent", "foreign parent", "unsafe parent mode"])("refuses %s before any mutation and never claims custody", fault => {
+    const m = volumeCustodyModel(), file = m.nodes.get("/server/ca.crt")!, parent = m.nodes.get("/client")!;
+    if (fault === "extra file") m.nodes.set("/client/extra", { ...file, ino: 999 });
+    if (fault === "missing file") m.nodes.delete("/server/server.key");
+    if (fault === "symlink file") file.kind = "symlink";
+    if (fault === "foreign owner") file.uid = 1;
+    if (fault === "foreign group") file.gid = 1;
+    if (fault === "empty file") file.size = 0;
+    if (fault === "oversized file") file.size = 65537;
+    if (fault === "hard link") file.nlink = 2;
+    if (fault === "symlink parent") parent.kind = "symlink";
+    if (fault === "foreign parent") parent.uid = 1;
+    if (fault === "unsafe parent mode") parent.mode = 0o40777;
+    expect(() => m.run()).toThrow("Modeled initializer refused");
+    expect(m.events).toEqual([]); expect(m.output).toEqual([]); expect(m.exits()).toBe(1); expect(m.held.size).toBe(0);
+  });
+  it.each(["replacement at open", "changed device at open", "file replacement after chmod", "parent replacement after chmod", "changed parent device after chmod", "changed mode after chown", "changed size after chown", "unexpected file during chmod"])("refuses %s after fresh name/descriptor checks without compensation or a success marker", fault => {
+    const m = volumeCustodyModel();
+    m.model.hook = (action, name) => {
+      if (fault === "replacement at open" && action === "open" && name === "/server/ca.crt") m.nodes.set(name, { ...m.nodes.get(name)!, ino: 999 });
+      if (fault === "changed device at open" && action === "open" && name === "/server/ca.crt") m.nodes.set(name, { ...m.nodes.get(name)!, dev: 999 });
+      if (fault === "file replacement after chmod" && action === "chmod" && name === "/server/ca.crt") m.nodes.set(name, { ...m.nodes.get(name)!, ino: 999 });
+      if (fault === "parent replacement after chmod" && action === "chmod" && name === "/server") m.nodes.set(name, { ...m.nodes.get(name)!, ino: 999 });
+      if (fault === "changed parent device after chmod" && action === "chmod" && name === "/server") m.nodes.set(name, { ...m.nodes.get(name)!, dev: 999 });
+      if (fault === "changed mode after chown" && action === "chown" && name === "/server/ca.crt") m.nodes.get(name)!.mode = 0o100644;
+      if (fault === "changed size after chown" && action === "chown" && name === "/server/ca.crt") m.nodes.get(name)!.size = 64;
+      if (fault === "unexpected file during chmod" && action === "chmod" && name === "/server/ca.crt") m.nodes.set("/server/extra", { ...m.nodes.get(name)!, ino: 999 });
+    };
+    expect(() => m.run()).toThrow("Modeled initializer refused");
+    expect(m.output).toEqual([]); expect(m.exits()).toBe(1); expect(m.held.size).toBe(0);
+    expect(m.events.filter(event => event.path === "/client")).toEqual([]);
+    if (fault === "replacement at open" || fault === "changed device at open") expect(m.events).toEqual([]);
+    if (fault === "file replacement after chmod" || fault === "unexpected file during chmod") expect(m.events.filter(event => event.path === "/server/ca.crt").map(event => event.action)).toEqual(["chmod"]);
+  });
+});
 
 describe("packaged real-server admission contracts [source and scalar models]", () => {
   const template = readFileSync(new URL("../../deploy/acceptance/temporal-worker-test.yaml", import.meta.url), "utf8");
@@ -375,9 +477,14 @@ describe("packaged worker acceptance safety", () => {
         .toEqual({ category: "command-exit", exitCode: 1, signal: null, phase });
     }
   });
-  it.each(["private-tls-tool-private-canary", "/private-canary", "private-tls-copy"])("omits every unrecognized command phase (%s)", phase => {
+  it.each(["private-tls-tool-private-canary", "/private-canary", "private-tls-copy", "private-volume-custody-private-canary"])("omits every unrecognized command phase (%s)", phase => {
     expect(sanitizePackagedCommandFailure(new PackagedCommandError(phase, "command-exit", 23)))
       .toEqual({ category: "command-exit", exitCode: 23, signal: null });
+  });
+  it.each(["private-installer-start", "private-server-copy", "private-client-copy", "private-volume-custody", "private-installer-stop"])("exports only the fixed initializer subphase (%s)", phase => {
+    const error = new PackagedCommandError(phase, "command-exit", 1);
+    Object.assign(error.diagnostic, { output: "private-canary", path: "/private-canary", certificate: "private-canary" });
+    expect(sanitizePackagedCommandFailure(error)).toEqual({ category: "command-exit", exitCode: 1, signal: null, phase });
   });
   it.each(["command-launch", "command-timeout", "command-output-limit", "command-exit", "command-signal"] as const)("retains a fixed command category (%s)", category => {
     expect(sanitizePackagedCommandFailure(new PackagedCommandError("private-tls-tool", category, null, "SIGKILL")))

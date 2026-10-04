@@ -81,6 +81,11 @@ const WRITES = new Set([
   // Signed outcome settlement has direct foreign-scope refusal and owning controls
   // in tests/runners/late-effect-receipts.test.ts on both agent domains.
   "jobs.settleOutcome", "jobs.enqueue", "machines.upsertTarget", "observations.appendObservation", "observations.upsertRuntime", "operations.create", "policyDecisions.insert",
+  // Binds only the supplied workspace's running operation to its live worker fence.
+  // Mandatory native controls in first-source-lease-binding.test.ts:
+  // "refuses a foreign workspace at native binding and rolls back the newly acquired lease"
+  // and "binds the first real worker lease before default source capture and native retain after a claim without a lease".
+  "operations.bindExecutionLease",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "idempotency.reserve", "idempotency.complete",
 ]);
 

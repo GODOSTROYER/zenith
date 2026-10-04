@@ -8,6 +8,8 @@ import path from "node:path";
 import { temporalConfigFromEnv, type TemporalConnectionConfig } from "@/lib/workflows/config";
 import { closeWorkflowClients, resetAvailabilityCache, temporalAvailable, TemporalUnavailableError, workflowClient } from "@/lib/workflows/client";
 import { TemporalCodecError, TemporalPayloadCodec } from "@/lib/workflows/codec";
+import type { ReconcileObservation, ReconcileSweepRuntime } from "@/lib/workflows/reconcile-schedule";
+import type { ExecutionWorkerConfig, ReconcileWorkerConfig } from "../../workers/execution/config";
 
 const CURRENT = "11".repeat(32);
 const PREVIOUS = "22".repeat(32);
@@ -27,6 +29,18 @@ const intercepted = vi.hoisted(() => ({
   openStore: vi.fn(), closeStore: vi.fn(),
   store: { query: vi.fn(), close: vi.fn() },
   healthClose: vi.fn(), janitorStop: vi.fn(), nativeClose: vi.fn(), artifactJanitor: vi.fn(),
+  composeSweep: vi.fn<(db: unknown) => Promise<ReconcileSweepRuntime>>(),
+  sourceStorage: vi.fn<(db: unknown) => () => Promise<null>>(), storageResolver: vi.fn<() => Promise<null>>(),
+  activities: vi.fn<(options: unknown) => Record<string, never>>(),
+  sweep: { assertReady: vi.fn<ReconcileSweepRuntime["assertReady"]>(), activities: { sweepReconcilePass: vi.fn<ReconcileSweepRuntime["activities"]["sweepReconcilePass"]>() } },
+  validateReconcile: vi.fn<(config: ExecutionWorkerConfig) => void>(),
+  reconcileClient: Object.freeze({ fixture: "modeled-reconciliation-client" }),
+  openReconcileClient: vi.fn<(config: ExecutionWorkerConfig, converter: DataConverter) => Promise<{ client: unknown; close(): Promise<void> }>>(),
+  awaitPollers: vi.fn<(worker: unknown, client: unknown, config: ExecutionWorkerConfig, startedAt: number) => Promise<void>>(),
+  prepareSchedule: vi.fn<(client: unknown, runtime: ReconcileSweepRuntime, config: ReconcileWorkerConfig) => Promise<void>>(),
+  monitor: vi.fn<(client: unknown, config: ReconcileWorkerConfig) => { refresh(): Promise<ReconcileObservation>; stop(): Promise<void> }>(),
+  refreshReconcile: vi.fn<() => Promise<ReconcileObservation>>(), monitorStop: vi.fn<() => Promise<void>>(), reconcileClientClose: vi.fn<() => Promise<void>>(),
+  workerRun: vi.fn<() => Promise<void>>(), workerShutdown: vi.fn<() => void>(),
 }));
 
 vi.mock("@temporalio/client", async (original) => {
@@ -43,20 +57,29 @@ vi.mock("@temporalio/worker", async (original) => {
 });
 vi.mock("node:fs/promises", async (original) => ({ ...await original<typeof import("node:fs/promises")>(), mkdir: vi.fn() }));
 vi.mock("@/lib/platform/app", () => ({ ensurePlatformApp: vi.fn(async () => true) }));
+// Intercept the default composition imports themselves, before their product
+// store graph can validate process environment during worker module loading.
+vi.mock("@/lib/platform/execution", () => ({ composeReconcileSweepRuntime: intercepted.composeSweep }));
+vi.mock("@/lib/providers/azure/release/source-binding", () => ({ createAzureSourceStorageResolver: intercepted.sourceStorage }));
 vi.mock("@/lib/policy", () => ({ loadPolicyEngine: vi.fn() }));
 vi.mock("@/lib/execution/plan-janitor", () => ({ startPlanArtifactJanitor: intercepted.artifactJanitor }));
-vi.mock("@/lib/workflows/activities", () => ({ createActivities: () => ({}) }));
+vi.mock("@/lib/workflows/activities", () => ({ createActivities: intercepted.activities }));
 vi.mock("../../workers/execution/lifecycle", () => ({ installShutdownHandlers: () => () => false }));
 vi.mock("../../workers/execution/startup", () => ({
   ExecutionStartupError: class extends Error {},
   validateExecutionConfiguration: intercepted.validate,
   openExecutionStore: intercepted.openStore,
   closeExecutionStore: intercepted.closeStore,
+  validateReconcileWorkerConfiguration: intercepted.validateReconcile,
+  openReconcileWorkerClient: intercepted.openReconcileClient,
+  prepareReconcileWorkerSchedule: intercepted.prepareSchedule,
+  reconcileWorkerMonitor: intercepted.monitor,
 }));
 vi.mock("../../workers/execution/health", () => ({ healthPortFromEnv: () => 9464, startHealthServer: intercepted.health, HEALTH_CHECK_TIMEOUT_MS: 2000 }));
 vi.mock("../../workers/execution/run", async (original) => ({
   ...await original<typeof import("../../workers/execution/run")>(),
   workflowSource: async () => ({ workflowBundle: { code: "intercepted-bundle" }, origin: "prebuilt-bundle" }),
+  awaitReconcilePollers: intercepted.awaitPollers,
 }));
 
 beforeEach(() => {
@@ -66,6 +89,19 @@ beforeEach(() => {
   vi.stubEnv("ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS", undefined);
   intercepted.validate.mockResolvedValue(undefined);
   intercepted.openStore.mockResolvedValue(intercepted.store);
+  intercepted.composeSweep.mockResolvedValue(intercepted.sweep);
+  intercepted.sourceStorage.mockReturnValue(intercepted.storageResolver);
+  intercepted.activities.mockReturnValue({});
+  intercepted.sweep.assertReady.mockResolvedValue(undefined);
+  intercepted.validateReconcile.mockImplementation(() => undefined);
+  intercepted.openReconcileClient.mockResolvedValue({ client: intercepted.reconcileClient, close: intercepted.reconcileClientClose });
+  intercepted.awaitPollers.mockResolvedValue(undefined);
+  intercepted.prepareSchedule.mockResolvedValue(undefined);
+  intercepted.monitor.mockReturnValue({ refresh: intercepted.refreshReconcile, stop: intercepted.monitorStop });
+  intercepted.refreshReconcile.mockResolvedValue({ phase: "missing", observationCurrent: false, running: 0 });
+  intercepted.monitorStop.mockResolvedValue(undefined);
+  intercepted.reconcileClientClose.mockResolvedValue(undefined);
+  intercepted.workerRun.mockResolvedValue(undefined);
   intercepted.artifactJanitor.mockReturnValue({ stop: intercepted.janitorStop });
   intercepted.closeStore.mockImplementation(async (db?: { close?: () => Promise<void> }) => {
     if (typeof db?.close === "function") await db.close();
@@ -201,19 +237,41 @@ describe("execution worker process codec wiring", () => {
   function interceptProcess() {
     vi.resetModules();
     vi.stubEnv("ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS", "0");
+    vi.stubEnv("ZENITH_WORKER_RECONCILE_SCHEDULE_MODE", "observe");
+    vi.stubEnv("ZENITH_WORKER_RECONCILE_MAX_ENVIRONMENTS", "25");
+    vi.stubEnv("ZENITH_WORKER_RECONCILE_CONCURRENCY", "3");
     const exit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     intercepted.health.mockResolvedValue({ port: 9464, close: intercepted.healthClose });
     intercepted.nativeConnect.mockResolvedValue({ close: intercepted.nativeClose });
-    intercepted.createWorker.mockResolvedValue({ run: vi.fn(), getState: () => "RUNNING" });
+    let state: "RUNNING" | "STOPPED" = "RUNNING";
+    intercepted.workerShutdown.mockImplementation(() => { state = "STOPPED"; });
+    intercepted.createWorker.mockResolvedValue({ run: intercepted.workerRun, getState: () => state, shutdown: intercepted.workerShutdown });
     return { exit, stdout };
   }
 
   function expectSuccessfulCleanup() {
     expect(intercepted.validate).toHaveBeenCalledOnce();
+    expect(intercepted.validateReconcile).toHaveBeenCalledOnce();
     expect(intercepted.openStore).toHaveBeenCalledOnce();
     expect(intercepted.validate.mock.invocationCallOrder[0]).toBeLessThan(intercepted.openStore.mock.invocationCallOrder[0]);
     expect(intercepted.openStore.mock.invocationCallOrder[0]).toBeLessThan(intercepted.nativeConnect.mock.invocationCallOrder[0]);
+    const config = intercepted.validateReconcile.mock.calls[0][0];
+    const options = intercepted.createWorker.mock.calls[0][0] as WorkerOptions;
+    expect(config.reconcile).toEqual({ mode: "observe", input: { contract: "zenith.reconcile-sweep.v1", maxEnvironments: 25, environmentConcurrency: 3 } });
+    expect(intercepted.composeSweep).toHaveBeenCalledExactlyOnceWith(intercepted.store);
+    expect(intercepted.sourceStorage).toHaveBeenCalledExactlyOnceWith(intercepted.store);
+    expect(intercepted.activities).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ db: intercepted.store, workerIdentity: config.identity, sourceBundles: { azureStorage: intercepted.storageResolver } }));
+    expect(options.activities).toHaveProperty("sweepReconcilePass", intercepted.sweep.activities.sweepReconcilePass);
+    expect(intercepted.workerRun).toHaveBeenCalledOnce();
+    expect(intercepted.openReconcileClient).toHaveBeenCalledExactlyOnceWith(config, options.dataConverter);
+    expect(intercepted.awaitPollers).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ run: intercepted.workerRun, shutdown: intercepted.workerShutdown }), intercepted.reconcileClient, config, expect.any(Number));
+    expect(intercepted.prepareSchedule).toHaveBeenCalledExactlyOnceWith(intercepted.reconcileClient, intercepted.sweep, config.reconcile);
+    expect(intercepted.monitor).toHaveBeenCalledExactlyOnceWith(intercepted.reconcileClient, config.reconcile);
+    expect(intercepted.refreshReconcile).toHaveBeenCalledOnce();
+    expect(intercepted.workerRun.mock.invocationCallOrder[0]).toBeLessThan(intercepted.openReconcileClient.mock.invocationCallOrder[0]);
+    expect(intercepted.awaitPollers.mock.invocationCallOrder[0]).toBeLessThan(intercepted.prepareSchedule.mock.invocationCallOrder[0]);
+    expect(intercepted.prepareSchedule.mock.invocationCallOrder[0]).toBeLessThan(intercepted.artifactJanitor.mock.invocationCallOrder[0]);
     expect(intercepted.artifactJanitor).toHaveBeenCalledExactlyOnceWith(intercepted.store, expect.any(Function));
     expect(intercepted.createWorker.mock.invocationCallOrder[0]).toBeLessThan(intercepted.artifactJanitor.mock.invocationCallOrder[0]);
     expect(intercepted.closeStore).toHaveBeenCalledExactlyOnceWith(intercepted.store);
@@ -221,6 +279,14 @@ describe("execution worker process codec wiring", () => {
     expect(intercepted.healthClose).toHaveBeenCalledOnce();
     expect(intercepted.janitorStop).toHaveBeenCalledOnce();
     expect(intercepted.nativeClose).toHaveBeenCalledOnce();
+    expect(intercepted.workerShutdown).toHaveBeenCalledOnce();
+    expect(intercepted.monitorStop).toHaveBeenCalledOnce();
+    expect(intercepted.reconcileClientClose).toHaveBeenCalledOnce();
+    expect(intercepted.workerShutdown.mock.invocationCallOrder[0]).toBeLessThan(intercepted.healthClose.mock.invocationCallOrder[0]);
+    expect(intercepted.healthClose.mock.invocationCallOrder[0]).toBeLessThan(intercepted.monitorStop.mock.invocationCallOrder[0]);
+    expect(intercepted.monitorStop.mock.invocationCallOrder[0]).toBeLessThan(intercepted.janitorStop.mock.invocationCallOrder[0]);
+    expect(intercepted.janitorStop.mock.invocationCallOrder[0]).toBeLessThan(intercepted.reconcileClientClose.mock.invocationCallOrder[0]);
+    expect(intercepted.reconcileClientClose.mock.invocationCallOrder[0]).toBeLessThan(intercepted.nativeClose.mock.invocationCallOrder[0]);
     expect(intercepted.healthClose.mock.invocationCallOrder[0]).toBeLessThan(intercepted.janitorStop.mock.invocationCallOrder[0]);
     expect(intercepted.janitorStop.mock.invocationCallOrder[0]).toBeLessThan(intercepted.nativeClose.mock.invocationCallOrder[0]);
     expect(intercepted.nativeClose.mock.invocationCallOrder[0]).toBeLessThan(intercepted.store.close.mock.invocationCallOrder[0]);
@@ -266,6 +332,10 @@ describe("execution worker process codec wiring", () => {
     await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
     expect(intercepted.validate).toHaveBeenCalledOnce();
     expect(intercepted.openStore).not.toHaveBeenCalled();
+    expect(intercepted.validateReconcile).not.toHaveBeenCalled();
+    expect(intercepted.composeSweep).not.toHaveBeenCalled();
+    expect(intercepted.sourceStorage).not.toHaveBeenCalled();
+    expect(intercepted.openReconcileClient).not.toHaveBeenCalled();
     expect(intercepted.nativeConnect).not.toHaveBeenCalled();
     expect(intercepted.createWorker).not.toHaveBeenCalled();
     expect(intercepted.artifactJanitor).not.toHaveBeenCalled();
@@ -287,6 +357,9 @@ describe("execution worker process codec wiring", () => {
     expect(intercepted.nativeConnect).not.toHaveBeenCalled();
     expect(intercepted.openStore).not.toHaveBeenCalled();
     expect(intercepted.closeStore).not.toHaveBeenCalled();
+    expect(intercepted.composeSweep).not.toHaveBeenCalled();
+    expect(intercepted.sourceStorage).not.toHaveBeenCalled();
+    expect(intercepted.openReconcileClient).not.toHaveBeenCalled();
     expect(JSON.stringify(stdout.mock.calls)).not.toContain("synthetic-private-path");
   });
 
@@ -303,6 +376,11 @@ describe("execution worker process codec wiring", () => {
     expect(intercepted.healthClose).toHaveBeenCalledOnce();
     expect(intercepted.nativeClose).not.toHaveBeenCalled();
     expect(intercepted.janitorStop).not.toHaveBeenCalled();
+    expect(intercepted.composeSweep).toHaveBeenCalledExactlyOnceWith(intercepted.store);
+    expect(intercepted.openReconcileClient).not.toHaveBeenCalled();
+    expect(intercepted.monitorStop).not.toHaveBeenCalled();
+    expect(intercepted.reconcileClientClose).not.toHaveBeenCalled();
+    expect(intercepted.workerShutdown).not.toHaveBeenCalled();
     expect(intercepted.healthClose.mock.invocationCallOrder[0]).toBeLessThan(intercepted.store.close.mock.invocationCallOrder[0]);
     expect(JSON.stringify(stdout.mock.calls)).not.toMatch(/BEGIN|synthetic-|"data":/);
   });
@@ -336,6 +414,10 @@ describe("execution worker process codec wiring", () => {
     expect(intercepted.createWorker).not.toHaveBeenCalled();
     expect(intercepted.openStore).not.toHaveBeenCalled();
     expect(intercepted.closeStore).not.toHaveBeenCalled();
+    expect(intercepted.validateReconcile).not.toHaveBeenCalled();
+    expect(intercepted.composeSweep).not.toHaveBeenCalled();
+    expect(intercepted.sourceStorage).not.toHaveBeenCalled();
+    expect(intercepted.openReconcileClient).not.toHaveBeenCalled();
     expect(JSON.stringify(stdout.mock.calls)).not.toContain("invalid-test-key");
   });
 });

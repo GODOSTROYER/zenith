@@ -31,6 +31,8 @@
  * Exit:   0 every intended lane ran, 1 otherwise (or the report is unreadable).
  */
 import fs from "node:fs";
+import { OAUTH_GRANT_POSTGRES_REQUIREMENTS, requirementsFor } from "./gate-manifest.mjs";
+import { reportFailures } from "../../tests/ci/assert-lane-report.mjs";
 
 /**
  * The lanes this job intends to run, and how to recognise one in the report.
@@ -81,6 +83,12 @@ const INTENDED = [
     label: "tests/waitlist/pg-contract.test.ts (waitlist queue and batch admissions)",
     match: (fullName) => /^'?WaitlistPostgres'?(?:\s|$)/.test(fullName),
     why: "Queue ordering, duplicate joins, signup admission hook, role boundaries and concurrent batch admissions (supabase/migrations/0009–0011).",
+  },
+  {
+    id: "agent-oauth-pg-contract",
+    label: "tests/agent-control/pg-oauth-grants.test.ts (71 native retained OAuth grant/schema controls)",
+    match: (fullName) => fullName.startsWith("OAuth resource grant journal [postgres] "),
+    why: "All 71 native persistence, identity, quota and canonical schema controls must pass; upstream OAuth identity is modeled.",
   },
 ];
 
@@ -174,6 +182,12 @@ try {
   process.exit(1);
 }
 
+// The summary cannot certify a partially passing group or replace the canonical nine source groups.
+let strictFailures;
+try { strictFailures = reportFailures(requirementsFor("postgres", process.cwd()), report, process.cwd()); }
+catch { strictFailures = ["Canonical PostgreSQL source requirements are unavailable or invalid"]; }
+const oauthFailures = reportFailures(OAUTH_GRANT_POSTGRES_REQUIREMENTS, report, process.cwd());
+
 /**
  * Every assertion in the run, flattened.
  *
@@ -184,14 +198,20 @@ try {
  * grouping the skip warnings.
  */
 const assertions = [];
-for (const file of report.testResults ?? [])
-  for (const assertion of file.assertionResults ?? [])
+for (const file of Array.isArray(report?.testResults) ? report.testResults : []) {
+  for (const assertion of Array.isArray(file?.assertionResults) ? file.assertionResults : []) {
+    // The strict validator rejects malformed entries. Summary formatting never
+    // dereferences their unchecked shape or replaces that failure verdict.
+    if (!assertion || typeof assertion !== "object") continue;
+    const ancestors = Array.isArray(assertion.ancestorTitles) && assertion.ancestorTitles.every(title => typeof title === "string") ? assertion.ancestorTitles : [];
     assertions.push({
-      file: file.name ?? "",
-      suite: (assertion.ancestorTitles ?? [])[0] ?? assertion.title ?? file.name ?? "(unnamed)",
-      fullName: assertion.fullName ?? [...(assertion.ancestorTitles ?? []), assertion.title ?? ""].join(" "),
-      status: assertion.status ?? "unknown",
+      file: typeof file.name === "string" ? file.name : "",
+      suite: ancestors[0] ?? (typeof assertion.title === "string" ? assertion.title : "(unnamed)"),
+      fullName: typeof assertion.fullName === "string" ? assertion.fullName : "",
+      status: typeof assertion.status === "string" ? assertion.status : "unknown",
     });
+  }
+}
 
 const passed = assertions.filter((a) => a.status === "passed");
 const skipped = assertions.filter((a) => a.status === "pending" || a.status === "skipped" || a.status === "todo");
@@ -202,14 +222,16 @@ const failed = assertions.filter((a) => a.status === "failed");
 const results = INTENDED.map((lane) => {
   const ran = passed.filter((a) => lane.match(a.fullName)).length;
   const lost = skipped.filter((a) => lane.match(a.fullName)).length;
-  return { ...lane, ran, lost, ok: ran > 0 };
+  return { ...lane, ran, lost, ok: ran > 0 && (lane.id !== "agent-oauth-pg-contract" || oauthFailures.length === 0) };
 });
 
 const missing = results.filter((lane) => !lane.ok);
 
 say("## PostgreSQL lane");
 say();
-say(`Total: **${passed.length} passed**, ${failed.length} failed, ${skipped.length} skipped, across ${(report.testResults ?? []).length} files.`);
+say(`Total: **${passed.length} passed**, ${failed.length} failed, ${skipped.length} skipped, across ${(Array.isArray(report?.testResults) ? report.testResults : []).length} files.`);
+say();
+say("The native OAuth group verifies persisted tuples and schema; upstream OAuth identity is modeled.");
 say();
 say("### Lanes this job intended to run");
 say();
@@ -219,9 +241,8 @@ for (const lane of results) say(`| ${lane.label} | ${lane.ran} | ${lane.ok ? "RA
 say();
 
 if (skipped.length > 0) {
-  // Warnings, not failures: a test may be skipped for a legitimate reason
-  // inside a lane that otherwise ran. The failure condition is a lane with
-  // *zero* passing tests, which is checked above.
+  // Skip totals remain visible. A skipped canonical requirement fails the
+  // strict verdict even when passing siblings keep this summary group nonzero.
   say("### Skipped inside this job");
   say();
   const bySuite = new Map();
@@ -251,6 +272,10 @@ if (missing.length > 0) {
   say("> A Postgres lane that ran zero Postgres tests is not evidence of anything.");
 }
 
+if (strictFailures.length > 0) {
+  say("> **Canonical PostgreSQL requirements failed.** Every intended native case must pass under its exact file and suite.");
+}
+
 if (summaryFile) fs.appendFileSync(summaryFile, summary);
 else process.stdout.write(summary);
 
@@ -260,4 +285,5 @@ for (const lane of missing)
       "Check ZENITH_CONTRACT_POSTGRES=1 and SUPABASE_DB_URL are exported to the vitest step."
   );
 
-process.exit(missing.length > 0 ? 1 : 0);
+for (const failure of strictFailures) console.error(`::error::${failure}`);
+process.exit(missing.length > 0 || strictFailures.length > 0 ? 1 : 0);

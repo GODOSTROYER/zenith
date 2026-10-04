@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 
 const root = process.cwd();
@@ -177,11 +177,41 @@ function finalMcpNamed(sourceRoot = root): Requirement[] {
 function finalMcpGroup(group: NamedGroup, sourceRoot = root) {
   return finalMcpNamed(sourceRoot).filter(item => item.file === group.file && item.suite === group.suite);
 }
+const planProductDiscovered = [
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "backend": "postgres"
+  }
+] as const;
+function priorPlanProductPlatformRequirements(sourceRoot = root): Requirement[] {
+  const ids = new Set([...PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, ...PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, ...planProductDiscovered].map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+}
+function priorRetainedWaitPlatformRequirements(sourceRoot = root): Requirement[] {
+  const ids = new Set(PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+}
+function planProductNamed(sourceRoot = root): Requirement[] {
+  const ids = new Set(PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => ids.has(item.id));
+}
+
 // Only prior-cohort regression assertions use this selection. The production
 // validator and full manifest retain every new named and discovered requirement.
 function priorG2PlatformRequirements(sourceRoot = root): Requirement[] {
   const ids = new Set([...EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, ...MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, ...AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, ...MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, ...MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS].map(item => requirementId("platform-postgres", item)));
-  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id)
+  return priorPlanProductPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id)
     && !(item.test === undefined && ["tests/controlplane/mcp-deploy-admission.test.ts", "tests/controlplane/opened-handle-ownership.test.ts", finalMcpFile].includes(item.file)));
 }
 /** Expand only committed flat string parameter labels; never execute fixture source. */
@@ -732,7 +762,7 @@ describe("mandatory tenant-qualified execution lease gates", () => {
     const manifest = manifestFor("platform-postgres", root);
     const required = executionLeaseTenantNamed();
     const ids = new Set(required.map(item => item.id));
-    const prior = manifest.requirements.filter(item => !ids.has(item.id));
+    const prior = priorPlanProductPlatformRequirements().filter(item => !ids.has(item.id));
     expect(prior).toHaveLength(617);
     expect(createHash("sha256").update(JSON.stringify(prior.map(item => item.id).sort())).digest("hex"))
       .toBe("b6ce5d5bdbedfc582d0d2803283f51805940fe8905a78c72d875d1a6ec2268ad");
@@ -741,8 +771,8 @@ describe("mandatory tenant-qualified execution lease gates", () => {
       .toBe("d0d3da80b31794395579ce9060bd1e1f76c3fe934bd4283183693dd792374e6b");
     expect(declaredLiteralTests(firstSourceLeaseFile))
       .toEqual([...firstSourceLeaseNamed(), ...required].map(item => item.test));
-    expect(manifest.requirements).toHaveLength(624);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(624);
+    expect(priorPlanProductPlatformRequirements()).toHaveLength(624);
+    expect(new Set(priorPlanProductPlatformRequirements().map(item => item.id)).size).toBe(624);
     expect(manifest.requirements.filter(item => item.file === firstSourceLeaseFile && item.test === undefined))
       .toEqual([expect.objectContaining({ suite: firstSourceLeaseSuite, backend: "postgres" })]);
     expect(manifest.env.ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED).toBe("1");
@@ -815,8 +845,8 @@ describe("mandatory G2 native admission and read-only readiness gates", () => {
     expect(createHash("sha256").update(JSON.stringify(prior.map(item => item.id).sort())).digest("hex"))
       .toBe("6d635d7ea4d84b23d03b2b9221bbf3533625fc1c4b05f5624cb198bd5be520b4");
     expect(g2NativeNamed()).toHaveLength(71);
-    expect(manifest.requirements).toHaveLength(624);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(624);
+    expect(priorPlanProductPlatformRequirements()).toHaveLength(624);
+    expect(new Set(priorPlanProductPlatformRequirements().map(item => item.id)).size).toBe(624);
     const discovered = manifest.requirements.filter(item => item.test === undefined
       && ["tests/controlplane/mcp-deploy-admission.test.ts", "tests/controlplane/opened-handle-ownership.test.ts"].includes(item.file));
     expect(discovered).toEqual([
@@ -955,13 +985,13 @@ describe("mandatory final MCP source authority and SDK protocol gates", () => {
   it("retains all prior 527 identities and adds exactly 72 native, 17 SDK and one discovered native suite", () => {
     const manifest = manifestFor("platform-postgres", root);
     const added = new Set([...finalMcpNamed(), ...executionLeaseTenantNamed()].map(item => item.id));
-    const prior = manifest.requirements.filter(item => !added.has(item.id) && !(item.file === finalMcpFile && item.test === undefined));
+    const prior = priorPlanProductPlatformRequirements().filter(item => !added.has(item.id) && !(item.file === finalMcpFile && item.test === undefined));
     expect(prior).toHaveLength(527);
     expect(createHash("sha256").update(JSON.stringify(prior.map(item => item.id).sort())).digest("hex"))
       .toBe("23f4e7cdf2dcbd836fa21be07493074a0d185448390eb7b0092e123090142148");
     expect(finalMcpNamed()).toHaveLength(89);
-    expect(manifest.requirements).toHaveLength(624);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(624);
+    expect(priorPlanProductPlatformRequirements()).toHaveLength(624);
+    expect(new Set(priorPlanProductPlatformRequirements().map(item => item.id)).size).toBe(624);
     expect(manifest.requirements.filter(item => item.file === finalMcpFile && item.test === undefined))
       .toEqual([expect.objectContaining({ suite: finalMcpGroups[0].suite, backend: "postgres" })]);
     expect(manifest.env.ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED).toBe("1");
@@ -1330,4 +1360,289 @@ it("keeps transaction-bound dispatch and same-owner receipt privileges mandatory
   for (const mode of ["fresh", "same-owner schema6"])
     expect(required).toContainEqual(expect.objectContaining({ file: "tests/controlplane/migrations.test.ts", suite: "migrator [postgres] concurrency and fail-closed open",
       test: `${mode} canonical migrations keep permanent agent receipts select/insert-only`, postgres: true }));
+});
+
+const planProductGroups = [
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "flag": "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED",
+    "count": 52,
+    "sha256": "369ef5d4add53ec82e3d39664bdd4da3b24f5ffedbcddbdb13ab5383512c9843",
+    "offset": 0
+  },
+  {
+    "file": "tests/platform/current-dispatch-requirement.test.ts",
+    "suite": "current evaluated dispatch requirement [postgres; modeled policy and directory]",
+    "flag": "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED",
+    "count": 9,
+    "sha256": "eb7927f2cffb384a53ed0f06a5fe6ea48f530b53e5554841440c65ec8b88e76f",
+    "offset": 0
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "flag": "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED",
+    "count": 18,
+    "sha256": "9f0f4898a2ef0a1844277ce34e4013c10100645edb24e2abb0d71a53485ee373",
+    "offset": 0
+  },
+  {
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "suite": "authenticated original cross-worker handoff [postgres]",
+    "flag": "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED",
+    "count": 7,
+    "sha256": "7da4e29009c7dad9fb1efabca1af3ee057e32d5eff08b717eb1c715f5f41f229",
+    "offset": 11
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "flag": "ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED",
+    "count": 35,
+    "sha256": "d9e98f67caf345bfdb4aa6cada41d63899c176355233a6cc028c160d47b6f9ba",
+    "offset": 0
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "flag": "ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED",
+    "count": 50,
+    "sha256": "7f56ddefb39b2e90ede0053b62732e323027137c5572aff734df738747866424",
+    "offset": 0
+  }
+];
+/** Read these six committed fixture declarations only; no source/module evaluation. */
+function planProductDeclarations(group: typeof planProductGroups[number], includeRetainedWait = false): string[] {
+  const source = fs.readFileSync(path.join(root, group.file), "utf8");
+  const start = source.indexOf(JSON.stringify(group.suite));
+  if (start < 0 || !source.slice(0, start).trimEnd().endsWith("(")) throw new Error("Exact native product fixture suite unavailable.");
+  let body = source.slice(start);
+  if (["tests/controlplane/plan-artifact-product-authority.test.ts", "tests/controlplane/plan-artifact-integration-authority.test.ts"].includes(group.file)) {
+    const labels = /const changes\s*=\s*(\[[\s\S]*?\]) as const;/.exec(body)?.[1];
+    if (!labels) throw new Error("Exact committed native product change labels unavailable.");
+    const values: unknown = JSON.parse(labels);
+    if (!Array.isArray(values) || values.some(value => typeof value !== "string")) throw new Error("Native product change labels must be literal strings.");
+    body = body.replace("it.each(changes)(", `it.each(${JSON.stringify(values)})(`);
+  }
+  return [...body.matchAll(/\bit(?:\.each\((\[[^\]]*\])(?: as const)?\))?\(\s*"([^"\n]+)"/g)].flatMap(match => {
+    if (!match[1]) return [match[2]];
+    const values: unknown = JSON.parse(match[1]);
+    if (!Array.isArray(values) || values.some(value => typeof value !== "string")) throw new Error("Native product fixture labels must be literal strings.");
+    return values.map(value => match[2].replace("%s", value));
+  }).filter(title => includeRetainedWait || title !== PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS[0].test).slice(group.offset);
+}
+
+describe("mandatory original-plan product and linked native authority gates", () => {
+  it("preserves all 624 prior IDs and registers 171 literal cases plus three discovered native suites", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    const required = planProductNamed();
+    expect(required).toHaveLength(171);
+    expect(new Set(required.map(item => item.id)).size).toBe(171);
+    expect(priorPlanProductPlatformRequirements()).toHaveLength(624);
+    expect(createHash("sha256").update(JSON.stringify(priorPlanProductPlatformRequirements().map(item => item.id).sort())).digest("hex")).toBe("09b908b83f36eb4c08bc8f241337dd03c584e8c49a4918de9d6ce0aad52ddf75");
+    expect(priorRetainedWaitPlatformRequirements()).toHaveLength(798);
+    expect(new Set(priorRetainedWaitPlatformRequirements().map(item => item.id)).size).toBe(798);
+    for (const discovered of planProductDiscovered) expect(manifest.requirements).toContainEqual({ ...discovered, id: requirementId("platform-postgres", discovered) });
+    expect(manifest.env).toMatchObject({ ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED: "1" });
+    for (const prerequisite of [
+  "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1; original-plan product/current approval authority requires actual PostgreSQL, canonical platform schema13/product collections, independent native connections and pinned OpenTofu; hosted association/current roles/policy remain modeled",
+  "ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1; linked credential dispatch/factory origin requires actual owning PostgreSQL with explicit port, canonical platform schema13/product collections and agent linked schema1; hosted REST/scope/policy remain modeled"
+]) expect(manifest.prerequisites).toContain(prerequisite);
+    for (const group of planProductGroups) {
+      expect(manifest.command.some(argument => argument === group.file || group.file.startsWith(`${argument}/`))).toBe(true);
+      expect(manifest.excludeFiles).not.toContain(group.file);
+    }
+    expect(manifest.command).toContain("tests/platform/current-dispatch-requirement.test.ts");
+    expect(manifest.command).toContain("tests/agent-access/credential-authority-origin.test.ts");
+    expect(manifest.command).not.toContain("--passWithNoTests");
+    expect(manifest.excludeFiles).toEqual([]);
+    expect(manifest.tools).toEqual({ node: "22.23.3", postgres: "16.15", tofu: "1.12.5" });
+    expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+  });
+
+  it.each(planProductGroups)("$file pins exact native source declarations and the required pre-hook guard", group => {
+    const required = planProductNamed().filter(item => item.file === group.file && item.suite === group.suite);
+    expect(required).toHaveLength(group.count);
+    expect(required.map(item => item.test)).toEqual(planProductDeclarations(group));
+    expect(createHash("sha256").update(JSON.stringify(required.map(item => item.test))).digest("hex")).toBe(group.sha256);
+    const source = fs.readFileSync(path.join(root, group.file), "utf8");
+    expect(source).toContain(group.flag);
+    const firstNativeRegistration = Math.min(...["beforeAll(", "beforeEach(", "afterAll(", "describe.skipIf("].map(boundary => source.indexOf(boundary)).filter(index => index >= 0));
+    expect(Number.isFinite(firstNativeRegistration)).toBe(true);
+    expect(source.indexOf(group.flag)).toBeLessThan(firstNativeRegistration);
+    expect(source).toContain("openPlatformDb");
+    for (const item of required) expect(item).toMatchObject({ file: group.file, suite: group.suite, backend: "postgres" });
+  });
+
+  it("refuses every missing or nonpassing product case and PGlite, foreign, malformed or substituted evidence", () => {
+    const required = planProductNamed();
+    for (const missing of required) {
+      expect(reportFailures(required, contractReport(required.filter(item => item.id !== missing.id)), root)).toHaveLength(1);
+      for (const status of ["failed", "skipped", "pending", "todo", "unknown"]) {
+        const report = contractReport(required);
+        report.testResults.find(file => file.name === path.resolve(root, missing.file))!.assertionResults.find(item => item.title === missing.test)!.status = status;
+        expect(reportFailures(required, report, root).length).toBeGreaterThan(0);
+      }
+      for (const suite of [missing.suite!.replace("postgres", "pglite"), missing.suite!.replace("postgres", "postgres-replica"), "modeled unrelated authority [postgres]", "native authority ['postgres\"]"]) {
+        const report = contractReport(required);
+        report.testResults.find(file => file.name === path.resolve(root, missing.file))!.assertionResults.find(item => item.title === missing.test)!.ancestorTitles = [suite];
+        expect(reportFailures(required, report, root)).toHaveLength(1);
+      }
+      const foreign = contractReport(required);
+      foreign.testResults.find(file => file.name === path.resolve(root, missing.file))!.assertionResults = foreign.testResults.find(file => file.name === path.resolve(root, missing.file))!.assertionResults.filter(item => item.title !== missing.test);
+      foreign.testResults.push({ name: path.resolve(root, "tests/execution/apply.test.ts"), status: "passed", assertionResults: [{ title: missing.test!, fullName: `${missing.suite} ${missing.test}`, ancestorTitles: [missing.suite!], status: "passed" }] });
+      expect(reportFailures(required, foreign, root)).toHaveLength(1);
+      const malformed = contractReport(required);
+      malformed.testResults.find(file => file.name === path.resolve(root, missing.file))!.assertionResults.find(item => item.title === missing.test)!.fullName = "";
+      expect(reportFailures(required, malformed, root)).toEqual(["Malformed Vitest assertion evidence"]);
+      const substitute = contractReport(required);
+      substitute.testResults.find(file => file.name === path.resolve(root, missing.file))!.assertionResults.find(item => item.title === missing.test)!.title = "a passing modeled authority";
+      expect(reportFailures(required, substitute, root)).toHaveLength(1);
+    }
+  });
+
+  it("retains every literal requirement after all six native fixture files are deleted", () => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-plan-product-"));
+    for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/platform", "tests/agent-access", "tests/tofu"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
+    for (const group of planProductGroups) fs.copyFileSync(path.join(root, group.file), path.join(sourceRoot, group.file));
+    const before = planProductNamed(sourceRoot);
+    for (const group of planProductGroups) fs.unlinkSync(path.join(sourceRoot, group.file));
+    expect(planProductNamed(sourceRoot)).toEqual(before);
+    expect(before).toEqual(planProductNamed());
+    expect(reportFailures(before, { success: true, testResults: [] }, sourceRoot)).toHaveLength(171);
+  });
+
+  it("refuses empty, duplicate, suite-only and inconsistent reports without caller requirement overrides", () => {
+    const required = planProductNamed();
+    for (const report of [null, {}, { success: true }, { success: true, testResults: [] }, { success: false, testResults: [] }]) expect(reportFailures(required, report, root).length).toBeGreaterThan(0);
+    expect(reportFailures([], contractReport(required), root)).toEqual(["No required scenarios found"]);
+    const suiteOnly = contractReport(required);
+    for (const file of suiteOnly.testResults) file.assertionResults = [{ title: "one modeled authority", fullName: "one modeled authority", ancestorTitles: ["native authority [postgres]"], status: "passed" }];
+    expect(reportFailures(required, suiteOnly, root)).toHaveLength(171);
+    const duplicate = contractReport(required); duplicate.testResults.push(duplicate.testResults[0]);
+    expect(reportFailures(required, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+    expect(reportFailures(required, { ...contractReport(required), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures(required, { ...contractReport(required), numFailedTests: 1 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures(required, { ...contractReport([]), requirements: [], lane: "platform-postgres" }, root)).toHaveLength(171);
+  });
+});
+
+
+const oauthFile = "tests/agent-control/pg-oauth-grants.test.ts";
+const oauthSuite = "OAuth resource grant journal [postgres]";
+const oauthNamed = (sourceRoot = root) => {
+  const ids = new Set(OAUTH_GRANT_POSTGRES_REQUIREMENTS.map(item => requirementId("postgres", item)));
+  return requirementsFor("postgres", sourceRoot).filter(item => ids.has(item.id));
+};
+/** OAuth's exact committed suite and flat literal parameters, without evaluation. */
+function oauthDeclarations(): string[] {
+  const source = fs.readFileSync(path.join(root, oauthFile), "utf8");
+  const start = source.indexOf(`describe.skipIf(!enabled)(${JSON.stringify(oauthSuite)}`);
+  if (start < 0) throw new Error("Exact native OAuth suite unavailable.");
+  return [...source.slice(start).matchAll(/\bit(?:\.each\((\[[^\]]*\])(?: as const)?\))?\(\s*"([^"\n]+)"/g)].flatMap(match => {
+    if (!match[1]) return [match[2]];
+    const values: unknown = JSON.parse(match[1]);
+    if (!Array.isArray(values) || values.some(value => typeof value !== "string")) throw new Error("OAuth parameters must be committed flat string literals.");
+    return values.map(value => match[2].replace("%s", value));
+  });
+}
+
+describe("mandatory native OAuth grant and additive retained destroy gates", () => {
+  it("pins all 71 OAuth native source cases, original nine groups and pre-hook required admission", () => {
+    const manifest = manifestFor("postgres", root), required = oauthNamed();
+    expect(required).toHaveLength(71);
+    expect(required.map(item => item.test)).toEqual(oauthDeclarations());
+    expect(createHash("sha256").update(JSON.stringify(required.map(item => item.test))).digest("hex")).toBe("e87332ce8883f836e18a9a6fd0f34d051d0069a115b38e489b2d44e3e5ae2b00");
+    expect(createHash("sha256").update(JSON.stringify(required.slice(0, 69).map(item => item.test))).digest("hex")).toBe("d9ea6ef37d03d7b5daae2c1e00b6b27a67084314845abbbb58437daa04eb0ba8");
+    expect(required.slice(69).map(item => item.test)).toEqual([
+      "cold native catalog preserves canonical CHECK and primary unique inheritance flags",
+      "canonical verifier and migration refuse a same-named NO INHERIT CHECK constraint",
+    ]);
+    expect(new Set(required.map(item => item.id)).size).toBe(71);
+    expect(manifest.requirements).toHaveLength(80);
+    const oauthIds = new Set(required.map(item => item.id));
+    const previous = manifest.requirements.filter(item => !oauthIds.has(item.id));
+    expect(previous).toHaveLength(9);
+    expect(previous.map(({ file, suite, backend }) => ({ file, suite, backend }))).toEqual([
+      ...["access", "contract", "ledgers", "release"].map(name => ({ file: `tests/hosted/authority/contract/${name}.test.ts`, suite: name === "ledgers" ? "PostgresAuthority ledgers" : "PostgresAuthority", backend: "postgres" })),
+      { file: "tests/scripts/migrate-hosted-to-postgres.test.ts", suite: "migrate-hosted-to-postgres — against the real Supabase project", backend: "postgres" },
+      { file: "tests/agent-link/pg-contract.test.ts", suite: "AgentLinkPostgres", backend: "postgres" },
+      { file: "tests/agent-control/pg-contract.test.ts", suite: "AgentControlPostgres", backend: "postgres" },
+      { file: "tests/db/contract/workspace-sharing.test.ts", suite: "WorkspaceSharingPostgres", backend: "postgres" },
+      { file: "tests/waitlist/pg-contract.test.ts", suite: "WaitlistPostgres", backend: "postgres" },
+    ]);
+    expect(manifest.env).toMatchObject({ ZENITH_CONTRACT_POSTGRES: "1", ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED: "1" });
+    expect(manifest.command).toContain(oauthFile); expect(manifest.command).not.toContain("--passWithNoTests");
+    expect(manifest.excludeFiles).toEqual([]);
+    expect(manifest.prerequisites.some(value => value.startsWith("ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED=1;"))).toBe(true);
+    const source = fs.readFileSync(path.join(root, oauthFile), "utf8");
+    expect(source.indexOf("ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED")).toBeLessThan(source.indexOf("beforeAll("));
+    expect(source.indexOf("ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED")).toBeLessThan(source.indexOf("describe.skipIf("));
+    expect(source).toContain('if (process.env.ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED === "1" && !enabled)');
+    for (const item of required) expect(item).toMatchObject({ file: oauthFile, suite: oauthSuite, postgres: true });
+    expect(reportFailures(manifest.requirements, contractReport(manifest.requirements), root)).toEqual([]);
+  });
+
+  it("rejects each missing, nonpassing, PGlite, foreign, malformed or substituted native OAuth identity", () => {
+    const required = oauthNamed();
+    for (const missing of required) {
+      expect(reportFailures(required, contractReport(required.filter(item => item.id !== missing.id)), root)).toHaveLength(1);
+      for (const status of ["failed", "skipped", "pending", "todo", "unknown"]) {
+        const report = contractReport(required);
+        report.testResults[0].assertionResults.find(item => item.title === missing.test)!.status = status;
+        expect(reportFailures(required, report, root).length).toBeGreaterThan(0);
+      }
+      for (const suite of ["OAuth resource grant journal [pglite]", "OAuth resource grant journal [postgres-replica]", "unrelated journal [postgres]", "OAuth resource grant journal ['postgres\"]"]) {
+        const report = contractReport(required);
+        report.testResults[0].assertionResults.find(item => item.title === missing.test)!.ancestorTitles = [suite];
+        expect(reportFailures(required, report, root)).toHaveLength(1);
+      }
+      const foreign = contractReport(required);
+      foreign.testResults[0].assertionResults = foreign.testResults[0].assertionResults.filter(item => item.title !== missing.test);
+      foreign.testResults.push({ name: path.resolve(root, "tests/agent-control/pg-contract.test.ts"), status: "passed", assertionResults: [{ title: missing.test!, fullName: `${oauthSuite} ${missing.test}`, ancestorTitles: [oauthSuite], status: "passed" }] });
+      expect(reportFailures(required, foreign, root)).toHaveLength(1);
+      const malformed = contractReport(required); malformed.testResults[0].assertionResults.find(item => item.title === missing.test)!.fullName = "";
+      expect(reportFailures(required, malformed, root)).toEqual(["Malformed Vitest assertion evidence"]);
+      const substitute = contractReport(required); substitute.testResults[0].assertionResults.find(item => item.title === missing.test)!.title = "a passing modeled grant";
+      expect(reportFailures(required, substitute, root)).toHaveLength(1);
+    }
+  });
+
+  it("retains all literal OAuth requirements after source deletion and refuses zero or caller-supplied evidence", () => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-oauth-"));
+    fs.mkdirSync(path.join(sourceRoot, "tests/hosted/authority/contract"), { recursive: true });
+    fs.mkdirSync(path.join(sourceRoot, "tests/agent-control"), { recursive: true });
+    fs.copyFileSync(path.join(root, oauthFile), path.join(sourceRoot, oauthFile));
+    const before = oauthNamed(sourceRoot); fs.unlinkSync(path.join(sourceRoot, oauthFile));
+    expect(oauthNamed(sourceRoot)).toEqual(before); expect(before).toEqual(oauthNamed());
+    expect(reportFailures(before, { success: true, testResults: [] }, sourceRoot)).toHaveLength(71);
+    for (const report of [null, {}, { success: true }, { success: false, testResults: [] }]) expect(reportFailures(before, report, root).length).toBeGreaterThan(0);
+    const duplicate = contractReport(before); duplicate.testResults.push(duplicate.testResults[0]);
+    expect(reportFailures(before, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+    expect(reportFailures(before, { ...contractReport(before), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures(before, { ...contractReport(before), numFailedTests: 1 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures(before, { ...contractReport([]), lane: "postgres", requirements: [] }, root)).toHaveLength(71);
+    expect(reportFailures([], contractReport(before), root)).toEqual(["No required scenarios found"]);
+  });
+
+  it("adds the observed retained destroy wait case without changing any of the 798 prior requirements", () => {
+    const manifest = manifestFor("platform-postgres", root), added = PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS;
+    expect(added).toHaveLength(1);
+    expect(manifest.requirements).toHaveLength(799); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(799);
+    expect(priorRetainedWaitPlatformRequirements()).toHaveLength(798);
+    const required = manifest.requirements.filter(item => added.some(value => requirementId("platform-postgres", value) === item.id));
+    expect(required).toEqual(added.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
+    const group = planProductGroups.find(item => item.file === required[0].file)!;
+    const full = planProductDeclarations(group, true);
+    expect(full).toHaveLength(36);
+    expect(full.filter(title => title === added[0].test)).toHaveLength(1);
+    expect(full.filter(title => title !== added[0].test)).toEqual(planProductNamed().filter(item => item.file === group.file).map(item => item.test));
+    expect(manifest.env.ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED).toBe("1");
+    expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+    for (const status of ["failed", "pending", "skipped", "todo"]) { const report = contractReport(required); report.testResults[0].assertionResults[0].status = status; expect(reportFailures(required, report, root).length).toBeGreaterThan(0); }
+    expect(reportFailures(required, { success: true, testResults: [] }, root)).toHaveLength(1);
+    const model = contractReport(required); model.testResults[0].assertionResults[0].ancestorTitles = [required[0].suite!.replace("postgres", "pglite")];
+    expect(reportFailures(required, model, root)).toHaveLength(1);
+  });
 });

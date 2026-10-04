@@ -8,7 +8,7 @@ import path from "node:path";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
 import vitestConfig from "../../vitest.config";
-import { EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
+import { OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
 import { requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
 
 interface Step {
@@ -19,6 +19,34 @@ interface Step {
 interface Job { steps: Step[]; env?: Record<string, unknown>; if?: string; "continue-on-error"?: boolean }
 const root = process.cwd();
 const workflow = load(fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8")) as { jobs: Record<string, Job> };
+
+
+function priorPlanProductPlatformRequirements() {
+  const extra = [
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "backend": "postgres"
+  }
+];
+  const ids = new Set([...PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, ...PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, ...extra].map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", root).filter(item => !ids.has(item.id));
+}
+
+function priorRetainedWaitPlatformRequirements() {
+  const ids = new Set(PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", root).filter(item => !ids.has(item.id));
+}
 
 function testsUnder(directory: string): string[] {
   return fs.readdirSync(path.join(root, directory), { withFileTypes: true }).flatMap((entry) => {
@@ -108,16 +136,37 @@ describe("platform suite coverage", () => {
       "independent saved binary with matching native private source binding applies the exact original once",
       "independent saved binary refuses committed private source revocation before original apply without a fresh fallback",
     ];
-    const platformSuites = [
-      { file: "tests/execution/apply.test.ts", suite: "dispatch current authority [postgres]", cases: dispatchModes.map((mode) => `refuses ${mode} after fresh replan and before durable dispatch`), sourceTitles: ["refuses %s after fresh replan and before durable dispatch", ...dispatchModes] },
-      { file: "tests/tofu/plan-artifact-handoff.test.ts", suite: "authenticated original cross-worker handoff [postgres]", cases: handoffCases, sourceTitles: handoffCases },
-      { file: "tests/security/plan-artifact-secrecy.test.ts", suite: "encrypted plan artifact secrecy [postgres]", cases: [], sourceTitles: ["sensitive read-only originals persist only ciphertext; key rotation, tenant domains and tampering fail closed"] },
+    const productHandoffCases = [
+      "saved product original binary changed owning region during paired current-role wait fences actual apply effects",
+      "saved product original binary approver demotion during paired current-role wait fences actual apply effects",
+      "saved product original binary benign UI pointer advance during paired current-role wait fences actual apply effects",
+      "saved product original binary unchanged owning target during paired current-role wait fences actual apply effects",
+      "associated saved product destroy binary fences destination subject demotion during paired current-role wait",
+      "associated saved product destroy binary fences approver demotion during paired current-role wait",
+      "associated saved product destroy binary fences unchanged destination during paired current-role wait",
+    ];
+    expect(handoffCases).toHaveLength(11);
+    expect(productHandoffCases).toEqual(PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS.filter(item => item.file === "tests/tofu/plan-artifact-handoff.test.ts").map(item => item.test));
+    const allHandoffCases = [...handoffCases, ...productHandoffCases];
+    expect(new Set(allHandoffCases).size).toBe(18);
+    const productHandoffSourceTitles = [
+      "saved product original binary %s during paired current-role wait fences actual apply effects",
+      "changed owning region", "approver demotion", "benign UI pointer advance", "unchanged owning target",
+      "associated saved product destroy binary fences %s during paired current-role wait",
+      "destination subject demotion", "unchanged destination",
+    ];
+    const platformSuites: { file: string; suite: string; cases: string[]; backendCases: string[]; sourceTitles: string[] }[] = [
+      { file: "tests/execution/apply.test.ts", suite: "dispatch current authority [postgres]", cases: dispatchModes.map((mode) => `refuses ${mode} after fresh replan and before durable dispatch`), backendCases: [], sourceTitles: ["refuses %s after fresh replan and before durable dispatch", ...dispatchModes] },
+      { file: "tests/tofu/plan-artifact-handoff.test.ts", suite: "authenticated original cross-worker handoff [postgres]", cases: allHandoffCases, backendCases: productHandoffCases, sourceTitles: [...handoffCases, ...productHandoffSourceTitles] },
+      { file: "tests/security/plan-artifact-secrecy.test.ts", suite: "encrypted plan artifact secrecy [postgres]", cases: [], backendCases: [], sourceTitles: ["sensitive read-only originals persist only ciphertext; key rotation, tenant domains and tampering fail closed"] },
     ];
     const platformManifest = manifestFor("platform-postgres", root);
-    const platformNetwork = platformSuites.flatMap(({ file, suite, cases, sourceTitles }) => {
+    const platformNetwork = platformSuites.flatMap(({ file, suite, cases, backendCases, sourceTitles }) => {
       const required = platformManifest.requirements.filter((requirement) => requirement.file === file);
-      expect(required.map((requirement) => ({ suite: requirement.suite, test: requirement.test, postgres: requirement.postgres })), `${file}: exact mandatory PostgreSQL scenarios`).toEqual(
-        (cases.length > 0 ? cases : [undefined]).map((test) => ({ suite, test, postgres: true }))
+      expect(required.map((requirement) => ({ suite: requirement.suite, test: requirement.test, postgres: requirement.postgres, backend: requirement.backend })), `${file}: exact mandatory PostgreSQL scenarios`).toEqual(
+        (cases.length > 0 ? cases : [undefined]).map((test) => ({ suite, test,
+          postgres: backendCases.includes(test ?? "") ? undefined : true,
+          backend: backendCases.includes(test ?? "") ? "postgres" : undefined }))
       );
       const source = fs.readFileSync(path.join(root, file), "utf8");
       for (const title of [suite, ...sourceTitles]) expect(source, `${file}: gated suite or case title drifted`).toContain(JSON.stringify(title));
@@ -141,8 +190,8 @@ describe("platform suite coverage", () => {
     const ids = new Set(required.map(item => requirementId("platform-postgres", item)));
     expect(required).toHaveLength(71);
     expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(required.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
-    expect(manifest.requirements).toHaveLength(624);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(624);
+    expect(priorPlanProductPlatformRequirements()).toHaveLength(624);
+    expect(new Set(priorPlanProductPlatformRequirements().map(item => item.id)).size).toBe(624);
     expect(manifest.env).toMatchObject({
       ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1",
       ZENITH_TEST_OPENED_HANDLE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1",
@@ -177,8 +226,8 @@ describe("platform suite coverage", () => {
       expect(item).not.toHaveProperty("backend");
     }
     expect(manifest.requirements).toContainEqual(expect.objectContaining({ file: pg[0].file, suite: pg[0].suite, backend: "postgres", id: requirementId("platform-postgres", { file: pg[0].file, suite: pg[0].suite, backend: "postgres" }) }));
-    expect(manifest.requirements).toHaveLength(624);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(624);
+    expect(priorPlanProductPlatformRequirements()).toHaveLength(624);
+    expect(new Set(priorPlanProductPlatformRequirements().map(item => item.id)).size).toBe(624);
     expect(manifest.command).not.toContain("--passWithNoTests");
   });
 
@@ -194,8 +243,8 @@ describe("platform suite coverage", () => {
       expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);
       expect(manifest.excludeFiles).not.toContain(item.file);
     }
-    expect(manifest.requirements).toHaveLength(624);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(624);
+    expect(priorPlanProductPlatformRequirements()).toHaveLength(624);
+    expect(new Set(priorPlanProductPlatformRequirements().map(item => item.id)).size).toBe(624);
     expect(manifest.command).not.toContain("--passWithNoTests");
   });
 
@@ -280,5 +329,52 @@ describe("cross-language Go gates", () => {
       'ZENITH_TEST_TOFU="$ZENITH_TOFU_BIN" go -C go test -count=1 ./internal/runner/kinds -run \'^TestRealOpenTofu(PlanShowApply|WithProviderAndLockfile)$\'',
     ].join("\n");
     expect(gate("tofu", command).env?.GOTOOLCHAIN).toBe("local");
+  });
+  it("executes every accepted product and linked credential case under mandatory native prerequisites", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    const required = PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS;
+    const ids = new Set(required.map(item => requirementId("platform-postgres", item)));
+    expect(required).toHaveLength(171);
+    expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(required.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
+    expect(priorRetainedWaitPlatformRequirements()).toHaveLength(798);
+    expect(new Set(priorRetainedWaitPlatformRequirements().map(item => item.id)).size).toBe(798);
+    expect(priorPlanProductPlatformRequirements()).toHaveLength(624);
+    expect(manifest.env).toMatchObject({ ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED: "1", ZENITH_TEST_TOFU_NETWORK: "1" });
+    for (const item of required) {
+      expect(item.backend).toBe("postgres");
+      expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);
+      expect(manifest.excludeFiles).not.toContain(item.file);
+    }
+    expect(manifest.command).toContain("tests/platform/current-dispatch-requirement.test.ts");
+    expect(manifest.command).toContain("tests/agent-access/credential-authority-origin.test.ts");
+    expect(manifest.excludeFiles).toEqual([]);
+    expect(manifest.command).not.toContain("--passWithNoTests");
+  });
+
+});
+
+
+describe("native OAuth and retained destroy gate coverage", () => {
+  it("executes all 71 OAuth grant controls with required PostgreSQL admission", () => {
+    const manifest = manifestFor("postgres", root), required = OAUTH_GRANT_POSTGRES_REQUIREMENTS;
+    expect(required).toHaveLength(71); expect(manifest.requirements).toHaveLength(80);
+    const ids = new Set(required.map(item => requirementId("postgres", item)));
+    expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(required.map(item => ({ ...item, id: requirementId("postgres", item) })));
+    expect(manifest.env).toMatchObject({ ZENITH_CONTRACT_POSTGRES: "1", ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED: "1" });
+    expect(manifest.command).toContain("tests/agent-control/pg-oauth-grants.test.ts");
+    expect(manifest.excludeFiles).toEqual([]); expect(manifest.command).not.toContain("--passWithNoTests");
+    for (const item of required) expect(item).toMatchObject({ suite: "OAuth resource grant journal [postgres]", postgres: true });
+    gate("postgres", "node scripts/ci/run-gate.mjs postgres --run");
+    gate("postgres", "node scripts/ci/run-gate.mjs postgres --validate .data-ci-lane/postgres-lane.json --require-execution", "always()");
+  });
+  it("executes the new observed destroy wait case while retaining all 798 earlier platform requirements", () => {
+    const manifest = manifestFor("platform-postgres", root), required = PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS;
+    expect(manifest.requirements).toHaveLength(799); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(799);
+    expect(priorRetainedWaitPlatformRequirements()).toHaveLength(798);
+    expect(required).toHaveLength(1);
+    expect(manifest.requirements).toContainEqual({ ...required[0], id: requirementId("platform-postgres", required[0]) });
+    expect(manifest.env.ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED).toBe("1");
+    expect(manifest.command).toContain("tests/controlplane"); expect(manifest.excludeFiles).not.toContain(required[0].file);
+    expect(manifest.command).not.toContain("--passWithNoTests");
   });
 });

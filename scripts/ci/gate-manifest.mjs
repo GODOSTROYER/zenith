@@ -1593,6 +1593,1036 @@ export const AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS = [
 
 // First-source binding scenarios remain mandatory even when their native test source disappears.
 // Tenant-qualified worker acquisition controls retain the original 24 binding requirements.
+// Exact accepted original-plan product and linked native authority cases. Models are named in their source suites.
+export const PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences environment region committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences environment policies committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences environment base domain committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences replaced public connection committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences removed public connection committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences public connection mapping committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences public connection region committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences deleted environment committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences foreign environment workspace committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences foreign environment project committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences deleted project committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences foreign project workspace committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences deleted approved revision committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences foreign approved revision workspace committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences full approved manifest JSON committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences deleted deployment committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences foreign deployment scope committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences native provider config committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences native provider revocation committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences subject demotion committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences subject removal committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences foreign subject workspace committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences approver demotion committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences approver removal committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences foreign approver workspace committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences workspace policy replacement committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences environment settings introduction committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences foreign environment settings introduction committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences plan evidence mutation committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences benign UI pointers committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "final original-plan product dispatch fences unchanged target committed during held current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "observed three-connection original use-row wait refuses committed environment region before provider dispatch",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "observed three-connection original use-row wait refuses committed subject demotion before provider dispatch",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "observed three-connection original use-row wait refuses committed approver demotion before provider dispatch",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "observed three-connection original use-row wait refuses committed native provider revocation before provider dispatch",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "current native full service recipe mutation with unchanged spec digest refuses original product dispatch",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "current native full pipeline recipe mutation with unchanged spec digest refuses original product dispatch",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "observed three-connection ready use-row wait refuses changed product target before original claim",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "exact native claimed witness missing refuses original product dispatch",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "exact native claimed witness malformed refuses original product dispatch",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "exact native claimed witness foreign attempt refuses original product dispatch",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "published product origin refuses combined public owning-row removal before first claim",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "associated product destroy keeps original revision and rechecks destination subject demotion after held roles",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "associated product destroy keeps original revision and rechecks original subject demotion after held roles",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "associated product destroy keeps original revision and rechecks approver demotion after held roles",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "associated product destroy keeps original revision and rechecks retained historical recipe mutation after held roles",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "associated product destroy keeps original revision and rechecks retained historical deletion after held roles",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "associated product destroy keeps original revision and rechecks retained historical foreign scope after held roles",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "associated product destroy keeps original revision and rechecks changed deployed destroy pointer after held roles",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "associated product destroy keeps original revision and rechecks unchanged destination after held roles",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "lost native claimed commit response retains the attempt and a second claim cannot replay",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "suite": "paired plan product dispatch authority [postgres; modeled current roles and hosted association]",
+    "test": "lost native dispatched commit response and uncertain completion never admit a new original dispatch",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/current-dispatch-requirement.test.ts",
+    "suite": "current evaluated dispatch requirement [postgres; modeled policy and directory]",
+    "test": "exact factory snapshot binds deeply immutable evaluated requirement and native approval records",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/current-dispatch-requirement.test.ts",
+    "suite": "current evaluated dispatch requirement [postgres; modeled policy and directory]",
+    "test": "private requirement refuses copied snapshot",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/current-dispatch-requirement.test.ts",
+    "suite": "current evaluated dispatch requirement [postgres; modeled policy and directory]",
+    "test": "private requirement refuses forged snapshot",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/current-dispatch-requirement.test.ts",
+    "suite": "current evaluated dispatch requirement [postgres; modeled policy and directory]",
+    "test": "private requirement refuses foreign workspace",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/current-dispatch-requirement.test.ts",
+    "suite": "current evaluated dispatch requirement [postgres; modeled policy and directory]",
+    "test": "private requirement refuses foreign operation",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/current-dispatch-requirement.test.ts",
+    "suite": "current evaluated dispatch requirement [postgres; modeled policy and directory]",
+    "test": "private requirement refuses different owning pool",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/current-dispatch-requirement.test.ts",
+    "suite": "current evaluated dispatch requirement [postgres; modeled policy and directory]",
+    "test": "changed current policy version refuses an earlier genuine same-attempt snapshot",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/current-dispatch-requirement.test.ts",
+    "suite": "current evaluated dispatch requirement [postgres; modeled policy and directory]",
+    "test": "inconsistent evaluated input digest supplies no private dispatch authority",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/current-dispatch-requirement.test.ts",
+    "suite": "current evaluated dispatch requirement [postgres; modeled policy and directory]",
+    "test": "default paired runtime refuses unproven native absence before callback or provider dispatch",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "actual default broker and genuine same-target owning pools retain private origin",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "private default origin refuses copied broker",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "private default origin refuses constructed broker",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "private default origin refuses override broker",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "private default origin refuses registered store",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "private default origin refuses registered roles",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "private default origin refuses registered scopes",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "method and descriptor provenance refuses store method without evaluating getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "method and descriptor provenance refuses broker method without evaluating getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "method and descriptor provenance refuses role method without evaluating getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "method and descriptor provenance refuses scope method without evaluating getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "method and descriptor provenance refuses dependency getter without evaluating getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "method and descriptor provenance refuses global getter without evaluating getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "current configuration startup override user refuses genuine cached broker origin",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "current configuration startup override database refuses genuine cached broker origin",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "current configuration startup override options refuses genuine cached broker origin",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "closed genuine owner and copied SQL handle cannot establish default mutation origin",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-broker-origin.test.ts",
+    "suite": "private default broker origin [postgres; factory provenance only]",
+    "test": "public registered test broker remains usable while its mutation origin refuses",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "suite": "authenticated original cross-worker handoff [postgres]",
+    "test": "saved product original binary changed owning region during paired current-role wait fences actual apply effects",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "suite": "authenticated original cross-worker handoff [postgres]",
+    "test": "saved product original binary approver demotion during paired current-role wait fences actual apply effects",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "suite": "authenticated original cross-worker handoff [postgres]",
+    "test": "saved product original binary benign UI pointer advance during paired current-role wait fences actual apply effects",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "suite": "authenticated original cross-worker handoff [postgres]",
+    "test": "saved product original binary unchanged owning target during paired current-role wait fences actual apply effects",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "suite": "authenticated original cross-worker handoff [postgres]",
+    "test": "associated saved product destroy binary fences destination subject demotion during paired current-role wait",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "suite": "authenticated original cross-worker handoff [postgres]",
+    "test": "associated saved product destroy binary fences approver demotion during paired current-role wait",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "suite": "authenticated original cross-worker handoff [postgres]",
+    "test": "associated saved product destroy binary fences unchanged destination during paired current-role wait",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "genuine default linked credential admits exactly the original sealed plan bytes once",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences revoked committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences expired committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences issued tuple replaced committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences subject replaced committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences workspace replaced committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences project scope narrowed committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences environment scope narrowed committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences write scope removed committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences credential removed committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences requester demoted committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences approver demoted committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences provider revoked committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences authority method replaced committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences client method replaced committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences cached authority target replaced committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences default authority selector changed committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences benign credential usage committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "final linked credential dispatch fences unchanged credential committed during held approving-human read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "observed three-connection original use-row wait fences linked credential revoked",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "observed three-connection original use-row wait fences linked credential expired",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "observed three-connection original use-row wait fences linked credential project scope narrowed",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "observed three-connection original use-row wait fences linked credential write scope removed",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "a plan-only viewer publishes source-free Git destroy custody with zero provider writes",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "read-only viewer plan publication refuses removed current human before retaining original custody",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "read-only viewer plan publication refuses foreign current human before retaining original custody",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "viewer planning provenance cannot authorize ordinary apply or approve its own destroy review",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "browser-approved exact delegated destroy fences unchanged planning credential after held current admin read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "browser-approved exact delegated destroy fences revoked planning credential after held current admin read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "browser-approved exact delegated destroy fences plan scope removed after held current admin read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "browser-approved exact delegated destroy fences foreign requester after held current admin read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "browser-approved exact delegated destroy fences admin demoted after held current admin read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "browser-approved exact delegated destroy fences admin removed after held current admin read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "browser-approved exact delegated destroy fences changed destroy pointer after held current admin read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "uncertain linked credential dispatch retains its original attempt and never admits a fresh replay",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "actual cached native client and linked authority prove the same owning opening target",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native factory origin refuses copied authority",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native factory origin refuses constructed authority",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native factory origin refuses copied client",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native factory origin refuses tooling client",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native provenance refuses authority method without evaluating hostile getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native provenance refuses authority accessor without evaluating hostile getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native provenance refuses authority selector accessor without evaluating hostile getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native provenance refuses client method without evaluating hostile getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native provenance refuses client selector accessor without evaluating hostile getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native provenance refuses client startup without evaluating hostile getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native provenance refuses text parser without evaluating hostile getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native provenance refuses text serializer without evaluating hostile getters",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current authority target refuses cached config replacement",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current authority target refuses shared pooler username",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current authority target refuses database replacement",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current authority target refuses missing explicit port",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current authority target refuses startup user",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current authority target refuses startup database",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current authority target refuses unknown startup option",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "separate genuine owning database target and closed genuine native client refuse",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current native linked directory refuses revoked without alternate authority fallback",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current native linked directory refuses expired without alternate authority fallback",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current native linked directory refuses future issued without alternate authority fallback",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current native linked directory refuses foreign subject without alternate authority fallback",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current native linked directory refuses foreign workspace without alternate authority fallback",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current native linked directory refuses missing identity without alternate authority fallback",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current native linked directory refuses duplicate scope without alternate authority fallback",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current native linked directory refuses malformed scope without alternate authority fallback",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "missing native linked schema version fails closed with sanitized diagnostics",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "current file selector cannot revive a previously captured native grant",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "genuine owning handle accessor replacement refuses native credential provenance without getter effects",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "private opener refuses branded handle kind accessor with zero getter calls",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "private opener refuses branded handle identity accessor with zero getter calls",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "private opener refuses branded handle query accessor with zero getter calls",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "private opener refuses branded handle tx accessor with zero getter calls",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "private opener refuses branded handle exec accessor with zero getter calls",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "private opener refuses branded handle close accessor with zero getter calls",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "boolean parser replacement cannot hide a foreign native OAuth identity or reach journal fallback",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "boolean serializer replacement refuses genuine native client provenance and restores exactly",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native opening host array slot accessor refuses without invoking its getter",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native opening port array slot accessor refuses without invoking its getter",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native opening host array changed target refuses and original target restores",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native opening port array changed target refuses and original target restores",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native opening host array replaced prototype refuses without inherited getter effects",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native opening port array replaced prototype refuses without inherited getter effects",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native opening host array copied equal target refuses private identity",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native opening port array copied equal target refuses private identity",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native opening host array appended target refuses exact descriptor inventory",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "test": "native opening port array appended target refuses exact descriptor inventory",
+    "backend": "postgres"
+  }
+];
+
 export const EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS = [
   {
     "file": "tests/controlplane/first-source-lease-binding.test.ts",
@@ -2175,11 +3205,451 @@ const WORKFLOW_INTENT_REQUIREMENTS = [
   ...WORKFLOW_INTENT_REPLAY_REQUIREMENTS,
 ];
 
+// Native OAuth persistence cases remain mandatory if their source file disappears.
+export const OAUTH_GRANT_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "verifies the canonical agent migration registry and native OAuth table boundary",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "persists only the owning non-secret Grant tuple across independent clients",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "the default PostgreSQL journal reads the same retained native grant",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "subject client and workspace lookups never cross their exact stored tuple",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "the same human and client can retain distinct grants in two workspaces",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "the same client can retain distinct grants for two humans in one workspace",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "retains revoked and expired records for browser withdrawal and renewal",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "fresh persisted scope attenuates the already-verified OAuth identity",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "persisted grant cannot authorize a mismatched OAuth issuer",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "persisted grant cannot authorize a mismatched OAuth subject",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "persisted grant cannot authorize a mismatched OAuth client",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "persisted grant cannot authorize a mismatched OAuth expiry",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "revocation committed by another client refuses the next OAuth binding",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "renewal and scope replacement preserve the original integration identity",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "a competing integration identity cannot replace the retained scoped binding",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "an integration identity cannot move to a foreign native tuple",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "racing first consent retains exactly one immutable native binding",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "racing same-identity replacements commit complete scopes without mixing fields",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "native SQL cannot replace immutable integration_id",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "native SQL cannot replace immutable subject",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "native SQL cannot replace immutable client_id",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "native SQL cannot replace immutable workspace_id",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "service role can insert read and replace a grant without DELETE or TRUNCATE",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "anon cannot read or mutate OAuth grants",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "authenticated cannot read or mutate OAuth grants",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "RLS still hides grant rows if clients receive accidental SELECT in a disposable transaction",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "missing OAuth migration refuses grants while prior non-OAuth journal work remains valid",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "wrong migration name refuses grant reads and emits only fixed verifier diagnostics",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "safe migration reapplication retains grant identity scope and ledger timestamp",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "migration refuses an incompatible partial grant table without recording success",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "same-named weakened check constraint cannot certify canonical grant schema",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "same-named weakened binding constraint cannot certify canonical grant schema",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "native schema verifier refuses restored DELETE privilege",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "rejects unknown accessToken data before grant persistence",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "rejects unknown refreshToken data before grant persistence",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "rejects unknown secret data before grant persistence",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "rejects malformed grant projects without storing a row",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "rejects malformed grant duplicate without storing a row",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "rejects malformed grant scope without storing a row",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "rejects malformed grant issuer without storing a row",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "rejects malformed grant expiry without storing a row",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "concurrent new client grants cannot exceed the existing browser owner quota",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "full retained quota permits same-identity renewal and revocation without pruning",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "owner quota does not consume a different workspace or subject allowance",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "scoped listing refuses overflow rather than hiding another current grant",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "a closed native client yields a fixed grant refusal without database details",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "browser duration and derived digest metadata never become stored grant authority",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses identity trigger delete-only even with the original function",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses identity trigger after-update even with the original function",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses identity trigger statement even with the original function",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses identity trigger column-restricted even with the original function",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses identity trigger conditional even with the original function",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses identity trigger arguments even with the original function",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses identity trigger disabled even with the original function",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses identity trigger additional even with the original function",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses changed identity function body",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses changed ids function body",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses identity function security definer",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses ids function security definer",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses changed identity function search path",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses changed ids function search path",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses changed identity function volatility",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses changed ids function volatility",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses changed identity function strictness",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses changed ids function strictness",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses changed identity function parallel contract",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses changed ids function parallel contract",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses identity function client execution privilege",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier refuses ids function client execution privilege",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "cold native catalog preserves canonical CHECK and primary unique inheritance flags",
+    "postgres": true
+  },
+  {
+    "file": "tests/agent-control/pg-oauth-grants.test.ts",
+    "suite": "OAuth resource grant journal [postgres]",
+    "test": "canonical verifier and migration refuse a same-named NO INHERIT CHECK constraint",
+    "postgres": true
+  }
+];
+
+// Additive post-use-row-wait identity; the historical 171-case table remains exact.
+export const PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "suite": "native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "test": "observed three-connection delegated destroy use-row wait refuses newly retained historical resource before original dispatch",
+    "backend": "postgres"
+  }
+];
+
 export const GATE_LANES = {
   postgres: {
-    files: ["tests/hosted/authority/contract", "tests/scripts/migrate-hosted-to-postgres.test.ts", "tests/agent-link/pg-contract.test.ts", "tests/agent-control/pg-contract.test.ts", "tests/db/contract/workspace-sharing.test.ts", "tests/waitlist/pg-contract.test.ts"],
-    env: { ZENITH_CONTRACT_POSTGRES: "1", ZENITH_FAST: "1" }, report: ".data-ci-lane/postgres-lane.json",
-    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15 at SUPABASE_DB_URL", "Hosted, agent, membership and waitlist migrations applied with scripts/ci/apply-supabase-migrations.sh"],
+    files: ["tests/hosted/authority/contract", "tests/scripts/migrate-hosted-to-postgres.test.ts", "tests/agent-link/pg-contract.test.ts", "tests/agent-control/pg-contract.test.ts", "tests/db/contract/workspace-sharing.test.ts", "tests/waitlist/pg-contract.test.ts", "tests/agent-control/pg-oauth-grants.test.ts"],
+    env: { ZENITH_CONTRACT_POSTGRES: "1", ZENITH_FAST: "1", ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED: "1" }, report: ".data-ci-lane/postgres-lane.json",
+    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15 at SUPABASE_DB_URL", "Hosted, agent, membership and waitlist migrations applied with scripts/ci/apply-supabase-migrations.sh", "ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED=1; native OAuth grant persistence requires real PostgreSQL16, canonical agent schemas1/2/3 through migration0015, positively owned disposable CREATEDB/DROP DATABASE and existing canonical CI roles; upstream OAuth identity remains modeled"],
     tools: { node: "22.23.3", postgres: "16.15" },
   },
   policy: {
@@ -2216,9 +3686,9 @@ export const GATE_LANES = {
     tools:{node:"22.23.3",postgres:"16.15",temporal:"1.9.1"},
   },
   "platform-postgres": {
-    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts", "tests/platform/approved-source-runtime.test.ts", "tests/platform/composition.test.ts", "tests/platform/source-bundle-composition.test.ts", "tests/platform/source-bundle-github.test.ts", "tests/platform/source-bundle-azure.test.ts", "tests/platform/aws-bootstrap-preflight-admission.test.ts"],
-    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1", ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED: "1", ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED: "1", ZENITH_TEST_OPENED_HANDLE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
-    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1; first worker lease binding requires actual PostgreSQL, canonical schema13 and independent native connections", "ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED=1; durable MCP admission requires actual PostgreSQL, canonical schema13 and independent native connections; product protocols remain modeled", "ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED=1; current OAuth integration membership requires actual PostgreSQL and uncached modeled product reads", "ZENITH_TEST_OPENED_HANDLE_REQUIRED=1; opener ownership requires physical openPlatformDb PostgreSQL handles and canonical schema13", "ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1; default AWS readiness admission requires actual PostgreSQL, canonical schema13 and genuine native owners; cloud commands remain modeled", "ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED=1; final MCP source/product/member authority requires actual PostgreSQL, canonical schema13 and independent native connections; hosted protocols remain modeled", "Locked Supabase SDK constructor/protocol controls require exact source and suite; they supply no PostgreSQL, hosted-network or TLS-handshake proof", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache"],
+    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts", "tests/platform/approved-source-runtime.test.ts", "tests/platform/composition.test.ts", "tests/platform/source-bundle-composition.test.ts", "tests/platform/source-bundle-github.test.ts", "tests/platform/source-bundle-azure.test.ts", "tests/platform/aws-bootstrap-preflight-admission.test.ts", "tests/platform/current-dispatch-requirement.test.ts", "tests/agent-access/credential-authority-origin.test.ts"],
+    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1", ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED: "1", ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED: "1", ZENITH_TEST_OPENED_HANDLE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
+    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1; first worker lease binding requires actual PostgreSQL, canonical schema13 and independent native connections", "ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED=1; durable MCP admission requires actual PostgreSQL, canonical schema13 and independent native connections; product protocols remain modeled", "ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED=1; current OAuth integration membership requires actual PostgreSQL and uncached modeled product reads", "ZENITH_TEST_OPENED_HANDLE_REQUIRED=1; opener ownership requires physical openPlatformDb PostgreSQL handles and canonical schema13", "ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1; default AWS readiness admission requires actual PostgreSQL, canonical schema13 and genuine native owners; cloud commands remain modeled", "ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED=1; final MCP source/product/member authority requires actual PostgreSQL, canonical schema13 and independent native connections; hosted protocols remain modeled", "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1; original-plan product/current approval authority requires actual PostgreSQL, canonical platform schema13/product collections, independent native connections and pinned OpenTofu; hosted association/current roles/policy remain modeled", "ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1; linked credential dispatch/factory origin requires actual owning PostgreSQL with explicit port, canonical platform schema13/product collections and agent linked schema1; hosted REST/scope/policy remain modeled", "Locked Supabase SDK constructor/protocol controls require exact source and suite; they supply no PostgreSQL, hosted-network or TLS-handshake proof", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache"],
     tools: { node: "22.23.3", postgres: "16.15", tofu: "1.12.5" },
   },
 };
@@ -2365,6 +3835,7 @@ export function requirementsFor(lane, root) {
         ...testFiles(root, "tests/hosted/authority/contract").map((file) => ({ file, suite: file.endsWith("ledgers.test.ts") ? "PostgresAuthority ledgers" : "PostgresAuthority", backend: "postgres" })),
         { file: "tests/scripts/migrate-hosted-to-postgres.test.ts", suite: "migrate-hosted-to-postgres — against the real Supabase project", backend: "postgres" },
         ...[["tests/agent-link/pg-contract.test.ts", "AgentLinkPostgres"], ["tests/agent-control/pg-contract.test.ts", "AgentControlPostgres"], ["tests/db/contract/workspace-sharing.test.ts", "WorkspaceSharingPostgres"], ["tests/waitlist/pg-contract.test.ts", "WaitlistPostgres"]].map(([file, suite]) => ({ file, suite, backend: "postgres" })),
+        ...OAUTH_GRANT_POSTGRES_REQUIREMENTS,
       ];
       break;
     case "policy":
@@ -2435,7 +3906,7 @@ export function requirementsFor(lane, root) {
       requirements.push(...AGENT_EFFECT_POSTGRES_REQUIREMENTS);
       requirements.push(...BUILD_SOURCE_POSTGRES_REQUIREMENTS, GITHUB_WEBHOOK_POSTGRES_REQUIREMENT, ...GITHUB_WEBHOOK_POSTGRES_CASES);
       // Discovery above remains; these named cases survive source deletion.
-      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS,...FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS,...MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS,...AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS,...EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS);
+      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS,...FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS,...MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS,...AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS,...EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS);
       break;
     default:
       throw new Error("Unknown CI lane");

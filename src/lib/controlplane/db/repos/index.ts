@@ -20,6 +20,7 @@
  */
 import type { Sql } from "@/lib/controlplane/types";
 import * as planArtifacts from "./plan-artifacts";
+import * as mixedChildIntents from "./mixed-child-intents";
 import * as buildLaunches from "./build-launches";
 import * as workflowStartIntents from "./workflow-start-intents";
 import * as approvedSourceSnapshots from "./approved-source-snapshots";
@@ -46,6 +47,7 @@ import * as settings from "./settings";
 
 export {
   planArtifacts,
+  mixedChildIntents,
   buildLaunches,
   workflowStartIntents,
   approvedSourceSnapshots,
@@ -81,7 +83,7 @@ export type Bound<M> = {
 };
 
 /** Exports that are pure helpers, not repository functions: they take no `Sql`. */
-const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError", "BuildLaunchError", "createIsolatedBuildClaimerForTests", "assertIsolatedBuildTestAdmission", "WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests"]);
+const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError", "BuildLaunchError", "createIsolatedBuildClaimerForTests", "assertIsolatedBuildTestAdmission", "WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests", "MixedChildAdmissionError"]);
 /** Capability construction/provenance is never an automatically bound row API. */
 const CAPABILITY_CONSTRUCTORS = new Set(["createApprovedSourceSnapshotStore", "isApprovedSourceSnapshotStore", "createIsolatedApprovedSourceStoreForTests"]);
 
@@ -96,6 +98,7 @@ function bind<M extends object>(mod: M, sql: Sql): Bound<M> {
 export function bindRepos(sql: Sql) {
   return {
     planArtifacts: bind(planArtifacts, sql),
+    mixedChildIntents: bind(mixedChildIntents, sql),
     buildLaunches: bind(buildLaunches, sql),
     workflowStartIntents: bind(workflowStartIntents, sql),
     approvedSourceSnapshots: bind(approvedSourceSnapshots, sql),

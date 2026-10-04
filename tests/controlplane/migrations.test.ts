@@ -45,7 +45,7 @@ const NEXT = PLATFORM_MIGRATIONS.length + 1;
 
 const EXPECTED_TABLES = [
   "agent_effect_receipts", "agent_nonces", "approvals", "approved_source_snapshots", "build_launches", "capability_grants", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
-  "github_binding_events", "github_install_intents", "github_source_bindings", "github_webhook_deliveries", "github_webhook_installation_epochs", "idempotency_keys", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machines", "operations", "plan_artifact_associations", "plan_artifact_uses", "plan_artifacts", "policy_decisions", "provider_connections",
+  "github_binding_events", "github_install_intents", "github_source_bindings", "github_webhook_deliveries", "github_webhook_installation_epochs", "idempotency_keys", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machines", "mixed_child_custody", "mixed_child_intents", "operations", "plan_artifact_associations", "plan_artifact_uses", "plan_artifacts", "policy_decisions", "provider_connections",
   "reconcile_state", "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners",
   "schema_migrations", "workflow_start_intents", "workspace_policy",
 ];
@@ -404,7 +404,11 @@ describe.each(lanes)("migrator [$name]", (lane) => {
                     has_table_privilege('service_role', 'platform.agent_effect_receipts', 'SELECT') as receipt_select,
                     has_table_privilege('service_role', 'platform.agent_effect_receipts', 'INSERT') as receipt_insert,
                     has_table_privilege('service_role', 'platform.agent_effect_receipts', 'UPDATE') as receipt_update,
-                    has_table_privilege('service_role', 'platform.agent_effect_receipts', 'DELETE') as receipt_delete`
+                    has_table_privilege('service_role', 'platform.agent_effect_receipts', 'DELETE') as receipt_delete,
+                    has_table_privilege('service_role', 'platform.mixed_child_custody', 'SELECT,INSERT') as mixed_custody_read_insert,
+                    has_table_privilege('service_role', 'platform.mixed_child_custody', 'UPDATE') as mixed_custody_update,
+                    has_table_privilege('service_role', 'platform.mixed_child_intents', 'SELECT,INSERT,UPDATE') as mixed_intent_dml,
+                    has_table_privilege('service_role', 'platform.mixed_child_intents', 'DELETE') as mixed_intent_delete`
           );
           throw Object.assign(rollback, { rows });
         })
@@ -429,6 +433,10 @@ describe.each(lanes)("migrator [$name]", (lane) => {
         receipt_insert: true,
         receipt_update: false,
         receipt_delete: false,
+        mixed_custody_read_insert: true,
+        mixed_custody_update: false,
+        mixed_intent_dml: true,
+        mixed_intent_delete: false,
       });
       // Only fixture-created roles disappear; preexisting cluster roles and ACLs are unchanged.
       expect(await db.query("select 1 from information_schema.schemata where schema_name = 'platform'")).toEqual([]);
@@ -611,7 +619,7 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           await tx.query("reset role");
           const tables=await tx.query<{name:string;rls:boolean;owner:string}>(`select c.relname as name,c.relrowsecurity as rls,pg_get_userbyid(c.relowner) as owner
             from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='platform'
-            and c.relname in ('plan_artifacts','plan_artifact_associations','plan_artifact_uses','build_launches','github_binding_events','github_webhook_deliveries','github_webhook_installation_epochs','agent_effect_receipts','workflow_start_intents','approved_source_snapshots') order by c.relname`);
+            and c.relname in ('plan_artifacts','plan_artifact_associations','plan_artifact_uses','build_launches','github_binding_events','github_webhook_deliveries','github_webhook_installation_epochs','agent_effect_receipts','workflow_start_intents','approved_source_snapshots','mixed_child_custody','mixed_child_intents') order by c.relname`);
           const grants: Record<string, readonly string[]> = {
             plan_artifacts: ["SELECT", "INSERT", "UPDATE", "DELETE"],
             plan_artifact_associations: ["SELECT", "INSERT", "UPDATE", "DELETE"],
@@ -623,6 +631,8 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
             github_webhook_installation_epochs: ["SELECT", "INSERT", "UPDATE"],
             workflow_start_intents: ["SELECT", "INSERT", "UPDATE"],
             approved_source_snapshots: ["SELECT", "INSERT"],
+            mixed_child_custody: ["SELECT", "INSERT"],
+            mixed_child_intents: ["SELECT", "INSERT", "UPDATE"],
           };
           expect(tables.map(table=>table.name)).toEqual(Object.keys(grants).sort());
           for(const table of tables) {

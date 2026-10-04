@@ -143,6 +143,23 @@
       ]
     },
     {
+      "Sid": "ReadBootstrapBoundaryVersions",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion"
+      ],
+      "Resource": [
+        "${app_boundary_arn}",
+        "${build_boundary_arn}",
+        "${machine_boundary_arn}",
+        "${scheduler_boundary_arn}",
+        "${eksCluster_boundary_arn}",
+        "${eksNode_boundary_arn}",
+        "${boundary_arn}"
+      ]
+    },
+    {
       "Sid": "ReadTofuState",
       "Effect": "Allow",
       "Action": [

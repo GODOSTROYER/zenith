@@ -263,12 +263,46 @@ AWS authorization, build or cluster acceptance is claimed.
    step: deploy cannot remove one or substitute a foreign ARN. Only a customer
    administrator can retire the legacy policy after no role uses it.
 
-Current driver selection uses the default unsuffixed family policy names.
-A nonempty bootstrap `NameSuffix`/`name_suffix` is rendered and size-tested, but
-its ARNs are not passed into `CompileContext`; compiling workloads for such a
-connection remains unsupported until the connection-to-compiler mapping is
-wired. Do not claim that changing a stored legacy `permissionsBoundaryArn`
-overrides the family map.
+Current compilation and verification derive all six family ARNs from the saved
+connection account and exact `bootstrapNameSuffix`. Save the same
+`NameSuffix`/`name_suffix` used by the owning stack or module, including the empty
+default. Runtime connections currently support the registered commercial AWS
+regions and partition; rendering policy fixtures for China or GovCloud does not
+enable runtime connections there. The retained legacy `permissionsBoundaryArn`
+does not override the family map.
+
+The internal `preflightAwsBootstrap` helper performs read-only IAM inspection
+through an existing scoped `AwsSession`. It checks all six exact policy ARNs,
+their default-version readback and family principal discriminator, then checks
+at most 32 native inventory roles against their exact workspace/environment tags
+and family or retained legacy boundary. Missing family policies report
+`needs_stack_upgrade`; legacy roles report `migration_required`. Conflicting
+identity, version, document, size or role ownership reports `conflict`, and
+denied or failed reads report `unavailable`. The helper writes nothing and does
+not attach or detach a boundary.
+
+This helper is not yet invoked by the default broker flow. The bootstrap observe
+policy now includes only `GetPolicy` and `GetPolicyVersion` on the exact six
+family boundaries and retained legacy boundary. An existing customer stack needs
+that reviewed stack update before those reads are available. The dedicated
+`awsBootstrapPreflightSessionPolicy` factory derives a narrower policy for the
+existing broker request API, with those exact seven policy ARNs and the native
+inventory's exact role ARNs. It refuses inventories whose compact policy exceeds
+the 2,048-character session limit. Default invocation still requires an owning
+integration. An unavailable read is not a migration waiver; keep the stack-first
+sequence above and resolve those prerequisites before workload migration.
+
+IAM returns policy metadata separately from its version document; the document
+may require one RFC 3986 decode. The helper checks the captured default again
+after reading its document and enforces the 6,144-character managed-policy
+ceiling. This is bounded readback, with no account-wide legacy-disuse claim and
+no full permission-document equivalence or effective authorization claim.
+Independent IAM acceptance remains required. See the AWS
+[GetPolicy](https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetPolicy.html),
+[GetPolicyVersion](https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetPolicyVersion.html),
+[IAM quotas](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html)
+and [permissions boundary](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html)
+references, and the source-only [preflight handoff](../../docs/build/handoffs/AWS-BOUNDARY-PREFLIGHT-20261004.md).
 
 ### Known limits (not hidden)
 

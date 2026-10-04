@@ -1291,6 +1291,17 @@ Resources:
             Resource:
               - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*"
               - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/zenith-*"
+          - Sid: ReadBootstrapBoundaryVersions
+            Effect: Allow
+            Action: [iam:GetPolicy, iam:GetPolicyVersion]
+            Resource:
+              - !Ref AppBoundary
+              - !Ref BuildBoundary
+              - !Ref MachineBoundary
+              - !Ref SchedulerBoundary
+              - !Ref EksClusterBoundary
+              - !Ref EksNodeBoundary
+              - !Ref WorkloadBoundary
           - Sid: ReadTofuState
             Effect: Allow
             Action: [s3:GetObject, s3:GetObjectVersion, s3:ListBucket, s3:ListBucketVersions]

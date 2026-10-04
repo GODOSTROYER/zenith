@@ -6,6 +6,7 @@
  * AWS; see the README's "verified vs unverified" section.
  */
 import { execFile, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -147,6 +148,41 @@ it("all selectable family boundaries preserve headroom at maximum suffix/environ
     expect(size, logicalId).toBeLessThanOrEqual(limit);
     if (Object.values(AWS_ROLE_BOUNDARIES).some((spec) => spec.logicalId === logicalId)) expect(limit).toBe(5800);
   }
+});
+
+it("adds only the exact bootstrap version read statement and preserves every prior bootstrap resource and policy statement", () => {
+  const resources = structuredClone(template.Resources);
+  const properties = resources.ObservePolicy.Properties;
+  const document = properties?.PolicyDocument;
+  if (!properties || !document || typeof document !== "object" || Array.isArray(document) || !("Statement" in document) || !Array.isArray(document.Statement)) throw new Error("Malformed observe policy source.");
+  const additions = document.Statement.filter((statement: unknown) => statement !== null && typeof statement === "object" && "Sid" in statement && statement.Sid === "ReadBootstrapBoundaryVersions");
+  expect(additions).toEqual([{
+    Sid: "ReadBootstrapBoundaryVersions", Effect: "Allow", Action: ["iam:GetPolicy", "iam:GetPolicyVersion"],
+    Resource: ["AppBoundary", "BuildBoundary", "MachineBoundary", "SchedulerBoundary", "EksClusterBoundary", "EksNodeBoundary", "WorkloadBoundary"].map((Ref) => ({ Ref })),
+  }]);
+  properties.PolicyDocument = { ...document, Statement: document.Statement.filter((statement: unknown) => !additions.includes(statement)) };
+  // Canonical parsed Resources at clean a9af54c, before the one read-only statement.
+  expect(createHash("sha256").update(JSON.stringify(resources)).digest("hex")).toBe("1e062fa54bfd86d4741ff3f0614519d408f0bc74a71bfee9390c68f6194d38b2");
+});
+
+describe.each(["aws", "aws-cn", "aws-us-gov"])("exact bootstrap boundary reads in %s", (partition) => {
+  it.each(["", "-team-a", `-${"x".repeat(19)}`])("allows only the seven exact account/partition/suffix policy identities for suffix %j", (NameSuffix) => {
+    const ev = makeEvaluator(template, { params: { NameSuffix }, pseudo: { partition, accountId: ACCOUNT, region: "eu-west-1" } });
+    const statements = statementsOf(policyDoc(ev, "ObservePolicy"));
+    const read = statements.find((statement) => statement.Sid === "ReadBootstrapBoundaryVersions")!;
+    const arns = [...Object.values(AWS_ROLE_BOUNDARIES).map((family) => `arn:${partition}:iam::${ACCOUNT}:policy/${family.policyName}${NameSuffix}`), `arn:${partition}:iam::${ACCOUNT}:policy/ZenithWorkloadBoundary${NameSuffix}`];
+    expect(read.Action).toEqual(["iam:GetPolicy", "iam:GetPolicyVersion"]);
+    expect(read.Resource).toEqual(arns);
+    expect(read.Condition).toBeUndefined();
+    for (const arn of arns) {
+      for (const action of ["iam:GetPolicy", "iam:GetPolicyVersion"]) expect(boundaryAllows(statements, action, arn)).toBe(true);
+      for (const action of ["iam:CreatePolicyVersion", "iam:SetDefaultPolicyVersion", "iam:DeletePolicy", "iam:PutRolePermissionsBoundary", "iam:DeleteRolePermissionsBoundary"]) expect(boundaryAllows(statements, action, arn)).toBe(false);
+      for (const foreign of [arn.replace(ACCOUNT, "210987654321"), arn.replace(`arn:${partition}:`, `arn:${partition === "aws" ? "aws-cn" : "aws"}:`), `${arn}-foreign`, arn.replace(":policy/", ":policy/foreign/")]) {
+        for (const action of ["iam:GetPolicy", "iam:GetPolicyVersion"]) expect(boundaryAllows(statements, action, foreign)).toBe(false);
+      }
+    }
+    expect(compactSize(policyDoc(ev, "ObservePolicy"))).toBeLessThanOrEqual(6144);
+  });
 });
 
 it("legacy retains every pre-split grant and escalation deny, strengthening only the state namespace deny", () => {

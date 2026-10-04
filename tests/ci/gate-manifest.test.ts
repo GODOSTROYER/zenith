@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 
 const root = process.cwd();
@@ -194,13 +194,29 @@ const planProductDiscovered = [
     "backend": "postgres"
   }
 ] as const;
+// Historical cohort checks remove only exact newly committed identities. The
+// production manifest and validator continue to require the complete successor.
+const nativeOAuthDiscovered = {
+  "file": "tests/controlplane/plan-artifact-oauth-authority.test.ts",
+  "suite": "native OAuth original-plan dispatch [postgres; modeled hosted REST and policy]",
+  "backend": "postgres"
+} as const;
+function priorApplyCurrentAuthorityPlatformRequirements(sourceRoot = root) {
+  const ids = new Set(APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+}
+function priorNativeOAuthPlatformRequirements(sourceRoot = root) {
+  const ids = new Set([...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, ...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, nativeOAuthDiscovered].map(item => requirementId("platform-postgres", item)));
+  return priorApplyCurrentAuthorityPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
+}
+
 function priorPlanProductPlatformRequirements(sourceRoot = root): Requirement[] {
   const ids = new Set([...PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, ...PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, ...planProductDiscovered].map(item => requirementId("platform-postgres", item)));
-  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+  return priorNativeOAuthPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
 }
 function priorRetainedWaitPlatformRequirements(sourceRoot = root): Requirement[] {
   const ids = new Set(PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
-  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+  return priorNativeOAuthPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
 }
 function planProductNamed(sourceRoot = root): Requirement[] {
   const ids = new Set(PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
@@ -1430,7 +1446,8 @@ function planProductDeclarations(group: typeof planProductGroups[number], includ
     const values: unknown = JSON.parse(match[1]);
     if (!Array.isArray(values) || values.some(value => typeof value !== "string")) throw new Error("Native product fixture labels must be literal strings.");
     return values.map(value => match[2].replace("%s", value));
-  }).filter(title => includeRetainedWait || title !== PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS[0].test).slice(group.offset);
+  }).filter(title => includeRetainedWait || title !== PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS[0].test)
+    .filter(title => group.file !== "tests/agent-access/credential-authority-origin.test.ts" || !NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS.some(item => item.test === title)).slice(group.offset);
 }
 
 describe("mandatory original-plan product and linked native authority gates", () => {
@@ -1629,7 +1646,7 @@ describe("mandatory native OAuth grant and additive retained destroy gates", () 
   it("adds the observed retained destroy wait case without changing any of the 798 prior requirements", () => {
     const manifest = manifestFor("platform-postgres", root), added = PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS;
     expect(added).toHaveLength(1);
-    expect(manifest.requirements).toHaveLength(799); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(799);
+    expect(priorNativeOAuthPlatformRequirements()).toHaveLength(799); expect(new Set(priorNativeOAuthPlatformRequirements().map(item => item.id)).size).toBe(799);
     expect(priorRetainedWaitPlatformRequirements()).toHaveLength(798);
     const required = manifest.requirements.filter(item => added.some(value => requirementId("platform-postgres", value) === item.id));
     expect(required).toEqual(added.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
@@ -1644,5 +1661,135 @@ describe("mandatory native OAuth grant and additive retained destroy gates", () 
     expect(reportFailures(required, { success: true, testResults: [] }, root)).toHaveLength(1);
     const model = contractReport(required); model.testResults[0].assertionResults[0].ancestorTitles = [required[0].suite!.replace("postgres", "pglite")];
     expect(reportFailures(required, model, root)).toHaveLength(1);
+  });
+});
+
+
+const nativeOAuthGroups = [
+  {
+    "file": "tests/agent-access/native-oauth-origin.test.ts",
+    "suite": "native OAuth journal current origin [postgres]",
+    "flag": "ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED",
+    "count": 49,
+    "sourceSha256": "07968c79a0302182f620ab8b570c20e4d9b4b5d5f7a3f9f5acb33f650ef21242",
+    "namesSha256": "9971aadde1c41430bdafc23dd36a9e639a6fc1d77f267c18690013101c7436fb",
+    "priorCount": 0
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-oauth-authority.test.ts",
+    "suite": "native OAuth original-plan dispatch [postgres; modeled hosted REST and policy]",
+    "flag": "ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED",
+    "count": 46,
+    "sourceSha256": "7cfe2cf85fb454be9508a0e50469e278f0e2b032b2c1b457f36ab38f8366f3f7",
+    "namesSha256": "12b72c88bb56763f6538df143dd3e1278dc27fbc9c800476909fa4d2d45e5de6",
+    "priorCount": 0
+  },
+  {
+    "file": "tests/agent-access/credential-authority-origin.test.ts",
+    "suite": "native linked credential factory origin [postgres]",
+    "flag": "ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED",
+    "count": 11,
+    "sourceSha256": "9dec39f0bba8ec1c6b990bb82cec8ded7dc9af0f34de8e1cdf19682e4ec08a5d",
+    "namesSha256": "97a39a81b107fa5106534f9f7dab6cee46c2f5550f8e89915d506833b19f7a2e",
+    "priorCount": 50
+  }
+] as const;
+function nativeOAuthNamed(sourceRoot = root): Requirement[] {
+  const ids = new Set([...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, ...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS].map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => ids.has(item.id));
+}
+/** Only these committed flat string labels are expanded; fixture source is never evaluated. */
+function nativeOAuthDeclarations(file: string): string[] {
+  let source = fs.readFileSync(path.join(root, file), "utf8");
+  if (file === "tests/controlplane/plan-artifact-oauth-authority.test.ts") {
+    for (const name of ["changes", "waited"]) {
+      const match = new RegExp(`const ${name}\\s*=\\s*(\\[[^\\]]*\\]) as const;`).exec(source);
+      if (!match) throw new Error("Exact OAuth fixture labels are unavailable.");
+      const values: unknown = JSON.parse(match[1]);
+      if (!Array.isArray(values) || values.some(value => typeof value !== "string")) throw new Error("OAuth fixture labels must be literal strings.");
+      source = source.replace(`it.each(${name})(`, `it.each(${JSON.stringify(values)})(`);
+    }
+  }
+  return [...source.matchAll(/\bit(?:\.each\((\[[^\]]*\])(?: as const)?\))?\(\s*"([^"\n]+)"/g)].flatMap(match => {
+    if (!match[1]) return [match[2]];
+    const values: unknown = JSON.parse(match[1]);
+    if (!Array.isArray(values) || values.some(value => typeof value !== "string") || match[2].split("%s").length !== 2) throw new Error("OAuth fixture labels require one literal parameter.");
+    return values.map(value => match[2].replace("%s", value));
+  });
+}
+
+describe("mandatory corrected native OAuth dispatch and linked factory gates", () => {
+  it("preserves all 799 prior platform IDs, 80 PostgreSQL requirements and 22 native package checks while adding exact source cases", () => {
+    const manifest = manifestFor("platform-postgres", root), named = nativeOAuthNamed();
+    expect(NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS).toHaveLength(95);
+    expect(NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS).toHaveLength(11);
+    expect(named).toHaveLength(106); expect(new Set(named.map(item => item.id)).size).toBe(106);
+    const previous = priorApplyCurrentAuthorityPlatformRequirements();
+    expect(previous).toHaveLength(906); expect(new Set(previous.map(item => item.id)).size).toBe(906);
+    expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("bfe33823494d47835d18bb8bddfbd373f58beb0a00f136e2b4ca229356215f18");
+    const prior = priorNativeOAuthPlatformRequirements();
+    expect(prior).toHaveLength(799);
+    expect(createHash("sha256").update(JSON.stringify(prior.map(item => item.id).sort())).digest("hex")).toBe("4d0668f6e3fbac4acf544dbfa2bf625a96648cdb2cfc5f8039537c5961b77be6");
+    expect(manifest.requirements).toContainEqual({ ...nativeOAuthDiscovered, id: requirementId("platform-postgres", nativeOAuthDiscovered) });
+    expect(manifest.env).toMatchObject({ ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED: "1", ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED: "1" });
+    expect(manifest.prerequisites).toEqual(expect.arrayContaining(["ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED=1; OAuth original-plan dispatch and default journal origin require actual owning PostgreSQL16 with explicit ZENITH_TEST_PLATFORM_PG_URL port, canonical platform schema13/product collections and agent schemas1/2/3 through migration0015, independent native connections and positively owned disposable scratch databases/CI roles; hosted REST/current identity/policy and sealed fixture bytes remain modeled", "The additive linked factory preselection controls share ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1 and actual owning PostgreSQL; all prior50 linked origin cases remain mandatory, tooling constructors supply no default origin"]));
+    for (const group of nativeOAuthGroups) expect(manifest.command).toContain(group.file);
+    expect(manifest.excludeFiles).toEqual([]); expect(manifest.command).not.toContain("--passWithNoTests");
+    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+    expect(reportFailures(manifest.requirements, contractReport(manifest.requirements), root)).toEqual([]);
+  });
+
+  it.each(nativeOAuthGroups)("$file pins corrected source, exact names and required admission before hooks", group => {
+    const source = fs.readFileSync(path.join(root, group.file), "utf8"), required = nativeOAuthNamed().filter(item => item.file === group.file);
+    expect(createHash("sha256").update(source).digest("hex")).toBe(group.sourceSha256);
+    const all = nativeOAuthDeclarations(group.file);
+    const declared = group.priorCount ? all.filter(title => NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS.some(item => item.test === title)) : all;
+    expect(all).toHaveLength(group.count + group.priorCount); expect(required).toHaveLength(group.count);
+    expect(required.map(item => item.test)).toEqual(declared);
+    expect(createHash("sha256").update(JSON.stringify(declared)).digest("hex")).toBe(group.namesSha256);
+    if (group.priorCount) expect(all.slice(group.priorCount)).toEqual(declared);
+    const first = Math.min(...["beforeAll(", "beforeEach(", "afterAll(", "describe.skipIf("].map(value => source.indexOf(value)).filter(value => value >= 0));
+    expect(source.indexOf(group.flag)).toBeGreaterThanOrEqual(0); expect(source.indexOf(group.flag)).toBeLessThan(first);
+    expect(source).toContain("openPlatformDb"); expect(source).toMatch(/PLATFORM_SCHEMA_VERSION\s*<\s*13/);
+    for (const item of required) expect(item).toMatchObject({ suite: group.suite, backend: "postgres" });
+  });
+
+  it("refuses every missing, nonpassing, PGlite, foreign, malformed or substituted corrected native case", () => {
+    const required = nativeOAuthNamed();
+    expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+    for (const missing of required) {
+      expect(reportFailures(required, contractReport(required.filter(item => item.id !== missing.id)), root), missing.id).toHaveLength(1);
+      for (const status of ["failed", "pending", "skipped", "todo"]) {
+        const report = contractReport(required); report.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.status = status;
+        expect(reportFailures(required, report, root).length, missing.id).toBeGreaterThan(0);
+      }
+      const pglite = contractReport(required); pglite.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.ancestorTitles = [missing.suite!.replace("postgres", "pglite")];
+      expect(reportFailures(required, pglite, root).length).toBeGreaterThan(0);
+      const foreign = contractReport(required); foreign.testResults.find(file => file.name === path.resolve(root, missing.file))!.name = path.resolve(root, "tests/platform/foreign-oauth-fixture.test.ts");
+      expect(reportFailures(required, foreign, root).length).toBeGreaterThan(0);
+      const malformed = contractReport(required); malformed.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.fullName = "";
+      expect(reportFailures(required, malformed, root)).toEqual(["Malformed Vitest assertion evidence"]);
+      const substitute = contractReport(required); substitute.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.title = "a passing OAuth model";
+      expect(reportFailures(required, substitute, root).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("retains all committed new cases after source deletion and rejects suite-only, zero, duplicate or caller-supplied reduced reports", () => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "oauth-dispatch-"));
+    for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/agent-access"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
+    for (const group of nativeOAuthGroups) fs.copyFileSync(path.join(root, group.file), path.join(sourceRoot, group.file));
+    const before = nativeOAuthNamed(sourceRoot); expect(before).toHaveLength(106);
+    for (const group of nativeOAuthGroups) fs.unlinkSync(path.join(sourceRoot, group.file));
+    expect(nativeOAuthNamed(sourceRoot)).toEqual(before);
+    expect(reportFailures(before, { success: true, testResults: [] }, sourceRoot)).toHaveLength(106);
+    expect(reportFailures([], contractReport(before), root)).toEqual(["No required scenarios found"]);
+    const suiteOnly = contractReport(before); for (const file of suiteOnly.testResults) file.assertionResults = [{ title: "one modeled grant", fullName: "one modeled grant", ancestorTitles: [], status: "passed" }];
+    expect(reportFailures(before, suiteOnly, root)).toHaveLength(106);
+    const duplicate = contractReport(before); duplicate.testResults.push(duplicate.testResults[0]);
+    expect(reportFailures(before, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+    expect(reportFailures(before, { ...contractReport(before), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures(before, { ...contractReport(before), numFailedTests: 1 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures(before, { ...contractReport([]), lane: "platform-postgres", requirements: [] }, root)).toHaveLength(106);
   });
 });

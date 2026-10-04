@@ -3,13 +3,16 @@
  * narrower filters; mandatory evidence reports catch skipped real-engine tests.
  * Cloud APIs in platform e2e are still mocked, never live acceptance evidence.
  */
+import { createHash } from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { load } from "js-yaml";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import vitestConfig from "../../vitest.config";
-import { OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
-import { requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
+import { packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
+import { reportFailures, requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
 
 interface Step {
   name?: string; run?: string; if?: string; shell?: string; id?: string;
@@ -20,6 +23,22 @@ interface Job { steps: Step[]; env?: Record<string, unknown>; if?: string; "cont
 const root = process.cwd();
 const workflow = load(fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8")) as { jobs: Record<string, Job> };
 
+
+// Historical cohort checks remove only exact newly committed identities. The
+// production manifest and validator continue to require the complete successor.
+const nativeOAuthDiscovered = {
+  "file": "tests/controlplane/plan-artifact-oauth-authority.test.ts",
+  "suite": "native OAuth original-plan dispatch [postgres; modeled hosted REST and policy]",
+  "backend": "postgres"
+} as const;
+function priorApplyCurrentAuthorityPlatformRequirements(sourceRoot = root) {
+  const ids = new Set(APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+}
+function priorNativeOAuthPlatformRequirements(sourceRoot = root) {
+  const ids = new Set([...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, ...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, nativeOAuthDiscovered].map(item => requirementId("platform-postgres", item)));
+  return priorApplyCurrentAuthorityPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
+}
 
 function priorPlanProductPlatformRequirements() {
   const extra = [
@@ -40,12 +59,12 @@ function priorPlanProductPlatformRequirements() {
   }
 ];
   const ids = new Set([...PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, ...PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, ...extra].map(item => requirementId("platform-postgres", item)));
-  return requirementsFor("platform-postgres", root).filter(item => !ids.has(item.id));
+  return priorNativeOAuthPlatformRequirements().filter(item => !ids.has(item.id));
 }
 
 function priorRetainedWaitPlatformRequirements() {
   const ids = new Set(PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
-  return requirementsFor("platform-postgres", root).filter(item => !ids.has(item.id));
+  return priorNativeOAuthPlatformRequirements().filter(item => !ids.has(item.id));
 }
 
 function testsUnder(directory: string): string[] {
@@ -53,6 +72,38 @@ function testsUnder(directory: string): string[] {
     const file = `${directory}/${entry.name}`;
     return entry.isDirectory() ? testsUnder(file) : /\.test\.tsx?$/.test(file) ? [file] : [];
   });
+}
+
+/** Detect executable comparisons, including static bracket access, without treating quoted source or comments as runtime gates. */
+function hasTofuNetworkComparison(source: string, fileName = "fixture.test.ts"): boolean {
+  const ast = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const unwrap = (input: ts.Expression): ts.Expression => {
+    let node = input;
+    while (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isTypeAssertionExpression(node)
+      || ts.isNonNullExpression(node) || ts.isSatisfiesExpression(node)) node = node.expression;
+    return node;
+  };
+  const member = (input: ts.Expression, name: string): ts.Expression | undefined => {
+    const node = unwrap(input);
+    if (ts.isPropertyAccessExpression(node) && node.name.text === name) return node.expression;
+    if (ts.isElementAccessExpression(node) && node.argumentExpression && ts.isStringLiteral(node.argumentExpression)
+      && node.argumentExpression.text === name) return node.expression;
+    return undefined;
+  };
+  const network = (input: ts.Expression): boolean => {
+    const environment = member(input, "ZENITH_TEST_TOFU_NETWORK"), process = environment && member(environment, "env");
+    return !!process && ts.isIdentifier(unwrap(process)) && unwrap(process).getText(ast) === "process";
+  };
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (ts.isBinaryExpression(node)
+      && [ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken,
+        ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken].includes(node.operatorToken.kind)
+      && (network(node.left) || network(node.right))) found = true;
+    ts.forEachChild(node, visit);
+  };
+  visit(ast);
+  return found;
 }
 
 function gate(jobName: string, command: string, condition?: string): Step {
@@ -120,7 +171,7 @@ describe("platform suite coverage", () => {
   });
 
   it("checks every network-gated file and the actual gated suite titles", () => {
-    const networkFiles = testsUnder("tests").filter((file) => /process\.env\.ZENITH_TEST_TOFU_NETWORK\s*(?:===|!==)/.test(fs.readFileSync(path.join(root, file), "utf8")));
+    const networkFiles = testsUnder("tests").filter((file) => hasTofuNetworkComparison(fs.readFileSync(path.join(root, file), "utf8"), file));
     expect(networkFiles.length).toBeGreaterThan(0);
     const dispatchModes = ["expired approval", "revoked approver role", "new policy denial", "expiry after authority check", "expiry during role lookup"];
     const handoffCases = [
@@ -156,7 +207,7 @@ describe("platform suite coverage", () => {
       "destination subject demotion", "unchanged destination",
     ];
     const platformSuites: { file: string; suite: string; cases: string[]; backendCases: string[]; sourceTitles: string[] }[] = [
-      { file: "tests/execution/apply.test.ts", suite: "dispatch current authority [postgres]", cases: dispatchModes.map((mode) => `refuses ${mode} after fresh replan and before durable dispatch`), backendCases: [], sourceTitles: ["refuses %s after fresh replan and before durable dispatch", ...dispatchModes] },
+      { file: "tests/execution/apply.test.ts", suite: "dispatch current authority [postgres]", cases: [...dispatchModes.map((mode) => `refuses ${mode} after fresh replan and before durable dispatch`), ...APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS.map(item => item.test)], backendCases: [], sourceTitles: ["refuses %s after fresh replan and before durable dispatch", ...dispatchModes, ...APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS.map(item => item.test)] },
       { file: "tests/tofu/plan-artifact-handoff.test.ts", suite: "authenticated original cross-worker handoff [postgres]", cases: allHandoffCases, backendCases: productHandoffCases, sourceTitles: [...handoffCases, ...productHandoffSourceTitles] },
       { file: "tests/security/plan-artifact-secrecy.test.ts", suite: "encrypted plan artifact secrecy [postgres]", cases: [], backendCases: [], sourceTitles: ["sensitive read-only originals persist only ciphertext; key rotation, tenant domains and tampering fail closed"] },
     ];
@@ -369,12 +420,144 @@ describe("native OAuth and retained destroy gate coverage", () => {
   });
   it("executes the new observed destroy wait case while retaining all 798 earlier platform requirements", () => {
     const manifest = manifestFor("platform-postgres", root), required = PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS;
-    expect(manifest.requirements).toHaveLength(799); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(799);
+    expect(priorNativeOAuthPlatformRequirements()).toHaveLength(799); expect(new Set(priorNativeOAuthPlatformRequirements().map(item => item.id)).size).toBe(799);
     expect(priorRetainedWaitPlatformRequirements()).toHaveLength(798);
     expect(required).toHaveLength(1);
     expect(manifest.requirements).toContainEqual({ ...required[0], id: requirementId("platform-postgres", required[0]) });
     expect(manifest.env.ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED).toBe("1");
     expect(manifest.command).toContain("tests/controlplane"); expect(manifest.excludeFiles).not.toContain(required[0].file);
     expect(manifest.command).not.toContain("--passWithNoTests");
+  });
+});
+
+
+describe("corrected native OAuth dispatch and linked first-selection coverage", () => {
+  it("executes all 95 OAuth dispatch and 11 additive linked controls without changing any previous mandatory requirement", () => {
+    const manifest = manifestFor("platform-postgres", root), added = [...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, ...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS];
+    const ids = new Set(added.map(item => requirementId("platform-postgres", item)));
+    expect(added).toHaveLength(106);
+    expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(added.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
+    const previous = priorApplyCurrentAuthorityPlatformRequirements();
+    expect(previous).toHaveLength(906); expect(new Set(previous.map(item => item.id)).size).toBe(906);
+    expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("bfe33823494d47835d18bb8bddfbd373f58beb0a00f136e2b4ca229356215f18");
+    const prior = priorNativeOAuthPlatformRequirements(); expect(prior).toHaveLength(799);
+    expect(createHash("sha256").update(JSON.stringify(prior.map(item => item.id).sort())).digest("hex")).toBe("4d0668f6e3fbac4acf544dbfa2bf625a96648cdb2cfc5f8039537c5961b77be6");
+    expect(manifest.env).toMatchObject({ ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED: "1", ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED: "1" });
+    expect(manifest.prerequisites).toEqual(expect.arrayContaining(["ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED=1; OAuth original-plan dispatch and default journal origin require actual owning PostgreSQL16 with explicit ZENITH_TEST_PLATFORM_PG_URL port, canonical platform schema13/product collections and agent schemas1/2/3 through migration0015, independent native connections and positively owned disposable scratch databases/CI roles; hosted REST/current identity/policy and sealed fixture bytes remain modeled", "The additive linked factory preselection controls share ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1 and actual owning PostgreSQL; all prior50 linked origin cases remain mandatory, tooling constructors supply no default origin"]));
+    for (const file of ["tests/agent-access/native-oauth-origin.test.ts", "tests/controlplane/plan-artifact-oauth-authority.test.ts", "tests/agent-access/credential-authority-origin.test.ts"]) { expect(manifest.command).toContain(file); expect(manifest.excludeFiles).not.toContain(file); }
+    for (const item of added) expect(item.backend).toBe("postgres");
+    expect(manifest.excludeFiles).toEqual([]); expect(manifest.command).not.toContain("--passWithNoTests");
+    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+    gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
+    gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
+  });
+});
+
+describe("mandatory unchanged APPLY authority continuation [report models]", () => {
+  const required = APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
+  const report = () => ({ success: true, numTotalTests: 1, numFailedTests: 0, testResults: [{
+    name: path.resolve(root, required[0].file), status: "passed", assertionResults: [{
+      title: required[0].test, fullName: `${required[0].suite} ${required[0].test}`, ancestorTitles: [required[0].suite], status: "passed",
+    }],
+  }] });
+
+  it("requires the exact positive once with actual PostgreSQL admission while preserving every prior identity", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    expect(required).toEqual([{
+      file: "tests/execution/apply.test.ts", suite: "dispatch current authority [postgres]",
+      test: "continues unchanged native product authority after fresh replan through the exact approved original plan", postgres: true,
+      id: requirementId("platform-postgres", { file: "tests/execution/apply.test.ts", suite: "dispatch current authority [postgres]",
+        test: "continues unchanged native product authority after fresh replan through the exact approved original plan", postgres: true }),
+    }]);
+    expect(manifest.requirements.filter(item => item.id === required[0].id)).toEqual(required);
+    expect(manifest.requirements).toHaveLength(907); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(907);
+    expect(priorApplyCurrentAuthorityPlatformRequirements()).toHaveLength(906);
+    expect(priorNativeOAuthPlatformRequirements()).toHaveLength(799);
+    expect(manifest.env).toMatchObject({ ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_TOFU_NETWORK: "1" });
+    expect(manifest.command).toContain(required[0].file); expect(manifest.excludeFiles).not.toContain(required[0].file);
+    expect(manifest.prerequisites.some(value => value.startsWith("ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1;"))).toBe(true);
+    const source = fs.readFileSync(path.join(root, required[0].file), "utf8");
+    expect(createHash("sha256").update(source).digest("hex")).toBe("3fb495f33a29736991f966c2c7c521552e864fea17d99ac39b94e63ca972e9ff");
+    expect(source).toContain(JSON.stringify(required[0].test));
+    expect(source.indexOf("ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED")).toBeLessThan(source.indexOf("beforeAll("));
+    expect(source).toContain('(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK !== "1")');
+    expect(reportFailures(required, report(), root)).toEqual([]);
+    expect(manifestFor("postgres", root).requirements).toHaveLength(80); expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+  });
+
+  it("retains the literal positive requirement after its source file is removed", () => {
+    const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-apply-gate-"));
+    try {
+      for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/execution"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
+      fs.copyFileSync(path.join(root, required[0].file), path.join(sourceRoot, required[0].file));
+      const named = () => requirementsFor("platform-postgres", sourceRoot).filter(item => item.id === required[0].id);
+      expect(named()).toEqual(required); fs.unlinkSync(path.join(sourceRoot, required[0].file)); expect(named()).toEqual(required);
+    } finally { fs.rmSync(sourceRoot, { recursive: true, force: true }); }
+  });
+
+  it("refuses missing, malformed, zero, duplicate or unsuccessful evidence for the new required positive", () => {
+    for (const value of [null, {}, { success: true }, { success: false, testResults: [] }, { success: true, testResults: [] }]) expect(reportFailures(required, value, root).length).toBeGreaterThan(0);
+    for (const status of ["failed", "skipped", "pending", "todo", "unknown"]) {
+      const value = report(); value.testResults[0].assertionResults[0].status = status;
+      expect(reportFailures(required, value, root).length).toBeGreaterThan(0);
+    }
+    const missing = report(); missing.testResults[0].assertionResults = []; missing.numTotalTests = 0;
+    expect(reportFailures(required, missing, root)).toHaveLength(1);
+    const malformed = report(); malformed.testResults[0].assertionResults[0].fullName = "";
+    expect(reportFailures(required, malformed, root)).toEqual(["Malformed Vitest assertion evidence"]);
+    const duplicate = report(); duplicate.testResults.push(duplicate.testResults[0]); duplicate.numTotalTests = 2;
+    expect(reportFailures(required, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+    expect(reportFailures(required, { ...report(), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures([], report(), root)).toEqual(["No required scenarios found"]);
+  });
+
+  it("refuses PGlite, foreign scope or substituted case titles instead of borrowing modeled authority", () => {
+    for (const suite of ["dispatch current authority [pglite]", "dispatch current authority [postgres-replica]", "foreign authority [postgres]", "dispatch current authority ['postgres\"]"]) {
+      const value = report(); value.testResults[0].assertionResults[0].ancestorTitles = [suite];
+      expect(reportFailures(required, value, root)).toHaveLength(1);
+    }
+    const foreign = report(); foreign.testResults[0].name = path.resolve(root, "tests/execution/destroy-review.test.ts");
+    expect(reportFailures(required, foreign, root)).toHaveLength(1);
+    const substituted = report(); substituted.testResults[0].assertionResults[0].title = "a passing isolated apply";
+    expect(reportFailures(required, substituted, root)).toHaveLength(1);
+  });
+});
+
+describe("network gate AST detection [source models]", () => {
+  it.each(["quoted assertion", "single quoted source", "template text", "regular expression", "line comment", "block comment"])("ignores %s as executable gate evidence", kind => {
+    const source: Record<string, string> = {
+      "quoted assertion": 'expect(source).toContain(\'(!PG_URL || process.env.ZENITH_TEST_TOFU_NETWORK !== "1")\');',
+      "single quoted source": 'const fixture = \'process.env.ZENITH_TEST_TOFU_NETWORK === "1"\';',
+      "template text": 'const fixture = `process.env.ZENITH_TEST_TOFU_NETWORK !== "1"`;',
+      "regular expression": 'const fixture = /process.env.ZENITH_TEST_TOFU_NETWORK !== "1"/;',
+      "line comment": '// process.env.ZENITH_TEST_TOFU_NETWORK === "1"\nconst enabled = true;',
+      "block comment": '/* process.env.ZENITH_TEST_TOFU_NETWORK !== "1" */ const enabled = true;',
+    };
+    expect(hasTofuNetworkComparison(source[kind])).toBe(false);
+  });
+  it.each(["strict equal", "strict unequal", "reversed", "loose equal", "loose unequal", "static bracket", "optional chain", "parenthesized", "typed expression", "template interpolation"])("detects actual %s runtime comparison without a file exemption", kind => {
+    const source: Record<string, string> = {
+      "strict equal": 'describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK === "1")("suite", () => {});',
+      "strict unequal": 'describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK !== "1")("suite", () => {});',
+      reversed: 'describe.skipIf("1" !== process.env.ZENITH_TEST_TOFU_NETWORK)("suite", () => {});',
+      "loose equal": 'const enabled = process.env.ZENITH_TEST_TOFU_NETWORK == "1";',
+      "loose unequal": 'const enabled = process.env.ZENITH_TEST_TOFU_NETWORK != "1";',
+      "static bracket": 'const enabled = process["env"]["ZENITH_TEST_TOFU_NETWORK"] === "1";',
+      "optional chain": 'const enabled = process?.env?.ZENITH_TEST_TOFU_NETWORK !== "1";',
+      parenthesized: 'const enabled = (((process.env.ZENITH_TEST_TOFU_NETWORK))) !== "1";',
+      "typed expression": 'const enabled = (process.env.ZENITH_TEST_TOFU_NETWORK as string | undefined) === "1";',
+      "template interpolation": 'const enabled = `${process.env.ZENITH_TEST_TOFU_NETWORK !== "1"}`;',
+    };
+    expect(hasTofuNetworkComparison(source[kind], "platform-coverage.test.ts")).toBe(true);
+  });
+  it("keeps a genuine comparison visible beside quoted false-positive text", () => {
+    const source = 'expect(source).toContain(\'process.env.ZENITH_TEST_TOFU_NETWORK !== "1"\');\nconst gated = process.env.ZENITH_TEST_TOFU_NETWORK !== "1";';
+    expect(hasTofuNetworkComparison(source)).toBe(true);
+  });
+  it("does not mistake another flag object or unevaluated type for the exact process environment comparison", () => {
+    for (const source of ['const enabled = manifest.env.ZENITH_TEST_TOFU_NETWORK === "1";',
+      'const enabled = process.env.OTHER_NETWORK === "1";', 'type Example = { "process.env.ZENITH_TEST_TOFU_NETWORK !== 1": true };'])
+      expect(hasTofuNetworkComparison(source)).toBe(false);
   });
 });

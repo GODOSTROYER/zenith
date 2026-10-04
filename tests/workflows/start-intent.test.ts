@@ -41,7 +41,13 @@ function intentEngineSuite() {
     } catch { /* The shared process may already have its SDK Runtime. */ }
     const env=await TestWorkflowEnvironment.createLocal({server:{
       executable:{type:"existing-path",path:cli},ip:"127.0.0.1",namespace:`zenith-start-intents-${randomUUID()}`,
-      extraArgs:["--dynamic-config-value","frontend.WorkflowTimeSkippingEnabled=true"],
+      // Only this disposable server: settle close-task acknowledgements inside
+      // the unchanged deletion deadline, retaining EnsureCloseBeforeDelete's default.
+      extraArgs:[
+        "--dynamic-config-value","frontend.WorkflowTimeSkippingEnabled=true",
+        "--dynamic-config-value","history.transferProcessorUpdateAckInterval=1s",
+        "--dynamic-config-value","history.transferProcessorUpdateAckIntervalJitterCoefficient=0",
+      ],
     }});
     if(/:7233$/.test(env.address)) {
       await env.teardown();throw new Error("Owned intent engine refuses the default Temporal port.");

@@ -4,6 +4,7 @@ import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
 import { PACKAGED_WORKER_CHECKS, packagedWorkerManifest } from "../../scripts/ci/gate-manifest.mjs";
 import { assertArtifactShape, assertAttemptedBuilderCapture, assertBuilderScope, assertLoadedImage, assertNativePrerequisites, assertOwnedContext, assertPublishedEvidence, assertReleaseMarker, baselinePreserved, boundBuild, builderDescriptors, executedChecks, parseHarnessOutput, parseNativeArgs, assertOwnedProcessProof, runOwnedProcess } from "../../scripts/ci/packaged-worker-native.mjs";
+import { digest } from "../../src/lib/controlplane/digest";
 
 const platform = "linux/amd64", hex = "a".repeat(64), commit = "b".repeat(40), imageId = `sha256:${hex}`;
 const runId = "zenith-pkg-amd64-0123456789ab";
@@ -17,6 +18,9 @@ const activity = () => ({ scheduleOwned: true, encryptedInput: true, paused: fal
   workflowStatus: "running", activityState: "started" });
 const waiter = () => ({ observerPid: 10, waiterPid: 11, blockerPid: 12 });
 const dependencies = { "@temporalio/worker": "1.17.1", "@temporalio/client": "1.17.1", postgres: "3.4.7", jose: "6.1.2" };
+const operationIdentity = () => ({ id: `op_${"1".repeat(32)}`, workspaceId: "packaged-workspace", projectId: "packaged-project",
+  environmentId: "packaged-environment", resourceId: null, capability: "infrastructure.observe", principalKind: "user", subjectId: "packaged-member",
+  idempotencyKey: `idem_${digest({ k: "user", p: "packaged-member", c: "infrastructure.observe", key: "packaged-read-refusal" })}` });
 const refusals = ["missing-schema", "invalid-secret", "invalid-signer", "plaintext-temporal", "missing-namespace", "wrong-queue"];
 function harness() {
   const fresh = observation(), entered = activity();
@@ -45,7 +49,7 @@ function harness() {
       shutdown: { signal: "SIGTERM", exitCode: 0, drained: true, inFlightActivity: false },
     },
     operations: { reconcile: { status: "observed", drift: 0, unknown: 0 }, operation: { workflowStatus: "failed", ledgerStatus: "failed", outcome: "expected no-target refusal", signedReadGrantVerified: true,
-      policyDecisions: 2, activityTypes: ["acquireLease", "evaluatePolicy", "executeCapability", "markOperation", "releaseLease"] }, cloudWritesProven: false, browserApprovalPerformed: false },
+      policyDecisions: 2, activityTypes: ["acquireLease", "evaluatePolicy", "executeCapability", "markOperation", "releaseLease"], identity: operationIdentity() }, cloudWritesProven: false, browserApprovalPerformed: false },
     assets: { uid: 10001, arch: "x64", node: "v22.23.3", tofu: ["OpenTofu v1.12.5", "on linux_amd64"], policySha256: hex,
       ssmDocuments: { count: 1, sha256: hex }, dependencies,
       plans: { logicallyExpired: true, ciphertextRetained: true, terminalRetained: true, encryptedLifecycleFixture: true, activeRetained: true, unownedRetained: true, sentinelFiles: true } },
@@ -118,6 +122,28 @@ describe("native packaged worker fixed evidence models", () => {
     for (const code of [1, null, undefined]) expect(() => executedChecks(harness(), platform, code)).toThrow();
     for (const status of ["failed", "skipped", "pending", "unknown"]) expect(() => executedChecks({ ...harness(), status }, platform, 0)).toThrow();
     expect(() => executedChecks({ ...harness(), operations: { ...harness().operations, cloudWritesProven: true } }, platform, 0)).toThrow();
+  });
+  it.each(["missing identity", "missing operation ID", "foreign ID shape", "foreign workspace", "foreign project", "foreign environment", "resource present",
+    "missing resource absence", "foreign capability", "foreign principal kind", "foreign subject", "raw key", "different scoped key", "SQL injection ID"] as const)("refuses packaged child operation identity %s", fault => {
+    const original = harness(), value: Record<string, unknown> = { ...operationIdentity() };
+    let identity: unknown = value;
+    switch (fault) {
+      case "missing identity": identity = undefined; break;
+      case "missing operation ID": delete value.id; break;
+      case "foreign ID shape": value.id = `dep_${"1".repeat(32)}`; break;
+      case "foreign workspace": value.workspaceId = "foreign-workspace"; break;
+      case "foreign project": value.projectId = "foreign-project"; break;
+      case "foreign environment": value.environmentId = "foreign-environment"; break;
+      case "resource present": value.resourceId = "foreign-resource"; break;
+      case "missing resource absence": delete value.resourceId; break;
+      case "foreign capability": value.capability = "infrastructure.apply"; break;
+      case "foreign principal kind": value.principalKind = "integration"; break;
+      case "foreign subject": value.subjectId = "foreign-member"; break;
+      case "raw key": value.idempotencyKey = "packaged-read-refusal"; break;
+      case "different scoped key": value.idempotencyKey = `idem_${digest({ k: "user", p: "foreign-member", c: "infrastructure.observe", key: "packaged-read-refusal" })}`; break;
+      case "SQL injection ID": value.id = "op_'; select 1; --"; break;
+    }
+    expect(() => executedChecks({ ...original, operations: { ...original.operations, operation: { ...original.operations.operation, identity } } }, platform, 0)).toThrow();
   });
   it.each(Object.keys(harness().checks))("refuses absent engine check %s", key => {
     expect(() => executedChecks({ ...harness(), checks: Object.fromEntries(Object.entries(harness().checks).filter(([name]) => name !== key)) }, platform, 0)).toThrow();

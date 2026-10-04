@@ -119,6 +119,16 @@ async function operations(): Promise<Record<string, unknown>> {
   if (result.status !== "failed" || recorded?.status !== "failed" || !recorded.error?.includes("names no target resource")) {
     throw new Error("Read operation did not end with its expected safe no-target refusal.");
   }
+  const scopedKey = `idem_${digest({ k: principal.kind, p: principal.id, c: request.capability, key: request.idempotencyKey })}`;
+  const recordedScope = recorded.proposal.scope;
+  if (recorded.id !== proposal.operation.id || recorded.workspaceId !== WS || recorded.projectId !== PROJECT
+    || recorded.environmentId !== ENVIRONMENT || recorded.resourceId !== undefined || recorded.capability !== request.capability
+    || recorded.principal.kind !== "user" || recorded.principal.id !== HUMAN || recorded.principal.onBehalfOf !== undefined
+    || recorded.principal.integrationId !== undefined || recorded.idempotencyKey !== scopedKey
+    || recorded.proposal.capability !== request.capability || recordedScope.workspaceId !== WS || recordedScope.projectId !== PROJECT
+    || recordedScope.environmentId !== ENVIRONMENT || recordedScope.resourceId !== undefined) {
+    throw new Error("Read operation identity does not match the packaged request.");
+  }
   const decisions = await db.query<{ n: number }>("select count(*)::int as n from platform.policy_decisions where workspace_id = $1 and operation_id = $2", [WS, proposal.operation.id]);
   if (decisions[0].n < 2) throw new Error("Worker policy reevaluation was not persisted.");
   const history = await handle.fetchHistory();
@@ -128,7 +138,10 @@ async function operations(): Promise<Record<string, unknown>> {
   }
   return { reconcile: { status: reconcile.status, drift: reconcile.drift, unknown: reconcile.unknown, scope: "no deployed resources" },
     operation: { workflowStatus: result.status, ledgerStatus: recorded.status, outcome: "expected no-target refusal", policyDecisions: decisions[0].n,
-      activityTypes: [...new Set(activityTypes)], signedReadGrantVerified: true }, cloudWritesProven: false, browserApprovalPerformed: false };
+      activityTypes: [...new Set(activityTypes)], signedReadGrantVerified: true,
+      identity: { id: recorded.id, workspaceId: WS, projectId: PROJECT, environmentId: ENVIRONMENT, resourceId: null,
+        capability: request.capability, principalKind: principal.kind, subjectId: HUMAN, idempotencyKey: recorded.idempotencyKey } },
+    cloudWritesProven: false, browserApprovalPerformed: false };
 }
 
 async function assets(): Promise<Record<string, unknown>> {

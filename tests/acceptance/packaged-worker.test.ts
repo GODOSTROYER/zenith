@@ -10,10 +10,25 @@ import { runInNewContext } from "node:vm";
 import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, inFlightSchemaObserverSql, packagedPrivateTransferPayload, packagedPrivateTransferSource, packagedShutdownAuthoritySql, packagedSourceDigest, packagedTemporalControlSource, packagedTemporalSessionRequest, packagedVolumeCustodySource, PackagedCommandError, parsePackagedArgs, preparePackagedPrivateTransfer, prepareTemporalTls, PRIVATE_TRANSFER_LIMIT_BYTES, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedInFlightFailure, sanitizePackagedReadiness, sanitizePackagedSweepEvidence, sanitizePackagedTemporalSessionFrame, sanitizePgWaiterEvidence, sanitizeShutdownAuthorityEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
 import { assertPackagedAcceptanceTarget } from "../../workers/execution/packaged-target";
 import { EXECUTION_FAILURE_CATEGORIES } from "../../workers/execution/startup";
+import { digest as controlDigest } from "../../src/lib/controlplane/digest";
 
 const env = { ZENITH_PACKAGED_ACCEPTANCE: "1", ZENITH_STORE: "file", ZENITH_DATA: "/var/lib/zenith",
   ZENITH_WORKER_PLAN_DIR: "/var/lib/zenith/platform-plans", ZENITH_TEMPORAL_ADDRESS: "temporal:7233",
   ZENITH_PLATFORM_DB_URL: "postgresql://postgres:private-fixture-password@postgres:5432/zenith_packaged" };
+
+const readIdentity = () => ({ id: `op_${"1".repeat(32)}`, workspaceId: "packaged-workspace", projectId: "packaged-project",
+  environmentId: "packaged-environment", resourceId: null, capability: "infrastructure.observe", principalKind: "user", subjectId: "packaged-member",
+  idempotencyKey: `idem_${controlDigest({ k: "user", p: "packaged-member", c: "infrastructure.observe", key: "packaged-read-refusal" })}` });
+const readAuthority = () => ({ observerPid: 11, operation: { id: readIdentity().id, workspace_id: "packaged-workspace",
+  project_id: "packaged-project", environment_id: "packaged-environment", resource_id: null, idempotency_key: readIdentity().idempotencyKey,
+  principal: { kind: "user", id: "packaged-member" }, proposal: { capability: "infrastructure.observe", scope: {
+    workspaceId: "packaged-workspace", projectId: "packaged-project", environmentId: "packaged-environment" } },
+  capability: "infrastructure.observe", status: "failed", error: "Operation names no target resource." },
+  consumedApprovals: [], buildLaunches: [], agentReceipts: [] });
+const readClientEvidence = () => ({ reconcile: { status: "observed", drift: 0, unknown: 0 },
+  operation: { workflowStatus: "failed", ledgerStatus: "failed", outcome: "expected no-target refusal", policyDecisions: 2,
+    activityTypes: ["acquireLease", "evaluatePolicy", "executeCapability", "markOperation", "releaseLease"], signedReadGrantVerified: true,
+    identity: readIdentity() }, cloudWritesProven: false, browserApprovalPerformed: false });
 
 /** Exact initializer program with modeled owner/CHOWN-only fs ports, not Linux proof. */
 function volumeCustodyModel() {
@@ -320,9 +335,7 @@ describe("packaged in-flight shutdown boundary [source and scalar models]", () =
     workflowStatus: "running", activityState: "started" };
   const history = { ...activity, workflowStatus: "completed", result: "deferred", reason: "prerequisites_unavailable",
     scheduledEventId: 5, startedEventId: 6, completedEventId: 7, startedByOriginalWorker: true, completedByOriginalWorker: true };
-  const authority = () => ({ observerPid: 11, operation: { workspace_id: "packaged-workspace", idempotency_key: "packaged-read-refusal",
-    capability: "infrastructure.observe", status: "failed", error: "Operation names no target resource." },
-    consumedApprovals: [], buildLaunches: [], agentReceipts: [] });
+  const authority = readAuthority;
   it("admits only the exact started sweep and projects no arbitrary control payload", () => {
     expect(sanitizePackagedSweepEvidence("activity", { ...activity, password: "private-canary", providerWriteAccepted: true }, workerIdentity)).toEqual(activity);
     expect(JSON.stringify(sanitizePackagedSweepEvidence("activity", { ...activity, password: "private-canary" }, workerIdentity))).not.toContain("private-canary");
@@ -372,21 +385,23 @@ describe("packaged in-flight shutdown boundary [source and scalar models]", () =
     }
   });
   it("keeps existing failed read authority byte-bound across independent connections without claiming consumed-grant or receipt recovery", () => {
-    const before = sanitizeShutdownAuthorityEvidence(authority());
-    const after = sanitizeShutdownAuthorityEvidence({ ...authority(), observerPid: 12, privatePayload: "private-canary" });
+    const before = sanitizeShutdownAuthorityEvidence(authority(), readIdentity());
+    const after = sanitizeShutdownAuthorityEvidence({ ...authority(), observerPid: 12, privatePayload: "private-canary" }, readIdentity());
     expect(before.sha256).toBe(after.sha256);
     expect(after).toEqual({ observerPid: 12, sha256: before.sha256, consumedApprovalRows: 0, buildLaunchRows: 0, agentReceiptRows: 0 });
     const changed = authority(); changed.operation.error += " Changed.";
-    expect(sanitizeShutdownAuthorityEvidence(changed).sha256).not.toBe(before.sha256);
+    expect(sanitizeShutdownAuthorityEvidence(changed, readIdentity()).sha256).not.toBe(before.sha256);
     expect(JSON.stringify(after)).not.toContain("private-canary");
-    const sql = packagedShutdownAuthoritySql();
+    const sql = packagedShutdownAuthoritySql(readIdentity());
     expect(sql).toContain("pg_backend_pid()");
-    expect(sql).toContain("idempotency_key='packaged-read-refusal'");
+    expect(sql).toContain(`id='${readIdentity().id}'`);
+    expect(sql).toContain(`idempotency_key='${readIdentity().idempotencyKey}'`);
+    expect(sql).not.toContain("idempotency_key='packaged-read-refusal'");
     expect(sql).not.toMatch(/\b(update|insert|delete|truncate|alter)\b/i);
   });
   it.each(["consumedApprovals", "buildLaunches", "agentReceipts"] as const)("refuses nonempty %s rather than borrowing mutation evidence from this fixture", key => {
     const value: Record<string, unknown> = authority(); value[key] = [{ privatePayload: "private-canary" }];
-    expect(() => sanitizeShutdownAuthorityEvidence(value)).toThrow("unconfirmed");
+    expect(() => sanitizeShutdownAuthorityEvidence(value, readIdentity())).toThrow("unconfirmed");
   });
   it("requires the post-signal held boundary, a distinct fresh entrypoint and original history before accepting recovery", () => {
     const harness = readFileSync(new URL("../../scripts/acceptance/packaged-worker.mjs", import.meta.url), "utf8");
@@ -401,6 +416,108 @@ describe("packaged in-flight shutdown boundary [source and scalar models]", () =
     expect(harness).toContain('await docker(["stop", "--time", "40", recoveryWorker]');
     expect(harness).not.toContain('"--privileged"');
     expect(harness).not.toContain('"--tls-disable-host-verification"');
+  });
+});
+
+describe("packaged shutdown operation identity [source and scalar models]", () => {
+  it("binds the sanitized original client result to its exact native operation and canonical scoped key", () => {
+    const client = sanitizeClientEvidence("operations", { ...readClientEvidence(), privatePayload: "private-canary" });
+    if (!client || typeof client !== "object" || !client.operation) throw new Error("Expected admitted operations evidence.");
+    expect(client.operation.identity).toEqual(readIdentity());
+    const sql = packagedShutdownAuthoritySql(client.operation.identity);
+    expect(sql).toContain(`id='${readIdentity().id}'`);
+    expect(sql).toContain(`idempotency_key='${readIdentity().idempotencyKey}'`);
+    for (const predicate of ["workspace_id='packaged-workspace'", "project_id='packaged-project'", "environment_id='packaged-environment'",
+      "resource_id is null", "capability='infrastructure.observe'", "principal->>'kind'='user'", "principal->>'id'='packaged-member'",
+      "proposal->>'capability'='infrastructure.observe'", "proposal->'scope'->>'workspaceId'='packaged-workspace'",
+      "proposal->'scope'->>'projectId'='packaged-project'", "proposal->'scope'->>'environmentId'='packaged-environment'",
+      "proposal->'scope'->>'resourceId' is null"]) expect(sql).toContain(predicate);
+    expect(sql).not.toMatch(/\b(limit|like|update|insert|delete|truncate|alter)\b/i);
+    expect(sql).not.toContain("packaged-read-refusal");
+    expect(JSON.stringify(client)).not.toContain("private-canary");
+    expect(sanitizeShutdownAuthorityEvidence(readAuthority(), client.operation.identity)).toMatchObject({
+      consumedApprovalRows: 0, buildLaunchRows: 0, agentReceiptRows: 0 });
+  });
+  it.each(["missing identity", "array identity", "missing id", "number id", "overlong id", "wrong prefix", "foreign shape", "SQL injection id",
+    "foreign workspace", "foreign project", "foreign environment", "resource present", "resource missing", "wrong capability", "wrong principal kind",
+    "wrong subject", "raw key", "different scoped key", "key wrong type", "SQL injection key"] as const)("refuses client and SQL identity %s", fault => {
+    const value: Record<string, unknown> = { ...readIdentity() };
+    let candidate: unknown = value;
+    switch (fault) {
+      case "missing identity": candidate = undefined; break;
+      case "array identity": candidate = [value]; break;
+      case "missing id": delete value.id; break;
+      case "number id": value.id = 1; break;
+      case "overlong id": value.id = `op_${"1".repeat(10000)}`; break;
+      case "wrong prefix": value.id = `dep_${"1".repeat(32)}`; break;
+      case "foreign shape": value.id = "op_private-canary"; break;
+      case "SQL injection id": value.id = "op_'; select 1; --"; break;
+      case "foreign workspace": value.workspaceId = "foreign-workspace"; break;
+      case "foreign project": value.projectId = "foreign-project"; break;
+      case "foreign environment": value.environmentId = "foreign-environment"; break;
+      case "resource present": value.resourceId = "foreign-resource"; break;
+      case "resource missing": delete value.resourceId; break;
+      case "wrong capability": value.capability = "infrastructure.apply"; break;
+      case "wrong principal kind": value.principalKind = "integration"; break;
+      case "wrong subject": value.subjectId = "foreign-member"; break;
+      case "raw key": value.idempotencyKey = "packaged-read-refusal"; break;
+      case "different scoped key": value.idempotencyKey = `idem_${controlDigest({ k: "user", p: "foreign-member", c: "infrastructure.observe", key: "packaged-read-refusal" })}`; break;
+      case "key wrong type": value.idempotencyKey = [readIdentity().idempotencyKey]; break;
+      case "SQL injection key": value.idempotencyKey = "idem_'; select 1; --"; break;
+    }
+    const client = readClientEvidence();
+    expect(() => sanitizeClientEvidence("operations", { ...client, operation: { ...client.operation, identity: candidate } })).toThrow("unconfirmed");
+    expect(() => packagedShutdownAuthoritySql(candidate)).toThrow("unconfirmed");
+    expect(() => sanitizeShutdownAuthorityEvidence(readAuthority(), candidate)).toThrow("unconfirmed");
+  });
+  it.each(["different operation", "missing operation", "foreign workspace", "foreign project", "foreign environment", "resource present",
+    "resource missing", "wrong capability", "raw key", "different scoped key", "foreign subject", "foreign principal kind", "delegated subject",
+    "integration identity", "missing principal", "missing proposal", "wrong proposal capability", "foreign proposal workspace",
+    "foreign proposal project", "foreign proposal environment", "proposal resource", "successful operation", "wrong refusal"] as const)("refuses native readback %s with original client identity unchanged", fault => {
+    const original = readAuthority();
+    const operation: Record<string, unknown> = { ...original.operation };
+    const principal: Record<string, unknown> = { ...original.operation.principal };
+    const scope: Record<string, unknown> = { ...original.operation.proposal.scope };
+    const proposal: Record<string, unknown> = { ...original.operation.proposal, scope };
+    operation.principal = principal; operation.proposal = proposal;
+    switch (fault) {
+      case "different operation": operation.id = `op_${"2".repeat(32)}`; break;
+      case "missing operation": break;
+      case "foreign workspace": operation.workspace_id = "foreign-workspace"; break;
+      case "foreign project": operation.project_id = "foreign-project"; break;
+      case "foreign environment": operation.environment_id = "foreign-environment"; break;
+      case "resource present": operation.resource_id = "foreign-resource"; break;
+      case "resource missing": delete operation.resource_id; break;
+      case "wrong capability": operation.capability = "infrastructure.apply"; break;
+      case "raw key": operation.idempotency_key = "packaged-read-refusal"; break;
+      case "different scoped key": operation.idempotency_key = `idem_${"a".repeat(64)}`; break;
+      case "foreign subject": principal.id = "foreign-member"; break;
+      case "foreign principal kind": principal.kind = "integration"; break;
+      case "delegated subject": principal.onBehalfOf = "packaged-member"; break;
+      case "integration identity": principal.integrationId = "foreign-integration"; break;
+      case "missing principal": delete operation.principal; break;
+      case "missing proposal": delete operation.proposal; break;
+      case "wrong proposal capability": proposal.capability = "infrastructure.apply"; break;
+      case "foreign proposal workspace": scope.workspaceId = "foreign-workspace"; break;
+      case "foreign proposal project": scope.projectId = "foreign-project"; break;
+      case "foreign proposal environment": scope.environmentId = "foreign-environment"; break;
+      case "proposal resource": scope.resourceId = "foreign-resource"; break;
+      case "successful operation": operation.status = "succeeded"; break;
+      case "wrong refusal": operation.error = "a different refusal"; break;
+    }
+    expect(() => sanitizeShutdownAuthorityEvidence({ ...original, operation: fault === "missing operation" ? null : operation }, readIdentity())).toThrow("unconfirmed");
+  });
+  it("verifies the persisted native tuple before emitting identity and reuses it for every shutdown readback", () => {
+    const client = readFileSync(new URL("../../workers/execution/packaged-client.ts", import.meta.url), "utf8");
+    const harness = readFileSync(new URL("../../scripts/acceptance/packaged-worker.mjs", import.meta.url), "utf8");
+    expect(client).toContain('const scopedKey = `idem_${digest({ k: principal.kind, p: principal.id, c: request.capability, key: request.idempotencyKey })}`;');
+    for (const check of ["recorded.id !== proposal.operation.id", "recorded.idempotencyKey !== scopedKey", "recorded.resourceId !== undefined",
+      "recordedScope.workspaceId !== WS", "recordedScope.projectId !== PROJECT", "recordedScope.environmentId !== ENVIRONMENT",
+      "recordedScope.resourceId !== undefined", 'recorded.principal.kind !== "user"', "recorded.principal.id !== HUMAN"]) expect(client).toContain(check);
+    expect(client.indexOf('throw new Error("Read operation identity does not match the packaged request.")')).toBeLessThan(client.indexOf("identity: { id: recorded.id"));
+    expect(harness).toContain("packagedShutdownAuthoritySql(evidence.operations.operation.identity)");
+    expect(harness).toContain("sanitizeShutdownAuthorityEvidence(JSON.parse(result.out.trim()), evidence.operations.operation.identity)");
+    expect(harness).toContain("authorityBefore.sha256 !== authorityAfterRecovery.sha256");
   });
 });
 

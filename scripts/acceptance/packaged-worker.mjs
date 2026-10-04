@@ -741,7 +741,8 @@ export function sanitizeClientEvidence(action, value) {
       || value.cloudWritesProven !== false || value.browserApprovalPerformed !== false) fail();
     return { reconcile: { status: "observed", drift: 0, unknown: 0, scope: "no deployed resources" },
       operation: { workflowStatus: "failed", ledgerStatus: "failed", outcome: "expected no-target refusal",
-        policyDecisions: value.operation.policyDecisions, activityTypes: value.operation.activityTypes, signedReadGrantVerified: true },
+        policyDecisions: value.operation.policyDecisions, activityTypes: value.operation.activityTypes, signedReadGrantVerified: true,
+        identity: sanitizePackagedOperationIdentity(value.operation.identity) },
       cloudWritesProven: false, browserApprovalPerformed: false };
   }
   if (action === "assets") {
@@ -873,17 +874,51 @@ export function inFlightSchemaObserverSql(runId, address) {
     + ` and a.client_addr='${address}'::inet`;
 }
 
-/** Read existing authority only. Empty approval/receipt inventories are not preservation proof for used grants. */
-export function packagedShutdownAuthoritySql() {
+// The host harness admits one fixed request. Its keys are already in the
+// canonical control-plane order; the image client verifies the native digest.
+const PACKAGED_READ_SCOPED_KEY = `idem_${createHash("sha256").update(JSON.stringify({
+  c: "infrastructure.observe", k: "user", key: "packaged-read-refusal", p: "packaged-member",
+})).digest("hex")}`;
+function sanitizePackagedOperationIdentity(value) {
+  if (!isRecord(value) || typeof value.id !== "string" || !/^op_[a-f0-9]{32}$/.test(value.id)
+    || value.workspaceId !== "packaged-workspace" || value.projectId !== "packaged-project"
+    || value.environmentId !== "packaged-environment" || value.resourceId !== null
+    || value.capability !== "infrastructure.observe" || value.principalKind !== "user"
+    || value.subjectId !== "packaged-member" || value.idempotencyKey !== PACKAGED_READ_SCOPED_KEY) {
+    throw new Error("Packaged operation identity is unconfirmed.");
+  }
+  return { id: value.id, workspaceId: "packaged-workspace", projectId: "packaged-project", environmentId: "packaged-environment",
+    resourceId: null, capability: "infrastructure.observe", principalKind: "user", subjectId: "packaged-member",
+    idempotencyKey: PACKAGED_READ_SCOPED_KEY };
+}
+
+/** Read the client-verified native operation only. Empty inventories do not prove used-grant preservation. */
+export function packagedShutdownAuthoritySql(identity) {
+  const expected = sanitizePackagedOperationIdentity(identity);
   return `select json_build_object('observerPid',pg_backend_pid(),
-    'operation',(select to_jsonb(o) from platform.operations o where workspace_id='packaged-workspace' and idempotency_key='packaged-read-refusal'),
+    'operation',(select to_jsonb(o) from platform.operations o where id='${expected.id}'
+      and workspace_id='packaged-workspace' and project_id='packaged-project' and environment_id='packaged-environment' and resource_id is null
+      and capability='infrastructure.observe' and principal->>'kind'='user' and principal->>'id'='packaged-member'
+      and principal->>'onBehalfOf' is null and principal->>'integrationId' is null and idempotency_key='${expected.idempotencyKey}'
+      and proposal->>'capability'='infrastructure.observe' and proposal->'scope'->>'workspaceId'='packaged-workspace'
+      and proposal->'scope'->>'projectId'='packaged-project' and proposal->'scope'->>'environmentId'='packaged-environment'
+      and proposal->'scope'->>'resourceId' is null),
     'consumedApprovals',coalesce((select json_agg(to_jsonb(a) order by id) from platform.approvals a where consumed_at is not null),'[]'::json),
     'buildLaunches',coalesce((select json_agg(to_jsonb(b) order by workspace_id,operation_id,service_address) from platform.build_launches b),'[]'::json),
     'agentReceipts',coalesce((select json_agg(to_jsonb(r) order by workspace_id,agent_kind,job_id) from platform.agent_effect_receipts r),'[]'::json))`;
 }
-export function sanitizeShutdownAuthorityEvidence(value) {
+export function sanitizeShutdownAuthorityEvidence(value, identity) {
+  const expected = sanitizePackagedOperationIdentity(identity);
   if (!isRecord(value) || !Number.isSafeInteger(value.observerPid) || value.observerPid <= 1 || !isRecord(value.operation)
-    || value.operation.workspace_id !== "packaged-workspace" || value.operation.idempotency_key !== "packaged-read-refusal"
+    || value.operation.id !== expected.id || value.operation.workspace_id !== expected.workspaceId
+    || value.operation.project_id !== expected.projectId || value.operation.environment_id !== expected.environmentId
+    || value.operation.resource_id !== null || value.operation.idempotency_key !== expected.idempotencyKey
+    || !isRecord(value.operation.principal) || value.operation.principal.kind !== expected.principalKind
+    || value.operation.principal.id !== expected.subjectId || value.operation.principal.onBehalfOf !== undefined
+    || value.operation.principal.integrationId !== undefined || !isRecord(value.operation.proposal)
+    || value.operation.proposal.capability !== expected.capability || !isRecord(value.operation.proposal.scope)
+    || value.operation.proposal.scope.workspaceId !== expected.workspaceId || value.operation.proposal.scope.projectId !== expected.projectId
+    || value.operation.proposal.scope.environmentId !== expected.environmentId || value.operation.proposal.scope.resourceId !== undefined
     || value.operation.capability !== "infrastructure.observe" || value.operation.status !== "failed"
     || typeof value.operation.error !== "string" || !value.operation.error.includes("names no target resource")
     || ["consumedApprovals", "buildLaunches", "agentReceipts"].some(key => !Array.isArray(value[key]) || value[key].length !== 0)) {
@@ -1624,8 +1659,8 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     await drainControl.call("idle");
     const readAuthority = async () => {
       const result = await docker(["exec", pg, "psql", "-X", "-tA", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "zenith_packaged", "-c",
-        packagedShutdownAuthoritySql()], "shutdown-authority-readback", { timeout: 10_000 });
-      return sanitizeShutdownAuthorityEvidence(JSON.parse(result.out.trim()));
+        packagedShutdownAuthoritySql(evidence.operations.operation.identity)], "shutdown-authority-readback", { timeout: 10_000 });
+      return sanitizeShutdownAuthorityEvidence(JSON.parse(result.out.trim()), evidence.operations.operation.identity);
     };
     const authorityBefore = await readAuthority();
     const beforeShutdown = await control("observe");

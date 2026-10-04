@@ -1,11 +1,12 @@
 /** Real broker/OPA and PGlite SQL. Session and bearer identity are explicit test fakes; no cloud is contacted. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { renderToStaticMarkup } from "react-dom/server";
 import type { PlatformDbHandle } from "@/lib/controlplane/db";
 import type { SessionUser } from "@/lib/auth/session";
 import type { Environment, Member, Project, Workspace } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
-import { closeSharedPgliteAfterAll, makeHarness, sharedDatabase, integrationOf, requestFor, user, type Harness } from "../capabilities/support";
+import { closeSharedPgliteAfterAll, makeHarness, sharedDatabase, integrationOf, requestFor, requireApproval, scriptedEngine, sessionFor, user, type Harness } from "../capabilities/support";
 import { node, observation, runtime, driftReport, investigation, plainEstimate } from "../screens/platform/fixtures";
 
 tempDataDir("zenith-platform-ui-", { fast: true });
@@ -15,6 +16,7 @@ const state = vi.hoisted(() => ({ sql: null as PlatformDbHandle | null, user: { 
 vi.mock("@/lib/controlplane/db", async (original) => ({ ...await original<typeof import("@/lib/controlplane/db")>(), platformDb: async () => state.sql! }));
 vi.mock("@/lib/auth/session", async (original) => ({ ...await original<typeof import("@/lib/auth/session")>(), getSessionUser: async () => state.user }));
 vi.mock("@/lib/server/boot", () => ({ ensureBoot: async () => undefined }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/lib/supabase/env", async (original) => ({ ...await original<typeof import("@/lib/supabase/env")>(), isSupabaseConfigured: () => true }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => state.user }));
 vi.mock("@/lib/waitlist/enforcement", () => ({ requireProductPageAccess: async () => undefined, requireProductRequestAccess: async () => undefined }));
@@ -37,6 +39,15 @@ import { GET as drift } from "@/app/api/platform/v1/environments/[id]/drift/rout
 import { GET as incidents } from "@/app/api/platform/v1/environments/[id]/incidents/route";
 import { loadEnvironment, loadInvestigations, loadOperation, loadOperations, loadPage, loadPolicy } from "@/app/(product)/platform/_lib/loaders";
 import { boundedView, publicData } from "@/app/(product)/platform/_lib/read-models";
+import OperationPage from "@/app/(product)/platform/operations/[id]/page";
+import { approvalRoundOf, operationPlanReview } from "@/lib/controlplane/db/repos/operation-review";
+import { createOperationsPort } from "@/lib/execution/platform";
+import { createExecutionBroker } from "@/lib/platform/broker";
+import { planEvidence } from "@/lib/execution/plan-evidence";
+import { APPROVED_SOURCE_FORMAT, sourceSnapshotDigest, sourceSnapshotSetDigest, type ApprovedSourceSnapshot } from "@/lib/execution/source-snapshot";
+import { normalizePlan } from "@/lib/tofu/plan";
+import { TOFU_VERSION } from "@/lib/tofu/types";
+import { extractPlanFacts } from "@/lib/policy/plan-facts";
 
 closeSharedPgliteAfterAll();
 let h: Harness;
@@ -47,6 +58,14 @@ const routes = [{ name: "resources", handler: resources }, { name: "drift", hand
 async function call(handler: Handler, id = h.ids.envAProd, query = "", headers: Record<string, string> = {}) {
   return handler(new NextRequest(`https://zenith.test/api/platform/v1/environments/${id}/read${query}`, { headers: { cookie: `zenith-workspace=${h.ids.wsA}`, ...headers } }), { params: Promise.resolve({ id }) });
 }
+function resetProductScope() {
+  resetDb({
+    workspaces: [h.ids.wsA, h.ids.wsB].map((id) => ({ id, name: id, slug: id, createdAt: at } as Workspace)),
+    members: ["alice", "bob", "carol"].map((id) => ({ id, workspaceId: h.ids.wsA, role: id === "alice" ? "admin" : id === "carol" ? "viewer" : "editor", name: id, email: `${id}@zenith.test` } as Member)),
+    projects: [{ id: h.ids.projA, workspaceId: h.ids.wsA }, { id: h.ids.projB, workspaceId: h.ids.wsB }] as Project[],
+    environments: [{ id: h.ids.envAProd, projectId: h.ids.projA, name: "Production", class: "production" }, { id: h.ids.envBProd, projectId: h.ids.projB, name: "Foreign", class: "production" }] as Environment[],
+  });
+}
 beforeEach(async () => {
   vi.restoreAllMocks();
   state.sql = await sharedDatabase("pglite");
@@ -54,12 +73,7 @@ beforeEach(async () => {
   state.user = { id: "alice", name: "Alice", email: "alice@zenith.test" };
   state.bearer = { id: h.ids.intRO, workspaceId: h.ids.wsA, subject: "bob" };
   setPlatformBrokerForTests(h.broker);
-  resetDb({
-    workspaces: [h.ids.wsA, h.ids.wsB].map((id) => ({ id, name: id, slug: id, createdAt: at } as Workspace)),
-    members: ["alice", "bob", "carol"].map((id) => ({ id, workspaceId: h.ids.wsA, role: id === "alice" ? "admin" : id === "carol" ? "viewer" : "editor", name: id, email: `${id}@zenith.test` } as Member)),
-    projects: [{ id: h.ids.projA, workspaceId: h.ids.wsA }, { id: h.ids.projB, workspaceId: h.ids.wsB }] as Project[],
-    environments: [{ id: h.ids.envAProd, projectId: h.ids.projA, name: "Production", class: "production" }, { id: h.ids.envBProd, projectId: h.ids.projB, name: "Foreign", class: "production" }] as Environment[],
-  });
+  resetProductScope();
 });
 
 describe("AWS browser action adapter", () => {
@@ -279,5 +293,169 @@ describe("server page loaders", () => {
   });
   it("checks integration scope through the real broker", async () => {
     await expect(h.broker.authorizeRead({ capability: "infrastructure.observe", scope: { workspaceId: h.ids.wsA, environmentId: h.ids.envAProd }, input: {} }, integrationOf(h, "intScoped"))).rejects.toMatchObject({ code: "not_found" });
+  });
+});
+
+/** PGlite metadata fixtures and scripted policy; no source acquisition, Tofu process or browser permission proof. */
+describe("native operation review through the default loader and real page", () => {
+  const rawPlanValue = "raw-plan-value-canary";
+  const rawSource = "raw-source-text-canary";
+  const unavailable = "The platform could not be read. Restore the platform store and services, then reload.";
+  type ReviewFixture = "retained" | "missing" | "foreign" | "stripped" | "digest-only";
+
+  async function fixture(mode: ReviewFixture = "retained", planApprovalCount = 1) {
+    h = await makeHarness({ kind: "pglite", engine: scriptedEngine("ui-native-plan-review", () => requireApproval(1, "admin", true)) });
+    const sql = h.db!;
+    state.sql = sql;
+    setPlatformBrokerForTests(h.broker);
+    resetProductScope();
+    const { operation: op } = await h.broker.propose({ capability: "deployment.deploy", scope: { workspaceId: h.ids.wsA, projectId: h.ids.projA, environmentId: h.ids.envAProd }, input: {} }, user("bob"));
+    await h.broker.approve({ workspaceId: h.ids.wsA, operationId: op.id, proposalDigest: op.proposalDigest, approver: user("alice"), session: sessionFor("alice") });
+    await h.broker.beginExecution({ workspaceId: h.ids.wsA, operationId: op.id, holder: `workflow:${op.id}`, audience: "worker" });
+    // This metadata is deliberately synthetic. The real SQL reader must still
+    // verify its complete tenant/operation scope and exact displayed source set.
+    const source: ApprovedSourceSnapshot = {
+      format: APPROVED_SOURCE_FORMAT, workspaceId: h.ids.wsA, operationId: op.id,
+      projectId: mode === "foreign" ? h.ids.projB : h.ids.projA,
+      environmentId: mode === "foreign" ? h.ids.envBProd : h.ids.envAProd,
+      serviceAddress: "container_service/web", serviceSpecDigest: "1".repeat(64),
+      pipelineAddress: "build_pipeline/web", pipelineSpecDigest: "2".repeat(64),
+      provider: "aws", region: "us-east-1", owner: "acme", repo: "app", repositoryId: 99,
+      requestedRef: "main", commitSha: "a".repeat(40), githubBinding: null, dockerfile: "Dockerfile",
+      dockerfileDigest: "3".repeat(64), recipeDigest: "4".repeat(64), archiveFormat: "zip", archiveDigest: "5".repeat(64), archiveBytes: 1,
+    };
+    const plan = normalizePlan({ format_version: "1.2", terraform_version: TOFU_VERSION, resource_changes: [{
+      address: "aws_ecs_service.web", type: "aws_ecs_service", provider_name: "registry.opentofu.org/hashicorp/aws",
+      change: { actions: ["create"], before: null, after: { desired_count: 2, service_name: rawPlanValue }, after_unknown: {}, before_sensitive: false, after_sensitive: false },
+    }], output_changes: {} }, {
+      configDigest: "c".repeat(64), lockDigest: "d".repeat(64), addressMap: { "container_service/web": ["aws_ecs_service.web"] },
+      ...(mode !== "digest-only" ? { executableSourceDigest: sourceSnapshotSetDigest([source]) } : {}),
+    });
+    const facts = extractPlanFacts(plan);
+    const ports = createOperationsPort(sql);
+    await ports.setPlanDigest({ workspaceId: h.ids.wsA, operationId: op.id, planDigest: plan.planDigest });
+    h.setEngine(scriptedEngine("ui-native-plan-review", () => requireApproval(planApprovalCount, "admin", true)));
+    const policy = await createExecutionBroker(sql, async () => h.broker).reevaluate(op.id, facts);
+    await ports.setPolicyDecision({ workspaceId: h.ids.wsA, operationId: op.id, decisionId: policy.decisionId });
+    const waiting = await ports.transition({ workspaceId: h.ids.wsA, operationId: op.id, to: "awaiting_approval" });
+    expect(waiting?.status).toBe("awaiting_approval");
+    expect(approvalRoundOf(waiting!)).toBe(1);
+    // Add the read fixtures after the genuine approval-round transition so
+    // negative source cases exercise loadOperation, not fixture preparation.
+    if (mode !== "missing" && mode !== "digest-only") await sql.query(
+      "insert into platform.approved_source_snapshots (workspace_id,operation_id,project_id,environment_id,service_address,snapshot,snapshot_digest) values ($1,$2,$3,$4,$5,$6::text::jsonb,$7)",
+      [source.workspaceId, op.id, source.projectId, source.environmentId, source.serviceAddress, JSON.stringify(source), sourceSnapshotDigest(source)],
+    );
+    if (mode !== "digest-only") {
+      const summary = planEvidence({ plan, facts, cost: { deltaUsdMonthly: 7 }, graphDigest: "6".repeat(64), stage: "plan", approvedSources: [source] }).summary;
+      if (mode === "stripped") {
+        delete summary.executableSourceDigest;
+        const view = summary.view as Record<string, unknown>;
+        delete view.executableSourceDigest; delete view.approvedSources;
+      }
+      const evidence = await repos.evidence.insert(sql, { workspaceId: h.ids.wsA, operationId: op.id, kind: "tofu_plan", digest: plan.planDigest, summary, simulated: false });
+      // Model untrusted stored data beyond the writer's normal redaction. The
+      // native review parser excludes values/raw source and scrubs diagnostics;
+      // the loader must also scrub ordinary operation fields.
+      const view = summary.view as Record<string, unknown>;
+      view.diagnostics = [{ severity: "warning", summary: canary }];
+      summary.rawSource = rawSource;
+      await sql.query("update platform.evidence set summary=$3::text::jsonb where workspace_id=$1 and id=$2", [h.ids.wsA, evidence.id, JSON.stringify(summary)]);
+    }
+    await sql.query("update platform.operations set error=$3 where workspace_id=$1 and id=$2", [h.ids.wsA, op.id, canary]);
+    return { op, source, plan };
+  }
+
+  const render = async (id: string) => renderToStaticMarkup(await OperationPage({ params: Promise.resolve({ id }) }));
+  function decisionButton(markup: string, name: "Approve" | "Reject") {
+    const tag = markup.match(new RegExp(`<button\\b[^>]*aria-label="${name} [^"]*"[^>]*>`))?.[0];
+    if (!tag) throw new Error(`No ${name} button in the real operation page.`);
+    return tag;
+  }
+  function expectNoRawData(value: unknown) {
+    const serialized = typeof value === "string" ? value : JSON.stringify(value);
+    for (const secret of [canary, rawPlanValue, rawSource]) expect(serialized).not.toContain(secret);
+  }
+
+  it("preserves the exact native source review and current round and enables the real page's eligible reviewer", async () => {
+    const f = await fixture();
+    const result = await loadOperation(f.op.id);
+    if (!("data" in result)) throw new Error(result.error);
+    const review = operationPlanReview(result.data.operation);
+    expect(approvalRoundOf(result.data.operation)).toBe(1);
+    expect(result.data.approvals.map(approvalRoundOf)).toEqual([0]);
+    expect(result.data.approvals[0]).toMatchObject({ approver: { id: "alice" }, consumedAt: expect.any(String) });
+    expect(review).toMatchObject({ planDigest: f.plan.planDigest, cost: { deltaUsdMonthly: 7 }, view: {
+      executableSourceDigest: sourceSnapshotSetDigest([f.source]), approvedSources: [{ service: f.source.serviceAddress, commit: f.source.commitSha,
+        dockerfileDigest: f.source.dockerfileDigest, recipeDigest: f.source.recipeDigest, archiveDigest: f.source.archiveDigest, archiveFormat: "zip" }],
+      resources: [{ address: "aws_ecs_service.web", changes: [{ path: "desired_count" }, { path: "service_name" }] }],
+    } });
+    expectNoRawData(result);
+    const markup = await render(f.op.id);
+    expect(markup).toContain("aws_ecs_service.web"); expect(markup).toContain("desired_count"); expect(markup).toContain(f.source.commitSha);
+    expect(markup).toContain(f.source.archiveDigest); expect(markup).toContain("$7");
+    expect(markup).not.toContain("plan is unavailable for review");
+    expect(decisionButton(markup, "Approve")).not.toContain('disabled=""');
+    expect(decisionButton(markup, "Reject")).not.toContain('disabled=""');
+    expectNoRawData(markup);
+  });
+
+  it("retains a current approval round so the real page refuses a duplicate current decision", async () => {
+    const f = await fixture("retained", 2);
+    await h.broker.approve({ workspaceId: h.ids.wsA, operationId: f.op.id, proposalDigest: f.op.proposalDigest, planDigest: f.plan.planDigest, approver: user("alice"), session: sessionFor("alice") });
+    const result = await loadOperation(f.op.id);
+    if (!("data" in result)) throw new Error(result.error);
+    expect(result.data.operation.status).toBe("awaiting_approval");
+    expect(result.data.approvals.map(approvalRoundOf)).toEqual([0, 1]);
+    const markup = await render(f.op.id);
+    expect(markup).toContain("You already approved this proposal");
+    expect(decisionButton(markup, "Approve")).toContain('disabled=""');
+    expect(decisionButton(markup, "Reject")).toContain('disabled=""');
+    expectNoRawData(markup);
+  });
+
+  it("keeps the real page's current member role guard despite retained native plan evidence", async () => {
+    const f = await fixture();
+    state.user = { id: "carol", name: "Carol", email: "carol@zenith.test" };
+    const markup = await render(f.op.id);
+    expect(markup).toContain("aws_ecs_service.web");
+    expect(decisionButton(markup, "Approve")).toContain('disabled=""');
+    expect(decisionButton(markup, "Reject")).toContain('disabled=""');
+    expectNoRawData(markup);
+  });
+
+  it("does not infer a review from a digest when native planning evidence is absent", async () => {
+    const f = await fixture("digest-only");
+    const result = await loadOperation(f.op.id);
+    if (!("data" in result)) throw new Error(result.error);
+    expect(result.data.operation.planDigest).toBe(f.plan.planDigest);
+    expect(approvalRoundOf(result.data.operation)).toBe(1);
+    expect(operationPlanReview(result.data.operation)).toBeUndefined();
+    const markup = await render(f.op.id);
+    expect(markup).toContain("plan is unavailable for review");
+    expect(decisionButton(markup, "Approve")).toContain('disabled=""');
+    expect(decisionButton(markup, "Reject")).not.toContain('disabled=""');
+    expectNoRawData(markup);
+  });
+
+  it.each(["missing", "foreign", "stripped"] as const)("refuses %s native source review through the real loader and page", async (mode) => {
+    const f = await fixture(mode);
+    expect(await loadOperation(f.op.id)).toEqual({ error: unavailable });
+    const markup = await render(f.op.id);
+    expect(markup).toContain(unavailable); expect(markup).not.toContain('aria-label="Approve ');
+    expect(markup).not.toContain(f.source.commitSha); expectNoRawData(markup);
+  });
+
+  it("refuses inaccessible native source rows with a sanitized loader and page error", async () => {
+    const f = await fixture();
+    const original = state.sql!.query.bind(state.sql!);
+    vi.spyOn(state.sql!, "query").mockImplementation(async <T>(sql: string, params?: readonly unknown[]): Promise<T[]> => {
+      if (sql.includes("platform.approved_source_snapshots")) throw new Error(canary);
+      return original<T>(sql, params);
+    });
+    expect(await loadOperation(f.op.id)).toEqual({ error: unavailable });
+    const markup = await render(f.op.id);
+    expect(markup).toContain(unavailable); expect(markup).not.toContain('aria-label="Approve ');
+    expectNoRawData(markup);
   });
 });

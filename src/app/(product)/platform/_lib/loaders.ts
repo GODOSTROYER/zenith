@@ -9,9 +9,10 @@ import { getSessionUser } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { platformBroker, type Broker } from "@/lib/capabilities/platform";
 import { BrokerError, notFound } from "@/lib/capabilities/errors";
-import type { OperationRecord, OperationStatus, PlatformEvent, Principal } from "@/lib/controlplane/types";
+import type { OperationStatus, PlatformEvent, Principal } from "@/lib/controlplane/types";
 import type { WorkspaceRoleOrNone } from "@/lib/capabilities/ports";
 import { platformDb, repos } from "@/lib/controlplane/db";
+import { approvalRoundOf, operationPlanReview, type ReviewedOperation } from "@/lib/controlplane/db/repos/operation-review";
 import { publicData, readResources, readDrift, readIncidents, ENVIRONMENT_ID, type ReadCaller } from "./read-models";
 
 export interface PageContext extends ReadCaller {
@@ -76,26 +77,32 @@ export function loadOperation(id: string) {
       broker.listOperationEvents({ ...context, operationId: id, limit: 500 }),
       repos.cost.list(await platformDb(), context.workspaceId, { operationId: id, limit: 1 }),
     ]);
-    // The components need digest-bound records; REST's flattened approval DTO
-    // omits those facts. Preserve actual stored digests, never reconstruct them.
-    const operation: OperationRecord = publicData({
+    // Preserve the native, validated review and current round alongside the
+    // stored digests. A digest alone cannot supply a readable plan.
+    const review = operationPlanReview(record);
+    const operation: ReviewedOperation = publicData({
       id: record.id, workspaceId: record.workspaceId, projectId: record.projectId,
       environmentId: record.environmentId, resourceId: record.resourceId, capability: record.capability,
       principal: record.principal, status: record.status, proposal: { ...record.proposal, input: undefined },
       proposalDigest: record.proposalDigest, inputDigest: record.inputDigest, planDigest: record.planDigest,
       policyDecisionId: record.policyDecisionId, approvalRequired: record.approvalRequired,
+      approvalRound: approvalRoundOf(record),
       correlationId: record.correlationId, error: record.error, createdAt: record.createdAt,
       updatedAt: record.updatedAt, startedAt: record.startedAt, finishedAt: record.finishedAt, expiresAt: record.expiresAt,
     });
     operation.proposal.input = publicData(record.proposal.input);
+    // Bound the review separately so its size cannot truncate operation expiry
+    // or round metadata. Revalidate the sanitized shape before exposing it.
+    if (review) {
+      operation.planReview = publicData(review);
+      operation.planReview = operationPlanReview(operation);
+    }
     const events: PlatformEvent[] = timeline.items.map((event) => ({
       ...event, workspaceId: context.workspaceId, type: event.type as PlatformEvent["type"],
       actor: event.actor ? { ...event.actor, kind: event.actor.kind as Principal["kind"] } : undefined,
     }));
     return { operation, decision: decision ? publicData(decision) : undefined, approvals: approvals.map((a) => publicData(a)), events,
       timelineTruncated: timeline.items.length === 500, estimate: estimates[0] ? publicData(estimates[0].estimate) : undefined };
-    // No readable PlanView is persisted by the current execution ports. A
-    // digest alone cannot produce a changes table; the page states this limit.
   });
 }
 

@@ -28,7 +28,11 @@ const workerFailureCategories = new Set(["module-load", "configuration", "health
 const refusalKinds = ["missing-schema", "invalid-secret", "invalid-signer", "plaintext-temporal", "missing-namespace", "wrong-queue"];
 const diagnosticRoles = new Set(["postgres", "temporal", "worker", "worker-recovery", ...refusalKinds]);
 const refusalCommandPhases = new Set(refusalKinds.flatMap((kind) => [`refusal-launch-${kind}`, `refusal-exit-${kind}`, `refusal-logs-${kind}`]));
+const inFlightCommandPhases = ["shutdown-authority-readback", "inflight-worker-address", "inflight-schema-blocker", "inflight-schema-held", "inflight-schema-waiter",
+  "temporal-control-observe", "temporal-control-trigger", "temporal-control-activity", "inflight-sigterm", "inflight-drain-started", "inflight-drain-waiter",
+  "inflight-worker-exit", "inflight-stopped-worker", "inflight-worker-lifecycle-logs", "fresh-recovery-entrypoint", "probe-readyz", "temporal-control-history"];
 const diagnosticCommandPhases = new Set([...refusalCommandPhases,
+  ...inFlightCommandPhases,
   "private-tls-tool", "private-tls-ca", "private-tls-leaf", "private-tls-sign", "private-tls-verify",
   "private-installer-start", "private-server-copy", "private-client-copy", "private-files-transfer", "private-volume-custody", "private-installer-stop"]);
 const commandFailureCategories = new Set(["command-launch", "command-timeout", "command-output-limit", "command-input", "command-exit", "command-signal"]);
@@ -247,6 +251,40 @@ export function sanitizePackagedCommandFailure(error) {
     exitCode: Number.isSafeInteger(diagnostic.exitCode) ? diagnostic.exitCode : null,
     signal: ["SIGTERM", "SIGKILL", "SIGINT", "SIGABRT", "SIGSEGV", "SIGBUS"].includes(diagnostic.signal ?? "") ? diagnostic.signal : null,
     ...(diagnosticCommandPhases.has(error.phase) ? { phase: error.phase } : {}) };
+}
+
+const inFlightGuardReasons = new Map([
+  ["Local shutdown authority readback is unconfirmed.", "shutdown-authority-unconfirmed"],
+  ["Owned in-flight worker is unconfirmed.", "owned-worker-unconfirmed"],
+  ["Owned worker address is invalid.", "owned-worker-address-invalid"],
+  ["Owned schema outage identity is invalid.", "schema-observer-identity-invalid"],
+  ["Owned shutdown blocker was not confirmed.", "shutdown-blocker-unconfirmed"],
+  ["Actual in-flight schema waiter was not confirmed.", "inflight-schema-waiter-unconfirmed"],
+  ["Actual schema waiter was not confirmed.", "schema-waiter-evidence-unconfirmed"],
+  ["Packaged Temporal control evidence is unconfirmed.", "temporal-control-evidence-unconfirmed"],
+  ["Packaged in-flight sweep evidence is unconfirmed.", "inflight-sweep-evidence-unconfirmed"],
+  ["A fresh started sweep was not confirmed.", "fresh-started-sweep-unconfirmed"],
+  ["Worker drain did not begin.", "worker-drain-not-started"],
+  ["The same started activity and held SQL boundary were not retained during drain.", "held-drain-boundary-changed"],
+  ["In-flight packaged worker did not drain cleanly.", "inflight-worker-drain-unconfirmed"],
+  ["Worker lifecycle logs contained secret material.", "worker-lifecycle-output-refused"],
+  ["Existing local authority changed across the held activity drain.", "shutdown-authority-changed"],
+  ["Fresh packaged worker did not restore readiness.", "fresh-worker-readiness-unconfirmed"],
+  ["Worker readiness evidence is incomplete.", "worker-readiness-evidence-incomplete"],
+  ["A fresh owned schedule result was not confirmed.", "fresh-schedule-result-unconfirmed"],
+  ["Recovery reused the held sweep instead of a fresh pass.", "fresh-worker-sweep-reused"],
+  ["Existing local authority changed across fresh-worker recovery.", "recovery-authority-changed"],
+]);
+/** Exact fixed guard categories only. Never evaluate a message getter or publish error text.
+ * @param {unknown} phase
+ * @param {unknown} error
+ */
+export function sanitizePackagedInFlightFailure(phase, error) {
+  if (!["inflight-schema-shutdown", "inflight-fresh-worker-recovery"].includes(typeof phase === "string" ? phase : "") || !(error instanceof Error)) return undefined;
+  const message = Object.getOwnPropertyDescriptor(error, "message");
+  if (!message || !("value" in message) || typeof message.value !== "string") return undefined;
+  const category = inFlightGuardReasons.get(message.value);
+  return category ? { category } : undefined;
 }
 
 /** Fixed, content-free initializer. Serialized below for the actual Linux child.
@@ -1468,6 +1506,8 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     evidence.status = "passed";
   } catch (error) {
     evidence.failurePhase = phase;
+    const failureReason = sanitizePackagedInFlightFailure(phase, error);
+    if (failureReason) evidence.failureReason = failureReason;
     const failureCommand = sanitizePackagedCommandFailure(error);
     if (failureCommand) evidence.failureCommand = failureCommand;
     await failureDiagnostics();

@@ -7,7 +7,7 @@ import { chmod, link, lstat, mkdir, mkdtemp, readdir, realpath, rm, symlink, wri
 import os from "node:os";
 import path from "node:path";
 import { runInNewContext } from "node:vm";
-import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, inFlightSchemaObserverSql, packagedPrivateTransferPayload, packagedPrivateTransferSource, packagedShutdownAuthoritySql, packagedSourceDigest, packagedTemporalControlSource, packagedVolumeCustodySource, PackagedCommandError, parsePackagedArgs, preparePackagedPrivateTransfer, prepareTemporalTls, PRIVATE_TRANSFER_LIMIT_BYTES, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedReadiness, sanitizePackagedSweepEvidence, sanitizePgWaiterEvidence, sanitizeShutdownAuthorityEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
+import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, inFlightSchemaObserverSql, packagedPrivateTransferPayload, packagedPrivateTransferSource, packagedShutdownAuthoritySql, packagedSourceDigest, packagedTemporalControlSource, packagedVolumeCustodySource, PackagedCommandError, parsePackagedArgs, preparePackagedPrivateTransfer, prepareTemporalTls, PRIVATE_TRANSFER_LIMIT_BYTES, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedInFlightFailure, sanitizePackagedReadiness, sanitizePackagedSweepEvidence, sanitizePgWaiterEvidence, sanitizeShutdownAuthorityEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
 import { assertPackagedAcceptanceTarget } from "../../workers/execution/packaged-target";
 import { EXECUTION_FAILURE_CATEGORIES } from "../../workers/execution/startup";
 
@@ -1119,4 +1119,65 @@ describe("packaged Temporal controller [actual Node ESM linkage; no transport]",
     expect(result.err).toContain("@temporalio/proto");
     expect(result.err).not.toContain("Packaged authenticated Temporal control failed.");
   }, 15_000);
+});
+
+describe("packaged in-flight fixed failure diagnostics [scalar models; no services]", () => {
+  const guards = [
+    ["Local shutdown authority readback is unconfirmed.", "shutdown-authority-unconfirmed"],
+    ["Owned in-flight worker is unconfirmed.", "owned-worker-unconfirmed"],
+    ["Owned worker address is invalid.", "owned-worker-address-invalid"],
+    ["Owned schema outage identity is invalid.", "schema-observer-identity-invalid"],
+    ["Owned shutdown blocker was not confirmed.", "shutdown-blocker-unconfirmed"],
+    ["Actual in-flight schema waiter was not confirmed.", "inflight-schema-waiter-unconfirmed"],
+    ["Actual schema waiter was not confirmed.", "schema-waiter-evidence-unconfirmed"],
+    ["Packaged Temporal control evidence is unconfirmed.", "temporal-control-evidence-unconfirmed"],
+    ["Packaged in-flight sweep evidence is unconfirmed.", "inflight-sweep-evidence-unconfirmed"],
+    ["A fresh started sweep was not confirmed.", "fresh-started-sweep-unconfirmed"],
+    ["Worker drain did not begin.", "worker-drain-not-started"],
+    ["The same started activity and held SQL boundary were not retained during drain.", "held-drain-boundary-changed"],
+    ["In-flight packaged worker did not drain cleanly.", "inflight-worker-drain-unconfirmed"],
+    ["Worker lifecycle logs contained secret material.", "worker-lifecycle-output-refused"],
+    ["Existing local authority changed across the held activity drain.", "shutdown-authority-changed"],
+    ["Fresh packaged worker did not restore readiness.", "fresh-worker-readiness-unconfirmed"],
+    ["Worker readiness evidence is incomplete.", "worker-readiness-evidence-incomplete"],
+    ["A fresh owned schedule result was not confirmed.", "fresh-schedule-result-unconfirmed"],
+    ["Recovery reused the held sweep instead of a fresh pass.", "fresh-worker-sweep-reused"],
+    ["Existing local authority changed across fresh-worker recovery.", "recovery-authority-changed"],
+  ] as const;
+  it.each(guards)("exports only the fixed category for existing guard %s", (message, category) => {
+    const error = new Error(message);
+    Object.assign(error, { stack: "private-canary", output: "private-canary", sql: "private-canary", password: "private-canary" });
+    for (const phase of ["inflight-schema-shutdown", "inflight-fresh-worker-recovery"]) {
+      expect(sanitizePackagedInFlightFailure(phase, error)).toEqual({ category });
+      expect(JSON.stringify(sanitizePackagedInFlightFailure(phase, error))).not.toContain("private-canary");
+    }
+    expect(sanitizePackagedInFlightFailure("operator-pause", error)).toBeUndefined();
+    for (const changed of [`${message} private-canary`, `private-canary ${message}`, `${message}\nprivate-canary`, ` ${message}`]) {
+      expect(sanitizePackagedInFlightFailure("inflight-schema-shutdown", new Error(changed))).toBeUndefined();
+    }
+  });
+  it("leaves unknown, non-error, inherited and accessor messages absent without evaluating private getters", () => {
+    let reads = 0;
+    const accessor = new Error("private-canary");
+    Object.defineProperty(accessor, "message", { get: () => { reads++; throw new Error("private-canary"); } });
+    for (const error of [undefined, null, "private-canary", { message: guards[0][0] }, Object.create(Error.prototype), accessor,
+      new Error("private-canary"), new Error(), new PackagedCommandError("temporal-control-activity", "command-exit", 1)]) {
+      expect(sanitizePackagedInFlightFailure("inflight-schema-shutdown", error)).toBeUndefined();
+    }
+    expect(reads).toBe(0);
+    const phase = { toString: () => { reads++; throw new Error("private-canary"); } };
+    expect(sanitizePackagedInFlightFailure(phase, new Error(guards[0][0]))).toBeUndefined();
+    expect(reads).toBe(0);
+  });
+  it.each(["shutdown-authority-readback", "inflight-worker-address", "inflight-schema-blocker", "inflight-schema-held", "inflight-schema-waiter",
+    "temporal-control-observe", "temporal-control-trigger", "temporal-control-activity", "inflight-sigterm", "inflight-drain-started", "inflight-drain-waiter",
+    "inflight-worker-exit", "inflight-stopped-worker", "inflight-worker-lifecycle-logs", "fresh-recovery-entrypoint", "probe-readyz", "temporal-control-history"])(
+    "exports only the existing fixed in-flight command phase %s", phase => {
+      const error = new PackagedCommandError(phase, "command-exit", 1);
+      Object.assign(error.diagnostic, { output: "private-canary", sql: "private-canary" });
+      expect(sanitizePackagedCommandFailure(error)).toEqual({ category: "command-exit", exitCode: 1, signal: null, phase });
+      expect(sanitizePackagedCommandFailure(new PackagedCommandError(`${phase}-private-canary`, "command-exit", 1)))
+        .toEqual({ category: "command-exit", exitCode: 1, signal: null });
+    }
+  );
 });

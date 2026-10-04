@@ -214,4 +214,66 @@ describe.skipIf(!url)("native linked credential factory origin [postgres]", () =
     expect(isDefaultPgCredentialAuthorityFor(authority,owner)).toBe(true);
   });
 
+  it.each(["ready method", "ready accessor", "getCredential method", "getCredential accessor", "listCredentials method", "listCredentials accessor"] as const)("pre-selection linked factory refuses %s before registering or invoking callbacks", async change => {
+    const f=await seed(owner), prototype=PgCredentialAuthority.prototype, key=change.split(" ")[0];
+    let getters=0,callbacks=0;
+    const restore=descriptor(prototype,key,change.endsWith("accessor")
+      ? {get:()=>{getters++;throw new Error("Hostile pre-selection getter must remain unevaluated.");}}
+      : {value:async()=>{callbacks++;return undefined;},writable:true});
+    try {
+      expect(()=>pgCredentialAuthority()).toThrow("Current native linked credential provenance is unavailable.");
+      expect(Object.getOwnPropertyDescriptor(globalThis,globals[0])).toBeUndefined();
+      await expect(currentIntegrationGrant(f.principal,f.workspaceId)).rejects.toMatchObject({code:"current_integration_grant_unconfirmed"});
+      expect(getters).toBe(0);expect(callbacks).toBe(0);
+    } finally {restore();}
+    try {
+      const authority=pgCredentialAuthority();await authority.ready();
+      expect(isDefaultPgCredentialAuthorityFor(authority,owner)).toBe(true);
+      expect((await readDefaultNativeLinkedCredential(authority,f.principal,f.workspaceId)).tuple?.id).toBe(f.principal.id);
+      expect(await currentIntegrationGrant(f.principal,f.workspaceId)).toEqual({scopes:["read","plan","write"],projectIds:[f.projectId],environmentIds:[f.environmentId]});
+      expect(readCurrentNativeLinkedCredential(f.principal,f.workspaceId,owner)?.id).toBe(f.principal.id);
+    } finally {await owner.query("delete from agent.agent_credentials where id=$1",[f.principal.id]);}
+  });
+
+  it("pre-selection linked factory refuses a changed canonical prototype parent and restores native authority", async () => {
+    const f=await seed(owner),prototype=PgCredentialAuthority.prototype,parent=Object.getPrototypeOf(prototype);let getters=0;
+    const foreign=Object.create(parent);
+    Object.defineProperty(foreign,"ready",{get:()=>{getters++;throw new Error("Hostile inherited getter must remain unevaluated.");}});
+    Object.setPrototypeOf(prototype,foreign);
+    try {expect(()=>pgCredentialAuthority()).toThrow("Current native linked credential provenance is unavailable.");expect(Object.getOwnPropertyDescriptor(globalThis,globals[0])).toBeUndefined();expect(getters).toBe(0);}
+    finally {Object.setPrototypeOf(prototype,parent);}
+    try {const authority=pgCredentialAuthority();await authority.ready();expect(isDefaultPgCredentialAuthorityFor(authority,owner)).toBe(true);expect((await readDefaultNativeLinkedCredential(authority,f.principal,f.workspaceId)).tuple?.id).toBe(f.principal.id);}
+    finally {await owner.query("delete from agent.agent_credentials where id=$1",[f.principal.id]);}
+  });
+
+  it.each(["authority selector", "client selector"] as const)("pre-selection linked factory refuses %s accessors with zero getter or setter effects", async change => {
+    const f=await seed(owner);let getters=0,setters=0;
+    const key=change==="authority selector"?globals[0]:globals[1];
+    const restore=descriptor(globalThis,key,{get:()=>{getters++;return undefined;},set:()=>{setters++;}});
+    try {expect(()=>pgCredentialAuthority()).toThrow("Current native linked credential provenance is unavailable.");expect(getters).toBe(0);expect(setters).toBe(0);}
+    finally {restore();}
+    try {const authority=pgCredentialAuthority();await authority.ready();expect(isDefaultPgCredentialAuthorityFor(authority,owner)).toBe(true);expect((await readDefaultNativeLinkedCredential(authority,f.principal,f.workspaceId)).tuple?.id).toBe(f.principal.id);}
+    finally {await owner.query("delete from agent.agent_credentials where id=$1",[f.principal.id]);}
+  });
+
+  it("cached linked readiness and native read refuse a client selector getter before calling its factory", async () => {
+    const f=await seed(owner),authority=pgCredentialAuthority();await authority.ready();let getters=0;
+    const restore=descriptor(globalThis,globals[1],{get:()=>{getters++;throw new Error("Hostile client selector getter must remain unevaluated.");}});
+    try {
+      await expect(authority.ready()).rejects.toMatchObject({code:"policy_unavailable"});
+      await expect(readDefaultNativeLinkedCredential(authority,f.principal,f.workspaceId)).rejects.toMatchObject({code:"policy_unavailable"});
+      expect(getters).toBe(0);
+    } finally {restore();}
+    try {await authority.ready();expect(isDefaultPgCredentialAuthorityFor(authority,owner)).toBe(true);expect((await readDefaultNativeLinkedCredential(authority,f.principal,f.workspaceId)).tuple?.id).toBe(f.principal.id);}
+    finally {await owner.query("delete from agent.agent_credentials where id=$1",[f.principal.id]);}
+  });
+
+  it("tooling linked constructor retains native readiness without acquiring default factory origin", async () => {
+    const client=pgAuthorityClient();let calls=0;const tooling=new PgCredentialAuthority(()=>{calls++;return client;});
+    await tooling.ready();expect(calls).toBeGreaterThan(0);expect(isDefaultPgCredentialAuthority(tooling)).toBe(false);
+    const before=calls,f=await seed(owner);
+    try {await expect(readDefaultNativeLinkedCredential(tooling,f.principal,f.workspaceId)).rejects.toMatchObject({code:"policy_unavailable"});expect(calls).toBe(before);}
+    finally {await owner.query("delete from agent.agent_credentials where id=$1",[f.principal.id]);}
+  });
+
 });

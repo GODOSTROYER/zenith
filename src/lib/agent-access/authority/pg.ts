@@ -169,7 +169,7 @@ function sameDescriptor(current:PropertyDescriptor|undefined,before:PropertyDesc
 function authorityOrigin(value:unknown):AuthorityOrigin|undefined {
   if(!value||typeof value!=="object")return undefined;
   const saved=authorityOrigins.get(value),current=Object.getOwnPropertyDescriptor(globalThis,"__zenithPgCredentialAuthority");
-  if(!saved||!current||!("value" in current)||current.value!==value||Object.getPrototypeOf(value)!==saved.prototype
+  if(!saved||!current||!("value" in current)||current.value!==value||!canonicalCredentialPrototypeIntact()||Object.getPrototypeOf(value)!==saved.prototype
     ||Reflect.ownKeys(value).filter(key=>key!=="checked").length!==saved.own.size||Reflect.ownKeys(saved.prototype).length!==saved.methods.size)return undefined;
   const checked=Object.getOwnPropertyDescriptor(value,"checked");
   if((checked?!("value" in checked)||checked.value!==saved.checked:saved.checked!==undefined)||![...saved.own].every(([key,before])=>sameDescriptor(Object.getOwnPropertyDescriptor(value,key),before))
@@ -190,6 +190,8 @@ async function readNativeLinkedCredential(value:unknown,principal:Principal,work
   const refuse=():never=>{throw new AgentError("policy_unavailable","Current native linked credential authority is unavailable.",503);};
   if(!authorityOrigin(value)||principal.kind!=="integration"||principal.id!==principal.integrationId||!principal.onBehalfOf
     ||!nativeId.safeParse(principal.id).success||!nativeId.safeParse(principal.onBehalfOf).success||!nativeId.safeParse(workspaceId).success)return refuse();
+  const clientSelection=Object.getOwnPropertyDescriptor(globalThis,"__zenithHostedPg");
+  if(clientSelection&&!("value" in clientSelection))return refuse();
   const client=pgAuthorityClient();if(!isDefaultPgAuthorityClient(client))return refuse();
   const saved=authorityOrigin(value);if(!saved)return refuse();
   await saved.authority.ready();if(!authorityOrigin(value)||!isDefaultPgAuthorityClient(client))return refuse();
@@ -222,6 +224,9 @@ export class PgCredentialAuthority implements CredentialAuthority {
   constructor(private readonly sql: () => Sql) {}
 
   private async schema(): Promise<Sql> {
+    const origin=authorityOrigins.get(this);
+    if(origin&&(authorityOrigin(this)!==origin||!nativeClientSelectionIsData()))
+      throw unavailable("Current native linked credential provenance is unavailable.");
     const client = this.sql(), previous = this.checked;
     this.checked ??= (async () => {
       const rows = (await client`
@@ -237,7 +242,7 @@ export class PgCredentialAuthority implements CredentialAuthority {
           `The agent control database records schema versions ${found.join(", ") || "none"}, and this build needs version ${AGENT_SCHEMA_VERSION} ("${AGENT_SCHEMA_NAME}"). Fix: apply supabase/migrations/0006_agent_link.sql and start again. Re-applying it is safe; nothing was read or written in the meantime.`
         );
     })();
-    const origin=authorityOrigins.get(this);if(origin&&origin.checked===previous)origin.checked=this.checked;
+    if(origin&&origin.checked===previous)origin.checked=this.checked;
     await this.checked;
     return client;
   }
@@ -524,16 +529,41 @@ export class PgCredentialAuthority implements CredentialAuthority {
   }
 }
 
-type PgAuthorityGlobal = typeof globalThis & { __zenithPgCredentialAuthority?: PgCredentialAuthority };
+// Capture once while this module defines the class, before any default factory
+// can certify a mutable prototype. Tooling constructors retain their own API.
+const canonicalCredentialPrototype=PgCredentialAuthority.prototype;
+const canonicalCredentialParent=Object.getPrototypeOf(canonicalCredentialPrototype);
+const canonicalCredentialMethods=new Map(Reflect.ownKeys(canonicalCredentialPrototype)
+  .map(key=>[key,Object.getOwnPropertyDescriptor(canonicalCredentialPrototype,key)!]));
+function canonicalCredentialPrototypeIntact():boolean {
+  return PgCredentialAuthority.prototype===canonicalCredentialPrototype
+    &&Object.getPrototypeOf(canonicalCredentialPrototype)===canonicalCredentialParent
+    &&Reflect.ownKeys(canonicalCredentialPrototype).length===canonicalCredentialMethods.size
+    &&[...canonicalCredentialMethods].every(([key,before])=>"value" in before&&typeof before.value==="function"
+      &&sameDescriptor(Object.getOwnPropertyDescriptor(canonicalCredentialPrototype,key),before));
+}
+function nativeClientSelectionIsData():boolean {
+  const selected=Object.getOwnPropertyDescriptor(globalThis,"__zenithHostedPg");
+  return !selected||"value" in selected;
+}
 
 /** The process-wide authority, on the process-wide client. */
 export function pgCredentialAuthority(): CredentialAuthority {
-  const global = globalThis as PgAuthorityGlobal;
-  if(global.__zenithPgCredentialAuthority)return global.__zenithPgCredentialAuthority;
+  const refuse=():never=>{throw unavailable("Current native linked credential provenance is unavailable.");};
+  if(!canonicalCredentialPrototypeIntact())return refuse();
+  const selected=Object.getOwnPropertyDescriptor(globalThis,"__zenithPgCredentialAuthority");
+  if(selected&&!("value" in selected))return refuse();
+  if(selected?.value) {
+    if(authorityOrigins.has(selected.value)&&!authorityOrigin(selected.value))return refuse();
+    return selected.value;
+  }
+  if(!nativeClientSelectionIsData())return refuse();
   const authority=new PgCredentialAuthority(pgAuthorityClient),prototype=Object.getPrototypeOf(authority);
+  if(!canonicalCredentialPrototypeIntact()||prototype!==canonicalCredentialPrototype)return refuse();
   authorityOrigins.set(authority,{authority,prototype,own:new Map(Reflect.ownKeys(authority).filter(key=>key!=="checked").map(key=>[key,Object.getOwnPropertyDescriptor(authority,key)!])),
-    methods:new Map(Reflect.ownKeys(prototype).map(key=>[key,Object.getOwnPropertyDescriptor(prototype,key)!])),checked:undefined});
-  return global.__zenithPgCredentialAuthority=authority;
+    methods:new Map(canonicalCredentialMethods),checked:undefined});
+  Object.defineProperty(globalThis,"__zenithPgCredentialAuthority",{configurable:true,enumerable:true,writable:true,value:authority});
+  return authority;
 }
 
 /** Build one on a supplied client. Exported for tests and tooling. */

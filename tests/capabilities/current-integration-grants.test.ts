@@ -1,12 +1,14 @@
-/** Native directory protocol with explicit modeled credential and OAuth journal replies. */
+/** Explicit legacy directory read models. They supply no native factory, persisted OAuth row or dispatch provenance. */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Principal } from "@/lib/controlplane/types";
 const model = vi.hoisted(() => ({ credentials: [] as unknown[], grants: [] as unknown[], retained: undefined as unknown,
   credentialRead: vi.fn(), grantRead: vi.fn(), retainedRead: vi.fn(), journal: vi.fn() }));
 vi.mock("@/lib/agent-access/authority", () => ({ credentialAuthority: () => ({ listCredentials: model.credentialRead }) }));
 vi.mock("@/lib/agent-access/control/boundary", () => ({ controlOrigin: () => "https://zenith.example" }));
-vi.mock("@/lib/agent-access/control/runtime", () => ({ agentJournal: model.journal }));
+vi.mock("@/lib/agent-access/control/runtime", async original => ({ ...await original<typeof import("@/lib/agent-access/control/runtime")>(), agentJournal: model.journal }));
 import { currentIntegrationGrant } from "@/lib/capabilities/current-integration-grants";
+import { isDefaultPgAgentJournal } from "@/lib/agent-access/control/journal-pg";
+import { isDefaultAgentJournalSelection } from "@/lib/agent-access/control/runtime";
 
 const oauthId = "integration_11111111-1111-4111-8111-111111111111";
 const nativeId = "cred_22222222-2222-4222-8222-222222222222";
@@ -23,7 +25,7 @@ beforeEach(() => {
   model.credentialRead.mockImplementation(async () => model.credentials);
   model.grantRead.mockImplementation(async () => model.grants);
   model.retainedRead.mockImplementation(async () => model.retained);
-  model.journal.mockResolvedValue({ grants: model.grantRead, getGrant: model.retainedRead });
+  model.journal.mockResolvedValue({ kind: "sqlite", grants: model.grantRead, getGrant: model.retainedRead });
 });
 afterEach(() => { vi.unstubAllEnvs(); });
 describe("trusted current integration grant directory [modeled authority reads]", () => {
@@ -43,6 +45,8 @@ describe("trusted current integration grant directory [modeled authority reads]"
     expect(await currentIntegrationGrant(principal(oauthId), "ws-a")).toEqual({ scopes: ["read", "write"], projectIds: ["project-a"], environmentIds: ["environment-a"] });
     expect(model.grantRead).toHaveBeenCalledExactlyOnceWith("bob", "ws-a");
     expect(model.retainedRead).toHaveBeenCalledExactlyOnceWith("bob", "reviewed-client", "ws-a");
+    const modeled = await model.journal();
+    expect(isDefaultPgAgentJournal(modeled)).toBe(false); expect(isDefaultAgentJournalSelection(modeled)).toBe(false);
   });
   it.each(["revoked", "expired", "malformed expiry", "missing"])("a %s OAuth grant supplies no authority", async change => {
     const grant = { ...oauth(), ...(change === "revoked" ? { revoked: true }

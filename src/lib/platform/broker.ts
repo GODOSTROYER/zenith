@@ -26,11 +26,12 @@ import { effectiveAutonomy } from "@/lib/capabilities/autonomy";
 import { resolveWorkspacePolicy } from "@/lib/policy/defaults";
 import type { Evaluation } from "@/lib/capabilities/evaluate";
 import type { CurrentDispatchRequirement, DispatchApprovalSnapshot } from "@/lib/execution/ports";
-import { readCurrentNativeLinkedCredential } from "@/lib/capabilities/current-integration-grants";
+import { readCurrentNativeLinkedCredential, readCurrentNativeOAuthGrant, isCurrentNativeOAuthGrantFor } from "@/lib/capabilities/current-integration-grants";
 import type { NativeLinkedCredentialTuple } from "@/lib/agent-access/authority/pg";
+import type { NativeOAuthGrantTuple } from "@/lib/agent-access/control/journal-pg";
 
 type BrokerFactory = () => Promise<Broker>;
-type NativeDispatchRequirement=CurrentDispatchRequirement&{readonly nativeCredential?:Readonly<NativeLinkedCredentialTuple>;readonly nativeCredentialRequiredScope?:string;readonly delegatedDestroyPlan?:Readonly<{operationId:string;evidenceId:string}>};
+type NativeDispatchRequirement=CurrentDispatchRequirement&{readonly nativeCredential?:Readonly<NativeLinkedCredentialTuple>;readonly nativeCredentialRequiredScope?:string;readonly nativeOAuthGrant?:Readonly<NativeOAuthGrantTuple>;readonly nativeOAuthRequiredScope?:string;readonly delegatedDestroyPlan?:Readonly<{operationId:string;evidenceId:string}>};
 const currentDispatchRequirements = new WeakMap<object, { sql: Sql; broker: Broker; defaultOrigin: boolean; value: NativeDispatchRequirement }>();
 const unavailableRequirement = (): never => { throw new StepFailedError("Current dispatch requirement is unavailable or changed."); };
 function immutable<T>(value: T): T {
@@ -47,7 +48,9 @@ export async function readCurrentDispatchRequirement(snapshot: unknown, sql: Sql
   if (!snapshot || typeof snapshot !== "object") return undefined;
   const entry = currentDispatchRequirements.get(snapshot);
   const valid = () => !!entry && entry.sql === sql && (entry.defaultOrigin ? isDefaultPlatformBrokerFor(entry.broker, sql) : process.env.NODE_ENV === "test")
-    && entry.value.operation.workspace_id === workspaceId && entry.value.operation.id === operationId;
+    && entry.value.operation.workspace_id === workspaceId && entry.value.operation.id === operationId
+    && (!entry.value.nativeOAuthGrant || isCurrentNativeOAuthGrantFor(entry.value.nativeOAuthGrant, sql, workspaceId,
+      entry.value.nativeOAuthGrant.integration_id, entry.value.nativeOAuthGrant.subject));
   if (!entry || !valid()) return undefined;
   try { if ((await entry.broker.deps.policy()).version !== entry.value.policy.version || !valid()) return undefined; } catch { return undefined; }
   return entry.value;
@@ -117,17 +120,20 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
       || digest(resolveWorkspacePolicy(workspace.params)) !== digest(input.workspacePolicy) || !input.environment
       || effectiveAutonomy(environment, input.environment.class).level !== input.environment.autonomyLevel) return unavailableRequirement();
     const nativeCredential=op.principal.kind==="integration"?readCurrentNativeLinkedCredential(op.principal,op.workspaceId,db):undefined;
+    const nativeOAuthGrant=op.principal.kind==="integration"?readCurrentNativeOAuthGrant(op.principal,op.workspaceId,db):undefined;
     const delegated = input.principal.kind === "system" && input.principal.id === "teardown-review" && op.capability === "infrastructure.destroy";
     const proposal = op.proposal as { broker?: { v?: number; teardownReview?: boolean; destroyPlan?: { operationId?: string; evidenceId?: string } } };
     const destroyPlan = proposal.broker?.destroyPlan;
     if (delegated && (proposal.broker?.v !== 1 || proposal.broker.teardownReview !== true || !destroyPlan?.operationId || !destroyPlan.evidenceId
       || !evaluation.decision.approval || evaluation.decision.approval.minRole !== "admin" || evaluation.decision.approval.count < 1)) return unavailableRequirement();
     const nativeCredentialRequiredScope = delegated ? capability("infrastructure.plan").integrationScope : input.request.integrationScope;
-    if(op.principal.kind==="integration"&&(!nativeCredential||!nativeCredentialRequiredScope||!nativeCredential.scopes.includes(nativeCredentialRequiredScope)
-      ||digest(evaluation.access.integrationScopes)!==digest(nativeCredential.scopes)||digest(evaluation.access.allowedProjectIds)!==digest(nativeCredential.project_ids)
-      ||digest(evaluation.access.allowedEnvironmentIds??null)!==digest(nativeCredential.environment_ids)
-      ||!op.projectId||!nativeCredential.project_ids.includes(op.projectId)||nativeCredential.environment_ids&&!nativeCredential.environment_ids.includes(op.environmentId)
-      ||input.principal.kind==="integration"&&digest(input.principal.integrationScopes)!==digest(nativeCredential.scopes)))return unavailableRequirement();
+    const integrationTuple = nativeCredential ?? nativeOAuthGrant;
+    if(op.principal.kind==="integration"&&(!integrationTuple||!!nativeCredential===!!nativeOAuthGrant||!nativeCredentialRequiredScope
+      ||!integrationTuple.scopes.some(scope => scope === nativeCredentialRequiredScope)
+      ||digest(evaluation.access.integrationScopes)!==digest(integrationTuple.scopes)||digest(evaluation.access.allowedProjectIds)!==digest(integrationTuple.project_ids)
+      ||digest(evaluation.access.allowedEnvironmentIds??null)!==digest(integrationTuple.environment_ids)
+      ||!op.projectId||!integrationTuple.project_ids.includes(op.projectId)||integrationTuple.environment_ids&&!integrationTuple.environment_ids.includes(op.environmentId)
+      ||input.principal.kind==="integration"&&digest(input.principal.integrationScopes)!==digest(integrationTuple.scopes)))return unavailableRequirement();
     const captured=immutable(structuredClone({ requirement: evaluation.decision.approval ? evaluation.decision.approval : null,
       policy: { version: evaluation.evaluated.policyVersion, inputDigest: evaluation.evaluated.inputDigest, input: structuredClone(input) },
       operation: nativeOperation(current), settings: {
@@ -135,6 +141,7 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
         environment: environment.isDefault ? null : { workspace_id: op.workspaceId, environment_id: op.environmentId, autonomy_level: environment.autonomyLevel, policy_params: environment.policyParams },
       }, evidence, candidates: candidates.map(value => value.row) }));
     return immutable({ ...captured, ...(nativeCredential ? { nativeCredential, nativeCredentialRequiredScope } : {}),
+      ...(nativeOAuthGrant ? { nativeOAuthGrant, nativeOAuthRequiredScope: nativeCredentialRequiredScope } : {}),
       ...(delegated && destroyPlan?.operationId && destroyPlan.evidenceId ? { delegatedDestroyPlan: { operationId: destroyPlan.operationId, evidenceId: destroyPlan.evidenceId } } : {}) });
   };
   const approvals = async (broker: Broker, op: OperationRecord, requirement?: ApprovalRequirement) => {

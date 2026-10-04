@@ -1,8 +1,17 @@
-/** Real owning PostgreSQL/OPA/signing; product PostgREST, credential-directory and browser identities are explicit models. */
+/** Real owning PostgreSQL/OPA/signing. Six OAuth cases also use genuine native default directories; product PostgREST/browser identities and legacy directory reads remain explicit models. */
+import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Database } from "@/lib/db/store";
 import type { Principal } from "@/lib/controlplane/types";
 import type { Grant } from "@/lib/agent-access/control/journal";
+import { agentJournal, isDefaultAgentJournalSelection } from "@/lib/agent-access/control/runtime";
+import { credentialAuthority } from "@/lib/agent-access/authority";
+import { pgCredentialAuthority, isDefaultPgCredentialAuthorityFor } from "@/lib/agent-access/authority/pg";
+import { isDefaultPgAgentJournalFor, resetPgAgentJournal, AGENT_CONTROL_MIGRATIONS } from "@/lib/agent-access/control/journal-pg";
+import { pgAuthorityClient, closePgAuthorityClient } from "@/lib/hosted/authority/pg/client";
+import { currentIntegrationGrant, readCurrentNativeOAuthGrant } from "@/lib/capabilities/current-integration-grants";
+import { digest } from "@/lib/controlplane/digest";
+import { verifyAgentSchema } from "../../scripts/agent/verify-schema";
 import { platformBroker, registerPlatformBrokerPorts, registerPlatformBrokerStore, resetPlatformBrokerForTests } from "@/lib/capabilities/platform";
 import { repos } from "@/lib/controlplane/db";
 import { verifyCapabilityGrant, type PublicJwk } from "@/lib/credentials";
@@ -22,6 +31,7 @@ const product = vi.hoisted(() => ({
   credentialReads: vi.fn(),
   select: vi.fn(),
   emptyAdmin: false,
+  nativeOAuth: false,
   grants: [] as Grant[],
   grantReads: vi.fn(), retainedGrant: vi.fn(),
 }));
@@ -29,9 +39,15 @@ vi.mock("@/lib/db/store", () => ({ isPostgres: () => true, db: () => product.sna
 vi.mock("@/lib/supabase/env", () => ({ isSupabaseConfigured: () => true }));
 vi.mock("@/lib/auth/policy", () => ({ membershipPolicy: () => ({ emptyWorkspaceGrantsAdmin: product.emptyAdmin }) }));
 vi.mock("@/lib/db/postgres-store", () => ({ pgClient: product.client }));
-vi.mock("@/lib/agent-access/authority", () => ({ credentialAuthority: () => ({ listCredentials: product.credentialReads }) }));
+vi.mock("@/lib/agent-access/authority", async original => {
+  const actual = await original<typeof import("@/lib/agent-access/authority")>();
+  return { ...actual, credentialAuthority: () => product.nativeOAuth ? actual.credentialAuthority() : ({ listCredentials: product.credentialReads }) };
+});
 vi.mock("@/lib/agent-access/control/boundary", () => ({ controlOrigin: () => "https://zenith.example" }));
-vi.mock("@/lib/agent-access/control/runtime", () => ({ agentJournal: async () => ({ kind: "postgres", grants: product.grantReads, getGrant: product.retainedGrant }) }));
+vi.mock("@/lib/agent-access/control/runtime", async original => {
+  const actual = await original<typeof import("@/lib/agent-access/control/runtime")>();
+  return { ...actual, agentJournal: async () => product.nativeOAuth ? actual.agentJournal() : ({ kind: "sqlite", grants: product.grantReads, getGrant: product.retainedGrant }) };
+});
 
 if (process.env.ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED === "1" && !PG_URL) throw new Error("Default current membership acceptance requires an explicitly owned PostgreSQL database.");
 closeSharedPgliteAfterAll();
@@ -41,7 +57,9 @@ function deferred<T>() { let resolve!: (value: T) => void; const promise = new P
 function member(workspaceId: string, humanId: string, role: unknown): Member { return { id: humanId, workspace_id: workspaceId, role }; }
 function current(workspaceId: string, humanId: string, role: unknown) { product.members.set(key(workspaceId, humanId), member(workspaceId, humanId, role)); }
 
-beforeEach(() => {
+beforeEach(async () => {
+  await closePgAuthorityClient(); resetPgAgentJournal(); Reflect.deleteProperty(globalThis, "__zenithAgentJournal");
+  Reflect.deleteProperty(globalThis, "__zenithPgCredentialAuthority"); product.nativeOAuth = false;
   vi.stubEnv("ZENITH_PLATFORM_BROKER_MEMORY", "");
   resetPlatformBrokerForTests();
   vi.clearAllMocks();
@@ -71,6 +89,8 @@ beforeEach(() => {
   product.credentialReads.mockImplementation(async (subject: string, workspaceId: string) => product.credentials.filter(credential => credential.subject === subject && credential.workspaceId === workspaceId));
 });
 afterEach(async () => {
+  await closePgAuthorityClient(); resetPgAgentJournal(); Reflect.deleteProperty(globalThis, "__zenithAgentJournal");
+  Reflect.deleteProperty(globalThis, "__zenithPgCredentialAuthority"); product.nativeOAuth = false;
   vi.restoreAllMocks(); vi.unstubAllEnvs(); resetPlatformBrokerForTests();
   for (const h of fixtures.splice(0)) {
     // Only this test's operation rows; it never creates an outbox, provider job or effect.
@@ -98,6 +118,31 @@ async function fixture() {
   expect(broker.deps.roles).not.toBe(h.deps.roles);
   return { h, broker, request: requestFor(h, "service.restart", "prod") };
 }
+/** Actual default native factories and persisted rows, not a mocked origin predicate. */
+async function nativeOAuth(f: { h: Harness }) {
+  product.nativeOAuth = true;
+  vi.stubEnv("ZENITH_STORE", "postgres"); vi.stubEnv("SUPABASE_DB_URL", PG_URL!);
+  vi.stubEnv("ZENITH_AGENT_CONTROL", "1"); vi.stubEnv("ZENITH_AGENT_ORIGIN", "https://zenith.example");
+  vi.stubEnv("ZENITH_AGENT_OAUTH_ISSUER", "https://issuer.example/"); vi.stubEnv("ZENITH_AGENT_OAUTH_JWKS", "https://issuer.example/keys");
+  const authority = credentialAuthority(); expect(authority).toBe(pgCredentialAuthority()); await authority.ready();
+  expect(isDefaultPgCredentialAuthorityFor(authority, f.h.db!)).toBe(true);
+  const journal = await agentJournal(); expect(isDefaultAgentJournalSelection(journal)).toBe(true);
+  expect(isDefaultPgAgentJournalFor(journal, f.h.db!)).toBe(true);
+  await verifyAgentSchema(pgAuthorityClient());
+  const ledger = await f.h.db!.query<{ version: number; name: string }>("select version,name from agent.schema_migrations order by version");
+  expect(ledger).toEqual(AGENT_CONTROL_MIGRATIONS.map(({ version, name }) => ({ version, name })));
+  const integrationId = `integration_${randomUUID()}`;
+  const grant: Grant = { subject: "bob", workspaceId: f.h.ids.wsA, integrationId, clientId: "reviewed-client", oauthIssuer: "https://issuer.example/",
+    projectIds: [f.h.ids.projA], environmentIds: [f.h.ids.envAProd], appIds: [], scopes: ["read", "write"],
+    expiresAt: new Date(Date.now() + 120_000).toISOString(), revoked: false };
+  await journal.setGrant(grant);
+  const principal: Principal = { kind: "integration", id: integrationId, name: "Native persisted OAuth grant, modeled authenticated browser subject", integrationId, onBehalfOf: "bob" };
+  expect(await currentIntegrationGrant(principal, f.h.ids.wsA)).toEqual({ scopes: ["read", "write"], projectIds: [f.h.ids.projA], environmentIds: [f.h.ids.envAProd] });
+  expect(readCurrentNativeOAuthGrant(principal, f.h.ids.wsA, f.h.db!)).toMatchObject({ integration_id: integrationId, subject: "bob", workspace_id: f.h.ids.wsA });
+  expect(product.grantReads).not.toHaveBeenCalled(); expect(product.retainedGrant).not.toHaveBeenCalled(); expect(product.credentialReads).not.toHaveBeenCalled();
+  return { integrationId, grant, journal, principal };
+}
+
 async function approved() {
   const f = await fixture();
   const proposal = await f.broker.propose(f.request, user("bob"));
@@ -247,43 +292,46 @@ describe.skipIf(!PG_URL)("cached default broker current membership [postgres; mo
     await noClaim(f.h, f.proposal.operation.id);
   });
   it("the cached native broker admits one current OAuth grant and consumes only its owning approval", async () => {
-    const f = await fixture();
-    vi.stubEnv("ZENITH_AGENT_OAUTH_ISSUER", "https://issuer.example/"); vi.stubEnv("ZENITH_AGENT_OAUTH_JWKS", "https://issuer.example/keys");
-    const integrationId = "integration_11111111-1111-4111-8111-111111111111";
-    product.grants = [{ subject: "bob", workspaceId: f.h.ids.wsA, integrationId, clientId: "reviewed-client", oauthIssuer: "https://issuer.example/",
-      projectIds: [f.h.ids.projA], environmentIds: [f.h.ids.envAProd], scopes: ["read", "write"], expiresAt: new Date(Date.now() + 60_000).toISOString() }];
-    const proposal = await f.broker.propose(f.request, { kind: "integration", id: integrationId, name: "Modeled browser-authorized OAuth client", integrationId, onBehalfOf: "bob" });
+    const f = await fixture(), native = await nativeOAuth(f);
+    const proposal = await f.broker.propose(f.request, native.principal);
     await f.broker.approve({ workspaceId: f.h.ids.wsA, operationId: proposal.operation.id, proposalDigest: proposal.operation.proposalDigest,
       approver: user("erin"), session: sessionFor("erin") });
     await f.broker.beginExecution({ workspaceId: f.h.ids.wsA, operationId: proposal.operation.id, holder: `workflow:${proposal.operation.id}`, audience: "worker", leaseMs: 60_000 });
     expect((await repos.operations.get(f.h.db!, f.h.ids.wsA, proposal.operation.id))?.status).toBe("running");
     expect(await f.h.db!.query("select id from platform.approvals where workspace_id=$1 and operation_id=$2 and consumed_at is not null", [f.h.ids.wsA, proposal.operation.id])).toHaveLength(1);
-    expect(product.grantReads.mock.calls.every(call => call[0] === "bob" && call[1] === f.h.ids.wsA)).toBe(true);
+    expect(await native.journal.getGrant("bob", "reviewed-client", f.h.ids.wsA)).toMatchObject({ integrationId: native.integrationId, revoked: false });
+    expect(product.grantReads).not.toHaveBeenCalled(); expect(product.retainedGrant).not.toHaveBeenCalled();
   });
   it.each(["revoked", "expired", "foreign issuer", "duplicate"])("a cached native broker refuses an OAuth grant that became %s before claim", async change => {
-    const f = await fixture();
-    vi.stubEnv("ZENITH_AGENT_OAUTH_ISSUER", "https://issuer.example/"); vi.stubEnv("ZENITH_AGENT_OAUTH_JWKS", "https://issuer.example/keys");
-    const integrationId = "integration_11111111-1111-4111-8111-111111111111";
-    product.grants = [{ subject: "bob", workspaceId: f.h.ids.wsA, integrationId, clientId: "reviewed-client", oauthIssuer: "https://issuer.example/",
-      projectIds: [f.h.ids.projA], environmentIds: [f.h.ids.envAProd], scopes: ["read", "write"], expiresAt: new Date(Date.now() + 60_000).toISOString() }];
-    const proposal = await f.broker.propose(f.request, { kind: "integration", id: integrationId, name: "Modeled browser-authorized OAuth client", integrationId, onBehalfOf: "bob" });
+    const f = await fixture(), native = await nativeOAuth(f);
+    const proposal = await f.broker.propose(f.request, native.principal);
     await f.broker.approve({ workspaceId: f.h.ids.wsA, operationId: proposal.operation.id, proposalDigest: proposal.operation.proposalDigest,
       approver: user("erin"), session: sessionFor("erin") });
-    if (change === "revoked") product.grants[0].revoked = true;
-    if (change === "expired") product.grants[0].expiresAt = new Date(0).toISOString();
-    if (change === "foreign issuer") product.grants[0].oauthIssuer = "https://foreign-issuer.example/";
-    if (change === "duplicate") product.grants.push({ ...product.grants[0], revoked: true });
+    if (change === "revoked") expect(await f.h.db!.query("update agent.agent_oauth_grants set revoked=true where integration_id=$1 and workspace_id=$2 returning integration_id", [native.integrationId, f.h.ids.wsA])).toHaveLength(1);
+    if (change === "expired") expect(await f.h.db!.query("update agent.agent_oauth_grants set expires_at=$1 where integration_id=$2 and workspace_id=$3 returning integration_id", [new Date(0).toISOString(), native.integrationId, f.h.ids.wsA])).toHaveLength(1);
+    if (change === "foreign issuer") expect(await f.h.db!.query("update agent.agent_oauth_grants set oauth_issuer='https://foreign-issuer.example/' where integration_id=$1 and workspace_id=$2 returning integration_id", [native.integrationId, f.h.ids.wsA])).toHaveLength(1);
+    if (change === "duplicate") {
+      // Canonical OAuth UNIQUE prevents a second row for the retained key. That
+      // refusal does not revoke the valid original. The dispatch refusal below
+      // exercises a distinct same-ID linked/OAuth directory collision instead.
+      await expect(f.h.db!.query(`insert into agent.agent_oauth_grants(integration_id,subject,client_id,workspace_id,oauth_issuer,expires_at,revoked,project_ids,environment_ids,app_ids,scopes)
+        select $1,subject,client_id,workspace_id,oauth_issuer,expires_at,revoked,project_ids,environment_ids,app_ids,scopes
+        from agent.agent_oauth_grants where integration_id=$2 and workspace_id=$3`, [`integration_${randomUUID()}`, native.integrationId, f.h.ids.wsA])).rejects.toMatchObject({ sqlstate: "23505" });
+      expect(await currentIntegrationGrant(native.principal, f.h.ids.wsA)).toEqual({ scopes: ["read", "write"], projectIds: [f.h.ids.projA], environmentIds: [f.h.ids.envAProd] });
+      expect(await native.journal.getGrant("bob", "reviewed-client", f.h.ids.wsA)).toMatchObject({ integrationId: native.integrationId, revoked: false });
+      expect(await f.h.db!.query(`insert into agent.agent_credentials(id,token_hash,subject,workspace_id,project_ids,environment_ids,scopes,client_name,issued_at,expires_at,created_by)
+        values($1,$2,'bob',$3,$4::text::jsonb,$5::text::jsonb,'["read","write"]'::jsonb,'explicit same-ID collision fixture',$6,$7,'bob') returning id`,
+        [native.integrationId, digest(randomUUID()), f.h.ids.wsA, JSON.stringify([f.h.ids.projA]), JSON.stringify([f.h.ids.envAProd]), new Date(Date.now()-1000).toISOString(), native.grant.expiresAt])).toHaveLength(1);
+      expect(await f.h.db!.query("select id,workspace_id from agent.agent_credentials where id=$1 and workspace_id=$2", [native.integrationId, f.h.ids.wsA])).toEqual([{ id: native.integrationId, workspace_id: f.h.ids.wsA }]);
+    }
     await expect(f.broker.beginExecution({ workspaceId: f.h.ids.wsA, operationId: proposal.operation.id,
       holder: `workflow:${proposal.operation.id}`, audience: "worker", leaseMs: 60_000 })).rejects.toBeDefined();
     await noClaim(f.h, proposal.operation.id);
+    expect(product.grantReads).not.toHaveBeenCalled(); expect(product.retainedGrant).not.toHaveBeenCalled();
   });
   it("OAuth revocation committed during the held current membership reply is observed before native claim", async () => {
-    const f = await fixture();
-    vi.stubEnv("ZENITH_AGENT_OAUTH_ISSUER", "https://issuer.example/"); vi.stubEnv("ZENITH_AGENT_OAUTH_JWKS", "https://issuer.example/keys");
-    const integrationId = "integration_11111111-1111-4111-8111-111111111111";
-    product.grants = [{ subject: "bob", workspaceId: f.h.ids.wsA, integrationId, clientId: "reviewed-client", oauthIssuer: "https://issuer.example/",
-      projectIds: [f.h.ids.projA], environmentIds: [f.h.ids.envAProd], scopes: ["read", "write"], expiresAt: new Date(Date.now() + 60_000).toISOString() }];
-    const proposal = await f.broker.propose(f.request, { kind: "integration", id: integrationId, name: "Modeled browser-authorized OAuth client", integrationId, onBehalfOf: "bob" });
+    const f = await fixture(), native = await nativeOAuth(f);
+    const proposal = await f.broker.propose(f.request, native.principal);
     await f.broker.approve({ workspaceId: f.h.ids.wsA, operationId: proposal.operation.id, proposalDigest: proposal.operation.proposalDigest,
       approver: user("erin"), session: sessionFor("erin") });
     const entered = deferred<void>(), release = deferred<ReadResponse>();
@@ -292,9 +340,12 @@ describe.skipIf(!PG_URL)("cached default broker current membership [postgres; mo
     const pending = f.broker.beginExecution({ workspaceId: f.h.ids.wsA, operationId: proposal.operation.id,
       holder: `workflow:${proposal.operation.id}`, audience: "worker", leaseMs: 60_000 });
     const rejected = expect(pending).rejects.toBeDefined();
-    await entered.promise; product.grants[0].revoked = true;
+    await entered.promise;
+    expect(await f.h.db!.query("update agent.agent_oauth_grants set revoked=true where integration_id=$1 and workspace_id=$2 returning integration_id", [native.integrationId, f.h.ids.wsA])).toHaveLength(1);
+    expect((await native.journal.getGrant("bob", "reviewed-client", f.h.ids.wsA))?.revoked).toBe(true);
     release.resolve({ data: member(f.h.ids.wsA, "bob", "editor"), error: null });
     await rejected; await noClaim(f.h, proposal.operation.id);
+    expect(product.grantReads).not.toHaveBeenCalled(); expect(product.retainedGrant).not.toHaveBeenCalled();
   });
 
 });

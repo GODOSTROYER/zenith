@@ -70,6 +70,8 @@ const SWEPT = new Set([
   "operationExecution.suspendForApproval", "operationExecution.setPlanDigest", "operationExecution.setPolicyDecision", "operationExecution.deny",
   "policyDecisions.get", "policyDecisions.listForOperation",
   "planArtifacts.publish", "planArtifacts.read", "planArtifacts.associate", "planArtifacts.claim", "planArtifacts.dispatch", "planArtifacts.finish",
+  // The owning claim persists a real native witness; its lookup and foreign-scope refusal run in both lane sweeps.
+  "planArtifacts.requiresProductComposition",
   "resources.changeOwnership", "resources.get", "resources.getByAddress", "resources.listByEnvironment", "resources.setStatus",
   "runners.getRunner", "runners.heartbeat", "runners.listRunners", "runners.revokeRunner",
   "settings.getEnvironmentSettings", "settings.getWorkspacePolicy",
@@ -278,6 +280,9 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     const associationsBefore=await db.query("select * from platform.plan_artifact_associations where workspace_id=$1",[A]);
     let usesBefore=await db.query("select * from platform.plan_artifact_uses where workspace_id=$1 order by operation_id",[A]);
     const foreignAccess={...artifactAccess,custody:{...manifest,workspaceId:B}};
+    let sourceEvidenceBefore=await repos.evidence.list(db,A,{operationId:source.id});
+    expect(sourceEvidenceBefore.map(row=>row.id)).toEqual([artifactEvidenceId]);
+    let claimedArtifact:repos.planArtifacts.ArtifactRow|undefined;
 
     // ------------------------ workspace B tries everything -------------------------
     const dig = seeded.operation.proposalDigest;
@@ -287,9 +292,29 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "planArtifacts.associate": () => seen(repos.planArtifacts.associate(db,{...associationInput,workspaceId:B})),
       "planArtifacts.claim": () => seen(repos.planArtifacts.claim(db,foreignAccess,"foreign-attempt")),
       "planArtifacts.dispatch": async () => {
-        await repos.planArtifacts.claim(db,artifactAccess,"tenant-owner-attempt");
+        claimedArtifact=await repos.planArtifacts.claim(db,artifactAccess,"tenant-owner-attempt");
         usesBefore=await db.query("select * from platform.plan_artifact_uses where workspace_id=$1 order by operation_id",[A]);
+        // This deliberate owning claim adds the canonical immutable observation.
+        // Verify its exact native identity/anchors, then retain both full rows as the foreign-call baseline.
+        sourceEvidenceBefore=await repos.evidence.list(db,A,{operationId:source.id});
+        const witnessId=`evd_pp_${digest([A,source.id,source.id,"tenant-owner-attempt"])}`;
+        expect(sourceEvidenceBefore.map(row=>row.id).sort()).toEqual([artifactEvidenceId,witnessId].sort());
+        const witness=sourceEvidenceBefore.find(row=>row.id===witnessId);
+        if(!witness)throw new Error("The owning native claim witness is unavailable.");
+        expect(witness).toMatchObject({workspaceId:A,operationId:source.id,kind:"observation",simulated:false});
+        expect(witness.digest).toBe(digest(witness.summary));
+        expect(witness.summary).toMatchObject({kind:"native-absence",phase:"claimed",workspaceId:A,projectId:manifest.projectId,
+          environmentId:envId,sourceOperationId:source.id,destinationOperationId:source.id,attemptId:"tenant-owner-attempt",
+          manifestDigest:artifactBefore.manifest_digest,planDigest:artifactDigest});
         return seen(repos.planArtifacts.dispatch(db,foreignAccess,"tenant-owner-attempt"));
+      },
+      "planArtifacts.requiresProductComposition": async () => {
+        if(!claimedArtifact)throw new Error("The genuine owning claim is unavailable.");
+        expect(await repos.planArtifacts.requiresProductComposition(db,claimedArtifact,source.id,"tenant-owner-attempt")).toBe(false);
+        const foreignRow={...claimedArtifact,workspace_id:B,manifest:{...claimedArtifact.manifest,workspaceId:B}};
+        await expect(repos.planArtifacts.requiresProductComposition(db,foreignRow,source.id,"tenant-owner-attempt"))
+          .rejects.toBeInstanceOf(repos.planArtifacts.PlanArtifactError);
+        return null;
       },
       "planArtifacts.finish": () => repos.planArtifacts.finish(db,foreignAccess,"tenant-owner-attempt",false),
       "operationExecution.suspendForApproval": () => repos.operationExecution.suspendForApproval(db, { workspaceId: B, id: active.operation.id }),
@@ -371,18 +396,19 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     for (const [name, attempt] of Object.entries(attempts)) {
       const result = await attempt();
       expect(isEmpty(result), `${name} leaked or acted across tenants: ${JSON.stringify(result)?.slice(0, 200)}`).toBe(true);
+      expect(await repos.evidence.list(db,A,{operationId:source.id}), `${name} preserved the exact owning plan and claim witness`).toEqual(sourceEvidenceBefore);
     }
 
     // ------------------------ and A's data is exactly as it was -------------------------
     expect(await repos.planArtifacts.read(db,artifactAccess)).toEqual(artifactBefore);
     expect(await db.query("select * from platform.plan_artifact_associations where workspace_id=$1",[A])).toEqual(associationsBefore);
     expect(await db.query("select * from platform.plan_artifact_uses where workspace_id=$1 order by operation_id",[A])).toEqual(usesBefore);
-    for(const table of ["plan_artifacts","plan_artifact_associations","plan_artifact_uses"])
+    for(const table of ["plan_artifacts","plan_artifact_associations","plan_artifact_uses","evidence"])
       expect(await db.query(`select operation_id from platform.${table} where workspace_id=$1`,[B])).toHaveLength(0);
     expect((await repos.operations.get(db,A,source.id))?.planDigest).toBe(artifactDigest);
     expect((await repos.operations.get(db,A,destination.operation.id))?.status).toBe("awaiting_approval");
     expect(await repos.approvals.listForOperation(db,A,destination.operation.id)).toHaveLength(0);
-    expect(await repos.evidence.list(db,A,{operationId:source.id})).toHaveLength(1);
+    expect(await repos.evidence.list(db,A,{operationId:source.id})).toEqual(sourceEvidenceBefore);
     expect((await repos.operations.get(db, A, opId))?.status).toBe("approved");
     expect((await repos.operations.get(db, A, opId))?.planDigest).toBeUndefined();
     expect((await repos.operations.get(db, A, active.operation.id))?.status).toBe("running");

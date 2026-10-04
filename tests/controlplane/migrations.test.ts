@@ -353,12 +353,41 @@ describe.each(lanes)("migrator [$name]", (lane) => {
     await lane.withFresh(async (open) => {
       const db = await open(false);
       const rollback = new Error("rollback the role creation");
-      // Roles are cluster-wide; create them inside a transaction that is always rolled back.
+      // Scratch databases share PostgreSQL's cluster-wide Supabase roles. Keep
+      // existing definitions and memberships; only absent roles belong to this fixture.
+      const readRoleBoundary = async () => {
+        const definitions = await db.query<{ name: string; configuration: string | null; [key: string]: unknown }>(
+          `select oid::text as oid, rolname as name, rolsuper, rolinherit, rolcreaterole, rolcreatedb,
+                  rolcanlogin, rolreplication, rolconnlimit, rolvaliduntil::text as rolvaliduntil,
+                  rolbypassrls, rolconfig::text as configuration
+             from pg_roles where rolname in ('anon','authenticated','service_role') order by rolname`
+        );
+        return {
+          // Role configuration can contain private values. Compare its digest without exposing it.
+          definitions: definitions.map(({ configuration, ...definition }) => ({ ...definition, configurationDigest: digest(configuration) })),
+          memberships: await db.query(
+            `select to_jsonb(m) as membership from pg_auth_members m
+              where m.roleid in (select oid from pg_roles where rolname in ('anon','authenticated','service_role'))
+                 or m.member in (select oid from pg_roles where rolname in ('anon','authenticated','service_role'))
+                 or m.grantor in (select oid from pg_roles where rolname in ('anon','authenticated','service_role'))
+              order by m.roleid, m.member, m.grantor`
+          ),
+          databaseAcl: await db.query("select datacl::text as acl from pg_database where datname=current_database()"),
+          schemaAcl: await db.query("select nspname, nspacl::text as acl from pg_namespace where nspname in ('public','platform') order by nspname"),
+          defaultAcl: await db.query("select to_jsonb(d) as default_acl from pg_default_acl d order by d.oid"),
+        };
+      };
+      const rolesBefore = await readRoleBoundary();
+      const createdRoles = ([
+        ["anon", "create role anon nologin noinherit"],
+        ["authenticated", "create role authenticated nologin noinherit"],
+        ["service_role", "create role service_role nologin noinherit bypassrls"],
+      ] as const).filter(([name]) => !rolesBefore.definitions.some(role => role.name === name));
+      const createdNames = new Set<string>(createdRoles.map(([name]) => name));
+      // All role creation, canonical schema/ACL DDL and default privileges roll back together.
       const result = await db
         .tx(async (tx) => {
-          await tx.query("create role anon nologin noinherit");
-          await tx.query("create role authenticated nologin noinherit");
-          await tx.query("create role service_role nologin noinherit bypassrls");
+          for (const [, statement] of createdRoles) await tx.query(statement);
           await (tx as unknown as { exec(t: string): Promise<void> }).exec(renderSupabaseMigration());
           const rows = await tx.query<Record<string, boolean>>(
             `select has_schema_privilege('service_role', 'platform', 'USAGE') as service_usage,
@@ -380,6 +409,9 @@ describe.each(lanes)("migrator [$name]", (lane) => {
           throw Object.assign(rollback, { rows });
         })
         .catch((e: unknown) => e);
+      const rolesAfter = await readRoleBoundary();
+      expect(rolesAfter).toEqual(rolesBefore);
+      expect(rolesAfter.definitions.filter(role => createdNames.has(role.name))).toEqual([]);
       expect(result).toBe(rollback);
       expect((result as unknown as { rows: Record<string, boolean>[] }).rows[0]).toEqual({
         service_usage: true,
@@ -398,8 +430,7 @@ describe.each(lanes)("migrator [$name]", (lane) => {
         receipt_update: false,
         receipt_delete: false,
       });
-      // the rollback left no roles and no schema behind
-      expect(await db.query("select 1 from pg_roles where rolname = 'service_role'")).toEqual([]);
+      // Only fixture-created roles disappear; preexisting cluster roles and ACLs are unchanged.
       expect(await db.query("select 1 from information_schema.schemata where schema_name = 'platform'")).toEqual([]);
     });
   }, 60_000);

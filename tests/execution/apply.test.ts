@@ -5,7 +5,7 @@
  */
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { ApplicationFailure } from "@temporalio/activity";
 import { LeaseLostError, StepFailedError, TofuPlanChangedError } from "@/lib/execution/errors";
 import { CANARY_GRANT, CANARY_SECRET, CANARY_SESSION_KEY, ENV, OP, bucketManifest, change, makePlan } from "./fakes/fixtures";
@@ -301,48 +301,94 @@ describe("applyInfrastructure", () => {
   });
 });
 
-/** Real PostgreSQL authority and pinned OpenTofu; scope/roles/credentials/drivers are explicit fixtures. */
-import { randomBytes } from "node:crypto";
+/** Real PostgreSQL authority and pinned OpenTofu; hosted association, scope, credentials and drivers are explicit fixtures. */
+import { randomBytes, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { vi } from "vitest";
 import { createExecutionActivities } from "@/lib/execution/activities";
-import { createPlatformPorts } from "@/lib/execution/platform";
+import { createPlatformPorts, executionHolder } from "@/lib/execution/platform";
 import { createExecutionBroker } from "@/lib/platform/broker";
 import { createIsolatedPlanArtifactRuntimeForTests } from "@/lib/platform/plan-artifacts";
 import { PG_URL, makeHarness, closeSharedPgliteAfterAll, scriptedEngine, requireApproval, allowDecision, sessionFor, user } from "../capabilities/support";
 import { tofuOnPath } from "../tofu/_helpers";
-import { REVISION, DEPLOYMENT, connectionConfig } from "./fakes/fixtures";
+import { connectionConfig } from "./fakes/fixtures";
 import * as repos from "@/lib/controlplane/db/repos";
+import { openPlatformDb, json, type PlatformDbHandle } from "@/lib/controlplane/db";
+import { createApprovedSourceSnapshotStore } from "@/lib/controlplane/db/repos/approved-source-snapshots";
+import type { Sql } from "@/lib/controlplane/types";
 closeSharedPgliteAfterAll();
 
+vi.mock("@/lib/controlplane/db/repos/workflow-start-deploy-authority", async original => ({
+  ...await original<typeof import("@/lib/controlplane/db/repos/workflow-start-deploy-authority")>(),
+  // Hosted association is modeled exactly as in the native product-authority
+  // fixture. Native product/source/member/approval predicates remain real.
+  assertFinalMcpProductTopology: async (owner: Sql, tx: Sql) => {
+    if (owner === tx) throw new Error("Modeled hosted association requires the owning transaction.");
+    const rows = await tx.query<{ role: string }>("select current_user as role");
+    if (rows.length !== 1 || !rows[0].role) throw new Error("Modeled hosted association is unavailable.");
+  },
+}));
+
 function dispatchBarrier() {let release!:()=>void;const promise=new Promise<void>(resolve=>{release=resolve;});return {release,promise};}
+if (process.env.ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED === "1" && (!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK !== "1")) {
+  throw new Error("Dispatch authority requires owning PostgreSQL and the pinned OpenTofu lane.");
+}
 describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK!=="1")("dispatch current authority [postgres]",()=>{
-  it.each(["expired approval","revoked approver role","new policy denial","expiry after authority check","expiry during role lookup"])("refuses %s after fresh replan and before durable dispatch",async(mode)=>{
+  let peer: PlatformDbHandle;
+  beforeAll(async () => {
+    peer = await openPlatformDb({ kind: "postgres", url: PG_URL!, migrate: true, max: 1 });
+    const migration = await readFile(new URL("../../supabase/migrations/0001_system_of_record.sql", import.meta.url), "utf8");
+    for (const name of ["workspaces", "members", "projects", "environments", "revisions", "revision_manifests", "deployments", "connections"]) {
+      const ddl = new RegExp(`create table if not exists public\\.${name} \\([\\s\\S]*?\\n\\);`).exec(migration)?.[0];
+      if (!ddl) throw new Error("Canonical product collection DDL is unavailable.");
+      await peer.exec(ddl);
+    }
+  }, 60000);
+  afterAll(async () => { await peer?.close(); });
+  async function currentAuthorityCase(mode: string) {
     const h=await makeHarness({kind:"postgres",engine:scriptedEngine("original-dispatch-policy",input=>input.plan?requireApproval(1,"admin"):allowDecision())});
     h.deps.clock={now:()=>new Date()};
     const w=world();const scope={workspaceId:h.ids.wsA,projectId:h.ids.projA,environmentId:h.ids.envASbx};
+    const revisionId = `rev_${randomUUID()}`, deploymentId = `dep_${randomUUID()}`, publicConnectionId = `public_${randomUUID()}`;
+    w.product.revisions.clear(); w.product.setManifest(bucketManifest(), revisionId);
     w.product.base.workspace.id=scope.workspaceId;w.product.base.project.id=scope.projectId;w.product.base.environment.id=scope.environmentId;w.product.base.environment.class="sandbox";
-    vi.spyOn(w.product,"loadContext").mockImplementation(async input=>({...structuredClone(w.product.base),revision:structuredClone(w.product.revisions.get(REVISION)!),...(input.deploymentId?{deploymentId:input.deploymentId}:{})}));
-    const connection=await repos.connections.create(h.db!,{workspaceId:scope.workspaceId,createdBy:"dispatch-authority-fixture",config:connectionConfig});
+    h.world.environments.set(scope.environmentId, { projectId: scope.projectId, class: "sandbox", provider: "aws", region: connectionConfig.region });
+    vi.spyOn(w.product,"loadContext").mockImplementation(async input=>({...structuredClone(w.product.base),revision:structuredClone(w.product.revisions.get(revisionId)!),...(input.deploymentId?{deploymentId:input.deploymentId}:{})}));
+    const connection=await repos.connections.create(h.db!,{workspaceId:scope.workspaceId,createdBy:"dispatch-authority-fixture",legacyConnectionId:publicConnectionId,config:connectionConfig});
     const verified=await repos.connections.recordVerification(h.db!,{workspaceId:scope.workspaceId,id:connection.id,ok:true});
     if(!verified || verified.status!=="verified")throw new Error("Dispatch fixture connection was not verified.");
-    w.product.base.environment.connectionId=verified.id;
-    const proposed=await h.broker.propose({capability:"deployment.deploy",scope,input:{revisionId:REVISION,deploymentId:DEPLOYMENT}},user("alice"));
+    w.product.base.environment.connectionId=publicConnectionId;
+    const environment = w.product.base.environment, manifest = w.product.revisions.get(revisionId)!.manifest;
+    await peer.query("insert into public.workspaces(id,workspace_id,slug,name,data) values($1,$1,$2,'Owning dispatch','{}'::jsonb)", [scope.workspaceId, `dispatch-${randomUUID()}`]);
+    await peer.query("insert into public.members(id,workspace_id,email,role,data) values('alice',$1,'alice@example.test','admin','{}'::jsonb),('erin',$1,'erin@example.test','admin','{}'::jsonb)", [scope.workspaceId]);
+    await peer.query("insert into public.projects(id,workspace_id,slug,name,data) values($1,$2,'dispatch','Owning dispatch',$3::text::jsonb)", [scope.projectId, scope.workspaceId, json({ workingManifest: manifest })]);
+    await peer.query("insert into public.connections(id,workspace_id,provider,status,data) values($1,$2,'aws','healthy',$3::text::jsonb)", [publicConnectionId, scope.workspaceId, json({ region: environment.region, platformConnectionId: verified.id })]);
+    await peer.query("insert into public.environments(id,workspace_id,project_id,class,connection_id,data) values($1,$2,$3,'sandbox',$4,$5::text::jsonb)",
+      [scope.environmentId, scope.workspaceId, scope.projectId, publicConnectionId, json({ name: environment.name, region: environment.region, baseDomain: environment.baseDomain, policies: environment.policies })]);
+    await peer.query("insert into public.revisions(id,workspace_id,project_id,number,data) values($1,$2,$3,1,'{}'::jsonb)", [revisionId, scope.workspaceId, scope.projectId]);
+    await peer.query("insert into public.revision_manifests(revision_id,workspace_id,manifest) values($1,$2,$3::text::jsonb)", [revisionId, scope.workspaceId, json(manifest)]);
+    const roleEntered = dispatchBarrier(), roleRelease = dispatchBarrier();
+    let armed=false,postPlanAuthorityChecks=0,expiredAfterApprovedAuthority=false,approvalId: string | undefined;
+    h.deps.roles={resolve:async(principal,workspaceId)=>{
+      const rows = principal.kind === "user" ? await h.db!.query<{ role: "viewer" | "editor" | "admin" }>("select role from public.members where workspace_id=$1 and id=$2", [workspaceId, principal.id]) : [];
+      const role = rows.length === 1 && ["viewer", "editor", "admin"].includes(rows[0].role) ? rows[0].role : "none";
+      if(armed && mode==="expiry during role lookup" && principal.id==="erin") { roleEntered.release(); await roleRelease.promise; }
+      return { role };
+    }};
+    const proposed=await h.broker.propose({capability:"deployment.deploy",scope,input:{revisionId,deploymentId}},user("alice"));
     const operationId=proposed.operation.id;
+    await peer.query("insert into public.deployments(id,workspace_id,project_id,environment_id,revision_id,status,data) values($1,$2,$3,$4,$5,'planning',$6::text::jsonb)",
+      [deploymentId, scope.workspaceId, scope.projectId, scope.environmentId, revisionId, json({ executor: "workflow", operationId })]);
     await h.broker.beginExecution({workspaceId:scope.workspaceId,operationId,holder:`workflow:${operationId}`,audience:"worker",leaseMs:120000});
     const ports=createPlatformPorts(h.db!);const canonicalBroker=createExecutionBroker(h.db!,async()=>h.broker);
-    let armed=false,postPlanAuthorityChecks=0;
     const broker={...canonicalBroker,approvalStatus:async(id:string)=>{
       const result=await canonicalBroker.approvalStatus(id);
       if(armed)postPlanAuthorityChecks++;
-      if(armed && postPlanAuthorityChecks===2 && mode==="expiry after authority check")await h.expireApprovals(id);
-      return result;
-    }};
-    const roles=h.deps.roles;
-    h.deps.roles={resolve:async(principal,workspaceId)=>{
-      const result=await roles.resolve(principal,workspaceId);
-      if(armed && mode==="expiry during role lookup" && principal.id==="erin") {
-        await new Promise(resolve=>setTimeout(resolve,200));
+      if(armed && postPlanAuthorityChecks===2 && mode==="expiry after authority check") {
+        if (!approvalId) throw new Error("Exact approved native row is unavailable.");
+        expect(result.approved).toBe(true); expect(result.dispatchApproval?.approvalIds).toEqual([approvalId]);
+        expect(await peer.query("update platform.approvals set expires_at=clock_timestamp()-interval '1 second' where workspace_id=$1 and operation_id=$2 and id=$3 returning id", [scope.workspaceId, id, approvalId])).toEqual([{ id: approvalId }]);
+        expiredAfterApprovedAuthority = true;
       }
       return result;
     }};
@@ -350,27 +396,56 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
     const entered=dispatchBarrier(),release=dispatchBarrier();const state=path.join(w.planDir,"customer-state.tfstate");
     const tofu={planWorkspace:runtime.tofu.planWorkspace,applyVerifiedPlan:(ws:Parameters<typeof runtime.tofu.applyVerifiedPlan>[0],args:Parameters<typeof runtime.tofu.applyVerifiedPlan>[1])=>
       runtime.tofu.applyVerifiedPlan(ws,{...args,beforeDispatch:async()=>{entered.release();await release.promise;await args.beforeDispatch?.();}})};
-    const activities=createExecutionActivities({...w.deps,...ports,broker,tofu,planArtifacts:runtime.planArtifacts,
+    const activities=createExecutionActivities({...w.deps,...ports,broker,tofu,planArtifacts:runtime.planArtifacts,sourceSnapshots:createApprovedSourceSnapshotStore(h.db!),
       tofuWorkspace:{providerSet:()=>"builtin",backend:()=>({backend:{kind:"local",path:state}})},clock:()=>new Date(),limits:{heartbeatIntervalMs:1000}});
     await activities.validateDesiredState({operationId});const lease=await activities.acquireLease({operationId,scope:`env:${scope.environmentId}`,ttlMs:120000});
     try {
       const plan=await activities.planInfrastructure({operationId,lease});
+      expect(await peer.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2", [scope.workspaceId, operationId])).toEqual([{ phase: "ready" }]);
+      const published = await peer.query<{ summary: { kind: string; phase: string } }>("select summary from platform.evidence where workspace_id=$1 and operation_id=$2 and kind='observation' and summary->>'stage'='original_plan_product_authority'", [scope.workspaceId, operationId]);
+      expect(published).toHaveLength(1); expect(published[0].summary).toMatchObject({ kind: "product", phase: "published" });
+      expect(await peer.query("select service_address from platform.approved_source_snapshots where workspace_id=$1 and operation_id=$2", [scope.workspaceId, operationId])).toEqual([]);
       expect((await activities.evaluatePolicy({operationId,planDigest:plan.planDigest})).outcome).toBe("require_approval");
       await ports.ops.transition({workspaceId:scope.workspaceId,operationId,to:"awaiting_approval"});
-      await h.broker.approve({workspaceId:scope.workspaceId,operationId,proposalDigest:proposed.operation.proposalDigest,planDigest:plan.planDigest,approver:user("erin"),session:sessionFor("erin")});
-      await ports.ops.transition({workspaceId:scope.workspaceId,operationId,to:"running"});
+      const approval = await h.broker.approve({workspaceId:scope.workspaceId,operationId,proposalDigest:proposed.operation.proposalDigest,planDigest:plan.planDigest,approver:user("erin"),session:sessionFor("erin")});
+      const approved = await peer.query<{ id: string; proposal_digest: string; approval_round: number }>("select id,proposal_digest,approval_round from platform.approvals where workspace_id=$1 and operation_id=$2 and id=$3 and decision='approve' and approver->>'id'='erin'", [scope.workspaceId, operationId, approval.approval.id]);
+      expect(approved).toHaveLength(1); expect(approved[0].proposal_digest).toBe(proposed.operation.proposalDigest); expect(approved[0].approval_round).toBeGreaterThan(0); approvalId = approved[0].id;
+      await repos.operations.claimForExecution(h.db!, { workspaceId: scope.workspaceId, id: operationId,
+        expectedDigest: proposed.operation.proposalDigest, holder: executionHolder(operationId), leaseMs: 120000,
+        lease, expectedPolicyVersion: "original-dispatch-policy" });
+      expect(await peer.query("select status,lease_scope,fence_token from platform.operations where workspace_id=$1 and id=$2", [scope.workspaceId, operationId]))
+        .toEqual([{ status: "running", lease_scope: lease.scope, fence_token: lease.fenceToken }]);
       const applying=activities.applyInfrastructure({operationId,planDigest:plan.planDigest,lease});
-      const rejected=expect(applying).rejects.toThrow();
-      await entered.promise;
+      const completed = mode === "unchanged authority" ? applying : expect(applying).rejects.toThrow();
+      await Promise.race([entered.promise, applying.then(() => { throw new Error("Apply completed before its dispatch barrier."); }, () => { throw new Error("Apply refused before its dispatch barrier."); })]);
+      expect(await peer.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2", [scope.workspaceId, operationId])).toEqual([{ phase: "claimed" }]);
+      const consumed = await peer.query<{ id: string; consumed_at: string | null }>("select id,consumed_at from platform.approvals where workspace_id=$1 and operation_id=$2 and id=$3", [scope.workspaceId, operationId, approvalId]);
+      expect(consumed).toHaveLength(1); expect(consumed[0].consumed_at).not.toBeNull();
       // A grant was already issued, and the actual original/fresh inspections finished before this barrier.
-      if(mode==="expired approval")await h.expireApprovals(operationId);
-      if(mode==="revoked approver role")h.world.members.set(`${scope.workspaceId}|erin`,"viewer");
+      if(mode==="expired approval")expect(await peer.query("update platform.approvals set expires_at=clock_timestamp()-interval '1 second' where workspace_id=$1 and operation_id=$2 and id=$3 returning id", [scope.workspaceId, operationId, approvalId])).toEqual([{ id: approvalId }]);
+      if(mode==="revoked approver role")expect(await peer.query("update public.members set role='viewer' where workspace_id=$1 and id='erin' returning id,role", [scope.workspaceId])).toEqual([{ id: "erin", role: "viewer" }]);
       if(mode==="new policy denial")h.setEngine(scriptedEngine("denied-before-dispatch",()=>({outcome:"deny",reasons:[{code:"changed",message:"Policy changed."}]})));
-      if(mode==="expiry during role lookup")await h.db!.query("update platform.approvals set expires_at=clock_timestamp()+interval '100 milliseconds' where workspace_id=$1 and operation_id=$2",[scope.workspaceId,operationId]);
-      armed=true;release.release();await rejected;
-      expect(await readFile(state).catch(()=>null)).toBeNull();
-      expect(await h.db!.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[scope.workspaceId,operationId])).toEqual([{phase:"ready"}]);
-      expect(await h.db!.query("select id from platform.evidence where workspace_id=$1 and operation_id=$2 and kind='tofu_apply'",[scope.workspaceId,operationId])).toHaveLength(0);
-    } finally {release.release();await activities.releaseLease({lease});}
-  },240000);
+      armed=true;release.release();
+      if(mode==="expiry during role lookup") {
+        await Promise.race([roleEntered.promise, applying.then(() => { throw new Error("Apply completed before its held approver lookup."); }, () => { throw new Error("Apply refused before its held approver lookup."); })]);
+        expect(await peer.query("update platform.approvals set expires_at=clock_timestamp()-interval '1 second' where workspace_id=$1 and operation_id=$2 and id=$3 returning id", [scope.workspaceId, operationId, approvalId])).toEqual([{ id: approvalId }]);
+        roleRelease.release();
+      }
+      const outcome = await completed;
+      if (mode === "expiry after authority check") expect(expiredAfterApprovedAuthority).toBe(true);
+      if (mode === "unchanged authority") {
+        expect(postPlanAuthorityChecks).toBeGreaterThanOrEqual(2);
+        expect(outcome).toMatchObject({ applied: 1 });
+        expect(await readFile(state).catch(()=>null)).not.toBeNull();
+        expect(await peer.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2", [scope.workspaceId, operationId])).toEqual([{ phase: "succeeded" }]);
+        expect(await peer.query("select id from platform.evidence where workspace_id=$1 and operation_id=$2 and kind='tofu_apply'", [scope.workspaceId, operationId])).toHaveLength(1);
+      } else {
+        expect(await readFile(state).catch(()=>null)).toBeNull();
+        expect(await peer.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[scope.workspaceId,operationId])).toEqual([{phase:"ready"}]);
+        expect(await peer.query("select id from platform.evidence where workspace_id=$1 and operation_id=$2 and kind='tofu_apply'",[scope.workspaceId,operationId])).toHaveLength(0);
+      }
+    } finally {release.release();roleRelease.release();await activities.releaseLease({lease});}
+  }
+  it.each(["expired approval","revoked approver role","new policy denial","expiry after authority check","expiry during role lookup"])("refuses %s after fresh replan and before durable dispatch",currentAuthorityCase,240000);
+  it("continues unchanged native product authority after fresh replan through the exact approved original plan", () => currentAuthorityCase("unchanged authority"), 240000);
 });

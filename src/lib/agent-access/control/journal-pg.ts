@@ -47,7 +47,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { SCOPE_NAMES } from './contracts';
-import { pgAuthorityClient, type Sql, type TransactionSql } from '@/lib/hosted/authority/pg/client';
+import { pgAuthorityClient, isDefaultPgAuthorityClient, isDefaultPgAuthorityClientFor, type Sql, type TransactionSql } from '@/lib/hosted/authority/pg/client';
+import type { Sql as NativeSql, Principal as NativePrincipal } from '@/lib/controlplane/types';
 import { transactPg } from '@/lib/hosted/authority/pg/tx';
 import { readNumber } from '@/lib/hosted/authority/pg/rows';
 import {
@@ -202,6 +203,80 @@ function grantFromRow(row: GrantRow, subject: string, workspaceId: string, clien
   if (grant.subject !== subject || grant.workspaceId !== workspaceId || clientId !== undefined && grant.clientId !== clientId)
     throw new ControlError('grant_unavailable', 'The OAuth resource grant could not be confirmed.', 503);
   return grant;
+}
+
+
+/** Non-secret native tuple. Nullable scope metadata is retained exactly. */
+export const NativeOAuthGrant = z.object({
+  integration_id: grantId.regex(/^integration_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
+  subject: grantId, client_id: grantShape.shape.clientId, workspace_id: grantId,
+  oauth_issuer: grantShape.shape.oauthIssuer, expires_at: grantShape.shape.expiresAt,
+  revoked: z.boolean(), project_ids: grantShape.shape.projectIds,
+  environment_ids: grantIds.nullable(), app_ids: grantIds.nullable(), scopes: grantShape.shape.scopes,
+}).strict();
+export type NativeOAuthGrantTuple = z.infer<typeof NativeOAuthGrant>;
+interface JournalOrigin {
+  journal: PgAgentJournal; client: Sql; prototype: object;
+  own: Map<PropertyKey, PropertyDescriptor>; methods: Map<PropertyKey, PropertyDescriptor>;
+  checked: Promise<void> | undefined; checkedDescriptor?: PropertyDescriptor;
+}
+const journalOrigins = new WeakMap<object, JournalOrigin>();
+function sameJournalDescriptor(current: PropertyDescriptor | undefined, before: PropertyDescriptor): boolean {
+  return !!current && "value" in before && "value" in current
+    && current.enumerable === before.enumerable && current.configurable === before.configurable
+    && current.value === before.value && current.writable === before.writable;
+}
+function journalOrigin(value: unknown): JournalOrigin | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const saved = journalOrigins.get(value), selected = Object.getOwnPropertyDescriptor(globalThis, '__zenithAgentPgJournal');
+  if (!saved || !selected || !('value' in selected) || selected.value !== value || !canonicalJournalMethodsMatch()
+    || saved.prototype !== canonicalJournalPrototype || Object.getPrototypeOf(value) !== saved.prototype
+    || Reflect.ownKeys(value).filter(key => key !== 'checked').length !== saved.own.size
+    || Reflect.ownKeys(saved.prototype).length !== saved.methods.size) return undefined;
+  const checked = Object.getOwnPropertyDescriptor(value, 'checked');
+  if ((saved.checkedDescriptor ? !sameJournalDescriptor(checked, { ...saved.checkedDescriptor, value: saved.checked }) : checked !== undefined || saved.checked !== undefined)
+    || ![...saved.own].every(([key, before]) => sameJournalDescriptor(Object.getOwnPropertyDescriptor(value, key), before))
+    || ![...saved.methods].every(([key, before]) => sameJournalDescriptor(Object.getOwnPropertyDescriptor(saved.prototype, key), before))
+    || !isDefaultPgAuthorityClient(saved.client)) return undefined;
+  return saved;
+}
+/** Known default identity includes a tampered journal that must never fall back. */
+export function wasDefaultPgAgentJournal(value: unknown): boolean { return !!value && typeof value === 'object' && journalOrigins.has(value); }
+/** Fixed private factory membership. Tooling constructors and copied journals cannot register. */
+export function isDefaultPgAgentJournal(value: unknown): boolean {
+  try { return !!journalOrigin(value); } catch { return false; }
+}
+/** Boolean-only actual owning target check. No caller target or proof is accepted. */
+export function isDefaultPgAgentJournalFor(value: unknown, owner: NativeSql): boolean {
+  try { const saved = journalOrigin(value); return !!saved && isDefaultPgAuthorityClientFor(saved.client, owner); } catch { return false; }
+}
+/** Dedicated native read excludes tokens, documents, diagnostics and secret material. */
+export async function readDefaultNativeOAuthGrant(value: unknown, principal: NativePrincipal, workspaceId: string): Promise<Readonly<NativeOAuthGrantTuple> | undefined> {
+  const unavailable = (): never => { throw new ControlError('grant_unavailable', 'Current native OAuth grant authority is unavailable.', 503); };
+  try {
+    const saved = journalOrigin(value);
+    if (!saved || principal.kind !== 'integration' || principal.id !== principal.integrationId || !principal.onBehalfOf
+      || !grantId.safeParse(workspaceId).success || !grantId.safeParse(principal.onBehalfOf).success
+      || !NativeOAuthGrant.shape.integration_id.safeParse(principal.id).success) return unavailable();
+    await saved.journal.ready();
+    if (journalOrigin(value) !== saved) return unavailable();
+    const migrations = await selectMigrations(saved.client);
+    if (AGENT_CONTROL_MIGRATIONS.some(required => !migrations.some(row => Number(row.version) === required.version && row.name === required.name))
+      || journalOrigin(value) !== saved) return unavailable();
+    const rows = await saved.client<{ linked: boolean; tuple: unknown }[]>`select
+      exists(select 1 from agent.agent_credentials where id=${principal.id}) as linked,
+      (select jsonb_build_object('integration_id',integration_id,'subject',subject,'client_id',client_id,'workspace_id',workspace_id,
+        'oauth_issuer',oauth_issuer,'expires_at',expires_at,'revoked',revoked,'project_ids',project_ids,
+        'environment_ids',environment_ids,'app_ids',app_ids,'scopes',scopes)
+        from agent.agent_oauth_grants where integration_id=${principal.id}) as tuple`;
+    if (journalOrigin(value) !== saved || rows.length !== 1 || typeof rows[0].linked !== 'boolean' || rows[0].linked) return unavailable();
+    if (rows[0].tuple === null) return undefined;
+    if (Buffer.byteLength(JSON.stringify(rows[0].tuple)) > 131072) return unavailable();
+    const parsed = NativeOAuthGrant.safeParse(rows[0].tuple);
+    if (!parsed.success || parsed.data.integration_id !== principal.id || parsed.data.subject !== principal.onBehalfOf
+      || parsed.data.workspace_id !== workspaceId) return unavailable();
+    return parsed.data;
+  } catch { return unavailable(); }
 }
 
 /** ISO-8601 UTC, fixed width — the only timestamp format these columns hold. */
@@ -407,6 +482,9 @@ export class PgAgentJournal implements AgentJournal {
    * somebody applying the file. Modelled on `createPostgresAuthority()`.
    */
   ready(): Promise<void> {
+    const origin = journalOrigins.get(this);
+    if (origin && journalOrigin(this) !== origin)
+      return Promise.reject(new ControlError('grant_unavailable', 'Current native journal provenance is unavailable.', 503));
     if (!this.checked)
       this.checked = (async () => {
         const rows = (await selectMigrations(this.client)) as unknown as { version: unknown; name: unknown }[];
@@ -416,6 +494,10 @@ export class PgAgentJournal implements AgentJournal {
         );
         if (missing) throw schemaBehind(found, missing);
       })();
+    if (origin) {
+      origin.checked = this.checked;
+      origin.checkedDescriptor ??= Object.getOwnPropertyDescriptor(this, 'checked');
+    }
     return this.checked;
   }
 
@@ -909,15 +991,42 @@ export class PgAgentJournal implements AgentJournal {
   }
 }
 
-type PgJournalGlobal = typeof globalThis & { __zenithAgentPgJournal?: PgAgentJournal };
+// Capture the class's original descriptors during module initialization, before
+// default creation can observe a substituted method or accessor. This baseline
+// is private; a current mutable prototype can never register itself as genuine.
+const canonicalJournalPrototypeDescriptor = Object.freeze({ ...Object.getOwnPropertyDescriptor(PgAgentJournal, 'prototype')! });
+const canonicalJournalPrototype: object = canonicalJournalPrototypeDescriptor.value;
+const canonicalJournalPrototypeParent = Object.getPrototypeOf(canonicalJournalPrototype);
+const canonicalJournalMethods = new Map<PropertyKey, PropertyDescriptor>(Reflect.ownKeys(canonicalJournalPrototype)
+  .map(key => [key, Object.freeze({ ...Object.getOwnPropertyDescriptor(canonicalJournalPrototype, key)! })]));
+function canonicalJournalMethodsMatch(): boolean {
+  return sameJournalDescriptor(Object.getOwnPropertyDescriptor(PgAgentJournal, 'prototype'), canonicalJournalPrototypeDescriptor)
+    && Object.getPrototypeOf(canonicalJournalPrototype) === canonicalJournalPrototypeParent
+    && Reflect.ownKeys(canonicalJournalPrototype).length === canonicalJournalMethods.size
+    && [...canonicalJournalMethods].every(([key, before]) => "value" in before && typeof before.value === 'function'
+      && sameJournalDescriptor(Object.getOwnPropertyDescriptor(canonicalJournalPrototype, key), before));
+}
 
 /** The process-wide Postgres journal, created on first use. */
 export function pgAgentJournal(): PgAgentJournal {
-  const g = globalThis as PgJournalGlobal;
-  return (g.__zenithAgentPgJournal ??= new PgAgentJournal());
+  if (!canonicalJournalMethodsMatch()) throw new ControlError('grant_unavailable', 'Current native journal methods are unavailable.', 503);
+  const selected = Object.getOwnPropertyDescriptor(globalThis, '__zenithAgentPgJournal');
+  if (selected && !('value' in selected)) throw new ControlError('grant_unavailable', 'Current native journal selection is unavailable.', 503);
+  if (selected?.value) return selected.value;
+  const clientSelection = Object.getOwnPropertyDescriptor(globalThis, '__zenithHostedPg');
+  if (clientSelection && !('value' in clientSelection)) throw new ControlError('grant_unavailable', 'Current native client selection is unavailable.', 503);
+  const journal = new PgAgentJournal(), client = pgAuthorityClient();
+  if (!canonicalJournalMethodsMatch() || Object.getPrototypeOf(journal) !== canonicalJournalPrototype)
+    throw new ControlError('grant_unavailable', 'Current native journal methods are unavailable.', 503);
+  journalOrigins.set(journal, { journal, client, prototype: canonicalJournalPrototype,
+    own: new Map(Reflect.ownKeys(journal).filter(key => key !== 'checked').map(key => [key, Object.getOwnPropertyDescriptor(journal, key)!])),
+    methods: canonicalJournalMethods,
+    checked: undefined, checkedDescriptor: Object.getOwnPropertyDescriptor(journal, 'checked') });
+  Object.defineProperty(globalThis, '__zenithAgentPgJournal', { configurable: true, enumerable: true, writable: true, value: journal });
+  return journal;
 }
 
 /** Forget the singleton. Tests and scripts; a server exits. */
 export function resetPgAgentJournal(): void {
-  delete (globalThis as PgJournalGlobal).__zenithAgentPgJournal;
+  Reflect.deleteProperty(globalThis, '__zenithAgentPgJournal');
 }

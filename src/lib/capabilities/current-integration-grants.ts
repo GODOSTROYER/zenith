@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import type { Principal, Sql } from "@/lib/controlplane/types";
 import { isDefaultPgCredentialAuthority, wasDefaultPgCredentialAuthority, isDefaultPgCredentialAuthorityFor, readDefaultNativeLinkedCredential, type NativeLinkedCredentialTuple } from "@/lib/agent-access/authority/pg";
 import type { IntegrationGrant } from "./product-adapters";
+import { isDefaultPgAgentJournal, wasDefaultPgAgentJournal, isDefaultPgAgentJournalFor, readDefaultNativeOAuthGrant, type NativeOAuthGrantTuple } from "@/lib/agent-access/control/journal-pg";
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 const ids = z.array(id).max(1000).refine(values => new Set(values).size === values.length);
@@ -49,9 +50,44 @@ export function isCurrentNativeLinkedCredentialFor(tuple:unknown,owner:Sql,works
   }catch{return false;}
 }
 
+const oauthConfigurationKeys = ['ZENITH_AGENT_OAUTH_ISSUER', 'ZENITH_AGENT_OAUTH_JWKS', 'ZENITH_AGENT_OAUTH_CLIENT_CLAIM', 'ZENITH_AGENT_OAUTH_SUBJECT_CLAIM', 'ZENITH_AGENT_ORIGIN'] as const;
+function configuration(): string { return JSON.stringify(oauthConfigurationKeys.map(key => process.env[key] ?? null)); }
+interface OAuthOrigin {
+  journal: object; authority: object; tuple: Readonly<NativeOAuthGrantTuple>; configuration: string;
+  // This is the fixed imported default selector lookup, captured only below.
+  // No exported registration API or caller callback can populate these maps.
+  selected: typeof import('@/lib/agent-access/control/runtime').isDefaultAgentJournalSelection;
+}
+const currentOAuthGrants = new WeakMap<object, OAuthOrigin>();
+const oauthTupleOrigins = new WeakMap<object, OAuthOrigin>();
+function liveOAuthOrigin(entry: OAuthOrigin, owner: Sql, workspaceId: string, integrationId: string, subject: string): boolean {
+  return entry.configuration === configuration() && entry.selected(entry.journal)
+    && isDefaultPgAgentJournalFor(entry.journal, owner) && isDefaultPgCredentialAuthorityFor(entry.authority, owner)
+    && entry.tuple.integration_id === integrationId && entry.tuple.subject === subject && entry.tuple.workspace_id === workspaceId
+    && entry.tuple.oauth_issuer === process.env.ZENITH_AGENT_OAUTH_ISSUER && !entry.tuple.revoked && live(entry.tuple.expires_at)
+    && (entry.tuple.app_ids === null || entry.tuple.app_ids.length === 0);
+}
+/** Genuine current resolver capture, bound to the exact principal object and current default selector. */
+export function readCurrentNativeOAuthGrant(principal: Principal, workspaceId: string, owner: Sql): Readonly<NativeOAuthGrantTuple> | undefined {
+  try {
+    const entry = currentOAuthGrants.get(principal);
+    return entry && principal.id === principal.integrationId && principal.onBehalfOf
+      && liveOAuthOrigin(entry, owner, workspaceId, principal.id, principal.onBehalfOf) ? entry.tuple : undefined;
+  } catch { return undefined; }
+}
+/** Read-only provenance. Copied tuples, changed configuration and substituted owners refuse. */
+export function isCurrentNativeOAuthGrantFor(tuple: unknown, owner: Sql, workspaceId: string, integrationId: string, subject: string): boolean {
+  try {
+    if (!tuple || typeof tuple !== 'object') return false;
+    const entry = oauthTupleOrigins.get(tuple);
+    return !!entry && liveOAuthOrigin(entry, owner, workspaceId, integrationId, subject);
+  } catch { return false; }
+}
+
 /** No supplied directory, broker, issuer, copied scopes or provenance field can alter this read. */
 export async function currentIntegrationGrant(principal: Principal, workspaceId: string, signal?: AbortSignal): Promise<IntegrationGrant | null> {
   currentNativeGrants.delete(principal);
+  currentOAuthGrants.delete(principal);
   if (principal.kind !== "integration" || !principal.onBehalfOf || !principal.integrationId
     || principal.id !== principal.integrationId || !id.safeParse(principal.onBehalfOf).success
     || !id.safeParse(workspaceId).success || !id.safeParse(principal.integrationId).success) return null;
@@ -86,12 +122,35 @@ export async function currentIntegrationGrant(principal: Principal, workspaceId:
       return parsed.data.revokedAt || !live(parsed.data.expiresAt) ? null : projection(parsed.data);
     }
     if (!OAUTH_ID.test(principal.integrationId)) return null;
-    const [{ oauthConfig }, { controlOrigin }, { agentJournal }] = await Promise.all([
+    const [{ oauthConfig }, { controlOrigin }, { agentJournal, isDefaultAgentJournalSelection }] = await Promise.all([
       import("@/lib/agent-access/control/oauth"), import("@/lib/agent-access/control/boundary"), import("@/lib/agent-access/control/runtime"),
     ]);
-    const config = oauthConfig(process.env, controlOrigin());
+    const configured = configuration(), config = oauthConfig(process.env, controlOrigin());
     if (!config) return null;
     const journal = await agentJournal();
+    checkSignal(signal);
+    if (configured !== configuration()) refuse();
+    if (wasDefaultPgAgentJournal(journal) && !isDefaultPgAgentJournal(journal)) refuse();
+    if (isDefaultPgAgentJournal(journal)) {
+      if (!native || !isDefaultAgentJournalSelection(journal)) refuse();
+      const tuple = await readDefaultNativeOAuthGrant(journal, principal, workspaceId);
+      checkSignal(signal);
+      if (!isDefaultPgAgentJournal(journal) || !isDefaultAgentJournalSelection(journal)
+        || !isDefaultPgCredentialAuthority(authority) || configured !== configuration()) refuse();
+      if (!tuple) return null;
+      if (tuple.oauth_issuer !== config.issuer || !tuple.scopes.includes('read')) refuse();
+      if (tuple.revoked || !live(tuple.expires_at)) return null;
+      const frozen = immutable(structuredClone(tuple));
+      const entry: OAuthOrigin = { journal, authority, tuple: frozen, configuration: configured, selected: isDefaultAgentJournalSelection };
+      currentOAuthGrants.set(principal, entry); oauthTupleOrigins.set(frozen, entry);
+      return projection({ scopes: [...frozen.scopes], projectIds: [...frozen.project_ids],
+        ...(frozen.environment_ids === null ? {} : { environmentIds: [...frozen.environment_ids] }) });
+    }
+    // Legacy reads retain their behavior; they never populate native dispatch provenance.
+    const grantsMethod = Object.getOwnPropertyDescriptor(journal, 'grants') ?? Object.getOwnPropertyDescriptor(Object.getPrototypeOf(journal), 'grants');
+    const retainedMethod = Object.getOwnPropertyDescriptor(journal, 'getGrant') ?? Object.getOwnPropertyDescriptor(Object.getPrototypeOf(journal), 'getGrant');
+    if (!grantsMethod || !('value' in grantsMethod) || typeof grantsMethod.value !== 'function'
+      || !retainedMethod || !('value' in retainedMethod) || typeof retainedMethod.value !== 'function') refuse();
     const grants = await journal.grants(principal.onBehalfOf, workspaceId);
     checkSignal(signal);
     if (!Array.isArray(grants) || grants.length > 100) refuse();

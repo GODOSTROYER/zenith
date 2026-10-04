@@ -12,10 +12,12 @@ import * as evidence from "./evidence";
 import * as resources from "./resources";
 import { PORTABLE_KINDS, type ResourceNode } from "@/lib/resources/types";
 import type { CurrentDispatchRequirement, DispatchApprovalSnapshot } from "@/lib/execution/ports";
-import { isCurrentNativeLinkedCredentialFor } from "@/lib/capabilities/current-integration-grants";
+import { isCurrentNativeLinkedCredentialFor, isCurrentNativeOAuthGrantFor } from "@/lib/capabilities/current-integration-grants";
 import type { NativeLinkedCredentialTuple } from "@/lib/agent-access/authority/pg";
+import type { NativeOAuthGrantTuple } from "@/lib/agent-access/control/journal-pg";
 type NativeDispatchRequirement = CurrentDispatchRequirement & {
   readonly nativeCredential?: Readonly<NativeLinkedCredentialTuple>; readonly nativeCredentialRequiredScope?: string;
+  readonly nativeOAuthGrant?: Readonly<NativeOAuthGrantTuple>; readonly nativeOAuthRequiredScope?: string;
   readonly delegatedDestroyPlan?: Readonly<{ operationId: string; evidenceId: string }>;
 };
 
@@ -301,11 +303,15 @@ export async function withCurrentPlanDispatchRequirement(sql: Sql, current: Plan
   } else if (input.principal.kind !== kind || input.principal.id !== Reflect.get(principal, "id")
     || input.principal.role !== current.member.role || !["editor", "admin"].includes(current.member.role)) return refuse();
   if (kind === "integration") {
-    const tuple = value.nativeCredential, requiredScope = value.nativeCredentialRequiredScope;
-    if (!tuple || !requiredScope || !tuple.scopes.includes(requiredScope) || !tuple.project_ids.includes(String(current.project?.id))
-      || tuple.environment_ids && !tuple.environment_ids.includes(String(current.environment.id))
-      || !isCurrentNativeLinkedCredentialFor(tuple, sql, current.witness.summary.workspaceId, String(Reflect.get(principal, "id")), String(subject))) return refuse();
-  } else if (value.nativeCredential) return refuse();
+    const tuple = value.nativeCredential ?? value.nativeOAuthGrant;
+    const requiredScope = value.nativeCredential ? value.nativeCredentialRequiredScope : value.nativeOAuthRequiredScope;
+    if (!tuple || !!value.nativeCredential === !!value.nativeOAuthGrant || !requiredScope || !tuple.scopes.some(scope => scope === requiredScope)
+      || !tuple.project_ids.includes(String(current.project?.id)) || tuple.environment_ids && !tuple.environment_ids.includes(String(current.environment.id))) return refuse();
+    const valid = value.nativeCredential
+      ? isCurrentNativeLinkedCredentialFor(value.nativeCredential, sql, current.witness.summary.workspaceId, String(Reflect.get(principal, "id")), String(subject))
+      : isCurrentNativeOAuthGrantFor(value.nativeOAuthGrant, sql, current.witness.summary.workspaceId, String(Reflect.get(principal, "id")), String(subject));
+    if (!valid) return refuse();
+  } else if (value.nativeCredential || value.nativeOAuthGrant) return refuse();
   return bounded({ ...current, currentRequirement: value });
 }
 /** All values below are re-derived by this repository. Every tuple is repeated in the final post-wait statement. */
@@ -341,6 +347,19 @@ export function planProductDispatchPredicate(current: PlanProductDispatchAuthori
         and (case when jsonb_typeof(c.project_ids)='string' then (c.project_ids#>>'{}')::jsonb else c.project_ids end) ? ($8::text::jsonb->'project'->>'id')
         and (c.environment_ids is null or (case when jsonb_typeof(c.environment_ids)='string' then (c.environment_ids#>>'{}')::jsonb else c.environment_ids end) ? ($8::text::jsonb->'environment'->>'id'))
         and (case when jsonb_typeof(c.scopes)='string' then (c.scopes#>>'{}')::jsonb else c.scopes end) ? ($8::text::jsonb->'currentRequirement'->>'nativeCredentialRequiredScope'))
+` : current.currentRequirement?.nativeOAuthGrant ? `$8::text::jsonb->'currentRequirement'->'operation'->'principal'->>'kind'='integration'
+    and not exists(select 1 from agent.agent_credentials where id=$8::text::jsonb->'currentRequirement'->'operation'->'principal'->>'id')
+    and exists(select 1 from agent.agent_oauth_grants g where g.integration_id=$8::text::jsonb->'currentRequirement'->'operation'->'principal'->>'id'
+      and g.integration_id=$8::text::jsonb->'currentRequirement'->'operation'->'principal'->>'integrationId'
+      and g.subject=$8::text::jsonb->'member'->>'id' and g.workspace_id=$1 and not g.revoked
+      and g.expires_at>to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+      and jsonb_build_object('integration_id',g.integration_id,'subject',g.subject,'client_id',g.client_id,'workspace_id',g.workspace_id,
+        'oauth_issuer',g.oauth_issuer,'expires_at',g.expires_at,'revoked',g.revoked,'project_ids',g.project_ids,
+        'environment_ids',g.environment_ids,'app_ids',g.app_ids,'scopes',g.scopes)=$8::text::jsonb->'currentRequirement'->'nativeOAuthGrant'
+      and (g.app_ids is null or g.app_ids='[]'::jsonb)
+      and g.project_ids ? ($8::text::jsonb->'project'->>'id')
+      and (g.environment_ids is null or g.environment_ids ? ($8::text::jsonb->'environment'->>'id'))
+      and g.scopes ? ($8::text::jsonb->'currentRequirement'->>'nativeOAuthRequiredScope'))
 ` : "$8::text::jsonb->'currentRequirement'->'operation'->'principal'->>'kind'='user' and $8::text::jsonb->'member'->>'role' in ('editor','admin')";
   const requirement = current.currentRequirement ? `
     and exists(select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2

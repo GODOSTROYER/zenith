@@ -224,18 +224,49 @@ let pending: Promise<Coordinator> | undefined;
  * in-flight operation uncertain, because `workerId` is per-process. There it is
  * the lease that decides, on `agentTickPass()`.
  */
+let defaultJournalSelection: { journal: AgentJournal; descriptor: PropertyDescriptor; native: (value: unknown) => boolean } | undefined;
+function selectedJournalDescriptor(): PropertyDescriptor | undefined {
+  const selected = Object.getOwnPropertyDescriptor(globalThis, '__zenithAgentJournal');
+  if (selected && !('value' in selected)) throw new ControlError('grant_unavailable', 'Current native journal selection is unavailable.', 503);
+  return selected;
+}
+function sameSelection(a: PropertyDescriptor | undefined, b: PropertyDescriptor | undefined): boolean {
+  return a === undefined ? b === undefined : !!b && 'value' in a && 'value' in b && a.value === b.value
+    && a.configurable === b.configurable && a.enumerable === b.enumerable && a.writable === b.writable;
+}
+/** Only the default selector can originate membership. This boolean cannot register a caller journal. */
+export function isDefaultAgentJournalSelection(value: unknown): boolean {
+  try {
+    const saved = defaultJournalSelection;
+    return !!saved && saved.journal === value && sameSelection(saved.descriptor, selectedJournalDescriptor()) && saved.native(value);
+  } catch { return false; }
+}
 export async function agentJournal(): Promise<AgentJournal> {
-  if (globalControl.__zenithAgentJournal) return globalControl.__zenithAgentJournal;
-  if (controlCapabilitiesSync().journal === 'postgres') {
-    // Lazy import, inside the branch, so a file-store install never loads
-    // postgres.js at all. The schema check is the journal's own, and remembered.
-    const { pgAgentJournal } = await import('./journal-pg');
-    return (globalControl.__zenithAgentJournal = pgAgentJournal());
+  const before = selectedJournalDescriptor();
+  if (before?.value) return before.value;
+  // This selects the same store without invoking unrelated credential getters.
+  // Read/write entry points retain their complete capability and schema checks.
+  if (isPostgres()) {
+    const { pgAgentJournal, isDefaultPgAgentJournal } = await import('./journal-pg');
+    const after = selectedJournalDescriptor();
+    if (!sameSelection(before, after)) {
+      if (after?.value && isDefaultAgentJournalSelection(after.value)) return after.value;
+      throw new ControlError('grant_unavailable', 'Current native journal selection changed.', 503);
+    }
+    const journal = pgAgentJournal();
+    if (!sameSelection(after, selectedJournalDescriptor())) throw new ControlError('grant_unavailable', 'Current native journal selection changed.', 503);
+    const descriptor = { configurable: true, enumerable: true, writable: true, value: journal };
+    Object.defineProperty(globalThis, '__zenithAgentJournal', descriptor);
+    if (isDefaultPgAgentJournal(journal)) defaultJournalSelection = { journal, descriptor, native: isDefaultPgAgentJournal };
+    return journal;
   }
   claimDataDir(env().ZENITH_DATA);
   const inner = new Journal(resolve(env().ZENITH_DATA, 'agent-control', 'operations.sqlite'));
   inner.recover();
-  return (globalControl.__zenithAgentJournal = new SqliteAgentJournal(inner));
+  const journal = new SqliteAgentJournal(inner);
+  if (!sameSelection(before, selectedJournalDescriptor())) throw new ControlError('grant_unavailable', 'Current journal selection changed.', 503);
+  Object.defineProperty(globalThis, '__zenithAgentJournal', { configurable: true, enumerable: true, writable: true, value: journal });
+  return journal;
 }
 
 /**

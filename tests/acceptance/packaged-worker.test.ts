@@ -1,12 +1,13 @@
 /** Safety unit evidence only; this suite never starts Docker or Temporal. */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { load as loadYaml } from "js-yaml";
-import { chmod, lstat, mkdir, mkdtemp, readdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, link, lstat, mkdir, mkdtemp, readdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { runInNewContext } from "node:vm";
-import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, inFlightSchemaObserverSql, packagedShutdownAuthoritySql, packagedSourceDigest, packagedTemporalControlSource, packagedVolumeCustodySource, PackagedCommandError, parsePackagedArgs, prepareTemporalTls, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedReadiness, sanitizePackagedSweepEvidence, sanitizePgWaiterEvidence, sanitizeShutdownAuthorityEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
+import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, inFlightSchemaObserverSql, packagedPrivateTransferPayload, packagedPrivateTransferSource, packagedShutdownAuthoritySql, packagedSourceDigest, packagedTemporalControlSource, packagedVolumeCustodySource, PackagedCommandError, parsePackagedArgs, preparePackagedPrivateTransfer, prepareTemporalTls, PRIVATE_TRANSFER_LIMIT_BYTES, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedReadiness, sanitizePackagedSweepEvidence, sanitizePgWaiterEvidence, sanitizeShutdownAuthorityEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
 import { assertPackagedAcceptanceTarget } from "../../workers/execution/packaged-target";
 import { EXECUTION_FAILURE_CATEGORIES } from "../../workers/execution/startup";
 
@@ -60,7 +61,7 @@ function volumeCustodyModel() {
     },
     closeSync: (fd: number) => { descriptor(fd); held.delete(fd); closed.push(fd); },
   };
-  return { ...model, model, run: () => runInNewContext(packagedVolumeCustodySource(), {
+  return { ...model, model, fs, run: () => runInNewContext(packagedVolumeCustodySource(), {
     require: (name: string) => { if (name !== "node:fs") throw new Error("Modeled module refused."); return fs; },
     process: { getuid: () => 0, getgid: () => 0, exit: () => { exits++; throw new Error("Modeled initializer refused."); } },
     console: { log: (value: unknown) => { output.push(value); } },
@@ -112,6 +113,202 @@ describe("private volume initializer [exact program; filesystem permission model
     expect(m.events.filter(event => event.path === "/client")).toEqual([]);
     if (fault === "replacement at open" || fault === "changed device at open") expect(m.events).toEqual([]);
     if (fault === "file replacement after chmod" || fault === "unexpected file during chmod") expect(m.events.filter(event => event.path === "/server/ca.crt").map(event => event.action)).toEqual(["chmod"]);
+  });
+});
+
+/** Exact receiver with explicit filesystem ports; no kernel or TLS success claim. */
+function privateTransferModel(frame: Buffer) {
+  const m = volumeCustodyModel(), content = new Map<string, Buffer>();
+  for (const [name, entry] of m.nodes) if (entry.kind === "file") m.nodes.delete(name);
+  const originalOpen = m.fs.openSync, originalStat = m.fs.lstatSync;
+  const flags = { ...m.fs.constants, O_RDWR: 2, O_CREAT: 0x40, O_EXCL: 0x80 };
+  let nextFd = 100, nextInode = 100, inputOffset = 0, exits = 0;
+  const resolve = (target: string) => {
+    const match = /^\/proc\/self\/fd\/(\d+)\/([^/]+)$/.exec(target);
+    if (!match) return target;
+    const held = m.held.get(Number(match[1]));
+    if (!held || held.node !== m.nodes.get(held.path)) throw new Error("Modeled parent substituted.");
+    return `${held.path}/${match[2]}`;
+  };
+  const descriptor = (fd: number) => { const held = m.held.get(fd); if (!held) throw new Error("Modeled descriptor missing."); return held; };
+  const fs = Object.assign(m.fs, {
+    constants: flags,
+    lstatSync: (target: string) => originalStat(resolve(target)),
+    openSync: (target: string, options: number, mode?: number) => {
+      const name = resolve(target);
+      if (!(options & flags.O_CREAT)) return originalOpen(name, options);
+      m.model.hook?.("create", name);
+      if ((options & (flags.O_RDWR | flags.O_CREAT | flags.O_EXCL | flags.O_NOFOLLOW)) !== (flags.O_RDWR | flags.O_CREAT | flags.O_EXCL | flags.O_NOFOLLOW)
+        || mode !== 0o600 || m.nodes.has(name)) throw new Error("Modeled exclusive creation refused.");
+      const node = { ino: nextInode++, dev: 1, uid: 0, gid: 0, mode: 0o100600, size: 0, nlink: 1, kind: "file" as const };
+      m.nodes.set(name, node); content.set(name, Buffer.alloc(0));
+      const fd = nextFd++; m.held.set(fd, { path: name, node }); m.events.push({ action: "create", path: name }); return fd;
+    },
+    readSync: (fd: number, bytes: Buffer, offset: number, length: number, position: number | null) => {
+      if (fd === 0) { const count = Math.min(length, 7, frame.length - inputOffset); frame.copy(bytes, offset, inputOffset, inputOffset + count); inputOffset += count; return count; }
+      const entry = descriptor(fd), data = content.get(entry.path)!;
+      m.model.hook?.("read", entry.path);
+      return data.copy(bytes, offset, position ?? 0, Math.min((position ?? 0) + length, data.length));
+    },
+    writeSync: (fd: number, bytes: Buffer, offset: number, length: number, position: number) => {
+      const entry = descriptor(fd), count = Math.min(length, 3), previous = content.get(entry.path)!;
+      const data = Buffer.alloc(Math.max(previous.length, position + count)); previous.copy(data); bytes.copy(data, position, offset, offset + count);
+      content.set(entry.path, data); entry.node.size = data.length; m.events.push({ action: "write", path: entry.path });
+      m.model.hook?.("write", entry.path); return count;
+    },
+    fsyncSync: (fd: number) => { const entry = descriptor(fd); m.events.push({ action: "fsync", path: entry.path }); m.model.hook?.("fsync", entry.path); },
+  });
+  return { ...m, content, fs, runTransfer: () => runInNewContext(packagedPrivateTransferSource(), {
+    Buffer, require: (name: string) => { if (name !== "node:fs") throw new Error("Modeled module refused."); return fs; },
+    process: { getuid: () => 0, getgid: () => 0, exit: () => { exits++; throw new Error("Modeled transfer refused."); } },
+    console: { log: () => { throw new Error("Private receiver must be silent."); }, error: () => { throw new Error("Private receiver must be silent."); } },
+  }, { timeout: 1000 }), transferExits: () => exits };
+}
+
+describe("private packaged file transfer [exact program; filesystem models]", () => {
+  const files = Array.from({ length: 9 }, (_, index) => Buffer.from(`private-canary-${index}`));
+  const names = ["/server/ca.crt", "/server/server.crt", "/server/server.key", "/server/server.yaml", "/client/ca.crt", "/client/client.crt", "/client/client.key", "/client/rogue-client.crt", "/client/rogue-client.key"];
+  it("creates only nine exclusive root-owned private files before the unchanged CHOWN-only initializer", () => {
+    const m = privateTransferModel(packagedPrivateTransferPayload(files)); m.runTransfer();
+    expect(m.transferExits()).toBe(0); expect(m.output).toEqual([]); expect(m.held.size).toBe(0); expect(m.closed).toHaveLength(11);
+    expect([...m.nodes.keys()].filter(name => m.nodes.get(name)!.kind === "file")).toEqual(names);
+    for (const [index, name] of names.entries()) {
+      const entry = m.nodes.get(name)!;
+      expect({ uid: entry.uid, gid: entry.gid, mode: entry.mode & 0o7777, nlink: entry.nlink, size: entry.size })
+        .toEqual({ uid: 0, gid: 0, mode: 0o600, nlink: 1, size: files[index].length });
+      expect(m.content.get(name)).toEqual(files[index]);
+      expect(m.events.filter(event => event.path === name).at(-1)?.action).toBe("fsync");
+    }
+    // Byte delivery alone is never custody evidence: execute the original program separately.
+    m.run(); expect(m.output).toEqual(["CUSTODY_VERIFIED"]); expect(m.exits()).toBe(0);
+    for (const [name, entry] of m.nodes) {
+      expect(entry.uid).toBe(name.startsWith("/server") ? 1000 : 10001);
+      expect(entry.gid).toBe(entry.uid); expect(entry.mode & 0o7777).toBe(entry.kind === "directory" ? 0o700 : 0o600);
+    }
+  });
+  it.each(["empty", "bad magic", "short length", "short content", "zero length", "oversized length", "extra EOF", "oversized frame"])("refuses %s before any file creation", fault => {
+    let frame = packagedPrivateTransferPayload(files);
+    const magicLength = Buffer.byteLength("ZENITH-PRIVATE-FILES-V1\n");
+    if (fault === "empty") frame = Buffer.alloc(0);
+    if (fault === "bad magic") frame[0] ^= 1;
+    if (fault === "short length") frame = frame.subarray(0, magicLength + 3);
+    if (fault === "short content") frame = frame.subarray(0, frame.length - 1);
+    if (fault === "zero length") frame.writeUInt32BE(0, magicLength);
+    if (fault === "oversized length") frame.writeUInt32BE(65537, magicLength);
+    if (fault === "extra EOF") frame = Buffer.concat([frame, Buffer.from("private-extra")]);
+    if (fault === "oversized frame") frame = Buffer.alloc(PRIVATE_TRANSFER_LIMIT_BYTES + 1);
+    const m = privateTransferModel(frame);
+    expect(() => m.runTransfer()).toThrow("Modeled transfer refused"); expect(m.transferExits()).toBe(1);
+    expect(m.events).toEqual([]); expect(m.output).toEqual([]); expect(m.held.size).toBe(0);
+  });
+  it.each(["foreign parent owner", "foreign parent group", "unsafe parent mode", "symlink parent", "preexisting file", "preexisting symlink", "preexisting hard link"])("refuses %s before any file creation", fault => {
+    const m = privateTransferModel(packagedPrivateTransferPayload(files)), parent = m.nodes.get("/client")!;
+    if (fault === "foreign parent owner") parent.uid = 501;
+    if (fault === "foreign parent group") parent.gid = 20;
+    if (fault === "unsafe parent mode") parent.mode = 0o40777;
+    if (fault === "symlink parent") parent.kind = "symlink";
+    if (fault.startsWith("preexisting")) m.nodes.set("/client/client.key", { ...parent, ino: 999, kind: fault === "preexisting symlink" ? "symlink" : "file", nlink: fault === "preexisting hard link" ? 2 : 1 });
+    expect(() => m.runTransfer()).toThrow("Modeled transfer refused"); expect(m.events).toEqual([]);
+    expect(m.output).toEqual([]); expect(m.held.size).toBe(0); expect(m.transferExits()).toBe(1);
+  });
+  it.each(["parent replacement at open", "leaf replacement after write", "hard link after write", "foreign owner after write", "extra entry after write", "changed bytes at readback"])("refuses %s without a custody marker", fault => {
+    const m = privateTransferModel(packagedPrivateTransferPayload(files));
+    m.model.hook = (action, name) => {
+      if (fault === "parent replacement at open" && action === "open" && name === "/client") m.nodes.set(name, { ...m.nodes.get(name)!, ino: 999 });
+      if (name !== "/server/ca.crt") return;
+      if (fault === "leaf replacement after write" && action === "write") m.nodes.set(name, { ...m.nodes.get(name)!, ino: 999 });
+      if (fault === "hard link after write" && action === "write") m.nodes.get(name)!.nlink = 2;
+      if (fault === "foreign owner after write" && action === "write") m.nodes.get(name)!.uid = 501;
+      if (fault === "extra entry after write" && action === "write") m.nodes.set("/client/extra", { ...m.nodes.get(name)!, ino: 999 });
+      if (fault === "changed bytes at readback" && action === "read") m.content.get(name)!.fill(0);
+    };
+    expect(() => m.runTransfer()).toThrow("Modeled transfer refused"); expect(m.output).toEqual([]);
+    expect(m.held.size).toBe(0); expect(m.transferExits()).toBe(1);
+    expect(m.events.some(event => event.action === "chown")).toBe(false);
+    if (fault === "parent replacement at open") expect(m.events).toEqual([]);
+  });
+  it.each(["wrong count", "empty file", "oversized file", "non-buffer"])("refuses host frame %s without serializing byte content", fault => {
+    const input: unknown[] = [...files];
+    if (fault === "wrong count") input.pop();
+    if (fault === "empty file") input[0] = Buffer.alloc(0);
+    if (fault === "oversized file") input[0] = Buffer.alloc(65537);
+    if (fault === "non-buffer") input[0] = "private-canary";
+    expect(() => packagedPrivateTransferPayload(input)).toThrow("Private file transfer is unconfirmed.");
+  });
+  it.each(["missing file", "empty file", "oversized file", "unsafe file mode", "symlink file", "hard link", "unsafe parent mode", "invalid certificate"])("refuses host capture %s with a fixed secret-free error", async fault => {
+    const scratch = await mkdtemp(path.join(os.tmpdir(), "zenith-private-transfer-"));
+    try {
+      await chmod(scratch, 0o700);
+      for (const name of new Set(names.map(name => path.basename(name)))) await writeFile(path.join(scratch, name), "private-canary", { mode: 0o600, flag: "wx" });
+      const file = path.join(scratch, "ca.crt");
+      if (fault === "missing file") await rm(file);
+      if (fault === "empty file") await writeFile(file, "");
+      if (fault === "oversized file") await writeFile(file, Buffer.alloc(65537));
+      if (fault === "unsafe file mode") await chmod(file, 0o644);
+      if (fault === "symlink file") { await rm(file); await symlink(path.join(scratch, "server.crt"), file); }
+      if (fault === "hard link") await link(file, path.join(scratch, "hard-link-canary"));
+      if (fault === "unsafe parent mode") await chmod(scratch, 0o755);
+      const hash = createHash("sha256").update("private-canary").digest("hex"), certificates = { ca: hash, server: hash, client: hash, "rogue-client": hash };
+      await expect(preparePackagedPrivateTransfer(scratch, certificates, hash)).rejects.toThrow(/^Private file transfer is unconfirmed\.$/);
+      // Only refusal is modeled here. Valid certificate capture is a separate actual TLS probe.
+    } finally { await rm(scratch, { recursive: true, force: true }); }
+  });
+  it("wires only bounded stdin into the owned installer before independently confirming custody", () => {
+    const harness = readFileSync(new URL("../../scripts/acceptance/packaged-worker.mjs", import.meta.url), "utf8");
+    const main = harness.slice(harness.indexOf("export async function packagedWorkerMain("));
+    expect(main).toContain('await docker(["exec", "-i", installer, "node", "-e", packagedPrivateTransferSource()], "private-files-transfer", { privateInput: privateFrame })');
+    expect(main).toContain("finally { privateFrame.fill(0); }"); expect(main).not.toContain('docker(["cp"');
+    expect(main.indexOf("packagedPrivateTransferSource()" )).toBeLessThan(main.indexOf("packagedVolumeCustodySource()"));
+    expect(main).toContain('custody.out.trim() !== "CUSTODY_VERIFIED"');
+    expect(packagedPrivateTransferSource()).not.toContain("console.");
+  });
+});
+
+describe("private packaged stdin transport [local process fixtures]", () => {
+  it("projects only the fixed transfer phase and input failure category", () => {
+    expect(sanitizePackagedCommandFailure(new PackagedCommandError("private-files-transfer", "command-input")))
+      .toEqual({ category: "command-input", exitCode: null, signal: null, phase: "private-files-transfer" });
+  });
+  it("delivers bounded bytes with backpressure while discarding all private command output", async () => {
+    const bytes = Buffer.alloc(500000, 97);
+    const result = await command(process.execPath, ["-e", "const f=require('node:fs'),b=f.readFileSync(0);process.stdout.write(b);process.stderr.write(b);if(b.length!==500000||b.some(x=>x!==97))process.exit(7)"], "private-files-transfer", { privateInput: bytes });
+    expect(result).toEqual({ code: 0, out: "", err: "" });
+  });
+  it.each(["empty", "oversized", "non-buffer"])("refuses %s stdin before launching a private command", async fault => {
+    const privateInput = fault === "empty" ? Buffer.alloc(0) : fault === "oversized" ? Buffer.alloc(PRIVATE_TRANSFER_LIMIT_BYTES + 1) : "private-canary";
+    await expect(command("does-not-exist-private-canary", [], "private-files-transfer", { privateInput })).rejects.toMatchObject({ diagnostic: { category: "command-input" } });
+  });
+  it("refuses broken stdin without exposing private output or permitting an allowed failure", async () => {
+    const input = Buffer.alloc(PRIVATE_TRANSFER_LIMIT_BYTES, 97);
+    await expect(command(process.execPath, ["-e", "require('node:fs').closeSync(0);console.error('private-canary');setTimeout(()=>process.exit(0),50)"], "private-files-transfer", { privateInput: input, allowFailure: true }))
+      .rejects.toMatchObject({ diagnostic: { category: "command-input" } });
+  });
+  it("refuses a private timeout without exposing bytes or treating delivery as custody", async () => {
+    await expect(command(process.execPath, ["-e", "setInterval(()=>{},1000)"], "private-files-transfer", { privateInput: Buffer.alloc(PRIVATE_TRANSFER_LIMIT_BYTES), timeout: 20, allowFailure: true }))
+      .rejects.toMatchObject({ diagnostic: { category: "command-timeout" } });
+  });
+  it("refuses a nonzero private exit with only the fixed diagnostic even when failure was allowed", async () => {
+    try {
+      await command(process.execPath, ["-e", "require('node:fs').readFileSync(0);console.error('private-canary');process.exit(23)"], "private-files-transfer", { privateInput: Buffer.from("private-canary"), allowFailure: true });
+      throw new Error("Expected private exit refusal.");
+    } catch (error) {
+      expect(error).toBeInstanceOf(PackagedCommandError);
+      expect(JSON.stringify(error)).not.toContain("private-canary");
+      expect(error).toMatchObject({ diagnostic: { category: "command-exit", exitCode: 23, signal: null } });
+    }
+  });
+  it.each(["launch", "signal", "output limit"])("refuses private %s with no command output or byte serialization", async fault => {
+    const binary = fault === "launch" ? "does-not-exist-private-canary" : process.execPath;
+    const source = fault === "signal" ? "require('node:fs').readFileSync(0);process.kill(process.pid,'SIGTERM')"
+      : "require('node:fs').readFileSync(0);process.stdout.write('private-canary'.repeat(300000))";
+    const category = fault === "launch" ? "command-launch" : fault === "signal" ? "command-signal" : "command-output-limit";
+    try {
+      await command(binary, ["-e", source], "private-files-transfer", { privateInput: Buffer.from("private-byte-canary"), allowFailure: true });
+      throw new Error("Expected private command refusal.");
+    } catch (error) {
+      expect(error).toBeInstanceOf(PackagedCommandError); expect(error).toMatchObject({ diagnostic: { category } });
+      expect(String(error)).not.toContain("private-canary"); expect(JSON.stringify(error)).not.toContain("private-byte-canary");
+    }
   });
 });
 
@@ -315,7 +512,14 @@ describe("packaged real-server admission contracts [source and scalar models]", 
     expect(harness).toContain('await observation("completed", previous.runId)');
     expect(harness).toContain('await observation("completed", beforeRestart.runId)');
     expect(harness).toContain('schemaOutageObserverSql(runId)');
-    expect(harness).toContain('for (const name of ["ca.crt", "server.crt", "server.key", "server.yaml"])');
+    expect(harness).toContain('const PRIVATE_FILE_NAMES = ["ca.crt", "server.crt", "server.key", "server.yaml", "ca.crt", "client.crt", "client.key", "rogue-client.crt", "rogue-client.key"]');
+    const receiver = packagedPrivateTransferSource();
+    expect(receiver).toContain('{ name: "/server", names: ["ca.crt", "server.crt", "server.key", "server.yaml"] }');
+    expect(receiver).toContain('{ name: "/client", names: ["ca.crt", "client.crt", "client.key", "rogue-client.crt", "rogue-client.key"] }');
+    const transfer = 'await docker(["exec", "-i", installer, "node", "-e", packagedPrivateTransferSource()], "private-files-transfer", { privateInput: privateFrame })';
+    expect(harness).toContain(transfer);
+    expect(harness).toContain('custody.out.trim() !== "CUSTODY_VERIFIED"');
+    expect(harness.indexOf(transfer)).toBeLessThan(harness.indexOf('const custody = await docker(["exec", installer, "node", "-e", packagedVolumeCustodySource()]'));
     expect(harness).not.toContain('"--tls-disable-host-verification"');
     expect(harness).not.toContain('"--allow-no-auth"');
     expect(harness).not.toContain('"--privileged"');

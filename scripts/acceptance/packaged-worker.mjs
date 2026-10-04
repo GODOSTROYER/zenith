@@ -30,8 +30,8 @@ const diagnosticRoles = new Set(["postgres", "temporal", "worker", "worker-recov
 const refusalCommandPhases = new Set(refusalKinds.flatMap((kind) => [`refusal-launch-${kind}`, `refusal-exit-${kind}`, `refusal-logs-${kind}`]));
 const diagnosticCommandPhases = new Set([...refusalCommandPhases,
   "private-tls-tool", "private-tls-ca", "private-tls-leaf", "private-tls-sign", "private-tls-verify",
-  "private-installer-start", "private-server-copy", "private-client-copy", "private-volume-custody", "private-installer-stop"]);
-const commandFailureCategories = new Set(["command-launch", "command-timeout", "command-output-limit", "command-exit", "command-signal"]);
+  "private-installer-start", "private-server-copy", "private-client-copy", "private-files-transfer", "private-volume-custody", "private-installer-stop"]);
+const commandFailureCategories = new Set(["command-launch", "command-timeout", "command-output-limit", "command-input", "command-exit", "command-signal"]);
 export const REFUSAL_LAUNCH_TIMEOUT_MS = 120_000;
 export const REFUSAL_EXIT_TIMEOUT_MS = 45_000;
 
@@ -225,7 +225,7 @@ const activeChildren = new Set();
 const OUTPUT_LIMIT_BYTES = 2 * 1024 * 1024;
 export class PackagedCommandError extends Error {
   /** @param {string} phase
-   * @param {"command-launch" | "command-timeout" | "command-output-limit" | "command-exit" | "command-signal"} category
+   * @param {"command-launch" | "command-timeout" | "command-output-limit" | "command-input" | "command-exit" | "command-signal"} category
    * @param {number | null} exitCode
    * @param {string | null} signal
    */
@@ -327,33 +327,174 @@ export function packagedVolumeCustodySource() {
   return `try { (${establishPackagedVolumeCustody.toString()})(require('node:fs')); console.log('CUSTODY_VERIFIED'); } catch { process.exit(1); }`;
 }
 
-export async function command(binary, args, phase, { timeout = 120_000, allowFailure = false } = {}) {
+const PRIVATE_FRAME_MAGIC = "ZENITH-PRIVATE-FILES-V1\n";
+const PRIVATE_FILE_NAMES = ["ca.crt", "server.crt", "server.key", "server.yaml", "ca.crt", "client.crt", "client.key", "rogue-client.crt", "rogue-client.key"];
+export const PRIVATE_TRANSFER_LIMIT_BYTES = Buffer.byteLength(PRIVATE_FRAME_MAGIC) + 9 * (4 + 65536);
+
+/** Fixed order only; filenames, owners and modes never come from the frame. */
+export function packagedPrivateTransferPayload(files) {
+  if (!Array.isArray(files) || files.length !== 9 || files.some(value => !Buffer.isBuffer(value) || value.length < 1 || value.length > 65536)) {
+    throw new Error("Private file transfer is unconfirmed.");
+  }
+  const chunks = [Buffer.from(PRIVATE_FRAME_MAGIC)];
+  for (const file of files) { const length = Buffer.alloc(4); length.writeUInt32BE(file.length); chunks.push(length, file); }
+  return Buffer.concat(chunks);
+}
+
+/** Linux-only receiver. Entire frame and both empty parents precede every write. */
+function installPackagedPrivateFiles(f) {
+  const refuse = () => { throw new Error("Private file transfer is unconfirmed."); };
+  const magic = Buffer.from("ZENITH-PRIVATE-FILES-V1\n"), maximum = magic.length + 9 * (4 + 65536);
+  const bytes = Buffer.alloc(maximum + 1), descriptors = [];
+  const groups = [{ name: "/server", names: ["ca.crt", "server.crt", "server.key", "server.yaml"] },
+    { name: "/client", names: ["ca.crt", "client.crt", "client.key", "rogue-client.crt", "rogue-client.key"] }];
+  const same = (a, b) => ["dev", "ino", "uid", "gid", "mode", "nlink"].every(key => a[key] === b[key]);
+  if (process.getuid() !== 0 || process.getgid() !== 0 || !f.constants.O_NOFOLLOW || !f.constants.O_DIRECTORY || !f.constants.O_EXCL) refuse();
+  try {
+    let size = 0;
+    while (size < bytes.length) { const count = f.readSync(0, bytes, size, bytes.length - size, null); if (!count) break; size += count; }
+    if (size > maximum || !bytes.subarray(0, magic.length).equals(magic)) refuse();
+    let offset = magic.length;
+    const files = [];
+    for (let i = 0; i < 9; i++) {
+      if (offset + 4 > size) refuse();
+      const length = bytes.readUInt32BE(offset); offset += 4;
+      if (length < 1 || length > 65536 || offset + length > size) refuse();
+      files.push(bytes.subarray(offset, offset + length)); offset += length;
+    }
+    if (offset !== size) refuse();
+    for (const group of groups) {
+      const before = f.lstatSync(group.name);
+      if (!before.isDirectory() || before.isSymbolicLink() || before.uid !== 0 || before.gid !== 0 || ![0o700, 0o755].includes(before.mode & 0o7777)) refuse();
+      group.fd = f.openSync(group.name, f.constants.O_RDONLY | f.constants.O_NOFOLLOW | f.constants.O_DIRECTORY); descriptors.push(group.fd);
+      group.state = before; group.created = [];
+      if (!same(before, f.fstatSync(group.fd)) || !same(before, f.lstatSync(group.name)) || f.readdirSync(group.name).length) refuse();
+    }
+    const parent = group => {
+      if (!same(group.state, f.fstatSync(group.fd)) || !same(group.state, f.lstatSync(group.name))
+        || JSON.stringify(f.readdirSync(group.name).sort()) !== JSON.stringify([...group.created].sort())) refuse();
+    };
+    let index = 0;
+    for (const group of groups) for (const name of group.names) {
+      for (const root of groups) parent(root);
+      // The parent inode is pinned even if a path is substituted. Leaves cannot exist or be followed.
+      const target = `/proc/self/fd/${group.fd}/${name}`;
+      const fd = f.openSync(target, f.constants.O_RDWR | f.constants.O_CREAT | f.constants.O_EXCL | f.constants.O_NOFOLLOW, 0o600); descriptors.push(fd);
+      const initial = f.fstatSync(fd);
+      if (!initial.isFile() || initial.uid !== 0 || initial.gid !== 0 || initial.nlink !== 1 || initial.size !== 0 || (initial.mode & 0o7777) !== 0o600
+        || !same(initial, f.lstatSync(target))) refuse();
+      group.created.push(name);
+      for (const root of groups) parent(root);
+      const content = files[index++]; let written = 0;
+      while (written < content.length) { const count = f.writeSync(fd, content, written, content.length - written, written); if (!count) refuse(); written += count; }
+      f.fsyncSync(fd);
+      const after = f.fstatSync(fd), named = f.lstatSync(target), readback = Buffer.alloc(content.length + 1);
+      let read = 0;
+      while (read < readback.length) { const count = f.readSync(fd, readback, read, readback.length - read, read); if (!count) break; read += count; }
+      const final = f.fstatSync(fd), finalName = f.lstatSync(target);
+      if (!same(initial, after) || !same(after, named) || !same(after, final) || !same(final, finalName)
+        || [after, named, final, finalName].some(state => state.size !== content.length) || read !== content.length
+        || !readback.subarray(0, read).equals(content)) { readback.fill(0); refuse(); }
+      readback.fill(0);
+      for (const root of groups) parent(root);
+    }
+    for (const group of groups) parent(group);
+  } finally { bytes.fill(0); for (const fd of descriptors.reverse()) f.closeSync(fd); }
+}
+
+/** Exported exact receiver for root's independent Linux probe; it emits no byte content or errors. */
+export function packagedPrivateTransferSource() {
+  return `try { (${installPackagedPrivateFiles.toString()})(require('node:fs')); } catch { process.exit(1); }`;
+}
+
+/** Secure, bounded host capture; only the nine installed files enter stdin. */
+export async function preparePackagedPrivateTransfer(scratch, certificateSha256, configurationSha256) {
+  const refuse = () => { throw new Error("Private file transfer is unconfirmed."); };
+  const buffers = new Map();
+  const same = (a, b) => ["dev", "ino", "uid", "gid", "mode", "size", "nlink", "mtimeMs", "ctimeMs"].every(key => a[key] === b[key]);
+  try {
+    const before = await lstat(scratch);
+    if (!before.isDirectory() || before.isSymbolicLink() || before.uid !== process.getuid?.() || (before.mode & 0o7777) !== 0o700) refuse();
+    if (!constants.O_NOFOLLOW || !constants.O_NONBLOCK) refuse();
+    for (const name of new Set(PRIVATE_FILE_NAMES)) {
+      const target = path.join(scratch, name), observed = await lstat(target);
+      if (!observed.isFile() || observed.isSymbolicLink() || observed.uid !== before.uid || observed.gid !== before.gid
+        || (observed.mode & 0o7777) !== 0o600 || observed.nlink !== 1 || observed.size < 1 || observed.size > 65536) refuse();
+      const handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+      try {
+        if (!same(observed, await handle.stat())) refuse();
+        const buffer = Buffer.alloc(65537); let size = 0;
+        while (size < buffer.length) { const result = await handle.read(buffer, size, buffer.length - size, null); if (!result.bytesRead) break; size += result.bytesRead; }
+        if (size !== observed.size || !same(observed, await handle.stat()) || !same(observed, await lstat(target))) { buffer.fill(0); refuse(); }
+        buffers.set(name, buffer.subarray(0, size));
+      } finally { await handle.close(); }
+    }
+    for (const leaf of ["ca", "server", "client", "rogue-client"]) {
+      if (createHash("sha256").update(buffers.get(`${leaf}.crt`)).digest("hex") !== certificateSha256?.[leaf]) refuse();
+      if (leaf !== "ca" && !new X509Certificate(buffers.get(`${leaf}.crt`)).checkPrivateKey(createPrivateKey(buffers.get(`${leaf}.key`)))) refuse();
+    }
+    if (createHash("sha256").update(buffers.get("server.yaml")).digest("hex") !== configurationSha256 || !same(before, await lstat(scratch))) refuse();
+    return packagedPrivateTransferPayload(PRIVATE_FILE_NAMES.map(name => buffers.get(name)));
+  } catch { return refuse(); }
+  finally { for (const buffer of buffers.values()) buffer.fill(0); }
+}
+
+/** @param {string} binary @param {string[]} args @param {string} phase
+ * @param {{ timeout?: number, allowFailure?: boolean, privateInput?: unknown }} [options]
+ */
+export async function command(binary, args, phase, { timeout = 120_000, allowFailure = false, privateInput = undefined } = {}) {
+  const privateTransfer = privateInput !== undefined;
+  if (privateTransfer && (!Buffer.isBuffer(privateInput) || privateInput.length < 1 || privateInput.length > PRIVATE_TRANSFER_LIMIT_BYTES)) {
+    throw new PackagedCommandError(phase, "command-input");
+  }
   return new Promise((resolve, reject) => {
-    const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let child;
+    try { child = spawn(binary, args, { stdio: [privateTransfer ? "pipe" : "ignore", "pipe", "pipe"] }); }
+    catch (error) { reject(privateTransfer ? new PackagedCommandError(phase, "command-launch") : error); return; }
     activeChildren.add(child);
     let out = "";
     let err = "";
     let overflow = false;
     let timedOut = false;
+    let inputFailed = false;
+    let inputFinished = !privateTransfer;
     let outBytes = 0;
     let errBytes = 0;
     child.stdout.on("data", (chunk) => {
       outBytes += chunk.length;
       if (outBytes > OUTPUT_LIMIT_BYTES) { overflow = true; child.kill("SIGKILL"); }
-      else out += chunk;
+      else if (!privateTransfer) out += chunk;
     });
     child.stderr.on("data", (chunk) => {
       errBytes += chunk.length;
       if (errBytes > OUTPUT_LIMIT_BYTES) { overflow = true; child.kill("SIGKILL"); }
-      else err += chunk;
+      else if (!privateTransfer) err += chunk;
     });
+    if (privateTransfer) {
+      let offset = 0;
+      const failed = () => { inputFailed = true; child.kill("SIGKILL"); };
+      const pump = () => {
+        try {
+          while (offset < privateInput.length) {
+            const end = Math.min(offset + 32768, privateInput.length), chunk = privateInput.subarray(offset, end); offset = end;
+            if (!child.stdin.write(chunk)) return; // Resume only after backpressure drains.
+          }
+          child.stdin.end();
+        } catch { failed(); }
+      };
+      child.stdin.on("error", failed);
+      child.stdin.on("drain", pump);
+      child.stdin.once("finish", () => { inputFinished = true; });
+      child.stdin.once("close", () => { if (!inputFinished) failed(); });
+      pump();
+    }
     const timer = setTimeout(() => { timedOut = true; child.kill("SIGKILL"); }, timeout);
     child.once("error", () => { activeChildren.delete(child); clearTimeout(timer); reject(new PackagedCommandError(phase, "command-launch")); });
     child.once("close", (code, signal) => {
       clearTimeout(timer);
       activeChildren.delete(child);
-      if (overflow || timedOut || signal || (code !== 0 && !allowFailure)) reject(new PackagedCommandError(phase,
-        overflow ? "command-output-limit" : timedOut ? "command-timeout" : signal ? "command-signal" : "command-exit", code, signal));
+      if (overflow || timedOut || inputFailed || !inputFinished || signal || (code !== 0 && (privateTransfer || !allowFailure))) reject(new PackagedCommandError(phase,
+        overflow ? "command-output-limit" : timedOut ? "command-timeout" : inputFailed || !inputFinished ? "command-input" : signal ? "command-signal" : "command-exit", code, signal));
       else resolve({ code, out, err });
     });
   });
@@ -1063,7 +1204,8 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     for (const name of tls.secretFiles) tlsSecrets.push(await readFile(path.join(scratch, name), "utf8"));
     const template = await readFile(TEMPORAL_CONFIG_TEMPLATE, "utf8");
     evidence.temporalConfigSha256 = createHash("sha256").update(template).digest("hex");
-    await writeFile(path.join(scratch, "server.yaml"), renderTemporalServerConfiguration(template, password), { mode: 0o600, flag: "wx" });
+    const configuration = renderTemporalServerConfiguration(template, password);
+    await writeFile(path.join(scratch, "server.yaml"), configuration, { mode: 0o600, flag: "wx" });
     const installer = nameContainer("private-credential-installer");
     // Only new labeled named volumes are writable. CHOWN is limited to this
     // short-lived initializer; the server/worker have no added capabilities.
@@ -1072,8 +1214,10 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
       "--security-opt=no-new-privileges", "--memory", "128m", "--pids-limit", "32",
       "--mount", `type=volume,source=${volumes[1]},target=/server`, "--mount", `type=volume,source=${volumes[3]},target=/client`,
       "--entrypoint", "node", image, "-e", "const f=require('node:fs');for(const p of ['/server','/client'])if(f.readdirSync(p).length)process.exit(1);setInterval(()=>{},1000)"], "private-installer-start");
-    for (const name of ["ca.crt", "server.crt", "server.key", "server.yaml"]) await docker(["cp", path.join(scratch, name), `${installer}:/server/${name}`], "private-server-copy");
-    for (const name of ["ca.crt", "client.crt", "client.key", "rogue-client.crt", "rogue-client.key"]) await docker(["cp", path.join(scratch, name), `${installer}:/client/${name}`], "private-client-copy");
+    const privateFrame = await preparePackagedPrivateTransfer(scratch, tls.certificateSha256, createHash("sha256").update(configuration).digest("hex"));
+    try {
+      await docker(["exec", "-i", installer, "node", "-e", packagedPrivateTransferSource()], "private-files-transfer", { privateInput: privateFrame });
+    } finally { privateFrame.fill(0); }
     const custody = await docker(["exec", installer, "node", "-e", packagedVolumeCustodySource()], "private-volume-custody");
     if (custody.out.trim() !== "CUSTODY_VERIFIED") throw new Error("Private volume custody is unconfirmed.");
     await docker(["stop", "--time", "5", installer], "private-installer-stop");

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Journal, SqliteAgentJournal, digest, type Principal, type Proposal } from '../src/lib/agent-access/control/journal';
 import {
-  PgAgentJournal, SCAN_LIMIT, claimStatement, expireStatement, finalizeStatement,
+  AGENT_CONTROL_MIGRATIONS, PgAgentJournal, SCAN_LIMIT, claimStatement, expireStatement, finalizeStatement,
   reconcileStatement, renewStatement, sweepUploadsStatement, type AnySql,
 } from '../src/lib/agent-access/control/journal-pg';
 import { createPgAuthorityClient, type Sql } from '../src/lib/hosted/authority/pg/client';
@@ -297,10 +297,10 @@ describe('postgres journal statements', () => {
 
   it('refuses OAuth client grants rather than answering "no grant"', async () => {
     const journal = new PgAgentJournal({ client: recordingSql().tag });
-    // An empty list would read as "this client has no grant", which is a
-    // different — and wrong — answer from "this store does not hold grants".
-    await expect(journal.getGrant('s', 'c', 'w')).rejects.toThrow('not available on the Postgres agent control plane');
-    await expect(journal.grants('s', 'w')).rejects.toThrow('ZENITH_STORE=file');
+    // Retain the historical identity: an absent migration is unavailable,
+    // never an empty scoped grant list. Native migration15 positives are separate.
+    await expect(journal.getGrant('s', 'c', 'w')).rejects.toMatchObject({ code: 'journal_schema', status: 503 });
+    await expect(journal.grants('s', 'w')).rejects.toMatchObject({ code: 'journal_schema', status: 503 });
   });
 });
 
@@ -352,14 +352,15 @@ describe.skipIf(!PG_LIVE)('postgres agent journal (live)', () => {
       "do $$ begin if not exists (select 1 from pg_roles where rolname = 'service_role') " +
         'then create role service_role nologin noinherit; end if; end $$;'
     );
-    await clientA.unsafe(readFileSync(join(process.cwd(), 'supabase/migrations/0007_agent_control.sql'), 'utf8'));
-    // Version 1 is written by `0006_agent_link.sql`, which another packet owns
-    // and which may not be in this tree yet. The journal's schema check is
-    // proven on its own below; gating this whole suite on a file P1 writes
-    // would prove nothing about this one.
-    await clientA.unsafe(
-      "insert into agent.schema_migrations (version, name, applied_at) values (1, 'agent-link-v1', '2026-01-01T00:00:00.000Z') on conflict (version) do nothing"
-    );
+    // Apply real canonical old journal migrations; never fabricate ledger proof.
+    for (const migration of AGENT_CONTROL_MIGRATIONS.filter(entry => entry.scope === 'journal'))
+      await clientA.unsafe(readFileSync(join(process.cwd(), 'supabase/migrations', migration.file), 'utf8'));
+    // Historical all-table grants must not widen an already-installed OAuth
+    // table. Old non-OAuth fixtures still need only schema versions 1 and 2.
+    const installed = await clientA`select version from agent.schema_migrations`;
+    for (const migration of AGENT_CONTROL_MIGRATIONS.filter(entry => entry.scope === 'oauth'
+      && installed.some(row => Number(row.version) === entry.version)))
+      await clientA.unsafe(readFileSync(join(process.cwd(), 'supabase/migrations', migration.file), 'utf8'));
   });
 
   afterAll(async () => {

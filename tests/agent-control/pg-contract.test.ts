@@ -37,6 +37,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Sql } from "@/lib/hosted/authority/pg/client";
+import { AGENT_CONTROL_MIGRATIONS } from "@/lib/agent-access/control/journal-pg";
 
 /* --------------------------- the lane's two gates -------------------------- */
 
@@ -111,8 +112,8 @@ beforeAll(async () => {
   const ledger = await alpha`select version, name from agent.schema_migrations order by version`;
   expect(
     ledger.map((row) => `${String(row.version)}:${String(row.name)}`),
-    "supabase/migrations/0006_agent_link.sql and 0007_agent_control.sql must both be applied"
-  ).toEqual(["1:agent-link-v1", "2:agent-control-v1"]);
+    "The canonical agent migration registry must be applied"
+  ).toEqual(AGENT_CONTROL_MIGRATIONS.map(migration => `${migration.version}:${migration.name}`));
 });
 
 afterAll(async () => {

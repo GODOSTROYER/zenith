@@ -96,6 +96,7 @@ MIGRATIONS=(
   "0012_waitlist_admin.sql"
   "0013_google_waitlist_identity.sql"
   "0014_platform_core.sql"
+  "0015_agent_oauth_grants.sql"
 )
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
@@ -111,9 +112,10 @@ fi
 # This verifier uses the installed runtime, never an npx download. Check the
 # prerequisite before applying DDL so missing dependencies fail immediately.
 PLATFORM_VERIFIER="scripts/platform/verify-schema.ts"
+AGENT_VERIFIER="scripts/agent/verify-schema.ts"
 TSX="node_modules/.bin/tsx"
-if [ ! -f "$PLATFORM_VERIFIER" ] || [ ! -x "$TSX" ]; then
-  echo "::error::The platform schema verifier or installed tsx is missing. Run npm ci --ignore-scripts before applying migrations." >&2
+if [ ! -f "$PLATFORM_VERIFIER" ] || [ ! -f "$AGENT_VERIFIER" ] || [ ! -x "$TSX" ]; then
+  echo "::error::The canonical agent/platform schema verifier or installed tsx is missing. Run npm ci --ignore-scripts before applying migrations." >&2
   exit 1
 fi
 
@@ -226,29 +228,20 @@ counts="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select schemaname || '=' || count(*) from pg_tables where schemaname in ('public','hosted','agent','platform') group by schemaname order by schemaname" "$SUPABASE_DB_URL")"
 echo "tables: $(echo "$counts" | tr '\n' ' ')"
 
-# --- the agent schema (0006, 0007) ------------------------------------------
-#
-# Same three questions as above, asked of the schema the agent link flow and
-# the agent control plane live in. The ledger is checked by exact string for
-# the same reason `hosted.schema_migrations` is: `pgAgentJournal()` and
-# `pgCredentialAuthority()` refuse every read and write until both rows are
-# present, so a lane that applied the DDL but not the ledger row would fail
-# later, with a less useful message.
+# --- the agent schema (0006, 0007, 0015) ------------------------------------
+# Names/versions come from the same canonical registry as the OAuth journal.
+# This verifies native table/RLS/least privileges without inventing an agent checksum.
 PSQL_PHASE="agent_schema"
-agent_ledger="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
-  --command "select string_agg(version || ':' || name, ', ' order by version) from agent.schema_migrations" "$SUPABASE_DB_URL")"
-if [ "$agent_ledger" != "1:agent-link-v1, 2:agent-control-v1" ]; then
-  echo "::error::agent.schema_migrations is not 1:agent-link-v1, 2:agent-control-v1; the agent journal and credential authority will refuse every request." >&2
-  exit 1
-fi
+"$TSX" "$AGENT_VERIFIER"
 
-# The ten named indexes of docs/HOSTED-POSTGRES.md §9 step 3. A subset check,
+# The runbook journal indexes plus the canonical OAuth binding. A subset check,
 # not an equality one: the primary keys and the two UNIQUE constraints create
 # their own system-named indexes beside these, and pinning that list would make
 # this script fail on a rename PostgreSQL chose.
 AGENT_INDEXES=(
   agent_credentials_live
   agent_credentials_subject
+  agent_oauth_grants_binding
   agent_link_codes_expiry
   agent_operation_events_op
   agent_operations_leased
@@ -262,7 +255,7 @@ present="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select indexname from pg_indexes where schemaname = 'agent' order by 1" "$SUPABASE_DB_URL")"
 for index in "${AGENT_INDEXES[@]}"; do
   if ! printf '%s\n' "$present" | grep -qx -- "$index"; then
-    echo "::error::agent.${index} is missing; 0006/0007 did not apply the index the runbook names." >&2
+    echo "::error::agent.${index} is missing; the canonical agent migrations did not apply the required index." >&2
     exit 1
   fi
 done

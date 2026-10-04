@@ -29,7 +29,7 @@ import { composeReconcileSweepRuntime } from "@/lib/platform/execution";
 import type { RegisteredWorkerActivities } from "@/lib/workflows/types";
 import { listDrivers } from "@/lib/drivers/types";
 import { loadPolicyEngine } from "@/lib/policy";
-import { startPlanArtifactJanitor } from "@/lib/execution/plan-janitor";
+import { planArtifactRetentionPreviewFromEnv, startPlanArtifactJanitor } from "@/lib/execution/plan-janitor";
 import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
 import { createActivities } from "@/lib/workflows/activities";
 import { connectionOptionsFor, describeTemporalConfig } from "@/lib/workflows/config";
@@ -47,6 +47,8 @@ function log(level: "info" | "warn" | "error", msg: string, fields: Record<strin
 let failureCategory: ExecutionFailureCategory = "configuration";
 async function main(): Promise<void> {
   const config = executionWorkerConfigFromEnv();
+  const retentionPreview = process.env.ZENITH_WORKER_PLAN_RETENTION_PREVIEW === undefined
+    ? undefined : planArtifactRetentionPreviewFromEnv();
   const dataConverter = temporalDataConverterFromEnv();
   let db: PlatformDbHandle | undefined;
   let connection: NativeConnection | undefined;
@@ -139,7 +141,7 @@ async function main(): Promise<void> {
     janitor = startPlanArtifactJanitor(db, (result) => {
       if (result) log("info", "plan maintenance", { ...result });
       else log("warn", "plan maintenance unavailable; check plan directory and control store");
-    });
+    }, { retentionPreview });
 
     const startedAt = Date.now();
     log("info", "execution worker polling", {

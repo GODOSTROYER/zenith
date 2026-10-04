@@ -265,6 +265,7 @@ Read by `executionWorkerConfigFromEnv`. Details and defaults:
 | `ZENITH_WORKER_IDENTITY` | `zenith-exec-<host>-<pid>` (sanitised, at most 64 characters) | Worker identity shown in Temporal and used in every lease holder: 1-64 letters, digits, `.`, `_` or `-`; any other explicit value is refused at startup. |
 | `ZENITH_WORKER_HEALTH_PORT` | `9464` | Loopback port for `/healthz` (process up) and `/readyz` (Temporal, platform store, policy bundle, drivers). |
 | `ZENITH_WORKER_PLAN_MAX_AGE_HOURS` | `24` | Legacy inspection threshold only; maintenance never deletes plan files. |
+| `ZENITH_WORKER_PLAN_RETENTION_PREVIEW` | unset (disabled) | Optional bounded JSON configuration for counts-only artifact retention preview; exactly `workspaceId`, `createdBefore`, `limit` and `holdOperationIds`. Invalid configuration refuses worker startup. |
 | `ZENITH_PLAN_ARTIFACT_KEY` | unset | **Secret**, required for workers: a dedicated 64-hex key disjoint from every product-vault key; share across cooperating workers and back up separately from PostgreSQL. |
 | `ZENITH_PLAN_ARTIFACT_PREVIOUS_KEYS` | unset | **Secret**, optional: private JSON array of previous 32-byte artifact keys (hex/base64), decrypt-only. Retain while originals may need authentication. |
 | `ZENITH_TOFU_IDENTITY_FILE` | packaged path | Checksum-verified packaged OpenTofu identity; version, platform and binary hash must match before polling. |
@@ -272,6 +273,39 @@ Read by `executionWorkerConfigFromEnv`. Details and defaults:
 | `ZENITH_SECRET_KEY` | unset | **Secret**, required: 64 hex characters. `derivePlanFingerprintKey` uses HKDF-SHA256 with `zenith.tofu.plan.fingerprint.v1`; there is no public default. The key also protects product vault secrets and encrypts Temporal workflow payloads (AES-256-GCM, HKDF info `zenith.temporal.payload.v1`); give the web app and cooperating workers the same key and back it up separately. |
 | `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` | unset | **Secret**, optional: a JSON array of earlier 64-hex `ZENITH_SECRET_KEY` values. Payloads carry a key id; after rotating `ZENITH_SECRET_KEY`, list the old keys here (on the web app and every worker) so workflow histories written under them still decode. A malformed value is refused at startup. |
 | `ZENITH_VAULT_PREVIOUS_SECRET_KEYS` | unset | **Secret**, optional: a private JSON array of previous product-vault keys, each 32 bytes encoded as hex or base64. Vault reads try the current key and then these decrypt-only keys; writes use only `ZENITH_SECRET_KEY`. Invalid JSON or keys fail closed on vault reads and command startup, without echoing values. This is separate from Temporal history keys. The operator command uses `ZENITH_STORE` (`file` by default; `postgres` for `public.secrets` via `SUPABASE_DB_URL`), requires an explicit workspace, and never uses `ZENITH_PLATFORM_DB_URL` to select the product database. See [vault key re-wrap](RECOVERY.md#product-vault-key-re-wrap). |
+
+Leave `ZENITH_WORKER_PLAN_RETENTION_PREVIEW` unset to disable the optional preview.
+An explicitly present value must be a JSON object of at most 131,072 UTF-8 bytes
+with exactly these four required keys:
+
+- `workspaceId`: the owning workspace identifier, 1 to 128 ASCII letters,
+  digits, underscores or hyphens.
+- `createdBefore`: an explicit real calendar timestamp already normalized to
+  millisecond UTC form `YYYY-MM-DDTHH:mm:ss.SSSZ`, with a nonzero year. Dates
+  without time, offsets, missing milliseconds and dates that normalize to a
+  different value are refused. There is no default cutoff or retention duration.
+- `limit`: a JSON integer from 1 to 1000, bounding the number of artifacts
+  counted in the owning workspace's oldest-first window.
+- `holdOperationIds`: an array of at most 1000 unique operation identifiers,
+  each using the same 1 to 128 character rules as `workspaceId`. Supply an empty
+  array when no operations are listed; omitting the key is invalid.
+
+Empty, malformed, oversized or otherwise invalid configuration fails closed
+before codec setup, health listener, store opening or polling. Startup diagnostics
+do not echo the configured values. The preview uses the worker's existing guarded
+control-store handle and runs after normal logical artifact expiry in the existing
+single-flight maintenance pass. It reports `mode: "dry-run"`, `scanned`, `hasMore`
+and the `held`, `active`, `unresolved`, `unavailable`, `withinRetention` and
+`archiveReview` counts. Plan or state contents, row identities, storage references
+and keys are absent from the preview output.
+
+These counts are a current read-only snapshot, not authority for later cleanup.
+`archiveReview` indicates possible future copy review; the preview does not
+archive, delete, prune or unlink anything. Listed holds are preview classification
+only, not accepted durable holds. They do not extend approvals or artifact expiry,
+waive normal logical expiry or alter legacy inspection. Existing receipts,
+tombstones and replay prevention remain unchanged. No destructive retention
+policy is enabled or approved; such a policy requires separate operator approval.
 
 ### 2.6 OpenTofu engine
 
@@ -356,6 +390,10 @@ How the bundle ships:
 |---|---|---|---|
 | `ZENITH_PLATFORM_BROKER_MEMORY` | unset | no | `1` makes the broker use a per-process in-memory store. Tests and local development **only**: state is lost on restart and two instances share nothing. Never set it in production. Without it the broker uses the platform store and answers `platform_store_unavailable` when it cannot open it; it never falls back to memory silently. |
 | `ZENITH_PLATFORM_ORIGIN` | `ZENITH_AGENT_ORIGIN`, then the request's own origin | no | The exact origin a browser approval, rejection or admin-setting request must come from: the `Origin` header must equal it (no prefix, no subdomain, not `null`) and `Sec-Fetch-Site`, when the browser sends it, must be `same-origin`. Set it to your public origin in production. |
+| `ZENITH_AGENT_OAUTH_ISSUER` | unset | no | Exact trusted issuer for external OAuth JWTs. Set it together with `ZENITH_AGENT_OAUTH_JWKS`; leaving both unset disables this authentication path. Each URL must use HTTPS and have no credentials, query or fragment. Issuer matching uses the configured string exactly. |
+| `ZENITH_AGENT_OAUTH_JWKS` | unset | no | HTTPS JWKS URL for the configured issuer. A partial or invalid issuer/JWKS pair refuses OAuth authentication. Tokens must also name the configured agent MCP resource as their audience; a valid signature alone grants no workspace access. |
+| `ZENITH_AGENT_OAUTH_CLIENT_CLAIM` | `client_id` | no | Signed claim that identifies the OAuth client: only `client_id` or `azp` is supported. It must match the client in the current browser consent grant. |
+| `ZENITH_AGENT_OAUTH_SUBJECT_CLAIM` | `sub` | no | Signed claim mapped to the product human subject. The configured claim name must start with a letter and contain at most 200 letters, digits, underscores, colons, slashes, dots or hyphens. Its value must be a bounded native subject identifier and match the current consent grant. |
 | `ZENITH_RUNNER_RESULT_KEY` | derived from `ZENITH_CONTROL_SIGNING_JWK` | **yes** | base64url, 32 bytes. Seals runner and `zenithd` job results at rest (AES-256-GCM, bound to the workspace and job id), because a result can carry exactly what must never be stored in the clear (an AWS response body, a plan with sensitive values). Unset, the key is derived (HKDF-SHA256) from the private scalar of the local control signing JWK; with a KMS-backed control signer it **must** be set. Whoever opens results, an activity in the worker, needs the same key as the routes that seal them. Rotating it, or the signing key it was derived from, makes results still in flight unreadable; their operations end `uncertain`. |
 | `ZENITH_GITHUB_APP_ID` | unset | no | Numeric GitHub App id, on web and worker. Together with the private-key file enables C3's tenant-scoped source binding. Unset keeps public reads anonymous. Register the App and apply platform migration 6 as described in [BUILDS.md](BUILDS.md#github-app-registration-and-workspace-binding). |
 | `ZENITH_GITHUB_APP_PRIVATE_KEY_FILE` | unset | path only; file contents are **secret** | Absolute server path to the RSA App PEM, on web and worker. Read on demand to sign bounded RS256 JWTs. Never copy the PEM into an environment value or diagnostics. Partial/invalid configuration refuses access. |
@@ -369,6 +407,14 @@ Identity is not new configuration: browsers use the product's Supabase setup
 callers use the product's `za_` credentials, verified against its credential authority
 on every request, so revocation is immediate. The broker signs grants with the control
 signing key (section 2.3).
+
+External OAuth callers also need a current browser consent grant for the exact
+subject, client, workspace and issuer. Revoked or expired grants refuse access;
+effective scopes are the intersection of the signed token and that grant, and must
+include `zenith:read`. The token must have a supported signing algorithm and a
+lifetime of at most one hour. These settings configure verification and claim
+mapping; they do not create consent or authorize a provider mutation. External
+OAuth wire and browser acceptance remain separate checks.
 
 What the broker enforces beyond the Rego rules, from `src/lib/capabilities/evaluate.ts`
 (guards that only tighten): `plan_required` (an `infrastructure.apply` or `destroy`
@@ -564,7 +610,7 @@ differs from the code is refused (`schema_tampered`): shipped migrations are
 never edited, a change is a new migration.
 
 If you would rather apply SQL yourself (the Supabase SQL editor, `psql`), apply
-`supabase/migrations/0014_platform_core.sql`. It is **generated** from the
+`supabase/migrations/0016_platform_core.sql`. It is **generated** from the
 TypeScript migrations by `npm run platform:emit-sql` (`-- --check` fails when it
 is out of date; a test enforces byte equality). It is idempotent, writes the same
 ledger rows with the same checksums (so the TypeScript migrator recognises it as
@@ -575,12 +621,12 @@ API's exposed schemas.**
 The ordered canonical registry is `PLATFORM_MIGRATIONS` in
 `src/lib/controlplane/db/migrations/index.ts`; each SQL checksum comes from
 `migrationChecksum`. The following inventory was refreshed from the committed
-aggregate emitter output based on input `dc40ee9ad590640c78659796c9b932436ea1e426` with additive migration 12 registered in this candidate. Runtime source binding remains the exact integrated commit.
+current aggregate emitter output, including additive `mixed_child_intents` migration 14. Runtime source binding remains the exact integrated commit.
 `tests/docs/operator-docs.test.ts` imports that canonical registry and checksum
 function, then verifies every row, the count and highest version. A new migration
 requires a regenerated inventory; changing a literal count alone does not pass.
 
-Registered migrations: **13**; highest version: **13**.
+Registered migrations: **14**; highest version: **14**.
 
 <!-- platform-migrations:start -->
 | Version | Name | SQL SHA-256 |
@@ -598,6 +644,7 @@ Registered migrations: **13**; highest version: **13**.
 | 11 | `agent_effect_receipts` | `f6c9d90f69447e430ad9ef2b8368b137b26cadcd05776d689959c99da9e0430b` |
 | 12 | `workflow_start_intents` | `7eaa5e87e594d741e772e0cd9b77010c796d36c2c9ceac41f8f47720c804d811` |
 | 13 | `approved_source_snapshots` | `eb513c01d41b1f7fbc680715b86699147374d9786aa3e17e355897388ff26e95` |
+| 14 | `mixed_child_intents` | `5d676658116c3e66b1238c24a72da4ddbd65f06f30c57cf5dc753bcc0a56961e` |
 <!-- platform-migrations:end -->
 
 For the actual target, `npm run migrate:platform -- --status` calls the canonical
@@ -627,7 +674,7 @@ A database that applied the emitted SQL before a later
 migration landed is behind and the application refuses to use it until you re-apply
 the file or run `npm run migrate:platform`.
 
-The emitted file keeps one name as migrations are added; it grows. If you apply
+The current aggregate is `0016_platform_core.sql`; historical `0014_platform_core.sql` remains unchanged. The committed Supabase bootstrap applies `0016` after the unchanged `0014` and agent OAuth `0015` migrations. If you apply
 migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any

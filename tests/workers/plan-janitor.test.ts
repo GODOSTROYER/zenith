@@ -7,6 +7,7 @@ import { openPlatformDb, repos } from "@/lib/controlplane/db";
 import { sha256Hex } from "@/lib/controlplane/digest";
 import { TERMINAL_OPERATION_STATUSES, type Sql } from "@/lib/controlplane/types";
 import { PLAN_JANITOR_INTERVAL_MS, planJanitorPass, planMaxAgeFromEnv, startPlanJanitor } from "@/lib/execution/plan-janitor";
+import { planArtifactRetentionPreviewFromEnv, startPlanArtifactJanitor } from "@/lib/execution/plan-janitor";
 import { proposalFor, user } from "../controlplane/_support/harness";
 
 let db: Awaited<ReturnType<typeof openPlatformDb>>;
@@ -145,5 +146,81 @@ describe("plan janitor", () => {
     for (const hours of ["0", "-1", "no", "Infinity", "8761"]) expect(() => planMaxAgeFromEnv({ ZENITH_WORKER_PLAN_MAX_AGE_HOURS: hours })).toThrow("MAX_AGE_HOURS");
     await expect(planJanitorPass(db, { ...options(), limit: 0 })).rejects.toThrow("limit");
     await expect(planJanitorPass(db, { ...options(), clock: () => NaN })).rejects.toThrow("clock");
+  });
+});
+
+describe("plan retention explicit configuration and timer [models]", () => {
+  const configured = () => ({ workspaceId: "ws_preview", createdBefore: "2021-01-01T00:00:00.000Z", limit: 2, holdOperationIds: ["op_held"] });
+  const env = (value: unknown) => ({ ZENITH_WORKER_PLAN_RETENTION_PREVIEW: JSON.stringify(value) });
+  it("leaves preview disabled without selecting a default retention duration", () => {
+    expect(planArtifactRetentionPreviewFromEnv({})).toBeUndefined();
+  });
+  it("captures only explicit immutable workspace cutoff batch and preview holds", () => {
+    const input = configured(), policy = planArtifactRetentionPreviewFromEnv(env(input));
+    expect(policy).toEqual(input); expect(Object.isFrozen(policy)).toBe(true); expect(Object.isFrozen(policy?.holdOperationIds)).toBe(true);
+    input.holdOperationIds[0] = "op_changed"; expect(policy?.holdOperationIds).toEqual(["op_held"]);
+  });
+  it.each(["empty", "malformed", "null", "array", "missing cutoff", "invalid date", "noncanonical time", "zero year", "missing holds", "duplicate holds", "oversized holds", "foreign hold type", "unsafe identifier", "zero batch", "oversized batch", "fractional batch", "extra execute", "extra storage key", "oversized input"])("refuses %s configuration without exposing values", fault => {
+    const raw = configured(), faults: Record<string, unknown> = {
+      null: null, array: [], "missing cutoff": { workspaceId: raw.workspaceId, limit: raw.limit, holdOperationIds: [] },
+      "invalid date": { ...raw, createdBefore: "2021-02-30T00:00:00.000Z" }, "noncanonical time": { ...raw, createdBefore: "2021-01-01" },
+      "zero year": { ...raw, createdBefore: "0000-01-01T00:00:00.000Z" },
+      "missing holds": { workspaceId: raw.workspaceId, createdBefore: raw.createdBefore, limit: raw.limit },
+      "duplicate holds": { ...raw, holdOperationIds: ["op_held", "op_held"] }, "oversized holds": { ...raw, holdOperationIds: Array.from({ length: 1001 }, (_, i) => `op_${i}`) },
+      "foreign hold type": { ...raw, holdOperationIds: [null] }, "unsafe identifier": { ...raw, workspaceId: "ws';synthetic-private-canary" },
+      "zero batch": { ...raw, limit: 0 }, "oversized batch": { ...raw, limit: 1001 }, "fractional batch": { ...raw, limit: 1.5 },
+      "extra execute": { ...raw, execute: true }, "extra storage key": { ...raw, storageKey: "synthetic-private-canary" },
+    };
+    const value = fault === "empty" ? "" : fault === "malformed" ? "{synthetic-private-canary"
+      : fault === "oversized input" ? "synthetic-private-canary".repeat(10_000) : JSON.stringify(faults[fault]);
+    try { planArtifactRetentionPreviewFromEnv({ ZENITH_WORKER_PLAN_RETENTION_PREVIEW: value }); throw new Error("Expected refusal"); }
+    catch (error) { expect(error).toBeInstanceOf(Error); expect((error as Error).message).toBe("ZENITH_WORKER_PLAN_RETENTION_PREVIEW requires explicit bounded dry-run configuration."); }
+  });
+  it("runs existing logical expiry without querying preview when configuration is absent", async () => {
+    const expire = vi.spyOn(repos.planArtifacts, "expire").mockResolvedValue(3), preview = vi.spyOn(repos.planArtifacts, "previewRetention");
+    const report = vi.fn(), janitor = startPlanArtifactJanitor(db, report);
+    try { await janitor.stop(); expect(expire).toHaveBeenCalledOnce(); expect(preview).not.toHaveBeenCalled(); expect(report).toHaveBeenCalledExactlyOnceWith({ expired: 3 }); }
+    finally { expire.mockRestore(); preview.mockRestore(); }
+  });
+  it("integrates read-only counts after unchanged logical expiry and keeps timer single-flight with awaited shutdown", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const entered = Promise.withResolvers<void>(), resume = Promise.withResolvers<void>(), order: string[] = [];
+    const expire = vi.spyOn(repos.planArtifacts, "expire").mockImplementation(async () => { order.push("expiry"); return 2; });
+    const result = { mode: "dry-run" as const, scanned: 2, hasMore: true, held: 1, active: 1, unresolved: 0, unavailable: 0, withinRetention: 0, archiveReview: 0 };
+    const preview = vi.spyOn(repos.planArtifacts, "previewRetention").mockImplementation(async () => { order.push("preview"); entered.resolve(); await resume.promise; return result; });
+    const policy = planArtifactRetentionPreviewFromEnv(env(configured())), report = vi.fn(), janitor = startPlanArtifactJanitor(db, report, { retentionPreview: policy });
+    try {
+      await entered.promise; await vi.advanceTimersByTimeAsync(PLAN_JANITOR_INTERVAL_MS * 2); expect(preview).toHaveBeenCalledOnce();
+      let stopped = false; const stopping = janitor.stop().then(() => { stopped = true; }); await Promise.resolve(); expect(stopped).toBe(false);
+      resume.resolve(); await stopping; expect(stopped).toBe(true); expect(order).toEqual(["expiry", "preview"]);
+      expect(preview).toHaveBeenCalledExactlyOnceWith(db, policy); expect(report).toHaveBeenCalledExactlyOnceWith({ expired: 2, retention: result });
+      await vi.advanceTimersByTimeAsync(PLAN_JANITOR_INTERVAL_MS); expect(preview).toHaveBeenCalledOnce();
+    } finally { resume.resolve(); await janitor.stop(); expire.mockRestore(); preview.mockRestore(); }
+  });
+  it("reports only unavailability when a preview read fails and never logs the private exception", async () => {
+    const expire = vi.spyOn(repos.planArtifacts, "expire").mockResolvedValue(0), preview = vi.spyOn(repos.planArtifacts, "previewRetention").mockRejectedValue(new Error("synthetic-private-canary"));
+    const report = vi.fn(), janitor = startPlanArtifactJanitor(db, report, { retentionPreview: configured() });
+    try { await janitor.stop(); expect(report).toHaveBeenCalledExactlyOnceWith(); expect(JSON.stringify(report.mock.calls)).not.toContain("synthetic-private-canary"); }
+    finally { expire.mockRestore(); preview.mockRestore(); }
+  });
+  it("refuses getter-backed repository configuration before IO without invoking its accessor", async () => {
+    let called = 0, queried = 0; const config = Object.defineProperty(configured(), "workspaceId", { get() { called++; throw new Error("synthetic-private-canary"); } });
+    const sql: Sql = { tx: async fn => fn(sql), query: async () => { queried++; return []; } };
+    await expect(repos.planArtifacts.previewRetention(sql, config)).rejects.toThrow("explicit bounded configuration"); expect(called).toBe(0); expect(queried).toBe(0);
+  });
+  it("refuses an added execution field or getter-backed hold before repository IO", async () => {
+    let queried = 0, called = 0; const sql: Sql = { tx: async fn => fn(sql), query: async () => { queried++; return []; } };
+    const withExecution = { ...configured(), execute: true };
+    await expect(repos.planArtifacts.previewRetention(sql, withExecution)).rejects.toThrow("explicit bounded configuration");
+    const input = configured(); Object.defineProperty(input.holdOperationIds, "0", { get() { called++; throw new Error("synthetic-private-canary"); } });
+    await expect(repos.planArtifacts.previewRetention(sql, input)).rejects.toThrow("explicit bounded configuration");
+    expect(called).toBe(0); expect(queried).toBe(0);
+  });
+  it("parses opt-in worker configuration before codec health store or polling effects using the existing guarded store", async () => {
+    const worker = await import("node:fs/promises").then(fs => fs.readFile(path.resolve("workers/execution/worker.ts"), "utf8"));
+    const parse = worker.indexOf("? undefined : planArtifactRetentionPreviewFromEnv()");
+    expect(parse).toBeGreaterThan(0); for (const effect of ["const dataConverter = temporalDataConverterFromEnv()", "await startHealthServer(", "await openExecutionStore(", "await Worker.create("])
+      expect(parse).toBeLessThan(worker.indexOf(effect));
+    expect(worker).toContain("}, { retentionPreview });"); expect(worker).toContain("startPlanArtifactJanitor(db");
   });
 });

@@ -13,6 +13,7 @@ import { repos } from "@/lib/controlplane/db";
 import { textArray } from "@/lib/controlplane/db/sql";
 import { LeaseUnavailableError, withLease } from "@/lib/controlplane/leases";
 import { TERMINAL_OPERATION_STATUSES, type Sql } from "@/lib/controlplane/types";
+import type { PlanArtifactRetentionPreviewInput, PlanArtifactRetentionPreview } from "@/lib/controlplane/db/repos/plan-artifacts";
 
 export const PLAN_MAX_AGE_MS = 24 * 3600_000;
 export const PLAN_JANITOR_INTERVAL_MS = 5 * 60_000;
@@ -38,6 +39,32 @@ export function planMaxAgeFromEnv(env: Readonly<Record<string, string | undefine
   if (!Number.isFinite(hours) || hours < 1 || hours > 8760)
     throw new Error("ZENITH_WORKER_PLAN_MAX_AGE_HOURS must be from 1 to 8760.");
   return hours * 3600_000;
+}
+
+/** Opt-in copy-review preview. No default retention duration, deletion mode, arbitrary fields or credential output. */
+export function planArtifactRetentionPreviewFromEnv(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): PlanArtifactRetentionPreviewInput | undefined {
+  const raw = env.ZENITH_WORKER_PLAN_RETENTION_PREVIEW;
+  if (raw === undefined) return undefined;
+  const refuse = (): never => { throw new Error("ZENITH_WORKER_PLAN_RETENTION_PREVIEW requires explicit bounded dry-run configuration."); };
+  try {
+    if (!raw || Buffer.byteLength(raw) > 131_072) return refuse();
+    const value: unknown = JSON.parse(raw);
+    if (!value || typeof value !== "object" || Array.isArray(value)) return refuse();
+    const fields = Object.keys(value).sort();
+    if (JSON.stringify(fields) !== JSON.stringify(["createdBefore", "holdOperationIds", "limit", "workspaceId"])) return refuse();
+    const own = (key: string): unknown => Object.getOwnPropertyDescriptor(value, key)?.value;
+    const workspaceId = own("workspaceId"), createdBefore = own("createdBefore"), limit = own("limit"), rawHolds = own("holdOperationIds");
+    const isId = (id: unknown): id is string => typeof id === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(id);
+    if (!isId(workspaceId) || typeof createdBefore !== "string"
+      || !/^(?!0000)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(createdBefore)
+      || !Number.isFinite(Date.parse(createdBefore)) || new Date(createdBefore).toISOString() !== createdBefore
+      || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 1000
+      || !Array.isArray(rawHolds) || rawHolds.length > 1000 || !rawHolds.every(isId)
+      || new Set(rawHolds).size !== rawHolds.length) return refuse();
+    return Object.freeze({ workspaceId, createdBefore, limit, holdOperationIds: Object.freeze([...rawHolds]) });
+  } catch { return refuse(); }
 }
 
 /** System ownership lookup: tenant ids are discovered, and joins include workspace_id. */
@@ -161,12 +188,23 @@ export function startPlanJanitor(db: Sql, options: PlanJanitorOptions, report: (
   return { async stop() { clearInterval(timer); await active; await closeCursor(cursor); } };
 }
 
-/** Durable maintenance records expiry only; content and legacy files are never physically pruned. */
-export function startPlanArtifactJanitor(db: Sql, report: (result?: { expired: number }) => void): { stop(): Promise<void> } {
+export interface PlanArtifactJanitorResult { expired: number; retention?: PlanArtifactRetentionPreview }
+/** Durable expiry is unchanged. Optional copy-review counts never remove content or retain execution authority. */
+export function startPlanArtifactJanitor(
+  db: Sql,
+  report: (result?: PlanArtifactJanitorResult) => void,
+  options: { retentionPreview?: PlanArtifactRetentionPreviewInput } = {},
+): { stop(): Promise<void> } {
   let active: Promise<void> | undefined;
+  const preview = options.retentionPreview;
   const tick = () => {
     if (active) return;
-    active = repos.planArtifacts.expire(db).then(expired => { try { report({expired}); } catch {} }, () => { try { report(); } catch {} })
+    active = (async (): Promise<PlanArtifactJanitorResult> => {
+      const expired = await repos.planArtifacts.expire(db);
+      if (!preview) return { expired };
+      const retention = await repos.planArtifacts.previewRetention(db, preview);
+      return { expired, retention };
+    })().then(result => { try { report(result); } catch {} }, () => { try { report(); } catch {} })
       .finally(() => { active=undefined; });
   };
   tick();

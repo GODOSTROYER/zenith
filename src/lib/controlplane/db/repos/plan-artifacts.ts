@@ -1,5 +1,5 @@
 /** Database-only transactions. Lock order is live environment fence, operation, artifact, ordered source resources, use. */
-import type { Sql } from "@/lib/controlplane/types";
+import { TERMINAL_OPERATION_STATUSES, type Sql } from "@/lib/controlplane/types";
 import type { PlanArtifactManifest, PlanCustodyInput } from "@/lib/tofu/engine";
 import type { Sealed } from "@/lib/secrets";
 import type { DispatchApprovalSnapshot } from "@/lib/execution/ports";
@@ -13,6 +13,7 @@ import * as evidence from "./evidence";
 import { projectPlanReview } from "./operation-review";
 import type { ApprovedSourceSnapshot } from "@/lib/execution/source-snapshot";
 import { textArray } from "../sql";
+import { ControlStoreError } from "../errors";
 import { retainPublishedPlanProductAuthority, retainClaimedPlanProductAuthority, captureClaimedPlanProductAuthority,
   claimedPlanRequiresProductComposition, withCurrentPlanDispatchRequirement, planProductDispatchPredicate, type PlanProductDispatchAuthority } from "./plan-artifact-product-authority";
 import { assertFinalMcpProductTopology } from "./workflow-start-deploy-authority";
@@ -377,4 +378,119 @@ export async function expire(sql: Sql, limit=100): Promise<number> {
     return changed.length;
   });
   return count;
+}
+
+/** Explicit preview configuration, never deletion permission or an execution lifetime extension. */
+export interface PlanArtifactRetentionPreviewInput {
+  readonly workspaceId: string;
+  readonly createdBefore: string;
+  readonly limit: number;
+  readonly holdOperationIds: readonly string[];
+}
+/** Only counts leave the store. An archive review means a possible future copy, with original custody retained. */
+export interface PlanArtifactRetentionPreview {
+  readonly mode: "dry-run";
+  readonly scanned: number;
+  readonly hasMore: boolean;
+  readonly held: number;
+  readonly active: number;
+  readonly unresolved: number;
+  readonly unavailable: number;
+  readonly withinRetention: number;
+  readonly archiveReview: number;
+}
+function retentionInput(value: PlanArtifactRetentionPreviewInput): PlanArtifactRetentionPreviewInput {
+  const refuseInput = (): never => { throw new ControlStoreError("invalid_input", "Plan retention preview requires explicit bounded configuration."); };
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || JSON.stringify(Object.getOwnPropertyNames(value).sort()) !== JSON.stringify(["createdBefore", "holdOperationIds", "limit", "workspaceId"])) return refuseInput();
+  const own = (object: unknown, key: string): unknown => {
+    if (!object || typeof object !== "object") return refuseInput();
+    const descriptor = Object.getOwnPropertyDescriptor(object, key);
+    if (!descriptor || !("value" in descriptor)) return refuseInput();
+    return descriptor.value;
+  };
+  const id = (raw: unknown): string => {
+    if (typeof raw !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(raw)) return refuseInput();
+    return raw;
+  };
+  const workspaceId = id(own(value, "workspaceId")), createdBefore = own(value, "createdBefore"), limit = own(value, "limit");
+  if (typeof createdBefore !== "string" || !/^(?!0000)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(createdBefore)
+    || !Number.isFinite(Date.parse(createdBefore)) || new Date(createdBefore).toISOString() !== createdBefore
+    || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 1000) return refuseInput();
+  const rawHolds = own(value, "holdOperationIds");
+  if (!Array.isArray(rawHolds)) return refuseInput();
+  const length = own(rawHolds, "length");
+  if (typeof length !== "number" || length > 1000) return refuseInput();
+  const holds: string[] = [];
+  for (let i = 0; i < length; i++) holds.push(id(own(rawHolds, String(i))));
+  if (new Set(holds).size !== holds.length) return refuseInput();
+  return Object.freeze({ workspaceId, createdBefore, limit, holdOperationIds: Object.freeze(holds) });
+}
+
+/**
+ * One current owning statement, bounded to one workspace and a stable oldest-first window.
+ * No manifest, ciphertext, storage key or row identity is selected into the response.
+ * This snapshot is not future cleanup authority: no archive, unlink, DELETE, phase or ledger write occurs.
+ */
+export async function previewRetention(sql: Sql, input: PlanArtifactRetentionPreviewInput): Promise<PlanArtifactRetentionPreview> {
+  const c = retentionInput(input);
+  const rows = await sql.query<{ protection: string }>(`with candidates as (
+    select a.operation_id, a.created_at,
+      a.created_at < $2::timestamptz and a.expires_at <= clock_timestamp() as elapsed,
+      o.status, u.phase,
+      a.operation_id = any($3::text[]) or exists (
+        select 1 from platform.plan_artifact_associations r
+        where r.workspace_id=$1 and r.source_operation_id=a.operation_id and r.operation_id=any($3::text[])
+      ) as held,
+      exists (
+        select 1 from platform.plan_artifact_associations r
+        left join platform.operations d on d.workspace_id=r.workspace_id and d.id=r.operation_id
+        left join platform.plan_artifact_uses du on du.workspace_id=r.workspace_id and du.operation_id=r.operation_id
+        where r.workspace_id=$1 and r.source_operation_id=a.operation_id
+          and (d.id is null or du.operation_id is null or not (d.status=any($5::text[]))
+            or du.phase not in ('ready','claimed','dispatched','succeeded','uncertain','expired'))
+      ) as related_unavailable,
+      exists (
+        select 1 from platform.plan_artifact_associations r join platform.operations d
+          on d.workspace_id=r.workspace_id and d.id=r.operation_id
+        where r.workspace_id=$1 and r.source_operation_id=a.operation_id and not (d.status=any($6::text[]))
+      ) as related_active,
+      exists (
+        select 1 from platform.plan_artifact_associations r join platform.operations d
+          on d.workspace_id=r.workspace_id and d.id=r.operation_id
+        join platform.plan_artifact_uses du on du.workspace_id=r.workspace_id and du.operation_id=r.operation_id
+        where r.workspace_id=$1 and r.source_operation_id=a.operation_id
+          and (d.status='uncertain' or du.phase in ('claimed','dispatched','uncertain'))
+      ) or exists (
+        select 1 from platform.workflow_start_intents s where s.workspace_id=$1 and s.phase='attempted'
+          and (s.operation_id=a.operation_id or exists (select 1 from platform.plan_artifact_associations r
+            where r.workspace_id=$1 and r.source_operation_id=a.operation_id and r.operation_id=s.operation_id))
+      ) or exists (
+        select 1 from platform.build_launches b where b.workspace_id=$1 and b.phase<>'terminal'
+          and (b.operation_id=a.operation_id or exists (select 1 from platform.plan_artifact_associations r
+            where r.workspace_id=$1 and r.source_operation_id=a.operation_id and r.operation_id=b.operation_id))
+      ) as related_unresolved,
+      exists (select 1 from platform.plan_artifact_associations r
+        where r.workspace_id=$1 and r.source_operation_id=a.operation_id and r.expires_at > clock_timestamp()) as related_live
+    from platform.plan_artifacts a
+    left join platform.operations o on o.workspace_id=a.workspace_id and o.id=a.operation_id
+    left join platform.plan_artifact_uses u on u.workspace_id=a.workspace_id and u.operation_id=a.operation_id
+    where a.workspace_id=$1 order by a.created_at,a.operation_id limit $4::bigint
+  ) select case
+    when held then 'held'
+    when status is null or phase is null or not (status=any($5::text[]))
+      or phase not in ('ready','claimed','dispatched','succeeded','uncertain','expired') or related_unavailable then 'unavailable'
+    when not (status=any($6::text[])) or related_active then 'active'
+    when status='uncertain' or phase in ('claimed','dispatched','uncertain') or related_unresolved then 'unresolved'
+    when not elapsed or related_live then 'withinRetention'
+    else 'archiveReview' end as protection from candidates order by created_at,operation_id`,
+    [c.workspaceId, c.createdBefore, textArray(c.holdOperationIds), c.limit + 1,
+      textArray(["proposed", "awaiting_approval", "approved", "queued", "running", ...TERMINAL_OPERATION_STATUSES]),
+      textArray(TERMINAL_OPERATION_STATUSES)]);
+  const counts = { held: 0, active: 0, unresolved: 0, unavailable: 0, withinRetention: 0, archiveReview: 0 };
+  for (const row of rows.slice(0, c.limit)) {
+    if (!Object.hasOwn(counts, row.protection)) throw new ControlStoreError("db_error", "Plan retention preview is unavailable.");
+    counts[row.protection as keyof typeof counts]++;
+  }
+  return Object.freeze({ mode: "dry-run", scanned: Math.min(rows.length, c.limit), hasMore: rows.length > c.limit, ...counts });
 }

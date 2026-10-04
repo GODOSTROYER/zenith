@@ -102,3 +102,34 @@ func TestWriteAuditCompletionFailureIsUncertain(t *testing.T) {
 		t.Fatal("completion audit failure lost uncertain receipt")
 	}
 }
+
+func TestUploadWireAndAuditPreserveMetadataOnlyUncertainty(t *testing.T) {
+	j := &job{op: ops.OpFileUpload}
+	data := map[string]any{"error": "mutation_uncertain", "phase": "rename", "effect": "unknown", "postcondition": "unverified", "transactionRef": "fw_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+	wire := j.resultBody(ops.Result{Data: data, Err: "file.upload rename: unknown"})
+	if wire["operation"] != ops.OpFileUpload || wire["output"] != nil || wire["data"].(map[string]any)["transactionRef"] != data["transactionRef"] {
+		t.Fatal("upload wire lost mutation custody")
+	}
+	target := auditTarget(ops.OpFileUpload, json.RawMessage(`{"path":"/opt/customer/model.bin","sourceRef":"model","sourceVersion":"v1","expectedSha256":null}`))
+	if target["path"] != "/opt/customer/model.bin" || target["sourceRef"] != nil || target["sourcePath"] != nil || target["bytes"] != nil {
+		t.Fatal("upload audit exposed source custody")
+	}
+}
+
+func TestUploadAuditCompletionFailureRetainsUncertainReceipt(t *testing.T) {
+	audit, err := OpenAudit(filepath.Join(t.TempDir(), "audit.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	audit.Close()
+	e := &Executor{now: time.Now, audit: audit, log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	receipt := "fw_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	j := &job{e: e, op: ops.OpFileUpload, timeout: time.Second, run: func(context.Context) (ops.Result, error) {
+		return ops.Result{OK: true, Data: map[string]any{"effect": "committed", "phase": "verified", "postcondition": "verified", "transactionRef": receipt}}, nil
+	}}
+	body := j.Run(context.Background(), nil)
+	data := body.Result.(map[string]any)["data"].(map[string]any)
+	if body.Status != agent.StatusFailed || body.Error != "file.upload audit: unknown" || data["transactionRef"] != receipt || data["effect"] != "unknown" {
+		t.Fatal("audit failure claimed accepted upload completion")
+	}
+}

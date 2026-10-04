@@ -14,8 +14,7 @@
  * the parsed value (not the caller's raw object) is what transports receive
  * and what the evidence log summarizes.
  *
- * `MachineOperation`s without a schema here (`file.upload`,
- * `package.install`) are part of the capability vocabulary but no transport
+ * `MachineOperation`s without a schema here (`package.install`) are part of the capability vocabulary but no transport
  * implements them yet; `IMPLEMENTED_OPERATIONS` is the authoritative list.
  */
 import { z } from "zod";
@@ -161,6 +160,12 @@ export const MachineArgsSchemas = {
     path: z.string().max(1024).refine((p) => isCanonicalWritePath(p) && !isDeniedWritePath(p), "requires an exact canonical customer application path"),
     contentRef: z.string().max(64).regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/).refine((s) => !/\s/.test(s)),
     contentVersion: z.string().length(64).regex(/^[0-9a-f]{64}$/),
+    expectedSha256: z.string().length(64).regex(/^[0-9a-f]{64}$/).nullable(),
+  }).strict(),
+  "file.upload": z.object({
+    path: z.string().max(1024).refine((p) => isCanonicalWritePath(p) && !isDeniedWritePath(p), "requires an exact canonical customer application path"),
+    sourceRef: z.string().max(64).regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/).refine((s) => !/\s/.test(s)),
+    sourceVersion: z.string().length(64).regex(/^[0-9a-f]{64}$/),
     expectedSha256: z.string().length(64).regex(/^[0-9a-f]{64}$/).nullable(),
   }).strict(),
   "network.portCheck": z

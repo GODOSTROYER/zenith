@@ -175,6 +175,10 @@ func ValidateFileWriteConstraints(raw json.RawMessage, c map[string]any) error {
 	if err != nil {
 		return err
 	}
+	return validateFileMutationConstraints(a.Path, c)
+}
+
+func validateFileMutationConstraints(destination string, c map[string]any) error {
 	for k, v := range c {
 		switch k {
 		case "maxTimeoutSec", "maxOutputBytes":
@@ -193,7 +197,7 @@ func ValidateFileWriteConstraints(raw json.RawMessage, c map[string]any) error {
 				if !ok || !canonicalWritePath(p) {
 					return protocol.Errorf(protocol.CodeConstraint, "invalid write path constraint")
 				}
-				if underPrefix(a.Path, p) {
+				if underPrefix(destination, p) {
 					allowed = true
 				}
 			}
@@ -213,7 +217,7 @@ func prepareFileWrite(e *Env, req *Request) (Runnable, error) {
 	if !fileWritePlatform() {
 		return nil, unsupportedf("file.write requires Linux")
 	}
-	if err := ValidateFileWriteConfig(e.Cfg.FileWrite); err != nil {
+	if err := ValidateFileMutationConfig(e.Cfg); err != nil {
 		return nil, disabled("file.write local profile is invalid")
 	}
 	a, err := parseFileWrite(req.Args)

@@ -76,7 +76,7 @@ function assertGrant(req: MachineRequest, grant: CapabilityGrantClaims, nowMs: n
 }
 
 function parseConstraints(grant: CapabilityGrantClaims, op: MachineOperation): z.infer<typeof ConstraintsSchema> {
-  if (op === "file.write") {
+  if (op === "file.write" || op === "file.upload") {
     const c = grant.constraints ?? {};
     if (Object.keys(c).some((k) => !["maxTimeoutSec", "maxOutputBytes", "pathPrefixes"].includes(k)) ||
       (Array.isArray(c.pathPrefixes) && c.pathPrefixes.some((p) => typeof p !== "string" || !isCanonicalWritePath(p))) ||
@@ -93,7 +93,7 @@ function enforceConstraints(op: MachineOperation, args: Record<string, unknown>,
   if (c.maxLines !== undefined && typeof args.lines === "number" && args.lines > c.maxLines) {
     throw new MachineOperationError("limit_exceeded", `lines exceeds the grant's maxLines constraint (${c.maxLines})`);
   }
-  if (op === "file.write" && c.pathPrefixes && !writePathAllowed(String(args.path), c.pathPrefixes)) {
+  if ((op === "file.write" || op === "file.upload") && c.pathPrefixes && !writePathAllowed(String(args.path), c.pathPrefixes)) {
     throw new MachineOperationError("denied", "write path is outside signed scope");
   }
   if (op === "file.read" && c.pathPrefixes) {
@@ -112,12 +112,14 @@ function postProcess(req: MachineRequest, driver: MachineDriver, result: Machine
   if (result.operation !== req.operation) throw new MachineOperationError("protocol_violation", "the driver returned a result for a different operation");
   if (result.transport !== driver.transport) throw new MachineOperationError("protocol_violation", "the driver returned a result for a different transport");
 
-  if (req.operation === "file.write") {
-    const parsed = (result.ok ? MachineResultDataSchemas["file.write"] : FileWriteFailureDataSchema).safeParse(result.data);
+  if (req.operation === "file.write" || req.operation === "file.upload") {
+    const parsed = (result.ok ? MachineResultDataSchemas[req.operation] : FileWriteFailureDataSchema).safeParse(result.data);
     if (!parsed.success) throw new MachineOperationError("uncertain", "the write result could not establish an outcome", { transportRef: result.transportRef });
     const data = parsed.data as Record<string, unknown>;
     if (!result.ok && data.effect !== "none" && data.effect !== "unknown") throw new MachineOperationError("uncertain", "the write failure omitted its effect receipt", { transportRef: result.transportRef });
-    if (result.ok && (data.path !== req.args.path || data.contentVersion !== req.args.contentVersion)) throw new MachineOperationError("uncertain", "the write receipt does not bind the approved destination/version", { transportRef: result.transportRef });
+    const versionKey = req.operation === "file.upload" ? "sourceVersion" : "contentVersion";
+    if (result.ok && (data.path !== req.args.path || data[versionKey] !== req.args[versionKey])) throw new MachineOperationError("uncertain", "the write receipt does not bind the approved destination/version", { transportRef: result.transportRef });
+    if (req.operation === "file.upload" && result.ok && data.created !== (req.args.expectedSha256 === null)) throw new MachineOperationError("uncertain", "the upload receipt contradicts its approved create or replace precondition", { transportRef: result.transportRef });
     const { output: _output, ...safe } = result;
     return { ...safe, data };
   }
@@ -190,7 +192,7 @@ export async function executeMachineOperation(req: MachineRequest, ctx: MachineE
     if (typeof parsedArgs.timeoutSec === "number" && request.operation.endsWith("exec") && parsedArgs.timeoutSec > timeoutSec) {
       throw new MachineOperationError("limit_exceeded", `the command's timeoutSec (${parsedArgs.timeoutSec}) exceeds the request's time budget (${timeoutSec}s)`);
     }
-    if (request.operation === "file.write" && maxOutputBytes < 2048) throw new MachineOperationError("limit_exceeded", "file.write requires a 2048-byte metadata result budget");
+    if ((request.operation === "file.write" || request.operation === "file.upload") && maxOutputBytes < 2048) throw new MachineOperationError("limit_exceeded", "file.write requires a 2048-byte metadata result budget");
     enforceConstraints(request.operation, parsedArgs, constraints);
 
     const effective: MachineRequest = { ...request, args: parsedArgs, timeoutSec, maxOutputBytes };
@@ -223,7 +225,7 @@ export async function executeMachineOperation(req: MachineRequest, ctx: MachineE
   }
   // Classify after recording and caching, including a cached result on replay.
   // Preserve the genuine phase/backup receipt instead of recording a rejection.
-  if (request.operation === "file.write" && !completed.ok && completed.data.effect === "unknown") {
+  if ((request.operation === "file.write" || request.operation === "file.upload") && !completed.ok && completed.data.effect === "unknown") {
     throw new MachineOperationError("uncertain", "the machine write's durable outcome is unknown; it must never be re-dispatched", {
       result: completed,
       transportRef: completed.transportRef,

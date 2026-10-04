@@ -146,7 +146,7 @@ func TestE2EMachineOperationsGuardsAndAudit(t *testing.T) {
 			t.Errorf("capabilities %s should contain %s", caps, want)
 		}
 	}
-	for _, off := range []string{"machine.exec", "container.exec", "container.list", "file.write"} {
+	for _, off := range []string{"machine.exec", "container.exec", "container.list", "file.write", "file.upload"} {
 		if strings.Contains(caps, off) {
 			t.Errorf("capabilities %s must not advertise %s", caps, off)
 		}
@@ -213,7 +213,7 @@ func TestE2EMachineOperationsGuardsAndAudit(t *testing.T) {
 	reject("exec is off", protocol.CodeDisabledByConfig, protocoltest.MachineSpec{Operation: "machine.exec", Args: map[string]any{"argv": []string{"/bin/id"}}})
 	reject("containers are off", protocol.CodeDisabledByConfig, protocoltest.MachineSpec{Operation: "container.list", Args: map[string]any{}})
 	reject("file.write defaults off", protocol.CodeDisabledByConfig, protocoltest.MachineSpec{Operation: "file.write", Args: map[string]any{"path": "/opt/customer/settings.txt", "contentRef": "settings", "contentVersion": strings.Repeat("c", 64), "expectedSha256": nil}})
-	reject("file.upload is not implemented", protocol.CodeUnsupportedOp, protocoltest.MachineSpec{Operation: "file.upload", Args: map[string]any{}})
+	reject("file.upload defaults off", protocol.CodeDisabledByConfig, protocoltest.MachineSpec{Operation: "file.upload", Args: map[string]any{}})
 	reject("package.install is not implemented", protocol.CodeUnsupportedOp, protocoltest.MachineSpec{Operation: "package.install", Args: map[string]any{}})
 	reject("unknown operation", protocol.CodeUnsupportedOp, protocoltest.MachineSpec{Operation: "machine.format_disk", Args: map[string]any{}})
 	reject("hostile unit", protocol.CodeInvalidPayload, protocoltest.MachineSpec{Operation: "service.status", Args: map[string]any{"unit": "nginx.service; reboot"}})
@@ -390,5 +390,294 @@ func TestMachineCommandLine(t *testing.T) {
 	_ = os.WriteFile(bad2, []byte(`{"controlPlane":{"url":"https://x.example.com"},"files":{"readAllow":["/"]}}`), 0o600)
 	if code := machine.Main([]string{"--config", bad2, "check"}, io.Discard, &errb, r.getenv); code != agent.ExitUsage {
 		t.Fatalf("a read allowlist of / must be refused: %d", code)
+	}
+}
+
+// Linux requires the same unprivileged persistent fixture admission as the
+// existing file.write native suite. Other hosts prove only default refusal.
+// The control plane is modeled, but its signatures, daemon, replay, audit and
+// registered upload filesystem path are real.
+func TestE2ESignedUploadNativeCustodyAndGrantRefusal(t *testing.T) {
+	runSignedUploadFixture(t, false)
+}
+
+func TestE2ESignedUploadResultGolden(t *testing.T) {
+	runSignedUploadFixture(t, true)
+}
+
+func runSignedUploadFixture(t *testing.T, golden bool) {
+	t.Helper()
+	if runtime.GOOS != "linux" {
+		if golden && os.Getenv("ZENITH_UPDATE_MACHINE_GOLDENS") == "1" {
+			t.Fatal("upload golden generation requires actual unprivileged Linux")
+		}
+		for _, op := range ops.Supported(ops.Config{FileUpload: ops.FileUploadConfig{Enabled: true}}) {
+			if op == ops.OpFileUpload {
+				t.Fatal("non-Linux host advertised a native upload writer")
+			}
+		}
+		return
+	}
+	if os.Geteuid() == 0 {
+		t.Fatal("required signed Linux upload must run as an unprivileged user")
+	}
+	var base string
+	var err error
+	if golden {
+		base = "/opt/zenith-file-upload-golden"
+		info, statErr := os.Lstat(base)
+		entries, readErr := os.ReadDir(base)
+		if statErr != nil || readErr != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0700 || len(entries) != 0 {
+			t.Fatal("provision an empty private unprivileged-owned fixed upload golden root")
+		}
+		t.Cleanup(func() {
+			for _, dir := range []string{"app", "sources", "backups"} {
+				_ = os.RemoveAll(filepath.Join(base, dir))
+			}
+		})
+	} else {
+		root := os.Getenv("ZENITH_FILE_WRITE_TEST_ROOT")
+		if root == "" {
+			root, err = os.UserHomeDir()
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		base, err = os.MkdirTemp(root, "upload-signed-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { os.RemoveAll(base) })
+	}
+	for _, dir := range []string{"app", "sources", "backups"} {
+		if err := os.Mkdir(filepath.Join(base, dir), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	desired := []byte{0x00, 0xff, 0x80, 0x01, 0x0a, 0x00, 0xfe, 0x7f}
+	source := filepath.Join(base, "sources", "model.bin")
+	target := filepath.Join(base, "app", "model.bin")
+	if err := os.WriteFile(source, desired, 0400); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(desired)
+	profile := ops.FileUploadProfile{Path: target, SourceRef: "model", SourcePath: source, SHA256: hex.EncodeToString(sum[:]), Mode: "0600", MaxBytes: 1024}
+	upload := ops.FileUploadConfig{Enabled: true, BackupDir: filepath.Join(base, "backups"), MaxBackupBytes: 32768, MaxBackups: 32}
+	profile.SourceVersion, err = ops.FileUploadProfileVersion(upload, profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	upload.Profiles = []ops.FileUploadProfile{profile}
+	r := newMRig(t)
+	cfgRaw, err := os.ReadFile(r.cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg map[string]any
+	if json.Unmarshal(cfgRaw, &cfg) != nil {
+		t.Fatal("invalid existing daemon fixture")
+	}
+	cfg["fileUpload"] = upload
+	cfgRaw, err = json.Marshal(cfg)
+	if err != nil || os.WriteFile(r.cfgPath, cfgRaw, 0600) != nil {
+		t.Fatal("could not configure owned upload fixture")
+	}
+	if r.register() != 0 || !strings.Contains(fmt.Sprint(r.fake.Register["capabilities"]), ops.OpFileUpload) {
+		t.Fatal("native upload was not advertised after genuine registration")
+	}
+	exit, cancel := r.start()
+	var stopOnce sync.Once
+	stop := func() {
+		stopOnce.Do(func() {
+			cancel()
+			select {
+			case code := <-exit:
+				if code != agent.ExitOK {
+					t.Error("owned upload daemon did not drain cleanly")
+				}
+			case <-time.After(10 * time.Second):
+				t.Error("owned upload daemon did not stop")
+			}
+		})
+	}
+	t.Cleanup(stop)
+	sequence := 0
+	signed := func(args map[string]any, mutate func(*protocol.GrantClaims)) (string, string) {
+		t.Helper()
+		sequence++
+		now := r.fake.CP.Now()
+		jti, operationID := fmt.Sprintf("upload_request_%d", sequence), fmt.Sprintf("upload_operation_%d", sequence)
+		grant := protocol.GrantClaims{JTI: fmt.Sprintf("upload_grant_%d", sequence), ISS: "zenith-control-plane", AUD: "machine:mac_e2e", SUB: "user_test", IAT: now.Unix(), EXP: now.Add(5 * time.Minute).Unix(), CAP: ops.OpFileUpload, OP: operationID, Digest: "sha256:test", WS: "ws_e2e", Res: "resource:model", Constraints: map[string]any{"pathPrefixes": []any{filepath.Dir(target)}, "maxOutputBytes": 4096}}
+		if mutate != nil {
+			mutate(&grant)
+		}
+		raw, err := json.Marshal(args)
+		if err != nil {
+			t.Fatal(err)
+		}
+		envelope := protocol.MachineEnvelope{Protocol: protocol.MachineProtocol, JTI: jti, MachineID: "mac_e2e", WorkspaceID: "ws_e2e", OperationID: operationID, Operation: ops.OpFileUpload, Args: raw, Grant: r.fake.CP.Sign(protocol.TypGrant, grant), IAT: now.Unix(), EXP: now.Add(5 * time.Minute).Unix(), TimeoutSec: 30, MaxOutputBytes: 4096}
+		return jti, r.fake.CP.Sign(protocol.TypMachine, envelope)
+	}
+	args := func(prior any) map[string]any {
+		return map[string]any{"path": target, "sourceRef": profile.SourceRef, "sourceVersion": profile.SourceVersion, "expectedSha256": prior}
+	}
+	checkBytes := func(want []byte) {
+		t.Helper()
+		got, err := os.ReadFile(target)
+		if err != nil || !bytes.Equal(got, want) {
+			t.Fatal("native signed upload bytes differ")
+		}
+	}
+	checkSuccess := func(jti string, created bool) map[string]any {
+		t.Helper()
+		body := r.wait(jti)
+		result, ok := body["result"].(map[string]any)
+		if !ok || body["status"] != "succeeded" || result["ok"] != true || result["operation"] != ops.OpFileUpload || result["output"] != nil {
+			t.Fatal("native signed upload did not succeed")
+		}
+		data, ok := result["data"].(map[string]any)
+		if !ok || data["created"] != created || data["sourceVersion"] != profile.SourceVersion || data["postcondition"] != "verified" || data["effect"] != "committed" || data["transactionRef"] == nil || data["sourcePath"] != nil || data["bytes"] != nil {
+			t.Fatal("native signed upload receipt is inconsistent")
+		}
+		return data
+	}
+	createdID, token := signed(args(nil), nil)
+	r.fake.Enqueue(token)
+	created := checkSuccess(createdID, true)
+	if created["backupRef"] != nil {
+		t.Fatal("absent target claimed a prior backup")
+	}
+	checkBytes(desired)
+	for _, fault := range []struct {
+		name, code string
+		mutate     func(*protocol.GrantClaims)
+		inline     bool
+	}{
+		{"foreign audience", protocol.CodeGrantAudience, func(g *protocol.GrantClaims) { g.AUD = "machine:other" }, false},
+		{"foreign capability", protocol.CodeGrantCapability, func(g *protocol.GrantClaims) { g.CAP = ops.OpFileWrite }, false},
+		{"foreign operation", protocol.CodeGrantOperation, func(g *protocol.GrantClaims) { g.OP = "operation_other" }, false},
+		{"foreign workspace", protocol.CodeGrantWorkspace, func(g *protocol.GrantClaims) { g.WS = "workspace_other" }, false},
+		{"missing resource", protocol.CodeConstraint, func(g *protocol.GrantClaims) { g.Res = "" }, false},
+		{"foreign path constraint", protocol.CodeConstraint, func(g *protocol.GrantClaims) { g.Constraints["pathPrefixes"] = []any{filepath.Join(base, "outside")} }, false},
+		{"inline bytes", protocol.CodeInvalidPayload, nil, true},
+	} {
+		t.Run(fault.name, func(t *testing.T) {
+			before, err := os.ReadDir(upload.BackupDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			input := args(profile.SHA256)
+			if fault.inline {
+				input["bytes"] = "forbidden-inline-upload"
+			}
+			jti, token := signed(input, fault.mutate)
+			r.fake.Enqueue(token)
+			body := r.wait(jti)
+			if body["status"] != "rejected" || !strings.Contains(fmt.Sprint(body["error"]), fault.code) {
+				t.Fatal("signed hostile upload grant or input was accepted")
+			}
+			after, err := os.ReadDir(upload.BackupDir)
+			if err != nil || len(after) != len(before) {
+				t.Fatal("rejected signed upload changed custody")
+			}
+			checkBytes(desired)
+			for _, entry := range readAudit(t, filepath.Join(r.state, "audit.jsonl")) {
+				if entry["requestId"] == jti && entry["phase"] == "start" {
+					t.Fatal("rejected upload entered the native operation")
+				}
+			}
+		})
+	}
+	prior := []byte{0x00, 0x7e, 0x80, 0xff}
+	if err := os.WriteFile(target, prior, 0600); err != nil {
+		t.Fatal(err)
+	}
+	priorSum := sha256.Sum256(prior)
+	replacedID, token := signed(args(hex.EncodeToString(priorSum[:])), nil)
+	r.fake.Enqueue(token)
+	replaced := checkSuccess(replacedID, false)
+	ref, ok := replaced["backupRef"].(string)
+	if !ok || !strings.HasPrefix(ref, "fw_") {
+		t.Fatal("replace lost opaque backup custody")
+	}
+	backup, err := os.ReadFile(filepath.Join(upload.BackupDir, ref+".data"))
+	if err != nil || !bytes.Equal(backup, prior) {
+		t.Fatal("signed replacement did not retain exact prior bytes")
+	}
+	checkBytes(desired)
+	before, err := os.ReadDir(upload.BackupDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.fake.Enqueue(token)
+	time.Sleep(400 * time.Millisecond)
+	if len(r.fake.ResultsFor(replacedID)) != 1 {
+		t.Fatal("signed replay produced another result")
+	}
+	after, err := os.ReadDir(upload.BackupDir)
+	if err != nil || len(after) != len(before) {
+		t.Fatal("signed replay created additional custody")
+	}
+	checkBytes(desired)
+	entries := readAudit(t, filepath.Join(r.state, "audit.jsonl"))
+	starts, ends := 0, 0
+	for _, entry := range entries {
+		if entry["requestId"] == replacedID {
+			if entry["phase"] == "start" {
+				starts++
+			}
+			if entry["phase"] == "end" {
+				ends++
+			}
+		}
+	}
+	if starts != 1 || ends != 1 || r.runner.count() != 0 {
+		t.Fatal("native signed upload replayed or used raw execution")
+	}
+	stop()
+	if bad := r.fake.BadRequests(); len(bad) != 0 {
+		t.Fatal("owned upload protocol result was refused")
+	}
+	if t.Failed() {
+		return
+	}
+	if golden {
+		ref, ok := created["transactionRef"].(string)
+		if !ok || len(ref) != 35 || !strings.HasPrefix(ref, "fw_") || strings.Trim(ref[3:], "0123456789abcdef") != "" {
+			t.Fatal("upload golden has no authentic opaque transaction")
+		}
+		intentPath := filepath.Join(upload.BackupDir, ref+".json")
+		info, err := os.Lstat(intentPath)
+		if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 {
+			t.Fatal("upload golden lost private intent custody")
+		}
+		raw, err := os.ReadFile(intentPath)
+		var intent map[string]any
+		if err != nil || json.Unmarshal(raw, &intent) != nil || intent["operation"] != ops.OpFileUpload || intent["path"] != target || intent["sourceRef"] != profile.SourceRef || intent["sourceVersion"] != profile.SourceVersion || intent["desiredSha256"] != profile.SHA256 || intent["priorSha256"] != nil || intent["created"] != true || intent["state"] != "commit-may-have-run" {
+			t.Fatal("upload golden intent does not bind actual signed create")
+		}
+		normalized := make(map[string]any, len(created))
+		for key, value := range created {
+			normalized[key] = value
+		}
+		// Only the verified opaque random transaction reference is normalized.
+		// Target/profile/version/byte counts and all actual result fields stay exact.
+		normalized["transactionRef"] = "fw_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		value := map[string]any{"operation": ops.OpFileUpload, "args": args(nil), "result": map[string]any{"ok": true, "data": normalized}}
+		encoded, err := json.MarshalIndent(value, "", "  ")
+		if err != nil {
+			t.Fatal("could not encode actual upload result")
+		}
+		encoded = append(encoded, '\n')
+		goldenPath := filepath.Join("testdata", "results", "file.upload.json")
+		if os.Getenv("ZENITH_UPDATE_MACHINE_GOLDENS") == "1" {
+			if err := os.WriteFile(goldenPath, encoded, 0644); err != nil {
+				t.Fatal("could not retain actual upload golden")
+			}
+		}
+		expected, err := os.ReadFile(goldenPath)
+		if err != nil || !bytes.Equal(expected, encoded) {
+			t.Fatal("actual signed upload golden is missing or differs")
+		}
 	}
 }

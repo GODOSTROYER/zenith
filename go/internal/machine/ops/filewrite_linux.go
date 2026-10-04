@@ -253,27 +253,32 @@ func writeFault(e *Env, stage string) error {
 }
 
 func runFileWrite(ctx context.Context, e *Env, a fileWriteArgs, p FileWriteProfile) (Result, error) {
+	return runFileMutation(ctx, e, a, p, fileWritePurpose)
+}
+
+func runFileMutation(ctx context.Context, e *Env, a fileWriteArgs, p FileWriteProfile, purpose fileMutationPurpose) (Result, error) {
 	fileWriteMu.Lock()
 	defer fileWriteMu.Unlock()
+	cfg, enabled := mutationConfig(e, purpose)
 	phase := "guard"
 	effect := "none"
 	backup := ""
 	transaction := ""
 	fail := func() (Result, error) {
-		r := writeFailure(phase, effect, backup)
+		r := mutationFailure(purpose, phase, effect, backup)
 		if transaction != "" {
 			r.Data["transactionRef"] = transaction
 		}
 		return r, nil
 	}
-	if ctx.Err() != nil || os.Geteuid() == 0 || !e.Cfg.FileWrite.Enabled {
+	if ctx.Err() != nil || os.Geteuid() == 0 || !enabled || ValidateFileMutationConfig(e.Cfg) != nil {
 		return fail()
 	}
-	version, versionErr := FileWriteProfileVersion(e.Cfg.FileWrite, p)
+	version, versionErr := mutationProfileVersion(e, purpose, p)
 	if versionErr != nil || version != p.ContentVersion || version != a.ContentVersion || a.Path != p.Path || a.ContentRef != p.ContentRef {
 		return fail()
 	}
-	for _, d := range []string{e.StateDir, e.ConfigFile, e.AuditFile, e.Cfg.FileWrite.BackupDir} {
+	for _, d := range []string{e.StateDir, e.ConfigFile, e.AuditFile, cfg.BackupDir} {
 		if d != "" && (underPrefix(a.Path, d) || underPrefix(p.SourcePath, d)) {
 			return fail()
 		}
@@ -290,7 +295,7 @@ func runFileWrite(ctx context.Context, e *Env, a fileWriteArgs, p FileWriteProfi
 		return fail()
 	}
 	defer src.Close()
-	store, err := writeDir(e.Cfg.FileWrite.BackupDir, true)
+	store, err := writeDir(cfg.BackupDir, true)
 	if err != nil {
 		return fail()
 	}
@@ -318,8 +323,8 @@ func runFileWrite(ctx context.Context, e *Env, a fileWriteArgs, p FileWriteProfi
 	}
 	verifySource := func() bool {
 		b, st, er := writeRead(src, path.Base(p.SourcePath), p.MaxBytes, true)
-		checkedVersion, ve := FileWriteProfileVersion(e.Cfg.FileWrite, p)
-		return ve == nil && checkedVersion == a.ContentVersion && er == nil && writeSame(st, sourceStat) && writeSHA(b) == p.SHA256 && writeDirSame(sourceDir, src, false)
+		checkedVersion, ve := mutationProfileVersion(e, purpose, p)
+		return ValidateFileMutationConfig(e.Cfg) == nil && ve == nil && checkedVersion == a.ContentVersion && er == nil && writeSame(st, sourceStat) && writeSHA(b) == p.SHA256 && writeDirSame(sourceDir, src, false)
 	}
 	verifyOld := func() bool {
 		b, st, er := writeRead(parent, path.Base(a.Path), p.MaxBytes, false)
@@ -330,6 +335,10 @@ func runFileWrite(ctx context.Context, e *Env, a fileWriteArgs, p FileWriteProfi
 	}
 	success := func(changed bool) (Result, error) {
 		d := map[string]any{"path": a.Path, "contentVersion": a.ContentVersion, "changed": changed, "created": changed && !exists, "bytesWritten": 0, "postcondition": "verified", "phase": "verified", "effect": "none"}
+		if purpose == fileUploadPurpose {
+			delete(d, "contentVersion")
+			d["sourceVersion"] = a.ContentVersion
+		}
 		if changed {
 			d["bytesWritten"] = len(desired)
 			d["effect"] = "committed"
@@ -389,6 +398,13 @@ func runFileWrite(ctx context.Context, e *Env, a fileWriteArgs, p FileWriteProfi
 	// Durable intent is retained for create AND replace. A restart never replays
 	// it: an unresolved intent means a human must reconcile independently.
 	intent := map[string]any{"version": 1, "path": a.Path, "contentRef": a.ContentRef, "contentVersion": a.ContentVersion, "priorSha256": a.ExpectedSHA256, "desiredSha256": p.SHA256, "mode": p.Mode, "created": !exists, "state": "commit-may-have-run"}
+	if purpose == fileUploadPurpose {
+		delete(intent, "contentRef")
+		delete(intent, "contentVersion")
+		intent["operation"] = OpFileUpload
+		intent["sourceRef"] = a.ContentRef
+		intent["sourceVersion"] = a.ContentVersion
+	}
 	if exists {
 		intent["priorMode"] = oldStat.Mode & 07777
 		intent["priorUID"] = oldStat.Uid
@@ -402,7 +418,8 @@ func runFileWrite(ctx context.Context, e *Env, a fileWriteArgs, p FileWriteProfi
 		entries++
 		size += int64(len(old))
 	}
-	if !writeBudget(store, e.Cfg.FileWrite, size, entries) || !writeDirSame(e.Cfg.FileWrite.BackupDir, store, true) {
+	currentCfg, _ := mutationConfig(e, purpose)
+	if !writeBudget(store, currentCfg, size, entries) || !writeDirSame(currentCfg.BackupDir, store, true) {
 		return fail()
 	}
 	transaction = token
@@ -438,7 +455,7 @@ func runFileWrite(ctx context.Context, e *Env, a fileWriteArgs, p FileWriteProfi
 		b, st, er := writeRead(parent, tempName, p.MaxBytes, false)
 		return er == nil && writeSame(st, tempStat) && bytes.Equal(b, desired) && st.Mode&07777 == mode
 	}
-	if writeFault(e, "before_rename") != nil || ctx.Err() != nil || !verifySource() || !verifyOld() || !verifyTemp() || !writeDirSame(targetDir, parent, false) || !writeDirSame(e.Cfg.FileWrite.BackupDir, store, true) {
+	if writeFault(e, "before_rename") != nil || ctx.Err() != nil || !verifySource() || !verifyOld() || !verifyTemp() || !writeDirSame(targetDir, parent, false) || !writeDirSame(mutationBackupDir(e, purpose), store, true) {
 		return fail()
 	}
 	// Linux rename is relative to the same pinned parent. There is no universal

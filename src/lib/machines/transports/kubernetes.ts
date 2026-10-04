@@ -81,7 +81,7 @@ const UNSUPPORTED: Partial<Record<MachineOperation, string>> = {
   "system.logs": "use container.logs for Kubernetes workloads",
   "machine.exec": "use container.exec for Kubernetes workloads",
   "file.write": "file.write requires an opt-in Linux zenithd local-template profile and is not supported by this transport",
-  "file.upload": "file.upload is not implemented by any machine transport yet",
+  "file.upload": "file.upload requires an opt-in Linux zenithd local binary profile and is not supported by this transport",
   "package.install": "package.install is not implemented by any machine transport yet",
 };
 

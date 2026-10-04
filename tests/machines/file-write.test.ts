@@ -102,7 +102,7 @@ it("shares the Go immutable profile version grammar and canonical metadata domai
 
 describe("machine file.write payload admission", () => {
   it("admits exactly the typed local-template capability while upload/packages remain closed", () => {
-    expect(ZENITHD_OPERATIONS).toContain("file.write");expect(ZENITHD_OPERATIONS).not.toContain("file.upload");expect(ZENITHD_OPERATIONS).not.toContain("package.install");
+    expect(ZENITHD_OPERATIONS).toContain("file.write");expect(ZENITHD_OPERATIONS).toContain("file.upload");expect(ZENITHD_OPERATIONS).not.toContain("package.install");
     expect(validateMachineArgs("file.write", args)).toEqual(args);
     expect(validateMachineArgs("service.status", { unit: "fixture.service" })).toEqual({ unit: "fixture.service" });
   });

@@ -160,6 +160,16 @@ export const MachineResultDataSchemas = {
   }).superRefine((d, ctx) => {
     if (d.changed !== (d.effect === "committed") || (d.created && !d.changed) || (!d.changed && d.bytesWritten !== 0) || (d.changed && !d.transactionRef) || (d.created && d.backupRef) || (d.changed && !d.created && !d.backupRef)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "inconsistent write receipt" });
   }),
+  "file.upload": z.object({
+    path: str(1024), sourceVersion: z.string().length(64).regex(/^[0-9a-f]{64}$/),
+    changed: z.boolean(), created: z.boolean(), bytesWritten: count.max(1048576),
+    postcondition: z.literal("verified"), phase: z.literal("verified"),
+    effect: z.enum(["none", "committed"]),
+    backupRef: z.string().length(35).regex(/^fw_[0-9a-f]{32}$/).optional(),
+    transactionRef: z.string().length(35).regex(/^fw_[0-9a-f]{32}$/).optional(),
+  }).superRefine((d, ctx) => {
+    if (d.changed !== (d.effect === "committed") || (d.created && !d.changed) || (!d.changed && d.bytesWritten !== 0) || (d.changed && !d.transactionRef) || (d.created && d.backupRef) || (d.changed && !d.created && !d.backupRef)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "inconsistent upload receipt" });
+  }),
   "network.portCheck": z.object({
     host: str(253),
     port: z.number().int().min(1).max(65535),

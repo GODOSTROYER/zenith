@@ -178,12 +178,8 @@ export function validateRunnerPayload(kind: RunnerJobKind, payload: unknown): un
 
 /* ------------------------------- zenithd (machine) ------------------------------- */
 
-/**
- * Operations zenithd implements. `file.upload` and
- * `package.install` exist in the platform vocabulary but zenithd deliberately
- * does not implement them (the Go agent refuses them), so they are never dispatched.
- */
-export const ZENITHD_OPERATIONS: readonly MachineOperation[] = MACHINE_OPERATIONS.filter((op) => op !== "file.upload" && op !== "package.install");
+/** Operations zenithd implements. package.install remains deliberately refused. */
+export const ZENITHD_OPERATIONS: readonly MachineOperation[] = MACHINE_OPERATIONS.filter((op) => op !== "package.install");
 
 export const MAX_MACHINE_ARGS_BYTES = 64 * 1024;
 
@@ -205,6 +201,11 @@ export function validateMachineArgs(operation: string, args: unknown): Record<st
   if (operation === "file.write") {
     const parsed = parseMachineArgs("file.write", args);
     if (!parsed.ok) throw new PayloadError(operation, "args do not match the strict local-template write contract");
+    return parsed.args;
+  }
+  if (operation === "file.upload") {
+    const parsed = parseMachineArgs("file.upload", args);
+    if (!parsed.ok) throw new PayloadError(operation, "args do not match the strict local-source upload contract");
     return parsed.args;
   }
   return JSON.parse(JSON.stringify(args)) as Record<string, unknown>;

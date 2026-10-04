@@ -304,7 +304,11 @@ func TestUnsupportedAndUnknownOperationsAreRefused(t *testing.T) {
 	e := &ops.Env{}
 	for _, name := range []string{ops.OpFileUpload, ops.OpPackageInstall, "machine.reboot", "", "service.status; id"} {
 		_, err := e.Prepare(name, &ops.Request{Args: json.RawMessage(`{}`)})
-		wantCode(t, err, protocol.CodeUnsupportedOp)
+		code := protocol.CodeUnsupportedOp
+		if name == ops.OpFileUpload {
+			code = protocol.CodeDisabledByConfig
+		}
+		wantCode(t, err, code)
 	}
 }
 

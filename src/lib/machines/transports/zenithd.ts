@@ -49,6 +49,7 @@ const SUPPORTED: readonly MachineOperation[] = [
   "container.exec",
   "file.read",
   "file.write",
+  "file.upload",
   "network.portCheck",
   "network.dnsCheck",
   "system.metrics",
@@ -57,7 +58,6 @@ const SUPPORTED: readonly MachineOperation[] = [
 ];
 
 const UNSUPPORTED: Partial<Record<MachineOperation, string>> = {
-  "file.upload": "file.upload is not implemented by zenithd or any machine transport yet",
   "package.install": "package.install is not implemented by zenithd or any machine transport yet",
 };
 
@@ -132,15 +132,17 @@ export function createZenithdMachineDriver(options: ZenithdDriverOptions): Machi
     if (o.status === "uncertain") {
       throw new MachineOperationError("uncertain", "the machine went silent past the request deadline; the request may or may not have run", { transportRef: id });
     }
-    if (req.operation === "file.write") {
+    if (req.operation === "file.write" || req.operation === "file.upload") {
       if (o.status === "succeeded") {
-        const parsed = MachineResultDataSchemas["file.write"].safeParse(o.result);
-        if (!parsed.success || parsed.data.path !== req.args.path || parsed.data.contentVersion !== req.args.contentVersion) throw new MachineOperationError("uncertain", "the machine write receipt is invalid or does not bind approved arguments", { transportRef: id });
+        const parsed = MachineResultDataSchemas[req.operation].safeParse(o.result);
+        const versionKey = req.operation === "file.upload" ? "sourceVersion" : "contentVersion";
+        if (!parsed.success || parsed.data.path !== req.args.path || !(versionKey in parsed.data) || (req.operation === "file.upload" ? ("sourceVersion" in parsed.data ? parsed.data.sourceVersion : undefined) : ("contentVersion" in parsed.data ? parsed.data.contentVersion : undefined)) !== req.args[versionKey]) throw new MachineOperationError("uncertain", "the machine write receipt is invalid or does not bind approved arguments", { transportRef: id });
+        if (req.operation === "file.upload" && parsed.data.created !== (req.args.expectedSha256 === null)) throw new MachineOperationError("uncertain", "the upload receipt contradicts its approved create or replace precondition", { transportRef: id });
         return result(true, parsed.data);
       }
       const parsed = FileWriteFailureDataSchema.safeParse(o.result);
       if (parsed.success && parsed.data.phase && parsed.data.effect && parsed.data.postcondition === "unverified" && (parsed.data.effect !== "unknown" || parsed.data.error === "mutation_uncertain")) {
-        return result(false, { ...parsed.data, reason: "file.write did not establish verified durable postconditions" });
+        return result(false, { ...parsed.data, reason: `${req.operation} did not establish verified durable postconditions` });
       }
       if (o.status === "rejected") return result(false, { error: "refused", phase: "guard", effect: "none", postcondition: "unverified" });
       throw new MachineOperationError("uncertain", "the machine did not supply a valid write effect receipt", { transportRef: id });

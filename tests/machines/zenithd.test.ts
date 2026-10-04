@@ -261,7 +261,7 @@ describe("simulated transport", () => {
   const go = (op: Parameters<typeof requestFor>[0], args: Record<string, unknown> = {}, over: NonNullable<Parameters<typeof requestFor>[2]> = {}) => sim.execute(requestFor(op, args, over), undefined, new AbortController().signal);
 
   it("every implemented operation returns schema-valid data labelled simulated", async () => {
-    const minimal: Record<Exclude<ImplementedOperation, "file.write">, Record<string, unknown>> = {
+    const minimal: Record<Exclude<ImplementedOperation, "file.write" | "file.upload">, Record<string, unknown>> = {
       "machine.inspect": {},
       "process.list": { limit: 5 },
       "service.status": { unit: "nginx.service" },
@@ -277,7 +277,7 @@ describe("simulated transport", () => {
       "system.logs": { lines: 5 },
       "machine.exec": { argv: ["ls"], timeoutSec: 5 },
     };
-    for (const op of sim.supports as Exclude<ImplementedOperation, "file.write">[]) {
+    for (const op of sim.supports as Exclude<ImplementedOperation, "file.write" | "file.upload">[]) {
       const r = await go(op, minimal[op]);
       expect(r, op).toMatchObject({ ok: true, simulated: true, transport: "aws_ssm", operation: op });
       expect(r.transportRef, op).toMatch(/^sim-[0-9a-f]{8}$/);

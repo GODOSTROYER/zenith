@@ -157,8 +157,8 @@ describe("transport and operation support", () => {
   });
 
   it("operations in the vocabulary that nothing implements are refused as such", async () => {
-    const h = harness({ supports: ["file.upload" as MachineOperation] });
-    await expect(h.run(requestFor("file.upload", {}))).rejects.toMatchObject({ code: "unsupported_operation", message: expect.stringMatching(/no transport implements/) });
+    const h = harness({ supports: ["package.install" as MachineOperation] });
+    await expect(h.run(requestFor("package.install", {}))).rejects.toMatchObject({ code: "unsupported_operation", message: expect.stringMatching(/no transport implements/) });
   });
 });
 

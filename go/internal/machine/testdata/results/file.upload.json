@@ -1,0 +1,23 @@
+{
+  "args": {
+    "expectedSha256": null,
+    "path": "/opt/zenith-file-upload-golden/app/model.bin",
+    "sourceRef": "model",
+    "sourceVersion": "bc4a41a0dad3352942966fcd8b049205740ebd68519187dc4a636287bcbc9283"
+  },
+  "operation": "file.upload",
+  "result": {
+    "data": {
+      "bytesWritten": 8,
+      "changed": true,
+      "created": true,
+      "effect": "committed",
+      "path": "/opt/zenith-file-upload-golden/app/model.bin",
+      "phase": "verified",
+      "postcondition": "verified",
+      "sourceVersion": "bc4a41a0dad3352942966fcd8b049205740ebd68519187dc4a636287bcbc9283",
+      "transactionRef": "fw_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "ok": true
+  }
+}

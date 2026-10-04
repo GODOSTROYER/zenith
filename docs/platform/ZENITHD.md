@@ -65,7 +65,8 @@ Two kinds of non-success:
 | `system.logs` | always | `unit?`, `since` (default `1h`), `lines` (1–5000, default 200) | `journalctl` with an argv built only from validated fields; newest lines kept within the byte budget, redacted |
 | `machine.exec` | `exec.enabled` | `argv[]`, `cwd?`, `timeoutSec` | see §4 |
 | `file.write` | Linux + `fileWrite.enabled` + exact local template profile | canonical `path`, opaque `contentRef`, immutable `contentVersion`, required `expectedSha256` (64 lowercase hex or null for create-only) | bounded unprivileged customer application files only; see below |
-| `file.upload`, `package.install` | **never** | — | in the platform vocabulary, deliberately not implemented: answered with `unsupported_operation` |
+| `file.upload` | Linux + `fileUpload.enabled` + exact local binary profile | canonical `path`, opaque `sourceRef`, immutable `sourceVersion`, required `expectedSha256` (64 lowercase hex or null for create-only) | bounded local binary source copied through the same atomic writer; see below |
+| `package.install` | **never** | — | deliberately not implemented: answered with `unsupported_operation` |
 
 Unit names must match `^[A-Za-z0-9@._:-]{1,128}\.(service|socket|timer)$` and, in
 addition, must **not start with `-`** (a regex alone would let `--help.service`
@@ -378,3 +379,60 @@ Go result fixtures parsed by TS, preserved provider/revocation/security policy
 regressions, and separately disposable systemd install/guest acceptance. Upload,
 packages, service configuration and privilege-separated host changes remain
 unimplemented follow-ups.
+
+
+## Local binary upload
+
+`file.upload` is a separate opt-in Linux operation. It copies a previously
+provisioned, locally pinned regular binary source to one exact allowed customer
+application file. Signed arguments are exactly `path`, `sourceRef`,
+`sourceVersion`, and `expectedSha256`. Explicit null means create only when the
+target is absent. Replacement or verified noop requires the exact SHA256 of the
+existing target. There is no wildcard prior state. No bytes, base64, source
+paths, URLs, credentials, mode, owner or command can enter a signed upload.
+The operation requires its own current operation/resource-scoped capability
+grant and the existing approval policy. A file.write grant or profile version
+does not authorize file.upload.
+
+The local `fileUpload` object has `enabled`, `backupDir`, `maxBackupBytes`,
+`maxBackups`, and `profiles`. It defaults off. Each profile has `path`,
+`sourceRef`, `sourceVersion`, `sourcePath`, `sha256`, `mode`, and `maxBytes`.
+Reference, path, 0600/0640 mode, 1 MiB source ceiling, at most 64 profiles,
+private backup capacity and all Linux ownership/mount/ACL rules are the same
+as file.write. Sources may contain non-UTF8 and NUL bytes. They must be
+provisioned locally; upload performs no network fetch, extraction, package
+installation or executable activation.
+
+`zenithd file-upload-versions --config /absolute/local/config.yaml` reads only
+local profile metadata and emits path/sourceRef/sourceVersion triples. It does
+not read source bytes, change config, register, start the agent or write files.
+Compute and independently review the source SHA256 before deriving a version.
+The version is lowercase SHA256 of UTF-8 `zenith.file.upload.profile/v1`, one
+NUL byte, and compact JSON in this exact order: `path`, `sourceRef`,
+`sourcePath`, `sha256`, `mode`, `maxBytes`, `backupDir`, `maxBackupBytes`,
+`maxBackups`. The version field itself is excluded. Config loading rejects a
+mismatched version. Execution checks the current enabled exact profile before
+any effect and again before commit; changes require a newly reviewed version.
+
+Upload reuses the hardened atomic Linux writer, process lock and private
+backup-store flock. Neither operation may overwrite the other's configured
+source or private backup custody, including configured backup custody for a
+disabled operation. Existing parent directories must already be provisioned.
+No symlink, mount-transition, ownership, ACL, backup budget, fsync or independent
+postcondition guard is relaxed. Targets on supported exact local mount anchors
+can be created or replaced; mounted files below an anchor remain refused.
+Unresolved intents and binary backups remain private on the host. Upload
+intents additionally record the operation/sourceRef/sourceVersion. Success
+returns only bounded destination/version, changed/created/byte count,
+postcondition and opaque transaction/backup references. No contents or source
+path appears in results or evidence. An outcome lost after rename or audit
+failure is uncertain and must not be redispatched; the retained intent is not
+a recovery instruction.
+
+Non-Linux, simulated and cloud transports refuse upload. This source slice has
+not received native upload acceptance. Root-owned authentic unprivileged Linux,
+mount/ACL/race/crash, protocol and exhaustive gates are still required. Prior
+file.write native evidence remains evidence for file.write; it cannot be
+relabeled as upload or full guest lifecycle acceptance. No standing grant,
+installation, browser approval journey or live guest permission is established
+by the source/model controls.

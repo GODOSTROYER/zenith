@@ -4,6 +4,7 @@
  * control plane never re-dispatches a job whose outcome it cannot prove.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { sha256Hex } from "@/lib/controlplane/digest";
 import { POST as heartbeatRunner } from "@/app/api/platform/v1/runners/[id]/heartbeat/route";
 import { POST as resultRunner } from "@/app/api/platform/v1/runners/[id]/jobs/[jti]/result/route";
 import { POST as pollRunner } from "@/app/api/platform/v1/runners/[id]/poll/route";
@@ -344,7 +345,7 @@ describe("zenithd requests", () => {
     const machine = await registerFakeAgent(plane, registerMachine, { kind: "machine", capabilities: ["service.status", "file.upload", "file.write"] });
     const base = { workspaceId: "w-a", machineId: machine.id, operationId: OPERATION, operation: "service.status", args: { unit: "nginx.service" }, grant: await issueGrant(plane, { aud: `machine:${machine.id}`, cap: "service.status", op: OPERATION, ws: "w-a" }) };
     expect(await refused(enqueueMachineRequest(base))).toBe("accepted");
-    expect(await refused(enqueueMachineRequest({ ...base, operation: "file.upload", grant: await issueGrant(plane, { aud: `machine:${machine.id}`, cap: "file.upload", op: OPERATION, ws: "w-a" }) }))).toMatch(/^invalid_payload.*does not implement/);
+    expect(await refused(enqueueMachineRequest({ ...base, operation: "file.upload", grant: await issueGrant(plane, { aud: `machine:${machine.id}`, cap: "file.upload", op: OPERATION, ws: "w-a" }) }))).toMatch(/^invalid_payload.*strict local-source/);
     expect(await refused(enqueueMachineRequest({ ...base, operation: "file.write", args: { path: "/opt/customer/settings.txt", content: "inert-plaintext-marker" }, grant: await issueGrant(plane, { aud: `machine:${machine.id}`, cap: "file.write", op: OPERATION, ws: "w-a" }) }))).toMatch(/^invalid_payload.*strict local-template/);
     expect(await refused(enqueueMachineRequest({ ...base, args: [] as never }))).toMatch(/^invalid_payload.*object/);
     expect(await refused(enqueueMachineRequest({ ...base, args: { blob: "x".repeat(70_000) } }))).toMatch(/^invalid_payload.*larger/);
@@ -353,6 +354,33 @@ describe("zenithd requests", () => {
     expect(await refused(enqueueMachineRequest({ ...base, operation: "not.an.operation" }))).toMatch(/^invalid_input/);
     // a runner's id is not a machine's
     expect(await refused(enqueueMachineRequest({ ...base, machineId: runner.id }))).toMatch(/^agent_not_found/);
+  });
+
+  it("queues a purpose-bound local upload with actual signing and refuses inline source data before queueing", async () => {
+    // Actual existing signing/queue code with the suite's modeled authority
+    // transport. This is not native daemon or guest mutation acceptance.
+    const machine = await registerFakeAgent(plane, registerMachine, { kind: "machine", capabilities: ["file.upload"] });
+    const args = { path: "/opt/customer/model.bin", sourceRef: "model", sourceVersion: "c".repeat(64), expectedSha256: null };
+    const grant = await issueGrant(plane, { aud: `machine:${machine.id}`, cap: "file.upload", op: OPERATION, ws: "w-a", res: "res_upload" });
+    const input = { workspaceId: "w-a", machineId: machine.id, operationId: OPERATION, operation: "file.upload", args, grant };
+    for (const forbidden of [{ ...args, bytes: "inert-upload-marker" }, { ...args, sourcePath: "/private/model.bin" }, { ...args, expectedSha256: "*" }]) {
+      expect(await refused(enqueueMachineRequest({ ...input, args: forbidden }))).toMatch(/^invalid_payload.*strict local-source/);
+      expect(await plane.store.machineRequests.listForOperation("w-a", OPERATION)).toHaveLength(0);
+    }
+    const wrong = await issueGrant(plane, { aud: `machine:${machine.id}`, cap: "file.write", op: OPERATION, ws: "w-a", res: "res_upload" });
+    expect(await refused(enqueueMachineRequest({ ...input, grant: wrong }))).toMatch(/^grant_invalid/);
+    expect(await plane.store.machineRequests.listForOperation("w-a", OPERATION)).toHaveLength(0);
+    const id = await enqueueMachineRequest(input);
+    const row = await plane.store.machineRequests.get("w-a", id);
+    if (!row) throw new Error("the modeled signed upload was not queued");
+    expect(row).toMatchObject({ id, workspaceId: "w-a", agentId: machine.id, operationId: OPERATION, kind: "file.upload", capability: "file.upload", status: "queued" });
+    const decoded = machine.decodeJob(row.envelope, machine.jobTyp());
+    expect(decoded.header).toMatchObject({ alg: "EdDSA", typ: "zenith-machine+jwt" });
+    expect(decoded.claims).toMatchObject({ machineId: machine.id, workspaceId: "w-a", operationId: OPERATION, operation: "file.upload", args });
+    expect(decoded.claims.args).toEqual(args);
+    expect(sha256Hex(String(decoded.claims.grant))).toBe(sha256Hex(grant));
+    expect(await plane.store.machineRequests.get("w-b", id)).toBeNull();
+    expect(await plane.store.machineRequests.listForOperation("w-a", OPERATION)).toHaveLength(1);
   });
 
   it("a silent machine is stale and gets nothing", async () => {

@@ -102,7 +102,7 @@ func (c *Config) Validate() error {
 	if err := ops.ValidateReadAllow(c.Files.ReadAllow); err != nil {
 		return err
 	}
-	if err := ops.ValidateFileWriteConfig(c.FileWrite); err != nil {
+	if err := ops.ValidateFileMutationConfig(c.Config); err != nil {
 		return err
 	}
 	if c.Containers.Socket != "" && !filepath.IsAbs(c.Containers.Socket) {

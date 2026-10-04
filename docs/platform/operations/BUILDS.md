@@ -67,7 +67,7 @@ npm run migrate:platform -- --status
 
 Platform migration 6 (`github_sources`) includes the source-binding tables and
 expiring install intents. Alternatively, re-apply the generated
-`supabase/migrations/0014_platform_core.sql` as described in
+`supabase/migrations/0016_platform_core.sql` as described in
 [DEPLOYING.md](DEPLOYING.md#32-migrating). No separate GitHub schema installer is
 required. Migration 6 is additive and idempotent: it preserves tables and rows
 from earlier manual installations and records its checksum in the platform ledger.

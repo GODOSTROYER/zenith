@@ -224,6 +224,8 @@ exit 1
   it("suppresses credential/SQL-bearing psql errors while retaining a trusted failure phase", () => {
     fs.mkdirSync(path.join(scratch, "scripts/platform"), { recursive: true });
     fs.writeFileSync(path.join(scratch, "scripts/platform/verify-schema.ts"), "// prerequisite fixture\n");
+    fs.mkdirSync(path.join(scratch, "scripts/agent"), { recursive: true });
+    fs.writeFileSync(path.join(scratch, "scripts/agent/verify-schema.ts"), "// prerequisite fixture\n");
     fs.mkdirSync(path.join(scratch, "node_modules/.bin"), { recursive: true });
     fs.writeFileSync(path.join(scratch, "node_modules/.bin/tsx"), "#!/usr/bin/env bash\nexit 0\n", { mode: 0o755 });
     const result = run();

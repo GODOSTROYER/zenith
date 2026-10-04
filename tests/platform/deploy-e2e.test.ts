@@ -1,16 +1,28 @@
-/** Contract evidence only: real composition/Temporal/stores, fake tofu and mocked AWS. */
+/** Contract evidence: real Temporal/native authority, explicit file-to-PGlite product projection, isolated plan bytes and modeled AWS/hosted association. */
 import { beforeAll, afterAll, beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { Context } from "@temporalio/activity";
 import { defaultPayloadConverter } from "@temporalio/common";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { World } from "../execution/fakes/world";
 import type { WorkflowResult, WorkerActivities, StepName } from "@/lib/workflows/types";
+import type { Sql } from "@/lib/controlplane/types";
 import { tempDataDir } from "../_support/data-dir";
 
+vi.mock("@/lib/controlplane/db/repos/workflow-start-deploy-authority", async original => ({
+  ...await original<typeof import("@/lib/controlplane/db/repos/workflow-start-deploy-authority")>(),
+  // Only hosted REST/SQL association is modeled. The actual owning SQL
+  // transaction and every product/source/member/approval predicate remain real.
+  assertFinalMcpProductTopology: async (owner: Sql, tx: Sql) => {
+    if (owner === tx) throw new Error("Modeled hosted association requires the owning transaction.");
+    const rows = await tx.query<{ role: string }>("select current_user as role");
+    if (rows.length !== 1 || !rows[0].role) throw new Error("Modeled hosted association is unavailable.");
+  },
+}));
+
 tempDataDir("zenith-compose-e2e-", { fast: true });
-const { resetDb, save, q } = await import("@/lib/db/store");
+const { db: productFixture, resetDb, save, q } = await import("@/lib/db/store");
 const { openPlatformDb, repos } = await import("@/lib/controlplane/db");
 const { createBroker } = await import("@/lib/capabilities/platform");
 const { PlatformBrokerStore } = await import("@/lib/capabilities/platform-store");
@@ -48,6 +60,43 @@ let broker: ReturnType<typeof createBroker>;
 let activities: WorkerActivities;
 const reviewedPlan = makePlan({ changes: [change({ address: "aws_db_instance.postgres_db", nodeAddress: "postgres/db", type: "aws_db_instance", action: "create", changes: [{ path: "publicly_accessible", before: false, after: false, sensitive: false, forcesReplacement: false }] })] });
 
+// The file product store and native PGlite are separate fixture stores. These
+// explicit setup boundaries project only the known owning fixture into the
+// canonical public collections; they never repair authority before dispatch.
+async function seedOwningProductProjection() {
+  const migration = await readFile(new URL("../../supabase/migrations/0001_system_of_record.sql", import.meta.url), "utf8");
+  for (const name of ["workspaces", "members", "projects", "environments", "revisions", "revision_manifests", "deployments", "connections"] as const) {
+    const ddl = new RegExp(`create table if not exists public\\.${name} \\([\\s\\S]*?\\n\\);`).exec(migration)?.[0];
+    if (!ddl) throw new Error("Canonical product collection DDL is unavailable.");
+    await db.exec(ddl);
+  }
+  const workspace = productFixture().workspaces.find(row => row.id === WS)!;
+  const project = q.project(PROJECT)!, environment = q.environment(ENV)!, revision = q.revision(REVISION)!, connection = q.connection(PRODUCT_CONNECTION)!;
+  expect(project.workspaceId).toBe(WS); expect(environment.projectId).toBe(project.id);
+  expect(revision.projectId).toBe(project.id); expect(connection.workspaceId).toBe(WS);
+  await db.query("insert into public.workspaces(id,workspace_id,slug,name,data) values($1,$1,$2,$3,$4::text::jsonb)", [workspace.id, workspace.slug, workspace.name, JSON.stringify(workspace)]);
+  await db.query("insert into public.projects(id,workspace_id,slug,name,data) values($1,$2,$3,$4,$5::text::jsonb)", [project.id, project.workspaceId, project.slug, project.name, JSON.stringify(project)]);
+  await db.query("insert into public.environments(id,workspace_id,project_id,class,connection_id,deployed_revision_id,active_deployment_id,data) values($1,$2,$3,$4,$5,$6,$7,$8::text::jsonb)",
+    [environment.id, project.workspaceId, environment.projectId, environment.class, environment.connectionId, environment.deployedRevisionId ?? null, environment.activeDeploymentId ?? null, JSON.stringify(environment)]);
+  await db.query("insert into public.connections(id,workspace_id,provider,status,data) values($1,$2,$3,$4,$5::text::jsonb)", [connection.id, connection.workspaceId, connection.provider, connection.status, JSON.stringify(connection)]);
+  await db.query("insert into public.revisions(id,workspace_id,project_id,number,data) values($1,$2,$3,$4,$5::text::jsonb)", [revision.id, project.workspaceId, revision.projectId, revision.number, JSON.stringify(revision)]);
+  await db.query("insert into public.revision_manifests(revision_id,workspace_id,manifest) values($1,$2,$3::text::jsonb)", [revision.id, project.workspaceId, JSON.stringify(revision.manifest)]);
+  for (const id of [requester.id, approver.id]) {
+    const member = productFixture().members.find(row => row.workspaceId === WS && row.id === id)!;
+    await db.query("insert into public.members(id,workspace_id,email,role,data) values($1,$2,$3,$4,$5::text::jsonb)", [member.id, member.workspaceId, member.email, member.role, JSON.stringify(member)]);
+  }
+}
+async function projectOwningDeployment(deploymentId: string) {
+  const deployment = q.deployment(deploymentId)!;
+  expect(deployment.projectId).toBe(PROJECT); expect(deployment.environmentId).toBe(ENV); expect(deployment.revisionId).toBe(REVISION);
+  expect(deployment.executor).toBe("workflow"); expect(deployment.operationId).toBeTruthy();
+  const operation = (await repos.operations.get(db, WS, deployment.operationId!))!;
+  expect(operation.projectId).toBe(PROJECT); expect(operation.environmentId).toBe(ENV);
+  expect(operation.proposal.input).toMatchObject({ revisionId: REVISION, deploymentId: deployment.id });
+  await db.query("insert into public.deployments(id,workspace_id,project_id,environment_id,revision_id,status,data) values($1,$2,$3,$4,$5,$6,$7::text::jsonb) on conflict(id) do update set status=excluded.status,data=excluded.data",
+    [deployment.id, WS, deployment.projectId, deployment.environmentId, deployment.revisionId, deployment.status, JSON.stringify(deployment)]);
+}
+
 beforeAll(async () => {
   // Network-dependent downloads are opt-in. Installed CLI always uses its own random port.
   const timeSkipping = process.env.ZENITH_COMPOSE_TEMPORAL_MODE === "time-skipping";
@@ -74,6 +123,10 @@ beforeEach(async () => {
   }); save();
   await repos.connections.create(db, { id: PLATFORM_CONNECTION, workspaceId: WS, legacyConnectionId: PRODUCT_CONNECTION, createdBy: "local", config: { ...connectionConfig, mode: "aws_assume_role", externalId: "zenith-contract-external-id" } });
   await repos.connections.recordVerification(db, { workspaceId: WS, id: PLATFORM_CONNECTION, ok: true, detail: "Contract fixture; no cloud identity was checked." });
+  const nativeConnection = (await repos.connections.get(db, WS, PLATFORM_CONNECTION))!;
+  expect(nativeConnection.legacyConnectionId).toBe(PRODUCT_CONNECTION);
+  q.connection(PRODUCT_CONNECTION)!.platformConnectionId = nativeConnection.id; save();
+  await seedOwningProductProjection();
   broker = createBroker({ store: new PlatformBrokerStore(db), scopes: productScopeResolver(), roles: productRoleResolver(), signer: new CredentialGrantSigner(), clock: { now: () => new Date() }, policy: () => loadPolicyEngine() });
   const product = await createProductPort().loadContext({ workspaceId: WS, environmentId: ENV, revisionId: REVISION, deploymentId: DEPLOYMENT });
   const desired = buildDesiredState(product); expect(desired.problems).toEqual([]); expect(desired.graph).toBeDefined();
@@ -96,6 +149,9 @@ async function approvedOperation() {
   const proposal = await broker.propose({ capability: "deployment.deploy", scope: { workspaceId: WS, projectId: PROJECT, environmentId: ENV }, input: { revisionId: REVISION, deploymentId: DEPLOYMENT }, idempotencyKey: uniqueId("deploy") }, requester, { via: "workflow" });
   expect(proposal.decision.outcome).toBe("require_approval");
   expect(proposal.operation.status).toBe("awaiting_approval");
+  const deployment = q.deployment(DEPLOYMENT)!;
+  deployment.executor = "workflow"; deployment.operationId = proposal.operation.id; save();
+  await projectOwningDeployment(deployment.id);
   await expect(broker.approve({ workspaceId: WS, operationId: proposal.operation.id, proposalDigest: proposal.operation.proposalDigest, approver: { kind: "navigator", id: "model", name: "Model", onBehalfOf: "approver" }, session: { method: "browser_session", subject: "approver", verifiedAtMs: Date.now() } })).rejects.toThrow();
   await broker.approve({ workspaceId: WS, operationId: proposal.operation.id, proposalDigest: proposal.operation.proposalDigest, approver, session: { method: "browser_session", subject: "approver", verifiedAtMs: Date.now() } });
   await broker.beginExecution({ workspaceId: WS, operationId: proposal.operation.id, holder: executionHolder(proposal.operation.id), leaseMs: CLAIM_LEASE_MS, audience: "worker" });
@@ -165,6 +221,7 @@ describe("composed deploy workflow (contract evidence)", () => {
         const proposed = await startWorkflowDeployment({ ctx: requesterContext, env: q.environment(ENV)!, revision: q.revision(REVISION)!, changeset: { items: [], warnings: [], totalCostDeltaUsd: 0, projectedMonthlyUsd: 0 }, changeSummary: "Contract bridge deploy" });
         expect(proposed.ok).toBe(true);
         const d = q.deployment((proposed.data as { deploymentId: string }).deploymentId)!;
+        await projectOwningDeployment(d.id);
         const initial = (await broker.getOperationDetail({ workspaceId: WS, operationId: d.operationId!, principal: requester })).operation;
         expect(initial.proposal.planDigest).toBeUndefined(); expect(initial.status).toBe("awaiting_approval"); expect(initial.approvalRound).toBe(0);
         expect((await approveWorkflowDeployment(reviewerContext, d)).ok).toBe(true);
@@ -339,6 +396,7 @@ describe("composed activities against local stores (no Temporal fallback)", () =
       const proposal = await startWorkflowDeployment({ ctx: requesterContext, env: q.environment(ENV)!, revision: q.revision(REVISION)!, changeset: { items: [], warnings: [], totalCostDeltaUsd: 0, projectedMonthlyUsd: 0 }, changeSummary: "Contract bridge activity chain" });
       expect(proposal.ok).toBe(true);
       const d = q.deployment((proposal.data as { deploymentId: string }).deploymentId)!;
+      await projectOwningDeployment(d.id);
       const operationId = d.operationId!;
       expect((await broker.deps.store.getOperation(WS, operationId))?.planDigest).toBeUndefined();
       expect((await approveWorkflowDeployment(reviewerContext, d)).ok).toBe(true); expect(start).toHaveBeenCalledOnce();
@@ -546,8 +604,31 @@ describe("composed activities against local stores (no Temporal fallback)", () =
       await activities.planInfrastructure({ operationId, lease });
       const store = (await import("@/lib/db/store")).db();
       store.members.find((m) => m.id === approver.id)!.role = "viewer"; save();
+      await db.query("update public.members set role=$1 where workspace_id=$2 and id=$3", [store.members.find(member => member.workspaceId === WS && member.id === approver.id)!.role, WS, approver.id]);
       await expect(createExecutionBroker(db, async () => broker).issueGrant(operationId, "worker", lease)).rejects.toThrow("human approval");
       expect(await activities.checkApproval({ operationId })).toMatchObject({ approved: false });
+    } finally { await activities.releaseLease({ lease }); }
+  }, 60_000);
+  it.each(["missing owning environment", "foreign owning project", "changed target region"] as const)("refuses %s after concrete approval without repairing the product projection", async fault => {
+    activities = composed(false);
+    const operationId = await approvedOperation();
+    await activities.validateDesiredState({ operationId });
+    let lease = await activities.acquireLease({ operationId, scope: `env:${ENV}`, ttlMs: 180_000 });
+    try {
+      const plan = await activities.planInfrastructure({ operationId, lease });
+      await activities.evaluatePolicy({ operationId, planDigest: plan.planDigest });
+      lease = await planRound(operationId, lease);
+      expect((await activities.checkApproval({ operationId })).approved).toBe(true);
+      expect(await db.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2", [WS, operationId])).toEqual([{ phase: "ready" }]);
+      const original = await db.query("select manifest_digest,md5(ciphertext) as ciphertext_digest from platform.plan_artifacts where workspace_id=$1 and operation_id=$2", [WS, operationId]);
+      expect(original).toHaveLength(1);
+      if (fault === "missing owning environment") await db.query("delete from public.environments where workspace_id=$1 and id=$2", [WS, ENV]);
+      else if (fault === "foreign owning project") await db.query("update public.projects set workspace_id='foreign' where workspace_id=$1 and id=$2", [WS, PROJECT]);
+      else await db.query("update public.environments set data=jsonb_set(data,'{region}','\"us-west-2\"'::jsonb) where workspace_id=$1 and id=$2", [WS, ENV]);
+      await expect(activities.applyInfrastructure({ operationId, planDigest: plan.planDigest, lease })).rejects.toThrow();
+      expect(tofu.applyCalls).toHaveLength(0);
+      expect((await repos.evidence.list(db, WS, { operationId })).filter(row => row.kind === "tofu_apply")).toHaveLength(0);
+      expect(await db.query("select manifest_digest,md5(ciphertext) as ciphertext_digest from platform.plan_artifacts where workspace_id=$1 and operation_id=$2", [WS, operationId])).toEqual(original);
     } finally { await activities.releaseLease({ lease }); }
   }, 60_000);
 });

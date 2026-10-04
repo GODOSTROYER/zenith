@@ -80,7 +80,7 @@ Reference material these guides lean on (not duplicated here):
 |---|---|---|
 | Capability broker and REST | `src/lib/capabilities/**`, `src/app/api/platform/v1/**`, `src/lib/platform/broker.ts` | [DEPLOYING.md](DEPLOYING.md#28-capability-broker-approvals-and-the-agent-routes), [POLICY.md](POLICY.md), [MCP.md](../MCP.md). Worker policy and grant consumption use the execution broker |
 | Runner and `zenithd` control-plane side | `src/lib/runners/**`, `src/app/api/platform/v1/runners/**`, `.../machines/**` | [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-branch), [RECOVERY.md](RECOVERY.md#44-runner-jobs). Signed middleware paths, AWS runner transport and cron reaper are wired |
-| Control store | `src/lib/controlplane/**`, `scripts/platform/**`, `supabase/migrations/0014_platform_core.sql` | [DEPLOYING.md](DEPLOYING.md#3-the-platform-database), [RECOVERY.md](RECOVERY.md) |
+| Control store | `src/lib/controlplane/**`, `scripts/platform/**`, `supabase/migrations/0016_platform_core.sql` | [DEPLOYING.md](DEPLOYING.md#3-the-platform-database), [RECOVERY.md](RECOVERY.md) |
 | Credential broker and OIDC issuer | `src/lib/credentials/**`, `src/app/api/oidc/**`, `deploy/aws/**` | [`OPERATIONS.md`](../../../src/lib/credentials/OPERATIONS.md), [DEPLOYING.md](DEPLOYING.md#23-workload-identity-and-control-plane-signing), [AWS-SETUP.md](AWS-SETUP.md), [RECOVERY.md](RECOVERY.md#6-key-rotation) |
 | OpenTofu engine | `src/lib/tofu/**` | [DEPLOYING.md](DEPLOYING.md#26-opentofu-engine), [ADR-0005](../../adr/0005-opentofu-hybrid.md) |
 | Policy engine | `policy/**`, `src/lib/policy/**` | [POLICY.md](POLICY.md) |

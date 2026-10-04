@@ -45,7 +45,7 @@ function intentEngineSuite() {
       // the unchanged deletion deadline, retaining EnsureCloseBeforeDelete's default.
       extraArgs:[
         "--dynamic-config-value","frontend.WorkflowTimeSkippingEnabled=true",
-        "--dynamic-config-value","history.transferProcessorUpdateAckInterval=1s",
+        "--dynamic-config-value",'history.transferProcessorUpdateAckInterval="1s"',
         "--dynamic-config-value","history.transferProcessorUpdateAckIntervalJitterCoefficient=0",
       ],
     }});

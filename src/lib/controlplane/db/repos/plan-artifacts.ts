@@ -12,6 +12,7 @@ import { setPlanDigest } from "@/lib/controlplane/operations/execution";
 import * as evidence from "./evidence";
 import { projectPlanReview } from "./operation-review";
 import type { ApprovedSourceSnapshot } from "@/lib/execution/source-snapshot";
+import { textArray } from "../sql";
 
 export class PlanArtifactError extends Error {
   readonly code = "plan_artifact_unavailable";
@@ -218,7 +219,7 @@ async function captureSourceDispatch(tx: Sql, row: ArtifactRow): Promise<SourceD
   const addresses = [...new Set(sources.flatMap(snapshot => [snapshot.serviceAddress, snapshot.pipelineAddress]))].sort();
   const resources = await tx.query<{ address: string; kind: string; provider: string; region: string; spec_digest: string; spec: Record<string, unknown>; ownership: string; status: string }>(
     "select address,kind,provider,region,spec_digest,spec,ownership,status from platform.resources where workspace_id=$1 and project_id=$2 and environment_id=$3 and address=any($4::text[]) order by address for share",
-    [m.workspaceId, m.projectId, m.environmentId, addresses]);
+    [m.workspaceId, m.projectId, m.environmentId, textArray(addresses)]);
   const bindings = await tx.query<{ app_id: string; installation_id: number; repository_id: number; version: number; owner: string; repo: string; revoked_at: unknown }>(
     "select app_id,installation_id,repository_id,version,owner,repo,revoked_at from platform.github_source_bindings where workspace_id=$1", [m.workspaceId]);
   const current = bindings[0];

@@ -30,7 +30,7 @@ const diagnosticRoles = new Set(["postgres", "temporal", "worker", "worker-recov
 const refusalCommandPhases = new Set(refusalKinds.flatMap((kind) => [`refusal-launch-${kind}`, `refusal-exit-${kind}`, `refusal-logs-${kind}`]));
 const inFlightCommandPhases = ["shutdown-authority-readback", "inflight-worker-address", "inflight-schema-blocker", "inflight-schema-held", "inflight-schema-waiter",
   "temporal-control-observe", "temporal-control-trigger", "temporal-control-activity", "inflight-sigterm", "inflight-drain-started", "inflight-drain-waiter",
-  "inflight-worker-exit", "inflight-stopped-worker", "inflight-worker-lifecycle-logs", "fresh-recovery-entrypoint", "probe-readyz", "temporal-control-history"];
+  "inflight-worker-exit", "inflight-stopped-worker", "inflight-worker-lifecycle-logs", "fresh-recovery-entrypoint", "probe-readyz", "temporal-control-history", "inflight-control-session", "inflight-control-owner"];
 const diagnosticCommandPhases = new Set([...refusalCommandPhases,
   ...inFlightCommandPhases,
   "private-tls-tool", "private-tls-ca", "private-tls-leaf", "private-tls-sign", "private-tls-verify",
@@ -256,6 +256,9 @@ export function sanitizePackagedCommandFailure(error) {
 const inFlightGuardReasons = new Map([
   ["Local shutdown authority readback is unconfirmed.", "shutdown-authority-unconfirmed"],
   ["Owned in-flight worker is unconfirmed.", "owned-worker-unconfirmed"],
+  ["Owned in-flight control is unconfirmed.", "owned-control-unconfirmed"],
+  ["Packaged control session request is invalid.", "control-session-request-invalid"],
+  ["Packaged control session evidence is unconfirmed.", "control-session-evidence-unconfirmed"],
   ["Owned worker address is invalid.", "owned-worker-address-invalid"],
   ["Owned schema outage identity is invalid.", "schema-observer-identity-invalid"],
   ["Owned shutdown blocker was not confirmed.", "shutdown-blocker-unconfirmed"],
@@ -539,6 +542,123 @@ export async function command(binary, args, phase, { timeout = 120_000, allowFai
 }
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** The private drain client has no arbitrary RPC, arguments or diagnostic channel. */
+export function packagedTemporalSessionRequest(sequence, action, pinned = []) {
+  const fail = () => { throw new Error("Packaged control session request is invalid."); };
+  if (!Number.isSafeInteger(sequence) || sequence < 1 || sequence > 64
+    || !["observe", "idle", "triggerActivity", "activity", "history", "close"].includes(action) || !Array.isArray(pinned)) fail();
+  if (pinned.length && (!["activity", "history"].includes(action) || pinned.length !== 3
+    || typeof pinned[0] !== "string" || !/^zenith-reconcile-sweep-v1-[A-Za-z0-9:.+-]{1,96}$/.test(pinned[0])
+    || typeof pinned[1] !== "string" || !/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(pinned[1])
+    || typeof pinned[2] !== "string" || !/^[1-9][0-9]{0,9}$/.test(pinned[2]))) fail();
+  if (action === "history" && pinned.length !== 3) fail();
+  return JSON.stringify({ sequence, action, pinned: [...pinned] });
+}
+
+/** Only canonical bounded frames and the existing verified scalar projections leave control. */
+export function sanitizePackagedTemporalSessionFrame(line, sequence, action, workerIdentity, pinned = []) {
+  const fail = () => { throw new Error("Packaged control session evidence is unconfirmed."); };
+  if (typeof line !== "string" || line.length > 8192 || !line.startsWith("PACKAGED_TEMPORAL_SESSION ") || !/^[\x20-\x7e]+$/.test(line)) fail();
+  let frame;
+  const text = line.slice("PACKAGED_TEMPORAL_SESSION ".length);
+  try { frame = JSON.parse(text); } catch { fail(); }
+  if (!isRecord(frame) || JSON.stringify(frame) !== text || Object.keys(frame).join(",") !== "sequence,action,evidence"
+    || frame.sequence !== sequence || frame.action !== action || !isRecord(frame.evidence)) fail();
+  const value = frame.evidence;
+  let evidence;
+  if (action === "ready" || action === "close") {
+    const key = action === "ready" ? "ready" : "closed";
+    if (value[key] !== true) fail();
+    evidence = { [key]: true };
+  } else if (["observe", "idle"].includes(action)) {
+    evidence = sanitizeTemporalControlEvidence("observe", value);
+    if (action === "idle") {
+      if (value.drainedActions !== true || value.runningActions !== 0 || evidence.status !== "completed" || evidence.current !== true) fail();
+      evidence = { ...evidence, drainedActions: true, runningActions: 0 };
+    }
+  } else if (["triggerActivity", "activity", "history"].includes(action)) {
+    evidence = sanitizePackagedSweepEvidence(action === "history" ? "history" : "activity", value, workerIdentity);
+    if (action === "triggerActivity") {
+      if (typeof value.previousRunId !== "string" || !/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value.previousRunId)
+        || value.runId === value.previousRunId || value.drainedBeforeTrigger !== true) fail();
+      evidence = { ...evidence, previousRunId: value.previousRunId, drainedBeforeTrigger: true };
+    }
+    if (pinned.length && [evidence.workflowId, evidence.runId, evidence.activityId].some((value, index) => value !== pinned[index])) fail();
+  } else fail();
+  if (Object.keys(value).sort().join(",") !== Object.keys(evidence).sort().join(",")) fail();
+  return evidence;
+}
+
+/** One bounded owned process. Raw SDK/stdout/stderr never become diagnostics or authority. */
+async function openPackagedTemporalSession(args, workerIdentity) {
+  let child;
+  try { child = spawn("docker", args, { stdio: ["pipe", "pipe", "pipe"] }); }
+  catch { throw new PackagedCommandError("inflight-control-session", "command-launch"); }
+  activeChildren.add(child);
+  let sequence = 0, waiting, buffer = "", bytes = 0, stderrBytes = 0, finished = false, closing = false, failed;
+  const exit = new Promise((resolve) => child.once("close", (code, signal) => { activeChildren.delete(child); clearTimeout(lifetime); resolve({ code, signal }); }));
+  const refuse = (category) => {
+    failed ??= new PackagedCommandError("inflight-control-session", category);
+    if (waiting) { clearTimeout(waiting.timer); waiting.reject(failed); waiting = undefined; }
+    child.kill("SIGKILL");
+  };
+  const lifetime = setTimeout(() => refuse("command-timeout"), 240_000);
+  const receive = (action, pinned = [], timeout = 15_000) => {
+    if (waiting || failed || finished) return Promise.reject(failed ?? new PackagedCommandError("inflight-control-session", "command-input"));
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => refuse("command-timeout"), timeout);
+      waiting = { action, sequence, pinned, resolve, reject, timer };
+    });
+  };
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    bytes += Buffer.byteLength(chunk);
+    if (bytes > 65536 || chunk.includes("\r")) { refuse("command-output-limit"); return; }
+    buffer += chunk;
+    if (buffer.length > 8192 && !buffer.includes("\n")) { refuse("command-output-limit"); return; }
+    while (buffer.includes("\n")) {
+      const end = buffer.indexOf("\n"), line = buffer.slice(0, end); buffer = buffer.slice(end + 1);
+      if (!waiting) { refuse("command-output-limit"); return; }
+      const pending = waiting;
+      try {
+        const evidence = sanitizePackagedTemporalSessionFrame(line, pending.sequence, pending.action, workerIdentity, pending.pinned);
+        clearTimeout(pending.timer); waiting = undefined; pending.resolve(evidence);
+      } catch { refuse("command-output-limit"); return; }
+    }
+  });
+  child.stderr.on("data", (chunk) => { stderrBytes += chunk.length; if (stderrBytes > 65536) refuse("command-output-limit"); });
+  child.stdin.on("error", () => refuse("command-input"));
+  child.once("error", () => refuse("command-launch"));
+  child.once("close", (code, signal) => {
+    finished = true;
+    if (!closing || code !== 0 || signal || buffer || waiting) refuse(signal ? "command-signal" : "command-exit");
+  });
+  const ready = await receive("ready", [], 30_000);
+  return {
+    ready,
+    async call(action, pinned = []) {
+      sequence++;
+      const request = packagedTemporalSessionRequest(sequence, action, pinned);
+      const response = receive(action, pinned);
+      try { child.stdin.write(request + "\n"); } catch { refuse("command-input"); }
+      return response;
+    },
+    async close() {
+      if (finished || failed) { child.kill("SIGKILL"); throw failed ?? new PackagedCommandError("inflight-control-session", "command-exit"); }
+      closing = true;
+      sequence++;
+      const request = packagedTemporalSessionRequest(sequence, "close");
+      const response = receive("close");
+      try { child.stdin.end(request + "\n"); } catch { refuse("command-input"); }
+      await response;
+      const closeTimer = setTimeout(() => refuse("command-timeout"), 10_000);
+      const result = await exit;
+      clearTimeout(closeTimer);
+      if (result.code !== 0 || result.signal || failed) throw failed ?? new PackagedCommandError("inflight-control-session", "command-exit");
+    },
+  };
+}
 
 /** A Docker client exit is not a worker exit. Inspect only the exact owned
  * container, and never accept an expired observation window as a refusal. */
@@ -921,7 +1041,7 @@ const { temporal } = temporalProto;
 const action=process.argv[1], auth=process.argv[2]??'client', pinned=process.argv.slice(3);
 let connection;
 try {
- if(!['health','namespace','observe','trigger','pause','unpause','activity','history'].includes(action)||!['client','none','rogue','wrong-server-name'].includes(auth)
+ if(!['health','namespace','observe','trigger','pause','unpause','activity','history','session'].includes(action)||!['client','none','rogue','wrong-server-name'].includes(auth)
   ||process.env.NODE_ENV!=='production'||process.env.ZENITH_TEMPORAL_ADDRESS!=='temporal:7233'
   ||!/^zenith-pkg-(arm64|amd64)-[a-f0-9]{12}$/.test(process.env.ZENITH_TEMPORAL_NAMESPACE??''))throw new Error();
  if(pinned.length&&(!['activity','history'].includes(action)||pinned.length!==3
@@ -960,6 +1080,7 @@ try {
  })};
  const client=new Client({connection,namespace,dataConverter:{payloadCodecs:[codec]}});
  const schedule=client.schedule.getHandle('zenith-reconcile-sweep-v1');
+ const run=async(action,pinned=[],waitForStart=false)=>{
  let result;
  if(action==='health'){await rpc(()=>connection.workflowService.getSystemInfo({}));result={authenticated:true};}
  if(action==='namespace'){
@@ -1006,8 +1127,13 @@ try {
      activityType:'sweepReconcilePass',workerIdentity,attempt:1,maximumAttempts:1};
     if(action==='activity'){
      const pending=d.raw.pendingActivities;
+     if(waitForStart&&d.status.name==='RUNNING'&&(!pending||Array.isArray(pending)&&pending.length===0))return undefined;
      if(d.status.name!=='RUNNING'||pending?.length!==1)throw new Error();
      const a=pending[0];
+     if(waitForStart&&a.state===1){
+      if(a.activityType?.name!=='sweepReconcilePass'||a.attempt!==1||a.maximumAttempts!==1)throw new Error();
+      return undefined;
+     }
      if(a.activityType?.name!=='sweepReconcilePass'||a.state!==2||a.attempt!==1||a.maximumAttempts!==1
       ||a.lastWorkerIdentity!==workerIdentity||!a.lastStartedTime||(pinned.length&&a.activityId!==pinned[2]))throw new Error();
      result={...base,activityId:a.activityId,workflowStatus:'running',activityState:'started'};
@@ -1042,7 +1168,72 @@ try {
   }
   if(['activity','history'].includes(action)&&!entry)throw new Error();
  }
- console.log('PACKAGED_TEMPORAL '+JSON.stringify(result));
+ if(action==='idle'){
+  const until=Date.now()+10000;
+  while(Date.now()<until){
+   const observed=await run('observe'),s=await rpc(()=>schedule.describe());
+   if(!Array.isArray(s.info.runningActions)||s.info.runningActions.length>1
+    ||s.info.runningActions.some(a=>a.type!=='startWorkflow'||!/^zenith-reconcile-sweep-v1-[A-Za-z0-9:.+-]{1,96}$/.test(a.workflow?.workflowId??'')
+      ||!(/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/).test(a.workflow?.firstExecutionRunId??'')))throw new Error();
+   if(s.info.runningActions.length===0&&observed.status==='completed'&&observed.current===true&&!s.state.paused){
+    result={...observed,drainedActions:true,runningActions:0};break;
+   }
+   await new Promise(resolve=>setTimeout(resolve,100));
+  }
+  if(!result)throw new Error();
+ }
+ if(action==='triggerActivity'){
+  const previous=await run('idle');await run('trigger');
+  const until=Date.now()+4000;
+  while(Date.now()<until){
+   const observed=await run('observe');
+   if(observed.runId!==previous.runId&&observed.status==='running'){
+    const actual=await run('activity',[],true);
+    if(!actual){await new Promise(resolve=>setTimeout(resolve,100));continue;}
+    if(actual.runId!==observed.runId||actual.runId===previous.runId)throw new Error();
+    result={...actual,previousRunId:previous.runId,drainedBeforeTrigger:true};break;
+   }
+   await new Promise(resolve=>setTimeout(resolve,100));
+  }
+  if(!result)throw new Error();
+ }
+ return result;
+ };
+ if(action==='session'){
+  if(process.getuid()!==10001||pinned.length)throw new Error();
+  const request=${packagedTemporalSessionRequest.toString()};
+  const emit=(sequence,action,evidence)=>console.log('PACKAGED_TEMPORAL_SESSION '+JSON.stringify({sequence,action,evidence}));
+  emit(0,'ready',{ready:true});
+  let sequence=0,selected,closed=false;
+  const requests=async function*(){
+   let buffer='',bytes=0;process.stdin.setEncoding('utf8');
+   for await(const chunk of process.stdin){
+    bytes+=Buffer.byteLength(chunk);
+    if(bytes>65536||!(/^[\x20-\x7e\n]*$/).test(chunk))throw new Error();
+    buffer+=chunk;
+    while(buffer.includes('\n')){
+     const end=buffer.indexOf('\n');if(end>4096)throw new Error();
+     const line=buffer.slice(0,end);buffer=buffer.slice(end+1);yield line;
+    }
+    if(buffer.length>4096)throw new Error();
+   }
+   if(buffer)throw new Error();
+  };
+  for await(const line of requests()){
+   if(line.length>4096||!(/^[\x20-\x7e]+$/).test(line))throw new Error();
+   const packet=JSON.parse(line);
+   if(!packet||Object.getPrototypeOf(packet)!==Object.prototype||Object.keys(packet).join(',')!=='sequence,action,pinned'
+    ||request(packet.sequence,packet.action,packet.pinned)!==line||packet.sequence!==sequence+1)throw new Error();
+   sequence=packet.sequence;
+   if(packet.action==='close'){closed=true;emit(sequence,'close',{closed:true});break;}
+   if(packet.action==='triggerActivity'&&selected)throw new Error();
+   if(['activity','history'].includes(packet.action)&&(!selected||JSON.stringify(packet.pinned)!==JSON.stringify(selected)))throw new Error();
+   const result=await run(packet.action,packet.pinned);
+   if(packet.action==='triggerActivity')selected=[result.workflowId,result.runId,result.activityId];
+   emit(sequence,packet.action,result);
+  }
+  if(!closed)throw new Error();
+ }else console.log('PACKAGED_TEMPORAL '+JSON.stringify(await run(action,pinned)));
 } catch { console.error('Packaged authenticated Temporal control failed.'); process.exitCode=1; }
 finally { try { await connection?.close(); } catch { console.error('Packaged Temporal connection close failed.'); process.exitCode=1; } }
 `;
@@ -1069,6 +1260,7 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
   process.on("SIGTERM", stop);
   const deadline = setTimeout(stop, 3_600_000);
   let phase = "prerequisites";
+  let drainControl, admittedDrainActivity, drainControlOwned = false;
   const evidence = { runId, platform, startedAt: new Date().toISOString(), status: "failed", checks: {}, limitations: [
     "One disposable Temporal Server with actual frontend/internode mTLS; not Temporal Cloud, HA or namespace ACL acceptance.",
     "Certificate authentication is required; the isolated server has no namespace authorizer and does not prove production namespace permission limits.",
@@ -1119,6 +1311,17 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     return clientEvidence(action, await docker([...isolated(name), "--entrypoint", "node", image, "dist/acceptance/packaged-client.cjs", action], `client-${action}`));
   };
   const control = async (action, auth = "client", allowFailure = false, pinned = []) => {
+    if (drainControl && auth === "client" && !allowFailure && ["observe", "trigger", "activity", "history"].includes(action)) {
+      if (action === "trigger") {
+        admittedDrainActivity = await drainControl.call("triggerActivity");
+        return { confirmed: true };
+      }
+      if (action === "activity" && !pinned.length) {
+        if (!admittedDrainActivity) throw new Error("Packaged control session evidence is unconfirmed.");
+        pinned = [admittedDrainActivity.workflowId, admittedDrainActivity.runId, admittedDrainActivity.activityId];
+      }
+      return drainControl.call(action, pinned);
+    }
     const name = nameContainer(`control-${action}-${randomBytes(2).toString("hex")}`);
     const result = await docker([...isolated(name), "--entrypoint", "node", image,
       "--input-type=module", "-e", packagedTemporalControlSource(), action, auth, ...pinned], `temporal-control-${action}`,
@@ -1411,6 +1614,14 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     evidence.checks.operatorPause = { readinessRevoked: true, livenessRetained: true,
       resumedOnlyByOperator: true, freshPass: await observation("completed", paused.runId) };
     phase = "inflight-schema-shutdown";
+    const drainControlName = nameContainer("control-inflight-session");
+    created.containers.push(drainControlName);
+    drainControl = await openPackagedTemporalSession([...isolated(drainControlName), "--interactive", "--entrypoint", "node", image,
+      "--input-type=module", "-e", packagedTemporalControlSource(), "session", "client"], runId);
+    const controlState = JSON.parse((await docker(["inspect", "--format", '{{json .}}', drainControlName], "inflight-control-owner")).out);
+    if (controlState.Config?.Labels?.["io.zenith.acceptance.run"] !== runId || controlState.State?.Running !== true) throw new Error("Owned in-flight control is unconfirmed.");
+    drainControlOwned = true;
+    await drainControl.call("idle");
     const readAuthority = async () => {
       const result = await docker(["exec", pg, "psql", "-X", "-tA", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "zenith_packaged", "-c",
         packagedShutdownAuthoritySql()], "shutdown-authority-readback", { timeout: 10_000 });
@@ -1442,7 +1653,8 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
       }
       if (!heldWaiter) throw new Error("Actual in-flight schema waiter was not confirmed.");
       entered = await control("activity");
-      if (entered.runId === beforeShutdown.runId) throw new Error("A fresh started sweep was not confirmed.");
+      if (entered.runId === beforeShutdown.runId || !admittedDrainActivity
+        || [entered.workflowId, entered.runId, entered.activityId].some((value, index) => value !== [admittedDrainActivity.workflowId, admittedDrainActivity.runId, admittedDrainActivity.activityId][index])) throw new Error("A fresh started sweep was not confirmed.");
       const pinned = [entered.workflowId, entered.runId, entered.activityId];
       await docker(["kill", "--signal", "SIGTERM", worker], "inflight-sigterm");
       for (let attempt = 0; ; attempt++) {
@@ -1481,6 +1693,8 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     }
     sanitizePackagedReadiness((await probe("readyz", recoveryWorker))?.body);
     const retainedHistory = await control("history", "client", false, [entered.workflowId, entered.runId, entered.activityId]);
+    await drainControl.close();
+    drainControl = undefined;
     const beforeFreshPass = await control("observe");
     await control("trigger");
     const freshPass = await observation("completed", beforeFreshPass.runId);
@@ -1492,6 +1706,7 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     }
     evidence.checks.inFlightShutdown = { signal: "SIGTERM", exitCode: 0, drained: true, inFlightActivity: true,
       scope: "read-only schema prerequisite before controller lease or provider admission", entered, afterSignal,
+      controlSession: { positivelyOwned: drainControlOwned, prewarmedBeforeBlocker: true, drainedActionsBeforeTrigger: true, oneAcceptedStartedRun: true },
       actualPgWaiter: heldWaiter, waiterDuringDrain: drainWaiter, retainedHistory, freshWorkerIdentity: `${runId}-recovery`, freshPass,
       authorityReadback: { existingReadRefusalUnchanged: true, ...authorityAfterRecovery,
         baselineObserverPid: authorityBefore.observerPid, drainObserverPid: authorityAfterDrain.observerPid },
@@ -1516,6 +1731,10 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
   } finally {
     cleaning = true;
     clearTimeout(deadline);
+    if (drainControl) {
+      try { await drainControl.close(); } catch { evidence.status = "failed"; }
+      drainControl = undefined;
+    }
     const cleanup = [];
     const removeOwned = async (kind, name, role) => {
       const result = await cleanupOwnedResource(kind, name, runId, docker);

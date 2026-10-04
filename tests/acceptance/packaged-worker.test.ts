@@ -7,7 +7,7 @@ import { chmod, link, lstat, mkdir, mkdtemp, readdir, realpath, rm, symlink, wri
 import os from "node:os";
 import path from "node:path";
 import { runInNewContext } from "node:vm";
-import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, inFlightSchemaObserverSql, packagedPrivateTransferPayload, packagedPrivateTransferSource, packagedShutdownAuthoritySql, packagedSourceDigest, packagedTemporalControlSource, packagedVolumeCustodySource, PackagedCommandError, parsePackagedArgs, preparePackagedPrivateTransfer, prepareTemporalTls, PRIVATE_TRANSFER_LIMIT_BYTES, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedInFlightFailure, sanitizePackagedReadiness, sanitizePackagedSweepEvidence, sanitizePgWaiterEvidence, sanitizeShutdownAuthorityEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
+import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, inFlightSchemaObserverSql, packagedPrivateTransferPayload, packagedPrivateTransferSource, packagedShutdownAuthoritySql, packagedSourceDigest, packagedTemporalControlSource, packagedTemporalSessionRequest, packagedVolumeCustodySource, PackagedCommandError, parsePackagedArgs, preparePackagedPrivateTransfer, prepareTemporalTls, PRIVATE_TRANSFER_LIMIT_BYTES, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedInFlightFailure, sanitizePackagedReadiness, sanitizePackagedSweepEvidence, sanitizePackagedTemporalSessionFrame, sanitizePgWaiterEvidence, sanitizeShutdownAuthorityEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
 import { assertPackagedAcceptanceTarget } from "../../workers/execution/packaged-target";
 import { EXECUTION_FAILURE_CATEGORIES } from "../../workers/execution/startup";
 
@@ -1180,4 +1180,178 @@ describe("packaged in-flight fixed failure diagnostics [scalar models; no servic
         .toEqual({ category: "command-exit", exitCode: 1, signal: null });
     }
   );
+});
+
+/** Exact read/control closure with modeled locked SDK replies. No TLS, SQL, worker or activity is executed. */
+function drainControlModel() {
+  const workerIdentity = "zenith-pkg-arm64-0123456789ab", previousRunId = "01234567-0123-4123-8123-0123456789ab";
+  const runId = "11234567-0123-4123-8123-0123456789ab", workflowId = "zenith-reconcile-sweep-v1-2026-10-04T08:01:00Z";
+  const previousWorkflowId = "zenith-reconcile-sweep-v1-2026-10-04T08:00:00Z";
+  let clock = Date.now(), idleReads = 2, startReads = 0;
+  const state = { triggers: 0, skipped: false, neverIdle: false, foreignRunning: false, terminal: false, pending: "normal", workerIdentity, attempt: 1, maximumAttempts: 1 };
+  const expected = { contract: "zenith.reconcile-sweep.v1", maxEnvironments: 25, environmentConcurrency: 1 };
+  const config = createHash("sha256").update(JSON.stringify([expected.contract, 25, 1])).digest("hex");
+  const fresh = () => state.triggers > 0 && !state.skipped;
+  const schedule = {
+    async describe() {
+      const running = fresh() ? !state.terminal : state.neverIdle || idleReads-- > 0;
+      return { scheduleId: "zenith-reconcile-sweep-v1", memo: { zenithOwner: "zenith", zenithContract: expected.contract, zenithConfigSha256: config },
+        typedSearchAttributes: { get: () => expected.contract }, state: { paused: false }, spec: { intervals: [{ every: 60000 }] },
+        policies: { overlap: "SKIP", pauseOnFailure: false },
+        action: { type: "startWorkflow", workflowType: "reconcileSweepWorkflow", workflowId: "zenith-reconcile-sweep-v1", taskQueue: "zenith-execution", args: [expected] },
+        raw: { schedule: { action: { startWorkflow: { input: { payloads: [{ metadata: { encoding: Buffer.from("binary/zenith.temporal.v1") } }] } } } } },
+        info: { runningActions: running ? [{ type: "startWorkflow", workflow: {
+          workflowId: state.foreignRunning ? "foreign-workflow" : fresh() ? workflowId : previousWorkflowId,
+          firstExecutionRunId: fresh() ? runId : previousRunId } }] : [], recentActions: [{ action: { type: "startWorkflow", workflow: {
+          workflowId: fresh() ? workflowId : previousWorkflowId, firstExecutionRunId: fresh() ? runId : previousRunId } } }] } };
+    },
+    async trigger(overlap: string) { expect(overlap).toBe("SKIP"); state.triggers++; },
+  };
+  const client = { workflow: {
+    async withDeadline(_deadline: number, fn: () => Promise<unknown>) { return fn(); },
+    getHandle(id: string, selectedRunId: string) {
+      if (![runId, previousRunId].includes(selectedRunId)) throw new Error("Modeled foreign run refuses.");
+      const original = selectedRunId === previousRunId;
+      return {
+        async describe() {
+          let pendingActivities: object[] = [];
+          if (!original && !state.terminal) {
+            startReads++;
+            if (state.pending !== "empty" && startReads > 2) pendingActivities = [{ activityType: { name: "sweepReconcilePass" }, activityId: "1",
+              state: state.pending === "scheduled" || startReads < 5 ? 1 : 2, attempt: state.attempt, maximumAttempts: state.maximumAttempts,
+              lastWorkerIdentity: state.workerIdentity, lastStartedTime: { seconds: 1 } }];
+          }
+          return { workflowId: id, runId: selectedRunId, type: "reconcileSweepWorkflow", taskQueue: "zenith-execution",
+            status: { name: original || state.terminal ? "COMPLETED" : "RUNNING" }, closeTime: new Date(clock - 10), raw: { pendingActivities } };
+        },
+        async result() {
+          return original ? { status: "completed", counts: Object.fromEntries([
+            ...["claimed", "reconciled", "nothingToReconcile", "busy", "ineligible", "failed", "deferred", "nudged", "driftDetected", "driftCleared", "openFindings", "unreadNodes", "repairsProposed", "repairsStarted", "repairsAwaitingApproval", "repairsDenied", "ms"].map(key => [key, 0]),
+            ["saturated", false], ["timedOut", false] ]) } : { status: "deferred", reason: "prerequisites_unavailable" };
+        },
+        async fetchHistory() {
+          return { events: [
+            { eventId: 5, activityTaskScheduledEventAttributes: { activityId: "1", activityType: { name: "sweepReconcilePass" }, taskQueue: { name: "zenith-execution" }, retryPolicy: { maximumAttempts: 1 } } },
+            { eventId: 6, activityTaskStartedEventAttributes: { scheduledEventId: 5, attempt: 1, identity: state.workerIdentity } },
+            { eventId: 7, activityTaskCompletedEventAttributes: { scheduledEventId: 5, startedEventId: 6, identity: state.workerIdentity } },
+          ] };
+        },
+      };
+    },
+  } };
+  class ModelDate extends Date { static now() { return clock; } }
+  const program = packagedTemporalControlSource();
+  const closure = program.slice(program.indexOf(" const run=async("), program.indexOf(" if(action==='session')")) + "\nrun;";
+  const run: (action: string, pinned?: string[]) => Promise<Record<string, unknown> | undefined> = runInNewContext(closure, {
+    client, schedule, rpc: (fn: () => Promise<unknown>) => fn(), namespace: workerIdentity, encoding: "binary/zenith.temporal.v1",
+    process: { env: { ZENITH_WORKER_IDENTITY: workerIdentity } }, createHash, Buffer, Date: ModelDate,
+    defineSearchAttributeKey: () => ({}), SearchAttributeType: { KEYWORD: 2 }, ScheduleOverlapPolicy: { SKIP: "SKIP" },
+    setTimeout: (fn: () => void, ms: number) => { clock += ms; fn(); return 1; },
+  }, { timeout: 1000 });
+  return { state, run, workerIdentity, previousRunId, runId, workflowId };
+}
+
+describe("packaged prewarmed drain control [exact closure and scalar protocol models]", () => {
+  const workerIdentity = "zenith-pkg-arm64-0123456789ab", previousRunId = "01234567-0123-4123-8123-0123456789ab";
+  const activity = { scheduleOwned: true, encryptedInput: true, paused: false,
+    workflowId: "zenith-reconcile-sweep-v1-2026-10-04T08:01:00Z", runId: "11234567-0123-4123-8123-0123456789ab",
+    activityId: "1", activityType: "sweepReconcilePass", workerIdentity, attempt: 1, maximumAttempts: 1,
+    workflowStatus: "running", activityState: "started" };
+  const frame = (sequence: number, action: string, evidence: object) => "PACKAGED_TEMPORAL_SESSION " + JSON.stringify({ sequence, action, evidence });
+  it("frames only fixed read actions and exact owned pinned activity identity", () => {
+    const pinned = [activity.workflowId, activity.runId, activity.activityId];
+    expect(packagedTemporalSessionRequest(1, "history", pinned)).toBe(JSON.stringify({ sequence: 1, action: "history", pinned }));
+    expect(sanitizePackagedTemporalSessionFrame(frame(0, "ready", { ready: true }), 0, "ready", workerIdentity)).toEqual({ ready: true });
+    expect(sanitizePackagedTemporalSessionFrame(frame(1, "activity", activity), 1, "activity", workerIdentity, pinned)).toEqual(activity);
+    expect(sanitizePackagedTemporalSessionFrame(frame(2, "close", { closed: true }), 2, "close", workerIdentity)).toEqual({ closed: true });
+  });
+  it.each(["arbitrary RPC", "namespace mutation", "unbounded sequence", "missing history pin", "foreign workflow", "malformed run", "extra activity pin"])(
+    "refuses session request %s without emitting a command", fault => {
+      const action = fault === "arbitrary RPC" ? "terminateWorkflow" : fault === "namespace mutation" ? "namespace" : "history";
+      const pinned = fault === "missing history pin" ? [] : [activity.workflowId, activity.runId, activity.activityId];
+      if (fault === "foreign workflow") pinned[0] = "foreign-workflow";
+      if (fault === "malformed run") pinned[1] = "private-canary";
+      if (fault === "extra activity pin") pinned.push("private-canary");
+      expect(() => packagedTemporalSessionRequest(fault === "unbounded sequence" ? 65 : 1, action, pinned)).toThrow("invalid");
+    });
+  it.each(["missing", "malformed", "duplicate key", "noncanonical", "out of order", "duplicate prior reply", "foreign action", "unknown diagnostic", "nonascii", "oversized"])(
+    "refuses control response %s with no arbitrary payload projection", fault => {
+      let line = frame(1, "activity", activity);
+      if (fault === "missing") line = "";
+      if (fault === "malformed") line = "PACKAGED_TEMPORAL_SESSION {";
+      if (fault === "duplicate key") line = line.replace('"sequence":1', '"sequence":0,"sequence":1');
+      if (fault === "noncanonical") line = line.replace('{"sequence"', '{ "sequence"');
+      if (fault === "out of order") line = frame(2, "activity", activity);
+      if (fault === "duplicate prior reply") line = frame(0, "activity", activity);
+      if (fault === "foreign action") line = frame(1, "history", activity);
+      if (fault === "unknown diagnostic") line = frame(1, "activity", { ...activity, output: "private-canary" });
+      if (fault === "nonascii") line = frame(1, "activity", { ...activity, output: "\u0000" }).replace("\\u0000", "\u0000");
+      if (fault === "oversized") line += "x".repeat(8193);
+      expect(() => sanitizePackagedTemporalSessionFrame(line, 1, "activity", workerIdentity)).toThrow("unconfirmed");
+    });
+  it.each(["queued", "completed", "wrong worker", "retry", "same run", "undrained", "foreign pin"])(
+    "refuses unconfirmed started control boundary %s", fault => {
+      const evidence = { ...activity, previousRunId, drainedBeforeTrigger: true };
+      if (fault === "queued") evidence.activityState = "scheduled";
+      if (fault === "completed") evidence.workflowStatus = "completed";
+      if (fault === "wrong worker") evidence.workerIdentity = "zenith-pkg-arm64-ffffffffffff";
+      if (fault === "retry") evidence.attempt = 2;
+      if (fault === "same run") evidence.previousRunId = activity.runId;
+      if (fault === "undrained") evidence.drainedBeforeTrigger = false;
+      const pinned = fault === "foreign pin" ? [activity.workflowId, previousRunId, activity.activityId] : [];
+      expect(() => sanitizePackagedTemporalSessionFrame(frame(1, "triggerActivity", evidence), 1, "triggerActivity", workerIdentity, pinned)).toThrow("unconfirmed");
+    });
+  it("waits for drained scheduler actions and actual started metadata before confirming a fresh run", async () => {
+    const model = drainControlModel(), result = await model.run("triggerActivity");
+    expect(result).toEqual({ ...activity, previousRunId, drainedBeforeTrigger: true });
+    expect(model.state.triggers).toBe(1);
+    expect(sanitizePackagedTemporalSessionFrame(frame(1, "triggerActivity", result!), 1, "triggerActivity", workerIdentity)).toEqual(result);
+  });
+  it.each(["overlap skipped", "never drained", "foreign running action", "pending never starts", "wrong worker", "attempt changed", "retry allowed"])(
+    "actual closure refuses %s rather than accepting a trigger acknowledgement", async fault => {
+      const model = drainControlModel();
+      if (fault === "overlap skipped") model.state.skipped = true;
+      if (fault === "never drained") model.state.neverIdle = true;
+      if (fault === "foreign running action") model.state.foreignRunning = true;
+      if (fault === "pending never starts") model.state.pending = "scheduled";
+      if (fault === "wrong worker") model.state.workerIdentity = "zenith-pkg-arm64-ffffffffffff";
+      if (fault === "attempt changed") model.state.attempt = 2;
+      if (fault === "retry allowed") model.state.maximumAttempts = 2;
+      await expect(model.run("triggerActivity")).rejects.toThrow();
+      expect(model.state.triggers).toBe(["never drained", "foreign running action"].includes(fault) ? 0 : 1);
+    });
+  it("rereads the exact held activity and native linked terminal history without retriggering", async () => {
+    const model = drainControlModel();await model.run("triggerActivity");
+    const pinned = [model.workflowId, model.runId, "1"];
+    expect(await model.run("activity", pinned)).toEqual(activity);
+    model.state.terminal = true;
+    await expect(model.run("activity", pinned)).rejects.toThrow();
+    const history = await model.run("history", pinned);
+    expect(history).toMatchObject({ workflowStatus: "completed", result: "deferred", reason: "prerequisites_unavailable",
+      scheduledEventId: 5, startedEventId: 6, completedEventId: 7, startedByOriginalWorker: true, completedByOriginalWorker: true });
+    expect(model.state.triggers).toBe(1);
+  });
+  it("prewarms positively owned control before blocker and retains same worker SQL waiter and cleanup requirements", () => {
+    const source = readFileSync(new URL("../../scripts/acceptance/packaged-worker.mjs", import.meta.url), "utf8");
+    const main = source.slice(source.indexOf("export async function packagedWorkerMain("));
+    expect(main.indexOf("drainControl = await openPackagedTemporalSession(")).toBeLessThan(main.indexOf("const shutdownBlocker = docker("));
+    expect(main.indexOf('await drainControl.call("idle")')).toBeLessThan(main.indexOf("const shutdownBlocker = docker("));
+    expect(main).toContain('controlState.Config?.Labels?.["io.zenith.acceptance.run"] !== runId');
+    expect(main).toContain("controlState.State?.Running !== true");
+    expect(main).toContain("created.containers.push(drainControlName)");
+    expect(main).toContain('admittedDrainActivity = await drainControl.call("triggerActivity")');
+    expect(main).toContain('entered = await control("activity")');
+    expect(main).toContain('afterSignal = await control("activity", "client", false, pinned)');
+    expect(main).toContain("drainWaiter.waiterPid !== heldWaiter.waiterPid");
+    expect(main).toContain("drainWaiter.blockerPid !== heldWaiter.blockerPid");
+    expect(main).toContain("await drainControl.close();");
+    expect(main).toContain("for (const name of created.containers.reverse()) await removeOwned");
+    expect(main).toContain("sqlActivityAttributionProven: false, providerMutationAccepted: false");
+    expect(main).toContain("consumedApprovalPreservationProven: false, receiptRecoveryProven: false");
+    expect(packagedTemporalControlSource()).toContain("if(packet.action==='triggerActivity'&&selected)throw new Error()");
+    expect(packagedTemporalControlSource()).toContain("packet.sequence!==sequence+1");
+    expect(packagedTemporalControlSource()).toContain("process.getuid()!==10001");
+    const runtime = readFileSync(new URL("../../src/lib/workflows/reconcile-schedule.ts", import.meta.url), "utf8");
+    expect(runtime).toContain("set local lock_timeout='5s'");
+  });
 });

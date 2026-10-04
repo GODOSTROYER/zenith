@@ -505,9 +505,26 @@ export async function claimForExecution(sql: Sql, input: ClaimInput): Promise<Op
 
 /** Acquire and bind a running worker's environment lease in the same transaction. */
 export async function acquireExecutionLease(sql: Sql, input: AcquireLeaseInput & { operation: { id: string; proposalDigest: string } }): Promise<Lease | null> {
-  const requested={...input,operation:Object.freeze({...input.operation})};
+  const requested={...input,workspaceId:requireText("workspaceId",input.workspaceId),scope:requireText("scope",input.scope,256),
+    holder:requireText("holder",input.holder,256),ttlMs:boundedMs("ttlMs",input.ttlMs,1,24*60*60*1000),operation:Object.freeze({...input.operation})};
   return sql.tx(async tx=>{
-    await tx.query("select scope from platform.leases where scope=$1 for update",[requested.scope]);
+    const lockOwned=()=>tx.query("select scope from platform.leases where workspace_id=$1 and scope=$2 for update",[requested.workspaceId,requested.scope]);
+    if(!(await lockOwned()).length) {
+      // Reserve only a new scope. A NULL/foreign tenant row cannot be adopted;
+      // a concurrent owning insert is locked and revalidated before any retry.
+      const fresh=await tx.query<{scope:string;holder:string;fence_token:number;acquired_at:string;expires_at:string}>(
+        `insert into platform.leases (scope,workspace_id,holder,fence_token,acquired_at,renewed_at,expires_at,released_at)
+          values ($2,$1,$3,1,clock_timestamp(),clock_timestamp(),clock_timestamp()+($4::bigint * interval '1 millisecond'),null)
+          on conflict (scope) do nothing returning scope,holder,fence_token,acquired_at,expires_at`,
+        [requested.workspaceId,requested.scope,requested.holder,requested.ttlMs]);
+      if(fresh[0]) {
+        const row=fresh[0],lease:Lease={scope:row.scope,holder:row.holder,fenceToken:row.fence_token,acquiredAt:row.acquired_at,expiresAt:row.expires_at};
+        await bindExecutionLease(tx,{workspaceId:requested.workspaceId,id:requested.operation.id,
+          expectedDigest:requested.operation.proposalDigest,lease});
+        return lease;
+      }
+      if(!(await lockOwned()).length)throw new ControlStoreError("tenant_mismatch","The environment lease is unavailable for this workspace.");
+    }
     const current=await currentLease(tx,requested.scope);
     // A lost acknowledgement must not replace the fence already bound
     // to this exact worker/operation. Plain and reconcile leases still increment.
@@ -515,7 +532,7 @@ export async function acquireExecutionLease(sql: Sql, input: AcquireLeaseInput &
       ? await renewLease(tx,current,requested.ttlMs)
       : await acquireLease(tx,requested);
     if(!lease)return null;
-    await bindExecutionLease(tx,{workspaceId:requested.workspaceId??"",id:requested.operation.id,
+    await bindExecutionLease(tx,{workspaceId:requested.workspaceId,id:requested.operation.id,
       expectedDigest:requested.operation.proposalDigest,lease});
     return lease;
   });

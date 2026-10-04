@@ -228,4 +228,69 @@ describe.skipIf(!PG_URL)("first source worker lease binding [postgres]",()=>{
     const result=await outcome;expect(result).toBeInstanceOf(StepFailedError);expect((result as StepFailedError).nonRetryable).toBe(true);
     expect(await leaseRows(f)).toEqual([]);expect(await pair(f)).toEqual([{lease_scope:null,fence_token:null}]);await unchangedApprovals(f);
   },10_000);
+  it("refuses a missing execution lease workspace before native acquisition and retains the current binding",async()=>{
+    const f=await fixture(),before=await pair(f);
+    await expect(repos.operations.acquireExecutionLease(db,{...f.request,workspaceId:undefined})).rejects.toMatchObject({code:"invalid_input"});
+    const error=await createLeasesPort(db).acquire({...f.request,workspaceId:undefined}).catch((value:unknown)=>value);
+    expect(error).toBeInstanceOf(StepFailedError);expect((error as StepFailedError).nonRetryable).toBe(true);
+    expect(await pair(f)).toEqual(before);expect(await leaseRows(f)).toEqual([]);await unchangedApprovals(f);
+  });
+  it.each(["live foreign","expired foreign","released foreign","expired NULL"] as const)("refuses %s scope collisions before acquisition without changing any retained lease or binding",async kind=>{
+    const f=await fixture(),foreign=newWorkspace();
+    const lease=await repos.leases.acquire(peer,{workspaceId:kind==="expired NULL"?undefined:foreign,scope:f.scope,holder:f.holder,ttlMs:120_000});
+    if(!lease)throw new Error("Native collision fixture did not create its lease.");
+    if(kind.startsWith("expired"))await peer.query("update platform.leases set expires_at=clock_timestamp()-interval '1 second' where scope=$1",[f.scope]);
+    if(kind==="released foreign")await repos.leases.release(peer,lease);
+    const retained=await observer.query("select * from platform.leases where scope=$1",[f.scope]),binding=await pair(f);
+    await expect(repos.operations.acquireExecutionLease(db,f.request)).rejects.toMatchObject({code:"tenant_mismatch"});
+    await refused(f);
+    expect(await observer.query("select * from platform.leases where scope=$1",[f.scope])).toEqual(retained);
+    expect(await pair(f)).toEqual(binding);await unchangedApprovals(f);
+  });
+  function heldMissingLeaseLock(sql:Sql,entered:()=>void,released:Promise<void>):Sql {
+    return {query:sql.query.bind(sql),tx:body=>sql.tx(async tx=>{
+      let held=false;
+      const wrapped:Sql={tx:tx.tx.bind(tx),query:async<T>(text:string,params?:readonly unknown[])=>{
+        const rows=await tx.query<T>(text,params);
+        // Hold only after the actual owning first SELECT confirmed absence.
+        // The query still uses the native independent PostgreSQL connection.
+        if(!held && text.startsWith("select scope from platform.leases where workspace_id=")) {
+          held=true;expect(rows).toEqual([]);entered();await released;
+        }
+        return rows;
+      }};
+      return body(wrapped);
+    })};
+  }
+  it("refuses a foreign scope inserted after the owning lock found no row without adopting or renewing it",async()=>{
+    const f=await fixture();let entered!:()=>void,released!:()=>void;
+    const reached=new Promise<void>(resolve=>{entered=resolve;}),release=new Promise<void>(resolve=>{released=resolve;});
+    const controlled=heldMissingLeaseLock(db,entered,release);
+    const pending=createLeasesPort(controlled).acquire(f.request).then(value=>value,error=>error);
+    let retained:unknown;
+    try {
+      await Promise.race([reached,pending.then(()=>{throw new Error("Acquisition ended before its observed absent lease barrier.");})]);
+      const lease=await repos.leases.acquire(peer,{workspaceId:newWorkspace(),scope:f.scope,holder:f.holder,ttlMs:120_000});
+      expect(lease).not.toBeNull();retained=await observer.query("select * from platform.leases where scope=$1",[f.scope]);
+    } finally {released();}
+    const result=await pending;expect(result).toBeInstanceOf(StepFailedError);expect((result as StepFailedError).nonRetryable).toBe(true);
+    expect(await observer.query("select * from platform.leases where scope=$1",[f.scope])).toEqual(retained);
+    expect(await pair(f)).toEqual([{lease_scope:null,fence_token:null}]);await unchangedApprovals(f);
+  },10_000);
+  it("two genuine owning acquisitions crossing an absent-row collision retain one same-holder fence and one consumed approval",async()=>{
+    const f=await fixture();let count=0,entered!:()=>void,released!:()=>void;
+    const reached=new Promise<void>(resolve=>{entered=resolve;}),release=new Promise<void>(resolve=>{released=resolve;});
+    const arrive=()=>{if(++count===2)entered();};
+    const first=createLeasesPort(heldMissingLeaseLock(db,arrive,release)).acquire(f.request);
+    const second=createLeasesPort(heldMissingLeaseLock(peer,arrive,release)).acquire(f.request);
+    try {
+      await Promise.race([reached,Promise.all([first,second]).then(()=>{throw new Error("Owning acquisitions ended before both native absence barriers.");})]);
+      expect(count).toBe(2);expect(await observer.query("select scope from platform.leases where workspace_id=$1 and scope=$2",[f.workspaceId,f.scope])).toEqual([]);
+    } finally {released();}
+    const leases=await Promise.all([first,second]);expect(leases[0]).not.toBeNull();expect(leases[1]).not.toBeNull();
+    expect(leases[0]!.fenceToken).toBe(1);expect(leases[1]!.fenceToken).toBe(leases[0]!.fenceToken);
+    expect(await pair(f)).toEqual([{lease_scope:f.scope,fence_token:1}]);
+    expect(await observer.query("select workspace_id,holder,fence_token from platform.leases where scope=$1",[f.scope]))
+      .toEqual([{workspace_id:f.workspaceId,holder:f.holder,fence_token:1}]);await unchangedApprovals(f);
+  },10_000);
 });

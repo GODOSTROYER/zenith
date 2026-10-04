@@ -226,7 +226,15 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
   it("default source preparation dispatches canonical ZIP to AWS and tar.gz to GCP/Azure", () => {
     const bundle = source("src/lib/platform/source-bundle.ts");
     for (const value of ['ctx.provider === "aws" ? "zip" : "tar.gz"', "packZip(entries, limits, signal)", "sha256Hex(archive)", 'ContentType: "application/zip"', 'IfNoneMatch: "*"', 'ifGenerationMatch: "0"', "ChecksumSHA256: checksum", "ExpectedBucketOwner: ctx.session.accountId", "deps.withGithubAccess", 'refuse("Source preparation requires a matching AWS, GCP or Azure brokered session.")']) expect(bundle).toContain(value);
-    expect(source("src/lib/platform/execution.ts")).toContain("createSourceBundles({ ...opts.sourceBundles");
+    const execution = source("src/lib/platform/execution.ts");
+    expect(execution).toContain("createApprovedSourceRuntime(opts.db, {");
+    expect(execution).toContain("sourceBundle: sourceRuntime.sourceBundle, sourceSnapshots: sourceRuntime.sourceSnapshots");
+    const runtime = source("src/lib/platform/approved-source-runtime.ts");
+    expect(runtime).toContain("createOwningSourceBundles(owningDb, {");
+    expect(runtime).toContain('if (configured?.withGithubAccess !== undefined) throw new StepFailedError("The owning source connector cannot be overridden.")');
+    const owning = source("src/lib/platform/source-bundle.ts");
+    expect(owning).toContain("createApprovedSourceSnapshotStore(db)");
+    expect(owning).toContain("createGithubAccess({ db: owningDb, fetchImpl })");
     expect(source("src/lib/providers/aws/drivers/compute/codebuild-project.ts")).toContain('type: "S3"');
     expect(source("src/lib/providers/gcp/drivers/build/build-api.ts")).toContain("source: { storageSource:");
     expect(builds).toContain("Deterministic **ZIP**");
@@ -243,7 +251,14 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     expect(source("src/lib/platform/execution.ts")).toContain("createReleasePorts({ db: opts.db, azure })");
     const execution = source("src/lib/platform/execution.ts");
     expect(execution).toContain("opts.sourceBundles?.azureStorage ?? createAzureSourceStorageResolver(opts.db)");
-    expect(execution).toContain("readSource: sourceBundles?.readAzureSource");
+    expect(execution).toContain("readSource: sourceRuntime.readAzureSource");
+    expect(source("src/lib/platform/approved-source-runtime.ts")).toContain('readAzureSource: (...args: Parameters<Bundles["readAzureSource"]>) => { guard(); return readAzureSource(...args); }');
+    expect(source("src/lib/platform/source-bundle.ts")).toContain("readAzureSource: async (...args: Parameters<typeof bundles.readAzureSource>) => { buildAdmission(); return bundles.readAzureSource(...args); }");
+    const binding = source("src/lib/providers/azure/release/source-binding.ts");
+    expect(binding).toContain("where workspace_id = $1 and environment_id = $2 and provider = 'azure' and region = $3");
+    expect(binding).toContain('connection.status !== "verified"');
+    expect(binding).toContain('resource.ownership !== "managed"');
+    expect(binding).toContain("externalId?.toLowerCase() !== binding.accountResourceId.toLowerCase()");
     expect(source("workers/execution/worker.ts")).toContain("azureStorage: createAzureSourceStorageResolver(db)");
     expect(source("src/lib/providers/azure/credentials.ts")).toContain('storage: "https://storage.azure.com/.default"');
     expect(builds).toContain("Default composition supplies preparation, stored-source reading");

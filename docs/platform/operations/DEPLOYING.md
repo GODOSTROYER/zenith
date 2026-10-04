@@ -580,7 +580,7 @@ aggregate emitter output based on input `dc40ee9ad590640c78659796c9b932436ea1e42
 function, then verifies every row, the count and highest version. A new migration
 requires a regenerated inventory; changing a literal count alone does not pass.
 
-Registered migrations: **12**; highest version: **12**.
+Registered migrations: **13**; highest version: **13**.
 
 <!-- platform-migrations:start -->
 | Version | Name | SQL SHA-256 |
@@ -597,6 +597,7 @@ Registered migrations: **12**; highest version: **12**.
 | 10 | `github_deliveries` | `a4436e385563b8bd3b3528708b1db757c5a9872e1927dbd8ef5bd595e1e62bfd` |
 | 11 | `agent_effect_receipts` | `f6c9d90f69447e430ad9ef2b8368b137b26cadcd05776d689959c99da9e0430b` |
 | 12 | `workflow_start_intents` | `7eaa5e87e594d741e772e0cd9b77010c796d36c2c9ceac41f8f47720c804d811` |
+| 13 | `approved_source_snapshots` | `eb513c01d41b1f7fbc680715b86699147374d9786aa3e17e355897388ff26e95` |
 <!-- platform-migrations:end -->
 
 For the actual target, `npm run migrate:platform -- --status` calls the canonical

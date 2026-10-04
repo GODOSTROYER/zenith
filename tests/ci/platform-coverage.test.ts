@@ -104,6 +104,9 @@ describe("platform suite coverage", () => {
       "source review completes, browser human approval is consumed, and destination destroys the associated ORIGINAL",
       "restore into a fresh PostgreSQL store with matching keys preserves the original; missing keys refuse",
       "fake cipher authority and arbitrary runner handles cannot mint production admission",
+      "matching immutable source identity consumes original bytes and a different source digest refuses before dispatch",
+      "independent saved binary with matching native private source binding applies the exact original once",
+      "independent saved binary refuses committed private source revocation before original apply without a fresh fallback",
     ];
     const platformSuites = [
       { file: "tests/execution/apply.test.ts", suite: "dispatch current authority [postgres]", cases: dispatchModes.map((mode) => `refuses ${mode} after fresh replan and before durable dispatch`), sourceTitles: ["refuses %s after fresh replan and before durable dispatch", ...dispatchModes] },

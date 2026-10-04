@@ -25,6 +25,7 @@
 import { digest } from "@/lib/controlplane/digest";
 import {
   TERMINAL_OPERATION_STATUSES,
+  type Lease,
   type OperationProposal,
   type OperationRecord,
   type OperationStatus,
@@ -36,7 +37,7 @@ import { assertNoSecretValues } from "../secrets";
 import { boundedMs, clampLimit, decodeCursor, encodeCursor, json, jsonOrNull, newId, opt, requireDigest, textArray } from "../sql";
 import { consumeApprovals, countUnconsumedApprovals, requiredApprovalCount } from "./approval-core";
 import { reserve } from "./idempotency";
-import { assertFence } from "./leases";
+import { acquire as acquireLease, assertFence, current as currentLease, renew as renewLease, type AcquireLeaseInput } from "./leases";
 import { withPlanReview, type ReviewedOperation } from "./operation-review";
 
 /* --------------------------------- rows ------------------------------------ */
@@ -499,6 +500,24 @@ export async function claimForExecution(sql: Sql, input: ClaimInput): Promise<Op
     );
     if (rows.length === 0) throw new ControlStoreError("invalid_state", "Operation changed while being claimed.", { id });
     return toOperation(rows[0]);
+  });
+}
+
+/** Acquire and bind a running worker's environment lease in the same transaction. */
+export async function acquireExecutionLease(sql: Sql, input: AcquireLeaseInput & { operation: { id: string; proposalDigest: string } }): Promise<Lease | null> {
+  const requested={...input,operation:Object.freeze({...input.operation})};
+  return sql.tx(async tx=>{
+    await tx.query("select scope from platform.leases where scope=$1 for update",[requested.scope]);
+    const current=await currentLease(tx,requested.scope);
+    // A lost acknowledgement must not replace the fence already bound
+    // to this exact worker/operation. Plain and reconcile leases still increment.
+    const lease=current?.holder===requested.holder
+      ? await renewLease(tx,current,requested.ttlMs)
+      : await acquireLease(tx,requested);
+    if(!lease)return null;
+    await bindExecutionLease(tx,{workspaceId:requested.workspaceId??"",id:requested.operation.id,
+      expectedDigest:requested.operation.proposalDigest,lease});
+    return lease;
   });
 }
 

@@ -86,6 +86,9 @@ const WRITES = new Set([
   // "refuses a foreign workspace at native binding and rolls back the newly acquired lease"
   // and "binds the first real worker lease before default source capture and native retain after a claim without a lease".
   "operations.bindExecutionLease",
+  // The same 24 mandatory native cases cover acquire plus binding atomically,
+  // including the exact first-worker success and foreign-workspace rollback above.
+  "operations.acquireExecutionLease",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "idempotency.reserve", "idempotency.complete",
 ]);
 

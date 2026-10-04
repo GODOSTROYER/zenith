@@ -40,12 +40,29 @@ interface Fn {
   file: string;
   name: string;
   body: string;
+  source: string;
 }
 
 function functionsOf(file: string): Fn[] {
   const text = readFileSync(path.join(REPOS, file), "utf8");
   const starts = [...text.matchAll(/^export (?:async )?function (\w+)/gm)];
-  return starts.map((m, i) => ({ file, name: m[1], body: text.slice(m.index!, i + 1 < starts.length ? starts[i + 1].index! : text.length) }));
+  return starts.map((m, i) => ({ file, name: m[1], body: text.slice(m.index!, i + 1 < starts.length ? starts[i + 1].index! : text.length), source: text }));
+}
+
+/** The start repository composes two literal authority clauses and chooses only $12/$13 indexes. */
+function isFixedStartAuthorityInterpolation(fn: Fn, expression: string, sqlPrefix: string): boolean {
+  if (fn.file !== "workflow-start-intents.ts") return false;
+  const index = /^(\w+)( \+ 1)?$/.exec(expression);
+  if (sqlPrefix.endsWith("$") && index
+    && fn.body.includes(`const ${index[1]} = source ? 13 : 12;`)) return true;
+  if (!/^\w+$/.test(expression)
+    || !fn.body.includes('const ' + expression + ' = `${LIVE_AUTHORITY}${source ? ` and ${MCP_DEPLOY_AUTHORITY}` : ""}`;')) return false;
+  // Verify the actual local/imported fragment definitions, not just their names.
+  const local = /(?:^|\n)const LIVE_AUTHORITY = `([^`]*)`;/.exec(fn.source);
+  const imported = /(?:^|\n)export const MCP_DEPLOY_AUTHORITY = `([^`]*)`;/.exec(
+    readFileSync(path.join(REPOS, "workflow-start-deploy-authority.ts"), "utf8"));
+  return !!local && !!imported && !local[1].includes("${") && !imported[1].includes("${")
+    && /import \{[^}]*\bMCP_DEPLOY_AUTHORITY\b[^}]*\} from "\.\/workflow-start-deploy-authority";/.test(fn.source);
 }
 
 /**
@@ -119,12 +136,23 @@ describe("control-store repositories: workspace scoping is present in every func
   });
 
   it("SQL that carries a tenant id takes it as a bound parameter, never by string concatenation", () => {
+    const start = fns.find(fn => fn.file === "workflow-start-intents.ts" && fn.name === "get")!;
+    expect(isFixedStartAuthorityInterpolation(start, "currentAuthority", "where ")).toBe(true);
+    expect(isFixedStartAuthorityInterpolation(start, "bindingParam", "$")).toBe(true);
+    expect(isFixedStartAuthorityInterpolation(start, "bindingParam + 1", "$")).toBe(true);
+    expect(isFixedStartAuthorityInterpolation(start, "bindingParam", "where tenant=")).toBe(false);
+    expect(isFixedStartAuthorityInterpolation(start, "bindingParam + offset", "$")).toBe(false);
+    expect(isFixedStartAuthorityInterpolation({ ...start, body: start.body.replace("source ? 13 : 12", "source ? callerValue : 12") }, "bindingParam", "$")).toBe(false);
+    expect(isFixedStartAuthorityInterpolation({ ...start, body: start.body.replace("`${LIVE_AUTHORITY}${source ? ` and ${MCP_DEPLOY_AUTHORITY}` : \"\"}`", "callerValue") }, "currentAuthority", "where ")).toBe(false);
+    expect(isFixedStartAuthorityInterpolation({ ...start, source: start.source.replace("const LIVE_AUTHORITY = `", "const LIVE_AUTHORITY = `${callerValue}") }, "currentAuthority", "where ")).toBe(false);
+    expect(isFixedStartAuthorityInterpolation({ ...start, file: "another-repository.ts" }, "bindingParam", "$")).toBe(false);
     const risky: string[] = [];
     for (const fn of fns) {
       // a template literal handed to .query() that interpolates something other than the known constants
       for (const m of fn.body.matchAll(/\.query(?:<[^>]*>)?\(\s*`([\s\S]*?)`/g)) {
         for (const interp of m[1].matchAll(/\$\{([^}]*)\}/g)) {
           const expr = interp[1].trim();
+          if (isFixedStartAuthorityInterpolation(fn, expr, m[1].slice(0, interp.index))) continue;
           // allowed: column lists, ordering fragments built from constants, parameter indexes ($${n})
           if (/^(?:[A-Z][A-Z0-9_]*|where\.join\(.*\)|params\.length|n|\w+Columns?|columns|set\.join\(.*\)|order\w*)$/.test(expr)) continue;
           if (/^\w*[Cc]olumns?\b/.test(expr) || /^\w+\.join\(/.test(expr) || /length/.test(expr)) continue;

@@ -8,6 +8,7 @@ import type { Client } from "@temporalio/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { startDayTwo, startDeploy } from "@/lib/workflows/client";
 import { WORKFLOW_TYPES } from "@/lib/workflows/types";
+import { McpDeployInput } from "@/lib/agent-access/v3/deploy-admission";
 import type { DeployWorkflowInput } from "@/lib/workflows/types";
 import { tempDataDir } from "../_support/data-dir";
 
@@ -68,17 +69,49 @@ describe("existing callers remain compatible with the scalar payload contract", 
   it.each([false, true])("agent-v3 deploy forwards its full payload (approvalRequired=%s)", async (approvalRequired) => {
     const h = await agentHarness(approvalRequired ? () => requireApproval() : undefined);
     const wire = transport();
-    h.ports.workflows.startDeploy = vi.fn((input) => startDeploy(input, { client: wire.client }));
+    h.ports.workflows.startDeploy = vi.fn(async (input) => {
+      if (approvalRequired) {
+        const approvals = await h.store.listApprovals(ids.ws, input.operationId);
+        expect(approvals).toHaveLength(1);
+        expect(approvals[0].consumedAt).toBeDefined();
+      }
+      return startDeploy(input, { client: wire.client });
+    });
     const proposal = await proposeDeploy(h);
-    if (approvalRequired) await approve(h, proposal.id, proposal.digest);
+    const saved = await h.store.getOperation(ids.ws, proposal.id);
+    expect(saved?.proposalDigest).toBe(proposal.digest);
+    const { deploymentId } = McpDeployInput.parse(saved!.proposal.input);
+    expect(deploymentId).toMatch(/^mcp-deploy-[a-f0-9]{64}$/);
+    const bound = h.deployments.get(deploymentId)!;
+    expect(bound.operationId).toBe(proposal.id);
+    expect(bound.input).toEqual(saved!.proposal.input);
+    expect(bound.integrationId).toBe(h.principal.principal.id);
+    expect(bound.subject).toBe(h.principal.principal.kind === "integration" ? h.principal.principal.onBehalfOf : undefined);
+    if (approvalRequired) {
+      const refused = await h.invoke("zenith_execute_approved_operation", argsFor("zenith_execute_approved_operation", proposal.id, proposal.digest));
+      expect(refused.ok).toBe(false);
+      expect(refused.error?.code).toBe("approval_required");
+      expect(h.beginExecution).not.toHaveBeenCalled();
+      expect(h.ports.workflows.startDeploy).not.toHaveBeenCalled();
+      expect(wire.start).not.toHaveBeenCalled();
+      await approve(h, proposal.id, proposal.digest);
+      expect((await h.store.listApprovals(ids.ws, proposal.id))[0].consumedAt).toBeUndefined();
+    }
     const result = await h.invoke("zenith_execute_approved_operation", argsFor("zenith_execute_approved_operation", proposal.id, proposal.digest));
     expect(result.ok, result.error?.message).toBe(true);
     const expected = {
       operationId: proposal.id, workspaceId: ids.ws, projectId: ids.project, environmentId: ids.env,
-      revisionId: ids.revision, deploymentId: `dep-${proposal.id}`, connectionId: "conn-a",
-      preApproved: !approvalRequired, build: false,
+      revisionId: ids.revision, deploymentId, connectionId: "conn-a",
+      // The initial proposal approval is consumed by the broker claim. The worker's concrete-plan review remains separate.
+      preApproved: true, build: false,
     };
-    expect(h.ports.workflows.startDeploy).toHaveBeenCalledExactlyOnceWith(expected);
+    expect(h.beginExecution).toHaveBeenCalledTimes(1);
+    if (approvalRequired) {
+      const approvals = await h.store.listApprovals(ids.ws, proposal.id);
+      expect(approvals).toHaveLength(1);
+      expect(approvals[0].consumedAt).toBeDefined();
+    }
+    expect(h.ports.workflows.startDeploy).toHaveBeenCalledExactlyOnceWith(expected, "new");
     expect(wire.start).toHaveBeenCalledExactlyOnceWith(WORKFLOW_TYPES.deploy, expect.objectContaining({ args: [expected] }));
   });
 
@@ -95,7 +128,7 @@ describe("existing callers remain compatible with the scalar payload contract", 
     const result = await h.invoke("zenith_execute_approved_operation", argsFor("zenith_execute_approved_operation", operationId, proposal.data.proposalDigest as string));
     expect(result.ok, result.error?.message).toBe(true);
     const expected = { operationId, workspaceId: ids.ws, environmentId: ids.env, capability };
-    expect(h.ports.workflows.startDayTwo).toHaveBeenCalledExactlyOnceWith(expected);
+    expect(h.ports.workflows.startDayTwo).toHaveBeenCalledExactlyOnceWith(expected, "new");
     expect(wire.start).toHaveBeenCalledExactlyOnceWith(WORKFLOW_TYPES.dayTwo, expect.objectContaining({ args: [expected] }));
   });
 });

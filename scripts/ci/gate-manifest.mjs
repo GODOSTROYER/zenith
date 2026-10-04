@@ -4978,6 +4978,63 @@ const OPS = `${GO_MODULE}/internal/machine/ops`;
 const MACHINE = `${GO_MODULE}/internal/machine`;
 const cases = (packageName, names) => names.map((test) => ({ package: packageName, test, id: `linux-guest:${packageName}:${test}` }));
 const subcases = (test, names) => names.map((name) => `${test}/${name}`);
+// Exact native upload observations supplement every historical write ID.
+// A modeled receipt or parent pass never satisfies a missing leaf.
+export const LINUX_GUEST_UPLOAD_CASES = [
+  ...cases(OPS, [
+    "TestUploadBinaryCreateReplaceNoopAndPurposeReceipt",
+    "TestUploadExactPriorAndNativeSourceGuards",
+    "TestUploadExactPriorAndNativeSourceGuards/absence-on-existing",
+    "TestUploadExactPriorAndNativeSourceGuards/prior-on-absent",
+    "TestUploadExactPriorAndNativeSourceGuards/wrong-prior",
+    "TestUploadExactPriorAndNativeSourceGuards/source-digest",
+    "TestUploadExactPriorAndNativeSourceGuards/source-symlink",
+    "TestUploadExactPriorAndNativeSourceGuards/target-symlink",
+    "TestUploadExactPriorAndNativeSourceGuards/target-mode",
+    "TestUploadExactPriorAndNativeSourceGuards/source-budget",
+    "TestUploadExactPriorAndNativeSourceGuards/backup-budget",
+    "TestUploadCurrentProfileRecheckedBeforeEffectsAndCommit",
+    "TestUploadCurrentProfileRecheckedBeforeEffectsAndCommit/disabled-before-run",
+    "TestUploadCurrentProfileRecheckedBeforeEffectsAndCommit/removed-before-run",
+    "TestUploadCurrentProfileRecheckedBeforeEffectsAndCommit/disabled-before-rename",
+    "TestUploadCurrentProfileRecheckedBeforeEffectsAndCommit/removed-before-rename",
+    "TestUploadCurrentProfileRecheckedBeforeEffectsAndCommit/source-swap-before-rename",
+    "TestUploadCurrentProfileRecheckedBeforeEffectsAndCommit/inactive-write-source-before-rename",
+    "TestUploadFaultCustodyAndNoAutomaticReplay",
+    "TestUploadFaultCustodyAndNoAutomaticReplay/file_sync",
+    "TestUploadFaultCustodyAndNoAutomaticReplay/backup_file_sync",
+    "TestUploadFaultCustodyAndNoAutomaticReplay/intent_file_sync",
+    "TestUploadFaultCustodyAndNoAutomaticReplay/backup_directory_sync",
+    "TestUploadFaultCustodyAndNoAutomaticReplay/before_rename",
+    "TestUploadFaultCustodyAndNoAutomaticReplay/after_rename",
+    "TestUploadFaultCustodyAndNoAutomaticReplay/directory_sync",
+    "TestUploadFaultCustodyAndNoAutomaticReplay/postcondition",
+    "TestUploadRejectsActualAccessAndDefaultACLs",
+    "TestUploadRejectsActualAccessAndDefaultACLs/target-access",
+    "TestUploadRejectsActualAccessAndDefaultACLs/parent-default",
+    "TestUploadCancellationBeforeEffects",
+    "TestUploadAndWriteShareBackupCapacityAcrossConcurrentOperations",
+    "TestUploadExactMountedParentAndMountedFileRefusal",
+  ]),
+  ...cases(MACHINE, [
+    "TestE2ESignedUploadNativeCustodyAndGrantRefusal",
+    "TestE2ESignedUploadNativeCustodyAndGrantRefusal/foreign_audience",
+    "TestE2ESignedUploadNativeCustodyAndGrantRefusal/foreign_capability",
+    "TestE2ESignedUploadNativeCustodyAndGrantRefusal/foreign_operation",
+    "TestE2ESignedUploadNativeCustodyAndGrantRefusal/foreign_workspace",
+    "TestE2ESignedUploadNativeCustodyAndGrantRefusal/missing_resource",
+    "TestE2ESignedUploadNativeCustodyAndGrantRefusal/foreign_path_constraint",
+    "TestE2ESignedUploadNativeCustodyAndGrantRefusal/inline_bytes",
+    "TestE2ESignedUploadResultGolden",
+    "TestE2ESignedUploadResultGolden/foreign_audience",
+    "TestE2ESignedUploadResultGolden/foreign_capability",
+    "TestE2ESignedUploadResultGolden/foreign_operation",
+    "TestE2ESignedUploadResultGolden/foreign_workspace",
+    "TestE2ESignedUploadResultGolden/missing_resource",
+    "TestE2ESignedUploadResultGolden/foreign_path_constraint",
+    "TestE2ESignedUploadResultGolden/inline_bytes",
+  ]),
+];
 export const LINUX_GUEST_CASES = [
   ...cases(OPS, [
     "TestWriteCreateReplaceNoop", "TestWriteStrictArgsAndConstraints", "TestWriteDisabledAndInvalidProfiles",
@@ -4995,6 +5052,7 @@ export const LINUX_GUEST_CASES = [
     "TestResultGoldens/file.write-filesystem",
   ]),
   ...cases(MACHINE, ["TestLocalTemplateConfigDefaultAndValidation", "TestFileWriteVersionsCLIUsesMetadataOnlyAndLoadingEnforcesVersion", "TestWriteWirePreservesUncertainCustodyWithoutOutput", "TestWriteAuditCompletionFailureIsUncertain"]),
+  ...LINUX_GUEST_UPLOAD_CASES,
 ];
 export const LINUX_GUEST_PACKAGES = ["internal/agent", "internal/awsauth", "internal/machine", "internal/machine/ops", "internal/miniyaml", "internal/netguard", "internal/oci", "internal/protocol", "internal/redact", "internal/runner", "internal/runner/kinds"].map((name) => `${GO_MODULE}/${name}`);
 export const LINUX_GUEST_NO_TEST_PACKAGES = ["cmd/zenith-runner", "cmd/zenithd", "internal/agent/fakecp", "internal/proc", "internal/protocol/protocoltest", "internal/version"].map((name) => `${GO_MODULE}/${name}`);
@@ -5059,7 +5117,7 @@ export function linuxGuestManifest() {
     requiredCases: LINUX_GUEST_CASES,
     goldenCases: cases(OPS, ["TestResultGoldens/file.write-filesystem"]),
     requiredPackages: LINUX_GUEST_PACKAGES, noTestPackages: LINUX_GUEST_NO_TEST_PACKAGES, allowedSkips: LINUX_GUEST_ALLOWED_SKIPS,
-    prerequisites: ["Linux; unprivileged test UID/GID", "Node 22.23.3; Go 1.27.1; GOTOOLCHAIN=local; cgo C compiler", "Persistent ext-family, XFS or Btrfs root filesystem (no overlay/tmpfs/FUSE/network filesystem)", "/proc/self/fdinfo mount IDs; POSIX access/default ACL xattrs", "Python 3; util-linux mount/umount/flock; explicitly authorized disposable root fixture setup", "Owned exact /opt fixture roots and four actual bind mounts checked by guest-file-write-fixtures.sh", "Integrated frozen writer source and five actual Linux-generated committed file.write goldens", "No active fixture users during validated cleanup"],
+    prerequisites: ["Linux; unprivileged test UID/GID", "Node 22.23.3; Go 1.27.1; GOTOOLCHAIN=local; cgo C compiler", "Persistent ext-family, XFS or Btrfs root filesystem (no overlay/tmpfs/FUSE/network filesystem)", "/proc/self/fdinfo mount IDs; POSIX access/default ACL xattrs", "Python 3; util-linux mount/umount/flock; explicitly authorized disposable root fixture setup", "Owned exact four /opt fixture roots, including private empty /opt/zenith-file-upload-golden, and unchanged four actual bind mounts checked by guest-file-write-fixtures.sh", "Integrated frozen writer/upload source, five actual Linux-generated committed file.write goldens and authentic signed-daemon file.upload.json captured only by the root verification owner", "Every exact upload native event, including signed grant refusal/replay and actual golden comparison, is mandatory; source/model fixtures do not satisfy missing Linux evidence", "No active fixture users during validated cleanup"],
     reportValidation: "Strict complete Go JSON lifecycles plus observed successful exits; absent or skipped required cases fail. Raw streams remain private.",
   };
 }

@@ -7,7 +7,7 @@ if [[ $# != 4 || ! "$1" =~ ^(setup|check|cleanup)$ || ! "$2" =~ ^[1-9][0-9]{0,8}
   exit 2
 fi
 # Python handles no-follow ownership/identity receipts. All raw exceptions are
-# suppressed; the three fixed namespaces and four mount destinations are closed.
+# suppressed; the four fixed namespaces and four mount destinations are closed.
 python3 - "$@" <<'PY'
 import errno, fcntl, json, os, platform, stat, struct, subprocess, sys
 
@@ -15,7 +15,8 @@ ACTION, UID, GID, RUN = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.arg
 TESTS = '/opt/zenith-file-write-tests'
 MOUNTS = '/opt/zenith-file-write-mounts'
 GOLDEN = '/opt/zenith-file-write-golden'
-ROOTS = [TESTS, MOUNTS, GOLDEN]
+UPLOAD_GOLDEN = '/opt/zenith-file-upload-golden'
+ROOTS = [TESTS, MOUNTS, GOLDEN, UPLOAD_GOLDEN]
 RECEIPT = MOUNTS + '/.gate-receipt.json'
 LEASE = MOUNTS + '/.gate-lease'
 MOUNT_PAIRS = [
@@ -136,7 +137,7 @@ def setup(root_mount):
     # Private root-marked lease is readable for flock, never caller replaceable.
     file(LEASE, b'zenith disposable fixture lease\n')
     fcntl.flock(os.open(LEASE, os.O_RDONLY | os.O_NOFOLLOW), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    for p in [TESTS, GOLDEN]:
+    for p in [TESTS, GOLDEN, UPLOAD_GOLDEN]:
         os.chown(p, UID, GID, follow_symlinks=False)
         os.chmod(p, 0o700, follow_symlinks=False)
     receipt['roots'] = {p: identity(p) for p in ROOTS}
@@ -214,11 +215,11 @@ def load(root_mount):
 def check(receipt):
     if receipt['state'] != 'ready' or len(receipt['mounts']) != 4 or os.geteuid() not in [0, UID] or (os.geteuid() == UID and os.getegid() != GID):
         refuse()
-    if any(identity(p)['uid'] != UID or identity(p)['gid'] != GID or identity(p)['mode'] != 0o700 for p in [TESTS, GOLDEN]):
+    if any(identity(p)['uid'] != UID or identity(p)['gid'] != GID or identity(p)['mode'] != 0o700 for p in [TESTS, GOLDEN, UPLOAD_GOLDEN]):
         refuse()
     if identity(MOUNTS)['uid'] != 0 or identity(MOUNTS)['mode'] != 0o755:
         refuse()
-    if os.listdir(GOLDEN) or os.path.lexists(MOUNTS + '/anchor/settings.txt') or os.listdir(MOUNTS + '/backup-anchor'):
+    if os.listdir(GOLDEN) or os.listdir(UPLOAD_GOLDEN) or os.path.lexists(MOUNTS + '/anchor/settings.txt') or os.listdir(MOUNTS + '/backup-anchor'):
         refuse()
 
 def users_drained():
@@ -303,7 +304,7 @@ def cleanup(receipt):
         expected = receipt['roots'][p]
         if current != expected:
             refuse()
-    for p in [GOLDEN, TESTS, MOUNTS]:
+    for p in [UPLOAD_GOLDEN, GOLDEN, TESTS, MOUNTS]:
         fd = os.open(p, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         try:
             st = os.fstat(fd)

@@ -643,3 +643,163 @@ describe("GUEST-LINUX-STALE-01 current-attempt artifact selection", () => {
     }
   });
 });
+
+
+// These report/parser and syscall metadata models establish refusal contracts.
+// They do not replace the actual unprivileged Linux writer or fixture lifecycle.
+describe("upload native requirement admission", () => {
+  const nativeUpload = () => linuxGuestManifest().requiredCases.filter((item) => /^(?:TestUpload|TestE2ESignedUpload)/.test(item.test));
+  it("pins exact upload events and preserves all historical native IDs", () => {
+    const manifest = linuxGuestManifest(); const upload = nativeUpload();
+    expect(upload).toHaveLength(49); expect(manifest.requiredCases).toHaveLength(123);
+    expect(new Set(manifest.requiredCases.map((item) => item.id)).size).toBe(123);
+    expect(createHash("sha256").update(JSON.stringify(upload)).digest("hex")).toBe("4cb4a001976b864b82a7820d771b47272f8aedb73249183fbcf54a35f41cc4e0");
+    const historical = manifest.requiredCases.filter((item) => !upload.includes(item));
+    expect(historical).toHaveLength(74);
+    expect(createHash("sha256").update(JSON.stringify(historical)).digest("hex")).toBe("2a2e0b9b7c1cb061fe7862075edae6d633c7f63320adfe37e80fa13262e7f1d4");
+    expect(manifest.allowedSkips.map((item: { package: string; test: string; reason: string }) => item.test)).toEqual(["TestRealSystemctlAndJournalctl", "TestRealOpenTofuPlanShowApply", "TestRealOpenTofuWithProviderAndLockfile"]);
+    expect(manifest.goldenCases.map((item: { package: string; test: string }) => item.test)).toEqual(["TestResultGoldens/file.write-filesystem"]);
+    expect(manifest.steps).toEqual([
+      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./..."] },
+      { id: "goldens", command: ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"] },
+      { id: "golden-diff", command: ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"] },
+      { id: "golden-status", command: ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"] },
+    ]);
+  });
+
+  it("binds exact Linux source declarations including both signed daemon parents", () => {
+    const files = [
+      ["go/internal/machine/ops/fileupload_linux_test.go", "f7a033bc206436e51e53b1b39d74f13f717704e34e786338c2627d585e0e89d9"],
+      ["go/internal/machine/e2e_test.go", "0678067c84e5990a71fd3f7863127e63fc2cc1c2869a9028b6518fb34343dc21"],
+    ];
+    const source = files.map(([file, sha]) => {
+      const raw = fs.readFileSync(file); expect(createHash("sha256").update(raw).digest("hex")).toBe(sha); return raw.toString("utf8");
+    });
+    const declared: Array<{ package: string; test: string; id: string }> = [];
+    const add = (packageName: string, test: string) => declared.push({ package: packageName, test, id: `linux-guest:${packageName}:${test}` });
+    const functions = [...source[0].matchAll(/^func (Test\w+)\(t \*testing\.T\)/gm)];
+    functions.forEach((match, index) => {
+      const body = source[0].slice(match.index, functions[index + 1]?.index);
+      const labels = /for _, \w+ := range \[\]string\{([^}]+)\}/.exec(body);
+      add(pkg, match[1]);
+      if (labels) {
+        expect(body).toMatch(/t\.Run\((?:kind|phase),/);
+        for (const label of labels[1].matchAll(/"([^"]+)"/g)) add(pkg, `${match[1]}/${label[1]}`);
+      }
+    });
+    const machine = "github.com/GODOSTROYER/zenith/go/internal/machine";
+    const signed = source[1].slice(source[1].indexOf("func runSignedUploadFixture"));
+    const faults = [...signed.matchAll(/^\s*\{"([^"]+)", protocol\.Code\w+,/gm)].map((match) => match[1].replaceAll(" ", "_"));
+    expect(faults).toEqual(["foreign_audience", "foreign_capability", "foreign_operation", "foreign_workspace", "missing_resource", "foreign_path_constraint", "inline_bytes"]);
+    for (const parent of ["TestE2ESignedUploadNativeCustodyAndGrantRefusal", "TestE2ESignedUploadResultGolden"]) {
+      expect(source[1]).toContain(`func ${parent}(t *testing.T)`); add(machine, parent);
+      for (const fault of faults) add(machine, `${parent}/${fault}`);
+    }
+    expect(nativeUpload()).toEqual(declared);
+    expect(signed).toContain('if t.Failed() {');
+    expect(signed).toContain('intent["operation"] != ops.OpFileUpload');
+    expect(signed).toContain('normalized["transactionRef"] = "fw_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"');
+    expect(signed).toContain('os.Getenv("ZENITH_UPDATE_MACHINE_GOLDENS") == "1"');
+    expect(signed).toContain('!bytes.Equal(expected, encoded)');
+    expect(linuxGuestManifest().prerequisites).toContain("Integrated frozen writer/upload source, five actual Linux-generated committed file.write goldens and authentic signed-daemon file.upload.json captured only by the root verification owner");
+  });
+
+  it("refuses each missing upload event despite all remaining observations passing", () => {
+    const manifest = linuxGuestManifest(); const items = fullRequiredStream();
+    expect(validateGoEvents(stream(items), goodExit, manifest).verdict).toBe("passed");
+    for (const required of nativeUpload()) {
+      const missing = items.filter((item) => item.Package !== required.package || item.Test !== required.test);
+      const result = validateGoEvents(stream(missing), goodExit, manifest);
+      expect(result.verdict, required.id).toBe("failed");
+      expect(result.required.find((item) => item.id === required.id)?.status, required.id).not.toBe("passed");
+    }
+  });
+
+  it.each(["fail", "skip"])("refuses each upload %s while parent and package observations otherwise pass", (action) => {
+    const manifest = linuxGuestManifest(); const items = fullRequiredStream();
+    for (const required of nativeUpload()) {
+      const modified = items.map((item) => item.Action === "pass" && item.Package === required.package && item.Test === required.test ? { ...item, Action: action } : item);
+      expect(validateGoEvents(stream(modified), goodExit, manifest).verdict, required.id).toBe("failed");
+    }
+  });
+
+  it("does not substitute foreign upload identities or output claims for missing native events", () => {
+    const manifest = linuxGuestManifest(); const items = fullRequiredStream();
+    for (const required of nativeUpload()) {
+      const substituted = items.map((item) => item.Package === required.package && item.Test === required.test ? { ...item, Test: `${required.test}_foreign` } : item);
+      substituted.splice(-1, 0, { Action: "output", Package: required.package, Output: JSON.stringify({ id: required.id, status: "passed" }) });
+      expect(validateGoEvents(stream(substituted), goodExit, manifest).verdict, required.id).toBe("failed");
+    }
+  });
+});
+
+// Execute only the actual helper's read-only receipt/check functions against
+// independent syscall metadata. No /opt path is opened, provisioned or removed.
+const uploadFixtureModel = String.raw`
+import ast, json, pathlib, stat, sys, types
+case = json.loads(sys.argv[2])
+source = pathlib.Path(sys.argv[1]).read_text().split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+program = ast.parse(source)
+names = {'TESTS', 'MOUNTS', 'GOLDEN', 'UPLOAD_GOLDEN', 'ROOTS', 'RECEIPT', 'LEASE', 'MOUNT_PAIRS'}
+nodes = [node for node in program.body if (isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in names for target in node.targets)) or (isinstance(node, ast.FunctionDef) and node.name in {'refuse', 'load', 'check'})]
+namespace = {'json': json, 'stat': stat, 'UID': 1001, 'GID': 1001, 'RUN': 'a' * 32}
+exec(compile(ast.Module(body=nodes, type_ignores=[]), 'fixed-fixture-read-model', 'exec'), namespace)
+roots = ['/opt/zenith-file-write-tests', '/opt/zenith-file-write-mounts', '/opt/zenith-file-write-golden', '/opt/zenith-file-upload-golden']
+assert namespace['ROOTS'] == roots
+identity = {root: {'device': 8, 'inode': 80 + index, 'mount': 40, 'uid': 0 if index == 1 else 1001, 'gid': 0 if index == 1 else 1001, 'mode': 0o755 if index == 1 else 0o700, 'directory': True} for index, root in enumerate(roots)}
+receipt = {'schemaVersion': 1, 'runId': 'a' * 32, 'uid': 1001, 'gid': 1001, 'rootMount': 40, 'state': 'ready', 'roots': json.loads(json.dumps(identity)), 'nodes': {}, 'mounts': []}
+for index, (source, target) in enumerate(namespace['MOUNT_PAIRS']):
+    item = {'device': 8, 'inode': 100 + index, 'mount': 41 + index, 'uid': 1001, 'gid': 1001, 'mode': 0o600 if index == 3 else 0o700, 'directory': index != 3}
+    identity[target] = item
+    receipt['mounts'].append({'source': source, 'target': target, 'identity': item.copy()})
+if case.get('oldReceipt'):
+    del receipt['roots'][roots[3]]
+if case.get('foreignReceipt'):
+    receipt['roots']['/opt/foreign-fixture'] = receipt['roots'][roots[3]]
+identity[roots[3]].update(case.get('uploadIdentity', {}))
+raw = json.dumps(receipt).encode()
+observed_mounts = [{'target': item['target'], 'id': item['identity']['mount']} for item in receipt['mounts']]
+if case.get('unexpectedMount'):
+    observed_mounts.append({'target': roots[3] + '/foreign', 'id': 99})
+reads = []
+def listing(path):
+    reads.append(path)
+    return ['inert-entry'] if path == roots[3] and case.get('nonemptyUpload') else []
+os_model = types.SimpleNamespace(lstat=lambda _: types.SimpleNamespace(st_mode=stat.S_IFREG | 0o444, st_uid=0, st_nlink=1, st_size=len(raw)), open=lambda *_: 7, read=lambda *_: raw, close=lambda _: None, O_RDONLY=0, O_NOFOLLOW=0, geteuid=lambda: 1001, getegid=lambda: 1001, listdir=listing, path=types.SimpleNamespace(lexists=lambda _: False))
+namespace.update({'os': os_model, 'identity': lambda path: identity[path].copy(), 'no_acl': lambda _: None, 'mounts': lambda: observed_mounts})
+try:
+    namespace['check'](namespace['load'](40))
+    accepted = True
+except RuntimeError:
+    accepted = False
+print(json.dumps({'accepted': accepted, 'uploadListed': roots[3] in reads}))
+`;
+function uploadFixtureMetadata(input: Record<string, unknown>) {
+  const child = spawnSync("python3", ["-B", "-c", uploadFixtureModel, path.resolve("scripts/ci/guest-file-write-fixtures.sh"), JSON.stringify(input)], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, maxBuffer: 1024 * 1024 });
+  expect(child.error).toBeUndefined(); expect(child.status).toBe(0); expect(child.stderr).toBe("");
+  return JSON.parse(child.stdout) as { accepted: boolean; uploadListed: boolean };
+}
+describe("fixed upload golden fixture ownership models", () => {
+  it("requires an empty fourth root with the captured native ownership metadata", () => {
+    expect(uploadFixtureMetadata({})).toEqual({ accepted: true, uploadListed: true });
+    const source = fs.readFileSync("scripts/ci/guest-file-write-fixtures.sh", "utf8");
+    expect(source).toContain("ROOTS = [TESTS, MOUNTS, GOLDEN, UPLOAD_GOLDEN]");
+    expect(source).toContain("for p in [UPLOAD_GOLDEN, GOLDEN, TESTS, MOUNTS]:");
+    expect(source).toContain("if any(value == p or value.startswith(p + '/') for p in ROOTS):");
+    expect(source).toContain("if current != expected:");
+    expect(source).not.toContain("umount', '--lazy");
+  });
+  it("refuses old three-root and foreign extra-root receipts", () => {
+    expect(uploadFixtureMetadata({ oldReceipt: true }).accepted).toBe(false);
+    expect(uploadFixtureMetadata({ foreignReceipt: true }).accepted).toBe(false);
+  });
+  it("refuses changed fourth-root owner group mode inode device and mount", () => {
+    for (const changed of [{ uid: 1002 }, { gid: 1002 }, { mode: 0o755 }, { inode: 999 }, { device: 9 }, { mount: 99 }]) {
+      expect(uploadFixtureMetadata({ uploadIdentity: changed }).accepted).toBe(false);
+    }
+  });
+  it("refuses a nonempty fourth root and any unowned nested mount", () => {
+    expect(uploadFixtureMetadata({ nonemptyUpload: true }).accepted).toBe(false);
+    expect(uploadFixtureMetadata({ unexpectedMount: true }).accepted).toBe(false);
+  });
+});

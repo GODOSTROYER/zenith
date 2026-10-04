@@ -237,7 +237,7 @@ interface ExecOutcome {
   raw: RunProcessResult;
 }
 
-export type PlanNormalizeBase = Pick<NormalizePlanOptions, "statefulTypes" | "fingerprintKey" | "now">;
+export type PlanNormalizeBase = Pick<NormalizePlanOptions, "statefulTypes" | "fingerprintKey" | "now" | "executableSourceDigest">;
 
 /** Server-side guard only. Raw show JSON contains secrets and must never escape this callback. */
 export type PlanInspector = (plan: NormalizedPlan, raw: ShowJson) => void | Promise<void>;

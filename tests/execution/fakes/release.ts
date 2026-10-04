@@ -3,6 +3,7 @@
  * deployer and one-off task runner. They record what they were asked and answer
  * what the test scripted. NOT CodeBuild or ECS.
  */
+import { immutableSourceSnapshot, type ApprovedSourceSnapshot, type SourceCaptureInput } from "@/lib/execution/source-snapshot";
 import type { DriverContext } from "@/lib/drivers/types";
 import type { BuildHandle, BuildPort, BuildResult, MigrationsPort, ProberPort, ProbeRequest, ProbeResult, SourceBundlePort, WorkloadsPort } from "@/lib/execution/ports";
 import type { ResourceNode } from "@/lib/resources/types";
@@ -35,7 +36,18 @@ export class FakeProber implements ProberPort {
 
 export class FakeSourceBundle implements SourceBundlePort {
   readonly calls: { service: string; repo: string; ref: string; hadSession: boolean }[] = [];
-  async prepare(ctx: DriverContext, input: { service: ResourceNode; source: { repo: string; ref: string; dockerfile?: string } }): Promise<{ s3Key: string; digest: string; bucket?: string }> {
+  readonly captures: SourceCaptureInput[]=[];
+  commit="a".repeat(40); archiveDigest="5".repeat(64); unavailable=false;
+  private guard(){if(process.env.NODE_ENV!=="test")throw new Error("Isolated source model requires test mode.");}
+  constructor(){this.guard();}
+  async capture(input:SourceCaptureInput):Promise<ApprovedSourceSnapshot>{
+    this.guard();this.captures.push(input);const match=/([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)$/.exec(input.repository);if(!match)throw new Error("Isolated source repository is invalid.");
+    const {repository:_repository,...rest}=input;void _repository;
+    return immutableSourceSnapshot({...rest,format:"zenith.approved-source.v1",owner:match[1].toLowerCase(),repo:match[2].toLowerCase(),repositoryId:101,commitSha:this.commit,githubBinding:null,dockerfileDigest:"d".repeat(64),archiveDigest:this.archiveDigest,archiveBytes:100});
+  }
+  async verify(snapshot:ApprovedSourceSnapshot):Promise<void>{this.guard();if(this.unavailable || snapshot.archiveDigest!==this.archiveDigest)throw new Error("Isolated source verification refused.");}
+  async prepare(ctx: DriverContext, input: { service: ResourceNode; source: { repo: string; ref: string; dockerfile?: string }; approvedSource?: ApprovedSourceSnapshot }): Promise<{ s3Key: string; digest: string; bucket?: string }> {
+    this.guard();if(!input.approvedSource)throw new Error("Isolated source snapshot missing.");await this.verify(input.approvedSource);
     this.calls.push({ service: input.service.address, repo: input.source.repo, ref: input.source.ref, hadSession: ctx.session !== undefined });
     return { s3Key: `bundles/${input.service.address.replace("/", "-")}.tgz`, digest: "5".repeat(64), bucket: "zenith-artifacts" };
   }

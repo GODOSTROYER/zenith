@@ -44,6 +44,7 @@ import { withKeepAlive } from "./keepalive";
 import type { Runtime } from "./runtime";
 import { driverContext, LONG_SESSION_SEC, withProviderSession } from "./session";
 import { safeText } from "./text";
+import { approvedSources } from "./source-snapshot";
 import { syncEnvironmentSecrets } from "./secrets";
 
 type ReleaseActivities = Pick<ExecutionActivities, "buildArtifacts" | "deployWorkloads" | "runMigrations">;
@@ -68,8 +69,9 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
       const connection = await resolveConnection(rt, ec);
 
       await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
-      const images = await withKeepAlive(rt, { lease, detail: "build artifacts", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, (signal) =>
-        withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
+      const images = await withKeepAlive(rt, { lease, detail: "build artifacts", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
+        await approvedSources(rt,ec,graph,lease,false,signal);
+        return withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
           const failures: unknown[] = [];
           const built = await mapLimit(workloads, 3, async (node) => {
             // Stop new builds, await every already-started sibling, and retain
@@ -92,8 +94,8 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
           if (failures.length) throw failures.find(error => !(error instanceof StepFailedError)) ?? failures[0];
           return built.filter((result): result is NonNullable<typeof result> => result !== undefined);
         }
-        )
-      );
+        );
+      });
       await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
       return { images };
     },
@@ -222,7 +224,15 @@ async function buildOne(
   const source = (pipeline.spec as unknown as BuildPipelineSpec).source;
   if (!source || typeof source.repo !== "string") throw new StepFailedError(`${artifact.pipeline} has no source repository.`);
 
-  const bundle = await bundler.prepare(ctx, { service: node, source: { repo: source.repo, ref: source.ref, ...(source.dockerfile ? { dockerfile: source.dockerfile } : {}) } });
+  const approvedSource=ec.approvedSourceSnapshots?.find(s=>s.serviceAddress===node.address);
+  if(!approvedSource) throw new StepFailedError("This build plan has no approved source snapshot; a new operation and review are required.");
+  const bundle = await bundler.prepare(ctx, { service: node, approvedSource, source: { repo: source.repo, ref: source.ref, ...(source.dockerfile ? { dockerfile: source.dockerfile } : {}) } });
+  if(bundle.digest!==approvedSource.archiveDigest)throw new StepFailedError("Prepared build bytes do not match the reviewed source.");
+  // Refresh after upload, before requesting a build. This never grants/rebinds source access.
+  await bundler.verify!(approvedSource,ctx.signal);
+  await rt.d.sourceSnapshots!.assertCurrent(approvedSource);
+  const authority=await rt.d.broker.approvalStatus(ec.op.id);
+  if(!authority.approved || authority.rejected || (ec.op.approvalRequired && !authority.approvalId))throw new StepFailedError("Current approval changed before build dispatch.");
   const started = rt.now().getTime();
   const handle = await build.startBuild(ctx, { service: node, pipeline, registry, source: bundle, idempotencyKey: keyOf(ec.op.id, "build", node.address, bundle.digest) });
   const result = await build.waitForBuild(ctx, handle, { timeoutMs: rt.limits.buildTimeoutMs });

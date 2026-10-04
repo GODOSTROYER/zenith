@@ -172,6 +172,8 @@ export interface PlanDiagnostic {
 }
 
 export interface NormalizePlanOptions {
+  /** Trusted owning source-set identity supplied by canonical execution composition. */
+  executableSourceDigest?: string;
   configDigest: string;
   lockDigest: string;
   /** node address → tofu addresses (`TofuWorkspace.addressMap`) */
@@ -531,12 +533,14 @@ export function normalizePlan(showJson: ShowJson, opts: NormalizePlanOptions): N
     ...(d.detail ? { detail: redactOutput(redactExact(d.detail, [...(opts.secrets ?? []), ...secretList])) } : {}),
   }));
 
+  if (opts.executableSourceDigest !== undefined && !/^[a-f0-9]{64}$/.test(opts.executableSourceDigest)) throw new TofuPlanFormatError("malformed", "Executable source identity is invalid.");
   const planDigest = digest({
     configDigest: opts.configDigest,
     lockDigest: opts.lockDigest,
     tofuVersion: expected,
     resourceChanges,
     outputChanges,
+    ...(opts.executableSourceDigest ? { executableSourceDigest: opts.executableSourceDigest } : {}),
   });
 
   return {
@@ -545,6 +549,7 @@ export function normalizePlan(showJson: ShowJson, opts: NormalizePlanOptions): N
     configDigest: opts.configDigest,
     lockDigest: opts.lockDigest,
     planDigest,
+    ...(opts.executableSourceDigest ? { executableSourceDigest: opts.executableSourceDigest } : {}),
     resourceChanges,
     outputChanges,
     summary,
@@ -582,6 +587,10 @@ export interface PlanViewResource {
 }
 
 export interface PlanView {
+  executableSourceDigest?: string;
+  approvedSourcesTruncated?: boolean;
+  approvedSourcesOmitted?: number;
+  approvedSources?: { service: string; commit: string; dockerfileDigest: string; recipeDigest: string; archiveDigest: string; archiveFormat: "zip" | "tar.gz" }[];
   planDigest: string;
   tofuVersion: string;
   empty: boolean;
@@ -654,6 +663,7 @@ export function planView(plan: NormalizedPlan): PlanView {
   });
   return {
     planDigest: plan.planDigest,
+    ...(plan.executableSourceDigest ? { executableSourceDigest: plan.executableSourceDigest } : {}),
     tofuVersion: plan.tofuVersion,
     empty: plan.empty,
     summary: plan.summary,

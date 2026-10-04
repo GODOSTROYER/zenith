@@ -36,3 +36,15 @@ export function numericId(value: unknown): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) throw new GithubSourceError("invalid");
   return value;
 }
+
+/** Remembered authority cannot become anonymous when a binding disappears. */
+export interface GithubImmutableSource extends GithubRepository {
+  repositoryId: number;
+  commitSha: string;
+  binding: Pick<GithubSourceBinding, "appId" | "installationId" | "repositoryId" | "version"> | null;
+}
+export interface GithubImmutableSourceRequest extends GithubAccessScope {
+  workspaceId: string;
+  ref: string;
+  expected?: GithubImmutableSource;
+}

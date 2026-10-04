@@ -69,7 +69,7 @@ let db; try {
  db=await openPlatformDb({kind:'postgres',url:c.url,max:1});
  // The child process itself has a private allowlisted environment; capture its intended tool settings explicitly.
  const runtime=createPlanArtifactRuntime(db,{...process.env,ZENITH_PLAN_ARTIFACT_KEY:c.key,ZENITH_WORKER_PLAN_DIR:c.workRoot,ZENITH_TOFU_PLUGIN_CACHE:c.cache});
- const produced=await runtime.tofu.planWorkspace(c.ws,undefined,{custody:c.custody,lock:false,destroy:c.destroy,normalize:{fingerprintKey:c.fingerprint}});
+ const produced=await runtime.tofu.planWorkspace(c.ws,undefined,{custody:c.custody,lock:false,destroy:c.destroy,normalize:{fingerprintKey:c.fingerprint,...(c.executableSourceDigest?{executableSourceDigest:c.executableSourceDigest}:{})}});
  const port=runtime.planArtifacts;
  await port.publish({produced:produced.produced,lease:c.lease,evidence:{id:c.evidenceId,workspaceId:c.custody.workspaceId,operationId:c.custody.operationId,
   kind:'tofu_plan',digest:produced.plan.planDigest,summary:{...planEvidence({plan:produced.plan,facts:extractPlanFacts(produced.plan),cost:{},graphDigest:c.custody.graphDigest,stage:'plan'}).summary,destroy:!!c.destroy,destroyAddresses:produced.plan.resourceChanges.map(r=>r.address),statefulDeletes:[]},simulated:false}});
@@ -110,7 +110,7 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
     const custodyRuntime=createIsolatedPlanArtifactRuntimeForTests(b,{...process.env,ZENITH_PLAN_ARTIFACT_KEY:key,ZENITH_WORKER_PLAN_DIR:temp,ZENITH_TOFU_PLUGIN_CACHE:cache},{approvalStatus:id=>dispatchBroker.approvalStatus(id)});
     const port=custodyRuntime.planArtifacts;
     const ws=(value="v1")=>builtinWorkspace(state,{"resource/test":dataFragment("test",value)});
-    async function review(workspace=ws(),destroy=false,sourceReview=false) {
+    async function review(workspace=ws(),destroy=false,sourceReview=false,executableSourceDigest?:string) {
       const workspaceId=`ws_${randomUUID()}`,environmentId=`env_${randomUUID()}`;
       const {operation:op}=await seedApprovedOperation(a,workspaceId,{proposal:{capability:sourceReview?"infrastructure.plan":destroy?"infrastructure.destroy":"infrastructure.apply",
         scope:{workspaceId,projectId:"proj_1",environmentId},input:{environmentId,...(sourceReview?{teardownReview:true}:{})}}});
@@ -119,10 +119,10 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
       if(!lease)throw new Error("Review lease missing");
       const custody:PlanCustodyInput={workspaceId,projectId:op.projectId!,environmentId:op.environmentId!,operationId:op.id,proposalDigest:op.proposalDigest,inputDigest:op.inputDigest,expiresAt:op.expiresAt,sourceDigest:digest("source"),graphDigest:digest(workspace.addressMap)};
       const localA=await mkdtemp(path.join(temp,"producer-"));
-      const plan=await producer({url,key,fingerprint,ws:workspace,custody,lease,workRoot:localA,cache,destroy,evidenceId:`evd_${op.id}`});
+      const plan=await producer({url,key,fingerprint,ws:workspace,custody,lease,workRoot:localA,cache,destroy,executableSourceDigest,evidenceId:`evd_${op.id}`});
       await rm(localA,{recursive:true,force:true});
       expect(await readdir(temp)).not.toContain(path.basename(localA));
-      return {op,lease,custody,planDigest:plan.planDigest,workspace,destroy};
+      return {op,lease,custody,planDigest:plan.planDigest,workspace,destroy,executableSourceDigest};
     }
     const activeDirectory=async()=> {
       const entries=await readdir(temp,{withFileTypes:true});
@@ -132,6 +132,21 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
     };
     return {url,a,b,temp,state,cache,runner,key,fingerprint,port,tofu:custodyRuntime.tofu,ws,review,activeDirectory,fixtureBroker,setDispatchBroker:(broker:Pick<BrokerPort,"approvalStatus">)=>{dispatchBroker=broker;}};
   }
+  it("matching immutable source identity consumes original bytes and a different source digest refuses before dispatch",async()=>{
+    await fixture(async f=>{
+      const source="a".repeat(64),r=await f.review(f.ws(),false,false,source);let dispatches=0;
+      await expect(f.port.consume(r,(original,dispatch)=>f.tofu.applyVerifiedPlan(r.workspace,{original,custody:r.custody,approvedDigest:r.planDigest,
+        normalize:{fingerprintKey:f.fingerprint,executableSourceDigest:"b".repeat(64)},beforeDispatch:async()=>{dispatches++;await dispatch();}}))).rejects.toThrow();
+      expect(dispatches).toBe(0);
+      // Failed original attempts are intentionally not reused: obtain a new review/operation.
+      const positive=await f.review(f.ws(),false,false,source);
+      const result=await f.port.consume(positive,(original,dispatch)=>f.tofu.applyVerifiedPlan(positive.workspace,{original,custody:positive.custody,approvedDigest:positive.planDigest,
+        normalize:{fingerprintKey:f.fingerprint,executableSourceDigest:source},beforeDispatch:async()=>{
+          const bytes=await readFile(path.join(await f.activeDirectory(),"reviewed.tfplan"));expect(sha(bytes)).toBe(original.manifest.rawSha256);
+          dispatches++;await dispatch();
+        }}));expect(result.apply.exitCode).toBe(0);expect(result.plan.executableSourceDigest).toBe(source);expect(dispatches).toBe(1);
+    });
+  });
   it("producer exits and loses its directory; another worker applies ORIGINAL bytes after a separate fresh check, then destroys",async()=>{
     await fixture(async f=>{
       const reviewed=await f.review();

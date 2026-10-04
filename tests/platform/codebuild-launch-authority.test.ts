@@ -4,6 +4,8 @@ import { mockClient } from "aws-sdk-client-mock";
 import { BatchGetBuildsCommand, BatchGetProjectsCommand, CodeBuildClient, StartBuildCommand, type Build, type Project } from "@aws-sdk/client-codebuild";
 import { HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { DescribeRepositoriesCommand, ECRClient } from "@aws-sdk/client-ecr";
+import { immutableSourceSnapshot, sourceRecipe, sourceSnapshotDigest, sourceSnapshotSetDigest } from "@/lib/execution/source-snapshot";
+import { migration0013ApprovedSourceSnapshots } from "@/lib/controlplane/db/migrations/0013_approved_source_snapshots";
 import { digest } from "@/lib/controlplane/digest";
 import type { Sql } from "@/lib/controlplane/types";
 import * as repos from "@/lib/controlplane/db/repos";
@@ -28,12 +30,13 @@ describe.skipIf(!PG_URL)("CodeBuild launch authority [postgres]", () => {
   beforeAll(async () => {
     const lane=LANES.find(l=>l.name==="postgres")!;
     world=await openLane(lane);
+    await world.db.exec(migration0013ApprovedSourceSnapshots.sql);
     observer=await lane.open();
   }, 60_000);
   afterAll(async () => { cb.restore(); s3.restore(); ecr.restore(); await observer?.close(); await world?.close(); });
   beforeEach(() => { cb.reset(); s3.reset(); ecr.reset(); });
 
-  async function fixture() {
+  async function fixture(boundSource=false,omitSource=false) {
     const h=await makeHarness({kind:"postgres",engine:scriptedEngine("build-policy",()=>requireApproval(1,"admin",true))});
     const workspaceId=h.ids.wsA, environmentId=h.ids.envAProd, accountId="123456789012", region="eu-west-1";
     h.deps.clock={now:()=>new Date()};
@@ -43,9 +46,24 @@ describe.skipIf(!PG_URL)("CodeBuild launch authority [postgres]", () => {
     await decide();
     await h.broker.beginExecution({workspaceId,operationId:op.id,holder:`workflow:${op.id}`,audience:"worker"});
     const ports=createOperationsPort(world.db), worker=createExecutionBroker(world.db,async()=>h.broker);
+    const projectName = "zenith-build-web", projectArn = `arn:aws:codebuild:${region}:${accountId}:project/${projectName}`;
+    const pipeline = mkNode("build_pipeline/web", "build_pipeline", "aws:codebuild_project", { source: { repo: "https://github.com/acme/web", ref: "revision" } }, { region, specDigest: digest("pipeline"), externalRef: projectArn });
+    const service = mkNode("container_service/web", "container_service", "aws:ecs_service", { artifact: { type: "built", pipeline: pipeline.address } }, { region, specDigest: digest("service") });
+    for (const node of [pipeline, service]) await repos.resources.upsertDesired(world.db, { workspaceId, projectId:h.ids.projA, environmentId, node, status: "active" });
+    const sourceDigest=digest("source");
+    const sourceSnapshot=immutableSourceSnapshot({format:"zenith.approved-source.v1",workspaceId,operationId:op.id,projectId:h.ids.projA,environmentId,
+      serviceAddress:service.address,serviceSpecDigest:service.specDigest,pipelineAddress:pipeline.address,pipelineSpecDigest:pipeline.specDigest,provider:"aws",region,
+      owner:"acme",repo:"web",repositoryId:99,requestedRef:"revision",commitSha:"a".repeat(40),githubBinding:boundSource?{appId:"42",installationId:7,repositoryId:99,version:1}:null,
+      dockerfile:"Dockerfile",dockerfileDigest:digest("modeled Dockerfile bytes"),recipeDigest:sourceRecipe(service,pipeline),archiveFormat:"zip",archiveDigest:sourceDigest,archiveBytes:100});
+    // Modeled snapshot/archive provenance; real owning PostgreSQL/CAS/approval and SDK protocol below.
+    if(boundSource)await world.db.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by) values ($1,'42',7,99,'acme','web',1,'fixture-admin')",[workspaceId]);
+    if(!omitSource)await world.db.query("insert into platform.approved_source_snapshots(workspace_id,operation_id,project_id,environment_id,service_address,snapshot,snapshot_digest) values ($1,$2,$3,$4,$5,$6::text::jsonb,$7)",
+      [workspaceId,op.id,h.ids.projA,environmentId,service.address,JSON.stringify(sourceSnapshot),sourceSnapshotDigest(sourceSnapshot)]);
     const plan=makePlan({changes:[change({address:"aws_codebuild_project.web",type:"aws_codebuild_project",action:"create"})]});
+    plan.executableSourceDigest=sourceSnapshotSetDigest([sourceSnapshot]);
+    plan.planDigest=digest({configDigest:plan.configDigest,lockDigest:plan.lockDigest,tofuVersion:plan.tofuVersion,resourceChanges:plan.resourceChanges,outputChanges:plan.outputChanges,executableSourceDigest:plan.executableSourceDigest});
     const facts=buildPlanFacts(plan)!;
-    await repos.evidence.insert(world.db,{workspaceId,operationId:op.id,kind:"tofu_plan",digest:plan.planDigest,summary:planEvidence({plan,facts,cost:{},graphDigest:digest("graph"),stage:"plan"}).summary,simulated:false});
+    await repos.evidence.insert(world.db,{workspaceId,operationId:op.id,kind:"tofu_plan",digest:plan.planDigest,summary:planEvidence({plan,facts,cost:{},graphDigest:digest("graph"),stage:"plan",approvedSources:[sourceSnapshot]}).summary,simulated:false});
     await ports.setPlanDigest({workspaceId,operationId:op.id,planDigest:plan.planDigest});
     const policy=await worker.reevaluate(op.id,facts);
     await ports.setPolicyDecision({workspaceId,operationId:op.id,decisionId:policy.decisionId});
@@ -58,14 +76,10 @@ describe.skipIf(!PG_URL)("CodeBuild launch authority [postgres]", () => {
     const startBuild=createIsolatedBuildLauncherForTests(h.broker);
     // This is only the build adapter's authority fixture, not plan/apply acceptance.
     await world.db.query("insert into platform.plan_artifact_uses(workspace_id,operation_id,phase) values ($1,$2,'succeeded')", [workspaceId, op.id]);
-    const projectName = "zenith-build-web", projectArn = `arn:aws:codebuild:${region}:${accountId}:project/${projectName}`;
-    const pipeline = mkNode("build_pipeline/web", "build_pipeline", "aws:codebuild_project", { source: { repo: "https://github.com/acme/web", ref: "revision" } }, { region, specDigest: digest("pipeline"), externalRef: projectArn });
-    const service = mkNode("container_service/web", "container_service", "aws:ecs_service", { artifact: { type: "built", pipeline: pipeline.address } }, { region, specDigest: digest("service") });
-    for (const node of [pipeline, service]) await repos.resources.upsertDesired(world.db, { workspaceId, environmentId, node, status: "active" });
     const connection = await repos.connections.create(world.db, { workspaceId, createdBy: "fixture-admin", config: { provider: "aws", mode: "oidc_web_identity", accountId, region, observeRoleArn: `arn:aws:iam::${accountId}:role/observe`, deployRoleArn: `arn:aws:iam::${accountId}:role/deploy` } });
     await repos.connections.recordVerification(world.db, { workspaceId, id: connection.id, ok: true });
     await registerEnvironment(world.db, { environment: { workspaceId, environmentId, provider: "aws", region, class: "development", connection: { id: connection.id, status: "verified" } } });
-    const sourceDigest = digest("source"), sourceBucket = "zenith-build-source", sourceS3Key = `zenith/${environmentId}/web/${sourceDigest}.zip`;
+    const sourceBucket = "zenith-build-source", sourceS3Key = `zenith/${environmentId}/web/${sourceDigest}.zip`;
     const input = { sourceS3Key, sourceDigest, externalId: projectArn, service };
     const ctx = mkDriverContext({ workspaceId, environmentId, region, session:fakeSession({accountId,region}), now:()=>new Date(),
       tags:{"zenith:workspace":workspaceId,"zenith:environment":environmentId,"zenith:managed":"true"},
@@ -79,7 +93,7 @@ describe.skipIf(!PG_URL)("CodeBuild launch authority [postgres]", () => {
     const build: Build = { id: buildId, arn: `arn:aws:codebuild:${region}:${accountId}:build/${buildId}`, projectName, buildStatus: "IN_PROGRESS", buildComplete: false, source: { ...project.source!, location: `${sourceBucket}/${sourceS3Key}` }, serviceRole: project.serviceRole, timeoutInMinutes: project.timeoutInMinutes, queuedTimeoutInMinutes: project.queuedTimeoutInMinutes, environment: { ...project.environment!, environmentVariables: [...project.environment!.environmentVariables!, { name: "ZENITH_SOURCE_DIGEST", value: sourceDigest, type: "PLAINTEXT" }] } };
     cb.on(StartBuildCommand).resolves({ build, $metadata: { requestId: "accepted-request" } });
     cb.on(BatchGetBuildsCommand).resolves({ builds: [build], $metadata: { requestId: "read-request" } });
-    return { ctx, input, pipeline, service, project, build, op, repositoryUri, h, startBuild, worker };
+    return { ctx, input, pipeline, service, project, build, op, repositoryUri, h, startBuild, worker, sourceSnapshot };
   }
 
   async function terminalTimestamp(workspaceId:string,operationId:string):Promise<Date> {

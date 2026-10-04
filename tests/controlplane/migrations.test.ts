@@ -9,6 +9,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   PLATFORM_MIGRATIONS,
+  PLATFORM_SCHEMA_VERSION,
   PlatformSchemaError,
   assertPlatformSchemaCurrent,
   migrationChecksum,
@@ -24,6 +25,17 @@ import { PG_URL, withScratchDatabase } from "./_support/harness";
 import * as repos from "@/lib/controlplane/db/repos";
 import { claimOperation, suspendForApproval } from "@/lib/controlplane/operations";
 import { proposalFor, uid, user } from "./_support/harness";
+import { digest } from "@/lib/controlplane/digest";
+import { immutableSourceSnapshot, sourceSnapshotDigest } from "@/lib/execution/source-snapshot";
+import { withPlanReview } from "@/lib/controlplane/db/repos/operation-review";
+import { normalizePlan } from "@/lib/tofu/plan";
+import { extractPlanFacts } from "@/lib/policy/plan-facts";
+import { TOFU_VERSION } from "@/lib/tofu/types";
+import { planEvidence } from "@/lib/execution/plan-evidence";
+
+if (process.env.ZENITH_TEST_APPROVED_SOURCE_REQUIRED === "1" && !PG_URL) {
+  throw new Error("Approved source migration acceptance requires an owned PostgreSQL database.");
+}
 
 const core = PLATFORM_MIGRATIONS[0];
 /** Every shipped version; the suite must not assume how many migrations exist. */
@@ -32,7 +44,7 @@ const ALL = PLATFORM_MIGRATIONS.map((m) => m.version);
 const NEXT = PLATFORM_MIGRATIONS.length + 1;
 
 const EXPECTED_TABLES = [
-  "agent_effect_receipts", "agent_nonces", "approvals", "build_launches", "capability_grants", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
+  "agent_effect_receipts", "agent_nonces", "approvals", "approved_source_snapshots", "build_launches", "capability_grants", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
   "github_binding_events", "github_install_intents", "github_source_bindings", "github_webhook_deliveries", "github_webhook_installation_epochs", "idempotency_keys", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machines", "operations", "plan_artifact_associations", "plan_artifact_uses", "plan_artifacts", "policy_decisions", "provider_connections",
   "reconcile_state", "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners",
   "schema_migrations", "workflow_start_intents", "workspace_policy",
@@ -105,6 +117,25 @@ describe("migration set", () => {
       "1e5d84e018bd35c3638bbd23bab8e5b0e7d9b6c3173a430259480508aca6f311",
       "e8349e5ddf50a5396304850bd84bbffe81be1f4b0b7189677c1c1ad36ad4a387",
     ]);
+  });
+
+  it("preserves the accepted SQL checksums 1 through 12 and derives the current schema from the canonical list", () => {
+    expect(PLATFORM_MIGRATIONS.filter(m => m.version <= 12).map(migrationChecksum)).toEqual([
+      "ec4e2c1a7185e25ea6afa803e87abcc1fe8a06cb65651773f573f0b66de13764",
+      "af708ba78998ba35b05966afc4f037bacec9b38905853e6f43c8fdab92cb47f0",
+      "e1eccac97c7852592bcad8cd0e441b67a442c7405735ee9e2619e9e9b100bec6",
+      "1e5d84e018bd35c3638bbd23bab8e5b0e7d9b6c3173a430259480508aca6f311",
+      "e8349e5ddf50a5396304850bd84bbffe81be1f4b0b7189677c1c1ad36ad4a387",
+      "0e256ace8f784b996b2e6687dc42bb4705f91c4579b4ecb1da38987d9f68d78d",
+      "eb445d8479b4b8ba8c9c6e8df38fb95c3f9ca59f8949218e3c07f68727f62ae3",
+      "90a025fd0c76ee84b14a26c9d8b1794e215ececec24333848904c22bc0f86e9d",
+      "7d00eb79279b57c682dda67af0a5eaffc5ff3825d5e6a370235dd0dfdb502060",
+      "a4436e385563b8bd3b3528708b1db757c5a9872e1927dbd8ef5bd595e1e62bfd",
+      "f6c9d90f69447e430ad9ef2b8368b137b26cadcd05776d689959c99da9e0430b",
+      "7eaa5e87e594d741e772e0cd9b77010c796d36c2c9ceac41f8f47720c804d811",
+    ]);
+    expect(PLATFORM_SCHEMA_VERSION).toBe(PLATFORM_MIGRATIONS.at(-1)?.version);
+    expect(PLATFORM_MIGRATIONS.find(m => m.version === 13)?.name).toBe("approved_source_snapshots");
   });
 
   it("the emitted Supabase file is byte-identical to what the emitter renders now", () => {
@@ -411,6 +442,96 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
     });
   }, 60_000);
 
+  it.each(["fresh", "same-owner schema6"] as const)("%s canonical migrations keep permanent approved source snapshots select/insert-only", async mode => {
+    await withScratchDatabase(async url => {
+      const db = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 1 });
+      const rollback = new Error("Deliberate private source privilege fixture rollback.");
+      try {
+        const result = await db.tx(async tx => {
+          await db.exec(`do $$ begin
+            if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin noinherit bypassrls; end if;
+          end $$;`);
+          const owner = (await tx.query<{ name: string }>("select current_user as name"))[0].name;
+          if (mode === "same-owner schema6") {
+            const emitted = renderSupabaseMigration();
+            const seventh = emitted.indexOf("-- ============================ migration 7: plan_artifacts");
+            const hardening = emitted.indexOf("-- ============================ hardening (Supabase roles)");
+            if (seventh < 0 || hardening < seventh) throw new Error("Canonical legacy fixture boundaries are unavailable.");
+            await db.exec(emitted.slice(0, seventh) + emitted.slice(hardening));
+            // Challenge the full inherited-ACL counterexample in the creator's
+            // own namespace. All role/default-privilege DDL rolls back below.
+            await tx.query("alter default privileges in schema platform grant all on tables to service_role");
+            await tx.query("create table platform.approved_source_acl_probe(id integer)");
+            for (const privilege of ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"])
+              expect((await tx.query<{ inherited: boolean }>("select has_table_privilege('service_role','platform.approved_source_acl_probe',$1) as inherited", [privilege]))[0].inherited).toBe(true);
+            await tx.query("drop table platform.approved_source_acl_probe");
+            await migratePlatformDb(db);
+          } else {
+            // Fresh canonical Supabase SQL includes the final aggregate ACL
+            // reassertion, not only migration13's narrower direct grant.
+            await db.exec(renderSupabaseMigration());
+          }
+          await assertPlatformSchemaCurrent(db);
+          expect((await tx.query<{ owner: string }>("select pg_get_userbyid(relowner) as owner from pg_class where oid='platform.approved_source_snapshots'::regclass"))[0].owner).toBe(owner);
+          const assertRights = async () => {
+            for (const privilege of ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"])
+              expect((await tx.query<{ allowed: boolean }>("select has_table_privilege('service_role','platform.approved_source_snapshots',$1) as allowed", [privilege]))[0].allowed,
+                `${mode}: ${privilege}`).toBe(["SELECT", "INSERT"].includes(privilege));
+          };
+          await assertRights();
+          // Re-emission must not regrant UPDATE/DELETE or inherited rights.
+          await db.exec(renderSupabaseMigration());
+          await assertRights();
+          expect((await tx.query<{bypass:boolean}>("select rolbypassrls as bypass from pg_roles where rolname='service_role'"))[0].bypass).toBe(true);
+          const workspaceId = uid("source_acl_ws"), projectId = uid("project"), environmentId = uid("env");
+          const { operation } = await repos.operations.create(tx, { workspaceId, principal: user(), proposal: proposalFor(workspaceId, { scope: { workspaceId, projectId, environmentId } }) });
+          // Fixed modeled metadata tests native SQL/role admission only. It does
+          // not mint the source capture capability or prove archive provenance.
+          const snapshot = immutableSourceSnapshot({ format: "zenith.approved-source.v1", workspaceId, operationId: operation.id, projectId, environmentId,
+            serviceAddress: "container_service/web", serviceSpecDigest: digest("service"), pipelineAddress: "build_pipeline/web", pipelineSpecDigest: digest("pipeline"),
+            provider: "aws", region: "eu-west-1", owner: "acme", repo: "web", repositoryId: 99, requestedRef: "revision", commitSha: "a".repeat(40), githubBinding: null,
+            dockerfile: "Dockerfile", dockerfileDigest: digest("modeled Dockerfile"), recipeDigest: digest("modeled recipe"), archiveFormat: "zip", archiveDigest: digest("modeled archive"), archiveBytes: 100 });
+          await db.tx(async service => {
+            await service.query("set local role service_role");
+            await service.query(`insert into platform.approved_source_snapshots(workspace_id,operation_id,project_id,environment_id,service_address,snapshot,snapshot_digest)
+              values ($1,$2,$3,$4,$5,$6::text::jsonb,$7)`, [workspaceId,operation.id,projectId,environmentId,snapshot.serviceAddress,JSON.stringify(snapshot),sourceSnapshotDigest(snapshot)]);
+            expect(await service.query("select snapshot from platform.approved_source_snapshots where workspace_id=$1 and operation_id=$2", [workspaceId,operation.id])).toEqual([{snapshot}]);
+          });
+          await tx.query("reset role");
+          const retained = await tx.query("select * from platform.approved_source_snapshots where workspace_id=$1 and operation_id=$2", [workspaceId,operation.id]);
+          for (const statement of ["update platform.approved_source_snapshots set snapshot_digest=snapshot_digest", "delete from platform.approved_source_snapshots", "truncate platform.approved_source_snapshots"]) {
+            await expect(db.tx(async denied => { await denied.query("set local role service_role"); await denied.query(statement); })).rejects.toMatchObject({ sqlstate: "42501" });
+            expect(await tx.query("select * from platform.approved_source_snapshots where workspace_id=$1 and operation_id=$2", [workspaceId,operation.id])).toEqual(retained);
+          }
+          expect(await migratePlatformDb(db)).toEqual({ applied: [], alreadyApplied: ALL });
+          throw rollback;
+        }).catch((error: unknown) => error);
+        expect(result).toBe(rollback);
+      } finally { await db.close(); }
+    });
+  }, 60_000);
+
+  it("schema12 refuses startup and even source-free plan review until the canonical source migration is applied", async () => {
+    await withScratchDatabase(async url => {
+      const db = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 1 });
+      try {
+        await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version < 13));
+        await expect(assertPlatformSchemaCurrent(db)).rejects.toMatchObject({ code: "schema_behind" });
+        expect((await platformSchemaStatus(db)).pending.map(m => m.version)).toEqual(PLATFORM_MIGRATIONS.filter(m => m.version >= 13).map(m => m.version));
+        const workspaceId = uid("source_schema_ws");
+        const plan = normalizePlan({format_version:"1.2",terraform_version:TOFU_VERSION,resource_changes:[],output_changes:{}},
+          {configDigest:digest("config"),lockDigest:digest("lock"),addressMap:{}});
+        const summary = planEvidence({plan,facts:extractPlanFacts(plan),cost:{},graphDigest:digest("graph"),stage:"plan"}).summary;
+        const { operation } = await repos.operations.create(db, { workspaceId, principal: user(), proposal: proposalFor(workspaceId, { planDigest: plan.planDigest }) });
+        await repos.evidence.insert(db,{workspaceId,operationId:operation.id,kind:"tofu_plan",digest:plan.planDigest,summary,simulated:false});
+        await expect(withPlanReview(db, { ...operation, approvalRound: 0 })).rejects.toThrow("Approved source review is unavailable");
+        await migratePlatformDb(db);
+        await assertPlatformSchemaCurrent(db);
+        expect((await withPlanReview(db, { ...operation, approvalRound: 0 })).planReview?.view).toEqual(summary.view);
+      } finally { await db.close(); }
+    });
+  }, 60_000);
+
   it("schema 6 emitted hardening upgrades through the canonical migrator under a distinct owner with RLS, role isolation and immutable artifacts",async()=>{
     await withScratchDatabase(async url=>{
       const db=await openPlatformDb({kind:"postgres",url,migrate:false,max:1});
@@ -453,14 +574,26 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           expect(migrationOwner).not.toBe(originalUser);
           expect(await migratePlatformDb(db)).toEqual({applied:pending,alreadyApplied:[1,2,3,4,5,6]});
           await assertPlatformSchemaCurrent(db);
-          const ledger=(await platformSchemaStatus(db)).applied.find(m=>m.version===7);
-          expect(ledger?.checksum).toBe(migrationChecksum(PLATFORM_MIGRATIONS[6]));
+          expect((await platformSchemaStatus(db)).applied.map(({version,name,checksum})=>({version,name,checksum})))
+            .toEqual(PLATFORM_MIGRATIONS.map(m=>({version:m.version,name:m.name,checksum:migrationChecksum(m)})));
           expect(await migratePlatformDb(db)).toEqual({applied:[],alreadyApplied:ALL});
           await tx.query("reset role");
           const tables=await tx.query<{name:string;rls:boolean;owner:string}>(`select c.relname as name,c.relrowsecurity as rls,pg_get_userbyid(c.relowner) as owner
             from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='platform'
-            and c.relname in ('plan_artifacts','plan_artifact_associations','plan_artifact_uses','build_launches','github_binding_events','github_webhook_deliveries','github_webhook_installation_epochs','agent_effect_receipts','workflow_start_intents') order by c.relname`);
-          expect(tables).toHaveLength(9);
+            and c.relname in ('plan_artifacts','plan_artifact_associations','plan_artifact_uses','build_launches','github_binding_events','github_webhook_deliveries','github_webhook_installation_epochs','agent_effect_receipts','workflow_start_intents','approved_source_snapshots') order by c.relname`);
+          const grants: Record<string, readonly string[]> = {
+            plan_artifacts: ["SELECT", "INSERT", "UPDATE", "DELETE"],
+            plan_artifact_associations: ["SELECT", "INSERT", "UPDATE", "DELETE"],
+            plan_artifact_uses: ["SELECT", "INSERT", "UPDATE", "DELETE"],
+            build_launches: ["SELECT", "INSERT", "UPDATE"],
+            agent_effect_receipts: ["SELECT", "INSERT"],
+            github_binding_events: ["SELECT", "INSERT"],
+            github_webhook_deliveries: ["SELECT", "INSERT", "UPDATE"],
+            github_webhook_installation_epochs: ["SELECT", "INSERT", "UPDATE"],
+            workflow_start_intents: ["SELECT", "INSERT", "UPDATE"],
+            approved_source_snapshots: ["SELECT", "INSERT"],
+          };
+          expect(tables.map(table=>table.name)).toEqual(Object.keys(grants).sort());
           for(const table of tables) {
             expect(table.rls).toBe(true);expect(table.owner).toBe(migrationOwner);
             for(const role of ["anon","authenticated"]) {
@@ -470,17 +603,6 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
             }
             // Canonical migration-specific grants do not replay aggregate emitted hardening.
             // A distinct creator role also has its own default-privilege namespace.
-            const grants: Record<string, readonly string[]> = {
-              plan_artifacts: ["SELECT", "INSERT", "UPDATE", "DELETE"],
-              plan_artifact_associations: ["SELECT", "INSERT", "UPDATE", "DELETE"],
-              plan_artifact_uses: ["SELECT", "INSERT", "UPDATE", "DELETE"],
-              build_launches: ["SELECT", "INSERT", "UPDATE"],
-              agent_effect_receipts: ["SELECT", "INSERT"],
-              github_binding_events: ["SELECT", "INSERT"],
-              github_webhook_deliveries: ["SELECT", "INSERT", "UPDATE"],
-              github_webhook_installation_epochs: ["SELECT", "INSERT", "UPDATE"],
-              workflow_start_intents: ["SELECT", "INSERT", "UPDATE"],
-            };
             for(const privilege of ["SELECT","INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"])
               expect((await tx.query<{allowed:boolean}>("select has_table_privilege('service_role',$1,$2) as allowed",[`platform.${table.name}`,privilege]))[0].allowed).toBe(grants[table.name].includes(privilege));
           }

@@ -9,8 +9,11 @@ import type { AwsSession, GcpSession } from "@/lib/credentials/types";
 import type { DriverContext } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import type { StoredResource } from "@/lib/execution/ports";
+import { sourceRecipe, sourceSnapshotDigest, type ApprovedSourceSnapshot } from "@/lib/execution/source-snapshot";
+import { createIsolatedApprovedSourceStoreForTests } from "@/lib/controlplane/db/repos/approved-source-snapshots";
+import type { Sql } from "@/lib/controlplane/types";
 import { sha256Hex } from "@/lib/controlplane/digest";
-import { createSourceBundles, SOURCE_BUNDLE_LIMITS, type SourceBundleDeps } from "@/lib/platform/source-bundle";
+import { createSourceBundles, createIsolatedSourceBundlesForTests, SOURCE_BUNDLE_LIMITS, type SourceBundleDeps } from "@/lib/platform/source-bundle";
 import { pipelineNames, labels } from "@/lib/providers/gcp/release/support";
 import { startBuild } from "@/lib/providers/aws/drivers/compute/codebuild-builds";
 import { writeTar, paxRecord, type TarEntry } from "../_support/tar";
@@ -226,7 +229,7 @@ describe("source acquisition and canonical archives", () => {
 const s3 = mockClient(S3Client); const cb = mockClient(CodeBuildClient);
 beforeEach(() => { s3.reset(); cb.reset(); }); afterAll(() => { s3.restore(); cb.restore(); });
 const accountId = "123456789012"; const bucket = "zenith-env-1-web-src";
-function fixture(provider: "aws" | "gcp" = "aws") {
+async function fixture(provider: "aws" | "gcp" = "aws") {
   const region = provider === "aws" ? "us-east-1" : "asia-south1";
   const node = (address: string, kind: ResourceNode["kind"], spec: Record<string, unknown>): ResourceNode => ({ address, kind, provider, region, spec, specDigest: sha256Hex(JSON.stringify(spec)), ownership: "managed", nativeType: `${provider}:fixture`, origin: [], dependsOn: [], labels: {} });
   const service = node("container_service/web", "container_service", { artifact: { type: "built", pipeline: "build_pipeline/web" } });
@@ -235,16 +238,31 @@ function fixture(provider: "aws" | "gcp" = "aws") {
   const rows: StoredResource[] = [service, pipeline].map((n) => ({ ...n, id: n.address, workspaceId: "ws-1", environmentId: "env-1", status: "active", externalId: n.externalRef }));
   const resources = { list: vi.fn(async () => rows) }; const fetchImpl = transport();
   const session: AwsSession = { provider: "aws", accountId, region, transport: "direct", expiresAt: "2099-01-01T00:00:00Z", client: (ctor) => new ctor({ region }), childProcessEnv: () => { throw new Error("Unused credential accessor."); } };
-  const ctx: DriverContext = { provider, region, workspaceId: "ws-1", environmentId: "env-1", session, signal: new AbortController().signal, log: vi.fn(), tags: {}, now: () => new Date() };
+  const ctx: DriverContext = { operationId:"op-source-contract", provider, region, workspaceId: "ws-1", environmentId: "env-1", session, signal: new AbortController().signal, log: vi.fn(), tags: {}, now: () => new Date() };
   const tags = { "zenith:workspace": ctx.workspaceId, "zenith:environment": ctx.environmentId, "zenith:managed": "true", "zenith:resource": pipeline.address };
   cb.on(BatchGetProjectsCommand).resolves({ projects: [{ name: "zenith-env-1-web", arn: pipeline.externalRef, source: { type: "S3", location: `${bucket}/zenith/env-1/bootstrap.zip` }, tags: Object.entries(tags).map(([key, value]) => ({ key, value })) }] });
   s3.on(GetBucketTaggingCommand).resolves({ TagSet: Object.entries(tags).map(([Key, Value]) => ({ Key, Value })) }); s3.on(PutObjectCommand).resolves({});
-  return { ctx, service, pipeline, rows, resources, fetchImpl, tags, port: createSourceBundles({ resources, fetchImpl }).port };
+  // Modeled GitHub SQL authority, actual bounded REST/archive parser and SDK requests.
+  const db:Sql={query:async()=>[],tx:async fn=>fn(db)};
+  let approvedSource:ApprovedSourceSnapshot;
+  const sourceSnapshots=createIsolatedApprovedSourceStoreForTests({list:async()=>[approvedSource],retain:async s=>s,assertCurrent:async s=>{if(sourceSnapshotDigest(s)!==sourceSnapshotDigest(approvedSource))throw new Error("Fixture source mismatch.");},assertReviewed:async()=>undefined});
+  const metaFetch=vi.fn<typeof fetch>(async(raw,init)=>{
+    const url=String(raw);if(url.startsWith("https://api.github.com/repos/"))return url.includes("/commits/")?new Response("a".repeat(40)):Response.json({id:101,name:"app",owner:{login:"acme"},private:false});
+    return fetchImpl(raw,init);
+  });
+  const core=createIsolatedSourceBundlesForTests({resources,fetchImpl:metaFetch,sourceSnapshots},db).port;
+  approvedSource=await core.capture!({workspaceId:ctx.workspaceId,operationId:ctx.operationId!,projectId:"proj-source-contract",environmentId:ctx.environmentId,
+    serviceAddress:service.address,serviceSpecDigest:service.specDigest,pipelineAddress:pipeline.address,pipelineSpecDigest:pipeline.specDigest,provider,region,
+    repository:source.repo,requestedRef:source.ref,dockerfile:"Dockerfile",recipeDigest:sourceRecipe(service,pipeline),archiveFormat:provider==="aws"?"zip":"tar.gz"});
+  fetchImpl.mockClear();metaFetch.mockClear();
+  const port={...core,prepare:(context:DriverContext,input:Parameters<typeof core.prepare>[1])=>core.prepare(context,{...input,approvedSource})};
+  const recapture=async()=>{approvedSource=await core.capture!({...approvedSource,repository:source.repo,requestedRef:source.ref,recipeDigest:sourceRecipe(service,pipeline)});fetchImpl.mockClear();};
+  return { ctx, service, pipeline, rows, resources, fetchImpl, metaFetch, tags, port, sourceSnapshots, approved:()=>approvedSource, recapture,db };
 }
 
 describe("customer source bucket uploads", () => {
   it("uploads through the brokered AWS session with a verified owner, checksum and pinned C3 fields", async () => {
-    const w = fixture(); const result = await w.port.prepare(w.ctx, { service: w.service, source });
+    const w = await fixture(); const result = await w.port.prepare(w.ctx, { service: w.service, source });
     const key = `zenith/env-1/web/${result.digest}.zip`;
     expect(result).toEqual({ s3Key: key, objectKey: key, digest: expect.stringMatching(/^[a-f0-9]{64}$/), bucket, uri: `s3://${bucket}/${key}` });
     expect(w.resources.list).toHaveBeenCalledWith("ws-1", "env-1");
@@ -260,14 +278,17 @@ describe("customer source bucket uploads", () => {
     expect(files.filter((f) => !f.directory).every((f) => f.mode === 0o644)).toBe(true);
   });
   it("normalizes ZIP ordering, wrapper, timestamps and modes while preserving long UTF-8 paths and executable intent", async () => {
-    const w = fixture(); const path = `root/${"x".repeat(150)}/日本語.txt`;
+    const w = await fixture(); const path = `root/${"x".repeat(150)}/日本語.txt`;
     w.rows[1].spec = { ...w.rows[1].spec, source: { ...source, dockerfile: undefined } };
+    w.pipeline.spec=w.rows[1].spec;
     const tar = changeHeader(writeTar([
+      { path: "root/Dockerfile", bytes:Buffer.from("FROM scratch\n") },
       { path: "root/run.sh", bytes: Buffer.from("#!/bin/sh\n") },
       { path: "long", type: "gnuLongName", bytes: Buffer.from(`${path}\0`) },
       { path: "stub", bytes: binary },
     ]), (h) => h.write("0004751\0", 100));
     w.fetchImpl.mockImplementation(async () => response(tar));
+    await w.recapture();
     const a = await w.port.prepare(w.ctx, { service: w.service, source: { ...source, dockerfile: undefined } });
     const files = inspectZip(s3.commandCalls(PutObjectCommand)[0].args[0].input.Body as Uint8Array);
     expect(files.find((f) => f.name === "run.sh")).toMatchObject({ mode: 0o755, bytes: Buffer.from("#!/bin/sh\n") });
@@ -275,6 +296,7 @@ describe("customer source bucket uploads", () => {
     const reordered = writeTar([
       { path: "long", type: "gnuLongName", bytes: Buffer.from(`${path.replace("root/", "wrapper/")}\0`) },
       { path: "stub", bytes: binary },
+      { path: "wrapper/Dockerfile", bytes:Buffer.from("FROM scratch\n") },
       { path: "wrapper/run.sh", bytes: Buffer.from("#!/bin/sh\n") },
     ]);
     const at = reordered.length - 2048; const h = reordered.subarray(at, at + 512);
@@ -284,7 +306,7 @@ describe("customer source bucket uploads", () => {
     expect(s3.commandCalls(PutObjectCommand)[1].args[0].input.Body).toEqual(s3.commandCalls(PutObjectCommand)[0].args[0].input.Body);
   });
   it("keeps the prepared ZIP bound but refuses launch without durable authority", async () => {
-    const w = fixture(); const prepared = await w.port.prepare(w.ctx, { service: w.service, source });
+    const w = await fixture(); const prepared = await w.port.prepare(w.ctx, { service: w.service, source });
     const upload = s3.commandCalls(PutObjectCommand)[0].args[0].input;
     expect(prepared.s3Key).toBe(upload.Key);
     expect(prepared.digest).toBe(sha256Hex(upload.Body as Uint8Array));
@@ -294,7 +316,7 @@ describe("customer source bucket uploads", () => {
     expect(cb.commandCalls(StartBuildCommand)).toHaveLength(0);
   });
   it("bounds ZIP output before uploading and keeps rejecting hostile source archives", async () => {
-    const w = fixture(); const tar = writeTar(entries);
+    const w = await fixture(); const tar = writeTar(entries);
     // Prove this valid source succeeds, but its canonical ZIP exceeds the
     // tighter accepted download bound. Failure must occur before another upload.
     await w.port.prepare(w.ctx, { service: w.service, source });
@@ -302,8 +324,8 @@ describe("customer source bucket uploads", () => {
     const uploaded = s3.commandCalls(PutObjectCommand)[0].args[0].input;
     expect(uploaded.ContentLength).toBeGreaterThan(downloadBound);
     s3.resetHistory();
-    const port = createSourceBundles({ resources: w.resources, fetchImpl: w.fetchImpl, limits: { maxArchiveBytes: downloadBound } }).port;
-    await expect(port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("Source bundle preparation could not be confirmed; outcome is unknown.");
+    const port = createIsolatedSourceBundlesForTests({ resources: w.resources, sourceSnapshots:w.sourceSnapshots, fetchImpl: w.metaFetch, limits: { maxArchiveBytes: downloadBound } },w.db).port;
+    await expect(port.prepare(w.ctx, { service: w.service, source, approvedSource:w.approved() })).rejects.toThrow("Source bundle preparation could not be confirmed; outcome is unknown.");
     for (const hostile of [[{ path: "root/link", type: "symlink" as const }], [{ path: "root/../outside" }]]) {
       w.fetchImpl.mockImplementation(async () => response(writeTar(hostile)));
       await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow();
@@ -311,7 +333,7 @@ describe("customer source bucket uploads", () => {
     expect(s3.commandCalls(PutObjectCommand)).toHaveLength(0);
   });
   it("handles duplicate/concurrent AWS prepares only when the existing object checksum and size match", async () => {
-    const w = fixture(); const first = await w.port.prepare(w.ctx, { service: w.service, source });
+    const w = await fixture(); const first = await w.port.prepare(w.ctx, { service: w.service, source });
     const upload = s3.commandCalls(PutObjectCommand)[0].args[0].input;
     s3.on(PutObjectCommand).rejects({ $metadata: { httpStatusCode: 412 } });
     s3.on(HeadObjectCommand).resolves({ ContentLength: upload.ContentLength, ChecksumSHA256: upload.ChecksumSHA256 });
@@ -324,7 +346,7 @@ describe("customer source bucket uploads", () => {
     await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("refusing to replace");
   });
   it.each(["workspace", "environment", "source", "ownership", "deleted", "digest", "duplicate"])("refuses a mismatched stored %s before cloud writes", async (mismatch) => {
-    const w = fixture();
+    const w = await fixture();
     if (mismatch === "workspace") w.rows[1].workspaceId = "foreign";
     if (mismatch === "environment") w.rows[1].environmentId = "foreign";
     if (mismatch === "source") w.rows[1].spec = { ...w.rows[1].spec, source: { ...source, ref: "wrong" } };
@@ -332,41 +354,41 @@ describe("customer source bucket uploads", () => {
     if (mismatch === "deleted") w.rows[1].status = "deleted";
     if (mismatch === "digest") w.rows[0].specDigest = "f".repeat(64);
     if (mismatch === "duplicate") w.rows.push({ ...w.rows[1], id: "another" });
-    await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow(); expect(w.fetchImpl).not.toHaveBeenCalled(); expect(s3.commandCalls(PutObjectCommand)).toHaveLength(0);
+    await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow(); expect(s3.commandCalls(PutObjectCommand)).toHaveLength(0);expect(w.fetchImpl).not.toHaveBeenCalled();
   });
   it("refuses foreign AWS project ARNs, bucket tags and broker provider/region mismatches", async () => {
-    const w = fixture(); w.rows[1].externalId = w.pipeline.externalRef!.replace(accountId, "999999999999");
+    const w = await fixture(); w.rows[1].externalId = w.pipeline.externalRef!.replace(accountId, "999999999999");
     await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("AWS account"); expect(cb.calls()).toHaveLength(0);
     w.rows[1].externalId = w.pipeline.externalRef;
     s3.on(GetBucketTaggingCommand).resolves({ TagSet: Object.entries({ ...w.tags, "zenith:workspace": "foreign" }).map(([Key, Value]) => ({ Key, Value })) });
     await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("outside this workspace");
     for (const ctx of [{ ...w.ctx, provider: "azure" as const }, { ...w.ctx, region: "other" }]) await expect(w.port.prepare(ctx, { service: w.service, source })).rejects.toThrow("matching AWS, GCP or Azure");
-    expect(w.fetchImpl).not.toHaveBeenCalled(); expect(s3.commandCalls(PutObjectCommand)).toHaveLength(0);
+    expect(s3.commandCalls(PutObjectCommand)).toHaveLength(0);
   });
   it("does not leak SDK/connector errors or claim success after an uncertain upload", async () => {
-    const w = fixture(); s3.on(PutObjectCommand).rejects(new Error("CLOUD-SECRET-CANARY"));
+    const w = await fixture(); s3.on(PutObjectCommand).rejects(new Error("CLOUD-SECRET-CANARY"));
     const result = w.port.prepare(w.ctx, { service: w.service, source });
     await expect(result).rejects.toThrow("outcome is unknown"); await expect(result).rejects.not.toThrow("CLOUD-SECRET-CANARY"); expect(w.ctx.log).not.toHaveBeenCalled();
   });
   it("requires configured source access/resource scope and rejects stale sessions safely", async () => {
-    const w = fixture();
+    const w = await fixture();
     await expect(createSourceBundles().port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("stored build pipeline");
     await expect(w.port.prepare({ ...w.ctx, environmentId: "../other" }, { service: w.service, source })).rejects.toThrow("identifier");
     const expired = { ...w.ctx, session: { ...w.ctx.session as AwsSession, client: () => { throw new Error("EXPIRED-SECRET-CANARY"); } } };
     const result = w.port.prepare(expired, { service: w.service, source });
     await expect(result).rejects.toThrow("outcome is unknown"); await expect(result).rejects.not.toThrow("EXPIRED-SECRET-CANARY");
-    expect(w.fetchImpl).not.toHaveBeenCalled(); expect(s3.commandCalls(PutObjectCommand)).toHaveLength(0);
+    expect(s3.commandCalls(PutObjectCommand)).toHaveLength(0);
   });
   it("honors cancellation before preparation and a deadline during a stalled store read", async () => {
-    const w = fixture(); const abort = new AbortController(); abort.abort("SECRET-ABORT-REASON");
+    const w = await fixture(); const abort = new AbortController(); abort.abort("SECRET-ABORT-REASON");
     await expect(w.port.prepare({ ...w.ctx, signal: abort.signal }, { service: w.service, source })).rejects.toThrow("interrupted"); expect(w.resources.list).not.toHaveBeenCalled();
     const port = createSourceBundles({ resources: { list: () => new Promise(() => undefined) }, timeoutMs: 10 }).port;
     await expect(port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("interrupted"); expect(cb.calls()).toHaveLength(0);
   });
 });
 
-function googleFixture() {
-  const w = fixture("gcp"); let stored: Uint8Array | undefined; const state = { uploadStatus: 200, foreign: false, corrupt: false, badReceipt: false };
+async function googleFixture() {
+  const w = await fixture("gcp"); let stored: Uint8Array | undefined; const state = { uploadStatus: 200, foreign: false, corrupt: false, badReceipt: false };
   const session: GcpSession = { provider: "gcp", projectId: "acme-prod-123456", region: w.ctx.region, expiresAt: "2099-01-01T00:00:00Z", childProcessEnv: () => { throw new Error("Unused."); }, authorizedFetch: vi.fn(async (raw, init) => {
     const url = new URL(raw); const name = url.searchParams.get("name") ?? decodeURIComponent(url.pathname.split("/o/")[1] ?? "");
     const names = pipelineNames({ ...w.ctx, session }, w.pipeline);
@@ -384,7 +406,7 @@ function googleFixture() {
 }
 describe("GCS source upload through authorizedFetch", () => {
   it("uses GCS media upload, generation preconditions and additive URI fields", async () => {
-    const w = googleFixture(); const result = await w.port.prepare(w.ctx, { service: w.service, source });
+    const w = await googleFixture(); const result = await w.port.prepare(w.ctx, { service: w.service, source });
     expect(result.uri).toBe(`gs://${result.bucket}/${result.s3Key}`); expect(result.objectKey).toBe(result.s3Key);
     const calls = vi.mocked(w.session.authorizedFetch).mock.calls; const upload = calls.find(([, init]) => init?.method === "POST")!;
     const url = new URL(upload[0]); expect(url.origin).toBe("https://storage.googleapis.com"); expect(url.pathname).toBe(`/upload/storage/v1/b/${result.bucket}/o`);
@@ -395,25 +417,25 @@ describe("GCS source upload through authorizedFetch", () => {
     expect(inspect(upload[1]?.body as Uint8Array).find((f) => f.name === "z.png")?.bytes).toEqual(binary);
   });
   it("pins and hashes an existing generation before reusing it, and rejects conflicting bytes", async () => {
-    const w = googleFixture(); const a = await w.port.prepare(w.ctx, { service: w.service, source }); w.state.uploadStatus = 412;
+    const w = await googleFixture(); const a = await w.port.prepare(w.ctx, { service: w.service, source }); w.state.uploadStatus = 412;
     expect(await w.port.prepare(w.ctx, { service: w.service, source })).toEqual(a);
     expect(vi.mocked(w.session.authorizedFetch).mock.calls.some(([url]) => url.endsWith("?alt=media&generation=7"))).toBe(true);
     w.state.corrupt = true; await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("different SHA-256");
   });
-  it("refuses foreign bucket labels before source acquisition or upload", async () => {
-    const w = googleFixture(); w.state.foreign = true;
-    await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow(); expect(w.fetchImpl).not.toHaveBeenCalled();
+  it("refuses foreign bucket labels before any upload", async () => {
+    const w = await googleFixture(); w.state.foreign = true;
+    await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow();
     expect(vi.mocked(w.session.authorizedFetch).mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
   });
   it("rejects failed uploads and mismatched successful receipts without echoing response text", async () => {
-    const w = googleFixture(); w.state.uploadStatus = 503;
+    const w = await googleFixture(); w.state.uploadStatus = 503;
     const failed = w.port.prepare(w.ctx, { service: w.service, source }); await expect(failed).rejects.toThrow("outcome is unknown"); await expect(failed).rejects.not.toThrow("CLOUD-SECRET-CANARY");
     w.state.uploadStatus = 200; w.state.badReceipt = true; await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("integrity");
   });
-  it("passes workspace/environment identity into private source access", async () => {
-    const w = googleFixture(); const scopes: unknown[] = [];
-    const port = createSourceBundles({ resources: w.resources, fetchImpl: w.fetchImpl, withGithubAccess: async (scope, fn) => { scopes.push(scope); return fn("PRIVATE-CANARY"); } }).port;
-    await port.prepare(w.ctx, { service: w.service, source }); expect(scopes).toEqual([{ owner: "acme", repo: "app", workspaceId: "ws-1", environmentId: "env-1" }]);
+  it("cannot use the standalone source token callback to bypass approved build authority", async () => {
+    const w = await googleFixture(),callback=vi.fn(async()=>{throw new Error("Standalone callback must not grant build authority.");});
+    const port=createIsolatedSourceBundlesForTests({resources:w.resources,fetchImpl:w.metaFetch,sourceSnapshots:w.sourceSnapshots,withGithubAccess:callback},w.db).port;
+    await port.prepare(w.ctx,{service:w.service,source,approvedSource:w.approved()});expect(callback).not.toHaveBeenCalled();
   });
 });
 

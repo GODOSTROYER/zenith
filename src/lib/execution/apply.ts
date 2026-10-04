@@ -35,6 +35,7 @@ import { assertDeployDeletionApproval, buildDeployWorkspace, inspectDeployDeleti
 import { LeaseLostError, StepFailedError, TofuPlanChangedError } from "./errors";
 import { withKeepAlive } from "./keepalive";
 import { outputsDigest } from "./plan-evidence";
+import { approvedSources } from "./source-snapshot";
 import { planCustody, type Runtime } from "./runtime";
 import { LONG_SESSION_SEC, OBSERVE_CAPABILITY, withProviderSession } from "./session";
 import { assertEcsReplicaRepairPlan, prepareEcsReplicaRepair, recordEcsReplicaRepairReadback } from "./ecs-replica-repair";
@@ -119,6 +120,7 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
         await rt.emit(ec.scope, "resource.applying", `apply:${planDigest}`, { planDigest });
 
         const result = await withKeepAlive(rt, { lease, detail: "tofu apply", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
+          await approvedSources(rt,ec,graph,lease,false,signal);
           const readRepair = () => withProviderSession(rt, ec, { purpose: "observe", capability: OBSERVE_CAPABILITY, fence: lease, connection },
             (session) => prepareEcsReplicaRepair(rt, ec, graph, baseWorkspace, connection, session, signal, lease));
           const repair = ec.op.capability === "drift.repair" ? await readRepair() : undefined;
@@ -142,6 +144,7 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
                 const current = await loadExecContext(rt,operationId);
                 const currentGraph = requireExecutable(rt,current).graph;
                 const currentConnection = await resolveConnection(rt,current);
+                await approvedSources(rt,current,currentGraph,lease,false,signal);
                 if (digest(planCustody(current,currentGraph.graphDigest,currentConnection)) !== digest(custody)) throw new StepFailedError("Reviewed plan source or connection changed; a new review is required.");
                 if (!repair) {
                   const currentWorkspace = (await buildDeployWorkspace(rt,current,currentGraph,currentConnection)).ws;
@@ -150,7 +153,7 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
                 const authority = await rt.d.broker.approvalStatus(operationId);
                 if (!authority.approved || authority.rejected || (current.op.approvalRequired && !authority.approvalId)) throw new StepFailedError("Current policy or human approval changed before the reviewed original dispatch.");
                 await rt.d.leases.assertFence(lease.scope, lease.fenceToken); toolStarted = true; await dispatch();
-              }, session: tofuSession(session), signal, deletionNodes, normalize: { fingerprintKey: rt.d.fingerprintKey }, inspectPlan: async (plan, raw) => {
+              }, session: tofuSession(session), signal, deletionNodes, normalize: { fingerprintKey: rt.d.fingerprintKey, ...(ec.executableSourceDigest ? { executableSourceDigest: ec.executableSourceDigest } : {}) }, inspectPlan: async (plan, raw) => {
               await guard(plan, raw);
               await assertDeployDeletionApproval(rt, ec, plan, deletionNodes, planDigest);
               if (repair) {

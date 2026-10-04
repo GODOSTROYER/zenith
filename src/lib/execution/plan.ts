@@ -36,6 +36,7 @@ import { errorCode, StepFailedError, TofuPlanChangedError } from "./errors";
 import { buildDesiredState, findGraphProblems } from "./graph";
 import { withKeepAlive } from "./keepalive";
 import { planEvidence, readPlanEvidence, toPlanSummary, type PlanCost } from "./plan-evidence";
+import { approvedSources } from "./source-snapshot";
 import { planCustody, type Runtime } from "./runtime";
 import { digest } from "@/lib/controlplane/digest";
 import { baseTags, driverContext, environmentIdProblem, LONG_SESSION_SEC, PLAN_CAPABILITY, withProviderSession } from "./session";
@@ -64,6 +65,7 @@ interface PlanStage {
   graphDigest: string;
   deletions: DeployDeletionFacts;
   repairBinding?: EcsReplicaRepairBindingV1;
+  approvedSources?: readonly import("./source-snapshot").ApprovedSourceSnapshot[];
 }
 
 /** Additive policy facts, kept alongside the legacy facts schema in evidence. */
@@ -214,8 +216,9 @@ async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<Exec
   let repairBinding: EcsReplicaRepairBindingV1 | undefined;
 
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
-  const result = await withKeepAlive(rt, { lease, detail, operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, (signal) =>
-    withProviderSession(rt, ec, { purpose: "observe", capability: PLAN_CAPABILITY, fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
+  const result = await withKeepAlive(rt, { lease, detail, operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
+    await approvedSources(rt,ec,graph,lease,!expectedDigest,signal);
+    return withProviderSession(rt, ec, { purpose: "observe", capability: PLAN_CAPABILITY, fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
       if (ec.op.capability === "drift.repair") {
         const repair = await prepareEcsReplicaRepair(rt, ec, graph, baseWorkspace, connection, session, signal, lease);
         ws = repair.ws; repairBinding = repair.binding;
@@ -233,9 +236,9 @@ async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<Exec
           await prepareEcsReplicaRepair(rt, ec, graph, baseWorkspace, connection, session, signal, lease);
           assertEcsReplicaRepairPlan(plan, raw, repairBinding, ws);
         }
-      }, normalize: { fingerprintKey: rt.d.fingerprintKey } });
-    })
-  );
+      }, normalize: { fingerprintKey: rt.d.fingerprintKey, ...(ec.executableSourceDigest ? { executableSourceDigest: ec.executableSourceDigest } : {}) } });
+    });
+  });
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
 
   // Facts come from the plan we just produced, here, and nowhere else.
@@ -249,7 +252,7 @@ async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<Exec
     dnsChanges: [...new Set([...extracted.dnsChanges, ...deletions.dnsDeletes])].sort(),
   };
   const cost = await costOf(rt, ec, graph);
-  return { plan: result.plan, produced: result.produced, facts, cost, graphDigest: graph.graphDigest, deletions, repairBinding };
+  return { plan: result.plan, produced: result.produced, facts, cost, graphDigest: graph.graphDigest, deletions, repairBinding, approvedSources: ec.approvedSourceSnapshots };
 }
 
 export function createPlanActivities(rt: Runtime): PlanActivities {
@@ -285,7 +288,7 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
       const stage = await runPlanStage(rt, ec, lease, "tofu plan");
       // A fresh observation can require a new proposal; it cannot replace this operation's reviewed original.
       if (ec.op.planDigest && ec.op.planDigest !== stage.plan.planDigest) throw new TofuPlanChangedError(ec.op.planDigest, stage.plan.planDigest);
-      const evidence = planEvidence({ plan: stage.plan, facts: stage.facts, cost: stage.cost, graphDigest: stage.graphDigest, stage: "plan", repairBinding: stage.repairBinding });
+      const evidence = planEvidence({ plan: stage.plan, facts: stage.facts, cost: stage.cost, graphDigest: stage.graphDigest, stage: "plan", repairBinding: stage.repairBinding, approvedSources: stage.approvedSources });
       if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required.");
       await rt.d.planArtifacts.publish({ produced: stage.produced, lease, evidence: {
         id: `evd_${digest({ w: ec.scope.id, kind: "tofu_plan", key: evidence.key }).slice(0,32)}`,
@@ -333,7 +336,7 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
     async finalPlan({ operationId, approvedPlanDigest, lease }) {
       const ec = await loadExecContext(rt, operationId);
       const stage = await runPlanStage(rt, ec, lease, "tofu plan (final)", approvedPlanDigest);
-      const evidence = planEvidence({ plan: stage.plan, facts: stage.facts, cost: stage.cost, graphDigest: stage.graphDigest, stage: "final_plan", approvedDigest: approvedPlanDigest, repairBinding: stage.repairBinding });
+      const evidence = planEvidence({ plan: stage.plan, facts: stage.facts, cost: stage.cost, graphDigest: stage.graphDigest, stage: "final_plan", approvedDigest: approvedPlanDigest, repairBinding: stage.repairBinding, approvedSources: stage.approvedSources });
       await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, summary: { ...evidence.summary, ...stage.deletions }, simulated: false, key: evidence.key }, { critical: false });
       if (stage.plan.planDigest !== approvedPlanDigest) {
         // The plan that just moved was never approved: do not leave its file around.

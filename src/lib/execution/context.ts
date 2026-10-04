@@ -39,6 +39,8 @@ export interface ExecLike {
 export interface ExecContext extends ExecLike {
   op: OperationRecord;
   deploymentId?: string;
+  approvedSourceSnapshots?: readonly import("./source-snapshot").ApprovedSourceSnapshot[];
+  executableSourceDigest?: string;
 }
 
 export function parseOperationInput(op: Pick<OperationRecord, "proposal">): { revisionId?: string; deploymentId?: string; raw: Record<string, unknown> } {

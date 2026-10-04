@@ -285,6 +285,18 @@ export function ApprovalCard({
             <section aria-label="Plan summary" className="space-y-2">
               <h4 className="text-[13px] font-medium text-ink-mute">Plan summary</h4>
               <DigestValue digest={plan.planDigest} what="reviewed plan digest" />
+              {plan.executableSourceDigest && <div className="space-y-2">
+                <p className="text-[13px] text-ink-mute">This plan binds the retained source commits, build recipes and archive bytes.</p>
+                <DigestValue digest={plan.executableSourceDigest} what="approved source set digest" />
+                {plan.approvedSourcesTruncated && <p className="text-[12px] text-ink-mute">Details for {plan.approvedSourcesOmitted} additional build services are omitted; the source set digest binds every service.</p>}
+                {plan.approvedSources?.map(source => <dl key={source.service} className="space-y-1 text-[12px]">
+                  <Fact label="Build service">{source.service}</Fact>
+                  <Fact label="Retained commit">{source.commit}</Fact>
+                  <Fact label="Dockerfile"><DigestValue digest={source.dockerfileDigest} what="Dockerfile digest" /></Fact>
+                  <Fact label="Build recipe"><DigestValue digest={source.recipeDigest} what="build recipe digest" /></Fact>
+                  <Fact label={`Source archive (${source.archiveFormat})`}><DigestValue digest={source.archiveDigest} what="source archive digest" /></Fact>
+                </dl>)}
+              </div>}
               {plan.empty ? (
                 <p className="text-[13px] text-ink-mute">This plan contains no changes.</p>
               ) : (

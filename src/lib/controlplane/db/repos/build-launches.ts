@@ -1,4 +1,5 @@
 /** Permanent CodeBuild launch claims and immutable receipts; never cleanup permission. */
+import { immutableSourceSnapshot, sourceSnapshotDigest, sourceSnapshotSetDigest, sourceRecipeMatches, type ApprovedSourceSnapshot } from "@/lib/execution/source-snapshot";
 import { digest } from "@/lib/controlplane/digest";
 import type { Sql } from "@/lib/controlplane/types";
 import type { Broker } from "@/lib/capabilities/platform";
@@ -148,6 +149,44 @@ const INSERT_LIVE_AUTHORITY = `(${INSERT_SETTINGS_AUTHORITY})
         and o.lease_scope=$12 and o.fence_token=$11 and o.proposal_digest=$8 and o.input_digest=$9 and o.plan_digest=$10
         and (${INSERT_APPROVAL_AUTHORITY}))`;
 
+interface SourceAuthority { snapshot:ApprovedSourceSnapshot; snapshotDigest:string; sources:ApprovedSourceSnapshot[]; setDigest:string; serviceSpec:Record<string,unknown>; pipelineSpec:Record<string,unknown> }
+/** Native immutable rows only. Current binding stays MVCC-readable so revocation can commit during a role RPC. */
+async function captureSource(tx:Sql,b:BuildLaunchBinding,projectId:string,nodes:readonly {address:string;spec_digest:string;spec:Record<string,unknown>}[]):Promise<SourceAuthority>{
+  const rows=await tx.query<{snapshot:unknown;snapshot_digest:string}>("select snapshot,snapshot_digest from platform.approved_source_snapshots where workspace_id=$1 and operation_id=$2 and project_id=$3 and environment_id=$4 order by service_address for share",[b.workspaceId,b.operationId,projectId,b.environmentId]);
+  const sources=rows.map(row=>{let s:ApprovedSourceSnapshot;try{s=immutableSourceSnapshot(row.snapshot);}catch{refuse();}
+    if(sourceSnapshotDigest(s)!==row.snapshot_digest || s.workspaceId!==b.workspaceId || s.operationId!==b.operationId || s.projectId!==projectId || s.environmentId!==b.environmentId)refuse();return s;});
+  const snapshot=sources.find(s=>s.serviceAddress===b.serviceAddress),service=nodes.find(n=>n.address===b.serviceAddress),pipeline=nodes.find(n=>n.address===b.pipelineAddress);
+  if(!snapshot || !service || !pipeline || snapshot.archiveFormat!=="zip" || snapshot.provider!=="aws" || snapshot.region!==b.region || snapshot.archiveDigest!==b.sourceDigest
+    || snapshot.serviceSpecDigest!==b.serviceSpecDigest || snapshot.pipelineSpecDigest!==b.pipelineSpecDigest || snapshot.pipelineAddress!==b.pipelineAddress
+    || !sourceRecipeMatches(snapshot,{...service,provider:"aws",region:b.region,specDigest:service.spec_digest},{...pipeline,provider:"aws",region:b.region,specDigest:pipeline.spec_digest}))refuse();
+  const bindings=await tx.query<{app_id:string;installation_id:string|number;repository_id:string|number;version:number;owner:string;repo:string;revoked_at:unknown}>("select app_id,installation_id,repository_id,version,owner,repo,revoked_at from platform.github_source_bindings where workspace_id=$1",[b.workspaceId]);
+  const current=bindings[0],remembered=snapshot.githubBinding;
+  if(remembered ? !current || current.revoked_at || current.app_id!==remembered.appId || Number(current.installation_id)!==remembered.installationId
+    || Number(current.repository_id)!==remembered.repositoryId || current.version!==remembered.version || current.owner!==snapshot.owner || current.repo!==snapshot.repo : !!current)refuse();
+  return freezeSnapshot(structuredClone({snapshot,snapshotDigest:sourceSnapshotDigest(snapshot),sources,setDigest:sourceSnapshotSetDigest(sources),serviceSpec:service.spec,pipelineSpec:pipeline.spec}));
+}
+function sourceChecks(p:"$15::text::jsonb"|"$12::text::jsonb",plan:"$10"|"$9"):string{
+  const s=`${p}->'snapshot'`;
+  return `exists(select 1 from platform.approved_source_snapshots a where a.workspace_id=$1 and a.operation_id=$2
+      and a.project_id=${s}->>'projectId' and a.environment_id=${s}->>'environmentId' and a.service_address=${s}->>'serviceAddress'
+      and a.snapshot=${s} and a.snapshot_digest=${p}->>'snapshotDigest')
+    and coalesce((select jsonb_agg(a.snapshot order by a.service_address) from platform.approved_source_snapshots a where a.workspace_id=$1 and a.operation_id=$2),'[]'::jsonb)=${p}->'sources'
+    and exists(select 1 from platform.evidence e where e.workspace_id=$1 and e.operation_id=$2 and e.kind='tofu_plan' and not e.simulated
+      and e.summary->>'stage'='plan' and e.digest=${plan} and e.summary->>'planDigest'=${plan} and e.summary->>'executableSourceDigest'=${p}->>'setDigest')
+    and exists(select 1 from platform.resources r where r.workspace_id=$1 and r.environment_id=${s}->>'environmentId' and r.project_id=${s}->>'projectId'
+      and r.address=${s}->>'serviceAddress' and r.spec_digest=${s}->>'serviceSpecDigest' and r.spec=${p}->'serviceSpec' and r.provider='aws'
+      and r.region=${s}->>'region' and r.ownership='managed' and r.status<>'deleted')
+    and exists(select 1 from platform.resources r where r.workspace_id=$1 and r.environment_id=${s}->>'environmentId' and r.project_id=${s}->>'projectId'
+      and r.address=${s}->>'pipelineAddress' and r.spec_digest=${s}->>'pipelineSpecDigest' and r.spec=${p}->'pipelineSpec' and r.provider='aws'
+      and r.region=${s}->>'region' and r.ownership='managed' and r.status<>'deleted')
+    and ((${s}->'githubBinding'='null'::jsonb and not exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1))
+      or exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and b.revoked_at is null and b.owner=${s}->>'owner' and b.repo=${s}->>'repo'
+        and b.app_id=${s}->'githubBinding'->>'appId' and b.installation_id=(${s}->'githubBinding'->>'installationId')::bigint
+        and b.repository_id=(${s}->'githubBinding'->>'repositoryId')::bigint and b.version=(${s}->'githubBinding'->>'version')::integer))`;
+}
+const INSERT_SOURCE_AUTHORITY=sourceChecks("$15::text::jsonb","$10");
+const RECOVERY_SOURCE_AUTHORITY=sourceChecks("$12::text::jsonb","$9");
+
 /** A late read-only completion cannot continue the claim after its deadline. */
 function beforeDeadline<T>(signal: AbortSignal, pending: Promise<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -187,7 +226,7 @@ async function claimBuildLaunch(sql: Sql, raw: BuildLaunchBinding, fence: { scop
   if (fence.scope !== `env:${binding.environmentId}`) refuse();
   return sql.tx(async tx => {
     await assertFence(tx, fence.scope, fence.token);
-    const op = await tx.query<{ proposal_digest: string; input_digest: string; plan_digest: string }>(`select proposal_digest,input_digest,plan_digest from platform.operations
+    const op = await tx.query<{ proposal_digest: string; input_digest: string; plan_digest: string;project_id:string }>(`select proposal_digest,input_digest,plan_digest,project_id from platform.operations
       where workspace_id=$1 and id=$2 and environment_id=$3 and status='running'
       and capability in ('deployment.deploy','infrastructure.apply') and expires_at > clock_timestamp()
       and lease_until > clock_timestamp() and lease_holder='workflow:' || id
@@ -211,6 +250,7 @@ async function claimBuildLaunch(sql: Sql, raw: BuildLaunchBinding, fence: { scop
     const service=nodes.find(n=>n.address===binding.serviceAddress), pipeline=nodes.find(n=>n.address===binding.pipelineAddress);
     if (!service || !pipeline || service.spec_digest!==binding.serviceSpecDigest || pipeline.spec_digest!==binding.pipelineSpecDigest
       || service.spec.artifact?.type!=="built" || service.spec.artifact.pipeline!==binding.pipelineAddress) refuse();
+    const source=await captureSource(tx,binding,operation.project_id,nodes);
     // A receipt update can also wait on this row. Acquire that lock before the
     // final policy/role evaluation; all claimers already hold the same op lock.
     await tx.query(`select operation_id from platform.build_launches
@@ -253,15 +293,15 @@ async function claimBuildLaunch(sql: Sql, raw: BuildLaunchBinding, fence: { scop
     const approval=Object.freeze({...authority,approvalIds:Object.freeze([...authority.approvalIds])});
     // Canonical role resolution can await external stores. Final CAS checks all
     // database clocks again, along with exact consumed approval identities.
-    const parameters=[binding.workspaceId,binding.operationId,binding.environmentId,binding.serviceAddress,randomUUID(),JSON.stringify(binding),digest(binding),operation.proposal_digest,operation.input_digest,operation.plan_digest,fence.token,fence.scope,JSON.stringify(approval),JSON.stringify(settings)];
+    const parameters=[binding.workspaceId,binding.operationId,binding.environmentId,binding.serviceAddress,randomUUID(),JSON.stringify(binding),digest(binding),operation.proposal_digest,operation.input_digest,operation.plan_digest,fence.token,fence.scope,JSON.stringify(approval),JSON.stringify(settings),JSON.stringify(source)];
     const inserted = await tx.query<BuildLaunch>(`insert into platform.build_launches
       (workspace_id,operation_id,environment_id,service_address,attempt_id,binding,binding_digest,proposal_digest,input_digest,plan_digest,fence_token)
-      select $1,$2,$3,$4,$5,$6::text::jsonb,$7,$8,$9,$10,$11 where ${INSERT_LIVE_AUTHORITY}
+      select $1,$2,$3,$4,$5,$6::text::jsonb,$7,$8,$9,$10,$11 where ${INSERT_LIVE_AUTHORITY} and (${INSERT_SOURCE_AUTHORITY})
       on conflict (workspace_id,operation_id,service_address) do nothing returning *`,
       parameters);
     const rows = inserted.length ? inserted : await tx.query<BuildLaunch>(`select * from platform.build_launches
       where workspace_id=$1 and operation_id=$2 and service_address=$3
-      and (${RECOVERY_SETTINGS_AUTHORITY})
+      and (${RECOVERY_SETTINGS_AUTHORITY}) and (${RECOVERY_SOURCE_AUTHORITY})
       and exists (select 1 from platform.leases l where l.scope=$4 and l.fence_token=$5
         and l.expires_at > clock_timestamp() and l.released_at is null)
       and exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2 and o.environment_id=$6
@@ -269,7 +309,7 @@ async function claimBuildLaunch(sql: Sql, raw: BuildLaunchBinding, fence: { scop
         and o.lease_holder='workflow:' || o.id and o.lease_scope=$4 and o.fence_token=$5
         and o.proposal_digest=$7 and o.input_digest=$8 and o.plan_digest=$9
         and (${RECOVERY_APPROVAL_AUTHORITY})) for update`,
-      [binding.workspaceId,binding.operationId,binding.serviceAddress,fence.scope,fence.token,binding.environmentId,operation.proposal_digest,operation.input_digest,operation.plan_digest,JSON.stringify(approval),JSON.stringify(settings)]);
+      [binding.workspaceId,binding.operationId,binding.serviceAddress,fence.scope,fence.token,binding.environmentId,operation.proposal_digest,operation.input_digest,operation.plan_digest,JSON.stringify(approval),JSON.stringify(settings),JSON.stringify(source)]);
     const launch=rows[0] ? checked(rows[0]) : refuse();
     if (launch.binding_digest!==digest(binding) || launch.proposal_digest!==operation.proposal_digest
       || launch.input_digest!==operation.input_digest || launch.plan_digest!==operation.plan_digest) refuse();

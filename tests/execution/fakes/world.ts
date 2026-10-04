@@ -3,6 +3,8 @@
  * worker wires the real ports. Tests reach into the pieces to script behaviour
  * and to assert on what the activities asked for.
  */
+import { createIsolatedApprovedSourceStoreForTests } from "@/lib/controlplane/db/repos/approved-source-snapshots";
+import { sourceSnapshotDigest, type ApprovedSourceSnapshot } from "@/lib/execution/source-snapshot";
 import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -76,6 +78,7 @@ export interface World {
 }
 
 export function createWorld(opts: WorldOptions = {}): World {
+  if(process.env.NODE_ENV!=="test")throw new Error("Isolated execution models require test mode.");
   const events = new FakeEvents();
   const ops = new FakeOps(events);
   ops.seed(opts.op);
@@ -110,7 +113,15 @@ export function createWorld(opts: WorldOptions = {}): World {
       try { return await fn(original); } finally {isolatedAdmissions.delete(original);}
     });
   };
+  const sources=new Map<string,ApprovedSourceSnapshot>();
+  const sourceSnapshots=createIsolatedApprovedSourceStoreForTests({
+    async list(scope){return [...sources.values()].filter(s=>s.workspaceId===scope.workspaceId && s.operationId===scope.operationId && s.projectId===scope.projectId && s.environmentId===scope.environmentId);},
+    async retain(source){const key=`${source.operationId}|${source.serviceAddress}`,old=sources.get(key);if(old && sourceSnapshotDigest(old)!==sourceSnapshotDigest(source))throw new Error("Isolated source conflict.");sources.set(key,old??source);return old??source;},
+    async assertCurrent(source){if(sourceSnapshotDigest(sources.get(`${source.operationId}|${source.serviceAddress}`)!)!==sourceSnapshotDigest(source))throw new Error("Isolated source authority missing.");},
+    async assertReviewed(){/* Ledger/evidence matching is exercised by canonical activity; this model has no SQL authority. */},
+  });
   const deps: ExecutionDeps = {
+    sourceSnapshots,
     planArtifacts: {
       kind: "isolated-test",
       async associate(input) {

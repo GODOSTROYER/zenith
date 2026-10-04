@@ -76,6 +76,8 @@ export interface NormalizedPlan {
   lockDigest: string;
   /** digest over { configDigest, lockDigest, tofuVersion, resourceChanges(sorted), outputChanges } */
   planDigest: string;
+  /** Owning immutable executable-source set, included in planDigest when present. */
+  executableSourceDigest?: string;
   resourceChanges: PlanResourceChange[];
   outputChanges: { name: string; action: TofuAction; sensitive: boolean }[];
   summary: { create: number; update: number; delete: number; replace: number; noop: number };

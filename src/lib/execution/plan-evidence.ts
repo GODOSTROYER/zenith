@@ -100,10 +100,13 @@ export interface PlanEvidenceInput {
   /** final_plan only: the digest that was approved */
   approvedDigest?: string;
   repairBinding?: EcsReplicaRepairBindingV1;
+  approvedSources?: readonly import("./source-snapshot").ApprovedSourceSnapshot[];
 }
 
 export function planEvidence(input: PlanEvidenceInput): { digest: string; key: string; summary: Record<string, unknown> } {
   const { plan } = input;
+  const approvedSources=input.approvedSources?.slice(0,64).map(s=>({service:s.serviceAddress,commit:s.commitSha,dockerfileDigest:s.dockerfileDigest,recipeDigest:s.recipeDigest,archiveDigest:s.archiveDigest,archiveFormat:s.archiveFormat}));
+  const view=boundedPlanView(plan,approvedSources?.length?MAX_VIEW_BYTES-bytes(approvedSources)-256:MAX_VIEW_BYTES);
   const summary: Record<string, unknown> = {
     stage: input.stage,
     planDigest: plan.planDigest,
@@ -117,7 +120,8 @@ export function planEvidence(input: PlanEvidenceInput): { digest: string; key: s
     facts: input.facts,
     cost: input.cost,
     diagnostics: plan.diagnostics.slice(0, 10).map((d) => ({ severity: d.severity, summary: safeText(d.summary, 300) })),
-    view: boundedPlanView(plan),
+    ...(plan.executableSourceDigest ? { executableSourceDigest: plan.executableSourceDigest } : {}),
+    view: { ...view, ...(approvedSources?.length ? { approvedSources, ...(input.approvedSources!.length>64?{approvedSourcesTruncated:true,approvedSourcesOmitted:input.approvedSources!.length-64}:{}) } : {}) },
     ...(input.repairBinding ? { repairBinding: input.repairBinding, repairBindingDigest: repairBindingDigest(input.repairBinding) } : {}),
     ...(input.stage === "final_plan" && input.approvedDigest ? { approvedDigest: input.approvedDigest, matchesApproved: input.approvedDigest === plan.planDigest } : {}),
   };

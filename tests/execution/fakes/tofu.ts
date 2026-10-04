@@ -10,6 +10,7 @@
  * the file stays in `planDir`, is removed after the apply, and never reaches the
  * evidence ledger or an activity result.
  */
+import { digest } from "@/lib/controlplane/digest";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -19,6 +20,8 @@ import { TofuCommandError } from "@/lib/tofu/runner";
 import { TofuPlanChangedError, type NormalizedPlan, type TofuRunResult, type TofuWorkspace } from "@/lib/tofu/types";
 import type { TofuPort } from "@/lib/execution/ports";
 import { CANARY_SECRET, makePlan } from "./fixtures";
+
+const bound=(plan:NormalizedPlan,source?:string):NormalizedPlan=>source?{...plan,executableSourceDigest:source,planDigest:digest({configDigest:plan.configDigest,lockDigest:plan.lockDigest,tofuVersion:plan.tofuVersion,resourceChanges:plan.resourceChanges,outputChanges:plan.outputChanges,executableSourceDigest:source})}:plan;
 
 export const PLAN_FILE_CANARY = `FAKE-BINARY-PLAN-FILE-${CANARY_SECRET}`;
 
@@ -54,7 +57,7 @@ export class FakeTofu implements TofuPort {
     if (this.planGate) await this.planGate;
     if (opts.signal?.aborted) throw new TofuCommandError("tofu_aborted", "tofu plan was aborted.", run("plan"));
     if (this.planError) throw this.planError;
-    const plan = this.planFactory(ws, this.planCalls.length);
+    const plan = bound(this.planFactory(ws, this.planCalls.length),opts.normalize?.executableSourceDigest);
     let planFilePath: string | undefined;
     if (opts.planDir) {
       await mkdir(opts.planDir, { recursive: true, mode: 0o700 });
@@ -75,9 +78,10 @@ export class FakeTofu implements TofuPort {
     this.applyCalls.push({ ws, approvedDigest: args.approvedDigest, envKeys: Object.keys(args.session?.childProcessEnv?.() ?? {}), fingerprintKey: args.normalize?.fingerprintKey });
     if (this.apply === "fail_plan_before_apply") throw new TofuCommandError("tofu_command_failed", "tofu plan failed with exit code 1.", run("plan"));
     if (this.apply === "plan_changed") throw new TofuPlanChangedError(args.approvedDigest, this.planFactory(ws,this.planCalls.length+1).planDigest);
+    const plan = bound(this.planFactory(ws, this.planCalls.length + 1),args.normalize?.executableSourceDigest);
+    if (plan.planDigest !== args.approvedDigest) throw new TofuPlanChangedError(args.approvedDigest,plan.planDigest);
     await args.beforeDispatch?.();
     this.markApplyStarted();
-    const plan = this.planFactory(ws, this.planCalls.length + 1);
     switch (this.apply) {
       case "fail_apply":
         throw new TofuCommandError("tofu_command_failed", "tofu apply failed with exit code 1.", run("apply"));

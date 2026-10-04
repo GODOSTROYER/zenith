@@ -5,6 +5,7 @@ import { tempDataDir } from "../_support/data-dir";
 tempDataDir("zenith-plan-approval-", { fast: true });
 const { makeHarness, closeSharedPgliteAfterAll, scriptedEngine, requireApproval, allowDecision, user, sessionFor, PG_URL } = await import("../capabilities/support");
 const { makePlan, change } = await import("../execution/fakes/fixtures");
+const {migration0013ApprovedSourceSnapshots}=await import("@/lib/controlplane/db/migrations/0013_approved_source_snapshots");
 const { repos } = await import("@/lib/controlplane/db");
 const { approvalRoundOf, projectPlanReview } = await import("@/lib/controlplane/db/repos/operation-review");
 const { buildPlanFacts } = await import("@/lib/capabilities/evaluate");
@@ -21,6 +22,7 @@ const artifact = (cost = {}) => planEvidence({ plan, facts, cost, graphDigest: "
 
 async function running(count = 1) {
   const h = await makeHarness({ kind: "pglite", engine: scriptedEngine("plan-policy", (input) => requireApproval(input.plan?.create ? count : 1, "admin", true)) });
+  await h.db!.exec(migration0013ApprovedSourceSnapshots.sql); // Explicit candidate prerequisite; not production registry proof.
   const proposal = await h.broker.propose({ capability: "deployment.deploy", scope: { workspaceId: h.ids.wsA, projectId: h.ids.projA, environmentId: h.ids.envAProd }, input: {} }, user("alice"));
   const op = proposal.operation;
   const decide = (who = "erin", planDigest?: string, decision: "approve" | "reject" = "approve") => h.broker[decision]({ workspaceId: h.ids.wsA, operationId: op.id, proposalDigest: op.proposalDigest, planDigest, approver: user(who), session: sessionFor(who) });
@@ -146,6 +148,7 @@ describe("concrete plan approval rounds", () => {
 /** Initial source review is immutable before the destroy proposal exists. Synthetic plan bytes remain outside this authority test. */
 async function immutableDestroyReview(kind:"pglite"|"postgres") {
   const h=await makeHarness({kind,engine:scriptedEngine("source-review-policy",input=>input.request.capability==="infrastructure.destroy"?requireApproval(1,"admin"):allowDecision())});
+  await h.db!.exec(migration0013ApprovedSourceSnapshots.sql); // Explicit candidate prerequisite.
   const scope={workspaceId:h.ids.wsA,projectId:h.ids.projA,environmentId:h.ids.envASbx};
   const initial=await h.broker.propose({capability:"infrastructure.plan",scope,input:{environmentId:scope.environmentId,teardownReview:true}},user("bob"));
   const source=initial.operation;
@@ -188,5 +191,35 @@ for(const kind of ["pglite",...(PG_URL?["postgres" as const]:[])] as const) desc
     }
     if(mode==="moved source digest")await f.h.db!.query("update platform.operations set plan_digest=$3 where workspace_id=$1 and id=$2",[f.scope.workspaceId,f.source.id,"f".repeat(64)]);
     expect((await f.worker.approvalStatus(f.op.id)).approved).toBe(false);
+  });
+});
+
+
+describe("source-bound canonical review projection",()=>{
+  const source={service:"container_service/web",commit:"a".repeat(40),dockerfileDigest:"d".repeat(64),recipeDigest:"e".repeat(64),archiveDigest:"f".repeat(64),archiveFormat:"zip" as const};
+  const summary=()=>{const old=artifact().summary;return {...old,executableSourceDigest:"c".repeat(64),view:{...old.view as object,executableSourceDigest:"c".repeat(64),approvedSources:[source]}};};
+  it("preserves strict source metadata and exact digest while dropping no authority into output values",()=>{
+    expect(projectPlanReview(summary(),plan.planDigest)?.view).toMatchObject({executableSourceDigest:"c".repeat(64),approvedSources:[source]});
+  });
+  it.each(["different digest","no digest","duplicate service","bad commit","unknown metadata","hidden count missing"])("refuses %s source metadata",kind=>{
+    const s=summary(),v=s.view as {executableSourceDigest?:string;approvedSources:Record<string,unknown>[];approvedSourcesTruncated?:boolean};
+    if(kind==="different digest")v.executableSourceDigest="b".repeat(64);if(kind==="no digest")delete v.executableSourceDigest;
+    if(kind==="duplicate service")v.approvedSources.push({...source});if(kind==="bad commit")v.approvedSources[0]={...source,commit:"main"};
+    if(kind==="unknown metadata")v.approvedSources[0]={...source,token:"unexpected"};if(kind==="hidden count missing")v.approvedSourcesTruncated=true;
+    expect(projectPlanReview(s,plan.planDigest)).toBeUndefined();
+  });
+  it("missing native schema/read errors never downgrade a current source-bearing review or leak diagnostics",async()=>{
+    const {withPlanReview}=await import("@/lib/controlplane/db/repos/operation-review");
+    const {operation}=await import("../screens/platform/fixtures");
+    const input=summary(),sql={query:async(query:string)=>{if(query.startsWith("select summary"))return [{summary:input}];throw new Error("PRIVATE-TRANSPORT-DIAGNOSTIC");},tx:async()=>{throw new Error("Read-only model.");}};
+    const read=withPlanReview(sql as never,{...operation(),planDigest:plan.planDigest,approvalRound:0});await expect(read).rejects.toThrow("Approved source review is unavailable");await expect(read).rejects.not.toThrow("PRIVATE-TRANSPORT-DIAGNOSTIC");
+  });
+  it("bounds source metadata inside the total view budget and declares the exact omitted service count",async()=>{
+    const {immutableSourceSnapshot,sourceSnapshotSetDigest}=await import("@/lib/execution/source-snapshot");
+    const rows=Array.from({length:100},(_,i)=>immutableSourceSnapshot({format:"zenith.approved-source.v1",workspaceId:"ws",operationId:"op",projectId:"proj",environmentId:"env",
+      serviceAddress:`container_service/service${i}`,pipelineAddress:`build_pipeline/service${i}`,serviceSpecDigest:"a".repeat(64),pipelineSpecDigest:"b".repeat(64),provider:"aws",region:"us-east-1",owner:"acme",repo:"app",repositoryId:99,requestedRef:"main",commitSha:"a".repeat(40),githubBinding:null,dockerfile:"Dockerfile",dockerfileDigest:"d".repeat(64),recipeDigest:"e".repeat(64),archiveFormat:"zip",archiveDigest:"f".repeat(64),archiveBytes:100}));
+    const bound={...plan,executableSourceDigest:sourceSnapshotSetDigest(rows)},evidence=planEvidence({plan:bound,facts,cost:{},graphDigest:"a".repeat(64),stage:"plan",approvedSources:rows});
+    expect(Buffer.byteLength(JSON.stringify(evidence.summary.view))).toBeLessThanOrEqual(40_000);
+    const view=projectPlanReview(evidence.summary,bound.planDigest)?.view;expect(view?.approvedSources).toHaveLength(64);expect(view?.approvedSourcesOmitted).toBe(36);expect(view?.approvedSourcesTruncated).toBe(true);expect(view?.executableSourceDigest).toBe(sourceSnapshotSetDigest(rows));
   });
 });

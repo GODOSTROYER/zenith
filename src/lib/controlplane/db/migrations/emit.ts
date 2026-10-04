@@ -59,6 +59,11 @@ begin
       revoke all on table platform.workflow_start_intents from service_role;
       grant select, insert, update on table platform.workflow_start_intents to service_role;
     end if;
+    -- Approved source authority is immutable, including inherited privileges.
+    if to_regclass('platform.approved_source_snapshots') is not null then
+      revoke all on table platform.approved_source_snapshots from service_role;
+      grant select, insert on table platform.approved_source_snapshots to service_role;
+    end if;
   end if;
 end
 $$;

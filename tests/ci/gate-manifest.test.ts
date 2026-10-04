@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { APPROVED_SOURCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 
 const root = process.cwd();
@@ -60,6 +60,73 @@ function namedGroup(group: NamedGroup, sourceRoot = root): Requirement[] {
       : group.models ? required.test.startsWith("pinned raw response model ") : required.backend === "postgres"));
 }
 
+const approvedSourceGroups: NamedGroup[] = [
+  {
+    "label": "native snapshots",
+    "lane": "platform-postgres",
+    "file": "tests/controlplane/approved-source-snapshots.test.ts",
+    "suite": "permanent approved source snapshots [postgres]",
+    "count": 38,
+    "sha256": "045b5035f8006d8728182e0b316c2c6537567a8dbabb9a3c0b964aba483137a0"
+  },
+  {
+    "label": "final source CAS",
+    "lane": "platform-postgres",
+    "file": "tests/controlplane/build-launch-broker-binding.test.ts",
+    "suite": "CodeBuild transaction-bound broker [postgres]",
+    "count": 17,
+    "sha256": "a4f6c8e94a83025ca9511bc5a14dc7590cd53c74487c81396f291090447a5644"
+  },
+  {
+    "label": "source schema and role permissions",
+    "lane": "platform-postgres",
+    "file": "tests/controlplane/migrations.test.ts",
+    "suite": "migrator [postgres] concurrency and fail-closed open",
+    "count": 3,
+    "sha256": "6766be308717efb3799863ce483851992b50c774565831ffaf7261d827b14818"
+  },
+  {
+    "label": "original-byte source custody",
+    "lane": "platform-postgres",
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "suite": "authenticated original cross-worker handoff [postgres]",
+    "count": 1,
+    "sha256": "d1914378401056d638c226fd7be17a6458b63deb74b82fbcdeb3318e32d2942f"
+  },
+  {
+    "label": "source-bound build tenancy",
+    "lane": "platform-postgres",
+    "file": "tests/controlplane/tenancy.test.ts",
+    "suite": "build launch tenant isolation sweep [postgres]",
+    "count": 1,
+    "sha256": "8bd893dd4df7c840ad5a4c047344c7da0145c6604e7b7f5cf319163164c2ea36"
+  },
+  {
+    "label": "default owning source runtime",
+    "lane": "platform-postgres",
+    "file": "tests/platform/approved-source-runtime.test.ts",
+    "suite": "default approved source runtime owning persistence [postgres]",
+    "count": 1,
+    "sha256": "86dfb9f4def20af5ce71d89095270ce8e531c7cb702551df77a47ec077ab0907"
+  }
+];
+function approvedSourceNamed(sourceRoot = root): Requirement[] {
+  const ids = new Set(APPROVED_SOURCE_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => ids.has(item.id));
+}
+function approvedSourceGroup(group: NamedGroup, sourceRoot = root) {
+  return approvedSourceNamed(sourceRoot).filter(item => item.file === group.file && item.suite === group.suite);
+}
+/** Parse only the tests' committed literal strings, without evaluating source. */
+function declaredLiteralTests(file: string): string[] {
+  return [...fs.readFileSync(path.join(root, file), "utf8").matchAll(/\bit(?:\.each\((\[[^\]]*\])(?: as const)?\))?\("([^"\n]+)"/g)].flatMap(match => {
+    if (!match[1]) return [match[2]];
+    const values: unknown = JSON.parse(match[1]);
+    if (!Array.isArray(values) || values.some(value => typeof value !== "string")) throw new Error("Expected committed string test parameters.");
+    return values.map(value => match[2].replace("%s", value));
+  });
+}
+
 describe("canonical gate manifest", () => {
   it.each(Object.keys(GATE_LANES))("%s uses serial commands, stable unique IDs and retained prerequisites", (lane) => {
     const manifest = manifestFor(lane, root);
@@ -100,7 +167,9 @@ describe("canonical gate manifest", () => {
 
   it("covers direct PG-only suites and each parameterized backend suite independently", () => {
     const requirements = requirementsFor("platform-postgres", root);
-    const existing = requirements.filter((required) => !operationPostgresFiles.includes(required.file));
+    const sourceIds = new Set(approvedSourceNamed().map(item => item.id));
+    const existing = requirements.filter((required) => !operationPostgresFiles.includes(required.file)
+      && !sourceIds.has(required.id) && required.file !== "tests/controlplane/approved-source-snapshots.test.ts");
     expect(existing).toHaveLength(228);
     expect(existing.filter((required) => required.file !== ecsGrantFile)).toHaveLength(222);
     expect(requirements.filter((required) => operationPostgresFiles.includes(required.file) && required.test)).toHaveLength(96);
@@ -117,6 +186,9 @@ describe("canonical gate manifest", () => {
       { suite: "migrator [postgres] concurrency and fail-closed open", test: "schema 6 emitted hardening upgrades through the canonical migrator under a distinct owner with RLS, role isolation and immutable artifacts" },
       { suite: "migrator [postgres] concurrency and fail-closed open", test: "fresh canonical migrations keep permanent agent receipts select/insert-only" },
       { suite: "migrator [postgres] concurrency and fail-closed open", test: "same-owner schema6 canonical migrations keep permanent agent receipts select/insert-only" },
+      { suite: "migrator [postgres] concurrency and fail-closed open", test: "fresh canonical migrations keep permanent approved source snapshots select/insert-only" },
+      { suite: "migrator [postgres] concurrency and fail-closed open", test: "same-owner schema6 canonical migrations keep permanent approved source snapshots select/insert-only" },
+      { suite: "migrator [postgres] concurrency and fail-closed open", test: "schema12 refuses startup and even source-free plan review until the canonical source migration is applied" },
     ]);
     const report = {
       success: true,
@@ -266,6 +338,85 @@ describe("mandatory operation gates", () => {
     duplicate.testResults.push(duplicate.testResults[0]);
     expect(reportFailures(required, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
     expect(reportFailures(required, { ...contractReport(required), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+  });
+});
+
+describe("mandatory approved source PostgreSQL gates", () => {
+  it("requires actual source13 schema, owning PostgreSQL and committed provider assets without another skip policy", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    expect(manifest.env.ZENITH_TEST_APPROVED_SOURCE_REQUIRED).toBe("1");
+    expect(manifest.env.ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED).toBe("1");
+    expect(manifest.env.ZENITH_TEST_TOFU_NETWORK).toBe("1");
+    expect(manifest.tools).toMatchObject({node:"22.23.3",postgres:"16.15",tofu:"1.12.5"});
+    expect(manifest.prerequisites).toContain("Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)");
+    expect(manifest.prerequisites).toContain("ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13");
+    expect(manifest.files).toContain("tests/controlplane");
+    expect(manifest.files).toContain("tests/tofu/plan-artifact-handoff.test.ts");
+    expect(manifest.files).toContain("tests/platform/approved-source-runtime.test.ts");
+    expect(manifest.command).toContain("tests/platform/approved-source-runtime.test.ts");
+    expect(manifest.excludeFiles).toEqual([]);
+    expect(manifest.command).not.toContain("--passWithNoTests");
+    expect(approvedSourceNamed()).toHaveLength(61);
+    expect(manifest.requirements.filter(item => item.file === "tests/controlplane/approved-source-snapshots.test.ts" && item.test === undefined))
+      .toEqual([expect.objectContaining({suite:"permanent approved source snapshots [postgres]",backend:"postgres"})]);
+  });
+
+  it.each(approvedSourceGroups)("$label pins every committed named actual scenario independently of discovery", group => {
+    const required = approvedSourceGroup(group);
+    expect(required).toHaveLength(group.count);
+    expect(createHash("sha256").update(JSON.stringify(required.map(item => item.test))).digest("hex")).toBe(group.sha256);
+    expect(new Set(required.map(item => item.test)).size).toBe(group.count);
+    for (const item of required) {
+      expect(item.postgres).toBe(true);
+      expect(declaredLiteralTests(group.file)).toContain(item.test);
+    }
+    if (group.label === "native snapshots") expect(required.map(item => item.test)).toEqual(declaredLiteralTests(group.file));
+    if (group.label === "final source CAS") expect(required.map(item => item.test)).toEqual(declaredLiteralTests(group.file).filter(title =>
+      ["final native source CAS", "retained-launch recovery fences", "rechecks ", "same stored digest", "native source CAS"].some(prefix => title.startsWith(prefix))));
+    expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+  });
+
+  it.each(approvedSourceGroups)("$label refuses each absent, failed, skipped, pending or modeled replacement", group => {
+    const required = approvedSourceGroup(group);
+    for (const missing of required) {
+      expect(reportFailures(required, contractReport(required.filter(item => item.id !== missing.id)), root), missing.id).toHaveLength(1);
+      for (const status of ["failed", "skipped", "pending", "todo"]) {
+        const report = contractReport(required);
+        report.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.status = status;
+        expect(reportFailures(required, report, root).length, `${missing.id}: ${status}`).toBeGreaterThan(0);
+      }
+      for (const suite of [group.suite!.replace("[postgres]", "[pglite]"), "modeled source authority [postgres]"]) {
+        const report = contractReport(required);
+        report.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.ancestorTitles = [suite];
+        expect(reportFailures(required, report, root), missing.id).toHaveLength(1);
+      }
+    }
+  });
+
+  it.each(approvedSourceGroups)("$label keeps named requirements when the trusted source file is deleted", group => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-approved-source-"));
+    for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"]) fs.mkdirSync(path.join(sourceRoot, directory), {recursive:true});
+    fs.mkdirSync(path.dirname(path.join(sourceRoot, group.file)), {recursive:true});
+    fs.copyFileSync(path.join(root, group.file), path.join(sourceRoot, group.file));
+    const before = approvedSourceGroup(group, sourceRoot);
+    fs.unlinkSync(path.join(sourceRoot, group.file));
+    expect(approvedSourceGroup(group, sourceRoot)).toEqual(before);
+    expect(before).toEqual(approvedSourceGroup(group));
+    expect(reportFailures(before, {success:true,testResults:[]}, sourceRoot)).toHaveLength(group.count);
+  });
+
+  it("refuses zero/malformed/duplicate counts and one passing suite in place of exact source scenarios", () => {
+    const required = approvedSourceNamed();
+    for (const report of [null, {}, {success:true}, {success:true,testResults:[]}, {success:false,testResults:[]}])
+      expect(reportFailures(required, report, root).length).toBeGreaterThan(0);
+    const suiteOnly = contractReport(required);
+    for (const file of suiteOnly.testResults) file.assertionResults = [{title:"one passing model",fullName:"one passing model",ancestorTitles:["permanent approved source snapshots [postgres]"],status:"passed"}];
+    expect(reportFailures(required, suiteOnly, root)).toHaveLength(61);
+    const malformed = contractReport(required);malformed.testResults[0].assertionResults[0].fullName="";
+    expect(reportFailures(required, malformed, root)).toEqual(["Malformed Vitest assertion evidence"]);
+    const duplicate = contractReport(required);duplicate.testResults.push(duplicate.testResults[0]);
+    expect(reportFailures(required, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+    expect(reportFailures(required, {...contractReport(required),numTotalTests:0}, root)).toEqual(["Inconsistent Vitest report counts"]);
   });
 });
 

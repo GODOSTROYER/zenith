@@ -19,6 +19,7 @@ import { migration0009GithubRevocation } from "./0009_github_revocation";
 import { migration0010GithubDeliveries } from "./0010_github_deliveries";
 import { migration0011AgentEffectReceipts } from "./0011_agent_effect_receipts";
 import { migration0012WorkflowStartIntents } from "./0012_workflow_start_intents";
+import { migration0013ApprovedSourceSnapshots } from "./0013_approved_source_snapshots";
 
 export interface PlatformMigration {
   /** contiguous from 1 */
@@ -28,7 +29,7 @@ export interface PlatformMigration {
   sql: string;
 }
 
-export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts, migration0008BuildLaunches, migration0009GithubRevocation, migration0010GithubDeliveries, migration0011AgentEffectReceipts, migration0012WorkflowStartIntents];
+export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts, migration0008BuildLaunches, migration0009GithubRevocation, migration0010GithubDeliveries, migration0011AgentEffectReceipts, migration0012WorkflowStartIntents, migration0013ApprovedSourceSnapshots];
 
 /** The highest version this build knows. */
 export const PLATFORM_SCHEMA_VERSION: number = PLATFORM_MIGRATIONS[PLATFORM_MIGRATIONS.length - 1].version;

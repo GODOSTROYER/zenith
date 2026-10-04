@@ -165,5 +165,6 @@ export function planCustody(ec: ExecContext, graphDigest: string, connection: { 
   return Object.freeze({ workspaceId: ec.workspaceId, projectId: ec.product.project.id, environmentId: ec.environmentId, operationId: ec.op.id,
     proposalDigest: ec.op.proposalDigest, inputDigest: ec.op.inputDigest, expiresAt: ec.op.expiresAt, graphDigest,
     sourceDigest: digest({ revision: ec.product.revision ?? null, deployedRevisionId: ec.product.environment.deployedRevisionId ?? null,
+      ...(ec.executableSourceDigest ? { executableSourceDigest: ec.executableSourceDigest } : {}),
       connectionId: connection.id, connectionConfig: connection.config, provider: ec.product.environment.provider, region: ec.product.environment.region }) });
 }

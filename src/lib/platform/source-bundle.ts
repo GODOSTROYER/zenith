@@ -25,8 +25,16 @@ import type { ResourcesPort, SourceBundlePort, StoredResource } from "@/lib/exec
 import { StepFailedError } from "@/lib/execution/errors";
 import { loadProject, sourceBucketOf } from "@/lib/providers/aws/drivers/compute/codebuild-project";
 import { assertLabels, context as gcpContext, get, pipelineNames } from "@/lib/providers/gcp/release/support";
-import { defaultGithubAccess } from "@/lib/sources/github/runtime";
+import { createGithubAccess, createGithubImmutableSourceAccess, defaultGithubAccess } from "@/lib/sources/github/runtime";
+import { immutableSourceSnapshot, sourceSnapshotDigest, sourceRecipe, type ApprovedSourceSnapshot, type SourceCaptureInput } from "@/lib/execution/source-snapshot";
+import { platformDb } from "@/lib/controlplane/db/open";
+import { createApprovedSourceSnapshotStore, createIsolatedApprovedSourceStoreForTests, isApprovedSourceSnapshotStore } from "@/lib/controlplane/db/repos/approved-source-snapshots";
+import type { PlatformDbHandle } from "@/lib/controlplane/db/executor";
 import { AzureSourceStorageRefusedError, createAzureSourceStorage, type AzureSourceStorageResolver } from "@/lib/providers/azure/release/source-storage";
+
+const capturedSources=new WeakSet<object>();
+/** Runtime provenance of the bounded GitHub/canonical archive capture, not a caller flag. */
+export const isCapturedApprovedSource=(value:unknown):boolean=>!!value && typeof value==="object" && capturedSources.has(value);
 
 export interface BundleSource { repo: string; ref: string; dockerfile?: string }
 export interface SourceBundle { archive: Uint8Array; sha256: string; bytes: number }
@@ -36,6 +44,7 @@ export const SOURCE_BUNDLE_LIMITS: Readonly<SourceBundleLimits> = Object.freeze(
   maxFileBytes: 32 * 1024 * 1024, maxEntries: 20_000,
 });
 export interface SourceBundleDeps {
+  sourceSnapshots?: import("@/lib/controlplane/db/repos/approved-source-snapshots").ApprovedSourceSnapshotStore;
   resources?: Pick<ResourcesPort, "list">;
   fetchImpl?: typeof fetch;
   /** May lower the hard memory ceilings, never raise them. */
@@ -49,7 +58,7 @@ export interface SourceBundleDeps {
 }
 export interface PreparedSourceBundle { s3Key: string; digest: string; bucket: string; objectKey: string; uri: string }
 export interface PreparedSourceBundlePort extends SourceBundlePort {
-  prepare(ctx: DriverContext, input: { service: ResourceNode; source: BundleSource }): Promise<PreparedSourceBundle>;
+  prepare(ctx: DriverContext, input: { service: ResourceNode; source: BundleSource; approvedSource?: ApprovedSourceSnapshot }): Promise<PreparedSourceBundle>;
 }
 class Refused extends StepFailedError {}
 function refuse(message: string): never { throw new Refused(message); }
@@ -62,7 +71,7 @@ interface Entry { path: string; directory: boolean; mode: number; data: Buffer }
 
 function coordinates(source: BundleSource): { owner: string; repo: string } {
   if (!source || typeof source.repo !== "string" || typeof source.ref !== "string") refuse("Source repository and exact ref are required.");
-  const match = /^(?:https:\/\/github\.com\/)?([A-Za-z0-9][A-Za-z0-9-]{0,38})\/([A-Za-z0-9._-]{1,100})\/?$/.exec(source.repo);
+  const match = /^(?:(?:https:\/\/)?github\.com\/)?([A-Za-z0-9][A-Za-z0-9-]{0,38})\/([A-Za-z0-9._-]{1,100})\/?$/.exec(source.repo);
   const repo = match?.[2].replace(/\.git$/, "");
   if (!match || !repo || repo === "." || repo === "..") refuse("Source must identify a GitHub repository without credentials, query parameters or a fragment.");
   if (!source.ref || source.ref.length > 250 || source.ref.split("/").some((s) => !/^[A-Za-z0-9._+@~-]{1,100}$/.test(s) || s === "." || s === "..")) refuse("Source must name a valid exact git ref.");
@@ -351,7 +360,7 @@ async function uploadGcp(ctx: DriverContext<GcpSession>, bucket: string, key: st
   if (metadata.bucket !== bucket || metadata.name !== key || metadata.size !== String(bundle.bytes) || metadata.md5Hash !== md5) refuse("GCS did not confirm the source object's identity, size and integrity.");
 }
 
-export function createSourceBundles(deps: SourceBundleDeps = {}): {
+function sourceBundles(deps: SourceBundleDeps = {}, githubDb: () => Promise<import("@/lib/controlplane/types").Sql> = platformDb): {
   read(source: BundleSource, signal?: AbortSignal): Promise<SourceBundle>;
   readAzureSource(ctx: DriverContext<AzureSession>, source: { s3Key: string; digest: string; bucket?: string }): Promise<Uint8Array>;
   port: PreparedSourceBundlePort;
@@ -372,10 +381,40 @@ export function createSourceBundles(deps: SourceBundleDeps = {}): {
     try { return await abortable(deps.withGithubAccess ? deps.withGithubAccess({ ...location, ...scope }, read) : defaultGithubAccess({ ...location, ...scope, signal }, read), signal); }
     catch (err) { if (signal.aborted) throw interrupted(); if (err instanceof Refused) throw err; throw new Error("Source archive acquisition failed; no source bundle was prepared."); }
   };
+  const immutableAccess=createGithubImmutableSourceAccess({db:githubDb,fetchImpl:deps.fetchImpl});
+  const immutableAcquire=async (source: BundleSource, workspaceId: string, environmentId: string, format: "zip"|"tar.gz", signal: AbortSignal, expected?: ApprovedSourceSnapshot) => {
+    const location=coordinates(source);
+    return immutableAccess({...location,workspaceId,environmentId,ref:source.ref,signal,
+      ...(expected?{expected:{owner:expected.owner,repo:expected.repo,repositoryId:expected.repositoryId,commitSha:expected.commitSha,binding:expected.githubBinding}}:{})},async(identity,token)=>{
+      const entries=unpack(await download({...source,ref:identity.commitSha},token,deps,limits,signal),limits,signal);
+      const dockerfile=source.dockerfile??"Dockerfile";
+      if(!entries.some(e=>e.path===dockerfile && !e.directory))refuse("The requested Dockerfile is absent from the immutable source.");
+      const archive=format==="zip"?packZip(entries,limits,signal):pack(entries,limits,signal);
+      return {identity,dockerfileDigest:sha256Hex(entries.find(e=>e.path===dockerfile && !e.directory)!.data),bundle:{archive,sha256:sha256Hex(archive),bytes:archive.length}};
+    });
+  };
+  const verifyBytes=(snapshot: ApprovedSourceSnapshot,bundle:SourceBundle)=>{
+    if(snapshot.archiveDigest!==bundle.sha256 || snapshot.archiveBytes!==bundle.bytes)refuse("Approved source bytes changed; a new operation and review are required.");
+  };
   return {
     read: (source, signal) => acquire(source, boundedSignal(signal)),
     readAzureSource: azureStorage.readSource,
     port: {
+      async capture(input: SourceCaptureInput, rawSignal?: AbortSignal) {
+        const signal=boundedSignal(rawSignal);
+        const {identity,dockerfileDigest,bundle}=await immutableAcquire({repo:input.repository,ref:input.requestedRef,dockerfile:input.dockerfile},input.workspaceId,input.environmentId,input.archiveFormat,signal);
+        const {repository: _repository,...metadata}=input;
+        void _repository;
+        const snapshot=immutableSourceSnapshot({...metadata,format:"zenith.approved-source.v1",owner:identity.owner,repo:identity.repo,repositoryId:identity.repositoryId,
+          commitSha:identity.commitSha,githubBinding:identity.binding,dockerfileDigest,archiveDigest:bundle.sha256,archiveBytes:bundle.bytes});
+        capturedSources.add(snapshot);return snapshot;
+      },
+      async verify(raw: ApprovedSourceSnapshot, rawSignal?: AbortSignal) {
+        const snapshot=immutableSourceSnapshot(raw),signal=boundedSignal(rawSignal);
+        const {bundle,dockerfileDigest}=await immutableAcquire({repo:`${snapshot.owner}/${snapshot.repo}`,ref:snapshot.commitSha,dockerfile:snapshot.dockerfile},snapshot.workspaceId,snapshot.environmentId,snapshot.archiveFormat,signal,snapshot);
+        verifyBytes(snapshot,bundle);
+        if(snapshot.dockerfileDigest!==dockerfileDigest)refuse("Approved Dockerfile bytes changed.");
+      },
       async prepare(raw, input): Promise<PreparedSourceBundle> {
         const ctx = { ...raw, signal: boundedSignal(raw.signal) };
         checkSignal(ctx.signal); coordinates(input.source);
@@ -384,6 +423,20 @@ export function createSourceBundles(deps: SourceBundleDeps = {}): {
         if (!["aws", "gcp", "azure"].includes(ctx.provider) || provider !== ctx.provider || (ctx.session as { region?: string } | undefined)?.region !== ctx.region) refuse("Source preparation requires a matching AWS, GCP or Azure brokered session.");
         try {
           const pipeline = await abortable(pipelineFor(deps, ctx, input.service, input.source), ctx.signal);
+          const snapshot=input.approvedSource ? immutableSourceSnapshot(input.approvedSource) : undefined;
+          if(!snapshot || !isApprovedSourceSnapshotStore(deps.sourceSnapshots) || ctx.operationId!==snapshot.operationId || ctx.workspaceId!==snapshot.workspaceId
+            || ctx.environmentId!==snapshot.environmentId || ctx.provider!==snapshot.provider || ctx.region!==snapshot.region
+            || input.service.address!==snapshot.serviceAddress || input.service.specDigest!==snapshot.serviceSpecDigest
+            || pipeline.address!==snapshot.pipelineAddress || pipeline.specDigest!==snapshot.pipelineSpecDigest
+            || sourceRecipe(input.service,pipeline)!==snapshot.recipeDigest || input.source.ref!==snapshot.requestedRef
+            || (input.source.dockerfile??"Dockerfile")!==snapshot.dockerfile)refuse("Build source has no matching durable approved snapshot; a new operation and review are required.");
+          const rows=await abortable(deps.sourceSnapshots.list({workspaceId:snapshot.workspaceId,operationId:snapshot.operationId,projectId:snapshot.projectId,environmentId:snapshot.environmentId}),ctx.signal);
+          if(!rows.some(row=>sourceSnapshotDigest(row)===sourceSnapshotDigest(snapshot)))refuse("Approved source authority could not be confirmed.");
+          await abortable(deps.sourceSnapshots.assertReviewed(snapshot),ctx.signal);
+          // Original pipeline identity stays unchanged. Only retained commit bytes are downloaded.
+          const {bundle,dockerfileDigest}=await immutableAcquire({...input.source,ref:snapshot.commitSha},ctx.workspaceId,ctx.environmentId,snapshot.archiveFormat,ctx.signal,snapshot);
+          verifyBytes(snapshot,bundle);
+          if(snapshot.dockerfileDigest!==dockerfileDigest)refuse("Approved Dockerfile bytes changed.");
           let bucket: string;
           let azureLocation: Awaited<ReturnType<typeof azureStorage.resolve>> | undefined;
           if (ctx.provider === "aws") {
@@ -400,7 +453,9 @@ export function createSourceBundles(deps: SourceBundleDeps = {}): {
             azureLocation = await azureStorage.resolve(ctx); bucket = azureLocation.bucket;
           }
           const format = ctx.provider === "aws" ? "zip" : "tar.gz";
-          const bundle = await acquire(input.source, ctx.signal, { workspaceId: ctx.workspaceId, environmentId: ctx.environmentId }, format);
+          await immutableAccess({owner:snapshot.owner,repo:snapshot.repo,workspaceId:snapshot.workspaceId,environmentId:snapshot.environmentId,ref:snapshot.commitSha,signal:ctx.signal,
+            expected:{owner:snapshot.owner,repo:snapshot.repo,repositoryId:snapshot.repositoryId,commitSha:snapshot.commitSha,binding:snapshot.githubBinding}},async()=>undefined);
+          await abortable(deps.sourceSnapshots.assertReviewed(snapshot),ctx.signal);
           const key = `zenith/${ctx.environmentId}/${input.service.address.split("/")[1]}/${bundle.sha256}.${format}`;
           checkSignal(ctx.signal);
           if (ctx.provider === "aws") await abortable(uploadAws(ctx as DriverContext<AwsSession>, bucket, key, bundle), ctx.signal);
@@ -417,4 +472,61 @@ export function createSourceBundles(deps: SourceBundleDeps = {}): {
       },
     },
   };
+}
+
+/** Canonical production composition has an internally fixed current GitHub store. */
+export function createSourceBundles(deps: SourceBundleDeps = {}) { return sourceBundles(deps); }
+/** Capture the owning handle and canonical store together. Standalone anonymous
+ * reads remain available; build-source authority never falls back to another DB. */
+export function createOwningSourceBundles(db: import("@/lib/controlplane/types").Sql, deps: Omit<SourceBundleDeps, "withGithubAccess"> = {}) {
+  const selectedStore = deps.sourceSnapshots, fetchImpl = deps.fetchImpl;
+  const isolated = selectedStore !== undefined || fetchImpl !== undefined;
+  const admission = () => {
+    if (isolated && (process.env.NODE_ENV !== "test" || !isApprovedSourceSnapshotStore(selectedStore))) {
+      refuse("Source overrides require a recognized isolated test store in the test environment.");
+    }
+  };
+  admission();
+  // Refuse runtime JavaScript callers too; the type alone is not an admission guard.
+  if ("withGithubAccess" in deps && deps.withGithubAccess !== undefined) refuse("The owning source connector cannot be overridden.");
+  const postgres = (handle: import("@/lib/controlplane/types").Sql): handle is PlatformDbHandle => "kind" in handle && handle.kind === "postgres"
+    && "identity" in handle && typeof handle.identity === "string" && typeof handle.query === "function" && typeof handle.tx === "function"
+    && "exec" in handle && typeof handle.exec === "function" && "close" in handle && typeof handle.close === "function";
+  // A production store is constructed here from precisely the handle used by
+  // immutable GitHub access. Test stores have explicit admission, never prod use.
+  const sourceSnapshots = isolated && isApprovedSourceSnapshotStore(selectedStore)
+    ? createIsolatedApprovedSourceStoreForTests(selectedStore)
+    : postgres(db) ? createApprovedSourceSnapshotStore(db) : undefined;
+  const buildAdmission = () => {
+    admission();
+    if (!postgres(db) || !isApprovedSourceSnapshotStore(sourceSnapshots)) {
+      refuse("Execution requires owning PostgreSQL approved source custody; no build source was acquired.");
+    }
+  };
+  const owningDb = async () => { buildAdmission(); return db; };
+  const access = createGithubAccess({ db: owningDb, fetchImpl });
+  const bundles = sourceBundles({
+    resources: deps.resources, azureStorage: deps.azureStorage, sourceSnapshots, fetchImpl,
+    limits: deps.limits ? Object.freeze({ ...deps.limits }) : undefined, timeoutMs: deps.timeoutMs,
+    withGithubAccess: (input, fn) => access(input, fn),
+  }, owningDb);
+  return Object.freeze({ sourceSnapshots,
+    read: async (...args: Parameters<typeof bundles.read>) => { admission(); return bundles.read(...args); },
+    readAzureSource: async (...args: Parameters<typeof bundles.readAzureSource>) => { buildAdmission(); return bundles.readAzureSource(...args); },
+    port: Object.freeze({
+      capture: async (...args: Parameters<NonNullable<typeof bundles.port.capture>>) => { buildAdmission(); return bundles.port.capture!(...args); },
+      verify: async (...args: Parameters<NonNullable<typeof bundles.port.verify>>) => { buildAdmission(); return bundles.port.verify!(...args); },
+      prepare: async (...args: Parameters<typeof bundles.port.prepare>) => { buildAdmission(); return bundles.port.prepare(...args); },
+    }),
+  });
+}
+/** Explicit archive/cloud contract fixture. Never production source authority. */
+export function createIsolatedSourceBundlesForTests(deps: SourceBundleDeps, db: import("@/lib/controlplane/types").Sql) {
+  const guard=()=>{if(process.env.NODE_ENV!=="test")refuse("Isolated source fixtures require test mode.");};guard();
+  const bundles=sourceBundles(deps,async()=>{guard();return db;});
+  return Object.freeze({read:(...args:Parameters<typeof bundles.read>)=>{guard();return bundles.read(...args);},
+    readAzureSource:(...args:Parameters<typeof bundles.readAzureSource>)=>{guard();return bundles.readAzureSource(...args);},
+    port:Object.freeze({capture:(...args:Parameters<NonNullable<typeof bundles.port.capture>>)=>{guard();return bundles.port.capture!(...args);},
+      verify:(...args:Parameters<NonNullable<typeof bundles.port.verify>>)=>{guard();return bundles.port.verify!(...args);},
+      prepare:(...args:Parameters<typeof bundles.port.prepare>)=>{guard();return bundles.port.prepare(...args);}})});
 }

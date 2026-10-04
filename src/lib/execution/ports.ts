@@ -409,9 +409,11 @@ export interface ProberPort {
  * brokered session in `ctx` and returns where it is and what it contained.
  */
 export interface SourceBundlePort {
+  capture?(input: import("./source-snapshot").SourceCaptureInput, signal?: AbortSignal): Promise<import("./source-snapshot").ApprovedSourceSnapshot>;
+  verify?(snapshot: import("./source-snapshot").ApprovedSourceSnapshot, signal?: AbortSignal): Promise<void>;
   prepare(
     ctx: DriverContext,
-    input: { service: ResourceNode; source: { repo: string; ref: string; dockerfile?: string } }
+    input: { service: ResourceNode; source: { repo: string; ref: string; dockerfile?: string }; approvedSource?: import("./source-snapshot").ApprovedSourceSnapshot }
   ): Promise<{ s3Key: string; digest: string; bucket?: string }>;
 }
 
@@ -563,6 +565,7 @@ export interface ExecutionDeps {
   /* release */
   prober: ProberPort;
   sourceBundle?: SourceBundlePort;
+  sourceSnapshots?: import("@/lib/controlplane/db/repos/approved-source-snapshots").ApprovedSourceSnapshotStore;
   build?: BuildPort;
   workloads?: WorkloadsPort;
   migrations?: MigrationsPort;

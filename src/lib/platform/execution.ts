@@ -21,9 +21,10 @@ import { platformDriverLookup } from "./driver-lookup";
 import { createReleasePorts } from "./release";
 import { composeReconcilePorts } from "./reconcile";
 import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
-import { createSourceBundles, type SourceBundleDeps } from "./source-bundle";
+import type { SourceBundleDeps } from "./source-bundle";
+import { createApprovedSourceRuntime } from "./approved-source-runtime";
 import { createDefaultMachinePort } from "@/lib/machines/composition";
-import { createAzureSourceStorage, type AzureBuildOptions } from "./release-azure";
+import type { AzureBuildOptions } from "./release-azure";
 import type { PlatformDbHandle } from "@/lib/controlplane/db";
 import { createReconcileSweepRuntime, type ReconcileSweepRuntime } from "@/lib/workflows/reconcile-schedule";
 
@@ -78,17 +79,16 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     planWorkspace:(...args)=>custody().tofu.planWorkspace(...args),
     applyVerifiedPlan:(...args)=>custody().tofu.applyVerifiedPlan(...args),
   };
-  registerAllDrivers();
-  const credentials = opts.ports?.credentials ?? platformCredentialBroker(opts.db);
   const platformPorts = createPlatformPorts(opts.db);
   const azureStorage = opts.sourceBundles?.azureStorage ?? createAzureSourceStorageResolver(opts.db);
-  const sourceBundles = opts.ports?.sourceBundle ? undefined : createSourceBundles({ ...opts.sourceBundles, azureStorage, resources: opts.ports?.resources ?? platformPorts.resources });
-  const azure: AzureBuildOptions = {
-    readSource: sourceBundles?.readAzureSource ?? ((ctx, source) => createAzureSourceStorage({
-      resolveStorage: azureStorage,
-      maxBytes: opts.sourceBundles?.limits?.maxArchiveBytes, timeoutMs: opts.sourceBundles?.timeoutMs,
-    }).readSource(ctx, source)),
-  };
+  const sourceRuntime = createApprovedSourceRuntime(opts.db, {
+    resources: opts.ports?.resources ?? platformPorts.resources,
+    sourceBundles: opts.sourceBundles, azureStorage,
+    sourceBundle: opts.ports?.sourceBundle, sourceSnapshots: opts.ports?.sourceSnapshots,
+  });
+  registerAllDrivers();
+  const credentials = opts.ports?.credentials ?? platformCredentialBroker(opts.db);
+  const azure: AzureBuildOptions = { readSource: sourceRuntime.readAzureSource };
   const deps: ExecutionDeps = {
     ...platformPorts, planArtifacts,
     drivers: platformDriverLookup,
@@ -96,9 +96,10 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     tofu, cost: defaultCostPort(),
     observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} })),
     prober: createSafeProber(), ...createReleasePorts({ db: opts.db, azure }),
-    sourceBundle: opts.ports?.sourceBundle ?? sourceBundles!.port,
     machines: opts.ports?.machines ?? createDefaultMachinePort(opts.db, opts.secretKey ?? process.env.ZENITH_SECRET_KEY!),
     ...opts.ports,
+    // The captured source authority is final; the generic test-port spread cannot replace it.
+    sourceBundle: sourceRuntime.sourceBundle, sourceSnapshots: sourceRuntime.sourceSnapshots,
     fingerprintKey, workerId: opts.workerIdentity, planDir: opts.planDir,
   };
   const activities = createExecutionActivities(deps);

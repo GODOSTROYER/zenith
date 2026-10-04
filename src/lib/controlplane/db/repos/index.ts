@@ -1,7 +1,7 @@
 /**
  * The repositories, as one namespace per table family.
  *
- * Every repository function takes a `Sql` as its first argument, so they
+ * Every row repository function takes a `Sql` as its first argument, so they
  * compose inside one transaction:
  *
  *     await db.tx(async (tx) => {
@@ -14,11 +14,15 @@
  * that wants `repos.operations.get(ws, id)` instead of threading the argument.
  * Bind to the `tx` you were handed, not to the top-level handle, when the calls
  * must commit together.
+ *
+ * Scoped capability constructors and provenance predicates are exposed by
+ * their module, but excluded from bindRepos at runtime and in its return type.
  */
 import type { Sql } from "@/lib/controlplane/types";
 import * as planArtifacts from "./plan-artifacts";
 import * as buildLaunches from "./build-launches";
 import * as workflowStartIntents from "./workflow-start-intents";
+import * as approvedSourceSnapshots from "./approved-source-snapshots";
 import * as approvals from "./approvals";
 import * as connections from "./connections";
 import * as cost from "./cost";
@@ -44,6 +48,7 @@ export {
   planArtifacts,
   buildLaunches,
   workflowStartIntents,
+  approvedSourceSnapshots,
   approvals,
   connections,
   cost,
@@ -66,20 +71,24 @@ export {
   settings,
 };
 
-/** A module whose functions take `Sql` first, rewritten to omit it. */
+type CapabilityConstructor = "createApprovedSourceSnapshotStore" | "isApprovedSourceSnapshotStore" | "createIsolatedApprovedSourceStoreForTests";
+
+/** A module whose SQL row functions take `Sql` first, rewritten to omit it. */
 export type Bound<M> = {
-  [K in keyof M as M[K] extends (sql: Sql, ...args: never[]) => unknown ? K : never]: M[K] extends (sql: Sql, ...args: infer A) => infer R
+  [K in keyof M as K extends CapabilityConstructor ? never : M[K] extends (sql: Sql, ...args: never[]) => unknown ? K : never]: M[K] extends (sql: Sql, ...args: infer A) => infer R
     ? (...args: A) => R
     : never;
 };
 
 /** Exports that are pure helpers, not repository functions: they take no `Sql`. */
 const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError", "BuildLaunchError", "createIsolatedBuildClaimerForTests", "assertIsolatedBuildTestAdmission", "WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests"]);
+/** Capability construction/provenance is never an automatically bound row API. */
+const CAPABILITY_CONSTRUCTORS = new Set(["createApprovedSourceSnapshotStore", "isApprovedSourceSnapshotStore", "createIsolatedApprovedSourceStoreForTests"]);
 
 function bind<M extends object>(mod: M, sql: Sql): Bound<M> {
   const out: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(mod)) {
-    if (typeof value === "function" && !PURE_HELPERS.has(name)) out[name] = (...args: unknown[]) => (value as (...a: unknown[]) => unknown)(sql, ...args);
+    if (typeof value === "function" && !PURE_HELPERS.has(name) && !CAPABILITY_CONSTRUCTORS.has(name)) out[name] = (...args: unknown[]) => (value as (...a: unknown[]) => unknown)(sql, ...args);
   }
   return out as Bound<M>;
 }
@@ -89,6 +98,7 @@ export function bindRepos(sql: Sql) {
     planArtifacts: bind(planArtifacts, sql),
     buildLaunches: bind(buildLaunches, sql),
     workflowStartIntents: bind(workflowStartIntents, sql),
+    approvedSourceSnapshots: bind(approvedSourceSnapshots, sql),
     approvals: bind(approvals, sql),
     connections: bind(connections, sql),
     cost: bind(cost, sql),

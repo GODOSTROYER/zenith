@@ -244,3 +244,36 @@ describe("<ApprovalCard> decisions", () => {
     for (const b of buttons(el)) expect(nameOf(b).length).toBeGreaterThan(0);
   });
 });
+
+
+describe("approved source plan review",()=>{
+  const sources=[{service:"container_service/web",commit:"a".repeat(40),dockerfileDigest:"d".repeat(64),recipeDigest:"e".repeat(64),archiveDigest:"f".repeat(64),archiveFormat:"zip" as const}];
+  it("shows immutable commit/recipe/archive evidence and submits the matching bound normalized digest",async()=>{
+    const onApprove=vi.fn(),plan={...planView(),executableSourceDigest:"c".repeat(64),approvedSources:sources};
+    const el=mount(<ApprovalCard {...props({plan,onApprove})}/>);expect(text(el)).toContain("retained source commits");expect(text(el)).toContain(sources[0].commit);expect(text(el)).toContain("Dockerfile");expect(text(el)).toContain("Source archive (zip)");
+    await click(button(el,"Approve Apply an infrastructure plan"));await flush();expect(onApprove).toHaveBeenCalledWith(expect.objectContaining({planDigest:plan.planDigest,proposalDigest:DIGEST}));
+  });
+  it("source metadata never lets a mismatched plan digest bypass human review",()=>{
+    const onApprove=vi.fn(),plan={...planView(),planDigest:DIGEST_2,executableSourceDigest:"c".repeat(64),approvedSources:sources};
+    const el=mount(<ApprovalCard {...props({plan,onApprove})}/>);expect(button(el,"Approve Apply an infrastructure plan").disabled).toBe(true);expect(onApprove).not.toHaveBeenCalled();expect(text(el)).toContain("does not match");
+  });
+});
+
+
+describe("canonical repository source review to browser [scoped SQL model]",()=>{
+  it("withPlanReview preserves source details which the browser human reviews with the plan digest",async()=>{
+    const {withPlanReview}=await import("@/lib/controlplane/db/repos/operation-review");const {extractPlanFacts}=await import("@/lib/policy/plan-facts");const {makePlan}=await import("../../execution/fakes/fixtures");
+    const {immutableSourceSnapshot,sourceSnapshotDigest,sourceSnapshotSetDigest}=await import("@/lib/execution/source-snapshot");
+    const native=immutableSourceSnapshot({format:"zenith.approved-source.v1",workspaceId:"ws_1",operationId:"op_1",projectId:"proj_1",environmentId:"env_prod",
+      serviceAddress:"container_service/web",serviceSpecDigest:"a".repeat(64),pipelineAddress:"build_pipeline/web",pipelineSpecDigest:"b".repeat(64),provider:"aws",region:"us-east-1",owner:"acme",repo:"app",repositoryId:99,requestedRef:"main",commitSha:"a".repeat(40),githubBinding:null,dockerfile:"Dockerfile",dockerfileDigest:"d".repeat(64),recipeDigest:"e".repeat(64),archiveFormat:"zip",archiveDigest:"f".repeat(64),archiveBytes:100});
+    const plan={...planView(),executableSourceDigest:sourceSnapshotSetDigest([native]),approvedSources:[{service:native.serviceAddress,commit:native.commitSha,dockerfileDigest:native.dockerfileDigest,recipeDigest:native.recipeDigest,archiveDigest:native.archiveDigest,archiveFormat:native.archiveFormat}]};
+    const summary={stage:"plan",planDigest:plan.planDigest,executableSourceDigest:plan.executableSourceDigest,view:plan,facts:extractPlanFacts(makePlan()),cost:{}};
+    const sql={query:vi.fn(async(query:string,params?:readonly unknown[])=>{
+      if(query.startsWith("select summary"))return [{summary}];
+      expect(query).toContain("from platform.approved_source_snapshots where workspace_id=$1 and operation_id=$2");expect(params).toEqual([native.workspaceId,native.operationId]);return [{snapshot:native,snapshot_digest:sourceSnapshotDigest(native)}];
+    }),exec:async()=>undefined,tx:async()=>{throw new Error("Read-only SQL projection model.");}};
+    const op=await withPlanReview(sql as never,{...operation(),approvalRound:0});expect(sql.query.mock.calls).toHaveLength(2);const onApprove=vi.fn();
+    const el=mount(<ApprovalCard {...props({operation:op,plan:op.planReview?.view,onApprove})}/>);expect(text(el)).toContain("Retained commit");expect(text(el)).toContain("a".repeat(40));
+    click(button(el,"Approve Apply an infrastructure plan"));await flush();expect(onApprove).toHaveBeenCalledWith(expect.objectContaining({planDigest:PLAN_DIGEST}));
+  });
+});

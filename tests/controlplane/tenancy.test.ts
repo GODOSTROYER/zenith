@@ -26,15 +26,29 @@ import { createOperationsPort } from "@/lib/execution/platform";
 import { createExecutionBroker } from "@/lib/platform/broker";
 import { registerEnvironment } from "@/lib/reconcile/platform";
 import { mkNode } from "../providers/aws/drivers/compute/fixtures";
+import { immutableSourceSnapshot, sourceRecipe, sourceSnapshotDigest, sourceSnapshotSetDigest } from "@/lib/execution/source-snapshot";
 
 if (process.env.ZENITH_TEST_WORKFLOW_START_REQUIRED === "1" && !PG_URL) {
   throw new Error("Workflow start tenant acceptance requires an owned PostgreSQL database.");
+}
+if (process.env.ZENITH_TEST_APPROVED_SOURCE_REQUIRED === "1" && !PG_URL) {
+  throw new Error("Approved source tenant acceptance requires an owned PostgreSQL database.");
 }
 closeSharedPgliteAfterAll();
 
 /** These run in the real-PostgreSQL canonical-broker sweep below, never as PGlite authority. */
 const BUILD_LAUNCH_SWEPT = new Set(["buildLaunches.claim", "buildLaunches.get", "buildLaunches.acknowledge", "buildLaunches.observeTerminal"]);
 const WORKFLOW_START_SWEPT = new Set(["workflowStartIntents.get", "workflowStartIntents.prepare", "workflowStartIntents.claim", "workflowStartIntents.acknowledge"]);
+
+/** These construct/check scoped capabilities, not unscoped tenant reads.
+ * The returned methods' actual PostgreSQL foreign-scope/provenance refusals are
+ * individually mandatory in approved-source-snapshots.test.ts.
+ */
+const CAPABILITY_CONSTRUCTORS: Record<string, string> = {
+  "approvedSourceSnapshots.createApprovedSourceSnapshotStore": "actual owning PostgreSQL constructor; returned list/retain/assertCurrent/assertReviewed use native tenant/operation scope, not bindRepos argument injection",
+  "approvedSourceSnapshots.isApprovedSourceSnapshotStore": "private runtime capability membership predicate; no SQL or tenant access and cannot mint captured archive provenance",
+  "approvedSourceSnapshots.createIsolatedApprovedSourceStoreForTests": "test-only captured capability factory; creation and every method invocation require NODE_ENV=test before dependency access",
+};
 
 /** Functions exercised by the sweep (each named `namespace.function`). */
 const SWEPT = new Set([
@@ -112,7 +126,7 @@ describe("completeness guard", () => {
       for (const [name, value] of Object.entries(mod)) {
         if (typeof value !== "function") continue;
         const key = `${ns}.${name}`;
-        if (!SWEPT.has(key) && !WRITES.has(key) && !(key in EXEMPT)) unclassified.push(key);
+        if (!SWEPT.has(key) && !WRITES.has(key) && !(key in EXEMPT) && !(key in CAPABILITY_CONSTRUCTORS)) unclassified.push(key);
       }
     }
     expect(unclassified, `classify these in tests/controlplane/tenancy.test.ts`).toEqual([]);
@@ -124,9 +138,10 @@ describe("completeness guard", () => {
       if (typeof mod !== "object" || mod === null) continue;
       for (const [name, value] of Object.entries(mod)) if (typeof value === "function") all.add(`${ns}.${name}`);
     }
-    for (const key of [...SWEPT, ...WRITES, ...Object.keys(EXEMPT)]) expect(all.has(key), `${key} exists`).toBe(true);
-    const overlap = [...SWEPT].filter((k) => WRITES.has(k) || k in EXEMPT);
+    for (const key of [...SWEPT, ...WRITES, ...Object.keys(EXEMPT), ...Object.keys(CAPABILITY_CONSTRUCTORS)]) expect(all.has(key), `${key} exists`).toBe(true);
+    const overlap = [...SWEPT].filter((k) => WRITES.has(k) || k in EXEMPT || k in CAPABILITY_CONSTRUCTORS);
     expect(overlap).toEqual([]);
+    for (const key of Object.keys(CAPABILITY_CONSTRUCTORS)) expect(WRITES.has(key) || key in EXEMPT).toBe(false);
   });
 
   it("bindRepos exposes every repository function except the pure helpers, with sql pre-applied", async () => {
@@ -146,6 +161,8 @@ describe("completeness guard", () => {
     for (const helper of ["WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests"]) {
       expect(Object.keys(bound.workflowStartIntents)).not.toContain(helper);
     }
+    expect(Object.keys(bound.approvedSourceSnapshots)).toEqual([]);
+    expect(Object.keys(repos.approvedSourceSnapshots).sort()).toEqual(Object.keys(CAPABILITY_CONSTRUCTORS).map(key => key.split(".")[1]).sort());
     expect(await bound.events.list("ws_x")).toEqual([]);
   });
 });
@@ -395,8 +412,23 @@ describe.skipIf(!PG_URL)("build launch tenant isolation sweep [postgres]",()=>{
     await decide();
     await h.broker.beginExecution({workspaceId:A,operationId:op.id,holder:`workflow:${op.id}`,audience:"worker"});
     const ports=createOperationsPort(db),worker=createExecutionBroker(db,async()=>h.broker);
-    const plan=makePlan({changes:[change({address:"aws_codebuild_project.web",type:"aws_codebuild_project",action:"create"})]}),facts=buildPlanFacts(plan)!;
-    await repos.evidence.insert(db,{workspaceId:A,operationId:op.id,kind:"tofu_plan",digest:plan.planDigest,summary:planEvidence({plan,facts,cost:{},graphDigest:digest("tenant-graph"),stage:"plan"}).summary,simulated:false});
+    const pipeline=mkNode("build_pipeline/web","build_pipeline","aws:codebuild_project",{source:{repo:"https://github.com/acme/web",ref:"revision"}},{region,specDigest:digest("tenant-pipeline")});
+    const service=mkNode("container_service/web","container_service","aws:ecs_service",{artifact:{type:"built",pipeline:pipeline.address}},{region,specDigest:digest("tenant-service")});
+    for(const node of [pipeline,service])await repos.resources.upsertDesired(db,{workspaceId:A,projectId:h.ids.projA,environmentId,node,status:"active"});
+    const sourceDigest=digest("tenant-source");
+    // Modeled archive metadata; this sweep proves owning SQL/broker tenancy,
+    // not archive acquisition, native capture provenance or provider execution.
+    const source=immutableSourceSnapshot({format:"zenith.approved-source.v1",workspaceId:A,operationId:op.id,projectId:h.ids.projA,environmentId,
+      serviceAddress:service.address,serviceSpecDigest:service.specDigest,pipelineAddress:pipeline.address,pipelineSpecDigest:pipeline.specDigest,provider:"aws",region,
+      owner:"acme",repo:"web",repositoryId:99,requestedRef:"revision",commitSha:"a".repeat(40),githubBinding:null,dockerfile:"Dockerfile",
+      dockerfileDigest:digest("modeled Dockerfile bytes"),recipeDigest:sourceRecipe(service,pipeline),archiveFormat:"zip",archiveDigest:sourceDigest,archiveBytes:100});
+    await db.query("insert into platform.approved_source_snapshots(workspace_id,operation_id,project_id,environment_id,service_address,snapshot,snapshot_digest) values ($1,$2,$3,$4,$5,$6::text::jsonb,$7)",
+      [A,op.id,h.ids.projA,environmentId,service.address,JSON.stringify(source),sourceSnapshotDigest(source)]);
+    const plan=makePlan({changes:[change({address:"aws_codebuild_project.web",type:"aws_codebuild_project",action:"create"})]});
+    plan.executableSourceDigest=sourceSnapshotSetDigest([source]);
+    plan.planDigest=digest({configDigest:plan.configDigest,lockDigest:plan.lockDigest,tofuVersion:plan.tofuVersion,resourceChanges:plan.resourceChanges,outputChanges:plan.outputChanges,executableSourceDigest:plan.executableSourceDigest});
+    const facts=buildPlanFacts(plan)!;
+    await repos.evidence.insert(db,{workspaceId:A,operationId:op.id,kind:"tofu_plan",digest:plan.planDigest,summary:planEvidence({plan,facts,cost:{},graphDigest:digest("tenant-graph"),stage:"plan",approvedSources:[source]}).summary,simulated:false});
     await ports.setPlanDigest({workspaceId:A,operationId:op.id,planDigest:plan.planDigest});
     const policy=await worker.reevaluate(op.id,facts);
     await ports.setPolicyDecision({workspaceId:A,operationId:op.id,decisionId:policy.decisionId});
@@ -407,13 +439,10 @@ describe.skipIf(!PG_URL)("build launch tenant isolation sweep [postgres]",()=>{
     await repos.operations.claimForExecution(db,{workspaceId:A,id:op.id,expectedDigest:op.proposalDigest,holder:`workflow:${op.id}`,leaseMs:60000,lease,expectedPolicyVersion:"tenant-build-policy"});
     // Synthetic completed-plan use is fixture provenance, not provider/apply acceptance.
     await db.query("insert into platform.plan_artifact_uses(workspace_id,operation_id,phase) values ($1,$2,'succeeded')",[A,op.id]);
-    const pipeline=mkNode("build_pipeline/web","build_pipeline","aws:codebuild_project",{source:{repo:"https://github.com/acme/web",ref:"revision"}},{region,specDigest:digest("tenant-pipeline")});
-    const service=mkNode("container_service/web","container_service","aws:ecs_service",{artifact:{type:"built",pipeline:pipeline.address}},{region,specDigest:digest("tenant-service")});
-    for(const node of [pipeline,service])await repos.resources.upsertDesired(db,{workspaceId:A,environmentId,node,status:"active"});
     const connection=await repos.connections.create(db,{workspaceId:A,createdBy:"tenant-fixture-admin",config:{provider:"aws",mode:"oidc_web_identity",accountId,region,observeRoleArn:`arn:aws:iam::${accountId}:role/observe`,deployRoleArn:`arn:aws:iam::${accountId}:role/deploy`}});
     await repos.connections.recordVerification(db,{workspaceId:A,id:connection.id,ok:true});
     await registerEnvironment(db,{environment:{workspaceId:A,environmentId,provider:"aws",region,class:"development",connection:{id:connection.id,status:"verified"}}});
-    const sourceDigest=digest("tenant-source"),buildId="zenith-build-web:11111111-2222-3333-4444-555555555555";
+    const buildId="zenith-build-web:11111111-2222-3333-4444-555555555555";
     const binding:repos.buildLaunches.BuildLaunchBinding={workspaceId:A,operationId:op.id,environmentId,serviceAddress:service.address,serviceSpecDigest:service.specDigest,pipelineAddress:pipeline.address,pipelineSpecDigest:pipeline.specDigest,
       accountId,region,projectName:"zenith-build-web",projectArn:`arn:aws:codebuild:${region}:${accountId}:project/zenith-build-web`,sourceBucket:"zenith-source-fixture",sourceKey:`zenith/${environmentId}/web/${sourceDigest}.zip`,sourceDigest,settingsDigest:digest("tenant-settings"),executedSettingsDigest:digest("tenant-executed-settings")};
     const fence={scope:lease.scope,token:lease.fenceToken},claim=repos.buildLaunches.createIsolatedBuildClaimerForTests(h.broker);
@@ -430,6 +459,9 @@ describe.skipIf(!PG_URL)("build launch tenant isolation sweep [postgres]",()=>{
       resources:await db.query("select * from platform.resources where workspace_id=$1 and environment_id=$2 order by address",[A,environmentId]),
       connection:await db.query("select * from platform.provider_connections where workspace_id=$1 and id=$2",[A,connection.id]),
       planUse:await db.query("select * from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[A,op.id]),
+      source:await db.query("select * from platform.approved_source_snapshots where workspace_id=$1 and operation_id=$2 order by service_address",[A,op.id]),
+      evidence:await db.query("select * from platform.evidence where workspace_id=$1 and operation_id=$2 order by id",[A,op.id]),
+      github:await db.query("select * from platform.github_source_bindings where workspace_id=$1 order by owner,repo",[A]),
     });
     const authorityBefore=await authorityRows();
     const attempts:Record<string,()=>Promise<void>>={

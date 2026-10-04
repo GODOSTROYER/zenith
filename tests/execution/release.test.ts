@@ -30,7 +30,11 @@ const DIGEST = `sha256:${"a".repeat(64)}`;
 
 async function ready(w: World) {
   await w.activities.markOperation({ operationId: OP, status: "running" });
-  return w.lease();
+  const lease=await w.lease();
+  const needsSource=[...w.product.revisions.values()].some(r=>(r.manifest as {services?:{source?:{type?:string}}[]}).services?.some(s=>s.source?.type==="git"));
+  if(w.deps.sourceBundle && needsSource)await w.activities.planInfrastructure({operationId:OP,lease});
+  w.broker.approval={approved:true,rejected:false,approvalId:"isolated-review"};
+  return lease;
 }
 
 describe("buildArtifacts", () => {

@@ -1,6 +1,7 @@
 /** Trusted current credential or OAuth resource grant, without a role-none fallback. */
 import { z } from "zod/v4";
-import type { Principal } from "@/lib/controlplane/types";
+import type { Principal, Sql } from "@/lib/controlplane/types";
+import { isDefaultPgCredentialAuthority, wasDefaultPgCredentialAuthority, isDefaultPgCredentialAuthorityFor, readDefaultNativeLinkedCredential, type NativeLinkedCredentialTuple } from "@/lib/agent-access/authority/pg";
 import type { IntegrationGrant } from "./product-adapters";
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
@@ -27,15 +28,51 @@ function projection(grant: IntegrationGrant): IntegrationGrant {
 }
 function checkSignal(signal?: AbortSignal): void { if (signal?.aborted) refuse(); }
 
+const currentNativeGrants=new WeakMap<object,{authority:object;tuple:Readonly<NativeLinkedCredentialTuple>}>();
+const nativeTupleOrigins=new WeakMap<object,{authority:object;integrationId:string;subject:string;workspaceId:string}>();
+function immutable<T>(value:T):T {if(value&&typeof value==="object"){for(const child of Object.values(value))immutable(child);Object.freeze(value);}return value;}
+/** Private resolver result, tied to its actual principal object and genuine native owner. */
+export function readCurrentNativeLinkedCredential(principal:Principal,workspaceId:string,owner:Sql):Readonly<NativeLinkedCredentialTuple>|undefined {
+  try {
+    const entry=currentNativeGrants.get(principal);
+    if(!entry||entry.tuple.id!==principal.id||entry.tuple.subject!==principal.onBehalfOf||entry.tuple.workspace_id!==workspaceId
+      ||!isDefaultPgCredentialAuthorityFor(entry.authority,owner))return undefined;
+    return entry.tuple;
+  }catch{return undefined;}
+}
+/** Boolean provenance only. Copies and supplied DTOs cannot register a current native tuple. */
+export function isCurrentNativeLinkedCredentialFor(tuple:unknown,owner:Sql,workspaceId:string,integrationId:string,subject:string):boolean {
+  try {
+    if(!tuple||typeof tuple!=="object")return false;
+    const entry=nativeTupleOrigins.get(tuple);if(!entry||entry.workspaceId!==workspaceId||entry.integrationId!==integrationId||entry.subject!==subject)return false;
+    return isDefaultPgCredentialAuthorityFor(entry.authority,owner);
+  }catch{return false;}
+}
+
 /** No supplied directory, broker, issuer, copied scopes or provenance field can alter this read. */
 export async function currentIntegrationGrant(principal: Principal, workspaceId: string, signal?: AbortSignal): Promise<IntegrationGrant | null> {
+  currentNativeGrants.delete(principal);
   if (principal.kind !== "integration" || !principal.onBehalfOf || !principal.integrationId
     || principal.id !== principal.integrationId || !id.safeParse(principal.onBehalfOf).success
     || !id.safeParse(workspaceId).success || !id.safeParse(principal.integrationId).success) return null;
   try {
     checkSignal(signal);
     const { credentialAuthority } = await import("@/lib/agent-access/authority");
-    const credentials = await credentialAuthority().listCredentials(principal.onBehalfOf, workspaceId);
+    const authority=credentialAuthority(),kind=Object.getOwnPropertyDescriptor(authority,"kind"),native=isDefaultPgCredentialAuthority(authority);
+    if(wasDefaultPgCredentialAuthority(authority)&&!native||kind&&(!("value" in kind)||kind.value==="postgres"&&!native))refuse();
+    if(isDefaultPgCredentialAuthority(authority)) {
+      const current=await readDefaultNativeLinkedCredential(authority,principal,workspaceId);checkSignal(signal);
+      if(current.present) {
+        if(OAUTH_ID.test(principal.integrationId))refuse();
+        const tuple=current.tuple;
+        if(!tuple||tuple.revoked_at||!live(tuple.expires_at)||Date.parse(tuple.issued_at)>Date.now())return null;
+        const frozen=immutable(structuredClone(tuple));
+        currentNativeGrants.set(principal,{authority,tuple:frozen});nativeTupleOrigins.set(frozen,{authority,integrationId:principal.id,subject:principal.onBehalfOf,workspaceId});
+        return projection({scopes:[...frozen.scopes],projectIds:[...frozen.project_ids],...(frozen.environment_ids?{environmentIds:[...frozen.environment_ids]}:{})});
+      }
+      if(!OAUTH_ID.test(principal.integrationId))return null;
+    }
+    const credentials = await authority.listCredentials(principal.onBehalfOf, workspaceId);
     checkSignal(signal);
     if (!Array.isArray(credentials) || credentials.length > 1000) refuse();
     const matches = credentials.filter(credential => credential.id === principal.integrationId);

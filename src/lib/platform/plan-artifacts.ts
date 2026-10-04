@@ -2,10 +2,11 @@
 import { randomUUID } from "node:crypto";
 import { vaultCipherFromEnv } from "@/lib/secrets";
 import { createPlanEngineAuthority, type PlanAdmission, type ApprovedPlan } from "@/lib/tofu/engine";
-import { createExecutionBroker } from "./broker";
+import { createExecutionBroker, isDefaultCurrentDispatchRequirement } from "./broker";
 import type { BrokerPort, PlanArtifactsPort } from "@/lib/execution/ports";
 import type { Sql } from "@/lib/controlplane/types";
 import * as artifacts from "@/lib/controlplane/db/repos/plan-artifacts";
+import { assertDefaultMcpProductTopology } from "@/lib/controlplane/db/repos/workflow-start-deploy-authority";
 
 export function planArtifactCipherFromEnv(env: Readonly<Record<string,string|undefined>> = process.env) {
   try {
@@ -59,6 +60,12 @@ function pairedRuntime(db: Sql, env: Readonly<Record<string,string|undefined>>, 
       const row = await artifacts.claim(db,input,attempt);
       let dispatched = false;
       try {
+        if (kind === "postgres") {
+          // Native absence cannot establish historical product provenance.
+          // Only the existing explicit isolated test runtime accepts that seam.
+          if (!await artifacts.requiresProductComposition(db, row, input.custody.operationId, attempt)) throw new artifacts.PlanArtifactError();
+          await assertDefaultMcpProductTopology(db);
+        }
         const result = await decoded(row, async (manifest,bytes) => {
           const approved: ApprovedPlan = Object.freeze({manifest});
           const admission: PlanAdmission = Object.freeze({manifest,bytes,custody:input.custody,attemptId:attempt,lease:input.lease,associated:manifest.operationId !== input.custody.operationId,
@@ -67,7 +74,8 @@ function pairedRuntime(db: Sql, env: Readonly<Record<string,string|undefined>>, 
               // Current policy/roles are evaluated by the captured broker, never by caller hooks.
               const authority=await broker.approvalStatus(input.custody.operationId);
               if(!authority.approved || authority.rejected || !authority.dispatchApproval || admissions.get(approved)!==admission) throw new artifacts.PlanArtifactError();
-              const proof=Object.freeze({...authority.dispatchApproval,approvalIds:Object.freeze([...authority.dispatchApproval.approvalIds])});
+              const proof=authority.dispatchApproval;
+              if (kind === "postgres" && !await isDefaultCurrentDispatchRequirement(proof,db,input.custody.workspaceId,input.custody.operationId)) throw new artifacts.PlanArtifactError();
               // Lost commit responses are non-replayable; mark locally before awaiting the CAS.
               dispatched=true;
               await artifacts.dispatch(db,input,attempt,proof);

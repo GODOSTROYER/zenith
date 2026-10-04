@@ -23,9 +23,9 @@
  * (`CredentialGrantSigner`, key from `ZENITH_CONTROL_SIGNING_JWK`), the system
  * clock and the committed OPA bundle.
  */
-import { platformDb, platformDbConfigFromEnv } from "@/lib/controlplane/db";
+import { platformDb, platformDbConfigFromEnv, isOpenedPlatformDbHandle, isOpenedPlatformPostgresTarget } from "@/lib/controlplane/db";
 import { loadPolicyEngine } from "@/lib/policy";
-import type { Principal } from "@/lib/controlplane/types";
+import type { Principal, Sql } from "@/lib/controlplane/types";
 import { approve, reject, revokeApproval } from "./approvals";
 import { getEnvironmentAutonomy, setEnvironmentAutonomy } from "./autonomy";
 import { authorizeRead, check, propose } from "./broker";
@@ -106,6 +106,44 @@ const state = (): PlatformState => {
   const g = globalThis as G;
   return (g.__zenithPlatformBroker ??= { ports: {} });
 };
+interface OriginalObject { value: object; prototype: object | null; own: Map<PropertyKey, PropertyDescriptor>; inherited: Map<PropertyKey, PropertyDescriptor> }
+function originalObject(value: object): OriginalObject | undefined {
+  const own = new Map<PropertyKey, PropertyDescriptor>(), inherited = new Map<PropertyKey, PropertyDescriptor>(), prototype = Object.getPrototypeOf(value);
+  for (const key of Reflect.ownKeys(value)) { const descriptor = Object.getOwnPropertyDescriptor(value, key); if (!descriptor || !("value" in descriptor)) return undefined; own.set(key, descriptor); }
+  if (prototype) for (const key of Reflect.ownKeys(prototype)) { const descriptor = Object.getOwnPropertyDescriptor(prototype, key); if (!descriptor) return undefined; inherited.set(key, descriptor); }
+  return { value, prototype, own, inherited };
+}
+function unchangedObject(original: OriginalObject): boolean {
+  const same = (value: object, saved: Map<PropertyKey, PropertyDescriptor>) => Reflect.ownKeys(value).length === saved.size && [...saved].every(([key, descriptor]) => {
+    const current = Object.getOwnPropertyDescriptor(value, key);
+    return !!current && ("value" in descriptor ? "value" in current && current.value === descriptor.value && current.writable === descriptor.writable
+      : !("value" in current) && current.get === descriptor.get && current.set === descriptor.set)
+      && current.enumerable === descriptor.enumerable && current.configurable === descriptor.configurable;
+  });
+  return Object.getPrototypeOf(original.value) === original.prototype && same(original.value, original.own)
+    && (!original.prototype || same(original.prototype, original.inherited));
+}
+const originalDefaultStores = new WeakMap<object, { db: Sql; original: OriginalObject }>();
+const originalDefaultBrokers = new WeakMap<object, { state: PlatformState; ports: PlatformState["ports"]; db: Sql; originals: OriginalObject[] }>();
+/** Boolean-only provenance of the actual default composition. No caller can register a broker here. */
+export function isDefaultPlatformBrokerFor(value: unknown, owner: Sql): boolean {
+  try {
+    if (!value || typeof value !== "object") return false;
+    const entry = originalDefaultBrokers.get(value), global = Object.getOwnPropertyDescriptor(globalThis, "__zenithPlatformBroker");
+    if (!entry || !global || !("value" in global) || global.value !== entry.state || !entry.originals.every(unchangedObject)) return false;
+    for (const key of ["override", "registeredStore"] as const) { const descriptor = Object.getOwnPropertyDescriptor(entry.state, key); if (descriptor && (!("value" in descriptor) || descriptor.value !== undefined)) return false; }
+    const ports = Object.getOwnPropertyDescriptor(entry.state, "ports");
+    if (!ports || !("value" in ports) || ports.value !== entry.ports) return false;
+    for (const key of ["scopes", "roles"] as const) { const descriptor = Object.getOwnPropertyDescriptor(entry.ports, key); if (descriptor && (!("value" in descriptor) || descriptor.value !== undefined)) return false; }
+    if (!isOpenedPlatformDbHandle(owner, "postgres") || !isOpenedPlatformDbHandle(entry.db, "postgres")) return false;
+    const config = platformDbConfigFromEnv(); if (config.kind !== "postgres" || !config.url) return false;
+    const url = new URL(config.url), options = [...url.searchParams];
+    if (!["postgres:","postgresql:"].includes(url.protocol) || !url.port || url.hash || options.length > 1
+      || options.some(([key,value]) => key !== "sslmode" || !["require","verify-full"].includes(value))) return false;
+    const host = url.hostname, port = Number(url.port), database = decodeURIComponent(url.pathname.slice(1)), username = decodeURIComponent(url.username);
+    return isOpenedPlatformPostgresTarget(owner, host, port, database, username) && isOpenedPlatformPostgresTarget(entry.db, host, port, database, username);
+  } catch { return false; }
+}
 
 /** The orchestrator's plug-in point: hand the platform control store adapter to the broker. */
 export function registerPlatformBrokerStore(store: BrokerStore): void {
@@ -146,7 +184,9 @@ async function defaultStore(): Promise<BrokerStore> {
     throw storeUnavailable("This production build has no platform control store configured (ZENITH_PLATFORM_DB_URL), and will not default to a local PGlite directory.");
   }
   try {
-    return new PlatformBrokerStore(await platformDb());
+    const db = await platformDb(), store = new PlatformBrokerStore(db), original = originalObject(store);
+    if (original && isOpenedPlatformDbHandle(db, "postgres")) originalDefaultStores.set(store, { db, original });
+    return store;
   } catch {
     // The store's own error may name hosts or paths; the operator reads the server log.
     throw storeUnavailable("The platform control store could not be opened.");
@@ -183,6 +223,13 @@ export async function platformBroker(): Promise<Broker> {
     clock: systemClock,
     policy: () => loadPolicyEngine(),
   });
+  const original = originalDefaultStores.get(store);
+  if (original && !s.override && !s.registeredStore && !s.ports.scopes && !s.ports.roles) {
+    const values = [broker, broker.deps, broker.deps.scopes, broker.deps.roles, broker.deps.clock];
+    const originals = values.map(originalObject);
+    if (originals.every((value): value is OriginalObject => !!value)) originalDefaultBrokers.set(broker,
+      { state: s, ports: s.ports, db: original.db, originals: [original.original, ...originals] });
+  }
   s.cached = { key: store, broker };
   return broker;
 }

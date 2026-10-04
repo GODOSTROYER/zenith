@@ -313,6 +313,15 @@ export interface DispatchApprovalSnapshot {
   proposalDigest: string;
   planDigest?: string;
 }
+/** Worker-private same-dispatch capture. Its shape alone grants no authority. */
+export interface CurrentDispatchRequirement {
+  readonly requirement: Readonly<{ count: number; minRole: "editor" | "admin"; separationOfDuties: boolean }> | null;
+  readonly policy: Readonly<{ version: string; inputDigest: string; input: import("@/lib/policy/types").PolicyInput }>;
+  readonly operation: Readonly<Record<string, unknown>>;
+  readonly settings: Readonly<{ workspace: Record<string, unknown> | null; environment: Record<string, unknown> | null }>;
+  readonly evidence: Readonly<{ id: string; digest: string; summary: Record<string, unknown> }> | null;
+  readonly approvals: readonly Readonly<Record<string, unknown>>[];
+}
 export interface BrokerPort {
   reevaluate(operationId: string, plan?: PlanPolicyInput): Promise<PolicyStepResult>;
   approvalStatus(operationId: string): Promise<{ approved: boolean; rejected: boolean; approvalId?: string; dispatchApproval?: DispatchApprovalSnapshot }>;

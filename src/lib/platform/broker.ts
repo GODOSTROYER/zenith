@@ -8,7 +8,7 @@
  * policy and approval checks; exact reviewed targets are signed server-side.
  */
 import { randomUUID } from "node:crypto";
-import { platformBroker, type Broker } from "@/lib/capabilities/platform";
+import { platformBroker, isDefaultPlatformBrokerFor, type Broker } from "@/lib/capabilities/platform";
 import { capability, isCapability } from "@/lib/capabilities/catalog";
 import { loadDestroyPlan } from "@/lib/capabilities/destroy-plan";
 import { evaluate } from "@/lib/capabilities/evaluate";
@@ -21,8 +21,43 @@ import { createOperationsPort, workerStoreScope, StepFailedError, type BrokerPor
 import { readPlanEvidence } from "@/lib/execution/plan-evidence";
 import { EcsReplicaRepairInput, readRepairBinding, repairBindingDigest, repairBindingEvidenceId } from "@/lib/execution/ecs-replica-repair-binding";
 import { secretResourcesForOperation } from "./secret-grants";
+import { digest } from "@/lib/controlplane/digest";
+import { effectiveAutonomy } from "@/lib/capabilities/autonomy";
+import { resolveWorkspacePolicy } from "@/lib/policy/defaults";
+import type { Evaluation } from "@/lib/capabilities/evaluate";
+import type { CurrentDispatchRequirement, DispatchApprovalSnapshot } from "@/lib/execution/ports";
+import { readCurrentNativeLinkedCredential } from "@/lib/capabilities/current-integration-grants";
+import type { NativeLinkedCredentialTuple } from "@/lib/agent-access/authority/pg";
 
 type BrokerFactory = () => Promise<Broker>;
+type NativeDispatchRequirement=CurrentDispatchRequirement&{readonly nativeCredential?:Readonly<NativeLinkedCredentialTuple>;readonly nativeCredentialRequiredScope?:string;readonly delegatedDestroyPlan?:Readonly<{operationId:string;evidenceId:string}>};
+const currentDispatchRequirements = new WeakMap<object, { sql: Sql; broker: Broker; defaultOrigin: boolean; value: NativeDispatchRequirement }>();
+const unavailableRequirement = (): never => { throw new StepFailedError("Current dispatch requirement is unavailable or changed."); };
+function immutable<T>(value: T): T {
+  if (value && typeof value === "object") { for (const child of Object.values(value)) immutable(child); Object.freeze(value); }
+  return value;
+}
+function nativeOperation(op: OperationRecord): Record<string, unknown> {
+  return { id: op.id, workspace_id: op.workspaceId, project_id: op.projectId ?? null, environment_id: op.environmentId ?? null,
+    resource_id: op.resourceId ?? null, capability: op.capability, principal: op.principal, proposal_digest: op.proposalDigest, input_digest: op.inputDigest,
+    plan_digest: op.planDigest ?? null, approval_round: approvalRoundOf(op) };
+}
+/** Only the private factory registry can originate this value. Structural copies cannot supply it. */
+export async function readCurrentDispatchRequirement(snapshot: unknown, sql: Sql, workspaceId: string, operationId: string): Promise<NativeDispatchRequirement | undefined> {
+  if (!snapshot || typeof snapshot !== "object") return undefined;
+  const entry = currentDispatchRequirements.get(snapshot);
+  const valid = () => !!entry && entry.sql === sql && (entry.defaultOrigin ? isDefaultPlatformBrokerFor(entry.broker, sql) : process.env.NODE_ENV === "test")
+    && entry.value.operation.workspace_id === workspaceId && entry.value.operation.id === operationId;
+  if (!entry || !valid()) return undefined;
+  try { if ((await entry.broker.deps.policy()).version !== entry.value.policy.version || !valid()) return undefined; } catch { return undefined; }
+  return entry.value;
+}
+/** The default paired runtime additionally refuses a modeled factory origin. */
+export async function isDefaultCurrentDispatchRequirement(snapshot: unknown, sql: Sql, workspaceId: string, operationId: string): Promise<boolean> {
+  if (!snapshot || typeof snapshot !== "object") return false;
+  return currentDispatchRequirements.get(snapshot)?.defaultOrigin === true
+    && await readCurrentDispatchRequirement(snapshot, sql, workspaceId, operationId) !== undefined;
+}
 
 export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platformBroker): BrokerPort {
   const ops = createOperationsPort(db);
@@ -61,6 +96,46 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
   const decisionFor = async (broker: Broker, op: OperationRecord, facts?: PlanPolicyInput, cap = op.capability) => {
     const req = requestFromOperation(op);
     return evaluate(broker.deps, { ...req, def: capability(cap), risk: cap === op.capability ? req.risk : capability(cap).risk, ...(facts ? { plan: facts, planDigest: op.planDigest } : {}) });
+  };
+  const captureCurrentRequirement = async (op: OperationRecord, evaluation: Evaluation): Promise<Omit<NativeDispatchRequirement, "approvals"> & { candidates: Record<string, unknown>[] }> => {
+    if (!op.planDigest || !op.environmentId || evaluation.decision.outcome === "deny") return unavailableRequirement();
+    const current = await repos.operations.get(db, op.workspaceId, op.id);
+    if (!current || digest(nativeOperation(current)) !== digest(nativeOperation(op))) return unavailableRequirement();
+    const [workspace, environment, evidenceRows, candidates] = await Promise.all([
+      repos.settings.getWorkspacePolicy(db, op.workspaceId), repos.settings.getEnvironmentSettings(db, op.workspaceId, op.environmentId),
+      db.query<{ id: string; digest: string; summary: Record<string, unknown> }>(`select id,digest,summary from platform.evidence where workspace_id=$1 and operation_id=$2
+        and kind='tofu_plan' and digest=$3 and not simulated and summary->>'stage'='plan' order by created_at,id limit 1`, [op.workspaceId, op.id, op.planDigest]),
+      db.query<{ row: Record<string, unknown> }>(`select to_jsonb(a) as row from platform.approvals a where workspace_id=$1 and operation_id=$2
+        and approval_round=$3 and proposal_digest=$4 order by id limit 10001`, [op.workspaceId, op.id, approvalRoundOf(op), op.proposalDigest]),
+    ]);
+    const evidence = evidenceRows[0], parsed = evidence && readPlanEvidence(evidence.summary);
+    const facts = parsed && { ...parsed.facts, ...(parsed.cost.deltaUsdMonthly !== undefined ? { costDeltaUsdMonthly: parsed.cost.deltaUsdMonthly } : {}),
+      ...(parsed.cost.projectedMonthlyUsd !== undefined ? { projectedMonthlyUsd: parsed.cost.projectedMonthlyUsd } : {}) };
+    const input = evaluation.input;
+    if (!evidence || !facts || digest(facts) !== digest(input.plan) || digest(input) !== evaluation.evaluated.inputDigest || candidates.length > 10000
+      || input.request.scope.workspaceId !== op.workspaceId || input.request.scope.projectId !== op.projectId || input.request.scope.environmentId !== op.environmentId
+      || digest(resolveWorkspacePolicy(workspace.params)) !== digest(input.workspacePolicy) || !input.environment
+      || effectiveAutonomy(environment, input.environment.class).level !== input.environment.autonomyLevel) return unavailableRequirement();
+    const nativeCredential=op.principal.kind==="integration"?readCurrentNativeLinkedCredential(op.principal,op.workspaceId,db):undefined;
+    const delegated = input.principal.kind === "system" && input.principal.id === "teardown-review" && op.capability === "infrastructure.destroy";
+    const proposal = op.proposal as { broker?: { v?: number; teardownReview?: boolean; destroyPlan?: { operationId?: string; evidenceId?: string } } };
+    const destroyPlan = proposal.broker?.destroyPlan;
+    if (delegated && (proposal.broker?.v !== 1 || proposal.broker.teardownReview !== true || !destroyPlan?.operationId || !destroyPlan.evidenceId
+      || !evaluation.decision.approval || evaluation.decision.approval.minRole !== "admin" || evaluation.decision.approval.count < 1)) return unavailableRequirement();
+    const nativeCredentialRequiredScope = delegated ? capability("infrastructure.plan").integrationScope : input.request.integrationScope;
+    if(op.principal.kind==="integration"&&(!nativeCredential||!nativeCredentialRequiredScope||!nativeCredential.scopes.includes(nativeCredentialRequiredScope)
+      ||digest(evaluation.access.integrationScopes)!==digest(nativeCredential.scopes)||digest(evaluation.access.allowedProjectIds)!==digest(nativeCredential.project_ids)
+      ||digest(evaluation.access.allowedEnvironmentIds??null)!==digest(nativeCredential.environment_ids)
+      ||!op.projectId||!nativeCredential.project_ids.includes(op.projectId)||nativeCredential.environment_ids&&!nativeCredential.environment_ids.includes(op.environmentId)
+      ||input.principal.kind==="integration"&&digest(input.principal.integrationScopes)!==digest(nativeCredential.scopes)))return unavailableRequirement();
+    const captured=immutable(structuredClone({ requirement: evaluation.decision.approval ? evaluation.decision.approval : null,
+      policy: { version: evaluation.evaluated.policyVersion, inputDigest: evaluation.evaluated.inputDigest, input: structuredClone(input) },
+      operation: nativeOperation(current), settings: {
+        workspace: workspace.isDefault ? null : { workspace_id: op.workspaceId, params: workspace.params },
+        environment: environment.isDefault ? null : { workspace_id: op.workspaceId, environment_id: op.environmentId, autonomy_level: environment.autonomyLevel, policy_params: environment.policyParams },
+      }, evidence, candidates: candidates.map(value => value.row) }));
+    return immutable({ ...captured, ...(nativeCredential ? { nativeCredential, nativeCredentialRequiredScope } : {}),
+      ...(delegated && destroyPlan?.operationId && destroyPlan.evidenceId ? { delegatedDestroyPlan: { operationId: destroyPlan.operationId, evidenceId: destroyPlan.evidenceId } } : {}) });
   };
   const approvals = async (broker: Broker, op: OperationRecord, requirement?: ApprovalRequirement) => {
     const all = await broker.deps.store.listApprovals(op.workspaceId, op.id);
@@ -112,10 +187,27 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
       const op = await load(id);
       const broker = await getBroker();
       const facts = await latestFacts(op);
-      const { decision } = await decisionFor(broker, op, facts);
+      const evaluation = await decisionFor(broker, op, facts), { decision } = evaluation;
       if (decision.outcome === "deny") return { approved: false, rejected: true };
       if (decision.outcome === "require_approval" && !decision.approval) throw new StepFailedError("Current policy did not specify an approval requirement.");
-      return approvals(broker, op, decision.approval);
+      // Capture the actual current evaluation before any approving-human await.
+      // Unavailable private provenance cannot change the public projection into
+      // authority: saved-plan dispatch will refuse without a genuine capture.
+      let captured: Awaited<ReturnType<typeof captureCurrentRequirement>> | undefined;
+      if (op.planDigest) { try { captured = await captureCurrentRequirement(op, evaluation); } catch { captured = undefined; } }
+      const result = await approvals(broker, op, decision.approval);
+      if (result.dispatchApproval) {
+        const snapshot: DispatchApprovalSnapshot = immutable({ ...result.dispatchApproval, approvalIds: [...result.dispatchApproval.approvalIds] });
+        if (captured && result.approved && !result.rejected) {
+          const selected = snapshot.approvalIds.map(id => captured.candidates.filter(value => value.id === id));
+          if (new Set(snapshot.approvalIds).size === snapshot.approvalIds.length && selected.every(rows => rows.length === 1)) {
+            const { candidates: _candidates, ...value } = captured;
+            currentDispatchRequirements.set(snapshot, { sql: db, broker, defaultOrigin: getBroker === platformBroker && isDefaultPlatformBrokerFor(broker, db), value: immutable({ ...value, approvals: selected.map(rows => rows[0]) }) });
+          }
+        }
+        return { ...result, dispatchApproval: snapshot };
+      }
+      return result;
     }),
     issueGrant: (id, audience, fence, opts) => workerStoreScope(async () => {
       const op = await load(id);

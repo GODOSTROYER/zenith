@@ -13,6 +13,9 @@ import * as evidence from "./evidence";
 import { projectPlanReview } from "./operation-review";
 import type { ApprovedSourceSnapshot } from "@/lib/execution/source-snapshot";
 import { textArray } from "../sql";
+import { retainPublishedPlanProductAuthority, retainClaimedPlanProductAuthority, captureClaimedPlanProductAuthority,
+  claimedPlanRequiresProductComposition, withCurrentPlanDispatchRequirement, planProductDispatchPredicate, type PlanProductDispatchAuthority } from "./plan-artifact-product-authority";
+import { assertFinalMcpProductTopology } from "./workflow-start-deploy-authority";
 
 export class PlanArtifactError extends Error {
   readonly code = "plan_artifact_unavailable";
@@ -81,6 +84,7 @@ export async function publish(sql: Sql, input: PublishArtifact): Promise<Artifac
       values ($1,$2,$3::text::jsonb,$4,$5,$6,$7,$8,$9::timestamptz) returning *`,
       [m.workspaceId,m.operationId,JSON.stringify(m),digest(m),m.planDigest,input.sealed.iv,input.sealed.authTag,input.sealed.ciphertext,m.expiresAt]);
     await tx.query("insert into platform.plan_artifact_uses (workspace_id,operation_id) values ($1,$2)", [m.workspaceId,m.operationId]);
+    try { await retainPublishedPlanProductAuthority(tx, rows[0]); } catch { refuse(); }
     return rows[0];
   });
 }
@@ -279,14 +283,25 @@ export async function claim(sql: Sql, input: ArtifactAccess, attemptId: string):
   input = captured(input);
   return sql.tx(async (tx) => {
     const row = await read(tx,input);
+    let productAuthority: PlanProductDispatchAuthority;
+    try { productAuthority = await retainClaimedPlanProductAuthority(tx, row, input.custody.operationId, attemptId); } catch { return refuse(); }
+    const owned = await tx.query(`select operation_id from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2 and phase='ready' for update`,
+      [input.custody.workspaceId,input.custody.operationId]);
+    if (owned.length !== 1) refuse();
+    if (productAuthority.kind === "product") {
+      try { await assertFinalMcpProductTopology(sql, tx); } catch { return refuse(); }
+    }
     const changed = await tx.query(`update platform.plan_artifact_uses set phase='claimed',attempt_id=$3,holder=$4,fence_token=$5,updated_at=clock_timestamp()
-      where workspace_id=$1 and operation_id=$2 and phase='ready' and (${LIVE_USE_AUTHORITY}) returning operation_id`,
-      [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken]);
+      where workspace_id=$1 and operation_id=$2 and phase='ready' and (${LIVE_USE_AUTHORITY})
+      and $6::text is null and $7::text is null
+      and (${planProductDispatchPredicate(productAuthority)}) returning operation_id`,
+      [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken,null,null,JSON.stringify(productAuthority)]);
     if (!changed.length) refuse();
     return row;
   });
 }
 export async function dispatch(sql: Sql, input: ArtifactAccess, attemptId: string, authority?: Readonly<DispatchApprovalSnapshot>): Promise<void> {
+  const originatedAuthority = authority;
   if(authority) {
     authority=Object.freeze({...authority,approvalIds:Object.freeze([...authority.approvalIds])});
     if(authority.proposalDigest!==input.custody.proposalDigest || authority.planDigest!==input.planDigest || !Number.isInteger(authority.approvalRound)
@@ -296,14 +311,21 @@ export async function dispatch(sql: Sql, input: ArtifactAccess, attemptId: strin
   await sql.tx(async (tx) => {
     const row = await read(tx,input);
     const sourceAuthority = await captureSourceDispatch(tx,row);
+    let productAuthority: PlanProductDispatchAuthority;
+    try { productAuthority = await captureClaimedPlanProductAuthority(tx, row, input.custody.operationId, attemptId); } catch { return refuse(); }
     // A separate post-wait statement must see revocation committed while this owning use row was blocked.
     const owned = await tx.query(`select operation_id from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2
       and phase='claimed' and attempt_id=$3 and holder=$4 and fence_token=$5 for update`,
       [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken]);
     if (owned.length !== 1) refuse();
+    if (productAuthority.kind === "product") {
+      try { await assertFinalMcpProductTopology(sql, tx); } catch { return refuse(); }
+      try { productAuthority = await withCurrentPlanDispatchRequirement(sql, productAuthority, originatedAuthority); } catch { return refuse(); }
+    }
     const changed = await tx.query(`update platform.plan_artifact_uses set phase='dispatched',updated_at=clock_timestamp()
       where workspace_id=$1 and operation_id=$2 and phase='claimed' and attempt_id=$3 and holder=$4 and fence_token=$5 and (${LIVE_USE_AUTHORITY})
       and (${DISPATCH_SOURCE_AUTHORITY})
+      and (${planProductDispatchPredicate(productAuthority)})
       and ($6::text::jsonb is null or exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2
         and o.approval_round=($6::text::jsonb->>'approvalRound')::integer and o.proposal_digest=$6::text::jsonb->>'proposalDigest'
         and o.plan_digest=$6::text::jsonb->>'planDigest'
@@ -313,9 +335,13 @@ export async function dispatch(sql: Sql, input: ArtifactAccess, attemptId: strin
           and a.consumed_at is not null and a.expires_at > clock_timestamp()) >= ($6::text::jsonb->>'requiredApprovalCount')::integer
         and not exists (select 1 from platform.approvals a where a.workspace_id=$1 and a.operation_id=$2 and a.approval_round=o.approval_round and a.decision='reject')))
       returning operation_id`,
-      [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken,authority?JSON.stringify(authority):null,JSON.stringify(sourceAuthority)]);
+      [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken,authority?JSON.stringify(authority):null,JSON.stringify(sourceAuthority),JSON.stringify(productAuthority)]);
     if (!changed.length) refuse();
   });
+}
+/** Internal captured runtime lookup. It cannot grant custody or dispatch. */
+export async function requiresProductComposition(sql: Sql, row: ArtifactRow, destination: string, attempt: string): Promise<boolean> {
+  try { return await claimedPlanRequiresProductComposition(sql, row, destination, attempt); } catch { return refuse(); }
 }
 /** Completion never reopens a dispatched attempt, even when its operation/fence has expired. */
 export async function finish(sql: Sql, input: ArtifactAccess, attemptId: string, success: boolean): Promise<void> {

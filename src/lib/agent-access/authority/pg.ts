@@ -24,7 +24,10 @@
  * both stores. `0002_hosted_authority.sql`'s header states the rule; do not
  * "improve" these columns to `timestamptz`.
  */
-import { pgAuthorityClient, type Sql } from "@/lib/hosted/authority/pg/client";
+import { pgAuthorityClient, isDefaultPgAuthorityClient, isDefaultPgAuthorityClientFor, type Sql } from "@/lib/hosted/authority/pg/client";
+import { z } from "zod/v4";
+import { env } from "@/lib/env";
+import type { Principal, Sql as NativeSql } from "@/lib/controlplane/types";
 import { transactPg } from "@/lib/hosted/authority/pg/tx";
 import { randomUUID } from "node:crypto";
 import { AgentError, type Credential } from "../security";
@@ -149,6 +152,63 @@ const toLinkRow = (row: LinkCodeRow, now: number): LinkRow => ({
   ...(row.credential_id ? { credentialId: row.credential_id } : {}),
 });
 
+const nativeId=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
+const nativeIds=z.array(nativeId).max(1000).refine(values=>new Set(values).size===values.length);
+const nativeScopes=z.array(z.string().regex(/^[a-z][a-z0-9:_-]{0,63}$/)).max(100).refine(values=>new Set(values).size===values.length);
+const instant=z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/).refine(value=>Number.isFinite(Date.parse(value))&&new Date(value).toISOString()===value);
+export const NativeLinkedCredential=z.object({id:nativeId,subject:nativeId,workspace_id:nativeId,project_ids:nativeIds,
+  environment_ids:nativeIds.nullable(),scopes:nativeScopes,issued_at:instant,expires_at:instant,revoked_at:instant.nullable()}).strict();
+export type NativeLinkedCredentialTuple=z.infer<typeof NativeLinkedCredential>;
+interface AuthorityOrigin { authority:PgCredentialAuthority; prototype:object; own:Map<PropertyKey,PropertyDescriptor>; methods:Map<PropertyKey,PropertyDescriptor>; checked:Promise<void>|undefined }
+const authorityOrigins=new WeakMap<object,AuthorityOrigin>();
+function sameDescriptor(current:PropertyDescriptor|undefined,before:PropertyDescriptor):boolean {
+  return !!current&&current.enumerable===before.enumerable&&current.configurable===before.configurable
+    &&("value" in before?"value" in current&&current.value===before.value&&current.writable===before.writable
+      :!("value" in current)&&current.get===before.get&&current.set===before.set);
+}
+function authorityOrigin(value:unknown):AuthorityOrigin|undefined {
+  if(!value||typeof value!=="object")return undefined;
+  const saved=authorityOrigins.get(value),current=Object.getOwnPropertyDescriptor(globalThis,"__zenithPgCredentialAuthority");
+  if(!saved||!current||!("value" in current)||current.value!==value||Object.getPrototypeOf(value)!==saved.prototype
+    ||Reflect.ownKeys(value).filter(key=>key!=="checked").length!==saved.own.size||Reflect.ownKeys(saved.prototype).length!==saved.methods.size)return undefined;
+  const checked=Object.getOwnPropertyDescriptor(value,"checked");
+  if((checked?!("value" in checked)||checked.value!==saved.checked:saved.checked!==undefined)||![...saved.own].every(([key,before])=>sameDescriptor(Object.getOwnPropertyDescriptor(value,key),before))
+    ||![...saved.methods].every(([key,before])=>sameDescriptor(Object.getOwnPropertyDescriptor(saved.prototype,key),before)))return undefined;
+  return saved;
+}
+/** Known private factory identity, including a tampered object that must not fall back. */
+export function wasDefaultPgCredentialAuthority(value:unknown):boolean { return !!value&&typeof value==="object"&&authorityOrigins.has(value); }
+/** Default factory membership only; no supplied constructor or registration can originate it. */
+export function isDefaultPgCredentialAuthority(value:unknown):boolean { try{return !!authorityOrigin(value);}catch{return false;} }
+/** Fixed boolean owner check. No caller can supply an authority target or an attestation. */
+export function isDefaultPgCredentialAuthorityFor(value:unknown,owner:NativeSql):boolean {
+  try{const client=Object.getOwnPropertyDescriptor(globalThis,"__zenithHostedPg");return env().ZENITH_STORE === "postgres" && !!authorityOrigin(value)&&!!client&&"value" in client&&isDefaultPgAuthorityClientFor(client.value,owner);}catch{return false;}
+}
+function decodeNativeArray(value:unknown):unknown { if(typeof value!=="string")return value;if(Buffer.byteLength(value)>32768)return undefined;try{return JSON.parse(value);}catch{return undefined;} }
+/** Dedicated current read excludes token hashes, secrets, labels and bearer material. */
+async function readNativeLinkedCredential(value:unknown,principal:Principal,workspaceId:string):Promise<{present:boolean;tuple?:NativeLinkedCredentialTuple}> {
+  const refuse=():never=>{throw new AgentError("policy_unavailable","Current native linked credential authority is unavailable.",503);};
+  if(!authorityOrigin(value)||principal.kind!=="integration"||principal.id!==principal.integrationId||!principal.onBehalfOf
+    ||!nativeId.safeParse(principal.id).success||!nativeId.safeParse(principal.onBehalfOf).success||!nativeId.safeParse(workspaceId).success)return refuse();
+  const client=pgAuthorityClient();if(!isDefaultPgAuthorityClient(client))return refuse();
+  const saved=authorityOrigin(value);if(!saved)return refuse();
+  await saved.authority.ready();if(!authorityOrigin(value)||!isDefaultPgAuthorityClient(client))return refuse();
+  const rows=await client<{present:boolean;tuple:unknown}[]>`select exists(select 1 from agent.agent_credentials where id=${principal.id}) as present,
+    (select jsonb_build_object('id',id,'subject',subject,'workspace_id',workspace_id,'project_ids',project_ids,'environment_ids',environment_ids,
+      'scopes',scopes,'issued_at',issued_at,'expires_at',expires_at,'revoked_at',revoked_at) from agent.agent_credentials
+      where id=${principal.id} and subject=${principal.onBehalfOf} and workspace_id=${workspaceId}) as tuple`;
+  if(!authorityOrigin(value)||!isDefaultPgAuthorityClient(client)||rows.length!==1||typeof rows[0].present!=="boolean")return refuse();
+  if(rows[0].tuple===null)return {present:rows[0].present};
+  const raw=z.record(z.string(),z.unknown()).safeParse(rows[0].tuple);if(!raw.success||Buffer.byteLength(JSON.stringify(raw.data))>131072)return refuse();
+  const tuple=NativeLinkedCredential.safeParse({...raw.data,project_ids:decodeNativeArray(raw.data.project_ids),environment_ids:raw.data.environment_ids===null?null:decodeNativeArray(raw.data.environment_ids),scopes:decodeNativeArray(raw.data.scopes)});
+  if(!tuple.success||tuple.data.id!==principal.id||tuple.data.subject!==principal.onBehalfOf||tuple.data.workspace_id!==workspaceId)return refuse();
+  return {present:true,tuple:tuple.data};
+}
+
+export async function readDefaultNativeLinkedCredential(value:unknown,principal:Principal,workspaceId:string):Promise<{present:boolean;tuple?:NativeLinkedCredentialTuple}> {
+  try{return await readNativeLinkedCredential(value,principal,workspaceId);}catch{throw new AgentError("policy_unavailable","Current native linked credential authority is unavailable.",503);}
+}
+
 export class PgCredentialAuthority implements CredentialAuthority {
   readonly kind = "postgres" as const;
   /**
@@ -162,7 +222,7 @@ export class PgCredentialAuthority implements CredentialAuthority {
   constructor(private readonly sql: () => Sql) {}
 
   private async schema(): Promise<Sql> {
-    const client = this.sql();
+    const client = this.sql(), previous = this.checked;
     this.checked ??= (async () => {
       const rows = (await client`
         select version from agent.schema_migrations order by version
@@ -177,6 +237,7 @@ export class PgCredentialAuthority implements CredentialAuthority {
           `The agent control database records schema versions ${found.join(", ") || "none"}, and this build needs version ${AGENT_SCHEMA_VERSION} ("${AGENT_SCHEMA_NAME}"). Fix: apply supabase/migrations/0006_agent_link.sql and start again. Re-applying it is safe; nothing was read or written in the meantime.`
         );
     })();
+    const origin=authorityOrigins.get(this);if(origin&&origin.checked===previous)origin.checked=this.checked;
     await this.checked;
     return client;
   }
@@ -468,7 +529,11 @@ type PgAuthorityGlobal = typeof globalThis & { __zenithPgCredentialAuthority?: P
 /** The process-wide authority, on the process-wide client. */
 export function pgCredentialAuthority(): CredentialAuthority {
   const global = globalThis as PgAuthorityGlobal;
-  return (global.__zenithPgCredentialAuthority ??= new PgCredentialAuthority(pgAuthorityClient));
+  if(global.__zenithPgCredentialAuthority)return global.__zenithPgCredentialAuthority;
+  const authority=new PgCredentialAuthority(pgAuthorityClient),prototype=Object.getPrototypeOf(authority);
+  authorityOrigins.set(authority,{authority,prototype,own:new Map(Reflect.ownKeys(authority).filter(key=>key!=="checked").map(key=>[key,Object.getOwnPropertyDescriptor(authority,key)!])),
+    methods:new Map(Reflect.ownKeys(prototype).map(key=>[key,Object.getOwnPropertyDescriptor(prototype,key)!])),checked:undefined});
+  return global.__zenithPgCredentialAuthority=authority;
 }
 
 /** Build one on a supplied client. Exported for tests and tooling. */

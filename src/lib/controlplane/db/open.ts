@@ -71,9 +71,11 @@ export function isOpenedPlatformDbHandle(value: unknown, kind?: PlatformDbKind):
   if (!value || typeof value !== "object") return false;
   const opened = openedHandles.get(value);
   if (!opened || (kind !== undefined && opened.kind !== kind)) return false;
-  const current = value as PlatformDbHandle;
-  return current.kind === opened.kind && current.identity === opened.identity && current.query === opened.query
-    && current.tx === opened.tx && current.exec === opened.exec && current.close === opened.close;
+  for (const field of ["kind", "identity", "query", "tx", "exec", "close"] as const) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, field);
+    if (!descriptor || !("value" in descriptor) || descriptor.value !== opened[field]) return false;
+  }
+  return true;
 }
 
 /** Boolean-only immutable opening target. No credentials, target getter or registration API. */

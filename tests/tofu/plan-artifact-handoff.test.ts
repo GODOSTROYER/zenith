@@ -14,6 +14,8 @@ import { PlanArtifactError } from "@/lib/controlplane/db/repos/plan-artifacts";
 import type { BrokerPort } from "@/lib/execution/ports";
 import { digest } from "@/lib/controlplane/digest";
 import { executionHolder } from "@/lib/execution/platform";
+import { createOperationsPort } from "@/lib/execution/platform";
+import { readPlanEvidence } from "@/lib/execution/plan-evidence";
 import { createApprovedSourceSnapshotStore } from "@/lib/controlplane/db/repos/approved-source-snapshots";
 import { PLATFORM_SCHEMA_VERSION } from "@/lib/controlplane/db/migrations";
 import { createOwningSourceBundles } from "@/lib/platform/source-bundle";
@@ -35,6 +37,20 @@ import { PG_URL, seedApprovedOperation, withScratchDatabase } from "../controlpl
 import { mkNode } from "../providers/aws/drivers/compute/fixtures";
 import { writeTar } from "../_support/tar";
 import { keys, api } from "../sources/fixtures";
+import { Manifest, ManifestPolicies } from "@/lib/domain/types";
+import { buildDesiredState } from "@/lib/execution/graph";
+import { planCustody, scopeOf } from "@/lib/execution/runtime";
+import type { Sql } from "@/lib/controlplane/types";
+
+vi.mock("@/lib/controlplane/db/repos/workflow-start-deploy-authority", async original => ({
+  ...await original<typeof import("@/lib/controlplane/db/repos/workflow-start-deploy-authority")>(),
+  // Explicit hosted-association model for the local binary fixture. The real
+  // SQL transaction, native tuples and saved OpenTofu bytes remain mandatory.
+  assertFinalMcpProductTopology: async (sql: Sql, tx: Sql) => {
+    if (sql === tx || !(await tx.query<{ role: string }>("select current_user as role"))[0]?.role)
+      throw new Error("Modeled hosted composition requires its owning transaction.");
+  },
+}));
 
 const sha = (value: Buffer) => createHash("sha256").update(value).digest("hex");
 const runFile=promisify(execFile);
@@ -101,6 +117,8 @@ async function producer(config:unknown):Promise<{planDigest:string}> {
 // Missing prerequisites remain visible skips locally; committed mandatory gate declarations must reject them in CI.
 if (process.env.ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED === "1" && (!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK !== "1" || PLATFORM_SCHEMA_VERSION < 13))
   throw new Error("Original plan source acceptance requires actual PostgreSQL, canonical schema13 and pinned OpenTofu network admission.");
+if (process.env.ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED === "1" && (!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK !== "1" || PLATFORM_SCHEMA_VERSION < 13))
+  throw new Error("Original plan product acceptance requires actual PostgreSQL, canonical schema13 and pinned OpenTofu network admission.");
 describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK !== "1")("authenticated original cross-worker handoff [postgres]",()=>{
   async function fixture<T>(fn:(f:Awaited<ReturnType<typeof setup>>)=>Promise<T>) {
     return withScratchDatabase(async url=>{const f=await setup(url);try{return await fn(f);}finally{await f.closeSourceFixture();await f.a.close();await f.b.close();await rm(f.temp,{recursive:true,force:true});}});
@@ -159,13 +177,73 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
       expect(await readdir(temp)).not.toContain(path.basename(localA));
       return {op,lease,custody,planDigest:plan.planDigest,workspace,destroy,executableSourceDigest};
     }
+    async function reviewProduct(workspace=ws(),destroy=false,sourceReview=false) {
+      const tableNames=["workspaces","members","projects","environments","revisions","revision_manifests","deployments","connections"] as const;
+      const migration=await readFile(new URL("../../supabase/migrations/0001_system_of_record.sql",import.meta.url),"utf8");
+      for(const name of tableNames) {
+        const ddl=new RegExp(`create table if not exists public\\.${name} \\([\\s\\S]*?\\n\\);`).exec(migration)?.[0];
+        if(!ddl)throw new Error("Canonical product collection DDL is unavailable.");
+        await a.exec(ddl);
+      }
+      const workspaceId=`ws_${randomUUID()}`,projectId=`proj_${randomUUID()}`,environmentId=`env_${randomUUID()}`;
+      const revisionId=`rev_${randomUUID()}`,deploymentId=`dep_${randomUUID()}`,connectionId=`public_${randomUUID()}`,nativeId=`conn_${randomUUID()}`;
+      const manifest=Manifest.parse({version:1,services:[{id:"web",name:"web",kind:"web",port:3000,source:{type:"image",image:"example/web:v1"}}],resources:[],routes:[],bindings:[]});
+      const policies=ManifestPolicies.parse({approvalRequired:false,allowStatefulDeletion:true});
+      const environment={id:environmentId,name:"production",class:"production" as const,provider:"aws" as const,region:"us-east-1",baseDomain:"owning.example.test",connectionId,policies,deployedRevisionId:revisionId};
+      const product={workspace:{id:workspaceId,name:"Owning",slug:"owning"},project:{id:projectId,name:"Owning",slug:"owning"},environment,revision:{id:revisionId,number:1,manifest},deploymentId};
+      const desired=buildDesiredState(product);
+      if(!desired.graph)throw new Error("Canonical product graph fixture is unavailable.");
+      const nodes=[...desired.graph.nodes].sort((a,b)=>a.address<b.address?-1:a.address>b.address?1:0);
+      const graph=destroy?{...desired.graph,nodes,graphDigest:digest({graphDigest:desired.graph.graphDigest,nodes})}:desired.graph;
+      await repos.connections.create(a,{id:nativeId,workspaceId,createdBy:"planner",config:{provider:"aws",mode:"aws_assume_role",accountId:"123456789012",region:environment.region,
+        externalId:"modeled-product-handoff",observeRoleArn:"arn:aws:iam::123456789012:role/zenith_observe_fixture",deployRoleArn:"arn:aws:iam::123456789012:role/zenith_deploy_fixture"}});
+      await repos.connections.recordVerification(a,{workspaceId,id:nativeId,ok:true});
+      await a.query("insert into public.workspaces(id,workspace_id,slug,name,data) values($1,$1,$2,'Owning','{}'::jsonb)",[workspaceId,`owning-${randomUUID()}`]);
+      await a.query("insert into public.members(id,workspace_id,email,role,data) values('planner',$1,'planner@example.test','editor','{}'::jsonb),('destination-user',$1,'destination@example.test','editor','{}'::jsonb),('browser-admin',$1,'browser@example.test','admin','{}'::jsonb)",[workspaceId]);
+      await a.query("insert into public.projects(id,workspace_id,slug,name,data) values($1,$2,'owning','Owning',$3::text::jsonb)",[projectId,workspaceId,JSON.stringify({workingManifest:manifest})]);
+      await a.query("insert into public.environments(id,workspace_id,project_id,class,connection_id,data,deployed_revision_id) values($1,$2,$3,'production',$4,$5::text::jsonb,$6)",[environmentId,workspaceId,projectId,connectionId,JSON.stringify({name:environment.name,region:environment.region,baseDomain:environment.baseDomain,policies}),revisionId]);
+      await a.query("insert into public.connections(id,workspace_id,provider,status,data) values($1,$2,'aws','healthy',$3::text::jsonb)",[connectionId,workspaceId,JSON.stringify({region:environment.region,platformConnectionId:nativeId})]);
+      await a.query("insert into public.revisions(id,workspace_id,project_id,number,data) values($1,$2,$3,1,'{}'::jsonb)",[revisionId,workspaceId,projectId]);
+      await a.query("insert into public.revision_manifests(revision_id,workspace_id,manifest) values($1,$2,$3::text::jsonb)",[revisionId,workspaceId,JSON.stringify(manifest)]);
+      const {operation:op}=await seedApprovedOperation(a,workspaceId,{requester:user("planner"),proposal:{capability:sourceReview?"infrastructure.plan":destroy?"infrastructure.destroy":"infrastructure.apply",
+        scope:{workspaceId,projectId,environmentId},input:{environmentId,revisionId,deploymentId,...(sourceReview?{teardownReview:true}:{})}}});
+      await a.query("insert into public.deployments(id,workspace_id,project_id,environment_id,revision_id,status,data) values($1,$2,$3,$4,$5,'planning',$6::text::jsonb)",[deploymentId,workspaceId,projectId,environmentId,revisionId,JSON.stringify({executor:"workflow",operationId:op.id})]);
+      const lease=await repos.leases.acquire(a,{scope:`env:${environmentId}`,workspaceId,holder:`worker:producer:${op.id}`,ttlMs:120000});
+      if(!lease)throw new Error("Product review lease is missing.");
+      await repos.operations.claimForExecution(a,{workspaceId,id:op.id,expectedDigest:op.proposalDigest,holder:executionHolder(op.id),leaseMs:120000,lease});
+      const native=await repos.connections.get(a,workspaceId,nativeId);
+      if(!native)throw new Error("Native product provider is missing.");
+      const custody=planCustody({op,workspaceId,environmentId,scope:scopeOf(op),product,deploymentId},graph.graphDigest,native);
+      const localA=await mkdtemp(path.join(temp,"producer-product-"));
+      const plan=await producer({url,key,fingerprint,ws:workspace,custody,lease,workRoot:localA,cache,destroy,evidenceId:`evd_${op.id}`});
+      await rm(localA,{recursive:true,force:true});expect(await readdir(temp)).not.toContain(path.basename(localA));
+      const h=await makeHarness({kind:"memory",engine:scriptedEngine("product-handoff-policy",input=>input.request.capability==="infrastructure.apply"?requireApproval(1,"admin",true):allowDecision())});
+      h.deps.store=new PlatformBrokerStore(a);h.deps.clock={now:()=>new Date()};
+      h.world.workspaces.add(workspaceId);h.world.projects.set(projectId,{workspaceId});
+      h.world.environments.set(environmentId,{projectId,class:"production",provider:"aws",region:"us-east-1"});
+      for(const [id,role] of [["planner","editor"],["destination-user","editor"],["browser-admin","admin"]] as const)h.world.members.set(`${workspaceId}|${id}`,role);
+      const broker=createBroker(h.deps),worker=createExecutionBroker(b,async()=>broker);
+      if(!sourceReview) {
+        const evidence=await repos.evidence.get(a,workspaceId,`evd_${op.id}`);
+        if(!evidence)throw new Error("Native retained product plan evidence is missing.");
+        const parsed=readPlanEvidence(evidence.summary);
+        if(!parsed)throw new Error("Native retained product plan facts are unavailable.");
+        const facts={...parsed.facts,...(parsed.cost.deltaUsdMonthly!==undefined?{costDeltaUsdMonthly:parsed.cost.deltaUsdMonthly}:{}),...(parsed.cost.projectedMonthlyUsd!==undefined?{projectedMonthlyUsd:parsed.cost.projectedMonthlyUsd}:{})};
+        const decision=await worker.reevaluate(op.id,facts);
+        const ports=createOperationsPort(a);await ports.setPolicyDecision({workspaceId,operationId:op.id,decisionId:decision.decisionId});
+        await ports.transition({workspaceId,operationId:op.id,to:"awaiting_approval"});
+        await broker.approve({workspaceId,operationId:op.id,proposalDigest:op.proposalDigest,planDigest:plan.planDigest,approver:user("browser-admin"),session:sessionFor("browser-admin")});
+        await repos.operations.claimForExecution(a,{workspaceId,id:op.id,expectedDigest:op.proposalDigest,holder:executionHolder(op.id),leaseMs:120000,lease,expectedPolicyVersion:"product-handoff-policy"});
+      }
+      return {op,lease,custody,planDigest:plan.planDigest,workspace,destroy,revisionId,deploymentId,connectionId,nativeId,h,broker,worker};
+    }
     const activeDirectory=async()=> {
       const entries=await readdir(temp,{withFileTypes:true});
       const dirs=entries.filter(entry=>entry.isDirectory()&&entry.name.startsWith("zenith-tofu-run-"));
       if (dirs.length!==1) throw new Error("Private worker workspace is not exclusive.");
       return path.join(temp,dirs[0].name,"work");
     };
-    return {url,a,b,temp,state,cache,runner,key,fingerprint,port,tofu:custodyRuntime.tofu,ws,review,activeDirectory,fixtureBroker,closeSourceFixture:async()=>{await sourceMaterial?.close();vi.unstubAllEnvs();},setDispatchBroker:(broker:Pick<BrokerPort,"approvalStatus">)=>{dispatchBroker=broker;}};
+    return {url,a,b,temp,state,cache,runner,key,fingerprint,port,tofu:custodyRuntime.tofu,ws,review,reviewProduct,activeDirectory,fixtureBroker,closeSourceFixture:async()=>{await sourceMaterial?.close();vi.unstubAllEnvs();},setDispatchBroker:(broker:Pick<BrokerPort,"approvalStatus">)=>{dispatchBroker=broker;}};
   }
   it("matching immutable source identity consumes original bytes and a different source digest refuses before dispatch",async()=>{
     await fixture(async f=>{
@@ -386,4 +464,87 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
       await expect(f.port.consume(r,async()=>"retry")).rejects.toThrow();
     });
   },240000);
+  it.each(["changed owning region","approver demotion","benign UI pointer advance","unchanged owning target"] as const)("saved product original binary %s during paired current-role wait fences actual apply effects",async change=>{
+    await fixture(async f=>{
+      const r=await f.reviewProduct();let enter!:()=>void,release!:()=>void;
+      const entered=new Promise<void>(resolve=>{enter=resolve;}),resumed=new Promise<void>(resolve=>{release=resolve;});
+      const roles=r.h.deps.roles;r.h.deps.roles={resolve:async(principal,workspaceId)=>{if(principal.kind==="user"&&principal.id==="browser-admin"){enter();await resumed;}return roles.resolve(principal,workspaceId);}};
+      f.setDispatchBroker(r.worker);
+      let callbacks=0;
+      const pending=f.port.consume(r,original=>f.tofu.applyVerifiedPlan(r.workspace,{original,custody:r.custody,approvedDigest:r.planDigest,normalize:{fingerprintKey:f.fingerprint},beforeDispatch:async()=>{
+        expect(sha(await readFile(path.join(await f.activeDirectory(),"reviewed.tfplan")))).toBe(original.manifest.rawSha256);
+        await writeFile(path.join(await f.activeDirectory(),"tfplan"),"fresh fallback forbidden");callbacks++;
+      }})).then(value=>({value,error:undefined}),error=>({value:undefined,error}));
+      try {
+        await entered;
+        if(change==="changed owning region")await f.a.query("update public.environments set data=jsonb_set(data,'{region}',to_jsonb('eu-west-1'::text)) where id=$1",[r.op.environmentId]);
+        if(change==="approver demotion")await f.a.query("update public.members set role='editor' where workspace_id=$1 and id='browser-admin'",[r.op.workspaceId]);
+        if(change==="benign UI pointer advance") {
+          await f.a.query("update public.environments set deployed_revision_id='later-ui-revision',active_deployment_id='later-ui-deployment' where id=$1",[r.op.environmentId]);
+          await f.a.query("update public.projects set name='New display',data=jsonb_set(data,'{workingManifest}','{}'::jsonb) where id=$1",[r.op.projectId]);
+          await f.a.query("update public.deployments set status='applying',data=data || '{\"progress\":42}'::jsonb where id=$1",[r.deploymentId]);
+        }
+      } finally {release();}
+      const result=await pending;expect(callbacks).toBe(1);
+      if(change==="changed owning region"||change==="approver demotion") {
+        expect(result.error).toBeInstanceOf(Error);expect(result.error).toMatchObject({message:"Original plan dispatch outcome is unconfirmed; inspect this operation before another write."});
+        expect(await readFile(f.state).catch(()=>null)).toBeNull();
+        expect(await f.b.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[r.op.workspaceId,r.op.id])).toEqual([{phase:"ready"}]);
+        expect((await repos.evidence.list(f.b,r.op.workspaceId,{operationId:r.op.id})).filter(row=>row.kind==="tofu_apply")).toHaveLength(0);
+      } else {
+        expect(result.error).toBeUndefined();expect(result.value?.apply.exitCode).toBe(0);expect(result.value?.plan.planDigest).toBe(r.planDigest);
+        expect(JSON.parse(await readFile(f.state,"utf8")).resources).toHaveLength(1);
+        await expect(f.port.consume(r,async()=>undefined)).rejects.toThrow();
+      }
+    });
+  },240000);
+  it.each(["destination subject demotion","approver demotion","unchanged destination"] as const)("associated saved product destroy binary fences %s during paired current-role wait",async change=>{
+    await fixture(async f=>{
+      const initial=await f.review();await f.port.consume(initial,original=>f.tofu.applyVerifiedPlan(initial.workspace,{original,custody:initial.custody,approvedDigest:initial.planDigest,normalize:{fingerprintKey:f.fingerprint}}));
+      await repos.leases.release(f.a,initial.lease);
+      const source=await f.reviewProduct(f.ws(),true,true);
+      const h=await makeHarness({kind:"memory",engine:scriptedEngine("product-handoff-policy",input=>input.request.capability==="infrastructure.destroy"?requireApproval(1,"admin"):allowDecision())});
+      h.deps.store=new PlatformBrokerStore(f.a);h.deps.clock={now:()=>new Date()};
+      h.world.workspaces.add(source.op.workspaceId);h.world.projects.set(source.op.projectId!,{workspaceId:source.op.workspaceId});
+      h.world.environments.set(source.op.environmentId!,{projectId:source.op.projectId!,class:"production",provider:"aws",region:"us-east-1"});
+      for(const [id,role] of [["planner","admin"],["destination-user","editor"],["browser-admin","admin"]] as const)h.world.members.set(`${source.op.workspaceId}|${id}`,role);
+      const broker=createBroker(h.deps),proposed=await broker.propose({capability:"infrastructure.destroy",scope:{workspaceId:source.op.workspaceId,projectId:source.op.projectId,environmentId:source.op.environmentId},input:{environmentId:source.op.environmentId}},user("destination-user"),
+        {via:"workflow",teardownReview:true,destroyPlan:{operationId:source.op.id,planDigest:source.planDigest}});
+      const destination=await repos.operations.get(f.a,source.op.workspaceId,proposed.operation.id);
+      if(!destination)throw new Error("Native product destroy destination is missing.");
+      const ref=z.object({broker:z.object({destroyPlan:z.object({operationId:z.string(),evidenceId:z.string()})})}).parse(destination.proposal).broker.destroyPlan;
+      const evidence=await repos.evidence.get(f.a,source.op.workspaceId,ref.evidenceId);
+      if(!evidence)throw new Error("Native product destroy source evidence is missing.");
+      expect(ref.operationId).toBe(source.op.id);
+      await repos.evidence.insert(f.a,{workspaceId:source.op.workspaceId,operationId:destination.id,kind:"tofu_plan",digest:source.planDigest,summary:evidence.summary,simulated:false});
+      await f.port.associate({workspaceId:source.op.workspaceId,sourceOperationId:source.op.id,destinationOperationId:destination.id,sourceEvidenceId:ref.evidenceId,planDigest:source.planDigest,lease:source.lease});
+      await repos.operations.transition(f.a,{workspaceId:source.op.workspaceId,id:source.op.id,from:["running"],to:"succeeded",fence:source.lease,patch:{result:{operationId:destination.id,planDigest:source.planDigest}}});
+      await repos.leases.release(f.a,source.lease);
+      await broker.approve({workspaceId:source.op.workspaceId,operationId:destination.id,proposalDigest:destination.proposalDigest,planDigest:source.planDigest,approver:user("browser-admin"),session:sessionFor("browser-admin")});
+      await repos.operations.claimForExecution(f.b,{workspaceId:source.op.workspaceId,id:destination.id,expectedDigest:destination.proposalDigest,holder:executionHolder(destination.id),leaseMs:120000});
+      const lease=await repos.operations.acquireExecutionLease(f.b,{scope:source.lease.scope,workspaceId:source.op.workspaceId,holder:`worker:destination:${destination.id}`,ttlMs:120000,operation:{id:destination.id,proposalDigest:destination.proposalDigest}});
+      if(!lease)throw new Error("Native product destination lease is missing.");
+      const custody={...source.custody,operationId:destination.id,proposalDigest:destination.proposalDigest,inputDigest:destination.inputDigest,expiresAt:destination.expiresAt};
+      const worker=createExecutionBroker(f.b,async()=>broker);f.setDispatchBroker(worker);
+      let enter!:()=>void,release!:()=>void;const entered=new Promise<void>(resolve=>{enter=resolve;}),resumed=new Promise<void>(resolve=>{release=resolve;});
+      const roles=h.deps.roles;h.deps.roles={resolve:async(principal,workspaceId)=>{if(principal.kind==="user"&&principal.id==="browser-admin"){enter();await resumed;}return roles.resolve(principal,workspaceId);}};
+      let callbacks=0;
+      const pending=f.port.consume({custody,planDigest:source.planDigest,lease},original=>f.tofu.applyVerifiedPlan(source.workspace,{original,custody,approvedDigest:source.planDigest,destroy:true,normalize:{fingerprintKey:f.fingerprint},beforeDispatch:async()=>{
+        expect(original.manifest.operationId).toBe(source.op.id);expect(sha(await readFile(path.join(await f.activeDirectory(),"reviewed.tfplan")))).toBe(original.manifest.rawSha256);
+        await writeFile(path.join(await f.activeDirectory(),"tfplan"),"fresh fallback forbidden");callbacks++;
+      }})).then(value=>({value,error:undefined}),error=>({value:undefined,error}));
+      try {await entered;if(change==="destination subject demotion")await f.a.query("update public.members set role='viewer' where workspace_id=$1 and id='destination-user'",[source.op.workspaceId]);if(change==="approver demotion")await f.a.query("update public.members set role='editor' where workspace_id=$1 and id='browser-admin'",[source.op.workspaceId]);}finally{release();}
+      const result=await pending;expect(callbacks).toBe(1);
+      if(change!=="unchanged destination") {
+        expect(result.error).toMatchObject({message:"Original plan dispatch outcome is unconfirmed; inspect this operation before another write."});
+        expect(JSON.parse(await readFile(f.state,"utf8")).resources).toHaveLength(1);
+        expect(await f.b.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[source.op.workspaceId,destination.id])).toEqual([{phase:"ready"}]);
+      } else {
+        expect(result.error).toBeUndefined();expect(result.value?.apply.exitCode).toBe(0);expect(result.value?.plan.summary.delete).toBe(1);
+        expect(JSON.parse(await readFile(f.state,"utf8")).resources).toHaveLength(0);
+        await expect(f.port.consume({custody,planDigest:source.planDigest,lease},async()=>undefined)).rejects.toThrow();
+      }
+      expect(await f.b.query("select operation_id from platform.plan_artifacts where workspace_id=$1 and operation_id=$2",[source.op.workspaceId,destination.id])).toHaveLength(0);
+    });
+  },300000);
 });

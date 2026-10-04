@@ -122,7 +122,7 @@ describe("hand-computed fixture (aws us-east-1)", () => {
     }
     expect(est.kind).toBe("estimate");
     expect(est.currency).toBe("USD");
-    expect(est.catalogVersion).toBe("2026-09-30.1");
+    expect(est.catalogVersion).toBe("2026-10-05.1");
     expect(est.assumptions.priceEvidenceWeakUsd).toBe(0); // every AWS number here was read from the price feed
   });
 
@@ -257,20 +257,32 @@ describe("kinds, ownership and sizes", () => {
   });
 
   it("names unpriced kinds and unknown providers instead of pricing them at zero silently", () => {
-    const est = estimateGraphCost(
-      {
-        nodes: [
-          node("fn/f", "function", "aws", "us-east-1"),
-          node("k/c", "kubernetes_cluster", "aws", "us-east-1"),
-          node("svc/s", "container_service", "sandbox", "local"),
-        ],
-      },
-      { catalog },
-    );
-    expect(est.monthlyUsd).toBe(0);
-    expect(est.excluded.join(" ")).toMatch(/1 function node/);
-    expect(est.excluded.join(" ")).toMatch(/1 kubernetes_cluster node/);
-    expect(est.excluded.join(" ")).toMatch(/provider "sandbox" have no price catalog/);
+    for (const unknown of [
+      node("fn/f", "function", "aws", "us-east-1"),
+      node("k/c", "kubernetes_cluster", "aws", "us-east-1"),
+      node("svc/s", "container_service", "sandbox", "local"),
+    ]) {
+      expect(() => estimateGraphCost({ nodes: [unknown] }, { catalog })).toThrow(MissingPriceError);
+      expect(() => estimateGraphCost({ nodes: [unknown] }, { catalog })).toThrow(unknown.provider === "sandbox" ? /managed provider not in catalog/ : new RegExp(`managed ${unknown.kind}`));
+    }
+  });
+
+  it.each(["function", "static_site", "container_registry", "secret", "kubernetes_cluster", "kubernetes_namespace", "build_pipeline", "provider_native"] as const)("refuses a priced subtotal when managed %s has no model", (kind) => {
+    const priced = node("service/web", "container_service", "aws", "us-east-1");
+    expect(estimateGraphCost({ nodes: [priced] }, { catalog }).monthlyUsd).toBeGreaterThan(0);
+    const unknown = node("unknown/main", kind, "aws", "us-east-1");
+    expect(() => estimateGraphCost({ nodes: [priced, unknown] }, { catalog })).toThrow(MissingPriceError);
+  });
+
+  it("keeps genuinely no-charge native infrastructure and externally owned unknown nodes distinct", () => {
+    const free = estimateGraphCost({ nodes: [node("network/main", "network", "aws", "us-east-1")] }, { catalog });
+    expect(free.monthlyUsd).toBe(0);
+    expect(free.lines).toEqual([]);
+    for (const ownership of ["referenced", "external"] as const) {
+      const outside = estimateGraphCost({ nodes: [node("unknown/main", "function", "sandbox", "local", {}, ownership)] }, { catalog });
+      expect(outside.monthlyUsd).toBe(0);
+      expect(outside.excluded.join(" ")).toContain("not Zenith's bill");
+    }
   });
 
   it("flags Azure container pricing as an active-rate upper bound", () => {
@@ -342,7 +354,7 @@ describe("determinism, rounding and errors", () => {
 
   it("stamps computedAt from the catalog snapshot, or from options.now, never the wall clock", () => {
     const nodes = stackNodes("aws", "us-east-1");
-    expect(estimateGraphCost({ nodes }, { catalog }).computedAt).toBe("2026-09-30T00:00:00.000Z");
+    expect(estimateGraphCost({ nodes }, { catalog }).computedAt).toBe("2026-10-05T00:00:00.000Z");
     expect(estimateGraphCost({ nodes }, { catalog, now: "2027-01-02T03:04:05.000Z" }).computedAt).toBe("2027-01-02T03:04:05.000Z");
   });
 

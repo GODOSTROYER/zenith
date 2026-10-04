@@ -24,7 +24,8 @@ import {
   verificationSummary,
 } from "@/lib/placement";
 import type { PriceCatalog } from "@/lib/placement";
-import rawJson from "@/lib/placement/catalog/2026-09.json";
+import rawJson from "@/lib/placement/catalog/2026-10.json";
+import historicalJson from "@/lib/placement/catalog/2026-09.json";
 
 const catalog = loadDefaultCatalog();
 const book = buildPriceBook(catalog);
@@ -42,7 +43,7 @@ function clone(): PriceCatalog {
 
 describe("catalog contents", () => {
   it("has the pinned version and validates", () => {
-    expect(catalog.version).toBe("2026-09-30.1");
+    expect(catalog.version).toBe("2026-10-05.1");
     expect(loadDefaultCatalog()).toBe(catalog); // cached
     expect(parseCatalog(rawJson)).toEqual(catalog);
   });
@@ -63,7 +64,7 @@ describe("catalog contents", () => {
     }
     for (const s of catalog.sources) {
       expect(s.url).toMatch(/^https:\/\//);
-      expect(s.retrievedAt).toBe("2026-09-30");
+      expect(["2026-09-30", "2026-10-05"]).toContain(s.retrievedAt);
       expect(s.source.length).toBeGreaterThan(80);
       if (s.verification !== "internal_assumption") expect(s.source).toMatch(/transcribed/i);
       if (s.verification === "model_knowledge") {
@@ -147,7 +148,46 @@ describe("catalog contents", () => {
     expect(book.find("azure", "eastus", "azure.nat_gateway.hour")?.verification).toBe("model_knowledge");
     expect(book.find("zenith", "us-east", "zenith.container.vcpu_hour")?.verification).toBe("internal_assumption");
     // the snapshot time is the retrieval date, never the wall clock
-    expect(catalogSnapshotAt(catalog)).toBe("2026-09-30T00:00:00.000Z");
+    expect(catalogSnapshotAt(catalog)).toBe("2026-10-05T00:00:00.000Z");
+  });
+});
+
+describe("bounded October catalog refresh", () => {
+  it("preserves every untouched September entry and source without relabeling evidence", () => {
+    const historical = parseCatalog(historicalJson);
+    expect(historical.version).toBe("2026-09-30.1");
+    expect(catalog.sources.slice(0, historical.sources.length)).toEqual(historical.sources);
+    expect(catalog.entries).toHaveLength(historical.entries.length);
+    const touched = catalog.entries.filter((entry, index) => JSON.stringify(entry) !== JSON.stringify(historical.entries[index]));
+    expect(touched).toHaveLength(8);
+    expect([...new Set(touched.map((entry) => entry.sku))].sort()).toEqual(["aws.acm.public_cert_month", "azure.public_ip.hour"]);
+    expect(catalog.sources.filter((source) => source.retrievedAt === "2026-10-05")).toHaveLength(2);
+  });
+
+  it("pins the exact regional Standard IPv4 meter and separates effective date from retrieval", () => {
+    for (const region of REQUIRED_REGIONS.azure!) {
+      const entry = book.find("azure", region, "azure.public_ip.hour")!;
+      expect(entry.usd).toBe(0.005);
+      expect(entry.unit).toBe("hour");
+      expect(entry.verification).toBe("official_api");
+      expect(entry.note).toContain("2026-10-05");
+      expect(entry.note).toContain("effectiveStartDate 2018-06-01T00:00:00Z");
+      expect(entry.note).toContain("Standard IPv4 Static Public IP");
+    }
+    const source = catalog.sources.find((entry) => entry.provider === "azure" && entry.retrievedAt === "2026-10-05")!;
+    expect(source.url).toBe("https://prices.azure.com/api/retail/prices");
+    expect(source.source).toContain("priceType Consumption");
+  });
+
+  it("records verified certificate zero only for non-exportable integrated ACM usage", () => {
+    for (const region of REQUIRED_REGIONS.aws!) {
+      const entry = book.find("aws", region, "aws.acm.public_cert_month")!;
+      expect(entry.usd).toBe(0);
+      expect(entry.verification).toBe("official_page");
+      expect(entry.note).toContain("Non-exportable");
+      expect(entry.note).toContain("Exportable, ACME and Private CA not covered");
+    }
+    expect(book.find("azure", "eastus", "azure.nat_gateway.hour")?.verification).toBe("model_knowledge");
   });
 });
 
@@ -174,6 +214,24 @@ describe("catalog validation rejects bad catalogs", () => {
     const d = clone();
     d.sources[0]!.retrievedAt = "30/09/2026";
     expect(() => parseCatalog(d)).toThrow(PlacementCatalogError);
+  });
+
+  it.each(["2026-02-30", "2026-13-01", "0000-01-01"])("rejects impossible retrieval and version date %s", (date) => {
+    const source = clone();
+    source.sources[0]!.retrievedAt = date;
+    expect(() => parseCatalog(source)).toThrow(PlacementCatalogError);
+    const version = clone();
+    version.version = `${date}.1`;
+    expect(() => parseCatalog(version)).toThrow(PlacementCatalogError);
+  });
+
+  it("refuses retrieval dates after the snapshot identity but accepts a real leap day", () => {
+    const future = clone();
+    future.sources[0]!.retrievedAt = "2026-10-06";
+    expect(() => parseCatalog(future)).toThrow(/after the catalog version date/);
+    const leap = clone();
+    leap.sources[0]!.retrievedAt = "2024-02-29";
+    expect(parseCatalog(leap).sources[0]!.retrievedAt).toBe("2024-02-29");
   });
 
   it("rejects duplicates, sku/provider mismatch, misused ratios, unknown fields and a bad version", () => {

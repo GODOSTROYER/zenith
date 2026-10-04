@@ -2,7 +2,7 @@
  * Price catalog loader, validator and lookup index (ADR-0013).
  *
  * Invariants:
- * - The catalog is a STATIC SNAPSHOT of list prices (`catalog/2026-09.json`).
+ * - The catalog is a STATIC SNAPSHOT of list prices (`catalog/2026-10.json`).
  *   Nothing here fetches anything; refreshing it is a deliberate, reviewed
  *   change that bumps `version`.
  * - Every entry names how its number was obtained (`verification`) and is
@@ -17,8 +17,9 @@
  * `internal_assumption` were NOT read from a price feed. `verificationSummary`
  * lets an estimate say how much of its total rests on such numbers.
  *
- * Refreshing the catalog (a reviewed change that bumps `version` and every
- * `retrievedAt`): re-read the feeds named in `sources[].source` — the AWS Price
+ * Refreshing the catalog (a reviewed change that bumps `version` and the
+ * touched source retrieval dates): re-read the feeds named in `sources[].source`,
+ * including the AWS Price
  * List Bulk API region files, the Azure Retail Prices API
  * (prices.azure.com/api/retail/prices, filtered by armRegionName and
  * serviceName), the OCI public price list API and the Cloud Run pricing page —
@@ -29,7 +30,7 @@
  */
 import { z } from "zod";
 import type { PriceCatalog, PriceEntry, PriceVerification } from "@/lib/placement/types";
-import rawCatalog from "@/lib/placement/catalog/2026-09.json";
+import rawCatalog from "@/lib/placement/catalog/2026-10.json";
 
 const VERIFICATIONS = [
   "official_api",
@@ -48,6 +49,17 @@ const UNITS = ["hour", "month", "gb_month", "gb", "million_requests", "iops_mont
 const SKU_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+function isCalendarDate(value: string): boolean {
+  if (value.length !== 10 || !ISO_DATE.test(value)) return false;
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  const day = Number(value.slice(8, 10));
+  if (year < 1 || month < 1 || month > 12 || day < 1) return false;
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = month === 2 ? (leapYear ? 29 : 28) : [4, 6, 9, 11].includes(month) ? 30 : 31;
+  return day <= daysInMonth;
+}
+
 const EntrySchema = z
   .object({
     provider: z.string().min(1),
@@ -64,7 +76,7 @@ const SourceSchema = z
   .object({
     provider: z.string().min(1),
     source: z.string().min(40, "source must describe where the numbers came from"),
-    retrievedAt: z.string().regex(ISO_DATE, "retrievedAt must be YYYY-MM-DD"),
+    retrievedAt: z.string().refine(isCalendarDate, "retrievedAt must be a real YYYY-MM-DD calendar date"),
     url: z.string().url().startsWith("https://"),
     verification: z.enum(VERIFICATIONS),
   })
@@ -72,7 +84,7 @@ const SourceSchema = z
 
 const CatalogSchema = z
   .object({
-    version: z.string().regex(/^\d{4}-\d{2}-\d{2}\.\d+$/, "version must look like 2026-09-30.1"),
+    version: z.string().regex(/^\d{4}-\d{2}-\d{2}\.\d+$/, "version must look like 2026-10-05.1").refine((value) => isCalendarDate(value.split(".")[0]!), "version must contain a real calendar date"),
     sources: z.array(SourceSchema).min(1),
     entries: z.array(EntrySchema).min(1),
   })
@@ -106,6 +118,10 @@ export function parseCatalog(input: unknown): PriceCatalog {
   }
   const catalog = parsed.data as PriceCatalog;
   const issues: string[] = [];
+  const versionDate = catalog.version.split(".")[0]!;
+  for (const source of catalog.sources) {
+    if (source.retrievedAt > versionDate) issues.push(`source for ${source.provider}/${source.verification} was retrieved after the catalog version date`);
+  }
 
   const covered = new Set(catalog.sources.map((s) => `${s.provider}|${s.verification}`));
   const seen = new Set<string>();
@@ -145,7 +161,7 @@ export function loadDefaultCatalog(): PriceCatalog {
   return defaultCatalog;
 }
 
-/** Deterministic timestamp for "when were these prices current": the latest `retrievedAt`, at midnight UTC. */
+/** Latest source retrieval at midnight UTC; a partial refresh does not refresh every entry. */
 export function catalogSnapshotAt(catalog: PriceCatalog): string {
   const latest = catalog.sources.map((s) => s.retrievedAt).sort().at(-1) ?? "1970-01-01";
   return `${latest}T00:00:00.000Z`;

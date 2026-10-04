@@ -5,6 +5,7 @@ and how to refresh them. Design: [ADR-0013](../../adr/0013-placement-and-cost.md
 Code: `src/lib/placement/`.
 
 Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01).
+Updated for the bounded 2026-10-05 catalog refresh; historical rates retain their original evidence dates.
 
 **Status.** The price catalog, the cost engine and the placement solver are built as
 pure libraries with contract tests. They are exposed by MCP v3, placement REST
@@ -24,7 +25,8 @@ compare its working manifest. `src/lib/placement/recommend.ts` expands with
 `provider: "auto"`, evaluates constraints and uses stored verified connections.
 It does not recheck cloud permissions. Budget, residency, latency, availability,
 provider preferences and usage constrain the estimate; infeasible or unknown
-pricing is reported rather than guessed.
+pricing is reported rather than guessed. A budget filters modeled monthly estimates;
+it is not a cloud billing cap or a guarantee that actual charges stay below it.
 
 The same read is available through `placement.recommend`
 (`src/lib/actions/defs/placement.ts`), POST
@@ -65,6 +67,10 @@ an invoice or a quote". If a screen shows a figure from this engine it must say
   catalog. A value of the wrong type or an unknown size throws `CostInputError`
   rather than being guessed, and a missing price is an error (`MissingPriceError`),
   never a silent zero: a candidate that cannot be priced cannot be recommended.
+  Unpriced managed nodes refuse the whole-graph estimate, including a graph with
+  other priced nodes. The default worker cost port returns no estimate rather
+  than approving a partial subtotal. Genuine zero-charge infrastructure on a
+  cataloged provider and referenced/external ownership remain separate cases.
 - **Usage assumptions**, all recorded in the estimate's `assumptions`: 730 billable
   hours a month; internet egress 50 GB; 5 million requests; 10 GB per object store;
   5 GB of log ingestion per compute service; 20 GB per database; 20 % of egress
@@ -88,8 +94,7 @@ an invoice or a quote". If a screen shows a figure from this engine it must say
 ### What an estimate says it includes and excludes
 
 Exact text from the engine, for a stack of a container service, a database, an
-object store and a load balancer on AWS, plus a function, a MySQL database, a node on
-a provider with no catalog and a referenced node. (A test rebuilds this sample and
+object store and a load balancer on AWS, plus a MySQL database and a referenced node. (A test rebuilds this sample and
 fails if the lists below are not what the engine says now.)
 
 Included (each appears only when the estimate has such a line):
@@ -122,26 +127,28 @@ Secret manager and key management charges
 WAF, DDoS protection, CDN and API gateway charges
 Support plans and marketplace fees
 This is an estimate from a static list-price catalog, not an invoice or a quote
-1 function node(s): serverless functions not priced by catalog 2026-09-30.1
-Resources on provider "kubernetes" have no price catalog and are not priced
 1 referenced or external node(s) are not Zenith's bill and are not priced
 MySQL is priced with the provider's PostgreSQL SKUs (approximation)
 ```
 
-The kinds the catalog does not price are named per estimate: functions, static sites,
-container registries, secrets, Kubernetes clusters and namespaces, build pipelines
-and provider-native (Level 3) resources. A provider with no catalog (Kubernetes,
-and the sandbox and LocalStack providers) is listed as unpriced, not as free.
+Managed functions, static sites, container registries, secrets, Kubernetes clusters
+and namespaces, build pipelines and provider-native (Level 3) resources currently
+have no model and refuse the estimate. A managed node on a provider without a
+catalog (including Kubernetes, sandbox and LocalStack) also refuses. Referenced
+and external nodes remain outside this estimate; their actual cost is unknown to
+Zenith, rather than asserted to be free in their owner's account.
 
 ## The price catalog
 
-`src/lib/placement/catalog/2026-09.json`, loaded and validated by
-`src/lib/placement/pricebook.ts`. Current version: **`2026-09-30.1`**.
+`src/lib/placement/catalog/2026-10.json`, loaded and validated by
+`src/lib/placement/pricebook.ts`. Current version: **`2026-10-05.1`**.
+The September artifact remains unchanged for historical interpretation.
 
 - **A static snapshot of list prices.** Nothing fetches anything at run time. Prices
-  are USD before taxes, discounts and free tiers. Values were read from the named
-  feed on 2026-09-30 and **transcribed by hand**; the catalog says so in every
-  source record.
+  are USD before taxes, discounts and free tiers. The retained September values
+  keep their original evidence classes and dates; the eight refreshed entries
+  have explicit 2026-10-05 retrieval notes. Values are **transcribed by hand**,
+  rather than fetched at execution time.
 - **Versioned.** `version` is `YYYY-MM-DD.N`. Every estimate records the version it
   used (`catalogVersion`), and so does `platform.cost_estimates`, so an old estimate
   stays interpretable after a refresh.
@@ -164,19 +171,20 @@ and the sandbox and LocalStack providers) is listed as unpriced, not as free.
 | `model_knowledge` | A remembered list price, **not** read from any feed; refresh before relying on it | **Yes** |
 | `internal_assumption` | Zenith managed-tier planning price; not a published rate | **Yes** |
 
-Each estimate totals the part of its bill that rests on the three weak classes in
+Each estimate totals the part of its modeled subtotal that rests on the three weak classes in
 `assumptions.priceEvidenceWeakUsd` (and `priceEvidenceWeakLines`), and the placement
 solver warns on a candidate when more than 25 % of its estimate does.
 
 ### What the catalog holds today
 
-Counts of entries by provider and class at version `2026-09-30.1` (a test keeps this
+Counts of entries by provider and class at version `2026-10-05.1` (a test keeps this
 table equal to the file):
 
 | Provider | Class | Entries |
 |---|---|---|
 | aws | official_api | 140 |
-| aws | model_knowledge | 8 |
+| aws | official_page | 4 |
+| aws | model_knowledge | 4 |
 | azure | official_api | 96 |
 | azure | derived | 4 |
 | azure | model_knowledge | 48 |
@@ -190,8 +198,8 @@ table equal to the file):
 | zenith | internal_assumption | 120 |
 
 In plain terms: **AWS is the best-evidenced** provider (most entries read from the
-AWS Price List Bulk API for four regions; the ACM certificate price and the
-ElastiCache high-availability node count are remembered). GCP is the weakest of the
+AWS Price List Bulk API for four regions; the ElastiCache high-availability node
+count remains remembered). GCP is the weakest of the
 hyperscalers: its compute, NAT, storage and egress rates come from a **third-party
 mirror** of the Billing Catalog (the official API needs a key and was not queried),
 Cloud SQL and Memorystore are derived from a remembered us-central1 price scaled by
@@ -213,7 +221,26 @@ managed tier four placeholder regions. A node in any other region throws
 ## Refreshing the catalog
 
 A refresh is a **deliberate, reviewed change**; nothing does it for you and no script
-exists.
+exists. This snapshot refreshes only eight entries:
+
+- Four `aws.acm.public_cert_month` entries were checked against the
+  [official ACM pricing page](https://aws.amazon.com/certificate-manager/pricing/)
+  on 2026-10-05. The zero rate covers non-exportable certificates used with
+  integrated AWS services only. Exportable, ACME and Private CA charges are outside
+  that SKU; no effective-start date was published for the no-charge rate.
+- Four `azure.public_ip.hour` entries were checked separately in `centralindia`,
+  `southeastasia`, `eastus` and `westeurope` using the
+  [public Retail Prices API](https://prices.azure.com/api/retail/prices).
+  Each exact Consumption meter, `Standard IPv4 Static Public IP`, returned USD
+  0.005 per hour on 2026-10-05, with effective-start date 2018-06-01. Basic, Global
+  and Public IP Prefix rates are outside this SKU. The new source record retains
+  the exact product/SKU/meter selection; retrieval and effective dates are distinct.
+
+All untouched entry objects and September source records remain identical. The
+latest catalog timestamp indicates this bounded refresh, not fresh verification
+of every price. Azure NAT remains `model_knowledge`: the official pricing page
+returned numeric placeholders and the public API filters tried returned no NAT
+rows. Missing public data was not converted into a zero or a verified rate.
 
 1. For each `sources[]` record, re-read the feed it names (the AWS Price List Bulk
    API region files, the Azure Retail Prices API filtered by region and service, the
@@ -222,7 +249,8 @@ exists.
 2. Update `usd` where the feed moved. **Upgrade weak entries** where a feed exists:
    replace `model_knowledge` with `official_api` or `official_page` and say so in
    `verification` and `note`; re-derive every `derived` entry from its new inputs.
-3. Update each touched source record's `retrievedAt` and `source` text. It must keep
+3. Add a source record limited to the touched cohort, with its `retrievedAt`, exact
+   meters/units and `source` text; preserve untouched records and entry objects. It must keep
    the words "transcribed" (and, for the weak classes, "refreshed", "replaced",
    "derived" or "assumption"), or `parseCatalog` refuses the file.
 4. Bump `version` (`YYYY-MM-DD.N`).
@@ -238,8 +266,9 @@ exists.
    keeps its old `catalogVersion`, every new one uses the new one, and
    `diffCost(...).catalogChanged` will flag comparisons across the boundary.
 
-If a file name change is wanted (the loader imports `catalog/2026-09.json`
-directly), change the import in `pricebook.ts` in the same commit.
+Keep the old dated artifact intact, add the new snapshot and change the selected
+import in `pricebook.ts` in the same reviewed change. Real calendar dates are
+required; a source retrieval date after the snapshot version date is refused.
 
 ## Where estimates are used
 
@@ -271,3 +300,13 @@ directly), change the import in `pricebook.ts` in the same commit.
 - Coverage is partial by design: see the exclusions above. A missing line is not a
   zero.
 - Nothing here has been compared with a real bill.
+
+
+## Remaining production gaps
+
+This bounded change does not refresh every weak price or migrate the legacy V1
+screens. Forecasts and actual spend still have no ingestion path. The existing
+solver remains deterministic and read-only, with its 15% optional cross-cloud
+savings margin and explicit complexity/transfer/latency costs; it does not perform
+an autonomous economic migration. A repeated optimization workflow with current
+field ownership, approvals and durable cooldown remains separate work.

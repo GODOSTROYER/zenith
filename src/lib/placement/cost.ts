@@ -9,8 +9,9 @@
  * output (the solver relies on this).
  *
  * Output is an ESTIMATE of monthly USD list price. It is never an invoice,
- * and `included` / `excluded` say what it does and does not cover. Each line
- * carries a `basis` string with the arithmetic and `priceVerification` saying
+ * and `included` / `excluded` say what it does and does not cover. A managed
+ * node without a model refuses the whole estimate, rather than returning a
+ * partial subtotal. Each line carries a `basis` string with the arithmetic and `priceVerification` saying
  * how the unit price was obtained; `assumptions.priceEvidenceWeakUsd` totals
  * the part of the estimate resting on remembered, derived or internal prices.
  *
@@ -107,7 +108,7 @@ export {
 
 /** Kinds that are free or bundled and produce no line. */
 const FREE_KINDS = new Set<string>(["network", "subnet", "firewall", "identity", "dns_record", "log_group"]);
-/** Kinds the catalog does not price; named in `excluded`. */
+/** Managed kinds without a modeled price refuse a whole-graph estimate. */
 const UNPRICED_KINDS: Record<string, string> = {
   function: "serverless functions",
   static_site: "static site hosting and CDN",
@@ -236,13 +237,9 @@ export function estimateGraphCost(graph: CostGraph, options: CostOptions): CostE
   const priced = nodes.filter((n) => (n.ownership ?? "managed") === "managed");
   const skippedNotOurs = nodes.length - priced.length;
   const sites = new Map<string, Site>();
-  const unpricedKinds = new Map<string, number>();
 
   for (const n of priced) {
-    if (!known.has(n.provider)) {
-      l.unpricedProviders.add(n.provider);
-      continue;
-    }
+    if (!known.has(n.provider)) throw new MissingPriceError(n.provider, n.region, `(managed provider not in catalog: ${n.address})`);
     if (!book.regions(n.provider).includes(n.region)) throw new MissingPriceError(n.provider, n.region, "(region not in catalog)");
     const key = `${n.provider}|${n.region}`;
     const site = sites.get(key) ?? { key, provider: n.provider, region: n.region, nodes: [] };
@@ -287,7 +284,7 @@ export function estimateGraphCost(graph: CostGraph, options: CostOptions): CostE
         case "load_balancer":
           break; // priced at site level below
         default:
-          if (!FREE_KINDS.has(n.kind)) unpricedKinds.set(n.kind, (unpricedKinds.get(n.kind) ?? 0) + 1);
+          if (!FREE_KINDS.has(n.kind)) throw new MissingPriceError(n.provider, n.region, `(managed ${n.kind}: ${UNPRICED_KINDS[n.kind] ?? n.kind}; ${n.address})`);
       }
     }
   }
@@ -510,9 +507,6 @@ export function estimateGraphCost(graph: CostGraph, options: CostOptions): CostE
     "Support plans and marketplace fees",
     "This is an estimate from a static list-price catalog, not an invoice or a quote",
   ];
-  for (const [kind, count] of [...unpricedKinds.entries()].sort()) {
-    excluded.push(`${count} ${kind} node(s): ${UNPRICED_KINDS[kind] ?? kind} not priced by catalog ${book.catalog.version}`);
-  }
   for (const p of [...l.unpricedProviders].sort()) excluded.push(`Resources on provider "${p}" have no price catalog and are not priced`);
   if (skippedNotOurs > 0) excluded.push(`${skippedNotOurs} referenced or external node(s) are not Zenith's bill and are not priced`);
   for (const x of [...l.excluded].sort()) excluded.push(x);

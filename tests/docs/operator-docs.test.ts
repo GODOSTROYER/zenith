@@ -642,9 +642,7 @@ describe("COST.md matches the catalog and the engine", () => {
           node("service/web", "container_service", "aws", "us-east-1", { size: "small", replicas: 2 }),
           node("resource/db", "postgres", "aws", "us-east-1", { size: "small", storageGb: 20, backupRetentionDays: 7 }),
           node("resource/assets", "object_store", "aws", "us-east-1", { storageGb: 10 }),
-          node("fn/x", "function", "aws", "us-east-1"),
           node("resource/m", "mysql", "aws", "us-east-1", { size: "small" }),
-          node("k/x", "container_service", "kubernetes", "x"),
           node("ext/bucket", "object_store", "aws", "us-east-1", {}, "referenced"),
         ],
         edges: [
@@ -656,9 +654,13 @@ describe("COST.md matches the catalog and the engine", () => {
     );
     expect(estimate.kind).toBe("estimate");
     expect(estimate.included.length).toBeGreaterThanOrEqual(8);
-    expect(estimate.excluded.length).toBeGreaterThanOrEqual(15);
+    expect(estimate.excluded.length).toBeGreaterThanOrEqual(13);
     const lines = new Set(cost.split("\n"));
     for (const line of [...estimate.included, ...estimate.excluded]) expect(lines.has(line), `COST.md should list: ${line}`).toBe(true);
+    for (const unknown of [node("fn/x", "function", "aws", "us-east-1"), node("k/x", "container_service", "kubernetes", "x")]) {
+      expect(() => estimateGraphCost({ nodes: [unknown] }, { catalog })).toThrow(/No price/);
+    }
+    expect(cost).toContain("Unpriced managed nodes refuse the whole-graph estimate");
     // the three "also, when present" inclusions are still the engine's words
     const source = read(path.join(REPO_ROOT, "src", "lib", "placement", "cost.ts"));
     for (const phrase of ["Cross-region and cross-cloud transfer between components", "Provisioned IOPS", "High-availability standby capacity"]) {

@@ -120,9 +120,9 @@ describe("the spec example", () => {
   });
 
   it("records the catalog version, a 64-hex seed and the assumptions it used", () => {
-    expect(r.catalogVersion).toBe("2026-09-30.1");
+    expect(r.catalogVersion).toBe("2026-10-05.1");
     expect(r.deterministicSeed).toMatch(/^[0-9a-f]{64}$/);
-    expect(r.assumptions.join("\n")).toMatch(/catalog 2026-09-30\.1/);
+    expect(r.assumptions.join("\n")).toMatch(/catalog 2026-10-05\.1/);
     expect(r.assumptions.join("\n")).toMatch(/Approximate/);
     expect(r.assumptions.join("\n")).toMatch(/lower is better/);
   });
@@ -324,9 +324,20 @@ describe("denylist, preference and zenith", () => {
     const r = solve({ userRegions: ["india"] }, { components, options: { includeZenithManagedTier: true, maxAlternatives: 100 } });
     const z = r.rejected.find((x) => x.id === "single:zenith:ap-south")!;
     expect(z.reasons.join(" ")).toMatch(/capability: zenith has no native type for "kubernetes_cluster"/);
-    expect(all(r).some((c) => c.assignments["cluster/main"]?.nativeType === "aws:eks_cluster" || c.assignments["cluster/main"]?.nativeType === "gcp:gke_cluster")).toBe(true);
+    expect(all(r)).toEqual([]);
+    for (const provider of ["aws", "gcp"]) expect(r.rejected.some((entry) => entry.id.startsWith(`single:${provider}:`) && entry.reasons.some((reason) => reason.includes("managed kubernetes_cluster")))).toBe(true);
     const site = solve({ userRegions: ["india"] }, { components: [...stackComponents(), { address: "site/docs", kind: "static_site", spec: {} }], options: { maxAlternatives: 100 } });
     expect(site.rejected.find((x) => x.id === "single:oci:ap-mumbai-1")!.reasons.join(" ")).toMatch(/capability: oci has no native type for "static_site"/);
+  });
+});
+
+describe("unpriced managed placement", () => {
+  it.each(["function", "static_site", "kubernetes_cluster"] as const)("never ranks managed %s as a zero or partial budget fit", (kind) => {
+    const result = solve({ userRegions: ["us-east"], budgetUsdMonthly: 100000 }, { components: [...stackComponents(), { address: "unknown/main", kind, spec: {} }], options: { maxAlternatives: 100 } });
+    expect(result.chosen).toBeUndefined();
+    expect(result.alternatives).toEqual([]);
+    expect(result.rejected.length).toBeGreaterThan(0);
+    expect(result.rejected.some((entry) => entry.reasons.some((reason) => reason.startsWith("price:") && reason.includes(`managed ${kind}`)))).toBe(true);
   });
 });
 

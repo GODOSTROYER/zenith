@@ -1,0 +1,6087 @@
+{
+  "version": "2026-10-05.1",
+  "sources": [
+    {
+      "provider": "aws",
+      "verification": "official_api",
+      "retrievedAt": "2026-09-30",
+      "url": "https://aws.amazon.com/pricing/",
+      "source": "AWS Price List Bulk API public JSON files (https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/{AmazonECS,AmazonEC2,AmazonRDS,AmazonElastiCache,AmazonS3,AWSQueueService,AWSELB,AmazonVPC,AmazonRoute53,AmazonCloudWatch,AWSDataTransfer}/current/<region>/index.json, publication dates 2026-09-11 to 2026-09-25) queried for each of ap-south-1, ap-southeast-1, us-east-1, eu-west-1 on 2026-09-30. Values were read from the source named here on 2026-09-30 and transcribed by hand into this static snapshot; they were not fetched live and are list prices, not an invoice or a quote. Verified line items include Fargate, RDS PostgreSQL, ElastiCache, NAT Gateway, ALB, public IPv4, S3, SQS, Route 53, CloudWatch Logs, EBS and data transfer."
+    },
+    {
+      "provider": "aws",
+      "verification": "model_knowledge",
+      "retrievedAt": "2026-09-30",
+      "url": "https://aws.amazon.com/certificate-manager/pricing/",
+      "source": "AWS ElastiCache HA node-count assumption and ACM public certificate price come from model knowledge, not from a price feed. Values were read from the source named here on 2026-09-30 and transcribed by hand into this static snapshot; they were not fetched live and are list prices, not an invoice or a quote. Must be refreshed before being relied on."
+    },
+    {
+      "provider": "azure",
+      "verification": "official_api",
+      "retrievedAt": "2026-09-30",
+      "url": "https://azure.microsoft.com/pricing/",
+      "source": "Azure Retail Prices API (https://prices.azure.com/api/retail/prices, public, unauthenticated) queried for centralindia, southeastasia, eastus, westeurope on 2026-09-30. Values were read from the source named here on 2026-09-30 and transcribed by hand into this static snapshot; they were not fetched live and are list prices, not an invoice or a quote. Verified: Container Apps, Virtual Machines B1ms/B2s/D2s_v5, PostgreSQL Flexible Server compute/storage/backup, Azure Cache for Redis, Blob Hot LRS, Application Gateway v2, public IPv4, internet bandwidth, Log Analytics."
+    },
+    {
+      "provider": "azure",
+      "verification": "derived",
+      "retrievedAt": "2026-09-30",
+      "url": "https://azure.microsoft.com/pricing/details/postgresql/flexible-server/",
+      "source": "Azure rates derived from a Retail Prices API reading in one region applied to all four regions (Premium SSD v2 IOPS, read for eastus). Values were read from the source named here on 2026-09-30 and transcribed by hand into this static snapshot; they were not fetched live and are list prices, not an invoice or a quote."
+    },
+    {
+      "provider": "azure",
+      "verification": "model_knowledge",
+      "retrievedAt": "2026-09-30",
+      "url": "https://azure.microsoft.com/pricing/details/azure-nat-gateway/",
+      "source": "Azure NAT Gateway, managed disks, DNS, Storage Queues, HA multipliers and inter-region transfer rates come from model knowledge, not from a price feed (the Retail Prices API filters used returned no NAT Gateway rows). Values were read from the source named here on 2026-09-30 and transcribed by hand into this static snapshot; they were not fetched live and are list prices, not an invoice or a quote. Must be refreshed before being relied on."
+    },
+    {
+      "provider": "gcp",
+      "verification": "official_page",
+      "retrievedAt": "2026-09-30",
+      "url": "https://cloud.google.com/run/pricing",
+      "source": "Cloud Run instance-based CPU and memory rates parsed from the HTML of https://cloud.google.com/run/pricing on 2026-09-30. Values were read from the source named here on 2026-09-30 and transcribed by hand into this static snapshot; they were not fetched live and are list prices, not an invoice or a quote. The region-to-tier assignment (Tier 1: asia-south1, us-central1, europe-west1; Tier 2: asia-southeast1) was inferred from the page's own per-region price blocks (each region label followed by its block, consistent across six tables) and matches Cloud Run's documented tiers as remembered; treat it as parsed, not re-verified against the docs page."
+    },
+    {
+      "provider": "gcp",
+      "verification": "third_party_mirror",
+      "retrievedAt": "2026-09-30",
+      "url": "https://cloud.google.com/products/calculator",
+      "source": "Compute Engine, Cloud NAT, external IPv4, Persistent Disk, snapshot, Cloud Storage and internet egress rates read on 2026-09-30 from the third-party file https://raw.githubusercontent.com/Cyclenerd/google-cloud-pricing-cost-calculator/master/pricing.yml (generated 2026-09-24 from the Cloud Billing Catalog API by that project). The official Cloud Billing Catalog API requires an API key and was NOT queried directly. Values were read from the source named here on 2026-09-30 and transcribed by hand into this static snapshot; they were not fetched live and are list prices, not an invoice or a quote."
+    },
+    {
+      "provider": "gcp",
+      "verification": "derived",
+      "retrievedAt": "2026-09-30",
+      "url": "https://cloud.google.com/sql/pricing",
+      "source": "Cloud SQL and Memorystore regional rates are DERIVED: us-central1 list price from model knowledge (vCPU 0.0413 and memory 0.0070 per GB-hour; Memorystore Basic 0.049 per GB-hour) scaled by the regional Compute Engine price ratio from the third-party mirror. Not read from a price feed for asia-south1, asia-southeast1 or europe-west1. Values were read from the source named here on 2026-09-30 and transcribed by hand into this static snapshot; they were not fetched live and are list prices, not an invoice or a quote. Must be refreshed before being relied on."
+    },
+    {
+      "provider": "gcp",
+      "verification": "model_knowledge",
+      "retrievedAt": "2026-09-30",
+      "url": "https://cloud.google.com/vpc/network-pricing",
+      "source": "Cloud Load Balancing, Cloud DNS, Cloud Logging, Cloud Tasks, Cloud Storage request classes, HA multipliers and inter-region egress rates come from model knowledge, not from a price feed. Values were read from the source named here on 2026-09-30 and transcribed by hand into this static snapshot; they were not fetched live and are list prices, not an invoice or a quote. Must be refreshed before being relied on."
+    },
+    {
+      "provider": "oci",
+      "verification": "official_api",
+      "retrievedAt": "2026-09-30",
+      "url": "https://www.oracle.com/cloud/price-list/",
+      "source": "Oracle Cloud Infrastructure public price list API (https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/?currencyCode=USD, lastUpdated 2026-09-23) read on 2026-09-30. OCI list prices are the same in every commercial region. Values were read from the source named here on 2026-09-30 and transcribed by hand into this static snapshot; they were not fetched live and are list prices, not an invoice or a quote. Verified: Compute E4, Database with PostgreSQL, Object Storage, Queue, Flexible Load Balancer, Block Volume, DNS, Logging, outbound data transfer."
+    },
+    {
+      "provider": "oci",
+      "verification": "derived",
+      "retrievedAt": "2026-09-30",
+      "url": "https://www.oracle.com/cloud/price-list/",
+      "source": "OCI rates derived by arithmetic from official price-list components (E4 OCPU + memory, Redis per GB-hour, VPU pricing, flexible bandwidth). Values were read from the source named here on 2026-09-30 and transcribed by hand into this static snapshot; they were not fetched live and are list prices, not an invoice or a quote."
+    },
+    {
+      "provider": "oci",
+      "verification": "model_knowledge",
+      "retrievedAt": "2026-09-30",
+      "url": "https://www.oracle.com/cloud/networking/pricing/",
+      "source": "OCI NAT gateway, public IP, HA node count, backup storage and inter-region metering come from model knowledge, not from a price feed. Values were read from the source named here on 2026-09-30 and transcribed by hand into this static snapshot; they were not fetched live and are list prices, not an invoice or a quote. Must be refreshed before being relied on."
+    },
+    {
+      "provider": "zenith",
+      "verification": "internal_assumption",
+      "retrievedAt": "2026-09-30",
+      "url": "https://tryzenith.cloud/",
+      "source": "Zenith managed tier internal planning prices. These are assumptions, not published rates and not derived from any provider price list; there is no public Zenith price page. Regions are placeholders for where the managed tier may run. Must be replaced by the real price book before managed-tier estimates are shown to users."
+    },
+    {
+      "provider": "aws",
+      "verification": "official_page",
+      "retrievedAt": "2026-10-05",
+      "url": "https://aws.amazon.com/certificate-manager/pricing/",
+      "source": "AWS Certificate Manager official pricing page read on 2026-10-05 and transcribed into this snapshot for aws.acm.public_cert_month only, in the four existing AWS regions. Non-exportable public certificates used with integrated AWS services have no additional certificate fee. Exportable certificates, ACME issuance/API usage and Private CA are not covered. The page provides no effective-start date for this no-charge rate; retrieval date is not an effective date. All other AWS evidence remains dated 2026-09-30."
+    },
+    {
+      "provider": "azure",
+      "verification": "official_api",
+      "retrievedAt": "2026-10-05",
+      "url": "https://prices.azure.com/api/retail/prices",
+      "source": "Azure Retail Prices API public unauthenticated responses read on 2026-10-05 and transcribed for azure.public_ip.hour only, separately filtered for centralindia, southeastasia, eastus and westeurope: serviceName Virtual Network, productName IP Addresses, skuName Standard, priceType Consumption. Exactly one USD Standard IPv4 Static Public IP meter per region: 0.005 per 1 Hour, effectiveStartDate 2018-06-01T00:00:00Z, meterId 9c150bf9-2bad-430e-a53c-c213804f49ef. Public IP Prefix and Global/Basic SKUs are excluded. All other Azure evidence remains dated 2026-09-30."
+    }
+  ],
+  "entries": [
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.fargate.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.04256,
+      "verification": "official_api",
+      "note": "Fargate Linux/X86 on-demand, per vCPU-hour"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.fargate.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.05056,
+      "verification": "official_api",
+      "note": "Fargate Linux/X86 on-demand, per vCPU-hour"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.fargate.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.04048,
+      "verification": "official_api",
+      "note": "Fargate Linux/X86 on-demand, per vCPU-hour"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.fargate.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.04048,
+      "verification": "official_api",
+      "note": "Fargate Linux/X86 on-demand, per vCPU-hour"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.fargate.gb_hour",
+      "unit": "hour",
+      "usd": 0.004655,
+      "verification": "official_api",
+      "note": "Fargate Linux/X86 on-demand, per GB-hour"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.fargate.gb_hour",
+      "unit": "hour",
+      "usd": 0.00553,
+      "verification": "official_api",
+      "note": "Fargate Linux/X86 on-demand, per GB-hour"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.fargate.gb_hour",
+      "unit": "hour",
+      "usd": 0.004445,
+      "verification": "official_api",
+      "note": "Fargate Linux/X86 on-demand, per GB-hour"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.fargate.gb_hour",
+      "unit": "hour",
+      "usd": 0.004445,
+      "verification": "official_api",
+      "note": "Fargate Linux/X86 on-demand, per GB-hour"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.ec2.small_hour",
+      "unit": "hour",
+      "usd": 0.0224,
+      "verification": "official_api",
+      "note": "t3.small Linux shared on-demand (2 vCPU burst, 2 GiB)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.ec2.small_hour",
+      "unit": "hour",
+      "usd": 0.0264,
+      "verification": "official_api",
+      "note": "t3.small Linux shared on-demand (2 vCPU burst, 2 GiB)"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.ec2.small_hour",
+      "unit": "hour",
+      "usd": 0.0208,
+      "verification": "official_api",
+      "note": "t3.small Linux shared on-demand (2 vCPU burst, 2 GiB)"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.ec2.small_hour",
+      "unit": "hour",
+      "usd": 0.0228,
+      "verification": "official_api",
+      "note": "t3.small Linux shared on-demand (2 vCPU burst, 2 GiB)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.ec2.medium_hour",
+      "unit": "hour",
+      "usd": 0.0448,
+      "verification": "official_api",
+      "note": "t3.medium Linux shared on-demand (2 vCPU burst, 4 GiB)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.ec2.medium_hour",
+      "unit": "hour",
+      "usd": 0.0528,
+      "verification": "official_api",
+      "note": "t3.medium Linux shared on-demand (2 vCPU burst, 4 GiB)"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.ec2.medium_hour",
+      "unit": "hour",
+      "usd": 0.0416,
+      "verification": "official_api",
+      "note": "t3.medium Linux shared on-demand (2 vCPU burst, 4 GiB)"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.ec2.medium_hour",
+      "unit": "hour",
+      "usd": 0.0456,
+      "verification": "official_api",
+      "note": "t3.medium Linux shared on-demand (2 vCPU burst, 4 GiB)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.ec2.large_hour",
+      "unit": "hour",
+      "usd": 0.101,
+      "verification": "official_api",
+      "note": "m6i.large Linux shared on-demand (2 vCPU, 8 GiB)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.ec2.large_hour",
+      "unit": "hour",
+      "usd": 0.12,
+      "verification": "official_api",
+      "note": "m6i.large Linux shared on-demand (2 vCPU, 8 GiB)"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.ec2.large_hour",
+      "unit": "hour",
+      "usd": 0.096,
+      "verification": "official_api",
+      "note": "m6i.large Linux shared on-demand (2 vCPU, 8 GiB)"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.ec2.large_hour",
+      "unit": "hour",
+      "usd": 0.107,
+      "verification": "official_api",
+      "note": "m6i.large Linux shared on-demand (2 vCPU, 8 GiB)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.rds_postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.021,
+      "verification": "official_api",
+      "note": "db.t4g.micro PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.rds_postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.025,
+      "verification": "official_api",
+      "note": "db.t4g.micro PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.rds_postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.016,
+      "verification": "official_api",
+      "note": "db.t4g.micro PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.rds_postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.017,
+      "verification": "official_api",
+      "note": "db.t4g.micro PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.rds_postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.042,
+      "verification": "official_api",
+      "note": "db.t4g.small PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.rds_postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.051,
+      "verification": "official_api",
+      "note": "db.t4g.small PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.rds_postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.032,
+      "verification": "official_api",
+      "note": "db.t4g.small PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.rds_postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.035,
+      "verification": "official_api",
+      "note": "db.t4g.small PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.rds_postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.084,
+      "verification": "official_api",
+      "note": "db.t4g.medium PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.rds_postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.102,
+      "verification": "official_api",
+      "note": "db.t4g.medium PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.rds_postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.065,
+      "verification": "official_api",
+      "note": "db.t4g.medium PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.rds_postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.069,
+      "verification": "official_api",
+      "note": "db.t4g.medium PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.rds_postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.226,
+      "verification": "official_api",
+      "note": "db.m6g.large PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.rds_postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.221,
+      "verification": "official_api",
+      "note": "db.m6g.large PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.rds_postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.159,
+      "verification": "official_api",
+      "note": "db.m6g.large PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.rds_postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.176,
+      "verification": "official_api",
+      "note": "db.m6g.large PostgreSQL Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.rds_postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "official_api",
+      "note": "Multi-AZ instance price is 2x Single-AZ in the price list (within 1% rounding)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.rds_postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "official_api",
+      "note": "Multi-AZ instance price is 2x Single-AZ in the price list (within 1% rounding)"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.rds_postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "official_api",
+      "note": "Multi-AZ instance price is 2x Single-AZ in the price list (within 1% rounding)"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.rds_postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "official_api",
+      "note": "Multi-AZ instance price is 2x Single-AZ in the price list (within 1% rounding)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.rds_postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "official_api",
+      "note": "Multi-AZ gp3 storage price is 2x Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.rds_postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "official_api",
+      "note": "Multi-AZ gp3 storage price is 2x Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.rds_postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "official_api",
+      "note": "Multi-AZ gp3 storage price is 2x Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.rds_postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "official_api",
+      "note": "Multi-AZ gp3 storage price is 2x Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.rds_postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.131,
+      "verification": "official_api",
+      "note": "RDS gp3 storage Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.rds_postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.138,
+      "verification": "official_api",
+      "note": "RDS gp3 storage Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.rds_postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.115,
+      "verification": "official_api",
+      "note": "RDS gp3 storage Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.rds_postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.127,
+      "verification": "official_api",
+      "note": "RDS gp3 storage Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.rds_postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.023,
+      "verification": "official_api",
+      "note": "RDS gp3 provisioned IOPS above baseline, Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.rds_postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.024,
+      "verification": "official_api",
+      "note": "RDS gp3 provisioned IOPS above baseline, Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.rds_postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.02,
+      "verification": "official_api",
+      "note": "RDS gp3 provisioned IOPS above baseline, Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.rds_postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.022,
+      "verification": "official_api",
+      "note": "RDS gp3 provisioned IOPS above baseline, Single-AZ"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.rds_postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.095,
+      "verification": "official_api",
+      "note": "RDS backup storage beyond the free allowance"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.rds_postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.095,
+      "verification": "official_api",
+      "note": "RDS backup storage beyond the free allowance"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.rds_postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.095,
+      "verification": "official_api",
+      "note": "RDS backup storage beyond the free allowance"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.rds_postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.095,
+      "verification": "official_api",
+      "note": "RDS backup storage beyond the free allowance"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.elasticache_redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.02,
+      "verification": "official_api",
+      "note": "cache.t4g.micro Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.elasticache_redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.024,
+      "verification": "official_api",
+      "note": "cache.t4g.micro Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.elasticache_redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.016,
+      "verification": "official_api",
+      "note": "cache.t4g.micro Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.elasticache_redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.017,
+      "verification": "official_api",
+      "note": "cache.t4g.micro Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.elasticache_redis.small_hour",
+      "unit": "hour",
+      "usd": 0.041,
+      "verification": "official_api",
+      "note": "cache.t4g.small Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.elasticache_redis.small_hour",
+      "unit": "hour",
+      "usd": 0.048,
+      "verification": "official_api",
+      "note": "cache.t4g.small Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.elasticache_redis.small_hour",
+      "unit": "hour",
+      "usd": 0.032,
+      "verification": "official_api",
+      "note": "cache.t4g.small Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.elasticache_redis.small_hour",
+      "unit": "hour",
+      "usd": 0.034,
+      "verification": "official_api",
+      "note": "cache.t4g.small Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.elasticache_redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.081,
+      "verification": "official_api",
+      "note": "cache.t4g.medium Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.elasticache_redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.095,
+      "verification": "official_api",
+      "note": "cache.t4g.medium Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.elasticache_redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.065,
+      "verification": "official_api",
+      "note": "cache.t4g.medium Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.elasticache_redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.068,
+      "verification": "official_api",
+      "note": "cache.t4g.medium Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.elasticache_redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.155,
+      "verification": "official_api",
+      "note": "cache.m6g.large Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.elasticache_redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.185,
+      "verification": "official_api",
+      "note": "cache.m6g.large Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.elasticache_redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.149,
+      "verification": "official_api",
+      "note": "cache.m6g.large Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.elasticache_redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.164,
+      "verification": "official_api",
+      "note": "cache.m6g.large Redis OSS on-demand node"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.elasticache_redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "primary plus one replica node in another AZ (node count 2)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.elasticache_redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "primary plus one replica node in another AZ (node count 2)"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.elasticache_redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "primary plus one replica node in another AZ (node count 2)"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.elasticache_redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "primary plus one replica node in another AZ (node count 2)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.s3.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.025,
+      "verification": "official_api",
+      "note": "S3 Standard first 50 TB tier"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.s3.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.025,
+      "verification": "official_api",
+      "note": "S3 Standard first 50 TB tier"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.s3.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.023,
+      "verification": "official_api",
+      "note": "S3 Standard first 50 TB tier"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.s3.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.023,
+      "verification": "official_api",
+      "note": "S3 Standard first 50 TB tier"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.s3.get_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "S3 GET/SELECT (Tier 2) per million"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.s3.get_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "S3 GET/SELECT (Tier 2) per million"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.s3.get_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "S3 GET/SELECT (Tier 2) per million"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.s3.get_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "S3 GET/SELECT (Tier 2) per million"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.s3.put_million",
+      "unit": "million_requests",
+      "usd": 5.0,
+      "verification": "official_api",
+      "note": "S3 PUT/COPY/POST/LIST (Tier 1) per million"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.s3.put_million",
+      "unit": "million_requests",
+      "usd": 5.0,
+      "verification": "official_api",
+      "note": "S3 PUT/COPY/POST/LIST (Tier 1) per million"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.s3.put_million",
+      "unit": "million_requests",
+      "usd": 5.0,
+      "verification": "official_api",
+      "note": "S3 PUT/COPY/POST/LIST (Tier 1) per million"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.s3.put_million",
+      "unit": "million_requests",
+      "usd": 5.0,
+      "verification": "official_api",
+      "note": "S3 PUT/COPY/POST/LIST (Tier 1) per million"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.sqs.requests_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "SQS Standard queue requests per million (first tier)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.sqs.requests_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "SQS Standard queue requests per million (first tier)"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.sqs.requests_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "SQS Standard queue requests per million (first tier)"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.sqs.requests_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "SQS Standard queue requests per million (first tier)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.alb.hour",
+      "unit": "hour",
+      "usd": 0.0239,
+      "verification": "official_api",
+      "note": "Application Load Balancer hourly charge"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.alb.hour",
+      "unit": "hour",
+      "usd": 0.0252,
+      "verification": "official_api",
+      "note": "Application Load Balancer hourly charge"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.alb.hour",
+      "unit": "hour",
+      "usd": 0.0225,
+      "verification": "official_api",
+      "note": "Application Load Balancer hourly charge"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.alb.hour",
+      "unit": "hour",
+      "usd": 0.0252,
+      "verification": "official_api",
+      "note": "Application Load Balancer hourly charge"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.alb.lcu_hour",
+      "unit": "hour",
+      "usd": 0.008,
+      "verification": "official_api",
+      "note": "ALB Load Balancer Capacity Unit hour"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.alb.lcu_hour",
+      "unit": "hour",
+      "usd": 0.008,
+      "verification": "official_api",
+      "note": "ALB Load Balancer Capacity Unit hour"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.alb.lcu_hour",
+      "unit": "hour",
+      "usd": 0.008,
+      "verification": "official_api",
+      "note": "ALB Load Balancer Capacity Unit hour"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.alb.lcu_hour",
+      "unit": "hour",
+      "usd": 0.008,
+      "verification": "official_api",
+      "note": "ALB Load Balancer Capacity Unit hour"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.nat_gateway.hour",
+      "unit": "hour",
+      "usd": 0.056,
+      "verification": "official_api",
+      "note": "NAT Gateway hourly charge"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.nat_gateway.hour",
+      "unit": "hour",
+      "usd": 0.059,
+      "verification": "official_api",
+      "note": "NAT Gateway hourly charge"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.nat_gateway.hour",
+      "unit": "hour",
+      "usd": 0.045,
+      "verification": "official_api",
+      "note": "NAT Gateway hourly charge"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.nat_gateway.hour",
+      "unit": "hour",
+      "usd": 0.048,
+      "verification": "official_api",
+      "note": "NAT Gateway hourly charge"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.nat_gateway.gb",
+      "unit": "gb",
+      "usd": 0.056,
+      "verification": "official_api",
+      "note": "NAT Gateway data processed per GB"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.nat_gateway.gb",
+      "unit": "gb",
+      "usd": 0.059,
+      "verification": "official_api",
+      "note": "NAT Gateway data processed per GB"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.nat_gateway.gb",
+      "unit": "gb",
+      "usd": 0.045,
+      "verification": "official_api",
+      "note": "NAT Gateway data processed per GB"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.nat_gateway.gb",
+      "unit": "gb",
+      "usd": 0.048,
+      "verification": "official_api",
+      "note": "NAT Gateway data processed per GB"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.ipv4.hour",
+      "unit": "hour",
+      "usd": 0.005,
+      "verification": "official_api",
+      "note": "Public IPv4 address in use, per hour"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.ipv4.hour",
+      "unit": "hour",
+      "usd": 0.005,
+      "verification": "official_api",
+      "note": "Public IPv4 address in use, per hour"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.ipv4.hour",
+      "unit": "hour",
+      "usd": 0.005,
+      "verification": "official_api",
+      "note": "Public IPv4 address in use, per hour"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.ipv4.hour",
+      "unit": "hour",
+      "usd": 0.005,
+      "verification": "official_api",
+      "note": "Public IPv4 address in use, per hour"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.data_transfer.internet_gb",
+      "unit": "gb",
+      "usd": 0.1093,
+      "verification": "official_api",
+      "note": "Data transfer out to internet, first paid tier (first 100 GB/month is free account-wide and NOT applied)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.data_transfer.internet_gb",
+      "unit": "gb",
+      "usd": 0.12,
+      "verification": "official_api",
+      "note": "Data transfer out to internet, first paid tier (first 100 GB/month is free account-wide and NOT applied)"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.data_transfer.internet_gb",
+      "unit": "gb",
+      "usd": 0.09,
+      "verification": "official_api",
+      "note": "Data transfer out to internet, first paid tier (first 100 GB/month is free account-wide and NOT applied)"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.data_transfer.internet_gb",
+      "unit": "gb",
+      "usd": 0.09,
+      "verification": "official_api",
+      "note": "Data transfer out to internet, first paid tier (first 100 GB/month is free account-wide and NOT applied)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.data_transfer.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.086,
+      "verification": "official_api",
+      "note": "Data transfer to another AWS region; the source region's typical rate (destination-specific rates vary, e.g. 0.01 to 0.09)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.data_transfer.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.09,
+      "verification": "official_api",
+      "note": "Data transfer to another AWS region; the source region's typical rate (destination-specific rates vary, e.g. 0.01 to 0.09)"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.data_transfer.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.02,
+      "verification": "official_api",
+      "note": "Data transfer to another AWS region; the source region's typical rate (destination-specific rates vary, e.g. 0.01 to 0.09)"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.data_transfer.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.02,
+      "verification": "official_api",
+      "note": "Data transfer to another AWS region; the source region's typical rate (destination-specific rates vary, e.g. 0.01 to 0.09)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.ebs.gp3_gb_month",
+      "unit": "gb_month",
+      "usd": 0.0912,
+      "verification": "official_api",
+      "note": "EBS gp3 storage"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.ebs.gp3_gb_month",
+      "unit": "gb_month",
+      "usd": 0.096,
+      "verification": "official_api",
+      "note": "EBS gp3 storage"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.ebs.gp3_gb_month",
+      "unit": "gb_month",
+      "usd": 0.08,
+      "verification": "official_api",
+      "note": "EBS gp3 storage"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.ebs.gp3_gb_month",
+      "unit": "gb_month",
+      "usd": 0.088,
+      "verification": "official_api",
+      "note": "EBS gp3 storage"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.ebs.gp3_iops_month",
+      "unit": "iops_month",
+      "usd": 0.0057,
+      "verification": "official_api",
+      "note": "EBS gp3 provisioned IOPS above 3000 baseline"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.ebs.gp3_iops_month",
+      "unit": "iops_month",
+      "usd": 0.006,
+      "verification": "official_api",
+      "note": "EBS gp3 provisioned IOPS above 3000 baseline"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.ebs.gp3_iops_month",
+      "unit": "iops_month",
+      "usd": 0.005,
+      "verification": "official_api",
+      "note": "EBS gp3 provisioned IOPS above 3000 baseline"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.ebs.gp3_iops_month",
+      "unit": "iops_month",
+      "usd": 0.0055,
+      "verification": "official_api",
+      "note": "EBS gp3 provisioned IOPS above 3000 baseline"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.ebs.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "official_api",
+      "note": "EBS snapshot storage (standard tier)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.ebs.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "official_api",
+      "note": "EBS snapshot storage (standard tier)"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.ebs.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "official_api",
+      "note": "EBS snapshot storage (standard tier)"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.ebs.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "official_api",
+      "note": "EBS snapshot storage (standard tier)"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.route53.zone_month",
+      "unit": "month",
+      "usd": 0.5,
+      "verification": "official_api",
+      "note": "Route 53 hosted zone (first 25 zones); global price"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.route53.zone_month",
+      "unit": "month",
+      "usd": 0.5,
+      "verification": "official_api",
+      "note": "Route 53 hosted zone (first 25 zones); global price"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.route53.zone_month",
+      "unit": "month",
+      "usd": 0.5,
+      "verification": "official_api",
+      "note": "Route 53 hosted zone (first 25 zones); global price"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.route53.zone_month",
+      "unit": "month",
+      "usd": 0.5,
+      "verification": "official_api",
+      "note": "Route 53 hosted zone (first 25 zones); global price"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.route53.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "Route 53 standard queries, first billion"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.route53.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "Route 53 standard queries, first billion"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.route53.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "Route 53 standard queries, first billion"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.route53.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "Route 53 standard queries, first billion"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.acm.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "official_page",
+      "note": "Non-exportable ACM public certificate used with integrated AWS services only; no additional certificate fee. Read https://aws.amazon.com/certificate-manager/pricing/ on 2026-10-05; no effective-start date published. Exportable, ACME and Private CA not covered."
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.acm.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "official_page",
+      "note": "Non-exportable ACM public certificate used with integrated AWS services only; no additional certificate fee. Read https://aws.amazon.com/certificate-manager/pricing/ on 2026-10-05; no effective-start date published. Exportable, ACME and Private CA not covered."
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.acm.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "official_page",
+      "note": "Non-exportable ACM public certificate used with integrated AWS services only; no additional certificate fee. Read https://aws.amazon.com/certificate-manager/pricing/ on 2026-10-05; no effective-start date published. Exportable, ACME and Private CA not covered."
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.acm.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "official_page",
+      "note": "Non-exportable ACM public certificate used with integrated AWS services only; no additional certificate fee. Read https://aws.amazon.com/certificate-manager/pricing/ on 2026-10-05; no effective-start date published. Exportable, ACME and Private CA not covered."
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.cloudwatch.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.67,
+      "verification": "official_api",
+      "note": "CloudWatch Logs standard ingestion per GB"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.cloudwatch.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.7,
+      "verification": "official_api",
+      "note": "CloudWatch Logs standard ingestion per GB"
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.cloudwatch.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.5,
+      "verification": "official_api",
+      "note": "CloudWatch Logs standard ingestion per GB"
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.cloudwatch.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.57,
+      "verification": "official_api",
+      "note": "CloudWatch Logs standard ingestion per GB"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.container_apps.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.0864,
+      "verification": "official_api",
+      "note": "Container Apps consumption, Standard vCPU ACTIVE usage per second x 3600 (upper bound: idle is 1/8)"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.container_apps.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.1224,
+      "verification": "official_api",
+      "note": "Container Apps consumption, Standard vCPU ACTIVE usage per second x 3600 (upper bound: idle is 1/8)"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.container_apps.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.0864,
+      "verification": "official_api",
+      "note": "Container Apps consumption, Standard vCPU ACTIVE usage per second x 3600 (upper bound: idle is 1/8)"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.container_apps.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.1224,
+      "verification": "official_api",
+      "note": "Container Apps consumption, Standard vCPU ACTIVE usage per second x 3600 (upper bound: idle is 1/8)"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.container_apps.gb_hour",
+      "unit": "hour",
+      "usd": 0.0108,
+      "verification": "official_api",
+      "note": "Container Apps consumption, Standard memory ACTIVE usage per GiB-second x 3600"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.container_apps.gb_hour",
+      "unit": "hour",
+      "usd": 0.0144,
+      "verification": "official_api",
+      "note": "Container Apps consumption, Standard memory ACTIVE usage per GiB-second x 3600"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.container_apps.gb_hour",
+      "unit": "hour",
+      "usd": 0.0108,
+      "verification": "official_api",
+      "note": "Container Apps consumption, Standard memory ACTIVE usage per GiB-second x 3600"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.container_apps.gb_hour",
+      "unit": "hour",
+      "usd": 0.0144,
+      "verification": "official_api",
+      "note": "Container Apps consumption, Standard memory ACTIVE usage per GiB-second x 3600"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.vm.small_hour",
+      "unit": "hour",
+      "usd": 0.0224,
+      "verification": "official_api",
+      "note": "Standard_B1ms Linux (1 vCPU burst, 2 GiB)"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.vm.small_hour",
+      "unit": "hour",
+      "usd": 0.0264,
+      "verification": "official_api",
+      "note": "Standard_B1ms Linux (1 vCPU burst, 2 GiB)"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.vm.small_hour",
+      "unit": "hour",
+      "usd": 0.0207,
+      "verification": "official_api",
+      "note": "Standard_B1ms Linux (1 vCPU burst, 2 GiB)"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.vm.small_hour",
+      "unit": "hour",
+      "usd": 0.024,
+      "verification": "official_api",
+      "note": "Standard_B1ms Linux (1 vCPU burst, 2 GiB)"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.vm.medium_hour",
+      "unit": "hour",
+      "usd": 0.0448,
+      "verification": "official_api",
+      "note": "Standard_B2s Linux (2 vCPU burst, 4 GiB)"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.vm.medium_hour",
+      "unit": "hour",
+      "usd": 0.0528,
+      "verification": "official_api",
+      "note": "Standard_B2s Linux (2 vCPU burst, 4 GiB)"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.vm.medium_hour",
+      "unit": "hour",
+      "usd": 0.0416,
+      "verification": "official_api",
+      "note": "Standard_B2s Linux (2 vCPU burst, 4 GiB)"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.vm.medium_hour",
+      "unit": "hour",
+      "usd": 0.048,
+      "verification": "official_api",
+      "note": "Standard_B2s Linux (2 vCPU burst, 4 GiB)"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.vm.large_hour",
+      "unit": "hour",
+      "usd": 0.101,
+      "verification": "official_api",
+      "note": "Standard_D2s_v5 Linux (2 vCPU, 8 GiB)"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.vm.large_hour",
+      "unit": "hour",
+      "usd": 0.12,
+      "verification": "official_api",
+      "note": "Standard_D2s_v5 Linux (2 vCPU, 8 GiB)"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.vm.large_hour",
+      "unit": "hour",
+      "usd": 0.096,
+      "verification": "official_api",
+      "note": "Standard_D2s_v5 Linux (2 vCPU, 8 GiB)"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.vm.large_hour",
+      "unit": "hour",
+      "usd": 0.115,
+      "verification": "official_api",
+      "note": "Standard_D2s_v5 Linux (2 vCPU, 8 GiB)"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.postgres_flexible.nano_hour",
+      "unit": "hour",
+      "usd": 0.0245,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server Burstable B1ms (1 vCore, 2 GiB), no HA"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.postgres_flexible.nano_hour",
+      "unit": "hour",
+      "usd": 0.026,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server Burstable B1ms (1 vCore, 2 GiB), no HA"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.postgres_flexible.nano_hour",
+      "unit": "hour",
+      "usd": 0.017,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server Burstable B1ms (1 vCore, 2 GiB), no HA"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.postgres_flexible.nano_hour",
+      "unit": "hour",
+      "usd": 0.0199,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server Burstable B1ms (1 vCore, 2 GiB), no HA"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.postgres_flexible.small_hour",
+      "unit": "hour",
+      "usd": 0.098,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server Burstable B2s (2 vCore, 4 GiB), no HA"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.postgres_flexible.small_hour",
+      "unit": "hour",
+      "usd": 0.104,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server Burstable B2s (2 vCore, 4 GiB), no HA"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.postgres_flexible.small_hour",
+      "unit": "hour",
+      "usd": 0.068,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server Burstable B2s (2 vCore, 4 GiB), no HA"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.postgres_flexible.small_hour",
+      "unit": "hour",
+      "usd": 0.0796,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server Burstable B2s (2 vCore, 4 GiB), no HA"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.postgres_flexible.standard_hour",
+      "unit": "hour",
+      "usd": 0.251,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server General Purpose D2ds_v5 (2 vCore, 8 GiB), no HA"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.postgres_flexible.standard_hour",
+      "unit": "hour",
+      "usd": 0.244,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server General Purpose D2ds_v5 (2 vCore, 8 GiB), no HA"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.postgres_flexible.standard_hour",
+      "unit": "hour",
+      "usd": 0.178,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server General Purpose D2ds_v5 (2 vCore, 8 GiB), no HA"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.postgres_flexible.standard_hour",
+      "unit": "hour",
+      "usd": 0.212,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server General Purpose D2ds_v5 (2 vCore, 8 GiB), no HA"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.postgres_flexible.performance_hour",
+      "unit": "hour",
+      "usd": 0.502,
+      "verification": "official_api",
+      "note": "General Purpose D4ds_v5 (4 vCore, 16 GiB) = 2x the 2 vCore price"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.postgres_flexible.performance_hour",
+      "unit": "hour",
+      "usd": 0.488,
+      "verification": "official_api",
+      "note": "General Purpose D4ds_v5 (4 vCore, 16 GiB) = 2x the 2 vCore price"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.postgres_flexible.performance_hour",
+      "unit": "hour",
+      "usd": 0.356,
+      "verification": "official_api",
+      "note": "General Purpose D4ds_v5 (4 vCore, 16 GiB) = 2x the 2 vCore price"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.postgres_flexible.performance_hour",
+      "unit": "hour",
+      "usd": 0.424,
+      "verification": "official_api",
+      "note": "General Purpose D4ds_v5 (4 vCore, 16 GiB) = 2x the 2 vCore price"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.postgres_flexible.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "zone-redundant HA bills a second compute instance (2x compute)"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.postgres_flexible.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "zone-redundant HA bills a second compute instance (2x compute)"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.postgres_flexible.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "zone-redundant HA bills a second compute instance (2x compute)"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.postgres_flexible.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "zone-redundant HA bills a second compute instance (2x compute)"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.postgres_flexible.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "zone-redundant HA bills a second storage copy (2x storage)"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.postgres_flexible.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "zone-redundant HA bills a second storage copy (2x storage)"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.postgres_flexible.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "zone-redundant HA bills a second storage copy (2x storage)"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.postgres_flexible.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "zone-redundant HA bills a second storage copy (2x storage)"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.postgres_flexible.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.131,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server storage"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.postgres_flexible.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.138,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server storage"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.postgres_flexible.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.115,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server storage"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.postgres_flexible.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.1369,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server storage"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.postgres_flexible.iops_month",
+      "unit": "iops_month",
+      "usd": 0.02,
+      "verification": "derived",
+      "note": "Premium SSD v2 IOPS rate read for eastus from the Retail Prices API and applied to all four regions"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.postgres_flexible.iops_month",
+      "unit": "iops_month",
+      "usd": 0.02,
+      "verification": "derived",
+      "note": "Premium SSD v2 IOPS rate read for eastus from the Retail Prices API and applied to all four regions"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.postgres_flexible.iops_month",
+      "unit": "iops_month",
+      "usd": 0.02,
+      "verification": "derived",
+      "note": "Premium SSD v2 IOPS rate read for eastus from the Retail Prices API and applied to all four regions"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.postgres_flexible.iops_month",
+      "unit": "iops_month",
+      "usd": 0.02,
+      "verification": "derived",
+      "note": "Premium SSD v2 IOPS rate read for eastus from the Retail Prices API and applied to all four regions"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.postgres_flexible.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.095,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server backup storage LRS beyond the free allowance"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.postgres_flexible.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.095,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server backup storage LRS beyond the free allowance"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.postgres_flexible.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.095,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server backup storage LRS beyond the free allowance"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.postgres_flexible.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.103,
+      "verification": "official_api",
+      "note": "PostgreSQL Flexible Server backup storage LRS beyond the free allowance"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.022,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C0 (250 MB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.022,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C0 (250 MB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.022,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C0 (250 MB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.022,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C0 (250 MB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.redis.small_hour",
+      "unit": "hour",
+      "usd": 0.055,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C1 (1 GB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.redis.small_hour",
+      "unit": "hour",
+      "usd": 0.055,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C1 (1 GB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.redis.small_hour",
+      "unit": "hour",
+      "usd": 0.055,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C1 (1 GB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.redis.small_hour",
+      "unit": "hour",
+      "usd": 0.055,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C1 (1 GB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.09,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C2 (2.5 GB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.09,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C2 (2.5 GB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.09,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C2 (2.5 GB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.09,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C2 (2.5 GB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.18,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C3 (6 GB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.18,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C3 (6 GB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.18,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C3 (6 GB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.18,
+      "verification": "official_api",
+      "note": "Azure Cache for Redis Basic C3 (6 GB), single node"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.5,
+      "verification": "official_api",
+      "note": "Standard (replicated) C1 0.138/h vs Basic C1 0.055/h = 2.51x"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.5,
+      "verification": "official_api",
+      "note": "Standard (replicated) C1 0.138/h vs Basic C1 0.055/h = 2.51x"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.5,
+      "verification": "official_api",
+      "note": "Standard (replicated) C1 0.138/h vs Basic C1 0.055/h = 2.51x"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.5,
+      "verification": "official_api",
+      "note": "Standard (replicated) C1 0.138/h vs Basic C1 0.055/h = 2.51x"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.blob.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.02,
+      "verification": "official_api",
+      "note": "Blob Hot LRS first tier"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.blob.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.02,
+      "verification": "official_api",
+      "note": "Blob Hot LRS first tier"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.blob.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.0208,
+      "verification": "official_api",
+      "note": "Blob Hot LRS first tier"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.blob.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.0196,
+      "verification": "official_api",
+      "note": "Blob Hot LRS first tier"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.blob.get_million",
+      "unit": "million_requests",
+      "usd": 0.44,
+      "verification": "official_api",
+      "note": "Hot read operations per 10K x 100"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.blob.get_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "Hot read operations per 10K x 100"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.blob.get_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "Hot read operations per 10K x 100"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.blob.get_million",
+      "unit": "million_requests",
+      "usd": 0.43,
+      "verification": "official_api",
+      "note": "Hot read operations per 10K x 100"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.blob.put_million",
+      "unit": "million_requests",
+      "usd": 5.5,
+      "verification": "official_api",
+      "note": "Hot LRS write operations per 10K x 100"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.blob.put_million",
+      "unit": "million_requests",
+      "usd": 5.0,
+      "verification": "official_api",
+      "note": "Hot LRS write operations per 10K x 100"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.blob.put_million",
+      "unit": "million_requests",
+      "usd": 5.0,
+      "verification": "official_api",
+      "note": "Hot LRS write operations per 10K x 100"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.blob.put_million",
+      "unit": "million_requests",
+      "usd": 5.4,
+      "verification": "official_api",
+      "note": "Hot LRS write operations per 10K x 100"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.storage_queue.requests_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Storage Queues about 0.004 per 10K operations; region-uniform assumed"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.storage_queue.requests_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Storage Queues about 0.004 per 10K operations; region-uniform assumed"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.storage_queue.requests_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Storage Queues about 0.004 per 10K operations; region-uniform assumed"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.storage_queue.requests_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Storage Queues about 0.004 per 10K operations; region-uniform assumed"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.app_gateway.hour",
+      "unit": "hour",
+      "usd": 0.28,
+      "verification": "official_api",
+      "note": "Application Gateway Standard v2 fixed cost per gateway-hour"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.app_gateway.hour",
+      "unit": "hour",
+      "usd": 0.26,
+      "verification": "official_api",
+      "note": "Application Gateway Standard v2 fixed cost per gateway-hour"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.app_gateway.hour",
+      "unit": "hour",
+      "usd": 0.2,
+      "verification": "official_api",
+      "note": "Application Gateway Standard v2 fixed cost per gateway-hour"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.app_gateway.hour",
+      "unit": "hour",
+      "usd": 0.26,
+      "verification": "official_api",
+      "note": "Application Gateway Standard v2 fixed cost per gateway-hour"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.app_gateway.lcu_hour",
+      "unit": "hour",
+      "usd": 0.008,
+      "verification": "official_api",
+      "note": "Application Gateway Standard v2 capacity unit hour"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.app_gateway.lcu_hour",
+      "unit": "hour",
+      "usd": 0.008,
+      "verification": "official_api",
+      "note": "Application Gateway Standard v2 capacity unit hour"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.app_gateway.lcu_hour",
+      "unit": "hour",
+      "usd": 0.008,
+      "verification": "official_api",
+      "note": "Application Gateway Standard v2 capacity unit hour"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.app_gateway.lcu_hour",
+      "unit": "hour",
+      "usd": 0.008,
+      "verification": "official_api",
+      "note": "Application Gateway Standard v2 capacity unit hour"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.nat_gateway.hour",
+      "unit": "hour",
+      "usd": 0.045,
+      "verification": "model_knowledge",
+      "note": "NAT Gateway resource hour; region-uniform assumed (not readable via the Retail Prices API filter used)"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.nat_gateway.hour",
+      "unit": "hour",
+      "usd": 0.045,
+      "verification": "model_knowledge",
+      "note": "NAT Gateway resource hour; region-uniform assumed (not readable via the Retail Prices API filter used)"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.nat_gateway.hour",
+      "unit": "hour",
+      "usd": 0.045,
+      "verification": "model_knowledge",
+      "note": "NAT Gateway resource hour; region-uniform assumed (not readable via the Retail Prices API filter used)"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.nat_gateway.hour",
+      "unit": "hour",
+      "usd": 0.045,
+      "verification": "model_knowledge",
+      "note": "NAT Gateway resource hour; region-uniform assumed (not readable via the Retail Prices API filter used)"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.nat_gateway.gb",
+      "unit": "gb",
+      "usd": 0.045,
+      "verification": "model_knowledge",
+      "note": "NAT Gateway data processed per GB; region-uniform assumed"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.nat_gateway.gb",
+      "unit": "gb",
+      "usd": 0.045,
+      "verification": "model_knowledge",
+      "note": "NAT Gateway data processed per GB; region-uniform assumed"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.nat_gateway.gb",
+      "unit": "gb",
+      "usd": 0.045,
+      "verification": "model_knowledge",
+      "note": "NAT Gateway data processed per GB; region-uniform assumed"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.nat_gateway.gb",
+      "unit": "gb",
+      "usd": 0.045,
+      "verification": "model_knowledge",
+      "note": "NAT Gateway data processed per GB; region-uniform assumed"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.public_ip.hour",
+      "unit": "hour",
+      "usd": 0.005,
+      "verification": "official_api",
+      "note": "Standard IPv4 Static Public IP, USD per 1 Hour, Consumption; regional Retail Prices API response read 2026-10-05; effectiveStartDate 2018-06-01T00:00:00Z; meterId 9c150bf9-2bad-430e-a53c-c213804f49ef. Public IP Prefix/Basic/Global not covered."
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.public_ip.hour",
+      "unit": "hour",
+      "usd": 0.005,
+      "verification": "official_api",
+      "note": "Standard IPv4 Static Public IP, USD per 1 Hour, Consumption; regional Retail Prices API response read 2026-10-05; effectiveStartDate 2018-06-01T00:00:00Z; meterId 9c150bf9-2bad-430e-a53c-c213804f49ef. Public IP Prefix/Basic/Global not covered."
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.public_ip.hour",
+      "unit": "hour",
+      "usd": 0.005,
+      "verification": "official_api",
+      "note": "Standard IPv4 Static Public IP, USD per 1 Hour, Consumption; regional Retail Prices API response read 2026-10-05; effectiveStartDate 2018-06-01T00:00:00Z; meterId 9c150bf9-2bad-430e-a53c-c213804f49ef. Public IP Prefix/Basic/Global not covered."
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.public_ip.hour",
+      "unit": "hour",
+      "usd": 0.005,
+      "verification": "official_api",
+      "note": "Standard IPv4 Static Public IP, USD per 1 Hour, Consumption; regional Retail Prices API response read 2026-10-05; effectiveStartDate 2018-06-01T00:00:00Z; meterId 9c150bf9-2bad-430e-a53c-c213804f49ef. Public IP Prefix/Basic/Global not covered."
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.bandwidth.internet_gb",
+      "unit": "gb",
+      "usd": 0.12,
+      "verification": "official_api",
+      "note": "Internet egress, Microsoft global network routing, first paid tier (first 100 GB/month free NOT applied)"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.bandwidth.internet_gb",
+      "unit": "gb",
+      "usd": 0.12,
+      "verification": "official_api",
+      "note": "Internet egress, Microsoft global network routing, first paid tier (first 100 GB/month free NOT applied)"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.bandwidth.internet_gb",
+      "unit": "gb",
+      "usd": 0.087,
+      "verification": "official_api",
+      "note": "Internet egress, Microsoft global network routing, first paid tier (first 100 GB/month free NOT applied)"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.bandwidth.internet_gb",
+      "unit": "gb",
+      "usd": 0.087,
+      "verification": "official_api",
+      "note": "Internet egress, Microsoft global network routing, first paid tier (first 100 GB/month free NOT applied)"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.bandwidth.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.08,
+      "verification": "model_knowledge",
+      "note": "inter-region transfer, typical intra-continent rate for the source zone"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.bandwidth.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.08,
+      "verification": "model_knowledge",
+      "note": "inter-region transfer, typical intra-continent rate for the source zone"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.bandwidth.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.02,
+      "verification": "model_knowledge",
+      "note": "inter-region transfer, typical intra-continent rate for the source zone"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.bandwidth.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.02,
+      "verification": "model_knowledge",
+      "note": "inter-region transfer, typical intra-continent rate for the source zone"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.managed_disk.ssd_gb_month",
+      "unit": "gb_month",
+      "usd": 0.154,
+      "verification": "model_knowledge",
+      "note": "Premium SSD P10 128 GiB about 19.71 USD/month; region-uniform assumed"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.managed_disk.ssd_gb_month",
+      "unit": "gb_month",
+      "usd": 0.154,
+      "verification": "model_knowledge",
+      "note": "Premium SSD P10 128 GiB about 19.71 USD/month; region-uniform assumed"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.managed_disk.ssd_gb_month",
+      "unit": "gb_month",
+      "usd": 0.154,
+      "verification": "model_knowledge",
+      "note": "Premium SSD P10 128 GiB about 19.71 USD/month; region-uniform assumed"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.managed_disk.ssd_gb_month",
+      "unit": "gb_month",
+      "usd": 0.154,
+      "verification": "model_knowledge",
+      "note": "Premium SSD P10 128 GiB about 19.71 USD/month; region-uniform assumed"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.managed_disk.iops_month",
+      "unit": "iops_month",
+      "usd": 0.005,
+      "verification": "model_knowledge",
+      "note": "Premium SSD v2 provisioned IOPS above 3000 baseline"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.managed_disk.iops_month",
+      "unit": "iops_month",
+      "usd": 0.005,
+      "verification": "model_knowledge",
+      "note": "Premium SSD v2 provisioned IOPS above 3000 baseline"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.managed_disk.iops_month",
+      "unit": "iops_month",
+      "usd": 0.005,
+      "verification": "model_knowledge",
+      "note": "Premium SSD v2 provisioned IOPS above 3000 baseline"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.managed_disk.iops_month",
+      "unit": "iops_month",
+      "usd": 0.005,
+      "verification": "model_knowledge",
+      "note": "Premium SSD v2 provisioned IOPS above 3000 baseline"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.managed_disk.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "model_knowledge",
+      "note": "disk snapshot storage"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.managed_disk.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "model_knowledge",
+      "note": "disk snapshot storage"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.managed_disk.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "model_knowledge",
+      "note": "disk snapshot storage"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.managed_disk.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "model_knowledge",
+      "note": "disk snapshot storage"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.dns.zone_month",
+      "unit": "month",
+      "usd": 0.5,
+      "verification": "model_knowledge",
+      "note": "Azure DNS hosted zone (first 25 zones)"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.dns.zone_month",
+      "unit": "month",
+      "usd": 0.5,
+      "verification": "model_knowledge",
+      "note": "Azure DNS hosted zone (first 25 zones)"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.dns.zone_month",
+      "unit": "month",
+      "usd": 0.5,
+      "verification": "model_knowledge",
+      "note": "Azure DNS hosted zone (first 25 zones)"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.dns.zone_month",
+      "unit": "month",
+      "usd": 0.5,
+      "verification": "model_knowledge",
+      "note": "Azure DNS hosted zone (first 25 zones)"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Azure DNS queries per million, first billion"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Azure DNS queries per million, first billion"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Azure DNS queries per million, first billion"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Azure DNS queries per million, first billion"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.managed_cert.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "Container Apps / App Service managed certificates are free"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.managed_cert.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "Container Apps / App Service managed certificates are free"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.managed_cert.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "Container Apps / App Service managed certificates are free"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.managed_cert.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "Container Apps / App Service managed certificates are free"
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.log_analytics.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 3.22,
+      "verification": "official_api",
+      "note": "Log Analytics pay-as-you-go ingestion per GB after the first 5 GB"
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.log_analytics.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 2.99,
+      "verification": "official_api",
+      "note": "Log Analytics pay-as-you-go ingestion per GB after the first 5 GB"
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.log_analytics.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 2.3,
+      "verification": "official_api",
+      "note": "Log Analytics pay-as-you-go ingestion per GB after the first 5 GB"
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.log_analytics.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 2.99,
+      "verification": "official_api",
+      "note": "Log Analytics pay-as-you-go ingestion per GB after the first 5 GB"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_run.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.0648,
+      "verification": "official_page",
+      "note": "Cloud Run instance-based billing per vCPU-second x 3600 (Tier 1 0.000018: asia-south1, us-central1, europe-west1; Tier 2 0.0000216: asia-southeast1)"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_run.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.07776,
+      "verification": "official_page",
+      "note": "Cloud Run instance-based billing per vCPU-second x 3600 (Tier 1 0.000018: asia-south1, us-central1, europe-west1; Tier 2 0.0000216: asia-southeast1)"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_run.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.0648,
+      "verification": "official_page",
+      "note": "Cloud Run instance-based billing per vCPU-second x 3600 (Tier 1 0.000018: asia-south1, us-central1, europe-west1; Tier 2 0.0000216: asia-southeast1)"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_run.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.0648,
+      "verification": "official_page",
+      "note": "Cloud Run instance-based billing per vCPU-second x 3600 (Tier 1 0.000018: asia-south1, us-central1, europe-west1; Tier 2 0.0000216: asia-southeast1)"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_run.gb_hour",
+      "unit": "hour",
+      "usd": 0.0072,
+      "verification": "official_page",
+      "note": "Cloud Run instance-based billing per GiB-second x 3600 (Tier 1 0.000002, Tier 2 0.0000024)"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_run.gb_hour",
+      "unit": "hour",
+      "usd": 0.00864,
+      "verification": "official_page",
+      "note": "Cloud Run instance-based billing per GiB-second x 3600 (Tier 1 0.000002, Tier 2 0.0000024)"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_run.gb_hour",
+      "unit": "hour",
+      "usd": 0.0072,
+      "verification": "official_page",
+      "note": "Cloud Run instance-based billing per GiB-second x 3600 (Tier 1 0.000002, Tier 2 0.0000024)"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_run.gb_hour",
+      "unit": "hour",
+      "usd": 0.0072,
+      "verification": "official_page",
+      "note": "Cloud Run instance-based billing per GiB-second x 3600 (Tier 1 0.000002, Tier 2 0.0000024)"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.compute_engine.small_hour",
+      "unit": "hour",
+      "usd": 0.0201,
+      "verification": "third_party_mirror",
+      "note": "e2-small (0.5 vCPU shared, 2 GiB) on-demand"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.compute_engine.small_hour",
+      "unit": "hour",
+      "usd": 0.0207,
+      "verification": "third_party_mirror",
+      "note": "e2-small (0.5 vCPU shared, 2 GiB) on-demand"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.compute_engine.small_hour",
+      "unit": "hour",
+      "usd": 0.0168,
+      "verification": "third_party_mirror",
+      "note": "e2-small (0.5 vCPU shared, 2 GiB) on-demand"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.compute_engine.small_hour",
+      "unit": "hour",
+      "usd": 0.0184,
+      "verification": "third_party_mirror",
+      "note": "e2-small (0.5 vCPU shared, 2 GiB) on-demand"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.compute_engine.medium_hour",
+      "unit": "hour",
+      "usd": 0.0402,
+      "verification": "third_party_mirror",
+      "note": "e2-medium (1 vCPU shared, 4 GiB) on-demand"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.compute_engine.medium_hour",
+      "unit": "hour",
+      "usd": 0.0413,
+      "verification": "third_party_mirror",
+      "note": "e2-medium (1 vCPU shared, 4 GiB) on-demand"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.compute_engine.medium_hour",
+      "unit": "hour",
+      "usd": 0.0335,
+      "verification": "third_party_mirror",
+      "note": "e2-medium (1 vCPU shared, 4 GiB) on-demand"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.compute_engine.medium_hour",
+      "unit": "hour",
+      "usd": 0.0369,
+      "verification": "third_party_mirror",
+      "note": "e2-medium (1 vCPU shared, 4 GiB) on-demand"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.compute_engine.large_hour",
+      "unit": "hour",
+      "usd": 0.0805,
+      "verification": "third_party_mirror",
+      "note": "e2-standard-2 (2 vCPU, 8 GiB) on-demand"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.compute_engine.large_hour",
+      "unit": "hour",
+      "usd": 0.0827,
+      "verification": "third_party_mirror",
+      "note": "e2-standard-2 (2 vCPU, 8 GiB) on-demand"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.compute_engine.large_hour",
+      "unit": "hour",
+      "usd": 0.067,
+      "verification": "third_party_mirror",
+      "note": "e2-standard-2 (2 vCPU, 8 GiB) on-demand"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.compute_engine.large_hour",
+      "unit": "hour",
+      "usd": 0.0737,
+      "verification": "third_party_mirror",
+      "note": "e2-standard-2 (2 vCPU, 8 GiB) on-demand"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_sql_postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.0601,
+      "verification": "derived",
+      "note": "db-g1-small shared core (1.7 GB) us-central1 0.0500 from model knowledge, scaled by regional Compute Engine ratio"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_sql_postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.0617,
+      "verification": "derived",
+      "note": "db-g1-small shared core (1.7 GB) us-central1 0.0500 from model knowledge, scaled by regional Compute Engine ratio"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_sql_postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.05,
+      "verification": "derived",
+      "note": "db-g1-small shared core (1.7 GB) us-central1 0.0500 from model knowledge, scaled by regional Compute Engine ratio"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_sql_postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.055,
+      "verification": "derived",
+      "note": "db-g1-small shared core (1.7 GB) us-central1 0.0500 from model knowledge, scaled by regional Compute Engine ratio"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_sql_postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.0811,
+      "verification": "derived",
+      "note": "db-custom-1-3840 (1 vCPU, 3.75 GB) Enterprise: us-central1 vCPU 0.0413 + memory 0.0070 per GB-h, scaled by regional Compute Engine ratio"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_sql_postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.0833,
+      "verification": "derived",
+      "note": "db-custom-1-3840 (1 vCPU, 3.75 GB) Enterprise: us-central1 vCPU 0.0413 + memory 0.0070 per GB-h, scaled by regional Compute Engine ratio"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_sql_postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.0675,
+      "verification": "derived",
+      "note": "db-custom-1-3840 (1 vCPU, 3.75 GB) Enterprise: us-central1 vCPU 0.0413 + memory 0.0070 per GB-h, scaled by regional Compute Engine ratio"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_sql_postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.0743,
+      "verification": "derived",
+      "note": "db-custom-1-3840 (1 vCPU, 3.75 GB) Enterprise: us-central1 vCPU 0.0413 + memory 0.0070 per GB-h, scaled by regional Compute Engine ratio"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_sql_postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.1623,
+      "verification": "derived",
+      "note": "db-custom-2-7680 (2 vCPU, 7.5 GB) Enterprise, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_sql_postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.1667,
+      "verification": "derived",
+      "note": "db-custom-2-7680 (2 vCPU, 7.5 GB) Enterprise, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_sql_postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.1351,
+      "verification": "derived",
+      "note": "db-custom-2-7680 (2 vCPU, 7.5 GB) Enterprise, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_sql_postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.1486,
+      "verification": "derived",
+      "note": "db-custom-2-7680 (2 vCPU, 7.5 GB) Enterprise, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_sql_postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.3245,
+      "verification": "derived",
+      "note": "db-custom-4-15360 (4 vCPU, 15 GB) Enterprise, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_sql_postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.3333,
+      "verification": "derived",
+      "note": "db-custom-4-15360 (4 vCPU, 15 GB) Enterprise, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_sql_postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.2702,
+      "verification": "derived",
+      "note": "db-custom-4-15360 (4 vCPU, 15 GB) Enterprise, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_sql_postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.2972,
+      "verification": "derived",
+      "note": "db-custom-4-15360 (4 vCPU, 15 GB) Enterprise, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_sql_postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "regional HA doubles vCPU and memory charges"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_sql_postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "regional HA doubles vCPU and memory charges"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_sql_postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "regional HA doubles vCPU and memory charges"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_sql_postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "regional HA doubles vCPU and memory charges"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_sql_postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "regional HA doubles storage charges"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_sql_postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "regional HA doubles storage charges"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_sql_postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "regional HA doubles storage charges"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_sql_postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "regional HA doubles storage charges"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_sql_postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.204,
+      "verification": "derived",
+      "note": "Cloud SQL SSD storage: us-central1 0.17 (model knowledge); other regions use the mirrored pd-ssd regional price"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_sql_postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.187,
+      "verification": "derived",
+      "note": "Cloud SQL SSD storage: us-central1 0.17 (model knowledge); other regions use the mirrored pd-ssd regional price"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_sql_postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.17,
+      "verification": "derived",
+      "note": "Cloud SQL SSD storage: us-central1 0.17 (model knowledge); other regions use the mirrored pd-ssd regional price"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_sql_postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.17,
+      "verification": "derived",
+      "note": "Cloud SQL SSD storage: us-central1 0.17 (model knowledge); other regions use the mirrored pd-ssd regional price"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_sql_postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "Cloud SQL SSD storage includes IOPS scaling with size; no separate provisioned-IOPS charge"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_sql_postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "Cloud SQL SSD storage includes IOPS scaling with size; no separate provisioned-IOPS charge"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_sql_postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "Cloud SQL SSD storage includes IOPS scaling with size; no separate provisioned-IOPS charge"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_sql_postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "Cloud SQL SSD storage includes IOPS scaling with size; no separate provisioned-IOPS charge"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_sql_postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.08,
+      "verification": "model_knowledge",
+      "note": "Cloud SQL backup storage; region-uniform assumed"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_sql_postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.08,
+      "verification": "model_knowledge",
+      "note": "Cloud SQL backup storage; region-uniform assumed"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_sql_postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.08,
+      "verification": "model_knowledge",
+      "note": "Cloud SQL backup storage; region-uniform assumed"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_sql_postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.08,
+      "verification": "model_knowledge",
+      "note": "Cloud SQL backup storage; region-uniform assumed"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.memorystore_redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.0589,
+      "verification": "derived",
+      "note": "Memorystore for Redis Basic tier 1 GB at 0.049 per GB-hour us-central1 (model knowledge), scaled by regional Compute Engine ratio"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.memorystore_redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.0604,
+      "verification": "derived",
+      "note": "Memorystore for Redis Basic tier 1 GB at 0.049 per GB-hour us-central1 (model knowledge), scaled by regional Compute Engine ratio"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.memorystore_redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.049,
+      "verification": "derived",
+      "note": "Memorystore for Redis Basic tier 1 GB at 0.049 per GB-hour us-central1 (model knowledge), scaled by regional Compute Engine ratio"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.memorystore_redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.0539,
+      "verification": "derived",
+      "note": "Memorystore for Redis Basic tier 1 GB at 0.049 per GB-hour us-central1 (model knowledge), scaled by regional Compute Engine ratio"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.memorystore_redis.small_hour",
+      "unit": "hour",
+      "usd": 0.1177,
+      "verification": "derived",
+      "note": "2 GB, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.memorystore_redis.small_hour",
+      "unit": "hour",
+      "usd": 0.1209,
+      "verification": "derived",
+      "note": "2 GB, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.memorystore_redis.small_hour",
+      "unit": "hour",
+      "usd": 0.098,
+      "verification": "derived",
+      "note": "2 GB, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.memorystore_redis.small_hour",
+      "unit": "hour",
+      "usd": 0.1078,
+      "verification": "derived",
+      "note": "2 GB, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.memorystore_redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.2354,
+      "verification": "derived",
+      "note": "4 GB, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.memorystore_redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.2418,
+      "verification": "derived",
+      "note": "4 GB, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.memorystore_redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.196,
+      "verification": "derived",
+      "note": "4 GB, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.memorystore_redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.2156,
+      "verification": "derived",
+      "note": "4 GB, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.memorystore_redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.4708,
+      "verification": "derived",
+      "note": "8 GB, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.memorystore_redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.4836,
+      "verification": "derived",
+      "note": "8 GB, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.memorystore_redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.392,
+      "verification": "derived",
+      "note": "8 GB, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.memorystore_redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.4312,
+      "verification": "derived",
+      "note": "8 GB, same derivation"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.memorystore_redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "Standard tier (replica) about 2x Basic per GB"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.memorystore_redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "Standard tier (replica) about 2x Basic per GB"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.memorystore_redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "Standard tier (replica) about 2x Basic per GB"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.memorystore_redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "Standard tier (replica) about 2x Basic per GB"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.gcs.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.023,
+      "verification": "third_party_mirror",
+      "note": "Cloud Storage Standard regional"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.gcs.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.02,
+      "verification": "third_party_mirror",
+      "note": "Cloud Storage Standard regional"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.gcs.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.02,
+      "verification": "third_party_mirror",
+      "note": "Cloud Storage Standard regional"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.gcs.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.02,
+      "verification": "third_party_mirror",
+      "note": "Cloud Storage Standard regional"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.gcs.get_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Class B operations per million"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.gcs.get_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Class B operations per million"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.gcs.get_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Class B operations per million"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.gcs.get_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Class B operations per million"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.gcs.put_million",
+      "unit": "million_requests",
+      "usd": 5.0,
+      "verification": "model_knowledge",
+      "note": "Class A operations per million"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.gcs.put_million",
+      "unit": "million_requests",
+      "usd": 5.0,
+      "verification": "model_knowledge",
+      "note": "Class A operations per million"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.gcs.put_million",
+      "unit": "million_requests",
+      "usd": 5.0,
+      "verification": "model_knowledge",
+      "note": "Class A operations per million"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.gcs.put_million",
+      "unit": "million_requests",
+      "usd": 5.0,
+      "verification": "model_knowledge",
+      "note": "Class A operations per million"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_tasks.requests_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Cloud Tasks operations per million beyond the free 1M"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_tasks.requests_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Cloud Tasks operations per million beyond the free 1M"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_tasks.requests_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Cloud Tasks operations per million beyond the free 1M"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_tasks.requests_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Cloud Tasks operations per million beyond the free 1M"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.load_balancing.forwarding_rule_hour",
+      "unit": "hour",
+      "usd": 0.025,
+      "verification": "model_knowledge",
+      "note": "external Application Load Balancer forwarding rule, first 5 rules"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.load_balancing.forwarding_rule_hour",
+      "unit": "hour",
+      "usd": 0.025,
+      "verification": "model_knowledge",
+      "note": "external Application Load Balancer forwarding rule, first 5 rules"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.load_balancing.forwarding_rule_hour",
+      "unit": "hour",
+      "usd": 0.025,
+      "verification": "model_knowledge",
+      "note": "external Application Load Balancer forwarding rule, first 5 rules"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.load_balancing.forwarding_rule_hour",
+      "unit": "hour",
+      "usd": 0.025,
+      "verification": "model_knowledge",
+      "note": "external Application Load Balancer forwarding rule, first 5 rules"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.load_balancing.processed_gb",
+      "unit": "gb",
+      "usd": 0.008,
+      "verification": "model_knowledge",
+      "note": "load balancer data processed per GB"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.load_balancing.processed_gb",
+      "unit": "gb",
+      "usd": 0.008,
+      "verification": "model_knowledge",
+      "note": "load balancer data processed per GB"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.load_balancing.processed_gb",
+      "unit": "gb",
+      "usd": 0.008,
+      "verification": "model_knowledge",
+      "note": "load balancer data processed per GB"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.load_balancing.processed_gb",
+      "unit": "gb",
+      "usd": 0.008,
+      "verification": "model_knowledge",
+      "note": "load balancer data processed per GB"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_nat.hour",
+      "unit": "hour",
+      "usd": 0.0448,
+      "verification": "third_party_mirror",
+      "note": "Cloud NAT gateway, capped at 32 VMs (per-VM rate 0.0014/h)"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_nat.hour",
+      "unit": "hour",
+      "usd": 0.0448,
+      "verification": "third_party_mirror",
+      "note": "Cloud NAT gateway, capped at 32 VMs (per-VM rate 0.0014/h)"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_nat.hour",
+      "unit": "hour",
+      "usd": 0.0448,
+      "verification": "third_party_mirror",
+      "note": "Cloud NAT gateway, capped at 32 VMs (per-VM rate 0.0014/h)"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_nat.hour",
+      "unit": "hour",
+      "usd": 0.0448,
+      "verification": "third_party_mirror",
+      "note": "Cloud NAT gateway, capped at 32 VMs (per-VM rate 0.0014/h)"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_nat.gb",
+      "unit": "gb",
+      "usd": 0.045,
+      "verification": "third_party_mirror",
+      "note": "Cloud NAT data processed per GB"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_nat.gb",
+      "unit": "gb",
+      "usd": 0.045,
+      "verification": "third_party_mirror",
+      "note": "Cloud NAT data processed per GB"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_nat.gb",
+      "unit": "gb",
+      "usd": 0.045,
+      "verification": "third_party_mirror",
+      "note": "Cloud NAT data processed per GB"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_nat.gb",
+      "unit": "gb",
+      "usd": 0.045,
+      "verification": "third_party_mirror",
+      "note": "Cloud NAT data processed per GB"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.ipv4.hour",
+      "unit": "hour",
+      "usd": 0.005,
+      "verification": "third_party_mirror",
+      "note": "external IPv4 address in use per hour"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.ipv4.hour",
+      "unit": "hour",
+      "usd": 0.005,
+      "verification": "third_party_mirror",
+      "note": "external IPv4 address in use per hour"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.ipv4.hour",
+      "unit": "hour",
+      "usd": 0.005,
+      "verification": "third_party_mirror",
+      "note": "external IPv4 address in use per hour"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.ipv4.hour",
+      "unit": "hour",
+      "usd": 0.005,
+      "verification": "third_party_mirror",
+      "note": "external IPv4 address in use per hour"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.network.internet_gb",
+      "unit": "gb",
+      "usd": 0.12,
+      "verification": "third_party_mirror",
+      "note": "Premium Tier internet egress, first 1 TB, non-China/non-Australia destinations"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.network.internet_gb",
+      "unit": "gb",
+      "usd": 0.12,
+      "verification": "third_party_mirror",
+      "note": "Premium Tier internet egress, first 1 TB, non-China/non-Australia destinations"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.network.internet_gb",
+      "unit": "gb",
+      "usd": 0.12,
+      "verification": "third_party_mirror",
+      "note": "Premium Tier internet egress, first 1 TB, non-China/non-Australia destinations"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.network.internet_gb",
+      "unit": "gb",
+      "usd": 0.12,
+      "verification": "third_party_mirror",
+      "note": "Premium Tier internet egress, first 1 TB, non-China/non-Australia destinations"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.network.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.085,
+      "verification": "model_knowledge",
+      "note": "inter-region egress, typical rate for the source region (intra-continent NA/EU 0.02; Asia/inter-continent about 0.085)"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.network.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.085,
+      "verification": "model_knowledge",
+      "note": "inter-region egress, typical rate for the source region (intra-continent NA/EU 0.02; Asia/inter-continent about 0.085)"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.network.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.02,
+      "verification": "model_knowledge",
+      "note": "inter-region egress, typical rate for the source region (intra-continent NA/EU 0.02; Asia/inter-continent about 0.085)"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.network.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.02,
+      "verification": "model_knowledge",
+      "note": "inter-region egress, typical rate for the source region (intra-continent NA/EU 0.02; Asia/inter-continent about 0.085)"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.pd_balanced.gb_month",
+      "unit": "gb_month",
+      "usd": 0.12,
+      "verification": "third_party_mirror",
+      "note": "Persistent Disk Balanced"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.pd_balanced.gb_month",
+      "unit": "gb_month",
+      "usd": 0.11,
+      "verification": "third_party_mirror",
+      "note": "Persistent Disk Balanced"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.pd_balanced.gb_month",
+      "unit": "gb_month",
+      "usd": 0.1,
+      "verification": "third_party_mirror",
+      "note": "Persistent Disk Balanced"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.pd_balanced.gb_month",
+      "unit": "gb_month",
+      "usd": 0.1,
+      "verification": "third_party_mirror",
+      "note": "Persistent Disk Balanced"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.pd_balanced.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "PD Balanced IOPS scale with size; no separate provisioned-IOPS charge"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.pd_balanced.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "PD Balanced IOPS scale with size; no separate provisioned-IOPS charge"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.pd_balanced.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "PD Balanced IOPS scale with size; no separate provisioned-IOPS charge"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.pd_balanced.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "PD Balanced IOPS scale with size; no separate provisioned-IOPS charge"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.pd_balanced.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.052,
+      "verification": "third_party_mirror",
+      "note": "disk snapshot storage"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.pd_balanced.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.061,
+      "verification": "third_party_mirror",
+      "note": "disk snapshot storage"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.pd_balanced.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "third_party_mirror",
+      "note": "disk snapshot storage"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.pd_balanced.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "third_party_mirror",
+      "note": "disk snapshot storage"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_dns.zone_month",
+      "unit": "month",
+      "usd": 0.2,
+      "verification": "model_knowledge",
+      "note": "Cloud DNS managed zone (first 25)"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_dns.zone_month",
+      "unit": "month",
+      "usd": 0.2,
+      "verification": "model_knowledge",
+      "note": "Cloud DNS managed zone (first 25)"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_dns.zone_month",
+      "unit": "month",
+      "usd": 0.2,
+      "verification": "model_knowledge",
+      "note": "Cloud DNS managed zone (first 25)"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_dns.zone_month",
+      "unit": "month",
+      "usd": 0.2,
+      "verification": "model_knowledge",
+      "note": "Cloud DNS managed zone (first 25)"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Cloud DNS queries per million, first billion"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Cloud DNS queries per million, first billion"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Cloud DNS queries per million, first billion"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "model_knowledge",
+      "note": "Cloud DNS queries per million, first billion"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.managed_cert.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "Google-managed certificates are free"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.managed_cert.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "Google-managed certificates are free"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.managed_cert.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "Google-managed certificates are free"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.managed_cert.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "Google-managed certificates are free"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.cloud_logging.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.5,
+      "verification": "model_knowledge",
+      "note": "Cloud Logging ingestion per GiB beyond the free 50 GiB/project"
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.cloud_logging.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.5,
+      "verification": "model_knowledge",
+      "note": "Cloud Logging ingestion per GiB beyond the free 50 GiB/project"
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.cloud_logging.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.5,
+      "verification": "model_knowledge",
+      "note": "Cloud Logging ingestion per GiB beyond the free 50 GiB/project"
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.cloud_logging.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.5,
+      "verification": "model_knowledge",
+      "note": "Cloud Logging ingestion per GiB beyond the free 50 GiB/project"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.container_instances.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.0125,
+      "verification": "derived",
+      "note": "Container Instances are billed like Compute Standard E4 flex (billing rule remembered from OCI docs, not re-read): 0.025 per OCPU-hour from the price list; 1 OCPU = 2 vCPU so 0.0125 per vCPU"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.container_instances.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.0125,
+      "verification": "derived",
+      "note": "Container Instances are billed like Compute Standard E4 flex (billing rule remembered from OCI docs, not re-read): 0.025 per OCPU-hour from the price list; 1 OCPU = 2 vCPU so 0.0125 per vCPU"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.container_instances.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.0125,
+      "verification": "derived",
+      "note": "Container Instances are billed like Compute Standard E4 flex (billing rule remembered from OCI docs, not re-read): 0.025 per OCPU-hour from the price list; 1 OCPU = 2 vCPU so 0.0125 per vCPU"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.container_instances.gb_hour",
+      "unit": "hour",
+      "usd": 0.0015,
+      "verification": "derived",
+      "note": "Standard E4 memory per GB-hour from the price list, applied to Container Instances"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.container_instances.gb_hour",
+      "unit": "hour",
+      "usd": 0.0015,
+      "verification": "derived",
+      "note": "Standard E4 memory per GB-hour from the price list, applied to Container Instances"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.container_instances.gb_hour",
+      "unit": "hour",
+      "usd": 0.0015,
+      "verification": "derived",
+      "note": "Standard E4 memory per GB-hour from the price list, applied to Container Instances"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.compute.small_hour",
+      "unit": "hour",
+      "usd": 0.028,
+      "verification": "derived",
+      "note": "VM.Standard.E4.Flex 1 OCPU (2 vCPU) + 2 GB = 0.025 + 2 x 0.0015"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.compute.small_hour",
+      "unit": "hour",
+      "usd": 0.028,
+      "verification": "derived",
+      "note": "VM.Standard.E4.Flex 1 OCPU (2 vCPU) + 2 GB = 0.025 + 2 x 0.0015"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.compute.small_hour",
+      "unit": "hour",
+      "usd": 0.028,
+      "verification": "derived",
+      "note": "VM.Standard.E4.Flex 1 OCPU (2 vCPU) + 2 GB = 0.025 + 2 x 0.0015"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.compute.medium_hour",
+      "unit": "hour",
+      "usd": 0.031,
+      "verification": "derived",
+      "note": "1 OCPU + 4 GB = 0.025 + 4 x 0.0015"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.compute.medium_hour",
+      "unit": "hour",
+      "usd": 0.031,
+      "verification": "derived",
+      "note": "1 OCPU + 4 GB = 0.025 + 4 x 0.0015"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.compute.medium_hour",
+      "unit": "hour",
+      "usd": 0.031,
+      "verification": "derived",
+      "note": "1 OCPU + 4 GB = 0.025 + 4 x 0.0015"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.compute.large_hour",
+      "unit": "hour",
+      "usd": 0.037,
+      "verification": "derived",
+      "note": "1 OCPU + 8 GB = 0.025 + 8 x 0.0015"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.compute.large_hour",
+      "unit": "hour",
+      "usd": 0.037,
+      "verification": "derived",
+      "note": "1 OCPU + 8 GB = 0.025 + 8 x 0.0015"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.compute.large_hour",
+      "unit": "hour",
+      "usd": 0.037,
+      "verification": "derived",
+      "note": "1 OCPU + 8 GB = 0.025 + 8 x 0.0015"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.098,
+      "verification": "official_api",
+      "note": "Database with PostgreSQL 1 OCPU (minimum shape) x 0.098"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.098,
+      "verification": "official_api",
+      "note": "Database with PostgreSQL 1 OCPU (minimum shape) x 0.098"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.098,
+      "verification": "official_api",
+      "note": "Database with PostgreSQL 1 OCPU (minimum shape) x 0.098"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.098,
+      "verification": "official_api",
+      "note": "1 OCPU (minimum shape)"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.098,
+      "verification": "official_api",
+      "note": "1 OCPU (minimum shape)"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.098,
+      "verification": "official_api",
+      "note": "1 OCPU (minimum shape)"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.196,
+      "verification": "derived",
+      "note": "2 OCPU x 0.098"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.196,
+      "verification": "derived",
+      "note": "2 OCPU x 0.098"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.196,
+      "verification": "derived",
+      "note": "2 OCPU x 0.098"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.392,
+      "verification": "derived",
+      "note": "4 OCPU x 0.098"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.392,
+      "verification": "derived",
+      "note": "4 OCPU x 0.098"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.392,
+      "verification": "derived",
+      "note": "4 OCPU x 0.098"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 3.0,
+      "verification": "model_knowledge",
+      "note": "HA runs a primary plus two replica nodes; assumed all billed (conservative: overstates if only some are billed). Verify against the OCI cost estimator"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 3.0,
+      "verification": "model_knowledge",
+      "note": "HA runs a primary plus two replica nodes; assumed all billed (conservative: overstates if only some are billed). Verify against the OCI cost estimator"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 3.0,
+      "verification": "model_knowledge",
+      "note": "HA runs a primary plus two replica nodes; assumed all billed (conservative: overstates if only some are billed). Verify against the OCI cost estimator"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 1.0,
+      "verification": "model_knowledge",
+      "note": "database-optimized storage is shared across nodes"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 1.0,
+      "verification": "model_knowledge",
+      "note": "database-optimized storage is shared across nodes"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 1.0,
+      "verification": "model_knowledge",
+      "note": "database-optimized storage is shared across nodes"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.072,
+      "verification": "official_api",
+      "note": "Database Optimized Storage per GB-month"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.072,
+      "verification": "official_api",
+      "note": "Database Optimized Storage per GB-month"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.072,
+      "verification": "official_api",
+      "note": "Database Optimized Storage per GB-month"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "performance included in Database Optimized Storage"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "performance included in Database Optimized Storage"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "performance included in Database Optimized Storage"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.0255,
+      "verification": "model_knowledge",
+      "note": "backups stored in Object Storage at the Object Storage rate"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.0255,
+      "verification": "model_knowledge",
+      "note": "backups stored in Object Storage at the Object Storage rate"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.0255,
+      "verification": "model_knowledge",
+      "note": "backups stored in Object Storage at the Object Storage rate"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.0194,
+      "verification": "derived",
+      "note": "OCI Cache with Redis low-memory tier 1 GB x 0.0194 per GB-hour"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.0194,
+      "verification": "derived",
+      "note": "OCI Cache with Redis low-memory tier 1 GB x 0.0194 per GB-hour"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.0194,
+      "verification": "derived",
+      "note": "OCI Cache with Redis low-memory tier 1 GB x 0.0194 per GB-hour"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.redis.small_hour",
+      "unit": "hour",
+      "usd": 0.0388,
+      "verification": "derived",
+      "note": "2 GB x 0.0194"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.redis.small_hour",
+      "unit": "hour",
+      "usd": 0.0388,
+      "verification": "derived",
+      "note": "2 GB x 0.0194"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.redis.small_hour",
+      "unit": "hour",
+      "usd": 0.0388,
+      "verification": "derived",
+      "note": "2 GB x 0.0194"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.0776,
+      "verification": "derived",
+      "note": "4 GB x 0.0194"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.0776,
+      "verification": "derived",
+      "note": "4 GB x 0.0194"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.0776,
+      "verification": "derived",
+      "note": "4 GB x 0.0194"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.1552,
+      "verification": "derived",
+      "note": "8 GB x 0.0194"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.1552,
+      "verification": "derived",
+      "note": "8 GB x 0.0194"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.1552,
+      "verification": "derived",
+      "note": "8 GB x 0.0194"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "primary plus replica"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "primary plus replica"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "model_knowledge",
+      "note": "primary plus replica"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.object_storage.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.0255,
+      "verification": "official_api",
+      "note": "Object Storage per GB-month beyond the first 10 GB (free tier not applied)"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.object_storage.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.0255,
+      "verification": "official_api",
+      "note": "Object Storage per GB-month beyond the first 10 GB (free tier not applied)"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.object_storage.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.0255,
+      "verification": "official_api",
+      "note": "Object Storage per GB-month beyond the first 10 GB (free tier not applied)"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.object_storage.get_million",
+      "unit": "million_requests",
+      "usd": 0.34,
+      "verification": "official_api",
+      "note": "0.0034 per 10,000 requests x 100 (first 50,000 free, not applied)"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.object_storage.get_million",
+      "unit": "million_requests",
+      "usd": 0.34,
+      "verification": "official_api",
+      "note": "0.0034 per 10,000 requests x 100 (first 50,000 free, not applied)"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.object_storage.get_million",
+      "unit": "million_requests",
+      "usd": 0.34,
+      "verification": "official_api",
+      "note": "0.0034 per 10,000 requests x 100 (first 50,000 free, not applied)"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.object_storage.put_million",
+      "unit": "million_requests",
+      "usd": 0.34,
+      "verification": "official_api",
+      "note": "same rate for all request types"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.object_storage.put_million",
+      "unit": "million_requests",
+      "usd": 0.34,
+      "verification": "official_api",
+      "note": "same rate for all request types"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.object_storage.put_million",
+      "unit": "million_requests",
+      "usd": 0.34,
+      "verification": "official_api",
+      "note": "same rate for all request types"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.queue.requests_million",
+      "unit": "million_requests",
+      "usd": 0.22,
+      "verification": "official_api",
+      "note": "OCI Queue per million requests (first million free, not applied)"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.queue.requests_million",
+      "unit": "million_requests",
+      "usd": 0.22,
+      "verification": "official_api",
+      "note": "OCI Queue per million requests (first million free, not applied)"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.queue.requests_million",
+      "unit": "million_requests",
+      "usd": 0.22,
+      "verification": "official_api",
+      "note": "OCI Queue per million requests (first million free, not applied)"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.flexible_lb.hour",
+      "unit": "hour",
+      "usd": 0.0113,
+      "verification": "official_api",
+      "note": "Flexible Load Balancer base per hour (first 744 h free tier not applied)"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.flexible_lb.hour",
+      "unit": "hour",
+      "usd": 0.0113,
+      "verification": "official_api",
+      "note": "Flexible Load Balancer base per hour (first 744 h free tier not applied)"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.flexible_lb.hour",
+      "unit": "hour",
+      "usd": 0.0113,
+      "verification": "official_api",
+      "note": "Flexible Load Balancer base per hour (first 744 h free tier not applied)"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.flexible_lb.lcu_hour",
+      "unit": "hour",
+      "usd": 0.001,
+      "verification": "derived",
+      "note": "capacity unit = 10 Mbps minimum flexible bandwidth x 0.0001 per Mbps-hour"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.flexible_lb.lcu_hour",
+      "unit": "hour",
+      "usd": 0.001,
+      "verification": "derived",
+      "note": "capacity unit = 10 Mbps minimum flexible bandwidth x 0.0001 per Mbps-hour"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.flexible_lb.lcu_hour",
+      "unit": "hour",
+      "usd": 0.001,
+      "verification": "derived",
+      "note": "capacity unit = 10 Mbps minimum flexible bandwidth x 0.0001 per Mbps-hour"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.nat_gateway.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "OCI NAT gateway has no hourly charge"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.nat_gateway.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "OCI NAT gateway has no hourly charge"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.nat_gateway.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "OCI NAT gateway has no hourly charge"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.nat_gateway.gb",
+      "unit": "gb",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "OCI NAT gateway has no data processing charge"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.nat_gateway.gb",
+      "unit": "gb",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "OCI NAT gateway has no data processing charge"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.nat_gateway.gb",
+      "unit": "gb",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "OCI NAT gateway has no data processing charge"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.public_ip.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "reserved public IPv4 addresses are not charged"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.public_ip.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "reserved public IPv4 addresses are not charged"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.public_ip.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "reserved public IPv4 addresses are not charged"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.network.internet_gb",
+      "unit": "gb",
+      "usd": 0.0,
+      "verification": "official_api",
+      "note": "Outbound data transfer: first 10 TB/month free in every region group (NA/EU 0.0085 and APAC/JP/SA 0.025 per GB beyond 10 TB, not modeled)"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.network.internet_gb",
+      "unit": "gb",
+      "usd": 0.0,
+      "verification": "official_api",
+      "note": "Outbound data transfer: first 10 TB/month free in every region group (NA/EU 0.0085 and APAC/JP/SA 0.025 per GB beyond 10 TB, not modeled)"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.network.internet_gb",
+      "unit": "gb",
+      "usd": 0.0,
+      "verification": "official_api",
+      "note": "Outbound data transfer: first 10 TB/month free in every region group (NA/EU 0.0085 and APAC/JP/SA 0.025 per GB beyond 10 TB, not modeled)"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.network.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "inter-region traffic is metered as outbound transfer against the same 10 TB free allowance"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.network.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "inter-region traffic is metered as outbound transfer against the same 10 TB free allowance"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.network.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "inter-region traffic is metered as outbound transfer against the same 10 TB free allowance"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.block_volume.gb_month",
+      "unit": "gb_month",
+      "usd": 0.0425,
+      "verification": "derived",
+      "note": "Balanced block volume: 0.0255 per GB-month + 10 VPU x 0.0017"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.block_volume.gb_month",
+      "unit": "gb_month",
+      "usd": 0.0425,
+      "verification": "derived",
+      "note": "Balanced block volume: 0.0255 per GB-month + 10 VPU x 0.0017"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.block_volume.gb_month",
+      "unit": "gb_month",
+      "usd": 0.0425,
+      "verification": "derived",
+      "note": "Balanced block volume: 0.0255 per GB-month + 10 VPU x 0.0017"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.block_volume.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "performance included in VPU pricing"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.block_volume.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "performance included in VPU pricing"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.block_volume.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "performance included in VPU pricing"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.block_volume.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.0255,
+      "verification": "model_knowledge",
+      "note": "backups stored in Object Storage"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.block_volume.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.0255,
+      "verification": "model_knowledge",
+      "note": "backups stored in Object Storage"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.block_volume.snapshot_gb_month",
+      "unit": "gb_month",
+      "usd": 0.0255,
+      "verification": "model_knowledge",
+      "note": "backups stored in Object Storage"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.dns.zone_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "OCI DNS has no per-zone charge"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.dns.zone_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "OCI DNS has no per-zone charge"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.dns.zone_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "OCI DNS has no per-zone charge"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.85,
+      "verification": "official_api",
+      "note": "Networking - DNS per million queries"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.85,
+      "verification": "official_api",
+      "note": "Networking - DNS per million queries"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.85,
+      "verification": "official_api",
+      "note": "Networking - DNS per million queries"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.certificates.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "certificate handled at the load balancer; no charge modeled"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.certificates.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "certificate handled at the load balancer; no charge modeled"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.certificates.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "model_knowledge",
+      "note": "certificate handled at the load balancer; no charge modeled"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-mumbai-1",
+      "sku": "oci.logging.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.05,
+      "verification": "official_api",
+      "note": "OCI Logging bills storage (0.05 per GB-month beyond 10 GB), not ingestion; one month of retention assumed"
+    },
+    {
+      "provider": "oci",
+      "region": "ap-singapore-1",
+      "sku": "oci.logging.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.05,
+      "verification": "official_api",
+      "note": "OCI Logging bills storage (0.05 per GB-month beyond 10 GB), not ingestion; one month of retention assumed"
+    },
+    {
+      "provider": "oci",
+      "region": "us-ashburn-1",
+      "sku": "oci.logging.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.05,
+      "verification": "official_api",
+      "note": "OCI Logging bills storage (0.05 per GB-month beyond 10 GB), not ingestion; one month of retention assumed"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.container.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.05,
+      "verification": "internal_assumption",
+      "note": "Zenith managed container vCPU-hour; internal planning price, not a published rate"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.container.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.05,
+      "verification": "internal_assumption",
+      "note": "Zenith managed container vCPU-hour; internal planning price, not a published rate"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.container.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.05,
+      "verification": "internal_assumption",
+      "note": "Zenith managed container vCPU-hour; internal planning price, not a published rate"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.container.vcpu_hour",
+      "unit": "hour",
+      "usd": 0.05,
+      "verification": "internal_assumption",
+      "note": "Zenith managed container vCPU-hour; internal planning price, not a published rate"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.container.gb_hour",
+      "unit": "hour",
+      "usd": 0.006,
+      "verification": "internal_assumption",
+      "note": "Zenith managed container GB-hour"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.container.gb_hour",
+      "unit": "hour",
+      "usd": 0.006,
+      "verification": "internal_assumption",
+      "note": "Zenith managed container GB-hour"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.container.gb_hour",
+      "unit": "hour",
+      "usd": 0.006,
+      "verification": "internal_assumption",
+      "note": "Zenith managed container GB-hour"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.container.gb_hour",
+      "unit": "hour",
+      "usd": 0.006,
+      "verification": "internal_assumption",
+      "note": "Zenith managed container GB-hour"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.02,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.02,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.02,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.postgres.nano_hour",
+      "unit": "hour",
+      "usd": 0.02,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.045,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.045,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.045,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.postgres.small_hour",
+      "unit": "hour",
+      "usd": 0.045,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.09,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.09,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.09,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.postgres.standard_hour",
+      "unit": "hour",
+      "usd": 0.09,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.22,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.22,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.22,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.postgres.performance_hour",
+      "unit": "hour",
+      "usd": 0.22,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.postgres.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.postgres.ha_storage_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.15,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.15,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.15,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.postgres.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.15,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.postgres.iops_month",
+      "unit": "iops_month",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.postgres.backup_gb_month",
+      "unit": "gb_month",
+      "usd": 0.05,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.012,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.012,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.012,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.redis.nano_hour",
+      "unit": "hour",
+      "usd": 0.012,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.redis.small_hour",
+      "unit": "hour",
+      "usd": 0.03,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.redis.small_hour",
+      "unit": "hour",
+      "usd": 0.03,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.redis.small_hour",
+      "unit": "hour",
+      "usd": 0.03,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.redis.small_hour",
+      "unit": "hour",
+      "usd": 0.03,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.06,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.06,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.06,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.redis.standard_hour",
+      "unit": "hour",
+      "usd": 0.06,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.15,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.15,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.15,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.redis.performance_hour",
+      "unit": "hour",
+      "usd": 0.15,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.redis.ha_multiplier",
+      "unit": "ratio",
+      "usd": 2.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.object_storage.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.03,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.object_storage.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.03,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.object_storage.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.03,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.object_storage.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.03,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.object_storage.get_million",
+      "unit": "million_requests",
+      "usd": 0.5,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.object_storage.get_million",
+      "unit": "million_requests",
+      "usd": 0.5,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.object_storage.get_million",
+      "unit": "million_requests",
+      "usd": 0.5,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.object_storage.get_million",
+      "unit": "million_requests",
+      "usd": 0.5,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.object_storage.put_million",
+      "unit": "million_requests",
+      "usd": 6.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.object_storage.put_million",
+      "unit": "million_requests",
+      "usd": 6.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.object_storage.put_million",
+      "unit": "million_requests",
+      "usd": 6.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.object_storage.put_million",
+      "unit": "million_requests",
+      "usd": 6.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.queue.requests_million",
+      "unit": "million_requests",
+      "usd": 0.5,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.queue.requests_million",
+      "unit": "million_requests",
+      "usd": 0.5,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.queue.requests_million",
+      "unit": "million_requests",
+      "usd": 0.5,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.queue.requests_million",
+      "unit": "million_requests",
+      "usd": 0.5,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.lb.hour",
+      "unit": "hour",
+      "usd": 0.01,
+      "verification": "internal_assumption",
+      "note": "load balancing bundled at a flat hourly rate"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.lb.hour",
+      "unit": "hour",
+      "usd": 0.01,
+      "verification": "internal_assumption",
+      "note": "load balancing bundled at a flat hourly rate"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.lb.hour",
+      "unit": "hour",
+      "usd": 0.01,
+      "verification": "internal_assumption",
+      "note": "load balancing bundled at a flat hourly rate"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.lb.hour",
+      "unit": "hour",
+      "usd": 0.01,
+      "verification": "internal_assumption",
+      "note": "load balancing bundled at a flat hourly rate"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.nat.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "internal_assumption",
+      "note": "egress NAT bundled"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.nat.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "internal_assumption",
+      "note": "egress NAT bundled"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.nat.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "internal_assumption",
+      "note": "egress NAT bundled"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.nat.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "internal_assumption",
+      "note": "egress NAT bundled"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.nat.gb",
+      "unit": "gb",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.nat.gb",
+      "unit": "gb",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.nat.gb",
+      "unit": "gb",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.nat.gb",
+      "unit": "gb",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.ipv4.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "internal_assumption",
+      "note": "public addressing bundled"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.ipv4.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "internal_assumption",
+      "note": "public addressing bundled"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.ipv4.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "internal_assumption",
+      "note": "public addressing bundled"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.ipv4.hour",
+      "unit": "hour",
+      "usd": 0.0,
+      "verification": "internal_assumption",
+      "note": "public addressing bundled"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.network.internet_gb",
+      "unit": "gb",
+      "usd": 0.08,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.network.internet_gb",
+      "unit": "gb",
+      "usd": 0.08,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.network.internet_gb",
+      "unit": "gb",
+      "usd": 0.08,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.network.internet_gb",
+      "unit": "gb",
+      "usd": 0.08,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.network.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.03,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.network.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.03,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.network.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.03,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.network.inter_region_gb",
+      "unit": "gb",
+      "usd": 0.03,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.dns.zone_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.dns.zone_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.dns.zone_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.dns.zone_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.dns.queries_million",
+      "unit": "million_requests",
+      "usd": 0.4,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.certificates.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.certificates.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.certificates.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.certificates.public_cert_month",
+      "unit": "month",
+      "usd": 0.0,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-south",
+      "sku": "zenith.logs.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.3,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "ap-southeast",
+      "sku": "zenith.logs.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.3,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "us-east",
+      "sku": "zenith.logs.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.3,
+      "verification": "internal_assumption"
+    },
+    {
+      "provider": "zenith",
+      "region": "eu-west",
+      "sku": "zenith.logs.logs_ingest_gb",
+      "unit": "gb",
+      "usd": 0.3,
+      "verification": "internal_assumption"
+    }
+  ]
+}

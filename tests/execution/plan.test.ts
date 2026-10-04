@@ -219,6 +219,20 @@ describe("planInfrastructure", () => {
     expect(await defaultCostPort().estimate(odd)).toBeNull();
   });
 
+  it("default cost returns no estimate for unknown managed providers and partial unpriced graphs", async () => {
+    const graph = expandManifest(upgradeManifest(webDbManifest(), { provider: "aws", region: "us-east-1" }), { id: ENV, name: "production", class: "production", provider: "aws", region: "us-east-1", baseDomain: "atlas.zenith.test" });
+    const container = graph.nodes.find((entry) => entry.kind === "container_service");
+    expect(container).toBeDefined();
+    const priced = { ...graph, nodes: [container!], edges: [] };
+    expect((await defaultCostPort().estimate(priced))?.monthlyUsd).toBeGreaterThan(0);
+    const unknownProvider = { ...priced, nodes: [{ ...container!, provider: "sandbox" as const, region: "local" }] };
+    expect(await defaultCostPort().estimate(unknownProvider)).toBeNull();
+    const partial = { ...priced, nodes: [container!, { ...container!, address: "function/unpriced", kind: "function" as const }] };
+    expect(await defaultCostPort().estimate(partial)).toBeNull();
+    const zero = { ...graph, nodes: [], edges: [] };
+    expect((await defaultCostPort().estimate(zero))?.monthlyUsd).toBe(0);
+  });
+
   it("stops before any tofu call when the fence is already dead", async () => {
     const w = world();
     const lease = await w.lease();

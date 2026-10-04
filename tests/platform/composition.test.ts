@@ -1,6 +1,7 @@
 /** Composition contracts; all federation responses and vault credentials are synthetic. */
 import { beforeAll, beforeEach, afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { decodeJwt } from "jose";
+import { dump as yamlDump } from "js-yaml";
 import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
 import type { ConnectionConfig, ProviderSession } from "@/lib/credentials/types";
 import { tempDataDir } from "../_support/data-dir";
@@ -20,6 +21,14 @@ const { validateExecutionConfiguration, openExecutionStore } = await import("../
 const { putSecretAsync } = await import("@/lib/secrets");
 const { CONNECTION: gcp } = await import("../providers/gcp/_fake-google");
 const { connection: azure } = await import("../providers/azure/_helpers");
+// Synthetic public CA bytes bind this modeled target; they are not a TLS identity proof.
+const MODEL_CA = Buffer.from("modeled-public-kubernetes-ca").toString("base64");
+function boundKubeconfig(server: string, caData: string, token: string): string {
+  return yamlDump({ apiVersion: "v1", kind: "Config", "current-context": "bound",
+    clusters: [{ name: "bound-cluster", cluster: { server, "certificate-authority-data": caData } }],
+    contexts: [{ name: "bound", context: { cluster: "bound-cluster", user: "bound-user" } }],
+    users: [{ name: "bound-user", user: { token } }] }, { noRefs: true });
+}
 let db: Awaited<ReturnType<typeof openPlatformDb>>;
 let owningDb: Awaited<ReturnType<typeof openPlatformDb>> | undefined;
 let signer: ReturnType<typeof LocalJwkSigner.fromJwk>;
@@ -241,8 +250,8 @@ describe("provider credential router", () => {
   it("resolves a Kubernetes vault reference only in memory and refuses reuse", async () => {
     vi.stubEnv("ZENITH_SECRET_KEY", "1".repeat(64));
     const ref = "vault:project/service/KUBE_TOKEN";
-    await putSecretAsync("ws-contract", ref, "kubernetes-contract-canary", "operator");
-    const id = await connection({ provider: "kubernetes", mode: "kubeconfig_ref", server: "https://cluster.example.test", namespaces: ["app"], credentialRef: ref });
+    await putSecretAsync("ws-contract", ref, boundKubeconfig("https://cluster.example.test", MODEL_CA, "kubernetes-contract-canary"), "operator");
+    const id = await connection({ provider: "kubernetes", mode: "kubeconfig_ref", server: "https://cluster.example.test", caData: MODEL_CA, namespaces: ["app"], credentialRef: ref });
     let held: ProviderSession | undefined;
     await platformCredentialBroker(db).withSession({ connectionId: id, grant: grant(), purpose: "observe" }, async (session) => {
       held = session; expect(session.provider).toBe("kubernetes");

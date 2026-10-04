@@ -333,6 +333,14 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
     if (failure) throw new Error("The owned kind guest fixture cleanup was not fully confirmed; root cluster cleanup remains required.");
   }, 120_000);
 
+  // Seal the genuine TokenRequest credential together with its genuine owning cluster target.
+  function boundGuestKubeconfig(credential: string): string {
+    return yamlDump({ apiVersion: "v1", kind: "Config", "current-context": "guest",
+      clusters: [{ name: "owning-cluster", cluster: { server: cluster.server, "certificate-authority-data": cluster.caData } }],
+      contexts: [{ name: "guest", context: { cluster: "owning-cluster", user: "guest-reader" } }],
+      users: [{ name: "guest-reader", user: { token: credential } }] }, { noRefs: true });
+  }
+
   async function fixture(options: { workspaceId?: string; credentialRef?: string; owningToken?: boolean } = {}) {
     if (!db || !token || Date.now() >= tokenExpiresAt - 60_000) throw new Error("The owned kind guest fixture credentials are unavailable.");
     const workspaceId = options.workspaceId ?? `ws-kind-guest-${randomUUID()}`, credentialRef = options.credentialRef ?? `vault:kind/${randomUUID()}/GUEST_TOKEN`;
@@ -341,7 +349,7 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
     const credentials = platformCredentialBroker(db);
     if (options.owningToken !== false) {
       ownedVaultRefs.push({ workspaceId, ref: credentialRef });
-      await vault.putSecretAsync(workspaceId, credentialRef, token, "kind-guest-fixture");
+      await vault.putSecretAsync(workspaceId, credentialRef, boundGuestKubeconfig(token), "kind-guest-fixture");
       // Genuine HTTPS/default-ServiceAccount read through canonical onboarding.
       const verified = await credentials.verifyConnection(created.id, { workspaceId });
       expect(verified.ok).toBe(true);
@@ -452,15 +460,15 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
     let entered = false;
     await expect(f.provider.withSession(f.sessionRequest, async () => { entered = true; })).rejects.toMatchObject({ code: "denied" });
     expect(entered).toBe(false);
-    await vault.putSecretAsync(f.workspaceId, f.credentialRef, token!, "kind-guest-fixture");
+    await vault.putSecretAsync(f.workspaceId, f.credentialRef, boundGuestKubeconfig(token!), "kind-guest-fixture");
     const result = await f.read(); expect(result.ok).toBe(true); await noTokenEvidence(f.workspaceId, result);
   }, 60_000);
 
   it("an invalid current vault token yields a genuine HTTP 401 instead of a root-admin fallback", async () => {
     const f = await fixture(); expect((await f.read()).ok).toBe(true);
-    await vault.putSecretAsync(f.workspaceId, f.credentialRef, "invalid-guest-fixture-token", "kind-guest-fixture");
+    await vault.putSecretAsync(f.workspaceId, f.credentialRef, boundGuestKubeconfig("invalid-guest-fixture-token"), "kind-guest-fixture");
     await expect(f.read()).rejects.toMatchObject({ httpStatus: 401, machineCode: "transport_error" });
-    await vault.putSecretAsync(f.workspaceId, f.credentialRef, token!, "kind-guest-fixture");
+    await vault.putSecretAsync(f.workspaceId, f.credentialRef, boundGuestKubeconfig(token!), "kind-guest-fixture");
     expect((await f.read()).ok).toBe(true);
   }, 60_000);
 

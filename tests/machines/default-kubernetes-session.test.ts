@@ -7,6 +7,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { inspect } from "node:util";
+import { dump as yamlDump } from "js-yaml";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
 import type { CredentialBroker, KubernetesConnectionConfig, ProviderConnection, ProviderSession } from "@/lib/credentials/types";
@@ -26,6 +27,14 @@ const { createKubernetesMachineDriver } = await import("@/lib/machines/transport
 let db: Awaited<ReturnType<typeof openPlatformDb>>;
 let key: Awaited<ReturnType<typeof generateSigningJwk>>;
 let signer: ReturnType<typeof LocalJwkSigner.fromJwk>;
+// Synthetic public CA bytes bind this modeled target; they are not a TLS identity proof.
+const MODEL_CA = Buffer.from("modeled-public-kubernetes-ca").toString("base64");
+function boundKubeconfig(server: string, caData: string, token: string): string {
+  return yamlDump({ apiVersion: "v1", kind: "Config", "current-context": "bound",
+    clusters: [{ name: "bound-cluster", cluster: { server, "certificate-authority-data": caData } }],
+    contexts: [{ name: "bound", context: { cluster: "bound-cluster", user: "bound-user" } }],
+    users: [{ name: "bound-user", user: { token } }] }, { noRefs: true });
+}
 const TOKEN_CANARY = "guest-kubernetes-credential-canary";
 
 beforeAll(async () => {
@@ -42,11 +51,11 @@ async function fixture(operation: MachineOperation = "container.list") {
   const suffix = randomUUID(), workspaceId = `ws-guest-${suffix}`, operationId = `op-guest-${suffix}`;
   const environmentId = `env-guest-${suffix}`, resourceId = `res-guest-${suffix}`;
   const credentialRef = `vault:guest/${suffix}/KUBE_TOKEN`;
-  const config: KubernetesConnectionConfig = { provider: "kubernetes", mode: "kubeconfig_ref", server: "https://cluster.example.test", credentialRef, namespaces: ["app", "old"] };
+  const config: KubernetesConnectionConfig = { provider: "kubernetes", mode: "kubeconfig_ref", server: "https://cluster.example.test", caData: MODEL_CA, credentialRef, namespaces: ["app", "old"] };
   const created = await repos.connections.create(db, { workspaceId, config, createdBy: "guest-fixture" });
   await repos.connections.recordVerification(db, { workspaceId, id: created.id, ok: true, detail: "Fixture verification only; no cluster identity read." });
   const connection = (await repos.connections.get(db, workspaceId, created.id))!;
-  await vault.putSecretAsync(workspaceId, credentialRef, TOKEN_CANARY, "guest-fixture");
+  await vault.putSecretAsync(workspaceId, credentialRef, boundKubeconfig(config.server, MODEL_CA, TOKEN_CANARY), "guest-fixture");
   let currentTime = T0;
   const now = () => new Date(currentTime);
   const unsigned = grantFor(operation, { ws: workspaceId, op: operationId, env: environmentId, res: resourceId });
@@ -143,7 +152,7 @@ describe("default Kubernetes guest session", () => {
   });
   it("a same-named vault secret in another workspace never supplies the missing owning credential", async () => {
     const f = await fixture(), missing = `vault:guest/${randomUUID()}/FOREIGN_ONLY`;
-    await vault.putSecretAsync("ws-foreign-guest", missing, TOKEN_CANARY, "foreign-fixture");
+    await vault.putSecretAsync("ws-foreign-guest", missing, boundKubeconfig(f.config.server, MODEL_CA, TOKEN_CANARY), "foreign-fixture");
     await db.query("update platform.provider_connections set config=$3::text::jsonb where workspace_id=$1 and id=$2",
       [f.workspaceId, f.connection.id, JSON.stringify({ ...f.config, credentialRef: missing })]);
     const read = vi.spyOn(vault, "readSecretValueAsync"), callback = vi.fn(async () => undefined);

@@ -18,6 +18,7 @@ import { createAzureSession } from "@/lib/providers/azure";
 import { AzureSourceStorageRefusedError } from "@/lib/providers/azure/release/source-storage";
 import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
 import { createKubernetesSession } from "@/lib/providers/kubernetes";
+import { assertVaultKubeconfigTarget } from "@/lib/providers/kubernetes/vault-target";
 import { createK8sClient } from "@/lib/providers/kubernetes/client";
 import { isDnsLabel } from "@/lib/providers/kubernetes/naming";
 import { K8sError } from "@/lib/providers/kubernetes/types";
@@ -315,6 +316,7 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
           if (!isVaultRef(ref)) throw new K8sError("session_invalid", "Only Zenith vault references are supported.");
           const value = await readSecretValueAsync(connection.workspaceId, ref);
           if (!value) throw new K8sError("session_invalid", "Vault credential is unavailable in this workspace.");
+          assertVaultKubeconfigTarget(c, value);
           return value;
         } });
         let ended = false;

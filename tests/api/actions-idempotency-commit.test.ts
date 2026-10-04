@@ -194,25 +194,41 @@ describe("the replay window and the request's durable flush", () => {
     expect(executions).toBe(1);
   });
 
-  it("retains nothing when the flush fails, and the retry re-executes", async () => {
+  it("holds the returned mutation unconfirmed after flush failure and refuses to execute the retry", async () => {
     stale = true; // somebody else's write landed first → 409 on the flush
     const failed = await call("key=k-fail&tag=one");
     expect(failed.status).toBe(409);
     expect(executions).toBe(1);
 
-    // The flush is what failed, so the mutation did not land. A retry under the
-    // same key must run the action again rather than be handed the `ok: true`
-    // that the failed request produced in memory.
+    // This product flush failure cannot prove that every already returned
+    // native effect rolled back. A current retry is a refusal, not re-execution.
     stale = false;
     const retry = await body(await call("key=k-fail&tag=one"));
-    expect(retry.result?.ok).toBe(true);
+    expect(retry.result).toMatchObject({ ok: false, data: { tag: "one" }, error: expect.stringMatching(/^persistence_unconfirmed:/) });
     expect(retry.idempotency).toMatchObject({ applied: true, replayed: false });
-    expect(executions).toBe(2);
+    expect(executions).toBe(1);
 
-    // And now that one *did* commit, so it is replayable.
-    const replay = await body(await call("key=k-fail&tag=one"));
-    expect(replay.idempotency).toMatchObject({ replayed: true });
-    expect(executions).toBe(2);
+    const repeated = await body(await call("key=k-fail&tag=one"));
+    expect(repeated.result).toEqual(retry.result);
+    expect(repeated.idempotency).toMatchObject({ replayed: false });
+    expect(executions).toBe(1);
+  });
+
+  it("uncertain settlement still enforces current role, changed input and tenant boundaries", async () => {
+    stale = true; expect((await call("key=k-scoped&tag=one")).status).toBe(409);
+    stale = false;
+    const conflict = await body(await call("key=k-scoped&tag=two"));
+    expect(conflict.result?.error).toMatch(/^idempotency_conflict:/); expect(executions).toBe(1);
+    TABLES.members[0].role = "viewer";
+    const demoted = await body(await call("key=k-scoped&tag=one"));
+    expect(demoted.result?.error).toMatch(/^role_denied:/); expect(executions).toBe(1);
+    TABLES.members[0].role = "admin"; TABLES.members[0].workspace_id = "foreign-workspace";
+    const foreign = await body(await call("key=k-scoped&tag=one"));
+    expect(foreign.result?.ok).toBe(false); expect(executions).toBe(1);
+    TABLES.members[0].workspace_id = "ws-1";
+    const original = await body(await call("key=k-scoped&tag=one"));
+    expect(original.result?.error).toMatch(/^persistence_unconfirmed:/); expect(original.idempotency?.replayed).toBe(false);
+    expect(executions).toBe(1);
   });
 
   it("refuses a second request under the same key while the first is committing", async () => {

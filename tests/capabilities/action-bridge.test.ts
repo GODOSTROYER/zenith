@@ -51,6 +51,11 @@ describe("the mapping table", () => {
   it("covers every action the product registers, except the ones deliberately left for people", async () => {
     await import("@/lib/actions/defs");
     const { actionRegistry } = await import("@/lib/actions/core");
+    for (const [id, role] of [["connection.createKubernetes", "admin"], ["connection.verifyKubernetes", "editor"]] as const) {
+      expect(actionRegistry().get(id)).toMatchObject({ id, mutates: true, requiredRole: role });
+      expect(mappingFor(id)).toBeUndefined();
+      expect(Object.hasOwn(ACTION_CAPABILITY_MAP, id)).toBe(false);
+    }
     const unmapped = [...actionRegistry().values()].filter((a) => a.mutates && !mappingFor(a.id)).map((a) => a.id).sort();
     // A NEW mutating action shows up here and fails this test until it is mapped (as a capability or as local)
     // or added to this list on purpose. Unmapped means refused for agents.
@@ -68,8 +73,11 @@ describe("the mapping table", () => {
         "connection.check",
         "connection.create",
         "connection.createAws",
+        // These exact native connection writes require a current human.
+        "connection.createKubernetes",
         "connection.disconnect",
         "connection.verifyAws",
+        "connection.verifyKubernetes",
         // Integrated placement writes require a human; agents remain refused.
         "placement.apply",
         "project.delete",
@@ -104,6 +112,14 @@ describe.each(STORE_KINDS)("checkActionThroughBroker [%s]", (kind) => {
     const h = await makeHarness({ kind });
     const result = await checkActionThroughBroker(h.deps, ctxFor(h), "some.newAction", {});
     expect(result).toMatchObject({ kind: "deny", code: "action_not_mapped" });
+    const integration = ctxFor(h, { actor: { type: "user", id: "bob", name: "Bob" },
+      integration: { operationId: "o", clientId: h.ids.intRW, proposalDigest: "d" } });
+    for (const actionId of ["connection.createKubernetes", "connection.verifyKubernetes"] as const) {
+      for (const actor of [ctxFor(h), integration]) {
+        expect(await checkActionThroughBroker(h.deps, actor, actionId, {}, { persist: true })).toMatchObject({ kind: "deny", code: "action_not_mapped" });
+      }
+    }
+    expect((await h.store.listOperations(h.ids.wsA)).items).toHaveLength(0);
   });
 
   it("decides a mapped action as its capability", async () => {

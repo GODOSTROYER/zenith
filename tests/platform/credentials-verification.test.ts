@@ -1,6 +1,7 @@
 /** Synthetic federation/API contracts with real PGlite repositories; no live cloud evidence. */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { decodeJwt } from "jose";
+import { dump as yamlDump } from "js-yaml";
 import { ApiException } from "@kubernetes/client-node";
 import { AssumeRoleCommand, AssumeRoleWithWebIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { mockClient } from "aws-sdk-client-mock";
@@ -23,7 +24,15 @@ let signer: ReturnType<typeof LocalJwkSigner.fromJwk>;
 const ws = "ws-verification";
 const secret = "verification-secret-canary";
 const vault = "vault:project/service/KUBE_TOKEN";
-const kubernetes: KubernetesConnectionConfig = { provider: "kubernetes", mode: "kubeconfig_ref", server: "https://cluster.example.test", credentialRef: vault, namespaces: ["payments", "orders", "orders"] };
+// Synthetic public CA bytes bind this modeled target; they are not a TLS identity proof.
+const MODEL_CA = Buffer.from("modeled-public-kubernetes-ca").toString("base64");
+function boundKubeconfig(server: string, caData: string, token: string): string {
+  return yamlDump({ apiVersion: "v1", kind: "Config", "current-context": "bound",
+    clusters: [{ name: "bound-cluster", cluster: { server, "certificate-authority-data": caData } }],
+    contexts: [{ name: "bound", context: { cluster: "bound-cluster", user: "bound-user" } }],
+    users: [{ name: "bound-user", user: { token } }] }, { noRefs: true });
+}
+const kubernetes: KubernetesConnectionConfig = { provider: "kubernetes", mode: "kubeconfig_ref", server: "https://cluster.example.test", caData: MODEL_CA, credentialRef: vault, namespaces: ["payments", "orders", "orders"] };
 const oci: ConnectionConfig = { provider: "oci", mode: "runner", tenancyOcid: "ocid1.tenancy.oc1..fixture", compartmentOcid: "ocid1.compartment.oc1..fixture", runnerId: "run-verification", region: "us-ashburn-1" };
 beforeAll(async () => {
   db = await openPlatformDb({ kind: "pglite" });
@@ -287,7 +296,7 @@ describe("non-AWS onboarding verification", () => {
 
 describe("Kubernetes namespace verification", () => {
   it("resolves only the workspace vault reference, reads each allowed namespace, and closes the session", async () => {
-    await putSecretAsync(ws, vault, secret, "operator"); const c = await connection(kubernetes);
+    await putSecretAsync(ws, vault, boundKubeconfig(kubernetes.server, MODEL_CA, secret), "operator"); const c = await connection(kubernetes);
     const result = await broker().verifyConnection(c.id, { workspaceId: ws });
     expect(result.ok).toBe(true);
     expect(kube.read.mock.calls.map(([args]) => args)).toEqual([{ name: "default", namespace: "orders" }, { name: "default", namespace: "payments" }]);
@@ -297,7 +306,7 @@ describe("Kubernetes namespace verification", () => {
     await assertNoSecret(result);
   });
   it.each([401, 403, 404, 500])("reports Kubernetes HTTP %i without server body secrets", async (status) => {
-    await putSecretAsync(ws, vault, secret, "operator"); const c = await connection(kubernetes);
+    await putSecretAsync(ws, vault, boundKubeconfig(kubernetes.server, MODEL_CA, secret), "operator"); const c = await connection(kubernetes);
     kube.read.mockRejectedValueOnce(new ApiException(status, secret, { message: secret }, {}));
     const result = await broker().verifyConnection(c.id, { workspaceId: ws });
     expect(result).toMatchObject({ ok: false, detail: expect.stringContaining(`HTTP ${status}`) });
@@ -311,7 +320,7 @@ describe("Kubernetes namespace verification", () => {
   it("refuses an absent vault credential or mismatched ServiceAccount", async () => {
     const c = await connection({ ...kubernetes, credentialRef: "vault:project/service/ABSENT" });
     expect(await broker().verifyConnection(c.id, { workspaceId: ws })).toMatchObject({ ok: false, detail: expect.stringContaining("credential") });
-    await putSecretAsync(ws, vault, secret, "operator"); const valid = await connection(kubernetes);
+    await putSecretAsync(ws, vault, boundKubeconfig(kubernetes.server, MODEL_CA, secret), "operator"); const valid = await connection(kubernetes);
     kube.read.mockResolvedValueOnce({ metadata: { name: "default", namespace: "foreign" } });
     expect(await broker().verifyConnection(valid.id, { workspaceId: ws })).toMatchObject({ ok: false, detail: expect.stringContaining("mismatched") });
   });
@@ -323,7 +332,7 @@ describe("Kubernetes callback admission after credential and audit waits", () =>
   it.each((["vault", "audit"] as const).flatMap(phase =>
     (["unchanged", "revoke", "namespace reduction", "credential rebinding", "provider rebinding"] as const).map(change => ({ phase, change }))))(
     "$phase wait admits only unchanged current SQL authority after $change", async ({ phase, change }) => {
-      await putSecretAsync(ws, vault, secret, "operator");
+      await putSecretAsync(ws, vault, boundKubeconfig(kubernetes.server, MODEL_CA, secret), "operator");
       const created = await connection(kubernetes);
       await repos.connections.recordVerification(db, { workspaceId: ws, id: created.id, ok: true, detail: "Controlled credential fixture only." });
       const secretStore = await import("@/lib/secrets"), entered = barrier(), release = barrier();
@@ -384,7 +393,7 @@ describe("Kubernetes callback admission after credential and audit waits", () =>
     }, 10_000,
   );
   it("fresh scoped SQL read failure is sanitized and cannot enter the callback", async () => {
-    await putSecretAsync(ws, vault, secret, "operator"); const created = await connection(kubernetes);
+    await putSecretAsync(ws, vault, boundKubeconfig(kubernetes.server, MODEL_CA, secret), "operator"); const created = await connection(kubernetes);
     await repos.connections.recordVerification(db, { workspaceId: ws, id: created.id, ok: true });
     const get = repos.connections.get; let scopedReads = 0;
     vi.spyOn(repos.connections, "get").mockImplementation(async (sql, workspaceId, id) => {

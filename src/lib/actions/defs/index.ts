@@ -20,6 +20,7 @@ import "./navigator";
 import "./security";
 import "./connection";
 import "./connection-aws";
+import "./connection-kubernetes";
 import "./workspace";
 import "./alerts-rules";
 import "./alerts-channels";

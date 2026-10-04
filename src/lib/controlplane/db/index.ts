@@ -11,7 +11,7 @@
 export * from "./errors";
 export { createPlatformDbHandle, normalizeParams, normalizeRows, normalizeValue } from "./executor";
 export type { Conn, Driver, ExecSql, PlatformDbHandle, TxRetryOptions } from "./executor";
-export { openPlatformDb, platformDb, platformDbConfigFromEnv, resetPlatformDbForTests } from "./open";
+export { openPlatformDb, platformDb, platformDbConfigFromEnv, resetPlatformDbForTests, isOpenedPlatformDbHandle, isOpenedPlatformPostgresTarget } from "./open";
 export type { OpenPlatformDbOptions, PlatformDbConfig, PlatformDbKind } from "./open";
 export { MIGRATE_COMMAND, assertPlatformSchemaCurrent, migratePlatformDb, platformSchemaStatus } from "./migrator";
 export type { AppliedMigration, MigrateResult, PlatformSchemaStatus } from "./migrator";

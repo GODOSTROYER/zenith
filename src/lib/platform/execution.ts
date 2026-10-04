@@ -27,6 +27,23 @@ import { createDefaultMachinePort } from "@/lib/machines/composition";
 import type { AzureBuildOptions } from "./release-azure";
 import type { PlatformDbHandle } from "@/lib/controlplane/db";
 import { createReconcileSweepRuntime, type ReconcileSweepRuntime } from "@/lib/workflows/reconcile-schedule";
+import { observeAwsBootstrapReadiness } from "@/lib/execution/aws-bootstrap-preflight";
+import { isOpenedPlatformDbHandle, repos } from "@/lib/controlplane/db";
+import { digest } from "@/lib/controlplane/digest";
+
+/** Fixed diagnostic failure, recorded only against the current native owning AWS scope. */
+async function recordUnavailableAwsReadiness(db: Sql, operationId: string): Promise<void> {
+  if (!isOpenedPlatformDbHandle(db,"postgres")) return;
+  await db.tx(async tx => {
+    const owners = await tx.query<{workspace_id:string}>(`select o.workspace_id from platform.operations o
+      join platform.reconcile_state e on e.workspace_id=o.workspace_id and e.project_id=o.project_id and e.environment_id=o.environment_id
+      where o.id=$1 and e.provider='aws'`,[operationId]);
+    if (owners.length !== 1 || !isOpenedPlatformDbHandle(db,"postgres")) return;
+    const summary = {stage:"aws_bootstrap_readiness",status:"unavailable",code:"read_unavailable",roleCoverage:"incomplete",
+      authorization:"unverified",migration:"not_performed"};
+    await repos.evidence.insert(tx,{workspaceId:owners[0].workspace_id,operationId,kind:"observation",digest:digest(summary),summary,simulated:false});
+  });
+}
 
 /** Fixed production observation composition; no dependency or readiness overrides. */
 export async function composeReconcileSweepRuntime(db: PlatformDbHandle): Promise<ReconcileSweepRuntime> {
@@ -103,6 +120,7 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     fingerprintKey, workerId: opts.workerIdentity, planDir: opts.planDir,
   };
   const activities = createExecutionActivities(deps);
+  const readinessRuntime = createRuntime(deps);
   const reconcilePorts = composeReconcilePorts(opts.db, credentials);
   return withFailureMapping({
     ...activities,
@@ -116,6 +134,23 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
         await registerEnvironment(opts.db, { environment: { workspaceId: op.workspaceId, projectId: product.project.id, environmentId: op.environmentId, class: product.environment.class, provider: product.environment.provider, region: product.environment.region, ...(connection ? { connection: { id: connection.id, status: connection.status } } : {}) } });
       }
       return result;
+    },
+    async observeEnvironment(input) {
+      const observed = await activities.observeEnvironment(input);
+      // Supplemental diagnostics do not erase the original observation or
+      // redefine session, approval, plan custody or workflow command contracts.
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          observeAwsBootstrapReadiness(readinessRuntime,input.operationId),
+          new Promise<never>((_,reject) => { timeout=setTimeout(() => reject(new Error("AWS readiness deadline exceeded.")),35_000); }),
+        ]);
+      } catch {
+        readinessRuntime.log("warn","AWS bootstrap readiness unavailable",{operationId:input.operationId,status:"unavailable",roleCoverage:"incomplete"});
+        try { await recordUnavailableAwsReadiness(opts.db,input.operationId); }
+        catch { readinessRuntime.log("warn","AWS bootstrap readiness evidence unavailable",{operationId:input.operationId}); }
+      } finally { if (timeout !== undefined) clearTimeout(timeout); }
+      return observed;
     },
     reconcileObserve: createHeldReconcileActivity(createRuntime(deps), { ports: reconcilePorts, loadEnvironment: (ws, env) => loadPlatformEnvironment(opts.db, ws, env), loadGraph: (env) => loadGraphFromStore(opts.db, env) }),
   });

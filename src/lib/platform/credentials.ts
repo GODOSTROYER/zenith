@@ -8,8 +8,8 @@
 import { capability, isCapability } from "@/lib/capabilities/catalog";
 import { randomUUID } from "node:crypto";
 import { canonical, digest } from "@/lib/controlplane/digest";
-import { repos } from "@/lib/controlplane/db";
-import type { Sql } from "@/lib/controlplane/types";
+import { repos, isOpenedPlatformDbHandle, assertPlatformSchemaCurrent } from "@/lib/controlplane/db";
+import type { Sql, CapabilityGrantClaims } from "@/lib/controlplane/types";
 import { AwsCredentialBroker, type AwsBrokerOptions } from "@/lib/credentials/aws";
 import { mintWorkloadToken, type WorkloadTokenDeps } from "@/lib/credentials/oidc/issuer";
 import { CredentialDeniedError, type CredentialBroker, type CredentialRequest, type DenialReason, type ProviderConnection, type ProviderSession } from "@/lib/credentials/types";
@@ -34,6 +34,128 @@ import { isOcid, isRegionId } from "@/lib/providers/oci/services";
 import { awaitRunnerJob, enqueueRunnerJob } from "@/lib/runners/dispatch";
 import { getRunnerRuntime } from "@/lib/runners/runtime";
 import type { OciSession } from "@/lib/credentials/types";
+import { awsBootstrapPreflightSessionPolicy, preflightAwsBootstrap, type AwsBootstrapPreflight } from "@/lib/credentials/aws/bootstrap-preflight";
+import { StepFailedError } from "@/lib/execution/errors";
+
+export interface AwsBootstrapReadiness {
+  readonly status: AwsBootstrapPreflight["status"] | "incomplete";
+  readonly readbackStatus: AwsBootstrapPreflight["status"];
+  readonly code: AwsBootstrapPreflight["code"];
+  readonly roleCoverage: "incomplete";
+  readonly declaredRoleRows: number;
+  readonly inspectedRoleRows: number;
+  readonly unresolvedRoleRows: number;
+  readonly legacyPolicy: AwsBootstrapPreflight["legacyPolicy"];
+  readonly families: readonly { family: string; status: AwsBootstrapPreflight["status"]; code: AwsBootstrapPreflight["code"] }[];
+}
+interface AwsReadinessRequest { readonly connectionId: string; readonly grant: CapabilityGrantClaims }
+const awsReadinessOwners = new WeakMap<CredentialBroker, {
+  withSession: CredentialBroker["withSession"];
+  read: (request: AwsReadinessRequest) => Promise<AwsBootstrapReadiness>;
+}>();
+function readinessRefused(): never { throw new StepFailedError("Native AWS bootstrap readiness is unavailable or changed; no bootstrap readback was admitted."); }
+
+/** Internal worker read service. No caller configuration, inventory, client or registration input. */
+export async function readNativeAwsBootstrapReadiness(broker: CredentialBroker, request: AwsReadinessRequest): Promise<AwsBootstrapReadiness> {
+  const owner = awsReadinessOwners.get(broker);
+  if (!owner || broker.withSession !== owner.withSession) readinessRefused();
+  return owner.read(request);
+}
+
+async function nativeAwsReadiness(db: Sql, broker: CredentialBroker, original: CredentialBroker["withSession"], request: AwsReadinessRequest): Promise<AwsBootstrapReadiness> {
+  const deadline = Date.now() + 30_000;
+  const currentOwner = () => {
+    if (!isOpenedPlatformDbHandle(db,"postgres") || broker.withSession !== original || Date.now() >= deadline) readinessRefused();
+  };
+  currentOwner();
+  const input = Object.freeze({ connectionId: request.connectionId, grant: Object.freeze({ ...request.grant }) });
+  const g = input.grant;
+  if (g.cap !== "infrastructure.observe" || g.aud !== "worker" || !g.proj || !g.env
+    || ![g.ws,g.op,g.proj,g.env,input.connectionId].every(value => typeof value === "string" && value.length > 0 && value.length <= 200)
+    || typeof g.jti !== "string" || !g.jti || typeof g.digest !== "string" || !/^[a-f0-9]{64}$/.test(g.digest)
+    || !Number.isSafeInteger(g.exp) || !Number.isSafeInteger(g.fence) || g.fence! < 1) readinessRefused();
+  const workspaceId = g.ws, operationId = g.op, projectId = g.proj, environmentId = g.env;
+  await assertPlatformSchemaCurrent(db);
+  const capture = () => db.tx(async tx => {
+    currentOwner();
+    const live = await tx.query<{ id: string; lease_holder: string }>(`select o.id,o.lease_holder from platform.operations o where o.workspace_id=$1 and o.id=$2
+      and o.project_id=$3 and o.environment_id=$4 and o.proposal_digest=$5 and o.status='running'
+      and o.lease_holder='workflow:' || o.id and o.lease_until>clock_timestamp() and o.expires_at>clock_timestamp()
+      and o.lease_scope='env:' || o.environment_id and o.fence_token=$6
+      and exists(select 1 from platform.leases l where l.workspace_id=$1 and l.scope=o.lease_scope and l.fence_token=$6
+        and right(l.holder,length(o.id)+1)=':' || o.id and left(l.holder,length(l.holder)-length(o.id)-1) ~ '^worker:[A-Za-z0-9._-]{1,64}$'
+        and l.expires_at>clock_timestamp() and l.released_at is null)
+      and exists(select 1 from platform.capability_grants cg where cg.workspace_id=$1 and cg.operation_id=$2 and cg.jti=$7
+        and cg.capability='infrastructure.observe' and cg.audience='worker' and cg.revoked_at is null and cg.consumed_at is null
+        and cg.expires_at>clock_timestamp() and cg.expires_at=to_timestamp($8))`,
+      [workspaceId,operationId,projectId,environmentId,g.digest,g.fence,g.jti,g.exp]);
+    if (live.length !== 1) readinessRefused();
+    const leaseHolder = live[0].lease_holder;
+    const op = await repos.operations.get(tx,workspaceId,operationId);
+    const connection = await repos.connections.get(tx,workspaceId,input.connectionId);
+    if (!op || op.status !== "running" || op.proposalDigest !== g.digest || op.projectId !== projectId || op.environmentId !== environmentId
+      || leaseHolder !== `workflow:${op.id}` || op.leaseScope !== `env:${environmentId}` || op.fenceToken !== g.fence
+      || !connection || connection.status !== "verified" || connection.revokedAt || connection.config.provider !== "aws") readinessRefused();
+    const binding = await tx.query<{ workspace_id:string; project_id:string; environment_id:string; connection_id:string; provider:string; region:string }>(
+      `select workspace_id,project_id,environment_id,connection_id,provider,region from platform.reconcile_state
+        where workspace_id=$1 and project_id=$2 and environment_id=$3 and connection_id=$4 and provider='aws' and region=$5`,
+      [workspaceId,projectId,environmentId,connection.id,connection.config.region]);
+    if (binding.length !== 1) readinessRefused();
+    const rows = await repos.resources.listByEnvironment(tx,workspaceId,environmentId,{includeDeleted:true});
+    if (rows.length > 1_000) readinessRefused();
+    const observations = await repos.observations.latestObservationsByEnvironment(tx,workspaceId,environmentId);
+    // All native rows/observations are captured, including unknown, deleted,
+    // external and compiler parents. A filtered list cannot prove absence.
+    const frame = canonical({ operation: { id:op.id, workspaceId:op.workspaceId, projectId:op.projectId, environmentId:op.environmentId,
+      proposal:op.proposal, inputDigest:op.inputDigest, proposalDigest:op.proposalDigest, planDigest:op.planDigest, workflowId:op.workflowId, leaseHolder,
+      leaseScope:op.leaseScope, fenceToken:op.fenceToken, approvalRound:(op as { approvalRound?: number }).approvalRound },
+      connection, binding, rows, observations });
+    currentOwner();
+    return { op, connection, rows, observations, frame };
+  });
+  const before = await capture();
+  if (before.connection.config.provider !== "aws") readinessRefused();
+  const config = before.connection.config;
+  const roleRows = before.rows.filter(row => row.nativeType === "aws:iam_role" || row.kind === "identity");
+  if (roleRows.length > 32) readinessRefused();
+  const roleArns: string[] = [];
+  let unresolved = 0;
+  for (const row of roleRows) {
+    const observed = before.observations.find(value => value.resourceId === row.id);
+    const age = observed ? Date.now() - Date.parse(observed.observedAt) : Number.NaN;
+    if (row.workspaceId !== workspaceId || row.projectId !== projectId || row.environmentId !== environmentId || row.provider !== "aws"
+      || row.region !== config.region || row.nativeType !== "aws:iam_role" || row.ownership !== "managed"
+      || !["planned","provisioning","active","updating"].includes(row.status)
+      || !observed || observed.address !== row.address || observed.simulated || observed.error
+      || observed.presence !== "present" || observed.source !== "aws.iam_role@1" || !Number.isFinite(age) || age < 0 || age > 15 * 60_000
+      || !observed.externalId || (row.externalId !== undefined && row.externalId !== observed.externalId)) {
+      unresolved++; continue;
+    }
+    roleArns.push(observed.externalId);
+  }
+  const inventory = Object.freeze({ workspaceId, environmentId, roleArns:Object.freeze(roleArns) });
+  let sessionPolicy: Readonly<Record<string, unknown>>;
+  try { sessionPolicy = awsBootstrapPreflightSessionPolicy(config,inventory); }
+  catch { readinessRefused(); }
+  currentOwner();
+  const readback = await original({ connectionId:before.connection.id, grant:g, purpose:"observe", sessionPolicy },async session => {
+    if ((await capture()).frame !== before.frame || session.provider !== "aws") readinessRefused();
+    return preflightAwsBootstrap(session,config,inventory);
+  });
+  if ((await capture()).frame !== before.frame) readinessRefused();
+  // The store does not enumerate all compiler-created ECS/Lambda/VPC, build,
+  // machine, scheduler and EKS child roles. Never promote this bounded read to
+  // complete environment inventory, even with zero explicit role rows.
+  const readiness: AwsBootstrapReadiness = Object.freeze({
+    status:readback.status === "readback_compatible" ? "incomplete" : readback.status,
+    readbackStatus:readback.status, code:readback.code, roleCoverage:"incomplete", declaredRoleRows:roleRows.length,
+    inspectedRoleRows:roleArns.length, unresolvedRoleRows:unresolved, legacyPolicy:readback.legacyPolicy,
+    families:Object.freeze(readback.families.map(({family,status,code}) => Object.freeze({family,status,code}))),
+  });
+  await repos.evidence.insert(db,{ workspaceId, operationId, kind:"observation", digest:digest(readiness),
+    summary:{ stage:"aws_bootstrap_readiness", ...readiness, authorization:"unverified", migration:"not_performed" }, simulated:false });
+  return readiness;
+}
 
 export interface PlatformCredentialOptions {
   aws?: Pick<AwsBrokerOptions, "stsClient" | "oidc">;
@@ -225,7 +347,7 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
     } finally { close(); }
   };
 
-  return {
+  const broker: CredentialBroker = {
     async withSession<T>(req: CredentialRequest, fn: (session: ProviderSession) => Promise<T>): Promise<T> {
       // Workspace is available here, so non-AWS lookups are tenant-scoped in SQL.
       const grant = req?.grant;
@@ -335,6 +457,11 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
       }
     },
   };
+  if (isOpenedPlatformDbHandle(db,"postgres")) {
+    const original = broker.withSession;
+    awsReadinessOwners.set(broker,{withSession:original,read:request => nativeAwsReadiness(db,broker,original,request)});
+  }
+  return broker;
 }
 
 class VerificationAuditError extends Error {}

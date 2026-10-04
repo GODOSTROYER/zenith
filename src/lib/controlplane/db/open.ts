@@ -36,6 +36,60 @@ import { assertPlatformSchemaCurrent, migratePlatformDb } from "./migrator";
 
 export type PlatformDbKind = "pglite" | "postgres";
 
+// Retain opener membership across server hot reload, just like platformDb's
+// process-wide pool. This registry has no exported registration operation.
+const openedKey = Symbol.for("zenith.platform.opened-handles.v1");
+type OpenedMethods = Pick<PlatformDbHandle, "query" | "tx" | "exec" | "close" | "identity" | "kind">;
+interface PostgresOpeningTarget { host: string; port: number; database: string; username: string }
+type OpenedHandle = OpenedMethods & { postgresTarget?: Readonly<PostgresOpeningTarget> };
+const openedGlobal = globalThis as typeof globalThis & { [openedKey]?: WeakMap<object, OpenedHandle> };
+const openedHandles = openedGlobal[openedKey] ??= new WeakMap<object, OpenedHandle>();
+
+function postgresOpeningTarget(url: string | undefined): Readonly<PostgresOpeningTarget> | undefined {
+  if (!url) return;
+  try {
+    const parsed = new URL(url), database = parsed.pathname.slice(1), username = decodeURIComponent(parsed.username);
+    // postgres.js can take missing target fields from mutable process defaults.
+    // Such an opening retains genuine handle ownership, but cannot attest a
+    // fixed MCP product target. Passwords are never read or retained here.
+    if (!["postgres:", "postgresql:"].includes(parsed.protocol) || !parsed.hostname || !parsed.port || !username || !database
+      || database.includes("/") || parsed.hostname.includes(",")) return;
+    // Locked postgres.js forwards unknown URI keys into StartupMessage, where
+    // user/database/options can replace the actual startup target. Only these
+    // documented TLS modes are target-neutral; other options retain legacy
+    // opening behavior without granting fixed MCP target provenance.
+    const options = [...parsed.searchParams];
+    if (options.length > 1 || options.some(([key, value]) => key !== "sslmode" || !["require", "verify-full"].includes(value))) return;
+    const port = Number(parsed.port);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) return;
+    return Object.freeze({ host: parsed.hostname, port, database, username });
+  } catch { return; }
+}
+
+/** Genuine, still-open opener ownership; a kind label or fake driver cannot register itself. */
+export function isOpenedPlatformDbHandle(value: unknown, kind?: PlatformDbKind): value is PlatformDbHandle {
+  if (!value || typeof value !== "object") return false;
+  const opened = openedHandles.get(value);
+  if (!opened || (kind !== undefined && opened.kind !== kind)) return false;
+  const current = value as PlatformDbHandle;
+  return current.kind === opened.kind && current.identity === opened.identity && current.query === opened.query
+    && current.tx === opened.tx && current.exec === opened.exec && current.close === opened.close;
+}
+
+/** Boolean-only immutable opening target. No credentials, target getter or registration API. */
+export function isOpenedPlatformPostgresTarget(value: unknown, host: string, port: number, database: string, username: string): boolean {
+  if (!value || typeof value !== "object") return false;
+  const opened = openedHandles.get(value);
+  if (!opened) return false;
+  for (const field of ["kind", "identity", "query", "tx", "exec", "close"] as const) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, field);
+    if (!descriptor || !("value" in descriptor) || descriptor.value !== opened[field]) return false;
+  }
+  if (!isOpenedPlatformDbHandle(value, "postgres")) return false;
+  const target = opened.postgresTarget;
+  return !!target && target.host === host && target.port === port && target.database === database && target.username === username;
+}
+
 export interface PlatformDbConfig {
   kind: PlatformDbKind;
   /** postgres only */
@@ -89,17 +143,22 @@ export interface OpenPlatformDbOptions {
 
 /** Open a store. The caller owns it and must `close()` it. */
 export async function openPlatformDb(opts: OpenPlatformDbOptions): Promise<PlatformDbHandle> {
-  if (opts.kind === "postgres" && !opts.url)
+  const openingKind = opts.kind, openingUrl = openingKind === "postgres" ? opts.url : undefined;
+  if (openingKind === "postgres" && !openingUrl)
     throw new ControlStoreError("invalid_input", "openPlatformDb({ kind: 'postgres' }) requires a url.");
+  const postgresTarget = openingKind === "postgres" ? postgresOpeningTarget(openingUrl) : undefined;
   const driver =
-    opts.kind === "pglite" ? await openPgliteDriver({ dataDir: opts.dataDir }) : await openPostgresDriver({ url: opts.url as string, max: opts.max });
+    openingKind === "pglite" ? await openPgliteDriver({ dataDir: opts.dataDir }) : await openPostgresDriver({ url: openingUrl as string, max: opts.max });
   const db = createPlatformDbHandle(driver, opts.txRetry);
+  const close = db.close.bind(db);
+  db.close = async () => { openedHandles.delete(db); await close(); };
   try {
-    if (opts.migrate ?? opts.kind === "pglite") await migratePlatformDb(db);
+    if (opts.migrate ?? openingKind === "pglite") await migratePlatformDb(db);
   } catch (err) {
     await db.close();
     throw err;
   }
+  openedHandles.set(db, { kind: db.kind, identity: db.identity, query: db.query, tx: db.tx, exec: db.exec, close: db.close, postgresTarget });
   return db;
 }
 

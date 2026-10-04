@@ -1091,3 +1091,32 @@ describe("owned resource cleanup proof", () => {
     expect(await cleanupOwnedResource("container", name, runId, runDocker)).toEqual({ removed: false, outcome: "absence-unconfirmed", attempts: 2 });
   });
 });
+
+describe("packaged Temporal controller [actual Node ESM linkage; no transport]", () => {
+  function lockedControllerSource(): string {
+    const lock = JSON.parse(readFileSync(new URL("../../package-lock.json", import.meta.url), "utf8"));
+    for (const name of ["@temporalio/client", "@temporalio/common", "@temporalio/proto"]) {
+      const installed = JSON.parse(readFileSync(new URL(`../../node_modules/${name}/package.json`, import.meta.url), "utf8"));
+      expect(installed.version).toBe(lock.packages[`node_modules/${name}`].version);
+    }
+    // ESM imports link before these fixture statements execute. The unchanged
+    // controller guard then refuses before reading credentials or connecting.
+    return "process.env.NODE_ENV='module-linkage-fixture';process.env.ZENITH_TEMPORAL_ADDRESS='module-linkage.invalid';delete process.env.ZENITH_TEMPORAL_NAMESPACE;\n"
+      + packagedTemporalControlSource();
+  }
+  it("links every generated controller import against the actual locked packages before the unchanged environment refusal", async () => {
+    const result = await command(process.execPath, ["--input-type=module", "-e", lockedControllerSource(), "health", "client"],
+      "temporal-control-health", { timeout: 10_000, allowFailure: true });
+    expect(result).toEqual({ code: 1, out: "", err: "Packaged authenticated Temporal control failed.\n" });
+  }, 15_000);
+  it("the previous named protobuf import fails actual Node linkage before the controller can read credentials or connect", async () => {
+    const source = lockedControllerSource().replace("import temporalProto from '@temporalio/proto';\nconst { temporal } = temporalProto;",
+      "import { temporal } from '@temporalio/proto';");
+    const result = await command(process.execPath, ["--input-type=module", "-e", source, "health", "client"],
+      "temporal-control-health", { timeout: 10_000, allowFailure: true });
+    expect(result.code).toBe(1); expect(result.out).toBe("");
+    expect(result.err).toContain("SyntaxError"); expect(result.err).toContain("Named export 'temporal' not found");
+    expect(result.err).toContain("@temporalio/proto");
+    expect(result.err).not.toContain("Packaged authenticated Temporal control failed.");
+  }, 15_000);
+});

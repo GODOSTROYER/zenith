@@ -878,7 +878,8 @@ import { closeSync, constants, fstatSync, lstatSync, openSync, readSync } from '
 import { createDecipheriv, createHash, hkdfSync } from 'node:crypto';
 import { Client, Connection, ScheduleOverlapPolicy } from '@temporalio/client';
 import { SearchAttributeType, defineSearchAttributeKey } from '@temporalio/common';
-import { temporal } from '@temporalio/proto';
+import temporalProto from '@temporalio/proto';
+const { temporal } = temporalProto;
 const action=process.argv[1], auth=process.argv[2]??'client', pinned=process.argv.slice(3);
 let connection;
 try {

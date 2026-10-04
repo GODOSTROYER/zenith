@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { mkdir, readFile, stat } from "node:fs/promises";
+import path from "node:path";
 import { mockClient } from "aws-sdk-client-mock";
 import { STSClient, GetCallerIdentityCommand } from "@aws-sdk/client-sts";
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 import { ResourceGroupsTaggingAPIClient, GetResourcesCommand } from "@aws-sdk/client-resource-groups-tagging-api";
 import { assertRunId, assertRunTagged, assertTaggedForRun, assertWithinBudget, establishLiveSession, liveRunName, liveRunTags, newRunId, resolveLiveTarget, runIdTime, TAG_LIVE_RUN } from "../../scripts/acceptance/safety";
-import { ACCOUNT, access, config, RUN } from "./_helpers";
+import { blockRunCleanup, cleanupBlockPath, newRunState, readCleanupBlock, writeRunState } from "../../scripts/acceptance/run-state";
+import { ACCOUNT, access, config, REGION, RUN, temp } from "./_helpers";
 
 const sts = mockClient(STSClient), ssm = mockClient(SSMClient), tagging = mockClient(ResourceGroupsTaggingAPIClient);
 afterEach(() => { sts.reset(); ssm.reset(); tagging.reset(); });
@@ -46,5 +49,32 @@ describe("sandbox safety (AWS calls are mocked)", () => {
     expect(ssm.call(0).args[0].input).toEqual({ Name: "/zenith/live-sandbox", WithDecryption: false });
     expect(() => session.assertMutationAllowed("create", { needsCost: true })).toThrow(); session.checkCost(40); expect(() => session.assertMutationAllowed("create", { needsCost: true })).not.toThrow();
     const readOnly = await establish({ mutating: false, confirmBillable: false }); expect(() => readOnly.assertMutationAllowed("delete", { needsCost: false })).toThrow();
+  });
+});
+
+describe("durable cleanup blocker identity and persistence", () => {
+  it("survives environment-inventory replacement and repeated mutation registration", async () => {
+    const file = path.join(await temp(), "run-state.json"); const identity = { runId: RUN, accountId: ACCOUNT, region: REGION };
+    await blockRunCleanup(file, identity); const before = await readFile(cleanupBlockPath(file), "utf8");
+    await writeRunState(file, { ...newRunState(identity), environmentIds: ["env_test"] });
+    await blockRunCleanup(file, identity);
+    expect(await readFile(cleanupBlockPath(file), "utf8")).toBe(before);
+    expect(await readCleanupBlock(file, identity)).toMatchObject({ status: "blocked", reason: "provider_quiescence_unverified" });
+    expect((await stat(cleanupBlockPath(file))).mode & 0o777).toBe(0o600);
+  });
+  it.each([
+    { runId: "zlive-202609301200-xxxx", accountId: ACCOUNT, region: REGION },
+    { runId: RUN, accountId: "999999999999", region: REGION },
+    { runId: RUN, accountId: ACCOUNT, region: "us-west-2" },
+  ])("a marker for another run/account/region cannot be reused or overwritten (%j)", async (foreign) => {
+    const file = path.join(await temp(), "run-state.json"); const identity = { runId: RUN, accountId: ACCOUNT, region: REGION };
+    await blockRunCleanup(file, foreign); const before = await readFile(cleanupBlockPath(file), "utf8");
+    await expect(readCleanupBlock(file, identity)).rejects.toMatchObject({ code: "cleanup_resolution_required" });
+    await expect(blockRunCleanup(file, identity)).rejects.toMatchObject({ code: "cleanup_resolution_required" });
+    expect(await readFile(cleanupBlockPath(file), "utf8")).toBe(before);
+  });
+  it("an unreadable tracking path cannot be replaced with a success marker", async () => {
+    const file = path.join(await temp(), "run-state.json"); await mkdir(cleanupBlockPath(file));
+    await expect(blockRunCleanup(file, { runId: RUN, accountId: ACCOUNT, region: REGION })).rejects.toMatchObject({ code: "cleanup_resolution_required" });
   });
 });

@@ -30,12 +30,12 @@ export const LIVE_USAGE = `Usage: npx tsx scripts/acceptance/aws-live.ts --scena
   --check-control-plane     In dry run, also check API prerequisites
   --help                    Show this help
 Demo J runs locally: --scenario J. Live A–I have external prerequisites.
-Approvals are human-only. Cleanup is always attempted after a real run.`;
+Approvals are human-only. External cleanup admission is checked after a real run; missing native quiescence authority refuses mutation.`;
 export interface CliIO { out(text: string): void; err(text: string): void }
 const consoleIO: CliIO = { out: (s) => process.stdout.write(`${s}\n`), err: (s) => process.stderr.write(`${s}\n`) };
 
 /** Separated from CLI parsing for failure-path tests with simulated clients. */
-export async function executeScenarios(ctx: ScenarioContext, defs: readonly ScenarioDefinition[], env: EnvLike, cleanup: () => Promise<boolean>, io: CliIO): Promise<number> {
+export async function executeScenarios(ctx: ScenarioContext, defs: readonly ScenarioDefinition[], env: EnvLike, _cleanup: () => Promise<boolean>, io: CliIO): Promise<number> {
   let clean = true;
   try {
     const earlier: ScenarioId[] = [];
@@ -49,31 +49,23 @@ export async function executeScenarios(ctx: ScenarioContext, defs: readonly Scen
   } catch (err) {
     ctx.evidence.fail("harness", "execution", "Scenario execution completed", err instanceof Error ? err.message : "unexpected error");
   } finally {
-    // Restore a crashed worker before asking it to finish cancellation.
-    const recovery = defs.find((d) => d.id === "E" && d.cleanup);
-    if (recovery?.cleanup) {
-      try { await recovery.cleanup(ctx); }
-      catch (err) { clean = false; ctx.evidence.note(`Worker recovery cleanup failed: ${err instanceof Error ? err.message : "error"}`); }
+    // Local observation-only runs have no external teardown. They finalize
+    // without invoking caller cleanup hooks or a sweep. For external runs,
+    // restarting a worker can resume accepted work and requires the same
+    // missing native authority as deletion; neither projection nor an empty
+    // local inventory supplies it.
+    const external = defs.some((d) => !d.runsLocally) || ctx.session !== undefined;
+    if (external) {
+      await settleRunOperations(ctx);
+      clean = false;
+      ctx.evidence.note("Cleanup admission refused: authentic native resolution of accepted mutations and worker/provider quiescence is required. Recovery hooks and destructive sweeps were not run; the cleanup CLI retains read-only discovery.");
     }
-    const quiescent = await settleRunOperations(ctx);
-    if (!quiescent) clean = false;
-    // A failed hook never prevents the other hooks or the AWS sweep.
-    for (const def of [...defs].reverse()) {
-      if (!def.cleanup || def === recovery || !quiescent) continue;
-      try { await def.cleanup(ctx); }
-      catch (err) { clean = false; ctx.evidence.note(`Cleanup hook ${def.id} failed: ${err instanceof Error ? err.message : "error"}`); }
-    }
-    try {
-      if (quiescent) clean = (await cleanup()) && clean;
-      else ctx.evidence.note("Cleanup attempted but destructive sweep refused: a run operation might still be creating resources. Stop it, then run the cleanup CLI.");
-    }
-    catch (err) { clean = false; ctx.evidence.note(`Cleanup threw: ${err instanceof Error ? err.message : "error"}`); }
     // Local J needs no cleanup check: its ten criteria are the whole observation.
     if (defs.some((d) => !d.runsLocally)) {
       if (clean) ctx.evidence.pass("harness", "cleanup", "All cleanup hooks and the applicable tag sweep completed");
-      else ctx.evidence.fail("harness", "cleanup", "All cleanup hooks and the applicable tag sweep completed", "Cleanup incomplete; inspect the report and sweep again.");
+      else ctx.evidence.fail("harness", "cleanup", "All cleanup hooks and the applicable tag sweep completed", "Cleanup incomplete; inspect the durable blocker and resolve accepted mutations before authorizing teardown.");
     }
-    if (!clean) io.err("*** CLEANUP INCOMPLETE — RESOURCES MAY STILL BE BILLING. Inspect evidence and run cleanup again. ***");
+    if (!clean) io.err("*** CLEANUP INCOMPLETE: RESOURCES MAY STILL BE BILLING. Inspect evidence and resolve accepted mutations; repeated cleanup is not clearance. ***");
     const summary = await ctx.evidence.finalize();
     io.out(`${summary.statement}\nEvidence: ${ctx.evidence.dir}\nVerdict: ${summary.verdict}`);
   }

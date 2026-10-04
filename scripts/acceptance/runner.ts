@@ -21,6 +21,7 @@ import type { LiveConfig } from "./config";
 import type { EvidenceRecorder } from "./evidence";
 import type { ControlPlaneClient } from "./clients/control-plane";
 import { LiveSafetyError } from "./safety";
+import { markRunMutation } from "./lifecycle";
 import type { PlanContext, PrerequisiteContext, PrerequisiteKind, ScenarioContext, ScenarioDefinition, ScenarioId } from "./types";
 
 export interface PrerequisiteReport {
@@ -149,6 +150,7 @@ export async function runScenario(def: ScenarioDefinition, ctx: ScenarioContext,
         // Inside the recorded step, so a refusal shows up as this step failing.
         if (step.effect === "mutate" && ctx.session) ctx.session.assertMutationAllowed(`${def.id}/${step.id} (${step.title})`, { needsCost: def.createsResources });
         if (step.effect === "mutate" && !ctx.session && !ctx.confirmBillable) throw new LiveSafetyError("confirm_required", "Non-AWS mutations also require --confirm-billable.");
+        if (step.effect === "mutate") await markRunMutation(ctx);
         return step.run(ctx);
       });
     } catch (err) {

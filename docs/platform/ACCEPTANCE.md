@@ -161,13 +161,13 @@ npx tsx scripts/acceptance/cleanup.ts --older-than 6 --region us-east-1 --execut
 
 Supply the same `--out <parent>` to load a run's saved environment ids, state
 bucket and DNS records. `--report <file>` writes a separate JSON report;
-`--no-tofu` explicitly bypasses the state destroy path. Age comes from the UTC
+`--no-tofu` disables the state destroy path; it cannot bypass cleanup admission. Age comes from the UTC
 run id `zlive-<yyyymmddhhmm>-<rand4>`, not creation dates from the tagging index.
 Invalid tag values are reported and ignored. A scan covers the chosen region
 and us-east-1 for global resources; scan another allowed region separately.
 
-Cleanup adopts only recorded environment ids with exact matching environment
-tags and no other run's tag. It plans OpenTofu destroy against saved state, checks
+The existing teardown handlers adopt only recorded environment ids with exact
+matching environment tags and no other run's tag. It plans OpenTofu destroy against saved state, checks
 each resource's current run tag (or its explicitly allowlisted untaggable child
 type), then applies only a fully accepted destroy plan. Native fallback deletes
 ECS services, ALB/listeners, target groups, databases/cache, storage/logs/images
@@ -176,18 +176,39 @@ final snapshots are skipped only for run-tagged disposable databases. The
 bootstrap state bucket is retained. Recorded run-named DNS records are handled
 separately because records cannot be tagged.
 
-Every real CLI run attempts cleanup in `finally` and finalizes evidence. A
-crashed worker is restored first. Run-scoped operations are cancelled if still
-active and must reach a terminal state before destructive hooks or the tag
-sweep. If they cannot be observed/stopped, destructive cleanup is refused,
-reported loudly and left for the operator after stopping the worker. This
-avoids creating new resources while a sweep deletes old ones. Once operations
-are quiescent, a failing hook does not prevent the AWS sweep.
+Every real external CLI run checks cleanup admission in `finally` and finalizes
+evidence. Local observation-only runs finalize without invoking cleanup hooks or
+a sweep.
+Finalizer recovery hooks, including restarting a crashed worker, require the
+same admission as destructive cleanup. Before any mutation step or control-plane
+dispatch, the harness writes `run-state.json.cleanup-block.json` with run,
+account and region identifiers and a fixed unresolved-mutation reason. A lost
+response with no operation id still leaves that blocker. Environment-inventory
+updates do not overwrite it. Cancellation requests, terminal operation status
+(including `succeeded`, `cancelled` and `uncertain`), Temporal completion and
+step progress do not establish provider quiescence or resolve late accepted
+calls; the harness never clears the marker from those observations.
+
+The current clients expose no authoritative contract for resolving those calls
+and proving worker/provider quiescence. Destructive scenario hooks are refused
+after submitted mutations. The cleanup CLI therefore refuses execute requests
+and reports the missing native-resolution prerequisite while retaining read-only
+ownership discovery. It does not tag-adopt, run OpenTofu destroy, delete native
+resources or DNS records, or compensate/retry accepted mutations. Missing,
+legacy, unreadable or rewritten tracking, another `--out` directory, an empty
+operation-id list and `--no-tofu` cannot grant permission. Dry runs can still
+describe resource ownership; they are not clearance for a later execute run.
+There is deliberately no caller boolean or CLI override that claims quiescence.
+The implementation must independently resolve accepted calls and exclude
+competing writers before a separately authorized teardown; the automated clearance contract and
+its independent provider evidence remain an implementation prerequisite. This
+bounded refusal is not live teardown or recovery acceptance evidence.
 Failure/refusal/unsupported resources or remaining tagged
 resources, or a resource absent from the immediate tag recheck, produce a loud
 warning and nonzero exit. An absent index entry is unverified, not proof of
 deletion. Tagging is eventually
-consistent: repeat a sweep after index lag settles. Untagged resources are not
+consistent: repeated read-only discovery may show different results after index
+lag settles, and empty discovery still cannot authorize execute cleanup. Untagged resources are not
 discoverable by this harness; use sandbox inventory/billing as a cross-check.
 
 Integration gaps: the harness still needs safe run-tag creation instead of

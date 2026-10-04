@@ -14,7 +14,9 @@ import { cleanupRuns } from "../../scripts/acceptance/cleanup";
 import { runCleanupCli } from "../../scripts/acceptance/cleanup-cli";
 import { resolveHandler } from "../../scripts/acceptance/cleanup-handlers";
 import { parseArn, type HandlerCtx, type Handler } from "../../scripts/acceptance/cleanup-util";
-import { newRunState } from "../../scripts/acceptance/run-state";
+import { blockRunCleanup, cleanupBlockPath, newRunState, runStatePath, writeRunState } from "../../scripts/acceptance/run-state";
+import { writeFile } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
 import { liveRunTags } from "../../scripts/acceptance/safety";
 import { ACCOUNT, access, REGION, RUN, temp } from "./_helpers";
 
@@ -40,7 +42,7 @@ describe("cleanup boundary and dependency order", () => {
     for (const m of [ecs, elb, rds, cache, ec2, s3]) expect(m.calls()).toHaveLength(0);
     expect(tag.calls().every((c) => c.args[0] instanceof GetResourcesCommand)).toBe(true);
   });
-  it("deletes a shuffled AWS list in dependency order", async () => {
+  it("blocks a shuffled AWS list before any dependency handler can mutate it", async () => {
     const log: string[] = []; const record = (name: string) => () => { log.push(name); return {}; };
     const resources = [arn("ec2", "vpc/vpc-1"), arn("ec2", "security-group/sg-1"), arn("elasticache", `replicationgroup:zenith-${RUN}-cache`), arn("rds", `db:zenith-${RUN}-db`), arn("elasticloadbalancing", `targetgroup/zenith-${RUN}-tg/123`), arn("ec2", "subnet/subnet-1"), arn("elasticloadbalancing", `loadbalancer/app/zenith-${RUN}-alb/123`), arn("ecs", `service/cluster/zenith-${RUN}-web`)];
     listing(resources);
@@ -50,7 +52,9 @@ describe("cleanup boundary and dependency order", () => {
     cache.on(DescribeReplicationGroupsCommand).resolvesOnce({ ReplicationGroups: [{ ReplicationGroupId: "cache" }] }).resolves({ ReplicationGroups: [] }); cache.on(DeleteReplicationGroupCommand).callsFake(record("cache"));
     ec2.on(DescribeSecurityGroupsCommand).resolves({ SecurityGroups: [{ GroupName: "run-group" }] }); ec2.on(DescribeVpcsCommand).resolves({ Vpcs: [{ IsDefault: false }] });
     ec2.on(DeleteSubnetCommand).callsFake(record("subnet")); ec2.on(DeleteSecurityGroupCommand).callsFake(record("sg")); ec2.on(DeleteVpcCommand).callsFake(record("vpc"));
-    const report = await cleanupRuns({ ...base(), dryRun: false }); expect(report.ok).toBe(true); expect(log).toEqual(["ecs:update", "ecs:delete", "alb", "tg", "rds", "cache", "subnet", "sg", "vpc"]); expect(rds.commandCalls(DeleteDBInstanceCommand)[0]!.args[0].input.SkipFinalSnapshot).toBe(true);
+    const report = await cleanupRuns({ ...base(), dryRun: false }); expect(report.ok).toBe(false); expect(report.summary.blockedRuns).toBe(1); expect(log).toEqual([]);
+    expect(report.runs[0]?.resources.every((resource) => resource.status === "refused_quiescence")).toBe(true);
+    for (const client of [ecs, elb, rds, cache, ec2, s3]) expect(client.calls()).toHaveLength(0);
   });
   it.each(["missing", "other"])("rechecks tags and refuses %s ownership", async (kind) => { listing([bucketArn], (a) => kind === "missing" ? [] : [mapping(a, "zlive-202609301200-xxxx")]); const report = await cleanupRuns({ ...base(), dryRun: false }); expect(report.runs[0]?.resources[0]?.status).toBe(kind === "missing" ? "not_listed_on_recheck" : "refused_tag_mismatch"); expect(report.ok).toBe(false); expect(report.summary.alreadyGone).toBe(0); expect(s3.calls()).toHaveLength(0); });
   it("refuses foreign accounts, unsafe names and unsupported types", async () => {
@@ -71,17 +75,17 @@ describe("cleanup boundary and dependency order", () => {
     tag.on(GetResourcesCommand).callsFake((input) => ({ ResourceTagMappingList: input.TagFilters?.[0]?.Values ? [] : [mapping(bucketArn), mapping("arn:aws:s3:::recent", recent), mapping("arn:aws:s3:::bad", "zlive-202613011200-ab12"), mapping("arn:aws:s3:::foreign", "production")] }));
     const r = await cleanupRuns({ ...base(), selector: { olderThanHours: 6 }, now: () => new Date("2026-10-01T12:00:00Z") }); expect(r.runs.map((r) => r.runId)).toEqual([RUN]); expect(r.ignoredTagValues).toEqual(["production", "zlive-202613011200-ab12"]);
   });
-  it("second pass retries DependencyViolation and replaces the first failure", async () => {
+  it("does not call or retry a dependency handler while mutation quiescence is unresolved", async () => {
     const a = arn("ec2", "subnet/subnet-1"); listing([a]); let attempts = 0;
     const handler: Handler = { id: "test", rank: 1, match: () => ({}), remove: async () => { if (++attempts === 1) throw Object.assign(new Error("in use"), { name: "DependencyViolation" }); return "deleted"; } };
-    const r = await cleanupRuns({ ...base(), dryRun: false, handlers: [handler] }); expect(attempts).toBe(2); expect(r.summary.failed).toBe(0); expect(r.summary.deleted).toBe(1); expect(r.ok).toBe(true); expect(tag.commandCalls(GetResourcesCommand).filter((c) => c.args[0].input.ResourceARNList)).toHaveLength(2);
+    const r = await cleanupRuns({ ...base(), dryRun: false, handlers: [handler] }); expect(attempts).toBe(0); expect(r.summary.failed).toBe(0); expect(r.summary.deleted).toBe(0); expect(r.summary.refused).toBe(1); expect(r.ok).toBe(false); expect(tag.commandCalls(GetResourcesCommand).filter((c) => c.args[0].input.ResourceARNList)).toHaveLength(1);
   });
-  it("can disable tofu or inject destroy, and still sweeps after destroy throws", async () => {
+  it("refuses adoption and destroy even with a saved environment and injected implementations", async () => {
     listing([]); const destroy = vi.fn(async () => { throw new Error("tofu died"); });
     const state = { ...newRunState({ runId: RUN, accountId: ACCOUNT, region: REGION }), environmentIds: ["env_test"], workspaceId: "ws_test", stateBucket: "zenith-state-test" };
     const adopt = vi.fn(async () => ({ adopted: [], skipped: [], alreadyTagged: 0 }));
-    const r = await cleanupRuns({ ...base(), useTofu: true, dryRun: false, destroy, adopt, loadRunState: async () => state }); expect(destroy).toHaveBeenCalledOnce(); expect(r.runs[0]?.tofu[0]?.status).toBe("failed"); expect(r.ok).toBe(false); expect(tag.calls().length).toBeGreaterThan(0);
-    await cleanupRuns({ ...base(), destroy, adopt, loadRunState: async () => state }); expect(destroy).toHaveBeenCalledOnce();
+    const r = await cleanupRuns({ ...base(), useTofu: true, dryRun: false, destroy, adopt, loadRunState: async () => state }); expect(destroy).not.toHaveBeenCalled(); expect(adopt).not.toHaveBeenCalled(); expect(r.runs[0]?.tofu[0]?.status).toBe("skipped"); expect(r.ok).toBe(false); expect(tag.calls().length).toBeGreaterThan(0);
+    await cleanupRuns({ ...base(), destroy, adopt, loadRunState: async () => state }); expect(destroy).not.toHaveBeenCalled();
   });
   it("CLI reports usage/safety refusal as 2, success as 0, problems as 1", async () => {
     const io = { out: vi.fn(), err: vi.fn() }; expect(await runCleanupCli(["--run-id", RUN], {}, io)).toBe(2); expect(await runCleanupCli(["--help"], {}, io)).toBe(0);
@@ -90,4 +94,45 @@ describe("cleanup boundary and dependency order", () => {
     listing([]); expect(await runCleanupCli(["--run-id", RUN, "--no-tofu", "--out", await temp()], env, io)).toBe(0);
     listing([arn("unknown", "unhandled")]); expect(await runCleanupCli(["--run-id", RUN, "--no-tofu", "--out", await temp()], env, io)).toBe(1);
   });
+  it.each(["persisted", "missing", "rewritten", "unreadable"] as const)("a follow-up execute CLI cannot bypass %s mutation tracking or --no-tofu", async (tracking) => {
+    const out = await temp(); const file = runStatePath(out, RUN); const secret = randomBytes(24).toString("hex");
+    if (tracking !== "missing") {
+      await writeRunState(file, { ...newRunState({ runId: RUN, accountId: ACCOUNT, region: REGION }), environmentIds: ["env_test"], dnsRecords: [{ zoneId: "ZTEST", name: `${RUN}.example.test`, type: "A" }] });
+      await blockRunCleanup(file, { runId: RUN, accountId: ACCOUNT, region: REGION });
+      if (tracking === "rewritten") await writeFile(cleanupBlockPath(file), JSON.stringify({ quiescent: true, diagnostic: secret }));
+      if (tracking === "unreadable") await writeFile(file, "not json");
+    }
+    sts.on(GetCallerIdentityCommand).resolves({ Account: ACCOUNT }); ssm.on(GetParameterCommand).resolves({ Parameter: { Value: "true" } });
+    listing([bucketArn]); const io = { out: vi.fn(), err: vi.fn() };
+    expect(await runCleanupCli(["--run-id", RUN, "--execute", "--no-tofu", "--out", out], { ZENITH_LIVE_AWS_ACCOUNT_ID: ACCOUNT, ZENITH_LIVE_REGION: REGION }, io)).toBe(1);
+    expect(io.err).toHaveBeenCalledWith(expect.stringContaining("blocked pending authoritative mutation resolution"));
+    expect(io.out.mock.calls.map(([message]) => message).join("\n")).not.toContain(secret);
+    expect(s3.calls()).toHaveLength(0); expect(tag.calls().every((call) => call.args[0] instanceof GetResourcesCommand)).toBe(true);
+  });
+  it("preserves foreign ownership refusals during blocked discovery without tagging or deletion", async () => {
+    listing([arn("rds", `db:zenith-${RUN}-db`, "999999999999"), bucketArn], (a) => [mapping(a, "zlive-202609301200-xxxx")]);
+    const report = await cleanupRuns({ ...base(), dryRun: false });
+    expect(new Set(report.runs[0]?.resources.map((r) => r.status))).toEqual(new Set(["refused_foreign_account", "refused_tag_mismatch"]));
+    expect(report.ok).toBe(false); expect(rds.calls()).toHaveLength(0); expect(s3.calls()).toHaveLength(0);
+  });
+  it("a run-state read failure remains visible and keeps read-only ownership discovery", async () => {
+    const secret = randomBytes(24).toString("hex"); listing([bucketArn]);
+    const report = await cleanupRuns({ ...base(), dryRun: false, loadRunState: async () => { throw new Error(secret); } });
+    expect(report.runs[0]?.admission).toMatchObject({ status: "blocked", reason: "tracking_unavailable" });
+    expect(report.summary.found).toBe(1); expect(report.ok).toBe(false); expect(JSON.stringify(report)).not.toContain(secret); expect(s3.calls()).toHaveLength(0);
+  });
+  it("empty execute discovery cannot claim quiescence or successful cleanup", async () => {
+    listing([]); const destroy = vi.fn(); const adopt = vi.fn();
+    const selected = await cleanupRuns({ ...base(), dryRun: false, destroy, adopt });
+    expect(selected.ok).toBe(false); expect(selected.summary.blockedRuns).toBe(1);
+    const aged = await cleanupRuns({ ...base(), dryRun: false, selector: { olderThanHours: 0 }, destroy, adopt });
+    expect(aged.runs).toEqual([]); expect(aged.mode).toBe("execute"); expect(aged.ok).toBe(false);
+    expect(destroy).not.toHaveBeenCalled(); expect(adopt).not.toHaveBeenCalled();
+    sts.on(GetCallerIdentityCommand).resolves({ Account: ACCOUNT }); ssm.on(GetParameterCommand).resolves({ Parameter: { Value: "true" } });
+    const io = { out: vi.fn(), err: vi.fn() };
+    expect(await runCleanupCli(["--older-than", "0", "--execute", "--no-tofu", "--out", await temp()], { ZENITH_LIVE_AWS_ACCOUNT_ID: ACCOUNT, ZENITH_LIVE_REGION: REGION }, io)).toBe(1);
+    expect(io.err).toHaveBeenCalledWith(expect.stringContaining("Execute requests lack native quiescence authority, including empty discovery."));
+    expect(tag.calls().every((call) => call.args[0] instanceof GetResourcesCommand)).toBe(true);
+  });
+
 });

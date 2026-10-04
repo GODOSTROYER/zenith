@@ -13,7 +13,7 @@ import { UsageError, parseArgs } from "./args";
 import { cleanupRuns } from "./cleanup";
 import { LiveConfigError, defaultStateBucket, loadLiveConfig } from "./config";
 import { defaultEvidenceRoot } from "./evidence";
-import { readRunState, runStatePath } from "./run-state";
+import { readCleanupBlock, readRunState, runStatePath } from "./run-state";
 import { redactCredentials } from "@/lib/credentials/redact";
 import { LiveSafetyError, establishLiveSession, resolveLiveTarget } from "./safety";
 
@@ -21,13 +21,14 @@ export const CLEANUP_USAGE = `Usage: npx tsx scripts/acceptance/cleanup.ts (--ru
 
   --run-id <id>        clean one run (zlive-<yyyymmddhhmm>-<4 chars>)
   --older-than <h>     clean every zlive-* run whose id is older than <h> hours
-  --execute            actually delete (the default is a dry run that only lists)
+  --execute            request deletion (refused until mutation quiescence can be established)
   --region <r>         AWS region (or ZENITH_LIVE_REGION); there is no default
   --out <dir>          evidence parent directory (default: <os tmp>/zenith-acceptance)
   --report <file>      also write the JSON report here
-  --no-tofu            skip the OpenTofu destroy and sweep natively only
+  --no-tofu            disable OpenTofu planning; never bypass cleanup admission
 
-Requires ZENITH_LIVE_AWS_ACCOUNT_ID and the ambient AWS credentials of that sandbox account; the account must carry /zenith/live-sandbox=true.`;
+Requires ZENITH_LIVE_AWS_ACCOUNT_ID and the ambient AWS credentials of that sandbox account; the account must carry /zenith/live-sandbox=true.
+Current harness authorities cannot establish provider quiescence. Execute requests retain read-only discovery and report the missing native-resolution prerequisite; --no-tofu and missing run state do not bypass it.`;
 
 export async function runCleanupCli(argv: readonly string[], env: Readonly<Record<string, string | undefined>> = process.env, io: { out: (s: string) => void; err: (s: string) => void } = { out: (s) => process.stdout.write(s), err: (s) => process.stderr.write(s) }): Promise<number> {
   try {
@@ -60,6 +61,7 @@ export async function runCleanupCli(argv: readonly string[], env: Readonly<Recor
       stateKmsKeyArn: config.stateKmsKeyArn,
       useTofu: !args.flags.has("no-tofu"),
       loadRunState: (id) => readRunState(runStatePath(outDir, id), { runId: id, accountId: target.accountId, region: target.region }),
+      loadCleanupBlock: (id) => readCleanupBlock(runStatePath(outDir, id), { runId: id, accountId: target.accountId, region: target.region }),
       log: (m) => io.err(`${m}\n`),
     });
 
@@ -75,7 +77,7 @@ export async function runCleanupCli(argv: readonly string[], env: Readonly<Recor
       await writeFile(path.join(dir, `cleanup-report-${execute ? "execute" : "dry-run"}.json`), text, { mode: 0o600 });
     }
     io.out(text);
-    if (!report.ok) io.err(`CLEANUP INCOMPLETE: ${report.summary.failed} failed, ${report.summary.unsupported} unsupported, ${report.summary.refused} refused, ${report.summary.unverified} unverified, ${report.summary.remaining} still listed. Read the report; resources may still be costing money.\n`);
+    if (!report.ok) io.err(`CLEANUP INCOMPLETE: ${report.summary.blockedRuns} runs blocked pending authoritative mutation resolution; ${report.summary.failed} failed, ${report.summary.unsupported} unsupported, ${report.summary.refused} refused, ${report.summary.unverified} unverified, ${report.summary.remaining} still listed.${execute ? " Execute requests lack native quiescence authority, including empty discovery." : ""} Read the report; resources may still be costing money.\n`);
     return report.ok ? 0 : 1;
   } catch (err) {
     if (err instanceof UsageError || err instanceof LiveConfigError) {

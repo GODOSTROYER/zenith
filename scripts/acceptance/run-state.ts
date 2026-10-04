@@ -44,6 +44,58 @@ export type RunState = z.infer<typeof RunStateSchema>;
 
 export const RUN_STATE_FILE = "run-state.json";
 
+// Separate from the environment inventory: scenarios may rewrite that inventory,
+// but must never erase an unresolved external mutation. There is deliberately no
+// caller-controlled "quiescent" flag or automatic clearance API.
+const CleanupBlockSchema = z.object({
+  schema: z.literal(1),
+  runId: z.string().regex(RUN_ID_PATTERN),
+  accountId: z.string().regex(/^\d{12}$/).optional(),
+  region: z.string().regex(/^[a-z]{2}(?:-[a-z]+)+-\d$/).optional(),
+  status: z.literal("blocked"),
+  reason: z.literal("provider_quiescence_unverified"),
+}).strict();
+export type CleanupBlock = z.infer<typeof CleanupBlockSchema>;
+export const cleanupBlockPath = (stateFile: string): string => `${stateFile}.cleanup-block.json`;
+
+export class CleanupAdmissionError extends Error {
+  readonly code = "cleanup_resolution_required";
+  constructor() {
+    super("Destructive cleanup requires authoritative resolution of submitted mutations and worker/provider quiescence; terminal operation status is insufficient.");
+    this.name = "CleanupAdmissionError";
+  }
+}
+
+type CleanupIdentity = { runId: string; accountId?: string; region?: string };
+
+export async function readCleanupBlock(stateFile: string, expect: CleanupIdentity): Promise<CleanupBlock | undefined> {
+  let text: string;
+  try { text = await readFile(cleanupBlockPath(stateFile), "utf8"); }
+  catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw new CleanupAdmissionError();
+  }
+  try {
+    const block = CleanupBlockSchema.parse(JSON.parse(text));
+    if (block.runId !== expect.runId || (expect.accountId !== undefined && block.accountId !== expect.accountId) || (expect.region !== undefined && block.region !== expect.region)) throw new CleanupAdmissionError();
+    return block;
+  } catch { throw new CleanupAdmissionError(); }
+}
+
+/** Persist BEFORE dispatch. A crash or lost response leaves the same blocker.
+ * An existing or partially written marker is revalidated, never overwritten. */
+export async function blockRunCleanup(stateFile: string, identity: CleanupIdentity): Promise<void> {
+  try {
+    const block = CleanupBlockSchema.parse({ schema: 1, ...identity, status: "blocked", reason: "provider_quiescence_unverified" });
+    await mkdir(path.dirname(stateFile), { recursive: true, mode: 0o700 });
+    try { await writeFile(cleanupBlockPath(stateFile), `${JSON.stringify(block, null, 2)}\n`, { flag: "wx", mode: 0o600 }); }
+    catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+      if (!await readCleanupBlock(stateFile, identity)) throw new CleanupAdmissionError();
+    }
+  } catch { throw new CleanupAdmissionError(); }
+}
+
 export class RunStateError extends Error {
   readonly code = "run_state_invalid";
 }

@@ -2,12 +2,15 @@
  * The live-run sweeper: find everything a run created by tag and delete it.
  *
  *   npx tsx scripts/acceptance/cleanup.ts --run-id zlive-202609301200-ab12            # dry run
- *   npx tsx scripts/acceptance/cleanup.ts --run-id zlive-202609301200-ab12 --execute  # delete
- *   npx tsx scripts/acceptance/cleanup.ts --older-than 6 --execute                    # every zlive-* run older than 6 h
+ *   npx tsx scripts/acceptance/cleanup.ts --run-id zlive-202609301200-ab12 --execute  # request deletion, currently refused
+ *   npx tsx scripts/acceptance/cleanup.ts --older-than 6 --execute                    # discover older runs; deletion currently refused
  *
- * DRY RUN IS THE DEFAULT. Nothing is deleted without `--execute`.
+ * DRY RUN IS THE DEFAULT. Execute is a request, not proof of quiescence. The
+ * current harness has no authority resolving late accepted provider calls, so
+ * execute requests refuse mutation and retain read-only ownership discovery.
  *
- * Per run it does, in order:
+ * After an authoritative admission contract exists, the teardown handlers are
+ * arranged in this order (the current admission guard refuses execution):
  *   1. adopt: tag what the run's Zenith environments created with this run's
  *      `zenith:live-run` tag (recovers a run that died before it did);
  *   2. `tofu destroy` of the run's OpenTofu state when a state object exists,
@@ -27,8 +30,8 @@
  *
  * Resource types the harness has no deleter for are REPORTED (`unsupported`)
  * and left alone; a failed or refused deletion is reported and makes the run's
- * result not-ok. Cleanup never reports success it did not observe: `ok` is true
- * only when nothing failed, was refused, was unsupported or is still listed.
+ * result not-ok. Execute reports are always not-ok until native authority exists.
+ * A successful dry-run report proves discovery only, never teardown or absence.
  *
  * Honest limits: the tagging index is eventually consistent (a deleted
  * resource can stay listed for minutes, and a just-created one can be missing),
@@ -43,7 +46,7 @@ import { adoptEnvironmentResources, type AdoptReport } from "./adopt";
 import { HANDLERS, resolveHandler } from "./cleanup-handlers";
 import { isInUse, parseArn, type Arn, type Handler, type HandlerCtx } from "./cleanup-util";
 import { destroyRunWorkspace, type DestroyResult } from "./tofu-destroy";
-import type { RunState } from "./run-state";
+import { parseRunState, type CleanupBlock, type RunState } from "./run-state";
 import type { AwsAccess } from "./types";
 import { redactDeep } from "@/lib/credentials/redact";
 
@@ -56,6 +59,7 @@ export type ResourceStatus =
   | "refused_tag_mismatch"
   | "refused_name_guard"
   | "refused_foreign_account"
+  | "refused_quiescence"
   | "unsupported"
   | "failed";
 
@@ -68,6 +72,7 @@ export interface ResourceOutcome {
 
 export interface RunCleanup {
   runId: string;
+  admission: { status: "blocked" | "unverified"; reason: "provider_quiescence_unverified" | "tracking_unavailable"; detail: string };
   adopt?: { adopted: number; skipped: number; detail?: string };
   tofu: { status: DestroyResult["status"] | "skipped"; detail: string; deletes: number; refused: number }[];
   resources: ResourceOutcome[];
@@ -88,7 +93,7 @@ export interface CleanupReport {
   /** tag values seen under `zenith:live-run` that are not run ids: never touched */
   ignoredTagValues: string[];
   runs: RunCleanup[];
-  summary: { runs: number; found: number; deleted: number; wouldDelete: number; alreadyGone: number; coveredByParent: number; unverified: number; refused: number; unsupported: number; failed: number; remaining: number };
+  summary: { runs: number; blockedRuns: number; found: number; deleted: number; wouldDelete: number; alreadyGone: number; coveredByParent: number; unverified: number; refused: number; unsupported: number; failed: number; remaining: number };
   ok: boolean;
 }
 
@@ -107,6 +112,8 @@ export interface CleanupOptions {
   stateKmsKeyArn?: string;
   /** run-state loader (default: none); gives environment ids, workspace id and DNS records */
   loadRunState?: (runId: string) => Promise<RunState | undefined>;
+  /** Durable unresolved-mutation marker. Absence is not cleanup permission. */
+  loadCleanupBlock?: (runId: string) => Promise<CleanupBlock | undefined>;
   /** default true */
   useTofu?: boolean;
   handlers?: readonly Handler[];
@@ -182,6 +189,7 @@ export async function cleanupRuns(opts: CleanupOptions): Promise<CleanupReport> 
   const refused = all.filter((r) => r.status.startsWith("refused_")).length;
   const summary = {
     runs: runs.length,
+    blockedRuns: runs.filter((r) => r.admission.status === "blocked").length,
     found: all.length,
     deleted: count("deleted"),
     wouldDelete: count("would_delete"),
@@ -204,7 +212,8 @@ export async function cleanupRuns(opts: CleanupOptions): Promise<CleanupReport> 
     ignoredTagValues: ignored,
     runs,
     summary,
-    ok: runs.every((r) => r.ok),
+    // Empty tag discovery is not a complete dispatch inventory or gone proof.
+    ok: dryRun && runs.every((r) => r.ok),
   });
 }
 
@@ -214,9 +223,54 @@ async function cleanRun(runId: string, o: RunInput): Promise<RunCleanup> {
   const { access, dryRun, regions, log } = o;
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const handlers = o.handlers ?? HANDLERS;
-  const out: RunCleanup = { runId, tofu: [], resources: [], dns: [], remaining: [], ok: true };
-  const state = await o.loadRunState?.(runId);
+  const out: RunCleanup = { runId, admission: { status: dryRun ? "unverified" : "blocked", reason: "provider_quiescence_unverified", detail: "No existing harness authority resolves accepted provider calls or proves worker/provider quiescence. Authentic native resolution is required; terminal status or a caller flag cannot authorize destructive cleanup." }, tofu: [], resources: [], dns: [], remaining: [], ok: true };
+  let state: RunState | undefined;
+  try {
+    const loaded = await o.loadRunState?.(runId);
+    if (loaded) {
+      state = parseRunState(loaded);
+      if (state.runId !== runId || state.accountId !== access.accountId || state.region !== access.region) throw new Error("state identity mismatch");
+    }
+    const block = await o.loadCleanupBlock?.(runId);
+    if (block) {
+      if (block.runId !== runId || block.accountId !== access.accountId || block.region !== access.region || block.status !== "blocked" || block.reason !== "provider_quiescence_unverified") throw new Error("block identity mismatch");
+      out.admission.status = "blocked";
+    }
+  } catch {
+    state = undefined;
+    out.admission = { status: "blocked", reason: "tracking_unavailable", detail: "Run-scoped cleanup tracking could not be revalidated. Read-only discovery is retained; all mutations are refused." };
+    out.ok = false;
+  }
   const envIds = state?.environmentIds ?? [];
+
+  // Neither an empty operation-id list, missing/legacy state, --no-tofu,
+  // another evidence directory nor a rewritten terminal status can discharge
+  // unknown accepted calls. Do not tag-adopt, destroy, delete DNS, compensate or
+  // retry while blocked. Keep fresh ownership discovery for operator recovery.
+  if (out.admission.status === "blocked") {
+    out.ok = false;
+    out.tofu.push({ status: "skipped", detail: "Destructive cleanup refused: authoritative mutation resolution and worker/provider quiescence are prerequisites.", deletes: 0, refused: 0 });
+    const listed = await listTagged(access, regions, runId);
+    for (const item of listed) {
+      const arn = parseArn(item.arn);
+      const resolved = arn ? resolveHandler(arn, handlers) : undefined;
+      let status: ResourceStatus = "refused_quiescence";
+      if (arn && arn.account !== "" && arn.account !== access.accountId) status = "refused_foreign_account";
+      else if (!arn || !resolved) status = "unsupported";
+      else {
+        try {
+          const fresh = await lookupTags(access.client(ResourceGroupsTaggingAPIClient, { region: item.region }), item.arn);
+          const name = resolved.name;
+          if (!fresh.listed) status = "not_listed_on_recheck";
+          else if (fresh.tags[TAG_LIVE_RUN] !== runId) status = "refused_tag_mismatch";
+          else if (name && !name.includes(runId) && !envIds.some((id) => name.includes(id))) status = "refused_name_guard";
+        } catch { status = "failed"; }
+      }
+      out.resources.push({ arn: item.arn, type: arn ? typeOf(arn) : "unknown", status, detail: "Read-only discovery; no cleanup mutation was authorized." });
+    }
+    out.remaining = listed.map((item) => item.arn);
+    return out;
+  }
 
   /* 1. adopt */
   if (envIds.length > 0) {

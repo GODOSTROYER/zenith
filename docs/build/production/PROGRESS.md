@@ -1,32 +1,17 @@
 # Production progress
 
-Reviewed source integrated at `6814da5`, functional verification source `0772854`, on `codex/production-2026-10-02`. Known dependency findings cleared locally and in fresh pushed CIcd8942b. Run37124764251 completed13passed/1failedGo ACL prerequisite; reviewed native ACL preparation merged25b6d1e and next complete run remains required.
+Local integrated source: `c32d116745c75048a21b6e42a09ee313ce8230e6`, branch `codex/production-packets-2026-10-04`, exact47-path tested tree. Published `codex/production-2026-10-02` remains414d52b; historical CI37128274569 was rechecked14/14 success. The local candidate is unpublished and does not inherit that result.
 
-Acceptance states: **6 verified / 26 in progress / 46 planned**, all78 requirements retained. Counts are acceptance states, not completion percentages. All four release statuses remain false; no current task paused.
+Acceptance states: **6 verified / 30 in progress / 42 planned**, all78 IDs and criteria retained. Four formerly unassessed rows now record concrete partial work; no additional row is verified. All four release states remain false.
 
-## Integrated and executed
+- [x] Four reviewed source commits integrate AWS native readiness, durable MCP admission, strict native gates and non-AWS DNS ownership.
+- [x] ActualPG2354P0F8declaredS/all624mandatory plus strict executed-case validation; affected130P0F0S and compiler/lint passed.
+- [x] Focused513P0F16platformS; all skipped cases mapped to actualPG or unchanged actual Linux execution. DNS198P0F0S includes6 actual local OpenTofu cases.
+- [ ] Complete combined whole/package/kind/fresh install and pushed CI. Last whole17927P1F559S retained; ARM packageR6 shutdown andR7 storage failures remain open.
+- [ ] Integrate corrected APPLY11/native credential8 after independent review and native acceptance. Native OAuth grant persistence/migration15 source work continues.
+- [ ] Operate default browser/API/MCP journey, then G3/G4. Default API/server and live-account permissions remain pending; source-independent work continues.
 
-- [x] Original-byte encrypted plan custody/migration7, runner rotation and guarded guest file.write integrated after independent review and root verification.
-- [x] Scoped lint dependency replacement, complete audit0, real-glob compatibility, fresh clone/install/full Next build passed; no exception approved.
-- [x] Exact functional source units16944P0F204S, Temporal1000P0F0S, policy238P0F0S and OpenTofu3900P0F8S.
-- [x] Separate real PostgreSQL1532P0F0S/70groups and Supabase251P0F0S/9groups; schema apply/reapply and tamper refusals passed.
-- [x] OPA213; compiler/lint/generated; Go241parents+542subtests passed,0failed/3Linux-only Mac skips. Overlapping counts remain separate.
-- [x] Native Linux801passed leaf cases/0failed/3allowed skips and five authentic goldens;28real fixture tamper/cleanup checks passed. Original4bf source binding preserved.
-- [x] Current kind provider6/6/release1/1; ARM64 native/AMD64 emulated worker startup, outage recovery and idle shutdown passed.
-- [x] Owned Docker/cluster/builder/cache/new-image resources removed; latest16.9GiB free. One heavy local workload only.
-
-## In progress and blocked
-
-- [ ] Observe fresh native ACL correction CI. Priorb9 run13passed/1failedGo; Smoke/Gimbal passed, native setup refused before execution. Fresh local79baec03 Linux801P0F3declaredS/five goldens and12realACLCLIcases passed; exact pushed native whole CI still required.
-- [ ] Isolated clean e64d00f: durable CodeBuild/GitHub source8–10; actualPG1678P0F0S/141groups and Temporal1035P0F0S/53groups with strict revalidation passed. Initial1638P39F0S retained. Further broker/current-role/current-policy source corrections remain blocked pending review/runtime; no live source journey claim.
-- [ ] Accepted late agent receipt source11 imported into7a3accf with canonical registration/schema role checks/40strictPGcases. Compiler/lint/generated passed; first481P3F13S contract run requires bounded old-fixture corrections and actualPG. Provider certainty/cleanup success unproved.
-- [ ] Corrected durable scheduler r2: final source challenge, worker/config wiring and PostgreSQL/Temporal execution pending.
-- [ ] Durable workflow start intent12 and mixed-provider partition contracts: source work continuing; existing cross-provider execution guard stays enforced.
-- [ ] Authoritative cleanup quiescence and independently confirmed deletion remain open.
-- [ ] Default API/browser/MCP startup permission and isolated private Supabase/GitHub/AWS scopes pending. No default API/server or live cloud startup performed.
-- [ ] Native AMD64, mutation-in-flight shutdown, supported systemd, TLS/pooler, restore/load/upgrade/security, mixed-cloud traffic and managed two-tenant serving acceptance remain open.
-
-Three current source/review lanes: CodeBuild current-authority challenge and mixed state/lock correction; independent build runtime-test challenge; independent durable start intent review. Root owns serial verification, integration and release verdict. Frozen scheduler and late receipts remain resumable in private worktrees; original candidates and failed evidence preserved.
+Exact scopes, source bindings, failures, skips and private artifact hashes: [integration receipt](verification/2026-10-04-integrated-source.md). Historical native Linux801 leaves/3declaredS/five goldens and12ACL controls remain scoped evidence. Local kind859 provider6/release1/guest48 does not verify changed shared candidate or live clouds. Counts overlap and must not be summed.
 
 ## Requirement checklist
 
@@ -64,8 +49,8 @@ All unchecked rows remain incomplete at their specified evidence levels. Full cr
 
 - [ ] PROD-DUR-01: Durable intent and outbox (in progress).
 - [ ] PROD-DUR-02: Authoritative state and projections (in progress).
-- [ ] PROD-DUR-03: Exact approved executable semantics (planned).
-- [ ] PROD-DUR-04: Dispatch authorization and bounded autonomy (planned).
+- [ ] PROD-DUR-03: Exact approved executable semantics (in progress).
+- [ ] PROD-DUR-04: Dispatch authorization and bounded autonomy (in progress).
 - [ ] PROD-DUR-05: Durable encrypted plan handoff (in progress).
 - [ ] PROD-DUR-06: Artifact cleanup and state backend recovery (in progress).
 - [ ] PROD-DUR-07: Uncertain external mutation resolution (in progress).
@@ -77,7 +62,7 @@ All unchecked rows remain incomplete at their specified evidence levels. Full cr
 - [ ] PROD-LIFE-03: AWS family migration and suffixes (in progress).
 - [ ] PROD-LIFE-04: Azure data plane and sovereign identity (planned).
 - [ ] PROD-LIFE-05: OCI replacement and deletion evidence (planned).
-- [ ] PROD-LIFE-06: Non-AWS ownership-safe DNS teardown (planned).
+- [ ] PROD-LIFE-06: Non-AWS ownership-safe DNS teardown (in progress).
 - [ ] PROD-LIFE-07: Kubernetes full lifecycle acceptance (planned).
 - [ ] PROD-LIFE-08: GitHub source binding lifecycle (in progress).
 - [ ] PROD-LIFE-09: Isolated untrusted build provenance (planned).
@@ -87,7 +72,7 @@ All unchecked rows remain incomplete at their specified evidence levels. Full cr
 ### MACH
 
 - [ ] PROD-MACH-01: Typed safe guest configuration (in progress).
-- [ ] PROD-MACH-02: Kubernetes guest credentials (planned).
+- [ ] PROD-MACH-02: Kubernetes guest credentials (in progress).
 - [ ] PROD-MACH-03: Signed automation and scheduling (planned).
 - [ ] PROD-MACH-04: Linux runner delivery and lifecycle (in progress).
 - [ ] PROD-MACH-05: Local customer credential custody (planned).

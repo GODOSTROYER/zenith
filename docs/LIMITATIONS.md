@@ -2,7 +2,15 @@
 
 Status legend: ✅ implemented · 🟡 partial · ⬜ not yet built
 
-## Current integrated engineering candidate (3 October 2026)
+## Current local integration (4 October 2026)
+
+Unpublished `c32d116` integrates47 independently reviewed AWS/MCP/native-gate/DNS paths into four Saivedant commits. [Current receipt](build/production/verification/2026-10-04-integrated-source.md) binds exact tested tree, counts and limitations. Actual PostgreSQL2354P0F8declaredS/all624mandatory and separate strict execution validation passed; affected130P0F0S/compiler/lint passed. Focused513P0F16platformS retains executed native counterparts; DNS198P0F0S includes six actual local OpenTofu controls and modeled provider ownership. Point-in-time ownership checks do not prove quiescence, later provider-call revocation or live deletion.
+
+Published414d52b/run37128274569 was rechecked terminal14/14 and remains historical. Last whole unit17927P1F559S is retained until a complete successor; targeted tenant correction does not make it green. ARM64 packageR6 failed in-flight waiter before SIGTERM after20 checks; R7 failed fresh image construction at storage floor, zero runtime checks. NativeAMD64 and changed-byte complete startup/in-flight drain remain open. Local kind859 provider6/release1/guest48 includes8 actual API/RBAC and40 parser/model controls; shared changed candidate needs fresh kind. Native Linux801 leaves/3declaredS/five goldens/12ACL controls are scoped execution, not pending in full.
+
+APPLY11 is unimported pending correction separating viewer read-only plan publication from actual write authority. Native linked-credential8 and PostgreSQL OAuth grant persistence/migration15 are isolated source work requiring independent review and root execution. Default API/server and live-account permissions remain pending. All78 criteria and all four false release states remain; managed two-tenant serving, mixed-cloud execution/traffic, provider lifecycle and operational recovery/load/security acceptance remain open. Earlier records below are historical where superseded here; failures remain retained.
+
+## Previous integrated engineering candidate (3 October 2026)
 
 Reviewed plan custody/migration7, runner rotation, guarded Linux file.write and dependency remediation are integrated on `codex/production-2026-10-02` at `6814da5`, with exact functional source `0772854`. [Current receipt](build/production/verification/2026-10-03-g1-integration.md) records root units16944P0F204S, Temporal1000P0F0S, policy238P0F0S, real OpenTofu3900P0F8S plus separate real PostgreSQL1532P0F0S and Supabase251P0F0S, OPA213, compiler/lint/generated checks and fresh clean-clone Next build. Scoped tooling replacement clears current known locked dependency findings without exception; new advisories remain fresh gate inputs. Fresh publishedcd8942b CI37122200675 completed13passed/1failedGo, with dependency security passed. Native fixture refused writable /opt before execution, old artifact rejected. Guarded host preparation merged20716ea with root targeted checks; fresh actual native pushed CI remains required.
 

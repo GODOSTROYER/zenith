@@ -69,7 +69,7 @@ RUN set -eu; \
 FROM ${NODE_IMAGE} AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
+RUN npm ci --ignore-scripts && npm cache clean --force
 COPY tsconfig.json ./
 COPY src/lib ./src/lib
 COPY workers/execution ./workers/execution

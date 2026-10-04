@@ -99,6 +99,24 @@ describe("native packaged worker canonical source contract", () => {
     expect(source).not.toContain('"buildx", "inspect", "--format"');
     expect(source).toContain('"private-stdout"'); expect(source).toContain('"private-stderr"');
   });
+  it("cleans only the fresh build-stage npm cache in the same locked install instruction", () => {
+    const dockerfile = read("docker/worker.Dockerfile");
+    const buildStage = dockerfile.split(/^FROM \$\{NODE_IMAGE\} AS build\r?$/m)[1]?.split(/^FROM /m)[0];
+    if (typeof buildStage !== "string") throw new Error("The worker build stage is unavailable.");
+    const instructions = buildStage.replace(/\\\r?\n\s*/g, " ").split(/\r?\n/)
+      .map(line => line.trim()).filter(line => line.length > 0 && !line.startsWith("#"));
+    const install = "RUN npm ci --ignore-scripts && npm cache clean --force";
+    expect(instructions.filter(line => line.startsWith("RUN npm"))).toEqual([install]);
+    expect(instructions).toContain("WORKDIR /app");
+    expect(instructions).toContain("COPY package.json package-lock.json ./");
+    expect(instructions).toContain("COPY src/lib ./src/lib");
+    expect(instructions.indexOf("WORKDIR /app")).toBeLessThan(instructions.indexOf(install));
+    expect(instructions.indexOf("COPY package.json package-lock.json ./")).toBeLessThan(instructions.indexOf(install));
+    expect(instructions.indexOf(install)).toBeLessThan(instructions.indexOf("COPY src/lib ./src/lib"));
+    expect(instructions.filter(line => line.includes("cache clean"))).toEqual([install]);
+    expect(read("scripts/ci/packaged-worker-native.mjs")).toContain("const MIN_DISK = 12, MIN_TOTAL_RAM = 12, MIN_AVAILABLE_RAM = 8;");
+    expect(boundBuild(build(), { scope, platform, commit, sourceInputSha256: hex }).image).toBe(`${runId}:acceptance`);
+  });
 });
 
 describe("native packaged worker fixed evidence models", () => {

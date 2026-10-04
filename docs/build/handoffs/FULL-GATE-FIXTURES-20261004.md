@@ -11,3 +11,6 @@ Policy and product admission ports in this suite are declared models. The broker
 The author ran no tests, imports, compiler, lint or services. Independent source review and root execution remain required. Root should run the two affected files with the pinned Node 22 runtime and the existing serial Vitest command, then use the canonical full/workflow gates when composing the candidate.
 
 Outside-owned follow-ups: no production defect was established by these five failures. Native runtime, full gate skips and existing browser/API/cloud authorization remain root-owned acceptance work. The frozen OAuth grant packet and its separately authorized trigger-verifier correction are independent.
+
+
+Revision 2 corrects only application import ordering. The authentic McpDeployInput schema loads dynamically after tempDataDir, so its db/store dependency cannot pin the ambient data directory before fixture ownership is established. All payload, association, pre-approval refusal and consumed-approval assertions remain byte-exact. SQL audit source is unchanged. Revision 1 remains immutable; no author runtime was executed, and fresh independent source/runtime verification is required.

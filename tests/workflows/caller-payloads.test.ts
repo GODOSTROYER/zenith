@@ -8,11 +8,11 @@ import type { Client } from "@temporalio/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { startDayTwo, startDeploy } from "@/lib/workflows/client";
 import { WORKFLOW_TYPES } from "@/lib/workflows/types";
-import { McpDeployInput } from "@/lib/agent-access/v3/deploy-admission";
 import type { DeployWorkflowInput } from "@/lib/workflows/types";
 import { tempDataDir } from "../_support/data-dir";
 
 tempDataDir("zenith-workflow-callers-", { fast: true });
+const { McpDeployInput } = await import("@/lib/agent-access/v3/deploy-admission");
 const { ctx, seed, ready } = await import("../bridge/support");
 const { db, q } = await import("@/lib/db/store");
 const { runAction } = await import("@/lib/actions/core");

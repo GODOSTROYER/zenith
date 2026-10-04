@@ -1,0 +1,23 @@
+# Canonical CI role order source handoff
+
+The mandatory `platform-postgres` CI job previously applied platform migrations before the canonical agent initializer created its fixed disposable roles. Platform migration14 grants mixed-child table privileges only when `service_role` already exists. Root's isolated PostgreSQL diagnostic found that the resulting role lacked SELECT on `platform.mixed_child_custody`. Creating the role afterward cannot retroactively execute a recorded migration's conditional grant block.
+
+This bounded correction moves the existing `Apply and verify the canonical agent lane schema` step before `Apply the platform migrations`. Locked dependency installation and the pinned OpenTofu setup still precede both. The initializer creates only absent compatible `anon`, `authenticated` and `service_role` stand-ins, applies unchanged agent migrations 0006/0007/0015, and runs its canonical verifier. Those migrations and the verifier have no dependency on platform or product tables, so the initializer can run first. Its incompatible-role, membership, target, migration and verifier refusals remain unchanged. The roles remain local disposable stand-ins, not proof of a hosted Supabase role graph or PostgREST admission.
+
+The existing platform coverage case now requires the exact order `agent >= 0`, `migrate > agent`, `run > migrate`. Its title, strict schema14 prerequisite, migration inventory and manifest assertions remain. No new mirrored initializer case is added; all 44 existing initializer controls and their source remain byte-identical. The workflow change is only a swap of the two existing step blocks. Their commands, names, platform migrator filter, failure behavior, Node/action/PostgreSQL/OpenTofu pins, required test flags and always-on lane validation are unchanged. All other jobs and canonical case identities are preserved.
+
+The candidate starts from clean 8ee702d8 with the exact reviewed read-only prepared tree `ab4b8c2bcc4d3930b10c27415d7a0c0b4dfba4e6`. Ownership was explicitly revised from the initial proposal to exactly `.github/workflows/ci.yml`, `tests/ci/platform-coverage.test.ts` and this handoff. The original preparation receipts remain, with a separate ownership revision and revised author baseline. Accepted platform migration14 and generated 0016 bytes, agent initializer/migrations/verifier, existing grants and all outside-owned files are untouched. This is an incremental source patch, not a schema rewrite or a permission repair against an existing database.
+
+All project imports, tests, compiler/lint, PostgreSQL, services and installation are UNRUN by the author. No real index staging or commits occur. Independent source review and root-owned actual fresh PostgreSQL role-to-platform permission checks are required before integration. Root must retain the original diagnostic and verify the genuine ordered initializer/migrator paths, canonical current/checksum readback, and exact service/client privilege boundaries. Source order assertions do not establish successful grants or native execution.
+
+Root may run the existing affected checks after binding the exact candidate and obtaining its serial resource slot:
+
+```sh
+PATH=/Users/saivedanthava/.codex/zenith-w8/tools/node-current/bin:$PATH npx vitest run tests/ci/platform-coverage.test.ts tests/ci/agent-schema-initializer.test.ts tests/ci/release-gates.test.ts --maxWorkers=1
+PATH=/Users/saivedanthava/.codex/zenith-w8/tools/node-current/bin:$PATH node node_modules/tsx/dist/cli.mjs scripts/agent/apply-schema.ts
+PATH=/Users/saivedanthava/.codex/zenith-w8/tools/node-current/bin:$PATH bash scripts/ci/apply-platform-migrations.sh
+```
+
+The last two commands require an already authorized disposable loopback `ZENITH_TEST_PLATFORM_PG_URL`; no database URI is stored here. They must execute in that order on a fresh owned database. Any subsequent privilege query must independently check actual native ACLs and client denial, rather than infer them from a successful initializer or superuser test result. No MIX child Start or provider acceptance is claimed.
+
+One outside-owned follow-up remains: `scripts/ci/apply-platform-migrations.sh` has historical commentary saying its conditional `service_role` grants do not run on this bare lane. That explanation becomes stale once the canonical roles precede migration. Its executable guards and migration/status commands remain exact; the comment should be updated in a separately authorized documentation correction. Existing databases that recorded platform14 before roles require a separate reviewed recovery decision; this packet does not replay accepted history, add grants or authorize a hosted migration.

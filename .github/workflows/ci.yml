@@ -1103,12 +1103,12 @@ jobs:
             echo "**Migrations NOT applied** - \`scripts/platform/migrate.ts\` does not exist yet."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Apply and verify the canonical agent lane schema
+        run: node node_modules/tsx/dist/cli.mjs scripts/agent/apply-schema.ts
+
       - name: Apply the platform migrations
         if: hashFiles('scripts/platform/migrate.ts') != ''
         run: bash scripts/ci/apply-platform-migrations.sh
-
-      - name: Apply and verify the canonical agent lane schema
-        run: node node_modules/tsx/dist/cli.mjs scripts/agent/apply-schema.ts
 
       - name: Platform control store suites
         # Serialize suites that share the database. Race tests open their own

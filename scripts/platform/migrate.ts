@@ -12,7 +12,7 @@
  * `.env.local` is read when present (real environment variables win).
  *
  * The application never runs DDL against Postgres by itself; this script (or
- * the emitted supabase/migrations/0014_platform_core.sql) is how a production
+ * the emitted supabase/migrations/0016_platform_core.sql) is how a production
  * database is brought forward. Applying is idempotent and safe to run twice or
  * concurrently: each migration and its ledger row commit together under a table
  * lock, and an already-applied migration whose checksum changed is refused.

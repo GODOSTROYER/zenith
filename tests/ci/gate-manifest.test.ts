@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 
 const root = process.cwd();
@@ -201,9 +201,44 @@ const nativeOAuthDiscovered = {
   "suite": "native OAuth original-plan dispatch [postgres; modeled hosted REST and policy]",
   "backend": "postgres"
 } as const;
+const nativeSafetyDiscovered = [
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "backend": "postgres"
+  }
+] as const;
+const kubernetesLinkGroup = {
+  file: "tests/controlplane/kubernetes-connection-link.test.ts",
+  suite: "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+  backend: "postgres",
+  flag: "ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED",
+  sourceSha256: "bb9a53e676b1282ae78be8f481e6593edded04448a953cdfeab25b94b2fa1f2b",
+  namesSha256: "9e62cccc28a3b83f3de420bf24954b10bbcfc188c0d1648378da38e583c66d86",
+} as const;
+const kubernetesLinkDiscovered = { file: kubernetesLinkGroup.file, suite: kubernetesLinkGroup.suite, backend: "postgres" } as const;
+function kubernetesLinkNamed(sourceRoot = root): Requirement[] {
+  const ids = new Set(KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => ids.has(item.id));
+}
+// Only historical regression checks select the exact predecessor. Production
+// discovery and validation require all 21 new scenarios plus their actual suite.
+function priorKubernetesLinkPlatformRequirements(sourceRoot = root): Requirement[] {
+  const ids = new Set([...KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, kubernetesLinkDiscovered].map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+}
+function priorNativeSafetyPlatformRequirements(sourceRoot = root) {
+  const ids = new Set([...MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, ...PLAN_RETENTION_POSTGRES_REQUIREMENTS, ...KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, ...nativeSafetyDiscovered].map(item => requirementId("platform-postgres", item)));
+  return priorKubernetesLinkPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
+}
 function priorApplyCurrentAuthorityPlatformRequirements(sourceRoot = root) {
   const ids = new Set(APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
-  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+  return priorNativeSafetyPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
 }
 function priorNativeOAuthPlatformRequirements(sourceRoot = root) {
   const ids = new Set([...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, ...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, nativeOAuthDiscovered].map(item => requirementId("platform-postgres", item)));
@@ -258,7 +293,7 @@ function declaredLiteralTests(file: string, suite?: string, untilSuite?: string)
     if (!Array.isArray(values) || values.some(value => typeof value !== "string")) throw new Error("Expected committed string source-change labels.");
     body = body.replace("it.each(changes)(", `it.each(${JSON.stringify(values)})(`);
   }
-  return [...body.matchAll(/\bit(?:\.each\((\[[^\]]*\])(?: as const)?\))?\("([^"\n]+)"/g)].flatMap(match => {
+  return [...body.matchAll(/\bit(?:\.each\((\[[^\]]*\])(?: as const)?\))?\(\s*"([^"\n]+)"/g)].flatMap(match => {
     if (!match[1]) return [match[2]];
     const values: unknown = JSON.parse(match[1]);
     if (!Array.isArray(values) || values.some(value => typeof value !== "string")) throw new Error("Expected committed string test parameters.");
@@ -1791,5 +1826,190 @@ describe("mandatory corrected native OAuth dispatch and linked factory gates", (
     expect(reportFailures(before, { ...contractReport(before), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
     expect(reportFailures(before, { ...contractReport(before), numFailedTests: 1 }, root)).toEqual(["Inconsistent Vitest report counts"]);
     expect(reportFailures(before, { ...contractReport([]), lane: "platform-postgres", requirements: [] }, root)).toHaveLength(106);
+  });
+});
+
+// Source parsing and report fixtures supply contract evidence only, never a native run.
+const nativeSafetyGroups = [
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "flag": "ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED",
+    "count": 37,
+    "sourceSha256": "4701b41f18617ea3940ab6e9540e4349501dd70fe25459c14cd3f03b65f6f2de",
+    "namesSha256": "7c4fe5ccb5f9094021b249b61b87e9b9a66a080b7b5a20c823c324d832292ce5"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "flag": "ZENITH_TEST_PLAN_RETENTION_REQUIRED",
+    "count": 27,
+    "sourceSha256": "51cb06e2ba5a5921c62893dff46ee21f95ea8100a3f4834da23e99efb2db51ad",
+    "namesSha256": "404ac3067866333f5a81d69a689eefd0ea4340e81a81e1b6121e25139c3fa8b3"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "flag": "ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED",
+    "count": 17,
+    "sourceSha256": "6ea5a370acb9fb4f7df73cd77714c80be0af22c9d8b140f15a03c494ccef6cee",
+    "namesSha256": "388f313f7c91557966fc04a6510cf178408e4f6e86a131d2f7aa0d10d93bb18d"
+  }
+] as const;
+function nativeSafetyNamed(sourceRoot = root): Requirement[] {
+  const ids = new Set([...MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, ...PLAN_RETENTION_POSTGRES_REQUIREMENTS, ...KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS].map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => ids.has(item.id));
+}
+
+describe("mandatory human Kubernetes linking cases [report models]", () => {
+  it("requires all 21 native linking scenarios and their discovered suite while preserving the exact 990 predecessor", () => {
+    const manifest = manifestFor("platform-postgres", root), required = kubernetesLinkNamed();
+    expect(required).toHaveLength(21); expect(new Set(required.map(item => item.id)).size).toBe(21);
+    expect(manifest.requirements).toHaveLength(1012); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1012);
+    const predecessor = priorKubernetesLinkPlatformRequirements();
+    expect(predecessor).toHaveLength(990);
+    expect(createHash("sha256").update(JSON.stringify(predecessor.map(item => item.id).sort())).digest("hex")).toBe("cd24c52f0cdddb47746e282080e1a3fcd31f8b1799ac685cf3e6f273b70e452e");
+    expect(manifest.requirements).toContainEqual({ ...kubernetesLinkDiscovered, id: requirementId("platform-postgres", kubernetesLinkDiscovered) });
+    expect(manifest.env[kubernetesLinkGroup.flag]).toBe("1");
+    expect(manifest.prerequisites.some(value => value.startsWith(`${kubernetesLinkGroup.flag}=1;`))).toBe(true);
+    expect(manifest.files).toContain("tests/controlplane"); expect(manifest.command).toContain("tests/controlplane");
+    expect(manifest.excludeFiles).toEqual([]); expect(manifest.command).not.toContain("--passWithNoTests");
+    for (const lane of Object.keys(GATE_LANES).filter(name => name !== "platform-postgres")) expect(manifestFor(lane, root).env[kubernetesLinkGroup.flag]).toBeUndefined();
+    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+    expect(reportFailures(manifest.requirements, contractReport(manifest.requirements), root)).toEqual([]);
+  });
+
+  it("binds exact expanded native linking titles to the reviewed source and required admission before hooks", () => {
+    const source = fs.readFileSync(path.join(root, kubernetesLinkGroup.file), "utf8");
+    const names = declaredLiteralTests(kubernetesLinkGroup.file, kubernetesLinkGroup.suite), required = kubernetesLinkNamed();
+    expect(names).toHaveLength(21); expect(new Set(names).size).toBe(21); expect(required.map(item => item.test)).toEqual(names);
+    expect(createHash("sha256").update(source).digest("hex")).toBe(kubernetesLinkGroup.sourceSha256);
+    expect(createHash("sha256").update(names.join("\n") + "\n").digest("hex")).toBe(kubernetesLinkGroup.namesSha256);
+    for (const item of required) { expect(item.backend).toBe("postgres"); expect(item.suite).toBe(kubernetesLinkGroup.suite); }
+    expect(source).toContain(`describe.skipIf(!PG_URL)(${JSON.stringify(kubernetesLinkGroup.suite)}`);
+    const admission = source.indexOf(`process.env.${kubernetesLinkGroup.flag} === "1"`);
+    expect(admission).toBeGreaterThanOrEqual(0); expect(admission).toBeLessThan(source.indexOf("beforeAll("));
+    expect(source).toContain("(!PG_URL || PLATFORM_SCHEMA_VERSION < 13)");
+    expect(source).toMatch(/\bkind:\s*"postgres"/);
+  });
+
+  it("refuses every missing, failed, skipped, foreign, PGlite or substituted native linking case", () => {
+    const required = kubernetesLinkNamed(); expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+    for (const missing of required) {
+      expect(reportFailures(required, contractReport(required.filter(item => item.id !== missing.id)), root), missing.id).toHaveLength(1);
+      for (const status of ["failed", "pending", "skipped", "todo", "unknown"]) {
+        const report = contractReport(required); report.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.status = status;
+        expect(reportFailures(required, report, root).length, missing.id).toBeGreaterThan(0);
+      }
+      const pglite = contractReport(required); pglite.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.ancestorTitles = [missing.suite!.replace("postgres", "pglite")];
+      expect(reportFailures(required, pglite, root), missing.id).toHaveLength(1);
+      const substituted = contractReport(required); substituted.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.title = "one passing pending-connection model";
+      expect(reportFailures(required, substituted, root), missing.id).toHaveLength(1);
+      const malformed = contractReport(required); malformed.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.fullName = "";
+      expect(reportFailures(required, malformed, root)).toEqual(["Malformed Vitest assertion evidence"]);
+    }
+    const foreign = contractReport(required); foreign.testResults[0].name = path.resolve(root, "tests/controlplane/foreign-kubernetes-link.test.ts");
+    expect(reportFailures(required, foreign, root)).toHaveLength(21);
+  });
+
+  it("keeps all native linking identities after source deletion and rejects suite-only, zero, duplicate and reduced evidence", () => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "native-kubernetes-link-"));
+    for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/agent-access", "tests/platform"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
+    fs.copyFileSync(path.join(root, kubernetesLinkGroup.file), path.join(sourceRoot, kubernetesLinkGroup.file));
+    const before = kubernetesLinkNamed(sourceRoot); expect(before).toHaveLength(21);
+    expect(requirementsFor("platform-postgres", sourceRoot)).toContainEqual({ ...kubernetesLinkDiscovered, id: requirementId("platform-postgres", kubernetesLinkDiscovered) });
+    fs.unlinkSync(path.join(sourceRoot, kubernetesLinkGroup.file)); expect(kubernetesLinkNamed(sourceRoot)).toEqual(before);
+    expect(requirementsFor("platform-postgres", sourceRoot).some(item => item.id === requirementId("platform-postgres", kubernetesLinkDiscovered))).toBe(false);
+    expect(reportFailures(before, { success: true, testResults: [] }, sourceRoot)).toHaveLength(21);
+    const suiteOnly = contractReport(before); for (const file of suiteOnly.testResults) file.assertionResults = [{ title: "one passed modeled request", fullName: "one passed modeled request", ancestorTitles: [], status: "passed" }];
+    expect(reportFailures(before, suiteOnly, root)).toHaveLength(21);
+    const duplicate = contractReport(before); duplicate.testResults.push(duplicate.testResults[0]);
+    expect(reportFailures(before, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+    expect(reportFailures(before, { ...contractReport(before), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures(before, { ...contractReport(before), numFailedTests: 1 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures([], contractReport(before), root)).toEqual(["No required scenarios found"]);
+    expect(reportFailures(before, { ...contractReport([]), lane: "platform-postgres", requirements: [] }, root)).toHaveLength(21);
+  });
+});
+
+describe("mandatory native custody, retention and Kubernetes target cases [report models]", () => {
+  it("pins all 81 named native cases and two discovered suites while preserving the exact 907 predecessor", () => {
+    const manifest = manifestFor("platform-postgres", root), named = nativeSafetyNamed();
+    expect(MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS).toHaveLength(37);
+    expect(PLAN_RETENTION_POSTGRES_REQUIREMENTS).toHaveLength(27);
+    expect(KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS).toHaveLength(17);
+    expect(named).toHaveLength(81); expect(new Set(named.map(item => item.id)).size).toBe(81);
+    const predecessor = priorKubernetesLinkPlatformRequirements();
+    expect(predecessor).toHaveLength(990); expect(new Set(predecessor.map(item => item.id)).size).toBe(990);
+    const previous = priorNativeSafetyPlatformRequirements();
+    expect(previous).toHaveLength(907); expect(new Set(previous.map(item => item.id)).size).toBe(907);
+    expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("3192324ebd5d5db8a684fccc84173dd8be8b80efa3367f1bb57e81462d8b3c4b");
+    for (const discovered of nativeSafetyDiscovered) expect(manifest.requirements).toContainEqual({ ...discovered, id: requirementId("platform-postgres", discovered) });
+    expect(manifest.env).toMatchObject({ ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED: "1", ZENITH_TEST_PLAN_RETENTION_REQUIRED: "1", ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1" });
+    expect(manifest.prerequisites.some(value => value.startsWith("Canonical platform schema14 applied/current"))).toBe(true);
+    expect(manifest.command).toContain("tests/platform/kubernetes-vault-target.test.ts");
+    expect(manifest.excludeFiles).toEqual([]);
+    for (const lane of Object.keys(GATE_LANES).filter(name => name !== "platform-postgres")) {
+      for (const group of nativeSafetyGroups) expect(manifestFor(lane, root).env[group.flag]).toBeUndefined();
+    }
+    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+    expect(reportFailures(manifest.requirements, contractReport(manifest.requirements), root)).toEqual([]);
+  });
+
+  it.each(nativeSafetyGroups)("registers every committed $count literal native case in $file with required admission before hooks", group => {
+    const source = fs.readFileSync(path.join(root, group.file), "utf8"), names = declaredLiteralTests(group.file, group.suite);
+    const required = nativeSafetyNamed().filter(item => item.file === group.file);
+    expect(names).toHaveLength(group.count); expect(new Set(names).size).toBe(group.count);
+    expect(required.map(item => item.test)).toEqual(names);
+    expect(createHash("sha256").update(names.join("\n") + "\n").digest("hex")).toBe(group.namesSha256);
+    expect(createHash("sha256").update(source).digest("hex")).toBe(group.sourceSha256);
+    for (const item of required) { expect(item.backend).toBe("postgres"); expect(item.suite).toBe(group.suite); }
+    expect(source).toContain(`describe.skipIf(!PG_URL)(${JSON.stringify(group.suite)}`);
+    expect(source.indexOf(group.flag)).toBeGreaterThanOrEqual(0);
+    expect(source.indexOf(group.flag)).toBeLessThan(source.indexOf("beforeAll("));
+    expect(source).toContain('=== "1"'); expect(source).toContain("!PG_URL");
+    expect(source).toMatch(/\bkind:\s*"postgres"/);
+    expect(manifestFor("platform-postgres", root).prerequisites.some(value => value.startsWith(`${group.flag}=1;`))).toBe(true);
+  });
+
+  it("rejects missing, failed, required skips, PGlite, foreign, malformed or substituted evidence for every native case", () => {
+    const required = nativeSafetyNamed(); expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+    for (const missing of required) {
+      expect(reportFailures(required, contractReport(required.filter(item => item.id !== missing.id)), root), missing.id).toHaveLength(1);
+      for (const status of ["failed", "pending", "skipped", "todo", "unknown"]) {
+        const report = contractReport(required); report.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.status = status;
+        expect(reportFailures(required, report, root).length, missing.id).toBeGreaterThan(0);
+      }
+      const pglite = contractReport(required); pglite.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.ancestorTitles = [missing.suite!.replace("postgres", "pglite")];
+      expect(reportFailures(required, pglite, root).length, missing.id).toBeGreaterThan(0);
+      const foreign = contractReport(required); foreign.testResults.find(file => file.name === path.resolve(root, missing.file))!.name = path.resolve(root, "tests/platform/foreign-native-custody.test.ts");
+      expect(reportFailures(required, foreign, root).length, missing.id).toBeGreaterThan(0);
+      const malformed = contractReport(required); malformed.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.fullName = "";
+      expect(reportFailures(required, malformed, root)).toEqual(["Malformed Vitest assertion evidence"]);
+      const substitute = contractReport(required); substitute.testResults.flatMap(file => file.assertionResults).find(item => item.title === missing.test)!.title = "one passing custody model";
+      expect(reportFailures(required, substitute, root).length, missing.id).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps the literal native cohort after source deletion and refuses suite-only, zero, duplicate and reduced reports", () => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "native-safety-"));
+    for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/agent-access", "tests/platform"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
+    for (const group of nativeSafetyGroups) fs.copyFileSync(path.join(root, group.file), path.join(sourceRoot, group.file));
+    const before = nativeSafetyNamed(sourceRoot); expect(before).toHaveLength(81);
+    for (const discovered of nativeSafetyDiscovered) expect(requirementsFor("platform-postgres", sourceRoot)).toContainEqual({ ...discovered, id: requirementId("platform-postgres", discovered) });
+    for (const group of nativeSafetyGroups) fs.unlinkSync(path.join(sourceRoot, group.file));
+    expect(nativeSafetyNamed(sourceRoot)).toEqual(before);
+    for (const discovered of nativeSafetyDiscovered) expect(requirementsFor("platform-postgres", sourceRoot).some(item => item.id === requirementId("platform-postgres", discovered))).toBe(false);
+    expect(reportFailures(before, { success: true, testResults: [] }, sourceRoot)).toHaveLength(81);
+    expect(reportFailures([], contractReport(before), root)).toEqual(["No required scenarios found"]);
+    const suiteOnly = contractReport(before); for (const file of suiteOnly.testResults) file.assertionResults = [{ title: "one passing native suite model", fullName: "one passing native suite model", ancestorTitles: [], status: "passed" }];
+    expect(reportFailures(before, suiteOnly, root)).toHaveLength(81);
+    const duplicate = contractReport(before); duplicate.testResults.push(duplicate.testResults[0]);
+    expect(reportFailures(before, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+    expect(reportFailures(before, { ...contractReport(before), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures(before, { ...contractReport(before), numFailedTests: 1 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures(before, { ...contractReport([]), lane: "platform-postgres", requirements: [] }, root)).toHaveLength(81);
   });
 });

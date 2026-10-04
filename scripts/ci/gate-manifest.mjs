@@ -4296,6 +4296,633 @@ export const NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS = [
   }
 ];
 
+
+// Literal native custody, retention-preview and Kubernetes target cases survive source deletion.
+export const MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "retains an immutable native child candidate with separate provider and backend identities but no execution authority",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "duplicate independent-pool retention yields one exact immutable descriptor and prepared intent",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "foreign workspace reads and retention neither expose nor mutate native custody or approvals",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "the native repository refuses structural database branding before any callback",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "native ID capture refuses hostile getters and supplied approval flags without evaluating them",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "a genuinely reviewed child still cannot reserve Start when mixed parent effects are unsupported",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "missing child concrete review cannot borrow parent approvals",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "child approval consumption cannot be inferred or performed by custody retention",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "parent plan digest edits refuse native child retention",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "child plan digest edits refuse native child retention",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "requester current human demotion refuses custody despite retained approved rows",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "approver current human demotion refuses custody despite retained approved rows",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "parent current connection revocation refuses custody",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "child current connection revocation refuses custody",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "a parent environment lease that is expired cannot qualify native custody",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "a parent environment lease that is foreign cannot qualify native custody",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "a parent environment lease that is taken over cannot qualify native custody",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "a parent environment lease that is partial pair cannot qualify native custody",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "an existing foreign settings row cannot masquerade as absent owning environment policy",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "a child environment cannot redirect custody to a second unrelated same-workspace connection",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "original plan evidence edits refuse immutable metadata reapplication without consuming another approval",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "foreign project or revision cannot be copied into a child's immutable scope",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "changed provider backend identity cannot replace previously retained child custody",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "committed connection change during an observed native outbox row wait refuses custody reapplication",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "committed approver change during an observed native outbox row wait refuses custody reapplication",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "committed evidence change during an observed native outbox row wait refuses custody reapplication",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "committed parent approval change during an observed native outbox row wait refuses custody reapplication",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "committed child approval change during an observed native outbox row wait refuses custody reapplication",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "committed settings change during an observed native outbox row wait refuses custody reapplication",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "immutable descriptor rows cannot be edited or deleted and prepared outbox rows cannot be promoted",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "an explicitly synthetic attempted tombstone remains diagnostic and cannot supply a second Start",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "an explicitly synthetic acknowledged tombstone remains diagnostic and cannot supply a second Start",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "an uncertain native parent cannot provide a new child custody continuation",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "a direct SQL candidate cannot set executionEnabled or omit its non-authority bound",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "a direct SQL candidate cannot set artifactBytesAuthenticated or omit its non-authority bound",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "a missing child operation cannot manufacture a retained candidate or a parent fallback Start",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "test": "RLS and exact narrower service grants do not expose child custody to browser roles",
+    "backend": "postgres"
+  }
+];
+
+export const PLAN_RETENTION_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "previews one expired terminal artifact for archive copy review while retaining all original rows",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects current proposed operation before archive review",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects current awaiting_approval operation before archive review",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects current approved operation before archive review",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects current queued operation before archive review",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects current running operation before archive review",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects terminal uncertain operation independently of its use phase",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects claimed original-byte attempt even with a terminal owner",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects dispatched original-byte attempt even with a terminal owner",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects uncertain original-byte attempt even with a terminal owner",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "refuses archive classification when the original use row is absent",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects an explicitly held original without extending operation or artifact expiry",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "propagates a same-workspace destination hold to its retained source artifact",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects a source used by a current active associated destination",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects a source with an uncertain associated original-byte attempt",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects a source when an associated destination use row is missing",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects a source whose associated custody has not expired",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "requires both explicit creation cutoff and native artifact expiry before archive review",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "bounds the oldest-first window and reports additional rows without claiming a complete inventory",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "never lets another workspace artifact or hold alter the selected workspace preview",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "captures holds before an awaited native query without invoking a replacement hold accessor",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "fresh independent-pool operation mutation changes the next preview instead of trusting an earlier candidate",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects permanent attempted workflow tombstones with an unconfirmed external start",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "protects permanent build launch inventory until its terminal observation is retained",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "preserves audit evidence idempotency leases original custody and acknowledged start and terminal build receipts byte for byte",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "returns counts without plan state ciphertext digests keys or row identities",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "test": "preview holds do not waive existing logical expiry or remove original encrypted bytes",
+    "backend": "postgres"
+  }
+];
+
+export const KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "a full tenant-sealed kubeconfig reaches every modeled namespace read without recording automatic verification",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "the same verified native target admits one callback and closes its retained accessor",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "native verification refuses raw token before API admission",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "native verification refuses different server before API admission",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "native verification refuses different CA before API admission",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "native verification refuses unknown context before API admission",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "native verification refuses insecure cluster override before API admission",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "a same-named foreign sealed value never supplies the owning target or credential",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "a revoked native connection never resolves a stored bound credential or reactivates",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "native callback recaptures current scope after vault unchanged",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "native callback recaptures current scope after vault server drift",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "native callback recaptures current scope after vault CA drift",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "native callback recaptures current scope after vault revocation",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "native callback recaptures current scope after audit unchanged",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "native callback recaptures current scope after audit server drift",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "native callback recaptures current scope after audit CA drift",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "test": "native callback recaptures current scope after audit revocation",
+    "backend": "postgres"
+  }
+];
+
+// Exact native onboarding scenarios survive source deletion; hosted association and namespace API remain modeled.
+export const KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "pending native same-ID onboarding becomes verified only after the saved bound namespace read",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "held native namespace read refuses changed config before recording verification or product health",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "held native namespace read refuses changed legacy link before recording verification or product health",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "held native namespace read refuses changed revocation before recording verification or product health",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "held native namespace read refuses changed status before recording verification or product health",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "held native namespace read refuses changed creator before recording verification or product health",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "held native namespace read refuses changed actor demotion before recording verification or product health",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "held native namespace read refuses changed product projection before recording verification or product health",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "observed native verification update waiter refuses changed same DTO microsecond after its original capture",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "observed native verification update waiter refuses changed config after its original capture",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "observed native verification update waiter refuses changed legacy link after its original capture",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "observed native verification update waiter refuses changed mode after its original capture",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "observed native verification update waiter refuses changed status after its original capture",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "current actor demotion during the observed original-row wait refuses native verification and product health",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "current actor removal during the observed original-row wait refuses native verification and product health",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "current actor foreign workspace during the observed original-row wait refuses native verification and product health",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "copied, wrong-owner and reused verification captures never originate native status updates",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "contradictory physical provider and config refuse before capture or namespace probing",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "contradictory physical mode and config refuse before capture or namespace probing",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "unsupported FILE topology leaves the created native connection pending and refuses before any namespace probe",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+    "suite": "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+    "test": "foreign scope and a revoked owning link never resolve the saved namespace credential",
+    "backend": "postgres"
+  }
+];
+
 export const GATE_LANES = {
   postgres: {
     files: ["tests/hosted/authority/contract", "tests/scripts/migrate-hosted-to-postgres.test.ts", "tests/agent-link/pg-contract.test.ts", "tests/agent-control/pg-contract.test.ts", "tests/db/contract/workspace-sharing.test.ts", "tests/waitlist/pg-contract.test.ts", "tests/agent-control/pg-oauth-grants.test.ts"],
@@ -4337,9 +4964,9 @@ export const GATE_LANES = {
     tools:{node:"22.23.3",postgres:"16.15",temporal:"1.9.1"},
   },
   "platform-postgres": {
-    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts", "tests/platform/approved-source-runtime.test.ts", "tests/platform/composition.test.ts", "tests/platform/source-bundle-composition.test.ts", "tests/platform/source-bundle-github.test.ts", "tests/platform/source-bundle-azure.test.ts", "tests/platform/aws-bootstrap-preflight-admission.test.ts", "tests/platform/current-dispatch-requirement.test.ts", "tests/agent-access/credential-authority-origin.test.ts", "tests/agent-access/native-oauth-origin.test.ts", "tests/controlplane/plan-artifact-oauth-authority.test.ts"],
-    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1", ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED: "1", ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED: "1", ZENITH_TEST_OPENED_HANDLE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
-    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1; first worker lease binding requires actual PostgreSQL, canonical schema13 and independent native connections", "ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED=1; durable MCP admission requires actual PostgreSQL, canonical schema13 and independent native connections; product protocols remain modeled", "ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED=1; current OAuth integration membership requires actual PostgreSQL and uncached modeled product reads", "ZENITH_TEST_OPENED_HANDLE_REQUIRED=1; opener ownership requires physical openPlatformDb PostgreSQL handles and canonical schema13", "ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1; default AWS readiness admission requires actual PostgreSQL, canonical schema13 and genuine native owners; cloud commands remain modeled", "ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED=1; final MCP source/product/member authority requires actual PostgreSQL, canonical schema13 and independent native connections; hosted protocols remain modeled", "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1; original-plan product/current approval authority requires actual PostgreSQL, canonical platform schema13/product collections, independent native connections and pinned OpenTofu; hosted association/current roles/policy remain modeled", "ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1; linked credential dispatch/factory origin requires actual owning PostgreSQL with explicit port, canonical platform schema13/product collections and agent linked schema1; hosted REST/scope/policy remain modeled", "ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED=1; OAuth original-plan dispatch and default journal origin require actual owning PostgreSQL16 with explicit ZENITH_TEST_PLATFORM_PG_URL port, canonical platform schema13/product collections and agent schemas1/2/3 through migration0015, independent native connections and positively owned disposable scratch databases/CI roles; hosted REST/current identity/policy and sealed fixture bytes remain modeled", "The additive linked factory preselection controls share ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1 and actual owning PostgreSQL; all prior50 linked origin cases remain mandatory, tooling constructors supply no default origin", "Locked Supabase SDK constructor/protocol controls require exact source and suite; they supply no PostgreSQL, hosted-network or TLS-handshake proof", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache"],
+    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts", "tests/platform/approved-source-runtime.test.ts", "tests/platform/composition.test.ts", "tests/platform/source-bundle-composition.test.ts", "tests/platform/source-bundle-github.test.ts", "tests/platform/source-bundle-azure.test.ts", "tests/platform/aws-bootstrap-preflight-admission.test.ts", "tests/platform/current-dispatch-requirement.test.ts", "tests/agent-access/credential-authority-origin.test.ts", "tests/agent-access/native-oauth-origin.test.ts", "tests/controlplane/plan-artifact-oauth-authority.test.ts", "tests/platform/kubernetes-vault-target.test.ts"],
+    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1", ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED: "1", ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED: "1", ZENITH_TEST_OPENED_HANDLE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED: "1", ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED: "1", ZENITH_TEST_PLAN_RETENTION_REQUIRED: "1", ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1", ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
+    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1; first worker lease binding requires actual PostgreSQL, canonical schema13 and independent native connections", "ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED=1; durable MCP admission requires actual PostgreSQL, canonical schema13 and independent native connections; product protocols remain modeled", "ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED=1; current OAuth integration membership requires actual PostgreSQL and uncached modeled product reads", "ZENITH_TEST_OPENED_HANDLE_REQUIRED=1; opener ownership requires physical openPlatformDb PostgreSQL handles and canonical schema13", "ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1; default AWS readiness admission requires actual PostgreSQL, canonical schema13 and genuine native owners; cloud commands remain modeled", "ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED=1; final MCP source/product/member authority requires actual PostgreSQL, canonical schema13 and independent native connections; hosted protocols remain modeled", "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1; original-plan product/current approval authority requires actual PostgreSQL, canonical platform schema13/product collections, independent native connections and pinned OpenTofu; hosted association/current roles/policy remain modeled", "ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1; linked credential dispatch/factory origin requires actual owning PostgreSQL with explicit port, canonical platform schema13/product collections and agent linked schema1; hosted REST/scope/policy remain modeled", "ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED=1; OAuth original-plan dispatch and default journal origin require actual owning PostgreSQL16 with explicit ZENITH_TEST_PLATFORM_PG_URL port, canonical platform schema13/product collections and agent schemas1/2/3 through migration0015, independent native connections and positively owned disposable scratch databases/CI roles; hosted REST/current identity/policy and sealed fixture bytes remain modeled", "The additive linked factory preselection controls share ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1 and actual owning PostgreSQL; all prior50 linked origin cases remain mandatory, tooling constructors supply no default origin", "Locked Supabase SDK constructor/protocol controls require exact source and suite; they supply no PostgreSQL, hosted-network or TLS-handshake proof", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache", "Canonical platform schema14 applied/current through scripts/ci/apply-platform-migrations.sh; committed Supabase bootstrap appends supabase/migrations/0016_platform_core.sql after unchanged 0014/0015", "ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED=1; native mixed custody requires actual owning PostgreSQL, canonical schema14 and independent connections; custody does not enable child execution", "ZENITH_TEST_PLAN_RETENTION_REQUIRED=1; counts-only non-destructive retention preview requires actual PostgreSQL and independent connections; synthetic storage/receipt fixtures do not prove archive or deletion", "ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED=1; default target binding requires actual owning PostgreSQL and tenant-sealed FILE vault; namespace API and upstream grants remain modeled", "ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED=1; human Kubernetes linking requires actual opened PostgreSQL owners, canonical platform schema13 or newer, canonical public.members from migration0001, three independent native connections and an encrypted tenant FILE vault; hosted association, human request and namespace API are modeled, production FILE/custom/separate activation remains refused"],
     tools: { node: "22.23.3", postgres: "16.15", tofu: "1.12.5" },
   },
 };
@@ -4558,7 +5185,7 @@ export function requirementsFor(lane, root) {
       requirements.push(...AGENT_EFFECT_POSTGRES_REQUIREMENTS);
       requirements.push(...BUILD_SOURCE_POSTGRES_REQUIREMENTS, GITHUB_WEBHOOK_POSTGRES_REQUIREMENT, ...GITHUB_WEBHOOK_POSTGRES_CASES);
       // Discovery above remains; these named cases survive source deletion.
-      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS,...FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS,...MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS,...AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS,...EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS,...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS,...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS);
+      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS,...FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS,...MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS,...AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS,...EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS,...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS,...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, ...MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, ...PLAN_RETENTION_POSTGRES_REQUIREMENTS, ...KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, ...KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS);
       break;
     default:
       throw new Error("Unknown CI lane");

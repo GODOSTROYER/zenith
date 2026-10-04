@@ -38,22 +38,26 @@ closeSharedPgliteAfterAll();
 
 /** These run in the real-PostgreSQL canonical-broker sweep below, never as PGlite authority. */
 const BUILD_LAUNCH_SWEPT = new Set(["buildLaunches.claim", "buildLaunches.get", "buildLaunches.acknowledge", "buildLaunches.observeTerminal"]);
+// Actual owning/foreign PostgreSQL controls are mandatory in mixed-child-admission.test.ts; PGlite is never mixed custody authority.
+const MIXED_CHILD_SWEPT = new Set(["mixedChildIntents.get", "mixedChildIntents.reserve"]);
 const WORKFLOW_START_SWEPT = new Set(["workflowStartIntents.get", "workflowStartIntents.prepare", "workflowStartIntents.claim", "workflowStartIntents.acknowledge"]);
 
 /** These construct/check scoped capabilities, not unscoped tenant reads.
  * The returned methods' actual PostgreSQL foreign-scope/provenance refusals are
- * individually mandatory in approved-source-snapshots.test.ts.
+ * individually mandatory in their native owning suites.
  */
 const CAPABILITY_CONSTRUCTORS: Record<string, string> = {
   "approvedSourceSnapshots.createApprovedSourceSnapshotStore": "actual owning PostgreSQL constructor; returned list/retain/assertCurrent/assertReviewed use native tenant/operation scope, not bindRepos argument injection",
   "approvedSourceSnapshots.isApprovedSourceSnapshotStore": "private runtime capability membership predicate; no SQL or tenant access and cannot mint captured archive provenance",
   "approvedSourceSnapshots.createIsolatedApprovedSourceStoreForTests": "test-only captured capability factory; creation and every method invocation require NODE_ENV=test before dependency access",
+  "connections.captureVerification": "scoped read captures a one-use capability only from a genuine owning PostgreSQL handle, the exact tenant connection and current editor/admin member; owning success and foreign/revoked refusal are mandatory in kubernetes-connection-link.test.ts, not a structural PGlite sweep",
 };
 
 /** Functions exercised by the sweep (each named `namespace.function`). */
 const SWEPT = new Set([
   ...BUILD_LAUNCH_SWEPT,
   ...WORKFLOW_START_SWEPT,
+  ...MIXED_CHILD_SWEPT,
   "approvals.consume", "approvals.listForOperation", "approvals.record", "approvals.requiredApprovalCount", "approvals.consumeApprovals",
   "connections.get", "connections.list", "connections.recordVerification", "connections.revoke",
   "cost.get", "cost.list",
@@ -72,6 +76,9 @@ const SWEPT = new Set([
   "planArtifacts.publish", "planArtifacts.read", "planArtifacts.associate", "planArtifacts.claim", "planArtifacts.dispatch", "planArtifacts.finish",
   // The owning claim persists a real native witness; its lookup and foreign-scope refusal run in both lane sweeps.
   "planArtifacts.requiresProductComposition",
+  // Counts-only owning/foreign reads run in this sweep and in the mandatory native retention suite:
+  // "never lets another workspace artifact or hold alter the selected workspace preview".
+  "planArtifacts.previewRetention",
   "resources.changeOwnership", "resources.get", "resources.getByAddress", "resources.listByEnvironment", "resources.setStatus",
   "runners.getRunner", "runners.heartbeat", "runners.listRunners", "runners.revokeRunner",
   "settings.getEnvironmentSettings", "settings.getWorkspacePolicy",
@@ -80,6 +87,11 @@ const SWEPT = new Set([
 /** Writes that bind the new row to the workspace they are given; their tenant checks are tested with the owning suite. */
 const WRITES = new Set([
   "connections.create", "cost.insert", "drift.insert", "events.append", "evidence.insert", "grants.insert", "incidents.openIncident", "incidents.insertInvestigation",
+  // Exact private capture identity/owner and original tenant tuple settle only
+  // after the connection lock wait and a fresh native editor/admin membership read.
+  // Mandatory Kubernetes linking controls cover owning success, copied/wrong-owner
+  // captures, config/link/status/microsecond drift and demotion/removal/foreign membership.
+  "connections.recordCapturedVerification",
   // Signed outcome settlement has direct foreign-scope refusal and owning controls
   // in tests/runners/late-effect-receipts.test.ts on both agent domains.
   "jobs.settleOutcome", "jobs.enqueue", "machines.upsertTarget", "observations.appendObservation", "observations.upsertRuntime", "operations.create", "policyDecisions.insert",
@@ -91,11 +103,15 @@ const WRITES = new Set([
   // The same 24 mandatory native cases cover acquire plus binding atomically,
   // including the exact first-worker success and foreign-workspace rollback above.
   "operations.acquireExecutionLease",
+  // Native candidate capture binds only exact owning IDs; foreign retention leaves custody/approvals untouched.
+  // Covered by the mandatory mixed-child admission native duplicate + foreign-workspace controls.
+  "mixedChildIntents.retain",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "idempotency.reserve", "idempotency.complete",
 ]);
 
 /** Deliberately not workspace-filtered, with the reason. */
 const EXEMPT: Record<string, string> = {
+  "mixedChildIntents.MixedChildAdmissionError": "pure fixed-category error class, contains no SQL or tenant data; excluded from bindRepos",
   "buildLaunches.assertIsolatedBuildTestAdmission": "zero-argument NODE_ENV admission guard; reads no SQL or tenant data, cannot supply approval authority, and is excluded from bindRepos",
   "workflowStartIntents.WorkflowStartIntentError": "pure error class, contains no SQL or tenant data",
   "workflowStartIntents.snapshotWorkflowArguments": "pure own-scalar whitelist parser; returns detached frozen planning arguments, reads no SQL or authority, and is excluded from bindRepos",
@@ -161,6 +177,7 @@ describe("completeness guard", () => {
     expect(Object.keys(bound.operations)).not.toContain("toOperation");
     expect(Object.keys(bound.runners)).not.toContain("generateRegistrationToken");
     expect(Object.keys(bound.planArtifacts)).not.toContain("PlanArtifactError");
+    expect(Object.keys(bound.connections)).toEqual(expect.arrayContaining(["captureVerification", "recordCapturedVerification"]));
     expect(Object.keys(bound.buildLaunches)).toEqual(expect.arrayContaining(["claim", "get", "acknowledge", "observeTerminal"]));
     expect(Object.keys(bound.buildLaunches)).not.toContain("BuildLaunchError");
     expect(Object.keys(bound.buildLaunches)).not.toContain("createIsolatedBuildClaimerForTests");
@@ -172,7 +189,7 @@ describe("completeness guard", () => {
       expect(Object.keys(bound.workflowStartIntents)).not.toContain(helper);
     }
     expect(Object.keys(bound.approvedSourceSnapshots)).toEqual([]);
-    expect(Object.keys(repos.approvedSourceSnapshots).sort()).toEqual(Object.keys(CAPABILITY_CONSTRUCTORS).map(key => key.split(".")[1]).sort());
+    expect(Object.keys(repos.approvedSourceSnapshots).sort()).toEqual(Object.keys(CAPABILITY_CONSTRUCTORS).filter(key => key.startsWith("approvedSourceSnapshots.")).map(key => key.split(".")[1]).sort());
     expect(await bound.events.list("ws_x")).toEqual([]);
   });
 });
@@ -286,6 +303,13 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
 
     // ------------------------ workspace B tries everything -------------------------
     const dig = seeded.operation.proposalDigest;
+    // Real retained rows produce an owning counts-only read; a foreign workspace
+    // and foreign hold below cannot expose their rows or mutate original custody.
+    const retentionCutoff = new Date().toISOString();
+    expect((await repos.planArtifacts.previewRetention(db, {
+      workspaceId: A, createdBefore: retentionCutoff, holdOperationIds: [], limit: 1000,
+    })).scanned).toBeGreaterThan(0);
+
     const attempts: Record<string, () => Promise<unknown>> = {
       "planArtifacts.publish": () => seen(repos.planArtifacts.publish(db,{...artifactInput,manifest:{...manifest,workspaceId:B},evidence:{...artifactInput.evidence,workspaceId:B}})),
       "planArtifacts.read": () => seen(repos.planArtifacts.read(db,foreignAccess)),
@@ -307,6 +331,14 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
           environmentId:envId,sourceOperationId:source.id,destinationOperationId:source.id,attemptId:"tenant-owner-attempt",
           manifestDigest:artifactBefore.manifest_digest,planDigest:artifactDigest});
         return seen(repos.planArtifacts.dispatch(db,foreignAccess,"tenant-owner-attempt"));
+      },
+      "planArtifacts.previewRetention": async () => {
+        const preview = await repos.planArtifacts.previewRetention(db, {
+          workspaceId: B, createdBefore: retentionCutoff, holdOperationIds: [source.id], limit: 1000,
+        });
+        expect(preview).toEqual({ mode: "dry-run", scanned: 0, hasMore: false,
+          held: 0, active: 0, unresolved: 0, unavailable: 0, withinRetention: 0, archiveReview: 0 });
+        return preview.scanned;
       },
       "planArtifacts.requiresProductComposition": async () => {
         if(!claimedArtifact)throw new Error("The genuine owning claim is unavailable.");
@@ -390,7 +422,7 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     // Build launches and workflow starts use actual broker/PG positive controls
     // in their separate sweeps below; all remaining functions run in both lanes.
     expect(new Set(Object.keys(attempts))).toEqual(new Set([...SWEPT].filter(
-      key => !BUILD_LAUNCH_SWEPT.has(key) && !WORKFLOW_START_SWEPT.has(key),
+      key => !BUILD_LAUNCH_SWEPT.has(key) && !WORKFLOW_START_SWEPT.has(key) && !MIXED_CHILD_SWEPT.has(key),
     )));
 
     for (const [name, attempt] of Object.entries(attempts)) {

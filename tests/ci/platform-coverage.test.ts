@@ -11,7 +11,7 @@ import { load } from "js-yaml";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import vitestConfig from "../../vitest.config";
-import { packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
+import { KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures, requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
 
 interface Step {
@@ -31,9 +31,34 @@ const nativeOAuthDiscovered = {
   "suite": "native OAuth original-plan dispatch [postgres; modeled hosted REST and policy]",
   "backend": "postgres"
 } as const;
+const nativeSafetyDiscovered = [
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "backend": "postgres"
+  }
+] as const;
+const kubernetesLinkDiscovered = {
+  file: "tests/controlplane/kubernetes-connection-link.test.ts",
+  suite: "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+  backend: "postgres",
+} as const;
+function priorKubernetesLinkPlatformRequirements(sourceRoot = root) {
+  const ids = new Set([...KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, kubernetesLinkDiscovered].map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+}
+function priorNativeSafetyPlatformRequirements(sourceRoot = root) {
+  const ids = new Set([...MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, ...PLAN_RETENTION_POSTGRES_REQUIREMENTS, ...KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, ...nativeSafetyDiscovered].map(item => requirementId("platform-postgres", item)));
+  return priorKubernetesLinkPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
+}
 function priorApplyCurrentAuthorityPlatformRequirements(sourceRoot = root) {
   const ids = new Set(APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
-  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+  return priorNativeSafetyPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
 }
 function priorNativeOAuthPlatformRequirements(sourceRoot = root) {
   const ids = new Set([...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, ...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, nativeOAuthDiscovered].map(item => requirementId("platform-postgres", item)));
@@ -471,7 +496,7 @@ describe("mandatory unchanged APPLY authority continuation [report models]", () 
         test: "continues unchanged native product authority after fresh replan through the exact approved original plan", postgres: true }),
     }]);
     expect(manifest.requirements.filter(item => item.id === required[0].id)).toEqual(required);
-    expect(manifest.requirements).toHaveLength(907); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(907);
+    expect(priorNativeSafetyPlatformRequirements()).toHaveLength(907); expect(new Set(priorNativeSafetyPlatformRequirements().map(item => item.id)).size).toBe(907);
     expect(priorApplyCurrentAuthorityPlatformRequirements()).toHaveLength(906);
     expect(priorNativeOAuthPlatformRequirements()).toHaveLength(799);
     expect(manifest.env).toMatchObject({ ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_TOFU_NETWORK: "1" });
@@ -559,5 +584,97 @@ describe("network gate AST detection [source models]", () => {
     for (const source of ['const enabled = manifest.env.ZENITH_TEST_TOFU_NETWORK === "1";',
       'const enabled = process.env.OTHER_NETWORK === "1";', 'type Example = { "process.env.ZENITH_TEST_TOFU_NETWORK !== 1": true };'])
       expect(hasTofuNetworkComparison(source)).toBe(false);
+  });
+});
+
+describe("mandatory native custody, retention and Kubernetes target execution", () => {
+  it("executes every one of the 81 named cases and both genuine discovered suites with no predecessor loss", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    const added = [...MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, ...PLAN_RETENTION_POSTGRES_REQUIREMENTS, ...KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS];
+    const ids = new Set(added.map(item => requirementId("platform-postgres", item)));
+    expect(added).toHaveLength(81); expect(ids.size).toBe(81);
+    expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(added.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
+    for (const discovered of nativeSafetyDiscovered) expect(manifest.requirements).toContainEqual({ ...discovered, id: requirementId("platform-postgres", discovered) });
+    const previous = priorNativeSafetyPlatformRequirements();
+    expect(previous).toHaveLength(907); expect(new Set(previous.map(item => item.id)).size).toBe(907);
+    expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("3192324ebd5d5db8a684fccc84173dd8be8b80efa3367f1bb57e81462d8b3c4b");
+    const predecessor = priorKubernetesLinkPlatformRequirements();
+    expect(predecessor).toHaveLength(990); expect(new Set(predecessor.map(item => item.id)).size).toBe(990);
+    expect(manifestFor("postgres", root).requirements).toHaveLength(80); expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+    expect(manifest.excludeFiles).toEqual([]); expect(manifest.command).not.toContain("--passWithNoTests");
+    gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
+    gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
+  });
+
+  it.each([
+  {
+    "file": "tests/controlplane/mixed-child-admission.test.ts",
+    "suite": "native mixed child custody [postgres]",
+    "flag": "ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED",
+    "count": 37
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-retention.test.ts",
+    "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+    "flag": "ZENITH_TEST_PLAN_RETENTION_REQUIRED",
+    "count": 27
+  },
+  {
+    "file": "tests/platform/kubernetes-vault-target.test.ts",
+    "suite": "default Kubernetes vault target binding [postgres; modeled API boundary]",
+    "flag": "ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED",
+    "count": 17
+  }
+])("requires $flag and actual native $count-case execution from $file", group => {
+    const manifest = manifestFor("platform-postgres", root);
+    const required = manifest.requirements.filter(item => item.file === group.file && item.test !== undefined);
+    expect(required).toHaveLength(group.count); expect(required.every(item => item.suite === group.suite && item.backend === "postgres")).toBe(true);
+    expect(manifest.env[group.flag]).toBe("1");
+    expect(manifest.prerequisites.some(value => value.startsWith(`${group.flag}=1;`))).toBe(true);
+    expect(manifest.files.some(filter => group.file === filter || group.file.startsWith(`${filter}/`))).toBe(true);
+    expect(manifest.excludeFiles).not.toContain(group.file);
+    for (const check of CORE_CHECKS) expect(check.command.join(" ")).not.toContain(`${group.flag}=1`);
+    const source = fs.readFileSync(path.join(root, group.file), "utf8");
+    expect(source).toContain(`describe.skipIf(!PG_URL)(${JSON.stringify(group.suite)}`);
+    expect(source.indexOf(group.flag)).toBeGreaterThanOrEqual(0);
+    expect(source.indexOf(group.flag)).toBeLessThan(source.indexOf("beforeAll("));
+  });
+
+  it("requires all 21 native human Kubernetes linking cases without changing the exact 990 predecessor", () => {
+    const manifest = manifestFor("platform-postgres", root), required = KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS;
+    const ids = new Set(required.map(item => requirementId("platform-postgres", item)));
+    expect(required).toHaveLength(21); expect(ids.size).toBe(21);
+    expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(required.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
+    expect(required.every(item => item.file === kubernetesLinkDiscovered.file && item.suite === kubernetesLinkDiscovered.suite && item.backend === "postgres")).toBe(true);
+    expect(manifest.requirements).toContainEqual({ ...kubernetesLinkDiscovered, id: requirementId("platform-postgres", kubernetesLinkDiscovered) });
+    expect(manifest.requirements).toHaveLength(1012); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1012);
+    const predecessor = priorKubernetesLinkPlatformRequirements();
+    expect(predecessor).toHaveLength(990);
+    expect(createHash("sha256").update(JSON.stringify(predecessor.map(item => item.id).sort())).digest("hex")).toBe("cd24c52f0cdddb47746e282080e1a3fcd31f8b1799ac685cf3e6f273b70e452e");
+    expect(manifest.env.ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED).toBe("1");
+    expect(manifest.prerequisites.some(value => value.startsWith("ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED=1;"))).toBe(true);
+    expect(manifest.files).toContain("tests/controlplane"); expect(manifest.command).toContain("tests/controlplane");
+    expect(manifest.excludeFiles).not.toContain(kubernetesLinkDiscovered.file);
+    gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
+    gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
+    expect(manifestFor("postgres", root).requirements).toHaveLength(80); expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+  });
+
+  it("initializes canonical schema14 and agent prerequisites before the unchanged mandatory lane", () => {
+    const job = workflow.jobs["platform-postgres"], steps = job.steps;
+    const migrate = steps.findIndex(step => step.run === "bash scripts/ci/apply-platform-migrations.sh");
+    const agent = steps.findIndex(step => step.run === "node node_modules/tsx/dist/cli.mjs scripts/agent/apply-schema.ts");
+    const run = steps.findIndex(step => step.run === "node scripts/ci/run-gate.mjs platform-postgres --run");
+    expect(agent).toBeGreaterThanOrEqual(0); expect(migrate).toBeGreaterThan(agent); expect(run).toBeGreaterThan(migrate);
+    expect(steps[agent].if).toBeUndefined(); expect(steps[agent]["continue-on-error"]).toBeUndefined();
+    expect(manifestFor("platform-postgres", root).prerequisites.some(value => value.startsWith("Canonical platform schema14 applied/current"))).toBe(true);
+    const script = fs.readFileSync(path.join(root, "scripts/ci/apply-supabase-migrations.sh"), "utf8");
+    const committed = fs.readdirSync(path.join(root, "supabase/migrations")).filter(file => file.endsWith(".sql")).sort();
+    const declaration = script.match(/^MIGRATIONS=\(\r?\n([\s\S]*?)^\)/m)?.[1];
+    expect(declaration).toBeDefined();
+    expect([...(declaration ?? "").matchAll(/"([^"\n]+\.sql)"/g)].map(match => match[1])).toEqual(committed);
+    expect(committed.slice(-3)).toEqual(["0014_platform_core.sql", "0015_agent_oauth_grants.sql", "0016_platform_core.sql"]);
+    expect(fs.readFileSync(path.join(root, "scripts/ci/apply-platform-migrations.sh"), "utf8")).toContain("scripts/platform/migrate.ts");
+    expect(script).toContain('"$TSX" "$PLATFORM_VERIFIER"');
   });
 });

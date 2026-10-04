@@ -29,7 +29,7 @@ export function nextStepFor(op: Pick<OperationView, "status" | "id" | "proposalD
     case "queued":
       return "The operation is queued. Call zenith_execute_approved_operation with its operationId and exact proposalDigest to claim and start it, or poll for the worker's progress.";
     case "running":
-      return "The operation is claimed. Poll zenith_get_operation and zenith_get_operation_events. If workflow start failed or its response was lost, repeat execute with the same operationId and digest to find or start the existing workflow.";
+      return "The operation is claimed. Poll zenith_get_operation and zenith_get_operation_events. If a start response was lost, the same execute call can confirm only its retained durable intent. An unrecorded claim is refused; a recorded transport attempt is never sent again.";
     case "succeeded":
       return "The workflow finished successfully. That is not proof the system is healthy: check logs and metrics.";
     case "uncertain":
@@ -62,7 +62,7 @@ async function loadAuthorized(ctx: ToolContext, workspaceId: string, operationId
 export async function getOperation(args: GetOperationArgs, ctx: ToolContext): Promise<ToolOutput> {
   const detail = await loadAuthorized(ctx, args.workspaceId, args.operationId);
   const op = detail.operation;
-  const approvalUrl = `${ctx.ports.origin()}/integrations/operations/${encodeURIComponent(op.id)}`;
+  const approvalUrl = `${ctx.ports.origin()}/platform/operations/${encodeURIComponent(op.id)}`;
 
   const unavailable: { source: string; reason: string }[] = [];
   let progress: { status: string; steps: { step: string; status: string; startedAt?: string; endedAt?: string }[] } | undefined;
@@ -91,6 +91,7 @@ export async function getOperation(args: GetOperationArgs, ctx: ToolContext): Pr
         ...(op.resourceId ? { resourceId: op.resourceId } : {}),
         proposalDigest: op.proposalDigest,
         ...(op.planDigest ? { planDigest: op.planDigest } : {}),
+        ...(Number.isSafeInteger(op.approvalRound) && op.approvalRound !== undefined && op.approvalRound >= 0 ? { approvalRound: op.approvalRound } : {}),
         approvalRequired: op.approvalRequired,
         risk: op.proposal.risk,
         ...(op.proposal.costDeltaUsd !== undefined ? { costDeltaUsd: op.proposal.costDeltaUsd } : {}),

@@ -4,7 +4,8 @@ import { db, isPostgres } from "@/lib/db/store";
 import { pgClient } from "@/lib/db/postgres-store";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { productRoleResolver } from "./product-adapters";
-import { ROLE_RANK, type ResolvedAccess, type RoleResolver, type WorkspaceRoleOrNone } from "./ports";
+import { currentIntegrationGrant } from "./current-integration-grants";
+import { type ResolvedAccess, type RoleResolver, type WorkspaceRoleOrNone } from "./ports";
 
 const DEADLINE_MS = 8_000;
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
@@ -69,11 +70,12 @@ export function currentProductRoleResolver(options: { signal?: AbortSignal } = {
         }
         // Integration credentials and project/environment grants still attenuate
         // the human. A current membership never restores a refused credential.
-        const access = await canonical.resolve(principal, workspaceId);
-        if (!["none", "viewer", "editor", "admin"].includes(access.role)) refuse();
-        if (principal.kind !== "integration" || access.role === "none") return access;
-        const current = await humanRole(humanId, workspaceId, signal);
-        return { ...access, role: ROLE_RANK[current] < ROLE_RANK[access.role] ? current : access.role };
+        if (principal.kind !== "integration") return canonical.resolve(principal, workspaceId);
+        const role = await humanRole(humanId, workspaceId, signal);
+        const grant = await currentIntegrationGrant(principal, workspaceId, signal);
+        if (!grant) return { role: "none" };
+        return { role, integrationScopes: grant.scopes,
+          allowedProjectIds: grant.projectIds, ...(grant.environmentIds ? { allowedEnvironmentIds: grant.environmentIds } : {}) };
       });
     },
   };

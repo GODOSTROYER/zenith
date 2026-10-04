@@ -6,9 +6,11 @@ import type { AwsSession, CredentialBroker, CredentialRequest } from "@/lib/cred
 import { CredentialDeniedError } from "@/lib/credentials/types";
 import { argsFor, ids, makeHarness } from "./support";
 import { runTool } from "@/lib/agent-access/v3/tools";
+const durable = vi.hoisted(() => ({ start: vi.fn() }));
+vi.mock("@/lib/workflows/start-intent", () => ({ startWorkflowIntent: durable.start }));
 
 tempDataDir("zenith-mcp-v3-adapters-", { fast: true });
-const { observabilityPort, registerCredentialBroker, registerInvestigator, defaultPorts, unavailableInvestigator } = await import("@/lib/agent-access/v3/adapters");
+const { observabilityPort, registerCredentialBroker, registerInvestigator, defaultPorts, unavailableInvestigator, workflowPort } = await import("@/lib/agent-access/v3/adapters");
 afterEach(() => { registerCredentialBroker(undefined); registerInvestigator(undefined); });
 
 it.each(["zenith_query_logs", "zenith_query_metrics"] as const)("%s runs cloud reads inside the production session adapter", async (name) => {
@@ -56,4 +58,17 @@ it("operation reads honor a narrower connection grant than the broker directory"
     expect(result.error?.code).toBe("not_found");
   }
   expect(h.beginExecution).not.toHaveBeenCalled();
+});
+it("the production workflow adapter forwards typed deploy and day-two input to canonical durable admission", async () => {
+  durable.start.mockResolvedValue({ workflowId: "op-owning-operation", runId: "owning-run" });
+  const port = workflowPort();
+  const deploy = { workspaceId: ids.ws, operationId: "owning-operation", projectId: ids.project, environmentId: ids.env,
+    deploymentId: "mcp-deploy-" + "1".repeat(64), revisionId: ids.revision, connectionId: "conn-a", build: false, preApproved: true };
+  const dayTwo = { workspaceId: ids.ws, operationId: "owning-day-two", environmentId: ids.env, capability: "service.restart" };
+  expect(await port.startDeploy(deploy, "new")).toEqual({ workflowId: "op-owning-operation", runId: "owning-run" });
+  await port.startDayTwo(dayTwo, "new");
+  expect(durable.start).toHaveBeenCalledWith("deploy", deploy);
+  expect(durable.start).toHaveBeenCalledWith("dayTwo", dayTwo);
+  // This model proves adapter selection only. Actual raw history and native
+  // attempt permanence are mandatory in the separately owned canonical lane.
 });

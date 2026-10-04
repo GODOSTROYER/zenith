@@ -5,11 +5,12 @@ import { PlatformBrokerStore } from "@/lib/capabilities/platform-store";
 import type { BrokerDeps } from "@/lib/capabilities/ports";
 import { capability, isCapability } from "@/lib/capabilities/catalog";
 import { digest } from "@/lib/controlplane/digest";
-import type { Sql } from "@/lib/controlplane/types";
+import type { Sql, Principal } from "@/lib/controlplane/types";
 import type { DispatchApprovalSnapshot } from "@/lib/execution/ports";
 import { credentialPatternsIn } from "@/lib/credentials/redact";
 import type { AutonomyLevel } from "@/lib/policy";
 import { textArray } from "../sql";
+import { assertDefaultMcpProductTopology, assertFinalMcpProductTopology, captureMcpDeployAuthority, requiresMcpDeployAuthority, MCP_DEPLOY_AUTHORITY } from "./workflow-start-deploy-authority";
 
 export type WorkflowStartKind = "deploy" | "destroy" | "dayTwo" | "remediation" | "teardownReview";
 export type ScalarArguments = Readonly<Record<string, string | boolean>>;
@@ -86,6 +87,7 @@ interface Operation {
   proposal_digest: string; input_digest: string; plan_digest: string|null;
   status: string; approval_round: number; approval_required: boolean; workflow_id: string|null;
   lease_scope: string|null; fence_token: number|null; lease_holder: string|null;
+  principal: Principal;
 }
 function requestCopy(input: StartRequest): StartRequest {
   const kind = own(input,"kind") as WorkflowStartKind;
@@ -123,7 +125,9 @@ function bind(request: StartRequest, op: Operation): StartBinding {
     if (!["deployment.deploy","deployment.rollback","infrastructure.apply"].includes(op.capability)
       || args.projectId !== op.project_id || args.revisionId !== input?.revisionId
       || args.deploymentId !== (input?.deploymentId ?? `dep-${op.id}`)
-      || (typeof input?.build === "boolean" && args.build !== input.build)) return refuse();
+      || (typeof input?.build === "boolean" && args.build !== input.build)
+      || (requiresMcpDeployAuthority(request.kind, op)
+        && (args.connectionId !== input?.connectionId || args.preApproved !== true))) return refuse();
   } else if (request.kind === "destroy") { if (op.capability !== "infrastructure.destroy") return refuse(); }
   else if (request.kind === "teardownReview") {
     if (op.capability !== "infrastructure.plan" || input?.teardownReview !== true || input.environmentId !== op.environment_id) return refuse();
@@ -266,19 +270,50 @@ function authorityParams(binding:StartBinding,op:Operation,proof:DispatchApprova
   return [op.workspace_id,op.id,binding.proposalDigest,binding.inputDigest,proof.approvalRound,proof.planDigest ?? null,
     binding.workflowId,binding.kind === "teardownReview",textArray(proof.approvalIds),proof.requiredApprovalCount,JSON.stringify(settings)];
 }
+async function productTopology(sql: Sql, request: StartRequest, isolatedDependencies?: AuthorityDependencies): Promise<boolean> {
+  if (request.kind !== "deploy") return false;
+  const rows = await sql.query<Operation>("select * from platform.operations where workspace_id=$1 and id=$2", [request.arguments.workspaceId, request.arguments.operationId]);
+  if (!rows[0] || !requiresMcpDeployAuthority(request.kind, rows[0])) return false;
+  // The recognized isolated store still uses real native product/source SQL.
+  // Only its existing test-only broker composition omits the hosted endpoint check.
+  if (!isolatedDependencies) {
+    try { await assertDefaultMcpProductTopology(sql); } catch { return refuse(); }
+  }
+  return true;
+}
+async function currentMcpAuthority(tx: Sql, op: Operation) {
+  try { return await captureMcpDeployAuthority(tx, op); } catch { return refuse(); }
+}
 async function preparePrivate(sql:Sql,input:StartRequest,isolatedDependencies?:AuthorityDependencies):Promise<WorkflowStartIntent> {
   const request = requestCopy(input);
   // Evidence recovery of an existing intent needs no new authority, even if the operation is now terminal.
   const prior = await get(sql,request.arguments.workspaceId as string,request.arguments.operationId as string);
-  if (prior) { matches(prior,request); return prior; }
+  if (prior) { matches(prior,request); if (prior.phase !== "prepared") return prior; }
+  const owningProduct = await productTopology(sql, request, isolatedDependencies);
   return sql.tx(async tx=>{
     const op = await lockedOperation(tx,request);
     const rows = await tx.query<WorkflowStartIntent>("select * from platform.workflow_start_intents where workspace_id=$1 and operation_id=$2 for update",[op.workspace_id,op.id]);
-    if (rows[0]) { const retained=fromRow(rows[0]); matches(retained,request); return retained; }
-    const binding=bind(request,op),{proof,settings}=await approval(tx,op,isolatedDependencies);
+    const retained = rows[0] ? fromRow(rows[0]) : undefined;
+    if (retained) { matches(retained,request); if (retained.phase !== "prepared" || !requiresMcpDeployAuthority(request.kind,op)) return retained; }
+    const binding=bind(request,op);
+    if (retained && digest(binding) !== retained.binding_digest) return refuse();
+    const sourceRequired = requiresMcpDeployAuthority(request.kind, op);
+    if (sourceRequired && !owningProduct) return refuse();
+    const source = sourceRequired ? await currentMcpAuthority(tx, op) : undefined;
+    const {proof,settings}=await approval(tx,op,isolatedDependencies);
+    if (sourceRequired && !isolatedDependencies) {
+      try { await assertFinalMcpProductTopology(sql, tx); } catch { return refuse(); }
+    }
+    const params = [...authorityParams(binding,op,proof,settings), ...(source ? [JSON.stringify(source)] : [])];
+    const currentAuthority = `${LIVE_AUTHORITY}${source ? ` and ${MCP_DEPLOY_AUTHORITY}` : ""}`;
+    if (retained) {
+      if (!(await tx.query(`select o.id from platform.operations o where ${currentAuthority}`, params)).length) return refuse();
+      return retained;
+    }
+    const bindingParam = source ? 13 : 12;
     const inserted=await tx.query<WorkflowStartIntent>(`insert into platform.workflow_start_intents (workspace_id,operation_id,binding,binding_digest)
-      select o.workspace_id,o.id,$12::text::jsonb,$13 from platform.operations o where ${LIVE_AUTHORITY} returning *`,
-      [...authorityParams(binding,op,proof,settings),JSON.stringify(binding),digest(binding)]);
+      select o.workspace_id,o.id,$${bindingParam}::text::jsonb,$${bindingParam + 1} from platform.operations o where ${currentAuthority} returning *`,
+      [...params,JSON.stringify(binding),digest(binding)]);
     if (!inserted[0]) return refuse();
     return fromRow(inserted[0]);
   });
@@ -290,6 +325,11 @@ export function prepare(sql: Sql, request: StartRequest): Promise<WorkflowStartI
 }
 async function claimPrivate(sql:Sql,input:StartRequest,isolatedDependencies?:AuthorityDependencies):Promise<{intent:WorkflowStartIntent;dispatch:boolean}> {
   const request=requestCopy(input);
+  // Retained attempted/acknowledged starts recover evidence even after product drift.
+  // They never need fresh source authority and cannot authorize another transport write.
+  const prior = await get(sql, request.arguments.workspaceId as string, request.arguments.operationId as string);
+  if (prior && prior.phase !== "prepared") { matches(prior,request); return { intent: prior, dispatch: false }; }
+  const owningProduct = await productTopology(sql, request, isolatedDependencies);
   return sql.tx(async tx=>{
     const op=await lockedOperation(tx,request);
     const rows=await tx.query<WorkflowStartIntent>("select * from platform.workflow_start_intents where workspace_id=$1 and operation_id=$2 for update",[op.workspace_id,op.id]);
@@ -298,11 +338,18 @@ async function claimPrivate(sql:Sql,input:StartRequest,isolatedDependencies?:Aut
     if (retained.phase !== "prepared") return {intent:retained,dispatch:false};
     const binding=bind(request,op);
     if (digest(binding) !== retained.binding_digest) return refuse();
+    const sourceRequired = requiresMcpDeployAuthority(request.kind, op);
+    if (sourceRequired && !owningProduct) return refuse();
+    const source = sourceRequired ? await currentMcpAuthority(tx, op) : undefined;
     // No caller proof/callback: resolve the actual broker after the last lock wait.
     const {proof,settings}=await approval(tx,op,isolatedDependencies);
-    const claimed=await tx.query<WorkflowStartIntent>(`update platform.workflow_start_intents i set phase='attempted',attempt_id=$12,attempted_at=clock_timestamp()
-      from platform.operations o where i.workspace_id=$1 and i.operation_id=$2 and i.phase='prepared' and ${LIVE_AUTHORITY} returning i.*`,
-      [...authorityParams(binding,op,proof,settings),randomUUID()]);
+    if (sourceRequired && !isolatedDependencies) {
+      try { await assertFinalMcpProductTopology(sql, tx); } catch { return refuse(); }
+    }
+    const attemptParam = source ? 13 : 12;
+    const claimed=await tx.query<WorkflowStartIntent>(`update platform.workflow_start_intents i set phase='attempted',attempt_id=$${attemptParam},attempted_at=clock_timestamp()
+      from platform.operations o where i.workspace_id=$1 and i.operation_id=$2 and i.phase='prepared' and ${LIVE_AUTHORITY}${source ? ` and ${MCP_DEPLOY_AUTHORITY}` : ""} returning i.*`,
+      [...authorityParams(binding,op,proof,settings), ...(source ? [JSON.stringify(source)] : []), randomUUID()]);
     if (!claimed[0]) return refuse();
     return {intent:fromRow(claimed[0]),dispatch:true};
   });

@@ -17,6 +17,7 @@
  * mock's.
  */
 import type { Broker } from "@/lib/capabilities/platform";
+import type { OperationView } from "@/lib/capabilities/types";
 import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
 import type { AnyManifest } from "@/lib/domain/types";
 import type { Investigation } from "@/lib/incidents/types";
@@ -76,6 +77,27 @@ export interface ProjectReads {
   revisions(workspaceId: string, projectId: string, limit: number): Promise<RevisionSummary[]>;
 }
 
+export interface DeployAdmissionRequest {
+  identity: AgentIdentity;
+  target: { workspaceId: string; projectId: string; environmentId: string };
+  revisionId: string;
+  idempotencyKey: string;
+  message?: string;
+}
+
+export interface PreparedDeployAdmission {
+  deploymentId: string;
+  input: Record<string, unknown>;
+}
+
+/** A committed product projection is an association, never execution authority. */
+export interface DeployAdmissionPort {
+  prepare(request: DeployAdmissionRequest): Promise<PreparedDeployAdmission>;
+  bind(request: DeployAdmissionRequest, operation: OperationView): Promise<void>;
+  /** Read current product authority independently of the enclosing tool snapshot. */
+  validate(identity: AgentIdentity, operation: OperationView): Promise<DeployWorkflowInput>;
+}
+
 /* ------------------------------ observability ------------------------------ */
 
 export interface FabricRequest {
@@ -131,12 +153,12 @@ export interface StartedRef {
 
 export type WorkflowAvailability = { available: true } | { available: false; reason: string };
 
-/** The workflows client (`src/lib/workflows/client.ts`), narrowed to what execution needs. */
+/** Canonical durable start intents, plus availability and progress reads. */
 export interface WorkflowPort {
   available(): Promise<WorkflowAvailability>;
-  /** Idempotent on the operation id: a second start returns the existing execution. */
-  startDeploy(input: DeployWorkflowInput): Promise<StartedRef>;
-  startDayTwo(input: DayTwoWorkflowInput): Promise<StartedRef>;
+  /** Retained mode refuses a claim without a committed start intent. */
+  startDeploy(input: DeployWorkflowInput, mode: "new" | "retained"): Promise<StartedRef>;
+  startDayTwo(input: DayTwoWorkflowInput, mode: "new" | "retained"): Promise<StartedRef>;
   /** `null` when there is no such workflow. May throw when no worker can answer. */
   progress(operationId: string): Promise<WorkflowProgress | null>;
 }
@@ -146,6 +168,7 @@ export interface WorkflowPort {
 export interface McpPorts {
   broker(): Promise<Broker>;
   reads: ProjectReads;
+  deployments: DeployAdmissionPort;
   observability: ObservabilityPort;
   investigator: Investigator;
   workflows: WorkflowPort;

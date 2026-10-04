@@ -75,7 +75,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AuditEvent, DeploymentEvent, AnyManifest } from "@/lib/domain/types";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, isDefaultAdminClientFor } from "@/lib/supabase/admin";
 import { FileStore } from "./file-store";
 import "./pg/all"; // registers every collection and delegate group, in FK order
 import { delegates } from "./pg/delegates";
@@ -120,6 +120,11 @@ export function pgClient(): SupabaseClient {
   // Built on first use, never at import: the file store is the default and must
   // keep booting on an install with no Supabase configuration at all.
   return (g.__zenithPgClient = createAdminClient() as unknown as SupabaseClient);
+}
+
+/** Read-only ownership of the actual cached default product client; no override or identity getter. */
+export function isDefaultProductClientFor(origin: string): boolean {
+  return isDefaultAdminClientFor(pgClient(), origin);
 }
 
 /** Test seam: drop the cached client so a mock can take its place. */

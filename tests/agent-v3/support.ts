@@ -5,6 +5,13 @@ import { afterEach, vi } from "vitest";
 import { setDestroyReviewDispatcherForTests } from "@/lib/capabilities/destroy-review-dispatch";
 afterEach(() => setDestroyReviewDispatcherForTests(undefined));
 import { digest } from "@/lib/controlplane/digest";
+import { parseRequest } from "@/lib/capabilities/broker";
+import { BrokerError } from "@/lib/capabilities/errors";
+import { graphFor } from "@/lib/agent-access/v3/context";
+import { deploymentReservation, McpDeployInput } from "@/lib/agent-access/v3/deploy-admission";
+import { McpToolError, notFound } from "@/lib/agent-access/v3/errors";
+import { estimateSummary, tryEstimate } from "@/lib/agent-access/v3/tools/estimate";
+import type { DeployAdmissionRequest } from "@/lib/agent-access/v3/ports";
 import type { Principal, Scope } from "@/lib/controlplane/types";
 import { CredentialGrantSigner } from "@/lib/capabilities/credential-signer";
 import { MemoryBrokerStore } from "@/lib/capabilities/memory-store";
@@ -95,7 +102,8 @@ export async function makeHarness(decide: (input: PolicyInput) => PolicyDecision
   const beginExecution = vi.spyOn(broker, "beginExecution");
   beginExecution.mockImplementation(async (...args) => { trace.push("beginExecution"); return realBegin(...args); });
   const getOperationDetail = vi.spyOn(broker, "getOperationDetail");
-  const propose = vi.spyOn(broker, "propose");
+  const realPropose = broker.propose;
+  const propose = vi.spyOn(broker, "propose").mockImplementation(realPropose);
   const manifest = Manifest.parse({ version: 1, services: [{ id: ids.service, name: "web-app", kind: "web", source: { type: "image", image: "example/web:v1" }, port: 3000,
     env: [{ key: "PUBLIC_MARKER", value: "config-value-never-return" }] }], resources: [], routes: [], bindings: [] });
   const projects = new Map<string, ProjectInfo>([[ids.project, { id: ids.project, workspaceId: ids.ws, name: "project-text-marker", slug: "app", workingManifest: manifest }],
@@ -104,12 +112,35 @@ export async function makeHarness(decide: (input: PolicyInput) => PolicyDecision
     [ids.foreignEnv, { id: ids.foreignEnv, projectId: ids.foreignProject, name: "foreign", class: "production", provider: "aws", region: "us-east-1", baseDomain: "foreign.test", connectionId: "conn-b" }]]);
   const revisions = new Map<string, RevisionInfo>([ids.revision, ids.revision2, ids.foreignRevision].map((id, i) => [id, { id, projectId: i === 2 ? ids.foreignProject : ids.project,
     number: i + 1, message: `revision-message-marker-${i}`, createdAt: clock.now().toISOString(), manifest: structuredClone(manifest) }]));
+  // These maps model durable product rows and native intents explicitly. They
+  // supply no PostgreSQL or Temporal acceptance evidence.
+  const deployments = new Map<string, { input: Record<string, unknown>; operationId?: string; integrationId: string; subject: string }>();
+  const workflowIntents = new Map<string, { phase: "prepared" | "attempted" | "acknowledged" }>();
   const workflowRefs = new Map<string, StartedRef>();
+  const preparedInput = (request: DeployAdmissionRequest) => {
+    const environment = environments.get(request.target.environmentId), revision = revisions.get(request.revisionId);
+    if (projects.get(request.target.projectId)?.workspaceId !== request.target.workspaceId
+      || !environment || environment.projectId !== request.target.projectId || !revision || revision.projectId !== request.target.projectId) throw notFound();
+    const graph = graphFor(revision.manifest, environment);
+    const input = { operation: "deploy", admissionVersion: 1, deploymentId: deploymentReservation(request).deploymentId,
+      revisionId: revision.id, revisionNumber: revision.number, connectionId: environment.connectionId,
+      manifestDigest: digest(revision.manifest), graphDigest: graph.graphDigest, environmentDigest: digest(environment),
+      connectionDigest: digest({ id: environment.connectionId, provider: environment.provider }),
+      build: revision.manifest.services.some(service => service.ownership === "managed" && service.source.type === "git"),
+      ...(request.message ? { message: request.message } : {}), estimate: estimateSummary(tryEstimate(graph)) };
+    parseRequest({ capability: "deployment.deploy", scope: request.target, input, idempotencyKey: request.idempotencyKey });
+    return input;
+  };
   const starts: { deploy: unknown[]; dayTwo: unknown[] } = { deploy: [], dayTwo: [] };
-  const start = (kind: "deploy" | "dayTwo", input: { operationId: string }) => {
+  const start = (kind: "deploy" | "dayTwo", input: { operationId: string }, mode: "new" | "retained") => {
     trace.push(kind === "deploy" ? "startDeploy" : "startDayTwo");
+    const prior = workflowIntents.get(input.operationId);
+    if (mode === "retained" && !prior) throw new McpToolError("workflow_start_unconfirmed", "Modeled claim has no retained intent.", 409);
+    if (!prior) workflowIntents.set(input.operationId, { phase: "prepared" });
     let ref = workflowRefs.get(input.operationId);
+    if (workflowIntents.get(input.operationId)?.phase === "attempted" && !ref) throw new McpToolError("workflow_start_unconfirmed", "Modeled original attempt is not confirmed.", 503);
     if (!ref) { ref = { workflowId: `op-${input.operationId}`, runId: `run-${input.operationId}` }; workflowRefs.set(input.operationId, ref); starts[kind].push(input); }
+    workflowIntents.set(input.operationId, { phase: "acknowledged" });
     return ref;
   };
   const result = <T>(items: T[]): QueryResult<T> => ({ items, sources: ["fake-cloud"], simulated: true, truncated: true,
@@ -132,15 +163,48 @@ export async function makeHarness(decide: (input: PolicyInput) => PolicyDecision
       revision: vi.fn(async (ws: string, p: string, r: string) => { trace.push("revision"); const row = revisions.get(r); return row && projects.get(p)?.workspaceId === ws && row.projectId === p ? row : null; }),
       revisions: vi.fn(async (ws, p, limit) => { trace.push("revisions"); return projects.get(p)?.workspaceId === ws ? [...revisions.values()].filter((r) => r.projectId === p).slice(0, limit) : []; }),
     },
-    workflows: { available: vi.fn(async () => ({ available: true as const })), startDeploy: vi.fn(async (input) => start("deploy", input)),
-      startDayTwo: vi.fn(async (input) => start("dayTwo", input)), progress: vi.fn(async () => null) },
+    deployments: {
+      prepare: vi.fn(async request => {
+        const input = preparedInput(request);
+        const check = await broker.check({ capability: "deployment.deploy", scope: request.target, input,
+          idempotencyKey: request.idempotencyKey }, { kind: "integration", id: request.identity.integrationId,
+          name: "Modeled authenticated integration", integrationId: request.identity.integrationId, onBehalfOf: request.identity.subject });
+        if (check.decision.outcome === "deny") throw new McpToolError("policy_denied", "Modeled current policy refuses preparation.", 403);
+        const saved = deployments.get(input.deploymentId);
+        if (saved && (digest(saved.input) !== digest(input) || saved.subject !== request.identity.subject || saved.integrationId !== request.identity.integrationId)) {
+          throw new BrokerError("idempotency_conflict", "Modeled immutable reservation conflicts.");
+        }
+        if (!saved) { deployments.set(input.deploymentId, { input: structuredClone(input), subject: request.identity.subject, integrationId: request.identity.integrationId }); trace.push("deployment.commit"); }
+        return { deploymentId: input.deploymentId, input };
+      }),
+      bind: vi.fn(async (request, operation) => {
+        const input = preparedInput(request), saved = deployments.get(input.deploymentId);
+        if (!saved || digest(saved.input) !== digest(operation.proposal.input) || saved.operationId && saved.operationId !== operation.id) throw new McpToolError("deployment_admission_conflict", "Modeled association refuses replacement.", 409);
+        saved.operationId = operation.id; trace.push("deployment.bind");
+      }),
+      validate: vi.fn(async (who, operation) => {
+        const parsed = McpDeployInput.safeParse(operation.proposal.input);
+        if (!parsed.success || !operation.projectId || !operation.environmentId) throw new McpToolError("operation_input_invalid", "Modeled deployment input is invalid.", 409);
+        const input = parsed.data, saved = deployments.get(input.deploymentId);
+        if (!saved || saved.operationId !== operation.id || saved.integrationId !== who.integrationId || saved.subject !== who.subject
+          || digest(saved.input) !== digest(input)) throw new McpToolError("deployment_admission_conflict", "Modeled committed association is absent or foreign.", 409);
+        const current = preparedInput({ identity: who, target: { workspaceId: operation.workspaceId, projectId: operation.projectId,
+          environmentId: operation.environmentId }, revisionId: input.revisionId, idempotencyKey: "modeled-current-read", ...(input.message ? { message: input.message } : {}) });
+        if (digest({ ...current, deploymentId: input.deploymentId }) !== digest(input)) throw new McpToolError("deployment_source_changed", "Modeled current product source differs.", 409);
+        trace.push("deployment.validate");
+        return { workspaceId: operation.workspaceId, operationId: operation.id, projectId: operation.projectId, environmentId: operation.environmentId,
+          deploymentId: input.deploymentId, revisionId: input.revisionId, connectionId: input.connectionId, preApproved: true, build: input.build };
+      }),
+    },
+    workflows: { available: vi.fn(async () => ({ available: true as const })), startDeploy: vi.fn(async (input, mode) => start("deploy", input, mode)),
+      startDayTwo: vi.fn(async (input, mode) => start("dayTwo", input, mode)), progress: vi.fn(async () => null) },
     investigator: { available: false, reason: "Test incident engine unwired.", investigate: vi.fn(async () => { throw new Error("Unavailable engine called"); }) },
     observability: { async withFabric(request, fn) { sessionRequests.push(request); trace.push("withSession"); insideSession = true; try { return await fn(fabric); } finally { insideSession = false; } } },
   };
   const principal = principalFromIdentity(identity(), clock.ms);
   const invoke = (name: ToolName, args: unknown) => runTool(name, args, { ports, principal });
   return { world, clock, store, broker, ports, principal, trace, authorizeRead, beginExecution, getOperationDetail, propose, projects, environments, revisions,
-    starts, workflowRefs, fabric, sessionRequests, logResult, metricResult, invoke,
+    starts, workflowRefs, workflowIntents, deployments, fabric, sessionRequests, logResult, metricResult, invoke,
     setDecision(next: (input: PolicyInput) => PolicyDecision) { engine = scriptedEngine(next); } };
 }
 export type Harness = Awaited<ReturnType<typeof makeHarness>>;

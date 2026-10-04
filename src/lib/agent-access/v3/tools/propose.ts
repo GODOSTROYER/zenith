@@ -2,7 +2,8 @@
  * Write tools: `zenith_plan_change`, `zenith_prepare_deploy`,
  * `zenith_restart_service` and `zenith_scale_service`.
  *
- * They PROPOSE and nothing else. Each builds an exact, bounded, secret-free
+ * They propose. Deploy preparation first commits a product reservation, then
+ * binds it to the retained operation. Each builds an exact, bounded, secret-free
  * request and submits it to the capability broker (`propose`). The broker
  * decides (allow, require approval or deny), persists the decision and an
  * operation bound to an immutable proposal digest, and answers
@@ -55,7 +56,7 @@ async function submit(ctx: ToolContext, s: Submission): Promise<ToolOutput> {
 export function proposalOutput(ctx: Pick<ToolContext, "ports">, result: ProposeResult): ToolOutput {
   const op = result.operation;
   const decision = result.decision;
-  const approvalUrl = `${ctx.ports.origin()}/integrations/operations/${encodeURIComponent(op.id)}`;
+  const approvalUrl = `${ctx.ports.origin()}/platform/operations/${encodeURIComponent(op.id)}`;
   const needsPerson = op.status === "awaiting_approval";
   return {
     data: {
@@ -119,24 +120,19 @@ export async function planChange(args: PlanChangeArgs, ctx: ToolContext): Promis
 export async function prepareDeploy(args: PrepareDeployArgs, ctx: ToolContext): Promise<ToolOutput> {
   const { target } = args;
   assertInGrant(ctx.principal, target);
-  const environment = await requireEnvironment(ctx, target.workspaceId, target.projectId, target.environmentId);
-  const revision = await requireRevision(ctx, target.workspaceId, target.projectId, args.revisionId);
-  const graph = graphFor(revision.manifest, environment);
-  return submit(ctx, {
+  const request = { identity: ctx.principal.identity, target, revisionId: args.revisionId,
+    idempotencyKey: args.idempotencyKey, ...(args.message ? { message: args.message } : {}) };
+  const prepared = await ctx.ports.deployments.prepare(request);
+  const result = await ctx.broker.propose({
     capability: "deployment.deploy",
     scope: { workspaceId: target.workspaceId, projectId: target.projectId, environmentId: target.environmentId },
-    input: {
-      operation: "deploy",
-      revisionId: revision.id,
-      revisionNumber: revision.number,
-      manifestDigest: digest(revision.manifest),
-      graphDigest: graph.graphDigest,
-      build: manifestNeedsBuild(revision.manifest),
-      ...(args.message ? { message: args.message } : {}),
-      estimate: estimateSummary(tryEstimate(graph)),
-    },
+    input: prepared.input,
     idempotencyKey: args.idempotencyKey,
-  });
+  }, ctx.principal.principal, { via: "mcp" });
+  // An ACK is sent only after the genuine deployment is associated and committed.
+  // A lost broker ACK is recovered by the same key and immutable request.
+  await ctx.ports.deployments.bind(request, result.operation);
+  return proposalOutput(ctx, result);
 }
 
 /* --------------------------- restart / scale service ------------------------ */

@@ -12,6 +12,8 @@ const model = vi.hoisted(() => ({
   signal: undefined as AbortSignal | undefined,
   filters: [] as [string, string][],
   canonical: vi.fn<(...args: unknown[]) => Promise<ResolvedAccess>>(),
+  credentials: [] as { id: string; workspaceId: string; subject: string; scopes: string[]; projectIds: string[]; environmentIds?: string[]; expiresAt: string; revokedAt?: string }[],
+  credentialReads: vi.fn(),
   client: vi.fn(), select: vi.fn(),
 }));
 vi.mock("@/lib/db/store", () => ({ isPostgres: () => model.postgres, db: () => model.snapshot as unknown as Database }));
@@ -19,10 +21,13 @@ vi.mock("@/lib/auth/policy", () => ({ membershipPolicy: () => ({ emptyWorkspaceG
 vi.mock("@/lib/supabase/env", () => ({ isSupabaseConfigured: () => model.configured }));
 vi.mock("@/lib/capabilities/product-adapters", () => ({ productRoleResolver: () => ({ resolve: model.canonical }) }));
 vi.mock("@/lib/db/postgres-store", () => ({ pgClient: model.client }));
+// The credential directory is modeled; currentIntegrationGrant validates its
+// actual subject/tenant/identity/lifetime contract without a canonical-role fallback.
+vi.mock("@/lib/agent-access/authority", () => ({ credentialAuthority: () => ({ listCredentials: model.credentialReads }) }));
 
 const user = { kind: "user", id: "alice", name: "Alice" } as const;
 const navigator = { kind: "navigator", id: "nav", name: "Navigator", onBehalfOf: "alice" } as const;
-const integration = { kind: "integration", id: "int", name: "Integration", onBehalfOf: "alice", integrationId: "credential" } as const;
+const integration = { kind: "integration", id: "credential", name: "Integration", onBehalfOf: "alice", integrationId: "credential" } as const;
 const member = (role: unknown = "admin") => ({ id: "alice", workspace_id: "ws_owned", role });
 function defer<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
 
@@ -34,6 +39,9 @@ describe("current product roles (modeled read contracts)", () => {
     model.response = { data: member(), error: null }; model.read = undefined;
     model.signal = undefined; model.filters = [];
     model.canonical.mockResolvedValue({ role: "admin" });
+    model.credentials = [];
+    model.credentialReads.mockImplementation(async (subject: string, workspaceId: string) =>
+      model.credentials.filter(credential => credential.subject === subject && credential.workspaceId === workspaceId));
     const query = {
       select: model.select.mockImplementation(() => query),
       eq: (field: string, value: string) => { model.filters.push([field, value]); return query; },
@@ -121,17 +129,26 @@ describe("current product roles (modeled read contracts)", () => {
 
   it("retains integration scopes and target attenuation while reducing its current human role", async () => {
     const access = { role: "admin", integrationScopes: ["write"], allowedProjectIds: ["proj_owned"], allowedEnvironmentIds: ["env_owned"] } satisfies ResolvedAccess;
-    model.canonical.mockResolvedValue(access); model.response.data = member("viewer");
+    model.credentials = [{ id: integration.integrationId, workspaceId: "ws_owned", subject: "alice", scopes: access.integrationScopes,
+      projectIds: access.allowedProjectIds, environmentIds: access.allowedEnvironmentIds, expiresAt: new Date(Date.now() + 60_000).toISOString() }];
+    model.response.data = member("viewer");
     expect(await currentProductRoleResolver().resolve(integration, "ws_owned")).toEqual({ ...access, role: "viewer" });
-    expect(model.canonical).toHaveBeenCalledWith(integration, "ws_owned");
+    expect(model.credentialReads).toHaveBeenCalledExactlyOnceWith("alice", "ws_owned");
+    expect(model.canonical).not.toHaveBeenCalled();
   });
 
   it("cannot restore a refused integration or exceed its canonical human role", async () => {
-    model.canonical.mockResolvedValueOnce({ role: "none" });
+    // Retain the historical case identity; the ceiling is the current human,
+    // and a fresh refused credential supplies no authority to restore.
+    model.credentials = [{ id: integration.integrationId, workspaceId: "ws_owned", subject: "alice", scopes: ["write"],
+      projectIds: ["proj_owned"], expiresAt: new Date(Date.now() + 60_000).toISOString(), revokedAt: new Date().toISOString() }];
     expect(await currentProductRoleResolver().resolve(integration, "ws_owned")).toEqual({ role: "none" });
-    expect(model.client).not.toHaveBeenCalled();
-    model.canonical.mockResolvedValueOnce({ role: "editor", integrationScopes: ["write"] });
-    expect(await currentProductRoleResolver().resolve(integration, "ws_owned")).toEqual({ role: "editor", integrationScopes: ["write"] });
+    expect(model.client).toHaveBeenCalledTimes(1);
+    expect(model.credentialReads).toHaveBeenCalledExactlyOnceWith("alice", "ws_owned");
+    delete model.credentials[0].revokedAt; model.response.data = member("editor");
+    expect(await currentProductRoleResolver().resolve(integration, "ws_owned")).toEqual({ role: "editor", integrationScopes: ["write"], allowedProjectIds: ["proj_owned"] });
+    expect(model.client).toHaveBeenCalledTimes(2);
+    expect(model.canonical).not.toHaveBeenCalled();
   });
 
   it("preserves nonhuman canonical restrictions without inventing a human membership", async () => {

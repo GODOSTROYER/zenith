@@ -5,11 +5,8 @@
  *
  *  - `productReads` reads the product store (`db()`), filtered by workspace and
  *    project. Real.
- *  - `workflowPort` wraps `src/lib/workflows/client.ts`. Real; it needs a
- *    reachable Temporal, and says so (without leaking its address) when there
- *    is none. The workflows' ACTIVITIES are stubs in this build, so a started
- *    workflow ends `failed` with "nothing was changed" until the execution
- *    workstreams land (docs/platform/EXECUTION-WORKER.md).
+ *  - `workflowPort` uses canonical owning workflow start intents. Availability
+ *    and progress are read through the Temporal client.
  *  - `observabilityPort` runs cloud reads inside a credential-broker session
  *    when a `CredentialBroker` has been registered (`registerCredentialBroker`).
  *    None is registered by this module: the wiring of a real broker (connection
@@ -26,9 +23,7 @@
  * loads it lazily, so the tools and their tests do not pull in the product
  * store, the v2 agent runtime or Temporal.
  */
-import { createBroker, platformBroker, type Broker } from "@/lib/capabilities/platform";
-import { productRoleResolver } from "@/lib/capabilities/product-adapters";
-import type { IntegrationDirectory } from "@/lib/capabilities/product-adapters";
+import { isMemoryStoreEnabled, platformBroker } from "@/lib/capabilities/platform";
 import { CredentialDeniedError, type AwsSession, type CredentialBroker, type KubernetesSession, type ProviderSession } from "@/lib/credentials/types";
 import { db, q, revisionManifestAsync } from "@/lib/db/store";
 import { createObservabilityFabric } from "@/lib/observability/fabric";
@@ -36,8 +31,9 @@ import { sourcesForEnvironment, type SourceSessions } from "@/lib/observability/
 import { createUnavailableSource } from "@/lib/observability/sources/unavailable";
 import type { ProviderKey } from "@/lib/resources/types";
 import { controlOrigin } from "../control/boundary";
-import { control, inAgentScope } from "../control/runtime";
+import { inAgentScope } from "../control/runtime";
 import { McpToolError } from "./errors";
+import { deployAdmissionPort } from "./deploy-admission";
 import type { AgentIdentity } from "./principal";
 import type {
   EnvironmentInfo,
@@ -208,14 +204,16 @@ export function workflowPort(): WorkflowPort {
       const result = await temporalAvailable();
       return result.available ? { available: true } : { available: false, reason: UNAVAILABLE_REASON[result.reason] ?? UNAVAILABLE_REASON.error };
     },
-    async startDeploy(input) {
-      const { startDeploy } = await import("@/lib/workflows/client");
-      const started = await startDeploy(input);
+    async startDeploy(input, mode) {
+      if (mode === "retained") await retainedIntent(input.workspaceId, input.operationId);
+      const { startWorkflowIntent } = await import("@/lib/workflows/start-intent");
+      const started = await startWorkflowIntent("deploy", input);
       return { workflowId: started.workflowId, runId: started.runId };
     },
-    async startDayTwo(input) {
-      const { startDayTwo } = await import("@/lib/workflows/client");
-      const started = await startDayTwo(input);
+    async startDayTwo(input, mode) {
+      if (mode === "retained") await retainedIntent(input.workspaceId, input.operationId);
+      const { startWorkflowIntent } = await import("@/lib/workflows/start-intent");
+      const started = await startWorkflowIntent("dayTwo", input);
       return { workflowId: started.workflowId, runId: started.runId };
     },
     async progress(operationId) {
@@ -225,50 +223,28 @@ export function workflowPort(): WorkflowPort {
   };
 }
 
-/* ----------------------------------- broker ----------------------------------- */
-
-/**
- * OAuth-origin principals are not credentials the broker's default directory
- * knows: their grants live in the v2 journal. This wraps a broker's role
- * resolver so that an integration the base resolver does not know is asked of
- * the journal. It only ever ADDS a way to be recognised: the base answer wins,
- * a revoked or expired grant is `none`, and the human's role still caps it (the
- * same `productRoleResolver` computes it).
- */
-export function withOAuthGrants(base: Broker, journalGrants: IntegrationDirectory): Broker {
-  const fallback = productRoleResolver({ integrations: journalGrants });
-  return createBroker({
-    ...base.deps,
-    roles: {
-      async resolve(principal, workspaceId) {
-        const known = await base.deps.roles.resolve(principal, workspaceId);
-        if (known.role !== "none" || principal.kind !== "integration") return known;
-        return fallback.resolve(principal, workspaceId);
-      },
-    },
-  });
+/** A lost claim ACK supplies no proof. Only a committed canonical intent can recover it. */
+async function retainedIntent(workspaceId: string, operationId: string): Promise<void> {
+  const { openPlatformDb, platformDbConfigFromEnv, assertPlatformSchemaCurrent, repos } = await import("@/lib/controlplane/db");
+  const config = platformDbConfigFromEnv();
+  if (config.kind !== "postgres" || !config.url || isMemoryStoreEnabled()) throw new McpToolError("workflow_start_unconfirmed", "The owning workflow start intent is unavailable.", 503);
+  const handle = await openPlatformDb({ kind: "postgres", url: config.url, max: 1, migrate: false });
+  try {
+    await assertPlatformSchemaCurrent(handle);
+    if (!await repos.workflowStartIntents.get(handle, workspaceId, operationId)) {
+      throw new McpToolError("workflow_start_unconfirmed", "The operation is claimed but has no retained start intent.", 409,
+        "Inspect this operation. This call cannot reconstruct an unrecorded start or dispatch another attempt.");
+    }
+  } finally { await handle.close(); }
 }
-
-/** The OAuth grants of the v2 journal, as an `IntegrationDirectory`. Live on every call, so revocation is immediate. */
-export const journalGrantDirectory: IntegrationDirectory = async (principal, workspaceId) => {
-  if (!principal.onBehalfOf || !principal.integrationId) return null;
-  const journal = (await control()).journal;
-  const grants = await journal.grants(principal.onBehalfOf, workspaceId);
-  const now = Date.now();
-  const found = grants.find((g) => g.integrationId === principal.integrationId && g.workspaceId === workspaceId && !g.revoked && Date.parse(g.expiresAt) > now);
-  return found ? { scopes: [...found.scopes], projectIds: [...found.projectIds], ...(found.environmentIds ? { environmentIds: [...found.environmentIds] } : {}) } : null;
-};
 
 /* ----------------------------------- bundle ----------------------------------- */
 
 export function defaultPorts(): McpPorts {
-  const oauthConfigured = Boolean(process.env.ZENITH_AGENT_OAUTH_ISSUER || process.env.ZENITH_AGENT_OAUTH_JWKS);
   return {
-    async broker() {
-      const base = await platformBroker();
-      return oauthConfigured ? withOAuthGrants(base, journalGrantDirectory) : base;
-    },
+    broker: platformBroker,
     reads: productReads(),
+    deployments: deployAdmissionPort(),
     get observability() {
       return registry().observability ?? observabilityPort();
     },

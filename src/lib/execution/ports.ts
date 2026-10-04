@@ -140,8 +140,8 @@ export type NewEvidence = Omit<EvidenceRecord, "id" | "createdAt"> & {
 /** Evidence ledger. Backed by WS-DB `repos/evidence` (insert must be insert-or-return on a repeated id). */
 export interface EvidencePort {
   append(evidence: NewEvidence): Promise<EvidenceRecord>;
-  /** Newest evidence of `kind` for an operation, optionally restricted to one digest. */
-  find(input: { workspaceId: string; operationId: string; kind: EvidenceRecord["kind"]; digest?: string }): Promise<EvidenceRecord | null>;
+  /** Newest evidence of `kind` for an operation, optionally restricted to one digest and planning stage. */
+  find(input: { workspaceId: string; operationId: string; kind: EvidenceRecord["kind"]; digest?: string; stage?: "plan" | "final_plan" }): Promise<EvidenceRecord | null>;
 }
 
 export type ResourceStatusName = "planned" | "provisioning" | "active" | "updating" | "deleting" | "deleted" | "failed" | "unknown";

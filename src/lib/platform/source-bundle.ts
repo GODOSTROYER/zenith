@@ -433,10 +433,6 @@ function sourceBundles(deps: SourceBundleDeps = {}, githubDb: () => Promise<impo
           const rows=await abortable(deps.sourceSnapshots.list({workspaceId:snapshot.workspaceId,operationId:snapshot.operationId,projectId:snapshot.projectId,environmentId:snapshot.environmentId}),ctx.signal);
           if(!rows.some(row=>sourceSnapshotDigest(row)===sourceSnapshotDigest(snapshot)))refuse("Approved source authority could not be confirmed.");
           await abortable(deps.sourceSnapshots.assertReviewed(snapshot),ctx.signal);
-          // Original pipeline identity stays unchanged. Only retained commit bytes are downloaded.
-          const {bundle,dockerfileDigest}=await immutableAcquire({...input.source,ref:snapshot.commitSha},ctx.workspaceId,ctx.environmentId,snapshot.archiveFormat,ctx.signal,snapshot);
-          verifyBytes(snapshot,bundle);
-          if(snapshot.dockerfileDigest!==dockerfileDigest)refuse("Approved Dockerfile bytes changed.");
           let bucket: string;
           let azureLocation: Awaited<ReturnType<typeof azureStorage.resolve>> | undefined;
           if (ctx.provider === "aws") {
@@ -452,6 +448,11 @@ function sourceBundles(deps: SourceBundleDeps = {}, githubDb: () => Promise<impo
           } else {
             azureLocation = await azureStorage.resolve(ctx); bucket = azureLocation.bucket;
           }
+          // Resolve the admitted upload target before downloading approved
+          // source bytes. Original pipeline identity stays unchanged.
+          const {bundle,dockerfileDigest}=await immutableAcquire({...input.source,ref:snapshot.commitSha},ctx.workspaceId,ctx.environmentId,snapshot.archiveFormat,ctx.signal,snapshot);
+          verifyBytes(snapshot,bundle);
+          if(snapshot.dockerfileDigest!==dockerfileDigest)refuse("Approved Dockerfile bytes changed.");
           const format = ctx.provider === "aws" ? "zip" : "tar.gz";
           await immutableAccess({owner:snapshot.owner,repo:snapshot.repo,workspaceId:snapshot.workspaceId,environmentId:snapshot.environmentId,ref:snapshot.commitSha,signal:ctx.signal,
             expected:{owner:snapshot.owner,repo:snapshot.repo,repositoryId:snapshot.repositoryId,commitSha:snapshot.commitSha,binding:snapshot.githubBinding}},async()=>undefined);

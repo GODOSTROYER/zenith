@@ -1,11 +1,12 @@
 /** Composition contracts; all federation responses and vault credentials are synthetic. */
-import { beforeAll, beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { decodeJwt } from "jose";
-import type { CapabilityGrantClaims, Sql } from "@/lib/controlplane/types";
+import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
 import type { ConnectionConfig, ProviderSession } from "@/lib/credentials/types";
 import { tempDataDir } from "../_support/data-dir";
 tempDataDir("zenith-compose-contract-", { fast: true });
-const { openPlatformDb, repos } = await import("@/lib/controlplane/db");
+const { openPlatformDb, repos, PLATFORM_SCHEMA_VERSION } = await import("@/lib/controlplane/db");
+const { PG_URL } = await import("../controlplane/_support/harness");
 const { listDrivers } = await import("@/lib/drivers/types");
 const { registerAllDrivers } = await import("@/lib/platform/drivers");
 const { derivePlanFingerprintKey, composeExecutionActivities } = await import("@/lib/platform/execution");
@@ -20,8 +21,17 @@ const { putSecretAsync } = await import("@/lib/secrets");
 const { CONNECTION: gcp } = await import("../providers/gcp/_fake-google");
 const { connection: azure } = await import("../providers/azure/_helpers");
 let db: Awaited<ReturnType<typeof openPlatformDb>>;
+let owningDb: Awaited<ReturnType<typeof openPlatformDb>> | undefined;
 let signer: ReturnType<typeof LocalJwkSigner.fromJwk>;
-beforeAll(async () => { signer = LocalJwkSigner.fromJwk("test", (await generateSigningJwk("RS256")).privateJwk, { alg: "RS256" }); });
+if(process.env.ZENITH_TEST_SOURCE_FIXTURE_REQUIRED==="1") {
+  if(!PG_URL)throw new Error("Default source fixture acceptance requires owned PostgreSQL.");
+  if(PLATFORM_SCHEMA_VERSION<13)throw new Error("Default source fixtures require the canonical registered schema13.");
+}
+beforeAll(async () => {
+  signer = LocalJwkSigner.fromJwk("test", (await generateSigningJwk("RS256")).privateJwk, { alg: "RS256" });
+  if(PG_URL)owningDb=await openPlatformDb({kind:"postgres",url:PG_URL,migrate:true,max:1});
+},60_000);
+afterAll(async()=>{await owningDb?.close();});
 beforeEach(async () => { db = await openPlatformDb({ kind: "pglite" }); resetPlatformAppForTests(); });
 afterEach(async () => { await db.close(); resetPlatformAppForTests(); resetPlatformBrokerForTests(); resetRunnerRuntime(); wireReconcilePorts(null); vi.unstubAllEnvs(); });
 const grant = (over: Partial<CapabilityGrantClaims> = {}): CapabilityGrantClaims => ({ jti: "grant-contract", iss: "zenith-control", aud: "worker", sub: "operator", iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 900, cap: "infrastructure.observe", ws: "ws-contract", op: "read-contract", env: "env-contract", digest: "0".repeat(64), ...over });
@@ -54,7 +64,7 @@ describe("platform composition", () => {
     try {
       const activities=composeExecutionActivities({db,workerIdentity:"test",planDir:world.planDir,secretKey:"1".repeat(64),ports:{
         ops:world.ops,leases:world.leases,evidence:world.evidence,resources:world.resources,product:world.product,broker:world.broker,
-        credentials:world.credentials,connections:world.connections,drivers:world.drivers,sourceBundle:world.sourceBundle,machines:world.deps.machines,
+        credentials:world.credentials,connections:world.connections,drivers:world.drivers,sourceBundle:world.sourceBundle,sourceSnapshots:world.deps.sourceSnapshots,machines:world.deps.machines,
       }});
       // Composition remains available to machine/source reads; the first infrastructure request fails closed.
       const lease=await world.lease();
@@ -64,12 +74,13 @@ describe("platform composition", () => {
       expect(world.tofu.planCalls).toHaveLength(0);expect(world.tofu.applyCalls).toHaveLength(0);
       expect(world.evidence.ofKind("tofu_plan")).toHaveLength(0);expect(world.ops.uncertain).toHaveLength(0);
       expect(()=>composeExecutionActivities({db,workerIdentity:"test",planDir:world.planDir,secretKey:"1".repeat(64),ports:{planArtifacts:world.deps.planArtifacts}})).toThrow("explicit isolated engine");
-      expect(()=>composeExecutionActivities({db,workerIdentity:"test",planDir:world.planDir,secretKey:"1".repeat(64),ports:{planArtifacts:world.deps.planArtifacts,tofu:world.tofu,sourceBundle:world.sourceBundle,machines:world.deps.machines}})).not.toThrow();
+      expect(()=>composeExecutionActivities({db,workerIdentity:"test",planDir:world.planDir,secretKey:"1".repeat(64),ports:{planArtifacts:world.deps.planArtifacts,tofu:world.tofu,sourceBundle:world.sourceBundle,sourceSnapshots:world.deps.sourceSnapshots,machines:world.deps.machines}})).not.toThrow();
       vi.stubEnv("NODE_ENV","production");
       expect(()=>composeExecutionActivities({db,workerIdentity:"test",planDir:world.planDir,secretKey:"1".repeat(64),ports:{planArtifacts:world.deps.planArtifacts,tofu:world.tofu}})).toThrow("only in the test environment");
     } finally {world.dispose();}
   });
-  for (const initiallyPresent of [false,true]) it(`captures optional tool authority ${initiallyPresent ? "present" : "absent"} at composition before lazy resolution`,async()=> {
+  it.skipIf(!PG_URL).each(["absent","present"] as const)("captures optional tool authority %s at composition before lazy resolution",async label=> {
+    const initiallyPresent=label==="present";
     const {createWorld}=await import("../execution/fakes/world");
     const binary=await import("@/lib/tofu/binary");
     const world=createWorld();
@@ -85,11 +96,12 @@ describe("platform composition", () => {
       throw new Error("Captured tool authority fixture stopped before executing OpenTofu.");
     });
     try {
-      // Only the composition wiring is under test. No SQL/tool execution or PostgreSQL evidence is claimed.
-      const capturedStore:Sql & {kind:"postgres"}={...db,kind:"postgres"};
-      const activities=composeExecutionActivities({db:capturedStore,workerIdentity:"capture-contract",planDir:world.planDir,secretKey:"1".repeat(64),ports:{
+      // The default lazy custody constructor receives a physical PostgreSQL
+      // handle. The binary resolver stops before executing OpenTofu.
+      if(!owningDb || owningDb.kind!=="postgres")throw new Error("Owned tool-capture PostgreSQL fixture is unavailable.");
+      const activities=composeExecutionActivities({db:owningDb,workerIdentity:"capture-contract",planDir:world.planDir,secretKey:"1".repeat(64),ports:{
         ops:world.ops,leases:world.leases,evidence:world.evidence,resources:world.resources,product:world.product,broker:world.broker,
-        credentials:world.credentials,connections:world.connections,drivers:world.drivers,sourceBundle:world.sourceBundle,machines:world.deps.machines,
+        credentials:world.credentials,connections:world.connections,drivers:world.drivers,sourceBundle:world.sourceBundle,sourceSnapshots:world.deps.sourceSnapshots,machines:world.deps.machines,
       }});
       for(const key of optional)vi.stubEnv(key,`/late/${key}`);
       vi.stubEnv("ZENITH_PLAN_ARTIFACT_KEY","3".repeat(64));
@@ -162,9 +174,21 @@ describe("platform composition", () => {
     await expect(validateExecutionConfiguration({ ...base, ZENITH_SECRET_KEY: "" })).rejects.toThrow("SECRET_KEY");
     await expect(validateExecutionConfiguration({ ...base, ZENITH_CONTROL_SIGNING_JWK: "PRIVATE-CONTRACT-CANARY" })).rejects.toThrow("usable ZENITH_CONTROL_SIGNING_JWK");
     await expect(openExecutionStore(async () => { throw new Error("DATABASE-CONTRACT-CANARY"); })).rejects.toThrow("Platform store could not open");
-    await expect(openExecutionStore(async () => db)).rejects.toThrow("requires PostgreSQL");
-    await db.query("delete from platform.schema_migrations where version=(select max(version) from platform.schema_migrations)");
-    await expect(openExecutionStore(async () => db)).rejects.toThrow("Platform schema is behind");
+    // Startup owns each opened handle and closes it on refusal. Keep the
+    // beforeEach handle available for its own afterEach cleanup.
+    for (const oldSchema of [false,true]) {
+      const startupDb=await openPlatformDb({kind:"pglite"});
+      const close=vi.spyOn(startupDb,"close");
+      try {
+        if(oldSchema)await startupDb.query("delete from platform.schema_migrations where version=(select max(version) from platform.schema_migrations)");
+        await expect(openExecutionStore(async()=>startupDb)).rejects.toThrow(oldSchema?"Platform schema is behind":"requires PostgreSQL");
+        expect(close).toHaveBeenCalledOnce();
+        await expect(startupDb.query("select 1")).rejects.toThrow("closed");
+      } finally {
+        if(close.mock.calls.length===0)await startupDb.close();
+        close.mockRestore();
+      }
+    }
   });
 });
 

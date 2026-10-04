@@ -281,12 +281,16 @@ describe("customer source bucket uploads", () => {
     const w = await fixture(); const path = `root/${"x".repeat(150)}/日本語.txt`;
     w.rows[1].spec = { ...w.rows[1].spec, source: { ...source, dockerfile: undefined } };
     w.pipeline.spec=w.rows[1].spec;
-    const tar = changeHeader(writeTar([
+    const tar = writeTar([
       { path: "root/Dockerfile", bytes:Buffer.from("FROM scratch\n") },
       { path: "root/run.sh", bytes: Buffer.from("#!/bin/sh\n") },
       { path: "long", type: "gnuLongName", bytes: Buffer.from(`${path}\0`) },
       { path: "stub", bytes: binary },
-    ]), (h) => h.write("0004751\0", 100));
+    ]);
+    // The required Dockerfile precedes run.sh; target the executable file's
+    // own header rather than the first entry, then recompute its checksum.
+    const executableHeader=tar.subarray(1024,1536);
+    executableHeader.write("0004751\0",100);checksum(executableHeader);
     w.fetchImpl.mockImplementation(async () => response(tar));
     await w.recapture();
     const a = await w.port.prepare(w.ctx, { service: w.service, source: { ...source, dockerfile: undefined } });

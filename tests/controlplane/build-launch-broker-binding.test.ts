@@ -84,7 +84,7 @@ describe.skipIf(!PG_URL)("CodeBuild transaction-bound broker [postgres]", () => 
   afterAll(async () => { cb.restore(); s3.restore(); await observer?.close(); await world?.close(); });
   beforeEach(() => { cb.reset(); s3.reset(); model.active = undefined; model.currentMembers.clear(); model.memberRead = undefined; model.memberCalls = []; model.policyInputs = []; model.scopeTx = undefined; resetPlatformBrokerForTests(); });
   afterEach(() => { resetPlatformBrokerForTests(); vi.restoreAllMocks(); });
-  async function fixture(boundSource=false,omitSource=false) {
+  async function fixture(boundSource=false) {
     const h=await makeHarness({kind:"postgres",engine:scriptedEngine("build-policy",input => {
       model.policyInputs.push({autonomyLevel:input.environment?.autonomyLevel,twoPerson:input.workspacePolicy.twoPersonProduction,regions:input.workspacePolicy.approvedRegions});
       if (input.workspacePolicy.approvedRegions && !input.workspacePolicy.approvedRegions.includes(input.environment?.region ?? ""))
@@ -111,7 +111,7 @@ describe.skipIf(!PG_URL)("CodeBuild transaction-bound broker [postgres]", () => 
       dockerfile:"Dockerfile",dockerfileDigest:digest("modeled Dockerfile bytes"),recipeDigest:sourceRecipe(service,pipeline),archiveFormat:"zip",archiveDigest:sourceDigest,archiveBytes:100});
     // Modeled snapshot/archive provenance; real owning PostgreSQL/CAS/approval and SDK protocol below.
     if(boundSource)await world.db.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by) values ($1,'42',7,99,'acme','web',1,'fixture-admin')",[workspaceId]);
-    if(!omitSource)await world.db.query("insert into platform.approved_source_snapshots(workspace_id,operation_id,project_id,environment_id,service_address,snapshot,snapshot_digest) values ($1,$2,$3,$4,$5,$6::text::jsonb,$7)",
+    await world.db.query("insert into platform.approved_source_snapshots(workspace_id,operation_id,project_id,environment_id,service_address,snapshot,snapshot_digest) values ($1,$2,$3,$4,$5,$6::text::jsonb,$7)",
       [workspaceId,op.id,h.ids.projA,environmentId,service.address,JSON.stringify(sourceSnapshot),sourceSnapshotDigest(sourceSnapshot)]);
     const plan=makePlan({changes:[change({address:"aws_codebuild_project.web",type:"aws_codebuild_project",action:"create"})]});
     plan.executableSourceDigest=sourceSnapshotSetDigest([sourceSnapshot]);
@@ -328,11 +328,45 @@ describe.skipIf(!PG_URL)("CodeBuild transaction-bound broker [postgres]", () => 
     await live(f);await expect(startBuild(f.ctx,f.pipeline,f.input,world.db2)).rejects.toMatchObject({code:"build_launch_unconfirmed"});expect(await inventory(f)).toEqual([]);expect(cb.commandCalls(StartBuildCommand)).toHaveLength(0);
   });
   it.each(["missing row","foreign project row","wrong approved set","simulated approval evidence"] as const)("native source CAS refuses %s without a new launch",async failure=>{
-    const f=await fixture(false,failure==="missing row"||failure==="foreign project row");
-    if(failure==="foreign project row"){const foreign=immutableSourceSnapshot({...f.sourceSnapshot,projectId:f.h.ids.projB});await world.db.query("insert into platform.approved_source_snapshots(workspace_id,operation_id,project_id,environment_id,service_address,snapshot,snapshot_digest) values ($1,$2,$3,$4,$5,$6::text::jsonb,$7)",[f.ctx.workspaceId,f.op.id,foreign.projectId,f.ctx.environmentId,f.service.address,JSON.stringify(foreign),sourceSnapshotDigest(foreign)]);}
+    const f=await fixture();
+    let input=f.input;
+    const boundaryCase=failure==="missing row"||failure==="foreign project row";
+    const retained=async()=>world.db.query("select snapshot,snapshot_digest from platform.approved_source_snapshots where workspace_id=$1 and operation_id=$2 order by service_address",[f.ctx.workspaceId,f.op.id]);
+    const original=boundaryCase?await retained():undefined;
+    if(failure==="missing row") {
+      // The original approved set remains intact. Only this requested service
+      // lacks a retained row; this does not model deletion of immutable rows.
+      const unreviewed={...f.service,address:"container_service/unreviewed"};
+      await repos.resources.upsertDesired(world.db,{workspaceId:f.ctx.workspaceId,projectId:f.h.ids.projA,environmentId:f.ctx.environmentId,node:unreviewed,status:"active"});
+      input={...f.input,service:unreviewed,sourceS3Key:`zenith/${f.ctx.environmentId}/unreviewed/${f.input.sourceDigest}.zip`};
+    }
+    if(failure==="foreign project row") {
+      // Valid review and consumed approval came first. The retained original
+      // project row is now foreign to the current operation's SQL authority.
+      await world.db.query("update platform.operations set project_id=$3 where workspace_id=$1 and id=$2",[f.ctx.workspaceId,f.op.id,f.h.ids.projB]);
+    }
     if(failure==="wrong approved set")await world.db.query("update platform.evidence set summary=jsonb_set(summary,'{executableSourceDigest}',to_jsonb($3::text)) where workspace_id=$1 and operation_id=$2",[f.ctx.workspaceId,f.op.id,digest("wrong source set")]);
     if(failure==="simulated approval evidence")await world.db.query("update platform.evidence set simulated=true where workspace_id=$1 and operation_id=$2",[f.ctx.workspaceId,f.op.id]);
-    await live(f);await expect(startBuild(f.ctx,f.pipeline,f.input,world.db2)).rejects.toMatchObject({code:"build_launch_unconfirmed"});expect(await inventory(f)).toEqual([]);expect(cb.commandCalls(StartBuildCommand)).toHaveLength(0);
+    const sourceSelect="select snapshot,snapshot_digest from platform.approved_source_snapshots where workspace_id=$1 and operation_id=$2 and project_id=$3 and environment_id=$4 order by service_address for share";
+    const sourceReads:{params:readonly unknown[];rows:unknown[]}[]=[];
+    // Transparent observation: every query, including this source read, runs
+    // on the actual owning PostgreSQL transaction before its result is recorded.
+    const observe=(sql:Sql):Sql=>({
+      query:async<T=Record<string,unknown>>(text:string,params?:readonly unknown[])=>{
+        const rows=await sql.query<T>(text,params);
+        if(text===sourceSelect)sourceReads.push({params:[...(params??[])],rows:structuredClone(rows)});
+        return rows;
+      },
+      tx:body=>sql.tx(tx=>body(observe(tx))),
+    });
+    expect(world.db2.kind).toBe("postgres");
+    const claimant=boundaryCase?{...observe(world.db2),kind:world.db2.kind}:world.db2;
+    await live(f);await expect(startBuild(f.ctx,f.pipeline,input,claimant)).rejects.toMatchObject({code:"build_launch_unconfirmed"});expect(await inventory(f)).toEqual([]);expect(cb.commandCalls(StartBuildCommand)).toHaveLength(0);
+    if(boundaryCase) {
+      expect(original).toEqual([{snapshot:f.sourceSnapshot,snapshot_digest:sourceSnapshotDigest(f.sourceSnapshot)}]);
+      expect(sourceReads).toEqual([{params:[f.ctx.workspaceId,f.op.id,failure==="foreign project row"?f.h.ids.projB:f.h.ids.projA,f.ctx.environmentId],rows:failure==="foreign project row"?[]:original!}]);
+      expect(await retained()).toEqual(original);
+    }
   });
   async function mutateSettings(f:Awaited<ReturnType<typeof fixture>>, change:string) {
     if(change==="two-person policy") await repos.settings.putWorkspacePolicy(world.db,{workspaceId:f.ctx.workspaceId,updatedBy:"fixture-admin",params:{twoPersonProduction:true}});

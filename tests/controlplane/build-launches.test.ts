@@ -1,4 +1,4 @@
-/** Actual PostgreSQL authority acceptance. Synthetic completed-plan use is a fixture, not provider/apply provenance. */
+/** Actual PostgreSQL authority acceptance. Source/archive metadata and completed-plan use are modeled, not provider/apply provenance. */
 import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 import { digest } from "@/lib/controlplane/digest";
 import * as launches from "@/lib/controlplane/db/repos/build-launches";
@@ -12,6 +12,7 @@ import { planEvidence } from "@/lib/execution/plan-evidence";
 import { createOperationsPort } from "@/lib/execution/platform";
 import { createExecutionBroker } from "@/lib/platform/broker";
 import { mkNode } from "../providers/aws/drivers/compute/fixtures";
+import { immutableSourceSnapshot, sourceRecipe, sourceSnapshotDigest, sourceSnapshotSetDigest } from "@/lib/execution/source-snapshot";
 
 closeSharedPgliteAfterAll();
 
@@ -34,9 +35,23 @@ describe.skipIf(!PG_URL)("build launch authority [postgres]",()=>{
     await decide();
     await h.broker.beginExecution({workspaceId,operationId:op.id,holder:`workflow:${op.id}`,audience:"worker"});
     const ports=createOperationsPort(world.db), worker=createExecutionBroker(world.db,async()=>h.broker);
+    const sourceDigest=digest("source");
+    const pipeline=mkNode("build_pipeline/web","build_pipeline","aws:codebuild_project",{source:{repo:"https://github.com/acme/web",ref:"revision"}},{region,specDigest:digest("pipeline")});
+    const service=mkNode("container_service/web","container_service","aws:ecs_service",{artifact:{type:"built",pipeline:pipeline.address}},{region,specDigest:digest("service")});
+    for(const node of [pipeline,service]) await repos.resources.upsertDesired(world.db,{workspaceId,projectId:h.ids.projA,environmentId,node,status:"active"});
+    // This SQL fixture models captured bytes. Native source scope, immutable
+    // review, current human approval and dispatch CAS use the actual PG store.
+    const sourceSnapshot=immutableSourceSnapshot({format:"zenith.approved-source.v1",workspaceId,operationId:op.id,projectId:h.ids.projA,environmentId,
+      serviceAddress:service.address,serviceSpecDigest:service.specDigest,pipelineAddress:pipeline.address,pipelineSpecDigest:pipeline.specDigest,provider:"aws",region,
+      owner:"acme",repo:"web",repositoryId:99,requestedRef:"revision",commitSha:"a".repeat(40),githubBinding:null,
+      dockerfile:"Dockerfile",dockerfileDigest:digest("modeled Dockerfile bytes"),recipeDigest:sourceRecipe(service,pipeline),archiveFormat:"zip",archiveDigest:sourceDigest,archiveBytes:100});
+    await world.db.query("insert into platform.approved_source_snapshots(workspace_id,operation_id,project_id,environment_id,service_address,snapshot,snapshot_digest) values ($1,$2,$3,$4,$5,$6::text::jsonb,$7)",
+      [workspaceId,op.id,h.ids.projA,environmentId,service.address,JSON.stringify(sourceSnapshot),sourceSnapshotDigest(sourceSnapshot)]);
     const plan=makePlan({changes:[change({address:"aws_codebuild_project.web",type:"aws_codebuild_project",action:"create"})]});
+    plan.executableSourceDigest=sourceSnapshotSetDigest([sourceSnapshot]);
+    plan.planDigest=digest({configDigest:plan.configDigest,lockDigest:plan.lockDigest,tofuVersion:plan.tofuVersion,resourceChanges:plan.resourceChanges,outputChanges:plan.outputChanges,executableSourceDigest:plan.executableSourceDigest});
     const facts=buildPlanFacts(plan)!;
-    await repos.evidence.insert(world.db,{workspaceId,operationId:op.id,kind:"tofu_plan",digest:plan.planDigest,summary:planEvidence({plan,facts,cost:{},graphDigest:digest("graph"),stage:"plan"}).summary,simulated:false});
+    await repos.evidence.insert(world.db,{workspaceId,operationId:op.id,kind:"tofu_plan",digest:plan.planDigest,summary:planEvidence({plan,facts,cost:{},graphDigest:digest("graph"),stage:"plan",approvedSources:[sourceSnapshot]}).summary,simulated:false});
     await ports.setPlanDigest({workspaceId,operationId:op.id,planDigest:plan.planDigest});
     const policy=await worker.reevaluate(op.id,facts);
     await ports.setPolicyDecision({workspaceId,operationId:op.id,decisionId:policy.decisionId});
@@ -49,13 +64,9 @@ describe.skipIf(!PG_URL)("build launch authority [postgres]",()=>{
     if(!status.approved || !status.dispatchApproval) throw new Error("Fixture has no current dispatch approval.");
     const claim=launches.createIsolatedBuildClaimerForTests(h.broker);
     await world.db.query("insert into platform.plan_artifact_uses (workspace_id,operation_id,phase) values ($1,$2,'succeeded')",[workspaceId,op.id]);
-    const pipeline=mkNode("build_pipeline/web","build_pipeline","aws:codebuild_project",{source:{repo:"https://github.com/acme/web",ref:"revision"}},{region,specDigest:digest("pipeline")});
-    const service=mkNode("container_service/web","container_service","aws:ecs_service",{artifact:{type:"built",pipeline:pipeline.address}},{region,specDigest:digest("service")});
-    for(const node of [pipeline,service]) await repos.resources.upsertDesired(world.db,{workspaceId,environmentId,node,status:"active"});
     const connection=await repos.connections.create(world.db,{workspaceId,createdBy:"fixture-admin",config:{provider:"aws",mode:"oidc_web_identity",accountId,region,observeRoleArn:`arn:aws:iam::${accountId}:role/observe`,deployRoleArn:`arn:aws:iam::${accountId}:role/deploy`}});
     await repos.connections.recordVerification(world.db,{workspaceId,id:connection.id,ok:true});
     await registerEnvironment(world.db,{environment:{workspaceId,environmentId,provider:"aws",region,class:"development",connection:{id:connection.id,status:"verified"}}});
-    const sourceDigest=digest("source");
     const binding:launches.BuildLaunchBinding={workspaceId,operationId:op.id,environmentId,serviceAddress:service.address,serviceSpecDigest:service.specDigest,pipelineAddress:pipeline.address,pipelineSpecDigest:pipeline.specDigest,accountId,region,projectName:"zenith-build-web",projectArn:`arn:aws:codebuild:${region}:${accountId}:project/zenith-build-web`,sourceBucket:"zenith-source-fixture",sourceKey:`zenith/${environmentId}/web/${sourceDigest}.zip`,sourceDigest,settingsDigest:digest("settings"),executedSettingsDigest:digest("executed-settings")};
     return {claim,h,worker,binding,fence:{scope:lease.scope,token:lease.fenceToken},op,connection,buildId:"zenith-build-web:11111111-2222-3333-4444-555555555555"};
   }

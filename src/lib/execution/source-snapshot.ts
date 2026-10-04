@@ -112,7 +112,7 @@ export async function approvedSources(rt: Runtime, ec: ExecContext, graph: Resou
   ec.approvedSourceSnapshots = Object.freeze(result);
   ec.executableSourceDigest = sourceSnapshotSetDigest(result);
   if (ec.op.planDigest) {
-    const evidence = await rt.d.evidence.find({ workspaceId: ec.workspaceId, operationId: ec.op.id, kind: "tofu_plan", digest: ec.op.planDigest });
+    const evidence = await rt.d.evidence.find({ workspaceId: ec.workspaceId, operationId: ec.op.id, kind: "tofu_plan", digest: ec.op.planDigest, stage: "plan" });
     if (!evidence || evidence.simulated || evidence.workspaceId !== ec.workspaceId || evidence.operationId !== ec.op.id
       || evidence.digest !== ec.op.planDigest || evidence.summary.stage!=="plan" || evidence.summary.planDigest !== ec.op.planDigest
       || evidence.summary.executableSourceDigest !== ec.executableSourceDigest) throw new StepFailedError("The reviewed build plan does not bind this source snapshot; a new operation and review are required.");

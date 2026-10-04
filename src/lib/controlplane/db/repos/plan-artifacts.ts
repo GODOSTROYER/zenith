@@ -1,4 +1,4 @@
-/** Database-only transactions. Lock order is live environment fence, operation, artifact, use. */
+/** Database-only transactions. Lock order is live environment fence, operation, artifact, ordered source resources, use. */
 import type { Sql } from "@/lib/controlplane/types";
 import type { PlanArtifactManifest, PlanCustodyInput } from "@/lib/tofu/engine";
 import type { Sealed } from "@/lib/secrets";
@@ -10,6 +10,8 @@ import { assertFence } from "./leases";
 import { get } from "./operations";
 import { setPlanDigest } from "@/lib/controlplane/operations/execution";
 import * as evidence from "./evidence";
+import { projectPlanReview } from "./operation-review";
+import type { ApprovedSourceSnapshot } from "@/lib/execution/source-snapshot";
 
 export class PlanArtifactError extends Error {
   readonly code = "plan_artifact_unavailable";
@@ -167,6 +169,111 @@ const LIVE_USE_AUTHORITY = `exists (select 1 from platform.operations o join pla
   and (exists (select 1 from platform.plan_artifacts a where a.workspace_id=$1 and a.operation_id=$2 and a.expires_at > clock_timestamp())
   or exists (select 1 from platform.plan_artifact_associations s join platform.plan_artifacts a on a.workspace_id=s.workspace_id and a.operation_id=s.source_operation_id
     where s.workspace_id=$1 and s.operation_id=$2 and s.expires_at > clock_timestamp() and a.expires_at > clock_timestamp()))`;
+
+interface SourceDispatchAuthority {
+  operationId: string; projectId: string; environmentId: string; manifestDigest: string; planDigest: string;
+  sources: readonly ApprovedSourceSnapshot[];
+  recipes: readonly { snapshot: ApprovedSourceSnapshot; snapshotDigest: string; serviceSpec: Record<string, unknown>; pipelineSpec: Record<string, unknown> }[];
+  setDigest: string | null;
+  evidence: { id: string; summary: Record<string, unknown> } | null;
+}
+const SOURCE_VIEW_FIELDS = ["executableSourceDigest", "approvedSources", "approvedSourcesTruncated", "approvedSourcesOmitted"] as const;
+function sourceFields(summary: Record<string, unknown>): boolean {
+  return Object.hasOwn(summary, "executableSourceDigest") || !!summary.view && typeof summary.view === "object"
+    && SOURCE_VIEW_FIELDS.some(key => Object.hasOwn(summary.view as object, key));
+}
+/** Derived from the original owning rows after current roles, never from an apply caller or a proof callback. */
+async function captureSourceDispatch(tx: Sql, row: ArtifactRow): Promise<SourceDispatchAuthority> {
+  const m = row.manifest;
+  const native = await tx.query<{ project_id: string; environment_id: string; service_address: string; snapshot: unknown; snapshot_digest: string }>(
+    "select project_id,environment_id,service_address,snapshot,snapshot_digest from platform.approved_source_snapshots where workspace_id=$1 and operation_id=$2 order by service_address collate \"C\" limit 10001",
+    [m.workspaceId, m.operationId]);
+  if (native.length > 10000) refuse();
+  const reviews = await tx.query<{ id: string; summary: Record<string, unknown> }>(`select id,summary from platform.evidence
+    where workspace_id=$1 and operation_id=$2 and kind='tofu_plan' and not simulated and digest=$3 and summary->>'stage'='plan'
+    order by created_at,id`, [m.workspaceId, m.operationId, row.plan_digest]);
+  const bound = native.length > 0 || reviews.some(review => sourceFields(review.summary));
+  const base = { operationId: m.operationId, projectId: m.projectId, environmentId: m.environmentId,
+    manifestDigest: row.manifest_digest, planDigest: row.plan_digest };
+  // Historical source-free custody is admitted only after querying native absence and every matching original review.
+  if (!bound) return { ...base, sources: [], recipes: [], setDigest: null, evidence: null };
+  const { immutableSourceSnapshot, sourceSnapshotDigest, sourceSnapshotSetDigest, sourceRecipeMatches } = await import("@/lib/execution/source-snapshot");
+  const sources = native.map(value => {
+    let snapshot: ApprovedSourceSnapshot;
+    try { snapshot = immutableSourceSnapshot(value.snapshot); } catch { refuse(); }
+    if (snapshot.workspaceId !== m.workspaceId || snapshot.operationId !== m.operationId || snapshot.projectId !== m.projectId
+      || snapshot.environmentId !== m.environmentId || value.project_id !== m.projectId || value.environment_id !== m.environmentId
+      || value.service_address !== snapshot.serviceAddress || sourceSnapshotDigest(snapshot) !== value.snapshot_digest) refuse();
+    return snapshot;
+  }).sort((a, b) => a.serviceAddress < b.serviceAddress ? -1 : a.serviceAddress > b.serviceAddress ? 1 : 0);
+  if (!sources.length) refuse();
+  const original = reviews[0], review = original && projectPlanReview(original.summary, row.plan_digest);
+  const setDigest = sourceSnapshotSetDigest(sources);
+  const displayed = sources.slice(0,64).map(snapshot => ({ service: snapshot.serviceAddress, commit: snapshot.commitSha,
+    dockerfileDigest: snapshot.dockerfileDigest, recipeDigest: snapshot.recipeDigest, archiveDigest: snapshot.archiveDigest, archiveFormat: snapshot.archiveFormat }));
+  if (!original || !review || review.view.executableSourceDigest !== setDigest
+    || JSON.stringify(review.view.approvedSources) !== JSON.stringify(displayed)
+    || review.view.approvedSourcesTruncated !== (sources.length > 64 ? true : undefined)
+    || review.view.approvedSourcesOmitted !== (sources.length > 64 ? sources.length - 64 : undefined)) refuse();
+  const addresses = [...new Set(sources.flatMap(snapshot => [snapshot.serviceAddress, snapshot.pipelineAddress]))].sort();
+  const resources = await tx.query<{ address: string; kind: string; provider: string; region: string; spec_digest: string; spec: Record<string, unknown>; ownership: string; status: string }>(
+    "select address,kind,provider,region,spec_digest,spec,ownership,status from platform.resources where workspace_id=$1 and project_id=$2 and environment_id=$3 and address=any($4::text[]) order by address for share",
+    [m.workspaceId, m.projectId, m.environmentId, addresses]);
+  const bindings = await tx.query<{ app_id: string; installation_id: number; repository_id: number; version: number; owner: string; repo: string; revoked_at: unknown }>(
+    "select app_id,installation_id,repository_id,version,owner,repo,revoked_at from platform.github_source_bindings where workspace_id=$1", [m.workspaceId]);
+  const current = bindings[0];
+  const recipes = sources.map(snapshot => {
+    const service = resources.find(resource => resource.address === snapshot.serviceAddress), pipeline = resources.find(resource => resource.address === snapshot.pipelineAddress);
+    if (!service || !pipeline || !["container_service", "scheduled_job"].includes(service.kind) || pipeline.kind !== "build_pipeline"
+      || [service, pipeline].some(resource => resource.provider !== snapshot.provider || resource.region !== snapshot.region
+        || resource.ownership !== "managed" || resource.status === "deleted")
+      || service.spec_digest !== snapshot.serviceSpecDigest || pipeline.spec_digest !== snapshot.pipelineSpecDigest
+      || !sourceRecipeMatches(snapshot, { ...service, provider: snapshot.provider, specDigest: service.spec_digest },
+        { ...pipeline, provider: snapshot.provider, specDigest: pipeline.spec_digest })) refuse();
+    const remembered = snapshot.githubBinding;
+    if (remembered ? !current || current.revoked_at || current.app_id !== remembered.appId
+      || Number(current.installation_id) !== remembered.installationId || Number(current.repository_id) !== remembered.repositoryId
+      || Number(current.version) !== remembered.version || current.owner !== snapshot.owner || current.repo !== snapshot.repo : !!current) refuse();
+    return { snapshot, snapshotDigest: sourceSnapshotDigest(snapshot), serviceSpec: service.spec, pipelineSpec: pipeline.spec };
+  });
+  return { ...base, sources, recipes, setDigest, evidence: original };
+}
+// This parameter is produced only by captureSourceDispatch in this transaction. Every current predicate is repeated in the final statement.
+const DISPATCH_SOURCE_AUTHORITY = `exists(select 1 from platform.plan_artifacts a where a.workspace_id=$1
+    and a.operation_id=$7::text::jsonb->>'operationId' and a.manifest_digest=$7::text::jsonb->>'manifestDigest'
+    and a.plan_digest=$7::text::jsonb->>'planDigest')
+  and coalesce((select jsonb_agg(a.snapshot order by a.service_address collate "C") from platform.approved_source_snapshots a
+    where a.workspace_id=$1 and a.operation_id=$7::text::jsonb->>'operationId'),'[]'::jsonb)=$7::text::jsonb->'sources'
+  and (($7::text::jsonb->>'setDigest' is null and not exists(select 1 from platform.evidence e where e.workspace_id=$1
+    and e.operation_id=$7::text::jsonb->>'operationId' and e.kind='tofu_plan' and not e.simulated and e.digest=$7::text::jsonb->>'planDigest'
+    and e.summary->>'stage'='plan' and (e.summary ? 'executableSourceDigest'
+      or e.summary->'view' ?| array['executableSourceDigest','approvedSources','approvedSourcesTruncated','approvedSourcesOmitted'])))
+    or ($7::text::jsonb->>'setDigest' is not null and exists(select 1 from platform.evidence e where e.workspace_id=$1
+      and e.operation_id=$7::text::jsonb->>'operationId' and e.id=$7::text::jsonb->'evidence'->>'id'
+      and e.kind='tofu_plan' and not e.simulated and e.digest=$7::text::jsonb->>'planDigest' and e.summary=$7::text::jsonb->'evidence'->'summary'
+      and e.summary->>'stage'='plan' and e.summary->>'planDigest'=$7::text::jsonb->>'planDigest'
+      and e.summary->>'executableSourceDigest'=$7::text::jsonb->>'setDigest')))
+  and not exists(select 1 from jsonb_array_elements($7::text::jsonb->'recipes') recipe where
+    not exists(select 1 from platform.approved_source_snapshots a where a.workspace_id=$1
+      and a.operation_id=$7::text::jsonb->>'operationId' and a.project_id=$7::text::jsonb->>'projectId'
+      and a.environment_id=$7::text::jsonb->>'environmentId' and a.service_address=recipe->'snapshot'->>'serviceAddress'
+      and a.snapshot=recipe->'snapshot' and a.snapshot_digest=recipe->>'snapshotDigest')
+    or not exists(select 1 from platform.resources r where r.workspace_id=$1 and r.project_id=$7::text::jsonb->>'projectId'
+      and r.environment_id=$7::text::jsonb->>'environmentId' and r.address=recipe->'snapshot'->>'serviceAddress'
+      and r.kind in ('container_service','scheduled_job') and r.spec_digest=recipe->'snapshot'->>'serviceSpecDigest'
+      and r.spec=recipe->'serviceSpec' and r.provider=recipe->'snapshot'->>'provider' and r.region=recipe->'snapshot'->>'region'
+      and r.ownership='managed' and r.status<>'deleted')
+    or not exists(select 1 from platform.resources r where r.workspace_id=$1 and r.project_id=$7::text::jsonb->>'projectId'
+      and r.environment_id=$7::text::jsonb->>'environmentId' and r.address=recipe->'snapshot'->>'pipelineAddress'
+      and r.kind='build_pipeline' and r.spec_digest=recipe->'snapshot'->>'pipelineSpecDigest' and r.spec=recipe->'pipelineSpec'
+      and r.provider=recipe->'snapshot'->>'provider' and r.region=recipe->'snapshot'->>'region' and r.ownership='managed' and r.status<>'deleted')
+    or not ((recipe->'snapshot'->'githubBinding'='null'::jsonb and not exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1))
+      or exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and b.revoked_at is null
+        and b.owner=recipe->'snapshot'->>'owner' and b.repo=recipe->'snapshot'->>'repo'
+        and b.app_id=recipe->'snapshot'->'githubBinding'->>'appId'
+        and b.installation_id=(recipe->'snapshot'->'githubBinding'->>'installationId')::bigint
+        and b.repository_id=(recipe->'snapshot'->'githubBinding'->>'repositoryId')::bigint
+        and b.version=(recipe->'snapshot'->'githubBinding'->>'version')::integer)))`;
 export async function claim(sql: Sql, input: ArtifactAccess, attemptId: string): Promise<ArtifactRow> {
   input = captured(input);
   return sql.tx(async (tx) => {
@@ -186,9 +293,16 @@ export async function dispatch(sql: Sql, input: ArtifactAccess, attemptId: strin
   }
   input = captured(input);
   await sql.tx(async (tx) => {
-    await read(tx,input);
+    const row = await read(tx,input);
+    const sourceAuthority = await captureSourceDispatch(tx,row);
+    // A separate post-wait statement must see revocation committed while this owning use row was blocked.
+    const owned = await tx.query(`select operation_id from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2
+      and phase='claimed' and attempt_id=$3 and holder=$4 and fence_token=$5 for update`,
+      [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken]);
+    if (owned.length !== 1) refuse();
     const changed = await tx.query(`update platform.plan_artifact_uses set phase='dispatched',updated_at=clock_timestamp()
       where workspace_id=$1 and operation_id=$2 and phase='claimed' and attempt_id=$3 and holder=$4 and fence_token=$5 and (${LIVE_USE_AUTHORITY})
+      and (${DISPATCH_SOURCE_AUTHORITY})
       and ($6::text::jsonb is null or exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2
         and o.approval_round=($6::text::jsonb->>'approvalRound')::integer and o.proposal_digest=$6::text::jsonb->>'proposalDigest'
         and o.plan_digest=$6::text::jsonb->>'planDigest'
@@ -198,7 +312,7 @@ export async function dispatch(sql: Sql, input: ArtifactAccess, attemptId: strin
           and a.consumed_at is not null and a.expires_at > clock_timestamp()) >= ($6::text::jsonb->>'requiredApprovalCount')::integer
         and not exists (select 1 from platform.approvals a where a.workspace_id=$1 and a.operation_id=$2 and a.approval_round=o.approval_round and a.decision='reject')))
       returning operation_id`,
-      [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken,authority?JSON.stringify(authority):null]);
+      [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken,authority?JSON.stringify(authority):null,JSON.stringify(sourceAuthority)]);
     if (!changed.length) refuse();
   });
 }

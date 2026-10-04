@@ -174,9 +174,9 @@ export function createEvidencePort(sql: Sql): EvidencePort {
         throw err;
       }
     },
-    async find({ workspaceId, operationId, kind, digest }) {
+    async find({ workspaceId, operationId, kind, digest, stage }) {
       const rows = await repos.evidence.list(sql, workspaceId, { operationId, limit: 200 });
-      return rows.find((r) => r.kind === kind && (digest === undefined || r.digest === digest)) ?? null;
+      return rows.find((r) => r.kind === kind && (digest === undefined || r.digest === digest) && (stage === undefined || r.summary.stage === stage)) ?? null;
     },
   };
 }

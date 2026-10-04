@@ -56,8 +56,8 @@ export class FakeEvidence implements EvidencePort {
     this.rows.push(row);
     return row;
   }
-  async find({ workspaceId, operationId, kind, digest }: { workspaceId: string; operationId: string; kind: EvidenceRecord["kind"]; digest?: string }): Promise<EvidenceRecord | null> {
-    return [...this.rows].reverse().find((r) => r.workspaceId === workspaceId && r.operationId === operationId && r.kind === kind && (digest === undefined || r.digest === digest)) ?? null;
+  async find({ workspaceId, operationId, kind, digest, stage }: Parameters<EvidencePort["find"]>[0]): Promise<EvidenceRecord | null> {
+    return [...this.rows].reverse().find((r) => r.workspaceId === workspaceId && r.operationId === operationId && r.kind === kind && (digest === undefined || r.digest === digest) && (stage === undefined || r.summary.stage === stage)) ?? null;
   }
   ofKind(kind: EvidenceRecord["kind"]): EvidenceRecord[] {
     return this.rows.filter((r) => r.kind === kind);

@@ -5,14 +5,19 @@ import { mkdtemp, rm, readFile, writeFile, readdir, chmod } from "node:fs/promis
 import path from "node:path";
 import os from "node:os";
 import { promisify } from "node:util";
+import { gzipSync } from "node:zlib";
 import { z } from "zod";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { openPlatformDb, repos } from "@/lib/controlplane/db";
 import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
 import { PlanArtifactError } from "@/lib/controlplane/db/repos/plan-artifacts";
 import type { BrokerPort } from "@/lib/execution/ports";
 import { digest } from "@/lib/controlplane/digest";
 import { executionHolder } from "@/lib/execution/platform";
+import { createApprovedSourceSnapshotStore } from "@/lib/controlplane/db/repos/approved-source-snapshots";
+import { PLATFORM_SCHEMA_VERSION } from "@/lib/controlplane/db/migrations";
+import { createOwningSourceBundles } from "@/lib/platform/source-bundle";
+import { sourceRecipe, sourceSnapshotSetDigest, type ApprovedSourceSnapshot, type SourceCaptureInput } from "@/lib/execution/source-snapshot";
 import { createPlanEngineAuthority, createPlanArtifactCodec, planWorkspace, applyVerifiedPlan, type PlanCustodyInput, type ApprovedPlan } from "@/lib/tofu/engine";
 import { createExecutionBroker } from "@/lib/platform/broker";
 import { checkDestroyApproval } from "@/lib/execution/destroy";
@@ -27,6 +32,9 @@ import { createBroker } from "@/lib/capabilities/platform";
 import { PlatformBrokerStore } from "@/lib/capabilities/platform-store";
 import { makeHarness, scriptedEngine, requireApproval, allowDecision, sessionFor, user } from "../capabilities/support";
 import { PG_URL, seedApprovedOperation, withScratchDatabase } from "../controlplane/_support/harness";
+import { mkNode } from "../providers/aws/drivers/compute/fixtures";
+import { writeTar } from "../_support/tar";
+import { keys, api } from "../sources/fixtures";
 
 const sha = (value: Buffer) => createHash("sha256").update(value).digest("hex");
 const runFile=promisify(execFile);
@@ -72,7 +80,7 @@ let db; try {
  const produced=await runtime.tofu.planWorkspace(c.ws,undefined,{custody:c.custody,lock:false,destroy:c.destroy,normalize:{fingerprintKey:c.fingerprint,...(c.executableSourceDigest?{executableSourceDigest:c.executableSourceDigest}:{})}});
  const port=runtime.planArtifacts;
  await port.publish({produced:produced.produced,lease:c.lease,evidence:{id:c.evidenceId,workspaceId:c.custody.workspaceId,operationId:c.custody.operationId,
-  kind:'tofu_plan',digest:produced.plan.planDigest,summary:{...planEvidence({plan:produced.plan,facts:extractPlanFacts(produced.plan),cost:{},graphDigest:c.custody.graphDigest,stage:'plan'}).summary,destroy:!!c.destroy,destroyAddresses:produced.plan.resourceChanges.map(r=>r.address),statefulDeletes:[]},simulated:false}});
+  kind:'tofu_plan',digest:produced.plan.planDigest,summary:{...planEvidence({plan:produced.plan,facts:extractPlanFacts(produced.plan),cost:{},graphDigest:c.custody.graphDigest,stage:'plan',...(c.approvedSources?{approvedSources:c.approvedSources}:{})}).summary,destroy:!!c.destroy,destroyAddresses:produced.plan.resourceChanges.map(r=>r.address),statefulDeletes:[]},simulated:false}});
  process.stdout.write(JSON.stringify({planDigest:produced.plan.planDigest}));
 } catch { process.exitCode=1; } finally { await db?.close(); }
 `;
@@ -91,9 +99,11 @@ async function producer(config:unknown):Promise<{planDigest:string}> {
 }
 
 // Missing prerequisites remain visible skips locally; committed mandatory gate declarations must reject them in CI.
+if (process.env.ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED === "1" && (!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK !== "1" || PLATFORM_SCHEMA_VERSION < 13))
+  throw new Error("Original plan source acceptance requires actual PostgreSQL, canonical schema13 and pinned OpenTofu network admission.");
 describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK !== "1")("authenticated original cross-worker handoff [postgres]",()=>{
   async function fixture<T>(fn:(f:Awaited<ReturnType<typeof setup>>)=>Promise<T>) {
-    return withScratchDatabase(async url=>{const f=await setup(url);try{return await fn(f);}finally{await f.a.close();await f.b.close();await rm(f.temp,{recursive:true,force:true});}});
+    return withScratchDatabase(async url=>{const f=await setup(url);try{return await fn(f);}finally{await f.closeSourceFixture();await f.a.close();await f.b.close();await rm(f.temp,{recursive:true,force:true});}});
   }
   async function setup(url:string) {
     const a=await openPlatformDb({kind:"postgres",url,migrate:true,max:3}); const b=await openPlatformDb({kind:"postgres",url,max:3});
@@ -101,6 +111,7 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
     const state=path.join(temp,"customer-state.tfstate"), cache=path.join(temp,"cache");
     const runner=new InspectRunner({workRoot:temp,pluginCacheDir:cache,limits:{timeoutMs:120000}});
     const key=randomBytes(32).toString("hex"), fingerprint=randomBytes(32).toString("hex");
+    let sourceMaterial: Awaited<ReturnType<typeof keys>> | undefined;
     // This SQL/tool fixture isolates product scope/policy; the full review scenario installs the scoped canonical broker below.
     const fixtureBroker=(db:typeof b):Pick<BrokerPort,"approvalStatus">=>({approvalStatus:async id=>{
       const op=(await repos.operations.getForSystem(db,id))!;
@@ -110,16 +121,40 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
     const custodyRuntime=createIsolatedPlanArtifactRuntimeForTests(b,{...process.env,ZENITH_PLAN_ARTIFACT_KEY:key,ZENITH_WORKER_PLAN_DIR:temp,ZENITH_TOFU_PLUGIN_CACHE:cache},{approvalStatus:id=>dispatchBroker.approvalStatus(id)});
     const port=custodyRuntime.planArtifacts;
     const ws=(value="v1")=>builtinWorkspace(state,{"resource/test":dataFragment("test",value)});
-    async function review(workspace=ws(),destroy=false,sourceReview=false,executableSourceDigest?:string) {
+    async function review(workspace=ws(),destroy=false,sourceReview=false,withSource=false,boundSource=false) {
       const workspaceId=`ws_${randomUUID()}`,environmentId=`env_${randomUUID()}`;
       const {operation:op}=await seedApprovedOperation(a,workspaceId,{proposal:{capability:sourceReview?"infrastructure.plan":destroy?"infrastructure.destroy":"infrastructure.apply",
         scope:{workspaceId,projectId:"proj_1",environmentId},input:{environmentId,...(sourceReview?{teardownReview:true}:{})}}});
-      await repos.operations.claimForExecution(a,{workspaceId,id:op.id,expectedDigest:op.proposalDigest,holder:executionHolder(op.id),leaseMs:120000});
       const lease=await repos.leases.acquire(a,{scope:`env:${op.environmentId}`,workspaceId,holder:`worker:producer:${op.id}`,ttlMs:120000});
       if(!lease)throw new Error("Review lease missing");
+      await repos.operations.claimForExecution(a,{workspaceId,id:op.id,expectedDigest:op.proposalDigest,holder:executionHolder(op.id),leaseMs:120000,lease});
+      let approvedSources: ApprovedSourceSnapshot[] | undefined;
+      if(withSource) {
+        // Explicit modeled GitHub transport with genuine branded capture and the owning native immutable store.
+        const pipeline=mkNode("build_pipeline/web","build_pipeline","aws:codebuild_project",{source:{repo:"acme/app",ref:"main",dockerfile:"Dockerfile"}},{region:"eu-west-1",specDigest:digest("pipeline")});
+        const service=mkNode("container_service/web","container_service","aws:ecs_service",{artifact:{type:"built",pipeline:pipeline.address}},{region:"eu-west-1",specDigest:digest("service")});
+        for(const node of [pipeline,service])await repos.resources.upsertDesired(a,{workspaceId,projectId:op.projectId!,environmentId:op.environmentId!,node,status:"active"});
+        if(boundSource) {
+          sourceMaterial ??= await keys();
+          vi.stubEnv("ZENITH_GITHUB_APP_ID","42");vi.stubEnv("ZENITH_GITHUB_APP_PRIVATE_KEY_FILE",sourceMaterial.config.privateKeyFile);
+          await a.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by) values ($1,'42',7,99,'acme','app',1,'fixture-admin')",[workspaceId]);
+        }
+        const app=api();
+        const fetchImpl:typeof fetch=async(raw,init)=>{const url=String(raw);
+          if(url==="https://api.github.com/repos/acme/app")return Response.json({id:99,name:"app",owner:{login:"acme"},private:boundSource});
+          if(url.startsWith("https://api.github.com/repos/acme/app/commits/"))return new Response("a".repeat(40));
+          if(url.startsWith("https://codeload.github.com/acme/app/tar.gz/"))return new Response(new Uint8Array(gzipSync(writeTar([{path:"root/Dockerfile",bytes:Buffer.from("FROM scratch\n")},{path:"root/app.txt",bytes:Buffer.from("immutable source fixture")}]))));
+          return app(raw,init);
+        };
+        const store=createApprovedSourceSnapshotStore(a),source=createOwningSourceBundles(a,{sourceSnapshots:store,fetchImpl});
+        const input:SourceCaptureInput={workspaceId,operationId:op.id,projectId:op.projectId!,environmentId:op.environmentId!,serviceAddress:service.address,serviceSpecDigest:service.specDigest,
+          pipelineAddress:pipeline.address,pipelineSpecDigest:pipeline.specDigest,provider:"aws",region:service.region,repository:"acme/app",requestedRef:"main",dockerfile:"Dockerfile",recipeDigest:sourceRecipe(service,pipeline),archiveFormat:"zip"};
+        const captured=await source.port.capture(input);await store.retain(captured,lease);approvedSources=[captured];
+      }
+      const executableSourceDigest=approvedSources && sourceSnapshotSetDigest(approvedSources);
       const custody:PlanCustodyInput={workspaceId,projectId:op.projectId!,environmentId:op.environmentId!,operationId:op.id,proposalDigest:op.proposalDigest,inputDigest:op.inputDigest,expiresAt:op.expiresAt,sourceDigest:digest("source"),graphDigest:digest(workspace.addressMap)};
       const localA=await mkdtemp(path.join(temp,"producer-"));
-      const plan=await producer({url,key,fingerprint,ws:workspace,custody,lease,workRoot:localA,cache,destroy,executableSourceDigest,evidenceId:`evd_${op.id}`});
+      const plan=await producer({url,key,fingerprint,ws:workspace,custody,lease,workRoot:localA,cache,destroy,executableSourceDigest,approvedSources,evidenceId:`evd_${op.id}`});
       await rm(localA,{recursive:true,force:true});
       expect(await readdir(temp)).not.toContain(path.basename(localA));
       return {op,lease,custody,planDigest:plan.planDigest,workspace,destroy,executableSourceDigest};
@@ -130,23 +165,50 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
       if (dirs.length!==1) throw new Error("Private worker workspace is not exclusive.");
       return path.join(temp,dirs[0].name,"work");
     };
-    return {url,a,b,temp,state,cache,runner,key,fingerprint,port,tofu:custodyRuntime.tofu,ws,review,activeDirectory,fixtureBroker,setDispatchBroker:(broker:Pick<BrokerPort,"approvalStatus">)=>{dispatchBroker=broker;}};
+    return {url,a,b,temp,state,cache,runner,key,fingerprint,port,tofu:custodyRuntime.tofu,ws,review,activeDirectory,fixtureBroker,closeSourceFixture:async()=>{await sourceMaterial?.close();vi.unstubAllEnvs();},setDispatchBroker:(broker:Pick<BrokerPort,"approvalStatus">)=>{dispatchBroker=broker;}};
   }
   it("matching immutable source identity consumes original bytes and a different source digest refuses before dispatch",async()=>{
     await fixture(async f=>{
-      const source="a".repeat(64),r=await f.review(f.ws(),false,false,source);let dispatches=0;
+      const r=await f.review(f.ws(),false,false,true);let dispatches=0;
       await expect(f.port.consume(r,(original,dispatch)=>f.tofu.applyVerifiedPlan(r.workspace,{original,custody:r.custody,approvedDigest:r.planDigest,
         normalize:{fingerprintKey:f.fingerprint,executableSourceDigest:"b".repeat(64)},beforeDispatch:async()=>{dispatches++;await dispatch();}}))).rejects.toThrow();
       expect(dispatches).toBe(0);
       // Failed original attempts are intentionally not reused: obtain a new review/operation.
-      const positive=await f.review(f.ws(),false,false,source);
+      const positive=await f.review(f.ws(),false,false,true);
       const result=await f.port.consume(positive,(original,dispatch)=>f.tofu.applyVerifiedPlan(positive.workspace,{original,custody:positive.custody,approvedDigest:positive.planDigest,
-        normalize:{fingerprintKey:f.fingerprint,executableSourceDigest:source},beforeDispatch:async()=>{
+        normalize:{fingerprintKey:f.fingerprint,executableSourceDigest:positive.executableSourceDigest},beforeDispatch:async()=>{
           const bytes=await readFile(path.join(await f.activeDirectory(),"reviewed.tfplan"));expect(sha(bytes)).toBe(original.manifest.rawSha256);
           dispatches++;await dispatch();
-        }}));expect(result.apply.exitCode).toBe(0);expect(result.plan.executableSourceDigest).toBe(source);expect(dispatches).toBe(1);
+        }}));expect(result.apply.exitCode).toBe(0);expect(result.plan.executableSourceDigest).toBe(positive.executableSourceDigest);expect(dispatches).toBe(1);
     });
   });
+  it("independent saved binary with matching native private source binding applies the exact original once",async()=>{
+    await fixture(async f=>{
+      const r=await f.review(f.ws(),false,false,true,true);let entered=0;
+      const native=await createApprovedSourceSnapshotStore(f.b).list({workspaceId:r.op.workspaceId,operationId:r.op.id,projectId:r.op.projectId!,environmentId:r.op.environmentId!});
+      expect(native).toHaveLength(1);expect(native[0].githubBinding).toEqual({appId:"42",installationId:7,repositoryId:99,version:1});expect(sourceSnapshotSetDigest(native)).toBe(r.executableSourceDigest);
+      const result=await f.port.consume(r,original=>f.tofu.applyVerifiedPlan(r.workspace,{original,custody:r.custody,approvedDigest:r.planDigest,normalize:{fingerprintKey:f.fingerprint,executableSourceDigest:r.executableSourceDigest},beforeDispatch:async()=>{
+        expect(sha(await readFile(path.join(await f.activeDirectory(),"reviewed.tfplan")))).toBe(original.manifest.rawSha256);entered++;
+        await writeFile(path.join(await f.activeDirectory(),"tfplan"),"fresh source fallback forbidden");
+      }}));
+      expect(result.apply.exitCode).toBe(0);expect(entered).toBe(1);
+      expect(await f.b.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[r.op.workspaceId,r.op.id])).toEqual([{phase:"succeeded"}]);
+      await expect(f.port.consume(r,async()=>undefined)).rejects.toThrow();expect(entered).toBe(1);
+    });
+  },180000);
+  it("independent saved binary refuses committed private source revocation before original apply without a fresh fallback",async()=>{
+    await fixture(async f=>{
+      const r=await f.review(f.ws(),false,false,true,true);let reached=0;
+      const beforeState=await readFile(f.state).catch(()=>null);
+      await expect(f.port.consume(r,original=>f.tofu.applyVerifiedPlan(r.workspace,{original,custody:r.custody,approvedDigest:r.planDigest,normalize:{fingerprintKey:f.fingerprint,executableSourceDigest:r.executableSourceDigest},beforeDispatch:async()=>{
+        expect(sha(await readFile(path.join(await f.activeDirectory(),"reviewed.tfplan")))).toBe(original.manifest.rawSha256);reached++;
+        await f.a.query("update platform.github_source_bindings set revoked_at=clock_timestamp(),version=version+1 where workspace_id=$1",[r.op.workspaceId]);
+      }}))).rejects.toThrow("unconfirmed");
+      expect(reached).toBe(1);expect(await readFile(f.state).catch(()=>null)).toEqual(beforeState);
+      expect(await f.b.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[r.op.workspaceId,r.op.id])).toEqual([{phase:"ready"}]);
+      expect(await f.b.query("select operation_id from platform.plan_artifacts where workspace_id=$1 and operation_id=$2",[r.op.workspaceId,r.op.id])).toHaveLength(1);
+    });
+  },180000);
   it("producer exits and loses its directory; another worker applies ORIGINAL bytes after a separate fresh check, then destroys",async()=>{
     await fixture(async f=>{
       const reviewed=await f.review();

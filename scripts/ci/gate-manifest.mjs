@@ -496,6 +496,238 @@ const GITHUB_WEBHOOK_POSTGRES_REQUIREMENT = { file: "tests/sources/github-webhoo
 
 // Committed source13 scenarios are mandatory even when a suite/source file is
 // missing. SQL/Tofu receipts do not establish live GitHub or cloud acceptance.
+// Exact owning fixture and stage evidence counterparts are separate reviewed prerequisites.
+export const SOURCE_FIXTURE_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/platform/composition.test.ts",
+    "suite": "platform composition",
+    "test": "captures optional tool authority absent at composition before lazy resolution",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/composition.test.ts",
+    "suite": "platform composition",
+    "test": "captures optional tool authority present at composition before lazy resolution",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-composition.test.ts",
+    "suite": "source-bundle execution wiring",
+    "test": "forwards the download configuration and preserves resource overrides",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-composition.test.ts",
+    "suite": "source-bundle execution wiring",
+    "test": "uses the injected resource store with the activity's workspace and environment",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-composition.test.ts",
+    "suite": "source-bundle execution wiring",
+    "test": "composes Azure preparation, stored-source reading and the SQL launch journal by default",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-composition.test.ts",
+    "suite": "source-bundle execution wiring",
+    "test": "uses the trusted connection binding without a source resolver override through ACR launch",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-composition.test.ts",
+    "suite": "source-bundle execution wiring",
+    "test": "refuses an Azure environment without a binding in the composed preparation port",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-github.test.ts",
+    "suite": "C3 default GitHub App acquisition",
+    "test": "uses the default connector in the existing composition hook and returns archive identifiers only",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-azure.test.ts",
+    "suite": "provider-dispatched Azure source preparation",
+    "test": "prepares canonical tar.gz in the bound container and passes exact bytes to ACR",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-azure.test.ts",
+    "suite": "provider-dispatched Azure source preparation",
+    "test": "rereads the stored bundle on another instance without downloading a moving GitHub ref",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-azure.test.ts",
+    "suite": "provider-dispatched Azure source preparation",
+    "test": "clearly refuses missing storage bindings before downloading source: undefined",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-azure.test.ts",
+    "suite": "provider-dispatched Azure source preparation",
+    "test": "clearly refuses missing storage bindings before downloading source: resolver returning null",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-azure.test.ts",
+    "suite": "provider-dispatched Azure source preparation",
+    "test": "refuses a cross-tenant workspaceId resource lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-azure.test.ts",
+    "suite": "provider-dispatched Azure source preparation",
+    "test": "refuses a cross-tenant environmentId resource lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-azure.test.ts",
+    "suite": "provider-dispatched Azure source preparation",
+    "test": "refuses a different pipeline source and a mismatched provider/session before acquisition",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-azure.test.ts",
+    "suite": "provider-dispatched Azure source preparation",
+    "test": "refuses changed stored bytes before an ACR upload or schedule",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-azure.test.ts",
+    "suite": "provider-dispatched Azure source preparation",
+    "test": "propagates C3's lowered compressed-size ceiling to the stored source reader",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/platform/source-bundle-azure.test.ts",
+    "suite": "provider-dispatched Azure source preparation",
+    "test": "binds the private GitHub connector to the activity's tenant and environment",
+    "backend": "postgres"
+  }
+];
+export const SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/source-plan-evidence.test.ts",
+    "suite": "source plan evidence authority [postgres]",
+    "test": "selects the original plan after a later final plan with the same digest without deleting either row",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/source-plan-evidence.test.ts",
+    "suite": "source plan evidence authority [postgres]",
+    "test": "keeps plan selection scoped to the exact tenant operation kind digest and stage",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/source-plan-evidence.test.ts",
+    "suite": "source plan evidence authority [postgres]",
+    "test": "refuses final-only source evidence before a build or tool mutation",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/source-plan-evidence.test.ts",
+    "suite": "source plan evidence authority [postgres]",
+    "test": "retains the non-simulated review guard when selecting a plan stage",
+    "postgres": true
+  }
+];
+
+// Native final raw-plan source admission remains mandatory when either trusted source file disappears.
+export const PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+    "suite": "original plan source dispatch authority [postgres]",
+    "test": "final original-plan source admission fences unchanged private binding during delayed current human role lookup",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+    "suite": "original plan source dispatch authority [postgres]",
+    "test": "final original-plan source admission fences revoked private binding during delayed current human role lookup",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+    "suite": "original plan source dispatch authority [postgres]",
+    "test": "final original-plan source admission fences removed private binding during delayed current human role lookup",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+    "suite": "original plan source dispatch authority [postgres]",
+    "test": "final original-plan source admission fences replaced private binding during delayed current human role lookup",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+    "suite": "original plan source dispatch authority [postgres]",
+    "test": "final original-plan source admission fences introduced public binding during delayed current human role lookup",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+    "suite": "original plan source dispatch authority [postgres]",
+    "test": "full service recipe JSON mutation with unchanged stored digest refuses original dispatch",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+    "suite": "original plan source dispatch authority [postgres]",
+    "test": "full pipeline recipe JSON mutation with unchanged stored digest refuses original dispatch",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+    "suite": "original plan source dispatch authority [postgres]",
+    "test": "native original-plan custody refuses missing source without entering dispatch",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+    "suite": "original plan source dispatch authority [postgres]",
+    "test": "native original-plan custody refuses foreign source without entering dispatch",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+    "suite": "original plan source dispatch authority [postgres]",
+    "test": "native original-plan custody refuses stripped source without entering dispatch",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+    "suite": "original plan source dispatch authority [postgres]",
+    "test": "genuine native source-free absence retains historical original dispatch compatibility",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+    "suite": "original plan source dispatch authority [postgres]",
+    "test": "mixed-case multi-source review and final native aggregate share exact ASCII lexical service ordering",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+    "suite": "original plan source dispatch authority [postgres]",
+    "test": "committed private revocation during an observed three-connection use-row waiter refuses the final original dispatch CAS",
+    "postgres": true
+  },
+  {
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "suite": "authenticated original cross-worker handoff [postgres]",
+    "test": "independent saved binary with matching native private source binding applies the exact original once",
+    "postgres": true
+  },
+  {
+    "file": "tests/tofu/plan-artifact-handoff.test.ts",
+    "suite": "authenticated original cross-worker handoff [postgres]",
+    "test": "independent saved binary refuses committed private source revocation before original apply without a fresh fallback",
+    "postgres": true
+  }
+];
+
 export const APPROVED_SOURCE_POSTGRES_REQUIREMENTS = [
   ...[
     "persists one immutable row across two actual independent handles and reuses it after producer loss",
@@ -951,9 +1183,9 @@ export const GATE_LANES = {
     tools:{node:"22.23.3",postgres:"16.15",temporal:"1.9.1"},
   },
   "platform-postgres": {
-    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts", "tests/platform/approved-source-runtime.test.ts"],
-    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
-    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache"],
+    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts", "tests/platform/approved-source-runtime.test.ts", "tests/platform/composition.test.ts", "tests/platform/source-bundle-composition.test.ts", "tests/platform/source-bundle-github.test.ts", "tests/platform/source-bundle-azure.test.ts"],
+    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
+    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache"],
     tools: { node: "22.23.3", postgres: "16.15", tofu: "1.12.5" },
   },
 };
@@ -1129,7 +1361,7 @@ export function requirementsFor(lane, root) {
       requirements.push(...AGENT_EFFECT_POSTGRES_REQUIREMENTS);
       requirements.push(...BUILD_SOURCE_POSTGRES_REQUIREMENTS, GITHUB_WEBHOOK_POSTGRES_REQUIREMENT, ...GITHUB_WEBHOOK_POSTGRES_CASES);
       // Discovery above remains; these named cases survive source deletion.
-      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS);
+      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS);
       break;
     default:
       throw new Error("Unknown CI lane");

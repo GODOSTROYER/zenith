@@ -24,10 +24,13 @@ describe("approved executable source semantics [isolated ports]",()=>{
     expect(w.stored()).not.toContain(CANARY_SECRET);
   });
   it("a moved branch never changes retained bytes during retry, final plan or build",async()=>{
-    const w=world(),{lease,plan}=await planned(w);w.sourceBundle.commit="b".repeat(40);
+    const w=world(),{lease,plan}=await planned(w),original=structuredClone(w.evidence.ofKind("tofu_plan")[0]);w.sourceBundle.commit="b".repeat(40);
     await w.activities.planInfrastructure({operationId:OP,lease});await w.activities.finalPlan({operationId:OP,approvedPlanDigest:plan.planDigest,lease});
     await w.activities.buildArtifacts({operationId:OP,lease});expect(w.sourceBundle.captures).toHaveLength(1);
     expect(w.sourceBundle.calls).toHaveLength(1);expect(w.build.started).toHaveLength(1);
+    expect(w.evidence.ofKind("tofu_plan").find(row=>row.id===original.id)).toEqual(original);
+    expect(w.evidence.ofKind("tofu_plan").filter(row=>row.summary.stage==="final_plan")).toHaveLength(1);
+    expect(await w.evidence.find({workspaceId:original.workspaceId,operationId:OP,kind:"tofu_plan",digest:plan.planDigest,stage:"plan"})).toEqual(original);
   });
   it("two independent activity instances reuse the immutable row after producer loss",async()=>{
     const w=world(),{lease}=await planned(w);

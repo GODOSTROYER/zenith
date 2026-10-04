@@ -8,7 +8,7 @@ import { DeploymentView } from "@/components/deploy/live-progress";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 const state = vi.hoisted(() => ({ deployment: undefined as Deployment | undefined, refresh: vi.fn() }));
 vi.mock("@/lib/client/api", () => ({
-  useJson: () => ({ data: { deployment: state.deployment }, refresh: state.refresh }),
+  useJson: (url: string | null) => ({ data: url?.startsWith("/api/deployments/") ? { deployment: state.deployment } : undefined, refresh: state.refresh }),
   useEventStream: () => ({ connected: true }),
 }));
 vi.mock("@/components/shell/project-context", () => ({ useProjectData: () => ({

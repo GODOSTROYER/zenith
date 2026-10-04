@@ -28,6 +28,7 @@ import { fmtUsd } from "@/lib/format";
 import type { DeploymentStep } from "@/lib/domain/types";
 import { reconcileDeployment } from "./deployment-state";
 import { downloadFile } from "@/components/screens/download-file";
+import { useOperationApprovalRoute } from "./operation-review";
 
 const TERMINAL: DeploymentStatus[] = ["succeeded", "failed", "rolled_back", "cancelled"];
 /**
@@ -150,6 +151,11 @@ export function DeploymentView({
   }, [data, patch, deploymentId]);
 
   const needsInspection = Boolean(deployment && !TERMINAL.includes(deployment.status) && deployment.error);
+  const approvalRoute = useOperationApprovalRoute(deployment, {
+    workspaceId: project.workspaceId === boot?.workspace?.id ? project.workspaceId : undefined,
+    projectId: project.id,
+    environmentId: environments.find((env) => env.id === deployment?.environmentId)?.id,
+  });
 
   const liveTargets = useMemo(
     () =>
@@ -235,7 +241,13 @@ export function DeploymentView({
         {timeline}
 
         <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
-          <PlanFirst
+          {approvalRoute.kind === "plan" ? <Link href={approvalRoute.href}
+            className="ui-button inline-flex h-9 items-center justify-center rounded-ctl border border-line bg-bg2 px-3 text-[13px] font-medium text-ink hover:border-line-strong hover:bg-bg3">
+            Review platform plan
+          </Link> : approvalRoute.kind === "unavailable" ? <div className="space-y-2">
+            <p role="status" className="text-[13px] text-ink-mute">{approvalRoute.loading ? "Loading the current platform approval." : "Platform approval is unavailable. Reload its current state before deciding."}</p>
+            <Button variant="quiet" onClick={approvalRoute.refresh}>Reload approval</Button>
+          </div> : <PlanFirst
             actionId="deploy.approve"
             input={{ deploymentId }}
             scope={{ environmentId: deployment.environmentId }}
@@ -244,7 +256,7 @@ export function DeploymentView({
             disabled={!roleAllows(boot, approveRole)}
             disabledReason={roleReason(boot, approveRole, "Approving a deployment")}
             onDone={refresh}
-          />
+          />}
           <PlanFirst
             actionId="deploy.cancel"
             input={{ deploymentId }}

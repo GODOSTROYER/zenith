@@ -502,6 +502,30 @@ export async function claimForExecution(sql: Sql, input: ClaimInput): Promise<Op
   });
 }
 
+/** Attach a real worker's live environment fence once; this neither claims nor consumes approvals. */
+export async function bindExecutionLease(sql: Sql, input: { workspaceId: string; id: string; expectedDigest: string; lease: { scope: string; holder: string; fenceToken: number } }): Promise<void> {
+  const workspaceId=requireText("workspaceId",input.workspaceId),id=requireText("id",input.id),expectedDigest=requireDigest("expectedDigest",input.expectedDigest);
+  const lease=Object.freeze({scope:requireText("scope",input.lease.scope,256),holder:requireText("holder",input.lease.holder,256),fenceToken:input.lease.fenceToken});
+  const refuse=():never=>{throw new ControlStoreError("invalid_state","The running workflow claim cannot bind this environment lease.");};
+  if(!Number.isSafeInteger(lease.fenceToken) || lease.fenceToken<1 || !lease.holder.endsWith(`:${id}`)
+    || !/^worker:[A-Za-z0-9._-]{1,64}$/.test(lease.holder.slice(0,-id.length-1)))refuse();
+  await sql.tx(async tx=>{
+    // The acquisition transaction already holds this row; direct calls retain
+    // the same fence -> operation lock order as every fenced writer.
+    await assertFence(tx,lease.scope,lease.fenceToken);
+    await tx.query("select id from platform.operations where workspace_id=$1 and id=$2 for update",[workspaceId,id]);
+    const bound=await tx.query(`update platform.operations o set lease_scope=$4,fence_token=$5,updated_at=clock_timestamp()
+      where o.workspace_id=$1 and o.id=$2 and o.status='running' and o.proposal_digest=$3
+        and o.environment_id is not null and $4='env:' || o.environment_id
+        and o.lease_holder='workflow:' || o.id and o.lease_until>clock_timestamp() and o.expires_at>clock_timestamp()
+        and ((o.lease_scope is null and o.fence_token is null) or (o.lease_scope=$4 and o.fence_token=$5))
+        and exists(select 1 from platform.leases l where l.scope=$4 and l.workspace_id=$1 and l.holder=$6 and l.fence_token=$5
+          and l.expires_at>clock_timestamp() and l.released_at is null)
+      returning o.id`,[workspaceId,id,expectedDigest,lease.scope,lease.fenceToken,lease.holder]);
+    if(bound.length!==1)refuse();
+  });
+}
+
 /** Extend a running operation's execution lease. False when it is no longer running under `holder` (or the lease already lapsed). */
 export async function heartbeat(sql: Sql, input: { workspaceId: string; id: string; holder: string; leaseMs?: number }): Promise<boolean> {
   const leaseMs = boundedMs("leaseMs", input.leaseMs ?? 60_000, 1000, 24 * 60 * 60 * 1000);

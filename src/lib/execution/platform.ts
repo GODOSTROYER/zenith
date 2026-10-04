@@ -141,7 +141,29 @@ function recordedFence(op: OperationRecord): { scope: string; fenceToken: number
 
 export function createLeasesPort(sql: Sql): LeasesPort {
   return {
-    acquire: (input) => repos.leases.acquire(sql, input),
+    async acquire(input) {
+      if(!input.operation)return repos.leases.acquire(sql,input);
+      const requested={...input,operation:Object.freeze({...input.operation})};
+      try {
+        return await sql.tx(async tx=>{
+          await tx.query("select scope from platform.leases where scope=$1 for update",[requested.scope]);
+          const current=await repos.leases.current(tx,requested.scope);
+          // A lost acknowledgement must not replace the fence already bound
+          // to this exact worker/operation. Plain and reconcile leases still increment.
+          const lease=current?.holder===requested.holder
+            ? await repos.leases.renew(tx,current,requested.ttlMs)
+            : await repos.leases.acquire(tx,requested);
+          if(!lease)return null;
+          await repos.operations.bindExecutionLease(tx,{workspaceId:requested.workspaceId??"",id:requested.operation.id,
+            expectedDigest:requested.operation.proposalDigest,lease});
+          return lease;
+        });
+      } catch(err) {
+        if(["invalid_input","invalid_state","digest_mismatch","operation_not_found","operation_expired","tenant_mismatch"].includes(errorCode(err)??""))
+          throw new StepFailedError("The running workflow claim could not bind its environment lease; no source was captured.");
+        throw err;
+      }
+    },
     renew: (lease, ttlMs) => repos.leases.renew(sql, lease, ttlMs),
     release: (lease) => repos.leases.release(sql, lease),
     assertFence: (scope, fenceToken) => repos.leases.assertFence(sql, scope, fenceToken),

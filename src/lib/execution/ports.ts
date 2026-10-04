@@ -115,7 +115,10 @@ export interface OperationsPort {
  * once.
  */
 export interface LeasesPort {
-  acquire(input: { scope: string; holder: string; ttlMs: number; workspaceId?: string }): Promise<Lease | null>;
+  acquire(input: { scope: string; holder: string; ttlMs: number; workspaceId?: string;
+    /** Internal worker context: bind a claimed operation before its first source capture. Not public authority. */
+    operation?: { id: string; proposalDigest: string };
+  }): Promise<Lease | null>;
   renew(lease: LeaseRef, ttlMs: number): Promise<Lease | null>;
   release(lease: LeaseRef): Promise<boolean>;
   assertFence(scope: string, fenceToken: number): Promise<void>;

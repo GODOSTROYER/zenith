@@ -634,6 +634,36 @@ export const SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS = [
   }
 ];
 
+// First-source binding scenarios remain mandatory even when their native test source disappears.
+export const FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS = [
+  "binds the first real worker lease before default source capture and native retain after a claim without a lease",
+  "reuses the same live native fence after an acquisition acknowledgement is lost without consuming approval twice",
+  "keeps plain and reconcile lease reacquisition incrementing fences",
+  "binds a new fence only after genuine plan review approval and a separate claim resets the recorded pair",
+  "refuses a changed proposal digest and rolls back the newly acquired lease",
+  "refuses a foreign workspace at native binding and rolls back the newly acquired lease",
+  "refuses a foreign environment scope at native binding and rolls back the newly acquired lease",
+  "refuses a live MCP execution holder at native binding and rolls back the newly acquired lease",
+  "refuses a replaced workflow execution holder at native binding and rolls back the newly acquired lease",
+  "refuses uncertain operations without creating a lease",
+  "refuses cancelled operations without creating a lease",
+  "refuses an expired operation without creating a lease",
+  "refuses an expired execution claim without creating a lease",
+  "refuses a partially recorded fence pair with scope only and leaves both columns unchanged",
+  "refuses a partially recorded fence pair with token only and leaves both columns unchanged",
+  "refuses a NULL lease workspace before binding",
+  "refuses a foreign lease workspace before binding",
+  "refuses a mismatched recorded fence without replacing it",
+  "refuses a released recorded fence after reacquisition without replacing it",
+  "refuses a taken-over recorded fence after expiry without replacing it",
+  "refuses a stale native binding after the acquired lease is released",
+  "refuses a worker holder naming another operation even when the environment lease is live",
+  "refuses cancellation committed during an observed native operation lock wait",
+  "refuses execution expiry committed during an observed native operation lock wait"
+].map(test => ({
+  file: "tests/controlplane/first-source-lease-binding.test.ts", suite: "first source worker lease binding [postgres]", test, postgres: true,
+}));
+
 // Native final raw-plan source admission remains mandatory when either trusted source file disappears.
 export const PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS = [
   {
@@ -1184,8 +1214,8 @@ export const GATE_LANES = {
   },
   "platform-postgres": {
     files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts", "tests/platform/approved-source-runtime.test.ts", "tests/platform/composition.test.ts", "tests/platform/source-bundle-composition.test.ts", "tests/platform/source-bundle-github.test.ts", "tests/platform/source-bundle-azure.test.ts"],
-    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
-    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache"],
+    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1", ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
+    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1; first worker lease binding requires actual PostgreSQL, canonical schema13 and independent native connections", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache"],
     tools: { node: "22.23.3", postgres: "16.15", tofu: "1.12.5" },
   },
 };
@@ -1361,7 +1391,7 @@ export function requirementsFor(lane, root) {
       requirements.push(...AGENT_EFFECT_POSTGRES_REQUIREMENTS);
       requirements.push(...BUILD_SOURCE_POSTGRES_REQUIREMENTS, GITHUB_WEBHOOK_POSTGRES_REQUIREMENT, ...GITHUB_WEBHOOK_POSTGRES_CASES);
       // Discovery above remains; these named cases survive source deletion.
-      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS);
+      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS,...FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS);
       break;
     default:
       throw new Error("Unknown CI lane");

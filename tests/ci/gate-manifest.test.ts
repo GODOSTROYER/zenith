@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 
 const root = process.cwd();
@@ -142,6 +142,12 @@ function sourceCounterpartNamed(sourceRoot = root): Requirement[] {
 function sourceCounterpartGroup(group: NamedGroup, sourceRoot = root) {
   return sourceCounterpartNamed(sourceRoot).filter(item => item.file === group.file && item.suite === group.suite);
 }
+const firstSourceLeaseFile = "tests/controlplane/first-source-lease-binding.test.ts";
+const firstSourceLeaseSuite = "first source worker lease binding [postgres]";
+function firstSourceLeaseNamed(sourceRoot = root): Requirement[] {
+  const ids = new Set(FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => ids.has(item.id));
+}
 /** Expand only committed flat string parameter labels; never execute fixture source. */
 function sourceCounterpartDeclarations(file: string): string[] {
   const source = fs.readFileSync(path.join(root, file), "utf8");
@@ -205,7 +211,7 @@ describe("canonical gate manifest", () => {
     const requirements = requirementsFor("platform-postgres", root);
     const sourceIds = new Set([...approvedSourceNamed(), ...planSourceNamed(), ...sourceCounterpartNamed()].map(item => item.id));
     const existing = requirements.filter((required) => !operationPostgresFiles.includes(required.file)
-      && !sourceIds.has(required.id) && required.file !== "tests/controlplane/approved-source-snapshots.test.ts"
+      && !sourceIds.has(required.id) && required.file !== firstSourceLeaseFile && required.file !== "tests/controlplane/approved-source-snapshots.test.ts"
       && required.file !== "tests/controlplane/plan-artifact-source-authority.test.ts"
       && !(required.file === "tests/controlplane/source-plan-evidence.test.ts" && required.suite === "source plan evidence authority [postgres]" && required.test === undefined)
       && !(required.file === "tests/controlplane/tenancy.test.ts" && required.suite === "build launch tenant isolation sweep [postgres]" && required.test === undefined));
@@ -569,6 +575,103 @@ describe("mandatory native source fixture and original evidence counterparts", (
     const malformed = contractReport(required); malformed.testResults[0].assertionResults[0].fullName = ""; expect(reportFailures(required, malformed, root)).toEqual(["Malformed Vitest assertion evidence"]);
     const duplicate = contractReport(required); duplicate.testResults.push(duplicate.testResults[0]); expect(reportFailures(required, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
     expect(reportFailures(required, { ...contractReport(required), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+  });
+});
+
+describe("mandatory first source worker lease binding gates", () => {
+  it("requires the exact 24 native cases and guarded PostgreSQL prerequisites while preserving the prior 429 requirements", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    const required = firstSourceLeaseNamed();
+    expect(manifest.env.ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED).toBe("1");
+    expect(manifest.prerequisites).toContain("ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1; first worker lease binding requires actual PostgreSQL, canonical schema13 and independent native connections");
+    expect(manifest.command).toContain("tests/controlplane");
+    expect(manifest.excludeFiles).toEqual([]);
+    expect(manifest.command).not.toContain("--passWithNoTests");
+    expect(required).toHaveLength(24);
+    expect(new Set(required.map(item => item.id)).size).toBe(24);
+    expect(required.map(item => item.test)).toEqual(declaredLiteralTests(firstSourceLeaseFile));
+    expect(createHash("sha256").update(JSON.stringify(required.map(item => item.test))).digest("hex"))
+      .toBe("edb5d5a81f79f72109aab5e3b86e13833ba91483e51a058731ac57a687edda6b");
+    for (const item of required) expect(item).toMatchObject({ file: firstSourceLeaseFile, suite: firstSourceLeaseSuite, postgres: true });
+    expect(manifest.requirements.filter(item => item.file === firstSourceLeaseFile && item.test === undefined))
+      .toEqual([expect.objectContaining({ suite: firstSourceLeaseSuite, backend: "postgres" })]);
+    expect(manifest.requirements.filter(item => item.file !== firstSourceLeaseFile)).toHaveLength(429);
+    expect(manifest.requirements).toHaveLength(454);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(454);
+    expect(approvedSourceNamed()).toHaveLength(61);
+    expect(planSourceNamed()).toHaveLength(15);
+    expect(sourceCounterpartNamed()).toHaveLength(22);
+    expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+  });
+
+  it("rejects each absent, failed, skipped, pending, malformed or substituted native scenario", () => {
+    const required = firstSourceLeaseNamed();
+    for (const missing of required) {
+      expect(reportFailures(required, contractReport(required.filter(item => item.id !== missing.id)), root), missing.id).toHaveLength(1);
+      for (const status of ["failed", "skipped", "pending", "todo", "unknown"]) {
+        const report = contractReport(required);
+        report.testResults[0].assertionResults.find(item => item.title === missing.test)!.status = status;
+        expect(reportFailures(required, report, root).length, `${missing.id}: ${status}`).toBeGreaterThan(0);
+      }
+      for (const suite of [
+        firstSourceLeaseSuite.replace("[postgres]", "[pglite]"),
+        firstSourceLeaseSuite.replace("[postgres]", "['postgres\"]"),
+        firstSourceLeaseSuite.replace("[postgres]", "[\"postgres']"),
+        "modeled first source worker lease binding [postgres]",
+      ]) {
+        const report = contractReport(required);
+        report.testResults[0].assertionResults.find(item => item.title === missing.test)!.ancestorTitles = [suite];
+        expect(reportFailures(required, report, root), `${missing.id}: ${suite}`).toHaveLength(1);
+      }
+      const malformed = contractReport(required);
+      malformed.testResults[0].assertionResults.find(item => item.title === missing.test)!.fullName = "";
+      expect(reportFailures(required, malformed, root), missing.id).toEqual(["Malformed Vitest assertion evidence"]);
+      const renamed = contractReport(required);
+      renamed.testResults[0].assertionResults.find(item => item.title === missing.test)!.title = "a different modeled acquisition";
+      expect(reportFailures(required, renamed, root), missing.id).toHaveLength(1);
+    }
+  });
+
+  it("accepts complete quoted PostgreSQL ancestry for every exact native case", () => {
+    const required = firstSourceLeaseNamed();
+    for (const label of ["['postgres']", '["postgres"]', "[ 'postgres' ]"]) {
+      const report = contractReport(required);
+      for (const assertion of report.testResults[0].assertionResults)
+        assertion.ancestorTitles = [firstSourceLeaseSuite.replace("[postgres]", label)];
+      expect(reportFailures(required, report, root), label).toEqual([]);
+    }
+  });
+
+  it("retains every static case and ID after the native source file is deleted", () => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-first-source-lease-"));
+    for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
+    fs.copyFileSync(path.join(root, firstSourceLeaseFile), path.join(sourceRoot, firstSourceLeaseFile));
+    const before = firstSourceLeaseNamed(sourceRoot);
+    fs.unlinkSync(path.join(sourceRoot, firstSourceLeaseFile));
+    expect(firstSourceLeaseNamed(sourceRoot)).toEqual(before);
+    expect(before).toEqual(firstSourceLeaseNamed());
+    expect(reportFailures(before, { success: true, testResults: [] }, sourceRoot)).toHaveLength(24);
+  });
+
+  it("refuses zero, malformed, duplicate, suite-only and inconsistent reports without caller-defined requirements", () => {
+    const required = firstSourceLeaseNamed();
+    for (const report of [null, {}, { success: true }, { success: true, testResults: [] }, { success: false, testResults: [] }])
+      expect(reportFailures(required, report, root).length).toBeGreaterThan(0);
+    expect(reportFailures([], contractReport(required), root)).toEqual(["No required scenarios found"]);
+    const suiteOnly = contractReport(required);
+    suiteOnly.testResults[0].assertionResults = [{ title: "one lease model", fullName: "one lease model", ancestorTitles: [firstSourceLeaseSuite], status: "passed" }];
+    expect(reportFailures(required, suiteOnly, root)).toHaveLength(24);
+    const duplicate = contractReport(required);
+    duplicate.testResults.push(duplicate.testResults[0]);
+    expect(reportFailures(required, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+    const valid = contractReport(required);
+    const malformed = { ...valid, testResults: [{ ...valid.testResults[0], assertionResults: [
+      { ...valid.testResults[0].assertionResults[0], ancestorTitles: [1] },
+    ] }] };
+    expect(reportFailures(required, malformed, root)).toEqual(["Malformed Vitest assertion evidence"]);
+    expect(reportFailures(required, { ...contractReport(required), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures(required, { ...contractReport(required), numFailedTests: 1 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures(required, { ...contractReport([]), requirements: [], lane: "platform-postgres" }, root)).toHaveLength(24);
   });
 });
 

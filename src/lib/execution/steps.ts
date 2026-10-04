@@ -124,7 +124,8 @@ export function createStepActivities(rt: Runtime): StepActivities {
         throw new StepFailedError(`A lease ttl of ${ttlMs} ms is outside ${MIN_LEASE_TTL_MS}-${MAX_LEASE_TTL_MS} ms.`);
       }
       const owner = await leaseOwner(rt, operationId, scope);
-      const lease = await rt.d.leases.acquire({ scope, holder: rt.holder(operationId), ttlMs, workspaceId: owner.workspaceId });
+      const lease = await rt.d.leases.acquire({ scope, holder: rt.holder(operationId), ttlMs, workspaceId: owner.workspaceId,
+        ...(owner.operation ? { operation: { id: owner.operation.id, proposalDigest: owner.operation.proposalDigest } } : {}) });
       if (!lease) throw new LeaseBusyError(scope);
       await rt.emit(owner.scope, "lease.acquired", `acquired:${scope}:${lease.fenceToken}`, { scope, holder: lease.holder, fenceToken: lease.fenceToken });
       return { scope: lease.scope, holder: lease.holder, fenceToken: lease.fenceToken };
@@ -164,13 +165,13 @@ async function touch(rt: Runtime, holder: string): Promise<void> {
   }
 }
 
-async function leaseOwner(rt: Runtime, operationId: string, scope: string): Promise<{ workspaceId: string; scope: WorkScope }> {
+async function leaseOwner(rt: Runtime, operationId: string, scope: string): Promise<{ workspaceId: string; scope: WorkScope; operation?: OperationRecord }> {
   const op = await rt.d.ops.get(operationId);
   if (op) {
     if (!op.environmentId || scope !== `env:${op.environmentId}`) {
       throw new StepFailedError("The requested lease scope does not match the environment this operation acts on; refusing to take it.");
     }
-    return { workspaceId: op.workspaceId, scope: scopeOf(op) };
+    return { workspaceId: op.workspaceId, scope: scopeOf(op), operation: op };
   }
   // A reconcile pass is not an operation: its id is `reconcile-<environmentId>`.
   const match = /^reconcile-(.+)$/.exec(operationId);

@@ -159,6 +159,37 @@ describe("destroy execution activities", () => {
     await expect(w.activities.planDestroyInfrastructure({ operationId: OP, lease: await w.lease() })).rejects.toThrow(/DNS/);
     expect(w.tofu.planCalls).toHaveLength(0);
   });
+  it("rechecks AWS DNS after the final approval lookup before accepting original destroy dispatch", async () => {
+    const w = world(); w.product.setManifest(webDbManifest());
+    await w.activities.markOperation({ operationId: OP, status: "running" });
+    const rt = createRuntime(w.deps), ec = await loadExecContext(rt, OP);
+    const graph = requireExecutable(rt, ec).graph;
+    const node = graph.nodes.find(n => n.kind === "dns_record")!;
+    const lb = graph.nodes.find(n => n.kind === "load_balancer")!;
+    const arn = "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/owned/123";
+    dns.on(ListHostedZonesByNameCommand).resolves({ HostedZones: [{ Id: "Z123", Name: "atlas.zenith.test.", CallerReference: "test" }] });
+    dns.on(ListResourceRecordSetsCommand).resolves({ ResourceRecordSets: [{ Name: "app.atlas.zenith.test.", Type: "A", AliasTarget: { DNSName: "owned.example.com", HostedZoneId: "ZELB", EvaluateTargetHealth: false } }] });
+    elb.on(DescribeLoadBalancersCommand).resolves({ LoadBalancers: [{ LoadBalancerArn: arn, Type: "application", DNSName: "owned.example.com" }] });
+    elb.on(DescribeTagsCommand).resolves({ TagDescriptions: [{ ResourceArn: arn, Tags: Object.entries({ ...baseTags(ec), "zenith:resource": lb.address }).map(([Key, Value]) => ({ Key, Value })) }] });
+    w.tofu.planFactory = ws => makePlan({ configDigest: ws.configDigest, lockDigest: ws.lockDigest, changes: [change({ address: "terraform_data.dns", nodeAddress: node.address, type: "terraform_data", action: "delete" })] });
+    const lease = await w.lease();
+    const planned = await w.activities.planDestroyInfrastructure({ operationId: OP, lease });
+    w.broker.approval = { approved: true, rejected: false, approvalId: "human-browser-contract" };
+    let approvalReads = 0, acceptedDispatch = false;
+    vi.spyOn(w.broker, "approvalStatus").mockImplementation(async () => {
+      if (++approvalReads === 2) dns.on(ListResourceRecordSetsCommand).resolves({ ResourceRecordSets: [{ Name: "app.atlas.zenith.test.", Type: "A", AliasTarget: { DNSName: "foreign-dispatch-canary.example.com", HostedZoneId: "ZELB", EvaluateTargetHealth: false } }] });
+      return w.broker.approval;
+    });
+    const original = w.tofu.applyVerifiedPlan.bind(w.tofu);
+    vi.spyOn(w.tofu, "applyVerifiedPlan").mockImplementation((ws, args) => original(ws, { ...args,
+      beforeDispatch: async () => { await args.beforeDispatch?.(); acceptedDispatch = true; },
+    }));
+    await expect(w.activities.applyDestroyInfrastructure({ operationId: OP, planDigest: planned.planDigest, lease })).rejects.toThrow(/target ownership/);
+    expect(acceptedDispatch).toBe(false);
+    expect(w.evidence.ofKind("tofu_apply")).toHaveLength(0);
+    expect(w.ops.uncertain).toHaveLength(0);
+    expect(w.stored() + JSON.stringify(w.logs)).not.toContain("foreign-dispatch-canary");
+  });
 });
 
 describe("allowlisted execution tags", () => {

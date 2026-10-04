@@ -10,6 +10,9 @@ import type { ProviderSession } from "@/lib/credentials/types";
 import { PORTABLE_KINDS, type ResourceGraph, type ResourceNode } from "@/lib/resources/types";
 import { extractPlanFacts } from "@/lib/policy/plan-facts";
 import { assessRecordDeletion } from "@/lib/providers/aws/drivers/network/route53-record";
+import { assessRecordDeletion as assessGcpRecordDeletion } from "@/lib/providers/gcp/dns-ownership";
+import { assessRecordDeletion as assessAzureRecordDeletion } from "@/lib/providers/azure/dns-ownership";
+import { assessRecordDeletion as assessOciRecordDeletion } from "@/lib/providers/oci/dns-ownership";
 import { assertDeletionAllowed, TofuDeletionRefusedError } from "@/lib/tofu/plan";
 import { TofuCommandError } from "@/lib/tofu/runner";
 import { TofuPlanProvenanceError, type NormalizedPlan } from "@/lib/tofu/types";
@@ -163,12 +166,48 @@ function guard(plan: NormalizedPlan, nodes: readonly ResourceNode[]): void {
   catch (err) { if (err instanceof TofuDeletionRefusedError) throw new StepFailedError(err.message); throw err; }
 }
 
-/** AWS target ownership guard; other providers fail closed pending an equivalent. */
+/** Current provider reads confirm historical targets; no assessor grants write authority. */
 async function guardDns(rt: Runtime, ec: ExecContext, nodes: readonly ResourceNode[], session: ProviderSession, signal: AbortSignal, lease: LeaseRef): Promise<void> {
-  for (const node of nodes.filter((n) => n.ownership === "managed" && n.kind === "dns_record")) {
-    if (node.provider !== "aws" || session.provider !== "aws") throw new StepFailedError("DNS record teardown is unsupported without a provider target ownership guard.");
-    const result = await assessRecordDeletion({ ...driverContext(rt, ec, session, signal, { node, fence: lease }), session }, node);
-    if (!result.safe) throw new StepFailedError("DNS record target ownership could not be confirmed; refusing teardown.");
+  const dns = nodes.filter((node) => node.ownership === "managed" && node.kind === "dns_record");
+  if (dns.length === 0) return;
+  const assess = async (readSession: ProviderSession): Promise<void> => {
+    for (const node of dns) {
+      const ctx = driverContext(rt, ec, readSession, signal, { node, fence: lease });
+      let result: { safe: boolean; reason: string };
+      if (node.provider === "aws" && node.nativeType === "aws:route53_record" && readSession.provider === "aws") {
+        result = await assessRecordDeletion({ ...ctx, session: readSession }, node);
+      } else if (node.provider === "gcp" && node.nativeType === "gcp:dns_record_set" && readSession.provider === "gcp") {
+        result = await assessGcpRecordDeletion({ ...ctx, session: readSession }, node, nodes);
+      } else if (node.provider === "azure" && node.nativeType === "azure:dns_record_set" && readSession.provider === "azure") {
+        result = await assessAzureRecordDeletion({ ...ctx, session: readSession }, node, nodes);
+      } else if (node.provider === "oci" && node.nativeType === "oci:dns_rrset" && readSession.provider === "oci") {
+        result = await assessOciRecordDeletion({ ...ctx, session: readSession }, node, nodes);
+      } else {
+        throw new StepFailedError("DNS record teardown is unsupported without a provider target ownership guard.");
+      }
+      if (!result.safe) throw new StepFailedError("DNS record target ownership could not be confirmed; refusing teardown.");
+    }
+  };
+  try {
+    if (session.provider === "oci" && session.capability !== PLAN_CAPABILITY) {
+      if (session.capability !== ec.op.capability) throw new StepFailedError("DNS record target ownership could not be confirmed; refusing teardown.");
+      // OCI's destroy grant has no DNS read rule. Independently authorize a
+      // weaker read for this parent operation; keep its write session intact.
+      const connection = await resolveConnection(rt, ec);
+      if (connection.config.provider !== "oci") throw new StepFailedError("DNS record target ownership could not be confirmed; refusing teardown.");
+      await withProviderSession(rt, ec, { purpose: "observe", capability: PLAN_CAPABILITY, fence: lease, connection }, async (readSession, claims) => {
+        if (readSession.provider !== "oci" || readSession.capability !== PLAN_CAPABILITY ||
+          readSession.scope.workspaceId !== ec.workspaceId || readSession.scope.projectId !== ec.op.projectId || readSession.scope.environmentId !== ec.environmentId ||
+          claims.cap !== PLAN_CAPABILITY || claims.op !== ec.op.id || claims.digest !== ec.op.proposalDigest ||
+          claims.sub !== (ec.op.principal.onBehalfOf ?? ec.op.principal.id) || claims.ws !== ec.workspaceId || claims.proj !== ec.op.projectId || claims.env !== ec.environmentId || claims.fence !== lease.fenceToken) {
+          throw new StepFailedError("DNS record target ownership could not be confirmed; refusing teardown.");
+        }
+        await assess(readSession);
+      });
+    } else await assess(session);
+  } catch (error) {
+    if (error instanceof LeaseLostError || error instanceof StepFailedError) throw error;
+    throw new StepFailedError("DNS record target ownership could not be confirmed; refusing teardown.");
   }
 }
 
@@ -276,6 +315,7 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
                 if (digest(planCustody(freshContext.ec,freshContext.graph.graphDigest,freshConnection)) !== digest(custody) || digest(freshWorkspace) !== digest(ws)) throw new StepFailedError("Reviewed destroy provenance changed; a new review is required.");
                 const current = await checkDestroyApproval(rt, operationId);
                 if (!current.approved || current.rejected) throw new StepFailedError("The human approval is no longer valid.");
+                await guardDns(rt, freshContext.ec, freshContext.graph.nodes, session, signal, lease);
                 await rt.d.leases.assertFence(lease.scope,lease.fenceToken); started=true; await dispatch();
               }, destroy: true, deletionNodes: graph.nodes, session: tofuSession(session), signal, normalize: { fingerprintKey: rt.d.fingerprintKey }, inspectPlan: async (plan) => {
               guard(plan, graph.nodes);

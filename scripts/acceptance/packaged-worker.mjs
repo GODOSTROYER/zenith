@@ -26,7 +26,7 @@ const TEMPORAL_CONFIG_TEMPLATE = "deploy/acceptance/temporal-worker-test.yaml";
 const OWNED_BUILDKIT_IMAGE = "moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea";
 const workerFailureCategories = new Set(["module-load", "configuration", "health-listener", "platform-store", "platform-composition", "policy-assets", "plan-directory", "activity-composition", "reconcile-composition", "reconcile-client", "reconcile-pollers", "reconcile-schedule", "temporal-runtime", "workflow-bundle", "temporal-connect", "temporal-worker", "worker-lifecycle", "worker-run", "resource-close"]);
 const refusalKinds = ["missing-schema", "invalid-secret", "invalid-signer", "plaintext-temporal", "missing-namespace", "wrong-queue"];
-const diagnosticRoles = new Set(["postgres", "temporal", "worker", ...refusalKinds]);
+const diagnosticRoles = new Set(["postgres", "temporal", "worker", "worker-recovery", ...refusalKinds]);
 const refusalCommandPhases = new Set(refusalKinds.flatMap((kind) => [`refusal-launch-${kind}`, `refusal-exit-${kind}`, `refusal-logs-${kind}`]));
 const diagnosticCommandPhases = new Set([...refusalCommandPhases,
   "private-tls-tool", "private-tls-ca", "private-tls-leaf", "private-tls-sign", "private-tls-verify",
@@ -566,6 +566,64 @@ export function sanitizePgWaiterEvidence(value) {
   return { observerPid, waiterPid, blockerPid };
 }
 
+/** This lock belongs to the shutdown probe and admits only its original worker's address. */
+export function inFlightSchemaObserverSql(runId, address) {
+  if (typeof address !== "string" || !/^\d{1,3}(\.\d{1,3}){3}$/.test(address)
+    || address.split(".").some(part => Number(part) > 255)) throw new Error("Owned worker address is invalid.");
+  return schemaOutageObserverSql(runId).replace(`${runId}-schema-outage`, `${runId}-inflight-shutdown`)
+    + ` and a.client_addr='${address}'::inet`;
+}
+
+/** Read existing authority only. Empty approval/receipt inventories are not preservation proof for used grants. */
+export function packagedShutdownAuthoritySql() {
+  return `select json_build_object('observerPid',pg_backend_pid(),
+    'operation',(select to_jsonb(o) from platform.operations o where workspace_id='packaged-workspace' and idempotency_key='packaged-read-refusal'),
+    'consumedApprovals',coalesce((select json_agg(to_jsonb(a) order by id) from platform.approvals a where consumed_at is not null),'[]'::json),
+    'buildLaunches',coalesce((select json_agg(to_jsonb(b) order by workspace_id,operation_id,service_address) from platform.build_launches b),'[]'::json),
+    'agentReceipts',coalesce((select json_agg(to_jsonb(r) order by workspace_id,agent_kind,job_id) from platform.agent_effect_receipts r),'[]'::json))`;
+}
+export function sanitizeShutdownAuthorityEvidence(value) {
+  if (!isRecord(value) || !Number.isSafeInteger(value.observerPid) || value.observerPid <= 1 || !isRecord(value.operation)
+    || value.operation.workspace_id !== "packaged-workspace" || value.operation.idempotency_key !== "packaged-read-refusal"
+    || value.operation.capability !== "infrastructure.observe" || value.operation.status !== "failed"
+    || typeof value.operation.error !== "string" || !value.operation.error.includes("names no target resource")
+    || ["consumedApprovals", "buildLaunches", "agentReceipts"].some(key => !Array.isArray(value[key]) || value[key].length !== 0)) {
+    throw new Error("Local shutdown authority readback is unconfirmed.");
+  }
+  const { operation, consumedApprovals, buildLaunches, agentReceipts } = value;
+  return { observerPid: value.observerPid,
+    sha256: createHash("sha256").update(JSON.stringify({ operation, consumedApprovals, buildLaunches, agentReceipts })).digest("hex"),
+    consumedApprovalRows: 0, buildLaunchRows: 0, agentReceiptRows: 0 };
+}
+
+/** Fixed scalars for a real started sweep and its exact retained history; no raw history leaves control. */
+export function sanitizePackagedSweepEvidence(action, value, workerIdentity) {
+  const fail = () => { throw new Error("Packaged in-flight sweep evidence is unconfirmed."); };
+  if (!isRecord(value) || typeof workerIdentity !== "string" || !/^zenith-pkg-(arm64|amd64)-[a-f0-9]{12}$/.test(workerIdentity)
+    || value.scheduleOwned !== true || value.encryptedInput !== true || value.paused !== false
+    || typeof value.workflowId !== "string" || !/^zenith-reconcile-sweep-v1-[A-Za-z0-9:.+-]{1,96}$/.test(value.workflowId)
+    || typeof value.runId !== "string" || !/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value.runId)
+    || typeof value.activityId !== "string" || !/^[1-9][0-9]{0,9}$/.test(value.activityId)
+    || value.activityType !== "sweepReconcilePass" || value.workerIdentity !== workerIdentity
+    || value.attempt !== 1 || value.maximumAttempts !== 1) fail();
+  const out = { scheduleOwned: true, encryptedInput: true, paused: false, workflowId: value.workflowId, runId: value.runId,
+    activityId: value.activityId, activityType: "sweepReconcilePass", workerIdentity, attempt: 1, maximumAttempts: 1 };
+  if (action === "activity") {
+    if (value.workflowStatus !== "running" || value.activityState !== "started") fail();
+    return { ...out, workflowStatus: "running", activityState: "started" };
+  }
+  if (action === "history") {
+    const ids = [value.scheduledEventId, value.startedEventId, value.completedEventId];
+    if (value.workflowStatus !== "completed" || value.result !== "deferred" || value.reason !== "prerequisites_unavailable"
+      || value.startedByOriginalWorker !== true || value.completedByOriginalWorker !== true
+      || ids.some(id => !Number.isSafeInteger(id) || id < 1) || !(ids[0] < ids[1] && ids[1] < ids[2])) fail();
+    return { ...out, workflowStatus: "completed", result: "deferred", reason: "prerequisites_unavailable",
+      startedByOriginalWorker: true, completedByOriginalWorker: true,
+      scheduledEventId: ids[0], startedEventId: ids[1], completedEventId: ids[2] };
+  }
+  fail();
+}
+
 /** Fixed scalars only, never raw history, certificate, decoded args or errors. */
 export function sanitizeTemporalControlEvidence(action, value) {
   const fail = () => { throw new Error("Packaged Temporal control evidence is unconfirmed."); };
@@ -680,12 +738,16 @@ import { createDecipheriv, createHash, hkdfSync } from 'node:crypto';
 import { Client, Connection, ScheduleOverlapPolicy } from '@temporalio/client';
 import { SearchAttributeType, defineSearchAttributeKey } from '@temporalio/common';
 import { temporal } from '@temporalio/proto';
-const action=process.argv[1], auth=process.argv[2]??'client';
+const action=process.argv[1], auth=process.argv[2]??'client', pinned=process.argv.slice(3);
 let connection;
 try {
- if(!['health','namespace','observe','trigger','pause','unpause'].includes(action)||!['client','none','rogue','wrong-server-name'].includes(auth)
+ if(!['health','namespace','observe','trigger','pause','unpause','activity','history'].includes(action)||!['client','none','rogue','wrong-server-name'].includes(auth)
   ||process.env.NODE_ENV!=='production'||process.env.ZENITH_TEMPORAL_ADDRESS!=='temporal:7233'
   ||!/^zenith-pkg-(arm64|amd64)-[a-f0-9]{12}$/.test(process.env.ZENITH_TEMPORAL_NAMESPACE??''))throw new Error();
+ if(pinned.length&&(!['activity','history'].includes(action)||pinned.length!==3
+  ||!/^zenith-reconcile-sweep-v1-[A-Za-z0-9:.+-]{1,96}$/.test(pinned[0])
+  ||!(/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/).test(pinned[1])||!(/^[1-9][0-9]{0,9}$/).test(pinned[2])))throw new Error();
+ if(action==='history'&&!pinned.length)throw new Error();
  const file=name=>{
   const parent=lstatSync('/var/run/zenith-temporal'),path='/var/run/zenith-temporal/'+name,stat=lstatSync(path);
   if(!parent.isDirectory()||parent.isSymbolicLink()||parent.uid!==10001||(parent.mode&0o7777)!==0o700
@@ -739,7 +801,7 @@ try {
   if(action==='unpause')await rpc(()=>schedule.unpause('Owned packaged acceptance operator resume.'));
   result={confirmed:true};
  }
- if(action==='observe'){
+ if(['observe','activity','history'].includes(action)){
   const s=await rpc(()=>schedule.describe()),owner=defineSearchAttributeKey('ZenithScheduleOwner',SearchAttributeType.KEYWORD);
   const expected={contract:'zenith.reconcile-sweep.v1',maxEnvironments:25,environmentConcurrency:1};
   const config=createHash('sha256').update(JSON.stringify([expected.contract,25,1])).digest('hex');
@@ -750,14 +812,43 @@ try {
   const raw=s.raw.schedule?.action?.startWorkflow?.input?.payloads;
   if(raw?.length!==1||Buffer.from(raw[0].metadata?.encoding??[]).toString()!==encoding)throw new Error();
   result={scheduleOwned:true,encryptedInput:true,paused:s.state.paused,status:'waiting'};
-  const entry=s.info.recentActions.at(-1);
+  const entry=pinned.length?{action:{type:'startWorkflow',workflow:{workflowId:pinned[0],firstExecutionRunId:pinned[1]}}}:s.info.recentActions.at(-1);
   if(entry){
    if(entry.action.type!=='startWorkflow'||!entry.action.workflow.workflowId.startsWith('zenith-reconcile-sweep-v1-'))throw new Error();
    const runId=entry.action.workflow.firstExecutionRunId;
    const h=client.workflow.getHandle(entry.action.workflow.workflowId,runId,{followRuns:false});
    const d=await client.workflow.withDeadline(Date.now()+10000,()=>h.describe());
    if(d.runId!==runId||d.type!=='reconcileSweepWorkflow'||d.taskQueue!=='zenith-execution')throw new Error();
-   if(d.status.name==='RUNNING')result={...result,status:'running',runId};
+   if(['activity','history'].includes(action)){
+    const workerIdentity=process.env.ZENITH_WORKER_IDENTITY;
+    if(workerIdentity!==namespace||d.workflowId!==entry.action.workflow.workflowId)throw new Error();
+    const base={scheduleOwned:true,encryptedInput:true,paused:s.state.paused,workflowId:d.workflowId,runId,
+     activityType:'sweepReconcilePass',workerIdentity,attempt:1,maximumAttempts:1};
+    if(action==='activity'){
+     const pending=d.raw.pendingActivities;
+     if(d.status.name!=='RUNNING'||pending?.length!==1)throw new Error();
+     const a=pending[0];
+     if(a.activityType?.name!=='sweepReconcilePass'||a.state!==2||a.attempt!==1||a.maximumAttempts!==1
+      ||a.lastWorkerIdentity!==workerIdentity||!a.lastStartedTime||(pinned.length&&a.activityId!==pinned[2]))throw new Error();
+     result={...base,activityId:a.activityId,workflowStatus:'running',activityState:'started'};
+    }else{
+     if(d.status.name!=='COMPLETED'||d.raw.pendingActivities?.length)throw new Error();
+     const history=await client.workflow.withDeadline(Date.now()+10000,()=>h.fetchHistory()),events=history.events??[];
+     const scheduled=events.filter(e=>e.activityTaskScheduledEventAttributes),started=events.filter(e=>e.activityTaskStartedEventAttributes),completed=events.filter(e=>e.activityTaskCompletedEventAttributes);
+     if(scheduled.length!==1||started.length!==1||completed.length!==1||events.some(e=>e.activityTaskFailedEventAttributes||e.activityTaskTimedOutEventAttributes||e.activityTaskCanceledEventAttributes||e.activityTaskCancelRequestedEventAttributes))throw new Error();
+     const a=scheduled[0].activityTaskScheduledEventAttributes,b=started[0].activityTaskStartedEventAttributes,c=completed[0].activityTaskCompletedEventAttributes;
+     const eventId=e=>Number(e.eventId?.toString());
+     const scheduledEventId=eventId(scheduled[0]),startedEventId=eventId(started[0]),completedEventId=eventId(completed[0]);
+     if(a.activityId!==pinned[2]||a.activityType?.name!=='sweepReconcilePass'||a.taskQueue?.name!=='zenith-execution'||a.retryPolicy?.maximumAttempts!==1
+      ||Number(b.scheduledEventId?.toString())!==scheduledEventId||b.attempt!==1||b.identity!==workerIdentity
+      ||Number(c.scheduledEventId?.toString())!==scheduledEventId||Number(c.startedEventId?.toString())!==startedEventId||c.identity!==workerIdentity)throw new Error();
+     const p=await client.workflow.withDeadline(Date.now()+10000,()=>h.result());
+     if(p.status!=='deferred'||p.reason!=='prerequisites_unavailable')throw new Error();
+     result={...base,activityId:a.activityId,workflowStatus:'completed',result:p.status,reason:p.reason,
+      scheduledEventId,startedEventId,completedEventId,startedByOriginalWorker:true,completedByOriginalWorker:true};
+    }
+   }
+   else if(d.status.name==='RUNNING')result={...result,status:'running',runId};
    else{
     if(d.status.name!=='COMPLETED'||!d.closeTime)throw new Error();
     const p=await client.workflow.withDeadline(Date.now()+10000,()=>h.result()),age=Date.now()-d.closeTime.getTime();
@@ -769,6 +860,7 @@ try {
     result={...result,status:p.status,runId,completedAt:d.closeTime.getTime(),current};
    }
   }
+  if(['activity','history'].includes(action)&&!entry)throw new Error();
  }
  console.log('PACKAGED_TEMPORAL '+JSON.stringify(result));
 } catch { console.error('Packaged authenticated Temporal control failed.'); process.exitCode=1; }
@@ -803,7 +895,7 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     "Product metadata uses an isolated file-store fixture; platform control store is real Postgres.",
     "No deployed cloud resources: reconcile observes an empty environment; read operation safely refuses a missing target.",
     "No cloud writes or browser approval are performed; plan files are retention sentinels, not executable plans.",
-    "Shutdown check drains an idle packaged worker; in-flight cloud activity drain remains outside this harness.",
+    "Shutdown checks cover idle drain and a started sweep held at read-only schema admission; in-flight provider mutation, cancellation and consumed-grant recovery remain outside this harness.",
     "Source binding captures the live context before and after build; transient changes are not excluded by an immutable snapshot.",
   ] };
   const docker = async (args, name, options) => {
@@ -846,15 +938,16 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     const name = nameContainer(`client-${action}-${randomBytes(2).toString("hex")}`);
     return clientEvidence(action, await docker([...isolated(name), "--entrypoint", "node", image, "dist/acceptance/packaged-client.cjs", action], `client-${action}`));
   };
-  const control = async (action, auth = "client", allowFailure = false) => {
+  const control = async (action, auth = "client", allowFailure = false, pinned = []) => {
     const name = nameContainer(`control-${action}-${randomBytes(2).toString("hex")}`);
     const result = await docker([...isolated(name), "--entrypoint", "node", image,
-      "--input-type=module", "-e", packagedTemporalControlSource(), action, auth], `temporal-control-${action}`,
+      "--input-type=module", "-e", packagedTemporalControlSource(), action, auth, ...pinned], `temporal-control-${action}`,
       { timeout: 30_000, allowFailure });
     if (allowFailure) return result;
     const lines = result.out.split("\n").filter(line => line.startsWith("PACKAGED_TEMPORAL "));
     if (lines.length !== 1) throw new Error("Packaged Temporal control evidence is unconfirmed.");
-    return sanitizeTemporalControlEvidence(action, JSON.parse(lines[0].slice("PACKAGED_TEMPORAL ".length)));
+    const value = JSON.parse(lines[0].slice("PACKAGED_TEMPORAL ".length));
+    return ["activity", "history"].includes(action) ? sanitizePackagedSweepEvidence(action, value, runId) : sanitizeTemporalControlEvidence(action, value);
   };
   const waitTemporalHealth = async () => {
     for (let attempt = 0; attempt < 30; attempt++) {
@@ -878,9 +971,9 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     }
     throw new Error("A fresh owned schedule result was not confirmed.");
   };
-  const probe = async (endpoint) => {
+  const probe = async (endpoint, target = worker) => {
     const code = `fetch('http://127.0.0.1:9464/${endpoint}',{signal:AbortSignal.timeout(4000)}).then(async r=>console.log(JSON.stringify({status:r.status,body:await r.json()})),()=>process.exit(1))`;
-    const result = await docker(["exec", worker, "node", "-e", code], `probe-${endpoint}`, { timeout: 10_000, allowFailure: true });
+    const result = await docker(["exec", target, "node", "-e", code], `probe-${endpoint}`, { timeout: 10_000, allowFailure: true });
     return result.code === 0 ? JSON.parse(result.out) : undefined;
   };
   const failureDiagnostics = async () => {
@@ -901,6 +994,7 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
         if (captured.code !== 0) continue;
         const text = captured.out + captured.err;
         if (role === "worker") evidence.workerFailureCategory = workerFailureCategory(text);
+        if (role === "worker-recovery") evidence.recoveryWorkerFailureCategory = workerFailureCategory(text);
         if (refusalKinds.includes(role)) (evidence.refusalFailureCategories ??= {})[role] = workerFailureCategory(text);
         logs.push({ role, text: redactDiagnosticLogs(text, [password, secret, artifactKey, jwk.d ?? "", url, JSON.stringify(jwk), ...tlsSecrets]) });
       } catch { /* Diagnostics cannot obstruct owned-resource cleanup. */ }
@@ -1133,10 +1227,96 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     await control("trigger");
     evidence.checks.operatorPause = { readinessRevoked: true, livenessRetained: true,
       resumedOnlyByOperator: true, freshPass: await observation("completed", paused.runId) };
+    phase = "inflight-schema-shutdown";
+    const readAuthority = async () => {
+      const result = await docker(["exec", pg, "psql", "-X", "-tA", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "zenith_packaged", "-c",
+        packagedShutdownAuthoritySql()], "shutdown-authority-readback", { timeout: 10_000 });
+      return sanitizeShutdownAuthorityEvidence(JSON.parse(result.out.trim()));
+    };
+    const authorityBefore = await readAuthority();
+    const beforeShutdown = await control("observe");
+    const workerState = JSON.parse((await docker(["inspect", worker], "inflight-worker-address")).out)[0];
+    if (workerState.Config?.Labels?.["io.zenith.acceptance.run"] !== runId || workerState.State?.Running !== true) throw new Error("Owned in-flight worker is unconfirmed.");
+    const waiterSql = inFlightSchemaObserverSql(runId, workerState.NetworkSettings?.Networks?.[network]?.IPAddress);
+    const shutdownBlocker = docker(["exec", "--env", `PGAPPNAME=${runId}-inflight-shutdown`, pg, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "zenith_packaged", "-c",
+      "begin; set local statement_timeout='30s'; lock table platform.schema_migrations in access exclusive mode; select pg_sleep(20); rollback;"], "inflight-schema-blocker", { timeout: 35_000 });
+    void shutdownBlocker.catch(() => undefined);
+    let entered, afterSignal, heldWaiter, drainWaiter;
+    try {
+      for (let attempt = 0; ; attempt++) {
+        const held = await docker(["exec", pg, "psql", "-X", "-tA", "-U", "postgres", "-d", "zenith_packaged", "-c",
+          `select count(*) from pg_stat_activity where application_name='${runId}-inflight-shutdown' and wait_event='PgSleep'`], "inflight-schema-held");
+        if (held.out.trim() === "1") break;
+        if (attempt >= 20) throw new Error("Owned shutdown blocker was not confirmed.");
+        await delay(100);
+      }
+      await control("trigger");
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const result = await docker(["exec", pg, "psql", "-X", "-tA", "-U", "postgres", "-d", "zenith_packaged", "-c", waiterSql], "inflight-schema-waiter");
+        const rows = JSON.parse(result.out.trim());
+        if (rows.length) { heldWaiter = sanitizePgWaiterEvidence(rows); break; }
+        await delay(100);
+      }
+      if (!heldWaiter) throw new Error("Actual in-flight schema waiter was not confirmed.");
+      entered = await control("activity");
+      if (entered.runId === beforeShutdown.runId) throw new Error("A fresh started sweep was not confirmed.");
+      const pinned = [entered.workflowId, entered.runId, entered.activityId];
+      await docker(["kill", "--signal", "SIGTERM", worker], "inflight-sigterm");
+      for (let attempt = 0; ; attempt++) {
+        const logs = await docker(["logs", "--tail", "200", worker], "inflight-drain-started");
+        if ((logs.out + logs.err).includes("shutdown requested: draining")) break;
+        if (attempt >= 10) throw new Error("Worker drain did not begin.");
+        await delay(100);
+      }
+      // A completed/queued activity after the signal cannot satisfy this boundary.
+      afterSignal = await control("activity", "client", false, pinned);
+      const result = await docker(["exec", pg, "psql", "-X", "-tA", "-U", "postgres", "-d", "zenith_packaged", "-c", waiterSql], "inflight-drain-waiter");
+      drainWaiter = sanitizePgWaiterEvidence(JSON.parse(result.out.trim()));
+      if (drainWaiter.waiterPid !== heldWaiter.waiterPid || drainWaiter.blockerPid !== heldWaiter.blockerPid
+        || drainWaiter.observerPid === heldWaiter.observerPid || JSON.stringify(afterSignal) !== JSON.stringify(entered)) {
+        throw new Error("The same started activity and held SQL boundary were not retained during drain.");
+      }
+      const exit = await docker(["wait", worker], "inflight-worker-exit", { timeout: 40_000 });
+      const stopped = JSON.parse((await docker(["inspect", worker], "inflight-stopped-worker")).out)[0];
+      const logs = await docker(["logs", worker], "inflight-worker-lifecycle-logs");
+      if (exit.out.trim() !== "0" || stopped.Config?.Labels?.["io.zenith.acceptance.run"] !== runId
+        || stopped.State?.Running !== false || stopped.State.ExitCode !== 0 || stopped.State.OOMKilled !== false
+        || !(logs.out + logs.err).includes("execution worker stopped")) throw new Error("In-flight packaged worker did not drain cleanly.");
+      for (const value of [password, secret, artifactKey, jwk.d, url, ...tlsSecrets]) if ((logs.out + logs.err).includes(value)) throw new Error("Worker lifecycle logs contained secret material.");
+    } finally { await shutdownBlocker; }
+    const authorityAfterDrain = await readAuthority();
+    if (authorityBefore.sha256 !== authorityAfterDrain.sha256 || authorityBefore.observerPid === authorityAfterDrain.observerPid) {
+      throw new Error("Existing local authority changed across the held activity drain.");
+    }
+    phase = "inflight-fresh-worker-recovery";
+    const recoveryWorker = nameContainer("worker-recovery"), recoveryEnvFile = path.join(scratch, "worker-recovery.env");
+    await writeFile(recoveryEnvFile, encodeEnv({ ...workerEnv, ZENITH_WORKER_IDENTITY: `${runId}-recovery` }), { mode: 0o600, flag: "wx" });
+    await docker([...isolated(recoveryWorker, recoveryEnvFile), "-d", image], "fresh-recovery-entrypoint");
+    for (let attempt = 0; (await probe("readyz", recoveryWorker))?.status !== 200; attempt++) {
+      if (attempt >= 90) throw new Error("Fresh packaged worker did not restore readiness.");
+      await delay(1000);
+    }
+    sanitizePackagedReadiness((await probe("readyz", recoveryWorker))?.body);
+    const retainedHistory = await control("history", "client", false, [entered.workflowId, entered.runId, entered.activityId]);
+    const beforeFreshPass = await control("observe");
+    await control("trigger");
+    const freshPass = await observation("completed", beforeFreshPass.runId);
+    if (freshPass.runId === entered.runId) throw new Error("Recovery reused the held sweep instead of a fresh pass.");
+    const authorityAfterRecovery = await readAuthority();
+    if (authorityBefore.sha256 !== authorityAfterRecovery.sha256
+      || new Set([authorityBefore.observerPid, authorityAfterDrain.observerPid, authorityAfterRecovery.observerPid]).size !== 3) {
+      throw new Error("Existing local authority changed across fresh-worker recovery.");
+    }
+    evidence.checks.inFlightShutdown = { signal: "SIGTERM", exitCode: 0, drained: true, inFlightActivity: true,
+      scope: "read-only schema prerequisite before controller lease or provider admission", entered, afterSignal,
+      actualPgWaiter: heldWaiter, waiterDuringDrain: drainWaiter, retainedHistory, freshWorkerIdentity: `${runId}-recovery`, freshPass,
+      authorityReadback: { existingReadRefusalUnchanged: true, ...authorityAfterRecovery,
+        baselineObserverPid: authorityBefore.observerPid, drainObserverPid: authorityAfterDrain.observerPid },
+      sqlActivityAttributionProven: false, providerMutationAccepted: false, consumedApprovalPreservationProven: false, receiptRecoveryProven: false };
     phase = "graceful-shutdown";
-    await docker(["stop", "--time", "40", worker], phase);
-    const stopped = JSON.parse((await docker(["inspect", worker], "stopped-worker")).out)[0];
-    const logs = await docker(["logs", worker], "worker-lifecycle-logs");
+    await docker(["stop", "--time", "40", recoveryWorker], phase);
+    const stopped = JSON.parse((await docker(["inspect", recoveryWorker], "stopped-worker")).out)[0];
+    const logs = await docker(["logs", recoveryWorker], "worker-lifecycle-logs");
     if (stopped.State.ExitCode !== 0 || !logs.out.includes("shutdown requested: draining") || !logs.out.includes("execution worker stopped")) throw new Error("Packaged worker did not drain cleanly on SIGTERM.");
     for (const value of [password, secret, artifactKey, jwk.d, url, ...tlsSecrets]) if ((logs.out + logs.err).includes(value)) throw new Error("Worker lifecycle logs contained secret material.");
     evidence.checks.shutdown = { signal: "SIGTERM", exitCode: stopped.State.ExitCode, drained: true, inFlightActivity: false };

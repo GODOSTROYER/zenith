@@ -6,7 +6,7 @@ import { chmod, lstat, mkdir, mkdtemp, readdir, realpath, rm, symlink, writeFile
 import os from "node:os";
 import path from "node:path";
 import { runInNewContext } from "node:vm";
-import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, packagedSourceDigest, packagedTemporalControlSource, packagedVolumeCustodySource, PackagedCommandError, parsePackagedArgs, prepareTemporalTls, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedReadiness, sanitizePgWaiterEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
+import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, inFlightSchemaObserverSql, packagedShutdownAuthoritySql, packagedSourceDigest, packagedTemporalControlSource, packagedVolumeCustodySource, PackagedCommandError, parsePackagedArgs, prepareTemporalTls, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedReadiness, sanitizePackagedSweepEvidence, sanitizePgWaiterEvidence, sanitizeShutdownAuthorityEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
 import { assertPackagedAcceptanceTarget } from "../../workers/execution/packaged-target";
 import { EXECUTION_FAILURE_CATEGORIES } from "../../workers/execution/startup";
 
@@ -112,6 +112,98 @@ describe("private volume initializer [exact program; filesystem permission model
     expect(m.events.filter(event => event.path === "/client")).toEqual([]);
     if (fault === "replacement at open" || fault === "changed device at open") expect(m.events).toEqual([]);
     if (fault === "file replacement after chmod" || fault === "unexpected file during chmod") expect(m.events.filter(event => event.path === "/server/ca.crt").map(event => event.action)).toEqual(["chmod"]);
+  });
+});
+
+describe("packaged in-flight shutdown boundary [source and scalar models]", () => {
+  const workerIdentity = "zenith-pkg-arm64-0123456789ab";
+  const activity = { scheduleOwned: true, encryptedInput: true, paused: false,
+    workflowId: "zenith-reconcile-sweep-v1-2026-10-04T08:00:00Z", runId: "01234567-0123-4123-8123-0123456789ab",
+    activityId: "1", activityType: "sweepReconcilePass", workerIdentity, attempt: 1, maximumAttempts: 1,
+    workflowStatus: "running", activityState: "started" };
+  const history = { ...activity, workflowStatus: "completed", result: "deferred", reason: "prerequisites_unavailable",
+    scheduledEventId: 5, startedEventId: 6, completedEventId: 7, startedByOriginalWorker: true, completedByOriginalWorker: true };
+  const authority = () => ({ observerPid: 11, operation: { workspace_id: "packaged-workspace", idempotency_key: "packaged-read-refusal",
+    capability: "infrastructure.observe", status: "failed", error: "Operation names no target resource." },
+    consumedApprovals: [], buildLaunches: [], agentReceipts: [] });
+  it("admits only the exact started sweep and projects no arbitrary control payload", () => {
+    expect(sanitizePackagedSweepEvidence("activity", { ...activity, password: "private-canary", providerWriteAccepted: true }, workerIdentity)).toEqual(activity);
+    expect(JSON.stringify(sanitizePackagedSweepEvidence("activity", { ...activity, password: "private-canary" }, workerIdentity))).not.toContain("private-canary");
+  });
+  it.each([
+    { activityState: "scheduled" }, { workflowStatus: "completed" }, { paused: true }, { scheduleOwned: false }, { encryptedInput: false },
+    { workerIdentity: "zenith-pkg-arm64-ffffffffffff" }, { maximumAttempts: 2 }, { attempt: 2 },
+    { activityType: "executeCapability" }, { activityId: "private-canary" }, { workflowId: "foreign-workflow" }, { runId: "private-canary" },
+  ])("refuses an idle, foreign, retried or malformed activity (%j)", change => {
+    expect(() => sanitizePackagedSweepEvidence("activity", { ...activity, ...change }, workerIdentity)).toThrow("unconfirmed");
+  });
+  it("admits exact original-worker event linkage while excluding decoded results and extra history", () => {
+    const { activityState, ...expected } = history;
+    expect(activityState).toBe("started");
+    expect(sanitizePackagedSweepEvidence("history", { ...history, decodedResult: "private-canary" }, workerIdentity))
+      .toEqual(expected);
+  });
+  it.each([
+    { startedByOriginalWorker: false }, { completedByOriginalWorker: false }, { result: "completed" }, { reason: "pass_unconfirmed" },
+    { scheduledEventId: 0 }, { startedEventId: 5 }, { completedEventId: 6 }, { completedEventId: "private-canary" }, { attempt: 2 },
+  ])("refuses a substituted, replayed or unconfirmed terminal history (%j)", change => {
+    expect(() => sanitizePackagedSweepEvidence("history", { ...history, ...change }, workerIdentity)).toThrow("unconfirmed");
+  });
+  it("requires actual pending STARTED metadata and one linked scheduled, started and completed event from the installed SDK", () => {
+    const source = packagedTemporalControlSource();
+    expect(source).toContain("const pending=d.raw.pendingActivities;");
+    expect(source).toContain("pending?.length!==1");
+    expect(source).toContain("a.state!==2||a.attempt!==1||a.maximumAttempts!==1");
+    expect(source).toContain("a.lastWorkerIdentity!==workerIdentity");
+    expect(source).toContain("()=>h.fetchHistory()");
+    expect(source).toContain("scheduled.length!==1||started.length!==1||completed.length!==1");
+    expect(source).toContain("b.identity!==workerIdentity");
+    expect(source).toContain("c.identity!==workerIdentity");
+    expect(source).toContain("a.retryPolicy?.maximumAttempts!==1");
+    expect(source).toContain("p.status!=='deferred'||p.reason!=='prerequisites_unavailable'");
+    expect(source).not.toContain("workflow.start(");
+    expect(source).not.toContain("Worker.create(");
+  });
+  it("scopes the post-signal SQL observer to its owned blocker and original worker container address", () => {
+    const query = inFlightSchemaObserverSql(workerIdentity, "172.20.0.4");
+    expect(query).toContain("b.pid=any(pg_blocking_pids(a.pid))");
+    expect(query).toContain("b.application_name='zenith-pkg-arm64-0123456789ab-inflight-shutdown'");
+    expect(query).toContain("a.client_addr='172.20.0.4'::inet");
+    expect(query).not.toContain("-schema-outage'");
+    for (const address of [undefined, "256.0.0.1", "private-canary", "172.20.0.4'; select 1; --"]) {
+      expect(() => inFlightSchemaObserverSql(workerIdentity, address)).toThrow("address is invalid");
+    }
+  });
+  it("keeps existing failed read authority byte-bound across independent connections without claiming consumed-grant or receipt recovery", () => {
+    const before = sanitizeShutdownAuthorityEvidence(authority());
+    const after = sanitizeShutdownAuthorityEvidence({ ...authority(), observerPid: 12, privatePayload: "private-canary" });
+    expect(before.sha256).toBe(after.sha256);
+    expect(after).toEqual({ observerPid: 12, sha256: before.sha256, consumedApprovalRows: 0, buildLaunchRows: 0, agentReceiptRows: 0 });
+    const changed = authority(); changed.operation.error += " Changed.";
+    expect(sanitizeShutdownAuthorityEvidence(changed).sha256).not.toBe(before.sha256);
+    expect(JSON.stringify(after)).not.toContain("private-canary");
+    const sql = packagedShutdownAuthoritySql();
+    expect(sql).toContain("pg_backend_pid()");
+    expect(sql).toContain("idempotency_key='packaged-read-refusal'");
+    expect(sql).not.toMatch(/\b(update|insert|delete|truncate|alter)\b/i);
+  });
+  it.each(["consumedApprovals", "buildLaunches", "agentReceipts"] as const)("refuses nonempty %s rather than borrowing mutation evidence from this fixture", key => {
+    const value: Record<string, unknown> = authority(); value[key] = [{ privatePayload: "private-canary" }];
+    expect(() => sanitizeShutdownAuthorityEvidence(value)).toThrow("unconfirmed");
+  });
+  it("requires the post-signal held boundary, a distinct fresh entrypoint and original history before accepting recovery", () => {
+    const harness = readFileSync(new URL("../../scripts/acceptance/packaged-worker.mjs", import.meta.url), "utf8");
+    expect(harness.indexOf('entered = await control("activity")')).toBeLessThan(harness.indexOf('await docker(["kill", "--signal", "SIGTERM", worker]'));
+    expect(harness.indexOf('await docker(["kill", "--signal", "SIGTERM", worker]')).toBeLessThan(harness.indexOf('afterSignal = await control("activity"'));
+    expect(harness).toContain('drainWaiter.waiterPid !== heldWaiter.waiterPid');
+    expect(harness).toContain('drainWaiter.blockerPid !== heldWaiter.blockerPid');
+    expect(harness).toContain('await docker([...isolated(recoveryWorker, recoveryEnvFile), "-d", image]');
+    expect(harness).toContain('const retainedHistory = await control("history", "client", false, [entered.workflowId, entered.runId, entered.activityId])');
+    expect(harness).toContain('authorityBefore.sha256 !== authorityAfterRecovery.sha256');
+    expect(harness).toContain('consumedApprovalPreservationProven: false, receiptRecoveryProven: false');
+    expect(harness).toContain('await docker(["stop", "--time", "40", recoveryWorker]');
+    expect(harness).not.toContain('"--privileged"');
+    expect(harness).not.toContain('"--tls-disable-host-verification"');
   });
 });
 

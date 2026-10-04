@@ -8,7 +8,7 @@ import path from "node:path";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
 import vitestConfig from "../../vitest.config";
-import { CORE_CHECKS, linuxGuestManifest, manifestFor } from "../../scripts/ci/gate-manifest.mjs";
+import { EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
 import { requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
 
 interface Step {
@@ -133,6 +133,70 @@ describe("platform suite coverage", () => {
     expect(platformManifest.tools).toEqual({ node: "22.23.3", postgres: "16.15", tofu: "1.12.5" });
     expect(workflow.jobs["platform-postgres"].env?.ZENITH_TEST_TOFU_NETWORK).toBe("1");
     expect(workflow.jobs["platform-postgres"].env?.ZENITH_TEST_PLATFORM_PG_URL).toBe("postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/zenith_platform_ci");
+  });
+
+  it("executes all 71 accepted G2 native cases with their exact source and mandatory PostgreSQL flags", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    const required = [...MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, ...AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS];
+    const ids = new Set(required.map(item => requirementId("platform-postgres", item)));
+    expect(required).toHaveLength(71);
+    expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(required.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
+    expect(manifest.requirements).toHaveLength(624);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(624);
+    expect(manifest.env).toMatchObject({
+      ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1",
+      ZENITH_TEST_OPENED_HANDLE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1",
+    });
+    for (const item of required) {
+      expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);
+      expect(manifest.excludeFiles).not.toContain(item.file);
+    }
+    expect(manifest.command).toContain("tests/platform/aws-bootstrap-preflight-admission.test.ts");
+    expect(manifest.excludeFiles).toEqual([]);
+    expect(manifest.command).not.toContain("--passWithNoTests");
+  });
+
+  it("requires every final MCP native and SDK case without substituting protocol evidence for PostgreSQL", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    const pg = MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS;
+    const sdk = MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS;
+    const required = [...pg, ...sdk];
+    expect(pg).toHaveLength(72);
+    expect(sdk).toHaveLength(17);
+    const ids = new Set(required.map(item => requirementId("platform-postgres", item)));
+    expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(required.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
+    expect(manifest.env.ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED).toBe("1");
+    for (const item of required) {
+      expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);
+      expect(manifest.excludeFiles).not.toContain(item.file);
+    }
+    for (const item of pg) expect(item).toMatchObject({ backend: "postgres", suite: "MCP final start source authority [postgres; modeled external protocols]" });
+    for (const item of sdk) {
+      expect(item).toMatchObject({ suite: "default product client provenance [SDK protocol; no network]" });
+      expect(item).not.toHaveProperty("postgres");
+      expect(item).not.toHaveProperty("backend");
+    }
+    expect(manifest.requirements).toContainEqual(expect.objectContaining({ file: pg[0].file, suite: pg[0].suite, backend: "postgres", id: requirementId("platform-postgres", { file: pg[0].file, suite: pg[0].suite, backend: "postgres" }) }));
+    expect(manifest.requirements).toHaveLength(624);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(624);
+    expect(manifest.command).not.toContain("--passWithNoTests");
+  });
+
+  it("requires all seven tenant-qualified native lease controls in the existing PostgreSQL lane", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    const required = EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS;
+    expect(required).toHaveLength(7);
+    const ids = new Set(required.map(item => requirementId("platform-postgres", item)));
+    expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(required.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
+    expect(manifest.env.ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED).toBe("1");
+    for (const item of required) {
+      expect(item).toMatchObject({ file: "tests/controlplane/first-source-lease-binding.test.ts", suite: "first source worker lease binding [postgres]", postgres: true });
+      expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);
+      expect(manifest.excludeFiles).not.toContain(item.file);
+    }
+    expect(manifest.requirements).toHaveLength(624);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(624);
+    expect(manifest.command).not.toContain("--passWithNoTests");
   });
 
   it("exports the Temporal variable its helper reads and enables e2e/time skipping/history checks", () => {

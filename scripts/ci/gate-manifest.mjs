@@ -634,7 +634,1010 @@ export const SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS = [
   }
 ];
 
+// Accepted G2 native cases are literal requirements; source deletion cannot remove them.
+// Final MCP admission uses native SQL; hosted role/source protocols remain explicit models.
+export const MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses full manifest JSON committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses revision number committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses foreign revision tenant committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses foreign project tenant committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses environment region committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses replaced environment connection committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses removed environment connection committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses foreign environment tenant committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses foreign deployment association committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses missing deployment committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses foreign deployment tenant committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses foreign connection tenant committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses foreign manifest tenant committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses missing manifest committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native start CAS refuses revoked provider connection committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "subject demotion during a held valid modeled grant is checked by the final native membership predicate",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "subject removal during a held valid modeled grant is checked by the final native membership predicate",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "subject foreign workspace during a held valid modeled grant is checked by the final native membership predicate",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "subject unchanged membership during a held valid modeled grant is checked by the final native membership predicate",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "subject benign member metadata during a held valid modeled grant is checked by the final native membership predicate",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "initial prepared intent refuses full manifest JSON committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "initial prepared intent refuses revision number committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "initial prepared intent refuses replaced environment connection committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "initial prepared intent refuses revoked provider connection committed during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "unchanged owning projection and genuine source-free absence permit one permanent start across independent pools",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "benign working copy and display advance during role lookup preserves the exact original saved operation",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "benign history progress and newer UI pointer advance during role lookup preserves the exact original saved operation",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "retained native source start fences unchanged private binding during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "retained native source start fences revoked private binding during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "retained native source start fences removed private binding during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "retained native source start fences replaced private binding during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "retained native source start fences introduced public binding during delayed human role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native source start refuses full service JSON mutation with unchanged stored digest during role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native source start refuses full pipeline JSON mutation with unchanged stored digest during role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "final native source start refuses changed planning evidence JSON with the same concrete plan digest during role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "native source start refuses missing source before creating any intent",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "native source start refuses foreign source before creating any intent",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "native source start refuses stripped source before creating any intent",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "concrete managed Git prepare refuses combined native source and every review-field absence committed by an independent pool",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "concrete managed Git claim refuses combined native source and every review-field absence committed by an independent pool",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "initial managed Git planning start with null plan digest and genuine native source-review absence remains permitted once",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "native source start refuses revoked modeled integration during its delayed current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "native source start refuses demoted current human during its delayed current role lookup",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "immutable MCP argument binding refuses changed connectionId before source admission",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "immutable MCP argument binding refuses changed preApproved before source admission",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "matching arbitrary public rows cannot replace default opener and configured product topology provenance",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "genuine explicit-port native opener target remains equal only to its immutable opening host database and user",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "genuine cached native handle refuses a changed shared-host pooler realm configuration without relabeling its opening target",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "opening option mutation after its awaited driver boundary cannot rewrite genuine target provenance",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "missing explicit port and PGPORT mutation across opening cannot acquire target provenance",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "native startup query user override cannot obtain opening-target provenance from the URL realm",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "native startup query database override cannot obtain opening-target provenance from the URL realm",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "native opener preserves legacy construction but refuses options URL options for new fixed target provenance",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "native opener preserves legacy construction but refuses application_name URL options for new fixed target provenance",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "native opener preserves legacy construction but refuses unknown URL options for new fixed target provenance",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "native opener preserves legacy construction but refuses duplicate sslmode URL options for new fixed target provenance",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "native opener preserves legacy construction but refuses unproved TLS mode URL options for new fixed target provenance",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "one target-neutral sslmode require retains genuine fixed opener provenance without claiming a TLS handshake",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "one target-neutral sslmode verify-full retains genuine fixed opener provenance without claiming a TLS handshake",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "closed or accessor-tampered genuine opener cannot satisfy the scalar target predicate",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "a retained prepared intent recaptures current native semantics without replacing its immutable binding",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "lost permanent attempt commit acknowledgement leaves no false dispatch proof and never replays after product drift",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "attempted and acknowledged recovery remains evidence only after topology source and current roles become unavailable",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "post-role native CAS rechecks unchanged under explicit modeled hosted composition",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "post-role native CAS rechecks restored nested REST transport under explicit modeled hosted composition",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "post-role native CAS rechecks default REST method under explicit modeled hosted composition",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "post-role native CAS rechecks default REST fetch under explicit modeled hosted composition",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "post-role native CAS rechecks default REST accessor under explicit modeled hosted composition",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "post-role native CAS rechecks store selection under explicit modeled hosted composition",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "post-role native CAS rechecks opening pooler realm under explicit modeled hosted composition",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "post-role native CAS rechecks configured database under explicit modeled hosted composition",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "MCP final start source authority [postgres; modeled external protocols]",
+    "test": "post-role native CAS rechecks startup override under explicit modeled hosted composition",
+    "backend": "postgres"
+  }
+];
+
+// Locked SDK constructor/protocol controls require no network and supply no PostgreSQL substitute.
+export const MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "only the privately created default client satisfies the fixed owning target predicate"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "changed cached default method refuses private factory provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "changed cached default method accessor refuses private factory provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "changed cached default rest URL refuses private factory provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "changed cached default rest schema refuses private factory provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "changing process configuration after module capture cannot relabel the existing cached client"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "actual cached SDK REST from substitution refuses and exact original restoration permits native provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "actual cached SDK REST schema substitution refuses and exact original restoration permits native provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "actual cached SDK REST fetch substitution refuses and exact original restoration permits native provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "actual cached SDK REST fetch accessor substitution refuses and exact original restoration permits native provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "actual cached SDK REST method accessor substitution refuses and exact original restoration permits native provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "actual cached SDK REST prototype substitution refuses and exact original restoration permits native provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "actual cached SDK REST prototype from substitution refuses and exact original restoration permits native provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "actual cached SDK REST prototype schema substitution refuses and exact original restoration permits native provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "actual cached SDK REST fetch descriptor substitution refuses and exact original restoration permits native provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "actual cached SDK REST object substitution refuses and exact original restoration permits native provenance"
+  },
+  {
+    "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+    "suite": "default product client provenance [SDK protocol; no network]",
+    "test": "actual cached SDK REST own descriptor substitution refuses and exact original restoration permits native provenance"
+  }
+];
+
+export const MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "commits the owning product projection before proposal and binds that same persisted row before execution",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "same immutable request recovers one reservation and one broker operation across an independent pool",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "same key with changed saved semantics refuses without replacing the retained operation association",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "same human and key from another integration reserves a distinct deployment identity",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "precommit projection interruption leaves no approved semantics or deployment row",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "lost projection commit acknowledgement recovers the committed reservation without minting a new identity",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "lost native proposal acknowledgement recovers the same operation then commits its owning association",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "lost association commit acknowledgement can recover the same association but cannot force a replacement",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "a competing association version change refuses rather than overwriting the committed operation link",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "foreign and missing product scope cannot create a deployment or native proposal",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "foreign returned manifest workspace and missing or malformed native manifest refuse product mutation",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "a missing or foreign deployment association refuses before native execution claim",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "uncached current full manifest recipe mutation refuses despite the stale enclosing tool snapshot",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "current environment or owning connection change refuses the saved deployment source semantics",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "expired or revoked current requester cannot reserve a projection or claim its approved native operation",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "the exact persisted deployment input yields one permanent native start attempt across independent pools",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "malformed or foreign native deployment arguments cannot reserve a start intent for the owning operation",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+    "suite": "MCP durable deployment admission [postgres; modeled product protocol]",
+    "test": "an uncertain attempted native start remains nonreplayable and an unrecorded claim supplies no recovery proof",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-current-membership.test.ts",
+    "suite": "cached default broker current membership [postgres; modeled product reads]",
+    "test": "the cached native broker admits one current OAuth grant and consumes only its owning approval",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-current-membership.test.ts",
+    "suite": "cached default broker current membership [postgres; modeled product reads]",
+    "test": "a cached native broker refuses an OAuth grant that became revoked before claim",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-current-membership.test.ts",
+    "suite": "cached default broker current membership [postgres; modeled product reads]",
+    "test": "a cached native broker refuses an OAuth grant that became expired before claim",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-current-membership.test.ts",
+    "suite": "cached default broker current membership [postgres; modeled product reads]",
+    "test": "a cached native broker refuses an OAuth grant that became foreign issuer before claim",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-current-membership.test.ts",
+    "suite": "cached default broker current membership [postgres; modeled product reads]",
+    "test": "a cached native broker refuses an OAuth grant that became duplicate before claim",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/capabilities/default-current-membership.test.ts",
+    "suite": "cached default broker current membership [postgres; modeled product reads]",
+    "test": "OAuth revocation committed during the held current membership reply is observed before native claim",
+    "backend": "postgres"
+  }
+];
+export const AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/opened-handle-ownership.test.ts",
+    "suite": "opened platform handle ownership [postgres]",
+    "test": "recognizes only the real open PostgreSQL handle and refuses its copied shape",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/opened-handle-ownership.test.ts",
+    "suite": "opened platform handle ownership [postgres]",
+    "test": "refuses an opened handle with replaced query until its exact descriptor is restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/opened-handle-ownership.test.ts",
+    "suite": "opened platform handle ownership [postgres]",
+    "test": "refuses an opened handle with replaced tx until its exact descriptor is restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/opened-handle-ownership.test.ts",
+    "suite": "opened platform handle ownership [postgres]",
+    "test": "refuses an opened handle with replaced exec until its exact descriptor is restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/opened-handle-ownership.test.ts",
+    "suite": "opened platform handle ownership [postgres]",
+    "test": "refuses an opened handle with replaced close until its exact descriptor is restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/opened-handle-ownership.test.ts",
+    "suite": "opened platform handle ownership [postgres]",
+    "test": "refuses an opened handle with replaced identity until its exact descriptor is restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/opened-handle-ownership.test.ts",
+    "suite": "opened platform handle ownership [postgres]",
+    "test": "refuses an opened handle with replaced kind until its exact descriptor is restored",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/opened-handle-ownership.test.ts",
+    "suite": "opened platform handle ownership [postgres]",
+    "test": "invalidates opener ownership synchronously when real close begins",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/opened-handle-ownership.test.ts",
+    "suite": "opened platform handle ownership [postgres]",
+    "test": "retains genuine membership and the process-wide pool across module reload",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/opened-handle-ownership.test.ts",
+    "suite": "opened platform handle ownership [postgres]",
+    "test": "keeps a genuine PGlite handle unsupported as PostgreSQL without relabeling it",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "uses native owners and a dedicated exact seven-policy observe session while retaining incomplete child-role coverage",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "inspects an exact current observed role but keeps legacy migration explicit without write admission",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "preserves a conflicting cloud boundary as an explicit operator result",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "keeps app compiler-parent inventory explicitly incomplete without inventing child role ARNs",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "keeps build compiler-parent inventory explicitly incomplete without inventing child role ARNs",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "keeps machine compiler-parent inventory explicitly incomplete without inventing child role ARNs",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "keeps scheduler compiler-parent inventory explicitly incomplete without inventing child role ARNs",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "keeps eksCluster compiler-parent inventory explicitly incomplete without inventing child role ARNs",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "keeps eksNode compiler-parent inventory explicitly incomplete without inventing child role ARNs",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "keeps unknown native role provenance unresolved without using older success or guessing absence",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "keeps simulated native role provenance unresolved without using older success or guessing absence",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "keeps error native role provenance unresolved without using older success or guessing absence",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "keeps stale native role provenance unresolved without using older success or guessing absence",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "keeps contradictory native role provenance unresolved without using older success or guessing absence",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "keeps deleted native role provenance unresolved without using older success or guessing absence",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "keeps unobserved native role provenance unresolved without using older success or guessing absence",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses an unknown credential owner and a structurally labeled SQL owner before SDK calls",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses a replaced registered credential callback before SDK calls",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses a closed native owner and a genuine unsupported PGlite owner before SDK calls",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses cancelled native authority before SDK calls",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses uncertain native authority before SDK calls",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses MCP holder native authority before SDK calls",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses expired claim native authority before SDK calls",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses expired lease native authority before SDK calls",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses changed digest native authority before SDK calls",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses revoked grant native authority before SDK calls",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses foreign grant native authority before SDK calls",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses a verified same-workspace connection outside the exact native environment mapping",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses connection revocation committed during federation before the first inspector command",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses credential callback replacement committed during federation before the first inspector command",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses native method replacement committed during federation before the first inspector command",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses resource removal during readback without persisting a compatible result",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses resource addition during readback without persisting a compatible result",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses observation replacement during readback without persisting a compatible result",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "refuses connection mapping during readback without persisting a compatible result",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "default observation composition preserves drift results and records supplemental incomplete readiness with default credentials",
+    "postgres": true
+  },
+  {
+    "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+    "suite": "native AWS bootstrap readiness admission [postgres]",
+    "test": "default observation composition retains observed results when supplemental native readiness is unavailable",
+    "postgres": true
+  }
+];
+
 // First-source binding scenarios remain mandatory even when their native test source disappears.
+// Tenant-qualified worker acquisition controls retain the original 24 binding requirements.
+export const EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/first-source-lease-binding.test.ts",
+    "suite": "first source worker lease binding [postgres]",
+    "test": "refuses a missing execution lease workspace before native acquisition and retains the current binding",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/first-source-lease-binding.test.ts",
+    "suite": "first source worker lease binding [postgres]",
+    "test": "refuses live foreign scope collisions before acquisition without changing any retained lease or binding",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/first-source-lease-binding.test.ts",
+    "suite": "first source worker lease binding [postgres]",
+    "test": "refuses expired foreign scope collisions before acquisition without changing any retained lease or binding",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/first-source-lease-binding.test.ts",
+    "suite": "first source worker lease binding [postgres]",
+    "test": "refuses released foreign scope collisions before acquisition without changing any retained lease or binding",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/first-source-lease-binding.test.ts",
+    "suite": "first source worker lease binding [postgres]",
+    "test": "refuses expired NULL scope collisions before acquisition without changing any retained lease or binding",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/first-source-lease-binding.test.ts",
+    "suite": "first source worker lease binding [postgres]",
+    "test": "refuses a foreign scope inserted after the owning lock found no row without adopting or renewing it",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/first-source-lease-binding.test.ts",
+    "suite": "first source worker lease binding [postgres]",
+    "test": "two genuine owning acquisitions crossing an absent-row collision retain one same-holder fence and one consumed approval",
+    "postgres": true
+  }
+];
+
 export const FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS = [
   "binds the first real worker lease before default source capture and native retain after a claim without a lease",
   "reuses the same live native fence after an acquisition acknowledgement is lost without consuming approval twice",
@@ -1213,9 +2216,9 @@ export const GATE_LANES = {
     tools:{node:"22.23.3",postgres:"16.15",temporal:"1.9.1"},
   },
   "platform-postgres": {
-    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts", "tests/platform/approved-source-runtime.test.ts", "tests/platform/composition.test.ts", "tests/platform/source-bundle-composition.test.ts", "tests/platform/source-bundle-github.test.ts", "tests/platform/source-bundle-azure.test.ts"],
-    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1", ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
-    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1; first worker lease binding requires actual PostgreSQL, canonical schema13 and independent native connections", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache"],
+    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts", "tests/platform/approved-source-runtime.test.ts", "tests/platform/composition.test.ts", "tests/platform/source-bundle-composition.test.ts", "tests/platform/source-bundle-github.test.ts", "tests/platform/source-bundle-azure.test.ts", "tests/platform/aws-bootstrap-preflight-admission.test.ts"],
+    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1", ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED: "1", ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED: "1", ZENITH_TEST_OPENED_HANDLE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
+    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1; first worker lease binding requires actual PostgreSQL, canonical schema13 and independent native connections", "ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED=1; durable MCP admission requires actual PostgreSQL, canonical schema13 and independent native connections; product protocols remain modeled", "ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED=1; current OAuth integration membership requires actual PostgreSQL and uncached modeled product reads", "ZENITH_TEST_OPENED_HANDLE_REQUIRED=1; opener ownership requires physical openPlatformDb PostgreSQL handles and canonical schema13", "ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1; default AWS readiness admission requires actual PostgreSQL, canonical schema13 and genuine native owners; cloud commands remain modeled", "ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED=1; final MCP source/product/member authority requires actual PostgreSQL, canonical schema13 and independent native connections; hosted protocols remain modeled", "Locked Supabase SDK constructor/protocol controls require exact source and suite; they supply no PostgreSQL, hosted-network or TLS-handshake proof", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache"],
     tools: { node: "22.23.3", postgres: "16.15", tofu: "1.12.5" },
   },
 };
@@ -1251,6 +2254,47 @@ export const LINUX_GUEST_ALLOWED_SKIPS = [
   { package: OPS, test: "TestRealSystemctlAndJournalctl", reason: "Separately opted-in actual systemd acceptance; this gate starts no services." },
   ...cases(`${GO_MODULE}/internal/runner/kinds`, ["TestRealOpenTofuPlanShowApply", "TestRealOpenTofuWithProviderAndLockfile"]).map(({ package: packageName, test }) => ({ package: packageName, test, reason: "The existing dedicated OpenTofu workflow gate retains actual binary/provider evidence." })),
 ];
+// This is executed package evidence, never a Vitest report or a test-count waiver.
+export const PACKAGED_WORKER_PLATFORMS = ["linux/amd64", "linux/arm64"];
+export const PACKAGED_WORKER_CHECKS = [
+  "native-architecture", "fresh-source-image", "actual-entrypoint", "private-tls-custody",
+  "temporal-mtls-positive-and-negative", "owned-namespace", "startup-refusals",
+  "readiness-and-liveness", "owned-reconcile-schedule", "permitted-read-operation",
+  "packaged-assets-and-plan-retention", "sql-prerequisite-outage-and-recovery",
+  "store-outage-and-recovery", "temporal-outage-and-recovery", "durable-temporal-restart",
+  "operator-pause-and-resume", "actual-inflight-drain-and-fresh-worker", "idle-drain",
+  "private-files-and-owned-services-cleanup", "owned-builder-cache-cleanup", "owned-context-cleanup", "baseline-preserved",
+];
+/** @param {string | null} [platform] */
+export function packagedWorkerManifest(platform = null) {
+  if (platform !== null && !PACKAGED_WORKER_PLATFORMS.includes(platform)) throw new Error("Unsupported packaged-worker platform");
+  return {
+    schemaVersion: 1, lane: "packaged-worker", kind: "native-packaged-worker",
+    files: ["scripts/acceptance/packaged-worker.mjs", "scripts/ci/packaged-worker-native.mjs"],
+    excludeFiles: [], requirements: [], externalAcceptance: [], steps: [],
+    env: { ZENITH_PACKAGED_WORKER_ACCEPTANCE: "1" }, tools: { node: "22.23.3" },
+    platforms: PACKAGED_WORKER_PLATFORMS, requiredChecks: PACKAGED_WORKER_CHECKS,
+    report: "{outside-source-evidence}/sanitized.json",
+    command: ["node", "scripts/ci/packaged-worker-native.mjs", "--run", "--platform", platform ?? "{linux/amd64|linux/arm64}", "--evidence", "{outside-source-evidence}/sanitized.json"],
+    prerequisites: [
+      "Native Linux Node 22.23.3 and local unix-socket Docker server matching the requested platform; emulated:false",
+      "Measured free disk >=12 GiB on source, temporary and Docker-root filesystems; total host/Docker RAM >=12 GiB and available host RAM >=8 GiB",
+      "Explicit ZENITH_PACKAGED_WORKER_ACCEPTANCE=1; clean exact committed source; Docker/buildx, Git and OpenSSL 3 tools",
+      "New named owned local Docker context on the verified Unix socket, scoped DOCKER_CONTEXT and exact native context cleanup; original selection preserved",
+      "New uniquely owned docker-container BuildKit builder with pinned image and memory=4g; original baseline remains intact",
+      "CI uses only standard public ubuntu-24.04 and ubuntu-24.04-arm runners; private/internal or unrecognized hosted context refuses",
+      "Fresh harness-owned PostgreSQL/Temporal services, real frontend/internode mTLS and generated private files outside source; no account credentials",
+    ],
+    reportValidation: "Observed child exit zero, one complete source-bound harness result, every fixed executed check passed, native architecture and independently verified owned cleanup; missing/failed/skipped/unknown results fail. Raw streams and private files never enter uploads.",
+    limitations: [
+      "The permitted operation is a signed read grant with an expected missing-target refusal; cloud mutation, human browser approval and consumed write-grant recovery are unverified.",
+      "Disposable Temporal mTLS proves certificate authentication, not production namespace authorization, Temporal Cloud or HA.",
+      "A source fixture is not native runtime proof; both architecture jobs and their exact sanitized artifacts must actually complete.",
+      "Source is measured before/after the fresh image build, not an immutable context snapshot. Hosted capacity is checked, never enlarged or silently skipped.",
+    ],
+  };
+}
+
 export function linuxGuestManifest() {
   return {
     schemaVersion: 1, lane: "linux-guest", kind: "native-go", files: [], excludeFiles: [], requirements: [], externalAcceptance: [], report: ".data-ci-guest/attempt-{attemptId}/sanitized.json",
@@ -1391,7 +2435,7 @@ export function requirementsFor(lane, root) {
       requirements.push(...AGENT_EFFECT_POSTGRES_REQUIREMENTS);
       requirements.push(...BUILD_SOURCE_POSTGRES_REQUIREMENTS, GITHUB_WEBHOOK_POSTGRES_REQUIREMENT, ...GITHUB_WEBHOOK_POSTGRES_CASES);
       // Discovery above remains; these named cases survive source deletion.
-      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS,...FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS);
+      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS,...FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS,...MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS,...AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS,...EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS);
       break;
     default:
       throw new Error("Unknown CI lane");
@@ -1418,6 +2462,7 @@ export function requirementsFor(lane, root) {
 /** @param {string} lane @param {string} [root] @param {string} [reportPath] @returns {GateManifest} */
 export function manifestFor(lane, root = process.cwd(), reportPath) {
   if (lane === "linux-guest") return linuxGuestManifest();
+  if (lane === "packaged-worker") return packagedWorkerManifest();
   if (lane === "core" || lane === "fresh") return { schemaVersion: 1, lane, files: [], excludeFiles: [], env: {}, report: "", command: [], requirements: [], externalAcceptance: [], tools: { node: "22.23.3" }, prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts"], steps: lane === "fresh" ? [{ id: "install", command: ["npm", "ci", "--ignore-scripts"] }, ...CORE_CHECKS] : CORE_CHECKS, reportValidation: "Command exits establish core checks; real-engine requirements are validated by their dedicated lanes." };
   if (!Object.hasOwn(GATE_LANES, lane)) throw new Error("Unknown CI lane");
   const config = GATE_LANES[lane];
@@ -1429,11 +2474,11 @@ export function manifestFor(lane, root = process.cwd(), reportPath) {
 export function main(args) {
   try {
     if (args.length > 1) throw new Error("usage");
-    const result = args[0] === "external-acceptance" ? { schemaVersion: 1, groups: EXTERNAL_ACCEPTANCE.map((group) => ({ ...group, status: "unverified", command: ["node", "node_modules/vitest/vitest.mjs", "run", group.file, "--testNamePattern", group.suite.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "--maxWorkers=1"] })) } : args[0] ? manifestFor(args[0]) : { schemaVersion: 1, lanes: ["fresh", "core", ...Object.keys(GATE_LANES), "linux-guest"].map((lane) => manifestFor(lane)) };
+    const result = args[0] === "external-acceptance" ? { schemaVersion: 1, groups: EXTERNAL_ACCEPTANCE.map((group) => ({ ...group, status: "unverified", command: ["node", "node_modules/vitest/vitest.mjs", "run", group.file, "--testNamePattern", group.suite.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "--maxWorkers=1"] })) } : args[0] ? manifestFor(args[0]) : { schemaVersion: 1, lanes: ["fresh", "core", ...Object.keys(GATE_LANES), "linux-guest", "packaged-worker"].map((lane) => manifestFor(lane)) };
     console.log(JSON.stringify(result, null, 2));
     return 0;
   } catch {
-    console.error("usage: node scripts/ci/gate-manifest.mjs [fresh|core|postgres|policy|tofu|workflows|reconciliation|workflow-intents|platform-postgres|linux-guest|external-acceptance]");
+    console.error("usage: node scripts/ci/gate-manifest.mjs [fresh|core|postgres|policy|tofu|workflows|reconciliation|workflow-intents|platform-postgres|linux-guest|packaged-worker|external-acceptance]");
     return 2;
   }
 }

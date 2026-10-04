@@ -254,6 +254,98 @@ export function priceContainer(l: Ledger, n: CostNode) {
   if (n.provider === "azure") l.assumed.azureContainerBilling = "active-rate upper bound (idle vCPU/memory is billed at roughly 1/8 of the active rate)";
 }
 
+/* These profiles match the current native drivers, not arbitrary portable
+ * configurations. Unknown billing-affecting fields must not disappear into a
+ * partial subtotal. Usage is assumed when omitted, never measured. */
+function meteredShape(n: CostNode, keys: readonly string[]): Record<string, unknown> {
+  const spec = specOf(n);
+  if (Object.keys(spec).some((key) => !keys.includes(key))) throw new MissingPriceError(n.provider, n.region, `(unsupported ${n.kind} billing profile: ${n.address})`);
+  return spec;
+}
+
+function meteredNumber(n: CostNode, key: string, fallback: number, int = false): number {
+  if (specOf(n)[key] === null) throw new CostInputError(`${n.address}: spec.${key} must be a finite nonnegative ${int ? "integer" : "number"}.`);
+  return num(n, key, fallback, { int });
+}
+
+function requireRoles(l: Ledger, n: CostNode, roles: readonly SkuRole[]): void {
+  for (const role of roles) {
+    if (!skuFor(n.provider, role) || !l.entry(n.provider, n.region, role, n.address)) throw new MissingPriceError(n.provider, n.region, role);
+  }
+}
+
+export function priceSecret(l: Ledger, n: CostNode): void {
+  const keys = ["namespace", "secretRef", "store", "purpose", "requestsMillions", ...(n.provider === "gcp" ? ["activeVersions", "rotationNotifications"] : [])];
+  const spec = meteredShape(n, keys);
+  if (!["aws", "gcp", "azure"].includes(n.provider) || spec.store !== "zenith_vault" || spec.purpose !== "environment" || typeof spec.secretRef !== "string" || !spec.secretRef.startsWith("vault:") || spec.secretRef.length <= 6 || (spec.namespace !== undefined && typeof spec.namespace !== "string")) {
+    throw new MissingPriceError(n.provider, n.region, `(unsupported managed secret store/purpose: ${n.address})`);
+  }
+  const requests = meteredNumber(n, "requestsMillions", 0.01);
+  l.assumed.secretRequestsMillionsDefault = 0.01;
+  l.assumed.secretDriverProfile = "AWS aws/secretsmanager without rotation; GCP one user-managed replica; Azure Standard vault, secret operations only";
+  requireRoles(l, n, ["secret_requests_million", ...(n.provider === "aws" ? ["secret_month" as const] : n.provider === "gcp" ? ["secret_active_version_month" as const, "secret_rotation_notification" as const] : [])]);
+  if (n.provider === "aws") l.charge({ address: n.address, description: "Managed secret storage", provider: n.provider, region: n.region, role: "secret_month", quantity: 1, basis: "1 secret-month; versions share the secret charge; native aws/secretsmanager encryption is free, automatic rotation is not configured" });
+  if (n.provider === "gcp") {
+    const versions = meteredNumber(n, "activeVersions", 1, true);
+    const rotations = meteredNumber(n, "rotationNotifications", 0, true);
+    l.assumed.secretActiveVersionsDefault = 1;
+    l.assumed.secretRotationNotificationsDefault = 0;
+    l.charge({ address: n.address, description: "Managed secret active versions", provider: n.provider, region: n.region, role: "secret_active_version_month", quantity: versions, basis: `${versions} enabled or disabled version(s) × 1 native replica location × 1 month; retained version count is assumed, not read from the account` });
+    l.charge({ address: n.address, description: "Managed secret rotation notifications", provider: n.provider, region: n.region, role: "secret_rotation_notification", quantity: rotations, basis: `${rotations} notification(s); native driver sets no rotation schedule (default 0); free allowance not deducted; external rotation execution is unsupported` });
+  }
+  l.charge({ address: n.address, description: "Managed secret API requests", provider: n.provider, region: n.region, role: "secret_requests_million", quantity: requests, basis: `${fmt(requests)} million assumed billable ${n.provider === "gcp" ? "access" : "secret"} operations/month; default 10,000, not measured; ${n.provider === "azure" ? "Standard Key Vault has operation-based secret pricing" : "free allowances not deducted"}` });
+}
+
+export function priceRegistry(l: Ledger, n: CostNode): void {
+  const spec = meteredShape(n, ["scanOnPush", "immutableTags", "storageGb", "internetPullGb"]);
+  if (n.provider !== "aws" || spec.scanOnPush !== true || spec.immutableTags !== false) throw new MissingPriceError(n.provider, n.region, `(unsupported managed registry profile: ${n.address})`);
+  requireRoles(l, n, ["registry_storage_gb_month", "egress_internet_gb"]);
+  const storage = meteredNumber(n, "storageGb", 1);
+  const internet = meteredNumber(n, "internetPullGb", 1);
+  l.assumed.registryStorageGbDefault = 1;
+  l.assumed.registryInternetPullGbDefault = 1;
+  l.assumed.registryDriverProfile = "Private ECR, AES256 encryption and basic scan on push; account-level enhanced scanning/replication/signing is unsupported";
+  l.charge({ address: n.address, description: "Private registry image storage", provider: n.provider, region: n.region, role: "registry_storage_gb_month", quantity: storage, basis: `${fmt(storage)} GB-month average retained images; default 1 GB assumes all images within the native 30-image lifecycle, not one GB per image; AES256 and basic scan carry no additional charge` });
+  l.charge({ address: n.address, description: "Private registry internet pulls", provider: n.provider, region: n.region, role: "egress_internet_gb", quantity: internet, basis: `${fmt(internet)} GB assumed charged internet transfer/month (default 1); same-region AWS pulls are free and may be represented by explicit 0; cross-region replication/receiving-side charges are unsupported` });
+}
+
+export function priceBuild(l: Ledger, n: CostNode): void {
+  const spec = meteredShape(n, ["source", "output", "location", "buildsPerMonth", "minutesPerBuild", "sourceStorageGb", "sourceGetRequests", "sourcePutRequests", "logIngestGb", "logStorageGb", "internetEgressGb"]);
+  const source = spec.source;
+  const output = spec.output;
+  if (n.provider !== "aws" || spec.location !== "customer_account" || !source || typeof source !== "object" || Array.isArray(source) || !output || typeof output !== "object" || Array.isArray(output)) throw new MissingPriceError(n.provider, n.region, `(unsupported managed build profile: ${n.address})`);
+  const src = source as Record<string, unknown>;
+  const out = output as Record<string, unknown>;
+  if (Object.keys(src).some((key) => !["repo", "ref", "dockerfile"].includes(key)) || typeof src.repo !== "string" || !src.repo || typeof src.ref !== "string" || !src.ref || (src.dockerfile !== undefined && (typeof src.dockerfile !== "string" || !src.dockerfile)) || Object.keys(out).length !== 1 || typeof out.registry !== "string" || !out.registry.startsWith("container_registry/")) throw new MissingPriceError(n.provider, n.region, `(unsupported managed build source/output: ${n.address})`);
+  requireRoles(l, n, ["build_medium_hour", "object_storage_gb_month", "object_get_million", "object_put_million", "logs_ingest_gb", "logs_storage_gb_month", "egress_internet_gb"]);
+  const builds = meteredNumber(n, "buildsPerMonth", 4, true);
+  const minutes = meteredNumber(n, "minutesPerBuild", 10);
+  const storage = meteredNumber(n, "sourceStorageGb", 1);
+  const gets = meteredNumber(n, "sourceGetRequests", builds, true);
+  const puts = meteredNumber(n, "sourcePutRequests", builds, true);
+  const logs = meteredNumber(n, "logIngestGb", 0.1);
+  const retainedLogs = meteredNumber(n, "logStorageGb", 0.1);
+  const internet = meteredNumber(n, "internetEgressGb", 1);
+  l.assumed.buildsPerMonthDefault = 4;
+  l.assumed.buildMinutesPerBuildDefault = 10;
+  l.assumed.buildSourceStorageGbDefault = 1;
+  l.assumed.buildSourceRequestsDefault = "one GET and one PUT per build; multipart/API retries need explicit quantities";
+  l.assumed.buildLogIngestGbDefault = 0.1;
+  l.assumed.buildLogStorageGbDefault = 0.1;
+  l.assumed.buildInternetEgressGbDefault = 1;
+  l.assumed.buildDriverProfile = "CodeBuild on-demand Linux BUILD_GENERAL1_MEDIUM, no VPC/cache/CodePipeline/customer KMS; S3 source expiry 14 days and CloudWatch retention 30 days";
+  const rows: { role: SkuRole; description: string; quantity: number; basis: string }[] = [
+    { role: "build_medium_hour", description: "Build compute hours", quantity: builds * Math.ceil(minutes) / 60, basis: `${builds} build(s)/month × ceil(${fmt(minutes)} minutes/build) ÷ 60; native BUILD_GENERAL1_MEDIUM on-demand Linux; free allowance not deducted` },
+    { role: "object_storage_gb_month", description: "Build source bucket storage", quantity: storage, basis: `${fmt(storage)} GB-month average source bundles retained under native 14-day expiry; default 1, not measured` },
+    { role: "object_get_million", description: "Build source GET requests", quantity: gets / 1e6, basis: `${gets} assumed GET request(s)/month ÷ 1,000,000` },
+    { role: "object_put_million", description: "Build source PUT requests", quantity: puts / 1e6, basis: `${puts} assumed PUT request(s)/month ÷ 1,000,000; include multipart requests and retries when sizing` },
+    { role: "logs_ingest_gb", description: "Build log ingestion", quantity: logs, basis: `${fmt(logs)} GB assumed log ingestion/month` },
+    { role: "logs_storage_gb_month", description: "Build log storage", quantity: retainedLogs, basis: `${fmt(retainedLogs)} GB-month average compressed logs retained under native 30-day retention` },
+    { role: "egress_internet_gb", description: "Build internet egress", quantity: internet, basis: `${fmt(internet)} GB assumed charged internet transfer/month; native build has no VPC/NAT; external build-service consumption is unsupported` },
+  ];
+  for (const row of rows) l.charge({ address: n.address, provider: n.provider, region: n.region, ...row });
+}
+
 export function priceVm(l: Ledger, n: CostNode) {
   const size = sizeOf(n);
   const count = replicasOf(n);

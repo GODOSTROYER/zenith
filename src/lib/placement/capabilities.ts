@@ -212,6 +212,13 @@ export const SKU_ROLES = [
   "dns_queries_million",
   "cert_month",
   "logs_ingest_gb",
+  "logs_storage_gb_month",
+  "secret_month",
+  "secret_active_version_month",
+  "secret_requests_million",
+  "secret_rotation_notification",
+  "registry_storage_gb_month",
+  "build_medium_hour",
 ] as const;
 export type SkuRole = (typeof SKU_ROLES)[number];
 
@@ -255,6 +262,11 @@ const AWS_SKUS: RoleMap = {
   dns_queries_million: "aws.route53.queries_million",
   cert_month: "aws.acm.public_cert_month",
   logs_ingest_gb: "aws.cloudwatch.logs_ingest_gb",
+  logs_storage_gb_month: "aws.cloudwatch.logs_storage_gb_month",
+  secret_month: "aws.secretsmanager.secret_month",
+  secret_requests_million: "aws.secretsmanager.requests_million",
+  registry_storage_gb_month: "aws.ecr.storage_gb_month",
+  build_medium_hour: "aws.codebuild.medium_hour",
 };
 
 const AZURE_SKUS: RoleMap = {
@@ -295,6 +307,7 @@ const AZURE_SKUS: RoleMap = {
   dns_queries_million: "azure.dns.queries_million",
   cert_month: "azure.managed_cert.public_cert_month",
   logs_ingest_gb: "azure.log_analytics.logs_ingest_gb",
+  secret_requests_million: "azure.key_vault.secret_requests_million",
 };
 
 const GCP_SKUS: RoleMap = {
@@ -335,6 +348,9 @@ const GCP_SKUS: RoleMap = {
   dns_queries_million: "gcp.cloud_dns.queries_million",
   cert_month: "gcp.managed_cert.public_cert_month",
   logs_ingest_gb: "gcp.cloud_logging.logs_ingest_gb",
+  secret_active_version_month: "gcp.secret_manager.active_version_month",
+  secret_requests_million: "gcp.secret_manager.access_requests_million",
+  secret_rotation_notification: "gcp.secret_manager.rotation_notification",
 };
 
 const OCI_SKUS: RoleMap = {

@@ -111,7 +111,10 @@ Log ingestion
 ```
 
 Also, when present: "Cross-region and cross-cloud transfer between components",
-"Provisioned IOPS" and "High-availability standby capacity".
+"Provisioned IOPS", "High-availability standby capacity",
+"Supported native secret storage, active versions, API operations and rotation notifications",
+"Supported private registry image storage and assumed internet pulls" and
+"Supported build compute, source storage and requests, logs and assumed internet egress".
 
 Excluded:
 
@@ -121,9 +124,9 @@ Discounts: savings plans, committed use, reserved instances, spot, enterprise ag
 Provider free tiers and free monthly allowances are not deducted (conservative), except where the list price itself is zero
 Volume-tier egress discounts: the first-tier per-GB price is applied to every GB
 Data transfer between availability zones inside one region
-Container registry storage and image pulls, and CI/CD build minutes
-Monitoring metrics, alarms, traces and dashboards (only log ingestion is modeled)
-Secret manager and key management charges
+Registry and build features outside the supported native profiles (enhanced scanning, replication, signing, external tools and services)
+Monitoring metrics, alarms, traces and dashboards; compute log storage (supported build log storage is modeled)
+Custom secret key management, automatic rotation execution and secret profiles outside the supported native drivers
 WAF, DDoS protection, CDN and API gateway charges
 Support plans and marketplace fees
 This is an estimate from a static list-price catalog, not an invoice or a quote
@@ -131,23 +134,93 @@ This is an estimate from a static list-price catalog, not an invoice or a quote
 MySQL is priced with the provider's PostgreSQL SKUs (approximation)
 ```
 
-Managed functions, static sites, container registries, secrets, Kubernetes clusters
-and namespaces, build pipelines and provider-native (Level 3) resources currently
-have no model and refuse the estimate. A managed node on a provider without a
+Managed functions, static sites, Kubernetes clusters and namespaces and
+provider-native (Level 3) resources have no model and refuse the estimate.
+Secret, registry and build nodes are priced only for the exact supported native
+profiles below; a bare node or an unknown store, provider, configuration or meter
+still refuses the whole estimate. A managed node on a provider without a
 catalog (including Kubernetes, sandbox and LocalStack) also refuses. Referenced
 and external nodes remain outside this estimate; their actual cost is unknown to
 Zenith, rather than asserted to be free in their owner's account.
 
+## Supported secret and Git-build profiles
+
+Managed `zenith_vault` secrets with `purpose: environment` and a vault reference
+are priced as the current native AWS Secrets Manager, GCP Secret Manager or
+Azure Standard Key Vault driver. A provider reference has separate ownership;
+it is not a free managed secret. No secret value is read or included in a cost.
+
+- AWS: one secret-month plus API operations; the native AWS-managed
+  `aws/secretsmanager` key adds no encryption charge and the driver configures no
+  automatic rotation. Custom keys, rotation execution and private endpoints
+  refuse this profile. Regional rates come from the
+  [official Secrets Manager feeds](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSSecretsManager/current/index.json).
+  [AWS describes the managed key and rotation charges](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html).
+- GCP: enabled **and disabled** retained versions per native replica location,
+  access operations and scheduled rotation notifications. The current driver
+  creates one user-managed replica. The
+  [official pricing page](https://cloud.google.com/secret-manager/pricing)
+  supplies global list rates but publishes no effective date; retrieval is
+  recorded separately. Free monthly allowances are not deducted.
+- Azure: Standard vault secret operations only, using the exact regional
+  Standard Operations 10K meter from the
+  [official Retail Prices API](https://prices.azure.com/api/retail/prices).
+  Its effective date is 2015-08-01, not the 2026-10-05 retrieval date. HSM,
+  custom-key and certificate profiles are outside this model.
+- OCI vault secrets may use an existing software or HSM key; this graph does
+  not prove its billing type, lifetime or private-vault charge. OCI and Zenith
+  managed secrets still refuse the estimate rather than returning a partial
+  zero. [Oracle lists the distinct key and vault charges](https://www.oracle.com/cloud/price-list/).
+
+Secret operation usage defaults to **10,000 calls/month per secret**, explicitly
+an assumption. GCP defaults to **one retained active version** and **zero rotation
+notifications** because the native driver installs no schedule. Supply
+`requestsMillions`, and for GCP `activeVersions` and `rotationNotifications`, in
+the cost graph to change those assumptions. An explicitly unavailable (`null`),
+negative or invalid quantity refuses; omitted usage receives the stated default.
+These cost-only fields are not new deployment configuration controls.
+
+AWS Git sources expand into an on-demand Linux `BUILD_GENERAL1_MEDIUM` CodeBuild
+project and private ECR repository. The estimate includes rounded minutes per
+build, average source-bucket storage, GET/PUT requests, log ingestion and retained
+compressed logs, image storage and assumed charged internet transfer. The native
+source bucket expires bundles after 14 days; build logs retain 30 days and ECR
+keeps 30 images. Retention is not a byte quantity or a billing cap.
+
+Defaults per pipeline are four builds/month at ten minutes/build, 1 GB-month of
+source bundles, one GET and PUT per build, 0.1 GB log ingestion and 0.1 GB-month
+compressed logs, and 1 GB charged internet egress. Each repository assumes
+1 GB-month of retained images and 1 GB charged internet pulls. These are
+planning quantities, not measured use. Multipart requests, retries, retained
+versions and build output size can increase the bill; supply the explicit
+cost-graph quantities when known. Every required meter must exist even when a
+quantity is zero. Same-region AWS image pulls may be explicitly set to zero;
+unknown pull volume never silently defaults to zero.
+
+Rates are transcribed from the regional
+[CodeBuild](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/CodeBuild/current/index.json),
+[ECR](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonECR/current/index.json)
+and [CloudWatch](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonCloudWatch/current/index.json)
+feeds. Source storage, request, ingestion and transfer prices retain their original
+evidence dates. Native AES256 encryption and basic image scanning add no charge;
+[ECR documents transfer and encryption pricing](https://aws.amazon.com/ecr/pricing/)
+and [AWS documents free basic scanning](https://aws.amazon.com/about-aws/whats-new/2024/08/new-version-amazon-ecr-basic-scanning/).
+Enhanced scanning, replication, signing, arbitrary build tools/services, customer
+KMS, VPC builds and non-AWS builds/registries still refuse when specified.
+Ambient account features are not discovered; the native-profile assumption does
+not prove the actual account is configured that way. Compare the estimate with
+current account configuration before relying on it. Nothing caps a bill.
+
 ## The price catalog
 
 `src/lib/placement/catalog/2026-10.json`, loaded and validated by
-`src/lib/placement/pricebook.ts`. Current version: **`2026-10-05.1`**.
+`src/lib/placement/pricebook.ts`. Current version: **`2026-10-05.2`**.
 The September artifact remains unchanged for historical interpretation.
 
 - **A static snapshot of list prices.** Nothing fetches anything at run time. Prices
   are USD before taxes, discounts and free tiers. The retained September values
   keep their original evidence classes and dates; the eight refreshed entries
-  have explicit 2026-10-05 retrieval notes. Values are **transcribed by hand**,
+  and 36 added auxiliary entries have explicit 2026-10-05 retrieval notes. Values are **transcribed by hand**,
   rather than fetched at execution time.
 - **Versioned.** `version` is `YYYY-MM-DD.N`. Every estimate records the version it
   used (`catalogVersion`), and so does `platform.cost_estimates`, so an old estimate
@@ -177,18 +250,18 @@ solver warns on a candidate when more than 25 % of its estimate does.
 
 ### What the catalog holds today
 
-Counts of entries by provider and class at version `2026-10-05.1` (a test keeps this
+Counts of entries by provider and class at version `2026-10-05.2` (a test keeps this
 table equal to the file):
 
 | Provider | Class | Entries |
 |---|---|---|
-| aws | official_api | 140 |
+| aws | official_api | 160 |
 | aws | official_page | 4 |
 | aws | model_knowledge | 4 |
-| azure | official_api | 96 |
+| azure | official_api | 100 |
 | azure | derived | 4 |
 | azure | model_knowledge | 48 |
-| gcp | official_page | 8 |
+| gcp | official_page | 20 |
 | gcp | third_party_mirror | 40 |
 | gcp | derived | 36 |
 | gcp | model_knowledge | 64 |

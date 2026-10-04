@@ -43,7 +43,7 @@ function clone(): PriceCatalog {
 
 describe("catalog contents", () => {
   it("has the pinned version and validates", () => {
-    expect(catalog.version).toBe("2026-10-05.1");
+    expect(catalog.version).toBe("2026-10-05.2");
     expect(loadDefaultCatalog()).toBe(catalog); // cached
     expect(parseCatalog(rawJson)).toEqual(catalog);
   });
@@ -157,11 +157,11 @@ describe("bounded October catalog refresh", () => {
     const historical = parseCatalog(historicalJson);
     expect(historical.version).toBe("2026-09-30.1");
     expect(catalog.sources.slice(0, historical.sources.length)).toEqual(historical.sources);
-    expect(catalog.entries).toHaveLength(historical.entries.length);
-    const touched = catalog.entries.filter((entry, index) => JSON.stringify(entry) !== JSON.stringify(historical.entries[index]));
+    expect(catalog.entries).toHaveLength(historical.entries.length + 36);
+    const touched = catalog.entries.slice(0, historical.entries.length).filter((entry, index) => JSON.stringify(entry) !== JSON.stringify(historical.entries[index]));
     expect(touched).toHaveLength(8);
     expect([...new Set(touched.map((entry) => entry.sku))].sort()).toEqual(["aws.acm.public_cert_month", "azure.public_ip.hour"]);
-    expect(catalog.sources.filter((source) => source.retrievedAt === "2026-10-05")).toHaveLength(2);
+    expect(catalog.sources.filter((source) => source.retrievedAt === "2026-10-05")).toHaveLength(8);
   });
 
   it("pins the exact regional Standard IPv4 meter and separates effective date from retrieval", () => {
@@ -188,6 +188,47 @@ describe("bounded October catalog refresh", () => {
       expect(entry.note).toContain("Exportable, ACME and Private CA not covered");
     }
     expect(book.find("azure", "eastus", "azure.nat_gateway.hour")?.verification).toBe("model_knowledge");
+  });
+});
+
+describe("native auxiliary price cohort", () => {
+  it("pins only the 36 new regional secret, build, registry and log-storage entries", () => {
+    const added = catalog.entries.slice(historicalJson.entries.length);
+    expect(added).toHaveLength(36);
+    expect([...new Set(added.map((entry) => entry.sku))].sort()).toEqual([
+      "aws.cloudwatch.logs_storage_gb_month", "aws.codebuild.medium_hour", "aws.ecr.storage_gb_month",
+      "aws.secretsmanager.requests_million", "aws.secretsmanager.secret_month", "azure.key_vault.secret_requests_million",
+      "gcp.secret_manager.access_requests_million", "gcp.secret_manager.active_version_month", "gcp.secret_manager.rotation_notification",
+    ]);
+    for (const entry of added) {
+      expect(entry.verification).toMatch(/^official_(api|page)$/);
+      expect(entry.note).toContain("2026-10-05");
+    }
+    for (const region of REQUIRED_REGIONS.aws!) {
+      expect(book.price("aws", region, "aws.secretsmanager.secret_month")).toBe(0.4);
+      expect(book.price("aws", region, "aws.secretsmanager.requests_million")).toBe(5);
+      expect(book.price("aws", region, "aws.codebuild.medium_hour")).toBe(0.6);
+      expect(book.price("aws", region, "aws.ecr.storage_gb_month")).toBe(0.1);
+      expect(book.price("aws", region, "aws.cloudwatch.logs_storage_gb_month")).toBe(0.03);
+      expect(book.find("aws", region, "aws.codebuild.medium_hour")?.note).toContain("Build-Min:Linux:g1.medium");
+    }
+  });
+
+  it("preserves per-location GCP version units and exact Standard Azure operation meters", () => {
+    for (const region of REQUIRED_REGIONS.gcp!) {
+      expect(book.price("gcp", region, "gcp.secret_manager.active_version_month")).toBe(0.06);
+      expect(book.price("gcp", region, "gcp.secret_manager.access_requests_million")).toBe(3);
+      expect(book.price("gcp", region, "gcp.secret_manager.rotation_notification")).toBe(0.05);
+      expect(book.find("gcp", region, "gcp.secret_manager.active_version_month")?.note).toContain("effective date not published");
+    }
+    for (const region of REQUIRED_REGIONS.azure!) {
+      const entry = book.find("azure", region, "azure.key_vault.secret_requests_million")!;
+      expect(entry.usd).toBe(3); expect(entry.unit).toBe("million_requests");
+      expect(entry.note).toContain("Standard Operations 10K");
+      expect(entry.note).toContain("effectiveStartDate 2015-08-01");
+    }
+    expect(skuFor("oci", "secret_requests_million")).toBeUndefined();
+    expect(skuFor("zenith", "secret_requests_million")).toBeUndefined();
   });
 });
 

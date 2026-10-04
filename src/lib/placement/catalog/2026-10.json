@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-05.1",
+  "version": "2026-10-05.2",
   "sources": [
     {
       "provider": "aws",
@@ -105,6 +105,48 @@
       "retrievedAt": "2026-10-05",
       "url": "https://prices.azure.com/api/retail/prices",
       "source": "Azure Retail Prices API public unauthenticated responses read on 2026-10-05 and transcribed for azure.public_ip.hour only, separately filtered for centralindia, southeastasia, eastus and westeurope: serviceName Virtual Network, productName IP Addresses, skuName Standard, priceType Consumption. Exactly one USD Standard IPv4 Static Public IP meter per region: 0.005 per 1 Hour, effectiveStartDate 2018-06-01T00:00:00Z, meterId 9c150bf9-2bad-430e-a53c-c213804f49ef. Public IP Prefix and Global/Basic SKUs are excluded. All other Azure evidence remains dated 2026-09-30."
+    },
+    {
+      "provider": "aws",
+      "source": "Transcribed 2026-10-05 from the official AWSSecretsManager regional OnDemand feeds for ap-south-1, ap-southeast-1, us-east-1 and eu-west-1. Only secret-month and APIRequest dimensions, USD 0.40/secret-month and 0.000005/API call (USD 5/million); effectiveDate 2025-07-01, publicationDate 2026-09-11. Existing compute/network rates retain their prior retrieval dates.",
+      "retrievedAt": "2026-10-05",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSSecretsManager/current/index.json",
+      "verification": "official_api"
+    },
+    {
+      "provider": "aws",
+      "source": "Transcribed 2026-10-05 from official CodeBuild regional OnDemand feeds for ap-south-1, ap-southeast-1, us-east-1 and eu-west-1. Exact Build-Min:Linux:g1.medium, USD 0.01/minute normalized to USD 0.60/hour; excludes Windows, reserved capacity, sandbox and Docker-server meters. Feed effective/publication dates are recorded per entry.",
+      "retrievedAt": "2026-10-05",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/CodeBuild/current/index.json",
+      "verification": "official_api"
+    },
+    {
+      "provider": "aws",
+      "source": "Transcribed 2026-10-05 from official AmazonECR regional OnDemand feeds for ap-south-1, ap-southeast-1, us-east-1 and eu-west-1. Exact ordinary TimedStorage-ByteHrs (not Archive), USD 0.10/GB-month. Internet transfer uses the separately dated data-transfer catalog; account-wide enhanced scanning, replication and signing are outside this native AES256/basic profile.",
+      "retrievedAt": "2026-10-05",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonECR/current/index.json",
+      "verification": "official_api"
+    },
+    {
+      "provider": "aws",
+      "source": "Transcribed 2026-10-05 from official AmazonCloudWatch regional OnDemand feeds for ap-south-1, ap-southeast-1, us-east-1 and eu-west-1. Exact regional TimedStorage-ByteHrs (not Global, IA or AIA), USD 0.03/GB-month compressed log storage; build log ingestion retains the separately dated catalog rate.",
+      "retrievedAt": "2026-10-05",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonCloudWatch/current/index.json",
+      "verification": "official_api"
+    },
+    {
+      "provider": "gcp",
+      "source": "Transcribed 2026-10-05 from the official Secret Manager pricing page: USD 0.06/active version/location/month, USD 0.03/10,000 access operations (USD 3/million), and USD 0.05/rotation notification. Enabled and disabled versions count; management is free. Native driver has one user-managed replica. Monthly free allowances are not deducted; the page supplies no effective date.",
+      "retrievedAt": "2026-10-05",
+      "url": "https://cloud.google.com/secret-manager/pricing",
+      "verification": "official_page"
+    },
+    {
+      "provider": "azure",
+      "source": "Transcribed 2026-10-05 from the official Retail Prices API filtered to serviceName Key Vault, armRegionName centralindia/southeastasia/eastus/westeurope and priceType Consumption. Exact product Key Vault, sku Standard, meter Operations, USD 0.03/10K (USD 3/million), tierMinimumUnits 0; effectiveStartDate 2015-08-01. No Premium/HSM/certificate/key rows are used.",
+      "retrievedAt": "2026-10-05",
+      "url": "https://prices.azure.com/api/retail/prices",
+      "verification": "official_api"
     }
   ],
   "entries": [
@@ -6082,6 +6124,330 @@
       "unit": "gb",
       "usd": 0.3,
       "verification": "internal_assumption"
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.secretsmanager.secret_month",
+      "unit": "month",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, regional AWSSecretsManager effectiveDate 2025-07-01T00:00:00Z, publicationDate 2026-09-11T12:46:10Z; 1 secret-month; API calls separate; aws/secretsmanager key free in native profile."
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.secretsmanager.requests_million",
+      "unit": "million_requests",
+      "usd": 5,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, regional AWSSecretsManager effectiveDate 2025-07-01T00:00:00Z, publicationDate 2026-09-11T12:46:10Z; APIRequest USD 0.000005/call \u00d7 1,000,000."
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.codebuild.medium_hour",
+      "unit": "hour",
+      "usd": 0.6,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, CodeBuild regional APS3-Build-Min:Linux:g1.medium; effectiveDate 2026-08-01T00:00:00Z, publicationDate 2026-09-11T12:46:25Z; minutes normalized \u00d7 60 to hour. Original provider SKU 2STFBE7SKWBA9D3H."
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.ecr.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.1,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, AmazonECR regional APS3-TimedStorage-ByteHrs; effectiveDate 2025-11-01T00:00:00Z, publicationDate 2026-09-11T12:44:25Z; GB-Mo normalized \u00d7 1 to gb_month. Original provider SKU WRGBK4S2T45GRPMB."
+    },
+    {
+      "provider": "aws",
+      "region": "ap-south-1",
+      "sku": "aws.cloudwatch.logs_storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.03,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, AmazonCloudWatch regional APS3-TimedStorage-ByteHrs; effectiveDate 2026-09-01T00:00:00Z, publicationDate 2026-09-22T02:17:15Z; GB-Mo normalized \u00d7 1 to gb_month. Original provider SKU M9PG5USRE2QBB6FU."
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.secretsmanager.secret_month",
+      "unit": "month",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, regional AWSSecretsManager effectiveDate 2025-07-01T00:00:00Z, publicationDate 2026-09-11T12:46:10Z; 1 secret-month; API calls separate; aws/secretsmanager key free in native profile."
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.secretsmanager.requests_million",
+      "unit": "million_requests",
+      "usd": 5,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, regional AWSSecretsManager effectiveDate 2025-07-01T00:00:00Z, publicationDate 2026-09-11T12:46:10Z; APIRequest USD 0.000005/call \u00d7 1,000,000."
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.codebuild.medium_hour",
+      "unit": "hour",
+      "usd": 0.6,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, CodeBuild regional APS1-Build-Min:Linux:g1.medium; effectiveDate 2026-08-01T00:00:00Z, publicationDate 2026-09-11T12:46:25Z; minutes normalized \u00d7 60 to hour. Original provider SKU 46QW8EKWXHYZ68G2."
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.ecr.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.1,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, AmazonECR regional APS1-TimedStorage-ByteHrs; effectiveDate 2025-11-01T00:00:00Z, publicationDate 2026-09-11T12:44:25Z; GB-Mo normalized \u00d7 1 to gb_month. Original provider SKU 7V2YHG7PQ82BEXNB."
+    },
+    {
+      "provider": "aws",
+      "region": "ap-southeast-1",
+      "sku": "aws.cloudwatch.logs_storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.03,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, AmazonCloudWatch regional APS1-TimedStorage-ByteHrs; effectiveDate 2026-09-01T00:00:00Z, publicationDate 2026-09-22T02:17:15Z; GB-Mo normalized \u00d7 1 to gb_month. Original provider SKU RKCBFFXUWXG8KUQY."
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.secretsmanager.secret_month",
+      "unit": "month",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, regional AWSSecretsManager effectiveDate 2025-07-01T00:00:00Z, publicationDate 2026-09-11T12:46:10Z; 1 secret-month; API calls separate; aws/secretsmanager key free in native profile."
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.secretsmanager.requests_million",
+      "unit": "million_requests",
+      "usd": 5,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, regional AWSSecretsManager effectiveDate 2025-07-01T00:00:00Z, publicationDate 2026-09-11T12:46:10Z; APIRequest USD 0.000005/call \u00d7 1,000,000."
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.codebuild.medium_hour",
+      "unit": "hour",
+      "usd": 0.6,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, CodeBuild regional USE1-Build-Min:Linux:g1.medium; effectiveDate 2026-08-01T00:00:00Z, publicationDate 2026-09-11T12:46:25Z; minutes normalized \u00d7 60 to hour. Original provider SKU 4ZQKRUHAFVQH8MBM."
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.ecr.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.1,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, AmazonECR regional TimedStorage-ByteHrs; effectiveDate 2025-11-01T00:00:00Z, publicationDate 2026-09-11T12:44:25Z; GB-Mo normalized \u00d7 1 to gb_month. Original provider SKU KJC988R4J65BDMTQ."
+    },
+    {
+      "provider": "aws",
+      "region": "us-east-1",
+      "sku": "aws.cloudwatch.logs_storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.03,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, AmazonCloudWatch regional USE1-TimedStorage-ByteHrs; effectiveDate 2026-09-01T00:00:00Z, publicationDate 2026-09-22T02:17:15Z; GB-Mo normalized \u00d7 1 to gb_month. Original provider SKU 6K9ADYQAHV5KX9KZ."
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.secretsmanager.secret_month",
+      "unit": "month",
+      "usd": 0.4,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, regional AWSSecretsManager effectiveDate 2025-07-01T00:00:00Z, publicationDate 2026-09-11T12:46:10Z; 1 secret-month; API calls separate; aws/secretsmanager key free in native profile."
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.secretsmanager.requests_million",
+      "unit": "million_requests",
+      "usd": 5,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, regional AWSSecretsManager effectiveDate 2025-07-01T00:00:00Z, publicationDate 2026-09-11T12:46:10Z; APIRequest USD 0.000005/call \u00d7 1,000,000."
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.codebuild.medium_hour",
+      "unit": "hour",
+      "usd": 0.6,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, CodeBuild regional EU-Build-Min:Linux:g1.medium; effectiveDate 2026-08-01T00:00:00Z, publicationDate 2026-09-11T12:46:25Z; minutes normalized \u00d7 60 to hour. Original provider SKU 89SJUHTYVQXD94HA."
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.ecr.storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.1,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, AmazonECR regional EU-TimedStorage-ByteHrs; effectiveDate 2025-11-01T00:00:00Z, publicationDate 2026-09-11T12:44:25Z; GB-Mo normalized \u00d7 1 to gb_month. Original provider SKU 4NWTEXUZBWQH8MDW."
+    },
+    {
+      "provider": "aws",
+      "region": "eu-west-1",
+      "sku": "aws.cloudwatch.logs_storage_gb_month",
+      "unit": "gb_month",
+      "usd": 0.03,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05, AmazonCloudWatch regional EU-TimedStorage-ByteHrs; effectiveDate 2026-09-01T00:00:00Z, publicationDate 2026-09-22T02:17:15Z; GB-Mo normalized \u00d7 1 to gb_month. Original provider SKU M93YPPU987S2T6U9."
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.secret_manager.active_version_month",
+      "unit": "month",
+      "usd": 0.06,
+      "verification": "official_page",
+      "note": "Retrieved 2026-10-05 from global Secret Manager list pricing, one native user-managed replica in this region; enabled/disabled version-month, access operations or notifications as named; no free allowance deducted; effective date not published on page."
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.secret_manager.access_requests_million",
+      "unit": "million_requests",
+      "usd": 3,
+      "verification": "official_page",
+      "note": "Retrieved 2026-10-05 from global Secret Manager list pricing, one native user-managed replica in this region; enabled/disabled version-month, access operations or notifications as named; no free allowance deducted; effective date not published on page."
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-south1",
+      "sku": "gcp.secret_manager.rotation_notification",
+      "unit": "request",
+      "usd": 0.05,
+      "verification": "official_page",
+      "note": "Retrieved 2026-10-05 from global Secret Manager list pricing, one native user-managed replica in this region; enabled/disabled version-month, access operations or notifications as named; no free allowance deducted; effective date not published on page."
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.secret_manager.active_version_month",
+      "unit": "month",
+      "usd": 0.06,
+      "verification": "official_page",
+      "note": "Retrieved 2026-10-05 from global Secret Manager list pricing, one native user-managed replica in this region; enabled/disabled version-month, access operations or notifications as named; no free allowance deducted; effective date not published on page."
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.secret_manager.access_requests_million",
+      "unit": "million_requests",
+      "usd": 3,
+      "verification": "official_page",
+      "note": "Retrieved 2026-10-05 from global Secret Manager list pricing, one native user-managed replica in this region; enabled/disabled version-month, access operations or notifications as named; no free allowance deducted; effective date not published on page."
+    },
+    {
+      "provider": "gcp",
+      "region": "asia-southeast1",
+      "sku": "gcp.secret_manager.rotation_notification",
+      "unit": "request",
+      "usd": 0.05,
+      "verification": "official_page",
+      "note": "Retrieved 2026-10-05 from global Secret Manager list pricing, one native user-managed replica in this region; enabled/disabled version-month, access operations or notifications as named; no free allowance deducted; effective date not published on page."
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.secret_manager.active_version_month",
+      "unit": "month",
+      "usd": 0.06,
+      "verification": "official_page",
+      "note": "Retrieved 2026-10-05 from global Secret Manager list pricing, one native user-managed replica in this region; enabled/disabled version-month, access operations or notifications as named; no free allowance deducted; effective date not published on page."
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.secret_manager.access_requests_million",
+      "unit": "million_requests",
+      "usd": 3,
+      "verification": "official_page",
+      "note": "Retrieved 2026-10-05 from global Secret Manager list pricing, one native user-managed replica in this region; enabled/disabled version-month, access operations or notifications as named; no free allowance deducted; effective date not published on page."
+    },
+    {
+      "provider": "gcp",
+      "region": "us-central1",
+      "sku": "gcp.secret_manager.rotation_notification",
+      "unit": "request",
+      "usd": 0.05,
+      "verification": "official_page",
+      "note": "Retrieved 2026-10-05 from global Secret Manager list pricing, one native user-managed replica in this region; enabled/disabled version-month, access operations or notifications as named; no free allowance deducted; effective date not published on page."
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.secret_manager.active_version_month",
+      "unit": "month",
+      "usd": 0.06,
+      "verification": "official_page",
+      "note": "Retrieved 2026-10-05 from global Secret Manager list pricing, one native user-managed replica in this region; enabled/disabled version-month, access operations or notifications as named; no free allowance deducted; effective date not published on page."
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.secret_manager.access_requests_million",
+      "unit": "million_requests",
+      "usd": 3,
+      "verification": "official_page",
+      "note": "Retrieved 2026-10-05 from global Secret Manager list pricing, one native user-managed replica in this region; enabled/disabled version-month, access operations or notifications as named; no free allowance deducted; effective date not published on page."
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "sku": "gcp.secret_manager.rotation_notification",
+      "unit": "request",
+      "usd": 0.05,
+      "verification": "official_page",
+      "note": "Retrieved 2026-10-05 from global Secret Manager list pricing, one native user-managed replica in this region; enabled/disabled version-month, access operations or notifications as named; no free allowance deducted; effective date not published on page."
+    },
+    {
+      "provider": "azure",
+      "region": "centralindia",
+      "sku": "azure.key_vault.secret_requests_million",
+      "unit": "million_requests",
+      "usd": 3.0,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05; Key Vault Standard Operations 10K USD 0.03 \u00d7 100; effectiveStartDate 2015-08-01T00:00:00Z; meterId 0f824807-2376-435c-95c9-f992b67a07b0; standard secret operations only, no HSM/custom key/certificate profile."
+    },
+    {
+      "provider": "azure",
+      "region": "southeastasia",
+      "sku": "azure.key_vault.secret_requests_million",
+      "unit": "million_requests",
+      "usd": 3.0,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05; Key Vault Standard Operations 10K USD 0.03 \u00d7 100; effectiveStartDate 2015-08-01T00:00:00Z; meterId 0f824807-2376-435c-95c9-f992b67a07b0; standard secret operations only, no HSM/custom key/certificate profile."
+    },
+    {
+      "provider": "azure",
+      "region": "eastus",
+      "sku": "azure.key_vault.secret_requests_million",
+      "unit": "million_requests",
+      "usd": 3.0,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05; Key Vault Standard Operations 10K USD 0.03 \u00d7 100; effectiveStartDate 2015-08-01T00:00:00Z; meterId 0f824807-2376-435c-95c9-f992b67a07b0; standard secret operations only, no HSM/custom key/certificate profile."
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "sku": "azure.key_vault.secret_requests_million",
+      "unit": "million_requests",
+      "usd": 3.0,
+      "verification": "official_api",
+      "note": "Retrieved 2026-10-05; Key Vault Standard Operations 10K USD 0.03 \u00d7 100; effectiveStartDate 2015-08-01T00:00:00Z; meterId 0f824807-2376-435c-95c9-f992b67a07b0; standard secret operations only, no HSM/custom key/certificate profile."
     }
   ]
 }

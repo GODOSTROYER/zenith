@@ -120,9 +120,9 @@ describe("the spec example", () => {
   });
 
   it("records the catalog version, a 64-hex seed and the assumptions it used", () => {
-    expect(r.catalogVersion).toBe("2026-10-05.1");
+    expect(r.catalogVersion).toBe("2026-10-05.2");
     expect(r.deterministicSeed).toMatch(/^[0-9a-f]{64}$/);
-    expect(r.assumptions.join("\n")).toMatch(/catalog 2026-10-05\.1/);
+    expect(r.assumptions.join("\n")).toMatch(/catalog 2026-10-05\.2/);
     expect(r.assumptions.join("\n")).toMatch(/Approximate/);
     expect(r.assumptions.join("\n")).toMatch(/lower is better/);
   });
@@ -625,5 +625,28 @@ describe("purity", () => {
         .join("\n");
       expect(forbidden.test(src), f).toBe(false);
     }
+  });
+});
+
+// A budget must include auxiliaries, not turn unknown components into zero.
+describe("native auxiliary placement completeness", () => {
+  const secret: PlacementComponent = { address: "secret/env", kind: "secret", spec: { store: "zenith_vault", purpose: "environment", secretRef: "vault:environment" }, pin: { provider: "aws" } };
+  it("includes native secret storage and assumed operations in numeric budget refusal", () => {
+    const result = solve({ userRegions: ["india"], budgetUsdMonthly: 0.44 }, { components: [secret] });
+    expect(result.chosen).toBeUndefined();
+    expect(result.rejected.length).toBeGreaterThan(0);
+    expect(result.rejected.some((candidate) => candidate.reasons.some((reason) => /^budget:/.test(reason) && reason.includes("0.45")))).toBe(true);
+    const allowed = solve({ userRegions: ["india"], budgetUsdMonthly: 0.45 }, { components: [secret] });
+    expect(allowed.chosen?.cost.monthlyUsd).toBe(0.45);
+    expect(allowed.chosen?.cost.lines.some((line) => line.sku === "aws.secretsmanager.requests_million")).toBe(true);
+  });
+  it("rejects every candidate when an auxiliary meter is absent even at zero declared usage", () => {
+    const incomplete = { ...catalog, entries: catalog.entries.filter((entry) => entry.sku !== "aws.secretsmanager.requests_million") };
+    const result = solve({ userRegions: ["india"] }, { components: [{ ...secret, spec: { ...secret.spec, requestsMillions: 0 } }], catalog: incomplete });
+    expect(result.chosen).toBeUndefined(); expect(result.alternatives).toEqual([]);
+    expect(result.rejected.length).toBeGreaterThan(0);
+    const aws = result.rejected.filter((candidate) => candidate.id.startsWith("single:aws:"));
+    expect(aws).toHaveLength(4);
+    expect(aws.every((candidate) => candidate.reasons.some((reason) => reason.includes("aws.secretsmanager.requests_million")))).toBe(true);
   });
 });

@@ -84,7 +84,7 @@ const SourceSchema = z
 
 const CatalogSchema = z
   .object({
-    version: z.string().regex(/^\d{4}-\d{2}-\d{2}\.\d+$/, "version must look like 2026-10-05.1").refine((value) => isCalendarDate(value.split(".")[0]!), "version must contain a real calendar date"),
+    version: z.string().regex(/^\d{4}-\d{2}-\d{2}\.\d+$/, "version must look like 2026-10-05.2").refine((value) => isCalendarDate(value.split(".")[0]!), "version must contain a real calendar date"),
     sources: z.array(SourceSchema).min(1),
     entries: z.array(EntrySchema).min(1),
   })

@@ -27,6 +27,13 @@
  *   queue / pubsub: requestsMillions
  *   volume: sizeGb|storageGb, iops
  *   dns_zone: queriesMillions
+ *   secret: exact native zenith_vault/environment profile, requestsMillions;
+ *     GCP activeVersions and rotationNotifications (one replica location)
+ *   container_registry: exact AWS scanOnPush/immutableTags profile, storageGb,
+ *     internetPullGb
+ *   build_pipeline: exact AWS customer-account registry build, buildsPerMonth,
+ *     minutesPerBuild, sourceStorageGb, sourceGetRequests, sourcePutRequests,
+ *     logIngestGb, logStorageGb, internetEgressGb
  *   network: natGateways | egress.natGateways ("none" | "single" default | "per_az"), azCount | zones (count) | zones[]
  * Only `ownership: "managed"` nodes are billed (referenced and external
  * resources are not Zenith's bill), matching the legacy model.
@@ -72,6 +79,9 @@ import {
   priceDatabase,
   priceDnsZone,
   priceObjectStore,
+  priceSecret,
+  priceRegistry,
+  priceBuild,
   priceQueue,
   priceVm,
   priceVolume,
@@ -277,6 +287,15 @@ export function estimateGraphCost(graph: CostGraph, options: CostOptions): CostE
           break;
         case "dns_zone":
           priceDnsZone(l, n);
+          break;
+        case "secret":
+          priceSecret(l, n);
+          break;
+        case "container_registry":
+          priceRegistry(l, n);
+          break;
+        case "build_pipeline":
+          priceBuild(l, n);
           break;
         case "tls_certificate":
           l.charge({ address: n.address, description: "Public TLS certificate", provider: n.provider, region: n.region, role: "cert_month", quantity: 1, basis: "1 certificate" });
@@ -488,11 +507,14 @@ export function estimateGraphCost(graph: CostGraph, options: CostOptions): CostE
   if (has((x) => x.description.startsWith("Load balancer"))) included.push("Load balancer hours and capacity / processed-data charges");
   if (has((x) => x.description === "Internet egress")) included.push("Internet egress");
   if (has((x) => x.description.startsWith("Cross-"))) included.push("Cross-region and cross-cloud transfer between components");
-  if (has((x) => x.description.includes("requests") || x.description.includes("queries"))) included.push("Object storage, queue and DNS request charges");
+  if (has((x) => /^(Object storage (read|write) requests|Queue \/ topic requests|DNS queries)$/.test(x.description))) included.push("Object storage, queue and DNS request charges");
   if (has((x) => x.description.includes("IOPS"))) included.push("Provisioned IOPS");
   if (has((x) => x.description.includes("backup") || x.description.includes("snapshots"))) included.push("Backup and snapshot storage");
   if (has((x) => x.description === "Log ingestion")) included.push("Log ingestion");
   if (has((x) => x.description.includes("high availability"))) included.push("High-availability standby capacity");
+  if (has((x) => x.description.startsWith("Managed secret"))) included.push("Supported native secret storage, active versions, API operations and rotation notifications");
+  if (has((x) => x.description.startsWith("Private registry"))) included.push("Supported private registry image storage and assumed internet pulls");
+  if (has((x) => x.description.startsWith("Build "))) included.push("Supported build compute, source storage and requests, logs and assumed internet egress");
 
   const excluded: string[] = [
     "Taxes (VAT/GST), currency conversion and payment fees",
@@ -500,9 +522,9 @@ export function estimateGraphCost(graph: CostGraph, options: CostOptions): CostE
     "Provider free tiers and free monthly allowances are not deducted (conservative), except where the list price itself is zero",
     "Volume-tier egress discounts: the first-tier per-GB price is applied to every GB",
     "Data transfer between availability zones inside one region",
-    "Container registry storage and image pulls, and CI/CD build minutes",
-    "Monitoring metrics, alarms, traces and dashboards (only log ingestion is modeled)",
-    "Secret manager and key management charges",
+    "Registry and build features outside the supported native profiles (enhanced scanning, replication, signing, external tools and services)",
+    "Monitoring metrics, alarms, traces and dashboards; compute log storage (supported build log storage is modeled)",
+    "Custom secret key management, automatic rotation execution and secret profiles outside the supported native drivers",
     "WAF, DDoS protection, CDN and API gateway charges",
     "Support plans and marketplace fees",
     "This is an estimate from a static list-price catalog, not an invoice or a quote",

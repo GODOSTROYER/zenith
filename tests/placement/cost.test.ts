@@ -122,7 +122,7 @@ describe("hand-computed fixture (aws us-east-1)", () => {
     }
     expect(est.kind).toBe("estimate");
     expect(est.currency).toBe("USD");
-    expect(est.catalogVersion).toBe("2026-10-05.1");
+    expect(est.catalogVersion).toBe("2026-10-05.2");
     expect(est.assumptions.priceEvidenceWeakUsd).toBe(0); // every AWS number here was read from the price feed
   });
 
@@ -427,5 +427,110 @@ describe("diffCost", () => {
     expect(diffCost(withNat, other).catalogChanged).toBe(true);
     expect(diffCost(withNat, withNat).lines).toEqual([]);
     expect(diffCost(withNat, withNat).deltaMonthlyUsd).toBe(0);
+  });
+});
+
+// Exact current native profiles; these do not price an arbitrary secret or build.
+describe("supported native auxiliary costs", () => {
+  const secret = (provider = "aws", region = "us-east-1", extra: Record<string, unknown> = {}) => node("secret/env", "secret", provider, region, { store: "zenith_vault", purpose: "environment", secretRef: "vault:environment", ...extra });
+  const registry = (extra: Record<string, unknown> = {}) => node("container_registry/web", "container_registry", "aws", "us-east-1", { scanOnPush: true, immutableTags: false, ...extra });
+  const build = (extra: Record<string, unknown> = {}) => node("build_pipeline/web", "build_pipeline", "aws", "us-east-1", { location: "customer_account", source: { repo: ".", ref: "main", dockerfile: "Dockerfile" }, output: { registry: "container_registry/web" }, ...extra });
+
+  it("charges native AWS secret storage and positive assumed API usage separately", () => {
+    const estimate = estimateGraphCost({ nodes: [secret()] }, { catalog });
+    expect(estimate.monthlyUsd).toBe(0.45);
+    expect(find(estimate, "aws.secretsmanager.secret_month")[0]?.quantity).toBe(1);
+    expect(find(estimate, "aws.secretsmanager.requests_million")[0]?.quantity).toBe(0.01);
+    expect(estimate.assumptions.secretRequestsMillionsDefault).toBe(0.01);
+    expect(estimate.lines.every((line) => line.priceVerification === "official_api")).toBe(true);
+    expect(estimate.included.join(" ")).toContain("Supported native secret");
+    expect(estimate.included).not.toContain("Object storage, queue and DNS request charges");
+    expect(estimate.excluded.join(" ")).toContain("Custom secret key management");
+    expect(estimate.kind).toBe("estimate");
+  });
+
+  it("charges GCP retained enabled or disabled versions and notifications without free allowances", () => {
+    const estimate = estimateGraphCost({ nodes: [secret("gcp", "us-central1", { activeVersions: 2, requestsMillions: 0.1, rotationNotifications: 2 })] }, { catalog });
+    expect(estimate.monthlyUsd).toBe(0.52);
+    expect(find(estimate, "gcp.secret_manager.active_version_month")[0]?.quantity).toBe(2);
+    expect(find(estimate, "gcp.secret_manager.rotation_notification")[0]?.quantity).toBe(2);
+    expect(estimate.lines.every((line) => line.priceVerification === "official_page")).toBe(true);
+    expect(find(estimate, "gcp.secret_manager.active_version_month")[0]?.basis).toContain("1 native replica location");
+  });
+
+  it("prices Azure Standard secret operations with a positive assumed request count", () => {
+    const estimate = estimateGraphCost({ nodes: [secret("azure", "eastus")] }, { catalog });
+    expect(estimate.monthlyUsd).toBe(0.03);
+    expect(find(estimate, "azure.key_vault.secret_requests_million")[0]?.quantity).toBe(0.01);
+    expect(estimate.assumptions.secretRequestsMillionsDefault).toBe(0.01);
+    expect(estimate.lines).toHaveLength(1);
+  });
+
+  it("does not erase storage or a missing meter when API use is explicitly zero", () => {
+    const s = secret("aws", "us-east-1", { requestsMillions: 0 });
+    expect(estimateGraphCost({ nodes: [s] }, { catalog }).monthlyUsd).toBe(0.4);
+    const missing = { ...catalog, entries: catalog.entries.filter((entry) => entry.sku !== "aws.secretsmanager.requests_million") };
+    expect(() => estimateGraphCost({ nodes: [s] }, { catalog: missing })).toThrow(MissingPriceError);
+  });
+
+  it.each([null, -1, NaN, Infinity, "unknown"])("refuses invalid or unavailable secret operation quantity %s", (requestsMillions) => {
+    expect(() => estimateGraphCost({ nodes: [secret("aws", "us-east-1", { requestsMillions })] }, { catalog })).toThrow(CostInputError);
+  });
+
+  it.each([
+    { store: "provider_secret_manager" }, { store: "unknown" }, { purpose: "other" }, { secretRef: "provider:unknown" },
+    { kmsKey: "custom" }, { rotation: true }, { privateEndpoint: true },
+  ])("refuses unsupported secret billing effects %j without approving a priced subtotal", (extra) => {
+    expect(() => estimateGraphCost({ nodes: [node("service/web", "container_service", "aws", "us-east-1"), secret("aws", "us-east-1", extra)] }, { catalog })).toThrow(MissingPriceError);
+  });
+
+  it("refuses unknown OCI key provenance and an unpriced managed-tier secret", () => {
+    expect(() => estimateGraphCost({ nodes: [secret("oci", "us-ashburn-1")] }, { catalog })).toThrow(MissingPriceError);
+    expect(() => estimateGraphCost({ nodes: [secret("zenith", "us-east")] }, { catalog })).toThrow(MissingPriceError);
+  });
+
+  it("keeps externally owned secret billing unknown to Zenith while native no-charge infrastructure stays zero", () => {
+    for (const ownership of ["referenced", "external"] as const) {
+      const estimate = estimateGraphCost({ nodes: [{ ...secret("oci", "us-ashburn-1"), ownership }] }, { catalog });
+      expect(estimate.monthlyUsd).toBe(0); expect(estimate.lines).toEqual([]);
+      expect(estimate.excluded.join(" ")).toContain("not Zenith's bill");
+    }
+    expect(estimateGraphCost({ nodes: [node("network/main", "network", "aws", "us-east-1")] }, { catalog }).monthlyUsd).toBe(0);
+  });
+
+  it("prices retained private images and charged pulls independently of free same-region pulls", () => {
+    const estimate = estimateGraphCost({ nodes: [registry({ storageGb: 2, internetPullGb: 3 })] }, { catalog });
+    expect(estimate.monthlyUsd).toBe(0.47);
+    expect(find(estimate, "aws.ecr.storage_gb_month")[0]?.quantity).toBe(2);
+    expect(find(estimate, "aws.data_transfer.internet_gb")[0]?.quantity).toBe(3);
+    const local = estimateGraphCost({ nodes: [registry({ storageGb: 2, internetPullGb: 0 })] }, { catalog });
+    expect(local.monthlyUsd).toBe(0.2); expect(local.lines).toHaveLength(1);
+    const missing = { ...catalog, entries: catalog.entries.filter((entry) => entry.sku !== "aws.data_transfer.internet_gb") };
+    expect(() => estimateGraphCost({ nodes: [registry({ internetPullGb: 0 })] }, { catalog: missing })).toThrow(MissingPriceError);
+  });
+
+  it("prices rounded native build minutes and its source, request, log and transfer auxiliaries", () => {
+    const estimate = estimateGraphCost({ nodes: [build({ buildsPerMonth: 2, minutesPerBuild: 1.2 }), registry()] }, { catalog });
+    expect(find(estimate, "aws.codebuild.medium_hour")[0]?.quantity).toBe(0.066667);
+    expect(find(estimate, "aws.codebuild.medium_hour")[0]?.monthlyUsd).toBe(0.04);
+    for (const sku of ["aws.s3.storage_gb_month", "aws.s3.get_million", "aws.s3.put_million", "aws.cloudwatch.logs_ingest_gb", "aws.cloudwatch.logs_storage_gb_month"]) expect(find(estimate, sku)[0]?.quantity).toBeGreaterThan(0);
+    expect(estimate.lines.some((line) => line.description === "Build internet egress" && line.quantity > 0)).toBe(true);
+    expect(estimate.assumptions.buildDriverProfile).toContain("BUILD_GENERAL1_MEDIUM");
+    expect(estimate.assumptions.buildSourceRequestsDefault).toContain("multipart");
+  });
+
+  it("refuses missing build auxiliaries even when their explicit usage is zero", () => {
+    const missing = { ...catalog, entries: catalog.entries.filter((entry) => entry.sku !== "aws.cloudwatch.logs_storage_gb_month") };
+    expect(() => estimateGraphCost({ nodes: [build({ logStorageGb: 0 }), registry()] }, { catalog: missing })).toThrow(MissingPriceError);
+  });
+
+  it.each([{ location: "zenith_account" }, { output: { staticSite: "site/web" } }, { source: { repo: ".", ref: "main", cache: true } }, { kmsKey: "custom" }, { vpc: true }])("refuses unsupported build billing profile %j", (extra) => {
+    expect(() => estimateGraphCost({ nodes: [build(extra), registry()] }, { catalog })).toThrow(MissingPriceError);
+  });
+
+  it("refuses unavailable build and image quantities and enhanced registry scanning", () => {
+    expect(() => estimateGraphCost({ nodes: [build({ sourceStorageGb: null }), registry()] }, { catalog })).toThrow(CostInputError);
+    expect(() => estimateGraphCost({ nodes: [registry({ storageGb: null })] }, { catalog })).toThrow(CostInputError);
+    expect(() => estimateGraphCost({ nodes: [registry({ enhancedScanning: true })] }, { catalog })).toThrow(MissingPriceError);
   });
 });

@@ -61,6 +61,10 @@ describe("cost engine over expandManifest output", () => {
     }
     expect(estimate.lines.some((l) => /backup/i.test(l.description))).toBe(true);
     expect(estimate.lines.some((l) => /NAT/i.test(l.description))).toBe(true);
+    const secret = graph.nodes.find((node) => node.kind === "secret");
+    expect(secret?.spec).toMatchObject({ store: "zenith_vault", purpose: "environment", secretRef: "vault:DATABASE_URL" });
+    expect(estimate.lines.some((line) => line.address === secret?.address && line.sku === "aws.secretsmanager.secret_month" && line.quantity === 1)).toBe(true);
+    expect(estimate.lines.some((line) => line.address === secret?.address && line.sku === "aws.secretsmanager.requests_million" && line.quantity > 0)).toBe(true);
   });
 
   it("respects the network's egress.natGateways mode", () => {
@@ -79,5 +83,18 @@ describe("cost engine over expandManifest output", () => {
         .reduce((s, l) => s + l.quantity, 0);
     expect(natHours("none")).toBe(0);
     expect(natHours("per_az")).toBeGreaterThan(natHours("single"));
+  });
+
+  it("prices the real Git build graph with retained images, source objects, requests and logs", () => {
+    const gitManifest: Manifest = { ...manifest, services: manifest.services.map((service): Manifest["services"][number] => ({ ...service, source: { type: "git", repo: "https://github.com/example/web", ref: "main", dockerfile: "Dockerfile" } })) };
+    const graph = expandManifest(upgradeManifest(gitManifest, { provider: "aws", region: "ap-south-1" }), env("production"));
+    const estimate = estimateGraphCost(graph, { catalog: loadDefaultCatalog() });
+    expect(graph.nodes.some((node) => node.kind === "build_pipeline")).toBe(true);
+    expect(graph.nodes.some((node) => node.kind === "container_registry")).toBe(true);
+    for (const sku of ["aws.secretsmanager.secret_month", "aws.secretsmanager.requests_million", "aws.codebuild.medium_hour", "aws.ecr.storage_gb_month", "aws.s3.storage_gb_month", "aws.s3.get_million", "aws.s3.put_million", "aws.cloudwatch.logs_storage_gb_month"]) expect(estimate.lines.some((line) => line.sku === sku && line.quantity > 0), sku).toBe(true);
+    expect(estimate.lines.some((line) => line.description === "Build log ingestion")).toBe(true);
+    expect(estimate.lines.some((line) => line.description === "Build internet egress")).toBe(true);
+    expect(estimate.monthlyUsd).toBeGreaterThan(0);
+    expect(estimate.kind).toBe("estimate");
   });
 });

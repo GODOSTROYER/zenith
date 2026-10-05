@@ -124,6 +124,7 @@ const WRITES = new Set([
 
 /** Deliberately not workspace-filtered, with the reason. */
 const EXEMPT: Record<string, string> = {
+  "cleanupWriterBarriers.inventoryForNativeOrigin": "reads only through a private opaque native origin whose owning workspace, project and environment are bound by the genuine paired codec; no caller-supplied tenant, and excluded from bindRepos",
   "cleanupWriterBarriers.CleanupWriterBarrierError": "pure fixed error class; no tenant query or authority and excluded from bindRepos",
   "mixedChildIntents.MixedChildAdmissionError": "pure fixed-category error class, contains no SQL or tenant data; excluded from bindRepos",
   "buildLaunches.assertIsolatedBuildTestAdmission": "zero-argument NODE_ENV admission guard; reads no SQL or tenant data, cannot supply approval authority, and is excluded from bindRepos",

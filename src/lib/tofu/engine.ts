@@ -125,7 +125,8 @@ export interface SealedStandaloneSettlement {
 }
 interface LocalStandaloneTarget { path: string; targetDigest: string; stateDigest?: string }
 const plain = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
-const standaloneRefusal = (): never => { throw new Error("Standalone plan settlement is unavailable."); };
+// A function declaration (not an arrow constant) so control-flow analysis treats calls as never-returning and narrows the guarded values.
+function standaloneRefusal(): never { throw new Error("Standalone plan settlement is unavailable."); }
 function finiteBuiltinBackend(ws: TofuWorkspace): string | undefined {
   if (ws.backend !== "local" || ws.lockfile.trim().split("\n").some(line => line.trim() && !line.trim().startsWith("#"))) return undefined;
   let backend: string | undefined, versions = 0, main = 0;

@@ -5596,6 +5596,7 @@ export const GATE_LANES = {
 const GO_MODULE = "github.com/GODOSTROYER/zenith/go";
 const OPS = `${GO_MODULE}/internal/machine/ops`;
 const MACHINE = `${GO_MODULE}/internal/machine`;
+/** @param {string} packageName @param {readonly string[]} names @returns {{ package: string, test: string, id: string }[]} */
 const cases = (packageName, names) => names.map((test) => ({ package: packageName, test, id: `linux-guest:${packageName}:${test}` }));
 const subcases = (test, names) => names.map((name) => `${test}/${name}`);
 // Exact native upload observations supplement every historical write ID.

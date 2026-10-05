@@ -244,7 +244,13 @@ function pairedRuntime(db: Sql, env: Readonly<Record<string,string|undefined>>, 
         return result;
       } catch (error) {
         await artifacts.finish(db,input,attempt,false).catch(() => undefined);
-        if (dispatched) throw new Error("Original plan dispatch outcome is unconfirmed; inspect this operation before another write.");
+        if (dispatched) {
+          // Safety refusal is unchanged. Only a sanitized class/code (never the message, which may carry secrets) is attached for diagnosis.
+          const raw = error as { name?: unknown; code?: unknown } | null;
+          const shape = (value: unknown) => typeof value === "string" && /^[A-Za-z0-9_.:-]{1,64}$/.test(value) ? value : undefined;
+          const cause = Object.freeze({ name: shape(raw?.name) ?? "UnknownError", code: shape(raw?.code) });
+          throw new Error("Original plan dispatch outcome is unconfirmed; inspect this operation before another write.", { cause });
+        }
         throw error;
       }
       async function finishStandalone(approved:ApprovedPlan,admission:PlanAdmission) {

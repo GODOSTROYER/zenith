@@ -706,7 +706,7 @@ describe("saved builtin settlement mandatory CI admission", () => {
     expect(priorSettlementPlatformRequirements()).toHaveLength(1059);
     expect(createHash("sha256").update(JSON.stringify(priorSettlementPlatformRequirements().map(item => item.id).sort())).digest("hex")).toBe("49f54d75ca5cd7114b69efedabfed9843fcdc1186e49422f9f7e26cae79cf07f");
     expect(manifest.env.ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED).toBe("1");
-    expect(workflow.jobs["platform-postgres"].env.ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED).toBe("1");
+    expect(workflow.jobs["platform-postgres"].env?.ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED).toBe("1");
     expect(manifest.prerequisites.some(value => value.startsWith("ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED=1;"))).toBe(true);
     expect(manifest.command).not.toContain("--passWithNoTests"); expect(manifest.excludeFiles).toEqual([]);
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");

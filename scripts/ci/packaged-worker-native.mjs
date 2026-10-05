@@ -304,13 +304,75 @@ export function parseHarnessOutput(output) {
 
 const CHILD_FAILURE_PHASES = ["prerequisites", "fresh-image-build", "isolated-services", "private-temporal-tls", "owned-temporal-schema", "authenticated-temporal-server", "temporal-ready", "startup-refusals", "prepare-real-stores", "actual-worker-entrypoint", "real-temporal-operations", "filesystem-plan-maintenance", "bounded-sql-prerequisite-outage", "store-readiness-outage", "temporal-readiness-outage", "temporal-durable-restart", "operator-pause", "inflight-schema-shutdown", "inflight-fresh-worker-recovery", "graceful-shutdown"];
 const CHILD_WORKER_CATEGORIES = ["module-load", "configuration", "health-listener", "platform-store", "platform-composition", "policy-assets", "plan-directory", "activity-composition", "reconcile-composition", "reconcile-client", "reconcile-pollers", "reconcile-schedule", "temporal-runtime", "workflow-bundle", "temporal-connect", "temporal-worker", "worker-lifecycle", "worker-run", "resource-close"];
-/** Two existing fixed child categories only; never inspect or copy an error/payload.
+const CHILD_INFLIGHT_GUARD_CATEGORIES = [
+  "shutdown-authority-unconfirmed",
+  "owned-worker-unconfirmed",
+  "owned-control-unconfirmed",
+  "control-session-request-invalid",
+  "control-session-evidence-unconfirmed",
+  "owned-worker-address-invalid",
+  "schema-observer-identity-invalid",
+  "shutdown-blocker-unconfirmed",
+  "inflight-schema-waiter-unconfirmed",
+  "schema-waiter-evidence-unconfirmed",
+  "temporal-control-evidence-unconfirmed",
+  "inflight-sweep-evidence-unconfirmed",
+  "fresh-started-sweep-unconfirmed",
+  "worker-drain-not-started",
+  "held-drain-boundary-changed",
+  "inflight-worker-drain-unconfirmed",
+  "worker-lifecycle-output-refused",
+  "shutdown-authority-changed",
+  "fresh-worker-readiness-unconfirmed",
+  "worker-readiness-evidence-incomplete",
+  "fresh-schedule-result-unconfirmed",
+  "fresh-worker-sweep-reused",
+  "recovery-authority-changed"
+];
+const CHILD_COMMAND_CATEGORIES = [
+  "command-launch",
+  "command-timeout",
+  "command-output-limit",
+  "command-input",
+  "command-exit",
+  "command-signal"
+];
+const CHILD_INFLIGHT_COMMAND_PHASES = [
+  "shutdown-authority-readback",
+  "inflight-worker-address",
+  "inflight-schema-blocker",
+  "inflight-schema-held",
+  "inflight-schema-waiter",
+  "temporal-control-observe",
+  "temporal-control-trigger",
+  "temporal-control-activity",
+  "inflight-sigterm",
+  "inflight-drain-started",
+  "inflight-drain-waiter",
+  "inflight-worker-exit",
+  "inflight-stopped-worker",
+  "inflight-worker-lifecycle-logs",
+  "fresh-recovery-entrypoint",
+  "probe-readyz",
+  "temporal-control-history",
+  "inflight-control-session",
+  "inflight-control-owner"
+];
+/** Fixed child categories only; optional in-flight facts never copy an error/payload.
  * @param {unknown} phase
  * @param {unknown} workerCategory
+ * @param {unknown} [guardCategory]
+ * @param {unknown} [commandCategory]
+ * @param {unknown} [commandPhase]
  */
-export function sanitizeChildFailure(phase, workerCategory) {
+export function sanitizeChildFailure(phase, workerCategory, guardCategory, commandCategory, commandPhase) {
+  const inFlight = typeof phase === "string" && ["inflight-schema-shutdown", "inflight-fresh-worker-recovery"].includes(phase);
+  const guard = inFlight && typeof guardCategory === "string" && CHILD_INFLIGHT_GUARD_CATEGORIES.includes(guardCategory);
+  const command = inFlight && typeof commandCategory === "string" && CHILD_COMMAND_CATEGORIES.includes(commandCategory);
   return { phase: typeof phase === "string" && CHILD_FAILURE_PHASES.includes(phase) ? phase : "unavailable",
-    workerCategory: typeof workerCategory === "string" && CHILD_WORKER_CATEGORIES.includes(workerCategory) ? workerCategory : "unavailable" };
+    workerCategory: typeof workerCategory === "string" && CHILD_WORKER_CATEGORIES.includes(workerCategory) ? workerCategory : "unavailable",
+    ...(guard ? { guardCategory } : {}), ...(command ? { commandCategory } : {}),
+    ...(command && typeof commandPhase === "string" && CHILD_INFLIGHT_COMMAND_PHASES.includes(commandPhase) ? { commandPhase } : {}) };
 }
 
 /** Artifact admission is distinct from a passing execution verdict, including failed prerequisites. */
@@ -332,9 +394,11 @@ export function assertArtifactShape(value, platform) {
     || Object.values(value.cleanup).some(flag => typeof flag !== "boolean") || JSON.stringify(value.limitations) !== JSON.stringify(manifest.limitations)) fail();
   if (value.childFailure !== undefined) {
     if (value.status !== "failed" || value.failurePhase !== "actual-packaged-worker" || !Number.isInteger(value.childExitCode) || value.childExitCode < 1
-      || !record(value.childFailure) || JSON.stringify(Object.keys(value.childFailure).sort()) !== JSON.stringify(["phase", "workerCategory"])) fail();
-    const diagnostic = sanitizeChildFailure(value.childFailure.phase, value.childFailure.workerCategory);
-    if (value.childFailure.phase !== diagnostic.phase || value.childFailure.workerCategory !== diagnostic.workerCategory) fail();
+      || !record(value.childFailure)) fail();
+    const diagnostic = sanitizeChildFailure(value.childFailure.phase, value.childFailure.workerCategory,
+      value.childFailure.guardCategory, value.childFailure.commandCategory, value.childFailure.commandPhase);
+    if (JSON.stringify(Object.keys(value.childFailure).sort()) !== JSON.stringify(Object.keys(diagnostic).sort())
+      || Object.entries(diagnostic).some(([key, field]) => value.childFailure[key] !== field)) fail();
   }
   if (value.environment !== undefined) {
     const allowed = ["os", "processArch", "dockerOS", "dockerArch", "emulated", "node", "totalRamGiB", "availableRamGiB", "dockerRamGiB", "sourceFreeGiB", "temporaryFreeGiB", "dockerFreeGiB"];
@@ -754,7 +818,9 @@ export async function nativeMain(args = process.argv.slice(2)) {
     if (raw.commit !== frame.commit || raw.sourceInputSha256 !== frame.sourceInputSha256 || raw.acceptanceHarnessSha256 !== frame.acceptanceHarnessSha256) fail();
     if (child.code > 0 && raw.status === "failed" && raw.platform === parsed.platform
       && new RegExp(`^zenith-pkg-${parsed.platform.split("/")[1]}-[a-f0-9]{12}$`).test(raw.runId ?? "")) {
-      childFailure = sanitizeChildFailure(raw.failurePhase, raw.workerFailureCategory);
+      childFailure = sanitizeChildFailure(raw.failurePhase,
+        raw.failurePhase === "inflight-fresh-worker-recovery" ? raw.recoveryWorkerFailureCategory : raw.workerFailureCategory,
+        raw.failureReason?.category, raw.failureCommand?.category, raw.failureCommand?.phase);
     }
     checks = executedChecks(raw, parsed.platform, child.code);
     const marker = assertReleaseMarker(await privateJson(config.marker), config);

@@ -415,6 +415,64 @@ describe("fixed failed child diagnostic privacy models", () => {
     expect(() => assertArtifactShape({ ...failed(), failurePhase: "native-prerequisites" }, platform)).toThrow();
     expect(() => assertArtifactShape({ ...published(), childFailure }, platform)).toThrow();
   });
+
+  it("retains only the unchanged inner in-flight guard and command enums on failed artifacts", () => {
+    const source = read("scripts/acceptance/packaged-worker.mjs");
+    const guardBlock = source.slice(source.indexOf("const inFlightGuardReasons"), source.indexOf("/** Exact fixed guard categories"));
+    const guards = [...guardBlock.matchAll(/\["[^"\n]+", "([a-z-]+)"\]/g)].map(match => match[1]);
+    const categoryBlock = /const commandFailureCategories = new Set\(\[([^\]]+)\]\)/.exec(source)?.[1];
+    const phaseBlock = /const inFlightCommandPhases = \[([\s\S]*?)\];/.exec(source)?.[1];
+    if (!categoryBlock || !phaseBlock || guards.length !== 23) throw new Error("Existing in-flight diagnostic enums are unavailable.");
+    const categories = [...categoryBlock.matchAll(/"([a-z-]+)"/g)].map(match => match[1]);
+    const phases = [...phaseBlock.matchAll(/"([a-z-]+)"/g)].map(match => match[1]);
+    expect(categories).toHaveLength(6); expect(phases).toHaveLength(19);
+    for (const phase of ["inflight-schema-shutdown", "inflight-fresh-worker-recovery"]) {
+      for (const guardCategory of guards) {
+        const diagnostic = sanitizeChildFailure(phase, undefined, guardCategory);
+        expect(diagnostic).toEqual({ phase, workerCategory: "unavailable", guardCategory });
+        expect(assertArtifactShape({ ...failed(), childFailure: diagnostic }, platform)).toBe(true);
+        expect(() => assertPublishedEvidence({ ...failed(), childFailure: diagnostic }, expected)).toThrow();
+      }
+      for (const commandCategory of categories) for (const commandPhase of phases) {
+        const diagnostic = sanitizeChildFailure(phase, undefined, undefined, commandCategory, commandPhase);
+        expect(diagnostic).toEqual({ phase, workerCategory: "unavailable", commandCategory, commandPhase });
+        expect(assertArtifactShape({ ...failed(), childFailure: diagnostic }, platform)).toBe(true);
+        expect(() => assertPublishedEvidence({ ...failed(), childFailure: diagnostic }, expected)).toThrow();
+      }
+    }
+    const main = read("scripts/ci/packaged-worker-native.mjs").split("export async function nativeMain")[1];
+    expect(main).toContain('raw.failurePhase === "inflight-fresh-worker-recovery" ? raw.recoveryWorkerFailureCategory : raw.workerFailureCategory');
+    expect(main).toContain('raw.failureReason?.category, raw.failureCommand?.category, raw.failureCommand?.phase');
+    expect(main.indexOf("raw.commit !== frame.commit")).toBeLessThan(main.indexOf("raw.failureReason?.category"));
+    expect(main.indexOf("raw.failureReason?.category")).toBeLessThan(main.indexOf("checks = executedChecks"));
+  });
+
+  it("drops unknown diagnostic scalars and never reads private getters or lets them satisfy execution", () => {
+    const phase = "inflight-fresh-worker-recovery", guardCategory = "fresh-worker-readiness-unconfirmed";
+    const commandCategory = "command-timeout", commandPhase = "temporal-control-history";
+    const diagnostic = sanitizeChildFailure(phase, undefined, guardCategory, commandCategory, commandPhase);
+    let reads = 0;
+    const hostile = new Proxy({}, { get: () => { reads++; throw new Error("private-canary"); }, ownKeys: () => { reads++; throw new Error("private-canary"); } });
+    for (const value of ["private-canary", "https://credential@foreign", "/private/path", guardCategory + "\nsecret", hostile, null, 1]) {
+      expect(sanitizeChildFailure(phase, undefined, value, value, value)).toEqual({ phase, workerCategory: "unavailable" });
+    }
+    expect(reads).toBe(0);
+    expect(sanitizeChildFailure("operator-pause", undefined, guardCategory, commandCategory, commandPhase))
+      .toEqual({ phase: "operator-pause", workerCategory: "unavailable" });
+    expect(sanitizeChildFailure(phase, undefined, undefined, undefined, commandPhase)).toEqual({ phase, workerCategory: "unavailable" });
+    expect(sanitizeChildFailure(phase, undefined, undefined, commandCategory, "private-canary"))
+      .toEqual({ phase, workerCategory: "unavailable", commandCategory });
+    for (const malformed of [
+      { ...diagnostic, guardCategory: "private-canary" }, { ...diagnostic, commandCategory: "private-canary" },
+      { ...diagnostic, commandPhase: "private-canary" }, { ...diagnostic, phase: "operator-pause" },
+      { phase, workerCategory: "unavailable", commandPhase }, { ...diagnostic, exitCode: 1 },
+      { ...diagnostic, error: "private-canary" }, { ...diagnostic, stdout: "private-canary" },
+    ]) expect(() => assertArtifactShape({ ...failed(), childFailure: malformed }, platform)).toThrow();
+    for (const childExitCode of [0, null]) expect(() => assertArtifactShape({ ...failed(), childExitCode, childFailure: diagnostic }, platform)).toThrow();
+    expect(() => assertArtifactShape({ ...published(), childFailure: diagnostic }, platform)).toThrow();
+    expect(() => executedChecks({ ...harness(), status: "failed", failureReason: { category: guardCategory } }, platform, 1)).toThrow();
+    expect(JSON.stringify(diagnostic)).not.toContain("private-canary");
+  });
 });
 
 

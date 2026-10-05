@@ -79,7 +79,7 @@ const SWEPT = new Set([
   "planArtifacts.requiresProductComposition",
   // Counts-only owning/foreign reads run in this sweep and in the mandatory native retention suite:
   // "never lets another workspace artifact or hold alter the selected workspace preview".
-  "planArtifacts.previewRetention",
+  "planArtifacts.previewRetention", "planArtifacts.readStandaloneSettlements",
   "resources.changeOwnership", "resources.get", "resources.getByAddress", "resources.listByEnvironment", "resources.setStatus",
   "runners.getRunner", "runners.heartbeat", "runners.listRunners", "runners.revokeRunner",
   "settings.getEnvironmentSettings", "settings.getWorkspacePolicy",
@@ -95,6 +95,10 @@ const WRITES = new Set([
   "planArtifacts.retainCleanupWriterHold",
   "planArtifacts.reserveCleanupOwnerGrant",
   "planArtifacts.insertCleanupOwnerGrant",
+  // bindRepos exposes this row API; only the genuine paired codec can supply
+  // its private completion origin. Mandatory saved-builtin native cases prove
+  // owning success and copied/foreign/status/seeded-ciphertext refusal.
+  "planArtifacts.finishStandalone",
   "connections.create", "cost.insert", "drift.insert", "events.append", "evidence.insert", "grants.insert", "incidents.openIncident", "incidents.insertInvestigation",
   // Exact private capture identity/owner and original tenant tuple settle only
   // after the connection lock wait and a fresh native editor/admin membership read.
@@ -371,6 +375,7 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
           .rejects.toBeInstanceOf(repos.planArtifacts.PlanArtifactError);
         return null;
       },
+      "planArtifacts.readStandaloneSettlements": () => repos.planArtifacts.readStandaloneSettlements(db,{...manifest,workspaceId:B},manifest.backendDigest),
       "planArtifacts.finish": () => repos.planArtifacts.finish(db,foreignAccess,"tenant-owner-attempt",false),
       "operationExecution.suspendForApproval": () => repos.operationExecution.suspendForApproval(db, { workspaceId: B, id: active.operation.id }),
       "operationExecution.setPlanDigest": () => repos.operationExecution.setPlanDigest(db, { workspaceId: B, id: opId, planDigest: hex("d") }),

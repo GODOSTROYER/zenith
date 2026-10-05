@@ -1207,6 +1207,9 @@ jobs:
       - name: Capability matrix is current
         run: npx tsx scripts/docs/capability-matrix.ts --check
 
+      - name: Offered capability catalog is current
+        run: npx tsx scripts/docs/offered-catalog.ts --check
+
       - name: Documentation drift suites
         run: npx vitest run tests/docs --maxWorkers=2
 

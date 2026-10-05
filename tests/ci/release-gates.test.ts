@@ -926,6 +926,7 @@ describe("the Go job", () => {
   const SELECT = "Select only current-attempt sanitized guest evidence";
   const UPLOAD = "Preserve sanitized native guest evidence";
   const alwaysGuard = "always() && " + GUARD;
+  const cleanupGuard = "always() && hashFiles('go/go.mod') != '' && (steps.systemd_fixture.outcome == 'skipped' || steps.systemd_cleanup.outcome == 'success')";
   const uploadGuard = "always() && steps.guest_evidence.outcome == 'success' && steps.guest_evidence.outputs.evidence_path != ''";
 
   it("works in go/ and refuses to fetch another toolchain", () => {
@@ -944,7 +945,18 @@ describe("the Go job", () => {
     expect(skipNotice[0].run).toContain("GITHUB_STEP_SUMMARY");
     // `defaults.run.working-directory: go` would point at a directory that does not exist yet.
     expect(skipNotice[0]["working-directory"]).toBe(".");
-    const specialConditions = new Map([[CLEANUP, alwaysGuard], [SELECT, alwaysGuard], [UPLOAD, uploadGuard]]);
+    const specialConditions = new Map([
+      [CLEANUP, cleanupGuard],
+      [SELECT, alwaysGuard],
+      [UPLOAD, uploadGuard],
+      ["Vet the explicit real systemd acceptance packages", "success() && steps.native_guest.outcome == 'success'"],
+      ["Provision only the owned inert systemd unit and restart-only rule", "success() && steps.native_guest.outcome == 'success'"],
+      ["Required ordered real systemd operations and signed execution", "success() && steps.systemd_fixture.outcome == 'success'"],
+      ["Remove only the owned settled systemd fixture", "always() && (steps.systemd_fixture.outcome == 'success' || steps.systemd_fixture.outcome == 'failure')"],
+      ["Select only the current systemd attempt after both owned cleanups", "always() && steps.systemd_fixture.outcome == 'success'"],
+      ["Preserve sanitized real systemd evidence", "always() && steps.systemd_evidence.outcome == 'success' && steps.systemd_evidence.outputs.evidence_path != ''"],
+    ]);
+    for (const name of specialConditions.keys()) expect(rest.filter((step) => step.name === name)).toHaveLength(1);
     for (const step of rest.filter((one) => !skipNotice.includes(one))) {
       expect(step.if, `${step.name ?? step.uses} must be guarded`).toBe(specialConditions.get(step.name ?? "") ?? GUARD);
       expect(step["continue-on-error"] ?? false).toBe(false);
@@ -1026,7 +1038,7 @@ describe("the Go job", () => {
       'sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,RUNNER_OS -- python3 scripts/ci/prepare-native-guest-host.py --github-hosted-disposable "$(id -u)" "$(id -g)" "$fixture_run_id"',
       'sudo -- bash scripts/ci/guest-file-write-fixtures.sh setup "$(id -u)" "$(id -g)" "$fixture_run_id"',
     ].join("\n"));
-    expect(cleanup.if).toBe(alwaysGuard);
+    expect(cleanup.if).toBe(cleanupGuard);
     expect(cmd(cleanup)).toBe([
       "set -euo pipefail",
       'test -n "${ZENITH_GUEST_FIXTURE_RUN_ID:-}"',

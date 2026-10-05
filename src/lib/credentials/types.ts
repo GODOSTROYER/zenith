@@ -72,6 +72,8 @@ export interface AwsConnectionConfig {
   /** endpoint override — LocalStack only; refused for production environments */
   endpoint?: string;
   runnerId?: string;
+  /** custody the runner must declare (zenith.credentialMode); default local_only. Runner mode only. */
+  runnerCustody?: "local_only" | "federated";
 }
 
 export interface GcpConnectionConfig {
@@ -88,6 +90,8 @@ export interface GcpConnectionConfig {
   stateKmsKey?: string;
   region: string;
   runnerId?: string;
+  /** custody the runner must declare (zenith.credentialMode); default local_only. Runner mode only. */
+  runnerCustody?: "local_only" | "federated";
 }
 
 export interface AzureConnectionConfig {
@@ -108,6 +112,8 @@ export interface AzureConnectionConfig {
   }>;
   region: string;
   runnerId?: string;
+  /** custody the runner must declare (zenith.credentialMode); default local_only. Runner mode only. */
+  runnerCustody?: "local_only" | "federated";
 }
 
 export interface OciConnectionConfig {
@@ -120,6 +126,8 @@ export interface OciConnectionConfig {
   stateNamespace?: string;
   region: string;
   runnerId: string;
+  /** custody the runner must declare (zenith.credentialMode); default local_only. Runner mode only. */
+  runnerCustody?: "local_only" | "federated";
 }
 
 export interface KubernetesConnectionConfig {
@@ -136,6 +144,8 @@ export interface KubernetesConnectionConfig {
   /** for EKS: cluster name + an AWS connection id used to mint the token */
   eks?: { clusterName: string; awsConnectionId: string };
   runnerId?: string;
+  /** custody the runner must declare (zenith.credentialMode); default local_only. Runner mode only. */
+  runnerCustody?: "local_only" | "federated";
 }
 
 export type ConnectionConfig =

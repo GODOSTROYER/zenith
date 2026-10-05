@@ -39,6 +39,8 @@ const HEX64 = /^[0-9a-f]{64}$/;
 export interface RunnerTofuTarget {
   workspaceId: string;
   runnerId: string;
+  /** the provider connection the run acts through; its binding is re-proved at dispatch */
+  connectionId?: string;
   operationId: string;
   /** capability grant for the apply (for a plan-only call with no `planGrant`, the plan's) */
   grant: string;
@@ -104,6 +106,7 @@ async function runJob(rt: RunnerRuntime, target: RunnerTofuTarget, grant: string
     {
       workspaceId: target.workspaceId,
       runnerId: target.runnerId,
+      ...(target.connectionId !== undefined ? { bindingConnectionId: target.connectionId } : {}),
       operationId: target.operationId,
       capability: claimsCap(grant),
       kind: "tofu.run",

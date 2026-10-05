@@ -22,6 +22,7 @@ import { requireAgentWaitlistAccess } from "./waitlist";
 // live member row, and membership lives in the product store, so the authority
 // follows `ZENITH_STORE` rather than a second flag.
 import { credentialAuthority } from "./authority";
+import { sanitizeForModel } from "@/lib/security/result-sanitizer";
 
 const string = { type: "string", minLength: 1, maxLength: 100 };
 const pagination = { limit: { type: "integer", minimum: 1, maximum: 100 }, cursor: { type: "string", pattern: "^[0-9]{1,6}$" } };
@@ -161,6 +162,7 @@ export const agentReader = createReaderHandler({
       return fn();
     });
   },
-  call: callReader,
+  // The reader transport is compiled standalone (no path aliases), so the structured sanitizer is applied to what it returns here.
+  call: async (...args: Parameters<typeof callReader>) => sanitizeForModel(await callReader(...args)).value,
   log(record) { console.info(JSON.stringify(record)); },
 });

@@ -1,15 +1,46 @@
-/** The shared broker scrubber covers values. MCP also scrubs object keys:
- * provider-native bags can put credential-shaped text in either position. */
-import { scrubSecrets } from "@/lib/capabilities/secret-guard";
+/**
+ * Every MCP v3 value a model can read passes through the shared model-visible
+ * sanitizer (`src/lib/security/result-sanitizer.ts`): credential shapes in values,
+ * secret-named members and secret-shaped member names are replaced by explicit
+ * `[REDACTED:<kind>]` markers. The sanitizer is best-effort and never claims a
+ * result is secret-free; `scrubWithReport` exposes its report so envelopes can say
+ * when something was replaced.
+ */
+import { sanitizeForModel, type SanitizeReport } from "@/lib/security/result-sanitizer";
 
 export function scrubMcpValue<T>(value: T): T {
-  const walkKeys = (node: unknown): unknown => {
-    if (Array.isArray(node)) return node.map(walkKeys);
-    if (node !== null && typeof node === "object") {
-      return Object.fromEntries(Object.entries(node).map(([key, child]) => [scrubSecrets(key), walkKeys(child)]));
-    }
-    return node;
+  return sanitizeForModel(value).value;
+}
+
+export interface ScrubCollector {
+  scrub<T>(value: T): T;
+  /** merged report of everything scrubbed through this collector */
+  report(): SanitizeReport;
+}
+
+export function scrubCollector(): ScrubCollector {
+  const reports: SanitizeReport[] = [];
+  return {
+    scrub<T>(value: T): T {
+      const r = sanitizeForModel(value);
+      reports.push(r.report);
+      return r.value;
+    },
+    report(): SanitizeReport {
+      const kinds = new Set<string>();
+      const paths: string[] = [];
+      for (const r of reports) {
+        for (const k of r.kinds) kinds.add(k);
+        for (const p of r.paths) if (paths.length < 20 && !paths.includes(p)) paths.push(p);
+      }
+      return {
+        applied: true,
+        redactions: reports.reduce((n, r) => n + r.redactions, 0),
+        kinds: [...kinds].sort(),
+        paths,
+        scanLimited: reports.some((r) => r.scanLimited),
+        completeness: "best_effort",
+      };
+    },
   };
-  // The scrubber bounds node count and depth before we walk the sanitized tree.
-  return walkKeys(scrubSecrets(value)) as T;
 }

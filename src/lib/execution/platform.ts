@@ -215,10 +215,12 @@ export function createConnectionsPort(sql: Sql): ConnectionsPort {
   return {
     async resolve({ workspaceId, connectionId }) {
       const direct = await repos.connections.get(sql, workspaceId, connectionId);
-      if (direct && direct.status !== "revoked") return direct;
+      // A revoked connection is final: it never resolves, and never falls through to another connection
+      // (no privileged fallback after revocation).
+      if (direct) return direct.status === "revoked" ? null : direct;
       // The environment points at the PRODUCT connection; the platform connection extends it.
       const all = await repos.connections.list(sql, workspaceId);
-      const matches = all.filter((c) => c.legacyConnectionId === connectionId);
+      const matches = all.filter((c) => c.legacyConnectionId === connectionId && c.status !== "revoked" && c.revokedAt === undefined);
       return matches.find((c) => c.status === "verified") ?? matches[0] ?? null;
     },
   };

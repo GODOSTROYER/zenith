@@ -9,6 +9,8 @@
  * passes. The mechanism is that credentials never reach a job in the first place.
  */
 import { redactCredentials } from "@/lib/credentials/redact";
+import { sanitizeText } from "@/lib/security/result-sanitizer";
 import { redactOutput } from "@/lib/tofu/redact";
 
-export const redactText = (text: string): string => redactCredentials(redactOutput(text));
+/** Legacy patterns first, then the shared structured sanitizer (explicit markers; best-effort). */
+export const redactText = (text: string): string => sanitizeText(redactCredentials(redactOutput(text))).text;

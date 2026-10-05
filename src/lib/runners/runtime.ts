@@ -18,6 +18,8 @@ import { createHash } from "node:crypto";
 import { platformDb } from "@/lib/controlplane/db";
 import { getControlSigner, getControlVerificationKeys } from "@/lib/credentials/signing";
 import type { JwtSigner, PublicJwk } from "@/lib/credentials/signing/types";
+import { repos } from "@/lib/controlplane/db";
+import type { ConnectionLookup } from "@/lib/runners/custody";
 import { createPlatformRunnerStore } from "@/lib/runners/db/pg-store";
 import type { RunnerEventSink, RunnerStore } from "@/lib/runners/ports";
 import { createResultSealerFromEnv, type ResultSealer } from "@/lib/runners/seal";
@@ -31,6 +33,8 @@ export interface RunnerRuntime {
   /** pinned control-plane public keys: the active key plus announced next/previous ones */
   verificationKeys(): Promise<PublicJwk[]>;
   sealer: ResultSealer;
+  /** fresh read of a provider connection, used to re-prove a runner binding at dispatch (never cached) */
+  connections: ConnectionLookup;
   events: RunnerEventSink;
   /** epoch milliseconds (tests fake it; it must be the clock the store uses when they do) */
   now(): number;
@@ -102,6 +106,7 @@ export async function getRunnerRuntime(): Promise<RunnerRuntime> {
     signer,
     verificationKeys: o.verificationKeys ?? (o.signer ? async () => [o.signer!.publicJwk()] : () => getControlVerificationKeys()),
     sealer: o.sealer ?? defaultSealer(),
+    connections: o.connections ?? (async (workspaceId, connectionId) => repos.connections.get(await platformDb(), workspaceId, connectionId)),
     events: o.events ?? noopEvents,
     now: o.now ?? Date.now,
     sleep: o.sleep ?? realSleep,

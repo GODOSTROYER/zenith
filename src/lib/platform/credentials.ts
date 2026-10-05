@@ -262,14 +262,15 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
         if (!current || current.status !== "verified" || canonical(current.config) !== canonical(config)) throw new CredentialDeniedError("The OCI connection changed or was revoked.", { reason: "session_ended" });
         signal.throwIfAborted();
         const timeoutSec = Math.max(1, Math.min(60, Math.floor((expires - now().getTime()) / 1000)));
-        const common = { workspaceId: grant.ws, runnerId: config.runnerId, capability: grant.cap, kind: "oci.http" as const, payload, grant: runnerGrant, timeoutSec, maxOutputBytes: 1024 * 1024 };
+        const common = { workspaceId: grant.ws, runnerId: config.runnerId, bindingConnectionId: connection.id, capability: grant.cap, kind: "oci.http" as const, payload, grant: runnerGrant, timeoutSec, maxOutputBytes: 1024 * 1024 };
         let jobId: string;
         if (capability(grant.cap).mutates) jobId = await enqueueRunnerJob({ ...common, operationId: grant.op }, rt);
         else {
           if (!grant.env) throw new CredentialDeniedError("OCI read jobs require an environment grant.", { reason: "grant_invalid" });
           const { enqueueReadJob } = await import("@/lib/runners/read-jobs");
           signal.throwIfAborted();
-          jobId = await enqueueReadJob({ ...common, environmentId: grant.env });
+          const { bindingConnectionId, ...readCommon } = common;
+          jobId = await enqueueReadJob({ ...readCommon, connectionId: bindingConnectionId, environmentId: grant.env });
         }
         const done = await awaitRunnerJob<OciHttpJobResult>(jobId, { workspaceId: grant.ws, signal, deadlineMs: Math.min(expires, now().getTime() + 90_000) }, rt);
         signal.throwIfAborted();

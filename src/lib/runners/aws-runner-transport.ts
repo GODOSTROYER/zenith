@@ -59,6 +59,8 @@ const PLACEHOLDER_CREDENTIALS = { accessKeyId: "zenith-runner-transport", secret
 
 export interface RunnerAwsTransportOptions {
   runnerId: string;
+  /** the provider connection this transport acts through; its binding is re-proved on every job */
+  connectionId?: string;
   workspaceId: string;
   operationId: string;
   /** the capability grant for this operation (its `cap` claim names the job's capability) */
@@ -173,6 +175,7 @@ export class RunnerHttpHandler {
       {
         workspaceId: opts.workspaceId,
         runnerId: opts.runnerId,
+        ...(opts.connectionId !== undefined ? { bindingConnectionId: opts.connectionId } : {}),
         operationId: opts.operationId,
         capability,
         kind: "aws.http",
@@ -248,7 +251,7 @@ export interface RunnerTransportFactoryOptions {
  */
 export function createRunnerAwsTransportFactory(options: RunnerTransportFactoryOptions = {}): RunnerAwsTransportFactory {
   return {
-    async open({ config, grant, expiresAt }): Promise<RunnerAwsTransport> {
+    async open({ connection, config, grant, expiresAt }): Promise<RunnerAwsTransport> {
       const runnerId = config.runnerId;
       if (!runnerId) throw new DispatchError("invalid_input", "A runner-mode AWS connection must name its runner (config.runnerId).");
       const rt = options.runtime ?? (await getRunnerRuntime());
@@ -259,6 +262,7 @@ export function createRunnerAwsTransportFactory(options: RunnerTransportFactoryO
       return {
         client: createRunnerAwsSessionClientFactory({
           runnerId,
+          connectionId: connection.id,
           workspaceId: grant.ws,
           operationId: grant.op,
           grant: runnerGrant,

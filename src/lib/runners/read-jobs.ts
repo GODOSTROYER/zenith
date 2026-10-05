@@ -25,6 +25,8 @@ export interface EnqueueReadJobInput {
   workspaceId: string;
   environmentId: string;
   runnerId: string;
+  /** the provider connection the read acts through; its binding is re-proved at dispatch */
+  connectionId?: string;
   capability: string;
   kind: RunnerJobKind;
   payload: unknown;
@@ -95,6 +97,7 @@ export async function enqueueReadJob(input: EnqueueReadJobInput, runtime?: Runne
   return enqueueRunnerJob({
     workspaceId: input.workspaceId,
     runnerId: input.runnerId,
+    ...(input.connectionId !== undefined ? { bindingConnectionId: input.connectionId } : {}),
     operationId: claims.op,
     capability: input.capability,
     kind: input.kind,

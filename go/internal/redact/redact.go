@@ -12,6 +12,7 @@ package redact
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -100,4 +101,31 @@ func (l *Lines) Line(s string) string {
 		return "[REDACTED:private-key]"
 	}
 	return String(s)
+}
+
+// Shapes returns the kinds of high-confidence credential shapes found in s
+// (private key, cloud key id, JWT, vendor tokens, bearer values), sorted and
+// without duplicates. It never returns matched text. Unlike String it ignores
+// "name = value" assignments, which are too noisy to withhold a result over.
+func Shapes(s string) []string {
+	if s == "" {
+		return nil
+	}
+	seen := map[string]bool{}
+	for _, r := range rules {
+		if !r.re.MatchString(s) {
+			continue
+		}
+		kind := "bearer"
+		if i := strings.Index(r.repl, "[REDACTED:"); i >= 0 {
+			kind = strings.TrimSuffix(r.repl[i+len("[REDACTED:"):], "]")
+		}
+		seen[kind] = true
+	}
+	out := make([]string, 0, len(seen))
+	for k := range seen {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }

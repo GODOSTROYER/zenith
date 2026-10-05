@@ -7,8 +7,10 @@ import { throttleAsync } from './rate-limit';
 import { oauthConfig } from './oauth';
 import { ControlError } from './journal';
 import { redact } from '../security';
+import { sanitizeForModel, redactionNote } from '@/lib/security/result-sanitizer';
 const MAX_RESULT=524288;
-function result(data:unknown){const safe=redact(data);if(Buffer.byteLength(JSON.stringify(safe))>MAX_RESULT)throw new ControlError('response_too_large','Narrow the query or paginate.',413);return {content:[{type:'text' as const,text:JSON.stringify(safe)}],structuredContent:{contractVersion:CONTROL_VERSION,mode:'reviewed-operations',data:safe}};}
+// Model-visible: legacy projection first, then the shared structured sanitizer (best-effort; never a completeness claim).
+function result(data:unknown){const {value:safe,report}=sanitizeForModel(redact(data));if(Buffer.byteLength(JSON.stringify(safe))>MAX_RESULT)throw new ControlError('response_too_large','Narrow the query or paginate.',413);const note=redactionNote(report);return {content:[{type:'text' as const,text:JSON.stringify(safe)}],structuredContent:{contractVersion:CONTROL_VERSION,mode:'reviewed-operations',data:safe,...(note?{sanitization:{redactions:report.redactions,kinds:report.kinds,completeness:report.completeness,note}}:{})}};}
 export async function mcp(request:Request):Promise<Response>{
   try{
     // The capability probe, once per transport entry point, and the whole one:

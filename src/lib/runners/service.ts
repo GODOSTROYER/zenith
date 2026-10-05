@@ -24,6 +24,7 @@ import { z } from "zod";
 import { canonical, digest, sha256Hex } from "@/lib/controlplane/digest";
 import { log } from "@/lib/log";
 import { queueOf, registryOf, RunnerStoreError, type AgentEffectReceipt, type AgentJob, type AgentRecord, type JobLogLine, type RunnerEvent, type SettledOutcome } from "@/lib/runners/ports";
+import { sanitizeInboundResult } from "@/lib/runners/custody";
 import { redactText } from "@/lib/runners/redact";
 import { announcedNextKeys, controlPlaneKeys, type RunnerRuntime } from "@/lib/runners/runtime";
 import { unverifiedClaims } from "@/lib/runners/signing";
@@ -305,18 +306,22 @@ export async function settleResult(rt: RunnerRuntime, agent: AgentRecord, jobId:
   // independently derives these same hashes under its original-job lock and
   // holds the authenticated current-key predicate until receipt commit.
   const receiptBinding = { agentId: agent.id, agentKeyDigest: sha256Hex(agent.publicKey), envelopeDigest: sha256Hex(job.envelope) };
+  // A local_only runner never sends credential material. If one did anyway, what is sealed has the
+  // shapes replaced by markers (the logical digest below stays over what the runner sent, so a retry still matches).
+  const inbound = agent.kind === "runner" ? sanitizeInboundResult(agent, b.result ?? null) : { value: b.result ?? null, kinds: [] as string[] };
+  const sealedBody = inbound.kinds.length > 0 ? { ...b, result: inbound.value } : b;
   const stored = {
     startedAt: isoOrUndefined(b.startedAt),
     finishedAt: isoOrUndefined(b.finishedAt),
     exitCode: b.exitCode,
-    sealed: rt.sealer.seal(sealAad(agent.workspaceId, jobId), b.result ?? null),
+    sealed: rt.sealer.seal(sealAad(agent.workspaceId, jobId), sealedBody.result ?? null),
   };
   let settled: SettledOutcome;
   try {
     settled = await queue.settleOutcome({
       workspaceId: agent.workspaceId, agentId: agent.id, jobId, authenticatedPublicKey: agent.publicKey,
       logicalDigest: digest(b), status: b.status,
-      sealed: rt.sealer.seal(effectReceiptAad(agent.workspaceId, agent.kind, jobId, receiptBinding), b), result: stored,
+      sealed: rt.sealer.seal(effectReceiptAad(agent.workspaceId, agent.kind, jobId, receiptBinding), sealedBody), result: stored,
       error: b.error === undefined ? undefined : redactError(b.error),
     });
   } catch (error) {
@@ -335,7 +340,7 @@ export async function settleResult(rt: RunnerRuntime, agent: AgentRecord, jobId:
     workspaceId: agent.workspaceId,
     operationId: job.operationId,
     agentId: agent.id,
-    data: { jobId, kind: job.kind, status: b.status, agentKind: agent.kind },
+    data: { jobId, kind: job.kind, status: b.status, agentKind: agent.kind, ...(inbound.kinds.length > 0 ? { custody: { credentialMaterialSanitized: true, kinds: inbound.kinds } } : {}) },
   });
   return { status: "accepted" };
 }

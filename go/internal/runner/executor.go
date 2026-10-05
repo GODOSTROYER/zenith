@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"sort"
 	"time"
 
@@ -36,6 +37,7 @@ type Executor struct {
 	kinds    map[string]kinds.Kind
 	log      *slog.Logger
 	now      func() time.Time
+	custody  *custodyGuard
 }
 
 // NewExecutor builds the executor and every enabled kind. Configuration
@@ -53,6 +55,14 @@ func NewExecutor(cfg *Config, id *agent.Identity, keys *protocol.KeySet, replay 
 		log:      log,
 		now:      deps.Now,
 	}
+	getenv := deps.Getenv
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+	if err := checkLocalCustody(cfg, getenv, os.ReadFile); err != nil {
+		return nil, err
+	}
+	e.custody = &custodyGuard{mode: cfg.CredentialModeValue(), getenv: getenv}
 	if k := cfg.Kinds.TofuRun; k != nil && k.IsOn() {
 		t, err := kinds.NewTofu(*k, cfg.StateDir, kinds.TofuDeps{Getenv: deps.Getenv, Now: deps.Now})
 		if err != nil {
@@ -65,7 +75,8 @@ func NewExecutor(cfg *Config, id *agent.Identity, keys *protocol.KeySet, replay 
 		if err != nil {
 			return nil, err
 		}
-		log.Info("aws.http enabled", "credentialSource", a.CredentialSource())
+		log.Info("aws.http enabled", "credentialSource", a.CredentialSource(), "credentialMode", cfg.CredentialModeValue())
+		e.custody.secrets = a.LocalSecretValues
 		e.kinds[kinds.KindAWSHTTP] = a
 	}
 	// oci.http is opt-in (Enabled must be explicitly true); EnabledKinds advertises it
@@ -137,6 +148,9 @@ func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Re
 		return nil, rej
 	}
 	env := vj.Envelope
+	if err := e.custody.checkPayload(env.Payload); err != nil {
+		return nil, &agent.Rejection{ID: env.JTI, Code: protocol.CodeInvalidPayload, Message: err.Error()}
+	}
 
 	timeout, maxOut, err := e.limits(&vj.Envelope, &vj.Grant)
 	if err != nil {
@@ -154,7 +168,7 @@ func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Re
 		}
 		return nil, &agent.Rejection{ID: env.JTI, Code: code, Message: protocol.MessageOf(err)}
 	}
-	return &job{id: env.JTI, kind: env.Kind, run: run, timeout: timeout, now: e.now}, nil
+	return &job{id: env.JTI, kind: env.Kind, run: run, timeout: timeout, now: e.now, custody: e.custody}, nil
 }
 
 // limits clamps the requested timeout and output size to local limits and to
@@ -207,6 +221,7 @@ type job struct {
 	run     kinds.Runnable
 	timeout time.Duration
 	now     func() time.Time
+	custody *custodyGuard
 }
 
 func (j *job) ID() string { return j.id }
@@ -227,7 +242,7 @@ func (j *job) Run(ctx context.Context, logs agent.LogSink) agent.ResultBody {
 			o.Error = fmt.Sprintf("the job exceeded its %s timeout", j.timeout)
 		}
 	}
-	return agent.ResultBody{
+	body := agent.ResultBody{
 		Status:     o.Status,
 		StartedAt:  started.Format(time.RFC3339Nano),
 		FinishedAt: j.now().UTC().Format(time.RFC3339Nano),
@@ -235,4 +250,8 @@ func (j *job) Run(ctx context.Context, logs agent.LogSink) agent.ResultBody {
 		Result:     o.Result,
 		Error:      o.Error,
 	}
+	if j.custody != nil {
+		body = j.custody.guardResult(ctx, body)
+	}
+	return body
 }

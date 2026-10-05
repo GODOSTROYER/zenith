@@ -24,6 +24,13 @@ type Config struct {
 	Probes kinds.ProbeConfig `json:"probes"`
 	// Limits clamps what a job may ask for.
 	Limits LimitsConfig `json:"limits"`
+	// CredentialMode declares where this runner's cloud credentials come from:
+	// "local_only" (default; only this host's own identity, nothing Zenith-issued)
+	// or "federated" (identity may be federated from Zenith's OIDC issuer). The
+	// mode is advertised as the zenith.credentialMode registration label and the
+	// control plane dispatches a connection's work only to a runner whose mode
+	// matches the custody the connection requires.
+	CredentialMode string `json:"credentialMode"`
 	// RejectUnknownConstraints makes the runner refuse jobs whose grant
 	// carries policy constraint keys it does not enforce (default: ignore
 	// them; the control plane enforces those before dispatch).
@@ -100,6 +107,9 @@ func (c *Config) applyDefaults() {
 func (c *Config) Validate() error { return c.validate(true) }
 
 func (c *Config) validate(requireKinds bool) error {
+	if err := c.applyCredentialMode(); err != nil {
+		return err
+	}
 	if k := c.Kinds.OCIHTTP; k != nil && k.Enabled {
 		if err := kinds.ValidateOCIConfig(*k); err != nil {
 			return err

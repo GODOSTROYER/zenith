@@ -33,6 +33,7 @@
 import { findDriver } from "@/lib/drivers/types";
 import { supportsDeclarativeRepair } from "@/lib/resources";
 import { computeDriftV2, defaultExpectedAttributes } from "@/lib/resources/drift";
+import { applyFieldOwnership } from "@/lib/ownership";
 import type { DriftClass, DriftReport, ResourceGraph, ResourceNode } from "@/lib/resources/types";
 import { diffFindings, driftEvents, findingKey, nextFindingSince } from "./diff";
 import { ReconcileError } from "./errors";
@@ -163,7 +164,7 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
   // Compare first, then scrub the complete report before diffing, persistence,
   // repair proposals or return. Driver expected values need the same boundary
   // as observations; replacing them before comparison can hide real drift.
-  const report: DriftReport = computeDriftV2(
+  const rawReport: DriftReport = computeDriftV2(
     reconciledGraph,
     observed.map((o) => o.observation),
     {
@@ -171,6 +172,8 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
       computedAt: ports.now().toISOString(),
     }
   );
+  // Single owner per field: autoscaler/provider-owned variance is not drift; native-op-owned fields are never re-applied away.
+  const report: DriftReport = applyFieldOwnership(reconciledGraph, rawReport);
   report.findings = report.findings.map((finding) => ({
     ...finding,
     explanation: redactText(finding.explanation, 400),

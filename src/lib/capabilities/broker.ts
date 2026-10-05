@@ -27,6 +27,7 @@ import { newId, requesterOf, requireHumanSession } from "./internal";
 import { loadDestroyPlan } from "./destroy-plan";
 import type { BrokerDeps } from "./ports";
 import { findSecret } from "./secret-guard";
+import { assertNativeOperationAllowed, FieldOwnershipConflictError } from "@/lib/ownership";
 import type { BrokerProposal, CheckResult, ConstraintValue, DecisionView, PlanFactsWithCost, ProposeContext, ProposeResult, ReadAuthorization } from "./types";
 import { decisionView, operationView } from "./views";
 
@@ -220,9 +221,38 @@ const reasonCodes = (reasons: { code: string }[]): string[] => reasons.slice(0, 
 
 /* ---------------------------------- propose --------------------------------- */
 
+/** One owner per mutable field: a write to a field another writer owns is a conflict, not a proposal. */
+function assertFieldOwnership(parsed: ParsedRequest, ctx: ProposeContext): void {
+  const guard = ctx.fieldOwnership;
+  if (!guard) return;
+  try {
+    assertNativeOperationAllowed({
+      capability: parsed.def.name,
+      node: guard.node,
+      ...(guard.facts ? { facts: guard.facts } : {}),
+      ...(guard.repairAttributes ? { repairAttributes: guard.repairAttributes } : {}),
+      ...(guard.transfers ? { transfers: guard.transfers } : {}),
+    });
+  } catch (e) {
+    if (!(e instanceof FieldOwnershipConflictError)) throw e;
+    throw new BrokerError("conflict", e.message, "Change the field through its owner, or get an ownership transfer approved first.", {
+      reason: "field_ownership_conflict",
+      conflicts: e.conflicts.slice(0, 10).map((c) => ({
+        address: c.write.address,
+        path: c.write.path,
+        owner: c.resolution.owner,
+        writer: c.write.writer,
+        verdict: c.verdict,
+        ...(c.transfer ? { transferDigest: c.transfer.digest } : {}),
+      })),
+    });
+  }
+}
+
 export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn: Principal, ctx: ProposeContext = {}): Promise<ProposeResult> {
   const principal = cleanPrincipal(principalIn);
   const parsed = parseRequest(rawRequest);
+  assertFieldOwnership(parsed, ctx);
   const { req, facts, planDigest, destroyPlan } = await trustedEvaluationRequest(deps, parsed, principal, ctx);
   const evaluation = await evaluate(deps, req);
   const { decision, evaluated } = evaluation;
@@ -284,6 +314,7 @@ export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn
 export async function check(deps: BrokerDeps, rawRequest: unknown, principalIn: Principal, ctx: ProposeContext = {}): Promise<CheckResult> {
   const principal = cleanPrincipal(principalIn);
   const parsed = parseRequest(rawRequest);
+  assertFieldOwnership(parsed, ctx);
   const { req } = await trustedEvaluationRequest(deps, parsed, principal, ctx);
   const evaluation = await evaluate(deps, req);
   return {

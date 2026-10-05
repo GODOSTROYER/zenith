@@ -3,6 +3,8 @@
  * Additive only; nothing here changes `controlplane/types.ts`.
  */
 import type { NormalizedPlan } from "@/lib/tofu/types";
+import type { ResourceNode } from "@/lib/resources/types";
+import type { OwnershipFacts, OwnershipTransfer } from "@/lib/ownership";
 import type {
   ApprovalRequirement,
   OperationProposal,
@@ -48,7 +50,23 @@ export interface BrowserSessionProof {
  * from a request body: `CapabilityRequestSchema` is strict, and nothing inside
  * `request.input` is ever read as a policy fact.
  */
+/**
+ * Server-side facts about the one resource an operation writes, so the broker
+ * can refuse (or demand an ownership transfer for) a field another writer owns.
+ * Never read from request.input.
+ */
+export interface FieldOwnershipGuard {
+  node: Pick<ResourceNode, "address" | "nativeType" | "spec">;
+  facts?: OwnershipFacts;
+  /** for drift.repair: the attributes the repair re-applies */
+  repairAttributes?: readonly string[];
+  /** approved transfers recorded for this resource */
+  transfers?: readonly OwnershipTransfer[];
+}
+
 export interface ProposeContext {
+  /** when present, the operation's field writes are checked against the ownership registry */
+  fieldOwnership?: FieldOwnershipGuard;
   /** Trusted worker review only. The requester needs plan access; an admin must still approve destruction. */
   teardownReview?: true;
   /** Server-side reference only; the broker reloads the recorded destroy facts. */

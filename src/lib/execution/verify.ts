@@ -35,6 +35,7 @@ import { digest } from "@/lib/controlplane/digest";
 import type { VerificationCheck } from "@/lib/drivers/types";
 import type { Output } from "@/lib/domain/types";
 import { computeDriftV2, defaultExpectedAttributes } from "@/lib/resources/drift";
+import { applyFieldOwnership } from "@/lib/ownership";
 import type { DriftReport, Observation, ResourceGraph, ResourceNode } from "@/lib/resources/types";
 import type { DnsRecordSpec, LoadBalancerSpec } from "@/lib/resources/specs";
 import type { ExecutionActivities, LeaseRef, ReconcileActivities, VerifyStepResult } from "@/lib/workflows/types";
@@ -225,10 +226,11 @@ async function observeAndDiff(rt: Runtime, ec: ExecLike, graph: ResourceGraph, l
   const persistFailures = await persistState(rt, ec, states, stored);
   const observations = states.flatMap((s) => (s.observation ? [s.observation] : []));
   const driverFor = new Map(states.flatMap((s) => (s.driver ? [[s.node.address, s.driver] as const] : [])));
-  const report = computeDriftV2(graph, observations, {
+  const rawReport = computeDriftV2(graph, observations, {
     expectedAttributes: (node: ResourceNode) => driverFor.get(node.address)?.expectedAttributes?.(node, node.provider === "aws" ? { awsBootstrap: awsBootstrapContextForConnection(connection.config, node.region || ec.product.environment.region) } : undefined) ?? defaultExpectedAttributes(node),
     computedAt: rt.iso(),
   });
+  const report = applyFieldOwnership(graph, rawReport);
   const previous = await rt.d.resources.latestDriftReport(ec.workspaceId, ec.environmentId);
   await rt.d.resources.saveDriftReport({ workspaceId: ec.workspaceId, report });
   const counts = countDrift(report);

@@ -8,7 +8,7 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { chmod, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { openPlatformDb, type PlatformDbHandle } from "@/lib/controlplane/db";
 import { createGithubAccess } from "@/lib/sources/github/runtime";
 import { createGithubSourceStore } from "@/lib/sources/github/store";
@@ -45,10 +45,15 @@ describe.skipIf(!posix)("GitHub source binding lifecycle", () => {
     directory = await realpath(await mkdtemp(path.join(os.tmpdir(), "zenith-life08-")));
     await chmod(directory, 0o700); secretFile = path.join(directory, "secret");
     secret = Buffer.from(randomBytes(32).toString("hex")); await writeFile(secretFile, secret, { mode: 0o600 });
-    db = await openPlatformDb({ kind: "pglite", migrate: true });
   }, 60_000);
-  afterAll(async () => { await db?.close(); await material?.close(); secret?.fill(0); if (directory) await rm(directory, { recursive: true, force: true }); });
-  beforeEach(seed);
+  afterAll(async () => { await material?.close(); secret?.fill(0); if (directory) await rm(directory, { recursive: true, force: true }); });
+  // Every case owns a fresh plane: delivery/body replay receipts must not be
+  // discarded while a binding is reseeded in an existing installation epoch.
+  beforeEach(async () => {
+    db = await openPlatformDb({ kind: "pglite", migrate: true });
+    await seed();
+  }, 60_000);
+  afterEach(async () => { await db?.close(); });
 
   it.each([
     ["installation", "deleted", "installation_deleted"],

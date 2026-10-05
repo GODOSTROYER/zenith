@@ -109,8 +109,20 @@ describe("static GitHub source inspection", () => {
     const saved = TREES;
     TREES = { ...TREES, ["2".repeat(40)]: { truncated: false, tree: [entry("Dockerfile", "blob", "4".repeat(40), "120000")] } };
     try {
-      const { impl } = github({ priv: false });
-      await expect(createGithubSourceInspector({ db: async () => db, fetchImpl: impl, env: {} })({ workspaceId: "ws-public", owner: "acme", repo: "app", ref: "HEAD", root: "apps/web" })).rejects.toThrow("symbolic link");
+      const { impl, requests } = github({ priv: false });
+      await expect(createGithubSourceInspector({ db: async () => db, fetchImpl: impl, env: {} })({ workspaceId: "ws-public", owner: "acme", repo: "app", ref: "HEAD", root: "apps/web" })).rejects.toMatchObject({
+        name: "GithubSourceError", code: "unavailable", message: "GitHub source access could not be confirmed.",
+      });
+      expect(TREES["2".repeat(40)]).toEqual({ truncated: false, tree: [entry("Dockerfile", "blob", "4".repeat(40), "120000")] });
+      expect(requests.filter(r => r.url.includes("/git/trees/")).map(r => r.url)).toEqual([
+        `https://api.github.com/repos/acme/app/git/trees/${SHA}`,
+        `https://api.github.com/repos/acme/app/git/trees/${"1".repeat(40)}`,
+        `https://api.github.com/repos/acme/app/git/trees/${"2".repeat(40)}`,
+        `https://api.github.com/repos/acme/app/git/trees/${SHA}`,
+        `https://api.github.com/repos/acme/app/git/trees/${"1".repeat(40)}`,
+        `https://api.github.com/repos/acme/app/git/trees/${"2".repeat(40)}`,
+      ]);
+      expect(requests.every(r => r.auth === undefined)).toBe(true);
     } finally { TREES = saved; }
   });
 

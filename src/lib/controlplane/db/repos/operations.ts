@@ -493,7 +493,20 @@ export async function claimForExecution(sql: Sql, input: ClaimInput): Promise<Op
       }
     }
 
-    const rows = await tx.query<OperationRow>(
+    // An absent ownership guard retains the original fixed claim SQL: older
+    // supported schema fixtures do not contain the later transfer relation.
+    // Every non-null result, including [], keeps the complete guarded query.
+    const rows = ownershipRows === null
+      ? await tx.query<OperationRow>(
+      `update platform.operations set
+         status = 'running', started_at = clock_timestamp(), updated_at = clock_timestamp(),
+         lease_holder = $3, lease_until = clock_timestamp() + ($4::bigint * interval '1 millisecond'),
+         lease_scope = $5::text, fence_token = $6::bigint
+       where workspace_id = $1 and id = $2 and status in ('approved','queued')
+       returning ${OPERATION_COLUMNS}`,
+      [workspaceId, id, holder, leaseMs, lease?.scope ?? null, lease?.fenceToken ?? null]
+    )
+      : await tx.query<OperationRow>(
       `update platform.operations set
          status = 'running', started_at = clock_timestamp(), updated_at = clock_timestamp(),
          lease_holder = $3, lease_until = clock_timestamp() + ($4::bigint * interval '1 millisecond'),
@@ -507,7 +520,7 @@ export async function claimForExecution(sql: Sql, input: ClaimInput): Promise<Op
              and t.workspace_id=$1 and t.environment_id=platform.operations.environment_id
              and t.revoked_at is null and (t.expires_at is null or t.expires_at>clock_timestamp())))
        returning ${OPERATION_COLUMNS}`,
-      [workspaceId, id, holder, leaseMs, lease?.scope ?? null, lease?.fenceToken ?? null, ownershipRows === null ? null : textArray(ownershipRows)]
+      [workspaceId, id, holder, leaseMs, lease?.scope ?? null, lease?.fenceToken ?? null, textArray(ownershipRows)]
     );
     if (rows.length === 0) {
       if (ownershipRows !== null) throw new ControlStoreError("conflict", "Current field ownership or execution validity changed before claim.", { reason: "field_ownership_conflict" });

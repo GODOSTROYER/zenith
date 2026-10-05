@@ -709,6 +709,32 @@
           "runId": 37373473708,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37373473708",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-8b881fea.json"
+        },
+        {
+          "level": "contract",
+          "commit": "59d583884f5d34eb452eddd984a23c10676f8b56",
+          "result": "Root111 passed /0 failed /0 skipped; scoped lint passed. Exact registered systemd conditions and stricter cleanup fence preserved; historical two remote failures remain recorded.",
+          "command": "npx vitest run --maxWorkers=1 tests/ci/release-gates.test.ts; scoped eslint",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "architecture": "Darwin ARM64"
+          },
+          "logs": "not retained"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "cd71457de4503d69e0828eaba611833ad743b852",
+          "result": "Terminal main14 successful /2 failed (Go,Verify); native2 successful,22 checks and6cleanup proofs each nativeAMD64/ARM64. Unit19400P2F1515S. Guest152 passed; systemd setup/cleanup refused,15 new cases unexecuted. Smoke/Gimbal skipped. Historical failed observation; later corrections not covered.",
+          "command": "Complete main/native jobs and source-bound artifact inspection",
+          "runId": 37380124397,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37380124397",
+          "environment": {
+            "node": "22.23.3",
+            "go": "1.27.1",
+            "architecture": "native Linux AMD64 guest; native Linux AMD64 and ARM64 packaged workers"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-cd71457d-final.json"
         }
       ],
       "requiredEvidence": [
@@ -2016,7 +2042,23 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "local_engine",
+          "commit": "6bdf5adf1acd678e3df986fffbb210874c280839",
+          "result": "Seven real PostgreSQL ownership/race controls passed; overall candidate failed: native10099/1/0, platform3030/4/8, intents154/2/0. PG322/0/0, workflows1273/0/0, reconciliation38/0/0. No overlap sum or acceptance promotion; all owned cleanup confirmed.",
+          "command": "Canonical combined PostgreSQL, Temporal, native100, migration and strict identity gates",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "postgres": "16.15 native Linux ARM64 disposable Docker",
+            "temporalCli": "1.9.1",
+            "tofu": "1.12.5",
+            "host": "Darwin ARM64"
+          },
+          "logs": "docs/build/production/evidence/PROD-LIFE-12/2026-10-06-pg-6bdf5adf.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"

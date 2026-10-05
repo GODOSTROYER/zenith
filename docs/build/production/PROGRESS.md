@@ -1,3 +1,13 @@
+## 6 October current verifier: workflow correction committed, combined candidate failed
+
+Primary code `59d583884f5d34eb452eddd984a23c10676f8b56` fixes only two stale systemd workflow-condition expectations after independent review. Root111 passed /0 failed /0 skipped and scoped lint passed. Production guards, exact conditions and cleanup fence remain intact. Diagnostics `1aeed6e6` still await hosted execution.
+
+Published `cd71457de4503d69e0828eaba611833ad743b852` is now terminal: main run37380124397 has14 successful /2 failed jobs (Go and Verify); native run37380124506 has2 successful jobs, each22 checks and six cleanup proofs on fresh native AMD64/ARM64. Unit19400 passed /2 failed /1515 skipped; both failures were the corrected expectations. Go152 and goldens passed, but systemd setup and cleanup refused; new15 cases, subsequent root cleanup and interop/crossbuild steps did not execute. Smoke/Gimbal skipped after Verify failure. No complete CI success.
+
+Isolated LIFE-12 candidate `6bdf5adf1acd678e3df986fffbb210874c280839` executed seven real PostgreSQL ownership/race controls successfully. Combined gate failed: native10099/1/0; platform3030/4/8; PostgreSQL322/0/0; workflows1273/0/0; reconciliation38/0/0; intents154/2/0. Reports overlap and are not summed. Fresh/reapply/published27-to29 upgrade and Supabase migrations passed. All owned container/volume/image cleanup proofs passed, baseline resources preserved. [Candidate evidence](evidence/PROD-LIFE-12/2026-10-06-pg-6bdf5adf.json).
+
+Reviewed corrections preserve all100 native identities and add explicit foreign-tenant coverage for the new ownership helper. Two remaining historical-schema failures require a narrow fixed-literal claim query: private null ownership result uses the original query; non-null retains every guarded predicate. No published migration changes or schema-probing bypass. Current repair is not runtime accepted or root-integrated. Default API/server, live accounts and wider build-agent feature gaps remain separate blockers. All78 criteria,6 verified/44 in progress/28 planned, and four false release flags remain unchanged.
+
 # 6 October active verifier checkpoint
 
 Current published `cd71457d`: main14 passed /1 failed /1 running; native worker checks22 passed on both native architectures. Linux systemd setup and cleanup refused; its15 scenarios never ran. Reviewed diagnostic code `1aeed6e6` passed root174 tests and lint, awaiting hosted execution. LIFE-12 narrow safety repair and PostgreSQL race acceptance remain in progress. Root MACH-03 route42 passed, held for fixed order. Ledger6 verified /44 in progress /28 planned; all release flagsfalse. [Current results](verification/RESULTS-2026-10.md).

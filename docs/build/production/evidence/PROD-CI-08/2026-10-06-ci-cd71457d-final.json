@@ -1,0 +1,417 @@
+{
+  "schemaVersion": 1,
+  "testedCommit": "cd71457de4503d69e0828eaba611833ad743b852",
+  "recordedAtUtc": "2026-10-05T22:41:24.094946+00:00",
+  "scope": "Terminal remote CI and Native packaged workers evidence for this exact source only; main CI failed and actual systemd acceptance remains unexecuted.",
+  "mainRun": {
+    "id": 37380124397,
+    "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37380124397",
+    "head_sha": "cd71457de4503d69e0828eaba611833ad743b852",
+    "run_attempt": 1,
+    "status": "completed",
+    "conclusion": "failure",
+    "jobCounts": {
+      "success": 14,
+      "failure": 2,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "mainJobs": [
+    {
+      "name": "postgres",
+      "jobId": 111999653874,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:54Z",
+      "completedAtUtc": "2026-10-05T22:05:54Z"
+    },
+    {
+      "name": "supply-chain",
+      "jobId": 111999654177,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:55Z",
+      "completedAtUtc": "2026-10-05T22:05:04Z"
+    },
+    {
+      "name": "tofu",
+      "jobId": 111999654206,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:54Z",
+      "completedAtUtc": "2026-10-05T22:08:18Z"
+    },
+    {
+      "name": "agent",
+      "jobId": 111999654210,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:55Z",
+      "completedAtUtc": "2026-10-05T22:06:55Z"
+    },
+    {
+      "name": "verify",
+      "jobId": 111999654211,
+      "status": "completed",
+      "conclusion": "failure",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:54Z",
+      "completedAtUtc": "2026-10-05T22:37:05Z"
+    },
+    {
+      "name": "build",
+      "jobId": 111999654247,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:56Z",
+      "completedAtUtc": "2026-10-05T22:10:31Z"
+    },
+    {
+      "name": "workflows",
+      "jobId": 111999654275,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:58Z",
+      "completedAtUtc": "2026-10-05T22:15:24Z"
+    },
+    {
+      "name": "operation-gates (reconciliation)",
+      "jobId": 111999654280,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:55Z",
+      "completedAtUtc": "2026-10-05T22:07:11Z"
+    },
+    {
+      "name": "hosted",
+      "jobId": 111999654281,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:55Z",
+      "completedAtUtc": "2026-10-05T22:06:50Z"
+    },
+    {
+      "name": "go",
+      "jobId": 111999654301,
+      "status": "completed",
+      "conclusion": "failure",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:55Z",
+      "completedAtUtc": "2026-10-05T22:08:24Z"
+    },
+    {
+      "name": "platform-postgres",
+      "jobId": 111999654316,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:54Z",
+      "completedAtUtc": "2026-10-05T22:14:53Z"
+    },
+    {
+      "name": "policy",
+      "jobId": 111999654407,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:54Z",
+      "completedAtUtc": "2026-10-05T22:05:27Z"
+    },
+    {
+      "name": "ledger",
+      "jobId": 111999654448,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:54Z",
+      "completedAtUtc": "2026-10-05T22:05:02Z"
+    },
+    {
+      "name": "generated",
+      "jobId": 111999654466,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:54Z",
+      "completedAtUtc": "2026-10-05T22:05:37Z"
+    },
+    {
+      "name": "operation-gates (workflow-intents)",
+      "jobId": 111999654482,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:55Z",
+      "completedAtUtc": "2026-10-05T22:06:53Z"
+    },
+    {
+      "name": "docker",
+      "jobId": 111999654499,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "startedAtUtc": "2026-10-05T22:04:54Z",
+      "completedAtUtc": "2026-10-05T22:10:19Z"
+    }
+  ],
+  "nativeRun": {
+    "id": 37380124506,
+    "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37380124506",
+    "head_sha": "cd71457de4503d69e0828eaba611833ad743b852",
+    "run_attempt": 1,
+    "status": "completed",
+    "conclusion": "success",
+    "jobCounts": {
+      "success": 2,
+      "failure": 0,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "nativeJobs": [
+    {
+      "name": "packaged-worker (amd64, ubuntu-24.04)",
+      "jobId": 111999654138,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "architecture": "linux/amd64",
+      "emulated": false,
+      "requiredUniquePassed": 22,
+      "requiredFailed": 0,
+      "requiredSkipped": 0,
+      "childExitCode": 0,
+      "nodeVersion": "22.23.3",
+      "sanitizedEvidenceSha256": "1b7e7ab32093a14938522bc89f0f93955a657461257ffeca1cbf2fca6211f413",
+      "sourceFingerprintsMatched": true,
+      "ownedCleanup": {
+        "builderAbsent": true,
+        "builderContainerAbsent": true,
+        "cacheVolumeAbsent": true,
+        "baselinePreserved": true,
+        "wrapperPrivateFilesRemoved": true,
+        "ownedContextAbsent": true
+      },
+      "startedAtUtc": "2026-10-05T22:04:56Z",
+      "completedAtUtc": "2026-10-05T22:11:57Z"
+    },
+    {
+      "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+      "jobId": 111999654327,
+      "status": "completed",
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "carriedFromPriorAttempt": false,
+      "architecture": "linux/arm64",
+      "emulated": false,
+      "requiredUniquePassed": 22,
+      "requiredFailed": 0,
+      "requiredSkipped": 0,
+      "childExitCode": 0,
+      "nodeVersion": "22.23.3",
+      "sanitizedEvidenceSha256": "6f95b3e3ce2892c5b4b968f07e24b563f46498e59401789d1d34922298795e90",
+      "sourceFingerprintsMatched": true,
+      "ownedCleanup": {
+        "builderAbsent": true,
+        "builderContainerAbsent": true,
+        "cacheVolumeAbsent": true,
+        "baselinePreserved": true,
+        "wrapperPrivateFilesRemoved": true,
+        "ownedContextAbsent": true
+      },
+      "startedAtUtc": "2026-10-05T22:04:57Z",
+      "completedAtUtc": "2026-10-05T22:10:46Z"
+    }
+  ],
+  "remote": {
+    "verify": {
+      "jobConclusion": "failure",
+      "typecheck": "success",
+      "lint": "success",
+      "unitExitCode": 1,
+      "unitCounts": {
+        "passed": 19400,
+        "failed": 2,
+        "skipped": 1515,
+        "total": 20917
+      },
+      "fileCounts": {
+        "passed": 870,
+        "failed": 1,
+        "skipped": 49,
+        "total": 920
+      },
+      "sourceKnownFailures": [
+        {
+          "file": "tests/ci/release-gates.test.ts",
+          "suite": "the Go job",
+          "title": "is skipped visibly, step by step, until go/go.mod exists",
+          "class": "AssertionError",
+          "assertionProperty": "step.if strict equality",
+          "line": 949,
+          "cause": "Historical specialConditions enumerates only canonical cleanup/select/upload; newly registered systemd workflow steps use their required purpose-specific success/cleanup conditions, while the fallback expects only the old module guard."
+        },
+        {
+          "file": "tests/ci/release-gates.test.ts",
+          "suite": "the Go job",
+          "title": "sets up owned fixtures, always attempts drained cleanup, and selects only the observed current report",
+          "class": "AssertionError",
+          "assertionProperty": "canonical cleanup.if strict equality",
+          "line": 1029,
+          "cause": "Historical always()+module guard expectation predates mandatory positive systemd cleanup fence. Current workflow intentionally requires systemd fixture skipped OR systemd cleanup success before canonical root cleanup."
+        }
+      ],
+      "smoke": "skipped",
+      "gimbalAssetVerification": "skipped",
+      "perCaseIdentityLimit": "Standard unit per-case identity list was not exported. Only the two source-known failed cases are projected."
+    },
+    "go": {
+      "jobConclusion": "failure",
+      "architecture": "native Linux amd64",
+      "goVersion": "1.27.1",
+      "nodeVersion": "22.23.3",
+      "requiredRacePassed": 148,
+      "requiredRootPackagePassed": 4,
+      "uniqueRequiredPassed": 152,
+      "requiredFailed": 0,
+      "requiredSkipped": 0,
+      "raceDeclaredOptionalSkipped": 3,
+      "rootPackageSkipped": 0,
+      "authenticGoldenGenerationDiffStatusExit0": true,
+      "sanitizedEvidenceSha256": "df8b40574909ac6ec3e1f23f64425f8d6b6a5533257001829b7acb9aa61b6208",
+      "gitSourceFileCount": 4458,
+      "sourceBytesAndModesSha256": "7626d7aea89f8c616a8da09e60e89fa4a1a8bd77774ba885b564d206c41c66f4",
+      "systemdSetup": {
+        "status": "refused",
+        "exitCode": 1,
+        "cause": "Exact rejected predicate was not exported; no specific branch or repair inferred."
+      },
+      "systemdAcceptance": {
+        "requiredCases": 15,
+        "status": "not_executed"
+      },
+      "systemdCleanup": {
+        "status": "refused",
+        "exitCode": 1
+      },
+      "canonicalFourRootCleanup": {
+        "status": "not_executed"
+      },
+      "laterTypeScriptGoldenInterop": "skipped",
+      "laterCgoFreeCrossBuild": "skipped"
+    },
+    "postgres": {
+      "passed": 322,
+      "failed": 0,
+      "skipped": 0,
+      "requiredPassed": 80
+    },
+    "platformPostgres": {
+      "passed": 3016,
+      "failed": 0,
+      "skipped": 8,
+      "requiredPassed": 1124,
+      "postgresLabeled": 1107,
+      "sdkNoNetwork": 17
+    },
+    "workflows": {
+      "passed": 1273,
+      "failed": 0,
+      "skipped": 0,
+      "requiredPassed": 60
+    },
+    "tofu": {
+      "passed": 3916,
+      "failed": 0,
+      "skipped": 18,
+      "requiredPassed": 27
+    }
+  },
+  "canonicalArtifactChecks": [
+    {
+      "lane": "platform-postgres",
+      "sanitizedEvidenceSha256": "6d42618f81ab22a0300ecbfc627cc15edcde9b3de9488c167951672af21e5f50",
+      "requiredUnique": 1124,
+      "allRequiredPassed": true,
+      "observedExitCode": 0,
+      "sourceFingerprintsMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "tofu": "1.12.5"
+      },
+      "identityLimit": "not-exported-by-standard-vitest-json"
+    },
+    {
+      "lane": "workflows",
+      "sanitizedEvidenceSha256": "0c6b9fa084ea39390c7c5152f07ac06a0251f82a40e64944d372052b935a5b5d",
+      "requiredUnique": 60,
+      "allRequiredPassed": true,
+      "observedExitCode": 0,
+      "sourceFingerprintsMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "temporal": "1.9.1"
+      },
+      "identityLimit": "not-exported-by-standard-vitest-json"
+    },
+    {
+      "lane": "tofu",
+      "sanitizedEvidenceSha256": "31557e0873eed7f855cbcd39b59d5958228884de5b478b4bb867d29cdc20292b",
+      "requiredUnique": 27,
+      "allRequiredPassed": true,
+      "observedExitCode": 0,
+      "sourceFingerprintsMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "tofu": "1.12.5"
+      },
+      "identityLimit": "not-exported-by-standard-vitest-json"
+    }
+  ],
+  "nativeCopyContextSha256": "a62d6e10905c4eb3c1e053158b1ae282e8d5b30fec4a3592d87512371acd594e",
+  "privateObservationReceiptSha256": {
+    "FINAL-OBSERVATION.json": "e1fe513d7a4acd997046408f1ababe8f9e33c6f214bf5f3c28453536f1058ccb",
+    "VERIFY-FAILURE-PROJECTION.json": "fbe2253755a31746b800ea9797fe144e736f83181d623cf3fe933cc36d14125d",
+    "GO-SYSTEMD-FAILURE-R1.json": "5b5aa7f5278e0764e8d21db91f03783c2e7e99dd47f6b25abdbe30d46b53a27e",
+    "NATIVE-REVIEW.json": "79fb7291d31c4c62fc30bfc2584afa4c11d4cfb3f6d7d6b5d13bf4ea75a33d44",
+    "GUEST-AND-ARM-PARTIAL.json": "c71a1a2d3f3dd02bda065b862518932e1455ed98c160ea3ee81d1525c5367d9b",
+    "DATABASE-WORKFLOWS-TOFU-EVIDENCE.json": "06e27fa48502322c28acf1f251eceda58f06baf4a876d5ec82d8b81cc1a7f87d"
+  },
+  "history": "All18 jobs are fresh execution attempt1 on cd71457d. No earlier8b successes, infrastructure retries or carried jobs are reused as current execution. Diagnostic commit1aeed6e61f3792ec1b39b3ddcb7030b8fb3db953 was not included in this tested source.",
+  "limits": [
+    "Main CI failed. Passed guest152 and both worker22 phases do not prove a green complete main run or actual systemd15 execution.",
+    "Systemd setup and cleanup refused; canonical guest-root cleanup was not executed. Native worker cleanup does not discharge guest fixture cleanup uncertainty.",
+    "Suite counts overlap and are not summed. Platform1124 comprises1107 PostgreSQL-labeled requirements and17 explicit SDK/no-network requirements.",
+    "Verify smoke and Gimbal steps, later Go TypeScript interop and cgo-free cross-build steps were skipped, not passed.",
+    "No production authority repair, live cloud, default API/server, installed daemon, HA or complete78-criterion acceptance claim. Requirement states, criteria and release flags are outside this new evidence file.",
+    "Raw logs, exceptions, environment values, credentials and local home paths are omitted."
+  ]
+}

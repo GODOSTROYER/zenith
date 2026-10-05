@@ -189,6 +189,26 @@ describe("plan enforcement", () => {
     expect(() => assertPlanFieldOwnership(p, g.nodes, { factsByAddress: new Map([["service/web", { autoscaled: true }]]) })).toThrow(FieldOwnershipConflictError);
   });
 
+  it("does not refuse ordinary iac-owned updates on existing resource types", () => {
+    const attrs = ["tags.env", "cpu", "memory", "task_definition", "desired_count", "instance_type", "template[0].container[0].image", "name"];
+    for (const [type, nativeType] of [["aws_ecs_service", "aws:ecs_service"], ["aws_instance", "aws:ec2_instance"], ["azurerm_container_app", "azure:container_app"], ["google_cloud_run_v2_service", "gcp:cloud_run_service"]] as const) {
+      const n = node({ address: "service/x", nativeType, spec: { replicas: 2, artifact: { type: "image", ref: "r" } } });
+      for (const path of attrs) {
+        // provider-managed and release-pointer fields are the only declared exceptions
+        if ((type === "aws_instance" && path === "ami")) continue;
+        const p = plan(change({ nodeAddress: "service/x", address: type + ".x", type, changes: [{ path, before: 1, after: 2, sensitive: false, forcesReplacement: false }] }));
+        expect(() => assertPlanFieldOwnership(p, [n]), type + " " + path).not.toThrow();
+      }
+    }
+  });
+
+  it("allows a non-iac update only with a matching unrevoked transfer", () => {
+    const p = plan(change({}));
+    expect(() => assertPlanFieldOwnership(p, [scaledWeb], { transfers: [transfer({ from: "autoscaler", to: "iac" })], now: NOW })).not.toThrow();
+    expect(() => assertPlanFieldOwnership(p, [scaledWeb], { transfers: [transfer({ from: "autoscaler", to: "native-op" })], now: NOW })).toThrow(FieldOwnershipConflictError);
+    expect(() => assertPlanFieldOwnership(p, [scaledWeb], { transfers: [], now: NOW })).toThrow(FieldOwnershipConflictError);
+  });
+
   it("treats create and replace as seeding, and skips deletes and no-ops", () => {
     expect(() => assertPlanFieldOwnership(plan(change({ action: "create" })), [scaledWeb])).not.toThrow();
     expect(() => assertPlanFieldOwnership(plan(change({ action: "replace" })), [scaledWeb])).not.toThrow();

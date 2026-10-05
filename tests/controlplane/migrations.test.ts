@@ -137,6 +137,9 @@ describe("migration set", () => {
     ]);
     expect(PLATFORM_SCHEMA_VERSION).toBe(PLATFORM_MIGRATIONS.at(-1)?.version);
     expect(PLATFORM_MIGRATIONS.find(m => m.version === 13)?.name).toBe("approved_source_snapshots");
+    const ownership = PLATFORM_MIGRATIONS.find(m => m.version === 18);
+    expect(ownership?.name).toBe("ownership_transfers");
+    expect(ownership && migrationChecksum(ownership)).toBe("d19177da5b80a5bde2ea6b51d232f288d7123546d7aca483d216d710bd769e7a");
   });
 
   it("the emitted Supabase file is byte-identical to what the emitter renders now", () => {

@@ -1543,7 +1543,7 @@ insert into platform.schema_migrations (version, name, checksum)
 values (16, 'cleanup_writer_settlements', '30f73b35ae4bf2da289bd1a3ce403cc0bd409f383efb942a7aa095235333d711')
 on conflict (version) do nothing;
 
--- ============================ migration 17: ownership_transfers ============================
+-- ============================ migration 18: ownership_transfers ============================
 
 create table if not exists platform.ownership_transfers (
   id               text        not null primary key,
@@ -1608,7 +1608,7 @@ end
 $$;
 
 insert into platform.schema_migrations (version, name, checksum)
-values (17, 'ownership_transfers', 'd19177da5b80a5bde2ea6b51d232f288d7123546d7aca483d216d710bd769e7a')
+values (18, 'ownership_transfers', 'd19177da5b80a5bde2ea6b51d232f288d7123546d7aca483d216d710bd769e7a')
 on conflict (version) do nothing;
 
 -- ============================ hardening (Supabase roles) ============================

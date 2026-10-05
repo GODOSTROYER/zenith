@@ -4,8 +4,8 @@
  * it is bound to that operation's immutable proposal digest and approval id.
  * Rows are append-only apart from one-way revocation.
  */
-export const migration0017OwnershipTransfers = {
-  version: 17,
+export const migration0018OwnershipTransfers = {
+  version: 18,
   name: "ownership_transfers",
   sql: `
 create table if not exists platform.ownership_transfers (

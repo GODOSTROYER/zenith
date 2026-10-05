@@ -76,6 +76,10 @@ export const ServiceSource = z.discriminatedUnion("type", [
     repo: z.string().min(1),
     ref: z.string().default("main"),
     dockerfile: z.string().optional(),
+    /** build context subdirectory (monorepo root); honored only with the `contextDigest` from source inspection */
+    contextDir: z.string().max(200).optional(),
+    /** digest returned by source inspection for exactly this repo, commit, context and Dockerfile; build admission re-derives it */
+    contextDigest: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   }),
   z.object({ type: z.literal("blueprint"), blueprint: z.string() }),
 ]);

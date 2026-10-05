@@ -1459,11 +1459,11 @@
       "acceptance": [
         "Default create/onboard/verify/revoke/rotate flows work through UI/API/CLI for supported providers and customer runners."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1644,7 +1644,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -1666,11 +1666,11 @@
       "acceptance": [
         "Build identity/network/filesystem/resources deny deployment credentials and metadata; dependency downloads controlled, artifacts have verified provenance."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1685,11 +1685,11 @@
       "acceptance": [
         "Source to build/digest/migration/readiness/cutover/readback works; progressive rollout/code rollback/compatible migrations separate from reviewed data restore."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1708,7 +1708,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "partial_cleanup_admission_in_progress",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1834,7 +1834,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "runner_rotation_integrated_broader_delivery_lifecycle_pending",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "contract",
@@ -1862,11 +1862,11 @@
       "acceptance": [
         "Supported runner modes keep credentials local; revoked bindings cannot trigger privileged fallback; model-visible results contain no secrets."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1993,7 +1993,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2358,11 +2358,11 @@
       "acceptance": [
         "Connection admin/onboarding/readiness/plan/progress/cancellation/replan/reapproval/uncertainty/accessibility with consistent legacy/platform projections; MFA/step-up and workspace controls for privileged humans."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2396,11 +2396,11 @@
       "acceptance": [
         "Plugin capability declarations/provenance/schemas/isolation/revocation; no token passthrough or direct credential/store access."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",

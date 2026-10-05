@@ -25,6 +25,9 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/environments/${ID}/(?:resources|drift|incidents)$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/environments/${ID}/placement$`), methods: { POST: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/environments/${ID}/teardown-review$`), methods: { GET: "bearer-capable", POST: "bearer-capable" } },
+  // Portability: stored verified exports, restores and adoptions are readable; starting an approved export, import, adopt or release needs the approver's own browser.
+  { path: new RegExp(`^${ROOT}/environments/${ID}/portability$`), methods: { GET: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/operations/${ID}/start-portability$`), methods: { POST: "browser-only" } },
   // Signed runbooks: publish and approve need the person's browser; agents may request, schedule, cancel and read.
   { path: new RegExp(`^${ROOT}/runbooks$`), methods: { GET: "bearer-capable", POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/runbooks/${ID}/(?:runs|schedules)$`), methods: { POST: "bearer-capable" } },

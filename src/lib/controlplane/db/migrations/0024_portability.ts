@@ -13,8 +13,8 @@
  * No secret is ever stored: destinations are labels, credentials are vault refs
  * resolved by the worker at call time.
  */
-export const migration0025Portability = {
-  version: 25,
+export const migration0024Portability = {
+  version: 24,
   name: "portability",
   sql: `
 create table if not exists platform.portability_exports (

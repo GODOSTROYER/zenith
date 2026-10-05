@@ -21,6 +21,12 @@ export interface ProvenanceSubject {
   sourceDigest?: string;
   /** `built`: Zenith built it in this operation; `pinned`: the manifest or a prior release named it */
   origin: "built" | "pinned";
+  /**
+   * Supplied by the deploy path for an image Zenith built from customer source (PROD-LIFE-09): the
+   * signed-provenance admission that already ran for this exact service and digest. Resolves to an
+   * evidence reference or rejects. It is the ONLY attestation path; nothing re-verifies it elsewhere.
+   */
+  builtAdmission?: () => Promise<{ evidenceRef: string }>;
 }
 
 export interface ProvenanceVerifier {
@@ -36,7 +42,28 @@ export const isProvenanceLevel = (v: unknown): v is ProvenanceLevel => typeof v 
 
 type G = typeof globalThis & { __zenithProvenanceVerifiers?: ProvenanceVerifier[] };
 
-/** LIFE-09 registers its attestation verifier here at boot. Re-registering a name replaces it. */
+/**
+ * The attestation verifier (PROD-LIFE-09's signed build provenance seen through LIFE-10's gate): an
+ * image Zenith built is `attested` only when the deploy path's admission of its signed provenance
+ * (signature, pinned key, bound operation/service/digest/reviewed source, isolation profile) passed.
+ */
+export function createBuiltAdmissionVerifier(): ProvenanceVerifier {
+  return {
+    name: "zenith.build-attestation",
+    async verify(subject: ProvenanceSubject): Promise<ProvenanceVerdict> {
+      if (subject.origin !== "built") return { verified: false, level: "none", reason: "only an image Zenith built carries a build attestation" };
+      if (!subject.builtAdmission) return { verified: false, level: "none", reason: "no signed build provenance was admitted for this image" };
+      try {
+        const { evidenceRef } = await subject.builtAdmission();
+        return { verified: true, level: "attested", evidenceRef, verifiedAt: new Date().toISOString() };
+      } catch (e) {
+        return { verified: false, level: "none", reason: `build provenance refused: ${scrub(e instanceof Error ? e.message : "error", 120)}` };
+      }
+    },
+  };
+}
+
+/** LIFE-09's attestation verifier is registered here at composition (`createPlatformReleaseSafety`). Re-registering a name replaces it. */
 export function registerProvenanceVerifier(verifier: ProvenanceVerifier): void {
   const g = globalThis as G;
   g.__zenithProvenanceVerifiers = [...(g.__zenithProvenanceVerifiers ?? []).filter((v) => v.name !== verifier.name), verifier];

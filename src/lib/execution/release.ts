@@ -119,7 +119,8 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
       if (targets.length > 0 && !workloads) throw new StepFailedError("This worker has no workload deployer configured; it cannot roll out services.");
       const needsSecrets = graph.nodes.some((n) => (n.kind === "secret" && typeof n.spec.secretRef === "string" && n.spec.secretRef.startsWith("vault:")) || (n.ownership === "managed" && ["kubernetes", "zenith"].includes(n.provider) && ["postgres", "redis"].includes(n.kind)));
       if (targets.length === 0 && !needsSecrets) return { services: 0 };
-      await admitBuiltArtifacts(rt, ec, graph, targets, byService);
+      // The ONE verification of signed build provenance. Its result feeds the release gate as the `attested` verdict.
+      const admissions = await admitBuiltArtifacts(rt, ec, graph, targets, byService);
       const connection = await resolveConnection(rt, ec);
 
       await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
@@ -141,7 +142,7 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
               if (supplied?.digest) images.set(node.address, supplied);
               else if (pinnedRef && artifact?.type === "image") images.set(node.address, { imageUri: artifact.ref, digest: pinnedRef[1] });
             }
-            const runs = await beginRuns(rt, ec, { targets, images, release, ctxFor, workloads: workloads! });
+            const runs = await beginRuns(rt, ec, { targets, images, release, ctxFor, workloads: workloads!, admissions });
             for (const node of targets) {
               await rolloutRun(rt, ec, { run: runs.get(node.address)!, node, image: images.get(node.address)!, ctx: ctxFor(node), workloads: workloads!, signal, steadyTimeoutMs: rt.limits.steadyTimeoutMs });
               pinned++;
@@ -360,6 +361,8 @@ async function buildOne(
   const contextDir = contextDirFor(node, pipeline);
   const approvedSource=ec.approvedSourceSnapshots?.find(s=>s.serviceAddress===node.address);
   if(!approvedSource) throw new StepFailedError("This build plan has no approved source snapshot; a new operation and review are required.");
+  // A non-root context is accepted only when it carries the digest source inspection produced AND that digest re-derives from the approved commit.
+  const contextDigest = await admitBuildContext(rt, ec, node, pipeline, approvedSource, contextDir);
   const bundle = await bundler.prepare(ctx, { service: node, approvedSource, source: { repo: source.repo, ref: source.ref, ...(source.dockerfile ? { dockerfile: source.dockerfile } : {}) } });
   if(bundle.digest!==approvedSource.archiveDigest)throw new StepFailedError("Prepared build bytes do not match the reviewed source.");
   // Refresh after upload, before requesting a build. This never grants/rebinds source access.
@@ -398,7 +401,7 @@ async function buildOne(
     { critical: true }
   );
   // PROD-LIFE-09: isolation check, signed provenance and its evidence are required before this image can be admitted for rollout.
-  await recordBuildProvenance(rt, ec, node, pipeline, approvedSource, { imageUri, digest: result.digest, attestation: result.attestation, contextDir });
+  await recordBuildProvenance(rt, ec, node, pipeline, approvedSource, { imageUri, digest: result.digest, attestation: result.attestation, contextDir, contextDigest });
   rt.log("info", "build finished", { service: node.address });
   return { service: node.address, imageUri, digest: result.digest };
 }
@@ -409,6 +412,32 @@ async function buildOne(
  * appears as one value. Anything that is not exactly three strings fails verification.
  */
 const joinJws = (parts: unknown): unknown => (Array.isArray(parts) && parts.length === 3 && parts.every((p) => typeof p === "string") ? parts.join(".") : undefined);
+
+const CONTEXT_DIGEST = /^[a-f0-9]{64}$/;
+
+/** The inspection digest bound to a non-root context directory (never present for the repository root). */
+function contextDigestFor(pipeline: ResourceNode, contextDir: string): string | undefined {
+  if (contextDir === ".") return undefined;
+  const digest = (pipeline.spec as unknown as BuildPipelineSpec).source.contextDigest;
+  if (typeof digest !== "string" || !CONTEXT_DIGEST.test(digest)) {
+    throw new StepFailedError(`${pipeline.address} builds from the subdirectory ${safeText(contextDir, 80)} without the digest source inspection returns for it, so the build is refused. Inspect the repository (GitHub source) and use its buildSource.contextDir and contextDigest.`);
+  }
+  return digest;
+}
+
+/**
+ * LIFE-08 / LIFE-09 join. The context directory is only buildable when it came from source inspection:
+ * its digest (repository, approved commit, directory tree, Dockerfile blob) is re-derived through the
+ * binding-scoped GitHub access and must equal the one in the spec. A worker without that port refuses.
+ */
+async function admitBuildContext(rt: Runtime, ec: ExecContext, node: ResourceNode, pipeline: ResourceNode, source: ApprovedSourceSnapshot, contextDir: string): Promise<string | undefined> {
+  const digest = contextDigestFor(pipeline, contextDir);
+  if (digest === undefined) return undefined;
+  if (!rt.d.sourceContext) throw new StepFailedError(`This worker cannot verify the build context of ${node.address}, so a subdirectory build is refused.`);
+  const ok = await rt.d.sourceContext({ workspaceId: ec.workspaceId, environmentId: ec.environmentId, repository: `${source.owner}/${source.repo}`, commitSha: source.commitSha, contextDir, dockerfile: source.dockerfile, contextDigest: digest });
+  if (!ok) throw new StepFailedError(`The build context ${safeText(contextDir, 80)} of ${node.address} does not match what source inspection reported for the approved commit, so it will not be built.`);
+  return digest;
+}
 
 /** Validated build context of the pipeline, as a StepFailedError (a definitive, non-retried refusal). */
 function contextDirFor(node: ResourceNode, pipeline: ResourceNode): string {
@@ -438,7 +467,7 @@ async function recordBuildProvenance(
   node: ResourceNode,
   pipeline: ResourceNode,
   source: ApprovedSourceSnapshot,
-  built: { imageUri: string; digest: string; attestation: BuildAttestation | undefined; contextDir: string }
+  built: { imageUri: string; digest: string; attestation: BuildAttestation | undefined; contextDir: string; contextDigest?: string }
 ): Promise<void> {
   const provider = providerOf(node);
   const authority = rt.d.provenance;
@@ -456,6 +485,7 @@ async function recordBuildProvenance(
       serviceAddress: node.address,
       pipelineAddress: pipeline.address,
       contextDir: built.contextDir,
+      ...(built.contextDigest ? { contextDigest: built.contextDigest } : {}),
       imageName: built.imageUri.replace(/@sha256:[a-f0-9]{64}$/, "").replace(/:[^:/@]+$/, ""),
       imageDigest: built.digest,
       source,
@@ -489,9 +519,10 @@ async function recordBuildProvenance(
  * binds this operation, this service, the image digest and the reviewed source
  * snapshot, and whose recorded isolation still satisfies the profile.
  */
-async function admitBuiltArtifacts(rt: Runtime, ec: ExecContext, graph: ResourceGraph, targets: ResourceNode[], images: Map<string, { imageUri: string; digest: string }>): Promise<void> {
+async function admitBuiltArtifacts(rt: Runtime, ec: ExecContext, graph: ResourceGraph, targets: ResourceNode[], images: Map<string, { imageUri: string; digest: string }>): Promise<Map<string, () => Promise<{ evidenceRef: string }>>> {
+  const admissions = new Map<string, () => Promise<{ evidenceRef: string }>>();
   const built = targets.filter((n) => artifactOf(n)?.type === "built");
-  if (built.length === 0) return;
+  if (built.length === 0) return admissions;
   const authority = rt.d.provenance;
   const store = rt.d.sourceSnapshots;
   if (!authority || !isApprovedSourceSnapshotStore(store)) throw new StepFailedError("Built artifacts cannot be admitted: provenance keys or the approved source store are not configured.");
@@ -508,12 +539,16 @@ async function admitBuiltArtifacts(rt: Runtime, ec: ExecContext, graph: Resource
     try {
       await verifyBuildProvenance(
         joinJws(record.summary.jwsParts),
-        { workspaceId: ec.workspaceId, operationId: ec.op.id, environmentId: ec.environmentId, provider: providerOf(node), serviceAddress: node.address, pipelineAddress: pipeline.address, contextDir: contextDirFor(node, pipeline), imageDigest: image.digest, source, policy: buildPolicy(rt) },
+        { workspaceId: ec.workspaceId, operationId: ec.op.id, environmentId: ec.environmentId, provider: providerOf(node), serviceAddress: node.address, pipelineAddress: pipeline.address, contextDir: contextDirFor(node, pipeline), contextDigest: contextDigestFor(pipeline, contextDirFor(node, pipeline)), imageDigest: image.digest, source, policy: buildPolicy(rt) },
         keys
       );
     } catch (error) {
       if (error instanceof BuildIsolationError || error instanceof BuildProvenanceError) throw new StepFailedError(`${safeText(error.message, 300)} ${node.address} will not be released.`);
       throw error;
     }
+    // Verified once, above; the release gate reads this result and never re-verifies or contradicts it.
+    const verified = { evidenceRef: `evidence:${record.id}` };
+    admissions.set(node.address, async () => verified);
   }
+  return admissions;
 }

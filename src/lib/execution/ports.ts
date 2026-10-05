@@ -629,6 +629,11 @@ export interface ExecutionDeps {
   prober: ProberPort;
   sourceBundle?: SourceBundlePort;
   sourceSnapshots?: import("@/lib/controlplane/db/repos/approved-source-snapshots").ApprovedSourceSnapshotStore;
+  /**
+   * Re-derives a build context digest from the approved commit (PROD-LIFE-08 inspection output). Required to
+   * build from any non-root context directory; without it such a build is refused.
+   */
+  sourceContext?: (input: { workspaceId: string; environmentId?: string; repository: string; commitSha: string; contextDir: string; dockerfile: string; contextDigest: string; signal?: AbortSignal }) => Promise<boolean>;
   build?: BuildPort;
   /** Required to release any built artifact: signs provenance after a build and verifies it before rollout. */
   provenance?: BuildProvenanceAuthority;

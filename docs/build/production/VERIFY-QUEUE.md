@@ -67,6 +67,60 @@ Doc: [verify/PROD-COST-03.md](verify/PROD-COST-03.md). `npx vitest run tests/pla
 - OBS-02: all source evidence is `contract` or `simulated`; no live-provider run exists.
 - Docker, Postgres, Temporal, kind, real systemd, the signed browser approval journey and hosted CI were never exercised for any of these requirements.
 
+## Wave 2 (5 October 2026, assembled on prod/compose, build-only)
+
+**Verify wave 1 first.** Everything above (CI repair, MACH-01, OBS-02, LIFE-02, LIFE-12, MACH-03, OBS-03, COST-03) must be run and green before the blocks below: wave 2 shares the migration registry, `tenancy.test.ts`, `platform-bearer.test.ts`, the generated Supabase aggregate and the platform nav with it, so a wave 1 failure will confuse every wave 2 result. No wave 2 byte has been executed: no vitest, go test, Docker, PostgreSQL, Temporal or cloud run. Typecheck, eslint (changed files), `emit-sql --check`, `capability-matrix --check`, `offered-catalog --check`, `production-ledger --check`, and Go `build`/`vet` were the only checks.
+
+### Migrations and shared files as shipped
+
+Platform migrations 21 OBS-04 `scheduled_job_runs`, 22 LIFE-01 `connection_rotations`, 23 LIFE-10 `release_pipelines`, 24 LIFE-11 `portability`, 25 MACH-04 `agent_lifecycle`, 26 UX-03 `plugin_boundaries`, 27 LIFE-08 `github_revocation_reason` (workers built them as 21, 22, 24, 25, 26, 28, 30 and the assembler renumbered to contiguous 1..27; checksums in DEPLOYING.md were recomputed). The new aggregate is `supabase/migrations/0020_platform_core.sql` (migrations 1..27, generated); `0016` to `0019` are untouched. `scripts/ci/apply-supabase-migrations.sh` applies `0019` then `0020`. Counts: `platform-bearer.test.ts` route inventory is now 65 (counted from the route files; LIFE-11's two portability routes were unclassified and are now in `bearer-paths.ts`); `action-bridge.test.ts` needed no edit (27 deliberately unmapped actions, checked against the registry).
+
+Cross-requirement joins made at assembly (read these when a combined test fails):
+- LIFE-09 provenance into LIFE-10: `admitBuiltArtifacts` (release.ts) is the single verification; its per-service result is handed to the release gate as `BeginInput.builtAdmission` and consumed by the registered `zenith.build-attestation` verifier as the `attested` verdict. Built images are held to `attested`; pinned images to `ZENITH_RELEASE_MIN_PROVENANCE` (default `pinned_digest`). Test: `tests/release-safety/built-attestation.test.ts`.
+- LIFE-08 into LIFE-09: a non-root `contextDir` needs the inspection `contextDigest` in the pipeline spec; `admitBuildContext` re-derives it from the approved commit through `deps.sourceContext` (`createGithubContextVerifier`) before the bundle is prepared, and the digest is signed into the provenance statement and re-checked at admission. The product service source now carries optional `contextDir` / `contextDigest` and `expand.ts` passes them. No dedicated test yet for the re-derivation path (see risks).
+- Platform nav: one list in `src/app/(product)/platform/_components/platform-nav.tsx` (Operations, Environments, Releases, Runbooks, Readiness, Runners, GitHub source, Plugins, Connections, Connect AWS, Workspace policy); the layout uses it alone.
+- `tick.yml` gained the OBS-04 `status` pass.
+
+### PROD-OBS-04
+Doc: [verify/PROD-OBS-04.md](verify/PROD-OBS-04.md). `npx vitest run tests/platform/critical-jobs.test.ts tests/workflows/critical-schedule.test.ts tests/workflows/sandbox.test.ts tests/platform/housekeeping.test.ts tests/controlplane/migrations.test.ts tests/controlplane/tenancy.test.ts tests/security/controlplane-sql-scoping.test.ts`; real Temporal: `ZENITH_TEST_PLATFORM_PG_URL=... ZENITH_TEST_RECONCILE_SCHEDULE=1 ZENITH_TEST_TEMPORAL=1 ZENITH_TEST_TEMPORAL_CLI=<cli> npx vitest run tests/workflows/reconcile-schedule.test.ts tests/workers/reconcile-composition.test.ts`. Worker needs `ZENITH_STORE=postgres` for engine/alerts/outbox.
+
+### PROD-LIFE-01
+Doc: [verify/PROD-LIFE-01.md](verify/PROD-LIFE-01.md). `npx vitest run tests/connections tests/cli tests/middleware/platform-bearer.test.ts tests/bridge/connection-aws.test.ts tests/bridge/connection-kubernetes.test.ts tests/actions/connection-env-isolation.test.ts tests/platform/credentials-verification.test.ts tests/controlplane/migrations.test.ts tests/controlplane/tenancy.test.ts tests/security/controlplane-sql-scoping.test.ts tests/capabilities/action-bridge.test.ts tests/docs/operator-docs.test.ts`. PGlite plus synthetic cloud fetch.
+
+### PROD-LIFE-08
+Doc: [verify/PROD-LIFE-08.md](verify/PROD-LIFE-08.md). `npx vitest run tests/sources tests/middleware/platform-bearer.test.ts tests/controlplane/migrations.test.ts tests/controlplane/tenancy.test.ts`; lifecycle test is POSIX only; with `ZENITH_TEST_PLATFORM_PG_URL` also `tests/sources/github-webhook.test.ts`.
+
+### PROD-LIFE-09
+Doc: [verify/PROD-LIFE-09.md](verify/PROD-LIFE-09.md). `npx vitest run tests/execution/build-isolation.test.ts tests/execution/build-provenance.test.ts tests/execution/build-admission.test.ts tests/execution/release.test.ts tests/execution/journey.test.ts tests/execution/approved-source.test.ts tests/release-safety/built-attestation.test.ts tests/providers/aws/drivers/compute/codebuild.test.ts tests/providers/gcp/release.test.ts tests/providers/gcp/build-gcp.test.ts tests/providers/azure/release.test.ts tests/providers/azure/build-digest.test.ts tests/platform/release.test.ts tests/platform/release-multi.test.ts tests/platform/codebuild-launch-authority.test.ts tests/workflows`.
+
+### PROD-LIFE-10
+Doc: [verify/PROD-LIFE-10.md](verify/PROD-LIFE-10.md). `npx vitest run tests/release-safety tests/execution/release-safety.test.ts tests/execution/release.test.ts tests/execution/manifest-release.test.ts tests/providers/gcp/release-progressive.test.ts tests/providers/gcp/release.test.ts tests/providers/kubernetes tests/controlplane/release-pipelines.test.ts tests/controlplane/migrations.test.ts tests/middleware/platform-bearer.test.ts tests/platform/deploy-e2e.test.ts tests/platform/composition.test.ts tests/docs`; repeat the two controlplane files with `ZENITH_TEST_PLATFORM_PG_URL`. Behaviour change: tag-only images are refused.
+
+### PROD-LIFE-11
+Doc: [verify/PROD-LIFE-11.md](verify/PROD-LIFE-11.md). `npx vitest run tests/portability tests/execution/portability.test.ts tests/capabilities/portability-broker.test.ts tests/controlplane/tenancy.test.ts tests/security/controlplane-sql-scoping.test.ts tests/capabilities tests/execution tests/policy tests/security/policy-invariants.test.ts tests/docs tests/ownership`; real engines: `ZENITH_TEST_PLATFORM_PG_URL`, `ZENITH_TEST_POSTGRES_URL`, `ZENITH_TEST_S3_ENDPOINT` with `ZENITH_PORTABILITY_ALLOW_PRIVATE_HOSTS=1`, `ZENITH_TEST_MYSQL_URL` (see the doc for the exact files). `npx tsx scripts/docs/capability-matrix.ts --check`.
+
+### PROD-MACH-04
+Doc: [verify/PROD-MACH-04.md](verify/PROD-MACH-04.md). In `go/` with `GOTOOLCHAIN=local`: `go vet ./... && go test -race ./internal/release ./internal/agent/... ./internal/runner/... ./internal/machine/...` and `go test -race -count=3 ./internal/agent -run 'Spool|Heartbeat|Revocation'`; `npx vitest run tests/runners/lifecycle.test.ts tests/runners/store-contract.test.ts tests/runners/admin-routes.test.ts tests/runners/e2e-platform-store.test.ts tests/runners/late-effect-receipts.test.ts` (also with the PG env var). The real systemd update acceptance is manual and Linux only.
+
+### PROD-MACH-05
+Doc: [verify/PROD-MACH-05.md](verify/PROD-MACH-05.md). `npx vitest run tests/security/result-sanitizer.test.ts tests/runners tests/agent-v3 tests/agent-control* tests/security tests/execution/platform.test.ts`; `node scripts/test-agent-reader.mjs`; in `go/`: `go test ./internal/runner/... ./internal/redact/... ./internal/agent/...`. Expect to touch existing tests that assert the old `[redacted]` marker or exact runner registration labels.
+
+### PROD-UX-01
+Doc: [verify/PROD-UX-01.md](verify/PROD-UX-01.md). `npx vitest run tests/platform-ui tests/docs/operator-docs.test.ts`. The nav list moved: any assertion on the old `PLATFORM_LINKS` contents must follow the merged list. A real-browser accessibility pass (axe, keyboard, screen reader) is still owed.
+
+### PROD-UX-03
+Doc: [verify/PROD-UX-03.md](verify/PROD-UX-03.md). `npx vitest run tests/plugins tests/agent-v3 tests/agent-control-oauth.test.ts tests/capabilities tests/controlplane/migrations.test.ts tests/controlplane/tenancy.test.ts tests/security/controlplane-sql-scoping.test.ts tests/docs`; `ZENITH_TEST_PLATFORM_PG_URL=... npx vitest run tests/plugins/service.test.ts`.
+
+### Wave 2 known risks
+
+- The join code (`builtAdmission`, `minProvenanceFor`, `sourceContext`, `contextDigest` provenance field) was written at assembly without running anything. Likeliest first breaks: `tests/execution/build-provenance.test.ts` and `build-admission.test.ts` (new optional statement field, `contextDigest` expectation), `tests/execution/release.test.ts` and `journey.test.ts` (admission now returns a map; `beginRuns` input gained `admissions`), and `tests/release-safety/pipeline.test.ts` (new option).
+- There is no test of `createGithubContextVerifier` or `admitBuildContext` yet: add owning, foreign and mismatched-digest cases beside `tests/sources/github-inspect.test.ts` and `tests/execution/build-admission.test.ts`.
+- Merged tests added by different workers were never run together: `tenancy.test.ts` (SWEPT additions for `connectionRotations` and `plugins` use nonexistent ids as foreign probes), `migrations.test.ts` (`EXPECTED_TABLES` union; `scheduled_job_runs` has no `workspace_id` and is in `NO_WORKSPACE_COLUMN`), `platform-bearer.test.ts` (65), `operator-docs.test.ts` (migration inventory rows 21 to 27, new env vars).
+- The `tick.yml` `status` pass is informational (200 unless `?strict=1`); a never-run job will not fail the workflow.
+- LIFE-09, LIFE-10, LIFE-01, LIFE-08 and UX-01 touch the platform nav and `bearer-paths.ts`; check the nav contains each page and that no route is reachable but unlisted.
+- OBS-04 and MACH-04 have Temporal and systemd acceptance that cannot be reproduced without those environments; record them as pending, not passed.
+- Live cloud, hosted CI and the signed browser approval journey were never exercised for any wave 2 requirement.
+
 ## Results
 
 Not yet run. Append one dated block per requirement here: SHA verified, commands, counts, and which evidence levels were reached or remain pending.

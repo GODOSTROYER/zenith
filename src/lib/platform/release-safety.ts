@@ -15,6 +15,9 @@ import { createPlatformReleaseStore } from "@/lib/controlplane/db/repos/release-
 import {
   ReleaseSafetyService,
   isProvenanceLevel,
+  createBuiltAdmissionVerifier,
+  meetsLevel,
+  registerProvenanceVerifier,
   registeredProvenanceVerifiers,
   type ProvenanceLevel,
   type ProvenanceSubject,
@@ -56,10 +59,15 @@ export function createBuildRecordVerifier(db: Sql): ProvenanceVerifier {
 
 export function createPlatformReleaseSafety(db: Sql, env: Record<string, string | undefined> = process.env): ReleaseSafetyService {
   const builtIn = createBuildRecordVerifier(db);
+  // One verification path: LIFE-09's signed build provenance is consumed here as the `attested` verdict.
+  registerProvenanceVerifier(createBuiltAdmissionVerifier());
+  const floor = releaseMinProvenance(env);
   return new ReleaseSafetyService({
     store: createPlatformReleaseStore(db),
     verifiers: () => [builtIn, ...registeredProvenanceVerifiers()],
-    minProvenance: releaseMinProvenance(env),
+    minProvenance: floor,
+    // An image built from customer source must carry admitted signed provenance whatever the floor for pinned images is.
+    minProvenanceFor: (origin) => (origin === "built" && !meetsLevel(floor, "attested") ? "attested" : floor),
   });
 }
 

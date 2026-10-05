@@ -66,10 +66,13 @@ jobs:
           printf 'Authorization: Bearer %s\n' "$CRON_SECRET" > "$header_file"
 
           failed=0
+          # `status` reports durable-schedule health for the critical jobs (PROD-OBS-04); it
+          # answers 200 with the job table so a stale job is visible in this log. Add
+          # `?strict=1` to the endpoint to make a stale job fail the workflow.
           # Housekeeping prunes expired keys/nonces and reconciles operation
           # expiry under a lease. The jobs route exposes this separate bounded
           # pass without booting the legacy product; local plans are worker-only.
-          for pass in engine alerts outbox jobs agent reconcile runbooks housekeeping; do
+          for pass in engine alerts outbox jobs agent reconcile runbooks housekeeping status; do
             endpoint="$pass"
             if [ "$pass" = housekeeping ]; then endpoint='jobs?housekeeping=1'; fi
             url="${BASE_URL}/api/internal/tick/${endpoint}"

@@ -8,8 +8,8 @@
  * one-way `consumed_at`, and the approver can never be the requester.
  * No credential, argv, SQL text or command output is stored: only digests and short scrubbed text.
  */
-export const migration0024ReleasePipelines = {
-  version: 24,
+export const migration0023ReleasePipelines = {
+  version: 23,
   name: "release_pipelines",
   sql: `
 create table if not exists platform.release_runs (

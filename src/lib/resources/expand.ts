@@ -233,7 +233,7 @@ function emitWorkloads(ctx: Ctx, topo: Topologies): void {
       const repo = stripUrlCredentials(s.source.repo);
       if (repo.stripped) b.note("secrets", `${s.name}'s git repo URL embeds credentials; they were removed from the graph. Keep repository access in a secretRef.`);
       const pspec: BuildPipelineSpec = {
-        source: { repo: repo.value, ref: s.source.ref, ...(s.source.dockerfile ? { dockerfile: s.source.dockerfile } : {}) },
+        source: { repo: repo.value, ref: s.source.ref, ...(s.source.dockerfile ? { dockerfile: s.source.dockerfile } : {}), ...(s.source.contextDir ? { contextDir: s.source.contextDir } : {}), ...(s.source.contextDigest ? { contextDigest: s.source.contextDigest } : {}) },
         output: registry ? { registry } : { staticSite: info.address },
         location: "customer_account",
       };

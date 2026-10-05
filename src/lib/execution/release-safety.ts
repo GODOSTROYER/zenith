@@ -43,7 +43,7 @@ const key = (...parts: unknown[]): string => digest(parts).slice(0, 32);
 export async function beginRuns(
   rt: Runtime,
   ec: ExecContext,
-  input: { targets: ResourceNode[]; images: Map<string, ImageRef>; release: ReleaseDecl | undefined; ctxFor: (node: ResourceNode) => DriverContext; workloads: NonNullable<Runtime["d"]["workloads"]> }
+  input: { targets: ResourceNode[]; images: Map<string, ImageRef>; release: ReleaseDecl | undefined; ctxFor: (node: ResourceNode) => DriverContext; workloads: NonNullable<Runtime["d"]["workloads"]>; admissions?: Map<string, () => Promise<{ evidenceRef: string }>> }
 ): Promise<Map<string, ReleaseRun>> {
   const safety = rt.d.releaseSafety;
   const runs = new Map<string, ReleaseRun>();
@@ -73,6 +73,7 @@ export async function beginRuns(
         imageDigest: image.digest,
         sourceDigest: ec.approvedSourceSnapshots?.find((s) => s.serviceAddress === node.address)?.archiveDigest,
         origin: artifact?.type === "built" ? "built" : "pinned",
+        ...(artifact?.type === "built" && input.admissions?.get(node.address) ? { builtAdmission: input.admissions.get(node.address)! } : {}),
         requestedBy: accountableId(ec.op.principal),
         ...(migrate ? { migration: { commandDigest: digest(migrate.command), declared: migrate.class } } : {}),
         ...(wantsProgressive ? { rollout: input.release!.rollout } : {}),

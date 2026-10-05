@@ -1,10 +1,12 @@
 # Production progress
 
+**5 October 2026 wave 2 assembly (prod/compose):** merged PROD-OBS-04, LIFE-01, LIFE-08, LIFE-09, LIFE-10, LIFE-11, MACH-04, MACH-05, UX-01 and UX-03 on top of wave 1. Platform migrations 21 to 27 (scheduled_job_runs, connection_rotations, release_pipelines, portability, agent_lifecycle, plugin_boundaries, github_revocation_reason) are registered contiguously; the Supabase aggregate is now `0020_platform_core.sql` and `0016` to `0019` are untouched. Cross-requirement joins made at assembly: LIFE-09 signed build provenance is the single `attested` verdict inside LIFE-10's release gate; a subdirectory build context needs LIFE-08's inspection digest re-derived at build admission; one coherent platform nav; portability routes classified. The ledger now counts **6 verified / 44 in progress / 28 planned** of 78 requirements; 20 are `implementation_complete_verification_pending` (the ten wave 2 requirements plus the ten from CI repair and wave 1); none are verified and no tests were run on this machine (typecheck, lint on changed files, generator checks and Go build/vet only). Wave 1 must be verified first. Next: [VERIFY-QUEUE.md](VERIFY-QUEUE.md).
+
 **5 October 2026 assembly (prod/compose):** merged PROD-LIFE-12, COST-03, MACH-03 and OBS-03 on top of CI repair, OBS-02, LIFE-02 and MACH-01. Platform migrations 17 to 20 are registered in order; the Supabase aggregate is now `0019_platform_core.sql` and `0018_platform_core.sql` is restored byte-identical to base. Runbook tick added to `tick.yml`. Ten requirements (PROD-CI-05/08/09, MACH-01, MACH-03, OBS-02, OBS-03, LIFE-02, LIFE-12, COST-03) are `implementation_complete_verification_pending`; none are verified and no tests were run. Next: [VERIFY-QUEUE.md](VERIFY-QUEUE.md).
 
 As-is machine-transfer checkpoint, 5 October 2026. Product commit `19be80b`, tree `7da4306a`; final handoff commit is the fetched published branch HEAD. [Exact handoff and commands](transfer/2026-10-05/README.md).
 
-**6 verified / 38 in progress / 34 planned**, all78 acceptance criteria retained. No new verified requirement; all four release states remain false.
+**6 verified / 44 in progress / 28 planned**, all78 acceptance criteria retained. No new verified requirement; all four release states remain false.
 
 - [x] Preserve71 earlier source commits, current93-path product candidate and complete pending3/11 packet bytes.
 - [x] Preserve available handoff versions, independent source reviews, current failure accounting and safe other-machine commands.
@@ -48,7 +50,7 @@ Counts overlap across source references and lanes. Historical unit18682P0F1167S,
 - [ ] PROD-DUR-06: Artifact cleanup and state backend recovery (in_progress).
 - [ ] PROD-DUR-07: Uncertain external mutation resolution (in_progress).
 - [ ] PROD-DUR-08: Build and cleanup deduplication (in_progress).
-- [ ] PROD-LIFE-01: Connection administration lifecycle (planned).
+- [ ] PROD-LIFE-01: Connection administration lifecycle (in_progress).
 - [ ] PROD-LIFE-02: Versioned offered capability catalog (in_progress).
 - [ ] PROD-LIFE-03: AWS family migration and suffixes (in_progress).
 - [ ] PROD-LIFE-04: Azure data plane and sovereign identity (planned).
@@ -56,15 +58,15 @@ Counts overlap across source references and lanes. Historical unit18682P0F1167S,
 - [ ] PROD-LIFE-06: Non-AWS ownership-safe DNS teardown (in_progress).
 - [ ] PROD-LIFE-07: Kubernetes full lifecycle acceptance (planned).
 - [ ] PROD-LIFE-08: GitHub source binding lifecycle (in_progress).
-- [ ] PROD-LIFE-09: Isolated untrusted build provenance (planned).
-- [ ] PROD-LIFE-10: Release and data migration safety (planned).
+- [ ] PROD-LIFE-09: Isolated untrusted build provenance (in_progress).
+- [ ] PROD-LIFE-10: Release and data migration safety (in_progress).
 - [ ] PROD-LIFE-11: Backup export import and adoption (in_progress).
 - [ ] PROD-LIFE-12: Single owner per mutable field (in_progress).
 - [ ] PROD-MACH-01: Typed safe guest configuration (in_progress).
 - [ ] PROD-MACH-02: Kubernetes guest credentials (in_progress).
 - [ ] PROD-MACH-03: Signed automation and scheduling (in_progress).
 - [ ] PROD-MACH-04: Linux runner delivery and lifecycle (in_progress).
-- [ ] PROD-MACH-05: Local customer credential custody (planned).
+- [ ] PROD-MACH-05: Local customer credential custody (in_progress).
 - [ ] PROD-MACH-06: Bounded evaluated coding agents (planned).
 - [ ] PROD-OBS-01: Canonical observation-to-repair engine (in_progress).
 - [ ] PROD-OBS-02: Fresh scoped telemetry provenance (in_progress).
@@ -86,9 +88,9 @@ Counts overlap across source references and lanes. Historical unit18682P0F1167S,
 - [ ] PROD-OPS-07: Configurable non-destructive retention (planned).
 - [ ] PROD-OPS-08: Independent adversarial security acceptance (planned).
 - [ ] PROD-OPS-09: Verified release supply chain (planned).
-- [ ] PROD-UX-01: Accessible privileged operator journey (planned).
+- [ ] PROD-UX-01: Accessible privileged operator journey (in_progress).
 - [ ] PROD-UX-02: Configured client interoperability (planned).
-- [ ] PROD-UX-03: Reviewed revocable plugin boundaries (planned).
+- [ ] PROD-UX-03: Reviewed revocable plugin boundaries (in_progress).
 - [ ] PROD-COST-01: Source-backed dated price catalog (in_progress).
 - [ ] PROD-COST-02: Complete placement costs and constraints (in_progress).
 - [ ] PROD-COST-03: Bounded economic optimization (in_progress).

@@ -219,6 +219,8 @@ export interface BuildPipelineSpec {
     dockerfile?: string;
     /** build context subdirectory inside the repository (monorepo root), relative and normalized; default the repository root */
     contextDir?: string;
+    /** the digest source inspection returned for this exact context; required for any non-root `contextDir` and re-derived at build admission (PROD-LIFE-08/09) */
+    contextDigest?: string;
     /** how the image is built; only `dockerfile` has an isolated builder, `buildpacks` is refused at admission */
     builder?: "dockerfile" | "buildpacks";
   };

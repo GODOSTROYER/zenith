@@ -89,6 +89,9 @@ const SWEPT = new Set([
   "optimizerSettings.getOptimizerSettings",
   // PROD-LIFE-11: tenant-scoped reads of verified exports, restores and ownership claims (writes are classified below).
   "portability.getExport", "portability.listExports", "portability.listRestores", "portability.getAdoption", "portability.listAdoptions", "portability.adoptionFacts",
+  // PROD-LIFE-01 / PROD-UX-03: tenant-scoped reads (workspace_id in SQL; a foreign id equals a missing one). Writes are classified below.
+  "connectionRotations.get", "connectionRotations.getOpen", "connectionRotations.list",
+  "plugins.get", "plugins.list", "plugins.listGrants", "plugins.listEvents",
 ]);
 
 /** Writes that bind the new row to the workspace they are given; their tenant checks are tested with the owning suite. */
@@ -131,6 +134,11 @@ const WRITES = new Set([
   "mixedChildIntents.retain",
   // PROD-LIFE-11: each binds the row and every lookup to the supplied workspace; foreign-workspace refusals, approval binding and append-only rules are covered by tests/portability/store.test.ts.
   "portability.recordExport", "portability.recordRestore", "portability.adopt", "portability.release",
+  // PROD-LIFE-01: every statement binds the supplied workspace and resolves the connection inside it; foreign-id refusals are covered by tests/controlplane/rotations-repo.test.ts.
+  "connectionRotations.stage", "connectionRotations.recordCandidateVerification", "connectionRotations.abort", "connectionRotations.promote",
+  "connections.revokeAudited", "connections.appendLifecycleEvent",
+  // PROD-UX-03: workspace-bound plugin registry and grant writes; foreign-workspace refusals are covered by the plugin store tests.
+  "plugins.register", "plugins.review", "plugins.revoke", "plugins.createGrant", "plugins.revokeGrant", "plugins.touchGrant",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings", "idempotency.reserve", "idempotency.complete",
 ]);
 
@@ -167,6 +175,13 @@ const EXEMPT: Record<string, string> = {
   "machines.registerMachine": "the workspace comes from the registration token, never from the caller",
   "runners.findRunnerForAuth": "the one documented unscoped lookup: a signed request names only the agent id",
   "machines.findMachineForAuth": "the one documented unscoped lookup: a signed request names only the machine id",
+  "plugins.resolveGrantByTokenHash": "authentication lookup keyed by a 256-bit token hash; the workspace comes FROM the grant row and the caller binds it for every later call, never from caller input",
+  "plugins.diagnoseTokenHash": "audit-only diagnosis keyed by a 256-bit token hash; returns a fixed vocabulary word and no tenant data",
+  "scheduledJobs.beginRun": "system scheduler health row keyed by a fixed job name and lease fence; holds counts only, no tenant data",
+  "scheduledJobs.finishRun": "system scheduler health row keyed by job name and lease fence; a stale holder cannot finish",
+  "scheduledJobs.recordSkip": "system scheduler health row keyed by job name; counts only",
+  "scheduledJobs.getScheduledJob": "system scheduler health read by job name; no tenant rows",
+  "scheduledJobs.listScheduledJobs": "system scheduler health read; no tenant rows",
   "optimizerSettings.listOptedInEnvironments": "system scheduler only: lists (workspace, environment) pairs that opted in; every returned row carries its workspace and each is processed under that workspace",
 };
 
@@ -474,6 +489,13 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "portability.getAdoption": () => repos.portability.getAdoption(db, B, "ado_foreign"),
       "portability.listAdoptions": () => repos.portability.listAdoptions(db, B, envId),
       "portability.adoptionFacts": () => repos.portability.adoptionFacts(db, B, envId),
+      "connectionRotations.get": () => repos.connectionRotations.get(db, B, "crot_foreign"),
+      "connectionRotations.getOpen": () => repos.connectionRotations.getOpen(db, B, connection.id),
+      "connectionRotations.list": () => repos.connectionRotations.list(db, B, connection.id),
+      "plugins.get": () => repos.plugins.get(db, B, "plg_foreign"),
+      "plugins.list": () => repos.plugins.list(db, B),
+      "plugins.listGrants": () => repos.plugins.listGrants(db, B),
+      "plugins.listEvents": () => repos.plugins.listEvents(db, B, "plg_foreign"),
       "settings.getEnvironmentSettings": () => repos.settings.getEnvironmentSettings(db, B, envId),
       "settings.getWorkspacePolicy": () => repos.settings.getWorkspacePolicy(db, B),
       "optimizerSettings.getOptimizerSettings": () => repos.optimizerSettings.getOptimizerSettings(db, B, envId),

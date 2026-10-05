@@ -20,6 +20,7 @@ import { registerAllDrivers } from "./drivers";
 import { platformDriverLookup } from "./driver-lookup";
 import { createReleasePorts } from "./release";
 import { createPlatformReleaseSafety } from "./release-safety";
+import { createGithubContextVerifier } from "@/lib/sources/github/inspect";
 import { composeReconcilePorts } from "./reconcile";
 import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
 import type { SourceBundleDeps } from "./source-bundle";
@@ -119,6 +120,8 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     provenance: { signer: () => getControlSigner(), keys: () => getControlVerificationKeys() },
     // Unrestricted build egress is refused unless the operator sets this recorded exception.
     buildIsolation: { allowOpenEgress: process.env.ZENITH_BUILD_ALLOW_OPEN_EGRESS === "1" },
+    // A non-root build context is built only when its source-inspection digest re-derives from the approved commit (PROD-LIFE-08/09).
+    sourceContext: createGithubContextVerifier({ db: async () => opts.db }),
     // Digest-bound release runs, provenance gate, migration approval, rollout and readback (PROD-LIFE-10).
     releaseSafety: createPlatformReleaseSafety(opts.db),
     machines: opts.ports?.machines ?? createDefaultMachinePort(opts.db, opts.secretKey ?? process.env.ZENITH_SECRET_KEY!),

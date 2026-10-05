@@ -4,8 +4,8 @@
  * Additive and nullable: historical revocations keep a null reason. The reason is
  * descriptive only; revoked_at remains the single authority bit.
  */
-export const migration0030GithubRevocationReason = {
-  version: 30,
+export const migration0027GithubRevocationReason = {
+  version: 27,
   name: "github_revocation_reason",
   sql: `
 alter table platform.github_source_bindings add column if not exists revoked_reason text

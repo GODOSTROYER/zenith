@@ -101,6 +101,7 @@ MIGRATIONS=(
   "0017_platform_core.sql"
   "0018_platform_core.sql"
   "0019_platform_core.sql"
+  "0020_platform_core.sql"
 )
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
@@ -287,7 +288,7 @@ if [ -n "$unprotected" ]; then
 fi
 echo "row level security enabled on every table in schema agent."
 
-# --- the platform schema (historical0014/0016/0017/0018 plus current0019) ---------------------------------------------
+# --- the platform schema (historical0014/0016/0017/0018 plus current0020) ---------------------------------------------
 #
 # Use the application's checksum/version verifier and canonical known names.
 # No pinned migration count: newly shipped versions follow the runtime manifest,
@@ -305,6 +306,8 @@ PLATFORM_TABLES=(
   machine_runbook_versions machine_runbook_approvals machine_runbook_schedules machine_runbook_runs
   machine_runbook_run_steps machine_runbook_audit
   incident_signal_state incident_remediation_attempts incident_maintenance_windows incident_postmortems
+  scheduled_job_runs connection_rotations release_runs release_events release_migration_approvals
+  portability_exports portability_restores resource_adoptions plugin_registrations plugin_grants plugin_events
 )
 platform_present="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select tablename from pg_tables where schemaname = 'platform' order by 1" "$SUPABASE_DB_URL")"

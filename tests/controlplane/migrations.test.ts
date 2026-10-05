@@ -44,17 +44,21 @@ const ALL = PLATFORM_MIGRATIONS.map((m) => m.version);
 const NEXT = PLATFORM_MIGRATIONS.length + 1;
 
 const EXPECTED_TABLES = [
-  "agent_effect_receipts", "agent_nonces", "approvals", "approved_source_snapshots", "build_launches", "capability_grants", "cleanup_owner_grants", "cleanup_writer_deliveries", "cleanup_writer_epoch", "cleanup_writer_holds", "cleanup_writer_scopes", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
-  "github_binding_events", "github_install_intents", "github_source_bindings", "github_webhook_deliveries", "github_webhook_installation_epochs", "idempotency_keys", "incident_maintenance_windows", "incident_postmortems", "incident_remediation_attempts", "incident_signal_state", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machine_runbook_approvals", "machine_runbook_audit", "machine_runbook_run_steps", "machine_runbook_runs", "machine_runbook_schedules", "machine_runbook_versions", "machines", "mixed_child_custody", "mixed_child_intents", "operations", "optimizer_settings", "plan_artifact_associations", "plan_artifact_uses", "plan_artifacts", "policy_decisions", "provider_connections",
-  "reconcile_state", "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners",
-  "schema_migrations", "standalone_plan_backends", "standalone_plan_settlements", "workflow_start_intents", "workspace_policy",
+  "agent_effect_receipts", "agent_nonces", "approvals", "approved_source_snapshots", "build_launches", "capability_grants", "cleanup_owner_grants", "cleanup_writer_deliveries", "cleanup_writer_epoch", "cleanup_writer_holds",
+  "cleanup_writer_scopes", "connection_rotations", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence", "github_binding_events", "github_install_intents", "github_source_bindings",
+  "github_webhook_deliveries", "github_webhook_installation_epochs", "idempotency_keys", "incident_maintenance_windows", "incident_postmortems", "incident_remediation_attempts", "incident_signal_state", "incidents",
+  "investigations", "leases", "machine_request_logs", "machine_requests", "machine_runbook_approvals", "machine_runbook_audit", "machine_runbook_run_steps", "machine_runbook_runs", "machine_runbook_schedules",
+  "machine_runbook_versions", "machines", "mixed_child_custody", "mixed_child_intents", "operations", "optimizer_settings", "plan_artifact_associations", "plan_artifact_uses", "plan_artifacts", "plugin_events", "plugin_grants",
+  "plugin_registrations", "policy_decisions", "portability_exports", "portability_restores", "provider_connections", "reconcile_state", "release_events", "release_migration_approvals", "release_runs", "resource_adoptions",
+  "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners", "scheduled_job_runs", "schema_migrations", "standalone_plan_backends",
+  "standalone_plan_settlements", "workflow_start_intents", "workspace_policy",
 ];
 
 /** Tables that hold no tenant-visible rows keyed by workspace (see the header of 0001_core.ts). */
 // Signed installation events can revoke multiple tenants. These two tables
 // are global App-scoped fences/receipts, never tenant-addressable resources.
 // The cleanup writer epoch is one installation-wide singleton, not a tenant row.
-const NO_WORKSPACE_COLUMN = new Set(["schema_migrations", "agent_nonces", "github_webhook_deliveries", "github_webhook_installation_epochs", "cleanup_writer_epoch"]);
+const NO_WORKSPACE_COLUMN = new Set(["schema_migrations", "agent_nonces", "github_webhook_deliveries", "github_webhook_installation_epochs", "cleanup_writer_epoch", "scheduled_job_runs"]);
 
 interface Lane {
   name: string;

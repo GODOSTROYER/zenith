@@ -84,7 +84,7 @@ export const StatementSchema = z
                 provider: z.enum(["aws", "gcp", "azure"]),
                 service: z.string().max(200),
                 pipeline: z.string().max(200),
-                source: z.object({ repository: z.string().max(200), ref: z.string().max(250), commit: z.string().regex(/^[a-f0-9]{40}$/), dockerfile: z.string().max(200), contextDir: z.string().max(200) }).strict(),
+                source: z.object({ repository: z.string().max(200), ref: z.string().max(250), commit: z.string().regex(/^[a-f0-9]{40}$/), dockerfile: z.string().max(200), contextDir: z.string().max(200), contextDigest: z.string().regex(HEX64).optional() }).strict(),
               })
               .strict(),
             internalParameters: z.object({ workspaceId: z.string().max(200), operationId: z.string().max(200), environmentId: z.string().max(200), isolation: Isolation, exceptions: z.array(z.string().max(60)).max(8) }).strict(),
@@ -112,6 +112,8 @@ export interface ProvenanceInput {
   pipelineAddress: string;
   /** validated build context subdirectory ("." for the repository root) */
   contextDir: string;
+  /** the inspection digest that admitted a non-root `contextDir` (absent for the repository root) */
+  contextDigest?: string;
   /** registry path without tag or digest, e.g. `123.dkr.ecr.us-east-1.amazonaws.com/web` */
   imageName: string;
   imageDigest: string;
@@ -140,7 +142,7 @@ export function buildProvenanceStatement(i: ProvenanceInput): ProvenanceStatemen
     predicate: {
       buildDefinition: {
         buildType: ZENITH_BUILD_TYPE,
-        externalParameters: { provider: i.provider, service: i.serviceAddress, pipeline: i.pipelineAddress, source: { repository: `${s.owner}/${s.repo}`, ref: s.requestedRef, commit: s.commitSha, dockerfile: s.dockerfile, contextDir: i.contextDir } },
+        externalParameters: { provider: i.provider, service: i.serviceAddress, pipeline: i.pipelineAddress, source: { repository: `${s.owner}/${s.repo}`, ref: s.requestedRef, commit: s.commitSha, dockerfile: s.dockerfile, contextDir: i.contextDir, ...(i.contextDigest ? { contextDigest: i.contextDigest } : {}) } },
         internalParameters: { workspaceId: i.workspaceId, operationId: i.operationId, environmentId: i.environmentId, isolation: i.attestation.isolation as ObservedBuildIsolation, exceptions: [...i.exceptions] },
         resolvedDependencies: deps,
       },
@@ -200,6 +202,7 @@ export interface ProvenanceExpectation {
   serviceAddress: string;
   pipelineAddress: string;
   contextDir: string;
+  contextDigest?: string;
   imageDigest: string;
   /** the REVIEWED approved source snapshot for this service */
   source: ApprovedSourceSnapshot;
@@ -263,6 +266,7 @@ export async function verifyBuildProvenance(jws: unknown, expected: ProvenanceEx
     bd.externalParameters.source.repository !== `${s.owner}/${s.repo}` ||
     bd.externalParameters.source.dockerfile !== s.dockerfile ||
     bd.externalParameters.source.contextDir !== expected.contextDir ||
+    bd.externalParameters.source.contextDigest !== expected.contextDigest ||
     src.length !== 1 ||
     src[0].digest.gitCommit !== s.commitSha ||
     archive.length !== 1 ||

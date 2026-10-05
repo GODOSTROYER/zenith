@@ -16,7 +16,7 @@
 import { randomUUID } from "node:crypto";
 import type { Principal } from "@/lib/controlplane/types";
 import { assessMigration, blocksCodeRollback, migrationBindingDigest, requiresHumanApproval, type MigrationDeclaration } from "./classify";
-import { requireProvenance, verifyProvenance, type ProvenanceSubject, type ProvenanceVerifier } from "./provenance";
+import { meetsLevel, requireProvenance, verifyProvenance, type ProvenanceSubject, type ProvenanceVerifier } from "./provenance";
 import { assertRolloutSupported, normalizeRollout, type ProgressiveSupport, type RolloutDeclaration } from "./rollout";
 import { assertTransition, isTerminal } from "./state";
 import type { NewRun, ReleaseStore } from "./store";
@@ -40,6 +40,8 @@ export interface ReleaseSafetyOptions {
   verifiers: readonly ProvenanceVerifier[] | (() => readonly ProvenanceVerifier[]);
   /** The weakest provenance a release may carry. Default `build_record`. */
   minProvenance?: ProvenanceLevel;
+  /** A stricter floor per image origin (e.g. built images must be attested). Never weaker than `minProvenance`. */
+  minProvenanceFor?: (origin: "built" | "pinned") => ProvenanceLevel;
   clock?: () => Date;
   ids?: () => string;
   /** How long an approval stays usable. Default 24 h, never more than 7 days. */
@@ -67,6 +69,8 @@ export interface BeginInput {
   rollout?: RolloutDeclaration;
   /** what the provider adapter says about weighted traffic for this node */
   progressive?: ProgressiveSupport;
+  /** the signed-provenance admission for a built image (see `ProvenanceSubject.builtAdmission`) */
+  builtAdmission?: ProvenanceSubject["builtAdmission"];
   actor?: string;
 }
 
@@ -100,6 +104,11 @@ export class ReleaseSafetyService {
 
   get minimumProvenance(): ProvenanceLevel {
     return this.min;
+  }
+
+  private minFor(origin: "built" | "pinned"): ProvenanceLevel {
+    const stricter = this.opts.minProvenanceFor?.(origin);
+    return stricter && meetsLevel(stricter, this.min) ? stricter : this.min;
   }
 
   private verifiers(): readonly ProvenanceVerifier[] {
@@ -182,7 +191,7 @@ export class ReleaseSafetyService {
     if (run.state === "built") {
       const verdict = await this.verdictFor(run, input);
       try {
-        requireProvenance(verdict, this.min, `Image ${run.imageDigest.slice(0, 19)} for ${scrub(run.serviceAddress, 80)}`);
+        requireProvenance(verdict, this.minFor(input.origin), `Image ${run.imageDigest.slice(0, 19)} for ${scrub(run.serviceAddress, 80)}`);
       } catch (e) {
         await this.advance(run, "refused", { reason: scrub((e as Error).message) }, "provenance not verified", actor);
         throw e;
@@ -221,6 +230,7 @@ export class ReleaseSafetyService {
       imageDigest: run.imageDigest,
       ...(run.sourceDigest ? { sourceDigest: run.sourceDigest } : {}),
       origin: input.origin,
+      ...(input.builtAdmission ? { builtAdmission: input.builtAdmission } : {}),
     };
     // A rollback restores a digest that already served: its recorded verdict counts when it still meets the bar.
     if (run.kind === "rollback") {

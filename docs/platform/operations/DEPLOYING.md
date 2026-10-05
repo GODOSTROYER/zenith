@@ -307,6 +307,26 @@ waive normal logical expiry or alter legacy inspection. Existing receipts,
 tombstones and replay prevention remain unchanged. No destructive retention
 policy is enabled or approved; such a policy requires separate operator approval.
 
+#### 2.5.1 Wave 2 variables and behaviour changes (5 October 2026, verification pending)
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `ZENITH_BUILD_ALLOW_OPEN_EGRESS` | unset | `1` records an explicit exception that lets a source build run with unrestricted network egress. Unset, release admission refuses any build whose provider reports `egress: unrestricted`: on AWS re-apply the build pipeline (the guarded buildspec), on GCP set `spec.isolation.workerPool` to a private pool, on Azure a dedicated agent pool. The exception is signed into the build provenance statement as `open_egress`; removing the variable revokes it for later admissions. Worker only. |
+| `ZENITH_RELEASE_MIN_PROVENANCE` | `pinned_digest` | Weakest provenance a release may carry: `pinned_digest`, `build_record` or `attested`. The default accepts an image the manifest pins by `@sha256:` digest and refuses a tag-only reference or an unknown digest. Images Zenith builds from source are always held to `attested` (admitted signed build provenance) regardless of this value. Setting `attested` also demands it for pinned images, which have no attestation source, so only raise it when every image is built by Zenith. Applies to the worker and to the release API. |
+| `ZENITH_PLUGIN_TRUSTED_PUBLISHERS` | unset | JSON `{ "<publisher>": [{ "keyId": "...", "publicKey": "<base64 raw ed25519>" }] }`. Plugin registrations whose signed provenance does not verify under a listed key are not auto-trusted; unset, no publisher is trusted. Web app only. |
+| `ZENITH_STORE` (worker) | `file` | Set `postgres` on the execution worker (with the Supabase keys) when it should run the engine, alert and outbox passes of `zenith-critical-maintenance-v1`. Without it those jobs record `failing` in `/api/internal/tick/status`. |
+| `ZENITH_PORTABILITY_ALLOW_PRIVATE_HOSTS` | unset | Test and local development only: lets portability export/import connect to loopback or private addresses. Never set in production. |
+
+Behaviour changes to plan for:
+
+- Open build egress is refused (see `ZENITH_BUILD_ALLOW_OPEN_EGRESS`). AWS build projects created before wave 2 carry the old buildspec and are refused until the pipeline is re-applied.
+- Tag-only images are refused: every managed workload needs an `@sha256:` pinned image or a Zenith build. Previously a mutable tag was merely waited on.
+- Built images are released only when the signed provenance admitted in `deployWorkloads` verifies (signature under the pinned control-plane key, bound operation, service, digest, reviewed source, isolation profile). That single admission feeds the release gate as the `attested` verdict; nothing verifies it a second time.
+- A build from a monorepo subdirectory requires the `contextDir` and `contextDigest` that `GET /api/platform/v1/github/inspect` returned; the digest is re-derived from the approved commit through the bound GitHub App at build time. Azure ACR Tasks cannot build from a subdirectory.
+- Approving a data or contract migration is a separate browser approval (`/platform/releases/:id`); the operation fails before any effect when it is missing, and the person approves and deploys again.
+- `.github/workflows/tick.yml` now also calls `POST /api/internal/tick/status` (durable-schedule health, always 200 unless `?strict=1`).
+- Migrations 21 to 27 add `scheduled_job_runs`, `connection_rotations`, `release_pipelines`, `portability`, `agent_lifecycle`, `plugin_boundaries` and `github_revocation_reason`; apply `0020_platform_core.sql` or run `npm run migrate:platform`.
+
 ### 2.6 OpenTofu engine
 
 The Azure machine transport supplies `ZENITH_ARGV_B64` (protected, base64 JSON
@@ -610,7 +630,7 @@ differs from the code is refused (`schema_tampered`): shipped migrations are
 never edited, a change is a new migration.
 
 If you would rather apply SQL yourself (the Supabase SQL editor, `psql`), apply
-`supabase/migrations/0019_platform_core.sql`. It is **generated** from the
+`supabase/migrations/0020_platform_core.sql`. It is **generated** from the
 TypeScript migrations by `npm run platform:emit-sql` (`-- --check` fails when it
 is out of date; a test enforces byte equality). It is idempotent, writes the same
 ledger rows with the same checksums (so the TypeScript migrator recognises it as
@@ -626,7 +646,7 @@ current aggregate emitter output, including additive cleanup writer barrier migr
 function, then verifies every row, the count and highest version. A new migration
 requires a regenerated inventory; changing a literal count alone does not pass.
 
-Registered migrations: **20**; highest version: **20**.
+Registered migrations: **27**; highest version: **27**.
 
 <!-- platform-migrations:start -->
 | Version | Name | SQL SHA-256 |
@@ -651,6 +671,13 @@ Registered migrations: **20**; highest version: **20**.
 | 18 | `ownership_transfers` | `d19177da5b80a5bde2ea6b51d232f288d7123546d7aca483d216d710bd769e7a` |
 | 19 | `incident_stability` | `1db1a588796af8f7c9c01f62ab96e43d8f56a0f7e98b436a68af7e22813f8340` |
 | 20 | `optimizer_settings` | `94217cb0c092fa1c268ba54b3fe10143382531dd74d9081c190030f26b67b249` |
+| 21 | `scheduled_job_runs` | `462b8688f2776cf278dc0376c4f161c7169a3bc34ee77f6ad066006502108ab4` |
+| 22 | `connection_rotations` | `a2048eb9416e3207b9a6a4b863a2458dc2667ef9c64b2903c306ffaefa2df79b` |
+| 23 | `release_pipelines` | `6b29a1332678cf2d72942d72994d9a4faf34e5c8cb633cb09307a17daf0fb1f6` |
+| 24 | `portability` | `9ae6f39475d3abb1317d44544ec0c8d6920e74f19c0b5af813339a5b41b11f20` |
+| 25 | `agent_lifecycle` | `372c684b5da9f326f8852a3de713914a16b1a1849cb332967a6fb422f78e2fdd` |
+| 26 | `plugin_boundaries` | `730dd0df2e58ff3f1e255ade7651cfac75879d84752f620d2785dff359c98c3a` |
+| 27 | `github_revocation_reason` | `5af4252a6e4d0a65fe712b50b9d1da0f418ba3176c4c6f3ba0314bac7bd90b12` |
 
 <!-- platform-migrations:end -->
 
@@ -681,7 +708,7 @@ A database that applied the emitted SQL before a later
 migration landed is behind and the application refuses to use it until you re-apply
 the file or run `npm run migrate:platform`.
 
-Schemas 17 to 20 add, in order, the signed-runbook tables (`machine_runbook_*`; migration 17), append-only ownership transfers (18), incident stability state, remediation attempts, maintenance windows and postmortems (19), and per-environment optimizer opt-in settings (20). The current aggregate is `0019_platform_core.sql`; historical platform aggregates `0014`, `0016`, `0017` and `0018` remain unchanged (published files are immutable, and an aggregate is a cumulative snapshot). The committed Supabase bootstrap applies `0019` after those aggregates and agent OAuth `0015`. Schema 16 adds immutable physical local-backend ownership and authenticated standalone builtin completion receipts. These receipts reconcile only eligible saved-plan history; they do not settle cloud calls, grants, workflows, builds or guest deliveries. If you apply
+Schemas 17 to 27 add, in order, the signed-runbook tables (`machine_runbook_*`; migration 17), append-only ownership transfers (18), incident stability state, remediation attempts, maintenance windows and postmortems (19), per-environment optimizer opt-in settings (20), scheduled critical job runs (21: `scheduled_job_runs`, PROD-OBS-04), connection rotation state (22: `connection_rotations`, PROD-LIFE-01), digest-bound release pipelines (23: `release_pipelines`, PROD-LIFE-10), portability export/restore records and resource adoptions (24: `portability`, PROD-LIFE-11), machine and runner lifecycle columns (25: `agent_lifecycle`, PROD-MACH-04), audience-bound plugin boundaries and grants (26: `plugin_boundaries`, PROD-UX-03) and the GitHub revocation reason (27: `github_revocation_reason`, PROD-LIFE-08). The current aggregate is `0020_platform_core.sql`; historical platform aggregates `0014`, `0016`, `0017`, `0018` and `0019` remain unchanged (published files are immutable, and an aggregate is a cumulative snapshot). The committed Supabase bootstrap applies `0020` after those aggregates and agent OAuth `0015`. Schema 16 adds immutable physical local-backend ownership and authenticated standalone builtin completion receipts. These receipts reconcile only eligible saved-plan history; they do not settle cloud calls, grants, workflows, builds or guest deliveries. If you apply
 migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any

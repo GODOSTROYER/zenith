@@ -9,8 +9,8 @@
  * so tenancy and RLS conventions of `platform.runners` / `platform.machines`
  * apply unchanged.
  */
-export const migration0026AgentLifecycle = {
-  version: 26,
+export const migration0025AgentLifecycle = {
+  version: 25,
   name: "agent_lifecycle",
   sql: `
 alter table platform.runners

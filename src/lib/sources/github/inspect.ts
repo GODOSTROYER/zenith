@@ -56,6 +56,11 @@ export interface SourceInspection {
   execution: "static_only";
 }
 
+/** The digest that binds a build context to one repository, commit, directory tree and Dockerfile blob. Shared by inspection and build admission. */
+export function computeContextDigest(i: { repo: string; commit: string; contextDir: string; contextTree: string; dockerfile: string; dockerfileBlob: string }): string {
+  return createHash("sha256").update(JSON.stringify({ repo: i.repo, commit: i.commit, contextDir: i.contextDir, contextTree: i.contextTree, dockerfile: i.dockerfile, dockerfileBlob: i.dockerfileBlob })).digest("hex");
+}
+
 const ROOT_SEGMENT = /^[A-Za-z0-9._@+-]{1,100}$/;
 /** Canonical repository-relative directory or "" for the repository root. */
 export function normalizeInspectionRoot(raw: string | undefined): string {
@@ -113,7 +118,7 @@ export function createGithubSourceInspector(deps: { db: () => Promise<Sql>; fetc
         const doFetch = deps.fetchImpl ?? fetch;
         const contextTree = await walkTree(location, identity.commitSha, root, "tree", token, doFetch, input.signal);
         const dockerfileBlob = await walkTree(location, identity.commitSha, dockerfile, "blob", token, doFetch, input.signal);
-        proof = { contextDir: root, contextDigest: createHash("sha256").update(JSON.stringify({ repo: `${identity.owner}/${identity.repo}`, commit: identity.commitSha, contextDir: root, contextTree, dockerfile, dockerfileBlob })).digest("hex") };
+        proof = { contextDir: root, contextDigest: computeContextDigest({ repo: `${identity.owner}/${identity.repo}`, commit: identity.commitSha, contextDir: root, contextTree, dockerfile, dockerfileBlob }) };
       }
       return {
         owner: identity.owner, repo: identity.repo, repositoryId: identity.repositoryId, commitSha: identity.commitSha, viaBinding: identity.binding !== null,
@@ -123,5 +128,47 @@ export function createGithubSourceInspector(deps: { db: () => Promise<Sql>; fetc
         execution: "static_only" as const,
       };
     });
+  };
+}
+
+export interface ContextVerification {
+  workspaceId: string;
+  environmentId?: string;
+  /** `owner/repo` */
+  repository: string;
+  /** the exact approved commit */
+  commitSha: string;
+  contextDir: string;
+  dockerfile: string;
+  contextDigest: string;
+  signal?: AbortSignal;
+}
+
+/**
+ * Build admission's check that a context directory really is what source inspection reported: the digest is
+ * RE-DERIVED from the pinned commit through the same binding-scoped access (no symlink on the path, the
+ * directory and the Dockerfile exist as regular tree entries), never trusted from the manifest. Returns false
+ * on any mismatch or read failure; it never throws a detail that could leak repository content.
+ */
+export function createGithubContextVerifier(deps: { db: () => Promise<Sql>; fetchImpl?: typeof fetch; env?: Readonly<Record<string, string | undefined>> }) {
+  const access = createGithubImmutableSourceAccess(deps);
+  return async function verifyContext(input: ContextVerification): Promise<boolean> {
+    try {
+      const [owner, repoName, ...rest] = input.repository.split("/");
+      if (!owner || !repoName || rest.length > 0 || !/^[a-f0-9]{40}$/.test(input.commitSha) || !/^[a-f0-9]{64}$/.test(input.contextDigest)) return false;
+      const location = repository(owner, repoName);
+      const root = normalizeInspectionRoot(input.contextDir === "." ? "" : input.contextDir);
+      const dockerfile = input.dockerfile;
+      return await access({ ...location, workspaceId: input.workspaceId, environmentId: input.environmentId, ref: input.commitSha, signal: input.signal }, async (identity, token) => {
+        if (identity.commitSha !== input.commitSha) return false;
+        const doFetch = deps.fetchImpl ?? fetch;
+        const contextTree = await walkTree(location, identity.commitSha, root, "tree", token, doFetch, input.signal);
+        const dockerfileBlob = await walkTree(location, identity.commitSha, dockerfile, "blob", token, doFetch, input.signal);
+        const derived = computeContextDigest({ repo: `${identity.owner}/${identity.repo}`, commit: identity.commitSha, contextDir: root, contextTree, dockerfile, dockerfileBlob });
+        return derived === input.contextDigest;
+      });
+    } catch {
+      return false;
+    }
   };
 }

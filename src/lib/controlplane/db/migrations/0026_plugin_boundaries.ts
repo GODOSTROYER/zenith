@@ -9,8 +9,8 @@
  *    registration revokes every grant in the same transaction.
  *  - plugin_events: append-only audit trail.
  */
-export const migration0028PluginBoundaries = {
-  version: 28,
+export const migration0026PluginBoundaries = {
+  version: 26,
   name: "plugin_boundaries",
   sql: `
 create table if not exists platform.plugin_registrations (

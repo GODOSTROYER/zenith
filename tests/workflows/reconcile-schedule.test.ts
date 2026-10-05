@@ -95,11 +95,60 @@ class DurableServer {
   }
 }
 
+/** The real controller claims globally, so an empty-graph suite needs its own database. */
+async function openScheduleDatabase(url: string): Promise<{ db: PlatformDbHandle; close(): Promise<void> }> {
+  const postgres = (await import("postgres")).default;
+  const name = `zenith_reconcile_${randomUUID().replace(/-/g, "")}`;
+  const admin = postgres(url, { max: 1, onnotice: () => {} });
+  type Identity = { oid: string; owner_oid: string };
+  const readIdentity = () => admin.unsafe<Identity[]>("select oid::text,datdba::text as owner_oid from pg_database where datname=$1", [name]);
+  let identity: Readonly<Identity> | undefined;
+  let created = false;
+  let closed = false;
+  let handle: PlatformDbHandle | undefined;
+  const close = async (): Promise<void> => {
+    if (closed) return;
+    try {
+      await handle?.close();
+      handle = undefined;
+      if (created) {
+        const current = await readIdentity();
+        if (!identity || current.length !== 1 || current[0].oid !== identity.oid || current[0].owner_oid !== identity.owner_oid) throw new Error("Owned reconciliation database custody changed; refusing cleanup.");
+        await admin.unsafe(`drop database "${name}" with (force)`);
+        if ((await readIdentity()).length !== 0) throw new Error("Owned reconciliation database cleanup is unconfirmed.");
+        created = false;
+      }
+    } finally { await admin.end({ timeout: 5 }); }
+    closed = true;
+  };
+  try {
+    if ((await readIdentity()).length !== 0) throw new Error("Owned reconciliation database name is already present.");
+    const owner = await admin.unsafe<{ owner_oid: string }[]>("select oid::text as owner_oid from pg_roles where rolname=current_user");
+    if (owner.length !== 1) throw new Error("Owned reconciliation database role is unavailable.");
+    await admin.unsafe(`create database "${name}"`);
+    created = true;
+    const current = await readIdentity();
+    if (current.length !== 1 || current[0].owner_oid !== owner[0].owner_oid) throw new Error("Owned reconciliation database custody was not captured.");
+    identity = Object.freeze({ ...current[0] });
+    const target = new URL(url);
+    target.pathname = `/${name}`;
+    handle = await openPlatformDb({ kind: "postgres", url: target.toString(), migrate: true, max: 5 });
+    const actual = await handle.query<{ database: string }>("select current_database() as database");
+    if (actual.length !== 1 || actual[0].database !== name) throw new Error("Owned reconciliation database opener target changed.");
+    return { db: handle, close };
+  } catch (error) {
+    try { await close(); }
+    catch (cleanupError) { throw new AggregateError([error, cleanupError], "Owned reconciliation database setup or cleanup failed."); }
+    throw error;
+  }
+}
+
 describe("durable schedule on an actual isolated Temporal service", () => {
   let owned: DurableServer | undefined;
   let root = "";
   let bundle = "";
   let db: PlatformDbHandle;
+  let closeDatabase: (() => Promise<void>) | undefined;
   let skipReason: string | undefined;
   const started: WorkflowHandle[] = [];
   const enabled = process.env.ZENITH_TEST_RECONCILE_SCHEDULE === "1" || process.env.ZENITH_TEST_TEMPORAL === "1";
@@ -138,9 +187,18 @@ describe("durable schedule on an actual isolated Temporal service", () => {
       await owned.start();
       // Platform fixtures are real SQL. PGlite is an explicit test adapter, never production acceptance.
       const url = process.env.ZENITH_TEST_PLATFORM_PG_URL;
-      db = url ? await openPlatformDb({ kind: "postgres", url, migrate: true, max: 5 }) : await openPlatformDb({ kind: "pglite" });
+      if (url) {
+        const scratch = await openScheduleDatabase(url);
+        db = scratch.db;
+        closeDatabase = scratch.close;
+      } else {
+        db = await openPlatformDb({ kind: "pglite" });
+        const local = db;
+        closeDatabase = () => local.close();
+      }
+      expect(await db.query("select environment_id from platform.reconcile_state")).toEqual([]);
       bundle = await workflowBundlePath(path.resolve(__dirname, "../../src/lib/workflows/definitions/reconcileSweep.ts"), "durable-reconcile-sweep-v1");
-    } catch (error) { await owned.stop(); await db?.close(); await rm(root, { recursive: true, force: true }); throw error; }
+    } catch (error) { try { await owned.stop(); } finally { await closeDatabase?.(); } await rm(root, { recursive: true, force: true }); throw error; }
   }, 180_000);
   afterEach(async () => {
     vi.restoreAllMocks();
@@ -148,7 +206,7 @@ describe("durable schedule on an actual isolated Temporal service", () => {
     try { await client().schedule.getHandle(RECONCILE_SCHEDULE_ID).delete(); } catch (error) { if (!(error instanceof ScheduleNotFoundError)) throw error; }
     for (const handle of started.splice(0)) await handle.cancel().catch(() => undefined);
   }, 30_000);
-  afterAll(async () => { await db?.close(); await owned?.stop(); if (root) await rm(root, { recursive: true, force: true }); }, 30_000);
+  afterAll(async () => { try { await owned?.stop(); } finally { await closeDatabase?.(); } if (root) await rm(root, { recursive: true, force: true }); }, 30_000);
   function actual(name: string, body: () => Promise<void>, timeout = 90_000): void {
     it(name, async (context) => { if (skipReason) return context.skip(skipReason); await body(); }, timeout);
   }

@@ -276,6 +276,11 @@ export interface ListEventsRequest {
 
 export interface BrokerStore {
   /**
+   * Field-ownership facts for the resource a request names (node, autoscaler facts, approved transfers),
+   * resolved inside the workspace; `undefined` when the store has none. Used by default on every propose/check.
+   */
+  fieldOwnership?(scope: Scope): Promise<import("./types").FieldOwnershipGuard | undefined>;
+  /**
    * Create an operation together with its policy decision, atomically, with
    * idempotency: the same `idempotencyKey` + `requestHash` returns the existing
    * operation (`created: false`, no new events); the same key with a different

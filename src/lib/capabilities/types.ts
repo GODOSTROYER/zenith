@@ -4,7 +4,7 @@
  */
 import type { NormalizedPlan } from "@/lib/tofu/types";
 import type { ResourceNode } from "@/lib/resources/types";
-import type { OwnershipFacts, OwnershipTransfer } from "@/lib/ownership";
+import type { OwnershipFacts, OwnershipTransfer, OwnershipTransferRequest } from "@/lib/ownership";
 import type {
   ApprovalRequirement,
   OperationProposal,
@@ -62,6 +62,12 @@ export interface FieldOwnershipGuard {
   repairAttributes?: readonly string[];
   /** approved transfers recorded for this resource */
   transfers?: readonly OwnershipTransfer[];
+  /**
+   * Store-supplied guards are lenient about ONE case: a native operation on a field only the manifest
+   * owns by default (service.scale on a plain service) proceeds with a warning, as it always has.
+   * Fields positively owned by an autoscaler, release or provider are enforced either way.
+   */
+  lenientIacBaseline?: boolean;
 }
 
 export interface ProposeContext {
@@ -113,6 +119,13 @@ export interface BrokerProposalExt {
   destroyPlan?: { operationId: string; evidenceId: string; retained: string[] };
   /** Server-created, read-only review request delegated to deterministic execution after human approval. */
   teardownReview?: true;
+  /**
+   * Exact ownership transfers this proposal asks a human to approve. Part of the proposal digest, so the
+   * approver reviews precisely them; they become durable only when the approval is recorded.
+   */
+  ownershipTransfers?: OwnershipTransferRequest[];
+  /** non-blocking ownership notes shown to the approver */
+  ownershipWarnings?: string[];
 }
 
 export type PlanFactsWithCost = NonNullable<import("@/lib/policy").PolicyInput["plan"]>;

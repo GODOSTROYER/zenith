@@ -154,7 +154,9 @@ export function inspectDeployDeletions(rt: Runtime, ec: ExecContext, nodes: read
     try { assertDeletionAllowed(plan, nodes); }
     catch (err) { if (err instanceof TofuDeletionRefusedError) throw new StepFailedError(err.message); throw err; }
     // One owner per mutable field: IaC may not update a field an autoscaler, release or provider owns (PROD-LIFE-12).
-    try { assertPlanFieldOwnership(plan, nodes, { factsByAddress: factsByAddress({ nodes: [...nodes] }) }); }
+    // Only approved, unrevoked transfers can make a non-iac update legal; ordinary iac-owned fields are never refused.
+    const transfers = (await rt.d.resources.activeOwnershipTransfers?.(ec.workspaceId, ec.environmentId)) ?? [];
+    try { assertPlanFieldOwnership(plan, nodes, { factsByAddress: factsByAddress({ nodes: [...nodes] }), transfers }); }
     catch (err) { if (err instanceof FieldOwnershipConflictError) throw new StepFailedError(err.message); throw err; }
     const byAddress = new Map(dnsNodes.map((node) => [node.address, node]));
     for (const address of deployDeletionFacts(plan, nodes).dnsDeletes) {

@@ -186,6 +186,8 @@ export interface ResourcesPort {
   appendObservation(input: { workspaceId: string; resourceId: string; observation: Observation }): Promise<void>;
   upsertRuntime(input: { workspaceId: string; resourceId: string; runtime: RuntimeState }): Promise<void>;
   latestDriftReport(workspaceId: string, environmentId: string): Promise<DriftReport | null>;
+  /** Approved, unrevoked field-ownership transfers for the environment. Absent in ports that persist none. */
+  activeOwnershipTransfers?(workspaceId: string, environmentId: string): Promise<import("@/lib/ownership").OwnershipTransfer[]>;
   saveDriftReport(input: { workspaceId: string; report: DriftReport }): Promise<void>;
 }
 

@@ -18,7 +18,7 @@
  * missing id are the same `not_found`; a non-member is told the same.
  */
 import { digest } from "@/lib/controlplane/digest";
-import type { CapabilityGrantClaims, OperationProposal, Principal } from "@/lib/controlplane/types";
+import type { CapabilityGrantClaims, OperationProposal, Principal, Scope } from "@/lib/controlplane/types";
 import type { ZodError } from "zod";
 import { capability as catalogEntry, CapabilityRequestSchema, type CapabilityDef, type CapabilityRequest } from "./catalog";
 import { BrokerError, notFound } from "./errors";
@@ -27,7 +27,7 @@ import { newId, requesterOf, requireHumanSession } from "./internal";
 import { loadDestroyPlan } from "./destroy-plan";
 import type { BrokerDeps } from "./ports";
 import { findSecret } from "./secret-guard";
-import { assertNativeOperationAllowed, FieldOwnershipConflictError } from "@/lib/ownership";
+import { blocking, checkNativeOperation, FieldOwnershipConflictError, NATIVE_OPERATION_WRITES, type OwnershipTransferRequest } from "@/lib/ownership";
 import type { BrokerProposal, CheckResult, ConstraintValue, DecisionView, PlanFactsWithCost, ProposeContext, ProposeResult, ReadAuthorization } from "./types";
 import { decisionView, operationView } from "./views";
 
@@ -119,7 +119,7 @@ function describeScope(scope: { projectId?: string; environmentId?: string; reso
   return parts.length ? ` on ${parts.join(" in ")}` : "";
 }
 
-export function buildProposal(args: { parsed: ParsedRequest; evaluation: Evaluation; ctx: ProposeContext; planDigest?: string; destroyPlan?: Awaited<ReturnType<typeof loadDestroyPlan>> }): BrokerProposal {
+export function buildProposal(args: { parsed: ParsedRequest; evaluation: Evaluation; ctx: ProposeContext; planDigest?: string; destroyPlan?: Awaited<ReturnType<typeof loadDestroyPlan>>; ownership?: OwnershipReview }): BrokerProposal {
   const { parsed, evaluation, ctx } = args;
   const { def } = parsed;
   const scope = evaluation.resolved.scope;
@@ -141,6 +141,8 @@ export function buildProposal(args: { parsed: ParsedRequest; evaluation: Evaluat
     if (plan.costDeltaUsdMonthly !== undefined) details.push(`Estimated monthly cost change: ${plan.costDeltaUsdMonthly >= 0 ? "+" : "-"}$${Math.abs(plan.costDeltaUsdMonthly).toFixed(2)}`);
   }
   if (args.destroyPlan) details.push(`Retained (${args.destroyPlan.retained.length}): ${args.destroyPlan.retained.slice(0, 10).join(", ") || "none"}${args.destroyPlan.retained.length > 10 ? ", …" : ""}`);
+  for (const t of args.ownership?.transfers ?? []) details.push(`Ownership transfer: ${t.address} ${t.path} from ${t.from} to ${t.to} (digest ${t.digest.slice(0, 12)})`);
+  for (const w of args.ownership?.warnings ?? []) details.push(`Ownership note: ${w}`);
   if (parsed.reason) details.push(`Reason given by the requester (unverified text): ${oneLine(parsed.reason, MAX_REASON_DETAIL)}`);
 
   const proposal: BrokerProposal = {
@@ -161,6 +163,8 @@ export function buildProposal(args: { parsed: ParsedRequest; evaluation: Evaluat
       risk: evaluation.risk,
       ...(ctx.teardownReview && args.destroyPlan ? { teardownReview: true as const } : {}),
       ...(plan ? { plan } : {}),
+      ...(args.ownership?.transfers ? { ownershipTransfers: args.ownership.transfers } : {}),
+      ...(args.ownership?.warnings ? { ownershipWarnings: args.ownership.warnings } : {}),
       ...(args.destroyPlan ? { destroyPlan: { operationId: args.destroyPlan.operationId, evidenceId: args.destroyPlan.evidenceId, retained: args.destroyPlan.retained } } : {}),
     },
   };
@@ -221,43 +225,84 @@ const reasonCodes = (reasons: { code: string }[]): string[] => reasons.slice(0, 
 
 /* ---------------------------------- propose --------------------------------- */
 
-/** One owner per mutable field: a write to a field another writer owns is a conflict, not a proposal. */
-function assertFieldOwnership(parsed: ParsedRequest, ctx: ProposeContext): void {
-  const guard = ctx.fieldOwnership;
-  if (!guard) return;
-  try {
-    assertNativeOperationAllowed({
-      capability: parsed.def.name,
-      node: guard.node,
-      ...(guard.facts ? { facts: guard.facts } : {}),
-      ...(guard.repairAttributes ? { repairAttributes: guard.repairAttributes } : {}),
-      ...(guard.transfers ? { transfers: guard.transfers } : {}),
-    });
-  } catch (e) {
-    if (!(e instanceof FieldOwnershipConflictError)) throw e;
-    throw new BrokerError("conflict", e.message, "Change the field through its owner, or get an ownership transfer approved first.", {
-      reason: "field_ownership_conflict",
-      conflicts: e.conflicts.slice(0, 10).map((c) => ({
-        address: c.write.address,
-        path: c.write.path,
-        owner: c.resolution.owner,
-        writer: c.write.writer,
-        verdict: c.verdict,
-        ...(c.transfer ? { transferDigest: c.transfer.digest } : {}),
-      })),
-    });
+/** The capabilities whose field writes the ownership registry judges. */
+const OWNERSHIP_CAPABILITIES = new Set([...Object.keys(NATIVE_OPERATION_WRITES), "drift.repair"]);
+
+interface OwnershipReview {
+  transfers?: OwnershipTransferRequest[];
+  warnings?: string[];
+}
+
+/**
+ * One owner per mutable field. Runs AFTER policy evaluation, so the principal is already known to belong to the
+ * workspace; the guard comes from the caller's trusted context or, by default, from the store (tenant-scoped).
+ *
+ *  - a write the owner does not permit is a conflict, refused before anything is persisted;
+ *  - when the only blocker is "another owner holds it" and the requester asked for a transfer
+ *    (`input.requestOwnershipTransfer === true`), the exact transfers go into the proposal and a human must approve it;
+ *  - a store-supplied guard lets a native operation on a manifest-only field proceed, with a warning for the approver.
+ */
+async function reviewFieldOwnership(deps: BrokerDeps, parsed: ParsedRequest, ctx: ProposeContext, scope: Scope): Promise<OwnershipReview> {
+  if (!OWNERSHIP_CAPABILITIES.has(parsed.def.name)) return {};
+  const guard = ctx.fieldOwnership ?? (await deps.store.fieldOwnership?.(scope));
+  if (!guard) return {};
+  const conflicts = checkNativeOperation({
+    capability: parsed.def.name,
+    node: guard.node,
+    ...(guard.facts ? { facts: guard.facts } : {}),
+    ...(guard.repairAttributes ? { repairAttributes: guard.repairAttributes } : {}),
+    ...(guard.transfers ? { transfers: guard.transfers } : {}),
+    now: deps.clock.now(),
+  });
+  const warnings: string[] = [];
+  const blockers = conflicts.filter((c) => {
+    if (!blocking(c)) return false;
+    if (guard.lenientIacBaseline && c.verdict === "transfer_required" && c.resolution.owner === "iac" && c.write.writer === "native-op") {
+      warnings.push(`${c.write.path} is set by the manifest; the next infrastructure apply may revert this change unless the manifest is updated too.`);
+      return false;
+    }
+    return true;
+  });
+  if (blockers.length === 0) return warnings.length ? { warnings } : {};
+  const wantsTransfer = (parsed.input as Record<string, unknown> | undefined)?.requestOwnershipTransfer === true;
+  if (wantsTransfer && blockers.every((c) => c.verdict === "transfer_required" && c.transfer)) {
+    return { transfers: blockers.map((c) => c.transfer!), ...(warnings.length ? { warnings } : {}) };
   }
+  const error = new FieldOwnershipConflictError(blockers);
+  throw new BrokerError("conflict", error.message, "Change the field through its owner, or ask for an ownership transfer (input.requestOwnershipTransfer = true) and have a human approve it.", {
+    reason: "field_ownership_conflict",
+    conflicts: blockers.slice(0, 10).map((c) => ({
+      address: c.write.address,
+      path: c.write.path,
+      owner: c.resolution.owner,
+      writer: c.write.writer,
+      verdict: c.verdict,
+      ...(c.transfer ? { transferDigest: c.transfer.digest } : {}),
+    })),
+  });
+}
+
+/** A transfer is never auto-approved: policy may only tighten it to an admin approval. */
+function requireTransferApproval(decision: Evaluation["decision"]): Evaluation["decision"] {
+  if (decision.outcome === "deny") return decision;
+  return {
+    ...decision,
+    outcome: "require_approval",
+    approval: decision.approval ?? { count: 1, minRole: "admin", separationOfDuties: false },
+    reasons: [...decision.reasons, { code: "ownership_transfer_requires_approval", message: "This request moves ownership of a field from its current owner; a human must approve the exact transfer." }],
+  };
 }
 
 export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn: Principal, ctx: ProposeContext = {}): Promise<ProposeResult> {
   const principal = cleanPrincipal(principalIn);
   const parsed = parseRequest(rawRequest);
-  assertFieldOwnership(parsed, ctx);
   const { req, facts, planDigest, destroyPlan } = await trustedEvaluationRequest(deps, parsed, principal, ctx);
   const evaluation = await evaluate(deps, req);
-  const { decision, evaluated } = evaluation;
+  const ownership = await reviewFieldOwnership(deps, parsed, ctx, evaluation.resolved.scope);
+  const decision = ownership.transfers ? requireTransferApproval(evaluation.decision) : evaluation.decision;
+  const { evaluated } = evaluation;
 
-  const proposal = buildProposal({ parsed, evaluation, ctx, planDigest, destroyPlan });
+  const proposal = buildProposal({ parsed, evaluation, ctx, planDigest, destroyPlan, ownership });
   const operationId = newId(deps, "op");
   const decisionId = newId(deps, "pol");
   const correlationId = ctx.correlationId ?? newId(deps, "corr");
@@ -314,16 +359,17 @@ export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn
 export async function check(deps: BrokerDeps, rawRequest: unknown, principalIn: Principal, ctx: ProposeContext = {}): Promise<CheckResult> {
   const principal = cleanPrincipal(principalIn);
   const parsed = parseRequest(rawRequest);
-  assertFieldOwnership(parsed, ctx);
   const { req } = await trustedEvaluationRequest(deps, parsed, principal, ctx);
   const evaluation = await evaluate(deps, req);
+  const ownership = await reviewFieldOwnership(deps, parsed, ctx, evaluation.resolved.scope);
+  const decided = ownership.transfers ? requireTransferApproval(evaluation.decision) : evaluation.decision;
   return {
     decision: decisionView(
       {
-        outcome: evaluation.decision.outcome,
-        reasons: evaluation.decision.reasons,
-        approval: evaluation.decision.approval,
-        constraints: evaluation.decision.constraints,
+        outcome: decided.outcome,
+        reasons: decided.reasons,
+        approval: decided.approval,
+        constraints: decided.constraints,
         policyVersion: evaluation.evaluated.policyVersion,
         inputDigest: evaluation.evaluated.inputDigest,
         evaluatedAt: evaluation.evaluated.evaluatedAt,

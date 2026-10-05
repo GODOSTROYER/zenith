@@ -2,7 +2,7 @@
  * Ownership facts from the desired graph. Facts change who owns a field, so
  * they come only from the graph Zenith compiled, never from a request.
  */
-import type { ResourceGraph, ResourceNode } from "@/lib/resources/types";
+import type { ResourceNode } from "@/lib/resources/types";
 import type { OwnershipFacts } from "./types";
 
 /** Native types that are live autoscalers of a workload. */
@@ -12,7 +12,9 @@ const isRecord = (v: unknown): v is Record<string, unknown> => v !== null && typ
 const nameOf = (address: string): string => address.slice(address.lastIndexOf("/") + 1);
 
 /** Addresses of workloads a native autoscaler node in this graph targets. */
-export function autoscaledAddresses(graph: Pick<ResourceGraph, "nodes">): Set<string> {
+export type FactNode = Pick<ResourceNode, "address" | "kind" | "nativeType" | "spec">;
+
+export function autoscaledAddresses(graph: { nodes: readonly FactNode[] }): Set<string> {
   const out = new Set<string>();
   const byName = new Map<string, string[]>();
   for (const n of graph.nodes) byName.set(nameOf(n.address), [...(byName.get(nameOf(n.address)) ?? []), n.address]);
@@ -28,7 +30,7 @@ export function autoscaledAddresses(graph: Pick<ResourceGraph, "nodes">): Set<st
 }
 
 /** Facts for one node. `graph` adds autoscalers declared as separate native nodes. */
-export function factsForNode(node: Pick<ResourceNode, "address" | "spec">, graph?: Pick<ResourceGraph, "nodes">): OwnershipFacts {
+export function factsForNode(node: Pick<ResourceNode, "address" | "spec">, graph?: { nodes: readonly FactNode[] }): OwnershipFacts {
   const scaling = node.spec.autoscaling;
   const autoscaled = (isRecord(scaling) || scaling === true) || (graph !== undefined && autoscaledAddresses(graph).has(node.address));
   const artifact = node.spec.artifact;
@@ -37,7 +39,7 @@ export function factsForNode(node: Pick<ResourceNode, "address" | "spec">, graph
 }
 
 /** Facts for every node of a graph, computed once. */
-export function factsByAddress(graph: Pick<ResourceGraph, "nodes">): Map<string, OwnershipFacts> {
+export function factsByAddress(graph: { nodes: readonly FactNode[] }): Map<string, OwnershipFacts> {
   const scaled = autoscaledAddresses(graph);
   return new Map(
     graph.nodes.map((n) => {

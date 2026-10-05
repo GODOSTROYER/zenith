@@ -18,7 +18,7 @@ import { platformScopeResolver } from "@/lib/platform/scopes";
 import { reconcilePass } from "@/lib/reconcile/pass";
 import type { ReconcilePassPorts, ReconcilePassResult } from "@/lib/reconcile/pass-types";
 import { composeOptimizerPorts } from "@/lib/platform/optimizer";
-import { runOptimizerPass, type OptimizerPassPorts } from "@/lib/placement/optimizer-pass";
+import { runOptimizerPass, type OptimizerPassPorts } from "@/lib/platform/optimizer-pass";
 import { recordLeasedRun } from "@/lib/platform/critical-jobs";
 import { TASK_QUEUE } from "./types";
 import type { ReconcileSweepActivities, ReconcileSweepActivityInput, ReconcileSweepInput, ReconcileSweepResult } from "./definitions/reconcileSweep";

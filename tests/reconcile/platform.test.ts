@@ -453,9 +453,17 @@ describe.each(LANES)("reconcile platform adapter [$name]", (lane: Lane) => {
       const broker = new FakeBrokerSql();
       const ports = portsFor(world, broker);
       const loaded = await loadGraphFromStore(db, env);
+      // Use the actual persistent stability gate: the first two bad observations stay quiet.
+      for (let observation = 0; observation < 2; observation++) {
+        const quiet = await reconcileEnvironment({ environment: env, graph: loaded ?? graph(), ports });
+        expect(quiet.repairs.filter((d) => d.status === "proposed")).toEqual([]);
+        expect(broker.proposals).toEqual([]);
+        expect(world.operationCalls).toEqual([]);
+      }
       const first = await reconcileEnvironment({ environment: env, graph: loaded ?? graph(), ports });
       expect(first.repairs.filter((d) => d.status === "proposed")).toHaveLength(1);
       expect(broker.proposals).toHaveLength(1);
+      expect(world.operationCalls).toEqual([]);
       // the fake broker created no operation, so nothing is open in the ledger: a real broker's operation would be, and is covered above
       const web = await repos.resources.getByAddress(db, env.workspaceId, env.environmentId, "log_group/web");
       await seedApprovedOperation(db, env.workspaceId, {
@@ -465,6 +473,7 @@ describe.each(LANES)("reconcile platform adapter [$name]", (lane: Lane) => {
       const again = await reconcileEnvironment({ environment: env, graph: loaded ?? graph(), ports });
       expect(again.repairs.find((d) => d.address === "log_group/web")).toMatchObject({ reason: "repair_open" });
       expect(broker.proposals).toHaveLength(1);
+      expect(world.operationCalls).toEqual([]);
     });
   });
 
@@ -688,8 +697,15 @@ describe.each(LANES)("reconcile platform adapter [$name]", (lane: Lane) => {
       expect(observeOnly).toEqual({ drift: 1, unknown: 1, status: "reconciled", repairsProposed: 0 });
       expect(broker.proposals).toHaveLength(0); // allowAutoRepair defaults to false: observe and report only
 
+      const stillQuiet = await reconcileObserveOnce({ workspaceId: env.workspaceId, environmentId: env.environmentId, autoRepair: true }, deps);
+      expect(stillQuiet).toEqual({ drift: 1, unknown: 1, status: "reconciled", repairsProposed: 0 });
+      expect(broker.proposals).toEqual([]);
+      expect(world.operationCalls).toEqual([]);
+
       const withRepair = await reconcileObserveOnce({ workspaceId: env.workspaceId, environmentId: env.environmentId, autoRepair: true }, deps);
       expect(withRepair).toMatchObject({ drift: 1, unknown: 1, repairsProposed: 1 });
+      expect(broker.proposals).toHaveLength(1);
+      expect(world.operationCalls).toEqual([]);
 
       await expect(reconcileObserveOnce({ workspaceId: uid("ws"), environmentId: env.environmentId }, deps)).rejects.toMatchObject({ code: "invalid_input" });
       const ghost = uid("env");

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { loadDefaultCatalog, staticFieldOwnership, historyFromOperations, loadScaleOperations } from "@/lib/placement";
-import { runOptimizerPass, type OptimizerPassPorts } from "@/lib/placement/optimizer-pass";
+import { runOptimizerPass, type OptimizerPassPorts } from "@/lib/platform/optimizer-pass";
 import { repos } from "@/lib/controlplane/db";
 import type { ResourceGraph } from "@/lib/resources/types";
 import type { ReconcileEnvironment } from "@/lib/reconcile/types";
@@ -69,7 +69,9 @@ describe("scheduled optimizer pass", () => {
 
   it("proposes through the broker without executing, and a restart does not re-propose (history is durable)", async () => {
     const h = await makeHarness({ kind: "memory" });
-    const first = await runOptimizerPass(setup(h).ports());
+    // Let the higher-saving size step fit; the default spending cap otherwise selects replicas.
+    const policy = { maxWindowShiftPct: 1 };
+    const first = await runOptimizerPass(setup(h, { policy }).ports());
     expect(first.proposed).toBe(1);
     const ops = (await h.store.listOperations(h.ids.wsA, { capability: "service.scale" })).items;
     expect(ops).toHaveLength(1);
@@ -77,7 +79,7 @@ describe("scheduled optimizer pass", () => {
     expect((ops[0]!.proposal.input as { optimizer?: { field: string } }).optimizer?.field).toBe("spec.size");
     // a brand new ports object over the same store: nothing is carried in memory
     h.clock.advance(1 * DAY);
-    const second = await runOptimizerPass(setup(h).ports());
+    const second = await runOptimizerPass(setup(h, { policy }).ports());
     expect(second.proposed).toBe(0);
     expect((await h.store.listOperations(h.ids.wsA, { capability: "service.scale" })).items).toHaveLength(1);
   });

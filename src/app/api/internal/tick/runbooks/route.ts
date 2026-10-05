@@ -23,7 +23,7 @@ import { countsOf, runFallbackJob } from "@/lib/platform/critical-jobs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-export const RUNBOOK_TICK_BUDGET_MS = 45_000;
+const RUNBOOK_TICK_BUDGET_MS = 45_000;
 
 export const POST = async (req: NextRequest): Promise<Response> => {
   const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID().slice(0, 8);

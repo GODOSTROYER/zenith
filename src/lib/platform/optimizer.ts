@@ -18,7 +18,7 @@ import type { Broker } from "@/lib/capabilities/platform";
 import { listOptedInEnvironments } from "@/lib/controlplane/db/repos/optimizer-settings";
 import type { Sql } from "@/lib/controlplane/types";
 import { refuseUnknownFieldOwnership, type FieldOwnershipCheck } from "@/lib/placement/optimizer";
-import type { OptimizerMeasurementPort, OptimizerPassPorts } from "@/lib/placement/optimizer-pass";
+import type { OptimizerMeasurementPort, OptimizerPassPorts } from "@/lib/platform/optimizer-pass";
 import type { ReconcilePassPorts } from "@/lib/reconcile/pass-types";
 
 export const noMeasurements: OptimizerMeasurementPort = { load: async () => undefined };

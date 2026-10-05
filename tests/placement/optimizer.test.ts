@@ -170,7 +170,8 @@ describe("thresholds, hysteresis and cooldown", () => {
   });
 
   it("does not flap: after a downscale is applied, the same measurements cannot trigger another change", async () => {
-    const first = await optimizeEconomics(base({ policy: { ...LOOSE, maxChangesPerWindow: 10 } }));
+    // Isolate size hysteresis from the separate default 20% spending-shift cap.
+    const first = await optimizeEconomics(base({ policy: { ...LOOSE, maxChangesPerWindow: 10, maxWindowShiftPct: 1 } }));
     const size = first.proposals.find((p) => p.kind === "rightsize_size")!;
     expect(size.changes[0]).toMatchObject({ from: "standard", to: "small" });
     // After the change the same load shows twice the utilization (half the capacity): within the band, no further downscale, never an upscale.
@@ -193,17 +194,18 @@ describe("bounded change size per window", () => {
   });
 
   it("limits the number of changes per window, counting history", async () => {
-    const free = await optimizeEconomics(base({ ...twoServices(), policy: { ...LOOSE, maxChangesPerWindow: 5 } }));
+    // This case tests change cardinality/history; the dollar-shift bound has its own negative case.
+    const free = await optimizeEconomics(base({ ...twoServices(), policy: { ...LOOSE, maxChangesPerWindow: 5, maxWindowShiftPct: 1 } }));
     expect(free.proposals.length).toBeGreaterThanOrEqual(2);
     // one proposal per resource per run: a size step and a replica step on the same service never both ship
     expect(new Set(free.proposals.flatMap((p) => p.addresses)).size).toBe(free.proposals.length);
-    const capped = await optimizeEconomics(base({ ...twoServices(), policy: { ...LOOSE, maxChangesPerWindow: 1 } }));
+    const capped = await optimizeEconomics(base({ ...twoServices(), policy: { ...LOOSE, maxChangesPerWindow: 1, maxWindowShiftPct: 1 } }));
     expect(capped.proposals).toHaveLength(1);
     expect(codes(capped)).toContain("window_change_limit");
     const used = await optimizeEconomics(
       base({
         ...twoServices(),
-        policy: { ...LOOSE, maxChangesPerWindow: 1 },
+        policy: { ...LOOSE, maxChangesPerWindow: 1, maxWindowShiftPct: 1 },
         history: [{ address: "resource/db", field: "spec.size", kind: "rightsize_size", from: "standard", to: "small", at: ago(1), status: "proposed" }],
       }),
     );

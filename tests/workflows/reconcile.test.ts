@@ -52,6 +52,17 @@ describe("canonical reconciliation through the real Temporal SDK", () => {
     h.fake.activities.reconcileObserve = createHeldReconcileActivity(runtime, { ports: canonical, loadEnvironment: (ws, id) => loadPlatformEnvironment(db, ws, id), loadGraph: (environment) => loadGraphFromStore(db, environment) });
     try {
       const input = { workspaceId: env.workspaceId, environmentId: env.environmentId, allowAutoRepair: true };
+      // Real controller hysteresis requires three independently completed observations.
+      // The first two passes must retain drift without creating a repair proposal.
+      for (let observation = 0; observation < 2; observation++) {
+        await h.run(async () => {
+          const started = await h.client.workflow.start(WORKFLOW_TYPES.reconcile, { workflowId: RECONCILE_WORKFLOW_ID(env.environmentId), taskQueue: h.taskQueue, args: [input] });
+          const result = await started.result() as ReconcileWorkflowResult;
+          expect(result).toMatchObject({ status: "observed", drift: 1, unknown: 0, repair: "considered", repairs: { proposed: 0, awaitingApproval: 0, started: 0, denied: 0 } });
+          expect(await db.query("select id from platform.operations where workspace_id=$1 and environment_id=$2", [env.workspaceId, env.environmentId])).toEqual([]);
+          expect(provider.operationCalls).toEqual([]);
+        });
+      }
       const handle = await h.run(async () => {
         const started = await h.client.workflow.start(WORKFLOW_TYPES.reconcile, { workflowId: RECONCILE_WORKFLOW_ID(env.environmentId), taskQueue: h.taskQueue, args: [input] });
         const result = await started.result() as ReconcileWorkflowResult;
@@ -65,8 +76,10 @@ describe("canonical reconciliation through the real Temporal SDK", () => {
       expect(operations[0]).toMatchObject({ status: "awaiting_approval", capability: "drift.repair" });
       expect((await repos.drift.latest(db, env.workspaceId, env.environmentId))?.findings).toHaveLength(1);
       expect(await repos.leases.current(db, `reconcile:${env.environmentId}`)).toBeNull();
-      expect(credentials.sessions).toHaveLength(1);
-      expect(credentials.sessions[0]).toMatchObject({ purpose: "observe", capability: "infrastructure.observe", revoked: true });
+      expect(credentials.sessions).toHaveLength(3);
+      for (const session of credentials.sessions) {
+        expect(session).toMatchObject({ purpose: "observe", capability: "infrastructure.observe", revoked: true });
+      }
       expect(provider.operationCalls).toEqual([]);
       await Worker.runReplayHistory({ workflowBundle: { codePath: h.bundle } }, await handle.fetchHistory(), handle.workflowId);
     } finally { execution.dispose(); }

@@ -95,6 +95,12 @@ export const CAPABILITIES = {
   "machine.exec": def({ name: "machine.exec", title: "Execute a command on a machine", mutates: true, risk: "critical", defaultAutonomy: 6, escapeHatch: true, scopeLevel: "resource", integrationScope: "write" }),
   "container.exec": def({ name: "container.exec", title: "Execute in a container", mutates: true, risk: "critical", defaultAutonomy: 6, escapeHatch: true, scopeLevel: "resource", integrationScope: "write" }),
 
+  /* ------------------- data portability and adoption (LIFE-11) ------------------- */
+  "data.export": def({ name: "data.export", title: "Export a data service to tenant-owned storage", mutates: true, risk: "high", defaultAutonomy: 5, scopeLevel: "resource", integrationScope: "write" }),
+  "data.import": def({ name: "data.import", title: "Restore an export into a new data service", mutates: true, risk: "high", defaultAutonomy: 5, scopeLevel: "resource", integrationScope: "write" }),
+  "resource.adopt": def({ name: "resource.adopt", title: "Adopt an existing resource under management", mutates: true, risk: "high", defaultAutonomy: 6, scopeLevel: "resource", integrationScope: "write" }),
+  "resource.release": def({ name: "resource.release", title: "Release an adopted resource from management", mutates: true, risk: "high", defaultAutonomy: 6, scopeLevel: "resource", integrationScope: "write" }),
+
   /* ----------------------------- escape hatch -------------------------- */
   "provider.native": def({ name: "provider.native", title: "Provider-native resource change", mutates: true, risk: "critical", defaultAutonomy: 6, escapeHatch: true, scopeLevel: "environment", integrationScope: "write" }),
 } as const satisfies Record<string, CapabilityDef>;

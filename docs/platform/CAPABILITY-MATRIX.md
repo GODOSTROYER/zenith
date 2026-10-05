@@ -252,6 +252,8 @@ From `CAPABILITIES` (`src/lib/capabilities/catalog.ts`): every name authorizatio
 | `drift.repair` | high | yes | — | 4 | resource | no driver |
 | `function.invoke` | medium | yes | — | 4 | resource | aws: `contract` (1 driver) |
 | `machine.service.restart` | medium | yes | — | 4 | resource | no driver |
+| `data.export` | high | yes | — | 5 | resource | no driver |
+| `data.import` | high | yes | — | 5 | resource | no driver |
 | `dns.modify` | high | yes | — | 5 | resource | no driver |
 | `file.upload` | high | yes | — | 5 | resource | no driver |
 | `file.write` | high | yes | — | 5 | resource | no driver |
@@ -267,6 +269,8 @@ From `CAPABILITIES` (`src/lib/capabilities/catalog.ts`): every name authorizatio
 | `infrastructure.destroy` | critical | yes | destructive | 6 (never unattended) | environment | no driver |
 | `machine.exec` | critical | yes | escape hatch | 6 (never unattended) | resource | no driver |
 | `provider.native` | critical | yes | escape hatch | 6 (never unattended) | environment | no driver |
+| `resource.adopt` | high | yes | — | 6 (never unattended) | resource | no driver |
+| `resource.release` | high | yes | — | 6 (never unattended) | resource | no driver |
 
 ### Mutating capabilities by default autonomy
 
@@ -279,8 +283,8 @@ A mutating capability with default autonomy N needs no approval *for autonomy re
 | 2 | — |
 | 3 | `database.snapshot`, `service.restart`, `service.scale` |
 | 4 | `database.migrate`, `deployment.deploy`, `deployment.rollback`, `drift.repair`, `function.invoke`, `machine.service.restart` |
-| 5 | `dns.modify`, `file.upload`, `file.write`, `firewall.modify`, `infrastructure.apply`, `package.install`, `secret.write`, `service.configure` |
-| 6 (never unattended) | `container.exec`, `database.delete`, `database.restore`, `identity.modify`, `infrastructure.destroy`, `machine.exec`, `provider.native` |
+| 5 | `data.export`, `data.import`, `dns.modify`, `file.upload`, `file.write`, `firewall.modify`, `infrastructure.apply`, `package.install`, `secret.write`, `service.configure` |
+| 6 (never unattended) | `container.exec`, `database.delete`, `database.restore`, `identity.modify`, `infrastructure.destroy`, `machine.exec`, `provider.native`, `resource.adopt`, `resource.release` |
 
 Non-mutating capabilities are not gated by autonomy: the policy rule `autonomy_below_capability` applies to mutating capabilities only.
 

@@ -37,7 +37,7 @@ import { emitForOperation } from "@/lib/controlplane/events";
 import * as repos from "@/lib/controlplane/db/repos";
 import { HEX64 } from "@/lib/controlplane/db/sql";
 import { TERMINAL_OPERATION_STATUSES, type OperationRecord, type Sql } from "@/lib/controlplane/types";
-import type { ConnectionsPort, EventsPort, EvidencePort, LeasesPort, OperationsPort, ResourcesPort } from "./ports";
+import type { ConnectionsPort, EventsPort, EvidencePort, LeasesPort, OperationsPort, PortabilityPort, ResourcesPort } from "./ports";
 import { errorCode, StepFailedError } from "./errors";
 import { errorText } from "./text";
 
@@ -208,6 +208,19 @@ export function createResourcesPort(sql: Sql): ResourcesPort {
     async saveDriftReport({ workspaceId, report }) {
       await repos.drift.insert(sql, { workspaceId, report });
     },
+  };
+}
+
+/** Verified exports, restores and ownership claims over the tenant-scoped repository (PROD-LIFE-11). */
+export function createPortabilityPort(sql: Sql): PortabilityPort {
+  return {
+    recordExport: (input) => repos.portability.recordExport(sql, input),
+    getExport: (workspaceId, id) => repos.portability.getExport(sql, workspaceId, id),
+    recordRestore: (input) => repos.portability.recordRestore(sql, input),
+    adopt: (input) => repos.portability.adopt(sql, input),
+    release: (input) => repos.portability.release(sql, input),
+    getAdoption: (workspaceId, id) => repos.portability.getAdoption(sql, workspaceId, id),
+    adoptionFacts: (workspaceId, environmentId) => repos.portability.adoptionFacts(sql, workspaceId, environmentId),
   };
 }
 

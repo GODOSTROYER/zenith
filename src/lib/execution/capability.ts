@@ -38,6 +38,7 @@ import { withKeepAlive } from "./keepalive";
 import type { StoredResource } from "./ports";
 import type { Runtime } from "./runtime";
 import { driverContext, purposeOf, withProviderSession } from "./session";
+import { executePortabilityCapability, isPortabilityCapability } from "./portability";
 import { safeText } from "./text";
 import type { LeaseRef } from "@/lib/workflows/types";
 
@@ -159,6 +160,8 @@ export function createCapabilityActivities(rt: Runtime): Pick<ExecutionActivitie
       const row = await rt.d.resources.get(ec.workspaceId, ec.op.resourceId);
       if (!row || row.workspaceId !== ec.workspaceId || row.environmentId !== ec.environmentId) throw new StepFailedError("The target resource was not found in this environment.");
       const node = nodeFromStored(row, ec.product.environment.region);
+      // Portability capabilities carry their own ownership rules (export reads referenced services, adopt needs one): see ./portability.
+      if (isPortabilityCapability(name)) return executePortabilityCapability(rt, ec, row, node, name, lease);
       if (def.mutates && node.ownership !== "managed") {
         throw new StepFailedError(`${node.address} is ${node.ownership}: Zenith reads it and never changes it, so ${name} cannot run on it.`);
       }

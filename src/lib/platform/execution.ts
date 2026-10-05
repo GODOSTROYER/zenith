@@ -6,7 +6,7 @@
 import { createPlanArtifactRuntime } from "./plan-artifacts";
 import { hkdfSync } from "node:crypto";
 import type { Sql } from "@/lib/controlplane/types";
-import { createExecutionActivities, createPlatformPorts, createProductPort, createSafeProber, defaultCostPort, type ExecutionDeps } from "@/lib/execution";
+import { createExecutionActivities, createPlatformPorts, createPortabilityPort, createProductPort, createSafeProber, defaultCostPort, type ExecutionDeps } from "@/lib/execution";
 import { createObservabilityFabric, describeSession, sourcesForEnvironment } from "@/lib/observability";
 import { createHeldReconcileActivity } from "@/lib/execution/verify";
 import { createRuntime } from "@/lib/execution/runtime";
@@ -109,7 +109,7 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
   const credentials = opts.ports?.credentials ?? platformCredentialBroker(opts.db);
   const azure: AzureBuildOptions = { readSource: sourceRuntime.readAzureSource };
   const deps: ExecutionDeps = {
-    ...platformPorts, planArtifacts,
+    ...platformPorts, portability: createPortabilityPort(opts.db), planArtifacts,
     drivers: platformDriverLookup,
     product: createProductPort(), broker: createExecutionBroker(opts.db), credentials,
     tofu, cost: defaultCostPort(),

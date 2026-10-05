@@ -13,7 +13,7 @@ export { createExecutionActivities, type ExecutionWorkerActivities } from "./act
 export { createDestroyActivities } from "./destroy";
 export type { DestroyActivities, DestroyWorkflowInput } from "@/lib/workflows/definitions/destroy";
 export { defaultCostPort } from "./cost";
-export { createPlatformPorts, createOperationsPort, createLeasesPort, createEventsPort, createEvidencePort, createResourcesPort, createConnectionsPort, executionHolder, CLAIM_LEASE_MS, type PlatformPorts } from "./platform";
+export { createPlatformPorts, createOperationsPort, createLeasesPort, createEventsPort, createEvidencePort, createResourcesPort, createConnectionsPort, createPortabilityPort, executionHolder, CLAIM_LEASE_MS, type PlatformPorts } from "./platform";
 export { createProductPort, workerStoreScope, ProductNotFoundError, type StoreScope } from "./product-port";
 export { createSafeProber, httpsTransport, isPublicAddress, ProbeTransportError, PROBE_MAX_BODY_BYTES, PROBE_TIMEOUT_MS, type ProbeTransport, type SafeProberOptions } from "./prober";
 export { LeaseBusyError, LeaseLostError, StepFailedError, TofuPlanChangedError } from "./errors";

@@ -180,3 +180,48 @@ export async function readIncidents(caller: ReadCaller, environmentId: string): 
   }));
   return boundedView({ investigations: rows.slice(0, 20).map((r) => investigationView(r.document)), escalations, truncated: rows.length > 20, evidence: "contract" });
 }
+
+/**
+ * Data-service portability state (PROD-LIFE-11): verified exports, restores with
+ * their independent readback verdicts, and adoption claims with the live drift of
+ * the adopted object from its adoption baseline. Reads only stored rows and the
+ * latest stored observation; nothing here touches a cloud or a data service.
+ */
+export interface PortabilityView {
+  environmentId: string;
+  exports: Awaited<ReturnType<typeof repos.portability.listExports>>;
+  restores: Awaited<ReturnType<typeof repos.portability.listRestores>>;
+  adoptions: (Awaited<ReturnType<typeof repos.portability.listAdoptions>>[number] & { baselineDrift: { attribute: string; kind: string }[] | null })[];
+  truncated: boolean;
+  evidence: "contract";
+}
+export async function readPortability(caller: ReadCaller, environmentId: string): Promise<PortabilityView> {
+  await authorizeEnvironment(caller, environmentId, "infrastructure.observe");
+  const sql = await platformDb();
+  const [exports, restores, adoptions] = await Promise.all([
+    repos.portability.listExports(sql, caller.workspaceId, environmentId, { limit: 50 }),
+    repos.portability.listRestores(sql, caller.workspaceId, environmentId, { limit: 50 }),
+    repos.portability.listAdoptions(sql, caller.workspaceId, environmentId, { limit: 100 }),
+  ]);
+  const withDrift = await Promise.all(adoptions.map(async (a) => {
+    if (a.status !== "active") return { ...a, baselineDrift: null };
+    const [resource, observation] = await Promise.all([
+      repos.resources.get(sql, caller.workspaceId, a.resourceId),
+      repos.observations.latestObservation(sql, caller.workspaceId, a.resourceId),
+    ]);
+    if (!resource || !observation || observation.presence !== "present") return { ...a, baselineDrift: null };
+    const { compareToBaseline } = await import("@/lib/portability/adoption");
+    const { factsForNode } = await import("@/lib/ownership");
+    const drift = compareToBaseline({ attributes: (a.baseline.attributes ?? {}) as Record<string, unknown> }, observation.attributes, {
+      nativeType: resource.nativeType, address: resource.address, facts: factsForNode({ address: resource.address, spec: resource.spec }),
+    });
+    // Attribute names and the kind of difference only: values stay in the stored observation, behind its own redaction.
+    return { ...a, baselineDrift: drift.map((d) => ({ attribute: publicData(d.attribute), kind: d.kind })) };
+  }));
+  return boundedView({
+    environmentId,
+    exports: publicData(exports), restores: publicData(restores), adoptions: publicData(withDrift),
+    truncated: exports.length >= 50 || restores.length >= 50 || adoptions.length >= 100,
+    evidence: "contract",
+  });
+}

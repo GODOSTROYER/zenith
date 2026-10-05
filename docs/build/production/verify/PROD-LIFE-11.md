@@ -1,0 +1,92 @@
+# PROD-LIFE-11 Backup export import and adoption
+
+Branch `prod/life-11-w2`, base 8031ce0d. Build only: nothing below was executed on the build machine except `npx tsc --noEmit -p .` (clean) and `npx eslint` on every changed and new TypeScript file (clean). Platform migration version 25.
+
+Operator documentation: `docs/platform/PORTABILITY.md`.
+
+## 1. What was built
+
+### Audit of what existed
+- `database.snapshot` exists as an in-provider backup (RDS, Cloud SQL, Azure, OCI); it is not an export to tenant storage, and its restore and delete siblings are refusal-only by design.
+- `hosted/backup` (ZBK1 bundles, filesystem and S3 targets) is the self-hosted authority backup, not a per-data-service export; its container and target contracts were studied, not reused as a data-service path.
+- `providers/zenith/export.ts` states that the managed database has no data export; `data.export` now closes that gap for managed Postgres.
+- The destroy guards were `assertDeletionAllowed` (managed node, explicit `deletionPolicy`), `assertDeployDeletionApproval` and `checkDestroyApproval` (digest-bound human approval) and the provider teardown ownership annotations. None of them could tell an adopted object from a created one; nothing in production code adopted anything (`changeOwnership` was only called by tests).
+
+### New module `src/lib/portability/` (pure plus ports, one door per concern)
+- `types.ts`, `matrix.ts`: kinds, `portabilitySupport(operation, provider, kind)` with the exact refusal sentence for every unsupported pair, `supportTable()`.
+- `engines/postgres.ts`: `postgres-logical-v1` over one SQL session: tables, enums, sequences (definition and value, identity), defaults, generated columns, constraints, indexes, every row as text through the column's own type; refuses views, functions, triggers, extensions, RLS, partitions, inheritance and non-enum custom types; allowlisted, single-statement DDL on import; order-independent logical digest; `readbackPostgres`.
+- `engines/mysql.ts`: `mysql-cli-v1` through stock `mysqldump` and `mysql` (password in child env only), refuses routines and events, refuses a source that changed during the dump, logical digest via plain queries.
+- `engines/objectstore.ts`, `engines/s3.ts`: object-for-object copy through an `ObjectStorePort`, S3 adapter (explicit credentials from one vault secret, lazy SDK), tenant artifact store scoped under one prefix.
+- `artifact.ts`, `service.ts`: manifest written last, every file re-read from tenant storage and re-hashed before an export exists; `runExport`, `runImport` (verifies the artifact against the platform's recorded manifest digest, refuses a populated target, refuses cross-kind and older-major restores, readback through a fresh connection, verdict `verified` or `mismatch`).
+- `adoption.ts`: strict claim schema, `claimDigest` (what the approver reviewed), field owners from the LIFE-12 registry (a contradicting claim is refused), drift baseline over IaC-owned fields, `compareToBaseline`, live-identity assertion.
+- `decommission.ts`: pure ownership-safe decommission verdicts.
+- `inputs.ts`: strict inputs and approver-visible details for the four capabilities.
+- `connect.ts`, `net.ts`: opening Postgres, MySQL and S3 bindings, with loopback, link-local, metadata and (by default) private hosts refused, name resolution checked, TLS required unless the operator opts in.
+- `start.ts`: human start path (claim plus durable start intent plus the generic day-two workflow).
+
+### Store
+- Migration 25 `src/lib/controlplane/db/migrations/0025_portability.ts` (registered in `migrations/index.ts`): `platform.portability_exports`, `platform.portability_restores` (append-only, status derived and constrained from the two digests), `platform.resource_adoptions` (one-way release, partial unique indexes: one active claim per provider object and per address; FK to the human approval). RLS on, no policies, service_role select/insert (+ update of the four release columns on adoptions). Checksum `9ae6f39475d3abb1317d44544ec0c8d6920e74f19c0b5af813339a5b41b11f20` (recompute if the SQL is edited).
+- `src/lib/controlplane/db/repos/portability.ts` (namespace `portability`, in repos index and `bindRepos`).
+
+### Wiring (every piece is called by a real caller)
+- Catalog: `data.export` (high, autonomy 5), `data.import` (high, 5), `resource.adopt` (high, 6), `resource.release` (high, 6); all mutating, resource scoped. `docs/platform/CAPABILITY-MATRIX.md` and `docs/platform/operations/POLICY.md` edited by hand to match the generator (ordering: autonomy then name).
+- Broker (`capabilities/broker.ts`): strict input validation and normalization in `parseRequest`; approver-visible detail lines; `reviewPortability` (matrix and ownership) after policy in `propose` and `check`.
+- Worker: `execution/capability.ts` routes the four capabilities to `execution/portability.ts` before the generic managed-only check; `ExecutionDeps.portability` (`PortabilityPort`, implemented by `createPortabilityPort`, supplied in `platform/execution.ts`).
+- Decommission gate `execution/decommission.ts`, called from `execution/plan.ts` (`inspectDeployDeletions`, after `assertDeletionAllowed`) and `execution/destroy.ts` (`context()`, so review, replan and apply all hit it).
+- Start paths: MCP `zenith_execute_approved_operation` (`EXECUTABLE` extended) for integration proposals; `POST /api/platform/v1/operations/:id/start-portability` (browser only) for human proposals.
+- Read: `GET /api/platform/v1/environments/:id/portability` via `readPortability` in `read-models.ts` (exports, restores with verdicts, adoptions with live baseline drift).
+
+## 2. Acceptance mapping
+
+"Supported backup/export/import/adoption and ownership-safe decommissioning pass with independently readable restored data."
+
+- Supported matrix per provider and kind with explicit refusals: `matrix.ts`; `tests/portability/adoption-decommission.test.ts` (support matrix block), broker refusal in `tests/capabilities/portability-broker.test.ts`.
+- Backup and export to tenant-owned storage: Postgres `tests/portability/postgres-engine.test.ts` (PGlite engines, real directory storage); objects `tests/portability/objectstore-engine.test.ts` (real directories behind the S3 port; S3 adapter contract test; LocalStack lane); MySQL `tests/portability/mysql-engine.test.ts` (contract); tenant-owned destination rules (object_store resource of the environment, not external, bucket identity, prefix confinement): `tests/execution/portability.test.ts`, `s3ArtifactStore` in the object-store test.
+- Restore and import into a new target with independent readback: `postgres-engine.test.ts` "restores the artifact alone ... a re-opened engine reads back the same logical content" (the readback runs on a SECOND PGlite instance opened from the restored bytes), mismatch reported not papered over, never merges into a populated target, rewritten artifact and unallowlisted DDL refused; same journeys for objects and MySQL (contract).
+- Independent readability of the artifact itself: manifest-last plus read-back verification (`verifyArtifact`), plain SQL, rows and object bodies with `RESTORE.md` (asserted in `postgres-engine.test.ts` and `objectstore-engine.test.ts`).
+- Verified records in the platform: `tests/portability/store.test.ts` (idempotent per operation, derived status, tenant scoping, append-only, exports and restores).
+- Adoption with explicit ownership claim, LIFE-12 registry and drift baseline: `adoption-decommission.test.ts` (claim digest, registry contradiction, baseline, drift, live identity), `tests/execution/portability.test.ts` (resource.adopt success and refusals: no approval, wrong identity, missing or simulated read, managed resource, no store), `store.test.ts` (human approval bound to the exact operation, atomic referenced to managed, one active claim per object), `readPortability` for live drift.
+- Ownership-safe decommissioning requiring human destructive approval: `adoption-decommission.test.ts` (gate verdicts), `tests/execution/portability.test.ts` (teardown and plan deletions refuse an adopted object whose claim did not allow destruction, a released claim, an alias), `resource.release` (store and worker). Human destructive approval itself is the existing digest-bound approval (`checkDestroyApproval`, `assertDeployDeletionApproval`), unchanged and still required.
+
+## 3. Verification commands (other machine)
+
+Node 22. Platform database lanes use PGlite by default.
+
+- `npx vitest run tests/portability tests/execution/portability.test.ts tests/capabilities/portability-broker.test.ts` expect all pass (the env-gated lanes below skip).
+- `npx vitest run tests/controlplane/tenancy.test.ts tests/security/controlplane-sql-scoping.test.ts tests/capabilities tests/execution tests/policy tests/security/policy-invariants.test.ts tests/docs tests/ownership` expect unchanged results plus the new classifications.
+- Real engine lanes (not run here):
+  - `ZENITH_TEST_PLATFORM_PG_URL=postgres://... npx vitest run tests/portability/store.test.ts tests/capabilities/portability-broker.test.ts tests/controlplane/tenancy.test.ts`
+  - `ZENITH_TEST_POSTGRES_URL=postgres://... npx vitest run tests/portability/postgres-engine.test.ts` (an empty scratch server where the role may `create database`; uses the production connector `openPostgres` over the network)
+  - `ZENITH_TEST_S3_ENDPOINT=http://127.0.0.1:4566 ZENITH_PORTABILITY_ALLOW_PRIVATE_HOSTS=1 npx vitest run tests/portability/objectstore-engine.test.ts` (LocalStack or any S3-compatible endpoint; credentials from `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`)
+  - `ZENITH_TEST_MYSQL_URL=mysql://... npx vitest run tests/portability/mysql-engine.test.ts` (needs `mysql` and `mysqldump` on PATH and an empty scratch database)
+- `npx tsx scripts/docs/capability-matrix.ts --check` expect up to date (the matrix was edited by hand; regenerate if it differs).
+- `npx tsc --noEmit -p .` expect clean.
+
+## 4. Known gaps, things that may break first, shared-file updates
+
+Honest limits:
+- No test was run on the build machine. Highest risk if something fails: the PGlite journeys in `postgres-engine.test.ts` (catalog SQL, `dumpDataDir`/`loadDataDir` re-open), then the policy-driven approvals in `store.test.ts` and `portability-broker.test.ts` (they assume a high-risk proposal in the production environment awaits one human approval by an admin).
+- MySQL is contract-level only: the CLI integration is tested against a scripted client, never a server.
+- Live providers are unverified: connecting to RDS, Cloud SQL, Azure, OCI, Neon and S3-compatible endpoints is exercised only through the generic Postgres, MySQL and S3 clients; managed-service specifics (TLS CA chains, IAM database auth, VPC reachability) are the operator's to provide. TLS defaults to `require` (encrypted, unverified) unless the connection URI asks for `verify-full`.
+- Kubernetes PVC and other volumes: no data mover exists, so export and import are refused with an explicit reason; adoption, release and decommission rules apply.
+- The artifact is not encrypted by Zenith (readable without Zenith by design); confidentiality is the destination bucket's.
+- Exports are held in memory (128 MiB and 2,000,000 rows for a database, 5,000 objects, 64 MiB each); larger sources are refused, not truncated.
+- The "ownership proof" for a resource Zenith created is the existing rule (a managed node in the graph and the tofu state). Provider-side tag proof was NOT added to the destroy path because several providers sanitize or hash labels and it would refuse legitimate teardowns; the new gate refuses on adoption facts (positive evidence an object was NOT created by Zenith). Adoption does not write tags to the provider.
+- No UI page; REST, MCP and the read route are the surfaces. `resource.release` flips the stored ownership only: a manifest that still declares the node `managed` will conflict on the next apply until it is edited.
+- DNS rebinding between the host check and the connection is not closed (the Postgres and S3 clients do not expose connecting to a vetted address).
+- Saved-plan settlement, plan-artifact and cleanup-writer-barrier code were not modified; the only calls into the deploy and destroy paths are the one-line gate calls in `execution/plan.ts` and `execution/destroy.ts`.
+
+New tables and store functions (tenancy classification, already added to `tests/controlplane/tenancy.test.ts`):
+- Tables: `platform.portability_exports`, `platform.portability_restores`, `platform.resource_adoptions`.
+- SWEPT reads (foreign-workspace attempts added): `portability.getExport`, `.listExports`, `.listRestores`, `.getAdoption`, `.listAdoptions`, `.adoptionFacts`.
+- WRITES (workspace-bound; foreign refusals tested in `tests/portability/store.test.ts`): `portability.recordExport`, `.recordRestore`, `.adopt`, `.release`.
+- `tests/security/controlplane-sql-scoping.test.ts` is static discovery: every query in `repos/portability.ts` filters `workspace_id`.
+
+Shared files the orchestrator must update (not touched here):
+- `supabase/migrations/*`, `emit.ts` hardening block, `scripts/ci/apply-supabase-migrations.sh`, `docs/platform/operations/DEPLOYING.md` (count, highest version, row 25, aggregate), `tests/controlplane/migrations.test.ts` (version 25, name `portability`, checksum above). Migration numbers 21 to 24 belong to other workers: `PLATFORM_MIGRATIONS` here jumps from 20 to 25 until they merge.
+- `scripts/ci/gate-manifest.mjs` and `.github/workflows/*`: new suites `tests/portability/store.test.ts` and `tests/capabilities/portability-broker.test.ts` (platform-postgres lane when `ZENITH_TEST_PLATFORM_PG_URL` is set), and the env-gated real-engine suites listed above.
+- `docs/LIMITATIONS.md`, `PROGRESS.md`, `ledger.json`: backup, export, import and adoption now exist for managed Postgres, MySQL and S3-compatible object storage; PVC data export remains unsupported; MySQL and all live providers remain unverified.
+
+## 5. Suggested ledger implementationStatus
+
+`export_import_readback_postgres_objects_verified_local_engine_mysql_contract_only_adoption_claim_baseline_and_adopted_destroy_gate_built_unverified_pvc_data_movement_unsupported_live_providers_unverified`

@@ -43,6 +43,7 @@ import * as nonces from "./nonces";
 import * as observations from "./observations";
 import * as operations from "./operations";
 import * as ownershipTransfers from "./ownership-transfers";
+import * as portability from "./portability";
 import * as operationExecution from "./operations-execution";
 import * as policyDecisions from "./policy-decisions";
 import * as resources from "./resources";
@@ -76,6 +77,7 @@ export {
   observations,
   operations,
   ownershipTransfers,
+  portability,
   operationExecution,
   policyDecisions,
   resources,
@@ -133,6 +135,7 @@ export function bindRepos(sql: Sql) {
     observations: bind(observations, sql),
     operations: bind(operations, sql),
     ownershipTransfers: bind(ownershipTransfers, sql),
+    portability: bind(portability, sql),
     operationExecution: bind(operationExecution, sql),
     policyDecisions: bind(policyDecisions, sql),
     resources: bind(resources, sql),

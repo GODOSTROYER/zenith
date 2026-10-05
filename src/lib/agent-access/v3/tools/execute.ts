@@ -23,6 +23,11 @@ export const EXECUTABLE: Readonly<Record<string, Kind>> = {
   "deployment.deploy": "deploy",
   "service.restart": "day_two",
   "service.scale": "day_two",
+  // PROD-LIFE-11: approved portability operations run through the same day-two workflow; approval is a person in the browser.
+  "data.export": "day_two",
+  "data.import": "day_two",
+  "resource.adopt": "day_two",
+  "resource.release": "day_two",
 };
 
 const FINISHED_AFTER_START: ReadonlySet<string> = new Set(["succeeded", "failed", "uncertain"]);

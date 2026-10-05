@@ -87,6 +87,8 @@ const SWEPT = new Set([
   // PROD-LIFE-12: tenant-scoped ownership-transfer reads/writes; recordForApprovedOperation is also reachable only via approvals.record.
   "ownershipTransfers.listActive", "ownershipTransfers.guardFor", "ownershipTransfers.revoke", "ownershipTransfers.recordForApprovedOperation",
   "optimizerSettings.getOptimizerSettings",
+  // PROD-LIFE-11: tenant-scoped reads of verified exports, restores and ownership claims (writes are classified below).
+  "portability.getExport", "portability.listExports", "portability.listRestores", "portability.getAdoption", "portability.listAdoptions", "portability.adoptionFacts",
 ]);
 
 /** Writes that bind the new row to the workspace they are given; their tenant checks are tested with the owning suite. */
@@ -127,6 +129,8 @@ const WRITES = new Set([
   // Native candidate capture binds only exact owning IDs; foreign retention leaves custody/approvals untouched.
   // Covered by the mandatory mixed-child admission native duplicate + foreign-workspace controls.
   "mixedChildIntents.retain",
+  // PROD-LIFE-11: each binds the row and every lookup to the supplied workspace; foreign-workspace refusals, approval binding and append-only rules are covered by tests/portability/store.test.ts.
+  "portability.recordExport", "portability.recordRestore", "portability.adopt", "portability.release",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings", "idempotency.reserve", "idempotency.complete",
 ]);
 
@@ -464,6 +468,12 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "ownershipTransfers.guardFor": () => repos.ownershipTransfers.guardFor(db, B, envId, resource.id),
       "ownershipTransfers.revoke": () => repos.ownershipTransfers.revoke(db, { workspaceId: B, transferDigest: hex("a"), operationId: opId, revokedBy: "b" }),
       "ownershipTransfers.recordForApprovedOperation": () => seen(repos.ownershipTransfers.recordForApprovedOperation(db, { workspaceId: B, operationId: opId, approvalId: "apr_foreign" })),
+      "portability.getExport": () => repos.portability.getExport(db, B, "pex_foreign"),
+      "portability.listExports": () => repos.portability.listExports(db, B, envId),
+      "portability.listRestores": () => repos.portability.listRestores(db, B, envId),
+      "portability.getAdoption": () => repos.portability.getAdoption(db, B, "ado_foreign"),
+      "portability.listAdoptions": () => repos.portability.listAdoptions(db, B, envId),
+      "portability.adoptionFacts": () => repos.portability.adoptionFacts(db, B, envId),
       "settings.getEnvironmentSettings": () => repos.settings.getEnvironmentSettings(db, B, envId),
       "settings.getWorkspacePolicy": () => repos.settings.getWorkspacePolicy(db, B),
       "optimizerSettings.getOptimizerSettings": () => repos.optimizerSettings.getOptimizerSettings(db, B, envId),

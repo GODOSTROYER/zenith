@@ -443,6 +443,17 @@ export interface BuildResult {
   digest?: string;
   /** short, redacted phase/failure description */
   detail?: string;
+  /**
+   * What the provider reported about the executed build (identity, network, mount, resources).
+   * Required for a successful source build: release refuses an artifact without it (PROD-LIFE-09).
+   */
+  attestation?: import("./build-isolation").BuildAttestation;
+}
+
+/** Signing and pinned verification keys for build provenance (the control-plane EdDSA key). */
+export interface BuildProvenanceAuthority {
+  signer(): Promise<import("@/lib/credentials/signing/types").JwtSigner | undefined>;
+  keys(): Promise<readonly import("@/lib/credentials/signing/types").PublicJwk[]>;
 }
 
 /** CodeBuild in the customer's account (ADR-0016). Backed by the compute drivers' build helper (WS-AWS-CMP). */
@@ -581,6 +592,10 @@ export interface ExecutionDeps {
   sourceBundle?: SourceBundlePort;
   sourceSnapshots?: import("@/lib/controlplane/db/repos/approved-source-snapshots").ApprovedSourceSnapshotStore;
   build?: BuildPort;
+  /** Required to release any built artifact: signs provenance after a build and verifies it before rollout. */
+  provenance?: BuildProvenanceAuthority;
+  /** Build isolation admission policy; default refuses unrestricted egress. */
+  buildIsolation?: import("./build-isolation").BuildIsolationPolicy;
   workloads?: WorkloadsPort;
   migrations?: MigrationsPort;
   /* runtime */

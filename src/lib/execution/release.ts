@@ -44,7 +44,10 @@ import { withKeepAlive } from "./keepalive";
 import type { Runtime } from "./runtime";
 import { driverContext, LONG_SESSION_SEC, withProviderSession } from "./session";
 import { safeText } from "./text";
-import { approvedSources } from "./source-snapshot";
+import { approvedSources, type ApprovedSourceSnapshot } from "./source-snapshot";
+import { isApprovedSourceSnapshotStore } from "@/lib/controlplane/db/repos/approved-source-snapshots";
+import { assertBuildIsolation, BuildIsolationError, contextDirOf, type BuildAttestation, type BuildProviderKey } from "./build-isolation";
+import { BuildProvenanceError, provenanceEvidenceDigest, signBuildProvenance, verifyBuildProvenance } from "./build-provenance";
 import { syncEnvironmentSecrets } from "./secrets";
 
 type ReleaseActivities = Pick<ExecutionActivities, "buildArtifacts" | "deployWorkloads" | "runMigrations">;
@@ -110,6 +113,7 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
       if (targets.length > 0 && !workloads) throw new StepFailedError("This worker has no workload deployer configured; it cannot roll out services.");
       const needsSecrets = graph.nodes.some((n) => (n.kind === "secret" && typeof n.spec.secretRef === "string" && n.spec.secretRef.startsWith("vault:")) || (n.ownership === "managed" && ["kubernetes", "zenith"].includes(n.provider) && ["postgres", "redis"].includes(n.kind)));
       if (targets.length === 0 && !needsSecrets) return { services: 0 };
+      await admitBuiltArtifacts(rt, ec, graph, targets, byService);
       const connection = await resolveConnection(rt, ec);
 
       await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
@@ -224,6 +228,8 @@ async function buildOne(
   const source = (pipeline.spec as unknown as BuildPipelineSpec).source;
   if (!source || typeof source.repo !== "string") throw new StepFailedError(`${artifact.pipeline} has no source repository.`);
 
+  // Admission of the build INPUT: buildpack plans and an invalid or unsupported context directory are refused before any bundle is prepared.
+  const contextDir = contextDirFor(node, pipeline);
   const approvedSource=ec.approvedSourceSnapshots?.find(s=>s.serviceAddress===node.address);
   if(!approvedSource) throw new StepFailedError("This build plan has no approved source snapshot; a new operation and review are required.");
   const bundle = await bundler.prepare(ctx, { service: node, approvedSource, source: { repo: source.repo, ref: source.ref, ...(source.dockerfile ? { dockerfile: source.dockerfile } : {}) } });
@@ -263,6 +269,123 @@ async function buildOne(
     },
     { critical: true }
   );
+  // PROD-LIFE-09: isolation check, signed provenance and its evidence are required before this image can be admitted for rollout.
+  await recordBuildProvenance(rt, ec, node, pipeline, approvedSource, { imageUri, digest: result.digest, attestation: result.attestation, contextDir });
   rt.log("info", "build finished", { service: node.address });
   return { service: node.address, imageUri, digest: result.digest };
+}
+
+/**
+ * The compact JWS is stored as its three segments: the evidence store refuses any JWT-shaped
+ * string (it cannot tell a signed statement from a leaked credential), so the whole token never
+ * appears as one value. Anything that is not exactly three strings fails verification.
+ */
+const joinJws = (parts: unknown): unknown => (Array.isArray(parts) && parts.length === 3 && parts.every((p) => typeof p === "string") ? parts.join(".") : undefined);
+
+/** Validated build context of the pipeline, as a StepFailedError (a definitive, non-retried refusal). */
+function contextDirFor(node: ResourceNode, pipeline: ResourceNode): string {
+  try {
+    return contextDirOf(pipeline.spec as unknown as BuildPipelineSpec, providerOf(node));
+  } catch (error) {
+    if (error instanceof BuildIsolationError) throw new StepFailedError(`${safeText(error.message, 300)} (${pipeline.address}).`);
+    throw error;
+  }
+}
+
+const buildPolicy = (rt: Runtime) => rt.d.buildIsolation ?? { allowOpenEgress: false };
+const providerOf = (node: ResourceNode): BuildProviderKey => {
+  if (node.provider !== "aws" && node.provider !== "gcp" && node.provider !== "azure") throw new StepFailedError(`Source builds on ${safeText(node.provider, 20)} have no build isolation profile and are refused.`);
+  return node.provider;
+};
+
+/**
+ * PROD-LIFE-09: after a successful build, check the OBSERVED isolation against
+ * the provider profile, sign a SLSA-style provenance statement with the
+ * control-plane key and retain it as critical build evidence. Nothing is
+ * deployed from an artifact whose isolation or provenance cannot be recorded.
+ */
+async function recordBuildProvenance(
+  rt: Runtime,
+  ec: ExecContext,
+  node: ResourceNode,
+  pipeline: ResourceNode,
+  source: ApprovedSourceSnapshot,
+  built: { imageUri: string; digest: string; attestation: BuildAttestation | undefined; contextDir: string }
+): Promise<void> {
+  const provider = providerOf(node);
+  const authority = rt.d.provenance;
+  if (!authority) throw new StepFailedError("This worker has no build provenance signer configured, so built artifacts cannot be released.");
+  if (!built.attestation) throw new StepFailedError(`The build of ${node.address} returned no isolation attestation from its provider, so nothing will be deployed from it.`);
+  const signer = await authority.signer();
+  if (!signer) throw new StepFailedError("The control-plane signing key is not configured, so build provenance cannot be signed.");
+  try {
+    const { exceptions } = assertBuildIsolation(provider, built.attestation.isolation, buildPolicy(rt));
+    const input = {
+      workspaceId: ec.workspaceId,
+      operationId: ec.op.id,
+      environmentId: ec.environmentId,
+      provider,
+      serviceAddress: node.address,
+      pipelineAddress: pipeline.address,
+      contextDir: built.contextDir,
+      imageName: built.imageUri.replace(/@sha256:[a-f0-9]{64}$/, "").replace(/:[^:/@]+$/, ""),
+      imageDigest: built.digest,
+      source,
+      attestation: built.attestation,
+      exceptions,
+    };
+    const signed = await signBuildProvenance(signer, input, rt.now());
+    // Verify what was just signed so a key/pinning mismatch fails here, not at rollout.
+    await verifyBuildProvenance(signed.jws, { ...input, policy: buildPolicy(rt) }, await authority.keys());
+    const evidence = await rt.evidence(
+      ec.scope,
+      {
+        kind: "build",
+        digest: provenanceEvidenceDigest(ec.op.id, node.address, built.digest),
+        summary: { kind: "build.provenance", service: node.address, pipeline: pipeline.address, imageDigest: built.digest, sourceDigest: source.archiveDigest, commit: source.commitSha, statementDigest: signed.statementDigest, kid: signed.kid, exceptions, jwsParts: signed.jws.split(".") },
+        simulated: false,
+        key: `build-provenance:${node.address}:${built.digest}`,
+      },
+      { critical: true }
+    );
+    if (!evidence) throw new StepFailedError(`The provenance of ${node.address} could not be recorded, so nothing will be deployed from it.`);
+  } catch (error) {
+    if (error instanceof BuildIsolationError || error instanceof BuildProvenanceError) throw new StepFailedError(`${safeText(error.message, 300)} Nothing will be deployed from ${node.address}.`);
+    throw error;
+  }
+}
+
+/**
+ * PROD-LIFE-09 release admission: a workload built from customer source is only
+ * pointed at an image whose signed provenance verifies against pinned keys and
+ * binds this operation, this service, the image digest and the reviewed source
+ * snapshot, and whose recorded isolation still satisfies the profile.
+ */
+async function admitBuiltArtifacts(rt: Runtime, ec: ExecContext, graph: ResourceGraph, targets: ResourceNode[], images: Map<string, { imageUri: string; digest: string }>): Promise<void> {
+  const built = targets.filter((n) => artifactOf(n)?.type === "built");
+  if (built.length === 0) return;
+  const authority = rt.d.provenance;
+  const store = rt.d.sourceSnapshots;
+  if (!authority || !isApprovedSourceSnapshotStore(store)) throw new StepFailedError("Built artifacts cannot be admitted: provenance keys or the approved source store are not configured.");
+  const sources = await store.list({ workspaceId: ec.workspaceId, operationId: ec.op.id, projectId: ec.product.project.id, environmentId: ec.environmentId });
+  const keys = await authority.keys();
+  for (const node of built) {
+    const artifact = artifactOf(node) as Extract<ArtifactSpec, { type: "built" }>;
+    const image = images.get(node.address);
+    const source = sources.find((s) => s.serviceAddress === node.address);
+    const pipeline = nodeAt(graph, artifact.pipeline);
+    if (!image || !SHA256_IMAGE_DIGEST.test(image.digest) || !source || !pipeline) throw new StepFailedError(`${node.address} has no verified built image and reviewed source, so it will not be released.`);
+    const record = await rt.d.evidence.find({ workspaceId: ec.workspaceId, operationId: ec.op.id, kind: "build", digest: provenanceEvidenceDigest(ec.op.id, node.address, image.digest) });
+    if (!record || record.simulated || record.summary.kind !== "build.provenance") throw new StepFailedError(`${node.address} has no build provenance, so it will not be released.`);
+    try {
+      await verifyBuildProvenance(
+        joinJws(record.summary.jwsParts),
+        { workspaceId: ec.workspaceId, operationId: ec.op.id, environmentId: ec.environmentId, provider: providerOf(node), serviceAddress: node.address, pipelineAddress: pipeline.address, contextDir: contextDirFor(node, pipeline), imageDigest: image.digest, source, policy: buildPolicy(rt) },
+        keys
+      );
+    } catch (error) {
+      if (error instanceof BuildIsolationError || error instanceof BuildProvenanceError) throw new StepFailedError(`${safeText(error.message, 300)} ${node.address} will not be released.`);
+      throw error;
+    }
+  }
 }

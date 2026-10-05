@@ -213,10 +213,27 @@ export interface ContainerRegistrySpec {
 }
 
 export interface BuildPipelineSpec {
-  source: { repo: string; ref: string; dockerfile?: string };
+  source: {
+    repo: string;
+    ref: string;
+    dockerfile?: string;
+    /** build context subdirectory inside the repository (monorepo root), relative and normalized; default the repository root */
+    contextDir?: string;
+    /** how the image is built; only `dockerfile` has an isolated builder, `buildpacks` is refused at admission */
+    builder?: "dockerfile" | "buildpacks";
+  };
   output: { registry: string } | { staticSite: string };
   /** builds run in the customer's account (ADR-0016) */
   location: "customer_account";
+  /** build isolation inputs (PROD-LIFE-09); absent means the provider defaults, which release admission may refuse */
+  isolation?: BuildIsolationSpec;
+}
+
+export interface BuildIsolationSpec {
+  /** AWS: extra DNS names (port 443) a Dockerfile may reach besides the default package registries */
+  allowedHosts?: string[];
+  /** GCP: Cloud Build private worker pool resource name; Azure: ACR dedicated agent pool name */
+  workerPool?: string;
 }
 
 /** Desired volume attributes; expansion does not emit volume nodes yet. */

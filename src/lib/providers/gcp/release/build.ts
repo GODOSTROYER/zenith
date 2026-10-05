@@ -13,7 +13,8 @@ import { StepFailedError } from "@/lib/execution/errors";
 import { digest } from "@/lib/controlplane/digest";
 import { namePrefix } from "@/lib/execution/session";
 import { cloudName, nodeName, parseTagDescription, gcpLabels } from "@/lib/providers/gcp/naming";
-import { startBuild, opTag } from "@/lib/providers/gcp/drivers/build/build-api";
+import { startBuild, opTag, CLOUD_BUILD_DOCKER_IMAGE } from "@/lib/providers/gcp/drivers/build/build-api";
+import { allowlistDigest, BUILD_ISOLATION_PROFILES, contextDirOf, type BuildAttestation } from "@/lib/execution/build-isolation";
 import { rec, arr } from "@/lib/providers/gcp/read-kit";
 import { context, managed, assertLabels, get, AR, SOURCE_DIGEST, IMAGE_DIGEST, bounded, pause, pipelineNames, type Ctx } from "./support";
 
@@ -54,6 +55,44 @@ function decode(ctx: Ctx, raw: string): Handle {
   return h;
 }
 
+/**
+ * What the executed Cloud Build carried, read back from the build record (and the private pool, when one
+ * ran it). The build's own `options` are the evidence, not the request this process made. Without a
+ * private pool with NO_PUBLIC_EGRESS the default pool has open egress and the build is reported so.
+ */
+async function attest(ctx: Ctx, obj: Record<string, unknown>, h: Handle): Promise<BuildAttestation> {
+  const profile = BUILD_ISOLATION_PROFILES.gcp;
+  const options = rec(obj.options);
+  const pool = rec(options.pool);
+  let egress: BuildAttestation["isolation"]["network"] = { egress: "unrestricted", mechanism: "the default Cloud Build pool has public egress; configure spec.isolation.workerPool" };
+  let computeClass = typeof options.machineType === "string" ? options.machineType : "unknown";
+  if (typeof pool.name === "string") {
+    if (!/^projects\/[^/]+\/locations\/[^/]+\/workerPools\/[a-z][a-z0-9-]{0,62}$/.test(pool.name) || !pool.name.startsWith(`projects/${ctx.session.projectId}/`)) throw new StepFailedError("Cloud Build ran in a worker pool outside this project.");
+    const poolObj = await get(ctx, `${CB}/${pool.name}`);
+    const config = rec(rec(poolObj.privatePoolV1Config).networkConfig);
+    const worker = rec(rec(poolObj.privatePoolV1Config).workerConfig);
+    if (typeof worker.machineType === "string") computeClass = worker.machineType;
+    if (config.egressOption === "NO_PUBLIC_EGRESS") egress = { egress: "allowlisted", verifiedBy: "provider_read", allowlistDigest: allowlistDigest([pool.name, "NO_PUBLIC_EGRESS"]), mechanism: profile.mechanisms.network };
+  }
+  const timeoutSec = /^(\d{1,6})s$/.exec(String(obj.timeout ?? ""));
+  return {
+    builderId: typeof pool.name === "string" ? pool.name : `projects/${ctx.session.projectId}/locations/${ctx.region}/builds`,
+    invocationId: h.id,
+    builderImage: CLOUD_BUILD_DOCKER_IMAGE,
+    ...(typeof obj.startTime === "string" ? { startedOn: obj.startTime } : {}),
+    ...(typeof obj.finishTime === "string" ? { finishedOn: obj.finishTime } : {}),
+    isolation: {
+      profileId: profile.id,
+      identity: { principal: h.serviceAccount, dedicated: obj.serviceAccount === `projects/${ctx.session.projectId}/serviceAccounts/${h.serviceAccount}`, deployCredentials: "absent" },
+      metadata: { exposes: "build_identity_only", mechanism: profile.mechanisms.metadata },
+      network: egress,
+      dependencies: { downloads: egress.egress === "allowlisted" ? "allowlisted" : "direct" },
+      filesystem: { sourceMount: rec(rec(obj.source).storageSource).generation === h.generation ? "read_only" : "read_write" },
+      resources: { timeoutSec: timeoutSec ? Number(timeoutSec[1]) : 0, computeClass },
+    },
+  };
+}
+
 export function createBuildPort(): BuildPort {
   return {
     async startBuild(raw, input) {
@@ -85,7 +124,7 @@ export function createBuildPort(): BuildPort {
       if (!/^[a-z0-9][a-z0-9._-]{0,127}$/.test(imageName)) throw new StepFailedError("Build workload name is not an image repository name.");
       const key = digest([scope(ctx), input.service.address, input.pipeline.address, input.source.digest, input.idempotencyKey]);
       const image = `${output.uri}/${imageName}:zn-${key}`;
-      const started = await startBuild({ ...ctx, operationId: key }, { sourceBucket: bucket, sourceObject: object, sourceGeneration: metadata.generation, imageRef: image, buildServiceAccount: names.serviceAccount, dockerfile: spec.source?.dockerfile });
+      const started = await startBuild({ ...ctx, operationId: key }, { sourceBucket: bucket, sourceObject: object, sourceGeneration: metadata.generation, imageRef: image, buildServiceAccount: names.serviceAccount, dockerfile: spec.source?.dockerfile, contextDir: contextDirOf(spec, "gcp"), ...(spec.isolation?.workerPool ? { workerPool: spec.isolation.workerPool } : {}) });
       if (!started.ok || !started.buildId) throw new Error("Cloud Build launch could not be confirmed; reconcile before retrying.");
       const handle: Handle = { version: 1, scope: scope(ctx), id: started.buildId, tag: opTag(key), image, registry: output.name, registryAddress: input.registry.address, bucket, object, generation: metadata.generation, serviceAccount: names.serviceAccount };
       return { buildId: JSON.stringify(handle) };
@@ -113,7 +152,7 @@ export function createBuildPort(): BuildPort {
             const imageId = `${h.image.split("/").slice(3).join("/").replace(/:[^:/]+$/, "")}@${imageDigest}`;
             const actual = await get(ctx, `${AR}/${h.registry}/dockerImages/${encodeURIComponent(imageId)}`);
             if (actual.uri !== imageUri || actual.name !== `${h.registry}/dockerImages/${imageId}`) throw new StepFailedError("Artifact Registry did not verify the build's image digest.");
-            return { status: "succeeded", digest: imageDigest, imageUri };
+            return { status: "succeeded", digest: imageDigest, imageUri, attestation: await attest(ctx, obj, h) };
           }
           if (!["QUEUED", "WORKING", "PENDING"].includes(String(state))) throw new Error("Cloud Build state is unknown.");
           if (Date.now() >= wait.deadline) return { status: "timed_out" };

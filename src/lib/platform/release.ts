@@ -65,7 +65,7 @@ export function createAwsBuildPort(db?: Sql): BuildPort {
       if (!match || match[1] !== aws.session.accountId || match[2] !== aws.region) throw new StepFailedError("Build output registry is outside this AWS session.");
       const repos = await aws.session.client(ECRClient).send(new DescribeRepositoriesCommand({ repositoryNames: [match[3]] }), { abortSignal: ctx.signal });
       if (!repos.repositories?.some((r) => r.repositoryUri === uri)) throw new StepFailedError("Build output repository could not be verified.");
-      return { status: "succeeded", digest: result.imageDigest, imageUri: `${uri}@${result.imageDigest}` };
+      return { status: "succeeded", digest: result.imageDigest, imageUri: `${uri}@${result.imageDigest}`, ...(result.attestation ? { attestation: result.attestation } : {}) };
     },
   };
 }

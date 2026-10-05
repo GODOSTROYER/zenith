@@ -185,6 +185,97 @@ func TestServiceConfigureReloadActionIsClosedByProfile(t *testing.T) {
 	}
 }
 
+func TestServiceConfigureInactiveReloadProfileRestartsWithExactCustody(t *testing.T) {
+	for _, kind := range []string{"create", "replace"} {
+		t.Run(kind, func(t *testing.T) {
+			e, a, p, sd, desired := serviceFixture(t, "reload")
+			sd.active = "inactive"
+			old := []byte("APP_MODE=prior-inactive-fixture\n")
+			if kind == "replace" {
+				if err := os.WriteFile(p.Path, old, 0600); err != nil {
+					t.Fatal(err)
+				}
+				prior := writeSHA(old)
+				a.ExpectedSHA256 = &prior
+			}
+			r := serviceRun(t, e, a)
+			if !r.OK || r.Data["changed"] != true || r.Data["created"] != (kind == "create") || r.Data["action"] != "restart" || r.Data["activeState"] != "active" || r.Data["effect"] != "committed" || r.Data["profileVersion"] != p.ProfileVersion {
+				t.Fatal("inactive reload profile did not establish exact restart postconditions", r.Data)
+			}
+			writeAssertBytes(t, p.Path, desired)
+			if got := sd.actions(); len(got) != 1 || got[0] != "restart --no-pager -- app.service" {
+				t.Fatal("inactive unit did not receive exactly one fixed restart", got)
+			}
+			ref, ok := r.Data["transactionRef"].(string)
+			if !ok {
+				t.Fatal("committed configuration lost its transaction custody")
+			}
+			raw, err := os.ReadFile(filepath.Join(e.Cfg.ServiceConfigure.BackupDir, ref+".json"))
+			var intent map[string]any
+			if err != nil || json.Unmarshal(raw, &intent) != nil || intent["operation"] != OpServiceConfigure || intent["profileRef"] != p.ProfileRef || intent["profileVersion"] != p.ProfileVersion || intent["desiredSha256"] != p.SHA256 || intent["created"] != (kind == "create") || intent["state"] != "commit-may-have-run" {
+				t.Fatal("restart did not preserve the exact original file intent")
+			}
+			if kind == "replace" {
+				if r.Data["backupRef"] != ref || intent["priorSha256"] != *a.ExpectedSHA256 {
+					t.Fatal("replacement lost its original prior-state binding")
+				}
+				writeAssertBytes(t, filepath.Join(e.Cfg.ServiceConfigure.BackupDir, ref+".data"), old)
+			} else if r.Data["backupRef"] != nil || intent["priorSha256"] != nil {
+				t.Fatal("create claimed a prior file or backup")
+			}
+			assertNoLeak(t, r, p)
+		})
+	}
+}
+
+func TestServiceConfigureInactiveReloadProfileRefusesInexactPrior(t *testing.T) {
+	for _, kind := range []string{"prior-on-absent", "absence-on-existing"} {
+		t.Run(kind, func(t *testing.T) {
+			e, a, p, sd, _ := serviceFixture(t, "reload")
+			sd.active = "inactive"
+			old := []byte("APP_MODE=retained-prior-fixture\n")
+			if kind == "prior-on-absent" {
+				prior := writeSHA(old)
+				a.ExpectedSHA256 = &prior
+			} else if err := os.WriteFile(p.Path, old, 0600); err != nil {
+				t.Fatal(err)
+			}
+			r := serviceRun(t, e, a)
+			if r.OK || r.Data["error"] != "refused" || r.Data["effect"] != "none" || r.Data["transactionRef"] != nil || len(sd.actions()) != 0 {
+				t.Fatal("inactive convergence bypassed the exact file precondition", r.Data)
+			}
+			if kind == "absence-on-existing" {
+				writeAssertBytes(t, p.Path, old)
+			} else if _, err := os.Lstat(p.Path); !errors.Is(err, os.ErrNotExist) {
+				t.Fatal("refused convergence created a configuration")
+			}
+			entries, err := os.ReadDir(e.Cfg.ServiceConfigure.BackupDir)
+			if err != nil || len(entries) != 0 {
+				t.Fatal("refused convergence created retained mutation custody")
+			}
+		})
+	}
+}
+
+func TestServiceConfigureInactiveReloadProfileRequiresRestartAuthority(t *testing.T) {
+	e, a, p, sd, _ := serviceFixture(t, "reload")
+	sd.active = "inactive"
+	e.Cfg.Services.RestartAllow = []string{"other.service"}
+	raw, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run, err := e.Prepare(OpServiceConfigure, &Request{Args: raw, MaxOutputBytes: 4096}); run != nil || err == nil {
+		t.Fatal("inactive convergence bypassed existing restart authority")
+	}
+	if sd.shows != 0 || len(sd.actions()) != 0 {
+		t.Fatal("unauthorized convergence consulted or changed the service")
+	}
+	if _, err := os.Lstat(p.Path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("unauthorized convergence wrote the configuration")
+	}
+}
+
 func TestServiceConfigureUnitFailureAfterCommitIsDefiniteAndRetained(t *testing.T) {
 	for name, setup := range map[string]func(*fakeSystemd){
 		"action exits non-zero": func(sd *fakeSystemd) { sd.exit["restart"] = 1 },

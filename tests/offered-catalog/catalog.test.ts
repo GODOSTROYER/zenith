@@ -17,6 +17,7 @@ import {
   parseCatalogFilter,
   queryOfferedCatalog,
   OfferedCatalogSchema,
+  EntrySchema,
   checkCatalogInvariants,
   DOMAINS,
   PROVIDER_ORDER,
@@ -77,6 +78,27 @@ describe("the committed offered capability catalog", () => {
     for (const e of getOfferedCatalog().entries) {
       if (e.level !== "supported") expect(e.reason, `${e.provider}/${e.kind}`).toBeTruthy();
       for (const c of cells(e)) if (c.level !== "supported") expect(c.reason).toBeTruthy();
+    }
+  });
+
+  it("refuses preview entries without a rationale and retains their actual lifecycle limits", async () => {
+    const { catalog } = await deriveCurrentCatalog({ repoRoot: ROOT });
+    const entry = catalog.entries.find((e) => e.provider === "aws" && e.kind === "network");
+    if (!entry) throw new Error("The existing AWS network entry is missing.");
+    expect(entry.level).toBe("preview");
+    expect(entry.lifecycle?.provision?.level).toBe("preview");
+    expect(entry.lifecycle?.runtime?.level).toBe("unsupported");
+    expect(entry.reason).toMatch(/contract-level only/);
+    expect(EntrySchema.safeParse(entry).success).toBe(true);
+    expect(EntrySchema.safeParse({ ...entry, reason: undefined }).success).toBe(false);
+    expect(EntrySchema.safeParse({ ...entry, reason: "" }).success).toBe(false);
+    for (const preview of catalog.entries.filter((e) => e.level === "preview")) {
+      const reasons = cells(preview).filter((c) => c.level === "preview").map((c) => c.reason);
+      expect(reasons.length).toBeGreaterThan(0);
+      for (const reason of reasons) {
+        if (!reason) throw new Error("A preview cell lost its evidence rationale.");
+        expect(preview.reason).toContain(reason);
+      }
     }
   });
 

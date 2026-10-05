@@ -151,6 +151,7 @@ export const EntrySchema = z
     const cells = [...Object.values(e.lifecycle ?? {}), ...Object.values(e.dayTwo ?? {})];
     if (e.level !== bestLevel(cells.map((c) => c.level))) bad("entry level must be the best of its cells");
     if (e.level === "unsupported" && e.reason === undefined) bad("an unsupported entry must say why");
+    if (e.level === "preview" && e.reason === undefined) bad("a preview entry must say why");
   });
 export type Entry = z.infer<typeof EntrySchema>;
 

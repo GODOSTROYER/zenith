@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { machineHealthTelemetry, readMachineHealth, type MachineDriver } from "@/lib/machines";
 import { grantFor, MemoryEvidence, okResult, requestFor, sessions, T0 } from "./_helpers";
 
@@ -28,11 +28,32 @@ describe("machine health telemetry", () => {
   });
 
   it("a grant refusal is inaccessible, not healthy and not an exception", async () => {
-    const out = await readMachineHealth(requestFor("service.status", { unit: "nginx.service" }), ctx(driver(), grantFor("service.status", { ws: "other-ws" })));
+    const execute = vi.fn(driver().execute);
+    const context = ctx(driver({ execute }), grantFor("service.status", { ws: "other-ws" }));
+    const out = await readMachineHealth(requestFor("service.status", { unit: "nginx.service" }), context);
     expect(out.result).toBeUndefined();
-    expect(out.error?.code).toBe("denied");
+    expect(out.error?.code).toBe("grant_mismatch");
     expect(out.telemetry.state).toBe("inaccessible");
     expect(out.telemetry.provenance[0].reason).toContain("denied");
+    expect(execute).not.toHaveBeenCalled();
+    expect(context.sessions.opened).toBe(0);
+    expect(context.evidence.records).toHaveLength(1);
+    expect(context.evidence.records[0].summary).toMatchObject({ outcome: "rejected", code: "grant_mismatch" });
+  });
+
+  it("classifies both authority refusal codes without promoting ordinary read failures", () => {
+    const req = requestFor("service.status", { unit: "nginx.service" });
+    for (const code of ["denied", "grant_mismatch"]) {
+      const telemetry = machineHealthTelemetry({ target: req.target, observedAt: NOW().toISOString(), error: { code, message: "read authority refused" } });
+      expect(telemetry.state).toBe("inaccessible");
+      expect(telemetry.provenance[0].itemCount).toBe(0);
+      expect(telemetry.provenance[0].reason).toContain(`access denied: ${code}:`);
+    }
+    for (const code of ["unsupported_operation", "transport_error"]) {
+      const telemetry = machineHealthTelemetry({ target: req.target, observedAt: NOW().toISOString(), error: { code, message: "the target could not be read" } });
+      expect(telemetry.state).toBe("unknown");
+      expect(telemetry.provenance[0].itemCount).toBe(0);
+    }
   });
 
   it("an operation the transport does not support is unknown", async () => {

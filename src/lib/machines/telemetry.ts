@@ -26,7 +26,7 @@ const PROVIDER_OF: Record<MachineTarget["transport"], string> = {
 };
 
 /** Refusals that mean "you may not read this", as opposed to "it could not be read". */
-const REFUSED: ReadonlySet<MachineErrorCode> = new Set(["denied"] as MachineErrorCode[]);
+const REFUSED: ReadonlySet<MachineErrorCode> = new Set(["denied", "grant_mismatch"] as MachineErrorCode[]);
 
 export interface MachineHealthRead {
   result?: MachineResult;

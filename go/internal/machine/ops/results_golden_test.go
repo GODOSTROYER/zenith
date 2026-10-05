@@ -191,6 +191,7 @@ func TestResultGoldens(t *testing.T) {
 		compareGolden(t, OpPackageInstall, map[string]any{"operation": OpPackageInstall, "args": args, "result": res})
 	})
 	t.Run("file.write-filesystem", compareFileWriteGoldens)
+	t.Run("service.configure-filesystem", compareServiceConfigureGolden)
 }
 
 // File writes must come from actual Linux filesystem execution. Opaque

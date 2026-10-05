@@ -181,7 +181,7 @@ export const MachineResultDataSchemas = {
     if (d.changed !== (d.effect === "committed") || (d.changed && !d.transactionRef)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "inconsistent package receipt" });
   }),
   "service.configure": z.object({
-    unit: str(128).regex(/^[A-Za-z0-9@._:-]{1,128}.service$/),
+    unit: str(136).regex(/^[A-Za-z0-9@._:-]{1,128}\.service$/).refine((unit) => unit.endsWith(".service") && !unit.startsWith("-"), "must be an exact service unit name"),
     profileRef: z.string().max(64).regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/),
     profileVersion: z.string().length(64).regex(/^[0-9a-f]{64}$/),
     /** the configuration file changed on disk */

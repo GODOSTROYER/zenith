@@ -336,10 +336,10 @@ func runServiceConfigure(ctx context.Context, e *Env, a serviceConfigureArgs, p 
 	}
 	action := "none"
 	switch {
+	case before["activeState"] != "active":
+		action = "restart" // reload cannot converge an inactive unit, even after a file change
 	case changed:
 		action = p.Action
-	case before["activeState"] != "active":
-		action = "restart" // convergence: a retained config on a dead unit is restarted
 	}
 	if action != "none" {
 		exit, runErr := e.systemctlAction(ctx, action, p.Unit)

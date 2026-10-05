@@ -101,9 +101,18 @@ it("shares the Go immutable profile version grammar and canonical metadata domai
 });
 
 describe("machine file.write payload admission", () => {
-  it("admits exactly the typed local-template capability while upload/packages remain closed", () => {
-    expect(ZENITHD_OPERATIONS).toContain("file.write");expect(ZENITHD_OPERATIONS).toContain("file.upload");expect(ZENITHD_OPERATIONS).not.toContain("package.install");
+  it("admits each local mutation through its own strict typed metadata contract", () => {
+    const upload = { path: args.path, sourceRef: "settings", sourceVersion: args.contentVersion, expectedSha256: null };
+    const packageArgs = { profileRef: "app-package", profileVersion: args.contentVersion, expectedInstalledVersion: null };
+    expect(ZENITHD_OPERATIONS).toContain("file.write");expect(ZENITHD_OPERATIONS).toContain("file.upload");expect(ZENITHD_OPERATIONS).toContain("package.install");
     expect(validateMachineArgs("file.write", args)).toEqual(args);
+    expect(validateMachineArgs("file.upload", upload)).toEqual(upload);
+    expect(validateMachineArgs("package.install", packageArgs)).toEqual(packageArgs);
+    for (const [operation, foreignArgs] of [
+      ["file.write", upload], ["file.write", packageArgs],
+      ["file.upload", args], ["file.upload", packageArgs],
+      ["package.install", args], ["package.install", upload],
+    ] as const) expect(() => validateMachineArgs(operation, foreignArgs)).toThrow(/strict/);
     expect(validateMachineArgs("service.status", { unit: "fixture.service" })).toEqual({ unit: "fixture.service" });
   });
   it("rejects hostile contents and noncanonical paths before an envelope is signed", () => {

@@ -91,6 +91,22 @@ describe("typed service configuration admission", () => {
 });
 
 describe("service configuration receipts", () => {
+  it("roundtrips the longest accepted service unit and refuses overlimit or malformed units", async () => {
+    const unit = `${"a".repeat(128)}.service`;
+    const approved = { ...args, unit };
+    const receipt = { ...data, unit };
+    expect(unit).toHaveLength(136);
+    expect(validateMachineArgs("service.configure", approved)).toEqual(approved);
+    expect(MachineResultDataSchemas["service.configure"].parse(receipt)).toEqual(receipt);
+    const h = harness({ status: "succeeded", result: receipt }, approved);
+    await expect(h.run()).resolves.toMatchObject({ ok: true, data: receipt });
+    expect(h.dispatcher.enqueue).toHaveBeenCalledWith(request(approved), "inert-local-grant");
+    for (const invalid of [`${"a".repeat(129)}.service`, "appXservice", "app.socket", "app.service\n", "-app.service"]) {
+      expect(parseMachineArgs("service.configure", { ...args, unit: invalid }).ok).toBe(false);
+      expect(MachineResultDataSchemas["service.configure"].safeParse({ ...data, unit: invalid }).success).toBe(false);
+    }
+  });
+
   it("requires the exact unit, profile and consistent create/replace/converge receipt", async () => {
     expect(MachineResultDataSchemas["service.configure"].parse({ ...data, bytes: "inert-config-marker", path: "/opt/customer/app.conf" })).toEqual(data);
     for (const receipt of [

@@ -132,6 +132,8 @@ function offeredEntry(provider: ProviderKey, kind: PortableKind, domain: Domain,
   if (level === "unsupported") {
     const registrationReason = driver.registration !== "registered" ? cells.find((c) => c.evidence !== undefined)?.reason : undefined;
     entry.reason = registrationReason ?? [...new Set(cells.map((c) => c.reason ?? ""))].filter(Boolean).sort(cmp)[0] ?? "No operation is implemented.";
+  } else if (level === "preview") {
+    entry.reason = [...new Set(cells.filter((c) => c.level === "preview").map((c) => c.reason ?? ""))].filter(Boolean).sort(cmp).join(" ");
   }
   return entry;
 }

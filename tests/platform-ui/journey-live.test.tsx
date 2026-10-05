@@ -1,5 +1,6 @@
 /** Live progress, replan notice, uncertainty and runbook actions in jsdom. HTTP replies are test fakes, not live API evidence. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
 import { button, click, describedBy, flush, headingsDoNotSkip, mount, text } from "../screens/platform/render";
 import { JourneyLive, readJourney } from "@/app/(product)/platform/_components/journey-live";
 import { RunActions } from "@/app/(product)/platform/runbooks/runs/[id]/run-actions";
@@ -86,10 +87,11 @@ describe("JourneyLive", () => {
     vi.useFakeTimers();
     try {
       fetchMock.mockResolvedValue(jsonReply(op("succeeded")));
-      mount(<JourneyLive workspaceId="ws_1" target={{ kind: "platform_operation", operationId: "op_1" }} initial={initial} pollMs={1000} />);
-      await vi.advanceTimersByTimeAsync(1100);
+      const el = mount(<JourneyLive workspaceId="ws_1" target={{ kind: "platform_operation", operationId: "op_1" }} initial={initial} pollMs={1000} />);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      await vi.advanceTimersByTimeAsync(5000);
+      expect(el.querySelector('[data-testid="journey-live"]')!.textContent).toContain("Succeeded");
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
       expect(fetchMock).toHaveBeenCalledTimes(1);
     } finally { vi.useRealTimers(); }
   });

@@ -52,7 +52,8 @@ describe("postgres logical export", () => {
     expect(names).toEqual(expect.arrayContaining(["schema.json", "schema.sql", "RESTORE.md", "tables/0000.ndjson", "tables/0001.ndjson"]));
     // readable without Zenith: plain SQL and plain rows
     expect(fs.readFileSync(path.join(dir, "schema.sql"), "utf8")).toContain('create table "public"."accounts"');
-    expect(fs.readFileSync(path.join(dir, "tables/0000.ndjson"), "utf8")).toContain("ada@example.test");
+    expect(fs.readFileSync(path.join(dir, "tables/0000.ndjson"), "utf8")).toContain("first");
+    expect(fs.readFileSync(path.join(dir, "tables/0001.ndjson"), "utf8")).toContain("ada@example.test");
     const again = await verifyArtifact(store);
     expect(again.manifestDigest).toBe(outcome.manifestDigest);
   });

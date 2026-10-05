@@ -17,6 +17,8 @@ const files = readdirSync(DIR).filter((f) => /\.(ts|tsx)$/.test(f));
 const SERVER_ONLY = [
   "@/lib/controlplane/digest",
   "@/lib/controlplane/db",
+  "@/lib/runners/lifecycle",
+  "@/lib/platform/operator-journey",
   "@/lib/resources", // the barrel and anything under it at runtime
   "@/lib/tofu/",
   "@/lib/policy/",
@@ -81,6 +83,7 @@ describe("src/components/platform is client-safe", () => {
     for (const file of files) {
       for (const imp of importsOf(readFileSync(join(DIR, file), "utf8"))) {
         if (imp.spec.startsWith("react") || imp.spec === "lucide-react") continue;
+        if (imp.typeOnly && ["@/lib/runners/lifecycle", "@/lib/platform/operator-journey"].includes(imp.spec)) continue;
         if (!allowed.test(imp.spec)) offenders.push(`${file}: ${imp.spec}`);
       }
     }

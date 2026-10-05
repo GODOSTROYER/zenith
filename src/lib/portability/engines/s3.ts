@@ -127,7 +127,7 @@ export function s3ArtifactStore(store: ObjectStorePort, base: string, label: str
   };
   return {
     label,
-    put: (key, bytes) => store.put(safe(key), bytes, "application/octet-stream"),
+    put: async (key, bytes) => store.put(safe(key), bytes, "application/octet-stream"),
     get: async (key) => (await store.get(safe(key)))?.bytes ?? null,
     list: async (prefix) => (await store.list(`${root}${prefix}`)).map((o) => o.key.slice(root.length)),
   };

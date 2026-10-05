@@ -14,3 +14,9 @@ export function mutationError(error: unknown): string {
   if (status === 409) return "The reviewed state changed or this decision was already recorded. Reload before retrying.";
   return "The action could not be confirmed. Reload to check the current state before retrying.";
 }
+
+/** Same-origin session read for live progress; GET only, platform or product read endpoints only. */
+export function browserRead<T>(workspaceId: string, path: string, signal?: AbortSignal): Promise<T> {
+  if (!path.startsWith("/api/platform/v1/") && !/^\/api\/deployments\/[A-Za-z0-9_-]{1,100}$/.test(path)) throw new Error("Use a platform read endpoint.");
+  return api<T>(path, { method: "GET", credentials: "same-origin", headers: { "x-zenith-workspace": workspaceId }, signal });
+}

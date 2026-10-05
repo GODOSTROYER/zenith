@@ -1,6 +1,6 @@
 "use client";
 /** Decisions use the reviewed digest and browser cookies; the API enforces live identity and Origin. */
-import { useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ApprovalRecord, OperationRecord, PolicyDecisionRecord } from "@/lib/controlplane/types";
 import type { PlanView } from "@/lib/tofu/plan";
@@ -18,6 +18,10 @@ export function OperationActions({ operation, decision, approvals, viewer, works
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const inFlight = useRef(false);
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  const reasonId = useId();
+  // Keyboard and screen-reader users land on the confirmation, not on a control that just disappeared or went stale.
+  useEffect(() => { if (recorded) statusRef.current?.focus(); }, [recorded]);
   const decide = async (kind: "approve" | "reject", input: ApprovalDecisionInput) => {
     if (inFlight.current || recorded) return;
     inFlight.current = true; setPending(true);
@@ -41,9 +45,9 @@ export function OperationActions({ operation, decision, approvals, viewer, works
   };
   return <div className="space-y-4">
     <ApprovalCard operation={operation} decision={decision} approvals={approvals} viewer={viewer} plan={plan} planCostDeltaUsd={planCostDeltaUsd} onApprove={(input) => decide("approve", input)} onReject={(input) => decide("reject", input)} loading={recorded || pending} />
-    {recorded && <p role="status" className="text-[13px] text-ink-mute">Decision recorded. Refreshing the latest state…</p>}
-    <Button onClick={() => void cancel()} busy={pending} disabled={Boolean(cancelReason) || recorded} disabledReason={cancelReason}>Cancel operation</Button>
-    {cancelReason && <p className="text-[12px] text-ink-mute">{cancelReason}</p>}
+    {recorded && <p ref={statusRef} tabIndex={-1} role="status" className="text-[13px] text-ink-mute outline-none focus-visible:ring-2 focus-visible:ring-signal">Decision recorded. Refreshing the latest state…</p>}
+    <Button onClick={() => void cancel()} busy={pending} disabled={Boolean(cancelReason) || recorded} disabledReason={cancelReason} aria-describedby={cancelReason ? reasonId : undefined}>Cancel operation</Button>
+    {cancelReason && <p id={reasonId} className="text-[12px] text-ink-mute">{cancelReason}</p>}
     {error && <Callout tone="err">{error}</Callout>}
     <Button variant="quiet" onClick={() => router.refresh()}>Refresh details</Button>
   </div>;

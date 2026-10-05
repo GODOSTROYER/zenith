@@ -302,12 +302,14 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
       const { ws } = buildWorkspace({ ec, graph, connection, drivers: rt.drivers, overrides: rt.d.tofuWorkspace });
       let started = false;
       try {
+        if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required; a new review is required.");
+        const custody = planCustody(ec, graph.graphDigest, connection);
         const result = await withKeepAlive(rt, { lease, detail: "tofu destroy apply", operation: { workspaceId: ec.workspaceId, operationId } }, (signal) =>
-          withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
-            await guardDns(rt, ec, graph.nodes, session, signal, lease);
-            if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required; a new review is required.");
-            const custody = planCustody(ec, graph.graphDigest, connection);
-            return rt.d.planArtifacts.consume({ custody, planDigest, lease }, (original, dispatch) => rt.tofu.applyVerifiedPlan(ws, { approvedDigest: planDigest, original, custody,
+          // The authenticated consume commits its native hold before acquiring any mutating credential.
+          rt.d.planArtifacts!.consume({ custody, planDigest, lease }, (original, dispatch) =>
+            withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
+              await guardDns(rt, ec, graph.nodes, session, signal, lease);
+              return rt.tofu.applyVerifiedPlan(ws, { approvedDigest: planDigest, original, custody,
               beforeDispatch: async () => {
                 const freshContext = await context(rt,operationId,lease);
                 const freshConnection = await resolveConnection(rt,freshContext.ec);
@@ -321,8 +323,8 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
               guard(plan, graph.nodes);
               await guardDns(rt, ec, graph.nodes, session, signal, lease);
               await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
-            } }));
-          })
+            } });
+          }))
         );
         await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
         await rt.evidence(ec.scope, { kind: "tofu_apply", digest: digest({ destroy: true, planDigest, deleted: result.plan.summary.delete }), key: `destroy:${planDigest}`, summary: { destroy: true, planDigest, deleted: result.plan.summary.delete, exitCode: result.apply.exitCode }, simulated: false }, { critical: true });

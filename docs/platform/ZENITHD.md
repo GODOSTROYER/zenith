@@ -66,7 +66,7 @@ Two kinds of non-success:
 | `machine.exec` | `exec.enabled` | `argv[]`, `cwd?`, `timeoutSec` | see §4 |
 | `file.write` | Linux + `fileWrite.enabled` + exact local template profile | canonical `path`, opaque `contentRef`, immutable `contentVersion`, required `expectedSha256` (64 lowercase hex or null for create-only) | bounded unprivileged customer application files only; see below |
 | `file.upload` | Linux + `fileUpload.enabled` + exact local binary profile | canonical `path`, opaque `sourceRef`, immutable `sourceVersion`, required `expectedSha256` (64 lowercase hex or null for create-only) | bounded local binary source copied through the same atomic writer; see below |
-| `package.install` | **never** | — | deliberately not implemented: answered with `unsupported_operation` |
+| `package.install` | **off** | Debian 12/dpkg 1.21, separate local root helper | pinned offline data-only first install or verified exact-version no-op; refuses unavailable helper |
 
 Unit names must match `^[A-Za-z0-9@._:-]{1,128}\.(service|socket|timer)$` and, in
 addition, must **not start with `-`** (a regex alone would let `--help.service`
@@ -436,3 +436,102 @@ file.write native evidence remains evidence for file.write; it cannot be
 relabeled as upload or full guest lifecycle acceptance. No standing grant,
 installation, browser approval journey or live guest permission is established
 by the source/model controls.
+
+## Pinned offline package installation
+
+`package.install` is an opt-in typed operation routed only to the fixed local
+root helper. The ordinary unprivileged daemon, read-only operations and exec
+policy stay intact. Its signed arguments are exactly `profileRef`,
+`profileVersion` and `expectedInstalledVersion`. No package bytes, source path,
+URL, credentials or command enter that envelope. The original control-plane
+signature and exact machine/resource grant are independently verified by the
+root helper; a decoded `ops.Env` call cannot grant package authority.
+
+The supported first slice is Debian 12/dpkg 1.21 on native amd64/arm64. A reviewed
+root-owned local `.deb` is pinned by SHA-256/size and complete payload metadata.
+Only original ar containing `debian-binary` 2.0, one `control.tar.gz` and one
+`data.tar.gz` is accepted; gzip has one member and tar uses ordinary root-owned
+ustar regular files/directories. Raw extensions are checked before Go tar
+normalization. The control archive contains only a bounded flat `control` file.
+All scripts, relationships/dependencies, trigger/conffile metadata, unknown
+control fields, PAX/GNU extensions, xattrs, links, devices, special bits and
+undeclared payloads refuse. Each profile's data stays below
+`/opt/zenith-packages/<profileRef>` with exact 0644/0755 files and 0755 directories.
+No installed service or executable launch is implied by copying a file.
+
+Profiles use a purpose-separated version over Debian/dpkg identity and the
+complete canonical archive/effects metadata. There are at most 32 unique local
+profiles, 4 MiB compressed archive bytes, 256 explicit payload entries, 1 MiB per
+file and 8 MiB total file bytes. The helper reads root config at its fixed path
+and repeats the exact config/profile/native/claims guards after locks/staging.
+All configured file write/upload source, destination and backup custody stays
+protected even when disabled. Fixed-root local persistent filesystem, mount,
+root ownership, hard-link and ACL guards apply separately to source/state,
+native metadata and payload. Direct privileged operators replacing these
+approved roots remain outside the supported actor model.
+
+A null prior version is create-only: the package and every payload target must
+be absent, without a foreign installed package claiming that subtree. An exact
+pinned prior version permits only a complete verified no-op. Upgrade/downgrade,
+repair, residual configuration and uninstall paths remain unavailable. Native
+incomplete states, pending trigger work and unsupported dpkg options refuse.
+Existing strictly framed diversion/statoverride/interest records may remain when
+both endpoints and interests are disjoint from every actual archive entry,
+shared directory, destination subtree and protected custody. Installed interest
+identity and architecture must match the captured native status. Complete raw
+registry/config bytes and used local identity inputs must remain unchanged;
+missing/ambiguous state, overlaps, unknown flags and foreign identities refuse.
+Do not erase native history/configuration as an intermediate step. [Debian
+documents partial states and trigger activation, including activation with
+`--no-triggers`](https://manpages.debian.org/bookworm/dpkg/dpkg.1.en.html).
+
+Only the 18 root-observed `/usr/share/` documentation filters join comments,
+`no-debsig` and the fixed conventional log in the config allowlist. No glob
+engine or text-to-argv conversion supplies permission. The fixed
+`HOME=/nonexistent` parent itself must be absent beneath protected root; any
+existing file, directory or symlink parent refuses before native admission. The actual no-follow root descriptor must be a root-owned directory without group/other write, special mode bits or POSIX access/default ACLs. This check precedes every child walk and descriptor-relative HOME absence check. Inactive native fragments
+remain raw comparison data. Raw `force-unsafe-io`, hooks, redirects and every
+other unknown option refuse. The exact observed 259-byte `docker-apt-speedup`
+fragment (SHA256 `ab3af717d57cbbea36555833dc1ae031fa46750b879199ec579ee00be9aa0124`)
+has a private canonical effective-policy path only: fixed native argv pins
+`--refuse-unsafe-io`, and a bounded read-only native check must show only the
+observed safe enabled flags. Altered bytes/names/options refuse, unsafe I/O
+remains disabled, and original config bytes are preserved throughout. [Debian's
+refuse semantics](https://manpages.debian.org/bookworm/dpkg/dpkg.1.en.html)
+apply to the fixed command; callers cannot select policy or argv. Named disjoint
+statoverrides require actual protected local passwd/group and files-first NSS
+with default success behavior. Readiness, pre-child checks, no-op and post-read
+verification all repeat the native admission; this is not account-wide package
+lifecycle or concurrent privileged-writer coverage.
+
+The helper holds lifetime flock before replay load and compaction and the real
+dpkg frontend fcntl lock across snapshot, preparation and fixed argv execution.
+It never reopens/closes that lock inode through backup scanning. An immutable
+staged archive, private backup and fsynced accepted intent precede the child.
+Success requires exact installed metadata, all payload hashes/modes and
+unchanged unrelated native state, followed by a verified intent. Replay and
+intent files are separate. Torn records, orphaned preparation and accepted
+unknown attempts refuse without cleanup or new-ID retry. Cancellation, timeout,
+loss or postcondition failure preserves unknown effects; backup custody is not
+rollback or package atomicity.
+
+The socket is root-authenticated, restricted to the configured daemon UID, has
+closed bounded framing and rejects ancillary descriptors. Only public profile
+metadata or the original signed token crosses it; tokens live only in memory
+and are excluded from replay/results/evidence. Results contain verified package
+metadata or a fixed refused/uncertain receipt and opaque transaction ref.
+Cloud and simulated transports refuse. Other distros/managers, repository
+fetch/verification automation, updates, removal, helper rotation, scheduling,
+restart recovery and multi-instance crash/fault acceptance remain open. Native
+service/privilege, package/parser, lock/race and signed-dispatch tests must pass
+on disposable Linux before this source slice is accepted for execution. See
+[the local installation procedure](../../deploy/zenithd/INSTALL.md).
+
+Package native status accepts dpkg's empty first line of a multiline `Conffiles`
+field while retaining its continuation bytes. It refuses duplicate field names
+even when the first value is empty or the spelling differs only by case. Required
+installed package identity, architecture and status, pending-trigger checks, raw
+native state custody and the fixed safe native command remain mandatory. This
+source correction establishes no installed-service or default-backend acceptance.
+Recognized identity and pending-trigger names are normalized case-insensitively
+without changing the captured raw status bytes.

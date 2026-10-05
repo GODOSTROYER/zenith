@@ -91,7 +91,8 @@ describe.each(LANES)("capability grants [$name]", (lane) => {
 
   it("refuses a grant that outlives one hour, expires before it is issued, or names another workspace's operation", async () => {
     const seeded = await seedApprovedOperation(db());
-    const base = { workspaceId: seeded.workspaceId, operationId: seeded.operation.id, capability: "x", audience: "worker" };
+    // Planning is read-only, so the missing/foreign owning row reaches the actual composite FK.
+    const base = { workspaceId: seeded.workspaceId, operationId: seeded.operation.id, capability: "infrastructure.plan", audience: "worker" };
     const t = Date.now();
     await expectCode(repos.grants.insert(db(), { ...base, jti: uid("j"), issuedAt: new Date(t).toISOString(), expiresAt: new Date(t + 61 * 60_000).toISOString() }), "invalid_input");
     await expectCode(repos.grants.insert(db(), { ...base, jti: uid("j"), issuedAt: new Date(t).toISOString(), expiresAt: new Date(t - 1).toISOString() }), "invalid_input");
@@ -100,6 +101,7 @@ describe.each(LANES)("capability grants [$name]", (lane) => {
       .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(PlatformDbError);
     expect((err as PlatformDbError).sqlstate).toBe("23503"); // composite FK: a grant cannot point at another tenant's operation
+    expect(await db().query("select jti from platform.capability_grants where operation_id=$1", [seeded.operation.id])).toEqual([]);
   });
 
   it("get and status are workspace scoped", async () => {

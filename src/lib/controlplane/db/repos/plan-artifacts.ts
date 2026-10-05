@@ -1,6 +1,6 @@
 /** Database-only transactions. Lock order is live environment fence, operation, artifact, ordered source resources, use. */
 import { TERMINAL_OPERATION_STATUSES, type Sql } from "@/lib/controlplane/types";
-import type { PlanArtifactManifest, PlanCustodyInput } from "@/lib/tofu/engine";
+import type { PlanArtifactManifest, PlanCustodyInput, SealedStandaloneSettlement } from "@/lib/tofu/engine";
 import type { Sealed } from "@/lib/secrets";
 import type { DispatchApprovalSnapshot } from "@/lib/execution/ports";
 import type { LeaseRef } from "@/lib/workflows/types";
@@ -13,10 +13,14 @@ import * as evidence from "./evidence";
 import { projectPlanReview } from "./operation-review";
 import type { ApprovedSourceSnapshot } from "@/lib/execution/source-snapshot";
 import { textArray } from "../sql";
-import { ControlStoreError } from "../errors";
+import { ControlStoreError, requireText } from "../errors";
 import { retainPublishedPlanProductAuthority, retainClaimedPlanProductAuthority, captureClaimedPlanProductAuthority,
   claimedPlanRequiresProductComposition, withCurrentPlanDispatchRequirement, planProductDispatchPredicate, type PlanProductDispatchAuthority } from "./plan-artifact-product-authority";
 import { assertFinalMcpProductTopology } from "./workflow-start-deploy-authority";
+import { randomUUID } from "node:crypto";
+import * as cleanup from "./cleanup-writer-barriers";
+import * as grants from "./grants";
+import { readNativeCleanupOrigin, assertNativeCleanupOriginCurrent, readNativeStandaloneOrigin, assertNativeStandaloneOriginCurrent, type NativeCleanupOrigin } from "@/lib/platform/plan-artifacts";
 
 export class PlanArtifactError extends Error {
   readonly code = "plan_artifact_unavailable";
@@ -28,6 +32,44 @@ export interface ArtifactRow {
   iv: string; auth_tag: string; ciphertext: string; expires_at: string;
 }
 export interface PublishArtifact { manifest: Readonly<PlanArtifactManifest>; sealed: Sealed; lease: LeaseRef; evidence: evidence.InsertEvidenceInput }
+export interface StandaloneSettlementRow { readonly receipt:SealedStandaloneSettlement; readonly artifact:ArtifactRow }
+/** Bounded candidate read only. A native row is never evidence of terminal provider execution. */
+export async function readStandaloneSettlements(sql:Sql,custody:PlanCustodyInput,backendDigest:string):Promise<readonly StandaloneSettlementRow[]> {
+  const rows=await sql.query<{receipt:SealedStandaloneSettlement;artifact:ArtifactRow|null}>(`select
+    jsonb_build_object('binding',jsonb_build_object('workspaceId',r.workspace_id,'projectId',r.project_id,'environmentId',r.environment_id,
+      'operationId',r.operation_id,'attemptId',r.attempt_id,'manifestDigest',r.manifest_digest,'rawSha256',r.raw_sha256,
+      'backendDigest',r.backend_digest,'targetDigest',r.target_digest,'holder',r.holder,'fenceToken',r.fence_token),
+      'settlementDigest',r.settlement_digest,'sealed',jsonb_build_object('iv',r.iv,'authTag',r.auth_tag,'ciphertext',r.ciphertext)) as receipt,
+    case when count(*) over()<=64 and sum(octet_length(a.ciphertext)) over()<=67108864 then to_jsonb(a) else null end as artifact
+    from platform.standalone_plan_settlements r
+    left join platform.plan_artifact_associations association on association.workspace_id=r.workspace_id and association.operation_id=r.operation_id
+    left join platform.plan_artifacts a on a.workspace_id=r.workspace_id and a.operation_id=coalesce(association.source_operation_id,r.operation_id)
+    where r.workspace_id=$1 and r.project_id=$2 and r.environment_id=$3 and r.backend_digest=$4
+    order by r.operation_id collate "C",r.attempt_id collate "C" limit 65`,[custody.workspaceId,custody.projectId,custody.environmentId,backendDigest]);
+  if(rows.length>64)return Object.freeze([]);
+  const bounded:StandaloneSettlementRow[]=[];
+  for(const row of rows) { if(!row.artifact)return Object.freeze([]); bounded.push(Object.freeze({receipt:row.receipt,artifact:row.artifact})); }
+  return Object.freeze(bounded);
+}
+// Only exact privately authenticated rows may remain selected after an inventory wait.
+// The proof JSON is assembled by the repository from a genuine callback origin, never caller extras.
+const LIVE_STANDALONE_SETTLEMENTS=`not exists(select 1 from jsonb_array_elements(coalesce($6::text::jsonb->'standaloneSettlements','[]'::jsonb)) settled
+  where not exists(select 1 from platform.standalone_plan_settlements r
+    join platform.standalone_plan_backends backend on backend.target_digest=r.target_digest
+    join platform.plan_artifact_uses terminal on terminal.workspace_id=r.workspace_id and terminal.operation_id=r.operation_id
+    left join platform.plan_artifact_associations association on association.workspace_id=r.workspace_id and association.operation_id=r.operation_id
+    join platform.plan_artifacts artifact on artifact.workspace_id=r.workspace_id and artifact.operation_id=coalesce(association.source_operation_id,r.operation_id)
+    where r.workspace_id=$1 and r.workspace_id=settled->'receipt'->'binding'->>'workspaceId'
+      and r.project_id=settled->'receipt'->'binding'->>'projectId' and r.environment_id=settled->'receipt'->'binding'->>'environmentId'
+      and r.operation_id=settled->'receipt'->'binding'->>'operationId' and r.attempt_id=settled->'receipt'->'binding'->>'attemptId'
+      and r.manifest_digest=settled->'receipt'->'binding'->>'manifestDigest' and r.raw_sha256=settled->'receipt'->'binding'->>'rawSha256'
+      and r.backend_digest=settled->'receipt'->'binding'->>'backendDigest' and r.target_digest=settled->'receipt'->'binding'->>'targetDigest'
+      and r.holder=settled->'receipt'->'binding'->>'holder' and r.fence_token=(settled->'receipt'->'binding'->>'fenceToken')::bigint
+      and r.settlement_digest=settled->'receipt'->>'settlementDigest' and r.iv=settled->'receipt'->'sealed'->>'iv'
+      and r.auth_tag=settled->'receipt'->'sealed'->>'authTag' and r.ciphertext=settled->'receipt'->'sealed'->>'ciphertext'
+      and backend.workspace_id=r.workspace_id and backend.project_id=r.project_id and backend.environment_id=r.environment_id and backend.backend_digest=r.backend_digest
+      and terminal.phase='succeeded' and terminal.attempt_id=r.attempt_id and terminal.holder=r.holder and terminal.fence_token=r.fence_token
+      and artifact.manifest_digest=r.manifest_digest and artifact.manifest->>'rawSha256'=r.raw_sha256 and to_jsonb(artifact)=settled->'artifact'))`;
 function refuse(): never { throw new PlanArtifactError(); }
 const CUSTODY_KEYS = ["workspaceId","projectId","environmentId","operationId","proposalDigest","inputDigest","expiresAt","sourceDigest","graphDigest"] as const;
 function captured(input: ArtifactAccess): ArtifactAccess {
@@ -301,7 +343,7 @@ export async function claim(sql: Sql, input: ArtifactAccess, attemptId: string):
     return row;
   });
 }
-export async function dispatch(sql: Sql, input: ArtifactAccess, attemptId: string, authority?: Readonly<DispatchApprovalSnapshot>): Promise<void> {
+export async function dispatch(sql: Sql, input: ArtifactAccess, attemptId: string, authority?: Readonly<DispatchApprovalSnapshot>, cleanupOrigin?: unknown, standaloneOrigin?:unknown): Promise<void> {
   const originatedAuthority = authority;
   if(authority) {
     authority=Object.freeze({...authority,approvalIds:Object.freeze([...authority.approvalIds])});
@@ -309,6 +351,8 @@ export async function dispatch(sql: Sql, input: ArtifactAccess, attemptId: strin
       || !Number.isInteger(authority.requiredApprovalCount) || authority.requiredApprovalCount<0 || authority.approvalIds.length<authority.requiredApprovalCount) refuse();
   }
   input = captured(input);
+  const standalone=standaloneOrigin===undefined?undefined:await readNativeStandaloneOrigin(standaloneOrigin,sql,"binding");
+  if(standalone && (digest(standalone.access)!==digest(input) || standalone.attempt!==attemptId || standalone.proof!==originatedAuthority))refuse();
   await sql.tx(async (tx) => {
     const row = await read(tx,input);
     const sourceAuthority = await captureSourceDispatch(tx,row);
@@ -323,10 +367,35 @@ export async function dispatch(sql: Sql, input: ArtifactAccess, attemptId: strin
       try { await assertFinalMcpProductTopology(sql, tx); } catch { return refuse(); }
       try { productAuthority = await withCurrentPlanDispatchRequirement(sql, productAuthority, originatedAuthority); } catch { return refuse(); }
     }
+    if(standalone) {
+      const b=standalone.binding;
+      if(productAuthority.kind!=="product" || b.manifestDigest!==row.manifest_digest || b.rawSha256!==row.manifest.rawSha256 || b.backendDigest!==row.manifest.backendDigest)refuse();
+      // This immutable physical target can never be rebound to another logical scope or approved path.
+      await tx.query(`insert into platform.standalone_plan_backends(target_digest,workspace_id,project_id,environment_id,backend_digest)
+        values($1,$2,$3,$4,$5) on conflict do nothing`,[b.targetDigest,b.workspaceId,b.projectId,b.environmentId,b.backendDigest]);
+      const ownedBackend=await tx.query(`select target_digest from platform.standalone_plan_backends where target_digest=$1 and workspace_id=$2
+        and project_id=$3 and environment_id=$4 and backend_digest=$5 for key share`,[b.targetDigest,b.workspaceId,b.projectId,b.environmentId,b.backendDigest]);
+      if(ownedBackend.length!==1)refuse();
+      await assertNativeStandaloneOriginCurrent(standaloneOrigin,sql);
+    }
+    let settled:readonly StandaloneSettlementRow[]=Object.freeze([]);
+    if(row.manifest.purpose==="destroy") {
+      if(productAuthority.kind!=="product")throw new cleanup.CleanupWriterBarrierError();
+      const bound=await readNativeCleanupOrigin(cleanupOrigin,sql,"dispatch");
+      if(bound.access.custody.operationId!==input.custody.operationId || digest(bound.access)!==digest(input) || bound.attempt!==attemptId
+        || bound.proof!==originatedAuthority || !bound.hold || !bound.jti || bound.manifestDigest!==row.manifest_digest)throw new cleanup.CleanupWriterBarrierError();
+      await lockCleanupCoordinator(tx,input.custody.workspaceId);
+      await assertNativeCleanupOriginCurrent(cleanupOrigin,sql);
+      const currentFrame=cleanupFrame(row,sourceAuthority,productAuthority,originatedAuthority!);
+      await assertHeldCleanup(sql,tx,cleanupOrigin,bound,currentFrame);
+      settled=bound.settlements;
+    }
+    if(standalone)await assertNativeStandaloneOriginCurrent(standaloneOrigin,sql);
     const changed = await tx.query(`update platform.plan_artifact_uses set phase='dispatched',updated_at=clock_timestamp()
       where workspace_id=$1 and operation_id=$2 and phase='claimed' and attempt_id=$3 and holder=$4 and fence_token=$5 and (${LIVE_USE_AUTHORITY})
       and (${DISPATCH_SOURCE_AUTHORITY})
       and (${planProductDispatchPredicate(productAuthority)})
+      and (${LIVE_STANDALONE_SETTLEMENTS})
       and ($6::text::jsonb is null or exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2
         and o.approval_round=($6::text::jsonb->>'approvalRound')::integer and o.proposal_digest=$6::text::jsonb->>'proposalDigest'
         and o.plan_digest=$6::text::jsonb->>'planDigest'
@@ -336,13 +405,207 @@ export async function dispatch(sql: Sql, input: ArtifactAccess, attemptId: strin
           and a.consumed_at is not null and a.expires_at > clock_timestamp()) >= ($6::text::jsonb->>'requiredApprovalCount')::integer
         and not exists (select 1 from platform.approvals a where a.workspace_id=$1 and a.operation_id=$2 and a.approval_round=o.approval_round and a.decision='reject')))
       returning operation_id`,
-      [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken,authority?JSON.stringify(authority):null,JSON.stringify(sourceAuthority),JSON.stringify(productAuthority)]);
+      [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken,authority?JSON.stringify({...authority,standaloneSettlements:settled}):null,JSON.stringify(sourceAuthority),JSON.stringify(productAuthority)]);
     if (!changed.length) refuse();
   });
 }
+
+interface CleanupFrame { row:ArtifactRow; source:SourceDispatchAuthority; product:PlanProductDispatchAuthority; authorityDigest:string }
+function cleanupFrame(row:ArtifactRow,source:SourceDispatchAuthority,product:PlanProductDispatchAuthority,proof:Readonly<DispatchApprovalSnapshot>):CleanupFrame {
+  return {row,source,product,authorityDigest:digest({manifest:row.manifest_digest,source,product,proof})};
+}
+async function captureCleanupFrame(sql:Sql,tx:Sql,bound:NativeCleanupOrigin):Promise<CleanupFrame> {
+  const input=bound.access,row=await read(tx,input);
+  const op=await get(tx,input.custody.workspaceId,input.custody.operationId);
+  if(!op || op.capability!=="infrastructure.destroy" || row.manifest.purpose!=="destroy" || row.manifest_digest!==bound.manifestDigest
+    || digest({manifest:row.manifest_digest,iv:row.iv,authTag:row.auth_tag,ciphertext:row.ciphertext})!==bound.rawAuthenticationDigest)throw new cleanup.CleanupWriterBarrierError();
+  const source=await captureSourceDispatch(tx,row);
+  let product=await captureClaimedPlanProductAuthority(tx,row,input.custody.operationId,bound.attempt);
+  const owned=await tx.query("select operation_id from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2 and phase='claimed' and attempt_id=$3 and holder=$4 and fence_token=$5 for update",
+    [input.custody.workspaceId,input.custody.operationId,bound.attempt,input.lease.holder,input.lease.fenceToken]);
+  if(owned.length!==1 || product.kind!=="product")throw new cleanup.CleanupWriterBarrierError();
+  // Reserve's existing hold FK is acquired before the final coordinator too.
+  if(bound.hold) {
+    const held=await tx.query("select generation from platform.cleanup_writer_holds where workspace_id=$1 and operation_id=$2 and attempt_id=$3 and generation=$4 for key share",
+      [input.custody.workspaceId,input.custody.operationId,bound.attempt,bound.hold.generation]);
+    if(held.length!==1)throw new cleanup.CleanupWriterBarrierError();
+  }
+  await assertFinalMcpProductTopology(sql,tx);
+  product=await withCurrentPlanDispatchRequirement(sql,product,bound.proof);
+  return cleanupFrame(row,source,product,bound.proof);
+}
+async function lockCleanupCoordinator(tx:Sql,workspaceId:string):Promise<void> {
+  await tx.query("insert into platform.cleanup_writer_scopes(workspace_id) values($1) on conflict do nothing",[workspaceId]);
+  await tx.query("select workspace_id from platform.cleanup_writer_scopes where workspace_id=$1 for update",[workspaceId]);
+}
+async function assertHeldCleanup(sql:Sql,tx:Sql,origin:unknown,bound:NativeCleanupOrigin,frame:CleanupFrame):Promise<void> {
+  const c=bound.access.custody,h=bound.hold;
+  if(!h || h.authorityDigest!==frame.authorityDigest || !bound.jti)throw new cleanup.CleanupWriterBarrierError();
+  const rows=await tx.query(`select h.generation from platform.cleanup_writer_holds h join platform.cleanup_owner_grants g
+    on g.workspace_id=h.workspace_id and g.operation_id=h.operation_id and g.attempt_id=h.attempt_id and g.generation=h.generation
+    where h.workspace_id=$1 and h.project_id=$2 and h.environment_id=$3 and h.operation_id=$4 and h.attempt_id=$5
+      and h.generation=$6 and h.manifest_digest=$7 and h.authority_digest=$8 and h.holder=$9 and h.fence_token=$10 and g.jti=$11`,
+    [c.workspaceId,c.projectId,c.environmentId,c.operationId,bound.attempt,h.generation,bound.manifestDigest,frame.authorityDigest,bound.access.lease.holder,bound.access.lease.fenceToken,bound.jti]);
+  if(rows.length!==1)throw new cleanup.CleanupWriterBarrierError();
+  const inventory=await cleanup.inventoryForNativeOrigin(sql,tx,origin);
+  if(Object.values(inventory).some(n=>n!==0))throw new cleanup.CleanupWriterBarrierError();
+}
+/** Guarded private origin only. Commit the hold even when the counted inventory blocks continuation. */
+export async function retainCleanupWriterHold(sql:Sql,origin:unknown):Promise<Readonly<{hold:cleanup.CleanupHold;inventory:cleanup.CleanupInventory}>> {
+  const bound=await readNativeCleanupOrigin(origin,sql,"hold"),c=bound.access.custody;
+  return sql.tx(async tx=>{
+    const frame=await captureCleanupFrame(sql,tx,bound);
+    await lockCleanupCoordinator(tx,c.workspaceId);
+    await assertNativeCleanupOriginCurrent(origin,sql);
+    const generation=randomUUID();
+    const input=bound.access,sourceAuthority=frame.source,productAuthority=frame.product;
+    // The original full authority predicate and this inert hold INSERT share one fresh statement.
+    const rows=await tx.query(`with authority as (update platform.plan_artifact_uses set updated_at=updated_at
+      where workspace_id=$1 and operation_id=$2 and phase='claimed' and attempt_id=$3 and holder=$4 and fence_token=$5 and (${LIVE_USE_AUTHORITY})
+      and (${DISPATCH_SOURCE_AUTHORITY})
+      and (${planProductDispatchPredicate(productAuthority)})
+      and (${LIVE_STANDALONE_SETTLEMENTS})
+      and ($6::text::jsonb is null or exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2
+        and o.approval_round=($6::text::jsonb->>'approvalRound')::integer and o.proposal_digest=$6::text::jsonb->>'proposalDigest'
+        and o.plan_digest=$6::text::jsonb->>'planDigest'
+        and (select count(distinct a.approver_id) from platform.approvals a where a.workspace_id=$1 and a.operation_id=$2
+          and a.id in (select jsonb_array_elements_text($6::text::jsonb->'approvalIds')) and a.decision='approve'
+          and a.approver->>'kind'='user' and a.approval_round=o.approval_round and a.proposal_digest=o.proposal_digest
+          and a.consumed_at is not null and a.expires_at > clock_timestamp()) >= ($6::text::jsonb->>'requiredApprovalCount')::integer
+        and not exists (select 1 from platform.approvals a where a.workspace_id=$1 and a.operation_id=$2 and a.approval_round=o.approval_round and a.decision='reject')))
+      returning operation_id)
+      insert into platform.cleanup_writer_holds(workspace_id,project_id,environment_id,operation_id,attempt_id,generation,manifest_digest,authority_digest,holder,fence_token)
+      select $1,$9,$10,$2,$3,$11,$12,$13,$4,$5 from authority where operation_id=$2
+      on conflict do nothing returning generation`,
+      [input.custody.workspaceId,input.custody.operationId,bound.attempt,input.lease.holder,input.lease.fenceToken,JSON.stringify({...bound.proof,standaloneSettlements:bound.settlements}),JSON.stringify(sourceAuthority),JSON.stringify(productAuthority),c.projectId,c.environmentId,generation,bound.manifestDigest,frame.authorityDigest]);
+    if(rows.length!==1)throw new cleanup.CleanupWriterBarrierError();
+    const hold=Object.freeze({workspaceId:c.workspaceId,projectId:c.projectId,environmentId:c.environmentId,operationId:c.operationId,attemptId:bound.attempt,generation,manifestDigest:bound.manifestDigest,authorityDigest:frame.authorityDigest});
+    const inventory=await cleanup.inventoryForNativeOrigin(sql,tx,origin);
+    return Object.freeze({hold,inventory});
+  });
+}
+/** Reserving consumes the sole held attempt slot even if signing/INSERT or its acknowledgement is subsequently lost. */
+export async function reserveCleanupOwnerGrant(sql:Sql,origin:unknown,jti:string):Promise<void> {
+  const bound=await readNativeCleanupOrigin(origin,sql,"grant"),c=bound.access.custody,h=bound.hold;
+  if(!h || bound.jti!==jti || !/^[a-f0-9-]{36}$/.test(jti))throw new cleanup.CleanupWriterBarrierError();
+  await sql.tx(async tx=>{
+    const frame=await captureCleanupFrame(sql,tx,bound);
+    await lockCleanupCoordinator(tx,c.workspaceId);await assertNativeCleanupOriginCurrent(origin,sql);
+    if(h.authorityDigest!==frame.authorityDigest)throw new cleanup.CleanupWriterBarrierError();
+    const inventory=await cleanup.inventoryForNativeOrigin(sql,tx,origin);
+    if(Object.values(inventory).some(n=>n!==0))throw new cleanup.CleanupWriterBarrierError();
+    await assertNativeCleanupOriginCurrent(origin,sql);
+    const input=bound.access,sourceAuthority=frame.source,productAuthority=frame.product;
+    // Inventory/history awaits finish before the same-statement current authority and reservation.
+    const rows=await tx.query(`with authority as (update platform.plan_artifact_uses set updated_at=updated_at
+      where workspace_id=$1 and operation_id=$2 and phase='claimed' and attempt_id=$3 and holder=$4 and fence_token=$5 and (${LIVE_USE_AUTHORITY})
+      and (${DISPATCH_SOURCE_AUTHORITY})
+      and (${planProductDispatchPredicate(productAuthority)})
+      and (${LIVE_STANDALONE_SETTLEMENTS})
+      and ($6::text::jsonb is null or exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2
+        and o.approval_round=($6::text::jsonb->>'approvalRound')::integer and o.proposal_digest=$6::text::jsonb->>'proposalDigest'
+        and o.plan_digest=$6::text::jsonb->>'planDigest'
+        and (select count(distinct a.approver_id) from platform.approvals a where a.workspace_id=$1 and a.operation_id=$2
+          and a.id in (select jsonb_array_elements_text($6::text::jsonb->'approvalIds')) and a.decision='approve'
+          and a.approver->>'kind'='user' and a.approval_round=o.approval_round and a.proposal_digest=o.proposal_digest
+          and a.consumed_at is not null and a.expires_at > clock_timestamp()) >= ($6::text::jsonb->>'requiredApprovalCount')::integer
+        and not exists (select 1 from platform.approvals a where a.workspace_id=$1 and a.operation_id=$2 and a.approval_round=o.approval_round and a.decision='reject')))
+      returning operation_id)
+      insert into platform.cleanup_owner_grants(workspace_id,operation_id,attempt_id,generation,jti,capability,audience)
+      select $1,$2,$3,$9,$10,'infrastructure.destroy','worker' from authority where operation_id=$2
+        and exists(select 1 from platform.cleanup_writer_holds where workspace_id=$1 and operation_id=$2 and attempt_id=$3
+          and generation=$9 and authority_digest=$11)
+      on conflict do nothing returning jti`,[input.custody.workspaceId,input.custody.operationId,bound.attempt,input.lease.holder,input.lease.fenceToken,JSON.stringify({...bound.proof,standaloneSettlements:bound.settlements}),JSON.stringify(sourceAuthority),JSON.stringify(productAuthority),h.generation,jti,frame.authorityDigest]);
+    if(rows.length!==1)throw new cleanup.CleanupWriterBarrierError();
+  });
+}
+/** The current original approval/member/source predicate guards the actual grant INSERT after all inventory waits. */
+export async function insertCleanupOwnerGrant(sql:Sql,origin:unknown,input:grants.InsertGrantInput):Promise<void> {
+  const bound=await readNativeCleanupOrigin(origin,sql,"grant"),c=bound.access.custody;
+  const grant=Object.freeze({jti:requireText("jti",input.jti,128),workspaceId:requireText("workspaceId",input.workspaceId),
+    operationId:requireText("operationId",input.operationId),capability:requireText("capability",input.capability,128),
+    audience:requireText("audience",input.audience,256),issuedAt:input.issuedAt,expiresAt:input.expiresAt});
+  const issued=Date.parse(grant.issuedAt),expires=Date.parse(grant.expiresAt);
+  if(!Number.isFinite(issued)||!Number.isFinite(expires)||expires<=issued)
+    throw new ControlStoreError("invalid_input","A grant must expire after it is issued.");
+  if(expires-issued>60*60*1000)throw new ControlStoreError("invalid_input","A capability grant may live at most one hour.");
+  if(grant.jti!==bound.jti || grant.workspaceId!==c.workspaceId || grant.operationId!==c.operationId
+    || grant.capability!=="infrastructure.destroy" || grant.audience!=="worker")throw new cleanup.CleanupWriterBarrierError();
+  await sql.tx(async tx=>{
+    const frame=await captureCleanupFrame(sql,tx,bound);
+    await lockCleanupCoordinator(tx,c.workspaceId);await assertNativeCleanupOriginCurrent(origin,sql);
+    await assertHeldCleanup(sql,tx,origin,bound,frame);
+    await assertNativeCleanupOriginCurrent(origin,sql);
+    const input=bound.access,sourceAuthority=frame.source,productAuthority=frame.product;
+    // No authority-check/await/INSERT gap: the bearer stays local until this guarded statement commits.
+    const rows=await tx.query(`with authority as (update platform.plan_artifact_uses set updated_at=updated_at
+      where workspace_id=$1 and operation_id=$2 and phase='claimed' and attempt_id=$3 and holder=$4 and fence_token=$5 and (${LIVE_USE_AUTHORITY})
+      and (${DISPATCH_SOURCE_AUTHORITY})
+      and (${planProductDispatchPredicate(productAuthority)})
+      and (${LIVE_STANDALONE_SETTLEMENTS})
+      and ($6::text::jsonb is null or exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2
+        and o.approval_round=($6::text::jsonb->>'approvalRound')::integer and o.proposal_digest=$6::text::jsonb->>'proposalDigest'
+        and o.plan_digest=$6::text::jsonb->>'planDigest'
+        and (select count(distinct a.approver_id) from platform.approvals a where a.workspace_id=$1 and a.operation_id=$2
+          and a.id in (select jsonb_array_elements_text($6::text::jsonb->'approvalIds')) and a.decision='approve'
+          and a.approver->>'kind'='user' and a.approval_round=o.approval_round and a.proposal_digest=o.proposal_digest
+          and a.consumed_at is not null and a.expires_at > clock_timestamp()) >= ($6::text::jsonb->>'requiredApprovalCount')::integer
+        and not exists (select 1 from platform.approvals a where a.workspace_id=$1 and a.operation_id=$2 and a.approval_round=o.approval_round and a.decision='reject')))
+      returning operation_id)
+      insert into platform.capability_grants(jti,workspace_id,operation_id,capability,audience,issued_at,expires_at)
+      select $9,$1,$2,'infrastructure.destroy','worker',$10::text::timestamptz,$11::text::timestamptz
+      from authority where operation_id=$2 returning jti`,
+      [input.custody.workspaceId,input.custody.operationId,bound.attempt,input.lease.holder,input.lease.fenceToken,JSON.stringify({...bound.proof,standaloneSettlements:bound.settlements}),JSON.stringify(sourceAuthority),JSON.stringify(productAuthority),grant.jti,grant.issuedAt,grant.expiresAt]);
+    if(rows.length!==1)throw new cleanup.CleanupWriterBarrierError();
+  });
+}
+
 /** Internal captured runtime lookup. It cannot grant custody or dispatch. */
 export async function requiresProductComposition(sql: Sql, row: ArtifactRow, destination: string, attempt: string): Promise<boolean> {
   try { return await claimedPlanRequiresProductComposition(sql, row, destination, attempt); } catch { return refuse(); }
+}
+/** Only the captured engine can supply this completion. A terminal use row alone never clears delivery history. */
+export async function finishStandalone(sql:Sql,origin:unknown):Promise<void> {
+  const bound=await readNativeStandaloneOrigin(origin,sql,"completion"),receipt=bound.receipt;
+  if(!receipt || digest(receipt.binding)!==digest(bound.binding))refuse();
+  const input=captured(bound.access),b=bound.binding;
+  if(b.workspaceId!==input.custody.workspaceId || b.projectId!==input.custody.projectId || b.environmentId!==input.custody.environmentId
+    || b.operationId!==input.custody.operationId || b.attemptId!==bound.attempt || b.holder!==input.lease.holder || b.fenceToken!==input.lease.fenceToken)refuse();
+  await sql.tx(async tx=>{
+    const row=await read(tx,input),sourceAuthority=await captureSourceDispatch(tx,row);
+    let productAuthority=await captureClaimedPlanProductAuthority(tx,row,input.custody.operationId,bound.attempt);
+    if(productAuthority.kind!=="product" || b.manifestDigest!==row.manifest_digest || b.rawSha256!==row.manifest.rawSha256
+      || b.backendDigest!==row.manifest.backendDigest)refuse();
+    const owned=await tx.query(`select operation_id from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2
+      and phase='dispatched' and attempt_id=$3 and holder=$4 and fence_token=$5 for update`,
+      [b.workspaceId,b.operationId,b.attemptId,b.holder,b.fenceToken]);
+    if(owned.length!==1)refuse();
+    const backend=await tx.query(`select target_digest from platform.standalone_plan_backends where target_digest=$1
+      and workspace_id=$2 and project_id=$3 and environment_id=$4 and backend_digest=$5 for key share`,
+      [b.targetDigest,b.workspaceId,b.projectId,b.environmentId,b.backendDigest]);
+    if(backend.length!==1)refuse();
+    await assertFinalMcpProductTopology(sql,tx);
+    productAuthority=await withCurrentPlanDispatchRequirement(sql,productAuthority,bound.proof);
+    // All owning row/FK locks precede the final workspace coordinator. No provider call occurs in this transaction.
+    await lockCleanupCoordinator(tx,b.workspaceId);
+    await assertNativeStandaloneOriginCurrent(origin,sql);
+    const changed=await tx.query(`with authority as (
+      update platform.plan_artifact_uses set phase='succeeded',updated_at=clock_timestamp()
+      where workspace_id=$1 and operation_id=$2 and phase='dispatched' and attempt_id=$3 and holder=$4 and fence_token=$5
+      and (${LIVE_USE_AUTHORITY}) and (${DISPATCH_SOURCE_AUTHORITY}) and (${planProductDispatchPredicate(productAuthority)})
+      and exists(select 1 from platform.standalone_plan_backends backend where backend.target_digest=$9::text::jsonb->'binding'->>'targetDigest'
+        and backend.workspace_id=$1 and backend.project_id=$9::text::jsonb->'binding'->>'projectId'
+        and backend.environment_id=$9::text::jsonb->'binding'->>'environmentId' and backend.backend_digest=$9::text::jsonb->'binding'->>'backendDigest')
+      returning workspace_id,operation_id)
+      insert into platform.standalone_plan_settlements(workspace_id,project_id,environment_id,operation_id,attempt_id,manifest_digest,raw_sha256,
+        backend_digest,target_digest,holder,fence_token,settlement_digest,iv,auth_tag,ciphertext)
+      select authority.workspace_id,$9::text::jsonb->'binding'->>'projectId',$9::text::jsonb->'binding'->>'environmentId',authority.operation_id,$3,
+        $9::text::jsonb->'binding'->>'manifestDigest',$9::text::jsonb->'binding'->>'rawSha256',$9::text::jsonb->'binding'->>'backendDigest',
+        $9::text::jsonb->'binding'->>'targetDigest',$4,$5,$9::text::jsonb->>'settlementDigest',$9::text::jsonb->'sealed'->>'iv',
+        $9::text::jsonb->'sealed'->>'authTag',$9::text::jsonb->'sealed'->>'ciphertext' from authority returning operation_id`,
+      [b.workspaceId,b.operationId,b.attemptId,b.holder,b.fenceToken,JSON.stringify(bound.proof),JSON.stringify(sourceAuthority),JSON.stringify(productAuthority),JSON.stringify(receipt)]);
+    if(changed.length!==1)refuse();
+  });
 }
 /** Completion never reopens a dispatched attempt, even when its operation/fence has expired. */
 export async function finish(sql: Sql, input: ArtifactAccess, attemptId: string, success: boolean): Promise<void> {

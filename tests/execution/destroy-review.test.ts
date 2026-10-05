@@ -115,6 +115,9 @@ describe("first destroy review", () => {
     const approved = await decide(user("erin"), result.planDigest);
     expect(await deliverPlanApproval(approved.operation)).toEqual({ delivered: true });
     expect(startDestroy).toHaveBeenCalledExactlyOnceWith({ workspaceId: scope.workspaceId, environmentId: scope.environmentId, operationId: op.id });
+    expect((await h.store.getOperation(scope.workspaceId, op.id))?.status).toBe("running");
+    expect(await h.db!.query("select capability from platform.capability_grants where workspace_id=$1 and operation_id=$2", [scope.workspaceId, op.id])).toEqual([{ capability: "infrastructure.plan" }]);
+    expect((await h.store.listApprovals(scope.workspaceId, op.id))[0].consumedAt).toBeDefined();
     expect(w.tofu.applyCalls).toHaveLength(0);
   });
   it("revoked plan access prevents human approval of the delegated review", async () => {
@@ -138,7 +141,8 @@ describe("first destroy review", () => {
           approver: user("erin"), session: sessionFor("erin") });
         approved = await h.store.getOperation(scope.workspaceId, op.id);
         events = await h.store.listEvents(scope.workspaceId, { operationId: op.id });
-        await h.store.insertGrant({ jti, workspaceId: scope.workspaceId, operationId: op.id, capability: "infrastructure.destroy", audience: "worker",
+        // A review can retain planning authority before a held provider attempt exists.
+        await h.store.insertGrant({ jti, workspaceId: scope.workspaceId, operationId: op.id, capability: "infrastructure.plan", audience: "worker",
           issuedAt: h.clock.now().toISOString(), expiresAt: new Date(h.clock.now().getTime() + 60_000).toISOString() });
       }
       return original(input);
@@ -148,6 +152,7 @@ describe("first destroy review", () => {
     expect(await h.store.getOperation(scope.workspaceId, op.id)).toEqual(approved);
     expect(await h.store.listEvents(scope.workspaceId, { operationId: op.id })).toEqual(events);
     expect((await h.store.listApprovals(scope.workspaceId, op.id))).toHaveLength(1);
+    expect(await h.db!.query("select capability from platform.capability_grants where workspace_id=$1 and operation_id=$2", [scope.workspaceId, op.id])).toEqual([{ capability: "infrastructure.plan" }]);
     expect(await h.store.consumeGrant({ workspaceId: scope.workspaceId, jti })).toBe(true);
     expect((await h.store.listOperations(scope.workspaceId, { capability: "infrastructure.destroy" })).items).toHaveLength(1);
     expect(w.tofu.applyCalls).toHaveLength(0);
@@ -287,7 +292,7 @@ describe.skipIf(!PG_URL)("undecided teardown supersession [postgres]",()=>{
     const h=await makeHarness({kind:"postgres"});
     const seeded=await seedAwaitingApproval(h.db!,{workspaceId:h.ids.wsA,count:2,minRole:"admin",proposal:{capability:"infrastructure.destroy"}});
     const op=seeded.operation;const entered=supersessionBarrier(),release=supersessionBarrier();
-    const jti=`partial_grant_${op.id}`;await h.store.insertGrant({jti,workspaceId:op.workspaceId,operationId:op.id,capability:"infrastructure.destroy",audience:"worker",issuedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+60000).toISOString()});
+    const jti=`partial_grant_${op.id}`;await h.store.insertGrant({jti,workspaceId:op.workspaceId,operationId:op.id,capability:"infrastructure.plan",audience:"worker",issuedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+60000).toISOString()});
     const deciding=h.db!.tx(async tx=>{
       await repos.approvals.record(tx,{workspaceId:op.workspaceId,operationId:op.id,proposalDigest:op.proposalDigest,approver:user("erin"),approverRole:"admin",decision:"approve",policyVersion:seeded.decision.policyVersion});
       entered.release();await release.promise;
@@ -298,6 +303,7 @@ describe.skipIf(!PG_URL)("undecided teardown supersession [postgres]",()=>{
     release.release();await deciding;expect(await cancelling).toBeNull();
     expect((await h.store.getOperation(op.workspaceId,op.id))?.status).toBe("awaiting_approval");
     expect(await h.store.listApprovals(op.workspaceId,op.id)).toHaveLength(1);
+    expect(await h.db!.query("select capability from platform.capability_grants where workspace_id=$1 and operation_id=$2",[op.workspaceId,op.id])).toEqual([{capability:"infrastructure.plan"}]);
     expect(await h.store.consumeGrant({workspaceId:op.workspaceId,jti})).toBe(true);
     expect((await h.store.listEvents(op.workspaceId,{operationId:op.id})).some(event=>event.type==="operation.cancelled")).toBe(false);
     // An explicitly requested ordinary cancellation keeps its original behavior.

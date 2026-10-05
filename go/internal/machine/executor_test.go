@@ -133,3 +133,40 @@ func TestUploadAuditCompletionFailureRetainsUncertainReceipt(t *testing.T) {
 		t.Fatal("audit failure claimed accepted upload completion")
 	}
 }
+
+func TestPackageCancellationRetainsUnknownOriginalIntent(t *testing.T) {
+	audit, e := OpenAudit(filepath.Join(t.TempDir(), "audit.jsonl"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer audit.Close()
+	ex := &Executor{now: time.Now, audit: audit, log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	receipt := "pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	j := &job{e: ex, op: ops.OpPackageInstall, id: "package_request", opID: "package_operation", timeout: time.Second, run: func(context.Context) (ops.Result, error) {
+		return ops.PackageInstallFailure("unknown", receipt), context.Canceled
+	}}
+	body := j.Run(ctx, nil)
+	data := body.Result.(map[string]any)["data"].(map[string]any)
+	if body.Status != agent.StatusFailed || data["transactionRef"] != receipt || data["effect"] != "unknown" || body.Result.(map[string]any)["output"] != nil {
+		t.Fatal("cancelled package delivery lost effect custody")
+	}
+}
+func TestPackageCompletionAuditFailureCannotClaimSuccess(t *testing.T) {
+	audit, e := OpenAudit(filepath.Join(t.TempDir(), "audit.jsonl"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	audit.Close()
+	ex := &Executor{now: time.Now, audit: audit, log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ref := "pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	j := &job{e: ex, op: ops.OpPackageInstall, timeout: time.Second, run: func(context.Context) (ops.Result, error) {
+		return ops.Result{OK: true, Data: map[string]any{"transactionRef": ref, "effect": "committed", "phase": "verified", "postcondition": "verified"}}, nil
+	}}
+	body := j.Run(context.Background(), nil)
+	data := body.Result.(map[string]any)["data"].(map[string]any)
+	if body.Status != agent.StatusFailed || data["effect"] != "unknown" || data["phase"] != "audit" || data["transactionRef"] != ref {
+		t.Fatal("package completion audit loss became success")
+	}
+}

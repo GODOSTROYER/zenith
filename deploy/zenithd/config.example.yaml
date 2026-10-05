@@ -66,3 +66,12 @@ fileWrite:
   #     sha256: REPLACE_WITH_LOCAL_PINNED_SHA256
   #     mode: "0600"                   # only "0600" or "0640"
   #     maxBytes: 65536                 # hard maximum 1048576
+
+# Offline pinned Debian 12/dpkg 1.21 data-only first installs: off by default.
+# A separate root helper must have the exact machine/workspace identity, public
+# verification keys, numeric zenithd UID and matching versioned local profiles.
+# Enabling this flag alone does not advertise or execute package.install.
+# No archive path, bytes, URL or command is sent in the signed operation.
+packageInstall:
+  enabled: false
+  profiles: []

@@ -5,7 +5,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { load } from "js-yaml";
+import { WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 
 const root = process.cwd();
@@ -213,6 +214,25 @@ const nativeSafetyDiscovered = [
     "backend": "postgres"
   }
 ] as const;
+const cleanupWriterGroup = {
+  file: "tests/controlplane/cleanup-writer-barriers.test.ts",
+  suite: "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+  backend: "postgres",
+  flag: "ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED",
+  sourceSha256: "4709e75f33820dc62e9b9a9be870d1cf71d94092cbaa1063257790e1db069ae9",
+  namesSha256: "df0ddb85fa00e1290bd6b95915742451b555e21179e9c40c62fe6c1321de1739",
+} as const;
+const cleanupWriterDiscovered = { file: cleanupWriterGroup.file, suite: cleanupWriterGroup.suite, backend: "postgres" } as const;
+function cleanupWriterNamed(sourceRoot = root): Requirement[] {
+  const ids = new Set(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => ids.has(item.id));
+}
+// Only this exact added cohort and its genuine discovery leave historical
+// assertions. The production manifest and validator retain the full successor.
+function priorCleanupPlatformRequirements(sourceRoot = root): Requirement[] {
+  const ids = new Set([...CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, cleanupWriterDiscovered].map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+}
 const kubernetesLinkGroup = {
   file: "tests/controlplane/kubernetes-connection-link.test.ts",
   suite: "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
@@ -230,7 +250,7 @@ function kubernetesLinkNamed(sourceRoot = root): Requirement[] {
 // discovery and validation require all 21 new scenarios plus their actual suite.
 function priorKubernetesLinkPlatformRequirements(sourceRoot = root): Requirement[] {
   const ids = new Set([...KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, kubernetesLinkDiscovered].map(item => requirementId("platform-postgres", item)));
-  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+  return priorCleanupPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
 }
 function priorNativeSafetyPlatformRequirements(sourceRoot = root) {
   const ids = new Set([...MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, ...PLAN_RETENTION_POSTGRES_REQUIREMENTS, ...KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, ...nativeSafetyDiscovered].map(item => requirementId("platform-postgres", item)));
@@ -1296,11 +1316,16 @@ describe("canonical native Linux guest contract", () => {
     expect(manifest.report).toBe(".data-ci-guest/attempt-{attemptId}/sanitized.json");
     expect(manifest.artifactSelection).toContain("observed CI runner outcome");
     expect(manifest.steps.map((step) => step.command)).toEqual([
-      ["go", "test", "-json", "-race", "-count=1", "./..."],
+      ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$"],
+      ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"],
       ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"],
       ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"],
       ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"],
     ]);
+    expect(manifest.raceCases).toHaveLength(123); expect(manifest.packagePhase.requiredCases).toHaveLength(4);
+    expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases]);
+    expect(manifest.packagePhase.allowedSkips).toEqual([]); expect(manifest.packagePhase.noTestPackages).toEqual([]);
+    expect(manifest.packagePhase.env).toEqual({ ZENITH_TEST_PACKAGE_INSTALL_REQUIRED: "1" });
     expect(new Set(manifest.requiredCases.map((item) => item.id)).size).toBe(manifest.requiredCases.length);
     for (const test of ["TestWriteExactMountAnchorsAndEscapes", "TestWriteConcurrentWritersAndDirectorySwapStress", "TestWriteFaultAndCancelPhases/after_renametrue", "TestWriteCrashCustodyAndRestart/directory_sync", "TestWriteRejectsActualAccessAndDefaultACLs/parent-default", "TestWriteImmutableVersionCannotBeReused/pinned-bytes", "TestResultGoldens/file.write-filesystem"]) {
       expect(manifest.requiredCases.some((item) => item.test === test)).toBe(true);
@@ -1865,7 +1890,7 @@ describe("mandatory human Kubernetes linking cases [report models]", () => {
   it("requires all 21 native linking scenarios and their discovered suite while preserving the exact 990 predecessor", () => {
     const manifest = manifestFor("platform-postgres", root), required = kubernetesLinkNamed();
     expect(required).toHaveLength(21); expect(new Set(required.map(item => item.id)).size).toBe(21);
-    expect(manifest.requirements).toHaveLength(1012); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1012);
+    expect(priorCleanupPlatformRequirements()).toHaveLength(1012); expect(new Set(priorCleanupPlatformRequirements().map(item => item.id)).size).toBe(1012);
     const predecessor = priorKubernetesLinkPlatformRequirements();
     expect(predecessor).toHaveLength(990);
     expect(createHash("sha256").update(JSON.stringify(predecessor.map(item => item.id).sort())).digest("hex")).toBe("cd24c52f0cdddb47746e282080e1a3fcd31f8b1799ac685cf3e6f273b70e452e");
@@ -1951,7 +1976,13 @@ describe("mandatory native custody, retention and Kubernetes target cases [repor
     expect(manifest.command).toContain("tests/platform/kubernetes-vault-target.test.ts");
     expect(manifest.excludeFiles).toEqual([]);
     for (const lane of Object.keys(GATE_LANES).filter(name => name !== "platform-postgres")) {
-      for (const group of nativeSafetyGroups) expect(manifestFor(lane, root).env[group.flag]).toBeUndefined();
+      for (const group of nativeSafetyGroups) {
+        if (lane === "workflows" && group.flag === "ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED") {
+          expect(manifestFor(lane, root).env[group.flag]).toBe("1");
+        } else {
+          expect(manifestFor(lane, root).env[group.flag]).toBeUndefined();
+        }
+      }
     }
     expect(manifestFor("postgres", root).requirements).toHaveLength(80);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
@@ -2011,5 +2042,267 @@ describe("mandatory native custody, retention and Kubernetes target cases [repor
     expect(reportFailures(before, { ...contractReport(before), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
     expect(reportFailures(before, { ...contractReport(before), numFailedTests: 1 }, root)).toEqual(["Inconsistent Vitest report counts"]);
     expect(reportFailures(before, { ...contractReport([]), lane: "platform-postgres", requirements: [] }, root)).toHaveLength(81);
+  });
+});
+
+describe("mandatory native cleanup writer barrier cases [report models]", () => {
+  it("requires all 46 native cleanup cases and their discovered suite while preserving the exact 1012 predecessor", () => {
+    const manifest = manifestFor("platform-postgres", root), required = cleanupWriterNamed();
+    expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
+    expect(required).toHaveLength(46); expect(new Set(required.map(item => item.id)).size).toBe(46);
+    expect(manifest.requirements).toHaveLength(1059); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1059);
+    const previous = priorCleanupPlatformRequirements();
+    expect(previous).toHaveLength(1012); expect(new Set(previous.map(item => item.id)).size).toBe(1012);
+    expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("436ee191fe94eb06c7c611a6477e3766b81ab9e0f1a543bdda6f328be77435de");
+    expect(manifest.requirements).toContainEqual({ ...cleanupWriterDiscovered, id: requirementId("platform-postgres", cleanupWriterDiscovered) });
+    expect(manifest.env[cleanupWriterGroup.flag]).toBe("1");
+    expect(manifest.prerequisites.some(value => value.startsWith(`${cleanupWriterGroup.flag}=1;`))).toBe(true);
+    expect(manifest.files).toContain("tests/controlplane"); expect(manifest.command).toContain("tests/controlplane");
+    expect(manifest.excludeFiles).toEqual([]); expect(manifest.command).not.toContain("--passWithNoTests");
+    for (const lane of Object.keys(GATE_LANES).filter(name => name !== "platform-postgres")) {
+      expect(manifestFor(lane, root).env[cleanupWriterGroup.flag]).toBeUndefined();
+      expect(requirementsFor(lane, root).some(item => item.file === cleanupWriterGroup.file)).toBe(false);
+    }
+    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(linuxGuestManifest().raceCases).toHaveLength(123);
+    expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+    expect(reportFailures(manifest.requirements, contractReport(manifest.requirements), root)).toEqual([]);
+    // Report models cannot supply the retained runner observation or turn a
+    // nonzero engine status into success; the canonical runner is unchanged.
+    const runner = fs.readFileSync(path.join(root, "scripts/ci/run-gate.mjs"), "utf8");
+    expect(runner).toContain("writeExecutionReceipt(output, executionReceiptFor(originEvidence, run));");
+    expect(runner).toContain("{ requireExecution: true }");
+    expect(runner).toContain("return run.status === 0 && status === 0 ? 0 : 1;");
+  });
+
+  it("binds exact cleanup source and literal titles to required physical PostgreSQL admission before hooks", () => {
+    const source = fs.readFileSync(path.join(root, cleanupWriterGroup.file), "utf8");
+    const names = declaredLiteralTests(cleanupWriterGroup.file, cleanupWriterGroup.suite), required = cleanupWriterNamed();
+    expect(names).toHaveLength(46); expect(new Set(names).size).toBe(46); expect(required.map(item => item.test)).toEqual(names);
+    expect(createHash("sha256").update(source).digest("hex")).toBe(cleanupWriterGroup.sourceSha256);
+    expect(createHash("sha256").update(names.join("\n") + "\n").digest("hex")).toBe(cleanupWriterGroup.namesSha256);
+    for (const item of required) expect(item).toMatchObject({ file: cleanupWriterGroup.file, suite: cleanupWriterGroup.suite, backend: "postgres" });
+    expect(source).toContain(`describe.skipIf(!PG_URL)(${JSON.stringify(cleanupWriterGroup.suite)}`);
+    const admission = source.indexOf(`process.env.${cleanupWriterGroup.flag}==="1"`);
+    expect(admission).toBeGreaterThanOrEqual(0); expect(admission).toBeLessThan(source.indexOf("beforeAll("));
+    expect(admission).toBeLessThan(source.indexOf("describe.skipIf("));
+    expect(source).toContain("(!configuredNativeUrl()||PLATFORM_SCHEMA_VERSION<15)");
+    expect(source).toContain("&&!!url.port"); expect(source).toContain('openPlatformDb({kind:"postgres"');
+    expect(source).toContain("if(roles[0]?.n!==3)");
+  });
+
+  it("rejects every missing, nonpassing, foreign, PGlite, malformed or substituted native cleanup identity", () => {
+    const required = cleanupWriterNamed(); expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+    for (const missing of required) {
+      expect(reportFailures(required, contractReport(required.filter(item => item.id !== missing.id)), root), missing.id).toHaveLength(1);
+      for (const status of ["failed", "skipped", "pending", "todo", "unknown"]) {
+        const report = contractReport(required); report.testResults[0].assertionResults.find(item => item.title === missing.test)!.status = status;
+        expect(reportFailures(required, report, root).length, missing.id).toBeGreaterThan(0);
+      }
+      for (const suite of [cleanupWriterGroup.suite.replace("postgres", "pglite"), cleanupWriterGroup.suite.replace("postgres", "postgres-replica"), "unrelated cleanup [postgres]", "native cleanup writer barrier ['postgres\"]"]) {
+        const report = contractReport(required); report.testResults[0].assertionResults.find(item => item.title === missing.test)!.ancestorTitles = [suite];
+        expect(reportFailures(required, report, root), missing.id).toHaveLength(1);
+      }
+      const foreign = contractReport(required); foreign.testResults[0].assertionResults = foreign.testResults[0].assertionResults.filter(item => item.title !== missing.test);
+      foreign.testResults.push({ name: path.resolve(root, "tests/controlplane/foreign-cleanup-writer.test.ts"), status: "passed", assertionResults: [{ title: missing.test!, fullName: `${cleanupWriterGroup.suite} ${missing.test}`, ancestorTitles: [cleanupWriterGroup.suite], status: "passed" }] });
+      expect(reportFailures(required, foreign, root), missing.id).toHaveLength(1);
+      const malformed = contractReport(required); malformed.testResults[0].assertionResults.find(item => item.title === missing.test)!.fullName = "";
+      expect(reportFailures(required, malformed, root)).toEqual(["Malformed Vitest assertion evidence"]);
+      const substituted = contractReport(required); substituted.testResults[0].assertionResults.find(item => item.title === missing.test)!.title = "one passing cleanup projection";
+      expect(reportFailures(required, substituted, root), missing.id).toHaveLength(1);
+      const repeated = contractReport(required.filter(item => item.id !== missing.id)); repeated.testResults[0].assertionResults.push({ ...repeated.testResults[0].assertionResults[0] });
+      expect(reportFailures(required, repeated, root), missing.id).toHaveLength(1);
+    }
+  });
+
+  it("retains literal cleanup obligations after source deletion and refuses zero, duplicate, failed or reduced reports", () => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "native-cleanup-"));
+    for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
+    const file = path.join(sourceRoot, cleanupWriterGroup.file), source = fs.readFileSync(path.join(root, cleanupWriterGroup.file), "utf8");
+    fs.writeFileSync(file, source);
+    const before = cleanupWriterNamed(sourceRoot); expect(before).toEqual(cleanupWriterNamed());
+    expect(requirementsFor("platform-postgres", sourceRoot)).toContainEqual({ ...cleanupWriterDiscovered, id: requirementId("platform-postgres", cleanupWriterDiscovered) });
+    fs.writeFileSync(file, source.replaceAll('kind:"postgres"', 'kind:"pglite"'));
+    expect(createHash("sha256").update(fs.readFileSync(file)).digest("hex")).not.toBe(cleanupWriterGroup.sourceSha256);
+    expect(cleanupWriterNamed(sourceRoot)).toEqual(before);
+    fs.unlinkSync(file); expect(cleanupWriterNamed(sourceRoot)).toEqual(before);
+    expect(requirementsFor("platform-postgres", sourceRoot).some(item => item.id === requirementId("platform-postgres", cleanupWriterDiscovered))).toBe(false);
+    expect(reportFailures(before, { success: true, testResults: [] }, sourceRoot)).toHaveLength(46);
+    for (const report of [null, {}, { success: true }, { ...contractReport(before), success: false }, { success: true, testResults: [{ name: path.resolve(root, cleanupWriterGroup.file) }] }]) {
+      expect(reportFailures(before, report, root).length).toBeGreaterThan(0);
+    }
+    const suiteOnly = contractReport(before); suiteOnly.testResults[0].assertionResults = [{ title: "one passing projected cleanup", fullName: "one passing projected cleanup", ancestorTitles: [], status: "passed" }];
+    expect(reportFailures(before, suiteOnly, root)).toHaveLength(46);
+    const duplicate = contractReport(before); duplicate.testResults.push(duplicate.testResults[0]);
+    expect(reportFailures(before, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+    expect(reportFailures(before, { ...contractReport(before), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures(before, { ...contractReport(before), numFailedTests: 1 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures([], contractReport(before), root)).toEqual(["No required scenarios found"]);
+    expect(reportFailures(before, { ...contractReport([]), lane: "platform-postgres", requirements: [] }, root)).toHaveLength(46);
+  });
+});
+
+
+// Source/report models only. They do not provision PostgreSQL or prove native execution.
+const workflowNativeGroups = [
+  { file: "tests/platform/approved-source-runtime.test.ts", flag: "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED" },
+  { file: "tests/platform/aws-bootstrap-preflight-admission.test.ts", flag: "ZENITH_TEST_AWS_PREFLIGHT_REQUIRED" },
+  { file: "tests/platform/composition.test.ts", flag: "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED" },
+  { file: "tests/platform/current-dispatch-requirement.test.ts", flag: "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED" },
+  { file: "tests/platform/kubernetes-vault-target.test.ts", flag: "ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED" },
+  { file: "tests/platform/source-bundle-azure.test.ts", flag: "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED" },
+  { file: "tests/platform/source-bundle-composition.test.ts", flag: "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED" },
+  { file: "tests/platform/source-bundle-github.test.ts", flag: "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED" },
+] as const;
+const workflowNativeFlags = [...new Set(workflowNativeGroups.map(group => group.flag))];
+interface WorkflowNativeStep { name?: string; run?: string; if?: string; "continue-on-error"?: boolean; env?: Record<string, string> }
+interface WorkflowNativeJob {
+  services?: { postgres?: { image?: string; env?: Record<string, string>; ports?: string[]; options?: string } };
+  env?: Record<string, string>; steps: WorkflowNativeStep[]; if?: string; "continue-on-error"?: boolean;
+}
+const workflowNativeJob = (load(fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8")) as { jobs: { workflows: WorkflowNativeJob } }).jobs.workflows;
+const workflowPlatformUrl = "postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/zenith_platform_ci";
+const workflowSupabaseUrl = "postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/zenith_ci";
+const workflowNativeCommands = [
+  "psql --quiet --set ON_ERROR_STOP=1 --command 'create database zenith_platform_ci' \"$SUPABASE_DB_URL\"",
+  "node node_modules/tsx/dist/cli.mjs scripts/agent/apply-schema.ts",
+  "bash scripts/ci/apply-platform-migrations.sh",
+  "bash scripts/ci/apply-supabase-migrations.sh",
+  "node scripts/ci/run-gate.mjs workflows --run",
+] as const;
+/** Check this job's exact existing canonical prerequisites; never a report or runtime validator. */
+function workflowNativeSetupProblems(job: WorkflowNativeJob): string[] {
+  const problems: string[] = [], service = job.services?.postgres;
+  if (job.if !== undefined || job["continue-on-error"] !== undefined) problems.push("conditional native job");
+  if (service?.image !== "postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685"
+    || JSON.stringify(service.env) !== JSON.stringify({ POSTGRES_USER: "postgres", POSTGRES_PASSWORD: "zenith-ci-throwaway", POSTGRES_DB: "zenith_ci" })
+    || JSON.stringify(service.ports) !== JSON.stringify(["5432:5432"])
+    || service.options?.trim() !== '--health-cmd "pg_isready --username postgres --dbname zenith_ci" --health-interval 5s --health-timeout 5s --health-retries 30') problems.push("native service");
+  if (job.env?.ZENITH_TEST_PLATFORM_PG_URL !== workflowPlatformUrl || job.env?.SUPABASE_DB_URL !== workflowSupabaseUrl
+    || job.env?.ZENITH_PLATFORM_DB !== undefined || job.env?.ZENITH_PLATFORM_DB_URL !== undefined) problems.push("owning database targets");
+  for (const flag of workflowNativeFlags) if (job.env?.[flag] !== "1") problems.push(flag);
+  let previous = job.steps.findIndex(step => step.run === "npm ci --ignore-scripts");
+  if (previous < 0) problems.push("locked dependencies");
+  for (const command of workflowNativeCommands) {
+    const matches = job.steps.flatMap((step, index) => step.run === command ? [index] : []);
+    const index = matches[0], step = job.steps[index];
+    if (matches.length !== 1 || index <= previous || step?.if !== undefined || step?.["continue-on-error"] !== undefined
+      || step?.env !== undefined) problems.push(command);
+    previous = index;
+  }
+  for (const command of ["node scripts/ci/lane-report.mjs workflows .data-ci-lane/workflows-lane.json",
+    "node scripts/ci/run-gate.mjs workflows --validate .data-ci-lane/workflows-lane.json --require-execution"]) {
+    const matches = job.steps.filter(step => step.run === command);
+    if (matches.length !== 1 || matches[0].if !== "always()" || matches[0]["continue-on-error"] !== undefined) problems.push(command);
+  }
+  return problems;
+}
+
+describe("workflow native PostgreSQL prerequisites [source/report models]", () => {
+  it("keeps all 58 workflow identities and exact native source flags while declaring real PostgreSQL", () => {
+    const manifest = manifestFor("workflows", root);
+    expect(manifest.requirements).toHaveLength(58);
+    expect(WORKFLOW_NATIVE_POSTGRES_FILES).toEqual(workflowNativeGroups.map(group => group.file));
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(58);
+    expect(createHash("sha256").update(JSON.stringify(manifest.requirements.map(item => item.id).sort())).digest("hex"))
+      .toBe("d3a15adf854819fd8577c3b55b48dd55640d6522bdc57cad2c707c867ffecad3");
+    expect(manifest.tools).toEqual({ node: "22.23.3", postgres: "16.15", temporal: "1.9.1" });
+    expect(manifest.prerequisites).toContain("PostgreSQL 16.15: fresh separate loopback databases at ZENITH_TEST_PLATFORM_PG_URL (platform) and SUPABASE_DB_URL (Supabase)");
+    expect(manifest.prerequisites.some(value => value.includes("scripts/agent/apply-schema.ts before scripts/ci/apply-platform-migrations.sh"))).toBe(true);
+    expect(manifest.prerequisites.some(value => value.includes("scripts/ci/apply-supabase-migrations.sh"))).toBe(true);
+    for (const { file, flag } of workflowNativeGroups) {
+      expect(manifest.env[flag]).toBe("1");
+      expect(workflowNativeJob.env?.[flag]).toBe("1");
+      expect(manifest.requirements.filter(item => item.file === file)).toEqual([{ file, id: requirementId("workflows", { file }) }]);
+      const source = fs.readFileSync(path.join(root, file), "utf8");
+      expect(source).toContain(`process.env.${flag}`);
+      expect(source).toContain("!PG_URL");
+      expect(source).toContain("throw new Error(");
+    }
+  });
+
+  it("requires separate native targets and mandatory agent-before-platform canonical initialization", () => {
+    expect(workflowNativeSetupProblems(workflowNativeJob)).toEqual([]);
+    const script = fs.readFileSync(path.join(root, "scripts/agent/apply-schema.ts"), "utf8");
+    expect(script).toContain("assertAgentLaneUrl(raw)");
+    expect(script).toContain("await admitLaneRoles(client, raw)");
+    expect(script).toContain("await ports.verify(client)");
+  });
+
+  it.each(["missing service", "floating service", "foreign URL", "same database", "missing flag", "missing agent initializer",
+    "platform before agent", "optional initializer", "waived run", "missing execution binding"] as const)("refuses a %s prerequisite source model", (change) => {
+    const job = structuredClone(workflowNativeJob);
+    const agent = job.steps.findIndex(step => step.run === workflowNativeCommands[1]);
+    const platform = job.steps.findIndex(step => step.run === workflowNativeCommands[2]);
+    const run = job.steps.findIndex(step => step.run === workflowNativeCommands[4]);
+    if (change === "missing service") delete job.services;
+    if (change === "floating service" && job.services?.postgres) job.services.postgres.image = "postgres:16-alpine";
+    if (change === "foreign URL" && job.env) job.env.ZENITH_TEST_PLATFORM_PG_URL = workflowPlatformUrl.replace("127.0.0.1", "foreign.invalid");
+    if (change === "same database" && job.env) job.env.SUPABASE_DB_URL = workflowPlatformUrl;
+    if (change === "missing flag" && job.env) delete job.env.ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED;
+    if (change === "missing agent initializer") job.steps.splice(agent, 1);
+    if (change === "platform before agent") [job.steps[agent], job.steps[platform]] = [job.steps[platform], job.steps[agent]];
+    if (change === "optional initializer") job.steps[agent].if = "hashFiles('scripts/agent/apply-schema.ts') != ''";
+    if (change === "waived run") job.steps[run]["continue-on-error"] = true;
+    if (change === "missing execution binding") {
+      const validate = job.steps.find(step => step.run?.includes("workflows --validate"));
+      if (validate) validate.run = validate.run?.replace(" --require-execution", "");
+    }
+    expect(workflowNativeSetupProblems(job).length).toBeGreaterThan(0);
+  });
+
+  it.each(workflowNativeGroups)("keeps $file mandatory if its native source is deleted", ({ file }) => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "workflow-native-deleted-"));
+    for (const directory of ["tests/workflows", "tests/platform"]) fs.cpSync(path.join(root, directory), path.join(sourceRoot, directory), { recursive: true });
+    const before = requirementsFor("workflows", sourceRoot);
+    fs.unlinkSync(path.join(sourceRoot, file));
+    const after = requirementsFor("workflows", sourceRoot);
+    expect(after.map(item => item.id).sort()).toEqual(before.map(item => item.id).sort());
+    const required = after.filter(item => item.file === file);
+    expect(required).toEqual([{ file, id: requirementId("workflows", { file }) }]);
+    expect(reportFailures(required, { success: true, testResults: [] }, sourceRoot)).toHaveLength(1);
+  });
+
+  it.each(workflowNativeGroups)("rejects missing, failed, skipped, zero and malformed $file reports", ({ file }) => {
+    const requirements = requirementsFor("workflows", root);
+    const baseline = contractReport(requirements);
+    expect(reportFailures(requirements, baseline, root)).toEqual([]);
+    const badReports = [
+      { success: true, testResults: baseline.testResults.filter(item => item.name !== path.resolve(root, file)) },
+      ...["failed", "pending", "skipped", "unknown"].map(status => {
+        const report = structuredClone(baseline);
+        const entry = report.testResults.find(item => item.name === path.resolve(root, file))!;
+        entry.assertionResults[0].status = status;
+        return report;
+      }),
+      ...[[], undefined].map(assertions => {
+        const report = structuredClone(baseline);
+        return { ...report, testResults: report.testResults.map(item => item.name === path.resolve(root, file) ? { ...item, assertionResults: assertions } : item) };
+      }),
+    ];
+    for (const report of badReports) expect(reportFailures(requirements, report, root).length).toBeGreaterThan(0);
+    const duplicate = structuredClone(baseline); duplicate.testResults.push(duplicate.testResults.find(item => item.name === path.resolve(root, file))!);
+    expect(reportFailures(requirements, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+    expect(reportFailures(requirements, { ...baseline, numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    expect(reportFailures([], baseline, root)).toEqual(["No required scenarios found"]);
+    expect(reportFailures(requirements, { ...baseline, success: false }, root).length).toBeGreaterThan(0);
+  });
+
+  it("isolates all production DB sources only inside the two absent-configuration fixtures", () => {
+    const opener = fs.readFileSync(path.join(root, "src/lib/controlplane/db/open.ts"), "utf8");
+    expect(opener).toContain("const explicit = env.ZENITH_PLATFORM_DB?.trim().toLowerCase()");
+    expect(opener).toContain("const url = env.ZENITH_PLATFORM_DB_URL?.trim() || env.SUPABASE_DB_URL?.trim() || undefined");
+    for (const [file, title] of [
+      ["tests/platform/agent-ports.test.ts", "keeps the incident engine unavailable when platform configuration is absent"],
+      ["tests/platform/composition.test.ts", "leaves the legacy app and reconcile 503 behavior alone without platform configuration"],
+    ]) {
+      const source = fs.readFileSync(path.join(root, file), "utf8");
+      const start = source.indexOf(`it(${JSON.stringify(title)}`), end = source.indexOf("\n  });", start);
+      expect(start).toBeGreaterThanOrEqual(0); expect(end).toBeGreaterThan(start);
+      const body = source.slice(start, end);
+      for (const name of ["ZENITH_PLATFORM_DB", "ZENITH_PLATFORM_DB_URL", "SUPABASE_DB_URL"]) expect(body).toContain(`vi.stubEnv(${JSON.stringify(name)}, "")`);
+      expect(source).toContain("vi.unstubAllEnvs()");
+      expect(body).not.toContain('vi.stubEnv("ZENITH_TEST_PLATFORM_PG_URL"');
+    }
   });
 });

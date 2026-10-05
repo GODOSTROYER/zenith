@@ -714,6 +714,19 @@ jobs:
           node-version: '22.23.3'
           cache: npm
 
+      # The root package phase is part of the same source/current-attempt gate.
+      # AppArmor override is fixed to its owned fixture only when the local
+      # daemon reports AppArmor enabled; product unit capabilities stay exact.
+      - name: Require local native package fixture tools
+        if: hashFiles('go/go.mod') != ''
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v docker >/dev/null
+          command -v python3 >/dev/null
+          python3 -c 'import sys; assert sys.version_info >= (3, 10)'
+
       - name: Provision strictly disposable Linux guest fixtures
         if: hashFiles('go/go.mod') != ''
         working-directory: .
@@ -732,7 +745,8 @@ jobs:
         id: native_guest
         if: hashFiles('go/go.mod') != ''
         working-directory: .
-        # Canonical manifest retains go test -race -count=1 ./..., exact
+        # Canonical manifest retains all123 unprivileged obligations and routes
+        # only four root cases to its mandatory native package phase; exact
         # ^TestResultGoldens$ regeneration, byte diff and untracked detection.
         shell: bash
         run: |
@@ -821,7 +835,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    services:
+      postgres:
+        image: postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: zenith-ci-throwaway
+          POSTGRES_DB: zenith_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username postgres --dbname zenith_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
     env:
+      # Separate native authorities in one disposable service; neither URL is a live account.
+      ZENITH_TEST_PLATFORM_PG_URL: postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/zenith_platform_ci
+      SUPABASE_DB_URL: postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/zenith_ci
+      ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1"
+      ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1"
+      ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1"
+      ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1"
+      ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1"
       # Time skipping uses the SDK's cached/downloaded test-server binary;
       # download/start failures must fail the report gate rather than skip green.
       ZENITH_COMPOSE_TEMPORAL_MODE: time-skipping
@@ -843,6 +880,19 @@ jobs:
           cache: npm
 
       - run: npm ci --ignore-scripts
+
+      - name: Create the isolated platform workflow database
+        shell: bash
+        run: psql --quiet --set ON_ERROR_STOP=1 --command 'create database zenith_platform_ci' "$SUPABASE_DB_URL"
+
+      - name: Apply and verify the canonical agent lane schema
+        run: node node_modules/tsx/dist/cli.mjs scripts/agent/apply-schema.ts
+
+      - name: Apply and verify the canonical platform workflow schema
+        run: bash scripts/ci/apply-platform-migrations.sh
+
+      - name: Apply and verify the canonical Supabase workflow schema
+        run: bash scripts/ci/apply-supabase-migrations.sh
 
       - name: Install pinned Temporal CLI
         shell: bash

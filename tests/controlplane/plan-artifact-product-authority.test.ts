@@ -3,8 +3,8 @@ import { randomBytes, randomUUID, createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { z } from "zod/v4";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { openPlatformDb, repos, json, assertPlatformSchemaCurrent, type PlatformDbHandle } from "@/lib/controlplane/db";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { openPlatformDb, platformDb, resetPlatformDbForTests, repos, json, assertPlatformSchemaCurrent, type PlatformDbHandle } from "@/lib/controlplane/db";
 import { PLATFORM_SCHEMA_VERSION } from "@/lib/controlplane/db/migrations";
 import type { Sql } from "@/lib/controlplane/types";
 import { digest } from "@/lib/controlplane/digest";
@@ -28,11 +28,28 @@ import type { PlanArtifactManifest } from "@/lib/tofu/engine";
 import { PG_URL, makeHarness, closeSharedPgliteAfterAll, scriptedEngine, requireApproval, allowDecision, user, sessionFor } from "../capabilities/support";
 import { writeTar } from "../_support/tar";
 import { api } from "../sources/fixtures";
+import { platformBroker, resetPlatformBrokerForTests } from "@/lib/capabilities/platform";
+import { generateSigningJwk, serializePrivateJwk } from "@/lib/credentials";
+import { savedNativePlan, consumeSavedNativePlan, type SavedNativePlan } from "./_support/saved-native-plan";
+import { readFile } from "node:fs/promises";
 
+const nativeState=vi.hoisted(()=>({snapshot:{workspaces:[] as {id:string}[],projects:[] as {id:string;workspaceId:string}[],environments:[] as {id:string;projectId:string;connectionId:string;class:string;region:string}[],connections:[] as {id:string;provider:string}[]},
+  member:async(_ws:string,_id:string):Promise<{id:string;workspace_id:string;role:string}|null>=>null,
+  hold:undefined as undefined|{entered:()=>void;wait:Promise<void>}}));
+vi.mock("@/lib/db/store",async original=>({...await original<typeof import("@/lib/db/store")>(),isPostgres:()=>true,db:()=>nativeState.snapshot,
+  q:{connection:(id:string)=>nativeState.snapshot.connections.find(row=>row.id===id)}}));
+vi.mock("@/lib/db/postgres-store",async original=>({...await original<typeof import("@/lib/db/postgres-store")>(),pgClient:()=>({from:(table:string)=>{
+  if(table!=="members")throw new Error("Unexpected modeled product collection.");const filters=new Map<string,string>();
+  const query={select:()=>query,eq:(key:string,value:string)=>{filters.set(key,value);return query;},abortSignal:()=>query,maybeSingle:async()=>{
+    const id=filters.get("id")!,data=await nativeState.member(filters.get("workspace_id")!,id);
+    if(id==="erin"&&nativeState.hold){nativeState.hold.entered();await nativeState.hold.wait;}return {data,error:null};}};return query;}})}));
+vi.mock("@/lib/policy",async original=>({...await original<typeof import("@/lib/policy")>(),loadPolicyEngine:async()=>scriptedEngine("plan-product-policy",
+  input=>input.request.mutates?requireApproval(1,"admin",true):allowDecision())}));
 vi.mock("@/lib/execution/product-port", async original => ({ ...await original<typeof import("@/lib/execution/product-port")>(),
   workerStoreScope: async <T>(body: () => Promise<T>): Promise<T> => body() }));
 vi.mock("@/lib/controlplane/db/repos/workflow-start-deploy-authority", async original => ({
   ...await original<typeof import("@/lib/controlplane/db/repos/workflow-start-deploy-authority")>(),
+  assertDefaultMcpProductTopology:async(owner:Sql)=>{if((await owner.query("select current_user as role")).length!==1)throw new Error("Modeled owning association unavailable.");},
   // Hosted REST/SQL association is explicitly modeled. The owning transaction
   // and its native SQL identity remain real; MCP R3 owns private factory proof.
   assertFinalMcpProductTopology: async (_sql: Sql, tx: Sql) => {
@@ -50,11 +67,14 @@ const tables = ["workspaces", "members", "projects", "environments", "revisions"
 
 describe.skipIf(!PG_URL)("paired plan product dispatch authority [postgres; modeled current roles and hosted association]", () => {
   let db: PlatformDbHandle, peer: PlatformDbHandle, observer: PlatformDbHandle;
+  const nativePlans:SavedNativePlan[]=[];
+  const configure=()=>{vi.stubEnv("ZENITH_PLATFORM_DB","postgres");vi.stubEnv("ZENITH_PLATFORM_DB_URL",PG_URL!);vi.stubEnv("ZENITH_PLATFORM_DB_MAX","1");vi.stubEnv("SUPABASE_DB_URL",PG_URL!);vi.stubEnv("ZENITH_STORE","postgres");vi.stubEnv("ZENITH_PLATFORM_BROKER_MEMORY","");};
   beforeAll(async () => {
-    db = await openPlatformDb({ kind: "postgres", url: PG_URL!, migrate: true, max: 1 });
+    configure();await resetPlatformDbForTests();db=await platformDb();
     peer = await openPlatformDb({ kind: "postgres", url: PG_URL!, max: 1 });
     observer = await openPlatformDb({ kind: "postgres", url: PG_URL!, max: 1 });
     await assertPlatformSchemaCurrent(db);
+    nativeState.member=async(ws,id)=>(await observer.query<{id:string;workspace_id:string;role:string}>("select id,workspace_id,role from public.members where workspace_id=$1 and id=$2",[ws,id]))[0]??null;
     const migration = readFileSync(new URL("../../supabase/migrations/0001_system_of_record.sql", import.meta.url), "utf8");
     for (const name of tables) {
       const ddl = new RegExp(`create table if not exists public\\.${name} \\([\\s\\S]*?\\n\\);`).exec(migration)?.[0];
@@ -62,8 +82,9 @@ describe.skipIf(!PG_URL)("paired plan product dispatch authority [postgres; mode
       await db.exec(ddl);
     }
   }, 60_000);
-  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
-  afterAll(async () => { await observer?.close(); await peer?.close(); await db?.close(); });
+  beforeEach(async()=>{configure();resetPlatformBrokerForTests();const signing=await generateSigningJwk("EdDSA");vi.stubEnv("ZENITH_CONTROL_SIGNING_JWK",serializePrivateJwk(signing));});
+  afterEach(async()=>{for(const saved of nativePlans.splice(0))await saved.close();nativeState.hold=undefined;resetPlatformBrokerForTests();vi.restoreAllMocks();vi.unstubAllEnvs();});
+  afterAll(async () => { await observer?.close(); await peer?.close(); await resetPlatformDbForTests(); });
 
   async function fixture(git = false, destroy = false) {
     const h = await makeHarness({ kind: "postgres", engine: scriptedEngine("plan-product-policy", input => input.request.mutates ? requireApproval(1, "admin", true) : allowDecision()) });
@@ -100,6 +121,10 @@ describe.skipIf(!PG_URL)("paired plan product dispatch authority [postgres; mode
     await db.query("insert into public.connections(id,workspace_id,provider,status,data) values($1,$2,'aws','healthy',$3::text::jsonb)", [connectionId, workspaceId, json({ region: environment.region, platformConnectionId: nativeId })]);
     await db.query("insert into public.revisions(id,workspace_id,project_id,number,data) values($1,$2,$3,1,$4::text::jsonb)", [revisionId, workspaceId, projectId, json({ message: "approved original" })]);
     await db.query("insert into public.revision_manifests(revision_id,workspace_id,manifest) values($1,$2,$3::text::jsonb)", [revisionId, workspaceId, json(manifest)]);
+    if(destroy) {
+      nativeState.snapshot={workspaces:[{id:workspaceId}],projects:[{id:projectId,workspaceId}],environments:[{...environment,projectId}],connections:[{id:connectionId,provider:"aws"}]};
+      h.broker=await platformBroker();
+    }
     const proposed = (await h.broker.propose({ capability: destroy ? "infrastructure.plan" : "deployment.deploy", scope: { workspaceId, projectId, environmentId },
       input: { revisionId, deploymentId, ...(destroy ? { environmentId, teardownReview: true } : {}) } }, user("alice"))).operation;
     const op = await repos.operations.get(db, workspaceId, proposed.id);
@@ -130,6 +155,14 @@ describe.skipIf(!PG_URL)("paired plan product dispatch authority [postgres; mode
       await store.retain(source, lease); snapshots.push(source);
     }
     const sourceDigest = snapshots.length ? sourceSnapshotSetDigest(snapshots) : undefined;
+    const native = await connections.get(db, workspaceId, nativeId);
+    if (!native) throw new Error("Native original provider is unavailable.");
+    const custody = planCustody({ op, workspaceId, environmentId, scope: scopeOf(op), product, deploymentId, ...(sourceDigest ? { executableSourceDigest: sourceDigest } : {}) }, graph.graphDigest, native);
+    if(destroy) {
+      const key=randomBytes(32).toString("hex"),saved=await savedNativePlan(db,{custody,lease,graph,key,destroy:true});nativePlans.push(saved);
+      return {h,op,worker:createExecutionBroker(db),retained,manifest:saved.row.manifest,graph,snapshots,lease,revisionId,deploymentId,connectionId,nativeId,
+        access:{custody,planDigest:saved.plan.planDigest,lease},payload:"",saved};
+    }
     const plan = normalizePlan({ format_version: "1.2", terraform_version: TOFU_VERSION, resource_changes: [], output_changes: {} },
       { configDigest: digest("synthetic original config"), lockDigest: digest("synthetic original lock"), addressMap: {}, ...(sourceDigest ? { executableSourceDigest: sourceDigest } : {}) });
     const facts = extractPlanFacts(plan), summary = { ...planEvidence({ plan, facts, cost: {}, graphDigest: graph.graphDigest, stage: "plan", ...(snapshots.length ? { approvedSources: snapshots } : {}) }).summary,
@@ -143,9 +176,6 @@ describe.skipIf(!PG_URL)("paired plan product dispatch authority [postgres; mode
     await h.broker.approve({ workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: plan.planDigest, approver: user("erin"), session: sessionFor("erin") });
     await repos.operations.claimForExecution(db, { workspaceId, id: op.id, expectedDigest: op.proposalDigest, holder: executionHolder(op.id), leaseMs: 120_000, lease, expectedPolicyVersion: "plan-product-policy" });
     }
-    const native = await connections.get(db, workspaceId, nativeId);
-    if (!native) throw new Error("Native original provider is unavailable.");
-    const custody = planCustody({ op, workspaceId, environmentId, scope: scopeOf(op), product, deploymentId, ...(sourceDigest ? { executableSourceDigest: sourceDigest } : {}) }, graph.graphDigest, native);
     const payload = "synthetic original target-bound SQL payload", key = randomBytes(32).toString("hex"), cipher = planArtifactCipherFromEnv({ ZENITH_PLAN_ARTIFACT_KEY: key });
     const manifestArtifact: PlanArtifactManifest = { ...custody, format: "zenith.plan-artifact.v1", purpose: destroy ? "destroy" : "deploy", planDigest: plan.planDigest,
       configDigest: plan.configDigest, lockDigest: plan.lockDigest, backendDigest: digest("synthetic backend"), addressMapDigest: digest("synthetic address map"),
@@ -153,10 +183,14 @@ describe.skipIf(!PG_URL)("paired plan product dispatch authority [postgres; mode
     const sealed = cipher.seal(workspaceId, `zenith.tofu.plan-artifact.v1:${sha(stableJson(manifestArtifact))}`, Buffer.from(payload).toString("base64"));
     await artifacts.publish(db, { manifest: manifestArtifact, sealed, lease, evidence: { workspaceId, operationId: op.id, kind: "tofu_plan", digest: plan.planDigest, summary, simulated: false } });
     return { h, op, worker, retained, manifest: manifestArtifact, graph, snapshots, lease, revisionId, deploymentId, connectionId, nativeId,
-      access: { custody, planDigest: plan.planDigest, lease }, payload };
+      access: { custody, planDigest: plan.planDigest, lease }, payload, saved:undefined };
   }
   type Fixture = Awaited<ReturnType<typeof fixture>>;
   function delayRole(f: Fixture) {
+    if(f.saved) {
+      const entered=barrier(),release=barrier();nativeState.hold={entered:entered.release,wait:release.promise};
+      return {entered:entered.promise,release:()=>{nativeState.hold=undefined;release.release();}};
+    }
     const entered = barrier(), release = barrier(), roles = f.h.deps.roles;
     f.h.deps.roles = { resolve: async (principal, workspaceId) => {
       if (principal.kind === "user" && principal.id === "erin") { entered.release(); await release.promise; }
@@ -358,12 +392,15 @@ describe.skipIf(!PG_URL)("paired plan product dispatch authority [postgres; mode
     const lease = await repos.operations.acquireExecutionLease(db, { workspaceId: ws, scope: f.lease.scope, holder: `worker:destination:${destination.id}`, ttlMs: 120_000, operation: { id: destination.id, proposalDigest: destination.proposalDigest } });
     if (!lease) throw new Error("Native destination lease is unavailable.");
     const access = { custody: { ...f.access.custody, operationId: destination.id, proposalDigest: destination.proposalDigest, inputDigest: destination.inputDigest, expiresAt: destination.expiresAt }, planDigest: f.access.planDigest, lease };
-    const original = await artifacts.claim(db, access, "destroy-product-attempt"); expect(original.manifest.operationId).toBe(f.op.id); expect(original.manifest).toEqual(f.manifest);
-    const wait = delayRole(f); let modeledProviderCalls = 0;
-    const pending = (async () => {
-      const authority = await createExecutionBroker(peer, async () => f.h.broker).approvalStatus(destination.id); expect(authority.approved).toBe(true);
-      await artifacts.dispatch(peer, access, "destroy-product-attempt", authority.dispatchApproval); modeledProviderCalls++;
-    })().then(() => undefined, error => error);
+    const saved=f.saved;if(!saved)throw new Error("Real associated native plan is missing.");
+    const callback=barrier();let wait:ReturnType<typeof delayRole>|undefined,modeledProviderCalls=0;
+    const beforeState=await readFile(saved.statePath);
+    const pending=consumeSavedNativePlan(db,saved,access,async()=>{wait=delayRole(f);callback.release();}).then(value=>{
+      expect(value.originalSha).toBe(f.manifest.rawSha256);expect(value.result.apply.exitCode).toBe(0);modeledProviderCalls++;return undefined;
+    },error=>error);
+    await Promise.race([callback.promise,pending.then(()=>{throw new Error("The genuine held callback was not reached.");})]);
+    if(!wait)throw new Error("The actual held current role boundary is missing.");
+    expect(await observer.query("select generation from platform.cleanup_writer_holds where workspace_id=$1 and operation_id=$2",[ws,destination.id])).toHaveLength(1);
     try {
       await wait.entered;
       if (change === "destination subject demotion" || change === "original subject demotion") await observer.query("update public.members set role='viewer' where workspace_id=$1 and id=$2", [ws, change === "destination subject demotion" ? "bob" : "alice"]);
@@ -374,8 +411,8 @@ describe.skipIf(!PG_URL)("paired plan product dispatch authority [postgres; mode
       if (change === "retained historical foreign scope") await observer.query("update platform.resources set project_id=$4 where workspace_id=$1 and environment_id=$2 and address=$3", [ws, f.op.environmentId, f.retained!.address, f.h.ids.projB]);
     } finally { wait.release(); }
     const result = await pending;
-    if (!["unchanged destination", "original subject demotion"].includes(change)) { expect(result).toMatchObject({ code: "plan_artifact_unavailable" }); expect(modeledProviderCalls).toBe(0); await artifacts.finish(db, access, "destroy-product-attempt", false); }
-    else { expect(result).toBeUndefined(); expect(modeledProviderCalls).toBe(1); await artifacts.finish(db, access, "destroy-product-attempt", true); }
+    if (!["unchanged destination", "original subject demotion"].includes(change)) { expect(result).toBeInstanceOf(Error); expect(modeledProviderCalls).toBe(0);expect(await readFile(saved.statePath)).toEqual(beforeState); }
+    else { expect(result).toBeUndefined(); expect(modeledProviderCalls).toBe(1); }
     expect(await db.query("select operation_id from platform.plan_artifacts where workspace_id=$1 and operation_id=$2", [ws, destination.id])).toHaveLength(0);
     await immutable(f);
   });

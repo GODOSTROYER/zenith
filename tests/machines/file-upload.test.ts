@@ -31,7 +31,7 @@ function harness(outcome: MachineDispatchOutcome = { status: "succeeded", result
 describe("bounded local-source file.upload custody", () => {
   it("admits explicit absence or exact prior digest before signed envelope construction", () => {
     expect(ZENITHD_OPERATIONS).toContain("file.upload");
-    expect(ZENITHD_OPERATIONS).not.toContain("package.install");
+    expect(ZENITHD_OPERATIONS).toContain("package.install");
     expect(validateMachineArgs("file.upload", args)).toEqual(args);
     expect(() => validateMachineArgs("file.upload", { ...args, bytes: "x".repeat(65537) })).toThrow(/args are larger than 65536 bytes/);
     expect(validateMachineArgs("file.upload", { ...args, expectedSha256: "b".repeat(64) })).toEqual({ ...args, expectedSha256: "b".repeat(64) });

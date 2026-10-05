@@ -308,6 +308,9 @@ func TestUnsupportedAndUnknownOperationsAreRefused(t *testing.T) {
 		if name == ops.OpFileUpload {
 			code = protocol.CodeDisabledByConfig
 		}
+		if name == ops.OpPackageInstall {
+			code = protocol.CodeNotAllowed
+		}
 		wantCode(t, err, code)
 	}
 }
@@ -375,5 +378,15 @@ func writeFile(t *testing.T, path, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPackageInstallDirectDecodedArgsCannotUseRunner(t *testing.T) {
+	runner := &fakeRunner{}
+	e := &ops.Env{Runner: runner, Cfg: ops.Config{PackageInstall: ops.PackageInstallConfig{Enabled: true}}}
+	_, err := prep(t, e, ops.OpPackageInstall, map[string]any{"profileRef": "bundle", "profileVersion": strings.Repeat("a", 64), "expectedInstalledVersion": nil})
+	wantCode(t, err, protocol.CodeNotAllowed)
+	if runner.count() != 0 {
+		t.Fatal("decoded arguments reached a privileged runner")
 	}
 }

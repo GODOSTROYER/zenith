@@ -20,6 +20,7 @@
  * discovered from migrations: every table that has a `workspace_id` column.
  */
 import { readdirSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
@@ -68,9 +69,111 @@ function isFixedStartAuthorityInterpolation(fn: Fn, expression: string, sqlPrefi
     && /import \{[^}]*\bMCP_DEPLOY_AUTHORITY\b[^}]*\} from "\.\/workflow-start-deploy-authority";/.test(fn.source);
 }
 
+/** These are three exact reviewed writes, not a function-name SQL exemption.
+ * The hashes bind complete fixed CTE text and original literal clauses; AST
+ * provenance separately binds imported symbols, the native frame and parameters.
+ * No production module or composer is executed by this source audit. */
+function isFixedCleanupWriteContext(fn: Fn, repo: ts.SourceFile, owning: ts.FunctionDeclaration,
+  query: ts.TemplateExpression, params: ts.ArrayLiteralExpression): boolean {
+  const first = ["input.custody.workspaceId", "input.custody.operationId", "bound.attempt", "input.lease.holder",
+    "input.lease.fenceToken", "JSON.stringify(bound.proof)", "JSON.stringify(sourceAuthority)", "JSON.stringify(productAuthority)"];
+  const contexts: Record<string, { purpose: string; hash: string; functionHash: string; tail: string[]; returned: string }> = {
+    retainCleanupWriterHold: { purpose: "hold", hash: "c666928089ccfe8a1db070522ca3fbcd85da8506b4a89986b81b9a0219768c1f", functionHash: "afe56d3ca1823d24ef4f343287201a6b004dde569cf6015feee1ded1c2c68ec5",
+      tail: ["c.projectId", "c.environmentId", "generation", "bound.manifestDigest", "frame.authorityDigest"], returned: "generation" },
+    reserveCleanupOwnerGrant: { purpose: "grant", hash: "19d030c961cdc6def7ac17b52311f4167b915d57e87444acd765231deb743cb0", functionHash: "b966bbbd35e2dd73bd4be0c0b99eeb46d7b3a69be401dfd21fbaa99fa2dcff58",
+      tail: ["h.generation", "jti", "frame.authorityDigest"], returned: "jti" },
+    insertCleanupOwnerGrant: { purpose: "grant", hash: "c957f2312f7d64d33ece5cb783a2fc97b68d440b5515b2a26ad6fd299782641b", functionHash: "1784cc96da64cd1638c167a3ef44f7fe57705bdf7e226919efa5cadd15db7385",
+      tail: ["grant.jti", "grant.issuedAt", "grant.expiresAt"], returned: "jti" },
+  };
+  const context = contexts[fn.name];
+  if (!context || owning.parameters[0]?.getText(repo) !== "sql:Sql" || owning.parameters[1]?.getText(repo) !== "origin:unknown"
+    || owning.parameters.length !== (fn.name === "retainCleanupWriterHold" ? 2 : 3)) return false;
+  const hash = (value: string) => createHash("sha256").update(value).digest("hex");
+  if (hash(owning.getText(repo)) !== context.functionHash || hash(query.getText(repo).slice(1, -1)) !== context.hash
+    || params.elements.map(item => item.getText(repo)).join("\n") !== [...first, ...context.tail].join("\n")) return false;
+  const walk = (node: ts.Node, test: (node: ts.Node) => boolean): boolean => test(node)
+    || (ts.forEachChild(node, child => walk(child, test)) ?? false);
+  for (const name of ["readNativeCleanupOrigin", "assertNativeCleanupOriginCurrent"]) {
+    const imported: ts.ImportSpecifier[] = [];
+    walk(repo, node => { if (ts.isImportSpecifier(node) && node.name.text === name) imported.push(node); return false; });
+    if (imported.length !== 1 || imported[0].isTypeOnly || imported[0].propertyName) return false;
+    const declaration = imported[0].parent.parent.parent;
+    if (!ts.isImportDeclaration(declaration) || declaration.importClause?.isTypeOnly
+      || !ts.isStringLiteral(declaration.moduleSpecifier) || declaration.moduleSpecifier.text !== "@/lib/platform/plan-artifacts") return false;
+    if (walk(repo, node => (ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isFunctionDeclaration(node)
+      || ts.isClassDeclaration(node) || ts.isBindingElement(node)) && !!node.name && ts.isIdentifier(node.name) && node.name.text === name)) return false;
+  }
+  // Pin the actual private native capture, which locks owner rows before the
+  // coordinator and resolves source/product/current policy from owning rows.
+  const captures = repo.statements.filter(ts.isFunctionDeclaration).filter(node => node.name?.text === "captureCleanupFrame");
+  if (captures.length !== 1 || captures[0].modifiers?.some(node => node.kind === ts.SyntaxKind.ExportKeyword)
+    || hash(captures[0].getText(repo)) !== "82191680184982f73c502f7b08a1b8b3970c4637e4253d01045df0c2ac0890a2") return false;
+  // A function declaration is a mutable binding. Only the canonical declaration
+  // and its three reviewed direct callee sites may reference this private frame;
+  // a separate assignment or alias must not inherit declaration-hash authority.
+  const captureReferences: ts.Identifier[] = [];
+  if (walk(repo, node => {
+    if (ts.isIdentifier(node) && node.text === "captureCleanupFrame") captureReferences.push(node);
+    return ts.isIdentifier(node) && ["eval", "Function"].includes(node.text);
+  }) || captureReferences.length !== 4) return false;
+  const captureOwners = new Set<string>();
+  for (const reference of captureReferences) {
+    if (reference === captures[0].name) continue;
+    const call = reference.parent;
+    if (!ts.isCallExpression(call) || call.expression !== reference
+      || call.getText(repo) !== "captureCleanupFrame(sql,tx,bound)") return false;
+    let owner: ts.Node = call;
+    while (!ts.isFunctionDeclaration(owner) && owner.parent) owner = owner.parent;
+    if (!ts.isFunctionDeclaration(owner) || !owner.name || !Object.hasOwn(contexts, owner.name.text)
+      || captureOwners.has(owner.name.text)) return false;
+    captureOwners.add(owner.name.text);
+  }
+  if (captureOwners.size !== 3) return false;
+  const literalClauses: Record<string, string> = {
+    LIVE_USE_AUTHORITY: "83c59ac088fd79302d4e35ee4be2c92ab61ea180dbdd0ea3134bd2e2d22f0b77",
+    DISPATCH_SOURCE_AUTHORITY: "f8e290362c74a3fe7ac1bf511b4f90ace2aaad54b91c8d3e9f2afe5026d8c34c",
+  };
+  for (const [name, expected] of Object.entries(literalClauses)) {
+    const found: ts.VariableDeclaration[] = [];
+    walk(repo, node => { if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name) found.push(node); return false; });
+    if (found.length !== 1 || !found[0].initializer || !ts.isNoSubstitutionTemplateLiteral(found[0].initializer)
+      || !ts.isVariableDeclarationList(found[0].parent) || !(found[0].parent.flags & ts.NodeFlags.Const)
+      || hash(found[0].initializer.getText(repo)) !== expected) return false;
+  }
+  const declarations: ts.VariableDeclaration[] = [];
+  walk(owning, node => { if (ts.isVariableDeclaration(node)) declarations.push(node); return false; });
+  const exact = (name: string, value: string) => declarations.filter(node => ts.isIdentifier(node.name) && node.name.text === name
+    && node.initializer?.getText(repo) === value).length === 1;
+  if (!exact("bound", `await readNativeCleanupOrigin(origin,sql,"${context.purpose}")`)
+    || !exact("frame", "await captureCleanupFrame(sql,tx,bound)") || !exact("input", "bound.access")
+    || !exact("sourceAuthority", "frame.source") || !exact("productAuthority", "frame.product")) return false;
+  const callbacks: ts.ArrowFunction[] = [];
+  walk(owning, node => {
+    if (ts.isCallExpression(node) && node.expression.getText(repo) === "sql.tx" && node.arguments.length === 1
+      && ts.isArrowFunction(node.arguments[0])) callbacks.push(node.arguments[0]);
+    return false;
+  });
+  const callback = callbacks[0];
+  if (callbacks.length !== 1 || callback.parameters.length !== 1 || callback.parameters[0].name.getText(repo) !== "tx"
+    || !callback.modifiers?.some(node => node.kind === ts.SyntaxKind.AsyncKeyword) || !ts.isBlock(callback.body)
+    || query.pos < callback.pos || query.end > callback.end) return false;
+  const beforeQuery = callback.body.statements.filter(node => node.end <= query.pos).map(node => node.getText(repo));
+  if (!beforeQuery.includes("const frame=await captureCleanupFrame(sql,tx,bound);")
+    || !beforeQuery.includes("await lockCleanupCoordinator(tx,c.workspaceId);")
+    || beforeQuery.filter(text => text === "await assertNativeCleanupOriginCurrent(origin,sql);").length !== (fn.name === "retainCleanupWriterHold" ? 1 : 2)
+    || beforeQuery.at(-1) !== "const input=bound.access,sourceAuthority=frame.source,productAuthority=frame.product;") return false;
+  const suffix = callback.body.statements.filter(node => node.pos >= query.end).map(node => node.getText(repo));
+  if (!suffix.includes("if(rows.length!==1)throw new cleanup.CleanupWriterBarrierError();")) return false;
+  // No second query or alternate INSERT is admitted through this context.
+  const queries: ts.CallExpression[] = [];
+  walk(callback, node => { if (ts.isCallExpression(node) && node.expression.getText(repo) === "tx.query") queries.push(node); return false; });
+  return queries.length === 1 && queries[0].arguments[0] === query
+    && query.getText(repo).includes(`returning ${context.returned}`);
+}
+
 /** Source proof for one internal composer; the composer and its imports are never executed. */
 function isFixedPlanProductInterpolation(fn: Fn, expression: string, sqlText: string, composerSource: string): boolean {
-  if (fn.file !== "plan-artifacts.ts" || !["claim", "dispatch"].includes(fn.name)
+  if (fn.file !== "plan-artifacts.ts" || !["claim", "dispatch", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"].includes(fn.name)
     || expression !== "planProductDispatchPredicate(productAuthority)") return false;
   const parse = (file: string, source: string) => ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const repo = parse(fn.file, fn.source), composer = parse("plan-artifact-product-authority.ts", composerSource);
@@ -129,14 +232,16 @@ function isFixedPlanProductInterpolation(fn: Fn, expression: string, sqlText: st
       || node.expression.name.text !== "query" || node.arguments.length !== 2) return false;
     const [query, params] = node.arguments;
     if (!ts.isTemplateExpression(query) || query.getText(repo) !== "`" + sqlText + "`"
-      || !ts.isArrayLiteralExpression(params) || params.elements.length !== 8) return false;
+      || !ts.isArrayLiteralExpression(params)) return false;
     const calls = query.templateSpans.filter(span => span.expression.getText(repo) === expression);
     const head = query.head.text;
-    if (calls.length !== 1 || !head.startsWith(`update platform.plan_artifact_uses set phase='${fn.name === "claim" ? "claimed" : "dispatched"}'`)
+    const cleanupWrite = !["claim", "dispatch"].includes(fn.name);
+    if (cleanupWrite && !isFixedCleanupWriteContext(fn, repo, owning[0], query, params)) return false;
+    if (calls.length !== 1 || !cleanupWrite && (params.elements.length !== 8 || !head.startsWith(`update platform.plan_artifact_uses set phase='${fn.name === "claim" ? "claimed" : "dispatched"}'`)
       || !head.includes(`where workspace_id=$1 and operation_id=$2 and phase='${fn.name === "claim" ? "ready" : "claimed"}'`)
       || params.elements[0].getText(repo) !== "input.custody.workspaceId"
       || params.elements[1].getText(repo) !== "input.custody.operationId"
-      || params.elements[7].getText(repo) !== "JSON.stringify(productAuthority)") return false;
+      || params.elements[7].getText(repo) !== "JSON.stringify(productAuthority)")) return false;
     const spanIndex = query.templateSpans.indexOf(calls[0]);
     const before = spanIndex === 0 ? query.head.text : query.templateSpans[spanIndex - 1].literal.text;
     if (!/\band\s*\($/.test(before) || !calls[0].literal.text.startsWith(")")) return false;
@@ -364,6 +469,68 @@ describe("control-store repositories: workspace scoping is present in every func
       const directValue = query.replace("planProductDispatchPredicate(productAuthority)", "productAuthority.witness.id");
       expect(isFixedPlanProductInterpolation(changedRepo(query, directValue), "productAuthority.witness.id", directValue, composerSource)).toBe(false);
     }
+    const cleanupWrites = fns.filter(fn => fn.file === "plan-artifacts.ts"
+      && ["retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"].includes(fn.name));
+    expect(cleanupWrites.map(fn => fn.name)).toEqual(["retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"]);
+    for (const fn of cleanupWrites) {
+      const query = [...fn.body.matchAll(/\.query(?:<[^>]*>)?\(\s*`([\s\S]*?)`/g)]
+        .find(match => match[1].includes("${planProductDispatchPredicate(productAuthority)}"))![1];
+      const expression = "planProductDispatchPredicate(productAuthority)";
+      expect(isFixedPlanProductInterpolation(fn, expression, query, composerSource), fn.name).toBe(true);
+      const changed = (from: string, to: string): Fn => {
+        expect(fn.source, `${fn.name}: mutation must reach source`).toContain(from);
+        return { ...fn, source: fn.source.replaceAll(from, to), body: fn.body.replaceAll(from, to) };
+      };
+      const changedQuery = (from: string, to: string): void => {
+        expect(query, `${fn.name}: mutation must reach SQL`).toContain(from);
+        const replacement = query.replaceAll(from, to);
+        expect(isFixedPlanProductInterpolation(changed(query, replacement), expression, replacement, composerSource), `${fn.name}: ${from}`).toBe(false);
+      };
+      for (const [from, to] of [
+        ["set updated_at=updated_at", "set phase='dispatched'"],
+        ["workspace_id=$1 and operation_id=$2", "workspace_id=$9 and operation_id=$2"],
+        ["phase='claimed'", "phase='ready'"],
+        ["from authority where operation_id=$2", "from authority where true"],
+        ["and (${planProductDispatchPredicate(productAuthority)})", "and witness=${planProductDispatchPredicate(productAuthority)}"],
+        ["planProductDispatchPredicate(productAuthority)", "productAuthority.witness.id"],
+        ["and (${LIVE_USE_AUTHORITY})", "and true"],
+        ["and (${DISPATCH_SOURCE_AUTHORITY})", "and true"],
+        ["a.consumed_at is not null", "true"],
+      ]) changedQuery(from, to);
+      const target = /insert into platform\.(\w+)/.exec(query)![1];
+      changedQuery(`insert into platform.${target}`, "insert into public.unreviewed_effects");
+      changedQuery("select $", "values ($");
+      for (const [from, to] of [
+        ['from "@/lib/platform/plan-artifacts"', 'from "./untrusted-cleanup-origin"'],
+        ['readNativeCleanupOrigin, assertNativeCleanupOriginCurrent', 'foreignOrigin as readNativeCleanupOrigin, assertNativeCleanupOriginCurrent'],
+        ['const bound=await readNativeCleanupOrigin(origin,sql,', 'const bound=await callerCleanupDto(origin,sql,'],
+        ['const frame=await captureCleanupFrame(sql,tx,bound);', 'const frame=callerFrame;'],
+        ['const input=bound.access,sourceAuthority=frame.source,productAuthority=frame.product;', 'const input=bound.access,sourceAuthority=frame.source,productAuthority=callerProduct;'],
+        ['const input=bound.access,sourceAuthority=frame.source,productAuthority=frame.product;', 'let input=bound.access,sourceAuthority=frame.source,productAuthority=frame.product;'],
+        ['JSON.stringify(bound.proof)', 'JSON.stringify(callerApproval)'],
+        ['JSON.stringify(sourceAuthority)', 'JSON.stringify(input)'],
+        ['JSON.stringify(productAuthority)', 'JSON.stringify(input)'],
+        ['[input.custody.workspaceId,input.custody.operationId,bound.attempt', '[input.workspaceId,input.custody.operationId,bound.attempt'],
+        ['[input.custody.workspaceId,input.custody.operationId,bound.attempt', '[input.custody.workspaceId,input.custody.operationId,callerAttempt'],
+        ['await lockCleanupCoordinator(tx,c.workspaceId);', 'await lockCleanupCoordinator(tx,callerWorkspace);'],
+        ['if(rows.length!==1)throw new cleanup.CleanupWriterBarrierError();', 'if(rows.length!==1)return;'],
+      ]) expect(isFixedPlanProductInterpolation(changed(from, to), expression, query, composerSource), `${fn.name}: ${from}`).toBe(false);
+      for (const effect of [
+        '\ncaptureCleanupFrame = callerFrameFactory;\n',
+        '\nconst escapedNativeFrame = captureCleanupFrame;\n',
+        '\ncaptureCleanupFrame(sql,tx,bound);\n',
+        '\neval("captureCleanupFrame = callerFrameFactory");\n',
+      ]) expect(isFixedPlanProductInterpolation({ ...fn, source: fn.source + effect }, expression, query, composerSource), `${fn.name}: private capture mutation`).toBe(false);
+      expect(isFixedPlanProductInterpolation({ ...fn, source: fn.source + '\nconst readNativeCleanupOrigin = caller;\n' }, expression, query, composerSource)).toBe(false);
+      expect(isFixedPlanProductInterpolation({ ...fn, file: "foreign-repository.ts" }, expression, query, composerSource)).toBe(false);
+      expect(isFixedPlanProductInterpolation({ ...fn, name: "callerCleanupWrite" }, expression, query, composerSource)).toBe(false);
+      for (const source of [
+        composerSource.replace("return `${base} and ${tables}", "return `${current.witness.id} and ${tables}"),
+        composerSource.replace('${name}', '${String(current.witness.id)}'),
+        composerSource + '\ntableNames.push("unreviewed" as never);\n',
+        composerSource + '\nArray.prototype.map = () => [callerControlledSql];\n',
+      ]) { expect(source).not.toBe(composerSource); expect(isFixedPlanProductInterpolation(fn, expression, query, source)).toBe(false); }
+    }
     const risky: string[] = [];
     for (const fn of fns) {
       // a template literal handed to .query() that interpolates something other than the known constants
@@ -373,7 +540,7 @@ describe("control-store repositories: workspace scoping is present in every func
           if (isFixedStartAuthorityInterpolation(fn, expr, m[1].slice(0, interp.index))) continue;
           if (isFixedPlanProductInterpolation(fn, expr, m[1], composerSource)) continue;
           // A failed native proof cannot fall through to the older name-based column/index recognizers.
-          if (fn.file === "plan-artifacts.ts" && ["claim", "dispatch"].includes(fn.name)
+          if (fn.file === "plan-artifacts.ts" && ["claim", "dispatch", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"].includes(fn.name)
             && /\b(?:planProductDispatchPredicate|productAuthority)\b/.test(expr)) {
             risky.push(`${key(fn)}: \${${expr}}`);
             continue;

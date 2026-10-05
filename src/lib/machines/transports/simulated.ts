@@ -48,7 +48,7 @@ function logLines(r: () => number, n: number, label: string): string {
 
 type Gen = (r: () => number, args: Record<string, unknown>, req: MachineRequest) => Record<string, unknown>;
 
-const GENERATORS: Record<Exclude<ImplementedOperation, "file.write" | "file.upload">, Gen> = {
+const GENERATORS: Record<Exclude<ImplementedOperation, "file.write" | "file.upload" | "package.install">, Gen> = {
   "machine.inspect": (r, _a, req) => {
     const total = int(r, 4, 32) * 1024 * 1024;
     return {
@@ -151,7 +151,7 @@ export function createSimulatedMachineDriver(transport: MachineTransport, option
     if (!supports.includes(req.operation)) {
       throw new MachineOperationError("unsupported_operation", `${req.operation} is not implemented`);
     }
-    const op = req.operation as Exclude<ImplementedOperation, "file.write" | "file.upload">;
+    const op = req.operation as Exclude<ImplementedOperation, "file.write" | "file.upload" | "package.install">;
     const parsed = parseMachineArgs(op, req.args);
     if (!parsed.ok) throw new MachineOperationError("invalid_args", "arguments failed validation", { issues: parsed.issues });
     const args = parsed.args as Record<string, unknown>;

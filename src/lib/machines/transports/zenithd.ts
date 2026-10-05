@@ -28,7 +28,7 @@ import { capability } from "@/lib/capabilities/catalog";
 import { isImplementedOperation, parseMachineArgs, type ImplementedOperation } from "../args";
 import { MachineOperationError } from "../errors";
 import { redactText, truncateUtf8 } from "../redact";
-import { FileWriteFailureDataSchema, MachineFailureDataSchema, MachineResultDataSchemas, type MachineFailureCode } from "../results";
+import { FileWriteFailureDataSchema, PackageInstallFailureDataSchema, MachineFailureDataSchema, MachineResultDataSchemas, type MachineFailureCode } from "../results";
 import type { MachineDispatchOutcome, MachineDriver, MachineOperation, MachineRequest, MachineRequestDispatcher, MachineResult, ZenithdSession } from "../types";
 
 export interface ZenithdDriverOptions {
@@ -50,6 +50,7 @@ const SUPPORTED: readonly MachineOperation[] = [
   "file.read",
   "file.write",
   "file.upload",
+  "package.install",
   "network.portCheck",
   "network.dnsCheck",
   "system.metrics",
@@ -58,7 +59,7 @@ const SUPPORTED: readonly MachineOperation[] = [
 ];
 
 const UNSUPPORTED: Partial<Record<MachineOperation, string>> = {
-  "package.install": "package.install is not implemented by zenithd or any machine transport yet",
+
 };
 
 const validIso = (v: string | undefined): string | undefined => (typeof v === "string" && v.length <= 40 && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : undefined);
@@ -131,6 +132,17 @@ export function createZenithdMachineDriver(options: ZenithdDriverOptions): Machi
 
     if (o.status === "uncertain") {
       throw new MachineOperationError("uncertain", "the machine went silent past the request deadline; the request may or may not have run", { transportRef: id });
+    }
+    if (req.operation === "package.install") {
+      if (o.status === "succeeded") {
+        const parsed = MachineResultDataSchemas["package.install"].safeParse(o.result);
+        if (!parsed.success || parsed.data.profileRef !== req.args.profileRef || parsed.data.profileVersion !== req.args.profileVersion || parsed.data.changed !== (req.args.expectedInstalledVersion === null) || (req.args.expectedInstalledVersion !== null && parsed.data.version !== req.args.expectedInstalledVersion)) throw new MachineOperationError("uncertain", "the package receipt does not bind approved metadata", { transportRef: id });
+        return result(true, parsed.data);
+      }
+      const parsed = PackageInstallFailureDataSchema.safeParse(o.result);
+      if (parsed.success) return result(false, parsed.data);
+      if (o.status === "rejected") return result(false, { error: "refused", phase: "guard", effect: "none", postcondition: "unverified" });
+      throw new MachineOperationError("uncertain", "the machine did not supply package effect custody", { transportRef: id });
     }
     if (req.operation === "file.write" || req.operation === "file.upload") {
       if (o.status === "succeeded") {

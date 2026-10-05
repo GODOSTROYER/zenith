@@ -1,0 +1,122 @@
+/** Native possible-delivery inventory. These counts never attest provider settlement. */
+import type { Sql } from "@/lib/controlplane/types";
+import type { InsertGrantInput } from "./grants";
+
+export class CleanupWriterBarrierError extends Error {
+  readonly code = "cleanup_writer_unconfirmed";
+  constructor() { super("Cleanup writer authority or earlier delivery is unconfirmed; destruction was refused."); }
+}
+export interface CleanupHold {
+  readonly workspaceId: string; readonly projectId: string; readonly environmentId: string;
+  readonly operationId: string; readonly attemptId: string; readonly generation: string;
+  readonly manifestDigest: string; readonly authorityDigest: string;
+}
+export interface CleanupInventory {
+  readonly unknownHistory: number; readonly grants: number; readonly handoffs: number; readonly reservations: number;
+}
+/** Tenant-scoped read only. Unknown or pre-epoch history cannot be made green by empty projections. */
+export async function preview(sql: Sql, workspaceId: string, projectId: string, environmentId: string): Promise<CleanupInventory> {
+  return inventory(sql, workspaceId, projectId, environmentId);
+}
+/** Internal counted inventory; owner exceptions come only from a privately authenticated held attempt. */
+export async function inventory(sql: Sql, workspaceId: string, projectId: string, environmentId: string,
+  owner?: Readonly<{operationId:string;attemptId:string;generation:string;jti?:string;controlIdentity?:string}>): Promise<CleanupInventory> {
+  return inventoryWithSettlements(sql,workspaceId,projectId,environmentId,owner,"[]");
+}
+/** The exclusion set is available only from a live private paired origin. No caller list or status can create it. */
+export async function inventoryForNativeOrigin(owning:Sql,tx:Sql,origin:unknown):Promise<CleanupInventory> {
+  const bound=await (await import("@/lib/platform/plan-artifacts")).readNativeCleanupInventoryOrigin(origin,owning);
+  const c=bound.access.custody;
+  const holds=await tx.query<{generation:string}>(`select generation from platform.cleanup_writer_holds where workspace_id=$1 and project_id=$2
+    and environment_id=$3 and operation_id=$4 and attempt_id=$5 and manifest_digest=$6 and holder=$7 and fence_token=$8`,
+    [c.workspaceId,c.projectId,c.environmentId,c.operationId,bound.attempt,bound.manifestDigest,bound.access.lease.holder,bound.access.lease.fenceToken]);
+  if(holds.length!==1 || bound.hold && holds[0].generation!==bound.hold.generation)throw new CleanupWriterBarrierError();
+  const w=await (await import("./workflow-start-intents")).get(tx,c.workspaceId,c.operationId);
+  const op=await (await import("./operations")).get(tx,c.workspaceId,c.operationId);
+  const controlIdentity=w && op && w.phase==="acknowledged" && w.binding.kind==="destroy" && op.workflowId===w.binding.workflowId
+    && w.binding.arguments.workspaceId===c.workspaceId && w.binding.arguments.operationId===c.operationId && w.binding.arguments.environmentId===c.environmentId
+    && w.binding.proposalDigest===c.proposalDigest && w.binding.inputDigest===c.inputDigest ? c.operationId+":"+w.attempt_id : undefined;
+  return inventoryWithSettlements(tx,c.workspaceId,c.projectId,c.environmentId,{operationId:c.operationId,attemptId:bound.attempt,
+    generation:holds[0].generation,jti:bound.jti,controlIdentity},JSON.stringify(bound.settlements));
+}
+async function inventoryWithSettlements(sql:Sql,workspaceId:string,projectId:string,environmentId:string,
+  owner:Readonly<{operationId:string;attemptId:string;generation:string;jti?:string;controlIdentity?:string}>|undefined,settlements:string):Promise<CleanupInventory> {
+  const rows = await sql.query<CleanupInventory>(`select
+    ((select count(*) from platform.operations o where o.workspace_id=$1
+      and (o.project_id is null or o.environment_id is null or (o.project_id=$2 and o.environment_id=$3))
+      and o.created_at < (select installed_at from platform.cleanup_writer_epoch where singleton))
+    + (select count(*) from platform.resources r where r.workspace_id=$1 and (r.project_id is null or r.project_id=$2) and r.environment_id=$3
+      and r.created_at < (select installed_at from platform.cleanup_writer_epoch where singleton))
+    + case when exists(select 1 from platform.cleanup_writer_epoch where singleton) then 0 else 1 end
+    + case when platform.cleanup_scope_epoch_unknown($1,$2,$3) then 1 else 0 end)::integer as "unknownHistory",
+    (select count(*) from platform.capability_grants g join platform.operations o on o.workspace_id=g.workspace_id and o.id=g.operation_id
+      where g.workspace_id=$1 and (o.project_id is null or o.environment_id is null or (o.project_id=$2 and o.environment_id=$3))
+      and g.capability not in ('infrastructure.plan','infrastructure.observe','topology.read','logs.read','metrics.read','traces.read',
+        'events.read','incident.investigate','cost.estimate','firewall.inspect','placement.solve','machine.inspect','process.list','service.status',
+        'container.list','container.inspect','container.logs','file.read','network.portCheck','network.dnsCheck','system.metrics','system.logs')
+      and not (g.jti is not distinct from $7::text and g.operation_id is not distinct from $4::text))::integer as grants,
+    ((select count(*) from platform.cleanup_writer_deliveries d where d.workspace_id=$1
+      and (d.project_id is null or d.environment_id is null or (d.project_id=$2 and d.environment_id=$3))
+      and not (d.family='plan' and exists(select 1 from jsonb_array_elements($9::text::jsonb) settled
+        join platform.standalone_plan_settlements receipt on receipt.workspace_id=$1
+          and receipt.operation_id=settled->'receipt'->'binding'->>'operationId' and receipt.attempt_id=settled->'receipt'->'binding'->>'attemptId'
+        join platform.plan_artifact_uses terminal on terminal.workspace_id=receipt.workspace_id and terminal.operation_id=receipt.operation_id
+        where receipt.project_id=$2 and receipt.environment_id=$3 and d.operation_id=receipt.operation_id and d.attempt_id=receipt.attempt_id
+          and d.identity=receipt.operation_id || ':' || receipt.attempt_id and terminal.phase='succeeded' and terminal.attempt_id=receipt.attempt_id
+          and receipt.settlement_digest=settled->'receipt'->>'settlementDigest' and receipt.iv=settled->'receipt'->'sealed'->>'iv'
+          and receipt.auth_tag=settled->'receipt'->'sealed'->>'authTag' and receipt.ciphertext=settled->'receipt'->'sealed'->>'ciphertext'))
+      and not (d.operation_id is not distinct from $4::text and
+        ((d.family='workflow' and d.identity is not distinct from $8::text)
+        or (d.family='grant' and d.identity is not distinct from $7::text and d.attempt_id is not distinct from $5::text)
+        or (d.family='plan' and d.attempt_id is not distinct from $5::text))))
+    + (select count(*) from platform.workflow_start_intents w join platform.operations o on o.workspace_id=w.workspace_id and o.id=w.operation_id
+      where w.workspace_id=$1 and w.phase in ('attempted','acknowledged') and o.capability not in ('infrastructure.plan','infrastructure.observe')
+      and (o.project_id is null or o.environment_id is null or (o.project_id=$2 and o.environment_id=$3))
+      and not (w.operation_id is not distinct from $4::text and w.operation_id || ':' || w.attempt_id is not distinct from $8::text))
+    + (select count(*) from platform.build_launches b join platform.operations o on o.workspace_id=b.workspace_id and o.id=b.operation_id
+      where b.workspace_id=$1 and (o.project_id is null or o.environment_id is null or (o.project_id=$2 and o.environment_id=$3)))
+    + (select count(*) from platform.plan_artifact_uses u join platform.operations o on o.workspace_id=u.workspace_id and o.id=u.operation_id
+      where u.workspace_id=$1 and u.phase in ('dispatched','succeeded','uncertain') and o.capability not in ('infrastructure.plan','infrastructure.observe')
+      and (o.project_id is null or o.environment_id is null or (o.project_id=$2 and o.environment_id=$3))
+      and not exists(select 1 from jsonb_array_elements($9::text::jsonb) settled join platform.standalone_plan_settlements receipt
+        on receipt.workspace_id=$1 and receipt.operation_id=settled->'receipt'->'binding'->>'operationId'
+          and receipt.attempt_id=settled->'receipt'->'binding'->>'attemptId'
+        where receipt.project_id=$2 and receipt.environment_id=$3 and receipt.operation_id=u.operation_id and receipt.attempt_id=u.attempt_id
+          and u.phase='succeeded' and receipt.settlement_digest=settled->'receipt'->>'settlementDigest'
+          and receipt.iv=settled->'receipt'->'sealed'->>'iv' and receipt.auth_tag=settled->'receipt'->'sealed'->>'authTag'
+          and receipt.ciphertext=settled->'receipt'->'sealed'->>'ciphertext')
+      and not (u.operation_id is not distinct from $4::text and u.attempt_id is not distinct from $5::text))
+    + (select count(*) from platform.runner_jobs j join platform.operations o on o.workspace_id=j.workspace_id and o.id=j.operation_id
+      where j.workspace_id=$1 and (j.started_at is not null or j.status in ('claimed','running','uncertain'))
+      and j.capability not in ('infrastructure.plan','infrastructure.observe','topology.read','logs.read','metrics.read','traces.read',
+        'events.read','incident.investigate','cost.estimate','firewall.inspect','placement.solve','machine.inspect','process.list','service.status',
+        'container.list','container.inspect','container.logs','file.read','network.portCheck','network.dnsCheck','system.metrics','system.logs')
+      and (o.project_id is null or o.environment_id is null or (o.project_id=$2 and o.environment_id=$3)))
+    + (select count(*) from platform.machine_requests j join platform.operations o on o.workspace_id=j.workspace_id and o.id=j.operation_id
+      where j.workspace_id=$1 and (j.started_at is not null or j.status in ('claimed','running','uncertain'))
+      and j.capability not in ('infrastructure.plan','infrastructure.observe','topology.read','logs.read','metrics.read','traces.read',
+        'events.read','incident.investigate','cost.estimate','firewall.inspect','placement.solve','machine.inspect','process.list','service.status',
+        'container.list','container.inspect','container.logs','file.read','network.portCheck','network.dnsCheck','system.metrics','system.logs')
+      and (o.project_id is null or o.environment_id is null or (o.project_id=$2 and o.environment_id=$3))))::integer as handoffs,
+    (select count(*) from platform.cleanup_owner_grants g join platform.cleanup_writer_holds h
+      on h.workspace_id=g.workspace_id and h.operation_id=g.operation_id and h.attempt_id=g.attempt_id and h.generation=g.generation
+      where g.workspace_id=$1 and h.project_id=$2 and h.environment_id=$3
+      and not (g.operation_id is not distinct from $4::text and g.attempt_id is not distinct from $5::text
+        and g.generation is not distinct from $6::text and g.jti is not distinct from $7::text))::integer as reservations`,
+    [workspaceId,projectId,environmentId,owner?.operationId??null,owner?.attemptId??null,owner?.generation??null,owner?.jti??null,owner?.controlIdentity??null,settlements]);
+  const value = rows[0];
+  if (!value || Object.values(value).some(n => !Number.isSafeInteger(n) || n < 0)) throw new CleanupWriterBarrierError();
+  return Object.freeze(value);
+}
+/** Only the default paired codec's one-call capability can reach the committing hold path. */
+export async function retain(sql: Sql, origin: unknown): Promise<Readonly<{hold:CleanupHold;inventory:CleanupInventory}>> {
+  return (await import("./plan-artifacts")).retainCleanupWriterHold(sql,origin);
+}
+/** Private invocation capability, not operation equality, authorizes one retained JTI. */
+export async function reserveOwnerGrant(sql: Sql, origin: unknown, jti: string): Promise<void> {
+  await (await import("./plan-artifacts")).reserveCleanupOwnerGrant(sql,origin,jti);
+}
+/** Signing is local. The fresh native authorization and actual grant INSERT commit together. */
+export async function insertOwnerGrant(sql: Sql, origin: unknown, input: InsertGrantInput): Promise<void> {
+  await (await import("./plan-artifacts")).insertCleanupOwnerGrant(sql,origin,input);
+}

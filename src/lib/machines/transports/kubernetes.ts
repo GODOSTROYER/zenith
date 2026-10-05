@@ -82,7 +82,7 @@ const UNSUPPORTED: Partial<Record<MachineOperation, string>> = {
   "machine.exec": "use container.exec for Kubernetes workloads",
   "file.write": "file.write requires an opt-in Linux zenithd local-template profile and is not supported by this transport",
   "file.upload": "file.upload requires an opt-in Linux zenithd local binary profile and is not supported by this transport",
-  "package.install": "package.install is not implemented by any machine transport yet",
+  "package.install": "package.install requires the opt-in Debian data-only zenithd root helper and is unsupported by this transport",
 };
 
 /* --------------------------------- helpers --------------------------------- */

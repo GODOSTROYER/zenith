@@ -262,8 +262,14 @@ describe.each(LANES)("services [$name]", (lane) => {
       await decide(db(), { workspaceId, operationId: operation.id, approver: user(), approverRole: "editor", decision: "approve",
         proposalDigest: operation.proposalDigest, policyVersion: seeded.decision.policyVersion });
       const jti = uid("jti");
-      await repos.grants.insert(db(), { jti, workspaceId, operationId: operation.id, capability: "infrastructure.destroy", audience: "worker",
-        issuedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 60_000).toISOString() });
+      const issuedAt = new Date().toISOString(), expiresAt = new Date(Date.now() + 60_000).toISOString();
+      // A raw unheld destroy bearer remains forbidden. This cancellation fixture retains
+      // only a legitimate read-only planning grant while browser approval wins.
+      await expect(repos.grants.insert(db(), { jti: uid("unheld_destroy"), workspaceId, operationId: operation.id,
+        capability: "infrastructure.destroy", audience: "worker", issuedAt, expiresAt })).rejects.toMatchObject({ sqlstate: "23514" });
+      expect(await db().query("select jti from platform.capability_grants where workspace_id=$1 and operation_id=$2", [workspaceId, operation.id])).toEqual([]);
+      const planningGrant = await repos.grants.insert(db(), { jti, workspaceId, operationId: operation.id, capability: "infrastructure.plan", audience: "worker", issuedAt, expiresAt });
+      expect(planningGrant.capability).toBe("infrastructure.plan");
       const approvals = await repos.approvals.listForOperation(db(), workspaceId, operation.id);
       const events = await repos.events.list(db(), workspaceId, { operationId: operation.id });
       for (const status of ["approved", "queued"] as const) {
@@ -276,6 +282,8 @@ describe.each(LANES)("services [$name]", (lane) => {
         expect(await repos.events.list(db(), workspaceId, { operationId: operation.id })).toEqual(events);
         const grants = await db().query<{ revoked_at: string | null }>("select revoked_at from platform.capability_grants where workspace_id = $1 and jti = $2", [workspaceId, jti]);
         expect(grants).toEqual([{ revoked_at: null }]);
+        expect(await repos.grants.get(db(), workspaceId, jti)).toEqual(planningGrant);
+        expect(await db().query("select jti from platform.capability_grants where workspace_id=$1 and operation_id=$2 and capability='infrastructure.destroy'", [workspaceId, operation.id])).toEqual([]);
       }
     });
 

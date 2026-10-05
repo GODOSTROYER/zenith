@@ -362,7 +362,13 @@ describe("cross-language Go gates", () => {
     expect(native["working-directory"]).toBe(".");
     const manifest = linuxGuestManifest();
     expect(manifest.command).toEqual(["node", "scripts/ci/run-guest-file-write-gate.mjs", "--run"]);
-    expect(manifest.steps.find((step) => step.id === "race")?.command).toEqual(["go", "test", "-json", "-race", "-count=1", "./..."]);
+    expect(manifest.steps.find((step) => step.id === "race")?.command).toEqual(["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$"]);
+    const prerequisite = gate("go", "set -euo pipefail\ncommand -v docker >/dev/null\ncommand -v python3 >/dev/null\npython3 -c 'import sys; assert sys.version_info >= (3, 10)'", condition);
+    expect(prerequisite["working-directory"]).toBe(".");
+    expect(workflow.jobs.go.steps.indexOf(prerequisite)).toBeLessThan(workflow.jobs.go.steps.indexOf(native));
+    expect(manifest.packagePhase.requiredCases.map(item => item.test)).toEqual(["TestPackageHelperNativeNoFollowAndCustody", "TestPackageFrontendLockIndependentProcess", "TestPackageNativeSignedFirstInstallAndNonReplay", "TestPackageNativeDeclaredMountAndACLRefusals"]);
+    expect(manifest.packagePhase.allowedSkips).toEqual([]);
+    expect(manifest.raceCases).toHaveLength(123); expect(manifest.requiredCases).toHaveLength(127);
     expect(manifest.env.CGO_ENABLED).toBe("1");
     expect(manifest.env.GOTOOLCHAIN).toBe("local");
     expect(manifest.requiredPackages).toContain("github.com/GODOSTROYER/zenith/go/internal/oci");
@@ -380,7 +386,8 @@ describe("cross-language Go gates", () => {
     // The runner observes exits and validates complete JSON lifecycles; the
     // dedicated guest gate suite checks malformed, missing and skipped reports.
     expect(manifest.steps).toEqual([
-      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./..."] },
+      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$"] },
+      { id: "package-native", command: ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"] },
       { id: "goldens", command: ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"] },
       { id: "golden-diff", command: ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"] },
       { id: "golden-status", command: ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"] },

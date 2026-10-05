@@ -214,7 +214,7 @@ func TestE2EMachineOperationsGuardsAndAudit(t *testing.T) {
 	reject("containers are off", protocol.CodeDisabledByConfig, protocoltest.MachineSpec{Operation: "container.list", Args: map[string]any{}})
 	reject("file.write defaults off", protocol.CodeDisabledByConfig, protocoltest.MachineSpec{Operation: "file.write", Args: map[string]any{"path": "/opt/customer/settings.txt", "contentRef": "settings", "contentVersion": strings.Repeat("c", 64), "expectedSha256": nil}})
 	reject("file.upload defaults off", protocol.CodeDisabledByConfig, protocoltest.MachineSpec{Operation: "file.upload", Args: map[string]any{}})
-	reject("package.install is not implemented", protocol.CodeUnsupportedOp, protocoltest.MachineSpec{Operation: "package.install", Args: map[string]any{}})
+	reject("package.install is not implemented", protocol.CodeDisabledByConfig, protocoltest.MachineSpec{Operation: "package.install", Args: map[string]any{}})
 	reject("unknown operation", protocol.CodeUnsupportedOp, protocoltest.MachineSpec{Operation: "machine.format_disk", Args: map[string]any{}})
 	reject("hostile unit", protocol.CodeInvalidPayload, protocoltest.MachineSpec{Operation: "service.status", Args: map[string]any{"unit": "nginx.service; reboot"}})
 	reject("option-like unit", protocol.CodeInvalidPayload, protocoltest.MachineSpec{Operation: "service.status", Args: map[string]any{"unit": "--all.service"}})
@@ -679,5 +679,61 @@ func runSignedUploadFixture(t *testing.T, golden bool) {
 		if err != nil || !bytes.Equal(expected, encoded) {
 			t.Fatal("actual signed upload golden is missing or differs")
 		}
+	}
+}
+
+// Existing TLS/fake CP issuer, actual unprivileged daemon and signed verifier;
+// helper absence must refuse even when a decoded local enabled flag is supplied.
+func TestE2ESignedPackageHelperAbsentNeverDispatchesRunner(t *testing.T) {
+	r := newMRig(t)
+	p := ops.PackageInstallProfile{ProfileRef: "missing-helper-model", Package: "zenith-no-helper-profile", Version: "1.0", Architecture: runtime.GOARCH, SourcePath: "/var/lib/zenithd-package-install/archives/missing-helper-model.deb", SHA256: strings.Repeat("a", 64), ArchiveBytes: 1, Payload: []ops.PackagePayloadFile{{Path: "/opt/zenith-packages/missing-helper-model", Kind: "directory", Mode: "0755"}}}
+	if p.Architecture != "amd64" && p.Architecture != "arm64" {
+		t.Skip("supported native architectures")
+	}
+	version, e := ops.PackageInstallProfileVersion(p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	p.ProfileVersion = version
+	cfgRaw, e := os.ReadFile(r.cfgPath)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var cfg map[string]any
+	if json.Unmarshal(cfgRaw, &cfg) != nil {
+		t.Fatal("existing fixture config invalid")
+	}
+	cfg["packageInstall"] = ops.PackageInstallConfig{Enabled: true, Profiles: []ops.PackageInstallProfile{p}}
+	cfgRaw, e = json.Marshal(cfg)
+	if e != nil || os.WriteFile(r.cfgPath, cfgRaw, 0600) != nil {
+		t.Fatal("local enabled-profile fixture unavailable")
+	}
+	if r.register() != agent.ExitOK {
+		t.Fatal("registration failed")
+	}
+	if strings.Contains(fmt.Sprint(r.fake.Register["capabilities"]), ops.OpPackageInstall) {
+		t.Fatal("enabled metadata advertised a missing/mismatched helper")
+	}
+	exit, cancel := r.start()
+	defer cancel()
+	now := time.Now()
+	jti := "mreq_package_helper_absent"
+	operation := "op_package_helper_absent"
+	grant := r.fake.CP.Sign(protocol.TypGrant, protocol.GrantClaims{JTI: "grt_package_helper_absent", ISS: "zenith-control-plane", AUD: "machine:mac_e2e", SUB: "user_fixture", IAT: now.Unix(), EXP: now.Add(time.Minute).Unix(), CAP: ops.OpPackageInstall, OP: operation, Digest: "modeled-cp-approval", WS: "ws_e2e", Res: "resource_e2e"})
+	argsRaw, _ := json.Marshal(ops.PackageInstallArgs{ProfileRef: p.ProfileRef, ProfileVersion: p.ProfileVersion})
+	token := r.fake.CP.Sign(protocol.TypMachine, protocol.MachineEnvelope{Protocol: protocol.MachineProtocol, JTI: jti, MachineID: "mac_e2e", WorkspaceID: "ws_e2e", OperationID: operation, Operation: ops.OpPackageInstall, Args: argsRaw, Grant: grant, IAT: now.Unix(), EXP: now.Add(time.Minute).Unix(), TimeoutSec: 30, MaxOutputBytes: 4096})
+	r.fake.Enqueue(token)
+	body := r.wait(jti)
+	if body["status"] != agent.StatusRejected || r.runner.count() != 0 {
+		t.Fatal("missing root helper reached a runner")
+	}
+	cancel()
+	select {
+	case <-exit:
+	case <-time.After(10 * time.Second):
+		t.Fatal("daemon did not drain")
+	}
+	if bad := r.fake.BadRequests(); len(bad) != 0 {
+		t.Fatal("modeled CP rejected the owned signed refusal")
 	}
 }

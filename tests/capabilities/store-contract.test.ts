@@ -170,12 +170,17 @@ describe.each(STORE_KINDS)("BrokerStore contract [%s]", (kind) => {
       const approvals = await h.store.listApprovals(h.ids.wsA, operation.id);
       const events = await h.store.listEvents(h.ids.wsA, { operationId: operation.id });
       const jti = `approval_race_${operation.id}`;
-      await h.store.insertGrant({ jti, workspaceId: h.ids.wsA, operationId: operation.id, capability: "infrastructure.destroy", audience: "worker",
+      // An approved review may retain read-only planning access before any held destroy attempt.
+      const planningGrant = await h.store.insertGrant({ jti, workspaceId: h.ids.wsA, operationId: operation.id, capability: "infrastructure.plan", audience: "worker",
         issuedAt: h.clock.now().toISOString(), expiresAt: new Date(h.clock.now().getTime() + 60_000).toISOString() });
+      expect(planningGrant.capability).toBe("infrastructure.plan");
+      const retainedGrants = h.db ? await h.db.query("select * from platform.capability_grants where workspace_id=$1 and operation_id=$2", [h.ids.wsA, operation.id]) : undefined;
+      if (h.db) expect(await h.db.query("select jti from platform.capability_grants where workspace_id=$1 and operation_id=$2 and capability='infrastructure.destroy'", [h.ids.wsA, operation.id])).toEqual([]);
       expect(await h.store.cancelOperation({ workspaceId: h.ids.wsA, id: stale.id, expectedStatus: "awaiting_approval", reason: "Superseded" })).toBeNull();
       expect(await h.store.getOperation(h.ids.wsA, operation.id)).toEqual(approved);
       expect(await h.store.listApprovals(h.ids.wsA, operation.id)).toEqual(approvals);
       expect(await h.store.listEvents(h.ids.wsA, { operationId: operation.id })).toEqual(events);
+      if (h.db) expect(await h.db.query("select * from platform.capability_grants where workspace_id=$1 and operation_id=$2", [h.ids.wsA, operation.id])).toEqual(retainedGrants);
       expect(await h.store.consumeGrant({ workspaceId: h.ids.wsA, jti })).toBe(true);
     });
 

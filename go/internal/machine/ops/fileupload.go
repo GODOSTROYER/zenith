@@ -111,6 +111,9 @@ func ValidateFileUploadConfig(c FileUploadConfig) error {
 // ValidateFileMutationConfig prevents either operation from replacing the
 // other's sources or backup custody. It does not enable an operation.
 func ValidateFileMutationConfig(c Config) error {
+	if err := ValidatePackageInstallIsolation(c); err != nil {
+		return err
+	}
 	if err := ValidateFileWriteConfig(c.FileWrite); err != nil {
 		return err
 	}

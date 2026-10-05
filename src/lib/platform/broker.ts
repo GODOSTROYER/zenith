@@ -29,6 +29,7 @@ import type { CurrentDispatchRequirement, DispatchApprovalSnapshot } from "@/lib
 import { readCurrentNativeLinkedCredential, readCurrentNativeOAuthGrant, isCurrentNativeOAuthGrantFor } from "@/lib/capabilities/current-integration-grants";
 import type { NativeLinkedCredentialTuple } from "@/lib/agent-access/authority/pg";
 import type { NativeOAuthGrantTuple } from "@/lib/agent-access/control/journal-pg";
+import { readNativeCleanupOwnerGrantOrigin, reserveNativeCleanupOwnerGrant, insertNativeCleanupOwnerGrant } from "./plan-artifacts";
 
 type BrokerFactory = () => Promise<Broker>;
 type NativeDispatchRequirement=CurrentDispatchRequirement&{readonly nativeCredential?:Readonly<NativeLinkedCredentialTuple>;readonly nativeCredentialRequiredScope?:string;readonly nativeOAuthGrant?:Readonly<NativeOAuthGrantTuple>;readonly nativeOAuthRequiredScope?:string;readonly delegatedDestroyPlan?:Readonly<{operationId:string;evidenceId:string}>};
@@ -223,6 +224,9 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
       const secretSync = cap === "secret.write" && ["deployment.deploy", "infrastructure.apply", "deployment.rollback"].includes(op.capability);
       if (!isCapability(cap) || (cap !== op.capability && !secretSync && !["infrastructure.plan", "infrastructure.observe"].includes(cap))) throw new StepFailedError("Requested grant does not attenuate this operation.");
       if (cap !== op.capability && (!op.environmentId || !capability(op.capability).mutates)) throw new StepFailedError("This operation cannot issue an environment read grant.");
+      // Unconditional for destroy, including direct Kubernetes/Zenith paths:
+      // a caller flag or an operation match cannot originate this active held-attempt capability.
+      const cleanupOrigin=cap==="infrastructure.destroy"?await readNativeCleanupOwnerGrantOrigin(db,id,cap,audience,fence):undefined;
       const broker = await getBroker();
       const facts = cap === op.capability || secretSync ? await latestFacts(op) : undefined;
       const replicaRepair = cap === "drift.repair";
@@ -273,9 +277,12 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
       const exp = Math.min(iat + Math.max(1, Math.min(3600, requested, policySec, parentDuration)), Math.floor(Date.parse(op.expiresAt) / 1000));
       if (exp <= iat) throw new StepFailedError("Operation expired before grant issuance.");
       const claims: CapabilityGrantClaims = { jti: randomUUID(), iss: broker.deps.issuer ?? "zenith-control", aud: audience, sub: op.principal.onBehalfOf ?? op.principal.id, iat, exp, cap, op: op.id, digest: op.proposalDigest, ws: op.workspaceId, proj: op.projectId, env: op.environmentId, res: op.resourceId, fence: fence?.fenceToken, constraints };
+      if(cleanupOrigin)await reserveNativeCleanupOwnerGrant(cleanupOrigin,db,claims.jti);
       await broker.deps.signer.ready();
       const jws = await broker.deps.signer.sign(claims);
-      await broker.deps.store.insertGrant({ jti: claims.jti, workspaceId: op.workspaceId, operationId: op.id, capability: cap, audience, issuedAt: new Date(iat * 1000).toISOString(), expiresAt: new Date(exp * 1000).toISOString() });
+      const grant={ jti: claims.jti, workspaceId: op.workspaceId, operationId: op.id, capability: cap, audience, issuedAt: new Date(iat * 1000).toISOString(), expiresAt: new Date(exp * 1000).toISOString() };
+      if(cleanupOrigin)await insertNativeCleanupOwnerGrant(cleanupOrigin,db,grant);
+      else await broker.deps.store.insertGrant(grant);
       // The signed bearer remains local; it never enters evidence or workflow history.
       return { jws, claims };
     }),

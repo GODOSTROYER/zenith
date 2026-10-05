@@ -170,6 +170,16 @@ export const MachineResultDataSchemas = {
   }).superRefine((d, ctx) => {
     if (d.changed !== (d.effect === "committed") || (d.created && !d.changed) || (!d.changed && d.bytesWritten !== 0) || (d.changed && !d.transactionRef) || (d.created && d.backupRef) || (d.changed && !d.created && !d.backupRef)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "inconsistent upload receipt" });
   }),
+  "package.install": z.object({
+    profileRef: z.string().max(64).regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/),
+    profileVersion: z.string().length(64).regex(/^[0-9a-f]{64}$/),
+    package: z.string().max(64).regex(/^[a-z0-9][a-z0-9+.-]{1,63}$/),
+    version: z.string().max(128).regex(/^(?:[0-9]+:)?[0-9][A-Za-z0-9.+~-]{0,127}$/),
+    changed: z.boolean(), phase: z.literal("verified"), effect: z.enum(["none", "committed"]), postcondition: z.literal("verified"),
+    transactionRef: z.string().length(35).regex(/^pi_[0-9a-f]{32}$/).optional(),
+  }).superRefine((d, ctx) => {
+    if (d.changed !== (d.effect === "committed") || (d.changed && !d.transactionRef)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "inconsistent package receipt" });
+  }),
   "network.portCheck": z.object({
     host: str(253),
     port: z.number().int().min(1).max(65535),
@@ -252,4 +262,13 @@ export const FileWriteFailureDataSchema = z.object({
   transactionRef: z.string().length(35).regex(/^fw_[0-9a-f]{32}$/).optional(),
 }).superRefine((d, ctx) => {
   if ((d.effect === "unknown") !== (d.error === "mutation_uncertain") || (["rename", "directory_sync", "audit"].includes(d.phase) && d.effect !== "unknown")) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "inconsistent mutation effect receipt" });
+});
+
+/** Package outcomes carry no archive bytes, command output or arbitrary errors. */
+export const PackageInstallFailureDataSchema = z.object({
+  error: z.enum(["refused", "mutation_uncertain"]), phase: z.enum(["guard", "uncertain", "audit"]),
+  effect: z.enum(["none", "unknown"]), postcondition: z.literal("unverified"),
+  transactionRef: z.string().length(35).regex(/^pi_[0-9a-f]{32}$/).optional(),
+}).superRefine((d, ctx) => {
+  if ((d.effect === "unknown") !== (d.error === "mutation_uncertain") || (d.phase !== "guard" && d.effect !== "unknown")) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "inconsistent package effect receipt" });
 });

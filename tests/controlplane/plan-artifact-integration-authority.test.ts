@@ -1,6 +1,7 @@
 /** Genuine native default broker/linked directory and PostgreSQL CAS. Hosted REST/scope and policy protocols are explicit models; sealed bytes are synthetic, no cloud or real OpenTofu execution. */
 import { randomBytes, randomUUID, createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { z } from "zod/v4";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { openPlatformDb, platformDb, resetPlatformDbForTests, repos, json, type PlatformDbHandle } from "@/lib/controlplane/db";
@@ -26,6 +27,7 @@ import { stableJson } from "@/lib/tofu/stable";
 import { TOFU_VERSION } from "@/lib/tofu/types";
 import type { PlanArtifactManifest } from "@/lib/tofu/engine";
 import { scriptedEngine, requireApproval, user, sessionFor } from "../capabilities/support";
+import { savedNativePlan, consumeSavedNativePlan, type SavedNativePlan } from "./_support/saved-native-plan";
 const state = vi.hoisted(() => ({
   snapshot: { workspaces: [] as {id:string}[], projects: [] as {id:string;workspaceId:string}[], environments: [] as {id:string;projectId:string;connectionId:string;class:string;region:string}[], connections: [] as {id:string;provider:string}[] },
   member: async (_ws:string,_id:string):Promise<{id:string;workspace_id:string;role:string}|null> => null,
@@ -47,6 +49,7 @@ vi.mock("@/lib/policy", async original => ({ ...await original<typeof import("@/
 }) }));
 vi.mock("@/lib/execution/product-port", async original => ({ ...await original<typeof import("@/lib/execution/product-port")>(), workerStoreScope:async<T>(body:()=>Promise<T>)=>body() }));
 vi.mock("@/lib/controlplane/db/repos/workflow-start-deploy-authority", async original => ({ ...await original<typeof import("@/lib/controlplane/db/repos/workflow-start-deploy-authority")>(),
+  assertDefaultMcpProductTopology:async(owner:Sql)=>{if((await owner.query("select current_user as role")).length!==1)throw new Error("Modeled owning association unavailable.");},
   assertFinalMcpProductTopology:async(owner:Sql,tx:Sql)=>{if(owner===tx)throw new Error("Owning transaction required.");const rows=await tx.query("select current_user as role");if(rows.length!==1)throw new Error("Modeled hosted association unavailable.");},
 }));
 const PG_URL=process.env.ZENITH_TEST_PLATFORM_PG_URL?.trim();
@@ -57,6 +60,7 @@ function barrier(){let release!:()=>void;const promise=new Promise<void>(resolve
 const tables=["workspaces","members","projects","environments","revisions","revision_manifests","deployments","connections"] as const;
 describe.skipIf(!PG_URL)("native linked integration original-plan dispatch [postgres; modeled hosted REST and policy]",()=>{
   let db:PlatformDbHandle,peer:PlatformDbHandle,observer:PlatformDbHandle;
+  const nativePlans:SavedNativePlan[]=[];
   beforeAll(async()=>{
     peer=await openPlatformDb({kind:"postgres",url:PG_URL!,migrate:true,max:1});observer=await openPlatformDb({kind:"postgres",url:PG_URL!,max:1});
     const migration=readFileSync(new URL("../../supabase/migrations/0001_system_of_record.sql",import.meta.url),"utf8");
@@ -73,7 +77,7 @@ describe.skipIf(!PG_URL)("native linked integration original-plan dispatch [post
     const signing=await generateSigningJwk("EdDSA");vi.stubEnv("ZENITH_CONTROL_SIGNING_JWK",serializePrivateJwk(signing));
     db=await platformDb();
   });
-  afterEach(async()=>{state.hold=undefined;resetPlatformBrokerForTests();await resetPlatformDbForTests();await closePgAuthorityClient();Reflect.deleteProperty(globalThis,"__zenithPgCredentialAuthority");vi.restoreAllMocks();vi.unstubAllEnvs();});
+  afterEach(async()=>{for(const saved of nativePlans.splice(0))await saved.close();state.hold=undefined;resetPlatformBrokerForTests();await resetPlatformDbForTests();await closePgAuthorityClient();Reflect.deleteProperty(globalThis,"__zenithPgCredentialAuthority");vi.restoreAllMocks();vi.unstubAllEnvs();});
   afterAll(async()=>{await observer?.close();await peer?.close();});
   async function defaultHarness(){
     const id=()=>randomUUID();const ids={wsA:`ws_${id()}`,wsB:`ws_${id()}`,projA:`proj_${id()}`,projB:`proj_${id()}`,envAProd:`env_${id()}`};
@@ -134,6 +138,16 @@ describe.skipIf(!PG_URL)("native linked integration original-plan dispatch [post
     if (!lease) throw new Error("Native original lease is unavailable.");
     await h.broker.beginExecution({ workspaceId, operationId: op.id, holder: executionHolder(op.id), audience: "worker", lease, leaseMs: 120_000 });
     const snapshots: never[] = [];
+    const native = await connections.get(db, workspaceId, nativeId);
+    if (!native) throw new Error("Native original provider is unavailable.");
+    const custody = planCustody({ op, workspaceId, environmentId, scope: scopeOf(op), product, deploymentId }, graph.graphDigest, native);
+    if (publicationFault === "removed current human") await observer.query("delete from public.members where workspace_id=$1 and id='alice'", [workspaceId]);
+    if (publicationFault === "foreign current human") await observer.query("update public.members set workspace_id=$2 where workspace_id=$1 and id='alice'", [workspaceId, h.ids.wsB]);
+    if(destroy) {
+      const key=randomBytes(32).toString("hex"),saved=await savedNativePlan(db,{custody,lease,graph,key,destroy:true});nativePlans.push(saved);
+      return {h,op,principal,worker:createExecutionBroker(db),retained,manifest:saved.row.manifest,graph,snapshots,lease,revisionId,deploymentId,connectionId,nativeId,
+        access:{custody,planDigest:saved.plan.planDigest,lease},payload:"",cipher:planArtifactCipherFromEnv({ZENITH_PLAN_ARTIFACT_KEY:key}),plan:saved.plan,key,saved};
+    }
     const plan = normalizePlan({ format_version: "1.2", terraform_version: TOFU_VERSION, resource_changes: [], output_changes: {} },
       { configDigest: digest("synthetic original config"), lockDigest: digest("synthetic original lock"), addressMap: {} });
     const facts = extractPlanFacts(plan), summary = { ...planEvidence({ plan, facts, cost: {}, graphDigest: graph.graphDigest, stage: "plan" }).summary,
@@ -147,19 +161,14 @@ describe.skipIf(!PG_URL)("native linked integration original-plan dispatch [post
     await h.broker.approve({ workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: plan.planDigest, approver: user("erin"), session: sessionFor("erin") });
     await repos.operations.claimForExecution(db, { workspaceId, id: op.id, expectedDigest: op.proposalDigest, holder: executionHolder(op.id), leaseMs: 120_000, lease, expectedPolicyVersion: "native-integration-policy" });
     }
-    const native = await connections.get(db, workspaceId, nativeId);
-    if (!native) throw new Error("Native original provider is unavailable.");
-    const custody = planCustody({ op, workspaceId, environmentId, scope: scopeOf(op), product, deploymentId }, graph.graphDigest, native);
     const payload = "synthetic original target-bound SQL payload", key = randomBytes(32).toString("hex"), cipher = planArtifactCipherFromEnv({ ZENITH_PLAN_ARTIFACT_KEY: key });
     const manifestArtifact: PlanArtifactManifest = { ...custody, format: "zenith.plan-artifact.v1", purpose: destroy ? "destroy" : "deploy", planDigest: plan.planDigest,
       configDigest: plan.configDigest, lockDigest: plan.lockDigest, backendDigest: digest("synthetic backend"), addressMapDigest: digest("synthetic address map"),
       rawSha256: sha(payload), bytes: Buffer.byteLength(payload), executable: { version: "fixture", platform: "fixture", sha256: digest("fixture binary"), archiveSha256: null } };
     const sealed = cipher.seal(workspaceId, `zenith.tofu.plan-artifact.v1:${sha(stableJson(manifestArtifact))}`, Buffer.from(payload).toString("base64"));
-    if (publicationFault === "removed current human") await observer.query("delete from public.members where workspace_id=$1 and id='alice'", [workspaceId]);
-    if (publicationFault === "foreign current human") await observer.query("update public.members set workspace_id=$2 where workspace_id=$1 and id='alice'", [workspaceId, h.ids.wsB]);
     await artifacts.publish(db, { manifest: manifestArtifact, sealed, lease, evidence: { workspaceId, operationId: op.id, kind: "tofu_plan", digest: plan.planDigest, summary, simulated: false } });
     return { h, op, principal, worker, retained, manifest: manifestArtifact, graph, snapshots, lease, revisionId, deploymentId, connectionId, nativeId,
-      access: { custody, planDigest: plan.planDigest, lease }, payload, cipher, plan };
+      access: { custody, planDigest: plan.planDigest, lease }, payload, cipher, plan, key, saved:undefined };
   }
   type Fixture=Awaited<ReturnType<typeof fixture>>;
   function heldApprover(){const entered=barrier(),release=barrier();state.hold={entered:entered.release,wait:release.promise};return {entered:entered.promise,release:()=>{state.hold=undefined;release.release();}};}
@@ -287,11 +296,15 @@ describe.skipIf(!PG_URL)("native linked integration original-plan dispatch [post
     const f=await fixture(true),d=await destination(f);
     expect(f.retained).toBeDefined();
     expect(await observer.query("select address from platform.resources where workspace_id=$1 and environment_id=$2 and address=$3",[f.op.workspaceId,f.op.environmentId,f.retained!.address])).toEqual([{address:f.retained!.address}]);
-    const original=await artifacts.claim(db,d.access,"native-destroy-attempt");
-    expect(original.manifest.operationId).toBe(f.op.id);expect(original.manifest).toEqual(f.manifest);
-    expect(Buffer.from(f.cipher.open(f.op.workspaceId,`zenith.tofu.plan-artifact.v1:${sha(stableJson(original.manifest))}`,
-      {iv:original.iv,authTag:original.auth_tag,ciphertext:original.ciphertext}).value,"base64").toString()).toBe(f.payload);
-    const held=heldApprover();let modeledProviderCalls=0;const pending=dispatch(f,d.access,"native-destroy-attempt").then(()=>{modeledProviderCalls++;return undefined;},error=>error);
+    const saved=f.saved;if(!saved)throw new Error("Real native original destroy fixture is missing.");
+    const callback=barrier();let held:ReturnType<typeof heldApprover>|undefined,modeledProviderCalls=0;
+    const beforeState=await readFile(saved.statePath);
+    const pending=consumeSavedNativePlan(db,saved,d.access,async()=>{held=heldApprover();callback.release();}).then(value=>{
+      expect(value.originalSha).toBe(f.manifest.rawSha256);expect(value.result.apply.exitCode).toBe(0);modeledProviderCalls++;return undefined;
+    },error=>error);
+    await Promise.race([callback.promise,pending.then(()=>{throw new Error("The genuine held callback was not reached.");})]);if(!held)throw new Error("The genuine held grant callback was not reached.");
+    expect(await observer.query("select generation from platform.cleanup_writer_holds where workspace_id=$1 and operation_id=$2",[f.op.workspaceId,d.op.id])).toHaveLength(1);
+    expect(await observer.query("select jti from platform.capability_grants where workspace_id=$1 and operation_id=$2 and capability='infrastructure.destroy'",[f.op.workspaceId,d.op.id])).toHaveLength(1);
     try{await held.entered;
       if(change==="revoked planning credential")await mutate(f,"revoked");
       if(change==="plan scope removed")await observer.query("update agent.agent_credentials set scopes='[\"read\"]'::jsonb where id=$1",[f.principal.id]);
@@ -300,47 +313,38 @@ describe.skipIf(!PG_URL)("native linked integration original-plan dispatch [post
       if(change==="admin removed")await observer.query("delete from public.members where workspace_id=$1 and id='erin'",[f.op.workspaceId]);
       if(change==="changed destroy pointer")await observer.query("update public.environments set deployed_revision_id='changed-revision' where id=$1",[f.op.environmentId]);
     }finally{held.release();}const error=await pending,allowed=change==="unchanged planning credential";expect(modeledProviderCalls).toBe(allowed?1:0);
-    if(allowed)expect(error).toBeUndefined();else expect(error).toBeDefined();await artifacts.finish(db,d.access,"native-destroy-attempt",allowed);
+    if(allowed)expect(error).toBeUndefined();else {expect(error).toBeDefined();expect(await readFile(saved.statePath)).toEqual(beforeState);}
     expect(await db.query("select operation_id from platform.plan_artifacts where workspace_id=$1 and operation_id=$2",[f.op.workspaceId,d.op.id])).toHaveLength(0);await unchanged(f);
   });
   it("observed three-connection delegated destroy use-row wait refuses newly retained historical resource before original dispatch",async()=>{
-    const f=await fixture(true,undefined,false),d=await destination(f),attempt="empty-native-destroy-attempt";
-    expect(f.retained).toBeUndefined();
-    expect(await db.query("select address from platform.resources where workspace_id=$1 and environment_id=$2",[f.op.workspaceId,f.op.environmentId])).toEqual([]);
-    const original=await artifacts.claim(db,d.access,attempt);expect(original.manifest).toEqual(f.manifest);
-    const approvalsBefore=await db.query("select id,consumed_at from platform.approvals where workspace_id=$1 and operation_id=$2 order by id",[f.op.workspaceId,d.op.id]);
+    const f=await fixture(true,undefined,false),d=await destination(f),saved=f.saved;if(!saved)throw new Error("Actual saved native destroy unavailable.");
+    expect(f.retained).toBeUndefined();expect(await db.query("select address from platform.resources where workspace_id=$1 and environment_id=$2",[f.op.workspaceId,f.op.environmentId])).toEqual([]);
+    const beforeState=await readFile(saved.statePath),waiterPid=(await db.query<{pid:number}>("select pg_backend_pid() as pid"))[0].pid;
+    const holding=barrier(),release=barrier();let holderPid=0,holder:Promise<void>|undefined,originalChecks=0;
+    const approvalsBefore=await peer.query("select id,consumed_at from platform.approvals where workspace_id=$1 and operation_id=$2 order by id",[f.op.workspaceId,d.op.id]);
     expect(approvalsBefore).toHaveLength(1);expect(approvalsBefore[0].consumed_at).not.toBeNull();
-    const holding=barrier(),release=barrier();let holderPid=0;
-    const holder=observer.tx(async tx=>{
-      holderPid=(await tx.query<{pid:number}>("select pg_backend_pid() as pid"))[0].pid;
-      await tx.query("select operation_id from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2 for update",[f.op.workspaceId,d.op.id]);
-      holding.release();await release.promise;
-    });
-    await holding.promise;const waiterPid=(await peer.query<{pid:number}>("select pg_backend_pid() as pid"))[0].pid;
-    let modeledProviderCalls=0;const pending=dispatch(f,d.access,attempt).then(()=>{modeledProviderCalls++;return undefined;},error=>error);
+    const pending=consumeSavedNativePlan(db,saved,d.access,async()=>{
+      holder=observer.tx(async tx=>{holderPid=(await tx.query<{pid:number}>("select pg_backend_pid() as pid"))[0].pid;
+        await tx.query("select operation_id from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2 for update",[f.op.workspaceId,d.op.id]);holding.release();await release.promise;});
+      await holding.promise;
+    },async()=>{originalChecks++;}).then(()=>undefined,error=>error);
     let observationError:unknown;
     try {
+      await Promise.race([holding.promise,pending.then(()=>{throw new Error("The genuine held native callback was not reached.");})]);
       let observed=false;const deadline=Date.now()+10000;
-      while(Date.now()<deadline){
-        const rows=await db.query<{wait_event_type:string;blockers:number[]}>("select wait_event_type,pg_blocking_pids(pid) as blockers from pg_stat_activity where pid=$1",[waiterPid]);
-        if(rows[0]?.wait_event_type==="Lock"&&rows[0].blockers.includes(holderPid)){observed=true;break;}
-        await new Promise(resolve=>setTimeout(resolve,25));
-      }
+      while(Date.now()<deadline){const rows=await peer.query<{wait_event_type:string;blockers:number[]}>("select wait_event_type,pg_blocking_pids(pid) as blockers from pg_stat_activity where pid=$1",[waiterPid]);
+        if(rows[0]?.wait_event_type==="Lock"&&rows[0].blockers.includes(holderPid)){observed=true;break;}await new Promise(resolve=>setTimeout(resolve,25));}
       expect(observed).toBe(true);
       const historical={...f.graph.nodes.find(node=>node.kind==="container_service")!,address:"container_service/lateHistorical"};
-      // The third owning pool commits after the dispatch capture and real
-      // use-row wait. No provider callback supplies or verifies this row.
-      await repos.resources.upsertDesired(db,{workspaceId:f.op.workspaceId,projectId:f.op.projectId,environmentId:f.op.environmentId!,node:historical,status:"active"});
-      expect(await db.query("select address from platform.resources where workspace_id=$1 and environment_id=$2",[f.op.workspaceId,f.op.environmentId])).toEqual([{address:historical.address}]);
-    } catch(error) {observationError=error;} finally {release.release();}
+      await repos.resources.upsertDesired(peer,{workspaceId:f.op.workspaceId,projectId:f.op.projectId,environmentId:f.op.environmentId!,node:historical,status:"active"});
+      expect(await peer.query("select address from platform.resources where workspace_id=$1 and environment_id=$2",[f.op.workspaceId,f.op.environmentId])).toEqual([{address:historical.address}]);
+    }catch(error){observationError=error;}finally{release.release();}
     await holder;const error=await pending;if(observationError)throw observationError;
-    expect(error).toMatchObject({code:"plan_artifact_unavailable"});expect(modeledProviderCalls).toBe(0);
-    expect(await db.query("select phase,attempt_id from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[f.op.workspaceId,d.op.id])).toEqual([{phase:"claimed",attempt_id:attempt}]);
-    expect(await db.query("select id,consumed_at from platform.approvals where workspace_id=$1 and operation_id=$2 order by id",[f.op.workspaceId,d.op.id])).toEqual(approvalsBefore);
-    await artifacts.finish(db,d.access,attempt,false);
-    await expect(artifacts.claim(peer,d.access,"historical-retry-attempt")).rejects.toMatchObject({code:"plan_artifact_unavailable"});
-    await unchanged(f);
-  });
+    expect(error).toMatchObject({message:"Original plan dispatch outcome is unconfirmed; inspect this operation before another write."});expect(originalChecks).toBe(1);expect(await readFile(saved.statePath)).toEqual(beforeState);
+    expect(await peer.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[f.op.workspaceId,d.op.id])).toEqual([{phase:"ready"}]);
+    expect(await peer.query("select id,consumed_at from platform.approvals where workspace_id=$1 and operation_id=$2 order by id",[f.op.workspaceId,d.op.id])).toEqual(approvalsBefore);
+    await expect(artifacts.claim(peer,d.access,"historical-retry-attempt")).rejects.toMatchObject({code:"plan_artifact_unavailable"});await unchanged(f);
+  },300000);
   it("uncertain linked credential dispatch retains its original attempt and never admits a fresh replay",async()=>{
     const f=await fixture();await artifacts.claim(db,f.access,"native-integration-attempt");await dispatch(f);await artifacts.finish(db,f.access,"native-integration-attempt",false);
     expect(await db.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[f.op.workspaceId,f.op.id])).toEqual([{phase:"uncertain"}]);

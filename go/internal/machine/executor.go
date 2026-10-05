@@ -76,7 +76,18 @@ func NewExecutor(cfg *Config, id *agent.Identity, keys *protocol.KeySet, replay 
 }
 
 // Capabilities implements agent.Processor: the operations enabled locally.
-func (e *Executor) Capabilities() []string { return ops.Supported(e.cfg.Config) }
+func (e *Executor) Capabilities() []string {
+	out := ops.Supported(e.cfg.Config)
+	if !e.packageAvailable(context.Background()) {
+		for i, op := range out {
+			if op == ops.OpPackageInstall {
+				out = append(out[:i], out[i+1:]...)
+				break
+			}
+		}
+	}
+	return out
+}
 
 // Verify implements agent.Processor.
 func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Rejection) {
@@ -126,7 +137,12 @@ func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Re
 		e.auditReject(env.JTI, env.Operation, env.Args, protocol.CodeConstraint, env.Operation+" requires a 2048-byte metadata result budget", true)
 		return nil, &agent.Rejection{ID: env.JTI, Code: protocol.CodeConstraint, Message: env.Operation + " requires a 2048-byte metadata result budget"}
 	}
-	run, err := e.env.Prepare(env.Operation, &ops.Request{JTI: env.JTI, Args: env.Args, Timeout: timeout, MaxOutputBytes: maxOut})
+	var run ops.Runnable
+	if env.Operation == ops.OpPackageInstall {
+		run, err = e.preparePackageInstallJob(token, vm, timeout, maxOut)
+	} else {
+		run, err = e.env.Prepare(env.Operation, &ops.Request{JTI: env.JTI, Args: env.Args, Timeout: timeout, MaxOutputBytes: maxOut})
+	}
 	if err != nil {
 		code := protocol.CodeOf(err)
 		if code == protocol.CodeInternal {
@@ -225,6 +241,15 @@ func (j *job) Run(ctx context.Context, _ agent.LogSink) agent.ResultBody {
 
 	body := agent.ResultBody{StartedAt: started.Format(time.RFC3339Nano)}
 	switch {
+	case j.op == ops.OpPackageInstall && (rctx.Err() != nil || ctx.Err() != nil):
+		body.Status, body.Error = agent.StatusFailed, "package.install cancelled: effect unknown"
+		uncertain := ops.PackageInstallFailure("unknown", "")
+		if res.Data != nil {
+			if ref, ok := res.Data["transactionRef"].(string); ok {
+				uncertain.Data["transactionRef"] = ref
+			}
+		}
+		body.Result = j.resultBody(uncertain)
 	case err != nil && (errors.Is(rctx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded)):
 		body.Status, body.Error = agent.StatusTimedOut, fmt.Sprintf("the operation exceeded its %s timeout", j.timeout)
 		body.Result = j.resultBody(ops.Failure("timeout", body.Error))
@@ -268,7 +293,7 @@ func (j *job) Run(ctx context.Context, _ agent.LogSink) agent.ResultBody {
 	if body.Error != "" {
 		entry.Reason = clip(body.Error, 200)
 	}
-	if (j.op == ops.OpFileWrite || j.op == ops.OpFileUpload) && res.Data != nil {
+	if (j.op == ops.OpFileWrite || j.op == ops.OpFileUpload || j.op == ops.OpPackageInstall) && res.Data != nil {
 		entry.Extra = map[string]string{}
 		for _, key := range []string{"phase", "effect", "postcondition", "backupRef", "transactionRef"} {
 			if value, ok := res.Data[key].(string); ok {
@@ -278,7 +303,7 @@ func (j *job) Run(ctx context.Context, _ agent.LogSink) agent.ResultBody {
 	}
 	if aerr := j.e.audit.Append(entry); aerr != nil {
 		j.e.log.Error("could not write the audit entry for a finished operation", "request", j.id, "err", aerr)
-		if (j.op == ops.OpFileWrite || j.op == ops.OpFileUpload) && res.OK {
+		if (j.op == ops.OpFileWrite || j.op == ops.OpFileUpload || j.op == ops.OpPackageInstall) && res.OK {
 			// The files may be durably committed, but completion custody is incomplete.
 			// Keep the private intent/backup receipt and forbid a success/replay claim.
 			uncertain := map[string]any{"error": "mutation_uncertain", "phase": "audit", "effect": "unknown", "postcondition": "unverified"}

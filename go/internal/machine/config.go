@@ -105,6 +105,9 @@ func (c *Config) Validate() error {
 	if err := ops.ValidateFileMutationConfig(c.Config); err != nil {
 		return err
 	}
+	if err := ops.ValidatePackageInstallConfig(c.PackageInstall); err != nil {
+		return err
+	}
 	if c.Containers.Socket != "" && !filepath.IsAbs(c.Containers.Socket) {
 		return fmt.Errorf("containers.socket must be an absolute path")
 	}

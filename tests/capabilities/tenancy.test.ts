@@ -207,12 +207,16 @@ describe.each(STORE_KINDS)("tenant matrix: the store itself [%s]", (kind) => {
       await refused(() => store.recordPolicyDecision({ workspaceId: h.ids.wsA, operationId: b.id, policyVersion: "v", inputDigest: "1".repeat(64), outcome: "deny", reasons: [{ code: "x", message: "x" }] }))
     ).toBe("not_found");
     const now = new Date();
-    const grant = { jti: "grt_tenant_test", workspaceId: h.ids.wsA, operationId: b.id, capability: "service.restart", audience: "worker", issuedAt: now.toISOString(), expiresAt: new Date(now.getTime() + 60_000).toISOString() };
+    // Read-only attenuation reaches the unchanged owning-operation composite FK; it does not
+    // ask the cleanup writer trigger to authorize a mutation for a missing owner.
+    const grant = { jti: "grt_tenant_test", workspaceId: h.ids.wsA, operationId: b.id, capability: "infrastructure.plan", audience: "worker", issuedAt: now.toISOString(), expiresAt: new Date(now.getTime() + 60_000).toISOString() };
     expect(await refused(() => store.insertGrant(grant))).toBe("not_found");
 
     // a real grant of B cannot be consumed or revoked through A
     const bGrant = { ...grant, jti: "grt_tenant_b", workspaceId: h.ids.wsB };
-    await store.insertGrant(bGrant);
+    expect((await store.insertGrant(bGrant)).capability).toBe("infrastructure.plan");
+    expect(await store.revokeGrantsForOperation(h.ids.wsA, b.id)).toBe(0);
+    if (h.db) expect(await h.db.query("select jti from platform.capability_grants where workspace_id=$1 and operation_id=$2 and capability='infrastructure.destroy'", [h.ids.wsB, b.id])).toEqual([]);
     expect(await store.consumeGrant({ workspaceId: h.ids.wsA, jti: "grt_tenant_b" })).toBe(false);
     expect(await store.consumeGrant({ workspaceId: h.ids.wsB, jti: "grt_tenant_b" })).toBe(true);
 

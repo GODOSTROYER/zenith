@@ -1,6 +1,7 @@
 /** Genuine native default broker/OAuth journal and PostgreSQL CAS. Hosted REST/scope and policy protocols are explicit models; sealed bytes are synthetic, no cloud or real OpenTofu execution. */
 import { randomBytes, randomUUID, createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { z } from "zod/v4";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { openPlatformDb, platformDb, resetPlatformDbForTests, repos, json, type PlatformDbHandle } from "@/lib/controlplane/db";
@@ -27,6 +28,7 @@ import { stableJson } from "@/lib/tofu/stable";
 import { TOFU_VERSION } from "@/lib/tofu/types";
 import type { PlanArtifactManifest } from "@/lib/tofu/engine";
 import { scriptedEngine, requireApproval, user, sessionFor } from "../capabilities/support";
+import { savedNativePlan, consumeSavedNativePlan, type SavedNativePlan } from "./_support/saved-native-plan";
 const state = vi.hoisted(() => ({
   snapshot: { workspaces: [] as {id:string}[], projects: [] as {id:string;workspaceId:string}[], environments: [] as {id:string;projectId:string;connectionId:string;class:string;region:string}[], connections: [] as {id:string;provider:string}[] },
   member: async (_ws:string,_id:string):Promise<{id:string;workspace_id:string;role:string}|null> => null,
@@ -48,6 +50,7 @@ vi.mock("@/lib/policy", async original => ({ ...await original<typeof import("@/
 }) }));
 vi.mock("@/lib/execution/product-port", async original => ({ ...await original<typeof import("@/lib/execution/product-port")>(), workerStoreScope:async<T>(body:()=>Promise<T>)=>body() }));
 vi.mock("@/lib/controlplane/db/repos/workflow-start-deploy-authority", async original => ({ ...await original<typeof import("@/lib/controlplane/db/repos/workflow-start-deploy-authority")>(),
+  assertDefaultMcpProductTopology:async(owner:Sql)=>{if((await owner.query("select current_user as role")).length!==1)throw new Error("Modeled owning association unavailable.");},
   assertFinalMcpProductTopology:async(owner:Sql,tx:Sql)=>{if(owner===tx)throw new Error("Owning transaction required.");const rows=await tx.query("select current_user as role");if(rows.length!==1)throw new Error("Modeled hosted association unavailable.");},
 }));
 const PG_URL=process.env.ZENITH_TEST_PLATFORM_PG_URL?.trim();
@@ -58,6 +61,7 @@ function barrier(){let release!:()=>void;const promise=new Promise<void>(resolve
 const tables=["workspaces","members","projects","environments","revisions","revision_manifests","deployments","connections"] as const;
 describe.skipIf(!PG_URL)("native OAuth original-plan dispatch [postgres; modeled hosted REST and policy]",()=>{
   let db:PlatformDbHandle,peer:PlatformDbHandle,observer:PlatformDbHandle;
+  const nativePlans:SavedNativePlan[]=[];
   beforeAll(async()=>{
     peer=await openPlatformDb({kind:"postgres",url:PG_URL!,migrate:true,max:1});observer=await openPlatformDb({kind:"postgres",url:PG_URL!,max:1});
     const migration=readFileSync(new URL("../../supabase/migrations/0001_system_of_record.sql",import.meta.url),"utf8");
@@ -78,7 +82,7 @@ describe.skipIf(!PG_URL)("native OAuth original-plan dispatch [postgres; modeled
     const signing=await generateSigningJwk("EdDSA");vi.stubEnv("ZENITH_CONTROL_SIGNING_JWK",serializePrivateJwk(signing));
     db=await platformDb();
   });
-  afterEach(async()=>{state.hold=undefined;resetPlatformBrokerForTests();await resetPlatformDbForTests();await closePgAuthorityClient();Reflect.deleteProperty(globalThis,"__zenithPgCredentialAuthority");resetPgAgentJournal();Reflect.deleteProperty(globalThis,"__zenithAgentJournal");vi.restoreAllMocks();vi.unstubAllEnvs();});
+  afterEach(async()=>{for(const saved of nativePlans.splice(0))await saved.close();state.hold=undefined;resetPlatformBrokerForTests();await resetPlatformDbForTests();await closePgAuthorityClient();Reflect.deleteProperty(globalThis,"__zenithPgCredentialAuthority");resetPgAgentJournal();Reflect.deleteProperty(globalThis,"__zenithAgentJournal");vi.restoreAllMocks();vi.unstubAllEnvs();});
   afterAll(async()=>{await observer?.close();await peer?.close();});
   async function defaultHarness(){
     const id=()=>randomUUID();const ids={wsA:`ws_${id()}`,wsB:`ws_${id()}`,projA:`proj_${id()}`,projB:`proj_${id()}`,envAProd:`env_${id()}`};
@@ -138,6 +142,16 @@ describe.skipIf(!PG_URL)("native OAuth original-plan dispatch [postgres; modeled
     if (!lease) throw new Error("Native original lease is unavailable.");
     await h.broker.beginExecution({ workspaceId, operationId: op.id, holder: executionHolder(op.id), audience: "worker", lease, leaseMs: 120_000 });
     const snapshots: never[] = [];
+    const native = await connections.get(db, workspaceId, nativeId);
+    if (!native) throw new Error("Native original provider is unavailable.");
+    const custody = planCustody({ op, workspaceId, environmentId, scope: scopeOf(op), product, deploymentId }, graph.graphDigest, native);
+    if (publicationFault === "removed current human") await observer.query("delete from public.members where workspace_id=$1 and id='alice'", [workspaceId]);
+    if (publicationFault === "foreign current human") await observer.query("update public.members set workspace_id=$2 where workspace_id=$1 and id='alice'", [workspaceId, h.ids.wsB]);
+    if(destroy) {
+      const key=randomBytes(32).toString("hex"),saved=await savedNativePlan(db,{custody,lease,graph,key,destroy:true});nativePlans.push(saved);
+      return {h,op,principal,worker:createExecutionBroker(db),retained,manifest:saved.row.manifest,graph,snapshots,lease,revisionId,deploymentId,connectionId,nativeId,
+        access:{custody,planDigest:saved.plan.planDigest,lease},payload:"",cipher:planArtifactCipherFromEnv({ZENITH_PLAN_ARTIFACT_KEY:key}),plan:saved.plan,key,saved};
+    }
     const plan = normalizePlan({ format_version: "1.2", terraform_version: TOFU_VERSION, resource_changes: [], output_changes: {} },
       { configDigest: digest("synthetic original config"), lockDigest: digest("synthetic original lock"), addressMap: {} });
     const facts = extractPlanFacts(plan), summary = { ...planEvidence({ plan, facts, cost: {}, graphDigest: graph.graphDigest, stage: "plan" }).summary,
@@ -151,19 +165,14 @@ describe.skipIf(!PG_URL)("native OAuth original-plan dispatch [postgres; modeled
     await h.broker.approve({ workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: plan.planDigest, approver: user("erin"), session: sessionFor("erin") });
     await repos.operations.claimForExecution(db, { workspaceId, id: op.id, expectedDigest: op.proposalDigest, holder: executionHolder(op.id), leaseMs: 120_000, lease, expectedPolicyVersion: "native-oauth-policy" });
     }
-    const native = await connections.get(db, workspaceId, nativeId);
-    if (!native) throw new Error("Native original provider is unavailable.");
-    const custody = planCustody({ op, workspaceId, environmentId, scope: scopeOf(op), product, deploymentId }, graph.graphDigest, native);
     const payload = "synthetic original OAuth target-bound SQL payload", key = randomBytes(32).toString("hex"), cipher = planArtifactCipherFromEnv({ ZENITH_PLAN_ARTIFACT_KEY: key });
     const manifestArtifact: PlanArtifactManifest = { ...custody, format: "zenith.plan-artifact.v1", purpose: destroy ? "destroy" : "deploy", planDigest: plan.planDigest,
       configDigest: plan.configDigest, lockDigest: plan.lockDigest, backendDigest: digest("synthetic backend"), addressMapDigest: digest("synthetic address map"),
       rawSha256: sha(payload), bytes: Buffer.byteLength(payload), executable: { version: "fixture", platform: "fixture", sha256: digest("fixture binary"), archiveSha256: null } };
     const sealed = cipher.seal(workspaceId, `zenith.tofu.plan-artifact.v1:${sha(stableJson(manifestArtifact))}`, Buffer.from(payload).toString("base64"));
-    if (publicationFault === "removed current human") await observer.query("delete from public.members where workspace_id=$1 and id='alice'", [workspaceId]);
-    if (publicationFault === "foreign current human") await observer.query("update public.members set workspace_id=$2 where workspace_id=$1 and id='alice'", [workspaceId, h.ids.wsB]);
     await artifacts.publish(db, { manifest: manifestArtifact, sealed, lease, evidence: { workspaceId, operationId: op.id, kind: "tofu_plan", digest: plan.planDigest, summary, simulated: false } });
     return { h, op, principal, worker, retained, manifest: manifestArtifact, graph, snapshots, lease, revisionId, deploymentId, connectionId, nativeId,
-      access: { custody, planDigest: plan.planDigest, lease }, payload, cipher, plan };
+      access: { custody, planDigest: plan.planDigest, lease }, payload, cipher, plan, key, saved:undefined };
   }
   type Fixture=Awaited<ReturnType<typeof fixture>>;
   function heldApprover(){const entered=barrier(),release=barrier();state.hold={entered:entered.release,wait:release.promise};return {entered:entered.promise,release:()=>{state.hold=undefined;release.release();}};}
@@ -284,17 +293,22 @@ describe.skipIf(!PG_URL)("native OAuth original-plan dispatch [postgres; modeled
     expect(denied.decision.outcome).toBe("deny");await unchanged(f);
   });
   it.each(["unchanged planning grant","revoked planning grant","plan scope removed","current admin demoted"] as const)("browser-approved exact OAuth delegated destroy fences %s after held admin read",async change=>{
-    const f=await fixture(true),d=await destination(f),attempt="native-oauth-destroy-attempt";
-    const original=await artifacts.claim(db,d.access,attempt);expect(original.manifest).toEqual(f.manifest);expect(original.manifest.operationId).toBe(f.op.id);
-    expect(Buffer.from(f.cipher.open(f.op.workspaceId,`zenith.tofu.plan-artifact.v1:${sha(stableJson(original.manifest))}`,
-      {iv:original.iv,authTag:original.auth_tag,ciphertext:original.ciphertext}).value,"base64").toString()).toBe(f.payload);
-    const held=heldApprover();let modeledProviderCalls=0;const pending=dispatch(f,d.access,attempt).then(()=>{modeledProviderCalls++;return undefined;},error=>error);
+    const f=await fixture(true),d=await destination(f);
+    const saved=f.saved;if(!saved)throw new Error("Real native original destroy fixture is missing.");
+    const callback=barrier();let held:ReturnType<typeof heldApprover>|undefined,modeledProviderCalls=0;
+    const beforeState=await readFile(saved.statePath);
+    const pending=consumeSavedNativePlan(db,saved,d.access,async()=>{held=heldApprover();callback.release();}).then(value=>{
+      expect(value.originalSha).toBe(f.manifest.rawSha256);expect(value.result.apply.exitCode).toBe(0);modeledProviderCalls++;return undefined;
+    },error=>error);
+    await Promise.race([callback.promise,pending.then(()=>{throw new Error("The genuine held callback was not reached.");})]);if(!held)throw new Error("The genuine held grant callback was not reached.");
+    expect(await observer.query("select generation from platform.cleanup_writer_holds where workspace_id=$1 and operation_id=$2",[f.op.workspaceId,d.op.id])).toHaveLength(1);
+    expect(await observer.query("select jti from platform.capability_grants where workspace_id=$1 and operation_id=$2 and capability='infrastructure.destroy'",[f.op.workspaceId,d.op.id])).toHaveLength(1);
     try{await held.entered;if(change==="revoked planning grant")await mutate(f,"grant revoked");
       if(change==="plan scope removed")await observer.query("update agent.agent_oauth_grants set scopes='[\"read\"]'::jsonb where integration_id=$1",[f.principal.id]);
       if(change==="current admin demoted")await mutate(f,"approver demoted");
     }finally{held.release();}const error=await pending,allowed=change==="unchanged planning grant";expect(modeledProviderCalls).toBe(allowed?1:0);
-    if(allowed)expect(error).toBeUndefined();else expect(error).toBeDefined();await artifacts.finish(db,d.access,attempt,allowed);await unchanged(f);
-  });
+    if(allowed)expect(error).toBeUndefined();else {expect(error).toBeDefined();expect(await readFile(saved.statePath)).toEqual(beforeState);}await unchanged(f);
+  },300000);
   it("uncertain OAuth dispatch retains its original attempt and refuses a fresh replay",async()=>{
     const f=await fixture();await artifacts.claim(db,f.access,"native-oauth-attempt");await dispatch(f);await artifacts.finish(db,f.access,"native-oauth-attempt",false);
     expect(await db.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2",[f.op.workspaceId,f.op.id])).toEqual([{phase:"uncertain"}]);

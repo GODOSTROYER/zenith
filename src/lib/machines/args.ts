@@ -14,8 +14,7 @@
  * the parsed value (not the caller's raw object) is what transports receive
  * and what the evidence log summarizes.
  *
- * `MachineOperation`s without a schema here (`package.install`) are part of the capability vocabulary but no transport
- * implements them yet; `IMPLEMENTED_OPERATIONS` is the authoritative list.
+ * `MachineOperation`s without a schema here without a schema remain vocabulary-only; `IMPLEMENTED_OPERATIONS` is the authoritative list.
  */
 import { z } from "zod";
 import { MACHINE_OPERATIONS, type MachineOperation } from "./types";
@@ -167,6 +166,11 @@ export const MachineArgsSchemas = {
     sourceRef: z.string().max(64).regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/).refine((s) => !/\s/.test(s)),
     sourceVersion: z.string().length(64).regex(/^[0-9a-f]{64}$/),
     expectedSha256: z.string().length(64).regex(/^[0-9a-f]{64}$/).nullable(),
+  }).strict(),
+  "package.install": z.object({
+    profileRef: z.string().max(64).regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/),
+    profileVersion: z.string().length(64).regex(/^[0-9a-f]{64}$/),
+    expectedInstalledVersion: z.string().max(128).regex(/^(?:[0-9]+:)?[0-9][A-Za-z0-9.+~-]{0,127}$/).nullable(),
   }).strict(),
   "network.portCheck": z
     .object({

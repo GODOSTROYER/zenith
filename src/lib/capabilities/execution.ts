@@ -206,15 +206,18 @@ export async function beginExecution(deps: BrokerDeps, input: BeginExecutionInpu
     }
   }
 
-  // Claiming a repair starts read-only planning, including after a browser
-  // approval wakes its workflow. It never mints early write authority. Only
-  // the worker's binding/digest/current-round gate can issue drift.repair.
+  // Claiming a repair or destroy starts read-only planning, including after a
+  // browser approval wakes its workflow. It never mints early write authority.
+  // Repair writes need the worker's binding/digest/current-round gate; destroy
+  // writes also need the private authenticated held original-plan attempt.
   let grantCapability = op.capability;
   let grantDecision = decision;
-  if (op.capability === "drift.repair") {
+  if (op.capability === "drift.repair" || op.capability === "infrastructure.destroy") {
     const planning = capability("infrastructure.plan");
     const read = await evaluate(deps, { ...requestFromOperation(op), def: planning, risk: planning.risk, plan: undefined, planDigest: undefined });
-    if (read.decision.outcome !== "allow") throw new BrokerError("policy_denied", "Current policy does not allow this repair's read-only planning claim; no grant was issued.");
+    if (read.decision.outcome !== "allow") throw new BrokerError("policy_denied", op.capability === "drift.repair"
+      ? "Current policy does not allow this repair's read-only planning claim; no grant was issued."
+      : "Current policy does not allow this destroy's read-only planning claim; no grant was issued.");
     grantCapability = planning.name;
     grantDecision = read.decision;
   }

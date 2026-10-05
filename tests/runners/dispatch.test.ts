@@ -383,6 +383,25 @@ describe("zenithd requests", () => {
     expect(await plane.store.machineRequests.listForOperation("w-a", OPERATION)).toHaveLength(1);
   });
 
+  it("queues only pinned package metadata with the actual signer and a bound resource grant", async () => {
+    // Real signing/queue functions with this suite's modeled authority transport.
+    const machine = await registerFakeAgent(plane, registerMachine, { kind: "machine", capabilities: ["package.install"] });
+    const args = { profileRef: "bundle", profileVersion: "c".repeat(64), expectedInstalledVersion: null };
+    const grant = await issueGrant(plane, { aud: `machine:${machine.id}`, cap: "package.install", op: OPERATION, ws: "w-a", res: "res_package" });
+    const input = { workspaceId: "w-a", machineId: machine.id, operationId: OPERATION, operation: "package.install", args, grant };
+    for (const invalid of [{ ...args, bytes: "inert-package-marker" }, { ...args, sourcePath: "/private/bundle.deb" }, { ...args, url: "https://example.invalid/bundle" }, { ...args, argv: ["/bin/sh"] }, { ...args, expectedInstalledVersion: "*" }]) {
+      expect(await refused(enqueueMachineRequest({ ...input, args: invalid }))).toMatch(/^invalid_payload.*strict pinned package/);
+      expect(await plane.store.machineRequests.listForOperation("w-a", OPERATION)).toHaveLength(0);
+    }
+    const id = await enqueueMachineRequest(input), row = await plane.store.machineRequests.get("w-a", id);
+    if (!row) throw new Error("The modeled signed package request was not queued.");
+    expect(row).toMatchObject({ workspaceId: "w-a", agentId: machine.id, capability: "package.install", operationId: OPERATION, status: "queued" });
+    const decoded = machine.decodeJob(row.envelope, machine.jobTyp());
+    expect(decoded.claims).toMatchObject({ machineId: machine.id, workspaceId: "w-a", operationId: OPERATION, operation: "package.install", args });
+    expect(sha256Hex(String(decoded.claims.grant))).toBe(sha256Hex(grant));
+    expect(await plane.store.machineRequests.get("w-b", id)).toBeNull();
+  });
+
   it("a silent machine is stale and gets nothing", async () => {
     const machine = await registerFakeAgent(plane, registerMachine, { kind: "machine", capabilities: ["service.status"] });
     plane.clock.t += 100_000;

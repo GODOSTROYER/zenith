@@ -90,3 +90,124 @@ You can also pass the token through the environment for the registration only:
 A revoked or upgrade-required agent exits with code 3 or 4 and is **not**
 restarted by systemd (`RestartPreventExitStatus=3 4`). After revocation, register
 again with `--force` and a new token.
+
+## Optional offline package helper
+
+The existing `zenithd.service` continues to run as `zenithd` with empty Linux
+capabilities and `NoNewPrivileges=yes`. Package installation requires the
+separate `zenithd-package-install.service`; do not add sudo, arbitrary exec or
+privileges to the ordinary daemon. This first slice accepts only Debian 12,
+dpkg 1.21, native amd64/arm64 and reviewed offline data-only packages. Its
+native service, socket, restart and fault acceptance remain a separate gate.
+
+Provision the helper only after approving an exact local package. Verify its
+publisher/repository provenance independently and copy the immutable archive
+into `/var/lib/zenithd-package-install/archives`. dpkg itself does not authenticate
+an archive. No helper network fetch or repository update exists. The approved
+profile records its exact archive SHA-256/size, package/version/architecture and
+all payload paths, kinds, modes, sizes and SHA-256 values. The only payload root
+is `/opt/zenith-packages/<profileRef>`; every contained directory is explicit.
+The archive dialect and refusal rules are in `docs/platform/ZENITHD.md`.
+
+Pre-create `/var/lib/zenithd-package-install/{archives,staged,backups,intents}`
+and the state root as root-owned mode 0700. Pre-create root-owned mode 0755
+`/opt/zenith-packages`; `/opt` also remains 0755. These custody trees and
+`/var/lib/dpkg` must use local ext-family, XFS or Btrfs with directory/file fsync.
+Unexpected ancestor, nested and file mounts, ACLs, writable ancestors, hard
+links and symlinks refuse. Fixed systemd bind anchors may exist only at the
+helper's documented roots. No automatic mount, chmod, cleanup or repair occurs.
+
+Copy `package-install.example.json` to `/etc/zenithd/package-install.json`,
+root-owned mode 0600, and complete it locally. The deliberately disabled empty
+example cannot start the helper. Set the exact persisted machine/workspace IDs,
+the numeric `zenithd` UID and existing trusted control-plane public keys. Never
+copy registration tokens, private keys, cloud credentials or an authenticated
+request into this file. Pin all configured write/upload sources, destinations
+and backup directories in its `fileWrite`/`fileUpload` metadata, even when those
+operations are disabled. They must remain disjoint from all package, helper,
+archive, native dpkg, replay and intent custody in both directions.
+
+Use the canonical `ops.PackageInstallProfileVersion` metadata function to form
+`profileVersion`; its input is the complete profile with a blank version and
+payload sorted by path, purpose-separated as `zenith.package.install.profile/v1`.
+It binds Debian 12/dpkg 1.21 and the whole archive/effects description. The normal
+daemon's `packageInstall.profiles` must match the root file's refs and versions.
+There is no caller-selected root configuration or decoded permission proof.
+
+Install the optional unit only after completing that review. Its fixed command
+is `zenithd package-helper --config /etc/zenithd/package-install.json`. The helper
+creates one root-authenticated Unix socket owned by the configured daemon UID,
+mode 0600, under `/run/zenithd-package-install`. It accepts only bounded metadata
+availability or an original signed machine request. Peer identity and the
+original signature, audience, workspace, operation, grant and current local
+profile are checked again in the root process. Socket rights/extra fields and
+shell/argv/URL inputs refuse. The helper has no network address families and
+starts no server API.
+
+Only the dedicated root helper bounds `CAP_CHOWN`; its ambient capabilities
+remain empty and `NoNewPrivileges=yes` remains enabled. It validates the fresh
+root-owned socket, applies mode 0600 before transferring ownership to the
+configured nonzero daemon UID, then checks the same device, inode, socket type,
+owner, group and mode before serving. It does not need `CAP_FOWNER`, broader
+capabilities or any change to the ordinary daemon. Verify the actual installed
+helper and daemon capability sets and authenticated IPC in a disposable native
+acceptance run. Direct root tests do not establish that installed-unit result.
+
+Readiness refuses missing archives, mismatched profiles, unresolved/torn or
+orphaned custody, a competing frontend lock and incomplete native package state.
+Existing diversions, statoverrides and trigger interests are supported only when
+strictly parsed and disjoint from the exact archive, shared directories, all
+configured profiles and helper/native custody. Complete original bytes remain
+captured before, immediately before native entry and after. Pending updates,
+Unincorp activations, awaited/pending package states, foreign/unknown interest
+identities, overlaps and malformed records refuse. Do not clear or repair native
+records to obtain readiness. `--no-triggers` still records activation and cannot
+replace this overlap check.
+
+Configuration admission recognizes only comments, `no-debsig`, the fixed
+`log /var/log/dpkg.log` and the 18 observed Docker documentation/locale filters
+under the literal `/usr/share/` prefix. Native fragment filename selection is
+preserved; inactive files still join the exact raw snapshot. Unknown options,
+hooks and root redirects refuse. Raw `force-unsafe-io` policy remains refused.
+One exact observed 259-byte `docker-apt-speedup` fragment (SHA256
+`ab3af717d57cbbea36555833dc1ae031fa46750b879199ec579ee00be9aa0124`)
+is compatible only with the helper's private fixed `--refuse-unsafe-io`
+command and a bounded native read-only effective-flags check. Unsafe I/O must
+be disabled; any altered fragment or other unsafe option refuses. Original
+config bytes remain in every snapshot/backup/readback; no config is rewritten.
+The fixed
+`HOME=/nonexistent` parent itself must be absent beneath protected root; any
+existing file, directory or symlink parent refuses before native admission. The actual no-follow root descriptor must be a root-owned directory without group/other write, special mode bits or POSIX access/default ACLs. This check precedes every child walk and descriptor-relative HOME absence check. Named disjoint statoverride
+identities require captured root-owned passwd/group data and files-first default
+NSS success semantics; other identity resolution refuses. This remains a
+limited first-install/no-op slice, not support for every Debian host.
+
+The signed prior-state value is `null` for a genuinely absent package and every
+payload destination, or the exact pinned version for a fully verified no-op.
+Upgrades, downgrades, residual configuration, repair, removal, dependencies,
+maintainer scripts, conffiles, triggers, links, devices, capabilities and special
+mode bits are unsupported. There is no wildcard write or arbitrary package
+name/version request. The root helper stages and fsyncs the pinned archive,
+retains a private native-state backup and accepted intent, then invokes fixed
+`/usr/bin/dpkg` arguments with a clean environment while holding its actual
+frontend fcntl lock. It verifies native metadata, all payload bytes/modes and
+unchanged unrelated state before recording success.
+
+Accepted partial effects, timeout, cancellation, lost response, failed
+postconditions and incomplete intent persistence remain uncertain. Backups do
+not establish package atomicity or implement rollback. The lifetime lock is
+held before replay-cache load/compaction; distinct fsynced replay/intent records
+survive restart. Unknown custody blocks new attempts, including new request
+IDs. Nothing deletes, retries or prunes it. Investigate under an independently
+approved recovery procedure; restarting or removing state is not safe retry
+approval. Evidence contains metadata and opaque transaction refs, not package
+contents, paths, tokens, keys or dpkg output.
+
+Native dpkg status must remain an initialized installed database. Its multiline
+`Conffiles` field may start with an empty value on the header line; continuation
+bytes are retained exactly. Duplicate fields (including case variants), malformed
+headers, missing package/architecture/status, and pending or awaited triggers
+remain refusal conditions. This syntax support does not change native metadata,
+configuration, helper privileges or the requirement to run genuine native tests.
+Recognized identity and pending-trigger names are interpreted case-insensitively;
+their original raw status bytes remain part of the captured state.

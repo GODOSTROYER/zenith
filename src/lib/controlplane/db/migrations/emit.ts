@@ -1,5 +1,5 @@
 /**
- * Renders `supabase/migrations/0016_platform_core.sql` from the TypeScript
+ * Renders `supabase/migrations/0018_platform_core.sql` from the TypeScript
  * migrations — the ONLY way that file is produced. It is never hand-edited: a
  * test (`tests/controlplane/migrations.test.ts`) fails when the committed file
  * differs by even one byte from what `renderSupabaseMigration()` returns now,
@@ -23,7 +23,7 @@
 import { BOOTSTRAP_SQL } from "./bootstrap";
 import { PLATFORM_MIGRATIONS, migrationChecksum } from "./index";
 
-export const EMITTED_FILE = "0016_platform_core.sql";
+export const EMITTED_FILE = "0018_platform_core.sql";
 
 const HARDENING_SQL = `do $$
 declare
@@ -73,6 +73,16 @@ begin
       revoke all on table platform.mixed_child_intents from service_role;
       grant select, insert, update on table platform.mixed_child_intents to service_role;
     end if;
+    if to_regclass('platform.cleanup_writer_epoch') is not null then
+      revoke all on table platform.cleanup_writer_epoch,platform.cleanup_writer_scopes,platform.cleanup_writer_holds,platform.cleanup_writer_deliveries,platform.cleanup_owner_grants from service_role;
+      grant select on table platform.cleanup_writer_epoch to service_role;
+      grant select,insert on table platform.cleanup_writer_scopes,platform.cleanup_writer_holds,platform.cleanup_writer_deliveries,platform.cleanup_owner_grants to service_role;
+      grant update on table platform.cleanup_writer_scopes to service_role;
+    end if;
+    if to_regclass('platform.standalone_plan_settlements') is not null then
+      revoke all on table platform.standalone_plan_backends,platform.standalone_plan_settlements from service_role;
+      grant select,insert on table platform.standalone_plan_backends,platform.standalone_plan_settlements to service_role;
+    end if;
   end if;
 end
 $$;
@@ -80,7 +90,7 @@ $$;
 
 const quote = (text: string): string => `'${text.replace(/'/g, "''")}'`;
 
-/** The exact text of `supabase/migrations/0016_platform_core.sql`. */
+/** The exact text of `supabase/migrations/0018_platform_core.sql`. */
 export function renderSupabaseMigration(): string {
   const parts: string[] = [
     `-- Zenith platform control store (ADR-0002) — schema \`platform\`.

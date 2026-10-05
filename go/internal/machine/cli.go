@@ -26,6 +26,9 @@ func Main(args []string, stdout, stderr io.Writer, getenv func(string) string) i
 	if getenv == nil {
 		getenv = os.Getenv
 	}
+	if len(args) > 0 && args[0] == "package-helper" {
+		return packageHelperMain(args[1:], stdout, stderr)
+	}
 	if len(args) > 0 && args[0] == "file-write-versions" {
 		return fileWriteVersions(args[1:], stdout, stderr)
 	}
@@ -75,7 +78,22 @@ func Main(args []string, stdout, stderr io.Writer, getenv func(string) string) i
 	return Run(ctx, cfg, path, stderr, getenv, log, Deps{})
 }
 
-func capabilitiesOf(cfg *Config) []string { return ops.Supported(cfg.Config) }
+func capabilitiesOf(cfg *Config) []string {
+	out := ops.Supported(cfg.Config)
+	// Before identity construction, availability can only remove package support.
+	if cfg.PackageInstall.Enabled {
+		r, err := packageHelperRoundTrip(context.Background(), packageWireRequest{Kind: "availability"})
+		if err != nil || !r.Ready || r.Result != nil || len(r.Profiles) != len(cfg.PackageInstall.Profiles) || !packageProfilesMatch(r.Profiles, cfg.PackageInstall.Profiles) {
+			for i, op := range out {
+				if op == ops.OpPackageInstall {
+					out = append(out[:i], out[i+1:]...)
+					break
+				}
+			}
+		}
+	}
+	return out
+}
 
 // Run starts zenithd with an already loaded config and returns the exit code.
 func Run(ctx context.Context, cfg *Config, configPath string, stderr io.Writer, getenv func(string) string, log *slog.Logger, deps Deps) int {

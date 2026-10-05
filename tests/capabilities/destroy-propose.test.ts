@@ -1,5 +1,6 @@
 /** Real ledger/broker checks; evidence is a recorded fixture, no cloud execution. */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { verifyCapabilityGrant } from "@/lib/credentials";
 import { repos } from "@/lib/controlplane/db";
 import { planEvidence } from "@/lib/execution/plan-evidence";
 import { createOperationsPort } from "@/lib/execution/platform";
@@ -75,7 +76,31 @@ describe("trusted destroy proposals", () => {
     const { operation: op } = await h.broker.propose(request, user("alice"), ctx);
     const decide = (planDigest?: string) => h.broker.approve({ workspaceId: h.ids.wsA, operationId: op.id, proposalDigest: op.proposalDigest, planDigest, approver: user("erin"), session: sessionFor("erin") });
     await decide();
-    await h.broker.beginExecution({ workspaceId: h.ids.wsA, operationId: op.id, holder: `workflow:${op.id}`, audience: "worker" });
+    const before = await h.store.getOperation(h.ids.wsA, op.id);
+    const approvals = await h.store.listApprovals(h.ids.wsA, op.id);
+    expect(before?.status).toBe("approved");
+    expect(approvals).toHaveLength(1); expect(approvals[0].consumedAt).toBeUndefined();
+    h.setEngine(scriptedEngine("allow-fixture", input => input.request.capability === "infrastructure.plan"
+      ? { outcome: "deny", reasons: [{ code: "planning_refused", message: "Read-only planning is disabled.", rule: "fixture" }] }
+      : allowDecision()));
+    const sign = vi.spyOn(h.deps.signer, "sign");
+    try {
+      await expect(h.broker.beginExecution({ workspaceId: h.ids.wsA, operationId: op.id, holder: `workflow:${op.id}`, audience: "worker" })).rejects.toMatchObject({ code: "policy_denied" });
+      expect(sign).not.toHaveBeenCalled();
+      expect(await h.store.getOperation(h.ids.wsA, op.id)).toEqual(before);
+      expect(await h.store.listApprovals(h.ids.wsA, op.id)).toEqual(approvals);
+      expect(await h.db!.query("select jti from platform.capability_grants where workspace_id=$1 and operation_id=$2", [h.ids.wsA, op.id])).toEqual([]);
+    } finally { sign.mockRestore(); }
+    h.setEngine(scriptedEngine("allow-fixture", () => allowDecision()));
+    const begun = await h.broker.beginExecution({ workspaceId: h.ids.wsA, operationId: op.id, holder: `workflow:${op.id}`, audience: "worker" });
+    const key = await h.publicJwk();
+    if (key.kty !== "OKP" || key.alg !== "EdDSA" || key.use !== "sig" || key.crv !== "Ed25519" || typeof key.kid !== "string" || typeof key.x !== "string") throw new Error("Canonical fixture public signing key is unavailable.");
+    const claims = await verifyCapabilityGrant(begun.grant, { audience: "worker", now: h.clock.now(), expectedOperationId: op.id,
+      expectedCapability: "infrastructure.plan", keys: [{ kty: key.kty, alg: key.alg, use: key.use, crv: key.crv, kid: key.kid, x: key.x }] });
+    expect(begun.claims).toEqual(claims); expect(begun.operation.status).toBe("running");
+    expect(claims).toMatchObject({ cap: "infrastructure.plan", op: op.id, digest: op.proposalDigest, ws: h.ids.wsA, env: request.scope.environmentId });
+    expect(await h.db!.query("select capability from platform.capability_grants where workspace_id=$1 and operation_id=$2", [h.ids.wsA, op.id])).toEqual([{ capability: "infrastructure.plan" }]);
+    expect((await h.store.listApprovals(h.ids.wsA, op.id))[0].consumedAt).toBeDefined();
     await repos.evidence.insert(h.db!, { workspaceId: h.ids.wsA, operationId: op.id, kind: "tofu_plan", digest: plan.planDigest, summary: evidence.summary, simulated: false });
     const worker = createExecutionBroker(h.db!, async () => h.broker), ops = createOperationsPort(h.db!);
     expect((await worker.approvalStatus(op.id)).approved).toBe(false);

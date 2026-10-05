@@ -44,7 +44,7 @@ const ALL = PLATFORM_MIGRATIONS.map((m) => m.version);
 const NEXT = PLATFORM_MIGRATIONS.length + 1;
 
 const EXPECTED_TABLES = [
-  "agent_effect_receipts", "agent_nonces", "approvals", "approved_source_snapshots", "build_launches", "capability_grants", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
+  "agent_effect_receipts", "agent_nonces", "approvals", "approved_source_snapshots", "build_launches", "capability_grants", "cleanup_owner_grants", "cleanup_writer_deliveries", "cleanup_writer_epoch", "cleanup_writer_holds", "cleanup_writer_scopes", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
   "github_binding_events", "github_install_intents", "github_source_bindings", "github_webhook_deliveries", "github_webhook_installation_epochs", "idempotency_keys", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machines", "mixed_child_custody", "mixed_child_intents", "operations", "plan_artifact_associations", "plan_artifact_uses", "plan_artifacts", "policy_decisions", "provider_connections",
   "reconcile_state", "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners",
   "schema_migrations", "workflow_start_intents", "workspace_policy",
@@ -53,7 +53,8 @@ const EXPECTED_TABLES = [
 /** Tables that hold no tenant-visible rows keyed by workspace (see the header of 0001_core.ts). */
 // Signed installation events can revoke multiple tenants. These two tables
 // are global App-scoped fences/receipts, never tenant-addressable resources.
-const NO_WORKSPACE_COLUMN = new Set(["schema_migrations", "agent_nonces", "github_webhook_deliveries", "github_webhook_installation_epochs"]);
+// The cleanup writer epoch is one installation-wide singleton, not a tenant row.
+const NO_WORKSPACE_COLUMN = new Set(["schema_migrations", "agent_nonces", "github_webhook_deliveries", "github_webhook_installation_epochs", "cleanup_writer_epoch"]);
 
 interface Lane {
   name: string;
@@ -217,6 +218,8 @@ describe.each(lanes)("migrator [$name]", (lane) => {
       );
       const withWorkspace = new Map(columns.map((c) => [c.table_name, c.is_nullable]));
       const tables = EXPECTED_TABLES.filter((t) => !NO_WORKSPACE_COLUMN.has(t));
+      expect(withWorkspace.has("cleanup_writer_epoch")).toBe(false);
+      expect(await db.query("select singleton from platform.cleanup_writer_epoch")).toEqual([{ singleton: true }]);
       for (const t of tables) expect(withWorkspace.has(t), `${t} has workspace_id`).toBe(true);
       // leases carry an OPTIONAL workspace id (scopes such as env:<id> are globally unique); everything else is NOT NULL
       for (const t of tables.filter((x) => x !== "leases")) expect(withWorkspace.get(t), `${t}.workspace_id nullable`).toBe("NO");
@@ -595,7 +598,8 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           const originalUser=(await tx.query<{name:string}>("select current_user as name"))[0].name;
           const migrationOwner=uid("zt_plan_migration").replace(/-/g,"");
           const legacySourceOwner=uid("zt_source_owner").replace(/-/g,"");
-          // A distinct authorized migration owner has schema-create, ledger DML/RLS bypass, and FK references.
+          // A distinct authorized migration owner has schema-create, ledger DML/RLS bypass, FK references,
+          // and TRIGGER only on the three legacy delivery tables used by migration 15.
           const databaseName=(await tx.query<{name:string}>("select current_database() as name"))[0].name;
           await db.exec(`create role ${migrationOwner} nologin bypassrls;
             create role ${legacySourceOwner} nologin;
@@ -607,10 +611,11 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
             grant usage,create on schema platform to ${migrationOwner} with grant option;
             grant select,insert,update,delete on all tables in schema platform to ${migrationOwner};
             grant references on table platform.operations,platform.github_source_bindings,platform.runner_jobs,platform.machine_requests to ${migrationOwner};
-            grant trigger on table platform.runner_jobs,platform.machine_requests to ${migrationOwner};`);
+            grant trigger on table platform.runner_jobs,platform.machine_requests,platform.capability_grants to ${migrationOwner};`);
           await tx.query(`set local role ${migrationOwner}`);
           expect((await tx.query<{name:string}>("select current_user as name"))[0].name).toBe(migrationOwner);
           expect(migrationOwner).not.toBe(originalUser);
+          expect((await tx.query<{allowed:boolean}>("select has_table_privilege(current_user,'platform.capability_grants','TRIGGER') as allowed"))[0].allowed).toBe(true);
           expect(await migratePlatformDb(db)).toEqual({applied:pending,alreadyApplied:[1,2,3,4,5,6]});
           await assertPlatformSchemaCurrent(db);
           expect((await platformSchemaStatus(db)).applied.map(({version,name,checksum})=>({version,name,checksum})))

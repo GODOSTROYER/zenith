@@ -104,3 +104,19 @@ func TestFileUploadVersionsMetadataOnlyAndDefaultOff(t *testing.T) {
 		t.Fatal("unbounded upload configuration accepted")
 	}
 }
+
+func TestPackageInstallDefaultOffAndUnboundedConfigRefused(t *testing.T) {
+	cfg := Config{}
+	cfg.ApplyDefaults(DefaultStateDir)
+	cfg.applyDefaults()
+	cfg.ControlPlane.URL = "https://example.invalid"
+	cfg.Name = "fixture"
+	cfg.Audit.Path = filepath.Join(cfg.StateDir, "audit.jsonl")
+	if cfg.PackageInstall.Enabled {
+		t.Fatal("package helper must require explicit opt-in")
+	}
+	cfg.PackageInstall = ops.PackageInstallConfig{Enabled: true}
+	if cfg.Validate() == nil {
+		t.Fatal("unbounded package profile enabled")
+	}
+}

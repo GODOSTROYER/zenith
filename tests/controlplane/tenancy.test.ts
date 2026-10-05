@@ -58,6 +58,7 @@ const SWEPT = new Set([
   ...BUILD_LAUNCH_SWEPT,
   ...WORKFLOW_START_SWEPT,
   ...MIXED_CHILD_SWEPT,
+  "cleanupWriterBarriers.preview", "cleanupWriterBarriers.inventory",
   "approvals.consume", "approvals.listForOperation", "approvals.record", "approvals.requiredApprovalCount", "approvals.consumeApprovals",
   "connections.get", "connections.list", "connections.recordVerification", "connections.revoke",
   "cost.get", "cost.list",
@@ -86,6 +87,14 @@ const SWEPT = new Set([
 
 /** Writes that bind the new row to the workspace they are given; their tenant checks are tested with the owning suite. */
 const WRITES = new Set([
+  // Opaque identity is issued only by genuine paired codec/default current proof.
+  // Mandatory native cleanup suite proves owning commit, clone/foreign refusal, one JTI and post-wait authority.
+  "cleanupWriterBarriers.retain",
+  "cleanupWriterBarriers.reserveOwnerGrant",
+  "cleanupWriterBarriers.insertOwnerGrant",
+  "planArtifacts.retainCleanupWriterHold",
+  "planArtifacts.reserveCleanupOwnerGrant",
+  "planArtifacts.insertCleanupOwnerGrant",
   "connections.create", "cost.insert", "drift.insert", "events.append", "evidence.insert", "grants.insert", "incidents.openIncident", "incidents.insertInvestigation",
   // Exact private capture identity/owner and original tenant tuple settle only
   // after the connection lock wait and a fresh native editor/admin membership read.
@@ -111,6 +120,7 @@ const WRITES = new Set([
 
 /** Deliberately not workspace-filtered, with the reason. */
 const EXEMPT: Record<string, string> = {
+  "cleanupWriterBarriers.CleanupWriterBarrierError": "pure fixed error class; no tenant query or authority and excluded from bindRepos",
   "mixedChildIntents.MixedChildAdmissionError": "pure fixed-category error class, contains no SQL or tenant data; excluded from bindRepos",
   "buildLaunches.assertIsolatedBuildTestAdmission": "zero-argument NODE_ENV admission guard; reads no SQL or tenant data, cannot supply approval authority, and is excluded from bindRepos",
   "workflowStartIntents.WorkflowStartIntentError": "pure error class, contains no SQL or tenant data",
@@ -188,6 +198,8 @@ describe("completeness guard", () => {
     for (const helper of ["WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests"]) {
       expect(Object.keys(bound.workflowStartIntents)).not.toContain(helper);
     }
+    expect(Object.keys(bound.cleanupWriterBarriers)).toEqual(["preview"]);
+    for(const name of ["retainCleanupWriterHold","reserveCleanupOwnerGrant","insertCleanupOwnerGrant"])expect(Object.keys(bound.planArtifacts)).not.toContain(name);
     expect(Object.keys(bound.approvedSourceSnapshots)).toEqual([]);
     expect(Object.keys(repos.approvedSourceSnapshots).sort()).toEqual(Object.keys(CAPABILITY_CONSTRUCTORS).filter(key => key.startsWith("approvedSourceSnapshots.")).map(key => key.split(".")[1]).sort());
     expect(await bound.events.list("ws_x")).toEqual([]);
@@ -310,7 +322,18 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       workspaceId: A, createdBefore: retentionCutoff, holdOperationIds: [], limit: 1000,
     })).scanned).toBeGreaterThan(0);
 
+    const cleanupBefore=await db.query("select * from platform.cleanup_writer_deliveries where workspace_id=$1 order by family,identity",[A]);
+    expect((await repos.cleanupWriterBarriers.preview(db,A,"proj_1",envId)).grants).toBeGreaterThan(0);
+    expect((await repos.cleanupWriterBarriers.inventory(db,A,"proj_1",envId)).handoffs).toBeGreaterThan(0);
+    const foreignCleanupRead=async(read:typeof repos.cleanupWriterBarriers.preview)=>{
+      const value=await read(db,B,"proj_1",envId);
+      expect(value.grants).toBe(0);expect(value.handoffs).toBe(0);expect(value.reservations).toBe(0);
+      // Unknown scope is a fixed conservative count, never owning-row disclosure or clearance.
+      expect(value.unknownHistory).toBe(1);return null;
+    };
     const attempts: Record<string, () => Promise<unknown>> = {
+      "cleanupWriterBarriers.preview":()=>foreignCleanupRead(repos.cleanupWriterBarriers.preview),
+      "cleanupWriterBarriers.inventory":()=>foreignCleanupRead(repos.cleanupWriterBarriers.inventory),
       "planArtifacts.publish": () => seen(repos.planArtifacts.publish(db,{...artifactInput,manifest:{...manifest,workspaceId:B},evidence:{...artifactInput.evidence,workspaceId:B}})),
       "planArtifacts.read": () => seen(repos.planArtifacts.read(db,foreignAccess)),
       "planArtifacts.associate": () => seen(repos.planArtifacts.associate(db,{...associationInput,workspaceId:B})),
@@ -431,6 +454,8 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       expect(await repos.evidence.list(db,A,{operationId:source.id}), `${name} preserved the exact owning plan and claim witness`).toEqual(sourceEvidenceBefore);
     }
 
+    expect(await db.query("select * from platform.cleanup_writer_deliveries where workspace_id=$1 order by family,identity",[A])).toEqual(cleanupBefore);
+    expect(await db.query("select * from platform.cleanup_writer_holds where workspace_id=$1",[B])).toEqual([]);
     // ------------------------ and A's data is exactly as it was -------------------------
     expect(await repos.planArtifacts.read(db,artifactAccess)).toEqual(artifactBefore);
     expect(await db.query("select * from platform.plan_artifact_associations where workspace_id=$1",[A])).toEqual(associationsBefore);

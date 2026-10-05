@@ -29,7 +29,7 @@ const bad = (op: ImplementedOperation, args: unknown) => {
 describe("operation vocabulary", () => {
   it("every operation is either implemented or explicitly declared unimplemented", () => {
     expect(new Set([...IMPLEMENTED_OPERATIONS, ...UNIMPLEMENTED_OPERATIONS])).toEqual(new Set(MACHINE_OPERATIONS));
-    expect([...UNIMPLEMENTED_OPERATIONS].sort()).toEqual(["package.install"]);
+    expect([...UNIMPLEMENTED_OPERATIONS].sort()).toEqual([]);
   });
 
   it("rejects unknown keys on every operation (no silent widening)", () => {
@@ -43,6 +43,7 @@ describe("operation vocabulary", () => {
       "container.logs": {},
       "container.exec": { argv: ["ls"], timeoutSec: 5 },
       "file.write": { path: "/opt/customer/settings.txt", contentRef: "settings", contentVersion: "c".repeat(64), expectedSha256: null },
+      "package.install": { profileRef: "bundle", profileVersion: "c".repeat(64), expectedInstalledVersion: null },
       "file.upload": { path: "/opt/customer/model.bin", sourceRef: "model", sourceVersion: "c".repeat(64), expectedSha256: null },
       "file.read": { path: "/var/log/syslog" },
       "network.portCheck": { host: "example.com", port: 80 },

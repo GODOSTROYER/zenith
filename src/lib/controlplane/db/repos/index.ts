@@ -20,6 +20,7 @@
  */
 import type { Sql } from "@/lib/controlplane/types";
 import * as planArtifacts from "./plan-artifacts";
+import * as cleanupWriterBarriers from "./cleanup-writer-barriers";
 import * as mixedChildIntents from "./mixed-child-intents";
 import * as buildLaunches from "./build-launches";
 import * as workflowStartIntents from "./workflow-start-intents";
@@ -47,6 +48,7 @@ import * as settings from "./settings";
 
 export {
   planArtifacts,
+  cleanupWriterBarriers,
   mixedChildIntents,
   buildLaunches,
   workflowStartIntents,
@@ -73,7 +75,7 @@ export {
   settings,
 };
 
-type CapabilityConstructor = "createApprovedSourceSnapshotStore" | "isApprovedSourceSnapshotStore" | "createIsolatedApprovedSourceStoreForTests";
+type CapabilityConstructor = "createApprovedSourceSnapshotStore" | "isApprovedSourceSnapshotStore" | "createIsolatedApprovedSourceStoreForTests" | "reserveOwnerGrant" | "insertOwnerGrant" | "inventory" | "retainCleanupWriterHold" | "reserveCleanupOwnerGrant" | "insertCleanupOwnerGrant";
 
 /** A module whose SQL row functions take `Sql` first, rewritten to omit it. */
 export type Bound<M> = {
@@ -83,9 +85,9 @@ export type Bound<M> = {
 };
 
 /** Exports that are pure helpers, not repository functions: they take no `Sql`. */
-const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError", "BuildLaunchError", "createIsolatedBuildClaimerForTests", "assertIsolatedBuildTestAdmission", "WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests", "MixedChildAdmissionError"]);
+const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError", "BuildLaunchError", "createIsolatedBuildClaimerForTests", "assertIsolatedBuildTestAdmission", "WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests", "MixedChildAdmissionError", "CleanupWriterBarrierError"]);
 /** Capability construction/provenance is never an automatically bound row API. */
-const CAPABILITY_CONSTRUCTORS = new Set(["createApprovedSourceSnapshotStore", "isApprovedSourceSnapshotStore", "createIsolatedApprovedSourceStoreForTests"]);
+const CAPABILITY_CONSTRUCTORS = new Set(["createApprovedSourceSnapshotStore", "isApprovedSourceSnapshotStore", "createIsolatedApprovedSourceStoreForTests", "reserveOwnerGrant", "insertOwnerGrant", "inventory", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"]);
 
 function bind<M extends object>(mod: M, sql: Sql): Bound<M> {
   const out: Record<string, unknown> = {};
@@ -98,6 +100,7 @@ function bind<M extends object>(mod: M, sql: Sql): Bound<M> {
 export function bindRepos(sql: Sql) {
   return {
     planArtifacts: bind(planArtifacts, sql),
+    cleanupWriterBarriers: bind({preview:cleanupWriterBarriers.preview}, sql),
     mixedChildIntents: bind(mixedChildIntents, sql),
     buildLaunches: bind(buildLaunches, sql),
     workflowStartIntents: bind(workflowStartIntents, sql),

@@ -162,7 +162,8 @@ describe("platform composition", () => {
     } finally {resolve.mockRestore();}
   });
   it("leaves the legacy app and reconcile 503 behavior alone without platform configuration", async () => {
-    vi.stubEnv("ZENITH_PLATFORM_DB", ""); vi.stubEnv("ZENITH_PLATFORM_DB_URL", "");
+    // Isolate every production configuration source, including the genuine Supabase fallback.
+    vi.stubEnv("ZENITH_PLATFORM_DB", ""); vi.stubEnv("ZENITH_PLATFORM_DB_URL", ""); vi.stubEnv("SUPABASE_DB_URL", "");
     expect(await ensurePlatformApp()).toBe(false);
     expect(reconcileWired()).toBe(false);
     expect(await platformRunnerReaperPass()).toEqual({ ran: false, jobs: 0 });

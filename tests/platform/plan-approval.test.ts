@@ -171,9 +171,27 @@ for(const kind of ["pglite",...(PG_URL?["postgres" as const]:[])] as const) desc
     const f=await immutableDestroyReview(kind);
     expect(approvalRoundOf(f.op)).toBe(0);expect((await f.worker.approvalStatus(f.op.id)).approved).toBe(true);
     await f.ports.transition({workspaceId:f.scope.workspaceId,operationId:f.op.id,to:"running"});
-    const fence=await f.h.acquireLease(f.scope.environmentId);const grant=await f.worker.issueGrant(f.op.id,"worker",fence);
-    expect(grant.claims.cap).toBe("infrastructure.destroy");
-    expect((await f.worker.approvalStatus(f.op.id)).dispatchApproval?.approvalIds).toHaveLength(1);
+    const approvals=await f.h.store.listApprovals(f.scope.workspaceId,f.op.id);
+    expect(approvals).toHaveLength(1);
+    expect(approvals[0]).toMatchObject({workspaceId:f.scope.workspaceId,operationId:f.op.id,proposalDigest:f.op.proposalDigest,decision:"approve",approverRole:"admin",approver:{kind:"user",id:"erin"}});
+    expect(approvalRoundOf(approvals[0])).toBe(0);
+    const current=await f.h.store.getOperation(f.scope.workspaceId,f.op.id);
+    expect(current).toMatchObject({status:"running",proposalDigest:f.op.proposalDigest,planDigest:f.removed.planDigest});
+    expect(current?.proposal.planDigest).toBe(f.removed.planDigest);
+    const approved=await f.worker.approvalStatus(f.op.id);
+    expect(approved.approved).toBe(true);
+    expect(approved.dispatchApproval?.approvalIds).toEqual([approvals[0].id]);
+    const grants=()=>f.h.db!.query<{jti:string}>("select jti from platform.capability_grants where workspace_id=$1 and operation_id=$2",[f.scope.workspaceId,f.op.id]);
+    expect(await grants()).toEqual([]);
+    const fence=await f.h.acquireLease(f.scope.environmentId);
+    let returnedGrant:unknown;
+    // Browser approval is genuine for this exact digest. A direct call has no
+    // private active held-attempt origin and must neither sign nor insert a grant.
+    await expect(f.worker.issueGrant(f.op.id,"worker",fence).then(grant=>{returnedGrant=grant;return grant;})).rejects.toMatchObject({code:"cleanup_writer_unconfirmed"});
+    expect(returnedGrant).toBeUndefined();
+    expect(await grants()).toEqual([]);
+    expect((await f.worker.approvalStatus(f.op.id)).dispatchApproval?.approvalIds).toEqual([approvals[0].id]);
+    expect((await f.worker.approvalStatus(f.op.id)).approved).toBe(true);
   });
   it.each(["failed source","expired source","simulated source evidence","missing source evidence","foreign source scope","foreign source workspace reference","moved source digest"])("refuses %s for an initial destroy proposal",async(mode)=>{
     const f=await immutableDestroyReview(kind);

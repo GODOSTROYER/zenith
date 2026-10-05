@@ -231,6 +231,31 @@ async function execute(command, cwd, env, directory, id) {
   return { observation, interrupted, drained, output, errors };
 }
 
+/** Read only this invocation's completed fixture record; never select a private prior receipt. */
+function packageFixtureEvidence(directory, attemptId, arch, contract) {
+  const file = path.join(directory, "package-private", "terminal.record");
+  ownedDirectory(path.dirname(file));
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  let proof;
+  try {
+    const st = fs.fstatSync(fd);
+    if (!st.isFile() || st.uid !== process.getuid() || st.nlink !== 1 || (st.mode & 0o7777) !== 0o600 || st.size === 0 || st.size > 1024 * 1024) throw new Error("package-fixture");
+    proof = JSON.parse(fs.readFileSync(fd, "utf8"));
+  } finally { fs.closeSync(fd); }
+  if (proof.schemaVersion !== 1 || proof.attempt !== attemptId || proof.imageIndex !== contract.imageIndex
+    || proof.arch !== arch || proof.emulated !== false || proof.status !== "native_and_owned_cleanup_completed"
+    || proof.cleanupComplete !== true || proof.delivery !== null
+    || typeof proof.apparmorFixtureOverride !== "boolean"
+    || JSON.stringify(proof.env) !== JSON.stringify(contract.env)
+    || JSON.stringify(proof.nativeCases) !== JSON.stringify(contract.requiredCases.map((item) => item.test))
+    || !/^sha256:[a-f0-9]{64}$/.test(proof.imageDigest ?? "")
+    || ["goSourceSha256", "toolArchiveSha256", "nativeStateSha256", "afterNativeStateSha256"].some((name) => !SHA256.test(proof[name] ?? ""))) throw new Error("package-fixture");
+  return { imageIndex: proof.imageIndex, imageDigest: proof.imageDigest, arch: proof.arch, emulated: false,
+    apparmorFixtureOverride: proof.apparmorFixtureOverride, env: proof.env, cleanupComplete: true,
+    goSourceSha256: proof.goSourceSha256, toolArchiveSha256: proof.toolArchiveSha256,
+    nativeStateSha256: proof.nativeStateSha256, afterNativeStateSha256: proof.afterNativeStateSha256 };
+}
+
 export async function runNativeGate(root = process.cwd(), attemptId = randomBytes(16).toString("hex")) {
   root = path.resolve(root);
   const manifest = linuxGuestManifest();
@@ -264,15 +289,19 @@ export async function runNativeGate(root = process.cwd(), attemptId = randomByte
     evidence.tools = { node: "22.23.3", go: "1.27.1", GOOS: "linux", GOARCH: versions.GOARCH };
     for (const step of manifest.steps) {
       const stepEnv = { ...env, ...(step.id === "goldens" ? { ZENITH_UPDATE_MACHINE_GOLDENS: "1" } : {}) };
-      const command = ["flock", "--shared", "--nonblock", "/opt/zenith-file-write-mounts/.gate-lease", ...step.command];
-      const result = await execute(command, path.join(root, "go"), stepEnv, directory, step.id);
+      const phaseCommand = step.command.map((argument) => ({ "{sourceRoot}": root, "{attemptId}": attemptId, "{nativeArch}": versions.GOARCH })[argument] ?? argument);
+      const command = ["flock", "--shared", "--nonblock", "/opt/zenith-file-write-mounts/.gate-lease", ...phaseCommand];
+      const result = await execute(command, step.id === "package-native" ? root : path.join(root, "go"), stepEnv, directory, step.id);
       drained = drained && result.drained;
       const raw = fs.readFileSync(result.output, "utf8");
-      const contract = step.id === "goldens" ? { requiredCases: manifest.goldenCases, requiredPackages: [manifest.goldenCases[0].package], noTestPackages: [], allowedSkips: [] } : manifest;
-      const validation = ["race", "goldens"].includes(step.id) ? validateGoEvents(raw, result.observation, contract) : {
+      const contract = step.id === "goldens" ? { requiredCases: manifest.goldenCases, requiredPackages: [manifest.goldenCases[0].package], noTestPackages: [], allowedSkips: [] }
+        : step.id === "package-native" ? manifest.packagePhase : { ...manifest, requiredCases: manifest.raceCases };
+      const validation = ["race", "package-native", "goldens"].includes(step.id) ? validateGoEvents(raw, result.observation, contract) : {
         verdict: result.observation.observed && result.observation.status === 0 && result.observation.signal === null && raw.length === 0 ? "passed" : "failed",
       };
-      evidence.steps.push({ id: step.id, command: step.command, exitCode: Number.isSafeInteger(result.observation.status) ? result.observation.status : null, termination: result.observation.signal ? "signal" : result.observation.observed ? "exit" : "launch-failed", reportSha256: digest(raw), validation });
+      const fixture = step.id === "package-native" && validation.verdict === "passed" && result.drained && !result.interrupted
+        ? packageFixtureEvidence(directory, attemptId, versions.GOARCH, manifest.packagePhase) : null;
+      evidence.steps.push({ ...(fixture ? { fixture } : {}), id: step.id, command: step.command, exitCode: Number.isSafeInteger(result.observation.status) ? result.observation.status : null, termination: result.observation.signal ? "signal" : result.observation.observed ? "exit" : "launch-failed", reportSha256: digest(raw), validation });
       if (validation.verdict !== "passed" || !result.drained || result.interrupted) throw new Error("execution");
     }
     const after = sourceBinding(root);

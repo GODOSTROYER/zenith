@@ -4923,6 +4923,298 @@ export const KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS = [
   }
 ];
 
+export const CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "genuine default paired codec commits an exact scoped native hold before entering the callback",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "direct repository and copied DTO calls cannot create a native hold",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "isolated custody never issues native cleanup authority or a destructive grant",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "wrong authenticated bytes refuse before retaining any native hold",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "a copied owning SQL handle cannot originate a hold even with authentic bytes",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "one active authenticated held attempt reserves and inserts exactly one native owner JTI",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "a prior same-operation issued grant is retained as a blocker after claimed use returns ready",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "an earlier unconsumed mutation grant blocks callback entry while the new hold still commits",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "expiry or revocation of an issued grant never supplies provider nondelivery proof",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "a pre-epoch operation remains unknown even when terminal projections and handoffs are empty",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "an unknown product scope creation time cannot be inferred fresh from zero native writers",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "a new scoped mutation grant waits on the actual final coordinator then refuses the committed hold",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "scope inventory sees an independently committed grant after the real hold coordinator wait",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "current human demotion committed during the actual coordinator wait refuses hold insertion",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "fresh post-signing current human refusal never inserts or returns a bearer and retains its JTI reservation",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "a detached async child cannot retain the active paired issuance context after callback disposal",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "direct Kubernetes or Zenith-style destroy issuance refuses without any private held context",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "read attenuation remains available under a retained hold and does not imply write authority",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "an actual unrelated immutable environment scope remains writable while an unscoped writer refuses",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "changed promoted scope cannot hide a writer behind another environment",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "foreign workspace inventory never sees the owning held operation or its grants",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "raw native dispatch without authenticated paired origin cannot use a seeded hold as approval",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "held epoch and possible-delivery records cannot be cleared by native UPDATE DELETE or TRUNCATE grants",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "every native mutation writer family records possible delivery before any hold",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "a held scope refuses a new native workflow handoff before possible delivery",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "a held scope refuses a new native plan handoff before possible delivery",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "a held scope refuses a new native build handoff before possible delivery",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "a held scope refuses a new native runner handoff before possible delivery",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "a held scope refuses a new native machine handoff before possible delivery",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "late workflow acknowledgement and build terminal receipts remain immutable history under a diagnostic hold",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "queued runner and machine work cannot cross into running after a native hold commits",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "discarding an acknowledged hold result never authorizes another consume or destructive grant",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "every cleanup authority table retains exact RLS and client denial without DELETE TRUNCATE or TRIGGER rights",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "a workspace foreign key mismatch never reaches any possible-delivery ledger",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "current consumed human approver demotion during the real coordinator wait refuses hold insertion",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "a current human rejection committed during the actual coordinator wait refuses hold insertion",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "expiration during the actual coordinator wait refuses the still-owned fence and hold",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "requester demotion during the final native grant inventory wait refuses the bearer and retains its JTI",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "consumed approver demotion during the final native grant inventory wait refuses the bearer and retains its JTI",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "native source connection revocation during the final grant inventory wait refuses the bearer and retains its JTI",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "reviewed revision source replacement during the final grant inventory wait refuses the bearer and retains its JTI",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "current target replacement during the final grant inventory wait refuses the bearer and retains its JTI",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "lease expiry during the final grant inventory wait refuses the bearer and retains its JTI",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "unchanged current authority after the final native grant inventory wait returns exactly its one retained JTI",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "requester demotion during final native reservation inventory refuses before signing and preserves the hold",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "test": "consumed approver demotion during final native reservation inventory refuses before signing and preserves the hold",
+    "backend": "postgres"
+  }
+];
+
+// These existing whole-file workflow requirements stay visible when native source is missing.
+// The workflow lane still requires every discovered platform/workflow file as before.
+export const WORKFLOW_NATIVE_POSTGRES_FILES = [
+  "tests/platform/approved-source-runtime.test.ts",
+  "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+  "tests/platform/composition.test.ts",
+  "tests/platform/current-dispatch-requirement.test.ts",
+  "tests/platform/kubernetes-vault-target.test.ts",
+  "tests/platform/source-bundle-azure.test.ts",
+  "tests/platform/source-bundle-composition.test.ts",
+  "tests/platform/source-bundle-github.test.ts",
+];
+
 export const GATE_LANES = {
   postgres: {
     files: ["tests/hosted/authority/contract", "tests/scripts/migrate-hosted-to-postgres.test.ts", "tests/agent-link/pg-contract.test.ts", "tests/agent-control/pg-contract.test.ts", "tests/db/contract/workspace-sharing.test.ts", "tests/waitlist/pg-contract.test.ts", "tests/agent-control/pg-oauth-grants.test.ts"],
@@ -4944,10 +5236,10 @@ export const GATE_LANES = {
   workflows: {
     files: ["tests/workflows", "tests/platform", "tests/security/workflow-history.test.ts", ECS_REPLICA_REPAIR_FILES.execution, ECS_REPLICA_REPAIR_FILES.ownership, "tests/execution/release.test.ts"],
     excludeFiles: ["tests/workflows/mtls-live.test.ts", CODEBUILD_POSTGRES_FILE, WORKFLOW_INTENT_TEMPORAL_FILE],
-    env: { ZENITH_COMPOSE_TEMPORAL_MODE: "time-skipping", ZENITH_TEST_TEMPORAL_DOWNLOAD: "1", ZENITH_SEC_TEMPORAL: "1", ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REPO: "https://github.com/GODOSTROYER/zenith", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b" },
+    env: { ZENITH_COMPOSE_TEMPORAL_MODE: "time-skipping", ZENITH_TEST_TEMPORAL_DOWNLOAD: "1", ZENITH_SEC_TEMPORAL: "1", ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REPO: "https://github.com/GODOSTROYER/zenith", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1" },
     report: ".data-ci-lane/workflows-lane.json",
-    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "Temporal CLI 1.9.1 at ZENITH_TEST_TEMPORAL_CLI", "Local Temporal dev and time-skipping servers; SDK test-server cache or download access", "Public GitHub codeload access for the immutable source fixture"],
-    tools: { node: "22.23.3", temporal: "1.9.1" },
+    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15: fresh separate loopback databases at ZENITH_TEST_PLATFORM_PG_URL (platform) and SUPABASE_DB_URL (Supabase)", "Canonical agent schemas1/2/3 applied and verified with scripts/agent/apply-schema.ts before scripts/ci/apply-platform-migrations.sh applies and verifies the current platform registry", "Canonical Supabase migrations and schema verification through scripts/ci/apply-supabase-migrations.sh; fixed CI roles are local stand-ins, never hosted acceptance", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1, ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1, ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1, ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1 and ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED=1; native platform tests cannot skip or substitute PGlite; cloud/product protocols remain explicitly modeled", "Temporal CLI 1.9.1 at ZENITH_TEST_TEMPORAL_CLI", "Local Temporal dev and time-skipping servers; SDK test-server cache or download access", "Public GitHub codeload access for the immutable source fixture"],
+    tools: { node: "22.23.3", postgres: "16.15", temporal: "1.9.1" },
   },
   reconciliation: {
     files:["tests/workflows/reconcile-schedule.test.ts","tests/workers/reconcile-composition.test.ts"],
@@ -4965,8 +5257,8 @@ export const GATE_LANES = {
   },
   "platform-postgres": {
     files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts", "tests/platform/approved-source-runtime.test.ts", "tests/platform/composition.test.ts", "tests/platform/source-bundle-composition.test.ts", "tests/platform/source-bundle-github.test.ts", "tests/platform/source-bundle-azure.test.ts", "tests/platform/aws-bootstrap-preflight-admission.test.ts", "tests/platform/current-dispatch-requirement.test.ts", "tests/agent-access/credential-authority-origin.test.ts", "tests/agent-access/native-oauth-origin.test.ts", "tests/controlplane/plan-artifact-oauth-authority.test.ts", "tests/platform/kubernetes-vault-target.test.ts"],
-    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1", ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED: "1", ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED: "1", ZENITH_TEST_OPENED_HANDLE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED: "1", ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED: "1", ZENITH_TEST_PLAN_RETENTION_REQUIRED: "1", ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1", ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
-    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1; first worker lease binding requires actual PostgreSQL, canonical schema13 and independent native connections", "ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED=1; durable MCP admission requires actual PostgreSQL, canonical schema13 and independent native connections; product protocols remain modeled", "ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED=1; current OAuth integration membership requires actual PostgreSQL and uncached modeled product reads", "ZENITH_TEST_OPENED_HANDLE_REQUIRED=1; opener ownership requires physical openPlatformDb PostgreSQL handles and canonical schema13", "ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1; default AWS readiness admission requires actual PostgreSQL, canonical schema13 and genuine native owners; cloud commands remain modeled", "ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED=1; final MCP source/product/member authority requires actual PostgreSQL, canonical schema13 and independent native connections; hosted protocols remain modeled", "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1; original-plan product/current approval authority requires actual PostgreSQL, canonical platform schema13/product collections, independent native connections and pinned OpenTofu; hosted association/current roles/policy remain modeled", "ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1; linked credential dispatch/factory origin requires actual owning PostgreSQL with explicit port, canonical platform schema13/product collections and agent linked schema1; hosted REST/scope/policy remain modeled", "ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED=1; OAuth original-plan dispatch and default journal origin require actual owning PostgreSQL16 with explicit ZENITH_TEST_PLATFORM_PG_URL port, canonical platform schema13/product collections and agent schemas1/2/3 through migration0015, independent native connections and positively owned disposable scratch databases/CI roles; hosted REST/current identity/policy and sealed fixture bytes remain modeled", "The additive linked factory preselection controls share ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1 and actual owning PostgreSQL; all prior50 linked origin cases remain mandatory, tooling constructors supply no default origin", "Locked Supabase SDK constructor/protocol controls require exact source and suite; they supply no PostgreSQL, hosted-network or TLS-handshake proof", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache", "Canonical platform schema14 applied/current through scripts/ci/apply-platform-migrations.sh; committed Supabase bootstrap appends supabase/migrations/0016_platform_core.sql after unchanged 0014/0015", "ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED=1; native mixed custody requires actual owning PostgreSQL, canonical schema14 and independent connections; custody does not enable child execution", "ZENITH_TEST_PLAN_RETENTION_REQUIRED=1; counts-only non-destructive retention preview requires actual PostgreSQL and independent connections; synthetic storage/receipt fixtures do not prove archive or deletion", "ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED=1; default target binding requires actual owning PostgreSQL and tenant-sealed FILE vault; namespace API and upstream grants remain modeled", "ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED=1; human Kubernetes linking requires actual opened PostgreSQL owners, canonical platform schema13 or newer, canonical public.members from migration0001, three independent native connections and an encrypted tenant FILE vault; hosted association, human request and namespace API are modeled, production FILE/custom/separate activation remains refused"],
+    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1", ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED: "1", ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED: "1", ZENITH_TEST_OPENED_HANDLE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED: "1", ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED: "1", ZENITH_TEST_PLAN_RETENTION_REQUIRED: "1", ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1", ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED: "1", ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
+    prerequisites: ["ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED=1; all46 actual owning PostgreSQL cleanup writer cases require canonical fixed agent roles before platform schema15, emitted0017, explicit owning port, authenticated default paired codec/current product proof, independent native connections and observed lock waits; hosted association/policy are modeled and no provider settlement is inferred", "Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1; first worker lease binding requires actual PostgreSQL, canonical schema13 and independent native connections", "ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED=1; durable MCP admission requires actual PostgreSQL, canonical schema13 and independent native connections; product protocols remain modeled", "ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED=1; current OAuth integration membership requires actual PostgreSQL and uncached modeled product reads", "ZENITH_TEST_OPENED_HANDLE_REQUIRED=1; opener ownership requires physical openPlatformDb PostgreSQL handles and canonical schema13", "ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1; default AWS readiness admission requires actual PostgreSQL, canonical schema13 and genuine native owners; cloud commands remain modeled", "ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED=1; final MCP source/product/member authority requires actual PostgreSQL, canonical schema13 and independent native connections; hosted protocols remain modeled", "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1; original-plan product/current approval authority requires actual PostgreSQL, canonical platform schema13/product collections, independent native connections and pinned OpenTofu; hosted association/current roles/policy remain modeled", "ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1; linked credential dispatch/factory origin requires actual owning PostgreSQL with explicit port, canonical platform schema13/product collections and agent linked schema1; hosted REST/scope/policy remain modeled", "ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED=1; OAuth original-plan dispatch and default journal origin require actual owning PostgreSQL16 with explicit ZENITH_TEST_PLATFORM_PG_URL port, canonical platform schema13/product collections and agent schemas1/2/3 through migration0015, independent native connections and positively owned disposable scratch databases/CI roles; hosted REST/current identity/policy and sealed fixture bytes remain modeled", "The additive linked factory preselection controls share ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1 and actual owning PostgreSQL; all prior50 linked origin cases remain mandatory, tooling constructors supply no default origin", "Locked Supabase SDK constructor/protocol controls require exact source and suite; they supply no PostgreSQL, hosted-network or TLS-handshake proof", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache", "Canonical platform schema14 applied/current through scripts/ci/apply-platform-migrations.sh; committed Supabase bootstrap appends supabase/migrations/0016_platform_core.sql after unchanged 0014/0015", "ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED=1; native mixed custody requires actual owning PostgreSQL, canonical schema14 and independent connections; custody does not enable child execution", "ZENITH_TEST_PLAN_RETENTION_REQUIRED=1; counts-only non-destructive retention preview requires actual PostgreSQL and independent connections; synthetic storage/receipt fixtures do not prove archive or deletion", "ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED=1; default target binding requires actual owning PostgreSQL and tenant-sealed FILE vault; namespace API and upstream grants remain modeled", "ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED=1; human Kubernetes linking requires actual opened PostgreSQL owners, canonical platform schema13 or newer, canonical public.members from migration0001, three independent native connections and an encrypted tenant FILE vault; hosted association, human request and namespace API are modeled, production FILE/custom/separate activation remains refused"],
     tools: { node: "22.23.3", postgres: "16.15", tofu: "1.12.5" },
   },
 };
@@ -5054,6 +5346,15 @@ export const LINUX_GUEST_CASES = [
   ...cases(MACHINE, ["TestLocalTemplateConfigDefaultAndValidation", "TestFileWriteVersionsCLIUsesMetadataOnlyAndLoadingEnforcesVersion", "TestWriteWirePreservesUncertainCustodyWithoutOutput", "TestWriteAuditCompletionFailureIsUncertain"]),
   ...LINUX_GUEST_UPLOAD_CASES,
 ];
+// Mandatory root-phase routing, never an optional skip or imported receipt.
+export const LINUX_GUEST_PACKAGE_CASES = cases(MACHINE, [
+  "TestPackageHelperNativeNoFollowAndCustody",
+  "TestPackageFrontendLockIndependentProcess",
+  "TestPackageNativeSignedFirstInstallAndNonReplay",
+  "TestPackageNativeDeclaredMountAndACLRefusals",
+]);
+export const LINUX_GUEST_PACKAGE_PATTERN = "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$";
+export const LINUX_GUEST_PACKAGE_COMMAND = ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"];
 export const LINUX_GUEST_PACKAGES = ["internal/agent", "internal/awsauth", "internal/machine", "internal/machine/ops", "internal/miniyaml", "internal/netguard", "internal/oci", "internal/protocol", "internal/redact", "internal/runner", "internal/runner/kinds"].map((name) => `${GO_MODULE}/${name}`);
 export const LINUX_GUEST_NO_TEST_PACKAGES = ["cmd/zenith-runner", "cmd/zenithd", "internal/agent/fakecp", "internal/proc", "internal/protocol/protocoltest", "internal/version"].map((name) => `${GO_MODULE}/${name}`);
 export const LINUX_GUEST_ALLOWED_SKIPS = [
@@ -5109,15 +5410,24 @@ export function linuxGuestManifest() {
     tools: { node: "22.23.3", go: "1.27.1" },
     command: ["node", "scripts/ci/run-guest-file-write-gate.mjs", "--run"],
     steps: [
-      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./..."] },
+      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", LINUX_GUEST_PACKAGE_PATTERN] },
+      { id: "package-native", command: LINUX_GUEST_PACKAGE_COMMAND },
       { id: "goldens", command: ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"] },
       { id: "golden-diff", command: ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"] },
       { id: "golden-status", command: ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"] },
     ],
-    requiredCases: LINUX_GUEST_CASES,
+    requiredCases: [...LINUX_GUEST_CASES, ...LINUX_GUEST_PACKAGE_CASES],
+    raceCases: LINUX_GUEST_CASES,
+    packagePhase: {
+      requiredCases: LINUX_GUEST_PACKAGE_CASES, requiredPackages: [MACHINE], noTestPackages: [], allowedSkips: [],
+      env: { ZENITH_TEST_PACKAGE_INSTALL_REQUIRED: "1" },
+      imageIndex: "sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251",
+      rootBytes: 2684354560, memoryBytes: 2147483648, hostReserveBytes: 8589934592,
+      scope: "Direct signed helper/native kernel and dpkg only; installed unit, default backend and full lifecycle remain separate acceptance.",
+    },
     goldenCases: cases(OPS, ["TestResultGoldens/file.write-filesystem"]),
     requiredPackages: LINUX_GUEST_PACKAGES, noTestPackages: LINUX_GUEST_NO_TEST_PACKAGES, allowedSkips: LINUX_GUEST_ALLOWED_SKIPS,
-    prerequisites: ["Linux; unprivileged test UID/GID", "Node 22.23.3; Go 1.27.1; GOTOOLCHAIN=local; cgo C compiler", "Persistent ext-family, XFS or Btrfs root filesystem (no overlay/tmpfs/FUSE/network filesystem)", "/proc/self/fdinfo mount IDs; POSIX access/default ACL xattrs", "Python 3; util-linux mount/umount/flock; explicitly authorized disposable root fixture setup", "Owned exact four /opt fixture roots, including private empty /opt/zenith-file-upload-golden, and unchanged four actual bind mounts checked by guest-file-write-fixtures.sh", "Integrated frozen writer/upload source, five actual Linux-generated committed file.write goldens and authentic signed-daemon file.upload.json captured only by the root verification owner", "Every exact upload native event, including signed grant refusal/replay and actual golden comparison, is mandatory; source/model fixtures do not satisfy missing Linux evidence", "No active fixture users during validated cleanup"],
+    prerequisites: ["Linux; unprivileged test UID/GID", "Node 22.23.3; Go 1.27.1; GOTOOLCHAIN=local; cgo C compiler", "Persistent ext-family, XFS or Btrfs root filesystem (no overlay/tmpfs/FUSE/network filesystem)", "/proc/self/fdinfo mount IDs; POSIX access/default ACL xattrs", "Python 3; util-linux mount/umount/flock; explicitly authorized disposable root fixture setup", "Owned exact four /opt fixture roots, including private empty /opt/zenith-file-upload-golden, and unchanged four actual bind mounts checked by guest-file-write-fixtures.sh", "Integrated frozen writer/upload source, five actual Linux-generated committed file.write goldens and authentic signed-daemon file.upload.json captured only by the root verification owner", "Every exact upload native event, including signed grant refusal/replay and actual golden comparison, is mandatory; source/model fixtures do not satisfy missing Linux evidence", "Docker local Unix socket and server matching actual Linux amd64/arm64 host; Python3 and pinned native Debian12/dpkg1.21.23", "Root package phase is mandatory: fresh owned capped ext4 guest, genuine original registry/config, fixed setup-only capabilities, no host binds/emulation and no unknown Docker delivery; exact owned cleanup before phase success", "No active fixture users during validated cleanup"],
     reportValidation: "Strict complete Go JSON lifecycles plus observed successful exits; absent or skipped required cases fail. Raw streams remain private.",
   };
 }
@@ -5183,7 +5493,7 @@ export function requirementsFor(lane, root) {
       requirements.push({ file: "tests/tofu/runner.test.ts" });
       break;
     case "workflows":
-      requirements = [...testFiles(root, "tests/workflows"), ...testFiles(root, "tests/platform"), "tests/security/workflow-history.test.ts"]
+      requirements = [...testFiles(root, "tests/workflows"), ...new Set([...testFiles(root, "tests/platform"), ...WORKFLOW_NATIVE_POSTGRES_FILES]), "tests/security/workflow-history.test.ts"]
         .filter((file) => !EXTERNAL_ACCEPTANCE.some((group) => group.wholeFile && group.file === file))
         .filter((file) => !Object.values(ECS_REPLICA_REPAIR_FILES).includes(file))
         .filter((file) => file !== CODEBUILD_POSTGRES_FILE && file !== WORKFLOW_INTENT_TEMPORAL_FILE)
@@ -5243,7 +5553,7 @@ export function requirementsFor(lane, root) {
       requirements.push(...AGENT_EFFECT_POSTGRES_REQUIREMENTS);
       requirements.push(...BUILD_SOURCE_POSTGRES_REQUIREMENTS, GITHUB_WEBHOOK_POSTGRES_REQUIREMENT, ...GITHUB_WEBHOOK_POSTGRES_CASES);
       // Discovery above remains; these named cases survive source deletion.
-      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS,...FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS,...MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS,...AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS,...EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS,...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS,...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, ...MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, ...PLAN_RETENTION_POSTGRES_REQUIREMENTS, ...KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, ...KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS);
+      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS,...FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS,...MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS,...AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS,...EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS,...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS,...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, ...MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, ...PLAN_RETENTION_POSTGRES_REQUIREMENTS, ...KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, ...KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, ...CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS);
       break;
     default:
       throw new Error("Unknown CI lane");

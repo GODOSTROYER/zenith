@@ -178,8 +178,8 @@ export function validateRunnerPayload(kind: RunnerJobKind, payload: unknown): un
 
 /* ------------------------------- zenithd (machine) ------------------------------- */
 
-/** Operations zenithd implements. package.install remains deliberately refused. */
-export const ZENITHD_OPERATIONS: readonly MachineOperation[] = MACHINE_OPERATIONS.filter((op) => op !== "package.install");
+/** Operations with native typed zenithd handlers; local availability remains authoritative. */
+export const ZENITHD_OPERATIONS: readonly MachineOperation[] = [...MACHINE_OPERATIONS];
 
 export const MAX_MACHINE_ARGS_BYTES = 64 * 1024;
 
@@ -206,6 +206,11 @@ export function validateMachineArgs(operation: string, args: unknown): Record<st
   if (operation === "file.upload") {
     const parsed = parseMachineArgs("file.upload", args);
     if (!parsed.ok) throw new PayloadError(operation, "args do not match the strict local-source upload contract");
+    return parsed.args;
+  }
+  if (operation === "package.install") {
+    const parsed = parseMachineArgs("package.install", args);
+    if (!parsed.ok) throw new PayloadError(operation, "args do not match the strict pinned package contract");
     return parsed.args;
   }
   return JSON.parse(JSON.stringify(args)) as Record<string, unknown>;

@@ -32,8 +32,11 @@ describe.skipIf(!PG_URL)("plan artifact retention preview [postgres; synthetic s
       values ($1,$2,$3::text::jsonb,$4,$5,$6,$7,$8,$9::timestamptz,$10::timestamptz)`,
       [workspaceId, op.id, JSON.stringify({ workspaceId, operationId: op.id, planDigest, privatePlanCanary: "synthetic-plan-content" }),
         manifestDigest, planDigest, "x".repeat(16), "x".repeat(24), "synthetic-encrypted-storage-canary", expiresAt, createdAt]);
-    if (phase !== "missing") await ctx.db.query("insert into platform.plan_artifact_uses (workspace_id,operation_id,phase) values ($1,$2,$3)", [workspaceId, op.id, phase]);
-    return { workspaceId, op, planDigest, manifestDigest };
+    // A dispatched storage row must carry a durable identity for the canonical writer
+    // ledger. This explicitly synthetic ID is not proof that any provider received bytes.
+    const attemptId = phase === "dispatched" ? `synthetic-retention:${randomUUID()}` : null;
+    if (phase !== "missing") await ctx.db.query("insert into platform.plan_artifact_uses (workspace_id,operation_id,phase,attempt_id) values ($1,$2,$3,$4)", [workspaceId, op.id, phase, attemptId]);
+    return { workspaceId, op, planDigest, manifestDigest, attemptId };
   }
   async function associate(f: Awaited<ReturnType<typeof artifact>>, status: OperationStatus = "succeeded", phase = "succeeded", expiresAt = old) {
     const destination = await operation(f.workspaceId, status);
@@ -41,7 +44,8 @@ describe.skipIf(!PG_URL)("plan artifact retention preview [postgres; synthetic s
       (workspace_id,operation_id,source_operation_id,source_evidence_id,source_manifest_digest,source_raw_sha256,proposal_digest,input_digest,expires_at)
       values ($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamptz)`,
       [f.workspaceId, destination.id, f.op.id, `evd_${randomUUID()}`, f.manifestDigest, digest("synthetic-original"), destination.proposalDigest, destination.inputDigest, expiresAt]);
-    if (phase !== "missing") await ctx.db.query("insert into platform.plan_artifact_uses (workspace_id,operation_id,phase) values ($1,$2,$3)", [f.workspaceId, destination.id, phase]);
+    const attemptId = phase === "dispatched" ? `synthetic-retention:${randomUUID()}` : null;
+    if (phase !== "missing") await ctx.db.query("insert into platform.plan_artifact_uses (workspace_id,operation_id,phase,attempt_id) values ($1,$2,$3,$4)", [f.workspaceId, destination.id, phase, attemptId]);
     return destination;
   }
   async function startIntent(f: Awaited<ReturnType<typeof artifact>>, phase: "attempted" | "acknowledged") {
@@ -81,6 +85,11 @@ describe.skipIf(!PG_URL)("plan artifact retention preview [postgres; synthetic s
   });
   it.each(["claimed", "dispatched", "uncertain"])("protects %s original-byte attempt even with a terminal owner", async phase => {
     const f = await artifact(undefined, "succeeded", phase);
+    if (phase === "dispatched") {
+      expect(f.attemptId).toMatch(/^synthetic-retention:[0-9a-f-]+$/);
+      expect(await ctx.db.query("select identity,attempt_id,capability from platform.cleanup_writer_deliveries where workspace_id=$1 and operation_id=$2 and family='plan'", [f.workspaceId, f.op.id]))
+        .toEqual([{ identity: `${f.op.id}:${f.attemptId}`, attempt_id: f.attemptId, capability: f.op.capability }]);
+    }
     expect(await previewRetention(ctx.db, policy(f.workspaceId))).toMatchObject({ unresolved: 1, archiveReview: 0 });
   });
   it("refuses archive classification when the original use row is absent", async () => {

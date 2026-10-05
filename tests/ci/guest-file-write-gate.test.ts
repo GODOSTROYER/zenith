@@ -651,16 +651,17 @@ describe("upload native requirement admission", () => {
   const nativeUpload = () => linuxGuestManifest().requiredCases.filter((item) => /^(?:TestUpload|TestE2ESignedUpload)/.test(item.test));
   it("pins exact upload events and preserves all historical native IDs", () => {
     const manifest = linuxGuestManifest(); const upload = nativeUpload();
-    expect(upload).toHaveLength(49); expect(manifest.requiredCases).toHaveLength(123);
-    expect(new Set(manifest.requiredCases.map((item) => item.id)).size).toBe(123);
+    expect(upload).toHaveLength(49); expect(manifest.raceCases).toHaveLength(123);
+    expect(new Set(manifest.raceCases.map((item) => item.id)).size).toBe(123);
     expect(createHash("sha256").update(JSON.stringify(upload)).digest("hex")).toBe("4cb4a001976b864b82a7820d771b47272f8aedb73249183fbcf54a35f41cc4e0");
-    const historical = manifest.requiredCases.filter((item) => !upload.includes(item));
+    const historical = manifest.raceCases.filter((item) => !upload.includes(item));
     expect(historical).toHaveLength(74);
     expect(createHash("sha256").update(JSON.stringify(historical)).digest("hex")).toBe("2a2e0b9b7c1cb061fe7862075edae6d633c7f63320adfe37e80fa13262e7f1d4");
     expect(manifest.allowedSkips.map((item: { package: string; test: string; reason: string }) => item.test)).toEqual(["TestRealSystemctlAndJournalctl", "TestRealOpenTofuPlanShowApply", "TestRealOpenTofuWithProviderAndLockfile"]);
     expect(manifest.goldenCases.map((item: { package: string; test: string }) => item.test)).toEqual(["TestResultGoldens/file.write-filesystem"]);
     expect(manifest.steps).toEqual([
-      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./..."] },
+      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$"] },
+      { id: "package-native", command: ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"] },
       { id: "goldens", command: ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"] },
       { id: "golden-diff", command: ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"] },
       { id: "golden-status", command: ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"] },
@@ -670,7 +671,7 @@ describe("upload native requirement admission", () => {
   it("binds exact Linux source declarations including both signed daemon parents", () => {
     const files = [
       ["go/internal/machine/ops/fileupload_linux_test.go", "f7a033bc206436e51e53b1b39d74f13f717704e34e786338c2627d585e0e89d9"],
-      ["go/internal/machine/e2e_test.go", "0678067c84e5990a71fd3f7863127e63fc2cc1c2869a9028b6518fb34343dc21"],
+      ["go/internal/machine/e2e_test.go", "cdceff5a2dccecb9e04a4e35e5716376589604b6a6033be5acd2279518fc323e"],
     ];
     const source = files.map(([file, sha]) => {
       const raw = fs.readFileSync(file); expect(createHash("sha256").update(raw).digest("hex")).toBe(sha); return raw.toString("utf8");
@@ -801,5 +802,247 @@ describe("fixed upload golden fixture ownership models", () => {
   it("refuses a nonempty fourth root and any unowned nested mount", () => {
     expect(uploadFixtureMetadata({ nonemptyUpload: true }).accepted).toBe(false);
     expect(uploadFixtureMetadata({ unexpectedMount: true }).accepted).toBe(false);
+  });
+});
+
+
+// Synthetic reports and isolated mutation bookkeeping models do not execute
+// Docker/dpkg or replace the four mandatory root-owned Debian observations.
+const nativePackageNames = [
+  "TestPackageHelperNativeNoFollowAndCustody", "TestPackageFrontendLockIndependentProcess",
+  "TestPackageNativeSignedFirstInstallAndNonReplay", "TestPackageNativeDeclaredMountAndACLRefusals",
+];
+const nativePackage = "github.com/GODOSTROYER/zenith/go/internal/machine";
+function packageRecords(): Event[] {
+  const items: Event[] = [{ Action: "start", Package: nativePackage }];
+  for (const name of nativePackageNames) {
+    items.push({ Action: "run", Package: nativePackage, Test: name });
+    if (name === "TestPackageNativeSignedFirstInstallAndNonReplay") for (const suffix of ["foreign_audience", "foreign_operation", "foreign_workspace", "missing_resource", "unknown_constraint"]) {
+      items.push({ Action: "run", Package: nativePackage, Test: `${name}/${suffix}` }, { Action: "pass", Package: nativePackage, Test: `${name}/${suffix}` });
+    }
+    items.push({ Action: "pass", Package: nativePackage, Test: name });
+  }
+  items.push({ Action: "pass", Package: nativePackage });
+  return items;
+}
+const packageMutationModel = String.raw`
+import ast, json, pathlib, sys
+case = json.loads(sys.argv[2])
+program = ast.parse(pathlib.Path(sys.argv[1]).read_text())
+main = next(n for n in program.body if isinstance(n, ast.FunctionDef) and n.name == 'main')
+mutation = next(n for n in main.body if isinstance(n, ast.FunctionDef) and n.name == 'mutate')
+mutation.body = [ast.Global(names=['pending'])] + [n for n in mutation.body if not isinstance(n, ast.Nonlocal)]
+ast.fix_missing_locations(mutation)
+namespace = {'MIB': 1024**2, 'counter': 1, 'pending': 'prior' if case.get('prior') else None,
+             'scope': {'delivery': None}, 'context_identity': 'own'}
+observations = {'commands': 0, 'saved': [], 'contexts': 0}
+def context():
+    observations['contexts'] += 1
+    return 'foreign' if case.get('contextAt') == observations['contexts'] else 'own'
+def inspect():
+    return {'ExecIDs': ['unfinished'] if case.get('activeExec') else []}
+def save(name):
+    observations['saved'].append(name)
+    if case.get('saveFailure') and name.endswith(case['saveFailure']):
+        raise RuntimeError('model write failure')
+def command(*argv, **kwargs):
+    observations['commands'] += 1
+    if case.get('deliveryFailure'):
+        raise RuntimeError('model unconfirmed delivery')
+    return b'fixed bounded success'
+namespace.update(safe_context=context, inspect_container=inspect, save=save, docker=command)
+exec(compile(ast.Module(body=[mutation], type_ignores=[]), 'isolated-mutation-model', 'exec'), namespace)
+try:
+    namespace['mutate'](case.get('argv', ['cp', 'fixed-source', 'own:/tmp/fixed']), exec_command=case.get('exec', False))
+    accepted = True
+except RuntimeError:
+    accepted = False
+print(json.dumps({'accepted': accepted, 'pending': namespace['pending'] is not None,
+                  'commands': observations['commands'], 'saved': observations['saved']}))
+`;
+function packageMutation(input: Record<string, unknown>) {
+  const child = spawnSync("python3", ["-B", "-c", packageMutationModel, path.resolve("scripts/ci/guest-package-fixtures.py"), JSON.stringify(input)], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, maxBuffer: 1024 * 1024 });
+  expect(child.error).toBeUndefined(); expect(child.status).toBe(0); expect(child.stderr).toBe("");
+  return JSON.parse(child.stdout) as { accepted: boolean; pending: boolean; commands: number; saved: string[] };
+}
+
+
+const packageLoopModel = String.raw`
+import ast, json, pathlib, re, sys
+reply = json.loads(sys.argv[2])
+main = next(n for n in ast.parse(pathlib.Path(sys.argv[1]).read_text()).body if isinstance(n, ast.FunctionDef) and n.name == 'main')
+reader = next(n for n in main.body if isinstance(n, ast.FunctionDef) and n.name == 'loop_record')
+backing = {'inode': 12, 'deviceInode': '8:12', 'majorMinor': '8:1'}
+namespace = {'json': json, 're': re, 'loop': '/dev/loop7', 'backing': backing,
+             'backing_identity': lambda: backing.copy(), 'execute': lambda _: json.dumps(reply).encode()}
+exec(compile(ast.Module(body=[reader], type_ignores=[]), 'isolated-loop-reply-model', 'exec'), namespace)
+try:
+    value = namespace['loop_record']()
+    result = 'unbound' if value is None else 'owned'
+except RuntimeError:
+    result = 'refused'
+print(json.dumps({'result': result}))
+`;
+function packageLoop(reply: Record<string, unknown>) {
+  const child = spawnSync("python3", ["-B", "-c", packageLoopModel, path.resolve("scripts/ci/guest-package-fixtures.py"), JSON.stringify(reply)], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, maxBuffer: 1024 * 1024 });
+  expect(child.error).toBeUndefined(); expect(child.status).toBe(0); expect(child.stderr).toBe("");
+  return (JSON.parse(child.stdout) as { result: string }).result;
+}
+
+describe("mandatory direct native package phase admission", () => {
+  it("preserves all123 original obligations and routes exactly four root cases to required native execution", () => {
+    const manifest = linuxGuestManifest();
+    expect(manifest.raceCases).toHaveLength(123); expect(manifest.requiredCases).toHaveLength(127);
+    expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases]);
+    expect(manifest.packagePhase.requiredCases).toEqual(nativePackageNames.map(test => ({ package: nativePackage, test, id: `linux-guest:${nativePackage}:${test}` })));
+    expect(manifest.packagePhase.requiredPackages).toEqual([nativePackage]);
+    expect(manifest.packagePhase.noTestPackages).toEqual([]); expect(manifest.packagePhase.allowedSkips).toEqual([]);
+    expect(manifest.packagePhase.env).toEqual({ ZENITH_TEST_PACKAGE_INSTALL_REQUIRED: "1" });
+    const pattern = `^(${nativePackageNames.join("|")})$`;
+    expect(manifest.steps.find(item => item.id === "race")?.command).toEqual(["go", "test", "-json", "-race", "-count=1", "./...", "-skip", pattern]);
+    for (const name of [...manifest.raceCases.map(item => item.test), "TestPackageNativeReadbackPreservesRegistryAndIdentity", "TestPackageNativeSignedFirstInstallAndNonReplay_foreign"]) expect(new RegExp(pattern).test(name), name).toBe(false);
+    expect(validateGoEvents(stream(packageRecords()), goodExit, manifest.packagePhase).verdict).toBe("passed");
+  });
+  it("pins the genuine native4 declarations and refuses deletion or substituted source names", () => {
+    const source = fs.readFileSync("go/internal/machine/package_helper_linux_test.go", "utf8");
+    expect(createHash("sha256").update(source).digest("hex")).toBe("56155d5e0a3bd92817a8bdf43a82e1345091cd88f2fc76f8434d953322d4b6f6");
+    const declared = (text: string) => nativePackageNames.filter(name => new RegExp(`^func ${name}\\(t \\*testing\\.T\\)`, "m").test(text));
+    expect(declared(source)).toEqual(nativePackageNames);
+    for (const name of nativePackageNames) expect(declared(source.replace(`func ${name}(`, `func ${name}_foreign(`))).not.toContain(name);
+    expect(source).toContain('os.Getenv("ZENITH_TEST_PACKAGE_INSTALL_REQUIRED") != "1"');
+    expect(source).toContain('"zenith-owned-disposable-package-install-v1\\n"');
+  });
+  it("refuses each missing root case while the other actual report observations pass", () => {
+    const phase = linuxGuestManifest().packagePhase;
+    for (const required of phase.requiredCases) {
+      const items = packageRecords().filter(item => item.Test !== required.test && !item.Test?.startsWith(required.test + "/"));
+      const result = validateGoEvents(stream(items), goodExit, phase);
+      expect(result.verdict, required.id).toBe("failed");
+      expect(result.required.find(item => item.id === required.id)?.status).toBe("missing");
+    }
+  });
+  it.each(["fail", "skip"])("refuses every package root %s without optional allowance", action => {
+    const phase = linuxGuestManifest().packagePhase;
+    for (const required of phase.requiredCases) {
+      const items = packageRecords().map(item => item.Test === required.test && item.Action === "pass" ? { ...item, Action: action } : item);
+      expect(validateGoEvents(stream(items), goodExit, phase).verdict, required.id).toBe("failed");
+    }
+  });
+  it("refuses zero malformed duplicate truncated foreign and output-only package observations", () => {
+    const phase = linuxGuestManifest().packagePhase, items = packageRecords();
+    for (const raw of ["", "{}\n", stream(items).slice(0, -1), stream(items.slice(0, -1)), stream([...items.slice(0, -1), items[2], items.at(-1)!]), stream(items.map(item => ({ ...item, Package: pkg }))), stream([{ Action: "start", Package: nativePackage }, { Action: "output", Package: nativePackage, Output: JSON.stringify({ nativeCases: nativePackageNames, verdict: "passed", cleanupComplete: true }) }, { Action: "pass", Package: nativePackage }])]) expect(validateGoEvents(raw, goodExit, phase).verdict).toBe("failed");
+    for (const required of phase.requiredCases) {
+      const substituted = items.map(item => {
+        const test = item.Test;
+        return typeof test === "string" && (test === required.test || test.startsWith(required.test + "/"))
+          ? { ...item, Test: test.replace(required.test, required.test + "_foreign") } : item;
+      });
+      expect(validateGoEvents(stream(substituted), goodExit, phase).verdict).toBe("failed");
+    }
+    for (const observation of [{ status: 1, signal: null, observed: true }, { status: null, signal: "SIGTERM", observed: true }, { status: 0, signal: null, observed: false }]) expect(validateGoEvents(stream(items), observation, phase).verdict).toBe("failed");
+  });
+  it("uses source/current-attempt-bound native setup and only publishes fixed completed fixture scalars", () => {
+    const helper = fs.readFileSync("scripts/ci/guest-package-fixtures.py", "utf8"), runner = fs.readFileSync("scripts/ci/run-guest-file-write-gate.mjs", "utf8");
+    expect(helper).toContain("INDEX = 'sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251'");
+    for (const guard of ["arch != args.arch", "daemon_arch != arch", "native pinned Go prerequisite refused", "copied toolchain refused", "actual dpkg architecture refused", "native metadata changed during copy", "native config or registry changed", "source changed during native attempt", "foreign loop mount; preserve backing", "backing association unresolved", "unrelated baseline changed", "new image cleanup unconfirmed"]) expect(helper).toContain(guard);
+    expect(helper).toContain("return run(['docker', '--config', str(docker_config), '--host', socket_host, *argv], timeout, limit)");
+    expect(helper).toContain("socket_host is not None and socket_host != host");
+    expect(helper).toContain("private unauthenticated registry config changed");
+    expect(helper).not.toContain("urllib"); expect(helper).not.toContain("apt-get"); expect(helper).not.toContain("--privileged");
+    expect(helper).toContain("container + ':/guest/go.tar.gz'");
+    expect(helper).toContain("container + ':/guest/source.tar.gz'");
+    expect(helper).toContain("tar --no-same-owner -xzf /guest/go.tar.gz -C /guest/rootfs/usr/local");
+    expect(helper).toContain("tar --no-same-owner -xzf /guest/source.tar.gz -C /guest/rootfs/root/source; rm /guest/source.tar.gz /guest/go.tar.gz");
+    expect(helper).not.toContain("/tmp/go.tar.gz"); expect(helper).not.toContain("/tmp/source.tar.gz");
+    const staging = helper.slice(helper.indexOf("STAGE_PUBLIC = "), helper.indexOf("\n\nINSTALL_PROBE = "));
+    for (const guard of ["/guest/go.tar.gz", "/guest/source.tar.gz", "/guest/probe.go", "regular file:1:$2", "test ! -L", "%d:%i:%F:%h:%s", "chown --no-dereference 0:0", "chmod 0600", "0:0:600:1:$2", "sha256sum", "${actual%% *}"]) expect(staging).toContain(guard);
+    expect(staging.indexOf("chown --no-dereference 0:0")).toBeLessThan(staging.indexOf("chmod 0600"));
+    expect(staging.indexOf("chmod 0600")).toBeLessThan(staging.indexOf("actual=$(sha256sum"));
+    expect(helper.indexOf("stage_public(tool, '/guest/go.tar.gz', scope['toolArchiveSha256'])")).toBeLessThan(helper.indexOf("execute(['bash', '-c', COPY"));
+    expect(helper.indexOf("stage_public(out / 'probe.go', '/guest/probe.go', digest(PROBE_GO.encode()))")).toBeLessThan(helper.indexOf("'build', '-p=1', '-o'"));
+    expect(helper.indexOf("stage_public(archive, '/guest/source.tar.gz', archive_sha)")).toBeLessThan(helper.indexOf("execute(['bash', '-c', 'mkdir -m0700"));
+    const probeInstall = helper.slice(helper.indexOf("INSTALL_PROBE = "), helper.indexOf("\n\nCOPY = "));
+    for (const guard of ["/guest/rootfs/root/probe.go", "directory:0:0:755", "test ! -L", "parent_identity", "source_identity", "test ! -e /guest/rootfs/root/probe.go", "cp --no-clobber --no-dereference --preserve=mode", "regular file:0:0:600:1:$1", "sha256sum"]) expect(probeInstall).toContain(guard);
+    expect(probeInstall.indexOf("test ! -e /guest/rootfs/root/probe.go")).toBeLessThan(probeInstall.indexOf("cp --no-clobber"));
+    expect(helper).toContain("container + ':/guest/probe.go'");
+    expect(helper).not.toContain("container + ':/guest/rootfs/root/probe.go'");
+    expect(helper.indexOf("stage_public(out / 'probe.go', '/guest/probe.go', digest(PROBE_GO.encode()))")).toBeLessThan(helper.indexOf("execute(['bash', '-c', INSTALL_PROBE"));
+    expect(helper.indexOf("execute(['bash', '-c', INSTALL_PROBE")).toBeLessThan(helper.indexOf("'build', '-p=1', '-o'"));
+    const stageModel = String.raw`
+import ast, hashlib, json, pathlib, re, sys, types
+case = json.loads(sys.argv[2])
+module = ast.parse(pathlib.Path(sys.argv[1]).read_text())
+main = next(n for n in module.body if isinstance(n, ast.FunctionDef) and n.name == 'main')
+stage = next(n for n in main.body if isinstance(n, ast.FunctionDef) and n.name == 'stage_public')
+script = ast.literal_eval(next(n.value for n in module.body if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'STAGE_PUBLIC' for t in n.targets)))
+raw = b'fixed public fixture bytes'
+digest = lambda data: hashlib.sha256(data).hexdigest()
+class File:
+    def lstat(self): return types.SimpleNamespace(st_nlink=case.get('links', 1), st_size=case.get('size', len(raw)))
+    def is_file(self): return case.get('regular', True)
+    def is_symlink(self): return case.get('symlink', False)
+    def read_bytes(self): return raw
+commands = []
+namespace = {'MIB': 1024**2, 're': re, 'digest': digest, 'STAGE_PUBLIC': script,
+             'execute': lambda argv: commands.append(argv)}
+exec(compile(ast.Module(body=[stage], type_ignores=[]), 'isolated-public-stage-model', 'exec'), namespace)
+try:
+    namespace['stage_public'](File(), case.get('target', '/guest/go.tar.gz'), case.get('expected', digest(raw)))
+    accepted = True
+except RuntimeError:
+    accepted = False
+print(json.dumps({'accepted': accepted, 'commands': len(commands),
+                  'exactCommand': not commands or commands == [['bash', '-c', script, 'fixed-public-staging', case.get('target', '/guest/go.tar.gz'), str(len(raw)), digest(raw)]]}))
+`;
+    const stage = (input: Record<string, unknown>) => {
+      const child = spawnSync("python3", ["-B", "-c", stageModel, path.resolve("scripts/ci/guest-package-fixtures.py"), JSON.stringify(input)], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, maxBuffer: 1024 * 1024 });
+      expect(child.error).toBeUndefined(); expect(child.status).toBe(0); expect(child.stderr).toBe("");
+      return JSON.parse(child.stdout) as { accepted: boolean; commands: number; exactCommand: boolean };
+    };
+    for (const target of ["/guest/go.tar.gz", "/guest/source.tar.gz", "/guest/probe.go"]) expect(stage({ target })).toEqual({ accepted: true, commands: 1, exactCommand: true });
+    for (const fault of [{ target: "/etc/dpkg/dpkg.cfg" }, { target: "/guest/rootfs/var/lib/dpkg/status" }, { target: "/tmp/go.tar.gz" }, { target: "/guest/rootfs/root/probe.go" }, { regular: false }, { symlink: true }, { links: 2 }, { size: 0 }, { size: 192 * 1024 ** 2 + 1 }, { target: "/guest/source.tar.gz", size: 32 * 1024 ** 2 + 1 }, { target: "/guest/probe.go", size: 1024 ** 2 + 1 }, { expected: "0".repeat(64) }, { expected: "unknown" }]) expect(stage(fault)).toEqual({ accepted: false, commands: 0, exactCommand: true });
+    expect(helper).not.toContain("--force"); expect(helper).not.toContain("--lazy"); expect(helper).not.toContain("-v /:");
+    expect(helper).toContain("CAPS = ('SYS_ADMIN', 'SYS_CHROOT', 'MKNOD', 'CHOWN', 'SETUID', 'SETGID')");
+    expect(helper).toContain("apparmor = 'name=apparmor' in info.get('SecurityOptions', [])");
+    expect(helper).toContain("security_args = ['--security-opt', 'apparmor=unconfined'] if apparmor else []");
+    expect(helper).toContain("h.get('SecurityOpt') not in ([['apparmor=unconfined']] if apparmor else [None, []])");
+    expect(helper.indexOf("save('terminal')")).toBeLessThan(helper.indexOf("sys.stdout.buffer.write(raw_events)"));
+    expect(helper.indexOf("scope['cleanupComplete'] = True")).toBeGreaterThan(helper.indexOf("unrelated baseline changed"));
+    expect(runner).toContain('step.id === "package-native" ? manifest.packagePhase : { ...manifest, requiredCases: manifest.raceCases }');
+    expect(runner).toContain('fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW');
+    expect(runner).toContain('proof.cleanupComplete !== true || proof.delivery !== null');
+    expect(runner).toContain('proof.attempt !== attemptId'); expect(runner).toContain('proof.emulated !== false');
+    expect(runner).toContain('ownedDirectory(path.dirname(file))');
+    expect(runner).not.toContain("run_guest_package_native_linux.py");
+  });
+
+  it("accepts only the actual pinned singleton unbound reply and exact owning loop attachment", () => {
+    const free = { name: "/dev/loop7", "back-ino": null, "back-maj:min": null, offset: null, sizelimit: null, ro: false };
+    const owned = { ...free, "back-ino": 12, "back-maj:min": "8:1", offset: 0, sizelimit: 0 };
+    expect(packageLoop({ loopdevices: [free] })).toBe("unbound");
+    expect(packageLoop({ loopdevices: [owned] })).toBe("owned");
+    expect(packageLoop({ loopdevices: [{ ...owned, "back-maj:min": "     8:1  " }] })).toBe("owned");
+    for (const device of ["\t8:1", "8:1\n", "8:1\r", "8 :1", "08:1", "8:01", " 9:1 ", " 8:2 ", "8:1x", "", " ", null, 81]) expect(packageLoop({ loopdevices: [{ ...owned, "back-maj:min": device }] })).toBe("refused");
+    const { "back-ino": _omitted, ...partial } = free;
+    expect(_omitted).toBeNull();
+    for (const reply of [{}, { loopdevices: [] }, { loopdevices: [free], unknown: true }, { loopdevices: [free, free] }, { loopdevices: [partial] }, { loopdevices: [{ ...free, name: "/dev/loop8" }] }, { loopdevices: [{ ...free, ro: true }] }, { loopdevices: [{ ...free, offset: 0 }] }, { loopdevices: [{ ...owned, "back-ino": 13 }] }, { loopdevices: [{ ...owned, "back-maj:min": "9:1" }] }, { loopdevices: [{ ...owned, offset: false }] }, { loopdevices: [{ ...owned, sizelimit: 1 }] }, { loopdevices: [{ ...owned, extra: null }] }]) expect(packageLoop(reply)).toBe("refused");
+    const helper = fs.readFileSync("scripts/ci/guest-package-fixtures.py", "utf8");
+    expect(helper).toContain("execute(['losetup', loop, '/guest/rootfs.ext4'])");
+    expect(helper).not.toContain("losetup', '--find', '--show");
+  });
+  it("retains an uncertainty pin through launch timeout daemon delivery and completion bookkeeping failure", () => {
+    expect(packageMutation({})).toEqual({ accepted: true, pending: false, commands: 1, saved: ["002-intent", "002-complete"] });
+    expect(packageMutation({ prior: true })).toEqual({ accepted: false, pending: true, commands: 0, saved: [] });
+    expect(packageMutation({ argv: ["system", "prune"] })).toEqual({ accepted: false, pending: false, commands: 0, saved: [] });
+    for (const fault of [{ deliveryFailure: true }, { saveFailure: "intent" }, { saveFailure: "complete" }, { contextAt: 2 }, { exec: true, activeExec: true }]) {
+      const result = packageMutation(fault);
+      expect(result.accepted).toBe(false); expect(result.pending).toBe(true);
+    }
+    expect(packageMutation({ contextAt: 1 })).toEqual({ accepted: false, pending: false, commands: 0, saved: [] });
+    const helper = fs.readFileSync("scripts/ci/guest-package-fixtures.py", "utf8");
+    expect(helper.indexOf("pending = '%03d'")).toBeLessThan(helper.indexOf("raw = docker(*argv"));
+    expect(helper.indexOf("save(pending + '-complete')")).toBeLessThan(helper.indexOf("pending = None\n        return raw"));
+    expect(helper).toContain("if pending is not None:\n            raise RuntimeError('daemon delivery unconfirmed; preserve owned resources')");
+    expect(helper).toContain("os.killpg(proc.pid, 0)");
   });
 });

@@ -1,12 +1,115 @@
 /** Server-only encrypted custody. Plaintext is callback-scoped; no raw plan is an activity result. */
 import { randomUUID } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { vaultCipherFromEnv } from "@/lib/secrets";
-import { createPlanEngineAuthority, type PlanAdmission, type ApprovedPlan } from "@/lib/tofu/engine";
+import { createPlanEngineAuthority, type PlanAdmission, type ApprovedPlan, type StandalonePlanBinding, type SealedStandaloneSettlement } from "@/lib/tofu/engine";
 import { createExecutionBroker, isDefaultCurrentDispatchRequirement } from "./broker";
 import type { BrokerPort, PlanArtifactsPort } from "@/lib/execution/ports";
 import type { Sql } from "@/lib/controlplane/types";
 import * as artifacts from "@/lib/controlplane/db/repos/plan-artifacts";
 import { assertDefaultMcpProductTopology } from "@/lib/controlplane/db/repos/workflow-start-deploy-authority";
+import { isOpenedPlatformDbHandle } from "@/lib/controlplane/db/open";
+import { digest } from "@/lib/controlplane/digest";
+import type { DispatchApprovalSnapshot } from "@/lib/execution/ports";
+import * as cleanup from "@/lib/controlplane/db/repos/cleanup-writer-barriers";
+
+interface CleanupCell {
+  readonly db: Sql; readonly access: artifacts.ArtifactAccess; readonly attempt: string;
+  readonly proof: Readonly<DispatchApprovalSnapshot>; readonly manifestDigest: string; readonly rawAuthenticationDigest: string;
+  readonly liveAdmission: () => boolean;
+  readonly settlements: readonly artifacts.StandaloneSettlementRow[];
+  readonly authenticateSettlements: () => Promise<void>;
+  active: boolean; hold?: cleanup.CleanupHold; grantState: "fresh"|"reserved"|"inserted"|"unconfirmed"; jti?: string;
+}
+interface CleanupOrigin { cell: CleanupCell; stage: "hold"|"grant"|"dispatch"; consumed: boolean }
+const cleanupOrigins = new WeakMap<object,CleanupOrigin>();
+const cleanupInvocation = new AsyncLocalStorage<CleanupCell>();
+export interface NativeCleanupOrigin {
+  readonly access: artifacts.ArtifactAccess; readonly attempt: string; readonly proof: Readonly<DispatchApprovalSnapshot>;
+  readonly manifestDigest: string; readonly rawAuthenticationDigest: string; readonly hold?: cleanup.CleanupHold; readonly jti?: string;
+  readonly settlements: readonly artifacts.StandaloneSettlementRow[];
+}
+async function liveCleanup(cell: CleanupCell): Promise<boolean> {
+  if (!cell.active || !cell.liveAdmission() || !isOpenedPlatformDbHandle(cell.db,"postgres")) return false;
+  await cell.authenticateSettlements();
+  return cell.active && cell.liveAdmission() && isOpenedPlatformDbHandle(cell.db,"postgres")
+    && await isDefaultCurrentDispatchRequirement(cell.proof,cell.db,cell.access.custody.workspaceId,cell.access.custody.operationId)
+    && cell.active && cell.liveAdmission() && isOpenedPlatformDbHandle(cell.db,"postgres");
+}
+/** Resolver only: neither copied records nor SQL callers can register an origin. A hold identity is consumed before awaiting. */
+export async function readNativeCleanupOrigin(origin: unknown, db: Sql, stage: "hold"|"grant"|"dispatch"): Promise<NativeCleanupOrigin> {
+  const entry = origin && typeof origin==="object" ? cleanupOrigins.get(origin) : undefined;
+  if (!entry || entry.cell.db!==db || entry.stage!==stage || stage!=="grant" && entry.consumed) throw new cleanup.CleanupWriterBarrierError();
+  if(stage!=="grant")entry.consumed=true;
+  const cell=entry.cell;
+  if(!await liveCleanup(cell) || stage!=="hold" && !cell.hold || stage==="grant" && !cell.jti) throw new cleanup.CleanupWriterBarrierError();
+  return Object.freeze({access:cell.access,attempt:cell.attempt,proof:cell.proof,manifestDigest:cell.manifestDigest,
+    rawAuthenticationDigest:cell.rawAuthenticationDigest,hold:cell.hold,jti:cell.jti,settlements:cell.settlements});
+}
+export async function readNativeCleanupInventoryOrigin(origin:unknown,db:Sql):Promise<NativeCleanupOrigin> {
+  const entry=origin&&typeof origin==="object"?cleanupOrigins.get(origin):undefined;
+  if(!entry || entry.cell.db!==db || !await liveCleanup(entry.cell))throw new cleanup.CleanupWriterBarrierError();
+  const cell=entry.cell;
+  return Object.freeze({access:cell.access,attempt:cell.attempt,proof:cell.proof,manifestDigest:cell.manifestDigest,
+    rawAuthenticationDigest:cell.rawAuthenticationDigest,hold:cell.hold,jti:cell.jti,settlements:cell.settlements});
+}
+export async function assertNativeCleanupOriginCurrent(origin:unknown,db:Sql):Promise<void> {
+  const entry=origin&&typeof origin==="object"?cleanupOrigins.get(origin):undefined;
+  if(!entry || entry.cell.db!==db || !await liveCleanup(entry.cell))throw new cleanup.CleanupWriterBarrierError();
+}
+/** Only an active authenticated default destroy callback can consume its one issuance slot. No operation-wide exemption exists. */
+export async function readNativeCleanupOwnerGrantOrigin(db:Sql,operationId:string,capability:string,audience:string,fence?:{scope:string;fenceToken:number}):Promise<object> {
+  const cell=cleanupInvocation.getStore();
+  if(!cell || cell.db!==db || cell.access.custody.operationId!==operationId || capability!=="infrastructure.destroy" || audience!=="worker"
+    || !fence || fence.scope!==cell.access.lease.scope || fence.fenceToken!==cell.access.lease.fenceToken || !cell.hold
+    || cell.grantState!=="fresh" || !await liveCleanup(cell) || cell.grantState!=="fresh") throw new cleanup.CleanupWriterBarrierError();
+  // Consume locally before any signing or SQL await; loss never creates a second JTI.
+  cell.grantState="unconfirmed";
+  const origin=Object.freeze({});cleanupOrigins.set(origin,{cell,stage:"grant",consumed:false});return origin;
+}
+export async function reserveNativeCleanupOwnerGrant(origin:unknown,db:Sql,jti:string):Promise<void> {
+  const entry=origin&&typeof origin==="object"?cleanupOrigins.get(origin):undefined;
+  if(!entry || entry.stage!=="grant" || entry.cell.db!==db || entry.consumed || entry.cell.jti) throw new cleanup.CleanupWriterBarrierError();
+  entry.consumed=true;entry.cell.jti=jti;
+  await cleanup.reserveOwnerGrant(db,origin,jti);
+  if(!await liveCleanup(entry.cell))throw new cleanup.CleanupWriterBarrierError();
+  entry.cell.grantState="reserved";
+}
+export async function insertNativeCleanupOwnerGrant(origin:unknown,db:Sql,input:import("@/lib/controlplane/db/repos/grants").InsertGrantInput):Promise<void> {
+  const entry=origin&&typeof origin==="object"?cleanupOrigins.get(origin):undefined;
+  if(!entry || entry.stage!=="grant" || entry.cell.db!==db || entry.cell.grantState!=="reserved" || entry.cell.jti!==input.jti
+    || !await liveCleanup(entry.cell) || entry.cell.grantState!=="reserved")throw new cleanup.CleanupWriterBarrierError();
+  entry.cell.grantState="unconfirmed";
+  await cleanup.insertOwnerGrant(db,origin,input);
+  if(!await liveCleanup(entry.cell))throw new cleanup.CleanupWriterBarrierError();
+  entry.cell.grantState="inserted";
+}
+
+interface StandaloneOriginCell {
+  readonly db:Sql; readonly access:artifacts.ArtifactAccess; readonly attempt:string;
+  readonly binding:Readonly<StandalonePlanBinding>; readonly receipt?:SealedStandaloneSettlement;
+  readonly proof:Readonly<DispatchApprovalSnapshot>; readonly current:()=>boolean;
+  readonly authenticate:()=>Promise<void>; readonly stage:"binding"|"completion";
+  consumed:boolean;
+}
+const standaloneOrigins=new WeakMap<object,StandaloneOriginCell>();
+/** Shape, SQL records and another engine cannot register this origin. */
+export async function readNativeStandaloneOrigin(origin:unknown,db:Sql,stage:"binding"|"completion") {
+  const cell=origin&&typeof origin==="object"?standaloneOrigins.get(origin):undefined;
+  if(!cell || cell.db!==db || cell.stage!==stage || cell.consumed || !cell.current() || !isOpenedPlatformDbHandle(db,"postgres"))throw new artifacts.PlanArtifactError();
+  cell.consumed=true;
+  await cell.authenticate();
+  if(!cell.current() || !await isDefaultCurrentDispatchRequirement(cell.proof,db,cell.access.custody.workspaceId,cell.access.custody.operationId)
+    || !cell.current() || !isOpenedPlatformDbHandle(db,"postgres"))throw new artifacts.PlanArtifactError();
+  return Object.freeze({access:cell.access,attempt:cell.attempt,binding:cell.binding,receipt:cell.receipt,proof:cell.proof});
+}
+export async function assertNativeStandaloneOriginCurrent(origin:unknown,db:Sql):Promise<void> {
+  const cell=origin&&typeof origin==="object"?standaloneOrigins.get(origin):undefined;
+  if(!cell || cell.db!==db || !cell.current() || !isOpenedPlatformDbHandle(db,"postgres"))throw new artifacts.PlanArtifactError();
+  await cell.authenticate();
+  if(!cell.current() || !await isDefaultCurrentDispatchRequirement(cell.proof,db,cell.access.custody.workspaceId,cell.access.custody.operationId)
+    || !cell.current() || !isOpenedPlatformDbHandle(db,"postgres"))throw new artifacts.PlanArtifactError();
+}
 
 export function planArtifactCipherFromEnv(env: Readonly<Record<string,string|undefined>> = process.env) {
   try {
@@ -31,7 +134,8 @@ function pairedRuntime(db: Sql, env: Readonly<Record<string,string|undefined>>, 
   if ((db as Sql & {kind?:string}).kind !== "postgres") throw new Error("Durable plan custody requires PostgreSQL.");
   const capture = (input: artifacts.ArtifactAccess): artifacts.ArtifactAccess => Object.freeze({custody:Object.freeze({...input.custody}),planDigest:input.planDigest,lease:Object.freeze({...input.lease})});
   const admissions = new WeakMap<ApprovedPlan,PlanAdmission>();
-  const {codec,tofu}=createPlanEngineAuthority(planArtifactCipherFromEnv(env),original=>admissions.get(original),env);
+  const engine=createPlanEngineAuthority(planArtifactCipherFromEnv(env),original=>admissions.get(original),env);
+  const {codec,tofu}=engine;
   const decoded = <T>(row: artifacts.ArtifactRow, fn: (manifest: Readonly<artifacts.ArtifactRow["manifest"]>, bytes: Buffer) => Promise<T>) =>
     codec.withDecoded(row.manifest, { iv:row.iv, authTag:row.auth_tag, ciphertext:row.ciphertext }, fn);
   const port: PlanArtifactsPort = {
@@ -59,6 +163,7 @@ function pairedRuntime(db: Sql, env: Readonly<Record<string,string|undefined>>, 
       const attempt = randomUUID();
       const row = await artifacts.claim(db,input,attempt);
       let dispatched = false;
+      let finished = false;
       try {
         if (kind === "postgres") {
           // Native absence cannot establish historical product provenance.
@@ -68,29 +173,91 @@ function pairedRuntime(db: Sql, env: Readonly<Record<string,string|undefined>>, 
         }
         const result = await decoded(row, async (manifest,bytes) => {
           const approved: ApprovedPlan = Object.freeze({manifest});
+          let cleanupCell:CleanupCell|undefined;
           const admission: PlanAdmission = Object.freeze({manifest,bytes,custody:input.custody,attemptId:attempt,lease:input.lease,associated:manifest.operationId !== input.custody.operationId,
             dispatch: async () => {
               if (dispatched || admissions.get(approved)!==admission) throw new artifacts.PlanArtifactError();
               // Current policy/roles are evaluated by the captured broker, never by caller hooks.
               const authority=await broker.approvalStatus(input.custody.operationId);
               if(!authority.approved || authority.rejected || !authority.dispatchApproval || admissions.get(approved)!==admission) throw new artifacts.PlanArtifactError();
-              const proof=authority.dispatchApproval;
+              const proof=cleanupCell?.proof??authority.dispatchApproval;
               if (kind === "postgres" && !await isDefaultCurrentDispatchRequirement(proof,db,input.custody.workspaceId,input.custody.operationId)) throw new artifacts.PlanArtifactError();
               // Lost commit responses are non-replayable; mark locally before awaiting the CAS.
               dispatched=true;
-              await artifacts.dispatch(db,input,attempt,proof);
+              let cleanupOrigin:object|undefined;
+              if(cleanupCell) {
+                if(cleanupCell.grantState!=="inserted" || !await liveCleanup(cleanupCell))throw new cleanup.CleanupWriterBarrierError();
+                cleanupOrigin=Object.freeze({});cleanupOrigins.set(cleanupOrigin,{cell:cleanupCell,stage:"dispatch",consumed:false});
+              }
+              const binding=kind==="postgres"?engine.preparedStandalone(approved):undefined;
+              let standaloneOrigin:object|undefined;
+              if(binding) {
+                standaloneOrigin=Object.freeze({});standaloneOrigins.set(standaloneOrigin,{db,access:input,attempt,binding,proof,stage:"binding",consumed:false,
+                  current:()=>admissions.get(approved)===admission && engine.preparedStandalone(approved)===binding,
+                  authenticate:async()=>{await decoded(row,async()=>undefined);}});
+              }
+              await artifacts.dispatch(db,input,attempt,proof,cleanupOrigin,standaloneOrigin);
             } });
           admissions.set(approved,admission);
           // Compatibility hook grants no dispatch authority. The paired engine owns the durable boundary.
-          try { return await fn(approved, async () => undefined); } finally { admissions.delete(approved); }
+          try {
+            if(kind==="postgres" && manifest.purpose==="destroy") {
+              const authority=await broker.approvalStatus(input.custody.operationId),proof=authority.dispatchApproval;
+              if(!authority.approved || authority.rejected || !proof || !await isDefaultCurrentDispatchRequirement(proof,db,input.custody.workspaceId,input.custody.operationId)
+                || admissions.get(approved)!==admission || !isOpenedPlatformDbHandle(db,"postgres"))throw new cleanup.CleanupWriterBarrierError();
+              const candidates=await artifacts.readStandaloneSettlements(db,input.custody,row.manifest.backendDigest);
+              const valid:artifacts.StandaloneSettlementRow[]=[];
+              for(const receipt of candidates) {
+                try {
+                  await decoded(receipt.artifact,async()=>undefined);
+                  await engine.authenticateStandaloneSettlement(receipt.receipt,receipt.artifact.manifest);
+                  valid.push(receipt);
+                } catch { /* An unauthenticated row never removes its permanent delivery blocker. */ }
+              }
+              const settlements=Object.freeze(valid);
+              const authenticateSettlements=async()=>{
+                for(const receipt of settlements) {
+                  await decoded(receipt.artifact,async()=>undefined);
+                  await engine.authenticateStandaloneSettlement(receipt.receipt,receipt.artifact.manifest);
+                }
+              };
+              await authenticateSettlements();
+              cleanupCell={db,access:input,attempt,proof,manifestDigest:row.manifest_digest,settlements,authenticateSettlements,
+                rawAuthenticationDigest:digest({manifest:row.manifest_digest,iv:row.iv,authTag:row.auth_tag,ciphertext:row.ciphertext}),
+                liveAdmission:()=>admissions.get(approved)===admission,active:true,grantState:"fresh"};
+              const origin=Object.freeze({});cleanupOrigins.set(origin,{cell:cleanupCell,stage:"hold",consumed:false});
+              const retained=await cleanup.retain(db,origin);
+              // The hold TX has committed before this refusal. Lost acknowledgement never reaches the callback.
+              cleanupCell.hold=retained.hold;
+              if(Object.values(retained.inventory).some(n=>n!==0))throw new cleanup.CleanupWriterBarrierError();
+              const value=await cleanupInvocation.run(cleanupCell,()=>fn(approved,async()=>undefined));
+              await finishStandalone(approved,admission);
+              return value;
+            }
+            const value=await fn(approved, async () => undefined);
+            await finishStandalone(approved,admission);
+            return value;
+          } finally { if(cleanupCell)cleanupCell.active=false;admissions.delete(approved); }
         });
         if (!dispatched) throw new artifacts.PlanArtifactError();
-        await artifacts.finish(db,input,attempt,true);
+        if(!finished)await artifacts.finish(db,input,attempt,true);
         return result;
       } catch (error) {
         await artifacts.finish(db,input,attempt,false).catch(() => undefined);
         if (dispatched) throw new Error("Original plan dispatch outcome is unconfirmed; inspect this operation before another write.");
         throw error;
+      }
+      async function finishStandalone(approved:ApprovedPlan,admission:PlanAdmission) {
+        if(kind!=="postgres" || !engine.preparedStandalone(approved))return;
+        const receipt=engine.takeStandaloneSettlement(approved);
+        if(!dispatched || !receipt || admissions.get(approved)!==admission)throw new artifacts.PlanArtifactError();
+        const authority=await broker.approvalStatus(input.custody.operationId),proof=authority.dispatchApproval;
+        if(!authority.approved || authority.rejected || !proof || admissions.get(approved)!==admission)throw new artifacts.PlanArtifactError();
+        const origin=Object.freeze({});standaloneOrigins.set(origin,{db,access:input,attempt,binding:receipt.binding,receipt,proof,stage:"completion",consumed:false,
+          current:()=>admissions.get(approved)===admission,
+          authenticate:async()=>{await decoded(row,async()=>undefined);await engine.authenticateCurrentStandaloneCompletion(receipt,row.manifest);}});
+        await artifacts.finishStandalone(db,origin);
+        finished=true;
       }
     },
   };

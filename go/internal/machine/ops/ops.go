@@ -45,18 +45,19 @@ const (
 )
 
 // Unsupported lists operations that exist in the platform vocabulary but that
-// zenithd deliberately does not implement (package installation still needs
-// a separate reviewed design; see docs/platform/ZENITHD.md).
-var Unsupported = map[string]bool{OpPackageInstall: true}
+// zenithd deliberately does not implement (package installation is restricted to
+// the authenticated private root helper; see docs/platform/ZENITHD.md).
+var Unsupported = map[string]bool{}
 
 // Config is the operation-relevant part of the zenithd configuration.
 type Config struct {
-	Services   ServicesConfig   `json:"services"`
-	Containers ContainersConfig `json:"containers"`
-	Exec       ExecConfig       `json:"exec"`
-	Files      FilesConfig      `json:"files"`
-	FileWrite  FileWriteConfig  `json:"fileWrite"`
-	FileUpload FileUploadConfig `json:"fileUpload"`
+	Services       ServicesConfig       `json:"services"`
+	Containers     ContainersConfig     `json:"containers"`
+	Exec           ExecConfig           `json:"exec"`
+	Files          FilesConfig          `json:"files"`
+	FileWrite      FileWriteConfig      `json:"fileWrite"`
+	FileUpload     FileUploadConfig     `json:"fileUpload"`
+	PackageInstall PackageInstallConfig `json:"packageInstall"`
 	// SystemctlPath and JournalctlPath default to /usr/bin/...
 	SystemctlPath  string `json:"systemctlPath"`
 	JournalctlPath string `json:"journalctlPath"`
@@ -161,7 +162,7 @@ func register(op Operation) { registry[op.Name] = op }
 // (containers, exec) are omitted.
 func Supported(cfg Config) []string {
 	var out []string
-	for _, name := range []string{OpInspect, OpProcessList, OpServiceStatus, OpServiceRestart, OpContainerList, OpContainerInspect, OpContainerLogs, OpContainerExec, OpFileRead, OpFileWrite, OpFileUpload, OpPortCheck, OpDNSCheck, OpMetrics, OpLogs, OpExec} {
+	for _, name := range []string{OpInspect, OpProcessList, OpServiceStatus, OpServiceRestart, OpContainerList, OpContainerInspect, OpContainerLogs, OpContainerExec, OpFileRead, OpFileWrite, OpFileUpload, OpPackageInstall, OpPortCheck, OpDNSCheck, OpMetrics, OpLogs, OpExec} {
 		switch name {
 		case OpContainerList, OpContainerInspect, OpContainerLogs:
 			if !cfg.Containers.Enabled {
@@ -185,6 +186,11 @@ func Supported(cfg Config) []string {
 			}
 		case OpFileUpload:
 			if !fileWritePlatform() || !cfg.FileUpload.Enabled || len(cfg.FileUpload.Profiles) == 0 {
+				continue
+			}
+		case OpPackageInstall:
+			// Availability is independently checked by the machine executor.
+			if !fileWritePlatform() || !cfg.PackageInstall.Enabled || len(cfg.PackageInstall.Profiles) == 0 {
 				continue
 			}
 		case OpFileRead:

@@ -83,7 +83,8 @@ describe("registered app agent ports", () => {
   });
 
   it("keeps the incident engine unavailable when platform configuration is absent", async () => {
-    vi.stubEnv("ZENITH_PLATFORM_DB", ""); vi.stubEnv("ZENITH_PLATFORM_DB_URL", "");
+    // Isolate every production configuration source, including the genuine Supabase fallback.
+    vi.stubEnv("ZENITH_PLATFORM_DB", ""); vi.stubEnv("ZENITH_PLATFORM_DB_URL", ""); vi.stubEnv("SUPABASE_DB_URL", "");
     expect(await ensurePlatformApp()).toBe(false); expect(defaultPorts().investigator.available).toBe(false);
   });
 

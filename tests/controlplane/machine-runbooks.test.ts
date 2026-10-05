@@ -123,11 +123,31 @@ describe.each(LANES)("machine runbook store [$name]", (lane) => {
   it("concurrent audit appends keep one unbroken hash chain; entries are immutable", async () => {
     const ws = newWorkspace();
     const subject = `run:${uid("r")}`;
-    await Promise.all(Array.from({ length: 8 }, (_, i) => (i % 2 ? store : store2).appendAudit(ws, subject, "run.step", "system:test", { i }, new Date())));
+    const append = (count: number, offset: number) => Promise.all(Array.from({ length: count }, (_, i) => (i % 2 ? store : store2).appendAudit(ws, subject, "run.step", "system:test", { i: offset + i }, new Date())));
+    await append(8, 0);
     const chain = await store.listAudit(ws, subject);
     expect(chain).toHaveLength(8);
     expect(verifyAuditChain(chain)).toBe(true);
+    // More concurrent writers than the retry budget must extend, never fork, the retained prefix.
+    await append(12, 8);
+    const extended = await store.listAudit(ws, subject);
+    expect(extended).toHaveLength(20);
+    expect(extended.slice(0, 8)).toEqual(chain);
+    expect(extended.map(entry => entry.seq)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
+    expect(new Set(extended.map(entry => entry.entryDigest)).size).toBe(20);
+    expect(verifyAuditChain(extended)).toBe(true);
+    const foreignWorkspace = newWorkspace(), otherSubject = `run:${uid("r")}`;
+    await Promise.all([
+      store.appendAudit(foreignWorkspace, subject, "run.step", "system:test", { independent: "workspace" }, new Date()),
+      store2.appendAudit(ws, otherSubject, "run.step", "system:test", { independent: "subject" }, new Date()),
+    ]);
+    for (const independent of [await store.listAudit(foreignWorkspace, subject), await store2.listAudit(ws, otherSubject)]) {
+      expect(independent).toHaveLength(1);
+      expect(independent[0].seq).toBe(1);
+      expect(verifyAuditChain(independent)).toBe(true);
+    }
     await expect(ctx.db.query("delete from platform.machine_runbook_audit where workspace_id=$1", [ws])).rejects.toThrow(/cannot be changed/);
+    expect(await store2.listAudit(ws, subject)).toEqual(extended);
     expect(await store.listAudit(newWorkspace(), subject)).toEqual([]);
   });
 

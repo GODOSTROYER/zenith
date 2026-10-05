@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from "vitest";
 import * as repos from "@/lib/controlplane/db/repos";
+import type { BrokerProposal } from "@/lib/capabilities/types";
 import { STORE_KINDS, approveAs, closeSharedPgliteAfterAll, expectBrokerError, makeHarness, proposeOk, requestFor, user, type Harness } from "./support";
 
 closeSharedPgliteAfterAll();
@@ -38,7 +39,12 @@ describe.each(STORE_KINDS.filter((k) => k !== "memory"))("ownership transfers [%
     await seedAutoscaledService(h);
     const op = await proposeOk(h, scale(h, { requestOwnershipTransfer: true }), user("bob"));
     expect(op.operation.status).toBe("awaiting_approval");
-    const transfers = (op.operation.proposal as { broker?: { ownershipTransfers?: { digest: string; from: string; to: string }[] } }).broker?.ownershipTransfers;
+    // The public view omits internal broker metadata; the exact reviewed
+    // transfers are held in the tenant-scoped immutable proposal row.
+    const stored = await repos.operations.get(h.db!, h.ids.wsA, op.id);
+    expect(stored?.proposalDigest).toBe(op.digest);
+    expect(op.operation.proposal).not.toHaveProperty("broker");
+    const transfers = (stored!.proposal as BrokerProposal).broker?.ownershipTransfers;
     expect(transfers).toHaveLength(1);
     expect(transfers![0]).toMatchObject({ from: "autoscaler", to: "native-op" });
 
@@ -47,6 +53,10 @@ describe.each(STORE_KINDS.filter((k) => k !== "memory"))("ownership transfers [%
     const active = await repos.ownershipTransfers.listActive(h.db!, h.ids.wsA, h.ids.envAProd, ADDRESS);
     expect(active).toHaveLength(1);
     expect(active[0]).toMatchObject({ address: ADDRESS, from: "autoscaler", to: "native-op", digest: transfers![0]!.digest });
+    const approval = (await repos.approvals.listForOperation(h.db!, h.ids.wsA, op.id)).find(row => row.decision === "approve")!;
+    const originalRows = await h.db!.query("select * from platform.ownership_transfers where workspace_id=$1 and operation_id=$2", [h.ids.wsA, op.id]);
+    expect(await repos.ownershipTransfers.recordForApprovedOperation(h.db!, { workspaceId: h.ids.wsA, operationId: op.id, approvalId: approval.id })).toEqual(active);
+    expect(await h.db!.query("select * from platform.ownership_transfers where workspace_id=$1 and operation_id=$2", [h.ids.wsA, op.id])).toEqual(originalRows);
     // a foreign workspace sees nothing and cannot revoke
     expect(await repos.ownershipTransfers.listActive(h.db!, "ws_other", h.ids.envAProd)).toEqual([]);
     expect(await repos.ownershipTransfers.revoke(h.db!, { workspaceId: "ws_other", transferDigest: active[0]!.digest, operationId: op.id, revokedBy: "x" })).toBe(false);
@@ -58,6 +68,7 @@ describe.each(STORE_KINDS.filter((k) => k !== "memory"))("ownership transfers [%
     // revocation is one-way and restores the refusal
     expect(await repos.ownershipTransfers.revoke(h.db!, { workspaceId: h.ids.wsA, transferDigest: active[0]!.digest, operationId: op.id, revokedBy: "dave" })).toBe(true);
     expect(await repos.ownershipTransfers.revoke(h.db!, { workspaceId: h.ids.wsA, transferDigest: active[0]!.digest, operationId: op.id, revokedBy: "dave" })).toBe(false);
+    await expect(repos.ownershipTransfers.recordForApprovedOperation(h.db!, { workspaceId: h.ids.wsA, operationId: op.id, approvalId: approval.id })).rejects.toMatchObject({ code: "conflict" });
     await expectBrokerError(h.broker.propose(scale(h), user("bob")), "conflict");
   });
 

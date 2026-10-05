@@ -49,6 +49,7 @@ const toTransfer = (r: Row): OwnershipTransfer => ({
 });
 
 const COLUMNS = "workspace_id, address, resource_type, field_path, from_owner, to_owner, transfer_digest, approval_id, approved_at, expires_at";
+const IDENTITY_COLUMNS = "id, workspace_id, project_id, environment_id, address, resource_type, field_path, from_owner, to_owner, transfer_digest, operation_id, approval_id, proposal_digest, approved_at, expires_at, created_at, revoked_at, revoked_by";
 
 function parseRequests(raw: unknown): OwnershipTransferRequest[] {
   if (raw === undefined || raw === null) return [];
@@ -97,11 +98,29 @@ export async function recordForApprovedOperation(sql: Sql, input: { workspaceId:
          (id, workspace_id, project_id, environment_id, address, resource_type, field_path, from_owner, to_owner, transfer_digest,
           operation_id, approval_id, proposal_digest, approved_at)
        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::timestamptz)
-       on conflict (workspace_id, operation_id, transfer_digest) do update set transfer_digest = excluded.transfer_digest
+       on conflict (workspace_id, operation_id, transfer_digest) do nothing
        returning ${COLUMNS}`,
       [newId("own"), workspaceId, op.project_id, op.environment_id, t.address, t.resourceType, t.path, t.from, t.to, t.digest, operationId, approvalId, op.proposal_digest, iso(op.approved_at)]
     );
-    out.push(toTransfer(rows[0]!));
+    if (rows.length) {
+      out.push(toTransfer(rows[0]));
+      continue;
+    }
+    // A duplicate never rewrites the immutable approval receipt or revives a
+    // revoked transfer. Read only the exact original tenant/operation tuple.
+    const existing = await sql.query<Row>(
+      `select ${IDENTITY_COLUMNS} from platform.ownership_transfers
+        where workspace_id = $1 and operation_id = $2 and transfer_digest = $3
+          and project_id is not distinct from $4::text and environment_id = $5
+          and address = $6 and resource_type = $7 and field_path = $8
+          and from_owner = $9 and to_owner = $10 and approval_id = $11
+          and proposal_digest = $12 and approved_at = $13::text::timestamptz
+          and expires_at is null and revoked_at is null and revoked_by is null`,
+      [workspaceId, operationId, t.digest, op.project_id, op.environment_id, t.address, t.resourceType, t.path, t.from, t.to, approvalId, op.proposal_digest, iso(op.approved_at)]
+    );
+    if (existing.length !== 1)
+      throw new ControlStoreError("conflict", "The stored ownership transfer is unavailable or no longer matches this approval.");
+    out.push(toTransfer(existing[0]));
   }
   return out;
 }

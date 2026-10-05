@@ -274,6 +274,9 @@ export function createPlatformRunbookStore(db: Sql): RunbookStore {
       for (let attempt = 0; attempt < 5; attempt += 1) {
         try {
           return await db.tx(async (tx) => {
+            // Serialize this immutable chain before choosing its next sequence.
+            // Transaction scope survives pooler hops; a JSON tuple avoids delimiter collisions.
+            await tx.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [`zenith:machine-runbook-audit:${JSON.stringify([ws, subject])}`]);
             const last = await tx.query<Row>("select seq, entry_digest from platform.machine_runbook_audit where workspace_id=$1 and subject=$2 order by seq desc limit 1", [ws, subject]);
             const seq = last[0] ? Number(last[0].seq) + 1 : 1;
             const prevDigest = last[0] ? (last[0].entry_digest as string) : AUDIT_GENESIS;

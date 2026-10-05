@@ -1,5 +1,5 @@
 /**
- * Renders `supabase/migrations/0020_platform_core.sql` from the TypeScript
+ * Renders `supabase/migrations/0021_platform_core.sql` from the TypeScript
  * migrations — the ONLY way that file is produced. It is never hand-edited: a
  * test (`tests/controlplane/migrations.test.ts`) fails when the committed file
  * differs by even one byte from what `renderSupabaseMigration()` returns now,
@@ -23,7 +23,7 @@
 import { BOOTSTRAP_SQL } from "./bootstrap";
 import { PLATFORM_MIGRATIONS, migrationChecksum } from "./index";
 
-export const EMITTED_FILE = "0020_platform_core.sql";
+export const EMITTED_FILE = "0021_platform_core.sql";
 
 const HARDENING_SQL = `do $$
 declare
@@ -105,7 +105,7 @@ $$;
 
 const quote = (text: string): string => `'${text.replace(/'/g, "''")}'`;
 
-/** The exact text of `supabase/migrations/0020_platform_core.sql`. */
+/** The exact text of `supabase/migrations/0021_platform_core.sql`. */
 export function renderSupabaseMigration(): string {
   const parts: string[] = [
     `-- Zenith platform control store (ADR-0002) — schema \`platform\`.

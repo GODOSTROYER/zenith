@@ -31,7 +31,7 @@ doing work yet.
 | Provider drivers | `src/lib/platform/drivers.ts` calls all six provider registrars; evidence remains contract-only. `src/lib/platform/credentials.ts` verifies GCP, Azure and Kubernetes connections; OCI verification checks runner registration only, and OCI sessions require that runner. Runner modes for other non-AWS providers remain refused. A hosted managed substrate is not verified ([MANAGED-PLATFORM.md](../MANAGED-PLATFORM.md)). |
 | Environment teardown | Browser admin action `env.teardown` consumes trusted recorded destroy evidence, proposes for approval and starts the destroy workflow after browser approval. The first destroy-review trigger and matching readable approval artifact remain entry-point gaps; see [TEARDOWN.md](TEARDOWN.md). |
 | Builds from source | Default source preparation uploads canonical ZIP to customer S3 for AWS CodeBuild, or tar.gz to GCS for GCP Cloud Build. Azure ACR adapters require injected source wiring; default composition refuses. See [BUILDS.md](BUILDS.md). |
-| Connections and approvals | `/platform/connections/aws` saves/verifies via its browser action adapter. No standalone `/api/platform/v1/connections` route exists. `/platform/operations/[id]` renders review; plan-bound approval stays disabled without a readable matching PlanView artifact. See `src/app/(product)/platform/README.md`. |
+| Connections and approvals | `/platform/connections/aws` saves/verifies via its browser action adapter. `/api/platform/v1/connections` lists scoped connections and creates GCP/Azure/OCI connections through the browser-only lifecycle adapter. AWS and Kubernetes retain their dedicated creation flows. `/platform/operations/[id]` renders review; plan-bound approval stays disabled without a readable matching PlanView artifact. See `src/app/(product)/platform/README.md`. |
 
 Machine dispatch stores an immutable, tenant-scoped evidence marker before contacting
 the transport. Repeated completed requests replay a sealed result; a competing,
@@ -325,7 +325,7 @@ Behaviour changes to plan for:
 - A build from a monorepo subdirectory requires the `contextDir` and `contextDigest` that `GET /api/platform/v1/github/inspect` returned; the digest is re-derived from the approved commit through the bound GitHub App at build time. Azure ACR Tasks cannot build from a subdirectory.
 - Approving a data or contract migration is a separate browser approval (`/platform/releases/:id`); the operation fails before any effect when it is missing, and the person approves and deploys again.
 - `.github/workflows/tick.yml` now also calls `POST /api/internal/tick/status` (durable-schedule health, always 200 unless `?strict=1`).
-- Migrations 21 to 27 add `scheduled_job_runs`, `connection_rotations`, `release_pipelines`, `portability`, `agent_lifecycle`, `plugin_boundaries` and `github_revocation_reason`; apply `0020_platform_core.sql` or run `npm run migrate:platform`.
+- Migrations 21 to 27 add `scheduled_job_runs`, `connection_rotations`, `release_pipelines`, `portability`, `agent_lifecycle`, `plugin_boundaries` and `github_revocation_reason`; apply the current `0021_platform_core.sql` or run `npm run migrate:platform`.
 
 ### 2.6 OpenTofu engine
 
@@ -630,7 +630,7 @@ differs from the code is refused (`schema_tampered`): shipped migrations are
 never edited, a change is a new migration.
 
 If you would rather apply SQL yourself (the Supabase SQL editor, `psql`), apply
-`supabase/migrations/0020_platform_core.sql`. It is **generated** from the
+`supabase/migrations/0021_platform_core.sql`. It is **generated** from the
 TypeScript migrations by `npm run platform:emit-sql` (`-- --check` fails when it
 is out of date; a test enforces byte equality). It is idempotent, writes the same
 ledger rows with the same checksums (so the TypeScript migrator recognises it as
@@ -646,7 +646,7 @@ current aggregate emitter output, including additive cleanup writer barrier migr
 function, then verifies every row, the count and highest version. A new migration
 requires a regenerated inventory; changing a literal count alone does not pass.
 
-Registered migrations: **27**; highest version: **27**.
+Registered migrations: **29**; highest version: **29**.
 
 <!-- platform-migrations:start -->
 | Version | Name | SQL SHA-256 |
@@ -678,6 +678,8 @@ Registered migrations: **27**; highest version: **27**.
 | 25 | `agent_lifecycle` | `372c684b5da9f326f8852a3de713914a16b1a1849cb332967a6fb422f78e2fdd` |
 | 26 | `plugin_boundaries` | `730dd0df2e58ff3f1e255ade7651cfac75879d84752f620d2785dff359c98c3a` |
 | 27 | `github_revocation_reason` | `5af4252a6e4d0a65fe712b50b9d1da0f418ba3176c4c6f3ba0314bac7bd90b12` |
+| 28 | `incident_stability_hardening` | `53fc08fb199fb67385b19a5bc251ca178c55026f50cb2c4a3db21ce44a5880b8` |
+| 29 | `cleanup_writer_record_fields` | `e9cd8aaa47d4909c53f8ff5e71690cc6a07d85dae60de69d35192d97e5e7e0dc` |
 
 <!-- platform-migrations:end -->
 
@@ -708,7 +710,7 @@ A database that applied the emitted SQL before a later
 migration landed is behind and the application refuses to use it until you re-apply
 the file or run `npm run migrate:platform`.
 
-Schemas 17 to 27 add, in order, the signed-runbook tables (`machine_runbook_*`; migration 17), append-only ownership transfers (18), incident stability state, remediation attempts, maintenance windows and postmortems (19), per-environment optimizer opt-in settings (20), scheduled critical job runs (21: `scheduled_job_runs`, PROD-OBS-04), connection rotation state (22: `connection_rotations`, PROD-LIFE-01), digest-bound release pipelines (23: `release_pipelines`, PROD-LIFE-10), portability export/restore records and resource adoptions (24: `portability`, PROD-LIFE-11), machine and runner lifecycle columns (25: `agent_lifecycle`, PROD-MACH-04), audience-bound plugin boundaries and grants (26: `plugin_boundaries`, PROD-UX-03) and the GitHub revocation reason (27: `github_revocation_reason`, PROD-LIFE-08). The current aggregate is `0020_platform_core.sql`; historical platform aggregates `0014`, `0016`, `0017`, `0018` and `0019` remain unchanged (published files are immutable, and an aggregate is a cumulative snapshot). The committed Supabase bootstrap applies `0020` after those aggregates and agent OAuth `0015`. Schema 16 adds immutable physical local-backend ownership and authenticated standalone builtin completion receipts. These receipts reconcile only eligible saved-plan history; they do not settle cloud calls, grants, workflows, builds or guest deliveries. If you apply
+Schemas 17 to 27 add, in order, the signed-runbook tables (`machine_runbook_*`; migration 17), append-only ownership transfers (18), incident stability state, remediation attempts, maintenance windows and postmortems (19), per-environment optimizer opt-in settings (20), scheduled critical job runs (21: `scheduled_job_runs`, PROD-OBS-04), connection rotation state (22: `connection_rotations`, PROD-LIFE-01), digest-bound release pipelines (23: `release_pipelines`, PROD-LIFE-10), portability export/restore records and resource adoptions (24: `portability`, PROD-LIFE-11), machine and runner lifecycle columns (25: `agent_lifecycle`, PROD-MACH-04), audience-bound plugin boundaries and grants (26: `plugin_boundaries`, PROD-UX-03) and the GitHub revocation reason (27: `github_revocation_reason`, PROD-LIFE-08). Schema 28 enables RLS without client policies on the four incident tables for direct canonical upgrades, retains only existing service-role DML, and adds a workspace-leading runbook schedule index. Schema 29 isolates grant-only record fields inside the grant branch of the shared cleanup trigger, preserving the existing held-plan and grant authority checks. The current aggregate is `0021_platform_core.sql`; historical platform aggregates `0014`, `0016`, `0017`, `0018`, `0019` and `0020` remain unchanged (published files are immutable, and an aggregate is a cumulative snapshot). The committed Supabase bootstrap applies `0021` after those aggregates and agent OAuth `0015`. Schema 16 adds immutable physical local-backend ownership and authenticated standalone builtin completion receipts. These receipts reconcile only eligible saved-plan history; they do not settle cloud calls, grants, workflows, builds or guest deliveries. If you apply
 migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any

@@ -50,7 +50,7 @@ const EXPECTED_TABLES = [
   "investigations", "leases", "machine_request_logs", "machine_requests", "machine_runbook_approvals", "machine_runbook_audit", "machine_runbook_run_steps", "machine_runbook_runs", "machine_runbook_schedules",
   "machine_runbook_versions", "machines", "mixed_child_custody", "mixed_child_intents", "operations", "optimizer_settings", "plan_artifact_associations", "plan_artifact_uses", "plan_artifacts", "plugin_events", "plugin_grants",
   "plugin_registrations", "policy_decisions", "portability_exports", "portability_restores", "provider_connections", "reconcile_state", "release_events", "release_migration_approvals", "release_runs", "resource_adoptions",
-  "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners", "scheduled_job_runs", "schema_migrations", "standalone_plan_backends",
+  "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners", "scheduled_job_runs", "ownership_transfers", "schema_migrations", "standalone_plan_backends",
   "standalone_plan_settlements", "workflow_start_intents", "workspace_policy",
 ];
 
@@ -242,6 +242,9 @@ describe.each(lanes)("migrator [$name]", (lane) => {
       );
       const leading = new Set(indexed.map((r) => r.table_name));
       for (const t of tables) expect(leading.has(t), `${t} has an index leading with workspace_id`).toBe(true);
+      expect(await db.query<{ definition: string }>("select indexdef as definition from pg_indexes where schemaname='platform' and indexname='machine_runbook_schedules_scope'")).toEqual([
+        { definition: "CREATE INDEX machine_runbook_schedules_scope ON platform.machine_runbook_schedules USING btree (workspace_id, created_at DESC)" },
+      ]);
 
       // This global physical target key is not a tenancy exemption: its owning
       // tuple is immutable, and every private completion also binds that tuple.
@@ -483,7 +486,133 @@ describe.each(lanes)("migrator [$name]", (lane) => {
   }, 60_000);
 });
 
+const INCIDENT_HARDENED_TABLES = ["incident_signal_state", "incident_remediation_attempts", "incident_maintenance_windows", "incident_postmortems"] as const;
+
+/** Canonical cluster roles are prerequisites, never invented or repaired by this fixture. */
+async function incidentRoleDefinitions(db: PlatformDbHandle) {
+  const rows = await db.query<{ name: string; bypass: boolean; superuser: boolean; [key: string]: unknown }>(
+    `select oid::text as oid,rolname as name,rolbypassrls as bypass,rolsuper as superuser,
+      rolinherit,rolcanlogin,rolcreatedb,rolcreaterole from pg_roles
+      where rolname in ('anon','authenticated','service_role') order by rolname`
+  );
+  expect(rows.map(({ name, bypass, superuser }) => ({ name, bypass, superuser }))).toEqual([
+    { name: "anon", bypass: false, superuser: false },
+    { name: "authenticated", bypass: false, superuser: false },
+    { name: "service_role", bypass: true, superuser: false },
+  ]);
+  return rows;
+}
+
+async function incidentBoundary(db: PlatformDbHandle) {
+  const rows = await db.query<{ table_name: string; rls: boolean; policies: number; service_select: boolean; service_insert: boolean; service_update: boolean; service_delete: boolean; service_extra: boolean; anon_any: boolean; authenticated_any: boolean }>(
+    `select c.relname as table_name,c.relrowsecurity as rls,
+      (select count(*)::integer from pg_policy p where p.polrelid=c.oid) as policies,
+      has_table_privilege('service_role',c.oid,'SELECT') as service_select,
+      has_table_privilege('service_role',c.oid,'INSERT') as service_insert,
+      has_table_privilege('service_role',c.oid,'UPDATE') as service_update,
+      has_table_privilege('service_role',c.oid,'DELETE') as service_delete,
+      has_table_privilege('service_role',c.oid,'TRUNCATE,REFERENCES,TRIGGER') as service_extra,
+      has_table_privilege('anon',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') as anon_any,
+      has_table_privilege('authenticated',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') as authenticated_any
+      from pg_class c join pg_namespace n on n.oid=c.relnamespace
+      where n.nspname='platform' and c.relname in ('incident_signal_state','incident_remediation_attempts','incident_maintenance_windows','incident_postmortems')
+      order by c.relname`
+  );
+  expect(rows).toEqual([...INCIDENT_HARDENED_TABLES].sort().map(table_name => ({
+    table_name, rls: true, policies: 0, service_select: true, service_insert: true, service_update: true, service_delete: true,
+    service_extra: false, anon_any: false, authenticated_any: false,
+  })));
+  return rows;
+}
+
+async function assertIncidentClientRefusals(db: PlatformDbHandle) {
+  for (const role of ["anon", "authenticated"] as const) {
+    for (const table of INCIDENT_HARDENED_TABLES) {
+      await expect(db.tx(async tx => {
+        await tx.query(role === "anon" ? "set local role anon" : "set local role authenticated");
+        expect(await tx.query("select current_user as role")).toEqual([{ role }]);
+        await tx.query(`select workspace_id from platform.${table}`);
+      })).rejects.toMatchObject({ sqlstate: "42501" });
+    }
+  }
+}
+
 describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open", () => {
+  it("fresh direct migration and emitted SQL have identical incident RLS and exact grants", async () => {
+    const catalogues: Awaited<ReturnType<typeof incidentBoundary>>[] = [];
+    for (const source of ["direct", "emitted"] as const) {
+      await withScratchDatabase(async url => {
+        const db = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 1 });
+        try {
+          const roles = await incidentRoleDefinitions(db);
+          if (source === "direct") expect((await migratePlatformDb(db)).applied).toEqual(ALL);
+          else await db.exec(renderSupabaseMigration());
+          await assertPlatformSchemaCurrent(db);
+          catalogues.push(await incidentBoundary(db));
+          await assertIncidentClientRefusals(db);
+          await db.tx(async tx => {
+            await tx.query("set local role service_role");
+            expect(await tx.query("select current_user as role")).toEqual([{ role: "service_role" }]);
+            await tx.query(`insert into platform.incident_signal_state(workspace_id,environment_id,fingerprint,last_observed_at)
+              values($1,$2,$3,clock_timestamp())`, [uid("ws"), uid("env"), digest(uid("signal"))]);
+          });
+          expect(await incidentRoleDefinitions(db)).toEqual(roles);
+        } finally { await db.close(); }
+      });
+    }
+    expect(catalogues).toHaveLength(2);
+    expect(catalogues[0]).toEqual(catalogues[1]);
+  }, 120_000);
+
+  it("schema20 upgrade preserves incident rows and old ledger while adding exact hardening and tenant index", async () => {
+    await withScratchDatabase(async url => {
+      const db = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 1 });
+      try {
+        const roles = await incidentRoleDefinitions(db);
+        const historical = PLATFORM_MIGRATIONS.filter(m => m.version <= 20);
+        expect((await migratePlatformDb(db, historical)).applied).toEqual(historical.map(m => m.version));
+        const workspaceId = uid("ws"), environmentId = uid("env"), incidentId = uid("incident"), fingerprint = digest(uid("signal"));
+        await db.query(`insert into platform.incidents(id,workspace_id,environment_id,title,severity,source,correlation_id)
+          values($1,$2,$3,'Retained fixture incident','low','fixture',$4)`, [incidentId, workspaceId, environmentId, uid("correlation")]);
+        await db.query(`insert into platform.incident_signal_state(workspace_id,environment_id,fingerprint,consecutive_bad,last_observed_at)
+          values($1,$2,$3,2,'2026-10-05T00:00:00Z')`, [workspaceId, environmentId, fingerprint]);
+        await db.query(`insert into platform.incident_remediation_attempts(id,workspace_id,incident_id,environment_id,fingerprint,idempotency_key,capability,blast_radius,status)
+          values($1,$2,$3,$4,$5,$6,'drift.repair','low','blocked')`, [uid("attempt"), workspaceId, incidentId, environmentId, fingerprint, digest(uid("intent"))]);
+        await db.query(`insert into platform.incident_maintenance_windows(id,workspace_id,environment_id,starts_at,ends_at,reason,created_by)
+          values($1,$2,$3,'2026-10-05T00:00:00Z','2026-10-05T01:00:00Z','Retained fixture window','user:fixture')`, [uid("window"), workspaceId, environmentId]);
+        const document = { retained: "fixture postmortem" };
+        await db.query(`insert into platform.incident_postmortems(id,workspace_id,incident_id,document,document_digest)
+          values($1,$2,$3,$4::text::jsonb,$5)`, [uid("postmortem"), workspaceId, incidentId, JSON.stringify(document), digest(document)]);
+        const retainedRows = async () => Promise.all(INCIDENT_HARDENED_TABLES.map(table => db.query(`select to_jsonb(t) as row from platform.${table} t where workspace_id=$1`, [workspaceId])));
+        const before = await retainedRows();
+        expect(before.every(rows => rows.length === 1)).toBe(true);
+        const ledger = await db.query("select version,name,checksum,applied_at::text from platform.schema_migrations order by version");
+        // First retain the complete published wave-2 ledger, then append the fix.
+        const published = PLATFORM_MIGRATIONS.filter(m => m.version <= 27);
+        expect((await migratePlatformDb(db, published)).applied).toEqual(published.filter(m => m.version > 20).map(m => m.version));
+        expect(await retainedRows()).toEqual(before);
+        expect(await db.query("select version,name,checksum,applied_at::text from platform.schema_migrations where version<=20 order by version")).toEqual(ledger);
+        const publishedLedger = await db.query("select version,name,checksum,applied_at::text from platform.schema_migrations order by version");
+        expect(publishedLedger).toHaveLength(27);
+        expect((await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version <= 28))).applied).toEqual([28]);
+        const direct = await incidentBoundary(db);
+        expect(await retainedRows()).toEqual(before);
+        expect(await db.query("select version,name,checksum,applied_at::text from platform.schema_migrations where version<=20 order by version")).toEqual(ledger);
+        expect(await db.query("select version,name,checksum,applied_at::text from platform.schema_migrations where version<=27 order by version")).toEqual(publishedLedger);
+        expect(await db.query<{ definition: string }>("select indexdef as definition from pg_indexes where schemaname='platform' and indexname='machine_runbook_schedules_scope'")).toEqual([
+          { definition: "CREATE INDEX machine_runbook_schedules_scope ON platform.machine_runbook_schedules USING btree (workspace_id, created_at DESC)" },
+        ]);
+        await db.exec(renderSupabaseMigration());
+        expect(await incidentBoundary(db)).toEqual(direct);
+        expect(await retainedRows()).toEqual(before);
+        expect(await db.query("select version,name,checksum,applied_at::text from platform.schema_migrations where version<=20 order by version")).toEqual(ledger);
+        expect(await db.query("select version,name,checksum,applied_at::text from platform.schema_migrations where version<=27 order by version")).toEqual(publishedLedger);
+        expect(await migratePlatformDb(db)).toEqual({ applied: [], alreadyApplied: ALL });
+        await assertIncidentClientRefusals(db);
+        expect(await incidentRoleDefinitions(db)).toEqual(roles);
+      } finally { await db.close(); }
+    });
+  }, 120_000);
   it.each(["fresh", "same-owner schema6"] as const)("%s canonical migrations keep permanent agent receipts select/insert-only", async mode => {
     await withScratchDatabase(async url => {
       const db = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 1 });
@@ -634,30 +763,59 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           const originalUser=(await tx.query<{name:string}>("select current_user as name"))[0].name;
           const migrationOwner=uid("zt_plan_migration").replace(/-/g,"");
           const legacySourceOwner=uid("zt_source_owner").replace(/-/g,"");
+          const legacyIncidentOwner=uid("zt_incident_owner").replace(/-/g,"");
+          const legacyAgentOwner=uid("zt_agent_owner").replace(/-/g,"");
           // A distinct authorized migration owner has schema-create, ledger DML/RLS bypass, FK references,
           // and TRIGGER only on the three legacy delivery tables used by migration 15.
           const databaseName=(await tx.query<{name:string}>("select current_database() as name"))[0].name;
           await db.exec(`create role ${migrationOwner} nologin bypassrls;
             create role ${legacySourceOwner} nologin;
+            create role ${legacyIncidentOwner} nologin;
+            create role ${legacyAgentOwner} nologin;
             grant usage on schema platform to ${legacySourceOwner};
+            grant usage on schema platform to ${legacyIncidentOwner};
+            grant usage on schema platform to ${legacyAgentOwner};
             alter table platform.github_source_bindings owner to ${legacySourceOwner};
             alter table platform.github_install_intents owner to ${legacySourceOwner};
+            alter table platform.incidents owner to ${legacyIncidentOwner};
+            alter table platform.runners owner to ${legacyAgentOwner};
+            alter table platform.machines owner to ${legacyAgentOwner};
             grant ${legacySourceOwner} to ${migrationOwner};
             grant create on database "${databaseName.replace(/"/g,'""')}" to ${migrationOwner};
             grant usage,create on schema platform to ${migrationOwner} with grant option;
             grant select,insert,update,delete on all tables in schema platform to ${migrationOwner};
-            grant references on table platform.operations,platform.github_source_bindings,platform.runner_jobs,platform.machine_requests to ${migrationOwner};
+            grant references on table platform.operations,platform.approvals,platform.provider_connections,platform.github_source_bindings,platform.runner_jobs,platform.machine_requests to ${migrationOwner};
             grant trigger on table platform.runner_jobs,platform.machine_requests,platform.capability_grants to ${migrationOwner};`);
           await tx.query(`set local role ${migrationOwner}`);
           expect((await tx.query<{name:string}>("select current_user as name"))[0].name).toBe(migrationOwner);
           expect(migrationOwner).not.toBe(originalUser);
           expect((await tx.query<{allowed:boolean}>("select has_table_privilege(current_user,'platform.capability_grants','TRIGGER') as allowed"))[0].allowed).toBe(true);
+          expect((await tx.query<{allowed:boolean}>("select has_table_privilege(current_user,'platform.approvals','REFERENCES') as allowed"))[0].allowed).toBe(true);
+          // Published migrations 19 and 25 change these legacy tables. DML
+          // and REFERENCES do not authorize ALTER: admit only their exact owners.
+          await expect(db.tx(async denied => {
+            await denied.query("alter table platform.incidents add column fixture_unauthorized_owner text");
+          })).rejects.toMatchObject({sqlstate:"42501"});
+          for (const table of ["runners", "machines"] as const) {
+            await expect(db.tx(async denied => {
+              await denied.query(`alter table platform.${table} add column fixture_unauthorized_owner text`);
+            })).rejects.toMatchObject({sqlstate:"42501"});
+          }
+          expect((await tx.query<{allowed:boolean}>("select has_table_privilege(current_user,'platform.provider_connections','REFERENCES') as allowed"))[0].allowed).toBe(true);
+          await tx.query("reset role");
+          await tx.query(`grant ${legacyIncidentOwner},${legacyAgentOwner} to ${migrationOwner}`);
+          await tx.query(`set local role ${migrationOwner}`);
+          expect((await tx.query<{allowed:boolean}>("select pg_has_role(current_user,$1,'USAGE') as allowed",[legacyIncidentOwner]))[0].allowed).toBe(true);
+          expect((await tx.query<{allowed:boolean}>("select pg_has_role(current_user,$1,'USAGE') as allowed",[legacyAgentOwner]))[0].allowed).toBe(true);
           expect(await migratePlatformDb(db)).toEqual({applied:pending,alreadyApplied:[1,2,3,4,5,6]});
           await assertPlatformSchemaCurrent(db);
           expect((await platformSchemaStatus(db)).applied.map(({version,name,checksum})=>({version,name,checksum})))
             .toEqual(PLATFORM_MIGRATIONS.map(m=>({version:m.version,name:m.name,checksum:migrationChecksum(m)})));
           expect(await migratePlatformDb(db)).toEqual({applied:[],alreadyApplied:ALL});
           await tx.query("reset role");
+          expect((await tx.query<{owner:string}>("select pg_get_userbyid(relowner) as owner from pg_class where oid='platform.incidents'::regclass"))[0].owner).toBe(legacyIncidentOwner);
+          expect(await tx.query<{name:string;owner:string}>("select relname as name,pg_get_userbyid(relowner) as owner from pg_class where oid in ('platform.runners'::regclass,'platform.machines'::regclass) order by relname"))
+            .toEqual([{name:"machines",owner:legacyAgentOwner},{name:"runners",owner:legacyAgentOwner}]);
           const tables=await tx.query<{name:string;rls:boolean;owner:string}>(`select c.relname as name,c.relrowsecurity as rls,pg_get_userbyid(c.relowner) as owner
             from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='platform'
             and c.relname in ('plan_artifacts','plan_artifact_associations','plan_artifact_uses','build_launches','github_binding_events','github_webhook_deliveries','github_webhook_installation_epochs','agent_effect_receipts','workflow_start_intents','approved_source_snapshots','mixed_child_custody','mixed_child_intents') order by c.relname`);

@@ -1,5 +1,7 @@
 # Verification queue (for the verifying agent)
 
+Current override: branch `codex/production-2026-10-02`, candidate `5f4713a7`, Saivedant Hava <saivedant169@gmail.com>. Retain all20 verifier obligations and fixed order. CI repair not complete; actual executed counts in latest RESULTS section. Older prod/compose and Arnav instructions below are historical and superseded by human authorization.
+
 > Scope contract and required deliverables: [HANDOFF-VERIFIER.md](HANDOFF-VERIFIER.md). Read it first.
 
 Branch to verify: `prod/compose`. Verify the exact tip you checked out; run `git rev-parse HEAD` first and record that SHA in every piece of evidence. If you push fixes, the new tip is the SHA that evidence must name.

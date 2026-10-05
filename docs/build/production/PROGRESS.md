@@ -102,3 +102,14 @@ Counts overlap across source references and lanes. Historical unit18682P0F1167S,
 - [ ] PROD-REL-04: Scope permission and resumable execution (planned).
 
 Full criteria and dependencies remain in [REQUIREMENTS.md](REQUIREMENTS.md). Pending permissions and exact evidence scopes are in the handoff. No unattended work promised.
+
+## 6 October verifier integration checkpoint
+
+Code candidate `5f4713a7` integrates six reviewed fixes: Go build-event parsing; complete provider build attestations; owned Temporal schedule database; safe native-backend diagnostic; Verify budget30→45 within the unchanged maximum; PostgreSQL encoded-row transport. Authors and committers: Saivedant Hava. No requirement or release state is promoted.
+
+- Actual clean `3616b02c` database/Temporal lanes: platform3016 passed/0 failed/8 declared skipped, PostgreSQL322/0/0, workflows1273/0/0, reconciliation38/0/0, durable intents156/0/0. Strict required identities1124/80/60/26/141 passed. Native100100/0/0. Overall attempt remains failed: supplemental restore12/1/0, SQLSTATE22023. All owned Docker cleanup flags true.
+- Fix `5f4713a7`: real PostgreSQL portability14 passed/0 failed/0 skipped; exact original13 plus new network case. Fresh combined matrix still running. Compiler and affected lint passed; actionlint and370 CI contract cases passed.
+- Historical pushed `3e856cf4`: mainCI37346865892 terminal12 passed/3 failed/1 cancelled. Native37346865827 passed22 checks on each native architecture. No final whole-unit count exists for cancelled Verify.
+- Local kind on387b: provider6/release1/guest48 passed, zero failures/skips, owned cleanup complete. Supervisor137 passed including6 actual native Linux ARM64 process-group cases. These are scoped historical receipts, not new-candidate/live-cloud acceptance.
+
+Remaining: fresh pushed Linux diagnostic, conditional six-test-path owned-database/backend-lifetime candidate, complete unit successor, final exact-SHA CI, then ordered wave1, missing joins and wave2. All78 requirements retained; ledger6 verified/44 in progress/28 planned; all four release states false. Read evidence JSON above; counts overlap and must not be summed.

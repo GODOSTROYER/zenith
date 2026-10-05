@@ -329,6 +329,12 @@
             "architecture": "macOS ARM64 native; disposable PostgreSQL Linux ARM64 native; no native AMD64 inference"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-05-repair-checkpoint.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "3616b02c93058533a13dec6879ba0b7a35725bc2",
+          "result": "Actual PG/Temporal canonical lanes: platform3016P0F8declaredS/all1124, postgres322P0F0S/all80, workflows1273P0F0S/all60, reconciliation38P0F0S/all26, intents156P0F0S/all141. All strict execution validators passed. Overall attempt failed supplemental portability12P1F0S/22023; owned cleanup complete.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-canonical-lanes.json"
         }
       ],
       "requiredEvidence": [
@@ -538,6 +544,12 @@
             "architecture": "macOS ARM64 native; disposable PostgreSQL Linux ARM64 native; no native AMD64 inference"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-05-repair-checkpoint.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "3616b02c93058533a13dec6879ba0b7a35725bc2",
+          "result": "Actual PG/Temporal canonical lanes: platform3016P0F8declaredS/all1124, postgres322P0F0S/all80, workflows1273P0F0S/all60, reconciliation38P0F0S/all26, intents156P0F0S/all141. All strict execution validators passed. Overall attempt failed supplemental portability12P1F0S/22023; owned cleanup complete.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-canonical-lanes.json"
         }
       ],
       "requiredEvidence": [
@@ -712,6 +724,13 @@
           "runId": 37128274569,
           "result": "Rechecked exact published run terminal14 successful jobs,0 failed. Individual counts not recomputed in this terminal API check. Excludes all later local operations/integration commits; fresh pushed candidate CI remains required.",
           "artifact": "docs/build/production/verification/2026-10-04-integrated-source.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "3e856cf4aac02fbc14fc95b5318983a2d9c360cd",
+          "runId": 37346865827,
+          "result": "Native Linux AMD64 and ARM64 packaged workers22/22 each, zero emulation; all cleanup flags true. Main run separately12 success/3 failure/1 cancellation. Changed candidate and in-flight mutation shutdown remain unverified.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-05-published-ci-3e856cf4.json"
         }
       ],
       "requiredEvidence": [
@@ -1747,7 +1766,14 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "local_engine",
+          "commit": "5f4713a7f3526a31a6a7de1438df4ce5e53a4ed2",
+          "result": "Actual production PostgreSQL connector/importer and independent readback14P0F0S; original13 cases retained plus one network regression. Strict14 identities passed. Full combined candidate, other engines, native Linux CI and full lifecycle acceptance remain open.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-canonical-lanes.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"

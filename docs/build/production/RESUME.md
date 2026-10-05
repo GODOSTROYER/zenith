@@ -1,5 +1,7 @@
 # Production resume
 
+Current verifier code candidate: `5f4713a7`. Read latest section of [RESULTS-2026-10.md](verification/RESULTS-2026-10.md) and [canonical-lane evidence](evidence/PROD-CI-08/2026-10-06-canonical-lanes.json). Real PostgreSQL portability14 passed; combined gate and fresh CI remain pending. Only tests/minimal fixes authorized; no wave3 or live cloud. Older source references below remain historical.
+
 Current verifier checkpoint: [RESULTS-2026-10.md](verification/RESULTS-2026-10.md). Code387b0efe contains24 reviewed fixes; combined acceptance and freshCI remain incomplete. Older transfer/patch instructions below are historical; do not replay them onto current source. Current ledger6 verified/44 in progress/28 planned. Canonical obligations: native100, platform1124,PG80,workflows60,Linux152,worker22 each native architecture,kind55.
 
 Verifying agent: start with [HANDOFF-VERIFIER.md](HANDOFF-VERIFIER.md) (scope, done criteria, what to hand back), then [VERIFY-QUEUE.md](VERIFY-QUEUE.md).

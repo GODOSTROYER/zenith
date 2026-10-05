@@ -1,10 +1,10 @@
 # Production progress
 
-**6 October 2026 assembly (prod/compose):** merged PROD-LIFE-12, COST-03, MACH-03 and OBS-03 on top of CI repair, OBS-02, LIFE-02 and MACH-01. Platform migrations 17 to 20 are registered in order; the Supabase aggregate is now `0019_platform_core.sql` and `0018_platform_core.sql` is restored byte-identical to base. Runbook tick added to `tick.yml`. Ten requirements (PROD-CI-05/08/09, MACH-01, MACH-03, OBS-02, OBS-03, LIFE-02, LIFE-12, COST-03) are `implementation_complete_verification_pending`; none are verified and no tests were run. Six moved from planned to in_progress, so the counts below are stale by six. Next: [VERIFY-QUEUE.md](VERIFY-QUEUE.md).
+**5 October 2026 assembly (prod/compose):** merged PROD-LIFE-12, COST-03, MACH-03 and OBS-03 on top of CI repair, OBS-02, LIFE-02 and MACH-01. Platform migrations 17 to 20 are registered in order; the Supabase aggregate is now `0019_platform_core.sql` and `0018_platform_core.sql` is restored byte-identical to base. Runbook tick added to `tick.yml`. Ten requirements (PROD-CI-05/08/09, MACH-01, MACH-03, OBS-02, OBS-03, LIFE-02, LIFE-12, COST-03) are `implementation_complete_verification_pending`; none are verified and no tests were run. Next: [VERIFY-QUEUE.md](VERIFY-QUEUE.md).
 
 As-is machine-transfer checkpoint, 5 October 2026. Product commit `19be80b`, tree `7da4306a`; final handoff commit is the fetched published branch HEAD. [Exact handoff and commands](transfer/2026-10-05/README.md).
 
-**6 verified / 32 in progress / 40 planned**, all78 acceptance criteria retained. No new verified requirement; all four release states remain false.
+**6 verified / 38 in progress / 34 planned**, all78 acceptance criteria retained. No new verified requirement; all four release states remain false.
 
 - [x] Preserve71 earlier source commits, current93-path product candidate and complete pending3/11 packet bytes.
 - [x] Preserve available handoff versions, independent source reviews, current failure accounting and safe other-machine commands.
@@ -49,7 +49,7 @@ Counts overlap across source references and lanes. Historical unit18682P0F1167S,
 - [ ] PROD-DUR-07: Uncertain external mutation resolution (in_progress).
 - [ ] PROD-DUR-08: Build and cleanup deduplication (in_progress).
 - [ ] PROD-LIFE-01: Connection administration lifecycle (planned).
-- [ ] PROD-LIFE-02: Versioned offered capability catalog (planned).
+- [ ] PROD-LIFE-02: Versioned offered capability catalog (in_progress).
 - [ ] PROD-LIFE-03: AWS family migration and suffixes (in_progress).
 - [ ] PROD-LIFE-04: Azure data plane and sovereign identity (planned).
 - [ ] PROD-LIFE-05: OCI replacement and deletion evidence (planned).
@@ -59,16 +59,16 @@ Counts overlap across source references and lanes. Historical unit18682P0F1167S,
 - [ ] PROD-LIFE-09: Isolated untrusted build provenance (planned).
 - [ ] PROD-LIFE-10: Release and data migration safety (planned).
 - [ ] PROD-LIFE-11: Backup export import and adoption (in_progress).
-- [ ] PROD-LIFE-12: Single owner per mutable field (planned).
+- [ ] PROD-LIFE-12: Single owner per mutable field (in_progress).
 - [ ] PROD-MACH-01: Typed safe guest configuration (in_progress).
 - [ ] PROD-MACH-02: Kubernetes guest credentials (in_progress).
-- [ ] PROD-MACH-03: Signed automation and scheduling (planned).
+- [ ] PROD-MACH-03: Signed automation and scheduling (in_progress).
 - [ ] PROD-MACH-04: Linux runner delivery and lifecycle (in_progress).
 - [ ] PROD-MACH-05: Local customer credential custody (planned).
 - [ ] PROD-MACH-06: Bounded evaluated coding agents (planned).
 - [ ] PROD-OBS-01: Canonical observation-to-repair engine (in_progress).
-- [ ] PROD-OBS-02: Fresh scoped telemetry provenance (planned).
-- [ ] PROD-OBS-03: Incident stability and escalation (planned).
+- [ ] PROD-OBS-02: Fresh scoped telemetry provenance (in_progress).
+- [ ] PROD-OBS-03: Incident stability and escalation (in_progress).
 - [ ] PROD-OBS-04: Durable critical schedules (in_progress).
 - [ ] PROD-MAN-01: Default managed substrate and sessions (planned).
 - [ ] PROD-MAN-02: Managed serving integrations (planned).
@@ -91,7 +91,7 @@ Counts overlap across source references and lanes. Historical unit18682P0F1167S,
 - [ ] PROD-UX-03: Reviewed revocable plugin boundaries (planned).
 - [ ] PROD-COST-01: Source-backed dated price catalog (in_progress).
 - [ ] PROD-COST-02: Complete placement costs and constraints (in_progress).
-- [ ] PROD-COST-03: Bounded economic optimization (planned).
+- [ ] PROD-COST-03: Bounded economic optimization (in_progress).
 - [ ] PROD-REL-01: Required end-to-end release evidence (planned).
 - [ ] PROD-REL-02: Requirement-to-evidence release dossier (planned).
 - [ ] PROD-REL-03: Separate release status and signoff (planned).

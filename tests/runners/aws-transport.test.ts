@@ -24,7 +24,8 @@ import { RunnerJobError } from "@/lib/runners/dispatch";
 import type { AwsClientCtor } from "@/lib/credentials/types";
 import type { AwsConnectionConfig, ProviderConnection } from "@/lib/credentials/types";
 import { verifyCapabilityGrant } from "@/lib/credentials/grants";
-import { FakeAgent, FakeRunnerService, OPERATION, createPlane, registerFakeAgent, runnerGrant, teardownPlane, type AgentResultBody, type DecodedJob, type Plane } from "./_support";
+import * as repos from "@/lib/controlplane/db/repos";
+import { FakeAgent, FakeRunnerService, OPERATION, createPlane, openDbPlane, registerFakeAgent, runnerGrant, teardownPlane, type AgentResultBody, type DbPlane, type DecodedJob, type Plane } from "./_support";
 
 let plane: Plane;
 let agent: FakeAgent;
@@ -285,8 +286,32 @@ describe("failure mapping", () => {
 });
 
 describe("the credential broker's runner transport (RunnerAwsTransportFactory)", () => {
-  const connection = { id: "conn_1", workspaceId: "w-a" } as unknown as ProviderConnection;
-  const config = { provider: "aws", mode: "runner", accountId: "111122223333", region: "us-east-1", runnerId: "" } as unknown as AwsConnectionConfig;
+  const config: AwsConnectionConfig = {
+    provider: "aws", mode: "runner", accountId: "111122223333", region: "us-east-1", runnerId: "",
+    observeRoleArn: "arn:aws:iam::111122223333:role/x", deployRoleArn: "arn:aws:iam::111122223333:role/x",
+    runnerCustody: "local_only",
+  };
+  let bindingDb: DbPlane | undefined;
+  afterEach(async () => {
+    await bindingDb?.close();
+    bindingDb = undefined;
+  });
+
+  /** Real repository lifecycle on PGlite; runner and AWS replies remain modeled. */
+  async function verifiedRunnerConnection(): Promise<ProviderConnection> {
+    bindingDb = await openDbPlane();
+    const db = bindingDb.db;
+    const pending = await repos.connections.create(db, {
+      id: "conn_1", workspaceId: "w-a", createdBy: "runner-transport-fixture", config: { ...config, runnerId: agent.id },
+    });
+    expect(pending.status).toBe("pending_verification");
+    const verified = await repos.connections.recordVerification(db, { workspaceId: "w-a", id: pending.id, ok: true, detail: "modeled runner verification" });
+    expect(verified).toMatchObject({ id: pending.id, workspaceId: "w-a", status: "verified", config: { mode: "runner", runnerId: agent.id, runnerCustody: "local_only" } });
+    if (!verified) throw new Error("The scoped runner connection fixture was not verified.");
+    plane.rt.connections = (workspaceId, id) => repos.connections.get(db, workspaceId, id);
+    expect(await plane.rt.connections("w-b", verified.id)).toBeNull();
+    return verified;
+  }
 
   async function workerGrant() {
     const iat = Math.floor(plane.rt.now() / 1000);
@@ -294,6 +319,7 @@ describe("the credential broker's runner transport (RunnerAwsTransportFactory)",
   }
 
   it("re-addresses the worker's grant to the runner (same scope, new id, never wider) and serves SDK clients", async () => {
+    const connection = await verifiedRunnerConnection();
     const grant = await workerGrant();
     const transport = await createRunnerAwsTransportFactory({ runtime: plane.rt }).open({ connection, config: { ...config, runnerId: agent.id }, grant, purpose: "observe", roleArn: "arn:aws:iam::111122223333:role/x", expiresAt: new Date(plane.rt.now() + 5 * 60_000) });
     await start((job, p) => {
@@ -315,6 +341,7 @@ describe("the credential broker's runner transport (RunnerAwsTransportFactory)",
   });
 
   it("clamps the runner grant to the session's expiry across a wall-clock second boundary and refuses a connection that names no runner", async () => {
+    const connection = await verifiedRunnerConnection();
     const grant = await workerGrant();
     const expiresAt = new Date(plane.rt.now() + 60_000);
     await start((job) => {

@@ -75,13 +75,23 @@ it("scrubs unexpected errors in diagnostic logging as well as responses", () => 
   } finally { stderr.mockRestore(); }
 });
 it("halves large lists, marks truncation and stays under 256 KiB", () => {
-  const result = buildEnvelope(tool, { data: {}, untrusted: { logs: Array.from({ length: 1000 }, () => ({ message: "x".repeat(1000) })) } });
+  const result = buildEnvelope(tool, { data: {}, untrusted: { logs: Array.from({ length: 1000 }, () => ({ message: ".".repeat(1000) })) } });
   expect(result.truncated).toBe(true); expect(result.notes.length).toBeGreaterThan(0);
   expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThanOrEqual(MAX_RESULT_BYTES);
   expect((result.untrusted_data?.content.logs as unknown[]).length).toBeLessThan(1000);
 });
 it("a single uncuttable value becomes a bounded error", () => {
-  expect(() => buildEnvelope(tool, { data: { value: "x".repeat(200_000) } }, 1024)).toThrowError(McpToolError);
-  const error = buildErrorEnvelope(tool, { code: "test", message: "Error", details: { entries: Array.from({ length: 1000 }, () => "x".repeat(1000)) }, retryable: false });
+  expect(() => buildEnvelope(tool, { data: { value: ".".repeat(200_000) } }, 1024)).toThrowError(McpToolError);
+  const error = buildErrorEnvelope(tool, { code: "test", message: "Error", details: { entries: Array.from({ length: 1000 }, () => ".".repeat(1000)) }, retryable: false });
+  expect(error.truncated).toBe(true);
   expect(Buffer.byteLength(JSON.stringify(error))).toBeLessThanOrEqual(MAX_RESULT_BYTES);
+});
+it("still redacts credential-shaped bulk before applying the envelope byte budget", () => {
+  for (const length of [1000, 200_000]) {
+    const result = buildEnvelope(tool, { data: { value: "x".repeat(length) } });
+    expect(result.data.value).toBe("[REDACTED BLOB]");
+    expect(result.truncated).toBe(false);
+    expect(result.notes.some((note) => note.includes("long-base64"))).toBe(true);
+    assertSafe(result);
+  }
 });

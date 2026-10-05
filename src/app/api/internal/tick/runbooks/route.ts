@@ -10,6 +10,8 @@
  * Same gate as every tick route: `Authorization: Bearer $CRON_SECRET`, checked before anything
  * is read. `?budgetMs=` narrows the execution budget; it cannot widen the pass's ceiling.
  * Control-store only, like the reconcile tick: it does not boot the legacy product engine.
+ * This route is the fallback trigger (PROD-OBS-04): it yields (`deferred`) while the durable Temporal
+ * maintenance schedule has succeeded recently, and shares its lease and run record.
  */
 import type { NextRequest } from "next/server";
 import { authorizeCron, ensurePlatformCron } from "@/lib/server/cron";
@@ -17,6 +19,7 @@ import { errorResponse, json } from "@/lib/server/errors";
 import { intParam } from "@/lib/server/request";
 import { log, withRequestId } from "@/lib/log";
 import { runbookTickPass } from "@/lib/platform/runbooks";
+import { countsOf, runFallbackJob } from "@/lib/platform/critical-jobs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -29,7 +32,12 @@ export const POST = async (req: NextRequest): Promise<Response> => {
       authorizeCron(req);
       await ensurePlatformCron();
       const started = Date.now();
-      const result = await runbookTickPass({ budgetMs: intParam(req, "budgetMs", RUNBOOK_TICK_BUDGET_MS, { min: 1_000, max: RUNBOOK_TICK_BUDGET_MS }) });
+      const budgetMs = intParam(req, "budgetMs", RUNBOOK_TICK_BUDGET_MS, { min: 1_000, max: RUNBOOK_TICK_BUDGET_MS });
+      // GitHub cron is only the fallback trigger: same lease/record as the durable schedule, deferring while it is current.
+      const result = await runFallbackJob("runbooks", async () => {
+        const value = await runbookTickPass({ budgetMs });
+        return { value, performed: value.ran, counts: countsOf(value) };
+      }, { ran: false, created: 0, missed: 0, blocked: 0, executed: 0 });
       const body = { pass: "runbooks", ok: true, ...result, ms: Date.now() - started };
       log.info("internal tick", { scope: "cron", ...body });
       const res = json(body);

@@ -19,6 +19,7 @@ import { reconcilePass } from "@/lib/reconcile/pass";
 import type { ReconcilePassPorts, ReconcilePassResult } from "@/lib/reconcile/pass-types";
 import { composeOptimizerPorts } from "@/lib/platform/optimizer";
 import { runOptimizerPass, type OptimizerPassPorts } from "@/lib/placement/optimizer-pass";
+import { recordLeasedRun } from "@/lib/platform/critical-jobs";
 import { TASK_QUEUE } from "./types";
 import type { ReconcileSweepActivities, ReconcileSweepActivityInput, ReconcileSweepInput, ReconcileSweepResult } from "./definitions/reconcileSweep";
 
@@ -289,7 +290,9 @@ function runtime(db: Sql, ports: (signal: AbortSignal) => Promise<ReconcilePassP
           try { composed = await boundedReadiness(ports(signal)); } catch { if (context.cancellationSignal.aborted) throw new CancelledFailure(undefined); return { status: "deferred", reason: "prerequisites_unavailable" }; }
           context.cancellationSignal.throwIfAborted();
           signal.throwIfAborted();
-          return await withLease(boundedStore(db), { scope: RECONCILE_SWEEP_LEASE, holder: `reconcile-sweep:${passId}`, ttlMs: 90_000, signal }, async (_lease, heldSignal) => {
+          return await withLease(boundedStore(db), { scope: RECONCILE_SWEEP_LEASE, holder: `reconcile-sweep:${passId}`, ttlMs: 90_000, signal }, async (lease, heldSignal) => {
+            // Health record (PROD-OBS-04): fenced by the sweep lease; a bookkeeping failure never fails the pass.
+            const { outcome } = await recordLeasedRun(boundedStore(db), "reconcile", "temporal", lease.fenceToken, async () => {
             const result = await reconcilePass({ ports: cancellablePorts(composed, heldSignal), holder: `reconcile-sweep:${passId}`, maxEnvironments: args.maxEnvironments, environmentConcurrency: args.environmentConcurrency, budgetMs: 20_000, includeSandbox: false, reconcile: { autoRepair: true, deadlineAt: Date.now() + 50_000 } });
             heldSignal.throwIfAborted();
             // Per-environment opt-in (default off) and proposal-only. Its failure never turns a completed reconcile pass into a failure.
@@ -298,7 +301,10 @@ function runtime(db: Sql, ports: (signal: AbortSignal) => Promise<ReconcilePassP
               try { await runOptimizerPass(optimizerPorts, { maxEnvironments: args.maxEnvironments, signal: heldSignal }); }
               catch { heldSignal.throwIfAborted(); }
             }
-            return { status: "completed" as const, counts: countsOnly(result) };
+            const completed: ReconcileSweepResult = { status: "completed", counts: countsOnly(result) };
+            return { value: completed, performed: true, counts: { claimed: result.claimed, reconciled: result.reconciled, failed: result.failed, deferred: result.deferred, unreadNodes: result.unreadNodes, repairsProposed: result.repairsProposed } };
+            });
+            return outcome.value;
           });
         } catch (error) {
           if (context.cancellationSignal.aborted) throw new CancelledFailure(undefined);

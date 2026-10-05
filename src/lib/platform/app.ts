@@ -57,7 +57,11 @@ export function ensurePlatformApp(db?: Sql): Promise<boolean> {
 
 export async function platformRunnerReaperPass(): Promise<{ ran: boolean; jobs: number }> {
   if (!(await ensurePlatformApp())) return { ran: false, jobs: 0 };
-  const db = state().db!;
+  return reapRunnerJobs(state().db!);
+}
+
+/** The reap itself against an explicit store, so the durable worker and the HTTP fallback share one implementation. */
+export async function reapRunnerJobs(db: Sql): Promise<{ ran: boolean; jobs: number }> {
   // The reaper needs no signer/sealer: operate on the configured queues and
   // append the same safe events, without requiring cloud configuration.
   return db.tx(async (tx) => {

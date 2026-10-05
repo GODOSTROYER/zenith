@@ -10,6 +10,7 @@ import { Client, Connection } from "@temporalio/client";
 import type { DataConverter } from "@temporalio/common";
 import { connectionOptionsFor } from "@/lib/workflows/config";
 import { TASK_QUEUE } from "@/lib/workflows/types";
+import { ensureCriticalMaintenanceSchedule } from "@/lib/workflows/critical-schedule";
 import { ensureReconcileSchedule, inspectReconcileObservation, type ReconcileObservation, type ReconcileSweepRuntime } from "@/lib/workflows/reconcile-schedule";
 import type { ExecutionWorkerConfig, ReconcileWorkerConfig } from "./config";
 
@@ -79,6 +80,11 @@ export async function openReconcileWorkerClient(config: ExecutionWorkerConfig, d
 export async function prepareReconcileWorkerSchedule(client: Client, runtime: ReconcileSweepRuntime, config: ReconcileWorkerConfig): Promise<void> {
   if (config.mode === "provision") await ensureReconcileSchedule(client, runtime, config.input);
   else await runtime.assertReady();
+}
+
+/** Same custody rule as the reconcile schedule: only explicit provision mode creates it; observe mode never mutates. */
+export async function prepareCriticalMaintenanceSchedule(client: Client, config: ReconcileWorkerConfig): Promise<void> {
+  if (config.mode === "provision") await ensureCriticalMaintenanceSchedule(client);
 }
 
 /** Share one bounded inspection and retain only fixed phases/counts, never arguments/errors. */

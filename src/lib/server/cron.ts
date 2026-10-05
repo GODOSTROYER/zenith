@@ -80,17 +80,19 @@ export async function ensurePlatformCron(): Promise<boolean> {
 
 async function reapPlatformJobs(): Promise<void> {
   if (!(await ensurePlatformCron())) return;
-  const { platformRunnerReaperPass } = await import("@/lib/platform/app");
-  await platformRunnerReaperPass();
+  // Same lease, record and durable-deferral as the Temporal maintenance schedule (PROD-OBS-04).
+  const { runFallbackJob, MAINTENANCE_JOBS } = await import("@/lib/platform/critical-jobs");
+  await runFallbackJob("runner-reaper", (db) => MAINTENANCE_JOBS["runner-reaper"](db), { ran: false, jobs: 0 });
 }
 
 /** Control-store-only pass; authentication belongs to the calling cron route. */
 export async function housekeepingTickPass(): Promise<import("@/lib/platform/housekeeping").HousekeepingResult> {
   if (!(await ensurePlatformCron())) return { ran: false, idempotencyKeys: 0, nonces: 0, uncertain: 0, expired: 0 };
   try {
-    const { platformDb } = await import("@/lib/controlplane/db");
-    const { housekeepingPass } = await import("@/lib/platform/housekeeping");
-    return await housekeepingPass(await platformDb());
+    const { runFallbackJob, MAINTENANCE_JOBS } = await import("@/lib/platform/critical-jobs");
+    const idle = { ran: false, idempotencyKeys: 0, nonces: 0, uncertain: 0, expired: 0 };
+    const { deferred: _deferred, ...result } = await runFallbackJob("housekeeping", (db) => MAINTENANCE_JOBS.housekeeping(db), idle);
+    return result;
   } catch {
     throw new ApiError("Platform housekeeping could not complete; check control store connectivity and schema.", 503);
   }
@@ -99,8 +101,9 @@ export async function housekeepingTickPass(): Promise<import("@/lib/platform/hou
 /** Signed-runbook schedules and due runs; control-store only, bounded, lease-guarded. */
 export async function runbookTickPass(): Promise<import("@/lib/platform/runbooks").RunbookTickResult> {
   if (!(await ensurePlatformCron())) return { ran: false, created: 0, missed: 0, blocked: 0, executed: 0 };
-  const { runbookTickPass: pass } = await import("@/lib/platform/runbooks");
-  return pass({ budgetMs: 15_000 });
+  const { runFallbackJob, MAINTENANCE_JOBS } = await import("@/lib/platform/critical-jobs");
+  const { deferred: _deferred, ...result } = await runFallbackJob("runbooks", () => MAINTENANCE_JOBS.runbooks(), { ran: false, created: 0, missed: 0, blocked: 0, executed: 0 });
+  return result;
 }
 
 /* ------------------------------ authorisation ----------------------------- */
@@ -351,9 +354,10 @@ export const SCHEDULER_ENGINE_BUDGET_MS = 5_000;
  * return). Adding it here would tick it twice.
  */
 export const scheduledPasses = {
-  engine: engineTickPass,
-  alerts: alertTickPass,
-  outbox: outboxTickPass,
+  // Same lease, run record and durable-deferral as the HTTP routes (PROD-OBS-04); the result shape is unchanged.
+  engine: (budgetMs?: number) => fallbackPass("engine", async () => ({ ...(await engineTickPass(budgetMs)) })) as unknown as Promise<EngineTickResult>,
+  alerts: () => fallbackPass("alerts", async () => ({ ...(await alertTickPass()) })) as unknown as Promise<AlertTickResult>,
+  outbox: () => fallbackPass("outbox", async () => ({ ...(await outboxTickPass()) })) as unknown as Promise<OutboxTickResult>,
   housekeeping: housekeepingTickPass,
   runbooks: runbookTickPass,
 };
@@ -473,6 +477,14 @@ export const cronSchedulerRunning = (): boolean =>
 
 /* --------------------------------- routing -------------------------------- */
 
+/** Engine/alerts/outbox are durable-first (PROD-OBS-04): the HTTP trigger shares the lease and run record and defers while Temporal is current. */
+async function fallbackPass(name: string, run: () => Promise<Record<string, unknown>>): Promise<Record<string, unknown>> {
+  if (name !== "engine" && name !== "alerts" && name !== "outbox") return run();
+  if (!(await ensurePlatformCron())) return run();
+  const { runFallbackJob, countsOf } = await import("@/lib/platform/critical-jobs");
+  return runFallbackJob(name, async () => { const value = await run(); return { value, performed: true, counts: countsOf(value) }; }, {} as Record<string, unknown>);
+}
+
 /**
  * The wrapper every internal route uses.
  *
@@ -498,7 +510,7 @@ export function cronRoute(
           await ensureBoot();
         }
         const started = Date.now();
-        const counts = housekeeping ? await housekeepingTickPass() : await inCronScope(() => pass(req));
+        const counts = housekeeping ? await housekeepingTickPass() : await inCronScope(() => fallbackPass(name, () => pass(req)));
         const body = { pass: housekeeping ? "housekeeping" : name, ok: true, ms: Date.now() - started, ...counts };
         log.info("internal tick", { scope: "cron", ...body });
         const res = json(body);

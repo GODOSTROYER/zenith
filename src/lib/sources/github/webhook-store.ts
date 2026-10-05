@@ -85,18 +85,19 @@ export function createGithubWebhookStore(db: Sql, backendKind = (db as Sql & { r
           and ($3::boolean or repository_id = any($4::bigint[])) order by workspace_id for update`,
         [event.appId, event.installationId, event.event === "installation", ids]);
         const actor = "github_webhook";
+        const reason = event.event === "installation_repositories" ? "repositories_removed" : event.action === "suspend" ? "installation_suspended" : "installation_deleted";
         let revokedCount = 0;
         for (const row of affected) {
           if (row.active) {
             const changed = await tx.query(`update platform.github_source_bindings
-              set revoked_at = clock_timestamp(), revoked_by = $2, version = version + 1, updated_at = clock_timestamp()
+              set revoked_at = clock_timestamp(), revoked_by = $2, revoked_reason = $5, version = version + 1, updated_at = clock_timestamp()
               where workspace_id = $1 and app_id = $3 and installation_id = $4 and revoked_at is null returning version`,
-            [row.workspace_id, actor, event.appId, event.installationId]);
+            [row.workspace_id, actor, event.appId, event.installationId, reason]);
             if (changed.length !== 1) throw new GithubSourceError("conflict");
             await tx.query(`insert into platform.github_binding_events
-              (workspace_id, version, action, actor_id, app_id, installation_id, repository_id, owner, repo)
-              select workspace_id, version, 'revoked', $2, app_id, installation_id, repository_id, owner, repo
-              from platform.github_source_bindings where workspace_id = $1`, [row.workspace_id, actor]);
+              (workspace_id, version, action, actor_id, app_id, installation_id, repository_id, owner, repo, reason)
+              select workspace_id, version, 'revoked', $2, app_id, installation_id, repository_id, owner, repo, $3::text
+              from platform.github_source_bindings where workspace_id = $1`, [row.workspace_id, actor, reason]);
             revokedCount++;
           }
           // Includes pending callbacks on an already-revoked matching row.

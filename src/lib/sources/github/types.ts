@@ -19,7 +19,7 @@ export interface GithubAppConfig {
   clientSecretFile?: string;
 }
 export class GithubSourceError extends Error {
-  constructor(readonly code: "invalid" | "unavailable" | "refused" | "conflict") {
+  constructor(readonly code: "invalid" | "unavailable" | "refused" | "conflict", readonly detail?: string) {
     super({ invalid: "GitHub source input is invalid.", unavailable: "GitHub source access could not be confirmed.", refused: "GitHub source access was refused.", conflict: "GitHub source binding changed; start again." }[code]);
     this.name = "GithubSourceError";
   }

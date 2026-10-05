@@ -68,7 +68,7 @@ export function createGithubImmutableSourceAccess(deps: { db: () => Promise<Sql>
       const config=githubAppConfig(deps.env);
       if(!config || config.appId!==binding.appId || binding.owner!==location.owner || binding.repo!==location.repo)throw new GithubSourceError("refused");
       return await bounded(createGithubApp(config,{fetchImpl:deps.fetchImpl}).withRepositoryAccess(binding,run,signal));
-    }catch{throw new GithubSourceError("unavailable");}
+    }catch(error){if(error instanceof GithubSourceError&&error.detail)throw error;throw new GithubSourceError("unavailable");}
   };
 }
 export const defaultGithubImmutableSourceAccess=createGithubImmutableSourceAccess({db:platformDb});

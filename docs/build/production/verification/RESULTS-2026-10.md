@@ -1,3 +1,13 @@
+# 6 October continuation: exact baseline green; next candidate pending
+
+Published `8b881fea4d58e5738076003d1d367b1c47fa0066` completed main CI 16/16 and native worker CI 2/2 successfully. Targeted retries replaced only runner-acquisition cancellations; ARM execution belongs to attempt 1 and AMD execution to attempt 2. Local unit 19,630 passed / 0 failed / 1,276 skipped differs from remote unit 19,391 passed / 0 failed / 1,515 skipped; do not sum them. Local policy 238/0/0 and real OpenTofu 3,916/0/18 passed strict validators. Actual PostgreSQL 322/0/0, platform PostgreSQL 3,016/0/8 declared skips and Temporal 1,273/0/0 executed their required identities. Fresh local kind provider 6/6, release 1/1 and guest 48/48 passed without skips. Owned resources were removed. [Source-bound receipt](../evidence/PROD-CI-08/2026-10-06-ci-8b881fea.json) preserves scope and original failed attempts.
+
+Local `1bedb8fa1c27eeb596308de12fcfaded67c09379` adds independently reviewed MACH-01 systemd acceptance tests and registration. Root combined 433/0/0, compiler, lint, formatting, workflow validation, tagged Linux vet and crosscompilation passed. Actual systemd execution remains pending; this source is not covered by the preceding green CI. [Contract receipt](../evidence/PROD-MACH-01/2026-10-06-systemd-contract.json).
+
+A new, isolated LIFE-12 regression reproduced an unsafe execution grant after revoking an approved autoscaler ownership transfer. The real tenant-scoped store refused a fresh proposal, while an already-approved scale still began execution. No provider call occurred. The regression remains unintegrated; Narrow repair in the existing claim and final-grant boundaries is authorized; implementation review and race-test acceptance remain pending. This finding keeps LIFE-12 open despite green baseline CI. MACH-03 route joins (42 passed) and wave-2 build/release joins (8 passed) remain separate reviewed or review-pending source packets, not requirement acceptance. All 78 criteria and release flags remain intact.
+
+---
+
 # Verifier results, 5 October 2026
 
 ## 6 October resumed verifier: native gates passed, full CI failed

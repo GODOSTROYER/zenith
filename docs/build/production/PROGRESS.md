@@ -1,3 +1,9 @@
+# 6 October continuation checkpoint
+
+Exact published `8b881fea` CI is green: main 16/16 and native workers 2/2. Fresh local full gates and kind provider/release/guest passed, with declared skips retained in their separate lanes. Local MACH-01 test/gate commit `1bedb8fa` awaits native systemd acceptance. LIFE-12 revoked-transfer grant regression failed; narrow repair is authorized and remains pending independent review and execution. Ledger remains 6 verified / 44 in progress / 28 planned; all release flags remain false. See [results](verification/RESULTS-2026-10.md).
+
+---
+
 # Production progress
 
 ## 6 October resumed verifier: native gates passed, full CI failed

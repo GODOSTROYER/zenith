@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "1bedb8fa1c27eeb596308de12fcfaded67c09379",
+  "status": "contract_checks_passed_native_systemd_unrun",
+  "ownedSourcePaths": [
+    ".github/workflows/ci.yml",
+    "scripts/ci/gate-manifest.mjs",
+    "scripts/ci/run-guest-file-write-gate.mjs",
+    "tests/ci/guest-file-write-gate.test.ts",
+    "go/internal/machine/ops/serviceconfigure_systemd_linux_test.go",
+    "go/internal/machine/serviceconfigure_systemd_linux_test.go",
+    "scripts/ci/service-configure-systemd-fixtures.py"
+  ],
+  "rootChecks": {
+    "combinedModels": {
+      "passed": 433,
+      "failed": 0,
+      "skipped": 0
+    },
+    "compilerExit": 0,
+    "lintExit": 0,
+    "workflowValidatorExit": 0,
+    "formatExit": 0,
+    "taggedLinuxAmd64VetExit": 0,
+    "taggedLinuxArm64VetExit": 0,
+    "taggedLinuxArm64CrosscompileExit": 0
+  },
+  "requiredRuntime": {
+    "existingNativeGuestIdentities": 152,
+    "newSystemdEvents": 15,
+    "newSystemdParents": 2,
+    "newSystemdLeaves": 13,
+    "order": "actual unprivileged operations, then actual signed executor",
+    "testCapabilities": "effective/permitted/inheritable/ambient zero; NoNewPrivs1",
+    "cleanupTransport": "separate fixed sudo helper; unprivileged wrapper capabilities zero/NoNewPrivs0; no claim of test isolation for this wrapper",
+    "publication": "Current ordered successful execution, fixed owned systemd cleanup, canonical guest cleanup and independent four-root absence required"
+  },
+  "reviews": {
+    "systemdR2": "a848f4915e2028027713a67b257581a9e5fd2122dd9386d29e78d4562c76dd65",
+    "registrationR1": "6dbeda124871589f4e83c92212e5f060fc52f5ea07b3347d45c52c67cb648a81"
+  },
+  "limits": [
+    "No genuine tagged systemd/polkit execution yet.",
+    "Crosscompilation, vet and model tests do not substitute for native runtime.",
+    "Existing152/package4/optional3/goldens and validators preserved.",
+    "No installed daemon, default browser-human approval, cloud or live service evidence.",
+    "No requirement or release state promotion."
+  ]
+}

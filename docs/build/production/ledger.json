@@ -376,6 +376,44 @@
             "architecture": "native Darwin ARM64"
           },
           "logs": "docs/build/production/evidence/PROD-CI-05/2026-10-06-gate-fixture-contract.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "8b881fea4d58e5738076003d1d367b1c47fa0066",
+          "result": "Local unit19630 passed/0 failed/1276 skipped; policy238/0/0; real OpenTofu3916/0/18; Go941 passed test events/5 skipped events (parents and leaves, not a unique leaf total); all generated/security/strict validators exit0. Fresh local kind provider6/release1/guest48 all0F0S, owned cleanup confirmed. Separate evidence, no overlapping sum.",
+          "command": "Source-bound serialized full local unit/Go/generated/security/policy/OpenTofu gate; fresh disposable kind provider/release/guest suites",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "OpenTofu": "1.12.5",
+            "OPA": "1.19.1",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "kind": "0.33.0",
+            "kubectl": "1.37.0"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-8b881fea.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "8b881fea4d58e5738076003d1d367b1c47fa0066",
+          "result": "Exact8b terminal main16 successful jobs/native2 successful jobs; targeted retries only for unacquired Docker/AMD runners. Remote unit19391P0F1515S; actual PostgreSQL322P0F0S/80required, platform3016P0F8declaredS/1124required, Temporal1273P0F0S/60required; native Go152required and native packaged workers22each/cleanup6each. Source/attempts independently matched. Changed MACH01 candidate and ownership-revocation regression remain outside this green run.",
+          "command": "Complete main/native job and source-bound artifact inspection",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "OpenTofu": "1.12.5",
+            "OPA": "1.19.1",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "kind": "0.33.0",
+            "kubectl": "1.37.0"
+          },
+          "runId": 37373473708,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37373473708",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-8b881fea.json"
         }
       ],
       "requiredEvidence": [
@@ -633,6 +671,44 @@
             "architectures": "native Linux AMD64 guest; native Linux AMD64 and ARM64 workers"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-fcf4f150.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "8b881fea4d58e5738076003d1d367b1c47fa0066",
+          "result": "Local unit19630 passed/0 failed/1276 skipped; policy238/0/0; real OpenTofu3916/0/18; Go941 passed test events/5 skipped events (parents and leaves, not a unique leaf total); all generated/security/strict validators exit0. Fresh local kind provider6/release1/guest48 all0F0S, owned cleanup confirmed. Separate evidence, no overlapping sum.",
+          "command": "Source-bound serialized full local unit/Go/generated/security/policy/OpenTofu gate; fresh disposable kind provider/release/guest suites",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "OpenTofu": "1.12.5",
+            "OPA": "1.19.1",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "kind": "0.33.0",
+            "kubectl": "1.37.0"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-8b881fea.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "8b881fea4d58e5738076003d1d367b1c47fa0066",
+          "result": "Exact8b terminal main16 successful jobs/native2 successful jobs; targeted retries only for unacquired Docker/AMD runners. Remote unit19391P0F1515S; actual PostgreSQL322P0F0S/80required, platform3016P0F8declaredS/1124required, Temporal1273P0F0S/60required; native Go152required and native packaged workers22each/cleanup6each. Source/attempts independently matched. Changed MACH01 candidate and ownership-revocation regression remain outside this green run.",
+          "command": "Complete main/native job and source-bound artifact inspection",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "OpenTofu": "1.12.5",
+            "OPA": "1.19.1",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "kind": "0.33.0",
+            "kubectl": "1.37.0"
+          },
+          "runId": 37373473708,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37373473708",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-8b881fea.json"
         }
       ],
       "requiredEvidence": [
@@ -841,6 +917,26 @@
             "architectures": "native Linux AMD64 guest; native Linux AMD64 and ARM64 workers"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-fcf4f150.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "8b881fea4d58e5738076003d1d367b1c47fa0066",
+          "result": "Exact8b terminal main16 successful jobs/native2 successful jobs; targeted retries only for unacquired Docker/AMD runners. Remote unit19391P0F1515S; actual PostgreSQL322P0F0S/80required, platform3016P0F8declaredS/1124required, Temporal1273P0F0S/60required; native Go152required and native packaged workers22each/cleanup6each. Source/attempts independently matched. Changed MACH01 candidate and ownership-revocation regression remain outside this green run.",
+          "command": "Complete main/native job and source-bound artifact inspection",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "OpenTofu": "1.12.5",
+            "OPA": "1.19.1",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "kind": "0.33.0",
+            "kubectl": "1.37.0"
+          },
+          "runId": 37373473708,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37373473708",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-8b881fea.json"
         }
       ],
       "requiredEvidence": [
@@ -1938,7 +2034,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationStatus": "reviewed_systemd_test_gate_integrated_native_execution_pending",
       "evidence": [
         {
           "level": "contract",
@@ -1959,6 +2055,18 @@
           "commit": "4bfda972dcb8ebc04b309c4ad63a1e987033c4a8",
           "result": "Actual native guest source4bf:801passed leaves/0failed/3allowed skips,55parents,17packages; privileged/unprivileged persistent-ext4/mount/ACL/crash/uncertainty/rotation behavior and five authentic goldens. Integrated Go/fixture/CI inputs byte-identical; receipt retains4bf source and lock. Additional28actual fixture tamper/cleanup checks passed. Whole pushed exact-source native CI, systemd and signed browser journey remain open.",
           "artifact": "docs/build/production/verification/2026-10-03-g1-integration.json"
+        },
+        {
+          "level": "contract",
+          "commit": "1bedb8fa1c27eeb596308de12fcfaded67c09379",
+          "result": "Reviewed seven-path systemd test/mandatory gate candidate integrated locally. Root combined433P0F0S/compiler/lint/format/workflow validator/tagged Linux AMD64+ARM64 vet/crosscompile pass. Actual15 required tagged systemd events and two cleanup results unrun; old152 guest identities unchanged.",
+          "command": "Root combined targeted gate model suites, compiler/lint/actionlint/gofmt, Linux tagged vet and crosscompilation",
+          "environment": {
+            "node": "22.23.3",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "architecture": "native Darwin ARM64 host, Linux AMD64/ARM64 vet and Linux ARM64 crosscompile only"
+          },
+          "logs": "docs/build/production/evidence/PROD-MACH-01/2026-10-06-systemd-contract.json"
         }
       ],
       "requiredEvidence": [

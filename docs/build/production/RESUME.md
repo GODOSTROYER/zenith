@@ -1,3 +1,9 @@
+# 6 October verifier continuation
+
+Published baseline `8b881fea` has complete green main/native CI and fresh local kind evidence. Local source commit `1bedb8fa` adds reviewed MACH-01 real-systemd tests and mandatory gate registration; actual tagged runtime must pass before MACH-01 acceptance. [Latest results](verification/RESULTS-2026-10.md) distinguish baseline evidence, pending source and the reproduced LIFE-12 transfer-revocation defect. Narrow final-claim/final-grant repair is authorized and under implementation review; no provider calls occurred. No requirement or release state is promoted. Continue HANDOFF-VERIFIER order, preserve all strict cases and run the complete pushed successor CI.
+
+---
+
 # Production resume
 
 Current published source `fcf4f150`: main CI6 successful/1 failed/9 cancelled; native Linux152 and both native worker22 gates passed. Five stale gate-manifest source assertions corrected in reviewed `80482e41`; root370 tests, lint and4GiB compiler passed. Fresh complete CI remains required. Local whole suite has same five failures. Read latest RESULTS before older chronology. Test-only scope and Saivedant identity preserved.

@@ -5,7 +5,7 @@
  */
 import { immutableSourceSnapshot, type ApprovedSourceSnapshot, type SourceCaptureInput } from "@/lib/execution/source-snapshot";
 import type { DriverContext } from "@/lib/drivers/types";
-import type { BuildHandle, BuildPort, BuildResult, MigrationsPort, ProberPort, ProbeRequest, ProbeResult, SourceBundlePort, WorkloadsPort } from "@/lib/execution/ports";
+import type { BuildHandle, BuildPort, BuildResult, MigrationsPort, ProgressiveWorkloadsPort, ProberPort, ProbeRequest, ProbeResult, SourceBundlePort, WorkloadsPort } from "@/lib/execution/ports";
 import type { ResourceNode } from "@/lib/resources/types";
 import { awsAttestation } from "./provenance";
 
@@ -72,7 +72,34 @@ export class FakeBuild implements BuildPort {
   }
 }
 
+/** Weighted-traffic fake: records every call; `supported` scripts the capability. */
+export class FakeProgressive implements ProgressiveWorkloadsPort {
+  readonly calls: string[] = [];
+  supported = true;
+  async support(): Promise<{ supported: boolean; reason?: string }> {
+    return this.supported ? { supported: true } : { supported: false, reason: "this fake has no weighted traffic" };
+  }
+  async stageCandidate(_ctx: DriverContext, service: ResourceNode, image: { uri: string; digest: string }): Promise<{ detail?: string }> {
+    this.calls.push(`stage ${service.address} ${image.digest.slice(0, 12)}`);
+    return {};
+  }
+  async setTrafficPercent(_ctx: DriverContext, service: ResourceNode, input: { candidateDigest: string; percent: number }): Promise<{ observedPercent: number }> {
+    this.calls.push(`traffic ${service.address} ${input.percent}`);
+    return { observedPercent: input.percent };
+  }
+  async abort(_ctx: DriverContext, service: ResourceNode): Promise<{ detail?: string }> {
+    this.calls.push(`abort ${service.address}`);
+    return {};
+  }
+}
+
 export class FakeWorkloads implements WorkloadsPort {
+  /** what `readServing` reports; `undefined` reports the adapter as unable to read it */
+  serving: { digest?: string; steady?: boolean } | undefined;
+  progressive: FakeProgressive | undefined;
+  async readServing(): Promise<{ supported: boolean; digest?: string; steady?: boolean; detail?: string }> {
+    return this.serving ? { supported: true, ...this.serving } : { supported: false };
+  }
   readonly deployed: { service: string; uri: string; digest: string; idempotencyKey: string }[] = [];
   readonly waited: string[] = [];
   steady = true;

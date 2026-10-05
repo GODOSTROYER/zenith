@@ -19,6 +19,7 @@ import { createExecutionBroker } from "./broker";
 import { registerAllDrivers } from "./drivers";
 import { platformDriverLookup } from "./driver-lookup";
 import { createReleasePorts } from "./release";
+import { createPlatformReleaseSafety } from "./release-safety";
 import { composeReconcilePorts } from "./reconcile";
 import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
 import type { SourceBundleDeps } from "./source-bundle";
@@ -118,6 +119,8 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     provenance: { signer: () => getControlSigner(), keys: () => getControlVerificationKeys() },
     // Unrestricted build egress is refused unless the operator sets this recorded exception.
     buildIsolation: { allowOpenEgress: process.env.ZENITH_BUILD_ALLOW_OPEN_EGRESS === "1" },
+    // Digest-bound release runs, provenance gate, migration approval, rollout and readback (PROD-LIFE-10).
+    releaseSafety: createPlatformReleaseSafety(opts.db),
     machines: opts.ports?.machines ?? createDefaultMachinePort(opts.db, opts.secretKey ?? process.env.ZENITH_SECRET_KEY!),
     ...opts.ports,
     // The captured source authority is final; the generic test-port spread cannot replace it.

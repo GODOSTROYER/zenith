@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 export default function PlatformLayout({ children }: { children: ReactNode }) {
   return <div className="product-page mx-auto h-full max-w-[1320px] overflow-y-auto">
     <nav aria-label="Platform navigation" className="mb-6 flex flex-wrap gap-5 border-b border-line pb-4 text-[13px] text-signal">
-      <Link href="/platform">Operations</Link><Link href="/platform/environments">Environments</Link>
+      <Link href="/platform">Operations</Link><Link href="/platform/environments">Environments</Link><Link href="/platform/releases">Releases</Link>
       <Link href="/platform/settings">Workspace policy</Link><Link href="/platform/connections">Connections</Link><Link href="/platform/connections/aws">Connect AWS</Link>
       <Link href="/platform/source">GitHub source</Link>
     </nav>{children}

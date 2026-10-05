@@ -206,15 +206,38 @@ export const MigrateHook = z
     command: z.array(ReleaseArg).min(1).max(32),
     /** how long the one-off task may run; the deploy's own step deadline still applies */
     timeoutSec: z.number().int().min(1).max(3600).optional(),
+    /**
+     * What the migration does to the database, declared by a person because an argv is opaque to
+     * Zenith. `expand` is additive and backward compatible and runs after the normal deployment
+     * approval. `data` (backfills) and `contract` (removes or changes schema the previous code
+     * needs) each need a SEPARATE approval of the exact migration by someone other than the
+     * requester. Absent is treated as `contract`: an unclassified migration is never assumed safe.
+     */
+    class: z.enum(["expand", "data", "contract"]).optional(),
   })
   .strict();
 export type MigrateHook = z.infer<typeof MigrateHook>;
 
 /**
+ * How the new image takes traffic. `rolling` (default) is the provider's own replacement.
+ * `progressive` sends the listed percentages to the candidate (a canary) with a bake period
+ * between steps; the last step must be 100 and is the cutover. Providers whose release adapter
+ * cannot split traffic refuse a progressive rollout before anything is deployed.
+ */
+export const RolloutHook = z
+  .object({
+    strategy: z.enum(["rolling", "progressive"]).default("rolling"),
+    steps: z.array(z.number().int().min(1).max(100)).min(1).max(6).optional(),
+    bakeSec: z.number().int().min(0).max(3600).optional(),
+  })
+  .strict();
+export type RolloutHook = z.infer<typeof RolloutHook>;
+
+/**
  * V2 addition (additive): steps that run as part of a release. Only `migrate`
  * exists today. Absent means "no release steps"; nothing is defaulted.
  */
-export const Release = z.object({ migrate: MigrateHook.optional() }).strict();
+export const Release = z.object({ migrate: MigrateHook.optional(), rollout: RolloutHook.optional() }).strict();
 export type Release = z.infer<typeof Release>;
 
 /* ------------------------------- manifest -------------------------------- */

@@ -471,6 +471,26 @@ export interface WorkloadsPort {
   deployImage(ctx: DriverContext, service: ResourceNode, image: { uri: string; digest: string }, opts: { idempotencyKey: string }): Promise<{ detail?: string }>;
   /** Wait until the service reaches steady state (`steady: false` on timeout or a failed rollout). */
   waitSteady(ctx: DriverContext, service: ResourceNode, opts: { timeoutMs: number }): Promise<{ steady: boolean; detail?: string }>;
+  /**
+   * Read what the provider reports it is SERVING now (post-cutover readback). `supported: false`
+   * means this adapter cannot read it; the release then ends as cut over but NOT readback verified.
+   */
+  readServing?(ctx: DriverContext, service: ResourceNode): Promise<{ supported: boolean; digest?: string; steady?: boolean; detail?: string }>;
+  /** Weighted traffic (canary) control. Absent, or `support` reporting false, means progressive rollout is refused. */
+  progressive?: ProgressiveWorkloadsPort;
+}
+
+/**
+ * Percentage traffic splitting between the serving image and a candidate. `stageCandidate` deploys
+ * the candidate while HOLDING traffic on the serving revision; `setTrafficPercent` moves traffic
+ * (100 is the cutover). The idempotency key makes a retried call a no-op.
+ */
+export interface ProgressiveWorkloadsPort {
+  support(ctx: DriverContext, service: ResourceNode): Promise<{ supported: boolean; reason?: string }>;
+  stageCandidate(ctx: DriverContext, service: ResourceNode, image: { uri: string; digest: string }, opts: { idempotencyKey: string }): Promise<{ detail?: string }>;
+  setTrafficPercent(ctx: DriverContext, service: ResourceNode, input: { candidateDigest: string; percent: number; idempotencyKey: string }): Promise<{ observedPercent: number; detail?: string }>;
+  /** Put all traffic back on the previously serving revision. Code only: it never touches data. */
+  abort(ctx: DriverContext, service: ResourceNode, input: { candidateDigest: string }): Promise<{ detail?: string }>;
 }
 
 /** One-off tasks (release migrations). Backed by the compute drivers' run-task operation (WS-AWS-CMP). */
@@ -598,6 +618,12 @@ export interface ExecutionDeps {
   buildIsolation?: import("./build-isolation").BuildIsolationPolicy;
   workloads?: WorkloadsPort;
   migrations?: MigrationsPort;
+  /**
+   * Release pipeline safety (PROD-LIFE-10): digest-bound release runs, provenance gate, migration
+   * classification and approval, progressive rollout, readback, code rollback safety. When absent
+   * the release activities behave as before; the platform composition always supplies it.
+   */
+  releaseSafety?: import("@/lib/release-safety").ReleaseSafetyService;
   /* runtime */
   /** Temporal's `Context.current().heartbeat`, wired by the worker. Default: no-op. */
   heartbeat?: (detail?: unknown) => void;

@@ -41,6 +41,8 @@ export interface WorldOptions {
   signal?: AbortSignal;
   /** omit the build/workload/migration/bundle ports (a worker without them) */
   withoutRelease?: boolean;
+  /** the release pipeline service (PROD-LIFE-10); absent means the legacy release behaviour */
+  releaseSafety?: import("@/lib/release-safety").ReleaseSafetyService;
   /** seed the operation (default: an approved deployment.deploy) */
   op?: Parameters<FakeOps["seed"]>[0];
 }
@@ -174,6 +176,7 @@ export function createWorld(opts: WorldOptions = {}): World {
     ...(opts.withoutRelease ? {} : { sourceBundle, build, workloads, migrations }),
     provenance,
     buildIsolation: { allowOpenEgress: false },
+    ...(opts.releaseSafety ? { releaseSafety: opts.releaseSafety } : {}),
     heartbeat: (detail) => heartbeats.push(detail),
     ...(opts.signal ? { activitySignal: () => opts.signal } : {}),
     clock: () => new Date(NOW),

@@ -1,0 +1,186 @@
+{
+  "disposition": "CORRECTION_REQUIRED_SOURCE_ONLY_RUNTIME_UNVERIFIED",
+  "reviewer": "Independent C admission audit; A author; root runtime/integration owner",
+  "axis": "Encrypted settlement purpose/tuple integrity, copied receipt and raw-state boundaries, key rotation, native final current-authority CAS, diagnostic status/SQL witness refusal; separate physical/descriptor axis explicitly retained",
+  "freeze": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/FROZEN-SOURCE.json",
+    "sha256": "4d26f704afc6abf65452c83c569e0264b589b7267a1425f854be06321c06fb85"
+  },
+  "patch": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/candidate.patch",
+    "sha256": "abdcd294212a3b399db9679cb5a34d9d3342749cda3fa8de976aa7c670954b91",
+    "bytes": 341203,
+    "paths": [
+      "docs/build/handoffs/CLEANUP-PAIRED-NATIVE-FIXTURES-20261005.md",
+      "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+      "src/lib/controlplane/db/migrations/0016_cleanup_writer_settlements.ts",
+      "src/lib/controlplane/db/migrations/emit.ts",
+      "src/lib/controlplane/db/migrations/index.ts",
+      "src/lib/controlplane/db/repos/cleanup-writer-barriers.ts",
+      "src/lib/controlplane/db/repos/plan-artifacts.ts",
+      "src/lib/platform/plan-artifacts.ts",
+      "src/lib/tofu/engine.ts",
+      "src/lib/tofu/runner.ts",
+      "supabase/migrations/0018_platform_core.sql",
+      "tests/controlplane/_support/saved-native-plan.ts",
+      "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "tests/controlplane/plan-artifact-integration-authority.test.ts",
+      "tests/controlplane/plan-artifact-oauth-authority.test.ts",
+      "tests/controlplane/plan-artifact-product-authority.test.ts",
+      "tests/tofu/plan-artifact-handoff.test.ts"
+    ]
+  },
+  "caseContract": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/CASE-CONTRACT.json",
+    "sha256": "c861acd36702b25758be61b53e629c725c5d4c1cfd74a63df79b284fff94f68a"
+  },
+  "preparedTree": "8d02dce368cc07809b09175a632f7c01c41d2c23",
+  "candidateTree": "fa1d95ad8f28fc529fe975d596af92962d8c51c8",
+  "mechanicalBinding": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/journey-authority-review-20261004/saved-plan-writer-settlement-mechanical-binding-r1.json",
+    "sha256": "ff1a654bb2295a7006a8933f6fc5ed543229ff69b4a25040f7b0fad401a4fbb6",
+    "owned": 17,
+    "fullPrepared": 3830,
+    "fullCandidate": 3835,
+    "outside": 3818,
+    "independentPreparedCandidateTreesAndPureForwardReverseExact": true,
+    "rawIndexAndNulStageEntriesExact": true
+  },
+  "cryptoAndAuthorityObservations": [
+    {
+      "scope": "Purpose and full tuple",
+      "result": "No additional blocker found on this axis",
+      "evidence": "Settlement encryption uses workspace custody and a distinct zenith.tofu.standalone-settlement.v1 plus canonical full-binding hash AAD. All eleven binding values are checked against authenticated plaintext, and the original manifest/raw/config/lock/executable/purpose digests are checked independently. The original plan artifact uses another domain."
+    },
+    {
+      "scope": "Secret and cross-tenant projection",
+      "result": "No additional blocker found on this axis",
+      "evidence": "Plain state/backend pathname remain outside receipt DTO and native row; targetPath exists inside authenticated ciphertext. Tenant/project/environment/operation/attempt/backend/physical target/lease tuples are retained. Copied binding controls cover all eleven fields. Native history selection decrypts both original artifact and settlement before any exclusion is available to a private origin."
+    },
+    {
+      "scope": "Key rotation and historical evidence",
+      "result": "No additional blocker found on this axis",
+      "evidence": "Fresh engines read retained ciphertext only using explicitly configured key overlap; retirement fails closed. Current completion requires unchanged authenticated state, while historical settlement can remain an authenticated completion fact after later legitimate state movement. Historical evidence does not authorize the new mutation."
+    },
+    {
+      "scope": "Native final completion",
+      "result": "No additional blocker found on this axis",
+      "evidence": "The exact private completion origin is one-shot and owning-SQL-bound. Existing operation/use/backend locks precede the final workspace coordinator. After waits, the private raw/artifact/current-state authentication and genuine default evaluated requirement are repeated. One UPDATE plus INSERT CTE repeats the live lease/current source/current product/requester/consumed approver and backend owner predicates, writes only from the changed exact dispatched attempt and refuses zero rows."
+    },
+    {
+      "scope": "Later continuation and exclusions",
+      "result": "No additional blocker found on this axis",
+      "evidence": "The private authenticated exclusion set is checked again against the exact immutable native receipt, terminal use, backend owner and entire original artifact row at the final hold/reservation/grant/dispatch boundary. A public SQL/status projection cannot register an origin. Other grants/workflow/build/runner/machine and pre-epoch histories retain blockers."
+    },
+    {
+      "scope": "Actual hostile test preconditions",
+      "result": "Two prior C controls corrected before this freeze",
+      "evidence": "The SQL-seeded control now INSERTs a real constraint-valid unauthenticated receipt from the original native use/backend/artifact tuple, proves it remains retained and prevents a genuine later destroy with unchanged state. The ciphertext control now supplies the actual original artifact IV/tag/ciphertext under the same key into the settlement domain, independently of corruption and wrong-key controls. Both are authored but unexecuted."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "BLOCKING_SOURCE_CONTRACT",
+      "title": "Post-await mutable run methods and fields can execute hostile accessors before descriptor refusal",
+      "independentExactSourceLocations": [
+        {
+          "path": "src/lib/tofu/engine.ts",
+          "line": 293,
+          "trace": "The pre-init canonical guard precedes awaited init; the later run.plan method is then read without a fresh descriptor guard."
+        },
+        {
+          "path": "src/lib/tofu/runner.ts",
+          "line": 530,
+          "trace": "normalizedPlan awaits showJson and then reads mutable this.i session/workspace/environment fields."
+        },
+        {
+          "path": "src/lib/tofu/runner.ts",
+          "line": 587,
+          "trace": "apply crosses digest/normalization/beforeDispatch awaits before subsequent mutable method reads."
+        },
+        {
+          "path": "src/lib/tofu/runner.ts",
+          "line": 322,
+          "trace": "TofuRunner.run finally reads run.dispose after awaiting the callback, before the internal dispose origin guard."
+        }
+      ],
+      "implication": "Private native command/cleanup evidence still prevents a false settlement stamp, but that later refusal does not satisfy the advertised zero-hostile-getter admission boundary. No executed exploit or forged ciphertext is claimed.",
+      "boundedCorrection": "Repeat descriptor-only registered origin/workspace checks before all later method and field reads after awaits, capture original data fields across waits, guard final method selection before disposal, and add separately meaningful zero-callback controls while preserving legacy behavior and nonreplay. A separate immutable R2 requires new independent source review.",
+      "independentPeerReceipt": {
+        "path": "/Users/saivedanthava/.codex/zenith-production/logs/integration-authority-review-20261004/saved-plan-writer-settlement-r1-review-20261005/REVIEW.json",
+        "sha256": "b73b49fea0ad93e2aad92de469181606b8fa7108633b0a59bad2f7195ec89800"
+      }
+    }
+  ],
+  "caseEvidence": {
+    "requiredCount": 91,
+    "retained46WholeBodiesExact": true,
+    "additive45NamesExact": true,
+    "nativeSuite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+    "requiredFlag": "ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED=1",
+    "independentlyExpandedNamesSha256CompactJSON": "4b7178e6cb23d3f01634c912b8a54ad7c4c361c06b26103eb9d282de9e21c68e",
+    "nativeSourceSha256": "f5704edefcc609b691a4cae0a454e93d50cc19e26f67004318dc45b1535dfd7a",
+    "execution": "UNRUN by author/reviewer; actual PG plus pinned tool remains root-owned"
+  },
+  "outsideOwnedFollowups": [
+    {
+      "paths": [
+        "tests/controlplane/migrations.test.ts",
+        "tests/controlplane/tenancy.test.ts"
+      ],
+      "contract": "Append exact two new tables to current47 =>49. Preserve migration15/0017 checksums. Classify readStandaloneSettlements as bounded scoped read and finishStandalone as private genuine-origin native mutation; test global physical target ownership without blanket tenant exemption."
+    },
+    {
+      "paths": [
+        "scripts/ci/gate-manifest.mjs",
+        "tests/ci/gate-manifest.test.ts",
+        "tests/ci/platform-coverage.test.ts"
+      ],
+      "contract": "After corrected final source acceptance, independently expand and register exact45 additive native identities/flag plus any real new discovery. Retain all existing1059/PG80/guest127/worker22 identities and strict missing/skip/zero/failure/source checks. Rebind four changed prior authority/handoff test source hashes without altering names."
+    },
+    {
+      "paths": [
+        "tests/security/controlplane-sql-scoping.test.ts"
+      ],
+      "contract": "Bind the fixed native completion CTE and authenticated settlement JSON composition to exact source proof; preserve hostile interpolation refusals and existing native clauses instead of adding a function-name exception."
+    },
+    {
+      "paths": [
+        "scripts/ci/apply-supabase-migrations.sh",
+        "scripts/platform/emit-sql.ts",
+        "scripts/platform/migrate.ts",
+        "docs/platform/operations/DEPLOYING.md",
+        "docs/platform/operations/RECOVERY.md",
+        "docs/platform/operations/README.md",
+        "docs/platform/operations/BUILDS.md"
+      ],
+      "contract": "Append canonical platform16/emitted0018 initialization/operator references; preserve historical15/0017. Actual emitter parity/fresh/reapply/role guards remain runtime requirements."
+    },
+    {
+      "contract": "Genuine positively owned physical alias/foreign-scope and platform current-authority/native91 checks require root execution; hosted topology replies and deliberate protocol/prototype faults remain explicit models. Cloud/provider/workflow/build/runner/machine settlement and full durable cleanup remain unsupported."
+    }
+  ],
+  "historyPreserved": {
+    "originalFreezeUnchanged": true,
+    "priorCReadTimeReceipts": [
+      "efe6edb2131b922a7435d3c2515232302210c226ee335a83a460537f4548a41d",
+      "e0859763c5e8d80280b3eefe5eb1a091570a8b69a855244123e9683b2858d8c8"
+    ],
+    "latestHistoricalWholePlatform": "2755 passed / 27 failed / 8 skipped, no cure inferred",
+    "rootParentTargeted": "304 passed / 0 failed / 0 skipped, distinct parent source only"
+  },
+  "reviewerExecution": {
+    "projectImports": false,
+    "tests": false,
+    "compiler": false,
+    "lint": false,
+    "database": false,
+    "services": false,
+    "Docker": false,
+    "install": false,
+    "sourceEdits": false,
+    "realGitIndexOrObjectsWrites": false,
+    "commits": false,
+    "onlyOwnImmutableReviewReceiptsWritten": true
+  }
+}

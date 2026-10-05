@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-05T08:02:18.771397+00:00",
+  "sourceCommit": "19be80b3ea905ee51da89f27e3258184611952f0",
+  "sourceTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+  "branch": "codex/production-2026-10-02",
+  "publication": "Final handoff commit is the fetched branch HEAD. Confirm remote SHA before continuing; new CI is not inherited from414d52b.",
+  "requirements": {
+    "verified": 6,
+    "in_progress": 32,
+    "planned": 40
+  },
+  "releaseStates": {
+    "implementationComplete": false,
+    "sandboxVerified": false,
+    "pilotReady": false,
+    "productionApproved": false
+  },
+  "pendingPackets": [
+    {
+      "id": "manifest-digest-r3",
+      "baseCommit": "19be80b3ea905ee51da89f27e3258184611952f0",
+      "preparedTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+      "candidateTree": "a6ae2b5b77edb7d4221b628e12198d342fecda39",
+      "freeze": "pending/manifest-digest-r3/FROZEN-SOURCE.json",
+      "freezeSha256": "60c09316eeefc67c011a1fe29c09b19061640697fd26ce8968be8f8016fbf256",
+      "patch": "pending/manifest-digest-r3/manifest-digest-correction.patch",
+      "patchSha256": "b086e37d202591929e938ca2c86764285d3c09a2b61de33e69750c173536208e",
+      "status": "independently accepted source only; runtime unexecuted",
+      "integrated": false
+    },
+    {
+      "id": "settlement-gates-partial",
+      "baseCommit": "19be80b3ea905ee51da89f27e3258184611952f0",
+      "preparedTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+      "candidateTree": "a6788b60ede249b8d97e03a7c2696bd2d4b51664",
+      "freeze": "pending/settlement-gates-partial/FROZEN-SOURCE-PARTIAL.json",
+      "freezeSha256": "3b8192e8a3092fdd546c6e9b637c0ee59dfdf8323d5662e8da7d07dc95be0a06",
+      "patch": "pending/settlement-gates-partial/candidate.patch",
+      "patchSha256": "f1b8b33260db27cad96e11ac259443f20068777a7f28c274ad7fd3901415ee5d",
+      "status": "partial authoring; independent final review and execution incomplete",
+      "integrated": false
+    }
+  ],
+  "rawArtifactsAvailableOnClone": false,
+  "resume": "README.md",
+  "host": "Saivedants-MacBook-Air.local",
+  "gitIdentity": "Saivedant Hava <saivedant169@gmail.com>",
+  "runtimeAgents": "Workers stopped source authoring and froze packets for transfer; no unattended work promised."
+}

@@ -1,0 +1,22 @@
+{
+  "disposition": "MECHANICAL_SOURCE_PRESERVATION_CONFIRMED_NO_RUNTIME",
+  "path": "go/internal/machine/ops/ops_test.go",
+  "f699Head": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+  "preparedAa38Sha256": "2221b48cf7cfc8d6996329dfe2bd03b50793a92a50cfe99452e20e8b687379c7",
+  "currentF699Sha256": "965dcfe7495f7a56684dc2f5aa058348498f50288919cc9dfcd7d04f173eca36",
+  "originalPackageR2Sha256": "7775c8e1b4a32c4a658b7b99897c2cb81be97e505c24e5b4f2fba41b3e802711",
+  "effectiveR6Sha256": "7775c8e1b4a32c4a658b7b99897c2cb81be97e505c24e5b4f2fba41b3e802711",
+  "originalPackageR2AndR6Exact": true,
+  "f699WholeFileRestoredByRemovingOnlyPackageThreeLineBranchAndAdditiveTest": true,
+  "preservedCurrentCorrection": {
+    "test": "TestUnsupportedAndUnknownOperationsAreRefused",
+    "line": 311,
+    "behavior": "file.upload retains protocol.CodeDisabledByConfig instead of historical CodeUnsupportedOp; no newer f699 upload behavior or assertion is removed."
+  },
+  "packageAdditions": [
+    "Exact package.install branch expects CodeNotAllowed, preserving file.upload prior branch",
+    "TestPackageInstallDirectDecodedArgsCannotUseRunner requires zero privileged runner calls for decoded direct arguments"
+  ],
+  "scope": "Mechanical merge preservation only, not independent approval of authored compatibility parser or original package high-risk/runtime acceptance. Other39 original paths were outside this narrow request.",
+  "writes": "Own review receipt only; no product/source/index writes, imports/compiler/tests/services/commits."
+}

@@ -1,0 +1,26 @@
+{
+  "execution": "UNRUN_SOURCE_ONLY; no project imports/compiler/tests/services/DB/Docker/index/stage/commits",
+  "finding": {
+    "code": "protected_leaf_does_not_establish_protected_tool_visible_ancestry",
+    "precondition": "The worker-owned mode0700 immediate state directory resides below an independently writable non-sticky ancestor; current code does not inspect that ancestor.",
+    "priority": "blocking_for_builtin_only_pre_tool_state_eligibility",
+    "requiredRemedy": "Bind protected ancestry for every tool-visible backend component, or an equivalent fixed-path custody mechanism. Preserve legitimate privately owned ancestors/approved sticky-root temp semantics only where explicitly proved. Add a mutable-grandparent refusal before first tool effect; do not merely record later target mismatch.",
+    "scope": "Different UID and ordinary directory rename; no privileged mount or same-UID external writer needed. No actual runtime demonstration.",
+    "trace": [
+      "localStandaloneTarget accepts the realpath/owner/mode-protected immediate directory and snapshots its state, then closes the file descriptor.",
+      "Another UID with write permission on a non-sticky grandparent may rename that worker-owned directory and replace the named path; directory leaf permissions do not forbid rename by the parent writer.",
+      "runner.run then awaits work directory/binary materialization before init/plan uses the absolute backend pathname. It can read substituted unknown state before the later pre-dispatch targetDigest check refuses."
+    ]
+  },
+  "originalPacketsAndFailedRuntimeUntouched": true,
+  "schemaVersion": 1,
+  "source": {
+    "bytes": 30803,
+    "firstRunnerLine": 339,
+    "localTargetLine": 180,
+    "path": "src/lib/tofu/engine.ts",
+    "sha256": "b0f39d363ccf843277d44b216a8b8bb83ed7a5d36a434377e8d87132a416e5e9",
+    "snapshot": "/Users/saivedanthava/.codex/zenith-production/logs/integration-authority-review-20261004/saved-plan-settlement-draft-ancestry-findings-r1-20261005-engine.ts"
+  },
+  "status": "DRAFT_SOURCE_FINDING_ONLY_NOT_FINAL_PACKET_DISPOSITION"
+}

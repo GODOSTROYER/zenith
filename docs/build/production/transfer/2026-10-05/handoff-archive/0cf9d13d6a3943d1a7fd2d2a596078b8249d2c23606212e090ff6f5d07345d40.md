@@ -1,0 +1,182 @@
+# G2 native admission and readiness gates, October 4, 2026
+
+This source packet registers the accepted MCP admission and AWS readiness case
+contracts in the existing canonical PostgreSQL lane. It supplies gate declarations
+and synthetic report-validator fixtures; it supplies no runtime acceptance.
+
+The MCP contract contributes 24 named cases: 18 durable admission cases and six
+current OAuth integration membership cases. Its qualified native suite labels
+retain the explicit modeled product protocol or product read scope. Their exact
+file, suite and test names carry `backend: "postgres"`, matching the existing
+current-membership contract. The original 21 membership requirements remain.
+`ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED=1` and the existing
+`ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED=1` prevent absent native engines
+from silently satisfying the contract.
+
+The AWS contract contributes 47 named cases: ten physical opener ownership cases
+and 37 default readiness admission cases. They retain exact `[postgres]` ancestry
+and `postgres: true`. Their required flags are
+`ZENITH_TEST_OPENED_HANDLE_REQUIRED=1` and
+`ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1`. The default readiness test file is an
+explicit lane command argument; native opener and MCP admission execute through
+the existing controlplane directory. All require the owned PostgreSQL 16.15 URL
+and canonical schema 13. Cloud commands and product protocols remain models.
+
+The integrated source total is 527 distinct requirements: all 454 prior identities,
+71 new named identities, and two additional discovered native suites. Current
+membership reuses its existing discovered suite. The prior sorted identity list
+is independently pinned at SHA-256
+`6d635d7ea4d84b23d03b2b9221bbf3533625fc1c4b05f5624cb198bd5be520b4`.
+Literal named declarations survive deletion of any packet test file. Source-bound
+fixture checks read the actual committed test declarations, expand only literal
+string parameters, and fail when required source is absent or changed.
+
+The regression fixtures exercise every new case independently against missing,
+failed, skipped, pending, malformed, PGlite, foreign file/suite and substituted
+evidence. They also cover valid complete quoted labels, deleted source, empty or
+suite-only reports, duplicate files and inconsistent totals. These synthetic
+reports test the existing validator; they are never native execution evidence.
+The production matcher, report checker, source identity and execution receipt
+machinery are unchanged. Full canonical validation retains every requirement;
+only existing regression tests select their historical cohorts to keep their
+original exact counts and fingerprints meaningful.
+
+The prepared source dependency inventory binds the accepted MCP R1 contract
+(`938fe5c14983ce9fcd80bd9357974833c09f8de2e73ea7e6b7181d624339afa0`),
+AWS R1 contract
+(`edb703a8cf91f959bd52c6dab0f12a6e7ee6b7209436fa1fe9e9405d54dfbc0a`),
+their four exact native test postimages, and the frozen combined regression
+coverage postimage
+(`11a260bc9311096f03d6470c7b53d93f402f3ca8675c9ec44e488f95c0bf5a7c`).
+The eleven saved-plan handoff identities and their exact coverage check remain.
+Only these accepted test dependencies were prepared in the isolated checkout;
+root must integrate the complete accepted production packets before compiling or
+executing their native tests. The authored incremental patch changes only the
+manifest, its existing gate fixtures, platform coverage and this handoff.
+
+Root should use pinned Node 22.23.3 for compiler/scoped lint and run the focused
+gate fixtures serially after complete source integration:
+
+```sh
+node node_modules/vitest/vitest.mjs run tests/ci/gate-manifest.test.ts tests/ci/platform-coverage.test.ts --no-file-parallelism --maxWorkers=1
+```
+
+With the disposable owned PostgreSQL 16.15 URL exported through
+`ZENITH_TEST_PLATFORM_PG_URL`, canonical migrations applied and pinned OpenTofu
+1.12.5 available, execute the actual canonical lane:
+
+```sh
+node scripts/ci/run-gate.mjs platform-postgres --run
+```
+
+That runner already applies the manifest's required environment flags and source
+binding to its execution receipt. Root owns all execution and acceptance. Future
+MCP final dispatch authority R2 cases require their separate frozen dependency
+and additive registration. Live AWS permissions and default API/browser journey
+acceptance remain outside this source gate packet. No source gate result proves
+cloud migration, IAM writes, complete role inventory or end-to-end deployment.
+
+Author work ran no project imports, tests, compiler, lint, dependency installation,
+services, PostgreSQL, Temporal, containers, cloud calls or commits. Frozen source
+must receive independent review before root integration and runtime verification.
+
+## Additive final MCP authority registration, revision 2
+
+Revision 2 retains the original 454 requirements and the first packet's 71 named
+requirements and two discovered suites. It adds all final 72 native PostgreSQL
+source/product/member authority identities and all 17 locked SDK constructor and
+protocol identities from the accepted MCP case contract
+`b6dfcaa24f62c07f5a90dad08ba0773e630af15e8a0b4556ea5764e2c99546d6`.
+The separate fixture correction retains these exact case names and replaces the
+invalid immutable-source deletion setup. Historical rejected source and failed
+runtime receipts remain unchanged.
+
+Every new identity binds the exact test file, complete qualified suite and literal
+expanded case title. Native cases retain `backend: "postgres"`; SDK cases retain
+the distinct `[SDK protocol; no network]` suite and carry no PostgreSQL marker.
+SDK construction cannot substitute for native admission or prove hosted HTTP,
+TLS handshakes or Temporal delivery. `ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED=1`
+is mandatory in the canonical lane and its prerequisites. The test's missing
+PostgreSQL and schema 13 guards precede its first native hook.
+
+The source composition has 617 unique requirements: the prior 527 plus 72 native
+cases, 17 SDK cases and one newly discovered native suite. The prior 527 sorted
+identity list remains pinned at SHA-256
+`23f4e7cdf2dcbd836fa21be07493074a0d185448390eb7b0092e123090142148`.
+Literal requirements persist if the new test file is deleted. The focused
+fixtures independently refuse each missing, failed, skipped, pending, malformed,
+foreign, PGlite or differently scoped result, including native/SDK suite swaps,
+empty and suite-only evidence, duplicate files and inconsistent totals.
+
+This isolated preparation starts with the exact frozen first gate tree
+`c772882614f2ff387cec1f02a610f8b286348edd`, then adds only the accepted native worker
+manifest metadata as an explicit read-only dependency. Its 22 check identities
+and package command, architecture and evidence definitions remain byte exact.
+That package receipt contract remains distinct from native Vitest reports.
+The final MCP fixture postimage is prepared solely for source identity and suite
+discovery; complete accepted production dependencies are not inferred from it.
+The earlier four native test dependencies and eleven saved-plan handoff coverage
+assertions are unchanged.
+
+The production report checker, matcher, source identity and execution-binding
+machinery remain unchanged. Only historical cohort assertions exclude the newly
+added identities when comparing their original counts and hashes; the full
+canonical manifest and validator retain every required case. The existing
+literal declaration helper bounds the two MCP suites separately and expands its
+single committed flat `changes` string list without evaluating test source.
+
+Root must integrate the accepted MCP admission/final authority/fixture and AWS
+readiness implementations before compiler, focused gate fixtures or canonical
+PostgreSQL execution. The existing serial commands above remain the acceptance
+commands. The seven subsequent tenant-scope controls are a separate production
+and test packet; they are not registered by this revision before its source
+integration. Root owns their later additive registration and actual PostgreSQL
+verification, together with native worker runtime and complete user journey
+acceptance. No new suite execution, live credential use or production readiness
+is claimed here.
+
+The authored incremental delta owns only the canonical manifest, its focused gate
+fixtures, platform coverage and this handoff. Dependency files and all other
+paths remain read-only. Revision 1 and native worker R1 through R4 receipts are
+preserved. Author work ran no project imports, tests, compiler, lint, dependency
+installation, services, PostgreSQL, Temporal, containers, cloud calls or commits.
+Independent source review and root runtime acceptance remain required.
+
+## Tenant-qualified lease registration, revision 3
+
+Root imported the separately reviewed tenant-scope production and native fixture
+packet into its current candidate. This additive revision registers its exact
+seven new native PostgreSQL case identities from contract
+`41b23122881bea60d35d2bf96f9caef6395da4c67e84532a8abbd5754712f2cb`.
+The new cases cover required workspace refusal, live/expired/released foreign
+scope collisions, an expired NULL scope collision, a foreign insertion after an
+actual owning absence read, and two owning acquisitions retaining the same
+holder fence across an absent-row collision. They preserve the original 24
+worker binding requirements and their test callbacks. All 31 source declarations
+are compared to the two exact committed requirement cohorts.
+
+The canonical source composition derives 624 requirements from the entire prior
+617 identity set plus these seven named cases. The existing native suite is
+reused, adding no discovered suite. The prior 617 sorted identity fingerprint
+remains `b6ce5d5bdbedfc582d0d2803283f51805940fe8905a78c72d875d1a6ec2268ad`.
+The required `ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1` flag and native schema 13,
+independent PostgreSQL connection prerequisites remain unchanged. Exact literal
+requirements persist if the test source disappears; per-case missing, failed,
+skipped, malformed, PGlite, foreign and substituted report fixtures refuse.
+
+The prepared source is the exact frozen revision 2 tree
+`afd492ed4c366bce25eb87588899b8481349298a` plus only the read-only tenant test
+postimage `4418b3b67db0f14f98bbcad6a02e6f1f49e3df084cf3f922716ae52c64f891c5`.
+Final MCP fixture R4, its 72 native and 17 SDK identities, the original 71 cases,
+all original 454 requirements and native worker metadata with 22 check identities
+remain unchanged. Production report, matcher, source and execution-binding
+machinery remain unchanged. Historical cohort selections preserve their exact
+fingerprints while full canonical validation includes the seven new controls.
+
+This packet edits only the same four owned gate paths and appends this handoff.
+Root owns production integration, static SQL-scoping audit, actual PostgreSQL
+31-case execution, focused gate fixtures and coherent canonical verification.
+The existing serial acceptance commands remain applicable. No author import,
+test, compiler, lint, service, PostgreSQL, Temporal, container, cloud call or
+commit ran. Earlier freezes and failed receipts remain immutable. Independent
+source review and root runtime acceptance are required before promotion.

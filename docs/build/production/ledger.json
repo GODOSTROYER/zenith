@@ -2415,18 +2415,27 @@
       "acceptance": [
         "Refreshable official-source-backed catalogs replace weak values and distinguish estimates/forecasts/actual spend."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
-      "evidence": [],
+      "implementationStatus": "dated_catalog_and_placement_models_integrated_live_spend_and_remaining_cost_coverage_open",
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+          "result": "Dated official-source catalog and placement completeness code integrated; targeted213 passed. Estimates only, not actual cloud spend or a hard spending cap; full acceptance remains open."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
       "owner": null,
-      "testPaths": []
+      "testPaths": [
+        "tests/cost",
+        "tests/graph"
+      ]
     },
     {
       "id": "PROD-COST-02",
@@ -2434,18 +2443,27 @@
       "acceptance": [
         "Include egress/NAT/IPv4/IO/requests/backups; reject infeasible budgets/residency/availability; estimates never represented as hard billing caps."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
-      "evidence": [],
+      "implementationStatus": "dated_catalog_and_placement_models_integrated_live_spend_and_remaining_cost_coverage_open",
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+          "result": "Dated official-source catalog and placement completeness code integrated; targeted213 passed. Estimates only, not actual cloud spend or a hard spending cap; full acceptance remains open."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
       "owner": null,
-      "testPaths": []
+      "testPaths": [
+        "tests/cost",
+        "tests/graph"
+      ]
     },
     {
       "id": "PROD-COST-03",
@@ -3305,33 +3323,38 @@
       "verificationArtifact": "docs/build/production/verification/2026-10-04-integrated-source.json",
       "requirementsClosed": [],
       "published": false
+    },
+    {
+      "commit": "19be80b3ea905ee51da89f27e3258184611952f0",
+      "branch": "codex/production-2026-10-02",
+      "sourceTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+      "scope": "Explicit user-requested as-is source checkpoint, 93 paths over f699; no full verification or release promotion.",
+      "verificationArtifact": "docs/build/production/transfer/2026-10-05/EVIDENCE-SUMMARY.json",
+      "requirementsClosed": [],
+      "published": false
     }
   ],
   "sessionState": {
-    "status": "active",
-    "recordedAt": "2026-10-04T10:34:21.741829+00:00",
-    "sourceCheckpoint": "c32d116745c75048a21b6e42a09ee313ce8230e6",
-    "functionalSourceTree": "6c0c9616542d939f474254d2ab93ea1f0e59509b",
+    "status": "checkpoint_for_machine_transfer",
+    "recordedAt": "2026-10-05T08:02:18.771397+00:00",
+    "sourceCheckpoint": "19be80b3ea905ee51da89f27e3258184611952f0",
+    "functionalSourceTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+    "publicationBranch": "codex/production-2026-10-02",
     "lastPushedCommit": "414d52bcb1ebb8fe18fe92aced33e1096929fa67",
     "lastPushedRun": 37128274569,
-    "lastPushedRunStatus": "completed_success_14_passed_0_failed_historical_only",
-    "lastGreenCommit": "414d52bcb1ebb8fe18fe92aced33e1096929fa67",
-    "activeWorkers": 3,
-    "concurrency": "one heavy process; three owned source/review lanes",
-    "currentVerification": "docs/build/production/verification/2026-10-04-integrated-source.json",
+    "lastPushedRunStatus": "historical_only_14_passed",
+    "currentVerification": "docs/build/production/transfer/2026-10-05/EVIDENCE-SUMMARY.json",
     "remainingLocalPackets": {
-      "apply11": "Frozen original-byte/current-product/default-origin authority; read-only viewer publication correction required; unimported",
-      "nativeIntegration8": "Source draft restores genuine linked credential dispatch and corrects internally derived read publication; independent review/root native execution pending",
-      "nativeOAuth8": "Source draft restores absent native grant persistence with migration15/canonical verifier; independent review/root native execution pending",
-      "canonicalAuthorityGate": "Pending accepted corrected source contract; no skip waiver"
+      "manifest-digest-r3": "independently accepted source only; runtime unexecuted",
+      "settlement-gates-partial": "partial authoring; independent final review and execution incomplete"
     },
+    "handoff": "docs/build/production/transfer/2026-10-05/README.md",
     "permissions": {
-      "approved": "Disposable PostgreSQL/Temporal/kind/execution-worker/Linux tests and required images; normal same-branch push",
-      "pending": "Default API/server startup; live private GitHub/Supabase/AWS account/region/budget/configuration; destructive retention/business/production signoff"
+      "approved": "Own disposable PostgreSQL/Temporal/kind/Linux/worker tests and images; same-branch push. Detect resources and serialize heavy jobs on constrained hosts.",
+      "pending": "Default API/server startup; live private GitHub/Supabase/cloud accounts, region, budget and secure configuration; destructive retention, business and production sign-off."
     },
-    "pausedCurrentTasks": 0,
-    "next": "Complete corrected authority packets and root native checks; whole combined gates/package/kind/fresh install; same published branch normal push and terminal CI; continue operated journey/G3/G4.",
-    "releaseVerdict": "All four false; no full gate or production signoff claim."
+    "releaseVerdict": "All four release states false. No new verified requirement. Current failures and unexecuted gates retained.",
+    "next": "Verify transferred hashes; independently finish pending11; import accepted3 in an owned worktree at19be; rebind current source and execute native100; complete combined mandatory gates and observe exact pushed CI; continue all78 G2-G4."
   },
   "sessionHistory": [
     {
@@ -4213,6 +4236,32 @@
       "pausedCurrentTasks": 0,
       "permissions": "Disposable PostgreSQL/Temporal/kind/worker/Linux tests approved. Default API/server, private Supabase/live GitHub/AWS scope pending. No unrelated services.",
       "releaseVerdict": "All four release states false; no G1 exit or production approval claim."
+    },
+    {
+      "status": "active",
+      "recordedAt": "2026-10-04T10:34:21.741829+00:00",
+      "sourceCheckpoint": "c32d116745c75048a21b6e42a09ee313ce8230e6",
+      "functionalSourceTree": "6c0c9616542d939f474254d2ab93ea1f0e59509b",
+      "lastPushedCommit": "414d52bcb1ebb8fe18fe92aced33e1096929fa67",
+      "lastPushedRun": 37128274569,
+      "lastPushedRunStatus": "completed_success_14_passed_0_failed_historical_only",
+      "lastGreenCommit": "414d52bcb1ebb8fe18fe92aced33e1096929fa67",
+      "activeWorkers": 3,
+      "concurrency": "one heavy process; three owned source/review lanes",
+      "currentVerification": "docs/build/production/verification/2026-10-04-integrated-source.json",
+      "remainingLocalPackets": {
+        "apply11": "Frozen original-byte/current-product/default-origin authority; read-only viewer publication correction required; unimported",
+        "nativeIntegration8": "Source draft restores genuine linked credential dispatch and corrects internally derived read publication; independent review/root native execution pending",
+        "nativeOAuth8": "Source draft restores absent native grant persistence with migration15/canonical verifier; independent review/root native execution pending",
+        "canonicalAuthorityGate": "Pending accepted corrected source contract; no skip waiver"
+      },
+      "permissions": {
+        "approved": "Disposable PostgreSQL/Temporal/kind/execution-worker/Linux tests and required images; normal same-branch push",
+        "pending": "Default API/server startup; live private GitHub/Supabase/AWS account/region/budget/configuration; destructive retention/business/production signoff"
+      },
+      "pausedCurrentTasks": 0,
+      "next": "Complete corrected authority packets and root native checks; whole combined gates/package/kind/fresh install; same published branch normal push and terminal CI; continue operated journey/G3/G4.",
+      "releaseVerdict": "All four false; no full gate or production signoff claim."
     }
   ]
 }

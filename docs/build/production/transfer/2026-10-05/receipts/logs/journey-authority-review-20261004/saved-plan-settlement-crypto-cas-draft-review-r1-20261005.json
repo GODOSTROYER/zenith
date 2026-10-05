@@ -1,0 +1,53 @@
+{
+  "concreteBlockingFindingOnThisAxis": null,
+  "execution": "NONE; source reads only. No imports/tests/compiler/services/Docker or source/index writes. No runtime/source acceptance inferred.",
+  "observedAt": "2026-10-05T02:49:52.961519+00:00",
+  "observedSourceSha256": {
+    "src/lib/controlplane/db/migrations/0016_cleanup_writer_settlements.ts": "746a7b331ea5ed179c32e9e48bc6c1f8654d8c4ae87e22dac326a9d2f60ad703",
+    "src/lib/controlplane/db/repos/cleanup-writer-barriers.ts": "ba3b040c48b608c689594d57f33164ff99026b94a94f92d0af5662fd31b28179",
+    "src/lib/controlplane/db/repos/plan-artifacts.ts": "de670526d19331a824365a6659a955e2d2750e44a84f7b9466795255b87f309a",
+    "src/lib/platform/plan-artifacts.ts": "567ae26c982c94ceefb90a173664991e50a5ccde60b428c0fa5222b96547f5ad",
+    "src/lib/secrets/index.ts": "23dbde149eb6a81beb7601ac548d3abab3362084ccd48ce454f990b39ed91b14",
+    "src/lib/tofu/engine.ts": "814b42f09af599c60f712c10a1cbcf295ea0f30ac7e30491626b44ac136e8bfe"
+  },
+  "outsideOwnedIntegrationFollowups": [
+    {
+      "contract": "Retain old47 exact table identities and append two real settlement/backend tables for49. Historical migration15 unchanged.",
+      "paths": [
+        "tests/controlplane/migrations.test.ts"
+      ]
+    },
+    {
+      "contract": "Individually classify bounded scoped readStandaloneSettlements and private-origin scoped mutation finishStandalone. Explicitly test global target_digest backend ownership binding without blanket tenant exemption.",
+      "paths": [
+        "tests/controlplane/tenancy.test.ts"
+      ]
+    },
+    {
+      "contract": "Separate exact frozen native case/source registration and bounded fixed-source SQL AST contexts; no skip/failure/zero waivers.",
+      "paths": [
+        "scripts/ci/gate-manifest.mjs",
+        "tests/ci/gate-manifest.test.ts",
+        "tests/security/controlplane-sql-scoping.test.ts"
+      ]
+    }
+  ],
+  "requiredFrozenControls": [
+    "Authentic old-key decrypt under configured overlap and retired-key refusal through a fresh engine.",
+    "Cross-workspace/operation/attempt/manifest/backend/target/holder/fence copied receipt refusal; cipher corruption and purpose-domain swap refusal.",
+    "No raw state or private target path in externally returned values/errors/evidence.",
+    "Final post-use/coordinator-wait current lease/lifetime/source/member requirement revocation and exact native receipt-row mutation refusal.",
+    "Caller result/status/SQL-seeded plausible witness cannot mint engine completion. B identified mutable runner prototype provenance separately; author must close it before final source review."
+  ],
+  "schemaVersion": 1,
+  "scope": "C independent ciphertext/tuple/current-authority axis. Mutable draft; final inventory/cases/freeze required. B physical/runner-origin axis independent.",
+  "sourceTrace": [
+    "Purpose-separated standalone-settlement-v1 binding-hash reference plus workspace label authenticates ciphertext. Exact manifest/raw/backend/executable/config/lock/purpose and each native binding field are checked.",
+    "Private paired origins bind owning SQL/stage/admission, consume before authentication awaits, and repeat genuine default current dispatch requirement checks. DTO/SQL rows cannot register the origin.",
+    "Final completion CTE repeats exact dispatched use attempt/holder/fence, current lifetime/lease/source/product predicates and immutable backend ownership before atomic succeeded transition plus encrypted receipt insertion.",
+    "Historical candidate ciphertext must authenticate original plan bytes and current physical target; final cleanup statements repeat exact receipt/backend/terminal/artifact matching. A candidate row or generic success flag alone does not remove history.",
+    "Only encrypted targetPath and non-secret hashes/tuple are retained; raw state is absent from the receipt DTO. Existing cipher captures explicitly configured old-key read overlap."
+  ],
+  "status": "DRAFT_SOURCE_TRACE_NOT_ACCEPTANCE",
+  "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/saved-plan-settlement-20261005"
+}

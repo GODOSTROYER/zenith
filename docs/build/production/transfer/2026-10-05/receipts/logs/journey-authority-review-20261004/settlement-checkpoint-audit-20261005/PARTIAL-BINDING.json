@@ -1,0 +1,101 @@
+{
+  "status": "PARTIAL_CHECKPOINT_SOURCE_BINDING_ONLY_NOT_GATE_ACCEPTANCE",
+  "recordedAtUtc": "2026-10-05T07:57:49.816226+00:00",
+  "freeze": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-settlement-gates-20261005/revision1-partial/FROZEN-SOURCE-PARTIAL.json",
+    "sha256": "3b8192e8a3092fdd546c6e9b637c0ee59dfdf8323d5662e8da7d07dc95be0a06"
+  },
+  "artifactReferences": {
+    "preparation": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-settlement-gates-preparation-20261005/PREPARATION.json",
+      "sha256": "aec1c17f4abc83ae28b5c1309b1b68073c2ecf074717ecb21872e990f509497d"
+    },
+    "preEditReceipt": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-settlement-gates-20261005/PRE-EDIT-BASELINE.json",
+      "sha256": "c55642a9d7ead7e9d9d719ec74f38f5cd44c474c3e84f1b1f60954fd93e62d71"
+    },
+    "patch": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-settlement-gates-20261005/revision1-partial/candidate.patch",
+      "sha256": "f1b8b33260db27cad96e11ac259443f20068777a7f28c274ad7fd3901415ee5d",
+      "bytes": 100883
+    },
+    "caseContract": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-settlement-gates-20261005/revision1-partial/CASE-CONTRACT-PARTIAL.json",
+      "sha256": "aeecc21f664fdf0445d193527c87798dc75cb8f55410c5ff2fa398bfd5260e27"
+    },
+    "fullInventory": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-settlement-gates-20261005/revision1-partial/FULL-INVENTORY.json",
+      "sha256": "31a60e9dccec292b8fef2be7e8eac2d966e16480f7b744433c66ce11e5be494e",
+      "count": 3855
+    },
+    "handoff": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/worktrees/saved-plan-settlement-gates-20261005/docs/build/handoffs/SAVED-PLAN-SETTLEMENT-GATES-20261005.md",
+      "sha256": "cb50fe7fd24535e2cb1d9c175a32a9a18cca77f2f556276eaf58c6a55ae0e6db"
+    }
+  },
+  "preparedTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+  "partialCandidateTree": "a6788b60ede249b8d97e03a7c2696bd2d4b51664",
+  "ownedCount": 11,
+  "fullSourceCount": 3855,
+  "outsideOwnedExact": 3844,
+  "allFrozenLiveBeforeAfterModesExact": true,
+  "inMemoryForwardReverseAndPureTreeReconstructionExact": true,
+  "rawIndexCurrentEqualsPartialFreeze": "519b9745367f9b77cb313de959bd3adcade4b5e9233ea29f29ebe720d01bb171",
+  "rawIndexDriftHistoryPreserved": "Raw cache/stat drift is not source authority. Historical observations preserved; no raw restoration. An earlier status read during authoring omitted optional-locks0; current actor for each observed refresh not established. All freeze Git operations optional-locks0/private index only.",
+  "stageEntriesSha256": "6bc8d24de22de7465f84d1801a0eab0bc803caa92783e3b9f5079ed09d8ef02a",
+  "stagedEmptyAndReviewerWritesNone": true,
+  "partialStaticChecks": {
+    "literal54ExactlyMatchesImmutableR2Cases": true,
+    "allPriorLiteralRequirementArraysByteExact": 27,
+    "native1059FullIdentityDerivation": "NOT_COMPLETED_OR_ACCEPTED",
+    "expected1113": "PROVISIONAL_SOURCE_EXPECTATION1059+54; strict discovery/checks still required",
+    "schema49FinalProof": "NOT_COMPLETED_OR_ACCEPTED",
+    "newReportASTMigrationTenancyModels": "UNRUN_NOT_ACCEPTED"
+  },
+  "knownExactPendingRebind": {
+    "file": "tests/ci/gate-manifest.test.ts",
+    "oldSourceSha256": "413e49df2ec089a9a280d5312636d03ab28f54b6c5536d7d4f68f857b68b66ed",
+    "oldPinOccurrences": 2,
+    "newReviewedB3SourceSha256": "87813c36bd0face890cc8e47e8aede5fc3d6fae058c13cd07f5812b449339f71",
+    "caseContractPinAlsoOld": "413e49df2ec089a9a280d5312636d03ab28f54b6c5536d7d4f68f857b68b66ed",
+    "changeRequired": "Separate bounded accepted-source hash overlay; do not silently alter partial freeze."
+  },
+  "sourceOnlyComposition": {
+    "baseTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+    "B3Tree": "a6ae2b5b77edb7d4221b628e12198d342fecda39",
+    "A11PartialTree": "a6788b60ede249b8d97e03a7c2696bd2d4b51664",
+    "ownedScopesDisjoint": true,
+    "combinedHypotheticalTreeComputedWithoutWrites": "08c15b2e87b08a3df9f5041c4448bf5fc6aa97bb",
+    "combinedSourceCount": 3855,
+    "combined14OwnedPaths": [
+      ".github/workflows/ci.yml",
+      "docs/build/handoffs/SAVED-PLAN-SETTLEMENT-GATES-20261005.md",
+      "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+      "docs/platform/operations/DEPLOYING.md",
+      "scripts/ci/apply-supabase-migrations.sh",
+      "scripts/ci/gate-manifest.mjs",
+      "src/lib/tofu/engine.ts",
+      "tests/ci/gate-manifest.test.ts",
+      "tests/ci/guest-file-write-gate.test.ts",
+      "tests/ci/platform-coverage.test.ts",
+      "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "tests/controlplane/migrations.test.ts",
+      "tests/controlplane/tenancy.test.ts",
+      "tests/security/controlplane-sql-scoping.test.ts"
+    ],
+    "appliedToAnyWorktree": false,
+    "integratedOrCommitted": false
+  },
+  "handoff": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/worktrees/saved-plan-settlement-gates-20261005/docs/build/handoffs/SAVED-PLAN-SETTLEMENT-GATES-20261005.md",
+    "sha256": "cb50fe7fd24535e2cb1d9c175a32a9a18cca77f2f556276eaf58c6a55ae0e6db"
+  },
+  "knownUnresolved": [
+    "Authoring stopped by root push/handoff instruction before final static derivation/models/review.",
+    "All new source/report/SQLAST/migration/tenancy checks unrun.",
+    "Root A17R2 native100 failed60P40F0S; frozen failure preserved.",
+    "Separate B3 canonical manifest-digest correction not imported/reviewed here; future exact fixture SHA rebind required.",
+    "No independent review or product/runtime/criterion completion is claimed."
+  ],
+  "execution": "No project imports/compiler/tests/runtime/services/Docker/Git writes. Partial author source is not accepted. No user checkpoint push was performed by C."
+}

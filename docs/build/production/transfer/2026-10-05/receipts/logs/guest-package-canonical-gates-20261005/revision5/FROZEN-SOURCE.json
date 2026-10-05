@@ -1,0 +1,189 @@
+{
+  "baseHead": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+  "branch": "codex/guest-package-canonical-gates-20261005",
+  "candidateTree": "afd6c5066ea7eed795eb7c2a376a058aaae8700a",
+  "caseContractSha256": "eaaec8fb09bebf197d7d2f1f23e4190b98745204e120f0f31c7bb61b24b4440c",
+  "caseNamesFlagsValidatorRunnerManifestCiAndNativeSourceExactR4": true,
+  "correction": "Only fixed probe Docker cp destination moves to daemon-visible /guest/probe.go, followed by original pinned exec copying to absent protected guest root/probe.go with exact parent/source/byte/owner/mode recapture. All native metadata/caps/rootfs/loop/pins unchanged.",
+  "fullCount": 3847,
+  "fullInventorySha256": "6c7efb0342d381f368d29eb7c2c5ac50617f2e5416461b8071ee54127de85496",
+  "historicalR4Freeze": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-canonical-gates-20261005/revision4/FROZEN-SOURCE.json",
+    "sha256": "43361c36c94126772537208c986e4ecdd6c2fd407992360bf782ae722cfb189e"
+  },
+  "incrementalOutsideCount": 3844,
+  "incrementalOwnedBefore": {
+    "docs/build/handoffs/GUEST-PACKAGE-NATIVE-GATES-20261005.md": {
+      "bytes": 9205,
+      "mode": 420,
+      "sha256": "9f51a5e951ab29d744f6b21876f7943fb4ea2f2e93df31b5573b3f256753b54f"
+    },
+    "scripts/ci/guest-package-fixtures.py": {
+      "bytes": 36012,
+      "mode": 420,
+      "sha256": "4b97fb36d49d10ca69e5ff207ab2ecfdce5c5103afdd27b50c206bbadd825e4a"
+    },
+    "tests/ci/guest-file-write-gate.test.ts": {
+      "bytes": 76905,
+      "mode": 420,
+      "sha256": "4aff8d22b9613a16f2e55d99ae56a08486acc26bf9c2ba35d46ac704c291e6ca"
+    }
+  },
+  "incrementalOwnedPaths": [
+    "scripts/ci/guest-package-fixtures.py",
+    "tests/ci/guest-file-write-gate.test.ts",
+    "docs/build/handoffs/GUEST-PACKAGE-NATIVE-GATES-20261005.md"
+  ],
+  "incrementalPatch": {
+    "bytes": 15146,
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-canonical-gates-20261005/revision5/probe-transport-correction.patch",
+    "sha256": "879bf5f37a5b85fe991b3b1fe2459a0da1139a3403f35c2a7b6a4d4e1500b205"
+  },
+  "incrementalPreparedTree": "5914c310fa5b13cd68a0ff5382a39dbe57717689",
+  "indexAndReplaySha256": "18be2d9bdf30e29a47390f815cded547c5da577637f032580c3c252be3a2e3f6",
+  "nativeCounts": {
+    "added": 4,
+    "combined": 127,
+    "optionalSkips": 3,
+    "platform": 1059,
+    "postgres": 80,
+    "prior": 123,
+    "worker": 22,
+    "workflows": 58
+  },
+  "originalPreparedTree": "43b35f6b6ca0c108e9de88ef65bda9ef4cb8b326",
+  "outsideFollowups": [
+    "C independent exact source review/root actual canonical Linux127/current-attempt cleanup",
+    "Private helperR11 separate source/actual receipt, never imported as canonical evidence",
+    "Installed service/default backend/lifecycle separate acceptance"
+  ],
+  "outsideInventorySha256": "7dcd82c951f915afa6be33041f5579884055cf450b668a7ebf436e30a665a36a",
+  "ownedAfter": {
+    ".github/workflows/ci.yml": {
+      "bytes": 57673,
+      "mode": 420,
+      "sha256": "5d9c7e12c1f5378b5116f4a162fcb2dd27eaf4103a7a9a163721130ab4951333"
+    },
+    "docs/build/handoffs/GUEST-PACKAGE-NATIVE-GATES-20261005.md": {
+      "bytes": 10222,
+      "mode": 420,
+      "sha256": "168e6be8a04eb42f207b42abca004073fa2cec9f26b5e0fd009b21e3ef2a9a33"
+    },
+    "scripts/ci/gate-manifest.mjs": {
+      "bytes": 303902,
+      "mode": 420,
+      "sha256": "16e9a62f501d05c3ba9aaff315a24d321e507f2ca7947c748a85a07b237d6a18"
+    },
+    "scripts/ci/guest-package-fixtures.py": {
+      "bytes": 37345,
+      "mode": 420,
+      "sha256": "dd7d43be610f0e900b91ad3a1ca029bc71c889ab3aa443b48a6eb0d2da887aa4"
+    },
+    "scripts/ci/run-guest-file-write-gate.mjs": {
+      "bytes": 23496,
+      "mode": 420,
+      "sha256": "2e91d0ed61170dfca095c0d7b5e1810a94f20717aa21b78da693215ff4e8ec1c"
+    },
+    "tests/ci/gate-manifest.test.ts": {
+      "bytes": 184575,
+      "mode": 420,
+      "sha256": "374fad5ea00bc361782a5837231bb30ed0e674424912f794bce91ced25e3fdf8"
+    },
+    "tests/ci/guest-file-write-gate.test.ts": {
+      "bytes": 77890,
+      "mode": 420,
+      "sha256": "e56759725f1f6dc092e0d5b4203402501628b06370b96551c37f70e3d47e3d79"
+    },
+    "tests/ci/platform-coverage.test.ts": {
+      "bytes": 53083,
+      "mode": 420,
+      "sha256": "482577079e0e44ca520057b09d44cca8f81761efb2a9cea3ca2452aa133b44a2"
+    },
+    "tests/ci/release-gates.test.ts": {
+      "bytes": 72948,
+      "mode": 420,
+      "sha256": "aaf8f54ba4ed418acc6edceadd703541bb5c82f66429ef711c66631fe3a687ca"
+    }
+  },
+  "ownedPaths": [
+    ".github/workflows/ci.yml",
+    "scripts/ci/gate-manifest.mjs",
+    "scripts/ci/run-guest-file-write-gate.mjs",
+    "scripts/ci/guest-package-fixtures.py",
+    "tests/ci/guest-file-write-gate.test.ts",
+    "tests/ci/gate-manifest.test.ts",
+    "tests/ci/platform-coverage.test.ts",
+    "tests/ci/release-gates.test.ts",
+    "docs/build/handoffs/GUEST-PACKAGE-NATIVE-GATES-20261005.md"
+  ],
+  "revision": 5,
+  "rootR10Failure": {
+    "fixedFailurePhase": "copy-fixed-probe",
+    "nativeCasesExecuted": 0,
+    "passedPrerequisites": [
+      "public-tool-owner",
+      "preserve-real-debian-image",
+      "actual Go1.27.1 ARM64"
+    ],
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r10-f05099b7c3942fda4a92b181fbfe820a/receipt.json",
+    "sha256": "5057c4cf19c612020e65bb530f6f3e9653e13457fdc89dbd64c92d14e45f6b77"
+  },
+  "runtime": "UNRUN; no author imports/project execution/compiler/tests/services/Docker/install/real index/staging/commits",
+  "schemaVersion": 1,
+  "sourceModelDeclarations": 8,
+  "sourceModelExpanded": 9,
+  "status": "FROZEN_SOURCE_ONLY_INDEPENDENT_REVIEW_AND_RUNTIME_PENDING",
+  "verificationCommands": [
+    "node scripts/ci/run-guest-file-write-gate.mjs --run",
+    "npx vitest run tests/ci/guest-file-write-gate.test.ts tests/ci/gate-manifest.test.ts tests/ci/platform-coverage.test.ts tests/ci/release-gates.test.ts",
+    "npm run typecheck",
+    "npm run lint",
+    "actionlint .github/workflows/ci.yml"
+  ],
+  "wholeOutsideCount": 3838,
+  "wholeOwnedBefore": {
+    ".github/workflows/ci.yml": {
+      "bytes": 57015,
+      "mode": 420,
+      "sha256": "1ee15d32ffd5a586eb8797a6c7f6d575b2fa9bda1f9ec4fac32b00b78d437eba"
+    },
+    "docs/build/handoffs/GUEST-PACKAGE-NATIVE-GATES-20261005.md": null,
+    "scripts/ci/gate-manifest.mjs": {
+      "bytes": 302109,
+      "mode": 420,
+      "sha256": "8feefdff0f2cadeb0c441214a6870e68201746b1fc29c9269cddfad1faf61b0f"
+    },
+    "scripts/ci/guest-package-fixtures.py": null,
+    "scripts/ci/run-guest-file-write-gate.mjs": {
+      "bytes": 21059,
+      "mode": 420,
+      "sha256": "9387fcd96f11d9b0a9c5751b0b30e54eba212f98abfeb083e4ad4086c11d44dc"
+    },
+    "tests/ci/gate-manifest.test.ts": {
+      "bytes": 183815,
+      "mode": 420,
+      "sha256": "eba6ed7394233accc8a88f34e74851e7c287426f25683e746eeeff1709cba49b"
+    },
+    "tests/ci/guest-file-write-gate.test.ts": {
+      "bytes": 56763,
+      "mode": 420,
+      "sha256": "6474d16086b13230398d30e7db646379f57d56ec7ed7021e937b784014b84dd0"
+    },
+    "tests/ci/platform-coverage.test.ts": {
+      "bytes": 51733,
+      "mode": 420,
+      "sha256": "07701810c4115ca2164530436a225ac749c8867d63ba44eb87e1538d35e3871e"
+    },
+    "tests/ci/release-gates.test.ts": {
+      "bytes": 72091,
+      "mode": 420,
+      "sha256": "20fb7cabaefac69f8ae91237855a4c67edaedcbde0e4c4c7221a65d65c2d2ef0"
+    }
+  },
+  "wholePatch": {
+    "bytes": 94744,
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-canonical-gates-20261005/revision5/candidate.patch",
+    "sha256": "e7c4aa6c936ccf0a575c96c67b8226dbda7d13a4d2cd54cbd9fa666208bc4707"
+  },
+  "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/guest-package-canonical-gates-20261005"
+}

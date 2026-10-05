@@ -1,0 +1,37 @@
+{
+  "privateDirectory": "/Users/saivedanthava/.codex/zenith-production/checkpoints/2026-10-02-paused",
+  "files": {
+    "FINISHED-CI-CORRECTION.md": {
+      "sha256": "ab0dc55cbcaa0d01b5f6e63f8a351bb8af3c53e7dff05bd7530cc07032bc9782",
+      "bytes": 2377
+    },
+    "FINISHED-REMOTE-CI-EVIDENCE.md": {
+      "sha256": "63bac303d52446814474cef3895318b2d227c8a835a5e60b7b674a5eb9f76784",
+      "bytes": 12344
+    },
+    "PAUSE-WORKTREE-INVENTORY.json": {
+      "sha256": "b612e0525ce227940de257581e63ede7a32e9d4dd61ff41f97f48032b2b852fd",
+      "bytes": 9480
+    },
+    "PAUSED-ECS-REPLICA-REPAIR.md": {
+      "sha256": "62cb50b260bd712b0f4112cd6b8dca623eef900cd730c95e887887c93647d107",
+      "bytes": 14930
+    },
+    "canonical-repair-final-source-freeze.json": {
+      "sha256": "6a5b0e41b412dcc02dd6f9586890d4a7d045876328b78f361c8cfa5ebd72bb3f",
+      "bytes": 4766
+    },
+    "ecs-replica-repair-files.tar.gz": {
+      "sha256": "b0fb40e115b470d2bdf22696223e0a964ae9c535c3f6717495c8ddd9d473b766",
+      "bytes": 160166
+    },
+    "ecs-replica-repair-source-freeze.json": {
+      "sha256": "aa62f8151b55caef823f98553a2452e6441c130f7e060493fd032ca2d192b671",
+      "bytes": 10239
+    },
+    "ws-prod-ecs-replica-repair.patch": {
+      "sha256": "5b78a31b7939408f532dc1160b916f6b77bc5e22791f8b1af534603204e7e30b",
+      "bytes": 118177
+    }
+  }
+}

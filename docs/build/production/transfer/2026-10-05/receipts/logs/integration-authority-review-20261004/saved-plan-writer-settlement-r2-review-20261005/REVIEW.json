@@ -1,0 +1,129 @@
+{
+  "disposition": "ACCEPTED_SOURCE_ONLY_RUNTIME_UNVERIFIED",
+  "reviewer": "Independent B; author A; root owns integration and all execution",
+  "freeze": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/FROZEN-SOURCE-CORRECTED.json",
+    "sha256": "70e773273973550173e287ccc7d761610ef682db3b56e5495ea50af18ebeb2db"
+  },
+  "candidateTree": "09d8e9d2795eb34a128a5cf1af72868f32fd9c2a",
+  "wholePatch": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/candidate.patch",
+    "sha256": "db722ac60eac6037d231d158c3a8042d324aaec78cf25fbd3b4bfd2b9d77e76c",
+    "ownedPaths": 17
+  },
+  "incrementalPatch": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/incremental.patch",
+    "sha256": "da9be03a16b713612874fb0239a181aac1945d35cf97c4c2c922da3ef1fe28b4",
+    "ownedPaths": 4
+  },
+  "binding": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/integration-authority-review-20261004/saved-plan-writer-settlement-r2-review-20261005/BINDING.json",
+    "sha256": "4be1583a9ece82be8023b7b1a08c0ff7a24dabd689f1f830470d6c12124f1688"
+  },
+  "caseContract": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/CASE-CONTRACT.json",
+    "sha256": "f54f4b81ff2a2e67ebe4c061db1136823a9bd2e9d792323c6abcf9b8b4249e9d",
+    "retained46": 46,
+    "prior91": 91,
+    "new9": 9,
+    "total100": 100,
+    "allExecution": "UNRUN",
+    "literalExpandedNamesAndOrderIndependentlyParsed": true
+  },
+  "blockingFindings": [],
+  "resolvedR1Finding": {
+    "priorReviewPath": "/Users/saivedanthava/.codex/zenith-production/logs/integration-authority-review-20261004/saved-plan-writer-settlement-r1-review-20261005/REVIEW.json",
+    "priorReviewSha256": "b73b49fea0ad93e2aad92de469181606b8fa7108633b0a59bad2f7195ec89800",
+    "engine": {
+      "path": "src/lib/tofu/engine.ts",
+      "lines": [
+        292,
+        294,
+        296,
+        298,
+        300,
+        302,
+        358,
+        360,
+        362,
+        366,
+        370,
+        374,
+        379,
+        394,
+        399,
+        406,
+        408,
+        410,
+        412,
+        417
+      ],
+      "observation": "Finite producer/application/readback callbacks repeat private exact registered-run plus captured workspace verification before each subsequent mutable method read after awaited work. Subsequent producer and terminal command matchers retain exact actual child records, argv, original bytes, executable identity and checked cleanup."
+    },
+    "runner": {
+      "path": "src/lib/tofu/runner.ts",
+      "lines": [
+        99,
+        109,
+        329,
+        438,
+        443,
+        447,
+        453,
+        525,
+        531,
+        546,
+        548,
+        568,
+        582,
+        588,
+        590,
+        600,
+        603,
+        609,
+        612,
+        614,
+        625,
+        663,
+        672
+      ],
+      "observation": "Unknown private identity returns before descriptor/key/prototype inspection. Known registered runs refuse changed descriptors. Normalization captures original input and guards following awaited show; original file work captures the fixed original directory. Apply repeats checks after digest, normalization and admission waits before later method/field reads. Finally checks the known registered run before reading dispose, and original-root removal must be confirmed before its private cleaned marker."
+    },
+    "newControls": "Five expanded producer/apply/readback post-inspector own/prototype accessor controls, two genuine registered-apply admission accessor controls, final-dispose accessor control, and private unknown-Proxy origin control require zero getter/trap invocation and no terminal settlement. Actual accepted effects remain uncertain and nonreplayable in post-apply controls."
+  },
+  "fixtureImprovements": [
+    "All original46 callback bytes and all91 prior literal names/order retained. Thirteen other whole-owned source postimages remain exactly R1.",
+    "The incomplete-cleanup fake dispose callback now remains unentered (0) because finally refuses before reading the altered method; actual state, absent receipt, uncertainty and replay refusal remain.",
+    "The five current-role wait cases attach their explicit modeled directory wait at the third actual plan inspector: fresh application inspection, original application inspection, then separate no-change readback inspection. They assert three inspections, actual resource state and no remaining private run directories before committing independent member/approval/provider mutations. Final native receipt count, succeeded-versus-uncertain phase and replay refusal remain. No runner-prototype alteration between completed runs substitutes authority."
+  ],
+  "unchangedAuthority": [
+    "Finite generated builtin-only JSON, fixed local terraform.tfstate backend, protected existing state checks before first tool, physical parent identity and separate approved path digest remain exact.",
+    "Private native command records, authenticated original plan manifest/raw bytes, canonical init/plan/original apply, distinct fresh no-change readback, actual state digest and checked two-run cleanup remain necessary before private one-use completion.",
+    "Default paired origin/current exact tenant/operation/attempt/fence/lease, product/source/native member and consumed human approval predicates in final native CAS and INSERT remain unchanged from frozenR1. Historical ciphertext is never current execution authorization.",
+    "Only exact authenticated standalone plan/use histories can reconcile. Existing grants/workflow/build/runner/machine/unknown-epoch histories remain blockers; SQL-seeded rows/statuses/caller returns cannot attest completion.",
+    "Original migration history, native absence/custom topology refusals and same-scope genuine original-byte positive intent remain unchanged."
+  ],
+  "scopeLimits": [
+    "Unknown-Proxy trap-free observation applies to the private origin comparator and finite entry control. Final-disposal descriptor protection is for known registered runs; separate unknown legacy/open-substitution disposal behavior is retained and is not certified trap-free or a settlement authority by this review.",
+    "This is a bounded registered-run rule inside the trusted runtime, not arbitrary compromised-process, same-UID external-writer, privileged remount, filesystem-CAS or generic cloud completion proof.",
+    "Hosted product/directory/policy association waits are explicit fixture models. Actual native SQL/OpenTofu behavior is authored but not executed by this reviewer."
+  ],
+  "indexObservation": {
+    "sha256": "efd8e1b528499eaf886326448714876b4b106946439c48636998295d151037dc",
+    "frozenRawSha256": "bf88eab2ffc7f839bdae8b13acbaed9f8efa61265f1bb00d0da23dee39b14726",
+    "frozenRawMatchesCurrent": false,
+    "entriesSha256": "6bc8d24de22de7465f84d1801a0eab0bc803caa92783e3b9f5079ed09d8ef02a",
+    "entriesExactFrozen": true,
+    "unchangedDuringReview": true,
+    "authorExplanation": "A confirmed a post-freeze git status without optional-locks0 refreshed stat/cache bytes; frozen raw receipt is preserved. Current staged entries and all source trees remain exact, current raw index is unchanged during this review."
+  },
+  "outsideFollowups": [
+    "Root compiler/lint/nativePostgreSQL/OpenTofu execution of all100 named cases and the preserved paired source suites; no prior runtime borrowed.",
+    "Exact54 additive mandatory registration preserving1059/80/123/22 plus narrow SQL AST composer and source fingerprint rebinding.",
+    "Schema16 and Supabase0018 actual canonical emitter parity/fresh/reapply/collision/RLS/grants/tenancy controls; no accepted history edits.",
+    "Positively owned Linux physical alias/foreign-scope acceptance remains separately required.",
+    "Provider/cloud/Temporal/build/runner/machine settlement and complete cleanup LIFE requirements remain open."
+  ],
+  "history": "Immutable R1 correction-required receipt, initial R2 metadata receipt, all draft findings and failed parent runtime receipts retained.",
+  "execution": "No project imports/compiler/tests/lint/DB/Docker/services/cloud/install/source edits/Git index writes/commits. Standard-library source/hash/unified-diff/tree parsing only; own review files written."
+}

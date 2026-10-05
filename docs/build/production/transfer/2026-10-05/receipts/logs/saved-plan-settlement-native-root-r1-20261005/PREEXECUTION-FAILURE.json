@@ -1,0 +1,11 @@
+{
+  "status": "FAILED_PRIVATE_HELPER_CASE_ENCODING_BEFORE_RUNTIME",
+  "recordedAtUtc": "2026-10-05T04:40:04.542066+00:00",
+  "helperSha256": "45edae128c863d1d824451cf09fe613aad789eef2b5ce450e5814b8967e54bde",
+  "candidateTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+  "testsExecuted": 0,
+  "servicesStarted": 0,
+  "productCaseFailures": 0,
+  "cause": "Private helper assumed old LF title encoding; new exact CASE contract uses compact JSON string array. Strict binding refused before Docker or runtime.",
+  "correction": "Successor helper uses exact compact JSON encoding, preserving required hash/identities/counts."
+}

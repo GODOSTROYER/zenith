@@ -405,6 +405,13 @@ func runFileMutation(ctx context.Context, e *Env, a fileWriteArgs, p FileWritePr
 		intent["sourceRef"] = a.ContentRef
 		intent["sourceVersion"] = a.ContentVersion
 	}
+	if purpose == serviceConfigurePurpose {
+		delete(intent, "contentRef")
+		delete(intent, "contentVersion")
+		intent["operation"] = OpServiceConfigure
+		intent["profileRef"] = a.ContentRef
+		intent["profileVersion"] = a.ContentVersion
+	}
 	if exists {
 		intent["priorMode"] = oldStat.Mode & 07777
 		intent["priorUID"] = oldStat.Uid

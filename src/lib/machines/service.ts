@@ -33,7 +33,7 @@ import { isImplementedOperation, MachineRequestSchema, parseMachineArgs, describ
 import { evidenceForRejection, evidenceForResult } from "./evidence";
 import { MachineOperationError, isMachineOperationError } from "./errors";
 import { isDeniedFilePath, isCanonicalWritePath, writePathAllowed, pathAllowed } from "./guards";
-import { FileWriteFailureDataSchema, PackageInstallFailureDataSchema, MachineResultDataSchemas } from "./results";
+import { FileWriteFailureDataSchema, PackageInstallFailureDataSchema, ServiceConfigureFailureDataSchema, MachineResultDataSchemas } from "./results";
 import { MAX_OUTPUT_BYTES, MAX_TIMEOUT_SEC } from "./limits";
 import { redactDeep, truncateUtf8 } from "./redact";
 import type { MachineDriver, MachineDrivers, MachineEvidenceSink, MachineOperation, MachineRequest, MachineResult, MachineSessionProvider } from "./types";
@@ -84,7 +84,7 @@ function parseConstraints(grant: CapabilityGrantClaims, op: MachineOperation): z
       throw new MachineOperationError("grant_mismatch", "the write grant carries constraints this executor cannot enforce");
     }
   }
-  if (op === "package.install" && Object.keys(grant.constraints ?? {}).some((k) => !["maxTimeoutSec", "maxOutputBytes"].includes(k))) throw new MachineOperationError("grant_mismatch", "the package grant carries unenforceable constraints");
+  if ((op === "package.install" || op === "service.configure") && Object.keys(grant.constraints ?? {}).some((k) => !["maxTimeoutSec", "maxOutputBytes"].includes(k))) throw new MachineOperationError("grant_mismatch", "the " + (op === "service.configure" ? "service configuration" : "package") + " grant carries unenforceable constraints");
   const parsed = ConstraintsSchema.safeParse(grant.constraints ?? {});
   if (!parsed.success) throw new MachineOperationError("grant_mismatch", "the capability grant carries constraints this executor cannot interpret", { issues: describeIssues(parsed.error) });
   return parsed.data;
@@ -118,6 +118,14 @@ function postProcess(req: MachineRequest, driver: MachineDriver, result: Machine
     if (!parsed.success) throw new MachineOperationError("uncertain", "the package result did not establish effect custody", { transportRef: result.transportRef });
     const data = parsed.data as Record<string, unknown>;
     if (result.ok && (data.profileRef !== req.args.profileRef || data.profileVersion !== req.args.profileVersion || (data.changed === true) !== (req.args.expectedInstalledVersion === null) || (req.args.expectedInstalledVersion !== null && data.version !== req.args.expectedInstalledVersion))) throw new MachineOperationError("uncertain", "the package receipt contradicts approved profile or installed-state preconditions", { transportRef: result.transportRef });
+    const { output: _output, ...safe } = result;
+    return { ...safe, data };
+  }
+  if (req.operation === "service.configure") {
+    const parsed = (result.ok ? MachineResultDataSchemas["service.configure"] : ServiceConfigureFailureDataSchema).safeParse(result.data);
+    if (!parsed.success) throw new MachineOperationError("uncertain", "the service configuration result did not establish effect custody", { transportRef: result.transportRef });
+    const data = parsed.data as Record<string, unknown>;
+    if (result.ok && (data.unit !== req.args.unit || data.profileRef !== req.args.profileRef || data.profileVersion !== req.args.profileVersion || data.created !== (req.args.expectedSha256 === null) || (data.changed === false && req.args.expectedSha256 === null))) throw new MachineOperationError("uncertain", "the service configuration receipt contradicts the approved unit, profile or prior-state preconditions", { transportRef: result.transportRef });
     const { output: _output, ...safe } = result;
     return { ...safe, data };
   }
@@ -201,7 +209,7 @@ export async function executeMachineOperation(req: MachineRequest, ctx: MachineE
     if (typeof parsedArgs.timeoutSec === "number" && request.operation.endsWith("exec") && parsedArgs.timeoutSec > timeoutSec) {
       throw new MachineOperationError("limit_exceeded", `the command's timeoutSec (${parsedArgs.timeoutSec}) exceeds the request's time budget (${timeoutSec}s)`);
     }
-    if ((request.operation === "file.write" || request.operation === "file.upload" || request.operation === "package.install") && maxOutputBytes < 2048) throw new MachineOperationError("limit_exceeded", "local mutation requires a 2048-byte metadata result budget");
+    if ((request.operation === "file.write" || request.operation === "file.upload" || request.operation === "package.install" || request.operation === "service.configure") && maxOutputBytes < 2048) throw new MachineOperationError("limit_exceeded", "local mutation requires a 2048-byte metadata result budget");
     enforceConstraints(request.operation, parsedArgs, constraints);
 
     const effective: MachineRequest = { ...request, args: parsedArgs, timeoutSec, maxOutputBytes };
@@ -234,7 +242,7 @@ export async function executeMachineOperation(req: MachineRequest, ctx: MachineE
   }
   // Classify after recording and caching, including a cached result on replay.
   // Preserve the genuine phase/backup receipt instead of recording a rejection.
-  if ((request.operation === "file.write" || request.operation === "file.upload" || request.operation === "package.install") && !completed.ok && completed.data.effect === "unknown") {
+  if ((request.operation === "file.write" || request.operation === "file.upload" || request.operation === "package.install" || request.operation === "service.configure") && !completed.ok && completed.data.effect === "unknown") {
     throw new MachineOperationError("uncertain", "the machine write's durable outcome is unknown; it must never be re-dispatched", {
       result: completed,
       transportRef: completed.transportRef,

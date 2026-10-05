@@ -37,6 +37,7 @@ const (
 	OpFileWrite        = "file.write"
 	OpFileUpload       = "file.upload"
 	OpPackageInstall   = "package.install"
+	OpServiceConfigure = "service.configure"
 	OpPortCheck        = "network.portCheck"
 	OpDNSCheck         = "network.dnsCheck"
 	OpMetrics          = "system.metrics"
@@ -51,13 +52,14 @@ var Unsupported = map[string]bool{}
 
 // Config is the operation-relevant part of the zenithd configuration.
 type Config struct {
-	Services       ServicesConfig       `json:"services"`
-	Containers     ContainersConfig     `json:"containers"`
-	Exec           ExecConfig           `json:"exec"`
-	Files          FilesConfig          `json:"files"`
-	FileWrite      FileWriteConfig      `json:"fileWrite"`
-	FileUpload     FileUploadConfig     `json:"fileUpload"`
-	PackageInstall PackageInstallConfig `json:"packageInstall"`
+	Services         ServicesConfig         `json:"services"`
+	Containers       ContainersConfig       `json:"containers"`
+	Exec             ExecConfig             `json:"exec"`
+	Files            FilesConfig            `json:"files"`
+	FileWrite        FileWriteConfig        `json:"fileWrite"`
+	FileUpload       FileUploadConfig       `json:"fileUpload"`
+	PackageInstall   PackageInstallConfig   `json:"packageInstall"`
+	ServiceConfigure ServiceConfigureConfig `json:"serviceConfigure"`
 	// SystemctlPath and JournalctlPath default to /usr/bin/...
 	SystemctlPath  string `json:"systemctlPath"`
 	JournalctlPath string `json:"journalctlPath"`
@@ -115,6 +117,8 @@ type Env struct {
 	cpuCount       func() int
 	arch           string
 	statfs         func(string) (uint64, uint64, uint64, bool)
+	// sleep paces service.configure's bounded postcondition polling; nil uses real time.
+	sleep func(context.Context, time.Duration) error
 }
 
 // Request is one validated request to run an operation.
@@ -162,7 +166,7 @@ func register(op Operation) { registry[op.Name] = op }
 // (containers, exec) are omitted.
 func Supported(cfg Config) []string {
 	var out []string
-	for _, name := range []string{OpInspect, OpProcessList, OpServiceStatus, OpServiceRestart, OpContainerList, OpContainerInspect, OpContainerLogs, OpContainerExec, OpFileRead, OpFileWrite, OpFileUpload, OpPackageInstall, OpPortCheck, OpDNSCheck, OpMetrics, OpLogs, OpExec} {
+	for _, name := range []string{OpInspect, OpProcessList, OpServiceStatus, OpServiceRestart, OpContainerList, OpContainerInspect, OpContainerLogs, OpContainerExec, OpFileRead, OpFileWrite, OpFileUpload, OpPackageInstall, OpServiceConfigure, OpPortCheck, OpDNSCheck, OpMetrics, OpLogs, OpExec} {
 		switch name {
 		case OpContainerList, OpContainerInspect, OpContainerLogs:
 			if !cfg.Containers.Enabled {
@@ -191,6 +195,10 @@ func Supported(cfg Config) []string {
 		case OpPackageInstall:
 			// Availability is independently checked by the machine executor.
 			if !fileWritePlatform() || !cfg.PackageInstall.Enabled || len(cfg.PackageInstall.Profiles) == 0 {
+				continue
+			}
+		case OpServiceConfigure:
+			if !fileWritePlatform() || !cfg.ServiceConfigure.Enabled || len(cfg.ServiceConfigure.Profiles) == 0 || len(cfg.Services.RestartAllow) == 0 {
 				continue
 			}
 		case OpFileRead:

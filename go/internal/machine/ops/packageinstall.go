@@ -192,7 +192,10 @@ func ValidatePackageInstallIsolation(c Config) error {
 	overlap := func(a, b string) bool {
 		return a != "" && b != "" && (a == b || strings.HasPrefix(a, b+"/") || strings.HasPrefix(b, a+"/"))
 	}
-	custody := []string{c.FileWrite.BackupDir, c.FileUpload.BackupDir}
+	custody := []string{c.FileWrite.BackupDir, c.FileUpload.BackupDir, c.ServiceConfigure.BackupDir}
+	for _, p := range c.ServiceConfigure.Profiles {
+		custody = append(custody, p.Path, p.SourcePath)
+	}
 	for _, p := range c.FileWrite.Profiles {
 		custody = append(custody, p.Path, p.SourcePath)
 	}

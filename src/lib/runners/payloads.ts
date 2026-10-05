@@ -208,6 +208,11 @@ export function validateMachineArgs(operation: string, args: unknown): Record<st
     if (!parsed.ok) throw new PayloadError(operation, "args do not match the strict local-source upload contract");
     return parsed.args;
   }
+  if (operation === "service.configure") {
+    const parsed = parseMachineArgs("service.configure", args);
+    if (!parsed.ok) throw new PayloadError(operation, "args do not match the strict pinned service configuration contract");
+    return parsed.args;
+  }
   if (operation === "package.install") {
     const parsed = parseMachineArgs("package.install", args);
     if (!parsed.ok) throw new PayloadError(operation, "args do not match the strict pinned package contract");

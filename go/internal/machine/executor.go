@@ -112,13 +112,15 @@ func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Re
 	}
 	env := vm.Envelope
 
-	if env.Operation == ops.OpFileWrite || env.Operation == ops.OpFileUpload {
+	if env.Operation == ops.OpFileWrite || env.Operation == ops.OpFileUpload || env.Operation == ops.OpServiceConfigure {
 		if vm.Grant.Res == "" {
 			e.auditReject(env.JTI, env.Operation, env.Args, protocol.CodeConstraint, env.Operation+" requires a resource scoped grant", true)
 			return nil, &agent.Rejection{ID: env.JTI, Code: protocol.CodeConstraint, Message: env.Operation + " requires a resource scoped grant"}
 		}
 		var constraintErr error
-		if env.Operation == ops.OpFileUpload {
+		if env.Operation == ops.OpServiceConfigure {
+			constraintErr = ops.ValidateServiceConfigureConstraints(env.Args, vm.Grant.Constraints)
+		} else if env.Operation == ops.OpFileUpload {
 			constraintErr = ops.ValidateFileUploadConstraints(env.Args, vm.Grant.Constraints)
 		} else {
 			constraintErr = ops.ValidateFileWriteConstraints(env.Args, vm.Grant.Constraints)
@@ -133,7 +135,7 @@ func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Re
 		e.auditReject(env.JTI, env.Operation, env.Args, protocol.CodeOf(err), protocol.MessageOf(err), true)
 		return nil, &agent.Rejection{ID: env.JTI, Code: protocol.CodeOf(err), Message: protocol.MessageOf(err)}
 	}
-	if (env.Operation == ops.OpFileWrite || env.Operation == ops.OpFileUpload) && maxOut < 2048 {
+	if (env.Operation == ops.OpFileWrite || env.Operation == ops.OpFileUpload || env.Operation == ops.OpServiceConfigure) && maxOut < 2048 {
 		e.auditReject(env.JTI, env.Operation, env.Args, protocol.CodeConstraint, env.Operation+" requires a 2048-byte metadata result budget", true)
 		return nil, &agent.Rejection{ID: env.JTI, Code: protocol.CodeConstraint, Message: env.Operation + " requires a 2048-byte metadata result budget"}
 	}
@@ -293,7 +295,7 @@ func (j *job) Run(ctx context.Context, _ agent.LogSink) agent.ResultBody {
 	if body.Error != "" {
 		entry.Reason = clip(body.Error, 200)
 	}
-	if (j.op == ops.OpFileWrite || j.op == ops.OpFileUpload || j.op == ops.OpPackageInstall) && res.Data != nil {
+	if (j.op == ops.OpFileWrite || j.op == ops.OpFileUpload || j.op == ops.OpPackageInstall || j.op == ops.OpServiceConfigure) && res.Data != nil {
 		entry.Extra = map[string]string{}
 		for _, key := range []string{"phase", "effect", "postcondition", "backupRef", "transactionRef"} {
 			if value, ok := res.Data[key].(string); ok {
@@ -303,7 +305,7 @@ func (j *job) Run(ctx context.Context, _ agent.LogSink) agent.ResultBody {
 	}
 	if aerr := j.e.audit.Append(entry); aerr != nil {
 		j.e.log.Error("could not write the audit entry for a finished operation", "request", j.id, "err", aerr)
-		if (j.op == ops.OpFileWrite || j.op == ops.OpFileUpload || j.op == ops.OpPackageInstall) && res.OK {
+		if (j.op == ops.OpFileWrite || j.op == ops.OpFileUpload || j.op == ops.OpPackageInstall || j.op == ops.OpServiceConfigure) && res.OK {
 			// The files may be durably committed, but completion custody is incomplete.
 			// Keep the private intent/backup receipt and forbid a success/replay claim.
 			uncertain := map[string]any{"error": "mutation_uncertain", "phase": "audit", "effect": "unknown", "postcondition": "unverified"}

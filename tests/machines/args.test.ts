@@ -44,6 +44,7 @@ describe("operation vocabulary", () => {
       "container.exec": { argv: ["ls"], timeoutSec: 5 },
       "file.write": { path: "/opt/customer/settings.txt", contentRef: "settings", contentVersion: "c".repeat(64), expectedSha256: null },
       "package.install": { profileRef: "bundle", profileVersion: "c".repeat(64), expectedInstalledVersion: null },
+      "service.configure": { unit: "app.service", profileRef: "app-config", profileVersion: "c".repeat(64), expectedSha256: null },
       "file.upload": { path: "/opt/customer/model.bin", sourceRef: "model", sourceVersion: "c".repeat(64), expectedSha256: null },
       "file.read": { path: "/var/log/syslog" },
       "network.portCheck": { host: "example.com", port: 80 },

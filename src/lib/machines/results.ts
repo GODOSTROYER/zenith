@@ -180,6 +180,22 @@ export const MachineResultDataSchemas = {
   }).superRefine((d, ctx) => {
     if (d.changed !== (d.effect === "committed") || (d.changed && !d.transactionRef)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "inconsistent package receipt" });
   }),
+  "service.configure": z.object({
+    unit: str(128).regex(/^[A-Za-z0-9@._:-]{1,128}.service$/),
+    profileRef: z.string().max(64).regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/),
+    profileVersion: z.string().length(64).regex(/^[0-9a-f]{64}$/),
+    /** the configuration file changed on disk */
+    changed: z.boolean(), created: z.boolean(), bytesWritten: count.max(1048576),
+    /** the service action performed to converge: none when the file was unchanged and the unit already active */
+    action: z.enum(["none", "reload", "restart"]),
+    activeState: z.literal("active"),
+    postcondition: z.literal("verified"), phase: z.literal("verified"),
+    effect: z.enum(["none", "committed"]),
+    backupRef: z.string().length(35).regex(/^fw_[0-9a-f]{32}$/).optional(),
+    transactionRef: z.string().length(35).regex(/^fw_[0-9a-f]{32}$/).optional(),
+  }).superRefine((d, ctx) => {
+    if (d.effect !== (d.changed || d.action !== "none" ? "committed" : "none") || (d.created && !d.changed) || (!d.changed && d.bytesWritten !== 0) || (d.changed && !d.transactionRef) || (!d.changed && (d.transactionRef || d.backupRef)) || (d.created && d.backupRef) || (d.changed && !d.created && !d.backupRef)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "inconsistent service configuration receipt" });
+  }),
   "network.portCheck": z.object({
     host: str(253),
     port: z.number().int().min(1).max(65535),
@@ -271,4 +287,27 @@ export const PackageInstallFailureDataSchema = z.object({
   transactionRef: z.string().length(35).regex(/^pi_[0-9a-f]{32}$/).optional(),
 }).superRefine((d, ctx) => {
   if ((d.effect === "unknown") !== (d.error === "mutation_uncertain") || (d.phase !== "guard" && d.effect !== "unknown")) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "inconsistent package effect receipt" });
+});
+
+/**
+ * Service configuration outcomes carry no file contents, paths, command output or arbitrary
+ * errors. `committed` with `service_failed` means the configuration (or a restart) took effect
+ * but the unit did not verify healthy: it is a definite, retained failure, never an unknown.
+ */
+export const ServiceConfigureFailureDataSchema = z.object({
+  error: z.enum(["refused", "mutation_uncertain", "service_failed"]),
+  phase: z.enum(["guard", "prepare", "backup", "commit", "rename", "directory_sync", "postcondition", "service_action", "service_postcondition", "audit"]),
+  effect: z.enum(["none", "committed", "unknown"]),
+  postcondition: z.literal("unverified"),
+  backupRef: z.string().length(35).regex(/^fw_[0-9a-f]{32}$/).optional(),
+  transactionRef: z.string().length(35).regex(/^fw_[0-9a-f]{32}$/).optional(),
+}).superRefine((d, ctx) => {
+  const servicePhase = d.phase === "service_action" || d.phase === "service_postcondition";
+  const bad =
+    (d.effect === "unknown") !== (d.error === "mutation_uncertain") ||
+    (d.error === "service_failed") !== (d.effect === "committed") ||
+    (d.effect === "committed" && !servicePhase) ||
+    (["rename", "directory_sync", "audit"].includes(d.phase) && d.effect !== "unknown") ||
+    (d.effect === "none" && (d.backupRef || d.transactionRef) && !["commit", "backup", "prepare"].includes(d.phase));
+  if (bad) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "inconsistent service configuration effect receipt" });
 });

@@ -201,7 +201,7 @@ class default is what a request sees.)
 | 2 | plan: exact proposals that need approval | Agents may propose; every mutation waits for a human approval. |
 | 3 | safe execution: low-risk changes run automatically | `service.restart`, `service.scale` and `database.snapshot` need no approval for autonomy reasons. |
 | 4 | bounded SRE operations automatic under policy | Adds `deployment.deploy`, `deployment.rollback`, `drift.repair`, `database.migrate`, `function.invoke` and `machine.service.restart`. |
-| 5 | broad autonomy within configured limits | Adds `infrastructure.apply`, `firewall.modify`, `dns.modify`, `secret.write`, `file.write`, `file.upload` and `package.install`. |
+| 5 | broad autonomy within configured limits | Adds `infrastructure.apply`, `firewall.modify`, `dns.modify`, `secret.write`, `file.write`, `file.upload`, `service.configure` and `package.install`. |
 
 The mechanism is one rule: `autonomy_below_capability` requires an editor's approval
 when the capability is mutating and the environment's level is below the

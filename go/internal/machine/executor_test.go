@@ -170,3 +170,29 @@ func TestPackageCompletionAuditFailureCannotClaimSuccess(t *testing.T) {
 		t.Fatal("package completion audit loss became success")
 	}
 }
+
+func TestServiceConfigureAuditCompletionFailureIsUncertainAndWireIsMetadataOnly(t *testing.T) {
+	audit, err := OpenAudit(filepath.Join(t.TempDir(), "audit.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	audit.Close()
+	e := &Executor{now: time.Now, audit: audit, log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	receipt := "fw_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	j := &job{e: e, op: ops.OpServiceConfigure, timeout: time.Second, run: func(context.Context) (ops.Result, error) {
+		return ops.Result{OK: true, Data: map[string]any{"effect": "committed", "phase": "verified", "postcondition": "verified", "transactionRef": receipt, "backupRef": receipt}}, nil
+	}}
+	body := j.Run(context.Background(), nil)
+	data := body.Result.(map[string]any)["data"].(map[string]any)
+	if body.Status != agent.StatusFailed || body.Error != "service.configure audit: unknown" || data["effect"] != "unknown" || data["phase"] != "audit" || data["backupRef"] != receipt || data["transactionRef"] != receipt {
+		t.Fatal("audit failure claimed accepted service configuration completion")
+	}
+	wire := (&job{op: ops.OpServiceConfigure}).resultBody(ops.Result{Data: map[string]any{"error": "service_failed", "phase": "service_postcondition", "effect": "committed", "postcondition": "unverified", "transactionRef": receipt}, Err: "service.configure service_postcondition: committed"})
+	if wire["operation"] != ops.OpServiceConfigure || wire["output"] != nil || wire["data"].(map[string]any)["transactionRef"] != receipt {
+		t.Fatal("service wire lost mutation custody")
+	}
+	target := auditTarget(ops.OpServiceConfigure, json.RawMessage(`{"unit":"app.service","profileRef":"app-config","profileVersion":"v1","expectedSha256":null}`))
+	if target["unit"] != "app.service" || target["profileRef"] != nil || target["path"] != nil {
+		t.Fatal("service audit exposed more than the approved unit")
+	}
+}

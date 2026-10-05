@@ -172,6 +172,12 @@ export const MachineArgsSchemas = {
     profileVersion: z.string().length(64).regex(/^[0-9a-f]{64}$/),
     expectedInstalledVersion: z.string().max(128).regex(/^(?:[0-9]+:)?[0-9][A-Za-z0-9.+~-]{0,127}$/).nullable(),
   }).strict(),
+  "service.configure": z.object({
+    unit: unitSchema.refine((u) => u.endsWith(".service") && !isProtectedUnit(u), "must be an unprotected .service unit"),
+    profileRef: z.string().max(64).regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/),
+    profileVersion: z.string().length(64).regex(/^[0-9a-f]{64}$/),
+    expectedSha256: z.string().length(64).regex(/^[0-9a-f]{64}$/).nullable(),
+  }).strict(),
   "network.portCheck": z
     .object({
       host: hostSchema(false),

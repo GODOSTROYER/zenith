@@ -35,6 +35,7 @@ export const MACHINE_OPERATIONS = [
   "file.write",
   "file.upload",
   "package.install",
+  "service.configure",
   "network.portCheck",
   "network.dnsCheck",
   "system.metrics",

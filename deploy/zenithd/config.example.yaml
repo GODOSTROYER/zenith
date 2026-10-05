@@ -67,6 +67,27 @@ fileWrite:
   #     mode: "0600"                   # only "0600" or "0640"
   #     maxBytes: 65536                 # hard maximum 1048576
 
+# Convergent service configuration: off by default. One application-owned config
+# file (never under /etc or a unit file) is written atomically from a pinned local
+# source, then ONE unit that is also in services.restartAllow is reloaded or
+# restarted and verified active. Needs its own backup directory.
+serviceConfigure:
+  enabled: false
+  # backupDir: /opt/customer/sc-backups  # existing 0700, owned by zenithd
+  # maxBackupBytes: 16777216
+  # maxBackups: 128
+  # profiles:
+  #   - unit: myapp@main.service          # must match services.restartAllow
+  #     profileRef: myapp-config
+  #     profileVersion: REPLACE_WITH_SERVICE_CONFIGURE_VERSIONS_CLI_HASH
+  #     path: /opt/customer/app/myapp.env
+  #     sourcePath: /opt/customer/templates/myapp.env
+  #     sha256: REPLACE_WITH_LOCAL_PINNED_SHA256
+  #     mode: "0600"
+  #     maxBytes: 65536
+  #     action: restart                   # or reload
+  #     settleSec: 20                     # 1..60
+
 # Offline pinned Debian 12/dpkg 1.21 data-only first installs: off by default.
 # A separate root helper must have the exact machine/workspace identity, public
 # verification keys, numeric zenithd UID and matching versioned local profiles.

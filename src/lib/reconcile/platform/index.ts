@@ -24,7 +24,9 @@ import { ReconcileError } from "../errors";
 import { createPlatformGuard, createPlatformSignals, type PlatformGuardOptions } from "./guard";
 import { createPlatformState, loadPlatformEnvironment } from "./state";
 import { createPlatformStore, loadGraphFromStore } from "./store";
+import { createPlatformStability } from "./stability";
 
+export { createPlatformStability } from "./stability";
 export { createPlatformGuard, createPlatformSignals, type PlatformGuardOptions } from "./guard";
 export { createPlatformState, loadPlatformEnvironment, registerEnvironment, requestReconcileNow, type RegisterEnvironmentInput } from "./state";
 export { createPlatformStore, loadGraphFromStore } from "./store";
@@ -51,6 +53,8 @@ export function createPlatformReconcilePorts(deps: PlatformReconcileDeps): Recon
     signals: createPlatformSignals(db),
     loadGraph: (environment) => loadGraphFromStore(db, environment),
     broker: deps.broker,
+    // Always wired in production: no repair is proposed without a confirmed incident and a reservation.
+    stability: createPlatformStability(db),
     withObserveSession: deps.withObserveSession,
     resolveAwsBootstrap: deps.resolveAwsBootstrap ?? (async () => { throw new ReconcileError("platform_store_unavailable", "The trusted AWS reconciliation context resolver is not configured."); }),
     startRepair: deps.startRepair,

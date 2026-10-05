@@ -304,6 +304,7 @@ PLATFORM_TABLES=(
   agent_nonces machines incidents investigations cost_estimates
   machine_runbook_versions machine_runbook_approvals machine_runbook_schedules machine_runbook_runs
   machine_runbook_run_steps machine_runbook_audit
+  incident_signal_state incident_remediation_attempts incident_maintenance_windows incident_postmortems
 )
 platform_present="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select tablename from pg_tables where schemaname = 'platform' order by 1" "$SUPABASE_DB_URL")"

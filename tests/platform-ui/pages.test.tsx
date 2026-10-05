@@ -55,7 +55,7 @@ describe("page states", () => {
     expect(el.querySelector('a[href="/platform?status=uncertain&environmentId=env_1&cursor=next"]')).not.toBeNull(); expect(el.querySelector("script")).toBeNull();
   });
   it("renders an honest investigation empty state", async () => {
-    state.value = { context, data: { investigations: [], truncated: false, evidence: "contract" } };
+    state.value = { context, data: { investigations: [], escalations: [], truncated: false, evidence: "contract" } };
     expect(text(mount(await InvestigationsPage({ params })))).toContain("does not establish that it is healthy");
   });
   it("renders an honest plan/cost gap instead of inferred records", async () => {

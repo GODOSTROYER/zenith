@@ -28,7 +28,8 @@ import type { ResourceGraph, ResourceNode } from "@/lib/resources/types";
 import type { InvestigationPorts } from "./ports";
 import { mapPool } from "./probes";
 import { sanitizeText } from "./sanitize";
-import type { Evidence, Hypothesis, RemediationOption, RemediationPolicy } from "./types";
+import { autoscalerManaged, gateUnavailable, type GateDecision } from "./stability";
+import type { Evidence, Hypothesis, RemediationOption, RemediationPolicy, SuppressedRemediation } from "./types";
 
 const RISK_ORDER = ["low", "medium", "high", "critical"] as const;
 type Risk = (typeof RISK_ORDER)[number];
@@ -55,7 +56,7 @@ export interface RemediationContext {
   environmentId: string;
   graph: ResourceGraph;
   evidence: readonly Evidence[];
-  ports: Pick<InvestigationPorts, "policyDryRun">;
+  ports: Pick<InvestigationPorts, "policyDryRun" | "remediationGate">;
   timeoutMs: number;
 }
 
@@ -442,35 +443,79 @@ export function requestFor(draft: Draft, h: Hypothesis, ctx: RemediationContext)
   };
 }
 
+async function gate(ports: RemediationContext["ports"], request: Parameters<NonNullable<RemediationContext["ports"]["remediationGate"]>>[0], timeoutMs: number): Promise<GateDecision | undefined> {
+  if (!ports.remediationGate) return undefined;
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const decision = await Promise.race([
+      Promise.resolve(ports.remediationGate(request, { signal: controller.signal })),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new Error("remediation gate timed out"));
+        }, timeoutMs);
+      }),
+    ]);
+    if (!decision || typeof decision.allowed !== "boolean" || !Array.isArray(decision.codes)) return gateUnavailable();
+    return decision;
+  } catch {
+    return gateUnavailable();
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 /**
  * Attach remediation options and next steps to each hypothesis. Dry-runs run
  * with bounded concurrency; a failed or timed-out dry-run fails CLOSED
  * (`approvalRequired: true`, policy outcome `unavailable`).
+ *
+ * When a stability gate port is wired, every option passes it BEFORE it is
+ * offered: a refused option moves to `suppressedRemediations` with stable
+ * codes, and a gate that fails refuses everything.
  */
 export async function attachRemediations(hypotheses: readonly Hypothesis[], ctx: RemediationContext): Promise<Hypothesis[]> {
   const plans = hypotheses.map((h) => ({ h, ...draftRemediations(h, ctx) }));
   const jobs = plans.flatMap((p, hi) => p.drafts.slice(0, 6).map((draft) => ({ hi, draft, request: requestFor(draft, p.h, ctx) })));
-  const decided = await mapPool(jobs, 4, async (job) => ({ job, policy: await dryRun(job.request, ctx) }));
+  const decided = await mapPool(jobs, 4, async (job) => {
+    const catalogRisk = CAPABILITIES[job.draft.capability].risk as Risk;
+    const risk = maxRisk(catalogRisk, job.draft.risk ?? "low");
+    const verdict = await gate(
+      ctx.ports,
+      {
+        capability: job.draft.capability,
+        ...(job.draft.resourceId ? { resourceId: job.draft.resourceId } : {}),
+        blastRadius: job.draft.blastRadius,
+        risk,
+        confidence: plans[job.hi].h.confidence,
+        autoscalerManaged: autoscalerManaged(ctx.graph, job.draft.capability, job.draft.resourceId),
+      },
+      ctx.timeoutMs
+    );
+    return { job, risk, verdict, policy: verdict && !verdict.allowed ? undefined : await dryRun(job.request, ctx) };
+  });
 
   return plans.map((p, hi) => {
-    const remediations: RemediationOption[] = decided
-      .filter((d) => d.job.hi === hi)
-      .map(({ job, policy }) => {
-        const catalogRisk = CAPABILITIES[job.draft.capability].risk as Risk;
-        return {
-          id: `rem:${p.h.code}:${job.draft.key}`,
-          title: job.draft.title,
-          request: job.request,
-          risk: maxRisk(catalogRisk, job.draft.risk ?? "low"),
-          approvalRequired: policy.outcome !== "allow",
-          reversibility: job.draft.reversibility,
-          expectedEffect: job.draft.expectedEffect,
-          blastRadius: job.draft.blastRadius,
-          policy,
-          ...(job.draft.humanInputRequired ? { humanInputRequired: true } : {}),
-          ...(job.draft.manualSteps ? { manualSteps: job.draft.manualSteps } : {}),
-        };
-      });
-    return { ...p.h, remediations, ...(p.steps.length ? { nextSteps: [...new Set(p.steps)].slice(0, 8) } : {}) };
+    const mine = decided.filter((d) => d.job.hi === hi);
+    const suppressed: SuppressedRemediation[] = mine
+      .filter((d) => d.verdict && !d.verdict.allowed)
+      .map((d) => ({ id: `rem:${p.h.code}:${d.job.draft.key}`, title: d.job.draft.title, codes: [...d.verdict!.codes], messages: [...d.verdict!.messages], ...(d.verdict!.retryAfter ? { retryAfter: d.verdict!.retryAfter } : {}), escalate: d.verdict!.escalate }));
+    const remediations: RemediationOption[] = mine
+      .filter((d) => d.policy)
+      .map(({ job, policy, risk }) => ({
+        id: `rem:${p.h.code}:${job.draft.key}`,
+        title: job.draft.title,
+        request: job.request,
+        risk,
+        approvalRequired: policy!.outcome !== "allow",
+        reversibility: job.draft.reversibility,
+        expectedEffect: job.draft.expectedEffect,
+        blastRadius: job.draft.blastRadius,
+        policy: policy!,
+        ...(job.draft.humanInputRequired ? { humanInputRequired: true } : {}),
+        ...(job.draft.manualSteps ? { manualSteps: job.draft.manualSteps } : {}),
+      }));
+    return { ...p.h, remediations, ...(p.steps.length ? { nextSteps: [...new Set(p.steps)].slice(0, 8) } : {}), ...(suppressed.length ? { suppressedRemediations: suppressed } : {}) };
   });
 }

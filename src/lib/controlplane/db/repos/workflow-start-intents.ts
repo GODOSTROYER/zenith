@@ -284,6 +284,18 @@ async function productTopology(sql: Sql, request: StartRequest, isolatedDependen
 async function currentMcpAuthority(tx: Sql, op: Operation) {
   try { return await captureMcpDeployAuthority(tx, op); } catch { return refuse(); }
 }
+/**
+ * An incident remediation may start only against a repair attempt that
+ * `reserveRemediation` admitted (PROD-OBS-03) and that is bound to this exact
+ * operation. No reservation, a blocked one, or one for another incident refuses.
+ */
+async function requireRemediationAdmission(tx: Sql, request: StartRequest, op: Operation): Promise<void> {
+  if (request.kind !== "remediation") return;
+  const rows = await tx.query(
+    "select 1 from platform.incident_remediation_attempts where workspace_id=$1 and incident_id=$2 and operation_id=$3 and status in ('reserved','succeeded') limit 1",
+    [op.workspace_id, request.arguments.incidentId as string, op.id]);
+  if (!rows.length) return refuse();
+}
 async function preparePrivate(sql:Sql,input:StartRequest,isolatedDependencies?:AuthorityDependencies):Promise<WorkflowStartIntent> {
   const request = requestCopy(input);
   // Evidence recovery of an existing intent needs no new authority, even if the operation is now terminal.
@@ -296,6 +308,7 @@ async function preparePrivate(sql:Sql,input:StartRequest,isolatedDependencies?:A
     const retained = rows[0] ? fromRow(rows[0]) : undefined;
     if (retained) { matches(retained,request); if (retained.phase !== "prepared" || !requiresMcpDeployAuthority(request.kind,op)) return retained; }
     const binding=bind(request,op);
+    await requireRemediationAdmission(tx,request,op);
     if (retained && digest(binding) !== retained.binding_digest) return refuse();
     const sourceRequired = requiresMcpDeployAuthority(request.kind, op);
     if (sourceRequired && !owningProduct) return refuse();
@@ -337,6 +350,7 @@ async function claimPrivate(sql:Sql,input:StartRequest,isolatedDependencies?:Aut
     const retained=fromRow(rows[0]); matches(retained,request);
     if (retained.phase !== "prepared") return {intent:retained,dispatch:false};
     const binding=bind(request,op);
+    await requireRemediationAdmission(tx,request,op);
     if (digest(binding) !== retained.binding_digest) return refuse();
     const sourceRequired = requiresMcpDeployAuthority(request.kind, op);
     if (sourceRequired && !owningProduct) return refuse();

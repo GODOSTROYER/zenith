@@ -178,6 +178,8 @@ export function composeAgentPorts(sql: Sql, credentials: CredentialBroker, optio
           // This request carries no authenticated requester for a remediation
           // dry-run. Fail closed; never claim policy evaluated a made-up actor.
           policyDryRun: async () => { throw new Error("Remediation policy must be evaluated for the requester by the capability broker when a proposal is submitted."); },
+          // Deterministic stability gate (cooldowns, attempt/blast-radius caps, windows). Read-only here; the reservation happens when a proposal is submitted.
+          remediationGate: (gateRequest) => repos.incidentStability.checkRemediation(sql, { workspaceId: scope.workspaceId, environmentId: scope.environmentId, ...(request.incidentId ? { incidentId: request.incidentId } : {}), request: gateRequest, now: now() }),
           now,
         };
         try {

@@ -27,6 +27,7 @@ import { planTasks, runTasks } from "./probes";
 import { attachRemediations } from "./remediation";
 import { rankHypotheses } from "./rules";
 import { sanitizeText } from "./sanitize";
+import { DEFAULT_STABILITY_POLICY, isInconclusive, type StabilityPolicy } from "./stability";
 import { traverse, TraversalError, type RequestPath } from "./traverse";
 import type { Evidence, Hop, Investigation } from "./types";
 
@@ -54,6 +55,8 @@ export interface InvestigateOptions {
   logWindowMinutes?: number;
   changeWindowMinutes?: number;
   deploymentLookbackMinutes?: number;
+  /** stability policy used to judge an inconclusive diagnosis (default: the platform defaults) */
+  stability?: StabilityPolicy;
 }
 
 export class InvestigationInputError extends Error {
@@ -144,6 +147,12 @@ export async function investigate(input: InvestigateInput, ports: InvestigationP
   if (!ports.searchEvents) notes.push("Provider events were not searched: no event source is configured, so image-pull and scheduler failures are visible only through runtime state.");
   if (!changes.ok) notes.push(`Recent changes could not be read: ${changes.message}`);
 
+  const stability = options.stability ?? DEFAULT_STABILITY_POLICY;
+  const escalationReasons = [
+    ...(hypotheses.length > 0 && isInconclusive(stability, { hypotheses: hypotheses.map((h) => ({ code: h.code, confidence: h.confidence })) }) ? ["inconclusive_diagnosis"] : []),
+    ...(hypotheses.some((h) => h.suppressedRemediations?.some((s) => s.escalate)) ? ["remediation_requires_human"] : []),
+  ];
+
   return {
     id,
     ...(input.incidentId ? { incidentId: sanitizeText(input.incidentId, 120) } : {}),
@@ -159,5 +168,6 @@ export async function investigate(input: InvestigateInput, ports: InvestigationP
     entry: path.entry,
     ...(symptom ? { symptom } : {}),
     ...(notes.length ? { notes } : {}),
+    ...(escalationReasons.length ? { escalation: { required: true, reasons: escalationReasons } } : {}),
   };
 }

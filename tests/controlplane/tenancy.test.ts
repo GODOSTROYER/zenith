@@ -67,6 +67,7 @@ const SWEPT = new Set([
   "evidence.get", "evidence.list",
   "grants.consume", "grants.get", "grants.isRevoked", "grants.revoke", "grants.revokeForOperation", "grants.status",
   "incidents.getIncident", "incidents.getInvestigation", "incidents.listIncidents", "incidents.listInvestigationsForIncident", "incidents.transitionIncident",
+  "incidentStability.getStabilityIncident", "incidentStability.listRemediationAttempts", "incidentStability.listMaintenanceWindows", "incidentStability.getPostmortem", "incidentStability.listEscalations",
   "jobs.appendLogs", "jobs.cancel", "jobs.claimNext", "jobs.get", "jobs.listForOperation", "jobs.listLogs", "jobs.markRunning", "jobs.settle",
   "leases.listActive",
   "machines.getMachine", "machines.heartbeatMachine", "machines.listMachines", "machines.revokeMachine",
@@ -103,6 +104,10 @@ const WRITES = new Set([
   // owning success and copied/foreign/status/seeded-ciphertext refusal.
   "planArtifacts.finishStandalone",
   "connections.create", "cost.insert", "drift.insert", "events.append", "evidence.insert", "grants.insert", "incidents.openIncident", "incidents.insertInvestigation",
+  // Incident stability writes bind every row to the supplied workspace and resolve the incident inside it; a foreign incident id yields a fail-closed refusal (incident_inactive / not_found / null) and no row.
+  // Owning and foreign controls: tests/controlplane/incident-stability.test.ts (settle, postmortem, investigation, windows).
+  "incidentStability.observeSignal", "incidentStability.checkRemediation", "incidentStability.reserveRemediation", "incidentStability.settleAttempt", "incidentStability.escalateIncident", "incidentStability.evaluateIncidentEscalation", "incidentStability.recordInvestigation",
+  "incidentStability.createMaintenanceWindow", "incidentStability.cancelMaintenanceWindow", "incidentStability.recordPostmortem", "incidentStability.bindAttemptToOperation", "incidentStability.syncAttemptOutcomes", "incidentStability.acknowledgeEscalation",
   // Exact private capture identity/owner and original tenant tuple settle only
   // after the connection lock wait and a fresh native editor/admin membership read.
   // Mandatory Kubernetes linking controls cover owning success, copied/wrong-owner
@@ -415,6 +420,11 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "incidents.listIncidents": () => repos.incidents.listIncidents(db, B),
       "incidents.listInvestigationsForIncident": () => repos.incidents.listInvestigationsForIncident(db, B, incident.id),
       "incidents.transitionIncident": () => repos.incidents.transitionIncident(db, { workspaceId: B, id: incident.id, from: ["open"], to: "resolved" }),
+      "incidentStability.getStabilityIncident": () => repos.incidentStability.getStabilityIncident(db, B, incident.id),
+      "incidentStability.listRemediationAttempts": () => repos.incidentStability.listRemediationAttempts(db, B, incident.id),
+      "incidentStability.listMaintenanceWindows": () => repos.incidentStability.listMaintenanceWindows(db, B),
+      "incidentStability.getPostmortem": () => repos.incidentStability.getPostmortem(db, B, incident.id),
+      "incidentStability.listEscalations": () => repos.incidentStability.listEscalations(db, B),
       "jobs.appendLogs": () => repos.jobs.appendLogs(db, { workspaceId: B, runnerId: runner.id, jobId: job.id, batchSeq: 2, lines: [{ ts: new Date().toISOString(), stream: "stdout", line: "x" }] }),
       "jobs.cancel": () => repos.jobs.cancel(db, B, job.id),
       "jobs.claimNext": () => repos.jobs.claimNext(db, { workspaceId: B, runnerId: runner.id }),

@@ -45,7 +45,7 @@ const NEXT = PLATFORM_MIGRATIONS.length + 1;
 
 const EXPECTED_TABLES = [
   "agent_effect_receipts", "agent_nonces", "approvals", "approved_source_snapshots", "build_launches", "capability_grants", "cleanup_owner_grants", "cleanup_writer_deliveries", "cleanup_writer_epoch", "cleanup_writer_holds", "cleanup_writer_scopes", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
-  "github_binding_events", "github_install_intents", "github_source_bindings", "github_webhook_deliveries", "github_webhook_installation_epochs", "idempotency_keys", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machine_runbook_approvals", "machine_runbook_audit", "machine_runbook_run_steps", "machine_runbook_runs", "machine_runbook_schedules", "machine_runbook_versions", "machines", "mixed_child_custody", "mixed_child_intents", "operations", "optimizer_settings", "plan_artifact_associations", "plan_artifact_uses", "plan_artifacts", "policy_decisions", "provider_connections",
+  "github_binding_events", "github_install_intents", "github_source_bindings", "github_webhook_deliveries", "github_webhook_installation_epochs", "idempotency_keys", "incident_maintenance_windows", "incident_postmortems", "incident_remediation_attempts", "incident_signal_state", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machine_runbook_approvals", "machine_runbook_audit", "machine_runbook_run_steps", "machine_runbook_runs", "machine_runbook_schedules", "machine_runbook_versions", "machines", "mixed_child_custody", "mixed_child_intents", "operations", "optimizer_settings", "plan_artifact_associations", "plan_artifact_uses", "plan_artifacts", "policy_decisions", "provider_connections",
   "reconcile_state", "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners",
   "schema_migrations", "standalone_plan_backends", "standalone_plan_settlements", "workflow_start_intents", "workspace_policy",
 ];
@@ -203,7 +203,7 @@ describe.each(lanes)("migrator [$name]", (lane) => {
       await assertPlatformSchemaCurrent(db);
 
       const tables = await db.query<{ table_name: string }>("select table_name from information_schema.tables where table_schema = 'platform' order by table_name");
-      expect(tables.map((t) => t.table_name)).toEqual(EXPECTED_TABLES);
+      expect(tables.map((t) => t.table_name).sort()).toEqual([...EXPECTED_TABLES].sort());
       // Explicit isolated PGlite fixtures have no Supabase roles; guarded migration-7 hardening must still apply.
       if(lane.name==="pglite")expect(await db.query("select rolname from pg_roles where rolname in ('anon','authenticated','service_role')")).toEqual([]);
       expect(await db.query(`select c.relname as name,c.relrowsecurity as rls from pg_class c join pg_namespace n on n.oid=c.relnamespace
@@ -366,7 +366,7 @@ describe.each(lanes)("migrator [$name]", (lane) => {
       );
       expect(await migratePlatformDb(db)).toEqual({ applied: [], alreadyApplied: ALL });
       const tables = await db.query<{ table_name: string }>("select table_name from information_schema.tables where table_schema = 'platform' order by table_name");
-      expect(tables.map((t) => t.table_name)).toEqual(EXPECTED_TABLES);
+      expect(tables.map((t) => t.table_name).sort()).toEqual([...EXPECTED_TABLES].sort());
       // Explicit isolated PGlite fixtures have no Supabase roles; guarded migration-7 hardening must still apply.
       if(lane.name==="pglite")expect(await db.query("select rolname from pg_roles where rolname in ('anon','authenticated','service_role')")).toEqual([]);
       expect(await db.query(`select c.relname as name,c.relrowsecurity as rls from pg_class c join pg_namespace n on n.oid=c.relnamespace

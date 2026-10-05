@@ -29,3 +29,16 @@ export { SIGNATURES, scanText } from "./signatures";
 export type { Signature, SignatureHit, SignatureId, TextItem } from "./signatures";
 export { sanitizeText, redactSecrets, stripControl } from "./sanitize";
 export { summarizeForModel } from "./summarize";
+export {
+  DEFAULT_STABILITY_POLICY,
+  StabilityPolicyError,
+  advanceSignal,
+  autoscalerManaged,
+  buildPostmortem,
+  decideEscalation,
+  decideRemediation,
+  incidentFingerprint,
+  isInconclusive,
+  resolveStabilityPolicy,
+} from "./stability";
+export type { GateCode, GateDecision, GateRequest, StabilityPolicy } from "./stability";

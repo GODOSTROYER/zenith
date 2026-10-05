@@ -29,6 +29,20 @@ import type { Principal } from "@/lib/controlplane/types";
 import { INTEGRATION_SCOPES, type IntegrationScope } from "./contract";
 import { McpToolError, notFound, scopeDenied } from "./errors";
 
+/**
+ * Present only when the request authenticated with a reviewed plugin token
+ * (src/lib/plugins). `tools` is the approved tool allowlist; the dispatcher and
+ * `tools/list` hold the request to it.
+ */
+export interface PluginBinding {
+  registrationId: string;
+  grantId: string;
+  pluginId: string;
+  version: string;
+  manifestDigest: string;
+  tools: readonly string[];
+}
+
 /** Structural twin of the v2 control `Principal`; kept here so this module imports nothing from v2. */
 export interface AgentIdentity {
   subject: string;
@@ -41,6 +55,7 @@ export interface AgentIdentity {
   expiresAt: string;
   oauthIssuer?: string;
   grantDigest?: string;
+  plugin?: PluginBinding;
 }
 
 export interface McpPrincipal {
@@ -53,7 +68,9 @@ export interface McpPrincipal {
   /** Absent = every environment of the permitted projects. */
   environmentIds?: readonly string[];
   expiresAt: string;
-  via: "credential" | "oauth";
+  via: "credential" | "oauth" | "plugin";
+  /** Set for a plugin-token request: the call is limited to these tools. */
+  plugin?: PluginBinding;
   /** The authenticated identity as v2 shapes it; used for throttling and the product-store scope. */
   identity: AgentIdentity;
 }
@@ -77,7 +94,7 @@ export function principalFromIdentity(identity: AgentIdentity, now: number = Dat
     principal: {
       kind: "integration",
       id: identity.integrationId,
-      name: `integration ${identity.integrationId}`,
+      name: identity.plugin ? `plugin ${identity.plugin.pluginId}@${identity.plugin.version} via integration ${identity.integrationId}` : `integration ${identity.integrationId}`,
       integrationId: identity.integrationId,
       onBehalfOf: identity.subject,
     },
@@ -86,7 +103,8 @@ export function principalFromIdentity(identity: AgentIdentity, now: number = Dat
     projectIds: [...identity.projectIds],
     ...(identity.environmentIds ? { environmentIds: [...identity.environmentIds] } : {}),
     expiresAt: identity.expiresAt,
-    via: identity.oauthIssuer ? "oauth" : "credential",
+    via: identity.plugin ? "plugin" : identity.oauthIssuer ? "oauth" : "credential",
+    ...(identity.plugin ? { plugin: identity.plugin } : {}),
     identity,
   };
 }
@@ -118,3 +136,17 @@ export function hasScope(p: McpPrincipal, scope: IntegrationScope): boolean {
 export function requireScope(p: McpPrincipal, tool: string, scope: IntegrationScope): void {
   if (!hasScope(p, scope)) throw scopeDenied(tool, scope);
 }
+
+/**
+ * A plugin reaches only the tools a workspace admin approved. Everything else is
+ * `plugin_capability_denied`, raised before the scope check, the input parse and
+ * the broker. Non-plugin principals are unaffected.
+ */
+export function requirePluginTool(p: McpPrincipal, tool: string): void {
+  if (p.plugin && !p.plugin.tools.includes(tool)) {
+    throw new McpToolError("plugin_capability_denied", "This plugin is not approved for that tool in this workspace.", 403);
+  }
+}
+
+/** Is the tool visible to this principal (for `tools/list`)? */
+export const toolAllowedFor = (p: McpPrincipal, tool: string): boolean => !p.plugin || p.plugin.tools.includes(tool);

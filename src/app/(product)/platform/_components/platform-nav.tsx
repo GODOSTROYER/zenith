@@ -8,11 +8,15 @@ import { cx } from "@/lib/format";
 export const PLATFORM_LINKS: readonly { href: string; label: string }[] = [
   { href: "/platform", label: "Operations" },
   { href: "/platform/environments", label: "Environments" },
+  { href: "/platform/releases", label: "Releases" },
   { href: "/platform/runbooks", label: "Runbooks" },
   { href: "/platform/readiness", label: "Readiness" },
+  { href: "/platform/runners", label: "Runners" },
+  { href: "/platform/source", label: "GitHub source" },
+  { href: "/platform/plugins", label: "Plugins" },
   { href: "/platform/connections", label: "Connections" },
-  { href: "/platform/settings", label: "Workspace policy" },
   { href: "/platform/connections/aws", label: "Connect AWS" },
+  { href: "/platform/settings", label: "Workspace policy" },
 ];
 
 /** Exact match for the root, prefix match elsewhere; the most specific link wins so only one is current. */

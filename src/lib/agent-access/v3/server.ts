@@ -8,6 +8,7 @@ import { catalogFor, toolMeta } from "./catalog";
 import { INTEGRATION_SCOPES, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } from "./contract";
 import { buildErrorEnvelope, toCallToolResult } from "./envelope";
 import { mapError, McpToolError } from "./errors";
+import { toolAllowedFor } from "./principal";
 import type { McpRuntime } from "./runtime";
 import { runTool } from "./tools";
 import { scrubMcpValue } from "./redaction";
@@ -40,7 +41,7 @@ export async function handleMcp(request: Request, runtime: McpRuntime): Promise<
     await runtime.throttle(auth.principal.identity);
     const factory = () => {
       const mcp = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION }, { instructions: SERVER_INSTRUCTIONS });
-      for (const tool of catalogFor(auth.principal.scopes)) {
+      for (const tool of catalogFor(auth.principal.scopes).filter((t) => toolAllowedFor(auth.principal, t.name))) {
         const rendered = fromJsonSchema<Record<string, unknown>>(tool.inputSchema as JsonSchemaType);
         // Advertise the exact schema, but validate in runTool with strict zod.
         // SDK pre-validation errors are bare text and can echo external keys;

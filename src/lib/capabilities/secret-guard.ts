@@ -40,6 +40,7 @@ const VALUE_PATTERNS: readonly ValuePattern[] = [
   { what: "a payment provider secret key", re: /\bsk_(?:live|test)_[A-Za-z0-9]{16,}\b/ },
   { what: "a model provider API key", re: /\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}\b/ },
   { what: "a Zenith agent credential", re: /\bza_[A-Za-z0-9_-]{43}\b/ },
+  { what: "a Zenith plugin token", re: /\bzp_[A-Za-z0-9_-]{43}\b/ },
 ];
 
 const GLOBAL_PATTERNS = VALUE_PATTERNS.map((p) => new RegExp(p.re.source, p.re.flags.includes("g") ? p.re.flags : `${p.re.flags}g`));

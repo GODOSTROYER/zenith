@@ -51,6 +51,7 @@ import * as runners from "./runners";
 import * as settings from "./settings";
 import * as optimizerSettings from "./optimizer-settings";
 import * as scheduledJobs from "./scheduled-jobs";
+import * as plugins from "./plugins";
 
 export {
   planArtifacts,
@@ -85,6 +86,7 @@ export {
   settings,
   optimizerSettings,
   scheduledJobs,
+  plugins,
 };
 
 type CapabilityConstructor = "createApprovedSourceSnapshotStore" | "isApprovedSourceSnapshotStore" | "createIsolatedApprovedSourceStoreForTests" | "reserveOwnerGrant" | "insertOwnerGrant" | "inventory" | "retainCleanupWriterHold" | "reserveCleanupOwnerGrant" | "insertCleanupOwnerGrant";
@@ -143,6 +145,7 @@ export function bindRepos(sql: Sql) {
     settings: bind(settings, sql),
     optimizerSettings: bind(optimizerSettings, sql),
     scheduledJobs: bind(scheduledJobs, sql),
+    plugins: bind(plugins, sql),
   };
 }
 

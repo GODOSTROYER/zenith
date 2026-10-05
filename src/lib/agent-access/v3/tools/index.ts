@@ -19,7 +19,7 @@ import type { ToolContext } from "../context";
 import { buildEnvelope, buildErrorEnvelope, type Envelope, type ToolOutput } from "../envelope";
 import { mapError, McpToolError } from "../errors";
 import type { McpPrincipal } from "../principal";
-import { assertInGrant, requireScope, type TargetLike } from "../principal";
+import { assertInGrant, requirePluginTool, requireScope, type TargetLike } from "../principal";
 import type { McpPorts } from "../ports";
 import { executeApprovedOperation } from "./execute";
 import { getOperation, getOperationEvents } from "./operations";
@@ -60,6 +60,7 @@ export interface InvokeOptions {
 export async function invokeTool(name: string, rawArgs: unknown, options: InvokeOptions): Promise<Envelope> {
   const tool = toolDescriptor(name);
   if (!tool || !(TOOL_NAMES as readonly string[]).includes(name)) throw new McpToolError("unknown_tool", "There is no such tool.", 404);
+  requirePluginTool(options.principal, tool.name);
   requireScope(options.principal, tool.name, tool.requiredScope);
 
   // All fifteen strict schemas have one of these two explicit scope shapes.

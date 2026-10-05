@@ -9,7 +9,7 @@ import { azureSourceWorld } from "./source-bundle-azure-fixtures";
 import { binding, accountId } from "../providers/azure/source-storage-fixtures";
 import { connection } from "../providers/azure/_helpers";
 import { builtinWorkspace } from "../tofu/_helpers";
-import { IMAGE, DIGEST } from "../providers/azure/release-fixtures";
+import { IMAGE, DIGEST, registryId } from "../providers/azure/release-fixtures";
 import { createApprovedSourceSnapshotStore, createIsolatedApprovedSourceStoreForTests } from "@/lib/controlplane/db/repos/approved-source-snapshots";
 import { createOwningSourceBundles } from "@/lib/platform/source-bundle";
 import { sourceRecipe, sourceSnapshotSetDigest } from "@/lib/execution/source-snapshot";
@@ -121,7 +121,20 @@ describe("source-bundle execution wiring", () => {
       const deps = captured.deps!;
       const prepared = await deps.sourceBundle!.prepare(w.ctx, { service: w.service, source: w.source,approvedSource:w.approvedSource });
       const handle = await deps.build!.startBuild(w.ctx, { pipeline: w.pipeline, service: w.service, registry: w.registry, source: prepared, idempotencyKey: `composed-azure-build-${w.operation.id}` });
-      expect(await deps.build!.waitForBuild(w.ctx, handle, { timeoutMs: 1000 })).toEqual({ status: "succeeded", digest: DIGEST, imageUri: IMAGE });
+      expect(await deps.build!.waitForBuild(w.ctx, handle, { timeoutMs: 1000 })).toEqual({
+        status: "succeeded", digest: DIGEST, imageUri: IMAGE,
+        attestation: {
+          builderId: registryId, invocationId: "run1",
+          isolation: {
+            profileId: "azure.acr-tasks.v1",
+            identity: { principal: "acr-tasks-run", dedicated: true, deployCredentials: "absent" },
+            metadata: { exposes: "build_identity_only", mechanism: "the run exposes no user-assigned identity; the task agent has no access to deploy credentials" },
+            network: { egress: "unrestricted", mechanism: "ACR Tasks shared agents have public egress; configure spec.isolation.workerPool" },
+            dependencies: { downloads: "direct" }, filesystem: { sourceMount: "read_only" },
+            resources: { timeoutSec: 1800, computeClass: "cpu-2" },
+          },
+        },
+      });
       expect(w.fetchImpl).toHaveBeenCalledTimes(1); expect(w.state.schedules).toBe(1);
       const journalCalls=query.mock.calls.filter(([sql])=>sql.includes("platform.idempotency_keys"));
       expect(journalCalls).toHaveLength(2);expect(journalCalls[0][0]).toContain("insert into platform.idempotency_keys");expect(journalCalls[1][0]).toContain("update platform.idempotency_keys");

@@ -272,7 +272,20 @@ describe.skipIf(!PG_URL)("CodeBuild launch authority [postgres]", () => {
     cb.on(BatchGetBuildsCommand).resolves({builds:[{...f.build,buildStatus:"SUCCEEDED",buildComplete:true,endTime,artifacts,autoRetryConfig:{autoRetryLimit:0,autoRetryNumber:0},exportedEnvironmentVariables:[{name:"ZENITH_IMAGE_DIGEST",value:imageDigest}]}],$metadata:{requestId:"successful-terminal-read"}});
     ecr.on(DescribeRepositoriesCommand).resolves({repositories:[{repositoryName:"zenith-web",repositoryUri:f.repositoryUri}]});
     const before=cb.commandCalls(BatchGetProjectsCommand).length;
-    expect(await createAwsBuildPort(world.db2).waitForBuild(f.ctx,handle,{timeoutMs:1000})).toEqual({status:"succeeded",digest:imageDigest,imageUri:`${f.repositoryUri}@${imageDigest}`});
+    expect(await createAwsBuildPort(world.db2).waitForBuild(f.ctx,handle,{timeoutMs:1000})).toEqual({
+      status:"succeeded",digest:imageDigest,imageUri:`${f.repositoryUri}@${imageDigest}`,
+      attestation:{
+        builderId:f.project.arn,invocationId:handle.buildId,builderImage:"aws/codebuild/standard:7.0",finishedOn:endTime.toISOString(),
+        isolation:{
+          profileId:"aws.codebuild.v1",
+          identity:{principal:"arn:aws:iam::123456789012:role/build",dedicated:false,deployCredentials:"unknown"},
+          metadata:{exposes:"unknown",mechanism:"buildspec drops forwarded traffic to 169.254.169.254 and 169.254.170.2 before the Dockerfile runs and aborts if the rule is missing"},
+          network:{egress:"unrestricted",mechanism:"the executed buildspec is not the Zenith generated guarded buildspec"},
+          dependencies:{downloads:"direct"},filesystem:{sourceMount:"read_only"},
+          resources:{timeoutSec:1800,computeClass:"BUILD_GENERAL1_MEDIUM"},
+        },
+      },
+    });
     expect(cb.commandCalls(BatchGetProjectsCommand).length-before).toBe(1);
     expect(await repos.buildLaunches.get(world.db,f.ctx.workspaceId,f.op.id,handle.buildId)).toMatchObject({phase:"terminal",terminal_status:"SUCCEEDED",terminal_request_id:"successful-terminal-read"});
   });

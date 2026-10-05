@@ -5,7 +5,7 @@ import { createOwningSourceBundles } from "@/lib/platform/source-bundle";
 import { createReleasePorts } from "@/lib/platform/release";
 import { azureSourceWorld } from "./source-bundle-azure-fixtures";
 import { CONTAINER } from "../providers/azure/source-storage-fixtures";
-import { IMAGE, DIGEST } from "../providers/azure/release-fixtures";
+import { IMAGE, DIGEST, registryId } from "../providers/azure/release-fixtures";
 import { openPlatformDb, repos, PLATFORM_SCHEMA_VERSION, type PlatformDbHandle } from "@/lib/controlplane/db";
 import { createApprovedSourceSnapshotStore } from "@/lib/controlplane/db/repos/approved-source-snapshots";
 import { sourceRecipe, sourceSnapshotSetDigest } from "@/lib/execution/source-snapshot";
@@ -80,7 +80,20 @@ describe("provider-dispatched Azure source preparation", () => {
     const handle = await ports.build.startBuild(w.ctx, { pipeline: w.pipeline, service: w.service, registry: w.registry, source: prepared, idempotencyKey: "c3-build" });
     expect(w.state.schedules).toBe(1);
     expect(w.uploadFetch).toHaveBeenCalledWith(expect.stringContaining("sig="), expect.objectContaining({ body: stored }));
-    expect(await ports.build.waitForBuild(w.ctx, handle, { timeoutMs: 1000 })).toEqual({ status: "succeeded", digest: DIGEST, imageUri: IMAGE });
+    expect(await ports.build.waitForBuild(w.ctx, handle, { timeoutMs: 1000 })).toEqual({
+      status: "succeeded", digest: DIGEST, imageUri: IMAGE,
+      attestation: {
+        builderId: registryId, invocationId: "run1",
+        isolation: {
+          profileId: "azure.acr-tasks.v1",
+          identity: { principal: "acr-tasks-run", dedicated: true, deployCredentials: "absent" },
+          metadata: { exposes: "build_identity_only", mechanism: "the run exposes no user-assigned identity; the task agent has no access to deploy credentials" },
+          network: { egress: "unrestricted", mechanism: "ACR Tasks shared agents have public egress; configure spec.isolation.workerPool" },
+          dependencies: { downloads: "direct" }, filesystem: { sourceMount: "read_only" },
+          resources: { timeoutSec: 1800, computeClass: "cpu-2" },
+        },
+      },
+    });
     expect(handle.buildId).not.toContain("sig="); expect(w.ctx.log).not.toHaveBeenCalled();
   });
   it.skipIf(!PG_URL)("rereads the stored bundle on another instance without downloading a moving GitHub ref", async () => {

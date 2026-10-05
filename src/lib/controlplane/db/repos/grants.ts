@@ -9,6 +9,10 @@
  */
 import type { Sql } from "@/lib/controlplane/types";
 import { ControlStoreError, requireText } from "../errors";
+import { NATIVE_OPERATION_WRITES } from "@/lib/ownership/conflicts";
+import { assertFence } from "./leases";
+import { lockForOperation } from "./ownership-transfers";
+import { textArray } from "../sql";
 
 export interface GrantRecord {
   jti: string;
@@ -65,26 +69,80 @@ export interface InsertGrantInput {
  * (composite foreign key). Grants live at most one hour.
  */
 export async function insert(sql: Sql, input: InsertGrantInput): Promise<GrantRecord> {
-  const issued = Date.parse(input.issuedAt);
-  const expires = Date.parse(input.expiresAt);
+  const issuedAt = input.issuedAt, expiresAt = input.expiresAt;
+  const issued = Date.parse(issuedAt);
+  const expires = Date.parse(expiresAt);
   if (!Number.isFinite(issued) || !Number.isFinite(expires) || expires <= issued)
     throw new ControlStoreError("invalid_input", "A grant must expire after it is issued.");
   if (expires - issued > 60 * 60 * 1000) throw new ControlStoreError("invalid_input", "A capability grant may live at most one hour.");
-  const rows = await sql.query<GrantRow>(
-    `insert into platform.capability_grants (jti, workspace_id, operation_id, capability, audience, issued_at, expires_at)
-     values ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz)
-     returning ${COLUMNS}`,
-    [
-      requireText("jti", input.jti, 128),
-      requireText("workspaceId", input.workspaceId),
-      requireText("operationId", input.operationId),
-      requireText("capability", input.capability, 128),
-      requireText("audience", input.audience, 256),
-      input.issuedAt,
-      input.expiresAt,
-    ]
+  const args = [requireText("jti", input.jti, 128), requireText("workspaceId", input.workspaceId),
+    requireText("operationId", input.operationId), requireText("capability", input.capability, 128),
+    requireText("audience", input.audience, 256), issuedAt, expiresAt];
+  const [, workspaceId, operationId, grantCapability] = args;
+  const originalInsert = async (tx: Sql): Promise<GrantRecord> => {
+    const rows = await tx.query<GrantRow>(
+      `insert into platform.capability_grants (jti, workspace_id, operation_id, capability, audience, issued_at, expires_at)
+       values ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz) returning ${COLUMNS}`, args,
+    );
+    return toGrant(rows[0]);
+  };
+  type Owner = { capability: string; lease_scope: string | null; fence_token: number | null };
+  const [observed] = await sql.query<Owner>(
+    "select capability, lease_scope, fence_token from platform.operations where workspace_id=$1 and id=$2", args.slice(1, 3),
   );
-  return toGrant(rows[0]);
+  // Missing/foreign rows retain the existing composite-FK refusal. A read
+  // attenuation cannot authorize a field mutation, so its old path is unchanged.
+  if (!observed) return originalInsert(sql);
+  const ownedCapability = NATIVE_OPERATION_WRITES[observed.capability] !== undefined;
+  const requestedOwnershipWrite = NATIVE_OPERATION_WRITES[grantCapability] !== undefined;
+  const read = grantCapability === "infrastructure.plan" || grantCapability === "infrastructure.observe";
+  const secretSync = grantCapability === "secret.write" && ["deployment.deploy", "deployment.rollback"].includes(observed.capability);
+  if ((ownedCapability || requestedOwnershipWrite) && grantCapability !== observed.capability && !read && !secretSync)
+    throw new ControlStoreError("conflict", "The grant capability does not match its owning operation.", { reason: "field_ownership_conflict" });
+  if (!ownedCapability || read) return originalInsert(sql);
+
+  return sql.tx(async tx => {
+    // Same order as native claim: fence, operation, resource/transfer, then
+    // the existing cleanup coordinator. Never acquire owning locks after it.
+    if (observed.lease_scope !== null && observed.fence_token !== null)
+      await assertFence(tx, observed.lease_scope, observed.fence_token);
+    const [locked] = await tx.query<Owner>(
+      "select capability, lease_scope, fence_token from platform.operations where workspace_id=$1 and id=$2 for update", args.slice(1, 3),
+    );
+    if (!locked || locked.capability !== observed.capability || locked.lease_scope !== observed.lease_scope || locked.fence_token !== observed.fence_token
+      || ((locked.lease_scope === null) !== (locked.fence_token === null)))
+      throw new ControlStoreError("conflict", "Current execution ownership changed before grant admission.", { reason: "field_ownership_conflict" });
+    const ownershipRows = await lockForOperation(tx, workspaceId, operationId);
+    if (ownershipRows === null) return originalInsert(tx);
+    // The trigger also takes this coordinator. Waiting for it here ensures
+    // expiry is judged by a fresh final statement, rather than before its wait.
+    const [schema] = await tx.query<{ present: boolean }>("select to_regclass('platform.cleanup_writer_scopes') is not null as present");
+    if (schema!.present) {
+      await tx.query("insert into platform.cleanup_writer_scopes(workspace_id) values($1) on conflict do nothing", [workspaceId]);
+      await tx.query("select workspace_id from platform.cleanup_writer_scopes where workspace_id=$1 for update", [workspaceId]);
+    }
+    const rows = await tx.query<GrantRow>(
+      `insert into platform.capability_grants (jti, workspace_id, operation_id, capability, audience, issued_at, expires_at)
+       select $1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz from platform.operations o
+        where o.workspace_id=$2 and o.id=$3 and o.capability=$8 and o.status='running' and o.expires_at>clock_timestamp()
+          and $7::timestamptz>clock_timestamp()
+          and o.workspace_id=o.proposal->'scope'->>'workspaceId'
+          and o.project_id is not distinct from o.proposal->'scope'->>'projectId'
+          and o.environment_id is not distinct from o.proposal->'scope'->>'environmentId'
+          and o.resource_id is not distinct from o.proposal->'scope'->>'resourceId'
+          and o.lease_scope is not distinct from $9::text and o.fence_token is not distinct from $10::bigint
+          and ($9::text is null or exists (select 1 from platform.leases l where l.scope=$9 and l.fence_token=$10
+            and l.expires_at>clock_timestamp() and l.released_at is null))
+          and not exists (select 1 from unnest($11::text[]) selected(id) where not exists (
+            select 1 from platform.ownership_transfers t where t.id=selected.id and t.workspace_id=o.workspace_id
+              and t.environment_id=o.environment_id and t.revoked_at is null
+              and (t.expires_at is null or t.expires_at>clock_timestamp())))
+       returning ${COLUMNS}`,
+      [...args, locked.capability, locked.lease_scope, locked.fence_token, textArray(ownershipRows)],
+    );
+    if (rows.length !== 1) throw new ControlStoreError("conflict", "Current field ownership or execution validity changed before grant admission.", { reason: "field_ownership_conflict" });
+    return toGrant(rows[0]);
+  });
 }
 
 /**

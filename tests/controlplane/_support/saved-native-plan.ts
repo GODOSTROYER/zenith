@@ -4,7 +4,8 @@ import { mkdtemp, rm, chmod, readFile, readdir, realpath, lstat } from "node:fs/
 import os from "node:os";
 import path from "node:path";
 import type { Sql } from "@/lib/controlplane/types";
-import { repos } from "@/lib/controlplane/db";
+import { repos, openPlatformDb, isOpenedPlatformPostgresTarget, type PlatformDbHandle } from "@/lib/controlplane/db";
+import { assertAgentLaneUrl, applyAgentSchemaMain } from "../../../scripts/agent/apply-schema";
 import { digest } from "@/lib/controlplane/digest";
 import { Manifest, ManifestPolicies } from "@/lib/domain/types";
 import { buildDesiredState } from "@/lib/execution/graph";
@@ -27,9 +28,92 @@ import { planEvidence } from "@/lib/execution/plan-evidence";
 import { extractPlanFacts } from "@/lib/policy/plan-facts";
 import * as artifacts from "@/lib/controlplane/db/repos/plan-artifacts";
 
+interface NativePlanFixtureLifetime { closing: boolean; pending: Set<Promise<unknown>> }
+const nativePlanFixtureLifetimes = new WeakMap<Sql, NativePlanFixtureLifetime>();
+
+/** Tracks actual producer/consume completion; a database drop never substitutes for child settlement. */
+function nativePlanFixtureWork<T>(db: Sql, body: () => Promise<T>): Promise<T> {
+  const lifetime = nativePlanFixtureLifetimes.get(db);
+  if (lifetime?.closing) return Promise.reject(new Error("The native plan fixture is closing."));
+  const pending = body();
+  lifetime?.pending.add(pending);
+  void pending.then(() => lifetime?.pending.delete(pending), () => lifetime?.pending.delete(pending));
+  return pending;
+}
+
+/** One real database per suite, with original OID/owner custody and canonical schema initialization. */
+export async function openNativePlanFixtureDatabase(raw: string) {
+  assertAgentLaneUrl(raw);
+  const target = new URL(raw), name = `zenith_native_plan_${randomUUID().replace(/-/g, "")}`;
+  target.pathname = `/${name}`;
+  const url = target.toString();
+  assertAgentLaneUrl(url); // Before CREATE, not merely before the canonical initializer.
+  const postgres = (await import("postgres")).default;
+  const admin = postgres(raw, { max: 1, onnotice: () => {} });
+  type Identity = { oid: string; owner: string };
+  const identity = () => admin.unsafe<Identity[]>("select oid::text as oid,datdba::text as owner from pg_database where datname=$1", [name]);
+  const lifetime: NativePlanFixtureLifetime = { closing: false, pending: new Set() };
+  const handles = new Map<PlatformDbHandle, () => Promise<void>>();
+  let attempted = false, created = false, closed = false, original: Readonly<Identity> | undefined;
+  const remember = async (handle: PlatformDbHandle): Promise<PlatformDbHandle> => {
+    if (lifetime.closing || !isOpenedPlatformPostgresTarget(handle, target.hostname, Number(target.port), name, "postgres"))
+      throw new Error("The native plan fixture handle is not its owning database.");
+    const query = handle.query, closeHandle = handle.close;
+    handles.set(handle, () => closeHandle());
+    nativePlanFixtureLifetimes.set(handle, lifetime);
+    const current = await query<{ database: string; username: string }>("select current_database() as database,current_user as username");
+    if (current.length !== 1 || current[0]!.database !== name || current[0]!.username !== "postgres"
+      || !isOpenedPlatformPostgresTarget(handle, target.hostname, Number(target.port), name, "postgres"))
+      throw new Error("The native plan fixture handle changed its owning database.");
+    return handle;
+  };
+  const close = async (): Promise<void> => {
+    if (closed) return;
+    lifetime.closing = true;
+    try {
+      const work = await Promise.allSettled([...lifetime.pending]);
+      const ended = await Promise.allSettled([...handles.values()].map(end => end()));
+      if (work.some(result => result.status === "rejected") || ended.some(result => result.status === "rejected"))
+        throw new Error("Native plan fixture work or handle teardown is unconfirmed; retaining its database and roots.");
+      if (attempted && !created) throw new Error("Native plan fixture CREATE is unconfirmed; refusing cleanup.");
+      if (created) {
+        const current = await identity();
+        if (!original || current.length !== 1 || current[0]!.oid !== original.oid || current[0]!.owner !== original.owner)
+          throw new Error("Native plan fixture database custody changed; refusing cleanup.");
+        await admin.unsafe(`drop database "${name}" with (force)`);
+        if ((await identity()).length !== 0) throw new Error("Native plan fixture database removal is unconfirmed.");
+        created = false;
+      }
+    } finally { await admin.end({ timeout: 5 }); }
+    closed = true;
+  };
+  try {
+    if ((await identity()).length !== 0) throw new Error("Native plan fixture database name is already present.");
+    const owner = await admin.unsafe<{ owner: string; username: string; database: string }[]>(
+      "select oid::text as owner,current_user::text as username,current_database()::text as database from pg_roles where rolname=current_user");
+    if (owner.length !== 1 || owner[0]!.username !== "postgres" || owner[0]!.database !== new URL(raw).pathname.slice(1))
+      throw new Error("Native plan fixture administrative owner is unavailable.");
+    attempted = true;
+    await admin.unsafe(`create database "${name}"`);
+    created = true;
+    const owned = await identity();
+    if (owned.length !== 1 || owned[0]!.owner !== owner[0]!.owner) throw new Error("Native plan fixture database ownership is unavailable.");
+    original = Object.freeze({ ...owned[0]! });
+    if (await applyAgentSchemaMain({ ZENITH_TEST_PLATFORM_PG_URL: url }) !== 0)
+      throw new Error("Native plan fixture canonical agent initialization failed.");
+    await remember(await openPlatformDb({ kind: "postgres", url, migrate: true, max: 1 }));
+    return { url, remember, open: async () => remember(await openPlatformDb({ kind: "postgres", url, max: 1 })), close };
+  } catch {
+    try { await close(); } catch { /* Unknown CREATE/drop/work retains the fixture resources; no fallback cleanup. */ }
+    throw new Error("The native plan fixture database setup is unavailable.");
+  }
+}
+export type NativePlanFixtureDatabase = Awaited<ReturnType<typeof openNativePlanFixtureDatabase>>;
+
 export type NativePublication=(input:Readonly<{workspace:TofuWorkspace;custody:PlanCustodyInput;lease:LeaseRef;key:string;root:string;fingerprint:string;destroy:boolean}>)=>Promise<{planDigest:string}>;
 const sha = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 export async function savedNativePlan(db: Sql, input: Readonly<{ custody: PlanCustodyInput; lease: LeaseRef; graph: ResourceGraph; key: string; destroy: boolean; root?:string; workspace?:TofuWorkspace; bootstrap?:boolean; publication?:NativePublication }>) {
+  return nativePlanFixtureWork(db, async () => {
   const root = input.root ?? await realpath(await mkdtemp(path.join(os.tmpdir(), "zenith-native-original-")));
   await chmod(root, 0o700);
   const statePath = path.join(root, "terraform.tfstate"), fingerprint = randomBytes(32).toString("hex");
@@ -67,11 +151,13 @@ export async function savedNativePlan(db: Sql, input: Readonly<{ custody: PlanCu
     return { root, statePath, workspace, fingerprint, runtime, row, plan: produced.plan, summary,
       close: () => input.root ? Promise.resolve() : rm(root, { recursive: true, force: true }) };
   } catch (error) { if(!input.root)await rm(root, { recursive: true, force: true }); throw error; }
+  });
 }
 export type SavedNativePlan = Awaited<ReturnType<typeof savedNativePlan>>;
 /** The callback is fixture observation only. Genuine held origin, signed grant and dispatch predicates remain production code. */
 export async function consumeSavedNativePlan(db: Sql, saved: SavedNativePlan, access: artifacts.ArtifactAccess,
   afterHeldGrant: () => Promise<void> = async () => undefined, beforeOriginalDispatch: (directory:string)=>Promise<void> = async()=>undefined) {
+  return nativePlanFixtureWork(db, async () => {
   let entered = 0, originalSha: string | undefined;
   const diagnostic = { statePath: saved.statePath, workspaceId: access.custody.workspaceId, projectId: access.custody.projectId,
     environmentId: access.custody.environmentId, backendDigest: saved.row.manifest.backendDigest };
@@ -113,6 +199,7 @@ export async function consumeSavedNativePlan(db: Sql, saved: SavedNativePlan, ac
     throw error;
   });
   return { result, entered, originalSha };
+  });
 }
 
 /** Canonical product rows and one real local backend for a same-scope builtin continuation fixture. */

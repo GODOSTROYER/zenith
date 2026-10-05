@@ -17,7 +17,7 @@
 import { afterAll } from "vitest";
 import { digest } from "@/lib/controlplane/digest";
 import type { Principal, Scope } from "@/lib/controlplane/types";
-import { openPlatformDb, repos, type PlatformDbHandle } from "@/lib/controlplane/db";
+import { openPlatformDb, isOpenedPlatformDbHandle, repos, type PlatformDbHandle } from "@/lib/controlplane/db";
 import { CAPABILITIES, type CapabilityName } from "@/lib/capabilities/catalog";
 import { CredentialGrantSigner } from "@/lib/capabilities/credential-signer";
 import { MemoryBrokerStore } from "@/lib/capabilities/memory-store";
@@ -212,8 +212,10 @@ function controlKey() {
   return signingKey;
 }
 
-export async function makeHarness(options: { kind?: StoreKind; engine?: PolicyEngine } = {}): Promise<Harness> {
+export async function makeHarness(options: { kind?: StoreKind; engine?: PolicyEngine; nativeDb?: PlatformDbHandle } = {}): Promise<Harness> {
   const kind = options.kind ?? "memory";
+  if (options.nativeDb !== undefined && (kind !== "postgres" || !isOpenedPlatformDbHandle(options.nativeDb, "postgres")))
+    throw new Error("The native test harness requires its genuine opened PostgreSQL handle.");
   const p = `t${++counter}x${Math.random().toString(36).slice(2, 7)}`;
   const ids: Ids = {
     wsA: `${p}_wsA`,
@@ -270,7 +272,7 @@ export async function makeHarness(options: { kind?: StoreKind; engine?: PolicyEn
   let db: PlatformDbHandle | undefined;
   let store: BrokerStore;
   if (kind === "pglite" || kind === "postgres") {
-    db = await sharedDatabase(kind);
+    db = options.nativeDb ?? await sharedDatabase(kind);
     store = new PlatformBrokerStore(db);
   } else {
     store = new MemoryBrokerStore(clock);

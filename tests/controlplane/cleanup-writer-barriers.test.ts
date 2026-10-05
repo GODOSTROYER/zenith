@@ -3,13 +3,13 @@ import { randomBytes, randomUUID, createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { readFile,writeFile,mkdir,chmod,lstat,readdir } from "node:fs/promises";
 import path from "node:path";
-import { standaloneProductScope,reviewedStandalonePlan,associatedStandaloneDestroy,consumeSavedNativePlan,type StandaloneProductScope } from "./_support/saved-native-plan";
+import { openNativePlanFixtureDatabase,type NativePlanFixtureDatabase,standaloneProductScope,reviewedStandalonePlan,associatedStandaloneDestroy,consumeSavedNativePlan,type StandaloneProductScope } from "./_support/saved-native-plan";
 import { createPlanEngineAuthority } from "@/lib/tofu/engine";
 import { TofuRun,TofuRunner,isCleanedTofuRun,isCanonicalStandaloneRun } from "@/lib/tofu/runner";
 import { configDigestOf } from "@/lib/tofu/workspace";
 import { tofuOnPath } from "../tofu/_helpers";
 import { z } from "zod/v4";
-import { afterAll,afterEach,beforeAll,beforeEach,describe,expect,it,vi } from "vitest";
+import { afterAll,afterEach,beforeAll,beforeEach,describe,expect,it,onTestFailed,vi } from "vitest";
 import { openPlatformDb,platformDb,resetPlatformDbForTests,repos,json,bindRepos,type PlatformDbHandle } from "@/lib/controlplane/db";
 import { PLATFORM_SCHEMA_VERSION } from "@/lib/controlplane/db/migrations";
 import type { Sql } from "@/lib/controlplane/types";
@@ -54,21 +54,30 @@ if(process.env.ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED==="1"&&(!configuredNa
 const sha=(value:string)=>createHash("sha256").update(value).digest("hex");
 function barrier(){let release!:()=>void;const promise=new Promise<void>(resolve=>{release=resolve;});return {promise,release};}
 const tables=["workspaces","members","projects","environments","revisions","revision_manifests","deployments","connections"] as const;
+const NATIVE_PLAN_BASE_URL=PG_URL;
 describe.skipIf(!PG_URL)("native cleanup writer barrier [postgres; modeled hosted association and policy]",()=>{
   let db:PlatformDbHandle,peer:PlatformDbHandle,observer:PlatformDbHandle;
+  let native:NativePlanFixtureDatabase|undefined, PG_URL=NATIVE_PLAN_BASE_URL!, nativeCaseFailed=false;
   const standaloneScopes:StandaloneProductScope[]=[];
   beforeAll(async()=>{
-    peer=await openPlatformDb({kind:"postgres",url:PG_URL!,migrate:true,max:1});observer=await openPlatformDb({kind:"postgres",url:PG_URL!,max:1});
+    native=await openNativePlanFixtureDatabase(PG_URL);PG_URL=native.url;
+    peer=await native.open();observer=await native.open();
     const roles=await peer.query<{n:number}>("select count(*)::integer as n from pg_roles where rolname in ('anon','authenticated','service_role')");
     if(roles[0]?.n!==3)throw new Error("Cleanup writer acceptance requires canonical fixed roles before platform migration.");
     const migration=readFileSync(new URL("../../supabase/migrations/0001_system_of_record.sql",import.meta.url),"utf8");
     for(const name of tables){const ddl=new RegExp(`create table if not exists public\\.${name} \\([\\s\\S]*?\\n\\);`).exec(migration)?.[0];if(!ddl)throw new Error("Canonical product DDL unavailable.");await peer.exec(ddl);}
     state.member=async(ws,id)=>(await observer.query<{id:string;workspace_id:string;role:string}>("select id,workspace_id,role from public.members where workspace_id=$1 and id=$2",[ws,id]))[0]??null;
   },60000);
-  beforeEach(async()=>{await resetPlatformDbForTests();resetPlatformBrokerForTests();vi.stubEnv("ZENITH_PLATFORM_BROKER_MEMORY","");vi.stubEnv("ZENITH_PLATFORM_DB","postgres");vi.stubEnv("ZENITH_PLATFORM_DB_URL",PG_URL!);vi.stubEnv("ZENITH_PLATFORM_DB_MAX","1");vi.stubEnv("SUPABASE_DB_URL",PG_URL!);vi.stubEnv("ZENITH_STORE","postgres");
-    const signing=await generateSigningJwk("EdDSA");vi.stubEnv("ZENITH_CONTROL_SIGNING_JWK",serializePrivateJwk(signing));db=await platformDb();});
-  afterEach(async()=>{for(const scope of standaloneScopes.splice(0))await scope.close();resetPlatformBrokerForTests();await resetPlatformDbForTests();vi.restoreAllMocks();vi.unstubAllEnvs();});
-  afterAll(async()=>{await observer?.close();await peer?.close();});
+  beforeEach(async()=>{onTestFailed(()=>{nativeCaseFailed=true;});await resetPlatformDbForTests();resetPlatformBrokerForTests();vi.stubEnv("ZENITH_PLATFORM_BROKER_MEMORY","");vi.stubEnv("ZENITH_PLATFORM_DB","postgres");vi.stubEnv("ZENITH_PLATFORM_DB_URL",PG_URL!);vi.stubEnv("ZENITH_PLATFORM_DB_MAX","1");vi.stubEnv("SUPABASE_DB_URL",PG_URL!);vi.stubEnv("ZENITH_STORE","postgres");
+    const signing=await generateSigningJwk("EdDSA");vi.stubEnv("ZENITH_CONTROL_SIGNING_JWK",serializePrivateJwk(signing));db=await native!.remember(await platformDb());});
+  afterEach(async()=>{resetPlatformBrokerForTests();await resetPlatformDbForTests();vi.restoreAllMocks();vi.unstubAllEnvs();});
+  afterAll(async()=>{
+    const ended=await Promise.allSettled([resetPlatformDbForTests()]);
+    const removed=await Promise.allSettled([native?.close()]);
+    if(nativeCaseFailed||[...ended,...removed].some(result=>result.status==="rejected"))throw new Error("Native plan fixture teardown is unconfirmed; retaining backend roots.");
+    const roots=await Promise.allSettled(standaloneScopes.splice(0).map(scope=>scope.close()));
+    if(roots.some(result=>result.status==="rejected"))throw new Error("Native plan fixture backend root removal is unconfirmed.");
+  },60_000);
   async function defaultHarness(){
     const id=()=>randomUUID();const ids={wsA:`ws_${id()}`,wsB:`ws_${id()}`,projA:`proj_${id()}`,projB:`proj_${id()}`,envAProd:`env_${id()}`};
     const broker=await platformBroker();expect(isDefaultPlatformBrokerFor(broker,db)).toBe(true);return {ids,broker};

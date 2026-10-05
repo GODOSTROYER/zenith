@@ -1,5 +1,7 @@
 # Production resume
 
+Current published source `fcf4f150`: main CI6 successful/1 failed/9 cancelled; native Linux152 and both native worker22 gates passed. Five stale gate-manifest source assertions corrected in reviewed `80482e41`; root370 tests, lint and4GiB compiler passed. Fresh complete CI remains required. Local whole suite has same five failures. Read latest RESULTS before older chronology. Test-only scope and Saivedant identity preserved.
+
 Current verifier code checkpoint: `7d1a89fb`, exact local PostgreSQL acceptance at `3346e4d4`; prior published `68a1f3b7` CI14 success/2 failure, nativeARM22 success/AMD recovery failure. Fresh pushed CI remains required. Read latest RESULTS and evidence above older chronology; preserve newer ancestry and user files. Tests/minimal fixes only; Saivedant identity; HANDOFF-VERIFIER fixed order applies.
 
 Current verifier code candidate: `5f4713a7`. Read latest section of [RESULTS-2026-10.md](verification/RESULTS-2026-10.md) and [canonical-lane evidence](evidence/PROD-CI-08/2026-10-06-canonical-lanes.json). Real PostgreSQL portability14 passed; combined gate and fresh CI remain pending. Only tests/minimal fixes authorized; no wave3 or live cloud. Older source references below remain historical.

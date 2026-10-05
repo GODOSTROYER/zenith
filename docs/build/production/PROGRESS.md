@@ -1,5 +1,16 @@
 # Production progress
 
+## 6 October resumed verifier: native gates passed, full CI failed
+
+Published source `fcf4f1508c2ea17723a38eed78d0ef5a1e6abf40`: main CI run37365101604 completed6 successful jobs,1 failed Verify and9 cancelled jobs. Verify reported19,386 passed /5 failed /1,515 skipped. Five failures are stale source-contract assertions in `tests/ci/gate-manifest.test.ts` after the reviewed fixture lifetime change. Typecheck and lint passed; Smoke and Gimbal did not execute. Cancellation cause is unconfirmed; cancelled lanes remain unverified.
+
+On that exact source, native Linux AMD64 guest148 race plus4 direct-root requirements and all goldens passed. Native worker run37365101534 passed22 checks on each native architecture, AMD64 and ARM64, with all six owned-cleanup proofs. Real OpenTofu3916 passed /0 failed /18 declared skips, all27 required groups. These results supersede their predecessor failures only within their scope; the complete CI gate remains failed. Sanitized per-job evidence: `evidence/PROD-CI-08/2026-10-06-ci-fcf4f150.json`.
+
+Separate local Darwin ARM64 whole suite onfcf reported19,625 passed /5 failed /1,276 skipped; same five failed source models. Counts overlap remote execution and must not be summed. Source-bound private JSON retains exact skipped identities. Owned process settled and temporary data removed. Fresh local policy238 passed /0 failed /0 skipped and strict execution validator passed. Generated artifacts, Go formatting/vet/race passed; no complete local-core success is claimed.
+
+Correction committed as `80482e411205d16dc4fae565202922f58ab7bad4` after independent source review and lead370 passed /0 failed /0 skipped, lint0 and compiler4096MiB0; compiler3072MiB heap failure retained. Exact correction evidence: `evidence/PROD-CI-05/2026-10-06-gate-fixture-contract.json`. MACH01's separate three-path systemd test packet received source-only review, then Linux ARM64 cross-compilation exposed two invalid indexes of an `any` result. Revision2 added checked result-shape admission, received independent delta review, and both tagged packages cross-compiled. Failed revision1 remains retained; neither revision has executed systemd. Neither packet review nor cross-compilation establishes real systemd/polkit acceptance. All20 verifier requirements remain open and all78 original criteria are retained:6 verified /44 in progress /28 planned; all four release statesfalse. Next: complete fresh CI, fixed wave1 order, missing joins, wave2, final handoff.
+
+
 ## 6 October verifier checkpoint: reviewed fixes, fresh CI pending
 
 Integrated code `7d1a89fb`: fixture database/root lifetime `60e67177`, explicit existing Go package lifecycles `3346e4d4`, and bounded worker recovery diagnostics `7d1a89fb`. No acceptance counts, production guards or migration history weakened. Root compiler passed on isolated clean checkout; developer checkout compiler exhausted3072MiB heap and remains a separate failed attempt. Go/gate models533 passed/0 failed/0 skipped; worker diagnostic models133 passed/0 failed/6 Mac runtime prerequisite skips, lint clean.

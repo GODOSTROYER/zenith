@@ -347,6 +347,35 @@
             "architectures": "native Linux amd64 and arm64; no emulated worker proof"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-68a1f3b7.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "fcf4f1508c2ea17723a38eed78d0ef5a1e6abf40",
+          "result": "Main CI failed: 6 successful jobs / 1 failed Verify / 9 cancelled. Unit19386 passed /5 failed /1515 skipped; five stale fixture-source assertions. Native Linux AMD64 guest152 and goldens passed; both native packaged workers22/22 passed with cleanup. Cancelled platform and downstream lanes remain unverified.",
+          "command": "Complete CI and Native packaged workers job/artifact inspection",
+          "runId": 37365101604,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37365101604",
+          "environment": {
+            "node": "22.23.3",
+            "go": "1.27.1",
+            "tofu": "1.12.5",
+            "architectures": "native Linux AMD64 guest; native Linux AMD64 and ARM64 workers"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-fcf4f150.json"
+        },
+        {
+          "level": "contract",
+          "commit": "80482e411205d16dc4fae565202922f58ab7bad4",
+          "result": "Root targeted370 passed /0 failed /0 skipped; lint0; compiler3072MiB exit134 heap exhaustion,4096MiB retry0. Exact one-file reviewed tree committed; full successor CI pending.",
+          "command": "vitest run --maxWorkers=1 tests/ci/gate-manifest.test.ts tests/ci/release-gates.test.ts; eslint; tsc --noEmit",
+          "environment": {
+            "node": "22.23.3",
+            "typescript": "5.9.3",
+            "eslint": "9.39.5",
+            "vitest": "4.1.11",
+            "architecture": "native Darwin ARM64"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-05/2026-10-06-gate-fixture-contract.json"
         }
       ],
       "requiredEvidence": [
@@ -589,6 +618,21 @@
             "architectures": "native Linux amd64 and arm64; no emulated worker proof"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-68a1f3b7.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "fcf4f1508c2ea17723a38eed78d0ef5a1e6abf40",
+          "result": "Main CI failed: 6 successful jobs / 1 failed Verify / 9 cancelled. Unit19386 passed /5 failed /1515 skipped; five stale fixture-source assertions. Native Linux AMD64 guest152 and goldens passed; both native packaged workers22/22 passed with cleanup. Cancelled platform and downstream lanes remain unverified.",
+          "command": "Complete CI and Native packaged workers job/artifact inspection",
+          "runId": 37365101604,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37365101604",
+          "environment": {
+            "node": "22.23.3",
+            "go": "1.27.1",
+            "tofu": "1.12.5",
+            "architectures": "native Linux AMD64 guest; native Linux AMD64 and ARM64 workers"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-fcf4f150.json"
         }
       ],
       "requiredEvidence": [
@@ -782,6 +826,21 @@
             "architectures": "native Linux amd64 and arm64; no emulated worker proof"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-68a1f3b7.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "fcf4f1508c2ea17723a38eed78d0ef5a1e6abf40",
+          "result": "Main CI failed: 6 successful jobs / 1 failed Verify / 9 cancelled. Unit19386 passed /5 failed /1515 skipped; five stale fixture-source assertions. Native Linux AMD64 guest152 and goldens passed; both native packaged workers22/22 passed with cleanup. Cancelled platform and downstream lanes remain unverified.",
+          "command": "Complete CI and Native packaged workers job/artifact inspection",
+          "runId": 37365101604,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37365101604",
+          "environment": {
+            "node": "22.23.3",
+            "go": "1.27.1",
+            "tofu": "1.12.5",
+            "architectures": "native Linux AMD64 guest; native Linux AMD64 and ARM64 workers"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-fcf4f150.json"
         }
       ],
       "requiredEvidence": [
@@ -3466,22 +3525,24 @@
   ],
   "sessionState": {
     "status": "verifier_active_ci_repair",
-    "recordedAt": "2026-10-05T19:37:47.628947+00:00",
-    "sourceCheckpoint": "7d1a89fb7813fcfb7ece2a78f05ae49af3281308",
+    "recordedAt": "2026-10-05T20:59:56.539209+00:00",
+    "sourceCheckpoint": "80482e411205d16dc4fae565202922f58ab7bad4",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
-    "lastPushedRun": 37358119644,
-    "lastPushedRunStatus": "completed14_success2_failure",
-    "currentVerification": "docs/build/production/evidence/PROD-CI-08/2026-10-06-pg-3346e4d4.json",
+    "lastPushedCommit": "fcf4f1508c2ea17723a38eed78d0ef5a1e6abf40",
+    "lastPushedRun": 37365101604,
+    "lastPushedRunStatus": "completed6_success1_failure9_cancelled",
+    "currentVerification": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-fcf4f150.json",
     "remainingLocalPackets": {
-      "mach01-systemd-tests": "Three-path test-only preparation; source authoring and independent review pending; unexecuted"
+      "mach01-systemd-tests": "Revision2 source reviewed and LinuxARM64 cross-compiled; genuine systemd execution unrun",
+      "mach01-ci-registration": "Four-path source-only implementation in progress; review/runtime pending",
+      "wave2-join-tests": "Separate source-only implementation in progress; integrate after fixed wave1 acceptance"
     },
     "permissions": {
       "approved": "Owned disposable verification and normal same-branch push; Saivedant author and committer on user Mac",
       "pending": "Default local API/server; live accounts, budgets and regions; retention/business/production sign-off"
     },
     "releaseVerdict": "All four release states false; no requirement promotion",
-    "next": "Push reviewed fixture/Go/worker-diagnostic checkpoint, observe every main/native CI job on exact pushed SHA; resolve remaining failures; then fixed wave1 order, missing join tests, wave2 and final CI."
+    "next": "Push80482 correction plus coherent receipts; inspect complete fresh exact-SHA CI; fixed wave1, missing joins, wave2 and final CI."
   },
   "sessionHistory": [
     {
@@ -4425,6 +4486,25 @@
         "permissions": "Owned disposable verification and same-branch normal push approved; default API startup, LocalStack, live cloud, retention and production sign-off not authorized",
         "resourceBlocker": "8GB Mac cannot meet packaged worker Linux12GiB RAM admission; disk34GiB passes18GiB floor"
       }
+    },
+    {
+      "status": "verifier_active_ci_repair",
+      "recordedAt": "2026-10-05T19:37:47.628947+00:00",
+      "sourceCheckpoint": "7d1a89fb7813fcfb7ece2a78f05ae49af3281308",
+      "publicationBranch": "codex/production-2026-10-02",
+      "lastPushedCommit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+      "lastPushedRun": 37358119644,
+      "lastPushedRunStatus": "completed14_success2_failure",
+      "currentVerification": "docs/build/production/evidence/PROD-CI-08/2026-10-06-pg-3346e4d4.json",
+      "remainingLocalPackets": {
+        "mach01-systemd-tests": "Three-path test-only preparation; source authoring and independent review pending; unexecuted"
+      },
+      "permissions": {
+        "approved": "Owned disposable verification and normal same-branch push; Saivedant author and committer on user Mac",
+        "pending": "Default local API/server; live accounts, budgets and regions; retention/business/production sign-off"
+      },
+      "releaseVerdict": "All four release states false; no requirement promotion",
+      "next": "Push reviewed fixture/Go/worker-diagnostic checkpoint, observe every main/native CI job on exact pushed SHA; resolve remaining failures; then fixed wave1 order, missing join tests, wave2 and final CI."
     }
   ]
 }

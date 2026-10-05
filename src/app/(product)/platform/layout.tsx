@@ -6,7 +6,7 @@ export default function PlatformLayout({ children }: { children: ReactNode }) {
     <nav aria-label="Platform navigation" className="mb-6 flex flex-wrap gap-5 border-b border-line pb-4 text-[13px] text-signal">
       <Link href="/platform">Operations</Link><Link href="/platform/environments">Environments</Link>
       <Link href="/platform/settings">Workspace policy</Link><Link href="/platform/connections/aws">Connect AWS</Link>
-      <Link href="/api/platform/v1/github/callback">GitHub source</Link>
+      <Link href="/platform/source">GitHub source</Link>
     </nav>{children}
   </div>;
 }

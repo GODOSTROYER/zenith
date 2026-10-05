@@ -14,8 +14,11 @@ interface BindingRow {
   workspace_id: string; owner: string; repo: string; app_id: string;
   installation_id: number; repository_id: number; version: number;
   revoked_at: Date | string | null;
+  revoked_reason?: string | null;
 }
-export interface GithubBindingState { binding: GithubSourceBinding; revoked: boolean }
+export type GithubRevocationReason = "user_unbind" | "installation_deleted" | "installation_suspended" | "repositories_removed";
+export interface GithubBindingState { binding: GithubSourceBinding; revoked: boolean; revokedReason?: GithubRevocationReason }
+const REASONS: readonly string[] = ["user_unbind", "installation_deleted", "installation_suspended", "repositories_removed"];
 export interface InstallCaller { workspaceId: string; actorId: string; browserProof: string; state: string }
 function proof(value: string): string {
   if (!/^[A-Za-z0-9_-]{43}$/.test(value)) throw new GithubSourceError("refused");
@@ -28,11 +31,11 @@ function binding(row: BindingRow): GithubSourceBinding {
   if (!/^[1-9]\d{0,15}$/.test(row.app_id) || !Number.isSafeInteger(row.version) || row.version <= 0) throw new GithubSourceError("unavailable");
   return { workspaceId: identifier(row.workspace_id), ...repository(row.owner, row.repo), appId: row.app_id, installationId: numericId(Number(row.installation_id)), repositoryId: numericId(Number(row.repository_id)), version: row.version };
 }
-async function recordBindingEvent(db: Sql, value: GithubSourceBinding, action: "bound" | "revoked", actorId: string): Promise<void> {
+async function recordBindingEvent(db: Sql, value: GithubSourceBinding, action: "bound" | "revoked", actorId: string, reason: GithubRevocationReason | null = null): Promise<void> {
   await db.query(`insert into platform.github_binding_events
-    (workspace_id, version, action, actor_id, app_id, installation_id, repository_id, owner, repo)
-    values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-  [value.workspaceId, value.version, action, actorId, value.appId, value.installationId, value.repositoryId, value.owner, value.repo]);
+    (workspace_id, version, action, actor_id, app_id, installation_id, repository_id, owner, repo, reason)
+    values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+  [value.workspaceId, value.version, action, actorId, value.appId, value.installationId, value.repositoryId, value.owner, value.repo, reason]);
 }
 export function createGithubSourceStore(db: Sql, backendKind = (db as Partial<PlatformDb>).kind) {
   function mutationBackend(): "postgres" | "pglite" {
@@ -41,8 +44,10 @@ export function createGithubSourceStore(db: Sql, backendKind = (db as Partial<Pl
   }
   const store = {
     async getState(workspaceId: string): Promise<GithubBindingState | undefined> {
-      const rows = await db.query<BindingRow>("select workspace_id, app_id, installation_id, repository_id, owner, repo, version, revoked_at from platform.github_source_bindings where workspace_id = $1", [identifier(workspaceId)]);
-      return rows[0] ? { binding: binding(rows[0]), revoked: rows[0].revoked_at != null } : undefined;
+      const rows = await db.query<BindingRow>("select workspace_id, app_id, installation_id, repository_id, owner, repo, version, revoked_at, revoked_reason from platform.github_source_bindings where workspace_id = $1", [identifier(workspaceId)]);
+      if (!rows[0]) return undefined;
+      const reason = rows[0].revoked_reason;
+      return { binding: binding(rows[0]), revoked: rows[0].revoked_at != null, ...(reason && REASONS.includes(reason) ? { revokedReason: reason as GithubRevocationReason } : {}) };
     },
     async getBinding(workspaceId: string): Promise<GithubSourceBinding | undefined> {
       const current = await store.getState(workspaceId);
@@ -62,12 +67,12 @@ export function createGithubSourceStore(db: Sql, backendKind = (db as Partial<Pl
       if (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion <= 0) throw new GithubSourceError("invalid");
       await db.tx(async (tx) => {
         const rows = await tx.query<BindingRow>(`update platform.github_source_bindings
-          set revoked_at = clock_timestamp(), revoked_by = $2, version = version + 1, updated_at = clock_timestamp()
+          set revoked_at = clock_timestamp(), revoked_by = $2, revoked_reason = 'user_unbind', version = version + 1, updated_at = clock_timestamp()
           where workspace_id = $1 and version = $3 and revoked_at is null
           returning workspace_id, app_id, installation_id, repository_id, owner, repo, version`,
         [input.workspaceId, input.actorId, input.expectedVersion]);
         if (rows.length !== 1) throw new GithubSourceError("conflict");
-        await recordBindingEvent(tx, binding(rows[0]), "revoked", input.actorId);
+        await recordBindingEvent(tx, binding(rows[0]), "revoked", input.actorId, "user_unbind");
         // Includes pending callbacks; already-consumed callbacks lose the version CAS.
         await tx.query("delete from platform.github_install_intents where workspace_id = $1", [input.workspaceId]);
       });
@@ -130,7 +135,7 @@ export function createGithubSourceStore(db: Sql, backendKind = (db as Partial<Pl
              values ($1, $2, $3, $4, $5, $6, $7, 1) on conflict (workspace_id) do nothing
              returning workspace_id, app_id, installation_id, repository_id, owner, repo, version`
           : `update platform.github_source_bindings set app_id = $2, installation_id = $3, repository_id = $4, owner = $5, repo = $6,
-             bound_by = $7, version = version + 1, revoked_at = null, revoked_by = null, updated_at = clock_timestamp() where workspace_id = $1 and version = $8
+             bound_by = $7, version = version + 1, revoked_at = null, revoked_by = null, revoked_reason = null, updated_at = clock_timestamp() where workspace_id = $1 and version = $8
              returning workspace_id, app_id, installation_id, repository_id, owner, repo, version`,
         input.expectedVersion === 0 ? params.slice(0, 7) : params);
         if (rows.length !== 1) throw new GithubSourceError("conflict");

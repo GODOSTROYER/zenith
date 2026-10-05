@@ -37,6 +37,9 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/workspace/policy$`), methods: { GET: "bearer-capable", PUT: "browser-only" } },
   // Installation and repository binding require the human admin's browser session.
   { path: new RegExp(`^${ROOT}/github/callback$`), methods: { GET: "browser-only", POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/github/binding$`), methods: { GET: "browser-only", POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/github/binding/unbind$`), methods: { POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/github/inspect$`), methods: { GET: "browser-only" } },
   { path: new RegExp(`^${ROOT}/github/webhook$`), methods: { POST: "webhook-signed" } },
   { path: new RegExp(`^${ROOT}/(?:runners|machines)$`), methods: { GET: "admin" } },
   { path: new RegExp(`^${ROOT}/runners/tokens$`), methods: { POST: "admin" } },

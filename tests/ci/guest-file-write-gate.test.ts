@@ -1257,7 +1257,7 @@ describe("separate actual systemd requirement admission models", () => {
     expect(manifest.requiredCases).toHaveLength(15); expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(15);
     expect(manifest.requiredCases.every(item => item.id === `linux-systemd:${item.package}:${item.test}`)).toBe(true);
     for (const [relative, hash] of [
-      ["scripts/ci/service-configure-systemd-fixtures.py", "bc2ed8820f4c02ffc343d6fcbac2c7b707e7b81fc2c4fd54c51fe07d240c8ae1"],
+      ["scripts/ci/service-configure-systemd-fixtures.py", "7551b5da47c80de8ac0cd511a172c598cc57e938f43801d40c8e795bf7f24aeb"],
       ["go/internal/machine/ops/serviceconfigure_systemd_linux_test.go", "a0e14457140aa0d4b131958ae54147fdd8f4c48624ade65747030c2c22cdcdf4"],
       ["go/internal/machine/serviceconfigure_systemd_linux_test.go", "a9a27984f167829c42b24451c9c42653f246a9b54a1e9f45448e4f0d1cce5370"],
     ]) expect(createHash("sha256").update(fs.readFileSync(relative)).digest("hex")).toBe(hash);
@@ -1403,5 +1403,131 @@ describe("separate actual systemd requirement admission models", () => {
     expect(runner).toContain('if (validation.verdict !== "passed" || !drained || result.interrupted) throw new Error("execution")');
     expect(runner).toContain('evidence.verdict = "pending-cleanup"'); expect(runner).toContain('rootSystemdReceipt(root, identity, "cleaned"');
     expect(runner).not.toContain("reload-or-restart"); expect(linuxSystemdManifest().limitations.join(" ")).toContain("CP issuer is modeled");
+  });
+});
+
+// Execute the canonical read-only functions with independent syscall metadata.
+// No fixture filesystem, service, mount, credential or process is created.
+const postExecutionCustodyModel = String.raw`
+import ast, errno, json, pathlib, stat, sys, types
+case = json.loads(sys.argv[2])
+source = pathlib.Path(sys.argv[1]).read_text().split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+program = ast.parse(source)
+names = {'TESTS', 'MOUNTS', 'GOLDEN', 'UPLOAD_GOLDEN', 'ROOTS', 'RECEIPT', 'LEASE', 'MOUNT_PAIRS'}
+functions = {'refuse', 'no_acl', 'ancestors', 'load', 'check', 'postcheck'}
+nodes = [node for node in program.body if (isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in names for target in node.targets)) or (isinstance(node, ast.FunctionDef) and node.name in functions)]
+namespace = {'errno': errno, 'json': json, 'stat': stat, 'UID': 1001, 'GID': 1001, 'RUN': 'a' * 32}
+exec(compile(ast.Module(body=nodes, type_ignores=[]), 'canonical-custody-read-model', 'exec'), namespace)
+roots = namespace['ROOTS']
+identities = {path: {'device': 8, 'inode': 80 + index, 'mount': 40, 'uid': 0 if index == 1 else 1001, 'gid': 0 if index == 1 else 1001, 'mode': 0o755 if index == 1 else 0o700, 'directory': True} for index, path in enumerate(roots)}
+identities.update({path: {'device': 8, 'inode': 1 + index, 'mount': 40, 'uid': 0, 'gid': 0, 'mode': 0o755, 'directory': True} for index, path in enumerate(['/', '/opt'])})
+receipt = {'schemaVersion': 1, 'runId': 'a' * 32, 'uid': 1001, 'gid': 1001, 'rootMount': 40, 'state': 'ready', 'roots': {path: identities[path].copy() for path in roots}, 'nodes': {}, 'mounts': []}
+for index, (source, target) in enumerate(namespace['MOUNT_PAIRS']):
+    item = {'device': 8, 'inode': 100 + index, 'mount': 41 + index, 'uid': 1001, 'gid': 1001, 'mode': 0o600 if index == 3 else 0o700, 'directory': index != 3}
+    identities[source] = {**item, 'mount': 40}
+    identities[target] = item
+    receipt['mounts'].append({'source': source, 'target': target, 'identity': item.copy()})
+    receipt['nodes'][source] = identities[source].copy()
+    receipt['nodes'][target] = item.copy()
+observed_mounts = [{'target': '/', 'id': 40, 'fs': 'ext4'}] + [{'target': item['target'], 'id': item['identity']['mount'], 'fs': 'ext4'} for item in receipt['mounts']]
+receipt.update(case.get('receipt', {}))
+if case.get('foreignRoot'):
+    receipt['roots']['/opt/foreign'] = receipt['roots'][roots[0]].copy()
+if case.get('missingMount'):
+    receipt['mounts'].pop()
+if case.get('unknownMount'):
+    observed_mounts.append({'target': roots[1] + '/foreign', 'id': 99, 'fs': 'ext4'})
+if case.get('wrongMountSource'):
+    receipt['mounts'][0]['source'] = '/opt/foreign'
+if case.get('foreignNode'):
+    receipt['nodes']['/opt/foreign'] = identities[roots[0]].copy()
+if case.get('filesystem'):
+    observed_mounts[0]['fs'] = case['filesystem']
+if case.get('identity'):
+    identities[case['identity']['path']].update(case['identity']['change'])
+raw = json.dumps(receipt).encode()
+reads = []
+def lstat(path):
+    if path == namespace['RECEIPT']:
+        return types.SimpleNamespace(st_mode=stat.S_IFREG | case.get('receiptMode', 0o444), st_uid=case.get('receiptOwner', 0), st_nlink=case.get('receiptLinks', 1), st_size=len(raw))
+    item = identities[path]
+    return types.SimpleNamespace(st_mode=(stat.S_IFDIR if item['directory'] else stat.S_IFREG) | item['mode'], st_uid=item['uid'])
+def xattr(path, *_args, **_kwargs):
+    if path == case.get('aclPath'):
+        return b'present-extended-acl'
+    if path == case.get('aclUnavailable'):
+        raise OSError(errno.EACCES, 'unavailable')
+    raise OSError(errno.ENODATA, 'absent')
+def listing(path):
+    reads.append(path)
+    return ['retained-receipt'] if case.get('retainedOutputs') and path == roots[1] + '/backup-anchor' else []
+def exists(path):
+    reads.append(path)
+    return bool(case.get('retainedOutputs') and path == roots[1] + '/anchor/settings.txt')
+os_model = types.SimpleNamespace(lstat=lstat, open=lambda *_: 7, read=lambda *_: raw, close=lambda _: None, getxattr=xattr, O_RDONLY=0, O_NOFOLLOW=0, geteuid=lambda: case.get('effectiveUid', 1001), getegid=lambda: case.get('effectiveGid', 1001), listdir=listing, path=types.SimpleNamespace(lexists=exists))
+namespace.update({'os': os_model, 'identity': lambda path: identities[path].copy(), 'mounts': lambda: observed_mounts})
+def admit(name):
+    try:
+        namespace[name](namespace['load'](namespace['ancestors']()))
+        return True
+    except (RuntimeError, OSError, KeyError):
+        return False
+post = admit('postcheck')
+post_reads = reads.copy()
+reads.clear()
+pristine = admit('check')
+print(json.dumps({'postAccepted': post, 'pristineAccepted': pristine, 'postContentReads': post_reads, 'pristineContentReads': reads}))
+`;
+function postExecutionCustody(input: Record<string, unknown>) {
+  const child = spawnSync("python3", ["-B", "-c", postExecutionCustodyModel, path.resolve("scripts/ci/guest-file-write-fixtures.sh"), JSON.stringify(input)], {
+    encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536,
+  });
+  expect(child.error).toBeUndefined(); expect(child.status).toBe(0); expect(child.stderr).toBe("");
+  return JSON.parse(child.stdout) as { postAccepted: boolean; pristineAccepted: boolean; postContentReads: string[]; pristineContentReads: string[] };
+}
+describe("canonical post-execution custody models", () => {
+  it("accepts retained mounted output only in explicit postcheck while pristine check still refuses", () => {
+    expect(postExecutionCustody({}).postAccepted).toBe(true);
+    const retained = postExecutionCustody({ retainedOutputs: true });
+    expect(retained.postAccepted).toBe(true); expect(retained.pristineAccepted).toBe(false);
+    expect(retained.postContentReads).toEqual([]);
+    expect(retained.pristineContentReads).toContain("/opt/zenith-file-write-mounts/anchor/settings.txt");
+  });
+  it("refuses changed root and mount identities rather than treating retained output as a fallback", () => {
+    for (const path of ["/opt/zenith-file-write-tests", "/opt/zenith-file-write-mounts", "/opt/zenith-file-write-golden", "/opt/zenith-file-upload-golden", "/opt/zenith-file-write-mounts/anchor"]) {
+      for (const change of [{ uid: 1002 }, { gid: 1002 }, { mode: 0o777 }, { inode: 999 }, { device: 9 }, { mount: 99 }]) {
+        expect(postExecutionCustody({ retainedOutputs: true, identity: { path, change } }).postAccepted, `${path}:${JSON.stringify(change)}`).toBe(false);
+      }
+    }
+  });
+  it("refuses foreign run account state receipt and mount registries", () => {
+    for (const change of [{ receipt: { runId: "b".repeat(32) } }, { receipt: { uid: 1002 } }, { receipt: { gid: 1002 } }, { receipt: { state: "preparing" } }, { receipt: { rootMount: 99 } },
+      { effectiveUid: 1002 }, { effectiveGid: 1002 }, { receiptOwner: 1001 }, { receiptMode: 0o644 }, { receiptLinks: 2 },
+      { foreignRoot: true }, { missingMount: true }, { unknownMount: true }, { wrongMountSource: true }, { foreignNode: true }, { filesystem: "overlay" }]) {
+      expect(postExecutionCustody({ retainedOutputs: true, ...change }).postAccepted, JSON.stringify(change)).toBe(false);
+    }
+  });
+  it("refuses unsafe ancestry and present or unavailable ACL observations", () => {
+    for (const change of [{ identity: { path: "/opt", change: { mode: 0o777 } } }, { identity: { path: "/", change: { uid: 1001 } } },
+      { aclPath: "/opt" }, { aclPath: "/opt/zenith-file-upload-golden" }, { aclPath: "/opt/zenith-file-write-mounts/anchor" }, { aclUnavailable: "/opt/zenith-file-write-mounts" }]) {
+      expect(postExecutionCustody({ retainedOutputs: true, ...change }).postAccepted, JSON.stringify(change)).toBe(false);
+    }
+  });
+  it("preserves pristine load and cleanup drain bodies and confines systemd to the explicit read-only action", () => {
+    const source = fs.readFileSync("scripts/ci/guest-file-write-fixtures.sh", "utf8");
+    const body = (name: string, next: string) => source.slice(source.indexOf(`def ${name}(`), source.indexOf(next, source.indexOf(`def ${name}(`))).trimEnd();
+    expect(createHash("sha256").update(body("check", "def postcheck(")).digest("hex")).toBe("0129b03ba7ea250da38c7dccb5c50be31ce516dcf045e81c7619b3b70dc27b0a");
+    expect(createHash("sha256").update(body("load", "def check(")).digest("hex")).toBe("2f9a935f0713d1fbf4ed77d0fe3775ac613018d97ea1870b341a8360a47e14ea");
+    expect(createHash("sha256").update(body("users_drained", "def delete_tree(")).digest("hex")).toBe("6cca0098709dac4fb474124c6af2d21dd3df08c015682dba7c2069d091ef260a");
+    expect(createHash("sha256").update(body("cleanup", "\ntry:\n")).digest("hex")).toBe("fd59d3fbb58af2e5436a2cab7974b7c3a288cc75033430a7ba436bfd9f516119");
+    expect(source).toContain("elif ACTION == 'postcheck':\n        postcheck(load(root_mount))");
+    expect(source).toContain("^(setup|check|postcheck|cleanup)$");
+    const helper = fs.readFileSync("scripts/ci/service-configure-systemd-fixtures.py", "utf8");
+    expect(helper).toContain('command(["/usr/bin/bash", str(CANONICAL), "postcheck", str(uid), str(gid), run])');
+    expect(helper).not.toContain('command(["/usr/bin/bash", str(CANONICAL), "check"');
+    expect(helper.indexOf('"postcheck", str(uid)')).toBeLessThan(helper.indexOf('if action == "setup":'));
+    expect(helper).toContain('lock(CANONICAL_LEASE)'); expect(helper).toContain('lock(LEASE)');
+    expect(helper).toContain('if any(os.path.lexists(p) for p in MARKERS):');
+    expect(linuxGuestManifest().requiredCases).toHaveLength(152); expect(linuxSystemdManifest().requiredCases).toHaveLength(15);
   });
 });

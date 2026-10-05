@@ -260,7 +260,7 @@ def main():
     for path in parents:
         protected_directory(path)
     FAILURE_PHASE = "canonical-fixture-check"
-    command(["/usr/bin/bash", str(CANONICAL), "check", str(uid), str(gid), run])
+    command(["/usr/bin/bash", str(CANONICAL), "postcheck", str(uid), str(gid), run])
     if action == "setup":
         FAILURE_PHASE = "setup-lease"
         lock(CANONICAL_LEASE)

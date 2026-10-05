@@ -2,7 +2,7 @@
 # Explicit disposable-host operator action only. No production startup hook.
 set -euo pipefail
 umask 077
-if [[ $# != 4 || ! "$1" =~ ^(setup|check|cleanup)$ || ! "$2" =~ ^[1-9][0-9]{0,8}$ || ! "$3" =~ ^[1-9][0-9]{0,8}$ || ! "$4" =~ ^[a-f0-9]{32}$ ]]; then
+if [[ $# != 4 || ! "$1" =~ ^(setup|check|postcheck|cleanup)$ || ! "$2" =~ ^[1-9][0-9]{0,8}$ || ! "$3" =~ ^[1-9][0-9]{0,8}$ || ! "$4" =~ ^[a-f0-9]{32}$ ]]; then
   echo 'fixture helper: invalid invocation' >&2
   exit 2
 fi
@@ -222,6 +222,17 @@ def check(receipt):
     if os.listdir(GOLDEN) or os.listdir(UPLOAD_GOLDEN) or os.path.lexists(MOUNTS + '/anchor/settings.txt') or os.listdir(MOUNTS + '/backup-anchor'):
         refuse()
 
+def postcheck(receipt):
+    # Read-only custody after native execution. The mounted target and backup
+    # receipts are deliberately retained; this is not a pristine setup check,
+    # a process-drain proof, or evidence that any native test passed.
+    if receipt['state'] != 'ready' or len(receipt['mounts']) != 4 or os.geteuid() not in [0, UID] or (os.geteuid() == UID and os.getegid() != GID):
+        refuse()
+    if any(identity(p)['uid'] != UID or identity(p)['gid'] != GID or identity(p)['mode'] != 0o700 for p in [TESTS, GOLDEN, UPLOAD_GOLDEN]):
+        refuse()
+    if identity(MOUNTS)['uid'] != 0 or identity(MOUNTS)['mode'] != 0o755:
+        refuse()
+
 def users_drained():
     active = TESTS + '/.gate-active'
     if os.path.lexists(active):
@@ -326,6 +337,8 @@ try:
         check(load(root_mount))
     elif ACTION == 'check':
         check(load(root_mount))
+    elif ACTION == 'postcheck':
+        postcheck(load(root_mount))
     else:
         cleanup(load(root_mount))
     print('fixture helper: ' + ACTION + ' complete')

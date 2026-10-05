@@ -6,6 +6,9 @@ export interface CriticalMaintenanceActivityInput extends CriticalMaintenanceInp
 export type CriticalMaintenanceOutcome = "ok" | "busy" | "skipped" | "failed";
 /** Statuses only: no counts, rows or errors enter workflow history. */
 export interface CriticalMaintenanceResult {
+  engine: CriticalMaintenanceOutcome;
+  alerts: CriticalMaintenanceOutcome;
+  outbox: CriticalMaintenanceOutcome;
   housekeeping: CriticalMaintenanceOutcome;
   "runner-reaper": CriticalMaintenanceOutcome;
   runbooks: CriticalMaintenanceOutcome;
@@ -28,7 +31,7 @@ export async function criticalMaintenanceWorkflow(input: CriticalMaintenanceInpu
   if (!input || Object.getPrototypeOf(input) !== Object.prototype || Object.keys(input).join(",") !== "contract" || input.contract !== "zenith.critical-maintenance.v1")
     throw ApplicationFailure.nonRetryable("Critical maintenance input is invalid.", "CriticalMaintenanceContractInvalid");
   const result = await maintenance.runCriticalMaintenance({ contract: input.contract, passId: workflowInfo().runId });
-  if (!result || !["housekeeping", "runner-reaper", "runbooks"].every((k) => ["ok", "busy", "skipped", "failed"].includes((result as unknown as Record<string, string>)[k])))
+  if (!result || !["engine", "alerts", "outbox", "housekeeping", "runner-reaper", "runbooks"].every((k) => ["ok", "busy", "skipped", "failed"].includes((result as unknown as Record<string, string>)[k])))
     throw ApplicationFailure.nonRetryable("Critical maintenance result is invalid.", "CriticalMaintenanceContractInvalid");
   return result;
 }

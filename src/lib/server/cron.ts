@@ -476,6 +476,14 @@ export const cronSchedulerRunning = (): boolean =>
 
 /* --------------------------------- routing -------------------------------- */
 
+/** Engine/alerts/outbox are durable-first (PROD-OBS-04): the HTTP trigger shares the lease and run record and defers while Temporal is current. */
+async function fallbackPass(name: string, run: () => Promise<Record<string, unknown>>): Promise<Record<string, unknown>> {
+  if (name !== "engine" && name !== "alerts" && name !== "outbox") return run();
+  if (!(await ensurePlatformCron())) return run();
+  const { runFallbackJob, countsOf } = await import("@/lib/platform/critical-jobs");
+  return runFallbackJob(name, async () => { const value = await run(); return { value, performed: true, counts: countsOf(value) }; }, {} as Record<string, unknown>);
+}
+
 /**
  * The wrapper every internal route uses.
  *
@@ -501,7 +509,7 @@ export function cronRoute(
           await ensureBoot();
         }
         const started = Date.now();
-        const counts = housekeeping ? await housekeepingTickPass() : await inCronScope(() => pass(req));
+        const counts = housekeeping ? await housekeepingTickPass() : await inCronScope(() => fallbackPass(name, () => pass(req)));
         const body = { pass: housekeeping ? "housekeeping" : name, ok: true, ms: Date.now() - started, ...counts };
         log.info("internal tick", { scope: "cron", ...body });
         const res = json(body);

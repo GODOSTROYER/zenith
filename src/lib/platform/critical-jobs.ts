@@ -34,6 +34,9 @@ export const CRITICAL_JOBS = {
   "runner-reaper": { cadenceMs: 60_000, leaseTtlMs: 60_000, kind: "reaping" },
   runbooks: { cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "runbooks" },
   reconcile: { cadenceMs: 60_000, leaseTtlMs: 90_000, kind: "observation" },
+  engine: { cadenceMs: 60_000, leaseTtlMs: 60_000, kind: "observation" },
+  alerts: { cadenceMs: 60_000, leaseTtlMs: 60_000, kind: "observation" },
+  outbox: { cadenceMs: 60_000, leaseTtlMs: 60_000, kind: "observation" },
 } as const;
 export type CriticalJobName = keyof typeof CRITICAL_JOBS;
 export const CRITICAL_JOB_NAMES = Object.keys(CRITICAL_JOBS) as CriticalJobName[];
@@ -105,7 +108,23 @@ export async function runCriticalJob<T>(db: Sql, job: CriticalJobName, source: J
 /* ------------------------------ the shared jobs ----------------------------- */
 
 /** The three jobs the durable maintenance schedule runs. Each is a thin call into the existing implementation. */
+/**
+ * Legacy-product passes (engine, alerts, outbox): same functions and same snapshot loader as the HTTP
+ * route (ensureBoot + inCronScope primes the unfiltered snapshot and awaits the write-back). A boot
+ * failure throws, so the run is recorded failed; nothing is skipped silently.
+ */
+async function productPass<T extends object>(run: (cron: typeof import("@/lib/server/cron")) => Promise<T>): Promise<JobOutcome<T>> {
+  const { ensureBoot } = await import("@/lib/server/boot");
+  await ensureBoot();
+  const cron = await import("@/lib/server/cron");
+  const value = await cron.inCronScope(() => run(cron));
+  return { value, performed: true, counts: countsOf(value) };
+}
+
 export const MAINTENANCE_JOBS = {
+  engine: () => productPass((c) => c.engineTickPass(15_000)),
+  alerts: () => productPass((c) => c.alertTickPass()),
+  outbox: () => productPass((c) => c.outboxTickPass()),
   async housekeeping(db: Sql): Promise<JobOutcome<import("./housekeeping").HousekeepingResult>> {
     const { housekeepingPass } = await import("./housekeeping");
     const r = await housekeepingPass(db);

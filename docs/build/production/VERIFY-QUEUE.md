@@ -1,5 +1,7 @@
 # Verification queue (for the verifying agent)
 
+Current verifier code checkpoint: `7d1a89fb`, exact local PostgreSQL acceptance at `3346e4d4`; prior published `68a1f3b7` CI14 success/2 failure, nativeARM22 success/AMD recovery failure. Fresh pushed CI remains required. Read latest RESULTS and evidence above older chronology; preserve newer ancestry and user files. Tests/minimal fixes only; Saivedant identity; HANDOFF-VERIFIER fixed order applies.
+
 Current override: branch `codex/production-2026-10-02`, candidate `5f4713a7`, Saivedant Hava <saivedant169@gmail.com>. Retain all20 verifier obligations and fixed order. CI repair not complete; actual executed counts in latest RESULTS section. Older prod/compose and Arnav instructions below are historical and superseded by human authorization.
 
 > Scope contract and required deliverables: [HANDOFF-VERIFIER.md](HANDOFF-VERIFIER.md). Read it first.

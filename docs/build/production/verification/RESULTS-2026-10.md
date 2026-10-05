@@ -1,5 +1,15 @@
 # Verifier results, 5 October 2026
 
+## 6 October verifier checkpoint: reviewed fixes, fresh CI pending
+
+Integrated code `7d1a89fb`: fixture database/root lifetime `60e67177`, explicit existing Go package lifecycles `3346e4d4`, and bounded worker recovery diagnostics `7d1a89fb`. No acceptance counts, production guards or migration history weakened. Root compiler passed on isolated clean checkout; developer checkout compiler exhausted3072MiB heap and remains a separate failed attempt. Go/gate models533 passed/0 failed/0 skipped; worker diagnostic models133 passed/0 failed/6 Mac runtime prerequisite skips, lint clean.
+
+Actual combined local source `3346e4d4`: native100100/0/0; platform PostgreSQL3016/0/8, all1124 required; PostgreSQL322/0/0, all80; workflows1273/0/0, all60; reconciliation38/0/0, all26; intents156/0/0, all141; network portability14/0/0. Fresh/reapply/upgrade passed; owned container, volumes and new image removed, baseline preserved. Reports overlap and are not summed.
+
+Published `68a1f3b7` main CI completed14 successful/2 failed jobs; full units19387 passed/0 failed/1515 skipped. ARM64 native22/22 passed; AMD64 fresh-worker recovery failed, no partial count exported. Root isolation addresses observed foreign physical-target scope collisions; remote Linux rerun remains required. Go package fix requires real152-case/golden execution. Diagnostic update preserves22 checks and does not establish AMD64 cause or cure. Exact evidence: `evidence/PROD-CI-08/2026-10-06-ci-68a1f3b7.json` and `2026-10-06-pg-3346e4d4.json`.
+
+Next: fresh same-branch CI; then MACH01, MACH03, OBS02, OBS03, LIFE02, LIFE12, COST03; missing join tests before wave2 acceptance. Real service convergence tests still need owned systemd Linux execution. Local default API/server and live/cloud/business permissions remain pending. All78 requirements and four release holds preserved:6 verified/44 in progress/28 planned.
+
 ## Checkpoint verdict
 
 Integrated code: `387b0efe06c53e893831fb3268092128e0969a27`; 24 reviewed fix commits. Early CI-repair publication, not complete acceptance. All78 requirements retained:6 verified /44 in progress /28 planned. All four release states remain false. Evidence counts overlap; do not sum lanes.

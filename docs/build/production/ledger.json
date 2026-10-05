@@ -335,6 +335,18 @@
           "commit": "3616b02c93058533a13dec6879ba0b7a35725bc2",
           "result": "Actual PG/Temporal canonical lanes: platform3016P0F8declaredS/all1124, postgres322P0F0S/all80, workflows1273P0F0S/all60, reconciliation38P0F0S/all26, intents156P0F0S/all141. All strict execution validators passed. Overall attempt failed supplemental portability12P1F0S/22023; owned cleanup complete.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-canonical-lanes.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+          "result": "Completed published68a main14 successful/2 failed jobs (Go, platform PostgreSQL); unit19387 passed/0 failed/1515 skipped. ARM64 native22/22 passed; AMD64 recovery failed and exposes no partial passed-check count. Later local fixes do not change this failed observation.",
+          "runId": 37358119644,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37358119644",
+          "environment": {
+            "node": "22.23.3",
+            "architectures": "native Linux amd64 and arm64; no emulated worker proof"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-68a1f3b7.json"
         }
       ],
       "requiredEvidence": [
@@ -550,6 +562,33 @@
           "commit": "3616b02c93058533a13dec6879ba0b7a35725bc2",
           "result": "Actual PG/Temporal canonical lanes: platform3016P0F8declaredS/all1124, postgres322P0F0S/all80, workflows1273P0F0S/all60, reconciliation38P0F0S/all26, intents156P0F0S/all141. All strict execution validators passed. Overall attempt failed supplemental portability12P1F0S/22023; owned cleanup complete.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-canonical-lanes.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "3346e4d4aa2ebd7ef4f1ec0ef6a10277e1c38f70",
+          "result": "Actual disposable PostgreSQL16.15/Temporal/OpenTofu combined gate on3346: native100100/0/0, platform3016/0/8 with1124 required, PostgreSQL322/0/0 with80 required, workflows1273/0/0 with60 required, reconciliation38/0/0 with26 required, intents156/0/0 with141 required, network portability14/0/0. All strict validators and owned cleanup passed. Remote Linux and native worker gates remain separate.",
+          "command": "Canonical platform-postgres, postgres, workflows, reconciliation and workflow-intents lanes; exact native100 and network portability validators",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "postgres": "16.15",
+            "temporalCli": "1.9.1",
+            "tofu": "1.12.5",
+            "architecture": "Darwin arm64; local PostgreSQL Linux arm64"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-pg-3346e4d4.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+          "result": "Completed published68a main14 successful/2 failed jobs (Go, platform PostgreSQL); unit19387 passed/0 failed/1515 skipped. ARM64 native22/22 passed; AMD64 recovery failed and exposes no partial passed-check count. Later local fixes do not change this failed observation.",
+          "runId": 37358119644,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37358119644",
+          "environment": {
+            "node": "22.23.3",
+            "architectures": "native Linux amd64 and arm64; no emulated worker proof"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-68a1f3b7.json"
         }
       ],
       "requiredEvidence": [
@@ -731,6 +770,18 @@
           "runId": 37346865827,
           "result": "Native Linux AMD64 and ARM64 packaged workers22/22 each, zero emulation; all cleanup flags true. Main run separately12 success/3 failure/1 cancellation. Changed candidate and in-flight mutation shutdown remain unverified.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-05-published-ci-3e856cf4.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+          "result": "Completed published68a main14 successful/2 failed jobs (Go, platform PostgreSQL); unit19387 passed/0 failed/1515 skipped. ARM64 native22/22 passed; AMD64 recovery failed and exposes no partial passed-check count. Later local fixes do not change this failed observation.",
+          "runId": 37358119644,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37358119644",
+          "environment": {
+            "node": "22.23.3",
+            "architectures": "native Linux amd64 and arm64; no emulated worker proof"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-68a1f3b7.json"
         }
       ],
       "requiredEvidence": [
@@ -1772,6 +1823,21 @@
           "commit": "5f4713a7f3526a31a6a7de1438df4ce5e53a4ed2",
           "result": "Actual production PostgreSQL connector/importer and independent readback14P0F0S; original13 cases retained plus one network regression. Strict14 identities passed. Full combined candidate, other engines, native Linux CI and full lifecycle acceptance remain open.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-canonical-lanes.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "3346e4d4aa2ebd7ef4f1ec0ef6a10277e1c38f70",
+          "result": "Actual network PostgreSQL production connector export/import14 passed/0 failed/0 skipped, exact14 identities enforced, independent new-connection readback including structured/scalar/null/Unicode/escaped/numeric values; owned database and whole-gate cleanup confirmed. No hosted/cloud proof.",
+          "command": "tests/controlplane/portability/postgres-engine.test.ts with actual disposable PostgreSQL and pg_dump/pg_restore",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "postgres": "16.15",
+            "temporalCli": "1.9.1",
+            "tofu": "1.12.5",
+            "architecture": "Darwin arm64; local PostgreSQL Linux arm64"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-pg-3346e4d4.json"
         }
       ],
       "requiredEvidence": [
@@ -3399,40 +3465,23 @@
     }
   ],
   "sessionState": {
-    "status": "checkpoint_for_machine_transfer",
-    "recordedAt": "2026-10-05T08:02:18.771397+00:00",
-    "sourceCheckpoint": "19be80b3ea905ee51da89f27e3258184611952f0",
-    "functionalSourceTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+    "status": "verifier_active_ci_repair",
+    "recordedAt": "2026-10-05T19:37:47.628947+00:00",
+    "sourceCheckpoint": "7d1a89fb7813fcfb7ece2a78f05ae49af3281308",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "414d52bcb1ebb8fe18fe92aced33e1096929fa67",
-    "lastPushedRun": 37128274569,
-    "lastPushedRunStatus": "historical_only_14_passed",
-    "currentVerification": "docs/build/production/transfer/2026-10-05/EVIDENCE-SUMMARY.json",
+    "lastPushedCommit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+    "lastPushedRun": 37358119644,
+    "lastPushedRunStatus": "completed14_success2_failure",
+    "currentVerification": "docs/build/production/evidence/PROD-CI-08/2026-10-06-pg-3346e4d4.json",
     "remainingLocalPackets": {
-      "manifest-digest-r3": "independently accepted source only; runtime unexecuted",
-      "settlement-gates-partial": "partial authoring; independent final review and execution incomplete"
+      "mach01-systemd-tests": "Three-path test-only preparation; source authoring and independent review pending; unexecuted"
     },
-    "handoff": "docs/build/production/transfer/2026-10-05/README.md",
     "permissions": {
-      "approved": "Own disposable PostgreSQL/Temporal/kind/Linux/worker tests and images; same-branch push. Detect resources and serialize heavy jobs on constrained hosts.",
-      "pending": "Default API/server startup; live private GitHub/Supabase/cloud accounts, region, budget and secure configuration; destructive retention, business and production sign-off."
+      "approved": "Owned disposable verification and normal same-branch push; Saivedant author and committer on user Mac",
+      "pending": "Default local API/server; live accounts, budgets and regions; retention/business/production sign-off"
     },
-    "releaseVerdict": "All four release states false. No new verified requirement. Current failures and unexecuted gates retained.",
-    "next": "Verify transferred hashes; independently finish pending11; import accepted3 in an owned worktree at19be; rebind current source and execute native100; complete combined mandatory gates and observe exact pushed CI; continue all78 G2-G4.",
-    "verifierCheckpoint": {
-      "integratedCodeCommit": "387b0efe06c53e893831fb3268092128e0969a27",
-      "publishedBaseline": "3ed037b95b7ac15e0647f24363f1727078b3ee87",
-      "fixCommits": 24,
-      "status": "CI repair incomplete; early checkpoint, not green baseline",
-      "mainHistoricalRun": 37312049436,
-      "mainHistoricalResult": "8 passed / 7 failed / 1 cancelled",
-      "nativeHistoricalRun": 37312049322,
-      "nativeHistoricalResult": "AMD64 and ARM64 failed cleanup after20 functional cases passed per lane",
-      "currentRun": "New pushed run pending",
-      "waveOrder": "CI repair; wave1; missing join tests; wave2; final exact-SHA CI",
-      "permissions": "Owned disposable verification and same-branch normal push approved; default API startup, LocalStack, live cloud, retention and production sign-off not authorized",
-      "resourceBlocker": "8GB Mac cannot meet packaged worker Linux12GiB RAM admission; disk34GiB passes18GiB floor"
-    }
+    "releaseVerdict": "All four release states false; no requirement promotion",
+    "next": "Push reviewed fixture/Go/worker-diagnostic checkpoint, observe every main/native CI job on exact pushed SHA; resolve remaining failures; then fixed wave1 order, missing join tests, wave2 and final CI."
   },
   "sessionHistory": [
     {
@@ -4340,6 +4389,42 @@
       "pausedCurrentTasks": 0,
       "next": "Complete corrected authority packets and root native checks; whole combined gates/package/kind/fresh install; same published branch normal push and terminal CI; continue operated journey/G3/G4.",
       "releaseVerdict": "All four false; no full gate or production signoff claim."
+    },
+    {
+      "status": "checkpoint_for_machine_transfer",
+      "recordedAt": "2026-10-05T08:02:18.771397+00:00",
+      "sourceCheckpoint": "19be80b3ea905ee51da89f27e3258184611952f0",
+      "functionalSourceTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+      "publicationBranch": "codex/production-2026-10-02",
+      "lastPushedCommit": "414d52bcb1ebb8fe18fe92aced33e1096929fa67",
+      "lastPushedRun": 37128274569,
+      "lastPushedRunStatus": "historical_only_14_passed",
+      "currentVerification": "docs/build/production/transfer/2026-10-05/EVIDENCE-SUMMARY.json",
+      "remainingLocalPackets": {
+        "manifest-digest-r3": "independently accepted source only; runtime unexecuted",
+        "settlement-gates-partial": "partial authoring; independent final review and execution incomplete"
+      },
+      "handoff": "docs/build/production/transfer/2026-10-05/README.md",
+      "permissions": {
+        "approved": "Own disposable PostgreSQL/Temporal/kind/Linux/worker tests and images; same-branch push. Detect resources and serialize heavy jobs on constrained hosts.",
+        "pending": "Default API/server startup; live private GitHub/Supabase/cloud accounts, region, budget and secure configuration; destructive retention, business and production sign-off."
+      },
+      "releaseVerdict": "All four release states false. No new verified requirement. Current failures and unexecuted gates retained.",
+      "next": "Verify transferred hashes; independently finish pending11; import accepted3 in an owned worktree at19be; rebind current source and execute native100; complete combined mandatory gates and observe exact pushed CI; continue all78 G2-G4.",
+      "verifierCheckpoint": {
+        "integratedCodeCommit": "387b0efe06c53e893831fb3268092128e0969a27",
+        "publishedBaseline": "3ed037b95b7ac15e0647f24363f1727078b3ee87",
+        "fixCommits": 24,
+        "status": "CI repair incomplete; early checkpoint, not green baseline",
+        "mainHistoricalRun": 37312049436,
+        "mainHistoricalResult": "8 passed / 7 failed / 1 cancelled",
+        "nativeHistoricalRun": 37312049322,
+        "nativeHistoricalResult": "AMD64 and ARM64 failed cleanup after20 functional cases passed per lane",
+        "currentRun": "New pushed run pending",
+        "waveOrder": "CI repair; wave1; missing join tests; wave2; final exact-SHA CI",
+        "permissions": "Owned disposable verification and same-branch normal push approved; default API startup, LocalStack, live cloud, retention and production sign-off not authorized",
+        "resourceBlocker": "8GB Mac cannot meet packaged worker Linux12GiB RAM admission; disk34GiB passes18GiB floor"
+      }
     }
   ]
 }

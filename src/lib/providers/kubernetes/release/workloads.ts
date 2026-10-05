@@ -54,6 +54,16 @@ export function createWorkloadsPort(): WorkloadsPort {
         }
       } catch (e) { return releaseFailure(e); }
     },
+    async readServing(ctx, node) {
+      try {
+        const workload = await loadWorkload(releaseContext(ctx), node);
+        const image = mainContainer(node, dig(workload.live, "spec", "template", "spec")).image;
+        const result = evaluateRollout(workload.kind, workload.live);
+        const observed = dig(workload.live, "status", "observedGeneration");
+        const generation = dig(workload.live, "metadata", "generation");
+        return { supported: true, digest: typeof image === "string" ? image.split("@")[1] : undefined, steady: result.done && !result.failed && typeof observed === "number" && typeof generation === "number" && observed >= generation };
+      } catch (e) { return releaseFailure(e); }
+    },
     async waitSteady(ctx, node, opts) {
       const scoped = boundedContext(ctx, opts.timeoutMs);
       let uid: unknown;

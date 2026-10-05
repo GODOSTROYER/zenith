@@ -33,7 +33,7 @@
 import { digest } from "@/lib/controlplane/digest";
 import type { ResourceGraph, ResourceNode } from "@/lib/resources/types";
 import type { ArtifactSpec, BuildPipelineSpec } from "@/lib/resources/specs";
-import type { ExecutionActivities } from "@/lib/workflows/types";
+import type { ExecutionActivities, LeaseRef } from "@/lib/workflows/types";
 import { mapLimit } from "./concurrency";
 import { loadExecContext, resolveConnection, type ExecContext } from "./context";
 import { assertLeaseFor, requireExecutable } from "./desired";
@@ -46,6 +46,8 @@ import { driverContext, LONG_SESSION_SEC, withProviderSession } from "./session"
 import { safeText } from "./text";
 import { approvedSources } from "./source-snapshot";
 import { syncEnvironmentSecrets } from "./secrets";
+import { abortCanary, asStepFailure, beginRuns, finishRun, isRollbackOperation, rolloutRun, type ImageRef } from "./release-safety";
+import type { ReleaseRun } from "@/lib/release-safety";
 
 type ReleaseActivities = Pick<ExecutionActivities, "buildArtifacts" | "deployWorkloads" | "runMigrations">;
 
@@ -62,7 +64,9 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
       const { graph } = requireExecutable(rt, ec);
       const workloads = graph.nodes.filter(isWorkload).sort((a, b) => (a.address < b.address ? -1 : 1));
       if (workloads.length === 0) return { images: [] };
-      const needsBuild = workloads.some((n) => artifactOf(n)?.type === "built");
+      // A code rollback restores the digest that revision last served; it does not rebuild.
+      const priors = await priorServedImages(rt, ec, workloads);
+      const needsBuild = workloads.some((n) => artifactOf(n)?.type === "built" && !priors.has(n.address));
       if (needsBuild && (!rt.d.build || !rt.d.sourceBundle)) {
         throw new StepFailedError("This worker has no build runner or source bundler configured, so services with a git source cannot be built. Pin an image or configure the build ports.");
       }
@@ -88,6 +92,8 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
                 if (pinned.note) rt.log("info", "image left unpinned", { service: node.address, note: pinned.note });
                 return { service: node.address, imageUri: pinned.imageUri, digest: pinned.digest };
               }
+              const prior = priors.get(node.address);
+              if (prior) return { service: node.address, imageUri: prior.imageUri, digest: prior.digest };
               return await buildOne(rt, ec, graph, node, artifact, ctx);
             } catch (error) { failures.push(error); return undefined; }
           });
@@ -119,6 +125,26 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
         return withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
           let done = 0;
           let pinned = 0;
+          if (rt.d.releaseSafety) {
+            // Digest-bound release: every gate is cleared for every service BEFORE the first rollout effect.
+            const release = buildDesiredState(ec.product).manifest?.release;
+            const ctxFor = (node: ResourceNode) => driverContext(rt, ec, session, signal, { node, fence: lease });
+            const images = new Map<string, ImageRef>();
+            for (const node of targets) {
+              const supplied = byService.get(node.address);
+              const artifact = artifactOf(node);
+              const pinnedRef = artifact?.type === "image" ? /@(sha256:[0-9a-f]{64})$/.exec(artifact.ref) : null;
+              if (supplied?.digest) images.set(node.address, supplied);
+              else if (pinnedRef && artifact?.type === "image") images.set(node.address, { imageUri: artifact.ref, digest: pinnedRef[1] });
+            }
+            const runs = await beginRuns(rt, ec, { targets, images, release, ctxFor, workloads: workloads! });
+            for (const node of targets) {
+              await rolloutRun(rt, ec, { run: runs.get(node.address)!, node, image: images.get(node.address)!, ctx: ctxFor(node), workloads: workloads!, signal, steadyTimeoutMs: rt.limits.steadyTimeoutMs });
+              pinned++;
+              done++;
+            }
+            return { done, pinned };
+          }
           for (const node of targets) {
             const ctx = driverContext(rt, ec, session, signal, { node, fence: lease });
             const image = byService.get(node.address);
@@ -150,46 +176,148 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
       assertLeaseFor(ec, lease);
       const desired = buildDesiredState(ec.product);
       const migrate = desired.manifest?.release?.migrate;
-      if (!migrate) return { ran: false, detail: "no migration declared" };
-      const { graph } = requireExecutable(rt, ec);
-      const service = nodeAt(graph, `container_service/${migrate.service}`) ?? nodeAt(graph, `scheduled_job/${migrate.service}`);
-      if (!service || service.ownership !== "managed") {
-        throw new StepFailedError(`The migration names service "${safeText(migrate.service, 40)}", which is not a managed workload of this graph.`);
+      const safety = rt.d.releaseSafety;
+      const rollback = isRollbackOperation(ec);
+      const runs: ReleaseRun[] = safety ? await safety.list(ec.workspaceId, { operationId: ec.op.id, limit: 100 }) : [];
+      for (const run of runs) {
+        if (run.state === "failed" || run.state === "uncertain" || run.state === "refused" || run.state === "rolled_back" || run.state === "blocked_approval") {
+          throw new StepFailedError(`Release ${run.id} for ${run.serviceAddress} is ${run.state.replace("_", " ")}${run.reason ? ` (${safeText(run.reason, 200)})` : ""}; it cannot continue.`);
+        }
       }
-      const migrations = rt.d.migrations;
-      if (!migrations) throw new StepFailedError("This worker has no one-off task runner configured; the declared migration cannot run.");
-      const connection = await resolveConnection(rt, ec);
-      const timeoutMs = Math.min((migrate.timeoutSec ?? rt.limits.migrationTimeoutMs / 1000) * 1000, rt.limits.migrationTimeoutMs);
 
-      await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
-      const result = await withKeepAlive(rt, { lease, detail: "run migration", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, (signal) =>
-        withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, (session) =>
-          migrations.runOneOffTask(driverContext(rt, ec, session, signal, { node: service, fence: lease }), service, migrate.command, {
-            timeoutMs,
-            idempotencyKey: keyOf(ec.op.id, "migrate", service.address, migrate.command),
-          })
-        )
-      );
-      await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
+      let outcome: { ran: boolean; detail: string };
+      const migrateAddress = migrate ? [`container_service/${migrate.service}`, `scheduled_job/${migrate.service}`] : [];
+      const migrateRun = runs.find((r) => migrateAddress.includes(r.serviceAddress) && r.kind === "deploy");
+      const alreadyPast = (r: ReleaseRun | undefined): boolean => !!r && ["migrated", "ready", "cut_over", "readback_verified", "cut_over_unverified"].includes(r.state);
+      if (!migrate) outcome = { ran: false, detail: "no migration declared" };
+      else if (rollback) {
+        // A code rollback never runs, reverts or re-applies a data migration, whatever the older manifest declares.
+        outcome = { ran: false, detail: "code rollback: the release migration was not run and no migration was reverted" };
+      } else if (safety && !migrateRun) {
+        throw new StepFailedError(`The migration names service "${safeText(migrate.service, 40)}", which has no release run for this operation; refusing to run it ungated.`);
+      } else if (alreadyPast(migrateRun)) outcome = { ran: true, detail: `migration on ${migrate.service} already ran for release ${migrateRun!.id}` };
+      else outcome = await runMigrationTask(rt, ec, lease, migrate, migrateRun, runs);
 
-      // The argv is stored as a digest and a count, never as text: a command line can carry what a manifest should not.
-      await rt.evidence(
-        ec.scope,
-        {
-          kind: "machine_request",
-          digest: digest({ op: ec.op.id, kind: "release.migrate", service: service.address, exitCode: result.exitCode, command: migrate.command }),
-          summary: { kind: "release.migrate", service: service.address, commandDigest: digest(migrate.command), argc: migrate.command.length, exitCode: result.exitCode, ...(result.logsRef ? { logsRef: safeText(result.logsRef, 200) } : {}) },
-          simulated: false,
-          key: `migrate:${ec.op.id}`,
-        },
-        { critical: true }
-      );
-      if (result.exitCode !== 0) {
-        throw new StepFailedError(`The migration task exited with code ${result.exitCode}; the database may be partially migrated. Nothing was rolled back; reconcile will observe and a new operation decides.`);
-      }
-      return { ran: true, detail: safeText(`migration on ${migrate.service} exited 0${result.logsRef ? ` (logs ${result.logsRef})` : ""}`, 300) };
+      // Re-read: the migration step has moved the run it belongs to.
+      if (safety && runs.length > 0) await finishReleases(rt, ec, lease, await safety.list(ec.workspaceId, { operationId: ec.op.id, limit: 100 }));
+      return outcome;
     },
   };
+}
+
+type MigrateDecl = NonNullable<NonNullable<ReturnType<typeof buildDesiredState>["manifest"]>["release"]>["migrate"] & object;
+
+/** The gated one-off migration task. Returns after the run record says what happened. */
+async function runMigrationTask(rt: Runtime, ec: ExecContext, lease: LeaseRef, migrate: MigrateDecl, run: ReleaseRun | undefined, runs: ReleaseRun[]): Promise<{ ran: boolean; detail: string }> {
+  const { graph } = requireExecutable(rt, ec);
+  const service = nodeAt(graph, `container_service/${migrate.service}`) ?? nodeAt(graph, `scheduled_job/${migrate.service}`);
+  if (!service || service.ownership !== "managed") {
+    throw new StepFailedError(`The migration names service "${safeText(migrate.service, 40)}", which is not a managed workload of this graph.`);
+  }
+  const migrations = rt.d.migrations;
+  if (!migrations) throw new StepFailedError("This worker has no one-off task runner configured; the declared migration cannot run.");
+  const safety = rt.d.releaseSafety;
+  // The approval for a data or contract migration is checked and consumed HERE, immediately before dispatch.
+  let current = run;
+  if (safety && current) {
+    try {
+      current = await safety.beginMigration(current);
+    } catch (e) {
+      asStepFailure(e);
+    }
+  }
+  const connection = await resolveConnection(rt, ec);
+  const timeoutMs = Math.min((migrate.timeoutSec ?? rt.limits.migrationTimeoutMs / 1000) * 1000, rt.limits.migrationTimeoutMs);
+
+  await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
+  const result = await withKeepAlive(rt, { lease, detail: "run migration", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, (signal) =>
+    withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, (session) =>
+      migrations.runOneOffTask(driverContext(rt, ec, session, signal, { node: service, fence: lease }), service, migrate.command, {
+        timeoutMs,
+        idempotencyKey: keyOf(ec.op.id, "migrate", service.address, migrate.command),
+      })
+    )
+  );
+  await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
+
+  // The argv is stored as a digest and a count, never as text: a command line can carry what a manifest should not.
+  await rt.evidence(
+    ec.scope,
+    {
+      kind: "machine_request",
+      digest: digest({ op: ec.op.id, kind: "release.migrate", service: service.address, exitCode: result.exitCode, command: migrate.command }),
+      summary: { kind: "release.migrate", service: service.address, commandDigest: digest(migrate.command), argc: migrate.command.length, exitCode: result.exitCode, ...(result.logsRef ? { logsRef: safeText(result.logsRef, 200) } : {}) },
+      simulated: false,
+      key: `migrate:${ec.op.id}`,
+    },
+    { critical: true }
+  );
+  if (safety && current) {
+    await safety.markMigrated(current, { ran: true, exitCode: result.exitCode, detail: `migration on ${migrate.service} exited ${result.exitCode}` });
+  }
+  if (result.exitCode !== 0) {
+    // Code only: a canary that will not complete goes back to the previous revision. The data stays as the task left it.
+    if (safety) await abortCanaries(rt, ec, lease, runs);
+    throw new StepFailedError(`The migration task exited with code ${result.exitCode}; the database may be partially migrated. Nothing was rolled back; reconcile will observe and a new operation decides.`);
+  }
+  return { ran: true, detail: safeText(`migration on ${migrate.service} exited 0${result.logsRef ? ` (logs ${result.logsRef})` : ""}`, 300) };
+}
+
+async function withReleaseSession<T>(rt: Runtime, ec: ExecContext, lease: LeaseRef, detail: string, body: (session: Parameters<typeof driverContext>[2], signal: AbortSignal) => Promise<T>): Promise<T> {
+  const connection = await resolveConnection(rt, ec);
+  await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
+  const out = await withKeepAlive(rt, { lease, detail, operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, (signal) =>
+    withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, (session) => body(session, signal))
+  );
+  await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
+  return out;
+}
+
+/** Readiness, cutover and readback for every run of this operation. */
+async function finishReleases(rt: Runtime, ec: ExecContext, lease: LeaseRef, runs: ReleaseRun[]): Promise<void> {
+  const { graph } = requireExecutable(rt, ec);
+  const workloads = rt.d.workloads;
+  if (!workloads) throw new StepFailedError("This worker has no workload deployer configured; releases cannot be finished.");
+  const finished = await withReleaseSession(rt, ec, lease, "finish release", async (session, signal) => {
+    const out: ReleaseRun[] = [];
+    for (const run of [...runs].sort((a, b) => (a.serviceAddress < b.serviceAddress ? -1 : 1))) {
+      const node = nodeAt(graph, run.serviceAddress);
+      if (!node) throw new StepFailedError(`Release ${run.id} names ${safeText(run.serviceAddress, 80)}, which is not in this graph.`);
+      out.push(await finishRun(rt, ec, { run, node, ctx: driverContext(rt, ec, session, signal, { node, fence: lease }), workloads, steadyTimeoutMs: rt.limits.steadyTimeoutMs }));
+    }
+    return out;
+  });
+  await rt.emit(ec.scope, "resource.applied", `release:${ec.op.id}`, { step: "release", releases: finished.map((r) => ({ id: r.id, service: r.serviceAddress, state: r.state, digest: r.imageDigest })) });
+}
+
+async function abortCanaries(rt: Runtime, ec: ExecContext, lease: LeaseRef, runs: ReleaseRun[]): Promise<void> {
+  const open = runs.filter((r) => r.rollout.strategy === "progressive" && r.kind === "deploy");
+  if (open.length === 0) return;
+  try {
+    const { graph } = requireExecutable(rt, ec);
+    await withReleaseSession(rt, ec, lease, "abort canary", async (session, signal) => {
+      for (const run of open) {
+        const node = nodeAt(graph, run.serviceAddress);
+        if (node) await abortCanary(rt, run, node, driverContext(rt, ec, session, signal, { node, fence: lease }));
+      }
+    });
+  } catch (e) {
+    rt.log("error", "canary abort could not run; traffic may still be split", { error: safeText(e instanceof Error ? e.message : "unknown", 200) });
+  }
+}
+
+/** Images a code rollback restores: the digest each built service last served for the revision being restored. */
+async function priorServedImages(rt: Runtime, ec: ExecContext, nodes: ResourceNode[]): Promise<Map<string, ImageRef>> {
+  const out = new Map<string, ImageRef>();
+  const safety = rt.d.releaseSafety;
+  const revisionId = ec.product.revision?.id;
+  if (!safety || !isRollbackOperation(ec) || !revisionId) return out;
+  for (const node of nodes) {
+    if (artifactOf(node)?.type !== "built") continue;
+    const prior = await safety.lastServedForRevision(ec.workspaceId, ec.environmentId, node.address, revisionId).catch(() => null);
+    if (prior) out.set(node.address, { imageUri: prior.imageUri, digest: prior.imageDigest });
+  }
+  return out;
 }
 
 /** The images the workflow hands back must name workloads of this graph and carry a real digest (or none). */

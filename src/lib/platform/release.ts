@@ -15,6 +15,7 @@ import { nodeName } from "@/lib/providers/aws/drivers/shared";
 import { createGcpBuildPort, createGcpWorkloadsPort, createGcpMigrationsPort } from "./release-gcp";
 import { createOciBuildPort, createOciWorkloadsPort, createOciMigrationsPort } from "./release-oci";
 import { createAzureBuildPort, createAzureWorkloadsPort, createAzureMigrationsPort, createAzureReleaseLaunchJournal, type AzureBuildOptions } from "./release-azure";
+import { progressiveUnsupportedReason } from "@/lib/release-safety/rollout";
 import { createKubernetesBuildPort, createKubernetesWorkloadsPort, createKubernetesMigrationsPort } from "./release-k8s";
 
 /** Dispatch on the environment's driver context, then each adapter verifies its broker session. */
@@ -34,7 +35,36 @@ export function createReleasePorts(options: { db?: Sql; azure?: AzureBuildOption
   };
   return {
     build: { startBuild: async (ctx, input) => select(ctx).build.startBuild(ctx, input), waitForBuild: async (ctx, handle, opts) => select(ctx).build.waitForBuild(ctx, handle, opts) },
-    workloads: { deployImage: async (ctx, node, image, opts) => select(ctx).workloads.deployImage(ctx, node, image, opts), waitSteady: async (ctx, node, opts) => select(ctx).workloads.waitSteady(ctx, node, opts) },
+    workloads: {
+      deployImage: async (ctx, node, image, opts) => select(ctx).workloads.deployImage(ctx, node, image, opts),
+      waitSteady: async (ctx, node, opts) => select(ctx).workloads.waitSteady(ctx, node, opts),
+      // Optional capabilities: an adapter that lacks one reports it plainly instead of faking it.
+      readServing: async (ctx, node) => {
+        const read = select(ctx).workloads.readServing;
+        return read ? read(ctx, node) : { supported: false, detail: "This provider's release adapter cannot read the serving digest." };
+      },
+      progressive: {
+        support: async (ctx, node) => {
+          const p = select(ctx).workloads.progressive;
+          return p ? p.support(ctx, node) : { supported: false, reason: progressiveUnsupportedReason(ctx.provider, node.kind) };
+        },
+        stageCandidate: async (ctx, node, image, opts) => {
+          const p = select(ctx).workloads.progressive;
+          if (!p) throw new StepFailedError(progressiveUnsupportedReason(ctx.provider, node.kind));
+          return p.stageCandidate(ctx, node, image, opts);
+        },
+        abort: async (ctx, node, input) => {
+          const p = select(ctx).workloads.progressive;
+          if (!p) throw new StepFailedError(progressiveUnsupportedReason(ctx.provider, node.kind));
+          return p.abort(ctx, node, input);
+        },
+        setTrafficPercent: async (ctx, node, input) => {
+          const p = select(ctx).workloads.progressive;
+          if (!p) throw new StepFailedError(progressiveUnsupportedReason(ctx.provider, node.kind));
+          return p.setTrafficPercent(ctx, node, input);
+        },
+      },
+    },
     migrations: { runOneOffTask: async (ctx, node, command, opts) => select(ctx).migrations.runOneOffTask(ctx, node, command, opts) },
   };
 }

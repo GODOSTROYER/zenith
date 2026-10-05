@@ -33,6 +33,10 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/runbooks/runs/${ID}/cancel$`), methods: { POST: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/runbooks/(?:runs|schedules)/${ID}/approve$`), methods: { POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/runbooks/schedules/${ID}/state$`), methods: { POST: "bearer-capable" } },
+  // Release runs: reads are open to viewers; approving a data or contract migration needs the person's browser.
+  { path: new RegExp(`^${ROOT}/releases$`), methods: { GET: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/releases/${ID}$`), methods: { GET: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/releases/${ID}/approve-migration$`), methods: { POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/capability-catalog$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/workspace/policy$`), methods: { GET: "bearer-capable", PUT: "browser-only" } },
   // Installation and repository binding require the human admin's browser session.

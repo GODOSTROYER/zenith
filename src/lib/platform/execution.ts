@@ -19,6 +19,7 @@ import { createExecutionBroker } from "./broker";
 import { registerAllDrivers } from "./drivers";
 import { platformDriverLookup } from "./driver-lookup";
 import { createReleasePorts } from "./release";
+import { createPlatformReleaseSafety } from "./release-safety";
 import { composeReconcilePorts } from "./reconcile";
 import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
 import type { SourceBundleDeps } from "./source-bundle";
@@ -113,6 +114,8 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     tofu, cost: defaultCostPort(),
     observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} }), { session: describeSession(session) }),
     prober: createSafeProber(), ...createReleasePorts({ db: opts.db, azure }),
+    // Digest-bound release runs, provenance gate, migration approval, rollout and readback (PROD-LIFE-10).
+    releaseSafety: createPlatformReleaseSafety(opts.db),
     machines: opts.ports?.machines ?? createDefaultMachinePort(opts.db, opts.secretKey ?? process.env.ZENITH_SECRET_KEY!),
     ...opts.ports,
     // The captured source authority is final; the generic test-port spread cannot replace it.

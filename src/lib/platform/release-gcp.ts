@@ -6,5 +6,9 @@
  * Contract evidence only; no live GCP acceptance run.
  */
 export { createBuildPort as createGcpBuildPort } from "@/lib/providers/gcp/release/build";
-export { createWorkloadsPort as createGcpWorkloadsPort } from "@/lib/providers/gcp/release/workloads";
+import type { WorkloadsPort } from "@/lib/execution/ports";
+import { createWorkloadsPort } from "@/lib/providers/gcp/release/workloads";
+import { createGcpProgressivePort, createGcpReadServing } from "@/lib/providers/gcp/release/traffic";
+/** Cloud Run: digest rollout, serving-digest readback and weighted (canary) traffic. */
+export const createGcpWorkloadsPort = (): WorkloadsPort => ({ ...createWorkloadsPort(), readServing: createGcpReadServing(), progressive: createGcpProgressivePort() });
 export { createMigrationsPort as createGcpMigrationsPort } from "@/lib/providers/gcp/release/migrations";

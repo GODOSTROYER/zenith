@@ -12,7 +12,8 @@ import { control, requireControl, operationView, reviewOperation } from './runti
 import { controlOrigin, jsonBody, json, failure } from './boundary';
 import { grantSchema, reviewSchema } from './contracts';
 import { oauthConfig } from './oauth';
-async function browser(req:NextRequest, mutation=false){
+/** Browser-session identity, verified member and workspace; refuses agent credentials and (for mutations) cross-origin posts. */
+export async function browser(req:NextRequest, mutation=false){
   // `await`, because the capability probe that replaces this flag check is
   // async (CONTROL-PLANE §1). Awaiting a synchronous refusal is identical;
   // awaiting an asynchronous one is the difference between a guard and a

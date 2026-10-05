@@ -70,6 +70,9 @@ export async function authorizeRequest(request: Request): Promise<{who:Principal
     const grant=await authority.verify(authorization);
     who={...grant,integrationId:grant.id};
     noteUse(authority,grant.id);
+  } else if(token.startsWith('zp_')) {
+    // A plugin token is audience-bound to the v3 endpoint and attenuates a linked credential there; it is never a v2 credential.
+    throw new ControlError('plugin_token_wrong_resource','Plugin tokens are accepted only by the MCP v3 endpoint they were issued for.',401);
   } else {
     const config=oauthConfig(process.env,origin);if(!config)throw new ControlError('oauth_unavailable','Configure a trusted OAuth authorization server before remote use.',503);
     const selected=selection(request),identity=await verifyOAuth(token,config);

@@ -23,6 +23,7 @@
  */
 import { MCP_PATH } from "./contract";
 import { McpToolError } from "./errors";
+import { PluginError } from "@/lib/plugins/errors";
 import { principalFromIdentity, type AgentIdentity, type McpPrincipal } from "./principal";
 
 /** A verified agent credential, as the credential authority returns it. */
@@ -51,11 +52,22 @@ export interface OAuthLike<Config = unknown, Verified = unknown> {
   bind(identity: Verified, workspaceId: string): Promise<AgentIdentity>;
 }
 
+/**
+ * Reviewed plugin tokens (`zp_`, src/lib/plugins). Resolves the token to the
+ * parent credential attenuated to the approved tools/scopes, re-reading every
+ * grant, approval and parent credential now. `audience` is this endpoint.
+ */
+export interface PluginAuthLike {
+  authenticate(token: string, audience: string): Promise<AgentIdentity>;
+}
+
 export interface AuthDeps {
   /** Throws (403) unless the request is for the configured Zenith host. Returns the trusted origin. */
   checkOrigin(request: Request): string;
   authority(): Promise<AuthorityLike>;
   oauth: OAuthLike;
+  /** Absent means plugin tokens are refused as unavailable (never treated as another credential kind). */
+  plugins?: PluginAuthLike;
   now(): number;
 }
 
@@ -144,6 +156,15 @@ export async function authenticateMcp(request: Request, deps: AuthDeps): Promise
       expiresAt: credential.expiresAt,
     };
     noteUse(authority, credential.id, now);
+    checkSelection(selection(request), identity);
+  } else if (token.startsWith("zp_")) {
+    if (!deps.plugins) throw new McpToolError("plugin_unavailable", "Plugin tokens are not enabled on this deployment.", 503);
+    try {
+      identity = await deps.plugins.authenticate(token, resourceFor(origin));
+    } catch (error) {
+      if (error instanceof PluginError) throw new McpToolError(error.code, error.message, error.status);
+      throw error;
+    }
     checkSelection(selection(request), identity);
   } else {
     const config = deps.oauth.config(origin);

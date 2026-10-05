@@ -354,9 +354,10 @@ export const SCHEDULER_ENGINE_BUDGET_MS = 5_000;
  * return). Adding it here would tick it twice.
  */
 export const scheduledPasses = {
-  engine: engineTickPass,
-  alerts: alertTickPass,
-  outbox: outboxTickPass,
+  // Same lease, run record and durable-deferral as the HTTP routes (PROD-OBS-04); the result shape is unchanged.
+  engine: (budgetMs?: number) => fallbackPass("engine", () => engineTickPass(budgetMs)) as unknown as Promise<EngineTickResult>,
+  alerts: () => fallbackPass("alerts", () => alertTickPass()) as unknown as Promise<AlertTickResult>,
+  outbox: () => fallbackPass("outbox", () => outboxTickPass()) as unknown as Promise<OutboxTickResult>,
   housekeeping: housekeepingTickPass,
   runbooks: runbookTickPass,
 };

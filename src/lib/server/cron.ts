@@ -80,17 +80,19 @@ export async function ensurePlatformCron(): Promise<boolean> {
 
 async function reapPlatformJobs(): Promise<void> {
   if (!(await ensurePlatformCron())) return;
-  const { platformRunnerReaperPass } = await import("@/lib/platform/app");
-  await platformRunnerReaperPass();
+  // Same lease, record and durable-deferral as the Temporal maintenance schedule (PROD-OBS-04).
+  const { runFallbackJob, MAINTENANCE_JOBS } = await import("@/lib/platform/critical-jobs");
+  await runFallbackJob("runner-reaper", (db) => MAINTENANCE_JOBS["runner-reaper"](db), { ran: false, jobs: 0 });
 }
 
 /** Control-store-only pass; authentication belongs to the calling cron route. */
 export async function housekeepingTickPass(): Promise<import("@/lib/platform/housekeeping").HousekeepingResult> {
   if (!(await ensurePlatformCron())) return { ran: false, idempotencyKeys: 0, nonces: 0, uncertain: 0, expired: 0 };
   try {
-    const { platformDb } = await import("@/lib/controlplane/db");
-    const { housekeepingPass } = await import("@/lib/platform/housekeeping");
-    return await housekeepingPass(await platformDb());
+    const { runFallbackJob, MAINTENANCE_JOBS } = await import("@/lib/platform/critical-jobs");
+    const idle = { ran: false, idempotencyKeys: 0, nonces: 0, uncertain: 0, expired: 0 };
+    const { deferred: _deferred, ...result } = await runFallbackJob("housekeeping", (db) => MAINTENANCE_JOBS.housekeeping(db), idle);
+    return result;
   } catch {
     throw new ApiError("Platform housekeeping could not complete; check control store connectivity and schema.", 503);
   }
@@ -99,8 +101,9 @@ export async function housekeepingTickPass(): Promise<import("@/lib/platform/hou
 /** Signed-runbook schedules and due runs; control-store only, bounded, lease-guarded. */
 export async function runbookTickPass(): Promise<import("@/lib/platform/runbooks").RunbookTickResult> {
   if (!(await ensurePlatformCron())) return { ran: false, created: 0, missed: 0, blocked: 0, executed: 0 };
-  const { runbookTickPass: pass } = await import("@/lib/platform/runbooks");
-  return pass({ budgetMs: 15_000 });
+  const { runFallbackJob, MAINTENANCE_JOBS } = await import("@/lib/platform/critical-jobs");
+  const { deferred: _deferred, ...result } = await runFallbackJob("runbooks", () => MAINTENANCE_JOBS.runbooks(), { ran: false, created: 0, missed: 0, blocked: 0, executed: 0 });
+  return result;
 }
 
 /* ------------------------------ authorisation ----------------------------- */

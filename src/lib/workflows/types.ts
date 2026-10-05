@@ -183,6 +183,7 @@ export const WORKFLOW_TYPES = {
   remediation: "remediationWorkflow",
   reconcile: "reconcileEnvironmentWorkflow",
   reconcileSweep: "reconcileSweepWorkflow",
+  criticalMaintenance: "criticalMaintenanceWorkflow",
 } as const;
 
 /* ------------------------------- activities ------------------------------- */
@@ -282,4 +283,5 @@ export interface ReconcileRepairSummary {
 export type WorkerActivities = ExecutionActivities & ReconcileActivities;
 
 /** Production worker registration; legacy activities/stubs retain their replay contract. */
-export type RegisteredWorkerActivities = WorkerActivities & import("./definitions/reconcileSweep").ReconcileSweepActivities;
+export type RegisteredWorkerActivities = WorkerActivities & import("./definitions/reconcileSweep").ReconcileSweepActivities
+  & import("./definitions/criticalMaintenance").CriticalMaintenanceActivities;

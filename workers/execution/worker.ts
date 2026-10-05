@@ -26,6 +26,8 @@ import path from "node:path";
 import { ensurePlatformApp } from "@/lib/platform/app";
 import type { PlatformDbHandle } from "@/lib/controlplane/db";
 import { composeReconcileSweepRuntime } from "@/lib/platform/execution";
+import { createCriticalMaintenanceActivities } from "@/lib/workflows/critical-activities";
+import { criticalJobHealth } from "@/lib/platform/critical-jobs";
 import type { RegisteredWorkerActivities } from "@/lib/workflows/types";
 import { listDrivers } from "@/lib/drivers/types";
 import { loadPolicyEngine } from "@/lib/policy";
@@ -37,7 +39,7 @@ import { temporalDataConverterFromEnv } from "@/lib/workflows/codec";
 import { executionWorkerConfigFromEnv } from "./config";
 import { installShutdownHandlers } from "./lifecycle";
 import { awaitReconcilePollers, workerOptions, workflowSource } from "./run";
-import { ExecutionStartupError, validateExecutionConfiguration, validateReconcileWorkerConfiguration, openExecutionStore, closeExecutionStore, openReconcileWorkerClient, prepareReconcileWorkerSchedule, reconcileWorkerMonitor, type ExecutionFailureCategory } from "./startup";
+import { ExecutionStartupError, validateExecutionConfiguration, validateReconcileWorkerConfiguration, openExecutionStore, closeExecutionStore, openReconcileWorkerClient, prepareReconcileWorkerSchedule, prepareCriticalMaintenanceSchedule, reconcileWorkerMonitor, type ExecutionFailureCategory } from "./startup";
 import { HEALTH_CHECK_TIMEOUT_MS, healthPortFromEnv, startHealthServer } from "./health";
 
 function log(level: "info" | "warn" | "error", msg: string, fields: Record<string, unknown> = {}): void {
@@ -97,7 +99,7 @@ async function main(): Promise<void> {
     failureCategory = "plan-directory";
     await mkdir(planDir, { recursive: true, mode: 0o700 });
     failureCategory = "activity-composition";
-    const activities: RegisteredWorkerActivities = { ...createActivities({ db, workerIdentity: config.identity, planDir, sourceBundles: { azureStorage: createAzureSourceStorageResolver(db) }, ports: { heartbeat: (detail) => Context.current().heartbeat(detail), activitySignal: () => Context.current().cancellationSignal } }), ...sweep.activities };
+    const activities: RegisteredWorkerActivities = { ...createActivities({ db, workerIdentity: config.identity, planDir, sourceBundles: { azureStorage: createAzureSourceStorageResolver(db) }, ports: { heartbeat: (detail) => Context.current().heartbeat(detail), activitySignal: () => Context.current().cancellationSignal } }), ...sweep.activities, ...createCriticalMaintenanceActivities(db) };
     failureCategory = "temporal-runtime";
     Runtime.install({ logger: new DefaultLogger(config.logLevel) });
 
@@ -131,11 +133,16 @@ async function main(): Promise<void> {
     if (stopping()) throw new ExecutionStartupError("Worker stopped before durable reconciliation preparation.");
     failureCategory = "reconcile-schedule";
     await prepareReconcileWorkerSchedule(reconcileClient.client, sweep, config.reconcile!);
+    // Reaping/housekeeping/runbooks schedule. A failure leaves the HTTP fallback cron as the only trigger and is
+    // reported through job health ("never_run"/"stale"), so it must not stop the worker serving workflows.
+    try { await prepareCriticalMaintenanceSchedule(reconcileClient.client, config.reconcile!); }
+    catch { log("warn", "critical maintenance schedule unavailable; the fallback cron is the only trigger until it is provisioned"); }
     monitor = reconcileWorkerMonitor(reconcileClient.client, config.reconcile!);
     const reconciliation = await monitor.refresh();
     log(reconciliation.observationCurrent ? "info" : "warn", "durable reconciliation status", { ...reconciliation });
     reconcileLog = setInterval(() => {
       void monitor!.refresh().then(observed => log(observed.observationCurrent ? "info" : "warn", "durable reconciliation status", { ...observed }));
+      void criticalJobHealth(db!).then(h => log(h.healthy ? "info" : "warn", "critical job health", { jobs: h.jobs.map(j => ({ job: j.job, state: j.state, durable: j.durable, ageMs: j.lastSuccessAgeMs, failures: j.consecutiveFailures })) }), () => log("warn", "critical job health unavailable; check control store"));
     }, 30_000);
     reconcileLog.unref();
     janitor = startPlanArtifactJanitor(db, (result) => {

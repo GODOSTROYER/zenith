@@ -25,6 +25,8 @@ import { authorizeCron, ensurePlatformCron } from "@/lib/server/cron";
 import { ApiError, errorResponse, json } from "@/lib/server/errors";
 import { intParam } from "@/lib/server/request";
 import { log, withRequestId } from "@/lib/log";
+import { runFallbackJob } from "@/lib/platform/critical-jobs";
+import type { ReconcilePassResult } from "@/lib/reconcile/pass-types";
 import { DEFAULT_MAX_ENVIRONMENTS, RECONCILE_BUDGET_MS, ReconcileError, reconcilePass } from "@/lib/reconcile";
 
 export const dynamic = "force-dynamic";
@@ -36,12 +38,18 @@ export const POST = async (req: NextRequest): Promise<Response> => {
   return withRequestId(requestId, async () => {
     try {
       authorizeCron(req);
-      await ensurePlatformCron(); // this route deliberately bypasses legacy boot
+      const platform = await ensurePlatformCron(); // this route deliberately bypasses legacy boot
       const started = Date.now();
-      const counts = await reconcilePass({
-        budgetMs: intParam(req, "budgetMs", RECONCILE_BUDGET_MS, { min: 0, max: RECONCILE_BUDGET_MS }),
-        maxEnvironments: intParam(req, "max", DEFAULT_MAX_ENVIRONMENTS, { min: 0, max: 500 }),
-      });
+      const budgetMs = intParam(req, "budgetMs", RECONCILE_BUDGET_MS, { min: 0, max: RECONCILE_BUDGET_MS });
+      const maxEnvironments = intParam(req, "max", DEFAULT_MAX_ENVIRONMENTS, { min: 0, max: 500 });
+      // Fallback trigger (PROD-OBS-04): defers while the durable reconcile sweep schedule is current; the per-environment
+      // claims inside reconcilePass keep the two sources idempotent when the fallback does run.
+      // Without a configured platform store (wiring refusal or the in-memory dev backend) there is nothing durable to record against.
+      const pass = () => reconcilePass({ budgetMs, maxEnvironments });
+      const counts = !platform ? await pass() : await runFallbackJob("reconcile", async () => {
+        const value = await pass();
+        return { value, performed: true, counts: { claimed: value.claimed, reconciled: value.reconciled, failed: value.failed, deferred: value.deferred, unreadNodes: value.unreadNodes } };
+      }, { claimed: 0, reconciled: 0, failed: 0, deferred: 0, unreadNodes: 0 } as unknown as ReconcilePassResult);
       const body = { pass: "reconcile", ok: true, ...counts, ms: Date.now() - started };
       log.info("internal tick", { scope: "cron", ...body });
       const res = json(body);

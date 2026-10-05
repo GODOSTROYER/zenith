@@ -27,6 +27,7 @@ import { migration0017MachineRunbooks } from "./0017_machine_runbooks";
 import { migration0018OwnershipTransfers } from "./0018_ownership_transfers";
 import { migration0019IncidentStability } from "./0019_incident_stability";
 import { migration0020OptimizerSettings } from "./0020_optimizer_settings";
+import { migration0021ScheduledJobRuns } from "./0021_scheduled_job_runs";
 
 export interface PlatformMigration {
   /** contiguous from 1 */
@@ -36,7 +37,7 @@ export interface PlatformMigration {
   sql: string;
 }
 
-export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts, migration0008BuildLaunches, migration0009GithubRevocation, migration0010GithubDeliveries, migration0011AgentEffectReceipts, migration0012WorkflowStartIntents, migration0013ApprovedSourceSnapshots, migration0014MixedChildIntents, migration0015CleanupWriterBarriers, migration0016CleanupWriterSettlements, migration0017MachineRunbooks, migration0018OwnershipTransfers, migration0019IncidentStability, migration0020OptimizerSettings];
+export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts, migration0008BuildLaunches, migration0009GithubRevocation, migration0010GithubDeliveries, migration0011AgentEffectReceipts, migration0012WorkflowStartIntents, migration0013ApprovedSourceSnapshots, migration0014MixedChildIntents, migration0015CleanupWriterBarriers, migration0016CleanupWriterSettlements, migration0017MachineRunbooks, migration0018OwnershipTransfers, migration0019IncidentStability, migration0020OptimizerSettings, migration0021ScheduledJobRuns];
 
 /** The highest version this build knows. */
 export const PLATFORM_SCHEMA_VERSION: number = PLATFORM_MIGRATIONS[PLATFORM_MIGRATIONS.length - 1].version;

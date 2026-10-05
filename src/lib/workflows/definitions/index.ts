@@ -23,3 +23,4 @@ export { reconcileEnvironmentWorkflow } from "./reconcile";
 
 export { teardownReviewWorkflow } from "./destroy-review";
 export { reconcileSweepWorkflow } from "./reconcileSweep";
+export { criticalMaintenanceWorkflow } from "./criticalMaintenance";

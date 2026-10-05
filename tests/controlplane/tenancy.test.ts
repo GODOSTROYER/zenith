@@ -83,6 +83,8 @@ const SWEPT = new Set([
   "resources.changeOwnership", "resources.get", "resources.getByAddress", "resources.listByEnvironment", "resources.setStatus",
   "runners.getRunner", "runners.heartbeat", "runners.listRunners", "runners.revokeRunner",
   "settings.getEnvironmentSettings", "settings.getWorkspacePolicy",
+  // PROD-LIFE-12: tenant-scoped ownership-transfer reads/writes; recordForApprovedOperation is also reachable only via approvals.record.
+  "ownershipTransfers.listActive", "ownershipTransfers.guardFor", "ownershipTransfers.revoke", "ownershipTransfers.recordForApprovedOperation",
 ]);
 
 /** Writes that bind the new row to the workspace they are given; their tenant checks are tested with the owning suite. */
@@ -445,6 +447,10 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "runners.heartbeat": () => repos.runners.heartbeat(db, { workspaceId: B, id: runner.id }),
       "runners.listRunners": () => repos.runners.listRunners(db, B),
       "runners.revokeRunner": () => repos.runners.revokeRunner(db, B, runner.id),
+      "ownershipTransfers.listActive": () => repos.ownershipTransfers.listActive(db, B, envId),
+      "ownershipTransfers.guardFor": () => repos.ownershipTransfers.guardFor(db, B, envId, resource.id),
+      "ownershipTransfers.revoke": () => repos.ownershipTransfers.revoke(db, { workspaceId: B, transferDigest: hex("a"), operationId: opId, revokedBy: "b" }),
+      "ownershipTransfers.recordForApprovedOperation": () => seen(repos.ownershipTransfers.recordForApprovedOperation(db, { workspaceId: B, operationId: opId, approvalId: "apr_foreign" })),
       "settings.getEnvironmentSettings": () => repos.settings.getEnvironmentSettings(db, B, envId),
       "settings.getWorkspacePolicy": () => repos.settings.getWorkspacePolicy(db, B),
     };

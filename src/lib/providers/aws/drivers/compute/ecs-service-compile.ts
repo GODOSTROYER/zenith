@@ -47,6 +47,7 @@ import { dependencies } from "./support/refs";
 import { ComputeCompileError, Frag, attr, refOf, tagsFor } from "./support/tf";
 import { emitTask } from "./ecs-task";
 import { fargateSize } from "./support/fargate";
+import { factsForNode, lifecycleIgnoreChanges } from "@/lib/ownership";
 import { parseImageRef } from "./support/image";
 
 const MAX_REPLICAS = 1000;
@@ -100,6 +101,7 @@ export function compileEcsService(node: ResourceNode, ctx: CompileContext): Tofu
     }
 
     const name = cloudName(ctx.namePrefix, nodeName(node.address), 255);
+    const ownedLifecycle = lifecycleIgnoreChanges({ resourceType: "aws_ecs_service", address: node.address, facts: factsForNode(node) });
     const service = b.resource("aws_ecs_service", label, {
       name,
       cluster: attr(t.cluster, "arn"),
@@ -115,6 +117,8 @@ export function compileEcsService(node: ResourceNode, ctx: CompileContext): Tofu
       propagate_tags: "SERVICE",
       wait_for_steady_state: false,
       ...(healthGrace !== undefined ? { health_check_grace_period_seconds: healthGrace } : {}),
+      // An attached autoscaler owns desired_count after create; tofu must not revert it (PROD-LIFE-12).
+      ...(ownedLifecycle ? { lifecycle: ownedLifecycle } : {}),
       network_configuration: [{ subnets: t.subnets, security_groups: [t.securityGroup], assign_public_ip: false }],
       ...(loadBalancer.length ? { load_balancer: loadBalancer } : {}),
       depends_on: dependsOn,

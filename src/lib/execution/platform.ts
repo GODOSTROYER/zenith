@@ -204,6 +204,7 @@ export function createResourcesPort(sql: Sql): ResourcesPort {
       await repos.observations.upsertRuntime(sql, { workspaceId, resourceId, runtime });
     },
     latestDriftReport: (workspaceId, environmentId) => repos.drift.latest(sql, workspaceId, environmentId),
+    activeOwnershipTransfers: (workspaceId, environmentId) => repos.ownershipTransfers.listActive(sql, workspaceId, environmentId),
     async saveDriftReport({ workspaceId, report }) {
       await repos.drift.insert(sql, { workspaceId, report });
     },

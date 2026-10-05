@@ -49,12 +49,14 @@ import * as operationRepo from "@/lib/controlplane/db/repos/operations";
 import * as evidenceRepo from "@/lib/controlplane/db/repos/evidence";
 import * as policyDecisionRepo from "@/lib/controlplane/db/repos/policy-decisions";
 import * as settingsRepo from "@/lib/controlplane/db/repos/settings";
+import * as ownershipRepo from "@/lib/controlplane/db/repos/ownership-transfers";
 import { decide } from "@/lib/controlplane/approvals";
 import { cancelOperation as cancelOperationService, denyOperation as denyOperationService, claimOperation, completeOperation as completeOperationService, proposeOperation, recordPolicyOutcome } from "@/lib/controlplane/operations";
 import { emitForOperation } from "@/lib/controlplane/events";
-import { LeaseLostError, type ApprovalRecord, type OperationRecord, type PlatformEvent, type PolicyDecisionRecord, type Sql } from "@/lib/controlplane/types";
+import { LeaseLostError, type ApprovalRecord, type OperationRecord, type PlatformEvent, type PolicyDecisionRecord, type Scope, type Sql } from "@/lib/controlplane/types";
 import type { AutonomyLevel } from "@/lib/policy";
 import { BrokerError, notFound } from "./errors";
+import type { FieldOwnershipGuard } from "./types";
 import type {
   BrokerStore,
   ClaimRequest,
@@ -136,6 +138,15 @@ export class PlatformBrokerStore implements BrokerStore {
   }
 
   /* -------------------------------- operations ------------------------------- */
+
+  /** Tenant-scoped in SQL: the ids the request named are only believed when they chain inside the workspace. */
+  fieldOwnership(scope: Scope): Promise<FieldOwnershipGuard | undefined> {
+    return this.run(async () => {
+      if (!scope.workspaceId || !scope.environmentId || !scope.resourceId) return undefined;
+      const guard = await ownershipRepo.guardFor(this.db, scope.workspaceId, scope.environmentId, scope.resourceId);
+      return guard ? { ...guard, lenientIacBaseline: true } : undefined;
+    });
+  }
 
   createOperation(input: NewOperation): Promise<CreateOperationResult> {
     return this.run(() =>

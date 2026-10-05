@@ -3,6 +3,8 @@
  * Additive only; nothing here changes `controlplane/types.ts`.
  */
 import type { NormalizedPlan } from "@/lib/tofu/types";
+import type { ResourceNode } from "@/lib/resources/types";
+import type { OwnershipFacts, OwnershipTransfer, OwnershipTransferRequest } from "@/lib/ownership";
 import type {
   ApprovalRequirement,
   OperationProposal,
@@ -48,7 +50,29 @@ export interface BrowserSessionProof {
  * from a request body: `CapabilityRequestSchema` is strict, and nothing inside
  * `request.input` is ever read as a policy fact.
  */
+/**
+ * Server-side facts about the one resource an operation writes, so the broker
+ * can refuse (or demand an ownership transfer for) a field another writer owns.
+ * Never read from request.input.
+ */
+export interface FieldOwnershipGuard {
+  node: Pick<ResourceNode, "address" | "nativeType" | "spec">;
+  facts?: OwnershipFacts;
+  /** for drift.repair: the attributes the repair re-applies */
+  repairAttributes?: readonly string[];
+  /** approved transfers recorded for this resource */
+  transfers?: readonly OwnershipTransfer[];
+  /**
+   * Store-supplied guards are lenient about ONE case: a native operation on a field only the manifest
+   * owns by default (service.scale on a plain service) proceeds with a warning, as it always has.
+   * Fields positively owned by an autoscaler, release or provider are enforced either way.
+   */
+  lenientIacBaseline?: boolean;
+}
+
 export interface ProposeContext {
+  /** when present, the operation's field writes are checked against the ownership registry */
+  fieldOwnership?: FieldOwnershipGuard;
   /** Trusted worker review only. The requester needs plan access; an admin must still approve destruction. */
   teardownReview?: true;
   /** Server-side reference only; the broker reloads the recorded destroy facts. */
@@ -95,6 +119,13 @@ export interface BrokerProposalExt {
   destroyPlan?: { operationId: string; evidenceId: string; retained: string[] };
   /** Server-created, read-only review request delegated to deterministic execution after human approval. */
   teardownReview?: true;
+  /**
+   * Exact ownership transfers this proposal asks a human to approve. Part of the proposal digest, so the
+   * approver reviews precisely them; they become durable only when the approval is recorded.
+   */
+  ownershipTransfers?: OwnershipTransferRequest[];
+  /** non-blocking ownership notes shown to the approver */
+  ownershipWarnings?: string[];
 }
 
 export type PlanFactsWithCost = NonNullable<import("@/lib/policy").PolicyInput["plan"]>;

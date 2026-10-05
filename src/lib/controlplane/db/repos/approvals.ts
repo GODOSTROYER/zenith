@@ -29,6 +29,7 @@ import { assertNoSecretValues } from "../secrets";
 import { boundedMs, json, newId, opt, requireDigest } from "../sql";
 import { consumeApprovals, type ConsumeApprovalsInput } from "./approval-core";
 import { OPERATION_COLUMNS, toOperation, type OperationRow } from "./operations";
+import { recordForApprovedOperation } from "./ownership-transfers";
 
 export { consumeApprovals, requiredApprovalCount } from "./approval-core";
 
@@ -186,6 +187,8 @@ export async function record(sql: Sql, input: RecordApprovalInput): Promise<Reco
       moved = have >= need ? await moveOperation(tx, workspaceId, operationId, "approved") : await currentOperation(tx, workspaceId, operationId);
     }
     if (!moved) throw new ControlStoreError("invalid_state", "Operation changed while the decision was being recorded.", { id: operationId });
+    // Field-ownership transfers named in the proposal become durable only here: same transaction, human approval, exact digest.
+    if (moved.status === "approved") await recordForApprovedOperation(tx, { workspaceId, operationId, approvalId: approval.id });
     return { approval, operation: moved, approvals: { have, need } };
   });
 }

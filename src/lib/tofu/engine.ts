@@ -179,7 +179,7 @@ function finiteBuiltinBackend(ws: TofuWorkspace): string | undefined {
   return versions === 1 && main === 1 && backend && path.isAbsolute(backend) && path.normalize(backend) === backend
     && path.basename(backend) === "terraform.tfstate" && !/[\u0000-\u001f\u007f]/.test(backend) ? backend : undefined;
 }
-async function localStandaloneTarget(statePath: string): Promise<LocalStandaloneTarget> {
+async function localStandaloneTarget(statePath: string, createdByCanonicalApply?: Readonly<{ targetDigest: string }>): Promise<LocalStandaloneTarget> {
   const parent = path.dirname(statePath), uid = process.getuid?.();
   if (uid === undefined || parent === path.parse(parent).root || await realpath(parent) !== parent) standaloneRefusal();
   let ancestor=parent,childOwner=uid;
@@ -197,11 +197,34 @@ async function localStandaloneTarget(statePath: string): Promise<LocalStandalone
   if (path.basename(statePath) !== "terraform.tfstate") standaloneRefusal();
   const targetDigest = objectHash({ filename: "terraform.tfstate", device: root.dev, inode: root.ino, uid: root.uid });
   let file;
-  try { file = await open(statePath, constants.O_RDONLY | constants.O_NOFOLLOW); } catch (error) {
+  try { file = await open(statePath, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK); } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return { path: statePath, targetDigest };
     return standaloneRefusal();
   }
   try {
+    // Only authenticated, completed canonical apply can seal its newly written state.
+    // OpenTofu creates 0644 files even inside the already validated private 0700 directory.
+    // Earlier reads keep their strict 0600 requirement and never repair foreign state.
+    if (createdByCanonicalApply) {
+      if (createdByCanonicalApply.targetDigest !== targetDigest) standaloneRefusal();
+      const created = await file.stat(), named = await lstat(statePath);
+      if (!created.isFile() || created.uid !== uid || created.nlink !== 1
+        || ((created.mode & 0o7777) & ~0o044) !== 0o600
+        || named.isSymbolicLink() || named.dev !== created.dev || named.ino !== created.ino) standaloneRefusal();
+      const assertSamePrivateParent = async () => {
+        const currentParent = await lstat(parent);
+        if (await realpath(parent) !== parent || !currentParent.isDirectory() || currentParent.isSymbolicLink()
+          || currentParent.dev !== root.dev || currentParent.ino !== root.ino || currentParent.uid !== uid
+          || (currentParent.mode & 0o077) !== 0) standaloneRefusal();
+      };
+      await assertSamePrivateParent();
+      await file.chmod(0o600);
+      await assertSamePrivateParent();
+      const sealed = await file.stat(), current = await lstat(statePath);
+      if (sealed.dev !== created.dev || sealed.ino !== created.ino || sealed.uid !== uid || sealed.nlink !== 1
+        || (sealed.mode & 0o7777) !== 0o600 || sealed.size !== created.size || sealed.mtimeMs !== created.mtimeMs
+        || current.isSymbolicLink() || current.dev !== sealed.dev || current.ino !== sealed.ino) standaloneRefusal();
+    }
     const before = await file.stat();
     if (!before.isFile() || before.uid !== uid || before.nlink !== 1 || (before.mode & 0o077) !== 0 || before.size < 1 || before.size > 16 * 1024 * 1024) standaloneRefusal();
     const bytes = await file.readFile(), after = await file.stat(), named = await lstat(statePath);
@@ -400,7 +423,7 @@ async function applyWithAdmission(
   if (target && binding && original && admission && manifest && standalone) {
     if(!isCanonicalStandaloneRun(runner,appliedRun,snapshot))standaloneRefusal();
     if (!isCleanedTofuRun(appliedRun) || resolve?.(original) !== admission || stableJson(await runner.identity()) !== stableJson(manifest.executable)) standaloneRefusal();
-    const after = await localStandaloneTarget(target.path);
+    const after = await localStandaloneTarget(target.path, { targetDigest: target.targetDigest });
     if (after.targetDigest !== target.targetDigest || !after.stateDigest) standaloneRefusal();
     let readbackRun: TofuRun | undefined;
     const stateViewDigest = await runner.run(snapshot, { signal: args.signal, limits: args.limits }, async run => {

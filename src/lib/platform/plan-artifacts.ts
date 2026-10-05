@@ -132,7 +132,7 @@ export function planArtifactCipherFromEnv(env: Readonly<Record<string,string|und
 }
 function pairedRuntime(db: Sql, env: Readonly<Record<string,string|undefined>>, broker: Pick<BrokerPort,"approvalStatus">, kind: PlanArtifactsPort["kind"]) {
   if ((db as Sql & {kind?:string}).kind !== "postgres") throw new Error("Durable plan custody requires PostgreSQL.");
-  const capture = (input: artifacts.ArtifactAccess): artifacts.ArtifactAccess => Object.freeze({custody:Object.freeze({...input.custody}),planDigest:input.planDigest,lease:Object.freeze({...input.lease})});
+  const capture = artifacts.captureArtifactAccess;
   const admissions = new WeakMap<ApprovedPlan,PlanAdmission>();
   const engine=createPlanEngineAuthority(planArtifactCipherFromEnv(env),original=>admissions.get(original),env);
   const {codec,tofu}=engine;

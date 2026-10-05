@@ -72,7 +72,8 @@ const LIVE_STANDALONE_SETTLEMENTS=`not exists(select 1 from jsonb_array_elements
       and artifact.manifest_digest=r.manifest_digest and artifact.manifest->>'rawSha256'=r.raw_sha256 and to_jsonb(artifact)=settled->'artifact'))`;
 function refuse(): never { throw new PlanArtifactError(); }
 const CUSTODY_KEYS = ["workspaceId","projectId","environmentId","operationId","proposalDigest","inputDigest","expiresAt","sourceDigest","graphDigest"] as const;
-function captured(input: ArtifactAccess): ArtifactAccess {
+/** One canonical authority tuple; repository lease rows may carry non-authorizing timestamps. */
+export function captureArtifactAccess(input: ArtifactAccess): ArtifactAccess {
   return Object.freeze({ custody: Object.freeze({workspaceId:input.custody.workspaceId,projectId:input.custody.projectId,environmentId:input.custody.environmentId,operationId:input.custody.operationId,proposalDigest:input.custody.proposalDigest,inputDigest:input.custody.inputDigest,expiresAt:input.custody.expiresAt,sourceDigest:input.custody.sourceDigest,graphDigest:input.custody.graphDigest}), planDigest: input.planDigest,
     lease: Object.freeze({ scope:input.lease.scope,holder:input.lease.holder,fenceToken:input.lease.fenceToken }) });
 }
@@ -177,7 +178,7 @@ export async function associate(sql:Sql,input:AssociateArtifact):Promise<Artifac
   });
 }
 export async function read(sql: Sql, input: ArtifactAccess): Promise<ArtifactRow> {
-  input = captured(input);
+  input = captureArtifactAccess(input);
   return sql.tx(async (tx) => {
     const associations=await tx.query<AssociationRow>("select * from platform.plan_artifact_associations where workspace_id=$1 and operation_id=$2",[input.custody.workspaceId,input.custody.operationId]);
     const association=associations[0];
@@ -323,7 +324,7 @@ const DISPATCH_SOURCE_AUTHORITY = `exists(select 1 from platform.plan_artifacts 
         and b.repository_id=(recipe->'snapshot'->'githubBinding'->>'repositoryId')::bigint
         and b.version=(recipe->'snapshot'->'githubBinding'->>'version')::integer)))`;
 export async function claim(sql: Sql, input: ArtifactAccess, attemptId: string): Promise<ArtifactRow> {
-  input = captured(input);
+  input = captureArtifactAccess(input);
   return sql.tx(async (tx) => {
     const row = await read(tx,input);
     let productAuthority: PlanProductDispatchAuthority;
@@ -350,7 +351,7 @@ export async function dispatch(sql: Sql, input: ArtifactAccess, attemptId: strin
     if(authority.proposalDigest!==input.custody.proposalDigest || authority.planDigest!==input.planDigest || !Number.isInteger(authority.approvalRound)
       || !Number.isInteger(authority.requiredApprovalCount) || authority.requiredApprovalCount<0 || authority.approvalIds.length<authority.requiredApprovalCount) refuse();
   }
-  input = captured(input);
+  input = captureArtifactAccess(input);
   const standalone=standaloneOrigin===undefined?undefined:await readNativeStandaloneOrigin(standaloneOrigin,sql,"binding");
   if(standalone && (digest(standalone.access)!==digest(input) || standalone.attempt!==attemptId || standalone.proof!==originatedAuthority))refuse();
   await sql.tx(async (tx) => {
@@ -568,7 +569,7 @@ export async function requiresProductComposition(sql: Sql, row: ArtifactRow, des
 export async function finishStandalone(sql:Sql,origin:unknown):Promise<void> {
   const bound=await readNativeStandaloneOrigin(origin,sql,"completion"),receipt=bound.receipt;
   if(!receipt || digest(receipt.binding)!==digest(bound.binding))refuse();
-  const input=captured(bound.access),b=bound.binding;
+  const input=captureArtifactAccess(bound.access),b=bound.binding;
   if(b.workspaceId!==input.custody.workspaceId || b.projectId!==input.custody.projectId || b.environmentId!==input.custody.environmentId
     || b.operationId!==input.custody.operationId || b.attemptId!==bound.attempt || b.holder!==input.lease.holder || b.fenceToken!==input.lease.fenceToken)refuse();
   await sql.tx(async tx=>{
@@ -593,6 +594,14 @@ export async function finishStandalone(sql:Sql,origin:unknown):Promise<void> {
       update platform.plan_artifact_uses set phase='succeeded',updated_at=clock_timestamp()
       where workspace_id=$1 and operation_id=$2 and phase='dispatched' and attempt_id=$3 and holder=$4 and fence_token=$5
       and (${LIVE_USE_AUTHORITY}) and (${DISPATCH_SOURCE_AUTHORITY}) and (${planProductDispatchPredicate(productAuthority)})
+      and $6::text::jsonb is not null and exists (select 1 from platform.operations o where o.workspace_id=$1 and o.id=$2
+        and o.approval_round=($6::text::jsonb->>'approvalRound')::integer and o.proposal_digest=$6::text::jsonb->>'proposalDigest'
+        and o.plan_digest=$6::text::jsonb->>'planDigest'
+        and (select count(distinct a.approver_id) from platform.approvals a where a.workspace_id=$1 and a.operation_id=$2
+          and a.id in (select jsonb_array_elements_text($6::text::jsonb->'approvalIds')) and a.decision='approve'
+          and a.approver->>'kind'='user' and a.approval_round=o.approval_round and a.proposal_digest=o.proposal_digest
+          and a.consumed_at is not null and a.expires_at > clock_timestamp()) >= ($6::text::jsonb->>'requiredApprovalCount')::integer
+        and not exists (select 1 from platform.approvals a where a.workspace_id=$1 and a.operation_id=$2 and a.approval_round=o.approval_round and a.decision='reject'))
       and exists(select 1 from platform.standalone_plan_backends backend where backend.target_digest=$9::text::jsonb->'binding'->>'targetDigest'
         and backend.workspace_id=$1 and backend.project_id=$9::text::jsonb->'binding'->>'projectId'
         and backend.environment_id=$9::text::jsonb->'binding'->>'environmentId' and backend.backend_digest=$9::text::jsonb->'binding'->>'backendDigest')
@@ -609,7 +618,7 @@ export async function finishStandalone(sql:Sql,origin:unknown):Promise<void> {
 }
 /** Completion never reopens a dispatched attempt, even when its operation/fence has expired. */
 export async function finish(sql: Sql, input: ArtifactAccess, attemptId: string, success: boolean): Promise<void> {
-  input = captured(input);
+  input = captureArtifactAccess(input);
   const update=async(tx:Sql)=> {
     const rows = await tx.query<{phase:string}>(`update platform.plan_artifact_uses set phase=case when phase='claimed' then 'ready' when $6::boolean then 'succeeded' else 'uncertain' end,
       updated_at=clock_timestamp() where workspace_id=$1 and operation_id=$2 and attempt_id=$3 and holder=$4 and fence_token=$5

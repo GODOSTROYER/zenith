@@ -154,6 +154,7 @@ const EXEMPT: Record<string, string> = {
   "buildLaunches.BuildLaunchError": "pure error class, contains no SQL or tenant data",
   "buildLaunches.createIsolatedBuildClaimerForTests": "NODE_ENV=test-only factory captures one actual isolated broker; returns the same scoped claim implementation, takes no tenant data or SQL itself, and is excluded from bindRepos",
   "planArtifacts.PlanArtifactError": "pure error class, contains no SQL or tenant data",
+  "planArtifacts.captureArtifactAccess": "pure fixed custody and lease projection; reads no SQL or tenant data, grants no authority, and is excluded from bindRepos",
   "planArtifacts.expire": "system logical-expiry maintenance; workspace taken from database candidates, never from tenant input",
   "leases.acquire": "keyed by a globally unique scope string; a workspace-tagged scope refuses a foreign workspace (tested in leases.test.ts)",
   "leases.renew": "keyed by scope + holder + fence",
@@ -220,6 +221,7 @@ describe("completeness guard", () => {
     expect(Object.keys(bound.operations)).not.toContain("toOperation");
     expect(Object.keys(bound.runners)).not.toContain("generateRegistrationToken");
     expect(Object.keys(bound.planArtifacts)).not.toContain("PlanArtifactError");
+    expect(Object.keys(bound.planArtifacts)).not.toContain("captureArtifactAccess");
     expect(Object.keys(bound.connections)).toEqual(expect.arrayContaining(["captureVerification", "recordCapturedVerification"]));
     expect(Object.keys(bound.buildLaunches)).toEqual(expect.arrayContaining(["claim", "get", "acknowledge", "observeTerminal"]));
     expect(Object.keys(bound.buildLaunches)).not.toContain("BuildLaunchError");

@@ -113,7 +113,7 @@ describe.skipIf(!PG_URL)("native linked integration original-plan dispatch [post
     await db.query("insert into public.projects(id,workspace_id,slug,name,data) values($1,$2,'owning','Owning',$3::text::jsonb)", [projectId, workspaceId, json({ workingManifest: manifest })]);
     await db.query("insert into public.workspaces(id,workspace_id,slug,name,data) values($1,$1,$2,'Foreign','{}'::jsonb)", [h.ids.wsB, `foreign-${randomUUID()}`]);
     await db.query("insert into public.projects(id,workspace_id,slug,name,data) values($1,$2,'foreign','Foreign','{}'::jsonb)", [h.ids.projB, h.ids.wsB]);
-    await db.query("insert into public.environments(id,workspace_id,project_id,class,connection_id,data,deployed_revision_id) values($1,$2,$3,'production',$4,$5::text::jsonb,$6)",
+    await db.query("insert into public.environments(id,workspace_id,project_id,class,connection_id,data,deployed_revision_id,created_at) values($1,$2,$3,'production',$4,$5::text::jsonb,$6,clock_timestamp())",
       [environmentId, workspaceId, projectId, connectionId, json({ name: environment.name, region: environment.region, baseDomain: environment.baseDomain, policies }), revisionId]);
     await db.query("insert into public.connections(id,workspace_id,provider,status,data) values($1,$2,'aws','healthy',$3::text::jsonb)", [connectionId, workspaceId, json({ region: environment.region, platformConnectionId: nativeId })]);
     await db.query("insert into public.revisions(id,workspace_id,project_id,number,data) values($1,$2,$3,1,$4::text::jsonb)", [revisionId, workspaceId, projectId, json({ message: "approved original" })]);

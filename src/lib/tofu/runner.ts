@@ -49,6 +49,7 @@ import type { ProviderLocalName } from "@/lib/tofu/providers";
 import { redactOutput, secretValuesOf } from "@/lib/tofu/redact";
 import { renderUiStream } from "@/lib/tofu/ui-stream";
 import { LOCKFILE_NAME } from "@/lib/tofu/config-digest";
+import { stableJson } from "@/lib/tofu/stable";
 import { assertWorkspaceIntact } from "@/lib/tofu/workspace";
 import { TOFU_VERSION, TofuPlanChangedError, type NormalizedPlan, type TofuRunLimits, type TofuRunResult, type TofuWorkspace } from "@/lib/tofu/types";
 
@@ -149,7 +150,7 @@ export function canonicalStandaloneProducerMatch(runner:TofuRunner,value:unknown
   if(typeof value!=="object"||value===null)return false;const known=originalRun(value);if(!known||known.runner!==runner)return false;
   const descriptor=Object.getOwnPropertyDescriptor(known.init,"ws"),workspace=descriptor&&"value" in descriptor?descriptor.value:undefined;
   const planned=known.commands.filter(command=>command.command==="plan");
-  return workspace?.configDigest===binding.configDigest&&workspace?.lockDigest===binding.lockDigest&&JSON.stringify(known.identity)===JSON.stringify(binding.executable)
+  return workspace?.configDigest===binding.configDigest&&workspace?.lockDigest===binding.lockDigest&&stableJson(known.identity)===stableJson(binding.executable)
     && canonicalInitialCommands(known,binding.destroy,binding.lock)&&planned[0].planSha===binding.rawSha256;
 }
 /** Fixed observations only. There is no public registrar or returned command evidence object. */
@@ -167,7 +168,7 @@ export function canonicalStandaloneCommandsMatch(runner:TofuRunner,applied:unkno
     return workspace?.configDigest===binding.configDigest && workspace?.lockDigest===binding.lockDigest;
   };
   const apply=first.commands.filter(command=>command.command==="apply"),plan=second.commands.filter(command=>command.command==="plan"),state=second.commands.filter(command=>command.stateViewDigest);
-  return JSON.stringify(first.identity)===JSON.stringify(binding.executable)&&JSON.stringify(second.identity)===JSON.stringify(binding.executable)
+  return stableJson(first.identity)===stableJson(binding.executable)&&stableJson(second.identity)===stableJson(binding.executable)
     && config(first)&&config(second)&&canonicalInitialCommands(first,binding.purpose==="destroy",true)&&canonicalInitialCommands(second,binding.purpose==="destroy",true)&&apply.length===1&&apply[0].exitCode===0&&apply[0].originalSha===binding.rawSha256
     && JSON.stringify(apply[0].args)===JSON.stringify(["apply","-input=false","-lock-timeout=60s","-no-color","-json",ORIGINAL_PLAN_FILE])
     && plan.length===1&&plan[0].exitCode===0&&plan[0].args.includes("-destroy")===(binding.purpose==="destroy")

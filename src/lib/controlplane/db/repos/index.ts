@@ -99,7 +99,7 @@ export type Bound<M> = {
 };
 
 /** Exports that are pure helpers, not repository functions: they take no `Sql`. */
-const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError", "BuildLaunchError", "createIsolatedBuildClaimerForTests", "assertIsolatedBuildTestAdmission", "WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests", "MixedChildAdmissionError", "CleanupWriterBarrierError"]);
+const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError", "captureArtifactAccess", "BuildLaunchError", "createIsolatedBuildClaimerForTests", "assertIsolatedBuildTestAdmission", "WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests", "MixedChildAdmissionError", "CleanupWriterBarrierError"]);
 /** Capability construction/provenance is never an automatically bound row API. */
 const CAPABILITY_CONSTRUCTORS = new Set(["createApprovedSourceSnapshotStore", "isApprovedSourceSnapshotStore", "createIsolatedApprovedSourceStoreForTests", "reserveOwnerGrant", "insertOwnerGrant", "inventory", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"]);
 

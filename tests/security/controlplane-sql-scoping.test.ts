@@ -140,8 +140,8 @@ function isFixedStandaloneWriteContext(fn: Fn, repo: ts.SourceFile, owning: ts.F
   const hash = (value: string) => createHash("sha256").update(value).digest("hex");
   return fn.name === "finishStandalone" && owning.parameters.length === 2
     && owning.parameters[0].getText(repo) === "sql:Sql" && owning.parameters[1].getText(repo) === "origin:unknown"
-    && hash(owning.getText(repo)) === "d5f9877b4ab35bad9c1d1ede5c9989f010dc76836c2f2ec9c9d9022178033678"
-    && hash(query.getText(repo).slice(1, -1)) === "90922fa6b9db8e6d1fa6a6b14b4475513021c3401cfdd20c58e314c844e4678e"
+    && hash(owning.getText(repo)) === "a131b4b0d967fe4dffe07a2318341228d6f2f81865fbaca07fbb3698168ba94c"
+    && hash(query.getText(repo).slice(1, -1)) === "f03647d6353cad773980d77c7be2ff148a1827f654bd7e996142bc6a5386b045"
     && params.elements.map(item => item.getText(repo)).join("\n") === ["b.workspaceId", "b.operationId", "b.attemptId", "b.holder", "b.fenceToken",
       "JSON.stringify(bound.proof)", "JSON.stringify(sourceAuthority)", "JSON.stringify(productAuthority)", "JSON.stringify(receipt)"].join("\n");
 }
@@ -305,7 +305,7 @@ function isFixedPlanProductInterpolation(fn: Fn, expression: string, sqlText: st
   // The dispatch proof also includes authenticated settlements. Pin its full
   // original transaction and exact current-authority parameter binding.
   if (fn.name === "dispatch" && createHash("sha256").update(owning[0].getText(repo)).digest("hex")
-    !== "65f673bfaa2212f6279159f209fc9eb66c3bb1ac6c4e76c4877b068052ab932c") return false;
+    !== "886af56bbc56385b2ef1e98c6c43eeefeb75adc5ad3b84a62b5b534fbf44059b") return false;
   // Bind this call to the actual owning update, tenant parameters and JSON $8 input.
   const queryMatches: ts.CallExpression[] = [];
   walk(owning[0], node => {
@@ -669,7 +669,7 @@ describe("control-store repositories: workspace scoping is present in every func
       };
       for (const [from, to] of [
         ['readNativeStandaloneOrigin(origin,sql,"completion")', 'callerReceipt(origin,sql)'],
-        ["const input=captured(bound.access),b=bound.binding;", "const input=captured(caller.access),b=caller.binding;"],
+        ["const input=captureArtifactAccess(bound.access),b=bound.binding;", "const input=captureArtifactAccess(caller.access),b=caller.binding;"],
         ["JSON.stringify(receipt)", "JSON.stringify(callerReceipt)"],
         ["JSON.stringify(bound.proof)", "JSON.stringify(callerApproval)"],
         ["JSON.stringify(sourceAuthority)", "JSON.stringify(input)"],
@@ -698,6 +698,33 @@ describe("control-store repositories: workspace scoping is present in every func
         expect(query, "completion mutation must reach SQL").toContain(from);
         const replacement = query.replaceAll(from, to);
         expect(isFixedPlanProductInterpolation(changed(query, replacement), expression, replacement, composerSource), `completion: ${from}`).toBe(false);
+      }
+      // Completion binds the original private approval snapshot in the actual
+      // atomic write, after every owning lock/coordinator wait. Optional proof
+      // or a dropped human-approval clause cannot retain this source admission.
+      const approvalStart = query.indexOf("and $6::text::jsonb is not null and exists (");
+      const approvalEnd = query.indexOf("\n      and exists(select 1 from platform.standalone_plan_backends", approvalStart);
+      expect(approvalStart).toBeGreaterThanOrEqual(0);
+      expect(approvalEnd).toBeGreaterThan(approvalStart);
+      const approvalGuard = query.slice(approvalStart, approvalEnd);
+      const nullableGuard = approvalGuard.replace("and $6::text::jsonb is not null and exists (", "and ($6::text::jsonb is null or exists (") + ")";
+      for (const [label, from, to] of [
+        ["nullable completion snapshot", approvalGuard, nullableGuard],
+        ["removed completion snapshot", approvalGuard, "and true"],
+        ["foreign approval owner", "o.workspace_id=$1 and o.id=$2", "o.workspace_id=$9 and o.id=$2"],
+        ["dropped approval round", "o.approval_round=($6::text::jsonb->>'approvalRound')::integer", "true"],
+        ["different proposal digest", "o.proposal_digest=$6::text::jsonb->>'proposalDigest'", "o.proposal_digest=$6::text::jsonb->>'otherProposalDigest'"],
+        ["different approved plan", "o.plan_digest=$6::text::jsonb->>'planDigest'", "o.plan_digest=$6::text::jsonb->>'otherPlanDigest'"],
+        ["different selected approvals", "$6::text::jsonb->'approvalIds'", "$6::text::jsonb->'otherApprovalIds'"],
+        ["nonhuman approval", "a.approver->>'kind'='user'", "a.approver->>'kind'='integration'"],
+        ["unconsumed approval", "a.consumed_at is not null", "true"],
+        ["expired approval", "a.expires_at > clock_timestamp()", "true"],
+        ["discarded approval count", ">= ($6::text::jsonb->>'requiredApprovalCount')::integer", ">= 0"],
+        ["ignored current rejection", "and not exists (select 1 from platform.approvals a where a.workspace_id=$1 and a.operation_id=$2 and a.approval_round=o.approval_round and a.decision='reject')", "and true"],
+      ]) {
+        expect(approvalGuard, `completion approval mutation must reach ${label}`).toContain(from);
+        const replacement = query.replaceAll(from, to);
+        expect(isFixedPlanProductInterpolation(changed(query, replacement), expression, replacement, composerSource), `completion approval: ${label}`).toBe(false);
       }
     }
     const risky: string[] = [];

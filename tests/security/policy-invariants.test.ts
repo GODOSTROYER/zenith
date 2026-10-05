@@ -176,11 +176,27 @@ describe("P4: who may mutate", () => {
   });
 
   it("resources Zenith does not own (referenced, external) are never mutated", async () => {
+    const adoption = CAPABILITIES["resource.adopt"];
+    expect({ ...adoption, destructive: adoption.destructive ?? false, escapeHatch: adoption.escapeHatch ?? false }).toMatchObject({
+      name: "resource.adopt", mutates: true, risk: "high", defaultAutonomy: 6,
+      destructive: false, escapeHatch: false, scopeLevel: "resource", integrationScope: "write",
+    });
+    expect(AUTONOMY_LEVELS).toEqual([0, 1, 2, 3, 4, 5]);
     for (const cap of mutating)
-      for (const ownership of ["referenced", "external"] as const) {
-        const r = await evaluate(policyInputFor(cap.name, { principal: { role: "admin" }, environment: { autonomyLevel: 5 }, resource: { ownership } }));
-        expect(r.decision.outcome, `${cap.name} on ${ownership}`).toBe("deny");
-      }
+      for (const ownership of ["referenced", "external", "unknown"] as const)
+        for (const autonomy of AUTONOMY_LEVELS) {
+          const r = await evaluate(policyInputFor(cap.name, { principal: { role: "admin" }, environment: { autonomyLevel: autonomy }, resource: { ownership } }));
+          const label = `${cap.name} on ${ownership} at autonomy ${autonomy}`;
+          // Adoption changes Zenith metadata only; it never permits an unattended provider mutation.
+          if (cap.name === "resource.adopt" && ownership === "referenced") {
+            expect(r.decision.outcome, label).toBe("require_approval");
+            expect(r.decision.approval?.count, label).toBeGreaterThanOrEqual(1);
+            expect(["editor", "admin"], label).toContain(r.decision.approval?.minRole);
+            expect(r.decision.reasons.map((reason) => reason.code), label).toContain("autonomy_below_capability");
+          } else {
+            expect(r.decision.outcome, label).toBe("deny");
+          }
+        }
   });
 });
 

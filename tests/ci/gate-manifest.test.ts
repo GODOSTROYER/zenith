@@ -6,8 +6,17 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
-import { SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
+import { validateGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
+
+
+type NativeGuestCase = ReturnType<typeof linuxGuestManifest>["requiredCases"][number];
+// Historical models exclude only this fixed additive service cohort; canonical requirements stay complete.
+const serviceGuestIds = new Set(LINUX_GUEST_SERVICE_CASES.map(item => item.id));
+function priorServiceLinuxCases(items: readonly NativeGuestCase[]): NativeGuestCase[] {
+  return items.filter(item => !serviceGuestIds.has(item.id));
+}
 
 const root = process.cwd();
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-manifest-"));
@@ -225,10 +234,43 @@ function settlementNamed(sourceRoot = root): Requirement[] {
   const ids = new Set(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
   return requirementsFor("platform-postgres", sourceRoot).filter(item => ids.has(item.id));
 }
+// Discovery successors leave historical comparisons only. They remain mandatory
+// in the current manifest, and unknown future IDs are never filtered here.
+// Wave-2 scheduling additions remain mandatory; only historical comparisons exclude these exact IDs.
+const wave2WorkflowIds = new Set([
+  "workflows:tests/workflows/critical-schedule.test.ts:4ee93ed6c454",
+  "workflows:tests/platform/critical-jobs.test.ts:4ee93ed6c454",
+]);
+function priorWave2WorkflowRequirements() {
+  return requirementsFor("workflows", root).filter(item => !wave2WorkflowIds.has(item.id));
+}
+const currentSuccessorPlatformCohort = [
+  { file: "tests/controlplane/incident-stability.test.ts", suite: "incident stability [postgres]", postgres: true },
+  { file: "tests/controlplane/machine-runbooks.test.ts", suite: "machine runbook store [postgres]", postgres: true },
+  { file: "tests/capabilities/field-ownership-broker.test.ts", suite: "propose field ownership [postgres]", postgres: true },
+  { file: "tests/controlplane/ownership-transfers.test.ts", suite: "ownership transfer immutable service-role custody [postgres]", backend: "postgres" },
+  { file: "tests/controlplane/release-pipelines.test.ts", suite: "release pipeline store [postgres]", postgres: true },
+  { file: "tests/capabilities/portability-broker.test.ts", suite: "portability proposals [postgres]", postgres: true },
+] as const;
+const currentSuccessorPlatformIds = currentSuccessorPlatformCohort.map(item => requirementId("platform-postgres", item));
+function withoutCurrentSuccessorCohort(requirements: Requirement[]): Requirement[] {
+  const ids = new Set(currentSuccessorPlatformIds);
+  return requirements.filter(item => !ids.has(item.id));
+}
+// Only these five explicitly registered names leave predecessor comparisons.
+// Current validation still requires every named case, even if its file is deleted.
+const hardeningPlatformIds = INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item));
+function priorHardeningPlatformRequirements(sourceRoot = root) {
+  const ids = new Set(hardeningPlatformIds);
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+}
+function priorCurrentSuccessorPlatformRequirements(sourceRoot = root): Requirement[] {
+  return withoutCurrentSuccessorCohort(priorHardeningPlatformRequirements(sourceRoot));
+}
 // Only these exact additive IDs leave historical assertions; unknown future IDs remain.
 function priorSettlementPlatformRequirements(sourceRoot = root): Requirement[] {
   const ids = new Set(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
-  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+  return priorCurrentSuccessorPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
 }
 const cleanupWriterGroup = {
   file: "tests/controlplane/cleanup-writer-barriers.test.ts",
@@ -394,7 +436,7 @@ describe("canonical gate manifest", () => {
   });
 
   it("requires fresh migration, PostgreSQL concurrency and the exact schema 6 hardening upgrade case", () => {
-    const requirements = requirementsFor("platform-postgres", root).filter((required) => required.file === "tests/controlplane/migrations.test.ts");
+    const requirements = priorHardeningPlatformRequirements().filter((required) => required.file === "tests/controlplane/migrations.test.ts");
     expect(requirements.map((required) => ({ suite: required.suite, test: required.test }))).toEqual([
       { suite: "migrator [postgres]", test: undefined },
       { suite: "migrator [postgres] concurrency and fail-closed open", test: undefined },
@@ -1338,7 +1380,7 @@ describe("canonical native Linux guest contract", () => {
       ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"],
       ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"],
     ]);
-    expect(manifest.raceCases).toHaveLength(123); expect(manifest.packagePhase.requiredCases).toHaveLength(4);
+    expect(priorServiceLinuxCases(manifest.raceCases)).toHaveLength(123); expect(manifest.packagePhase.requiredCases).toHaveLength(4);
     expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases]);
     expect(manifest.packagePhase.allowedSkips).toEqual([]); expect(manifest.packagePhase.noTestPackages).toEqual([]);
     expect(manifest.packagePhase.env).toEqual({ ZENITH_TEST_PACKAGE_INSTALL_REQUIRED: "1" });
@@ -1756,7 +1798,7 @@ const nativeOAuthGroups = [
     "suite": "native OAuth original-plan dispatch [postgres; modeled hosted REST and policy]",
     "flag": "ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED",
     "count": 46,
-    "sourceSha256": "7cfe2cf85fb454be9508a0e50469e278f0e2b032b2c1b457f36ab38f8366f3f7",
+    "sourceSha256": "87d3b867eae81f8c59020e5a53085188203d82b104c64f96d26440756d2f50e7",
     "namesSha256": "12b72c88bb56763f6538df143dd3e1278dc27fbc9c800476909fa4d2d45e5de6",
     "priorCount": 0
   },
@@ -1988,7 +2030,15 @@ describe("mandatory native custody, retention and Kubernetes target cases [repor
     expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("3192324ebd5d5db8a684fccc84173dd8be8b80efa3367f1bb57e81462d8b3c4b");
     for (const discovered of nativeSafetyDiscovered) expect(manifest.requirements).toContainEqual({ ...discovered, id: requirementId("platform-postgres", discovered) });
     expect(manifest.env).toMatchObject({ ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED: "1", ZENITH_TEST_PLAN_RETENTION_REQUIRED: "1", ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1" });
-    expect(manifest.prerequisites.some(value => value.startsWith("Canonical platform schema14 applied/current"))).toBe(true);
+    // This historical cohort needs schema14 or newer. Current-registry and
+    // emitted-SQL inventory checks elsewhere pin the complete successor.
+    const schemaPrerequisite = manifest.prerequisites.flatMap(value => {
+      const match = /^Canonical platform schema([1-9][0-9]*) applied\/current through scripts\/ci\/apply-platform-migrations\.sh;/.exec(value);
+      return match ? [Number(match[1])] : [];
+    });
+    expect(schemaPrerequisite).toHaveLength(1);
+    const schemaVersion = schemaPrerequisite[0];
+    expect(typeof schemaVersion === "number" && Number.isSafeInteger(schemaVersion) && schemaVersion >= 14).toBe(true);
     expect(manifest.command).toContain("tests/platform/kubernetes-vault-target.test.ts");
     expect(manifest.excludeFiles).toEqual([]);
     for (const lane of Object.keys(GATE_LANES).filter(name => name !== "platform-postgres")) {
@@ -2080,7 +2130,7 @@ describe("mandatory native cleanup writer barrier cases [report models]", () => 
       expect(requirementsFor(lane, root).some(item => item.file === cleanupWriterGroup.file)).toBe(false);
     }
     expect(manifestFor("postgres", root).requirements).toHaveLength(80);
-    expect(linuxGuestManifest().raceCases).toHaveLength(123);
+    expect(priorServiceLinuxCases(linuxGuestManifest().raceCases)).toHaveLength(123);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
     expect(reportFailures(manifest.requirements, contractReport(manifest.requirements), root)).toEqual([]);
     // Report models cannot supply the retained runner observation or turn a
@@ -2218,10 +2268,12 @@ function workflowNativeSetupProblems(job: WorkflowNativeJob): string[] {
 describe("workflow native PostgreSQL prerequisites [source/report models]", () => {
   it("keeps all 58 workflow identities and exact native source flags while declaring real PostgreSQL", () => {
     const manifest = manifestFor("workflows", root);
-    expect(manifest.requirements).toHaveLength(58);
+    expect(manifest.requirements).toHaveLength(60);
+    expect(priorWave2WorkflowRequirements()).toHaveLength(58);
+    expect(manifest.requirements.filter(item => wave2WorkflowIds.has(item.id)).map(item => item.id)).toEqual([...wave2WorkflowIds]);
     expect(WORKFLOW_NATIVE_POSTGRES_FILES).toEqual(workflowNativeGroups.map(group => group.file));
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(58);
-    expect(createHash("sha256").update(JSON.stringify(manifest.requirements.map(item => item.id).sort())).digest("hex"))
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(60);
+    expect(createHash("sha256").update(JSON.stringify(priorWave2WorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("d3a15adf854819fd8577c3b55b48dd55640d6522bdc57cad2c707c867ffecad3");
     expect(manifest.tools).toEqual({ node: "22.23.3", postgres: "16.15", temporal: "1.9.1" });
     expect(manifest.prerequisites).toContain("PostgreSQL 16.15: fresh separate loopback databases at ZENITH_TEST_PLATFORM_PG_URL (platform) and SUPABASE_DB_URL (Supabase)");
@@ -2326,20 +2378,157 @@ describe("workflow native PostgreSQL prerequisites [source/report models]", () =
 
 
 // These are validator/source models, never actual command/SQL/settlement evidence.
+describe("current platform discovery successors [report models]", () => {
+  it("retains exactly six declared successors in the strict 1119 manifest and every historical 1113 identity", () => {
+    expect(currentSuccessorPlatformIds).toEqual([
+      "platform-postgres:tests/controlplane/incident-stability.test.ts:cf040b5e5c94",
+      "platform-postgres:tests/controlplane/machine-runbooks.test.ts:48256d3185de",
+      "platform-postgres:tests/capabilities/field-ownership-broker.test.ts:25d4762caf8a",
+      "platform-postgres:tests/controlplane/ownership-transfers.test.ts:9a92131565d1",
+      "platform-postgres:tests/controlplane/release-pipelines.test.ts:b09ca3c28bcc",
+      "platform-postgres:tests/capabilities/portability-broker.test.ts:0285e36ab39f",
+    ]);
+    const current = priorHardeningPlatformRequirements();
+    const added = currentSuccessorPlatformCohort.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
+    expect(current.filter(item => currentSuccessorPlatformIds.includes(item.id)).sort((a, b) => a.id.localeCompare(b.id))).toEqual(added.sort((a, b) => a.id.localeCompare(b.id)));
+    const historical = priorCurrentSuccessorPlatformRequirements();
+    expect(historical).toHaveLength(1113);
+    expect(current).toHaveLength(1119); expect(new Set(current.map(item => item.id)).size).toBe(1119);
+    expect(current.map(item => item.id).sort()).toEqual([...historical, ...added].map(item => item.id).sort());
+    expect(manifestFor("platform-postgres", root).requirements.filter(item => !hardeningPlatformIds.includes(item.id))).toEqual(current);
+    expect(reportFailures(current, contractReport(current), root)).toEqual([]);
+  });
+
+  it("refuses absent, failed, skipped and PGlite evidence for every current successor", () => {
+    const current = requirementsFor("platform-postgres", root);
+    for (const id of currentSuccessorPlatformIds) {
+      const item = current.find(value => value.id === id)!;
+      // Named native cases can also satisfy their generic suite requirement.
+      // Remove the whole owned file, or change every matching suite assertion.
+      const absent = contractReport(current);
+      absent.testResults = absent.testResults.filter(file => file.name !== path.resolve(root, item.file));
+      expect(reportFailures([item], absent, root), id).toHaveLength(1);
+      expect(reportFailures(current, absent, root).length, id).toBeGreaterThan(0);
+      for (const status of ["failed", "pending", "skipped", "todo"]) {
+        const report = contractReport(current);
+        const assertions = report.testResults.find(file => file.name === path.resolve(root, item.file))!.assertionResults;
+        const matching = assertions.filter(assertion => assertionMatches(item, assertion));
+        expect(matching.length, id).toBeGreaterThan(0);
+        for (const assertion of matching) assertion.status = status;
+        expect(reportFailures([item], report, root), `${id}: ${status}`).toHaveLength(1);
+        expect(reportFailures(current, report, root).length, `${id}: ${status}`).toBeGreaterThan(0);
+      }
+      const substitute = contractReport(current);
+      const assertions = substitute.testResults.find(file => file.name === path.resolve(root, item.file))!.assertionResults;
+      const matching = assertions.filter(assertion => assertionMatches(item, assertion));
+      expect(matching.length, id).toBeGreaterThan(0);
+      for (const assertion of matching) {
+        assertion.ancestorTitles = [item.suite!.replace("postgres", "pglite")];
+        assertion.fullName = [...assertion.ancestorTitles, assertion.title].join(" ");
+      }
+      expect(reportFailures([item], substitute, root), id).toHaveLength(1);
+      expect(reportFailures(current, substitute, root).length, id).toBeGreaterThan(0);
+    }
+  });
+
+  it("filters only exact historical IDs and keeps an unknown successor visible", () => {
+    const unknown = { file: currentSuccessorPlatformCohort[0].file, suite: "incident stability additional native scope [postgres]", postgres: true };
+    const required = { ...unknown, id: requirementId("platform-postgres", unknown) };
+    const current = requirementsFor("platform-postgres", root);
+    expect(withoutCurrentSuccessorCohort([...current, required]).filter(item => !hardeningPlatformIds.includes(item.id))).toEqual([...priorCurrentSuccessorPlatformRequirements(), required]);
+    expect(reportFailures([...current, required], contractReport(current), root)).toHaveLength(1);
+  });
+
+  it("exposes deleted discovery sources while preserving every historical literal requirement", () => {
+    for (const item of currentSuccessorPlatformCohort) {
+      const sourceRoot = fs.mkdtempSync(path.join(scratch, "successor-source-"));
+      fs.cpSync(path.join(root, "tests"), path.join(sourceRoot, "tests"), { recursive: true });
+      const before = requirementsFor("platform-postgres", sourceRoot);
+      const id = requirementId("platform-postgres", item);
+      expect(before).toContainEqual({ ...item, id });
+      fs.unlinkSync(path.join(sourceRoot, item.file));
+      const after = requirementsFor("platform-postgres", sourceRoot);
+      expect(after.some(value => value.id === id)).toBe(false);
+      expect(after).toHaveLength(1123);
+      expect(priorCurrentSuccessorPlatformRequirements(sourceRoot)).toEqual(priorCurrentSuccessorPlatformRequirements());
+      // Discovery itself cannot retain a deleted suite. Current source-presence
+      // assertions above fail if it disappears; literal admission is a follow-up.
+    }
+  });
+});
+
+describe("registered incident and ownership hardening [report models]", () => {
+  it("requires exactly five new native names and every original 1119 identity in the complete 1124 manifest", () => {
+    expect(hardeningPlatformIds).toEqual([
+      "platform-postgres:tests/controlplane/ownership-transfers.test.ts:e7a7dd4a7cfd",
+      "platform-postgres:tests/controlplane/ownership-transfers.test.ts:c9862619d543",
+      "platform-postgres:tests/controlplane/ownership-transfers.test.ts:6dc3043ea500",
+      "platform-postgres:tests/controlplane/migrations.test.ts:4abeb5f3b239",
+      "platform-postgres:tests/controlplane/migrations.test.ts:ce5f01310543",
+    ]);
+    const current = requirementsFor("platform-postgres", root), previous = priorHardeningPlatformRequirements();
+    const added = INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
+    expect(previous).toHaveLength(1119); expect(new Set(previous.map(item => item.id)).size).toBe(1119);
+    expect(current).toHaveLength(1124); expect(new Set(current.map(item => item.id)).size).toBe(1124);
+    expect(current.filter(item => hardeningPlatformIds.includes(item.id))).toEqual(added);
+    expect(current.map(item => item.id).sort()).toEqual([...previous, ...added].map(item => item.id).sort());
+    expect(priorCurrentSuccessorPlatformRequirements()).toHaveLength(1113);
+    expect(manifestFor("platform-postgres", root).requirements).toEqual(current);
+    expect(reportFailures(current, contractReport(current), root)).toEqual([]);
+  });
+
+  it("rejects missing, failed, skipped and PGlite replacement of each registered hardening case", () => {
+    const current = requirementsFor("platform-postgres", root);
+    for (const id of hardeningPlatformIds) {
+      const item = current.find(value => value.id === id);
+      if (!item?.test || !item.suite) throw new Error("Registered hardening requirement is unavailable.");
+      expect(reportFailures(current, contractReport(current.filter(value => value.id !== id)), root), id).toHaveLength(1);
+      for (const status of ["failed", "pending", "skipped", "todo"]) {
+        const report = contractReport(current);
+        const assertion = report.testResults.find(file => file.name === path.resolve(root, item.file))?.assertionResults.find(value => value.title === item.test);
+        if (!assertion) throw new Error("Exact hardening evidence is unavailable.");
+        assertion.status = status;
+        expect(reportFailures(current, report, root).length, `${id}: ${status}`).toBeGreaterThan(0);
+      }
+      const report = contractReport(current);
+      const assertion = report.testResults.find(file => file.name === path.resolve(root, item.file))?.assertionResults.find(value => value.title === item.test);
+      if (!assertion) throw new Error("Exact hardening evidence is unavailable.");
+      assertion.ancestorTitles = [item.suite.replace("postgres", "pglite")];
+      assertion.fullName = [...assertion.ancestorTitles, assertion.title].join(" ");
+      expect(reportFailures(current, report, root), id).toHaveLength(1);
+    }
+  });
+
+  it("retains every literal hardening requirement when either native source is deleted", () => {
+    for (const file of new Set(INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => item.file))) {
+      const sourceRoot = fs.mkdtempSync(path.join(scratch, "hardening-source-"));
+      fs.cpSync(path.join(root, "tests"), path.join(sourceRoot, "tests"), { recursive: true });
+      const before = requirementsFor("platform-postgres", sourceRoot).filter(item => hardeningPlatformIds.includes(item.id));
+      fs.unlinkSync(path.join(sourceRoot, file));
+      const after = requirementsFor("platform-postgres", sourceRoot).filter(item => hardeningPlatformIds.includes(item.id));
+      expect(after).toEqual(before); expect(after).toHaveLength(5);
+      expect(reportFailures(after, { success: true, testResults: [] }, root)).toHaveLength(5);
+    }
+  });
+});
+
+// These are validator/source models, never actual command/SQL/settlement evidence.
 describe("mandatory saved builtin settlement cases [report models]", () => {
   it("adds exactly 54 literal cases once and preserves every one of the 1059 predecessor IDs", () => {
-    const manifest = manifestFor("platform-postgres", root), required = settlementNamed();
+    const required = settlementNamed();
     expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
     expect(required).toHaveLength(54); expect(new Set(required.map(item => item.id)).size).toBe(54);
-    expect(manifest.requirements).toHaveLength(1113); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1113);
+    const historical = priorCurrentSuccessorPlatformRequirements();
+    expect(historical).toHaveLength(1113); expect(new Set(historical.map(item => item.id)).size).toBe(1113);
     const previous = priorSettlementPlatformRequirements();
     expect(previous).toHaveLength(1059);
     expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("49f54d75ca5cd7114b69efedabfed9843fcdc1186e49422f9f7e26cae79cf07f");
-    expect(manifest.requirements).toEqual([...previous, ...required]);
+    expect(historical).toEqual([...previous, ...required]);
     expect(cleanupWriterNamed()).toHaveLength(46); expect(priorCleanupPlatformRequirements()).toHaveLength(1012);
     expect(manifestFor("postgres", root).requirements).toHaveLength(80);
-    expect(requirementsFor("workflows", root)).toHaveLength(58);
-    expect(linuxGuestManifest().requiredCases).toHaveLength(127); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
+    expect(requirementsFor("workflows", root)).toHaveLength(60);
+    expect(priorWave2WorkflowRequirements()).toHaveLength(58);
+    expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
     for (const lane of Object.keys(GATE_LANES).filter(name => name !== "platform-postgres")) {
       expect(manifestFor(lane, root).env[settlementGroup.flag]).toBeUndefined();
@@ -2406,5 +2595,153 @@ describe("mandatory saved builtin settlement cases [report models]", () => {
     for (const counts of [{numTotalTests:0},{numFailedTests:1}]) expect(reportFailures(required, { ...contractReport(required), ...counts }, root)).toEqual(["Inconsistent Vitest report counts"]);
     const forged = { success: true, testResults: [], lane: "platform-postgres", requirements: required.map(item => ({ ...item, status: "passed" })), cleanupComplete: true };
     expect(reportFailures(required, forged, root)).toHaveLength(54);
+  });
+});
+
+// Synthetic Go event streams exercise the unchanged validator; they are never native execution evidence.
+describe("mandatory native service.configure observations [report models]", () => {
+  type Event = { Action: string; Package: string; Test?: string };
+  const passedExit = { status: 0, signal: null, observed: true };
+  const serviceContract = { requiredCases: LINUX_GUEST_SERVICE_CASES,
+    requiredPackages: [...new Set(LINUX_GUEST_SERVICE_CASES.map(item => item.package))], noTestPackages: [] as string[], allowedSkips: [] };
+  const stream = (events: Event[]) => events.map(event => JSON.stringify(event)).join("\n") + "\n";
+  function completeEvents(requiredCases: readonly NativeGuestCase[], requiredPackages: readonly string[]): Event[] {
+    const events: Event[] = [];
+    for (const packageName of requiredPackages) {
+      events.push({ Action: "start", Package: packageName });
+      const tree = new Map<string, Set<string>>();
+      const names = requiredCases.filter(item => item.package === packageName).map(item => item.test);
+      for (const name of names.length ? names : ["TestExistingPackage"]) {
+        const parts = name.split("/");
+        for (let i = 0; i < parts.length; i++) {
+          const parent = parts.slice(0, i).join("/");
+          if (!tree.has(parent)) tree.set(parent, new Set());
+          tree.get(parent)?.add(parts.slice(0, i + 1).join("/"));
+        }
+      }
+      const visit = (name: string) => {
+        events.push({ Action: "run", Package: packageName, Test: name });
+        for (const child of tree.get(name) ?? []) visit(child);
+        events.push({ Action: "pass", Package: packageName, Test: name });
+      };
+      for (const name of tree.get("") ?? []) visit(name);
+      events.push({ Action: "pass", Package: packageName });
+    }
+    return events;
+  }
+  const serviceEvents = () => completeEvents(serviceContract.requiredCases, serviceContract.requiredPackages);
+
+  it("adds exactly 25 fixed service observations and preserves the exact 127 predecessor IDs", () => {
+    const manifest = linuxGuestManifest(), historical = priorServiceLinuxCases(manifest.requiredCases);
+    expect(LINUX_GUEST_SERVICE_CASES).toHaveLength(25);
+    expect(new Set(LINUX_GUEST_SERVICE_CASES.map(item => item.id)).size).toBe(25);
+    expect(createHash("sha256").update(JSON.stringify(LINUX_GUEST_SERVICE_CASES.map(item => item.id).sort())).digest("hex")).toBe("ad13bf1b646b40e0c720aa7e42964ea453b04b25a43c11e6611055f0fecca3f1");
+    expect(manifest.raceCases).toHaveLength(148); expect(manifest.requiredCases).toHaveLength(152);
+    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(152);
+    expect(priorServiceLinuxCases(manifest.raceCases)).toHaveLength(123); expect(historical).toHaveLength(127);
+    expect(createHash("sha256").update(JSON.stringify(historical.map(item => item.id).sort())).digest("hex")).toBe("e406b4002c481023c55a418cbbfb369648f988033f4b8fa08f8d41e8dd8c51c1");
+    expect(manifest.requiredCases.map(item => item.id).sort()).toEqual([...historical, ...LINUX_GUEST_SERVICE_CASES].map(item => item.id).sort());
+    const future = { package: "future-package", test: "TestFuture", id: "linux-guest:future-package:TestFuture" };
+    expect(priorServiceLinuxCases([...manifest.requiredCases, future])).toContainEqual(future);
+    expect(manifest.packagePhase.requiredCases).toHaveLength(4); expect(manifest.packagePhase.allowedSkips).toEqual([]);
+    expect(manifest.allowedSkips.map(item => item.test)).toEqual(["TestRealSystemctlAndJournalctl", "TestRealOpenTofuPlanShowApply", "TestRealOpenTofuWithProviderAndLockfile"]);
+    expect(manifest.allowedSkips.some(item => LINUX_GUEST_SERVICE_CASES.some(required => required.package === item.package && required.test === item.test))).toBe(false);
+    expect(manifest.goldenCases.map(item => item.test)).toEqual(["TestResultGoldens/file.write-filesystem", "TestResultGoldens/service.configure-filesystem"]);
+    expect(packagedWorkerManifest().requiredChecks).toHaveLength(22); expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+  });
+
+  it("binds fixed parent and child service identities to the reviewed Linux mapper sources", () => {
+    const sources = [
+    {
+        "file": "go/internal/machine/ops/serviceconfigure_test.go",
+        "sha256": "36a4f5a014d4a60d941db4faf17dfcf68d48152b9c054491820072d5b3e3e91f"
+    },
+    {
+        "file": "go/internal/machine/ops/serviceconfigure_linux_test.go",
+        "sha256": "bfb23728658dc0f61ac654aaca064301243b25f2baf16cf88af3aea6b3b1d692"
+    },
+    {
+        "file": "go/internal/machine/serviceconfigure_test.go",
+        "sha256": "afd78a9018627b9b34619b692409faef4ce62bcfe2e89f510dec12ffdb7e8731"
+    },
+    {
+        "file": "go/internal/machine/executor_test.go",
+        "sha256": "c2540ffc956ea944c376a716e4f42eef60a8f13df83239ebc853c3101dbaa86f"
+    },
+    {
+        "file": "go/internal/machine/ops/results_golden_test.go",
+        "sha256": "03ed1bdda90586982698b3e20afd13f8269f7aef4ec028e82c4ebc180c7d673c"
+    },
+    {
+        "file": "go/internal/machine/ops/serviceconfigure_golden_linux_test.go",
+        "sha256": "f62396b1a2eb64180318cb96f1572fbf18f936f9c1f9373c43c513beabdd496a"
+    }
+];
+    for (const item of sources) expect(createHash("sha256").update(fs.readFileSync(path.join(root, item.file))).digest("hex"), item.file).toBe(item.sha256);
+    for (const item of LINUX_GUEST_SERVICE_CASES.filter(item => !item.test.includes("/"))) {
+      const declarations = sources.map(source => fs.readFileSync(path.join(root, source.file), "utf8")).join("\n");
+      expect(declarations).toContain(`func ${item.test}(t *testing.T)`);
+    }
+    const native = fs.readFileSync(path.join(root, "go/internal/machine/ops/serviceconfigure_linux_test.go"), "utf8");
+    expect(native).toContain('[]string{"create", "replace"}');
+    expect(native).toContain('[]string{"prior-on-absent", "absence-on-existing"}');
+    const golden = fs.readFileSync(path.join(root, "go/internal/machine/ops/serviceconfigure_golden_linux_test.go"), "utf8");
+    expect(golden).toContain('const root = "/opt/zenith-file-write-golden"');
+    expect(golden).toContain('if os.Geteuid() == 0');
+    expect(golden).toContain('r.Data["transactionRef"] = "fw_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"');
+    expect(fs.readFileSync(path.join(root, "go/internal/machine/ops/results_golden_test.go"), "utf8")).toContain('t.Run("service.configure-filesystem", compareServiceConfigureGolden)');
+  });
+
+  it("rejects each missing failed or skipped required service observation despite passing sibling evidence", () => {
+    expect(validateGoEvents(stream(serviceEvents()), passedExit, serviceContract).verdict).toBe("passed");
+    for (const item of LINUX_GUEST_SERVICE_CASES) {
+      const missing = serviceEvents().filter(event => event.Package !== item.package || event.Test !== item.test);
+      const absent = validateGoEvents(stream(missing), passedExit, serviceContract);
+      expect(absent.verdict, item.id).toBe("failed"); expect(absent.required.find(value => value.id === item.id)?.status).toBe("missing");
+      for (const status of ["fail", "skip"]) {
+        const changed = serviceEvents().map(event => event.Package === item.package && event.Test === item.test && event.Action === "pass" ? { ...event, Action: status } : event);
+        const result = validateGoEvents(stream(changed), passedExit, serviceContract);
+        expect(result.verdict, `${item.id}: ${status}`).toBe("failed");
+        expect(result.required.find(value => value.id === item.id)?.status).toBe(status === "fail" ? "failed" : "skipped");
+      }
+    }
+  });
+
+  it("refuses zero incomplete duplicate malformed and unobserved process outcomes for the complete service cohort", () => {
+    const complete = stream(serviceEvents());
+    for (const raw of ["", "\n", "{}\n", complete.slice(0, -1), stream([]), stream([...serviceEvents(), ...serviceEvents()])])
+      expect(validateGoEvents(raw, passedExit, serviceContract).verdict).toBe("failed");
+    for (const observation of [{ status: 1, signal: null, observed: true }, { status: null, signal: "SIGTERM", observed: true }, { status: 0, signal: null, observed: false }])
+      expect(validateGoEvents(complete, observation, serviceContract).verdict).toBe("failed");
+    const manifest = linuxGuestManifest(), events = completeEvents(manifest.raceCases, manifest.requiredPackages);
+    for (const packageName of manifest.noTestPackages) events.push({ Action: "start", Package: packageName }, { Action: "skip", Package: packageName });
+    expect(validateGoEvents(stream(events), passedExit, { ...manifest, requiredCases: manifest.raceCases }).verdict).toBe("passed");
+    const missingServices = events.filter(event => !LINUX_GUEST_SERVICE_CASES.some(item => item.package === event.Package && item.test === event.Test));
+    expect(validateGoEvents(stream(missingServices), passedExit, { ...manifest, requiredCases: manifest.raceCases }).verdict).toBe("failed");
+  });
+
+  it("retains every fixed service requirement after the trusted service source files are deleted", () => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "service-native-source-"));
+    fs.mkdirSync(path.join(sourceRoot, "scripts/ci"), { recursive: true });
+    fs.copyFileSync(path.join(root, "scripts/ci/gate-manifest.mjs"), path.join(sourceRoot, "scripts/ci/gate-manifest.mjs"));
+    const sourceFiles = ["go/internal/machine/ops/serviceconfigure_test.go", "go/internal/machine/ops/serviceconfigure_linux_test.go", "go/internal/machine/serviceconfigure_test.go", "go/internal/machine/executor_test.go", "go/internal/machine/ops/results_golden_test.go", "go/internal/machine/ops/serviceconfigure_golden_linux_test.go"];
+    for (const file of sourceFiles) {
+      fs.mkdirSync(path.dirname(path.join(sourceRoot, file)), { recursive: true });
+      fs.copyFileSync(path.join(root, file), path.join(sourceRoot, file));
+    }
+    const selected = () => {
+      const result = spawnSync(process.execPath, ["scripts/ci/gate-manifest.mjs", "linux-guest"], { cwd: sourceRoot, encoding: "utf8" });
+      expect(result.status).toBe(0); return JSON.parse(result.stdout) as ReturnType<typeof linuxGuestManifest>;
+    };
+    expect(selected().requiredCases).toEqual(linuxGuestManifest().requiredCases);
+    for (const file of sourceFiles) fs.unlinkSync(path.join(sourceRoot, file));
+    const after = selected(); expect(after.requiredCases).toEqual(linuxGuestManifest().requiredCases);
+    expect(after.requiredCases.filter(item => serviceGuestIds.has(item.id))).toEqual(LINUX_GUEST_SERVICE_CASES);
+    expect(validateGoEvents("", passedExit, { ...serviceContract, requiredCases: after.requiredCases.filter(item => serviceGuestIds.has(item.id)) }).verdict).toBe("failed");
+    const runner = fs.readFileSync(path.join(root, "scripts/ci/run-guest-file-write-gate.mjs"), "utf8");
+    expect(runner).toContain('step.id === "goldens" ? { requiredCases: manifest.goldenCases');
+    expect(runner).toContain('step.id === "package-native" ? manifest.packagePhase : { ...manifest, requiredCases: manifest.raceCases }');
+    expect(after.steps.find(step => step.id === "golden-diff")?.command).toEqual(["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"]);
+    expect(after.steps.find(step => step.id === "golden-status")?.command).toEqual(["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"]);
   });
 });

@@ -11,7 +11,7 @@ import { load } from "js-yaml";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import vitestConfig from "../../vitest.config";
-import { SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
+import { LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures, requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
 
 interface Step {
@@ -23,6 +23,12 @@ interface Job { steps: Step[]; env?: Record<string, unknown>; if?: string; "cont
 const root = process.cwd();
 const workflow = load(fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8")) as { jobs: Record<string, Job> };
 
+// Only the fixed service additions leave historical Linux comparisons.
+// Current execution continues to require all 152 observations.
+const serviceGuestIds = new Set(LINUX_GUEST_SERVICE_CASES.map(item => item.id));
+function priorServiceLinuxCases(items: ReturnType<typeof linuxGuestManifest>["requiredCases"]) {
+  return items.filter(item => !serviceGuestIds.has(item.id));
+}
 
 // Historical cohort checks remove only exact newly committed identities. The
 // production manifest and validator continue to require the complete successor.
@@ -48,9 +54,36 @@ const kubernetesLinkDiscovered = {
   suite: "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
   backend: "postgres",
 } as const;
+// Wave-2 scheduling additions remain mandatory; only historical comparisons exclude these exact IDs.
+const wave2WorkflowIds = new Set([
+  "workflows:tests/workflows/critical-schedule.test.ts:4ee93ed6c454",
+  "workflows:tests/platform/critical-jobs.test.ts:4ee93ed6c454",
+]);
+function priorWave2WorkflowRequirements() {
+  return requirementsFor("workflows", root).filter(item => !wave2WorkflowIds.has(item.id));
+}
+const currentSuccessorPlatformCohort = [
+  { file: "tests/controlplane/incident-stability.test.ts", suite: "incident stability [postgres]", postgres: true },
+  { file: "tests/controlplane/machine-runbooks.test.ts", suite: "machine runbook store [postgres]", postgres: true },
+  { file: "tests/capabilities/field-ownership-broker.test.ts", suite: "propose field ownership [postgres]", postgres: true },
+  { file: "tests/controlplane/ownership-transfers.test.ts", suite: "ownership transfer immutable service-role custody [postgres]", backend: "postgres" },
+  { file: "tests/controlplane/release-pipelines.test.ts", suite: "release pipeline store [postgres]", postgres: true },
+  { file: "tests/capabilities/portability-broker.test.ts", suite: "portability proposals [postgres]", postgres: true },
+] as const;
+// Only these five explicitly registered names leave predecessor comparisons.
+// Current validation still requires every named case, even if its file is deleted.
+const hardeningPlatformIds = INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item));
+function priorHardeningPlatformRequirements(sourceRoot = root) {
+  const ids = new Set(hardeningPlatformIds);
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+}
+function priorCurrentSuccessorPlatformRequirements(sourceRoot = root) {
+  const ids = new Set(currentSuccessorPlatformCohort.map(item => requirementId("platform-postgres", item)));
+  return priorHardeningPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
+}
 function priorSettlementPlatformRequirements(sourceRoot = root) {
   const ids = new Set(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
-  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+  return priorCurrentSuccessorPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
 }
 function priorCleanupPlatformRequirements(sourceRoot = root) {
   const discovered = { file: "tests/controlplane/cleanup-writer-barriers.test.ts", suite: "native cleanup writer barrier [postgres; modeled hosted association and policy]", backend: "postgres" } as const;
@@ -259,7 +292,31 @@ describe("platform suite coverage", () => {
       expect(platformManifest.excludeFiles, `${file}: cannot be excluded from real-engine execution`).not.toContain(file);
       return required;
     });
-    const tracked = new Set([...TOFU_SUITES.map(([file]) => file), ...platformNetwork.map((required) => required.file)]);
+    const cleanupFile = "tests/controlplane/cleanup-writer-barriers.test.ts";
+    const cleanupSuite = "native cleanup writer barrier [postgres; modeled hosted association and policy]";
+    const cleanupCases = [...CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, ...SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS];
+    expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
+    expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
+    expect(new Set(cleanupCases.map(item => requirementId("platform-postgres", item))).size).toBe(100);
+    const cleanupNetwork = platformManifest.requirements.filter(item => item.file === cleanupFile);
+    expect(cleanupNetwork).toEqual([
+      { file: cleanupFile, suite: cleanupSuite, backend: "postgres", id: requirementId("platform-postgres", { file: cleanupFile, suite: cleanupSuite, backend: "postgres" }) },
+      ...cleanupCases.map(item => ({ ...item, id: requirementId("platform-postgres", item) })),
+    ]);
+    expect(cleanupCases.every(item => item.file === cleanupFile && item.suite === cleanupSuite && item.backend === "postgres")).toBe(true);
+    expect(platformManifest.command.some(argument => cleanupFile === argument || cleanupFile.startsWith(`${argument}/`))).toBe(true);
+    expect(platformManifest.excludeFiles).not.toContain(cleanupFile);
+    expect(platformManifest.env).toMatchObject({ ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED: "1", ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED: "1" });
+    // run-gate applies manifest flags to the actual child environment, including
+    // the cleanup flag that is not repeated in the workflow's job environment.
+    expect(fs.readFileSync(path.join(root, "scripts/ci/sanitize-evidence.mjs"), "utf8")).toContain("return { ...env, ...manifestFor(lane, root).env }");
+    const commandRunner = fs.readFileSync(path.join(root, "scripts/ci/run-gate.mjs"), "utf8");
+    expect(commandRunner).toContain("const env = effectiveEnvironmentFor(lane, process.cwd())");
+    expect(commandRunner).toContain("spawnSync(process.execPath, command, { cwd: process.cwd(), env, stdio: \"inherit\" })");
+    expect(workflow.jobs["platform-postgres"].env?.ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED).toBe("1");
+    expect(platformManifest.prerequisites.some(value => value.startsWith("ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED=1;") && value.includes("OpenTofu"))).toBe(true);
+    expect(networkFiles).toContain(cleanupFile);
+    const tracked = new Set([...TOFU_SUITES.map(([file]) => file), ...platformNetwork.map((required) => required.file), ...cleanupNetwork.map(item => item.file)]);
     for (const file of networkFiles) expect(tracked.has(file), `${file} needs a real-engine requirement`).toBe(true);
     for (const [file, suite] of TOFU_SUITES) expect(fs.readFileSync(path.join(root, file), "utf8"), `${file}: suite title drifted`).toContain(JSON.stringify(suite));
     expect(workflow.jobs.tofu.env?.ZENITH_TEST_TOFU_NETWORK).toBe("1");
@@ -377,7 +434,8 @@ describe("cross-language Go gates", () => {
     expect(workflow.jobs.go.steps.indexOf(prerequisite)).toBeLessThan(workflow.jobs.go.steps.indexOf(native));
     expect(manifest.packagePhase.requiredCases.map(item => item.test)).toEqual(["TestPackageHelperNativeNoFollowAndCustody", "TestPackageFrontendLockIndependentProcess", "TestPackageNativeSignedFirstInstallAndNonReplay", "TestPackageNativeDeclaredMountAndACLRefusals"]);
     expect(manifest.packagePhase.allowedSkips).toEqual([]);
-    expect(manifest.raceCases).toHaveLength(123); expect(manifest.requiredCases).toHaveLength(127);
+    expect(priorServiceLinuxCases(manifest.raceCases)).toHaveLength(123); expect(priorServiceLinuxCases(manifest.requiredCases)).toHaveLength(127);
+    expect(manifest.raceCases).toHaveLength(148); expect(manifest.requiredCases).toHaveLength(152);
     expect(manifest.env.CGO_ENABLED).toBe("1");
     expect(manifest.env.GOTOOLCHAIN).toBe("local");
     expect(manifest.requiredPackages).toContain("github.com/GODOSTROYER/zenith/go/internal/oci");
@@ -401,7 +459,7 @@ describe("cross-language Go gates", () => {
       { id: "golden-diff", command: ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"] },
       { id: "golden-status", command: ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"] },
     ]);
-    expect(manifest.goldenCases).toEqual([{
+    expect(priorServiceLinuxCases(manifest.goldenCases)).toEqual([{
       package: "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
       test: "TestResultGoldens/file.write-filesystem",
       id: "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestResultGoldens/file.write-filesystem",
@@ -683,13 +741,21 @@ describe("mandatory native custody, retention and Kubernetes target execution", 
     const run = steps.findIndex(step => step.run === "node scripts/ci/run-gate.mjs platform-postgres --run");
     expect(agent).toBeGreaterThanOrEqual(0); expect(migrate).toBeGreaterThan(agent); expect(run).toBeGreaterThan(migrate);
     expect(steps[agent].if).toBeUndefined(); expect(steps[agent]["continue-on-error"]).toBeUndefined();
-    expect(manifestFor("platform-postgres", root).prerequisites.some(value => value.startsWith("Canonical platform schema16 applied/current"))).toBe(true);
+    // This historical admission requires schema16 or newer; the emitted list
+    // below and current registry inventory retain every successor migration.
+    const schemaPrerequisites = manifestFor("platform-postgres", root).prerequisites.flatMap(value => {
+      const match = /^Canonical platform schema([1-9][0-9]*) applied\/current through scripts\/ci\/apply-platform-migrations\.sh;/.exec(value);
+      return match ? [Number(match[1])] : [];
+    });
+    expect(schemaPrerequisites).toHaveLength(1);
+    const schemaVersion = schemaPrerequisites[0];
+    expect(typeof schemaVersion === "number" && Number.isSafeInteger(schemaVersion) && schemaVersion >= 16).toBe(true);
     const script = fs.readFileSync(path.join(root, "scripts/ci/apply-supabase-migrations.sh"), "utf8");
     const committed = fs.readdirSync(path.join(root, "supabase/migrations")).filter(file => file.endsWith(".sql")).sort();
     const declaration = script.match(/^MIGRATIONS=\(\r?\n([\s\S]*?)^\)/m)?.[1];
     expect(declaration).toBeDefined();
     expect([...(declaration ?? "").matchAll(/"([^"\n]+\.sql)"/g)].map(match => match[1])).toEqual(committed);
-    expect(committed.slice(-6)).toEqual(["0015_agent_oauth_grants.sql", "0016_platform_core.sql", "0017_platform_core.sql", "0018_platform_core.sql", "0019_platform_core.sql", "0020_platform_core.sql"]);
+    expect(committed.slice(-7)).toEqual(["0015_agent_oauth_grants.sql", "0016_platform_core.sql", "0017_platform_core.sql", "0018_platform_core.sql", "0019_platform_core.sql", "0020_platform_core.sql", "0021_platform_core.sql"]);
     expect(fs.readFileSync(path.join(root, "scripts/ci/apply-platform-migrations.sh"), "utf8")).toContain("scripts/platform/migrate.ts");
     expect(script).toContain('"$TSX" "$PLATFORM_VERIFIER"');
   });
@@ -697,12 +763,59 @@ describe("mandatory native custody, retention and Kubernetes target execution", 
 
 
 describe("saved builtin settlement mandatory CI admission", () => {
+  it("keeps all six current discovery successors in the executable strict platform lane", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    const added = currentSuccessorPlatformCohort.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
+    expect(manifest.requirements.filter(item => added.some(value => value.id === item.id)).sort((a, b) => a.id.localeCompare(b.id))).toEqual(added.sort((a, b) => a.id.localeCompare(b.id)));
+    expect(manifest.requirements).toHaveLength(1124);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1124);
+    expect(manifest.requirements.map(item => item.id).sort()).toEqual([...priorCurrentSuccessorPlatformRequirements(), ...added, ...INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }))].map(item => item.id).sort());
+    for (const item of added) {
+      expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);
+      expect(manifest.excludeFiles).not.toContain(item.file);
+    }
+    expect(manifest.command).not.toContain("--passWithNoTests");
+    gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
+    gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
+  });
+
+  it("keeps all five registered native hardening cases in the real strict platform command", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    const added = INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
+    expect(added).toHaveLength(5); expect(new Set(added.map(item => item.id)).size).toBe(5);
+    expect(manifest.requirements.filter(item => hardeningPlatformIds.includes(item.id))).toEqual(added);
+    expect(priorHardeningPlatformRequirements()).toHaveLength(1119);
+    for (const item of added) {
+      expect(item.postgres).toBe(true);
+      expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);
+      expect(manifest.excludeFiles).not.toContain(item.file);
+    }
+    expect(manifest.command).not.toContain("--passWithNoTests");
+    gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
+    gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
+  });
+
+  it("retains all 100 literal cleanup and settlement network requirements after source deletion", () => {
+    const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-cleanup-coverage-"));
+    try {
+      fs.cpSync(path.join(root, "tests"), path.join(sourceRoot, "tests"), { recursive: true });
+      const required = [...CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, ...SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS];
+      const ids = new Set(required.map(item => requirementId("platform-postgres", item)));
+      const expected = required.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
+      expect(ids.size).toBe(100);
+      expect(requirementsFor("platform-postgres", sourceRoot).filter(item => ids.has(item.id))).toEqual(expected);
+      fs.unlinkSync(path.join(sourceRoot, "tests/controlplane/cleanup-writer-barriers.test.ts"));
+      expect(requirementsFor("platform-postgres", sourceRoot).filter(item => ids.has(item.id))).toEqual(expected);
+      expect(reportFailures(expected, { success: true, testResults: [] }, root)).toHaveLength(100);
+    } finally { fs.rmSync(sourceRoot, { recursive: true, force: true }); }
+  });
+
   it("requires the exact additive 54 only in the real platform lane and preserves all previous obligations", () => {
     const manifest = manifestFor("platform-postgres", root), added = SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS;
     const ids = new Set(added.map(item => requirementId("platform-postgres", item)));
     expect(added).toHaveLength(54); expect(ids.size).toBe(54);
     expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(added.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
-    expect(manifest.requirements).toHaveLength(1113);
+    expect(priorCurrentSuccessorPlatformRequirements()).toHaveLength(1113);
     expect(priorSettlementPlatformRequirements()).toHaveLength(1059);
     expect(createHash("sha256").update(JSON.stringify(priorSettlementPlatformRequirements().map(item => item.id).sort())).digest("hex")).toBe("49f54d75ca5cd7114b69efedabfed9843fcdc1186e49422f9f7e26cae79cf07f");
     expect(manifest.env.ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED).toBe("1");
@@ -712,8 +825,9 @@ describe("saved builtin settlement mandatory CI admission", () => {
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
     expect(manifestFor("postgres", root).requirements).toHaveLength(80);
-    expect(requirementsFor("workflows", root)).toHaveLength(58);
-    expect(linuxGuestManifest().requiredCases).toHaveLength(127); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
+    expect(requirementsFor("workflows", root)).toHaveLength(60);
+    expect(priorWave2WorkflowRequirements()).toHaveLength(58);
+    expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().requiredCases).toHaveLength(152); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
   });
 });

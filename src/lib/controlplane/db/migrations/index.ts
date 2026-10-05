@@ -23,7 +23,7 @@ import { migration0013ApprovedSourceSnapshots } from "./0013_approved_source_sna
 import { migration0014MixedChildIntents } from "./0014_mixed_child_intents";
 import { migration0015CleanupWriterBarriers } from "./0015_cleanup_writer_barriers";
 import { migration0016CleanupWriterSettlements } from "./0016_cleanup_writer_settlements";
-import { migration0017OptimizerSettings } from "./0017_optimizer_settings";
+import { migration0020OptimizerSettings } from "./0020_optimizer_settings";
 
 export interface PlatformMigration {
   /** contiguous from 1 */
@@ -33,7 +33,7 @@ export interface PlatformMigration {
   sql: string;
 }
 
-export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts, migration0008BuildLaunches, migration0009GithubRevocation, migration0010GithubDeliveries, migration0011AgentEffectReceipts, migration0012WorkflowStartIntents, migration0013ApprovedSourceSnapshots, migration0014MixedChildIntents, migration0015CleanupWriterBarriers, migration0016CleanupWriterSettlements, migration0017OptimizerSettings];
+export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts, migration0008BuildLaunches, migration0009GithubRevocation, migration0010GithubDeliveries, migration0011AgentEffectReceipts, migration0012WorkflowStartIntents, migration0013ApprovedSourceSnapshots, migration0014MixedChildIntents, migration0015CleanupWriterBarriers, migration0016CleanupWriterSettlements, migration0020OptimizerSettings];
 
 /** The highest version this build knows. */
 export const PLATFORM_SCHEMA_VERSION: number = PLATFORM_MIGRATIONS[PLATFORM_MIGRATIONS.length - 1].version;

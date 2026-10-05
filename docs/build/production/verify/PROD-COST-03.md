@@ -27,3 +27,13 @@ Acceptance: "Measurable bounded nonflapping optimizations respect approval/field
 
 ## 5. Suggested implementationStatus
 "implemented_unverified: pure optimizer + broker submission + contract tests; awaiting test run and field-ownership registry wiring"
+
+## 6. Addendum: typed path, durable history, scheduled opt-in pass
+
+- Typed path: submission now has exactly one route, `service.scale` (container-service size or replicas), carrying the exact changed field plus an `optimizer` record. The earlier `infrastructure.plan` "optimize" input is removed (nothing consumed it). Relocation and non-container sizing are refused at submit with "no existing typed operation" and are skipped by the scheduled pass (`routableOnly`, code `unsupported_path`).
+- Durable history: `optimizer-history.ts` rebuilds cooldown, reversal and window history from `service.scale` operation records (including manual scales and rejected/expired ones); an incomplete bounded read is refused.
+- Scheduled pass: `optimizer-pass.ts` runs inside the existing reconcile sweep activity (`workflows/reconcile-schedule.ts`) after the reconcile pass, under the same lease and environment guard, proposal-only. Production wiring in `src/lib/platform/optimizer.ts`.
+- Opt-in: `platform.optimizer_settings` (migration 20, default off, tenant scoped, versioned), repo `repos/optimizer-settings.ts`. Setting it must be done by a human-session service; this change adds storage only (no UI/API yet).
+- Shared files I updated per coordinator: migration registered as 20 in `migrations/index.ts`, `emit.ts` hardening grant, regenerated `supabase/migrations/0018_platform_core.sql`, DEPLOYING.md inventory row 20, `tests/controlplane/migrations.test.ts` table list, tenancy and sql-scoping classifications. Merged `prod/compose`. Versions 17-19 are not in this branch; the orchestrator must regenerate 0018 and recompute the DEPLOYING row ordering once those land.
+- Gaps: no measurement collector is wired (default port returns no measurements, so scheduled runs skip and count); field-ownership registry unwired (default refuses all); pass counts are not surfaced in the sweep result; no human opt-in endpoint.
+- Verify: `npx vitest run tests/placement/optimizer.test.ts tests/placement/optimizer-pass.test.ts tests/controlplane/migrations.test.ts tests/controlplane/tenancy.test.ts tests/security/controlplane-sql-scoping.test.ts tests/docs/operator-docs.test.ts tests/workflows/reconcile-schedule.test.ts`.

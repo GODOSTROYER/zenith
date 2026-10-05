@@ -1,6 +1,6 @@
 /** Per-environment opt-in for scheduled economic optimization (PROD-COST-03). Default is off: no row means disabled. */
-export const migration0017OptimizerSettings = {
-  version: 17,
+export const migration0020OptimizerSettings = {
+  version: 20,
   name: "optimizer_settings",
   sql: `
 create table if not exists platform.optimizer_settings (

@@ -298,3 +298,27 @@ describe("submission through the capability broker", () => {
     expect(again.submitted.every((s) => s.replayed && s.history.length === 0)).toBe(true);
   });
 });
+
+describe("only what an existing typed operation can carry", () => {
+  it("routableOnly skips database sizing and relocation with an explicit reason", async () => {
+    const r = await optimizeEconomics(
+      base({
+        routableOnly: true,
+        utilization: { "service/web": { cpuP95: 0.2, memoryP95: 0.2, sampleDays: 14 }, "resource/db": { cpuP95: 0.1, memoryP95: 0.1, sampleDays: 14 } },
+        ownership: staticFieldOwnership([{ address: "service/web", field: "spec.size" }, { address: "resource/db", field: "spec.size" }]),
+      }),
+    );
+    expect(r.proposals.every((p) => p.addresses.every((a) => a === "service/web"))).toBe(true);
+    expect(r.skipped.filter((s) => s.code === "unsupported_path").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("submission refuses a relocation instead of sending an input nothing consumes", async () => {
+    const h = await makeHarness({ kind: "memory" });
+    const out = await submitOptimizationProposals(
+      [{ id: "opt_x", kind: "relocate_site", title: "Move aws/us-east-1 to aws/eu-west-1", changes: [{ address: "service/web", field: "region", from: "us-east-1", to: "eu-west-1" }], addresses: ["service/web"], baseline: { monthlyUsd: 1, source: "s", windowDays: 1, observedAt: NOW }, savings: { label: "estimate", monthlyUsd: 5, pct: 0.5, baselineMonthlyUsd: 10, afterMonthlyUsd: 5, catalogVersion: "v", priceConfidence: "verified", transferDeltaUsd: 0, oneTimeCostUsd: 0, basis: "", excluded: [] }, evidence: { ownership: [] }, risks: [] }],
+      { broker: h.broker, principal: user("bob"), scope: { workspaceId: h.ids.wsA, projectId: h.ids.projA, environmentId: h.ids.envAProd }, serviceIdFor: () => "svc-web", now: NOW },
+    );
+    expect(out.submitted).toEqual([]);
+    expect(out.refused[0]!.reason).toMatch(/no existing typed operation/);
+  });
+});

@@ -204,6 +204,14 @@ tool refusals get the same redacted envelope, instead of SDK bare-text errors.
 schema, using the control plane's sorted-key canonical JSON rule.
 `catalogDigest` also covers tool names, versions, scopes, access, capabilities
 and hints, and is returned by `zenith_get_capabilities`.
+
+`zenith_get_capabilities` also returns `offeredCatalog`: the version, digest, level
+policy and per-provider, per-domain rollups of the offered capability catalog
+(supported, preview or unsupported with a reason; no cell is marked supported
+without emulator or live evidence). It is derived from the resource drivers and
+drift-checked by `npx tsx scripts/docs/offered-catalog.ts --check`. Per-cell
+detail is `GET /api/platform/v1/capability-catalog` (`?provider=&domain=&kind=&level=`,
+`?view=summary`).
 `tests/agent-v3/golden/catalog.json` pins versions and digests. A schema contract
 edit requires a schema version bump and an intentional golden update; clients
 may pin digests and refuse unexpected contracts.

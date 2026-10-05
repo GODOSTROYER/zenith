@@ -85,6 +85,10 @@ begin
       grant select, insert on table platform.ownership_transfers to service_role;
       grant update (revoked_at, revoked_by) on table platform.ownership_transfers to service_role;
     end if;
+    if to_regclass('platform.optimizer_settings') is not null then
+      revoke all on table platform.optimizer_settings from service_role;
+      grant select,insert,update on table platform.optimizer_settings to service_role;
+    end if;
     if to_regclass('platform.standalone_plan_settlements') is not null then
       revoke all on table platform.standalone_plan_backends,platform.standalone_plan_settlements from service_role;
       grant select,insert on table platform.standalone_plan_backends,platform.standalone_plan_settlements to service_role;

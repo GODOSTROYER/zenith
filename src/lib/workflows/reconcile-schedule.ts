@@ -6,7 +6,7 @@ import { defineSearchAttributeKey, SearchAttributeType } from "@temporalio/commo
 import { assertPlatformSchemaCurrent, type PlatformDbHandle } from "@/lib/controlplane/db";
 import { withLease, LeaseUnavailableError } from "@/lib/controlplane/leases";
 import type { Sql } from "@/lib/controlplane/types";
-import { createBroker, isMemoryStoreEnabled } from "@/lib/capabilities/platform";
+import { createBroker, isMemoryStoreEnabled, type Broker } from "@/lib/capabilities/platform";
 import { PlatformBrokerStore } from "@/lib/capabilities/platform-store";
 import { currentProductRoleResolver } from "@/lib/capabilities/current-product-roles";
 import { systemClock } from "@/lib/capabilities/ports";
@@ -17,6 +17,8 @@ import { composeReconcilePorts } from "@/lib/platform/reconcile";
 import { platformScopeResolver } from "@/lib/platform/scopes";
 import { reconcilePass } from "@/lib/reconcile/pass";
 import type { ReconcilePassPorts, ReconcilePassResult } from "@/lib/reconcile/pass-types";
+import { composeOptimizerPorts } from "@/lib/platform/optimizer";
+import { runOptimizerPass, type OptimizerPassPorts } from "@/lib/placement/optimizer-pass";
 import { TASK_QUEUE } from "./types";
 import type { ReconcileSweepActivities, ReconcileSweepActivityInput, ReconcileSweepInput, ReconcileSweepResult } from "./definitions/reconcileSweep";
 
@@ -212,6 +214,9 @@ function boundedStore(db: Sql): Sql {
   };
 }
 
+/** The canonical broker each composed port set was built with, so the optimizer step proposes through the same authority. */
+const composedBrokers = new WeakMap<ReconcilePassPorts, Broker>();
+
 async function canonicalPorts(db: PlatformDbHandle, signal: AbortSignal): Promise<ReconcilePassPorts> {
   signal.throwIfAborted();
   if (db.kind !== "postgres" || isMemoryStoreEnabled() || process.env.ZENITH_RECONCILE_MEMORY === "1") throw new ReconcileScheduleError("prerequisites_unavailable");
@@ -227,7 +232,9 @@ async function canonicalPorts(db: PlatformDbHandle, signal: AbortSignal): Promis
   const broker = createBroker({ store: new PlatformBrokerStore(store), scopes: platformScopeResolver(store),
     roles: currentProductRoleResolver({ signal }), signer, clock: systemClock, policy: () => loadPolicyEngine() });
   signal.throwIfAborted();
-  return composeReconcilePorts(store, platformCredentialBroker(store), async () => broker);
+  const composed = composeReconcilePorts(store, platformCredentialBroker(store), async () => broker);
+  composedBrokers.set(composed, broker);
+  return composed;
 }
 
 function cancellablePorts(ports: ReconcilePassPorts, signal: AbortSignal): ReconcilePassPorts {
@@ -250,7 +257,9 @@ function countsOnly(value: ReconcilePassResult): ReconcilePassResult {
   return Object.fromEntries([...COUNT_KEYS.map((key) => [key, value[key]]), ["saturated", value.saturated], ["timedOut", value.timedOut]]) as unknown as ReconcilePassResult;
 }
 export interface ReconcileSweepRuntime extends ReconcileSchedulePrerequisites { activities: ReconcileSweepActivities }
-function runtime(db: Sql, ports: (signal: AbortSignal) => Promise<ReconcilePassPorts>): ReconcileSweepRuntime {
+/** Optional step run in the same lease after the reconcile pass; PROD-COST-03 scheduled optimizer. */
+type OptimizerStep = (composed: ReconcilePassPorts) => OptimizerPassPorts | undefined;
+function runtime(db: Sql, ports: (signal: AbortSignal) => Promise<ReconcilePassPorts>, optimizer?: OptimizerStep): ReconcileSweepRuntime {
   const capability: ReconcileSweepRuntime = {
     async assertReady() { await boundedReadiness(ports(AbortSignal.timeout(RPC_MS))); },
     activities: {
@@ -283,6 +292,12 @@ function runtime(db: Sql, ports: (signal: AbortSignal) => Promise<ReconcilePassP
           return await withLease(boundedStore(db), { scope: RECONCILE_SWEEP_LEASE, holder: `reconcile-sweep:${passId}`, ttlMs: 90_000, signal }, async (_lease, heldSignal) => {
             const result = await reconcilePass({ ports: cancellablePorts(composed, heldSignal), holder: `reconcile-sweep:${passId}`, maxEnvironments: args.maxEnvironments, environmentConcurrency: args.environmentConcurrency, budgetMs: 20_000, includeSandbox: false, reconcile: { autoRepair: true, deadlineAt: Date.now() + 50_000 } });
             heldSignal.throwIfAborted();
+            // Per-environment opt-in (default off) and proposal-only. Its failure never turns a completed reconcile pass into a failure.
+            const optimizerPorts = optimizer?.(composed);
+            if (optimizerPorts) {
+              try { await runOptimizerPass(optimizerPorts, { maxEnvironments: args.maxEnvironments, signal: heldSignal }); }
+              catch { heldSignal.throwIfAborted(); }
+            }
             return { status: "completed" as const, counts: countsOnly(result) };
           });
         } catch (error) {
@@ -300,7 +315,10 @@ function runtime(db: Sql, ports: (signal: AbortSignal) => Promise<ReconcilePassP
 
 /** Production only: actual PostgreSQL, canonical policy/store/signer, existing broker ports. */
 export function createReconcileSweepRuntime(db: PlatformDbHandle): ReconcileSweepRuntime {
-  return runtime(db, (signal) => canonicalPorts(db, signal));
+  return runtime(db, (signal) => canonicalPorts(db, signal), (composed) => {
+    const broker = composedBrokers.get(composed);
+    return broker ? composeOptimizerPorts(boundedStore(db), composed, broker) : undefined;
+  });
 }
 /** Explicit contract fixture. Never a production fallback or a caller-supplied ready flag. */
 export function createIsolatedReconcileSweepRuntime(db: PlatformDbHandle, ports: () => Promise<ReconcilePassPorts>): ReconcileSweepRuntime {

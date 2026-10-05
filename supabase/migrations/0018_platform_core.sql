@@ -1543,6 +1543,37 @@ insert into platform.schema_migrations (version, name, checksum)
 values (16, 'cleanup_writer_settlements', '30f73b35ae4bf2da289bd1a3ce403cc0bd409f383efb942a7aa095235333d711')
 on conflict (version) do nothing;
 
+-- ============================ migration 20: optimizer_settings ============================
+
+create table if not exists platform.optimizer_settings (
+  environment_id text primary key,
+  workspace_id   text not null,
+  enabled        boolean not null default false,
+  version        integer not null default 1 check (version >= 1),
+  updated_by     text not null,
+  updated_at     timestamptz not null default clock_timestamp()
+);
+create index if not exists optimizer_settings_enabled on platform.optimizer_settings(workspace_id, environment_id) where enabled;
+alter table platform.optimizer_settings enable row level security;
+do $$
+declare r text;
+begin
+  foreach r in array array['anon','authenticated'] loop
+    if exists(select 1 from pg_roles where rolname=r) then
+      execute format('revoke all on table platform.optimizer_settings from %I',r);
+    end if;
+  end loop;
+  if exists(select 1 from pg_roles where rolname='service_role') then
+    revoke all on table platform.optimizer_settings from service_role;
+    grant select,insert,update on table platform.optimizer_settings to service_role;
+  end if;
+end
+$$;
+
+insert into platform.schema_migrations (version, name, checksum)
+values (20, 'optimizer_settings', '94217cb0c092fa1c268ba54b3fe10143382531dd74d9081c190030f26b67b249')
+on conflict (version) do nothing;
+
 -- ============================ hardening (Supabase roles) ============================
 
 do $$
@@ -1598,6 +1629,10 @@ begin
       grant select on table platform.cleanup_writer_epoch to service_role;
       grant select,insert on table platform.cleanup_writer_scopes,platform.cleanup_writer_holds,platform.cleanup_writer_deliveries,platform.cleanup_owner_grants to service_role;
       grant update on table platform.cleanup_writer_scopes to service_role;
+    end if;
+    if to_regclass('platform.optimizer_settings') is not null then
+      revoke all on table platform.optimizer_settings from service_role;
+      grant select,insert,update on table platform.optimizer_settings to service_role;
     end if;
     if to_regclass('platform.standalone_plan_settlements') is not null then
       revoke all on table platform.standalone_plan_backends,platform.standalone_plan_settlements from service_role;

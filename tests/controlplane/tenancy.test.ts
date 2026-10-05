@@ -85,6 +85,7 @@ const SWEPT = new Set([
   "settings.getEnvironmentSettings", "settings.getWorkspacePolicy",
   // PROD-LIFE-12: tenant-scoped ownership-transfer reads/writes; recordForApprovedOperation is also reachable only via approvals.record.
   "ownershipTransfers.listActive", "ownershipTransfers.guardFor", "ownershipTransfers.revoke", "ownershipTransfers.recordForApprovedOperation",
+  "optimizerSettings.getOptimizerSettings",
 ]);
 
 /** Writes that bind the new row to the workspace they are given; their tenant checks are tested with the owning suite. */
@@ -121,7 +122,7 @@ const WRITES = new Set([
   // Native candidate capture binds only exact owning IDs; foreign retention leaves custody/approvals untouched.
   // Covered by the mandatory mixed-child admission native duplicate + foreign-workspace controls.
   "mixedChildIntents.retain",
-  "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "idempotency.reserve", "idempotency.complete",
+  "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings", "idempotency.reserve", "idempotency.complete",
 ]);
 
 /** Deliberately not workspace-filtered, with the reason. */
@@ -157,6 +158,7 @@ const EXEMPT: Record<string, string> = {
   "machines.registerMachine": "the workspace comes from the registration token, never from the caller",
   "runners.findRunnerForAuth": "the one documented unscoped lookup: a signed request names only the agent id",
   "machines.findMachineForAuth": "the one documented unscoped lookup: a signed request names only the machine id",
+  "optimizerSettings.listOptedInEnvironments": "system scheduler only: lists (workspace, environment) pairs that opted in; every returned row carries its workspace and each is processed under that workspace",
 };
 
 const hex = (c: string): string => c.repeat(64);
@@ -267,6 +269,7 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     const evidence = await repos.evidence.insert(db, { workspaceId: A, operationId: opId, kind: "tofu_plan", digest: hex("c"), summary: {}, simulated: false });
     await repos.settings.putEnvironmentSettings(db, { workspaceId: A, environmentId: envId, autonomyLevel: 4, updatedBy: "u" });
     await repos.settings.putWorkspacePolicy(db, { workspaceId: A, params: { k: 1 }, updatedBy: "u" });
+    await repos.optimizerSettings.putOptimizerSettings(db, { workspaceId: A, environmentId: envId, enabled: true, updatedBy: "u" });
     const connection = await repos.connections.create(db, {
       workspaceId: A,
       createdBy: "u",
@@ -453,6 +456,7 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "ownershipTransfers.recordForApprovedOperation": () => seen(repos.ownershipTransfers.recordForApprovedOperation(db, { workspaceId: B, operationId: opId, approvalId: "apr_foreign" })),
       "settings.getEnvironmentSettings": () => repos.settings.getEnvironmentSettings(db, B, envId),
       "settings.getWorkspacePolicy": () => repos.settings.getWorkspacePolicy(db, B),
+      "optimizerSettings.getOptimizerSettings": () => repos.optimizerSettings.getOptimizerSettings(db, B, envId),
     };
     // Build launches and workflow starts use actual broker/PG positive controls
     // in their separate sweeps below; all remaining functions run in both lanes.
@@ -495,6 +499,7 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     expect((await repos.machines.getMachine(db, A, machine.id))?.status).toBe("active");
     expect((await repos.incidents.getIncident(db, A, incident.id))?.status).toBe("open");
     expect((await repos.settings.getEnvironmentSettings(db, A, envId)).autonomyLevel).toBe(4);
+    expect((await repos.optimizerSettings.getOptimizerSettings(db, A, envId)).enabled).toBe(true);
     expect(await repos.observations.latestObservation(db, A, resource.id)).not.toBeNull();
     expect(await repos.leases.listActive(db, A)).toHaveLength(1);
   });

@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     # Serial full-suite execution takes about 16 minutes before setup, typecheck
     # and lint. Keep enough job budget without changing test-level deadlines.
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     env:
       # Use an ignored directory in the disposable CI checkout. github.workspace

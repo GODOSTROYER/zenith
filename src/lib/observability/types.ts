@@ -12,6 +12,8 @@
  * never interpreted as instructions.
  */
 
+import type { TelemetryEnvelope } from "./telemetry";
+
 export type SignalType = "log" | "metric" | "trace" | "event" | "health";
 export type Severity = "trace" | "debug" | "info" | "warn" | "error" | "fatal" | "unknown";
 
@@ -105,6 +107,12 @@ export interface TraceSpanSummary {
 }
 
 export interface QueryResult<T> {
+  /**
+   * Additive (PROD-OBS-02): scoped telemetry envelope with per-source
+   * provenance, observedAt, freshness and explicit unknown/inaccessible/stale
+   * states. Set by the fabric on every answer.
+   */
+  telemetry?: TelemetryEnvelope;
   items: T[];
   /** which backend(s) answered, e.g. `aws.cloudwatch-logs` */
   sources: string[];

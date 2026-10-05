@@ -19,6 +19,7 @@ import { createConnectionsPort } from "@/lib/execution/platform";
 import { investigate, InvestigationInputError } from "@/lib/incidents/investigate";
 import type { InvestigationPorts } from "@/lib/incidents/ports";
 import { createObservabilityFabric } from "@/lib/observability/fabric";
+import { describeSession } from "@/lib/observability/telemetry";
 import { raceAbort } from "@/lib/observability/abort";
 import { sourcesForEnvironment, type SourceSessions } from "@/lib/observability/sources/factory";
 import { createUnavailableSource } from "@/lib/observability/sources/unavailable";
@@ -95,7 +96,7 @@ export function composeAgentPorts(sql: Sql, credentials: CredentialBroker, optio
   function fabricFor(request: FabricRequest, observations: readonly Observation[], session?: ProviderSession, reason?: string) {
     const sources = reason ? [createUnavailableSource({ id: "credential-broker", provider: request.environment.provider, supports: ["log", "metric", "event", "trace"], reason })]
       : sourceFactory({ provider: request.environment.provider, graph: request.graph, workspaceId: request.workspaceId, sessions: session ? sessionsOf(session) : {}, observations });
-    const fabric = createObservabilityFabric(sources, { now });
+    const fabric = createObservabilityFabric(sources, { now, ...(describeSession(session) ? { session: describeSession(session)! } : {}) });
     const permitted = (signal: "log" | "metric" | "event" | "trace", scope: SignalScope) => {
       if (scope.workspaceId !== request.workspaceId || scope.environmentId !== request.environment.id || (scope.projectId !== undefined && scope.projectId !== request.environment.projectId)) throw notFound();
       if (request.grant.exp <= Math.floor(now().getTime() / 1000)) throw new McpToolError("policy_denied", "The observe read grant expired.", 403);

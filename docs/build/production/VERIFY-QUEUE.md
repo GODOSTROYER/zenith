@@ -124,3 +124,5 @@ Doc: [verify/PROD-UX-03.md](verify/PROD-UX-03.md). `npx vitest run tests/plugins
 ## Results
 
 Not yet run. Append one dated block per requirement here: SHA verified, commands, counts, and which evidence levels were reached or remain pending.
+
+**Wave 2 assembly gap (write these tests first):** the cross-requirement joins added during assembly have no tests yet. Add vitest coverage for (1) build admission re-deriving LIFE-08 `contextDigest` and refusing a mismatched or non-inspected `contextDir`, (2) the single provenance admission path (LIFE-09 attestation consumed as LIFE-10 `attested` verdict; unattested Zenith-built images refused, pinned external digests admitted at `pinned_digest`), then run them with the rest of wave 2.

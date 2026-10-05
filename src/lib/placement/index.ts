@@ -23,3 +23,4 @@ export * from "@/lib/placement/solver";
 export * from "@/lib/placement/explain";
 export * from "@/lib/placement/optimizer";
 export * from "@/lib/placement/optimizer-submit";
+export * from "@/lib/placement/optimizer-history";

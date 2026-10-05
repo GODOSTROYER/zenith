@@ -6,17 +6,18 @@
  * to an immutable proposal digest and, when policy says so, waits for a human
  * browser approval. Nothing here approves, begins execution or touches a cloud.
  *
- * Capability mapping:
- * - container-service size or replica reductions -> `service.scale` (the
- *   same capability and input shape `zenith_scale_service` uses);
- * - everything else (database or instance size, site relocation) ->
- *   `infrastructure.plan`, so the change goes through plan, policy, approval
- *   and apply instead of a direct mutation.
+ * Exactly one path exists: container-service size or replica reductions become
+ * `service.scale`, the same capability and input shape `zenith_scale_service`
+ * uses, so an approved optimization compiles and executes through the
+ * existing scale operation with the exact changed field. Every other kind
+ * (database or instance size, site relocation) has no typed operation that
+ * carries it, so it is REFUSED here with an explicit reason rather than sent
+ * as an input nothing consumes.
  *
- * The request `input` is built here from the optimizer's own numbers (ids,
- * the change set, estimate labels). No model text is copied into it. The
- * returned history entries are what the caller persists so the next run sees
- * the cooldown, reversal lockout and window bounds.
+ * The request `input` is built from the optimizer's own numbers. The extra
+ * `optimizer` member records the change (field, from, to, shift) so the next
+ * run can rebuild cooldown, reversal and window history from the durable
+ * operation records (`optimizer-history.ts`); the scale handler ignores it.
  */
 import type { CapabilityRequest } from "@/lib/capabilities/catalog";
 import type { ProposeContext, ProposeResult } from "@/lib/capabilities/types";
@@ -40,13 +41,15 @@ export interface SubmitOptions {
   scope: OptimizationScope;
   /** resolves a graph address to the resource id the scale capability is scoped to; undefined means "cannot scale it" */
   serviceIdFor(address: string): string | undefined;
+  /** resolves a graph address to the platform resource id the operation is scoped to; defaults to the service id */
+  resourceIdFor?(address: string): string | undefined;
   /** ISO time stamped on the history entries */
   now: string;
 }
 
 export interface SubmittedOptimization {
   proposalId: string;
-  capability: "service.scale" | "infrastructure.plan";
+  capability: "service.scale";
   operationId: string;
   operationStatus: string;
   policyOutcome: string;
@@ -59,43 +62,27 @@ export interface RefusedSubmission {
   reason: string;
 }
 
-function requestFor(p: OptimizationProposal, o: SubmitOptions): { request: CapabilityRequest; capability: "service.scale" | "infrastructure.plan" } | { refused: string } {
-  const idempotencyKey = `opt-${p.id.slice(4, 44)}`;
-  const reason = `${p.title}. Estimated saving $${p.savings.monthlyUsd.toFixed(2)}/month (an estimate from catalog ${p.savings.catalogVersion}, not an invoice).`.slice(0, 2000);
+const UNROUTABLE = "has no existing typed operation that can carry it (only container-service size or replica changes route to service.scale); not submitted";
+
+function requestFor(p: OptimizationProposal, o: SubmitOptions): { request: CapabilityRequest } | { refused: string } {
   const only = p.changes.length === 1 ? p.changes[0]! : undefined;
-  if ((p.kind === "rightsize_size" || p.kind === "rightsize_replicas") && only && p.addresses.length === 1) {
-    const serviceId = o.serviceIdFor(only.address);
-    if (serviceId) {
-      return {
-        capability: "service.scale",
-        request: {
-          capability: "service.scale",
-          scope: { ...o.scope, resourceId: serviceId },
-          input: {
-            operation: "scale",
-            serviceId,
-            ...(only.field === "spec.replicas" ? { replicas: only.to } : { size: only.to }),
-          },
-          reason,
-          idempotencyKey,
-        },
-      };
-    }
-  }
+  const scaleField = only && (only.field === "spec.size" || only.field === "spec.replicas");
+  if ((p.kind !== "rightsize_size" && p.kind !== "rightsize_replicas") || !only || !scaleField || p.addresses.length !== 1) return { refused: `${p.title} ${UNROUTABLE}.` };
+  const serviceId = o.serviceIdFor(only.address);
+  if (!serviceId) return { refused: `${only.address} has no service id to scale; not submitted.` };
+  const reason = `${p.title}. Estimated saving $${p.savings.monthlyUsd.toFixed(2)}/month (an estimate from catalog ${p.savings.catalogVersion}, not an invoice).`.slice(0, 2000);
   return {
-    capability: "infrastructure.plan",
     request: {
-      capability: "infrastructure.plan",
-      scope: o.scope,
+      capability: "service.scale",
+      scope: { ...o.scope, resourceId: o.resourceIdFor?.(only.address) ?? serviceId },
       input: {
-        operation: "optimize",
-        optimizationId: p.id,
-        kind: p.kind,
-        changes: p.changes,
-        savings: { label: p.savings.label, monthlyUsd: p.savings.monthlyUsd, catalogVersion: p.savings.catalogVersion, oneTimeCostUsd: p.savings.oneTimeCostUsd },
+        operation: "scale",
+        serviceId,
+        ...(only.field === "spec.replicas" ? { replicas: only.to } : { size: only.to }),
+        optimizer: { id: p.id, address: only.address, field: only.field, from: only.from, to: only.to, monthlyUsdShift: Math.abs(p.savings.monthlyUsd) },
       },
       reason,
-      idempotencyKey,
+      idempotencyKey: `opt-${p.id.slice(4, 44)}`,
     },
   };
 }
@@ -118,7 +105,7 @@ export async function submitOptimizationProposals(
       const status = res.operation.status === "denied" ? ("rejected" as const) : ("proposed" as const);
       submitted.push({
         proposalId: p.id,
-        capability: built.capability,
+        capability: "service.scale",
         operationId: res.operation.id,
         operationStatus: res.operation.status,
         policyOutcome: res.decision.outcome,

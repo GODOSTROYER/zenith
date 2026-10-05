@@ -185,6 +185,13 @@ export interface OptimizerInput {
   history?: readonly OptimizationHistoryEntry[];
   policy?: Partial<OptimizerPolicy>;
   ownership?: FieldOwnershipCheck;
+  /**
+   * Only propose what the existing typed `service.scale` operation can carry
+   * (container-service size and replicas). Everything else is skipped with
+   * `unsupported_path` instead of producing a proposal nothing can execute.
+   * The scheduled pass always sets this.
+   */
+  routableOnly?: boolean;
   /** ISO time of this run; the optimizer never reads a clock */
   now: string;
 }
@@ -265,7 +272,8 @@ export type SkipCode =
   | "payback"
   | "window_change_limit"
   | "window_shift_limit"
-  | "conflict";
+  | "conflict"
+  | "unsupported_path";
 
 export interface SkippedOptimization {
   address: string;
@@ -478,6 +486,10 @@ export async function optimizeEconomics(input: OptimizerInput): Promise<Optimize
 
   for (const n of nodes) {
     if (!RIGHTSIZE_KINDS.has(n.kind)) continue;
+    if (input.routableOnly && n.kind !== "container_service") {
+      skip(n.address, "rightsize_size", "unsupported_path", `${n.address} (${n.kind}) has no typed operation that carries a size change; it is not proposed.`);
+      continue;
+    }
     if ((n.ownership ?? "managed") !== "managed") {
       skip(n.address, "rightsize_size", "not_managed", `${n.address} is ${n.ownership}; Zenith does not change referenced or external resources.`);
       continue;
@@ -616,7 +628,8 @@ export async function optimizeEconomics(input: OptimizerInput): Promise<Optimize
     return users + Math.round(edgeMs * 2);
   };
 
-  for (const [siteKey, site] of [...sites.entries()].sort((a, b) => cmp(a[0], b[0]))) {
+  if (input.routableOnly) skip("*", "relocate_site", "unsupported_path", "No typed operation moves a site between regions; relocation is not proposed.");
+  for (const [siteKey, site] of input.routableOnly ? [] : [...sites.entries()].sort((a, b) => cmp(a[0], b[0]))) {
     const [provider, region] = siteKey.split("|") as [string, string];
     const label = `${provider}/${region}`;
     const first = site[0]!.address;

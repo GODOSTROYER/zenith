@@ -647,6 +647,7 @@ Registered migrations: **16**; highest version: **16**.
 | 14 | `mixed_child_intents` | `5d676658116c3e66b1238c24a72da4ddbd65f06f30c57cf5dc753bcc0a56961e` |
 | 15 | `cleanup_writer_barriers` | `1630821507e71c2ec68d0918bd82b0333aabb4f4211654927cc07d7eb4a6c123` |
 | 16 | `cleanup_writer_settlements` | `30f73b35ae4bf2da289bd1a3ce403cc0bd409f383efb942a7aa095235333d711` |
+| 19 | `incident_stability` | `1db1a588796af8f7c9c01f62ab96e43d8f56a0f7e98b436a68af7e22813f8340` |
 
 <!-- platform-migrations:end -->
 

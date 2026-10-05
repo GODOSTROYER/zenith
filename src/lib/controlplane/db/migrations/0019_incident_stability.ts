@@ -13,8 +13,8 @@
  * Every table carries `workspace_id`; RLS and grants come from the aggregate
  * hardening in the emitted Supabase file. Idempotent DDL only.
  */
-export const migration0017IncidentStability = {
-  version: 17,
+export const migration0019IncidentStability = {
+  version: 19,
   name: "incident_stability",
   sql: `
 alter table platform.incidents add column if not exists fingerprint text;
@@ -22,6 +22,8 @@ alter table platform.incidents add column if not exists occurrence_count integer
 alter table platform.incidents add column if not exists last_seen_at timestamptz;
 alter table platform.incidents add column if not exists escalated_at timestamptz;
 alter table platform.incidents add column if not exists escalation_reasons jsonb not null default '[]'::jsonb;
+alter table platform.incidents add column if not exists escalation_acknowledged_at timestamptz;
+alter table platform.incidents add column if not exists escalation_acknowledged_by text;
 create unique index if not exists incidents_open_fingerprint
   on platform.incidents (workspace_id, fingerprint)
   where fingerprint is not null and status <> 'resolved';
@@ -61,6 +63,8 @@ create unique index if not exists incident_attempts_key_live
   on platform.incident_remediation_attempts (workspace_id, incident_id, idempotency_key) where status <> 'blocked';
 create index if not exists incident_attempts_incident on platform.incident_remediation_attempts (workspace_id, incident_id, reserved_at);
 create index if not exists incident_attempts_env on platform.incident_remediation_attempts (workspace_id, environment_id, reserved_at);
+create unique index if not exists incident_attempts_operation
+  on platform.incident_remediation_attempts (workspace_id, operation_id) where operation_id is not null and status <> 'blocked';
 create index if not exists incident_attempts_fp on platform.incident_remediation_attempts (workspace_id, fingerprint, reserved_at);
 
 create table if not exists platform.incident_maintenance_windows (

@@ -11,7 +11,7 @@ import * as incidents from "@/lib/controlplane/db/repos/incidents";
 import * as stab from "@/lib/controlplane/db/repos/incident-stability";
 import { DEFAULT_STABILITY_POLICY, incidentFingerprint, resolveStabilityPolicy, type GateRequest } from "@/lib/incidents/stability";
 import type { Investigation } from "@/lib/incidents/types";
-import { LANES, expectCode, newWorkspace, openLane, uid } from "./_support/harness";
+import { LANES, expectCode, newWorkspace, openLane, seedApprovedOperation, uid } from "./_support/harness";
 
 const T0 = new Date("2026-10-05T12:00:00.000Z");
 const at = (minutes: number) => new Date(T0.getTime() + minutes * 60_000);
@@ -291,6 +291,70 @@ describe.each(LANES)("incident stability [$name]", (lane) => {
       expect(again.documentDigest).toBe(pm?.documentDigest);
       expect(await stab.getPostmortem(ctx.db, newWorkspace(), inc.id)).toBeNull();
       await expectCode(stab.recordPostmortem(ctx.db, { workspaceId: newWorkspace(), incidentId: inc.id }), "not_found");
+    });
+  });
+
+  describe("telemetry envelope trust", () => {
+    const envelope = (state: "fresh" | "stale" | "empty" | "unknown" | "inaccessible") => ({ state, signal: "health" as const, observedAt: at(0).toISOString(), partial: false });
+    it("stale, unknown and inaccessible telemetry cannot open an incident", async () => {
+      const f = fp();
+      for (const state of ["stale", "unknown", "inaccessible"] as const) for (let i = 0; i < 5; i++) {
+        const r = await observe(f, "bad", i, { telemetry: envelope(state) });
+        expect(r.appliedObservation).toBe("unknown");
+      }
+      expect(await incidents.listIncidents(ctx.db, ws)).toEqual([]);
+    });
+    it("fresh telemetry opens, records its provenance, and stale telemetry cannot clear", async () => {
+      const f = fp();
+      let r!: stab.ObserveSignalResult;
+      for (let i = 0; i < 3; i++) r = await observe(f, "bad", i, { telemetry: envelope("fresh") });
+      expect(r.incident?.document.telemetry).toMatchObject({ state: "fresh", signal: "health" });
+      for (let i = 0; i < 10; i++) await observe(f, "good", 10 + i, { telemetry: envelope("stale") });
+      expect((await stab.getStabilityIncident(ctx.db, ws, r.incident!.id))?.status).toBe("open");
+      let last!: stab.ObserveSignalResult;
+      for (let i = 0; i < 5; i++) last = await observe(f, "good", 30 + i, { telemetry: envelope("empty") });
+      expect(last.transition).toBe("cleared");
+    });
+  });
+
+  describe("operation binding, outcome sync and the escalation queue", () => {
+    it("binds a reservation to an operation and settles it from the operation outcome", async () => {
+      const inc = await open();
+      const a = await reserve(inc.id, 5);
+      const { operation } = await seedApprovedOperation(ctx.db, ws);
+      const bound = await stab.bindAttemptToOperation(ctx.db, { workspaceId: ws, attemptId: a.attempt!.id, operationId: operation.id });
+      expect(bound?.operationId).toBe(operation.id);
+      expect(await stab.bindAttemptToOperation(ctx.db, { workspaceId: ws, attemptId: a.attempt!.id, operationId: operation.id })).toBeNull();
+      expect(await stab.bindAttemptToOperation(ctx.db, { workspaceId: newWorkspace(), attemptId: a.attempt!.id, operationId: operation.id })).toBeNull();
+      expect(await stab.syncAttemptOutcomes(ctx.db, { workspaceId: ws, now: at(6) })).toBe(0);
+      await ctx.db.query("update platform.operations set status = 'failed' where workspace_id = $1 and id = $2", [ws, operation.id]);
+      expect(await stab.syncAttemptOutcomes(ctx.db, { workspaceId: ws, now: at(7) })).toBe(1);
+      expect((await stab.listRemediationAttempts(ctx.db, ws, inc.id))[0].status).toBe("failed");
+    });
+    it("a binding to a foreign or unknown operation is refused", async () => {
+      const inc = await open();
+      const a = await reserve(inc.id, 5);
+      expect(await stab.bindAttemptToOperation(ctx.db, { workspaceId: ws, attemptId: a.attempt!.id, operationId: "op_nope" })).toBeNull();
+    });
+    it("lists escalations with an explicit unacknowledged state until a person acknowledges", async () => {
+      const inc = await open();
+      expect(await stab.listEscalations(ctx.db, ws)).toEqual([]);
+      await stab.escalateIncident(ctx.db, { workspaceId: ws, incidentId: inc.id, reasons: ["inconclusive_diagnosis"], now: at(5) });
+      const listed = await stab.listEscalations(ctx.db, ws, { environmentId: env });
+      expect(listed.map((i) => [i.id, i.escalationState])).toEqual([[inc.id, "unacknowledged"]]);
+      expect((await stab.listEscalations(ctx.db, ws, { unacknowledgedOnly: true })).length).toBe(1);
+      expect(await stab.acknowledgeEscalation(ctx.db, { workspaceId: newWorkspace(), incidentId: inc.id, by: "user_x" })).toBeNull();
+      const ack = await stab.acknowledgeEscalation(ctx.db, { workspaceId: ws, incidentId: inc.id, by: "user_1", now: at(6) });
+      expect(ack?.escalationState).toBe("acknowledged");
+      expect((await stab.acknowledgeEscalation(ctx.db, { workspaceId: ws, incidentId: inc.id, by: "user_2", now: at(7) }))?.escalationAcknowledgedBy).toBe("user_1");
+      expect(await stab.listEscalations(ctx.db, ws, { unacknowledgedOnly: true })).toEqual([]);
+      expect((await stab.listEscalations(ctx.db, ws)).map((i) => i.escalationState)).toEqual(["acknowledged"]);
+    });
+    it("the remediation start path is gated on an admitted, operation-bound attempt", async () => {
+      const src = (await import("node:fs")).readFileSync("src/lib/controlplane/db/repos/workflow-start-intents.ts", "utf8");
+      expect(src).toContain("requireRemediationAdmission");
+      expect(src.match(/await requireRemediationAdmission\(tx,request,op\);/g)).toHaveLength(2);
+      expect(src).toContain("platform.incident_remediation_attempts where workspace_id=$1 and incident_id=$2 and operation_id=$3");
     });
   });
 

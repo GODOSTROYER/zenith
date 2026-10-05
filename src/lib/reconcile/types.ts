@@ -208,6 +208,43 @@ export interface StartRepairRequest {
 
 /* ---------------------------------- ports ---------------------------------- */
 
+/** One node's verdict for this pass, fed to the incident stability store. */
+export interface StabilityFindingObservation {
+  address: string;
+  /** the drift class when `bad`; otherwise absent */
+  class?: DriftClass;
+  severity?: "low" | "medium" | "high";
+  /** `unknown`: the node could not be read, so nothing is proven either way */
+  observation: "bad" | "good" | "unknown";
+}
+
+export interface StabilityIncidentRef {
+  incidentId: string;
+}
+
+export interface StabilityAdmission {
+  allowed: boolean;
+  attemptId?: string;
+  /** stable gate codes when refused */
+  codes: string[];
+}
+
+/**
+ * Durable incident stability for the controller (PROD-OBS-03): hysteresis and
+ * fingerprint dedup of drift, and the fail-closed reservation every repair
+ * proposal must obtain first. The platform adapter always wires it.
+ */
+export interface ReconcileStability {
+  /** Record this pass's verdicts. Keyed `<address>|<class>` for each finding that now has a confirmed (hysteresis-passed) incident. */
+  observe(environment: ReconcileEnvironment, items: readonly StabilityFindingObservation[], now: Date): Promise<ReadonlyMap<string, StabilityIncidentRef>>;
+  /** Reserve one repair attempt; refuses on any cap, window, cooldown or store failure. */
+  admit(environment: ReconcileEnvironment, input: { incidentId: string; request: CapabilityRequest; address: string }, now: Date): Promise<StabilityAdmission>;
+  /** Bind an admitted attempt to the operation the broker created. */
+  attach(environment: ReconcileEnvironment, attemptId: string, operationId: string): Promise<void>;
+  /** The proposal never became an operation: free the attempt. */
+  release(environment: ReconcileEnvironment, attemptId: string, now: Date): Promise<void>;
+}
+
 /** Ports `reconcileEnvironment` needs. */
 export interface ReconcilePorts {
   now(): Date;
@@ -215,6 +252,8 @@ export interface ReconcilePorts {
   /** Assert the caller's held lease before persistence and every proposal/dispatch. */
   assertFence?(fence: FenceRef): Promise<void>;
   broker: RepairBroker;
+  /** Incident stability; when present every repair proposal is admitted through it, fail closed. */
+  stability?: ReconcileStability;
   /**
    * Run `fn` inside ONE read-only credential session for the environment's
    * provider (the `infrastructure.observe` grant behind the credential broker's
@@ -318,7 +357,13 @@ export type RepairSkipReason =
   | "repair_open"
   | "repair_uncertain"
   | "cooldown"
-  | "rate_limited";
+  | "rate_limited"
+  /** drift is not yet a confirmed incident (hysteresis) */
+  | "stability_unconfirmed"
+  /** a stability limit (cooldown, attempts, blast radius, window) holds the repair */
+  | "stability_blocked"
+  /** the stability store could not be consulted, so no repair is proposed */
+  | "stability_unavailable";
 
 export interface RepairDecision {
   address: string;

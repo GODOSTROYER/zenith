@@ -48,11 +48,35 @@ import {
   type ReconcileResult,
   type ResolvedReconcileOptions,
   type SkippedNode,
+  type StabilityFindingObservation,
+  type StabilityIncidentRef,
   type StoredResourceRef,
 } from "./types";
 import { cmp } from "./util";
 
 const MAX_TIMEOUT_MS = 10 * 60_000;
+
+/**
+ * One verdict per node actually read this pass. Drift (missing/changed/extra)
+ * is `bad`; a node read as present or missing with no such finding is `good`;
+ * anything that could not be read, or whose finding is `unknown`/`inaccessible`,
+ * proves nothing and is `unknown`, so an unreadable node can neither open nor clear an incident.
+ */
+export function stabilityObservations(report: DriftReport, observed: readonly { node: ResourceNode; observation: { presence: string } }[]): StabilityFindingObservation[] {
+  const BAD = new Set<DriftClass>(["missing", "changed", "extra"]);
+  const out: StabilityFindingObservation[] = [];
+  for (const o of observed) {
+    const findings = report.findings.filter((f) => f.address === o.node.address);
+    const bad = findings.filter((f) => BAD.has(f.class));
+    if (bad.length > 0) {
+      for (const f of bad) out.push({ address: o.node.address, class: f.class, severity: f.severity, observation: "bad" });
+      continue;
+    }
+    const read = o.observation.presence === "present" || o.observation.presence === "missing";
+    out.push({ address: o.node.address, observation: read && findings.length === 0 ? "good" : "unknown" });
+  }
+  return out;
+}
 
 const positive = (v: number | undefined, fallback: number, max = Number.MAX_SAFE_INTEGER): number =>
   typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.min(Math.trunc(v), max) : fallback;
@@ -208,7 +232,17 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
     previousKeys,
     supportsRepair: (node, finding) => typeof driverFor(node)?.operations?.["drift.repair"] === "function" || supportsDeclarativeRepair(node, finding),
   });
-  const proposed = await proposeRepairs({ environment, report, selection, ports, options, findingSince, assertCurrent, fence: input.fence, signal: input.signal });
+  // Hysteresis + fingerprint dedup of drift; its confirmed incidents gate every repair below.
+  let incidents: ReadonlyMap<string, StabilityIncidentRef> | undefined;
+  let stabilityFailed = false;
+  if (ports.stability && !report.simulated) {
+    try {
+      incidents = await ports.stability.observe(environment, stabilityObservations(report, observed), ports.now());
+    } catch {
+      stabilityFailed = true;
+    }
+  }
+  const proposed = await proposeRepairs({ environment, report, selection, ports, options, findingSince, assertCurrent, fence: input.fence, signal: input.signal, ...(incidents ? { incidents } : {}), ...(stabilityFailed ? { stabilityFailed } : {}) });
   if (proposed.events.length > 0) {
     try {
       await ports.store.appendEvents(environment, proposed.events);

@@ -36,12 +36,14 @@ import {
   type GateDecision,
   type GateRequest,
   type Observation,
+  trustedObservation,
   type PostmortemDocument,
   type SignalState,
   type SignalTransition,
   type StabilityPolicy,
   type WindowView,
 } from "@/lib/incidents/stability";
+import type { TelemetryEnvelope } from "@/lib/observability/telemetry";
 import type { Investigation } from "@/lib/incidents/types";
 import { ControlStoreError, requireText } from "../errors";
 import { assertNoSecretValues } from "../secrets";
@@ -52,6 +54,8 @@ import { getIncident, insertInvestigation, listInvestigationsForIncident, type I
 const iso = (column: string): string => `to_char(${column} at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 const HEX64 = /^[0-9a-f]{64}$/;
 const COUNTED = ["reserved", "succeeded", "failed"];
+const SIGNAL_COLUMNS = `state, consecutive_bad, consecutive_good, ${iso("cooldown_until")} as cooldown_until`;
+const ACTIVE_WINDOW_COLUMNS = `id, environment_id, ${iso("starts_at")} as starts_at, ${iso("ends_at")} as ends_at`;
 
 const INCIDENT_COLUMNS = `id, workspace_id, environment_id, title, status, severity, source, summary, correlation_id, document,
   ${iso("opened_at")} as opened_at, ${iso("updated_at")} as updated_at, ${iso("resolved_at")} as resolved_at`;
@@ -96,6 +100,10 @@ export interface StabilityIncident extends IncidentRecord {
   lastSeenAt?: string;
   escalatedAt?: string;
   escalationReasons: string[];
+  escalationAcknowledgedAt?: string;
+  escalationAcknowledgedBy?: string;
+  /** none: not escalated; unacknowledged: no person has taken ownership yet */
+  escalationState: "none" | "unacknowledged" | "acknowledged";
 }
 
 interface StabilityRow extends IncidentRow {
@@ -104,9 +112,11 @@ interface StabilityRow extends IncidentRow {
   last_seen_at: string | null;
   escalated_at: string | null;
   escalation_reasons: string[];
+  escalation_acknowledged_at: string | null;
+  escalation_acknowledged_by: string | null;
 }
 
-const STABILITY_COLUMNS = `${INCIDENT_COLUMNS}, fingerprint, occurrence_count, ${iso("last_seen_at")} as last_seen_at, ${iso("escalated_at")} as escalated_at, escalation_reasons`;
+const STABILITY_COLUMNS = `${INCIDENT_COLUMNS}, fingerprint, occurrence_count, ${iso("last_seen_at")} as last_seen_at, ${iso("escalated_at")} as escalated_at, escalation_reasons, ${iso("escalation_acknowledged_at")} as escalation_acknowledged_at, escalation_acknowledged_by`;
 
 const toStabilityIncident = (r: StabilityRow): StabilityIncident => ({
   ...toIncident(r),
@@ -115,6 +125,9 @@ const toStabilityIncident = (r: StabilityRow): StabilityIncident => ({
   lastSeenAt: opt(r.last_seen_at),
   escalatedAt: opt(r.escalated_at),
   escalationReasons: Array.isArray(r.escalation_reasons) ? r.escalation_reasons : [],
+  ...(r.escalation_acknowledged_at ? { escalationAcknowledgedAt: r.escalation_acknowledged_at } : {}),
+  ...(r.escalation_acknowledged_by ? { escalationAcknowledgedBy: r.escalation_acknowledged_by } : {}),
+  escalationState: !r.escalated_at ? "none" : r.escalation_acknowledged_at ? "acknowledged" : "unacknowledged",
 });
 
 export async function getStabilityIncident(sql: Sql, workspaceId: string, id: string): Promise<StabilityIncident | null> {
@@ -147,6 +160,12 @@ export interface ObserveSignalInput {
   /** from `incidentFingerprint` */
   fingerprint: string;
   observation: Observation;
+  /**
+   * The envelope of the telemetry read behind this observation (PROD-OBS-02).
+   * Only fresh data may open an incident; only fresh or empty data may clear
+   * one. Anything else is downgraded to `unknown`.
+   */
+  telemetry?: Pick<TelemetryEnvelope, "state" | "signal" | "observedAt" | "partial">;
   /** used only when this observation opens a new incident */
   incident?: { title: string; severity: IncidentSeverity; source: string; summary?: string; document?: Record<string, unknown> };
   policy?: StabilityPolicy;
@@ -159,6 +178,8 @@ export interface ObserveSignalResult {
   /** the open incident for this fingerprint, when the signal is active */
   incident?: StabilityIncident;
   incidentCreated: boolean;
+  /** the observation actually applied after the telemetry trust gate */
+  appliedObservation: Observation;
   /** set when this observation cleared the signal and resolved the incident */
   resolved?: { incident: StabilityIncident; postmortem: PostmortemRecord };
 }
@@ -177,6 +198,7 @@ export async function observeSignal(sql: Sql, input: ObserveSignalInput): Promis
   const policy = input.policy ?? DEFAULT_STABILITY_POLICY;
   const now = at(input.now);
   if (input.incident) assertNoSecretValues(input.incident, "incident");
+  const applied = trustedObservation(input.observation, input.telemetry?.state);
 
   return sql.tx(async (tx) => {
     await tx.query(
@@ -185,23 +207,23 @@ export async function observeSignal(sql: Sql, input: ObserveSignalInput): Promis
       [workspaceId, environmentId, input.fingerprint, now]
     );
     const [row] = await tx.query<SignalRow>(
-      `select state, consecutive_bad, consecutive_good, ${iso("cooldown_until")} as cooldown_until from platform.incident_signal_state
+      `select ${SIGNAL_COLUMNS} from platform.incident_signal_state
         where workspace_id = $1 and environment_id = $2 and fingerprint = $3 for update`,
       [workspaceId, environmentId, input.fingerprint]
     );
-    const { next, transition } = advanceSignal(policy, { state: row.state, consecutiveBad: row.consecutive_bad, consecutiveGood: row.consecutive_good }, input.observation);
+    const { next, transition } = advanceSignal(policy, { state: row.state, consecutiveBad: row.consecutive_bad, consecutiveGood: row.consecutive_good }, applied);
     const cooldownUntil = transition === "cleared" ? new Date(Date.parse(now) + policy.remediation.baseCooldownMs).toISOString() : opt(row.cooldown_until);
     await tx.query(
       `update platform.incident_signal_state set state = $4, consecutive_bad = $5, consecutive_good = $6,
               last_observed_at = case when $7::boolean then $8::timestamptz else last_observed_at end,
               cooldown_until = $9::timestamptz, updated_at = clock_timestamp()
         where workspace_id = $1 and environment_id = $2 and fingerprint = $3`,
-      [workspaceId, environmentId, input.fingerprint, next.state, next.consecutiveBad, next.consecutiveGood, input.observation !== "unknown", now, cooldownUntil ?? null]
+      [workspaceId, environmentId, input.fingerprint, next.state, next.consecutiveBad, next.consecutiveGood, applied !== "unknown", now, cooldownUntil ?? null]
     );
 
     let incident: StabilityIncident | undefined;
     let incidentCreated = false;
-    if (input.observation === "bad" && next.state === "active") {
+    if (applied === "bad" && next.state === "active") {
       const attached = await tx.query<StabilityRow>(
         `update platform.incidents set occurrence_count = occurrence_count + 1, last_seen_at = $3::timestamptz, updated_at = $3::timestamptz
           where workspace_id = $1 and fingerprint = $2 and status <> 'resolved' returning ${STABILITY_COLUMNS}`,
@@ -215,7 +237,7 @@ export async function observeSignal(sql: Sql, input: ObserveSignalInput): Promis
            values ($1, $2, $3, $4, $5, $6, $7, $8, $9::text::jsonb, $10::timestamptz, $10::timestamptz, $11, $10::timestamptz)
            on conflict (workspace_id, fingerprint) where fingerprint is not null and status <> 'resolved' do nothing
            returning ${STABILITY_COLUMNS}`,
-          [newId("inc"), workspaceId, environmentId, requireText("title", spec.title, 300), spec.severity, requireText("source", spec.source, 64), spec.summary ?? null, newId("corr"), json(spec.document ?? {}), now, input.fingerprint]
+          [newId("inc"), workspaceId, environmentId, requireText("title", spec.title, 300), spec.severity, requireText("source", spec.source, 64), spec.summary ?? null, newId("corr"), json({ ...(spec.document ?? {}), ...(input.telemetry ? { telemetry: { state: input.telemetry.state, signal: input.telemetry.signal, observedAt: input.telemetry.observedAt, partial: input.telemetry.partial } } : {}) }), now, input.fingerprint]
         );
         if (created.length) {
           incident = toStabilityIncident(created[0]);
@@ -242,7 +264,7 @@ export async function observeSignal(sql: Sql, input: ObserveSignalInput): Promis
         resolved = { incident: closed, postmortem };
       }
     }
-    return { signal: next, transition, ...(incident ? { incident } : {}), incidentCreated, ...(resolved ? { resolved } : {}) };
+    return { signal: next, transition, ...(incident ? { incident } : {}), incidentCreated, appliedObservation: applied, ...(resolved ? { resolved } : {}) };
   });
 }
 
@@ -302,7 +324,7 @@ const toView = (r: AttemptRow): RemediationAttempt => ({
 
 async function loadWindows(sql: Sql, workspaceId: string, now: string): Promise<WindowView[]> {
   const rows = await sql.query<{ id: string; environment_id: string | null; starts_at: string; ends_at: string }>(
-    `select id, environment_id, ${iso("starts_at")} as starts_at, ${iso("ends_at")} as ends_at from platform.incident_maintenance_windows
+    `select ${ACTIVE_WINDOW_COLUMNS} from platform.incident_maintenance_windows
       where workspace_id = $1 and cancelled_at is null and starts_at <= $2::timestamptz and ends_at > $2::timestamptz`,
     [workspaceId, now]
   );
@@ -343,7 +365,7 @@ async function evaluate(sql: Sql, input: RemediationGateInput, now: string): Pro
   let cooldownUntil: string | undefined;
   if (fingerprint) {
     const s = await sql.query<SignalRow>(
-      `select state, consecutive_bad, consecutive_good, ${iso("cooldown_until")} as cooldown_until from platform.incident_signal_state where workspace_id = $1 and environment_id = $2 and fingerprint = $3`,
+      `select ${SIGNAL_COLUMNS} from platform.incident_signal_state where workspace_id = $1 and environment_id = $2 and fingerprint = $3`,
       [workspaceId, environmentId, fingerprint]
     );
     signalActive = s.length ? s[0].state === "active" : false;
@@ -417,6 +439,7 @@ export async function reserveRemediation(sql: Sql, input: RemediationGateInput):
       const prior = await tx.query<AttemptRow>(`select ${ATTEMPT_COLUMNS} from platform.incident_remediation_attempts where workspace_id = $1 and incident_id = $2 and idempotency_key = $3 and status <> 'blocked'`, [workspaceId, input.incidentId, key]);
       if (prior.length) return { decision: { allowed: true, codes: [], messages: [], escalate: false }, attempt: toView(prior[0]), replayed: true };
     }
+    await syncAttemptOutcomes(tx, { workspaceId, now: input.now });
     const { incident, fingerprint, decision } = await evaluate(tx, input, now);
     const row = (status: "reserved" | "blocked") => [newId("att"), workspaceId, incident?.id ?? input.incidentId, environmentId, fingerprint ?? "", key, input.request.capability, input.request.resourceId ?? null, input.request.blastRadius, status, json(decision.codes), now];
     if (decision.allowed) {
@@ -636,4 +659,64 @@ export async function recordPostmortem(sql: Sql, input: { workspaceId: string; i
     if (rows.length) await emit(tx, "incident.postmortem_recorded", incident, "postmortem", { documentDigest: record.documentDigest });
     return record;
   });
+}
+
+/* ---------------------- operation binding and outcome sync --------------------- */
+
+/** Bind a reserved attempt to the operation that carries it out; the remediation start path requires this. */
+export async function bindAttemptToOperation(sql: Sql, input: { workspaceId: string; attemptId: string; operationId: string }): Promise<RemediationAttempt | null> {
+  const rows = await sql.query<AttemptRow>(
+    `update platform.incident_remediation_attempts set operation_id = $3
+      where workspace_id = $1 and id = $2 and status = 'reserved' and operation_id is null
+        and exists (select 1 from platform.operations o where o.workspace_id = $1 and o.id = $3)
+      returning ${ATTEMPT_COLUMNS}`,
+    [requireText("workspaceId", input.workspaceId), requireText("attemptId", input.attemptId), requireText("operationId", input.operationId)]
+  );
+  return rows.length ? toView(rows[0]) : null;
+}
+
+/**
+ * Settle reserved attempts whose operation reached a terminal status:
+ * succeeded stays succeeded, failed/uncertain count as failed (backoff applies),
+ * and operations that never ran (rejected, denied, cancelled, expired) are
+ * abandoned so they do not consume the attempt budget. Returns rows settled.
+ */
+export async function syncAttemptOutcomes(sql: Sql, input: { workspaceId: string; now?: Date }): Promise<number> {
+  const rows = await sql.query<{ id: string }>(
+    `update platform.incident_remediation_attempts a
+        set status = case o.status when 'succeeded' then 'succeeded' when 'failed' then 'failed' when 'uncertain' then 'failed' else 'abandoned' end,
+            settled_at = $2::timestamptz
+       from platform.operations o
+      where a.workspace_id = $1 and o.workspace_id = a.workspace_id and o.id = a.operation_id and a.status = 'reserved'
+        and o.status in ('succeeded','failed','uncertain','rejected','denied','cancelled','expired')
+      returning a.id`,
+    [requireText("workspaceId", input.workspaceId), at(input.now)]
+  );
+  return rows.length;
+}
+
+/* ------------------------------ escalation queue ------------------------------ */
+
+/** Escalated, unresolved incidents for a workspace (optionally one environment), oldest first. */
+export async function listEscalations(sql: Sql, workspaceId: string, filter: { environmentId?: string; unacknowledgedOnly?: boolean; limit?: number } = {}): Promise<StabilityIncident[]> {
+  const rows = await sql.query<StabilityRow>(
+    `select ${STABILITY_COLUMNS} from platform.incidents
+      where workspace_id = $1 and escalated_at is not null and status <> 'resolved'
+        and ($2::text is null or environment_id = $2::text)
+        and (not $3::boolean or escalation_acknowledged_at is null)
+      order by escalated_at, id limit $4::bigint`,
+    [requireText("workspaceId", workspaceId), filter.environmentId ?? null, Boolean(filter.unacknowledgedOnly), Math.max(1, Math.min(200, Math.trunc(filter.limit ?? 50)))]
+  );
+  return rows.map(toStabilityIncident);
+}
+
+/** A person takes ownership of an escalation. Idempotent: the first acknowledgement is kept. */
+export async function acknowledgeEscalation(sql: Sql, input: { workspaceId: string; incidentId: string; by: string; now?: Date }): Promise<StabilityIncident | null> {
+  const rows = await sql.query<StabilityRow>(
+    `update platform.incidents set escalation_acknowledged_at = coalesce(escalation_acknowledged_at, $3::timestamptz),
+            escalation_acknowledged_by = coalesce(escalation_acknowledged_by, $4), updated_at = $3::timestamptz
+      where workspace_id = $1 and id = $2 and escalated_at is not null returning ${STABILITY_COLUMNS}`,
+    [requireText("workspaceId", input.workspaceId), requireText("incidentId", input.incidentId), at(input.now), requireText("by", input.by)]
+  );
+  return rows.length ? toStabilityIncident(rows[0]) : null;
 }

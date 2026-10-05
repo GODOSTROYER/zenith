@@ -43,6 +43,8 @@ import {
   type RepairProposalResult,
   type RepairSkipReason,
   type ResolvedReconcileOptions,
+  type StabilityAdmission,
+  type StabilityIncidentRef,
   type StoredResourceRef,
 } from "./types";
 
@@ -188,7 +190,11 @@ interface ProposeInput {
   environment: ReconcileEnvironment;
   report: DriftReport;
   selection: CandidateSelection;
-  ports: Pick<ReconcilePorts, "now" | "broker" | "startRepair" | "store">;
+  ports: Pick<ReconcilePorts, "now" | "broker" | "startRepair" | "store" | "stability">;
+  /** confirmed incidents from this pass, keyed `<address>|<class>`; required when `ports.stability` is wired */
+  incidents?: ReadonlyMap<string, StabilityIncidentRef>;
+  /** the stability observation step failed: nothing may be proposed */
+  stabilityFailed?: boolean;
   options: ResolvedReconcileOptions;
   findingSince: Readonly<Record<string, string>>;
   assertCurrent?: () => Promise<void>;
@@ -275,21 +281,57 @@ export async function proposeRepairs(input: ProposeInput): Promise<ProposeOutcom
       continue;
     }
 
+    // Deterministic stability gate (PROD-OBS-03), fail closed: no confirmed
+    // incident, no reservation, or any store failure means no proposal.
+    const repairRequest = buildRepairRequest({ environment, candidate, report, options, now });
+    let admission: StabilityAdmission | undefined;
+    if (ports.stability) {
+      const skipWith = (reason: RepairSkipReason, error?: string): void => {
+        decisions.push({ address: node.address, class: finding.class, status: "skipped", reason, ...(error ? { error } : {}) });
+      };
+      const ref = input.incidents?.get(`${node.address}|${finding.class}`);
+      if (input.stabilityFailed) {
+        skipWith("stability_unavailable");
+        continue;
+      }
+      if (!ref) {
+        skipWith("stability_unconfirmed");
+        continue;
+      }
+      await input.assertCurrent?.();
+      try {
+        admission = await ports.stability.admit(environment, { incidentId: ref.incidentId, request: repairRequest, address: node.address }, now);
+      } catch {
+        skipWith("stability_unavailable");
+        continue;
+      }
+      if (!admission.allowed) {
+        skipWith("stability_blocked", admission.codes.join(","));
+        continue;
+      }
+    }
+
     let result: RepairProposalResult;
     await input.assertCurrent?.();
     try {
       result = await ports.broker.propose({
-        request: buildRepairRequest({ environment, candidate, report, options, now }),
+        request: repairRequest,
         origin: "reconciler",
         principal: RECONCILER_PRINCIPAL,
         correlationId,
       });
     } catch (err) {
       await input.assertCurrent?.();
+      if (admission?.attemptId) await ports.stability?.release(environment, admission.attemptId, ports.now()).catch(() => undefined);
       decisions.push({ address: node.address, class: finding.class, status: "failed", reason: "broker_error", error: describeError(err) });
       continue;
     }
     budget--;
+    if (admission?.attemptId) {
+      // Bind the reservation to the operation (the remediation start path requires it); a lost bind leaves a counted, expiring reservation.
+      if (result.operationId) await ports.stability?.attach(environment, admission.attemptId, result.operationId).catch(() => undefined);
+      else await ports.stability?.release(environment, admission.attemptId, ports.now()).catch(() => undefined);
+    }
     if (result.operationId)
       ops = [
         ...ops,

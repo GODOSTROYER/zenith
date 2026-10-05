@@ -8,7 +8,13 @@ export default async function InvestigationsPage({ params }: { params: Promise<{
   const { id } = await params;
   const result = await loadInvestigations(id);
   if ("error" in result) return <PageState {...result} />;
+  const escalations = result.data.escalations;
   return <div className="space-y-5"><h1 className="app-page-title">Investigations</h1><EvidenceNote />
+    {escalations.map((e) => (
+      <Callout key={e.incidentId} tone={e.state === "unacknowledged" ? "err" : "warn"}>
+        {e.state === "unacknowledged" ? "Unacknowledged escalation" : "Escalation acknowledged"}: {e.title} ({e.severity}). Zenith could not safely continue on its own ({e.reasons.map((r) => r.replaceAll("_", " ")).join(", ")}); a person needs to take over. Escalated {e.escalatedAt}.
+      </Callout>
+    ))}
     {result.data.investigations.length === 0 ? <><p className="text-ink-mute">No stored investigations for this environment. This does not establish that it is healthy.</p><InvestigationView /></> : result.data.investigations.map((investigation) => <InvestigationView key={investigation.id} investigation={investigation} />)}
     {result.data.truncated && <Callout tone="info">Showing the latest 20 investigations. Older investigations may exist.</Callout>}
   </div>;

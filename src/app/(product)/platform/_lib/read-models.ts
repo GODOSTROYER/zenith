@@ -129,7 +129,20 @@ export async function readDrift(caller: ReadCaller, environmentId: string): Prom
   return boundedView({ report: safe, truncated: report.findings.length > 200 || report.unobserved.length > 200 || report.findings.some((f) => (f.fields?.length ?? 0) > 100), evidence: "contract" });
 }
 
-export interface IncidentsView { investigations: Investigation[]; truncated: boolean; evidence: "contract" }
+/**
+ * An incident that needs a person. Zenith has no paging vendor: the escalation
+ * is shown here, with an explicit state, until someone acknowledges it.
+ */
+export interface EscalationView {
+  incidentId: string;
+  title: string;
+  severity: string;
+  escalatedAt: string;
+  reasons: string[];
+  state: "unacknowledged" | "acknowledged";
+  acknowledgedAt?: string;
+}
+export interface IncidentsView { investigations: Investigation[]; escalations: EscalationView[]; truncated: boolean; evidence: "contract" }
 function investigationView(inv: Investigation): Investigation {
   const truncated = inv.path.length > 200 || inv.evidence.length > 200 || inv.hypotheses.length > 200 || inv.recentChanges.length > 200 || inv.hypotheses.some((h) => h.remediations.length > 50);
   return {
@@ -155,5 +168,15 @@ export async function readIncidents(caller: ReadCaller, environmentId: string): 
      order by started_at desc, id limit 21`, [caller.workspaceId, environmentId],
   );
   if (rows.some((r) => r.document.workspaceId !== caller.workspaceId || r.document.environmentId !== environmentId)) throw notFound();
-  return boundedView({ investigations: rows.slice(0, 20).map((r) => investigationView(r.document)), truncated: rows.length > 20, evidence: "contract" });
+  const escalated = await repos.incidentStability.listEscalations(sql, caller.workspaceId, { environmentId, limit: 20 });
+  const escalations: EscalationView[] = escalated.map((i) => ({
+    incidentId: i.id,
+    title: publicData(i.title),
+    severity: i.severity,
+    escalatedAt: i.escalatedAt ?? i.updatedAt,
+    reasons: publicData(i.escalationReasons),
+    state: i.escalationAcknowledgedAt ? "acknowledged" : "unacknowledged",
+    ...(i.escalationAcknowledgedAt ? { acknowledgedAt: i.escalationAcknowledgedAt } : {}),
+  }));
+  return boundedView({ investigations: rows.slice(0, 20).map((r) => investigationView(r.document)), escalations, truncated: rows.length > 20, evidence: "contract" });
 }

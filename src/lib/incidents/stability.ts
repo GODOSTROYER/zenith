@@ -18,6 +18,7 @@
  *                 needs a person produce an escalation, not another guess
  */
 import { digest } from "@/lib/controlplane/digest";
+import type { TelemetryState } from "@/lib/observability/telemetry";
 import type { ResourceGraph } from "@/lib/resources/types";
 
 /* --------------------------------- policy ---------------------------------- */
@@ -168,6 +169,18 @@ export function advanceSignal(policy: StabilityPolicy, prev: SignalState, observ
   const good = prev.consecutiveGood + 1;
   if (prev.state === "active" && good >= clearAfter) return { next: { state: "quiet", consecutiveBad: 0, consecutiveGood: 0 }, transition: "cleared" };
   return { next: { state: prev.state, consecutiveBad: 0, consecutiveGood: good }, transition: "none" };
+}
+
+/**
+ * Telemetry trust gate: an observation only counts as strongly as the data
+ * behind it. A `bad` needs fresh data; a `good` needs fresh data or a reachable
+ * source with nothing in the window (`empty`). Stale, unknown or inaccessible
+ * telemetry proves nothing either way, so it can neither open nor clear.
+ */
+export function trustedObservation(observation: Observation, state: TelemetryState | undefined): Observation {
+  if (state === undefined || observation === "unknown") return observation;
+  if (observation === "bad") return state === "fresh" ? "bad" : "unknown";
+  return state === "fresh" || state === "empty" ? "good" : "unknown";
 }
 
 /* ------------------------------ remediation gate ----------------------------- */

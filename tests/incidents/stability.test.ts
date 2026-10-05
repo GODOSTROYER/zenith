@@ -18,6 +18,7 @@ import {
   gateUnavailable,
   incidentFingerprint,
   resolveStabilityPolicy,
+  trustedObservation,
   type AttemptView,
   type GateSnapshot,
   type SignalState,
@@ -322,5 +323,17 @@ describe("investigation engine enforces the gate", () => {
   it("a healthy environment does not escalate", async () => {
     const inv = await investigate({ graph: buildGraph(), environment: env }, makePorts(healthyWorld()));
     expect(inv.escalation).toBeUndefined();
+  });
+});
+
+describe("telemetry trust gate", () => {
+  it("only fresh data can open; only fresh or empty data can clear; the rest proves nothing", () => {
+    expect(trustedObservation("bad", "fresh")).toBe("bad");
+    for (const state of ["stale", "empty", "unknown", "inaccessible"] as const) expect(trustedObservation("bad", state)).toBe("unknown");
+    expect(trustedObservation("good", "fresh")).toBe("good");
+    expect(trustedObservation("good", "empty")).toBe("good");
+    for (const state of ["stale", "unknown", "inaccessible"] as const) expect(trustedObservation("good", state)).toBe("unknown");
+    expect(trustedObservation("unknown", "fresh")).toBe("unknown");
+    expect(trustedObservation("bad", undefined)).toBe("bad");
   });
 });

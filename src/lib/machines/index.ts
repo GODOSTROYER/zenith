@@ -22,6 +22,7 @@ export * from "./args";
 export * from "./results";
 export * from "./guards";
 export { executeMachineOperation, capabilityForOperation, type MachineExecutionContext } from "./service";
+export { readMachineHealth, machineHealthTelemetry, MACHINE_HEALTH_OPERATIONS, type MachineHealthRead } from "./telemetry";
 export { evidenceForRejection, evidenceForResult } from "./evidence";
 export { redactText, redactDeep } from "./redact";
 export { argvToCommandLine, shellQuote } from "./shell";

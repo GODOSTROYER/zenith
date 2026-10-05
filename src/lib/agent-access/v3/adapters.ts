@@ -27,6 +27,7 @@ import { isMemoryStoreEnabled, platformBroker } from "@/lib/capabilities/platfor
 import { CredentialDeniedError, type AwsSession, type CredentialBroker, type KubernetesSession, type ProviderSession } from "@/lib/credentials/types";
 import { db, q, revisionManifestAsync } from "@/lib/db/store";
 import { createObservabilityFabric } from "@/lib/observability/fabric";
+import { describeSession } from "@/lib/observability/telemetry";
 import { sourcesForEnvironment, type SourceSessions } from "@/lib/observability/sources/factory";
 import { createUnavailableSource } from "@/lib/observability/sources/unavailable";
 import type { ProviderKey } from "@/lib/resources/types";
@@ -151,7 +152,10 @@ export function observabilityPort(options: ObservabilityOptions = {}): Observabi
   const sources = options.sources ?? sourcesForEnvironment;
   return {
     async withFabric({ workspaceId, environment, graph, grant }, fn) {
-      const build = (sessions: SourceSessions) => createObservabilityFabric(sources({ provider: environment.provider, graph, workspaceId, sessions }));
+      const build = (sessions: SourceSessions, session?: ProviderSession) => {
+        const described = describeSession(session);
+        return createObservabilityFabric(sources({ provider: environment.provider, graph, workspaceId, sessions }), described ? { session: described } : {});
+      };
       const broker = brokerOf();
       if (!NEEDS_SESSION.has(environment.provider) || !broker) return fn(build({}));
 
@@ -160,7 +164,7 @@ export function observabilityPort(options: ObservabilityOptions = {}): Observabi
         // Cloud credentials exist only inside this callback. The grant is the broker's read grant for this exact read.
         return await broker.withSession({ connectionId: environment.connectionId, grant, purpose: "observe" }, async (session) => {
           entered = true;
-          return fn(build(sessionsFor(session)));
+          return fn(build(sessionsFor(session), session));
         });
       } catch (error) {
         // A refusal to open the session is an answer ("the credential broker said no"), not a crash. A failure inside `fn` is not ours to swallow.

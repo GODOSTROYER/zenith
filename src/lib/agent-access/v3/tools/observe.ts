@@ -72,7 +72,7 @@ export async function queryLogs(args: QueryLogsArgs, ctx: ToolContext): Promise<
   }
 
   return {
-    data: { count: result.items.length, limit, range, sources: result.sources },
+    data: { count: result.items.length, limit, range, sources: result.sources, ...(result.telemetry ? { telemetry: result.telemetry } : {}) },
     untrusted: { logs: result.items },
     simulated: result.simulated,
     unavailable: result.unavailable,
@@ -106,7 +106,7 @@ export async function queryMetrics(args: QueryMetricsArgs, ctx: ToolContext): Pr
   }
 
   return {
-    data: { seriesCount: result.items.length, range, sources: result.sources, requested: args.metrics },
+    data: { seriesCount: result.items.length, range, sources: result.sources, requested: args.metrics, ...(result.telemetry ? { telemetry: result.telemetry } : {}) },
     untrusted: { series: result.items },
     simulated: result.simulated,
     unavailable: result.unavailable,

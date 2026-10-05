@@ -63,6 +63,7 @@ export async function createPlane(mode: "fake" | "real" = "fake", extra: Partial
     signer,
     verificationKeys: async () => [signer.publicJwk()],
     sealer: createAesResultSealer(randomBytes(32)),
+    connections: async () => null,
     events: { emit: (e) => void events.push(e) },
     now,
     sleep:
@@ -232,6 +233,8 @@ export interface RegisterOptions {
   name?: string;
   capabilities?: string[];
   binding?: { environmentId?: string; address?: string };
+  /** extra registration labels (for example zenith.credentialMode) */
+  labels?: Record<string, string>;
 }
 
 /** Register a fake agent through the real `register` route (token → agent), like `zenith-runner register`. */
@@ -249,7 +252,7 @@ export async function registerFakeAgent(plane: Plane, registerRoute: unknown, o:
       name: o.name ?? `test-${kind}`,
       version: "1.0.0",
       capabilities: o.capabilities ?? (kind === "runner" ? ["tofu.run", "aws.http", "probe.http", "probe.tcp", "probe.dns", "k8s.http"] : ["machine.inspect", "service.status", "process.list"]),
-      labels: { region: "ap-south-1" },
+      labels: { region: "ap-south-1", ...(o.labels ?? {}) },
       host: { os: "linux", arch: "amd64" },
     }),
   });

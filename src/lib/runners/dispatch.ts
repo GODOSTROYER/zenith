@@ -29,6 +29,8 @@ import { isCapability } from "@/lib/capabilities/catalog";
 import { GrantVerificationError } from "@/lib/credentials/errors";
 import { verifyCapabilityGrant } from "@/lib/credentials/grants";
 import type { MachineResult } from "@/lib/machines/types";
+import { detectCredentialShapes } from "@/lib/security/result-sanitizer";
+import { assertRunnerBinding, RunnerBindingError } from "@/lib/runners/custody";
 import { PayloadError, validateMachineArgs, validateRunnerPayload } from "@/lib/runners/payloads";
 import { queueOf, registryOf, RunnerStoreError, TERMINAL_JOB_STATUSES, type AgentJob, type AgentRecord } from "@/lib/runners/ports";
 import { abortError, getRunnerRuntime, type RunnerRuntime } from "@/lib/runners/runtime";
@@ -55,6 +57,9 @@ export type DispatchErrorCode =
   | "agent_stale"
   | "agent_lacks_capability"
   | "grant_invalid"
+  | "binding_revoked"
+  | "binding_unavailable"
+  | "custody_mismatch"
   | "payload_too_large"
   | "job_not_found";
 
@@ -149,6 +154,13 @@ export interface EnqueueRunnerJobInput {
   maxOutputBytes?: number;
   /** how long the job may wait to be claimed */
   queueTtlSec?: number;
+  /**
+   * The provider connection this job acts through. When set, the binding is re-read from the store and
+   * the job is refused if it is revoked, unverified, not bound to this runner or the runner does not
+   * declare the custody it requires (`custody.ts`). There is no fallback to other credentials.
+   * Absent only for jobs that act through no provider connection (probes, runner-direct tooling).
+   */
+  bindingConnectionId?: string;
 }
 
 interface Built {
@@ -206,7 +218,23 @@ export async function enqueueRunnerJob(input: EnqueueRunnerJobInput, runtime?: R
     throw error;
   }
 
+  // The runner uses ITS local identity: a job never carries credential material. (File bodies are opaque base64 and are scanned by their producers.)
+  {
+    const { files: _files, bodyB64: _body, ...structure } = (payload ?? {}) as Record<string, unknown>;
+    const shapes = detectCredentialShapes(structure);
+    if (shapes.length > 0) throw new DispatchError("invalid_payload", `The job payload carries credential material (${shapes.join(", ")}); runner jobs never carry credentials, the runner signs with its own local identity.`);
+  }
+
   const runner = await requireDispatchable(rt, "runner", input.workspaceId, input.runnerId);
+  if (input.bindingConnectionId !== undefined) {
+    if (!isValidId(input.bindingConnectionId)) throw new DispatchError("invalid_input", "bindingConnectionId must be a valid id.");
+    try {
+      await assertRunnerBinding(rt.connections, runner, input.workspaceId, input.bindingConnectionId);
+    } catch (error) {
+      if (error instanceof RunnerBindingError) throw new DispatchError(error.code, error.message);
+      throw error;
+    }
+  }
   if (!runner.capabilities.includes(input.kind)) throw new DispatchError("agent_lacks_capability", `The runner ${runner.id} does not advertise the ${input.kind} job kind (it offers: ${runner.capabilities.join(", ") || "nothing"}).`);
 
   const built = await enqueueCommon(rt, "runner", {

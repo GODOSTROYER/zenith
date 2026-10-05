@@ -28,7 +28,8 @@
  *    present, so "nothing came back" is distinguishable from "nothing could be
  *    asked".
  */
-import { scrubMcpValue } from "./redaction";
+import { scrubCollector, scrubMcpValue } from "./redaction";
+import { redactionNote } from "@/lib/security/result-sanitizer";
 import { CONTRACT_VERSION, UNTRUSTED_NOTE } from "./contract";
 import { McpToolError, type ErrorBody } from "./errors";
 
@@ -122,19 +123,23 @@ function fitToBudget(envelope: Envelope, limit: number): boolean {
 
 /** Wrap a handler's output in the contract. Scrubs, bounds and labels; never throws for size alone unless nothing can be cut. */
 export function buildEnvelope(tool: ToolRef, output: ToolOutput, limit = MAX_RESULT_BYTES): Envelope {
-  const scrubbed = scrubMcpValue({ data: output.data, untrusted: output.untrusted });
+  const collector = scrubCollector();
+  const scrubbed = collector.scrub({ data: output.data, untrusted: output.untrusted });
   const envelope: Envelope = {
     ...baseEnvelope(tool),
     ok: true,
     simulated: output.simulated === true,
-    unavailable: scrubMcpValue(output.unavailable ?? []),
+    unavailable: collector.scrub(output.unavailable ?? []),
     truncated: output.truncated === true,
-    notes: scrubMcpValue(output.notes ?? []),
+    notes: collector.scrub(output.notes ?? []),
     data: scrubbed.data,
     ...(scrubbed.untrusted && Object.keys(scrubbed.untrusted).length > 0
       ? { untrusted_data: { label: "untrusted_data" as const, content: scrubbed.untrusted as Record<string, unknown> } }
       : {}),
   };
+  // Say so when something was replaced; never claim the rest is clean.
+  const redacted = redactionNote(collector.report());
+  if (redacted) envelope.notes.push(redacted);
   if (bytes(envelope) > limit) {
     // Include the explanatory note in the budget while fitting, not afterwards.
     envelope.notes.push(`The result was cut to fit ${Math.floor(limit / 1024)} KiB; ask for a narrower window, service or limit to see the rest.`);
@@ -148,10 +153,13 @@ export function buildEnvelope(tool: ToolRef, output: ToolOutput, limit = MAX_RES
 
 /** An error envelope: same contract, `ok: false`, no data. */
 export function buildErrorEnvelope(tool: ToolRef, error: ErrorBody): Envelope {
-  const { details, ...safeError } = scrubMcpValue(error);
+  const collector = scrubCollector();
+  const { details, ...safeError } = collector.scrub(error);
   const envelope: Envelope = { ...baseEnvelope(tool), ok: false, data: {},
     error: { ...safeError, code: safeError.code.slice(0, 120), message: safeError.message.slice(0, 2000), fix: safeError.fix?.slice(0, 2000) },
     ...(details ? { untrusted_data: { label: "untrusted_data", content: { errorDetails: details } } } : {}) };
+  const redacted = redactionNote(collector.report());
+  if (redacted) envelope.notes.push(redacted);
   if (bytes(envelope) > MAX_RESULT_BYTES) {
     envelope.truncated = true;
     envelope.notes.push("Error details were cut to fit the result byte limit.");

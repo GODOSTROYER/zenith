@@ -71,6 +71,25 @@ var awsHostRe = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+
 // AWSHostAllowed reports whether host (no port) may receive signed requests.
 func AWSHostAllowed(host string) bool { return awsHostRe.MatchString(host) }
 
+// LocalSecretValues returns the secret parts (secret access key, session token)
+// of the credentials this runner currently uses, so the executor can make sure
+// they never appear in a result. It uses the provider's cached credentials; an
+// error or an empty result means nothing could be listed, never that nothing
+// is secret.
+func (a *AWS) LocalSecretValues(ctx context.Context) []string {
+	creds, err := a.creds.Retrieve(ctx)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, v := range []string{creds.SecretAccessKey, creds.SessionToken} {
+		if len(v) >= 8 {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 // NewAWS builds the kind. It fails on an unparsable allowlist so a typo in
 // the config is caught at startup, not at the first job.
 func NewAWS(cfg AWSConfig, deps AWSDeps) (*AWS, error) {

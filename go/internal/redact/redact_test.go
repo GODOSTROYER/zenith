@@ -100,3 +100,14 @@ func TestRedactionHandlesHostileInputQuickly(t *testing.T) {
 	_ = String(nasty)
 	_ = String(strings.Repeat("-----BEGIN PRIVATE KEY-----", 5000))
 }
+
+func TestShapesNamesKindsWithoutText(t *testing.T) {
+	keyID := "AK" + "IA" + strings.Repeat("Q", 16)
+	got := Shapes("found " + keyID + " and password = hunter2hunter2")
+	if len(got) != 1 || got[0] != "aws-key-id" {
+		t.Fatalf("got %v, want only the key id shape (assignments are ignored)", got)
+	}
+	if Shapes("nothing here") != nil || Shapes("") != nil {
+		t.Fatal("clean text has no shapes")
+	}
+}

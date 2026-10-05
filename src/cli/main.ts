@@ -12,6 +12,7 @@ import { configPaths, loadConfig, removeConfig, saveConfig, validateToken, valid
 import { CliError, diagnostic, interrupted, statusExit } from "./errors";
 import { identifier, integer, jsonInput, parse, required, scopeInput, readStdin } from "./input";
 import type { Arguments } from "./input";
+import { CreateAzureInput, CreateGcpInput, CreateOciInput } from "@/lib/connections/schemas";
 import { createOutput } from "./output";
 import { containsCredential, object, sanitize, serialize } from "./security";
 import { boundedFetch, McpClient, pause } from "./transport";
@@ -46,6 +47,19 @@ zenith approve ID  (refuses; returns the human browser review URL)
 zenith tools list
 zenith tools call NAME --args @file.json|-
 zenith execute ID --workspace ID --digest REVIEWED_PROPOSAL_DIGEST
+zenith connections list [--include-revoked]
+zenith connections show ID
+zenith connections verify ID
+zenith connections revoke ID --confirm ID [--reason TEXT] [--revoke-runner]
+zenith connections create PROVIDER --input @file.json|-       (browser handoff)
+zenith connections rotate ID --input @file.json|- [--promote]  (browser handoff)
+zenith connections promote ID --rotation ROTATION_ID           (browser handoff)
+zenith connections abort ID --rotation ROTATION_ID             (browser handoff)
+
+connections: PROVIDER is aws, gcp, azure, oci or kubernetes. list, show, verify and revoke run
+with a linked credential. create, rotate, promote and abort change what Zenith can reach, so
+they validate your input locally and hand off to the signed-in browser (exit 3), like approve.
+revoke is terminal and immediate; --confirm must repeat the connection id.
 
 whoami verifies authentication; the user identity remains unknown in MCP v3.
 --follow emits JSON Lines with --json; Ctrl+C exits 130. See docs/platform/CLI.md.
@@ -53,7 +67,7 @@ whoami verifies authentication; the user identity remains unknown in MCP v3.
 
 function command(args: Arguments): string {
   const { words, flags } = args;
-  const name = words[0] === "ops" || words[0] === "tools" ? words.slice(0, 2).join(" ") : words[0];
+  const name = words[0] === "ops" || words[0] === "tools" || words[0] === "connections" ? words.slice(0, 2).join(" ") : words[0];
   const shapes: Record<string, { count: number; options: string[] }> = {
     login: { count: 1, options: ["token-stdin"] }, logout: { count: 1, options: [] }, whoami: { count: 1, options: [] },
     "ops list": { count: 2, options: ["status", "env", "limit", "cursor"] },
@@ -63,6 +77,10 @@ function command(args: Arguments): string {
     check: { count: 2, options: ["scope", "input", "idempotency-key", "reason"] }, approve: { count: 2, options: [] },
     "tools list": { count: 2, options: [] }, "tools call": { count: 3, options: ["args"] },
     execute: { count: 2, options: ["digest"] },
+    "connections list": { count: 2, options: ["include-revoked"] }, "connections show": { count: 3, options: [] },
+    "connections verify": { count: 3, options: [] }, "connections revoke": { count: 3, options: ["confirm", "reason", "revoke-runner"] },
+    "connections create": { count: 3, options: ["input"] }, "connections rotate": { count: 3, options: ["input", "promote"] },
+    "connections promote": { count: 3, options: ["rotation"] }, "connections abort": { count: 3, options: ["rotation"] },
   };
   const shape = shapes[name];
   const global = ["url", "workspace", "timeout", "json", "debug", "help"];
@@ -118,6 +136,36 @@ export async function runCli(argv: string[], runtime: CliRuntime = {}): Promise<
       const id = identifier(words[1]);
       output({ approved: false, code: "browser_session_required", browserUrl: `${baseUrl}/integrations/operations/${id}`,
         message: "Only a human signed in to the browser can review and approve the exact proposal digest. A CLI credential cannot approve." });
+      return 3;
+    }
+    if (name === "connections create" || name === "connections rotate" || name === "connections promote" || name === "connections abort") {
+      // These change what Zenith can reach: validate locally, never send, hand off to the browser.
+      const target = words[2];
+      let checked: Record<string, unknown> = {};
+      if (name === "connections create") {
+        const provider = target;
+        const schemas = { gcp: CreateGcpInput, azure: CreateAzureInput, oci: CreateOciInput } as const;
+        if (!["aws", "gcp", "azure", "oci", "kubernetes"].includes(provider)) throw new CliError(2, "invalid_arguments", "PROVIDER must be aws, gcp, azure, oci or kubernetes.");
+        if (provider in schemas) {
+          const input = await jsonInput(required(flags, "input"), stdin, runtime.signal);
+          if (findSecret(input) || containsCredential(input, secrets)) throw new CliError(2, "secret_input", "Input contains credential material. Connections hold identifiers only; values are never echoed.");
+          const parsed = schemas[provider as keyof typeof schemas].safeParse(input);
+          if (!parsed.success) throw new CliError(2, "invalid_input", `Invalid ${provider} connection input: ${parsed.error.issues.slice(0, 6).map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ")}`);
+          checked = { provider, inputValid: true };
+        } else checked = { provider, inputValid: null, note: "This provider's creation flow returns trust values you must act on; use its browser page." };
+      } else {
+        identifier(target);
+        if (name === "connections rotate") {
+          const patch = await jsonInput(required(flags, "input"), stdin, runtime.signal);
+          if (findSecret(patch) || containsCredential(patch, secrets)) throw new CliError(2, "secret_input", "Input contains credential material. Rotation changes identifiers only; values are never echoed.");
+          checked = { connectionId: target, fields: Object.keys(patch), promote: flags.promote === true };
+        } else {
+          identifier(required(flags, "rotation"));
+          checked = { connectionId: target, rotationId: flags.rotation };
+        }
+      }
+      output({ approved: false, code: "browser_session_required", ...checked, browserUrl: `${baseUrl}/platform/connections`,
+        message: "Creating, rotating, promoting or aborting connection access changes what Zenith can reach, so only a person signed in to the browser can do it. Nothing was sent." });
       return 3;
     }
     if (name === "login") {
@@ -189,6 +237,19 @@ export async function runCli(argv: string[], runtime: CliRuntime = {}): Promise<
       const result = await (name === "propose" ? client.proposeCapability(parsed.data) : client.checkCapability(parsed.data));
       output(result);
       if (result.decision.outcome === "deny") return 3;
+    } else if (name === "connections list") {
+      output(await client.listConnections(flags["include-revoked"] === true ? { includeRevoked: true } : { includeRevoked: false }), "connections");
+    } else if (name === "connections show") output((await client.getConnection(identifier(words[2]))).connection, "connection");
+    else if (name === "connections verify") {
+      const result = await client.verifyConnection(identifier(words[2]));
+      output(result, "connection-answer"); return result.ok ? 0 : 6;
+    } else if (name === "connections revoke") {
+      const id = identifier(words[2]);
+      if (flags.confirm !== id) throw new CliError(2, "confirmation_required", "Revocation is terminal and immediate. Repeat the connection id with --confirm to proceed.");
+      const reason = typeof flags.reason === "string" ? flags.reason : undefined;
+      if (reason && (findSecret({ reason }) || containsCredential({ reason }, secrets))) throw new CliError(2, "secret_input", "Reason contains credential material; values are never echoed.");
+      const result = await client.revokeConnection(id, { confirm: id, ...(reason ? { reason } : {}), ...(flags["revoke-runner"] === true ? { revokeRunner: true } : {}) });
+      output(result, "connection-answer"); return result.ok ? 0 : 6;
     } else if (name === "tools list") {
       const result = await mcp.request("tools/list", {});
       if (!Array.isArray(result.tools) || result.tools.some((tool: unknown) => !object(tool) || typeof tool.name !== "string" || !object(tool.inputSchema)) ||

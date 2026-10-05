@@ -32,6 +32,14 @@ export interface BridgeDeps {
   credentialBroker(resolveConnection: ConnectionResolver): Promise<{
     verifyConnection(id: string, opts: { workspaceId: string }): Promise<{ ok: boolean; detail: string }>;
   }>;
+  /**
+   * Observe-only verification for GCP, Azure, OCI and Kubernetes connections
+   * (PROD-LIFE-01). `candidate` presents a staged rotation config under the live
+   * connection's id; the stored row is not changed.
+   */
+  providerBroker(sql: Sql, candidate?: { workspaceId: string; connectionId: string; config: ProviderConnection["config"] }): Promise<{
+    verifyConnection(id: string, opts: { workspaceId: string }): Promise<{ ok: boolean; detail: string }>;
+  }>;
 }
 
 const defaults: BridgeDeps = {
@@ -64,6 +72,10 @@ const defaults: BridgeDeps = {
   credentialBroker: async (resolveConnection) => {
     const { AwsCredentialBroker } = await import("@/lib/credentials/aws/broker");
     return new AwsCredentialBroker({ resolveConnection });
+  },
+  providerBroker: async (sql, candidate) => {
+    const { platformCredentialBroker } = await import("@/lib/platform/credentials");
+    return platformCredentialBroker(sql, candidate ? { verifyCandidate: candidate } : {});
   },
 };
 

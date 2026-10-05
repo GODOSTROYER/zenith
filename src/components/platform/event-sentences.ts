@@ -98,6 +98,12 @@ const RULES: Record<PlatformEventType, Rule> = {
   "machine.registered": { sentence: () => "A machine registered with Zenith.", tone: "idle" },
   "machine.revoked": { sentence: () => "A machine's access was revoked.", tone: "warn" },
   "machine.request.completed": { sentence: () => "A request to a machine completed.", tone: "idle" },
+  "connection.created": { sentence: (w) => `${w} saved a cloud connection. It deploys nothing until it is verified.`, tone: "idle" },
+  "connection.verified": { sentence: (_w, d) => (d.ok === false ? "A cloud connection failed its identity check." : "A cloud connection passed its identity check."), tone: "idle" },
+  "connection.revoked": { sentence: (w) => `${w} revoked a cloud connection. Zenith can no longer act through it.`, tone: "warn" },
+  "connection.rotation_staged": { sentence: (w) => `${w} staged new access for a cloud connection. The current access keeps working until it is promoted.`, tone: "info" },
+  "connection.rotated": { sentence: (w) => `${w} promoted verified new access for a cloud connection.`, tone: "ok" },
+  "connection.rotation_aborted": { sentence: (w) => `${w} discarded staged new access for a cloud connection.`, tone: "idle" },
 };
 
 /** Keys whose string value is worth surfacing as one line of context. */

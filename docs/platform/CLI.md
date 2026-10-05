@@ -212,6 +212,46 @@ expectedDigest}`. The server rechecks ownership, grant, approval, policy,
 digest, expiry, supported capability and current execution state. A dispatch
 response is not verification of a deployment; inspect operation/events next.
 
+### Connection lifecycle: `zenith connections ...`
+
+Five verbs exist for every supported provider (AWS, GCP, Azure, OCI, Kubernetes)
+and for the runner that backs an OCI connection. The same verbs run in the web
+app (Platform, Connections) and over REST (`/api/platform/v1/connections`).
+
+```sh
+zenith connections list [--include-revoked]
+zenith connections show ID
+zenith connections verify ID
+zenith connections revoke ID --confirm ID [--reason TEXT] [--revoke-runner]
+zenith connections create PROVIDER --input @file.json|-
+zenith connections rotate ID --input @patch.json|- [--promote]
+zenith connections promote ID --rotation ROTATION_ID
+zenith connections abort ID --rotation ROTATION_ID
+```
+
+- `list`, `show`, `verify` and `revoke` run with a linked credential, acting as
+  its bound human whose current workspace role is re-read on every call
+  (`verify` needs editor, `revoke` needs admin). `verify` is an observe-only
+  identity readback; a pass never claims deploy permissions. A completed but
+  failed verification exits 6.
+- `revoke` is terminal and takes effect before the next dispatch: the credential
+  broker, the deploy route and the workflow-start authority all read the
+  committed `revoked` status, with no fallback to another connection or the
+  sandbox. `--confirm` must repeat the connection id. `--revoke-runner` also
+  revokes the runner of an OCI connection when no other live connection uses it.
+  Remove the Zenith trust in your cloud as well: credentials already minted
+  expire within their short lifetime.
+- `create`, `rotate`, `promote` and `abort` change what Zenith can reach. The CLI
+  validates the input locally (the same strict schemas as the server), sends
+  nothing and exits 3 with the browser URL, exactly like `approve`.
+  Inputs carry identifiers only; secret-shaped values are refused and never
+  echoed.
+- Rotation is staged: the new access is verified under the same connection id
+  and workload subject while the current access keeps serving, and a single
+  guarded swap (refused if the connection changed, was revoked, or the
+  verification is older than an hour) switches it. The pinned identity
+  (account, project, tenant, subscription, tenancy, API server) can never change.
+
 ## Exit codes and failure behavior
 
 | Code | Meaning |

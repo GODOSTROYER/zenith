@@ -21,6 +21,7 @@ import "./security";
 import "./connection";
 import "./connection-aws";
 import "./connection-kubernetes";
+import "./connection-lifecycle";
 import "./workspace";
 import "./alerts-rules";
 import "./alerts-channels";

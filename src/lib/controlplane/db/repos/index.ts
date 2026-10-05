@@ -27,6 +27,7 @@ import * as workflowStartIntents from "./workflow-start-intents";
 import * as approvedSourceSnapshots from "./approved-source-snapshots";
 import * as approvals from "./approvals";
 import * as connections from "./connections";
+import * as connectionRotations from "./connection-rotations";
 import * as cost from "./cost";
 import * as drift from "./drift";
 import * as events from "./events";
@@ -59,6 +60,7 @@ export {
   approvedSourceSnapshots,
   approvals,
   connections,
+  connectionRotations,
   cost,
   drift,
   events,
@@ -115,6 +117,7 @@ export function bindRepos(sql: Sql) {
     approvedSourceSnapshots: bind(approvedSourceSnapshots, sql),
     approvals: bind(approvals, sql),
     connections: bind(connections, sql),
+    connectionRotations: bind(connectionRotations, sql),
     cost: bind(cost, sql),
     drift: bind(drift, sql),
     events: bind(events, sql),

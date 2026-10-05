@@ -44,6 +44,8 @@ export function unusableReason(
   if (p.availability === "preview")
     return `${p.displayName} is preview: Zenith plans and exports for it, but does not apply changes to it yet`;
   if (p.availability === "planned") return `${p.displayName} is planned, not implemented`;
+  if (connection.revokedAt)
+    return "it was revoked and Zenith can no longer act through it — create a new connection under Platform, Connections";
   if (connection.status === "connecting")
     return "its first preflight check has not finished â€” run Check under Connections";
   if (connection.status !== "healthy")

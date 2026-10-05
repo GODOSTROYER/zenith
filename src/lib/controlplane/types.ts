@@ -341,7 +341,13 @@ export type PlatformEventType =
   | "runner.job.completed"
   | "machine.registered"
   | "machine.revoked"
-  | "machine.request.completed";
+  | "machine.request.completed"
+  | "connection.created"
+  | "connection.verified"
+  | "connection.revoked"
+  | "connection.rotation_staged"
+  | "connection.rotated"
+  | "connection.rotation_aborted";
 
 export interface PlatformEvent {
   /** global monotonic sequence (bigserial) */

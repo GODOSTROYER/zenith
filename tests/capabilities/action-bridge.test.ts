@@ -78,6 +78,15 @@ describe("the mapping table", () => {
         "connection.disconnect",
         "connection.verifyAws",
         "connection.verifyKubernetes",
+        // PROD-LIFE-01 lifecycle verbs: human-only credential and trust administration, refused for agents.
+        "connection.createGcp",
+        "connection.createAzure",
+        "connection.createOci",
+        "connection.verify",
+        "connection.revoke",
+        "connection.rotate",
+        "connection.promoteRotation",
+        "connection.abortRotation",
         // Integrated placement writes require a human; agents remain refused.
         "placement.apply",
         "project.delete",

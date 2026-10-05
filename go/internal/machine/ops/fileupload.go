@@ -46,6 +46,7 @@ type fileMutationPurpose uint8
 const (
 	fileWritePurpose fileMutationPurpose = iota
 	fileUploadPurpose
+	serviceConfigurePurpose
 )
 
 func init() { register(Operation{Name: OpFileUpload, Prepare: prepareFileUpload}) }
@@ -120,10 +121,13 @@ func ValidateFileMutationConfig(c Config) error {
 	if err := ValidateFileUploadConfig(c.FileUpload); err != nil {
 		return err
 	}
+	if err := validateServiceConfigureAuthority(c); err != nil {
+		return err
+	}
 	var sources, destinations []FileWriteProfile
 	var stores []string
 	// Configured custody remains protected when an operation is disabled.
-	for _, store := range []string{c.FileWrite.BackupDir, c.FileUpload.BackupDir} {
+	for _, store := range []string{c.FileWrite.BackupDir, c.FileUpload.BackupDir, c.ServiceConfigure.BackupDir} {
 		if store != "" {
 			stores = append(stores, store)
 		}
@@ -137,6 +141,16 @@ func ValidateFileMutationConfig(c Config) error {
 		if c.FileUpload.Enabled {
 			destinations = append(destinations, uploadProfile(p))
 		}
+	}
+	for _, p := range c.ServiceConfigure.Profiles {
+		sources = append(sources, serviceFileProfile(p))
+		if c.ServiceConfigure.Enabled {
+			destinations = append(destinations, serviceFileProfile(p))
+		}
+	}
+	// Distinct purposes may not share a destination, a source or private custody.
+	if purposesOverlap(c) {
+		return fmt.Errorf("file mutation: operations share destination or custody")
 	}
 	for _, p := range destinations {
 		for _, s := range sources {
@@ -250,6 +264,8 @@ func mutationConfig(e *Env, purpose fileMutationPurpose) (FileWriteConfig, bool)
 		return e.Cfg.FileWrite, e.Cfg.FileWrite.Enabled
 	case fileUploadPurpose:
 		return uploadBudget(e.Cfg.FileUpload), e.Cfg.FileUpload.Enabled
+	case serviceConfigurePurpose:
+		return serviceBudget(e.Cfg.ServiceConfigure), e.Cfg.ServiceConfigure.Enabled
 	default:
 		return FileWriteConfig{}, false
 	}
@@ -278,6 +294,16 @@ func mutationProfileVersion(e *Env, purpose fileMutationPurpose, p FileWriteProf
 			return "", notAllowed("file.upload no longer matches the current local profile")
 		}
 		return FileUploadProfileVersion(e.Cfg.FileUpload, FileUploadProfile{Path: p.Path, SourceRef: p.ContentRef, SourceVersion: p.ContentVersion, SourcePath: p.SourcePath, SHA256: p.SHA256, Mode: p.Mode, MaxBytes: p.MaxBytes})
+	case serviceConfigurePurpose:
+		if !e.Cfg.ServiceConfigure.Enabled {
+			return "", disabled("service.configure is disabled locally")
+		}
+		for _, configured := range e.Cfg.ServiceConfigure.Profiles {
+			if serviceFileProfile(configured) == p {
+				return ServiceConfigureProfileVersion(e.Cfg.ServiceConfigure, configured)
+			}
+		}
+		return "", notAllowed("service.configure no longer matches the current local profile")
 	default:
 		return "", protocol.Errorf(protocol.CodeConstraint, "invalid local file mutation purpose")
 	}

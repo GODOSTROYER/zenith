@@ -90,6 +90,7 @@ export const CAPABILITIES = {
   "file.write": def({ name: "file.write", title: "Write a file", mutates: true, risk: "high", defaultAutonomy: 5, scopeLevel: "resource", integrationScope: "write" }),
   "file.upload": def({ name: "file.upload", title: "Upload a file", mutates: true, risk: "high", defaultAutonomy: 5, scopeLevel: "resource", integrationScope: "write" }),
   "package.install": def({ name: "package.install", title: "Install a package", mutates: true, risk: "high", defaultAutonomy: 5, scopeLevel: "resource", integrationScope: "write" }),
+  "service.configure": def({ name: "service.configure", title: "Configure and converge a system service", mutates: true, risk: "high", defaultAutonomy: 5, scopeLevel: "resource", integrationScope: "write" }),
   "machine.service.restart": def({ name: "machine.service.restart", title: "Restart a system service", mutates: true, risk: "medium", defaultAutonomy: 4, scopeLevel: "resource", integrationScope: "write" }),
   "machine.exec": def({ name: "machine.exec", title: "Execute a command on a machine", mutates: true, risk: "critical", defaultAutonomy: 6, escapeHatch: true, scopeLevel: "resource", integrationScope: "write" }),
   "container.exec": def({ name: "container.exec", title: "Execute in a container", mutates: true, risk: "critical", defaultAutonomy: 6, escapeHatch: true, scopeLevel: "resource", integrationScope: "write" }),

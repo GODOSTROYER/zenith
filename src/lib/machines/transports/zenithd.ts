@@ -28,7 +28,7 @@ import { capability } from "@/lib/capabilities/catalog";
 import { isImplementedOperation, parseMachineArgs, type ImplementedOperation } from "../args";
 import { MachineOperationError } from "../errors";
 import { redactText, truncateUtf8 } from "../redact";
-import { FileWriteFailureDataSchema, PackageInstallFailureDataSchema, MachineFailureDataSchema, MachineResultDataSchemas, type MachineFailureCode } from "../results";
+import { FileWriteFailureDataSchema, PackageInstallFailureDataSchema, ServiceConfigureFailureDataSchema, MachineFailureDataSchema, MachineResultDataSchemas, type MachineFailureCode } from "../results";
 import type { MachineDispatchOutcome, MachineDriver, MachineOperation, MachineRequest, MachineRequestDispatcher, MachineResult, ZenithdSession } from "../types";
 
 export interface ZenithdDriverOptions {
@@ -51,6 +51,7 @@ const SUPPORTED: readonly MachineOperation[] = [
   "file.write",
   "file.upload",
   "package.install",
+  "service.configure",
   "network.portCheck",
   "network.dnsCheck",
   "system.metrics",
@@ -143,6 +144,17 @@ export function createZenithdMachineDriver(options: ZenithdDriverOptions): Machi
       if (parsed.success) return result(false, parsed.data);
       if (o.status === "rejected") return result(false, { error: "refused", phase: "guard", effect: "none", postcondition: "unverified" });
       throw new MachineOperationError("uncertain", "the machine did not supply package effect custody", { transportRef: id });
+    }
+    if (req.operation === "service.configure") {
+      if (o.status === "succeeded") {
+        const parsed = MachineResultDataSchemas["service.configure"].safeParse(o.result);
+        if (!parsed.success || parsed.data.unit !== req.args.unit || parsed.data.profileRef !== req.args.profileRef || parsed.data.profileVersion !== req.args.profileVersion || parsed.data.created !== (req.args.expectedSha256 === null)) throw new MachineOperationError("uncertain", "the service configuration receipt does not bind approved metadata", { transportRef: id });
+        return result(true, parsed.data);
+      }
+      const parsed = ServiceConfigureFailureDataSchema.safeParse(o.result);
+      if (parsed.success) return result(false, parsed.data);
+      if (o.status === "rejected") return result(false, { error: "refused", phase: "guard", effect: "none", postcondition: "unverified" });
+      throw new MachineOperationError("uncertain", "the machine did not supply a valid service configuration effect receipt", { transportRef: id });
     }
     if (req.operation === "file.write" || req.operation === "file.upload") {
       if (o.status === "succeeded") {

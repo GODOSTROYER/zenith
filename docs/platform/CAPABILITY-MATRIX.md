@@ -259,6 +259,7 @@ From `CAPABILITIES` (`src/lib/capabilities/catalog.ts`): every name authorizatio
 | `infrastructure.apply` | high | yes | — | 5 | environment | no driver |
 | `package.install` | high | yes | — | 5 | resource | no driver |
 | `secret.write` | high | yes | — | 5 | environment | oci: `contract` (1 driver) |
+| `service.configure` | high | yes | — | 5 | resource | no driver |
 | `container.exec` | critical | yes | escape hatch | 6 (never unattended) | resource | no driver |
 | `database.delete` | critical | yes | destructive | 6 (never unattended) | resource | no driver |
 | `database.restore` | critical | yes | destructive | 6 (never unattended) | resource | no driver |
@@ -278,7 +279,7 @@ A mutating capability with default autonomy N needs no approval *for autonomy re
 | 2 | — |
 | 3 | `database.snapshot`, `service.restart`, `service.scale` |
 | 4 | `database.migrate`, `deployment.deploy`, `deployment.rollback`, `drift.repair`, `function.invoke`, `machine.service.restart` |
-| 5 | `dns.modify`, `file.upload`, `file.write`, `firewall.modify`, `infrastructure.apply`, `package.install`, `secret.write` |
+| 5 | `dns.modify`, `file.upload`, `file.write`, `firewall.modify`, `infrastructure.apply`, `package.install`, `secret.write`, `service.configure` |
 | 6 (never unattended) | `container.exec`, `database.delete`, `database.restore`, `identity.modify`, `infrastructure.destroy`, `machine.exec`, `provider.native` |
 
 Non-mutating capabilities are not gated by autonomy: the policy rule `autonomy_below_capability` applies to mutating capabilities only.

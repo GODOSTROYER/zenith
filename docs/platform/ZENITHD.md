@@ -66,6 +66,7 @@ Two kinds of non-success:
 | `machine.exec` | `exec.enabled` | `argv[]`, `cwd?`, `timeoutSec` | see §4 |
 | `file.write` | Linux + `fileWrite.enabled` + exact local template profile | canonical `path`, opaque `contentRef`, immutable `contentVersion`, required `expectedSha256` (64 lowercase hex or null for create-only) | bounded unprivileged customer application files only; see below |
 | `file.upload` | Linux + `fileUpload.enabled` + exact local binary profile | canonical `path`, opaque `sourceRef`, immutable `sourceVersion`, required `expectedSha256` (64 lowercase hex or null for create-only) | bounded local binary source copied through the same atomic writer; see below |
+| `service.configure` | Linux + `serviceConfigure.enabled` + exact local service profile + unit in `services.restartAllow` | allowlisted `.service` `unit`, opaque `profileRef`, immutable `profileVersion`, required `expectedSha256` (64 lowercase hex or null for create-only) | atomic application-config write plus a closed `reload`/`restart` convergence and an active-state postcondition; see below |
 | `package.install` | **off** | Debian 12/dpkg 1.21, separate local root helper | pinned offline data-only first install or verified exact-version no-op; refuses unavailable helper |
 
 Unit names must match `^[A-Za-z0-9@._:-]{1,128}\.(service|socket|timer)$` and, in
@@ -436,6 +437,53 @@ file.write native evidence remains evidence for file.write; it cannot be
 relabeled as upload or full guest lifecycle acceptance. No standing grant,
 installation, browser approval journey or live guest permission is established
 by the source/model controls.
+
+
+### Convergent service configuration (`service.configure`)
+
+Off by default. One approved operation writes one application-owned configuration
+file from a locally pinned source and converges one allowlisted systemd service.
+The signed envelope carries only `unit`, `profileRef`, `profileVersion` and the
+required `expectedSha256` (the exact prior config digest, or null for create-only).
+It cannot carry bytes, paths, modes, owners, unit-file edits, command lines or the
+convergence action: all of those are local profile fields bound into
+`profileVersion`.
+
+Privilege separation: zenithd stays unprivileged and never writes unit files or
+anything under `/etc` (the shared writer's protected-path denylist still applies
+to the config path). It reaches systemd only through the same
+`services.restartAllow` authority `machine.service.restart` uses, and every
+profile's unit must match that list at config load. Only unprotected `.service`
+units are eligible: ssh, systemd-*, dbus, the SSM agent, zenithd and zenith-runner
+are refused in both the TypeScript schema and the guest.
+
+The local `serviceConfigure` object has `enabled`, `backupDir`, `maxBackupBytes`,
+`maxBackups` and `profiles`. Each profile has `unit`, `profileRef`,
+`profileVersion`, `path`, `sourcePath`, `sha256`, `mode` (0600 or 0640),
+`maxBytes`, `action` (`reload` or `restart`) and `settleSec` (1 to 60). It reuses
+the hardened atomic Linux writer, process lock and private backup-store flock, so
+create/replace/noop, exact-prior-digest, symlink, mount, ACL, ownership, fsync and
+backup-budget guards are identical to file.write. It needs its own backup
+directory; it may not share a destination or backup store with file.write or
+file.upload.
+
+Convergence: after a changed file, zenithd runs `systemctl <action> -- <unit>`
+(argv only, never a shell). A byte-identical config on a unit that is not active is
+restarted; on an active unit nothing runs (`action: none`). The postcondition is
+the unit reporting `loaded` and `active` within `settleSec` (polled, bounded by
+poll count). A unit that does not verify healthy after the commit yields a
+definite `service_failed` result with `effect: committed` and the retained
+backup/transaction refs: the previous file is in the private backup store and
+rollback is a new approved operation, not an automatic privileged fallback. A
+cancellation or timeout while an action may be in flight yields
+`mutation_uncertain` and the request is never re-dispatched.
+
+`zenithd service-configure-versions --config /absolute/local/config.yaml` reads
+only local metadata and emits unit/profileRef/profileVersion triples. The version
+is lowercase SHA256 of UTF-8 `zenith.service.configure.profile/v1`, one NUL byte,
+and compact JSON in this exact order: `unit`, `profileRef`, `path`, `sourcePath`,
+`sha256`, `mode`, `maxBytes`, `action`, `settleSec`, `backupDir`,
+`maxBackupBytes`, `maxBackups`. Config loading rejects a mismatched version.
 
 ## Pinned offline package installation
 

@@ -35,6 +35,9 @@ func Main(args []string, stdout, stderr io.Writer, getenv func(string) string) i
 	if len(args) > 0 && args[0] == "file-upload-versions" {
 		return fileUploadVersions(args[1:], stdout, stderr)
 	}
+	if len(args) > 0 && args[0] == "service-configure-versions" {
+		return serviceConfigureVersions(args[1:], stdout, stderr)
+	}
 	p, err := agent.ParseArgs(binaryName, args, stderr)
 	if err != nil {
 		if agent.IsHelp(err) {
@@ -207,6 +210,42 @@ func fileUploadVersions(args []string, stdout, stderr io.Writer) int {
 			return agent.ExitUsage
 		}
 		out = append(out, item{p.Path, p.SourceRef, version})
+	}
+	if json.NewEncoder(stdout).Encode(out) != nil {
+		return agent.ExitError
+	}
+	return agent.ExitOK
+}
+
+// service-configure-versions reads local config metadata only. It does not read source
+// contents, contact systemd, start the agent, or silently rewrite versions.
+func serviceConfigureVersions(args []string, stdout, stderr io.Writer) int {
+	if len(args) != 2 || args[0] != "--config" || !filepath.IsAbs(args[1]) {
+		fmt.Fprintln(stderr, "usage: zenithd service-configure-versions --config /absolute/local/config.yaml")
+		return agent.ExitUsage
+	}
+	var cfg Config
+	if err := agent.LoadFile(args[1], &cfg); err != nil {
+		fmt.Fprintln(stderr, "zenithd: could not read strict local profile metadata")
+		return agent.ExitUsage
+	}
+	if len(cfg.ServiceConfigure.Profiles) < 1 || len(cfg.ServiceConfigure.Profiles) > 64 {
+		fmt.Fprintln(stderr, "zenithd: configure bounded local profiles before computing versions")
+		return agent.ExitUsage
+	}
+	type item struct {
+		Unit           string `json:"unit"`
+		ProfileRef     string `json:"profileRef"`
+		ProfileVersion string `json:"profileVersion"`
+	}
+	out := make([]item, 0, len(cfg.ServiceConfigure.Profiles))
+	for _, p := range cfg.ServiceConfigure.Profiles {
+		version, err := ops.ServiceConfigureProfileVersion(cfg.ServiceConfigure, p)
+		if err != nil {
+			fmt.Fprintln(stderr, "zenithd: invalid canonical local profile semantics")
+			return agent.ExitUsage
+		}
+		out = append(out, item{p.Unit, p.ProfileRef, version})
 	}
 	if json.NewEncoder(stdout).Encode(out) != nil {
 		return agent.ExitError

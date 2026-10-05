@@ -39,6 +39,7 @@ import { consumeApprovals, countUnconsumedApprovals, requiredApprovalCount } fro
 import { reserve } from "./idempotency";
 import { acquire as acquireLease, assertFence, current as currentLease, renew as renewLease, type AcquireLeaseInput } from "./leases";
 import { withPlanReview, type ReviewedOperation } from "./operation-review";
+import { lockForOperation } from "./ownership-transfers";
 
 /* --------------------------------- rows ------------------------------------ */
 
@@ -454,10 +455,12 @@ export async function claimForExecution(sql: Sql, input: ClaimInput): Promise<Op
   const expectedDigest = requireDigest("expectedDigest", input.expectedDigest);
   const holder = requireText("holder", input.holder);
   const leaseMs = boundedMs("leaseMs", input.leaseMs ?? 60_000, 1000, 24 * 60 * 60 * 1000);
+  const lease = input.lease ? { scope: input.lease.scope, fenceToken: input.lease.fenceToken } : undefined;
+  const expectedPolicyVersion = input.expectedPolicyVersion;
 
   return sql.tx(async (tx) => {
     // Live fence first: all fenced writers retain the same lock order. A stale fence takes failure priority.
-    if (input.lease) await assertFence(tx, input.lease.scope, input.lease.fenceToken);
+    if (lease) await assertFence(tx, lease.scope, lease.fenceToken);
     const locked = await tx.query<OperationRow & { is_expired: boolean }>(
       `select ${OPERATION_COLUMNS}, (expires_at <= clock_timestamp()) as is_expired
          from platform.operations where workspace_id = $1 and id = $2 for update`,
@@ -471,6 +474,7 @@ export async function claimForExecution(sql: Sql, input: ClaimInput): Promise<Op
       throw new ControlStoreError("digest_mismatch", "The digest to execute does not match the reviewed proposal digest.", { id });
     if (op.is_expired) throw new ControlStoreError("operation_expired", "The operation expired before it could be executed.", { id });
 
+    const ownershipRows = await lockForOperation(tx, workspaceId, id);
 
     if (op.approval_required) {
       const required = await requiredApprovalCount(tx, workspaceId, op.policy_decision_id);
@@ -478,11 +482,11 @@ export async function claimForExecution(sql: Sql, input: ClaimInput): Promise<Op
         workspaceId,
         operationId: id,
         proposalDigest: expectedDigest,
-        expectedPolicyVersion: input.expectedPolicyVersion,
+        expectedPolicyVersion: expectedPolicyVersion,
       });
       if (consumed.length < required) {
         // A wrong policy bundle is a different remedy (re-approve) from no approval at all.
-        const others = input.expectedPolicyVersion ? await countUnconsumedApprovals(tx, { workspaceId, operationId: id, proposalDigest: expectedDigest }) : 0;
+        const others = expectedPolicyVersion ? await countUnconsumedApprovals(tx, { workspaceId, operationId: id, proposalDigest: expectedDigest }) : 0;
         if (others > 0)
           throw new ControlStoreError("policy_changed", "The approval was granted under a different policy bundle; the operation must be re-approved.", { id, required });
         throw new ControlStoreError("approval_required", "No unconsumed, unexpired approval covers this operation.", { id, required, available: consumed.length });
@@ -495,10 +499,20 @@ export async function claimForExecution(sql: Sql, input: ClaimInput): Promise<Op
          lease_holder = $3, lease_until = clock_timestamp() + ($4::bigint * interval '1 millisecond'),
          lease_scope = $5::text, fence_token = $6::bigint
        where workspace_id = $1 and id = $2 and status in ('approved','queued')
+         and ($7::text[] is null or (expires_at > clock_timestamp()
+           and ($5::text is null or exists (select 1 from platform.leases l
+             where l.scope=$5 and l.fence_token=$6 and l.expires_at>clock_timestamp() and l.released_at is null))))
+         and not exists (select 1 from unnest($7::text[]) selected(id) where not exists (
+           select 1 from platform.ownership_transfers t where t.id=selected.id
+             and t.workspace_id=$1 and t.environment_id=platform.operations.environment_id
+             and t.revoked_at is null and (t.expires_at is null or t.expires_at>clock_timestamp())))
        returning ${OPERATION_COLUMNS}`,
-      [workspaceId, id, holder, leaseMs, input.lease?.scope ?? null, input.lease?.fenceToken ?? null]
+      [workspaceId, id, holder, leaseMs, lease?.scope ?? null, lease?.fenceToken ?? null, ownershipRows === null ? null : textArray(ownershipRows)]
     );
-    if (rows.length === 0) throw new ControlStoreError("invalid_state", "Operation changed while being claimed.", { id });
+    if (rows.length === 0) {
+      if (ownershipRows !== null) throw new ControlStoreError("conflict", "Current field ownership or execution validity changed before claim.", { reason: "field_ownership_conflict" });
+      throw new ControlStoreError("invalid_state", "Operation changed while being claimed.", { id });
+    }
     return toOperation(rows[0]);
   });
 }

@@ -15,6 +15,8 @@ import type { Sql } from "@/lib/controlplane/types";
 import { normalizePath } from "@/lib/ownership/paths";
 import { transferDigest } from "@/lib/ownership/registry";
 import { factsByAddress } from "@/lib/ownership/facts";
+import { checkNativeOperation, NATIVE_OPERATION_WRITES } from "@/lib/ownership/conflicts";
+import { defaultFieldOwnershipRegistry } from "@/lib/ownership/registry";
 import type { FieldOwner, OwnershipFacts, OwnershipTransfer, OwnershipTransferRequest } from "@/lib/ownership/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import { ControlStoreError, requireText } from "../errors";
@@ -169,4 +171,59 @@ export async function guardFor(sql: Sql, workspaceId: string, environmentId: str
     facts,
     transfers: await listActive(sql, workspaceId, environmentId, target.address),
   };
+}
+
+/**
+ * Current stored ownership at a final claim/grant admission. The caller already
+ * holds the owning operation (and any bound fence) in this transaction. Locks
+ * protect existing resource facts and one-way transfer revocation; they do not
+ * coordinate new resource/owner inserts or retract a previously issued grant.
+ * Null retains the store's legacy absent-guard/no-owned-field behavior; it is
+ * not a positive ownership proof. Returned IDs are database dependencies, not
+ * a caller-mintable authorization capability, and need a final live predicate.
+ */
+export async function lockForOperation(sql: Sql, workspaceId: string, operationId: string): Promise<string[] | null> {
+  const [op] = await sql.query<{ capability: string; environment_id: string | null; resource_id: string | null }>(
+    "select capability, environment_id, resource_id from platform.operations where workspace_id=$1 and id=$2",
+    [requireText("workspaceId", workspaceId), requireText("operationId", operationId)],
+  );
+  if (!op) throw new ControlStoreError("operation_not_found", "Operation not found.");
+  if (!NATIVE_OPERATION_WRITES[op.capability] || !op.environment_id || !op.resource_id) return null;
+  const nodes = await sql.query<{ id: string; address: string; kind: string; native_type: string; spec: Record<string, unknown> }>(
+    `select id, address, kind, native_type, spec from platform.resources
+      where workspace_id=$1 and environment_id=$2 order by address limit 2000 for share`,
+    [workspaceId, op.environment_id],
+  );
+  const target = nodes.find(row => row.id === op.resource_id);
+  if (!target) return null;
+  const rows = await sql.query<Row & { id: string; revoked_at: unknown }>(
+    `select id, ${COLUMNS}, revoked_at from platform.ownership_transfers
+      where workspace_id=$1 and environment_id=$2 and address=$3 order by id for share`,
+    [workspaceId, op.environment_id, target.address],
+  );
+  // A separate statement gets a fresh clock after all row-lock waits.
+  const [clock] = await sql.query<{ now: string }>("select clock_timestamp() as now");
+  const now = new Date(clock!.now);
+  const transfers = rows.filter(row => row.revoked_at === null).map(row => ({ row, transfer: toTransfer(row) }));
+  const facts = factsByAddress({ nodes: nodes.map(row => ({ address: row.address, kind: row.kind as ResourceNode["kind"], nativeType: row.native_type, spec: row.spec ?? {} })) }).get(target.address) ?? {};
+  const conflicts = checkNativeOperation({ capability: op.capability, node: { address: target.address, nativeType: target.native_type, spec: target.spec ?? {} }, facts, transfers: transfers.map(item => item.transfer), now });
+  const selected = new Set<string>();
+  for (const conflict of conflicts) {
+    // Match the default PlatformBrokerStore's existing IaC warning baseline.
+    // If a transfer moved a non-IaC base to IaC, that live receipt is still
+    // an enabling dependency: expiry would restore the other base owner.
+    const warning = conflict.verdict === "transfer_required" && conflict.resolution.owner === "iac" && conflict.write.writer === "native-op";
+    if (!warning && conflict.verdict !== "allowed") throw new ControlStoreError("conflict", "Current field ownership refuses this operation.", { reason: "field_ownership_conflict" });
+    if (conflict.resolution.source !== "transfer") continue;
+    // An IaC -> native transfer is not an enabling dependency where this
+    // store already permits the native write with its existing IaC warning.
+    if (conflict.resolution.baseOwner === "iac" && conflict.write.writer === "native-op") continue;
+    const query = { address: conflict.write.address, resourceType: conflict.write.resourceType, path: conflict.write.path, facts };
+    const applicable = transfers.filter(item => defaultFieldOwnershipRegistry.transferApplies(item.transfer, query, conflict.resolution.baseOwner, now))
+      .sort((a, b) => Date.parse(b.transfer.approvedAt) - Date.parse(a.transfer.approvedAt) || (a.transfer.digest < b.transfer.digest ? -1 : 1));
+    const exact = applicable[0];
+    if (!exact || exact.transfer.approvalId !== conflict.resolution.transferId) throw new ControlStoreError("conflict", "Current field ownership refuses this operation.", { reason: "field_ownership_conflict" });
+    selected.add(exact.row.id);
+  }
+  return [...selected].sort();
 }

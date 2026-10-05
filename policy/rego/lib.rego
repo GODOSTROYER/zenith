@@ -56,6 +56,20 @@ default escape_hatch := false
 
 escape_hatch if input.request.escapeHatch == true
 
+# Adoption changes Zenith ownership metadata only. The broker and repository
+# bind a referenced resource and exact human approval; no provider write occurs.
+# Require the complete catalog annotation so altered autonomy cannot bypass denial.
+metadata_adoption if {
+	input.request.capability == "resource.adopt"
+	input.request.mutates == true
+	input.request.risk == "high"
+	input.request.defaultAutonomy == 6
+	input.request.destructive == false
+	input.request.escapeHatch == false
+	input.request.integrationScope == "write"
+	input.resource.ownership == "referenced"
+}
+
 # The capability's risk from the catalog. Unknown or missing => critical.
 base_risk_rank := object.get(risk_rank, object.get(input.request, "risk", "critical"), 3)
 

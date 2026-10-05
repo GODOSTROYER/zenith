@@ -129,8 +129,8 @@ region_not_approved := {
 	count(unapproved) > 0
 }
 
-# Zenith never mutates what it does not own: referenced and external resources
-# are observe-only. Anything other than `managed` ownership is treated so.
+# Provider mutations require managed ownership. The exact metadata-only adoption
+# capability may propose a referenced ownership claim under mandatory approval.
 unowned_resource_mutation := {
 	"code": "unowned_resource_mutation",
 	"message": "Zenith does not mutate resources it does not own (referenced or external).",
@@ -138,6 +138,7 @@ unowned_resource_mutation := {
 	lib.mutating
 	input.resource
 	not input.resource.ownership == "managed"
+	not lib.metadata_adoption
 }
 
 # A mutation must name the environment it acts on; without it the

@@ -34,6 +34,9 @@ SELF = Path(__file__).resolve()
 CANONICAL = SELF.parent / "guest-file-write-fixtures.sh"
 OPENED = []
 CURRENT = None
+# Diagnostic values are fixed source stages, never exception text or native data.
+FAILURE_PHASE = "arguments"
+FAILURE_PHASES = ('arguments', 'host-identity', 'account-identity', 'protected-parents', 'canonical-fixture-check', 'setup-lease', 'setup-object-absence', 'setup-unit-absence', 'setup-polkit-active', 'setup-canonical-custody', 'setup-preparing-receipt', 'setup-owned-files', 'setup-daemon-reload', 'setup-unit-poststate', 'setup-ready-receipt', 'existing-receipt', 'existing-custody', 'cleanup-leases', 'cleanup-current-custody', 'cleanup-preparing-receipt', 'cleanup-revoke-rule', 'cleanup-stop-unit', 'cleanup-inactive-unit', 'cleanup-remove-unit', 'cleanup-daemon-reload', 'cleanup-unit-absence', 'cleanup-remove-lease', 'cleanup-final-receipt')
 
 
 def refuse():
@@ -239,35 +242,46 @@ def interrupt(_number, _frame):
 
 
 def main():
-    global CURRENT
+    global CURRENT, FAILURE_PHASE
     if len(sys.argv) != 5 or sys.argv[1] not in ["setup", "check", "cleanup"] or not re.fullmatch(r"[1-9][0-9]{0,8}", sys.argv[2]) or not re.fullmatch(r"[1-9][0-9]{0,8}", sys.argv[3]) or not re.fullmatch(r"[a-f0-9]{32}", sys.argv[4]):
         refuse()
     action, uid, gid, run = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.argv[4]
+    FAILURE_PHASE = "host-identity"
     if sys.platform != "linux" or os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted" or os.environ.get("RUNNER_OS") != "Linux" or Path("/proc/1/comm").read_text().strip() != "systemd" or (action != "check" and os.geteuid() != 0) or os.geteuid() not in [0, uid] or (os.geteuid() == uid and os.getegid() != gid):
         refuse()
+    FAILURE_PHASE = "account-identity"
     account = pwd.getpwuid(uid)
     if account.pw_uid != uid or account.pw_gid != gid or not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", account.pw_name):
         refuse()
+    FAILURE_PHASE = "protected-parents"
     parents = [str(Path(UNIT_PATH).parent), ROOT]
     if os.geteuid() == 0:
         parents.append(str(Path(RULE_PATH).parent))
     for path in parents:
         protected_directory(path)
+    FAILURE_PHASE = "canonical-fixture-check"
     command(["/usr/bin/bash", str(CANONICAL), "check", str(uid), str(gid), run])
     if action == "setup":
+        FAILURE_PHASE = "setup-lease"
         lock(CANONICAL_LEASE)
+        FAILURE_PHASE = "setup-object-absence"
         if any(os.path.lexists(p) for p in [UNIT_PATH, RULE_PATH, RECEIPT, RECEIPT + ".new", LEASE, *MARKERS]):
             refuse()
+        FAILURE_PHASE = "setup-unit-absence"
         absent = show(UNIT)
         if absent["LoadState"] != "not-found" or absent["FragmentPath"]:
             refuse()
+        FAILURE_PHASE = "setup-polkit-active"
         if show("polkit.service")["ActiveState"] != "active":
             refuse()
+        FAILURE_PHASE = "setup-canonical-custody"
         canonical, _ = observed_file(ROOT + "/.gate-receipt.json", 0o444)
         CURRENT = {"schemaVersion": 1, "runId": run, "uid": uid, "gid": gid, "username": account.pw_name, "state": "preparing", "pending": None, "objects": {}, "helperSha256": digest(SELF.read_bytes()), "canonicalReceiptSha256": canonical["sha256"]}
+        FAILURE_PHASE = "setup-preparing-receipt"
         store()
         unit = ("[Unit]\nDescription=Owned inert Zenith MACH01 acceptance fixture\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/usr/bin/true\nUser=" + str(uid) + "\nGroup=" + str(gid) + "\nNoNewPrivileges=yes\nCapabilityBoundingSet=\nAmbientCapabilities=\nProtectSystem=strict\nPrivateTmp=yes\n").encode()
         rule = ("// Owned disposable MACH01 fixture; restart only.\npolkit.addRule(function(action, subject) {\n  if (subject.user === " + json.dumps(account.pw_name) + " && action.id === 'org.freedesktop.systemd1.manage-units' && action.lookup('verb') === 'restart' && action.lookup('unit') === '" + UNIT + "') { return polkit.Result.YES; }\n  return polkit.Result.NOT_HANDLED;\n});\n").encode()
+        FAILURE_PHASE = "setup-owned-files"
         for path, data, mode in [(UNIT_PATH, unit, 0o644), (RULE_PATH, rule, 0o644), (LEASE, b"owned MACH01 systemd fixture lease\n", 0o444)]:
             CURRENT["pending"] = "create-owned-file"
             store()
@@ -275,42 +289,57 @@ def main():
             CURRENT["objects"][path], _ = observed_file(path, mode)
             CURRENT["pending"] = None
             store()
+        FAILURE_PHASE = "setup-daemon-reload"
         command([SYSTEMCTL, "daemon-reload"], "daemon-reload")
+        FAILURE_PHASE = "setup-unit-poststate"
         item = unit_owned(uid, gid)
         if item["ActiveState"] != "inactive":
             refuse()
+        FAILURE_PHASE = "setup-ready-receipt"
         CURRENT["state"] = "ready"
         store()
     else:
+        FAILURE_PHASE = "existing-receipt"
         _, raw = observed_file(RECEIPT, 0o444)
         CURRENT = json.loads(raw)
+        FAILURE_PHASE = "existing-custody"
         validate(CURRENT, uid, gid, run)
         if action == "cleanup":
+            FAILURE_PHASE = "cleanup-leases"
             lock(CANONICAL_LEASE)
             lock(LEASE)
+            FAILURE_PHASE = "cleanup-current-custody"
             validate(CURRENT, uid, gid, run)
+            FAILURE_PHASE = "cleanup-preparing-receipt"
             CURRENT["state"] = "cleaning"
             store()
             # Revoke exactly our grant before stopping/removing our inert unit.
+            FAILURE_PHASE = "cleanup-revoke-rule"
             for path in [RULE_PATH]:
                 actual, _ = observed_file(path, 0o644)
                 if actual != CURRENT["objects"][path]:
                     refuse()
                 os.unlink(path)
                 sync_parent(path)
+            FAILURE_PHASE = "cleanup-stop-unit"
             command([SYSTEMCTL, "stop", "--no-pager", "--", UNIT], "stop-owned-unit")
+            FAILURE_PHASE = "cleanup-inactive-unit"
             item = unit_owned(uid, gid)
             if item["ActiveState"] != "inactive":
                 refuse()
+            FAILURE_PHASE = "cleanup-remove-unit"
             actual, _ = observed_file(UNIT_PATH, 0o644)
             if actual != CURRENT["objects"][UNIT_PATH]:
                 refuse()
             os.unlink(UNIT_PATH)
             sync_parent(UNIT_PATH)
+            FAILURE_PHASE = "cleanup-daemon-reload"
             command([SYSTEMCTL, "daemon-reload"], "daemon-reload")
+            FAILURE_PHASE = "cleanup-unit-absence"
             missing = show(UNIT)
             if missing["LoadState"] != "not-found" or missing["FragmentPath"] or missing["MainPID"] != "0" or missing["Job"] != "0" or os.path.lexists(UNIT_PATH) or os.path.lexists(RULE_PATH):
                 refuse()
+            FAILURE_PHASE = "cleanup-remove-lease"
             actual, _ = observed_file(LEASE, 0o444)
             if actual != CURRENT["objects"][LEASE]:
                 refuse()
@@ -318,6 +347,7 @@ def main():
             sync_parent(LEASE)
             if os.path.lexists(LEASE):
                 refuse()
+            FAILURE_PHASE = "cleanup-final-receipt"
             CURRENT["state"] = "cleaned"
             store()
     print(json.dumps({"fixture": "mach01-systemd", "action": action, "status": "ready" if action != "cleanup" else "cleaned"}))
@@ -330,6 +360,7 @@ if __name__ == "__main__":
         main()
     except Exception:
         print('{"fixture":"mach01-systemd","status":"refused"}', file=sys.stderr)
+        print(json.dumps({"fixture": "mach01-systemd", "failurePhase": FAILURE_PHASE if FAILURE_PHASE in FAILURE_PHASES else "unavailable"}), file=sys.stderr)
         sys.exit(1)
     finally:
         for opened in OPENED:

@@ -1257,7 +1257,7 @@ describe("separate actual systemd requirement admission models", () => {
     expect(manifest.requiredCases).toHaveLength(15); expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(15);
     expect(manifest.requiredCases.every(item => item.id === `linux-systemd:${item.package}:${item.test}`)).toBe(true);
     for (const [relative, hash] of [
-      ["scripts/ci/service-configure-systemd-fixtures.py", "c5fbcf4c11152ff9843439459a463f051088d7cb3f08668027e70865ef43ca2d"],
+      ["scripts/ci/service-configure-systemd-fixtures.py", "bc2ed8820f4c02ffc343d6fcbac2c7b707e7b81fc2c4fd54c51fe07d240c8ae1"],
       ["go/internal/machine/ops/serviceconfigure_systemd_linux_test.go", "a0e14457140aa0d4b131958ae54147fdd8f4c48624ade65747030c2c22cdcdf4"],
       ["go/internal/machine/serviceconfigure_systemd_linux_test.go", "a9a27984f167829c42b24451c9c42653f246a9b54a1e9f45448e4f0d1cce5370"],
     ]) expect(createHash("sha256").update(fs.readFileSync(relative)).digest("hex")).toBe(hash);

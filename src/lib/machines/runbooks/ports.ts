@@ -5,6 +5,7 @@
  * workspace id and filters on it; a foreign id is indistinguishable from a
  * missing one.
  */
+import type { Principal } from "@/lib/controlplane/types";
 import type { RunbookDefinition, RunbookTarget } from "./definition";
 import type { ScheduleSpec } from "./schedule";
 
@@ -50,6 +51,8 @@ export interface RunbookScheduleRecord {
   /** the next slot not yet decided; null when the schedule has no further slots */
   nextDueAt: string | null;
   createdBy: string;
+  /** the principal (an agent keeps its own kind) whose role and policy origin apply to every step */
+  creator: Principal;
   createdAt: string;
 }
 
@@ -68,6 +71,7 @@ export interface RunbookRunRecord {
   cancelRequestedAt?: string;
   cancelReason?: string;
   requestedBy: string;
+  requester: Principal;
   deadlineAt: string;
   leaseUntil?: string;
   failureCode?: string;
@@ -106,6 +110,13 @@ export interface RunbookStore {
   insertVersion(rec: RunbookVersionRecord): Promise<void>;
   getVersion(ws: string, runbookId: string, version: number): Promise<RunbookVersionRecord | null>;
   latestVersion(ws: string, runbookId: string): Promise<RunbookVersionRecord | null>;
+
+  /** latest version of every runbook in the workspace, newest first */
+  listRunbooks(ws: string, limit: number): Promise<RunbookVersionRecord[]>;
+  listRuns(ws: string, limit: number, status?: RunStatus): Promise<RunbookRunRecord[]>;
+  listSchedules(ws: string, limit: number): Promise<RunbookScheduleRecord[]>;
+  /** system executor: approved runs, and running runs whose lease expired, across tenants, oldest first */
+  listClaimableRuns(now: Date, limit: number): Promise<RunbookRunRecord[]>;
 
   insertApproval(rec: RunbookApprovalRecord): Promise<void>;
   /** newest approval for exactly this binding that has not expired at `now` */

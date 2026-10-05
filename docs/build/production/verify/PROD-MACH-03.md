@@ -38,28 +38,36 @@ Acceptance: "Versioned signed scripts/runbooks, bounded targets/windows/cancella
 | Durable scheduling | SQL schedules, unique (schedule, slot), CAS cursor, missed/blocked audit | "durable schedule tick" group; SQL "a schedule slot becomes at most one run" |
 | At-most-once | step custody row before dispatch | "uncertain step ... never re-dispatched"; "crashed run reclaimed after its lease"; SQL "step custody is at-most-once" |
 
+## 2b. Reachability (merged with prod/compose; composition root wired)
+
+- Migration 17 registered like 15/16 (src registry) and the generated aggregate `supabase/migrations/0018_platform_core.sql` regenerated with `npx tsx scripts/platform/emit-sql.ts` (hardening block for the six tables added to `emit.ts`; `--check` passes). Inventories updated: `docs/platform/operations/DEPLOYING.md` (row 17 with checksum, schema note), `scripts/ci/apply-supabase-migrations.sh` (platform table presence list), `tests/controlplane/migrations.test.ts` (EXPECTED_TABLES). The migration runtime manifest drives version checks, so no pinned count changed. If LIFE-12 also regenerates `0018_platform_core.sql`, re-run the emit script after merging.
+- Store functions are in `controlplane/db/repos/machine-runbooks.ts` and are NOT added to `repos/index.ts`, so `tests/controlplane/tenancy.test.ts` and the sql-scoping classification need no entry (they enumerate that namespace). Every statement is workspace-scoped in SQL except the two system reads `listDueSchedules` and `listClaimableRuns`; tenant isolation is asserted in `tests/controlplane/machine-runbooks.test.ts`. If the orchestrator prefers it registered, classify those two as system-maintenance reads.
+- Composition: `src/lib/platform/runbooks.ts` (store, control-plane signer and pinned keys, broker role resolver for authorization, `createDefaultMachinePort` evidence + signed zenithd queue, per-step broker `propose` / `beginExecution` / `completeExecution` / `markUncertain`). A step the broker does not `allow` outright fails (`step_require_approval`, `step_deny`); the run-level human approval never substitutes for it. Targets are limited to registered zenithd machines (cloud transports need the product connection for the environment, not resolved here); this is enforced at request and schedule time.
+- Routes under `/api/platform/v1/runbooks` (all via `platformRoute`, existing principal/role checks): GET list and POST publish (browser-only), POST `:id/runs`, POST `:id/schedules`, GET `runs`, GET `runs/:id`, POST `runs/:id/approve` (browser-only, binds `bindingDigest`), POST `runs/:id/cancel`, GET `schedules`, POST `schedules/:id/approve` (browser-only), POST `schedules/:id/state`. Classified in `_lib/bearer-paths.ts`; `tests/middleware/platform-bearer.test.ts` inventory count updated 37 -> 48. Agents (integration credentials) can request, schedule, cancel and read but cannot publish or approve; the owner of an agent cannot approve that agent's request (accountable identity is compared).
+- Periodic driver: `POST /api/internal/tick/runbooks` (CRON_SECRET bearer, control-store only) and a pass in the in-process scheduler slow cycle (`cron.ts`, failure isolated from the engine pass). Durability comes from PostgreSQL state, not the caller: unique (schedule, slot), compare-and-set cursor, run claim leases (expired lease reclaimed, in-flight step then marked uncertain, never re-dispatched), a `system:runbook-tick` lease, budgeted execution with `releaseOnAbort`. HONEST GAP: OBS-04 (durable critical schedules) is not in this branch. Registering `runbookTickPass` as a Temporal schedule / OBS-04 critical schedule is the remaining step; until then the tick is driven by the cron route (`.github/workflows/tick.yml` must add `tick/runbooks`, not editable here) or the long-lived scheduler.
+- MCP: no machine operation is exposed through the v3 MCP tools, so no MCP tool was added.
+- Added tests: `tests/machines/runbook-step-executor.test.ts`; list/claimable coverage in `tests/controlplane/machine-runbooks.test.ts`.
+
 ## 3. Verification commands (other machine)
 
 ```
-npx vitest run tests/machines/runbooks.test.ts
-npx vitest run tests/controlplane/machine-runbooks.test.ts          # PGlite lane
-ZENITH_TEST_PLATFORM_PG_URL=<postgres url> npx vitest run tests/controlplane/machine-runbooks.test.ts   # adds real PostgreSQL lane
-npx vitest run tests/controlplane/migrations.test.ts                 # after the inventory updates below
-npx tsc --noEmit -p . && npx eslint src/lib/machines/runbooks src/lib/controlplane/db/repos/machine-runbooks.ts tests/machines/runbooks.test.ts tests/controlplane/machine-runbooks.test.ts
+npx vitest run tests/machines/runbooks.test.ts tests/machines/runbook-step-executor.test.ts
+npx vitest run tests/controlplane/machine-runbooks.test.ts tests/controlplane/migrations.test.ts   # PGlite lane
+ZENITH_TEST_PLATFORM_PG_URL=<postgres url> npx vitest run tests/controlplane/machine-runbooks.test.ts tests/controlplane/migrations.test.ts
+npx vitest run tests/middleware/platform-bearer.test.ts tests/engine/postgres-scheduler.test.ts tests/docs
+npx tsx scripts/platform/emit-sql.ts --check
+npx tsc --noEmit -p . && npx eslint <changed files>
 ```
 
-Expected: all pass, zero skipped (the PostgreSQL lane only appears with the env var). No Go or OPA changes.
+Expected: all pass, zero skipped (the PostgreSQL lane only with the env var). No Go or OPA changes.
 
-## 4. Known gaps and shared-file updates
+## 4. Known gaps
 
-- Migration inventories must be updated by the orchestrator: `scripts/ci/apply-supabase-migrations.sh`, `docs/platform/operations/DEPLOYING.md`, `tests/controlplane/migrations.test.ts` (new version 17 `machine_runbooks`; the Supabase renderer `emit.ts` takes it from `PLATFORM_MIGRATIONS`). If another worker also added 0017 the later one must renumber. Add the two new test files to the gate manifest if it enumerates test paths.
-- Not wired: no HTTP route, UI or cron mount. The tick (`createRunbookService(...).tickSchedules`) and `executeRunbookRun` are library entry points; the composition root must provide `authorize` (workspace role), `grantFor` (capability broker propose/approve/grant per step), the machine drivers/sessions/evidence, and a periodic caller (for example the internal tick route or a Temporal schedule). Per-step grants from the broker are the integration point that makes critical capabilities also need their own approvals.
-- Runs are executed by whichever worker calls `executeRunbookRun`; no long-lived dispatcher loop is included.
-- Windows are UTC only, do not cross midnight, and have no DST/zone support by design.
-- File upload/write/package operations are accepted as step operations (args validated by their existing schemas) but their end-to-end behavior depends on the other worker's slice.
-- Real PostgreSQL behavior of the partial-index `on conflict` and trigger functions is covered by the SQL tests only when they are run on that lane; PGlite was not run by this worker.
-- Typecheck: the pre-existing errors in `src/lib/tofu/engine.ts` and `tests/ci/platform-coverage.test.ts` at the base commit are unrelated.
+- No UI page; the REST surface is complete. Real end-to-end runs against a live zenithd machine, the live signer and the broker ledger are untested here (nothing was executed).
+- The route handlers are not covered by a route-level test (the bearer-path inventory, service, runner, executor and SQL store are). A route test needs the session/identity mocks used by the operations route tests.
+- Windows are UTC only, never cross midnight. Cloud-transport runbook targets are refused. File upload/write/package steps depend on the other worker's slice.
+- Step operations for critical capabilities need the broker to allow them without a per-step approval (policy/autonomy); otherwise the step fails closed.
 
 ## 5. Suggested ledger implementationStatus
 
-`signed_runbooks_scheduling_audit_built_composition_wiring_and_live_runs_pending`
+`signed_runbooks_scheduling_audit_rest_and_tick_wired_zenithd_targets_live_runs_and_obs04_registration_pending`

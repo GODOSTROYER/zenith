@@ -9,7 +9,10 @@
  * operation; `runner.ts` does, one broker-granted step at a time.
  */
 import { randomUUID } from "node:crypto";
+import type { MachineTransport } from "../types";
 import type { Principal } from "@/lib/controlplane/types";
+
+const plainPrincipal = (p: Principal): Principal => ({ kind: p.kind, id: p.id, name: p.name, ...(p.onBehalfOf ? { onBehalfOf: p.onBehalfOf } : {}), ...(p.integrationId ? { integrationId: p.integrationId } : {}) });
 import type { JwtSigner, PublicJwk } from "@/lib/credentials/signing/types";
 import {
   MAX_PARALLEL_TARGETS,
@@ -28,7 +31,7 @@ import type { RunbookApprovalRecord, RunbookRunRecord, RunbookScheduleRecord, Ru
 import { WindowSchema, adHocDeadline, decideSlot, nextSlotInWindow, parseScheduleSpec, type RunWindow } from "./schedule";
 import { signRunbookVersion, verifyRunbookVersion } from "./signing";
 
-export type RunbookAction = "publish" | "request" | "approve" | "cancel" | "schedule";
+export type RunbookAction = "read" | "publish" | "request" | "approve" | "cancel" | "schedule";
 
 export interface RunbookServiceDeps {
   store: RunbookStore;
@@ -37,6 +40,8 @@ export interface RunbookServiceDeps {
   verificationKeys: () => Promise<readonly PublicJwk[]>;
   /** role check owned by the caller; a `false` is `forbidden`, never an unscoped fallthrough */
   authorize: (principal: Principal, workspaceId: string, action: RunbookAction) => Promise<boolean>;
+  /** transports this deployment can actually dispatch to; other targets are refused up front */
+  allowedTransports?: readonly MachineTransport[];
   now?: () => Date;
 }
 
@@ -54,6 +59,8 @@ export interface RunRequestInput {
 }
 
 const actorOf = (p: Principal): string => `${p.kind}:${p.id}`;
+/** The human accountable for a principal: an agent acts for its owner, so an owner cannot approve their own agent's request. */
+const accountableOf = (p: Principal): string => (p.onBehalfOf ? `user:${p.onBehalfOf}` : actorOf(p));
 const MAX_TICK_SLOTS_PER_SCHEDULE = 50;
 
 export function createRunbookService(deps: RunbookServiceDeps) {
@@ -69,6 +76,13 @@ export function createRunbookService(deps: RunbookServiceDeps) {
     if (!rec) throw new RunbookError("not_found", "That runbook version does not exist.");
     await verifyRunbookVersion({ workspaceId: ws, runbookId, version: rec.version, definition: rec.definition, signature: rec.signature }, await deps.verificationKeys());
     return { rec, classification: classifyRunbook(rec.definition) };
+  }
+
+  function checkedTargets(raw: unknown): ReturnType<typeof parseRunbookTargets> {
+    const targets = parseRunbookTargets(raw);
+    const allowed = deps.allowedTransports;
+    if (allowed && targets.some((x) => !allowed.includes(x.transport))) throw new RunbookError("invalid_binding", `Runbooks can target only these transports here: ${allowed.join(", ")}.`);
+    return targets;
   }
 
   function bounds(input: { maxRunDurationSec?: number; maxParallelTargets?: number }): { maxRunDurationSec: number; maxParallelTargets: number } {
@@ -93,7 +107,7 @@ export function createRunbookService(deps: RunbookServiceDeps) {
     /** Validate, assign the next version number, sign and store an immutable runbook version. */
     async publish(input: { workspaceId: string; runbookId: string; definition: unknown; principal: Principal }): Promise<RunbookVersionRecord> {
       await allow(input.principal, input.workspaceId, "publish");
-      if (!RUNBOOK_ID_RE.test(input.runbookId)) throw new RunbookError("invalid_definition", "The runbook id must match [a-z0-9][a-z0-9_.-]{0,62}.");
+      if (!RUNBOOK_ID_RE.test(input.runbookId)) throw new RunbookError("invalid_definition", "The runbook id must match [a-z0-9][a-z0-9_-]{0,62}.");
       const definition: RunbookDefinition = parseRunbookDefinition(input.definition);
       const classification = classifyRunbook(definition);
       for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -129,14 +143,14 @@ export function createRunbookService(deps: RunbookServiceDeps) {
     async requestRun(input: RunRequestInput): Promise<RunbookRunRecord> {
       await allow(input.principal, input.workspaceId, "request");
       const { rec, classification } = await loadVerified(input.workspaceId, input.runbookId, input.version);
-      const targets = parseRunbookTargets(input.targets);
+      const targets = checkedTargets(input.targets);
       const windows = parseWindows(input.windows);
       const { maxRunDurationSec, maxParallelTargets } = bounds(input);
       const at = now();
       const deadlineMs = adHocDeadline({ nowMs: at.getTime(), windows, maxRunDurationSec, notAfter: input.notAfter });
       const bindingDigest = bindingDigestOf({ workspaceId: input.workspaceId, runbookId: input.runbookId, version: rec.version, definitionDigest: rec.definitionDigest, targets, maxRunDurationSec, maxParallelTargets, windows, notAfter: input.notAfter });
       const approval = await store.findValidApproval(input.workspaceId, bindingDigest, at);
-      const requestedBy = actorOf(input.principal);
+      const requestedBy = accountableOf(input.principal);
       const gate = evaluateRunbookGate({ classification, approval, requestedBy, now: at });
       const run: RunbookRunRecord = {
         id: `rbr_${randomUUID()}`,
@@ -149,6 +163,7 @@ export function createRunbookService(deps: RunbookServiceDeps) {
         maxParallelTargets,
         status: gate.outcome === "allow" ? "approved" : "pending_approval",
         requestedBy,
+        requester: plainPrincipal(input.principal),
         deadlineAt: new Date(deadlineMs).toISOString(),
         createdAt: at.toISOString(),
       };
@@ -167,7 +182,7 @@ export function createRunbookService(deps: RunbookServiceDeps) {
       const at = now();
       if (Date.parse(run.deadlineAt) <= at.getTime()) throw new RunbookError("outside_window", "The run's window has already closed.");
       const { classification } = await loadVerified(input.workspaceId, run.runbookId, run.version);
-      const approver = actorOf(input.principal);
+      const approver = accountableOf(input.principal);
       if (approver === run.requestedBy) throw new RunbookError("forbidden", "You cannot approve your own run.");
       const cap = approvalTtlCapSec(classification);
       const ttl = Math.min(input.ttlSec ?? cap, cap, Math.max(1, Math.floor((Date.parse(run.deadlineAt) - at.getTime()) / 1000)));
@@ -193,11 +208,11 @@ export function createRunbookService(deps: RunbookServiceDeps) {
     async createSchedule(input: { workspaceId: string; runbookId: string; version?: number; targets: unknown; spec: unknown; principal: Principal }): Promise<RunbookScheduleRecord> {
       await allow(input.principal, input.workspaceId, "schedule");
       const { rec, classification } = await loadVerified(input.workspaceId, input.runbookId, input.version);
-      const targets = parseRunbookTargets(input.targets);
+      const targets = checkedTargets(input.targets);
       const spec = parseScheduleSpec(input.spec);
       const at = now();
       const bindingDigest = bindingDigestOf({ workspaceId: input.workspaceId, runbookId: input.runbookId, version: rec.version, definitionDigest: rec.definitionDigest, targets, maxRunDurationSec: spec.maxRunDurationSec, maxParallelTargets: spec.maxParallelTargets, schedule: spec });
-      const createdBy = actorOf(input.principal);
+      const createdBy = accountableOf(input.principal);
       const active = !classification.requiresApproval;
       const first = nextSlotInWindow(spec, at.getTime());
       const sched: RunbookScheduleRecord = {
@@ -211,6 +226,7 @@ export function createRunbookService(deps: RunbookServiceDeps) {
         status: active ? "active" : "pending_approval",
         nextDueAt: active && first !== undefined ? new Date(first).toISOString() : null,
         createdBy,
+        creator: plainPrincipal(input.principal),
         createdAt: at.toISOString(),
       };
       await store.insertSchedule(sched);
@@ -224,7 +240,7 @@ export function createRunbookService(deps: RunbookServiceDeps) {
       const sched = await store.getSchedule(input.workspaceId, input.scheduleId);
       if (!sched) throw new RunbookError("not_found", "That schedule does not exist.");
       if (sched.status !== "pending_approval") throw new RunbookError("conflict", "That schedule is not waiting for approval.");
-      const approver = actorOf(input.principal);
+      const approver = accountableOf(input.principal);
       if (approver === sched.createdBy) throw new RunbookError("forbidden", "You cannot approve your own schedule.");
       const { classification } = await loadVerified(input.workspaceId, sched.runbookId, sched.version);
       const at = now();
@@ -312,6 +328,7 @@ export function createRunbookService(deps: RunbookServiceDeps) {
             maxParallelTargets: sched.spec.maxParallelTargets,
             status: "approved",
             requestedBy: sched.createdBy,
+            requester: sched.creator,
             deadlineAt: new Date(decision.deadlineMs).toISOString(),
             createdAt: at.toISOString(),
           };
@@ -327,6 +344,26 @@ export function createRunbookService(deps: RunbookServiceDeps) {
       return out;
     },
 
+    async listRunbooks(input: { workspaceId: string; principal: Principal; limit?: number }): Promise<RunbookVersionRecord[]> {
+      await allow(input.principal, input.workspaceId, "read");
+      return store.listRunbooks(input.workspaceId, input.limit ?? 50);
+    },
+    async listRuns(input: { workspaceId: string; principal: Principal; limit?: number; status?: RunbookRunRecord["status"] }): Promise<RunbookRunRecord[]> {
+      await allow(input.principal, input.workspaceId, "read");
+      return store.listRuns(input.workspaceId, input.limit ?? 50, input.status);
+    },
+    async listSchedules(input: { workspaceId: string; principal: Principal; limit?: number }): Promise<RunbookScheduleRecord[]> {
+      await allow(input.principal, input.workspaceId, "read");
+      return store.listSchedules(input.workspaceId, input.limit ?? 50);
+    },
+    /** One run with its per-target step custody and its verified audit trail. */
+    async readRun(input: { workspaceId: string; runId: string; principal: Principal }) {
+      await allow(input.principal, input.workspaceId, "read");
+      const run = await store.getRun(input.workspaceId, input.runId);
+      if (!run) return null;
+      const [steps, audit] = await Promise.all([store.listSteps(input.workspaceId, run.id), store.listAudit(input.workspaceId, `run:${run.id}`)]);
+      return { run, steps, audit };
+    },
     getRun: (workspaceId: string, runId: string) => store.getRun(workspaceId, runId),
     listAudit: (workspaceId: string, subject: string) => store.listAudit(workspaceId, subject),
     definitionDigest,

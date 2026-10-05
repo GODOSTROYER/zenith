@@ -49,6 +49,7 @@ const scheduleOf = (r: Row): RunbookScheduleRecord => ({
   status: r.status as ScheduleStatus,
   nextDueAt: isoOrUndef(r.next_due_at) ?? null,
   createdBy: r.created_by as string,
+  creator: parse(r.creator),
   createdAt: iso(r.created_at),
 });
 const runOf = (r: Row): RunbookRunRecord => ({
@@ -66,6 +67,7 @@ const runOf = (r: Row): RunbookRunRecord => ({
   ...(r.cancel_requested_at ? { cancelRequestedAt: iso(r.cancel_requested_at) } : {}),
   ...(r.cancel_reason ? { cancelReason: r.cancel_reason as string } : {}),
   requestedBy: r.requested_by as string,
+  requester: parse(r.requester),
   deadlineAt: iso(r.deadline_at),
   ...(r.lease_until ? { leaseUntil: iso(r.lease_until) } : {}),
   ...(r.failure_code ? { failureCode: r.failure_code as string } : {}),
@@ -97,8 +99,8 @@ const auditOf = (r: Row): RunbookAuditRecord => ({
   createdAt: iso(r.created_at),
 });
 
-const RUN_COLS = "id, workspace_id, runbook_id, version, definition_digest, binding_digest, schedule_id, due_at, targets, max_parallel_targets, status, cancel_requested_at, cancel_reason, requested_by, deadline_at, lease_until, failure_code, created_at, started_at, finished_at";
-const SCHED_COLS = "id, workspace_id, runbook_id, version, spec, targets, binding_digest, status, next_due_at, created_by, created_at";
+const RUN_COLS = "id, workspace_id, runbook_id, version, definition_digest, binding_digest, schedule_id, due_at, targets, max_parallel_targets, status, cancel_requested_at, cancel_reason, requested_by, requester, deadline_at, lease_until, failure_code, created_at, started_at, finished_at";
+const SCHED_COLS = "id, workspace_id, runbook_id, version, spec, targets, binding_digest, status, next_due_at, created_by, creator, created_at";
 
 export function createPlatformRunbookStore(db: Sql): RunbookStore {
   return {
@@ -122,6 +124,29 @@ export function createPlatformRunbookStore(db: Sql): RunbookStore {
       return rows[0] ? versionOf(rows[0]) : null;
     },
 
+    async listRunbooks(ws, limit) {
+      const rows = await db.query<Row>(
+        "select distinct on (runbook_id) * from platform.machine_runbook_versions where workspace_id=$1 order by runbook_id, version desc",
+        [ws]
+      );
+      return rows.map(versionOf).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, Math.max(1, Math.min(200, Math.trunc(limit))));
+    },
+    async listRuns(ws, limit, status) {
+      const rows = await db.query<Row>(`select ${RUN_COLS} from platform.machine_runbook_runs where workspace_id=$1 and ($2::text is null or status=$2) order by created_at desc limit $3`, [ws, status ?? null, Math.max(1, Math.min(200, Math.trunc(limit)))]);
+      return rows.map(runOf);
+    },
+    async listSchedules(ws, limit) {
+      const rows = await db.query<Row>(`select ${SCHED_COLS} from platform.machine_runbook_schedules where workspace_id=$1 order by created_at desc limit $2`, [ws, Math.max(1, Math.min(200, Math.trunc(limit)))]);
+      return rows.map(scheduleOf);
+    },
+    async listClaimableRuns(now, limit) {
+      const rows = await db.query<Row>(
+        `select ${RUN_COLS} from platform.machine_runbook_runs where status='approved' or (status='running' and lease_until <= $1::timestamptz) order by created_at asc limit $2`,
+        [now.toISOString(), Math.max(1, Math.min(100, Math.trunc(limit)))]
+      );
+      return rows.map(runOf);
+    },
+
     async insertApproval(rec: RunbookApprovalRecord) {
       await db.query(
         "insert into platform.machine_runbook_approvals(id, workspace_id, binding_digest, requested_by, approver_id, expires_at, created_at) values ($1,$2,$3,$4,$5,$6,$7)",
@@ -139,8 +164,8 @@ export function createPlatformRunbookStore(db: Sql): RunbookStore {
 
     async insertSchedule(rec) {
       await db.query(
-        "insert into platform.machine_runbook_schedules(id, workspace_id, runbook_id, version, spec, targets, binding_digest, status, next_due_at, created_by, created_at) values ($1,$2,$3,$4,$5::text::jsonb,$6::text::jsonb,$7,$8,$9,$10,$11)",
-        [rec.id, rec.workspaceId, rec.runbookId, rec.version, json(rec.spec), json(rec.targets), rec.bindingDigest, rec.status, rec.nextDueAt, rec.createdBy, rec.createdAt]
+        "insert into platform.machine_runbook_schedules(id, workspace_id, runbook_id, version, spec, targets, binding_digest, status, next_due_at, created_by, creator, created_at) values ($1,$2,$3,$4,$5::text::jsonb,$6::text::jsonb,$7,$8,$9,$10,$11::text::jsonb,$12)",
+        [rec.id, rec.workspaceId, rec.runbookId, rec.version, json(rec.spec), json(rec.targets), rec.bindingDigest, rec.status, rec.nextDueAt, rec.createdBy, json(rec.creator), rec.createdAt]
       );
     },
     async getSchedule(ws, id) {
@@ -172,10 +197,10 @@ export function createPlatformRunbookStore(db: Sql): RunbookStore {
 
     async insertRun(rec) {
       const rows = await db.query<Row>(
-        `insert into platform.machine_runbook_runs(id, workspace_id, runbook_id, version, definition_digest, binding_digest, schedule_id, due_at, targets, max_parallel_targets, status, requested_by, deadline_at, created_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9::text::jsonb,$10,$11,$12,$13,$14)
+        `insert into platform.machine_runbook_runs(id, workspace_id, runbook_id, version, definition_digest, binding_digest, schedule_id, due_at, targets, max_parallel_targets, status, requested_by, requester, deadline_at, created_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9::text::jsonb,$10,$11,$12,$13::text::jsonb,$14,$15)
          on conflict (schedule_id, due_at) where schedule_id is not null do nothing returning id`,
-        [rec.id, rec.workspaceId, rec.runbookId, rec.version, rec.definitionDigest, rec.bindingDigest, rec.scheduleId ?? null, rec.dueAt ?? null, json(rec.targets), rec.maxParallelTargets, rec.status, rec.requestedBy, rec.deadlineAt, rec.createdAt]
+        [rec.id, rec.workspaceId, rec.runbookId, rec.version, rec.definitionDigest, rec.bindingDigest, rec.scheduleId ?? null, rec.dueAt ?? null, json(rec.targets), rec.maxParallelTargets, rec.status, rec.requestedBy, json(rec.requester), rec.deadlineAt, rec.createdAt]
       );
       if (rows.length === 1) return { run: rec, created: true };
       const existing = await db.query<Row>(`select ${RUN_COLS} from platform.machine_runbook_runs where workspace_id=$1 and schedule_id=$2 and due_at=$3::timestamptz`, [rec.workspaceId, rec.scheduleId, rec.dueAt]);

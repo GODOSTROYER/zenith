@@ -15,7 +15,7 @@ $$;
 
 create table if not exists platform.machine_runbook_versions (
   workspace_id text not null,
-  runbook_id text not null check (runbook_id ~ '^[a-z0-9][a-z0-9_.-]{0,62}$'),
+  runbook_id text not null check (runbook_id ~ '^[a-z0-9][a-z0-9_-]{0,62}$'),
   version integer not null check (version >= 1),
   name text not null,
   definition jsonb not null,
@@ -55,6 +55,7 @@ create table if not exists platform.machine_runbook_schedules (
   status text not null check (status in ('pending_approval','active','paused','cancelled','completed')),
   next_due_at timestamptz,
   created_by text not null,
+  creator jsonb not null,
   created_at timestamptz not null default clock_timestamp(),
   foreign key (workspace_id, runbook_id, version) references platform.machine_runbook_versions(workspace_id, runbook_id, version)
 );
@@ -75,6 +76,7 @@ create table if not exists platform.machine_runbook_runs (
   cancel_requested_at timestamptz,
   cancel_reason text,
   requested_by text not null,
+  requester jsonb not null,
   deadline_at timestamptz not null,
   lease_until timestamptz,
   failure_code text,

@@ -44,6 +44,12 @@ export interface RunbookRunnerDeps {
   /** how often a running run looks for a cancel request */
   pollMs?: number;
   actor?: string;
+  /**
+   * A caller-supplied abort (a pass budget, a shutdown) releases the run instead of finishing it:
+   * the lease expires, another pass reclaims it, and the in-flight step is then marked uncertain
+   * rather than re-dispatched. Cancellation and the run deadline are unaffected.
+   */
+  releaseOnAbort?: boolean;
 }
 
 /** Deterministic and alphabet-safe: the same (run, target, step) always maps to the same machine operation id. */
@@ -210,6 +216,11 @@ export async function executeRunbookRun(deps: RunbookRunnerDeps, input: { worksp
     input.signal?.removeEventListener("abort", onExternalAbort);
   }
 
+  if (stopReason === "aborted" && deps.releaseOnAbort) {
+    await audit("run.released", { reason: "caller_abort" });
+    await auditTail;
+    return (await store.getRun(ws, run.id)) ?? run;
+  }
   const summary = { ...counts };
   if (stopReason === "cancelled") return finish("cancelled", "cancel_requested", summary);
   if (counts.uncertain > 0) return finish("uncertain", "uncertain_step", summary);
@@ -220,30 +231,50 @@ export async function executeRunbookRun(deps: RunbookRunnerDeps, input: { worksp
 
 /* ---------------------- production step executor ---------------------- */
 
+/** A broker-issued grant for exactly one step, plus the hook that settles its ledger operation. */
+export interface StepGrant {
+  claims: CapabilityGrantClaims;
+  /** compact JWS the transport may need to forward (zenithd); never logged or stored */
+  jws: string;
+  settle(outcome: "succeeded" | "failed" | "uncertain", detail: { code?: string }): Promise<void>;
+}
+
 export interface MachineStepExecutorDeps {
   drivers: MachineDrivers;
-  sessions: MachineSessionProvider;
   evidence: MachineEvidenceSink;
+  sessionsFor: (jws: string, req: MachineRequest, ctx: RunbookStepContext) => MachineSessionProvider;
   /**
-   * Obtain the broker-issued, signature-verified capability grant for exactly this
-   * machine request (policy evaluation, per-step approval and single-use consumption
-   * happen inside the broker). Throw to refuse; a refusal fails the step, never
-   * falls back to an ungranted execution.
+   * Obtain the broker-issued, signature-verified capability grant for exactly this machine request
+   * (policy evaluation, per-step approval and single-use consumption happen inside the broker).
+   * Throw to refuse; a refusal fails the step, never falls back to an ungranted execution.
    */
-  grantFor: (req: MachineRequest, ctx: RunbookStepContext) => Promise<CapabilityGrantClaims>;
+  grantFor: (req: MachineRequest, ctx: RunbookStepContext) => Promise<StepGrant>;
   now?: () => Date;
 }
 
 /** `RunbookStepExecutor` over the one machine entry point; there is no privileged alternate path. */
 export function createMachineStepExecutor(deps: MachineStepExecutorDeps): RunbookStepExecutor {
   return async (req, ctx) => {
-    let grant: CapabilityGrantClaims;
+    let step: StepGrant;
     try {
-      grant = await deps.grantFor(req, ctx);
+      step = await deps.grantFor(req, ctx);
     } catch (cause) {
       throw new MachineOperationError("denied", "no capability grant was issued for this runbook step", { cause });
     }
-    const exec: MachineExecutionContext = { grant, drivers: deps.drivers, sessions: deps.sessions, evidence: deps.evidence, signal: ctx.signal, ...(deps.now ? { now: deps.now } : {}) };
-    return executeMachineOperation(req, exec);
+    // the grant is bound to the broker's operation id, which is the id the machine layer must see
+    const effective: MachineRequest = step.claims.op === req.operationId ? req : { ...req, operationId: step.claims.op };
+    const exec: MachineExecutionContext = { grant: step.claims, drivers: deps.drivers, sessions: deps.sessionsFor(step.jws, effective, ctx), evidence: deps.evidence, signal: ctx.signal, ...(deps.now ? { now: deps.now } : {}) };
+    const settle = async (outcome: "succeeded" | "failed" | "uncertain", code?: string): Promise<void> => {
+      try { await step.settle(outcome, { code }); } catch { /* a ledger outage must not mask the machine outcome */ }
+    };
+    try {
+      const result = await executeMachineOperation(effective, exec);
+      await settle(result.ok ? "succeeded" : "failed", result.ok ? undefined : "step_failed");
+      return result;
+    } catch (e) {
+      if (isMachineOperationError(e)) await settle(e.code === "uncertain" || e.code === "evidence_failed" ? "uncertain" : "failed", e.code);
+      else await settle("failed", "executor_error");
+      throw e;
+    }
   };
 }

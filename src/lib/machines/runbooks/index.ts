@@ -19,4 +19,4 @@ export * from "./audit";
 export * from "./ports";
 export { MemoryRunbookStore } from "./memory-store";
 export { createRunbookService, type RunbookAction, type RunbookService, type RunbookServiceDeps, type RunRequestInput } from "./service";
-export { executeRunbookRun, createMachineStepExecutor, stepOperationId, type RunbookRunnerDeps, type RunbookStepContext, type RunbookStepExecutor, type MachineStepExecutorDeps } from "./runner";
+export { executeRunbookRun, createMachineStepExecutor, stepOperationId, type RunbookRunnerDeps, type RunbookStepContext, type RunbookStepExecutor, type MachineStepExecutorDeps, type StepGrant } from "./runner";

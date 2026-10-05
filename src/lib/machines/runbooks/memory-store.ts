@@ -43,6 +43,28 @@ export class MemoryRunbookStore implements RunbookStore {
     return best ? clone(best) : null;
   }
 
+  async listRunbooks(ws: string, limit: number): Promise<RunbookVersionRecord[]> {
+    const latest = new Map<string, RunbookVersionRecord>();
+    for (const v of this.#versions.values()) {
+      const cur = latest.get(v.runbookId);
+      if (v.workspaceId === ws && (!cur || v.version > cur.version)) latest.set(v.runbookId, v);
+    }
+    return [...latest.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, limit).map(clone);
+  }
+  async listRuns(ws: string, limit: number, status?: RunbookRunRecord["status"]): Promise<RunbookRunRecord[]> {
+    return [...this.#runs.values()].filter((r) => r.workspaceId === ws && (!status || r.status === status)).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, limit).map(clone);
+  }
+  async listSchedules(ws: string, limit: number): Promise<RunbookScheduleRecord[]> {
+    return [...this.#schedules.values()].filter((s) => s.workspaceId === ws).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, limit).map(clone);
+  }
+  async listClaimableRuns(now: Date, limit: number): Promise<RunbookRunRecord[]> {
+    return [...this.#runs.values()]
+      .filter((r) => r.status === "approved" || (r.status === "running" && r.leaseUntil !== undefined && Date.parse(r.leaseUntil) <= now.getTime()))
+      .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
+      .slice(0, limit)
+      .map(clone);
+  }
+
   async insertApproval(rec: RunbookApprovalRecord): Promise<void> {
     this.#approvals.push(clone(rec));
   }

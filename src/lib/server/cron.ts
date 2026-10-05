@@ -96,6 +96,13 @@ export async function housekeepingTickPass(): Promise<import("@/lib/platform/hou
   }
 }
 
+/** Signed-runbook schedules and due runs; control-store only, bounded, lease-guarded. */
+export async function runbookTickPass(): Promise<import("@/lib/platform/runbooks").RunbookTickResult> {
+  if (!(await ensurePlatformCron())) return { ran: false, created: 0, missed: 0, blocked: 0, executed: 0 };
+  const { runbookTickPass: pass } = await import("@/lib/platform/runbooks");
+  return pass({ budgetMs: 15_000 });
+}
+
 /* ------------------------------ authorisation ----------------------------- */
 
 /** The environment variable Vercel itself names, and sends as a bearer token. */
@@ -348,6 +355,7 @@ export const scheduledPasses = {
   alerts: alertTickPass,
   outbox: outboxTickPass,
   housekeeping: housekeepingTickPass,
+  runbooks: runbookTickPass,
 };
 
 export interface SchedulerPassResult {
@@ -356,6 +364,7 @@ export interface SchedulerPassResult {
   alerts?: AlertTickResult;
   outbox?: OutboxTickResult;
   housekeeping?: import("@/lib/platform/housekeeping").HousekeepingResult;
+  runbooks?: import("@/lib/platform/runbooks").RunbookTickResult;
   ms: number;
 }
 
@@ -396,6 +405,8 @@ export async function runScheduledPass(): Promise<SchedulerPassResult | null> {
           result.outbox = await scheduledPasses.outbox();
           await reapPlatformJobs();
           result.housekeeping = await scheduledPasses.housekeeping();
+          // a runbook failure must never take the engine pass down with it
+          try { result.runbooks = await scheduledPasses.runbooks(); } catch { log.warn("runbook pass failed", { scope: "cron" }); }
         }
         result.ms = Date.now() - started;
         return result;

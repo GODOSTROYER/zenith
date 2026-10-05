@@ -25,6 +25,14 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/environments/${ID}/(?:resources|drift|incidents)$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/environments/${ID}/placement$`), methods: { POST: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/environments/${ID}/teardown-review$`), methods: { GET: "bearer-capable", POST: "bearer-capable" } },
+  // Signed runbooks: publish and approve need the person's browser; agents may request, schedule, cancel and read.
+  { path: new RegExp(`^${ROOT}/runbooks$`), methods: { GET: "bearer-capable", POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/runbooks/${ID}/(?:runs|schedules)$`), methods: { POST: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/runbooks/(?:runs|schedules)$`), methods: { GET: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/runbooks/runs/${ID}$`), methods: { GET: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/runbooks/runs/${ID}/cancel$`), methods: { POST: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/runbooks/(?:runs|schedules)/${ID}/approve$`), methods: { POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/runbooks/schedules/${ID}/state$`), methods: { POST: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/capability-catalog$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/workspace/policy$`), methods: { GET: "bearer-capable", PUT: "browser-only" } },
   // Installation and repository binding require the human admin's browser session.

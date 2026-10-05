@@ -647,6 +647,7 @@ Registered migrations: **16**; highest version: **16**.
 | 14 | `mixed_child_intents` | `5d676658116c3e66b1238c24a72da4ddbd65f06f30c57cf5dc753bcc0a56961e` |
 | 15 | `cleanup_writer_barriers` | `1630821507e71c2ec68d0918bd82b0333aabb4f4211654927cc07d7eb4a6c123` |
 | 16 | `cleanup_writer_settlements` | `30f73b35ae4bf2da289bd1a3ce403cc0bd409f383efb942a7aa095235333d711` |
+| 17 | `machine_runbooks` | `757f57cf9d043b3f7bb2dcaa9af025c0a3251596a1ed5ddf9e6c21c6009518b9` |
 
 <!-- platform-migrations:end -->
 
@@ -677,7 +678,7 @@ A database that applied the emitted SQL before a later
 migration landed is behind and the application refuses to use it until you re-apply
 the file or run `npm run migrate:platform`.
 
-The current aggregate is `0018_platform_core.sql`; historical platform aggregates `0014`, `0016` and `0017` remain unchanged. The committed Supabase bootstrap applies `0018` after those aggregates and agent OAuth `0015`. Schema 16 adds immutable physical local-backend ownership and authenticated standalone builtin completion receipts. These receipts reconcile only eligible saved-plan history; they do not settle cloud calls, grants, workflows, builds or guest deliveries. If you apply
+Schema 17 adds the signed-runbook tables (`machine_runbook_*`: immutable versions, approvals and hash-chained audit; schedules, runs and step custody). The current aggregate is `0018_platform_core.sql`; historical platform aggregates `0014`, `0016` and `0017` remain unchanged. The committed Supabase bootstrap applies `0018` after those aggregates and agent OAuth `0015`. Schema 16 adds immutable physical local-backend ownership and authenticated standalone builtin completion receipts. These receipts reconcile only eligible saved-plan history; they do not settle cloud calls, grants, workflows, builds or guest deliveries. If you apply
 migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any

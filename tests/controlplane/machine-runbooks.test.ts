@@ -51,7 +51,7 @@ describe.each(LANES)("machine runbook store [$name]", (lane) => {
   }
   const runFor = (ws: string, signed: { digest: string }, over: Partial<RunbookRunRecord> = {}): RunbookRunRecord => ({
     id: uid("rbr"), workspaceId: ws, runbookId: "rb", version: 1, definitionDigest: signed.digest, bindingDigest: "b".repeat(64), targets: parseRunbookTargets([TARGET]), maxParallelTargets: 1,
-    status: "approved", requestedBy: "user:bob", deadlineAt: new Date(Date.now() + 600_000).toISOString(), createdAt: new Date().toISOString(), ...over,
+    status: "approved", requestedBy: "user:bob", requester: user("bob"), deadlineAt: new Date(Date.now() + 600_000).toISOString(), createdAt: new Date().toISOString(), ...over,
   });
 
   it("versions are immutable: duplicates conflict and rows cannot be updated or deleted", async () => {
@@ -76,7 +76,7 @@ describe.each(LANES)("machine runbook store [$name]", (lane) => {
 
   it("a schedule slot becomes at most one run, even from two independent connections", async () => {
     const s = await seeded();
-    const sched = { id: uid("rbs"), workspaceId: s.ws, runbookId: "rb", version: 1, spec: { cadence: { kind: "once" as const, at: "2026-10-05T02:00:00Z" }, windows: [{ days: [1], startMinute: 120, endMinute: 180 }], maxRunDurationSec: 900, maxParallelTargets: 1 }, targets: parseRunbookTargets([TARGET]), bindingDigest: "d".repeat(64), status: "active" as const, nextDueAt: "2026-10-05T02:00:00.000Z", createdBy: "user:alice", createdAt: new Date().toISOString() };
+    const sched = { id: uid("rbs"), workspaceId: s.ws, runbookId: "rb", version: 1, spec: { cadence: { kind: "once" as const, at: "2026-10-05T02:00:00Z" }, windows: [{ days: [1], startMinute: 120, endMinute: 180 }], maxRunDurationSec: 900, maxParallelTargets: 1 }, targets: parseRunbookTargets([TARGET]), bindingDigest: "d".repeat(64), status: "active" as const, nextDueAt: "2026-10-05T02:00:00.000Z", createdBy: "user:alice", creator: user("alice"), createdAt: new Date().toISOString() };
     await store.insertSchedule(sched);
     const dueAt = "2026-10-05T02:00:00.000Z";
     const [a, b] = await Promise.all([store.insertRun(runFor(s.ws, s.signed, { scheduleId: sched.id, dueAt })), store2.insertRun(runFor(s.ws, s.signed, { scheduleId: sched.id, dueAt }))]);
@@ -129,6 +129,21 @@ describe.each(LANES)("machine runbook store [$name]", (lane) => {
     expect(verifyAuditChain(chain)).toBe(true);
     await expect(ctx.db.query("delete from platform.machine_runbook_audit where workspace_id=$1", [ws])).rejects.toThrow(/cannot be changed/);
     expect(await store.listAudit(newWorkspace(), subject)).toEqual([]);
+  });
+
+  it("list functions are tenant scoped and the executor sees only claimable runs", async () => {
+    const a = await seeded();
+    const b = await seeded();
+    const approved = (await store.insertRun(runFor(a.ws, a.signed))).run;
+    const pending = (await store.insertRun(runFor(a.ws, a.signed, { status: "pending_approval" }))).run;
+    expect((await store.listRunbooks(a.ws, 10)).map((v) => v.runbookId)).toEqual(["rb"]);
+    expect((await store.listRuns(a.ws, 10)).map((r) => r.id).sort()).toEqual([approved.id, pending.id].sort());
+    expect((await store.listRuns(a.ws, 10, "pending_approval")).map((r) => r.id)).toEqual([pending.id]);
+    expect(await store.listRuns(b.ws, 10)).toEqual([]);
+    expect(await store.listSchedules(b.ws, 10)).toEqual([]);
+    const claimable = (await store.listClaimableRuns(new Date(), 100)).map((r) => r.id);
+    expect(claimable).toContain(approved.id);
+    expect(claimable).not.toContain(pending.id);
   });
 
   it("service and runner work end to end over the SQL store", async () => {

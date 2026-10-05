@@ -26,7 +26,7 @@ export const MAX_RUNBOOK_TARGETS = 25;
 export const MAX_PARALLEL_TARGETS = 5;
 /** hard ceiling for one run, regardless of definition or window */
 export const MAX_RUN_DURATION_SEC = 6 * 60 * 60;
-export const RUNBOOK_ID_RE = /^[a-z0-9][a-z0-9_.-]{0,62}$/;
+export const RUNBOOK_ID_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
 const STEP_ID_RE = /^[a-z0-9][a-z0-9_-]{0,47}$/;
 
 /** Operations that run caller-supplied command lines. Never auto-classified as safe. */

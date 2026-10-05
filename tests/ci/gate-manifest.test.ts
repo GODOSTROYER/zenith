@@ -227,7 +227,7 @@ const settlementGroup = {
   file: "tests/controlplane/cleanup-writer-barriers.test.ts",
   suite: "native cleanup writer barrier [postgres; modeled hosted association and policy]",
   flag: "ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED",
-  sourceSha256: "87813c36bd0face890cc8e47e8aede5fc3d6fae058c13cd07f5812b449339f71",
+  sourceSha256: "8fbf9a47c283f04355b61c31101441a49331b3328b03ed18fe5c3248a4e632ba",
   namesSha256: "5c20cb4c31e9d0b11a9774d0009203adeea0ce8c993a1f92fed077875a774f69",
 } as const;
 function settlementNamed(sourceRoot = root): Requirement[] {
@@ -277,7 +277,7 @@ const cleanupWriterGroup = {
   suite: "native cleanup writer barrier [postgres; modeled hosted association and policy]",
   backend: "postgres",
   flag: "ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED",
-  sourceSha256: "87813c36bd0face890cc8e47e8aede5fc3d6fae058c13cd07f5812b449339f71",
+  sourceSha256: "8fbf9a47c283f04355b61c31101441a49331b3328b03ed18fe5c3248a4e632ba",
   namesSha256: "df0ddb85fa00e1290bd6b95915742451b555e21179e9c40c62fe6c1321de1739",
 } as const;
 const cleanupWriterDiscovered = { file: cleanupWriterGroup.file, suite: cleanupWriterGroup.suite, backend: "postgres" } as const;
@@ -1496,6 +1496,36 @@ it("keeps transaction-bound dispatch and same-owner receipt privileges mandatory
       test: `${mode} canonical migrations keep permanent agent receipts select/insert-only`, postgres: true }));
 });
 
+const nativePlanFixtureFiles = [
+  "tests/controlplane/plan-artifact-product-authority.test.ts",
+  "tests/controlplane/plan-artifact-integration-authority.test.ts",
+  "tests/controlplane/plan-artifact-oauth-authority.test.ts",
+  "tests/controlplane/cleanup-writer-barriers.test.ts",
+];
+/** These reviewed suites use one genuine native database per suite and retain physical roots until its verified removal. */
+function expectNativePlanFixtureSource(file: string, source: string) {
+  expect(nativePlanFixtureFiles).toContain(file);
+  const fixture = fs.readFileSync(path.join(root, "tests/controlplane/_support/saved-native-plan.ts"), "utf8");
+  expect(createHash("sha256").update(fixture).digest("hex")).toBe("12d89201d4566f62ea355997102389511e5617226b914f8b58d2a92cd7ccf28d");
+  const create = fixture.indexOf('await admin.unsafe(`create database');
+  const agent = fixture.indexOf("await applyAgentSchemaMain({ ZENITH_TEST_PLATFORM_PG_URL: url })");
+  const platform = fixture.indexOf('await remember(await openPlatformDb({ kind: "postgres", url, migrate: true, max: 1 }))');
+  expect(fixture.indexOf("assertAgentLaneUrl(url);")).toBeGreaterThanOrEqual(0);
+  expect(fixture.indexOf("assertAgentLaneUrl(url);")).toBeLessThan(create);
+  expect(create).toBeGreaterThanOrEqual(0); expect(agent).toBeGreaterThan(create); expect(platform).toBeGreaterThan(agent);
+  expect(fixture).toContain('current[0]!.oid !== original.oid || current[0]!.owner !== original.owner');
+  expect(fixture).toContain('if ((await identity()).length !== 0) throw new Error("Native plan fixture database removal is unconfirmed.");');
+  expect(fixture).toContain('isOpenedPlatformPostgresTarget(handle, target.hostname, Number(target.port), name, "postgres")');
+  expect(source).toMatch(/import\s*\{[^}]*openNativePlanFixtureDatabase[^}]*\}\s*from\s*"\.\/_support\/saved-native-plan";/);
+  expect(source).toContain("native=await openNativePlanFixtureDatabase(PG_URL);PG_URL=native.url;");
+  expect(source).toMatch(/db\s*=\s*await\s+native!?\.remember\(await platformDb\(\)\)/);
+  expect(source).toMatch(/peer\s*=\s*await native\.open\(\);\s*observer\s*=\s*await native\.open\(\);/);
+  const removed = source.indexOf("const removed=await Promise.allSettled([native?.close()]);");
+  const retained = source.indexOf('if(nativeCaseFailed||[...ended,...removed].some(result=>result.status==="rejected"))throw new Error("Native plan fixture teardown is unconfirmed; retaining backend roots.");');
+  const roots = source.indexOf("const roots=await Promise.allSettled(");
+  expect(removed).toBeGreaterThanOrEqual(0); expect(retained).toBeGreaterThan(removed); expect(roots).toBeGreaterThan(retained);
+}
+
 const planProductGroups = [
   {
     "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
@@ -1606,7 +1636,8 @@ describe("mandatory original-plan product and linked native authority gates", ()
     const firstNativeRegistration = Math.min(...["beforeAll(", "beforeEach(", "afterAll(", "describe.skipIf("].map(boundary => source.indexOf(boundary)).filter(index => index >= 0));
     expect(Number.isFinite(firstNativeRegistration)).toBe(true);
     expect(source.indexOf(group.flag)).toBeLessThan(firstNativeRegistration);
-    expect(source).toContain("openPlatformDb");
+    if (nativePlanFixtureFiles.includes(group.file)) expectNativePlanFixtureSource(group.file, source);
+    else expect(source).toContain("openPlatformDb");
     for (const item of required) expect(item).toMatchObject({ file: group.file, suite: group.suite, backend: "postgres" });
   });
 
@@ -1798,7 +1829,7 @@ const nativeOAuthGroups = [
     "suite": "native OAuth original-plan dispatch [postgres; modeled hosted REST and policy]",
     "flag": "ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED",
     "count": 46,
-    "sourceSha256": "87d3b867eae81f8c59020e5a53085188203d82b104c64f96d26440756d2f50e7",
+    "sourceSha256": "708e11e4866b30e5acd9bd1986abde090d090676c41bd58c485b0a1695281a5d",
     "namesSha256": "12b72c88bb56763f6538df143dd3e1278dc27fbc9c800476909fa4d2d45e5de6",
     "priorCount": 0
   },
@@ -1869,7 +1900,9 @@ describe("mandatory corrected native OAuth dispatch and linked factory gates", (
     if (group.priorCount) expect(all.slice(group.priorCount)).toEqual(declared);
     const first = Math.min(...["beforeAll(", "beforeEach(", "afterAll(", "describe.skipIf("].map(value => source.indexOf(value)).filter(value => value >= 0));
     expect(source.indexOf(group.flag)).toBeGreaterThanOrEqual(0); expect(source.indexOf(group.flag)).toBeLessThan(first);
-    expect(source).toContain("openPlatformDb"); expect(source).toMatch(/PLATFORM_SCHEMA_VERSION\s*<\s*13/);
+    if (group.file === "tests/controlplane/plan-artifact-oauth-authority.test.ts") expectNativePlanFixtureSource(group.file, source);
+    else expect(source).toContain("openPlatformDb");
+    expect(source).toMatch(/PLATFORM_SCHEMA_VERSION\s*<\s*13/);
     for (const item of required) expect(item).toMatchObject({ suite: group.suite, backend: "postgres" });
   });
 
@@ -2143,6 +2176,7 @@ describe("mandatory native cleanup writer barrier cases [report models]", () => 
 
   it("binds exact cleanup source and literal titles to required physical PostgreSQL admission before hooks", () => {
     const source = fs.readFileSync(path.join(root, cleanupWriterGroup.file), "utf8");
+    expectNativePlanFixtureSource(cleanupWriterGroup.file, source);
     const added = new Set(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS.map(item => item.test));
     const names = declaredLiteralTests(cleanupWriterGroup.file, cleanupWriterGroup.suite).filter(name => !added.has(name)), required = cleanupWriterNamed();
     expect(names).toHaveLength(46); expect(new Set(names).size).toBe(46); expect(required.map(item => item.test)).toEqual(names);
@@ -2538,6 +2572,7 @@ describe("mandatory saved builtin settlement cases [report models]", () => {
 
   it("binds all 100 source cases while preserving the original 46 and refusing unavailable native prerequisites before hooks", () => {
     const source = fs.readFileSync(path.join(root, settlementGroup.file), "utf8");
+    expectNativePlanFixtureSource(settlementGroup.file, source);
     const all = declaredLiteralTests(settlementGroup.file, settlementGroup.suite);
     const retained = new Set(cleanupWriterNamed().map(item => item.test));
     const names = all.filter(name => !retained.has(name)), required = settlementNamed();

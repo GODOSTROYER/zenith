@@ -5,10 +5,43 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { linuxGuestManifest } from "../../scripts/ci/gate-manifest.mjs";
+import { LINUX_GUEST_SERVICE_CASES, linuxGuestManifest } from "../../scripts/ci/gate-manifest.mjs";
 import { attemptEvidencePath, createAttemptDirectory, publishAttemptEvidence, runNativeGate, selectCurrentAttempt, validateGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
 const pkg = "github.com/GODOSTROYER/zenith/go/internal/machine/ops";
+
+// Only these exact service successors leave predecessor hash assertions; current admission stays complete.
+type NativeGuestCase = ReturnType<typeof linuxGuestManifest>["requiredCases"][number];
+const serviceGuestIds = new Set([
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureStrictArgsAndPriorPreconditions",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureVersionSeparatesPurposeAndBindsAllLocalSemantics",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureRejectsUnsafeProfiles",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureDefaultsOffAndRequiresRestartAuthority",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureCustodyIsSeparateFromFileOperations",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureCreateReplaceNoopAndConvergence",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureReloadActionIsClosedByProfile",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureInactiveReloadProfileRestartsWithExactCustody",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureInactiveReloadProfileRefusesInexactPrior",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureInactiveReloadProfileRequiresRestartAuthority",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureUnitFailureAfterCommitIsDefiniteAndRetained",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureSlowStartWithinBoundSettles",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureCancellationDuringActionIsUncertain",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureGuardsRefuseWithoutAnyServiceEffect",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureAdmissionIsExactAndUsesExistingRestartAuthority",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureUnloadedUnitRefusesBeforeAnyFileOrServiceEffect",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine:TestServiceConfigureConfigLoadingAndVersionsCLI",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine:TestServiceConfigureVerifyRequiresResourceGrantAndRefusesForeignConstraints",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine:TestServiceConfigureDefaultsOffNotAdvertisedAndRefused",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine:TestServiceConfigureAuditCompletionFailureIsUncertainAndWireIsMetadataOnly",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureInactiveReloadProfileRestartsWithExactCustody/create",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureInactiveReloadProfileRestartsWithExactCustody/replace",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureInactiveReloadProfileRefusesInexactPrior/prior-on-absent",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureInactiveReloadProfileRefusesInexactPrior/absence-on-existing",
+  "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestResultGoldens/service.configure-filesystem",
+]);
+function predecessorGuestCases(items: readonly NativeGuestCase[]): NativeGuestCase[] {
+  return items.filter(item => !serviceGuestIds.has(item.id));
+}
 const goodExit = { status: 0, signal: null, observed: true };
 const contract = {
   requiredCases: [
@@ -651,14 +684,24 @@ describe("upload native requirement admission", () => {
   const nativeUpload = () => linuxGuestManifest().requiredCases.filter((item) => /^(?:TestUpload|TestE2ESignedUpload)/.test(item.test));
   it("pins exact upload events and preserves all historical native IDs", () => {
     const manifest = linuxGuestManifest(); const upload = nativeUpload();
-    expect(upload).toHaveLength(49); expect(manifest.raceCases).toHaveLength(123);
-    expect(new Set(manifest.raceCases.map((item) => item.id)).size).toBe(123);
+    const predecessor = predecessorGuestCases(manifest.raceCases);
+    expect(serviceGuestIds.size).toBe(25);
+    expect(LINUX_GUEST_SERVICE_CASES.map(item => item.id).sort()).toEqual([...serviceGuestIds].sort());
+    expect(upload).toHaveLength(49); expect(predecessor).toHaveLength(123);
+    expect(new Set(predecessor.map((item) => item.id)).size).toBe(123);
+    expect(manifest.raceCases).toHaveLength(148); expect(manifest.requiredCases).toHaveLength(152);
+    expect(new Set(manifest.raceCases.map(item => item.id)).size).toBe(148);
+    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(152);
+    expect(manifest.raceCases.map(item => item.id).sort()).toEqual([...predecessor, ...LINUX_GUEST_SERVICE_CASES].map(item => item.id).sort());
+    expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases]);
+    const future = { package: pkg, test: "TestFuture", id: `linux-guest:${pkg}:TestFuture` };
+    expect(predecessorGuestCases([...manifest.raceCases, future])).toContainEqual(future);
     expect(createHash("sha256").update(JSON.stringify(upload)).digest("hex")).toBe("4cb4a001976b864b82a7820d771b47272f8aedb73249183fbcf54a35f41cc4e0");
-    const historical = manifest.raceCases.filter((item) => !upload.includes(item));
+    const historical = predecessor.filter((item) => !upload.includes(item));
     expect(historical).toHaveLength(74);
     expect(createHash("sha256").update(JSON.stringify(historical)).digest("hex")).toBe("2a2e0b9b7c1cb061fe7862075edae6d633c7f63320adfe37e80fa13262e7f1d4");
     expect(manifest.allowedSkips.map((item: { package: string; test: string; reason: string }) => item.test)).toEqual(["TestRealSystemctlAndJournalctl", "TestRealOpenTofuPlanShowApply", "TestRealOpenTofuWithProviderAndLockfile"]);
-    expect(manifest.goldenCases.map((item: { package: string; test: string }) => item.test)).toEqual(["TestResultGoldens/file.write-filesystem"]);
+    expect(manifest.goldenCases.map((item: { package: string; test: string }) => item.test)).toEqual(["TestResultGoldens/file.write-filesystem", "TestResultGoldens/service.configure-filesystem"]);
     expect(manifest.steps).toEqual([
       { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$"] },
       { id: "package-native", command: ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"] },
@@ -892,7 +935,10 @@ function packageLoop(reply: Record<string, unknown>) {
 describe("mandatory direct native package phase admission", () => {
   it("preserves all123 original obligations and routes exactly four root cases to required native execution", () => {
     const manifest = linuxGuestManifest();
-    expect(manifest.raceCases).toHaveLength(123); expect(manifest.requiredCases).toHaveLength(127);
+    expect(predecessorGuestCases(manifest.raceCases)).toHaveLength(123);
+    expect(predecessorGuestCases(manifest.requiredCases)).toHaveLength(127);
+    expect(manifest.raceCases).toHaveLength(148); expect(manifest.requiredCases).toHaveLength(152);
+    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(152);
     expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases]);
     expect(manifest.packagePhase.requiredCases).toEqual(nativePackageNames.map(test => ({ package: nativePackage, test, id: `linux-guest:${nativePackage}:${test}` })));
     expect(manifest.packagePhase.requiredPackages).toEqual([nativePackage]);

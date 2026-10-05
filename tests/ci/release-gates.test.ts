@@ -987,7 +987,7 @@ describe("the Go job", () => {
     expect(go().steps.indexOf(packageTools)).toBeLessThan(go().steps.indexOf(race));
     expect(native.packagePhase.env).toEqual({ ZENITH_TEST_PACKAGE_INSTALL_REQUIRED: "1" });
     expect(native.packagePhase.allowedSkips).toEqual([]);
-    expect(native.raceCases).toHaveLength(123); expect(native.requiredCases).toHaveLength(127);
+    expect(native.raceCases).toHaveLength(148); expect(native.requiredCases).toHaveLength(152);
     expect(native.env.CGO_ENABLED, "the race detector needs cgo").toBe("1");
 
     const build = stepNamed(go(), "Cross-build linux/amd64 and linux/arm64 without cgo");

@@ -25,6 +25,13 @@ import { fnv6 } from "../../naming";
 import { gcpCall, gcpGet } from "../../rest";
 import type { GcpDriverContext } from "../../types";
 import { SA_EMAIL_RE } from "../../validate";
+import { BUILD_ISOLATION_PROFILES } from "@/lib/execution/build-isolation";
+
+/** Isolation defaults (PROD-LIFE-09): fixed machine type, capped disk, bounded timeout. */
+export const CLOUD_BUILD_MACHINE_TYPE = "E2_MEDIUM";
+export const CLOUD_BUILD_DISK_GB = 100;
+export const CLOUD_BUILD_DEFAULT_TIMEOUT_SEC = 1200;
+const WORKER_POOL = new RegExp("^projects/[a-z][a-z0-9-]{4,28}[a-z0-9]/locations/[a-z0-9-]{2,40}/workerPools/[a-z][a-z0-9-]{0,62}$");
 
 /** gcr.io/cloud-builders/docker:latest; registry HEAD resolved by the orchestrator
  * on 2026-10-01 (Docker-Content-Digest, single-platform Docker v2 manifest).
@@ -49,7 +56,11 @@ export interface StartBuildInput {
   /** the pipeline's build service account email (a tofu output of the pipeline node) */
   buildServiceAccount: string;
   dockerfile?: string;
+  /** build context subdirectory of the source bundle (validated by `contextDirOf`); default `.` */
+  contextDir?: string;
   timeoutSeconds?: number;
+  /** Cloud Build private pool (`projects/<p>/locations/<r>/workerPools/<name>`) that carries the egress restriction */
+  workerPool?: string;
 }
 
 export interface BuildResult {
@@ -76,7 +87,9 @@ export function validateBuildInput(projectId: string, i: StartBuildInput): strin
   if (!imageRefPattern(projectId).test(i.imageRef)) return `imageRef must be an Artifact Registry Docker reference in project ${projectId}.`;
   if (!SA_EMAIL_RE.test(i.buildServiceAccount)) return "buildServiceAccount is not a service account email.";
   if (i.dockerfile !== undefined && (!DOCKERFILE.test(i.dockerfile) || i.dockerfile.split("/").includes(".."))) return "dockerfile must be a relative path inside the bundle.";
-  if (i.timeoutSeconds !== undefined && (!Number.isInteger(i.timeoutSeconds) || i.timeoutSeconds < 60 || i.timeoutSeconds > 3600)) return "timeoutSeconds must be 60-3600.";
+  const maxTimeout = BUILD_ISOLATION_PROFILES.gcp.limits.maxTimeoutSec;
+  if (i.timeoutSeconds !== undefined && (!Number.isInteger(i.timeoutSeconds) || i.timeoutSeconds < 60 || i.timeoutSeconds > maxTimeout)) return `timeoutSeconds must be 60-${maxTimeout}.`;
+  if (i.workerPool !== undefined && (!WORKER_POOL.test(i.workerPool) || !i.workerPool.startsWith(`projects/${projectId}/`))) return `workerPool must be a Cloud Build worker pool of project ${projectId}.`;
   return undefined;
 }
 
@@ -104,11 +117,17 @@ export async function startBuild(ctx: GcpDriverContext, input: StartBuildInput):
   const dockerfile = input.dockerfile ?? "Dockerfile";
   const body = {
     source: { storageSource: { bucket: input.sourceBucket, object: input.sourceObject, ...(input.sourceGeneration ? { generation: input.sourceGeneration } : {}) } },
-    steps: [{ name: CLOUD_BUILD_DOCKER_IMAGE, args: ["build", `--file=${dockerfile}`, `--tag=${input.imageRef}`, "."] }],
+    steps: [{ name: CLOUD_BUILD_DOCKER_IMAGE, args: ["build", `--file=${dockerfile}`, `--tag=${input.imageRef}`, input.contextDir ?? "."] }],
     images: [input.imageRef],
     serviceAccount: `projects/${ctx.session.projectId}/serviceAccounts/${input.buildServiceAccount}`,
-    options: { logging: "CLOUD_LOGGING_ONLY" },
-    timeout: `${input.timeoutSeconds ?? 1200}s`,
+    options: {
+      logging: "CLOUD_LOGGING_ONLY",
+      // the builder attests the build with Google-signed provenance; the control plane records what it observed
+      requestedVerifyOption: "VERIFIED",
+      diskSizeGb: CLOUD_BUILD_DISK_GB,
+      ...(input.workerPool ? { pool: { name: input.workerPool } } : { machineType: CLOUD_BUILD_MACHINE_TYPE }),
+    },
+    timeout: `${input.timeoutSeconds ?? CLOUD_BUILD_DEFAULT_TIMEOUT_SEC}s`,
     tags: ["zenith", tag],
   };
   const res = await gcpCall(ctx, "POST", base, body);

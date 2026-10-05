@@ -7,6 +7,7 @@ import { immutableSourceSnapshot, type ApprovedSourceSnapshot, type SourceCaptur
 import type { DriverContext } from "@/lib/drivers/types";
 import type { BuildHandle, BuildPort, BuildResult, MigrationsPort, ProberPort, ProbeRequest, ProbeResult, SourceBundlePort, WorkloadsPort } from "@/lib/execution/ports";
 import type { ResourceNode } from "@/lib/resources/types";
+import { awsAttestation } from "./provenance";
 
 export class FakeProber implements ProberPort {
   readonly calls: ProbeRequest[] = [];
@@ -55,7 +56,7 @@ export class FakeSourceBundle implements SourceBundlePort {
 
 export class FakeBuild implements BuildPort {
   readonly started: { service: string; pipeline: string; registry?: string; idempotencyKey: string; fence?: number }[] = [];
-  result: BuildResult = { status: "succeeded", imageUri: "123456789012.dkr.ecr.us-east-1.amazonaws.com/zenith-api:latest", digest: `sha256:${"9".repeat(64)}` };
+  result: BuildResult = { status: "succeeded", imageUri: "123456789012.dkr.ecr.us-east-1.amazonaws.com/zenith-api:latest", digest: `sha256:${"9".repeat(64)}`, attestation: awsAttestation() };
   async startBuild(ctx: DriverContext, input: { service: ResourceNode; pipeline: ResourceNode; registry?: ResourceNode; source: { s3Key: string; digest: string }; idempotencyKey: string }): Promise<BuildHandle> {
     this.started.push({
       service: input.service.address,

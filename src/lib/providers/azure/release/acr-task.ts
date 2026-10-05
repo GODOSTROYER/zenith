@@ -12,8 +12,14 @@ import { rec, type Ctx } from "./support";
 
 export const ACR_RUN_ID = /^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/;
 
-export async function scheduleBuild(ctx: Ctx, input: AcrBuildInput & { tag: string }): Promise<string> {
+/** Isolation bounds for a source build run (PROD-LIFE-09): fixed 2 vCPU agent, 30 minute run timeout. */
+export const ACR_RUN_TIMEOUT_SEC = 1800;
+export const ACR_RUN_CPU = 2;
+const AGENT_POOL = /^[A-Za-z][A-Za-z0-9]{2,19}$/;
+
+export async function scheduleBuild(ctx: Ctx, input: AcrBuildInput & { tag: string; agentPool?: string }): Promise<string> {
   validateBuildInput(input, ctx.session.subscriptionId);
+  if (input.agentPool !== undefined && !AGENT_POOL.test(input.agentPool)) throw new Error("Invalid Azure build agent pool name.");
   if (!/^zn-[a-f0-9]{64}$/.test(input.tag)) throw new Error("Invalid Azure build operation tag.");
   const arm = armClient(ctx.session, ctx.signal);
   const headers = { "x-ms-client-request-id": input.tag.slice(3) };
@@ -34,7 +40,8 @@ export async function scheduleBuild(ctx: Ctx, input: AcrBuildInput & { tag: stri
     apiVersion, headers,
     body: { type: "DockerBuildRequest", imageNames: [`${input.repository}:${input.tag}`], isPushEnabled: true, noCache: false,
       dockerFilePath: input.dockerfilePath ?? "Dockerfile", platform: { os: "Linux", architecture: "amd64" },
-      sourceLocation: relativePath, isArchiveEnabled: false, timeout: 3600 },
+      sourceLocation: relativePath, isArchiveEnabled: false, timeout: ACR_RUN_TIMEOUT_SEC,
+      agentConfiguration: { cpu: ACR_RUN_CPU }, ...(input.agentPool ? { agentPoolName: input.agentPool } : {}) },
   });
   const runId = rec(run.body.properties).runId;
   if (typeof runId !== "string" || !ACR_RUN_ID.test(runId) || (run.body.name !== undefined && run.body.name !== runId) || (run.body.id !== undefined && run.body.id !== `${input.registryId}/runs/${runId}`)) throw new Error("Azure build run identity is unknown.");

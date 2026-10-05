@@ -64,7 +64,7 @@ describe("buildArtifacts", () => {
     await w.activities.buildArtifacts({ operationId: OP, lease });
     expect(w.build.started).toHaveLength(2);
     expect(w.build.started[0].idempotencyKey).toBe(w.build.started[1].idempotencyKey);
-    expect(w.evidence.ofKind("build")).toHaveLength(1);
+    expect(w.evidence.ofKind("build")).toHaveLength(2); // the build record and its signed provenance
   });
 
   it.each(["lost-response", "polling-deadline"] as const)("retains a later parallel %s uncertainty over an earlier definitive failure and starts no fourth build", async kind => {

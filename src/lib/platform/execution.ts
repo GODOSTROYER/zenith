@@ -30,6 +30,7 @@ import { createReconcileSweepRuntime, type ReconcileSweepRuntime } from "@/lib/w
 import { observeAwsBootstrapReadiness } from "@/lib/execution/aws-bootstrap-preflight";
 import { isOpenedPlatformDbHandle, repos } from "@/lib/controlplane/db";
 import { digest } from "@/lib/controlplane/digest";
+import { getControlSigner, getControlVerificationKeys } from "@/lib/credentials/signing";
 
 /** Fixed diagnostic failure, recorded only against the current native owning AWS scope. */
 async function recordUnavailableAwsReadiness(db: Sql, operationId: string): Promise<void> {
@@ -113,6 +114,10 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     tofu, cost: defaultCostPort(),
     observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} }), { session: describeSession(session) }),
     prober: createSafeProber(), ...createReleasePorts({ db: opts.db, azure }),
+    // PROD-LIFE-09: built artifacts are signed with, and admitted against, the pinned control-plane key.
+    provenance: { signer: () => getControlSigner(), keys: () => getControlVerificationKeys() },
+    // Unrestricted build egress is refused unless the operator sets this recorded exception.
+    buildIsolation: { allowOpenEgress: process.env.ZENITH_BUILD_ALLOW_OPEN_EGRESS === "1" },
     machines: opts.ports?.machines ?? createDefaultMachinePort(opts.db, opts.secretKey ?? process.env.ZENITH_SECRET_KEY!),
     ...opts.ports,
     // The captured source authority is final; the generic test-port spread cannot replace it.

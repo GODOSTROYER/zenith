@@ -23,6 +23,7 @@ import { FakeProduct } from "./product";
 import { FakeBuild, FakeMigrations, FakeProber, FakeSourceBundle, FakeWorkloads } from "./release";
 import { FakeConnections, FakeEvents, FakeEvidence, FakeLeases, FakeOps, FakeResources } from "./store";
 import { FakeTofu } from "./tofu";
+import { newProvenanceKeys, type TestProvenanceKeys } from "./provenance";
 import type { Sql } from "@/lib/controlplane/types";
 import * as artifactRepo from "@/lib/controlplane/db/repos/plan-artifacts";
 import * as operationRepo from "@/lib/controlplane/db/repos/operations";
@@ -60,6 +61,8 @@ export interface World {
   prober: FakeProber;
   sourceBundle: FakeSourceBundle;
   build: FakeBuild;
+  /** the run-time generated key that signs and pins build provenance */
+  provenance: TestProvenanceKeys;
   workloads: FakeWorkloads;
   migrations: FakeMigrations;
   drivers: ReturnType<typeof genericDrivers>;
@@ -93,6 +96,7 @@ export function createWorld(opts: WorldOptions = {}): World {
   const prober = new FakeProber();
   const sourceBundle = new FakeSourceBundle();
   const build = new FakeBuild();
+  const provenance = newProvenanceKeys();
   const workloads = new FakeWorkloads();
   const migrations = new FakeMigrations();
   const drivers = genericDrivers({ script: opts.script, overrides: opts.overrides, missing: opts.missingDrivers });
@@ -168,6 +172,8 @@ export function createWorld(opts: WorldOptions = {}): World {
     cost: opts.cost ?? { estimate: async () => null },
     prober,
     ...(opts.withoutRelease ? {} : { sourceBundle, build, workloads, migrations }),
+    provenance,
+    buildIsolation: { allowOpenEgress: false },
     heartbeat: (detail) => heartbeats.push(detail),
     ...(opts.signal ? { activitySignal: () => opts.signal } : {}),
     clock: () => new Date(NOW),
@@ -198,6 +204,7 @@ export function createWorld(opts: WorldOptions = {}): World {
     prober,
     sourceBundle,
     build,
+    provenance,
     workloads,
     migrations,
     drivers,

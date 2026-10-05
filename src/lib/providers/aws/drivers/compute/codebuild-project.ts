@@ -69,6 +69,8 @@ import {
   standardVerification,
   tfLabel,
 } from "@/lib/providers/aws/drivers/shared";
+import { contextDirOf } from "@/lib/execution/build-isolation";
+import { egressGuardCommands, egressHosts } from "./codebuild-isolation";
 import { emitPrivateBucket } from "./support/bucket";
 import { compileNode, specOf } from "./support/driver-util";
 import { ComputeCompileError, Frag, TfCat, TfRef, arnOf, assumeRoleJson, attr, boundaryArn, cat, environmentData, policyJson, refOf, tagsFor, type PolicyStatement } from "./support/tf";
@@ -93,7 +95,11 @@ const DOCKERFILE = /^(?!\/)(?!.*\.\.)[A-Za-z0-9._/-]{1,200}$/;
 
 /* --------------------------------- buildspec ------------------------------ */
 
-export function dockerBuildspec(): string {
+/**
+ * The Docker buildspec. The egress guard (PROD-LIFE-09) is part of the text: it is installed in
+ * `pre_build` before the Dockerfile runs and aborts the build if it cannot take effect.
+ */
+export function dockerBuildspec(allowedHosts: readonly string[] = egressHosts(undefined), contextDir = "."): string {
   return [
     "version: 0.2",
     "env:",
@@ -107,10 +113,11 @@ export function dockerBuildspec(): string {
     '      - test -f "$ZENITH_DOCKERFILE"',
     '      - REGISTRY_HOST=$(echo "$ZENITH_REPO_URL" | cut -d/ -f1)',
     '      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$REGISTRY_HOST"',
+    ...egressGuardCommands(allowedHosts),
     "  build:",
     "    on-failure: ABORT",
     "    commands:",
-    '      - docker build -f "$ZENITH_DOCKERFILE" -t "$ZENITH_REPO_URL:src-$ZENITH_SOURCE_DIGEST" .',
+    `      - docker build -f "$ZENITH_DOCKERFILE" -t "$ZENITH_REPO_URL:src-$ZENITH_SOURCE_DIGEST" ${contextDir === "." ? "." : `'${contextDir}'`}`,
     "  post_build:",
     "    on-failure: ABORT",
     "    commands:",
@@ -170,6 +177,12 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
     // WorkloadLogs allows /aws/*/zenith-*; refuse an unusable project rather
     // than broadening the boundary for arbitrary application log groups.
     if (!projectName.startsWith(NAME_PREFIX)) throw new ComputeCompileError("invalid_spec", "build project names must start with zenith- to satisfy the workload boundary.");
+    let allowedHosts: string[];
+    try {
+      allowedHosts = egressHosts(spec.isolation?.allowedHosts);
+    } catch (e) {
+      throw new ComputeCompileError("invalid_spec", e instanceof Error ? e.message : "invalid isolation.allowedHosts");
+    }
     const b = new Frag(node.address);
     const env = environmentData(b, label, ctx.region);
 
@@ -227,7 +240,7 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
       service_role: attr(role, "arn"),
       build_timeout: BUILD_TIMEOUT_MINUTES,
       queued_timeout: 30,
-      source: [{ type: "S3", location: cat(src.name, `/${sourcePrefix}bootstrap.zip`), buildspec: registry ? dockerBuildspec() : staticBuildspec() }],
+      source: [{ type: "S3", location: cat(src.name, `/${sourcePrefix}bootstrap.zip`), buildspec: registry ? dockerBuildspec(allowedHosts, contextDirOf(spec, "aws")) : staticBuildspec() }],
       artifacts: [{ type: "NO_ARTIFACTS" }],
       environment: [
         {

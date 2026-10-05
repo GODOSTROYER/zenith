@@ -17,7 +17,7 @@ describe("GCP customer-account build", () => {
     const body = JSON.parse(String(started[1]?.body));
     expect(body).toMatchObject({ source: { storageSource: { bucket, object: bundle.s3Key, generation: "7" } }, serviceAccount: `projects/${PROJECT}/serviceAccounts/${sa}`, options: { logging: "CLOUD_LOGGING_ONLY" }, steps: [{ name: CLOUD_BUILD_DOCKER_IMAGE, args: ["build", "--file=docker/Dockerfile", expect.stringMatching(/^--tag=.*:zn-[a-f0-9]{64}$/), "."] }] });
     // Another port/worker instance has no process-local build cache.
-    expect(await createGcpBuildPort().waitForBuild(w.ctx, h, { timeoutMs: 1000 })).toEqual({ status: "succeeded", digest: DIGEST, imageUri: IMAGE });
+    expect(await createGcpBuildPort().waitForBuild(w.ctx, h, { timeoutMs: 1000 })).toMatchObject({ status: "succeeded", digest: DIGEST, imageUri: IMAGE, attestation: { invocationId: expect.any(String), isolation: { profileId: "gcp.cloudbuild.v1", identity: { dedicated: true, deployCredentials: "absent" }, network: { egress: "unrestricted" } } } }); // no private pool: open egress is reported, not hidden
     expect(h.buildId).not.toContain("https://example.com");
     expect(w.ctx.log).not.toHaveBeenCalled();
   });

@@ -16,7 +16,7 @@ describe("Azure customer-account ACR build", () => {
     expect(JSON.parse(String(schedule[1]?.body))).toMatchObject({ type: "DockerBuildRequest", isPushEnabled: true, dockerFilePath: "docker/Dockerfile", sourceLocation: "source/upload.tar.gz", imageNames: [expect.stringMatching(/^web:zn-[a-f0-9]{64}$/)] });
     expect(w.uploadFetch).toHaveBeenCalledWith(expect.stringContaining("sig=secret-sas-sentinel"), expect.objectContaining({ method: "PUT", redirect: "error", headers: { "x-ms-blob-type": "BlockBlob", "content-type": "application/octet-stream" } }));
     expect(w.fetcher.mock.calls.every(([u]) => !u.includes("sig="))).toBe(true);
-    expect(await createAzureBuildPort().waitForBuild(w.ctx, h, { timeoutMs: 1000 })).toEqual({ status: "succeeded", imageUri: IMAGE, digest: DIGEST });
+    expect(await createAzureBuildPort().waitForBuild(w.ctx, h, { timeoutMs: 1000 })).toMatchObject({ status: "succeeded", imageUri: IMAGE, digest: DIGEST, attestation: { isolation: { profileId: "azure.acr-tasks.v1", identity: { dedicated: true, deployCredentials: "absent" }, network: { egress: "unrestricted" } } } }); // shared ACR agents: open egress is reported
     expect(h.buildId).not.toContain("secret-sas"); expect(w.ctx.log).not.toHaveBeenCalled();
   });
   it("persists identifier-only receipts and avoids duplicate scheduling across port instances", async () => {

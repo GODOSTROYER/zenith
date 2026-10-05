@@ -39,7 +39,9 @@ import type { DriverContext } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import { hash6 } from "@/lib/providers/aws/drivers/shared";
 import { OperationRefused, assertNodeTags, lowerTagMap, sleep } from "./support/sdk";
-import { sourcePrefixFor, loadProject, sourceBucketOf } from "./codebuild-project";
+import { sourcePrefixFor, loadProject, sourceBucketOf, dockerBuildspec } from "./codebuild-project";
+import { contextDirFromBuildspec, hostsFromBuildspec } from "./codebuild-isolation";
+import { allowlistDigest, BUILD_ISOLATION_PROFILES, type BuildAttestation } from "@/lib/execution/build-isolation";
 
 type Ctx = DriverContext<AwsSession>;
 
@@ -224,6 +226,38 @@ async function readExactBuild(ctx: Ctx, launch: launches.BuildLaunch, db: Sql): 
   } catch { throw new launches.BuildLaunchError(); }
 }
 
+/**
+ * The isolation the EXECUTED build carried, read from the build record the
+ * provider returned (never from the request). The egress/metadata guard is
+ * admitted only when the executed buildspec is byte-for-byte what Zenith
+ * generates for the allowlist it declares; any other buildspec is reported as
+ * unrestricted, which release admission refuses.
+ */
+export function awsBuildAttestation(build: Build): BuildAttestation {
+  const profile = BUILD_ISOLATION_PROFILES.aws;
+  const spec = build.source?.buildspec;
+  const hosts = hostsFromBuildspec(spec);
+  const guarded = hosts !== undefined && spec !== undefined && spec.trimEnd() === dockerBuildspec(hosts, contextDirFromBuildspec(spec)).trimEnd();
+  const role = build.serviceRole ?? "";
+  const dedicated = !!profile.identityPattern && profile.identityPattern.test(role);
+  return {
+    builderId: build.projectName && build.arn ? build.arn.replace(/:build\/.*$/, `:project/${build.projectName}`) : "unknown",
+    invocationId: build.id ?? "unknown",
+    ...(build.environment?.image ? { builderImage: build.environment.image } : {}),
+    ...(build.startTime ? { startedOn: build.startTime.toISOString() } : {}),
+    ...(build.endTime ? { finishedOn: build.endTime.toISOString() } : {}),
+    isolation: {
+      profileId: profile.id,
+      identity: { principal: role, dedicated, deployCredentials: dedicated && build.environment?.type === "LINUX_CONTAINER" ? "absent" : "unknown" },
+      metadata: { exposes: guarded ? "build_identity_only" : "unknown", mechanism: profile.mechanisms.metadata },
+      network: guarded && hosts ? { egress: "allowlisted", verifiedBy: "provider_read", allowlistDigest: allowlistDigest(hosts), mechanism: profile.mechanisms.network } : { egress: "unrestricted", mechanism: "the executed buildspec is not the Zenith generated guarded buildspec" },
+      dependencies: { downloads: guarded ? "allowlisted" : "direct" },
+      filesystem: { sourceMount: build.source?.type === "S3" && !build.secondarySources?.length ? "read_only" : "read_write" },
+      resources: { timeoutSec: (build.timeoutInMinutes ?? 0) * 60, computeClass: build.environment?.computeType ?? "unknown" },
+    },
+  };
+}
+
 /* ---------------------------------- waiting -------------------------------- */
 
 export type BuildStatus = "SUCCEEDED" | "FAILED" | "FAULT" | "TIMED_OUT" | "STOPPED" | "IN_PROGRESS" | "WAIT_TIMEOUT";
@@ -240,6 +274,8 @@ export interface BuildOutcome {
   failedPhase?: string;
   failureReason?: string;
   durationSec?: number;
+  /** What the executed build carried (PROD-LIFE-09); present on the canonical read-back path. */
+  attestation?: BuildAttestation;
   polls: number;
 }
 
@@ -291,7 +327,7 @@ export async function waitForBuild(ctx: Ctx, buildId: string, opts: WaitOptions 
       if (!imageDigest) return { ...base, status: "FAILED", failureReason: "no_image_digest" };
       const repositories=build.environment?.environmentVariables?.filter(v=>v.name==="ZENITH_REPO_URL" && v.type==="PLAINTEXT");
       const repositoryUri=launch && db && repositories?.length===1 ? repositories[0].value : undefined;
-      return { ...base, status, imageDigest, ...(repositoryUri ? {repositoryUri} : {}) };
+      return { ...base, status, imageDigest, ...(repositoryUri ? {repositoryUri} : {}), ...(launch && db ? { attestation: awsBuildAttestation(build) } : {}) };
     }
     if (now() + pollMs > deadline) return { buildId, status: "WAIT_TIMEOUT", logs, polls };
     await wait(pollMs, ctx.signal);

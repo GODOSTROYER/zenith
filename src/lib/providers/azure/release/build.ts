@@ -17,7 +17,8 @@ import { armClient, type ArmResource } from "@/lib/providers/azure/arm";
 import { API } from "@/lib/providers/azure/platform";
 import { nodeNameOf } from "@/lib/providers/azure/naming";
 import { context, managed, locate, validId, assertResource, bounded, pause, rec, arr, IMAGE_DIGEST, type Ctx, type LaunchJournal } from "./support";
-import { scheduleBuild, ACR_RUN_ID } from "./acr-task";
+import { scheduleBuild, ACR_RUN_ID, ACR_RUN_CPU, ACR_RUN_TIMEOUT_SEC } from "./acr-task";
+import { allowlistDigest, BUILD_ISOLATION_PROFILES, contextDirOf, type BuildAttestation } from "@/lib/execution/build-isolation";
 import { readArchive, type AzureSourceReader } from "./source";
 
 export interface AzureBuildOptions {
@@ -44,11 +45,47 @@ async function verifyRegistry(ctx: Ctx, h: Handle): Promise<void> {
   if (registry.id.toLowerCase() !== h.registryId.toLowerCase() || rec(registry.properties).loginServer !== h.loginServer) throw new StepFailedError("Build output login server does not match the owning registry.");
 }
 
+/**
+ * What the executed ACR run carried, read back from the run record and, when a dedicated agent pool ran it, the
+ * pool itself. ACR Tasks attach no managed identity and receive no deploy credential from this request. A run on
+ * the shared agents has open egress and is reported so; a pool joined to a virtual network is reported as
+ * allowlisted only because the pool's subnet NSG (customer owned) is the enforcement point, which says so.
+ */
+async function attest(ctx: Ctx, h: Handle, run: Record<string, unknown>): Promise<BuildAttestation> {
+  const profile = BUILD_ISOLATION_PROFILES.azure;
+  const props = rec(run.properties);
+  const poolName = typeof props.agentPoolName === "string" && props.agentPoolName.length > 0 ? props.agentPoolName : undefined;
+  let network: BuildAttestation["isolation"]["network"] = { egress: "unrestricted", mechanism: "ACR Tasks shared agents have public egress; configure spec.isolation.workerPool" };
+  if (poolName) {
+    if (!/^[A-Za-z][A-Za-z0-9]{2,19}$/.test(poolName)) throw new StepFailedError("ACR ran in an agent pool with an unexpected name.");
+    let pool: ArmResource;
+    try { pool = (await armClient(ctx.session, ctx.signal).get<ArmResource>(`${h.registryId}/agentPools/${poolName}`, { apiVersion: API.containerRegistryRuns })).body; } catch { throw new Error("ACR agent pool state is unknown."); }
+    if (typeof rec(pool.properties).virtualNetworkSubnetResourceId === "string") network = { egress: "allowlisted", verifiedBy: "provider_read", allowlistDigest: allowlistDigest([`${h.registryId}/agentPools/${poolName}`]), mechanism: profile.mechanisms.network };
+  }
+  const cpu = rec(props.agentConfiguration).cpu;
+  return {
+    builderId: poolName ? `${h.registryId}/agentPools/${poolName}` : h.registryId,
+    invocationId: h.runId,
+    ...(typeof props.startTime === "string" ? { startedOn: props.startTime } : {}),
+    ...(typeof props.finishTime === "string" ? { finishedOn: props.finishTime } : {}),
+    isolation: {
+      profileId: profile.id,
+      identity: { principal: "acr-tasks-run", dedicated: true, deployCredentials: "absent" },
+      metadata: { exposes: "build_identity_only", mechanism: profile.mechanisms.metadata },
+      network,
+      dependencies: { downloads: network.egress === "allowlisted" ? "allowlisted" : "direct" },
+      filesystem: { sourceMount: props.isArchiveEnabled === true ? "read_write" : "read_only" },
+      // ACR does not return the run timeout; the value is the one this adapter requested and ACR enforces.
+      resources: { timeoutSec: ACR_RUN_TIMEOUT_SEC, computeClass: cpu === undefined || cpu === ACR_RUN_CPU ? "cpu-2" : "unknown" },
+    },
+  };
+}
+
 export function createBuildPort(options: AzureBuildOptions = {}): BuildPort {
   return {
     async startBuild(raw, input) {
       const ctx = context(raw); managed(ctx, input.service); managed(ctx, input.pipeline, "build_pipeline");
-      const spec = input.pipeline.spec as unknown as BuildPipelineSpec; const artifact = rec(input.service.spec.artifact);
+      const spec = input.pipeline.spec as unknown as BuildPipelineSpec; contextDirOf(spec, "azure"); const artifact = rec(input.service.spec.artifact);
       if (!input.registry || spec.location !== "customer_account" || rec(spec.output).registry !== input.registry.address || artifact.type !== "built" || artifact.pipeline !== input.pipeline.address || artifact.registry !== input.registry.address || !input.idempotencyKey || !/^(?:sha256:)?[a-f0-9]{64}$/.test(input.source.digest) || typeof input.source.s3Key !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,1023}$/.test(input.source.s3Key) || input.source.s3Key.split("/").some((p) => p === "." || p === "..") || (input.source.bucket !== undefined && !/^[A-Za-z0-9._/-]{1,300}$/.test(input.source.bucket))) throw new StepFailedError("Azure build inputs do not identify this workload's source/pipeline/registry.");
       if ((!options.sourceBundles && !options.readSource) || !options.launches) throw new StepFailedError("Azure builds require a source reader and durable tenant-scoped launch journal.");
       const registry = await locate(ctx, input.registry, "Microsoft.ContainerRegistry/registries");
@@ -74,7 +111,7 @@ export function createBuildPort(options: AzureBuildOptions = {}): BuildPort {
       ctx.signal.throwIfAborted();
       if (!(source instanceof Uint8Array) || source.byteLength === 0 || source.byteLength > MAX_SOURCE_BYTES || sha256Hex(source) !== input.source.digest.replace(/^sha256:/, "")) throw new StepFailedError("Source bundle bytes do not match the recorded digest/size bounds.");
       let runId;
-      try { runId = await scheduleBuild(ctx, { registryId: registry.id, loginServer, repository, source, tag: `zn-${key}`, dockerfilePath: spec.source?.dockerfile, uploadFetch: options.uploadFetch }); } catch { ctx.signal.throwIfAborted(); throw new Error("ACR build launch was not confirmed; reconcile the consumed launch key before retrying."); }
+      try { runId = await scheduleBuild(ctx, { registryId: registry.id, loginServer, repository, source, tag: `zn-${key}`, dockerfilePath: spec.source?.dockerfile, uploadFetch: options.uploadFetch, ...(spec.isolation?.workerPool ? { agentPool: spec.isolation.workerPool } : {}) }); } catch { ctx.signal.throwIfAborted(); throw new Error("ACR build launch was not confirmed; reconcile the consumed launch key before retrying."); }
       const h: Handle = { version: 1, scope: scope(ctx), registryId: registry.id, registryAddress: input.registry.address, loginServer, repository, runId, tag: `zn-${key}` };
       const encoded = JSON.stringify(h);
       try { await options.launches.record(journalScope, encoded); } catch { throw new Error("ACR build was scheduled but its launch receipt was not persisted; reconcile before retrying."); }
@@ -92,7 +129,7 @@ export function createBuildPort(options: AzureBuildOptions = {}): BuildPort {
           if (state === "Succeeded") {
             const outputs = arr(rec(run.properties).outputImages).filter((i) => i.registry === h.loginServer && i.repository === h.repository && i.tag === h.tag);
             if (outputs.length !== 1 || typeof outputs[0].digest !== "string" || !IMAGE_DIGEST.test(outputs[0].digest)) return { status: "failed", detail: "ACR finished without one matching pushed image digest." };
-            return { status: "succeeded", digest: outputs[0].digest, imageUri: `${h.loginServer}/${h.repository}@${outputs[0].digest}` };
+            return { status: "succeeded", digest: outputs[0].digest, imageUri: `${h.loginServer}/${h.repository}@${outputs[0].digest}`, attestation: await attest(ctx, h, run) };
           }
           if (state === "Canceled") return { status: "stopped" };
           if (state === "Timeout") return { status: "timed_out" };

@@ -51,3 +51,23 @@ remain unverified. This work has no live-cloud, real-Postgres, Temporal or
 browser-preview evidence. Tests under `tests/platform-ui` exercise PGlite SQL
 and the broker with explicit session/bearer identity fakes, plus jsdom UI
 interactions with fake HTTP replies.
+
+## Operator journey (PROD-UX-01)
+
+One projection, `src/lib/platform/operator-journey.ts`, turns a platform operation,
+a legacy product deployment and a signed-runbook run into the same `JourneyView`
+(stage, steps, cancel availability, explicit next steps). Server pages render it
+for the first paint and `_components/journey-live.tsx` re-runs the same function
+on every poll of the same read endpoints, so no view can describe a state the
+projection would not. `uncertain` is its own stage everywhere and always carries
+next steps; a workflow deployment defers to its linked operation.
+
+- `/platform/operations/[id]`: live progress (polite live region), exact ownership
+  transfers (LIFE-12) ahead of the approval card, plan diff, digest-bound approve,
+  cancel, and a reapproval alert with focus when the plan digest changes.
+- `/platform/deployments/[id]`: the legacy deployment through the same projection.
+- `/platform/runbooks`, `/platform/runbooks/runs/[id]`: runs, schedules, exact step
+  diff against the previous version, bound approval (independent admin only),
+  cancellation, uncertain steps, audit trail (MACH-03).
+- `/platform/readiness`: execution-plane prerequisites per provider (editors and admins).
+- Connection admin pages are built by LIFE-01; the nav links to `/platform/connections`.

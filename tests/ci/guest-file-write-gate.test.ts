@@ -91,6 +91,49 @@ function fullRequiredStream() {
 }
 
 describe("native Go evidence admission", () => {
+  it("admits inert official Go build output without granting test or package authority", () => {
+    const before = verdict(records());
+    const marker = "inert-build-output-do-not-publish";
+    const build = (ImportPath: string) => ({ ImportPath, Action: "build-output", Output: marker });
+    const raw = (items: readonly unknown[]) => items.map(item => JSON.stringify(item)).join("\n") + "\n";
+    const items = records();
+    const result = validateGoEvents(raw([build("runtime/cgo"), ...items.slice(0, 2), build(`${pkg} [${pkg}.test]`), ...items.slice(2), build(`${pkg}.test`)]), goodExit, contract);
+    expect(result).toEqual(before);
+    expect(JSON.stringify(result)).not.toContain(marker);
+    expect(JSON.stringify(result)).not.toContain("runtime/cgo");
+    expect(validateGoEvents(raw([build(pkg)]), goodExit, contract).verdict).toBe("failed");
+    expect(validateGoEvents(raw([build(pkg), ...items.filter(item => item.Test !== contract.requiredCases[1].test)]), goodExit, contract).verdict).toBe("failed");
+    for (const action of ["fail", "skip"]) {
+      const changed = records(); changed[5].Action = action;
+      expect(validateGoEvents(raw([build(pkg), ...changed]), goodExit, contract).verdict).toBe("failed");
+    }
+    expect(validateGoEvents(raw([build(pkg), ...items, { Action: "start", Package: "foreign-package" }, { Action: "pass", Package: "foreign-package" }]), goodExit, contract).verdict).toBe("failed");
+  });
+
+  it("refuses build failures and malformed or lifecycle-shaped build events", () => {
+    const raw = (item: unknown) => [item, ...records()].map(value => JSON.stringify(value)).join("\n") + "\n";
+    expect(validateGoEvents(raw({ ImportPath: pkg, Action: "build-fail" }), goodExit, contract).problems).toContain("build");
+    expect(validateGoEvents(raw({ ImportPath: pkg, Action: "build-fail", Output: "inert diagnostic" }), goodExit, contract).verdict).toBe("failed");
+    for (const item of [
+      { Action: "build-output", Output: "inert" },
+      { ImportPath: "", Action: "build-output", Output: "inert" },
+      { ImportPath: pkg + "\n", Action: "build-output", Output: "inert" },
+      { ImportPath: "a".repeat(2049), Action: "build-output", Output: "inert" },
+      { ImportPath: 1, Action: "build-output", Output: "inert" },
+      { ImportPath: pkg, Action: "build-output" },
+      { ImportPath: pkg, Action: "build-output", Output: { verdict: "passed" } },
+      { ImportPath: pkg, Action: "build-output", Output: "inert", Package: pkg },
+      { ImportPath: pkg, Action: "build-output", Output: "inert", Test: "TestSeen" },
+      { ImportPath: pkg, Action: "build-output", Output: "inert", Elapsed: 0 },
+      { ImportPath: pkg, Action: "build-output", Output: "inert", id: "required-create" },
+      { ImportPath: pkg, Action: "unknown-build", Output: "inert" },
+    ]) {
+      const result = validateGoEvents(raw(item), goodExit, contract);
+      expect(result.verdict).toBe("failed");
+      expect(result.problems).toContain("malformed");
+    }
+  });
+
   it("counts parent/subtest/package observations separately and exports only trusted IDs", () => {
     const result = validateGoEvents(stream(), goodExit, contract);
     expect(result.verdict).toBe("passed");

@@ -31,12 +31,24 @@ export function validateGoEvents(raw, observation, contract) {
   else for (const line of raw.slice(0, -1).split("\n")) {
     let event;
     try { event = JSON.parse(line); } catch { issue("malformed"); continue; }
+    // Go interleaves BuildEvents (ImportPath, not Package) with TestEvents.
+    // Build output is inert: it cannot establish a package or test lifecycle.
+    if (event && typeof event === "object" && !Array.isArray(event)
+      && ["build-output", "build-fail"].includes(event.Action)) {
+      if (Object.keys(event).some((name) => !["ImportPath", "Action", "Output"].includes(name))
+        || typeof event.ImportPath !== "string" || event.ImportPath.length === 0 || event.ImportPath.length > 2048
+        || !/^[^\s\x00-\x1f\x7f]+(?: \[[^\s\x00-\x1f\x7f]+\])?$/.test(event.ImportPath)
+        || (event.Action === "build-output" ? typeof event.Output !== "string" : event.Output !== undefined && typeof event.Output !== "string")) {
+        issue("malformed"); continue;
+      }
+      if (event.Action === "build-fail") issue("build");
+      continue;
+    }
     if (!event || typeof event !== "object" || Array.isArray(event) || !actions.has(event.Action)
       || typeof event.Package !== "string" || !approvedPackages.has(event.Package)
       || (event.Test !== undefined && (typeof event.Test !== "string" || !/^Test[A-Za-z0-9_]+(?:\/[^\s\x00-\x1f]{1,256})*$/.test(event.Test) || event.Test.length > 2048))
       || (event.Output !== undefined && typeof event.Output !== "string")
       || (event.Elapsed !== undefined && (typeof event.Elapsed !== "number" || !Number.isFinite(event.Elapsed) || event.Elapsed < 0))) { issue("malformed"); continue; }
-    if (event.Action.startsWith("build-")) { if (event.Action === "build-fail") issue("build"); continue; }
     let pkg = packages.get(event.Package);
     if (event.Action === "start") {
       if (event.Test !== undefined || pkg) { issue("duplicate"); continue; }

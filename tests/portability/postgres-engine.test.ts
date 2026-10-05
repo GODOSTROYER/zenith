@@ -14,10 +14,11 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
 import { afterAll, describe, expect, it } from "vitest";
 import { verifyArtifact } from "@/lib/portability/artifact";
-import { exportPostgres, readbackPostgres } from "@/lib/portability/engines/postgres";
+import { exportPostgres, importPostgres, readbackPostgres } from "@/lib/portability/engines/postgres";
 import { runExport, runImport, type ServiceBinding } from "@/lib/portability/service";
 import { PortabilityError } from "@/lib/portability/types";
 import { directoryArtifactStore, pgliteRunner, reopened, seededPglite, tempDir } from "./support";
@@ -236,6 +237,60 @@ describe("independent readback", () => {
 
 const REAL_URL = process.env.ZENITH_TEST_POSTGRES_URL?.trim();
 describe.skipIf(!REAL_URL)("real network Postgres through the production connector", () => {
+  it("restores encoded JSON row batches through the production connector and independently reads their exact values", async () => {
+    const { openPostgres } = await import("@/lib/portability/connect");
+    const admin = await openPostgres(REAL_URL!, { allowPrivate: true });
+    if (admin.binding.kind !== "postgres") throw new Error("Native Postgres fixture binding is unavailable.");
+    const sqlAdmin = admin.binding.sql, name = `zenith_pt_json_${randomUUID().replace(/-/g, "")}`;
+    const identity = () => sqlAdmin.query("select oid::text as oid,datdba::text as owner from pg_database where datname=$1", [name]);
+    let created = false, original: Record<string, unknown> | undefined;
+    let target: Awaited<ReturnType<typeof openPostgres>> | undefined, fresh: Awaited<ReturnType<typeof openPostgres>> | undefined;
+    try {
+      expect(await identity()).toEqual([]);
+      const [owner] = await sqlAdmin.query("select oid::text as owner from pg_roles where rolname=current_user");
+      expect(typeof owner?.owner).toBe("string");
+      await sqlAdmin.query(`create database "${name}"`);
+      created = true;
+      const owned = await identity();
+      expect(owned).toHaveLength(1);
+      expect(owned[0]!.owner).toBe(owner!.owner);
+      original = owned[0];
+      const url = new URL(REAL_URL!); url.pathname = `/${name}`;
+      target = await openPostgres(url.toString(), { allowPrivate: true });
+      if (target.binding.kind !== "postgres") throw new Error("Native Postgres target binding is unavailable.");
+      const schema = { v: 1, pre: ['create table "public"."encoded_rows" ("label" text, "payload" jsonb, "n" numeric(20,8), "note" text)'], post: [],
+        tables: [{ schema: "public", name: "encoded_rows", file: "tables/0000.ndjson", columns: ["label", "payload", "n", "note"], types: ["text", "jsonb", "numeric(20,8)", "text"], rows: 3 }] };
+      const batch = [
+        ["a", JSON.stringify({ nested: [1, null, { unicode: "☃" }] }), "123456789.12345678", 'line\n"quote"\\end'],
+        ["b", JSON.stringify("just a string"), "-0.00000001", null],
+        ["c", null, null, ""],
+      ].map(row => JSON.stringify(row)).join("\n") + "\n";
+      const files = new Map([["schema.json", Buffer.from(JSON.stringify(schema))], ["tables/0000.ndjson", Buffer.from(batch)]]);
+      expect(await importPostgres(target.binding.sql, async file => {
+        const bytes = files.get(file); if (!bytes) throw new Error("Native Postgres fixture file is unavailable."); return bytes;
+      })).toEqual({ tables: 1, rows: 3 });
+      fresh = await openPostgres(url.toString(), { allowPrivate: true });
+      expect(fresh.binding).not.toBe(target.binding);
+      if (fresh.binding.kind !== "postgres") throw new Error("Native Postgres readback binding is unavailable.");
+      expect(await fresh.binding.sql.query('select label,payload,n::text as n,note from public.encoded_rows order by label')).toEqual([
+        { label: "a", payload: { nested: [1, null, { unicode: "☃" }] }, n: "123456789.12345678", note: 'line\n"quote"\\end' },
+        { label: "b", payload: "just a string", n: "-0.00000001", note: null },
+        { label: "c", payload: null, n: null, note: "" },
+      ]);
+    } finally {
+      try {
+        const closed = await Promise.allSettled([fresh?.close(), target?.close()]);
+        if (closed.some(result => result.status === "rejected")) throw new Error("Native Postgres fixture sessions did not close.");
+        if (created) {
+          const current = await identity();
+          if (!original || current.length !== 1 || current[0]!.oid !== original.oid || current[0]!.owner !== original.owner)
+            throw new Error("Native Postgres fixture database custody changed; refusing cleanup.");
+          await sqlAdmin.query(`drop database "${name}" with (force)`);
+          expect(await identity()).toEqual([]);
+        }
+      } finally { await admin.close(); }
+    }
+  });
   it("exports and restores between two scratch databases of the same server", async () => {
     const { openPostgres } = await import("@/lib/portability/connect");
     const adminUrl = new URL(REAL_URL as string);

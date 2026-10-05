@@ -505,7 +505,7 @@ export async function importPostgres(sql: SqlRunner, read: (name: string) => Pro
       const file = (await read(t.file)).toString("utf8");
       const lines = file.length === 0 ? [] : file.replace(/\n$/, "").split("\n");
       const select = t.columns.map((_, i) => `(e->>${i})::${t.types[i]}`).join(", ");
-      const insert = `insert into ${qn(t.schema, t.name)} (${t.columns.map(q).join(", ")}) ${t.overriding ? "overriding system value " : ""}select ${select} from jsonb_array_elements($1::jsonb) as e`;
+      const insert = `insert into ${qn(t.schema, t.name)} (${t.columns.map(q).join(", ")}) ${t.overriding ? "overriding system value " : ""}select ${select} from jsonb_array_elements($1::text::jsonb) as e`;
       for (let i = 0; i < lines.length; i += PAGE) {
         await sql.query(insert, [`[${lines.slice(i, i + PAGE).join(",")}]`]);
         rows += Math.min(PAGE, lines.length - i);

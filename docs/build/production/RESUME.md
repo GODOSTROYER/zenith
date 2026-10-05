@@ -1,5 +1,7 @@
 # Production resume
 
+Verifying agent: start with [HANDOFF-VERIFIER.md](HANDOFF-VERIFIER.md) (scope, done criteria, what to hand back), then [VERIFY-QUEUE.md](VERIFY-QUEUE.md).
+
 Current verification work for `prod/compose`: see [VERIFY-QUEUE.md](VERIFY-QUEUE.md) (ordered runbook, rules and known risks for the verifying agent). Wave 2 (OBS-04, LIFE-01, LIFE-08, LIFE-09, LIFE-10, LIFE-11, MACH-04, MACH-05, UX-01, UX-03) is appended there as its own section; verify wave 1 first.
 
 Start with [5 October machine-transfer handoff](transfer/2026-10-05/README.md). It supersedes older local absolute-path resume notes. Same publication branch: `codex/production-2026-10-02`.

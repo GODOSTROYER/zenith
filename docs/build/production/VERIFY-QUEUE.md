@@ -1,5 +1,7 @@
 # Verification queue (for the verifying agent)
 
+> Scope contract and required deliverables: [HANDOFF-VERIFIER.md](HANDOFF-VERIFIER.md). Read it first.
+
 Branch to verify: `prod/compose`. Verify the exact tip you checked out; run `git rev-parse HEAD` first and record that SHA in every piece of evidence. If you push fixes, the new tip is the SHA that evidence must name.
 
 Nothing below has been executed by the builders. Every requirement here is `implementation_complete_verification_pending` in `ledger.json`. Typecheck, eslint, `emit-sql --check`, `capability-matrix --check`, `offered-catalog --check` and `production-ledger --check` were the only checks run at assembly time.

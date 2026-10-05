@@ -69,6 +69,83 @@ function isFixedStartAuthorityInterpolation(fn: Fn, expression: string, sqlPrefi
     && /import \{[^}]*\bMCP_DEPLOY_AUTHORITY\b[^}]*\} from "\.\/workflow-start-deploy-authority";/.test(fn.source);
 }
 
+/** A closed private literal plus exact genuine-origin calls. Extra references,
+ * aliases, assignments or dynamic evaluation cannot inherit a declaration hash. */
+function fixedStandaloneBindings(repo: ts.SourceFile): boolean {
+  const walk = (node: ts.Node, test: (node: ts.Node) => boolean): boolean => test(node)
+    || (ts.forEachChild(node, child => walk(child, test)) ?? false);
+  const declarations: ts.VariableDeclaration[] = [], references: ts.Identifier[] = [];
+  if (walk(repo, node => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === "LIVE_STANDALONE_SETTLEMENTS") declarations.push(node);
+    if (ts.isIdentifier(node) && node.text === "LIVE_STANDALONE_SETTLEMENTS") references.push(node);
+    return ts.isIdentifier(node) && ["eval", "Function"].includes(node.text);
+  }) || declarations.length !== 1 || references.length !== 5) return false;
+  const clause = declarations[0];
+  if (!clause.initializer || !ts.isNoSubstitutionTemplateLiteral(clause.initializer)
+    || !ts.isVariableDeclarationList(clause.parent) || !(clause.parent.flags & ts.NodeFlags.Const)
+    || clause.parent.declarations.length !== 1 || !ts.isVariableStatement(clause.parent.parent)
+    || clause.parent.parent.parent !== repo || clause.parent.parent.modifiers?.some(node => node.kind === ts.SyntaxKind.ExportKeyword)
+    || createHash("sha256").update(clause.initializer.getText(repo)).digest("hex") !== "eefac8a0c7f5b30257c5b0de7f8f52237e02cc20b4a4490002104ad4ba67a6c6") return false;
+  const owners = new Set<string>();
+  for (const reference of references) {
+    if (reference === clause.name) continue;
+    if (!ts.isTemplateSpan(reference.parent) || reference.parent.expression !== reference) return false;
+    let owner: ts.Node = reference;
+    while (!ts.isFunctionDeclaration(owner) && owner.parent) owner = owner.parent;
+    if (!ts.isFunctionDeclaration(owner) || !owner.name || owners.has(owner.name.text)
+      || !["dispatch", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"].includes(owner.name.text)) return false;
+    owners.add(owner.name.text);
+  }
+  const calls: Record<string, string[]> = {
+    readNativeCleanupOrigin: ['dispatch:readNativeCleanupOrigin(cleanupOrigin,sql,"dispatch")',
+      'retainCleanupWriterHold:readNativeCleanupOrigin(origin,sql,"hold")',
+      'reserveCleanupOwnerGrant:readNativeCleanupOrigin(origin,sql,"grant")', 'insertCleanupOwnerGrant:readNativeCleanupOrigin(origin,sql,"grant")'],
+    assertNativeCleanupOriginCurrent: ['dispatch:assertNativeCleanupOriginCurrent(cleanupOrigin,sql)',
+      'retainCleanupWriterHold:assertNativeCleanupOriginCurrent(origin,sql)',
+      'reserveCleanupOwnerGrant:assertNativeCleanupOriginCurrent(origin,sql)', 'reserveCleanupOwnerGrant:assertNativeCleanupOriginCurrent(origin,sql)',
+      'insertCleanupOwnerGrant:assertNativeCleanupOriginCurrent(origin,sql)', 'insertCleanupOwnerGrant:assertNativeCleanupOriginCurrent(origin,sql)'],
+    readNativeStandaloneOrigin: ['dispatch:readNativeStandaloneOrigin(standaloneOrigin,sql,"binding")', 'finishStandalone:readNativeStandaloneOrigin(origin,sql,"completion")'],
+    assertNativeStandaloneOriginCurrent: ['dispatch:assertNativeStandaloneOriginCurrent(standaloneOrigin,sql)',
+      'dispatch:assertNativeStandaloneOriginCurrent(standaloneOrigin,sql)', 'finishStandalone:assertNativeStandaloneOriginCurrent(origin,sql)'],
+  };
+  for (const [name, expected] of Object.entries(calls)) {
+    const found: ts.Identifier[] = [];
+    walk(repo, node => { if (ts.isIdentifier(node) && node.text === name) found.push(node); return false; });
+    const imported = found.filter(node => ts.isImportSpecifier(node.parent));
+    if (imported.length !== 1 || found.length !== expected.length + 1) return false;
+    const specifier = imported[0].parent;
+    if (!ts.isImportSpecifier(specifier) || specifier.name !== imported[0] || specifier.isTypeOnly || specifier.propertyName) return false;
+    const declaration = specifier.parent.parent.parent;
+    if (!ts.isImportDeclaration(declaration) || declaration.importClause?.isTypeOnly
+      || !ts.isStringLiteral(declaration.moduleSpecifier) || declaration.moduleSpecifier.text !== "@/lib/platform/plan-artifacts") return false;
+    const actual: string[] = [];
+    for (const reference of found) {
+      if (reference === imported[0]) continue;
+      if (!ts.isCallExpression(reference.parent) || reference.parent.expression !== reference) return false;
+      let owner: ts.Node = reference.parent;
+      while (!ts.isFunctionDeclaration(owner) && owner.parent) owner = owner.parent;
+      if (!ts.isFunctionDeclaration(owner) || !owner.name) return false;
+      actual.push(`${owner.name.text}:${reference.parent.getText(repo)}`);
+    }
+    if (actual.sort().join("\n") !== [...expected].sort().join("\n")) return false;
+  }
+  return owners.size === 4;
+}
+
+/** The immutable completion is supplied only by the captured paired runtime.
+ * This pins the full owning transaction and final CTE, not caller status or SQL
+ * seeded ciphertext. Execution/authentication remains the native gate's job. */
+function isFixedStandaloneWriteContext(fn: Fn, repo: ts.SourceFile, owning: ts.FunctionDeclaration,
+  query: ts.TemplateExpression, params: ts.ArrayLiteralExpression): boolean {
+  const hash = (value: string) => createHash("sha256").update(value).digest("hex");
+  return fn.name === "finishStandalone" && owning.parameters.length === 2
+    && owning.parameters[0].getText(repo) === "sql:Sql" && owning.parameters[1].getText(repo) === "origin:unknown"
+    && hash(owning.getText(repo)) === "d5f9877b4ab35bad9c1d1ede5c9989f010dc76836c2f2ec9c9d9022178033678"
+    && hash(query.getText(repo).slice(1, -1)) === "90922fa6b9db8e6d1fa6a6b14b4475513021c3401cfdd20c58e314c844e4678e"
+    && params.elements.map(item => item.getText(repo)).join("\n") === ["b.workspaceId", "b.operationId", "b.attemptId", "b.holder", "b.fenceToken",
+      "JSON.stringify(bound.proof)", "JSON.stringify(sourceAuthority)", "JSON.stringify(productAuthority)", "JSON.stringify(receipt)"].join("\n");
+}
+
 /** These are three exact reviewed writes, not a function-name SQL exemption.
  * The hashes bind complete fixed CTE text and original literal clauses; AST
  * provenance separately binds imported symbols, the native frame and parameters.
@@ -76,13 +153,13 @@ function isFixedStartAuthorityInterpolation(fn: Fn, expression: string, sqlPrefi
 function isFixedCleanupWriteContext(fn: Fn, repo: ts.SourceFile, owning: ts.FunctionDeclaration,
   query: ts.TemplateExpression, params: ts.ArrayLiteralExpression): boolean {
   const first = ["input.custody.workspaceId", "input.custody.operationId", "bound.attempt", "input.lease.holder",
-    "input.lease.fenceToken", "JSON.stringify(bound.proof)", "JSON.stringify(sourceAuthority)", "JSON.stringify(productAuthority)"];
+    "input.lease.fenceToken", "JSON.stringify({...bound.proof,standaloneSettlements:bound.settlements})", "JSON.stringify(sourceAuthority)", "JSON.stringify(productAuthority)"];
   const contexts: Record<string, { purpose: string; hash: string; functionHash: string; tail: string[]; returned: string }> = {
-    retainCleanupWriterHold: { purpose: "hold", hash: "c666928089ccfe8a1db070522ca3fbcd85da8506b4a89986b81b9a0219768c1f", functionHash: "afe56d3ca1823d24ef4f343287201a6b004dde569cf6015feee1ded1c2c68ec5",
+    retainCleanupWriterHold: { purpose: "hold", hash: "83d3c130597d17ff6461f80c21fdc322140b12a46d562d207526af7c8c58b8ed", functionHash: "19f19295d77704777beca348eaffbaebc6618dba51565593a8ec93ad3105e1a5",
       tail: ["c.projectId", "c.environmentId", "generation", "bound.manifestDigest", "frame.authorityDigest"], returned: "generation" },
-    reserveCleanupOwnerGrant: { purpose: "grant", hash: "19d030c961cdc6def7ac17b52311f4167b915d57e87444acd765231deb743cb0", functionHash: "b966bbbd35e2dd73bd4be0c0b99eeb46d7b3a69be401dfd21fbaa99fa2dcff58",
+    reserveCleanupOwnerGrant: { purpose: "grant", hash: "30d525a135fb41d74740a3c2048965d8b9290150c8f38158164fff55aad7117b", functionHash: "13fc8a46cded322591360ed4b84e1fe78498e1839431db3e330c1c2d5dc138be",
       tail: ["h.generation", "jti", "frame.authorityDigest"], returned: "jti" },
-    insertCleanupOwnerGrant: { purpose: "grant", hash: "c957f2312f7d64d33ece5cb783a2fc97b68d440b5515b2a26ad6fd299782641b", functionHash: "1784cc96da64cd1638c167a3ef44f7fe57705bdf7e226919efa5cadd15db7385",
+    insertCleanupOwnerGrant: { purpose: "grant", hash: "8ccca916d1e31d55e9045cea5bed4baabf9faf12207446adafe485b3d9390b68", functionHash: "80f38aae9a6f7393b69711994db297a4a051a49ca5f281d33ac87d3ddf8f9925",
       tail: ["grant.jti", "grant.issuedAt", "grant.expiresAt"], returned: "jti" },
   };
   const context = contexts[fn.name];
@@ -173,7 +250,7 @@ function isFixedCleanupWriteContext(fn: Fn, repo: ts.SourceFile, owning: ts.Func
 
 /** Source proof for one internal composer; the composer and its imports are never executed. */
 function isFixedPlanProductInterpolation(fn: Fn, expression: string, sqlText: string, composerSource: string): boolean {
-  if (fn.file !== "plan-artifacts.ts" || !["claim", "dispatch", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"].includes(fn.name)
+  if (fn.file !== "plan-artifacts.ts" || !["claim", "dispatch", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant", "finishStandalone"].includes(fn.name)
     || expression !== "planProductDispatchPredicate(productAuthority)") return false;
   const parse = (file: string, source: string) => ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const repo = parse(fn.file, fn.source), composer = parse("plan-artifact-product-authority.ts", composerSource);
@@ -224,6 +301,11 @@ function isFixedPlanProductInterpolation(fn: Fn, expression: string, sqlText: st
     && ts.isIdentifier(node.name) && node.name.text === "planProductDispatchPredicate")) return false;
   const owning = repo.statements.filter(ts.isFunctionDeclaration).filter(node => node.name?.text === fn.name);
   if (owning.length !== 1 || !owning[0].body || !fn.body.trimStart().startsWith(owning[0].getText(repo))) return false;
+  if (fn.name !== "claim" && !fixedStandaloneBindings(repo)) return false;
+  // The dispatch proof also includes authenticated settlements. Pin its full
+  // original transaction and exact current-authority parameter binding.
+  if (fn.name === "dispatch" && createHash("sha256").update(owning[0].getText(repo)).digest("hex")
+    !== "65f673bfaa2212f6279159f209fc9eb66c3bb1ac6c4e76c4877b068052ab932c") return false;
   // Bind this call to the actual owning update, tenant parameters and JSON $8 input.
   const queryMatches: ts.CallExpression[] = [];
   walk(owning[0], node => {
@@ -236,7 +318,12 @@ function isFixedPlanProductInterpolation(fn: Fn, expression: string, sqlText: st
     const calls = query.templateSpans.filter(span => span.expression.getText(repo) === expression);
     const head = query.head.text;
     const cleanupWrite = !["claim", "dispatch"].includes(fn.name);
-    if (cleanupWrite && !isFixedCleanupWriteContext(fn, repo, owning[0], query, params)) return false;
+    if (cleanupWrite && !(fn.name === "finishStandalone"
+      ? isFixedStandaloneWriteContext(fn, repo, owning[0], query, params)
+      : isFixedCleanupWriteContext(fn, repo, owning[0], query, params))) return false;
+    if (fn.name === "dispatch" && (createHash("sha256").update(query.getText(repo).slice(1, -1)).digest("hex")
+      !== "b8bef17ce02cc72e49598efe453bd60dc2369d0b83c812898ca033691e9bd190"
+      || params.elements[5].getText(repo) !== "authority?JSON.stringify({...authority,standaloneSettlements:settled}):null")) return false;
     if (calls.length !== 1 || !cleanupWrite && (params.elements.length !== 8 || !head.startsWith(`update platform.plan_artifact_uses set phase='${fn.name === "claim" ? "claimed" : "dispatched"}'`)
       || !head.includes(`where workspace_id=$1 and operation_id=$2 and phase='${fn.name === "claim" ? "ready" : "claimed"}'`)
       || params.elements[0].getText(repo) !== "input.custody.workspaceId"
@@ -507,7 +594,7 @@ describe("control-store repositories: workspace scoping is present in every func
         ['const frame=await captureCleanupFrame(sql,tx,bound);', 'const frame=callerFrame;'],
         ['const input=bound.access,sourceAuthority=frame.source,productAuthority=frame.product;', 'const input=bound.access,sourceAuthority=frame.source,productAuthority=callerProduct;'],
         ['const input=bound.access,sourceAuthority=frame.source,productAuthority=frame.product;', 'let input=bound.access,sourceAuthority=frame.source,productAuthority=frame.product;'],
-        ['JSON.stringify(bound.proof)', 'JSON.stringify(callerApproval)'],
+        ['JSON.stringify({...bound.proof,standaloneSettlements:bound.settlements})', 'JSON.stringify(callerApproval)'],
         ['JSON.stringify(sourceAuthority)', 'JSON.stringify(input)'],
         ['JSON.stringify(productAuthority)', 'JSON.stringify(input)'],
         ['[input.custody.workspaceId,input.custody.operationId,bound.attempt', '[input.workspaceId,input.custody.operationId,bound.attempt'],
@@ -531,6 +618,87 @@ describe("control-store repositories: workspace scoping is present in every func
         composerSource + '\nArray.prototype.map = () => [callerControlledSql];\n',
       ]) { expect(source).not.toBe(composerSource); expect(isFixedPlanProductInterpolation(fn, expression, query, source)).toBe(false); }
     }
+    const completed = fns.filter(fn => fn.file === "plan-artifacts.ts" && fn.name === "finishStandalone");
+    expect(completed.map(fn => fn.name)).toEqual(["finishStandalone"]);
+    const settlementContexts = [...native.filter(fn => fn.name === "dispatch"), ...cleanupWrites, ...completed];
+    for (const fn of settlementContexts) {
+      const query = [...fn.body.matchAll(/\.query(?:<[^>]*>)?\(\s*`([\s\S]*?)`/g)]
+        .find(match => match[1].includes("${planProductDispatchPredicate(productAuthority)}"))![1];
+      const expression = "planProductDispatchPredicate(productAuthority)";
+      expect(isFixedPlanProductInterpolation(fn, expression, query, composerSource), `${fn.name}: settlement context`).toBe(true);
+      const changed = (from: string, to: string): Fn => {
+        expect(fn.source, `${fn.name}: mutation must reach source`).toContain(from);
+        return { ...fn, source: fn.source.replaceAll(from, to), body: fn.body.replaceAll(from, to) };
+      };
+      for (const [label, from, to] of [
+        ["mutable settlement clause", "const LIVE_STANDALONE_SETTLEMENTS=", "let LIVE_STANDALONE_SETTLEMENTS="],
+        ["raw settlement tuple", "r.workspace_id=settled->'receipt'->'binding'->>'workspaceId'", "r.workspace_id=${callerWorkspace}"],
+        ["foreign immutable settlement owner", "r.workspace_id=$1", "r.workspace_id=$9"],
+        ["foreign backend owner", "backend.workspace_id=$1", "backend.workspace_id=$9"],
+        ["foreign origin import", 'from "@/lib/platform/plan-artifacts"', 'from "./caller-settlement-origin"'],
+        ["aliased standalone origin", "readNativeStandaloneOrigin, assertNativeStandaloneOriginCurrent", "callerOrigin as readNativeStandaloneOrigin, assertNativeStandaloneOriginCurrent"],
+        ["aliased current standalone origin", "assertNativeStandaloneOriginCurrent, type NativeCleanupOrigin", "callerCurrent as assertNativeStandaloneOriginCurrent, type NativeCleanupOrigin"],
+      ]) {
+        // A backend owner predicate is present only in the completion CTE.
+        if (label === "foreign backend owner" && fn.name !== "finishStandalone") continue;
+        const mutated = changed(from, to);
+        const replacement = query.replaceAll(from, to);
+        expect(isFixedPlanProductInterpolation(mutated, expression, replacement, composerSource), `${fn.name}: ${label}`).toBe(false);
+      }
+      for (const [label, effect] of [
+        ["settlement clause assignment", "\nLIVE_STANDALONE_SETTLEMENTS = callerSql;\n"],
+        ["settlement clause alias", "\nconst escapedSettlements = LIVE_STANDALONE_SETTLEMENTS;\n"],
+        ["extra settlement reference", "\nconsume(LIVE_STANDALONE_SETTLEMENTS);\n"],
+        ["standalone origin alias", "\nconst escapedOrigin = readNativeStandaloneOrigin;\n"],
+        ["standalone origin assignment", "\nreadNativeStandaloneOrigin = callerOrigin;\n"],
+        ["extra standalone origin call", '\nreadNativeStandaloneOrigin(caller,sql,"completion");\n'],
+        ["current origin alias", "\nconst escapedCurrent = assertNativeStandaloneOriginCurrent;\n"],
+        ["current origin assignment", "\nassertNativeStandaloneOriginCurrent = caller;\n"],
+        ["dynamic settlement mutation", '\neval("LIVE_STANDALONE_SETTLEMENTS = callerSql");\n'],
+        ["dynamic origin mutation", '\nFunction("readNativeStandaloneOrigin = caller")();\n'],
+      ]) expect(isFixedPlanProductInterpolation({ ...fn, source: fn.source + effect }, expression, query, composerSource), `${fn.name}: ${label}`).toBe(false);
+    }
+    for (const fn of completed) {
+      const query = [...fn.body.matchAll(/\.query(?:<[^>]*>)?\(\s*`([\s\S]*?)`/g)]
+        .find(match => match[1].includes("${planProductDispatchPredicate(productAuthority)}"))![1];
+      const expression = "planProductDispatchPredicate(productAuthority)";
+      const changed = (from: string, to: string): Fn => {
+        expect(fn.source, "completion mutation must reach source").toContain(from);
+        return { ...fn, source: fn.source.replaceAll(from, to), body: fn.body.replaceAll(from, to) };
+      };
+      for (const [from, to] of [
+        ['readNativeStandaloneOrigin(origin,sql,"completion")', 'callerReceipt(origin,sql)'],
+        ["const input=captured(bound.access),b=bound.binding;", "const input=captured(caller.access),b=caller.binding;"],
+        ["JSON.stringify(receipt)", "JSON.stringify(callerReceipt)"],
+        ["JSON.stringify(bound.proof)", "JSON.stringify(callerApproval)"],
+        ["JSON.stringify(sourceAuthority)", "JSON.stringify(input)"],
+        ["JSON.stringify(productAuthority)", "JSON.stringify(input)"],
+        ["[b.workspaceId,b.operationId,b.attemptId,b.holder,b.fenceToken,JSON.stringify(bound.proof)", "[callerWorkspace,b.operationId,b.attemptId,b.holder,b.fenceToken,JSON.stringify(bound.proof)"],
+        ["await lockCleanupCoordinator(tx,b.workspaceId);", "await lockCleanupCoordinator(tx,callerWorkspace);"],
+        ["await assertNativeStandaloneOriginCurrent(origin,sql);", "await callerCurrent(origin,sql);"],
+        ["if(changed.length!==1)refuse();", "if(changed.length!==1)return;"],
+      ]) expect(isFixedPlanProductInterpolation(changed(from, to), expression, query, composerSource), `completion: ${from}`).toBe(false);
+      for (const [from, to] of [
+        ["set phase='succeeded'", "set phase='ready'"],
+        ["workspace_id=$1 and operation_id=$2", "workspace_id=$9 and operation_id=$2"],
+        ["phase='dispatched'", "phase='claimed'"],
+        ["attempt_id=$3", "attempt_id=$9"],
+        ["and (${LIVE_USE_AUTHORITY})", "and true"],
+        ["and (${DISPATCH_SOURCE_AUTHORITY})", "and true"],
+        ["and (${planProductDispatchPredicate(productAuthority)})", "and witness=${planProductDispatchPredicate(productAuthority)}"],
+        ["backend.workspace_id=$1", "backend.workspace_id=$9"],
+        ["backend.project_id=$9::text::jsonb->'binding'->>'projectId'", "true"],
+        ["backend.environment_id=$9::text::jsonb->'binding'->>'environmentId'", "true"],
+        ["backend.backend_digest=$9::text::jsonb->'binding'->>'backendDigest'", "true"],
+        ["insert into platform.standalone_plan_settlements", "insert into public.unreviewed_effects"],
+        ["from authority returning operation_id", "from caller_rows returning operation_id"],
+        ["$9::text::jsonb->'sealed'->>'ciphertext'", "${callerCiphertext}"],
+      ]) {
+        expect(query, "completion mutation must reach SQL").toContain(from);
+        const replacement = query.replaceAll(from, to);
+        expect(isFixedPlanProductInterpolation(changed(query, replacement), expression, replacement, composerSource), `completion: ${from}`).toBe(false);
+      }
+    }
     const risky: string[] = [];
     for (const fn of fns) {
       // a template literal handed to .query() that interpolates something other than the known constants
@@ -540,7 +708,7 @@ describe("control-store repositories: workspace scoping is present in every func
           if (isFixedStartAuthorityInterpolation(fn, expr, m[1].slice(0, interp.index))) continue;
           if (isFixedPlanProductInterpolation(fn, expr, m[1], composerSource)) continue;
           // A failed native proof cannot fall through to the older name-based column/index recognizers.
-          if (fn.file === "plan-artifacts.ts" && ["claim", "dispatch", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"].includes(fn.name)
+          if (fn.file === "plan-artifacts.ts" && ["claim", "dispatch", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant", "finishStandalone"].includes(fn.name)
             && /\b(?:planProductDispatchPredicate|productAuthority)\b/.test(expr)) {
             risky.push(`${key(fn)}: \${${expr}}`);
             continue;

@@ -99,6 +99,7 @@ MIGRATIONS=(
   "0015_agent_oauth_grants.sql"
   "0016_platform_core.sql"
   "0017_platform_core.sql"
+  "0018_platform_core.sql"
 )
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
@@ -285,7 +286,7 @@ if [ -n "$unprotected" ]; then
 fi
 echo "row level security enabled on every table in schema agent."
 
-# --- the platform schema (historical0014 plus current0017) ---------------------------------------------
+# --- the platform schema (historical0014/0016/0017 plus current0018) ---------------------------------------------
 #
 # Use the application's checksum/version verifier and canonical known names.
 # No pinned migration count: newly shipped versions follow the runtime manifest,

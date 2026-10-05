@@ -14,6 +14,7 @@ import type { ResourceNode } from "@/lib/resources/types";
 import { assertDeletionAllowed, TofuDeletionRefusedError } from "@/lib/tofu/plan";
 import { assertWorkspaceIntact } from "@/lib/tofu/workspace";
 import { stableJson } from "@/lib/tofu/stable";
+import { digest } from "@/lib/controlplane/digest";
 import type { Sealed, VaultCipher } from "@/lib/secrets";
 import type { TofuExecutableIdentity } from "@/lib/tofu/binary";
 import { isCleanedTofuRun, isCanonicalStandaloneRun, canonicalStandaloneCommandsMatch,canonicalStandaloneProducerMatch, MAX_PLAN_BYTES, TofuRunner, type TofuRun } from "@/lib/tofu/runner";
@@ -124,7 +125,8 @@ export interface SealedStandaloneSettlement {
 }
 interface LocalStandaloneTarget { path: string; targetDigest: string; stateDigest?: string }
 const plain = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
-const standaloneRefusal = (): never => { throw new Error("Standalone plan settlement is unavailable."); };
+// A function declaration (not an arrow constant) so control-flow analysis treats calls as never-returning and narrows the guarded values.
+function standaloneRefusal(): never { throw new Error("Standalone plan settlement is unavailable."); }
 function finiteBuiltinBackend(ws: TofuWorkspace): string | undefined {
   if (ws.backend !== "local" || ws.lockfile.trim().split("\n").some(line => line.trim() && !line.trim().startsWith("#"))) return undefined;
   let backend: string | undefined, versions = 0, main = 0;
@@ -381,7 +383,7 @@ async function applyWithAdmission(
           if (!initialTarget || target.targetDigest !== initialTarget.targetDigest || target.stateDigest !== initialTarget.stateDigest) standaloneRefusal();
           binding = immutable({ workspaceId: admission.custody.workspaceId, projectId: admission.custody.projectId,
             environmentId: admission.custody.environmentId, operationId: admission.custody.operationId,
-            attemptId: admission.attemptId, manifestDigest: objectHash(manifest), rawSha256: manifest.rawSha256,
+            attemptId: admission.attemptId, manifestDigest: digest(manifest), rawSha256: manifest.rawSha256,
             backendDigest: manifest.backendDigest, targetDigest: target.targetDigest, holder: admission.lease.holder, fenceToken: admission.lease.fenceToken });
           standalone.prepared(original, binding);
         }
@@ -458,7 +460,7 @@ export function createPlanEngineAuthority(cipher:VaultCipher, resolve: (original
     try {
       const value: unknown = JSON.parse(cipher.open(receipt.binding.workspaceId, settlementRef(receipt.binding), receipt.sealed).value);
       if (!plain(value) || value.format !== "zenith.tofu.standalone-settlement.v1" || objectHash(value) !== receipt.settlementDigest
-        || objectHash(manifest) !== receipt.binding.manifestDigest || manifest.rawSha256 !== receipt.binding.rawSha256
+        || digest(manifest) !== receipt.binding.manifestDigest || manifest.rawSha256 !== receipt.binding.rawSha256
         || manifest.backendDigest !== receipt.binding.backendDigest || value.executableDigest !== objectHash(manifest.executable)
         || value.configDigest !== manifest.configDigest || value.lockDigest !== manifest.lockDigest || value.purpose !== manifest.purpose
         || typeof value.stateDigest !== "string" || !/^[a-f0-9]{64}$/.test(value.stateDigest) || !/^[a-f0-9]{64}$/.test(String(value.stateViewDigest))

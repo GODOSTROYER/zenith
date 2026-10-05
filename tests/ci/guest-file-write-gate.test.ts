@@ -905,7 +905,7 @@ describe("mandatory direct native package phase admission", () => {
   });
   it("pins the genuine native4 declarations and refuses deletion or substituted source names", () => {
     const source = fs.readFileSync("go/internal/machine/package_helper_linux_test.go", "utf8");
-    expect(createHash("sha256").update(source).digest("hex")).toBe("56155d5e0a3bd92817a8bdf43a82e1345091cd88f2fc76f8434d953322d4b6f6");
+    expect(createHash("sha256").update(source).digest("hex")).toBe("b7b2d7cbb6d21baef5b39ce8f2eab14f80fff245cc03e633cfb53f5bf3ce6331");
     const declared = (text: string) => nativePackageNames.filter(name => new RegExp(`^func ${name}\\(t \\*testing\\.T\\)`, "m").test(text));
     expect(declared(source)).toEqual(nativePackageNames);
     for (const name of nativePackageNames) expect(declared(source.replace(`func ${name}(`, `func ${name}_foreign(`))).not.toContain(name);

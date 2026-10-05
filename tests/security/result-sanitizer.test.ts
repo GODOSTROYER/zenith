@@ -3,6 +3,8 @@
  * are assembled at run time so no source line looks like a real key.
  */
 import { describe, expect, it } from "vitest";
+import { spawn } from "node:child_process";
+import { setTimeout as setRealTimeout, clearTimeout as clearRealTimeout } from "node:timers";
 import { buildEnvelope, buildErrorEnvelope } from "@/lib/agent-access/v3/envelope";
 import { detectCredentialShapes, isSecretMemberName, redactionNote, sanitizeForModel, sanitizeText, SANITIZER_NOTE } from "@/lib/security/result-sanitizer";
 
@@ -11,6 +13,66 @@ const jwt = (): string => ["eyJ" + "a".repeat(12), "eyJ" + "b".repeat(12), "c".r
 const pem = (): string => ["-----BEGIN", "RSA PRIVATE KEY-----"].join(" ") + "\nMIIB" + "x".repeat(60) + "\n" + ["-----END", "RSA PRIVATE KEY-----"].join(" ");
 const ghToken = (): string => "gh" + "p_" + "z".repeat(36);
 const tool = { name: "zenith_get_operation", schemaVersion: 1 };
+
+const adversarialChild = `
+import { sanitizeForModel, sanitizeText } from './src/lib/security/result-sanitizer.ts';
+const name = process.argv[1];
+const canary = 'private-fixture-value';
+let input;
+switch (name) {
+  case 'ordinary-limit': input = 'a'.repeat(2_000_100) + canary; break;
+  case 'repeated-secret-word': input = 'token'.repeat(400_000); break;
+  case 'unterminated-quote': input = 'token="' + 'a'.repeat(1_800_000) + ' db_password=' + canary; break;
+  case 'long-secret-assignment': input = 'token'.repeat(360_000) + '=' + canary; break;
+  case 'dotted-scheme': input = 'a.'.repeat(1_000_000); break;
+  default: process.exit(2);
+}
+const result = name === 'ordinary-limit' || name === 'long-secret-assignment'
+  ? sanitizeForModel(input) : sanitizeText(input);
+const output = 'value' in result ? result.value : result.text;
+process.stdout.write(JSON.stringify({
+  name, applied: result.report.applied, limited: result.report.scanLimited,
+  assignment: result.report.kinds.includes('secret-assignment'),
+  url: result.report.kinds.includes('url-password'),
+  tail: output.endsWith('[REDACTED:unscanned-tail]'),
+  canaryAbsent: !output.includes(canary), completeness: result.report.completeness,
+}));
+`;
+
+async function runAdversarialChild(name: string): Promise<{ code: number | null; signal: NodeJS.Signals | null; timedOut: boolean; overflow: boolean; launchFailed: boolean; stdout: string }> {
+  const env: NodeJS.ProcessEnv = { NODE_ENV: "test" };
+  if (process.env.SystemRoot) env.SystemRoot = process.env.SystemRoot;
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, ["--max-old-space-size=256", "--import", "tsx", "--input-type=module", "--eval", adversarialChild, name], {
+      cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true,
+    });
+    let stdout = "";
+    let timedOut = false;
+    let overflow = false;
+    let launchFailed = false;
+    let escalation: ReturnType<typeof setRealTimeout> | undefined;
+    const deadline = setRealTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+      escalation = setRealTimeout(() => child.kill("SIGKILL"), 2_000);
+    }, 20_000);
+    child.stdout.on("data", (part: Buffer) => {
+      if (overflow) return;
+      if (stdout.length + part.length > 4096) {
+        overflow = true;
+        child.kill("SIGKILL");
+      } else stdout += part.toString("utf8");
+    });
+    // Child diagnostics and input values never enter assertion output.
+    child.stderr.resume();
+    child.on("error", () => { launchFailed = true; });
+    child.on("close", (code, signal) => {
+      clearRealTimeout(deadline);
+      if (escalation) clearRealTimeout(escalation);
+      resolve({ code, signal, timedOut, overflow, launchFailed, stdout });
+    });
+  });
+}
 
 describe("value rules", () => {
   it("replaces credential shapes with explicit kind markers and reports them", () => {
@@ -50,6 +112,66 @@ describe("value rules", () => {
     expect(value).toContain("token_count = 12");
     expect(value).toContain("(sensitive value)");
   });
+
+  it("retains assignment substring names, original quotes, whitespace and minimum value length", () => {
+    const input = `_password\u00a0=\n'abcdef' 123secret="ghijkl" .passwordPolicy: mnopqr "api-key"\u00a0:\n"stuvwx" secretRef='vault:KEY' token=short api_key=<sensitive>`;
+    const { text, report } = sanitizeText(input);
+    expect(text).toBe(`_password\u00a0=\n'[REDACTED:secret-assignment]' 123secret="[REDACTED:secret-assignment]" .passwordPolicy: [REDACTED:secret-assignment] "api-key"\u00a0:\n"[REDACTED:secret-assignment]" secretRef='vault:KEY' token=short api_key=<sensitive>`);
+    expect(report.redactions).toBe(4);
+    expect(report.kinds).toEqual(["secret-assignment"]);
+  });
+
+  it("finds inner secret assignments after benign heads and unterminated quoted values", () => {
+    for (const input of ["note: password = secretvalue", "label = api_key = abcdefgh", 'token="unfinished db_password=longvalue']) {
+      const { text, report } = sanitizeText(input);
+      expect(text).toContain("[REDACTED:secret-assignment]");
+      expect(text).not.toMatch(/secretvalue|abcdefgh|longvalue/);
+      expect(report.redactions).toBe(1);
+    }
+  });
+
+  it("preserves URL scheme boundaries and exact heads while replacing colon-bearing passwords", () => {
+    for (const prefix of [".https", "123.https", "a+b.c-d", "'https", '"HTTPS']) {
+      const { text, report } = sanitizeText(`${prefix}://user:first:second@host/path`);
+      expect(text).toBe(`${prefix}://user:[REDACTED:url-password]@host/path`);
+      expect(report.redactions).toBe(1);
+      expect(report.kinds).toEqual(["url-password"]);
+    }
+    for (const input of ["_https://user:pass@host", "123https://user:pass@host", "https://:pass@host", "https://user:@host", "https://user:pa/ss@host"]) {
+      expect(sanitizeText(input).text).toBe(input);
+    }
+  });
+
+  it("finds a later valid URL after rejected outer userinfo", () => {
+    const { text, report } = sanitizeText("outer://first:bad/https://user:pass@host");
+    expect(text).toBe("outer://first:bad/https://user:[REDACTED:url-password]@host");
+    expect(report.redactions).toBe(1);
+  });
+
+  it("redacts plugin tokens alongside existing Zenith tokens without shortening the suffix requirement", () => {
+    for (const prefix of ["z" + "rt_", "z" + "a_", "z" + "p_"]) {
+      const long = prefix + "q".repeat(16);
+      const short = prefix + "q".repeat(15);
+      const { text, report } = sanitizeText(long);
+      expect(text).toBe("[REDACTED:zenith-token]");
+      expect(report.kinds).toEqual(["zenith-token"]);
+      expect(sanitizeText(short).text).toBe(short);
+    }
+  });
+});
+
+describe("bounded string scans in an independent process", () => {
+  it.each([
+    ["ordinary-limit", true, false, true],
+    ["repeated-secret-word", false, false, false],
+    ["unterminated-quote", false, true, false],
+    ["long-secret-assignment", false, true, false],
+    ["dotted-scheme", false, false, false],
+  ] as const)("finishes %s before a real child deadline", async (name, limited, assignment, tail) => {
+    const child = await runAdversarialChild(name);
+    expect({ ...child, stdout: undefined }).toEqual({ code: 0, signal: null, timedOut: false, overflow: false, launchFailed: false, stdout: undefined });
+    expect(JSON.parse(child.stdout)).toEqual({ name, applied: true, limited, assignment, url: false, tail, canaryAbsent: true, completeness: "best_effort" });
+  }, 30_000);
 });
 
 describe("member rules", () => {

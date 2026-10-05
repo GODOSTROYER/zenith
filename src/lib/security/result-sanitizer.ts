@@ -83,31 +83,23 @@ const VALUE_RULES: readonly ValueRule[] = [
   { kind: "payment-secret-key", re: /\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}\b/g },
   { kind: "model-api-key", re: /\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}\b/g },
   { kind: "google-token", re: /\b(?:ya29\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{35})\b/g },
-  { kind: "zenith-token", re: /\bz(?:rt|a)_[A-Za-z0-9_-]{16,}/g },
+  { kind: "zenith-token", re: /\bz(?:rt|a|p)_[A-Za-z0-9_-]{16,}/g },
   {
     kind: "azure-storage-key",
     re: /\b(AccountKey|SharedAccessKey)=[A-Za-z0-9+/=%&;_.-]{16,}/gi,
     replace: (_m, name) => `${name}=${marker("azure-storage-key")}`,
   },
   { kind: "bearer", re: /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi, replace: (_m, scheme) => `${scheme} ${marker("bearer")}` },
-  {
-    kind: "url-password",
-    re: /(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:)[^\s/@]+(@)/gi,
-    replace: (_m, head, at) => `${head}${marker("url-password")}${at}`,
-  },
-  {
-    kind: "secret-assignment",
-    re: /((?:["']?[A-Za-z0-9_.-]*(?:password|passwd|passphrase|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credential|authorization)[A-Za-z0-9_.-]*["']?)\s*[:=]\s*)("[^"\r\n]{6,}"|'[^'\r\n]{6,}'|[^\s,;}\]"']{6,})/gi,
-    replace: (m, head, value) => {
-      const raw = String(value);
-      const bare = raw.replace(/^["']|["']$/g, "");
-      // Placeholders such as "(known after apply)" are not values; a secret-named MEMBER is held to the stricter reference check.
-      if (isReferenceValue(bare) || bare.startsWith("(") || bare.startsWith("<")) return m;
-      const quote = /^["']/.test(raw) ? raw[0] : "";
-      return `${head}${quote}${marker("secret-assignment")}${quote}`;
-    },
-  },
 ];
+
+// Consume each maximal token once, including when its separator is absent.
+// Combining these token scans with a trailing separator would retry every suffix.
+const URL_SCHEME_TOKEN = /[a-z0-9+.-]+/gi;
+const URL_USERINFO = /:\/\/([^\s/:@]+:)([^\s/@]+)@/y;
+const ASSIGNMENT_TOKEN = /[A-Za-z0-9_.-]+/g;
+const SECRET_ASSIGNMENT_NAME = /password|passwd|passphrase|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credential|authorization/i;
+const ASSIGNMENT_VALUE = /"[^"\r\n]{6,}"|'[^'\r\n]{6,}'|[^\s,;}\]"']{6,}/y;
+const JS_WHITESPACE = /\s/;
 
 const normalizeKey = (key: string): string => key.toLowerCase().replace(/[^a-z0-9]/g, "");
 const SECRET_KEY_SUFFIXES = [
@@ -139,6 +131,64 @@ class Counter {
       if (!this.paths.includes(safe)) this.paths.push(safe);
     }
   }
+}
+
+function scanUrlPasswords(text: string, c: Counter, path: string): string {
+  const chunks: string[] = [];
+  let copied = 0;
+  URL_SCHEME_TOKEN.lastIndex = 0;
+  let token: RegExpExecArray | null;
+  while ((token = URL_SCHEME_TOKEN.exec(text)) !== null) {
+    const end = URL_SCHEME_TOKEN.lastIndex;
+    if (text.slice(end, end + 3) !== "://") continue;
+    // Preserve the original ASCII word boundary, including schemes following a dot.
+    let start = token.index;
+    while (start < end && (!/[A-Za-z]/.test(text[start]) || (start > 0 && /[A-Za-z0-9_]/.test(text[start - 1])))) start++;
+    if (start === end) continue;
+    URL_USERINFO.lastIndex = end;
+    const userinfo = URL_USERINFO.exec(text);
+    if (!userinfo) continue; // Do not hide a later URL inside a rejected outer candidate.
+    const valueStart = end + 3 + userinfo[1].length;
+    const valueEnd = valueStart + userinfo[2].length;
+    chunks.push(text.slice(copied, valueStart), marker("url-password"));
+    copied = valueEnd;
+    URL_SCHEME_TOKEN.lastIndex = URL_USERINFO.lastIndex;
+    c.hit("url-password", path);
+  }
+  return chunks.length ? chunks.join("") + text.slice(copied) : text;
+}
+
+function scanSecretAssignments(text: string, c: Counter, path: string): string {
+  const chunks: string[] = [];
+  let copied = 0;
+  ASSIGNMENT_TOKEN.lastIndex = 0;
+  let token: RegExpExecArray | null;
+  while ((token = ASSIGNMENT_TOKEN.exec(text)) !== null) {
+    // Substring classification is intentional and differs from MEMBER suffix rules.
+    // A benign head must not consume an inner secret assignment as its value.
+    if (!SECRET_ASSIGNMENT_NAME.test(token[0])) continue;
+    let cursor = ASSIGNMENT_TOKEN.lastIndex;
+    if (text[cursor] === '"' || text[cursor] === "'") cursor++;
+    while (cursor < text.length && JS_WHITESPACE.test(text[cursor])) cursor++;
+    if (text[cursor] !== ":" && text[cursor] !== "=") continue;
+    cursor++;
+    while (cursor < text.length && JS_WHITESPACE.test(text[cursor])) cursor++;
+    ASSIGNMENT_TOKEN.lastIndex = cursor;
+    ASSIGNMENT_VALUE.lastIndex = cursor;
+    const value = ASSIGNMENT_VALUE.exec(text);
+    if (!value) continue; // Unterminated quotes still leave later inner assignments visible.
+    const raw = value[0];
+    const valueEnd = ASSIGNMENT_VALUE.lastIndex;
+    ASSIGNMENT_TOKEN.lastIndex = valueEnd;
+    const bare = raw.replace(/^["']|["']$/g, "");
+    // Preserve the original placeholder/reference exclusions and quote characters.
+    if (isReferenceValue(bare) || bare.startsWith("(") || bare.startsWith("<")) continue;
+    const quote = /^["']/.test(raw) ? raw[0] : "";
+    chunks.push(text.slice(copied, cursor), `${quote}${marker("secret-assignment")}${quote}`);
+    copied = valueEnd;
+    c.hit("secret-assignment", path);
+  }
+  return chunks.length ? chunks.join("") + text.slice(copied) : text;
 }
 
 function escapeRe(s: string): string {
@@ -176,6 +226,8 @@ function scanString(text: string, c: Counter, path: string, exact: RegExp | unde
       return replaced;
     });
   }
+  out = scanUrlPasswords(out, c, path);
+  out = scanSecretAssignments(out, c, path);
   // Shared credential redactor as a backstop for shapes the rules above do not name.
   const remaining = credentialPatternsIn(out);
   if (remaining.length > 0) {

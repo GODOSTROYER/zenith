@@ -21,6 +21,7 @@ import { resourceFor } from "@/lib/agent-access/v3/auth";
 import * as repos from "@/lib/controlplane/db/repos";
 import { TOOL_NAMES } from "@/lib/agent-access/v3/contract";
 import { PluginError } from "./errors";
+import { grantView, view } from "./view";
 import { defaultPluginDeps } from "./runtime";
 import { issuePluginToken, registerPlugin, revokePlugin, revokePluginGrant, reviewPlugin, MAX_PLUGIN_TOKEN_DAYS } from "./service";
 
@@ -48,27 +49,6 @@ function requireAdmin(role: string): void {
   if (role !== "admin") throw new PluginError("plugin_forbidden", "Only a workspace admin can do that.");
 }
 
-/** A registration as the screen may see it. The manifest is already public to the reviewer. */
-const view = (r: repos.plugins.PluginRegistration) => ({
-  id: r.id,
-  pluginId: r.pluginId,
-  version: r.pluginVersion,
-  status: r.status,
-  publisherId: r.publisherId,
-  manifestDigest: r.manifestDigest,
-  artifactDigest: r.artifactDigest,
-  manifest: r.manifest,
-  provenance: r.provenance,
-  approvedTools: r.approvedTools,
-  approvedScopes: r.approvedScopes,
-  requestedBy: r.requestedBy,
-  reviewedBy: r.reviewedBy ?? null,
-  reviewedAt: r.reviewedAt ?? null,
-  revokedAt: r.revokedAt ?? null,
-  revokeReason: r.revokeReason ?? null,
-  createdAt: r.createdAt,
-});
-
 export const pluginsGet = route(async (req: NextRequest) => {
   try {
     const { member, workspace } = await browser(req);
@@ -81,9 +61,7 @@ export const pluginsGet = route(async (req: NextRequest) => {
       role: member.role,
       resource: resourceFor(controlOrigin()),
       plugins: visible.map(view),
-      tokens: grants
-        .filter((g) => visible.some((r) => r.id === g.registrationId) && (member.role === "admin" || g.createdBy === member.id))
-        .map((g) => ({ id: g.id, registrationId: g.registrationId, credentialId: g.credentialId, scopes: g.scopes, createdBy: g.createdBy, createdAt: g.createdAt, expiresAt: g.expiresAt, revokedAt: g.revokedAt ?? null, lastUsedAt: g.lastUsedAt ?? null })),
+      tokens: grants.filter((g) => visible.some((r) => r.id === g.registrationId) && (member.role === "admin" || g.createdBy === member.id)).map(grantView),
     });
   } catch (error) {
     return refuse(error);

@@ -65,3 +65,39 @@ Shared-file updates for the orchestrator
 ## 5. Suggested ledger implementationStatus
 
 "implemented_unverified: signed manifest schema, provenance verification, per-workspace review, audience-bound revocable plugin tokens, MCP v3 enforcement; awaiting test run; no UI, linked-credential parents only"
+
+## 6. Addendum: UI, real plugin check, artifact digest
+
+UI: `/platform/plugins` (`src/app/(product)/platform/plugins/{page,plugins-manager}.tsx`, nav link in `platform/layout.tsx`, shared projections in `src/lib/plugins/view.ts`). Lists plugins (admins see all, members see approved), manifest detail (publisher and verified key, manifest digest, archive sha256, requested scopes, declared tools, skills, subagents, MCP servers), approve a subset (tool and scope checkboxes, `read` locked, nothing-selected blocked), reject, revoke (reason plus second confirmation), token list with revoke, token issue (token shown once in a read-only field). Fieldsets/groups carry aria labels, status messages use `role="status"`, disabled buttons give reasons. Test: `tests/platform-ui/plugins.test.tsx` (jsdom, fake HTTP). Run: `npx vitest run tests/platform-ui/plugins.test.tsx`.
+
+Real plugin check (`Z:\Projects\Spawned.ai\Zenith-plugins`, `plugins/claude-code`): the plugin is `plugin.json` (name `zenith`, version), 12 skills, 2 read-only subagents (`zenith-inspector`, `zenith-release-reviewer`, tools Read/Glob/Grep) and one stdio MCP server (`node ${CLAUDE_PLUGIN_ROOT}/runtime/bridge/cli.mjs stdio`, env `ZENITH_API_VERSION`). The schema could not describe those, so it now has an optional signed `components` block (skills, agents, mcpServers; env keys that look like credentials are refused, command must be a bare executable name) and `artifact.format`. Also `capabilities.apiVersion` is required and must be `"v3"`.
+Important gap: the bridge shipped there speaks MCP v2 (`ZENITH_API_VERSION=2`, tools like `zenith_prepare_change`, token from `ZENITH_TOKEN`/`zenith login`). Plugin tokens are accepted only by v3, so that plugin can be registered and reviewed but cannot use a plugin token until its bridge targets v3. The sample below is for that v3 build.
+
+Sample manifest (signature and archive digest are produced by the release operator; the values shown are placeholders, not real):
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "godostroyer/zenith",
+  "name": "Zenith for Claude Code",
+  "description": "Inspect, architect and deploy through browser-reviewed Zenith changes.",
+  "version": "0.3.0",
+  "publisher": { "id": "godostroyer", "name": "GODOSTROYER" },
+  "artifact": { "digest": "sha256:<64 hex: sha256 of the published plugin archive>", "format": "tar.gz", "url": "https://<release host>/zenith-claude-code-0.3.0.tar.gz" },
+  "capabilities": {
+    "apiVersion": "v3",
+    "tools": ["zenith_get_topology", "zenith_get_capabilities", "zenith_plan_change", "zenith_prepare_deploy", "zenith_execute_approved_operation",
+              "zenith_query_logs", "zenith_investigate_incident", "zenith_compare_revisions", "zenith_estimate_cost", "zenith_get_operation", "zenith_get_operation_events"],
+    "scopes": ["read", "plan", "write", "logs"]
+  },
+  "components": {
+    "skills": ["connect", "deploy", "edit", "export", "incident", "inspect", "link", "observe", "plan", "promote", "publish", "rollback"],
+    "agents": [{ "name": "zenith-inspector", "tools": ["Read", "Glob", "Grep"] }, { "name": "zenith-release-reviewer", "tools": ["Read", "Glob", "Grep"] }],
+    "mcpServers": [{ "name": "zenith", "transport": "stdio", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/runtime/bridge/cli.mjs", "stdio"], "env": { "ZENITH_API_VERSION": "3" } }]
+  },
+  "isolation": { "credentials": "none", "store": "none", "network": "mcp-only", "tokenPassthrough": "forbidden" },
+  "signature": { "alg": "ed25519", "keyId": "<trusted key id>", "value": "<base64 ed25519 over zenith-plugin-manifest-v1\n + manifest digest>" }
+}
+```
+
+Artifact digest: `artifact.digest` is the sha256 of the published plugin archive and is covered by the signature (the manifest digest includes it, so changing it invalidates the signature). Zenith does not fetch or hash the archive. The client or installer MUST download the archive, compute its sha256 and compare it to the reviewed `artifact.digest` (shown on the review page as "Archive sha256") before installing, and refuse on mismatch. The plugin repo's trusted launcher/provenance gate is the place that check belongs.

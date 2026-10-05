@@ -34,7 +34,7 @@ export function baseManifest(over: Partial<UnsignedManifest> = {}): UnsignedMani
     version: "1.0.0",
     publisher: { id: PUBLISHER, name: "Acme" },
     artifact: { digest: `sha256:${"a".repeat(64)}` },
-    capabilities: { tools: ["zenith_get_topology", "zenith_query_logs"], scopes: ["read", "logs"] },
+    capabilities: { apiVersion: "v3", tools: ["zenith_get_topology", "zenith_query_logs"], scopes: ["read", "logs"] },
     isolation: { credentials: "none", store: "none", network: "mcp-only", tokenPassthrough: "forbidden" },
     ...over,
   };

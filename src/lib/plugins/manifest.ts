@@ -38,6 +38,32 @@ const scopeSchema = z.enum(INTEGRATION_SCOPES);
 
 const unique = <T>(values: readonly T[]): boolean => new Set(values).size === values.length;
 
+const COMPONENT_NAME = z.string().regex(/^[a-z0-9][a-z0-9-]{0,60}$/);
+const SECRET_NAME = /token|secret|password|passwd|credential|api.?key|authorization|cookie/i;
+const ComponentsSchema = z.strictObject({
+  skills: z.array(COMPONENT_NAME).max(100).refine(unique, "skills must be unique").optional(),
+  agents: z
+    .array(z.strictObject({ name: COMPONENT_NAME, tools: z.array(z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,40}$/)).max(20) }))
+    .max(50)
+    .optional(),
+  mcpServers: z
+    .array(
+      z.strictObject({
+        name: COMPONENT_NAME,
+        transport: z.literal("stdio"),
+        command: z.string().regex(/^[A-Za-z0-9._-]{1,40}$/, "command must be a bare executable name"),
+        args: z.array(z.string().max(300)).max(20),
+        /** Plain configuration only: a variable that looks like a credential is refused, so a manifest cannot smuggle a token in. */
+        env: z
+          .record(z.string().regex(/^[A-Z][A-Z0-9_]{0,60}$/), z.string().max(200))
+          .refine((env) => Object.keys(env).every((k) => !SECRET_NAME.test(k)), "env must not carry credentials or tokens")
+          .optional(),
+      })
+    )
+    .max(10)
+    .optional(),
+});
+
 export const PluginManifest = z.strictObject({
   schemaVersion: z.literal(MANIFEST_SCHEMA_VERSION),
   id: z.string().regex(/^[a-z0-9][a-z0-9-]{1,40}\/[a-z0-9][a-z0-9-]{1,60}$/, "id must be <publisher>/<name> in lowercase"),
@@ -45,11 +71,25 @@ export const PluginManifest = z.strictObject({
   description: z.string().min(1).max(500),
   version: z.string().regex(SEMVER, "version must be semver"),
   publisher: z.strictObject({ id: z.string().regex(SLUG), name: z.string().min(1).max(100) }),
+  /**
+   * The published plugin archive. `digest` is the sha256 of the archive bytes and is
+   * covered by the signature. Zenith never fetches the archive: the client or
+   * installer must hash what it downloaded and compare before installing.
+   */
   artifact: z.strictObject({
     digest: z.string().regex(/^sha256:[0-9a-f]{64}$/, "artifact digest must be sha256:<64 hex>"),
+    format: z.enum(["tar.gz", "tgz", "zip"]).optional(),
     url: z.string().url().startsWith("https://").max(2000).optional(),
   }),
+  /**
+   * What the package ships, so a reviewer sees it (a Claude Code plugin: skills,
+   * subagents, MCP server config). Descriptive and covered by the signature; it
+   * grants nothing. Authority comes only from `capabilities` and the review.
+   */
+  components: ComponentsSchema.optional(),
   capabilities: z.strictObject({
+    /** The MCP contract the tool names belong to. Only v3 is enforceable with plugin tokens. */
+    apiVersion: z.literal("v3"),
     tools: z.array(toolSchema).min(1).max(TOOL_NAMES.length).refine(unique, "tools must be unique"),
     scopes: z.array(scopeSchema).min(1).max(INTEGRATION_SCOPES.length).refine(unique, "scopes must be unique"),
   }),

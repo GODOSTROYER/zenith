@@ -5809,6 +5809,30 @@ export function linuxGuestManifest() {
   };
 }
 
+// Explicit tagged real-systemd evidence is separate from the unchanged152 gate.
+export function linuxSystemdManifest() {
+  const phase = (id, packageName, relativePackage, parent, leaves) => ({
+    id, command: ["go", "test", "-p=1", "-tags=zenith_systemd_acceptance", "-json", "-count=1", relativePackage, "-run", `^${parent}$`],
+    requiredCases: [parent, ...leaves.map((leaf) => `${parent}/${leaf}`)].map((test) => ({ package: packageName, test, id: `linux-systemd:${packageName}:${test}` })),
+    requiredPackages: [packageName], noTestPackages: [], allowedSkips: [],
+  });
+  const steps = [
+    phase("ops", OPS, "./internal/machine/ops", "TestRealServiceConfigureSystemdOps", ["create-and-real-restart", "active-noop-keeps-invocation", "replace-retains-backup-and-restarts", "wrong-prior-has-no-effect", "stale-profile-has-no-effect", "foreign-unit-has-no-effect", "polkit-permits-restart-only"]),
+    phase("signed", MACHINE, "./internal/machine", "TestRealServiceConfigureSystemdSignedExecutor", ["signed-create-through-default-runner", "persistent-replay-after-executor-reopen", "missing-resource-has-no-effect", "unknown-constraint-has-no-effect", "stale-profile-has-no-effect", "foreign-unit-has-no-effect"]),
+  ];
+  return {
+    schemaVersion: 1, lane: "linux-systemd", kind: "native-go-systemd", steps,
+    requiredCases: steps.flatMap((step) => step.requiredCases),
+    env: { GOTOOLCHAIN: "local", CGO_ENABLED: "1", GOMAXPROCS: "2", ZENITH_TEST_SERVICE_CONFIGURE_SYSTEMD: "1", ZENITH_FILE_WRITE_TEST_ROOT: "/opt/zenith-file-write-tests" },
+    tools: { node: "22.23.3", go: "1.27.1" },
+    helper: "scripts/ci/service-configure-systemd-fixtures.py",
+    cleanupCommand: ["sudo", "--preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,RUNNER_OS", "--", "python3", "scripts/ci/service-configure-systemd-fixtures.py", "cleanup", "{uid}", "{gid}", "{runId}"],
+    report: ".data-ci-guest/systemd-attempt-{attemptId}/final.json",
+    prerequisites: ["Current unchanged152 native phase passed", "Actual Linux hosted disposable runner, PID1 systemd and already-active polkit.service", "Existing nonzero UID/primary GID, zero effective/permitted/inheritable/ambient capabilities and NoNewPrivs1", "Owned inert unit plus exact restart-only polkit rule; no account or installed daemon startup", "Ops invocation first, signed invocation second, exact15 terminal events with no skips", "Settled children, positive current owned systemd cleanup, then canonical four-root cleanup and independent absence"],
+    limitations: ["CP issuer is modeled. Actual unprivileged default runner, signed executor, systemd/polkit/files/replay are exercised.", "The inert unit does not consume application config. Installed daemon, browser/default API and cloud acceptance remain separate."],
+  };
+}
+
 /** @param {string} root @param {string} directory @returns {string[]} */
 export function testFiles(root, directory) {
   return fs.readdirSync(path.join(root, directory), { withFileTypes: true }).flatMap((entry) => {

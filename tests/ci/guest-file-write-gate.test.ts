@@ -5,8 +5,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LINUX_GUEST_SERVICE_CASES, linuxGuestManifest } from "../../scripts/ci/gate-manifest.mjs";
-import { attemptEvidencePath, createAttemptDirectory, publishAttemptEvidence, runNativeGate, selectCurrentAttempt, validateGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
+import { LINUX_GUEST_SERVICE_CASES, linuxGuestManifest, linuxSystemdManifest } from "../../scripts/ci/gate-manifest.mjs";
+import { attemptEvidencePath, createAttemptDirectory, publishAttemptEvidence, runNativeGate, selectCurrentAttempt, validateGoEvents, systemdEvidencePath, createSystemdAttemptDirectory, selectCurrentSystemdAttempt, validateSystemdGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
 const pkg = "github.com/GODOSTROYER/zenith/go/internal/machine/ops";
 
@@ -1186,5 +1186,222 @@ print(json.dumps({'accepted': accepted, 'commands': len(commands),
     expect(helper.indexOf("save(pending + '-complete')")).toBeLessThan(helper.indexOf("pending = None\n        return raw"));
     expect(helper).toContain("if pending is not None:\n            raise RuntimeError('daemon delivery unconfirmed; preserve owned resources')");
     expect(helper).toContain("os.killpg(proc.pid, 0)");
+  });
+});
+
+// Actual temp-file/report models only. Root receipt/absence observations below
+// are explicitly synthetic; these never establish native systemd acceptance.
+type SystemdPhase = ReturnType<typeof linuxSystemdManifest>["steps"][number];
+function systemdRecords(phase: SystemdPhase): Event[] {
+  const packageName = phase.requiredPackages[0]; const parent = phase.requiredCases[0].test;
+  return [{ Action: "start", Package: packageName }, { Action: "run", Package: packageName, Test: parent },
+    ...phase.requiredCases.slice(1).flatMap(item => [{ Action: "run", Package: packageName, Test: item.test }, { Action: "pass", Package: packageName, Test: item.test }]),
+    { Action: "pass", Package: packageName, Test: parent }, { Action: "pass", Package: packageName }];
+}
+const systemdRoots = ["/opt/zenith-file-write-tests", "/opt/zenith-file-write-mounts", "/opt/zenith-file-write-golden", "/opt/zenith-file-upload-golden"];
+function modelSystemdAbsence(present?: string, errorCode = "ENOENT") {
+  const original = fs.lstatSync;
+  vi.spyOn(fs, "lstatSync").mockImplementation((value, options) => {
+    if (systemdRoots.includes(String(value))) {
+      if (String(value) === present) return Reflect.apply(original, fs, [os.tmpdir(), options]);
+      throw Object.assign(new Error("synthetic absent root observation"), { code: errorCode });
+    }
+    return Reflect.apply(original, fs, [value, options]);
+  });
+}
+function systemdArtifactFixture() {
+  const root = artifactRoot(); const id = newAttempt; const manifest = linuxSystemdManifest();
+  // This synthetic Git metadata performs no commit or real-index mutation.
+  fs.mkdirSync(path.join(root, ".git/objects"), { recursive: true }); fs.mkdirSync(path.join(root, ".git/refs"));
+  fs.writeFileSync(path.join(root, ".git/HEAD"), "a".repeat(40) + "\n");
+  fs.writeFileSync(path.join(root, ".git/config"), "[core]\nrepositoryformatversion = 0\nbare = false\n");
+  fs.mkdirSync(path.dirname(path.join(root, manifest.helper)), { recursive: true });
+  const files = new Map([[".gitignore", ".data-ci-guest/\n"], ["package-lock.json", "{}\n"], [manifest.helper, "# Synthetic public helper bytes; never executed.\n"]]);
+  for (const [name, bytes] of files) fs.writeFileSync(path.join(root, name), bytes, { mode: 0o644 });
+  const hash = createHash("sha256");
+  for (const [name, bytes] of [...files].sort(([a], [b]) => a.localeCompare(b))) hash.update(`${name}\0${0o644}\0${createHash("sha256").update(bytes).digest("hex")}\0`);
+  const binding = { commit: "a".repeat(40), sourceSha256: hash.digest("hex"), lockSha256: createHash("sha256").update("{}\n").digest("hex"),
+    manifestSha256: createHash("sha256").update(JSON.stringify(manifest)).digest("hex"), helperSha256: createHash("sha256").update(files.get(manifest.helper)!).digest("hex"),
+    runId: "d".repeat(32), uid: process.getuid!(), gid: process.getgid!(), canonicalReceiptSha256: "e".repeat(64), systemdReceiptSha256: "f".repeat(64) };
+  const evidence = { schemaVersion: 1, lane: "linux-systemd", attempt: { id, runnerExitCode: 0 }, verdict: "pending-cleanup", binding,
+    tools: { node: "22.23.3", go: "1.27.1", GOOS: "linux", GOARCH: "amd64", uid: binding.uid, gid: binding.gid, capabilities: "zero", noNewPrivs: true },
+    guestPrerequisite: { attemptId: oldAttempt, sha256: "c".repeat(64) }, problems: [] as string[],
+    steps: manifest.steps.map(phase => ({ id: phase.id, command: phase.command, exitCode: 0, termination: "exit", drained: true, interrupted: false,
+      reportSha256: "b".repeat(64), validation: validateSystemdGoEvents(stream(systemdRecords(phase)), goodExit, phase) })) };
+  vi.stubEnv("ZENITH_GUEST_FIXTURE_RUN_ID", binding.runId);
+  vi.stubEnv("ZENITH_EXPECTED_GUEST_ATTEMPT", evidence.guestPrerequisite.attemptId);
+  vi.stubEnv("ZENITH_GUEST_EVIDENCE_SHA256", evidence.guestPrerequisite.sha256);
+  const directory = createSystemdAttemptDirectory(root, id);
+  const executionFile = path.join(root, systemdEvidencePath(id)); const cleanupFile = path.join(directory, "cleanup.json");
+  const writeExecution = () => {
+    const raw = JSON.stringify(evidence) + "\n"; fs.writeFileSync(executionFile, raw, { mode: 0o600 });
+    return createHash("sha256").update(raw).digest("hex");
+  };
+  const cleanup = { schemaVersion: 1, lane: "linux-systemd-cleanup", attemptId: id, executionSha256: writeExecution(), binding,
+    command: manifest.cleanupCommand, status: "cleaned", exitCode: 0, termination: "exit", observed: true, drained: true, interrupted: false, reportSha256: "2".repeat(64), receiptSha256: "1".repeat(64),
+    wrapper: { role: "fixed-fixture-cleanup-transport", uid: binding.uid, gid: binding.gid, capabilities: "E/P/I/A-zero", noNewPrivs: false } };
+  const writeCleanup = () => {
+    const raw = JSON.stringify(cleanup) + "\n"; fs.writeFileSync(cleanupFile, raw, { mode: 0o600 });
+    return createHash("sha256").update(raw).digest("hex");
+  };
+  const values = { expectedAttemptId: id, attemptId: id, evidencePath: systemdEvidencePath(id), evidenceSha256: cleanup.executionSha256,
+    runnerExitCode: "0", observedOutcome: "success", cleanupPath: path.relative(root, cleanupFile), cleanupSha256: writeCleanup(), cleanupOutcome: "success", canonicalCleanupOutcome: "success" };
+  return { root, directory, evidence, cleanup, values, executionFile, cleanupFile, writeExecution, writeCleanup };
+}
+
+describe("separate actual systemd requirement admission models", () => {
+  it("pins all15 literal identities and the unchanged152 package/skip/golden contract", () => {
+    const manifest = linuxSystemdManifest(); expect(manifest.lane).toBe("linux-systemd");
+    expect(manifest.steps.map(step => step.id)).toEqual(["ops", "signed"]);
+    expect(manifest.steps.map(step => step.requiredCases.length)).toEqual([8, 7]);
+    expect(manifest.requiredCases).toHaveLength(15); expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(15);
+    expect(manifest.requiredCases.every(item => item.id === `linux-systemd:${item.package}:${item.test}`)).toBe(true);
+    for (const [relative, hash] of [
+      ["scripts/ci/service-configure-systemd-fixtures.py", "c5fbcf4c11152ff9843439459a463f051088d7cb3f08668027e70865ef43ca2d"],
+      ["go/internal/machine/ops/serviceconfigure_systemd_linux_test.go", "a0e14457140aa0d4b131958ae54147fdd8f4c48624ade65747030c2c22cdcdf4"],
+      ["go/internal/machine/serviceconfigure_systemd_linux_test.go", "a9a27984f167829c42b24451c9c42653f246a9b54a1e9f45448e4f0d1cce5370"],
+    ]) expect(createHash("sha256").update(fs.readFileSync(relative)).digest("hex")).toBe(hash);
+    for (const phase of manifest.steps) {
+      const source = fs.readFileSync(phase.id === "ops" ? "go/internal/machine/ops/serviceconfigure_systemd_linux_test.go" : "go/internal/machine/serviceconfigure_systemd_linux_test.go", "utf8");
+      expect(source).toContain("//go:build linux && zenith_systemd_acceptance"); expect(source).not.toContain("t.Skip");
+      const labels = [...source.matchAll(/t\.Run\("([^"]+)"|for _, name := range \[\]string\{([^}]+)\} \{\n\s*t\.Run\(name\+"-has-no-effect"/g)]
+        .flatMap(match => match[1] ? [match[1]] : [...match[2].matchAll(/"([^"]+)"/g)].map(label => `${label[1]}-has-no-effect`));
+      expect(phase.requiredCases.map(item => item.test)).toEqual([phase.requiredCases[0].test, ...labels.map(label => `${phase.requiredCases[0].test}/${label}`)]);
+      expect(phase.command).toEqual(["go", "test", "-p=1", "-tags=zenith_systemd_acceptance", "-json", "-count=1", phase.id === "ops" ? "./internal/machine/ops" : "./internal/machine", "-run", `^${phase.requiredCases[0].test}$`]);
+      expect(phase.noTestPackages).toEqual([]); expect(phase.allowedSkips).toEqual([]);
+    }
+    expect(linuxGuestManifest().requiredCases).toHaveLength(152); expect(linuxGuestManifest().packagePhase.requiredCases).toHaveLength(4);
+    expect(linuxGuestManifest().allowedSkips).toHaveLength(3); expect(linuxGuestManifest().requiredCases.some(item => item.id.startsWith("linux-systemd:"))).toBe(false);
+  });
+
+  it("requires exact current phase lifecycles and drops arbitrary output text", () => {
+    for (const phase of linuxSystemdManifest().steps) {
+      const records = systemdRecords(phase); records.splice(2, 0, { Action: "output", Package: phase.requiredPackages[0], Output: "inert-private-output-must-not-export" });
+      const result = validateSystemdGoEvents(stream(records), goodExit, phase);
+      expect(result.verdict).toBe("passed"); expect(result.counts.testEvents).toBe(phase.requiredCases.length);
+      expect(result.counts.parents).toBe(1); expect(result.counts.passedLeaves).toBe(phase.requiredCases.length - 1);
+      expect(JSON.stringify(result)).not.toContain("inert-private-output-must-not-export");
+    }
+  });
+
+  it("refuses every missing failed or skipped systemd identity and count-only substitutes", () => {
+    for (const phase of linuxSystemdManifest().steps) for (const required of phase.requiredCases) {
+      const records = systemdRecords(phase);
+      expect(validateSystemdGoEvents(stream(records.filter(item => item.Test !== required.test)), goodExit, phase).verdict, required.id).toBe("failed");
+      for (const Action of ["fail", "skip"]) expect(validateSystemdGoEvents(stream(records.map(item => item.Action === "pass" && item.Test === required.test ? { ...item, Action } : item)), goodExit, phase).verdict, required.id).toBe("failed");
+      expect(validateSystemdGoEvents(stream(records.map(item => item.Test === required.test ? { ...item, Test: required.test + "_foreign" } : item)), goodExit, phase).verdict).toBe("failed");
+    }
+  });
+
+  it("refuses malformed zero extra duplicate unfinished reordered and wrong-package reports", () => {
+    for (const phase of linuxSystemdManifest().steps) {
+      const records = systemdRecords(phase);
+      for (const raw of ["", "{}\n", "not-json\n", stream(records).trimEnd(), stream(records.slice(0, -1)), stream([...records.slice(0, 2), records[2], ...records.slice(2)]),
+        stream([...records.slice(0, -2), { Action: "run", Package: phase.requiredPackages[0], Test: phase.requiredCases[0].test + "/foreign" }, { Action: "pass", Package: phase.requiredPackages[0], Test: phase.requiredCases[0].test + "/foreign" }, ...records.slice(-2)]),
+        stream([records[0], records[1], ...records.slice(4, 6), ...records.slice(2, 4), ...records.slice(6)]), stream(records.map(item => ({ ...item, Package: "foreign-package" })))]) {
+        expect(validateSystemdGoEvents(raw, goodExit, phase).verdict).toBe("failed");
+      }
+      expect(validateSystemdGoEvents(stream(records), { status: 1, signal: null, observed: true }, phase).verdict).toBe("failed");
+      expect(validateSystemdGoEvents(stream(records), { status: null, signal: "SIGTERM", observed: true }, phase).verdict).toBe("failed");
+    }
+  });
+
+  it("holds a genuine-shaped modeled execution pass until both positive cleanups and absence", () => {
+    modelSystemdAbsence(); const fixture = systemdArtifactFixture();
+    expect(selectCurrentSystemdAttempt(fixture.root, { ...fixture.values, cleanupOutcome: "failure" })).toBeNull();
+    expect(selectCurrentSystemdAttempt(fixture.root, { ...fixture.values, canonicalCleanupOutcome: "skipped" })).toBeNull();
+    expect(fs.existsSync(path.join(fixture.directory, "final.json"))).toBe(false);
+    const selected = selectCurrentSystemdAttempt(fixture.root, fixture.values);
+    expect(selected).toBe(path.relative(fixture.root, path.join(fixture.directory, "final.json")));
+    const final = JSON.parse(fs.readFileSync(path.join(fixture.root, selected!), "utf8"));
+    expect(final.verdict).toBe("passed"); expect(final.cleanup).toEqual({ systemd: "cleaned", canonical: "absent", receiptSha256: "1".repeat(64), wrapper: fixture.cleanup.wrapper });
+    expect(fs.statSync(path.join(fixture.root, selected!)).mode & 0o777).toBe(0o600);
+    expect(selectCurrentSystemdAttempt(fixture.root, fixture.values)).toBeNull(); // No publication reuse.
+  });
+
+  it("refuses copied old ordinary-lane and malformed current attempt outputs", () => {
+    modelSystemdAbsence(); const fixture = systemdArtifactFixture();
+    for (const changed of [{ expectedAttemptId: oldAttempt }, { attemptId: oldAttempt }, { evidencePath: attemptEvidencePath(newAttempt) }, { evidenceSha256: "0".repeat(64) }, { runnerExitCode: "1" }, { observedOutcome: "failure" }, { cleanupPath: "../foreign" }, { cleanupSha256: "0".repeat(64) }]) {
+      expect(selectCurrentSystemdAttempt(fixture.root, { ...fixture.values, ...changed })).toBeNull();
+    }
+    fixture.evidence.lane = "linux-guest"; fixture.values.evidenceSha256 = fixture.writeExecution();
+    expect(selectCurrentSystemdAttempt(fixture.root, fixture.values)).toBeNull();
+    for (const bad of ["../escape", "A".repeat(32), "a".repeat(31)]) expect(() => systemdEvidencePath(bad)).toThrow();
+  });
+
+  it("refuses wrong source tool tag identity capability phase exit drain or report metadata", () => {
+    modelSystemdAbsence();
+    const changes: Array<(e: ReturnType<typeof systemdArtifactFixture>["evidence"]) => void> = [
+      e => { e.binding.sourceSha256 = "0".repeat(64); }, e => { e.binding.manifestSha256 = "0".repeat(64); }, e => { e.binding.helperSha256 = "0".repeat(64); }, e => { e.binding.runId = oldAttempt; },
+      e => { e.guestPrerequisite.attemptId = newAttempt; }, e => { e.guestPrerequisite.sha256 = "0".repeat(64); },
+      e => { e.tools.go = "1.26.3"; }, e => { e.tools.GOARCH = "foreign"; }, e => { e.tools.uid++; }, e => { e.tools.gid++; }, e => { e.tools.capabilities = "nonzero"; }, e => { e.tools.noNewPrivs = false; },
+      e => { e.steps.reverse(); }, e => { e.steps[0].command[3] = "-tags=foreign"; }, e => { e.steps[0].exitCode = 1; }, e => { e.steps[0].drained = false; }, e => { e.steps[0].interrupted = true; },
+      e => { e.steps[0].validation.verdict = "failed"; }, e => { e.steps[0].validation.required[0].status = "skipped"; }, e => { e.steps[0].validation.counts.testEvents--; }, e => { e.steps[0].validation.counts.failedLeaves++; },
+    ];
+    for (const change of changes) {
+      const fixture = systemdArtifactFixture(); change(fixture.evidence); fixture.values.evidenceSha256 = fixture.writeExecution();
+      fixture.cleanup.executionSha256 = fixture.values.evidenceSha256; fixture.values.cleanupSha256 = fixture.writeCleanup();
+      expect(selectCurrentSystemdAttempt(fixture.root, fixture.values)).toBeNull();
+    }
+  });
+
+  it("refuses absent failed unconfirmed foreign or altered cleanup records", () => {
+    modelSystemdAbsence();
+    for (const change of ["missing", "failure", "undrained", "interrupted", "attempt", "execution", "binding", "receipt", "command", "observed", "wrapper", "bytes", "hardlink", "mode", "symlink"] as const) {
+      const f = systemdArtifactFixture();
+      if (change === "missing") fs.unlinkSync(f.cleanupFile);
+      if (change === "failure") f.cleanup.exitCode = 1;
+      if (change === "undrained") f.cleanup.drained = false;
+      if (change === "interrupted") f.cleanup.interrupted = true;
+      if (change === "attempt") f.cleanup.attemptId = oldAttempt;
+      if (change === "execution") f.cleanup.executionSha256 = "0".repeat(64);
+      if (change === "binding") f.cleanup.binding = { ...f.cleanup.binding, runId: oldAttempt };
+      if (change === "receipt") f.cleanup.receiptSha256 = "unknown";
+      if (change === "command") f.cleanup.command = ["foreign-command"];
+      if (change === "observed") f.cleanup.observed = false;
+      if (change === "wrapper") f.cleanup.wrapper.noNewPrivs = true;
+      if (["failure", "undrained", "interrupted", "attempt", "execution", "binding", "receipt", "command", "observed", "wrapper"].includes(change)) f.values.cleanupSha256 = f.writeCleanup();
+      if (change === "bytes") fs.writeFileSync(f.cleanupFile, "{}\n");
+      if (change === "hardlink") fs.linkSync(f.cleanupFile, path.join(f.directory, "foreign-alias"));
+      if (change === "mode") fs.chmodSync(f.cleanupFile, 0o644);
+      if (change === "symlink") { fs.renameSync(f.cleanupFile, path.join(f.directory, "saved")); fs.symlinkSync(path.join(f.directory, "saved"), f.cleanupFile); }
+      expect(selectCurrentSystemdAttempt(f.root, f.values)).toBeNull();
+    }
+  });
+
+  it("refuses surviving roots and unavailable absence observations", () => {
+    for (const present of systemdRoots) {
+      modelSystemdAbsence(present); const fixture = systemdArtifactFixture(); expect(selectCurrentSystemdAttempt(fixture.root, fixture.values)).toBeNull(); vi.restoreAllMocks();
+    }
+    modelSystemdAbsence(undefined, "EACCES"); const fixture = systemdArtifactFixture(); expect(selectCurrentSystemdAttempt(fixture.root, fixture.values)).toBeNull();
+  });
+
+  it("runs an actual isolated child with an early refusal and never selects an old pass", () => {
+    const root = artifactRoot(); const old = publishedFixture(root, oldAttempt, "passed"); const before = previousBytes(root);
+    fs.chmodSync(path.join(root, ".data-ci-guest"), 0o755);
+    const output = path.join(root, "step-output"); fs.writeFileSync(output, "", { mode: 0o600 });
+    const child = spawnSync(process.execPath, [path.resolve("scripts/ci/run-guest-file-write-gate.mjs"), "--run-systemd"], { cwd: root, encoding: "utf8", timeout: 5000, maxBuffer: 8192,
+      env: { PATH: process.env.PATH, NODE_ENV: "test", GOTOOLCHAIN: "local", GITHUB_OUTPUT: output, ZENITH_EXPECTED_SYSTEMD_ATTEMPT: newAttempt } });
+    expect(child.error).toBeUndefined(); expect(child.status).toBe(1); expect(child.signal).toBeNull();
+    expect(child.stdout).toBe("linux-systemd: failed; 0 observed ordered phases; evidence=unavailable\n"); expect(child.stderr).toBe("");
+    expect(fs.readFileSync(output, "utf8")).toBe(""); expect(previousBytes(root)).toEqual(before);
+    expect(selectCurrentSystemdAttempt(root, { ...old.values, expectedAttemptId: newAttempt })).toBeNull();
+  });
+
+  it("registers fixed host ownership, ops-before-signed, and systemd-before-canonical cleanup", () => {
+    const workflow = fs.readFileSync(".github/workflows/ci.yml", "utf8"); const job = workflow.slice(workflow.indexOf("\n  go:\n"), workflow.indexOf("\n  workflows:\n"));
+    expect(job.indexOf("Required native Linux race")).toBeLessThan(job.indexOf("Provision only the owned inert systemd"));
+    expect(job).toContain("go vet -tags=zenith_systemd_acceptance ./internal/machine/ops ./internal/machine");
+    expect(job).toContain('service-configure-systemd-fixtures.py setup "$(id -u)" "$(id -g)" "$ZENITH_GUEST_FIXTURE_RUN_ID"');
+    expect(job).toContain("setpriv --no-new-privs node scripts/ci/run-guest-file-write-gate.mjs --run-systemd");
+    expect(job.indexOf("--cleanup-systemd")).toBeLessThan(job.indexOf("guest-file-write-fixtures.sh cleanup"));
+    expect(job.indexOf("guest-file-write-fixtures.sh cleanup")).toBeLessThan(job.indexOf("--select-current-systemd"));
+    expect(job).toContain("steps.systemd_cleanup.outcome == 'success'"); expect(job).toContain("ZENITH_CANONICAL_CLEANUP_OUTCOME: ${{ steps.canonical_guest_cleanup.outcome }}");
+    expect(job).not.toMatch(/useradd|groupadd|polkit\.service.*start|--privileged/);
+    const runner = fs.readFileSync("scripts/ci/run-guest-file-write-gate.mjs", "utf8");
+    expect(runner).toContain("systemdEnvironment(true)"); expect(runner).toContain("systemdEnvironment(false)");
+    expect(runner).toContain('if (validation.verdict !== "passed" || !drained || result.interrupted) throw new Error("execution")');
+    expect(runner).toContain('evidence.verdict = "pending-cleanup"'); expect(runner).toContain('rootSystemdReceipt(root, identity, "cleaned"');
+    expect(runner).not.toContain("reload-or-restart"); expect(linuxSystemdManifest().limitations.join(" ")).toContain("CP issuer is modeled");
   });
 });

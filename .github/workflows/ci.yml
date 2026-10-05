@@ -755,6 +755,36 @@ jobs:
           echo "expected_attempt_id=$attempt_id" >> "$GITHUB_OUTPUT"
           ZENITH_GUEST_ATTEMPT_ID="$attempt_id" node scripts/ci/run-guest-file-write-gate.mjs --run
 
+      - name: Vet the explicit real systemd acceptance packages
+        if: success() && steps.native_guest.outcome == 'success'
+        run: go vet -tags=zenith_systemd_acceptance ./internal/machine/ops ./internal/machine
+
+      - name: Provision only the owned inert systemd unit and restart-only rule
+        id: systemd_fixture
+        if: success() && steps.native_guest.outcome == 'success'
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          attempt_id="$(node --input-type=module -e 'import { randomBytes } from "node:crypto"; console.log(randomBytes(16).toString("hex"))')"
+          echo "expected_attempt_id=$attempt_id" >> "$GITHUB_OUTPUT"
+          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,RUNNER_OS -- python3 scripts/ci/service-configure-systemd-fixtures.py setup "$(id -u)" "$(id -g)" "$ZENITH_GUEST_FIXTURE_RUN_ID"
+
+      - name: Required ordered real systemd operations and signed execution
+        id: native_systemd
+        if: success() && steps.systemd_fixture.outcome == 'success'
+        working-directory: .
+        env:
+          GIT_OPTIONAL_LOCKS: '0'
+          ZENITH_EXPECTED_SYSTEMD_ATTEMPT: ${{ steps.systemd_fixture.outputs.expected_attempt_id }}
+          ZENITH_EXPECTED_GUEST_ATTEMPT: ${{ steps.native_guest.outputs.expected_attempt_id }}
+          ZENITH_GUEST_EVIDENCE_ATTEMPT: ${{ steps.native_guest.outputs.attempt_id }}
+          ZENITH_GUEST_EVIDENCE_PATH: ${{ steps.native_guest.outputs.evidence_path }}
+          ZENITH_GUEST_EVIDENCE_SHA256: ${{ steps.native_guest.outputs.evidence_sha256 }}
+          ZENITH_GUEST_RUNNER_EXIT_CODE: ${{ steps.native_guest.outputs.runner_exit_code }}
+          ZENITH_GUEST_RUNNER_OUTCOME: ${{ steps.native_guest.outcome }}
+        run: setpriv --no-new-privs node scripts/ci/run-guest-file-write-gate.mjs --run-systemd
+
       - run: npm ci --ignore-scripts
         if: hashFiles('go/go.mod') != ''
         working-directory: .
@@ -774,8 +804,23 @@ jobs:
             CGO_ENABLED=0 GOOS="${target%/*}" GOARCH="${target#*/}" go build -trimpath ./...
           done
 
+      - name: Remove only the owned settled systemd fixture
+        id: systemd_cleanup
+        if: always() && (steps.systemd_fixture.outcome == 'success' || steps.systemd_fixture.outcome == 'failure')
+        working-directory: .
+        env:
+          GIT_OPTIONAL_LOCKS: '0'
+          ZENITH_EXPECTED_SYSTEMD_ATTEMPT: ${{ steps.systemd_fixture.outputs.expected_attempt_id }}
+          ZENITH_SYSTEMD_EVIDENCE_ATTEMPT: ${{ steps.native_systemd.outputs.attempt_id }}
+          ZENITH_SYSTEMD_EVIDENCE_PATH: ${{ steps.native_systemd.outputs.evidence_path }}
+          ZENITH_SYSTEMD_EVIDENCE_SHA256: ${{ steps.native_systemd.outputs.evidence_sha256 }}
+          ZENITH_SYSTEMD_RUNNER_EXIT_CODE: ${{ steps.native_systemd.outputs.runner_exit_code }}
+          ZENITH_SYSTEMD_RUNNER_OUTCOME: ${{ steps.native_systemd.outcome }}
+        run: node scripts/ci/run-guest-file-write-gate.mjs --cleanup-systemd
+
       - name: Remove only owned drained Linux guest fixtures
-        if: always() && hashFiles('go/go.mod') != ''
+        id: canonical_guest_cleanup
+        if: always() && hashFiles('go/go.mod') != '' && (steps.systemd_fixture.outcome == 'skipped' || steps.systemd_cleanup.outcome == 'success')
         working-directory: .
         shell: bash
         run: |
@@ -802,6 +847,36 @@ jobs:
         with:
           name: canonical-linux-guest-evidence-${{ github.sha }}-${{ steps.native_guest.outputs.expected_attempt_id }}
           path: ${{ steps.guest_evidence.outputs.evidence_path }}
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Select only the current systemd attempt after both owned cleanups
+        id: systemd_evidence
+        if: always() && steps.systemd_fixture.outcome == 'success'
+        working-directory: .
+        env:
+          GIT_OPTIONAL_LOCKS: '0'
+          ZENITH_EXPECTED_GUEST_ATTEMPT: ${{ steps.native_guest.outputs.expected_attempt_id }}
+          ZENITH_GUEST_EVIDENCE_SHA256: ${{ steps.native_guest.outputs.evidence_sha256 }}
+          ZENITH_EXPECTED_SYSTEMD_ATTEMPT: ${{ steps.systemd_fixture.outputs.expected_attempt_id }}
+          ZENITH_SYSTEMD_EVIDENCE_ATTEMPT: ${{ steps.native_systemd.outputs.attempt_id }}
+          ZENITH_SYSTEMD_EVIDENCE_PATH: ${{ steps.native_systemd.outputs.evidence_path }}
+          ZENITH_SYSTEMD_EVIDENCE_SHA256: ${{ steps.native_systemd.outputs.evidence_sha256 }}
+          ZENITH_SYSTEMD_RUNNER_EXIT_CODE: ${{ steps.native_systemd.outputs.runner_exit_code }}
+          ZENITH_SYSTEMD_RUNNER_OUTCOME: ${{ steps.native_systemd.outcome }}
+          ZENITH_SYSTEMD_CLEANUP_PATH: ${{ steps.systemd_cleanup.outputs.cleanup_path }}
+          ZENITH_SYSTEMD_CLEANUP_SHA256: ${{ steps.systemd_cleanup.outputs.cleanup_sha256 }}
+          ZENITH_SYSTEMD_CLEANUP_OUTCOME: ${{ steps.systemd_cleanup.outcome }}
+          ZENITH_CANONICAL_CLEANUP_OUTCOME: ${{ steps.canonical_guest_cleanup.outcome }}
+        run: node scripts/ci/run-guest-file-write-gate.mjs --select-current-systemd
+
+      - name: Preserve sanitized real systemd evidence
+        if: always() && steps.systemd_evidence.outcome == 'success' && steps.systemd_evidence.outputs.evidence_path != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-linux-systemd-evidence-${{ github.sha }}-${{ steps.systemd_fixture.outputs.expected_attempt_id }}
+          path: ${{ steps.systemd_evidence.outputs.evidence_path }}
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 14

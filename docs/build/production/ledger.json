@@ -735,6 +735,19 @@
             "architecture": "native Linux AMD64 guest; native Linux AMD64 and ARM64 packaged workers"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-cd71457d-final.json"
+        },
+        {
+          "level": "local_cluster",
+          "commit": "228573330c718464b181eb5f3abc6a90c3f4ed50",
+          "result": "Fresh local kind provider6/0/0,release1/0/0,guest48/0/0; guest contains8 genuine API plus40raw-admission controls. Owned cleanup passed. No managed-CNI/live/default-server evidence.",
+          "command": "Disposable kind provider, release and guest suites with exact source/identity/count checks",
+          "environment": {
+            "node": "22.23.3",
+            "kind": "0.33.0",
+            "kubectl": "1.37.0",
+            "architecture": "native local Linux ARM64 kind"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-kind-22857333.json"
         }
       ],
       "requiredEvidence": [
@@ -2057,6 +2070,21 @@
             "host": "Darwin ARM64"
           },
           "logs": "docs/build/production/evidence/PROD-LIFE-12/2026-10-06-pg-6bdf5adf.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "80a4b287ff7cfef462c935b44e0c99955434d04d",
+          "result": "Seven native PostgreSQL ownership/race controls passed. Combined native100100/0/0; platform3034/0/8/all1124 strict; PG322/0/0; workflows1273/0/0; reconciliation38/0/0; intents156/0/0 incl historical schema12. Migrations and owned cleanup passed. Counts overlap; wider ownership acceptance remains open.",
+          "command": "Canonical combined PostgreSQL/Temporal/native100/migration/strict identity gates",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "postgres": "16.15 native Linux ARM64",
+            "temporalCli": "1.9.1",
+            "tofu": "1.12.5",
+            "host": "Darwin ARM64"
+          },
+          "logs": "docs/build/production/evidence/PROD-LIFE-12/2026-10-06-pg-80a4b287.json"
         }
       ],
       "requiredEvidence": [
@@ -2117,6 +2145,18 @@
           "command": "Root existing guest gate models, exact-source restoration, guarded Mac refusal probes and scoped lint",
           "environment": "Node22.23.3; Darwin ARM64; source-only systemd diagnostics, no Linux execution claim",
           "logs": "docs/build/production/evidence/PROD-MACH-01/2026-10-06-systemd-setup-failure.json"
+        },
+        {
+          "level": "contract",
+          "commit": "57c30782e01cbcf0759c9585f1066933754d0bf1",
+          "result": "Root179 passed/0 failed/0 skipped; scopedlint0. Read-only postexecution custody handles retained mount output while original pristine,load,identity,mount,ACL and cleanup/drain behavior remain exact. Actual systemd15 and both cleanup gates remain unexecuted on this repair.",
+          "command": "Complete guest-file-write-gate contract suite and scoped ESLint",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "host": "Darwin ARM64"
+          },
+          "logs": "not retained"
         }
       ],
       "requiredEvidence": [

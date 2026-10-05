@@ -1,3 +1,5 @@
+Current integrated verifier code `22857333`: actual PostgreSQL source80a4 passed native100100/0/0, platform3034/0/8, PG322/0/0, workflows1273/0/0, reconciliation38/0/0, intents156/0/0 and migrations/strict validators; owned cleanup confirmed. Fresh kind228 provider6/release1/guest48 all0F0S and cleaned. Linux custody fix57c30782 has root179/0/0 and independent source review; real systemd15 and full new CI still required. Full local gate currently running on frozen228. See latest [RESULTS](verification/RESULTS-2026-10.md); older chronology remains source-scoped. Same branch, Saivedant identity,20 verifier obligations/78 original criteria/four false release flags preserved.
+
 ## 6 October current verifier: workflow correction committed, combined candidate failed
 
 Primary code `59d583884f5d34eb452eddd984a23c10676f8b56` fixes only two stale systemd workflow-condition expectations after independent review. Root111 passed /0 failed /0 skipped and scoped lint passed. Production guards, exact conditions and cleanup fence remain intact. Diagnostics `1aeed6e6` still await hosted execution.

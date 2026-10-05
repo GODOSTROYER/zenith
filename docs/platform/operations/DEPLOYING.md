@@ -610,7 +610,7 @@ differs from the code is refused (`schema_tampered`): shipped migrations are
 never edited, a change is a new migration.
 
 If you would rather apply SQL yourself (the Supabase SQL editor, `psql`), apply
-`supabase/migrations/0020_platform_core.sql`. It is **generated** from the
+`supabase/migrations/0019_platform_core.sql`. It is **generated** from the
 TypeScript migrations by `npm run platform:emit-sql` (`-- --check` fails when it
 is out of date; a test enforces byte equality). It is idempotent, writes the same
 ledger rows with the same checksums (so the TypeScript migrator recognises it as
@@ -626,7 +626,7 @@ current aggregate emitter output, including additive cleanup writer barrier migr
 function, then verifies every row, the count and highest version. A new migration
 requires a regenerated inventory; changing a literal count alone does not pass.
 
-Registered migrations: **17**; highest version: **18**.
+Registered migrations: **20**; highest version: **20**.
 
 <!-- platform-migrations:start -->
 | Version | Name | SQL SHA-256 |
@@ -681,7 +681,7 @@ A database that applied the emitted SQL before a later
 migration landed is behind and the application refuses to use it until you re-apply
 the file or run `npm run migrate:platform`.
 
-Schema 17 adds the signed-runbook tables (`machine_runbook_*`: immutable versions, approvals and hash-chained audit; schedules, runs and step custody). The current aggregate is `0018_platform_core.sql`; historical platform aggregates `0014`, `0016` and `0017` remain unchanged. The committed Supabase bootstrap applies `0018` after those aggregates and agent OAuth `0015`. Schema 16 adds immutable physical local-backend ownership and authenticated standalone builtin completion receipts. These receipts reconcile only eligible saved-plan history; they do not settle cloud calls, grants, workflows, builds or guest deliveries. If you apply
+Schemas 17 to 20 add, in order, the signed-runbook tables (`machine_runbook_*`; migration 17), append-only ownership transfers (18), incident stability state, remediation attempts, maintenance windows and postmortems (19), and per-environment optimizer opt-in settings (20). The current aggregate is `0019_platform_core.sql`; historical platform aggregates `0014`, `0016`, `0017` and `0018` remain unchanged (published files are immutable, and an aggregate is a cumulative snapshot). The committed Supabase bootstrap applies `0019` after those aggregates and agent OAuth `0015`. Schema 16 adds immutable physical local-backend ownership and authenticated standalone builtin completion receipts. These receipts reconcile only eligible saved-plan history; they do not settle cloud calls, grants, workflows, builds or guest deliveries. If you apply
 migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any

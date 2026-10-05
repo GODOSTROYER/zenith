@@ -69,7 +69,7 @@ jobs:
           # Housekeeping prunes expired keys/nonces and reconciles operation
           # expiry under a lease. The jobs route exposes this separate bounded
           # pass without booting the legacy product; local plans are worker-only.
-          for pass in engine alerts outbox jobs agent reconcile housekeeping; do
+          for pass in engine alerts outbox jobs agent reconcile runbooks housekeeping; do
             endpoint="$pass"
             if [ "$pass" = housekeeping ]; then endpoint='jobs?housekeeping=1'; fi
             url="${BASE_URL}/api/internal/tick/${endpoint}"

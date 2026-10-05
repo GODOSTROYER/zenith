@@ -1,5 +1,5 @@
 /**
- * Regenerate `supabase/migrations/0016_platform_core.sql` from the TypeScript
+ * Regenerate `supabase/migrations/0019_platform_core.sql` from the TypeScript
  * migrations of the platform control store (ADR-0002). That file is generated,
  * never hand-edited; `tests/controlplane/migrations.test.ts` fails when it
  * differs from what this script would write by even one byte.

@@ -219,7 +219,7 @@
       ],
       "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "in_progress",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "contract",
@@ -441,7 +441,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "in_progress",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -526,7 +526,7 @@
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "historical_published_green_new_local_candidate_verification_pending",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "remote_ci",
@@ -1478,11 +1478,11 @@
       "acceptance": [
         "Explicit matrix covers VM/container/serverless/triggers/jobs/data/cache/storage/messaging/network/firewall/DNS/TLS/identity/secrets/day-two; schema/refusal/mock-only paths are not offered services."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1726,11 +1726,11 @@
       "acceptance": [
         "Native operations, IaC and autoscalers have explicit field ownership and conflict detection; no competing writers."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1749,7 +1749,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "linux_file_write_integrated_native_slice_verified_other_operations_pending",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "contract",
@@ -1811,11 +1811,11 @@
       "acceptance": [
         "Versioned signed scripts/runbooks, bounded targets/windows/cancellation/audit; raw exec remains approved high-risk escape hatch, argv parsing never claimed sandbox."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1951,11 +1951,11 @@
       "acceptance": [
         "Logs/metrics/traces/provider events/resource events/machine health use scoped sessions, timestamps/provenance and explicit unknown/inaccessible results."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1970,11 +1970,11 @@
       "acceptance": [
         "Deduplication/hysteresis/cooldowns/attempt and blast-radius limits/windows/escalation/postmortem; inconclusive diagnosis escalates, repair storms and autoscaler conflicts blocked."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2471,11 +2471,11 @@
       "acceptance": [
         "Measurable bounded nonflapping optimizations respect approval/field ownership and transfer/latency/residency cost."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",

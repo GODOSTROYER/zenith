@@ -1,5 +1,7 @@
 # Production resume
 
+Current verification work for `prod/compose`: see [VERIFY-QUEUE.md](VERIFY-QUEUE.md) (ordered runbook, rules and known risks for the verifying agent).
+
 Start with [5 October machine-transfer handoff](transfer/2026-10-05/README.md). It supersedes older local absolute-path resume notes. Same publication branch: `codex/production-2026-10-02`.
 
 Exact product checkpoint `19be80b3ea905ee51da89f27e3258184611952f0`, tree `7da4306a4b3aab859b55978030702881eb6fdc08`, preserves f699 and all71 earlier unpublished commits. This user-requested as-is checkpoint is not a green integration. Manifest-digest3 is source accepted/runtime unexecuted; schema/gates11 is a separately preserved partial draft. Both complete replay packets are committed under `transfer/2026-10-05/pending/`.

@@ -1,5 +1,7 @@
 # Production progress
 
+**6 October 2026 assembly (prod/compose):** merged PROD-LIFE-12, COST-03, MACH-03 and OBS-03 on top of CI repair, OBS-02, LIFE-02 and MACH-01. Platform migrations 17 to 20 are registered in order; the Supabase aggregate is now `0019_platform_core.sql` and `0018_platform_core.sql` is restored byte-identical to base. Runbook tick added to `tick.yml`. Ten requirements (PROD-CI-05/08/09, MACH-01, MACH-03, OBS-02, OBS-03, LIFE-02, LIFE-12, COST-03) are `implementation_complete_verification_pending`; none are verified and no tests were run. Six moved from planned to in_progress, so the counts below are stale by six. Next: [VERIFY-QUEUE.md](VERIFY-QUEUE.md).
+
 As-is machine-transfer checkpoint, 5 October 2026. Product commit `19be80b`, tree `7da4306a`; final handoff commit is the fetched published branch HEAD. [Exact handoff and commands](transfer/2026-10-05/README.md).
 
 **6 verified / 32 in progress / 40 planned**, all78 acceptance criteria retained. No new verified requirement; all four release states remain false.

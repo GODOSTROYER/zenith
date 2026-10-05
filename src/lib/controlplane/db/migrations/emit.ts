@@ -93,6 +93,11 @@ begin
       revoke all on table platform.standalone_plan_backends,platform.standalone_plan_settlements from service_role;
       grant select,insert on table platform.standalone_plan_backends,platform.standalone_plan_settlements to service_role;
     end if;
+    if to_regclass('platform.machine_runbook_versions') is not null then
+      revoke all on table platform.machine_runbook_versions,platform.machine_runbook_approvals,platform.machine_runbook_audit,platform.machine_runbook_schedules,platform.machine_runbook_runs,platform.machine_runbook_run_steps from service_role;
+      grant select,insert on table platform.machine_runbook_versions,platform.machine_runbook_approvals,platform.machine_runbook_audit to service_role;
+      grant select,insert,update on table platform.machine_runbook_schedules,platform.machine_runbook_runs,platform.machine_runbook_run_steps to service_role;
+    end if;
   end if;
 end
 $$;

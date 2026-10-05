@@ -16,16 +16,17 @@ it("upgrades migration 4 without changing existing operation jobs and reapplies 
   try {
     await migratePlatformDb(db, PLATFORM_MIGRATIONS.slice(0, 4));
     const workspaceId = newWorkspace();
-    const token = repos.runners.generateRegistrationToken("runner");
-    await repos.runners.createRegistrationToken(db, { workspaceId, kind: "runner", createdBy: "admin", tokenHash: token.tokenHash });
-    const runner = await repos.runners.registerRunner(db, { tokenHash: token.tokenHash, name: "upgrade", publicKey: "A".repeat(43) });
+    // Seed the actual schema-4 row shape; current registration also returns migration-25 lifecycle fields.
+    const runnerId = uid("runner");
+    await db.query("insert into platform.runners (id, workspace_id, name, public_key) values ($1, $2, 'upgrade', $3)", [runnerId, workspaceId, "A".repeat(43)]);
+    expect(await db.query("select column_name from information_schema.columns where table_schema = 'platform' and table_name = 'runners' and column_name in ('lifecycle', 'lifecycle_reported_at')")).toEqual([]);
     const { operation } = await seedApprovedOperation(db, workspaceId);
-    const job = await repos.jobs.enqueue(db, { id: uid("job"), workspaceId, runnerId: runner.id, operationId: operation.id, kind: "tofu.run", capability: "infrastructure.apply", envelope: "signed-test-envelope" });
+    const job = await repos.jobs.enqueue(db, { id: uid("job"), workspaceId, runnerId, operationId: operation.id, kind: "tofu.run", capability: "infrastructure.apply", envelope: "signed-test-envelope" });
     expect((await migratePlatformDb(db)).applied).toEqual(PLATFORM_MIGRATIONS.filter((migration) => migration.version > 4).map((migration) => migration.version));
     await db.exec(migration0005ReadJobs.sql);
     expect((await migratePlatformDb(db)).applied).toEqual([]);
     expect(await repos.jobs.get(db, workspaceId, job.id)).toEqual(job);
-    const read = await repos.jobs.enqueue(db, { id: uid("job"), workspaceId, runnerId: runner.id, kind: "probe.tcp", capability: "infrastructure.observe", envelope: "signed-test-envelope" });
+    const read = await repos.jobs.enqueue(db, { id: uid("job"), workspaceId, runnerId, kind: "probe.tcp", capability: "infrastructure.observe", envelope: "signed-test-envelope" });
     expect(read.operationId).toBe("");
   } finally {
     await db.close();

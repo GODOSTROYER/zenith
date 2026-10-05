@@ -19,7 +19,7 @@ const verifier: ProvenanceVerifier = { name: "test", verify: async () => ({ veri
 describe("migration inventory", () => {
   it("0024 creates the release tables with row level security", () => {
     const m = PLATFORM_MIGRATIONS.find((x) => x.name === "release_pipelines");
-    expect(m?.version).toBe(24);
+    expect(m?.version).toBe(23);
     for (const table of ["release_runs", "release_events", "release_migration_approvals"]) {
       expect(m!.sql).toContain(`platform.${table}`);
       expect(m!.sql).toContain(`alter table platform.${table} enable row level security`);

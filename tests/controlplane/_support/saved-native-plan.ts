@@ -1,6 +1,6 @@
 /** Real pinned builtin OpenTofu bytes and native default paired custody; hosted association/policy are supplied by the owning suite's explicit models. */
 import { randomBytes, randomUUID, createHash } from "node:crypto";
-import { mkdtemp, rm, chmod, readFile, readdir, realpath } from "node:fs/promises";
+import { mkdtemp, rm, chmod, readFile, readdir, realpath, lstat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { Sql } from "@/lib/controlplane/types";
@@ -17,6 +17,7 @@ import type { TofuWorkspace } from "@/lib/tofu/types";
 import type { ResourceGraph } from "@/lib/resources/types";
 import type { LeaseRef } from "@/lib/workflows/types";
 import { assembleWorkspace } from "@/lib/tofu/workspace";
+import { stableJson } from "@/lib/tofu/stable";
 import { TofuRunner } from "@/lib/tofu/runner";
 import { planWorkspace, applyVerifiedPlan, type PlanCustodyInput } from "@/lib/tofu/engine";
 import { createPlanArtifactRuntime } from "@/lib/platform/plan-artifacts";
@@ -72,6 +73,8 @@ export type SavedNativePlan = Awaited<ReturnType<typeof savedNativePlan>>;
 export async function consumeSavedNativePlan(db: Sql, saved: SavedNativePlan, access: artifacts.ArtifactAccess,
   afterHeldGrant: () => Promise<void> = async () => undefined, beforeOriginalDispatch: (directory:string)=>Promise<void> = async()=>undefined) {
   let entered = 0, originalSha: string | undefined;
+  const diagnostic = { statePath: saved.statePath, workspaceId: access.custody.workspaceId, projectId: access.custody.projectId,
+    environmentId: access.custody.environmentId, backendDigest: saved.row.manifest.backendDigest };
   const result = await saved.runtime.planArtifacts.consume(access, async original => {
     if (original.manifest.purpose === "destroy") {
       const grant = await createExecutionBroker(db).issueGrant(access.custody.operationId, "worker", access.lease, { capability: "infrastructure.destroy" });
@@ -90,6 +93,24 @@ export async function consumeSavedNativePlan(db: Sql, saved: SavedNativePlan, ac
         await beforeOriginalDispatch(path.join(saved.root,directories[0].name,"work"));
         entered++;
       } });
+  }).catch(async (error: unknown) => {
+    // Partial post-failure observation only; this does not identify the refusing branch.
+    try {
+      const parent = path.dirname(diagnostic.statePath), directory = await lstat(parent);
+      if (path.basename(diagnostic.statePath) !== "terraform.tfstate" || await realpath(parent) !== parent
+        || !directory.isDirectory() || directory.isSymbolicLink() || directory.uid !== process.getuid?.()
+        || (directory.mode & 0o077) !== 0) throw new Error("Native diagnostic target unavailable.");
+      const targetDigest = sha(Buffer.from(stableJson({ filename: "terraform.tfstate", device: directory.dev, inode: directory.ino, uid: directory.uid })));
+      const [observed] = await db.query<{ targetExists: boolean; exactOwnerMatches: boolean; foreignScopeExists: boolean }>(`select count(*)>0 as "targetExists",
+        count(*) filter(where workspace_id=$2 and project_id=$3 and environment_id=$4 and backend_digest=$5)>0 as "exactOwnerMatches",
+        count(*) filter(where workspace_id<>$2 or project_id<>$3 or environment_id<>$4 or backend_digest<>$5)>0 as "foreignScopeExists"
+        from platform.standalone_plan_backends where target_digest=$1`,
+        [targetDigest, diagnostic.workspaceId, diagnostic.projectId, diagnostic.environmentId, diagnostic.backendDigest]);
+      if (observed && typeof observed.targetExists === "boolean" && typeof observed.exactOwnerMatches === "boolean"
+        && typeof observed.foreignScopeExists === "boolean") console.error(JSON.stringify({ stage: "native-backend-identity-after-consume-failure",
+        targetExists: observed.targetExists, exactOwnerMatches: observed.exactOwnerMatches, foreignScopeExists: observed.foreignScopeExists }));
+    } catch { /* Observation or logging failure must preserve the exact original refusal. */ }
+    throw error;
   });
   return { result, entered, originalSha };
 }

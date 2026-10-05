@@ -114,6 +114,29 @@ export interface Hypothesis {
   basis?: HypothesisBasis[];
   /** Additive. Read-only follow-ups for a person when no capability applies. */
   nextSteps?: string[];
+  /**
+   * Additive. Proposals the stability gate refused (cooldown, attempt or
+   * blast-radius limit, maintenance window, autoscaler conflict, ...), with the
+   * stable codes. They are never offered as remediations.
+   */
+  suppressedRemediations?: SuppressedRemediation[];
+}
+
+export interface SuppressedRemediation {
+  id: string;
+  title: string;
+  codes: string[];
+  messages: string[];
+  /** ISO time a time-based block lifts */
+  retryAfter?: string;
+  /** a person must act */
+  escalate: boolean;
+}
+
+/** Additive. Set when no safe automatic next step exists and a person must take over. */
+export interface InvestigationEscalation {
+  required: boolean;
+  reasons: string[];
 }
 
 export interface Investigation {
@@ -136,4 +159,6 @@ export interface Investigation {
   symptom?: string;
   /** Additive. Plain-language limits of this run (a port missing, a window truncated). */
   notes?: string[];
+  /** Additive. Escalation derived by rule: inconclusive diagnosis, or a limit that needs a person. */
+  escalation?: InvestigationEscalation;
 }

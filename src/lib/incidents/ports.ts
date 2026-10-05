@@ -33,6 +33,7 @@
 import type { CapabilityRequest } from "@/lib/capabilities/catalog";
 import type { EventQuery, LogQuery, MetricQuery, MetricSeries, NormalizedEvent, NormalizedLog, QueryResult } from "@/lib/observability/types";
 import type { PolicyDecision } from "@/lib/policy/types";
+import type { GateDecision, GateRequest } from "./stability";
 import type { DriftReport, Observation, RuntimeState } from "@/lib/resources/types";
 
 export interface PortOptions {
@@ -78,6 +79,13 @@ export interface InvestigationPorts {
   httpProbe?(url: string, opts?: PortOptions): Promise<HttpProbeResult>;
   /** what policy would decide for this request, without recording or executing anything */
   policyDryRun(request: CapabilityRequest, opts?: PortOptions): Promise<PolicyDecision>;
+  /**
+   * Optional: the deterministic stability gate (dedup/cooldown/attempt and
+   * blast-radius limits, maintenance windows, autoscaler conflicts). A proposal
+   * the gate refuses is never offered. A gate that throws or times out refuses
+   * everything (fail closed). Absent means no gate is wired for this call.
+   */
+  remediationGate?(request: GateRequest, opts?: PortOptions): Promise<GateDecision> | GateDecision;
   now(): Date;
   /** optional: investigation id source; default is a digest of environment + start time */
   newId?(): string;

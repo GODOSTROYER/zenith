@@ -34,6 +34,7 @@ import * as evidence from "./evidence";
 import * as grants from "./grants";
 import * as idempotency from "./idempotency";
 import * as incidents from "./incidents";
+import * as incidentStability from "./incident-stability";
 import * as jobs from "./jobs";
 import * as leases from "./leases";
 import * as machines from "./machines";
@@ -62,6 +63,7 @@ export {
   grants,
   idempotency,
   incidents,
+  incidentStability,
   jobs,
   leases,
   machines,
@@ -114,6 +116,7 @@ export function bindRepos(sql: Sql) {
     grants: bind(grants, sql),
     idempotency: bind(idempotency, sql),
     incidents: bind(incidents, sql),
+    incidentStability: bind(incidentStability, sql),
     jobs: bind(jobs, sql),
     leases: bind(leases, sql),
     machines: bind(machines, sql),

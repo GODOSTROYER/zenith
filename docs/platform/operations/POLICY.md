@@ -201,13 +201,13 @@ class default is what a request sees.)
 | 2 | plan: exact proposals that need approval | Agents may propose; every mutation waits for a human approval. |
 | 3 | safe execution: low-risk changes run automatically | `service.restart`, `service.scale` and `database.snapshot` need no approval for autonomy reasons. |
 | 4 | bounded SRE operations automatic under policy | Adds `deployment.deploy`, `deployment.rollback`, `drift.repair`, `database.migrate`, `function.invoke` and `machine.service.restart`. |
-| 5 | broad autonomy within configured limits | Adds `infrastructure.apply`, `firewall.modify`, `dns.modify`, `secret.write`, `file.write`, `file.upload`, `service.configure` and `package.install`. |
+| 5 | broad autonomy within configured limits | Adds `infrastructure.apply`, `firewall.modify`, `dns.modify`, `secret.write`, `file.write`, `file.upload`, `service.configure`, `package.install`, `data.export` and `data.import`. |
 
 The mechanism is one rule: `autonomy_below_capability` requires an editor's approval
 when the capability is mutating and the environment's level is below the
 capability's `defaultAutonomy`. Capabilities with `defaultAutonomy` 6
 (`infrastructure.destroy`, `database.delete`, `database.restore`, `identity.modify`,
-`machine.exec`, `container.exec`, `provider.native`) are **never unattended**, at any
+`machine.exec`, `container.exec`, `provider.native`, `resource.adopt`, `resource.release`) are **never unattended**, at any
 level. The full list by level is generated from the catalog in the
 [capability matrix](../CAPABILITY-MATRIX.md#mutating-capabilities-by-default-autonomy),
 so it cannot drift from the code.

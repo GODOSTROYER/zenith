@@ -50,6 +50,7 @@ import { assessRecordDeletion as assessGcpRecordDeletion } from "@/lib/providers
 import { assessRecordDeletion as assessAzureRecordDeletion } from "@/lib/providers/azure/dns-ownership";
 import { assessRecordDeletion as assessOciRecordDeletion } from "@/lib/providers/oci/dns-ownership";
 import { assertDeletionAllowed, TofuDeletionRefusedError } from "@/lib/tofu/plan";
+import { assertPlanDeletionsOwned } from "./decommission";
 import { assertPlanFieldOwnership, factsByAddress, FieldOwnershipConflictError } from "@/lib/ownership";
 import type { PlanInspector } from "@/lib/tofu/runner";
 import type { LeaseRef } from "@/lib/workflows/types";
@@ -153,6 +154,8 @@ export function inspectDeployDeletions(rt: Runtime, ec: ExecContext, nodes: read
   return async (plan) => {
     try { assertDeletionAllowed(plan, nodes); }
     catch (err) { if (err instanceof TofuDeletionRefusedError) throw new StepFailedError(err.message); throw err; }
+    // An adopted object is deleted only if its claim allowed it (PROD-LIFE-11); refused before any deletion.
+    await assertPlanDeletionsOwned(rt, ec, plan, nodes);
     // One owner per mutable field: IaC may not update a field an autoscaler, release or provider owns (PROD-LIFE-12).
     // Only approved, unrevoked transfers can make a non-iac update legal; ordinary iac-owned fields are never refused.
     const transfers = (await rt.d.resources.activeOwnershipTransfers?.(ec.workspaceId, ec.environmentId)) ?? [];

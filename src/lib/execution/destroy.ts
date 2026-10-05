@@ -14,6 +14,7 @@ import { assessRecordDeletion as assessGcpRecordDeletion } from "@/lib/providers
 import { assessRecordDeletion as assessAzureRecordDeletion } from "@/lib/providers/azure/dns-ownership";
 import { assessRecordDeletion as assessOciRecordDeletion } from "@/lib/providers/oci/dns-ownership";
 import { assertDeletionAllowed, TofuDeletionRefusedError } from "@/lib/tofu/plan";
+import { assertTeardownOwnership } from "./decommission";
 import { TofuCommandError } from "@/lib/tofu/runner";
 import { TofuPlanProvenanceError, type NormalizedPlan } from "@/lib/tofu/types";
 import type { DestroyActivities } from "@/lib/workflows/definitions/destroy";
@@ -153,6 +154,8 @@ async function context(rt: Runtime, operationId: string, lease: LeaseRef, planni
     nodes.set(row.address, { address: row.address, kind: row.kind as ResourceNode["kind"], provider: ec.product.environment.provider, region: row.region ?? ec.product.environment.region, nativeType: row.nativeType, ownership: row.ownership, spec: row.spec, origin: row.origin, dependsOn: row.dependsOn, specDigest: row.specDigest, labels: row.labels, ...(row.externalId ? { externalRef: row.externalId } : {}) });
   }
   const all = [...nodes.values()].sort((a, b) => a.address < b.address ? -1 : a.address > b.address ? 1 : 0);
+  // An adopted object is torn down only if its claim allowed destruction (PROD-LIFE-11); refused at review, replan and apply alike.
+  await assertTeardownOwnership(rt, ec, all);
   return { ec, graph: { ...graph, nodes: all, graphDigest: digest({ graphDigest: graph.graphDigest, nodes: all }) } };
 }
 

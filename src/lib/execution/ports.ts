@@ -38,6 +38,8 @@ import type { DriverContext, ResourceDriver } from "@/lib/drivers/types";
 import type { ManifestPolicies } from "@/lib/domain/types";
 import type { ObservabilityFabric } from "@/lib/observability/types";
 import type { PlanFacts } from "@/lib/policy/types";
+import type { AdoptInput, PortabilityExport, PortabilityRestore, RecordExportInput, RecordRestoreInput, ReleaseInput, ResourceAdoption } from "@/lib/controlplane/db/repos/portability";
+import type { AdoptionFact } from "@/lib/portability/decommission";
 import type { DriftReport, Observation, ProviderKey, ResourceGraph, ResourceNode, ResourceOwnership, RuntimeState } from "@/lib/resources/types";
 import type { ApprovedPlan, ProducedPlan, ApplyVerifiedResult, EngineOptions, PlanCustodyInput, PlanWorkspaceOptions, PlanWorkspaceResult } from "@/lib/tofu/engine";
 import type { BackendConfig } from "@/lib/tofu/workspace";
@@ -529,6 +531,21 @@ export interface MachineExecutionPort {
   drivers?: MachineDrivers;
 }
 
+/**
+ * Verified exports, verified restores and ownership claims (PROD-LIFE-11), over the
+ * tenant-scoped portability repository. Optional: a worker without it refuses the four
+ * portability capabilities and skips the adoption check in destroy paths (fakes only).
+ */
+export interface PortabilityPort {
+  recordExport(input: RecordExportInput): Promise<PortabilityExport>;
+  getExport(workspaceId: string, id: string): Promise<PortabilityExport | null>;
+  recordRestore(input: RecordRestoreInput): Promise<PortabilityRestore>;
+  adopt(input: AdoptInput): Promise<ResourceAdoption>;
+  release(input: ReleaseInput): Promise<ResourceAdoption>;
+  getAdoption(workspaceId: string, id: string): Promise<ResourceAdoption | null>;
+  adoptionFacts(workspaceId: string, environmentId: string): Promise<AdoptionFact[]>;
+}
+
 export interface PlanArtifactsPort {
   readonly kind: "postgres" | "isolated-test";
   associate(input: { workspaceId:string; sourceOperationId:string; destinationOperationId:string; sourceEvidenceId:string; planDigest:string; lease:LeaseRef }): Promise<void>;
@@ -552,6 +569,7 @@ export interface ExecutionDeps {
   broker: BrokerPort;
   credentials: CredentialBroker;
   machines?: MachineExecutionPort;
+  portability?: PortabilityPort;
   /** Required by canonical production planning/apply. Explicit isolated adapters are for tests only. */
   planArtifacts?: PlanArtifactsPort;
   /* engine */

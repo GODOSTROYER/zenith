@@ -27,6 +27,8 @@ import { newId, requesterOf, requireHumanSession } from "./internal";
 import { loadDestroyPlan } from "./destroy-plan";
 import type { BrokerDeps } from "./ports";
 import { findSecret } from "./secret-guard";
+import { isPortabilityCapability, parsePortabilityInput, portabilityDetails } from "@/lib/portability/inputs";
+import { portabilitySupport } from "@/lib/portability/matrix";
 import { blocking, checkNativeOperation, FieldOwnershipConflictError, NATIVE_OPERATION_WRITES, type OwnershipTransferRequest } from "@/lib/ownership";
 import type { BrokerProposal, CheckResult, ConstraintValue, DecisionView, PlanFactsWithCost, ProposeContext, ProposeResult, ReadAuthorization } from "./types";
 import { decisionView, operationView } from "./views";
@@ -104,6 +106,16 @@ export function parseRequest(raw: unknown): ParsedRequest {
     }
   }
 
+  if (isPortabilityCapability(def.name)) {
+    // Portability inputs are strict references (vault refs, ids, an exact claim): a malformed one never becomes an operation.
+    try {
+      input = parsePortabilityInput(def.name, input).input;
+    } catch (error) {
+      const issues = (error as ZodError).issues;
+      throw new BrokerError("invalid_request", `The ${def.name} input is invalid (${issues ? describeIssues(error as ZodError) : "malformed"}).`, "See docs/platform/PORTABILITY.md for the input of each portability capability.");
+    }
+  }
+
   return { request, def, input, constraints, reason: request.reason };
 }
 
@@ -131,6 +143,7 @@ export function buildProposal(args: { parsed: ParsedRequest; evaluation: Evaluat
   if (scope.projectId) details.push(`Project: ${scope.projectId}`);
   if (scope.environmentId) details.push(`Environment: ${scope.environmentId}${evaluation.resolved.environment ? ` (${evaluation.resolved.environment.class})` : ""}`);
   if (scope.resourceId) details.push(`Resource: ${scope.resourceId}${evaluation.resolved.resource ? ` (${evaluation.resolved.resource.address})` : ""}`);
+  if (isPortabilityCapability(def.name)) details.push(...portabilityDetails(parsePortabilityInput(def.name, parsed.input)));
   if (parsed.constraints && Object.keys(parsed.constraints).length > 0) {
     details.push(`Requested constraints: ${Object.keys(parsed.constraints).sort().map((k) => `${k}=${String(parsed.constraints![k])}`).join(", ").slice(0, 500)}`);
   }
@@ -282,6 +295,26 @@ async function reviewFieldOwnership(deps: BrokerDeps, parsed: ParsedRequest, ctx
   });
 }
 
+/**
+ * Portability requests are judged against what the resource actually is, after policy so only an authorized
+ * principal learns anything: an unsupported provider and kind, or an ownership that does not fit the operation,
+ * is refused before an operation exists. The worker re-checks everything; this just fails early and clearly.
+ */
+function reviewPortability(parsed: ParsedRequest, evaluation: Evaluation): void {
+  const name = parsed.def.name;
+  if (!isPortabilityCapability(name)) return;
+  const resource = evaluation.resolved.resource;
+  const provider = evaluation.resolved.environment?.provider;
+  if (!resource || !provider) throw new BrokerError("invalid_request", `${name} acts on one resource; name it in the request scope.`);
+  const operation = name === "data.export" ? "export" : name === "data.import" ? "import" : name === "resource.adopt" ? "adopt" : "release";
+  const support = portabilitySupport(operation, provider, resource.kind);
+  if (!support.supported) throw new BrokerError("conflict", support.reason, "Check the portability support matrix (docs/platform/PORTABILITY.md).", { reason: "portability_unsupported", operation, provider, kind: resource.kind });
+  const needs = { "data.export": ["managed", "referenced"], "data.import": ["managed"], "resource.adopt": ["referenced"], "resource.release": ["managed"] }[name];
+  if (!needs.includes(resource.ownership)) {
+    throw new BrokerError("conflict", `${name} needs a ${needs.join(" or ")} resource; ${resource.address} is ${resource.ownership}.`, undefined, { reason: "portability_ownership", ownership: resource.ownership });
+  }
+}
+
 /** A transfer is never auto-approved: policy may only tighten it to an admin approval. */
 function requireTransferApproval(decision: Evaluation["decision"]): Evaluation["decision"] {
   if (decision.outcome === "deny") return decision;
@@ -299,6 +332,7 @@ export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn
   const { req, facts, planDigest, destroyPlan } = await trustedEvaluationRequest(deps, parsed, principal, ctx);
   const evaluation = await evaluate(deps, req);
   const ownership = await reviewFieldOwnership(deps, parsed, ctx, evaluation.resolved.scope);
+  reviewPortability(parsed, evaluation);
   const decision = ownership.transfers ? requireTransferApproval(evaluation.decision) : evaluation.decision;
   const { evaluated } = evaluation;
 
@@ -362,6 +396,7 @@ export async function check(deps: BrokerDeps, rawRequest: unknown, principalIn: 
   const { req } = await trustedEvaluationRequest(deps, parsed, principal, ctx);
   const evaluation = await evaluate(deps, req);
   const ownership = await reviewFieldOwnership(deps, parsed, ctx, evaluation.resolved.scope);
+  reviewPortability(parsed, evaluation);
   const decided = ownership.transfers ? requireTransferApproval(evaluation.decision) : evaluation.decision;
   return {
     decision: decisionView(

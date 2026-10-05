@@ -120,7 +120,7 @@ describe("platform store, end to end", () => {
     const row = await db.store.jobs.get("w-e2e", id);
     expect(row?.status).toBe("failed");
     expect(row?.error).not.toContain("sk_live_");
-    expect(row?.error).toContain("withheld");
+    expect(row?.error).toBe("charge failed for [REDACTED:payment-secret-key]");
     expect((await agent.post(resultRunner, `/jobs/${id}/result`, { status: "succeeded" }, {}, { jti: id })).status).toBe(409);
   });
 

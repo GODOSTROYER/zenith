@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
-import { WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 
 const root = process.cwd();
@@ -214,12 +214,28 @@ const nativeSafetyDiscovered = [
     "backend": "postgres"
   }
 ] as const;
+const settlementGroup = {
+  file: "tests/controlplane/cleanup-writer-barriers.test.ts",
+  suite: "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+  flag: "ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED",
+  sourceSha256: "87813c36bd0face890cc8e47e8aede5fc3d6fae058c13cd07f5812b449339f71",
+  namesSha256: "5c20cb4c31e9d0b11a9774d0009203adeea0ce8c993a1f92fed077875a774f69",
+} as const;
+function settlementNamed(sourceRoot = root): Requirement[] {
+  const ids = new Set(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => ids.has(item.id));
+}
+// Only these exact additive IDs leave historical assertions; unknown future IDs remain.
+function priorSettlementPlatformRequirements(sourceRoot = root): Requirement[] {
+  const ids = new Set(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
+  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+}
 const cleanupWriterGroup = {
   file: "tests/controlplane/cleanup-writer-barriers.test.ts",
   suite: "native cleanup writer barrier [postgres; modeled hosted association and policy]",
   backend: "postgres",
   flag: "ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED",
-  sourceSha256: "4709e75f33820dc62e9b9a9be870d1cf71d94092cbaa1063257790e1db069ae9",
+  sourceSha256: "87813c36bd0face890cc8e47e8aede5fc3d6fae058c13cd07f5812b449339f71",
   namesSha256: "df0ddb85fa00e1290bd6b95915742451b555e21179e9c40c62fe6c1321de1739",
 } as const;
 const cleanupWriterDiscovered = { file: cleanupWriterGroup.file, suite: cleanupWriterGroup.suite, backend: "postgres" } as const;
@@ -231,7 +247,7 @@ function cleanupWriterNamed(sourceRoot = root): Requirement[] {
 // assertions. The production manifest and validator retain the full successor.
 function priorCleanupPlatformRequirements(sourceRoot = root): Requirement[] {
   const ids = new Set([...CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, cleanupWriterDiscovered].map(item => requirementId("platform-postgres", item)));
-  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+  return priorSettlementPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
 }
 const kubernetesLinkGroup = {
   file: "tests/controlplane/kubernetes-connection-link.test.ts",
@@ -1869,7 +1885,7 @@ const nativeSafetyGroups = [
     "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
     "flag": "ZENITH_TEST_PLAN_RETENTION_REQUIRED",
     "count": 27,
-    "sourceSha256": "51cb06e2ba5a5921c62893dff46ee21f95ea8100a3f4834da23e99efb2db51ad",
+    "sourceSha256": "7d732dbe799758c5151beb3d269191b9007b23f1b3da131ed2570da3342c0a88",
     "namesSha256": "404ac3067866333f5a81d69a689eefd0ea4340e81a81e1b6121e25139c3fa8b3"
   },
   {
@@ -2050,7 +2066,7 @@ describe("mandatory native cleanup writer barrier cases [report models]", () => 
     const manifest = manifestFor("platform-postgres", root), required = cleanupWriterNamed();
     expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
     expect(required).toHaveLength(46); expect(new Set(required.map(item => item.id)).size).toBe(46);
-    expect(manifest.requirements).toHaveLength(1059); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1059);
+    expect(priorSettlementPlatformRequirements()).toHaveLength(1059); expect(new Set(priorSettlementPlatformRequirements().map(item => item.id)).size).toBe(1059);
     const previous = priorCleanupPlatformRequirements();
     expect(previous).toHaveLength(1012); expect(new Set(previous.map(item => item.id)).size).toBe(1012);
     expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("436ee191fe94eb06c7c611a6477e3766b81ab9e0f1a543bdda6f328be77435de");
@@ -2077,7 +2093,8 @@ describe("mandatory native cleanup writer barrier cases [report models]", () => 
 
   it("binds exact cleanup source and literal titles to required physical PostgreSQL admission before hooks", () => {
     const source = fs.readFileSync(path.join(root, cleanupWriterGroup.file), "utf8");
-    const names = declaredLiteralTests(cleanupWriterGroup.file, cleanupWriterGroup.suite), required = cleanupWriterNamed();
+    const added = new Set(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS.map(item => item.test));
+    const names = declaredLiteralTests(cleanupWriterGroup.file, cleanupWriterGroup.suite).filter(name => !added.has(name)), required = cleanupWriterNamed();
     expect(names).toHaveLength(46); expect(new Set(names).size).toBe(46); expect(required.map(item => item.test)).toEqual(names);
     expect(createHash("sha256").update(source).digest("hex")).toBe(cleanupWriterGroup.sourceSha256);
     expect(createHash("sha256").update(names.join("\n") + "\n").digest("hex")).toBe(cleanupWriterGroup.namesSha256);
@@ -2304,5 +2321,90 @@ describe("workflow native PostgreSQL prerequisites [source/report models]", () =
       expect(source).toContain("vi.unstubAllEnvs()");
       expect(body).not.toContain('vi.stubEnv("ZENITH_TEST_PLATFORM_PG_URL"');
     }
+  });
+});
+
+
+// These are validator/source models, never actual command/SQL/settlement evidence.
+describe("mandatory saved builtin settlement cases [report models]", () => {
+  it("adds exactly 54 literal cases once and preserves every one of the 1059 predecessor IDs", () => {
+    const manifest = manifestFor("platform-postgres", root), required = settlementNamed();
+    expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
+    expect(required).toHaveLength(54); expect(new Set(required.map(item => item.id)).size).toBe(54);
+    expect(manifest.requirements).toHaveLength(1113); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1113);
+    const previous = priorSettlementPlatformRequirements();
+    expect(previous).toHaveLength(1059);
+    expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("49f54d75ca5cd7114b69efedabfed9843fcdc1186e49422f9f7e26cae79cf07f");
+    expect(manifest.requirements).toEqual([...previous, ...required]);
+    expect(cleanupWriterNamed()).toHaveLength(46); expect(priorCleanupPlatformRequirements()).toHaveLength(1012);
+    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(requirementsFor("workflows", root)).toHaveLength(58);
+    expect(linuxGuestManifest().requiredCases).toHaveLength(127); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
+    expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+    for (const lane of Object.keys(GATE_LANES).filter(name => name !== "platform-postgres")) {
+      expect(manifestFor(lane, root).env[settlementGroup.flag]).toBeUndefined();
+      expect(requirementsFor(lane, root).some(item => required.some(addition => addition.id === item.id))).toBe(false);
+    }
+  });
+
+  it("binds all 100 source cases while preserving the original 46 and refusing unavailable native prerequisites before hooks", () => {
+    const source = fs.readFileSync(path.join(root, settlementGroup.file), "utf8");
+    const all = declaredLiteralTests(settlementGroup.file, settlementGroup.suite);
+    const retained = new Set(cleanupWriterNamed().map(item => item.test));
+    const names = all.filter(name => !retained.has(name)), required = settlementNamed();
+    expect(all).toHaveLength(100); expect(new Set(all).size).toBe(100);
+    expect(names).toHaveLength(54); expect(required.map(item => item.test)).toEqual(names);
+    expect(createHash("sha256").update(source).digest("hex")).toBe(settlementGroup.sourceSha256);
+    expect(createHash("sha256").update(names.join("\n") + "\n").digest("hex")).toBe(settlementGroup.namesSha256);
+    for (const item of required) expect(item).toMatchObject({ file: settlementGroup.file, suite: settlementGroup.suite, backend: "postgres" });
+    const admission = source.indexOf(`process.env.${settlementGroup.flag}==="1"`);
+    expect(admission).toBeGreaterThanOrEqual(0); expect(admission).toBeLessThan(source.indexOf("beforeAll("));
+    expect(source).toContain("PLATFORM_SCHEMA_VERSION<16"); expect(source).toContain("!tofuOnPath()");
+    expect(source).toContain('process.env.ZENITH_TEST_TOFU_NETWORK!=="1"');
+    expect(source).toContain('openPlatformDb({kind:"postgres"'); expect(source).toContain("&&!!url.port");
+    const manifest = manifestFor("platform-postgres", root);
+    expect(manifest.env[settlementGroup.flag]).toBe("1");
+    expect(manifest.prerequisites.some(value => value.startsWith(`${settlementGroup.flag}=1;`))).toBe(true);
+    expect(manifest.excludeFiles).not.toContain(settlementGroup.file); expect(manifest.command).not.toContain("--passWithNoTests");
+  });
+
+  it("refuses each missing failed skipped pending foreign and PGlite settlement observation", () => {
+    const required = settlementNamed(); expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+    for (const item of required) {
+      const missing = contractReport(required); missing.testResults[0].assertionResults = missing.testResults[0].assertionResults.filter(assertion => assertion.title !== item.test);
+      expect(reportFailures(required, missing, root), item.id).toHaveLength(1);
+      for (const status of ["failed", "skipped", "pending", "todo"]) {
+        const report = contractReport(required); report.testResults[0].assertionResults.find(assertion => assertion.title === item.test)!.status = status;
+        expect(reportFailures(required, report, root), `${item.id}: ${status}`).toHaveLength(1);
+      }
+      for (const suite of [settlementGroup.suite.replace("postgres", "pglite"), settlementGroup.suite.replace("postgres", "postgres-replica"), "foreign settlement [postgres]"]) {
+        const report = contractReport(required), assertion = report.testResults[0].assertionResults.find(value => value.title === item.test)!;
+        assertion.ancestorTitles = [suite]; assertion.fullName = `${suite} ${item.test}`;
+        expect(reportFailures(required, report, root), `${item.id}: ${suite}`).toHaveLength(1);
+      }
+    }
+  });
+
+  it("retains every static additive requirement after the native source is renamed or deleted", () => {
+    const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-settlement-manifest-"));
+    try {
+      for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
+      const file = path.join(sourceRoot, settlementGroup.file), source = fs.readFileSync(path.join(root, settlementGroup.file), "utf8");
+      fs.writeFileSync(file, source); const before = settlementNamed(sourceRoot); expect(before).toHaveLength(54);
+      fs.writeFileSync(file, source.replaceAll(settlementGroup.suite, "unrelated [pglite]")); expect(settlementNamed(sourceRoot)).toEqual(before);
+      fs.unlinkSync(file); expect(settlementNamed(sourceRoot)).toEqual(before);
+      expect(reportFailures(before, contractReport([]), root)).toHaveLength(54);
+    } finally { fs.rmSync(sourceRoot, { recursive: true, force: true }); }
+  });
+
+  it("refuses zero malformed duplicate inconsistent file and output-only settlement reports", () => {
+    const required = settlementNamed();
+    for (const report of [null, {}, { success: true }, { ...contractReport(required), success: false }, { success: true, testResults: [{ name: path.resolve(root, settlementGroup.file) }] }])
+      expect(reportFailures(required, report, root).length).toBeGreaterThan(0);
+    const duplicate = contractReport(required); duplicate.testResults.push({ ...duplicate.testResults[0] });
+    expect(reportFailures(required, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+    for (const counts of [{numTotalTests:0},{numFailedTests:1}]) expect(reportFailures(required, { ...contractReport(required), ...counts }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    const forged = { success: true, testResults: [], lane: "platform-postgres", requirements: required.map(item => ({ ...item, status: "passed" })), cleanupComplete: true };
+    expect(reportFailures(required, forged, root)).toHaveLength(54);
   });
 });

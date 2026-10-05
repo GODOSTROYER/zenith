@@ -7,7 +7,7 @@ import { createPlanArtifactRuntime } from "./plan-artifacts";
 import { hkdfSync } from "node:crypto";
 import type { Sql } from "@/lib/controlplane/types";
 import { createExecutionActivities, createPlatformPorts, createProductPort, createSafeProber, defaultCostPort, type ExecutionDeps } from "@/lib/execution";
-import { createObservabilityFabric, sourcesForEnvironment } from "@/lib/observability";
+import { createObservabilityFabric, describeSession, sourcesForEnvironment } from "@/lib/observability";
 import { createHeldReconcileActivity } from "@/lib/execution/verify";
 import { createRuntime } from "@/lib/execution/runtime";
 import { loadPlatformEnvironment, loadGraphFromStore, registerEnvironment } from "@/lib/reconcile/platform";
@@ -111,7 +111,7 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     drivers: platformDriverLookup,
     product: createProductPort(), broker: createExecutionBroker(opts.db), credentials,
     tofu, cost: defaultCostPort(),
-    observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} })),
+    observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} }), { session: describeSession(session) }),
     prober: createSafeProber(), ...createReleasePorts({ db: opts.db, azure }),
     machines: opts.ports?.machines ?? createDefaultMachinePort(opts.db, opts.secretKey ?? process.env.ZENITH_SECRET_KEY!),
     ...opts.ports,

@@ -47,7 +47,7 @@ const EXPECTED_TABLES = [
   "agent_effect_receipts", "agent_nonces", "approvals", "approved_source_snapshots", "build_launches", "capability_grants", "cleanup_owner_grants", "cleanup_writer_deliveries", "cleanup_writer_epoch", "cleanup_writer_holds", "cleanup_writer_scopes", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
   "github_binding_events", "github_install_intents", "github_source_bindings", "github_webhook_deliveries", "github_webhook_installation_epochs", "idempotency_keys", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machines", "mixed_child_custody", "mixed_child_intents", "operations", "plan_artifact_associations", "plan_artifact_uses", "plan_artifacts", "policy_decisions", "provider_connections",
   "reconcile_state", "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners",
-  "schema_migrations", "workflow_start_intents", "workspace_policy",
+  "schema_migrations", "standalone_plan_backends", "standalone_plan_settlements", "workflow_start_intents", "workspace_policy",
 ];
 
 /** Tables that hold no tenant-visible rows keyed by workspace (see the header of 0001_core.ts). */
@@ -235,6 +235,35 @@ describe.each(lanes)("migrator [$name]", (lane) => {
       );
       const leading = new Set(indexed.map((r) => r.table_name));
       for (const t of tables) expect(leading.has(t), `${t} has an index leading with workspace_id`).toBe(true);
+
+      // This global physical target key is not a tenancy exemption: its owning
+      // tuple is immutable, and every private completion also binds that tuple.
+      const target = digest(uid("physical_target")), workspaceId = uid("ws");
+      const projectId = uid("project"), environmentId = uid("environment"), backend = digest(uid("backend"));
+      const primary = await db.query<{ column_name: string }>(`select k.column_name from information_schema.table_constraints c
+        join information_schema.key_column_usage k on k.constraint_schema=c.constraint_schema and k.constraint_name=c.constraint_name
+        where c.table_schema='platform' and c.table_name='standalone_plan_backends' and c.constraint_type='PRIMARY KEY' order by k.ordinal_position`);
+      expect(primary.map(column => column.column_name)).toEqual(["target_digest"]);
+      await db.query(`insert into platform.standalone_plan_backends(target_digest,workspace_id,project_id,environment_id,backend_digest)
+        values($1,$2,$3,$4,$5)`, [target,workspaceId,projectId,environmentId,backend]);
+      for (const foreign of [[uid("foreign_ws"),projectId,environmentId], [workspaceId,uid("foreign_project"),environmentId], [workspaceId,projectId,uid("foreign_environment")]]) {
+        expect(await db.query(`insert into platform.standalone_plan_backends(target_digest,workspace_id,project_id,environment_id,backend_digest)
+          values($1,$2,$3,$4,$5) on conflict do nothing returning target_digest`, [target,...foreign,backend])).toEqual([]);
+        expect(await db.query(`select target_digest from platform.standalone_plan_backends
+          where target_digest=$1 and workspace_id=$2 and project_id=$3 and environment_id=$4 and backend_digest=$5`, [target,...foreign,backend])).toEqual([]);
+      }
+      const originalOwner = await db.query("select * from platform.standalone_plan_backends where target_digest=$1", [target]);
+      await expect(db.query("update platform.standalone_plan_backends set workspace_id=$2 where target_digest=$1", [target,uid("foreign_ws")])).rejects.toThrow();
+      await expect(db.query("delete from platform.standalone_plan_backends where target_digest=$1", [target])).rejects.toThrow();
+      expect(await db.query("select * from platform.standalone_plan_backends where target_digest=$1", [target])).toEqual(originalOwner);
+      expect(await db.query<{ name: string; rls: boolean }>(`select c.relname as name,c.relrowsecurity as rls from pg_class c join pg_namespace n on n.oid=c.relnamespace
+        where n.nspname='platform' and c.relname in ('standalone_plan_backends','standalone_plan_settlements') order by c.relname`)).toEqual([
+        {name:"standalone_plan_backends",rls:true},{name:"standalone_plan_settlements",rls:true},
+      ]);
+      expect(await db.query<{ name: string }>(`select t.tgname as name from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace
+        where n.nspname='platform' and not t.tgisinternal and c.relname in ('standalone_plan_backends','standalone_plan_settlements') order by t.tgname`)).toEqual([
+        {name:"immutable_standalone_plan_backend"},{name:"immutable_standalone_plan_settlement"},
+      ]);
 
       for (const [table, keys] of [
         ["github_webhook_installation_epochs", ["app_id", "installation_id"]],

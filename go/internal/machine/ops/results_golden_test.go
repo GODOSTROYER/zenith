@@ -181,6 +181,15 @@ func TestResultGoldens(t *testing.T) {
 		}
 		compareGolden(t, "machine.exec-failed", map[string]any{"operation": OpExec, "args": args, "result": res})
 	})
+	t.Run("package.install", func(t *testing.T) {
+		// The mutation itself runs only in the native package helper (package machine); this pins the
+		// result contract that helper emits for a first verified install, bound to the real profile digest.
+		p := packageModelProfile(t)
+		args := PackageInstallArgs{ProfileRef: p.ProfileRef, ProfileVersion: p.ProfileVersion}
+		res := Result{OK: true, Data: map[string]any{"profileRef": p.ProfileRef, "profileVersion": p.ProfileVersion, "package": p.Package, "version": p.Version,
+			"changed": true, "phase": "verified", "effect": "committed", "postcondition": "verified", "transactionRef": "pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+		compareGolden(t, OpPackageInstall, map[string]any{"operation": OpPackageInstall, "args": args, "result": res})
+	})
 	t.Run("file.write-filesystem", compareFileWriteGoldens)
 }
 

@@ -20,6 +20,7 @@ import { authorizeReadOrThrow, graphFor, pickManifest, requireEnvironment, requi
 import type { ToolOutput } from "../envelope";
 import { assertInGrant, environmentInGrant } from "../principal";
 import type { CompareRevisionsArgs, EstimateCostArgs, GetCapabilitiesArgs, GetTopologyArgs } from "../schemas";
+import { offeredCatalogSummary } from "@/lib/offered-catalog";
 import { tryEstimate } from "./estimate";
 
 const DEFAULT_MAX_NODES = 200;
@@ -152,6 +153,9 @@ export async function getCapabilities(args: GetCapabilitiesArgs, ctx: ToolContex
             },
           }
         : {}),
+      // What each provider actually offers (supported / preview / unsupported with reasons), derived from the drivers.
+      // Per-cell detail: GET /api/platform/v1/capability-catalog.
+      offeredCatalog: offeredCatalogSummary(),
       execution: execution.available ? { available: true } : { available: false, reason: execution.reason },
       incidentEngine: investigator.available ? { available: true } : { available: false, reason: investigator.reason ?? "The incident engine is not connected on this deployment." },
       approval: {

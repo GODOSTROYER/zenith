@@ -1097,6 +1097,7 @@ jobs:
       ZENITH_FAST: "1"
       ZENITH_TEST_WORKFLOW_START_REQUIRED: "1"
       ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1"
+      ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED: "1"
       ZENITH_TEST_TOFU_NETWORK: "1"
       # The one switch that adds the Postgres lane to tests/controlplane's
       # describe.each(LANES). Loopback only: apply-platform-migrations.sh

@@ -558,6 +558,7 @@ describe.skipIf(!PG_URL)("native cleanup writer barrier [postgres; modeled hoste
     const s=await standalone(),result=await consumeSavedNativePlan(db,s.original.saved,s.original.access);
     expect(result.result.apply.exitCode).toBe(0);expect(result.originalSha).toBe(s.original.saved.row.manifest.rawSha256);
     const rows=await settled(s);expect(rows).toHaveLength(1);expect(rows[0].receipt.binding.rawSha256).toBe(s.original.saved.row.manifest.rawSha256);
+    expect(rows[0].receipt.binding.manifestDigest).toBe(s.original.saved.row.manifest_digest);
     expect(rows[0].receipt.sealed.ciphertext).not.toContain(s.scope.root);expect(rows[0].receipt).not.toHaveProperty("targetPath");
     await expect(observer.query("update platform.standalone_plan_settlements set settlement_digest=$3 where workspace_id=$1 and operation_id=$2",[s.scope.workspaceId,s.original.op.id,digest("altered")])).rejects.toThrow();
     await expect(consumeSavedNativePlan(db,s.original.saved,s.original.access)).rejects.toThrow();
@@ -743,14 +744,17 @@ describe.skipIf(!PG_URL)("native cleanup writer barrier [postgres; modeled hoste
 
   it.each(["init","plan"] as const)("registered finite producer refuses own %s method with backend override before command launch",async method=>{
     const s=await standalone(),descriptor=Object.getOwnPropertyDescriptor(TofuRunner.prototype,"run")!,actual=TofuRunner.prototype.run,command=Object.getOwnPropertyDescriptor(TofuRun.prototype,"command")!.value;
+    let shadowCalls=0;
     Object.defineProperty(TofuRunner.prototype,"run",{...descriptor,value:async function(this:TofuRunner,workspace:Parameters<TofuRunner["run"]>[0],context:Parameters<TofuRunner["run"]>[1],body:Parameters<TofuRunner["run"]>[2]){
       Object.defineProperty(TofuRunner.prototype,"run",descriptor);return actual.call(this,workspace,context,async run=>{
-        Object.defineProperty(run,method,{value:async()=>command.call(run,method,[method,"-backend-config=path=/foreign/terraform.tfstate"]),configurable:true});return body(run);
+        Object.defineProperty(run,method,{value:async()=>{shadowCalls++;return command.call(run,method,[method,"-backend-config=path=/foreign/terraform.tfstate"]);},configurable:true});return body(run);
       });
     }});
-    try{await expect(s.original.saved.runtime.tofu.planWorkspace(s.original.saved.workspace,undefined,{custody:s.original.access.custody,normalize:{fingerprintKey:s.original.saved.fingerprint}})).rejects.toThrow("settlement");}
+    try{await expect(s.original.saved.runtime.tofu.planWorkspace(s.original.saved.workspace,undefined,{custody:s.original.access.custody,normalize:{fingerprintKey:s.original.saved.fingerprint}})).rejects.toMatchObject({name:"Error",message:"Canonical standalone run origin changed."});}
     finally{Object.defineProperty(TofuRunner.prototype,"run",descriptor);}
-    expect(await readFile(path.join(s.scope.root,"terraform.tfstate")).catch(()=>null)).toBeNull();expect(await settled(s)).toHaveLength(0);
+    expect(shadowCalls).toBe(0);expect(await readFile(path.join(s.scope.root,"terraform.tfstate")).catch(()=>null)).toBeNull();expect(await settled(s)).toHaveLength(0);
+    const stored=(await observer.query<artifacts.ArtifactRow>("select * from platform.plan_artifacts where workspace_id=$1 and operation_id=$2",[s.scope.workspaceId,s.original.op.id]))[0];
+    expect(stored).toEqual(s.original.saved.row);
   },300000);
 
   it.each(["accessor","replacement target"] as const)("registered finite producer refuses %s init fields changed during the prelaunch filesystem wait",async change=>{

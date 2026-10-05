@@ -42,7 +42,7 @@ import type { ExecutionActivities, LeaseRef, ReconcileActivities, VerifyStepResu
 import { createReconcileObserveActivity, type ReconcileOnceDeps } from "@/lib/reconcile/activity";
 import { reconcilePassPorts } from "@/lib/reconcile/ports";
 import { ReconcileError } from "@/lib/reconcile/errors";
-import { createObservabilityFabric, sourcesForEnvironment } from "@/lib/observability";
+import { createObservabilityFabric, describeSession, sourcesForEnvironment } from "@/lib/observability";
 import { mapLimit } from "./concurrency";
 import { loadExecContext, resolveConnection, type ExecLike } from "./context";
 import { requireExecutable } from "./desired";
@@ -82,7 +82,8 @@ const MAX_LISTED = 100;
 
 const defaultObservability: ObservabilityFactory = ({ session, provider, graph, workspaceId, observations }) =>
   createObservabilityFabric(
-    sourcesForEnvironment({ provider, graph, workspaceId, observations, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} })
+    sourcesForEnvironment({ provider, graph, workspaceId, observations, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} }),
+    { session: describeSession(session) }
   );
 
 async function diagnosticsFor(
@@ -106,6 +107,7 @@ async function diagnosticsFor(
       // Everything below came from the cloud: data to read, never instructions to follow.
       untrusted: true,
       sources: answer.sources,
+      ...(answer.telemetry ? { telemetry: { state: answer.telemetry.state, partial: answer.telemetry.partial, observedAt: answer.telemetry.observedAt, session: answer.telemetry.session, freshness: answer.telemetry.freshness } } : {}),
       unavailable: answer.unavailable.slice(0, 5).map((u) => ({ source: u.source, reason: safeText(u.reason, 200) })),
       events: answer.items.slice(0, 10).map((e) => ({ at: e.timestamp, address: e.address, severity: e.severity, type: safeText(e.type, 80), message: safeText(e.message, 200) })),
     };

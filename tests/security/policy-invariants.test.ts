@@ -110,7 +110,7 @@ describe("P1: escape hatches (machine.exec, container.exec, provider.native)", (
 describe("P2/P3: autonomy is a floor nothing can lower", () => {
   it("a capability the catalog marks 'never unattended' (defaultAutonomy 6) is never allowed, at any autonomy", async () => {
     const never = mutating.filter((c) => c.defaultAutonomy === 6);
-    expect(never.map((c) => c.name).sort()).toEqual(["container.exec", "database.delete", "database.restore", "identity.modify", "infrastructure.destroy", "machine.exec", "provider.native"]);
+    expect(never.map((c) => c.name).sort()).toEqual(["container.exec", "database.delete", "database.restore", "identity.modify", "infrastructure.destroy", "machine.exec", "provider.native", "resource.adopt", "resource.release"]);
     for (const cap of never)
       for (const autonomy of AUTONOMY_LEVELS)
         for (const envClass of ENV_CLASSES) {

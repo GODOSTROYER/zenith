@@ -446,6 +446,9 @@ describe("paths and commands named in the guides", () => {
 
 /** Names that look like environment variables but are not (and why). */
 const NOT_ENVIRONMENT: Record<string, string> = {
+  ZENITH_EGRESS_HOSTS: "generated isolated CodeBuild shell variable, not control-plane process configuration",
+  ZENITH_EGRESS: "iptables chain name inside the isolated CodeBuild build",
+  ZENITH_BUILD_TYPE: "constant provenance URI in execution/build-provenance.ts",
   ZENITH_CHAOS: "a manifest env key for sandbox failure injection, not read from the process environment",
   ZENITH_SKUS: "a constant table in placement/capabilities.ts",
   ZENITH_RUNNER_STORE: "named in a stale comment in runners/memory-store.ts; no code reads it",
@@ -843,7 +846,11 @@ describe("operator claims match current wiring", () => {
     expect(source("src/lib/sources/github/migrate.ts")).toContain("await migratePlatformDb(db)");
     expect(source("src/lib/sources/github/migrate.ts")).not.toContain("installGithubSourceSchema");
     const layout = source("src/app/(product)/platform/layout.tsx");
-    expect(layout).toContain('<Link href="/api/platform/v1/github/callback">GitHub source</Link>');
+    expect(layout).toContain("<PlatformNav />");
+    expect(source("src/app/(product)/platform/_components/platform-nav.tsx")).toContain('{ href: "/platform/source", label: "GitHub source" }');
+    const panel = source("src/app/(product)/platform/source/source-panel.tsx");
+    expect(panel).toContain('viewerRole !== "admin"');
+    expect(panel).toContain('browserMutation<{ installUrl: string }>(workspaceId, "/api/platform/v1/github/binding"');
     const callback = source("src/app/api/platform/v1/github/callback/route.ts");
     expect(callback).toContain('export const GET = route({ workspaceRole: "admin" }');
     expect(callback).toContain("Install and bind repository");
@@ -855,7 +862,9 @@ describe("operator claims match current wiring", () => {
     const route = source("src/app/api/internal/tick/reconcile/route.ts");
     expect(route).toContain("await ensurePlatformCron()");
     expect(route.indexOf("authorizeCron(req)")).toBeLessThan(route.indexOf("await ensurePlatformCron()"));
-    expect(route).toContain("await reconcilePass(");
+    expect(route).toContain("const pass = () => reconcilePass({ budgetMs, maxEnvironments })");
+    expect(route).toContain('await runFallbackJob("reconcile", async () =>');
+    expect(route).toContain("const value = await pass()");
     const tick = source(".github/workflows/tick.yml");
     expect(tick).toMatch(/for pass in [^\n]*\breconcile\b/);
     expect(tick).toContain('cron: "*/5 * * * *"');
@@ -865,7 +874,10 @@ describe("operator claims match current wiring", () => {
 
   it("cron reaps expired jobs and atomically marks owning operations uncertain", () => {
     const cron = source("src/lib/server/cron.ts");
-    expect(cron).toContain("await platformRunnerReaperPass()");
+    expect(cron).toContain('await runFallbackJob("runner-reaper", (db) => MAINTENANCE_JOBS["runner-reaper"](db)');
+    const jobs = source("src/lib/platform/critical-jobs.ts");
+    expect(jobs).toContain('async "runner-reaper"(db: Sql)');
+    expect(jobs).toContain("await reapRunnerJobs(db)");
     expect([...cron.matchAll(/await reapPlatformJobs\(\)/g)]).toHaveLength(2);
     const app = source("src/lib/platform/app.ts");
     expect(app).toContain("return db.tx(async (tx)");
@@ -886,8 +898,12 @@ describe("operator claims match current wiring", () => {
     expect(aws).toContain("await assertBrowserSession(req)");
     expect(aws).toContain("requireWorkspace().id !== caller.workspaceId");
     expect(aws).toContain('"connection.createAws", "connection.verifyAws"');
-    expect(exists("src/app/api/platform/v1/connections")).toBe(false);
-    expect(deploying).toContain("No standalone `/api/platform/v1/connections` route exists");
+    expect(exists("src/app/api/platform/v1/connections/route.ts")).toBe(true);
+    const connections = source("src/app/api/platform/v1/connections/route.ts");
+    expect(connections).toContain("const caller = await personOrCredentialCaller(req)");
+    expect(connections).toContain("const caller = await browserCaller(req)");
+    expect(connections).toContain("return runLifecycle(caller, ACTION[provider], input, idempotencyKey(req))");
+    expect(deploying).toContain("`/api/platform/v1/connections` lists scoped connections and creates GCP/Azure/OCI connections through the browser-only lifecycle adapter");
     const actions = source("src/app/(product)/platform/operations/[id]/operation-actions.tsx");
     expect(actions).toContain("plan={plan}");
     const card = source("src/components/platform/approval-card.tsx");

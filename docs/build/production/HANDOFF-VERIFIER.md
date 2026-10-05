@@ -55,7 +55,7 @@ Do not do any of these; report them as needed instead.
 - **Forbidden:** editing published migrations. That covers `supabase/migrations/0001`–`0020` and the platform migration files 1–27 once their snapshot is published. A schema fix ships as a **new** platform migration (28+) plus a new `0021_platform_core.sql` snapshot via `npx tsx scripts/platform/emit-sql.ts`, with the inventories updated the same way the wave-2 assembly commit did it.
 - **Forbidden:** force-push, history rewrite, secret-scanning bypass, committing credentials or raw logs that contain secrets, global Docker prune, or touching containers you did not create.
 
-Commit identity, author and committer both: `Arnav Bule <arnav.bule05@gmail.com>`. No `Co-Authored-By` trailer, no em dashes in commit messages.
+Verifier identity override, explicitly confirmed by the user on 5 October 2026: author and committer both `Saivedant Hava <saivedant169@gmail.com>`, committing from the user's Mac. This overrides the imported Arnav Bule instruction. Preserve historical commits. No `Co-Authored-By` trailer, no em dashes in commit messages.
 
 ## 5. Definition of done per requirement
 

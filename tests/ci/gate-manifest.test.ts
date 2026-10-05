@@ -227,7 +227,7 @@ const settlementGroup = {
   file: "tests/controlplane/cleanup-writer-barriers.test.ts",
   suite: "native cleanup writer barrier [postgres; modeled hosted association and policy]",
   flag: "ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED",
-  sourceSha256: "8fbf9a47c283f04355b61c31101441a49331b3328b03ed18fe5c3248a4e632ba",
+  sourceSha256: "d3af081370a0efe496960383d6faff0638bc21974f7ec839b32a4ca06b3da7bd",
   namesSha256: "5c20cb4c31e9d0b11a9774d0009203adeea0ce8c993a1f92fed077875a774f69",
 } as const;
 function settlementNamed(sourceRoot = root): Requirement[] {
@@ -277,7 +277,7 @@ const cleanupWriterGroup = {
   suite: "native cleanup writer barrier [postgres; modeled hosted association and policy]",
   backend: "postgres",
   flag: "ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED",
-  sourceSha256: "8fbf9a47c283f04355b61c31101441a49331b3328b03ed18fe5c3248a4e632ba",
+  sourceSha256: "d3af081370a0efe496960383d6faff0638bc21974f7ec839b32a4ca06b3da7bd",
   namesSha256: "df0ddb85fa00e1290bd6b95915742451b555e21179e9c40c62fe6c1321de1739",
 } as const;
 const cleanupWriterDiscovered = { file: cleanupWriterGroup.file, suite: cleanupWriterGroup.suite, backend: "postgres" } as const;

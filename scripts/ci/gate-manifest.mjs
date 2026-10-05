@@ -5732,8 +5732,8 @@ export const LINUX_GUEST_PACKAGE_CASES = cases(MACHINE, [
 ]);
 export const LINUX_GUEST_PACKAGE_PATTERN = "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$";
 export const LINUX_GUEST_PACKAGE_COMMAND = ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"];
-export const LINUX_GUEST_PACKAGES = ["internal/agent", "internal/awsauth", "internal/machine", "internal/machine/ops", "internal/miniyaml", "internal/netguard", "internal/oci", "internal/protocol", "internal/redact", "internal/runner", "internal/runner/kinds"].map((name) => `${GO_MODULE}/${name}`);
-export const LINUX_GUEST_NO_TEST_PACKAGES = ["cmd/zenith-runner", "cmd/zenithd", "internal/agent/fakecp", "internal/proc", "internal/protocol/protocoltest", "internal/version"].map((name) => `${GO_MODULE}/${name}`);
+export const LINUX_GUEST_PACKAGES = ["internal/agent", "internal/agent/spool", "internal/agent/update", "internal/awsauth", "internal/machine", "internal/machine/ops", "internal/miniyaml", "internal/netguard", "internal/oci", "internal/protocol", "internal/redact", "internal/release", "internal/runner", "internal/runner/kinds"].map((name) => `${GO_MODULE}/${name}`);
+export const LINUX_GUEST_NO_TEST_PACKAGES = ["cmd/zenith-release", "cmd/zenith-runner", "cmd/zenithd", "internal/agent/fakecp", "internal/proc", "internal/protocol/protocoltest", "internal/version"].map((name) => `${GO_MODULE}/${name}`);
 export const LINUX_GUEST_ALLOWED_SKIPS = [
   { package: OPS, test: "TestRealSystemctlAndJournalctl", reason: "Separately opted-in actual systemd acceptance; this gate starts no services." },
   ...cases(`${GO_MODULE}/internal/runner/kinds`, ["TestRealOpenTofuPlanShowApply", "TestRealOpenTofuWithProviderAndLockfile"]).map(({ package: packageName, test }) => ({ package: packageName, test, reason: "The existing dedicated OpenTofu workflow gate retains actual binary/provider evidence." })),

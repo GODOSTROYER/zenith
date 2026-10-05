@@ -225,6 +225,59 @@ describe("native Go evidence admission", () => {
     expect(verdict(items).verdict).toBe("failed");
   });
 
+  it("requires the existing spool update and release package lifecycles while refusing foreign packages", () => {
+    const manifest = linuxGuestManifest(), modulePath = "github.com/GODOSTROYER/zenith/go";
+    expect(manifest.requiredPackages).toEqual([
+      "internal/agent", "internal/agent/spool", "internal/agent/update", "internal/awsauth", "internal/machine",
+      "internal/machine/ops", "internal/miniyaml", "internal/netguard", "internal/oci", "internal/protocol",
+      "internal/redact", "internal/release", "internal/runner", "internal/runner/kinds",
+    ].map(name => `${modulePath}/${name}`));
+    const existing = [
+      ["internal/agent/spool", "spool_test.go", "TestPutSurvivesReopenAndFirstResultWins"],
+      ["internal/agent/update", "update_test.go", "TestStageVerifiesSignatureDigestAndSmokeThenActivatesAsPending"],
+      ["internal/release", "release_test.go", "TestSignVerifyRoundTrip"],
+    ] as const;
+    const names = new Map(existing.map(([name, , test]) => [`${modulePath}/${name}`, test]));
+    const items = fullRequiredStream().map(item => item.Test === "TestExistingPackage" && names.has(item.Package)
+      ? { ...item, Test: names.get(item.Package)! } : item);
+    expect(validateGoEvents(stream(items), goodExit, manifest).verdict).toBe("passed");
+    for (const [name, file, test] of existing) {
+      const packageName = `${modulePath}/${name}`;
+      expect(fs.readFileSync(`go/${name}/${file}`, "utf8")).toContain(`func ${test}(t *testing.T)`);
+      expect(validateGoEvents(stream(items.filter(item => item.Package !== packageName)), goodExit, manifest).verdict).toBe("failed");
+      expect(validateGoEvents(stream(items.filter(item => item.Package !== packageName || item.Test === undefined)), goodExit, manifest).problems).toContain("zero-package");
+      for (const action of ["fail", "skip"]) {
+        const changed = items.map(item => item.Package === packageName && item.Action === "pass" && item.Test === test
+          ? { ...item, Action: action } : item);
+        expect(validateGoEvents(stream(changed), goodExit, manifest).verdict).toBe("failed");
+      }
+      const unfinished = items.filter(item => item.Package !== packageName || item.Action !== "pass" || item.Test !== test);
+      expect(validateGoEvents(stream(unfinished), goodExit, manifest).problems).toContain("incomplete");
+      const foreign = items.map(item => item.Package === packageName ? { ...item, Package: packageName + "/foreign" } : item);
+      expect(validateGoEvents(stream(foreign), goodExit, manifest).problems).toContain("malformed");
+    }
+  });
+
+  it("admits only the existing release CLI no-test lifecycle without giving it test authority", () => {
+    const manifest = linuxGuestManifest(), modulePath = "github.com/GODOSTROYER/zenith/go", cli = `${modulePath}/cmd/zenith-release`;
+    expect(manifest.noTestPackages).toEqual([
+      "cmd/zenith-release", "cmd/zenith-runner", "cmd/zenithd", "internal/agent/fakecp", "internal/proc",
+      "internal/protocol/protocoltest", "internal/version",
+    ].map(name => `${modulePath}/${name}`));
+    expect(fs.readdirSync("go/cmd/zenith-release").filter(name => name.endsWith(".go"))).toEqual(["main.go"]);
+    expect(fs.readFileSync("go/cmd/zenith-release/main.go", "utf8")).toContain("package main");
+    const items = fullRequiredStream();
+    expect(validateGoEvents(stream(items), goodExit, manifest).verdict).toBe("passed");
+    expect(validateGoEvents(stream(items.filter(item => item.Package !== cli)), goodExit, manifest).problems).toContain("no-test-package");
+    const forged = [...items], terminal = forged.findIndex(item => item.Package === cli && item.Action === "skip");
+    forged.splice(terminal, 0, { Action: "run", Package: cli, Test: "TestCallerInvented" }, { Action: "pass", Package: cli, Test: "TestCallerInvented" });
+    expect(validateGoEvents(stream(forged), goodExit, manifest).problems).toContain("no-test-package");
+    const failed = items.map(item => item.Package === cli && item.Action === "skip" ? { ...item, Action: "fail" } : item);
+    expect(validateGoEvents(stream(failed), goodExit, manifest).verdict).toBe("failed");
+    const foreign = items.map(item => item.Package === cli ? { ...item, Package: cli + "-foreign" } : item);
+    expect(validateGoEvents(stream(foreign), goodExit, manifest).problems).toContain("malformed");
+  });
+
   it("helper refuses invalid argument/root authority before touching fixture roots", () => {
     for (const args of [[], ["setup", "0", "1", "a".repeat(32)], ["cleanup", "1", "1", "../../"], ["delete", "1", "1", "a".repeat(32)]]) {
       const result = spawnSync("bash", ["scripts/ci/guest-file-write-fixtures.sh", ...args], { encoding: "utf8" });

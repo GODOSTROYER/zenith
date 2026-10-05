@@ -680,11 +680,25 @@ describe.skipIf(!PG_URL)("native cleanup writer barrier [postgres; modeled hoste
     await expect(consumeSavedNativePlan(db,s.original.saved,s.original.access)).rejects.toThrow();
   },300000);
   it("prior issued grant remains unresolved despite builtin settlement",async()=>{
-    const s=await standalone();await consumeSavedNativePlan(db,s.original.saved,s.original.access);await releaseOriginal(s);
-    await repos.grants.insert(peer,{jti:randomUUID(),workspaceId:s.scope.workspaceId,operationId:s.original.op.id,capability:"infrastructure.apply",audience:"worker",issuedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+60000).toISOString()});
-    const next=await continuation(s);await expect(consumeSavedNativePlan(db,next.source.saved,next.destination.access)).rejects.toThrow();
-    expect(await observer.query("select count(*)::integer as n from platform.cleanup_writer_holds where workspace_id=$1",[s.scope.workspaceId])).toEqual([{n:1}]);
-    expect(JSON.parse(await readFile(path.join(s.scope.root,"terraform.tfstate"),"utf8")).resources).toHaveLength(1);
+    for(const history of ["current","restored legacy"] as const){
+      const s=await standalone();await consumeSavedNativePlan(db,s.original.saved,s.original.access);
+      expect(await repos.operations.get(peer,s.scope.workspaceId,s.original.op.id)).toMatchObject({capability:"deployment.deploy",status:"running"});
+      const grant={jti:randomUUID(),workspaceId:s.scope.workspaceId,operationId:s.original.op.id,capability:history==="current"?"deployment.deploy":"infrastructure.apply",audience:"worker",issuedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+60000).toISOString()};
+      if(history==="current"){
+        expect(await repos.grants.insert(peer,grant)).toMatchObject({jti:grant.jti,capability:"deployment.deploy"});
+      }else{
+        await expect(repos.grants.insert(peer,grant)).rejects.toMatchObject({code:"conflict",details:{reason:"field_ownership_conflict"}});
+        expect(await observer.query("select jti from platform.capability_grants where workspace_id=$1 and operation_id=$2",[s.scope.workspaceId,s.original.op.id])).toEqual([]);
+        // Historical ledger restoration only: no signer, bearer or current admission authority is fabricated.
+        // The actual scoped SQL handle and canonical table constraints/triggers remain in force.
+        await peer.query("insert into platform.capability_grants(jti,workspace_id,operation_id,capability,audience,issued_at,expires_at) values($1,$2,$3,$4,$5,$6::timestamptz,$7::timestamptz)",[grant.jti,grant.workspaceId,grant.operationId,grant.capability,grant.audience,grant.issuedAt,grant.expiresAt]);
+      }
+      expect(await observer.query("select capability from platform.capability_grants where workspace_id=$1 and jti=$2",[s.scope.workspaceId,grant.jti])).toEqual([{capability:grant.capability}]);
+      await releaseOriginal(s);
+      const next=await continuation(s);await expect(consumeSavedNativePlan(db,next.source.saved,next.destination.access)).rejects.toThrow();
+      expect(await observer.query("select count(*)::integer as n from platform.cleanup_writer_holds where workspace_id=$1",[s.scope.workspaceId])).toEqual([{n:1}]);
+      expect(JSON.parse(await readFile(path.join(s.scope.root,"terraform.tfstate"),"utf8")).resources).toHaveLength(1);
+    }
   },300000);
 
   it.each(["requester demotion","approver removal","approval expiry","provider revocation","unchanged current authority"] as const)("final builtin receipt fences %s during post-readback current-role wait",async change=>{

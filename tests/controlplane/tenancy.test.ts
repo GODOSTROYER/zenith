@@ -86,6 +86,7 @@ const SWEPT = new Set([
   "settings.getEnvironmentSettings", "settings.getWorkspacePolicy",
   // PROD-LIFE-12: tenant-scoped ownership-transfer reads/writes; recordForApprovedOperation is also reachable only via approvals.record.
   "ownershipTransfers.listActive", "ownershipTransfers.guardFor", "ownershipTransfers.revoke", "ownershipTransfers.recordForApprovedOperation",
+  "ownershipTransfers.lockForOperation",
   "optimizerSettings.getOptimizerSettings",
   // PROD-LIFE-11: tenant-scoped reads of verified exports, restores and ownership claims (writes are classified below).
   "portability.getExport", "portability.listExports", "portability.listRestores", "portability.getAdoption", "portability.listAdoptions", "portability.adoptionFacts",
@@ -485,6 +486,10 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "ownershipTransfers.guardFor": () => repos.ownershipTransfers.guardFor(db, B, envId, resource.id),
       "ownershipTransfers.revoke": () => repos.ownershipTransfers.revoke(db, { workspaceId: B, transferDigest: hex("a"), operationId: opId, revokedBy: "b" }),
       "ownershipTransfers.recordForApprovedOperation": () => seen(repos.ownershipTransfers.recordForApprovedOperation(db, { workspaceId: B, operationId: opId, approvalId: "apr_foreign" })),
+      "ownershipTransfers.lockForOperation": async () => {
+        await expect(repos.ownershipTransfers.lockForOperation(db, B, opId)).rejects.toMatchObject({ code: "operation_not_found" });
+        return null;
+      },
       "portability.getExport": () => repos.portability.getExport(db, B, "pex_foreign"),
       "portability.listExports": () => repos.portability.listExports(db, B, envId),
       "portability.listRestores": () => repos.portability.listRestores(db, B, envId),

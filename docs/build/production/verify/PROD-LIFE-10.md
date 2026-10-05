@@ -74,7 +74,9 @@ Decisions and honest limits:
 - Readback is implemented for Cloud Run and Kubernetes. AWS, Azure, OCI end `cut_over_unverified` (recorded, not hidden).
 - Migrations still run after the deploy step (their task inherits the service's image); for progressive services the 100% cutover happens after the migration. Expand migrations are therefore compatible with the old code by classification, not by ordering.
 - The legacy in-process engine rollback (`engine.rollback`) is not covered; the workflow route is. The `deploy.rollback` plan screen does not show rollback safety (it reads the product store); execution refuses, and `GET /releases/:id` shows the verdict.
-- No UI page and no MCP tool; REST only. Hosted-app releases (`src/lib/hosted/release`) keep their own pipeline.
+- UI: `/platform/releases` (list) and `/platform/releases/[id]` (stages, bound digest and provenance, migration findings and digests, approve-migration for a non-requester admin, rollout, readback, rollback refusal reasons, and the approve-then-deploy-again explanation) under `src/app/(product)/platform/releases/`, linked from the platform nav. Zenith stores digests of the command and SQL, never their text, so the page shows the classifier findings and digests rather than SQL text. No MCP tool.
+- LIFE-09 hand-off: the assembler must register LIFE-09's provenance verifier (the one used in deployWorkloads on prod/life-09-w2) as a `ProvenanceVerifier` via `registerProvenanceVerifier`, so there is one verification path; then raise `ZENITH_RELEASE_MIN_PROVENANCE` to `attested`.
+- (earlier note) REST is complete too. Hosted-app releases (`src/lib/hosted/release`) keep their own pipeline.
 - Provider code is contract-tested against synthetic REST, not live-verified.
 - `tests/execution/fakes/{release,world}.ts` gained `FakeProgressive`, `serving`/`readServing` and a `releaseSafety` world option (test support only).
 

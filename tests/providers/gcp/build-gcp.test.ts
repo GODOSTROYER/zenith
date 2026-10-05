@@ -7,7 +7,7 @@ import { registerGcpDrivers } from "@/lib/providers/gcp/drivers";
 import { createGcpBuildPort, createGcpWorkloadsPort } from "@/lib/platform/release-gcp";
 import { BOOTSTRAP_JOB_IMAGE, BOOTSTRAP_SERVICE_IMAGE, IMAGE_DIGEST_ANNOTATION } from "@/lib/providers/gcp/drivers/compute/run-image";
 import { driverFor, environmentNodes, graphOf, TAGS, REGION as COMPILE_REGION } from "./_fixtures";
-import { bundle, bucket, DIGEST, IMAGE, pipeline, registry, service, tagged, world, PROJECT, REGION } from "./release-fixtures";
+import { bundle, bucket, DIGEST, IMAGE, pipeline, registry, service, tagged, world, PROJECT, REGION, BUILD_ID, sa } from "./release-fixtures";
 
 type Json = Record<string, unknown>;
 const artifact = { type: "built", pipeline: "resource/pipeline", registry: "resource/registry" };
@@ -80,7 +80,23 @@ describe("C3 GCS bundle to recorded workload digest", () => {
     const build = createGcpBuildPort();
     const handle = await build.startBuild(w.ctx, input());
     const result = await build.waitForBuild(w.ctx, handle, { timeoutMs: 1000 });
-    expect(result).toEqual({ status: "succeeded", digest: DIGEST, imageUri: IMAGE });
+    expect(result).toEqual({
+      status: "succeeded", digest: DIGEST, imageUri: IMAGE,
+      attestation: {
+        builderId: `projects/${PROJECT}/locations/${REGION}/builds`,
+        invocationId: BUILD_ID,
+        builderImage: "gcr.io/cloud-builders/docker@sha256:40c2fb4fcd0ad51376eef166c2e7b2b40a3508d5776e2bf33db3783ab39d0f2e",
+        isolation: {
+          profileId: "gcp.cloudbuild.v1",
+          identity: { principal: sa, dedicated: true, deployCredentials: "absent" },
+          metadata: { exposes: "build_identity_only", mechanism: "the metadata server exposes only the build service account token" },
+          network: { egress: "unrestricted", mechanism: "the default Cloud Build pool has public egress; configure spec.isolation.workerPool" },
+          dependencies: { downloads: "direct" },
+          filesystem: { sourceMount: "read_only" },
+          resources: { timeoutSec: 1200, computeClass: "E2_MEDIUM" },
+        },
+      },
+    });
     await createGcpWorkloadsPort().deployImage(w.ctx, service, { uri: result.imageUri!, digest: result.digest! }, { idempotencyKey: "op:deploy:web" });
     expect(w.state.service.template).toMatchObject({ annotations: { "example.com/operator": "preserved", [IMAGE_DIGEST_ANNOTATION]: DIGEST }, containers: [{ image: IMAGE }] });
     expect(await createGcpWorkloadsPort().waitSteady(w.ctx, service, { timeoutMs: 1000 })).toMatchObject({ steady: true });

@@ -353,7 +353,8 @@ describe("build helpers (ADR-0016)", () => {
     expect(body.steps).toEqual([{ name: CLOUD_BUILD_DOCKER_IMAGE, args: ["build", "--file=docker/Dockerfile.prod", `--tag=${image}`, "."] }]);
     expect(body.images).toEqual([image]);
     expect(body.serviceAccount).toBe(`projects/${PROJECT}/serviceAccounts/${sa}`);
-    expect(body.options).toEqual({ logging: "CLOUD_LOGGING_ONLY" });
+    expect(body.options).toEqual({ logging: "CLOUD_LOGGING_ONLY", requestedVerifyOption: "VERIFIED", diskSizeGb: 100, machineType: "E2_MEDIUM" });
+    expect(body.timeout).toBe("1200s");
     expect((body.tags as string[])[0]).toBe("zenith");
     expect((body.tags as string[])[1]).toMatch(/^zenith-op-[0-9a-f]{12}$/);
     // the list lookup used the same tag

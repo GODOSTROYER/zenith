@@ -6,6 +6,23 @@ import { BOOTSTRAP_IMAGE } from "@/lib/providers/azure/drivers/compute/workload"
 import { sha256Hex } from "@/lib/controlplane/digest";
 import { source, bundle, world, node, tagged, pipeline, service, registry, registryId, appId, ROOT, IMAGE, DIGEST } from "./release-fixtures";
 
+const expectedBuild = {
+  status: "succeeded", imageUri: IMAGE, digest: DIGEST,
+  attestation: {
+    builderId: registryId,
+    invocationId: "run1",
+    isolation: {
+      profileId: "azure.acr-tasks.v1",
+      identity: { principal: "acr-tasks-run", dedicated: true, deployCredentials: "absent" },
+      metadata: { exposes: "build_identity_only", mechanism: "the run exposes no user-assigned identity; the task agent has no access to deploy credentials" },
+      network: { egress: "unrestricted", mechanism: "ACR Tasks shared agents have public egress; configure spec.isolation.workerPool" },
+      dependencies: { downloads: "direct" },
+      filesystem: { sourceMount: "read_only" },
+      resources: { timeoutSec: 1800, computeClass: "cpu-2" },
+    },
+  },
+};
+
 const input = () => ({ pipeline, service, registry, source: bundle, idempotencyKey: "digest-build" });
 const reader = (): AzureSourceReader => ({ read: vi.fn(async () => ({ archive: source, sha256: sha256Hex(source), bytes: source.byteLength })) });
 
@@ -20,7 +37,7 @@ describe("Azure C3 source bridge and digest release", () => {
     expect(w.readSource).not.toHaveBeenCalled();
     expect(w.uploadFetch).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ body: source, signal: w.ctx.signal, redirect: "error" }));
     const built = await createAzureBuildPort().waitForBuild(w.ctx, handle, { timeoutMs: 1000 });
-    expect(built).toEqual({ status: "succeeded", imageUri: IMAGE, digest: DIGEST });
+    expect(built).toEqual(expectedBuild);
     const props = w.state.app.properties as { template: { containers: Record<string, unknown>[]; revisionSuffix: string }; latestRevisionName: string; latestReadyRevisionName: string };
     props.template.containers[0].image = BOOTSTRAP_IMAGE;
     props.template.containers[0].args = ["-listen", ":8080", "-text", "Zenith awaiting built release"];
@@ -42,7 +59,7 @@ describe("Azure C3 source bridge and digest release", () => {
     expect(await createAzureBuildPort(w.options).startBuild(w.ctx, input())).toEqual(handle);
     expect(await createAzureBuildPort().waitForBuild(w.ctx, handle, { timeoutMs: 10 })).toEqual({ status: "timed_out" });
     (w.state.run!.properties as Record<string, unknown>).status = "Succeeded";
-    expect(await createAzureBuildPort().waitForBuild(w.ctx, handle, { timeoutMs: 1000 })).toEqual({ status: "succeeded", imageUri: IMAGE, digest: DIGEST });
+    expect(await createAzureBuildPort().waitForBuild(w.ctx, handle, { timeoutMs: 1000 })).toEqual(expectedBuild);
     expect(w.state.schedules).toBe(1);
   });
 

@@ -5,12 +5,29 @@ import { digest } from "@/lib/controlplane/digest";
 import { createAzureReleaseLaunchJournal } from "@/lib/platform/release-azure";
 import { createReleasePorts } from "@/lib/platform/release";
 import type { LaunchScope } from "@/lib/providers/azure/release/support";
-import { ROOT, world, service, pipeline, registry, bundle, IMAGE, DIGEST } from "./release-fixtures";
+import { ROOT, world, service, pipeline, registry, bundle, IMAGE, DIGEST, registryId } from "./release-fixtures";
 
 let db: Awaited<ReturnType<typeof openPlatformDb>>;
 beforeAll(async () => { db = await openPlatformDb({ kind: "pglite" }); });
 afterAll(async () => { await db?.close(); });
 const scope = (name: string): LaunchScope => ({ workspaceId: "ws-1", environmentId: "env-1", key: digest(name) });
+const expectedBuild = {
+  status: "succeeded", imageUri: IMAGE, digest: DIGEST,
+  attestation: {
+    builderId: registryId,
+    invocationId: "run1",
+    isolation: {
+      profileId: "azure.acr-tasks.v1",
+      identity: { principal: "acr-tasks-run", dedicated: true, deployCredentials: "absent" },
+      metadata: { exposes: "build_identity_only", mechanism: "the run exposes no user-assigned identity; the task agent has no access to deploy credentials" },
+      network: { egress: "unrestricted", mechanism: "ACR Tasks shared agents have public egress; configure spec.isolation.workerPool" },
+      dependencies: { downloads: "direct" },
+      filesystem: { sourceMount: "read_only" },
+      resources: { timeoutSec: 1800, computeClass: "cpu-2" },
+    },
+  },
+};
+
 const reference = `${ROOT}/Microsoft.App/jobs/zn-migrate-abc/executions/zn-execution-1`;
 
 describe("Azure durable launch journal", () => {
@@ -25,7 +42,7 @@ describe("Azure durable launch journal", () => {
     const input = { service, pipeline, registry, source: bundle, idempotencyKey: "default-journal:build" };
     const handle = await createReleasePorts(options).build.startBuild(w.ctx, input);
     expect(await createReleasePorts(options).build.startBuild(w.ctx, input)).toEqual(handle);
-    expect(await createReleasePorts({ db }).build.waitForBuild(w.ctx, handle, { timeoutMs: 1000 })).toEqual({ status: "succeeded", digest: DIGEST, imageUri: IMAGE });
+    expect(await createReleasePorts({ db }).build.waitForBuild(w.ctx, handle, { timeoutMs: 1000 })).toEqual(expectedBuild);
     expect(w.state.schedules).toBe(1);
   });
   it("atomically gives one of 12 concurrent workers the permanent launch claim", async () => {

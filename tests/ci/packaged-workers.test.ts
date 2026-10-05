@@ -1,9 +1,10 @@
 /** Source and fixed-schema receipt models only. These fixtures never claim native execution. */
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
 import { PACKAGED_WORKER_CHECKS, packagedWorkerManifest } from "../../scripts/ci/gate-manifest.mjs";
-import { assertArtifactShape, assertAttemptedBuilderCapture, assertBuilderScope, assertLoadedImage, assertNativePrerequisites, assertOwnedContext, assertPublishedEvidence, assertReleaseMarker, baselinePreserved, boundBuild, builderDescriptors, executedChecks, parseHarnessOutput, parseNativeArgs, assertOwnedProcessProof, runOwnedProcess } from "../../scripts/ci/packaged-worker-native.mjs";
+import { assertArtifactShape, assertAttemptedBuilderCapture, assertBuilderScope, assertLoadedImage, assertNativePrerequisites, assertOwnedContext, assertOriginalContextSnapshot, assertPublishedEvidence, assertReleaseMarker, baselinePreserved, boundBuild, builderDescriptors, executedChecks, parseHarnessOutput, parseNativeArgs, assertOwnedProcessProof, restoreContextOverride, runOwnedProcess, sanitizeChildFailure } from "../../scripts/ci/packaged-worker-native.mjs";
 import { digest } from "../../src/lib/controlplane/digest";
 
 const platform = "linux/amd64", hex = "a".repeat(64), commit = "b".repeat(40), imageId = `sha256:${hex}`;
@@ -280,6 +281,139 @@ describe("named local Docker context ownership models", () => {
     expect(source).toContain('DOCKER_CONTEXT: config.ownedContext.name'); expect(source).toContain('process.env.DOCKER_CONTEXT = contextName');
     expect(source).toContain('await assertOriginalContext(docker, originalContext)'); expect(source).toContain('"context", "rm", expected.name');
     expect(source).not.toContain('["context", "use"'); expect(source).not.toContain('"--force"');
+  });
+});
+
+/** Interpret only the fixed context cleanup calls in the real nativeMain source.
+ * Docker's modeled rm refuses the currently selected context, as the native CLI does.
+ * These source/order models do not claim actual Docker process settlement.
+ */
+describe("native context restoration cleanup regression models", () => {
+  const ownedName = "zenith-owned-context-0123456789ab";
+  const original = () => ({ Name: "default", Metadata: { Description: "original local context" },
+    Endpoints: { docker: { Host: "unix:///var/run/docker.sock", SkipTLSVerify: false } }, TLSMaterial: {} });
+  const fingerprint = (value: unknown) => {
+    const serialized = JSON.stringify(value);
+    if (typeof serialized !== "string") throw new Error("Original context snapshot is unavailable.");
+    return createHash("sha256").update(serialized).digest("hex");
+  };
+  const expected = () => ({ name: "default", fingerprint: fingerprint(original()) });
+  const cleanupSource = (branch: "success" | "finally") => {
+    const source = read("scripts/ci/packaged-worker-native.mjs");
+    const start = source.indexOf(branch === "success" ? 'phase = "final-owned-cleanup";' : "if (contextCapture && docker && !cleanup.ownedContextAbsent)");
+    const end = source.indexOf(branch === "success" ? 'status = "passed";' : "if (before && docker)", start);
+    if (start < 0 || end <= start) throw new Error("Native context cleanup branch is unavailable.");
+    return source.slice(start, end);
+  };
+  function executeCleanupModel(source: string, selected = "default", snapshot = original()) {
+    const env: Record<string, string | undefined> = { DOCKER_CONTEXT: ownedName, OTHER: "retained" };
+    let confirmed = false, removed = false;
+    const calls = [...source.matchAll(/restoreContext\(\)|await (assertOriginalContext|ownedContext|removeContext)\(docker, (\w+)\)/g)];
+    for (const call of calls) {
+      if (call[0] === "restoreContext()") { restoreContextOverride(undefined, env); confirmed = false; }
+      else if (call[1] === "assertOriginalContext") {
+        expect(call[2]).toBe("originalContext");
+        assertOriginalContextSnapshot(env.DOCKER_CONTEXT ?? selected, snapshot, expected()); confirmed = true;
+      } else {
+        expect(call[2]).toBe("contextCapture");
+        if (call[1] === "removeContext") {
+          if (!confirmed || (env.DOCKER_CONTEXT ?? selected) === ownedName) throw new Error("Selected context removal is refused.");
+          removed = true;
+        }
+      }
+    }
+    if (!removed) throw new Error("Owned context removal is unconfirmed.");
+    expect(env).toEqual({ OTHER: "retained" });
+  }
+  it.each(["success", "finally"] as const)("restores and freshly verifies original context before native %s removal", branch => {
+    const source = cleanupSource(branch);
+    executeCleanupModel(source);
+    // The exact former order fails this stateful model; merely deleting the override is insufficient.
+    expect(() => executeCleanupModel(source.replace("restoreContext();", ""))).toThrow();
+    expect(() => executeCleanupModel(source.replace("await assertOriginalContext(docker, originalContext);", ""))).toThrow();
+    expect(() => executeCleanupModel(source, "foreign-selection")).toThrow();
+    expect(() => executeCleanupModel(source, "default", { ...original(), Metadata: { Description: "replaced" } })).toThrow();
+    expect(source).not.toMatch(/context.*(?:use|--force)/);
+  });
+  it.each([undefined, "caller-context"])("restores exact caller Docker context override %s without changing unrelated environment", override => {
+    const env: Record<string, string | undefined> = { DOCKER_CONTEXT: ownedName, DOCKER_HOST: "unchanged", HOME: "unchanged" };
+    restoreContextOverride(override, env);
+    expect(Object.hasOwn(env, "DOCKER_CONTEXT")).toBe(override !== undefined);
+    expect(env.DOCKER_CONTEXT).toBe(override);
+    expect(env.DOCKER_HOST).toBe("unchanged"); expect(env.HOME).toBe("unchanged");
+  });
+  it("refuses changed original selection endpoint metadata and TLS identity before owned deletion", () => {
+    expect(() => assertOriginalContextSnapshot("default", original(), expected())).not.toThrow();
+    expect(() => assertOriginalContextSnapshot(ownedName, original(), expected())).toThrow();
+    for (const value of [
+      { ...original(), Name: "foreign" },
+      { ...original(), Endpoints: { docker: { Host: "unix:///foreign.sock", SkipTLSVerify: false } } },
+      { ...original(), Endpoints: { docker: { Host: "unix:///var/run/docker.sock", SkipTLSVerify: true } } },
+      { ...original(), Metadata: { Description: "foreign" } },
+      { ...original(), TLSMaterial: { docker: ["private-canary"] } },
+    ]) expect(() => assertOriginalContextSnapshot("default", value, expected())).toThrow();
+  });
+  it("keeps descendant settlement and fresh builder ownership before finally context restoration", () => {
+    const source = read("scripts/ci/packaged-worker-native.mjs");
+    const final = source.slice(source.indexOf("finally {", source.indexOf("export async function nativeMain")));
+    const restored = final.indexOf("restoreContext();");
+    expect(final.indexOf("if (processSettlementUnconfirmed) fail()")).toBeLessThan(restored);
+    expect(final.indexOf("assertAttemptedBuilderCapture(await captureBuilder")).toBeLessThan(restored);
+    expect(final.indexOf("await releaseBuilder(docker, capturedScope)")).toBeLessThan(restored);
+    expect(restored).toBeLessThan(final.indexOf("await removeContext(docker, contextCapture)"));
+  });
+});
+
+describe("fixed failed child diagnostic privacy models", () => {
+  const childFailure = { phase: "inflight-schema-shutdown", workerCategory: "platform-store" };
+  const failed = () => ({ ...published(), status: "failed", failurePhase: "actual-packaged-worker", childExitCode: 1, checks: {}, childFailure });
+  it("retains only existing fixed child categories after source binding and never changes a failed verdict", () => {
+    expect(sanitizeChildFailure(childFailure.phase, childFailure.workerCategory)).toEqual(childFailure);
+    expect(assertArtifactShape(failed(), platform)).toBe(true);
+    expect(() => assertPublishedEvidence(failed(), expected)).toThrow();
+    expect(() => executedChecks({ ...harness(), status: "failed" }, platform, 1)).toThrow();
+    const source = read("scripts/ci/packaged-worker-native.mjs");
+    const main = source.slice(source.indexOf("export async function nativeMain"));
+    expect(main.indexOf("raw.commit !== frame.commit")).toBeLessThan(main.indexOf("childFailure = sanitizeChildFailure"));
+    expect(main.indexOf("childFailure = sanitizeChildFailure")).toBeLessThan(main.indexOf("checks = executedChecks"));
+    expect(main).toContain('child.code > 0 && raw.status === "failed" && raw.platform === parsed.platform');
+  });
+  it("admits only phase and worker enums already emitted by the unchanged private child", () => {
+    const source = read("scripts/acceptance/packaged-worker.mjs");
+    // Read actual harness state assignments, excluding the refusal helper's
+    // formal default parameter which is not an emitted sanitized phase.
+    const phases = [...source.matchAll(/^\s*(?:let )?phase = "([a-z-]+)"/gm)];
+    expect(phases.length).toBeGreaterThan(0);
+    for (const match of phases) {
+      expect(sanitizeChildFailure(match[1], undefined).phase).toBe(match[1]);
+    }
+    expect(source).toContain('phase = "refusal-exit" } = {}');
+    expect(sanitizeChildFailure("refusal-exit", undefined).phase).toBe("unavailable");
+    const categories = /const workerFailureCategories = new Set\(\[([^\]]+)\]\)/.exec(source)?.[1];
+    if (!categories) throw new Error("Existing worker category contract is unavailable.");
+    for (const match of categories.matchAll(/"([a-z-]+)"/g)) {
+      expect(sanitizeChildFailure(undefined, match[1]).workerCategory).toBe(match[1]);
+    }
+  });
+  it("drops unknown private strings and structural objects without reading or coercing them", () => {
+    let effects = 0;
+    const hostile = new Proxy({}, { get: () => { effects++; throw new Error("private-canary"); }, ownKeys: () => { effects++; return []; } });
+    for (const value of ["private-canary", "https://credential@foreign", "/private/path", "inflight-schema-shutdown\nsecret", hostile, null, 1]) {
+      expect(sanitizeChildFailure(value, value)).toEqual({ phase: "unavailable", workerCategory: "unavailable" });
+    }
+    expect(effects).toBe(0);
+    expect(JSON.stringify(sanitizeChildFailure(hostile, "private-canary"))).not.toContain("private-canary");
+  });
+  it("rejects diagnostic payloads unknown categories and success or absent-child diagnostics", () => {
+    for (const extra of ["message", "error", "env", "path", "stdout", "stderr", "stack"]) {
+      expect(() => assertArtifactShape({ ...failed(), childFailure: { ...childFailure, [extra]: "private-canary" } }, platform)).toThrow();
+    }
+    for (const malformed of [null, [], { ...childFailure, phase: "private-canary" }, { ...childFailure, workerCategory: "private-canary" }, { phase: childFailure.phase }]) {
+      expect(() => assertArtifactShape({ ...failed(), childFailure: malformed }, platform)).toThrow();
+    }
+    for (const childExitCode of [0, null]) expect(() => assertArtifactShape({ ...failed(), childExitCode }, platform)).toThrow();
+    expect(() => assertArtifactShape({ ...failed(), failurePhase: "native-prerequisites" }, platform)).toThrow();
+    expect(() => assertArtifactShape({ ...published(), childFailure }, platform)).toThrow();
   });
 });
 

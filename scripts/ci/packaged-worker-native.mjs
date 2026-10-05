@@ -302,10 +302,21 @@ export function parseHarnessOutput(output) {
   return JSON.parse(lines[0]);
 }
 
+const CHILD_FAILURE_PHASES = ["prerequisites", "fresh-image-build", "isolated-services", "private-temporal-tls", "owned-temporal-schema", "authenticated-temporal-server", "temporal-ready", "startup-refusals", "prepare-real-stores", "actual-worker-entrypoint", "real-temporal-operations", "filesystem-plan-maintenance", "bounded-sql-prerequisite-outage", "store-readiness-outage", "temporal-readiness-outage", "temporal-durable-restart", "operator-pause", "inflight-schema-shutdown", "inflight-fresh-worker-recovery", "graceful-shutdown"];
+const CHILD_WORKER_CATEGORIES = ["module-load", "configuration", "health-listener", "platform-store", "platform-composition", "policy-assets", "plan-directory", "activity-composition", "reconcile-composition", "reconcile-client", "reconcile-pollers", "reconcile-schedule", "temporal-runtime", "workflow-bundle", "temporal-connect", "temporal-worker", "worker-lifecycle", "worker-run", "resource-close"];
+/** Two existing fixed child categories only; never inspect or copy an error/payload.
+ * @param {unknown} phase
+ * @param {unknown} workerCategory
+ */
+export function sanitizeChildFailure(phase, workerCategory) {
+  return { phase: typeof phase === "string" && CHILD_FAILURE_PHASES.includes(phase) ? phase : "unavailable",
+    workerCategory: typeof workerCategory === "string" && CHILD_WORKER_CATEGORIES.includes(workerCategory) ? workerCategory : "unavailable" };
+}
+
 /** Artifact admission is distinct from a passing execution verdict, including failed prerequisites. */
 export function assertArtifactShape(value, platform) {
   const manifest = packagedWorkerManifest(platform);
-  const keys = ["schemaVersion", "lane", "kind", "status", "platform", "commit", "sourceInputSha256", "acceptanceHarnessSha256", "wrapperSha256", "manifestSha256", "workflowSha256", "github", "environment", "startedAt", "finishedAt", "childExitCode", "minimumObservedFreeGiB", "checks", "cleanup", "limitations", "failurePhase"];
+  const keys = ["schemaVersion", "lane", "kind", "status", "platform", "commit", "sourceInputSha256", "acceptanceHarnessSha256", "wrapperSha256", "manifestSha256", "workflowSha256", "github", "environment", "startedAt", "finishedAt", "childExitCode", "minimumObservedFreeGiB", "checks", "cleanup", "limitations", "failurePhase", "childFailure"];
   const iso = text => typeof text === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(text) && Number.isFinite(Date.parse(text));
   const phases = ["native-prerequisites", "owned-context-creation", "owned-builder-creation", "actual-packaged-worker", "final-owned-cleanup", "final-source-binding"];
   if (!record(value) || Object.keys(value).some(key => !keys.includes(key)) || value.schemaVersion !== 1 || value.lane !== "packaged-worker"
@@ -319,6 +330,12 @@ export function assertArtifactShape(value, platform) {
     || !record(value.checks) || Object.entries(value.checks).some(([key, status]) => !manifest.requiredChecks.includes(key) || status !== "passed")
     || !record(value.cleanup) || JSON.stringify(Object.keys(value.cleanup).sort()) !== JSON.stringify(["builderAbsent", "builderContainerAbsent", "cacheVolumeAbsent", "baselinePreserved", "wrapperPrivateFilesRemoved", "ownedContextAbsent"].sort())
     || Object.values(value.cleanup).some(flag => typeof flag !== "boolean") || JSON.stringify(value.limitations) !== JSON.stringify(manifest.limitations)) fail();
+  if (value.childFailure !== undefined) {
+    if (value.status !== "failed" || value.failurePhase !== "actual-packaged-worker" || !Number.isInteger(value.childExitCode) || value.childExitCode < 1
+      || !record(value.childFailure) || JSON.stringify(Object.keys(value.childFailure).sort()) !== JSON.stringify(["phase", "workerCategory"])) fail();
+    const diagnostic = sanitizeChildFailure(value.childFailure.phase, value.childFailure.workerCategory);
+    if (value.childFailure.phase !== diagnostic.phase || value.childFailure.workerCategory !== diagnostic.workerCategory) fail();
+  }
   if (value.environment !== undefined) {
     const allowed = ["os", "processArch", "dockerOS", "dockerArch", "emulated", "node", "totalRamGiB", "availableRamGiB", "dockerRamGiB", "sourceFreeGiB", "temporaryFreeGiB", "dockerFreeGiB"];
     if (!record(value.environment) || Object.keys(value.environment).some(key => !allowed.includes(key))) fail();
@@ -453,10 +470,21 @@ export function assertOwnedContext(value, expected) {
 async function ownedContext(docker, expected) {
   return assertOwnedContext(JSON.parse((await command(docker, ["context", "inspect", expected.name], "native-owned-context")).out)[0], expected);
 }
+export function assertOriginalContextSnapshot(selected, actual, expected) {
+  if (selected !== expected.name || sha256(JSON.stringify(actual)) !== expected.fingerprint) fail();
+}
 async function assertOriginalContext(docker, expected) {
-  if ((await command(docker, ["context", "show"], "native-original-selection")).out.trim() !== expected.name) fail();
+  const selected = (await command(docker, ["context", "show"], "native-original-selection")).out.trim();
   const actual = JSON.parse((await command(docker, ["context", "inspect", expected.name], "native-original-context")).out)[0];
-  if (sha256(JSON.stringify(actual)) !== expected.fingerprint) fail();
+  assertOriginalContextSnapshot(selected, actual, expected);
+}
+/** Restore only this invocation's override, never Docker's stored default.
+ * @param {string | undefined} original
+ * @param {Record<string, string | undefined>} [env]
+ */
+export function restoreContextOverride(original, env = process.env) {
+  if (original === undefined) delete env.DOCKER_CONTEXT;
+  else env.DOCKER_CONTEXT = original;
 }
 async function removeContext(docker, expected) {
   await ownedContext(docker, expected);
@@ -674,13 +702,13 @@ export async function nativeMain(args = process.argv.slice(2)) {
     return 0;
   }
   await publicTarget(parsed.evidence);
-  let phase = "native-prerequisites", scratch, config, docker, before, child, checks = {}, frame, contextCapture, originalContext, builderAttempt, capturedScope;
+  let phase = "native-prerequisites", scratch, config, docker, before, child, checks = {}, frame, contextCapture, originalContext, builderAttempt, capturedScope, childFailure;
   let processSettlementUnconfirmed = false, interruptedMain = false;
   const cancellation = new AbortController(); mainCancellation = cancellation.signal;
   const stopMain = () => { interruptedMain = true; cancellation.abort(); };
   process.on("SIGINT", stopMain); process.on("SIGTERM", stopMain);
   const originalContextOverride = process.env.DOCKER_CONTEXT;
-  const restoreContext = () => { if (originalContextOverride === undefined) delete process.env.DOCKER_CONTEXT; else process.env.DOCKER_CONTEXT = originalContextOverride; };
+  const restoreContext = () => restoreContextOverride(originalContextOverride);
   let cleanup = { builderAbsent: false, builderContainerAbsent: false, cacheVolumeAbsent: false, baselinePreserved: false, wrapperPrivateFilesRemoved: false, ownedContextAbsent: false };
   let status = "failed";
   const startedAt = new Date().toISOString();
@@ -724,11 +752,17 @@ export async function nativeMain(args = process.argv.slice(2)) {
     child = await childAcceptance(config, scratch);
     const raw = parseHarnessOutput(child.output);
     if (raw.commit !== frame.commit || raw.sourceInputSha256 !== frame.sourceInputSha256 || raw.acceptanceHarnessSha256 !== frame.acceptanceHarnessSha256) fail();
+    if (child.code > 0 && raw.status === "failed" && raw.platform === parsed.platform
+      && new RegExp(`^zenith-pkg-${parsed.platform.split("/")[1]}-[a-f0-9]{12}$`).test(raw.runId ?? "")) {
+      childFailure = sanitizeChildFailure(raw.failurePhase, raw.workerFailureCategory);
+    }
     checks = executedChecks(raw, parsed.platform, child.code);
     const marker = assertReleaseMarker(await privateJson(config.marker), config);
     if (marker.runId !== raw.runId || marker.imageId !== raw.image.id || !await scopeAbsent(docker, config.scope)) fail();
     checks["owned-builder-cache-cleanup"] = "passed";
     phase = "final-owned-cleanup";
+    restoreContext();
+    await assertOriginalContext(docker, originalContext);
     await ownedContext(docker, contextCapture);
     await removeContext(docker, contextCapture);
     cleanup.ownedContextAbsent = true;
@@ -761,6 +795,8 @@ export async function nativeMain(args = process.argv.slice(2)) {
         cleanup.builderAbsent = true; cleanup.builderContainerAbsent = true; cleanup.cacheVolumeAbsent = true;
       }
       if (contextCapture && docker && !cleanup.ownedContextAbsent) {
+        restoreContext();
+        await assertOriginalContext(docker, originalContext);
         await removeContext(docker, contextCapture);
         cleanup.ownedContextAbsent = true;
       }
@@ -780,7 +816,7 @@ export async function nativeMain(args = process.argv.slice(2)) {
     const evidence = { schemaVersion: 1, lane: "packaged-worker", kind: "native-packaged-worker", status, platform: parsed.platform,
       ...frame, environment, startedAt, finishedAt: new Date().toISOString(), childExitCode: child?.code ?? null,
       minimumObservedFreeGiB: child?.minimumObservedFreeGiB ?? null, checks, cleanup, limitations: manifest.limitations,
-      ...(status === "failed" ? { failurePhase: phase } : {}) };
+      ...(status === "failed" ? { failurePhase: phase, ...(childFailure ? { childFailure } : {}) } : {}) };
     if (status === "passed") {
       try { assertPublishedEvidence(evidence, await sourceFrame(parsed.platform)); } catch { evidence.status = status = "failed"; evidence.failurePhase = "final-source-binding"; }
     }

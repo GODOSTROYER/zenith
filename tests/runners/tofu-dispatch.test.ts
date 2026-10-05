@@ -103,7 +103,20 @@ async function serve(handler: (job: DecodedJob) => AgentResultBody | Promise<Age
   return service;
 }
 
-const normalizedDigest = (j: ShowJson): string => normalizePlan(j, { configDigest: ws.configDigest, lockDigest: ws.lockDigest, addressMap: ws.addressMap }).planDigest;
+// The raw fixture includes a URL-password echo. A local_only runner's signed result
+// is scrubbed before sealing; approvals bind that returned projection, not the raw echo.
+// This fixture expectation is independent of the production sanitizer.
+function expectedCustodyPlan(j: ShowJson): ShowJson {
+  const projected = structuredClone(j);
+  const before = projected.resource_changes!.find((r) => r.address === "aws_db_instance.main")!.change!.before as Record<string, unknown>;
+  if (typeof before.password !== "string" || typeof before.connection_string !== "string") throw new Error("The URL-password fixture is missing.");
+  const echo = `:${before.password}@`;
+  if (!before.connection_string.includes(echo)) throw new Error("The URL-password fixture no longer contains the sensitive echo.");
+  before.connection_string = before.connection_string.replace(echo, ":[REDACTED:url-password]@");
+  return projected;
+}
+
+const normalizedDigest = (j: ShowJson): string => normalizePlan(expectedCustodyPlan(j), { configDigest: ws.configDigest, lockDigest: ws.lockDigest, addressMap: ws.addressMap }).planDigest;
 
 describe("buildTofuRunPayload", () => {
   it("base64-encodes the files sorted by path, carries the lockfile, and the configDigest a runner will recompute", () => {
@@ -150,6 +163,10 @@ describe("planOnRunner", () => {
     const svc = await serve(goLikeRunner(planFixture));
     const planned = await planOnRunner(ws, await target());
     expect(planned.plan.planDigest).toBe(normalizedDigest(planFixture()));
+    const rawDigest = normalizePlan(planFixture(), { configDigest: ws.configDigest, lockDigest: ws.lockDigest, addressMap: ws.addressMap }).planDigest;
+    expect(planned.plan.planDigest).not.toBe(rawDigest);
+    expect(() => assertApplyAllowed(planned, { approvedDigest: rawDigest, ws, runnerId: agent.id })).toThrow(TofuPlanChangedError);
+    expect(plane.events.find((e) => e.type === "runner.job.completed")?.data?.custody).toEqual({ credentialMaterialSanitized: true, kinds: ["url-password"] });
     expect(planned.plan).toMatchObject({ configDigest: ws.configDigest, lockDigest: ws.lockDigest, tofuVersion: "1.12.5" });
     expect(planned.planFileSha256).toMatch(/^[0-9a-f]{64}$/);
     expect(planned).toMatchObject({ runnerId: agent.id, configDigest: ws.configDigest, exitCode: 0, output: expect.stringContaining("Plan: 1 to add") });
@@ -178,6 +195,7 @@ describe("planOnRunner", () => {
     (rc.change!.after as Record<string, unknown>).password = "CANARY-DB-PASSWORD-ROTATED-3";
     await serve(goLikeRunner(() => changed));
     const planned = await planOnRunner(ws, await target());
+    expect(planned.plan.planDigest).toBe(normalizedDigest(changed));
     expect(planned.plan.planDigest).not.toBe(normalizedDigest(planFixture()));
   });
 

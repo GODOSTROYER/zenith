@@ -42,6 +42,11 @@ type Common struct {
 	MaxConcurrent    int   `json:"maxConcurrent"`    // jobs executing at once
 	ShutdownGraceSec int   `json:"shutdownGraceSec"` // in-flight drain time on SIGTERM
 	MaxResultBytes   int64 `json:"maxResultBytes"`   // hard cap on one posted result
+
+	// Spool bounds the durable local result spool (stateDir/spool).
+	Spool SpoolConfig `json:"spool"`
+	// Update configures the signed release channel (disabled by default).
+	Update UpdateConfig `json:"update"`
 }
 
 // ControlPlaneConfig locates the control plane.
@@ -192,6 +197,12 @@ func (c *Common) Validate() error {
 	}
 	if c.MaxResultBytes < 64<<10 || c.MaxResultBytes > 64<<20 {
 		return fmt.Errorf("maxResultBytes must be between 65536 and 67108864")
+	}
+	if c.Spool.MaxEntries < 0 || c.Spool.MaxEntries > 1_000_000 || c.Spool.MaxBytes < 0 || c.Spool.MaxBytes > 64<<30 {
+		return fmt.Errorf("spool limits are out of range")
+	}
+	if err := c.Update.validate(); err != nil {
+		return err
 	}
 	return nil
 }

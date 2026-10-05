@@ -47,6 +47,23 @@ log:
   level: info
   format: json
 
+# Signed release channel (off by default). The agent fetches a release manifest
+# signed OFFLINE with a release key, verifies it against the PUBLIC keys pinned
+# here, downloads the binary, checks its SHA-256 and size against the signed
+# manifest, smoke-tests it, then activates it. If the new release does not
+# complete an authenticated heartbeat and poll within healthWindowSec, or keeps
+# restarting, it is rolled back to the previous binary automatically. The
+# control plane cannot change any of this. See docs/platform/RUNNER-UPDATES.md.
+update:
+  enabled: false
+  # channel: stable
+  # manifestUrl: https://downloads.example.com/zenithd/stable.json
+  # publicKeys:
+  #   - kid: release-2026-1
+  #     publicKey: REPLACE_WITH_BASE64URL_ED25519_PUBLIC_KEY
+  # checkIntervalSec: 3600
+  # healthWindowSec: 300
+
 # Customer-local immutable-template writes: disabled by default, Linux only.
 # All directories already exist; no writable/symlinked ancestors, ACLs, root
 # execution or executable/system configuration targets are allowed. Exact local

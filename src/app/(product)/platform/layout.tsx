@@ -7,6 +7,7 @@ export default function PlatformLayout({ children }: { children: ReactNode }) {
       <Link href="/platform">Operations</Link><Link href="/platform/environments">Environments</Link>
       <Link href="/platform/settings">Workspace policy</Link><Link href="/platform/connections/aws">Connect AWS</Link>
       <Link href="/api/platform/v1/github/callback">GitHub source</Link>
+      <Link href="/platform/runners">Runners</Link>
     </nav>{children}
   </div>;
 }

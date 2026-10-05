@@ -110,6 +110,9 @@ export interface PlatformRunner {
   revokedAt?: string;
   /** derived on the database clock: active and silent for 90 s */
   stale: boolean;
+  /** the agent's own last heartbeat report (validated upstream, informational) */
+  lifecycle: Record<string, unknown>;
+  lifecycleReportedAt?: string;
 }
 
 interface RunnerRow {
@@ -127,9 +130,11 @@ interface RunnerRow {
   last_heartbeat_at: string | null;
   revoked_at: string | null;
   stale: boolean;
+  lifecycle: Record<string, unknown>;
+  lifecycle_reported_at: string | null;
 }
 
-const RUNNER_COLUMNS = `id, workspace_id, name, status, protocol, public_key, version, capabilities, labels, host, registered_at, last_heartbeat_at, revoked_at,
+const RUNNER_COLUMNS = `id, workspace_id, name, status, protocol, public_key, version, capabilities, labels, host, registered_at, last_heartbeat_at, revoked_at, lifecycle, lifecycle_reported_at,
   (status = 'active' and coalesce(last_heartbeat_at, registered_at) < clock_timestamp() - interval '${STALE_AFTER_SECONDS} seconds') as stale`;
 
 const toRunner = (row: RunnerRow): PlatformRunner => ({
@@ -147,6 +152,8 @@ const toRunner = (row: RunnerRow): PlatformRunner => ({
   lastHeartbeatAt: opt(row.last_heartbeat_at),
   revokedAt: opt(row.revoked_at),
   stale: row.stale,
+  lifecycle: row.lifecycle ?? {},
+  lifecycleReportedAt: opt(row.lifecycle_reported_at),
 });
 
 export interface RegisterRunnerInput {
@@ -209,7 +216,7 @@ export async function findRunnerForAuth(sql: Sql, id: string): Promise<PlatformR
 /** Record a heartbeat. `{ revoked: true }` tells the agent to stop; null when the runner is not in this workspace. */
 export async function heartbeat(
   sql: Sql,
-  input: { workspaceId: string; id: string; version?: string; capabilities?: string[]; host?: Record<string, unknown> }
+  input: { workspaceId: string; id: string; version?: string; capabilities?: string[]; host?: Record<string, unknown>; lifecycle?: Record<string, unknown> }
 ): Promise<{ revoked: boolean } | null> {
   const workspaceId = requireText("workspaceId", input.workspaceId);
   const id = requireText("id", input.id);
@@ -218,10 +225,12 @@ export async function heartbeat(
         set last_heartbeat_at = clock_timestamp(),
             version = coalesce($3::text, version),
             capabilities = coalesce($4::text::jsonb, capabilities),
-            host = coalesce($5::text::jsonb, host)
+            host = coalesce($5::text::jsonb, host),
+            lifecycle = coalesce($6::text::jsonb, lifecycle),
+            lifecycle_reported_at = case when $6::text is null then lifecycle_reported_at else clock_timestamp() end
       where workspace_id = $1 and id = $2 and status = 'active'
       returning id`,
-    [workspaceId, id, input.version ?? null, input.capabilities ? json(input.capabilities) : null, input.host ? json(input.host) : null]
+    [workspaceId, id, input.version ?? null, input.capabilities ? json(input.capabilities) : null, input.host ? json(input.host) : null, input.lifecycle ? json(input.lifecycle) : null]
   );
   if (updated.length) return { revoked: false };
   const row = await sql.query<{ status: string }>("select status from platform.runners where workspace_id = $1 and id = $2", [workspaceId, id]);

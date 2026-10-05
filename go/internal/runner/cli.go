@@ -46,6 +46,14 @@ func Main(args []string, stdout, stderr io.Writer, getenv func(string) string) i
 		return agent.RegisterCommand(ctx, stdout, stderr, binaryName, &cfg.Common, agent.RunnerKind, p, getenv, version.Version, cfg.EnabledKinds())
 	case agent.CmdCheck:
 		return check(p, stdout, stderr, getenv)
+	case agent.CmdUpdate:
+		cfg, err := LoadConfigForRegister(agent.ResolveConfigPath(binaryName, p.Config, getenv), getenv)
+		if err != nil {
+			return agent.Fatal(stderr, binaryName, err)
+		}
+		ctx, stop := agent.SignalContext()
+		defer stop()
+		return agent.UpdateCommand(ctx, stdout, stderr, binaryName, &cfg.Common, agent.RunnerKind, p, version.Version)
 	default:
 		return run(p, stderr, getenv)
 	}
@@ -82,6 +90,11 @@ func run(p agent.ParsedArgs, stderr io.Writer, getenv func(string) string) int {
 		return agent.Fatal(stderr, binaryName, err)
 	}
 	log := agent.NewLogger(cfg.Log, stderr)
+	// The packaged binary is also the launcher: when a verified release is
+	// active it execs it, and it reverts an unhealthy one (see agent/update).
+	if code, handled := agent.MaybeLaunch(&cfg.Common, os.Args, stderr); handled {
+		return code
+	}
 	ctx, stop := agent.SignalContext()
 	defer stop()
 	return Run(ctx, cfg, stderr, getenv, log, Deps{Getenv: getenv})

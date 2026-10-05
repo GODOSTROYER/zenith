@@ -1,0 +1,69 @@
+# zenith-runner: Zenith's outbound-only job runner on a Linux host.
+# Install: see deploy/runner/INSTALL.md and docs/platform/RUNNER.md.
+#
+# Runs as the unprivileged system user "zenith-runner". The packaged binary at
+# /usr/local/bin/zenith-runner is also the update launcher: when a verified
+# release is active in the state directory it execs that binary, and it reverts
+# an unhealthy release. See docs/platform/RUNNER-UPDATES.md.
+
+[Unit]
+Description=Zenith runner (zenith-runner)
+Documentation=https://github.com/GODOSTROYER/zenith/blob/master/docs/platform/RUNNER.md
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/zenith-runner/config.yaml
+
+[Service]
+Type=simple
+User=zenith-runner
+Group=zenith-runner
+ExecStart=/usr/local/bin/zenith-runner --config /etc/zenith-runner/config.yaml run
+
+# Restart on crashes, network trouble, a staged update (exit 75) and an update
+# rollback (exit 76). Exit code 3 means the control plane REVOKED this runner and
+# 4 means it needs a newer protocol version: neither recovers by restarting, so
+# systemd must not loop on them. A revoked runner also records the revocation in
+# its state directory, so even a manual `systemctl start` takes no work.
+Restart=on-failure
+RestartSec=5s
+RestartPreventExitStatus=3 4
+# In-flight jobs get their grace period (shutdownGraceSec, default 30 s). A
+# result that cannot be posted before then stays in the durable spool
+# (<stateDir>/spool) and is replayed after the next start or reconnect.
+TimeoutStopSec=45s
+
+# Identity key, replay cache, result spool and verified releases live here (mode
+# 0700). ProtectSystem=strict makes everything else read-only.
+StateDirectory=zenith-runner
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/zenith-runner
+Environment=ZENITH_STATE_DIR=/var/lib/zenith-runner
+UMask=0077
+
+# --- sandbox ---------------------------------------------------------------
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+# MemoryDenyWriteExecute is left off: some OpenTofu provider plugins need it
+# off. Enable it if yours do not.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

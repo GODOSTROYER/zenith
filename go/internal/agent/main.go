@@ -16,6 +16,7 @@ const (
 	CmdRegister = "register"
 	CmdVersion  = "version"
 	CmdCheck    = "check"
+	CmdUpdate   = "update"
 )
 
 // ParsedArgs is the result of parsing a command line.
@@ -27,6 +28,8 @@ type ParsedArgs struct {
 	TokenFile string
 	Name      string
 	Force     bool
+	// Action is the `update` subcommand: status | check | rollback.
+	Action string
 }
 
 // ParseArgs parses "[--config path] <run|register|check|version> [flags]"; a
@@ -37,7 +40,7 @@ func ParseArgs(binary string, args []string, stderr io.Writer) (ParsedArgs, erro
 	fs.SetOutput(stderr)
 	fs.StringVar(&p.Config, "config", "", "path to the config file (JSON or YAML); default $ZENITH_CONFIG or /etc/"+binary+"/config.yaml")
 	fs.Usage = func() {
-		fmt.Fprintf(stderr, "Usage: %s [--config FILE] <command> [flags]\n\nCommands:\n  run        run the agent (default)\n  register   register with the control plane (--token-file FILE | --token TOKEN) [--url URL] [--name NAME] [--force]\n  check      validate the config and print what is enabled\n  version    print the version\n\n", binary)
+		fmt.Fprintf(stderr, "Usage: %s [--config FILE] <command> [flags]\n\nCommands:\n  run        run the agent (default)\n  register   register with the control plane (--token-file FILE | --token TOKEN) [--url URL] [--name NAME] [--force]\n  check      validate the config and print what is enabled\n  update     status | check | rollback: the signed release channel (see docs/platform/RUNNER-UPDATES.md)\n  version    print the version\n\n", binary)
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -58,12 +61,19 @@ func ParseArgs(binary string, args []string, stderr io.Writer) (ParsedArgs, erro
 		sub.StringVar(&p.TokenFile, "token-file", "", "file containing the registration token")
 		sub.StringVar(&p.Name, "name", "", "agent name (overrides name)")
 		sub.BoolVar(&p.Force, "force", false, "replace an existing identity")
-	case CmdRun, CmdCheck, CmdVersion:
+	case CmdRun, CmdCheck, CmdVersion, CmdUpdate:
 	default:
 		return p, fmt.Errorf("unknown command %q", p.Command)
 	}
 	if err := sub.Parse(rest); err != nil {
 		return p, err
+	}
+	if p.Command == CmdUpdate {
+		if sub.NArg() != 1 || (sub.Arg(0) != "status" && sub.Arg(0) != "check" && sub.Arg(0) != "rollback") {
+			return p, fmt.Errorf("update needs one action: status, check or rollback")
+		}
+		p.Action = sub.Arg(0)
+		return p, nil
 	}
 	if sub.NArg() > 0 {
 		return p, fmt.Errorf("unexpected argument %q", sub.Arg(0))

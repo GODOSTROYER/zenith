@@ -27,6 +27,7 @@ import { get as getEffectReceipt } from "@/lib/controlplane/db/repos/agent-effec
 import {
   RunnerStoreError,
   type AgentJob,
+  type AgentLifecycle,
   type AgentRecord,
   type AgentRegistry,
   type JobQueue,
@@ -55,6 +56,10 @@ const strings = (host: Record<string, unknown>): Record<string, string> => Objec
 type RunnerRow = NonNullable<Awaited<ReturnType<typeof repos.runners.getRunner>>>;
 type MachineRow = NonNullable<Awaited<ReturnType<typeof repos.machines.getMachine>>>;
 
+/** The stored report is already validated on the way in; an empty object means "never reported". */
+const lifecycleOf = (stored: Record<string, unknown> | undefined, reportedAt: string | undefined): AgentLifecycle | undefined =>
+  stored && Object.keys(stored).length ? { ...(stored as AgentLifecycle), reportedAt } : undefined;
+
 const runnerRecord = (r: RunnerRow): AgentRecord => ({
   kind: "runner",
   id: r.id,
@@ -71,6 +76,7 @@ const runnerRecord = (r: RunnerRow): AgentRecord => ({
   lastHeartbeatAt: r.lastHeartbeatAt,
   revokedAt: r.revokedAt,
   stale: r.stale,
+  lifecycle: lifecycleOf(r.lifecycle, r.lifecycleReportedAt),
 });
 
 const machineRecord = (m: MachineRow): AgentRecord => ({
@@ -91,6 +97,7 @@ const machineRecord = (m: MachineRow): AgentRecord => ({
   lastHeartbeatAt: m.lastHeartbeatAt,
   revokedAt: m.revokedAt,
   stale: m.stale,
+  lifecycle: lifecycleOf(m.lifecycle, m.lifecycleReportedAt),
 });
 
 /** A zenithd machine that can authenticate: a transport-addressed target has no key and no heartbeat. */
@@ -183,7 +190,7 @@ export function createPlatformRunnerStore(sql: Sql): RunnerStore {
       return r ? runnerRecord(r) : null;
     },
     list: async (ws) => (await repos.runners.listRunners(sql, ws)).map(runnerRecord),
-    heartbeat: (i) => guard(() => repos.runners.heartbeat(sql, i)),
+    heartbeat: (i) => guard(() => repos.runners.heartbeat(sql, { ...i, lifecycle: i.lifecycle as Record<string, unknown> | undefined })),
     revoke: (ws, id) =>
       guard(async () => {
         const r = await repos.runners.revokeRunner(sql, ws, id);
@@ -202,7 +209,7 @@ export function createPlatformRunnerStore(sql: Sql): RunnerStore {
       return isAgent(m) ? machineRecord(m) : null;
     },
     list: async (ws) => (await repos.machines.listMachines(sql, ws, { transport: "zenithd" })).map(machineRecord),
-    heartbeat: (i) => guard(() => repos.machines.heartbeatMachine(sql, i)),
+    heartbeat: (i) => guard(() => repos.machines.heartbeatMachine(sql, { ...i, lifecycle: i.lifecycle as Record<string, unknown> | undefined })),
     revoke: (ws, id) =>
       guard(() =>
         sql.tx(async (tx) => {

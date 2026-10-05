@@ -123,5 +123,7 @@ func Register(ctx context.Context, cfg *Common, opts RegisterOptions) (*Identity
 	if err := SaveIdentity(cfg.StateDir, id); err != nil {
 		return nil, fmt.Errorf("registered as %s but could not save the identity (the token is now consumed; request a new one): %w", resp.ID, err)
 	}
+	// A new identity supersedes any local revocation of the old one.
+	clearRevokedMarker(cfg.StateDir)
 	return id, nil
 }

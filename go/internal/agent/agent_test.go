@@ -159,12 +159,13 @@ func (r *rig) start(hb time.Duration) {
 	r.agent = a
 	ctx, cancel := context.WithCancel(context.Background())
 	r.cancel = cancel
-	r.exit = make(chan int, 1)
-	go func() { r.exit <- a.Run(ctx) }()
+	exit := make(chan int, 1)
+	r.exit = exit
+	go func() { exit <- a.Run(ctx) }()
 	r.t.Cleanup(func() {
 		cancel()
 		select {
-		case <-r.exit:
+		case <-exit:
 		case <-time.After(20 * time.Second):
 			r.t.Error("agent did not stop")
 		}

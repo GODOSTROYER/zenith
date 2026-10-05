@@ -107,7 +107,7 @@ func TestShapesNamesKindsWithoutText(t *testing.T) {
 	if len(got) != 1 || got[0] != "aws-key-id" {
 		t.Fatalf("got %v, want only the key id shape (assignments are ignored)", got)
 	}
-	if Shapes("nothing here") != nil || Shapes("") != nil {
+	if len(Shapes("nothing here")) != 0 || Shapes("") != nil {
 		t.Fatal("clean text has no shapes")
 	}
 }

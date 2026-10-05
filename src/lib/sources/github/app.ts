@@ -144,7 +144,7 @@ export function createGithubApp(config: GithubAppConfig, deps: { fetchImpl?: typ
         if (item.id !== binding.repositoryId || typeof item.full_name !== "string" || item.full_name.toLowerCase() !== `${repo.owner}/${repo.repo}` || typeof result.expires_at !== "string" || !Number.isFinite(Date.parse(result.expires_at)) || Date.parse(result.expires_at) <= now() + 60_000) throw new GithubSourceError("refused");
         token = credential(result.token);
         return await fn(token);
-      } catch { throw new GithubSourceError("unavailable"); }
+      } catch (error) { if (error instanceof GithubSourceError && error.detail) throw error; throw new GithubSourceError("unavailable"); }
       finally { token = undefined; }
     },
   };

@@ -12,6 +12,7 @@
  * build is the isolated build executor's job; this module hands off identifiers only
  * (`buildSource` has the shape of the existing SourceBundle input: repo + exact commit + path).
  */
+import { createHash } from "node:crypto";
 import type { Sql } from "@/lib/controlplane/types";
 import { analyzeRepository, snapshotFromGithub, type BuildPlan, type Confidence } from "@/lib/analysis";
 import { createGithubImmutableSourceAccess } from "./runtime";
@@ -50,7 +51,7 @@ export interface SourceInspection {
   truncated: boolean;
   unknowns: string[];
   /** Input for the existing source/bundle interface. Present only for a Dockerfile build. */
-  buildSource?: { repo: string; ref: string; dockerfile: string };
+  buildSource?: { repo: string; ref: string; dockerfile: string; contextDir: string; contextDigest: string };
   /** Always "static_only": nothing from the repository was executed here. */
   execution: "static_only";
 }
@@ -63,6 +64,29 @@ export function normalizeInspectionRoot(raw: string | undefined): string {
   const parts = raw.replace(/\/+$/, "").split("/");
   if (parts.length > 12 || parts.some(part => !ROOT_SEGMENT.test(part) || part === "." || part === "..")) throw new GithubSourceError("invalid");
   return parts.join("/");
+}
+
+/** Walk the pinned commit tree one directory at a time. Returns the tree sha of the directory, or the blob mode for a file. */
+async function walkTree(location: { owner: string; repo: string }, commitSha: string, path: string, kind: "tree" | "blob", token: string | undefined, fetchImpl: typeof fetch, signal?: AbortSignal): Promise<string> {
+  let sha = commitSha;
+  const parts = path === "" ? [] : path.split("/");
+  const refuse = (reason: string): never => { throw new GithubSourceError("refused", reason); };
+  for (let i = 0; i <= parts.length; i++) {
+    const response = await fetchImpl(`https://api.github.com/repos/${location.owner}/${location.repo}/git/trees/${sha}`, {
+      headers: { Accept: "application/vnd.github+json", "User-Agent": "zenith-source-inspect", "X-GitHub-Api-Version": "2026-03-10", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, redirect: "error", signal });
+    if (!response.ok || Number(response.headers.get("content-length")) > 8 * 1024 * 1024) return refuse("The repository tree at the pinned commit could not be read.");
+    const tree = JSON.parse(await response.text()) as { truncated?: unknown; tree?: { path?: unknown; mode?: unknown; type?: unknown; sha?: unknown }[] };
+    if (tree.truncated === true || !Array.isArray(tree.tree)) return refuse("A directory on the path is too large to verify.");
+    if (i === parts.length) return sha;
+    const entry = tree.tree.find(e => e.path === parts[i]);
+    if (!entry) return refuse(`${parts.slice(0, i + 1).join("/")} does not exist at the pinned commit.`);
+    if (entry.mode === "120000") return refuse(`${parts.slice(0, i + 1).join("/")} is a symbolic link.`);
+    const last = i === parts.length - 1;
+    if (last && kind === "blob") { if (entry.type !== "blob" || entry.mode === "160000" || typeof entry.sha !== "string") return refuse(`${path} is not a regular file.`); return entry.sha; }
+    if (entry.type !== "tree" || typeof entry.sha !== "string" || !/^[a-f0-9]{40}$/.test(entry.sha)) return refuse(`${parts.slice(0, i + 1).join("/")} is not a directory.`);
+    sha = entry.sha;
+  }
+  return sha;
 }
 
 export function createGithubSourceInspector(deps: { db: () => Promise<Sql>; fetchImpl?: typeof fetch; env?: Readonly<Record<string, string | undefined>> }) {
@@ -84,11 +108,18 @@ export function createGithubSourceInspector(deps: { db: () => Promise<Sql>; fetc
       if (root !== "" && !selected) unknowns.push(`No build plan was detected at ${root}.`);
       if (selected && selected.strategy === "buildpack") unknowns.push("Buildpack builds need a Dockerfile before an isolated build can run; none is generated or executed here.");
       const dockerfile = selected?.strategy === "dockerfile" ? selected.dockerfile : undefined;
+      let proof: { contextDir: string; contextDigest: string } | undefined;
+      if (dockerfile) {
+        const doFetch = deps.fetchImpl ?? fetch;
+        const contextTree = await walkTree(location, identity.commitSha, root, "tree", token, doFetch, input.signal);
+        const dockerfileBlob = await walkTree(location, identity.commitSha, dockerfile, "blob", token, doFetch, input.signal);
+        proof = { contextDir: root, contextDigest: createHash("sha256").update(JSON.stringify({ repo: `${identity.owner}/${identity.repo}`, commit: identity.commitSha, contextDir: root, contextTree, dockerfile, dockerfileBlob })).digest("hex") };
+      }
       return {
         owner: identity.owner, repo: identity.repo, repositoryId: identity.repositoryId, commitSha: identity.commitSha, viaBinding: identity.binding !== null,
         candidates, ...(selected ? { selected } : {}), monorepo: Boolean(analysis.monorepo) || analysis.builds.length > 1,
         truncated: analysis.truncated, unknowns,
-        ...(dockerfile ? { buildSource: { repo: `${identity.owner}/${identity.repo}`, ref: identity.commitSha, dockerfile } } : {}),
+        ...(dockerfile ? { buildSource: { repo: `${identity.owner}/${identity.repo}`, ref: identity.commitSha, dockerfile, ...proof! } } : {}),
         execution: "static_only" as const,
       };
     });

@@ -27,7 +27,7 @@ export function callbackUrl(req: NextRequest): string {
 
 export function safeFailure(error: unknown): never {
   if (error instanceof ApiError) throw error;
-  if (error instanceof GithubSourceError) throw new ApiError(error.message, { invalid: 400, refused: 403, conflict: 409, unavailable: 503 }[error.code]);
+  if (error instanceof GithubSourceError) throw new ApiError(error.detail ?? error.message, { invalid: 400, refused: 403, conflict: 409, unavailable: 503 }[error.code]);
   throw new ApiError("GitHub source connection could not be confirmed. Start again.", 503);
 }
 

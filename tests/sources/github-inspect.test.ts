@@ -37,6 +37,12 @@ const MONOREPO = tar({
   "package.json": JSON.stringify({ name: "root", private: true, workspaces: ["apps/*"] }),
 });
 
+const entry = (path: string, type: "tree" | "blob", sha: string, mode = type === "tree" ? "040000" : "100644") => ({ path, type, sha, mode });
+let TREES: Record<string, unknown> = {
+  [SHA]: { truncated: false, tree: [entry("apps", "tree", "1".repeat(40)), entry("link", "blob", "9".repeat(40), "120000")] },
+  ["1".repeat(40)]: { truncated: false, tree: [entry("web", "tree", "2".repeat(40)), entry("api", "tree", "3".repeat(40))] },
+  ["2".repeat(40)]: { truncated: false, tree: [entry("Dockerfile", "blob", "4".repeat(40))] },
+};
 let db: PlatformDbHandle; let material: Awaited<ReturnType<typeof keys>>;
 beforeAll(async () => { material = await keys(); db = await openPlatformDb({ kind: "pglite", migrate: true }); }, 60_000);
 afterAll(async () => { await db?.close(); await material?.close(); });
@@ -49,6 +55,8 @@ function github(options: { priv: boolean }) {
     if (value === "https://api.github.com/repos/acme/app") return json({ id: 99, name: "app", private: options.priv, owner: { login: "acme" } });
     if (value === "https://api.github.com/repos/acme/app/commits/HEAD") return new Response(SHA);
     if (value === `https://codeload.github.com/acme/app/tar.gz/${SHA}`) return new Response(new Uint8Array(MONOREPO));
+    const prefix = "https://api.github.com/repos/acme/app/git/trees/";
+    if (value.startsWith(prefix)) return json(TREES[value.slice(prefix.length)] ?? { truncated: false, tree: [] });
     return base(url, init);
   });
   return { impl, requests };
@@ -67,7 +75,8 @@ describe("static GitHub source inspection", () => {
     expect(requests.every(r => r.auth === undefined)).toBe(true);
     const sub = await inspect({ workspaceId: "ws-public", owner: "acme", repo: "app", ref: "HEAD", root: "apps/web" });
     expect(sub.candidates.map(c => c.root)).toEqual(["apps/web"]);
-    expect(sub.buildSource).toEqual({ repo: "acme/app", ref: SHA, dockerfile: "apps/web/Dockerfile" });
+    expect(sub.buildSource).toMatchObject({ repo: "acme/app", ref: SHA, dockerfile: "apps/web/Dockerfile", contextDir: "apps/web" });
+    expect(sub.buildSource?.contextDigest).toMatch(/^[a-f0-9]{64}$/);
     const buildpack = await inspect({ workspaceId: "ws-public", owner: "acme", repo: "app", ref: "HEAD", root: "apps/api" });
     expect(buildpack.buildSource).toBeUndefined();
     expect(buildpack.unknowns.join(" ")).toContain("Buildpack builds need a Dockerfile");
@@ -94,6 +103,15 @@ describe("static GitHub source inspection", () => {
     const revoked = github({ priv: true });
     await expect(createGithubSourceInspector({ db: async () => db, fetchImpl: revoked.impl, env: appEnv() })({ workspaceId: "ws-private", owner: "acme", repo: "app", ref: "HEAD" })).rejects.toThrow("could not be confirmed");
     expect(revoked.requests).toEqual([]);
+  });
+
+  it("refuses a context whose Dockerfile component is a symlink at the pinned commit", async () => {
+    const saved = TREES;
+    TREES = { ...TREES, ["2".repeat(40)]: { truncated: false, tree: [entry("Dockerfile", "blob", "4".repeat(40), "120000")] } };
+    try {
+      const { impl } = github({ priv: false });
+      await expect(createGithubSourceInspector({ db: async () => db, fetchImpl: impl, env: {} })({ workspaceId: "ws-public", owner: "acme", repo: "app", ref: "HEAD", root: "apps/web" })).rejects.toThrow("symbolic link");
+    } finally { TREES = saved; }
   });
 
   it.each(["../x", "/etc", "a//b", "a/./b", "a\\b", "a/..", "x".repeat(201)])("rejects unsafe subdirectory %j", raw => {

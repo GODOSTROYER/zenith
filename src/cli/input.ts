@@ -3,8 +3,8 @@ import { open } from "node:fs/promises";
 import { CliError, interrupted } from "./errors";
 import { MAX_INPUT_BYTES, object } from "./security";
 
-const booleanFlags = new Set(["json", "debug", "follow", "token-stdin", "help"]);
-const valueFlags = new Set(["url", "workspace", "timeout", "status", "env", "limit", "cursor", "scope", "input", "idempotency-key", "reason", "args", "digest", "poll-interval"]);
+const booleanFlags = new Set(["json", "debug", "follow", "token-stdin", "help", "include-revoked", "revoke-runner", "promote"]);
+const valueFlags = new Set(["url", "workspace", "timeout", "status", "env", "limit", "cursor", "scope", "input", "idempotency-key", "reason", "args", "digest", "poll-interval", "confirm", "rotation"]);
 export interface Arguments { words: string[]; flags: Record<string, string | true> }
 export function parse(argv: string[]): Arguments {
   const words: string[] = []; const flags: Arguments["flags"] = {};

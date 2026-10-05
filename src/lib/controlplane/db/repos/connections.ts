@@ -19,6 +19,7 @@ import { ControlStoreError, requireText } from "../errors";
 import { assertNoSecretKeys } from "../secrets";
 import { json, newId, opt } from "../sql";
 import { isOpenedPlatformDbHandle } from "../open";
+import * as events from "./events";
 import { assertDefaultMcpProductTopology, assertFinalMcpProductTopology } from "./workflow-start-deploy-authority";
 
 interface ConnectionRow {
@@ -201,4 +202,46 @@ export async function revoke(sql: Sql, workspaceId: string, id: string): Promise
     [requireText("workspaceId", workspaceId), requireText("id", id)]
   );
   return rows.length ? toConnection(rows[0]) : null;
+}
+
+export type RevokeAuditedResult = { connection: ProviderConnection; alreadyRevoked: boolean };
+
+/**
+ * Revoke for an administrator action (PROD-LIFE-01): terminal and idempotent like
+ * `revoke`, but it also discards any open rotation candidate and appends a
+ * `connection.revoked` event in the same transaction, so a revocation cannot be
+ * recorded without its audit fact. From the commit on, the broker and every
+ * dispatch gate read `revoked` and refuse. Null when not in this workspace.
+ */
+export async function revokeAudited(sql: Sql, input: { workspaceId: string; id: string; actorId: string; reason?: string }): Promise<RevokeAuditedResult | null> {
+  const ws = requireText("workspaceId", input.workspaceId);
+  const id = requireText("id", input.id);
+  const actor = requireText("actorId", input.actorId);
+  return sql.tx(async (tx) => {
+    const before = await tx.query<{ status: string }>("select status from platform.provider_connections where workspace_id = $1 and id = $2 for update", [ws, id]);
+    if (!before.length) return null;
+    const alreadyRevoked = before[0].status === "revoked";
+    const rows = await tx.query<ConnectionRow>(
+      `update platform.provider_connections set status = 'revoked', revoked_at = coalesce(revoked_at, clock_timestamp())
+        where workspace_id = $1 and id = $2 returning ${COLUMNS}`, [ws, id]);
+    await tx.query(
+      `update platform.connection_rotations set status = 'aborted', resolved_by = $3, resolved_at = clock_timestamp()
+        where workspace_id = $1 and connection_id = $2 and status in ('staged','verified','failed')`, [ws, id, actor]);
+    if (!alreadyRevoked) {
+      await events.append(tx, { type: "connection.revoked", workspaceId: ws, correlationId: id, actor: { kind: "user", id: actor, name: actor },
+        data: { connectionId: id, provider: rows[0].config.provider, ...(input.reason ? { reason: input.reason.slice(0, 300) } : {}) } });
+    }
+    return { connection: toConnection(rows[0]), alreadyRevoked };
+  });
+}
+
+/** Append a lifecycle event (`connection.created` / `connection.verified`) for an existing connection of this workspace. */
+export async function appendLifecycleEvent(sql: Sql, input: { workspaceId: string; id: string; type: "connection.created" | "connection.verified"; actorId: string; data?: Record<string, unknown> }): Promise<boolean> {
+  const row = await get(sql, input.workspaceId, input.id);
+  if (!row) return false;
+  const actorId = requireText("actorId", input.actorId);
+  await events.append(sql, { type: input.type, workspaceId: input.workspaceId, correlationId: input.id,
+    actor: { kind: "user", id: actorId, name: actorId },
+    data: { connectionId: input.id, provider: row.config.provider, ...(input.data ?? {}) } });
+  return true;
 }

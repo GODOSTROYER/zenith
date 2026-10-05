@@ -11,6 +11,7 @@ type Shape = (v: ObjectValue) => boolean;
 const operation = (v: ObjectValue) => object(v.operation) && typeof v.operation.id === "string" && typeof v.operation.status === "string";
 const decision = (v: ObjectValue) => object(v.decision) && typeof v.decision.outcome === "string";
 const autonomy = (v: ObjectValue) => typeof v.environmentId === "string" && typeof v.level === "number" && typeof v.version === "number";
+const answer = (v: ObjectValue) => typeof v.ok === "boolean" && typeof v.summary === "string";
 const policy = (v: ObjectValue) => object(v.overrides) && object(v.effective) && typeof v.version === "number";
 
 export function createPlatformClient(options: PlatformClientOptions): PlatformClient {
@@ -102,5 +103,13 @@ export function createPlatformClient(options: PlatformClientOptions): PlatformCl
     setEnvironmentAutonomy: (id, input) => browserOnly(() => request(`/environments/${idPath(id)}/autonomy`, "PUT", autonomy, input)),
     getWorkspacePolicy: () => request("/workspace/policy", "GET", policy),
     setWorkspacePolicy: (input) => browserOnly(() => request("/workspace/policy", "PUT", policy, input)),
+    listConnections: (query) => request("/connections", "GET", (v) => Array.isArray(v.connections), undefined, query),
+    getConnection: (id) => request(`/connections/${idPath(id)}`, "GET", (v) => object(v.connection) && typeof v.connection.id === "string"),
+    verifyConnection: (id) => request(`/connections/${idPath(id)}/verify`, "POST", answer, {}),
+    revokeConnection: (id, input) => request(`/connections/${idPath(id)}/revoke`, "POST", answer, input),
+    createConnection: (input) => browserOnly(() => request("/connections", "POST", answer, input)),
+    rotateConnection: (id, input) => browserOnly(() => request(`/connections/${idPath(id)}/rotate`, "POST", answer, input)),
+    promoteConnectionRotation: (id, input) => browserOnly(() => request(`/connections/${idPath(id)}/rotation/promote`, "POST", answer, input)),
+    abortConnectionRotation: (id, input) => browserOnly(() => request(`/connections/${idPath(id)}/rotation/abort`, "POST", answer, input)),
   };
 }

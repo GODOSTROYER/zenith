@@ -8,6 +8,7 @@ import { defineAction } from "@/lib/actions/core";
 import { db, q, save } from "@/lib/db/store";
 import { id, ProviderId, type CloudConnection } from "@/lib/domain/types";
 import { getProvider, providerRegistry, type ProviderAdapter, type PreflightReport } from "@/lib/providers/types";
+import { bridgeDeps } from "@/lib/bridge/deps";
 import { getEngine } from "./_engine";
 import { requireConnection } from "./_shared";
 
@@ -239,7 +240,7 @@ defineAction<ConnRef>({
       blocked: blocked ? stillInUse(conn, users) : undefined,
     };
   },
-  execute(ctx, input) {
+  async execute(ctx, input) {
     const conn = requireConnection(ctx, input.connectionId);
     const users = usersOf(conn.id);
     if (users.length)
@@ -248,6 +249,23 @@ defineAction<ConnRef>({
         summary: `${conn.label} is still in use.`,
         error: stillInUse(conn, users),
       };
+    // A platform-linked connection also holds trust records in the control store.
+    // Forgetting only the product row would leave a verified, dispatchable
+    // platform connection nobody can see or revoke, so revoke it first (terminal,
+    // audited) and refuse to forget the product row if that cannot be recorded.
+    if (conn.platformConnectionId) {
+      try {
+        const { repos } = await import("@/lib/controlplane/db");
+        const sql = await bridgeDeps().connectionSql();
+        await repos.connections.revokeAudited(sql, { workspaceId: ctx.workspaceId, id: conn.platformConnectionId, actorId: ctx.actor.id, reason: "disconnected" });
+      } catch {
+        return {
+          ok: false,
+          summary: `${conn.label} could not be disconnected.`,
+          error: "Its platform trust record could not be revoked, so it was kept. Restore the platform store, or revoke it with connection.revoke, then retry.",
+        };
+      }
+    }
     db().connections = db().connections.filter((c) => c.id !== conn.id);
     save();
     return {

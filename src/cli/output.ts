@@ -30,6 +30,14 @@ export function createOutput(write: (text: string) => void, secrets: string[], j
       append(DATA_NOTE + "\n");
       const rows = safe.events.filter(object).map((event) => [event.seq, event.ts, event.type, event.data]);
       append(rows.length ? table(["SEQ", "TIME", "TYPE", "DATA"], rows) + "\n" : "No events returned.\n");
+    } else if (kind === "connections" && Array.isArray(safe.connections)) {
+      const rows = safe.connections.filter(object).map((c) => [c.id, c.provider, c.status, object(c.identity) ? Object.values(c.identity).join(" ") : "", object(c.rotation) ? `${String(c.rotation.status)} (${String(c.rotation.id)})` : ""]);
+      append(rows.length ? table(["ID", "PROVIDER", "STATUS", "IDENTITY", "ROTATION"], rows) + "\n" : "No connections returned.\n");
+    } else if (kind === "connection") {
+      append(`${table(["FIELD", "VALUE"], Object.entries(safe))}\n`);
+    } else if (kind === "connection-answer") {
+      append(`${table(["FIELD", "VALUE"], [["ok", safe.ok], ["summary", safe.summary], ["error", safe.error]].filter(([, v]) => v !== undefined))}\n`);
+      if (safe.data !== null && safe.data !== undefined) append(`data:\n${serialize(safe.data, true)}\n`);
     } else if (kind === "tools" && Array.isArray(safe.tools)) {
       append(DATA_NOTE + "\n");
       const rows = safe.tools.filter(object).map((tool) => [tool.name, tool.description, object(tool.annotations) ? tool.annotations.readOnlyHint : undefined]);

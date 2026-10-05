@@ -165,6 +165,14 @@ export interface PlatformCredentialOptions {
   now?: () => Date;
   /** Trusted worker token minters; vault resolution remains workspace-scoped. */
   kubernetes?: Pick<KubernetesSessionDeps, "eksToken" | "oidcToken">;
+  /**
+   * Rotation verification only (PROD-LIFE-01): present the staged candidate config
+   * under the live connection's id, so the same workload subject, vault scope and
+   * provider checks run against the candidate while the stored connection keeps
+   * serving. A broker built with this option is used for `verifyConnection` only
+   * and is never handed to a deploy path.
+   */
+  verifyCandidate?: { workspaceId: string; connectionId: string; config: ProviderConnection["config"] };
 }
 
 type ConnectionVerification = Awaited<ReturnType<CredentialBroker["verifyConnection"]>>;
@@ -214,9 +222,12 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
   const now = options.now ?? (() => new Date());
   // The fixed resolver contract takes only an id. Use the scoped repository
   // after a trusted system lookup; no connection is exposed before ws checks.
+  const candidate = options.verifyCandidate;
+  const adopt = (c: ProviderConnection | null): ProviderConnection | null =>
+    c && candidate && c.id === candidate.connectionId && c.workspaceId === candidate.workspaceId ? { ...c, config: candidate.config } : c;
   const resolveConnection = async (id: string): Promise<ProviderConnection | null> => {
     const rows = await db.query<{ workspace_id: string }>("select workspace_id from platform.provider_connections where id = $1", [id]);
-    return rows[0] ? repos.connections.get(db, rows[0].workspace_id, id) : null;
+    return rows[0] ? adopt(await repos.connections.get(db, rows[0].workspace_id, id)) : null;
   };
   const emit: NonNullable<AwsBrokerOptions["emit"]> = async (event) => {
     // authorizeRead deliberately has no operation row; verification likewise
@@ -334,7 +345,7 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
         // This shared path also serves onboarding: its captured pending/failed
         // status must stay unchanged; regular withSession already requires verified.
         let current: ProviderConnection | null;
-        try { current = await repos.connections.get(db, connection.workspaceId, connection.id); }
+        try { current = adopt(await repos.connections.get(db, connection.workspaceId, connection.id)); }
         catch { throw new CredentialDeniedError("The current Kubernetes connection is unavailable.", { reason: "session_ended" }); }
         if (!current || current.id !== connection.id || current.workspaceId !== connection.workspaceId
           || current.status === "revoked" || current.status !== connection.status
@@ -398,7 +409,7 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
     },
     async verifyConnection(id, opts) {
       let connection: ProviderConnection | null;
-      try { connection = opts?.workspaceId !== undefined ? await repos.connections.get(db, opts.workspaceId, id) : await resolveConnection(id); }
+      try { connection = opts?.workspaceId !== undefined ? adopt(await repos.connections.get(db, opts.workspaceId, id)) : await resolveConnection(id); }
       catch { return { ok: false, detail: "The connection could not be loaded." }; }
       if (!connection) return { ok: false, detail: "Connection not found." };
       if (connection.config.provider === "aws") return aws.verifyConnection(id, opts);
@@ -450,7 +461,7 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
           });
         }
         if (result.ok) {
-          const current = await repos.connections.get(db, connection.workspaceId, id);
+          const current = adopt(await repos.connections.get(db, connection.workspaceId, id));
           if (!current || current.status === "revoked" || canonical(current.config) !== canonical(config)) return { ok: false, detail: "Connection was revoked, removed or changed during verification; verify the current configuration again." };
         }
         return result;

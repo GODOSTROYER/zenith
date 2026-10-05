@@ -259,6 +259,8 @@ export interface CloudConnection {
    * never a credential.
    */
   platformConnectionId?: string;
+  /** Set when an administrator revoked the platform connection (PROD-LIFE-01). Revocation is terminal. */
+  revokedAt?: string;
 }
 
 export interface Project {

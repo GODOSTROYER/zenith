@@ -40,6 +40,9 @@ export interface PlatformMachine {
   revokedAt?: string;
   /** zenithd only: active and silent for 90 s. Always false for transport targets (they do not heartbeat). */
   stale: boolean;
+  /** the agent's own last heartbeat report (validated upstream, informational) */
+  lifecycle: Record<string, unknown>;
+  lifecycleReportedAt?: string;
 }
 
 interface MachineRow {
@@ -60,10 +63,12 @@ interface MachineRow {
   last_heartbeat_at: string | null;
   revoked_at: string | null;
   stale: boolean;
+  lifecycle: Record<string, unknown>;
+  lifecycle_reported_at: string | null;
 }
 
 const COLUMNS = `id, workspace_id, environment_id, address, name, transport, target_id, status, public_key, version, capabilities, labels, host,
-  registered_at, last_heartbeat_at, revoked_at,
+  registered_at, last_heartbeat_at, revoked_at, lifecycle, lifecycle_reported_at,
   (transport = 'zenithd' and status = 'active' and coalesce(last_heartbeat_at, registered_at) < clock_timestamp() - interval '${STALE_AFTER_SECONDS} seconds') as stale`;
 
 const toMachine = (row: MachineRow): PlatformMachine => ({
@@ -84,6 +89,8 @@ const toMachine = (row: MachineRow): PlatformMachine => ({
   lastHeartbeatAt: opt(row.last_heartbeat_at),
   revokedAt: opt(row.revoked_at),
   stale: row.stale,
+  lifecycle: row.lifecycle ?? {},
+  lifecycleReportedAt: opt(row.lifecycle_reported_at),
 });
 
 const PUBLIC_KEY = /^[A-Za-z0-9_-]{43}$/;
@@ -173,7 +180,7 @@ export async function findMachineForAuth(sql: Sql, id: string): Promise<Platform
 /** Record a zenithd heartbeat. `{ revoked: true }` tells the agent to stop; null when not in this workspace. */
 export async function heartbeatMachine(
   sql: Sql,
-  input: { workspaceId: string; id: string; version?: string; capabilities?: string[]; host?: Record<string, unknown> }
+  input: { workspaceId: string; id: string; version?: string; capabilities?: string[]; host?: Record<string, unknown>; lifecycle?: Record<string, unknown> }
 ): Promise<{ revoked: boolean } | null> {
   const workspaceId = requireText("workspaceId", input.workspaceId);
   const id = requireText("id", input.id);
@@ -182,10 +189,12 @@ export async function heartbeatMachine(
         set last_heartbeat_at = clock_timestamp(),
             version = coalesce($3::text, version),
             capabilities = coalesce($4::text::jsonb, capabilities),
-            host = coalesce($5::text::jsonb, host)
+            host = coalesce($5::text::jsonb, host),
+            lifecycle = coalesce($6::text::jsonb, lifecycle),
+            lifecycle_reported_at = case when $6::text is null then lifecycle_reported_at else clock_timestamp() end
       where workspace_id = $1 and id = $2 and transport = 'zenithd' and status = 'active'
       returning id`,
-    [workspaceId, id, input.version ?? null, input.capabilities ? json(input.capabilities) : null, input.host ? json(input.host) : null]
+    [workspaceId, id, input.version ?? null, input.capabilities ? json(input.capabilities) : null, input.host ? json(input.host) : null, input.lifecycle ? json(input.lifecycle) : null]
   );
   if (updated.length) return { revoked: false };
   const row = await sql.query<{ status: string }>("select status from platform.machines where workspace_id = $1 and id = $2", [workspaceId, id]);

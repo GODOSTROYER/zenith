@@ -28,14 +28,17 @@ ExecStart=/usr/local/bin/zenithd --config /etc/zenithd/config.yaml run
 
 # Restart on crashes and network trouble. Exit code 3 means the control plane
 # REVOKED this agent and 4 means it needs a newer protocol version: neither
-# recovers by restarting, so systemd must not loop on them.
+# recovers by restarting, so systemd must not loop on them. Exit codes 75 (a
+# verified release was staged) and 76 (a release failed its health check and was
+# rolled back) DO restart: /usr/local/bin/zenithd is also the update launcher and
+# starts the right release (docs/platform/RUNNER-UPDATES.md).
 Restart=on-failure
 RestartSec=5s
 RestartPreventExitStatus=3 4
 # In-flight operations get their grace period (shutdownGraceSec, default 30 s).
 TimeoutStopSec=45s
 
-# Identity key, replay cache and audit log live here (mode 0700, owned by the
+# Identity key, replay cache, result spool, verified releases and audit log live here (mode 0700, owned by the
 # service user). ProtectSystem=strict makes everything else read-only.
 StateDirectory=zenithd
 StateDirectoryMode=0700

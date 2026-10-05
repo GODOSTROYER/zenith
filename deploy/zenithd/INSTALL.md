@@ -83,13 +83,21 @@ You can also pass the token through the environment for the registration only:
 | Task | How |
 |---|---|
 | see what it did | `/var/lib/zenithd/audit.jsonl` (root-readable; one JSON line per request, never file contents) |
-| upgrade | replace `/usr/local/bin/zenithd`, `systemctl restart zenithd` (identity and replay cache persist) |
+| upgrade | replace `/usr/local/bin/zenithd`, `systemctl restart zenithd` (identity and replay cache persist), or enable the signed `update` channel (`docs/platform/RUNNER-UPDATES.md`) |
+| update state | `zenithd update status` (running, staged, pending health, rolled back); `zenithd update rollback` reverts by hand |
+| undelivered results | spooled durably in `/var/lib/zenithd/spool` and replayed after the next reconnect or start |
 | revoke | revoke the machine in Zenith; the agent exits with code 3 and systemd leaves it stopped |
 | uninstall | `systemctl disable --now zenithd`, remove the unit, `/etc/zenithd`, `/var/lib/zenithd`, the user |
 
 A revoked or upgrade-required agent exits with code 3 or 4 and is **not**
 restarted by systemd (`RestartPreventExitStatus=3 4`). After revocation, register
-again with `--force` and a new token.
+again with `--force` and a new token. The revocation is also recorded in
+`/var/lib/zenithd/revoked.json`, so even a manual start takes no work until the
+machine is registered again.
+
+Exit codes 75 (a verified release was staged) and 76 (a release failed its health
+check and was rolled back) are expected: systemd restarts the agent with
+`Restart=on-failure`, and the packaged binary launches the right release.
 
 ## Optional offline package helper
 

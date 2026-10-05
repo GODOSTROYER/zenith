@@ -14,6 +14,7 @@
 import { z } from "zod";
 import { ApiError, json, requireWorkspace, route } from "@/lib/server/context";
 import { scopedEnvironment } from "@/lib/server/scope";
+import { connectionView } from "@/lib/runners/lifecycle";
 import { registryOf, type AgentRecord } from "@/lib/runners/ports";
 import { getRunnerRuntime } from "@/lib/runners/runtime";
 import { createRegistrationToken, revokeAgent } from "@/lib/runners/service";
@@ -51,8 +52,12 @@ export const createTokenRoute = route({ workspaceRole: "admin" }, async (req, _p
   return json({ token: created.token, kind: created.kind, workspaceId: created.workspaceId, expiresAt: created.expiresAt, shownOnce: true }, 201);
 });
 
-/** Public, non-secret view of an agent. */
-const view = (a: AgentRecord) => ({
+/**
+ * Public, non-secret view of an agent. `connection` is the operator-facing
+ * state (online, recovering, offline, revoked); `delivery` is the agent's own
+ * report of its durable result spool and release (informational).
+ */
+export const agentView = (a: AgentRecord, nowMs: number) => ({
   id: a.id,
   name: a.name,
   status: a.status,
@@ -67,12 +72,21 @@ const view = (a: AgentRecord) => ({
   registeredAt: a.registeredAt,
   lastHeartbeatAt: a.lastHeartbeatAt ?? null,
   revokedAt: a.revokedAt ?? null,
+  connection: connectionView(a, nowMs),
+  delivery: {
+    reportedAt: a.lifecycle?.reportedAt ?? null,
+    agentConnection: a.lifecycle?.connection ?? null,
+    spool: a.lifecycle?.spool ?? null,
+    release: a.lifecycle?.update ?? null,
+  },
 });
 
 export const listRoute = (kind: AgentKind) =>
   route({ workspaceRole: "viewer" }, async () => {
-    const agents = await registryOf((await getRunnerRuntime()).store, kind).list(requireWorkspace().id);
-    return { [kind === "runner" ? "runners" : "machines"]: agents.map(view) };
+    const rt = await getRunnerRuntime();
+    const agents = await registryOf(rt.store, kind).list(requireWorkspace().id);
+    const nowMs = rt.now();
+    return { [kind === "runner" ? "runners" : "machines"]: agents.map((a) => agentView(a, nowMs)) };
   });
 
 export const revokeRoute = (kind: AgentKind) =>

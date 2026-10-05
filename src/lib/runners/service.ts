@@ -25,6 +25,7 @@ import { canonical, digest, sha256Hex } from "@/lib/controlplane/digest";
 import { log } from "@/lib/log";
 import { queueOf, registryOf, RunnerStoreError, type AgentEffectReceipt, type AgentJob, type AgentRecord, type JobLogLine, type RunnerEvent, type SettledOutcome } from "@/lib/runners/ports";
 import { redactText } from "@/lib/runners/redact";
+import { parseLifecycleReport } from "@/lib/runners/lifecycle";
 import { announcedNextKeys, controlPlaneKeys, type RunnerRuntime } from "@/lib/runners/runtime";
 import { unverifiedClaims } from "@/lib/runners/signing";
 import {
@@ -110,6 +111,8 @@ const HeartbeatBody = z.object({
     .record(z.string().max(64).regex(PRINTABLE))
     .refine((h) => Object.keys(h).length <= 8, "at most 8 host members")
     .optional(),
+  /** informational delivery report; validated separately so a bad one never fails the heartbeat */
+  lifecycle: z.unknown().optional(),
 });
 
 const PollBody = z.object({ max: z.number().int().min(1).max(10).default(1), waitSec: z.number().int().min(0).max(25).default(0) });
@@ -178,7 +181,9 @@ export async function registerAgent(rt: RunnerRuntime, kind: AgentKind, body: un
 
 export async function heartbeatAgent(rt: RunnerRuntime, agent: AgentRecord, body: unknown): Promise<{ revoked: boolean; nextKeys?: { kid: string; publicKey: string }[]; pollIntervalSec: number }> {
   const b = parse(HeartbeatBody, body);
-  const res = await registryOf(rt.store, agent.kind).heartbeat({ workspaceId: agent.workspaceId, id: agent.id, version: b.version, capabilities: b.capabilities, host: b.host });
+  const lifecycle = parseLifecycleReport(b.lifecycle);
+  if (b.lifecycle !== undefined && b.lifecycle !== null && !lifecycle) log.warn("dropped a malformed agent lifecycle report", { scope: "runners", agentId: agent.id });
+  const res = await registryOf(rt.store, agent.kind).heartbeat({ workspaceId: agent.workspaceId, id: agent.id, version: b.version, capabilities: b.capabilities, host: b.host, lifecycle });
   if (!res || res.revoked) return { revoked: true, pollIntervalSec: DEFAULT_POLL_INTERVAL_SEC };
   const next = await announcedNextKeys(rt);
   return { revoked: false, ...(next.length > 0 ? { nextKeys: next } : {}), pollIntervalSec: DEFAULT_POLL_INTERVAL_SEC };

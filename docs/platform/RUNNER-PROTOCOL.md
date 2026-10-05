@@ -231,6 +231,23 @@ heartbeats and never dispatches to it; a job whose runner goes silent past its
 deadline becomes `uncertain` on the operation, never re-dispatched
 automatically.
 
+**Delivery lifecycle.** Results are durable on the agent: a finished job's
+result is written to a local spool (`<stateDir>/spool`, fsync, atomic rename)
+before it is posted, and removed only after the control plane accepted it,
+answered `409 already_settled`, or refused it terminally. After an outage or
+restart the agent replays what is still spooled, at start and on every
+reconnect. Replay is idempotent on the control plane: the first outcome of a
+job wins, an exact logical retry of it is accepted (`200`), a different one is
+`409 already_settled`. The heartbeat body may carry an informational
+`lifecycle` object (`connection`, `spool`, `update`); the control plane
+validates and bounds it, drops it silently when malformed, and never lets it
+change revocation, staleness or dispatch. The admin list shows one
+`connection.state`: `online`, `recovering` (heard from again but still
+delivering saved results), `offline` (stale) or `revoked`. A revoked agent
+also records the revocation locally and refuses to take work after a restart
+until it registers again. See `docs/platform/RUNNER-UPDATES.md` for the signed
+update channel and rollback.
+
 ## 7. Versioning
 
 The protocol id is in every signed string and every envelope. A breaking

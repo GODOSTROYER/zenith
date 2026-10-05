@@ -39,6 +39,25 @@ for target in ${TARGETS}; do
   done
 done
 
+# The release signing tool runs on the release machine (host platform), never on
+# an agent host. Signing needs an OFFLINE key: set ZENITH_RELEASE_KEY_FILE,
+# ZENITH_RELEASE_KID, ZENITH_RELEASE_BASE_URL and ZENITH_RELEASE_SEQ and the
+# manifests are written to ${OUT}/manifests/<channel>-<component>.json.
+mkdir -p "${OUT}/tools"
+go build -trimpath -o "${OUT}/tools/zenith-release" ./cmd/zenith-release
+if [[ -n "${ZENITH_RELEASE_KEY_FILE:-}" ]]; then
+  : "${ZENITH_RELEASE_KID:?ZENITH_RELEASE_KID is required to sign}"
+  : "${ZENITH_RELEASE_BASE_URL:?ZENITH_RELEASE_BASE_URL is required to sign}"
+  : "${ZENITH_RELEASE_SEQ:?ZENITH_RELEASE_SEQ is required to sign (must exceed every earlier release)}"
+  mkdir -p "${OUT}/manifests"
+  for cmd in zenith-runner zenithd; do
+    "${OUT}/tools/zenith-release" sign --key "${ZENITH_RELEASE_KEY_FILE}" --kid "${ZENITH_RELEASE_KID}" \
+      --component "${cmd}" --channel "${ZENITH_RELEASE_CHANNEL:-stable}" --version "${VERSION#v}" \
+      --seq "${ZENITH_RELEASE_SEQ}" --base-url "${ZENITH_RELEASE_BASE_URL}/${cmd}" --dist "${OUT}" \
+      --out "${OUT}/manifests/${ZENITH_RELEASE_CHANNEL:-stable}-${cmd}.json"
+  done
+fi
+
 # Checksums next to the binaries so an installer can verify what it downloads.
-(cd "${OUT}" && find . -type f -name 'zenith*' ! -name '*.sha256' -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+(cd "${OUT}" && find . -type f -name 'zenith*' ! -name '*.sha256' ! -path './tools/*' ! -path './manifests/*' -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
 echo "done: ${OUT}/ (SHA256SUMS written)"

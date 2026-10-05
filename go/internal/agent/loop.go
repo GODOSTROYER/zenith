@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/GODOSTROYER/zenith/go/internal/agent/spool"
+	"github.com/GODOSTROYER/zenith/go/internal/agent/update"
 	"github.com/GODOSTROYER/zenith/go/internal/protocol"
 )
 
@@ -82,6 +84,8 @@ type Options struct {
 	HTTPClient     *http.Client
 	HeartbeatEvery time.Duration
 	Now            func() time.Time
+	// UpdateHTTPClient overrides the release-channel client (tests).
+	UpdateHTTPClient *http.Client
 }
 
 // Agent runs the poll / heartbeat / result loop.
@@ -103,7 +107,19 @@ type Agent struct {
 	revoked   atomic.Bool
 	pollSec   atomic.Int32
 
+	// Lifecycle: delivery, reconnect and update state (lifecycle.go).
+	conn         *connTracker
+	spool        *spool.Spool
+	updater      *update.Manager
+	inflightMu   sync.Mutex
+	inflight     map[string]struct{}
+	replayed     atomic.Int64
+	hbOK         atomic.Bool // an authenticated heartbeat succeeded this run
+	pollOK       atomic.Bool // an authenticated poll succeeded this run
+	exitOverride atomic.Int32
+
 	stopLoop   context.CancelFunc
+	loopCtx    context.Context // cancelled when the agent stops taking work
 	jobsCtx    context.Context
 	cancelJobs context.CancelFunc
 	postCtx    context.Context
@@ -150,7 +166,15 @@ func New(opts Options) (*Agent, error) {
 		keys:      opts.Keys,
 		sem:       make(chan struct{}, opts.Config.MaxConcurrent),
 		slotFreed: make(chan struct{}, 1),
+		inflight:  map[string]struct{}{},
 	}
+	a.conn = newConnTracker(a.now)
+	if sp, err := newSpool(opts.Config, a.now); err == nil {
+		a.spool = sp
+	} else if !errors.Is(err, errNoState) {
+		return nil, fmt.Errorf("open result spool: %w", err)
+	}
+	a.updater = newUpdater(opts.Config, opts.Kind, opts.Version, opts.UpdateHTTPClient, opts.Now)
 	poll := opts.Identity.PollIntervalSec
 	if poll <= 0 {
 		poll = 5
@@ -190,7 +214,13 @@ func (a *Agent) Run(ctx context.Context) int {
 	defer a.cancelPost()
 	loopCtx, stop := context.WithCancel(ctx)
 	a.stopLoop = stop
+	a.loopCtx = loopCtx
 	defer stop()
+
+	if a.cfg.StateDir != "" && IsRevokedLocally(a.cfg.StateDir, a.opts.Identity.ID) {
+		a.log.Error("this identity was revoked by the control plane earlier; not taking work (register again with a new token to recover)")
+		return ExitRevoked
+	}
 
 	a.log.Info("agent starting", "kind", a.opts.Kind.Name, "version", a.opts.Version, "capabilities", a.opts.Processor.Capabilities(), "maxConcurrent", a.cfg.MaxConcurrent)
 
@@ -200,9 +230,20 @@ func (a *Agent) Run(ctx context.Context) int {
 		a.heartbeatLoop(loopCtx)
 	}()
 
+	bgDone := make(chan struct{})
+	go func() {
+		defer close(bgDone)
+		var bg sync.WaitGroup
+		bg.Add(2)
+		go func() { defer bg.Done(); a.replayLoop(loopCtx) }()
+		go func() { defer bg.Done(); a.updateLoop(loopCtx) }()
+		bg.Wait()
+	}()
+
 	code := a.pollLoop(loopCtx)
 	stop()
 	<-hbDone
+	<-bgDone
 
 	if a.revoked.Load() {
 		a.log.Error("agent was revoked by the control plane; stopping without reporting further results")
@@ -211,6 +252,9 @@ func (a *Agent) Run(ctx context.Context) int {
 		return ExitRevoked
 	}
 	a.drain()
+	if override := int(a.exitOverride.Load()); override != 0 && ctx.Err() == nil {
+		code = override
+	}
 	a.log.Info("agent stopped", "exitCode", code)
 	return code
 }
@@ -243,6 +287,11 @@ func (a *Agent) drain() {
 func (a *Agent) markRevoked() {
 	if a.revoked.CompareAndSwap(false, true) {
 		a.log.Error("control plane revoked this agent")
+		if a.cfg.StateDir != "" {
+			if err := writeRevokedMarker(a.cfg.StateDir, a.opts.Identity.ID, a.now()); err != nil {
+				a.log.Error("could not persist the revocation marker", "err", err)
+			}
+		}
 		a.cancelJobs()
 		a.cancelPost()
 		if a.stopLoop != nil {
@@ -284,6 +333,8 @@ func (a *Agent) pollLoop(ctx context.Context) int {
 		case err == nil:
 			bo.Reset()
 			failures = 0
+			a.pollOK.Store(true)
+			a.noteSuccess()
 			if resp.PollIntervalSec > 0 {
 				a.pollSec.Store(int32(clampInt(resp.PollIntervalSec, 1, 300)))
 			}
@@ -303,6 +354,7 @@ func (a *Agent) pollLoop(ctx context.Context) int {
 			return ExitOK
 		default:
 			failures++
+			a.noteFailure()
 			d := bo.Next()
 			if failures == 1 || failures%10 == 0 {
 				a.log.Warn("poll failed; retrying with backoff", "err", err, "retryIn", d.String(), "consecutiveFailures", failures)
@@ -412,8 +464,12 @@ func (a *Agent) reportRejection(rej *Rejection) {
 	})
 }
 
-// postResult posts with bounded retry. 409 already_settled is success
-// (someone else settled it: the control plane accepts one result per job).
+// postResult delivers a finished job's result. The result is made durable in
+// the local spool FIRST, then posted with bounded retry. It leaves the spool
+// only once the control plane accepted it, said the job is already settled
+// (409: the control plane accepts one result per job), or refused it
+// terminally. If every attempt fails, or the agent is stopping, the result
+// stays spooled and the replay loop delivers it on the next reconnect or start.
 func (a *Agent) postResult(jti string, body ResultBody) {
 	if n, _ := encodedSize(body); n > int(a.cfg.MaxResultBytes) || n < 0 {
 		a.log.Warn("result exceeds maxResultBytes; reporting failure instead", "job", jti, "bytes", n, "max", a.cfg.MaxResultBytes)
@@ -422,34 +478,99 @@ func (a *Agent) postResult(jti string, body ResultBody) {
 			Error: fmt.Sprintf("result_too_large: the result is %d bytes, above the agent limit of %d (maxResultBytes)", n, a.cfg.MaxResultBytes),
 		}
 	}
+	spooled := false
+	if a.spool != nil {
+		if _, err := a.spool.Put(a.opts.Identity.ID, jti, body); err != nil {
+			a.log.Error("could not spool the result durably; retrying from memory only", "job", jti, "err", err)
+		} else {
+			spooled = true
+		}
+	}
+	if !a.markInflight(jti) {
+		return // the replay loop is already delivering it
+	}
+	defer a.clearInflight(jti)
 	bo := &Backoff{Min: time.Second, Max: 30 * time.Second}
+	// A spooled result is safe on disk, so once the agent stops taking work
+	// there is no point holding the shutdown open to retry it: the next start
+	// or reconnect replays it. An unspooled one keeps the old drain behaviour.
+	waitCtx := a.postCtx
+	if spooled {
+		waitCtx = a.loopCtx
+	}
 	for attempt := 1; attempt <= 12; attempt++ {
 		if a.postCtx.Err() != nil {
-			a.log.Warn("not posting result: agent is stopping", "job", jti)
+			a.log.Warn("not posting result now: agent is stopping", "job", jti, "spooled", spooled)
 			return
 		}
-		_, err := a.client.Do(a.postCtx, http.MethodPost, resultPath(a.opts.Kind, a.opts.Identity.ID, jti), body, nil, 30*time.Second, 1<<20)
-		var he *HTTPError
-		switch {
-		case err == nil:
+		done, err := a.sendResult(a.postCtx, jti, body)
+		if done {
+			if spooled {
+				if err == nil {
+					_ = a.spool.Remove(jti)
+				} else {
+					a.spool.Quarantine(jti, "refused")
+				}
+			}
 			return
-		case errors.Is(err, ErrRevoked):
-			a.markRevoked()
+		}
+		if errors.Is(err, ErrRevoked) {
 			return
-		case errors.As(err, &he) && he.Status == http.StatusConflict:
-			a.log.Info("result not accepted: job already settled", "job", jti, "code", he.Code)
-			return
-		case errors.As(err, &he) && he.Status >= 400 && he.Status < 500 && he.Status != http.StatusRequestTimeout && he.Status != http.StatusTooManyRequests:
-			a.log.Error("control plane refused the result; not retrying", "job", jti, "status", he.Status, "code", he.Code)
+		}
+		if spooled && a.loopCtx.Err() != nil {
+			a.log.Warn("could not post the result before shutdown; it stays in the durable spool", "job", jti, "err", err)
 			return
 		}
 		d := bo.Next()
 		a.log.Warn("posting result failed; retrying", "job", jti, "attempt", attempt, "err", err, "retryIn", d.String())
-		if !sleepCtx(a.postCtx, d) {
+		if !sleepCtx(waitCtx, d) {
 			return
 		}
 	}
-	a.log.Error("giving up posting result after repeated failures; the control plane will mark the job uncertain", "job", jti)
+	if spooled {
+		a.log.Warn("could not post the result yet; it stays in the durable spool and is replayed on reconnect", "job", jti)
+	} else {
+		a.log.Error("giving up posting result after repeated failures; the control plane will mark the job uncertain", "job", jti)
+	}
+}
+
+// sendResult makes one attempt. done is true when the result needs no more
+// attempts: accepted or already settled (err nil), or refused terminally (err
+// set). done false means retry later (err says why; ErrRevoked after marking
+// the agent revoked).
+func (a *Agent) sendResult(ctx context.Context, jti string, body ResultBody) (done bool, err error) {
+	_, err = a.client.Do(ctx, http.MethodPost, resultPath(a.opts.Kind, a.opts.Identity.ID, jti), body, nil, 30*time.Second, 1<<20)
+	var he *HTTPError
+	switch {
+	case err == nil:
+		a.noteSuccess()
+		return true, nil
+	case errors.Is(err, ErrRevoked):
+		a.markRevoked()
+		return false, err
+	case errors.As(err, &he) && he.Status == http.StatusConflict:
+		a.noteSuccess()
+		a.log.Info("result not accepted: job already settled", "job", jti, "code", he.Code)
+		return true, nil
+	case errors.As(err, &he) && he.Status >= 400 && he.Status < 500 && he.Status != http.StatusRequestTimeout && he.Status != http.StatusTooManyRequests:
+		a.noteSuccess()
+		a.log.Error("control plane refused the result; not retrying", "job", jti, "status", he.Status, "code", he.Code)
+		return true, err
+	}
+	a.noteFailure()
+	return false, err
+}
+
+func (a *Agent) noteSuccess() {
+	if a.conn.success() {
+		a.log.Info("connection to the control plane recovered")
+	}
+}
+
+func (a *Agent) noteFailure() {
+	if a.conn.failure() {
+		a.log.Warn("control plane unreachable; running offline (results are spooled, work resumes on reconnect)")
+	}
 }
 
 type heartbeatRequest struct {
@@ -457,6 +578,9 @@ type heartbeatRequest struct {
 	Capabilities []string `json:"capabilities"`
 	Running      int      `json:"running"`
 	Host         HostInfo `json:"host"`
+	// Lifecycle reports connection, result-spool and update state so the
+	// control plane can show offline / recovering / rolled-back honestly.
+	Lifecycle lifecycleReport `json:"lifecycle"`
 }
 
 type heartbeatResponse struct {
@@ -481,11 +605,14 @@ func (a *Agent) heartbeatLoop(ctx context.Context) {
 				return
 			}
 			failures++
+			a.noteFailure()
 			if failures == 1 || failures%10 == 0 {
 				a.log.Warn("heartbeat failed", "err", err, "consecutiveFailures", failures)
 			}
 		} else {
 			failures = 0
+			a.hbOK.Store(true)
+			a.noteSuccess()
 		}
 		if !sleepCtx(ctx, every) {
 			return
@@ -500,6 +627,7 @@ func (a *Agent) heartbeat(ctx context.Context) error {
 		Capabilities: a.opts.Processor.Capabilities(),
 		Running:      int(a.running.Load()),
 		Host:         LocalHost(),
+		Lifecycle:    a.lifecycle(),
 	}, &resp, 20*time.Second, 1<<20)
 	if err != nil {
 		return err

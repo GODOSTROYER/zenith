@@ -27,6 +27,7 @@ import {
   type AgentJob,
   type AgentJobResultStatus,
   type AgentJobStatus,
+  type AgentLifecycle,
   type AgentRecord,
   type AgentRegistry,
   type CreateRegistrationTokenInput,
@@ -89,6 +90,8 @@ interface AgentRow {
   registeredAt: number;
   lastHeartbeatAt?: number;
   revokedAt?: number;
+  lifecycle?: AgentLifecycle;
+  lifecycleReportedAt?: number;
 }
 
 interface JobRow {
@@ -146,6 +149,7 @@ export function createMemoryRunnerStore(options: MemoryStoreOptions = {}): Runne
     lastHeartbeatAt: row.lastHeartbeatAt === undefined ? undefined : iso(row.lastHeartbeatAt),
     revokedAt: row.revokedAt === undefined ? undefined : iso(row.revokedAt),
     stale: row.status === "active" && (row.lastHeartbeatAt ?? row.registeredAt) < now() - STALE_AFTER_SEC * 1000,
+    lifecycle: row.lifecycle ? { ...structuredClone(row.lifecycle), reportedAt: row.lifecycleReportedAt === undefined ? undefined : iso(row.lifecycleReportedAt) } : undefined,
   });
 
   /* -------------------------------- queues -------------------------------- */
@@ -442,6 +446,10 @@ export function createMemoryRunnerStore(options: MemoryStoreOptions = {}): Runne
         if (input.version !== undefined) row.version = input.version;
         if (input.capabilities !== undefined) row.capabilities = [...input.capabilities];
         if (input.host !== undefined) row.host = { ...input.host };
+        if (input.lifecycle !== undefined) {
+          row.lifecycle = structuredClone(input.lifecycle);
+          row.lifecycleReportedAt = now();
+        }
         return { revoked: false };
       },
 

@@ -76,7 +76,33 @@ export interface RegisterAgentInput {
   host: Record<string, string>;
 }
 
-/** A registered runner or zenithd machine (ws-db `PlatformRunner` / `PlatformMachine`). */
+/**
+ * What the agent last REPORTED about itself (heartbeat `lifecycle`): validated,
+ * bounded and redacted by `lifecycle.ts`, informational only. Revocation and
+ * staleness are derived by the store, never taken from this.
+ */
+export interface AgentLifecycle {
+  /** store clock, when the heartbeat carrying this report was recorded */
+  reportedAt?: string;
+  connection?: { state: "online" | "degraded" | "offline"; consecutiveFailures: number; offlineSince?: string; lastRecoveredAt?: string; lastOfflineSec?: number };
+  spool?: { depth: number; bytes: number; oldestAt?: string; replayed: number };
+  update?: {
+    state: "current" | "pending_health" | "rolled_back" | "check_failed";
+    channel?: string;
+    running: string;
+    target?: string;
+    previous?: string;
+    lastSeq: number;
+    lastCheckAt?: string;
+    lastError?: string;
+    rolledBackFrom?: string;
+    rolledBackAt?: string;
+    rollbackReason?: string;
+    deadline?: string;
+  };
+}
+
+/** A registered runner or zenith machine (ws-db `PlatformRunner` / `PlatformMachine`). */
 export interface AgentRecord {
   kind: AgentKind;
   id: string;
@@ -97,6 +123,8 @@ export interface AgentRecord {
   revokedAt?: string;
   /** derived on the store's clock: active and silent for 90 s */
   stale: boolean;
+  /** the agent's own last report; absent until it sends one */
+  lifecycle?: AgentLifecycle;
 }
 
 export interface AgentRegistry {
@@ -107,7 +135,7 @@ export interface AgentRegistry {
   get(workspaceId: string, id: string): Promise<AgentRecord | null>;
   list(workspaceId: string): Promise<AgentRecord[]>;
   /** null when the agent is not in this workspace */
-  heartbeat(input: { workspaceId: string; id: string; version?: string; capabilities?: string[]; host?: Record<string, string> }): Promise<{ revoked: boolean } | null>;
+  heartbeat(input: { workspaceId: string; id: string; version?: string; capabilities?: string[]; host?: Record<string, string>; lifecycle?: AgentLifecycle }): Promise<{ revoked: boolean } | null>;
   /**
    * Revoke (terminal, idempotent) and cancel the work not yet started
    * (queued and claimed). Work already `running` is left for the reaper: the

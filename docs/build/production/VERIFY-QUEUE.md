@@ -128,3 +128,26 @@ Doc: [verify/PROD-UX-03.md](verify/PROD-UX-03.md). `npx vitest run tests/plugins
 Not yet run. Append one dated block per requirement here: SHA verified, commands, counts, and which evidence levels were reached or remain pending.
 
 **Wave 2 assembly gap (write these tests first):** the cross-requirement joins added during assembly have no tests yet. Add vitest coverage for (1) build admission re-deriving LIFE-08 `contextDigest` and refusing a mismatched or non-inspected `contextDir`, (2) the single provenance admission path (LIFE-09 attestation consumed as LIFE-10 `attested` verdict; unattested Zenith-built images refused, pinned external digests admitted at `pinned_digest`), then run them with the rest of wave 2.
+
+## Verifier checkpoint, 5 October 2026
+
+- PROD-CI-05: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-ci-05).
+- PROD-CI-08: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-ci-08).
+- PROD-CI-09: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-ci-09).
+- PROD-MACH-01: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-mach-01).
+- PROD-MACH-03: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-mach-03).
+- PROD-OBS-02: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-obs-02).
+- PROD-OBS-03: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-obs-03).
+- PROD-LIFE-02: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-life-02).
+- PROD-LIFE-12: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-life-12).
+- PROD-COST-03: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-cost-03).
+- PROD-OBS-04: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-obs-04).
+- PROD-LIFE-01: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-life-01).
+- PROD-LIFE-08: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-life-08).
+- PROD-LIFE-09: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-life-09).
+- PROD-LIFE-10: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-life-10).
+- PROD-LIFE-11: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-life-11).
+- PROD-MACH-04: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-mach-04).
+- PROD-MACH-05: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-mach-05).
+- PROD-UX-01: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-ux-01).
+- PROD-UX-03: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-ux-03).

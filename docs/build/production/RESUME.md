@@ -1,5 +1,7 @@
 # Production resume
 
+Current verifier checkpoint: [RESULTS-2026-10.md](verification/RESULTS-2026-10.md). Code387b0efe contains24 reviewed fixes; combined acceptance and freshCI remain incomplete. Older transfer/patch instructions below are historical; do not replay them onto current source. Current ledger6 verified/44 in progress/28 planned. Canonical obligations: native100, platform1124,PG80,workflows60,Linux152,worker22 each native architecture,kind55.
+
 Verifying agent: start with [HANDOFF-VERIFIER.md](HANDOFF-VERIFIER.md) (scope, done criteria, what to hand back), then [VERIFY-QUEUE.md](VERIFY-QUEUE.md).
 
 Current verification work for `prod/compose`: see [VERIFY-QUEUE.md](VERIFY-QUEUE.md) (ordered runbook, rules and known risks for the verifying agent). Wave 2 (OBS-04, LIFE-01, LIFE-08, LIFE-09, LIFE-10, LIFE-11, MACH-04, MACH-05, UX-01, UX-03) is appended there as its own section; verify wave 1 first.

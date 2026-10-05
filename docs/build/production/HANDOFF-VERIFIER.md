@@ -7,14 +7,14 @@ You are the verifying agent on the machine that has Docker, PostgreSQL, Temporal
 - Repository `GODOSTROYER/zenith`, branch `codex/production-2026-10-02`.
 - Verify the commit that contains this file (the branch tip when you pull). Wave 1 starts at `8031ce0d`, wave 2 at `41f965b1`; both sit on handoff `76a0652`.
 - Pull with `git pull --ff-only`. If that fails, stop and report; never reset or force.
-- Nothing on this branch since `76a0652` has been executed. Only `tsc --noEmit`, eslint, Go build/vet and the generator `--check` scripts were run.
+- Historical building-machine handoff had no runtime execution since `76a0652`. Current verifier execution and remaining gaps are recorded in [RESULTS-2026-10.md](verification/RESULTS-2026-10.md); preserve their exact source scope.
 
 ## 2. In scope: 20 requirements, in this order
 
 | # | Requirement(s) | Runbook | Notes |
 |---|---|---|---|
-| 0 | Environment | [verify/PROD-CI-REPAIR.md](verify/PROD-CI-REPAIR.md) §3 | Run `transfer/2026-10-05/verify.py`, `npm ci` on Node 22.16+ (<23), then typecheck and lint. |
-| 1 | PROD-CI-05, CI-08, CI-09 | [verify/PROD-CI-REPAIR.md](verify/PROD-CI-REPAIR.md) | **Blocks everything else.** Covers native100 (`cleanup-writer-barriers`), platform-postgres (1113 requirements), PG80, workflow58, guest127, worker22, Go race, OPA, kind, and packaged workers on both architectures. |
+| 0 | Environment | [verify/PROD-CI-REPAIR.md](verify/PROD-CI-REPAIR.md) §3 | Run `transfer/2026-10-05/verify.py`, `npm ci` on supported Node 22.22.2+ (<23); verifier pins22.23.3/npm10.9.9, then typecheck and lint. |
+| 1 | PROD-CI-05, CI-08, CI-09 | [verify/PROD-CI-REPAIR.md](verify/PROD-CI-REPAIR.md) | **Blocks everything else.** Covers native100 (`cleanup-writer-barriers`), platform-postgres (1124 requirements), PG80, workflow60, guest152, worker22, Go race, OPA, kind, and packaged workers on both architectures. |
 | 2 | PROD-MACH-01 | [verify/PROD-MACH-01.md](verify/PROD-MACH-01.md) | Wave 1 |
 | 3 | PROD-MACH-03 | [verify/PROD-MACH-03.md](verify/PROD-MACH-03.md) | Wave 1 |
 | 4 | PROD-OBS-02 | [verify/PROD-OBS-02.md](verify/PROD-OBS-02.md) | Wave 1 |

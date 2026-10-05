@@ -1,3 +1,9 @@
+# 6 October active verifier checkpoint
+
+Current published `cd71457d`: main14 passed /1 failed /1 running; native worker checks22 passed on both native architectures. Linux systemd setup and cleanup refused; its15 scenarios never ran. Reviewed diagnostic code `1aeed6e6` passed root174 tests and lint, awaiting hosted execution. LIFE-12 narrow safety repair and PostgreSQL race acceptance remain in progress. Root MACH-03 route42 passed, held for fixed order. Ledger6 verified /44 in progress /28 planned; all release flagsfalse. [Current results](verification/RESULTS-2026-10.md).
+
+---
+
 # 6 October continuation checkpoint
 
 Exact published `8b881fea` CI is green: main 16/16 and native workers 2/2. Fresh local full gates and kind provider/release/guest passed, with declared skips retained in their separate lanes. Local MACH-01 test/gate commit `1bedb8fa` awaits native systemd acceptance. LIFE-12 revoked-transfer grant regression failed; narrow repair is authorized and remains pending independent review and execution. Ledger remains 6 verified / 44 in progress / 28 planned; all release flags remain false. See [results](verification/RESULTS-2026-10.md).

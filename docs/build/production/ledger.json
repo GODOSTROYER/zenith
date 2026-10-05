@@ -545,7 +545,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "partial_verification_failed_portability_transport_rerun_pending",
+      "implementationStatus": "verification_failed_current_go_systemd_setup_pending_diagnostic_rerun",
       "evidence": [
         {
           "level": "local_engine",
@@ -735,7 +735,7 @@
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationStatus": "current_ci_go_setup_failed_verify_pending",
       "evidence": [
         {
           "level": "remote_ci",
@@ -2034,7 +2034,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "reviewed_systemd_test_gate_integrated_native_execution_pending",
+      "implementationStatus": "verification_failed_systemd_setup_diagnostics_committed_rerun_pending",
       "evidence": [
         {
           "level": "contract",
@@ -2067,6 +2067,14 @@
             "architecture": "native Darwin ARM64 host, Linux AMD64/ARM64 vet and Linux ARM64 crosscompile only"
           },
           "logs": "docs/build/production/evidence/PROD-MACH-01/2026-10-06-systemd-contract.json"
+        },
+        {
+          "level": "contract",
+          "commit": "1aeed6e61f3792ec1b39b3ddcb7030b8fb3db953",
+          "result": "174 passed /0 failed /0 skipped; lint0; safe refusal2; actual systemd15 unexecuted after predecessor setup/cleanup refusal",
+          "command": "Root existing guest gate models, exact-source restoration, guarded Mac refusal probes and scoped lint",
+          "environment": "Node22.23.3; Darwin ARM64; source-only systemd diagnostics, no Linux execution claim",
+          "logs": "docs/build/production/evidence/PROD-MACH-01/2026-10-06-systemd-setup-failure.json"
         }
       ],
       "requiredEvidence": [

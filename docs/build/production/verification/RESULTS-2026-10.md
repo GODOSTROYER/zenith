@@ -1,3 +1,15 @@
+## Integrated test checkpoint, 6 October 2026
+
+Scoped fixes are merged through f36eb5d49d32a3ee64d8b08d2077405b16bb7820. Current local compiler, whole lint (3 unchanged upstream warnings), and Next15.5.24 standalone build passed; static bundle readback found the repaired formatter and genuine YAML wrappers bundled. The accepted security R3 JSON retains its historical pending-at-observation wording; this newer combined receipt supplies the later build result. Earlier184a canonical PostgreSQL379/0/0 satisfies all93 exact requirements including13 journal cases; vault57/0/0 includes its one native case, and all four owned-cleanup proofs passed. Tool9 passing cases across3 runs, bootstrap1 and corrected deletion1 remain separate, with the earlier deletion failure preserved. Reviewed dependency fixes have strict audit/lock0, real policy242/0/0 and security models319/0/0 in their recorded source scopes. Counts overlap and are never added. Published4426 still has15 main successes/1 security failure plus2 native successes; unit19503/0/1521 is historical, not successor clearance. Current local kind passed provider6/0/0,release1/0/0,guest48/0/0 with cleanupComplete true; it does not prove default CNI NetworkPolicy, current-human SQL authority for the8 PGlite-backed API controls, managed-cloud, systemd, full guest152 or workers. Current-candidate packaged/native and exact pushed-SHA CI remain pending. All78 criteria, states9/41/28, dependencies and four false release flags are unchanged.
+
+- [2026-10-06-dependency-security-r3.json](../evidence/PROD-CI-07/2026-10-06-dependency-security-r3.json)
+- [2026-10-06-combined-build-f36eb5d4.json](../evidence/PROD-CI-08/2026-10-06-combined-build-f36eb5d4.json)
+- [2026-10-06-pg93-vault57-184a90d3.json](../evidence/PROD-CI-08/2026-10-06-pg93-vault57-184a90d3.json)
+- [2026-10-06-ci-4426f3c1-final.json](../evidence/PROD-CI-08/2026-10-06-ci-4426f3c1-final.json)
+- [2026-10-06-kind55-f36eb5d4.json](../evidence/PROD-CI-08/2026-10-06-kind55-f36eb5d4.json)
+
+Earlier checkpoint notes below retain their original source scope.
+
 ## 6 October continuation: scheduling passed; terminal current CI is security blocked
 
 Local integrated candidate `7c86ad449bf4ee1d2b318c1975478df837f8c2aa` includes mandatory workflows62 and reviewed build/release joins. Namespace readiness fix `db871bd5` passed the critical schedule file10/0/0: eight preserved models and two actual owned Temporal cases for server restart and held-activity SKIP overlap. Both predecessor setup attempts retain8 passed/2 unexecuted/exit1 and their owned directories; zero open handles and matching processes were observed. The successful successor has independent server/database/bundle-cache absence readback. Exact-source gate269/0/0, scoped lint/compiler0; prior04be453/0/0 includes JOIN8, while standalone Node reader15/0/0 is separate. Counts overlap and are not summed. Full canonical62 remains unrun. [Scoped scheduling and joins evidence](../evidence/PROD-OBS-04/2026-10-06-wave2-db871bd5.json).

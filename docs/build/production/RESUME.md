@@ -1,3 +1,11 @@
+## Integrated test checkpoint, 6 October 2026
+
+Current source f36 includes the reviewed security and PG fixes. Local compiler/lint/Next build passed; source-bound runtime summaries are linked from RESULTS. Older4426 is terminal red, not successor clearance. Kind cleanup has passed; finish any remaining current-source prerequisites, publish coherently, inspect every fresh main/native job, then fixed HANDOFF order. Default/live/product prerequisites remain separate.
+
+Local kind55 and cleanup are terminal passed. Inspect remaining current-source prerequisites without reusing older runtime as fresh. Publish the coherent checkpoint normally on the same branch, then observe every new main/native job and mandatory identity/skip/exit/cleanup receipt. Continue the exact HANDOFF20-ID order only after the CI gate. Default product/browser, Windows, hosted/cloud, private-source and customer-runner prerequisites remain separate; no live account or API startup permission follows.
+
+Earlier checkpoint notes below retain their original source scope.
+
 ## Current continuation, 6 October 2026
 
 Local integrated `7c86ad44` has scoped scheduling10/0/0 (eight models plus two actual Temporal cases), JOIN8 within04be453/0/0 and standalone reader15/0/0. Full canonical workflows62 and fresh whole-candidate CI remain pending. Publishedc5f4bd53 is terminal: main15 success/1 supply-chain failure, native2 success/22 checks each; unit19484/0/1519, Smoke/Gimbal passed. [Final per-job evidence](evidence/PROD-CI-08/2026-10-06-ci-c5f4bd53-final.json).

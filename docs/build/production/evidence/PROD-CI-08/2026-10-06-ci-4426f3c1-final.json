@@ -1,0 +1,380 @@
+{
+  "schemaVersion": 1,
+  "draftStatus": "PRIVATE_PORTABLE_EVIDENCE_PROJECTION_FOR_ROOT_REVIEW",
+  "sourceCommit": "4426f3c121900069fe814822fc3e34b7d9c27987",
+  "sourceTree": "702f3e102a6fd982f9c030a1b510a0a299a61f57",
+  "mainRun": 37407093384,
+  "nativeRun": 37407093442,
+  "attempt": 1,
+  "terminal": true,
+  "overall": "failed",
+  "mainSummary": {
+    "totalJobs": 16,
+    "success": 15,
+    "failure": 1,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "nativeSummary": {
+    "totalJobs": 2,
+    "success": 2,
+    "failure": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "jobs": [
+    {
+      "id": 112086947200,
+      "name": "docker",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 112086947249,
+      "name": "operation-gates (reconciliation)",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 38,
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "required": 26,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "a2200b76f48c0994a53286f5b0fd6059c97e952c43c0b39202d850683be3ccb5"
+    },
+    {
+      "id": 112086947302,
+      "name": "hosted",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 112086947318,
+      "name": "build",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 112086947323,
+      "name": "verify",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 21024,
+        "passed": 19503,
+        "failed": 0,
+        "skipped": 1521
+      },
+      "fileCounts": {
+        "total": 923,
+        "passed": 874,
+        "failed": 0,
+        "skipped": 49
+      },
+      "typecheck": "success",
+      "lint": "success",
+      "smoke": "success",
+      "gimbal": "success",
+      "unitAssertionLevelReportExported": false
+    },
+    {
+      "id": 112086947338,
+      "name": "ledger",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 112086947348,
+      "name": "tofu",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 3934,
+        "passed": 3916,
+        "failed": 0,
+        "skipped": 18,
+        "unknown": 0
+      },
+      "required": 27,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "aae12d63e5493a661ad5d7597063d1d34e776bb58003600f39e902cbc5c2bd84"
+    },
+    {
+      "id": 112086947362,
+      "name": "policy",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 238,
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "required": 7,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "d26c1162c345235d4e5013060383d70b61be643a81f2094e5ed903eadf701aac"
+    },
+    {
+      "id": 112086947374,
+      "name": "postgres",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 322,
+        "passed": 322,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "required": 80,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "d3765a1555091d7ae7612879740e3d33a392becc59e5edcca5e725e4993dc92a"
+    },
+    {
+      "id": 112086947390,
+      "name": "agent",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 112086947402,
+      "name": "go",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "guest": {
+        "raceRequired": 148,
+        "directRootPackageRequired": 4,
+        "uniqueRequiredTotal": 152,
+        "requiredStatuses": "all-passed",
+        "goldenGenerationAndDiffAndStatus": "passed",
+        "sourceByteModeAggregateIndependentlyCompared": true,
+        "architecture": "native-linux-amd64",
+        "interopPassed": 27,
+        "interopFailed": 0,
+        "interopSkipped": 0,
+        "crossBuildAmd64": "success",
+        "crossBuildArm64": "success"
+      },
+      "systemd": {
+        "opsRequired": 8,
+        "signedRequired": 7,
+        "uniqueRequiredTotal": 15,
+        "requiredStatuses": "all-passed",
+        "systemdCleanup": "cleaned",
+        "canonicalRootAbsence": "absent",
+        "testUidGid": 1001,
+        "testCapsZero": true,
+        "testNnp": true,
+        "cleanupTransportNnp": false,
+        "sourceByteModeAggregateIndependentlyCompared": true,
+        "scope": "Actual current hosted inert fixture/default executor; no installed default API/systemd service journey claim."
+      }
+    },
+    {
+      "id": 112086947429,
+      "name": "platform-postgres",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 3042,
+        "passed": 3034,
+        "failed": 0,
+        "skipped": 8,
+        "unknown": 0
+      },
+      "required": 1124,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "61ee2cc1cf6640493740af071a5e417faac61527f3b865dc5361df90ddc84563"
+    },
+    {
+      "id": 112086947454,
+      "name": "workflows",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 1275,
+        "passed": 1275,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "required": 62,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "c2b4298192606161ffb1a8bdc5d6d849bd8a427a8b5f02e563dda6c7c9cb31ee"
+    },
+    {
+      "id": 112086947469,
+      "name": "supply-chain",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "failure",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "findingCount": 3,
+      "failedExitCode": 1,
+      "repairIncludedInTestedSource": false
+    },
+    {
+      "id": 112086947511,
+      "name": "operation-gates (workflow-intents)",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 156,
+        "passed": 156,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "required": 141,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "407ac4b41098e9bb47fd314b465f9945758d02ac345c887c802f3d6abe590341"
+    },
+    {
+      "id": 112086947575,
+      "name": "generated",
+      "run": 37407093384,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 112086946763,
+      "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+      "run": 37407093442,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-24.04-arm"
+      ],
+      "architecture": "arm64",
+      "required": 22,
+      "requiredStatuses": "all-passed",
+      "native": true,
+      "emulated": false,
+      "cleanupFlagsTrue": 6
+    },
+    {
+      "id": 112086946897,
+      "name": "packaged-worker (amd64, ubuntu-24.04)",
+      "run": 37407093442,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "architecture": "amd64",
+      "required": 22,
+      "requiredStatuses": "all-passed",
+      "native": true,
+      "emulated": false,
+      "cleanupFlagsTrue": 6
+    }
+  ],
+  "skipDisposition": {
+    "unitSkipped": 1521,
+    "observedFileSummaryRows": 118,
+    "fileRowsExactlyAccountForUnitSkipCount": true,
+    "assertionLevelSkipIdentitiesExported": false,
+    "sameFilePassingRealLaneGroupsDoNotProveEverySkippedLeafExecuted": true,
+    "residualFiles": 26,
+    "additionalUnitGatedCriticalScheduleCases": {
+      "unitSkipped": 2,
+      "freshWorkflow62LiteralRequirementsPassed": 2
+    },
+    "externalPrerequisitesRetained": [
+      "Supabase REST/storage/auth",
+      "MySQL targets",
+      "S3-compatible targets",
+      "authorized external Temporal",
+      "GitHub App",
+      "Windows"
+    ],
+    "noBlanketUnavailableWaiver": true,
+    "noSkipWaiverOrRequiredStatusRelaxation": true
+  },
+  "binding": {
+    "guestAndSystemdWholeSourceByteModeAggregateIndependent": true,
+    "packagedWorkerGitCopyAndWorkflowHarnessWrapperPerArchitectureManifestIndependent": true,
+    "canonicalLanesSourceEnvironmentToolAndRequiredGroupBindingIndependent": true,
+    "unitBinding": "Exact source/run/attempt/job/workflow metadata and terminal exported counts; no separate unit whole-source aggregate artifact."
+  },
+  "scopeLimits": [
+    "Historical exact4426 execution only; does not verify changed successor dependencies, PG93 registration or deletion fixture.",
+    "No carried-forward current-run results and no current successor CI green claim.",
+    "Standard canonical artifacts export matched manifest groups; individual raw assertion identities are not exported.",
+    "Counts overlap and are not added across lanes.",
+    "Actual hosted inert systemd/default-executor fixture is distinct from an installed default API/systemd product journey.",
+    "Eight real kind API controls, private managed cloud, external accounts and default API are separate scopes; no new kind execution is claimed here.",
+    "Native workers require genuine per-architecture execution and retained hardware/storage floors; local8GiB host does not satisfy the full packaged-worker hardware prerequisites.",
+    "No acceptance-state or release-flag changes."
+  ],
+  "provenance": {
+    "finalObservationSha256": "74871e5d91635c8ebee346935d972efe904e0f55b5ea97563c5ff6d62a84b6d3",
+    "skipDispositionSha256": "2e8eecd99a8e4a67e4fdf1cc70154219c73569ddfe147d4718d2c21a66b23228",
+    "verifySummarySha256": "372ca81dd81af00a33e9ddc7986edade14a3922a8c8055e7241e42466301aa5c"
+  }
+}

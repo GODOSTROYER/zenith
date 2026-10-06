@@ -1,3 +1,9 @@
+## Integrated test checkpoint, 6 October 2026
+
+Combined f36 compiler/lint/Next standalone build passed. Reviewed dependency repair has strict audit/lock0 and scoped real policy/security tests; PG93/vault and tool receipts retain their own sources. Published4426 remains main15 success/1 supply-chain failure plus2 native success. Kind local components and cleanup passed with explicit CNI/PGlite limits; current-source native packages and new CI pending. States9/41/28, all78 criteria/dependencies/history and four false release flags unchanged.
+
+Earlier checkpoint notes below retain their original source scope.
+
 ## 6 October continuation: scheduling passed; terminal current CI is security blocked
 
 Local integrated candidate `7c86ad449bf4ee1d2b318c1975478df837f8c2aa` includes mandatory workflows62 and reviewed build/release joins. Namespace readiness fix `db871bd5` passed the critical schedule file10/0/0: eight preserved models and two actual owned Temporal cases for server restart and held-activity SKIP overlap. Both predecessor setup attempts retain8 passed/2 unexecuted/exit1 and their owned directories; zero open handles and matching processes were observed. The successful successor has independent server/database/bundle-cache absence readback. Exact-source gate269/0/0, scoped lint/compiler0; prior04be453/0/0 includes JOIN8, while standalone Node reader15/0/0 is separate. Counts overlap and are not summed. Full canonical62 remains unrun. [Scoped scheduling and joins evidence](evidence/PROD-OBS-04/2026-10-06-wave2-db871bd5.json).

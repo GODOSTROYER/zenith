@@ -217,9 +217,9 @@
       "acceptance": [
         "One manifest drives local/CI commands, strict requirements and explicit external gates; commit/environment/dependency-bound artifacts omit secrets and untrusted diagnostic payloads."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [],
-      "implementationStatus": "fixes_committed_combined_verification_pending",
+      "implementationStatus": "verified_9e4a42af",
       "evidence": [
         {
           "level": "contract",
@@ -456,6 +456,38 @@
             "architecture": "native Darwin ARM64"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-readiness-a4c8f082.json"
+        },
+        {
+          "level": "contract",
+          "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+          "result": "Current canonical manifest/report/refusal/privacy controls are within successful unit19436 passed/0 failed/1519 observed skipped; current typecheck/lint and generated jobs passed. Mandatory missing/failed/skipped/zero/source/environment/origin checks remain strict.",
+          "command": "Complete canonical source/tool/environment/execution-bound gate and sanitized artifact review; current main/native terminal observation",
+          "environment": {
+            "node": "22.23.3",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+          "result": "Actual current disposable PostgreSQL322/0/0 all80, platform3034/0/8 all1124, Temporal1273/0/0 all60 and native source/attempt-bound engine artifacts admitted; only sanitized evidence published. Overlapping counts not summed.",
+          "command": "Complete canonical source/tool/environment/execution-bound gate and sanitized artifact review; current main/native terminal observation",
+          "environment": {
+            "node": "22.23.3",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
         }
       ],
       "requiredEvidence": [
@@ -578,7 +610,7 @@
       "acceptance": [
         "Clean installation, migrations, typecheck/lint/generated artifacts, real OpenTofu, OPA, Go race/interoperability, PostgreSQL, Temporal and real browser gates run with exact counts."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
@@ -587,7 +619,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "verification_failed_current_go_systemd_setup_pending_diagnostic_rerun",
+      "implementationStatus": "verified_9e4a42af",
       "evidence": [
         {
           "level": "local_engine",
@@ -884,6 +916,56 @@
             "architecture": "native Darwin ARM64"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-readiness-a4c8f082.json"
+        },
+        {
+          "level": "contract",
+          "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+          "result": "Current clean locked install, typecheck/lint/generated/migration inventories and unit19436/0/1519 passed; exact skipped statuses retained.",
+          "command": "Complete canonical source/tool/environment/execution-bound gate and sanitized artifact review; current main/native terminal observation",
+          "environment": {
+            "node": "22.23.3",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+          "result": "Fresh hosted native engines: PG322/0/0, platform3034/0/8, workflows1273/0/0, reconciliation38/0/0, intents156/0/0, OPA238/0/0, OpenTofu3916/0/18; guest152, ordered systemd15, interoperability27/0/0, both CGO0 builds, native22each and all owned cleanup passed. Real browser jobs passed. Unchanged-input historical kind228 provider6/release1/guest48 reused only under original runtime source.",
+          "command": "Complete canonical source/tool/environment/execution-bound gate and sanitized artifact review; current main/native terminal observation",
+          "environment": {
+            "node": "22.23.3",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+          "result": "Exact9e attempt1 main16/16 and both native jobs terminal success; current unit19436/0/1519, Smoke/Gimbal and all mandatory content validators passed; no carried status or summed overlap.",
+          "command": "Complete canonical source/tool/environment/execution-bound gate and sanitized artifact review; current main/native terminal observation",
+          "environment": {
+            "node": "22.23.3",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json",
+          "runId": 37398213464,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464"
         }
       ],
       "requiredEvidence": [
@@ -903,14 +985,14 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "current_ci_go_setup_failed_verify_pending",
+      "implementationStatus": "verified_9e4a42af",
       "evidence": [
         {
           "level": "remote_ci",
@@ -1130,6 +1212,24 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-99db69d8-final.json",
           "runId": 37393944961,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37393944961"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+          "result": "Normal nonprotected branch push of exact9e; all16 main and both native jobs terminal success on attempt1. Source-bound artifacts, current guest152/systemd15/native22each and owned cleanup independently inspected; historical failures and external release gates remain visible.",
+          "command": "Complete canonical source/tool/environment/execution-bound gate and sanitized artifact review; current main/native terminal observation",
+          "environment": {
+            "node": "22.23.3",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json",
+          "runId": 37398213464,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464"
         }
       ],
       "requiredEvidence": [
@@ -1934,12 +2034,35 @@
       "acceptance": [
         "Explicit matrix covers VM/container/serverless/triggers/jobs/data/cache/storage/messaging/network/firewall/DNS/TLS/identity/secrets/day-two; schema/refusal/mock-only paths are not offered services."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "implementationStatus": "verified_1c3913a8",
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+          "result": "Exact unchanged9e\u21921c catalog/source/config/support closure: derive20 passed/0 failed/0 skipped, catalog13/0/0, route7/0/0, MCP2/0/0. Each count is separately observed in the current9e terminal Verify log; no overlapping sum. Complete208-entry/16-domain versioned matrix, refusal/simulated/schema-only/contract-preview rules, drift/tamper and read-only exposure pass. No supported provider promotion.",
+          "command": "Current9e canonical core unit execution, four allowlisted offered-catalog suites; read-only exact Git input reuse to1c",
+          "environment": {
+            "node": "22.23.3",
+            "architecture": "Fresh hosted native Linux9e; source-bound same catalog inputs at1c; controlled route/MCP identity/store adapters"
+          },
+          "logs": "docs/build/production/evidence/PROD-LIFE-02/2026-10-06-catalog-1c3913a8.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "1c3913a87c5c39b91e690e8aed36db5cb79e56a5",
+          "result": "Root actual strict offered-catalog CLI exit0 on exact1c; catalog v1-b786e6049dcd, contentDigest b786e6049dcd5ed89b20ba0f01d4dcc2150510af6296d8d281ce49e393a0b0b6. Current real driver declaration/native-type/schema/drift/inconsistency checks passed; zero supported cells. Generator execution only, no provider lifecycle or default API evidence.",
+          "command": "node node_modules/tsx/dist/cli.mjs scripts/docs/offered-catalog.ts --strict",
+          "environment": {
+            "node": "22.23.3",
+            "execution": "root-owned local verifier host; no services, credentials or provider calls required"
+          },
+          "logs": "docs/build/production/evidence/PROD-LIFE-02/2026-10-06-catalog-1c3913a8.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -2254,11 +2377,11 @@
       "acceptance": [
         "file.write/file.upload/package.install and convergent services use atomic changes, safe paths/symlinks, allowlists, privilege separation, backups and postconditions."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "verification_failed_systemd_setup_diagnostics_committed_rerun_pending",
+      "implementationStatus": "verified_9e4a42af",
       "evidence": [
         {
           "level": "contract",
@@ -2343,6 +2466,38 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-99db69d8-final.json",
           "runId": 37393944961,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37393944961"
+        },
+        {
+          "level": "contract",
+          "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+          "result": "Current typed configuration/atomic file/symlink/allowlist/backup/postcondition and signed refusal contracts are within the inspected current unit and Go gates; no skipped required native scenario substituted.",
+          "command": "Canonical guest --run/--select-current plus ordered systemd --run-systemd/--select-current-systemd and both owned cleanup proofs",
+          "environment": {
+            "node": "22.23.3",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+          "result": "Fresh native LinuxAMD64 guest148 race plus4 direct-root package controls match152 required; all five golden phases and ordered real systemd15 (ops8 then signed7), systemd cleanup/canonical four-root absence passed. Actual systemd identity UID/GID1001/caps0/NNPtrue; fixed cleanup NNPfalse and package AppArmor fixture override explicit. Inert unit/modeled CP issuer; no default installed-daemon/API/cloud claim.",
+          "command": "Canonical guest --run/--select-current plus ordered systemd --run-systemd/--select-current-systemd and both owned cleanup proofs",
+          "environment": {
+            "node": "22.23.3",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
         }
       ],
       "requiredEvidence": [
@@ -2388,8 +2543,17 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "implementationStatus": "contract_verified_1c3913a8_pending_default_local_engine",
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "1c3913a87c5c39b91e690e8aed36db5cb79e56a5",
+          "result": "42 passed / 0 failed / 0 skipped; combined exact committed48 passed /0 failed /0 skipped; scoped lint0 and byte-identical candidate compiler retry0",
+          "command": "node node_modules/vitest/vitest.mjs run tests/machines/runbook-routes.test.ts tests/observability/local-telemetry-engine.test.ts --maxWorkers=1 --reporter=json",
+          "environment": "Node22.23.3/npm10.9.9; macOS native ARM64; controlled route adapters and actual owned TCP protocol fixtures",
+          "logs": "docs/build/production/evidence/PROD-MACH-03/2026-10-06-route-telemetry-1c3913a8.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -2528,8 +2692,17 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "implementationStatus": "contract_verified_1c3913a8_pending_default_local_engine",
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "1c3913a87c5c39b91e690e8aed36db5cb79e56a5",
+          "result": "6 passed / 0 failed / 0 skipped; combined exact committed48 passed /0 failed /0 skipped; scoped lint0 and byte-identical candidate compiler retry0",
+          "command": "node node_modules/vitest/vitest.mjs run tests/machines/runbook-routes.test.ts tests/observability/local-telemetry-engine.test.ts --maxWorkers=1 --reporter=json",
+          "environment": "Node22.23.3/npm10.9.9; macOS native ARM64; controlled route adapters and actual owned TCP protocol fixtures",
+          "logs": "docs/build/production/evidence/PROD-MACH-03/2026-10-06-route-telemetry-1c3913a8.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -2543,12 +2716,41 @@
       "acceptance": [
         "Deduplication/hysteresis/cooldowns/attempt and blast-radius limits/windows/escalation/postmortem; inconclusive diagnosis escalates, repair storms and autoscaler conflicts blocked."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "implementationStatus": "verified_9e4a42af",
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+          "runId": 37398213464,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464",
+          "result": "Incident policy/investigator37 passed/0 skipped and reconciliation stability/controller/PGlite10 passed/0 skipped in separate exported whole-file unit summaries; no failed tests in the completed unit run. Covers every literal stability clause; no raw individual-case status export claimed.",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": {
+            "node": "22.23.3",
+            "scope": "Controlled telemetry/broker ports; genuine local investigator/controller and PGlite adapter; no cloud/default journey"
+          },
+          "logs": "docs/build/production/evidence/PROD-OBS-03/2026-10-06-engine-9e4a42af.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+          "runId": 37398213464,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464",
+          "result": "Actual PostgreSQL incident-stability required group35 passed/0 failed/0 skipped. Supporting reconciliation38/0/0 (all26 requirements) and workflow-intents156/0/0 (all141) remain separate lanes. Remediation-specific prepare/claim query is source-only, not an executed integrated remediation start.",
+          "command": "node scripts/ci/run-gate.mjs platform-postgres --run; node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution",
+          "environment": {
+            "node": "22.23.3",
+            "postgres": "16.15",
+            "tofu": "1.12.5",
+            "scope": "Actual scoped SQL/transactions/concurrency and engine contracts; current source/runtime/exit/environment bound"
+          },
+          "logs": "docs/build/production/evidence/PROD-OBS-03/2026-10-06-engine-9e4a42af.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"

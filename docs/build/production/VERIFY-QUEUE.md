@@ -1,3 +1,7 @@
+## 6 October current verifier checkpoint
+
+Published9e4a42af completed main16/16 and native2/2 green. Local test-only source1c3913a8 adds route42 and telemetry6, exact combined48/0/0; new successor full CI remains pending. Candidate ledger12verified/38in_progress/28planned,78 criteria/fourfalse retained. Read current RESULTS first; older entries below are history. Same branch, Saivedant author+committer. Next: wave-1 push, held JOIN8/critical1+registration3 actual tests and mandatory62 workflows, combined gate and final per-job CI/builder handoff. Default API/live/cloud permission absent.
+
 ## 6 October verifier: main CI passed, one native failure preserved and repaired candidate awaiting rerun
 
 Integrated code `a4c8f0826e4c81cab8199a18abf898e65d4dd2da` fixes only readiness sampling in the packaged-worker harness. Both initial and recovery joins now validate exact HTTP200 and all five readiness checks from one current response; unchanged91-probe/90-delay limits, all22 obligations, downstream Temporal/history/authority/shutdown and owned cleanup remain. Root exact committed affected suites544 passed/0 failed/6 skipped:411 acceptance controls plus133 CI models; six Linux process-supervisor scenarios require native execution. Scoped lint0 and identical reviewed packet compiler0. Changed native runtime remains unverified.

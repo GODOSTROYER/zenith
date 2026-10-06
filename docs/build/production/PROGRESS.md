@@ -1,3 +1,11 @@
+## 6 October verifier: complete published CI and wave-1 scoped checkpoint
+
+Published9e4a42af: main37398213464 all16 jobs and native37398213671 both jobs passed. Native worker22 each architecture; guest152/systemd15/cleanup passed. Unit19436/0/1519, declared skips retained. Local source1c3913a8 adds only reviewed runbook42 and real-TCP telemetry6 contracts; exact committed48/0/0, scoped lint0, byte-identical candidate compiler4096MiB retry0 after retained768MiB heap abort. New source still needs complete successor CI.
+
+Ledger: **12 verified /38 in progress /28 planned**,78 unchanged criteria, four release flagsfalse. CI05/CI08/CI09/MACH01/OBS03 scoped evidence and LIFE02 truthful catalog criteria accepted. Catalog208 entries/16 domains contains **zero supported cells**,119 preview/89 unsupported: catalog verification is not provider production readiness. MACH03 registered delivery, OBS02 default scoped telemetry, LIFE12 wider conflicting actors and COST03 measured optimization remain open for the builder. [Results and fixed20 checklist](verification/RESULTS-2026-10.md). Historical receipts below remain source-bound. Next: normal wave-1 push, missing joins and actual durable scheduling/full62 workflow gate, combined gates/final CI and builder handoff. No default API/cloud/business permission inferred.
+
+---
+
 ## 6 October verifier: main CI passed, one native failure preserved and repaired candidate awaiting rerun
 
 Integrated code `a4c8f0826e4c81cab8199a18abf898e65d4dd2da` fixes only readiness sampling in the packaged-worker harness. Both initial and recovery joins now validate exact HTTP200 and all five readiness checks from one current response; unchanged91-probe/90-delay limits, all22 obligations, downstream Temporal/history/authority/shutdown and owned cleanup remain. Root exact committed affected suites544 passed/0 failed/6 skipped:411 acceptance controls plus133 CI models; six Linux process-supervisor scenarios require native execution. Scoped lint0 and identical reviewed packet compiler0. Changed native runtime remains unverified.

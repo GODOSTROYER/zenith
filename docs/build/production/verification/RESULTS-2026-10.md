@@ -1,3 +1,38 @@
+## 6 October current verifier: fresh baseline green, wave-1 test source integrated locally
+
+Published `9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac` completed main37398213464 all16 jobs and native37398213671 both jobs successfully. Native AMD64 and ARM64 workers each passed22 required checks and all six cleanup proofs. Native guest152, ordered actual systemd15, goldens, interoperability27 and crossbuilds passed with declared fixture limits. Unit19436 passed/0 failed/1519 skipped; platform3034/0/8 with1124 required, PG322/0/0 with80, workflows1273/0/0 with60, reconciliation38/0/0 with26, intents156/0/0 with141, OPA238/0/0 and real OpenTofu3916/0/18 passed separately. Skips remain explicit; counts overlap and are never added. [Current complete CI evidence](../evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json).
+
+Local source `1c3913a87c5c39b91e690e8aed36db5cb79e56a5` adds only reviewed runbook route tests (`196e6e44`) and telemetry protocol tests (`1c3913a8`). Exact committed combined target48 passed/0 failed/0 skipped. Scoped lint passed; byte-identical two-file compiler initially exhausted root-selected768MiB heap, then passed with4096MiB. Initial abort and cleanup residuals remain recorded; root independently confirmed handle absence, owned-path identity and final deletion. [Scoped48 receipt](../evidence/PROD-MACH-03/2026-10-06-route-telemetry-1c3913a8.json). These tests do not prove default API/registered machine/real telemetry engines. Whole1c combined gate and fresh pushed CI remain pending.
+
+### Fixed-order current requirement checklist
+
+| Requirement | Current status | Executed evidence or remaining gap |
+| --- | --- | --- |
+| PROD-CI-05 | verified | Mandatory actual engine cohorts passed on9e; historical kind228 source scope unchanged. |
+| PROD-CI-08 | verified | Main16/16 and native2/2 terminal success on9e; units19436/0/1519; no overlapping sums. |
+| PROD-CI-09 | verified | Every exact9e pushed CI job inspected; new1c CI remains unrun. |
+| PROD-MACH-01 | verified | Native guest152, actual systemd15 and both cleanup scopes passed; modeled issuer/inert-unit/AppArmor fixture limits retained. |
+| PROD-MACH-03 | in_progress | New route42/0/0 committed196e; exact combined1c48/0/0. Actual registered signed guest/default broker join remains missing. |
+| PROD-OBS-02 | in_progress | New actual TCP protocol/factory6/0/0 committed1c; contract only. Default scoped sessions, real telemetry engines and machine health remain open. |
+| PROD-OBS-03 | verified | Actual9e PG35/0/0; independent37 policy and10 controller summaries. Literal stability criteria met; remediation start source-only and live/default repair unclaimed. |
+| PROD-LIFE-02 | verified | Strict offered catalog actual1c exit0; unchanged current9e derive20/catalog13/route7/MCP2 all0 failed/0 skipped. Catalog208 cells, zero supported: matrix verification only. |
+| PROD-LIFE-12 | in_progress | Actual PG seven scoped ownership/race controls pass; broader new-resource writer exclusion and accepted external writes remain unresolved. |
+| PROD-COST-03 | in_progress | Default measured baseline/owner resolution and explicit human opt-in absent; pure optimizer contracts do not close acceptance. |
+| PROD-OBS-04 | in_progress | Held source/contract preparation only; current integrated engine acceptance pending in fixed order. No required skip waiver. |
+| PROD-LIFE-01 | in_progress | Held source/contract preparation only; current integrated engine acceptance pending in fixed order. No required skip waiver. |
+| PROD-LIFE-08 | in_progress | Held source/contract preparation only; current integrated engine acceptance pending in fixed order. No required skip waiver. |
+| PROD-LIFE-09 | in_progress | Held source/contract preparation only; current integrated engine acceptance pending in fixed order. No required skip waiver. |
+| PROD-LIFE-10 | in_progress | Held source/contract preparation only; current integrated engine acceptance pending in fixed order. No required skip waiver. |
+| PROD-LIFE-11 | in_progress | Held source/contract preparation only; current integrated engine acceptance pending in fixed order. No required skip waiver. |
+| PROD-MACH-04 | in_progress | Held source/contract preparation only; current integrated engine acceptance pending in fixed order. No required skip waiver. |
+| PROD-MACH-05 | in_progress | Held source/contract preparation only; current integrated engine acceptance pending in fixed order. No required skip waiver. |
+| PROD-UX-01 | in_progress | Held source/contract preparation only; current integrated engine acceptance pending in fixed order. No required skip waiver. |
+| PROD-UX-03 | in_progress | Held source/contract preparation only; current integrated engine acceptance pending in fixed order. No required skip waiver. |
+
+Ledger12 verified/38 in progress/28 planned. All78 acceptance criteria and four false release states remain intact. Historical failures and original receipts below remain source-bound. Default API/server startup, live resources, paid services, retention and production sign-off remain unapproved. Next: finalize wave-1 scoped evidence/ledger review, normal same-branch push; execute held build/release joins and real durable critical scheduling, preserving all previous60 identities and adding exact2 mandatory cases; combined candidate gates and every final CI job; builder handoff with precise gaps. No wave3 implementation.
+
+---
+
 ## 6 October verifier: main CI passed, one native failure preserved and repaired candidate awaiting rerun
 
 Integrated code `a4c8f0826e4c81cab8199a18abf898e65d4dd2da` fixes only readiness sampling in the packaged-worker harness. Both initial and recovery joins now validate exact HTTP200 and all five readiness checks from one current response; unchanged91-probe/90-delay limits, all22 obligations, downstream Temporal/history/authority/shutdown and owned cleanup remain. Root exact committed affected suites544 passed/0 failed/6 skipped:411 acceptance controls plus133 CI models; six Linux process-supervisor scenarios require native execution. Scoped lint0 and identical reviewed packet compiler0. Changed native runtime remains unverified.

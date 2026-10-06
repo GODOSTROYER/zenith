@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
-import { CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 import { validateGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
@@ -1730,9 +1730,10 @@ describe("mandatory native OAuth grant and additive retained destroy gates", () 
       "canonical verifier and migration refuse a same-named NO INHERIT CHECK constraint",
     ]);
     expect(new Set(required.map(item => item.id)).size).toBe(71);
-    expect(manifest.requirements).toHaveLength(80);
+    expect(manifest.requirements).toHaveLength(93);
     const oauthIds = new Set(required.map(item => item.id));
-    const previous = manifest.requirements.filter(item => !oauthIds.has(item.id));
+    const journalIds = new Set(AGENT_JOURNAL_POSTGRES_REQUIREMENTS.map(item => requirementId("postgres", item)));
+    const previous = manifest.requirements.filter(item => !oauthIds.has(item.id) && !journalIds.has(item.id));
     expect(previous).toHaveLength(9);
     expect(previous.map(({ file, suite, backend }) => ({ file, suite, backend }))).toEqual([
       ...["access", "contract", "ledgers", "release"].map(name => ({ file: `tests/hosted/authority/contract/${name}.test.ts`, suite: name === "ledgers" ? "PostgresAuthority ledgers" : "PostgresAuthority", backend: "postgres" })),
@@ -1888,7 +1889,7 @@ describe("mandatory corrected native OAuth dispatch and linked factory gates", (
     expect(manifest.prerequisites).toEqual(expect.arrayContaining(["ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED=1; OAuth original-plan dispatch and default journal origin require actual owning PostgreSQL16 with explicit ZENITH_TEST_PLATFORM_PG_URL port, canonical platform schema13/product collections and agent schemas1/2/3 through migration0015, independent native connections and positively owned disposable scratch databases/CI roles; hosted REST/current identity/policy and sealed fixture bytes remain modeled", "The additive linked factory preselection controls share ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1 and actual owning PostgreSQL; all prior50 linked origin cases remain mandatory, tooling constructors supply no default origin"]));
     for (const group of nativeOAuthGroups) expect(manifest.command).toContain(group.file);
     expect(manifest.excludeFiles).toEqual([]); expect(manifest.command).not.toContain("--passWithNoTests");
-    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(manifestFor("postgres", root).requirements).toHaveLength(93);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
     expect(reportFailures(manifest.requirements, contractReport(manifest.requirements), root)).toEqual([]);
   });
@@ -1995,7 +1996,7 @@ describe("mandatory human Kubernetes linking cases [report models]", () => {
     expect(manifest.files).toContain("tests/controlplane"); expect(manifest.command).toContain("tests/controlplane");
     expect(manifest.excludeFiles).toEqual([]); expect(manifest.command).not.toContain("--passWithNoTests");
     for (const lane of Object.keys(GATE_LANES).filter(name => name !== "platform-postgres")) expect(manifestFor(lane, root).env[kubernetesLinkGroup.flag]).toBeUndefined();
-    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(manifestFor("postgres", root).requirements).toHaveLength(93);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
     expect(reportFailures(manifest.requirements, contractReport(manifest.requirements), root)).toEqual([]);
   });
@@ -2087,7 +2088,7 @@ describe("mandatory native custody, retention and Kubernetes target cases [repor
         }
       }
     }
-    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(manifestFor("postgres", root).requirements).toHaveLength(93);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
     expect(reportFailures(manifest.requirements, contractReport(manifest.requirements), root)).toEqual([]);
   });
@@ -2166,7 +2167,7 @@ describe("mandatory native cleanup writer barrier cases [report models]", () => 
       expect(manifestFor(lane, root).env[cleanupWriterGroup.flag]).toBeUndefined();
       expect(requirementsFor(lane, root).some(item => item.file === cleanupWriterGroup.file)).toBe(false);
     }
-    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(manifestFor("postgres", root).requirements).toHaveLength(93);
     expect(priorServiceLinuxCases(linuxGuestManifest().raceCases)).toHaveLength(123);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
     expect(reportFailures(manifest.requirements, contractReport(manifest.requirements), root)).toEqual([]);
@@ -2564,7 +2565,7 @@ describe("mandatory saved builtin settlement cases [report models]", () => {
     expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("49f54d75ca5cd7114b69efedabfed9843fcdc1186e49422f9f7e26cae79cf07f");
     expect(historical).toEqual([...previous, ...required]);
     expect(cleanupWriterNamed()).toHaveLength(46); expect(priorCleanupPlatformRequirements()).toHaveLength(1012);
-    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(manifestFor("postgres", root).requirements).toHaveLength(93);
     expect(requirementsFor("workflows", root)).toHaveLength(62);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
@@ -2688,7 +2689,7 @@ describe("mandatory native service.configure observations [report models]", () =
     expect(manifest.allowedSkips.map(item => item.test)).toEqual(["TestRealSystemctlAndJournalctl", "TestRealOpenTofuPlanShowApply", "TestRealOpenTofuWithProviderAndLockfile"]);
     expect(manifest.allowedSkips.some(item => LINUX_GUEST_SERVICE_CASES.some(required => required.package === item.package && required.test === item.test))).toBe(false);
     expect(manifest.goldenCases.map(item => item.test)).toEqual(["TestResultGoldens/file.write-filesystem", "TestResultGoldens/service.configure-filesystem"]);
-    expect(packagedWorkerManifest().requiredChecks).toHaveLength(22); expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(packagedWorkerManifest().requiredChecks).toHaveLength(22); expect(manifestFor("postgres", root).requirements).toHaveLength(93);
   });
 
   it("binds fixed parent and child service identities to the reviewed Linux mapper sources", () => {
@@ -2820,7 +2821,7 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     expect(requirementsFor("platform-postgres", root)).toHaveLength(1124);
     expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
     expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
-    expect(requirementsFor("postgres", root)).toHaveLength(80);
+    expect(requirementsFor("postgres", root)).toHaveLength(93);
     expect(linuxGuestManifest().requiredCases).toHaveLength(152);
     expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
@@ -2891,5 +2892,109 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
       expect(before).toHaveLength(2);
       expect(reportFailures(named(sourceRoot), { success: true, testResults: [] }, sourceRoot)).toHaveLength(2);
     } finally { fs.rmSync(sourceRoot, { recursive: true, force: true }); }
+  });
+});
+
+
+// Synthetic reports below verify strict admission; only the real postgres lane is engine evidence.
+const journalGroupContracts = [
+  {
+    "file": "tests/agent-control-journal.test.ts",
+    "suite": "postgres agent journal (live)",
+    "count": 7,
+    "sourceSha256": "d1117823eff2ce1e07a8f1d43581a865cfdb42bdaf6b721b555fa7b79d7976a9",
+    "namesSha256": "8253402b4f34d3a33c7be428613029bc45e0a9855a7601d7396898de87cefa6d"
+  },
+  {
+    "file": "tests/agent-control-journal-fixes.test.ts",
+    "suite": "postgres agent journal: lease, un-approve and the queue (live)",
+    "count": 6,
+    "sourceSha256": "e4746fbc375eec47d1d58f587d37d879dc8d542b92f45cd2cb0faa3ea633d3ef",
+    "namesSha256": "bd06283f32748e61d481500a4327a7ac8e0d825898e3c535890dc160fe636041"
+  }
+] as const;
+const journalLiteralIds = [
+  "postgres:tests/agent-control-journal.test.ts:bbf84e602596",
+  "postgres:tests/agent-control-journal.test.ts:4218ac28b693",
+  "postgres:tests/agent-control-journal.test.ts:5ec48d13f1f2",
+  "postgres:tests/agent-control-journal.test.ts:2541384d53a7",
+  "postgres:tests/agent-control-journal.test.ts:08db90bb682d",
+  "postgres:tests/agent-control-journal.test.ts:d8de9a3fddea",
+  "postgres:tests/agent-control-journal.test.ts:c0c3a65e7282",
+  "postgres:tests/agent-control-journal-fixes.test.ts:273d2a543765",
+  "postgres:tests/agent-control-journal-fixes.test.ts:c2c56dfe9575",
+  "postgres:tests/agent-control-journal-fixes.test.ts:48a3f4408833",
+  "postgres:tests/agent-control-journal-fixes.test.ts:a50cff746d24",
+  "postgres:tests/agent-control-journal-fixes.test.ts:51e11acab265",
+  "postgres:tests/agent-control-journal-fixes.test.ts:517819ffc16f"
+];
+function journalNamed(sourceRoot = root): Requirement[] {
+  const ids = new Set(journalLiteralIds);
+  return requirementsFor("postgres", sourceRoot).filter(item => ids.has(item.id));
+}
+
+describe("mandatory live agent journal PostgreSQL cases [report models]", () => {
+  it("adds exactly thirteen committed live cases while preserving every original eighty requirement", () => {
+    const manifest = manifestFor("postgres", root), added = journalNamed();
+    expect(added).toHaveLength(13); expect(added.map(item => item.id)).toEqual(journalLiteralIds);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(93);
+    expect(manifest.requirements).toHaveLength(93);
+    const ids = new Set(journalLiteralIds), previous = manifest.requirements.filter(item => !ids.has(item.id));
+    expect(previous).toHaveLength(80);
+    expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("bcf0f03d13d9da5af22a00fbf3cadd8b972ddd2df0538d5166b7ab60b2a2a920");
+    expect(added).toEqual(AGENT_JOURNAL_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("postgres", item) })));
+    for (const group of journalGroupContracts) {
+      const source = fs.readFileSync(path.join(root, group.file), "utf8");
+      expect(createHash("sha256").update(source).digest("hex")).toBe(group.sourceSha256);
+      const declaration = `describe.skipIf(!PG_LIVE)('${group.suite}',`;
+      const start = source.indexOf(declaration); expect(start).toBeGreaterThan(0);
+      const names = [...source.slice(start).matchAll(/\bit\('([^']+)',/g)].map(match => match[1]);
+      expect(names).toHaveLength(group.count);
+      expect(createHash("sha256").update(JSON.stringify(names)).digest("hex")).toBe(group.namesSha256);
+      expect(added.filter(item => item.file === group.file).map(item => item.test)).toEqual(names);
+      expect(source.slice(0, start)).toContain("process.env.ZENITH_CONTRACT_POSTGRES === '1' && Boolean(process.env.SUPABASE_DB_URL)");
+    }
+  });
+
+  it.each(["failed", "pending", "skipped", "todo"])("refuses every live journal case when its actual status is %s", status => {
+    const required = journalNamed();
+    expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+    for (const item of required) {
+      const report = contractReport(required);
+      report.testResults.flatMap(file => file.assertionResults).find(assertion => assertion.title === item.test)!.status = status;
+      expect(reportFailures(required, report, root).length, item.id).toBeGreaterThan(0);
+    }
+  });
+
+  it("refuses missing, model-only, foreign-file and malformed journal evidence", () => {
+    const required = journalNamed();
+    for (const item of required) {
+      expect(reportFailures(required, contractReport(required.filter(other => other.id !== item.id)), root), item.id).toHaveLength(1);
+      const modeled = contractReport(required);
+      modeled.testResults.flatMap(file => file.assertionResults).find(assertion => assertion.title === item.test)!.ancestorTitles = ["modeled agent journal (pglite)"];
+      expect(reportFailures(required, modeled, root).length, item.id).toBeGreaterThan(0);
+      const foreign = contractReport(required);
+      foreign.testResults.find(file => file.name === path.resolve(root, item.file))!.name = path.resolve(root, "tests/foreign-journal.test.ts");
+      expect(reportFailures(required, foreign, root).length, item.id).toBeGreaterThan(0);
+      const malformed = contractReport(required);
+      malformed.testResults.flatMap(file => file.assertionResults).find(assertion => assertion.title === item.test)!.fullName = "";
+      expect(reportFailures(required, malformed, root)).toEqual(["Malformed Vitest assertion evidence"]);
+    }
+  });
+
+  it("retains literal journal obligations after source deletion and rejects zero or duplicated reports", () => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "live-journal-"));
+    const contracts = "tests/hosted/authority/contract";
+    fs.mkdirSync(path.join(sourceRoot, "tests"), { recursive: true });
+    fs.cpSync(path.join(root, contracts), path.join(sourceRoot, contracts), { recursive: true });
+    for (const group of journalGroupContracts) fs.copyFileSync(path.join(root, group.file), path.join(sourceRoot, group.file));
+    const before = journalNamed(sourceRoot); expect(before).toHaveLength(13);
+    for (const group of journalGroupContracts) fs.unlinkSync(path.join(sourceRoot, group.file));
+    expect(journalNamed(sourceRoot)).toEqual(before);
+    expect(reportFailures(before, { success: true, testResults: [] }, sourceRoot)).toHaveLength(13);
+    expect(reportFailures([], contractReport(before), root)).toEqual(["No required scenarios found"]);
+    expect(reportFailures(before, { ...contractReport(before), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+    const duplicate = contractReport(before); duplicate.testResults.push(duplicate.testResults[0]);
+    expect(reportFailures(before, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
   });
 });

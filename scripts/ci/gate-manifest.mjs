@@ -5571,11 +5571,93 @@ export const CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS = [
   },
 ];
 
+// Existing direct PostgreSQL journal races stay mandatory independently of discovery.
+export const AGENT_JOURNAL_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/agent-control-journal.test.ts",
+    "suite": "postgres agent journal (live)",
+    "test": "two connections racing one claim: exactly one wins, the other sees the row unchanged",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-control-journal.test.ts",
+    "suite": "postgres agent journal (live)",
+    "test": "a lease past its end reconciles to uncertain, and is never re-dispatched",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-control-journal.test.ts",
+    "suite": "postgres agent journal (live)",
+    "test": "a finalize with a stale fence changes zero rows",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-control-journal.test.ts",
+    "suite": "postgres agent journal (live)",
+    "test": "an application authority that moved during dispatch refuses to finalize",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-control-journal.test.ts",
+    "suite": "postgres agent journal (live)",
+    "test": "(workspace, subject, request_key) is unique, so prepare is idempotent in the database",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-control-journal.test.ts",
+    "suite": "postgres agent journal (live)",
+    "test": "claims, finalizes and reads back through the same interface the file store satisfies",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-control-journal.test.ts",
+    "suite": "postgres agent journal (live)",
+    "test": "refuses every read and write until the schema ledger is what this build needs",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-control-journal-fixes.test.ts",
+    "suite": "postgres agent journal: lease, un-approve and the queue (live)",
+    "test": "refuses a finalize after the lease lapsed, and the row is resolved as uncertain, never as a success",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-control-journal-fixes.test.ts",
+    "suite": "postgres agent journal: lease, un-approve and the queue (live)",
+    "test": "still finalizes while the lease holds",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-control-journal-fixes.test.ts",
+    "suite": "postgres agent journal: lease, un-approve and the queue (live)",
+    "test": "withdraws an approval: phase, columns and document all go back, and it cannot be claimed",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-control-journal-fixes.test.ts",
+    "suite": "postgres agent journal: lease, un-approve and the queue (live)",
+    "test": "refuses to withdraw a claimed, foreign, changed or unapproved operation, and changes nothing",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-control-journal-fixes.test.ts",
+    "suite": "postgres agent journal: lease, un-approve and the queue (live)",
+    "test": "an un-approve racing a claim on two connections has exactly one winner, whichever gets the row first",
+    "backend": "postgres"
+  },
+  {
+    "file": "tests/agent-control-journal-fixes.test.ts",
+    "suite": "postgres agent journal: lease, un-approve and the queue (live)",
+    "test": "lists an uncertain operation in the review queue, read-only",
+    "backend": "postgres"
+  }
+];
+
 export const GATE_LANES = {
   postgres: {
-    files: ["tests/hosted/authority/contract", "tests/scripts/migrate-hosted-to-postgres.test.ts", "tests/agent-link/pg-contract.test.ts", "tests/agent-control/pg-contract.test.ts", "tests/db/contract/workspace-sharing.test.ts", "tests/waitlist/pg-contract.test.ts", "tests/agent-control/pg-oauth-grants.test.ts"],
+    files: ["tests/hosted/authority/contract", "tests/scripts/migrate-hosted-to-postgres.test.ts", "tests/agent-link/pg-contract.test.ts", "tests/agent-control/pg-contract.test.ts", "tests/db/contract/workspace-sharing.test.ts", "tests/waitlist/pg-contract.test.ts", "tests/agent-control/pg-oauth-grants.test.ts", "tests/agent-control-journal.test.ts", "tests/agent-control-journal-fixes.test.ts"],
     env: { ZENITH_CONTRACT_POSTGRES: "1", ZENITH_FAST: "1", ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED: "1" }, report: ".data-ci-lane/postgres-lane.json",
-    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15 at SUPABASE_DB_URL", "Hosted, agent, membership and waitlist migrations applied with scripts/ci/apply-supabase-migrations.sh", "ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED=1; native OAuth grant persistence requires real PostgreSQL16, canonical agent schemas1/2/3 through migration0015, positively owned disposable CREATEDB/DROP DATABASE and existing canonical CI roles; upstream OAuth identity remains modeled"],
+    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15 at SUPABASE_DB_URL", "Hosted, agent, membership and waitlist migrations applied with scripts/ci/apply-supabase-migrations.sh", "ZENITH_CONTRACT_POSTGRES=1 and SUPABASE_DB_URL enable all13 literal live agent journal races; serial canonical migration setup preserves existing agent1/2/3 and OAuth grants; no missing, skipped or modeled case supplies execution evidence", "ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED=1; native OAuth grant persistence requires real PostgreSQL16, canonical agent schemas1/2/3 through migration0015, positively owned disposable CREATEDB/DROP DATABASE and existing canonical CI roles; upstream OAuth identity remains modeled"],
     tools: { node: "22.23.3", postgres: "16.15" },
   },
   policy: {
@@ -5898,6 +5980,7 @@ export function requirementsFor(lane, root) {
         { file: "tests/scripts/migrate-hosted-to-postgres.test.ts", suite: "migrate-hosted-to-postgres — against the real Supabase project", backend: "postgres" },
         ...[["tests/agent-link/pg-contract.test.ts", "AgentLinkPostgres"], ["tests/agent-control/pg-contract.test.ts", "AgentControlPostgres"], ["tests/db/contract/workspace-sharing.test.ts", "WorkspaceSharingPostgres"], ["tests/waitlist/pg-contract.test.ts", "WaitlistPostgres"]].map(([file, suite]) => ({ file, suite, backend: "postgres" })),
         ...OAUTH_GRANT_POSTGRES_REQUIREMENTS,
+        ...AGENT_JOURNAL_POSTGRES_REQUIREMENTS,
       ];
       break;
     case "policy":

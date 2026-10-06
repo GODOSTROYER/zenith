@@ -85,7 +85,7 @@
     "@electric-sql/pglite": "0.5.8",
     "@kubernetes/client-node": "2.0.0",
     "@modelcontextprotocol/server": "2.0.0",
-    "@open-policy-agent/opa-wasm": "1.10.0",
+    "opa-wasm-yaml": "npm:yaml@1.10.3",
     "@supabase/ssr": "0.12.5",
     "@supabase/supabase-js": "2.112.4",
     "@temporalio/activity": "1.24.0",

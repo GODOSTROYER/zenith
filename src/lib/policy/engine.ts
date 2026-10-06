@@ -28,7 +28,7 @@
  */
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { loadPolicy } from "@open-policy-agent/opa-wasm";
+import { loadPolicy } from "@/lib/policy/vendor/opa-wasm/index.mjs";
 import { z } from "zod";
 import { CAPABILITIES, type CapabilityDef } from "@/lib/capabilities/catalog";
 import { digest, sha256Hex } from "@/lib/controlplane/digest";

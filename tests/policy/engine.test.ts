@@ -6,7 +6,7 @@ import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadPolicy } from "@open-policy-agent/opa-wasm";
+import { loadPolicy } from "@/lib/policy/vendor/opa-wasm/index.mjs";
 import { digest, sha256Hex } from "@/lib/controlplane/digest";
 import {
   createPolicyEngine,

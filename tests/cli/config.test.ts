@@ -7,7 +7,7 @@ import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { configPaths, loadConfig, saveConfig } from "@/cli/config";
 import { TOKEN, fixture, invoke } from "./support";
-import { windowsFixtureFailureMessage } from "../../scripts/ci/skipped-platforms.mjs";
+import { windowsFixtureFailureMessage, windowsPrerequisiteFailureMessage } from "../../scripts/ci/skipped-platforms.mjs";
 
 let home: string;
 let server: Awaited<ReturnType<typeof fixture>>;
@@ -35,25 +35,34 @@ async function windowsAclPrerequisite(directory: string) {
   const env: NodeJS.ProcessEnv = { NODE_ENV: "test", ZENITH_TEST_ACL_HOME: directory };
   for (const key of ["SystemRoot", "WINDIR", "USERPROFILE", "TEMP", "TMP"]) if (process.env[key]) env[key] = process.env[key];
   const script = `$ErrorActionPreference = 'Stop'
-$acl = Get-Acl -LiteralPath $env:ZENITH_TEST_ACL_HOME
-$null = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
-$null = $acl.Access`;
+try { $acl = Get-Acl -LiteralPath $env:ZENITH_TEST_ACL_HOME }
+catch [System.Management.Automation.CommandNotFoundException] { exit 51 }
+catch { exit 52 }
+try { $null = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value }
+catch { exit 53 }
+try { $null = $acl.Access }
+catch { exit 54 }`;
   await new Promise<void>((resolve, reject) => {
     let callbackPassed = false;
+    let childFailure: string | undefined;
     let deadline: NodeJS.Timeout | undefined;
-    const refuse = () => reject(new Error("Windows ACL fixture prerequisite failed."));
+    const refuse = (reason: "child" | "deadline" | "close", error?: unknown) => reject(new Error(windowsPrerequisiteFailureMessage(reason, error)));
     try {
       const child = execFile(join(windows, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
         ["-NoProfile", "-NonInteractive", "-Command", script],
-        { env, windowsHide: true, timeout: 15_000, maxBuffer: 4096 }, error => { callbackPassed = error === null; });
+        { env, windowsHide: true, timeout: 15_000, maxBuffer: 4096 }, error => {
+          callbackPassed = error === null;
+          if (error) childFailure = windowsPrerequisiteFailureMessage("child", error);
+        });
       pendingWindowsAclStartup.add(directory);
       child.once("close", (code, signal) => {
         pendingWindowsAclStartup.delete(directory);
         if (deadline) clearTimeout(deadline);
-        if (callbackPassed && code === 0 && signal === null) resolve(); else refuse();
+        if (callbackPassed && code === 0 && signal === null) resolve();
+        else if (childFailure) reject(new Error(childFailure)); else refuse("close");
       });
-      deadline = setTimeout(refuse, 15_000);
-    } catch { refuse(); }
+      deadline = setTimeout(() => refuse("deadline"), 15_000);
+    } catch (error) { refuse("child", error); }
   });
 }
 

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFile, spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { validateNative, validateWindows, validateGo, validateProcess, windowsFixtureFailureMessage, failureDiagnostics, cleanupScratch, WINDOWS_NAME, WINDOWS_EXCLUDED, GO_NAME, GO_PACKAGE } from '../../scripts/ci/skipped-platforms.mjs';
+import { validateNative, validateWindows, validateGo, validateProcess, windowsFixtureFailureMessage, windowsPrerequisiteFailureMessage, failureDiagnostics, cleanupScratch, WINDOWS_NAME, WINDOWS_EXCLUDED, GO_NAME, GO_PACKAGE } from '../../scripts/ci/skipped-platforms.mjs';
 const sha = 'a'.repeat(40);
 const native = (kind: string) => ({ arch: 'x64', platform: kind === 'windows' ? 'win32' : 'linux', runnerOS: kind === 'windows' ? 'Windows' : 'Linux', hosted: true, node: '22.23.3', commit: sha, head: sha, dirty: false, go: 'go version go1.27.1 linux/amd64', init: 'systemd', journald: 'active' });
 const windows = () => {
@@ -161,6 +161,64 @@ describe('native skipped platform admission', () => {
     const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
     report.testResults[0].assertionResults[0].failureMessages = ['Error: ' + windowsFixtureFailureMessage('setup', { code: 1 }), 'Error: ' + windowsFixtureFailureMessage('verification', { code: null, killed: true, signal: 'SIGTERM' })];
     expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ fixtureChildOutcome: null, fixtureChildExitCode: null });
+  });
+  it('projects only fixed prerequisite child, deadline and close outcomes without admitting the failed leaf', () => {
+    for (const [reason, error, outcome, exit] of [
+      ['child', { code: null, killed: true, signal: 'SIGTERM' }, 'timeout', null],
+      ['child', { code: 51, killed: false, signal: null }, 'nonzero_exit', 51],
+      ['child', { code: 52, killed: false, signal: null }, 'nonzero_exit', 52],
+      ['child', { code: 53, killed: false, signal: null }, 'nonzero_exit', 53],
+      ['child', { code: 54, killed: false, signal: null }, 'nonzero_exit', 54],
+      ['child', { code: 'ENOENT', message: 'private executable' }, 'spawn_error', null],
+      ['child', { code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER', killed: true, signal: 'SIGTERM' }, 'output_overflow', null],
+      ['child', { code: 'private credential', signal: null }, 'unclassified', null],
+      ['deadline', { message: 'private exception' }, 'deadline', null],
+      ['close', { message: 'private exception' }, 'close_refused', null],
+    ] as const) {
+      const message = windowsPrerequisiteFailureMessage(reason, error);
+      expect(message).toBe(`Windows ACL fixture prerequisite failed. [child=${outcome};exit=${exit === null ? 'none' : exit}]`);
+      const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
+      report.testResults[0].assertionResults[0].failureMessages = ['Error: ' + message + '\n at C:\\private-home\\tests\\cli\\config.test.ts:44:5'];
+      const diagnostic = failureDiagnostics({ status: 1 }, report, 'parsed');
+      expect(diagnostic).toMatchObject({ failureKind: 'fixture_prerequisite', fixtureChildOutcome: outcome, fixtureChildExitCode: exit, failureAtTestLine: 44, timeout: false });
+      expect(JSON.stringify(diagnostic) + message).not.toMatch(/private executable|private credential|private exception|private-home|SIGTERM|ENOENT|MAXBUFFER/);
+      expect(() => validateWindows(report, { ...native('windows'), childExitCode: 1 })).toThrow();
+    }
+    expect(() => Reflect.apply(windowsPrerequisiteFailureMessage, undefined, ['private reason'])).toThrow('Native skipped-platform acceptance refused.');
+  });
+  it('does not copy malformed, contradictory or misplaced prerequisite metadata into public fields', () => {
+    for (const message of [
+      'Error: Windows ACL fixture prerequisite failed. [child=deadline;exit=51]',
+      'Error: Windows ACL fixture prerequisite failed. [child=close_refused;exit=1]',
+      'Error: Windows ACL fixture prerequisite failed. [child=nonzero_exit;exit=0]',
+      'Error: Windows ACL fixture prerequisite failed. [child=nonzero_exit;exit=4294967296]',
+      'Error: Windows ACL fixture prerequisite failed. [child=private credential;exit=none]',
+      'Error: Windows ACL fixture prerequisite failed. [child=timeout;exit=none] private suffix',
+      'Error: Windows inherited ACL fixture verification failed. [child=deadline;exit=none]',
+      'Error: unrelated\nError: Windows ACL fixture prerequisite failed. [child=close_refused;exit=none]',
+    ]) {
+      const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
+      report.testResults[0].assertionResults[0].failureMessages = [message];
+      expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ fixtureChildOutcome: null, fixtureChildExitCode: null });
+      expect(() => validateWindows(report, { ...native('windows'), childExitCode: 1 })).toThrow();
+    }
+  });
+  it('retains one bounded prerequisite failure alongside its exact unsettled-cleanup marker only', () => {
+    const prerequisite = 'Error: ' + windowsPrerequisiteFailureMessage('deadline') + '\n at C:\\private-home\\tests\\cli\\config.test.ts:44:5';
+    const cleanup = 'Error: Windows ACL fixture prerequisite cleanup unconfirmed.\n at C:\\private-home\\tests\\cli\\config.test.ts:17:5';
+    for (const messages of [[prerequisite, cleanup], [cleanup, prerequisite]]) {
+      const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
+      report.testResults[0].assertionResults[0].failureMessages = messages;
+      expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ failureKind: 'fixture_prerequisite', fixtureChildOutcome: 'deadline', fixtureChildExitCode: null, failureAtTestLine: 44 });
+      expect(JSON.stringify(failureDiagnostics({ status: 1 }, report, 'parsed'))).not.toMatch(/private-home|config.test.ts/);
+      expect(() => validateWindows(report, { ...native('windows'), childExitCode: 1 })).toThrow();
+    }
+    for (const messages of [[prerequisite, prerequisite], [prerequisite, cleanup, cleanup], [prerequisite, 'Error: private credential'], [cleanup]]) {
+      const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
+      report.testResults[0].assertionResults[0].failureMessages = messages;
+      expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ fixtureChildOutcome: null, fixtureChildExitCode: null });
+      expect(() => validateWindows(report, { ...native('windows'), childExitCode: 1 })).toThrow();
+    }
   });
   it('accepts actual Go exact leaf without exposing journal text', () => { const result = validateGo(go()); expect(result).toEqual({ name: GO_NAME, passed: 1, failed: 0, skipped: 0, excludedSiblingCount: 0 }); expect(JSON.stringify(result)).not.toContain('private journal'); });
   it.each(['skip', 'fail', 'pause'])('refuses Go %s', action => { expect(() => validateGo(go(action))).toThrow(); });

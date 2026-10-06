@@ -4,7 +4,9 @@
  *
  * Nothing here logs or returns a connection string; errors carry no values.
  */
-import { assertConnectableHost, type HostLookup } from "./net";
+import net from "node:net";
+import tls from "node:tls";
+import { allowPrivateHostsFromEnv, resolveConnectableHost, assertConnectableHost, type HostLookup } from "./net";
 import { S3ObjectStore, parseS3Credentials, type S3Credentials } from "./engines/s3";
 import { parseMysqlUri, spawnMysqlCli, type MysqlCli } from "./engines/mysql";
 import { PortabilityError, type SqlRunner } from "./types";
@@ -22,7 +24,7 @@ export interface OpenBinding {
   close(): Promise<void>;
 }
 
-type PostgresSsl = false | "require" | { rejectUnauthorized: true };
+type PostgresSsl = false | tls.ConnectionOptions;
 
 function postgresSsl(url: URL, allowPrivate: boolean): PostgresSsl {
   const mode = url.searchParams.get("sslmode");
@@ -30,8 +32,8 @@ function postgresSsl(url: URL, allowPrivate: boolean): PostgresSsl {
     if (!allowPrivate) throw new PortabilityError("invalid_input", "A Postgres connection without TLS is only allowed on a worker the operator placed inside the tenant's network.");
     return false;
   }
-  if (mode === "verify-full" || mode === "verify-ca") return { rejectUnauthorized: true };
-  return "require";
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  return { rejectUnauthorized: true, servername: net.isIP(hostname) ? undefined : hostname, checkServerIdentity: (_host, cert) => tls.checkServerIdentity(hostname, cert) };
 }
 
 /** One Postgres session (a single connection): the engine issues BEGIN/COMMIT itself. */
@@ -44,12 +46,27 @@ export async function openPostgres(uri: string, opts: ConnectOptions = {}): Prom
   }
   if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") throw new PortabilityError("invalid_input", "The Postgres connection secret must be a postgres:// URI.");
   await assertConnectableHost(url.hostname, { allowPrivate: opts.allowPrivate, lookup: opts.lookup });
-  const allowPrivate = opts.allowPrivate ?? false;
+  const allowPrivate = opts.allowPrivate ?? allowPrivateHostsFromEnv();
   const ssl = postgresSsl(url, allowPrivate);
   const { default: postgres } = await import("postgres");
   const clean = new URL(uri);
   clean.searchParams.delete("sslmode");
-  const client = postgres(clean.toString(), {
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  const clientOptions = {
+    // postgres invokes this factory for every new session, including reconnects.
+    socket: async () => {
+      const addresses = await resolveConnectableHost(hostname, opts);
+      return await new Promise<net.Socket>((resolve, reject) => {
+        const socket = net.createConnection({ host: addresses[0]!.address, family: addresses[0]!.family, port: Number(url.port || 5432) });
+        socket.setTimeout(20_000, () => socket.destroy(new PortabilityError("unavailable", "The Postgres service could not be reached.")));
+        socket.once("error", reject);
+        socket.once("connect", () => {
+          socket.setTimeout(0);
+          socket.removeListener("error", reject);
+          resolve(socket);
+        });
+      });
+    },
     max: 1,
     ssl,
     prepare: false,
@@ -57,14 +74,17 @@ export async function openPostgres(uri: string, opts: ConnectOptions = {}): Prom
     connect_timeout: 20,
     onnotice: () => undefined,
     connection: { application_name: "zenith-portability" },
-  });
+  };
+  const client = postgres(clean.toString(), clientOptions);
   const runner: SqlRunner = {
     async query(text, params) {
       try {
         return (await client.unsafe(text, (params ?? []) as never[])) as unknown as Record<string, unknown>[];
       } catch (err) {
         // The driver's message can carry statement text and values; only a class of failure leaves.
-        const code = (err as { code?: string }).code ?? "";
+        if (err instanceof PortabilityError) throw err;
+        const rawCode = (err as { code?: unknown }).code;
+        const code = typeof rawCode === "string" && /^(?:[0-9A-Z]{5}|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|CONNECT_TIMEOUT)$/.test(rawCode) ? rawCode : "";
         if (code.startsWith("28") || code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ETIMEDOUT" || code === "CONNECT_TIMEOUT") throw new PortabilityError("unavailable", "The Postgres service could not be reached with the registered credentials.");
         throw new PortabilityError("verification_failed", `A Postgres statement failed (${code || "error"}).`);
       }
@@ -77,7 +97,7 @@ export async function openMysql(uri: string, opts: ConnectOptions = {}): Promise
   const conn = parseMysqlUri(uri);
   await assertConnectableHost(conn.host, { allowPrivate: opts.allowPrivate, lookup: opts.lookup });
   if (conn.ssl === "disabled" && !opts.allowPrivate) throw new PortabilityError("invalid_input", "A MySQL connection without TLS is only allowed on a worker the operator placed inside the tenant's network.");
-  return { binding: { kind: "mysql", conn, cli: opts.mysqlCli ?? spawnMysqlCli() }, close: async () => undefined };
+  return { binding: { kind: "mysql", conn, cli: opts.mysqlCli ?? spawnMysqlCli(process.env, { allowPrivate: opts.allowPrivate, lookup: opts.lookup }) }, close: async () => undefined };
 }
 
 export function openObjectStore(credentialsJson: string, opts: ConnectOptions = {}): { creds: S3Credentials; store: S3ObjectStore } {

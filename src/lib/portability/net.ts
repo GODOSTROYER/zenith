@@ -9,10 +9,8 @@
  * for a worker deployed inside the tenant's own network or for local
  * development. Link-local, unspecified and multicast are never allowed.
  *
- * Name resolution is checked, not trusted: every address a name resolves to
- * must pass. A resolver race (rebinding between this check and the connect) is
- * not closed here; that needs the connection to be made to the vetted address,
- * which the Postgres and S3 clients do not expose.
+ * Every answer must pass. Transports resolve anew for each connection and use
+ * only the returned literals, preserving the original hostname for TLS identity.
  */
 import { lookup as dnsLookup } from "node:dns/promises";
 import net from "node:net";
@@ -31,10 +29,29 @@ function v4Parts(ip: string): number[] | null {
   return parts.length === 4 && parts.every((n) => Number.isInteger(n) && n >= 0 && n <= 255) ? parts : null;
 }
 
-/** Classify one literal address. `mapped` handles ::ffff:a.b.c.d. */
+/** Expand a valid IPv6 literal before classifying equivalent spellings. */
+function v6Parts(address: string): number[] {
+  let ip = address.split("%")[0]!.toLowerCase();
+  if (ip.includes(".")) {
+    const split = ip.lastIndexOf(":");
+    const v4 = v4Parts(ip.slice(split + 1))!;
+    ip = `${ip.slice(0, split)}:${((v4[0]! << 8) | v4[1]!).toString(16)}:${((v4[2]! << 8) | v4[3]!).toString(16)}`;
+  }
+  const [left, right] = ip.split("::");
+  const a = left ? left.split(":").map((x) => parseInt(x, 16)) : [];
+  const b = right ? right.split(":").map((x) => parseInt(x, 16)) : [];
+  return right === undefined ? a : [...a, ...Array(8 - a.length - b.length).fill(0), ...b];
+}
+
+/** Classify literals, including dotted and hexadecimal IPv4 mapped IPv6. */
 export function classifyAddress(address: string): "public" | "private" | "loopback" | "never" {
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(address);
-  const ip = mapped ? mapped[1]! : address;
+  let ip = address;
+  if (net.isIPv6(address)) {
+    const p = v6Parts(address);
+    if (p.slice(0, 5).every((n) => n === 0) && p[5] === 0xffff) {
+      ip = `${p[6]! >> 8}.${p[6]! & 255}.${p[7]! >> 8}.${p[7]! & 255}`;
+    }
+  }
   if (net.isIPv4(ip)) {
     const p = v4Parts(ip);
     if (!p) return "never";
@@ -46,11 +63,11 @@ export function classifyAddress(address: string): "public" | "private" | "loopba
     return "public";
   }
   if (net.isIPv6(ip)) {
-    const lower = ip.toLowerCase();
-    if (lower === "::" || lower.startsWith("ff")) return "never";
-    if (lower === "::1") return "loopback";
-    if (lower.startsWith("fe8") || lower.startsWith("fe9") || lower.startsWith("fea") || lower.startsWith("feb")) return "never";
-    if (lower.startsWith("fc") || lower.startsWith("fd")) return "private";
+    const p = v6Parts(ip);
+    if (p.every((n) => n === 0) || (p[0]! & 0xff00) === 0xff00) return "never";
+    if (p.slice(0, 7).every((n) => n === 0) && p[7] === 1) return "loopback";
+    if ((p[0]! & 0xffc0) === 0xfe80) return "never";
+    if ((p[0]! & 0xfe00) === 0xfc00) return "private";
     return "public";
   }
   return "never";
@@ -59,7 +76,7 @@ export function classifyAddress(address: string): "public" | "private" | "loopba
 const NAME_REFUSED = /(^|\.)(localhost|internal|local|localdomain)$/i;
 
 /** Refuse a host the worker must not connect to. Never echoes a resolved address. */
-export async function assertConnectableHost(host: string, opts: { allowPrivate?: boolean; lookup?: HostLookup } = {}): Promise<void> {
+export async function resolveConnectableHost(host: string, opts: { allowPrivate?: boolean; lookup?: HostLookup } = {}): Promise<readonly { address: string; family: 4 | 6 }[]> {
   const allowPrivate = opts.allowPrivate ?? allowPrivateHostsFromEnv();
   const refuse = (): never => {
     throw new PortabilityError("invalid_input", "The service host is not one the worker may connect to (loopback, private, link-local and metadata addresses are refused).");
@@ -70,7 +87,10 @@ export async function assertConnectableHost(host: string, opts: { allowPrivate?:
     if (kind === "never") refuse();
     if ((kind === "private" || kind === "loopback") && !allowPrivate) refuse();
   };
-  if (net.isIP(bare)) return check(classifyAddress(bare));
+  if (net.isIP(bare)) {
+    check(classifyAddress(bare));
+    return [{ address: bare, family: net.isIPv4(bare) ? 4 : 6 }];
+  }
   if (NAME_REFUSED.test(bare) && !allowPrivate) return refuse();
   let addresses: string[];
   try {
@@ -80,4 +100,10 @@ export async function assertConnectableHost(host: string, opts: { allowPrivate?:
   }
   if (addresses.length === 0) return refuse();
   for (const a of addresses) check(classifyAddress(a));
+  return addresses.map((address) => ({ address, family: net.isIPv4(address) ? 4 : 6 }));
+}
+
+/** Compatibility preflight; actual transports must use the validated literals. */
+export async function assertConnectableHost(host: string, opts: { allowPrivate?: boolean; lookup?: HostLookup } = {}): Promise<void> {
+  await resolveConnectableHost(host, opts);
 }

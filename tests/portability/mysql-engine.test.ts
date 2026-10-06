@@ -8,8 +8,15 @@
  * database and the mysql and mysqldump clients are installed; it has not been
  * executed in this build.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import childProcess from "node:child_process";
+import { syncBuiltinESMExports } from "node:module";
+import { randomUUID } from "node:crypto";
+import { chmod, lstat, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { exportMysql, importMysql, isMysqlEmpty, parseMysqlUri, readbackMysql, spawnMysqlCli, type CliOptions, type CliResult, type MysqlCli, type MysqlConnection } from "@/lib/portability/engines/mysql";
+import { openMysql, type OpenBinding } from "@/lib/portability/connect";
 import { runExport, runImport } from "@/lib/portability/service";
 import { PortabilityError, type EmitFile } from "@/lib/portability/types";
 import { directoryArtifactStore, tempDir } from "./support";
@@ -143,21 +150,152 @@ describe("the real clients", () => {
     await expect(cli.run("mysql", ["--version"], { env: {}, maxBytes: 1000, timeoutMs: 5000 })).rejects.toMatchObject({ code: "unavailable" });
     await expect(cli.run("mysqldump", ["--version"], { env: {}, maxBytes: 1000, timeoutMs: 5000 })).rejects.toMatchObject({ code: "unavailable" });
   });
+
+  it("revalidates every invocation, pins only the vetted address and excludes ambient redirects", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "zenith-mysql-wrapper-test-"));
+    let restoreSpawn: () => void = () => undefined;
+    try {
+      const observedSpawn = vi.spyOn(childProcess, "spawn");
+      syncBuiltinESMExports();
+      restoreSpawn = () => { observedSpawn.mockRestore(); syncBuiltinESMExports(); };
+      const bin = join(dir, "client");
+      const receipt = join(dir, "calls");
+      await writeFile(bin, `#!${process.execPath}\nrequire('node:fs').appendFileSync(${JSON.stringify(receipt)}, 'call\\n'); process.stdout.write(JSON.stringify({args:process.argv.slice(2),keys:Object.keys(process.env).filter(k=>k.startsWith('MYSQL_')).sort()}));`, { mode: 0o700 });
+      await chmod(bin, 0o700);
+      let reads = 0;
+      const env = { ZENITH_MYSQL_BIN: bin, MYSQL_HOST: "forbidden", MYSQL_TCP_PORT: "1", HOME: "forbidden" };
+      const cli = spawnMysqlCli(env, { allowPrivate: true, lookup: async () => ++reads === 1 ? ["192.168.1.10"] : ["192.168.1.10", "169.254.169.254"] });
+      const args = ["--host=db.example.test", "--port=3306", "--user=app", "--ssl-mode=DISABLED", "-e", "select 1", "shop"];
+      const first = await cli.run("mysql", args, { env: { MYSQL_PWD: PW, MYSQL_HOST: "forbidden", MYSQL_TEST_LOGIN_FILE: "forbidden" }, maxBytes: 4096, timeoutMs: 5000 });
+      expect(first.code).toBe(0);
+      expect(observedSpawn.mock.calls.length).toBe(1);
+      const parsed = JSON.parse(first.stdout.toString()) as { args: string[]; keys: string[] };
+      expect(parsed.args).toContain("--host=192.168.1.10");
+      expect(parsed.args).not.toContain("--host=db.example.test");
+      expect(parsed.args.slice(0, 2)).toEqual(["--no-defaults", "--no-login-paths"]);
+      for (const required of ["--protocol=TCP", "--skip-reconnect", "--binary-mode", "--local-infile=0", "--ssl-mode=DISABLED"]) expect(parsed.args).toContain(required);
+      expect(parsed.keys).toEqual(["MYSQL_PWD", "MYSQL_TEST_LOGIN_FILE"]);
+      await expect(cli.run("mysql", args, { env: { MYSQL_PWD: PW }, maxBytes: 4096, timeoutMs: 5000 })).rejects.toMatchObject({ code: "invalid_input" });
+      expect(reads).toBe(2);
+      expect(observedSpawn.mock.calls.length).toBe(1);
+      expect(await readFile(receipt, "utf8")).toBe("call\n");
+      expect(args[0]).toBe("--host=db.example.test");
+    } finally { restoreSpawn(); await rm(dir, { recursive: true }); }
+  });
+
+  it("refuses hostname TLS, private destinations without opt-in and caller-supplied redirect options before spawning", async () => {
+    let reads = 0;
+    const cli = spawnMysqlCli({ ZENITH_MYSQL_BIN: "zenith-definitely-not-installed-mysql" }, { lookup: async () => { reads++; return ["93.184.216.34"]; } });
+    const base = ["--host=db.example.test", "--port=3306", "--user=app", "--ssl-mode=REQUIRED", "-e", "select 1", "shop"];
+    await expect(cli.run("mysql", base, { env: { MYSQL_PWD: PW }, maxBytes: 4096, timeoutMs: 5000 })).rejects.toMatchObject({ code: "unsupported_objects" });
+    expect(reads).toBe(1);
+    for (const redirect of ["--host=127.0.0.1", "--socket=/tmp/other", "--protocol=SOCKET", "--defaults-file=/tmp/other", "--dns-srv-name=other", "--ssl-mode=PREFERRED", "--ssl-ca=/tmp/other", "--reconnect"]) {
+      await expect(cli.run("mysql", [...base.slice(0, -1), redirect, "shop"], { env: { MYSQL_PWD: PW }, maxBytes: 4096, timeoutMs: 5000 })).rejects.toMatchObject({ code: "invalid_input" });
+    }
+    for (const databaseOption of ["--reconnect", "--local-infile", "--help"]) await expect(cli.run("mysql", [...base.slice(0, -1), databaseOption], { env: { MYSQL_PWD: PW }, maxBytes: 4096, timeoutMs: 5000 })).rejects.toMatchObject({ code: "invalid_input" });
+    expect(reads).toBe(1);
+    const local = [...base]; local[0] = "--host=127.0.0.1"; local[3] = "--ssl-mode=DISABLED";
+    await expect(cli.run("mysql", local, { env: { MYSQL_PWD: PW }, maxBytes: 4096, timeoutMs: 5000 })).rejects.toMatchObject({ code: "invalid_input" });
+    const publicPlain = [...base]; publicPlain[3] = "--ssl-mode=DISABLED";
+    await expect(cli.run("mysql", publicPlain, { env: { MYSQL_PWD: PW }, maxBytes: 4096, timeoutMs: 5000 })).rejects.toMatchObject({ code: "invalid_input" });
+    await expect(spawnMysqlCli({}, { allowPrivate: true, lookup: async () => ["93.184.216.34"] }).run("mysql", publicPlain, { env: { MYSQL_PWD: PW }, maxBytes: 4096, timeoutMs: 5000 })).rejects.toMatchObject({ code: "invalid_input" });
+  });
 });
 
 const REAL = process.env.ZENITH_TEST_MYSQL_URL?.trim();
 describe.skipIf(!REAL)("real MySQL server (needs mysql and mysqldump on PATH and an EMPTY scratch database)", () => {
   it("exports, restores into a second empty database and verifies by readback", async () => {
-    const source = parseMysqlUri(REAL as string);
-    const cli = spawnMysqlCli();
-    const store = directoryArtifactStore(tempDir());
-    const q = async (c: MysqlConnection, sql: string) => cli.run("mysql", [`--host=${c.host}`, `--port=${c.port}`, `--user=${c.user}`, "-e", sql, c.database], { env: { MYSQL_PWD: c.password }, maxBytes: 1_000_000, timeoutMs: 60_000 });
-    await q(source, "create table pt_orders (id int primary key auto_increment, who varchar(20), amount decimal(10,2)); insert into pt_orders (who, amount) values ('ada', 10.50), ('grace', null)");
+    const dnsUri = new URL(REAL as string);
+    dnsUri.hostname = "owned-mysql-dns.example.test";
+    dnsUri.searchParams.set("ssl", "required");
+    const openedNegative: OpenBinding[] = [];
+    // A call-through observer, never a fake CLI or replacement success. Compare
+    // only its scalar count so an unexpected call cannot print credential envs.
+    const spawned = vi.spyOn(childProcess, "spawn");
+    syncBuiltinESMExports();
+    const invoke = (opened: OpenBinding) => {
+      if (opened.binding.kind !== "mysql") throw new Error("The native MySQL negative opened the wrong engine.");
+      const { conn: c, cli } = opened.binding;
+      return cli.run("mysql", [`--host=${c.host}`, `--port=${c.port}`, `--user=${c.user}`, "--ssl-mode=REQUIRED", "--batch", "--skip-column-names", "-e", "select 1", c.database], { env: { MYSQL_PWD: c.password }, maxBytes: 4096, timeoutMs: 5000 });
+    };
     try {
-      const outcome = await runExport({ workspaceId: "ws_1", environmentId: "env_1", operationId: "op_1", now: new Date(), source: { provider: "aws", nativeType: "aws:rds_instance", address: "mysql/shop" }, binding: { kind: "mysql", conn: source, cli }, store });
-      expect(outcome.coverage).toMatchObject({ tables: 1, rows: 2 });
+      let firstReads = 0;
+      const rebinding = await openMysql(dnsUri.toString(), { allowPrivate: false, lookup: async () => ++firstReads === 1 ? ["93.184.216.34"] : ["10.0.0.1"] });
+      openedNegative.push(rebinding);
+      await expect(invoke(rebinding)).rejects.toMatchObject({ code: "invalid_input" });
+      expect(firstReads).toBe(2); expect(spawned.mock.calls.length).toBe(0);
+
+      let retryReads = 0;
+      const retry = await openMysql(dnsUri.toString(), { allowPrivate: false, lookup: async () => ++retryReads <= 2 ? ["93.184.216.34"] : ["10.0.0.1"] });
+      openedNegative.push(retry);
+      await expect(invoke(retry)).rejects.toMatchObject({ code: "unsupported_objects" });
+      await expect(invoke(retry)).rejects.toMatchObject({ code: "invalid_input" });
+      expect(retryReads).toBe(3); expect(spawned.mock.calls.length).toBe(0);
     } finally {
-      await q(source, "drop table if exists pt_orders");
+      spawned.mockRestore();
+      syncBuiltinESMExports();
+      const closed = await Promise.allSettled(openedNegative.map((opened) => opened.close()));
+      if (closed.some((result) => result.status === "rejected")) throw new Error("Native MySQL negative binding cleanup was unconfirmed.");
+    }
+    const sourceOpened = await openMysql(REAL as string, { allowPrivate: true });
+    if (sourceOpened.binding.kind !== "mysql") throw new Error("The native MySQL fixture opened the wrong engine.");
+    const source = sourceOpened.binding.conn;
+    const cli = sourceOpened.binding.cli;
+    const artifactDir = await mkdtemp(join(tmpdir(), "zenith-mysql-engine-"));
+    const artifactIdentity = await lstat(artifactDir);
+    const store = directoryArtifactStore(artifactDir);
+    const q = async (c: MysqlConnection, sql: string) => {
+      const result = await spawnMysqlCli(process.env, { allowPrivate: true }).run("mysql", [`--host=${c.host}`, `--port=${c.port}`, `--user=${c.user}`, `--ssl-mode=${c.ssl === "disabled" ? "DISABLED" : "REQUIRED"}`, "--batch", "--skip-column-names", "-e", sql, c.database], { env: { MYSQL_PWD: c.password }, maxBytes: 1_000_000, timeoutMs: 60_000 });
+      expect(result.code, "Stock MySQL fixture command failed").toBe(0);
+      return result.stdout.toString();
+    };
+    const targetName = `zenith_restore_${randomUUID().replaceAll("-", "")}`;
+    const target = { ...source, database: targetName };
+    const targetUri = new URL(REAL as string); targetUri.pathname = `/${targetName}`;
+    let targetOpened: OpenBinding | undefined;
+    let sourceOwned = false;
+    let targetOwned = false;
+    try {
+      expect(await isMysqlEmpty(source, cli)).toBe(true);
+      await q(source, "create table pt_orders (id int primary key auto_increment, who varchar(20), amount decimal(10,2))");
+      sourceOwned = true;
+      await q(source, "insert into pt_orders (who, amount) values ('ada', 10.50), ('grace', null)");
+      await q(source, `create database \`${targetName}\``);
+      targetOwned = true;
+      targetOpened = await openMysql(targetUri.toString(), { allowPrivate: true });
+      const outcome = await runExport({ workspaceId: "ws_1", environmentId: "env_1", operationId: "op_1", now: new Date(), source: { provider: "aws", nativeType: "aws:rds_instance", address: "mysql/shop" }, binding: sourceOpened.binding, store });
+      expect(outcome.coverage).toMatchObject({ tables: 1, rows: 2 });
+      const restored = await runImport({
+        recorded: { manifestDigest: outcome.manifestDigest, contentDigest: outcome.contentDigest, kind: "mysql", engine: outcome.engine },
+        store, target: { provider: "aws", kind: "mysql" }, binding: targetOpened.binding,
+        openReadback: async () => openMysql(targetUri.toString(), { allowPrivate: true }),
+      });
+      expect(restored.status).toBe("verified");
+      expect(restored.coverage).toMatchObject({ tables: 1, rows: 2 });
+      // Independent stock-client readback, not a digest derived from the engine.
+      expect(await q(target, "select id, who, amount from pt_orders order by id")).toBe("1\tada\t10.50\n2\tgrace\tNULL\n");
+    } finally {
+      // Each positively acknowledged create owns exactly this UUID database or
+      // fixed source table. Unknown delivery is retained; no IF EXISTS cleanup.
+      const cleanup = await Promise.allSettled([
+        (async () => {
+          if (!targetOwned) return;
+          await q(source, `drop database \`${targetName}\``);
+          expect(await q(source, `select count(*) from information_schema.schemata where schema_name = '${targetName}'`)).toBe("0\n");
+        })(),
+        (async () => {
+          if (!sourceOwned) return;
+          await q(source, "drop table pt_orders");
+          expect(await isMysqlEmpty(source, cli)).toBe(true);
+        })(),
+        sourceOpened.close(),
+        ...(targetOpened ? [targetOpened.close()] : []),
+      ]);
+      if (cleanup.some((result) => result.status === "rejected")) throw new Error("Owned MySQL fixture cleanup was unconfirmed; artifacts were retained.");
+      const current = await lstat(artifactDir);
+      expect(current.isSymbolicLink()).toBe(false); expect(current.dev).toBe(artifactIdentity.dev); expect(current.ino).toBe(artifactIdentity.ino); expect(current.uid).toBe(artifactIdentity.uid);
+      await rm(artifactDir, { recursive: true });
+      await expect(lstat(artifactDir)).rejects.toMatchObject({ code: "ENOENT" });
     }
   });
 });

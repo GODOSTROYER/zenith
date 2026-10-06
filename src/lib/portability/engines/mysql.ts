@@ -21,7 +21,14 @@
  */
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { constants } from "node:fs";
+import { lstat, mkdtemp, open, rm, writeFile } from "node:fs/promises";
+import { isIP } from "node:net";
+import { tmpdir } from "node:os";
+import { isAbsolute, join } from "node:path";
+import { createSecureContext, rootCertificates } from "node:tls";
 import { digest } from "@/lib/controlplane/digest";
+import { allowPrivateHostsFromEnv, classifyAddress, resolveConnectableHost, type HostLookup } from "../net";
 import { DEFAULT_LIMITS, PortabilityError, type EmitFile, type EngineExport, type EngineLimits, type EngineReadback } from "../types";
 
 const sha = (b: Buffer | string): string => createHash("sha256").update(b).digest("hex");
@@ -60,44 +67,168 @@ export interface MysqlCli {
   run(tool: "mysqldump" | "mysql", args: string[], opts: CliOptions): Promise<CliResult>;
 }
 
-/** The real clients. Binary names can be pinned with ZENITH_MYSQLDUMP_BIN / ZENITH_MYSQL_BIN. */
-export function spawnMysqlCli(env: Record<string, string | undefined> = process.env): MysqlCli {
+export interface MysqlNetworkOptions { allowPrivate?: boolean; lookup?: HostLookup }
+
+/**
+ * The real clients. Each child has a newly vetted literal TCP destination.
+ * Stock VERIFY_IDENTITY authenticates --host, not its separate SNI option:
+ * DNS-host TLS is refused rather than silently replacing hostname identity
+ * with encryption-only or a detached preflight. Literal IP TLS verifies IP SAN.
+ * ZENITH_MYSQL_CA_FILE is a trusted operator file, never a connection-URI path.
+ */
+export function spawnMysqlCli(env: Record<string, string | undefined> = process.env, network: MysqlNetworkOptions = {}): MysqlCli {
+  const binaries = { mysql: env.ZENITH_MYSQL_BIN || "mysql", mysqldump: env.ZENITH_MYSQLDUMP_BIN || "mysqldump" };
+  const allowPrivate = network.allowPrivate ?? allowPrivateHostsFromEnv(env);
+  const lookup = network.lookup;
+  const caFile = env.ZENITH_MYSQL_CA_FILE;
+  const childPath = env.PATH ?? process.env.PATH ?? "";
   return {
-    run(tool, args, opts) {
-      const bin = tool === "mysqldump" ? env.ZENITH_MYSQLDUMP_BIN || "mysqldump" : env.ZENITH_MYSQL_BIN || "mysql";
-      return new Promise<CliResult>((resolve, reject) => {
-        const child = spawn(bin, args, { shell: false, env: { PATH: process.env.PATH ?? "", ...opts.env } as unknown as NodeJS.ProcessEnv, stdio: ["pipe", "pipe", "pipe"] });
+    async run(tool, args, opts) {
+      const supplied = [...args];
+      const password = opts.env.MYSQL_PWD;
+      const input = opts.stdin === undefined ? undefined : Buffer.from(opts.stdin);
+      const maxBytes = opts.maxBytes;
+      const timeoutMs = opts.timeoutMs;
+      // A fixed version probe is non-networking; all other calls need the closed
+      // engine argument shape, including the original host and database.
+      const version = supplied.length === 1 && supplied[0] === "--version";
+      const parsed = version ? undefined : parseClientArgs(tool, supplied);
+      let prepared = supplied;
+      let ca: Buffer | undefined;
+      if (parsed) {
+        const addresses = await resolveConnectableHost(parsed.host, { allowPrivate, lookup });
+        if (parsed.ssl === "DISABLED" && (!allowPrivate || addresses.some(({ address }) => !["private", "loopback"].includes(classifyAddress(address))))) throw new PortabilityError("invalid_input", "A MySQL connection without TLS requires the operator's private-network opt-in and only private destinations.");
+        if (parsed.ssl !== "DISABLED") {
+          if (!isIP(parsed.host)) throw new PortabilityError("unsupported_objects", "Stock MySQL clients cannot preserve DNS hostname TLS identity when connecting to a vetted address; this connection is refused.");
+          ca = await trustedCa(caFile);
+        }
+        prepared = supplied.map((arg) => arg.startsWith("--host=") ? `--host=${addresses[0]!.address}` : arg.startsWith("--ssl-mode=") ? `--ssl-mode=${parsed.ssl === "DISABLED" ? "DISABLED" : "VERIFY_IDENTITY"}` : arg);
+        if (!supplied.some((arg) => arg.startsWith("--ssl-mode="))) prepared.unshift("--ssl-mode=VERIFY_IDENTITY");
+        prepared.unshift("--protocol=TCP");
+        if (tool === "mysql") prepared.unshift("--skip-reconnect", "--binary-mode", "--local-infile=0");
+      }
+      const dir = await mkdtemp(join(tmpdir(), "zenith-mysql-client-"));
+      const original = await lstat(dir);
+      let settled = true;
+      try {
+        if (ca) {
+          const snapshot = join(dir, "ca.pem");
+          await writeFile(snapshot, ca, { mode: 0o600, flag: "wx" });
+          prepared.unshift(`--ssl-ca=${snapshot}`);
+        }
+        prepared.unshift("--no-defaults", "--no-login-paths");
+        return await new Promise<CliResult>((resolve, reject) => {
+        settled = false;
+        let child;
+        try {
+          child = spawn(binaries[tool], prepared, { shell: false, env: { PATH: childPath, HOME: dir, MYSQL_TEST_LOGIN_FILE: join(dir, "absent-login.cnf"), ...(password !== undefined ? { MYSQL_PWD: password } : {}) } as unknown as NodeJS.ProcessEnv, stdio: ["pipe", "pipe", "pipe"] });
+        } catch {
+          settled = true;
+          reject(new PortabilityError("unavailable", `${tool} could not be started.`));
+          return;
+        }
         const out: Buffer[] = [];
         let size = 0;
-        let stderr = "";
         let overflow = false;
-        const timer = setTimeout(() => child.kill("SIGKILL"), opts.timeoutMs);
+        let timedOut = false;
+        let spawnFailure: "missing" | "unavailable" | undefined;
+        let closeDeadline: ReturnType<typeof setTimeout> | undefined;
+        const terminate = () => {
+          child.kill("SIGKILL");
+          closeDeadline ??= setTimeout(() => reject(new PortabilityError("unavailable", "The MySQL client did not settle after termination; its private files were retained.")), 5000);
+        };
+        const timer = setTimeout(() => { timedOut = true; terminate(); }, timeoutMs);
         child.stdout.on("data", (chunk: Buffer) => {
           size += chunk.length;
-          if (size > opts.maxBytes) {
+          if (size > maxBytes) {
             overflow = true;
-            child.kill("SIGKILL");
+            terminate();
             return;
           }
           out.push(chunk);
         });
-        child.stderr.on("data", (chunk: Buffer) => {
-          if (stderr.length < 2000) stderr += chunk.toString("utf8");
-        });
+        // Drain server diagnostics, but never return raw addresses/messages.
+        child.stderr.on("data", () => undefined);
         child.on("error", (err: NodeJS.ErrnoException) => {
-          clearTimeout(timer);
-          reject(err.code === "ENOENT" ? new PortabilityError("unavailable", `${tool} is not installed on this worker.`) : new PortabilityError("unavailable", `${tool} could not be started.`));
+          spawnFailure = err.code === "ENOENT" ? "missing" : "unavailable";
         });
         child.on("close", (code) => {
+          settled = true;
           clearTimeout(timer);
+          if (closeDeadline) clearTimeout(closeDeadline);
+          if (spawnFailure) return reject(new PortabilityError("unavailable", spawnFailure === "missing" ? `${tool} is not installed on this worker.` : `${tool} could not be started.`));
           if (overflow) return reject(new PortabilityError("limit_exceeded", "The MySQL output exceeded the export limit."));
-          resolve({ code: code ?? 1, stdout: Buffer.concat(out), stderr });
+          if (timedOut) return reject(new PortabilityError("unavailable", "The MySQL client exceeded its deadline."));
+          resolve({ code: code ?? 1, stdout: code === 0 ? Buffer.concat(out) : Buffer.alloc(0), stderr: "" });
         });
         child.stdin.on("error", () => undefined);
-        child.stdin.end(opts.stdin);
-      });
+        child.stdin.end(input);
+        });
+      } finally {
+        if (settled) {
+          const current = await lstat(dir);
+          if (!current.isDirectory() || current.isSymbolicLink() || current.dev !== original.dev || current.ino !== original.ino || current.uid !== original.uid) throw new PortabilityError("unavailable", "MySQL private-file ownership changed; cleanup was refused.");
+          await rm(dir, { recursive: true });
+          let absent = false;
+          try { await lstat(dir); }
+          catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") absent = true; else throw error; }
+          if (!absent) throw new PortabilityError("unavailable", "MySQL private-file cleanup was unconfirmed.");
+        }
+      }
     },
   };
+}
+
+function parseClientArgs(tool: "mysqldump" | "mysql", args: readonly string[]): { host: string; ssl: "REQUIRED" | "DISABLED" } {
+  let host: string | undefined;
+  let ssl: "REQUIRED" | "DISABLED" = "REQUIRED";
+  const seen = new Set<string>();
+  const dump = new Set(["--single-transaction", "--skip-comments", "--skip-add-locks", "--no-tablespaces", "--set-gtid-purged=OFF", "--hex-blob", "--triggers"]);
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    const key = arg.split("=", 1)[0]!;
+    if (["--host", "--port", "--user", "--ssl-mode"].includes(key)) {
+      if (seen.has(key) || !arg.includes("=")) throw new PortabilityError("invalid_input", "The MySQL client connection arguments are invalid.");
+      seen.add(key);
+      const value = arg.slice(key.length + 1);
+      if (key === "--host") host = value;
+      if (key === "--port" && (!/^\d{1,5}$/.test(value) || Number(value) < 1 || Number(value) > 65535)) throw new PortabilityError("invalid_input", "The MySQL client port is invalid.");
+      if (key === "--user" && !/^[A-Za-z0-9_.@$-]{1,64}$/.test(value)) throw new PortabilityError("invalid_input", "The MySQL client user is invalid.");
+      if (key === "--ssl-mode") {
+        if (value !== "REQUIRED" && value !== "DISABLED") throw new PortabilityError("invalid_input", "The MySQL TLS mode is invalid.");
+        ssl = value;
+      }
+    } else if (arg === "--default-character-set=utf8mb4" || (tool === "mysqldump" && dump.has(arg)) || (tool === "mysql" && ["--batch", "--skip-column-names", "--binary-as-hex"].includes(arg))) {
+      continue;
+    } else if (tool === "mysql" && arg === "-e" && i + 1 < args.length - 1) {
+      i++;
+    } else if (i !== args.length - 1 || arg.startsWith("-") || !/^[A-Za-z0-9_$.-]{1,64}$/.test(arg)) {
+      throw new PortabilityError("invalid_input", "The MySQL client arguments include an unsupported connection or command option.");
+    }
+  }
+  if (!host || !seen.has("--port") || !seen.has("--user") || !args.length || args[args.length - 1]!.startsWith("-") || !/^[A-Za-z0-9_$.-]{1,64}$/.test(args[args.length - 1]!)) throw new PortabilityError("invalid_input", "The MySQL client requires an explicit host, port, user and database.");
+  return { host, ssl };
+}
+
+async function trustedCa(file: string | undefined): Promise<Buffer> {
+  try {
+    if (!file) return Buffer.from(rootCertificates.join("\n"));
+    if (!isAbsolute(file)) throw new Error("relative");
+    const before = await lstat(file);
+    if (!before.isFile() || before.isSymbolicLink() || before.size < 1 || before.size > 1_000_000) throw new Error("file");
+    const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      const opened = await handle.stat();
+      if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) throw new Error("changed");
+      const bytes = await handle.readFile();
+      const after = await handle.stat();
+      if (before.size !== after.size || before.mtimeMs !== after.mtimeMs || bytes.length !== before.size) throw new Error("changed");
+      createSecureContext({ ca: bytes });
+      return bytes;
+    } finally { await handle.close(); }
+  } catch {
+    throw new PortabilityError("unavailable", "The trusted MySQL CA bundle could not be loaded; TLS was refused.");
+  }
 }
 
 function connArgs(c: MysqlConnection): string[] {

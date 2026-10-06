@@ -32,11 +32,14 @@ describe.skipIf(!enabled)("real tofu deploy removal (ZENITH_TEST_DELETION_GUARDS
     const lease = await w.lease();
     await w.activities.validateDesiredState({ operationId: OP });
     const created = await w.activities.planInfrastructure({ operationId: OP, lease });
+    w.broker.approval = { approved: true, rejected: false, approvalId: "app-real-create-contract" };
+    await expect(w.activities.finalPlan({ operationId: OP, approvedPlanDigest: created.planDigest, lease })).resolves.toMatchObject({ planDigest: created.planDigest });
     await w.activities.applyInfrastructure({ operationId: OP, planDigest: created.planDigest, lease });
     expect(existsSync(state)).toBe(true);
     await w.leases.release(lease);
 
     w.product.base.environment.deployedRevisionId = old;
+    w.broker.approval = { approved: false, rejected: false };
     const operationId = "op-real-removal";
     w.ops.seed({ id: operationId, proposal: { ...operation.proposal, input: { revisionId: REVISION } } });
     const deletionLease = await w.activities.acquireLease({ operationId, scope: `env:${ENV}`, ttlMs: 300_000 });
@@ -52,6 +55,12 @@ describe.skipIf(!enabled)("real tofu deploy removal (ZENITH_TEST_DELETION_GUARDS
     w.broker.approval = { approved: true, rejected: false, approvalId: "app-real-contract" };
     await w.activities.finalPlan({ operationId, approvedPlanDigest: deletion.planDigest, lease: deletionLease });
     await expect(w.activities.applyInfrastructure(args)).resolves.toMatchObject({ applied: 1 });
-    expect((await w.activities.planInfrastructure({ operationId, lease: deletionLease })).empty).toBe(true);
+    // A new read-only operation observes post-apply state without replacing the reviewed deletion plan.
+    await expect(w.leases.release(deletionLease)).resolves.toBe(true);
+    const readbackOperationId = "op-real-removal-readback";
+    w.ops.seed({ id: readbackOperationId, proposal: { ...operation.proposal, input: { revisionId: REVISION } } });
+    const readbackLease = await w.activities.acquireLease({ operationId: readbackOperationId, scope: `env:${ENV}`, ttlMs: 300_000 });
+    expect((await w.activities.planInfrastructure({ operationId: readbackOperationId, lease: readbackLease })).empty).toBe(true);
+    await expect(w.leases.release(readbackLease)).resolves.toBe(true);
   }, 120_000);
 });

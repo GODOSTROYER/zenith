@@ -1217,7 +1217,11 @@ function systemdArtifactFixture() {
   fs.writeFileSync(path.join(root, ".git/config"), "[core]\nrepositoryformatversion = 0\nbare = false\n");
   fs.mkdirSync(path.dirname(path.join(root, manifest.helper)), { recursive: true });
   const files = new Map([[".gitignore", ".data-ci-guest/\n"], ["package-lock.json", "{}\n"], [manifest.helper, "# Synthetic public helper bytes; never executed.\n"]]);
-  for (const [name, bytes] of files) fs.writeFileSync(path.join(root, name), bytes, { mode: 0o644 });
+  for (const [name, bytes] of files) {
+    fs.writeFileSync(path.join(root, name), bytes, { mode: 0o644 });
+    // Public synthetic source must match the modeled mode under a strict umask.
+    fs.chmodSync(path.join(root, name), 0o644);
+  }
   const hash = createHash("sha256");
   for (const [name, bytes] of [...files].sort(([a], [b]) => a.localeCompare(b))) hash.update(`${name}\0${0o644}\0${createHash("sha256").update(bytes).digest("hex")}\0`);
   const binding = { commit: "a".repeat(40), sourceSha256: hash.digest("hex"), lockSha256: createHash("sha256").update("{}\n").digest("hex"),

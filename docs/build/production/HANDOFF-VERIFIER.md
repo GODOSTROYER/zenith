@@ -1,3 +1,9 @@
+## Integrated test checkpoint, 6 October 2026
+
+6 October human instruction authorizes only the current source-map-js patch and bounded licensed OPA formatter precision security repair for GHSA-68fv-2mgg-jv7q and GHSA-hp3w-g68c-fv3c. This overrides the earlier dependency-upgrade exclusion for these findings only. General upgrades, force updates, gate weakening, fake identities and self-approved exceptions remain unauthorized; broader product/feature/live work remains outside verifier scope.
+
+Earlier checkpoint notes below retain their original source scope.
+
 ## Current checkpoint, 6 October 2026
 
 Publishedc5f4bd53 is terminal: main15 success/1 supply-chain failure and native2 success; unit19484/0/1519, actual guest152/systemd15/both cleanups passed. Current ledger9 verified/41 in progress/28 planned; CI07/08/09 remain reopened for three dependency findings. No lock upgrade or security exception is applied. Local integrated7c86ad44 has focused scheduling10/0/0, JOIN8 and reader15, but complete workflows62 and fresh whole-candidate CI remain pending. Follow the fixed20 order below and the current [queue](VERIFY-QUEUE.md); older notes are history. All78 criteria and four false release flags are retained.

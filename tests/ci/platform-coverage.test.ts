@@ -11,7 +11,7 @@ import { load } from "js-yaml";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import vitestConfig from "../../vitest.config";
-import { CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
+import { AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures, requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
 
 interface Step {
@@ -511,7 +511,7 @@ describe("cross-language Go gates", () => {
 describe("native OAuth and retained destroy gate coverage", () => {
   it("executes all 71 OAuth grant controls with required PostgreSQL admission", () => {
     const manifest = manifestFor("postgres", root), required = OAUTH_GRANT_POSTGRES_REQUIREMENTS;
-    expect(required).toHaveLength(71); expect(manifest.requirements).toHaveLength(80);
+    expect(required).toHaveLength(71); expect(manifest.requirements).toHaveLength(93);
     const ids = new Set(required.map(item => requirementId("postgres", item)));
     expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(required.map(item => ({ ...item, id: requirementId("postgres", item) })));
     expect(manifest.env).toMatchObject({ ZENITH_CONTRACT_POSTGRES: "1", ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED: "1" });
@@ -550,7 +550,7 @@ describe("corrected native OAuth dispatch and linked first-selection coverage", 
     for (const file of ["tests/agent-access/native-oauth-origin.test.ts", "tests/controlplane/plan-artifact-oauth-authority.test.ts", "tests/agent-access/credential-authority-origin.test.ts"]) { expect(manifest.command).toContain(file); expect(manifest.excludeFiles).not.toContain(file); }
     for (const item of added) expect(item.backend).toBe("postgres");
     expect(manifest.excludeFiles).toEqual([]); expect(manifest.command).not.toContain("--passWithNoTests");
-    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(manifestFor("postgres", root).requirements).toHaveLength(93);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
@@ -586,7 +586,7 @@ describe("mandatory unchanged APPLY authority continuation [report models]", () 
     expect(source.indexOf("ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED")).toBeLessThan(source.indexOf("beforeAll("));
     expect(source).toContain('(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK !== "1")');
     expect(reportFailures(required, report(), root)).toEqual([]);
-    expect(manifestFor("postgres", root).requirements).toHaveLength(80); expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+    expect(manifestFor("postgres", root).requirements).toHaveLength(93); expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
   });
 
   it("retains the literal positive requirement after its source file is removed", () => {
@@ -678,7 +678,7 @@ describe("mandatory native custody, retention and Kubernetes target execution", 
     expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("3192324ebd5d5db8a684fccc84173dd8be8b80efa3367f1bb57e81462d8b3c4b");
     const predecessor = priorKubernetesLinkPlatformRequirements();
     expect(predecessor).toHaveLength(990); expect(new Set(predecessor.map(item => item.id)).size).toBe(990);
-    expect(manifestFor("postgres", root).requirements).toHaveLength(80); expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+    expect(manifestFor("postgres", root).requirements).toHaveLength(93); expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
     expect(manifest.excludeFiles).toEqual([]); expect(manifest.command).not.toContain("--passWithNoTests");
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
@@ -735,7 +735,7 @@ describe("mandatory native custody, retention and Kubernetes target execution", 
     expect(manifest.excludeFiles).not.toContain(kubernetesLinkDiscovered.file);
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
-    expect(manifestFor("postgres", root).requirements).toHaveLength(80); expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+    expect(manifestFor("postgres", root).requirements).toHaveLength(93); expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
   });
 
   it("initializes canonical schema16 and agent prerequisites before the unchanged mandatory lane", () => {
@@ -828,7 +828,7 @@ describe("saved builtin settlement mandatory CI admission", () => {
     expect(manifest.command).not.toContain("--passWithNoTests"); expect(manifest.excludeFiles).toEqual([]);
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
-    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
+    expect(manifestFor("postgres", root).requirements).toHaveLength(93);
     expect(requirementsFor("workflows", root)).toHaveLength(62);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
@@ -868,5 +868,25 @@ describe("critical scheduling native admission [workflow source models]", () => 
     expect(manifest.command).not.toContain("--passWithNoTests");
     gate("workflows", "node scripts/ci/run-gate.mjs workflows --run");
     gate("workflows", "node scripts/ci/run-gate.mjs workflows --validate .data-ci-lane/workflows-lane.json --require-execution", "always()");
+  });
+});
+
+
+describe("mandatory live agent journal lane coverage", () => {
+  it("runs both existing live files with all thirteen requirements and preserves the seventy-one OAuth cases", () => {
+    const manifest = manifestFor("postgres", root), added = AGENT_JOURNAL_POSTGRES_REQUIREMENTS;
+    expect(manifest.requirements).toHaveLength(93); expect(added).toHaveLength(13);
+    const ids = new Set(added.map(item => requirementId("postgres", item)));
+    expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(added.map(item => ({ ...item, id: requirementId("postgres", item) })));
+    expect(OAUTH_GRANT_POSTGRES_REQUIREMENTS).toHaveLength(71);
+    expect(manifest.env).toMatchObject({ ZENITH_CONTRACT_POSTGRES: "1", ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED: "1" });
+    for (const file of ["tests/agent-control-journal.test.ts", "tests/agent-control-journal-fixes.test.ts"]) {
+      expect(manifest.files).toContain(file); expect(manifest.command).toContain(file);
+    }
+    for (const item of added) expect(item.backend).toBe("postgres");
+    expect(manifest.excludeFiles).toEqual([]); expect(manifest.command).toContain("--no-file-parallelism");
+    expect(manifest.command).toContain("--maxWorkers=1"); expect(manifest.command).not.toContain("--passWithNoTests");
+    gate("postgres", "node scripts/ci/run-gate.mjs postgres --run");
+    gate("postgres", "node scripts/ci/run-gate.mjs postgres --validate .data-ci-lane/postgres-lane.json --require-execution", "always()");
   });
 });

@@ -1,3 +1,11 @@
+## Integrated test checkpoint, 6 October 2026
+
+Runnable PG13/vault1/tool/security failures now have reviewed scoped repairs and local evidence; exact sources and historical failures remain in RESULTS. Next build passed. Kind local55/cleanup passed within explicit limitations; current native packages/fresh CI still require terminal identity/cleanup proof; no mandatory skip can be waived. Preserve the fixed20 order and current9/41/28 states.
+
+Local kind55 and cleanup are terminal passed. Inspect remaining current-source prerequisites without reusing older runtime as fresh. Publish the coherent checkpoint normally on the same branch, then observe every new main/native job and mandatory identity/skip/exit/cleanup receipt. Continue the exact HANDOFF20-ID order only after the CI gate. Default product/browser, Windows, hosted/cloud, private-source and customer-runner prerequisites remain separate; no live account or API startup permission follows.
+
+Earlier checkpoint notes below retain their original source scope.
+
 ## Current continuation, 6 October 2026
 
 Local integrated `7c86ad44` has scoped scheduling10/0/0 (eight models plus two actual Temporal cases), JOIN8 within04be453/0/0 and standalone reader15/0/0. Full canonical workflows62 and fresh whole-candidate CI remain pending. Publishedc5f4bd53 is terminal: main15 success/1 supply-chain failure, native2 success/22 checks each; unit19484/0/1519, Smoke/Gimbal passed. [Final per-job evidence](evidence/PROD-CI-08/2026-10-06-ci-c5f4bd53-final.json).

@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { countsFor, effectiveEnvironmentFor, environmentDiagnosticsFor, environmentInventoryFor, environmentInventoryPath, ENVIRONMENT_FINGERPRINT_EXCLUSIONS, executionReceiptFor, executionReceiptPath, main as sanitizeMain, preserveExecutionObservation, provenanceFor, readEnvironmentInventory, sanitizedEvidence, writeEnvironmentInventory, writeExecutionReceipt } from "../../scripts/ci/sanitize-evidence.mjs";
+import { countsFor, effectiveEnvironmentFor, environmentDiagnosticsFor, environmentInventoryFor, environmentInventoryPath, ENVIRONMENT_FINGERPRINT_EXCLUSIONS, executionReceiptFor, executionReceiptPath, main as sanitizeMain, preserveExecutionObservation, provenanceFor, vendoredPolicyProvenanceFor, readEnvironmentInventory, sanitizedEvidence, writeEnvironmentInventory, writeExecutionReceipt } from "../../scripts/ci/sanitize-evidence.mjs";
 import { manifestFor, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { validateGate } from "../../scripts/ci/run-gate.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
@@ -617,6 +617,54 @@ describe("sanitized evidence boundary", () => {
     const evidence = sanitizedEvidence("platform-postgres", reportFor(), root, provenance);
     expect(evidence.expectedTools).toEqual({ node: "22.23.3", postgres: "16.15", tofu: "1.12.5" });
     expect(evidence).not.toHaveProperty("measuredTools");
+  });
+
+
+  it("binds modified vendored OPA bytes without claiming an installed registry package", () => {
+    const checkout = fs.mkdtempSync(path.join(scratch, "vendor-identity-"));
+    const relative = "src/lib/policy/vendor/opa-wasm";
+    fs.mkdirSync(path.dirname(path.join(checkout, relative)), { recursive: true });
+    fs.cpSync(path.join(root, relative), path.join(checkout, relative), { recursive: true });
+    const actual = vendoredPolicyProvenanceFor(checkout);
+    expect(actual).toMatchObject({ component: "@open-policy-agent/opa-wasm", storage: "vendored-modified-source", upstreamVersion: "1.10.0", securityPatch: "numeric-precision-validation-1", status: "matched", complete: true });
+    expect(actual.sources).toHaveLength(12);
+    for (const entry of actual.sources) expect(entry.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(provenanceFor(checkout, {}).dependencies).toContainEqual({ name: "@open-policy-agent/opa-wasm", locked: null, installed: null });
+    expect(provenanceFor(checkout, {}).vendoredDependencies).toEqual([actual]);
+  });
+
+  it("refuses a changed byte in every vendored source, declaration and license", () => {
+    const checkout = fs.mkdtempSync(path.join(scratch, "vendor-tamper-"));
+    const relative = "src/lib/policy/vendor/opa-wasm";
+    fs.mkdirSync(path.dirname(path.join(checkout, relative)), { recursive: true });
+    fs.cpSync(path.join(root, relative), path.join(checkout, relative), { recursive: true });
+    for (const entry of vendoredPolicyProvenanceFor(checkout).sources) {
+      const target = path.join(checkout, relative, entry.file);
+      const original = fs.readFileSync(target);
+      fs.appendFileSync(target, "tampered-byte");
+      expect(vendoredPolicyProvenanceFor(checkout)).toMatchObject({ status: "modified", complete: false, upstreamVersion: null, securityPatch: null });
+      fs.writeFileSync(target, original);
+      expect(vendoredPolicyProvenanceFor(checkout).complete).toBe(true);
+    }
+  });
+
+  it("refuses missing vendored bytes and edited provenance without exporting metadata payloads", () => {
+    const checkout = fs.mkdtempSync(path.join(scratch, "vendor-proof-"));
+    const relative = "src/lib/policy/vendor/opa-wasm";
+    fs.mkdirSync(path.dirname(path.join(checkout, relative)), { recursive: true });
+    fs.cpSync(path.join(root, relative), path.join(checkout, relative), { recursive: true });
+    const target = path.join(checkout, relative, "opa.js");
+    fs.rmSync(target);
+    expect(vendoredPolicyProvenanceFor(checkout)).toMatchObject({ status: "modified", complete: false });
+    fs.copyFileSync(path.join(root, relative, "opa.js"), target);
+    const proof = path.join(checkout, relative, "PROVENANCE.json");
+    const canary = `private-canary-${randomBytes(20).toString("hex")}`;
+    fs.writeFileSync(proof, JSON.stringify({ component: canary, sources: [] }));
+    const actual = vendoredPolicyProvenanceFor(checkout);
+    expect(actual).toMatchObject({ status: "invalid", complete: false, upstreamVersion: null });
+    expect(JSON.stringify(actual)).not.toContain(canary);
+    fs.rmSync(proof);
+    expect(vendoredPolicyProvenanceFor(checkout)).toMatchObject({ status: "missing", complete: false });
   });
 
   it("counts unknown and skipped states explicitly without retaining their payload", () => {

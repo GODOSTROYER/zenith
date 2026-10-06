@@ -12,6 +12,40 @@ const hash = (value) => createHash("sha256").update(value).digest("hex");
 const normalize = (value) => String(value).replaceAll("\\", "/");
 const VERSION = /^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/;
 const PACKAGES = ["vitest", "postgres", "@electric-sql/pglite", "@temporalio/worker", "@temporalio/testing", "@open-policy-agent/opa-wasm"];
+// This is a modified, licensed source component, not an installed npm package.
+// Keep the original package observation above truthful and bind every local byte.
+const VENDORED_POLICY_ROOT = "src/lib/policy/vendor/opa-wasm";
+const VENDORED_POLICY_PROVENANCE_SHA256 = "54abbbc7cf09a635c7fc24a66c547b023c7d82737dc4e98ca1fa2a1584245cd3";
+const VENDORED_POLICY_FILES = Object.freeze(["index.mjs", "index.d.mts", "opa.js", "opa.d.ts", "builtins/index.js", "builtins/json.js", "builtins/regex.js", "builtins/strings.js", "builtins/yaml.js", "builtins/sprintf.js", "LICENSE-OPA", "LICENSE-SPRINTF"]);
+
+export function vendoredPolicyProvenanceFor(root) {
+  const sources = VENDORED_POLICY_FILES.map((file) => {
+    try { return { file, sha256: hash(fs.readFileSync(path.join(root, VENDORED_POLICY_ROOT, file))) }; }
+    catch { return { file, sha256: null }; }
+  });
+  let provenanceSha256 = null;
+  let status = "missing";
+  try {
+    const raw = fs.readFileSync(path.join(root, VENDORED_POLICY_ROOT, "PROVENANCE.json"));
+    provenanceSha256 = hash(raw);
+    status = "invalid";
+    if (raw.length <= 128 * 1024 && provenanceSha256 === VENDORED_POLICY_PROVENANCE_SHA256) {
+      const provenance = JSON.parse(raw.toString("utf8"));
+      const expected = provenance.sources;
+      status = Array.isArray(expected) && expected.length === sources.length
+        && new Set(expected.map((entry) => entry.file)).size === sources.length
+        && sources.every(({ file, sha256 }) => sha256 !== null && expected.some((entry) => entry.file === file && entry.sha256 === sha256))
+        ? "matched" : "modified";
+    }
+  } catch { /* Only closed status and digests are exported. */ }
+  return {
+    component: "@open-policy-agent/opa-wasm", storage: "vendored-modified-source",
+    upstreamVersion: status === "matched" ? "1.10.0" : null,
+    securityPatch: status === "matched" ? "numeric-precision-validation-1" : null,
+    status, complete: status === "matched", provenanceSha256, sources,
+  };
+}
+
 const SIGNALS = new Set(Object.keys(osConstants.signals));
 const SHA256 = /^[a-f0-9]{64}$/;
 const MAX_ENVIRONMENT_ENTRIES = 4096;
@@ -243,6 +277,7 @@ export function provenanceFor(root, env = process.env) {
     sourceBindingComplete: commit !== null && diff.status === 0 && untrackedComplete && index.inventoryComplete && index.assumeUnchanged === 0 && index.skipWorktree === 0 && index.unmerged === 0,
     index,
     gateSources: source, lockfileSha256: lock ? hash(lock) : null, dependencies,
+    vendoredDependencies: [vendoredPolicyProvenanceFor(root)],
     environment: {
       sha256: hash(JSON.stringify(environment)),
       inventorySha256: hash(serializeEnvironmentInventory(environmentInventoryFor(env))),

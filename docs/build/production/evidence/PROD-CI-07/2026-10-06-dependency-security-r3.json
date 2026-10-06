@@ -1,0 +1,537 @@
+{
+  "schemaVersion": 1,
+  "status": "SCOPED_REMEDIATION_EVIDENCE_DRAFT_FOR_ROOT_REVIEW",
+  "date": "2026-10-06",
+  "scope": "Two dependency advisories only; source-map-js patch update and licensed OPA1.10 formatter precision repair. No exception, policy semantic change or broad CI clearance.",
+  "source": {
+    "anchorCommit": "4426f3c121900069fe814822fc3e34b7d9c27987",
+    "worktreeDirty": true,
+    "candidateTree": "410471068ea17e1859fa60858b8a8d291c9ab5dd",
+    "candidateTreeIsPrivateFrozenSourceNotPublishedCommit": true,
+    "freezeSha256": "d2ef8d8d4d9ab2b1713bfae5690e1a2ea1a9c66df2845e023ce433d9a104f039",
+    "patchSha256": "9fb7a3f79726a3da83fba4cdc71e88f499bbf6b6bf95e9914a270a9ded9641c6",
+    "patchBytes": 153789,
+    "ownedPathCount": 22,
+    "sourceFiles": 4497,
+    "outsideOwnedFiles": 4475,
+    "components": [
+      {
+        "path": "package-lock.json",
+        "mode": "0o644",
+        "bytes": 471315,
+        "sha256": "56a63b14daa9cb87f2239fd0b7f597e9ceaefb8360542a8a6691f968e456a9f1"
+      },
+      {
+        "path": "package.json",
+        "mode": "0o644",
+        "bytes": 6255,
+        "sha256": "ad0d0133f52f5dd83b3ade34877da9edef6eda984c0fbe56df0a303968677215"
+      },
+      {
+        "path": "scripts/ci/sanitize-evidence.mjs",
+        "mode": "0o644",
+        "bytes": 28511,
+        "sha256": "46100a42f23954ac95b2bc9e708b3d80fb58a06e73a954c6ed83d6020897a01f"
+      },
+      {
+        "path": "src/lib/policy/engine.ts",
+        "mode": "0o644",
+        "bytes": 11272,
+        "sha256": "e70efa402f40eee69fecbcba4f21cb8981272197e8b4859fec2089872cb5737d"
+      },
+      {
+        "path": "src/lib/policy/vendor/opa-wasm/LICENSE-OPA",
+        "mode": "0o644",
+        "bytes": 11357,
+        "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+      },
+      {
+        "path": "src/lib/policy/vendor/opa-wasm/LICENSE-SPRINTF",
+        "mode": "0o644",
+        "bytes": 1513,
+        "sha256": "f8287e4dd9480be58c56aca4a55c23b782c43a86e69aabad78fff4df0d29edef"
+      },
+      {
+        "path": "src/lib/policy/vendor/opa-wasm/PROVENANCE.json",
+        "mode": "0o644",
+        "bytes": 8589,
+        "sha256": "54abbbc7cf09a635c7fc24a66c547b023c7d82737dc4e98ca1fa2a1584245cd3"
+      },
+      {
+        "path": "src/lib/policy/vendor/opa-wasm/builtins/index.js",
+        "mode": "0o644",
+        "bytes": 663,
+        "sha256": "68309c2a9e6a93a6cebc156f5febbe534365f42272670b8dc93cb4afb795a3f0"
+      },
+      {
+        "path": "src/lib/policy/vendor/opa-wasm/builtins/json.js",
+        "mode": "0o644",
+        "bytes": 281,
+        "sha256": "23312c75897dea6e270a1f05593d4eb6a00266be729d287923cb621f85f99c46"
+      },
+      {
+        "path": "src/lib/policy/vendor/opa-wasm/builtins/regex.js",
+        "mode": "0o644",
+        "bytes": 110,
+        "sha256": "f33d0938a3ce676450c20f2a46bfedafe97c0fd6a946744c00ca4b68dd9adba5"
+      },
+      {
+        "path": "src/lib/policy/vendor/opa-wasm/builtins/sprintf.js",
+        "mode": "0o644",
+        "bytes": 9831,
+        "sha256": "3a3dcc5199af5b2f762a016991a7f335108d1d6f8c8980fe454ee228a3e36b78"
+      },
+      {
+        "path": "src/lib/policy/vendor/opa-wasm/builtins/strings.js",
+        "mode": "0o644",
+        "bytes": 246,
+        "sha256": "6390fc0618ae1f3fc0e8cc3d2a35c8ba38a2d890435aaa3a113af563973606ed"
+      },
+      {
+        "path": "src/lib/policy/vendor/opa-wasm/builtins/yaml.js",
+        "mode": "0o644",
+        "bytes": 1200,
+        "sha256": "469c2c58b2d14ac932509a66cba0bb7f2ec44fbce61da828bd4a26bfa66f84d7"
+      },
+      {
+        "path": "src/lib/policy/vendor/opa-wasm/index.d.mts",
+        "mode": "0o644",
+        "bytes": 293,
+        "sha256": "7dfa87edb2b08a15879377c26aea551c24ab9f2314bc833b5a82df3cd53c5a91"
+      },
+      {
+        "path": "src/lib/policy/vendor/opa-wasm/index.mjs",
+        "mode": "0o644",
+        "bytes": 124,
+        "sha256": "db7b1eaf9bd4828d0c50f43440c525110b47310b9aa4e39606c5450c474286e2"
+      },
+      {
+        "path": "src/lib/policy/vendor/opa-wasm/opa.d.ts",
+        "mode": "0o644",
+        "bytes": 4807,
+        "sha256": "254d8538f955f1e34341eb76b64d71f2fa0137add7f96fa046cbc76e6f89ab7d"
+      },
+      {
+        "path": "src/lib/policy/vendor/opa-wasm/opa.js",
+        "mode": "0o644",
+        "bytes": 16754,
+        "sha256": "18a4b7e888b356d937a8423859a3bc3f2fae2ac664b81d860dfa5771d3228a5e"
+      },
+      {
+        "path": "tests/ci/evidence-sanitizer.test.ts",
+        "mode": "0o644",
+        "bytes": 57179,
+        "sha256": "1502b5bb9c3cb75278ba37cbfad492cab71796276dacd60e214bc91aab811092"
+      },
+      {
+        "path": "tests/policy/engine.test.ts",
+        "mode": "0o644",
+        "bytes": 21654,
+        "sha256": "40693df90cdb5b0e81f470e64d7f7d61644c1bd3c694a0a4e2964263fc71b9b5"
+      },
+      {
+        "path": "tests/policy/fixtures/sprintf-precision.rego",
+        "mode": "0o644",
+        "bytes": 1016,
+        "sha256": "024d93ee82c3ee9cd8bf82e657ed9119ce11ee54921225114d943695e492ce86"
+      },
+      {
+        "path": "tests/policy/fixtures/sprintf-precision.wasm",
+        "mode": "0o644",
+        "bytes": 136844,
+        "sha256": "28af6ab32948c2900d2966eb31fa44c933354c6c5635dbd55f5e3784d0a60007"
+      },
+      {
+        "path": "tests/policy/vendor-security.test.ts",
+        "mode": "0o644",
+        "bytes": 6568,
+        "sha256": "59e0b678475e843a4f53a74d544360bf731016251d782449a772f58cf8c5be7f"
+      }
+    ],
+    "provenanceSha256": "54abbbc7cf09a635c7fc24a66c547b023c7d82737dc4e98ca1fa2a1584245cd3"
+  },
+  "independentReview": {
+    "disposition": "ACCEPTED_SOURCE_ONLY",
+    "reviewSha256": "01335130dfd3e5e0c27c69edc819f6de852b57d05609391ab83db0ea2f0f03a3",
+    "notRuntimeApproval": true
+  },
+  "advisories": [
+    {
+      "id": "GHSA-68fv-2mgg-jv7q",
+      "url": "https://github.com/advisories/GHSA-68fv-2mgg-jv7q",
+      "change": "source-map-js1.2.1 to reviewed1.2.2; exact lock version, registry URL and integrity scalars"
+    },
+    {
+      "id": "GHSA-hp3w-g68c-fv3c",
+      "url": "https://github.com/advisories/GHSA-hp3w-g68c-fv3c",
+      "upstreamAffectedVersion": "sprintf-js1.1.3",
+      "upstreamPatchedReleaseAvailable": false,
+      "change": "Licensed original formatter retained with precision validation before native e/f/g methods; fixed value-free RangeError propagates through original OPA evaluator and production engine deny",
+      "bounds": {
+        "e": "0..100",
+        "f": "0..100",
+        "g": "1..100"
+      },
+      "noClampOrUndefinedConversion": true,
+      "limitation": "Only invalid numeric precision is repaired; arbitrary formatter input is not claimed generally bounded"
+    }
+  ],
+  "upstreamArchives": [
+    {
+      "name": "@open-policy-agent/opa-wasm",
+      "version": "1.10.0",
+      "gitHead": "596f8e94d786cddb3374d064f5d3040c0e437167",
+      "archiveSha256": "8b0efaed83a47e3a73c8afc23630d26d17cd9aea6f90d533aa0dd0babdb9939f",
+      "archiveSha512Integrity": "sha512-ymR/nFS3nO9o24j9xowGGQaf+Gmb813QcxUpVZkfRlJkawKWqSIllnEH15agyWjijmOIyhA+OBErenx6N3jphw==",
+      "archiveBytes": 248482,
+      "source": "https://registry.npmjs.org/@open-policy-agent/opa-wasm"
+    },
+    {
+      "name": "sprintf-js",
+      "version": "1.1.3",
+      "gitHead": "3a0d8c26d291b5bd9f1974877ecc50739921d6f5",
+      "archiveSha256": "9a8537928cdd2e987055f5cf38ae19db4a2d4b71c46648a51f15698a48deaeb6",
+      "archiveSha512Integrity": "sha512-Oo+0REFV59/rz3gfJNKQiBlwfHaSESl1pcGyABQsnnIfWOFt6JNj5gCog2U6MLZ//IGYD+nA8nI+mTShREReaA==",
+      "archiveBytes": 10968,
+      "source": "https://registry.npmjs.org/sprintf-js"
+    },
+    {
+      "name": "yaml",
+      "version": "1.10.3",
+      "gitHead": "cfe8f0437054ff5fbfe6499894f55b3316a54959",
+      "archiveSha256": "535b1631378a24208a53f3c1992c3b3f86e063d3abc8cb13c9a4af9db1dd45e2",
+      "archiveSha512Integrity": "sha512-vIYeF1u3CjlhAFekPPAk2h/Kv4T3mAkMox5OymRiJQB0spDP10LHvt+K7G9Ny6NuuMAb25/6n1qyUjAcGNf/AA==",
+      "archiveBytes": 80665,
+      "source": "https://registry.npmjs.org/yaml/-/yaml-1.10.3.tgz",
+      "alias": "opa-wasm-yaml",
+      "unchangedPreviouslyInstalledRuntime": true
+    },
+    {
+      "name": "source-map-js",
+      "version": "1.2.2",
+      "gitHead": "0a1d334fd1e55a47df97fcd60a7915d46df3b08a",
+      "archiveSha512Integrity": "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==",
+      "archiveBytes": 36349,
+      "source": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz",
+      "verification": "Reviewed archive and immutable upstream source; exact locked integrity matches",
+      "archiveSha256": "05c8cf8e7c3a6b56cada7668fe9342b10f4b625efc92aba9ba05b9e8fe4d71a3",
+      "archiveSourceReviewSha256": "0d73180b2f3c5d03b67cc4144905117ec2cf3f65dc5f5ae63301796ba43aad12"
+    }
+  ],
+  "runtimeIdentity": {
+    "npmOpaPackage": {
+      "locked": null,
+      "installed": null
+    },
+    "npmSprintfPackage": {
+      "locked": null,
+      "installed": null
+    },
+    "vendoredComponent": {
+      "name": "@open-policy-agent/opa-wasm",
+      "upstreamVersion": "1.10.0",
+      "localModification": "numeric-precision-validation-1",
+      "status": "matched",
+      "complete": true
+    },
+    "npmAuditDoesNotScanVendoredBytes": true,
+    "separateByteTamperAndRealWasmTestsRequired": true
+  },
+  "observations": {
+    "installAndStrictGatesR2": {
+      "sourceFreezeSha256": "0a54a649d5c8938a500afab8acb0991e98998acc54ef4148383a2402e6bd4945",
+      "receiptSha256": "b3bf5f3201568869e294151a1b2455545573c7585417c434a43b4f17a4742fb2",
+      "tools": {
+        "node": "22.23.3",
+        "npm": "10.9.9",
+        "platform": "darwin",
+        "architecture": "arm64"
+      },
+      "freshInstall": {
+        "exit": 0,
+        "ignoreScripts": true,
+        "installed": 769,
+        "audited": 770
+      },
+      "lockIntegrity": {
+        "exit": 0,
+        "registrySha512Records": 907,
+        "bundledRecords": 6
+      },
+      "completeLockedAudit": {
+        "exit": 0,
+        "knownFindings": 0,
+        "exceptionAdded": false,
+        "gateUnchanged": true
+      },
+      "focusedTests": {
+        "passed": 182,
+        "failed": 0,
+        "skipped": 0,
+        "exit": 0,
+        "maxWorkers": 1,
+        "nodeHeapMiB": 768,
+        "reportSha256": "4b52969b81b210ec677790d29b96a7205361d07fe91787936162a738411f5289"
+      },
+      "historicalLint": {
+        "exit": 1,
+        "errors": 16,
+        "warnings": 3,
+        "scope": "Copied upstream CommonJS syntax and published declaration types",
+        "logSha256": "43cff0d9d817ec2b9ac853c96bfc2b3589a444118514e6464ae3b032246438e9"
+      }
+    },
+    "annotationsLintR3": {
+      "sourceFreezeSha256": "d2ef8d8d4d9ab2b1713bfae5690e1a2ea1a9c66df2845e023ce433d9a104f039",
+      "receiptSha256": "ca01bc8e73d968b846e3c40034e1dd7fa468abd25680b3c6458dc84281be03dd",
+      "exit": 0,
+      "errors": 0,
+      "warnings": 3,
+      "annotationsAdded": 15,
+      "lineScopedRulesOnly": true,
+      "originalPreAnnotationBytesReconstructExactly": true,
+      "noConfigOrGateChange": true,
+      "logSha256": "b167f348ed0da0df4f45583ecfbdf8ab76d08270e0ade0aef4175337458f3a14"
+    },
+    "rootCanonicalPolicyR3": {
+      "sourceAnchorCommit": "4426f3c121900069fe814822fc3e34b7d9c27987",
+      "worktreeDirty": true,
+      "frozenSourceCandidateTree": "410471068ea17e1859fa60858b8a8d291c9ab5dd",
+      "sourceBindingComplete": true,
+      "trackedChangesSha256": "4691dde45bf5f1fa8d051af73c7d32f056e67542b64d71a1c2c4db3911f7c2db",
+      "untrackedContentSha256": "86ec658961adcfb432d00fce93d633ab63ca0dd5e4140d3efdf4d5eb096fad44",
+      "vendorProvenance": "matched",
+      "passed": 242,
+      "failed": 0,
+      "skipped": 0,
+      "exit": 0,
+      "reportSha256": "f7958c98cb2be1a9e46b99fc6448f687fdd1217be14a8464855b08c15fa5e7ff",
+      "evidenceSha256": "2e945922113194bec878d38f418b221d091ecf930616b49055e6407c42ec693a",
+      "executionReceiptSha256": "70d3bdca8280f0608d815c930d1c548d29fd93d15bbbcdb0676002b06816cd99",
+      "files": [
+        {
+          "file": "tests/policy/bundle.test.ts",
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "tests/policy/defaults.test.ts",
+          "passed": 22,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "tests/policy/delete.test.ts",
+          "passed": 21,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "tests/policy/engine.test.ts",
+          "passed": 70,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "tests/policy/parity.test.ts",
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "tests/policy/plan-facts.test.ts",
+          "passed": 44,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "tests/policy/scenarios.test.ts",
+          "passed": 72,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "file": "tests/policy/vendor-security.test.ts",
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0
+        }
+      ],
+      "newSecurityControls": "Genuine Wasm host sprintf/default/negation/else and unchanged public engine deny; same-instance valid evaluation recovery; bounded real subprocess checks zero invalid native calls"
+    },
+    "rootSecurityModelsR3": {
+      "source": "Same dirty frozen R3 input; model tests distinct from runtime policy observations",
+      "passed": 319,
+      "failed": 0,
+      "skipped": 0,
+      "exit": 0,
+      "reportSha256": "489587981d8ac4f25f097b1a3893bdf0203957721a2c54614a7ce932af4c8346"
+    },
+    "rootStrictAuditAfterCommit": {
+      "exit": 0,
+      "knownFindings": 0,
+      "logSha256": "dad5ff63a0e8e4c84e5dfbcbe56268054b7de50ef68fe181629a3f07b3e93a42",
+      "sourceCommitReportedByRoot": "2067eba6234de8278480a2a638f2551127860903",
+      "exceptionAdded": false,
+      "gateUnchanged": true
+    },
+    "rootCombinedCompiler": {
+      "sourceCommit": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820",
+      "exit": 0,
+      "nodeHeapMiB": 4096,
+      "observationOrigin": "Root observed terminal process exit; compiler log is empty",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "logBytes": 0
+    },
+    "rootCombinedWholeLint": {
+      "sourceCommit": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820",
+      "exit": 0,
+      "errors": 0,
+      "warnings": 3,
+      "warningsScope": "Same upstream sprintf warnings",
+      "observationOrigin": "Root observed terminal process exit; no separate log is invented"
+    }
+  },
+  "published4426History": {
+    "commit": "4426f3c121900069fe814822fc3e34b7d9c27987",
+    "observerReceiptSha256": "74871e5d91635c8ebee346935d972efe904e0f55b5ea97563c5ff6d62a84b6d3",
+    "attempt": 1,
+    "terminal": true,
+    "mainSuccessfulJobs": 15,
+    "mainFailedJobs": 1,
+    "failure": "supply-chain: known dependency findings blocked release",
+    "nativeSuccessfulJobs": 2,
+    "unit": {
+      "passed": 19503,
+      "failed": 0,
+      "skipped": 1521,
+      "total": 21024
+    },
+    "containsThisRemediation": false,
+    "countsAreSeparateAndNotAdded": true
+  },
+  "pending": [
+    "Next standalone trace/build on merged candidate is ongoing; no build success is claimed",
+    "Root packaged worker/native acceptance on integrated source",
+    "Fresh pushed CI mandatory security/policy/package gates",
+    "Root publication review and acceptance disposition"
+  ],
+  "followups": [
+    {
+      "file": "next.config.ts",
+      "detail": "Old unused serverExternalPackages OPA name is optional truthful cleanup; static trace found no demonstrated packaging blocker; actual Next build remains pending"
+    },
+    {
+      "file": "policy/README.md",
+      "detail": "Loader provenance prose may describe licensed local OPA repair after integration; outside admitted22 scope and unchanged"
+    }
+  ],
+  "securityExceptionAdded": false,
+  "requiredGateChanged": false,
+  "requirementStatePromotion": false,
+  "releasePromotion": false,
+  "historicalFailuresPreserved": true,
+  "noOverlappingCountSum": true,
+  "rootIntegration": {
+    "securityCommit": "2067eba6234de8278480a2a638f2551127860903",
+    "combinedPgMergeCommit": "402b8c26c0f26ee2a3b7c5e54c3672907f05c6e9",
+    "publishedRemediationCiObserved": false,
+    "sourceSecurity22MatchesIndependentlyReviewedFreeze": true,
+    "scopedPolicy242AndModels319RemainTheirOriginalDirtyFrozenObservations": true,
+    "security22CommittedBytesIndependentlyMatchedToFreeze": true,
+    "correctedDeletionFixtureCommit": "84c90f61f9bf3282d8856a482c5586a1c9c33771",
+    "finalMergedCandidateCommit": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820"
+  },
+  "supplementalScopedObservations": {
+    "realOpaPolicyBuildCheck": {
+      "observationOrigin": "Direct root tool result; no separate output log was created",
+      "passed": 219,
+      "failed": 0,
+      "exit": 0,
+      "productionDistSha256": "708b2e07eff3762498bbbf8f99c2574717dcf7a8346acf788e3d40e3bce539e1",
+      "productionDistUnchanged": true,
+      "notClaimedAsFreshCombinedCI": true
+    },
+    "tool11ComponentsAndHistoricalFailure": {
+      "sourceCommit": "184a90d3f1621f098623eb95525619cb9c2f0f85",
+      "receiptSha256": "d0fd8f0ce9a90e49604d98b57b1cce3dde9400b5720fefb4ceba2064dca4442a",
+      "historicalFailedDeletion": 1,
+      "statusPreserved": "failed",
+      "cleanup": true,
+      "runs": [
+        {
+          "file": "tests/machines/ssm-documents.test.ts",
+          "selector": "survives OpenTofu HCL template evaluation byte for byte",
+          "passed": 1,
+          "failed": 0,
+          "exit": 0,
+          "reportSha256": "e41842790bd2e3704d105707e15b0e2b59cf48bbad1bd81f6442e3779a8a0380"
+        },
+        {
+          "file": "tests/providers/terraform-lb-names.test.ts",
+          "selector": "alb.tf names, as OpenTofu evaluates them",
+          "passed": 7,
+          "failed": 0,
+          "exit": 0,
+          "reportSha256": "e9ffa9155549ff679165e1fb823d85bcd9cb2ef932db0e8ebd4786d6442e67e9"
+        },
+        {
+          "file": "tests/acceptance/tofu-destroy.test.ts",
+          "selector": "real tofu 1.12.5: builtin provider, local backend",
+          "passed": 1,
+          "failed": 0,
+          "exit": 0,
+          "reportSha256": "bacff993c9ac8c5ee4c3204a6aa97d7db1cc8a0946793dfecd2064c8da455270"
+        },
+        {
+          "file": "tests/execution/deletion-guards-real.test.ts",
+          "selector": "real tofu deploy removal",
+          "passed": 0,
+          "failed": 1,
+          "exit": 1,
+          "reportSha256": "7890af9071a87690ca54e84068992bdbf74e43a63eff260fb18464a0dcc03937"
+        }
+      ],
+      "passedCases": 9,
+      "passingSelectorRuns": 3
+    },
+    "bootstrap": {
+      "sourceCommit": "184a90d3f1621f098623eb95525619cb9c2f0f85",
+      "receiptSha256": "0cd913a0f03202e4a6dc9ca06b3bbead9712953d02d44584bc4fc57e3dc3a6dd",
+      "file": "tests/credentials/bootstrap-templates.test.ts",
+      "selector": "tofu init \\+ validate \\+ test",
+      "passed": 1,
+      "failed": 0,
+      "exit": 0,
+      "reportSha256": "a5a4d94ddbd2098636f7720cf084eff0b821512ee84614c90c11bfcfaf342d5e",
+      "ownedCleanup": true
+    },
+    "correctedDeletion": {
+      "sourceAnchorCommit": "184a90d3f1621f098623eb95525619cb9c2f0f85",
+      "testSourceDirtyAtExecution": true,
+      "frozenTestSha256": "e4e7d998aebc8f17d8599ce9baa9dba86e77607772f605d258cbded2b27bba0b",
+      "receiptSha256": "3dc201ba69bf3f2c0792c82d512e3b1679c0e41e915cbb89ec11c48a8583d2a2",
+      "file": "tests/execution/deletion-guards-real.test.ts",
+      "selector": "real tofu deploy removal",
+      "passed": 1,
+      "failed": 0,
+      "exit": 0,
+      "reportSha256": "540c8cedc0e4739c092e5f5e007d4f466b75fa167506aaa7c1eb792c3ccfcaa3",
+      "ownedCleanup": true,
+      "testOnlyCorrectionLaterCommittedAs": "84c90f61f9bf3282d8856a482c5586a1c9c33771"
+    },
+    "countsAreSeparateAndNotAdded": true,
+    "nonselectedAssertionsAreNotAcceptanceEvidence": true,
+    "limits": "These tool observations retain their own original source and fixture binding; they are not a combined security/source CI run"
+  },
+  "pendingBuild": {
+    "sourceCommit": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820",
+    "status": "running_at_draft_update",
+    "nodeHeapMiB": 4096,
+    "buildWorkers": 1,
+    "buildWorkerSelection": "CIRCLE_NODE_TOTAL=2 selects one build worker in installed Next configuration",
+    "telemetryDisabled": true,
+    "notAcceptanceEvidence": true
+  }
+}

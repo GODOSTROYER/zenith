@@ -11,12 +11,50 @@ import { windowsFixtureFailureMessage } from "../../scripts/ci/skipped-platforms
 
 let home: string;
 let server: Awaited<ReturnType<typeof fixture>>;
-beforeEach(async () => { home = await mkdtemp(join(tmpdir(), "zenith-cli-config-")); server = await fixture(); });
-afterEach(async () => { await server.close(); await rm(home, { recursive: true, force: true }); });
+const pendingWindowsAclStartup = new Set<string>();
+beforeEach(async () => {
+  const ownedHome = await mkdtemp(join(tmpdir(), "zenith-cli-config-"));
+  home = ownedHome; server = await fixture();
+  if (process.platform === "win32") await windowsAclPrerequisite(ownedHome);
+});
+afterEach(async () => {
+  const ownedHome = home, ownedServer = server;
+  await ownedServer.close();
+  if (pendingWindowsAclStartup.has(ownedHome)) throw new Error("Windows ACL fixture prerequisite cleanup unconfirmed.");
+  await rm(ownedHome, { recursive: true, force: true });
+});
 const environment = (url: string) => ({ ZENITH_URL: url });
 
 async function login(input = TOKEN + "\n") {
   return invoke(server.url, ["login", "--token-stdin", "--json"], input, { home, env: environment(server.url) });
+}
+
+// Load the native ACL subsystem on this fresh home before the unchanged timed leaf.
+async function windowsAclPrerequisite(directory: string) {
+  const windows = process.env.SystemRoot ?? "C:\\Windows";
+  const env: NodeJS.ProcessEnv = { NODE_ENV: "test", ZENITH_TEST_ACL_HOME: directory };
+  for (const key of ["SystemRoot", "WINDIR", "USERPROFILE", "TEMP", "TMP"]) if (process.env[key]) env[key] = process.env[key];
+  const script = `$ErrorActionPreference = 'Stop'
+$acl = Get-Acl -LiteralPath $env:ZENITH_TEST_ACL_HOME
+$null = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+$null = $acl.Access`;
+  await new Promise<void>((resolve, reject) => {
+    let callbackPassed = false;
+    let deadline: NodeJS.Timeout | undefined;
+    const refuse = () => reject(new Error("Windows ACL fixture prerequisite failed."));
+    try {
+      const child = execFile(join(windows, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
+        ["-NoProfile", "-NonInteractive", "-Command", script],
+        { env, windowsHide: true, timeout: 15_000, maxBuffer: 4096 }, error => { callbackPassed = error === null; });
+      pendingWindowsAclStartup.add(directory);
+      child.once("close", (code, signal) => {
+        pendingWindowsAclStartup.delete(directory);
+        if (deadline) clearTimeout(deadline);
+        if (callbackPassed && code === 0 && signal === null) resolve(); else refuse();
+      });
+      deadline = setTimeout(refuse, 15_000);
+    } catch { refuse(); }
+  });
 }
 
 // Grant only the disposable home; the child directory/file must inherit the rule.

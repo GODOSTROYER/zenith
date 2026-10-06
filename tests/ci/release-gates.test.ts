@@ -63,6 +63,7 @@ const ALL_WORKFLOWS: Record<string, Workflow> = {
   "agent-control.yml": agentControl,
   "tick.yml": read("tick.yml"),
   "live-acceptance.yml": liveAcceptance,
+  "skipped-platforms.yml": read("skipped-platforms.yml"),
 };
 
 /** The raw text of a workflow with its comment lines removed, for scans that parsed YAML cannot answer. */
@@ -110,7 +111,7 @@ const coreRun = (step: string): string => `node scripts/ci/run-gate.mjs core --r
 
 const requiredCommands: Record<string, string[]> = {
   verify: [
-    '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml .github/workflows/live-acceptance.yml .github/workflows/packaged-workers.yml',
+    '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml .github/workflows/live-acceptance.yml .github/workflows/packaged-workers.yml .github/workflows/skipped-platforms.yml',
     INSTALL,
     coreRun("typecheck"),
     coreRun("lint"),

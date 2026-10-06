@@ -1,0 +1,54 @@
+name: Native skipped platforms
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-acl:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Execute actual inherited ACL refusal
+        run: node scripts/ci/skipped-platforms.mjs windows .data-ci-native/windows.json
+      - name: Preserve sanitized native evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: skipped-platform-windows-${{ github.sha }}
+          path: .data-ci-native/windows.json
+          if-no-files-found: error
+          retention-days: 14
+  linux-systemd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.27.1'
+          cache-dependency-path: go/go.sum
+      - name: Execute actual systemd and journal operations
+        run: node scripts/ci/skipped-platforms.mjs systemd .data-ci-native/systemd.json
+      - name: Preserve sanitized native evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: skipped-platform-systemd-${{ github.sha }}
+          path: .data-ci-native/systemd.json
+          if-no-files-found: error
+          retention-days: 14

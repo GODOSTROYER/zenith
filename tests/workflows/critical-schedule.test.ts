@@ -171,8 +171,8 @@ class CriticalDurableServer {
       let connection: Connection | undefined;
       try {
         connection = await Connection.connect({ address: `127.0.0.1:${this.port}`, connectTimeout: 500 });
-        const attributes = await connection.workflowService.getSearchAttributes({});
-        if (!Object.hasOwn(attributes.keys, this.ownershipAttribute) || attributes.keys[this.ownershipAttribute] !== 2) return false;
+        const attributes = await connection.operatorService.listSearchAttributes({ namespace: "default" });
+        if (!Object.hasOwn(attributes.customAttributes, this.ownershipAttribute) || attributes.customAttributes[this.ownershipAttribute] !== 2) return false;
         await this.assertSqlite();
         return true;
       } catch { return false; }

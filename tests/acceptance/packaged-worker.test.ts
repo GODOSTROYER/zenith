@@ -7,7 +7,7 @@ import { chmod, link, lstat, mkdir, mkdtemp, readdir, realpath, rm, symlink, wri
 import os from "node:os";
 import path from "node:path";
 import { runInNewContext } from "node:vm";
-import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, inFlightSchemaObserverSql, packagedPrivateTransferPayload, packagedPrivateTransferSource, packagedShutdownAuthoritySql, packagedSourceDigest, packagedTemporalControlSource, packagedTemporalSessionRequest, packagedVolumeCustodySource, PackagedCommandError, parsePackagedArgs, preparePackagedPrivateTransfer, prepareTemporalTls, PRIVATE_TRANSFER_LIMIT_BYTES, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedInFlightFailure, sanitizePackagedReadiness, sanitizePackagedSweepEvidence, sanitizePackagedTemporalSessionFrame, sanitizePgWaiterEvidence, sanitizeShutdownAuthorityEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
+import { assertOwnedPackagedBuilder, assertPackagedSourceUnchanged, cleanupOwnedImage, cleanupOwnedResource, command, createPrivateScratch, inFlightSchemaObserverSql, packagedPrivateTransferPayload, packagedPrivateTransferSource, packagedShutdownAuthoritySql, packagedSourceDigest, packagedTemporalControlSource, packagedTemporalSessionRequest, packagedVolumeCustodySource, PackagedCommandError, parsePackagedArgs, preparePackagedPrivateTransfer, prepareTemporalTls, PRIVATE_TRANSFER_LIMIT_BYTES, privateTemporaryBase, redactDiagnosticLogs, refusalFailureCategory, renderTemporalServerConfiguration, sanitizeClientEvidence, sanitizeContainerState, sanitizeImageId, sanitizeLockedDependencies, sanitizePackagedCommandFailure, sanitizePackagedInFlightFailure, sanitizePackagedReadiness, sanitizePackagedSweepEvidence, sanitizePackagedTemporalSessionFrame, sanitizePgWaiterEvidence, sanitizeShutdownAuthorityEvidence, sanitizeTemporalControlEvidence, schemaOutageObserverSql, TEMPORAL_ADMIN_IMAGE, TEMPORAL_CONFIG_DIR, TEMPORAL_IMAGE, waitForPackagedReadiness, waitForRefusalExit, workerFailureCategory } from "../../scripts/acceptance/packaged-worker.mjs";
 import { assertPackagedAcceptanceTarget } from "../../workers/execution/packaged-target";
 import { EXECUTION_FAILURE_CATEGORIES } from "../../workers/execution/startup";
 import { digest as controlDigest } from "../../src/lib/controlplane/digest";
@@ -1470,5 +1470,90 @@ describe("packaged prewarmed drain control [exact closure and scalar protocol mo
     expect(packagedTemporalControlSource()).toContain("process.getuid()!==10001");
     const runtime = readFileSync(new URL("../../src/lib/workflows/reconcile-schedule.ts", import.meta.url), "utf8");
     expect(runtime).toContain("set local lock_timeout='5s'");
+  });
+});
+
+
+describe("packaged readiness polling [actual harness function; controlled response sequence]", () => {
+  const readyBody = () => ({ ready: true, checks: { temporal: "ok", store: "ok", policy: "ok", drivers: "ok", reconciliation: "ok" } });
+  const admitted = { ready: true, checks: { temporal: "ok", store: "ok", policy: "ok", drivers: "ok", reconciliation: "ok" } };
+
+  it.each([false, true])("uses one successful response for status and strict readiness, recovery=%s", async recovery => {
+    for (const laterStatus of [503, undefined]) {
+      let probes = 0;
+      const waits: number[] = [];
+      const probe = async () => {
+        probes++;
+        return probes === 1 ? { status: 200, body: { ...readyBody(), privatePayload: "not-exported" } }
+          : laterStatus === undefined ? undefined : { status: laterStatus, body: { ready: false } };
+      };
+      await expect(waitForPackagedReadiness(probe, { recovery, wait: async (ms: number) => { waits.push(ms); } })).resolves.toEqual(admitted);
+      expect(probes).toBe(1);
+      expect(waits).toEqual([]);
+    }
+  });
+
+  it.each([undefined, null, {}, { ready: false, checks: readyBody().checks }, { ready: true, checks: null }])(
+    "refuses malformed or false readiness in an otherwise successful response: %j", async body => {
+      let probes = 0;
+      const waits: number[] = [];
+      await expect(waitForPackagedReadiness(async () => { probes++; return { status: 200, body }; },
+        { wait: async (ms: number) => { waits.push(ms); } })).rejects.toThrow("Worker readiness evidence is incomplete.");
+      expect(probes).toBe(1);
+      expect(waits).toEqual([]);
+    });
+
+  it.each(["temporal", "store", "policy", "drivers", "reconciliation"] as const)("refuses a missing or failing %s check without retrying the accepted status", async key => {
+    const { [key]: removed, ...missing } = readyBody().checks;
+    expect(removed).toBe("ok");
+    for (const checks of [missing, { ...readyBody().checks, [key]: "failed" }]) {
+      let probes = 0;
+      const waits: number[] = [];
+      await expect(waitForPackagedReadiness(async () => { probes++; return { status: 200, body: { ready: true, checks } }; },
+        { recovery: true, wait: async (ms: number) => { waits.push(ms); } })).rejects.toThrow("Worker readiness evidence is incomplete.");
+      expect(probes).toBe(1);
+      expect(waits).toEqual([]);
+    }
+  });
+
+  it.each([undefined, 503, 201, "200", 0])("never admits a valid body without exact status200 and retains the91-probe/90-delay bound: %s", async status => {
+    for (const recovery of [false, true]) {
+      let probes = 0;
+      const waits: number[] = [];
+      await expect(waitForPackagedReadiness(async () => { probes++; return { status, body: readyBody() }; },
+        { recovery, wait: async (ms: number) => { waits.push(ms); } })).rejects.toThrow(recovery
+        ? "Fresh packaged worker did not restore readiness." : "Packaged worker did not become ready.");
+      expect(probes).toBe(91);
+      expect(waits).toEqual(Array(90).fill(1000));
+    }
+  });
+
+  it("waits for a current successful response instead of carrying a previous non200 body", async () => {
+    const responses = [{ status: 503, body: readyBody() }, { status: 200, body: readyBody() }, { status: 503, body: undefined }];
+    let probes = 0;
+    const waits: number[] = [];
+    await expect(waitForPackagedReadiness(async () => responses[probes++],
+      { wait: async (ms: number) => { waits.push(ms); } })).resolves.toEqual(admitted);
+    expect(probes).toBe(2);
+    expect(waits).toEqual([1000]);
+  });
+
+  it("preserves a transport failure without admitting or retrying an absent response", async () => {
+    let probes = 0;
+    const waits: number[] = [];
+    const unavailable = new Error("Modeled transport unavailable.");
+    await expect(waitForPackagedReadiness(async () => { probes++; throw unavailable; },
+      { wait: async (ms: number) => { waits.push(ms); } })).rejects.toBe(unavailable);
+    expect(probes).toBe(1);
+    expect(waits).toEqual([]);
+  });
+
+  it("uses the same tested function at both initial and fresh-worker readiness joins", () => {
+    const source = readFileSync(new URL("../../scripts/acceptance/packaged-worker.mjs", import.meta.url), "utf8");
+    expect(source.match(/await waitForPackagedReadiness\(/g)).toHaveLength(2);
+    expect(source).toContain('const ready = await waitForPackagedReadiness(() => probe("readyz"));');
+    expect(source).toContain('await waitForPackagedReadiness(() => probe("readyz", recoveryWorker), { recovery: true });');
+    expect(source).not.toContain('sanitizePackagedReadiness((await probe("readyz"))?.body)');
+    expect(source).not.toContain('sanitizePackagedReadiness((await probe("readyz", recoveryWorker))?.body)');
   });
 });

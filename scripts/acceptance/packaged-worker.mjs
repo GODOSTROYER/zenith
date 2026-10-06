@@ -848,6 +848,18 @@ export function sanitizePackagedReadiness(value) {
   return { ready: true, checks: Object.fromEntries(keys.map(key => [key, "ok"])) };
 }
 
+/** Status and all five readiness checks must describe the same current response. */
+export async function waitForPackagedReadiness(probeReady, { recovery = false, wait = delay } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    const response = await probeReady();
+    if (response?.status === 200) return sanitizePackagedReadiness(response.body);
+    if (attempt >= 90) throw new Error(recovery
+      ? "Fresh packaged worker did not restore readiness."
+      : "Packaged worker did not become ready.");
+    await wait(1000);
+  }
+}
+
 /** Third-connection observation, never a sleep-only or claimed PID proof. */
 export function schemaOutageObserverSql(runId) {
   if (typeof runId !== "string" || !/^zenith-pkg-(arm64|amd64)-[a-f0-9]{12}$/.test(runId)) throw new Error("Owned schema outage identity is invalid.");
@@ -1560,12 +1572,7 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     evidence.preparation = await client("prepare");
     phase = "actual-worker-entrypoint";
     await docker([...isolated(worker), "-d", image], phase);
-    for (let attempt = 0; ; attempt++) {
-      if ((await probe("readyz"))?.status === 200) break;
-      if (attempt >= 90) throw new Error("Packaged worker did not become ready.");
-      await delay(1000);
-    }
-    const ready = sanitizePackagedReadiness((await probe("readyz"))?.body);
+    const ready = await waitForPackagedReadiness(() => probe("readyz"));
     if ((await probe("healthz")).body.alive !== true) throw new Error("Worker liveness evidence is incomplete.");
     evidence.checks.readiness = ready;
     evidence.checks.ownedSchedule = await observation();
@@ -1722,11 +1729,7 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     const recoveryWorker = nameContainer("worker-recovery"), recoveryEnvFile = path.join(scratch, "worker-recovery.env");
     await writeFile(recoveryEnvFile, encodeEnv({ ...workerEnv, ZENITH_WORKER_IDENTITY: `${runId}-recovery` }), { mode: 0o600, flag: "wx" });
     await docker([...isolated(recoveryWorker, recoveryEnvFile), "-d", image], "fresh-recovery-entrypoint");
-    for (let attempt = 0; (await probe("readyz", recoveryWorker))?.status !== 200; attempt++) {
-      if (attempt >= 90) throw new Error("Fresh packaged worker did not restore readiness.");
-      await delay(1000);
-    }
-    sanitizePackagedReadiness((await probe("readyz", recoveryWorker))?.body);
+    await waitForPackagedReadiness(() => probe("readyz", recoveryWorker), { recovery: true });
     const retainedHistory = await control("history", "client", false, [entered.workflowId, entered.runId, entered.activityId]);
     await drainControl.close();
     drainControl = undefined;

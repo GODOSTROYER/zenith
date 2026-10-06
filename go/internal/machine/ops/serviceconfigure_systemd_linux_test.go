@@ -132,7 +132,7 @@ func nativeConfigureStatus(t *testing.T) map[string]string {
 		}
 		result[k] = v
 	}
-	if len(result) != 7 || result["LoadState"] != "loaded" || result["FragmentPath"] != "/run/systemd/system/"+nativeConfigureUnit || result["MainPID"] != "0" || result["Job"] != "0" || (result["ActiveState"] != "inactive" && result["ActiveState"] != "active") || (result["SubState"] != "dead" && result["SubState"] != "exited") {
+	if len(result) != 7 || result["LoadState"] != "loaded" || result["FragmentPath"] != "/run/systemd/system/"+nativeConfigureUnit || result["MainPID"] != "0" || result["Job"] != "" || (result["ActiveState"] != "inactive" && result["ActiveState"] != "active") || (result["SubState"] != "dead" && result["SubState"] != "exited") {
 		t.Fatal("native systemd unit identity or terminal state is unproved")
 	}
 	if result["ActiveState"] == "active" && !regexp.MustCompile(`^[a-f0-9]{32}$`).MatchString(result["InvocationID"]) {

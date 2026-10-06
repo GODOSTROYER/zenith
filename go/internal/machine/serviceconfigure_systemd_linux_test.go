@@ -133,7 +133,7 @@ func nativeSignedInvocation(t *testing.T) string {
 		}
 		rows[key] = value
 	}
-	if len(rows) != 7 || rows["LoadState"] != "loaded" || rows["FragmentPath"] != "/run/systemd/system/"+nativeSignedUnit || rows["ActiveState"] != "active" || rows["SubState"] != "exited" || rows["MainPID"] != "0" || rows["Job"] != "0" || !regexp.MustCompile(`^[a-f0-9]{32}$`).MatchString(rows["InvocationID"]) {
+	if len(rows) != 7 || rows["LoadState"] != "loaded" || rows["FragmentPath"] != "/run/systemd/system/"+nativeSignedUnit || rows["ActiveState"] != "active" || rows["SubState"] != "exited" || rows["MainPID"] != "0" || rows["Job"] != "" || !regexp.MustCompile(`^[a-f0-9]{32}$`).MatchString(rows["InvocationID"]) {
 		t.Fatal("actual signed unit ownership or active postcondition is unproved")
 	}
 	return rows["InvocationID"]

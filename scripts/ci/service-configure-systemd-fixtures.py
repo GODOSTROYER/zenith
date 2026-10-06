@@ -197,7 +197,7 @@ def show(unit):
 
 def unit_owned(uid, gid):
     item = show(UNIT)
-    if item["LoadState"] != "loaded" or item["FragmentPath"] != UNIT_PATH or item["User"] != str(uid) or item["Group"] != str(gid) or item["NoNewPrivileges"] != "yes" or item["CapabilityBoundingSet"] or item["AmbientCapabilities"] or item["MainPID"] != "0" or item["Job"] != "0":
+    if item["LoadState"] != "loaded" or item["FragmentPath"] != UNIT_PATH or item["User"] != str(uid) or item["Group"] != str(gid) or item["NoNewPrivileges"] != "yes" or item["CapabilityBoundingSet"] or item["AmbientCapabilities"] or item["MainPID"] != "0" or item["Job"] != "":
         refuse()
     if item["ActiveState"] not in ["inactive", "active"] or item["SubState"] not in ["dead", "exited"]:
         refuse()
@@ -337,7 +337,7 @@ def main():
             command([SYSTEMCTL, "daemon-reload"], "daemon-reload")
             FAILURE_PHASE = "cleanup-unit-absence"
             missing = show(UNIT)
-            if missing["LoadState"] != "not-found" or missing["FragmentPath"] or missing["MainPID"] != "0" or missing["Job"] != "0" or os.path.lexists(UNIT_PATH) or os.path.lexists(RULE_PATH):
+            if missing["LoadState"] != "not-found" or missing["FragmentPath"] or missing["MainPID"] != "0" or missing["Job"] != "" or os.path.lexists(UNIT_PATH) or os.path.lexists(RULE_PATH):
                 refuse()
             FAILURE_PHASE = "cleanup-remove-lease"
             actual, _ = observed_file(LEASE, 0o444)

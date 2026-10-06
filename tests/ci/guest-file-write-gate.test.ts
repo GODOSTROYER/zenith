@@ -1261,13 +1261,17 @@ describe("separate actual systemd requirement admission models", () => {
     expect(manifest.requiredCases).toHaveLength(15); expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(15);
     expect(manifest.requiredCases.every(item => item.id === `linux-systemd:${item.package}:${item.test}`)).toBe(true);
     for (const [relative, hash] of [
-      ["scripts/ci/service-configure-systemd-fixtures.py", "7551b5da47c80de8ac0cd511a172c598cc57e938f43801d40c8e795bf7f24aeb"],
-      ["go/internal/machine/ops/serviceconfigure_systemd_linux_test.go", "a0e14457140aa0d4b131958ae54147fdd8f4c48624ade65747030c2c22cdcdf4"],
-      ["go/internal/machine/serviceconfigure_systemd_linux_test.go", "a9a27984f167829c42b24451c9c42653f246a9b54a1e9f45448e4f0d1cce5370"],
+      ["scripts/ci/service-configure-systemd-fixtures.py", "de4c1e0b4ea79936bae3cd5f6085cd874b141e5b5029451c03b527ba6affd620"],
+      ["go/internal/machine/ops/serviceconfigure_systemd_linux_test.go", "ea33907477da9952306ecfa282e74f722347622f22dca2127843907edfc0061d"],
+      ["go/internal/machine/serviceconfigure_systemd_linux_test.go", "eec749b257e9f54f74146401c58c9dff2c93e8f22bd1615252795c4323e09ef6"],
     ]) expect(createHash("sha256").update(fs.readFileSync(relative)).digest("hex")).toBe(hash);
     for (const phase of manifest.steps) {
       const source = fs.readFileSync(phase.id === "ops" ? "go/internal/machine/ops/serviceconfigure_systemd_linux_test.go" : "go/internal/machine/serviceconfigure_systemd_linux_test.go", "utf8");
       expect(source).toContain("//go:build linux && zenith_systemd_acceptance"); expect(source).not.toContain("t.Skip");
+      // The sole parser change is systemctl's present-but-empty idle Job value.
+      const priorHash = phase.id === "ops" ? "a0e14457140aa0d4b131958ae54147fdd8f4c48624ade65747030c2c22cdcdf4" : "a9a27984f167829c42b24451c9c42653f246a9b54a1e9f45448e4f0d1cce5370";
+      expect(source.match(/\["Job"\] != ""/g)).toHaveLength(1);
+      expect(createHash("sha256").update(source.replace('["Job"] != ""', '["Job"] != "0"')).digest("hex")).toBe(priorHash);
       const labels = [...source.matchAll(/t\.Run\("([^"]+)"|for _, name := range \[\]string\{([^}]+)\} \{\n\s*t\.Run\(name\+"-has-no-effect"/g)]
         .flatMap(match => match[1] ? [match[1]] : [...match[2].matchAll(/"([^"]+)"/g)].map(label => `${label[1]}-has-no-effect`));
       expect(phase.requiredCases.map(item => item.test)).toEqual([phase.requiredCases[0].test, ...labels.map(label => `${phase.requiredCases[0].test}/${label}`)]);
@@ -1533,5 +1537,78 @@ describe("canonical post-execution custody models", () => {
     expect(helper).toContain('lock(CANONICAL_LEASE)'); expect(helper).toContain('lock(LEASE)');
     expect(helper).toContain('if any(os.path.lexists(p) for p in MARKERS):');
     expect(linuxGuestManifest().requiredCases).toHaveLength(152); expect(linuxSystemdManifest().requiredCases).toHaveLength(15);
+  });
+});
+
+
+// Extract actual read-only parsers/guards; no systemctl/service/root operation runs.
+const idleSystemdJobModel = String.raw`
+import ast, json, pathlib, sys, types
+case = json.loads(sys.argv[2])
+program = ast.parse(pathlib.Path(sys.argv[1]).read_text())
+names = {'UNIT', 'UNIT_PATH', 'RULE_PATH', 'SYSTEMCTL', 'PROPERTIES'}
+nodes = [node for node in program.body if (isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in names for target in node.targets)) or (isinstance(node, ast.FunctionDef) and node.name in {'refuse', 'show', 'unit_owned'})]
+namespace = {}
+exec(compile(ast.Module(body=nodes, type_ignores=[]), 'actual-read-only-systemd-guard', 'exec'), namespace)
+cleanup = case.get('cleanup', False)
+values = dict.fromkeys(namespace['PROPERTIES'].split(','), '')
+values.update(LoadState='not-found' if cleanup else 'loaded', FragmentPath='' if cleanup else namespace['UNIT_PATH'],
+              ActiveState='inactive', SubState='dead', MainPID='0', Job='', User='1001', Group='1001', NoNewPrivileges='yes')
+values.update(case.get('properties', {}))
+rows = [key + '=' + value for key, value in values.items() if key != case.get('missing')]
+if case.get('duplicate'):
+    rows.append('Job=')
+if case.get('foreign'):
+    rows.append('Foreign=')
+if case.get('malformed'):
+    rows.append('Job')
+raw = '\n'.join(rows) + '\n'
+if case.get('empty'):
+    raw = ''
+commands = []
+def command(argv):
+    commands.append(argv)
+    if case.get('commandFailure'):
+        raise RuntimeError('modeled child refused')
+    return raw
+namespace['command'] = command
+namespace['os'] = types.SimpleNamespace(path=types.SimpleNamespace(lexists=lambda name: name in case.get('survivingPaths', [])))
+try:
+    if cleanup:
+        # Evaluate the actual final absence predicate after the actual exact-key parser.
+        candidates = [node.test for node in ast.walk(program) if isinstance(node, ast.If) and any(isinstance(child, ast.Name) and child.id == 'missing' for child in ast.walk(node.test))]
+        assert len(candidates) == 1
+        namespace['missing'] = namespace['show'](namespace['UNIT'])
+        if eval(compile(ast.Expression(body=candidates[0]), 'actual-systemd-absence-predicate', 'eval'), namespace):
+            namespace['refuse']()
+    else:
+        namespace['unit_owned'](1001, 1001)
+    accepted = True
+except RuntimeError:
+    accepted = False
+expected = [[namespace['SYSTEMCTL'], 'show', '--all', '--no-pager', '--property=' + namespace['PROPERTIES'], '--', namespace['UNIT']]]
+print(json.dumps({'accepted': accepted, 'observations': len(commands), 'fixedArgv': commands == expected}))
+`;
+function idleSystemdJob(input: Record<string, unknown>) {
+  const child = spawnSync("python3", ["-B", "-c", idleSystemdJobModel, path.resolve("scripts/ci/service-configure-systemd-fixtures.py"), JSON.stringify(input)], {
+    encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 8192,
+  });
+  expect(child.error).toBeUndefined(); expect(child.status).toBe(0); expect(child.stderr).toBe("");
+  return JSON.parse(child.stdout) as { accepted: boolean; observations: number; fixedArgv: boolean };
+}
+describe("actual read-only systemd idle Job guards", () => {
+  it("accepts only a present empty idle Job while retaining every unit ownership and terminal guard", () => {
+    expect(idleSystemdJob({})).toEqual({ accepted: true, observations: 1, fixedArgv: true });
+    expect(idleSystemdJob({ properties: { ActiveState: "active", SubState: "exited" } }).accepted).toBe(true);
+    for (const Job of ["0", "1", "00", " ", "\t", "[]", "/job/1", "unknown"]) expect(idleSystemdJob({ properties: { Job } }).accepted).toBe(false);
+    for (const fault of [{ missing: "Job" }, { missing: "MainPID" }, { duplicate: true }, { foreign: true }, { malformed: true }, { empty: true }, { commandFailure: true }]) expect(idleSystemdJob(fault).accepted).toBe(false);
+    for (const properties of [{ LoadState: "not-found" }, { FragmentPath: "/run/systemd/system/foreign.service" }, { User: "1002" }, { Group: "1002" }, { NoNewPrivileges: "no" }, { CapabilityBoundingSet: "cap_chown" }, { AmbientCapabilities: "cap_chown" }, { MainPID: "1" }, { ActiveState: "activating" }, { SubState: "running" }]) expect(idleSystemdJob({ properties }).accepted).toBe(false);
+  });
+  it("requires present empty Job and complete observed absence before retiring cleanup", () => {
+    expect(idleSystemdJob({ cleanup: true })).toEqual({ accepted: true, observations: 1, fixedArgv: true });
+    for (const Job of ["0", "1", "00", " ", "\t", "[]", "unknown"]) expect(idleSystemdJob({ cleanup: true, properties: { Job } }).accepted).toBe(false);
+    for (const fault of [{ missing: "Job" }, { missing: "LoadState" }, { duplicate: true }, { foreign: true }, { malformed: true }, { empty: true }, { commandFailure: true },
+      { properties: { LoadState: "loaded" } }, { properties: { FragmentPath: "/run/systemd/system/zenith-mach01-configure-fixture.service" } }, { properties: { MainPID: "1" } },
+      { survivingPaths: ["/run/systemd/system/zenith-mach01-configure-fixture.service"] }, { survivingPaths: ["/etc/polkit-1/rules.d/49-zenith-mach01-configure-fixture.rules"] }]) expect(idleSystemdJob({ cleanup: true, ...fault }).accepted).toBe(false);
   });
 });

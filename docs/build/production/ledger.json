@@ -488,6 +488,16 @@
             "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
+        },
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh manifest/report/refusal/privacy contracts in successful whole-unit19521/0/1521; all current strict source/tool/exit/cleanup cohorts admitted. Prior9e scoped evidence preserved. No known current mandatory source gap. Skip and artifact-attribution limits remain explicit."
         }
       ],
       "requiredEvidence": [
@@ -532,9 +542,9 @@
       "acceptance": [
         "Reconcile advisories by ID/version/platform and production/build/dev reachability; safe patches, mandatory gates, reviewed expiring exceptions, no force upgrades."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [],
-      "implementationStatus": "scoped_dependency_security_remediation_local_gates_pass_fresh_ci_pending",
+      "implementationStatus": "verified_77131a70",
       "evidence": [
         {
           "level": "contract",
@@ -618,6 +628,16 @@
           "runId": 37412189880,
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-03763192-final.json",
           "result": "Fresh complete mandatory locked audit passed with zero known findings on037. Source-map/licensed OPA formatter repair included; no exception or security gate weakening. Whole037 still failed four synthetic Verify assertions; historical unresolved/8-vs7 reconciliation limits retained and clearance is time-bound."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/security-audit.mjs (fresh complete locked supply-chain job); original reviewed remediation install/provenance/real-Wasm/policy/build commands remain source-bound in security-R3 evidence",
+          "environment": "Fresh hosted LinuxAMD64 complete locked audit; original reviewed DarwinARM64 and nativeLinux tool/runtime proofs retained at their tested sources",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Current complete locked audit0 known findings. Known source-map and sprintf advisories reconciled by ID/version/platform/reachability with reviewed safe patch and genuine evaluator fail-closed proof; no exception or gate weakening. Time-bound clearance only; historical8-versus7 raw audit inputs remain unavailable and unreconciled."
         }
       ],
       "requiredEvidence": [
@@ -639,7 +659,7 @@
       "acceptance": [
         "Clean installation, migrations, typecheck/lint/generated artifacts, real OpenTofu, OPA, Go race/interoperability, PostgreSQL, Temporal and real browser gates run with exact counts."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
@@ -648,7 +668,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "verification_partial_f36_local_build_pg93_vault57_tools_pass_fresh_ci_pending",
+      "implementationStatus": "verified_77131a70",
       "evidence": [
         {
           "level": "local_engine",
@@ -1043,6 +1063,16 @@
           "commit": "499592a9868d84a9d27b06b80563cb87c3823bde",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-03763192-final.json",
           "result": "Only the synthetic PG93 report fixture changed: exact worker35/0/0; root three affected suites377/0/0 and lint0 on frozen postimage8bd40a2e before commit. Existing32 names/assertions preserved and every13 journal literal missing/failed/skipped remains refusal. Current successor wholeCI unrun."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "Current main CI canonical jobs plus Native packaged workers, attempt1; exact commands remain in unchanged workflow and source-bound execution artifacts",
+          "environment": "Fresh hosted native LinuxAMD64 main/guest; native AMD64 andARM64 packaged workers; tool versions and unexported fields recorded per job; separate original-source kind component",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh771 main16/native2 all passed; unit19521/0/1521, Typecheck/Lint/Smoke/Gimbal success; seven strict cohorts passed, guest152/systemd15/browser24+44/native22 each with owned cleanup. Separate f36 kind55 component and771 network5/Temporal1 receipts retained without adding counts. Literal CI test matrix satisfied in documented scopes;1521 skips have exact118 unchanged file rows and explicit unavailable prerequisites. Per-leaf assertion/expected-skips exports remain unavailable; no default product/cloud acceptance."
         }
       ],
       "requiredEvidence": [
@@ -1062,14 +1092,14 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "current_pushed_4426_security_failed_successor_remote_ci_pending",
+      "implementationStatus": "verified_77131a70",
       "evidence": [
         {
           "level": "remote_ci",
@@ -1331,6 +1361,16 @@
           "runId": 37412189880,
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-03763192-final.json",
           "result": "Every exact037 attempt1 main/native job observed terminal: main15 success/1Verify failure, native2success; unit19514/4/1521, Smoke/Gimbal skipped. Dedicated gates passing does not clear failed entire run. Narrow test fix committed499592a9; fresh normal same-branch successor CI pending."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "Observe exact771 main37416369852 and native37416369867 through all18 terminal jobs using GitHub Actions API and immutable sanitized artifacts",
+          "environment": "GitHub Actions hosted jobs; per-job environment/architecture/tool limits recorded in sanitized projection",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "All16 main and2 native jobs terminal success; actual source/attempt/content validated; no predecessor outcome carried forward. This is a time-bound test checkpoint, not a future CI or release guarantee. Failed037/4426 and external product prerequisites remain visible."
         }
       ],
       "requiredEvidence": [
@@ -2121,7 +2161,18 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 13; 423 passed /0 failed /13 skipped. File-summary attribution only; required native/engine proof is separate. Default UI/API/CLI product mirror/customer runner create/onboard/verify/revoke/rotate full join missing; external trust/rotation/accounts need explicit authority. retirePreviousRunner in-use branch lacks focused default-route proof."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -2162,6 +2213,16 @@
             "execution": "root-owned local verifier host; no services, credentials or provider calls required"
           },
           "logs": "docs/build/production/evidence/PROD-LIFE-02/2026-10-06-catalog-1c3913a8.json"
+        },
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 3; 176 passed /0 failed /0 skipped. File-summary attribution only; required native/engine proof is separate. Original engine/contract receipts retain their tested commits: 1c3913a8,9e4a42af. No unexecuted runnable matrix acceptance identified; catalogue does not prove provider lifecycle."
         }
       ],
       "requiredEvidence": [
@@ -2331,6 +2392,16 @@
           "commit": "e64d00fc3a6f4ae305925059e441628f57a37ddc",
           "result": "Clean isolated candidate actualPostgreSQL1678P0F0S/141requiredgroups and Temporal1035P0F0S/53requiredgroups with strict revalidation passed. Not integrated; later broker/current-policy/source/late-agent candidates require new checks. No private GitHub/App or AWS live journey claim.",
           "artifact": "docs/build/production/ci-37124764251.json"
+        },
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 8; 269 passed /0 failed /31 skipped. File-summary attribution only; required native/engine proof is separate. Original engine/contract receipts retain their tested commits: e64d00fc. Actual private App installation bind/remove/uninstall/revoke requires authorized GitHub App/repo. Monorepo/buildpack contracts intentionally avoid host execution."
         }
       ],
       "requiredEvidence": [
@@ -2351,7 +2422,18 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 14; 335 passed /0 failed /37 skipped. File-summary attribution only; required native/engine proof is separate. Actual builder identity/network/filesystem/metadata/resources/provenance acceptance requires an owned build environment, not returned protocol attestation."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -2370,7 +2452,18 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 12; 322 passed /0 failed /19 skipped. File-summary attribution only; required native/engine proof is separate. Whole source\u2192actual build\u2192migration\u2192readiness\u2192cutover/readback needs owned target; progressive rollout/code rollback is distinct from approved data restore."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -2410,6 +2503,16 @@
             "architecture": "Darwin arm64; local PostgreSQL Linux arm64"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-pg-3346e4d4.json"
+        },
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 11; 132 passed /0 failed /17 skipped. File-summary attribution only; required native/engine proof is separate. Original engine/contract receipts retain their tested commits: 3346e4d4,5f4713a7. MySQL1 and S3-compatible1 native fixtures lack configured owned server/tools/endpoint credentials; live adoption/destructive decommission requires true scoped identity+approval."
         }
       ],
       "requiredEvidence": [
@@ -2463,6 +2566,16 @@
             "host": "Darwin ARM64"
           },
           "logs": "docs/build/production/evidence/PROD-LIFE-12/2026-10-06-pg-80a4b287.json"
+        },
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 9; 198 passed /0 failed /13 skipped. File-summary attribution only; required native/engine proof is separate. Original engine/contract receipts retain their tested commits: 6bdf5adf,80a4b287. New competing-owner/resource INSERT races, resource-fact changes and already-issued cloud calls remain broader criterion limits. No rerun closes them."
         }
       ],
       "requiredEvidence": [
@@ -2599,6 +2712,16 @@
             "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
+        },
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "CI/go job: canonical guest --run/--select-current and ordered systemd --run-systemd/--select-current-systemd",
+          "environment": "Hosted native LinuxAMD64; actual test UID/GID1001,caps0,NNPtrue; fixed cleanup transportNNPfalse. Inert fixture/modelled issuer and package AppArmor override remain explicit.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh native LinuxAMD64 guest148 race+4 root=152 and ordered systemd8 ops+7 signed=15 passed; authentic goldens/interop27/both crossbuilds and both custody cleanups passed. No missing canonical scenario identified. Inert unit/modeled CP issuer; package AppArmor fixture override and cleanup wrapperNNPfalse explicitly separate from native testcaps0/NNPtrue."
         }
       ],
       "requiredEvidence": [
@@ -2653,6 +2776,16 @@
           "command": "node node_modules/vitest/vitest.mjs run tests/machines/runbook-routes.test.ts tests/observability/local-telemetry-engine.test.ts --maxWorkers=1 --reporter=json",
           "environment": "Node22.23.3/npm10.9.9; macOS native ARM64; controlled route adapters and actual owned TCP protocol fixtures",
           "logs": "docs/build/production/evidence/PROD-MACH-03/2026-10-06-route-telemetry-1c3913a8.json"
+        },
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 7; 158 passed /0 failed /13 skipped. File-summary attribution only; required native/engine proof is separate. Original engine/contract receipts retain their tested commits: 1c3913a8. Missing registered signed guest/default broker step-delivery join. Route42 does not execute a real machine; no current command proves full join."
         }
       ],
       "requiredEvidence": [
@@ -2685,6 +2818,16 @@
           "commit": "4bfda972dcb8ebc04b309c4ad63a1e987033c4a8",
           "result": "Actual native guest source4bf:801passed leaves/0failed/3allowed skips,55parents,17packages; privileged/unprivileged persistent-ext4/mount/ACL/crash/uncertainty/rotation behavior and five authentic goldens. Integrated Go/fixture/CI inputs byte-identical; receipt retains4bf source and lock. Additional28actual fixture tamper/cleanup checks passed. Whole pushed exact-source native CI, systemd and signed browser journey remain open.",
           "artifact": "docs/build/production/verification/2026-10-03-g1-integration.json"
+        },
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 5; 149 passed /0 failed /8 skipped. File-summary attribution only; required native/engine proof is separate. Original engine/contract receipts retain their tested commits: 4bfda972,c355eeef. Installed registered runner signed release/update/restart/rollback+customer key rotation join not established by package/unit/golden run."
         }
       ],
       "requiredEvidence": [
@@ -2705,7 +2848,18 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 6; 93 passed /0 failed /0 skipped. File-summary attribution only; required native/engine proof is separate. Dedicated current default transport+registered credential-absence/revocation journey absent. Unknown secret shapes remain best_effort, federated mode not a CP token-file minting proof."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -2802,6 +2956,16 @@
           "command": "node node_modules/vitest/vitest.mjs run tests/machines/runbook-routes.test.ts tests/observability/local-telemetry-engine.test.ts --maxWorkers=1 --reporter=json",
           "environment": "Node22.23.3/npm10.9.9; macOS native ARM64; controlled route adapters and actual owned TCP protocol fixtures",
           "logs": "docs/build/production/evidence/PROD-MACH-03/2026-10-06-route-telemetry-1c3913a8.json"
+        },
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 5; 138 passed /0 failed /0 skipped. File-summary attribution only; required native/engine proof is separate. Original engine/contract receipts retain their tested commits: 1c3913a8. No genuine scoped broker-issued telemetry session + registered machine health / genuine Prometheus/Loki read established. Fixture endpointauth is not default authority."
         }
       ],
       "requiredEvidence": [
@@ -2850,6 +3014,16 @@
             "scope": "Actual scoped SQL/transactions/concurrency and engine contracts; current source/runtime/exit/environment bound"
           },
           "logs": "docs/build/production/evidence/PROD-OBS-03/2026-10-06-engine-9e4a42af.json"
+        },
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 5; 163 passed /0 failed /11 skipped. File-summary attribution only; required native/engine proof is separate. Original engine/contract receipts retain their tested commits: 9e4a42af. Current platform/reconciliation/intents strict cohorts passed; existing scoped stability acceptance retained. Paging/provider/default telemetry-to-repair beyond that scope remains unclaimed."
         }
       ],
       "requiredEvidence": [
@@ -2878,6 +3052,16 @@
           "command": "ZENITH_TEST_TEMPORAL=1 ZENITH_TEST_TEMPORAL_DOWNLOAD=0 node node_modules/vitest/vitest.mjs run tests/workflows/critical-schedule.test.ts --maxWorkers=1 --reporter=default --reporter=json",
           "environment": "Node22.23.3; TemporalCLI1.9.1 pinned SHA33c298d4; native macOS ARM64; owned loopback SQLite/Worker; controlled maintenance activity results",
           "logs": "docs/build/production/evidence/PROD-OBS-04/2026-10-06-wave2-db871bd5.json"
+        },
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit; node scripts/ci/run-gate.mjs workflows --run",
+          "environment": "GitHub-hosted ubuntu-latest core and workflows jobs; repository-pinned Node22.23.3, PostgreSQL16.15 and TemporalCLI1.9.1; measured environment and successful pinned setup remain distinct in per-job receipts.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh771 workflows1275/0/0 all62 required, including both literal native restart/SKIP cases; original db871 native10 receipt remains separately source-bound. Full62 pending is superseded by current771 execution. Controlled maintenance activity proves scheduling; default job effects/health and missed-interval catch-up remain outside this evidence."
         }
       ],
       "requiredEvidence": [
@@ -3248,7 +3432,18 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 2; 84 passed /0 failed /0 skipped. File-summary attribution only; required native/engine proof is separate. Those browser suites are not platform MFA/step-up/default readiness/runbook end-to-end/a11y audit. Existing auth lacks a step-up primitive in this slice; no axe/contrast/screen-reader evidence."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -3286,7 +3481,18 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 6; 64 passed /0 failed /13 skipped. File-summary attribution only; required native/engine proof is separate. External actual plugin archive fetch/hash/launch isolation/default parent authority join missing; server does not sandbox plugin process. OAuth grant parents unsupported."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -3361,7 +3567,18 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "77131a70ec1a25971714f643981475e456c1e2ed",
+          "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+          "environment": "GitHub-hosted ubuntu-latest Verify; repository-pinned Node22.23.3; unit npm/Docker versions not separately exported. Dedicated native/browser/tool environments are recorded per job.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
+          "runId": 37416369852,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
+          "result": "Fresh runbook-listed unit files: 9; 255 passed /0 failed /27 skipped. File-summary attribution only; required native/engine proof is separate. Default noMeasurements/refuseUnknownFieldOwnership; no collector/human opt-in endpoint. Measurable default savings cannot be established by another controlled-input test."
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -4220,30 +4437,30 @@
     }
   ],
   "sessionState": {
-    "status": "verifier_active_scoped_security_and_runtime_repair",
+    "status": "verifier_runnable_gates_complete_product_acceptance_pending",
     "sourceCheckpoint": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "4426f3c121900069fe814822fc3e34b7d9c27987",
-    "lastPushedRun": 37407093384,
-    "lastPushedRunStatus": "completed_main15_success1_failure_native2_success",
-    "currentVerification": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-4426f3c1-final.json",
+    "lastPushedCommit": "77131a70ec1a25971714f643981475e456c1e2ed",
+    "lastPushedRun": 37416369852,
+    "lastPushedRunStatus": "completed_main16_success_native2_success",
+    "currentVerification": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
     "remainingLocalPackets": {
-      "nativePackageAndCi": "Current integrated source awaits native package and fresh pushed required CI",
-      "productAndExternal": "Default journeys/live/Windows/hosted/private-source prerequisites remain separately scoped"
+      "productAndExternal": "Remaining work is product/default-journey and external acceptance: registered signed guest delivery, default telemetry/session, current-owner/new-writer and preissued-effect limits, measured-cost opt-in, MFA/accessibility, external plugin isolation, installed customer-runner lifecycle, genuine Windows, owned private GitHub App/hosted builder/serving targets and MySQL/S3/provider decommission. No API/server, cloud/account, budget or production permission follows."
     },
     "permissions": {
       "approved": "Owned disposable verification, normal same-branch push, and human-authorized narrow fixes for GHSA-68fv-2mgg-jv7q and GHSA-hp3w-g68c-fv3c only",
       "pending": "Default local API/server, live accounts/budgets/regions, broader dependency upgrades, product/operational/production sign-off"
     },
-    "releaseVerdict": "All four release states false; no requirement promotion",
-    "next": "Local kind55 and cleanup are terminal passed. Inspect remaining current-source prerequisites without reusing older runtime as fresh. Publish the coherent checkpoint normally on the same branch, then observe every new main/native job and mandatory identity/skip/exit/cleanup receipt. Continue the exact HANDOFF20-ID order only after the CI gate. Default product/browser, Windows, hosted/cloud, private-source and customer-runner prerequisites remain separate; no live account or API startup permission follows.",
+    "releaseVerdict": "All four release states false; only CI07/08/09 verified at771; no product/release approval",
+    "next": "Document exact verified771 results once, normal same-branch checkpoint push, then observe its docs-only successor without repeated self-SHA documentation commits. Follow fixed HANDOFF20-ID order and preserve product/external prerequisites.",
     "completedLocalKind": {
       "sourceCommit": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820",
       "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-kind55-f36eb5d4.json",
       "cleanupComplete": true,
       "scope": "Local provider/release/guest components only; CNI/PGlite limits retained"
     },
-    "recordedAt": "2026-10-06T04:02:45.264219+00:00"
+    "recordedAt": "2026-10-06T05:29:19.747441+00:00",
+    "nativeRun": 37416369867
   },
   "sessionHistory": [
     {
@@ -5227,6 +5444,32 @@
       },
       "releaseVerdict": "All four release states false; no requirement promotion",
       "next": "Push80482 correction plus coherent receipts; inspect complete fresh exact-SHA CI; fixed wave1, missing joins, wave2 and final CI."
+    },
+    {
+      "status": "verifier_active_scoped_security_and_runtime_repair",
+      "sourceCheckpoint": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820",
+      "publicationBranch": "codex/production-2026-10-02",
+      "lastPushedCommit": "4426f3c121900069fe814822fc3e34b7d9c27987",
+      "lastPushedRun": 37407093384,
+      "lastPushedRunStatus": "completed_main15_success1_failure_native2_success",
+      "currentVerification": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-4426f3c1-final.json",
+      "remainingLocalPackets": {
+        "nativePackageAndCi": "Current integrated source awaits native package and fresh pushed required CI",
+        "productAndExternal": "Default journeys/live/Windows/hosted/private-source prerequisites remain separately scoped"
+      },
+      "permissions": {
+        "approved": "Owned disposable verification, normal same-branch push, and human-authorized narrow fixes for GHSA-68fv-2mgg-jv7q and GHSA-hp3w-g68c-fv3c only",
+        "pending": "Default local API/server, live accounts/budgets/regions, broader dependency upgrades, product/operational/production sign-off"
+      },
+      "releaseVerdict": "All four release states false; no requirement promotion",
+      "next": "Local kind55 and cleanup are terminal passed. Inspect remaining current-source prerequisites without reusing older runtime as fresh. Publish the coherent checkpoint normally on the same branch, then observe every new main/native job and mandatory identity/skip/exit/cleanup receipt. Continue the exact HANDOFF20-ID order only after the CI gate. Default product/browser, Windows, hosted/cloud, private-source and customer-runner prerequisites remain separate; no live account or API startup permission follows.",
+      "completedLocalKind": {
+        "sourceCommit": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820",
+        "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-kind55-f36eb5d4.json",
+        "cleanupComplete": true,
+        "scope": "Local provider/release/guest components only; CNI/PGlite limits retained"
+      },
+      "recordedAt": "2026-10-06T04:02:45.264219+00:00"
     }
   ]
 }

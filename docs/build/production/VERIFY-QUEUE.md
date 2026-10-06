@@ -1,3 +1,40 @@
+## Final published test checkpoint, 6 October 2026
+
+Published `77131a70ec1a25971714f643981475e456c1e2ed`: main 37416369852 all16 jobs and native 37416369867 both jobs terminal success, attempt1. Unit 19521 passed / 0 failed / 1521 skipped; typecheck/lint/Smoke/Gimbal executed successfully. Complete locked dependency audit reports zero known findings, without exceptions or gate weakening. All current seven canonical lanes satisfy their strict required cohorts; native22 each and Linux152/systemd15/custody passed. No mandatory missing/failure/skip waiver. [Exact per-job/source/count/skip evidence](evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json).
+
+Standard canonical artifacts export matched required groups, not individual raw Vitest assertions. Unit skips remain explicitly accounted by file/source prerequisites; passing same-file groups do not prove every skipped leaf executed. Platform8 are memory/PGlite SQL-only counterparts with six distinct fresh PostgreSQL passes; tofu18 remain conditional source skips. Counts overlap and are never added.
+
+Runnable reported failures are repaired in their recorded scope. Continue fixed20 order; Remaining work is product/default-journey and external acceptance: registered signed guest delivery, default telemetry/session, current-owner/new-writer and preissued-effect limits, measured-cost opt-in, MFA/accessibility, external plugin isolation, installed customer-runner lifecycle, genuine Windows, owned private GitHub App/hosted builder/serving targets and MySQL/S3/provider decommission. No API/server, cloud/account, budget or production permission follows. All78 acceptance criteria, required evidence, dependencies, previous evidence/history and four false release flags are unchanged. OnlyCI07/CI08/CI09 current states are updated after verified771 conditions; totals12 verified/38 in progress/28 planned. Current known-advisory clearance is time-bound; historical8-versus7 raw audit inputs remain unavailable and unreconciled.
+
+Earlier checkpoint notes retain their exact historical source scope.
+
+## Results: current selected20
+
+| Requirement | Status | Tested source | RESULTS record |
+|---|---|---|---|
+| PROD-CI-05 | verified | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-ci-05) |
+| PROD-CI-08 | verified | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-ci-08) |
+| PROD-CI-09 | verified | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-ci-09) |
+| PROD-MACH-01 | verified | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-mach-01) |
+| PROD-MACH-03 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-mach-03) |
+| PROD-OBS-02 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-obs-02) |
+| PROD-OBS-03 | verified | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-obs-03) |
+| PROD-LIFE-02 | verified | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-life-02) |
+| PROD-LIFE-12 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-life-12) |
+| PROD-COST-03 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-cost-03) |
+| PROD-OBS-04 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-obs-04) |
+| PROD-LIFE-01 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-life-01) |
+| PROD-LIFE-08 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-life-08) |
+| PROD-LIFE-09 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-life-09) |
+| PROD-LIFE-10 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-life-10) |
+| PROD-LIFE-11 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-life-11) |
+| PROD-MACH-04 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-mach-04) |
+| PROD-MACH-05 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-mach-05) |
+| PROD-UX-01 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-ux-01) |
+| PROD-UX-03 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-ux-03) |
+
+Earlier source-specific guidance remains historical; no missing external/operational level is inferred passed.
+
 ## Integrated test checkpoint, 6 October 2026
 
 Runnable PG13/vault1/tool/security failures now have reviewed scoped repairs and local evidence; exact sources and historical failures remain in RESULTS. Next build passed. Kind local55/cleanup passed within explicit limitations; current native packages/fresh CI still require terminal identity/cleanup proof; no mandatory skip can be waived. Preserve the fixed20 order and current9/41/28 states.

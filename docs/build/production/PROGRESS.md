@@ -1,3 +1,9 @@
+## Final published test checkpoint, 6 October 2026
+
+Published `77131a70ec1a25971714f643981475e456c1e2ed`: main 37416369852 all16 jobs and native 37416369867 both jobs terminal success, attempt1. Unit 19521 passed / 0 failed / 1521 skipped; typecheck/lint/Smoke/Gimbal executed successfully. Complete locked dependency audit reports zero known findings, without exceptions or gate weakening. Native workers22 each on genuine AMD64/ARM64 and all six cleanup proofs each; Linux152/systemd15/goldens/interop27/crossbuilds and both custody cleanups passed. All78 acceptance criteria, required evidence, dependencies, previous evidence/history and four false release flags are unchanged. OnlyCI07/CI08/CI09 current states are updated after verified771 conditions; totals12 verified/38 in progress/28 planned. Current known-advisory clearance is time-bound; historical8-versus7 raw audit inputs remain unavailable and unreconciled. [Exact per-job/source/count/skip evidence](evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json).
+
+Earlier checkpoint notes retain their exact historical source scope.
+
 ## Integrated test checkpoint, 6 October 2026
 
 Combined f36 compiler/lint/Next standalone build passed. Reviewed dependency repair has strict audit/lock0 and scoped real policy/security tests; PG93/vault and tool receipts retain their own sources. Published4426 remains main15 success/1 supply-chain failure plus2 native success. Kind local components and cleanup passed with explicit CNI/PGlite limits; current-source native packages and new CI pending. States9/41/28, all78 criteria/dependencies/history and four false release flags unchanged.

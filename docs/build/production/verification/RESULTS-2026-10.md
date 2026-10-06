@@ -399,3 +399,37 @@ Combined six-file focused command: **113 passed / 0 failed / 0 skipped**. Runboo
 Same combined **113/0/0**, not additive: endpoints6, envelopes19, machine health6. [Source-bound receipt](../evidence/PROD-OBS-02/2026-10-06-default-join-assessment-ec18bb9c.json). Controlled endpoint authentication is not a default broker session (`tests/observability/local-telemetry-engine.test.ts:132`). Default agent composition omits metrics/log endpoints (`src/lib/platform/agent-ports.ts:98`); factory requires explicit endpoints (`src/lib/observability/sources/factory.ts:202`); machine-health helper has no production caller (`src/lib/machines/telemetry.ts:88`). Building-machine prerequisite: wire genuine scoped metrics/logs/traces/events/machine health and explicit unavailable states into default session path. Runtime prerequisite: authorized default product API/server, actual registered agent and owned telemetry targets. No live account needed for a local scoped subset; subset cannot close all signals. State remains in_progress.
 
 No requirement promoted; no forbidden wave3 source, accepted migration, gate or release-state edits. Next: actual owned default worker scheduling proof, step3 coherent-source verification, then step4 and complete final gate/CI.
+
+
+## Security stop: PROD-LIFE-11, 2026-10-06
+
+**Current-source network-isolation defect confirmed; verifier stopped under HANDOFF §7.** Independently reviewed exactec18 and root-rechecked all tracked source hashes. No DNS attack, protocol exchange, credential extraction or tenant mutation was executed or claimed. [Sanitized static review](../evidence/PROD-LIFE-11/2026-10-06-dns-transport-security-review-ec18bb9c.json).
+
+- `src/lib/portability/net.ts:62` validates resolved addresses but returns no address-bound transport capability.
+- `src/lib/portability/connect.ts:46` checks hostname, then line52 passes original URI to postgres3.4.7, whose socket independently resolves original host.
+- `src/lib/portability/connect.ts:78` retains original MySQL hostname; `engines/mysql.ts:104` supplies it to stock mysql/mysqldump.
+- `src/lib/portability/engines/s3.ts:74` prechecks once, then constructs a cached SDK client using original endpoint and default transport; new sockets/retries are not bound to vetted addresses.
+- `tests/portability/adoption-decommission.test.ts:180` checks preflight lookup outcomes only, not actual socket destination.
+
+Precondition: an authorized tenant-owned vault connection/endpoint with attacker-controlled DNS is used by actual portability worker. Public preflight resolution can change before connection or retry; address boundary is not enforced at transport. Existing approvals, tenant vault references, bucket checks and TLS settings remain but do not repair this gap. No claim of unauthenticated access.
+
+Narrow fixes are already authorized; no invented new approval rule. Root selected report-only stop because this candidate has no complete designed/reviewed transport change across the three distinct clients, including stock-CLI constraints. A fixture-only patch, blanket hostname refusal or disabled TLS would not establish accepted behavior. Building repair must bind every new socket/reconnect/retry to validated addresses while preserving original TLS/SNI identity, HTTP Host/SigV4, authentication and existing private-host rules; add actual controlled-DNS socket tests and positive owned DB/S3 export/import/readback. PostgreSQL exposes a socket hook; historical assertion that no hook exists is superseded, but using it safely still requires transport tests. Published migrations, gates and release flags must remain unchanged.
+
+### Executed and paused work
+
+Sourceec18: workflows1275/0/0 all62; step2 focused contracts113/0/0; LIFE12 focused ownership65/0/0, [receipt](../evidence/PROD-LIFE-12/2026-10-06-ownership-contracts-ec18bb9c.json). No count summation. LIFE12 local-engine completion and MACH04 actual installed-agent lifecycle remain open; Node-worker22/systemd15 are not replacements. LIFE11 native MySQL existing case only proves export; real second-database restore/readback extension was not begun. Actual PostgreSQL/S3 historical receipts retain their own source and scope.
+
+Steps3–5 paused, including genuine browser operator accessibility, default source/agent/plugin joins, complete combined gate and final-SHA complete CI. Default product API/server, real private GitHub App/DNS/cloud and retention/business prerequisites unchanged. Plugin one-test packet remains local, reviewed source only; default maintenance harness three private drafts remain unreviewed/unexecuted. All agents stopped; no unattended agent work promised.
+
+Owned fresh PG container/network/volume were removed after label/image/mount/network custody checks and independent absence readback. No new worker/default API/Temporal service had started. Reusable pinned image and unrelated resources preserved; disk26GiB free. [Resumable state and next steps](VERIFIER-SECURITY-STOP-2026-10-06.md). Current final report CI remains pending until exact pushed SHA is inspected; historicalec18 all20 successes cannot verify this report successor.
+
+[Per-job CI snapshot at stop](CI-REPORT-2026-10-06-SECURITY-STOP.md): group1–2 sourceadb6fb42, three runs/20 jobs inspected; runs not all terminal. Final report-SHA complete CI remains pending.
+
+
+## Dependency stop: sharp, 2026-10-06
+
+Group1–2 source `adb6fb422b337bb6b981e99039ad5ce0a6aa45ed`: CI37505657907 job112413547642 **supply-chain failed** at “Known dependency findings block release”. Job-only log inspected: **1 unresolved finding**, `sharp0.35.4`, GHSA-wq5f-xc86-pv6w. Historical zero findings are not current clearance. [Sanitized disposition](../evidence/PROD-CI-07/2026-10-06-sharp-advisory-adb6fb42.json).
+
+[Current primary GitHub advisory](https://github.com/advisories/GHSA-wq5f-xc86-pv6w) lists affectedsharp<0.35.5 and patched0.35.5; describes a librsvg memory vulnerability with possible RCE under specific glibc Linux conditions. The advisory was updated6October. Current Next15.5.24 declares sharp range^0.34.3 || ^0.35.3, so the listed patch fits its version range. This is a candidate, not verified compatibility/provenance. Sharp is production dependency; repository uses next/image. Specific SVG decode/exposure/native runtime conditions remain untested, no exploit claimed. No exception/upgrade applied. General dependency upgrades are outside current handoff scope; its explicit security override covers prior source-map-js/OPA findings only.
+
+CI07/08/09 reopened, preserving all earlier receipts. Counts recomputed from78 rows: **9 verified /41 in progress /28 planned**, allfour release flagsfalse. Complete final gated run remains unexecuted/blocked; CI snapshot16 success/3 in progress/1 failure is not terminal all-green. Need authorized reviewed dependency disposition plus LIFE11 transport repair, then resume remaining verification and inspect every job on repaired pushed SHA.

@@ -1,0 +1,48 @@
+{
+  "sourceCommit": "ec18bb9c8973787ab16123040d00d7be1407eb08",
+  "sourceStable": true,
+  "command": "node node_modules/vitest/vitest.mjs run tests/ownership tests/capabilities/field-ownership-broker.test.ts tests/capabilities/ownership-transfers.test.ts tests/providers/aws/drivers/compute/ecs-ownership-lifecycle.test.ts --maxWorkers=1 --no-file-parallelism --reporter=json",
+  "exitCode": 0,
+  "durationSeconds": 10.722,
+  "counts": {
+    "passed": 65,
+    "failed": 0,
+    "skipped": 0
+  },
+  "files": [
+    {
+      "path": "tests/capabilities/field-ownership-broker.test.ts",
+      "sourceSha256": "41305f1b9529bca6a155b107f96cf28774139f5ac016b6aafa1a57b7962bb7b7",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "path": "tests/capabilities/ownership-transfers.test.ts",
+      "sourceSha256": "5af6578ffbb5b7c5772ec3e7f2de24164ad40fe55e1e2934b853d6d9015ce72c",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "path": "tests/ownership/field-ownership.test.ts",
+      "sourceSha256": "3698f2c0e9f2464f517a3845b1b179b68414fdf5ee85679eabd6d1899effc146",
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "path": "tests/providers/aws/drivers/compute/ecs-ownership-lifecycle.test.ts",
+      "sourceSha256": "5067ec6dc6db3fbe580bb8fbf7b5e21a2e69d6fff6449668a2ef587ed3ff8753",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "environment": {
+    "node": "22.23.3",
+    "postgres": "16.15",
+    "architecture": "native macOS ARM64"
+  },
+  "scope": "Contract unless independently demonstrated actual default-engine behavior; real databases do not make injected ports default composition."
+}

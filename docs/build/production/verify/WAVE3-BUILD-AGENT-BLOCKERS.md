@@ -1,3 +1,13 @@
+## Current dependency blocker and recomputed ledger
+
+New supply-chain failure atadb6fb42:1 sharp0.35.4 finding GHSA-wq5f-xc86-pv6w; primary advisory patched0.35.5 fits Next declared range, but safe upgrade/provenance/packaging tests remain unperformed. General upgrades excluded by current verifier handoff; no exception applied. CI07/08/09 reopened, currentledger9 verified/41 in progress/28 planned, all78 criteria/fourfalse release flags preserved. [Disposition and exact failed job](../verification/RESULTS-2026-10.md#dependency-stop-sharp-2026-10-06).
+
+## Immediate blocker: LIFE11 transport destination custody
+
+Currentec18 source confirms checked DNS addresses are not bound to actual PG/MySQL/S3 sockets. Verifier stopped under HANDOFF §7; no exploit executed, no narrow fix or default journey accepted. Repair must cover every actual connection/retry with validated destination addresses while retaining TLS hostname/SNI, HTTP Host/SigV4, CLI authentication and scoped vault/approval behavior. Add real controlled-DNS negative destination readback plus permitted owned DB/S3 positive restore tests; no mock-only or TLS-disable substitute. Existing user authorization covers narrow fixes; this report does not create an extra permission requirement. [Exact trace and prerequisites](../verification/RESULTS-2026-10.md#security-stop-prod-life-11-2026-10-06).
+
+All verifier agents stopped, steps3–5 paused, plugin candidate and unexecuted private maintenance drafts preserved. MySQL real restore and installed Go-agent update/rollback remain genuine evidence gaps. Existing wave3 ownership unchanged; root edited only reports/ledger/evidence.
+
 ## Current verifier findings, 6 October 2026
 
 Sourceec18bb9c; ledger12 verified /38 in progress /28 planned, all78 criteria unchanged. Fullcanonical workflows62 rerun1275/0/0; final successor CI still required. Default runbook delivery needs genuine registered-agent/product API acceptance; default telemetry needs explicit scoped source configuration and machine-health wiring. These are not fixed by controlled ports or additional mocked assertions. Preserve wave3 ownership; verifier does not implement those features. Worker-only scheduling proof is in progress and not an API startup authorization. Latest human identity: Arnav Bule; before every push pull --no-rebase and merge, never force.

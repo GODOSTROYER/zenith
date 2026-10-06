@@ -542,9 +542,9 @@
       "acceptance": [
         "Reconcile advisories by ID/version/platform and production/build/dev reachability; safe patches, mandatory gates, reviewed expiring exceptions, no force upgrades."
       ],
-      "state": "verified",
+      "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "verified_77131a70",
+      "implementationStatus": "reopened_adb6fb42_supply_chain_failure_sharp_GHSA_wq5f_xc86_pv6w",
       "evidence": [
         {
           "level": "contract",
@@ -638,6 +638,16 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "Current complete locked audit0 known findings. Known source-map and sprintf advisories reconciled by ID/version/platform/reachability with reviewed safe patch and genuine evaluator fail-closed proof; no exception or gate weakening. Time-bound clearance only; historical8-versus7 raw audit inputs remain unavailable and unreconciled."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "adb6fb422b337bb6b981e99039ad5ce0a6aa45ed",
+          "runId": 37505657907,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37505657907",
+          "result": "supply-chain job FAILED:1 unresolved dependency finding, sharp0.35.4 GHSA-wq5f-xc86-pv6w. Other jobs remain separately observed/pending; complete final CI not green. Historicalec18 clearance remains source/time-bound.",
+          "command": "node scripts/ci/security-audit.mjs (failed remote step); root inspected job-only log and current primary advisory.",
+          "environment": "GitHub ubuntu-latest supply-chain; repository Node22.23.3 setup. Lockfile unchanged; sharp0.35.4/Next15.5.24. No native package execution or exploit performed in disposition.",
+          "logs": "docs/build/production/evidence/PROD-CI-07/2026-10-06-sharp-advisory-adb6fb42.json"
         }
       ],
       "requiredEvidence": [
@@ -659,7 +669,7 @@
       "acceptance": [
         "Clean installation, migrations, typecheck/lint/generated artifacts, real OpenTofu, OPA, Go race/interoperability, PostgreSQL, Temporal and real browser gates run with exact counts."
       ],
-      "state": "verified",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
@@ -668,7 +678,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "verified_77131a70",
+      "implementationStatus": "reopened_adb6fb42_supply_chain_failure_sharp_GHSA_wq5f_xc86_pv6w",
       "evidence": [
         {
           "level": "local_engine",
@@ -1081,6 +1091,16 @@
           "artifact": "docs/build/production/verification/SKIP-CLOSURE-2026-10-06.md",
           "coverageArtifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-skip-closure.json",
           "nativeRunId": 37440573585
+        },
+        {
+          "level": "remote_ci",
+          "commit": "adb6fb422b337bb6b981e99039ad5ce0a6aa45ed",
+          "runId": 37505657907,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37505657907",
+          "result": "supply-chain job FAILED:1 unresolved dependency finding, sharp0.35.4 GHSA-wq5f-xc86-pv6w. Other jobs remain separately observed/pending; complete final CI not green. Historicalec18 clearance remains source/time-bound.",
+          "command": "node scripts/ci/security-audit.mjs (failed remote step); root inspected job-only log and current primary advisory.",
+          "environment": "GitHub ubuntu-latest supply-chain; repository Node22.23.3 setup. Lockfile unchanged; sharp0.35.4/Next15.5.24. No native package execution or exploit performed in disposition.",
+          "logs": "docs/build/production/evidence/PROD-CI-07/2026-10-06-sharp-advisory-adb6fb42.json"
         }
       ],
       "requiredEvidence": [
@@ -1100,14 +1120,14 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "verified",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "verified_77131a70",
+      "implementationStatus": "reopened_adb6fb42_supply_chain_failure_sharp_GHSA_wq5f_xc86_pv6w",
       "evidence": [
         {
           "level": "remote_ci",
@@ -1379,6 +1399,16 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "All16 main and2 native jobs terminal success; actual source/attempt/content validated; no predecessor outcome carried forward. This is a time-bound test checkpoint, not a future CI or release guarantee. Failed037/4426 and external product prerequisites remain visible."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "adb6fb422b337bb6b981e99039ad5ce0a6aa45ed",
+          "runId": 37505657907,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37505657907",
+          "result": "supply-chain job FAILED:1 unresolved dependency finding, sharp0.35.4 GHSA-wq5f-xc86-pv6w. Other jobs remain separately observed/pending; complete final CI not green. Historicalec18 clearance remains source/time-bound.",
+          "command": "node scripts/ci/security-audit.mjs (failed remote step); root inspected job-only log and current primary advisory.",
+          "environment": "GitHub ubuntu-latest supply-chain; repository Node22.23.3 setup. Lockfile unchanged; sharp0.35.4/Next15.5.24. No native package execution or exploit performed in disposition.",
+          "logs": "docs/build/production/evidence/PROD-CI-07/2026-10-06-sharp-advisory-adb6fb42.json"
         }
       ],
       "requiredEvidence": [
@@ -2489,7 +2519,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationStatus": "security_blocked_ec18bb9c_dns_addresses_not_bound_to_transport",
       "evidence": [
         {
           "level": "local_engine",
@@ -2521,6 +2551,14 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "Fresh runbook-listed unit files: 11; 132 passed /0 failed /17 skipped. File-summary attribution only; required native/engine proof is separate. Original engine/contract receipts retain their tested commits: 3346e4d4,5f4713a7. MySQL1 and S3-compatible1 native fixtures lack configured owned server/tools/endpoint credentials; live adoption/destructive decommission requires true scoped identity+approval."
+        },
+        {
+          "level": "contract",
+          "commit": "ec18bb9c8973787ab16123040d00d7be1407eb08",
+          "result": "Source review SECURITY BLOCKED: address preflight is not bound to later PG/MySQL/S3 transport resolution. No exploit, actual transport attack or exfiltration executed; static source/dependency trace only, not passed local_engine evidence.",
+          "command": "Independent source/dependency trace; root independently rechecked exact source hashes and connector code. No attack command executed.",
+          "environment": "Exactec18 tracked sources; installed postgres3.4.7 and @smithy/node-http-handler4.11.3. Existing scoped native fixtures do not exercise DNS check-to-socket custody.",
+          "logs": "docs/build/production/evidence/PROD-LIFE-11/2026-10-06-dns-transport-security-review-ec18bb9c.json"
         }
       ],
       "requiredEvidence": [
@@ -2584,6 +2622,14 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "Fresh runbook-listed unit files: 9; 198 passed /0 failed /13 skipped. File-summary attribution only; required native/engine proof is separate. Original engine/contract receipts retain their tested commits: 6bdf5adf,80a4b287. New competing-owner/resource INSERT races, resource-fact changes and already-issued cloud calls remain broader criterion limits. No rerun closes them."
+        },
+        {
+          "level": "contract",
+          "commit": "ec18bb9c8973787ab16123040d00d7be1407eb08",
+          "result": "65 passed / 0 failed / 0 skipped; fresh ownership registry/broker/transfer/ECS focused controls. No universal no-competing-writers or new-owner/preissued-grant closure inferred. Further local-engine verification stopped under LIFE11 security stop condition.",
+          "command": "node node_modules/vitest/vitest.mjs run tests/ownership tests/capabilities/field-ownership-broker.test.ts tests/capabilities/ownership-transfers.test.ts tests/providers/aws/drivers/compute/ecs-ownership-lifecycle.test.ts --maxWorkers=1 --no-file-parallelism --reporter=json",
+          "environment": "Node22.23.3/npm10.9.9; native macOS ARM64; fresh positively owned PostgreSQL16.15. Fixture container/network/volume removed and absence verified.",
+          "logs": "docs/build/production/evidence/PROD-LIFE-12/2026-10-06-ownership-contracts-ec18bb9c.json"
         }
       ],
       "requiredEvidence": [
@@ -4469,22 +4515,25 @@
     }
   ],
   "sessionState": {
-    "status": "verifier_group_1_2_recorded_default_worker_proof_in_progress",
+    "status": "verifier_security_stop_dns_transport_gap_report_only",
     "sourceCheckpoint": "ec18bb9c8973787ab16123040d00d7be1407eb08",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "ec18bb9c8973787ab16123040d00d7be1407eb08",
-    "lastPushedRun": 37416369852,
-    "lastPushedRunStatus": "completed_main16_success_native2_success",
-    "currentVerification": "docs/build/production/evidence/PROD-OBS-04/2026-10-06-workflows62-ec18bb9c.json",
+    "lastPushedCommit": "adb6fb422b337bb6b981e99039ad5ce0a6aa45ed",
+    "lastPushedRun": 37505657907,
+    "lastPushedRunStatus": "in_progress_supply_chain_failed_final_run_incomplete",
+    "currentVerification": "docs/build/production/evidence/PROD-LIFE-11/2026-10-06-dns-transport-security-review-ec18bb9c.json",
     "remainingLocalPackets": {
-      "productAndExternal": "Remaining work is product/default-journey and external acceptance: registered signed guest delivery, default telemetry/session, current-owner/new-writer and preissued-effect limits, measured-cost opt-in, MFA/accessibility, external plugin isolation, installed customer-runner lifecycle, genuine Windows, owned private GitHub App/hosted builder/serving targets and MySQL/S3/provider decommission. No API/server, cloud/account, budget or production permission follows."
+      "pluginTest": "One independently source-reviewed, unintegrated tests/plugins/service.test.ts packet remains local; runtime publisher loader control. Freeze f069b097, patch f3ff6a7a; not in published branch.",
+      "defaultMaintenanceHarness": "Three frozen private drafts, Python syntax only; no TypeScript/independent/runtime review; no services started. Must not execute until review and private configuration are complete.",
+      "remainingVerification": "Steps3\u20135 paused after current LIFE11 security boundary finding; MySQL restore extension unstarted. Default API/cloud/DNS/private GitHub App/retention/business permissions unchanged.",
+      "dependencySecurity": "sharp0.35.4 now reported by GHSA-wq5f-xc86-pv6w; primary patched0.35.5 fits current Next range but remediation not validated/authorized under current dependency exclusions. No upgrade or exception applied."
     },
     "permissions": {
       "approved": "Owned disposable PG/Temporal/kind/Linux/native worker checks including intrinsic worker health listener; same-branch normal push. New author and committer Arnav Bule per6October explicit instruction; prior commits preserved.",
       "pending": "Default product API/server startup; live cloud/account/region/budget; real DNS/private GitHub App configuration; retention/business/production decisions."
     },
-    "releaseVerdict": "All four release states false; only CI07/08/09 verified at771; no product/release approval",
-    "next": "Complete owned default worker scheduling proof; verify LIFE12/LIFE11/MACH04 on coherent source; then remaining selected requirement contracts/default prerequisites. Pull --no-rebase before every same-branch push, preserve builder changes. Final new-SHA full gate and all CI jobs remain required.",
+    "releaseVerdict": "All four release states false; CI07/08/09 reopened after new advisory/supply-chain failure; LIFE11 current-source security/default acceptance blocked; no new requirement closed.",
+    "next": "Address actual PG/MySQL/S3 destination custody with independently reviewed transport contract and real socket tests. Preserve TLS hostname/auth/tenant scopes/retry behavior. Then resume stopped verifier groups; do not start unreviewed maintenance harness or claim final CI/gates complete.",
     "completedLocalKind": {
       "sourceCommit": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820",
       "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-kind55-f36eb5d4.json",
@@ -4492,7 +4541,8 @@
       "scope": "Local provider/release/guest components only; CNI/PGlite limits retained"
     },
     "recordedAt": "2026-10-06T05:29:19.747441+00:00",
-    "nativeRun": 37416369867
+    "nativeRun": 37416369867,
+    "cleanup": "Owned fresh PG container/network/volume removed and absence checked. No maintenance worker or Temporal server started. Unrelated Docker resources preserved."
   },
   "sessionHistory": [
     {

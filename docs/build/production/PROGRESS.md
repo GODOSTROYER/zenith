@@ -1,3 +1,13 @@
+## Security stop, 6 October 2026
+
+Verifier stopped under HANDOFF-VERIFIER §7 after independently confirming current LIFE11 destination-custody defect: DNS addresses are checked, then PostgreSQL/MySQL/S3 transports independently resolve original hostname. Required repair spans actual transports, TLS hostname identity and reconnect/retry behavior; existing preflight tests cannot prove containment. No exploit or secret disclosure was executed or claimed. Report-only checkpoint follows group1–2 publication `adb6fb42`; no product fix or requirement promotion. Ledger **9 verified / 41 in progress / 28 planned**, all78 criteria and four false release flags preserved.
+
+Executed before stop: fresh install/compiler/lint/migrations passed; canonical workflows **1275/0/0**, required62; focused runbook/telemetry contracts **113/0/0**; ownership controls **65/0/0**. Counts overlap and are not summed. Plugin233 result remains an independently reviewed local candidate, not root-integrated evidence. Default maintenance drafts were never run. Owned PG container/network/volume removed; unrelated resources preserved; disk26GiB free. [Finding and stop record](verification/RESULTS-2026-10.md#security-stop-prod-life-11-2026-10-06); [precise handoff](verification/VERIFIER-SECURITY-STOP-2026-10-06.md).
+
+Current dependency blocker: sharp0.35.4 / GHSA-wq5f-xc86-pv6w; group1–2 supply-chain job failed with1 finding. CI07/08/09 reopened; no upgrade or exception applied. Primary advisory lists patched0.35.5, within current Next declared range; disposition/provenance/runtime checks remain open. [Dependency receipt](evidence/PROD-CI-07/2026-10-06-sharp-advisory-adb6fb42.json).
+
+Earlier notes retain their original source scope.
+
 ## Verifier continuation, group 1–2, 6 October 2026
 
 Tested `ec18bb9c8973787ab16123040d00d7be1407eb08`: fresh installation, compiler, lint and fresh product/platform/agent migrations passed. Full canonical workflows62: **1,275 passed / 0 failed / 0 skipped**, all62 mandatory identities executed. Fresh runbook/telemetry contracts: **113 passed / 0 failed / 0 skipped** across6 files. Counts overlap with other evidence and are not summed. Default maintenance worker effects/health/fallback proof remains in progress; registered runbook delivery and complete default scoped telemetry remain blocked or incomplete. Ledger: **12 verified / 38 in progress / 28 planned**, all78 requirements preserved, all four release flags false.

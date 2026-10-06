@@ -1,0 +1,23 @@
+{
+  "sourceCommit": "adb6fb422b337bb6b981e99039ad5ce0a6aa45ed",
+  "runId": 37505657907,
+  "jobId": 112413547642,
+  "job": "supply-chain",
+  "failedStep": "Known dependency findings block release",
+  "observedConclusion": "failure",
+  "findingCount": 1,
+  "package": "sharp",
+  "lockedVersion": "0.35.4",
+  "lockfileSha256": "56a63b14daa9cb87f2239fd0b7f597e9ceaefb8360542a8a6691f968e456a9f1",
+  "advisoryId": "GHSA-wq5f-xc86-pv6w",
+  "advisoryUrl": "https://github.com/advisories/GHSA-wq5f-xc86-pv6w",
+  "primaryAdvisoryObservedDate": "2026-10-06",
+  "advisoryAffectedRange": "<0.35.5",
+  "advisoryPatchedVersion": "0.35.5",
+  "reachability": "Production dependency in Next15.5.24 image-processing stack; repository uses next/image. Specific SVG/librsvg conditions and production runtime reachability not independently executed. No vulnerability-clearance or exploit claim.",
+  "availableNextRange": "^0.34.3 || ^0.35.3",
+  "candidateDisposition": "0.35.5 is listed as patched and within current Next declared range; no installation/provenance/runtime validation performed. General upgrades remain excluded; existing override authorizes source-map-js/OPA repairs only. No upgrade/exception applied.",
+  "rawLogSha256": "20b67872cc0df0af136b973c955ef05756be28a60b316976c0b7713d5acf19b2",
+  "rawLog": "private only",
+  "currentGate": "blocked; historical zero-known-findings evidence remains historical"
+}

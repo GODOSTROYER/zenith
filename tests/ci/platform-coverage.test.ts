@@ -11,7 +11,7 @@ import { load } from "js-yaml";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import vitestConfig from "../../vitest.config";
-import { LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
+import { CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures, requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
 
 interface Step {
@@ -59,8 +59,12 @@ const wave2WorkflowIds = new Set([
   "workflows:tests/workflows/critical-schedule.test.ts:4ee93ed6c454",
   "workflows:tests/platform/critical-jobs.test.ts:4ee93ed6c454",
 ]);
+const criticalScheduleWorkflowIds = new Set(CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS.map(item => requirementId("workflows", item)));
+function priorCriticalScheduleWorkflowRequirements(sourceRoot = root) {
+  return requirementsFor("workflows", sourceRoot).filter(item => !criticalScheduleWorkflowIds.has(item.id));
+}
 function priorWave2WorkflowRequirements() {
-  return requirementsFor("workflows", root).filter(item => !wave2WorkflowIds.has(item.id));
+  return priorCriticalScheduleWorkflowRequirements().filter(item => !wave2WorkflowIds.has(item.id));
 }
 const currentSuccessorPlatformCohort = [
   { file: "tests/controlplane/incident-stability.test.ts", suite: "incident stability [postgres]", postgres: true },
@@ -825,9 +829,44 @@ describe("saved builtin settlement mandatory CI admission", () => {
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
     expect(manifestFor("postgres", root).requirements).toHaveLength(80);
-    expect(requirementsFor("workflows", root)).toHaveLength(60);
+    expect(requirementsFor("workflows", root)).toHaveLength(62);
+    expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().requiredCases).toHaveLength(152); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+  });
+});
+
+describe("critical scheduling native admission [workflow source models]", () => {
+  it("requires both exact actual Temporal cases on the existing pinned CLI workflow route", () => {
+    const file = "tests/workflows/critical-schedule.test.ts";
+    const suite = "critical maintenance schedule on an actual owned durable Temporal service";
+    const expected = [
+      { file, suite, test: "preserves compatible schedule and queued actual workflow across server restart" },
+      { file, suite, test: "skips overlap while the first genuine activity is held" },
+    ];
+    expect(CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS).toEqual(expected);
+    const manifest = manifestFor("workflows", root), job = workflow.jobs.workflows;
+    expect(manifest.requirements.filter(item => criticalScheduleWorkflowIds.has(item.id)))
+      .toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
+    expect(manifest.requirements).toHaveLength(62);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(62);
+    expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
+    expect(createHash("sha256").update(JSON.stringify(priorCriticalScheduleWorkflowRequirements().map(item => item.id).sort())).digest("hex"))
+      .toBe("0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b");
+    expect(priorWave2WorkflowRequirements()).toHaveLength(58);
+    expect(manifest.env.ZENITH_TEST_TEMPORAL).toBe("1");
+    expect(job.env?.ZENITH_TEST_TEMPORAL).toBe("1");
+    expect(manifest.tools.temporal).toBe("1.9.1");
+    const installer = job.steps.find(step => step.name === "Install pinned Temporal CLI");
+    expect(installer?.run).toContain("temporal_cli_1.9.1_linux_amd64.tar.gz");
+    expect(installer?.run).toContain("09a0326a51db84d02735e53542b9ebd8c4758daf47482a9ab0abce15844e60d5");
+    expect(installer?.run).toContain('echo "ZENITH_TEST_TEMPORAL_CLI=$RUNNER_TEMP/temporal-cli/temporal" >> "$GITHUB_ENV"');
+    expect(installer?.["continue-on-error"]).toBeUndefined();
+    expect(job["continue-on-error"]).toBeUndefined();
+    expect(manifest.excludeFiles).not.toContain(file);
+    expect(manifest.command).not.toContain("--passWithNoTests");
+    gate("workflows", "node scripts/ci/run-gate.mjs workflows --run");
+    gate("workflows", "node scripts/ci/run-gate.mjs workflows --validate .data-ci-lane/workflows-lane.json --require-execution", "always()");
   });
 });

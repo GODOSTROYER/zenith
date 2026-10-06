@@ -532,9 +532,9 @@
       "acceptance": [
         "Reconcile advisories by ID/version/platform and production/build/dev reachability; safe patches, mandatory gates, reviewed expiring exceptions, no force upgrades."
       ],
-      "state": "verified",
+      "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "current_known_dependency_findings_cleared",
+      "implementationStatus": "verification_blocked_current_dependency_advisories_c5f4bd53",
       "evidence": [
         {
           "level": "contract",
@@ -589,6 +589,16 @@
           "runId": 37122200675,
           "result": "Fresh Linux mandatory complete-lock dependency gate passes current scoped replacement with zero findings and no exception. Time-bound clearance, not future vulnerability guarantee.",
           "artifact": "docs/build/production/ci-37122200675.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "c5f4bd5367038750950e078ae53deedcb629bd21",
+          "result": "Terminal current CI: main15 successful/1 supply-chain failure; native2 successful with22 required checks and six cleanup proofs each. Unit19484 passed/0 failed/1519 skipped; Smoke/Gimbal passed. Supply-chain retains3 unresolved findings across2 advisories, lock integrity passed and audit exit1. Full current security clearance failed; historical9e receipts retained. Successor fullworkflows62 remains unrun.",
+          "command": "node scripts/ci/security-audit.mjs",
+          "environment": "Hosted Linux; supported Node22.23.3; locked npm audit; empty exceptions registry; no dependency upgrades or exception-policy edits applied",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-c5f4bd53-final.json",
+          "runId": 37403218931,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37403218931"
         }
       ],
       "requiredEvidence": [
@@ -610,7 +620,7 @@
       "acceptance": [
         "Clean installation, migrations, typecheck/lint/generated artifacts, real OpenTofu, OPA, Go race/interoperability, PostgreSQL, Temporal and real browser gates run with exact counts."
       ],
-      "state": "verified",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
@@ -619,7 +629,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "verified_9e4a42af",
+      "implementationStatus": "verification_partial_c5f4bd53_dependency_clearance_blocked",
       "evidence": [
         {
           "level": "local_engine",
@@ -966,6 +976,16 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json",
           "runId": 37398213464,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "c5f4bd5367038750950e078ae53deedcb629bd21",
+          "result": "Terminal current CI: main15 successful/1 supply-chain failure; native2 successful with22 required checks and six cleanup proofs each. Unit19484 passed/0 failed/1519 skipped; Smoke/Gimbal passed. Supply-chain retains3 unresolved findings across2 advisories, lock integrity passed and audit exit1. Full current security clearance failed; historical9e receipts retained. Successor fullworkflows62 remains unrun.",
+          "command": "node scripts/ci/security-audit.mjs",
+          "environment": "Hosted Linux; supported Node22.23.3; locked npm audit; empty exceptions registry; no dependency upgrades or exception-policy edits applied",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-c5f4bd53-final.json",
+          "runId": 37403218931,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37403218931"
         }
       ],
       "requiredEvidence": [
@@ -985,14 +1005,14 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "verified",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "verified_9e4a42af",
+      "implementationStatus": "verification_partial_c5f4bd53_current_pushed_ci_red",
       "evidence": [
         {
           "level": "remote_ci",
@@ -1230,6 +1250,16 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json",
           "runId": 37398213464,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "c5f4bd5367038750950e078ae53deedcb629bd21",
+          "result": "Terminal current CI: main15 successful/1 supply-chain failure; native2 successful with22 required checks and six cleanup proofs each. Unit19484 passed/0 failed/1519 skipped; Smoke/Gimbal passed. Supply-chain retains3 unresolved findings across2 advisories, lock integrity passed and audit exit1. Full current security clearance failed; historical9e receipts retained. Successor fullworkflows62 remains unrun.",
+          "command": "node scripts/ci/security-audit.mjs",
+          "environment": "Hosted Linux; supported Node22.23.3; locked npm audit; empty exceptions registry; no dependency upgrades or exception-policy edits applied",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-c5f4bd53-final.json",
+          "runId": 37403218931,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37403218931"
         }
       ],
       "requiredEvidence": [
@@ -2768,8 +2798,17 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "implementationStatus": "focused_native_verified_db871bd5_full_workflows62_pending",
+      "evidence": [
+        {
+          "level": "local_engine",
+          "commit": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+          "result": "Owned actual durable Temporal10 passed/0 failed/0 skipped (8 models plus2 genuine restart/overlap cases), fixture shutdown/root/cache deletion readback confirmed. Two predecessor setup failures8 passed/2 unexecuted/exit1 retained. Fullcanonical62 unrun; requirement remains open.",
+          "command": "ZENITH_TEST_TEMPORAL=1 ZENITH_TEST_TEMPORAL_DOWNLOAD=0 node node_modules/vitest/vitest.mjs run tests/workflows/critical-schedule.test.ts --maxWorkers=1 --reporter=default --reporter=json",
+          "environment": "Node22.23.3; TemporalCLI1.9.1 pinned SHA33c298d4; native macOS ARM64; owned loopback SQLite/Worker; controlled maintenance activity results",
+          "logs": "docs/build/production/evidence/PROD-OBS-04/2026-10-06-wave2-db871bd5.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"

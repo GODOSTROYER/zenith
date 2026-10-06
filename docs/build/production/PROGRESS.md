@@ -1,3 +1,15 @@
+## 6 October continuation: scheduling passed; terminal current CI is security blocked
+
+Local integrated candidate `7c86ad449bf4ee1d2b318c1975478df837f8c2aa` includes mandatory workflows62 and reviewed build/release joins. Namespace readiness fix `db871bd5` passed the critical schedule file10/0/0: eight preserved models and two actual owned Temporal cases for server restart and held-activity SKIP overlap. Both predecessor setup attempts retain8 passed/2 unexecuted/exit1 and their owned directories; zero open handles and matching processes were observed. The successful successor has independent server/database/bundle-cache absence readback. Exact-source gate269/0/0, scoped lint/compiler0; prior04be453/0/0 includes JOIN8, while standalone Node reader15/0/0 is separate. Counts overlap and are not summed. Full canonical62 remains unrun. [Scoped scheduling and joins evidence](evidence/PROD-OBS-04/2026-10-06-wave2-db871bd5.json).
+
+Published `c5f4bd5367038750950e078ae53deedcb629bd21` is terminal: main37403218931 has15 successful jobs and1 supply-chain failure; Native packaged workers37403219069 has2 successes,22 checks and six cleanup proofs each on actual AMD64/ARM64. Verify19484 passed/0 failed/1519 skipped; compiler/lint/Smoke/Gimbal passed. Guest152, ordered actual systemd15 and both cleanup scopes passed. The workflows lane passed its predecessor60 required identities; it does not verify successor62. [Every job, exact source and counts](evidence/PROD-CI-08/2026-10-06-ci-c5f4bd53-final.json).
+
+Dependency security remains blocked by3 unresolved findings across GHSA-hp3w-g68c-fv3c and GHSA-68fv-2mgg-jv7q; lockfile integrity passed. Source-map-js1.2.2 lock-only repair permission is pending and no upgrade has been applied. Production sprintf-js/OPA has no validated patched release or gate-compatible exception. [Operator decision](evidence/PROD-CI-07/OPERATOR-DECISION.md). No lock, security gate or exception-policy changes.
+
+Current ledger **9 verified /41 in progress /28 planned**: CI07/CI08/CI09 remain reopened; every historical green receipt is retained. All78 criteria and four false release flags remain unchanged. Next: publish reviewed source/evidence normally, inspect fresh whole-candidate CI including canonical62, complete independent review and builder handoff, then follow HANDOFF-VERIFIER order. The dependency decision remains a separate blocker. No default API/server, live/cloud or business authorization is inferred.
+
+---
+
 ## 6 October verifier: complete published CI and wave-1 scoped checkpoint
 
 Published9e4a42af: main37398213464 all16 jobs and native37398213671 both jobs passed. Native worker22 each architecture; guest152/systemd15/cleanup passed. Unit19436/0/1519, declared skips retained. Local source1c3913a8 adds only reviewed runbook42 and real-TCP telemetry6 contracts; exact committed48/0/0, scoped lint0, byte-identical candidate compiler4096MiB retry0 after retained768MiB heap abort. New source still needs complete successor CI.

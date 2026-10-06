@@ -1,3 +1,9 @@
+## Current continuation, 6 October 2026
+
+Local integrated `7c86ad44` has scoped scheduling10/0/0 (eight models plus two actual Temporal cases), JOIN8 within04be453/0/0 and standalone reader15/0/0. Full canonical workflows62 and fresh whole-candidate CI remain pending. Publishedc5f4bd53 is terminal: main15 success/1 supply-chain failure, native2 success/22 checks each; unit19484/0/1519, Smoke/Gimbal passed. [Final per-job evidence](evidence/PROD-CI-08/2026-10-06-ci-c5f4bd53-final.json).
+
+CI07/08/09 remain reopened; ledger9 verified/41 in progress/28 planned,78 criteria and four false release flags preserved. Three dependency findings remain; source-map lock-only authorization is pending and production sprintf/OPA has no validated patch or compatible exception. No upgrade or gate-policy change applied. Next: normal same-branch publication, fresh whole-candidate CI including full62, independent review and builder handoff; the dependency decision remains a separate blocker. Same branch, Saivedant identity; tests and minimal fixes only. Read latest RESULTS before the historical notes below.
+
 ## 6 October current verifier checkpoint
 
 Published9e4a42af completed main16/16 and native2/2 green. Local test-only source1c3913a8 adds route42 and telemetry6, exact combined48/0/0; new successor full CI remains pending. Candidate ledger12verified/38in_progress/28planned,78 criteria/fourfalse retained. Read current RESULTS first; older entries below are history. Same branch, Saivedant author+committer. Next: wave-1 push, held JOIN8/critical1+registration3 actual tests and mandatory62 workflows, combined gate and final per-job CI/builder handoff. Default API/live/cloud permission absent.

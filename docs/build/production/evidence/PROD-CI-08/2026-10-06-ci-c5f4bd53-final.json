@@ -1,0 +1,634 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "admission_audit / independent C",
+  "sourceSha": "c5f4bd5367038750950e078ae53deedcb629bd21",
+  "branch": "codex/production-2026-10-02",
+  "observedAtUtc": "2026-10-06T02:49:09.618136+00:00",
+  "status": "ALL_18_JOBS_TERMINAL_WITH_SUPPLY_CHAIN_FAILURE",
+  "main": {
+    "runId": 37403218931,
+    "attempt": 1,
+    "conclusion": "failure",
+    "jobCounts": {
+      "success": 15,
+      "failure": 1
+    },
+    "jobs": [
+      {
+        "id": 112074856449,
+        "name": "policy",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074856726,
+        "name": "verify",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074856748,
+        "name": "operation-gates (workflow-intents)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074856780,
+        "name": "supply-chain",
+        "status": "completed",
+        "conclusion": "failure"
+      },
+      {
+        "id": 112074856792,
+        "name": "docker",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074856797,
+        "name": "platform-postgres",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074856813,
+        "name": "agent",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074856819,
+        "name": "tofu",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074856855,
+        "name": "hosted",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074856862,
+        "name": "ledger",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074856898,
+        "name": "postgres",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074856901,
+        "name": "generated",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074856927,
+        "name": "operation-gates (reconciliation)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074856957,
+        "name": "go",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074857025,
+        "name": "workflows",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074857255,
+        "name": "build",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "native": {
+    "runId": 37403219069,
+    "attempt": 1,
+    "conclusion": "success",
+    "jobCounts": {
+      "success": 2
+    },
+    "jobs": [
+      {
+        "id": 112074858894,
+        "name": "packaged-worker (amd64, ubuntu-24.04)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112074859117,
+        "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ],
+    "observations": [
+      {
+        "platform": "linux/amd64",
+        "artifactId": 11386332631,
+        "artifactSha256": "95b5d5b47417e4949030f9e4ef4d57d0d077a68839432391d3daba90e1acfa75",
+        "attempt": 1,
+        "currentSourceBound": true,
+        "actualArchitecture": "x64",
+        "emulated": false,
+        "requiredUnique": 22,
+        "allRequiredPassed": true,
+        "childExitCode": 0,
+        "cleanup": {
+          "builderAbsent": true,
+          "builderContainerAbsent": true,
+          "cacheVolumeAbsent": true,
+          "baselinePreserved": true,
+          "wrapperPrivateFilesRemoved": true,
+          "ownedContextAbsent": true
+        },
+        "node": "22.23.3",
+        "minimumObservedFreeGiB": 80.49,
+        "manifestSha256": "172d0e203256b2f1d0f318bfa6c74bdd455226201cb64ad2005ad99691ea0cd9"
+      },
+      {
+        "platform": "linux/arm64",
+        "artifactId": 11386616404,
+        "artifactSha256": "2071831eccbab4c0079a40190d51a241601959a3492479ecbb8abaf6a59ffc35",
+        "attempt": 1,
+        "currentSourceBound": true,
+        "actualArchitecture": "arm64",
+        "emulated": false,
+        "requiredUnique": 22,
+        "allRequiredPassed": true,
+        "childExitCode": 0,
+        "cleanup": {
+          "builderAbsent": true,
+          "builderContainerAbsent": true,
+          "cacheVolumeAbsent": true,
+          "baselinePreserved": true,
+          "wrapperPrivateFilesRemoved": true,
+          "ownedContextAbsent": true
+        },
+        "node": "22.23.3",
+        "minimumObservedFreeGiB": 102.41,
+        "manifestSha256": "0f7a98ded6aaeefb29d3e292c8cb0a44f9525d9d92fcff33622a4cedbb5717ff"
+      }
+    ]
+  },
+  "verify": {
+    "unitCounts": {
+      "passed": 19484,
+      "failed": 0,
+      "skipped": 1519,
+      "total": 21003
+    },
+    "fileCounts": {
+      "passed": 873,
+      "failed": 0,
+      "skipped": 49,
+      "total": 922
+    },
+    "typecheck": "success",
+    "lint": "success",
+    "Smoke": "success",
+    "Gimbal": "success"
+  },
+  "go": {
+    "guestRequiredUnique": 152,
+    "guestAllPassed": true,
+    "systemdRequiredUnique": 15,
+    "systemdAllPassed": true,
+    "systemdCleanup": "cleaned",
+    "canonicalCleanup": "absent",
+    "wholeSourceAggregateIndependentlyRecomputed": true,
+    "interop": {
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "total": 27
+    },
+    "linuxAmd64Arm64Crossbuild": "success",
+    "artifactObservations": [
+      {
+        "lane": "linux-guest",
+        "artifactSha256": "d9f48b6c728aecf6a2101e1322c7c5a7ef95935c33e78dea418da8adcac7b213",
+        "attempt": {
+          "id": "53d1ca15511c4cc879f58affa9a00fe0",
+          "runnerExitCode": 0
+        },
+        "actualGo": {
+          "node": "22.23.3",
+          "go": "1.27.1",
+          "GOOS": "linux",
+          "GOARCH": "amd64"
+        },
+        "requiredUnique": 152,
+        "allRequiredPassed": true,
+        "steps": [
+          {
+            "id": "race",
+            "exitCode": 0,
+            "required": 148,
+            "counts": {
+              "packages": 21,
+              "testEvents": 1122,
+              "parents": 71,
+              "leaves": 1051,
+              "passedLeaves": 1048,
+              "failedLeaves": 0,
+              "skippedLeaves": 3
+            }
+          },
+          {
+            "id": "package-native",
+            "exitCode": 0,
+            "required": 4,
+            "counts": {
+              "packages": 1,
+              "testEvents": 9,
+              "parents": 1,
+              "leaves": 8,
+              "passedLeaves": 8,
+              "failedLeaves": 0,
+              "skippedLeaves": 0
+            }
+          },
+          {
+            "id": "goldens",
+            "exitCode": 0,
+            "required": 2,
+            "counts": {
+              "packages": 1,
+              "testEvents": 22,
+              "parents": 1,
+              "leaves": 21,
+              "passedLeaves": 21,
+              "failedLeaves": 0,
+              "skippedLeaves": 0
+            }
+          },
+          {
+            "id": "golden-diff",
+            "exitCode": 0,
+            "required": 0,
+            "counts": null
+          },
+          {
+            "id": "golden-status",
+            "exitCode": 0,
+            "required": 0,
+            "counts": null
+          }
+        ],
+        "cleanup": null
+      },
+      {
+        "lane": "linux-systemd",
+        "artifactSha256": "a088a71c0d3f09436b408f3afb2899eea3b3d766b037d24a03e1bb0fe9488b21",
+        "attempt": {
+          "id": "854a23f2d967d74b6efdbb07de1ba247",
+          "runnerExitCode": 0
+        },
+        "actualGo": {
+          "node": "22.23.3",
+          "go": "1.27.1",
+          "GOOS": "linux",
+          "GOARCH": "amd64",
+          "uid": 1001,
+          "gid": 1001,
+          "capabilities": "zero",
+          "noNewPrivs": true
+        },
+        "requiredUnique": 15,
+        "allRequiredPassed": true,
+        "steps": [
+          {
+            "id": "ops",
+            "exitCode": 0,
+            "required": 8,
+            "counts": {
+              "packages": 1,
+              "testEvents": 8,
+              "parents": 1,
+              "leaves": 7,
+              "passedLeaves": 7,
+              "failedLeaves": 0,
+              "skippedLeaves": 0
+            }
+          },
+          {
+            "id": "signed",
+            "exitCode": 0,
+            "required": 7,
+            "counts": {
+              "packages": 1,
+              "testEvents": 7,
+              "parents": 1,
+              "leaves": 6,
+              "passedLeaves": 6,
+              "failedLeaves": 0,
+              "skippedLeaves": 0
+            }
+          }
+        ],
+        "cleanup": {
+          "systemd": "cleaned",
+          "canonical": "absent",
+          "receiptSha256": "81619d8d0c49f508deb0f31466cec2bdd176f9b6e0afaff7239bbd5f587dda62",
+          "wrapper": {
+            "role": "fixed-fixture-cleanup-transport",
+            "uid": 1001,
+            "gid": 1001,
+            "capabilities": "E/P/I/A-zero",
+            "noNewPrivs": false
+          }
+        }
+      }
+    ]
+  },
+  "canonicalLanes": [
+    {
+      "lane": "postgres",
+      "counts": {
+        "total": 322,
+        "passed": 322,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUnique": 80,
+      "allRequiredPassed": true,
+      "tools": {
+        "node": "22.23.3",
+        "postgres": "16.15"
+      }
+    },
+    {
+      "lane": "policy",
+      "counts": {
+        "total": 238,
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUnique": 7,
+      "allRequiredPassed": true,
+      "tools": {
+        "node": "22.23.3",
+        "opa": "1.19.1"
+      }
+    },
+    {
+      "lane": "tofu",
+      "counts": {
+        "total": 3934,
+        "passed": 3916,
+        "failed": 0,
+        "skipped": 18,
+        "unknown": 0
+      },
+      "requiredUnique": 27,
+      "allRequiredPassed": true,
+      "tools": {
+        "node": "22.23.3",
+        "tofu": "1.12.5"
+      }
+    },
+    {
+      "lane": "reconciliation",
+      "counts": {
+        "total": 38,
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUnique": 26,
+      "allRequiredPassed": true,
+      "tools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "temporal": "1.9.1"
+      }
+    },
+    {
+      "lane": "workflow-intents",
+      "counts": {
+        "total": 156,
+        "passed": 156,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUnique": 141,
+      "allRequiredPassed": true,
+      "tools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "temporal": "1.9.1"
+      }
+    },
+    {
+      "lane": "workflows",
+      "counts": {
+        "total": 1273,
+        "passed": 1273,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUnique": 60,
+      "allRequiredPassed": true,
+      "tools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "temporal": "1.9.1"
+      }
+    },
+    {
+      "lane": "platform",
+      "counts": {
+        "total": 3042,
+        "passed": 3034,
+        "failed": 0,
+        "skipped": 8,
+        "unknown": 0
+      },
+      "requiredUnique": 1124,
+      "allRequiredPassed": true,
+      "tools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "tofu": "1.12.5"
+      }
+    }
+  ],
+  "failure": {
+    "job": "supply-chain",
+    "jobId": 112074856780,
+    "failedStep": "Known dependency findings block release",
+    "lockfileIntegrity": "success",
+    "reason": "3 unresolved dependency findings block release.",
+    "exitCode": 1,
+    "findings": [
+      {
+        "package": "@open-policy-agent/opa-wasm",
+        "lockedVersion": "1.10.0",
+        "advisoryId": "GHSA-hp3w-g68c-fv3c"
+      },
+      {
+        "package": "source-map-js",
+        "lockedVersion": "1.2.1",
+        "advisoryId": "GHSA-68fv-2mgg-jv7q"
+      },
+      {
+        "package": "sprintf-js",
+        "lockedVersion": "1.1.3",
+        "advisoryId": "GHSA-hp3w-g68c-fv3c"
+      }
+    ],
+    "severity": "not-exported-by-sanitized-CLI",
+    "exceptionCount": 0,
+    "sourceAssessmentOwner": "runtime_gate_completion / root",
+    "detailArtifact": "docs/build/production/evidence/PROD-CI-07/2026-10-06-dependency-c5f4bd53.json"
+  },
+  "evidenceReceipts": [
+    {
+      "file": "RUN-DISCOVERY-R1.json",
+      "sha256": "cd578d8ccc07b4c09aa12a0798f52898c183d97dcbd14f11ef4806486528cb20"
+    },
+    {
+      "file": "EXPECTED-SOURCE-BINDING.json",
+      "sha256": "0c4b2fd427ff421dc625a350eebe91d369c0482bd4eb1bcda8ae0fbb18ee9d38"
+    },
+    {
+      "file": "NATIVE-REVIEW.json",
+      "sha256": "c33619aa29fc1502ef6ad2da857aed3d99935fc0b535615a5f5dfd4fc69a257b"
+    },
+    {
+      "file": "GO-SYSTEMD-REVIEW.json",
+      "sha256": "be5314abbc18e130bb714bdd91d43fec03aa1ae9036f678f0e9d12bc1a0ab4a7"
+    },
+    {
+      "file": "GO-INTEROP-CROSSBUILD-SUPPLEMENT.json",
+      "sha256": "91572d266475d1b80c1fc8e2b654a122320a44d3278aa49dc74b429b43549996"
+    },
+    {
+      "file": "FIRST-CANONICAL-EVIDENCE.json",
+      "sha256": "1562667dc4d79e4da09152bb819214b73e880fc57aec6d5b9269bd6e909436b0"
+    },
+    {
+      "file": "WORKFLOWS-REVIEW.json",
+      "sha256": "f8ee58686d717c7aa77b96d32b745d180ceadcdfcc02454551c4d41058e7816e"
+    },
+    {
+      "file": "PLATFORM-REVIEW.json",
+      "sha256": "08081eb26458f8b94c1645f566960faf76e503172b1cf32e85f66aec254628ce"
+    },
+    {
+      "file": "VERIFY-SUMMARY.json",
+      "sha256": "7ccae8671f9d3a3cf371f19e96b3b6f635edd60b187acf96e908b44017cae54b"
+    },
+    {
+      "file": "SUPPLY-CHAIN-FAILURE-CORRECTED-R1.json",
+      "sha256": "6e076bd2538e25723f50bf81cc7ebcf67057955bd7d99fddfa63b2463ed86b49"
+    }
+  ],
+  "remainingObservedJobGap": null,
+  "historicalFailuresPreserved": true,
+  "limits": [
+    "Every job/artifact/count is fresh c5 attempt1; no older or successor runtime count carry-forward.",
+    "Standard Vitest sanitized artifacts export required group/assertion matches, not raw individual case identities.",
+    "Optional skips remain explicit; overlapping lane counts are not summed.",
+    "No default API/cloud mutation/production Temporal or acceptance-state promotion claimed.",
+    "Root successor7c86 is not covered by c5 whole execution. No tests/runtime/repository/index/CI mutations by this observer.",
+    "The c5 workflows lane has60 required identities; it cannot certify successor62 or its two new scheduling cases.",
+    "Direct root package fixture, unprivileged guest tests and unprivileged real systemd tests are distinct scopes. Fixed cleanup transport has NoNewPrivileges=false and cannot serve as guest-isolation evidence.",
+    "Actual Temporal scheduling atdb871 uses controlled maintenance activity results; default job effects and full62 remain pending."
+  ],
+  "observerReceiptSha256": "94f547b24fb76e1fec744782202a351430523ad3114ed5ec2fc051b3c304b966",
+  "sourceBinding": {
+    "sourceSha": "c5f4bd5367038750950e078ae53deedcb629bd21",
+    "gitTree": "34bb235f8fdd7916d576b7a1218c90119ba91cb7",
+    "wholeGitFileCount": 4475,
+    "wholeGitByteModeSymlinkAggregateSha256": "96acac9e02baf706405a19978aaa997ba0060f16c23a218fa25723368b12452c",
+    "currentFingerprints": {
+      ".github/workflows/packaged-workers.yml": {
+        "sha256": "b21133a30a4f5da09e214246f1ad94333f755883b79c22c60f8a3d254da09786",
+        "gitMode": "100644",
+        "bytes": 2522
+      },
+      "package-lock.json": {
+        "sha256": "daf1845592887828963e70daf08bbe0bf1542567e5a25b9b6be41eb245994ac4",
+        "gitMode": "100644",
+        "bytes": 472049
+      },
+      "scripts/acceptance/packaged-worker.mjs": {
+        "sha256": "fd80ce4ba890c848836a695e590ef296e455a64a57e53f6eeeca4d86afe712c0",
+        "gitMode": "100644",
+        "bytes": 124317
+      },
+      "scripts/ci/gate-manifest.mjs": {
+        "sha256": "244f56bf7ae0458703ee879a5251129c0cbf09d963a206b841eacbbea762be4f",
+        "gitMode": "100644",
+        "bytes": 327118
+      },
+      "scripts/ci/packaged-worker-native.mjs": {
+        "sha256": "be61a4958451f35bde65c9f3ed608c420015667413a1cf0051211b9ed605937e",
+        "gitMode": "100644",
+        "bytes": 67735
+      },
+      "scripts/ci/service-configure-systemd-fixtures.py": {
+        "sha256": "de4c1e0b4ea79936bae3cd5f6085cd874b141e5b5029451c03b527ba6affd620",
+        "gitMode": "100644",
+        "bytes": 16573
+      },
+      "tests/ci/gate-manifest.test.ts": {
+        "sha256": "8e006ca79b4371853083db25ccfcca3c895da7f61bd604e808403b72e829af5f",
+        "gitMode": "100644",
+        "bytes": 220829
+      }
+    },
+    "nativeCopyInputsUnchangedFrom9e": [
+      "docker/worker.Dockerfile",
+      ".dockerignore",
+      "package.json",
+      "package-lock.json",
+      "tsconfig.json",
+      "src/lib",
+      "workers/execution",
+      "deploy/aws/ssm-documents",
+      "policy/dist"
+    ],
+    "nativeCopyExpectedSha256": "7fcf0bcc01aa82f8eb89e05297812c0521ef775fd8c6147099ab19a9ec979cf1",
+    "scope": "Independent read-only Git object bytes/modes and symlink aggregate, no project imports/runtime/index writes. Prior COPY digest is reused only after exact input blob/mode equality; no runtime status borrowing."
+  },
+  "currentCandidateScope": {
+    "sourceSha": "7c86ad449bf4ee1d2b318c1975478df837f8c2aa",
+    "freshWholeCommitCi": "UNRUN",
+    "canonicalWorkflowsRequiredCases": 62,
+    "fullCanonical62Execution": "UNRUN",
+    "scopedNativeSchedulingSource": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+    "scopedNativeSchedulingEvidence": "docs/build/production/evidence/PROD-OBS-04/2026-10-06-wave2-db871bd5.json",
+    "all78CriteriaPreserved": true,
+    "currentLedgerCounts": {
+      "verified": 9,
+      "in_progress": 41,
+      "planned": 28
+    },
+    "releaseStatus": {
+      "implementationComplete": false,
+      "sandboxVerified": false,
+      "pilotReady": false,
+      "productionApproved": false
+    }
+  }
+}

@@ -1,0 +1,510 @@
+{
+  "schemaVersion": 1,
+  "status": "PORTABLE_FACTUAL_DRAFT_PENDING_ROOT_AND_INDEPENDENT_REVIEW",
+  "sourceSha": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+  "scope": "Verifier-only scheduling and build/release/reader joins; no requirement closure or release approval",
+  "nativeCriticalScheduling": {
+    "sourceSha": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+    "receiptSha256": "49f476b49c43e9fc7d8418014373161229ee10e7dce4b04dd9a80c093ec39b8f",
+    "reportSha256": "d235334bcd66a62a1d20c8db8e987d75d0a62b98ec809e29f33179c38a2c0624",
+    "startedUtc": "2026-10-06T02:28:05.839310+00:00",
+    "durationSeconds": 55.606131458,
+    "exitCode": 0,
+    "counts": {
+      "numPassedTests": 10,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "numTotalTests": 10
+    },
+    "caseMix": {
+      "preservedModelCases": 8,
+      "genuineTemporalCases": 2
+    },
+    "actualNativeCases": [
+      {
+        "name": "preserves compatible schedule and queued actual workflow across server restart",
+        "status": "passed",
+        "duration": 2469.303084
+      },
+      {
+        "name": "skips overlap while the first genuine activity is held",
+        "status": "passed",
+        "duration": 48870.034833
+      }
+    ],
+    "environment": {
+      "platform": "Darwin",
+      "architecture": "arm64",
+      "node": "22.23.3",
+      "temporalCliVersion": "1.9.1",
+      "temporalCliVersionBasis": "Successful unchanged explicit version guard before the two genuine cases",
+      "temporalCliSha256": "33c298d41f6eefebf01a28a3511f444480e939e21d3518cb0c12a4abad467c4b",
+      "ownedDurableStore": "fresh fixture SQLite",
+      "defaultNamespace": "default"
+    },
+    "compiledWorkflowBundle": {
+      "capturedBeforeCleanup": [
+        {
+          "sha256": "c71140dd6574158ed347598c4072cf5380e2e061ccdb515f5e87bc451dd97181",
+          "bytes": 1652839
+        }
+      ],
+      "ownedCacheRemovedAfterCapture": true
+    },
+    "cleanup": {
+      "ownedHandlesAbsent": true,
+      "ownedRuntimeRootAbsent": true,
+      "ownedPathProcessMatches": 0,
+      "ownedTemporaryDirectoryEmptyAfterRootCleanup": true
+    },
+    "sourceBindings": [
+      {
+        "path": "tests/workflows/critical-schedule.test.ts",
+        "commit": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+        "sha256": "0584a7f36c4f25f757688f5d6938da3e255000e1a42702c54d0624bec519dc61",
+        "gitMode": "100644",
+        "bytes": 27665
+      },
+      {
+        "path": "src/lib/workflows/critical-schedule.ts",
+        "commit": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+        "sha256": "e60459e80bf3847446ac83d6b680d1ca0a5bc5db66a2a455db0f1234cb4bc882",
+        "gitMode": "100644",
+        "bytes": 6879
+      },
+      {
+        "path": "src/lib/workflows/types.ts",
+        "commit": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+        "sha256": "b4acbe8af2bceaecb94854c356ad0a549b8073d3afa6eae0b12a82ba0faf9b46",
+        "gitMode": "100644",
+        "bytes": 10864
+      },
+      {
+        "path": "src/lib/workflows/definitions/criticalMaintenance.ts",
+        "commit": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+        "sha256": "424a81bf304b9315b30920fd1d6df40e8b51410115c428653a114d3ce5278373",
+        "gitMode": "100644",
+        "bytes": 2368
+      },
+      {
+        "path": "src/lib/workflows/definitions/runtime.ts",
+        "commit": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+        "sha256": "b510fac0d46c0b8a9203aeac46d4a10fb5976a6adf416b77d1bda6c09f471cbf",
+        "gitMode": "100644",
+        "bytes": 17029
+      },
+      {
+        "path": "src/lib/workflows/definitions/policies.ts",
+        "commit": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+        "sha256": "1462641d525738d0905a23739a9df174a12189bd5005b07d3f3a0f91eb2c9a94",
+        "gitMode": "100644",
+        "bytes": 7327
+      },
+      {
+        "path": "src/lib/workflows/definitions/failures.ts",
+        "commit": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+        "sha256": "375a1132a5fe4ce81b62fc7c72b3cce4704e5bf7e0a9cd84d1598a32062624b8",
+        "gitMode": "100644",
+        "bytes": 7825
+      },
+      {
+        "path": "package.json",
+        "commit": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+        "sha256": "4fd329395fe59a1575a1183173f748cfa122b0636805817476041ea500fb7ab6",
+        "gitMode": "100644",
+        "bytes": 6260
+      },
+      {
+        "path": "package-lock.json",
+        "commit": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+        "sha256": "daf1845592887828963e70daf08bbe0bf1542567e5a25b9b6be41eb245994ac4",
+        "gitMode": "100644",
+        "bytes": 472049
+      },
+      {
+        "path": "vitest.config.ts",
+        "commit": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+        "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08",
+        "gitMode": "100644",
+        "bytes": 1574
+      },
+      {
+        "path": "tsconfig.json",
+        "commit": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+        "sha256": "b89775a27b9a4dc3719331c14f9fcac06ba6be6bfb3b10cd23100fb4d85950dd",
+        "gitMode": "100644",
+        "bytes": 629
+      }
+    ],
+    "controlledBoundary": "Six maintenance activity results are controlled; production workflow, actual schedule controller, Worker, CLI and durable SQLite run genuinely",
+    "limits": [
+      "No default maintenance job side effects or health/fallback acceptance",
+      "No missed-interval catch-up, provider/cloud, browser/API or installed-daemon acceptance"
+    ]
+  },
+  "buildReleaseJoins": {
+    "sourceSha": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+    "rootReceiptSha256": "bb9d406d4611c625cae368c2aff7511f2b7e0269db668fc297cab34ce791b529",
+    "wholeAffectedContractRun": {
+      "numPassedTests": 453,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "numTotalTests": 453
+    },
+    "fileResults": [
+      {
+        "file": "tests/ci/gate-manifest.test.ts",
+        "counts": {
+          "passed": 269
+        }
+      },
+      {
+        "file": "tests/ci/platform-coverage.test.ts",
+        "counts": {
+          "passed": 65
+        }
+      },
+      {
+        "file": "tests/ci/release-gates.test.ts",
+        "counts": {
+          "passed": 111
+        }
+      },
+      {
+        "file": "tests/execution/build-release-joins.test.ts",
+        "counts": {
+          "passed": 8
+        }
+      }
+    ],
+    "joinCaseCount": 8,
+    "joinCases": [
+      "inspected source to signed build to release safety re-derives the inspected context before build and consumes signed provenance once as an attested release verdict",
+      "inspected source to signed build to release safety refuses a mismatched inspection digest before preparing source or starting a build",
+      "inspected source to signed build to release safety refuses a different context directory paired with the inspected digest before build",
+      "inspected source to signed build to release safety refuses a non-inspected subdirectory without a digest before context access or build",
+      "inspected source to signed build to release safety rechecks the pinned Dockerfile blob and refuses changed tree evidence before build",
+      "inspected source to signed build to release safety refuses tampered signed provenance before the release gate or any rollout",
+      "platform provenance floors at the build and release join refuses an unattested Zenith-built image even when a genuine build-record verifier accepts its evidence",
+      "platform provenance floors at the build and release join admits an external pinned digest only as pinned_digest and refuses it at the attested floor"
+    ],
+    "joinCountIsPartOfWhole453": true,
+    "sourcePacketSha256": "672d9663c2c0ec28d0da8b4554a9a18f4df917e577835f8411c8f34be2d17814",
+    "caseContractSha256": "0015d256a82a1ef1532e3246aa240b22671ea4affbe09bbabcc6e0692f8b8733",
+    "sourceBindings": [
+      {
+        "path": "tests/execution/build-release-joins.test.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "30fa8eefa690f7a41e34e5ebf834a13fc106b4c39c387846d71dc9ba35873e7b",
+        "gitMode": "100644",
+        "bytes": 15842,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "src/lib/sources/github/inspect.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "526c2ab338a6ee52d6b6a72ac0ded51c18b381e4da991188be46eb2eded839b6",
+        "gitMode": "100644",
+        "bytes": 11109,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "src/lib/sources/github/runtime.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "6c715f46259c436242373320430ac38c059c5bfe197cfe7f08ec9850f744e81c",
+        "gitMode": "100644",
+        "bytes": 6814,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "src/lib/execution/release.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "9247688c8bad88f02626f3f0f88ba5250acda1f13fd4e10a659714beeda4c916",
+        "gitMode": "100644",
+        "bytes": 35868,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "src/lib/execution/release-safety.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "40e0d360c34b5f1b725cc5efcb39eeef4dd184b276a3bb2ed881f034d4bb5feb",
+        "gitMode": "100644",
+        "bytes": 11796,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "src/lib/execution/build-provenance.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "f87f399f90298edafa707dddcd69f9e9c89314d543b91c5d17d9b4f73061e2af",
+        "gitMode": "100644",
+        "bytes": 14766,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "src/lib/platform/release-safety.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "98a8d2fa8b1f5a4d416b6a2bea38ae9ba8b6fcfd3df4329d8a762ccbc0d605e5",
+        "gitMode": "100644",
+        "bytes": 4784,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "src/lib/release-safety/provenance.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "5e4204ce524e2e9cedf19a42d4c6d56363627c4d1ab5f64c363e83ddfaec9fc2",
+        "gitMode": "100644",
+        "bytes": 5432,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "src/lib/release-safety/service.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "9ff31444f553079c764872f80cc92651dd87cbaf8484a0b60e0bd303b68e4119",
+        "gitMode": "100644",
+        "bytes": 26466,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "src/lib/controlplane/db/repos/release-pipelines.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "2b98c8e0999563121c5f6cfdd98eb63c100edba92e89f9885aa981fefe2a6019",
+        "gitMode": "100644",
+        "bytes": 9794,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "tests/execution/fakes/world.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "738e948fef3018927aec760ed3ec7dd4a9a70baa1b82780455a431531fee2828",
+        "gitMode": "100644",
+        "bytes": 13191,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "tests/execution/fakes/release.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "f58b401bf0bd5955d801de0e5673b23aa9dd8abf9ec2e7b912886af3c497f0a7",
+        "gitMode": "100644",
+        "bytes": 7538,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "tests/execution/fakes/provenance.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "c3a8a06db29aed054fb7414083d6ec184e63a6f2e27fbe77a1c61c411d921db3",
+        "gitMode": "100644",
+        "bytes": 2533,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "tests/execution/fakes/fixtures.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "5949107e39562feec5b57d6cccce48d73f2c9ed378dda5d76b5af9bba9e3561a",
+        "gitMode": "100644",
+        "bytes": 5631,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "tests/execution/build-admission.test.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "0f10926d79ea68b1dd9e5172be081bc0ae9fd1b373253e5b32839b2780d53738",
+        "gitMode": "100644",
+        "bytes": 10137,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "tests/release-safety/built-attestation.test.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "554e56a0857fbf0d9a16d19941198eeaf18f8c97df9ff14ab0e3a320ff370829",
+        "gitMode": "100644",
+        "bytes": 3090,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      }
+    ],
+    "scope": "PGlite in-process canonical stores and real crypto/composition; no PostgreSQL, hosted worker, real build, cloud or API acceptance",
+    "controlledPorts": [
+      "public GitHub HTTP/tree/tar archive",
+      "provider build/workloads",
+      "existing isolated operation/approval/source-snapshot fixture"
+    ],
+    "runtimeKeys": "runtime-generated EdDSA keys, no live credentials or fixture provider keys authored",
+    "limits": [
+      "No native PostgreSQL, actual builder/cloud, rollout target, hosted worker or default API acceptance"
+    ]
+  },
+  "standaloneAgentReader": {
+    "sourceSha": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+    "rootReceiptSha256": "18d1ee0d4f7263a2a81d24ef3678c356c7eccec31a67f49d0428638c13dbe890",
+    "command": "node scripts/test-agent-reader.mjs",
+    "counts": {
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "exitCode": 0,
+    "durationSeconds": 0.9392799169999999,
+    "environment": {
+      "node": "22.23.3",
+      "architecture": "macOS ARM64"
+    },
+    "sourceBindings": [
+      {
+        "path": "scripts/test-agent-reader.mjs",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "2207949682388129028ff00fd2523095655c46f4dc30db34bf971425c81b5c5c",
+        "gitMode": "100644",
+        "bytes": 996,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "tests/agent-access/reader.node.mjs",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "1064de5166382d37b9c854812ae8c4270894933669f2f94cfb6e7e88d8a4a31d",
+        "gitMode": "100644",
+        "bytes": 6761,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "src/lib/agent-access/security.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "841dba02023f8031d804697562b72a54c913fa54f5fdf964b3ff1c00a85d19c6",
+        "gitMode": "100644",
+        "bytes": 8026,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      },
+      {
+        "path": "src/lib/agent-access/http.ts",
+        "commit": "04be4e7de9844a9c1f86f1541721ef7b6fc5c0b5",
+        "sha256": "3d03ff92b97c24dd7ea584b53254af0e23648f1f306f5f27380c6b3c8d253aa2",
+        "gitMode": "100644",
+        "bytes": 10562,
+        "unchangedAtSuccessor": "db871bd52198efb26b6c5b5355ef76ad0c622277"
+      }
+    ],
+    "cleanup": {
+      "ownedHandlesAbsent": true,
+      "ownedTemporaryDirectoryEmptyAfterRootCleanup": true
+    },
+    "scope": "Standalone actual Node reader boundary contracts and two-source compile; no installed customer runner/default server evidence"
+  },
+  "currentSourceChecks": {
+    "sourceSha": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+    "rootReceiptSha256": "c6918cc02d0e28b2133ec588b42a34510395f24dfb03b85f60ac894c75edd3b7",
+    "scope": "Affected strict gate source models, scoped lint and combined candidate whole TypeScript compile; actual native10 separate receipt",
+    "counts": {
+      "numPassedTests": 269,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "numTotalTests": 269
+    },
+    "steps": [
+      {
+        "name": "gate269",
+        "exitCode": 0,
+        "durationSeconds": 29.257875333
+      },
+      {
+        "name": "lint",
+        "exitCode": 0,
+        "durationSeconds": 1.8744563330000013
+      },
+      {
+        "name": "compiler",
+        "exitCode": 0,
+        "durationSeconds": 47.41830220899999
+      }
+    ],
+    "compilerHeapMiB": 4096,
+    "environment": {
+      "node": "22.23.3",
+      "architecture": "macOS ARM64"
+    }
+  },
+  "sourceCorrection": {
+    "sourceSha": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+    "preparedOn": "efd012a3317c289222e70d5782a9a8894375978e",
+    "sourceFreezeSha256": "eee6946a439bffd26b029f7ffd6a0225460397225ee3fadbe023b14bae2f4f9f",
+    "patchSha256": "3b36c9c75e7124f26de2a85ae1865d03f49145d995af040d2b46d5a0ff94d342",
+    "scope": "Namespace-scoped read-only operator search attribute readiness plus one exact digest assertion rebind",
+    "independentSourceReviewSha256": "47f9903d8fe41cf74d2a2ab71df26f78e1a43eb9dcf0cd9761c014d12676a2cb",
+    "nativeExecutionReceiptSeparate": "49f476b49c43e9fc7d8418014373161229ee10e7dce4b04dd9a80c093ec39b8f"
+  },
+  "canonicalWorkflowRegistration": {
+    "originalRegistrationSourceSha": "efd012a3317c289222e70d5782a9a8894375978e",
+    "manifestBinding": {
+      "path": "scripts/ci/gate-manifest.mjs",
+      "commit": "db871bd52198efb26b6c5b5355ef76ad0c622277",
+      "sha256": "485680777bd54c51abe92fccf900b67097dfe565e00c08d9ce4b1bca67a62b05",
+      "gitMode": "100644",
+      "bytes": 328134
+    },
+    "unchangedRegistrationSinceOriginalSource": true,
+    "requiredCases": 62,
+    "fullCanonical62Execution": "UNRUN",
+    "predecessor60EvidenceNotPromotedTo62": true
+  },
+  "historicalFailedSetupAttempts": [
+    {
+      "receiptLabel": "root-critical-native-efd012a3-20261006T021139Z",
+      "receiptSha256": "91340556e881f83ba8178336749a1662e3efeb5f348e590ae281449a14f97279",
+      "sourceSha": "efd012a3317c289222e70d5782a9a8894375978e",
+      "exitCode": 1,
+      "counts": {
+        "numPassedTests": 8,
+        "numFailedTests": 0,
+        "numPendingTests": 2,
+        "numTotalTests": 10
+      },
+      "nativeCasesExecuted": false,
+      "ownedDirectoryRetained": true,
+      "observedOpenHandles": 0,
+      "ownedPathProcessMatches": 0,
+      "noUnrelatedResourcesTouched": true
+    },
+    {
+      "receiptLabel": "root-critical-native-diagnostic-efd012a3-20261006T021345Z",
+      "receiptSha256": "dc843d225d86de3dc49e2e39c5480e4348e975a46b2be4bd802975158498035e",
+      "sourceSha": "efd012a3317c289222e70d5782a9a8894375978e",
+      "exitCode": 1,
+      "counts": {
+        "numPassedTests": 8,
+        "numFailedTests": 0,
+        "numPendingTests": 2,
+        "numTotalTests": 10
+      },
+      "nativeCasesExecuted": false,
+      "ownedDirectoryRetained": true,
+      "observedOpenHandles": 0,
+      "ownedPathProcessMatches": 0,
+      "noUnrelatedResourcesTouched": true
+    }
+  ],
+  "failedAttemptSettlementSha256": "3d0c248730da202d2b1fa970f0387ad88998b242c9516c52d54f08c4f8574742",
+  "requirementDisposition": {
+    "requestedStatusChanges": [],
+    "requestedCriterionChanges": [],
+    "requirementCount": 78,
+    "releaseStatus": {
+      "implementationComplete": false,
+      "sandboxVerified": false,
+      "pilotReady": false,
+      "productionApproved": false
+    },
+    "allWave2RowsRemainOpen": true,
+    "OBS04Closed": false
+  },
+  "remainingAcceptance": [
+    "Run and strictly validate the complete canonical workflows lane with all62 literal required identities and required pinned Temporal CLI admission",
+    "Retain controlled-activity/native-service distinction and complete requirement-specific default-path joins before any wave2 row closure"
+  ],
+  "privacy": {
+    "rawLogsIncluded": false,
+    "privatePathsIncluded": false,
+    "secretValuesIncluded": false,
+    "overlappingCountsSummed": false,
+    "authorSelfAcceptance": false
+  }
+}

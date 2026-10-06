@@ -1,3 +1,36 @@
+## Current continuation, 6 October 2026
+
+Local integrated `7c86ad44` has scoped scheduling10/0/0 (eight models plus two actual Temporal cases), JOIN8 within04be453/0/0 and standalone reader15/0/0. Full canonical workflows62 and fresh whole-candidate CI remain pending. Publishedc5f4bd53 is terminal: main15 success/1 supply-chain failure, native2 success/22 checks each; unit19484/0/1519, Smoke/Gimbal passed. [Final per-job evidence](evidence/PROD-CI-08/2026-10-06-ci-c5f4bd53-final.json).
+
+CI07/08/09 remain reopened; ledger9 verified/41 in progress/28 planned,78 criteria and four false release flags preserved. Three dependency findings remain; source-map lock-only authorization is pending and production sprintf/OPA has no validated patch or compatible exception. No upgrade or gate-policy change applied. Next: normal same-branch publication, fresh whole-candidate CI including full62, independent review and builder handoff; the dependency decision remains a separate blocker. Same branch, Saivedant identity; tests and minimal fixes only. Read latest RESULTS before the historical notes below.
+
+## Current 20-requirement checklist
+
+Current state is copied from the ledger; this table changes no acceptance or execution order. CI repair blocks ordered acceptance; JOIN8 is executed preparation, while fullworkflows62 is pending. Historical commands and results below remain source scoped.
+
+| Requirement | Ledger state | Remaining verifier scope |
+|---|---|---|
+| PROD-CI-05 | verified | Scoped9e contract/local evidence retained; security-dependent complete CI is not green. |
+| PROD-CI-08 | in_progress | Resolve approved dependency repair/remaining security blockers, then exact-source complete gates. |
+| PROD-CI-09 | in_progress | Push normally and inspect every fresh main/native job; c5 main failed supply-chain. |
+| PROD-MACH-01 | verified | Scoped9e acceptance retained; c5 actual152/15 and both cleanup scopes passed. |
+| PROD-MACH-03 | in_progress | Route42 passed; registered signed guest/default broker execution remains unproved. |
+| PROD-OBS-02 | in_progress | Loopback protocol6 passed; registered-machine/current credential and genuine telemetry-engine join pending. |
+| PROD-OBS-03 | verified | Scoped9e native stability evidence retained; no paging/cloud acceptance implied. |
+| PROD-LIFE-02 | verified | Scoped catalog criterion retained; strict1c check passed, no provider lifecycle acceptance. |
+| PROD-LIFE-12 | in_progress | Seven native ownership guards passed; competing owner/resource-fact and preissued effect limits remain. |
+| PROD-COST-03 | in_progress | Optimizer contracts exist; measured collector/explicit opt-in join remains pending. |
+| PROD-OBS-04 | in_progress | Actual scheduling2 passed within10; complete canonical62 and default maintenance/health joins pending. |
+| PROD-LIFE-01 | in_progress | Current credential rotation/revocation and product/CLI mirror join needs scoped real fixtures. |
+| PROD-LIFE-08 | in_progress | JOIN8 covers controlled inspected-context boundaries; actual private App installation lifecycle needs permission. |
+| PROD-LIFE-09 | in_progress | JOIN8 preserves attestation floors; actual isolated builder/network/provenance engine proof pending. |
+| PROD-LIFE-10 | in_progress | Controlled signed release joins passed; actual build/migration/readiness/cutover engine proof pending. |
+| PROD-LIFE-11 | in_progress | Preserve contract and scoped engine evidence; current admitted real PG/MySQL/S3 targets and readback required. |
+| PROD-MACH-04 | in_progress | Agent lifecycle controls passed; coherent installed registration/update/rollback journey pending. |
+| PROD-MACH-05 | in_progress | Reader15 passed; customer credential/signed execution/current revocation join remains pending. |
+| PROD-UX-01 | in_progress | DOM contracts are scoped; real-browser keyboard/focus/axe/screen-reader acceptance pending. |
+| PROD-UX-03 | in_progress | Plugin authority contracts are scoped; actual archive hash/isolation launcher and default parent join pending. |
+
 ## 6 October current verifier checkpoint
 
 Published9e4a42af completed main16/16 and native2/2 green. Local test-only source1c3913a8 adds route42 and telemetry6, exact combined48/0/0; new successor full CI remains pending. Candidate ledger12verified/38in_progress/28planned,78 criteria/fourfalse retained. Read current RESULTS first; older entries below are history. Same branch, Saivedant author+committer. Next: wave-1 push, held JOIN8/critical1+registration3 actual tests and mandatory62 workflows, combined gate and final per-job CI/builder handoff. Default API/live/cloud permission absent.

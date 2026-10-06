@@ -1,3 +1,7 @@
+## Current checkpoint, 6 October 2026
+
+Publishedc5f4bd53 is terminal: main15 success/1 supply-chain failure and native2 success; unit19484/0/1519, actual guest152/systemd15/both cleanups passed. Current ledger9 verified/41 in progress/28 planned; CI07/08/09 remain reopened for three dependency findings. No lock upgrade or security exception is applied. Local integrated7c86ad44 has focused scheduling10/0/0, JOIN8 and reader15, but complete workflows62 and fresh whole-candidate CI remain pending. Follow the fixed20 order below and the current [queue](VERIFY-QUEUE.md); older notes are history. All78 criteria and four false release flags are retained.
+
 # Handoff to the verifying agent (5 October 2026)
 
 You are the verifying agent on the machine that has Docker, PostgreSQL, Temporal, kind, Go, OpenTofu and OPA configured. The building machine has no working Docker, so it only builds; you run every test and gate. This file is your scope contract. [VERIFY-QUEUE.md](VERIFY-QUEUE.md) and `verify/<ID>.md` hold the commands; this file says what you own, what "done" means, and exactly what to hand back.

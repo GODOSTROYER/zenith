@@ -414,6 +414,18 @@
           "runId": 37373473708,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37373473708",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-8b881fea.json"
+        },
+        {
+          "level": "contract",
+          "commit": "56aeb01a0bfd306df9135223540c592c12676fd8",
+          "result": "Whole compiler exit0 with4096MiB/incrementalfalse; whole eslint exit0. Corrected-source full gate and fresh CI pending; no release promotion.",
+          "command": "tsc --noEmit --incremental false; eslint .",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "architecture": "native Darwin ARM64"
+          },
+          "logs": "docs/build/production/evidence/PROD-MACH-01/2026-10-06-systemd-fixture-corrections.json"
         }
       ],
       "requiredEvidence": [
@@ -748,6 +760,52 @@
             "architecture": "native local Linux ARM64 kind"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-kind-22857333.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "228573330c718464b181eb5f3abc6a90c3f4ed50",
+          "result": "Whole local unit19650 passed/3 failed/1280 skipped. Three exact stale source-pin/public-mode model failures; preceding formatting, Go vet/race and generated checks passed. Strict gate stopped; security/policy/OpenTofu remainder unexecuted. Owned child settled/data removed. Successor not inferred.",
+          "command": "Serialized full local static/unit/Go/generated gate; stopped at unit failure",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "go": "1.27.1 GOTOOLCHAIN=local",
+            "architecture": "native Darwin ARM64",
+            "umask": "077"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-unit-22857333.json"
+        },
+        {
+          "level": "contract",
+          "commit": "7a3c1909b27764b7880c924f904df376263d4412",
+          "result": "Two affected suites438 passed/0 failed/0 skipped under077;259 manifest controls plus179 fixture models. Private data removed. Complete successor/native Linux15 remain pending.",
+          "command": "vitest run --maxWorkers=1 tests/ci/gate-manifest.test.ts tests/ci/guest-file-write-gate.test.ts",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "go": "1.27.1 GOTOOLCHAIN=local",
+            "architecture": "native Darwin ARM64",
+            "umask": "077"
+          },
+          "logs": "docs/build/production/evidence/PROD-MACH-01/2026-10-06-systemd-fixture-corrections.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "45b853afbb519ddc85372c5c43c451943471c766",
+          "result": "Terminal main14 successful/2 failures Go,Verify; native2 fresh success/22checks/cleanup6 each. Unit19412P2F1519S; typecheck/lint passed, Smoke/Gimbal skipped. Guest152 passed; systemd15 unexecuted at setup-unit-poststate, cleanup failed/canonical cleanup skipped. Required PG/Temporal/policy/OpenTofu lanes passed separately. Failed historical source does not verify corrected56.",
+          "command": "Independent complete18-job/source-bound artifact observation",
+          "runId": 37390088534,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37390088534",
+          "environment": {
+            "node": "22.23.3",
+            "go": "1.27.1 GOTOOLCHAIN=local",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "native Linux AMD64 guest; native Linux AMD64 and ARM64 packaged workers; no emulation"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-45b853af-final.json"
         }
       ],
       "requiredEvidence": [
@@ -2157,6 +2215,20 @@
             "host": "Darwin ARM64"
           },
           "logs": "not retained"
+        },
+        {
+          "level": "contract",
+          "commit": "7a3c1909b27764b7880c924f904df376263d4412",
+          "result": "Affected fixture179 passed/0 failed/0 skipped in one438-case command under077; explicit public synthetic file modes corrected, private0600 receipts unchanged. Real systemd15/cleanup not covered by models.",
+          "command": "vitest run --maxWorkers=1 tests/ci/gate-manifest.test.ts tests/ci/guest-file-write-gate.test.ts",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "go": "1.27.1 GOTOOLCHAIN=local",
+            "architecture": "native Darwin ARM64",
+            "umask": "077"
+          },
+          "logs": "docs/build/production/evidence/PROD-MACH-01/2026-10-06-systemd-fixture-corrections.json"
         }
       ],
       "requiredEvidence": [

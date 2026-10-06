@@ -1,3 +1,11 @@
+## Verifier continuation, group 1–2, 6 October 2026
+
+Tested `ec18bb9c8973787ab16123040d00d7be1407eb08`: fresh installation, compiler, lint and fresh product/platform/agent migrations passed. Full canonical workflows62: **1,275 passed / 0 failed / 0 skipped**, all62 mandatory identities executed. Fresh runbook/telemetry contracts: **113 passed / 0 failed / 0 skipped** across6 files. Counts overlap with other evidence and are not summed. Default maintenance worker effects/health/fallback proof remains in progress; registered runbook delivery and complete default scoped telemetry remain blocked or incomplete. Ledger: **12 verified / 38 in progress / 28 planned**, all78 requirements preserved, all four release flags false.
+
+New author and committer: **Arnav Bule <arnav.bule05@gmail.com>**, per latest human instruction. Existing Saivedant commits remain unchanged. Before every push: `git pull --no-rebase`, merge newer building-machine work, never force. Wave3 source/harnesses remain building-machine owned. Disk free25GiB before next workload; preserve18GiB packaged-worker minimum. Default product API/server startup and external acceptance are not authorized by worker permission. [Group evidence and prerequisites](verification/RESULTS-2026-10.md#verifier-group-1-2-2026-10-06).
+
+Earlier checkpoint notes below are historical, with their original source scope.
+
 ## Integrated test checkpoint, 6 October 2026
 
 6 October human instruction authorizes only the current source-map-js patch and bounded licensed OPA formatter precision security repair for GHSA-68fv-2mgg-jv7q and GHSA-hp3w-g68c-fv3c. This overrides the earlier dependency-upgrade exclusion for these findings only. General upgrades, force updates, gate weakening, fake identities and self-approved exceptions remain unauthorized; broader product/feature/live work remains outside verifier scope.

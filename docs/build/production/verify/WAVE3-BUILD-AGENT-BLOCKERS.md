@@ -1,3 +1,9 @@
+## Current verifier findings, 6 October 2026
+
+Sourceec18bb9c; ledger12 verified /38 in progress /28 planned, all78 criteria unchanged. Fullcanonical workflows62 rerun1275/0/0; final successor CI still required. Default runbook delivery needs genuine registered-agent/product API acceptance; default telemetry needs explicit scoped source configuration and machine-health wiring. These are not fixed by controlled ports or additional mocked assertions. Preserve wave3 ownership; verifier does not implement those features. Worker-only scheduling proof is in progress and not an API startup authorization. Latest human identity: Arnav Bule; before every push pull --no-rebase and merge, never force.
+
+Earlier blocker inventory below is historical.
+
 # Build-agent wave 3 blockers
 
 Source: `3616b02c93058533a13dec6879ba0b7a35725bc2`. Ledger: 78 criteria, 6 verified / 44 in progress / 28 planned. All release states remain false. This note does not authorize feature work or promote existing source/tests to acceptance.

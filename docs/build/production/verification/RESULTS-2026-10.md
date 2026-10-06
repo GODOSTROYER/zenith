@@ -380,3 +380,22 @@ Code candidate `5f4713a7` integrates six reviewed fixes: Go build-event parsing;
 - Local kind on387b: provider6/release1/guest48 passed, zero failures/skips, owned cleanup complete. Supervisor137 passed including6 actual native Linux ARM64 process-group cases. These are scoped historical receipts, not new-candidate/live-cloud acceptance.
 
 Remaining: fresh pushed Linux diagnostic, conditional six-test-path owned-database/backend-lifetime candidate, complete unit successor, final exact-SHA CI, then ordered wave1, missing joins and wave2. All78 requirements retained; ledger6 verified/44 in progress/28 planned; all four release states false. Read evidence JSON above; counts overlap and must not be summed.
+
+
+## Verifier group 1–2, 2026-10-06
+
+Source: `ec18bb9c8973787ab16123040d00d7be1407eb08`, clean isolated worktree, fresh dependencies. New author/committer Arnav Bule; historical Saivedant commits unchanged. Fresh install, full compiler/lint and actual product/platform/agent migrations each exit0. Final successor checkpoint and CI remain pending; historical exactec18 CI succeeded20/20 and cannot verify later bytes.
+
+### PROD-OBS-04: full canonical workflows62
+
+`node scripts/ci/run-gate.mjs workflows --run`: **1275 passed / 0 failed / 0 skipped**, all62 required identities passed; observed exit0 and strict source/environment/report validation complete. Actual owned PostgreSQL16.15 and Temporal execution; Node22.23.3, native macOS ARM64. [Sanitized canonical receipt](../evidence/PROD-OBS-04/2026-10-06-workflows62-ec18bb9c.json). Focused db871 evidence is preserved; stale full62 pending wording is superseded. Critical restart/overlap activities still return controlled outcomes (`tests/workflows/critical-schedule.test.ts:216`). Default worker six-job execution/health/fallback/restart must be demonstrated separately. State stays in_progress until that evidence is inspected. No failures or skips in this rerun; no production fix required.
+
+### PROD-MACH-03: default signed runbook delivery
+
+Combined six-file focused command: **113 passed / 0 failed / 0 skipped**. Runbook35, step-executor5, routes42 are contract controls, not actual registered-machine delivery. [Source-bound receipt](../evidence/PROD-MACH-03/2026-10-06-default-join-assessment-ec18bb9c.json). Route adapters are mocked (`tests/machines/runbook-routes.test.ts:32`); step executor uses controlled driver/session/grant (`tests/machines/runbook-step-executor.test.ts:15`). Production composition exists (`src/lib/platform/runbooks.ts:70`); genuine Go agent poll/result/heartbeat uses product HTTP transport (`go/internal/agent/loop.go:331`). Exact prerequisite: narrowly authorized disposable default product API/server plus actual signed registered outbound agent, real broker, stores and cancellation/window/audit readback. Worker startup permission does not authorize that API. State remains in_progress; no narrow production fix established.
+
+### PROD-OBS-02: default scoped observation
+
+Same combined **113/0/0**, not additive: endpoints6, envelopes19, machine health6. [Source-bound receipt](../evidence/PROD-OBS-02/2026-10-06-default-join-assessment-ec18bb9c.json). Controlled endpoint authentication is not a default broker session (`tests/observability/local-telemetry-engine.test.ts:132`). Default agent composition omits metrics/log endpoints (`src/lib/platform/agent-ports.ts:98`); factory requires explicit endpoints (`src/lib/observability/sources/factory.ts:202`); machine-health helper has no production caller (`src/lib/machines/telemetry.ts:88`). Building-machine prerequisite: wire genuine scoped metrics/logs/traces/events/machine health and explicit unavailable states into default session path. Runtime prerequisite: authorized default product API/server, actual registered agent and owned telemetry targets. No live account needed for a local scoped subset; subset cannot close all signals. State remains in_progress.
+
+No requirement promoted; no forbidden wave3 source, accepted migration, gate or release-state edits. Next: actual owned default worker scheduling proof, step3 coherent-source verification, then step4 and complete final gate/CI.

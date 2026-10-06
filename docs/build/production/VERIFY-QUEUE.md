@@ -1,3 +1,11 @@
+## Verifier continuation, group 1–2, 6 October 2026
+
+Tested `ec18bb9c8973787ab16123040d00d7be1407eb08`: fresh installation, compiler, lint and fresh product/platform/agent migrations passed. Full canonical workflows62: **1,275 passed / 0 failed / 0 skipped**, all62 mandatory identities executed. Fresh runbook/telemetry contracts: **113 passed / 0 failed / 0 skipped** across6 files. Counts overlap with other evidence and are not summed. Default maintenance worker effects/health/fallback proof remains in progress; registered runbook delivery and complete default scoped telemetry remain blocked or incomplete. Ledger: **12 verified / 38 in progress / 28 planned**, all78 requirements preserved, all four release flags false.
+
+New author and committer: **Arnav Bule <arnav.bule05@gmail.com>**, per latest human instruction. Existing Saivedant commits remain unchanged. Before every push: `git pull --no-rebase`, merge newer building-machine work, never force. Wave3 source/harnesses remain building-machine owned. Disk free25GiB before next workload; preserve18GiB packaged-worker minimum. Default product API/server startup and external acceptance are not authorized by worker permission. [Group evidence and prerequisites](verification/RESULTS-2026-10.md#verifier-group-1-2-2026-10-06).
+
+Earlier checkpoint notes below are historical, with their original source scope.
+
 ## Final published test checkpoint, 6 October 2026
 
 Published `77131a70ec1a25971714f643981475e456c1e2ed`: main 37416369852 all16 jobs and native 37416369867 both jobs terminal success, attempt1. Unit 19521 passed / 0 failed / 1521 skipped; typecheck/lint/Smoke/Gimbal executed successfully. Complete locked dependency audit reports zero known findings, without exceptions or gate weakening. All current seven canonical lanes satisfy their strict required cohorts; native22 each and Linux152/systemd15/custody passed. No mandatory missing/failure/skip waiver. [Exact per-job/source/count/skip evidence](evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json).
@@ -16,13 +24,13 @@ Earlier checkpoint notes retain their exact historical source scope.
 | PROD-CI-08 | verified | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-ci-08) |
 | PROD-CI-09 | verified | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-ci-09) |
 | PROD-MACH-01 | verified | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-mach-01) |
-| PROD-MACH-03 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-mach-03) |
-| PROD-OBS-02 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-obs-02) |
+| PROD-MACH-03 | in_progress | `ec18bb9c8973787ab16123040d00d7be1407eb08` | [group1–2 results](verification/RESULTS-2026-10.md#verifier-group-1-2-2026-10-06) |
+| PROD-OBS-02 | in_progress | `ec18bb9c8973787ab16123040d00d7be1407eb08` | [group1–2 results](verification/RESULTS-2026-10.md#verifier-group-1-2-2026-10-06) |
 | PROD-OBS-03 | verified | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-obs-03) |
 | PROD-LIFE-02 | verified | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-life-02) |
 | PROD-LIFE-12 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-life-12) |
 | PROD-COST-03 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-cost-03) |
-| PROD-OBS-04 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-obs-04) |
+| PROD-OBS-04 | in_progress | `ec18bb9c8973787ab16123040d00d7be1407eb08` | [group1–2 results](verification/RESULTS-2026-10.md#verifier-group-1-2-2026-10-06) |
 | PROD-LIFE-01 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-life-01) |
 | PROD-LIFE-08 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-life-08) |
 | PROD-LIFE-09 | in_progress | `77131a70ec1a25971714f643981475e456c1e2ed` | [current record](verification/RESULTS-2026-10.md#current-prod-life-09) |

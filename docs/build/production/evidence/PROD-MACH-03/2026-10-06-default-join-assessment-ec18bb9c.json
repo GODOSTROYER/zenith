@@ -1,0 +1,62 @@
+{
+  "sourceCommit": "ec18bb9c8973787ab16123040d00d7be1407eb08",
+  "sourceStable": true,
+  "command": "node node_modules/vitest/vitest.mjs run tests/machines/runbooks.test.ts tests/machines/runbook-step-executor.test.ts tests/machines/runbook-routes.test.ts tests/observability/local-telemetry-engine.test.ts tests/observability/telemetry.test.ts tests/machines/telemetry.test.ts --maxWorkers=1 --no-file-parallelism --reporter=json",
+  "exitCode": 0,
+  "durationSeconds": 5.976,
+  "counts": {
+    "passed": 113,
+    "failed": 0,
+    "skipped": 0
+  },
+  "files": [
+    {
+      "path": "tests/machines/runbook-routes.test.ts",
+      "sourceSha256": "d7a249370dbf49bdf0e4430c8449f36a3a06877cf6e91150e71af632e421c322",
+      "passed": 42,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "path": "tests/machines/runbook-step-executor.test.ts",
+      "sourceSha256": "bb36ef96112e5ee889f167e06bf7b83241344561105da886efdc4c094576f891",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "path": "tests/machines/runbooks.test.ts",
+      "sourceSha256": "4e4a671f4f1847e541c7554a0cc61743b3d3ac9380342ba7864caae230a0da40",
+      "passed": 35,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "path": "tests/machines/telemetry.test.ts",
+      "sourceSha256": "a8baa77600afd8ed9ce91e21f10072d6c2db4f84334d2c2d45740627ffd09762",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "path": "tests/observability/local-telemetry-engine.test.ts",
+      "sourceSha256": "bdaf43d9021dcee41f16ec9f0b49dbbe1456b380b414f55caa234459cd5b235c",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "path": "tests/observability/telemetry.test.ts",
+      "sourceSha256": "626bd2f8bec068642c68b98ffb2566af1fbd15994641bec71b1cf7049b3b94d9",
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "environment": {
+    "node": "22.23.3",
+    "postgres": "16.15",
+    "architecture": "native macOS ARM64"
+  },
+  "scope": "Contract unless independently demonstrated actual default-engine behavior; real databases do not make injected ports default composition."
+}

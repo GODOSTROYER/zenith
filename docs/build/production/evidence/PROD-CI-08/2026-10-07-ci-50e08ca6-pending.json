@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "date": "2026-10-07",
+  "commit": "50e08ca659d0d49399297f705c5249f246b77ab9",
+  "branch": "codex/production-2026-10-02",
+  "pushed": false,
+  "runId": null,
+  "status": "pending_not_pushed",
+  "jobs": [],
+  "reason": "User requires transport repair and Sharp bump together; mandatory native bundle scope clarification pending. No new exact-SHA CI run exists. Historical runs remain source-bound.",
+  "executedLocalEvidence": "docs/build/production/evidence/PROD-LIFE-11/2026-10-07-transport-repair-50e08ca6.json"
+}

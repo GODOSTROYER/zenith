@@ -1,3 +1,11 @@
+## Current verified transport repair and remaining blockers, 7 October 2026
+
+PROD-LIFE-11 destination-custody security fix50e08ca6 independently reviewed and locally executed: PG/S3 72/0/0, MySQL15/0/0, compiler/lint0. Prior preflight-only finding repaired within authorized portability scope. Stock CLI DNS-hostname TLS safely refuses; implementing original-hostname identity on pinned destination remains a capability gap. Wider backup/adoption/decommission acceptance remains open. No wave3 source changed.
+
+Sharp0.35.5 finite closure needs26 mandatory bundled native updates; existing clarification pending, bump unapplied, no exception. Full combined installation/build/package/CI gates pending. Default maintenance draft independently NOT_READY and unrun: reconcile seeded epoch admission and prove actual current worker scheduling/effects instead of direct inspector calls. Default API/server and external acceptance retain DEC-STARTUP/DEC-CLOUD. Ledger9/41/28; all78 criteria and four false release flags preserved.
+
+Older entries below retain their historical source scope.
+
 ## Current dependency blocker and recomputed ledger
 
 New supply-chain failure atadb6fb42:1 sharp0.35.4 finding GHSA-wq5f-xc86-pv6w; primary advisory patched0.35.5 fits Next declared range, but safe upgrade/provenance/packaging tests remain unperformed. General upgrades excluded by current verifier handoff; no exception applied. CI07/08/09 reopened, currentledger9 verified/41 in progress/28 planned, all78 criteria/fourfalse release flags preserved. [Disposition and exact failed job](../verification/RESULTS-2026-10.md#dependency-stop-sharp-2026-10-06).

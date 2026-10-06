@@ -2519,7 +2519,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "security_blocked_ec18bb9c_dns_addresses_not_bound_to_transport",
+      "implementationStatus": "transport_security_repaired_50e08ca6_local_verified_remaining_lifecycle_acceptance_open",
       "evidence": [
         {
           "level": "local_engine",
@@ -2559,6 +2559,30 @@
           "command": "Independent source/dependency trace; root independently rechecked exact source hashes and connector code. No attack command executed.",
           "environment": "Exactec18 tracked sources; installed postgres3.4.7 and @smithy/node-http-handler4.11.3. Existing scoped native fixtures do not exercise DNS check-to-socket custody.",
           "logs": "docs/build/production/evidence/PROD-LIFE-11/2026-10-06-dns-transport-security-review-ec18bb9c.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "50e08ca659d0d49399297f705c5249f246b77ab9",
+          "result": "72 passed /0 failed /0 skipped; observed exit0. Actual PostgreSQL16.15 and MinIO TLS engines plus actual-socket and portability regressions; original hostname TLS identity and private opt-in preserved. Separate lane counts; overlapping historical runs not summed.",
+          "artifact": "docs/build/production/evidence/PROD-LIFE-11/2026-10-07-pg-s3-50e08ca6.json",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "vitest": "4.1.11",
+            "architecture": "Native Darwin ARM64 clients; native Linux ARM64 disposable engines. AMD64 not executed in this repair."
+          }
+        },
+        {
+          "level": "local_engine",
+          "commit": "50e08ca659d0d49399297f705c5249f246b77ab9",
+          "result": "15 passed /0 failed /0 skipped; observed exit0. Nine contract controls, five actual stock-client TLS protocol-fixture controls, one actual MySQL8.4.11 export/import/readback case with refusal controls. Protocol fixture is not engine evidence. Separate lane counts; overlapping historical runs not summed.",
+          "artifact": "docs/build/production/evidence/PROD-LIFE-11/2026-10-07-mysql-50e08ca6.json",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "vitest": "4.1.11",
+            "architecture": "Native Darwin ARM64 clients; native Linux ARM64 disposable engines. AMD64 not executed in this repair."
+          }
         }
       ],
       "requiredEvidence": [
@@ -2568,7 +2592,8 @@
       "owner": "PROD-WS-ACCEPTANCE-CLEANUP",
       "testPaths": [],
       "followUps": [
-        "Acceptance cleanup must preserve unresolved mutation blockers across original/follow-up CLI runs. No quiescence authority from terminal operation projection alone. Backup/export/import/adoption and live ownership-safe teardown remain incomplete."
+        "Acceptance cleanup must preserve unresolved mutation blockers across original/follow-up CLI runs. No quiescence authority from terminal operation projection alone. Backup/export/import/adoption and live ownership-safe teardown remain incomplete.",
+        "MySQL DNS-hostname TLS targets explicitly refused: stock CLI cannot preserve original hostname certificate identity while connecting to validated IP. Literal-IP CA/IP-SAN acceptance executed. Hostname support and wider backup/adoption/decommission acceptance remain open; no downgrade or detached identity probe."
       ]
     },
     {

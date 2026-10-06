@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "commit": "50e08ca659d0d49399297f705c5249f246b77ab9",
+  "lane": "mysql",
+  "observedExit": 0,
+  "passed": 15,
+  "failed": 0,
+  "skipped": 0,
+  "success": true,
+  "environment": {
+    "node": "22.23.3",
+    "npm": "10.9.9",
+    "postgresDriver": "3.4.7",
+    "postgresEngine": "16.15 native Linux ARM64",
+    "minioEngine": "RELEASE.2025-09-07T16-13-09Z native Linux ARM64",
+    "mysqlEngine": "8.4.11 native Linux ARM64",
+    "mysqlStockClient": "9.6.0 native Darwin ARM64",
+    "docker": "29.1.3",
+    "vitest": "4.1.11",
+    "clientArchitecture": "native Darwin ARM64",
+    "nativeAMD64": "not executed",
+    "emulatedAMD64": "not executed in this repair"
+  },
+  "files": [
+    {
+      "path": "tests/portability/mysql-cli-tls.test.ts",
+      "cases": [
+        {
+          "fullName": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1) authenticates a CA-trusted literal IP SAN on the same real stock-client TLS socket before query",
+          "status": "passed",
+          "durationMs": 24.428416000000027
+        },
+        {
+          "fullName": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1) refuses a CA-valid certificate lacking the destination IP SAN before credential authentication",
+          "status": "passed",
+          "durationMs": 16.79929100000004
+        },
+        {
+          "fullName": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1) refuses an untrusted CA on the real TLS socket before credential authentication",
+          "status": "passed",
+          "durationMs": 19.876333000000045
+        },
+        {
+          "fullName": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1) refuses a non-TLS greeting rather than downgrading or sending an authentication response",
+          "status": "passed",
+          "durationMs": 12.808625000000006
+        },
+        {
+          "fullName": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1) explicitly refuses a legitimate DNS TLS name instead of claiming a detached identity proof",
+          "status": "passed",
+          "durationMs": 1.488708000000031
+        }
+      ]
+    },
+    {
+      "path": "tests/portability/mysql-engine.test.ts",
+      "cases": [
+        {
+          "fullName": "mysql connection parses a connection URI and never lets the password reach a command line",
+          "status": "passed",
+          "durationMs": 4.579874999999987
+        },
+        {
+          "fullName": "mysql export refuses a database with routines or events rather than exporting it incompletely",
+          "status": "passed",
+          "durationMs": 0.5767500000000041
+        },
+        {
+          "fullName": "mysql export emits a plain mysqldump file, the restore note and a digest that is stable across reads",
+          "status": "passed",
+          "durationMs": 0.9975000000000023
+        },
+        {
+          "fullName": "mysql export refuses an export when the database changed while mysqldump ran, and reports a failing dump without leaking the client's message",
+          "status": "passed",
+          "durationMs": 0.592000000000013
+        },
+        {
+          "fullName": "mysql restore restores the dump into an empty target through mysql stdin and verifies by reading the target back",
+          "status": "passed",
+          "durationMs": 3.5168330000000196
+        },
+        {
+          "fullName": "mysql restore never merges into a populated target and reports a failed load without detail",
+          "status": "passed",
+          "durationMs": 0.26550000000000296
+        },
+        {
+          "fullName": "the real clients report a missing binary as unavailable, not as a database failure",
+          "status": "passed",
+          "durationMs": 11.106708000000026
+        },
+        {
+          "fullName": "the real clients revalidates every invocation, pins only the vetted address and excludes ambient redirects",
+          "status": "passed",
+          "durationMs": 563.712542
+        },
+        {
+          "fullName": "the real clients refuses hostname TLS, private destinations without opt-in and caller-supplied redirect options before spawning",
+          "status": "passed",
+          "durationMs": 1.6445420000000013
+        },
+        {
+          "fullName": "real MySQL server (needs mysql and mysqldump on PATH and an EMPTY scratch database) exports, restores into a second empty database and verifies by readback",
+          "status": "passed",
+          "durationMs": 831.547083
+        }
+      ]
+    }
+  ],
+  "command": "npx vitest run --maxWorkers=1 tests/portability/mysql-cli-tls.test.ts tests/portability/mysql-engine.test.ts",
+  "privateRawLogs": "not retained in repository",
+  "sourceBinding": "Executed after security commit on unchanged tracked source; private fixture configuration and credential values omitted."
+}

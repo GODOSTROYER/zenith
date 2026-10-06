@@ -1,3 +1,11 @@
+## Published037 failed attempt and narrow fixture repair, 6 October 2026
+
+Published037 attempt1: main37412189880 has15 success/1 Verify failure; native37412189876 has2 success. Unit19514 passed/4 failed/1521 skipped; typecheck/lint passed, Smoke/Gimbal skipped. Test-only fix `499592a9868d84a9d27b06b80563cb87c3823bde` supplies the13 missing journal literals in synthetic positive PG93 reports, retaining every original assertion and checker. Exact worker35/0/0 and root three-suite377/0/0/lint0 are separate contract checks; new whole CI remains pending. All78 criteria/dependencies/states9/41/28 and four false release flags remain unchanged; failed history and skip limitations retained. [Exact rejected per-job receipt](evidence/PROD-CI-08/2026-10-06-ci-03763192-final.json).
+
+Next: normal same-branch fix/checkpoint push, inspect every fresh main/native job, then fixed HANDOFF20-ID order. Product/default journeys, live/cloud/private-source/Windows, current-owner/preissued-effect and builder/operator prerequisites remain separate.
+
+Earlier checkpoint notes retain their exact historical scope.
+
 ## Integrated test checkpoint, 6 October 2026
 
 Current source f36 includes the reviewed security and PG fixes. Local compiler/lint/Next build passed; source-bound runtime summaries are linked from RESULTS. Older4426 is terminal red, not successor clearance. Kind cleanup has passed; finish any remaining current-source prerequisites, publish coherently, inspect every fresh main/native job, then fixed HANDOFF order. Default/live/product prerequisites remain separate.

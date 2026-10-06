@@ -611,6 +611,13 @@
           "commit": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820",
           "result": "Root combined compiler/lint/Next standalone build passed. Static bundle inspection contains local repaired formatter/YAML wrappers; no default server or native architecture proof. Current security state remains in progress pending coherent fresh required gates.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-combined-build-f36eb5d4.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "0376319227aa155f7cb5ec54370259b109bd866e",
+          "runId": 37412189880,
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-03763192-final.json",
+          "result": "Fresh complete mandatory locked audit passed with zero known findings on037. Source-map/licensed OPA formatter repair included; no exception or security gate weakening. Whole037 still failed four synthetic Verify assertions; historical unresolved/8-vs7 reconciliation limits retained and clearance is time-bound."
         }
       ],
       "requiredEvidence": [
@@ -1023,6 +1030,19 @@
           "commit": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820",
           "result": "Actual clean-source local kind components:provider6/0/0,release1/0/0,guest48/0/0, three commands exit0 and cleanupComplete true; independent root readback preserved baseline. Default CNI does not prove NetworkPolicy enforcement;8 real API controls use PGlite/signed fixture claims, not current browser/human SQL authorization. No managed-cloud/default API/systemd/fullguest152/current workers or freshCI acceptance follows.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-kind55-f36eb5d4.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "0376319227aa155f7cb5ec54370259b109bd866e",
+          "runId": 37412189880,
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-03763192-final.json",
+          "result": "Published `0376319227aa155f7cb5ec54370259b109bd866e` attempt1 is terminal red: main37412189880 has15 successful jobs/1 Verify failure; native37412189876 has2 successes. Units19514 passed/4 failed/1521 skipped; typecheck/lint passed, Smoke and Gimbal skipped. All four failures are positive synthetic PostgreSQL summary fixtures still seeded for80 requirements while the unchanged canonical checker requires93. All dedicated required gates passed on037: PostgreSQL379/0/0/all93, policy242/0/0/all8, platform3034/0/8/all1124, workflows1275/0/0/all62, OpenTofu3916/0/18/all27, reconciliation38/0/0/all26 and intents156/0/0/all141. Native AMD64/ARM64 workers22 each/all six cleanups each, Linux148+4=152/systemd8+7=15/both cleanup gates, goldens/interop27/crossbuilds passed. Standard artifacts export matched groups, not raw individual assertions. The1521 unit skips have118 source/file summary rows; all match4426 totals, without assertion-level export or blanket waiver. Platform8 have source predicates and six fresh realPG counterparts; tofu18 remain conditional. Whole fresh verification failed; Smoke/Gimbal skipped. No skip waiver or broad acceptance."
+        },
+        {
+          "level": "contract",
+          "commit": "499592a9868d84a9d27b06b80563cb87c3823bde",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-03763192-final.json",
+          "result": "Only the synthetic PG93 report fixture changed: exact worker35/0/0; root three affected suites377/0/0 and lint0 on frozen postimage8bd40a2e before commit. Existing32 names/assertions preserved and every13 journal literal missing/failed/skipped remains refusal. Current successor wholeCI unrun."
         }
       ],
       "requiredEvidence": [
@@ -1304,6 +1324,13 @@
           "runId": 37407093384,
           "result": "Observed terminal published4426 remains red:15 main successes/1 known supply-chain failure and2 native successes. Complete local remediation and build results do not substitute for a new exact-SHA terminal remote run. Historical earlier green/failed receipts remain retained.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-4426f3c1-final.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "0376319227aa155f7cb5ec54370259b109bd866e",
+          "runId": 37412189880,
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-03763192-final.json",
+          "result": "Every exact037 attempt1 main/native job observed terminal: main15 success/1Verify failure, native2success; unit19514/4/1521, Smoke/Gimbal skipped. Dedicated gates passing does not clear failed entire run. Narrow test fix committed499592a9; fresh normal same-branch successor CI pending."
         }
       ],
       "requiredEvidence": [

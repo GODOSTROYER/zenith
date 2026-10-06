@@ -1,12 +1,13 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { validateNative, validateWindows, validateGo, validateProcess, cleanupScratch, WINDOWS_NAME, WINDOWS_EXCLUDED, GO_NAME, GO_PACKAGE } from '../../scripts/ci/skipped-platforms.mjs';
+import { validateNative, validateWindows, validateGo, validateProcess, failureDiagnostics, cleanupScratch, WINDOWS_NAME, WINDOWS_EXCLUDED, GO_NAME, GO_PACKAGE } from '../../scripts/ci/skipped-platforms.mjs';
 const sha = 'a'.repeat(40);
 const native = (kind: string) => ({ arch: 'x64', platform: kind === 'windows' ? 'win32' : 'linux', runnerOS: kind === 'windows' ? 'Windows' : 'Linux', hosted: true, node: '22.23.3', commit: sha, head: sha, dirty: false, go: 'go version go1.27.1 linux/amd64', init: 'systemd', journald: 'active' });
 const windows = () => {
-  const assertionResults = [{ fullName: WINDOWS_NAME, status: 'passed', failureMessages: [] }, ...Object.entries(WINDOWS_EXCLUDED).flatMap(([fullName, count]) => Array.from({ length: count as number }, () => ({ fullName, status: 'pending', failureMessages: [] })))];
+  const assertionResults: { fullName: string; status: string; failureMessages: string[] }[] = [{ fullName: WINDOWS_NAME, status: 'passed', failureMessages: [] }, ...Object.entries(WINDOWS_EXCLUDED).flatMap(([fullName, count]) => Array.from({ length: count as number }, () => ({ fullName, status: 'pending', failureMessages: [] })))];
   return { success: true, numPassedTests: 1, numFailedTests: 0, numPendingTests: assertionResults.length - 1, numTotalTests: assertionResults.length, numTotalTestSuites: 2, numPassedTestSuites: 2, numFailedTestSuites: 0, numPendingTestSuites: 0, numTodoTests: 0, testResults: [{ name: 'C:\\checkout\\tests\\cli\\config.test.ts', status: 'passed', message: '', assertionResults }] };
 };
 const go = (action = 'pass', name = GO_NAME) => [{ Action: 'start', Package: GO_PACKAGE }, { Action: 'run', Package: GO_PACKAGE, Test: name }, { Action: 'output', Package: GO_PACKAGE, Test: name, Output: 'private journal contents' }, { Action: action, Package: GO_PACKAGE, Test: name }, { Action: 'pass', Package: GO_PACKAGE }].map(e => JSON.stringify(e)).join('\n');
@@ -51,6 +52,42 @@ describe('native skipped platform admission', () => {
     fs.writeFileSync(path.join(scratch, 'report.json'), 'private evidence');
     let uncertain = true; try { validateProcess({ status: 1, stdout: '' }); } catch (error) { uncertain = (error as { processUncertain: boolean }).processUncertain; }
     expect(uncertain).toBe(false); expect(cleanupScratch(scratch, uncertain)).toBe('complete'); expect(fs.existsSync(scratch)).toBe(false);
+  });
+  it('classifies an actual timed-out child without exposing its output or errors', () => {
+    const child = spawnSync(process.execPath, ['-e', "process.stdout.write('private credential');setTimeout(()=>{},10000)"], { encoding: 'utf8', timeout: 50 });
+    expect(() => validateProcess(child)).toThrow();
+    const diagnostic = failureDiagnostics(child, undefined);
+    expect(diagnostic).toMatchObject({ classification: 'child_timeout', timeout: true, selectedLeafStatus: 'missing' });
+    expect(JSON.stringify(diagnostic)).not.toContain('private credential');
+    expect(JSON.stringify(diagnostic)).not.toContain('ETIMEDOUT');
+  });
+  it('distinguishes a reporter-proven leaf timeout from an ordinary failed leaf without relaxing admission', () => {
+    const report = windows(); report.success = false; report.numPassedTests = 0; report.numFailedTests = 1;
+    report.testResults[0].assertionResults[0].status = 'failed';
+    (report.testResults[0].assertionResults[0].failureMessages as string[]).push('Error: Test timed out in 20000ms.\nprivate credential and home path');
+    expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ classification: 'selected_leaf_timeout', childExitCode: 1, timeout: true, selectedLeafStatus: 'failed', selectedLeafCount: 1, passed: 0, failed: 1, pending: 15 });
+    expect(() => validateWindows(report, { ...native('windows'), childExitCode: 1 })).toThrow();
+    expect(JSON.stringify(failureDiagnostics({ status: 1 }, report, 'parsed'))).not.toContain('private credential');
+    report.testResults[0].assertionResults[0].failureMessages = ['private error mentions Test timed out in 20000ms.'];
+    expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ classification: 'child_nonzero_exit', timeout: false });
+  });
+  it.each([
+    [{ status: 0 }, undefined, 'missing', 'report_missing'],
+    [{ status: 0 }, undefined, 'malformed', 'report_malformed'],
+    [{ status: null }, undefined, 'missing', 'child_unsettled'],
+    [{ status: null, signal: 'SIGTERM' }, undefined, 'missing', 'child_signal'],
+    [{ status: null, error: { code: 'ENOBUFS', message: 'private output' } }, undefined, 'missing', 'child_output_overflow'],
+    [{ status: null, error: { code: 'ENOENT', path: 'private home' } }, undefined, 'missing', 'child_spawn_error'],
+  ])('publishes fixed classification without private child fields %j', (child, report, state, classification) => {
+    const diagnostic = failureDiagnostics(child, report, state); expect(diagnostic.classification).toBe(classification);
+    expect(JSON.stringify(diagnostic)).not.toMatch(/private|SIGTERM|ENOENT|ENOBUFS/);
+  });
+  it('refuses fabricated diagnostic counter/status data rather than copying it into public output', () => {
+    const report = windows(); report.testResults[0].assertionResults[0].status = 'private home'; report.numFailedTests = -1;
+    const diagnostic = failureDiagnostics({ status: 0 }, report, 'parsed');
+    expect(diagnostic).toMatchObject({ classification: 'selected_leaf_invalid', selectedLeafStatus: 'invalid', failed: null });
+    expect(JSON.stringify(diagnostic)).not.toContain('private home');
+    expect(() => validateWindows(report, { ...native('windows'), childExitCode: 0 })).toThrow();
   });
   it('accepts actual Go exact leaf without exposing journal text', () => { const result = validateGo(go()); expect(result).toEqual({ name: GO_NAME, passed: 1, failed: 0, skipped: 0, excludedSiblingCount: 0 }); expect(JSON.stringify(result)).not.toContain('private journal'); });
   it.each(['skip', 'fail', 'pause'])('refuses Go %s', action => { expect(() => validateGo(go(action))).toThrow(); });

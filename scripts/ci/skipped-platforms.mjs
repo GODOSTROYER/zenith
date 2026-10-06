@@ -59,8 +59,22 @@ export function validateProcess(result) {
   }
   return result.stdout;
 }
+/** Public diagnostics contain fixed labels and counters only, never child/report text. */
+export function failureDiagnostics(child, report, reportState = 'missing') {
+  const assertions = Array.isArray(report?.testResults) ? report.testResults.flatMap(f => Array.isArray(f?.assertionResults) ? f.assertionResults : []) : [];
+  const selected = assertions.filter(a => a?.fullName === WINDOWS_NAME);
+  const states = ['passed', 'failed', 'pending', 'skipped', 'todo'];
+  const selectedLeafStatus = selected.length === 1 && states.includes(selected[0]?.status) ? selected[0].status : selected.length === 0 ? 'missing' : 'invalid';
+  const reporterTimeout = selected.some(a => Array.isArray(a.failureMessages) && a.failureMessages.some(m => typeof m === 'string' && /^(?:Error: )?(?:Test|Hook) timed out in [0-9]+ms(?:[.\n]|$)/.test(m)));
+  const childTimeout = child?.error?.code === 'ETIMEDOUT';
+  const classification = childTimeout ? 'child_timeout' : child?.error?.code === 'ENOBUFS' ? 'child_output_overflow' : child?.error ? 'child_spawn_error' : child?.signal ? 'child_signal' : reporterTimeout ? 'selected_leaf_timeout' : child && !Number.isInteger(child.status) ? 'child_unsettled' : child?.status !== undefined && child.status !== 0 ? 'child_nonzero_exit' : reportState !== 'parsed' ? 'report_' + (reportState === 'malformed' ? 'malformed' : 'missing') : selectedLeafStatus !== 'passed' ? 'selected_leaf_' + selectedLeafStatus : 'report_admission_refused';
+  const count = key => Number.isSafeInteger(report?.[key]) && report[key] >= 0 ? report[key] : null;
+  return { classification, childExitCode: Number.isInteger(child?.status) ? child.status : null, timeout: childTimeout || reporterTimeout, selectedLeafStatus, selectedLeafCount: selected.length, passed: count('numPassedTests'), failed: count('numFailedTests'), pending: count('numPendingTests'), todo: count('numTodoTests'), failedSuites: count('numFailedTestSuites') };
+}
 function capture(command, args, options = {}) {
-  const result = spawnSync(command, args, { encoding: 'utf8', timeout: 600_000, maxBuffer: 128 * 1024 * 1024, windowsHide: true, ...options });
+  const { observe, ...spawnOptions } = options;
+  const result = spawnSync(command, args, { encoding: 'utf8', timeout: 600_000, maxBuffer: 128 * 1024 * 1024, windowsHide: true, ...spawnOptions });
+  observe?.(result);
   return validateProcess(result);
 }
 export function cleanupScratch(scratch, uncertain) {
@@ -73,10 +87,10 @@ export function cleanupScratch(scratch, uncertain) {
 }
 export function run(kind, destination) {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-  let scratch, result, failure, uncertain = false, cleanup = 'pending';
+  let scratch, result, failure, meta, diagnostics, phase = 'provenance', uncertain = false, cleanup = 'pending';
   try {
     const commit = process.env.GITHUB_SHA;
-    const meta = { arch: process.arch, platform: process.platform, runnerOS: process.env.RUNNER_OS, hosted: process.env.GITHUB_ACTIONS === 'true' && process.env.RUNNER_ENVIRONMENT === 'github-hosted', node: process.versions.node, commit, head: capture('git', ['rev-parse', 'HEAD'], { cwd: root }).trim(), dirty: capture('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: root }).trim() !== '' };
+    meta = { arch: process.arch, platform: process.platform, runnerOS: process.env.RUNNER_OS, hosted: process.env.GITHUB_ACTIONS === 'true' && process.env.RUNNER_ENVIRONMENT === 'github-hosted', node: process.versions.node, commit, head: capture('git', ['rev-parse', 'HEAD'], { cwd: root }).trim(), dirty: capture('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: root }).trim() !== '' };
     if (kind === 'systemd') {
       meta.go = capture('go', ['version']).trim();
       meta.init = fs.readFileSync('/proc/1/comm', 'utf8').trim();
@@ -88,9 +102,20 @@ export function run(kind, destination) {
     let leaf;
     if (kind === 'windows') {
       const report = path.join(scratch, 'report.json');
-      capture(process.execPath, [path.join(root, 'node_modules/vitest/vitest.mjs'), 'run', 'tests/cli/config.test.ts', '--project=node', '--maxWorkers=1', '--no-file-parallelism', '--testNamePattern=^' + WINDOWS_NAME + '$', '--reporter=json', '--outputFile=' + report], { cwd: root, env });
-      leaf = validateWindows(JSON.parse(fs.readFileSync(report, 'utf8')), { ...meta, childExitCode: 0 });
+      let child, parsed, reportState = 'missing';
+      phase = 'windows_execution';
+      try {
+        capture(process.execPath, [path.join(root, 'node_modules/vitest/vitest.mjs'), 'run', 'tests/cli/config.test.ts', '--project=node', '--maxWorkers=1', '--no-file-parallelism', '--testNamePattern=^' + WINDOWS_NAME + '$', '--reporter=json', '--outputFile=' + report], { cwd: root, env, observe: value => { child = value; } });
+      } finally {
+        if (fs.existsSync(report)) {
+          try { parsed = JSON.parse(fs.readFileSync(report, 'utf8')); reportState = 'parsed'; } catch { reportState = 'malformed'; }
+        }
+        diagnostics = failureDiagnostics(child, parsed, reportState);
+      }
+      phase = 'windows_admission';
+      leaf = validateWindows(parsed, { ...meta, childExitCode: child?.status });
     } else {
+      phase = 'systemd_execution';
       leaf = validateGo(capture('go', ['test', './internal/machine/ops', '-run', '^' + GO_NAME + '$', '-json', '-count=1'], { cwd: path.join(root, 'go'), env: { ...env, ZENITH_TEST_SYSTEMD: '1', GOTOOLCHAIN: 'local' } }));
     }
     const sources = ['scripts/ci/skipped-platforms.mjs', '.github/workflows/skipped-platforms.yml', kind === 'windows' ? 'tests/cli/config.test.ts' : 'go/internal/machine/ops/network_test.go'];
@@ -98,9 +123,12 @@ export function run(kind, destination) {
   } catch (error) { failure = true; uncertain = error.processUncertain === true; }
   finally {
     cleanup = cleanupScratch(scratch, uncertain);
-    if (cleanup !== 'complete') failure = true;
+    if (cleanup !== 'complete') {
+      failure = true;
+      if (result) diagnostics = { classification: cleanup === 'failed' ? 'cleanup_failed' : 'cleanup_unconfirmed', childExitCode: 0, timeout: false, selectedLeafStatus: 'passed', selectedLeafCount: 1 };
+    }
   }
-  const publicReport = failure ? { schemaVersion: 1, kind: ['windows', 'systemd'].includes(kind) ? kind : 'unknown', status: 'failed', cleanup } : { ...result, cleanup };
+  const publicReport = failure ? { schemaVersion: 1, kind: ['windows', 'systemd'].includes(kind) ? kind : 'unknown', status: 'failed', sourceCommit: /^[a-f0-9]{40}$/.test(meta?.commit ?? '') ? meta.commit : null, tools: { node: process.versions.node }, diagnostics: diagnostics ?? { classification: phase === 'provenance' ? 'native_provenance_refused' : 'systemd_execution_refused', childExitCode: null, timeout: false }, cleanup } : { ...result, cleanup };
   fs.mkdirSync(path.dirname(path.resolve(destination)), { recursive: true });
   fs.writeFileSync(destination, JSON.stringify(publicReport, null, 2) + '\n', { mode: 0o600 });
   if (failure) fail();

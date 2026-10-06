@@ -1,0 +1,435 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "99db69d8ad25d78e6d8155506c4a282b5297a2a6",
+  "branch": "codex/production-2026-10-02",
+  "observedAtUtc": "2026-10-06T00:59:22.412891+00:00",
+  "status": "ALL_18_JOBS_TERMINAL_MAIN_SUCCESS_NATIVE_AMD_FAILED",
+  "main": {
+    "runId": 37393944961,
+    "attempt": 1,
+    "conclusion": "success",
+    "jobs": [
+      {
+        "id": 112045310274,
+        "name": "docker",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310407,
+        "name": "postgres",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310490,
+        "name": "go",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310503,
+        "name": "verify",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310511,
+        "name": "policy",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310524,
+        "name": "hosted",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310527,
+        "name": "ledger",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310549,
+        "name": "supply-chain",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310552,
+        "name": "platform-postgres",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310555,
+        "name": "tofu",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310559,
+        "name": "generated",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310588,
+        "name": "workflows",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310626,
+        "name": "build",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310636,
+        "name": "agent",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310803,
+        "name": "operation-gates (workflow-intents)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045310926,
+        "name": "operation-gates (reconciliation)",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ],
+    "jobCounts": {
+      "success": 16
+    }
+  },
+  "native": {
+    "runId": 37393944707,
+    "attempt": 1,
+    "conclusion": "failure",
+    "jobs": [
+      {
+        "id": 112045308736,
+        "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 112045308974,
+        "name": "packaged-worker (amd64, ubuntu-24.04)",
+        "status": "completed",
+        "conclusion": "failure"
+      }
+    ],
+    "jobCounts": {
+      "success": 1,
+      "failure": 1
+    },
+    "observations": [
+      {
+        "platform": "linux/amd64",
+        "artifactId": 11382785854,
+        "actualAttempt": 1,
+        "evidenceSha256": "24aa86c1480abfead8b44b6a69f8922548877111a5a2819bc3ec3e7b14dff6c4",
+        "status": "failed",
+        "childExit": 1,
+        "node": "22.23.3",
+        "emulated": false,
+        "cleanup": {
+          "builderAbsent": true,
+          "builderContainerAbsent": true,
+          "cacheVolumeAbsent": true,
+          "baselinePreserved": true,
+          "wrapperPrivateFilesRemoved": true,
+          "ownedContextAbsent": true
+        },
+        "sourceFingerprintsMatched": true,
+        "sourceInputSha256": "7fcf0bcc01aa82f8eb89e05297812c0521ef775fd8c6147099ab19a9ec979cf1",
+        "manifestSha256": "172d0e203256b2f1d0f318bfa6c74bdd455226201cb64ad2005ad99691ea0cd9",
+        "fixedFailurePhase": "actual-packaged-worker",
+        "childFailure": {
+          "phase": "inflight-fresh-worker-recovery",
+          "workerCategory": "unavailable",
+          "guardCategory": "worker-readiness-evidence-incomplete"
+        },
+        "requiredDeclared": 22,
+        "requiredExecutedStatusRowsExported": 0,
+        "requiredPassed": "UNCONFIRMED; checks empty",
+        "partialCountInferred": false
+      },
+      {
+        "platform": "linux/arm64",
+        "artifactId": 11382219516,
+        "actualAttempt": 1,
+        "evidenceSha256": "8ead362bf619739a22d906555e9c088d80dec03531083836511628679e5f12ad",
+        "status": "passed",
+        "childExit": 0,
+        "node": "22.23.3",
+        "emulated": false,
+        "cleanup": {
+          "builderAbsent": true,
+          "builderContainerAbsent": true,
+          "cacheVolumeAbsent": true,
+          "baselinePreserved": true,
+          "wrapperPrivateFilesRemoved": true,
+          "ownedContextAbsent": true
+        },
+        "sourceFingerprintsMatched": true,
+        "sourceInputSha256": "7fcf0bcc01aa82f8eb89e05297812c0521ef775fd8c6147099ab19a9ec979cf1",
+        "manifestSha256": "0f7a98ded6aaeefb29d3e292c8cb0a44f9525d9d92fcff33622a4cedbb5717ff",
+        "requiredUnique": 22,
+        "allPassed": true
+      }
+    ]
+  },
+  "verify": {
+    "jobId": 112045310503,
+    "tests": {
+      "passed": 19416,
+      "failed": 0,
+      "skipped": 1519,
+      "total": 20935
+    },
+    "testFiles": {
+      "passed": 871,
+      "failed": 0,
+      "skipped": 49,
+      "total": 920
+    },
+    "steps": {
+      "Typecheck": "success",
+      "Lint": "success",
+      "Unit suites (Node and DOM projects)": "success",
+      "Smoke": "success",
+      "Verify Gimbal assets": "success"
+    },
+    "rawLogSha256": "1c7734c9a64cdaaf001c7dfc96bfb7be28f78e54dbc17207ddd7be672992ede2",
+    "completeCountsExported": true
+  },
+  "go": {
+    "jobId": 112045310490,
+    "guestArtifactId": 11382551110,
+    "guestEvidenceSha256": "ce1111a6afccf8b2798f8a2c6bded2e3337716b55cdfd14fe8e4e92749c2f516",
+    "requiredRacePassed": 148,
+    "requiredDirectRootPackagePassed": 4,
+    "requiredGuestTotalUniquePassed": 152,
+    "allFiveGoldenGenerationAndComparisonPhasesExitZero": true,
+    "systemdArtifactId": 11382601056,
+    "systemdEvidenceSha256": "1f9dfdecef93705c4b44e233a4296c77de4ce6cdbfc8882bc7f6bc75e2c825ae",
+    "requiredSystemdUniquePassed": 15,
+    "orderedOpsParentAndLeaves": 8,
+    "orderedSignedParentAndLeaves": 7,
+    "actualArchitecture": "linux/amd64",
+    "systemdTestPrivileges": {
+      "uid": 1001,
+      "gid": 1001,
+      "capabilities": "zero",
+      "noNewPrivs": true
+    },
+    "fixedCleanupTransport": {
+      "role": "fixed-fixture-cleanup-transport",
+      "uid": 1001,
+      "gid": 1001,
+      "capabilities": "E/P/I/A-zero",
+      "noNewPrivs": false
+    },
+    "cleanup": {
+      "systemd": "cleaned",
+      "canonicalFourRoots": "absent",
+      "systemdCleanupReceiptSha256": "2096eaa4bf77bc79c730f4c17a58b726e895b0b24d7bbe623b828cd24da2f771",
+      "directRootPackage": "complete"
+    },
+    "wholeGitSourceByteModeSymlinkAggregateIndependentlyReproduced": "55904797dcd4b5d27dcc733f016cb59dc82dafaffb17473692cb242904a78dc4",
+    "wholeGitFileCount": 4466,
+    "systemdManifestIndependentlyReconstructed": "30dd1b60d0038a102d75363e82d66ec9559619b2c0a6b2931ee0d568a806f26c",
+    "interopAndBothCrossbuildSteps": "success; exact count not separately exported",
+    "tools": {
+      "node": "22.23.3",
+      "go": "1.27.1",
+      "GOOS": "linux",
+      "GOARCH": "amd64",
+      "uid": 1001,
+      "gid": 1001,
+      "capabilities": "zero",
+      "noNewPrivs": true
+    }
+  },
+  "canonicalLanes": [
+    {
+      "lane": "postgres",
+      "sanitizedEvidenceSha256": "3f88d01c66deeb542e015a490e60c98a69b203881da91645931bb7bfaedb7b64",
+      "counts": {
+        "total": 322,
+        "passed": 322,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 80,
+      "sourceFingerprintsMatched": true,
+      "freshExitCode": 0,
+      "runtimeAndEffectiveEnvironmentMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "postgres": "16.15"
+      },
+      "caseIdentityLimit": "not-exported-by-standard-vitest-json"
+    },
+    {
+      "lane": "policy",
+      "sanitizedEvidenceSha256": "d7335bd33b8c5cab5c2de42a171c94e45bc7298f302a0be2561ea304136fe798",
+      "counts": {
+        "total": 238,
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 7,
+      "sourceFingerprintsMatched": true,
+      "freshExitCode": 0,
+      "runtimeAndEffectiveEnvironmentMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "opa": "1.19.1"
+      },
+      "caseIdentityLimit": "not-exported-by-standard-vitest-json"
+    },
+    {
+      "lane": "reconciliation",
+      "sanitizedEvidenceSha256": "427c4c4f9fd740553789c3ae300e3db2e90b99b8c9e4353a93cdb18bc24d9f20",
+      "counts": {
+        "total": 38,
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 26,
+      "sourceFingerprintsMatched": true,
+      "freshExitCode": 0,
+      "runtimeAndEffectiveEnvironmentMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "temporal": "1.9.1"
+      },
+      "caseIdentityLimit": "not-exported-by-standard-vitest-json"
+    },
+    {
+      "lane": "workflow-intents",
+      "sanitizedEvidenceSha256": "df269fcf4bb83d9a7458feac35f16c7b53e464f85a85291f33388a90236563d8",
+      "counts": {
+        "total": 156,
+        "passed": 156,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 141,
+      "sourceFingerprintsMatched": true,
+      "freshExitCode": 0,
+      "runtimeAndEffectiveEnvironmentMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "temporal": "1.9.1"
+      },
+      "caseIdentityLimit": "not-exported-by-standard-vitest-json"
+    },
+    {
+      "lane": "tofu",
+      "sanitizedEvidenceSha256": "af34af6621dc8f64674e2e091a5549b55a1b62620cb65d0d4b3a5046864a7eb8",
+      "counts": {
+        "total": 3934,
+        "passed": 3916,
+        "failed": 0,
+        "skipped": 18,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 27,
+      "sourceFingerprintsMatched": true,
+      "freshExitCode": 0,
+      "runtimeAndEffectiveEnvironmentMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "tofu": "1.12.5"
+      },
+      "caseIdentityLimit": "not-exported-by-standard-vitest-json"
+    },
+    {
+      "lane": "platform-postgres",
+      "sanitizedEvidenceSha256": "da8fc6e5f25f8db8a02a499033ee674dacb91517bade2084a4af71d280979a18",
+      "counts": {
+        "total": 3042,
+        "passed": 3034,
+        "failed": 0,
+        "skipped": 8,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 1124,
+      "requiredBackendDistribution": {
+        "postgres": 1107,
+        "not-declared": 17
+      },
+      "manifestSha256": "def1c32b9a2a0d8e99b4658faee82977f36ac00f3fe3b4f634b31cefe86d6155",
+      "currentGitGateAndLockHashesMatched": true,
+      "freshExitCode": 0,
+      "runtimeAndEffectiveEnvironmentMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "tofu": "1.12.5"
+      },
+      "caseIdentityLimit": "not-exported-by-standard-vitest-json"
+    },
+    {
+      "lane": "workflows",
+      "sanitizedEvidenceSha256": "18ac2b43c4ac4fed29722f09fd5515058dc5cd15059135d8f4ffcc087197a662",
+      "counts": {
+        "total": 1273,
+        "passed": 1273,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 60,
+      "requiredBackendDistribution": {
+        "not-declared": 60
+      },
+      "manifestSha256": "ee45f2e9ee0203207860c3b30d7bfc5927fbb8f4284b75bb3829d31c07fec5f0",
+      "currentGitGateAndLockHashesMatched": true,
+      "freshExitCode": 0,
+      "runtimeAndEffectiveEnvironmentMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "temporal": "1.9.1"
+      },
+      "caseIdentityLimit": "not-exported-by-standard-vitest-json"
+    }
+  ],
+  "remainingGap": {
+    "nativeAMD": "Actual attempt1 failed in inflight-fresh-worker-recovery with worker-readiness-evidence-incomplete; zero exported required status rows, all22 remain unconfirmed on this AMD attempt.",
+    "actualCauseLimit": "Exact second readiness HTTP status/body unavailable. workerCategory unavailable is a log-classifier fallback and proves no particular worker readiness check or startup failure.",
+    "sourceCorrection": "Independent source-only readiness2 review accepted3008f36e; demonstrated two-response harness risk removed at initial and recovery joins. Not part of this source execution and no runtime cure inferred. Fresh native architectures required."
+  },
+  "limits": [
+    "Fresh attempt1 only; no carried success, cancellation, rerun or historical native count borrowing.",
+    "All job conclusions are terminal, but the complete 18-job observation is failed because native AMD failed.",
+    "Unit and canonical-lane counts overlap and are not summed. Optional/skipped cases retained; standard Vitest raw per-case identity absent from sanitized canonical evidence.",
+    "Systemd15 scope is owned inert-unit fixture with real Linux/systemd/polkit/default executor and explicitly modeled CP issuer; no installed daemon/default API/cloud/HA acceptance.",
+    "Native both architectures confirm all six owned cleanup flags true; failed AMD does not export partial executed counts.",
+    "One private terminal Verify log fetched0600 solely for complete summary; no raw native/Go log fetched and no secret/env/error/homepath values projected.",
+    "Reviewer performed no project imports/tests/compiler/services/containers/source/index/CI mutations or acceptance-state changes."
+  ],
+  "independentObservationSha256": "87696cf4663619d3f2324ce92b385658bb90c1a0184720eb65ef10a88c8f9f88",
+  "scope": "Complete previous-source observation, not runtime evidence for the new readiness fix. Lane scopes overlap and are never summed."
+}

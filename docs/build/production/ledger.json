@@ -426,6 +426,36 @@
             "architecture": "native Darwin ARM64"
           },
           "logs": "docs/build/production/evidence/PROD-MACH-01/2026-10-06-systemd-fixture-corrections.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "56aeb01a0bfd306df9135223540c592c12676fd8",
+          "result": "Corrected whole unit19655 passed/0 failed/1280 skipped; policy238/0/0; real OpenTofu3916/0/18 declared skips. Generated/static/Go/security and strict validators all0; child settled, private data removed. Go941 passed/5 skipped are parent+leaf test events, not unique leaves. Separate actualPG/Linux/browser gates remain source-bound.",
+          "command": "Serialized full local static/unit/security/policy/OpenTofu gate and strict report validators",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "native Darwin ARM64"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-local-56aeb01a.json"
+        },
+        {
+          "level": "contract",
+          "commit": "a4c8f0826e4c81cab8199a18abf898e65d4dd2da",
+          "result": "Exact committed affected suites544 passed/0 failed/6 skipped: acceptance411/0/0 plus CI models133/0/6 actual Linux-only supervisor cases on Darwin. Scoped lint0, reviewed identical packet compiler0; strict same-response readiness and all22 native obligations preserved. Native changed-source rerun remains required.",
+          "command": "vitest run --maxWorkers=1 tests/acceptance/packaged-worker.test.ts tests/ci/packaged-workers.test.ts; scoped eslint; identical packet compiler",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "native Darwin ARM64"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-readiness-a4c8f082.json"
         }
       ],
       "requiredEvidence": [
@@ -806,6 +836,54 @@
             "architecture": "native Linux AMD64 guest; native Linux AMD64 and ARM64 packaged workers; no emulation"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-45b853af-final.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "56aeb01a0bfd306df9135223540c592c12676fd8",
+          "result": "Corrected whole unit19655 passed/0 failed/1280 skipped; policy238/0/0; real OpenTofu3916/0/18 declared skips. Generated/static/Go/security and strict validators all0; child settled, private data removed. Go941 passed/5 skipped are parent+leaf test events, not unique leaves. Separate actualPG/Linux/browser gates remain source-bound.",
+          "command": "Serialized full local static/unit/security/policy/OpenTofu gate and strict report validators",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "native Darwin ARM64"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-local-56aeb01a.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "99db69d8ad25d78e6d8155506c4a282b5297a2a6",
+          "result": "All18 jobs terminal: main16 successful; native ARM22passed, AMDfailed with zero exported mandatory statuses at inflight-fresh-worker-recovery/readiness-evidence-incomplete; all cleanup6 true each. Unit19416/0/1519; Typecheck/Lint/Smoke/Gimbal executed success. Actual guest152 and all15 ordered systemd cases passed, both cleanup scopes verified. No whole CI green or new-fix cure inferred.",
+          "command": "Complete exact-source per-job observation and source/tool/env-bound sanitized artifact review",
+          "environment": {
+            "node": "22.23.3",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "native Linux AMD64 guest; native Linux AMD64 and ARM64 workers, no emulation"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-99db69d8-final.json",
+          "runId": 37393944961,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37393944961"
+        },
+        {
+          "level": "contract",
+          "commit": "a4c8f0826e4c81cab8199a18abf898e65d4dd2da",
+          "result": "Exact committed affected suites544 passed/0 failed/6 skipped: acceptance411/0/0 plus CI models133/0/6 actual Linux-only supervisor cases on Darwin. Scoped lint0, reviewed identical packet compiler0; strict same-response readiness and all22 native obligations preserved. Native changed-source rerun remains required.",
+          "command": "vitest run --maxWorkers=1 tests/acceptance/packaged-worker.test.ts tests/ci/packaged-workers.test.ts; scoped eslint; identical packet compiler",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "native Darwin ARM64"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-readiness-a4c8f082.json"
         }
       ],
       "requiredEvidence": [
@@ -1034,6 +1112,24 @@
           "runId": 37373473708,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37373473708",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-8b881fea.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "99db69d8ad25d78e6d8155506c4a282b5297a2a6",
+          "result": "All18 jobs terminal: main16 successful; native ARM22passed, AMDfailed with zero exported mandatory statuses at inflight-fresh-worker-recovery/readiness-evidence-incomplete; all cleanup6 true each. Unit19416/0/1519; Typecheck/Lint/Smoke/Gimbal executed success. Actual guest152 and all15 ordered systemd cases passed, both cleanup scopes verified. No whole CI green or new-fix cure inferred.",
+          "command": "Complete exact-source per-job observation and source/tool/env-bound sanitized artifact review",
+          "environment": {
+            "node": "22.23.3",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "native Linux AMD64 guest; native Linux AMD64 and ARM64 workers, no emulation"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-99db69d8-final.json",
+          "runId": 37393944961,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37393944961"
         }
       ],
       "requiredEvidence": [
@@ -2229,6 +2325,24 @@
             "umask": "077"
           },
           "logs": "docs/build/production/evidence/PROD-MACH-01/2026-10-06-systemd-fixture-corrections.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "99db69d8ad25d78e6d8155506c4a282b5297a2a6",
+          "result": "Actual native LinuxAMD64 guest152 and all15 ordered real systemd cases passed, both cleanup scopes independently confirmed absent; UID/GID1001, capabilities zero, NoNewPrivileges true for test operations. Fixed cleanup transport has noNewPrivs false explicitly. Inert unit does not consume application configuration; default installed-daemon/browser/cloud journeys remain unproved.",
+          "command": "Canonical actual Linux guest and ordered systemd acceptance plus both owned cleanup checks",
+          "environment": {
+            "node": "22.23.3",
+            "Go": "1.27.1 GOTOOLCHAIN=local",
+            "PostgreSQL": "16.15",
+            "TemporalCLI": "1.9.1",
+            "OPA": "1.19.1",
+            "OpenTofu": "1.12.5",
+            "architecture": "native Linux AMD64 guest; native Linux AMD64 and ARM64 workers, no emulation"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-99db69d8-final.json",
+          "runId": 37393944961,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37393944961"
         }
       ],
       "requiredEvidence": [

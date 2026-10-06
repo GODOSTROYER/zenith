@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "codeCommit": "a4c8f0826e4c81cab8199a18abf898e65d4dd2da",
+  "predecessorFailedCommit": "99db69d8ad25d78e6d8155506c4a282b5297a2a6",
+  "ownedPaths": [
+    "scripts/acceptance/packaged-worker.mjs",
+    "tests/acceptance/packaged-worker.test.ts"
+  ],
+  "sourceFreezeSha256": "c332905ed06a79d64c93bed7b92a50154b555916c55af704fe279733749e8086",
+  "independentSourceReviewSha256": "3008f36e098da540069977e465231ea961847ae11c52c93c61790ad7ff3fa3d5",
+  "rootCommittedChecks": [
+    {
+      "name": "touched-suites",
+      "exitCode": 0,
+      "counts": {
+        "numPassedTests": 544,
+        "numFailedTests": 0,
+        "numPendingTests": 6,
+        "numTotalTests": 550
+      }
+    },
+    {
+      "name": "lint",
+      "exitCode": 0
+    }
+  ],
+  "rootPacketCompilerExit": 0,
+  "rootPacketCompilerLimit": "Compiler ran before commit on identical reviewed postimages; no whole-commit native runtime attribution.",
+  "acceptanceSuite": {
+    "passed": 411,
+    "failed": 0,
+    "skipped": 0
+  },
+  "ciModelSuite": {
+    "passed": 133,
+    "failed": 0,
+    "skipped": 6,
+    "skipReason": "Actual Linux Node process-supervisor cases; root host is Darwin ARM64. Required native execution remains pending."
+  },
+  "preservedControls": [
+    "All five strict readiness checks and exact HTTP200 from one current response",
+    "91 probes and 90 delays of1000ms, fixed refusal messages",
+    "All22 required native checks",
+    "Independent fresh Temporal operations, retained history, authority readback and shutdown",
+    "Owned cleanup, baseline preservation and resource admission floors"
+  ],
+  "rootCauseLimit": "Source proves two-request readiness sampling risk at initial and recovery joins. The failed second status/body was not exported; workerCategory unavailable is a log-classifier fallback, not a health-check diagnosis. No definite runtime cause or cure claim.",
+  "nativeRuntime": "UNRUN on changed source; fresh AMD64 and ARM64 gates remain mandatory",
+  "identity": "Saivedant Hava <saivedant169@gmail.com>",
+  "secretHandling": "No raw log bodies, credentials, keys, connection strings or absolute home paths are published."
+}

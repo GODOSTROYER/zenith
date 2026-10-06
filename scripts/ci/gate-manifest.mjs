@@ -5556,6 +5556,21 @@ export const WORKFLOW_NATIVE_POSTGRES_FILES = [
   "tests/platform/source-bundle-github.test.ts",
 ];
 
+// Actual owned Temporal executions stay mandatory if their source disappears.
+// Controlled maintenance activities supply no default job or catch-up evidence.
+export const CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS = [
+  {
+    file: "tests/workflows/critical-schedule.test.ts",
+    suite: "critical maintenance schedule on an actual owned durable Temporal service",
+    test: "preserves compatible schedule and queued actual workflow across server restart",
+  },
+  {
+    file: "tests/workflows/critical-schedule.test.ts",
+    suite: "critical maintenance schedule on an actual owned durable Temporal service",
+    test: "skips overlap while the first genuine activity is held",
+  },
+];
+
 export const GATE_LANES = {
   postgres: {
     files: ["tests/hosted/authority/contract", "tests/scripts/migrate-hosted-to-postgres.test.ts", "tests/agent-link/pg-contract.test.ts", "tests/agent-control/pg-contract.test.ts", "tests/db/contract/workspace-sharing.test.ts", "tests/waitlist/pg-contract.test.ts", "tests/agent-control/pg-oauth-grants.test.ts"],
@@ -5579,7 +5594,7 @@ export const GATE_LANES = {
     excludeFiles: ["tests/workflows/mtls-live.test.ts", CODEBUILD_POSTGRES_FILE, WORKFLOW_INTENT_TEMPORAL_FILE],
     env: { ZENITH_COMPOSE_TEMPORAL_MODE: "time-skipping", ZENITH_TEST_TEMPORAL_DOWNLOAD: "1", ZENITH_SEC_TEMPORAL: "1", ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REPO: "https://github.com/GODOSTROYER/zenith", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1" },
     report: ".data-ci-lane/workflows-lane.json",
-    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15: fresh separate loopback databases at ZENITH_TEST_PLATFORM_PG_URL (platform) and SUPABASE_DB_URL (Supabase)", "Canonical agent schemas1/2/3 applied and verified with scripts/agent/apply-schema.ts before scripts/ci/apply-platform-migrations.sh applies and verifies the current platform registry", "Canonical Supabase migrations and schema verification through scripts/ci/apply-supabase-migrations.sh; fixed CI roles are local stand-ins, never hosted acceptance", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1, ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1, ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1, ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1 and ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED=1; native platform tests cannot skip or substitute PGlite; cloud/product protocols remain explicitly modeled", "Temporal CLI 1.9.1 at ZENITH_TEST_TEMPORAL_CLI", "Local Temporal dev and time-skipping servers; SDK test-server cache or download access", "Public GitHub codeload access for the immutable source fixture"],
+    prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15: fresh separate loopback databases at ZENITH_TEST_PLATFORM_PG_URL (platform) and SUPABASE_DB_URL (Supabase)", "Canonical agent schemas1/2/3 applied and verified with scripts/agent/apply-schema.ts before scripts/ci/apply-platform-migrations.sh applies and verifies the current platform registry", "Canonical Supabase migrations and schema verification through scripts/ci/apply-supabase-migrations.sh; fixed CI roles are local stand-ins, never hosted acceptance", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1, ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1, ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1, ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1 and ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED=1; native platform tests cannot skip or substitute PGlite; cloud/product protocols remain explicitly modeled", "Temporal CLI 1.9.1 at ZENITH_TEST_TEMPORAL_CLI", "Local Temporal dev and time-skipping servers; SDK test-server cache or download access", "Public GitHub codeload access for the immutable source fixture", "ZENITH_TEST_TEMPORAL=1; both literal critical schedule cases require explicit pinned CLI1.9.1 and fresh owned loopback SQLite/Worker execution; no missing prerequisite, skip or model-only sibling satisfies them; default maintenance effects and missed-interval catchup remain separate"],
     tools: { node: "22.23.3", postgres: "16.15", temporal: "1.9.1" },
   },
   reconciliation: {
@@ -5901,7 +5916,7 @@ export function requirementsFor(lane, root) {
         .flatMap((file) => file === "tests/platform/source-bundle.test.ts"
           ? ["source acquisition and canonical archives", "customer source bucket uploads", "GCS source upload through authorizedFetch", "live public GitHub source (opt-in network)"].map((suite) => ({ file, suite }))
           : [{ file }]);
-      requirements.push(...ECS_REPLICA_REPAIR_WORKFLOW_REQUIREMENTS, ...BUILD_WORKFLOW_REQUIREMENTS);
+      requirements.push(...ECS_REPLICA_REPAIR_WORKFLOW_REQUIREMENTS, ...BUILD_WORKFLOW_REQUIREMENTS, ...CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS);
       break;
     case "reconciliation":
       requirements = RECONCILIATION_REQUIREMENTS;

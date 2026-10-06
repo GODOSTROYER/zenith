@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
-import { LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 import { validateGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
@@ -241,8 +241,12 @@ const wave2WorkflowIds = new Set([
   "workflows:tests/workflows/critical-schedule.test.ts:4ee93ed6c454",
   "workflows:tests/platform/critical-jobs.test.ts:4ee93ed6c454",
 ]);
+const criticalScheduleWorkflowIds = new Set(CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS.map(item => requirementId("workflows", item)));
+function priorCriticalScheduleWorkflowRequirements(sourceRoot = root) {
+  return requirementsFor("workflows", sourceRoot).filter(item => !criticalScheduleWorkflowIds.has(item.id));
+}
 function priorWave2WorkflowRequirements() {
-  return requirementsFor("workflows", root).filter(item => !wave2WorkflowIds.has(item.id));
+  return priorCriticalScheduleWorkflowRequirements().filter(item => !wave2WorkflowIds.has(item.id));
 }
 const currentSuccessorPlatformCohort = [
   { file: "tests/controlplane/incident-stability.test.ts", suite: "incident stability [postgres]", postgres: true },
@@ -2302,11 +2306,12 @@ function workflowNativeSetupProblems(job: WorkflowNativeJob): string[] {
 describe("workflow native PostgreSQL prerequisites [source/report models]", () => {
   it("keeps all 58 workflow identities and exact native source flags while declaring real PostgreSQL", () => {
     const manifest = manifestFor("workflows", root);
-    expect(manifest.requirements).toHaveLength(60);
+    expect(manifest.requirements).toHaveLength(62);
+    expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(manifest.requirements.filter(item => wave2WorkflowIds.has(item.id)).map(item => item.id)).toEqual([...wave2WorkflowIds]);
     expect(WORKFLOW_NATIVE_POSTGRES_FILES).toEqual(workflowNativeGroups.map(group => group.file));
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(60);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(62);
     expect(createHash("sha256").update(JSON.stringify(priorWave2WorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("d3a15adf854819fd8577c3b55b48dd55640d6522bdc57cad2c707c867ffecad3");
     expect(manifest.tools).toEqual({ node: "22.23.3", postgres: "16.15", temporal: "1.9.1" });
@@ -2560,7 +2565,8 @@ describe("mandatory saved builtin settlement cases [report models]", () => {
     expect(historical).toEqual([...previous, ...required]);
     expect(cleanupWriterNamed()).toHaveLength(46); expect(priorCleanupPlatformRequirements()).toHaveLength(1012);
     expect(manifestFor("postgres", root).requirements).toHaveLength(80);
-    expect(requirementsFor("workflows", root)).toHaveLength(60);
+    expect(requirementsFor("workflows", root)).toHaveLength(62);
+    expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
@@ -2778,5 +2784,112 @@ describe("mandatory native service.configure observations [report models]", () =
     expect(runner).toContain('step.id === "package-native" ? manifest.packagePhase : { ...manifest, requiredCases: manifest.raceCases }');
     expect(after.steps.find(step => step.id === "golden-diff")?.command).toEqual(["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"]);
     expect(after.steps.find(step => step.id === "golden-status")?.command).toEqual(["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"]);
+  });
+});
+
+// Synthetic report contracts never substitute for the two actual Temporal runs.
+describe("mandatory owned critical scheduling [source/report models]", () => {
+  const file = "tests/workflows/critical-schedule.test.ts";
+  const suite = "critical maintenance schedule on an actual owned durable Temporal service";
+  const names = [
+    "preserves compatible schedule and queued actual workflow across server restart",
+    "skips overlap while the first genuine activity is held",
+  ];
+  const expected = names.map(test => ({ file, suite, test }));
+  const named = (sourceRoot = root) => requirementsFor("workflows", sourceRoot).filter(item => criticalScheduleWorkflowIds.has(item.id));
+
+  it("adds exact two literal native requirements while retaining every predecessor workflow identity", () => {
+    expect(CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS).toEqual(expected);
+    const manifest = manifestFor("workflows", root);
+    expect(named()).toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
+    expect(new Set(named().map(item => item.id)).size).toBe(2);
+    expect(manifest.requirements).toHaveLength(62);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(62);
+    expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
+    expect(createHash("sha256").update(JSON.stringify(priorCriticalScheduleWorkflowRequirements().map(item => item.id).sort())).digest("hex"))
+      .toBe("0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b");
+    expect(priorWave2WorkflowRequirements()).toHaveLength(58);
+    expect(createHash("sha256").update(JSON.stringify(priorWave2WorkflowRequirements().map(item => item.id).sort())).digest("hex"))
+      .toBe("d3a15adf854819fd8577c3b55b48dd55640d6522bdc57cad2c707c867ffecad3");
+    expect(manifest.env.ZENITH_TEST_TEMPORAL).toBe("1");
+    expect(manifest.tools.temporal).toBe("1.9.1");
+    expect(manifest.prerequisites.some(value => value.startsWith("ZENITH_TEST_TEMPORAL=1; both literal critical schedule cases"))).toBe(true);
+    expect(manifest.excludeFiles).not.toContain(file);
+    expect(manifest.command).not.toContain("--passWithNoTests");
+    expect(reportFailures(named(), contractReport(named()), root)).toEqual([]);
+    expect(requirementsFor("platform-postgres", root)).toHaveLength(1124);
+    expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
+    expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
+    expect(requirementsFor("postgres", root)).toHaveLength(80);
+    expect(linuxGuestManifest().requiredCases).toHaveLength(152);
+    expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
+    expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+    for (const lane of Object.keys(GATE_LANES).filter(value => value !== "workflows"))
+      expect(requirementsFor(lane, root).some(item => criticalScheduleWorkflowIds.has(item.id))).toBe(false);
+  });
+
+  it("binds the accepted actual workflow source and required offline CLI admission without altering the eight models", () => {
+    const source = fs.readFileSync(path.join(root, file), "utf8");
+    expect(createHash("sha256").update(source).digest("hex")).toBe("4bc0f30e92a761f9b3057824337bda0180ed9b88d9bb8fe6a3f42aa8587b6c69");
+    expect([...source.matchAll(/\bactual\("([^"\n]+)"/g)].map(match => match[1])).toEqual(names);
+    expect([...source.matchAll(/\bit\("([^"\n]+)"/g)]).toHaveLength(8);
+    expect(source).toContain('const required = process.env.ZENITH_TEST_TEMPORAL === "1";');
+    expect(source).toContain('if (!cli) throw new Error("Required pinned offline Temporal CLI is unavailable.");');
+    expect(source).toContain('this.env = await TestWorkflowEnvironment.createFromExistingServer');
+    expect(source).toContain('await server!.stop();');
+    expect(source).toContain('await server!.start();');
+    expect(source).toContain('pendingMutation = phase;');
+    expect(source).toContain('cleanupUnconfirmed || pendingMutation !== null || scheduleOwned');
+    expect(source).not.toContain("startTestServer(");
+  });
+
+  it.each(["missing", "failed", "pending", "skipped", "todo"])("refuses %s evidence for either exact native scheduling case", status => {
+    const required = named();
+    for (const item of required) {
+      const report = contractReport(required);
+      const entry = report.testResults[0];
+      const index = entry.assertionResults.findIndex(assertion => assertion.title === item.test);
+      expect(index).toBeGreaterThanOrEqual(0);
+      if (status === "missing") entry.assertionResults.splice(index, 1);
+      else entry.assertionResults[index].status = status;
+      expect(reportFailures(required, report, root)).toHaveLength(1);
+    }
+  });
+
+  it("refuses zero or malformed reports even when the outer success flag is true", () => {
+    for (const report of [null, {}, { success: true, testResults: [] }, { success: true, testResults: [{ name: path.resolve(root, file), status: "passed", assertionResults: [] }] }])
+      expect(reportFailures(named(), report, root).length).toBeGreaterThan(0);
+    const report = contractReport(named());
+    report.testResults[0].assertionResults[0].status = "unrecognized";
+    expect(reportFailures(named(), report, root).length).toBeGreaterThan(0);
+  });
+
+  it("cannot substitute passing older models, a suite parent or the wrong ancestry for native executions", () => {
+    const whole = requirementsFor("workflows", root).filter(item => item.file === file && item.test === undefined);
+    expect(whole).toHaveLength(1);
+    const models = contractReport(whole);
+    expect(reportFailures(whole, models, root)).toEqual([]);
+    expect(reportFailures(named(), models, root)).toHaveLength(2);
+    const parent = contractReport([{ file, suite, id: requirementId("workflows", { file, suite }) }]);
+    expect(reportFailures(named(), parent, root)).toHaveLength(2);
+    const wrongSuite = contractReport(named());
+    for (const assertion of wrongSuite.testResults[0].assertionResults) {
+      assertion.ancestorTitles = ["modeled critical scheduling"];
+      assertion.fullName = [...assertion.ancestorTitles, assertion.title].join(" ");
+    }
+    expect(reportFailures(named(), wrongSuite, root)).toHaveLength(2);
+  });
+
+  it("retains both literal native obligations when the critical schedule source is deleted", () => {
+    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-critical-schedule-"));
+    try {
+      for (const directory of ["tests/workflows", "tests/platform", "tests/security"])
+        fs.cpSync(path.join(root, directory), path.join(sourceRoot, directory), { recursive: true });
+      const before = named(sourceRoot);
+      fs.unlinkSync(path.join(sourceRoot, file));
+      expect(named(sourceRoot)).toEqual(before);
+      expect(before).toHaveLength(2);
+      expect(reportFailures(named(sourceRoot), { success: true, testResults: [] }, sourceRoot)).toHaveLength(2);
+    } finally { fs.rmSync(sourceRoot, { recursive: true, force: true }); }
   });
 });

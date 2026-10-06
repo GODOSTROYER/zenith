@@ -59,6 +59,18 @@ export function validateProcess(result) {
   }
   return result.stdout;
 }
+/** Fixed diagnostics for the fixture's literal execFile timeout/no-abort options. */
+export function windowsFixtureFailureMessage(phase, error) {
+  if (!['setup', 'verification'].includes(phase)) fail();
+  const code = error?.code;
+  let outcome = 'unclassified', exit = 'none';
+  if (code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') outcome = 'output_overflow';
+  else if (code === null && error?.killed === true && error?.signal === 'SIGTERM') outcome = 'timeout';
+  else if (Number.isSafeInteger(code) && code > 0 && code <= 4294967295 && error?.killed !== true && !error?.signal) { outcome = 'nonzero_exit'; exit = String(code); }
+  else if (typeof error?.signal === 'string' && error.signal.length) outcome = 'signal';
+  else if (['ENOENT', 'EACCES', 'EPERM', 'EINVAL', 'ENOEXEC'].includes(code)) outcome = 'spawn_error';
+  return `Windows inherited ACL fixture ${phase} failed. [child=${outcome};exit=${exit}]`;
+}
 /** Public diagnostics contain fixed labels and counters only, never child/report text. */
 export function failureDiagnostics(child, report, reportState = 'missing') {
   const assertions = Array.isArray(report?.testResults) ? report.testResults.flatMap(f => Array.isArray(f?.assertionResults) ? f.assertionResults : []) : [];
@@ -68,12 +80,17 @@ export function failureDiagnostics(child, report, reportState = 'missing') {
   const reporterTimeout = selected.some(a => Array.isArray(a.failureMessages) && a.failureMessages.some(m => typeof m === 'string' && /^(?:Error: )?(?:Test|Hook) timed out in [0-9]+ms(?:[.\n]|$)/.test(m)));
   const failureMessages = selected.length === 1 && selectedLeafStatus === 'failed' && Array.isArray(selected[0].failureMessages) ? selected[0].failureMessages.filter(m => typeof m === 'string') : [];
   const failureKind = failureMessages.some(m => /^Error: Windows inherited ACL fixture setup failed[.]/.test(m)) ? 'fixture_setup' : failureMessages.some(m => /^Error: Windows inherited ACL fixture verification failed[.]/.test(m)) ? 'fixture_verification' : failureMessages.some(m => /^AssertionError:/.test(m)) ? 'assertion' : failureMessages.length ? 'other_test_failure' : null;
+  const fixtureMatch = failureMessages.length === 1 ? failureMessages[0].match(/^Error: Windows inherited ACL fixture (setup|verification) failed[.] \[child=(timeout|nonzero_exit|output_overflow|spawn_error|signal|unclassified);exit=(none|[0-9]{1,10})\](?:\r?\n|$)/) : null;
+  const fixtureExit = fixtureMatch?.[3] === 'none' ? null : Number(fixtureMatch?.[3]);
+  const fixtureValid = fixtureMatch && (fixtureMatch[2] === 'nonzero_exit' ? Number.isSafeInteger(fixtureExit) && fixtureExit > 0 && fixtureExit <= 4294967295 : fixtureExit === null);
+  const fixtureChildOutcome = fixtureValid ? fixtureMatch[2] : null;
+  const fixtureChildExitCode = fixtureValid ? fixtureExit : null;
   const testLine = failureMessages.map(m => m.match(/[\\/]tests[\\/]cli[\\/]config[.]test[.]ts:([0-9]+):[0-9]+/)?.[1]).find(Boolean);
   const failureAtTestLine = testLine && Number.isSafeInteger(Number(testLine)) && Number(testLine) > 0 && Number(testLine) <= 10000 ? Number(testLine) : null;
   const childTimeout = child?.error?.code === 'ETIMEDOUT';
   const classification = childTimeout ? 'child_timeout' : child?.error?.code === 'ENOBUFS' ? 'child_output_overflow' : child?.error ? 'child_spawn_error' : child?.signal ? 'child_signal' : reporterTimeout ? 'selected_leaf_timeout' : child && !Number.isInteger(child.status) ? 'child_unsettled' : child?.status !== undefined && child.status !== 0 ? 'child_nonzero_exit' : reportState !== 'parsed' ? 'report_' + (reportState === 'malformed' ? 'malformed' : 'missing') : selectedLeafStatus !== 'passed' ? 'selected_leaf_' + selectedLeafStatus : 'report_admission_refused';
   const count = key => Number.isSafeInteger(report?.[key]) && report[key] >= 0 ? report[key] : null;
-  return { classification, failureKind, failureAtTestLine, childExitCode: Number.isInteger(child?.status) ? child.status : null, timeout: childTimeout || reporterTimeout, selectedLeafStatus, selectedLeafCount: selected.length, passed: count('numPassedTests'), failed: count('numFailedTests'), pending: count('numPendingTests'), todo: count('numTodoTests'), failedSuites: count('numFailedTestSuites') };
+  return { classification, failureKind, failureAtTestLine, fixtureChildOutcome, fixtureChildExitCode, childExitCode: Number.isInteger(child?.status) ? child.status : null, timeout: childTimeout || reporterTimeout, selectedLeafStatus, selectedLeafCount: selected.length, passed: count('numPassedTests'), failed: count('numFailedTests'), pending: count('numPendingTests'), todo: count('numTodoTests'), failedSuites: count('numFailedTestSuites') };
 }
 function capture(command, args, options = {}) {
   const { observe, ...spawnOptions } = options;

@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { validateNative, validateWindows, validateGo, validateProcess, failureDiagnostics, cleanupScratch, WINDOWS_NAME, WINDOWS_EXCLUDED, GO_NAME, GO_PACKAGE } from '../../scripts/ci/skipped-platforms.mjs';
+import { validateNative, validateWindows, validateGo, validateProcess, windowsFixtureFailureMessage, failureDiagnostics, cleanupScratch, WINDOWS_NAME, WINDOWS_EXCLUDED, GO_NAME, GO_PACKAGE } from '../../scripts/ci/skipped-platforms.mjs';
 const sha = 'a'.repeat(40);
 const native = (kind: string) => ({ arch: 'x64', platform: kind === 'windows' ? 'win32' : 'linux', runnerOS: kind === 'windows' ? 'Windows' : 'Linux', hosted: true, node: '22.23.3', commit: sha, head: sha, dirty: false, go: 'go version go1.27.1 linux/amd64', init: 'systemd', journald: 'active' });
 const windows = () => {
@@ -107,6 +107,60 @@ describe('native skipped platform admission', () => {
     }
     report.testResults[0].assertionResults[0].status = 'passed';
     expect(failureDiagnostics({ status: 0 }, report, 'parsed')).toMatchObject({ failureKind: null, failureAtTestLine: null });
+  });
+  it('projects the actual fixture callback timeout and nonzero exit separately without private child output', async () => {
+    for (const [script, timeout, expected] of [
+      ["process.stdout.write('private credential');setTimeout(()=>{},10000)", 50, { fixtureChildOutcome: 'timeout', fixtureChildExitCode: null }],
+      ["process.stderr.write('private credential');process.exit(7)", 3000, { fixtureChildOutcome: 'nonzero_exit', fixtureChildExitCode: 7 }],
+    ] as const) {
+      const message = await new Promise<string>((resolve, reject) => execFile(process.execPath, ['-e', script], { timeout, maxBuffer: 4096 }, error => error ? resolve(windowsFixtureFailureMessage('verification', error)) : reject(new Error('Expected failed fixture child.'))));
+      const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
+      report.testResults[0].assertionResults[0].failureMessages = ['Error: ' + message + '\n at C:\\private-home\\tests\\cli\\config.test.ts:25:5'];
+      const diagnostic = failureDiagnostics({ status: 1 }, report, 'parsed');
+      expect(diagnostic).toMatchObject({ failureKind: 'fixture_verification', failureAtTestLine: 25, timeout: false, ...expected });
+      expect(JSON.stringify(diagnostic) + message).not.toMatch(/private credential|private-home|SIGTERM|Command failed/);
+      expect(() => validateWindows(report, { ...native('windows'), childExitCode: 1 })).toThrow();
+    }
+  });
+  it('keeps overflow, spawn, foreign signal and unknown fixture outcomes fixed and value-free', () => {
+    for (const [error, outcome, exit] of [
+      [{ code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER', killed: true, signal: 'SIGTERM' }, 'output_overflow', 'none'],
+      [{ code: 'ENOENT', message: 'private executable' }, 'spawn_error', 'none'],
+      [{ code: null, killed: false, signal: 'SIGTERM' }, 'signal', 'none'],
+      [{ code: 0, killed: true, signal: null }, 'unclassified', 'none'],
+      [{ code: 'private credential', signal: null }, 'unclassified', 'none'],
+      [{ code: 4294967296, signal: null }, 'unclassified', 'none'],
+      [{ code: 41, killed: false, signal: null }, 'nonzero_exit', '41'],
+      [{ code: 42, killed: false, signal: null }, 'nonzero_exit', '42'],
+    ] as const) {
+      const message = windowsFixtureFailureMessage('setup', error);
+      expect(message).toBe(`Windows inherited ACL fixture setup failed. [child=${outcome};exit=${exit}]`);
+      const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
+      report.testResults[0].assertionResults[0].failureMessages = ['Error: ' + message];
+      expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ failureKind: 'fixture_setup', fixtureChildOutcome: outcome, fixtureChildExitCode: exit === 'none' ? null : Number(exit) });
+      expect(message).not.toMatch(/private|SIGTERM|ENOENT|MAXBUFFER/);
+    }
+    expect(() => windowsFixtureFailureMessage('private phase', { code: 1 })).toThrow('Native skipped-platform acceptance refused.');
+  });
+  it('rejects malformed or unbound fixture metadata without changing failed-report admission', () => {
+    for (const message of [
+      'Error: Windows inherited ACL fixture verification failed.',
+      'Error: Windows inherited ACL fixture verification failed. [child=private credential;exit=none]',
+      'Error: Windows inherited ACL fixture verification failed. [child=timeout;exit=1]',
+      'Error: Windows inherited ACL fixture verification failed. [child=nonzero_exit;exit=none]',
+      'Error: Windows inherited ACL fixture verification failed. [child=nonzero_exit;exit=0]',
+      'Error: Windows inherited ACL fixture verification failed. [child=nonzero_exit;exit=4294967296]',
+      'Error: Windows inherited ACL fixture verification failed. [child=timeout;exit=none] private suffix',
+      'Error: unrelated\nError: Windows inherited ACL fixture verification failed. [child=timeout;exit=none]',
+    ]) {
+      const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
+      report.testResults[0].assertionResults[0].failureMessages = [message];
+      expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ fixtureChildOutcome: null, fixtureChildExitCode: null });
+      expect(() => validateWindows(report, { ...native('windows'), childExitCode: 1 })).toThrow();
+    }
+    const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
+    report.testResults[0].assertionResults[0].failureMessages = ['Error: ' + windowsFixtureFailureMessage('setup', { code: 1 }), 'Error: ' + windowsFixtureFailureMessage('verification', { code: null, killed: true, signal: 'SIGTERM' })];
+    expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ fixtureChildOutcome: null, fixtureChildExitCode: null });
   });
   it('accepts actual Go exact leaf without exposing journal text', () => { const result = validateGo(go()); expect(result).toEqual({ name: GO_NAME, passed: 1, failed: 0, skipped: 0, excludedSiblingCount: 0 }); expect(JSON.stringify(result)).not.toContain('private journal'); });
   it.each(['skip', 'fail', 'pause'])('refuses Go %s', action => { expect(() => validateGo(go(action))).toThrow(); });

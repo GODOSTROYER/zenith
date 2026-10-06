@@ -7,6 +7,7 @@ import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { configPaths, loadConfig, saveConfig } from "@/cli/config";
 import { TOKEN, fixture, invoke } from "./support";
+import { windowsFixtureFailureMessage } from "../../scripts/ci/skipped-platforms.mjs";
 
 let home: string;
 let server: Awaited<ReturnType<typeof fixture>>;
@@ -22,12 +23,13 @@ async function login(input = TOKEN + "\n") {
 async function windowsFixtureCommand(executable: string, args: string[], env: NodeJS.ProcessEnv, phase: "setup" | "verification") {
   await new Promise<void>((resolve, reject) => execFile(executable, args,
     { env, windowsHide: true, timeout: 3_000, maxBuffer: 4096 },
-    error => error ? reject(new Error(`Windows inherited ACL fixture ${phase} failed.`)) : resolve()));
+    error => error ? reject(new Error(windowsFixtureFailureMessage(phase, error))) : resolve()));
 }
 const inheritedAclProof = `
 $ErrorActionPreference = 'Stop'
 $everyone = 'S-1-1-0'
 $rights = [System.Security.AccessControl.FileSystemRights]::ReadAndExecute
+$fixtureExit = 41
 foreach ($p in @($env:ZENITH_TEST_ACL_DIRECTORY, $env:ZENITH_TEST_ACL_FILE)) {
   $acl = Get-Acl -LiteralPath $p
   $owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
@@ -36,7 +38,8 @@ foreach ($p in @($env:ZENITH_TEST_ACL_DIRECTORY, $env:ZENITH_TEST_ACL_FILE)) {
     $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -eq $everyone -and
     $owner -ne $everyone -and ($_.FileSystemRights -band $rights) -eq $rights
   })
-  if ($inherited.Count -lt 1) { throw 'fixture inheritance unproved' }
+  if ($inherited.Count -lt 1) { exit $fixtureExit }
+  $fixtureExit = 42
 }
 `;
 

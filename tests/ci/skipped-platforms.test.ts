@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFile, spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { validateNative, validateWindows, validateGo, validateProcess, windowsFixtureFailureMessage, windowsPrerequisiteFailureMessage, failureDiagnostics, cleanupScratch, WINDOWS_NAME, WINDOWS_EXCLUDED, GO_NAME, GO_PACKAGE } from '../../scripts/ci/skipped-platforms.mjs';
+import { validateNative, validateWindows, validateGo, validateProcess, createWindowsPrerequisiteStages, windowsFixtureFailureMessage, windowsPrerequisiteEnvironment, windowsPrerequisiteFailureMessage, failureDiagnostics, cleanupScratch, WINDOWS_NAME, WINDOWS_EXCLUDED, GO_NAME, GO_PACKAGE } from '../../scripts/ci/skipped-platforms.mjs';
 const sha = 'a'.repeat(40);
 const native = (kind: string) => ({ arch: 'x64', platform: kind === 'windows' ? 'win32' : 'linux', runnerOS: kind === 'windows' ? 'Windows' : 'Linux', hosted: true, node: '22.23.3', commit: sha, head: sha, dirty: false, go: 'go version go1.27.1 linux/amd64', init: 'systemd', journald: 'active' });
 const windows = () => {
@@ -219,6 +219,100 @@ describe('native skipped platform admission', () => {
       expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ fixtureChildOutcome: null, fixtureChildExitCode: null });
       expect(() => validateWindows(report, { ...native('windows'), childExitCode: 1 })).toThrow();
     }
+  });
+  it('captures the actual buffer-encoded prerequisite child stream only after successful exit and close', async () => {
+    const stages = createWindowsPrerequisiteStages();
+    let callbackPassed = false, binaryChunks = 0, closePassed = false;
+    const script = "for(const stage of ['entry','get_acl','owner_sid','access'])process.stdout.write('ZENITH_ACL_STAGE:'+stage+'\\r\\n')";
+    await new Promise<void>((resolve, reject) => {
+      const child = execFile(process.execPath, ['-e', script],
+        { encoding: 'buffer', windowsHide: true, timeout: 15_000, maxBuffer: 4096 }, error => { callbackPassed = error === null; });
+      child.stdout?.on('data', chunk => { if (chunk instanceof Uint8Array) binaryChunks++; stages.write(chunk); });
+      child.once('close', (code, signal) => {
+        closePassed = code === 0 && signal === null;
+        if (callbackPassed && closePassed) resolve(); else reject(new Error('Owned diagnostic stream child refused.'));
+      });
+    });
+    expect(callbackPassed).toBe(true); expect(closePassed).toBe(true); expect(binaryChunks).toBeGreaterThan(0);
+    expect(stages.current()).toBe('access');
+  });
+  it('captures only ordered complete prerequisite stage lines across arbitrary stream chunks', () => {
+    const names = ['entry', 'get_acl', 'owner_sid', 'access'];
+    for (const newline of ['\n', '\r\n']) {
+      const bytes = Buffer.from(names.map(name => 'ZENITH_ACL_STAGE:' + name + newline).join(''));
+      for (let split = 0; split <= bytes.length; split++) {
+        const stages = createWindowsPrerequisiteStages();
+        expect(stages.current()).toBe('none');
+        stages.write(bytes.subarray(0, split)); stages.write(bytes.subarray(split));
+        expect(stages.current()).toBe('access');
+      }
+    }
+    const stages = createWindowsPrerequisiteStages();
+    for (const name of names) {
+      const bytes = Buffer.from('ZENITH_ACL_STAGE:' + name + '\r\n');
+      for (const byte of bytes) stages.write(Buffer.from([byte]));
+      expect(stages.current()).toBe(name);
+    }
+  });
+  it('makes extra malformed non-ASCII or out-of-order prerequisite output permanently unknown', () => {
+    const entry = 'ZENITH_ACL_STAGE:entry\n';
+    for (const output of [
+      'private credential\n', 'ZENITH_ACL_STAGE:get_acl\n', entry + entry,
+      entry + 'ZENITH_ACL_STAGE:owner_sid\n', entry + '\n', entry + '\u00e9',
+      entry + '\u0000', entry + 'ZENITH_ACL_STAGE:get_acl\r\r\n',
+      entry + 'private credential'.repeat(4096),
+      ['entry', 'get_acl', 'owner_sid', 'access'].map(name => 'ZENITH_ACL_STAGE:' + name + '\n').join('') + entry,
+    ]) {
+      const stages = createWindowsPrerequisiteStages(); stages.write(Buffer.from(output));
+      expect(stages.current()).toBe('unknown');
+      stages.write(Buffer.from(entry)); expect(stages.current()).toBe('unknown');
+      expect(JSON.stringify(stages)).not.toMatch(/private credential|\u00e9/);
+    }
+    const partial = createWindowsPrerequisiteStages(); partial.write(Buffer.from(entry + 'ZENITH_ACL_STAGE:get_'));
+    expect(partial.current()).toBe('entry');
+    expect(() => Reflect.apply(windowsPrerequisiteFailureMessage, undefined, ['deadline', null, 'private credential'])).toThrow();
+  });
+  it('projects a deadline with only its last observed prerequisite stage and three key-availability booleans', () => {
+    const names = ['entry', 'get_acl', 'owner_sid', 'access'];
+    for (let completed = 0; completed <= names.length; completed++) {
+      const stages = createWindowsPrerequisiteStages();
+      stages.write(Buffer.from(names.slice(0, completed).map(name => 'ZENITH_ACL_STAGE:' + name + '\n').join('')));
+      const stage = completed === 0 ? 'none' : names[completed - 1];
+      const bits = windowsPrerequisiteEnvironment({ SystemRoot: '', SYSTEMROOT: 'private root', WINDIR: 'private directory', PRIVATE_TOKEN: 'private credential' });
+      expect(bits).toBe('011');
+      const message = windowsPrerequisiteFailureMessage('deadline', null, stages.current(), bits);
+      const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
+      report.testResults[0].assertionResults[0].failureMessages = ['Error: ' + message];
+      const diagnostic = failureDiagnostics({ status: 1 }, report, 'parsed');
+      expect(diagnostic).toMatchObject({ fixtureChildOutcome: 'deadline', fixtureChildExitCode: null, prerequisiteStage: stage, prerequisiteEnvironment: { systemRootPresent: false, systemRootUpperPresent: true, windirPresent: true }, timeout: false });
+      expect(JSON.stringify(diagnostic) + message).not.toMatch(/private root|private directory|private credential|PRIVATE_TOKEN/);
+      expect(() => validateWindows(report, { ...native('windows'), childExitCode: 1 })).toThrow();
+    }
+    expect(windowsPrerequisiteEnvironment({ SystemRoot: 'private root', SYSTEMROOT: '', WINDIR: undefined })).toBe('100');
+    for (const bits of ['private credential', '0000', '102', '\n111']) expect(() => windowsPrerequisiteFailureMessage('deadline', null, 'none', bits)).toThrow();
+    expect(() => windowsPrerequisiteFailureMessage('deadline', null, null, '111')).toThrow();
+  });
+  it('refuses malformed or misplaced prerequisite progress without laundering failed-report authority', () => {
+    for (const marker of [
+      '[child=deadline;exit=none;stage=private credential;env=111]',
+      '[child=deadline;exit=none;stage=entry;env=1010]',
+      '[child=deadline;exit=none;stage=entry;env=102]',
+      '[child=deadline;exit=none;env=111]',
+      '[child=deadline;exit=1;stage=access;env=111]',
+      '[child=nonzero_exit;exit=0;stage=entry;env=111]',
+      '[child=deadline;exit=none;stage=entry;env=111] private suffix',
+    ]) {
+      const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
+      report.testResults[0].assertionResults[0].failureMessages = ['Error: Windows ACL fixture prerequisite failed. ' + marker];
+      expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ fixtureChildOutcome: null, fixtureChildExitCode: null, prerequisiteStage: null, prerequisiteEnvironment: null });
+      expect(() => validateWindows(report, { ...native('windows'), childExitCode: 1 })).toThrow();
+    }
+    const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
+    const message = 'Error: ' + windowsPrerequisiteFailureMessage('child', { code: 54, killed: false, signal: null }, 'owner_sid', '111');
+    report.testResults[0].assertionResults[0].failureMessages = [message, 'Error: Windows ACL fixture prerequisite cleanup unconfirmed.'];
+    expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ fixtureChildOutcome: 'nonzero_exit', fixtureChildExitCode: 54, prerequisiteStage: 'owner_sid', prerequisiteEnvironment: { systemRootPresent: true, systemRootUpperPresent: true, windirPresent: true } });
+    report.testResults[0].assertionResults[0].failureMessages = [message, message];
+    expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ prerequisiteStage: null, prerequisiteEnvironment: null });
   });
   it('accepts actual Go exact leaf without exposing journal text', () => { const result = validateGo(go()); expect(result).toEqual({ name: GO_NAME, passed: 1, failed: 0, skipped: 0, excludedSiblingCount: 0 }); expect(JSON.stringify(result)).not.toContain('private journal'); });
   it.each(['skip', 'fail', 'pause'])('refuses Go %s', action => { expect(() => validateGo(go(action))).toThrow(); });

@@ -7,7 +7,7 @@ import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { configPaths, loadConfig, saveConfig } from "@/cli/config";
 import { TOKEN, fixture, invoke } from "./support";
-import { windowsFixtureFailureMessage, windowsPrerequisiteFailureMessage } from "../../scripts/ci/skipped-platforms.mjs";
+import { createWindowsPrerequisiteStages, windowsFixtureFailureMessage, windowsPrerequisiteEnvironment, windowsPrerequisiteFailureMessage } from "../../scripts/ci/skipped-platforms.mjs";
 
 let home: string;
 let server: Awaited<ReturnType<typeof fixture>>;
@@ -32,28 +32,35 @@ async function login(input = TOKEN + "\n") {
 // Load the native ACL subsystem on this fresh home before the unchanged timed leaf.
 async function windowsAclPrerequisite(directory: string) {
   const windows = process.env.SystemRoot ?? "C:\\Windows";
+  const prerequisiteEnvironment = windowsPrerequisiteEnvironment(process.env);
   const env: NodeJS.ProcessEnv = { NODE_ENV: "test", ZENITH_TEST_ACL_HOME: directory };
   for (const key of ["SystemRoot", "WINDIR", "USERPROFILE", "TEMP", "TMP"]) if (process.env[key]) env[key] = process.env[key];
   const script = `$ErrorActionPreference = 'Stop'
+[Console]::Out.WriteLine('ZENITH_ACL_STAGE:entry'); [Console]::Out.Flush()
 try { $acl = Get-Acl -LiteralPath $env:ZENITH_TEST_ACL_HOME }
 catch [System.Management.Automation.CommandNotFoundException] { exit 51 }
 catch { exit 52 }
+[Console]::Out.WriteLine('ZENITH_ACL_STAGE:get_acl'); [Console]::Out.Flush()
 try { $null = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value }
 catch { exit 53 }
+[Console]::Out.WriteLine('ZENITH_ACL_STAGE:owner_sid'); [Console]::Out.Flush()
 try { $null = $acl.Access }
-catch { exit 54 }`;
+catch { exit 54 }
+[Console]::Out.WriteLine('ZENITH_ACL_STAGE:access'); [Console]::Out.Flush()`;
   await new Promise<void>((resolve, reject) => {
+    const stages = createWindowsPrerequisiteStages();
     let callbackPassed = false;
     let childFailure: string | undefined;
     let deadline: NodeJS.Timeout | undefined;
-    const refuse = (reason: "child" | "deadline" | "close", error?: unknown) => reject(new Error(windowsPrerequisiteFailureMessage(reason, error)));
+    const refuse = (reason: "child" | "deadline" | "close", error?: unknown) => reject(new Error(windowsPrerequisiteFailureMessage(reason, error, stages.current(), prerequisiteEnvironment)));
     try {
       const child = execFile(join(windows, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
         ["-NoProfile", "-NonInteractive", "-Command", script],
-        { env, windowsHide: true, timeout: 15_000, maxBuffer: 4096 }, error => {
+        { env, encoding: "buffer", windowsHide: true, timeout: 15_000, maxBuffer: 4096 }, error => {
           callbackPassed = error === null;
-          if (error) childFailure = windowsPrerequisiteFailureMessage("child", error);
+          if (error) childFailure = windowsPrerequisiteFailureMessage("child", error, stages.current(), prerequisiteEnvironment);
         });
+      child.stdout?.on("data", chunk => stages.write(chunk));
       pendingWindowsAclStartup.add(directory);
       child.once("close", (code, signal) => {
         pendingWindowsAclStartup.delete(directory);

@@ -71,14 +71,51 @@ export function windowsFixtureFailureMessage(phase, error) {
   else if (['ENOENT', 'EACCES', 'EPERM', 'EINVAL', 'ENOEXEC'].includes(code)) outcome = 'spawn_error';
   return `Windows inherited ACL fixture ${phase} failed. [child=${outcome};exit=${exit}]`;
 }
+/** Consume only exact ordered ASCII progress lines; never retain other output. */
+export function createWindowsPrerequisiteStages() {
+  const stages = ['entry', 'get_acl', 'owner_sid', 'access'];
+  let next = 0, pending = '', invalid = false;
+  return {
+    /** @param {Uint8Array} chunk */
+    write(chunk) {
+      if (invalid) return;
+      if (!(chunk instanceof Uint8Array)) { invalid = true; pending = ''; return; }
+      for (const byte of chunk) {
+        const expected = next < stages.length ? 'ZENITH_ACL_STAGE:' + stages[next] : null;
+        if (!expected) { invalid = true; pending = ''; return; }
+        if (byte === 10) {
+          if (pending !== expected && pending !== expected + '\r') { invalid = true; pending = ''; return; }
+          next++; pending = '';
+        } else {
+          const character = String.fromCharCode(byte);
+          if (!(expected + '\r').startsWith(pending + character)) { invalid = true; pending = ''; return; }
+          pending += character;
+        }
+      }
+    },
+    current() { return invalid ? 'unknown' : next === 0 ? 'none' : stages[next - 1]; },
+  };
+}
+/** Fixed nonempty-key availability only; no environment values leave the fixture. */
+export function windowsPrerequisiteEnvironment(env) {
+  return [env.SystemRoot, env.SYSTEMROOT, env.WINDIR].map(value => typeof value === 'string' && value.length > 0 ? '1' : '0').join('');
+}
 /** Prerequisite failures never publish PowerShell output or exception contents.
  * @param {'child' | 'deadline' | 'close'} reason
  * @param {unknown} [error]
+ * @param {string | null} [stage]
+ * @param {string | null} [environment]
  */
-export function windowsPrerequisiteFailureMessage(reason, error = null) {
-  if (reason === 'child') return windowsFixtureFailureMessage('verification', error).replace('Windows inherited ACL fixture verification failed.', 'Windows ACL fixture prerequisite failed.');
-  if (!['deadline', 'close'].includes(reason)) fail();
-  return `Windows ACL fixture prerequisite failed. [child=${reason === 'deadline' ? 'deadline' : 'close_refused'};exit=none]`;
+export function windowsPrerequisiteFailureMessage(reason, error = null, stage = null, environment = null) {
+  if (stage !== null && !['none', 'unknown', 'entry', 'get_acl', 'owner_sid', 'access'].includes(stage)) fail();
+  if (environment !== null && (stage === null || !/^[01]{3}$/.test(environment))) fail();
+  let message;
+  if (reason === 'child') message = windowsFixtureFailureMessage('verification', error).replace('Windows inherited ACL fixture verification failed.', 'Windows ACL fixture prerequisite failed.');
+  else {
+    if (!['deadline', 'close'].includes(reason)) fail();
+    message = `Windows ACL fixture prerequisite failed. [child=${reason === 'deadline' ? 'deadline' : 'close_refused'};exit=none]`;
+  }
+  return stage === null ? message : message.slice(0, -1) + `;stage=${stage}${environment === null ? '' : ';env=' + environment}]`;
 }
 /** Public diagnostics contain fixed labels and counters only, never child/report text. */
 export function failureDiagnostics(child, report, reportState = 'missing') {
@@ -89,7 +126,7 @@ export function failureDiagnostics(child, report, reportState = 'missing') {
   const reporterTimeout = selected.some(a => Array.isArray(a.failureMessages) && a.failureMessages.some(m => typeof m === 'string' && /^(?:Error: )?(?:Test|Hook) timed out in [0-9]+ms(?:[.\n]|$)/.test(m)));
   const failureMessages = selected.length === 1 && selectedLeafStatus === 'failed' && Array.isArray(selected[0].failureMessages) ? selected[0].failureMessages.filter(m => typeof m === 'string') : [];
   const failureKind = failureMessages.some(m => /^Error: Windows inherited ACL fixture setup failed[.]/.test(m)) ? 'fixture_setup' : failureMessages.some(m => /^Error: Windows inherited ACL fixture verification failed[.]/.test(m)) ? 'fixture_verification' : failureMessages.some(m => /^Error: Windows ACL fixture prerequisite failed[.]/.test(m)) ? 'fixture_prerequisite' : failureMessages.some(m => /^AssertionError:/.test(m)) ? 'assertion' : failureMessages.length ? 'other_test_failure' : null;
-  const prerequisitePattern = /^Error: Windows ACL fixture (prerequisite) failed[.] \[child=(timeout|nonzero_exit|output_overflow|spawn_error|signal|unclassified|deadline|close_refused);exit=(none|[0-9]{1,10})\](?:\r?\n|$)/;
+  const prerequisitePattern = /^Error: Windows ACL fixture (prerequisite) failed[.] \[child=(timeout|nonzero_exit|output_overflow|spawn_error|signal|unclassified|deadline|close_refused);exit=(none|[0-9]{1,10})(?:;stage=(none|unknown|entry|get_acl|owner_sid|access)(?:;env=([01]{3}))?)?\](?:\r?\n|$)/;
   const prerequisiteMessages = failureMessages.filter(m => prerequisitePattern.test(m));
   const prerequisiteCleanupCount = failureMessages.filter(m => /^Error: Windows ACL fixture prerequisite cleanup unconfirmed[.](?:\r?\n|$)/.test(m)).length;
   const prerequisiteCollection = prerequisiteMessages.length === 1 && prerequisiteCleanupCount <= 1 && failureMessages.length === 1 + prerequisiteCleanupCount;
@@ -98,12 +135,15 @@ export function failureDiagnostics(child, report, reportState = 'missing') {
   const fixtureValid = fixtureMatch && (fixtureMatch[2] === 'nonzero_exit' ? Number.isSafeInteger(fixtureExit) && fixtureExit > 0 && fixtureExit <= 4294967295 : fixtureExit === null);
   const fixtureChildOutcome = fixtureValid ? fixtureMatch[2] : null;
   const fixtureChildExitCode = fixtureValid ? fixtureExit : null;
+  const prerequisiteStage = fixtureValid && fixtureMatch[1] === 'prerequisite' ? fixtureMatch[4] ?? null : null;
+  const environmentBits = fixtureValid && fixtureMatch[1] === 'prerequisite' ? fixtureMatch[5] : null;
+  const prerequisiteEnvironment = environmentBits ? { systemRootPresent: environmentBits[0] === '1', systemRootUpperPresent: environmentBits[1] === '1', windirPresent: environmentBits[2] === '1' } : null;
   const testLine = (prerequisiteCollection ? prerequisiteMessages : failureMessages).map(m => m.match(/[\\/]tests[\\/]cli[\\/]config[.]test[.]ts:([0-9]+):[0-9]+/)?.[1]).find(Boolean);
   const failureAtTestLine = testLine && Number.isSafeInteger(Number(testLine)) && Number(testLine) > 0 && Number(testLine) <= 10000 ? Number(testLine) : null;
   const childTimeout = child?.error?.code === 'ETIMEDOUT';
   const classification = childTimeout ? 'child_timeout' : child?.error?.code === 'ENOBUFS' ? 'child_output_overflow' : child?.error ? 'child_spawn_error' : child?.signal ? 'child_signal' : reporterTimeout ? 'selected_leaf_timeout' : child && !Number.isInteger(child.status) ? 'child_unsettled' : child?.status !== undefined && child.status !== 0 ? 'child_nonzero_exit' : reportState !== 'parsed' ? 'report_' + (reportState === 'malformed' ? 'malformed' : 'missing') : selectedLeafStatus !== 'passed' ? 'selected_leaf_' + selectedLeafStatus : 'report_admission_refused';
   const count = key => Number.isSafeInteger(report?.[key]) && report[key] >= 0 ? report[key] : null;
-  return { classification, failureKind, failureAtTestLine, fixtureChildOutcome, fixtureChildExitCode, childExitCode: Number.isInteger(child?.status) ? child.status : null, timeout: childTimeout || reporterTimeout, selectedLeafStatus, selectedLeafCount: selected.length, passed: count('numPassedTests'), failed: count('numFailedTests'), pending: count('numPendingTests'), todo: count('numTodoTests'), failedSuites: count('numFailedTestSuites') };
+  return { classification, failureKind, failureAtTestLine, fixtureChildOutcome, fixtureChildExitCode, prerequisiteStage, prerequisiteEnvironment, childExitCode: Number.isInteger(child?.status) ? child.status : null, timeout: childTimeout || reporterTimeout, selectedLeafStatus, selectedLeafCount: selected.length, passed: count('numPassedTests'), failed: count('numFailedTests'), pending: count('numPendingTests'), todo: count('numTodoTests'), failedSuites: count('numFailedTestSuites') };
 }
 function capture(command, args, options = {}) {
   const { observe, ...spawnOptions } = options;

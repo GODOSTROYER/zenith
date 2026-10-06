@@ -11,7 +11,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { OAUTH_GRANT_POSTGRES_REQUIREMENTS } from "../../scripts/ci/gate-manifest.mjs";
+import { AGENT_JOURNAL_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS } from "../../scripts/ci/gate-manifest.mjs";
 
 const SCRIPT = path.resolve("scripts/ci/postgres-lane-report.mjs");
 
@@ -53,7 +53,7 @@ function report(assertions: Assertion[], mutate?: (value: SyntheticReport) => vo
       fullName: "PostgresAuthority canonical synthetic contract", ancestorTitles: ["PostgresAuthority"], title: "canonical synthetic contract", status: "passed",
     });
   }
-  for (const required of OAUTH_GRANT_POSTGRES_REQUIREMENTS) add(required.file, {
+  for (const required of [...OAUTH_GRANT_POSTGRES_REQUIREMENTS, ...AGENT_JOURNAL_POSTGRES_REQUIREMENTS]) add(required.file, {
     fullName: `${required.suite} ${required.test}`, ancestorTitles: [required.suite], title: required.test, status: "passed",
   });
   const value: SyntheticReport = { success: true, numFailedTests: 0,
@@ -205,5 +205,22 @@ describe("postgres lane report, canonical OAuth admission", () => {
   });
   it.each([null, {}, { success: true, testResults: [null] }, { success: true, testResults: [{ name: "tests/agent-control/pg-oauth-grants.test.ts", status: "passed", assertionResults: [null] }] }])("refuses malformed report fixture %# with fixed summary failure", value => {
     const child = run(writeFixture(value)); expect(child.status).toBe(1); expect(child.out).toContain("Canonical PostgreSQL requirements failed");
+  });
+});
+
+describe("postgres lane report, canonical agent journal", () => {
+  it.each(["missing", "failed", "skipped"])("refuses %s journal literal evidence even with complete OAuth and legacy groups", mode => {
+    for (const required of AGENT_JOURNAL_POSTGRES_REQUIREMENTS) {
+      const child = run(report(completeLegacy(), value => {
+        const file = value.testResults.find(entry => entry.name === required.file)!;
+        const index = file.assertionResults.findIndex(row => row.title === required.test && row.ancestorTitles[0] === required.suite);
+        expect(index).toBeGreaterThanOrEqual(0);
+        if (mode === "missing") { file.assertionResults.splice(index, 1); value.numTotalTests--; }
+        else file.assertionResults[index].status = mode;
+      }));
+      expect(child.status).toBe(1);
+      expect(child.out).toContain("Canonical PostgreSQL requirements failed");
+      if (mode !== "failed") expect(child.out).toContain(required.file);
+    }
   });
 });

@@ -220,6 +220,37 @@ describe('native skipped platform admission', () => {
       expect(() => validateWindows(report, { ...native('windows'), childExitCode: 1 })).toThrow();
     }
   });
+  it('binds the Windows ACL implementation to SID-typed explicit and inherited rules with owner-only writes and readback', () => {
+    const source = fs.readFileSync(new URL('../../src/cli/config.ts', import.meta.url), 'utf8');
+    const script = source.slice(source.indexOf('const aclScript = `'), source.indexOf('async function windowsAcl('));
+    expect(script).not.toMatch(/Get-Acl|Set-Acl|Test-Path|New-Object|NTAccount|Import-Module|PSModulePath/);
+    for (const text of [
+      '[System.Security.AccessControl.DirectorySecurity]::new()', '[System.Security.AccessControl.FileSecurity]::new()',
+      "[System.Security.AccessControl.FileSystemAccessRule]::new($sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')",
+      "[System.Security.AccessControl.FileSystemAccessRule]::new($sid, 'FullControl', 'Allow')",
+      '$acl.SetOwner($sid)', '$acl.SetAccessRuleProtection($true, $false)', '$acl.AddAccessRule($rule)',
+      '[System.IO.Directory]::SetAccessControl($p, $acl)', '[System.IO.File]::SetAccessControl($p, $acl)',
+      '[System.IO.Directory]::GetAccessControl($p)', '[System.IO.File]::GetAccessControl($p)',
+      "if ($acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { throw 'owner' }",
+      'foreach ($rule in $acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))',
+      "if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -ne $sid.Value) { throw 'shared' }",
+    ]) expect(script).toContain(text);
+    expect(script.indexOf('[System.IO.File]::SetAccessControl')).toBeLessThan(script.indexOf('[System.IO.Directory]::GetAccessControl'));
+    expect(source).toContain('{ env, windowsHide: true, timeout: 15_000, maxBuffer: 4096 }');
+    expect(source).toContain('if (process.platform === "win32") await windowsAcl(path, "verify");');
+  });
+  it('keeps genuine owner-only login and load before both original inherited-ACL refusal paths in the single native leaf', () => {
+    const source = fs.readFileSync(new URL('../cli/config.test.ts', import.meta.url), 'utf8');
+    const proof = source.slice(source.indexOf('const inheritedAclProof = `'), source.indexOf('describe("private login config"'));
+    expect(proof).not.toMatch(/Get-Acl|NTAccount|Import-Module|PSModulePath/);
+    for (const text of ['@($env:ZENITH_TEST_ACL_DIRECTORY, $env:ZENITH_TEST_ACL_FILE)', '[System.IO.Directory]::GetAccessControl($p)', '[System.IO.File]::GetAccessControl($p)', '$acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value', '$acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])', '$_.IsInherited', "$_.AccessControlType -eq 'Allow'", '$_.IdentityReference.Value -eq $everyone', '$owner -ne $everyone', '($_.FileSystemRights -band $rights) -eq $rights', 'exit $fixtureExit']) expect(proof).toContain(text);
+    const leaf = source.slice(source.indexOf('it.runIf(process.platform === "win32")'), source.indexOf('  it("accepts CRLF stdin'));
+    const order = ['const privateLogin = await login();', 'expect(privateLogin.stdout + privateLogin.stderr).not.toContain(TOKEN);', 'expect(privateLogin.code).toBe(0);', 'const saved = await loadConfig(home);', 'expect(saved?.token === TOKEN).toBe(true);', 'await rm(directory, { recursive: true });', 'await windowsFixtureCommand(join(windows, "System32", "icacls.exe")', 'inheritedAclProof],', 'await expect(loadConfig(home)).rejects.toMatchObject({ code: "unsafe_config" });', 'const result = await login(); expect(result.code).toBe(2);'];
+    let position = -1;
+    for (const text of order) { const next = leaf.indexOf(text); expect(next).toBeGreaterThan(position); position = next; }
+    expect(source).toContain('{ env, windowsHide: true, timeout: 3_000, maxBuffer: 4096 }');
+    expect(validateWindows(windows(), { ...native('windows'), childExitCode: 0 })).toMatchObject({ passed: 1, excludedSiblingCount: 15 });
+  });
   it('captures the actual buffer-encoded prerequisite child stream only after successful exit and close', async () => {
     const stages = createWindowsPrerequisiteStages();
     let callbackPassed = false, binaryChunks = 0, closePassed = false;

@@ -37,14 +37,14 @@ async function windowsAclPrerequisite(directory: string) {
   for (const key of ["SystemRoot", "WINDIR", "USERPROFILE", "TEMP", "TMP"]) if (process.env[key]) env[key] = process.env[key];
   const script = `$ErrorActionPreference = 'Stop'
 [Console]::Out.WriteLine('ZENITH_ACL_STAGE:entry'); [Console]::Out.Flush()
-try { $acl = Get-Acl -LiteralPath $env:ZENITH_TEST_ACL_HOME }
+try { $acl = [System.IO.Directory]::GetAccessControl($env:ZENITH_TEST_ACL_HOME) }
 catch [System.Management.Automation.CommandNotFoundException] { exit 51 }
 catch { exit 52 }
 [Console]::Out.WriteLine('ZENITH_ACL_STAGE:get_acl'); [Console]::Out.Flush()
 try { $null = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value }
 catch { exit 53 }
 [Console]::Out.WriteLine('ZENITH_ACL_STAGE:owner_sid'); [Console]::Out.Flush()
-try { $null = $acl.Access }
+try { $null = $acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) }
 catch { exit 54 }
 [Console]::Out.WriteLine('ZENITH_ACL_STAGE:access'); [Console]::Out.Flush()`;
   await new Promise<void>((resolve, reject) => {
@@ -85,11 +85,12 @@ $everyone = 'S-1-1-0'
 $rights = [System.Security.AccessControl.FileSystemRights]::ReadAndExecute
 $fixtureExit = 41
 foreach ($p in @($env:ZENITH_TEST_ACL_DIRECTORY, $env:ZENITH_TEST_ACL_FILE)) {
-  $acl = Get-Acl -LiteralPath $p
+  if ([System.IO.Directory]::Exists($p)) { $acl = [System.IO.Directory]::GetAccessControl($p) }
+  else { $acl = [System.IO.File]::GetAccessControl($p) }
   $owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
-  $inherited = @($acl.Access | Where-Object {
+  $inherited = @($acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) | Where-Object {
     $_.IsInherited -and $_.AccessControlType -eq 'Allow' -and
-    $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -eq $everyone -and
+    $_.IdentityReference.Value -eq $everyone -and
     $owner -ne $everyone -and ($_.FileSystemRights -band $rights) -eq $rights
   })
   if ($inherited.Count -lt 1) { exit $fixtureExit }
@@ -119,6 +120,12 @@ describe("private login config", () => {
 
   it.runIf(process.platform === "win32")("Windows refuses inherited ACLs that grant other identities access", async () => {
     const { directory, file } = configPaths(home);
+    const privateLogin = await login();
+    expect(privateLogin.stdout + privateLogin.stderr).not.toContain(TOKEN);
+    expect(privateLogin.code).toBe(0);
+    const saved = await loadConfig(home);
+    expect(saved?.token === TOKEN).toBe(true);
+    await rm(directory, { recursive: true });
     const windows = process.env.SystemRoot ?? "C:\\Windows";
     const env: NodeJS.ProcessEnv = { NODE_ENV: "test" };
     for (const key of ["SystemRoot", "WINDIR", "USERPROFILE", "TEMP", "TMP"]) if (process.env[key]) env[key] = process.env[key];

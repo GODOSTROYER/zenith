@@ -32,23 +32,26 @@ const aclScript = `
 $ErrorActionPreference = 'Stop'
 $p = $env:ZENITH_CLI_ACL_PATH
 $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+$directory = [System.IO.Directory]::Exists($p)
 if ($env:ZENITH_CLI_ACL_ACTION -eq 'secure') {
-  if (Test-Path -LiteralPath $p -PathType Container) {
-    $acl = New-Object System.Security.AccessControl.DirectorySecurity
-    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+  if ($directory) {
+    $acl = [System.Security.AccessControl.DirectorySecurity]::new()
+    $rule = [System.Security.AccessControl.FileSystemAccessRule]::new($sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
   } else {
-    $acl = New-Object System.Security.AccessControl.FileSecurity
-    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', 'Allow')
+    $acl = [System.Security.AccessControl.FileSecurity]::new()
+    $rule = [System.Security.AccessControl.FileSystemAccessRule]::new($sid, 'FullControl', 'Allow')
   }
   $acl.SetOwner($sid)
   $acl.SetAccessRuleProtection($true, $false)
   $acl.AddAccessRule($rule)
-  Set-Acl -LiteralPath $p -AclObject $acl
+  if ($directory) { [System.IO.Directory]::SetAccessControl($p, $acl) }
+  else { [System.IO.File]::SetAccessControl($p, $acl) }
 }
-$acl = Get-Acl -LiteralPath $p
-if ($acl.Owner -ne $sid.Value -and $acl.Owner -ne $sid.Translate([System.Security.Principal.NTAccount]).Value) { throw 'owner' }
-foreach ($rule in $acl.Access) {
-  if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { throw 'shared' }
+if ($directory) { $acl = [System.IO.Directory]::GetAccessControl($p) }
+else { $acl = [System.IO.File]::GetAccessControl($p) }
+if ($acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { throw 'owner' }
+foreach ($rule in $acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])) {
+  if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -ne $sid.Value) { throw 'shared' }
 }
 `;
 

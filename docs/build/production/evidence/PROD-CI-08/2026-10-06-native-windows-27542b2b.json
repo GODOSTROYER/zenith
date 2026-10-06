@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "status": "PASSED_EXACT_NATIVE_WINDOWS_LEAF",
+  "sourceCommit": "27542b2bb9ab401fb3233980755c6458119fc0cf",
+  "run": {
+    "id": 37440573585,
+    "attempt": 1,
+    "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37440573585",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "windows": {
+    "jobId": 112193052021,
+    "jobUrl": "https://github.com/GODOSTROYER/zenith/actions/runs/37440573585/job/112193052021",
+    "artifactSha256": "dbbfac6d8f4bc2c8a32e77e81d223026db5581a4bb9a9366d34629321f85c116",
+    "platform": "win32",
+    "architecture": "x64",
+    "runnerOS": "Windows",
+    "hostedRunnerLabel": "windows-2022",
+    "nodeVersion": "22.23.3",
+    "machineBinding": "Passed unchanged validateNative guard binds actual process platform/arch, hosted runner and source; job API independently labels windows-2022.",
+    "unexported": [
+      "Exact Windows OS build",
+      "Exact WindowsPowerShell version",
+      "npm version"
+    ],
+    "leaf": {
+      "name": "private login config Windows refuses inherited ACLs that grant other identities access",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "excludedSiblingCount": 15
+    },
+    "cleanup": "complete",
+    "reviewedOwnedSources": [
+      {
+        "file": "src/cli/config.ts",
+        "sha256": "bb0fe7d24ea5ce698bedfeca1335d5b95dfba94e30054bb63c1e7ef63750cea4"
+      },
+      {
+        "file": "tests/ci/skipped-platforms.test.ts",
+        "sha256": "8edc4e64c7ee7ca704d82d4c67576e605e1b0b88cf5f783ab2a4be52764a1b59"
+      },
+      {
+        "file": "tests/cli/config.test.ts",
+        "sha256": "723424de36343096a915ec989c5af2ad524ffb07190231c856f6143c8813c98a"
+      }
+    ],
+    "reviewFreezeSha256": "bdd18c928ec9b359e9be86466be5d7ffe7f399c7bbc606fec4acd4efb8a83e4b",
+    "independentSourceReviewSha256": "4d71cf656d38351b2ffdd5f232078d32eb9c40d7ff4674aae8ac0894af5d1833",
+    "executedAssertionsScope": [
+      "Actual owner-only private login and successful load on fresh captured home, without token output.",
+      "Remove only completed owned config directory before constructing original unsafe inherited fixture.",
+      "Both original directory and file inherited Everyone Allow ReadAndExecute predicates proved through genuine SID-typed ACL reads.",
+      "Production loadConfig rejects unsafe_config; actual login refuses with exit2 and no credential echo."
+    ],
+    "sourceConclusion": "Direct .NET Framework ACL APIs preserve owner-only secure writes and exact owner SID/all explicit-plus-inherited foreign-Allow refusal.",
+    "causalLimit": "Fresh pass supports this narrow correction. Prior laststage entry identified uncompleted Get-Acl; specific cmdlet discovery/autoload mechanism was not measured."
+  },
+  "systemd": {
+    "jobId": 112193051725,
+    "artifactSha256": "5d2b08e259b58a003f05192a04526b1ced8d0a1f017e22cc85866e60cb2c3739",
+    "tools": {
+      "node": "22.23.3",
+      "go": "go version go1.27.1 linux/amd64"
+    },
+    "leaf": {
+      "name": "TestRealSystemctlAndJournalctl",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "excludedSiblingCount": 0
+    },
+    "cleanup": "complete",
+    "notAddedAsAnotherBaselineWindowsIdentity": true
+  },
+  "coverageContribution": {
+    "file": "tests/cli/config.test.ts",
+    "identity": "private login config Windows refuses inherited ACLs that grant other identities access",
+    "identitySha256": "523d79a2c8bfa8306fba3d3f063f0efe529681d5ed19d45039f1404ffca2a71e",
+    "successfulProcess": true,
+    "processExit": 0,
+    "exactBaselineIdentityCount": 1,
+    "excluded15AreNotExecutedSkips": true,
+    "baselineObservationMatched": true,
+    "doNotSumOverlappingReports": true
+  },
+  "priorWindowsFailuresPreserved": true,
+  "noRequirementOrReleasePromotion": true,
+  "observerExecutedRuntimeLocally": false
+}

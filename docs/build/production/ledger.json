@@ -1073,6 +1073,14 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "Fresh771 main16/native2 all passed; unit19521/0/1521, Typecheck/Lint/Smoke/Gimbal success; seven strict cohorts passed, guest152/systemd15/browser24+44/native22 each with owned cleanup. Separate f36 kind55 component and771 network5/Temporal1 receipts retained without adding counts. Literal CI test matrix satisfied in documented scopes;1521 skips have exact118 unchanged file rows and explicit unavailable prerequisites. Per-leaf assertion/expected-skips exports remain unavailable; no default product/cloud acceptance."
+        },
+        {
+          "level": "local_engine",
+          "commit": "27542b2bb9ab401fb3233980755c6458119fc0cf",
+          "result": "Deduplicated skipped-case union:1517 of1527 original identities passed in successful supported processes;9 backend-inapplicable variants retain skips,7 distinct genuine PostgreSQL counterparts passed;1 private GitHub App secure configuration unavailable. Most runtime1fb30b8d, early PG743b9531 unchanged-source bindings; native Windows27542b2b real1P0F0S/15excluded with positive login and inherited-access refusals; Linux systemd1P0F0S, optional GoTofu2P0F0S separately. Fresh platform3034P0F8S/all1124, workflows1275P0F0S/all62, tofu3934P0F0S, OPA242P0F0S, kind6+1+48; scopes/counts overlap, not summed. Owned cleanup complete; prior failures retained. Complete final checkpoint CI pending at publication; no requirement or release promotion.",
+          "artifact": "docs/build/production/verification/SKIP-CLOSURE-2026-10-06.md",
+          "coverageArtifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-skip-closure.json",
+          "nativeRunId": 37440573585
         }
       ],
       "requiredEvidence": [

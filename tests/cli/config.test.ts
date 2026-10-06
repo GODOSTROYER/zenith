@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { chmod, lstat, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { configPaths, loadConfig, saveConfig } from "@/cli/config";
 import { TOKEN, fixture, invoke } from "./support";
@@ -16,6 +17,28 @@ const environment = (url: string) => ({ ZENITH_URL: url });
 async function login(input = TOKEN + "\n") {
   return invoke(server.url, ["login", "--token-stdin", "--json"], input, { home, env: environment(server.url) });
 }
+
+// Grant only the disposable home; the child directory/file must inherit the rule.
+async function windowsFixtureCommand(executable: string, args: string[], env: NodeJS.ProcessEnv, phase: "setup" | "verification") {
+  await new Promise<void>((resolve, reject) => execFile(executable, args,
+    { env, windowsHide: true, timeout: 3_000, maxBuffer: 4096 },
+    error => error ? reject(new Error(`Windows inherited ACL fixture ${phase} failed.`)) : resolve()));
+}
+const inheritedAclProof = `
+$ErrorActionPreference = 'Stop'
+$everyone = 'S-1-1-0'
+$rights = [System.Security.AccessControl.FileSystemRights]::ReadAndExecute
+foreach ($p in @($env:ZENITH_TEST_ACL_DIRECTORY, $env:ZENITH_TEST_ACL_FILE)) {
+  $acl = Get-Acl -LiteralPath $p
+  $owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+  $inherited = @($acl.Access | Where-Object {
+    $_.IsInherited -and $_.AccessControlType -eq 'Allow' -and
+    $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -eq $everyone -and
+    $owner -ne $everyone -and ($_.FileSystemRights -band $rights) -eq $rights
+  })
+  if ($inherited.Count -lt 1) { throw 'fixture inheritance unproved' }
+}
+`;
 
 describe("private login config", () => {
   it("stores stdin atomically, uses it for auth, and logout removes it", async () => {
@@ -38,7 +61,14 @@ describe("private login config", () => {
   });
 
   it.runIf(process.platform === "win32")("Windows refuses inherited ACLs that grant other identities access", async () => {
-    const { directory, file } = configPaths(home); await mkdir(directory); await writeFile(file, JSON.stringify({ version: 1, baseUrl: server.url, token: TOKEN }));
+    const { directory, file } = configPaths(home);
+    const windows = process.env.SystemRoot ?? "C:\\Windows";
+    const env: NodeJS.ProcessEnv = { NODE_ENV: "test" };
+    for (const key of ["SystemRoot", "WINDIR", "USERPROFILE", "TEMP", "TMP"]) if (process.env[key]) env[key] = process.env[key];
+    await windowsFixtureCommand(join(windows, "System32", "icacls.exe"), [home, "/grant", "*S-1-1-0:(OI)(CI)(RX)"], env, "setup");
+    await mkdir(directory); await writeFile(file, JSON.stringify({ version: 1, baseUrl: server.url, token: TOKEN }));
+    await windowsFixtureCommand(join(windows, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), ["-NoProfile", "-NonInteractive", "-Command", inheritedAclProof],
+      { ...env, ZENITH_TEST_ACL_DIRECTORY: directory, ZENITH_TEST_ACL_FILE: file }, "verification");
     await expect(loadConfig(home)).rejects.toMatchObject({ code: "unsafe_config" });
     const result = await login(); expect(result.code).toBe(2); expect(result.stdout + result.stderr).not.toContain(TOKEN);
   });

@@ -66,10 +66,14 @@ export function failureDiagnostics(child, report, reportState = 'missing') {
   const states = ['passed', 'failed', 'pending', 'skipped', 'todo'];
   const selectedLeafStatus = selected.length === 1 && states.includes(selected[0]?.status) ? selected[0].status : selected.length === 0 ? 'missing' : 'invalid';
   const reporterTimeout = selected.some(a => Array.isArray(a.failureMessages) && a.failureMessages.some(m => typeof m === 'string' && /^(?:Error: )?(?:Test|Hook) timed out in [0-9]+ms(?:[.\n]|$)/.test(m)));
+  const failureMessages = selected.length === 1 && selectedLeafStatus === 'failed' && Array.isArray(selected[0].failureMessages) ? selected[0].failureMessages.filter(m => typeof m === 'string') : [];
+  const failureKind = failureMessages.some(m => /^Error: Windows inherited ACL fixture setup failed[.]/.test(m)) ? 'fixture_setup' : failureMessages.some(m => /^Error: Windows inherited ACL fixture verification failed[.]/.test(m)) ? 'fixture_verification' : failureMessages.some(m => /^AssertionError:/.test(m)) ? 'assertion' : failureMessages.length ? 'other_test_failure' : null;
+  const testLine = failureMessages.map(m => m.match(/[\\/]tests[\\/]cli[\\/]config[.]test[.]ts:([0-9]+):[0-9]+/)?.[1]).find(Boolean);
+  const failureAtTestLine = testLine && Number.isSafeInteger(Number(testLine)) && Number(testLine) > 0 && Number(testLine) <= 10000 ? Number(testLine) : null;
   const childTimeout = child?.error?.code === 'ETIMEDOUT';
   const classification = childTimeout ? 'child_timeout' : child?.error?.code === 'ENOBUFS' ? 'child_output_overflow' : child?.error ? 'child_spawn_error' : child?.signal ? 'child_signal' : reporterTimeout ? 'selected_leaf_timeout' : child && !Number.isInteger(child.status) ? 'child_unsettled' : child?.status !== undefined && child.status !== 0 ? 'child_nonzero_exit' : reportState !== 'parsed' ? 'report_' + (reportState === 'malformed' ? 'malformed' : 'missing') : selectedLeafStatus !== 'passed' ? 'selected_leaf_' + selectedLeafStatus : 'report_admission_refused';
   const count = key => Number.isSafeInteger(report?.[key]) && report[key] >= 0 ? report[key] : null;
-  return { classification, childExitCode: Number.isInteger(child?.status) ? child.status : null, timeout: childTimeout || reporterTimeout, selectedLeafStatus, selectedLeafCount: selected.length, passed: count('numPassedTests'), failed: count('numFailedTests'), pending: count('numPendingTests'), todo: count('numTodoTests'), failedSuites: count('numFailedTestSuites') };
+  return { classification, failureKind, failureAtTestLine, childExitCode: Number.isInteger(child?.status) ? child.status : null, timeout: childTimeout || reporterTimeout, selectedLeafStatus, selectedLeafCount: selected.length, passed: count('numPassedTests'), failed: count('numFailedTests'), pending: count('numPendingTests'), todo: count('numTodoTests'), failedSuites: count('numFailedTestSuites') };
 }
 function capture(command, args, options = {}) {
   const { observe, ...spawnOptions } = options;

@@ -89,6 +89,25 @@ describe('native skipped platform admission', () => {
     expect(JSON.stringify(diagnostic)).not.toContain('private home');
     expect(() => validateWindows(report, { ...native('windows'), childExitCode: 0 })).toThrow();
   });
+  it.each(['setup', 'verification'])('publishes only a fixed fixture %s failure kind and test line', phase => {
+    const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
+    report.testResults[0].assertionResults[0].failureMessages = [`Error: Windows inherited ACL fixture ${phase} failed.\n at C:\\private-home\\tests\\cli\\config.test.ts:77:5\nprivate credential`];
+    const diagnostic = failureDiagnostics({ status: 1 }, report, 'parsed');
+    expect(diagnostic).toMatchObject({ failureKind: 'fixture_' + phase, failureAtTestLine: 77, selectedLeafStatus: 'failed' });
+    expect(JSON.stringify(diagnostic)).not.toMatch(/private-home|private credential|config.test.ts/);
+    expect(() => validateWindows(report, { ...native('windows'), childExitCode: 1 })).toThrow();
+  });
+  it('extracts a bounded test line for actual assertion failure and ignores unrelated/private paths', () => {
+    const report = windows(); report.testResults[0].assertionResults[0].status = 'failed';
+    report.testResults[0].assertionResults[0].failureMessages = ['AssertionError: private credential\n at /private/home/tests/cli/config.test.ts:80:3'];
+    expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ failureKind: 'assertion', failureAtTestLine: 80 });
+    for (const message of ['Error: private-home:99:5', 'Error: private credential\n at /private/home/tests/cli/config.test.ts:99999:3']) {
+      report.testResults[0].assertionResults[0].failureMessages = [message];
+      expect(failureDiagnostics({ status: 1 }, report, 'parsed')).toMatchObject({ failureKind: 'other_test_failure', failureAtTestLine: null });
+    }
+    report.testResults[0].assertionResults[0].status = 'passed';
+    expect(failureDiagnostics({ status: 0 }, report, 'parsed')).toMatchObject({ failureKind: null, failureAtTestLine: null });
+  });
   it('accepts actual Go exact leaf without exposing journal text', () => { const result = validateGo(go()); expect(result).toEqual({ name: GO_NAME, passed: 1, failed: 0, skipped: 0, excludedSiblingCount: 0 }); expect(JSON.stringify(result)).not.toContain('private journal'); });
   it.each(['skip', 'fail', 'pause'])('refuses Go %s', action => { expect(() => validateGo(go(action))).toThrow(); });
   it('refuses renamed, duplicated, missing and malformed Go leaves', () => { for (const raw of [go('pass', 'Other'), go() + '\n' + go(), '', '{', JSON.stringify({ Action: 'pass', Package: GO_PACKAGE }), go().replace(GO_PACKAGE, 'other/package')]) expect(() => validateGo(raw)).toThrow(); });

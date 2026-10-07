@@ -1245,6 +1245,12 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-9b568108-ci-jobs.json",
           "runId": 37663658515,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515"
+        },
+        {
+          "level": "local_engine",
+          "commit": "b69a6c121ee1fae033246231ffad85d4d9f3b95f",
+          "result": "Root focused native Mac ARM64 PostgreSQL16.15 successor:41 passed/0 failed/0 skipped (23 actual PostgreSQL,17 PGlite,1 pure contract). Exact schema43 upgrade and historical tombstone controls passed; cleanup confirmed. Full canonical gates and pushed CI remain pending; earlier broader65/12/0 retained.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-index-tombstone-b69a6c12.json"
         }
       ],
       "requiredEvidence": [

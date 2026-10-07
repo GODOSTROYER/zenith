@@ -1,3 +1,5 @@
+PROD-CI-08: Results sourceb69a6c12 focused native41/0/0;23 PostgreSQL/17 PGlite/1 contract; full mandatory successor pending, earlier65/12/0 retained.
+
 PROD-CI-09: in_progress;9b568108; all20CIjobs inspected14passed/6failed.
 [Report](verification/CI-2026-10-07-9b568108.md).
 

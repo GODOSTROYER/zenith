@@ -70,3 +70,7 @@ Astra checked concrete browser approval wiring: validated review view and semant
 ## WIP checkpoint request
 
 User requested immediate WIP commit and complete in-progress handoff. `WIP-HANDOFF-2026-10-08.md` records integrated17 repairs, exact executed results, active local packets, remaining failures/skips and continuation. Latest root23-suite run1626 passed /0 failed /6 Linux-only skipped; compiler9b895088 exit0. Native predecessor65/12/0 stays failed. One historical42 reapplication fixture scope saved as WIP; successor execution pending. No push, requirement promotion or completed verification claim.
+
+## Published-context update requested
+
+User requested immediate commit and GitHub publication with updated progress context. Root native successor at `b69a6c121ee1fae033246231ffad85d4d9f3b95f`:41 passed/0 failed/0 skipped, including23 actual PostgreSQL,17 PGlite and1 pure contract case. Historical JSON repair1c449864 and schema upgrade fixtureb69a6c12 source-reviewed by Astra. Server stop exit0, owned data/socket removed; minimum27,039,387,648bytes above22GiB floor. Earlier broader65/12/0 remains failed and unsuperseded for unrerun migration cases. Public sanitized receipt added under CI08; no requirement state or release flag promoted. Final pushed SHA CI must be inspected separately.

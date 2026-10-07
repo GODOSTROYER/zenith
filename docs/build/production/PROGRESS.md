@@ -1,3 +1,7 @@
+## 8 October2026: focused native repair checkpoint
+
+Sourceb69a6c12: root41 passed/0 failed/0 skipped,23 actual PostgreSQL/17 PGlite/1 contract. Owned services cleaned; minimum25.18GiB free above22GiB floor. Compiler9b895088 passed; root CI/browser1626/0/6 with Linux-only supervisor controls open. Earlier broader65/12/0 retained; remaining historical migration and Temporal rehearsal work active. Ledger recomputed10 verified/49 in_progress/19 planned across78; all release flagsfalse. [Progress context](WIP-HANDOFF-2026-10-08.md). New pushed CI pending.
+
 ## 7 October 2026: native migration42 acceptance
 
 Tested9b568108: migration9/0/48filtered; effects96/0/0,48 actual networkedPG and

@@ -1,5 +1,9 @@
 # WIP verification checkpoint, 8 October 2026
 
+Updated green **focused lane**: source `b69a6c121ee1fae033246231ffad85d4d9f3b95f`,41 passed /0 failed /0 skipped. Includes23 actual PostgreSQL,17 PGlite and1 pure contract control; owned services cleaned. New fixes `1c449864` and `b69a6c12` correct historical/upgrade fixture JSON binding without changing production guards. Complete project verification and fresh GitHub CI remain pending.
+
+This update is progress context for the other machine. Previous broader failed attempts remain recorded below; the focused green result does not erase their unrerun cases.
+
 ## Current source and scope
 
 Branch: `codex/production-2026-10-02`. Last published source: `6a82cc4c9368c5194727d2f8e06a2becc069ed24`.
@@ -62,9 +66,9 @@ Baseline6a CI remains historical: main9 successful /7 failed jobs; separate nati
 Root serializes heavy verification and owns integration, public ledger/results, resource guard, push and CI verdict. Latest native services stopped; no root test process was running when this document was written.
 
 - **Astra ultra reviewer:** independent source/security decisions, migration43 and historical fixture boundaries; decisions recorded in `verification/REPAIR-DECISIONS-2026-10-08.md`. Engineering review does not grant cloud authority or impersonate browser-human approvals.
-- **Authority worker:** `codex/verify-authority-repairs-20261008`; uncommitted two-line historical JSON cast/diagnostic correction, awaiting final review. Native PostgreSQL binds serialized JSON through `::text::jsonb`; direct `::jsonb` double-encodes. Historical migration fixture proposals remain pending review. Also diagnosed Temporal upgrade-rehearsal ordering and protobuf type-identity issues; no broader SDK/dependency change authorized by this checkpoint.
-- **Provider worker:** `codex/verify-provider-repairs-20261008`; acquired43 packet on own branch to repair only its new index test. Proposed text-to-JSONB binding plus strict pre/post JSON type/object/exact payload checks, awaiting review/commit. Root must cherry-pick only final test repair, not duplicate43 base commit.
-- **Root follow-up:** this WIP saves42's reapplication scoped through42, rather than incorrectly expecting pending43 absent. Private native controller now creates canonical anon/authenticated/service roles and uses default plus JSON reporting; successor not executed yet.
+- **Authority worker:** `codex/verify-authority-repairs-20261008`; historical JSON cast/diagnostic correction reviewed, committed and integrated as `1c449864`; its native successor passed. Native PostgreSQL binds serialized JSON through `::text::jsonb`; direct `::jsonb` double-encodes. Historical migration fixture proposals remain pending review. Also diagnosed Temporal upgrade-rehearsal ordering and protobuf type-identity issues; no broader SDK/dependency change authorized by this checkpoint.
+- **Provider worker:** `codex/verify-provider-repairs-20261008`; acquired43 packet on own branch to repair only its new index test. Text-to-JSONB binding plus strict pre/post JSON type/object/exact payload checks reviewed and integrated as `b69a6c12`; actual native upgrade successor passed. Root must cherry-pick only final test repair, not duplicate43 base commit.
+- **Root follow-up:** this WIP saves42's reapplication scoped through42, rather than incorrectly expecting pending43 absent. Private native controller now creates canonical anon/authenticated/service roles and uses default plus JSON reporting; focused index/tombstone successor executed41/0/0; full migrations suite still pending.
 
 Worker worktrees and private receipts live under `~/.codex/zenith-production/`. They are local, not GitHub attachments. Missing local candidates on another machine must be requested, never assumed present. User `.DS_Store` files and `docs/product-discovery/` are untouched.
 

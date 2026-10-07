@@ -76,7 +76,7 @@ export async function create(sql: Sql, input: MixedRunWrite): Promise<MixedRunRo
   return sql.tx(async (tx) => {
     const rows = await tx.query<Row>(
       `insert into platform.mixed_runs (workspace_id, parent_operation_id, environment_id, parent_digest, desired_digest, state, state_digest, open, next_deadline_at)
-       values ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9) on conflict (workspace_id, parent_operation_id) do nothing returning ${COLUMNS}`,
+       values ($1,$2,$3,$4,$5,$6::text::jsonb,$7,$8,$9) on conflict (workspace_id, parent_operation_id) do nothing returning ${COLUMNS}`,
       [ws, requireText("parentOperationId", input.parentOperationId), requireText("environmentId", input.environmentId), input.parentDigest, input.desiredDigest,
         json(input.state), input.stateDigest, input.open, input.nextDeadlineAt]);
     if (!rows.length) throw new ControlStoreError("conflict", "A mixed run already exists for this parent operation.", { id: input.parentOperationId });
@@ -91,7 +91,7 @@ export async function save(sql: Sql, input: MixedRunWrite & { expectedVersion: n
   const parent = requireText("parentOperationId", input.parentOperationId);
   return sql.tx(async (tx) => {
     const rows = await tx.query<Row>(
-      `update platform.mixed_runs set parent_digest = $4, state = $5::jsonb, state_digest = $6, open = $7, next_deadline_at = $8, version = version + 1, updated_at = clock_timestamp()
+      `update platform.mixed_runs set parent_digest = $4, state = $5::text::jsonb, state_digest = $6, open = $7, next_deadline_at = $8, version = version + 1, updated_at = clock_timestamp()
        where workspace_id = $1 and parent_operation_id = $2 and version = $3 returning ${COLUMNS}`,
       [ws, parent, input.expectedVersion, input.parentDigest, json(input.state), input.stateDigest, input.open, input.nextDeadlineAt]);
     if (!rows.length) {
@@ -106,7 +106,7 @@ export async function save(sql: Sql, input: MixedRunWrite & { expectedVersion: n
 
 async function appendEvent(tx: Sql, workspaceId: string, parentOperationId: string, stateDigest: string, event: MixedRunWrite["event"]): Promise<void> {
   await tx.query(
-    `insert into platform.mixed_run_events (workspace_id, parent_operation_id, seq, kind, child_id, event, state_digest) values ($1,$2,$3,$4,$5,$6::jsonb,$7)`,
+    `insert into platform.mixed_run_events (workspace_id, parent_operation_id, seq, kind, child_id, event, state_digest) values ($1,$2,$3,$4,$5,$6::text::jsonb,$7)`,
     [workspaceId, parentOperationId, event.seq, event.kind, event.childId ?? null, json(event.data), stateDigest]);
 }
 

@@ -26,7 +26,7 @@ export function stopReasonText(reason: unknown): string | undefined {
   const r = reason as { kind?: string; dimension?: string; detail?: string };
   switch (r.kind) {
     case "budget": return `The ${(BUDGET_LABEL[r.dimension ?? ""] ?? "a").toLowerCase()} budget was reached. Nothing further ran.`;
-    case "provider_error": return r.detail === "scheduler_unavailable" ? "The workflow engine could not be reached." : r.detail === "source_commit_moved" ? "The repository no longer matches the pinned commit." : "The model or the step failed. It can be resumed from the last checkpoint.";
+    case "provider_error": return r.detail === "model_not_configured" ? "No model key is configured, so the run could not start. Set ANTHROPIC_API_KEY, then resume." : r.detail === "scheduler_unavailable" ? "The workflow engine could not be reached." : r.detail === "source_commit_moved" ? "The repository no longer matches the pinned commit." : "The model or the step failed. It can be resumed from the last checkpoint.";
     case "model_refused": return "The model declined to continue.";
     case "model_truncated": return "A model reply was cut off, so it was not acted on.";
     case "cancelled": return "Cancelled by an operator.";

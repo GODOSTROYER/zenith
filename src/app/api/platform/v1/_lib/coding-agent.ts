@@ -45,6 +45,7 @@ export async function agentAdmin(req: NextRequest): Promise<AgentRouteCaller> {
 export function mapAgentError(error: unknown): never {
   if (error instanceof AgentServiceError) {
     if (error.code === "not_found") throw notFound();
+    if (error.code === "model_not_configured") throw new BrokerError("platform_store_unavailable", error.message, "Set ANTHROPIC_API_KEY on the deployment, then retry.", { reason: "model_not_configured" });
     throw new BrokerError(error.code === "unavailable" ? "platform_store_unavailable" : error.code, error.message);
   }
   if (error instanceof ControlStoreError) {

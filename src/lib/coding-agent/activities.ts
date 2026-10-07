@@ -4,9 +4,10 @@
  * `agentStep` does one unit of work from the stored checkpoint (see
  * `executeRunStep`), heartbeating on every checkpoint and on a timer, and passes
  * Temporal's cancellation signal into the loop so a workflow cancel stops the
- * model call and persists the checkpoint. No model key on this worker is a
- * non-retryable `CodingAgentModelUnavailable`: the run is left failed and
- * resumable, never answered by a stand-in.
+ * model call and persists the checkpoint. The model key is OPTIONAL for the
+ * worker (it boots and serves every other workflow without it); a run without
+ * one fails fast with the explicit stop reason `model_not_configured`, left
+ * failed and resumable, never answered by a stand-in.
  */
 import { ApplicationFailure, CancelledFailure, Context } from "@temporalio/activity";
 import { ControlStoreError } from "@/lib/controlplane/db/errors";
@@ -15,7 +16,7 @@ import type { Sql } from "@/lib/controlplane/types";
 import type { CodingAgentActivities, CodingAgentRunInput, CodingAgentStepResult } from "@/lib/workflows/definitions/codingAgent";
 import { anthropicKeyPresent, anthropicProvider } from "./anthropic";
 import { createGithubSource } from "./github-source";
-import { AgentServiceError, executeRunStep, failRunStep, type AgentWorkerDeps } from "./service";
+import { AgentServiceError, ModelNotConfiguredError, executeRunStep, failRunStep, type AgentWorkerDeps } from "./service";
 import { platformRunStore } from "./store";
 
 const ID = /^[A-Za-z0-9_.:-]{1,128}$/;
@@ -76,7 +77,7 @@ export function createProductionCodingAgentActivities(db: Sql): CodingAgentActiv
   return createCodingAgentActivities({
     store: platformRunStore(db),
     provider: () => {
-      if (!anthropicKeyPresent()) throw ApplicationFailure.nonRetryable("No model key is configured on this worker.", "CodingAgentModelUnavailable");
+      if (!anthropicKeyPresent()) throw new ModelNotConfiguredError();
       return anthropicProvider();
     },
     readSource: source.read,

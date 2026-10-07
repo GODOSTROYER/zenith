@@ -32,7 +32,7 @@ const steps = proxyActivities<CodingAgentActivities>({
   startToCloseTimeout: "5m",
   scheduleToCloseTimeout: "15m",
   heartbeatTimeout: "30s",
-  retry: { maximumAttempts: 3, initialInterval: "5s", backoffCoefficient: 2, maximumInterval: "30s", nonRetryableErrorTypes: ["CodingAgentContractInvalid", "CodingAgentModelUnavailable"] },
+  retry: { maximumAttempts: 3, initialInterval: "5s", backoffCoefficient: 2, maximumInterval: "30s", nonRetryableErrorTypes: ["CodingAgentContractInvalid", "model_not_configured"] },
   cancellationType: ActivityCancellationType.WAIT_CANCELLATION_COMPLETED,
 });
 const finalizer = proxyActivities<CodingAgentActivities>({ startToCloseTimeout: "30s", retry: { maximumAttempts: 5, initialInterval: "2s" } });

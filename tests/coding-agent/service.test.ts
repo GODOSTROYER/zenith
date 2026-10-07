@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { snapshotFromFiles } from "@/lib/analysis";
 import { digest } from "@/lib/controlplane/digest";
 import { AdoptionRefused, AGENT_PLAN_STAGE, agentProposalInput, assertAdoptable } from "@/lib/coding-agent/proposal-sink";
-import { AgentServiceError, cancelRun, createRun, executeRunStep, failRunStep, resumeRun, type AgentCaller, type AgentControlDeps, type AgentWorkerDeps, type RunLauncher, type SourceReader } from "@/lib/coding-agent/service";
+import { AgentServiceError, ModelNotConfiguredError, cancelRun, createRun, executeRunStep, failRunStep, resumeRun, type AgentCaller, type AgentControlDeps, type AgentWorkerDeps, type RunLauncher, type SourceReader } from "@/lib/coding-agent/service";
 import { memoryRunStore, type CodingAgentRunRow } from "@/lib/coding-agent/store";
 import { statelessGoodAgent } from "@/lib/coding-agent/eval/scripted";
 import type { ModelProvider, ProposalArtifact } from "@/lib/coding-agent/types";
@@ -76,6 +76,26 @@ describe("control: create, resume, cancel", () => {
     await expect(createRun(w.control, caller(), { ...REQ, limits: { toolCalls: 0 } })).rejects.toThrow(/positive integer/);
     expect(await w.store.list("ws_1")).toEqual([]);
     expect(w.starts).toEqual([]);
+  });
+
+  it("refuses up front with model_not_configured when no model key is configured, recording nothing", async () => {
+    const w = world();
+    await expect(createRun({ ...w.control, modelConfigured: () => false }, caller(), REQ)).rejects.toMatchObject({ code: "model_not_configured", message: expect.stringContaining("model_not_configured") });
+    expect(await w.store.list("ws_1")).toEqual([]);
+    expect(w.starts).toEqual([]);
+  });
+
+  it("a worker without a key fails the run fast with model_not_configured (no repository read) and the run stays resumable", async () => {
+    const w = world();
+    const row = await createRun(w.control, caller(), REQ);
+    let reads = 0;
+    const deps = w.worker({ provider: undefined, readSource: async (...a) => { reads += 1; return world().worker().readSource(...a); } });
+    const noKey: AgentWorkerDeps = { ...deps, provider: () => { throw new ModelNotConfiguredError(); } };
+    expect(await executeRunStep(noKey, { workspaceId: "ws_1", runId: row.id })).toEqual({ status: "failed" });
+    expect(reads).toBe(0);
+    expect((await w.store.get("ws_1", row.id))?.stopReason).toEqual({ kind: "provider_error", detail: "model_not_configured" });
+    await resumeRun(w.control, caller(), row.id);
+    expect((await drive(() => w.worker(), row)).status).toBe("completed");
   });
 
   it("an unreachable workflow engine leaves a recorded, failed, resumable run and a clear refusal", async () => {

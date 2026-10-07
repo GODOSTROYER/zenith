@@ -85,7 +85,7 @@ describe("codingAgentRunWorkflow on real Temporal", () => {
     const finalized: { outcome: string; detail: string }[] = [];
     install(h, {
       async agentStep() {
-        throw ApplicationFailure.nonRetryable("model unavailable", "CodingAgentModelUnavailable");
+        throw ApplicationFailure.nonRetryable("model not configured", "model_not_configured");
       },
       async agentFinalize(i) {
         finalized.push({ outcome: i.outcome, detail: i.detail });

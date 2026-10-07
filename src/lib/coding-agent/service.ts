@@ -63,6 +63,8 @@ export interface AgentControlDeps {
   resolveSource: SourceResolver;
   launcher: RunLauncher;
   newId?: () => string;
+  /** Whether a model is configured for runs. Absent means "assume yes" (tests). */
+  modelConfigured?: () => boolean;
 }
 
 export interface AgentWorkerDeps {
@@ -83,9 +85,17 @@ export interface CreateRunRequest {
 }
 
 export class AgentServiceError extends Error {
-  constructor(readonly code: "invalid_request" | "not_found" | "invalid_state" | "unavailable", message: string) {
+  constructor(readonly code: "invalid_request" | "not_found" | "invalid_state" | "unavailable" | "model_not_configured", message: string) {
     super(message);
     this.name = "AgentServiceError";
+  }
+}
+
+/** Thrown by a worker provider factory when no model key is configured. The key is optional for the worker as a whole. */
+export class ModelNotConfiguredError extends Error {
+  constructor() {
+    super("No model key is configured (ANTHROPIC_API_KEY), so coding-agent runs are unavailable.");
+    this.name = "ModelNotConfiguredError";
   }
 }
 
@@ -120,6 +130,7 @@ async function launchOrFail(deps: AgentControlDeps, row: CodingAgentRunRow): Pro
 /** Pin the source, record the run and start its workflow. Returns immediately; no model or repository work happens here. */
 export async function createRun(deps: AgentControlDeps, caller: AgentCaller, req: CreateRunRequest): Promise<CodingAgentRunRow> {
   const { model, limits } = validate(req);
+  if (deps.modelConfigured && !deps.modelConfigured()) throw new AgentServiceError("model_not_configured", "model_not_configured: no model key is configured on this deployment, so coding-agent runs are refused.");
   const ref = await deps.resolveSource({ workspaceId: caller.workspaceId, ...req.source });
   const id = deps.newId?.() ?? `car_${randomUUID()}`;
   const row = await deps.store.create({
@@ -213,6 +224,14 @@ export async function executeRunStep(deps: AgentWorkerDeps, options: StepOptions
             }).submit(artifact, context),
         }
       : undefined;
+  // Fail fast and explicitly when there is no model: no repository read, no retry loop, a resumable run.
+  try {
+    deps.provider();
+  } catch (error) {
+    if (!(error instanceof ModelNotConfiguredError)) throw error;
+    await deps.store.fail({ workspaceId: record.workspaceId, id: record.id, stopReason: { kind: "provider_error", detail: "model_not_configured" } });
+    return { status: "failed" };
+  }
   try {
     return await deps.readSource({ workspaceId: record.workspaceId, repository: ref.repository, ref: ref.commit, ...(ref.root ? { root: ref.root } : {}) }, async (snapshot, readRef) => {
       // The pinned commit or nothing: a moved ref cannot smuggle different bytes into a resumed run.

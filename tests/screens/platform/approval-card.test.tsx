@@ -4,6 +4,7 @@ import { approval, decision, DIGEST, DIGEST_2, EARLIER, NOW, operation, planView
 import { button, buttons, click, describedBy, flush, headingsDoNotSkip, mount, nameOf, text, type as typeInto } from "./render";
 
 const approver = { id: "user_other", role: "admin" as const };
+const SEMANTICS_DIGEST = "9".repeat(64);
 
 function props(over: Partial<ApprovalCardProps> = {}): ApprovalCardProps {
   return {
@@ -14,6 +15,7 @@ function props(over: Partial<ApprovalCardProps> = {}): ApprovalCardProps {
     capabilityTitle: "Apply an infrastructure plan",
     scopeNames: { workspace: "Acme", project: "Storefront", environment: "Production" },
     plan: planView(),
+    semanticsDigest: SEMANTICS_DIGEST,
     onApprove: vi.fn(),
     onReject: vi.fn(),
     now: NOW,
@@ -107,6 +109,14 @@ describe("<ApprovalCard> content", () => {
     expect(el.innerHTML).not.toContain(`>${DIGEST}<`); // the full digest is not printed, only carried in title and the copy action
   });
 
+  it("shows the reviewed executable semantics digest and explains what the approval binds", () => {
+    const el = mount(<ApprovalCard {...props()} />);
+    const code = [...el.querySelectorAll("code")].find((c) => c.getAttribute("title") === SEMANTICS_DIGEST);
+    expect(code?.textContent).toBe(`${SEMANTICS_DIGEST.slice(0, 12)}…`);
+    expect(nameOf(button(el, "Copy executable semantics digest"))).toBe("Copy executable semantics digest");
+    expect(text(el)).toContain("Your approval binds the exact revision, build recipe, scripts, migration class, targets, configuration, provider locks and state backend");
+  });
+
   it("counts down to expiry, and says so when it has passed", () => {
     const soon = mount(<ApprovalCard {...props()} />);
     expect(text(soon)).toContain("in 40 minutes");
@@ -143,7 +153,7 @@ describe("<ApprovalCard> decisions", () => {
     typeInto(el.querySelector("textarea")!, "  Reviewed the plan and the rollback notes.  ");
     click(button(el, "Approve"));
     await flush();
-    expect(onApprove).toHaveBeenCalledWith({ operationId: "op_1", proposalDigest: DIGEST, planDigest: PLAN_DIGEST, reason: "Reviewed the plan and the rollback notes." });
+    expect(onApprove).toHaveBeenCalledWith({ operationId: "op_1", proposalDigest: DIGEST, planDigest: PLAN_DIGEST, semanticsDigest: SEMANTICS_DIGEST, reason: "Reviewed the plan and the rollback notes." });
   });
 
   it("sends a rejection without a reason when none was typed", async () => {
@@ -251,7 +261,7 @@ describe("approved source plan review",()=>{
   it("shows immutable commit/recipe/archive evidence and submits the matching bound normalized digest",async()=>{
     const onApprove=vi.fn(),plan={...planView(),executableSourceDigest:"c".repeat(64),approvedSources:sources};
     const el=mount(<ApprovalCard {...props({plan,onApprove})}/>);expect(text(el)).toContain("retained source commits");expect(text(el)).toContain(sources[0].commit);expect(text(el)).toContain("Dockerfile");expect(text(el)).toContain("Source archive (zip)");
-    await click(button(el,"Approve Apply an infrastructure plan"));await flush();expect(onApprove).toHaveBeenCalledWith(expect.objectContaining({planDigest:plan.planDigest,proposalDigest:DIGEST}));
+    await click(button(el,"Approve Apply an infrastructure plan"));await flush();expect(onApprove).toHaveBeenCalledWith({operationId:"op_1",planDigest:plan.planDigest,proposalDigest:DIGEST,semanticsDigest:SEMANTICS_DIGEST});
   });
   it("source metadata never lets a mismatched plan digest bypass human review",()=>{
     const onApprove=vi.fn(),plan={...planView(),planDigest:DIGEST_2,executableSourceDigest:"c".repeat(64),approvedSources:sources};

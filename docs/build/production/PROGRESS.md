@@ -1,3 +1,7 @@
+## 8 October 2026: integrated repair publication
+
+Sourcec7332a56: native100100/0/0, historical77/0/0, workflow-intents156/0/0, Temporal/codec30/0/0, metadata345/0/0, marker18/0/0. Counts overlap. Native dispatch successor97/6/0; failed recording19/2/1 quarantined, no frozen corpus acceptance. Ledger10 verified/49 in_progress/19 planned across78; release flagsfalse. Complete successor gates/CI remain open. [Publication context](WIP-HANDOFF-2026-10-08.md).
+
 ## 8 October2026: focused native repair checkpoint
 
 Sourceb69a6c12: root41 passed/0 failed/0 skipped,23 actual PostgreSQL/17 PGlite/1 contract. Owned services cleaned; minimum25.18GiB free above22GiB floor. Compiler9b895088 passed; root CI/browser1626/0/6 with Linux-only supervisor controls open. Earlier broader65/12/0 retained; remaining historical migration and Temporal rehearsal work active. Ledger recomputed10 verified/49 in_progress/19 planned across78; all release flagsfalse. [Progress context](WIP-HANDOFF-2026-10-08.md). New pushed CI pending.

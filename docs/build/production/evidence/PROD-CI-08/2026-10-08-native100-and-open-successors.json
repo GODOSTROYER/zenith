@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "date": "2026-10-08",
+  "candidate": "c7332a56c18e2021c5c583fd93565b53d5cdb015",
+  "environment": {
+    "host": "Darwin ARM64 native",
+    "node": "22.23.3",
+    "npm": "10.9.9",
+    "postgres": "16.15",
+    "tofu": "1.12.5",
+    "temporalCLI": "1.9.1"
+  },
+  "results": [
+    {
+      "commit": "5fc3cb2cffd771fe3d5d6dbc06e260f33554edd3",
+      "lane": "native100",
+      "passed": 100,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "scope": "actual local PostgreSQL and OpenTofu saved plans; hosted association/policy controls modeled",
+      "cleanup": "owned PostgreSQL stopped and data removed"
+    },
+    {
+      "commit": "272a3d73491148386e8324537719654b92e45b09",
+      "lane": "history marker helper",
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    {
+      "commit": "c7332a56c18e2021c5c583fd93565b53d5cdb015",
+      "lane": "native apply/mixed/maintenance",
+      "passed": 97,
+      "failed": 6,
+      "skipped": 0,
+      "exitCode": 1,
+      "remaining": "six approval-audit assertions returned no matching event",
+      "cleanup": "owned PostgreSQL stopped and data removed"
+    },
+    {
+      "commit": "c7332a56c18e2021c5c583fd93565b53d5cdb015",
+      "lane": "first unreleased history recording",
+      "passed": 19,
+      "failed": 2,
+      "skipped": 1,
+      "exitCode": 1,
+      "disposition": "all19 histories and manifest quarantined privately, byte-preserved; seven histories contain activity-registration failure; no corpus published"
+    }
+  ],
+  "overlap": "Results overlap other lanes; do not sum",
+  "rawLogs": "Private only; not retained in repository",
+  "releasePromotion": false
+}

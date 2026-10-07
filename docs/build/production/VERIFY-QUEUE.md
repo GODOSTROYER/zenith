@@ -1,3 +1,11 @@
+## Results: 8 October publication checkpoint
+
+PROD-CI-08: in_progress; c7332a56; native100 successor100/0/0 at5fc3cb2c, native dispatch97/6/0 and failed history recording19/2/1 retained. Full combined gate pending.
+
+PROD-CI-09: in_progress; 3dae8f9a CI13 passed/2 failed/1 running at pre-publication inspection; exact successor CI pending.
+
+[Executed scopes and pending packets](verification/RESULTS-2026-10.md#verification-publication-checkpoint-8-october-2026).
+
 PROD-CI-08: Results sourceb69a6c12 focused native41/0/0;23 PostgreSQL/17 PGlite/1 contract; full mandatory successor pending, earlier65/12/0 retained.
 
 PROD-CI-09: in_progress;9b568108; all20CIjobs inspected14passed/6failed.

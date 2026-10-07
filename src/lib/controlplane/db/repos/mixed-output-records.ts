@@ -156,3 +156,17 @@ export async function readProducerObservation(sql: Sql, input: { workspaceId: st
     attributes: (typeof row.attributes === "string" ? JSON.parse(row.attributes) : row.attributes) as Record<string, unknown>, observedAt: iso(row.observed_at), source: row.source,
   };
 }
+
+/**
+ * The newest SUCCEEDED mixed child of the environment this operation targets, for an operation that is not itself an adopted child
+ * (a day-two operation, a destroy, a repair of a consumer environment): it keeps consuming the typed inputs its environment last applied.
+ */
+export async function findLatestChildOfOperationEnvironment(sql: Sql, workspaceId: string, operationId: string): Promise<{ planId: string; partitionId: string } | null> {
+  const rows = await sql.query<{ plan_id: string; partition_id: string }>(
+    `select c.plan_id, c.partition_id
+       from platform.operations o
+       join platform.mixed_child_plans c on c.workspace_id = o.workspace_id and c.child_environment_id = o.environment_id and c.state = 'succeeded'
+      where o.workspace_id = $1 and o.id = $2
+      order by c.created_at desc, c.plan_id desc limit 1`, [workspaceId, operationId]);
+  return rows[0] ? { planId: rows[0].plan_id, partitionId: rows[0].partition_id } : null;
+}

@@ -144,7 +144,7 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
             const custody = planCustody(ec, graph.graphDigest, connection);
             const guard = inspectDeployDeletions(rt, ec, deletionNodes, dnsNodes, session, signal, lease);
             // Secret typed inputs of a mixed consumer are read from the vault under this operation's custody, for this session only.
-            const tofuEnv = await tofuSessionFor(rt, ec, session);
+            const tofuEnv = await tofuSessionFor(rt, ec, session, ws);
             // A mixed producer asks the engine for its sensitive outputs ONLY for the references consumers declared on it.
             const producerContract = rt.d.typedInputs ? await rt.d.typedInputs.producerContract(ec.workspaceId, ec.op.id) : [];
             finished = await rt.d.planArtifacts.consume({ custody, planDigest, lease }, (original, dispatch) => rt.tofu.applyVerifiedPlan(ws, { approvedDigest: planDigest, original, custody,

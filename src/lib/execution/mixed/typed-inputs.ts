@@ -56,6 +56,16 @@ export function createPlatformTypedInputs(deps: TypedInputsDeps): TypedInputsPor
     return stored ? { plan: stored.plan, partitionId: child.partitionId } : null;
   };
 
+  /** The consumer's binding: its own child plan, else (a day-two operation of a consumer environment) the environment's newest applied child. */
+  const consumerBinding = async (workspaceId: string, operationId: string): Promise<{ plan: MixedParentPlan; partitionId: string } | null> => {
+    const own = await binding(workspaceId, operationId);
+    if (own) return own;
+    const latest = await outputRecords.findLatestChildOfOperationEnvironment(deps.sql, workspaceId, operationId);
+    if (!latest) return null;
+    const stored = await plans.getPlan(deps.sql, workspaceId, latest.planId);
+    return stored ? { plan: stored.plan, partitionId: latest.partitionId } : null;
+  };
+
   const producerContract = async (workspaceId: string, operationId: string): Promise<readonly ProducerContract[]> => {
     const bound = await binding(workspaceId, operationId);
     if (!bound) return [];
@@ -65,7 +75,7 @@ export function createPlatformTypedInputs(deps: TypedInputsDeps): TypedInputsPor
   };
 
   const load = async (workspaceId: string, operationId: string): Promise<readonly ConsumedInput[]> => {
-    const bound = await binding(workspaceId, operationId);
+    const bound = await consumerBinding(workspaceId, operationId);
     if (!bound) return [];
     const incoming = bound.plan.references.filter((ref) => ref.consumerPartitionId === bound.partitionId);
     const out: ConsumedInput[] = [];

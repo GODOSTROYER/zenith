@@ -17,6 +17,7 @@ import { StepFailedError } from "@/lib/execution/errors";
 import { SemanticsChangedError } from "@/lib/execution/semantics/errors";
 import type { CapturedOutputs, ConsumedInput, ProducerContract, TypedInputsPort } from "@/lib/execution/typed-inputs";
 import { OP, bucketManifest } from "../fakes/fixtures";
+import type { DriverScript } from "../fakes/drivers";
 import { createWorld, type World } from "../fakes/world";
 
 const h = (c: string): string => c.repeat(64);
@@ -50,8 +51,11 @@ class FakePort implements TypedInputsPort {
 }
 
 const worlds: World[] = [];
-function world(port: FakePort): World {
-  const w = createWorld();
+/** A driver script whose compile asks for the secret input like a driver that opts in to `ctx.input`. */
+const usesSecret = { compileExtra: (_node: unknown, ctx: { input?: (name: string) => string }) => ({ note: ctx.input!("db_password") }) };
+
+function world(port: FakePort, script?: DriverScript): World {
+  const w = createWorld(script ? { script } : {});
   w.product.setManifest(bucketManifest());
   w.broker.approval = { approved: true, rejected: false, approvalId: "isolated-reviewed-human-fixture" };
   w.deps.typedInputs = port;
@@ -125,7 +129,7 @@ describe("the producer's apply captures its outputs while its grant is live", ()
 });
 
 describe("the consumer receives its typed inputs", () => {
-  it("declares them in the rendered configuration, offers the secret only on the input channel, and leaks it nowhere", async () => {
+  it("declares a non-secret input as a variable default; a secret delivered through the provider's secret path never enters the tool or the configuration", async () => {
     const port = new FakePort();
     port.inputs = [HOST, SECRET];
     port.secrets.set(SECRET.secret!.ref, MATERIAL);
@@ -134,6 +138,22 @@ describe("the consumer receives its typed inputs", () => {
 
     const variables = mainOf(w).variable as Record<string, unknown>;
     expect(variables.zenith_in_endpoint_db).toEqual({ type: "string", default: ENDPOINT });
+    expect(variables.zenith_in_db_password).toBeUndefined();
+    expect(w.tofu.planCalls[0].inputEnvKeys).toEqual([]);
+    expect(port.resolved).toEqual([]);
+    expect(w.tofu.planCalls[0].ws.files.map((f) => f.content).join("\n")).not.toContain(MATERIAL);
+    await w.activities.applyInfrastructure({ operationId: OP, planDigest: plan.planDigest, lease });
+    expect(everywhere(w, plan)).not.toContain(MATERIAL);
+  });
+
+  it("declares a secret as a sensitive variable and offers it on the input channel only when a driver's compiled output uses it", async () => {
+    const port = new FakePort();
+    port.inputs = [HOST, SECRET];
+    port.secrets.set(SECRET.secret!.ref, MATERIAL);
+    const w = world(port, usesSecret as DriverScript);
+    const { lease, plan } = await planned(w);
+
+    const variables = mainOf(w).variable as Record<string, unknown>;
     expect(variables.zenith_in_db_password).toEqual({ type: "string", sensitive: true });
     expect(w.tofu.planCalls[0].inputEnvKeys).toEqual(["TF_VAR_zenith_in_db_password"]);
     expect(w.tofu.lastInputEnv.TF_VAR_zenith_in_db_password).toBe(MATERIAL);
@@ -153,10 +173,10 @@ describe("the consumer receives its typed inputs", () => {
     expect(w.tofu.planCalls[0].inputEnvKeys).toEqual([]);
   });
 
-  it("refuses to run when it consumes a secret that custody cannot resolve", async () => {
+  it("refuses to run when it uses a secret that custody cannot resolve", async () => {
     const port = new FakePort();
     port.inputs = [SECRET];
-    const w = world(port);
+    const w = world(port, usesSecret as DriverScript);
     await w.activities.markOperation({ operationId: OP, status: "running" });
     await w.activities.validateDesiredState({ operationId: OP });
     const lease = await w.lease();

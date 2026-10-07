@@ -6,24 +6,28 @@
 import type { ProviderSession } from "@/lib/credentials/types";
 import type { ResourceGraph } from "@/lib/resources/types";
 import type { TofuSessionEnv } from "@/lib/tofu/runner";
+import type { TofuWorkspace } from "@/lib/tofu/types";
 import type { LeaseRef } from "@/lib/workflows/types";
 import type { ExecContext, ExecLike } from "./context";
 import { StepFailedError } from "./errors";
 import { buildDesiredState, findGraphProblems } from "./graph";
 import type { PlanCost } from "./plan-evidence";
 import type { Runtime } from "./runtime";
-import { inputEnvName } from "./typed-inputs";
+import { inputEnvName, inputVariable, type ConsumedInput } from "./typed-inputs";
+import { applyTypedInputsToGraph } from "./typed-substitution";
 import { errorText } from "./text";
 
 /** The graph this operation will execute, or a definitive failure naming why it cannot. */
-export function requireExecutable(rt: Runtime, ec: Pick<ExecLike, "product">): { graph: ResourceGraph } {
+export function requireExecutable(rt: Runtime, ec: Pick<ExecLike, "product"> & { op?: unknown; typedInputs?: readonly ConsumedInput[] }): { graph: ResourceGraph } {
   const desired = buildDesiredState(ec.product);
   const problems = desired.graph ? findGraphProblems(desired.graph, ec.product.environment.provider, rt.drivers) : desired.problems;
   if (!desired.graph || problems.length > 0) {
     const shown = problems.slice(0, 3).join("; ");
     throw new StepFailedError(`The desired state is not executable: ${shown}${problems.length > 3 ? ` (+${problems.length - 3} more)` : ""}`);
   }
-  return { graph: desired.graph };
+  // A full operation context applies the typed inputs it consumes to its graph (secret references to the vault refs the producers sealed) and
+  // refuses any reference it cannot place; a bare product context (a previously deployed revision) is left as authored.
+  return { graph: ec.op !== undefined ? applyTypedInputsToGraph(desired.graph, ec.typedInputs ?? []) : desired.graph };
 }
 
 /**
@@ -47,9 +51,12 @@ export function tofuSession(session: ProviderSession): TofuSessionEnv {
  * operation's declared inputs, and offered on the dedicated `inputEnv` channel: the values reach only the tofu child's
  * environment (as `TF_VAR_zenith_in_*`), are redacted, and are held by this closure only for the life of the activity.
  */
-export async function tofuSessionFor(rt: Pick<Runtime, "d">, ec: Pick<ExecContext, "workspaceId" | "op" | "typedInputs">, session: ProviderSession): Promise<TofuSessionEnv> {
+export async function tofuSessionFor(rt: Pick<Runtime, "d">, ec: Pick<ExecContext, "workspaceId" | "op" | "typedInputs">, session: ProviderSession, ws?: Pick<TofuWorkspace, "files">): Promise<TofuSessionEnv> {
   const base = tofuSession(session);
-  const secrets = (ec.typedInputs ?? []).filter((input) => input.secret !== undefined);
+  // Only the secrets the rendered configuration declares as variables are offered to the tool; a secret delivered through the provider's
+  // own secret path (a `secretRef`) never enters the tofu environment.
+  const declared = ws ? declaredInputVariables(ws) : undefined;
+  const secrets = (ec.typedInputs ?? []).filter((input) => input.secret !== undefined && (!declared || declared.has(inputVariable(input.name))));
   if (!secrets.length) return base;
   if (!rt.d.typedInputs) throw new StepFailedError("This operation consumes secret inputs but no typed-input custody is configured; refusing to run it.");
   const env: Record<string, string> = {};
@@ -87,4 +94,16 @@ export async function costOf(rt: Runtime, ec: Pick<ExecLike, "product" | "worksp
     rt.log("warn", "cost estimate failed; the plan carries no cost delta", { error: errorText(err) });
     return {};
   }
+}
+
+/** The `zenith_in_*` variables a rendered workspace declares. */
+export function declaredInputVariables(ws: Pick<TofuWorkspace, "files">): Set<string> {
+  const out = new Set<string>();
+  const main = ws.files.find((file) => file.path === "main.tf.json");
+  if (!main) return out;
+  try {
+    const parsed = JSON.parse(main.content) as { variable?: Record<string, unknown> };
+    for (const name of Object.keys(parsed.variable ?? {})) out.add(name);
+  } catch { /* an unreadable workspace declares nothing */ }
+  return out;
 }

@@ -245,7 +245,7 @@ async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<Exec
       const deletionGuard = inspectDeployDeletions(rt, ec, deletionNodes, dnsNodes, session, signal, lease);
       // lock: false — the read-only observe role cannot write the S3 state-lock object; the fenced env lease
       // (held, renewed and asserted around this call) is what serialises work on the environment. Apply always locks.
-      return rt.tofu.planWorkspace(ws, await tofuSessionFor(rt, ec, session), { signal, custody: planCustody(ec, graph.graphDigest, connection), lock: false, expectedDigest, deletionNodes, inspectPlan: async (plan, raw) => {
+      return rt.tofu.planWorkspace(ws, await tofuSessionFor(rt, ec, session, ws), { signal, custody: planCustody(ec, graph.graphDigest, connection), lock: false, expectedDigest, deletionNodes, inspectPlan: async (plan, raw) => {
         await deletionGuard(plan, raw);
         if (repairBinding) {
           await prepareEcsReplicaRepair(rt, ec, graph, baseWorkspace, connection, session, signal, lease);

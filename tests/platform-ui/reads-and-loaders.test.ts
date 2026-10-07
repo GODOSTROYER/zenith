@@ -54,7 +54,12 @@ let h: Harness;
 const at = "2026-09-01T00:00:00.000Z";
 const canary = "AKIAIOSFODNN7EXAMPLE";
 type Handler = typeof resources;
-const routes = [{ name: "resources", handler: resources }, { name: "drift", handler: drift }, { name: "incidents", handler: incidents }];
+const routes = [
+  { name: "resources", handler: resources, readTable: "resources", payloadTables: ["resources", "resource_observations", "resource_runtime"] },
+  { name: "drift", handler: drift, readTable: "drift_reports", payloadTables: ["drift_reports"] },
+  { name: "incidents", handler: incidents, readTable: "investigations", payloadTables: ["investigations", "incidents"] },
+];
+const protectedRead = (sql: string, table: string) => /^\s*select\b/i.test(sql) && new RegExp(`\\b(?:from|join)\\s+platform\\.${table}\\b`, "i").test(sql);
 async function call(handler: Handler, id = h.ids.envAProd, query = "", headers: Record<string, string> = {}) {
   return handler(new NextRequest(`https://zenith.test/api/platform/v1/environments/${id}/read${query}`, { headers: { cookie: `zenith-workspace=${h.ids.wsA}`, ...headers } }), { params: Promise.resolve({ id }) });
 }
@@ -109,7 +114,7 @@ describe("AWS browser action adapter", () => {
   });
 });
 
-describe.each(routes)("$name read boundary", ({ handler }) => {
+describe.each(routes)("$name read boundary", ({ handler, readTable, payloadTables }) => {
   it("requires a browser session or bearer credential with configured authentication", async () => {
     state.user = null;
     expect((await call(handler)).status).toBe(401);
@@ -140,7 +145,7 @@ describe.each(routes)("$name read boundary", ({ handler }) => {
     const query = vi.spyOn(state.sql!, "query");
     const result = await call(handler);
     expect(result.status).toBe(403);
-    expect(query).not.toHaveBeenCalled();
+    expect(query.mock.calls.filter(([sql]) => payloadTables.some(table => protectedRead(sql, table)))).toEqual([]);
     query.mockRestore();
   });
   it("fails closed when policy cannot be evaluated", async () => {
@@ -150,10 +155,17 @@ describe.each(routes)("$name read boundary", ({ handler }) => {
     expect(await result.text()).not.toContain(canary);
   });
   it("does not leak or log a raw store error on a read outage", async () => {
-    vi.spyOn(state.sql!, "query").mockRejectedValueOnce(new Error(canary));
+    const original = state.sql!.query.bind(state.sql!);
+    const query = vi.spyOn(state.sql!, "query").mockImplementation(async <T = Record<string, unknown>>(sql: string, params?: readonly unknown[]): Promise<T[]> => {
+      if (protectedRead(sql, readTable)) throw new Error(canary);
+      return original<T>(sql, params);
+    });
     const logging = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const result = await call(handler);
     expect(result.status).toBe(503); expect(await result.text()).not.toContain(canary); expect(logging).not.toHaveBeenCalled();
+    const reads = query.mock.calls.filter(([sql]) => protectedRead(sql, readTable));
+    expect(reads).toHaveLength(1);
+    expect(reads[0]?.[1]?.slice(0, 2)).toEqual([h.ids.wsA, h.ids.envAProd]);
   });
 });
 

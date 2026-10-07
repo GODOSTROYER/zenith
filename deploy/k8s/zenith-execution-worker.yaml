@@ -1,0 +1,34 @@
+# Execution worker Deployment for scripts/ops/rolling-upgrade.mjs (PROD-OPS-03). Placeholder digest, see zenith-api.yaml.
+# With worker versioning, set ZENITH_WORKER_VERSIONING and ZENITH_WORKER_BUILD_ID in the zenith-worker-env Secret
+# to match the runbook flags before rolling. terminationGracePeriodSeconds matches the 600 s activity drain
+# (ZENITH_WORKER_SHUTDOWN_GRACE_MS) plus margin, the same 11 minutes as the compose topology.
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: zenith-execution-worker, labels: {app.kubernetes.io/name: zenith, app.kubernetes.io/component: execution-worker}}
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+  selector: {matchLabels: {app.kubernetes.io/name: zenith, app.kubernetes.io/component: execution-worker}}
+  template:
+    metadata: {labels: {app.kubernetes.io/name: zenith, app.kubernetes.io/component: execution-worker}}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001}
+      terminationGracePeriodSeconds: 660
+      containers:
+        - name: execution-worker
+          image: registry.invalid/zenith/worker@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          envFrom: [{secretRef: {name: zenith-worker-env}}]
+          ports: [{containerPort: 9464, name: health}]
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          readinessProbe: {httpGet: {path: /readyz, port: 9464}, periodSeconds: 15, failureThreshold: 4}
+          startupProbe: {httpGet: {path: /readyz, port: 9464}, periodSeconds: 5, failureThreshold: 24}
+          volumeMounts: [{name: data, mountPath: /var/lib/zenith}, {name: tmp, mountPath: /tmp}]
+      volumes: [{name: data, emptyDir: {}}, {name: tmp, emptyDir: {sizeLimit: 1Gi}}]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: zenith-execution-worker}
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app.kubernetes.io/name: zenith, app.kubernetes.io/component: execution-worker}}

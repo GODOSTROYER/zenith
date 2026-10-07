@@ -23,10 +23,9 @@
  * security` is safe. The classifier is conservative text analysis, not a parser; an
  * unrecognised statement is `unclassified` and therefore refused.
  *
- * Baseline: migrations up to `COMPAT_BASELINE_VERSION` predate the first
- * released N-1 (there was no previous release to protect) and are grandfathered;
- * the release manager raises the baseline to the highest shipped version at every
- * release cut, so only post-release migrations are held to the rule.
+ * Baseline: migrations up to `compatBaseline()` are already in the previous release
+ * and are grandfathered; the baseline is derived (live ledger at runtime, registry
+ * or ZENITH_COMPAT_BASELINE_VERSION in CI), never a constant.
  *
  * Runtime direction: a build that finds the database AHEAD of it (a newer release
  * migrated) is allowed, which is what makes N-1 run against schema N
@@ -38,10 +37,21 @@ import { classifyStatement, maxClass, splitStatements } from "@/lib/release-safe
 import type { MigrationClass } from "@/lib/release-safety/types";
 import { sha256Hex } from "@/lib/controlplane/digest";
 import { ControlStoreError } from "./errors";
-import type { PlatformMigration } from "./migrations/index";
+import { PLATFORM_SCHEMA_VERSION, type PlatformMigration } from "./migrations/index";
 
-/** Highest migration version that shipped before the first release train. */
-export const COMPAT_BASELINE_VERSION = 45;
+/**
+ * The highest schema version the PREVIOUS release (N-1) already has. Never hard-coded:
+ *  - at runtime `migratePlatformDb` uses the highest version applied in the live database
+ *    (a fresh database has no N-1, so everything is grandfathered);
+ *  - for static checks and CI it is ZENITH_COMPAT_BASELINE_VERSION (set to the previous
+ *    release's highest version at release time), else the registry's current highest version.
+ */
+export function compatBaseline(env: Readonly<Record<string, string | undefined>> = process.env): number {
+  const raw = env.ZENITH_COMPAT_BASELINE_VERSION?.trim();
+  if (raw === undefined || raw === "") return PLATFORM_SCHEMA_VERSION;
+  if (!/^d{1,6}$/.test(raw)) throw new ContractMigrationRefusedError("ZENITH_COMPAT_BASELINE_VERSION must be a whole migration version.", {});
+  return Number(raw);
+}
 
 export interface ContractMigrationApproval {
   version: number;
@@ -100,7 +110,7 @@ function targetTable(stmt: string): string | undefined {
 }
 
 /** Classify one platform migration for N-1 compatibility. Pure. */
-export function assessPlatformMigration(migration: PlatformMigration, baseline: number = COMPAT_BASELINE_VERSION): MigrationCompatAssessment {
+export function assessPlatformMigration(migration: PlatformMigration, baseline: number = compatBaseline()): MigrationCompatAssessment {
   const statements = splitStatements(migration.sql);
   const created = new Set<string>();
   for (const stmt of statements) {

@@ -109,7 +109,7 @@ export function buildPlan(opts, ctx = {}) {
   if (!["run", "skip"].includes(gates)) throw new UsageError("--gates must be run or skip");
   const steps = [];
   if (gates === "run") {
-    steps.push({ id: "gates", title: "replay, versioning, schema-compat and protocol-window gates", mutates: false, argv: ["npx", "vitest", "run", ...GATE_SUITES], check: (r) => (r.status === 0 ? undefined : "a compatibility gate failed; do not roll out this build") });
+    steps.push({ id: "gates", title: "replay, versioning, schema-compat and protocol-window gates", mutates: false, argv: ["npx", "vitest", "run", ...GATE_SUITES], env: { ZENITH_REPLAY_LANE: "1" }, check: (r) => (r.status === 0 ? undefined : "a compatibility gate failed; do not roll out this build") });
   } else {
     steps.push({ id: "gates", title: "gates SKIPPED by --gates skip (recorded; not a pass)", mutates: false, note: "SKIPPED" });
   }
@@ -135,11 +135,12 @@ export function buildPlan(opts, ctx = {}) {
     const workerDep = opts.values["worker-deployment"] ?? "zenith-execution-worker";
     const apiCt = opts.values["api-container"] ?? "api";
     const workerCt = opts.values["worker-container"] ?? "execution-worker";
-    const job = need(opts, "migration-job");
+    const job = opts.values["migration-job"] ?? "deploy/k8s/platform-migrate-job.yaml";
     steps.push({ id: "discover-api", title: "record the running API image", mutates: false, discover: "previous-api-image", argv: kube("get", "deployment", apiDep, "-o", `jsonpath={.spec.template.spec.containers[?(@.name=="${apiCt}")].image}`) });
     steps.push({ id: "discover-worker", title: "record the running worker image", mutates: false, discover: "previous-worker-image", argv: kube("get", "deployment", workerDep, "-o", `jsonpath={.spec.template.spec.containers[?(@.name=="${workerCt}")].image}`) });
     steps.push({ id: "migrate-dry-run", title: "classify pending platform migrations (contract refused without approval)", mutates: false, argv: ["npx", "tsx", "scripts/platform/migrate.ts", "--dry-run"], check: (r) => (r.status === 0 ? undefined : "pending migrations include a contract change without a registered approval") });
-    steps.push({ id: "migrate", title: "apply expand-only platform migrations (Job)", mutates: true, argv: kube("apply", "-f", job), note: "the Job manifest must reference the migration image digest" });
+    steps.push({ id: "migrate-clean", title: "remove the previous migration Job (Job templates are immutable)", mutates: true, argv: kube("delete", "job", "-l", "app.kubernetes.io/component=platform-migrate", "--ignore-not-found") });
+    steps.push({ id: "migrate", title: "apply expand-only platform migrations (Job, new migration image substituted)", mutates: true, argv: kube("apply", "-f", "-"), stdin: { file: job, image: migrationImage } });
     steps.push({ id: "migrate-wait", title: "wait for the migration Job", mutates: true, argv: kube("wait", "--for=condition=complete", "job", "-l", "app.kubernetes.io/component=platform-migrate", "--timeout=600s") });
     steps.push({ id: "worker", title: "roll the execution worker", mutates: true, argv: kube("set", "image", `deployment/${workerDep}`, `${workerCt}=${workerImage}`) });
     steps.push({ id: "worker-ready", title: "wait for the worker rollout", mutates: true, argv: kube("rollout", "status", `deployment/${workerDep}`, "--timeout=900s") });
@@ -203,14 +204,22 @@ function rollbackPlan(opts, topology, versioning, temporal, deployment, ctx) {
 
 /* -------------------------------- execution -------------------------------- */
 
-function run(argv, env) {
+function run(argv, env, input) {
   const [cmd, ...args] = argv;
-  const result = spawnSync(cmd, args, { encoding: "utf8", env: { ...process.env, ...(env ?? {}) }, shell: false, maxBuffer: 16 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
+  const result = spawnSync(cmd, args, { encoding: "utf8", env: { ...process.env, ...(env ?? {}) }, shell: false, maxBuffer: 16 * 1024 * 1024, ...(input !== undefined ? { input } : {}), stdio: [input !== undefined ? "pipe" : "ignore", "pipe", "pipe"] });
   return { status: result.status ?? (result.error ? 127 : 1), stdout: result.stdout ?? "", stderr: result.stderr ?? "", error: result.error };
 }
 
 const say = (line) => process.stdout.write(`${line}\n`);
 const quote = (argv) => argv.map((a) => (/^[A-Za-z0-9_@%+=:,./-]+$/.test(a) ? a : JSON.stringify(a))).join(" ");
+
+/** The migration Job manifest with its placeholder digest image replaced by the new migration image. */
+export function manifestWithImage({ file, image }) {
+  const text = readFileSync(file, "utf8");
+  const replaced = text.replace(/registry\.invalid\/zenith\/migrate@sha256:0{64}/, image);
+  if (replaced === text) throw new UsageError(`${file} has no placeholder migration image (registry.invalid/zenith/migrate@sha256:000...) to substitute`);
+  return replaced;
+}
 
 function toolExists(tool) {
   const probe = run([tool, "--version"]);
@@ -279,7 +288,7 @@ export async function main(argv) {
       }
     }
     say(`    run: ${quote(step.argv)}`);
-    const result = run(step.argv, step.env);
+    const result = run(step.argv, step.env, step.stdin ? manifestWithImage(step.stdin) : undefined);
     const problem = step.check ? step.check(result) : result.status === 0 ? undefined : `exit ${result.status}`;
     if (step.id === "verify-workflows" && result.status !== 0 && !problem) {
       say("    UNVERIFIED: the server rejected the problem query (older server or missing search attribute); inspect workflows manually");

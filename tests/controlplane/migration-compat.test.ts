@@ -8,7 +8,7 @@
  * in-process; the same rehearsal against a networked Postgres is the
  * ZENITH_TEST_PLATFORM_PG_URL lane of tests/controlplane/migrations.test.ts.
  */
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   PLATFORM_MIGRATIONS,
   PlatformSchemaError,
@@ -19,7 +19,7 @@ import {
   type PlatformMigration,
 } from "@/lib/controlplane/db";
 import {
-  COMPAT_BASELINE_VERSION,
+  compatBaseline,
   ContractMigrationRefusedError,
   assertPendingMigrationsCompatible,
   assessPlatformMigration,
@@ -29,7 +29,7 @@ import {
 } from "@/lib/controlplane/db/compat";
 import { sha256Hex } from "@/lib/controlplane/digest";
 
-const V = COMPAT_BASELINE_VERSION + 1;
+const V = compatBaseline() + 1;
 const m = (version: number, sql: string, name = `synthetic_${version}`): PlatformMigration => ({ version, name, sql });
 
 const EXPAND = m(V, `
@@ -76,13 +76,13 @@ describe("migration compatibility classification", () => {
     expect(assessPlatformMigration(mixed).class).toBe("contract");
   });
 
-  it("grandfathers the baseline: migrations up to COMPAT_BASELINE_VERSION are never refused", () => {
-    expect(contractViolations([m(COMPAT_BASELINE_VERSION, "drop table platform.events;")])).toEqual([]);
+  it("grandfathers the baseline: migrations up to compatBaseline() are never refused", () => {
+    expect(contractViolations([m(compatBaseline(), "drop table platform.events;")])).toEqual([]);
     expect(assessPlatformMigration(m(1, "drop table x;")).baseline).toBe(true);
   });
 
   it("every shipped migration past the baseline is expand-only (vacuous until the first release cut)", () => {
-    const past = PLATFORM_MIGRATIONS.filter((x) => x.version > COMPAT_BASELINE_VERSION);
+    const past = PLATFORM_MIGRATIONS.filter((x) => x.version > compatBaseline());
     expect(contractViolations(past), "a post-baseline migration is contract/unclassified without a registered approval").toEqual([]);
   });
 
@@ -179,3 +179,8 @@ describe("upgrade rehearsal on a real Postgres engine (PGlite): N-1 build vs N s
     }
   });
 });
+
+// The rehearsal runs on PGlite, where enforcement is opt-in; the live baseline is the highest applied version.
+const priorEnforce = process.env.ZENITH_ENFORCE_EXPAND_ONLY;
+beforeAll(() => { process.env.ZENITH_ENFORCE_EXPAND_ONLY = "1"; });
+afterAll(() => { if (priorEnforce === undefined) delete process.env.ZENITH_ENFORCE_EXPAND_ONLY; else process.env.ZENITH_ENFORCE_EXPAND_ONLY = priorEnforce; });

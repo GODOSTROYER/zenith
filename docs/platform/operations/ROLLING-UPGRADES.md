@@ -84,7 +84,7 @@ build id. The worker logs `versioning`, `deployment` and `buildId` at startup.
    release is drained. Either alone is refused. After it, image rollback is refused by the
    runbook.
 
-`COMPAT_BASELINE_VERSION` (45) is the schema that predates the first release train; migrations
+The baseline is derived, never a constant: `migratePlatformDb` (Postgres, or ZENITH_ENFORCE_EXPAND_ONLY=1) holds every migration above the highest version already applied to the live database to the rule, and CI uses ZENITH_COMPAT_BASELINE_VERSION (the previous release highest version) or the registry highest. Migrations
 up to it are grandfathered. The release manager raises it to the highest shipped version at each
 release cut. Statements on tables created in the same migration are exempt (no old code can
 see them). The classifier is conservative text analysis, not a SQL parser; `create or replace

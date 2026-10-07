@@ -1,0 +1,33 @@
+# API Deployment for scripts/ops/rolling-upgrade.mjs (PROD-OPS-03). The image below is a placeholder digest:
+# the runbook replaces it with the new digest (kubectl set image); apply this file with a real digest first.
+# Config comes from a Secret you create (api.env contents); nothing secret is in this file.
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: zenith-api, labels: {app.kubernetes.io/name: zenith, app.kubernetes.io/component: api}}
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+  selector: {matchLabels: {app.kubernetes.io/name: zenith, app.kubernetes.io/component: api}}
+  template:
+    metadata: {labels: {app.kubernetes.io/name: zenith, app.kubernetes.io/component: api}}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 1001, runAsGroup: 1001}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: api
+          image: registry.invalid/zenith/api@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          ports: [{containerPort: 3400}]
+          envFrom: [{secretRef: {name: zenith-api-env}}]
+          securityContext: {readOnlyRootFilesystem: true, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          readinessProbe: {httpGet: {path: /api/me, port: 3400}, periodSeconds: 10, failureThreshold: 3}
+          livenessProbe: {httpGet: {path: /api/me, port: 3400}, initialDelaySeconds: 45, periodSeconds: 20}
+          volumeMounts: [{name: tmp, mountPath: /tmp}, {name: next-cache, mountPath: /app/.next/cache}]
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 256Mi}}, {name: next-cache, emptyDir: {sizeLimit: 512Mi}}]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: zenith-api}
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app.kubernetes.io/name: zenith, app.kubernetes.io/component: api}}

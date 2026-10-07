@@ -64,14 +64,15 @@ describe("upgrade plan", () => {
     expect(worker.argv!.slice(-1)).toEqual(["execution-worker"]);
   });
 
-  it("drives kubectl for the k8s topology and needs the namespace and migration Job manifest", () => {
+  it("drives kubectl for the k8s topology and needs the namespace; the migration Job defaults to the checked-in manifest", () => {
     const k8s = ["--topology", "k8s", "--api-image", digest("a"), "--worker-image", digest("b"), "--migration-image", digest("c")];
     expect(() => plan(k8s)).toThrow(/namespace/);
-    expect(() => plan([...k8s, "--namespace", "zenith"])).toThrow(/migration-job/);
     const steps = plan([...k8s, "--namespace", "zenith", "--migration-job", "migrate.yaml", "--context", "prod"]);
     expect(steps.find((s) => s.id === "worker")!.argv).toEqual(["kubectl", "--context", "prod", "-n", "zenith", "set", "image", "deployment/zenith-execution-worker", `execution-worker=${digest("b")}`]);
     expect(steps.map((s) => s.id).indexOf("migrate")).toBeLessThan(steps.map((s) => s.id).indexOf("worker"));
-    expect(steps.find((s) => s.id === "migrate")!.argv).toEqual(["kubectl", "--context", "prod", "-n", "zenith", "apply", "-f", "migrate.yaml"]);
+    expect(steps.find((s) => s.id === "migrate")!.argv).toEqual(["kubectl", "--context", "prod", "-n", "zenith", "apply", "-f", "-"]);
+    expect(steps.find((s) => s.id === "migrate")).toMatchObject({ stdin: { file: "migrate.yaml", image: digest("c") } });
+    expect(plan([...k8s, "--namespace", "zenith"]).find((s) => s.id === "migrate")).toMatchObject({ stdin: { file: "deploy/k8s/platform-migrate-job.yaml" } });
   });
 
   it("rejects unknown options and topologies", () => {

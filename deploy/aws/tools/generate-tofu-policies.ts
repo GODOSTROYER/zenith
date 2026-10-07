@@ -18,6 +18,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { AWS_ROLE_BOUNDARIES, BUILD_ROLE_NAME_PATTERN, EC2_ROLE_NAME_PATTERN, EVENTS_ROLE_NAME_PATTERN, roleFamilyPatterns, type AwsRoleFamily } from "../../../src/lib/credentials/aws/naming";
+import { ROUTE53_ZONES_INLINE_MAX, ROUTE53_ZONES_PER_OVERFLOW_POLICY, sampleLongestRoute53ZoneArns } from "../../../src/lib/credentials/aws/limits";
+import { AWS_PARTITIONS, type AwsPartition } from "../../../src/lib/credentials/aws/partition";
+import { BOUNDARY_POLICY_BUDGET_CHARS, IAM_MANAGED_POLICY_MAX_CHARS, PolicyBudgetError, planManagedPolicySplit, type PolicyBudgetReading } from "../../../src/lib/credentials/aws/policy-budget";
 import { compactSize, loadTemplate, makeEvaluator, resolveResource, statementsOf, type Statement } from "../../../tests/credentials/cfn";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -46,29 +49,79 @@ const OPTIONAL: Record<string, { policy: string; sid: string }> = {
 
 const ZONES_MARKER = "__ROUTE53_ZONES__";
 
+const isBoundary = (logicalId: string): boolean => logicalId !== "WorkloadBoundary" && logicalId.endsWith("Boundary");
+
 /** Include the retained legacy policy in the guard during the migration window. */
 export function boundarySizes(): { partition: string; logicalId: string; size: number; limit: number }[] {
   const template = loadTemplate(TEMPLATE_PATH);
-  return ["aws", "aws-cn", "aws-us-gov"].flatMap((partition) => {
+  return AWS_PARTITIONS.flatMap((partition) => {
+    // Worst case: longest suffix and environment scope, and the inline maximum of longest hosted zone ARNs.
     const evaluator = makeEvaluator(template, {
       pseudo: { partition, accountId: "123456789012", region: "cn-northwest-1" },
       params: {
         NameSuffix: `-${"x".repeat(19)}`, EnvironmentTagValue: "x".repeat(64),
         StateBucketKmsKeyArn: `arn:${partition}:kms:cn-northwest-1:123456789012:key/11111111-2222-3333-4444-555555555555`,
-        Route53HostedZoneArns: [`arn:${partition}:route53:::hostedzone/Z0123456789ABC`, `arn:${partition}:route53:::hostedzone/Z9876543210XYZ`],
+        Route53HostedZoneArns: sampleLongestRoute53ZoneArns(partition, ROUTE53_ZONES_INLINE_MAX),
       },
     });
     return Object.keys(POLICY_RESOURCES).map((logicalId) => ({
       partition, logicalId, size: compactSize(resolveResource(template, evaluator, logicalId)!.PolicyDocument),
       // Legacy grants remain equivalent (its state deny is stronger); new families keep 344 characters free.
-      limit: logicalId !== "WorkloadBoundary" && logicalId.endsWith("Boundary") ? 5800 : 6144,
+      limit: isBoundary(logicalId) ? BOUNDARY_POLICY_BUDGET_CHARS : IAM_MANAGED_POLICY_MAX_CHARS,
     }));
   });
 }
 
+/** One overflow DNS policy at its maximum: 40 of the longest zone ARNs, as the OpenTofu module renders it. */
+export function overflowPolicySize(partition: AwsPartition): number {
+  return compactSize({
+    Version: "2012-10-17",
+    Statement: [{ Sid: "Route53ChangeRecordsInListedZones", Effect: "Allow", Action: "route53:ChangeResourceRecordSets", Resource: sampleLongestRoute53ZoneArns(partition, ROUTE53_ZONES_PER_OVERFLOW_POLICY) }],
+  });
+}
+
+export interface PolicyBudgetRow extends PolicyBudgetReading {
+  partition: string;
+  logicalId: string;
+  boundary: boolean;
+}
+
+/** Per-policy size, headroom and near-limit flag in every partition. */
+export function policyBudgetReport(): PolicyBudgetRow[] {
+  return boundarySizes().map(({ partition, logicalId, size, limit }) => ({
+    partition, logicalId, boundary: isBoundary(logicalId), size, budget: limit, headroom: limit - size,
+    nearLimit: size >= limit * 0.9, overBudget: size > limit,
+  }));
+}
+
+/**
+ * Refuse any policy over its budget. A permissions boundary is one managed policy per
+ * role and cannot be split. A deploy policy over budget gets the deterministic split a
+ * reviewer would apply in the refusal; the deploy role has no spare managed-policy slot
+ * under the default quota (8 attached + 2 DNS overflow = 10), so such a split is never
+ * applied automatically. Hosted zones, the one unbounded input, split automatically in
+ * the OpenTofu module (see src/lib/credentials/aws/limits.ts).
+ */
 export function checkBoundarySizes(): void {
+  const template = loadTemplate(TEMPLATE_PATH);
   for (const { partition, logicalId, size, limit } of boundarySizes()) {
-    if (size > limit) throw new Error(`${logicalId} in ${partition}: ${size} characters exceeds policy budget ${limit} (IAM maximum 6144)`);
+    if (size <= limit) continue;
+    const where = `${logicalId} in ${partition}`;
+    const base = `${where}: ${size} characters exceeds policy budget ${limit} (IAM maximum ${IAM_MANAGED_POLICY_MAX_CHARS})`;
+    if (logicalId === "WorkloadBoundary" || isBoundary(logicalId)) throw new PolicyBudgetError(`${base}; a permissions boundary is a single managed policy and cannot be split.`);
+    const evaluator = makeEvaluator(template, { pseudo: { partition, accountId: "123456789012", region: "cn-northwest-1" }, params: { NameSuffix: `-${"x".repeat(19)}`, EnvironmentTagValue: "x".repeat(64) } });
+    const statements = statementsOf(resolveResource(template, evaluator, logicalId)!.PolicyDocument) as unknown as Record<string, unknown>[];
+    let advice: string;
+    try {
+      advice = `it would split into ${planManagedPolicySplit(statements, { maxPolicies: 20 }).parts.length} managed policies`;
+    } catch (error) {
+      advice = error instanceof PolicyBudgetError ? error.message : "it cannot be split";
+    }
+    throw new PolicyBudgetError(`${base}; ${advice}. The deploy role has no spare managed-policy slot under the default quota.`);
+  }
+  for (const partition of AWS_PARTITIONS) {
+    const size = overflowPolicySize(partition);
+    if (size > IAM_MANAGED_POLICY_MAX_CHARS) throw new PolicyBudgetError(`DNS overflow policy in ${partition}: ${size} characters exceeds IAM maximum ${IAM_MANAGED_POLICY_MAX_CHARS}.`);
   }
 }
 
@@ -165,6 +218,9 @@ export function checkPolicies(directory = POLICIES_DIR): string[] {
   }).map(([name]) => name);
 }
 
+if (process.argv.includes("--report")) {
+  for (const row of policyBudgetReport()) console.log(`${row.partition.padEnd(11)} ${row.logicalId.padEnd(24)} ${String(row.size).padStart(5)}/${row.budget} headroom ${row.headroom}${row.nearLimit ? "  NEAR LIMIT" : ""}${row.overBudget ? "  OVER" : ""}`);
+}
 if (process.argv.includes("--write")) write();
 if (process.argv.includes("--check")) {
   const mismatches = checkPolicies();

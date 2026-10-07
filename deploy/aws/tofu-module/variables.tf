@@ -83,6 +83,17 @@ variable "route53_hosted_zone_arns" {
     condition     = alltrue([for z in var.route53_hosted_zone_arns : can(regex("^arn:aws(-cn|-us-gov)?:route53:::hostedzone/[A-Z0-9]+$", z))])
     error_message = "Each entry must be a hosted zone ARN such as arn:aws:route53:::hostedzone/Z123EXAMPLE."
   }
+
+  # 20 inline + 2 overflow policies of 40: the deploy role's managed-policy quota (10) minus the 8 it already has.
+  validation {
+    condition     = length(var.route53_hosted_zone_arns) <= 100
+    error_message = "At most 100 hosted zones can be granted (20 in ZenithDeployEdge plus two overflow policies of 40)."
+  }
+
+  validation {
+    condition     = length(distinct(var.route53_hosted_zone_arns)) == length(var.route53_hosted_zone_arns)
+    error_message = "Hosted zone ARNs must be unique."
+  }
 }
 
 variable "state_bucket_kms_key_arn" {

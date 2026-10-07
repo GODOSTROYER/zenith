@@ -17,6 +17,7 @@ import { workloadSubject } from "@/lib/credentials/oidc/issuer";
 import { bridgeDeps } from "@/lib/bridge/deps";
 import { findSecret } from "@/lib/capabilities/secret-guard";
 import { isAwsStateKmsArn, isBootstrapNameSuffix, isSupportedAwsConnectionRegion } from "@/lib/credentials/aws/naming";
+import { AwsLimitError, assertAwsBootstrapLimits } from "@/lib/credentials/aws/limits";
 
 export const AWS_CONNECTION_PERMISSIONS = [
   "Observe role: read-only describe/list/get inventory; cannot read secret values.",
@@ -46,6 +47,9 @@ const Input = z.object({
   for (const key of ["permissionsBoundaryArn", "stateKmsKeyArn"] as const) {
     if (input[key] && input[key].split(":")[4] !== input.accountId) ctx.addIssue({ code: "custom", path: [key], message: "ARN account must match accountId." });
   }
+  // Every IAM and S3 name derived from the suffix must fit; refuse at registration, not at the first deploy.
+  try { assertAwsBootstrapLimits({ bootstrapNameSuffix: input.bootstrapNameSuffix, accountId: input.accountId, region: input.region }); }
+  catch (error) { if (error instanceof AwsLimitError) ctx.addIssue({ code: "custom", path: ["bootstrapNameSuffix"], message: error.message }); else throw error; }
   if (input.stateKmsKeyArn !== undefined && !isAwsStateKmsArn(input.stateKmsKeyArn, input.accountId, input.region)) ctx.addIssue({ code: "custom", path: ["stateKmsKeyArn"], message: "State encryption key must match the account, commercial partition and connection region." });
 });
 type Input = z.input<typeof Input>;

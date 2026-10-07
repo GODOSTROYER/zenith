@@ -35,6 +35,7 @@
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { ProviderConnection } from "@/lib/credentials/types";
 import { awsBootstrapContextForConnection } from "@/lib/credentials/aws/naming";
+import { AwsLimitError, assertAwsBootstrapLimits } from "@/lib/credentials/aws/limits";
 import type { ProviderKey, ResourceGraph } from "@/lib/resources/types";
 import { refLocalName } from "@/lib/providers/aws/drivers/shared/refs";
 import { assembleWorkspace, TofuWorkspaceError, type BackendConfig } from "@/lib/tofu/workspace";
@@ -129,6 +130,11 @@ export function compileGraph(input: { graph: ResourceGraph; environmentId: strin
   const awsBootstrap = input.connection && hasAwsNodes
     ? awsBootstrapContextForConnection(input.connection.config, input.region) : undefined;
   if (input.connection && hasAwsNodes && input.connection.status !== "verified") throw new StepFailedError("AWS compilation requires a verified connection.");
+  if (awsBootstrap) {
+    // Explicit refusal before any driver runs: the saved suffix and environment must fit every IAM/S3 name derived from them.
+    try { assertAwsBootstrapLimits({ environmentId: input.environmentId, bootstrapNameSuffix: awsBootstrap.bootstrapNameSuffix, accountId: awsBootstrap.accountId, region: input.region }); }
+    catch (error) { if (error instanceof AwsLimitError) throw new StepFailedError(error.message); throw error; }
+  }
 
   const compileNode = (address: string): TofuFragment | null => {
     const node = nodes.get(address);

@@ -310,6 +310,8 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
     const EXCEPTIONS: Record<string, string> = {
       EcsTaskDefinitionRevisions: "ecs:RegisterTaskDefinition/DeregisterTaskDefinition only support Resource *",
       Ec2RunInstancesFromImages: "AMIs and snapshots are not ours; RunInstances is still denied without tagged instance/volume/ENI",
+      SsmImagePointerParameters: "SSM parameters have no tag scoping for new values; access is limited to the plain-String ECS image pointer prefix /zenith<suffix>/image-pointer/*, and the read deny carves out only that prefix",
+      CloudFrontOriginAccessControls: "CloudFront origin access controls support neither tags nor name scoping in IAM; they only restrict origin access",
     };
     const seen = new Set<string>();
     for (const id of DEPLOY_POLICIES) {
@@ -333,7 +335,14 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
   });
 
   it("the deploy role can never read or write secret values, mint credentials or touch the OIDC provider", () => {
-    const actions = DEPLOY_POLICIES.flatMap((id) => allows(statementsOf(policyDoc(ev, id)))).flatMap((s) => asList(s.Action));
+    const allowed = DEPLOY_POLICIES.flatMap((id) => allows(statementsOf(policyDoc(ev, id))));
+    // Documented, path-scoped exception: plain-String ECS image pointers under /zenith<suffix>/ only.
+    const pointer = allowed.filter((s) => s.Sid === "SsmImagePointerParameters");
+    expect(pointer).toHaveLength(1);
+    expect(asList(pointer[0].Resource)).toEqual([`arn:aws:ssm:*:${ACCOUNT}:parameter/zenith/image-pointer/*`]);
+    expect(asList(pointer[0].Action).sort()).toEqual(["ssm:AddTagsToResource", "ssm:DeleteParameter", "ssm:GetParameter", "ssm:GetParameters", "ssm:ListTagsForResource", "ssm:PutParameter", "ssm:RemoveTagsFromResource"]);
+    expect(pointer[0].Condition).toBeUndefined();
+    const actions = allowed.filter((s) => s.Sid !== "SsmImagePointerParameters").flatMap((s) => asList(s.Action));
     for (const forbidden of [
       "secretsmanager:GetSecretValue",
       "secretsmanager:PutSecretValue",

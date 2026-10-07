@@ -22,7 +22,7 @@
  *               (TofuFragment has no `variable` key and TF_VAR_* is refused by
  *               the runner), so the image that a build produced cannot be
  *               passed in as a variable. Instead the image reference lives in an
- *               SSM parameter ("image pointer", `/zenith/<environment>/<node>/image`):
+ *               SSM parameter ("image pointer", `/zenith<suffix>/image-pointer/<environment>/<node>/image`):
  *               tofu creates it once with a bootstrap value and then ignores its
  *               value; the deploy workflow's `deployImage` writes the new
  *               digest there, and the task definition reads it through a data
@@ -81,8 +81,10 @@ export const LOG_STREAM_PREFIX = "ecs";
 export const BOOTSTRAP_TAG = "zenith-bootstrap";
 
 /** SSM parameter holding the deployed image of a built workload. */
-export function imagePointerName(environmentId: string, address: string): string {
-  return `/zenith/${environmentId}/${address}/image`;
+export function imagePointerName(environmentId: string, address: string, bootstrapNameSuffix = ""): string {
+  // Dedicated sub-path: the bootstrap grants SSM access to exactly /zenith<suffix>/image-pointer/*, so no other
+  // parameter under /zenith (workload-read config or secrets) is reachable through that grant.
+  return `/zenith${bootstrapNameSuffix}/image-pointer/${environmentId}/${address}/image`;
 }
 
 const ENV_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -161,7 +163,8 @@ function emitImage(b: Frag, node: ResourceNode, ctx: CompileContext, label: stri
   if (!/^[A-Za-z0-9_.-]+$/.test(ctx.environmentId)) throw new ComputeCompileError("invalid_spec", "the environment id cannot be used in an SSM parameter name.");
   const repoUrl = refOf(ctx, registry.address, "repository_url");
   const pointer = b.resource("aws_ssm_parameter", `${label}_image`, {
-    name: imagePointerName(ctx.environmentId, node.address),
+    name: imagePointerName(ctx.environmentId, node.address, ctx.awsBootstrap?.bootstrapNameSuffix),
+    // Plain String on purpose: the image reference is not a secret, and the deploy role may only touch SSM under the pointer prefix.
     type: "String",
     description: `Deployed image of ${node.address}. Written by Zenith deployments; tofu never overwrites it.`,
     insecure_value: cat(repoUrl, `:${BOOTSTRAP_TAG}`),
@@ -227,7 +230,7 @@ export function emitTask(b: Frag, node: ResourceNode, ctx: CompileContext, spec:
   const execName = `${cloudName(ctx.namePrefix, name, 64 - "-exec".length)}-exec`;
   const execRole = b.resource("aws_iam_role", `${label}_exec`, {
     name: execName,
-    assume_role_policy: assumeRoleJson("ecs-tasks.amazonaws.com"),
+    assume_role_policy: assumeRoleJson("ecs-tasks.amazonaws.com", ctx),
     permissions_boundary: boundaryArn(env, "app", ctx),
     tags: tagsFor(ctx, node, execName),
   });

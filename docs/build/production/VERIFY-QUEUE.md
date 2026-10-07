@@ -1,3 +1,9 @@
+## Sharp repair and local package closure, 7 October 2026
+
+Sharp fix `27d47f0770d77487762c992e828683e5f4e55b74` follows transport fix50e08ca6; Arnav author/committer. Human Continue accepted the finite mandatory native bundle scope. Exactly26 official companions updated;886 unrelated lock records unchanged. Independent integration review accepted exact package/lock bytes. Fresh canonical install, lock integrity and complete security audit exited0 with **zero known findings**, no exception. Fresh compiler3GiB heap failure retained; serial4GiB retry passed. Lint and Next production build passed. Package suites **544 passed /0 failed /6 skipped**; six Linux process-supervisor cases remain mandatory CI execution. Real native DarwinARM Sharp0.35.5 PNG roundtrip passed; worker/client/workflow bundles compiled and workflow sandbox passed. These are closure results, not composed/native worker startup acceptance.
+
+[Exact checks, case identities, versions, skips and limitations](evidence/PROD-CI-07/2026-10-07-sharp-27d47f07.json). Local canonical native22 blocked by Darwin8GiB /Docker5.79GiB versus Linux12GiB prerequisites; fresh remote AMD64 and ARM64 required separately. Combined normal push and every exact pushed-SHA CI job pending at this record. Ledger9/41/28 across78, release flagsfalse. Older pending Sharp scope notes below are superseded by this authorized execution; broader default API/cloud/privateApp decisions unchanged.
+
 ## Authorized security repair, 7 October 2026
 
 Results PROD-LIFE-11: local transport security fix50e08ca6; PG/S3 72/0/0, MySQL15/0/0; compiler/lint0; in progress, hostname MySQL and wider acceptance open.

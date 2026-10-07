@@ -544,7 +544,7 @@
       ],
       "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "reopened_adb6fb42_supply_chain_failure_sharp_GHSA_wq5f_xc86_pv6w",
+      "implementationStatus": "sharp_0355_local_audit_clear_pending_exact_candidate_ci",
       "evidence": [
         {
           "level": "contract",
@@ -648,6 +648,12 @@
           "command": "node scripts/ci/security-audit.mjs (failed remote step); root inspected job-only log and current primary advisory.",
           "environment": "GitHub ubuntu-latest supply-chain; repository Node22.23.3 setup. Lockfile unchanged; sharp0.35.4/Next15.5.24. No native package execution or exploit performed in disposition.",
           "logs": "docs/build/production/evidence/PROD-CI-07/2026-10-06-sharp-advisory-adb6fb42.json"
+        },
+        {
+          "level": "contract",
+          "commit": "27d47f0770d77487762c992e828683e5f4e55b74",
+          "result": "Fresh canonicalnpmci/lock integrity/full audit0 with zero knownfindings/noexceptions; compiler4GiBretry/lint/Nextbuild0; package544P0F6Linux-onlyS, workflow sandbox58P0F0S; realDarwinARM Sharp0.35.5 PNGroundtrip; worker/client/workflowclosurecompiled. Whole exactpushed CI/native architecture gates pending.",
+          "artifact": "docs/build/production/evidence/PROD-CI-07/2026-10-07-sharp-27d47f07.json"
         }
       ],
       "requiredEvidence": [

@@ -20,6 +20,7 @@ import { planMixedPartitions, type MixedPartitionInput, type PartitionReference 
 import { assertAddressesStable, deriveAddresses } from "./addresses";
 import { admitMixedGraph, type MixedAdmission } from "./admission";
 import { buildParentPlan, assertParentPlanIntegrity, parentProposalInput, proposalMatchesPlan, type BuildParentPlanInput } from "./parent-plan";
+import { requiredPairs } from "./connectivity";
 import { assignPartitions, type PartitionPin } from "./partitioner";
 import { outcomeOfOperationStatus } from "./receipt";
 import {
@@ -80,6 +81,12 @@ export async function planMixed(deps: MixedDeps, input: PlanMixedInput): Promise
     ...(input.pins ? { pins: input.pins } : {}), ...(input.references ? { references: input.references } : {}),
     ...(input.connectivity ? { connectivity: input.connectivity } : {}),
   });
+  // PROD-MIX-05: partitions that depend on each other never run without declared, approval-bound protected connectivity. The default
+  // (mutual TLS, allowlist, DNS and TLS pins) needs facts only the caller has (host names, pins, vault references, egress), so it cannot
+  // be derived here: refuse with the reason instead of accepting an undeclared path.
+  if (!plan.connectivity && requiredPairs(plan).length > 0) {
+    throw new MixedPlanError("plan_refused", "These partitions depend on each other, so the plan needs protected connectivity: declare mutual-TLS endpoints with an address allowlist and DNS and TLS pins (see defaultProtectedEndpoints). None was given and it cannot be derived without host names, key pins and egress addresses.", { code: "missing_connectivity" });
+  }
   const result = await plans.createPlan(deps.sql, { plan, createdBy: input.createdBy });
   return { ...result, proposalInput: parentProposalInput(result.stored.plan) };
 }

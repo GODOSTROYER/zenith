@@ -74,7 +74,7 @@ Dockerfile with a subdirectory context, as on AWS/GCP) is copied to `.zenith/Doc
 uploaded. LIFE-09 isolation attestation is unchanged. The Azure refusal in `contextDirOf` was removed; its test in
 `tests/execution/build-isolation.test.ts` now expects `apps/web` (VERIFIED-CONTRACT CHANGE). The launch journal key
 includes contextDir for non-root builds only (root keys unchanged). Tests: `tests/providers/azure/context-archive.test.ts`.
-Caveat: a deterministic derivation failure happens after the permanent launch claim, so that key stays consumed.
+The context archive is derived and validated BEFORE the permanent launch claim (non-root builds only), so a derivation failure leaves the key unconsumed and records nothing (test in `build-digest.test.ts`).
 
 ## 2. Acceptance mapping
 

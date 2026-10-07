@@ -95,6 +95,23 @@ export function createBuildPort(options: AzureBuildOptions = {}): BuildPort {
       if (typeof loginServer !== "string" || !acrLoginServerPattern(cloudOf(ctx.session)).test(loginServer) || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(repository)) throw new StepFailedError("Azure build output registry/repository is malformed.");
       const key = digest([scope(ctx), "build", input.service.address, input.source.digest, input.idempotencyKey, ...(contextDir === "." ? [] : [contextDir])]);
       const journalScope = { workspaceId: ctx.workspaceId, environmentId: ctx.environmentId, key };
+      // A non-root context is derived and validated BEFORE the permanent launch claim: a derivation failure leaves the key unconsumed and retryable.
+      const loadSource = async (): Promise<{ archive: Uint8Array; dockerfilePath: string }> => {
+        let source: Uint8Array;
+        if (options.sourceBundles) source = (await readArchive(options.sourceBundles, spec.source, ctx.signal)).archive;
+        else {
+          try { source = await options.readSource!(ctx, input.source); } catch { ctx.signal.throwIfAborted(); throw new Error("Azure source bundle could not be read; no build was launched."); }
+        }
+        ctx.signal.throwIfAborted();
+        if (!(source instanceof Uint8Array) || source.byteLength === 0 || source.byteLength > MAX_SOURCE_BYTES || sha256Hex(source) !== input.source.digest.replace(/^sha256:/, "")) throw new StepFailedError("Source bundle bytes do not match the recorded digest/size bounds.");
+        return contextArchive(source, contextDir, spec.source?.dockerfile);
+      };
+      let built: { archive: Uint8Array; dockerfilePath: string } | undefined;
+      if (contextDir !== ".") {
+        let existing: string | undefined;
+        try { existing = await options.launches.read(journalScope); } catch { throw new Error("Azure build launch outcome is unknown."); }
+        if (existing === undefined) built = await loadSource();
+      }
       let claimed: boolean;
       try { claimed = await options.launches.claim(journalScope); } catch { throw new Error("Azure build launch claim could not be confirmed."); }
       if (!claimed) {
@@ -105,15 +122,7 @@ export function createBuildPort(options: AzureBuildOptions = {}): BuildPort {
         if (h.tag !== `zn-${key}` || h.registryId.toLowerCase() !== registry.id.toLowerCase() || h.repository !== repository || h.loginServer !== loginServer) throw new StepFailedError("Recovered Azure build handle does not match this build.");
         return { buildId: saved };
       }
-      let source: Uint8Array;
-      if (options.sourceBundles) source = (await readArchive(options.sourceBundles, spec.source, ctx.signal)).archive;
-      else {
-        try { source = await options.readSource!(ctx, input.source); } catch { ctx.signal.throwIfAborted(); throw new Error("Azure source bundle could not be read; no build was launched."); }
-      }
-      ctx.signal.throwIfAborted();
-      if (!(source instanceof Uint8Array) || source.byteLength === 0 || source.byteLength > MAX_SOURCE_BYTES || sha256Hex(source) !== input.source.digest.replace(/^sha256:/, "")) throw new StepFailedError("Source bundle bytes do not match the recorded digest/size bounds.");
-      // Non-root context: upload an archive built only from the validated contextDir (the LIFE-08 digest was admitted upstream for this commit).
-      const built = contextArchive(source, contextDir, spec.source?.dockerfile);
+      built ??= await loadSource();
       let runId;
       try { runId = await scheduleBuild(ctx, { registryId: registry.id, loginServer, repository, source: built.archive, tag: `zn-${key}`, dockerfilePath: built.dockerfilePath, uploadFetch: options.uploadFetch, ...(spec.isolation?.workerPool ? { agentPool: spec.isolation.workerPool } : {}) }); } catch { ctx.signal.throwIfAborted(); throw new Error("ACR build launch was not confirmed; reconcile the consumed launch key before retrying."); }
       const h: Handle = { version: 1, scope: scope(ctx), registryId: registry.id, registryAddress: input.registry.address, loginServer, repository, runId, tag: `zn-${key}` };

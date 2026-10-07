@@ -21,6 +21,7 @@ const bearerRoutes = [
   ["GET", "/environments/env_1/autonomy"], ["GET", "/workspace/policy"], ["GET", "/capability-catalog"],
   ["GET", "/environments/env_1/teardown-review"], ["POST", "/environments/env_1/teardown-review"],
   ["GET", "/connections"], ["GET", "/connections/conn_1"], ["POST", "/connections/conn_1/verify"], ["POST", "/connections/conn_1/revoke"],
+  ["GET", "/environments/env_1/state-backend"], ["POST", "/environments/env_1/state-backend/probe"], ["POST", "/environments/env_1/state-backend/restores"],
 ];
 const browserRoutes = [
   ["POST", "/operations/op_1/approve"], ["POST", "/operations/op_1/reject"],
@@ -29,6 +30,7 @@ const browserRoutes = [
   ["GET", "/runners"], ["GET", "/machines"], ["POST", "/runners/tokens"],
   ["POST", "/runners/run_1/revoke"], ["POST", "/machines/mac_1/revoke"],
   ["POST", "/connections"], ["POST", "/connections/conn_1/rotate"], ["POST", "/connections/conn_1/rotation/promote"], ["POST", "/connections/conn_1/rotation/abort"],
+  ["POST", "/environments/env_1/state-backend/restores/approve"], ["POST", "/environments/env_1/state-backend/restores/reject"], ["POST", "/environments/env_1/state-backend/restores/execute"],
 ];
 
 beforeEach(() => {
@@ -142,7 +144,7 @@ describe("platform route inventory", () => {
         expect(isAgentSignedPath(normalized), normalized).toBe(access === "agent-signed");
       }
     }
-    expect(seen.size).toBe(65);
+    expect(seen.size).toBe(71);
     for (const entry of PLATFORM_PATHS) {
       expect(entry.path.source.startsWith("^")).toBe(true);
       expect(entry.path.source.endsWith("$")).toBe(true);

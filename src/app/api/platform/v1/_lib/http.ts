@@ -22,6 +22,7 @@ import { AgentError } from "@/lib/agent-access/security";
 import { BrokerError, isBrokerError } from "@/lib/capabilities/errors";
 import { json } from "@/lib/server/errors";
 import { route, safeRequestError } from "@/lib/server/request";
+import { backpressureResponse, isBackpressureError } from "@/lib/ops/errors";
 import { isPlatformBearerRequest } from "./bearer-paths";
 import { callerOf } from "./principal";
 
@@ -61,6 +62,7 @@ export function parseWith<S extends ZodTypeAny>(schema: S, raw: unknown): z.infe
 }
 
 function failure(error: unknown): Response | undefined {
+  if (isBackpressureError(error)) return backpressureResponse(error);
   if (isBrokerError(error)) return json(errorBody(error), error.status);
   if (error instanceof AgentError) {
     // Authority availability errors can wrap external provider diagnostics.

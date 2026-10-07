@@ -11,6 +11,7 @@ import type { OperationView } from "@/lib/capabilities/types";
 import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
 import { q, revisionManifestAsync, save } from "@/lib/db/store";
 import type { Deployment } from "@/lib/domain/types";
+import { isBackpressureError } from "@/lib/ops/errors";
 import { InvalidWorkflowInputError } from "@/lib/workflows/client";
 import { bridgeDeps } from "@/lib/bridge/deps";
 import { failDeployment, finishUnstartedDeployment, noteUnconfirmedDeployment, setProjectedStatus } from "@/lib/bridge/projection";
@@ -84,6 +85,8 @@ async function start(ctx: ActionContext, d: Deployment): Promise<ActionResult> {
       connectionId: env.connectionId, preApproved: true,
       build: manifest.services.some((s) => s.ownership === "managed" && s.source.type === "git"),
     };
+    // PROD-OPS-02: refuse BEFORE the claim, so a paused or over-quota dispatch changes nothing and stays retryable.
+    await (await import("@/lib/ops/admission")).assertDispatchAdmitted({ workspaceId: ctx.workspaceId, kind: "deploy", operationId: d.operationId });
     // Never return, log or save the compact grant.
     await broker.beginExecution({ workspaceId: ctx.workspaceId, operationId: d.operationId, holder: `workflow:${d.operationId}`, audience: "worker", leaseMs: 5 * 60_000 });
     claimed = true;
@@ -96,6 +99,9 @@ async function start(ctx: ActionContext, d: Deployment): Promise<ActionResult> {
   } catch (error) {
     // A failed initial authority read cannot prove that an earlier start was
     // absent. Do not settle the operation or release its product writer here.
+    if (authorityRead && !claimed && isBackpressureError(error)) {
+      return { ok: false, summary: "Workflow start is deferred.", error: `${error.message} Retry in about ${error.retryAfterSec} seconds; the operation stays approved and nothing was started.`, data: deploymentData(d, op) };
+    }
     if (!authorityRead) return unconfirmed("The platform operation could not be inspected. Its outcome is unconfirmed; restore access and inspect it before retrying or proposing another change. No new workflow start was attempted.");
     if (!startAttempted && isBrokerError(error) && error.code === "already_claimed") return bridgeFailure(error);
     // The actual client validates payloads before connecting or dispatching.

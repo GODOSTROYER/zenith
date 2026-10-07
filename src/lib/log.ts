@@ -12,6 +12,7 @@
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import { env } from "@/lib/env";
+import { currentTraceId } from "@/lib/ops/telemetry/tracing";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -71,6 +72,9 @@ function emit(level: LogLevel, message: string, fields?: LogFields): void {
   };
   const requestId = currentRequestId();
   if (requestId) record.requestId = requestId;
+  // PROD-OPS-02: joins a log line to its trace and, through the span attributes, to tenant and operation.
+  const traceId = currentTraceId();
+  if (traceId) record.traceId = traceId;
   // Object.keys, not Object.entries: the same own enumerable keys, without a
   // two-element array allocated per field on a path this hot.
   if (fields) for (const k of Object.keys(fields)) record[k] = serialise(fields[k]);

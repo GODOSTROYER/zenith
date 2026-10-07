@@ -12,6 +12,8 @@ import { bundleDefinitions, type BundlerKind } from "./bundle";
 import type { ExecutionWorkerConfig } from "./config";
 import type { Client } from "@temporalio/client";
 import { TASK_QUEUE } from "@/lib/workflows/types";
+import { opsLimitsFromEnv } from "@/lib/ops/config";
+import { fairActivityInterceptors, installWorkerFairGate } from "@/lib/ops/worker-gate";
 
 /** Where the TypeScript workflow definitions live, relative to this file. */
 export function defaultWorkflowsPath(): string {
@@ -55,6 +57,9 @@ export interface CreateWorkerInput {
 
 /** Pure mapping from config to Temporal worker options (unit-tested). */
 export function workerOptions({ config, connection, activities, workflows }: CreateWorkerInput): WorkerOptions {
+  // PROD-OPS-02: weighted-fair heavy-activity scheduling across tenants (src/lib/ops/worker-gate.ts).
+  const fair = opsLimitsFromEnv().worker;
+  const gate = installWorkerFairGate({ activitySlots: config.maxConcurrentActivities, capacity: fair.fairCapacity, maxWaitMs: fair.fairMaxWaitMs });
   return {
     connection,
     namespace: config.temporal.namespace,
@@ -74,6 +79,7 @@ export function workerOptions({ config, connection, activities, workflows }: Cre
     maxHeartbeatThrottleInterval: config.heartbeatThrottleMs,
     defaultHeartbeatThrottleInterval: config.heartbeatThrottleMs,
     workflowBundle: workflows.workflowBundle,
+    interceptors: { activity: [fairActivityInterceptors(gate)] },
   };
 }
 

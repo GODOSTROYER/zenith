@@ -34,6 +34,8 @@ import { loadPolicyEngine } from "@/lib/policy";
 import { planArtifactRetentionPreviewFromEnv, startPlanArtifactJanitor } from "@/lib/execution/plan-janitor";
 import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
 import { createActivities } from "@/lib/workflows/activities";
+import { startWorkerOpsSampler } from "@/lib/ops/sampler";
+import { ensureTelemetryExport } from "@/lib/ops/telemetry/otlp";
 import { connectionOptionsFor, describeTemporalConfig } from "@/lib/workflows/config";
 import { temporalDataConverterFromEnv } from "@/lib/workflows/codec";
 import { executionWorkerConfigFromEnv } from "./config";
@@ -58,6 +60,7 @@ async function main(): Promise<void> {
   let policyLoaded = false;
   let stopping = () => false;
   let janitor: ReturnType<typeof startPlanArtifactJanitor> | undefined;
+  let opsSampler: ReturnType<typeof startWorkerOpsSampler> | undefined;
   let healthLog: ReturnType<typeof setInterval> | undefined;
   let reconcileLog: ReturnType<typeof setInterval> | undefined;
   let reconcileClient: Awaited<ReturnType<typeof openReconcileWorkerClient>> | undefined;
@@ -121,6 +124,11 @@ async function main(): Promise<void> {
 
     failureCategory = "worker-lifecycle";
     stopping = installShutdownHandlers({ worker, graceMs: config.shutdownGraceMs, log, signals: process, exit: (code) => process.exit(code) });
+    // PROD-OPS-02: OTLP push (when configured) and the sampled queue/maintenance gauges plus tenant weights for the fair gate.
+    // Both are best effort: a collector or store outage never stops the worker serving activities.
+    const telemetry = ensureTelemetryExport();
+    if (telemetry.error) log("warn", "telemetry export disabled", { reason: telemetry.error });
+    opsSampler = startWorkerOpsSampler(db);
     // Run even if the separately owned client cannot connect: shutdown must
     // drain/finalize this created native worker before its connection closes.
     const pollingStartedAt = Date.now();
@@ -177,6 +185,7 @@ async function main(): Promise<void> {
     stopping = () => true;
     if (healthLog) clearInterval(healthLog);
     if (reconcileLog) clearInterval(reconcileLog);
+    opsSampler?.stop();
     // A failed shutdown or close must not strand another owned resource.
     try {
       // Drain before closing the client or database used by activities.

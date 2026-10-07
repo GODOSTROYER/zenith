@@ -28,6 +28,7 @@ import { assertNoSecretValues } from "../secrets";
 import { boundedMs, clampLimit, jsonOrNull, opt } from "../sql";
 import { recordRunnerOutcome } from "./agent-effect-receipts";
 import type { SettleOutcomeInput, SettledOutcome } from "@/lib/runners/ports";
+import { assertRunnerQueueRoom } from "@/lib/ops/queue-bound";
 
 export const RUNNER_JOB_STATUSES = ["queued", "claimed", "running", "succeeded", "failed", "rejected", "timed_out", "expired", "cancelled"] as const;
 export type RunnerJobStatus = (typeof RUNNER_JOB_STATUSES)[number];
@@ -127,6 +128,8 @@ export async function enqueue(sql: Sql, input: EnqueueJobInput): Promise<RunnerJ
   if (operationId === null && (!isCapability(input.capability) || capability(input.capability).mutates))
     throw new ControlStoreError("invalid_input", "An operation-less runner job requires a catalogued non-mutating capability.", { field: "capability" });
   if (readReference) requireText("readReference", input.operationId, 128);
+  // PROD-OPS-02: a bounded queue. Refuses with BackpressureError (429/503 + Retry-After) rather than buffering.
+  await assertRunnerQueueRoom(sql, { workspaceId: requireText("workspaceId", input.workspaceId), operationBound: operationId !== null });
   const rows = await sql.query<JobRow>(
     `insert into platform.runner_jobs (id, runner_id, workspace_id, operation_id, kind, capability, envelope, expires_at)
      select $1, r.id, r.workspace_id, $4, $5, $6, $7, clock_timestamp() + ($8::bigint * interval '1 millisecond')

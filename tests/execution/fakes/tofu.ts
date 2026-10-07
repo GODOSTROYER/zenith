@@ -30,8 +30,12 @@ const run = (command: TofuRunResult["command"], exitCode = 1): TofuRunResult => 
 export type ApplyBehaviour = "ok" | "fail_apply" | "fail_plan_before_apply" | "timeout" | "abort" | "unclassified" | "plan_changed" | "hang" | "fail_output";
 
 export class FakeTofu implements TofuPort {
-  readonly planCalls: { ws: TofuWorkspace; opts: PlanWorkspaceOptions; envKeys: string[] }[] = [];
-  readonly applyCalls: { ws: TofuWorkspace; approvedDigest: string; envKeys: string[]; fingerprintKey?: string }[] = [];
+  readonly planCalls: { ws: TofuWorkspace; opts: PlanWorkspaceOptions; envKeys: string[]; inputEnvKeys: string[] }[] = [];
+  readonly applyCalls: { ws: TofuWorkspace; approvedDigest: string; envKeys: string[]; inputEnvKeys: string[]; captureSensitive: boolean; fingerprintKey?: string }[] = [];
+  /** values of sensitive outputs an apply returns ONLY when the caller asked for them (like the real engine) */
+  sensitiveOutputs: Record<string, unknown> | undefined;
+  /** the typed-input values the last session offered (kept only so a test can prove they reached the tool and nowhere else) */
+  lastInputEnv: Record<string, string> = {};
   /** the plan each `planWorkspace` call returns */
   planFactory: (ws: TofuWorkspace, call: number) => NormalizedPlan = (ws) => makePlan({ configDigest: ws.configDigest, lockDigest: ws.lockDigest });
   planError: Error | undefined;
@@ -53,7 +57,8 @@ export class FakeTofu implements TofuPort {
   }
 
   async planWorkspace(ws: TofuWorkspace, session?: TofuSessionEnv, opts: PlanWorkspaceOptions = {}): Promise<PlanWorkspaceResult> {
-    this.planCalls.push({ ws, opts, envKeys: Object.keys(session?.childProcessEnv?.() ?? {}) });
+    this.lastInputEnv = session?.inputEnv?.() ?? this.lastInputEnv;
+    this.planCalls.push({ ws, opts, envKeys: Object.keys(session?.childProcessEnv?.() ?? {}), inputEnvKeys: Object.keys(session?.inputEnv?.() ?? {}) });
     if (this.planGate) await this.planGate;
     if (opts.signal?.aborted) throw new TofuCommandError("tofu_aborted", "tofu plan was aborted.", run("plan"));
     if (this.planError) throw this.planError;
@@ -75,7 +80,8 @@ export class FakeTofu implements TofuPort {
   }
 
   async applyVerifiedPlan(ws: TofuWorkspace, args: { approvedDigest: string; session?: TofuSessionEnv; original?: ApprovedPlan; custody?: PlanCustodyInput; beforeDispatch?: () => Promise<void> } & EngineOptions): Promise<ApplyVerifiedResult> {
-    this.applyCalls.push({ ws, approvedDigest: args.approvedDigest, envKeys: Object.keys(args.session?.childProcessEnv?.() ?? {}), fingerprintKey: args.normalize?.fingerprintKey });
+    this.lastInputEnv = args.session?.inputEnv?.() ?? this.lastInputEnv;
+    this.applyCalls.push({ ws, approvedDigest: args.approvedDigest, envKeys: Object.keys(args.session?.childProcessEnv?.() ?? {}), inputEnvKeys: Object.keys(args.session?.inputEnv?.() ?? {}), captureSensitive: args.captureSensitiveOutputs === true, fingerprintKey: args.normalize?.fingerprintKey });
     if (this.apply === "fail_plan_before_apply") throw new TofuCommandError("tofu_command_failed", "tofu plan failed with exit code 1.", run("plan"));
     if (this.apply === "plan_changed") throw new TofuPlanChangedError(args.approvedDigest, this.planFactory(ws,this.planCalls.length+1).planDigest);
     const plan = bound(this.planFactory(ws, this.planCalls.length + 1),args.normalize?.executableSourceDigest);
@@ -105,6 +111,6 @@ export class FakeTofu implements TofuPort {
     }
     if (plan.planDigest !== args.approvedDigest) throw new TofuPlanChangedError(args.approvedDigest, plan.planDigest);
     if (this.applyGate) await this.applyGate;
-    return { plan, apply: { command: "apply", exitCode: 0, output: "Apply complete! Resources: 1 added, 0 changed, 0 destroyed.", truncated: false, durationMs: 42 }, outputs: this.outputs };
+    return { plan, apply: { command: "apply", exitCode: 0, output: "Apply complete! Resources: 1 added, 0 changed, 0 destroyed.", truncated: false, durationMs: 42 }, outputs: this.outputs, ...(args.captureSensitiveOutputs && this.sensitiveOutputs ? { sensitiveOutputs: { ...this.sensitiveOutputs } } : {}) };
   }
 }

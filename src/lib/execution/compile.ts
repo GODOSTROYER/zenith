@@ -45,6 +45,7 @@ import { backendForConnection } from "@/lib/tofu/backends";
 import { assertBackendAdmissible } from "@/lib/tofu/backend-capabilities";
 import { scanHclTemplate } from "@/lib/tofu/hcl-template";
 import type { ExecContext } from "./context";
+import { inputVariable, type ConsumedInput } from "./typed-inputs";
 import { StepFailedError } from "./errors";
 import type { DriverLookup, WorkspaceOverrides } from "./ports";
 import { baseTags, namePrefix, nodeTags } from "./session";
@@ -120,7 +121,7 @@ function substituteReferences(value: unknown, source: string, resolved: Readonly
   return value;
 }
 
-export function compileGraph(input: { graph: ResourceGraph; environmentId: string; region: string; tags: Record<string, string>; drivers: DriverLookup; connection?: ProviderConnection }): CompiledGraph {
+export function compileGraph(input: { graph: ResourceGraph; environmentId: string; region: string; tags: Record<string, string>; drivers: DriverLookup; connection?: ProviderConnection; inputs?: readonly ConsumedInput[] }): CompiledGraph {
   const { graph, drivers } = input;
   const nodes = new Map(graph.nodes.map((n) => [n.address, n]));
   const pending = new Map<string, PendingReference>();
@@ -157,6 +158,11 @@ export function compileGraph(input: { graph: ResourceGraph; environmentId: strin
       ...(node.provider === "azure" && input.connection?.config.provider === "azure" && input.connection.config.cloud ? { azureCloud: input.connection.config.cloud } : {}),
       ...(node.provider === "aws" && awsBootstrap ? { awsBootstrap: awsBootstrapContextForConnection(input.connection!.config, node.region || input.region) } : {}),
       node: (a) => nodes.get(a),
+      input: (name) => {
+        // A typed dependency input of this consumer: only a declared one resolves, as the interpolation of its variable.
+        if (!input.inputs?.some((declared) => declared.name === name)) throw new StepFailedError(`${safeText(node.address, 120)} asked for the typed input "${safeText(name, 60)}", which this operation does not consume.`);
+        return "${var." + inputVariable(name) + "}";
+      },
       ref: (target, attribute) => {
         const reference = { source: node.address, target, attribute };
         if (!nodes.has(target) || typeof attribute !== "string" || attribute.length > 512 || !REFERENCE_KEY.test(attribute)) return refuseReference(reference);
@@ -249,11 +255,15 @@ export function buildWorkspace(input: {
     if (connection.status !== "verified") throw new StepFailedError("AWS compilation requires a verified connection.");
     awsBootstrapContextForConnection(connection.config, env.region);
   }
-  const { fragments } = compileGraph({ graph, environmentId: ec.environmentId, region: env.region, tags, drivers: input.drivers, connection });
+  const typed = ec.typedInputs ?? [];
+  const { fragments } = compileGraph({ graph, environmentId: ec.environmentId, region: env.region, tags, drivers: input.drivers, connection, ...(typed.length ? { inputs: typed } : {}) });
   const { backend, stateKey } = backendFor(ec, connection, input.overrides);
   const providerSet = providerSetFor(env.provider, input.overrides);
   try {
-    const ws = assembleWorkspace({ graph, fragments, providerSet, region: env.region, backend, stateKey, tags });
+    const ws = assembleWorkspace({
+      graph, fragments, providerSet, region: env.region, backend, stateKey, tags,
+      ...(typed.length ? { inputs: typed.map((item) => ({ name: item.name, type: item.type === "number" ? "number" as const : item.type === "boolean" ? "boolean" as const : "string" as const, sensitive: item.secret !== undefined, ...(item.secret === undefined ? { value: item.value } : {}) })) } : {}),
+    });
     return { ws, fragments };
   } catch (err) {
     // Assembler refusals (duplicate addresses, forbidden constructs, credential-shaped keys) name node addresses, never values.

@@ -55,7 +55,7 @@ export function observationSource(sql: Sql): ProducerReadingSource {
 
 /** The append-only platform table of recorded producer outputs (migration 42). */
 export function platformOutputRecordStore(sql: Sql): OutputRecordStore {
-  return { get: (workspaceId, planId, referenceId, receiptDigest) => outputRecords.getOutput(sql, workspaceId, planId, referenceId, receiptDigest), record: (input) => outputRecords.recordOutput(sql, input) };
+  return { get: (workspaceId, planId, referenceId) => outputRecords.getOutput(sql, workspaceId, planId, referenceId), record: (input) => outputRecords.recordOutput(sql, input) };
 }
 
 /** The workspace vault through its existing sealed store. Values go in sealed; only metadata comes out. */

@@ -12,6 +12,7 @@
  * release-run migration classes, tenant scoping) that the ordering rules act on at child start.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { digest } from "@/lib/controlplane/digest";
 import { PLATFORM_MIGRATIONS, repos } from "@/lib/controlplane/db";
 import * as outputRecords from "@/lib/controlplane/db/repos/mixed-output-records";
 import * as plans from "@/lib/controlplane/db/repos/mixed-parent-plans";
@@ -21,7 +22,10 @@ import type { ProviderConnection } from "@/lib/credentials/types";
 import { parentProposalInput } from "@/lib/execution/mixed/parent-plan";
 import { adoptChildOperation, advanceChild, beginParent, observeChild, planMixed, type ChildLauncher, type MixedDeps } from "@/lib/execution/mixed/service";
 import { joinedLauncher, materializeIncoming, openRunForParent, recordChildStart, syncChildOutcome, type JoinDeps } from "@/lib/execution/mixed/orchestration-join";
+import { secretOutputRef, type VaultPort } from "@/lib/execution/mixed/output-reader";
 import { platformOutputRecordStore, productionWorldHooks } from "@/lib/execution/mixed/output-source";
+import { createPlatformTypedInputs } from "@/lib/execution/mixed/typed-inputs";
+import { StepFailedError } from "@/lib/execution/errors";
 import { platformOrderingSignals, readOrderingSignals, readRunSignals } from "@/lib/execution/mixed/signals";
 import type { MixedParentPlan } from "@/lib/execution/mixed/types";
 import type { MixedWorld } from "@/lib/execution/mixed/world";
@@ -38,6 +42,8 @@ const PROVIDER_OF: Record<string, "azure" | "gcp" | "aws"> = { "env-azure": "azu
 const SEMANTICS = "9".repeat(64);
 const HOST_VALUE = "db.internal.example";
 const REFERENCE = { id: "db-host", producer: { address: DB, output: "endpoint", type: "endpoint" as const }, consumer: { address: WEB, input: "endpoint_db", type: "endpoint" as const } };
+const SECRET_REFERENCE = { id: "db-secret", producer: { address: DB, output: "password", type: "secret_ref" as const }, consumer: { address: WEB, input: "db_password", type: "secret_ref" as const } };
+const MATERIAL = ["s3cr3t", "material", String(Date.now())].join("-");
 const dg = (c: string) => `sha256:${c.repeat(64)}`;
 
 describe("migration inventory", () => {
@@ -83,7 +89,7 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
   }
 
   /** A running parent with every child adopted and the run open; references optional. */
-  async function scenario(options: { references: boolean }): Promise<Scenario> {
+  async function scenario(options: { references: boolean; secret?: boolean }): Promise<Scenario> {
     const ws = uid("ws");
     const conns: Record<string, ProviderConnection> = {};
     for (const env of ENVIRONMENTS) conns[env] = connection(PROVIDER_OF[env], { workspaceId: ws });
@@ -99,7 +105,7 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
     const world: MixedWorld = { ...base, ...productionWorldHooks(db()), orderingSignals: platformOrderingSignals(db()) };
     const store = { get: async (workspaceId: string, operationId: string, planDigest: string) => ({ workspaceId, operationId, planDigest, semantics: { digest: SEMANTICS }, createdAt: new Date().toISOString() }), record: async () => { throw new Error("fake store is read-only"); } } as unknown as SemanticsStore;
     const deps: MixedDeps = { sql: db(), world, semantics: store, referencesReady: async () => typeof world.childTypedOutputs === "function" };
-    const planned = await planMixed(deps, { workspaceId: ws, parentEnvironmentId: PARENT_ENV, childEnvironmentIds: [...ENVIRONMENTS], createdBy: "user-planner", ...(options.references ? { references: [REFERENCE] } : {}) });
+    const planned = await planMixed(deps, { workspaceId: ws, parentEnvironmentId: PARENT_ENV, childEnvironmentIds: [...ENVIRONMENTS], createdBy: "user-planner", ...(options.references ? { references: [REFERENCE, ...(options.secret ? [SECRET_REFERENCE] : [])] } : {}) });
     const plan = planned.stored.plan;
     const seeded = await seedAwaitingApproval(db(), { workspaceId: ws, proposal: { capability: "deployment.deploy", scope: { workspaceId: ws, projectId: PROJECT, environmentId: PARENT_ENV }, input: parentProposalInput(plan) } });
     await plans.attachParentOperation(db(), { workspaceId: ws, planId: plan.parentPlanId, operationId: seeded.operation.id });
@@ -186,13 +192,14 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
       expect(rest).toEqual([]);
       const receipt = (await plans.getReceipt(db(), s.ws, s.plan.parentPlanId, s.producer))!;
       expect(row).toMatchObject({
-        referenceId: "db-host", receiptDigest: receipt.receiptDigest, producerPartitionId: s.producer, consumerPartitionId: s.consumer, producerOperationId: s.childOperations[s.producer],
+        referenceId: "db-host", producerPartitionId: s.producer, consumerPartitionId: s.consumer, producerOperationId: s.childOperations[s.producer],
         producerAddress: DB, producerOutput: "endpoint", valueType: "endpoint", source: "observation",
       });
+      void receipt;
       expect(row.valueDigest).toMatch(/^[a-f0-9]{64}$/);
-      // The table has no place for a value: scan the whole row as stored.
-      const raw = JSON.stringify((await db().query("select * from platform.mixed_output_records where workspace_id = $1", [s.ws])));
-      expect(raw).not.toContain(HOST_VALUE);
+      // The non-secret value is stored, with its digest, in the non-secret value column.
+      expect(row.value).toBe(HOST_VALUE);
+      expect(row.valueDigest).toBe(digest({ type: "endpoint", value: HOST_VALUE }));
       // The consumer was NOT rebound or started: the run still shows it pending with the reference unmaterialized.
       const state = (await readMixedRun(s.join.run, s.ws, s.parentOperationId))!.state;
       expect(state.children[s.consumer].status).toBe("pending");
@@ -224,8 +231,8 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
 
   describe("the output record table", () => {
     const input = (s: Scenario, over: Partial<Omit<outputRecords.MixedOutputRecord, "recordedAt">> = {}): Omit<outputRecords.MixedOutputRecord, "recordedAt"> => ({
-      workspaceId: s.ws, planId: s.plan.parentPlanId, referenceId: "db-host", receiptDigest: "c".repeat(64), producerPartitionId: s.producer, consumerPartitionId: s.consumer,
-      producerOperationId: s.childOperations[s.producer], producerAddress: DB, producerOutput: "endpoint", valueType: "endpoint", valueDigest: "d".repeat(64), source: "observation",
+      workspaceId: s.ws, planId: s.plan.parentPlanId, referenceId: "db-host", producerPartitionId: s.producer, consumerPartitionId: s.consumer,
+      producerOperationId: s.childOperations[s.producer], producerAddress: DB, producerOutput: "endpoint", valueType: "endpoint", valueDigest: "d".repeat(64), value: "db.example.internal", source: "observation",
       sourceDigest: "e".repeat(64), observedAt: new Date().toISOString(), ...over,
     });
 
@@ -238,7 +245,7 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
       await expect(db().query("update platform.mixed_output_records set value_digest = $2 where workspace_id = $1", [s.ws, "f".repeat(64)])).rejects.toThrow(/append-only/);
       await expect(db().query("delete from platform.mixed_output_records where workspace_id = $1", [s.ws])).rejects.toThrow(/append-only/);
       // a foreign workspace cannot see it, and cannot write against this plan
-      expect(await outputRecords.getOutput(db(), uid("ws"), s.plan.parentPlanId, "db-host", "c".repeat(64))).toBeNull();
+      expect(await outputRecords.getOutput(db(), uid("ws"), s.plan.parentPlanId, "db-host")).toBeNull();
       await expect(outputRecords.recordOutput(db(), input(s, { workspaceId: uid("ws") }))).rejects.toMatchObject({ code: "not_found" });
       expect(await outputRecords.listOutputs(db(), uid("ws"), s.plan.parentPlanId)).toEqual([]);
     });
@@ -248,11 +255,21 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
       await expect(outputRecords.recordOutput(db(), input(s, { valueType: "secret_ref" }))).rejects.toMatchObject({ code: "invalid_input" });
       await expect(outputRecords.recordOutput(db(), input(s, { secretRef: "vault:p/s/k", secretVersionDigest: "a".repeat(64) }))).rejects.toMatchObject({ code: "invalid_input" });
       await expect(outputRecords.recordOutput(db(), input(s, { valueType: "secret_ref", secretRef: "not-a-vault-ref", secretVersionDigest: "a".repeat(64) }))).rejects.toMatchObject({ code: "invalid_input" });
-      const ok = await outputRecords.recordOutput(db(), input(s, { referenceId: "db-secret", valueType: "secret_ref", secretRef: "vault:p/s/k", secretVersionDigest: "a".repeat(64) }));
+      const ok = await outputRecords.recordOutput(db(), input(s, { referenceId: "db-secret", valueType: "secret_ref", value: undefined, secretRef: "vault:p/s/k", secretVersionDigest: "a".repeat(64) }));
       expect(ok.record).toMatchObject({ secretRef: "vault:p/s/k", secretVersionDigest: "a".repeat(64) });
       // the platform store adapter is what the production reader uses
       const store = platformOutputRecordStore(db());
-      expect(await store.get(s.ws, s.plan.parentPlanId, "db-secret", "c".repeat(64))).toMatchObject({ valueType: "secret_ref" });
+      expect(await store.get(s.ws, s.plan.parentPlanId, "db-secret")).toMatchObject({ valueType: "secret_ref" });
+      expect((await store.get(s.ws, s.plan.parentPlanId, "db-secret"))!.value).toBeUndefined();
+      // the database itself refuses a secret row that carries a value, and a plain row that carries none
+      const raw = (valueType: string, value: string | null, secretRef: string | null, ref: string) => db().query(
+        `insert into platform.mixed_output_records (workspace_id, plan_id, reference_id, producer_partition_id, consumer_partition_id, producer_operation_id, producer_address, producer_output,
+           value_type, value_digest, value, secret_ref, secret_version_digest, source, source_digest, observed_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::text::jsonb,$12,$13,'tofu_output',$10,clock_timestamp())`,
+        [s.ws, s.plan.parentPlanId, ref, s.producer, s.consumer, s.childOperations[s.producer], DB, "endpoint", valueType, "d".repeat(64), value, secretRef, secretRef ? "a".repeat(64) : null]);
+      await expect(raw("secret_ref", JSON.stringify({ v: "leak" }), "vault:p/s/k", "leaky")).rejects.toThrow();
+      await expect(raw("endpoint", null, null, "empty")).rejects.toThrow();
+      await expect(raw("endpoint", JSON.stringify({ v: { nested: true } }), null, "nested")).rejects.toThrow();
     });
   });
 
@@ -320,6 +337,122 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
       await repos.drift.insert(db(), { workspaceId: s.ws, report: driftReport(await clock(), []) });
       await recordChildStart(s.join, scope(s, s.consumer));
       expect((await readMixedRun(s.join.run, s.ws, s.parentOperationId))!.state.children[s.consumer].status).toBe("running");
+    });
+  });
+
+  describe("typed inputs: capture at apply and delivery through the platform port", () => {
+    const vaultEntries = new Map<string, { value: string; version: number }>();
+    const vault: VaultPort = {
+      status: async (ws, ref) => { const e = vaultEntries.get(`${ws}|${ref}`); return e ? { exists: true, version: e.version } : { exists: false }; },
+      put: async (ws, ref, value) => { const key = `${ws}|${ref}`; const version = (vaultEntries.get(key)?.version ?? 0) + 1; vaultEntries.set(key, { value, version }); return { version }; },
+    };
+    const portFor = () => createPlatformTypedInputs({ sql: db(), vault, readSecret: async (ws, ref) => vaultEntries.get(`${ws}|${ref}`)?.value });
+    const outputs = (over: Record<string, { sensitive: boolean; type: unknown; value?: unknown }> = {}) => ({
+      resource_db_endpoint: { sensitive: false, type: "string", value: HOST_VALUE }, resource_db_password: { sensitive: true, type: "string" }, ...over,
+    });
+    const capture = (s: Scenario, over: { outputs?: Record<string, { sensitive: boolean; type: unknown; value?: unknown }>; sensitive?: Record<string, unknown> } = {}) =>
+      portFor().capture({ workspaceId: s.ws, operationId: s.childOperations[s.producer], planDigest: "a".repeat(64), outputs: over.outputs ?? outputs(), sensitive: over.sensitive ?? { resource_db_password: MATERIAL } });
+
+    it("tells a producer which references consumers declared on it, and nobody else", async () => {
+      const s = await scenario({ references: true, secret: true });
+      const port = portFor();
+      expect((await port.producerContract(s.ws, s.childOperations[s.producer])).map((c) => [c.referenceId, c.type])).toEqual([["db-host", "endpoint"], ["db-secret", "secret_ref"]]);
+      expect(await port.producerContract(s.ws, s.childOperations[s.consumer])).toEqual([]);
+      const unrelated = await seedApprovedOperation(db(), s.ws);
+      expect(await port.producerContract(s.ws, unrelated.operation.id)).toEqual([]);
+      expect(await port.producerContract(uid("ws"), s.childOperations[s.producer])).toEqual([]);
+    });
+
+    it("captures the apply's outputs: the non-secret value stored with provenance, the sensitive one sealed into the vault and only its reference recorded", async () => {
+      const s = await scenario({ references: true, secret: true });
+      await expect(capture(s)).resolves.toEqual({ recorded: 2 });
+      const rows = await outputRecords.listOutputs(db(), s.ws, s.plan.parentPlanId);
+      const host = rows.find((row) => row.referenceId === "db-host")!;
+      const secret = rows.find((row) => row.referenceId === "db-secret")!;
+      expect(host).toMatchObject({ value: HOST_VALUE, valueDigest: digest({ type: "endpoint", value: HOST_VALUE }), source: "tofu_output", producerOperationId: s.childOperations[s.producer], producerAddress: DB, producerOutput: "endpoint" });
+      const ref = secretOutputRef(s.plan, s.producer, "db-secret");
+      expect(secret).toMatchObject({ valueType: "secret_ref", secretRef: ref, source: "tofu_output", producerOperationId: s.childOperations[s.producer] });
+      expect(secret.value).toBeUndefined();
+      expect(secret.secretVersionDigest).toBe(digest({ ref, version: 1 }));
+      expect(secret.valueDigest).toBe(digest({ ref, versionDigest: secret.secretVersionDigest }));
+      expect(vaultEntries.get(`${s.ws}|${ref}`)?.value).toBe(MATERIAL);
+      // secret non-disclosure in the database: no column of any row carries the material or its plain digest
+      const raw = JSON.stringify(await db().query("select * from platform.mixed_output_records where workspace_id = $1", [s.ws]));
+      expect(raw).not.toContain(MATERIAL);
+      expect(raw).not.toContain(digest(MATERIAL));
+    });
+
+    it("is idempotent, refuses a different value for the same reference, records nothing for an output that is absent and refuses a mistyped one", async () => {
+      const s = await scenario({ references: true, secret: true });
+      await capture(s);
+      await expect(capture(s)).resolves.toEqual({ recorded: 2 });
+      expect(await outputRecords.listOutputs(db(), s.ws, s.plan.parentPlanId)).toHaveLength(2);
+      await expect(capture(s, { outputs: outputs({ resource_db_endpoint: { sensitive: false, type: "string", value: "changed.example" } }) })).rejects.toMatchObject({ code: "conflict" });
+
+      const absent = await scenario({ references: true, secret: true });
+      await expect(capture(absent, { outputs: { unrelated: { sensitive: false, type: "string", value: "x" } }, sensitive: {} })).resolves.toEqual({ recorded: 0 });
+      expect(await outputRecords.listOutputs(db(), absent.ws, absent.plan.parentPlanId)).toEqual([]);
+
+      const mistyped = await scenario({ references: true, secret: true });
+      await expect(capture(mistyped, { outputs: outputs({ resource_db_endpoint: { sensitive: false, type: "number", value: 42 } }) })).rejects.toMatchObject({ code: "type_mismatch" });
+      // everything that could be recorded was: the secret is sealed and recorded even though the endpoint was refused
+      expect((await outputRecords.listOutputs(db(), mistyped.ws, mistyped.plan.parentPlanId)).map((row) => row.referenceId)).toEqual(["db-secret"]);
+    });
+
+    it("records a sensitive output as plain only if the reference is a secret: a sensitive value for a plain reference is refused", async () => {
+      const s = await scenario({ references: true });
+      await expect(capture(s, { outputs: outputs({ resource_db_endpoint: { sensitive: true, type: "string" } }), sensitive: { resource_db_endpoint: MATERIAL } })).rejects.toMatchObject({ code: "secret_refused" });
+      expect(await outputRecords.listOutputs(db(), s.ws, s.plan.parentPlanId)).toEqual([]);
+    });
+
+    it("delivers the consumer's inputs only from its succeeded producer's own recorded outputs", async () => {
+      const s = await scenario({ references: true, secret: true });
+      const port = portFor();
+      // nothing recorded yet: the consumer is refused, not given a guess
+      await expect(port.load(s.ws, s.childOperations[s.consumer])).rejects.toBeInstanceOf(StepFailedError);
+      await startProducer(s);
+      await capture(s);
+      // recorded but the producer has no receipt yet: still refused
+      await expect(port.load(s.ws, s.childOperations[s.consumer])).rejects.toBeInstanceOf(StepFailedError);
+      await finishProducer(s);
+      const inputs = await port.load(s.ws, s.childOperations[s.consumer]);
+      const ref = secretOutputRef(s.plan, s.producer, "db-secret");
+      expect(inputs).toEqual([
+        { name: "db_password", referenceId: "db-secret", type: "secret_ref", valueDigest: expect.stringMatching(/^[a-f0-9]{64}$/), secret: { ref, versionDigest: digest({ ref, version: 1 }) } },
+        { name: "endpoint_db", referenceId: "db-host", type: "endpoint", valueDigest: digest({ type: "endpoint", value: HOST_VALUE }), value: HOST_VALUE },
+      ]);
+      expect(JSON.stringify(inputs)).not.toContain(MATERIAL);
+      // the producer, another operation and another workspace consume nothing
+      expect(await port.load(s.ws, s.childOperations[s.producer])).toEqual([]);
+      expect(await port.load(uid("ws"), s.childOperations[s.consumer])).toEqual([]);
+    });
+
+    it("resolves a secret only for the consuming operation, only for its declared input, and only while the vault version still matches the record", async () => {
+      const s = await scenario({ references: true, secret: true });
+      const port = portFor();
+      await startProducer(s);
+      await capture(s);
+      await finishProducer(s);
+      const ref = secretOutputRef(s.plan, s.producer, "db-secret");
+      await expect(port.resolveSecret(s.ws, s.childOperations[s.consumer], ref)).resolves.toBe(MATERIAL);
+      await expect(port.resolveSecret(s.ws, s.childOperations[s.consumer], "vault:proj/other/key")).rejects.toBeInstanceOf(StepFailedError);
+      await expect(port.resolveSecret(s.ws, s.childOperations[s.producer], ref)).rejects.toBeInstanceOf(StepFailedError);
+      await expect(port.resolveSecret(uid("ws"), s.childOperations[s.consumer], ref)).rejects.toBeInstanceOf(StepFailedError);
+      // a rotated vault entry no longer matches what was recorded (and so what was reviewed)
+      await vault.put(s.ws, ref, "rotated-" + MATERIAL, "test");
+      await expect(port.resolveSecret(s.ws, s.childOperations[s.consumer], ref)).rejects.toBeInstanceOf(StepFailedError);
+    });
+
+    it("lets the run take the apply-time capture: materializeIncoming reads the recorded output, opens the review and never starts on its own", async () => {
+      const s = await scenario({ references: true });
+      await startProducer(s);
+      await capture(s);
+      await finishProducer(s);
+      expect(await materializeIncoming(s.join, scope(s, s.consumer))).toEqual({ state: "waiting", reviewOperationId: "op-review-fake" });
+      expect(s.reviews).toHaveLength(1);
+      const [row] = await outputRecords.listOutputs(db(), s.ws, s.plan.parentPlanId);
+      expect(row).toMatchObject({ source: "tofu_output", value: HOST_VALUE });
+      expect((await readMixedRun(s.join.run, s.ws, s.parentOperationId))!.state.children[s.consumer].status).toBe("pending");
     });
   });
 });

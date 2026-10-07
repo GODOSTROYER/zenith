@@ -80,6 +80,27 @@ export interface AssembleWorkspaceInput {
    * `{ azurerm: { subscription_id } }`. Unknown keys and nested settings are refused.
    */
   providerConfig?: Partial<Record<ProviderLocalName, Record<string, unknown>>>;
+  /**
+   * Typed dependency inputs of a mixed-provider consumer, declared as OpenTofu variables `zenith_in_<name>`. A non-secret input
+   * carries its value as the variable default (so it is part of the configuration digest); a sensitive one is declared
+   * `sensitive = true` with NO default, its value reaches only the tofu child's environment at run time.
+   */
+  inputs?: readonly { name: string; type: "string" | "number" | "boolean"; sensitive: boolean; value?: string | number | boolean }[];
+}
+
+const INPUT_NAME = /^[a-z][a-z0-9_]{0,60}$/;
+function inputVariables(inputs: AssembleWorkspaceInput["inputs"]): Record<string, unknown> | undefined {
+  if (!inputs?.length) return undefined;
+  const variable: Record<string, unknown> = {};
+  for (const input of inputs) {
+    if (!INPUT_NAME.test(input.name)) fail("invalid_input", "A typed input name must be lowercase letters, digits and underscores.");
+    const name = `zenith_in_${input.name}`;
+    if (Object.hasOwn(variable, name)) fail("duplicate_address", "A typed input is declared twice.");
+    if (input.sensitive && input.value !== undefined) fail("invalid_input", "A sensitive typed input never carries a value in the configuration.");
+    if (!input.sensitive && (input.value === undefined || typeof input.value !== input.type)) fail("invalid_input", "A non-secret typed input needs a value of its declared type.");
+    variable[name] = { type: input.type === "boolean" ? "bool" : input.type, ...(input.sensitive ? { sensitive: true } : { default: input.value }) };
+  }
+  return variable;
 }
 
 /* ----------------------------- provider sets ------------------------------ */
@@ -366,6 +387,8 @@ export function assembleWorkspace(input: AssembleWorkspaceInput): TofuWorkspace 
     checked.push({ nodeAddress, fragment });
   }
   const { main, addressMap } = mergeFragments(checked);
+  const variables = inputVariables(input.inputs);
+  if (variables) main.variable = variables;
 
   const backend = backendFile(input.backend, input.region, input.stateKey);
   const files: TofuFile[] = [

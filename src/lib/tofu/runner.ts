@@ -185,6 +185,23 @@ export const DEFAULT_LIMITS: TofuRunLimits = { timeoutMs: 30 * 60_000, maxOutput
 export interface TofuSessionEnv {
   readonly provider?: SessionEnvProvider;
   childProcessEnv?(): Record<string, string>;
+  /**
+   * Typed dependency inputs for the configuration's declared `zenith_in_*` variables (mixed-provider consumers). Each entry is
+   * `TF_VAR_zenith_in_<name>` and nothing else; the values reach only the tofu child's environment and are always redacted.
+   * They are never part of the workspace files, a plan view or an activity result.
+   */
+  inputEnv?(): Record<string, string>;
+}
+
+const INPUT_ENV_NAME = /^TF_VAR_zenith_in_[a-z][a-z0-9_]{0,60}$/;
+/** Validate the typed-input channel: only the fixed variable namespace, string values without NUL. */
+function checkedInputEnv(env: Record<string, string> | undefined): Record<string, string> {
+  const out: Record<string, string> = Object.create(null) as Record<string, string>;
+  for (const [name, value] of Object.entries(env ?? {})) {
+    if (!INPUT_ENV_NAME.test(name) || typeof value !== "string" || value.includes(" ")) throw new Error("A typed input is outside the zenith_in_ variable namespace.");
+    out[name] = value;
+  }
+  return out;
 }
 
 export interface TofuRunnerOptions {
@@ -411,6 +428,7 @@ export class TofuRun {
     const input=native?native.init:this.i;
     if (this.disposed) throw new Error("This tofu run has been disposed.");
     const sessionEnv = input.session?.childProcessEnv?.() ?? {};
+    const typedInputs = checkedInputEnv(input.session?.inputEnv?.());
     const env = buildChildEnv({
       homeDir: input.home,
       tmpDir: input.tmp,
@@ -421,7 +439,8 @@ export class TofuRun {
       extraEnv: input.extraEnv,
       hostEnv: input.hostEnv,
     });
-    const secrets = secretValuesOf({ ...input.extraEnv, ...sessionEnv });
+    Object.assign(env, typedInputs);
+    const secrets = [...secretValuesOf({ ...input.extraEnv, ...sessionEnv }), ...Object.values(typedInputs)];
     // Capture the exact fields before filesystem awaits. A changed original binding
     // refuses before spawn without evaluating a replacement field or accessor.
     const invocation={
@@ -548,12 +567,13 @@ export class TofuRun {
     const { json } = await this.showJson(file);
     checkedRun(this);
     const sessionEnv = input.session?.childProcessEnv?.() ?? {};
+    const typedInputs = checkedInputEnv(input.session?.inputEnv?.());
     const plan = normalizePlan(json, {
       configDigest: input.ws.configDigest,
       lockDigest: input.ws.lockDigest,
       addressMap: input.ws.addressMap,
       diagnostics: this.lastDiagnostics,
-      secrets: secretValuesOf({ ...input.extraEnv, ...sessionEnv }),
+      secrets: [...secretValuesOf({ ...input.extraEnv, ...sessionEnv }), ...Object.values(typedInputs)],
       ...base,
     });
     await inspect?.(plan, json);

@@ -665,6 +665,12 @@ export interface ExecutionDeps {
    * any difference. When absent the dispatch points behave as before; the platform composition always supplies it.
    */
   semantics?: import("./semantics/store").SemanticsStore;
+  /**
+   * Typed dependency inputs and outputs of mixed-provider children (PROD-MIX follow-up). A producer's apply records its outputs here
+   * while its grant is live; a consumer's context loads them, its configuration declares them as variables and its semantics digest
+   * binds them. Absent means no operation produces or consumes any (the platform composition supplies it).
+   */
+  typedInputs?: import("./typed-inputs").TypedInputsPort;
   /* runtime */
   /** Temporal's `Context.current().heartbeat`, wired by the worker. Default: no-op. */
   heartbeat?: (detail?: unknown) => void;

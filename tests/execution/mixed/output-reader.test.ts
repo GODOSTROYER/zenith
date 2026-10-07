@@ -31,10 +31,10 @@ const SECRET = { id: "db-secret", producer: { address: DB, output: "password", t
 
 class MemoryRecords implements OutputRecordStore {
   rows = new Map<string, MixedOutputRecord>();
-  private key = (ws: string, plan: string, ref: string, receipt: string) => `${ws}|${plan}|${ref}|${receipt}`;
-  async get(ws: string, planId: string, ref: string, receipt: string) { return this.rows.get(this.key(ws, planId, ref, receipt)) ?? null; }
+  private key = (ws: string, plan: string, ref: string) => `${ws}|${plan}|${ref}`;
+  async get(ws: string, planId: string, ref: string) { return this.rows.get(this.key(ws, planId, ref)) ?? null; }
   async record(input: Omit<MixedOutputRecord, "recordedAt">) {
-    const key = this.key(input.workspaceId, input.planId, input.referenceId, input.receiptDigest);
+    const key = this.key(input.workspaceId, input.planId, input.referenceId);
     const existing = this.rows.get(key);
     if (existing) {
       if (existing.valueDigest !== input.valueDigest || existing.secretRef !== input.secretRef) throw Object.assign(new Error("conflict"), { code: "conflict" });
@@ -116,6 +116,7 @@ describe("producer outputs the run orchestration accepts", () => {
       scope: { workspaceId: WS, environmentId: s.parent.parentEnvironmentId, consumerChildId: s.consumer.partitionId, consumerConnectionId: s.consumer.authority.connectionId },
       provenance: { producerChildId: s.producer.partitionId, producerAddress: DB, producerOutput: "endpoint", producerSubplanDigest: s.producer.subplanDigest, receiptDigest: s.receipt.receiptDigest },
     });
+    // The orchestration document itself carries the digest only; the value lives in the record and reaches the consumer as a typed input.
     expect(JSON.stringify(outputs)).not.toContain("db.internal.example");
   });
 
@@ -132,15 +133,14 @@ describe("producer outputs the run orchestration accepts", () => {
 });
 
 describe("recording with provenance", () => {
-  it("records one row per reference and receipt: digest, producer operation, address, output, source digest and observation time, no value", async () => {
+  it("records one row per reference: the non-secret value, its digest, producer operation, address, output, source digest and observation time", async () => {
     const s = setup();
     await s.call();
-    const row = await s.records.get(WS, s.parent.parentPlanId, "db-host", s.receipt.receiptDigest);
+    const row = await s.records.get(WS, s.parent.parentPlanId, "db-host");
     expect(row).toMatchObject({
       producerPartitionId: s.producer.partitionId, consumerPartitionId: s.consumer.partitionId, producerOperationId: "op-child-db", producerAddress: DB, producerOutput: "endpoint",
-      valueType: "endpoint", valueDigest: digest({ type: "endpoint", value: "db.internal.example" }), source: "observation", observedAt: NOW.toISOString(),
+      valueType: "endpoint", value: "db.internal.example", valueDigest: digest({ type: "endpoint", value: "db.internal.example" }), source: "observation", observedAt: NOW.toISOString(),
     });
-    expect(JSON.stringify(row)).not.toContain("db.internal.example");
   });
 
   it("returns the recorded output on a retry and never reads the source again", async () => {
@@ -159,6 +159,29 @@ describe("recording with provenance", () => {
     const changed = createProducerOutputReader({ records: { get: async () => null, record: async (input) => s.records.record({ ...input, valueDigest: digest("different") }) }, source: new ContractSource({ "db-host": reading("db.other.example") }), vault: s.vault });
     await expect(changed(WS, { partitionId: s.producer.partitionId, childOperationId: "op-child-db", receiptDigest: s.receipt.receiptDigest, receipt: s.receipt, plan: s.parent, effectDigest: s.producer.effectDigest }, s.refs)).rejects.toMatchObject({ code: "conflict" });
     expect([...s.records.rows]).toEqual([...other]);
+  });
+});
+
+describe("a record captured at apply", () => {
+  it("is used as recorded (the source is never read) when it belongs to the producer's own operation", async () => {
+    const s = setup([HOST], {});
+    const producerRef = s.parent.references[0];
+    await s.records.record({
+      workspaceId: WS, planId: s.parent.parentPlanId, referenceId: "db-host", producerPartitionId: s.producer.partitionId, consumerPartitionId: s.consumer.partitionId, producerOperationId: "op-child-db",
+      producerAddress: producerRef.producerAddress!, producerOutput: producerRef.producerOutput!, valueType: "endpoint", valueDigest: digest({ type: "endpoint", value: "db.captured.example" }),
+      value: "db.captured.example", source: "tofu_output", sourceDigest: digest("apply-capture"), observedAt: NOW.toISOString(),
+    });
+    const [output] = (await s.call()) as { valueDigest: string }[];
+    expect(output.valueDigest).toBe(digest({ type: "endpoint", value: "db.captured.example" }));
+    expect(s.source.calls).toBe(0);
+  });
+
+  it("is refused when it names another operation than the producer's receipt (never another run's output)", async () => {
+    const s = setup();
+    await s.call();
+    const row = (await s.records.get(WS, s.parent.parentPlanId, "db-host"))!;
+    s.records.rows.set(`${WS}|${s.parent.parentPlanId}|db-host`, { ...row, producerOperationId: "op-someone-else" });
+    await expect(s.call()).rejects.toMatchObject({ code: "receipt_mismatch" });
   });
 });
 

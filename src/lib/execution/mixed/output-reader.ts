@@ -1,22 +1,20 @@
 /**
- * The producer output reader of the mixed run (PROD-MIX-03 follow-up).
+ * The producer output reader of the mixed run (PROD-MIX follow-up).
  *
- * After a producer child APPLIED and its receipt is recorded, a consumer with incoming cross-partition references needs the
- * producer's typed outputs. This module turns what the producing partition's own brokered session read back into the closed
- * `TypedOutput` documents the run orchestration validates (contract, scope, provenance, the producer's recorded success):
+ * A consumer with incoming cross-partition references needs the producer's typed outputs once the producer succeeded. The
+ * producer's own apply activity captures them while its broker grant is live (typed-inputs.ts: `tofu output -json`, sensitive
+ * ones sealed into the vault, everything recorded in `platform.mixed_output_records`). This module is the run-side reader of
+ * those records, with a fallback READING source for a producer whose apply captured nothing (production: the producer's own
+ * post-apply observation, see output-source.ts). It turns them into the closed `TypedOutput` documents the run orchestration
+ * validates (contract, scope, provenance, the producer's recorded success):
  *
- *  - the READING comes from a `ProducerReadingSource` (production: the producing child's own post-apply observation, written
- *    inside the brokered observe session of the producer's connection; see output-source.ts). The reader never reads a cloud and
- *    never holds a credential;
- *  - a plain value is reduced to its digest (`digest({type, value})`); the value itself is never stored or returned;
- *  - a secret becomes a vault REFERENCE plus a version digest: a source that carries secret material (a sensitive tofu output)
- *    has it sealed into the workspace vault through `VaultPort` under a ref derived from the plan and reference, a source that
- *    names an existing vault entry is checked against the workspace vault. A secret value is never accepted as a plain output
- *    and a plain value is never accepted as a secret;
- *  - every output is recorded once per (plan, reference, producer receipt) in `platform.mixed_output_records` with its
- *    provenance (producing child, operation, address, output name, receipt digest, source digest, observation time). A second
- *    read for the same receipt returns the RECORDED output and never re-reads the source, so the planner input is stable across
- *    retries; a source that now disagrees with the record is a conflict, never an overwrite.
+ *  - a RECORDED output wins: the source is never read again, so the planner input is stable across retries, and the record must
+ *    name the very operation of the producer's receipt;
+ *  - a plain value is recorded with its value (non-secret class) and its digest `digest({type, value})`;
+ *  - a secret becomes a vault REFERENCE plus a version digest: material from a sensitive source is sealed into the workspace
+ *    vault under a ref derived from plan, producer and reference; a source that names an existing vault entry is checked against
+ *    the workspace vault. A secret value is never accepted as a plain output and a plain value is never accepted as a secret;
+ *  - a disagreeing re-read is a conflict, never an overwrite.
  *
  * Anything unreadable refuses the whole producer batch with `ProducerOutputError`: the join turns that into a blocked consumer,
  * never a start on a guess. A changed parent digest that results from materializing these values is NOT decided here: it goes
@@ -30,11 +28,11 @@ import type { MixedWorld } from "./world";
 export type ProducerOutputErrorCode = "not_readable" | "type_mismatch" | "secret_refused" | "receipt_mismatch" | "conflict" | "invalid_plan";
 
 const MESSAGES: Record<ProducerOutputErrorCode, string> = {
-  not_readable: "The producing child's output could not be read back through its own session.",
+  not_readable: "The producing child's output could not be read back.",
   type_mismatch: "The value read back does not have the declared output type.",
   secret_refused: "A secret output must be a vault reference; a plain value or a missing vault entry was refused.",
   receipt_mismatch: "The producer's receipt does not describe a succeeded child of this plan.",
-  conflict: "The value read back disagrees with the output already recorded for this producer receipt.",
+  conflict: "The value read back disagrees with the output already recorded for this reference.",
   invalid_plan: "The stored plan does not declare this reference.",
 };
 
@@ -51,7 +49,7 @@ export interface ProducerReading {
   /** True when the value is secret material (a sensitive tofu output): it is sealed into the vault, never recorded. */
   sensitive: boolean;
   source: "observation" | "tofu_output";
-  /** Digest of the source row identity (not of the value); provenance of WHAT was read. */
+  /** Digest of the source identity (not of the value); provenance of WHAT was read. */
   sourceDigest: string;
   observedAt: string;
 }
@@ -77,7 +75,7 @@ export interface VaultPort {
 
 /** Append-only record of what was read: the platform table in production, a memory implementation in contract tests. */
 export interface OutputRecordStore {
-  get(workspaceId: string, planId: string, referenceId: string, receiptDigest: string): Promise<MixedOutputRecord | null>;
+  get(workspaceId: string, planId: string, referenceId: string): Promise<MixedOutputRecord | null>;
   /** Idempotent for an identical value digest; a different value for the same key throws an error with `code: "conflict"`. */
   record(input: Omit<MixedOutputRecord, "recordedAt">): Promise<{ record: MixedOutputRecord; created: boolean }>;
 }
@@ -102,7 +100,8 @@ export function secretOutputRef(plan: Pick<MixedParentPlan, "projectId" | "paren
 
 const printable = (text: string): boolean => text.length > 0 && text.length <= MAX_TEXT && !/[\u0000-\u001f\u007f]/.test(text);
 
-function plainDigest(type: string, value: unknown, referenceId: string): string {
+/** Validate a plain value against the declared type and return it with its digest. Throws `type_mismatch`. */
+export function plainValueOf(type: string, value: unknown, referenceId: string): { value: string | number | boolean; valueDigest: string } {
   const mismatch = (): never => { throw new ProducerOutputError("type_mismatch", [referenceId]); };
   if (type === "string" || type === "resource_id" || type === "endpoint") {
     if (typeof value !== "string" || !printable(value)) return mismatch();
@@ -111,10 +110,68 @@ function plainDigest(type: string, value: unknown, referenceId: string): string 
   } else if (type === "boolean") {
     if (typeof value !== "boolean") return mismatch();
   } else return mismatch();
-  return digest({ type, value });
+  return { value: value as string | number | boolean, valueDigest: digest({ type, value }) };
+}
+
+export interface OutputRowContext {
+  workspaceId: string;
+  plan: MixedParentPlan;
+  producer: ChildSubplan;
+  producerOperationId: string;
+  reference: MixedParentPlan["references"][number];
+  producerAddress: string;
+  producerOutput: string;
+}
+
+/**
+ * One reading becomes one record row: a plain value with its digest, or a secret sealed into (or checked against) the vault and
+ * reduced to a reference and a version digest. Shared by this reader and the producer's apply-time capture.
+ */
+export async function prepareOutputRow(vault: VaultPort, ctx: OutputRowContext, reading: ProducerReading): Promise<Omit<MixedOutputRecord, "recordedAt">> {
+  const referenceId = ctx.reference.referenceId;
+  const type = ctx.reference.valueType;
+  if (!type) throw new ProducerOutputError("invalid_plan", [referenceId]);
+  if (Number.isNaN(Date.parse(reading.observedAt)) || !SHA.test(reading.sourceDigest)) throw new ProducerOutputError("not_readable", [referenceId]);
+  const base = {
+    workspaceId: ctx.workspaceId, planId: ctx.plan.parentPlanId, referenceId, producerPartitionId: ctx.producer.partitionId,
+    consumerPartitionId: ctx.reference.consumerPartitionId, producerOperationId: ctx.producerOperationId, producerAddress: ctx.producerAddress, producerOutput: ctx.producerOutput,
+    valueType: type, source: reading.source, sourceDigest: reading.sourceDigest, observedAt: new Date(reading.observedAt).toISOString(),
+  };
+  if (type !== "secret_ref") {
+    if (reading.sensitive) throw new ProducerOutputError("secret_refused", [referenceId]);
+    return { ...base, ...plainValueOf(type, reading.value, referenceId) };
+  }
+  if (typeof reading.value !== "string" || reading.value.length === 0) throw new ProducerOutputError("secret_refused", [referenceId]);
+  let ref: string;
+  let version: number;
+  if (reading.sensitive) {
+    // Secret material: sealed into the workspace vault now; only the reference and its version leave this function.
+    ref = secretOutputRef(ctx.plan, ctx.producer.partitionId, referenceId);
+    if (!VAULT_REF.test(ref)) throw new ProducerOutputError("secret_refused", [referenceId]);
+    version = (await vault.put(ctx.workspaceId, ref, reading.value, OUTPUT_READER_ACTOR)).version;
+  } else {
+    // A named vault entry: it must exist in THIS workspace, so a reference to someone else's secret is refused.
+    if (!VAULT_REF.test(reading.value)) throw new ProducerOutputError("secret_refused", [referenceId]);
+    const status = await vault.status(ctx.workspaceId, reading.value);
+    if (!status.exists || typeof status.version !== "number") throw new ProducerOutputError("secret_refused", [referenceId]);
+    ref = reading.value;
+    version = status.version;
+  }
+  const versionDigest = digest({ ref, version });
+  return { ...base, valueDigest: digest({ ref, versionDigest }), secretRef: ref, secretVersionDigest: versionDigest };
 }
 
 const isUnreadable = (reading: ProducerReading | { unreadable: string } | undefined): reading is { unreadable: string } | undefined => reading === undefined || "unreadable" in reading;
+
+/** Record a prepared row, mapping a store conflict to the fixed refusal. */
+export async function recordPrepared(records: OutputRecordStore, row: Omit<MixedOutputRecord, "recordedAt">): Promise<MixedOutputRecord> {
+  try {
+    return (await records.record(row)).record;
+  } catch (error) {
+    if (typeof error === "object" && error && (error as { code?: unknown }).code === "conflict") throw new ProducerOutputError("conflict", [row.referenceId]);
+    throw error;
+  }
+}
 
 /** Build the `childTypedOutputs` implementation of the production world. */
 export function createProducerOutputReader(deps: OutputReaderDeps): NonNullable<MixedWorld["childTypedOutputs"]> {
@@ -131,12 +188,15 @@ export function createProducerOutputReader(deps: OutputReaderDeps): NonNullable<
         || reference.producerOutput !== wanted.producerOutput || !reference.valueType) throw new ProducerOutputError("invalid_plan", [wanted.referenceId]);
     }
 
-    // Recorded outputs win: a retry, a resumed activity or a rebuilt planner input sees exactly what was recorded.
+    // Recorded outputs win: the producer's apply-time capture, a retry, a resumed activity or a rebuilt planner input.
     const recorded = new Map<string, MixedOutputRecord>();
     const toRead: typeof references[number][] = [];
     for (const wanted of references) {
-      const existing = await deps.records.get(workspaceId, plan.parentPlanId, wanted.referenceId, receipt.receiptDigest);
-      if (existing) recorded.set(wanted.referenceId, existing); else toRead.push(wanted);
+      const existing = await deps.records.get(workspaceId, plan.parentPlanId, wanted.referenceId);
+      if (!existing) { toRead.push(wanted); continue; }
+      // A record must be this producer's own: the operation the receipt names, never another run's.
+      if (existing.producerOperationId !== receipt.childOperationId || existing.producerPartitionId !== producer.partitionId) throw new ProducerOutputError("receipt_mismatch", [wanted.referenceId]);
+      recorded.set(wanted.referenceId, existing);
     }
     const readings = toRead.length
       ? await deps.source.read({ workspaceId, plan, producer, childOperationId: producerRef.childOperationId, receipt, references: toRead.map(({ referenceId, producerAddress, producerOutput }) => ({ referenceId, producerAddress, producerOutput })) })
@@ -147,48 +207,9 @@ export function createProducerOutputReader(deps: OutputReaderDeps): NonNullable<
     for (const wanted of toRead) {
       const reading = readings.get(wanted.referenceId);
       if (isUnreadable(reading)) throw new ProducerOutputError("not_readable", [wanted.referenceId]);
-      const reference = declared.get(wanted.referenceId)!;
-      const type = reference.valueType!;
-      if (Number.isNaN(Date.parse(reading.observedAt)) || !SHA.test(reading.sourceDigest)) throw new ProducerOutputError("not_readable", [wanted.referenceId]);
-      const base = {
-        workspaceId, planId: plan.parentPlanId, referenceId: wanted.referenceId, receiptDigest: receipt.receiptDigest, producerPartitionId: producer.partitionId,
-        consumerPartitionId: reference.consumerPartitionId, producerOperationId: producerRef.childOperationId, producerAddress: wanted.producerAddress, producerOutput: wanted.producerOutput,
-        valueType: type, source: reading.source, sourceDigest: reading.sourceDigest, observedAt: new Date(reading.observedAt).toISOString(),
-      };
-      if (type !== "secret_ref") {
-        if (reading.sensitive) throw new ProducerOutputError("secret_refused", [wanted.referenceId]);
-        fresh.push({ ...base, valueDigest: plainDigest(type, reading.value, wanted.referenceId) });
-        continue;
-      }
-      if (typeof reading.value !== "string" || reading.value.length === 0) throw new ProducerOutputError("secret_refused", [wanted.referenceId]);
-      let ref: string;
-      let version: number;
-      if (reading.sensitive) {
-        // Secret material: sealed into the workspace vault now, only the reference and its version leave this function.
-        ref = secretOutputRef(plan, producer.partitionId, wanted.referenceId);
-        if (!VAULT_REF.test(ref)) throw new ProducerOutputError("secret_refused", [wanted.referenceId]);
-        version = (await deps.vault.put(workspaceId, ref, reading.value, OUTPUT_READER_ACTOR)).version;
-      } else {
-        // A named vault entry: it must exist in THIS workspace, so a reference to someone else's secret is refused.
-        if (!VAULT_REF.test(reading.value)) throw new ProducerOutputError("secret_refused", [wanted.referenceId]);
-        const status = await deps.vault.status(workspaceId, reading.value);
-        if (!status.exists || typeof status.version !== "number") throw new ProducerOutputError("secret_refused", [wanted.referenceId]);
-        ref = reading.value;
-        version = status.version;
-      }
-      const versionDigest = digest({ ref, version });
-      fresh.push({ ...base, valueDigest: digest({ ref, versionDigest }), secretRef: ref, secretVersionDigest: versionDigest });
+      fresh.push(await prepareOutputRow(deps.vault, { workspaceId, plan, producer, producerOperationId: producerRef.childOperationId, reference: declared.get(wanted.referenceId)!, producerAddress: wanted.producerAddress, producerOutput: wanted.producerOutput }, reading));
     }
-
-    for (const row of fresh) {
-      try {
-        const { record } = await deps.records.record(row);
-        recorded.set(row.referenceId, record);
-      } catch (error) {
-        if (typeof error === "object" && error && (error as { code?: unknown }).code === "conflict") throw new ProducerOutputError("conflict", [row.referenceId]);
-        throw error;
-      }
-    }
+    for (const row of fresh) recorded.set(row.referenceId, await recordPrepared(deps.records, row));
 
     const artifactDigest = [receipt.outputsDigest, receipt.planDigest].find((candidate): candidate is string => typeof candidate === "string" && SHA.test(candidate))
       ?? digest({ receipt: receipt.receiptDigest, artifact: "none" });

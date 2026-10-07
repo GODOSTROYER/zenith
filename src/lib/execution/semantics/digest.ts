@@ -81,7 +81,8 @@ export interface ExecutableSemanticsInputs {
   scripts: { release: { service: string; commandDigest: string; timeoutSec: number | null } | null };
   migrations: { declaredClass: MigrationClass | null; effectiveClass: MigrationClass; sqlDigest: string | null } | null;
   targets: { graphDigest: string; provider: string; region: string; environmentId: string; connectionId: string; connectionConfigDigest: string };
-  configuration: { configDigest: string };
+  /** `typedInputs` is present only for a mixed-provider consumer: names, types and digests of the producer outputs it consumes. */
+  configuration: { configDigest: string; typedInputs?: { name: string; type: string; valueDigest: string; secretRef?: string; versionDigest?: string }[] };
   providerLocks: { lockDigest: string; tofuVersion: string | null };
   backend: { kind: string; configDigest: string | null };
   savedPlan: { planDigest: string | null };
@@ -115,7 +116,10 @@ export function normalizedComponent(name: SemanticComponentName, inputs: Executa
     case "targets":
       return inputs.targets;
     case "configuration":
-      return inputs.configuration;
+      // A consumer's consumed output digests are part of its configuration: a changed producer output moves this component.
+      return inputs.configuration.typedInputs?.length
+        ? { configDigest: inputs.configuration.configDigest, typedInputs: byKey(inputs.configuration.typedInputs, (item) => item.name) }
+        : { configDigest: inputs.configuration.configDigest };
     case "providerLocks":
       return inputs.providerLocks;
     case "backend":

@@ -14,6 +14,7 @@ import type { OperationRecord } from "@/lib/controlplane/types";
 import type { ProviderConnection } from "@/lib/credentials/types";
 import { z } from "zod";
 import { errorCode, StepFailedError } from "./errors";
+import type { ConsumedInput } from "./typed-inputs";
 import type { ProductContext } from "./ports";
 import { scopeOf, type Runtime, type WorkScope } from "./runtime";
 import { errorText } from "./text";
@@ -41,6 +42,8 @@ export interface ExecContext extends ExecLike {
   deploymentId?: string;
   approvedSourceSnapshots?: readonly import("./source-snapshot").ApprovedSourceSnapshot[];
   executableSourceDigest?: string;
+  /** Typed dependency inputs of a mixed-provider consumer child; absent for every other operation. */
+  typedInputs?: readonly ConsumedInput[];
 }
 
 export function parseOperationInput(op: Pick<OperationRecord, "proposal">): { revisionId?: string; deploymentId?: string; raw: Record<string, unknown> } {
@@ -74,7 +77,10 @@ export async function loadExecContext(rt: Runtime, operationId: string): Promise
   } catch (err) {
     throw productFailure(err);
   }
-  return { op, workspaceId: op.workspaceId, environmentId: op.environmentId, scope: scopeOf(op), product, deploymentId: input.deploymentId };
+  // A mixed-provider consumer child: its inputs are the producers' recorded outputs, loaded here so planning, the dispatch re-check
+  // and the semantics digest all see the same set. A declared input with no recorded output refuses (never a guess).
+  const typedInputs = rt.d.typedInputs ? await rt.d.typedInputs.load(op.workspaceId, op.id) : [];
+  return { op, workspaceId: op.workspaceId, environmentId: op.environmentId, scope: scopeOf(op), product, deploymentId: input.deploymentId, ...(typedInputs.length ? { typedInputs } : {}) };
 }
 
 /** The provider connection behind the environment; it must be verified. */

@@ -7,6 +7,7 @@
  * and at dispatch, so a difference between those calls is exactly a change of executable semantics.
  */
 import { z } from "zod";
+import { semanticsOfInputs } from "../typed-inputs";
 import { digest, sha256Hex } from "@/lib/controlplane/digest";
 import { assessMigration } from "@/lib/release-safety/classify";
 import type { MigrationClass } from "@/lib/release-safety/types";
@@ -72,7 +73,7 @@ export async function collectSemanticsInputs(rt: Pick<Runtime, "d">, ec: ExecCon
       connectionId: connection.id,
       connectionConfigDigest: digest(connection.config ?? null),
     },
-    configuration: { configDigest: ws.configDigest },
+    configuration: { configDigest: ws.configDigest, ...(ec.typedInputs?.length ? { typedInputs: semanticsOfInputs(ec.typedInputs) } : {}) },
     providerLocks: { lockDigest: ws.lockDigest, tofuVersion: TOFU_VERSION },
     backend: { kind: ws.backend, configDigest: backendFile ? sha256Hex(backendFile.content) : null },
     savedPlan: { planDigest: args.planDigest },

@@ -1,13 +1,13 @@
 /**
- * Producer output records of mixed-graph parent plans (PROD-MIX follow-up: the producer output reader).
+ * Producer output records of mixed-graph parent plans (PROD-MIX follow-up).
  *
- * One row per (parent plan, reference, producer receipt): the typed output a SUCCEEDED producer child exposed to a
- * consumer, as read back through the producing partition's own brokered observe session. The row holds digests and
- * provenance only: the value digest, the producing child's receipt digest and operation id, the resource address and
- * output name, the read source and when it was observed. For a secret it holds the vault reference and its version
- * digest, never a value. Rows are append-only (no update, no delete): a second read of the same receipt must produce the
- * same value digest (the unique key plus the application check), so a changed value is a NEW receipt and therefore a new
- * review, never a silent overwrite.
+ * One row per (parent plan, reference): the typed output the producing child exposed to a consumer, captured by the producer's own
+ * apply activity while its broker grant was live (`tofu output -json`), or read back from the producer's own observation. The
+ * row holds provenance (producing child operation, resource address, output name, source, source digest, observation time),
+ * the value digest and, for a NON-SECRET output, the value itself in `value` (stored as {"v": <string|number|boolean>}, bounded). For a
+ * secret it holds only the vault reference and its version digest and NO value: the check constraints make a secret row with a
+ * value, or a plain row without one, impossible. Rows are append-only (no update, no delete): a re-capture of the same reference
+ * must carry the same value digest, so a changed value is a new plan and therefore a new review, never a silent overwrite.
  */
 export const migration0042MixedOutputRecords = {
   version: 42,
@@ -17,7 +17,6 @@ create table if not exists platform.mixed_output_records (
   workspace_id            text        not null,
   plan_id                 text        not null,
   reference_id            text        not null check (char_length(reference_id) between 1 and 200),
-  receipt_digest          text        not null check (receipt_digest ~ '^[a-f0-9]{64}$'),
   producer_partition_id   text        not null,
   consumer_partition_id   text        not null,
   producer_operation_id   text        not null,
@@ -25,17 +24,19 @@ create table if not exists platform.mixed_output_records (
   producer_output         text        not null check (char_length(producer_output) between 1 and 512),
   value_type              text        not null check (value_type in ('string','number','boolean','resource_id','endpoint','secret_ref')),
   value_digest            text        not null check (value_digest ~ '^[a-f0-9]{64}$'),
+  value                   jsonb       check (value is null or (jsonb_typeof(value) = 'object' and coalesce(jsonb_typeof(value->'v') in ('string','number','boolean'), false) and octet_length(value::text) <= 4096)),
   secret_ref              text        check (secret_ref ~ '^vault:[A-Za-z0-9_-]{1,128}/[A-Za-z0-9_-]{1,128}/[A-Za-z0-9_-]{1,128}$'),
   secret_version_digest   text        check (secret_version_digest ~ '^[a-f0-9]{64}$'),
   source                  text        not null check (source in ('observation','tofu_output')),
   source_digest           text        not null check (source_digest ~ '^[a-f0-9]{64}$'),
   observed_at             timestamptz not null,
   recorded_at             timestamptz not null default clock_timestamp(),
-  primary key (workspace_id, plan_id, reference_id, receipt_digest),
+  primary key (workspace_id, plan_id, reference_id),
   foreign key (workspace_id, plan_id) references platform.mixed_parent_plans (workspace_id, plan_id),
   foreign key (workspace_id, plan_id, producer_partition_id) references platform.mixed_child_plans (workspace_id, plan_id, partition_id),
   foreign key (workspace_id, plan_id, consumer_partition_id) references platform.mixed_child_plans (workspace_id, plan_id, partition_id),
   check ((value_type = 'secret_ref') = (secret_ref is not null)),
+  check ((value_type = 'secret_ref') = (value is null)),
   check ((secret_ref is null) = (secret_version_digest is null))
 );
 create index if not exists mixed_output_records_plan on platform.mixed_output_records (workspace_id, plan_id, recorded_at);

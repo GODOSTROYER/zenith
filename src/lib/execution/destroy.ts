@@ -23,7 +23,7 @@ import type { DestroyActivities } from "@/lib/workflows/definitions/destroy";
 import type { LeaseRef, PlanSummary } from "@/lib/workflows/types";
 import { buildWorkspace } from "./compile";
 import { loadExecContext, loadOperation, resolveConnection, type ExecContext } from "./context";
-import { assertLeaseFor, requireExecutable, tofuSession } from "./desired";
+import { assertLeaseFor, requireExecutable, tofuSessionFor } from "./desired";
 import { LeaseLostError, StepFailedError, TofuPlanChangedError } from "./errors";
 import { withKeepAlive } from "./keepalive";
 import { planEvidence, toPlanSummary } from "./plan-evidence";
@@ -277,7 +277,7 @@ async function planStage(rt: Runtime, operationId: string, lease: LeaseRef, port
         if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required; a new review is required.");
         await rt.d.planArtifacts.inspect({ custody: planCustody(ec,graph.graphDigest,connection), planDigest: originalDigest, lease }, async () => undefined);
       }
-      return rt.tofu.planWorkspace(ws, tofuSession(session), { destroy: true, custody: planCustody(ec, graph.graphDigest, connection), lock: false, signal, deletionNodes: graph.nodes, inspectPlan: (plan) => guard(plan, graph.nodes), normalize: { fingerprintKey: rt.d.fingerprintKey } });
+      return rt.tofu.planWorkspace(ws, await tofuSessionFor(rt, ec, session), { destroy: true, custody: planCustody(ec, graph.graphDigest, connection), lock: false, signal, deletionNodes: graph.nodes, inspectPlan: (plan) => guard(plan, graph.nodes), normalize: { fingerprintKey: rt.d.fingerprintKey } });
     })
   );
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
@@ -375,6 +375,7 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
           rt.d.planArtifacts!.consume({ custody, planDigest, lease }, (original, dispatch) =>
             withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
               await guardDns(rt, ec, graph.nodes, session, signal, lease);
+              const tofuEnv = await tofuSessionFor(rt, ec, session);
               return rt.tofu.applyVerifiedPlan(ws, { approvedDigest: planDigest, original, custody,
               beforeDispatch: async () => {
                 const freshContext = await context(rt,operationId,lease);
@@ -389,7 +390,7 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
                 await rt.d.leases.assertFence(lease.scope,lease.fenceToken);
                 if (effects && effectScope) effect = await beginCleanupEffect(effects, effectScope);
                 started=true; await dispatch();
-              }, destroy: true, deletionNodes: graph.nodes, session: tofuSession(session), signal, normalize: { fingerprintKey: rt.d.fingerprintKey }, inspectPlan: async (plan) => {
+              }, destroy: true, deletionNodes: graph.nodes, session: tofuEnv, signal, normalize: { fingerprintKey: rt.d.fingerprintKey }, inspectPlan: async (plan) => {
               guard(plan, graph.nodes);
               bindDnsProofs(await guardDns(rt, ec, graph.nodes, session, signal, lease), reviewedDns);
               await rt.d.leases.assertFence(lease.scope, lease.fenceToken);

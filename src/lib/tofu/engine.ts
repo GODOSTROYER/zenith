@@ -32,6 +32,8 @@ export interface EngineOptions {
   deletionNodes?: readonly ResourceNode[];
   /** Server-side ownership guard, re-run on the exact file being applied. Never persist raw JSON. */
   inspectPlan?: PlanInspector;
+  /** Apply only: also return sensitive output values in `sensitiveOutputs` (for sealing by the producing activity). */
+  captureSensitiveOutputs?: boolean;
 }
 
 export interface PlanWorkspaceOptions extends EngineOptions {
@@ -66,8 +68,14 @@ export interface PlanWorkspaceResult {
 export interface ApplyVerifiedResult {
   plan: NormalizedPlan;
   apply: TofuRunResult;
-  /** non-sensitive outputs after apply (sensitive ones are dropped) */
+  /** non-sensitive outputs after apply (sensitive ones carry no value) */
   outputs: Record<string, { sensitive: boolean; type: unknown; value?: unknown }>;
+  /**
+   * Values of sensitive outputs, present ONLY when the caller asked for them (`captureSensitiveOutputs`). They exist in worker
+   * memory so the producing activity can seal them into the vault while its grant is live; they are never part of `outputs`,
+   * evidence, logs or any result that leaves the activity.
+   */
+  sensitiveOutputs?: Record<string, unknown>;
 }
 
 export interface PlanCustodyInput {
@@ -417,8 +425,13 @@ async function applyWithAdmission(
         }
       } });
     if(statePath&&!isCanonicalStandaloneRun(runner,run,snapshot))standaloneRefusal();
-    const outputs = await run.output();
-    return { plan, apply: result, outputs };
+    const read = await run.output({ includeSensitive: args.captureSensitiveOutputs === true });
+    const outputs: ApplyVerifiedResult["outputs"] = {};
+    const sensitiveOutputs: Record<string, unknown> = {};
+    for (const [name, output] of Object.entries(read)) {
+      if (output.sensitive && output.value !== undefined) { sensitiveOutputs[name] = output.value; outputs[name] = { sensitive: true, type: output.type }; } else outputs[name] = output;
+    }
+    return { plan, apply: result, outputs, ...(Object.keys(sensitiveOutputs).length ? { sensitiveOutputs } : {}) };
   });
   if (target && binding && original && admission && manifest && standalone) {
     if(!isCanonicalStandaloneRun(runner,appliedRun,snapshot))standaloneRefusal();

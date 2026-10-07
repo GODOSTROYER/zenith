@@ -30,7 +30,7 @@ import { digest } from "@/lib/controlplane/digest";
 import { TofuCommandError } from "@/lib/tofu/runner";
 import type { ExecutionActivities } from "@/lib/workflows/types";
 import { loadExecContext, resolveConnection, type ExecContext } from "./context";
-import { assertLeaseFor, requireExecutable, tofuSession } from "./desired";
+import { assertLeaseFor, requireExecutable, tofuSessionFor } from "./desired";
 import { assertDeployDeletionApproval, buildDeployWorkspace, inspectDeployDeletions } from "./plan";
 import { LeaseLostError, StepFailedError, TofuPlanChangedError } from "./errors";
 import { withKeepAlive } from "./keepalive";
@@ -143,6 +143,10 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
             if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required; a new review is required.");
             const custody = planCustody(ec, graph.graphDigest, connection);
             const guard = inspectDeployDeletions(rt, ec, deletionNodes, dnsNodes, session, signal, lease);
+            // Secret typed inputs of a mixed consumer are read from the vault under this operation's custody, for this session only.
+            const tofuEnv = await tofuSessionFor(rt, ec, session);
+            // A mixed producer asks the engine for its sensitive outputs ONLY for the references consumers declared on it.
+            const producerContract = rt.d.typedInputs ? await rt.d.typedInputs.producerContract(ec.workspaceId, ec.op.id) : [];
             finished = await rt.d.planArtifacts.consume({ custody, planDigest, lease }, (original, dispatch) => rt.tofu.applyVerifiedPlan(ws, { approvedDigest: planDigest, original, custody,
               beforeDispatch: async () => {
                 const current = await loadExecContext(rt,operationId);
@@ -162,7 +166,7 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
                 const authority = await rt.d.broker.approvalStatus(operationId);
                 if (!authority.approved || authority.rejected || (current.op.approvalRequired && !authority.approvalId)) throw new StepFailedError("Current policy or human approval changed before the reviewed original dispatch.");
                 await rt.d.leases.assertFence(lease.scope, lease.fenceToken); toolStarted = true; await dispatch();
-              }, session: tofuSession(session), signal, deletionNodes, normalize: { fingerprintKey: rt.d.fingerprintKey, ...(ec.executableSourceDigest ? { executableSourceDigest: ec.executableSourceDigest } : {}) }, inspectPlan: async (plan, raw) => {
+              }, session: tofuEnv, signal, deletionNodes, ...(producerContract.some((item) => item.type === "secret_ref") ? { captureSensitiveOutputs: true } : {}), normalize: { fingerprintKey: rt.d.fingerprintKey, ...(ec.executableSourceDigest ? { executableSourceDigest: ec.executableSourceDigest } : {}) }, inspectPlan: async (plan, raw) => {
               await guard(plan, raw);
               await assertDeployDeletionApproval(rt, ec, plan, deletionNodes, planDigest);
               if (repair) {
@@ -173,6 +177,17 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
               }
               await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
             } }));
+            // The producer's outputs are captured while this grant is live: non-sensitive values recorded with provenance, sensitive ones
+            // sealed into the vault. Failing to capture never undoes an apply that happened: the consumer is then refused, not guessed.
+            if (producerContract.length && rt.d.typedInputs && finished) {
+              const { sensitiveOutputs, ...rest } = finished;
+              try {
+                await rt.d.typedInputs.capture({ workspaceId: ec.workspaceId, operationId: ec.op.id, planDigest, outputs: rest.outputs, ...(sensitiveOutputs ? { sensitive: sensitiveOutputs } : {}) });
+              } catch (err) {
+                rt.log("warn", "could not capture the producer outputs after apply", { error: errorText(err) });
+              }
+              delete finished.sensitiveOutputs;
+            }
             return finished;
           });
           if (repair) {

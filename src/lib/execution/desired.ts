@@ -12,6 +12,7 @@ import { StepFailedError } from "./errors";
 import { buildDesiredState, findGraphProblems } from "./graph";
 import type { PlanCost } from "./plan-evidence";
 import type { Runtime } from "./runtime";
+import { inputEnvName } from "./typed-inputs";
 import { errorText } from "./text";
 
 /** The graph this operation will execute, or a definitive failure naming why it cannot. */
@@ -38,6 +39,26 @@ export function assertLeaseFor(ec: Pick<ExecContext, "op" | "environmentId">, le
 /** What `planWorkspace` / `applyVerifiedPlan` take from a provider session: only `childProcessEnv()`. */
 export function tofuSession(session: ProviderSession): TofuSessionEnv {
   return "childProcessEnv" in session ? session : {};
+}
+
+/**
+ * The tofu session of an operation that may consume typed inputs. Without secret inputs it is exactly `tofuSession(session)`.
+ * With them, each secret is read from the vault NOW, under this operation's own workspace and only if it is one of this
+ * operation's declared inputs, and offered on the dedicated `inputEnv` channel: the values reach only the tofu child's
+ * environment (as `TF_VAR_zenith_in_*`), are redacted, and are held by this closure only for the life of the activity.
+ */
+export async function tofuSessionFor(rt: Pick<Runtime, "d">, ec: Pick<ExecContext, "workspaceId" | "op" | "typedInputs">, session: ProviderSession): Promise<TofuSessionEnv> {
+  const base = tofuSession(session);
+  const secrets = (ec.typedInputs ?? []).filter((input) => input.secret !== undefined);
+  if (!secrets.length) return base;
+  if (!rt.d.typedInputs) throw new StepFailedError("This operation consumes secret inputs but no typed-input custody is configured; refusing to run it.");
+  const env: Record<string, string> = {};
+  for (const input of secrets) env[inputEnvName(input.name)] = await rt.d.typedInputs.resolveSecret(ec.workspaceId, ec.op.id, input.secret!.ref);
+  return {
+    ...(base.provider ? { provider: base.provider } : {}),
+    ...(base.childProcessEnv ? { childProcessEnv: () => base.childProcessEnv!.call(base) } : {}),
+    inputEnv: () => ({ ...env }),
+  };
 }
 
 /**

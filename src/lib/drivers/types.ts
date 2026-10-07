@@ -123,6 +123,12 @@ export interface CompileContext {
    * invalid/unpublished keys and targets without an address fail closed.
    */
   ref(address: string, attribute: string): string;
+  /**
+   * A typed dependency input of a mixed-provider consumer (a value another partition produced), as the interpolation of its
+   * OpenTofu variable. Present in production compilation; it refuses a name the operation does not consume. A secret input is a
+   * sensitive variable whose value never enters the rendered configuration.
+   */
+  input?(name: string): string;
   /** all nodes, for drivers that need a neighbour's spec */
   node(address: string): ResourceNode | undefined;
 }

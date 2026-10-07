@@ -1,0 +1,87 @@
+# WIP verification checkpoint, 8 October 2026
+
+## Current source and scope
+
+Branch: `codex/production-2026-10-02`. Last published source: `6a82cc4c9368c5194727d2f8e06a2becc069ed24`.
+Parent of this WIP commit: `9b895088e91b410087bdf33802cbfec8daccc16d`; seventeen reviewed repair commits were already integrated locally before this checkpoint. This WIP also saves the historical42 reapplication fixture scope and review notes. It is not a green release, a complete full-suite result or a push receipt.
+
+Latest human instruction: fix remaining test failures, iterate, obtain independent Astra ultra engineering review for concerns, and record decisions. Bounded regression fixes in previously builder-owned areas are authorized. New features, cloud calls/spend, live production operations, retention decisions, published migration rewrites, force pushes and weaker gates remain excluded. Local disposable default-stack acceptance is authorized on this Mac only. Commit author and committer: Arnav Bule <arnav.bule05@gmail.com>, no trailer.
+
+All78 requirements retained. Ledger acceptance states: 10 verified / 49 in progress / 19 planned. These are not percentage estimates. All four release flags remain false. No requirement promoted by partial repairs.
+
+## Integrated repairs
+
+| Commit | Change | Remaining acceptance |
+|---|---|---|
+| `ee087577` | Fail closed when authoritative environment activity cannot be read; strict approval fixture and version/grant corrections | Whole-candidate/remote evidence |
+| `4f1eeac3` | Isolate bridge quotas and scoped protocol fixtures; preserve historical migration setup | Combined gates |
+| `c8cd79c8` | Forward explicitly human-reviewed executable semantics through deployment action/bridge | Operated browser journey |
+| `6c6c9e13` | Provider/effect fixture identity, operation authority, pagination and bounded cleanup | Real provider acceptance stays separate |
+| `bd4ee5c3` | MySQL wire peer and scoped session/codec fixtures | Real engine successor |
+| `938e39d0` | Bind native Kubernetes final/apply/release to reviewed declarative semantics | Real kind successor |
+| `0bbdd943` | Current inventories and deterministic mixed transition error normalization | Combined gates |
+| `d9ff3612` | Strict backend labels and exact historical CI cohort projections | Canonical PostgreSQL successor |
+| `d2c4b7dd` | Fixed parameterized scoped SQL for state recovery transitions | Full database lane |
+| `5e492144` | Operator documentation, metadata and cost wording fixtures | Default-stack evidence remains open |
+| `4f1f4441` | Observe schedule quiescence before restart acceptance trigger | Real successor passed; full candidate CI pending |
+| `4a4683a1` | Additive schema43 tenant-leading MCP replay index and new0025 snapshot | Native upgrade successor currently failing fixture payload |
+| `187f039b` | Require1141 PostgreSQL groups and preserve historical42 upgrade scope | Complete gate |
+| `7ea48b2f` | Explicit historical attempted-tombstone fixture with modern authority refusal | Native JSON binding correction pending |
+| `9f701956` | Browser screen binds displayed reviewed semantics to exact approval payload | Real Chrome/axe still open |
+| `fb4ffa98` | Protected read denial/outage fixtures cover all response tables | Combined default journey |
+| `9b895088` | Required synthetic principal names | Compiler passed |
+
+Published35/42 and all old SQL snapshots remain immutable. Migration43 adds only a nonunique `(workspace_id, stream_id, seq)` index;43 is expand-only. Migration42 still needs its exact contract admission and drained writers. Ordinary index creation can block writers; local acceptance does not authorize live migration or prove zero downtime.
+
+## Executed evidence and failures
+
+Counts overlap; never sum rows. Focused source review is not engine, cluster or cloud acceptance.
+
+| Attempt | Actual result | Scope / caveat |
+|---|---|---|
+| Independent authority rerun |264 passed /0 failed /2 skipped|Ten focused suites; no historical native tombstone proof|
+| Independent provider rerun |181 /0 /1|Owned protocol fixtures; real MySQL case unavailable|
+| Combined candidate plus root diff |1130 /2 /12|21 suites; cost-comment and global-key classification failures preserved|
+| Five-suite successor |77 /1 /11|Exposed missing MCP tenant-leading index; SQL/wording checks passed in scope|
+| Canonical real reconciliation |38 /0 /0;26 required groups; exit0|Native Mac ARM64 PG16.15 and Temporal1.9.1; real restart/outage/cancellation; services cleaned|
+| Canonical workflow-intents attempt |154 /2 /0;141 groups; exit1|Historical12 cases still refused; tracked inputs also changed during attempt, so execution binding failed. Requires frozen successor|
+| Native index/migration/tombstone attempt at9b895088 |65 /12 /0; exit1|Real PG plus embedded siblings; fixture JSON casts, incomplete historical42 reapplication scope, old-contract assumptions and missing local role setup exposed|
+| Compiler3GiB |exit134|Heap exhausted; not a source pass|
+| Compiler4GiB at187f039b |exit2|Two fixture principals lacked name; repaired|
+| Compiler4GiB at9b895088 |exit0;11.17s|Fresh successor after typing repairs; incremental cache, clean CI install still needed|
+| Latest root CI/browser/read rerun |1626 /0 /6 across23 suites; exit0|Six skips are actual Linux process-supervisor controls on Mac; not waived or closed by mocked execution|
+
+The six latest skipped controls are in `tests/ci/packaged-workers.test.ts`: actual child settlement, nonzero settlement, zero-parent/surviving-child refusal, timeout cleanup, cancellation cleanup, and TERM-resistant group refusal. Require actual Linux Node execution; report AMD64 and ARM64 separately.
+
+Initial native reconciliation controller failed before tests because its owned socket path exceeded103bytes. Failed attempt retained; shorter private owned socket recovered setup. Last successful run minimum free27,071,913,984bytes, above continuous22GiB floor; PG stop and owned-data cleanup exited0. No default-stack or cloud acceptance inferred.
+
+Baseline6a CI remains historical: main9 successful /7 failed jobs; separate native platform2/2 and native worker2/2 successful. New repair commits have not been pushed or CI-tested. Every job on final exact SHA still needs inspection.
+
+## Active lanes and local packets
+
+Root serializes heavy verification and owns integration, public ledger/results, resource guard, push and CI verdict. Latest native services stopped; no root test process was running when this document was written.
+
+- **Astra ultra reviewer:** independent source/security decisions, migration43 and historical fixture boundaries; decisions recorded in `verification/REPAIR-DECISIONS-2026-10-08.md`. Engineering review does not grant cloud authority or impersonate browser-human approvals.
+- **Authority worker:** `codex/verify-authority-repairs-20261008`; uncommitted two-line historical JSON cast/diagnostic correction, awaiting final review. Native PostgreSQL binds serialized JSON through `::text::jsonb`; direct `::jsonb` double-encodes. Historical migration fixture proposals remain pending review. Also diagnosed Temporal upgrade-rehearsal ordering and protobuf type-identity issues; no broader SDK/dependency change authorized by this checkpoint.
+- **Provider worker:** `codex/verify-provider-repairs-20261008`; acquired43 packet on own branch to repair only its new index test. Proposed text-to-JSONB binding plus strict pre/post JSON type/object/exact payload checks, awaiting review/commit. Root must cherry-pick only final test repair, not duplicate43 base commit.
+- **Root follow-up:** this WIP saves42's reapplication scoped through42, rather than incorrectly expecting pending43 absent. Private native controller now creates canonical anon/authenticated/service roles and uses default plus JSON reporting; successor not executed yet.
+
+Worker worktrees and private receipts live under `~/.codex/zenith-production/`. They are local, not GitHub attachments. Missing local candidates on another machine must be requested, never assumed present. User `.DS_Store` files and `docs/product-discovery/` are untouched.
+
+## Next steps, in order
+
+1. Finish Astra review and narrow historical JSON/MCP test fixes. Integrate exact commits; independently rerun new43 and historical PostgreSQL cases with canonical role setup. Preserve all failures.
+2. Resolve remaining historical upgrade fixtures without admitting unregistered old contracts or editing published migrations. Verify actual rows, old ledger, RLS, grants and compatible current upgrades. Keep native100 and every mandatory identity intact.
+3. Reproduce/fix Temporal upgrade rehearsal with real histories and per-operation approval ordering. Rerun composed deploy path. Do not fabricate history or weaken old/new patch-marker checks.
+4. Freeze tracked inputs during canonical runs. Run fresh installation, compiler/lint/format/generated artifacts and dependency/security gates, complete unit suites, PostgreSQL/Supabase, workflows, workflow-intents, reconciliation, real OpenTofu, OPA and Go gates. Every required case and execution binding must pass.
+5. Run fresh owned kind provider/release/guest suites; clean owned clusters. Recheck packaged Linux architectures and default reduced-resource Mac startup/browser/automation/agent acceptance under approved scope, serially.
+6. Add sanitized evidence, ledger evidence/state, RESULTS, VERIFY-QUEUE, PROGRESS and builder blockers. Recompute78-row counts; no release promotion from partial evidence.
+7. Before push: `git pull --no-rebase`, preserve/merge newer builder work; no force. Push same authorized branch and inspect every main/native CI job on exact SHA. Pending is not passed.
+
+## Resources, permissions and blockers
+
+Disk approximately25.2GiB free. Storage helper archived46 positively dormant verifier worktrees with recoverable backups, reclaiming2.72GiB net; active source preserved. One heavy workload; Node22.23.3, test maxWorkers1/no file parallelism. Continuous floor22GiB includes18GiB package minimum plus4GiB swap headroom. Docker currently stopped,4GiB memory/4GiB swap, VirtioFS and Resource Saver off; this is reduced-resource deviation, not shipped Linux-container proof. Monitor disk before/during/after heavy runs. Remove only positively owned disposable resources; no global prune. If storage blocks again, contact authorized Free disk space task `01a10c96-7565-7db1-8542-8a52ee4a7acc`, preserve active worktrees and receipts, then resume.
+
+DEC-STARTUP permits disposable local default API/server on this Mac only. DEC-CLOUD unapproved: no live cloud, spend, real DNS/private GitHub acceptance, production changes or paid service actions. Retention/business/sign-off decisions remain external blockers. These cannot be mocked or delegated to Astra for green evidence.
+
+This checkpoint saves progress, not completion. Full mandatory verification, fresh pushed CI and default operated journey remain open.

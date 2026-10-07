@@ -221,7 +221,7 @@ describe.each(lanes)("migrator [$name]", (lane) => {
         expect(rows).toHaveLength(5);
         await db.tx(async (tx) => { await tx.query(repair.sql); });
         expect(await db.query("select * from platform.external_effects where workspace_id=$1 order by effect_id", [workspaceId])).toEqual(rows);
-        expect((await migratePlatformDb(db)).applied).toEqual([]);
+        expect((await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version <= 42))).applied).toEqual([]);
       } finally {
         if (oldAllowed === undefined) delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
         else process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = oldAllowed;

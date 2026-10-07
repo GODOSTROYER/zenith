@@ -45,6 +45,9 @@ const SOURCE_SNAPSHOTS: Record<string, { branch: string; commit: string }> = {
   "WORKFLOW-START-INTENTS.md": { branch: "codex/workflow-start-outbox-r4-20261003", commit: "15ce74f81a4919d1d12780d1e7c95445595bbceb" },
   "CURRENT-HUMAN-AUTHORITY.md": { branch: "ws/prod-default-current-membership-20261003", commit: "dc40ee9ad590640c78659796c9b932436ea1e426" },
   "OPERATION-GATES.md": { branch: "ws/prod-operation-gates-20261003", commit: "dc40ee9ad590640c78659796c9b932436ea1e426" },
+  "KEY-CUSTODY.md": { branch: "codex/production-2026-10-02", commit: "af5d60b4c2f47d549fe352d78d19b3a0c6101d6e" },
+  "ROLLING-UPGRADES.md": { branch: "codex/production-2026-10-02", commit: "ebcece3fb774f2c9feaf110cc1b3a37aa5a62ad0" },
+  "SENSITIVE-DATA.md": { branch: "codex/production-2026-10-02", commit: "e34c4673daf20f167311a3b9c9b148de1c027f4c" },
   "CONTROL-PLANE-FAIRNESS.md": { branch: "prod/ops-02-w4", commit: "c9a942d" },
 };
 
@@ -108,7 +111,7 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
   it("admin browser teardown consumes recorded evidence and starts only after approval", () => {
     expect(source("src/lib/actions/defs/index.ts")).toContain('import "./env-teardown"');
     const action = source("src/lib/actions/defs/env-teardown.ts");
-    for (const value of ['id: "env.teardown"', 'requiredRole: "admin"', "teardownPlan(ctx, env)", "proposeTeardown(ctx, env)", "if (inFlight(env.id))"]) expect(action).toContain(value);
+    for (const value of ['id: "env.teardown"', 'requiredRole: "admin"', "teardownPlan(ctx, env)", "proposeTeardown(ctx, env)", "const busy = await environmentBusy(ctx, env.id);", "if (busy) return", "activityUnavailableMessage"]) expect(action).toContain(value);
     const proof = source("src/lib/bridge/teardown-session.ts");
     for (const value of ['"authorization", "x-zenith-actor", "x-zenith-actor-key"', 'h.get("origin") !== origin', "verifyRequestIdentity("]) expect(proof).toContain(value);
     const bridge = source("src/lib/bridge/destroy.ts");
@@ -247,7 +250,7 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     const build = source("src/lib/providers/azure/release/build.ts");
     for (const value of ["(!options.sourceBundles && !options.readSource) || !options.launches", "options.launches.claim(journalScope)", "readArchive(options.sourceBundles, spec.source, ctx.signal)", "sha256Hex(source) !== input.source.digest", "options.launches.record(journalScope, encoded)"]) expect(build).toContain(value);
     const acr = source("src/lib/providers/azure/release/acr-task.ts");
-    for (const value of ["/listBuildSourceUploadUrl", "assertUploadUrl(up.body.uploadUrl)", 'redirect: "error"', 'type: "DockerBuildRequest"', "imageNames: [`${input.repository}:${input.tag}`]"]) expect(acr).toContain(value);
+    for (const value of ["/listBuildSourceUploadUrl", "assertUploadUrl(up.body.uploadUrl, cloud)", 'redirect: "error"', 'type: "DockerBuildRequest"', "imageNames: [`${input.repository}:${input.tag}`]"]) expect(acr).toContain(value);
     expect(source("src/lib/providers/azure/release/source.ts")).toContain("await readArchive(reader, input.source, ctx.signal)");
     expect(source("src/lib/platform/execution.ts")).toContain("createReleasePorts({ db: opts.db, azure })");
     const execution = source("src/lib/platform/execution.ts");
@@ -261,7 +264,8 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     expect(binding).toContain('resource.ownership !== "managed"');
     expect(binding).toContain("externalId?.toLowerCase() !== binding.accountResourceId.toLowerCase()");
     expect(source("workers/execution/worker.ts")).toContain("azureStorage: createAzureSourceStorageResolver(db)");
-    expect(source("src/lib/providers/azure/credentials.ts")).toContain('storage: "https://storage.azure.com/.default"');
+    expect(source("src/lib/providers/azure/cloud.ts")).toContain('storage: "https://storage.azure.com/.default"');
+    expect(source("src/lib/providers/azure/credentials.ts")).toContain("scope: cloud.tokenScopes[audience]");
     expect(builds).toContain("Default composition supplies preparation, stored-source reading");
     expect(source("docs/LIMITATIONS.md")).toContain("Azure source preparation and stored-bundle reading are composed");
     expect(source("docs/LIMITATIONS.md")).not.toContain("default composition supplies neither");
@@ -715,7 +719,7 @@ describe("operator claims match current wiring", () => {
 
   it("app composition configures durable broker, scope, runner and reconcile ports", () => {
     const app = source("src/lib/platform/app.ts");
-    for (const call of ["assertPlatformSchemaCurrent(sql)", "registerPlatformBrokerStore(new PlatformBrokerStore(sql))", "registerPlatformBrokerPorts({ scopes: platformScopeResolver(sql) })", "configureRunnerRuntime(runnerPorts(sql))", "wireReconcilePorts(() => composeReconcilePorts(sql, credentials))", "registerCredentialBroker(credentials, agentPorts.observability)", "registerInvestigator(agentPorts.investigator)"]) {
+    for (const call of ["assertPlatformSchemaCurrent(sql)", "registerPlatformBrokerStore(new PlatformBrokerStore(sql))", "registerPlatformBrokerPorts({ scopes: platformScopeResolver(sql) })", "configureRunnerRuntime(runnerPorts(sql))", "wireReconcilePorts(() => composeReconcilePorts(sql, credentials))", "registerCredentialBroker(credentials, agentPorts.observability)", "registerInvestigator(withDiagnosisRecording(agentPorts.investigator, (investigation) => repos.incidentStability.recordInvestigation(sql, { investigation })))"]) {
       expect(app).toContain(call);
     }
     expect(app).toContain('platformDbConfigFromEnv().source === "default"');

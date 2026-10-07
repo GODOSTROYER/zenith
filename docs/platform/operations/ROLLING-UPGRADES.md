@@ -1,5 +1,7 @@
 # Rolling upgrades, replay and rollback (PROD-OPS-03)
 
+Written against branch `codex/production-2026-10-02`, guide input at `ebcece3fb774f2c9feaf110cc1b3a37aa5a62ad0`. Source documentation only; deployment and recovery acceptance remain separately recorded.
+
 This is the operator contract for replacing API, execution worker and runner builds
 while workflows are in flight, and for backing out. It describes what the code
 enforces and what it cannot.
@@ -8,7 +10,7 @@ enforces and what it cannot.
 
 | Surface | Contract | Enforced by |
 | --- | --- | --- |
-| Temporal workflow code | Every `patched("<id>")` is registered in `src/lib/workflows/versioning.ts`; every committed recorded history replays against the current bundle; every registered workflow type has a recorded history. | `tests/workflows/versioning-audit.test.ts`, `tests/workflows/history-replay.test.ts`, fixtures in `tests/fixtures/workflow-histories` |
+| Temporal workflow code | Every `patched("<id>")` is registered in `src/lib/workflows/versioning.ts`; every committed recorded history replays against the current bundle; every registered workflow type has a recorded history. | `tests/workflows/versioning-audit.test.ts`, `tests/workflows/history-replay.test.ts`, fixtures in the not-yet-recorded tests/fixtures/workflow-histories directory |
 | Worker routing | Optional Temporal Worker Deployment versions: a build id per worker image, `auto_upgrade` or `pinned`. | `ZENITH_WORKER_VERSIONING` / `_DEPLOYMENT_NAME` / `_BUILD_ID`, `workers/execution/config.ts`, `run.ts`; `tests/workers/versioning-config.test.ts` |
 | Platform schema | Within a release a migration is expand-only, so N-1 runs on schema N and rollback to N-1 stays possible. Contract migrations are refused unless registered (LIFE-10 approval reference plus the SQL hash) and confirmed by the operator. | `src/lib/controlplane/db/compat.ts`, called by `migratePlatformDb`; `tests/controlplane/migration-compat.test.ts` |
 | Runner and machine protocol | The control plane serves protocol N and at most one N-1. Registration negotiates; anything outside the window gets `426 upgrade_required` naming the minimum. | `src/lib/runners/protocol-window.ts`, `types.ts` windows, `request-auth.ts`, `service.ts`; `tests/runners/protocol-window.test.ts` |

@@ -21,6 +21,8 @@ const REFERENCE = /^(?:[a-z0-9.-]+(?::\d+)?\/)?[a-z0-9][a-z0-9._/-]*(?::[A-Za-z0
 // not container refs.
 // In an explicit image field even these strings are checked as image values.
 const NON_IMAGE_PREFIX = /^(?:aws|gcp|azure|oci|kubernetes|k8s|zenith|vault|arn|service|resource|scheduled_job|ecr|ecs|ec2|eks|s3|ssm|rds|rds-db|iam|logs|events|codebuild|lambda|sns|sqs|cloudfront|elasticache|secretsmanager|state|presence|last_execution|activation_policy|serverless_neg|node_pool):/;
+// Exact readback diagnostics are not image values. Image fields still reject them.
+const READBACK_DIAGNOSTICS = new Set(["id:not_addressable", "get:malformed", "get:denied", "get:404", "list:unavailable", "list:truncated", "list:present", "list:absent", "family:mysql_refused", "family:unregistered", "observation:simulated", "observation:absent", "observe:present", "id:absent", "work_request:none"]);
 const IMAGE_FIELD = /^(?:image|imageRef|imageUri|imageName|images|[a-zA-Z_]*Image|[A-Z_]*IMAGE)$/;
 const HELM = "deploy/helm/zenith-runner";
 
@@ -73,6 +75,7 @@ function scan(sources: Sources): ImageReference[] {
     if (!ROOTS.some((root) => file.startsWith(`${root}/`))) continue;
     const add = (ref: string): void => { found.push({ file, ref }); };
     const candidate = (text: string, context = false): void => {
+      if (!context && READBACK_DIAGNOSTICS.has(text)) return;
       const registry = /^(?:(?:[a-z0-9-]+\.)?(?:gcr|ghcr|docker|quay)\.io|[a-z0-9-]+-docker\.pkg\.dev|[a-z0-9-]+\.azurecr\.io|public\.ecr\.aws|[a-z0-9.-]+\.dkr\.ecr\.[a-z0-9.-]+\.amazonaws\.com)\//.test(text);
       const tagged = /:[A-Za-z0-9_][A-Za-z0-9_.-]*$/.test(text);
       const iamAction = /^[a-z][a-z0-9-]*:[A-Z][A-Za-z0-9]*$/.test(text);
@@ -194,6 +197,11 @@ describe("provider and deployment image pins", () => {
     const references = scan(sourcesOnDisk());
     expect(references.some((ref) => ref.ref.startsWith("gcr.io/cloud-builders/docker@sha256:"))).toBe(true);
     expect(violations(references, ALLOWLIST)).toEqual([]);
+  });
+
+  it.each([...READBACK_DIAGNOSTICS])("readback diagnostic %s is excluded only outside image fields", value => {
+    expect(violations(scan(fixture(`const basis = ["${value}"];`)), [])).toEqual([]);
+    expect(violations(scan(fixture(`const IMAGE = "${value}";`)), [])).toHaveLength(1);
   });
 
   it.each([

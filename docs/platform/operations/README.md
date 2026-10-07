@@ -49,6 +49,9 @@ and limits in [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-bran
 | [CURRENT-HUMAN-AUTHORITY.md](CURRENT-HUMAN-AUTHORITY.md) | Whoever administers privileged humans | Fresh membership at dispatch and approval use, production memory-store refusal |
 | [OPERATION-GATES.md](OPERATION-GATES.md) | Whoever verifies operation changes | Required actual PostgreSQL/Temporal cases, separate model/replay coverage and immutable receipts |
 | [CONTROL-PLANE-FAIRNESS.md](CONTROL-PLANE-FAIRNESS.md) | Whoever protects the control plane under load | Per-tenant rate and concurrency limits, bounded queues with 429/503 and Retry-After, weighted-fair worker scheduling, maintenance mode and drain, the data-plane guarantee, dashboards and alert runbooks |
+| [KEY-CUSTODY.md](KEY-CUSTODY.md) | Deployment operators | Purpose-separated keys, rotation and historical verification limits |
+| [ROLLING-UPGRADES.md](ROLLING-UPGRADES.md) | Deployment operators | Compatibility admission, replay recording and rollback limits |
+| [SENSITIVE-DATA.md](SENSITIVE-DATA.md) | Deployment operators | Sensitive persistence protection and undecided retention |
 | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md) | Anyone deciding what to trust | **Generated.** Provider by native type by operation, with the evidence level each driver declares, the observability sources and the capability catalog |
 
 The committed matrix reflects the registry and is checked by

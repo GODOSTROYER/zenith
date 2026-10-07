@@ -62,7 +62,8 @@ const EXPECTED_TABLES = [
 // Signed installation events can revoke multiple tenants. These two tables
 // are global App-scoped fences/receipts, never tenant-addressable resources.
 // The cleanup writer epoch is one installation-wide singleton, not a tenant row.
-const NO_WORKSPACE_COLUMN = new Set(["schema_migrations", "agent_nonces", "github_webhook_deliveries", "github_webhook_installation_epochs", "cleanup_writer_epoch", "scheduled_job_runs"]);
+// Maintenance mode/history and non-secret key custody are installation-wide; tenant_quotas and key_rewrap_jobs remain tenant-scoped.
+const NO_WORKSPACE_COLUMN = new Set(["schema_migrations", "agent_nonces", "github_webhook_deliveries", "github_webhook_installation_epochs", "cleanup_writer_epoch", "scheduled_job_runs", "ops_maintenance", "ops_maintenance_history", "key_custody_keys"]);
 
 interface Lane {
   name: string;
@@ -292,6 +293,8 @@ describe.each(lanes)("migrator [$name]", (lane) => {
       const withWorkspace = new Map(columns.map((c) => [c.table_name, c.is_nullable]));
       const tables = EXPECTED_TABLES.filter((t) => !NO_WORKSPACE_COLUMN.has(t));
       expect(withWorkspace.has("cleanup_writer_epoch")).toBe(false);
+      expect(withWorkspace.has("key_custody_keys")).toBe(false);
+      expect(withWorkspace.get("key_rewrap_jobs")).toBe("NO");
       expect(await db.query("select singleton from platform.cleanup_writer_epoch")).toEqual([{ singleton: true }]);
       for (const t of tables) expect(withWorkspace.has(t), `${t} has workspace_id`).toBe(true);
       // leases carry an OPTIONAL workspace id (scopes such as env:<id> are globally unique); everything else is NOT NULL

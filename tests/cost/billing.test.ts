@@ -6,7 +6,7 @@
  * transport. Nothing here calls a cloud. Live behaviour is covered only by the
  * gated harness in `live-billing.live.test.ts`, which skips without opt-in.
  */
-import { createPublicKey, createVerify, generateKeyPairSync } from "node:crypto";
+import { createVerify, generateKeyPairSync } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { sha256Hex } from "@/lib/controlplane/digest";
 import {
@@ -212,7 +212,7 @@ describe("OCI Usage API adapter (contract-level recorded response)", () => {
       `content-length: ${signed.headers["content-length"]}`,
     ].join("\n");
     const verify = createVerify("RSA-SHA256").update(signingString);
-    expect(verify.verify(createPublicKey(publicKey), signature, "base64")).toBe(true);
+    expect(verify.verify(publicKey, signature, "base64")).toBe(true);
     expect(auth).toContain('keyId="ocid1.tenancy.oc1..t/ocid1.user.oc1..u/aa:bb"');
   });
 });

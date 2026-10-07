@@ -32,8 +32,9 @@ describe.each(LANES)("kubernetes guest bindings [$name]", (lane) => {
     expect(a.status).toBe("provisioning");
     const exec = (await repos.k8sGuestBindings.ensure(ctx.db, { ...f.input, profile: "exec", objectName: guestObjectName(f.workspaceId, f.connectionId, "exec") }))!;
     expect(exec.id).not.toBe(a.id);
-    const columns = await ctx.db.query<{ column_name: string }>("select column_name from information_schema.columns where table_schema = 'platform' and table_name = 'k8s_guest_bindings'");
-    expect(columns.map((c) => c.column_name).filter((n) => /token|secret|kubeconfig|credential/.test(n))).toEqual([]);
+    const columns = await ctx.db.query<{ column_name: string; data_type: string }>("select column_name,data_type from information_schema.columns where table_schema = 'platform' and table_name = 'k8s_guest_bindings'");
+    expect(columns.find(c => c.column_name === "last_token_expires_at")?.data_type).toBe("timestamp with time zone");
+    expect(columns.filter(c => c.column_name !== "last_token_expires_at").map(c => c.column_name).filter(n => /token|secret|kubeconfig|credential/.test(n))).toEqual([]);
   });
 
   it("is tenant scoped: a foreign workspace cannot read, activate, record or list", async () => {

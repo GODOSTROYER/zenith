@@ -1,5 +1,7 @@
 # Key custody: purposes, rotation, decrypt-only histories
 
+Written against branch `codex/production-2026-10-02`, guide input at `af5d60b4c2f47d549fe352d78d19b3a0c6101d6e`. Source documentation only; deployment and recovery acceptance remain separately recorded.
+
 PROD-OPS-05. Every key the control plane holds or trusts has one purpose. The key registry
 (`src/lib/keycustody`) refuses to use a key outside its purpose or role, keeps retired keys
 decrypt-only or verify-only, and gives operators diagnostics that print ids, purposes, roles and ages

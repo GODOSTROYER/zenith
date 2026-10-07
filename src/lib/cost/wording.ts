@@ -34,7 +34,7 @@ export const FORECAST_NOTICE =
 export const ACTUAL_SPEND_NOTICE =
   "This is spend reported by the cloud provider's billing data. It is provisional until the billing period closes and may exclude charges not yet processed.";
 
-/** Phrases that claim a hard limit. */
+/** Phrases that falsely promise bounded provider charges. */
 const CLAIM_PATTERNS: readonly RegExp[] = [
   /\b(?:hard|strict|firm|enforced)\s+(?:spend(?:ing)?|billing|budget|cost)?\s*(?:cap|limit|ceiling)\b/i,
   /\b(?:spend(?:ing)?|billing|budget|cost)\s+(?:cap|ceiling)\b/i,
@@ -48,7 +48,7 @@ const CLAIM_PATTERNS: readonly RegExp[] = [
 const NEGATION = /\b(?:not|never|no|none|nothing|isn'?t|aren'?t|doesn'?t|can'?t|without|neither|nor)\b/i;
 
 /**
- * Sentences that present an estimate, forecast or budget as a hard billing cap.
+ * Sentences that falsely promise bounded provider charges.
  * A sentence that denies it ("is not a spending cap") is fine. The claim phrase
  * itself is removed before the denial check, so a negation that is part of the
  * claim phrase cannot rescue the sentence. Pure; used by the wording guard test

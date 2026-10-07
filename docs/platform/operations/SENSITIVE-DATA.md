@@ -1,5 +1,7 @@
 # Sensitive persistence: inventory, protection, minimization, leak tests
 
+Written against branch `codex/production-2026-10-02`, guide input at `e34c4673daf20f167311a3b9c9b148de1c027f4c`. Source documentation only; deployment and recovery acceptance remain separately recorded.
+
 PROD-OPS-06. Where sensitive data can persist, how each place is protected, how long it lives, what
 was removed, and how leaks are tested. Nothing here claims that redaction catches every secret.
 

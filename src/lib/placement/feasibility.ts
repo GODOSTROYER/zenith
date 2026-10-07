@@ -5,8 +5,7 @@
  *
  * This reads a `PlacementResult` (and the constraints it was solved for). It
  * never relaxes a constraint and never recommends something the solver
- * rejected. The budget is reported as a planning limit on an ESTIMATE, never as
- * a billing cap.
+ * rejected. Budget limits constrain estimates; they never cap provider bills.
  */
 import { BUDGET_NOTICE } from "@/lib/cost/wording";
 import { knownRegions, regionSatisfiesResidency } from "@/lib/placement/latency";

@@ -1,3 +1,4 @@
+import { incomingPlatformIds, incomingWorkflowFiles, incomingWorkflowIds, withoutIncomingPlatform } from "./incoming-cohort-fixture";
 /** Shared gate commands preserve required local engines and precisely scoped external acceptance. */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -19,7 +20,13 @@ function priorServiceLinuxCases(items: readonly NativeGuestCase[]): NativeGuestC
 }
 
 const root = process.cwd();
-const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-manifest-"));
+function modelRoot(prefix: string): string {
+  const directory = fs.mkdtempSync(prefix);
+  for (const relative of ["tests/effects", "tests/repair", "tests/coding-agent"]) fs.mkdirSync(path.join(directory, relative), { recursive: true });
+  return directory;
+}
+
+const scratch = modelRoot(path.join(os.tmpdir(), "zenith-manifest-"));
 afterAll(() => fs.rmSync(scratch, { recursive: true, force: true }));
 const ecsGrantFile = "tests/platform/ecs-replica-repair-grants.test.ts";
 const ecsFiles = ["tests/execution/ecs-replica-repair.test.ts", "tests/providers/aws/drivers/compute/ecs-replica-repair-read.test.ts", ecsGrantFile, "tests/workflows/ecs-replica-repair.test.ts"];
@@ -243,7 +250,7 @@ const wave2WorkflowIds = new Set([
 ]);
 const criticalScheduleWorkflowIds = new Set(CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS.map(item => requirementId("workflows", item)));
 function priorCriticalScheduleWorkflowRequirements(sourceRoot = root) {
-  return requirementsFor("workflows", sourceRoot).filter(item => !criticalScheduleWorkflowIds.has(item.id));
+  return requirementsFor("workflows", sourceRoot).filter(item => !criticalScheduleWorkflowIds.has(item.id) && !incomingWorkflowIds.has(item.id));
 }
 function priorWave2WorkflowRequirements() {
   return priorCriticalScheduleWorkflowRequirements().filter(item => !wave2WorkflowIds.has(item.id));
@@ -266,7 +273,7 @@ function withoutCurrentSuccessorCohort(requirements: Requirement[]): Requirement
 const hardeningPlatformIds = INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item));
 function priorHardeningPlatformRequirements(sourceRoot = root) {
   const ids = new Set(hardeningPlatformIds);
-  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+  return withoutIncomingPlatform(requirementsFor("platform-postgres", sourceRoot)).filter(item => !ids.has(item.id));
 }
 function priorCurrentSuccessorPlatformRequirements(sourceRoot = root): Requirement[] {
   return withoutCurrentSuccessorCohort(priorHardeningPlatformRequirements(sourceRoot));
@@ -300,7 +307,7 @@ const kubernetesLinkGroup = {
   suite: "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
   backend: "postgres",
   flag: "ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED",
-  sourceSha256: "bb9a53e676b1282ae78be8f481e6593edded04448a953cdfeab25b94b2fa1f2b",
+  sourceSha256: "66e388f6d0d0b8e9cf8f3e7fa78a8c4f01d2ff9999cc11584c8cd4653a37e2a2",
   namesSha256: "9e62cccc28a3b83f3de420bf24954b10bbcfc188c0d1648378da38e583c66d86",
 } as const;
 const kubernetesLinkDiscovered = { file: kubernetesLinkGroup.file, suite: kubernetesLinkGroup.suite, backend: "postgres" } as const;
@@ -566,7 +573,7 @@ describe("mandatory operation gates", () => {
   });
 
   it.each(operationPostgresFiles)("deleting %s cannot remove any named PostgreSQL contract", (deleted) => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-operation-"));
+    const sourceRoot = modelRoot(path.join(scratch, "deleted-operation-"));
     for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"]) fs.cpSync(path.join(root, directory), path.join(sourceRoot, directory), { recursive: true });
     const named = priorG2PlatformRequirements(sourceRoot).filter((item) => operationPostgresFiles.includes(item.file) && item.test);
     fs.rmSync(path.join(sourceRoot, deleted), { force: true });
@@ -655,7 +662,7 @@ describe("mandatory approved source PostgreSQL gates", () => {
   });
 
   it.each(approvedSourceGroups)("$label keeps named requirements when the trusted source file is deleted", group => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-approved-source-"));
+    const sourceRoot = modelRoot(path.join(scratch, "deleted-approved-source-"));
     for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"]) fs.mkdirSync(path.join(sourceRoot, directory), {recursive:true});
     fs.mkdirSync(path.dirname(path.join(sourceRoot, group.file)), {recursive:true});
     fs.copyFileSync(path.join(root, group.file), path.join(sourceRoot, group.file));
@@ -718,7 +725,7 @@ describe("mandatory original-plan source dispatch gates", () => {
     }
   });
   it.each(planSourceGroups)("$label remains mandatory when its trusted source file is deleted", group => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-plan-source-"));
+    const sourceRoot = modelRoot(path.join(scratch, "deleted-plan-source-"));
     for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
     fs.mkdirSync(path.dirname(path.join(sourceRoot, group.file)), { recursive: true }); fs.copyFileSync(path.join(root, group.file), path.join(sourceRoot, group.file));
     const before = planSourceGroup(group, sourceRoot); fs.unlinkSync(path.join(sourceRoot, group.file));
@@ -774,7 +781,7 @@ describe("mandatory native source fixture and original evidence counterparts", (
     }
   });
   it.each(sourceCounterpartGroups)("$label remains mandatory after trusted source deletion", group => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-source-counterpart-"));
+    const sourceRoot = modelRoot(path.join(scratch, "deleted-source-counterpart-"));
     for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
     fs.mkdirSync(path.dirname(path.join(sourceRoot, group.file)), { recursive: true }); fs.copyFileSync(path.join(root, group.file), path.join(sourceRoot, group.file));
     const before = sourceCounterpartGroup(group, sourceRoot); fs.unlinkSync(path.join(sourceRoot, group.file));
@@ -858,7 +865,7 @@ describe("mandatory first source worker lease binding gates", () => {
   });
 
   it("retains every static case and ID after the native source file is deleted", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-first-source-lease-"));
+    const sourceRoot = modelRoot(path.join(scratch, "deleted-first-source-lease-"));
     for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
     fs.copyFileSync(path.join(root, firstSourceLeaseFile), path.join(sourceRoot, firstSourceLeaseFile));
     const before = firstSourceLeaseNamed(sourceRoot);
@@ -941,7 +948,7 @@ describe("mandatory tenant-qualified execution lease gates", () => {
   });
 
   it("retains all seven declared scenarios after source deletion and refuses empty native evidence", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-tenant-lease-"));
+    const sourceRoot = modelRoot(path.join(scratch, "deleted-tenant-lease-"));
     for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"])
       fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
     fs.copyFileSync(path.join(root, firstSourceLeaseFile), path.join(sourceRoot, firstSourceLeaseFile));
@@ -1082,7 +1089,7 @@ describe("mandatory G2 native admission and read-only readiness gates", () => {
   });
 
   it.each(g2NativeGroups)("deleting $file retains every named native identity and refuses empty evidence", group => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-g2-native-"));
+    const sourceRoot = modelRoot(path.join(scratch, "deleted-g2-native-"));
     for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/platform"])
       fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
     for (const item of g2NativeGroups) fs.copyFileSync(path.join(root, item.file), path.join(sourceRoot, item.file));
@@ -1209,7 +1216,7 @@ describe("mandatory final MCP source authority and SDK protocol gates", () => {
   });
 
   it("retains all 89 literal requirements when the final MCP source file is absent and refuses empty evidence", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-final-mcp-"));
+    const sourceRoot = modelRoot(path.join(scratch, "deleted-final-mcp-"));
     for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"])
       fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
     fs.copyFileSync(path.join(root, finalMcpFile), path.join(sourceRoot, finalMcpFile));
@@ -1299,7 +1306,7 @@ describe("mandatory ECS replica repair gates", () => {
   });
 
   it.each(ecsFiles)("retains mandatory requirements when trusted source %s is deleted", (deleted) => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-ecs-"));
+    const sourceRoot = modelRoot(path.join(scratch, "deleted-ecs-"));
     for (const directory of ["tests/workflows", "tests/platform", "tests/controlplane", "tests/capabilities", "tests/reconcile"]) {
       fs.cpSync(path.join(root, directory), path.join(sourceRoot, directory), { recursive: true });
     }
@@ -1673,7 +1680,7 @@ describe("mandatory original-plan product and linked native authority gates", ()
   });
 
   it("retains every literal requirement after all six native fixture files are deleted", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-plan-product-"));
+    const sourceRoot = modelRoot(path.join(scratch, "deleted-plan-product-"));
     for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/platform", "tests/agent-access", "tests/tofu"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
     for (const group of planProductGroups) fs.copyFileSync(path.join(root, group.file), path.join(sourceRoot, group.file));
     const before = planProductNamed(sourceRoot);
@@ -1781,7 +1788,7 @@ describe("mandatory native OAuth grant and additive retained destroy gates", () 
   });
 
   it("retains all literal OAuth requirements after source deletion and refuses zero or caller-supplied evidence", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-oauth-"));
+    const sourceRoot = modelRoot(path.join(scratch, "deleted-oauth-"));
     fs.mkdirSync(path.join(sourceRoot, "tests/hosted/authority/contract"), { recursive: true });
     fs.mkdirSync(path.join(sourceRoot, "tests/agent-control"), { recursive: true });
     fs.copyFileSync(path.join(root, oauthFile), path.join(sourceRoot, oauthFile));
@@ -1932,7 +1939,7 @@ describe("mandatory corrected native OAuth dispatch and linked factory gates", (
   });
 
   it("retains all committed new cases after source deletion and rejects suite-only, zero, duplicate or caller-supplied reduced reports", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "oauth-dispatch-"));
+    const sourceRoot = modelRoot(path.join(scratch, "oauth-dispatch-"));
     for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/agent-access"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
     for (const group of nativeOAuthGroups) fs.copyFileSync(path.join(root, group.file), path.join(sourceRoot, group.file));
     const before = nativeOAuthNamed(sourceRoot); expect(before).toHaveLength(106);
@@ -2035,7 +2042,7 @@ describe("mandatory human Kubernetes linking cases [report models]", () => {
   });
 
   it("keeps all native linking identities after source deletion and rejects suite-only, zero, duplicate and reduced evidence", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "native-kubernetes-link-"));
+    const sourceRoot = modelRoot(path.join(scratch, "native-kubernetes-link-"));
     for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/agent-access", "tests/platform"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
     fs.copyFileSync(path.join(root, kubernetesLinkGroup.file), path.join(sourceRoot, kubernetesLinkGroup.file));
     const before = kubernetesLinkNamed(sourceRoot); expect(before).toHaveLength(21);
@@ -2129,7 +2136,7 @@ describe("mandatory native custody, retention and Kubernetes target cases [repor
   });
 
   it("keeps the literal native cohort after source deletion and refuses suite-only, zero, duplicate and reduced reports", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "native-safety-"));
+    const sourceRoot = modelRoot(path.join(scratch, "native-safety-"));
     for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/agent-access", "tests/platform"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
     for (const group of nativeSafetyGroups) fs.copyFileSync(path.join(root, group.file), path.join(sourceRoot, group.file));
     const before = nativeSafetyNamed(sourceRoot); expect(before).toHaveLength(81);
@@ -2222,7 +2229,7 @@ describe("mandatory native cleanup writer barrier cases [report models]", () => 
   });
 
   it("retains literal cleanup obligations after source deletion and refuses zero, duplicate, failed or reduced reports", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "native-cleanup-"));
+    const sourceRoot = modelRoot(path.join(scratch, "native-cleanup-"));
     for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
     const file = path.join(sourceRoot, cleanupWriterGroup.file), source = fs.readFileSync(path.join(root, cleanupWriterGroup.file), "utf8");
     fs.writeFileSync(file, source);
@@ -2307,12 +2314,12 @@ function workflowNativeSetupProblems(job: WorkflowNativeJob): string[] {
 describe("workflow native PostgreSQL prerequisites [source/report models]", () => {
   it("keeps all 58 workflow identities and exact native source flags while declaring real PostgreSQL", () => {
     const manifest = manifestFor("workflows", root);
-    expect(manifest.requirements).toHaveLength(62);
+    expect(manifest.requirements).toHaveLength(70);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(manifest.requirements.filter(item => wave2WorkflowIds.has(item.id)).map(item => item.id)).toEqual([...wave2WorkflowIds]);
     expect(WORKFLOW_NATIVE_POSTGRES_FILES).toEqual(workflowNativeGroups.map(group => group.file));
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(62);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(70);
     expect(createHash("sha256").update(JSON.stringify(priorWave2WorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("d3a15adf854819fd8577c3b55b48dd55640d6522bdc57cad2c707c867ffecad3");
     expect(manifest.tools).toEqual({ node: "22.23.3", postgres: "16.15", temporal: "1.9.1" });
@@ -2361,7 +2368,7 @@ describe("workflow native PostgreSQL prerequisites [source/report models]", () =
   });
 
   it.each(workflowNativeGroups)("keeps $file mandatory if its native source is deleted", ({ file }) => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "workflow-native-deleted-"));
+    const sourceRoot = modelRoot(path.join(scratch, "workflow-native-deleted-"));
     for (const directory of ["tests/workflows", "tests/platform"]) fs.cpSync(path.join(root, directory), path.join(sourceRoot, directory), { recursive: true });
     const before = requirementsFor("workflows", sourceRoot);
     fs.unlinkSync(path.join(sourceRoot, file));
@@ -2435,7 +2442,7 @@ describe("current platform discovery successors [report models]", () => {
     expect(historical).toHaveLength(1113);
     expect(current).toHaveLength(1119); expect(new Set(current.map(item => item.id)).size).toBe(1119);
     expect(current.map(item => item.id).sort()).toEqual([...historical, ...added].map(item => item.id).sort());
-    expect(manifestFor("platform-postgres", root).requirements.filter(item => !hardeningPlatformIds.includes(item.id))).toEqual(current);
+    expect(withoutIncomingPlatform(manifestFor("platform-postgres", root).requirements).filter(item => !hardeningPlatformIds.includes(item.id))).toEqual(current);
     expect(reportFailures(current, contractReport(current), root)).toEqual([]);
   });
 
@@ -2475,13 +2482,13 @@ describe("current platform discovery successors [report models]", () => {
     const unknown = { file: currentSuccessorPlatformCohort[0].file, suite: "incident stability additional native scope [postgres]", postgres: true };
     const required = { ...unknown, id: requirementId("platform-postgres", unknown) };
     const current = requirementsFor("platform-postgres", root);
-    expect(withoutCurrentSuccessorCohort([...current, required]).filter(item => !hardeningPlatformIds.includes(item.id))).toEqual([...priorCurrentSuccessorPlatformRequirements(), required]);
+    expect(withoutCurrentSuccessorCohort(withoutIncomingPlatform([...current, required])).filter(item => !hardeningPlatformIds.includes(item.id))).toEqual([...priorCurrentSuccessorPlatformRequirements(), required]);
     expect(reportFailures([...current, required], contractReport(current), root)).toHaveLength(1);
   });
 
   it("exposes deleted discovery sources while preserving every historical literal requirement", () => {
     for (const item of currentSuccessorPlatformCohort) {
-      const sourceRoot = fs.mkdtempSync(path.join(scratch, "successor-source-"));
+      const sourceRoot = modelRoot(path.join(scratch, "successor-source-"));
       fs.cpSync(path.join(root, "tests"), path.join(sourceRoot, "tests"), { recursive: true });
       const before = requirementsFor("platform-postgres", sourceRoot);
       const id = requirementId("platform-postgres", item);
@@ -2489,7 +2496,7 @@ describe("current platform discovery successors [report models]", () => {
       fs.unlinkSync(path.join(sourceRoot, item.file));
       const after = requirementsFor("platform-postgres", sourceRoot);
       expect(after.some(value => value.id === id)).toBe(false);
-      expect(after).toHaveLength(1123);
+      expect(after).toHaveLength(1139);
       expect(priorCurrentSuccessorPlatformRequirements(sourceRoot)).toEqual(priorCurrentSuccessorPlatformRequirements());
       // Discovery itself cannot retain a deleted suite. Current source-presence
       // assertions above fail if it disappears; literal admission is a follow-up.
@@ -2509,9 +2516,9 @@ describe("registered incident and ownership hardening [report models]", () => {
     const current = requirementsFor("platform-postgres", root), previous = priorHardeningPlatformRequirements();
     const added = INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
     expect(previous).toHaveLength(1119); expect(new Set(previous.map(item => item.id)).size).toBe(1119);
-    expect(current).toHaveLength(1124); expect(new Set(current.map(item => item.id)).size).toBe(1124);
+    expect(current).toHaveLength(1140); expect(new Set(current.map(item => item.id)).size).toBe(1140);
     expect(current.filter(item => hardeningPlatformIds.includes(item.id))).toEqual(added);
-    expect(current.map(item => item.id).sort()).toEqual([...previous, ...added].map(item => item.id).sort());
+    expect(withoutIncomingPlatform(current).map(item => item.id).sort()).toEqual([...previous, ...added].map(item => item.id).sort());
     expect(priorCurrentSuccessorPlatformRequirements()).toHaveLength(1113);
     expect(manifestFor("platform-postgres", root).requirements).toEqual(current);
     expect(reportFailures(current, contractReport(current), root)).toEqual([]);
@@ -2541,7 +2548,7 @@ describe("registered incident and ownership hardening [report models]", () => {
 
   it("retains every literal hardening requirement when either native source is deleted", () => {
     for (const file of new Set(INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => item.file))) {
-      const sourceRoot = fs.mkdtempSync(path.join(scratch, "hardening-source-"));
+      const sourceRoot = modelRoot(path.join(scratch, "hardening-source-"));
       fs.cpSync(path.join(root, "tests"), path.join(sourceRoot, "tests"), { recursive: true });
       const before = requirementsFor("platform-postgres", sourceRoot).filter(item => hardeningPlatformIds.includes(item.id));
       fs.unlinkSync(path.join(sourceRoot, file));
@@ -2566,7 +2573,7 @@ describe("mandatory saved builtin settlement cases [report models]", () => {
     expect(historical).toEqual([...previous, ...required]);
     expect(cleanupWriterNamed()).toHaveLength(46); expect(priorCleanupPlatformRequirements()).toHaveLength(1012);
     expect(manifestFor("postgres", root).requirements).toHaveLength(93);
-    expect(requirementsFor("workflows", root)).toHaveLength(62);
+    expect(requirementsFor("workflows", root)).toHaveLength(70);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
@@ -2617,7 +2624,7 @@ describe("mandatory saved builtin settlement cases [report models]", () => {
   });
 
   it("retains every static additive requirement after the native source is renamed or deleted", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-settlement-manifest-"));
+    const sourceRoot = modelRoot(path.join(os.tmpdir(), "zenith-settlement-manifest-"));
     try {
       for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
       const file = path.join(sourceRoot, settlementGroup.file), source = fs.readFileSync(path.join(root, settlementGroup.file), "utf8");
@@ -2763,7 +2770,7 @@ describe("mandatory native service.configure observations [report models]", () =
   });
 
   it("retains every fixed service requirement after the trusted service source files are deleted", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "service-native-source-"));
+    const sourceRoot = modelRoot(path.join(scratch, "service-native-source-"));
     fs.mkdirSync(path.join(sourceRoot, "scripts/ci"), { recursive: true });
     fs.copyFileSync(path.join(root, "scripts/ci/gate-manifest.mjs"), path.join(sourceRoot, "scripts/ci/gate-manifest.mjs"));
     const sourceFiles = ["go/internal/machine/ops/serviceconfigure_test.go", "go/internal/machine/ops/serviceconfigure_linux_test.go", "go/internal/machine/serviceconfigure_test.go", "go/internal/machine/executor_test.go", "go/internal/machine/ops/results_golden_test.go", "go/internal/machine/ops/serviceconfigure_golden_linux_test.go"];
@@ -2804,8 +2811,8 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     const manifest = manifestFor("workflows", root);
     expect(named()).toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
     expect(new Set(named().map(item => item.id)).size).toBe(2);
-    expect(manifest.requirements).toHaveLength(62);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(62);
+    expect(manifest.requirements).toHaveLength(70);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(70);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(createHash("sha256").update(JSON.stringify(priorCriticalScheduleWorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b");
@@ -2818,7 +2825,7 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     expect(manifest.excludeFiles).not.toContain(file);
     expect(manifest.command).not.toContain("--passWithNoTests");
     expect(reportFailures(named(), contractReport(named()), root)).toEqual([]);
-    expect(requirementsFor("platform-postgres", root)).toHaveLength(1124);
+    expect(requirementsFor("platform-postgres", root)).toHaveLength(1140);
     expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
     expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
     expect(requirementsFor("postgres", root)).toHaveLength(93);
@@ -2882,7 +2889,7 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
   });
 
   it("retains both literal native obligations when the critical schedule source is deleted", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "deleted-critical-schedule-"));
+    const sourceRoot = modelRoot(path.join(scratch, "deleted-critical-schedule-"));
     try {
       for (const directory of ["tests/workflows", "tests/platform", "tests/security"])
         fs.cpSync(path.join(root, directory), path.join(sourceRoot, directory), { recursive: true });
@@ -2983,7 +2990,7 @@ describe("mandatory live agent journal PostgreSQL cases [report models]", () => 
   });
 
   it("retains literal journal obligations after source deletion and rejects zero or duplicated reports", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(scratch, "live-journal-"));
+    const sourceRoot = modelRoot(path.join(scratch, "live-journal-"));
     const contracts = "tests/hosted/authority/contract";
     fs.mkdirSync(path.join(sourceRoot, "tests"), { recursive: true });
     fs.cpSync(path.join(root, contracts), path.join(sourceRoot, contracts), { recursive: true });
@@ -2996,5 +3003,38 @@ describe("mandatory live agent journal PostgreSQL cases [report models]", () => 
     expect(reportFailures(before, { ...contractReport(before), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
     const duplicate = contractReport(before); duplicate.testResults.push(duplicate.testResults[0]);
     expect(reportFailures(before, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+  });
+});
+
+
+describe("incoming platform and workflow obligations", () => {
+  it("requires every fixed additive native identity without losing historical obligations", () => {
+    const current = requirementsFor("platform-postgres", root);
+    expect(current).toHaveLength(1140);
+    const added = current.filter(item => incomingPlatformIds.has(item.id));
+    expect(added).toHaveLength(16);
+    expect(new Set(added.map(item => item.id))).toEqual(incomingPlatformIds);
+    expect(withoutIncomingPlatform(current)).toHaveLength(1124);
+    expect(withoutIncomingPlatform([...current, { ...current[0], id: "unknown-successor" }]).some(item => item.id === "unknown-successor")).toBe(true);
+    for (const item of added) {
+      expect(reportFailures([item], contractReport([item]), root)).toEqual([]);
+      expect(reportFailures([item], { success: true, testResults: [] }, root)).toHaveLength(1);
+      for (const status of ["failed", "skipped", "pending"]) {
+        const report = contractReport([item]);
+        report.testResults[0].assertionResults[0].status = status;
+        expect(reportFailures([item], report, root)).toHaveLength(1);
+      }
+    }
+  });
+  it("keeps all eight added workflow files in the complete mandatory lane", () => {
+    const current = manifestFor("workflows", root);
+    expect(current.requirements).toHaveLength(70);
+    const added = current.requirements.filter(item => incomingWorkflowFiles.has(item.file));
+    expect(added).toHaveLength(8);
+    expect(new Set(added.map(item => item.file))).toEqual(incomingWorkflowFiles);
+    for (const item of added) {
+      expect(current.excludeFiles).not.toContain(item.file);
+      expect(reportFailures([item], { success: true, testResults: [] }, root)).toHaveLength(1);
+    }
   });
 });

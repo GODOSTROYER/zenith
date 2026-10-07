@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { reportFailures, requirementsFor } from "./assert-lane-report.mjs";
+import { assertionMatches } from "../../scripts/ci/gate-manifest.mjs";
 
 const root = process.cwd();
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-ci-engine-report-"));
@@ -119,8 +120,8 @@ describe("evidence boundaries", () => {
     const report = evidence(requirements);
     for (const file of report.testResults) {
       for (const assertion of file.assertionResults) {
-        assertion.fullName = assertion.fullName.replace("[postgres]", `[${backend}]`);
-        assertion.ancestorTitles = assertion.ancestorTitles?.map((title) => title.replace("[postgres]", `[${backend}]`));
+        assertion.fullName = assertion.fullName.replace(/\[postgres\]/g, `[${backend}]`).replace(/\(postgres\)/g, `(${backend})`).replace(/\bon postgres$/g, `on ${backend}`);
+        assertion.ancestorTitles = assertion.ancestorTitles?.map((title) => title.replace(/\[postgres\]/g, `[${backend}]`).replace(/\(postgres\)/g, `(${backend})`).replace(/\bon postgres$/g, `on ${backend}`));
       }
     }
     expect(reportFailures(requirements, report, root)).toHaveLength(requirements.length);
@@ -156,5 +157,20 @@ describe("evidence boundaries", () => {
     }
     const unknown = spawnSync(process.execPath, [path.resolve("tests/ci/assert-lane-report.mjs"), "unknown", invalid], { env, encoding: "utf8" });
     expect(unknown.status).toBe(2);
+  });
+});
+
+
+describe("registered PostgreSQL backend ancestry", () => {
+  it.each(["external effect ledger (postgres)", "coding_agent_runs on postgres", "contract [postgres]"])("accepts complete trusted suite %s", suite => {
+    expect(assertionMatches({ file: "tests/fixture.test.ts", suite, postgres: true }, { title: "case", fullName: `${suite} case`, ancestorTitles: [suite] })).toBe(true);
+  });
+  it.each(["external effect ledger (pglite)", "coding_agent_runs on pglite", "contract ['postgres]", "contract [postgres']", "contract on postgresql", "contract (postgres) injected"])("rejects ambiguous or non-PostgreSQL backend %s", suite => {
+    expect(assertionMatches({ file: "tests/fixture.test.ts", suite, postgres: true }, { title: "case", fullName: `${suite} case`, ancestorTitles: [suite] })).toBe(false);
+  });
+  it("rejects a title-only backend claim and foreign suite ancestry", () => {
+    const required = { file: "tests/fixture.test.ts", suite: "external effect ledger (postgres)", postgres: true };
+    expect(assertionMatches(required, { title: "case (postgres)", fullName: "external effect ledger (postgres) case", ancestorTitles: ["external effect ledger (pglite)"] })).toBe(false);
+    expect(assertionMatches(required, { title: "external effect ledger (postgres)", fullName: "external effect ledger (postgres)" })).toBe(false);
   });
 });

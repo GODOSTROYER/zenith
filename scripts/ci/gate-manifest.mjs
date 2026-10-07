@@ -5962,7 +5962,7 @@ export function assertionMatches(required, assertion) {
   // Prefer suite ancestry. A test title mentioning PostgreSQL cannot turn a
   // PGlite suite into real-engine evidence. Older reports omit the ancestry.
   const labels = ancestors.length > 0 ? ancestors : [assertion.fullName];
-  return labels.some((title) => typeof title === "string" && canonicalSuite(title).includes("[postgres]"));
+  return labels.some((title) => typeof title === "string" && (/\[postgres\]/.test(canonicalSuite(title)) || /(?:\(postgres\)|\bon postgres)$/.test(canonicalSuite(title))));
 }
 
 /** Stable IDs contain only trusted source paths and a digest of the owned suite. */

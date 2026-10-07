@@ -1,3 +1,4 @@
+import { incomingWorkflowFiles, incomingWorkflowIds, withoutIncomingPlatform } from "./incoming-cohort-fixture";
 /**
  * Parsed workflow gates cover the platform that exists. Suite discovery catches
  * narrower filters; mandatory evidence reports catch skipped real-engine tests.
@@ -21,6 +22,12 @@ interface Step {
 }
 interface Job { steps: Step[]; env?: Record<string, unknown>; if?: string; "continue-on-error"?: boolean }
 const root = process.cwd();
+function modelRoot(prefix: string): string {
+  const directory = fs.mkdtempSync(prefix);
+  for (const relative of ["tests/effects", "tests/repair", "tests/coding-agent"]) fs.mkdirSync(path.join(directory, relative), { recursive: true });
+  return directory;
+}
+
 const workflow = load(fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8")) as { jobs: Record<string, Job> };
 
 // Only the fixed service additions leave historical Linux comparisons.
@@ -61,7 +68,7 @@ const wave2WorkflowIds = new Set([
 ]);
 const criticalScheduleWorkflowIds = new Set(CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS.map(item => requirementId("workflows", item)));
 function priorCriticalScheduleWorkflowRequirements(sourceRoot = root) {
-  return requirementsFor("workflows", sourceRoot).filter(item => !criticalScheduleWorkflowIds.has(item.id));
+  return requirementsFor("workflows", sourceRoot).filter(item => !criticalScheduleWorkflowIds.has(item.id) && !incomingWorkflowIds.has(item.id));
 }
 function priorWave2WorkflowRequirements() {
   return priorCriticalScheduleWorkflowRequirements().filter(item => !wave2WorkflowIds.has(item.id));
@@ -79,7 +86,7 @@ const currentSuccessorPlatformCohort = [
 const hardeningPlatformIds = INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item));
 function priorHardeningPlatformRequirements(sourceRoot = root) {
   const ids = new Set(hardeningPlatformIds);
-  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
+  return withoutIncomingPlatform(requirementsFor("platform-postgres", sourceRoot)).filter(item => !ids.has(item.id));
 }
 function priorCurrentSuccessorPlatformRequirements(sourceRoot = root) {
   const ids = new Set(currentSuccessorPlatformCohort.map(item => requirementId("platform-postgres", item)));
@@ -590,7 +597,7 @@ describe("mandatory unchanged APPLY authority continuation [report models]", () 
   });
 
   it("retains the literal positive requirement after its source file is removed", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-apply-gate-"));
+    const sourceRoot = modelRoot(path.join(os.tmpdir(), "zenith-apply-gate-"));
     try {
       for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/execution"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
       fs.copyFileSync(path.join(root, required[0].file), path.join(sourceRoot, required[0].file));
@@ -771,9 +778,9 @@ describe("saved builtin settlement mandatory CI admission", () => {
     const manifest = manifestFor("platform-postgres", root);
     const added = currentSuccessorPlatformCohort.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
     expect(manifest.requirements.filter(item => added.some(value => value.id === item.id)).sort((a, b) => a.id.localeCompare(b.id))).toEqual(added.sort((a, b) => a.id.localeCompare(b.id)));
-    expect(manifest.requirements).toHaveLength(1124);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1124);
-    expect(manifest.requirements.map(item => item.id).sort()).toEqual([...priorCurrentSuccessorPlatformRequirements(), ...added, ...INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }))].map(item => item.id).sort());
+    expect(manifest.requirements).toHaveLength(1140);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1140);
+    expect(withoutIncomingPlatform(manifest.requirements).map(item => item.id).sort()).toEqual([...priorCurrentSuccessorPlatformRequirements(), ...added, ...INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }))].map(item => item.id).sort());
     for (const item of added) {
       expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);
       expect(manifest.excludeFiles).not.toContain(item.file);
@@ -800,7 +807,7 @@ describe("saved builtin settlement mandatory CI admission", () => {
   });
 
   it("retains all 100 literal cleanup and settlement network requirements after source deletion", () => {
-    const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-cleanup-coverage-"));
+    const sourceRoot = modelRoot(path.join(os.tmpdir(), "zenith-cleanup-coverage-"));
     try {
       fs.cpSync(path.join(root, "tests"), path.join(sourceRoot, "tests"), { recursive: true });
       const required = [...CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, ...SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS];
@@ -829,7 +836,7 @@ describe("saved builtin settlement mandatory CI admission", () => {
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
     expect(manifestFor("postgres", root).requirements).toHaveLength(93);
-    expect(requirementsFor("workflows", root)).toHaveLength(62);
+    expect(requirementsFor("workflows", root)).toHaveLength(70);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().requiredCases).toHaveLength(152); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
@@ -849,8 +856,8 @@ describe("critical scheduling native admission [workflow source models]", () => 
     const manifest = manifestFor("workflows", root), job = workflow.jobs.workflows;
     expect(manifest.requirements.filter(item => criticalScheduleWorkflowIds.has(item.id)))
       .toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
-    expect(manifest.requirements).toHaveLength(62);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(62);
+    expect(manifest.requirements).toHaveLength(70);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(70);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(createHash("sha256").update(JSON.stringify(priorCriticalScheduleWorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b");

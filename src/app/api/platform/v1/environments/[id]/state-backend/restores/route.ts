@@ -9,7 +9,7 @@ import { stateRecoveryService } from "../../../../_lib/state-recovery";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 const Body = z.object({
-  connectionId: z.string().regex(/^[A-Za-z0-9_-]{1,100}$/), credentialsRef: z.string().min(7).max(512),
+  connectionId: z.string().regex(/^[A-Za-z0-9_-]{1,100}$/),
   sourceVersionId: z.string().min(1).max(1024).regex(/^[A-Za-z0-9._~+/=-]+$/),
 }).strict();
 

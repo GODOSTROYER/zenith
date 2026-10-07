@@ -17,35 +17,35 @@ export class StateRecoveryRecordError extends Error {
 export type RestoreStatus = "proposed" | "approved" | "rejected" | "executing" | "restored" | "failed_uncertain" | "expired";
 export interface StateRestoreRecord {
   id: string; workspaceId: string; projectId: string; environmentId: string; backendDigest: string;
-  stateKey: string; sourceVersionId: string; sourceSha256: string; currentVersionId: string; credentialsRef: string;
+  stateKey: string; sourceVersionId: string; sourceSha256: string; currentVersionId: string; connectionId: string;
   proposalDigest: string; status: RestoreStatus; requestedBy: { kind: string; id: string };
   approvedBy?: string; approvedAt?: string; expiresAt: string; restoredVersionId?: string; readbackSha256?: string; failureCode?: string; createdAt: string;
 }
 export interface ProposeRestoreInput {
   workspaceId: string; projectId: string; environmentId: string; backendDigest: string; backend: Record<string, unknown>; stateKey: string;
-  sourceVersionId: string; sourceSha256: string; currentVersionId: string; credentialsRef: string; requestedBy: { kind: string; id: string }; ttlMs?: number;
+  sourceVersionId: string; sourceSha256: string; currentVersionId: string; connectionId: string; requestedBy: { kind: string; id: string }; ttlMs?: number;
 }
 interface Row {
   id: string; workspace_id: string; project_id: string; environment_id: string; backend_digest: string; state_key: string; source_version_id: string;
-  source_sha256: string; current_version_id: string; credentials_ref: string; proposal_digest: string; status: RestoreStatus; requested_by: { kind: string; id: string };
+  source_sha256: string; current_version_id: string; connection_id: string; proposal_digest: string; status: RestoreStatus; requested_by: { kind: string; id: string };
   approved_by: string | null; approved_at: string | null; expires_at: string; restored_version_id: string | null; readback_sha256: string | null; failure_code: string | null; created_at: string;
 }
-const COLUMNS = `id, workspace_id, project_id, environment_id, backend_digest, state_key, source_version_id, source_sha256, current_version_id, credentials_ref,
+const COLUMNS = `id, workspace_id, project_id, environment_id, backend_digest, state_key, source_version_id, source_sha256, current_version_id, connection_id,
   proposal_digest, status, requested_by, approved_by, approved_at, expires_at, restored_version_id, readback_sha256, failure_code, created_at`;
 const record = (r: Row): StateRestoreRecord => ({
   id: r.id, workspaceId: r.workspace_id, projectId: r.project_id, environmentId: r.environment_id, backendDigest: r.backend_digest, stateKey: r.state_key,
-  sourceVersionId: r.source_version_id, sourceSha256: r.source_sha256, currentVersionId: r.current_version_id, credentialsRef: r.credentials_ref,
+  sourceVersionId: r.source_version_id, sourceSha256: r.source_sha256, currentVersionId: r.current_version_id, connectionId: r.connection_id,
   proposalDigest: r.proposal_digest, status: r.status, requestedBy: r.requested_by,
   ...(r.approved_by ? { approvedBy: r.approved_by } : {}), ...(r.approved_at ? { approvedAt: String(r.approved_at) } : {}), expiresAt: String(r.expires_at),
   ...(r.restored_version_id ? { restoredVersionId: r.restored_version_id } : {}), ...(r.readback_sha256 ? { readbackSha256: r.readback_sha256 } : {}),
   ...(r.failure_code ? { failureCode: r.failure_code } : {}), createdAt: String(r.created_at),
 });
 
-/** The digest every approval binds. Credentials appear only as a vault reference, never a value. */
+/** The digest every approval binds. No credential or credential reference is part of a proposal: sessions are brokered at execution. */
 export function restoreProposalDigest(input: Omit<ProposeRestoreInput, "requestedBy" | "ttlMs">): string {
   return digest({ format: "zenith.state-restore.v1", workspaceId: input.workspaceId, projectId: input.projectId, environmentId: input.environmentId,
     backendDigest: input.backendDigest, backend: input.backend, stateKey: input.stateKey, sourceVersionId: input.sourceVersionId,
-    sourceSha256: input.sourceSha256, currentVersionId: input.currentVersionId, credentialsRef: input.credentialsRef });
+    sourceSha256: input.sourceSha256, currentVersionId: input.currentVersionId, connectionId: input.connectionId });
 }
 
 /**
@@ -83,10 +83,10 @@ export async function propose(sql: Sql, input: ProposeRestoreInput): Promise<Sta
       [input.workspaceId, input.environmentId, proposalDigest]);
     if (existing[0]) return record(existing[0]);
     const rows = await tx.query<Row>(`insert into platform.state_backend_restores
-      (id, workspace_id, project_id, environment_id, backend_digest, backend, state_key, source_version_id, source_sha256, current_version_id, credentials_ref, proposal_digest, requested_by, expires_at)
+      (id, workspace_id, project_id, environment_id, backend_digest, backend, state_key, source_version_id, source_sha256, current_version_id, connection_id, proposal_digest, requested_by, expires_at)
       values ($1,$2,$3,$4,$5,$6::text::jsonb,$7,$8,$9,$10,$11,$12,$13::text::jsonb, clock_timestamp() + ($14 || ' milliseconds')::interval) returning ${COLUMNS}`,
       [`sbr_${randomUUID()}`, input.workspaceId, input.projectId, input.environmentId, input.backendDigest, JSON.stringify(input.backend), input.stateKey,
-        input.sourceVersionId, input.sourceSha256, input.currentVersionId, input.credentialsRef, proposalDigest, JSON.stringify(input.requestedBy), String(ttl)]);
+        input.sourceVersionId, input.sourceSha256, input.currentVersionId, input.connectionId, proposalDigest, JSON.stringify(input.requestedBy), String(ttl)]);
     return record(rows[0]);
   });
 }

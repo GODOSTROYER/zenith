@@ -130,26 +130,15 @@ export class S3StateStore implements StateBackendStore {
   }
 }
 
-export interface S3StateCredentials { readonly accessKeyId: string; readonly secretAccessKey: string; readonly sessionToken?: string }
-/** Parse the tenant-owned credentials secret. Errors never echo a value. */
-export function parseStateCredentials(raw: string): S3StateCredentials {
-  let value: Record<string, unknown>;
-  try { value = JSON.parse(raw) as Record<string, unknown>; } catch { return fail("invalid_credentials", "The state credentials secret is not valid JSON."); }
-  const text = (key: string, max: number): string => {
-    const v = value[key];
-    if (typeof v !== "string" || v.length === 0 || v.length > max) return fail("invalid_credentials", `The state credentials secret is missing a usable "${key}".`);
-    return v;
-  };
-  if (Object.keys(value).some(k => !["accessKeyId", "secretAccessKey", "sessionToken"].includes(k))) fail("invalid_credentials", "The state credentials secret has unexpected fields; no endpoint or region can be supplied by it.");
-  return { accessKeyId: text("accessKeyId", 256), secretAccessKey: text("secretAccessKey", 512), ...(value.sessionToken === undefined ? {} : { sessionToken: text("sessionToken", 4096) }) };
-}
-
-/** AWS S3 only. The endpoint is never taken from a credential or request: the SDK's own AWS endpoints are used. */
-export async function openS3StateStore(backend: BackendConfig, region: string, stateKey: string, credentials: S3StateCredentials): Promise<StateBackendStore> {
-  if (backend.kind !== "s3" || backend.endpoint !== undefined || !assessBackend(backend).restoreAdapter) fail("unsupported_backend", "Only AWS S3 state buckets have a restore adapter.");
+/**
+ * Build the store from a BROKERED AWS session (federated or assumed role, honouring connection mode, custody and revocation
+ * in the credential broker). The client carries the session's temporary credentials; no long-lived key is read from anywhere.
+ * AWS S3 only: an S3-compatible endpoint is refused.
+ */
+export async function s3StoreFromSession(session: { client<C>(ctor: new (config: Record<string, unknown>) => C, overrides?: { region?: string }): C }, backend: BackendConfig, region: string, stateKey: string): Promise<StateBackendStore> {
+  if (backend.kind !== "s3" || backend.endpoint !== undefined || !assessBackend(backend).restoreAdapter) fail("unsupported_backend", "Only AWS S3 state buckets have an S3 restore adapter.");
   const s3 = backend as Extract<BackendConfig, { kind: "s3" }>;
   const sdk = await import("@aws-sdk/client-s3");
-  const client = new sdk.S3Client({ region: s3.region ?? region, maxAttempts: 3, credentials: { accessKeyId: credentials.accessKeyId, secretAccessKey: credentials.secretAccessKey,
-    ...(credentials.sessionToken ? { sessionToken: credentials.sessionToken } : {}) } }) as S3Client;
+  const client = session.client(sdk.S3Client as unknown as new (config: Record<string, unknown>) => S3Client, { region: s3.region ?? region });
   return new S3StateStore(client, sdk, { bucket: s3.bucket, key: stateKey });
 }

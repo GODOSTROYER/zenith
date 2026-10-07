@@ -11,12 +11,12 @@ import * as repos from "@/lib/controlplane/db/repos";
 import * as recovery from "@/lib/controlplane/db/repos/state-backend-recovery";
 import { proposeOperation } from "@/lib/controlplane/operations";
 import type { Principal, Sql } from "@/lib/controlplane/types";
-import type { ProviderConnection } from "@/lib/credentials/types";
+import { CredentialDeniedError, type ProviderConnection } from "@/lib/credentials/types";
 import { BrokerError } from "@/lib/capabilities/errors";
 import { backendForConnection } from "@/lib/tofu/backends";
 import type { BackendProbeVerdict } from "@/lib/tofu/backend-capabilities";
 import { StateBackendError, type StateBackendStore, type StateObjectVersion } from "@/lib/tofu/state-backend-s3";
-import { backendDigestFor, createStateRecovery, type RecoveryCaller } from "@/lib/platform/state-recovery";
+import { backendDigestFor, createStateRecovery, type RecoveryCaller, type StateSessionRequest } from "@/lib/platform/state-recovery";
 import { LANES, newWorkspace, openLane, proposalFor, uid, user } from "./_support/harness";
 
 const sha = (b: Buffer) => createHash("sha256").update(b).digest("hex");
@@ -54,6 +54,12 @@ describe.each(LANES)("state backend recovery [$name]", (lane) => {
   const awsConnection = (workspaceId: string): ProviderConnection => ({ id: uid("conn"), workspaceId, status: "verified", createdBy: "u", createdAt: new Date().toISOString(),
     config: { provider: "aws", mode: "static_dev", accountId: "123456789012", observeRoleArn: "arn:aws:iam::123456789012:role/o", deployRoleArn: "arn:aws:iam::123456789012:role/d",
       region: "us-east-1", stateBucket: "ws-state-bucket" } } as unknown as ProviderConnection);
+  const withStatus = (make: (ws: string) => ProviderConnection, status: ProviderConnection["status"]) => (ws: string): ProviderConnection => ({ ...make(ws), status });
+  const runnerMode = (make: (ws: string) => ProviderConnection) => (ws: string): ProviderConnection => { const c = make(ws); return { ...c, config: { ...c.config, mode: "runner" } as ProviderConnection["config"] }; };
+  const azureConnection = (workspaceId: string): ProviderConnection => ({ id: uid("conn"), workspaceId, status: "verified", createdBy: "u", createdAt: new Date().toISOString(),
+    config: { provider: "azure", mode: "oidc_web_identity", region: "eastus", stateStorageAccount: "wsstateacct", stateContainer: "tfstate" } } as unknown as ProviderConnection);
+  const ociConnection = (workspaceId: string): ProviderConnection => ({ id: uid("conn"), workspaceId, status: "verified", createdBy: "u", createdAt: new Date().toISOString(),
+    config: { provider: "oci", mode: "runner", region: "us-ashburn-1", stateBucket: "ws-oci-state-bucket", stateNamespace: "myns" } } as unknown as ProviderConnection);
   const gcpConnection = (workspaceId: string): ProviderConnection => ({ id: uid("conn"), workspaceId, status: "verified", createdBy: "u", createdAt: new Date().toISOString(),
     config: { provider: "gcp", region: "us-central1", stateBucket: "ws-gcs-state-bucket" } } as unknown as ProviderConnection);
 
@@ -70,19 +76,25 @@ describe.each(LANES)("state backend recovery [$name]", (lane) => {
     return { backendDigest, stateKey };
   }
   const human = (id: string, workspaceId: string): RecoveryCaller => ({ principal: { kind: "user", id, name: id }, workspaceId, session: { method: "browser_session", subject: id, verifiedAtMs: Date.now() } });
-  async function world(opts: { connection?: (ws: string) => ProviderConnection; store?: FakeStore | null } = {}) {
+  async function world(opts: { connection?: (ws: string) => ProviderConnection; store?: FakeStore | null; deny?: boolean } = {}) {
     const workspaceId = newWorkspace(), environmentId = uid("env");
     const connection = (opts.connection ?? awsConnection)(workspaceId);
     const store = opts.store === null ? undefined : opts.store ?? new FakeStore();
     const seeded = await seedArtifact(workspaceId, environmentId, connection);
+    // The brokered session port. The real broker (federation, custody mode, revocation) is covered by its own suites; here the port records what was asked.
+    const sessions: StateSessionRequest[] = [];
     const service = createStateRecovery({
       db, roles: { resolve: async (p: Principal) => ({ role: p.id.startsWith("viewer") ? "viewer" : "admin" }) },
       connection: async (ws, id) => (ws === workspaceId && id === connection.id ? connection : null),
-      secret: async (ws, ref) => (ws === workspaceId && ref === "vault:state-creds" ? JSON.stringify({ accessKeyId: "id-value", secretAccessKey: "secret-value" }) : undefined),
+      withSession: async (request, fn) => {
+        sessions.push(request);
+        if (opts.deny) throw new CredentialDeniedError("Connection revoked.", { reason: "connection_revoked" });
+        return fn({ provider: connection.config.provider } as never);
+      },
       ...(store ? { openStore: async () => store } : {}),
     });
-    const input = (sourceVersionId = "v1") => ({ environmentId, connectionId: connection.id, credentialsRef: "vault:state-creds", sourceVersionId });
-    return { workspaceId, environmentId, connection, store: store!, service, input, ...seeded, approver: human("approver-1", workspaceId) };
+    const input = (sourceVersionId = "v1") => ({ environmentId, connectionId: connection.id, sourceVersionId });
+    return { workspaceId, environmentId, connection, store: store!, service, input, sessions, ...seeded, approver: human("approver-1", workspaceId) };
   }
   const code = async (promise: Promise<unknown>): Promise<string> => { try { await promise; return "ok"; } catch (e) { return e instanceof BrokerError ? e.code : `other:${String(e)}`; } };
 
@@ -91,12 +103,14 @@ describe.each(LANES)("state backend recovery [$name]", (lane) => {
     const view = await w.service.describe(w.approver, w.environmentId, w.connection.id);
     expect(view).toMatchObject({ backendKind: "s3", stateKey: `zenith/${w.workspaceId}/${w.environmentId}/terraform.tfstate`, restores: [], evidence: "contract" });
     expect(view.capabilities).toMatchObject({ locking: "supported", versioning: "unverified", restoreAdapter: true });
+    expect(view.session).toEqual({ available: true });
+    expect(w.sessions).toHaveLength(0); // describe reads nothing from the backend and mints no session
     expect(await code(w.service.describe(human("approver-1", newWorkspace()), w.environmentId, w.connection.id))).toBe("not_found");
   });
 
   it("refuses to propose for a backend with no recorded plan, proving ownership first", async () => {
     const w = await world();
-    const stranger = createStateRecovery({ db, roles: { resolve: async () => ({ role: "admin" as const }) }, connection: async () => w.connection, secret: async () => undefined });
+    const stranger = createStateRecovery({ db, roles: { resolve: async () => ({ role: "admin" as const }) }, connection: async () => w.connection, withSession: async (_r, fn) => fn({ provider: "aws" } as never) });
     expect(await code(stranger.propose(w.approver, { ...w.input(), environmentId: uid("env") }))).toBe("invalid_state");
   });
 
@@ -128,6 +142,15 @@ describe.each(LANES)("state backend recovery [$name]", (lane) => {
     expect(w.store.versions[2].bytes.toString()).toBe('{"serial":1}');
     expect(await code(w.service.execute(w.approver, { environmentId: w.environmentId, restoreId: proposed.id }))).toBe("approval_required");
     expect(w.store.writes).toBe(1);
+    // Every provider call went through a brokered session: observe for reads, deploy (narrowed to the one object) for the write.
+    expect(w.sessions.map(s => s.purpose)).toEqual(expect.arrayContaining(["observe", "deploy"]));
+    const write = w.sessions.find(s => s.purpose === "deploy")!;
+    expect(write).toMatchObject({ workspaceId: w.workspaceId, environmentId: w.environmentId, connectionId: w.connection.id, principalId: "approver-1" });
+    const statements = (write.sessionPolicy as { Statement: { Action: string[]; Resource: string[] }[] }).Statement;
+    expect(statements.flatMap(s => s.Action)).toContain("s3:PutObject");
+    expect(statements.flatMap(s => s.Resource).every(r => r.startsWith("arn:aws:s3:::ws-state-bucket"))).toBe(true);
+    expect(JSON.stringify(write.sessionPolicy)).not.toMatch(/"\*"\s*,\s*"Resource":\s*\["\*"\]/);
+    expect(w.sessions.filter(s => s.purpose === "observe").every(s => !JSON.stringify(s.sessionPolicy).includes("s3:PutObject"))).toBe(true);
     // The environment lease was released, and a probe row was stored as immutable evidence.
     expect(await repos.leases.acquire(db, { scope: `env:${w.environmentId}`, holder: "after-restore", ttlMs: 60_000, workspaceId: w.workspaceId })).not.toBeNull();
     expect((await recovery.latestProbe(db, w.workspaceId, w.environmentId, w.backendDigest))?.verdict.versioning).toBe("enabled");
@@ -179,10 +202,48 @@ describe.each(LANES)("state backend recovery [$name]", (lane) => {
     expect(w.store.versions).toHaveLength(3);
   });
 
-  it("refuses a backend whose credentials secret is not usable for its provider and creates nothing", async () => {
-    const w = await world({ connection: gcpConnection, store: null });
-    expect(await code(w.service.propose(w.approver, w.input()))).toBe("invalid_state");
-    expect(await db.query("select 1 from platform.state_backend_restores where workspace_id=$1", [w.workspaceId])).toHaveLength(0);
+  it("refuses explicitly when the connection mode or provider cannot supply a session for the backend, minting nothing", async () => {
+    const cases: [string, (ws: string) => ProviderConnection, RegExp][] = [
+      ["azure", azureConnection, /Azure Blob restore is refused/],
+      ["oci", ociConnection, /OCI Object Storage restore is refused/],
+      ["aws runner custody", runnerMode(awsConnection), /custody mode runner/],
+      ["gcp runner custody", runnerMode(gcpConnection), /custody mode runner/],
+      ["revoked connection", withStatus(awsConnection, "revoked"), /revoked/],
+      ["unverified connection", withStatus(awsConnection, "pending_verification"), /not verified/],
+    ];
+    for (const [name, make, reason] of cases) {
+      const w = await world({ connection: make });
+      let message = "";
+      try { await w.service.propose(w.approver, w.input()); } catch (e) { message = e instanceof BrokerError ? e.message : String(e); }
+      expect(message, name).toMatch(reason);
+      expect(w.sessions, name).toHaveLength(0);
+      expect(await db.query("select 1 from platform.state_backend_restores where workspace_id=$1", [w.workspaceId]), name).toHaveLength(0);
+      const view = await w.service.describe(w.approver, w.environmentId, w.connection.id);
+      expect(view.session.available, name).toBe(false);
+      expect(view.session.reason, name).toMatch(reason);
+    }
+  });
+
+  it("a session the broker refuses (revoked mid-flight, federation failure) stops the restore before any write and keeps it approved", async () => {
+    const live = await world();
+    const proposed = await live.service.propose(live.approver, live.input());
+    await live.service.approve(live.approver, { environmentId: live.environmentId, restoreId: proposed.id, proposalDigest: proposed.proposalDigest });
+    // Same workspace, but the broker now denies every session (LIFE-01 revocation reaching the credential path).
+    const denying = createStateRecovery({ db, roles: { resolve: async () => ({ role: "admin" as const }) }, connection: async () => live.connection,
+      withSession: async () => { throw new CredentialDeniedError("Connection revoked.", { reason: "connection_revoked" }); }, openStore: async () => live.store });
+    expect(await code(denying.execute(live.approver, { environmentId: live.environmentId, restoreId: proposed.id }))).toBe("invalid_state");
+    expect(live.store.writes).toBe(0);
+    expect((await recovery.get(db, live.workspaceId, proposed.id))?.status).toBe("approved");
+    const w = await world({ deny: true });
+    expect(await code(w.service.probe(w.approver, { environmentId: w.environmentId, connectionId: w.connection.id }))).toBe("invalid_state");
+  });
+
+  it("a GCS backend restores through its brokered session as well", async () => {
+    const w = await world({ connection: gcpConnection });
+    const proposed = await w.service.propose(w.approver, w.input());
+    await w.service.approve(w.approver, { environmentId: w.environmentId, restoreId: proposed.id, proposalDigest: proposed.proposalDigest });
+    expect((await w.service.execute(w.approver, { environmentId: w.environmentId, restoreId: proposed.id })).status).toBe("restored");
+    expect(w.sessions.every(r => r.sessionPolicy === undefined)).toBe(true); // IAM session policies are AWS only
   });
 
   it("the database refuses edits to a reviewed proposal, invalid transitions and any delete", async () => {

@@ -57,10 +57,10 @@ export function assessBackend(backend: { kind: string } & Partial<Record<string,
         locking: oci ? "unverified" : "supported",
         encryption: oci ? "provider_managed" : "supported",
         versioning: "unverified",
-        restoreAdapter: true,
+        restoreAdapter: !oci,
         notes: [
           ...(oci ? ["OCI Object Storage S3 compatibility: lock-file conditional writes are not verified; state locking may not exclude concurrent writers.",
-            "OCI restore uses the native Object Storage API (object versions, If-Match); the S3 compatibility layer is not used."] : []),
+            "OCI restore is refused: the brokered OCI session is a runner transport that carries JSON for allowlisted bucket paths only, so object bytes cannot flow through it, and a control-plane held signing key is not an accepted path."] : []),
           "Bucket versioning is a bucket property; only a live probe can prove it is enabled.",
         ],
       });
@@ -69,12 +69,12 @@ export function assessBackend(backend: { kind: string } & Partial<Record<string,
       return frozen({
         kind: "gcs", locking: "provider_managed", encryption: backend.kmsEncryptionKey === undefined ? "provider_managed" : "supported",
         versioning: "unverified", restoreAdapter: true,
-        notes: ["GCS object versioning is a bucket property; only a live probe can prove it is enabled. Restore uses object generations with ifGenerationMatch."],
+        notes: ["GCS object versioning is a bucket property; only a live probe can prove it is enabled. Restore uses object generations with ifGenerationMatch through the brokered GCP session."],
       });
     case "azurerm":
       return frozen({
-        kind: "azurerm", locking: "provider_managed", encryption: "provider_managed", versioning: "unverified", restoreAdapter: true,
-        notes: ["Azure blob versioning is a storage account property; a live probe proves it only through the version id the service returns. Restore uses blob versions with If-Match."],
+        kind: "azurerm", locking: "provider_managed", encryption: "provider_managed", versioning: "unverified", restoreAdapter: false,
+        notes: ["Azure blob versioning is a storage account property. Restore is refused: the brokered Azure session authorizes Blob hosts only for a bound source-storage account, so it cannot reach a state storage account, and a stored SAS or key is not an accepted path."],
       });
     case "http": {
       const locked = typeof backend.lockAddress === "string" && typeof backend.unlockAddress === "string";
@@ -119,8 +119,7 @@ export function assertBackendAdmissible(backend: { kind: string } & Partial<Reco
 export function restoreRefusals(caps: BackendCapabilities, probe: BackendProbeVerdict | undefined): string[] {
   const out: string[] = [];
   if (!caps.restoreAdapter) out.push(`No restore adapter exists for the ${caps.kind} backend; restore is refused.`);
-  // Unverified locking is tolerated only because every adapter writes conditionally (generation or If-Match) under the environment lease, so a racing writer fails the write instead of being overwritten.
-  if (caps.locking === "unsupported") out.push("This backend cannot lock state, so a restore could race a writer.");
+  if (caps.locking === "unverified" || caps.locking === "unsupported") out.push("State locking is not proven for this backend, so a restore could race a writer.");
   if (!probe) out.push("No live backend probe is recorded; run the probe first.");
   else {
     if (probe.versioning !== "enabled") out.push(`Bucket versioning is ${probe.versioning}; only an enabled versioned bucket can be restored without data loss.`);

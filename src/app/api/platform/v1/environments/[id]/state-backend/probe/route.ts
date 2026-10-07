@@ -8,7 +8,7 @@ import { stateRecoveryService } from "../../../../_lib/state-recovery";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-const Body = z.object({ connectionId: z.string().regex(/^[A-Za-z0-9_-]{1,100}$/), credentialsRef: z.string().min(7).max(512) }).strict();
+const Body = z.object({ connectionId: z.string().regex(/^[A-Za-z0-9_-]{1,100}$/) }).strict();
 
 export const POST = platformRoute<{ id: string }>(async (req, { id }) => {
   const caller = await callerOf(req);

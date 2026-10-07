@@ -13,18 +13,21 @@ describe("backend capability matrix", () => {
     const caps = assessBackend({ kind: "s3", bucket: "state-bucket" });
     expect(caps).toMatchObject({ locking: "supported", encryption: "supported", versioning: "unverified", restoreAdapter: true });
   });
-  it("OCI S3 compatibility is not claimed to lock; restore uses the native API and stays conditional", () => {
+  it("OCI S3 compatibility is not claimed to lock and has no restore adapter (runner transport carries no object bytes)", () => {
     const caps = assessBackend({ kind: "s3", bucket: "b", endpoint: "https://ns.compat.objectstorage.us-ashburn-1.oraclecloud.com" });
-    expect(caps).toMatchObject({ locking: "unverified", encryption: "provider_managed", restoreAdapter: true });
-    expect(restoreRefusals(caps, ready())).toEqual([]);
-    expect(restoreRefusals(caps, ready({ lockObject: "present" })).join(" ")).toMatch(/lock is held/);
+    expect(caps).toMatchObject({ locking: "unverified", encryption: "provider_managed", restoreAdapter: false });
+    expect(restoreRefusals(caps, ready()).join(" ")).toMatch(/restore adapter/);
+    expect(restoreRefusals(caps, ready()).join(" ")).toMatch(/locking is not proven/);
+    expect(caps.notes.join(" ")).toMatch(/runner transport/);
   });
-  it("GCS and Azure rely on provider locking and have conditional restore adapters", () => {
-    for (const kind of ["gcs", "azurerm"]) {
-      const caps = assessBackend({ kind });
-      expect(caps).toMatchObject({ locking: "provider_managed", encryption: "provider_managed", restoreAdapter: true });
-      expect(restoreRefusals(caps, ready())).toEqual([]);
-    }
+  it("GCS has a brokered-session restore adapter; Azure has none (no brokered Blob access to a state account)", () => {
+    const gcs = assessBackend({ kind: "gcs" });
+    expect(gcs).toMatchObject({ locking: "provider_managed", encryption: "provider_managed", restoreAdapter: true });
+    expect(restoreRefusals(gcs, ready())).toEqual([]);
+    const azure = assessBackend({ kind: "azurerm" });
+    expect(azure.restoreAdapter).toBe(false);
+    expect(azure.notes.join(" ")).toMatch(/source-storage account/);
+    expect(restoreRefusals(azure, ready()).join(" ")).toMatch(/restore adapter/);
     for (const kind of ["http", "local", "pg", "mystery"]) {
       const caps = assessBackend({ kind });
       expect(caps.restoreAdapter, kind).toBe(false);

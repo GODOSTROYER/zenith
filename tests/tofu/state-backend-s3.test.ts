@@ -8,7 +8,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import * as sdk from "@aws-sdk/client-s3";
-import { openS3StateStore, parseStateCredentials, S3StateStore, StateBackendError } from "@/lib/tofu/state-backend-s3";
+import { S3StateStore, s3StoreFromSession } from "@/lib/tofu/state-backend-s3";
+import { openStateStoreFromSession } from "@/lib/tofu/state-backend-open";
 
 const sha = (b: Buffer) => createHash("sha256").update(b).digest("hex");
 const KEY = "zenith/ws_1/env_1/terraform.tfstate";
@@ -122,27 +123,40 @@ describe("restore writes a new version, compares and swaps, and never deletes", 
   });
 });
 
-describe("opening a store", () => {
-  it("accepts credentials only as the three secret fields, never an endpoint", () => {
-    expect(parseStateCredentials(JSON.stringify({ accessKeyId: "id-value", secretAccessKey: "secret-value" }))).toEqual({ accessKeyId: "id-value", secretAccessKey: "secret-value" });
-    for (const bad of ["not json", "{}", JSON.stringify({ accessKeyId: "a", secretAccessKey: "b", endpoint: "https://evil.test" }), JSON.stringify({ accessKeyId: "a", secretAccessKey: "b", region: "us-east-1" })])
-      expect(() => parseStateCredentials(bad)).toThrow(StateBackendError);
+describe("opening a store from a brokered session", () => {
+  const backend = { kind: "s3" as const, bucket: "state-bucket" };
+  it("builds the client from the session, in the backend's region, and uses no other credential source", async () => {
+    const seen: { region?: string }[] = [];
+    const b = bucket({ versioning: "Enabled" });
+    const session = { client: <C,>(_ctor: new (config: Record<string, unknown>) => C, overrides?: { region?: string }): C => { seen.push(overrides ?? {}); return b.client as unknown as C; } };
+    const store = await s3StoreFromSession(session, { ...backend, region: "eu-west-1" }, "us-east-1", KEY);
+    expect((await store.probe()).versioning).toBe("enabled");
+    expect(seen).toEqual([{ region: "eu-west-1" }]);
   });
-  it("refuses every backend without a restore adapter", async () => {
-    const creds = { accessKeyId: "id-value", secretAccessKey: "secret-value" };
-    await expect(openS3StateStore({ kind: "gcs", bucket: "state-bucket" }, "us-east-1", KEY, creds)).rejects.toMatchObject({ code: "unsupported_backend" });
-    await expect(openS3StateStore({ kind: "azurerm", storageAccountName: "acct", containerName: "state" }, "us-east-1", KEY, creds)).rejects.toMatchObject({ code: "unsupported_backend" });
-    await expect(openS3StateStore({ kind: "s3", bucket: "b", endpoint: "https://ns.compat.objectstorage.us-ashburn-1.oraclecloud.com" }, "us-ashburn-1", KEY, creds)).rejects.toMatchObject({ code: "unsupported_backend" });
+  it("refuses backends it has no S3 adapter for, and sessions of the wrong provider", async () => {
+    const session = { client: () => { throw new Error("must not be called"); } };
+    await expect(s3StoreFromSession(session as never, { kind: "gcs", bucket: "state-bucket" }, "us-east-1", KEY)).rejects.toMatchObject({ code: "unsupported_backend" });
+    await expect(s3StoreFromSession(session as never, { kind: "azurerm", storageAccountName: "acct", containerName: "state" }, "us-east-1", KEY)).rejects.toMatchObject({ code: "unsupported_backend" });
+    await expect(s3StoreFromSession(session as never, { kind: "s3", bucket: "b", endpoint: "https://ns.compat.objectstorage.us-ashburn-1.oraclecloud.com" }, "us-ashburn-1", KEY)).rejects.toMatchObject({ code: "unsupported_backend" });
+    await expect(openStateStoreFromSession({ provider: "gcp" } as never, backend, "us-east-1", KEY)).rejects.toMatchObject({ code: "unsupported_backend" });
+    await expect(openStateStoreFromSession({ provider: "azure" } as never, { kind: "azurerm", storageAccountName: "acct", containerName: "state" }, "eastus", KEY)).rejects.toMatchObject({ code: "unsupported_backend" });
+    await expect(openStateStoreFromSession({ provider: "aws" } as never, { kind: "gcs", bucket: "state-bucket" }, "us-east-1", KEY)).rejects.toMatchObject({ code: "unsupported_backend" });
   });
 });
 
-describe("no destructive backend operation exists in the recovery source", () => {
-  it("never imports or constructs a delete, lifecycle or lock-removal command", () => {
-    for (const file of ["src/lib/tofu/state-backend-s3.ts", "src/lib/tofu/state-backend-http.ts", "src/lib/tofu/state-backend-open.ts", "src/lib/platform/state-recovery.ts", "src/lib/controlplane/db/repos/state-backend-recovery.ts"]) {
+describe("no destructive backend operation exists in the recovery source", () => {  it("never imports or constructs a delete, lifecycle or lock-removal command", () => {
+    for (const file of ["src/lib/tofu/state-backend-s3.ts", "src/lib/tofu/state-backend-gcs.ts", "src/lib/tofu/state-backend-open.ts", "src/lib/platform/state-recovery.ts", "src/lib/platform/state-session.ts", "src/lib/controlplane/db/repos/state-backend-recovery.ts"]) {
       const source = readFileSync(path.join(process.cwd(), file), "utf8");
       expect(source, file).not.toMatch(/Delete(?:Object|Objects|Bucket|ObjectVersion)Command|PutBucketLifecycle|DeleteBucketLifecycle|force-unlock|forceUnlock/);
       expect(source, file).not.toMatch(/\bdelete from\b/i);
       expect(source, file).not.toContain('method: "DELETE"');
     }
+  });
+  it("takes provider credentials only from the brokered session path: no vault secret, key, token or SAS handling", () => {
+    for (const file of ["src/lib/tofu/state-backend-s3.ts", "src/lib/tofu/state-backend-gcs.ts", "src/lib/tofu/state-backend-open.ts", "src/lib/platform/state-recovery.ts", "src/lib/platform/state-session.ts", "src/app/api/platform/v1/_lib/state-recovery.ts"]) {
+      const source = readFileSync(path.join(process.cwd(), file), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+      expect(source, file).not.toMatch(/readSecretValue|@\/lib\/secrets|isVaultRef|vault:|accessKeyId|secretAccessKey|privateKey|private_key|createSign|sasToken|oauth2\.googleapis|client_email/);
+    }
+    expect(readFileSync(path.join(process.cwd(), "src/app/api/platform/v1/_lib/state-recovery.ts"), "utf8")).toContain("platformCredentialBroker(db)");
   });
 });

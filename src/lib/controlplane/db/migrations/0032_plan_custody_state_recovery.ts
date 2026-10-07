@@ -61,7 +61,7 @@ create table if not exists platform.state_backend_restores (
   source_version_id text not null check (length(source_version_id) between 1 and 1024),
   source_sha256 text not null check (source_sha256 ~ '^[a-f0-9]{64}$'),
   current_version_id text not null check (length(current_version_id) between 1 and 1024),
-  credentials_ref text not null check (length(credentials_ref) between 1 and 512),
+  connection_id text not null check (length(connection_id) between 1 and 200),
   proposal_digest text not null check (proposal_digest ~ '^[a-f0-9]{64}$'),
   status text not null default 'proposed' check (status in ('proposed', 'approved', 'rejected', 'executing', 'restored', 'failed_uncertain', 'expired')),
   requested_by jsonb not null,
@@ -83,7 +83,7 @@ begin
   end if;
   if new.workspace_id <> old.workspace_id or new.environment_id <> old.environment_id or new.proposal_digest <> old.proposal_digest
     or new.backend_digest <> old.backend_digest or new.state_key <> old.state_key or new.source_version_id <> old.source_version_id
-    or new.source_sha256 <> old.source_sha256 or new.current_version_id <> old.current_version_id or new.credentials_ref <> old.credentials_ref
+    or new.source_sha256 <> old.source_sha256 or new.current_version_id <> old.current_version_id or new.connection_id <> old.connection_id
     or new.backend::text <> old.backend::text or new.requested_by::text <> old.requested_by::text or new.expires_at <> old.expires_at then
     raise exception 'A reviewed state restore proposal is immutable' using errcode = '23514';
   end if;

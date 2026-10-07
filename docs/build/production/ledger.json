@@ -3855,6 +3855,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J3 adds Supabase TOTP screens, fail-closed AAL2 guard, workspace controls and legacy cancellation. Contract checks recorded in verify/PROD-UX-01.md; real browser/axe/NVDA and integration fixture joins remain pending.",
       "evidence": [
         {
           "level": "contract",

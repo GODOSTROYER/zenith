@@ -6,6 +6,7 @@ import { sessionUserFromRequest } from "@/lib/supabase/route";
 import { isWaitlistOperator } from "./access";
 import { waitlistConfig } from "./config";
 import type { WaitlistRepository } from "./types";
+import { requireStepUp } from "@/lib/auth/mfa";
 
 export const WAITLIST_BODY_BYTES = 8192;
 
@@ -53,6 +54,7 @@ export async function requireWaitlistOperator(request: NextRequest) {
   const user = await sessionUserFromRequest(request);
   if (!user) throw new ApiError("Sign in to manage the waitlist.", 401);
   if (!isWaitlistOperator(user)) throw new ApiError("Waitlist operator access is required.", 403);
+  if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) await requireStepUp(request, { subject: user.id });
   return user;
 }
 

@@ -237,7 +237,10 @@ export function route<P extends Record<string, string> = Record<string, string>>
               const grant = options.workspaceRole
                 ? await routeGrant(req, options.workspaceRole)
                 : (undefined as unknown as RouteGrant);
-              return scope!.run(() => handler(req, params, grant));
+              return scope!.run(async () => {
+                await (await import("@/lib/auth/mfa-routes")).guardPrivilegedRoute(req, options.workspaceRole === "admin", !!access);
+                return handler(req, params, grant);
+              });
             });
             // Inside the snapshot scope, deliberately: the flush writes *this*
             // request's snapshot, and outside it would find the process-global one.

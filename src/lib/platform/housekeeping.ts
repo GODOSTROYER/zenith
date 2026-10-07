@@ -16,6 +16,7 @@ import { repos } from "@/lib/controlplane/db";
 import { reconcileOperations } from "@/lib/controlplane/operations";
 import { NONCE_WINDOW_MS } from "@/lib/controlplane/db/repos/nonces";
 import type { Lease, Sql } from "@/lib/controlplane/types";
+import { sweepMixedRunDeadlines } from "@/lib/execution/mixed-orchestration/sweep";
 
 export const HOUSEKEEPING_LEASE_SCOPE = "system:platform-housekeeping";
 export const HOUSEKEEPING_LIMIT = 100;
@@ -49,6 +50,8 @@ export async function housekeepingPass(db: Sql, options: { limit?: number } = {}
       // PROD-DUR-07: a provider call whose dispatcher vanished before any reply becomes uncertain. Never retried; an
       // operator resolves it from readback. The count stays out of the result shape other callers depend on.
       await repos.externalEffects.sweepStalePending(tx, { limit });
+      // PROD-MIX-04: child timeouts and approval expiry of mixed runs advance here; starts nothing, destroys nothing.
+      await sweepMixedRunDeadlines(tx, { limit });
       return { ran: true, idempotencyKeys, nonces, uncertain: operations.uncertain.length, expired: operations.expired.length };
     });
   } catch {

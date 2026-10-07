@@ -17,8 +17,9 @@
  *     `externalRef`: Zenith cannot locate what it was told to reference.
  *     (Referenced services and DNS zones are exempt: the V1 model gives a
  *     service no external reference, and a zone is found by name.)
- *   - a node placed on a provider other than the environment's: one workspace
- *     runs one provider set, so multi-provider graphs are not executable yet
+ *   - a node placed on a provider other than the environment's: refused unless the
+ *     caller holds a `MixedAdmission` (mixed/admission.ts), minted only when every
+ *     partition of a stored parent plan has a bound, verified connection
  *   - a managed service built from a `blueprint` source (only the sandbox
  *     provider can run those)
  *
@@ -33,6 +34,7 @@ import { upgradeManifest } from "@/lib/resources/upgrade";
 import { RENDERABLE_KINDS } from "@/lib/providers/kubernetes/render";
 import type { ArtifactSpec } from "@/lib/resources/specs";
 import type { DriverLookup, ProductContext } from "./ports";
+import { isMixedAdmission, type MixedAdmission } from "./mixed/admission";
 import { errorText, safeText } from "./text";
 
 export interface DesiredState {
@@ -83,7 +85,7 @@ export function buildDesiredState(product: ProductContext): DesiredState {
 
 const isStateful = (kind: string): boolean => (STATEFUL_KINDS as readonly string[]).includes(kind);
 
-export function findGraphProblems(graph: ResourceGraph, environmentProvider: string, drivers: DriverLookup): string[] {
+export function findGraphProblems(graph: ResourceGraph, environmentProvider: string, drivers: DriverLookup, admission?: MixedAdmission): string[] {
   const problems: string[] = [];
   for (const node of graph.nodes) {
     if (node.ownership === "external") continue;
@@ -95,7 +97,9 @@ export function findGraphProblems(graph: ResourceGraph, environmentProvider: str
       problems.push(`${node.address}: a ${node.kind} has no native realization on ${node.provider} (${node.nativeType}); it cannot be executed there.`);
       continue;
     }
-    if (node.provider !== environmentProvider) {
+    // A foreign placement is explained only by an admission minted for this very address; anything else keeps the refusal.
+    const admitted = admission !== undefined && isMixedAdmission(admission) && admission.addresses.has(node.address);
+    if (node.provider !== environmentProvider && !admitted) {
       problems.push(`${node.address} is placed on ${node.provider}/${node.region} but this environment executes on ${environmentProvider}; multi-provider graphs are not executable yet.`);
       continue;
     }

@@ -45,6 +45,7 @@ import { migration0035McpStreams } from "./0035_mcp_streams";
 import { migration0037ActualSpend } from "./0037_actual_spend";
 import { migration0038FairBoundedControlPlane } from "./0038_fair_bounded_control_plane";
 import { migration0039KeyCustody } from "./0039_key_custody";
+import { migration0040MixedParentPlans } from "./0040_mixed_parent_plans";
 
 // Versions 21-23 belong to sibling wave-2 requirements; the assembler fills them in before 24.
 
@@ -56,7 +57,7 @@ export interface PlatformMigration {
   sql: string;
 }
 
-export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts, migration0008BuildLaunches, migration0009GithubRevocation, migration0010GithubDeliveries, migration0011AgentEffectReceipts, migration0012WorkflowStartIntents, migration0013ApprovedSourceSnapshots, migration0014MixedChildIntents, migration0015CleanupWriterBarriers, migration0016CleanupWriterSettlements, migration0017MachineRunbooks, migration0018OwnershipTransfers, migration0019IncidentStability, migration0020OptimizerSettings, migration0021ScheduledJobRuns, migration0022ConnectionRotations, migration0023ReleasePipelines, migration0024Portability, migration0025AgentLifecycle, migration0026PluginBoundaries, migration0027GithubRevocationReason, migration0028IncidentStabilityHardening, migration0029CleanupWriterRecordFields, migration0030DurableIntentAuthority, migration0031ExecutableSemantics, migration0032PlanCustodyStateRecovery, migration0033ExternalEffects, migration0034K8sGuestBindings, migration0035McpStreams, migration0036CodingAgentRuns, migration0037ActualSpend, migration0038FairBoundedControlPlane, migration0039KeyCustody];
+export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts, migration0008BuildLaunches, migration0009GithubRevocation, migration0010GithubDeliveries, migration0011AgentEffectReceipts, migration0012WorkflowStartIntents, migration0013ApprovedSourceSnapshots, migration0014MixedChildIntents, migration0015CleanupWriterBarriers, migration0016CleanupWriterSettlements, migration0017MachineRunbooks, migration0018OwnershipTransfers, migration0019IncidentStability, migration0020OptimizerSettings, migration0021ScheduledJobRuns, migration0022ConnectionRotations, migration0023ReleasePipelines, migration0024Portability, migration0025AgentLifecycle, migration0026PluginBoundaries, migration0027GithubRevocationReason, migration0028IncidentStabilityHardening, migration0029CleanupWriterRecordFields, migration0030DurableIntentAuthority, migration0031ExecutableSemantics, migration0032PlanCustodyStateRecovery, migration0033ExternalEffects, migration0034K8sGuestBindings, migration0035McpStreams, migration0036CodingAgentRuns, migration0037ActualSpend, migration0038FairBoundedControlPlane, migration0039KeyCustody, migration0040MixedParentPlans];
 
 /** The highest version this build knows. */
 export const PLATFORM_SCHEMA_VERSION: number = PLATFORM_MIGRATIONS[PLATFORM_MIGRATIONS.length - 1].version;

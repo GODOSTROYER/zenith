@@ -27,6 +27,7 @@ import { ensurePlatformApp } from "@/lib/platform/app";
 import type { PlatformDbHandle } from "@/lib/controlplane/db";
 import { composeReconcileSweepRuntime } from "@/lib/platform/execution";
 import { createCriticalMaintenanceActivities } from "@/lib/workflows/critical-activities";
+import { createMixedActivities } from "@/lib/workflows/mixed-activities";
 import { createProductionCodingAgentActivities } from "@/lib/coding-agent/activities";
 import { criticalJobHealth } from "@/lib/platform/critical-jobs";
 import type { RegisteredWorkerActivities } from "@/lib/workflows/types";
@@ -104,7 +105,7 @@ async function main(): Promise<void> {
     failureCategory = "plan-directory";
     await mkdir(planDir, { recursive: true, mode: 0o700 });
     failureCategory = "activity-composition";
-    const activities: RegisteredWorkerActivities = { ...createActivities({ db, workerIdentity: config.identity, planDir, sourceBundles: { azureStorage: createAzureSourceStorageResolver(db) }, ports: { heartbeat: (detail) => Context.current().heartbeat(detail), activitySignal: () => Context.current().cancellationSignal } }), ...sweep.activities, ...createCriticalMaintenanceActivities(db), ...createProductionCodingAgentActivities(db) };
+    const activities: RegisteredWorkerActivities = { ...createActivities({ db, workerIdentity: config.identity, planDir, sourceBundles: { azureStorage: createAzureSourceStorageResolver(db) }, ports: { heartbeat: (detail) => Context.current().heartbeat(detail), activitySignal: () => Context.current().cancellationSignal } }), ...sweep.activities, ...createCriticalMaintenanceActivities(db), ...createProductionCodingAgentActivities(db), ...createMixedActivities({ db }) };
     failureCategory = "temporal-runtime";
     Runtime.install({ logger: new DefaultLogger(config.logLevel) });
 

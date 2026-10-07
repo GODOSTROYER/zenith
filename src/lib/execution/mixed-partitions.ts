@@ -30,6 +30,12 @@ export interface PartitionBinding {
   region: string;
   backend: BackendConfig;
   stateKey: string;
+  /**
+   * The environment whose own state prefix holds this partition's state (a child
+   * environment, PROD-MIX-01). Defaults to the graph's environment, which keeps
+   * every existing single-environment caller byte-identical.
+   */
+  environmentId?: string;
 }
 
 export interface ReferenceProvenance {
@@ -85,6 +91,8 @@ export interface PartitionIdentity {
   stateLocationDigest: string;
   /** Union of effective state and lock objects; Azure leases its state blob. */
   backendObjectDigests: readonly string[];
+  /** Present only when the state lives under a child environment's prefix. */
+  stateEnvironmentId?: string;
 }
 
 export interface PartitionNodeIdentity {
@@ -253,8 +261,10 @@ function freeze<T>(value: T): T {
   return value;
 }
 
-function bindingIdentity(binding: PartitionBinding, workspaceId: string, environmentId: string): PartitionIdentity {
-  record(binding, ["id", "connection", "accountId", "region", "backend", "stateKey"]);
+/** Exported for re-verification of a stored plan: recompute one partition identity from the current binding. Refuses with MixedPartitionError. */
+export function bindingIdentity(binding: PartitionBinding, workspaceId: string, environmentId: string): PartitionIdentity {
+  record(binding, ["id", "connection", "accountId", "region", "backend", "stateKey"], ["environmentId"]);
+  if (binding.environmentId !== undefined && !matches(binding.environmentId, ID)) refuse("binding_mismatch");
   if (!matches(binding.id, ID) || !matches(binding.region, REGION)) refuse("binding_mismatch");
   const connection = binding.connection;
   record(connection, ["id", "workspaceId", "config", "status", "createdBy", "createdAt"], ["legacyConnectionId", "verifiedAt", "verificationDetail", "revokedAt"]);
@@ -272,7 +282,7 @@ function bindingIdentity(binding: PartitionBinding, workspaceId: string, environ
   if (Object.values(backend).some((value) => typeof value === "string" && /[\u0000-\u001f\u007f]/.test(value))) refuse("binding_mismatch");
   let location: Record<string, unknown>;
   let lockLocation: Record<string, unknown>;
-  const scopePrefix = `zenith/${workspaceId}/${environmentId}/`;
+  const scopePrefix = `zenith/${workspaceId}/${binding.environmentId ?? environmentId}/`;
   try { assertStateKey(binding.stateKey); } catch { return refuse("binding_mismatch"); }
   if (/[\u0000-\u001f\u007f]/.test(binding.stateKey)) refuse("binding_mismatch");
   if (!binding.stateKey.startsWith(scopePrefix)) refuse("binding_mismatch");
@@ -353,6 +363,7 @@ function bindingIdentity(binding: PartitionBinding, workspaceId: string, environ
     connectionIdentityDigest: digest({ connectionId: connection.id, workspaceId, provider: config.provider, accountId: binding.accountId, region: binding.region, selectors }),
     backendKind: backend.kind as PartitionIdentity["backendKind"],
     backendDigest: digest(validatedBackend.file), stateLocationDigest: digest(location), backendObjectDigests,
+    ...(binding.environmentId !== undefined && binding.environmentId !== environmentId ? { stateEnvironmentId: binding.environmentId } : {}),
   };
 }
 

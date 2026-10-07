@@ -29,6 +29,7 @@ import type { BrokerDeps } from "./ports";
 import { findSecret } from "./secret-guard";
 import { applyStandingGrant } from "./standing-grants";
 import { isPortabilityCapability, parsePortabilityInput, portabilityDetails } from "@/lib/portability/inputs";
+import { mixedProposalDetails } from "@/lib/execution/mixed/details";
 import { portabilitySupport } from "@/lib/portability/matrix";
 import { blocking, checkNativeOperation, FieldOwnershipConflictError, NATIVE_OPERATION_WRITES, type OwnershipTransferRequest } from "@/lib/ownership";
 import type { BrokerProposal, CheckResult, ConstraintValue, DecisionView, PlanFactsWithCost, ProposeContext, ProposeResult, ReadAuthorization } from "./types";
@@ -145,6 +146,7 @@ export function buildProposal(args: { parsed: ParsedRequest; evaluation: Evaluat
   if (scope.environmentId) details.push(`Environment: ${scope.environmentId}${evaluation.resolved.environment ? ` (${evaluation.resolved.environment.class})` : ""}`);
   if (scope.resourceId) details.push(`Resource: ${scope.resourceId}${evaluation.resolved.resource ? ` (${evaluation.resolved.resource.address})` : ""}`);
   if (isPortabilityCapability(def.name)) details.push(...portabilityDetails(parsePortabilityInput(def.name, parsed.input)));
+  if (def.name === "deployment.deploy") details.push(...mixedProposalDetails(parsed.input));
   if (parsed.constraints && Object.keys(parsed.constraints).length > 0) {
     details.push(`Requested constraints: ${Object.keys(parsed.constraints).sort().map((k) => `${k}=${String(parsed.constraints![k])}`).join(", ").slice(0, 500)}`);
   }

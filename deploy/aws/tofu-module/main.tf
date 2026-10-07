@@ -72,10 +72,10 @@ locals {
   policy_docs = {
     observe          = { name = "ZenithObservePolicy${var.name_suffix}", desc = "Read-only access for Zenith (describe, list, get). No secret values." }
     deploy-network   = { name = "ZenithDeployNetwork${var.name_suffix}", desc = "Zenith deploy role - VPC and EC2 resources tagged zenith:managed." }
-    deploy-balancing = { name = "ZenithDeployBalancing${var.name_suffix}", desc = "Zenith deploy role - load balancers, target groups and auto scaling groups named zenith-*." }
+    deploy-balancing = { name = "ZenithDeployBalancing${var.name_suffix}", desc = "Zenith deploy role - load balancers, target groups, auto scaling groups, EC2 instance profiles and ElastiCache users named zenith-*." }
     deploy-compute   = { name = "ZenithDeployCompute${var.name_suffix}", desc = "Zenith deploy role - ECS, ECR, Lambda, EventBridge rules and CodeBuild projects named zenith-*." }
     deploy-data      = { name = "ZenithDeployData${var.name_suffix}", desc = "Zenith deploy role - RDS, ElastiCache, S3 buckets, SQS and secret containers named zenith-*." }
-    deploy-edge      = { name = "ZenithDeployEdge${var.name_suffix}", desc = "Zenith deploy role - log groups and alarms named zenith-*, certificates tagged zenith:managed, DNS records in listed zones." }
+    deploy-edge      = { name = "ZenithDeployEdge${var.name_suffix}", desc = "Zenith deploy role - log groups and alarms named zenith-*, certificates, keys and CloudFront distributions tagged zenith:managed, DNS records in listed zones." }
     deploy-state     = { name = "ZenithDeployState${var.name_suffix}", desc = "Zenith deploy role - OpenTofu state and artifacts in the state bucket; cannot reconfigure or empty it." }
     deploy-iam       = { name = "ZenithDeployIam${var.name_suffix}", desc = "Zenith deploy role - bounded IAM for zenith-* roles, PassRole, and self-protection denies." }
   }

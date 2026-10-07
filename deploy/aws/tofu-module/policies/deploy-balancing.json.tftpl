@@ -76,6 +76,64 @@
         "autoscaling:TerminateInstanceInAutoScalingGroup"
       ],
       "Resource": "arn:${partition}:autoscaling:*:${account_id}:autoScalingGroup:*:autoScalingGroupName/zenith-*"
+    },
+    {
+      "Sid": "IamCreateTaggedInstanceProfiles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateInstanceProfile",
+        "iam:TagInstanceProfile"
+      ],
+      "Resource": "arn:${partition}:iam::${account_id}:instance-profile/zenith-*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:RequestTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "IamManageZenithInstanceProfiles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:DeleteInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "iam:RemoveRoleFromInstanceProfile"
+      ],
+      "Resource": "arn:${partition}:iam::${account_id}:instance-profile/zenith-*"
+    },
+    {
+      "Sid": "ElastiCacheCreateTaggedUsers",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:CreateUser",
+        "elasticache:CreateUserGroup"
+      ],
+      "Resource": [
+        "arn:${partition}:elasticache:*:${account_id}:user:zenith-*",
+        "arn:${partition}:elasticache:*:${account_id}:usergroup:zenith-*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        }
+      }
+    },
+    {
+      "Sid": "ElastiCacheManageZenithUsers",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:ModifyUser",
+        "elasticache:DeleteUser",
+        "elasticache:ModifyUserGroup",
+        "elasticache:DeleteUserGroup"
+      ],
+      "Resource": [
+        "arn:${partition}:elasticache:*:${account_id}:user:zenith-*",
+        "arn:${partition}:elasticache:*:${account_id}:usergroup:zenith-*"
+      ]
     }
   ]
 }

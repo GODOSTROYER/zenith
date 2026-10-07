@@ -103,6 +103,15 @@ describe("compiled deploy policy versus compiler actions", () => {
     expect(granted).toContain("route53:ChangeResourceRecordSets");
   });
 
+  it("grants every non-denied compiler action and keeps the deliberate denials: only OIDC provider and SSM parameter writes remain missing", () => {
+    const missing = result.report.missing.map((item) => item.action);
+    expect(missing.every((action) => /^(iam:[A-Za-z]*OpenIDConnectProvider|iam:AddClientIDToOpenIDConnectProvider|ssm:)/.test(action))).toBe(true);
+    for (const entry of Object.values(baseline.knownMissing)) expect(entry.status).toBe("denied_by_design");
+    const granted = grantedDeployActions();
+    for (const removed of ["iam:CreatePolicy", "iam:CreatePolicyVersion", "iam:DeletePolicy", "iam:DeletePolicyVersion", "iam:SetDefaultPolicyVersion", "iam:TagPolicy", "iam:UntagPolicy", "ssm:PutParameter", "cloudfront:CreateDistribution"]) expect(granted, removed).not.toContain(removed);
+    for (const added of ["kms:ScheduleKeyDeletion", "ec2:CreateFlowLogs", "iam:CreateInstanceProfile", "elasticache:CreateUser", "cloudfront:CreateDistributionWithTags"]) expect(granted, added).toContain(added);
+  });
+
   it("introduces no new needed-but-ungranted action beyond the reviewed baseline, and the baseline has no stale entries", () => {
     const comparison = compareToBaseline(result.report, baseline);
     expect(comparison.newMissing, "new gaps: fix the driver or review a bootstrap change; do not just widen").toEqual([]);

@@ -1482,6 +1482,28 @@ Resources:
               - !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:elastic-ip/*"
             Condition:
               StringNotEquals: { "aws:ResourceTag/zenith:managed": "true" }
+          # aws_flow_log: the VPC must already carry the tags; the new flow log must be created with them.
+          - Sid: Ec2CreateFlowLogsInTaggedVpcs
+            Effect: Allow
+            Action: ec2:CreateFlowLogs
+            Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:vpc/*"
+            Condition:
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: Ec2CreateTaggedFlowLogs
+            Effect: Allow
+            Action: ec2:CreateFlowLogs
+            Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:vpc-flow-log/*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: Ec2DeleteTaggedFlowLogs
+            Effect: Allow
+            Action: ec2:DeleteFlowLogs
+            Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:vpc-flow-log/*"
+            Condition:
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
 
   # ------------------------------------ deploy: load balancers and scaling
   # Separate managed policy: IAM caps one managed policy at 6,144 characters.
@@ -1489,7 +1511,7 @@ Resources:
     Type: AWS::IAM::ManagedPolicy
     Properties:
       ManagedPolicyName: !Sub "ZenithDeployBalancing${NameSuffix}"
-      Description: Zenith deploy role - load balancers, target groups and auto scaling groups named zenith-*.
+      Description: Zenith deploy role - load balancers, target groups, auto scaling groups, EC2 instance profiles and ElastiCache users named zenith-*.
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -1553,6 +1575,33 @@ Resources:
               - autoscaling:CancelInstanceRefresh
               - autoscaling:TerminateInstanceInAutoScalingGroup
             Resource: !Sub "arn:${AWS::Partition}:autoscaling:*:${AWS::AccountId}:autoScalingGroup:*:autoScalingGroupName/zenith-*"
+          # aws_iam_instance_profile. Using a profile still needs iam:PassRole, which stays limited to zenith-* roles.
+          - Sid: IamCreateTaggedInstanceProfiles
+            Effect: Allow
+            Action: [iam:CreateInstanceProfile, iam:TagInstanceProfile]
+            Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:instance-profile/zenith-*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: IamManageZenithInstanceProfiles
+            Effect: Allow
+            Action: [iam:DeleteInstanceProfile, iam:AddRoleToInstanceProfile, iam:RemoveRoleFromInstanceProfile]
+            Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:instance-profile/zenith-*"
+          # aws_elasticache_user and aws_elasticache_user_group (IAM-authenticated RBAC).
+          - Sid: ElastiCacheCreateTaggedUsers
+            Effect: Allow
+            Action: [elasticache:CreateUser, elasticache:CreateUserGroup]
+            Resource:
+              - !Sub "arn:${AWS::Partition}:elasticache:*:${AWS::AccountId}:user:zenith-*"
+              - !Sub "arn:${AWS::Partition}:elasticache:*:${AWS::AccountId}:usergroup:zenith-*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true" }
+          - Sid: ElastiCacheManageZenithUsers
+            Effect: Allow
+            Action: [elasticache:ModifyUser, elasticache:DeleteUser, elasticache:ModifyUserGroup, elasticache:DeleteUserGroup]
+            Resource:
+              - !Sub "arn:${AWS::Partition}:elasticache:*:${AWS::AccountId}:user:zenith-*"
+              - !Sub "arn:${AWS::Partition}:elasticache:*:${AWS::AccountId}:usergroup:zenith-*"
 
   # ---------------------------------------- deploy: containers, functions, CI
   DeployComputePolicy:
@@ -1863,7 +1912,7 @@ Resources:
     Type: AWS::IAM::ManagedPolicy
     Properties:
       ManagedPolicyName: !Sub "ZenithDeployEdge${NameSuffix}"
-      Description: Zenith deploy role - log groups and alarms named zenith-*, certificates tagged zenith:managed, DNS records in listed zones.
+      Description: Zenith deploy role - log groups and alarms named zenith-*, certificates, keys and CloudFront distributions tagged zenith:managed, DNS records in listed zones.
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -1897,6 +1946,34 @@ Resources:
               Bool: { "kms:GrantIsForAWSResource": "true" }
               StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
               StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
+          # Deletion is only ever scheduled (7 day minimum wait) and only for keys Zenith tagged; Zenith's
+          # destructive-approval path gates when a plan may destroy one.
+          - Sid: KmsScheduleDeletionTaggedKeys
+            Effect: Allow
+            Action: kms:ScheduleKeyDeletion
+            Resource: !Sub "arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*"
+            Condition:
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: CloudFrontCreateTaggedDistributions
+            Effect: Allow
+            Action: [cloudfront:CreateDistributionWithTags, cloudfront:TagResource]
+            Resource: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: CloudFrontManageTaggedDistributions
+            Effect: Allow
+            Action: [cloudfront:UpdateDistribution, cloudfront:DeleteDistribution, cloudfront:TagResource]
+            Resource: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/*"
+            Condition:
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
+          # Origin access controls support neither tags nor name scoping in IAM (documented exception in the tests).
+          - Sid: CloudFrontOriginAccessControls
+            Effect: Allow
+            Action: [cloudfront:CreateOriginAccessControl, cloudfront:UpdateOriginAccessControl, cloudfront:DeleteOriginAccessControl]
+            Resource: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:origin-access-control/*"
           - Sid: LogsManageZenithGroups
             Effect: Allow
             Action:
@@ -2071,17 +2148,6 @@ Resources:
             Condition:
               StringEquals:
                 aws:ResourceTag/zenith:managed: 'true'
-          - Effect: Allow
-            Action:
-              - iam:CreatePolicy
-              - iam:CreatePolicyVersion
-              - iam:DeletePolicy
-              - iam:DeletePolicyVersion
-              - iam:SetDefaultPolicyVersion
-              - iam:TagPolicy
-              - iam:UntagPolicy
-            Resource:
-              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/zenith-*
           - Effect: Allow
             Action: iam:PassRole
             Resource:

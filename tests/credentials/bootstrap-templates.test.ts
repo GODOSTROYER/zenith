@@ -310,6 +310,7 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
     const EXCEPTIONS: Record<string, string> = {
       EcsTaskDefinitionRevisions: "ecs:RegisterTaskDefinition/DeregisterTaskDefinition only support Resource *",
       Ec2RunInstancesFromImages: "AMIs and snapshots are not ours; RunInstances is still denied without tagged instance/volume/ENI",
+      CloudFrontOriginAccessControls: "CloudFront origin access controls support neither tags nor name scoping in IAM; they only restrict origin access",
     };
     const seen = new Set<string>();
     for (const id of DEPLOY_POLICIES) {

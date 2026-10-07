@@ -25,6 +25,7 @@ import type { ProposeResult } from "@/lib/capabilities/types";
 import type { AnyManifest } from "@/lib/domain/types";
 import { graphFor, requireEnvironment, requireRevision, type ToolContext } from "../context";
 import type { ToolOutput } from "../envelope";
+import { requestCancelled } from "../errors";
 import { assertInGrant } from "../principal";
 import type { PlanChangeArgs, PrepareDeployArgs, RestartServiceArgs, ScaleServiceArgs } from "../schemas";
 import { estimateSummary, tryEstimate } from "./estimate";
@@ -43,13 +44,39 @@ export function manifestNeedsBuild(manifest: AnyManifest): boolean {
   return manifest.services.some((s) => s.ownership === "managed" && s.source.type === "git");
 }
 
+/**
+ * Client-initiated cancellation reaches the broker here. Before anything is
+ * recorded a cancelled call simply stops. If the proposal was recorded by THIS
+ * call and the client then cancelled, the not-yet-started operation is
+ * withdrawn through the broker (`cancelOperation`: awaiting_approval|approved ->
+ * cancelled, grants revoked, event appended) so no orphan approval request
+ * waits for a person. A proposal that already existed (replay) is left alone.
+ * A dropped connection never sets `ctx.cancel`.
+ */
+async function honourCancellation(ctx: ToolContext, result: ProposeResult): Promise<void> {
+  if (!ctx.cancel?.aborted) return;
+  const op = result.operation;
+  if (!result.replayed && (op.status === "awaiting_approval" || op.status === "approved")) {
+    await ctx.broker.cancelOperation({ workspaceId: op.workspaceId, operationId: op.id, principal: ctx.principal.principal, reason: "Cancelled by the requesting client before it acted on the proposal." }).catch(() => undefined);
+    throw requestCancelled("The client cancelled this request after the proposal was recorded; the proposal was withdrawn.");
+  }
+  throw requestCancelled("The client cancelled this request; an earlier proposal for this idempotency key is unchanged.");
+}
+
+function refuseIfCancelled(ctx: ToolContext): void {
+  if (ctx.signal?.aborted || ctx.cancel?.aborted) throw requestCancelled("The client cancelled this request before it changed anything.");
+}
+
 /** Submit to the broker and render what a model needs: the id, the status, the digest, the reasons and where a person approves. */
 async function submit(ctx: ToolContext, s: Submission): Promise<ToolOutput> {
+  refuseIfCancelled(ctx);
+  await ctx.progress?.("submitting the proposal to the capability broker");
   const result: ProposeResult = await ctx.broker.propose(
     { capability: s.capability, scope: s.scope, input: s.input, ...(s.reason ? { reason: s.reason } : {}), idempotencyKey: s.idempotencyKey },
     ctx.principal.principal,
     { via: "mcp" }
   );
+  await honourCancellation(ctx, result);
   return proposalOutput(ctx, result);
 }
 
@@ -120,6 +147,8 @@ export async function planChange(args: PlanChangeArgs, ctx: ToolContext): Promis
 export async function prepareDeploy(args: PrepareDeployArgs, ctx: ToolContext): Promise<ToolOutput> {
   const { target } = args;
   assertInGrant(ctx.principal, target);
+  refuseIfCancelled(ctx);
+  await ctx.progress?.("capturing the exact deployment admission");
   const request = { identity: ctx.principal.identity, target, revisionId: args.revisionId,
     idempotencyKey: args.idempotencyKey, ...(args.message ? { message: args.message } : {}) };
   const prepared = await ctx.ports.deployments.prepare(request);
@@ -132,6 +161,7 @@ export async function prepareDeploy(args: PrepareDeployArgs, ctx: ToolContext): 
   // An ACK is sent only after the genuine deployment is associated and committed.
   // A lost broker ACK is recovered by the same key and immutable request.
   await ctx.ports.deployments.bind(request, result.operation);
+  await honourCancellation(ctx, result);
   return proposalOutput(ctx, result);
 }
 

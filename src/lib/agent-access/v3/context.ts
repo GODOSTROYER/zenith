@@ -23,6 +23,10 @@ export interface ToolContext {
   broker: Broker;
   tool: ToolDescriptor;
   signal?: AbortSignal;
+  /** Aborted only by an EXPLICIT client cancellation (notifications/cancelled, or the HTTP abort of a 2026-era request). A dropped connection does not set it. */
+  cancel?: AbortSignal;
+  /** Emit a progress notification when the client asked for one (streamed calls); a no-op otherwise. */
+  progress?: (message: string) => Promise<void>;
 }
 
 export interface ScopeRef {

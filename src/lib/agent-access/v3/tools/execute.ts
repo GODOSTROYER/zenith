@@ -11,7 +11,7 @@ import type { OperationView } from "@/lib/capabilities/types";
 import { type DayTwoWorkflowInput, type DeployWorkflowInput } from "@/lib/workflows/types";
 import { type ToolContext } from "../context";
 import type { ToolOutput } from "../envelope";
-import { McpToolError } from "../errors";
+import { McpToolError, requestCancelled } from "../errors";
 import { assertInGrant } from "../principal";
 import type { ExecuteApprovedOperationArgs } from "../schemas";
 import { nextStepFor } from "./operations";
@@ -115,6 +115,12 @@ export async function executeApprovedOperation(args: ExecuteApprovedOperationArg
 
   const start = await prepareStart(ctx, kind, op);
 
+  // Last cancellation checkpoint. Before the claim nothing has changed, so a cancelled call stops here
+  // and consumes no approval. After the claim the start is driven to a recorded outcome: abandoning a
+  // claimed operation midway would strand it, and recovery needs the retained start intent.
+  if (ctx.signal?.aborted || ctx.cancel?.aborted) throw requestCancelled("The client cancelled this request before the operation was claimed; nothing was started and no approval was consumed.");
+  await ctx.progress?.("claiming the approved operation");
+
   let startedNow = false;
   let mode: "new" | "retained" = "retained";
   if (op.status === "approved" || op.status === "queued") {
@@ -132,6 +138,7 @@ export async function executeApprovedOperation(args: ExecuteApprovedOperationArg
   let started;
   try {
     if (kind === "deploy") await deployInput(ctx, op);
+    await ctx.progress?.("starting the workflow");
     started = await start(mode);
   } catch (error) {
     if (error instanceof McpToolError || isBrokerError(error)) throw error;

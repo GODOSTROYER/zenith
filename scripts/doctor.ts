@@ -242,6 +242,25 @@ function dataDir(dir: string): Check {
       };
 }
 
+/** Agent OAuth: the configured issuer must publish RFC 8414 metadata Zenith can work with (PROD-UX-02). */
+async function agentOAuth(): Promise<Check | undefined> {
+  const issuer = val("ZENITH_AGENT_OAUTH_ISSUER");
+  if (!issuer) return undefined;
+  try {
+    const { fetchAuthorizationServerMetadata, checkAuthorizationServerMetadata } = await import("../src/lib/agent-access/oauth/as-metadata");
+    const found = await fetchAuthorizationServerMetadata(issuer);
+    if (!found) return { label: "Agent OAuth", status: "warn", detail: `no RFC 8414 / OpenID metadata reachable for ${issuer}.`, fix: "Check ZENITH_AGENT_OAUTH_ISSUER and that the issuer serves /.well-known/oauth-authorization-server or /.well-known/openid-configuration." };
+    const findings = checkAuthorizationServerMetadata(issuer, found.metadata, { jwksUrl: val("ZENITH_AGENT_OAUTH_JWKS") || undefined });
+    const failures = findings.filter((f) => f.level === "fail");
+    if (failures.length) return { label: "Agent OAuth", status: "fail", detail: failures.map((f) => f.message).join(" "), fix: "Fix the authorization server or ZENITH_AGENT_OAUTH_ISSUER / ZENITH_AGENT_OAUTH_JWKS so clients can complete the flow." };
+    return findings.length
+      ? { label: "Agent OAuth", status: "warn", detail: findings.map((f) => f.message).join(" "), fix: "Optional: address the notes above for the smoothest MCP client experience." }
+      : { label: "Agent OAuth", status: "ok", detail: `issuer ${issuer} metadata is valid.` };
+  } catch (err) {
+    return { label: "Agent OAuth", status: "warn", detail: (err instanceof Error ? err.message : String(err)).slice(0, 200), fix: "Check ZENITH_AGENT_OAUTH_ISSUER." };
+  }
+}
+
 /* ---------------------------------- main ----------------------------------- */
 
 async function main() {
@@ -267,6 +286,8 @@ async function main() {
   }
 
   checks.push(docker(), await localstack(endpoint), supabase(), secretKey(), smtp(), dataDir(data));
+  const oauth = await agentOAuth();
+  if (oauth) checks.push(oauth);
 
   const width = Math.max(...checks.map((c) => c.label.length));
   console.log("\nZenith doctor\n");

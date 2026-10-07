@@ -93,6 +93,8 @@ const SWEPT = new Set([
   // PROD-LIFE-01 / PROD-UX-03: tenant-scoped reads (workspace_id in SQL; a foreign id equals a missing one). Writes are classified below.
   "connectionRotations.get", "connectionRotations.getOpen", "connectionRotations.list",
   "plugins.get", "plugins.list", "plugins.listGrants", "plugins.listEvents",
+  // PROD-UX-02: workspace_id AND principal digest in SQL; a foreign workspace, a foreign principal and an unknown stream are the same empty answer (real rows: tests/agent-v3/stream-store.test.ts).
+  "mcpStreams.readStreamEvents", "mcpStreams.streamCancelRequested", "mcpStreams.streamStatus",
 ]);
 
 /** Writes that bind the new row to the workspace they are given; their tenant checks are tested with the owning suite. */
@@ -140,6 +142,8 @@ const WRITES = new Set([
   "connections.revokeAudited", "connections.appendLifecycleEvent",
   // PROD-UX-03: workspace-bound plugin registry and grant writes; foreign-workspace refusals are covered by the plugin store tests.
   "plugins.register", "plugins.review", "plugins.revoke", "plugins.createGrant", "plugins.revokeGrant", "plugins.touchGrant",
+  // PROD-UX-02: every statement binds the supplied workspace and the authenticated principal digest; foreign-workspace and foreign-principal refusals are covered by tests/agent-v3/stream-store.test.ts.
+  "mcpStreams.openStream", "mcpStreams.appendStreamEvent", "mcpStreams.requestStreamCancel", "mcpStreams.finishStream",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings", "idempotency.reserve", "idempotency.complete",
 ]);
 
@@ -503,6 +507,9 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "plugins.list": () => repos.plugins.list(db, B),
       "plugins.listGrants": () => repos.plugins.listGrants(db, B),
       "plugins.listEvents": () => repos.plugins.listEvents(db, B, "plg_foreign"),
+      "mcpStreams.readStreamEvents": () => repos.mcpStreams.readStreamEvents(db, { workspaceId: B, principalKey: hex("a"), streamId: "f".repeat(32), afterSeq: 0 }),
+      "mcpStreams.streamCancelRequested": () => repos.mcpStreams.streamCancelRequested(db, { workspaceId: B, streamId: "f".repeat(32) }),
+      "mcpStreams.streamStatus": () => repos.mcpStreams.streamStatus(db, { workspaceId: B, principalKey: hex("a"), streamId: "f".repeat(32) }),
       "settings.getEnvironmentSettings": () => repos.settings.getEnvironmentSettings(db, B, envId),
       "settings.getWorkspacePolicy": () => repos.settings.getWorkspacePolicy(db, B),
       "optimizerSettings.getOptimizerSettings": () => repos.optimizerSettings.getOptimizerSettings(db, B, envId),

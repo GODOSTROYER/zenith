@@ -61,6 +61,8 @@ import * as mcpStreams from "./mcp-streams";
 import * as codingAgentRuns from "./coding-agent-runs";
 import * as mixedParentPlans from "./mixed-parent-plans";
 import * as mixedRuns from "./mixed-runs";
+import * as mixedOutputRecords from "./mixed-output-records";
+import * as mixedSignals from "./mixed-signals";
 import * as mixedOutputPreauthorizations from "./mixed-output-preauthorizations";
 
 export {
@@ -100,6 +102,8 @@ export {
   optimizerSettings,
   codingAgentRuns,
   mixedRuns,
+  mixedOutputRecords,
+  mixedSignals,
   mixedOutputPreauthorizations,
   scheduledJobs,
   plugins,
@@ -175,6 +179,8 @@ export function bindRepos(sql: Sql) {
     codingAgentRuns: bind(codingAgentRuns, sql),
     mixedParentPlans: bind(mixedParentPlans, sql),
     mixedRuns: bind(mixedRuns, sql),
+    mixedOutputRecords: bind(mixedOutputRecords, sql),
+    mixedSignals: bind(mixedSignals, sql),
     mixedOutputPreauthorizations: bind(mixedOutputPreauthorizations, sql),
   };
 }

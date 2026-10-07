@@ -12,7 +12,11 @@ import { parseManifest } from "@/lib/resources/manifest-v2";
 import { buildDesiredState } from "@/lib/execution/graph";
 import type { ConnectionsPort, ProductPort } from "@/lib/execution/ports";
 import type { DeployWorkflowInput } from "@/lib/workflows/types";
-import { MixedPlanError } from "./types";
+import type { Sql } from "@/lib/controlplane/types";
+import type { DriftClass } from "@/lib/execution/mixed-orchestration/ordering-rules";
+import { MixedPlanError, type ChildReceipt, type MixedParentPlan } from "./types";
+import { productionWorldHooks } from "./output-source";
+import { platformOrderingSignals } from "./signals";
 
 export interface MixedWorld {
   /** The parent environment's project and expanded desired graph. */
@@ -28,15 +32,25 @@ export interface MixedWorld {
   /** Optional digest of a finished child's recorded outputs, for its receipt. Absent means the receipt carries none. */
   childOutputsDigest?(workspaceId: string, operation: { id: string; environmentId: string; input: unknown }): Promise<string | undefined>;
   /**
-   * Optional source of the typed outputs (PROD-MIX-03) a SUCCEEDED producer child exposes for the references its consumers
-   * declared. Returns candidate `TypedOutput` documents (digests and vault references, never values); the run orchestration
-   * validates each against the contract, scope, provenance and the producer's recorded receipt before using it. ABSENT in the
-   * production world: the platform records no producer output reader yet, so a consumer with incoming references stays
-   * blocked with `outputs_unavailable` instead of starting on a guess.
+   * Source of the typed outputs (PROD-MIX-03) a SUCCEEDED producer child exposes for the references its consumers declared.
+   * Returns candidate `TypedOutput` documents (digests, provenance and vault references, never values); the run orchestration
+   * validates each against the contract, scope, provenance and the producer's recorded receipt before using it. The production
+   * world wires the producer output reader (output-reader.ts) whenever it is composed with the platform store; a world without
+   * it leaves a consumer with incoming references blocked with `outputs_unavailable` instead of starting on a guess.
    */
-  childTypedOutputs?(workspaceId: string, producer: { partitionId: string; childOperationId: string; receiptDigest: string }, references: readonly { referenceId: string; consumerChildId: string; producerAddress: string; producerOutput: string }[]): Promise<readonly unknown[]>;
-  /** Optional drift and migration observations for the ordering rules of PROD-MIX-04. Absent means none are known (the rules then see no drift). */
-  orderingSignals?(workspaceId: string, children: readonly { partitionId: string; childEnvironmentId: string }[]): Promise<{ drift: readonly { childId: string; klass: "unauthorized_change" | "native_divergence" | "expected_variance" }[]; migrationChildIds: readonly string[] }>;
+  childTypedOutputs?(
+    workspaceId: string,
+    producer: { partitionId: string; childOperationId: string; receiptDigest: string; receipt: ChildReceipt; plan: MixedParentPlan; /** the effect digest the run recorded for the producer */ effectDigest: string },
+    references: readonly { referenceId: string; consumerChildId: string; producerAddress: string; producerOutput: string }[],
+  ): Promise<readonly unknown[]>;
+  /**
+   * Drift (OBS-01 / reconcile) and migration (LIFE-10) observations for the ordering rules of PROD-MIX-04. Wired in the
+   * production world; a world without it means none are known (the rules then see no drift).
+   */
+  orderingSignals?(
+    workspaceId: string,
+    children: readonly { partitionId: string; childEnvironmentId: string; childOperationId?: string }[],
+  ): Promise<{ drift: readonly { childId: string; klass: DriftClass }[]; migrationChildIds: readonly string[]; contractMigrationChildIds?: readonly string[] }>;
 }
 
 export interface MixedWorldPorts {
@@ -44,6 +58,12 @@ export interface MixedWorldPorts {
   connections: ConnectionsPort;
   /** Direct platform lookup by id, ignoring the product-to-platform mapping (used for already-bound connections). */
   platformConnection(workspaceId: string, id: string): Promise<ProviderConnection | null>;
+  /**
+   * The platform store. When present the world is the production one: it reads producer outputs back through the producing
+   * partition's own observation and feeds drift and migration signals to the ordering rules. Absent (contract tests with
+   * fakes) leaves both hooks off unless the test sets them.
+   */
+  sql?: Sql;
 }
 
 const refuse = (code: ConstructorParameters<typeof MixedPlanError>[0], message: string): never => { throw new MixedPlanError(code, message); };
@@ -62,6 +82,7 @@ export function createMixedWorld(ports: MixedWorldPorts): MixedWorld {
     return desired.graph;
   };
   return {
+    ...(ports.sql ? { ...productionWorldHooks(ports.sql), orderingSignals: platformOrderingSignals(ports.sql) } : {}),
     async parentGraph(workspaceId, environmentId) {
       const ctx = await load(workspaceId, environmentId);
       return { projectId: ctx.project.id, graph: graphOf(ctx) };

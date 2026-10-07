@@ -15,8 +15,10 @@
  */
 import { z } from "zod";
 import { notFound } from "@/lib/capabilities/errors";
+import * as mixedPlans from "@/lib/controlplane/db/repos/mixed-parent-plans";
+import { asOrderingSignals, readRunSignals } from "@/lib/execution/mixed/signals";
 import { platformTeardownPlanInput } from "@/lib/execution/mixed-orchestration/platform";
-import { NO_SIGNALS, proposeTeardown, readMixedRun, releaseTeardown, syncTeardownStep } from "@/lib/execution/mixed-orchestration/service";
+import { proposeTeardown, readMixedRun, releaseTeardown, syncTeardownStep } from "@/lib/execution/mixed-orchestration/service";
 import { assertBrowserSession } from "../../../../_lib/browser";
 import { parseWith, platformRoute, readJson } from "../../../../_lib/http";
 import { authorizeRunControl, guarded, mixedContext } from "../../../../_lib/mixed-run";
@@ -46,10 +48,14 @@ export const POST = platformRoute<{ id: string }>(async (req, { id }) => {
     return { status: 201, body: { teardown: report.state.teardown, retained: report.retained, nothingToDestroy: report.nothingToDestroy } };
   }
   if (body.action === "release") {
-    // Drift and migration observations come from the executor that drives the run; a manual release carries none and
-    // relies on the run's own ordering state and the destroy approval.
+    // Drift (reconcile reports) and migration classes (release safety) are read from the platform for every child of the run, so
+    // the ordering rules refuse a teardown beside unresolved consumer drift or an unsettled migration. A signal read that fails
+    // refuses the release; it is never replaced by "no signals".
+    const stored = await mixedPlans.getPlanByParentOperation(sql, caller.workspaceId, id);
+    if (!stored) throw notFound();
+    const signals = asOrderingSignals(await readRunSignals(sql, caller.workspaceId, stored.plan.parentPlanId, stored.plan));
     const summary = await guarded(() =>
-      releaseTeardown(deps, { workspaceId: caller.workspaceId, parentOperationId: id, childId: body.childId, destroyOperationId: body.destroyOperationId, signals: NO_SIGNALS }),
+      releaseTeardown(deps, { workspaceId: caller.workspaceId, parentOperationId: id, childId: body.childId, destroyOperationId: body.destroyOperationId, signals }),
     );
     return { body: { summary } };
   }

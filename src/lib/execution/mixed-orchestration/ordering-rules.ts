@@ -14,19 +14,29 @@
  *                     need reconciliation; producers with drift are repaired first; no migration
  *                     in that neighbourhood may be unsettled.
  *   teardown X        X and its dependents are settled and reconciled; dependents that were applied
- *                     are already destroyed (consumers first); no migration is in flight anywhere.
+ *                     are already destroyed (consumers first); no migration is in flight anywhere; a dependent
+ *                     that still stands and has unresolved drift blocks it (its state no longer matches what the
+ *                     producer's teardown assumed).
+ *
+ * A contract (or unclassified) migration removes what the previous code relied on, so it is ordered AFTER its dependents have
+ * updated: it may start only once every downstream child has succeeded. A dependency edge that makes that impossible leaves
+ * the migration blocked with a named rule; the operator then runs the migration as its own later step. Signals come from
+ * the platform (reconcile drift reports and release-safety migration classes, see mixed/signals.ts); absent signals mean none.
  */
 import type { MixedRunState } from "./run";
 import { downstreamOf, upstreamOf } from "./order";
 import { cmp } from "./errors";
 
-export type DriftClass = "unauthorized_change" | "native_divergence" | "expected_variance";
+/** `unobserved`: the reconcile pass could not read the state at all, which is not clearance. */
+export type DriftClass = "unauthorized_change" | "native_divergence" | "expected_variance" | "unobserved";
 
 export interface OrderingSignals {
   /** Drift findings that are not yet repaired or accepted. */
   readonly drift: readonly { childId: string; klass: DriftClass }[];
   /** Children whose step is a schema/data migration (LIFE-10 classification supplied by the caller). */
   readonly migrationChildIds: readonly string[];
+  /** Subset of the migration children whose class is `contract` or `unclassified` (LIFE-10): ordered after their dependents. */
+  readonly contractMigrationChildIds?: readonly string[];
 }
 
 export type OrderingOperation = { kind: "start_child" | "drift_repair" | "migration" | "teardown"; childId: string };
@@ -45,6 +55,7 @@ export function evaluateOrdering(state: MixedRunState, op: OrderingOperation, si
   const down = downstreamOf(graph, op.childId);
   const neighbourhood = new Set([op.childId, ...up, ...down]);
   const migrations = new Set(signals.migrationChildIds);
+  const contractMigrations = new Set(signals.contractMigrationChildIds ?? []);
   const unresolvedDrift = (id: string): boolean => signals.drift.some((finding) => finding.childId === id && finding.klass !== "expected_variance");
   const inflight = (id: string): boolean => INFLIGHT.has(state.children[id]?.status ?? "");
   const unsettled = (id: string): boolean => inflight(id) || state.children[id]?.reconciliationRequired === true;
@@ -56,12 +67,14 @@ export function evaluateOrdering(state: MixedRunState, op: OrderingOperation, si
         if (migrations.has(id) && state.children[id]?.status !== "succeeded") block("migration_incomplete", id);
       }
       if (migrations.has(op.childId)) for (const id of [...migrations].sort(cmp)) if (id !== op.childId && inflight(id)) block("one_migration_at_a_time", id);
+      if (contractMigrations.has(op.childId)) for (const id of [...down].sort(cmp)) if (state.children[id]?.status !== "succeeded") block("contract_migration_after_dependents", id);
       break;
     }
     case "migration": {
       for (const id of [...up].sort(cmp)) if (state.children[id]?.status !== "succeeded") block("producers_incomplete", id);
       for (const id of [...migrations].sort(cmp)) if (id !== op.childId && inflight(id)) block("one_migration_at_a_time", id);
       for (const id of [...down].sort(cmp)) if (inflight(id)) block("dependents_in_flight", id);
+      if (contractMigrations.has(op.childId)) for (const id of [...down].sort(cmp)) if (state.children[id]?.status !== "succeeded") block("contract_migration_after_dependents", id);
       break;
     }
     case "drift_repair": {
@@ -83,6 +96,7 @@ export function evaluateOrdering(state: MixedRunState, op: OrderingOperation, si
         const applied = state.children[id]?.effects !== "none";
         const step = state.teardown?.steps.find((item) => item.childId === id);
         if (applied && step?.status !== "destroyed") block("teardown_consumers_first", id);
+        else if (step?.status !== "destroyed" && unresolvedDrift(id)) block("consumer_drift_unresolved", id);
       }
       break;
     }

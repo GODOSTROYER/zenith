@@ -1,4 +1,4 @@
-import { incomingWorkflowFiles, incomingWorkflowIds, withoutIncomingPlatform } from "./incoming-cohort-fixture";
+import { incomingWorkflowIds, withoutIncomingPlatform } from "./incoming-cohort-fixture";
 /**
  * Parsed workflow gates cover the platform that exists. Suite discovery catches
  * narrower filters; mandatory evidence reports catch skipped real-engine tests.

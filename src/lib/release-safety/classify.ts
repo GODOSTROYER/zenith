@@ -92,7 +92,7 @@ export function splitStatements(sql: string): string[] {
   return out;
 }
 
-function classifyStatement(raw: string): { class: MigrationClass; finding: string } {
+export function classifyStatement(raw: string): { class: MigrationClass; finding: string } {
   // quoted strings are neutralised so a value cannot imitate a keyword
   const s = raw.replace(/'(?:[^']|'')*'/g, "''").replace(/\s+/g, " ").toLowerCase().trim();
   const head = s.split(" ").slice(0, 3).join(" ");

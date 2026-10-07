@@ -38,6 +38,7 @@ import { createActivities } from "@/lib/workflows/activities";
 import { startWorkerOpsSampler } from "@/lib/ops/sampler";
 import { ensureTelemetryExport } from "@/lib/ops/telemetry/otlp";
 import { connectionOptionsFor, describeTemporalConfig } from "@/lib/workflows/config";
+import { describeWorkerVersioning } from "@/lib/workflows/versioning";
 import { temporalDataConverterFromEnv } from "@/lib/workflows/codec";
 import { executionWorkerConfigFromEnv } from "./config";
 import { installShutdownHandlers } from "./lifecycle";
@@ -167,6 +168,7 @@ async function main(): Promise<void> {
       maxConcurrentActivities: config.maxConcurrentActivities,
       maxConcurrentWorkflowTasks: config.maxConcurrentWorkflowTasks,
       workflowSource: workflows.origin,
+      ...describeWorkerVersioning(config.versioning),
       healthPort: endpoint.port,
     });
     healthLog =

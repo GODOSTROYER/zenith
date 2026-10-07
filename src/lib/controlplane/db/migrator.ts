@@ -26,6 +26,7 @@ import { PlatformDbError, PlatformSchemaError } from "./errors";
 import type { ExecSql, PlatformDbHandle } from "./executor";
 import { BOOTSTRAP_SQL } from "./migrations/bootstrap";
 import { PLATFORM_MIGRATIONS, migrationChecksum, type PlatformMigration } from "./migrations/index";
+import { assertPendingMigrationsCompatible } from "./compat";
 
 export interface AppliedMigration {
   version: number;
@@ -150,6 +151,14 @@ export async function migratePlatformDb(
   await bootstrap(db);
   const before = await platformSchemaStatus(db, migrations);
   if (before.tampered.length > 0) throw tamperedError(before);
+  // N-1/N contract (PROD-OPS-03): refuse before applying anything if a pending migration is a
+  // contract change without its registered LIFE-10 approval and operator confirmation.
+  // Enforced on Postgres (a shared store with a live N-1) or when ZENITH_ENFORCE_EXPAND_ONLY=1; the baseline is the
+  // highest version already applied. A fresh database has no N-1, so nothing is held to the rule.
+  if (db.kind === "postgres" || process.env.ZENITH_ENFORCE_EXPAND_ONLY === "1") {
+    const live = before.applied.length ? Math.max(...before.applied.map((a) => a.version)) : Number.POSITIVE_INFINITY;
+    assertPendingMigrationsCompatible(before.pending, { baseline: live });
+  }
 
   const applied: number[] = [];
   const alreadyApplied = before.applied.filter((a) => migrations.some((m) => m.version === a.version)).map((a) => a.version);

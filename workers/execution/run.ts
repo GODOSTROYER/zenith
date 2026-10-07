@@ -14,6 +14,7 @@ import type { Client } from "@temporalio/client";
 import { TASK_QUEUE } from "@/lib/workflows/types";
 import { opsLimitsFromEnv } from "@/lib/ops/config";
 import { fairActivityInterceptors, installWorkerFairGate } from "@/lib/ops/worker-gate";
+import { workerDeploymentOptionsFor } from "@/lib/workflows/versioning";
 
 /** Where the TypeScript workflow definitions live, relative to this file. */
 export function defaultWorkflowsPath(): string {
@@ -80,6 +81,8 @@ export function workerOptions({ config, connection, activities, workflows }: Cre
     defaultHeartbeatThrottleInterval: config.heartbeatThrottleMs,
     workflowBundle: workflows.workflowBundle,
     interceptors: { activity: [fairActivityInterceptors(gate)] },
+    // Deployment-version routing for rolling upgrades; absent unless explicitly configured.
+    ...(config.versioning ? { workerDeploymentOptions: workerDeploymentOptionsFor(config.versioning) } : {}),
   };
 }
 

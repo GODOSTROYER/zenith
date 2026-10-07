@@ -16,12 +16,16 @@
  *   ZENITH_WORKER_LOG_LEVEL                      TRACE|DEBUG|INFO|WARN|ERROR   (default INFO)
  *   ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS         periodic health line; 0 disables (default 60000)
  *   ZENITH_WORKER_IDENTITY                       worker identity in Temporal   (default zenith-exec-<host>-<pid>, sanitised)
+ *   ZENITH_WORKER_VERSIONING / _DEPLOYMENT_NAME / _BUILD_ID
+ *                                                Temporal worker deployment version routing for rolling
+ *                                                upgrades (default off); see src/lib/workflows/versioning.ts
  */
 
 import { hostname } from "node:os";
 import { TASK_QUEUE } from "@/lib/workflows/types";
 import { temporalConfigFromEnv, type TemporalConnectionConfig } from "@/lib/workflows/config";
 import type { ReconcileSweepInput } from "@/lib/workflows/definitions/reconcileSweep";
+import { workerVersioningFromEnv, WorkerVersioningError, type WorkerVersioningConfig } from "@/lib/workflows/versioning";
 
 export interface ReconcileWorkerConfig {
   /** Observe never creates or updates a schedule. Provision is an explicit operator permission. */
@@ -42,6 +46,8 @@ export interface ExecutionWorkerConfig {
   identity: string;
   /** Older pure worker-option callers need not configure durable scheduling. */
   reconcile?: ReconcileWorkerConfig;
+  /** Present only when deployment-version routing is on (PROD-OPS-03). */
+  versioning?: WorkerVersioningConfig;
 }
 
 export class WorkerConfigError extends Error {
@@ -83,6 +89,9 @@ export function executionWorkerConfigFromEnv(env: Env = process.env): ExecutionW
   if (!LEVELS.includes(level)) throw new WorkerConfigError(`ZENITH_WORKER_LOG_LEVEL must be one of ${LEVELS.join(", ")}`);
   const taskQueue = env.ZENITH_WORKER_TASK_QUEUE?.trim() || TASK_QUEUE;
   if (!/^[A-Za-z0-9._:-]{1,200}$/.test(taskQueue)) throw new WorkerConfigError("ZENITH_WORKER_TASK_QUEUE contains characters Temporal does not allow");
+  let versioning: WorkerVersioningConfig | undefined;
+  try { versioning = workerVersioningFromEnv(env); }
+  catch (error) { throw new WorkerConfigError(error instanceof WorkerVersioningError ? error.message : "worker versioning configuration is invalid"); }
   return {
     temporal: temporalConfigFromEnv(env),
     taskQueue,
@@ -95,6 +104,7 @@ export function executionWorkerConfigFromEnv(env: Env = process.env): ExecutionW
     healthLogIntervalMs: intFrom(env, "ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS", 60_000, 0, 24 * 3600_000),
     identity: workerIdentity(env.ZENITH_WORKER_IDENTITY),
     reconcile: reconcileWorkerConfigFromEnv(env),
+    ...(versioning ? { versioning } : {}),
   };
 }
 

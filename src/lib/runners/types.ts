@@ -20,6 +20,22 @@ export type AgentKind = "runner" | "machine";
 export const RUNNER_PROTOCOL = "zenith.runner/v1";
 export const MACHINE_PROTOCOL = "zenith.machine/v1";
 
+/**
+ * Protocol support windows (PROD-OPS-03). `current` is what a new agent registers
+ * with; `previous` is the N-1 window this control plane still serves so agents can
+ * be upgraded after the control plane (rolling upgrade). At most ONE previous
+ * protocol is ever listed, and it is dropped one release after the next protocol
+ * ships. Anything outside the window is refused with 426 upgrade_required
+ * (`src/lib/runners/protocol-window.ts`). Both kinds are on v1 today, so the N-1
+ * list is empty; adding `zenith.runner/v2` means moving v1 into `previous` here.
+ */
+export interface ProtocolWindow {
+  current: string;
+  previous: readonly string[];
+}
+export const RUNNER_PROTOCOL_WINDOW: ProtocolWindow = { current: RUNNER_PROTOCOL, previous: [] };
+export const MACHINE_PROTOCOL_WINDOW: ProtocolWindow = { current: MACHINE_PROTOCOL, previous: [] };
+
 /** JWS `typ` header values (spec section 1). */
 export const TYP_JOB = "zenith-job+jwt";
 export const TYP_MACHINE = "zenith-machine+jwt";
@@ -28,8 +44,10 @@ export type JwsTyp = typeof TYP_JOB | typeof TYP_MACHINE | typeof TYP_GRANT;
 
 export interface AgentKindInfo {
   kind: AgentKind;
-  /** the protocol ids this control plane speaks for the kind (first is current) */
+  /** the protocol ids this control plane speaks for the kind: current first, then the N-1 window */
   protocols: readonly string[];
+  /** the explicit support window `protocols` is derived from */
+  window: ProtocolWindow;
   /** URL collection: `/api/platform/v1/<collection>/…` */
   collection: "runners" | "machines";
   idPrefix: "run" | "mac";
@@ -40,8 +58,8 @@ export interface AgentKindInfo {
 }
 
 export const AGENT_KINDS: Record<AgentKind, AgentKindInfo> = {
-  runner: { kind: "runner", protocols: [RUNNER_PROTOCOL], collection: "runners", idPrefix: "run", jobPrefix: "job", tokenPrefix: "zrt", jobTyp: TYP_JOB },
-  machine: { kind: "machine", protocols: [MACHINE_PROTOCOL], collection: "machines", idPrefix: "mac", jobPrefix: "mreq", tokenPrefix: "zmt", jobTyp: TYP_MACHINE },
+  runner: { kind: "runner", protocols: [RUNNER_PROTOCOL_WINDOW.current, ...RUNNER_PROTOCOL_WINDOW.previous], window: RUNNER_PROTOCOL_WINDOW, collection: "runners", idPrefix: "run", jobPrefix: "job", tokenPrefix: "zrt", jobTyp: TYP_JOB },
+  machine: { kind: "machine", protocols: [MACHINE_PROTOCOL_WINDOW.current, ...MACHINE_PROTOCOL_WINDOW.previous], window: MACHINE_PROTOCOL_WINDOW, collection: "machines", idPrefix: "mac", jobPrefix: "mreq", tokenPrefix: "zmt", jobTyp: TYP_MACHINE },
 };
 
 export const API_PREFIX = "/api/platform/v1";

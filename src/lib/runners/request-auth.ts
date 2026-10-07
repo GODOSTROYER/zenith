@@ -31,6 +31,7 @@
  */
 import { createHash } from "node:crypto";
 import { verifyEd25519 } from "@/lib/runners/signing";
+import { upgradeRequiredError } from "@/lib/runners/protocol-window";
 import { registryOf, type AgentRecord, type RunnerStore } from "@/lib/runners/ports";
 import {
   AGENT_KINDS,
@@ -132,11 +133,11 @@ export async function authenticateAgentRequest(
 
   const info = AGENT_KINDS[kind];
   const declared = h.get(HEADER_PROTOCOL);
-  if (declared !== null && !info.protocols.includes(declared)) throw upgradeRequired(info.protocols[0]);
+  if (declared !== null && !info.protocols.includes(declared)) throw upgradeRequiredError(kind);
 
   const agent = await registryOf(deps.store, kind).findForAuth(agentId);
   if (!agent || agent.status !== "active") throw revoked();
-  if (!info.protocols.includes(agent.protocol)) throw upgradeRequired(info.protocols[0]);
+  if (!info.protocols.includes(agent.protocol)) throw upgradeRequiredError(kind);
 
   const body = await readBodyBytes(req, opts.maxBodyBytes ?? MAX_SMALL_BODY_BYTES);
 
@@ -153,9 +154,6 @@ export async function authenticateAgentRequest(
 
   return { agent, body, pathAndQuery, timestamp, nonce };
 }
-
-const upgradeRequired = (minimum: string): AgentApiError =>
-  new AgentApiError(426, "upgrade_required", `This control plane no longer accepts the agent's protocol version; upgrade the agent to ${minimum} or later.`, { minimumProtocol: minimum });
 
 /** A valid signature by agent A is no authority over agent B: the URL's agent must be the signer. */
 export function assertPathAgent(agent: AgentRecord, pathId: string): void {

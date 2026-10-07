@@ -1014,7 +1014,7 @@ describe("native auxiliary cost guidance", () => {
   it("documents supported quantities and keeps unknown auxiliary billing and caps explicit", () => {
     for (const value of ["10,000 calls/month per secret", "enabled **and disabled**", "one GET and PUT per build", "compressed logs", "Every required meter must exist", "unknown pull volume never silently defaults to zero", "2015-08-01", "effective date", "OCI and Zenith", "cost-only fields are not new deployment configuration controls", "not a byte quantity or a billing cap", "Nothing caps a bill"]) expect(cost).toContain(value);
     for (const url of ["https://cloud.google.com/secret-manager/pricing", "https://prices.azure.com/api/retail/prices", "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/CodeBuild/current/index.json", "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonECR/current/index.json"]) expect(cost).toContain(url);
-    expect(cost).toContain("Forecasts and actual spend still have no ingestion path");
+    expect(squash(cost)).toContain("a scheduled collector that stores spend periodically does not exist");
     expect(cost).toContain("does not perform\nan autonomous economic migration");
   });
 });

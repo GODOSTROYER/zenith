@@ -17,6 +17,7 @@
     "verify": "npm run typecheck && npm run lint && npm test && npm run smoke && npm run gimbal:verify",
     "gimbal:build": "node scripts/gimbal-build.mjs",
     "gimbal:verify": "node scripts/gimbal-verify.mjs",
+    "cost:catalog": "tsx scripts/cost/refresh-catalog.ts",
     "seed": "tsx scripts/seed.ts",
     "smoke": "tsx scripts/smoke.ts",
     "screenshots": "tsx scripts/screenshots.ts",

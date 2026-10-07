@@ -1,0 +1,179 @@
+{
+  "_contractFixture": "CONTRACT-LEVEL FIXTURE: hand-built to match the documented shape of the official file. Not a download from the provider. Values are illustrative.",
+  "skus": [
+    {
+      "name": "services/x/skus/93",
+      "description": "Network Internet Egress from Americas to Worldwide Destinations (excluding China & Australia)",
+      "category": {
+        "serviceDisplayName": "Networking",
+        "resourceFamily": "Network",
+        "resourceGroup": "PremiumInternetEgress",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "us-central1"
+      ],
+      "pricingInfo": [
+        {
+          "pricingExpression": {
+            "usageUnit": "GiBy",
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 0
+                }
+              },
+              {
+                "startUsageAmount": 1024,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 120000000
+                }
+              },
+              {
+                "startUsageAmount": 10240,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 110000000
+                }
+              },
+              {
+                "startUsageAmount": 153600,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 80000000
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "services/x/skus/25",
+      "description": "Network Inter Zone Egress",
+      "category": {
+        "serviceDisplayName": "Networking",
+        "resourceFamily": "Network",
+        "resourceGroup": "InterZoneEgress",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "us-central1"
+      ],
+      "pricingInfo": [
+        {
+          "pricingExpression": {
+            "usageUnit": "GiBy",
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 10000000
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "services/x/skus/53",
+      "description": "Network Inter Region Egress from Americas to Americas",
+      "category": {
+        "serviceDisplayName": "Networking",
+        "resourceFamily": "Network",
+        "resourceGroup": "InterregionEgress",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "us-central1"
+      ],
+      "pricingInfo": [
+        {
+          "pricingExpression": {
+            "usageUnit": "GiBy",
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 20000000
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "services/x/skus/24",
+      "description": "Cloud NAT Gateway uptime",
+      "category": {
+        "serviceDisplayName": "Networking",
+        "resourceFamily": "Network",
+        "resourceGroup": "NAT",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "us-central1"
+      ],
+      "pricingInfo": [
+        {
+          "pricingExpression": {
+            "usageUnit": "h",
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 44000000
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "services/x/skus/25",
+      "description": "Cloud NAT Data Processing",
+      "category": {
+        "serviceDisplayName": "Networking",
+        "resourceFamily": "Network",
+        "resourceGroup": "NAT",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "us-central1"
+      ],
+      "pricingInfo": [
+        {
+          "pricingExpression": {
+            "usageUnit": "GiBy",
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 45000000
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -31,6 +31,30 @@ export interface PriceEntry {
   verification?: PriceVerification;
   /** additive: what exactly is priced (instance class, tier, caveats) */
   note?: string;
+  /**
+   * additive, `gb` unit only: marginal volume tiers per month. `tiers[0]` starts at 0 GB and
+   * equals `usd`; later tiers start higher and price only the GB above their `fromGb`.
+   * Free monthly allowances are never encoded here (they stay un-deducted, conservative).
+   */
+  tiers?: PriceTier[];
+}
+
+export interface PriceTier {
+  fromGb: number;
+  usd: number;
+}
+
+/** additive: one saved provider price file a catalog was refreshed from (dated provenance + checksum) */
+export interface CatalogSnapshotRecord {
+  provider: string;
+  /** the official endpoint or file the bytes came from */
+  url: string;
+  retrievedAt: string;
+  /** lowercase hex SHA-256 of the exact saved bytes */
+  sha256: string;
+  bytes: number;
+  service?: string;
+  region?: string;
 }
 
 export interface PriceCatalog {
@@ -42,6 +66,8 @@ export interface PriceCatalog {
    * source with the same provider and `verification`.
    */
   sources: { provider: string; source: string; retrievedAt: string; url?: string; verification?: PriceVerification }[];
+  /** additive: saved official price files this catalog was refreshed from, each with a checksum */
+  snapshots?: CatalogSnapshotRecord[];
   entries: PriceEntry[];
 }
 
@@ -90,6 +116,22 @@ export interface UsageAssumptions {
   interComponentFraction?: number;
 }
 
+/**
+ * Additive usage dimensions that are priced only when supplied (never defaulted), so an
+ * estimate never invents traffic. Supplying one for a provider whose catalog lacks the
+ * price refuses the estimate rather than pricing it at zero.
+ */
+export interface ExtendedUsageAssumptions {
+  /** GB per month moving between availability zones of one region (priced per site that hosts compute) */
+  interAzGb?: number;
+  /** million billable storage I/O requests per month, per managed database, volume and VM */
+  storageIoMillions?: number;
+  /** GB per month of backup copied to another region, per managed database */
+  crossRegionBackupCopyGb?: number;
+}
+
+export type CostUsage = UsageAssumptions & ExtendedUsageAssumptions;
+
 export interface PlacementConstraints {
   budgetUsdMonthly?: number;
   /** user-facing regions (e.g. "india", "singapore") resolved to provider regions */
@@ -108,7 +150,7 @@ export interface PlacementConstraints {
   tolerateSingleFailure?: boolean;
   managedDatabaseRequired?: boolean;
   /** assumed monthly usage for cost modeling */
-  usage?: UsageAssumptions;
+  usage?: CostUsage;
 }
 
 export interface PlacementCandidate {

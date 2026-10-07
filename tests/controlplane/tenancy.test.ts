@@ -62,6 +62,7 @@ const SWEPT = new Set([
   "approvals.consume", "approvals.listForOperation", "approvals.record", "approvals.requiredApprovalCount", "approvals.consumeApprovals",
   "connections.get", "connections.list", "connections.recordVerification", "connections.revoke",
   "cost.get", "cost.list",
+  "actualSpend.listActualSpend",
   "drift.latest", "drift.list",
   "events.list",
   "evidence.get", "evidence.list",
@@ -162,7 +163,9 @@ const WRITES = new Set([
   "k8sGuestBindings.markConnectionRevoking", "k8sGuestBindings.markRevoked", "k8sGuestBindings.markRevoking",
   // PROD-OBS-01: workspace and environment bound in SQL (reads repairs of one environment and settles its own reserved attempts first); real SQL in tests/repair/lifecycle.platform.test.ts.
   "incidentStability.listRepairsAwaitingVerification",
-  "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings", "idempotency.reserve", "idempotency.complete",
+  "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings",
+  // PROD-COST-01: binds the row and the idempotency lookup to the supplied workspace; foreign-workspace listing and cross-tenant isolation are covered by tests/cost/actual-spend-store.test.ts and the sweep below.
+  "actualSpend.insertActualSpend", "idempotency.reserve", "idempotency.complete",
 ]);
 
 /** Deliberately not workspace-filtered, with the reason. */
@@ -342,6 +345,7 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     const incident = await repos.incidents.openIncident(db, { workspaceId: A, environmentId: envId, title: "t", severity: "low", source: "user" });
     await repos.incidents.insertInvestigation(db, { id: uid("inv"), incidentId: incident.id, workspaceId: A, environmentId: envId, startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), path: [], evidence: [], hypotheses: [], recentChanges: [], simulated: false });
     const cost = await repos.cost.insert(db, { workspaceId: A, environmentId: envId, estimate: { kind: "estimate", catalogVersion: "v1", currency: "USD", monthlyUsd: 10, lines: [], assumptions: {}, included: [], excluded: [], computedAt: new Date().toISOString() } });
+    await repos.actualSpend.insertActualSpend(db, { workspaceId: A, environmentId: envId, recordedBy: "u", snapshot: { kind: "actual_spend", provider: "aws", scope: "123456789012", periodStart: "2026-10-01", periodEnd: "2026-11-01", currency: "USD", totalUsd: 1, lines: [], costBasis: "test", finalization: "provisional", source: { adapter: "test", endpoint: "https://example.invalid/", retrievedAt: "2026-10-11T00:00:00.000Z", responseSha256: hex("c") }, notice: "test" } });
     const decision = await repos.policyDecisions.listForOperation(db, A, opId);
     const investigations = await repos.incidents.listInvestigationsForIncident(db, A, incident.id);
     await repos.leases.acquire(db, { scope: `env:${envId}`, holder: "w", ttlMs: 60_000, workspaceId: A });
@@ -452,6 +456,7 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "connections.revoke": () => repos.connections.revoke(db, B, connection.id),
       "cost.get": () => repos.cost.get(db, B, cost.id),
       "cost.list": () => repos.cost.list(db, B, { environmentId: envId }),
+      "actualSpend.listActualSpend": () => repos.actualSpend.listActualSpend(db, B, { environmentId: envId }),
       "drift.latest": () => repos.drift.latest(db, B, envId),
       "drift.list": () => repos.drift.list(db, B, envId),
       "events.list": () => repos.events.list(db, B, { operationId: opId }),

@@ -3,14 +3,14 @@
  * platform schema (PGlite here; set ZENITH_TEST_PLATFORM_PG_URL to run the same
  * file on PostgreSQL). Only the credential authority is modeled (FakeParents).
  */
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { openPlatformDb, type PlatformDbHandle } from "@/lib/controlplane/db";
 import * as repos from "@/lib/controlplane/db/repos";
 import { authenticateMcp, resourceFor, type AuthDeps } from "@/lib/agent-access/v3/auth";
 import { principalFromIdentity } from "@/lib/agent-access/v3/principal";
 import { PluginError } from "@/lib/plugins/errors";
 import { authenticatePluginToken, hashPluginToken, issuePluginToken, registerPlugin, revokePlugin, revokePluginGrant, reviewPlugin, type PluginDeps } from "@/lib/plugins/service";
-import { baseManifest, FakeParents, makePublisher, signManifest } from "./support";
+import { baseManifest, FakeParents, KEY_ID, makePublisher, PUBLISHER, signManifest } from "./support";
 
 const PG_URL = process.env.ZENITH_TEST_PLATFORM_PG_URL?.trim() || undefined;
 const opened: PlatformDbHandle[] = [];
@@ -50,6 +50,33 @@ const failsWith = async (promise: Promise<unknown>): Promise<string> => {
 };
 
 describe("registration and review", () => {
+  it("uses the deployment publisher environment for registration and refuses absent or removed trust", async () => {
+    const h = await harness();
+    const deps: PluginDeps = { sql: h.db, parents: h.parents.lookup };
+    const input = { workspaceId: h.ws, manifest: h.manifest, requestedBy: "alice" };
+    try {
+      vi.stubEnv("ZENITH_PLUGIN_TRUSTED_PUBLISHERS", undefined);
+      expect(await failsWith(registerPlugin(deps, input))).toBe("plugin_provenance_unverified");
+      expect(await repos.plugins.list(h.db, h.ws)).toEqual([]);
+
+      const key = h.publisher.publishers.get(PUBLISHER)?.find(row => row.keyId === KEY_ID);
+      if (!key) throw new Error("The runtime publisher fixture is unavailable.");
+      const raw = key.key.export({ format: "der", type: "spki" }).subarray(-32).toString("base64");
+      vi.stubEnv("ZENITH_PLUGIN_TRUSTED_PUBLISHERS", JSON.stringify({ [PUBLISHER]: [{ keyId: KEY_ID, publicKey: raw }] }));
+      const registered = await registerPlugin(deps, input);
+      expect(registered).toMatchObject({ status: "pending_review", created: true, publisherId: PUBLISHER, provenance: { keyId: KEY_ID, alg: "ed25519" } });
+      const stored = await repos.plugins.list(h.db, h.ws);
+      expect(stored).toHaveLength(1);
+      expect(stored[0].id).toBe(registered.id);
+
+      vi.stubEnv("ZENITH_PLUGIN_TRUSTED_PUBLISHERS", undefined);
+      expect(await failsWith(registerPlugin(deps, input))).toBe("plugin_provenance_unverified");
+      expect(await repos.plugins.list(h.db, h.ws)).toEqual(stored);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("verifies provenance, stores pending_review, and is idempotent for the same digest", async () => {
     const h = await harness();
     const first = await registerPlugin(h.deps, { workspaceId: h.ws, manifest: h.manifest, requestedBy: "alice" });

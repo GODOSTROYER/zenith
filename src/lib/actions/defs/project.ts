@@ -23,7 +23,7 @@ import { importCompose } from "@/lib/importers/compose";
 import type { ImportReport } from "@/lib/importers/types";
 import { slugify, uniqueName } from "@/lib/importers/types";
 import { providerRegistry } from "@/lib/providers/types";
-import { buildEnvironment, envPlanDetails, inFlight, liveRevision } from "./env";
+import { buildEnvironment, envPlanDetails, environmentBusy, liveRevision } from "./env";
 import { getEngine } from "./_engine";
 import { fmtUsd } from "@/lib/format";
 import { clone, commit, manifestLossNote, planFromDiff, requireConnection, requireProject } from "./_shared";
@@ -481,17 +481,17 @@ type DeleteProject = z.infer<typeof DeleteProject>;
  * mid-deploy is not deletable — the engine would keep writing to records that
  * no longer exist.
  */
-function projectDelete(ctx: ActionContext, input: DeleteProject) {
+async function projectDelete(ctx: ActionContext, input: DeleteProject) {
   const project = requireProject(ctx, input.projectId);
   const envs = q.environmentsOf(project.id);
   const revisions = q.revisionsOf(project.id);
   const deployments = envs.flatMap((e) => q.deploymentsOf(e.id));
   const findings = db().findings.filter((f) => f.projectId === project.id);
   const runs = db().navigatorRuns.filter((r) => r.projectId === project.id);
-  const busy = envs.flatMap((e) => {
-    const dep = inFlight(e.id);
+  const busy = (await Promise.all(envs.map(async (e) => {
+    const dep = await environmentBusy(ctx, e.id);
     return dep ? [{ env: e, dep }] : [];
-  });
+  }))).flat();
   const live = envs.filter((e) => e.deployedRevisionId);
 
   const blocked = busy.length
@@ -522,8 +522,8 @@ defineAction<DeleteProject>({
   requiredRole: "admin",
   mutates: true,
   input: DeleteProject,
-  plan(ctx, input) {
-    const { project, details, warnings, blocked } = projectDelete(ctx, input);
+  async plan(ctx, input) {
+    const { project, details, warnings, blocked } = await projectDelete(ctx, input);
     return {
       summary: `Delete the project "${project.name}".`,
       details,
@@ -534,8 +534,8 @@ defineAction<DeleteProject>({
       blocked,
     };
   },
-  execute(ctx, input) {
-    const { project, envs, revisions, deployments, blocked } = projectDelete(ctx, input);
+  async execute(ctx, input) {
+    const { project, envs, revisions, deployments, blocked } = await projectDelete(ctx, input);
     if (blocked) return { ok: false, summary: `"${project.name}" was not deleted.`, error: blocked };
     const envIds = new Set(envs.map((e) => e.id));
     const d = db();

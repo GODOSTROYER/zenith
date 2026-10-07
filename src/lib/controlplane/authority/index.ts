@@ -168,3 +168,25 @@ export async function projectOperation(sql: Sql, workspaceId: string, operationI
     cancelRequested: cancel !== undefined,
   });
 }
+
+/* ------------------------- concurrency decisions -------------------------- */
+
+export interface EnvironmentActivity { readonly operationId: string; readonly status: OperationStatus; readonly capability: string }
+
+/**
+ * Operations that currently occupy an environment, derived from the authority
+ * record: running, queued or uncertain, or approved with a retained start
+ * intent. This is the dispatch/concurrency decision; the product Deployment
+ * status is display only and is never consulted for a real (workflow) executor.
+ */
+export async function environmentActivity(sql: Sql, workspaceId: string, environmentId: string): Promise<EnvironmentActivity[]> {
+  const rows = await sql.query<{ operation_id: string; status: OperationStatus; capability: string }>(
+    `select a.operation_id, a.status, o.capability
+       from platform.operation_authority a
+       join platform.operations o on o.workspace_id = a.workspace_id and o.id = a.operation_id
+      where a.workspace_id = $1 and o.environment_id = $2
+        and (a.status in ('queued','running','uncertain')
+          or (a.status = 'approved' and exists (select 1 from platform.workflow_start_intents i where i.workspace_id = a.workspace_id and i.operation_id = a.operation_id)))
+      order by a.updated_at desc limit 20`, [workspaceId, environmentId]);
+  return rows.map((r) => Object.freeze({ operationId: r.operation_id, status: r.status, capability: r.capability }));
+}

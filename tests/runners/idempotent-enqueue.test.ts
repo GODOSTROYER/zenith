@@ -49,7 +49,7 @@ describe.each(LANES)("idempotent runner enqueue [$name]", (lane) => {
       grant: await runnerGrant(plane, { runnerId: agent.id, workspaceId, operationId, capability: "infrastructure.observe" }), ...over,
     });
     const jobs = (operationId: string) => store.jobs.listForOperation(workspaceId, operationId);
-    return { plane, workspaceId, operations, input, jobs };
+    return { plane, workspaceId, operations, input, jobs, agent };
   }
 
   it("without a key every enqueue is a new job (the control)", async () => {
@@ -75,6 +75,27 @@ describe.each(LANES)("idempotent runner enqueue [$name]", (lane) => {
     const otherOperation = await enqueueRunnerJob(await f.input(f.operations[1], { idempotencyKey: "k" }), f.plane.rt);
     const otherKey = await enqueueRunnerJob(await f.input(f.operations[0], { idempotencyKey: "k2" }), f.plane.rt);
     expect(new Set([a, otherOperation, otherKey]).size).toBe(3);
+  });
+
+  it("a definite failure lets the retry queue a new generation, while a succeeded or running job is attached", async () => {
+    const f = await fixture();
+    const op = f.operations[0];
+    const first = await enqueueRunnerJob(await f.input(op, { idempotencyKey: "gen" }), f.plane.rt);
+    const settle = async (jobId: string, status: "failed" | "succeeded") => {
+      const claimed = await store.jobs.claimNext({ workspaceId: f.workspaceId, agentId: f.agent.id, max: 5, leaseMs: 30_000 });
+      expect(claimed.map((j) => j.id)).toContain(jobId);
+      expect(await store.jobs.settle({ workspaceId: f.workspaceId, agentId: f.agent.id, jobId, status, ...(status === "failed" ? { error: "definite failure" } : {}) })).toBe(true);
+    };
+    // queued: attach
+    expect(await enqueueRunnerJob(await f.input(op, { idempotencyKey: "gen" }), f.plane.rt)).toBe(first);
+    await settle(first, "failed");
+    const second = await enqueueRunnerJob(await f.input(op, { idempotencyKey: "gen" }), f.plane.rt);
+    expect(second).not.toBe(first);
+    expect(await enqueueRunnerJob(await f.input(op, { idempotencyKey: "gen" }), f.plane.rt)).toBe(second);
+    await settle(second, "succeeded");
+    // succeeded: a retry never queues a second effect
+    expect(await enqueueRunnerJob(await f.input(op, { idempotencyKey: "gen" }), f.plane.rt)).toBe(second);
+    expect(await f.jobs(op)).toHaveLength(2);
   });
 
   it("two workers racing on one identity queue exactly one job", async () => {

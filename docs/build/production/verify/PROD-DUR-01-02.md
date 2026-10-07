@@ -35,7 +35,7 @@ New:
 | `src/lib/controlplane/outbox/signal.ts` | `signalDurably` (commit intent, then deliver inline), `approvalSignalKey` |
 | `tests/controlplane/durable-intent-authority.test.ts` | Authority CAS, intent identity/atomicity, relay crash windows (PGlite + real PG) |
 | `tests/workflows/start-recovery.test.ts` | Start-recovery crash windows against an owned real Temporal frontend |
-| `tests/runners/idempotent-enqueue.test.ts` | Deterministic runner job identity (memory, PGlite, real PG) |
+| `tests/runners/idempotent-enqueue.test.ts` | Deterministic runner job identity, attach vs generation advance, race (memory, PGlite, real PG) |
 
 Changed:
 
@@ -50,6 +50,8 @@ Changed:
 | `src/app/api/platform/v1/operations/[id]/route.ts` | additive `authority` field (projection) on the operation detail, omitted in local memory mode |
 | `src/lib/runners/dispatch.ts` | optional `idempotencyKey` on `EnqueueRunnerJobInput` (deterministic job id, attach-to-existing on retry or race) |
 | `src/lib/runners/tofu-runner-dispatch.ts` | apply/destroy of the approved plan enqueue with `tofu.apply:<approvedDigest>` / `tofu.destroy:<approvedDigest>` |
+| `src/lib/machines/dispatcher.ts` | every mutating machine operation (file.write/upload, package.install, service.configure, exec, restart, runbook steps; anything the capability catalog marks `mutates`) enqueues with a deterministic key over (workspace, operation, operation name, args); read-only operations stay random |
+| `src/lib/actions/defs/env.ts`, `env-teardown.ts`, `project.ts` | `inFlight()` (product projection) is no longer a decision input for real deployments; new `environmentBusy()` reads the authority record via `environmentActivity()`. env update/set-connection/delete, teardown review/teardown and project delete are now async and use it |
 
 ### Operation authority record (DUR-02)
 
@@ -94,7 +96,22 @@ Changed:
   identity), which Temporal deduplicates. A found-but-different execution, an expired window or a lapsed operation returns
   `refused` (the intent is kept as evidence for the operator).
 - Runner jobs are not outbox rows (`runner_jobs` is already the durable queue and carries signed envelopes). Their identity
-  is made deterministic instead (`idempotencyKey`).
+  is made deterministic instead (`idempotencyKey`). Identity is per (workspace, agent, operation, job kind, key, generation).
+  A job that is queued, claimed, running, succeeded or timed out (outcome unknown) is **attached to**, never duplicated. Only a
+  job that definitively did not take effect (failed, rejected, expired, cancelled) lets the next generation (max 8) be queued, so
+  ordinary retry after a definite failure still works while a crash-retry can never queue a second effect.
+
+Runner/agent job kinds and their disposition:
+
+| Job kind | External effect? | Disposition |
+| --- | --- | --- |
+| `tofu.run` apply/destroy | yes | keyed `tofu.apply|destroy:<approvedDigest>` |
+| `tofu.run` plan, `probe.http`/`probe.tcp`/`probe.dns`, read jobs (`enqueueReadJob`) | no (read-only) | random id, deliberately: a repeated read must observe fresh state |
+| zenithd machine requests: file.write, file.upload, package.install, service.configure, container.exec/exec, machine.service.restart, runbook steps | yes | keyed by the dispatcher; the same (workspace, operation) identity as the evidence layer's permanent dispatch marker |
+| zenithd machine reads (inspect, list, status, logs, file.read, portCheck) | no | random id |
+| `aws.http`, `oci.http`, `k8s.http` proxy jobs | per request, mixed reads and writes | **not keyed, by design**: AWS/OCI use POST for reads (Describe*), so a deterministic id would attach a poll to its first, stale result. The identity of the effect is the provider call's own client token and the reaper never re-queues an uncertain job. Documented limit. |
+| build launches (CodeBuild StartBuild) | yes | not runner jobs; already a permanent natural identity (`build_launches` operation/service attempt CAS) plus a provider idempotency token |
+| cleanup (writer barriers/holds, plan artifact cleanup) | yes | not runner jobs; cleanup is gated by `cleanup_writer_holds` and the same barrier triggers |
 
 ### Crash-window table
 
@@ -112,13 +129,13 @@ the owned Temporal CLI; (PG) run on PGlite and, with `ZENITH_TEST_PLATFORM_PG_UR
 | W6 | Start | Start RPC response lost | readback only | unchanged readback; relay now also resolves it | existing start-intent tests + W5/W7 |
 | W7 | Start | Temporal accepted, dies before the acknowledgement commit | readback on the next call of the same caller | relay readback acknowledges with no second Start RPC; a foreign execution under the id is refused | start-recovery: "crash after an accepted Start...", "...not the retained original is refused" (T) |
 | W8 | Projection | acknowledged in SQL, dies before the product save of `workflowStartedAt` | product kept saying "not started" | relay handler repairs the product projection from the acknowledged intent; `GET /api/platform/v1/operations/:id` returns the derived `authority.phase` independent of the product copy | start-recovery: "relay adopts..." (T, platform side); product repair is best effort and reviewed, not independently tested |
-| W9 | Signal | approval committed, dies before any signal intent exists | wake-up lost up to the workflow's 30 min poll | `deriveApprovalSignals` creates one intent per authority version from state (acknowledged start, op still approved/rejected for a plan round, no signal since the last change) | sweep SQL is exercised by the relay in start-recovery (T); gap: no isolated test of the sweep predicate, see section 4 |
+| W9 | Signal | approval committed, dies before any signal intent exists | wake-up lost up to the workflow's 30 min poll | `deriveApprovalSignals` creates one intent per authority version from state (acknowledged start, op still approved/rejected for a plan round, no signal since the last change) | durable-intent-authority: "approval wake-up sweep predicate" (PG) |
 | W10 | Signal | intent committed, dies before delivery | n/a (volatile) | any worker delivers | durable-intent-authority: "after the intent commit, before any claim" (PG) |
 | W11 | Signal | claimed, dies before transport / after transport, before settle | n/a | lease lapses, new claim epoch, redelivery under the **same** intent id (Temporal dedupes by requestId); stale holder cannot settle | durable-intent-authority: "after the claim", "after transport", "superseded holder", "concurrent relays" (PG) |
 | W12 | Signal | workflow not yet visible / Temporal down | error surfaced, request lost | bounded retry with backoff; then dead `not_found` / `exhausted`, surfaced as `unconfirmed` | durable-intent-authority retry/not_found tests (PG); start-recovery real NotFound shape (T) |
 | W13 | Signal | cancel requested, dies before the signal | request lost | intent `cancel:<op>` committed first; caller learns "recorded, will be retried" | durable-intent-authority projection `cancelRequested` (PG) |
 | W14 | Runner | dies before enqueue | no job exists; activity retry enqueues | unchanged | n/a |
-| W15 | Runner | job queued, dies before the caller learned the id | retry queued a second job (second apply) | with `idempotencyKey` (wired for tofu apply/destroy) the retry attaches to the queued job; racing workers queue exactly one | idempotent-enqueue (memory, PGlite, PG) |
+| W15 | Runner | job queued, dies before the caller learned the id | retry queued a second job (second apply) | with `idempotencyKey` (tofu apply/destroy and every mutating machine operation, see the job-kind table) the retry attaches to the queued job; racing workers queue exactly one; definite failure advances a generation | idempotent-enqueue (memory, PGlite, PG) |
 | W16 | Runner | runner executed, result ack lost | first settle wins, `already_settled`, late receipt retained | unchanged (verified) | existing late-effect-receipts |
 | W17 | Runner | claimed/running past lease | reaper `timed_out`, operation `uncertain`, never re-queued | unchanged (verified) | existing dispatch/reaper tests |
 
@@ -131,7 +148,8 @@ re-verify authority through `checkApproval` and fenced leases.
 | --- | --- | --- |
 | `bridge/lifecycle.ts` `__zenithBridgeStarts` | same-process duplicate-click coalescing | kept; the code comment and this doc state it is not authority. Cross-process fences are the broker claim CAS and the permanent start-attempt CAS. No decision reads it. |
 | `engine/engine.ts` `__zenithInflight` | simulated-provider engine ticks (product store) | out of scope: simulator only, real providers go through the workflow bridge. Not changed. |
-| `actions/defs/env.ts` `inFlight(environmentId)` | product-store projection used as a precondition for rename/delete/teardown | **Open**: a projection used as a guard. Authority for real environments is the platform environment lease and `operation_authority`. See section 4. |
+| `actions/defs/env.ts` `inFlight(environmentId)` | product-store projection | **Fixed**: kept only as a display helper and for simulator (non-workflow) deployments that have no platform operation. Every dispatch/concurrency decision (env update, set-connection, delete, teardown review, teardown, project delete) goes through `environmentBusy()`, which reads `environmentActivity()` over `operation_authority` (queued, running, uncertain, or approved with a retained start intent). Authority unreadable fails closed on product evidence; local memory mode (no platform store) has only the product record. |
+| Other decision points audited | `capabilities/destroy-review.ts` `activeDeploymentId` check | kept: it is the product environment writer fence (a fence in the product store's own authority, taken together with the platform `env:<id>` lease the same function holds), not a display projection. `bridge/lifecycle.ts` approve/cancel/start still read `d.status`/`d.workflowStartedAt` as cheap UI preconditions, but every state change they cause is re-decided by the broker CAS on the platform operation (approval consumption, claim, cancel with `from`-status), so a stale projection can refuse or mislead a button but cannot commit a wrong transition. Not converted; listed as residual. `execution/product-port.ts` writer takeover is the product-store writer CAS. |
 | `bridge/readiness.ts` inflight map | probe de-duplication cache | not authority |
 
 ## 2. Acceptance mapping
@@ -144,7 +162,7 @@ re-verify authority through `checkApproval` and fenced leases.
 | DUR-01: runner enqueue/ack | `idempotencyKey` deterministic job id, attach-on-retry/race; ack is the existing exactly-once settle | idempotent-enqueue; existing late-effect-receipts |
 | DUR-02: operation authority versus UI projection defined | section 1 definition; `operation_authority`, `projectOperation`, `GET .../operations/:id` `authority` | durable-intent-authority "projection" tests |
 | DUR-02: concurrent writers preserve state (versioned CAS / fencing) | `casTransition`, trigger-maintained version, `claim_epoch` fences | durable-intent-authority "exactly one commits", "superseded holder", "concurrent relays" (real PG for independent backends) |
-| DUR-02: no local lock treated as external atomicity | audit table above; decisions rest on SQL CAS and fences | n/a (audit); open item `inFlight` |
+| DUR-02: no local lock/projection treated as authority | audit table above; `environmentBusy` over `environmentActivity`; decisions rest on SQL CAS and fences | durable-intent-authority "concurrency decision reads the authority record" (PG) |
 
 ## 3. Verification commands (verifier machine)
 
@@ -189,13 +207,10 @@ Known gaps (honest):
 3. W5 resend is bounded to 30 minutes and a live operation lease. Past that the intent stays `attempted` and the operator
    inspects it; there is no operator-authorized continuation or recovery epoch in this change (that is the DUR operator
    continuation work).
-4. W9 approval sweep has no isolated predicate test; it is exercised only through the relay integration. The workflow's own
-   30-minute approval poll remains the last-resort backstop.
-5. Runner `idempotencyKey` is wired only for tofu apply/destroy. `aws.http`, `oci.http`, probes and zenithd machine requests
-   still use random job ids (machine request dedup belongs to DUR-D). A retry that re-attaches to a definitively failed apply
-   job returns that failure (fail closed); it does not silently re-run.
-6. `inFlight(environmentId)` (product projection used as a guard) is not converted to read authority; the product store is
-   synchronous and the platform store asynchronous. Follow-up: guard on the platform environment lease plus `operation_authority`.
+4. W9 approval sweep now has isolated predicate tests (eligible; no acknowledged start / no plan round / no plan digest / inside quiet period / cancelled; no repeat). The workflow's own 30-minute approval poll remains the last-resort backstop.
+4b. **Out of scope (OPS-04):** operator-authorized continuation of a refused/expired start and recovery epochs. Not built here.
+5. Runner keys: see the job-kind table. Provider HTTP proxy jobs (`aws.http`, `oci.http`, `k8s.http`) are deliberately unkeyed (reads and writes share the transport). Machine request keying overlaps DUR-D (uncertain mutations/dedup); the key is additive and uses the identity the evidence layer already enforces.
+6. Decision points converted to authority (section 1 audit). Remaining projection reads are display only. Simulator (engine) deployments have no platform operation and are still decided from the product store.
 7. Product projection repair (`projectAcknowledgedStart`) runs only in the relay handler and is best effort; no standalone
    test (the product store scope helpers are modeled elsewhere). The platform-side projection (`projectOperation`) is tested.
 8. Verified behaviours changed: none removed. `WorkflowGateway.signalApproval/cancelOperation` gained an optional

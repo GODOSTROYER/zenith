@@ -10,9 +10,9 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as repos from "@/lib/controlplane/db/repos";
-import { casTransition, derivePhase, projectOperation, readAuthority, type OperationAuthority } from "@/lib/controlplane/authority";
+import { casTransition, derivePhase, environmentActivity, projectOperation, readAuthority, type OperationAuthority } from "@/lib/controlplane/authority";
 import {
-  claimDue, enqueueIntent, getIntent, intentId, MAX_ATTEMPTS, relayOnce, settleIntent,
+  claimDue, deriveApprovalSignals, enqueueIntent, getIntent, intentId, MAX_ATTEMPTS, relayOnce, settleIntent,
   type DeliveryResult, type DurableIntent, type IntentHandlers,
 } from "@/lib/controlplane/outbox";
 import type { OperationStatus, Sql } from "@/lib/controlplane/types";
@@ -141,6 +141,67 @@ describe.each(LANES)("durable intents and operation authority [$name]", (lane) =
       await expect(db().query("update platform.durable_intents set state = 'pending', outcome = null, settled_at = null where id = $1", [intent.id])).rejects.toThrow();
       expect((await getIntent(db(), ws, "workflow_signal", "cancel:immutable"))?.state).toBe("delivered");
     });
+  });
+
+  describe("concurrency decision reads the authority record (DUR-02)", () => {
+    it("an environment is occupied while an operation on it is running, queued or uncertain, and free once it is terminal", async () => {
+      const s = await seedApprovedOperation(db());
+      const env = s.operation.environmentId!;
+      expect(await environmentActivity(db(), s.workspaceId, env)).toEqual([]);
+      await db().query("update platform.operations set status = 'queued' where workspace_id = $1 and id = $2", [s.workspaceId, s.operation.id]);
+      expect(await environmentActivity(db(), s.workspaceId, env)).toMatchObject([{ operationId: s.operation.id, status: "queued" }]);
+      // another tenant never sees it, and another environment is unaffected
+      expect(await environmentActivity(db(), newWorkspace(), env)).toEqual([]);
+      expect(await environmentActivity(db(), s.workspaceId, "env_other")).toEqual([]);
+      await db().query("update platform.operations set status = 'uncertain' where workspace_id = $1 and id = $2", [s.workspaceId, s.operation.id]);
+      expect(await environmentActivity(db(), s.workspaceId, env)).toMatchObject([{ status: "uncertain" }]);
+      await db().query("update platform.operations set status = 'cancelled' where workspace_id = $1 and id = $2", [s.workspaceId, s.operation.id]);
+      expect(await environmentActivity(db(), s.workspaceId, env)).toEqual([]);
+    });
+  });
+
+  describe("approval wake-up sweep predicate (W9)", () => {
+    const ackedStart = (ws: string, op: string) => db().query(
+      `insert into platform.workflow_start_intents (workspace_id, operation_id, binding, binding_digest, phase, attempt_id, run_id, observed_start_at, evidence_digest, attempted_at, acknowledged_at)
+       values ($1, $2, $3::text::jsonb, $4, 'acknowledged', $5, $5, clock_timestamp(), $4, clock_timestamp(), clock_timestamp())`,
+      [ws, op, JSON.stringify({ format: "zenith.workflow-start.v1", arguments: { workspaceId: ws, operationId: op } }), "a".repeat(64), "11111111-1111-4111-8111-111111111111"]);
+    const aged = (ws: string, op: string) => db().query(
+      "update platform.operation_authority set updated_at = clock_timestamp() - interval '10 minutes' where workspace_id = $1 and operation_id = $2", [ws, op]);
+    const eligible = async (over: { start?: boolean; round?: number; plan?: boolean; age?: boolean } = {}) => {
+      const { ws, op } = await seeded();
+      if (over.start !== false) await ackedStart(ws, op);
+      await db().query("update platform.operations set approval_round = $3, plan_digest = $4 where workspace_id = $1 and id = $2",
+        [ws, op, over.round ?? 1, over.plan === false ? null : "c".repeat(64)]);
+      if (over.age !== false) await aged(ws, op);
+      return { ws, op };
+    };
+    const sweepKey = async (ws: string, op: string) => `approval-sweep:${op}:${(await readAuthority(db(), ws, op))!.version}`;
+
+    it("creates exactly one wake-up for an approved plan round whose workflow is acknowledged and waiting", async () => {
+      const { ws, op } = await eligible();
+      await deriveApprovalSignals(db());
+      const intent = await getIntent(db(), ws, "workflow_signal", await sweepKey(ws, op));
+      expect(intent).toMatchObject({ state: "pending", payload: { signal: "approvalRecorded" }, operationId: op });
+      await deriveApprovalSignals(db());
+      const all = await db().query("select id from platform.durable_intents where workspace_id = $1 and operation_id = $2", [ws, op]);
+      expect(all).toHaveLength(1);
+    });
+
+    it("does nothing without an acknowledged start, plan round, plan digest, approved/rejected status or quiet period", async () => {
+      const cases = [
+        await eligible({ start: false }), await eligible({ round: 0 }), await eligible({ plan: false }), await eligible({ age: false }),
+      ];
+      const running = await eligible();
+      await db().query("update platform.operations set status = 'cancelled' where workspace_id = $1 and id = $2", [running.ws, running.op]);
+      await aged(running.ws, running.op);
+      cases.push(running);
+      await deriveApprovalSignals(db());
+      for (const c of cases) {
+        const rows = await db().query("select id from platform.durable_intents where workspace_id = $1 and operation_id = $2", [c.ws, c.op]);
+        expect(rows).toHaveLength(0);
+      }
+    });
+
   });
 
   describe("crash windows with fault injection at each relay boundary", () => {

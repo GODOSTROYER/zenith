@@ -4,6 +4,8 @@
  * hand-over, unreadable results and cancellation after hand-over are uncertain.
  * Agent-reported timeouts remain the agent's own definitive timeout result.
  */
+import { capability, isCapability } from "@/lib/capabilities/catalog";
+import { digest } from "@/lib/controlplane/digest";
 import { awaitMachineRequest, enqueueMachineRequest } from "@/lib/runners/dispatch";
 import type { RunnerRuntime } from "@/lib/runners/runtime";
 import { isImplementedOperation, parseMachineArgs } from "./args";
@@ -31,6 +33,11 @@ export function createRunnerMachineDispatcher(runtime: RunnerRuntime, workspaceI
         grant: grantJws,
         timeoutSec: req.timeoutSec,
         maxOutputBytes: req.maxOutputBytes,
+        // Every operation with an external effect has a deterministic request id: a retry after a lost enqueue
+        // acknowledgement attaches to the queued request instead of queueing a second effect (PROD-DUR-01).
+        // The identity is the same (workspace, operation) identity the evidence layer's permanent dispatch marker uses.
+        // Read-only operations stay random (a repeated read must observe fresh state).
+        ...(!isCapability(req.operation) || capability(req.operation).mutates ? { idempotencyKey: `machine:${digest({ workspaceId: req.target.workspaceId, operationId: req.operationId, operation: req.operation, args: parsed.args })}` } : {}),
       }, runtime);
       scopes.set(id, req.target.workspaceId);
       return id;

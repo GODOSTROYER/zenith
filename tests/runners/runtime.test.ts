@@ -18,7 +18,7 @@ const { createRegistrationToken } = await import("@/lib/runners/service");
 const { RunnerConfigError } = await import("@/lib/runners/types");
 const { API, FakeAgent, ORIGIN, call, newAgentKey } = await import("./_support");
 
-const ENV_KEYS = ["ZENITH_CONTROL_SIGNING_JWK", "ZENITH_CONTROL_KMS_KEY_ID", "ZENITH_RUNNER_RESULT_KEY", "ZENITH_PLATFORM_DB", "ZENITH_PLATFORM_DB_URL", "SUPABASE_DB_URL"] as const;
+const ENV_KEYS = ["ZENITH_CONTROL_SIGNING_JWK", "ZENITH_CONTROL_KMS_KEY_ID", "ZENITH_RUNNER_RESULT_KEY", "ZENITH_RUNNER_RESULT_PREVIOUS_KEYS", "ZENITH_PLATFORM_DB", "ZENITH_PLATFORM_DB_URL", "SUPABASE_DB_URL"] as const;
 const saved: Record<string, string | undefined> = {};
 beforeEach(async () => {
   for (const k of ENV_KEYS) {
@@ -94,7 +94,13 @@ describe("defaults from the environment (credential module signer + platform sto
     expect((await getRunnerRuntime()).sealer.open("a|b", box)).toEqual({ v: 1 });
     process.env.ZENITH_RUNNER_RESULT_KEY = Buffer.alloc(32, 5).toString("base64url");
     const explicit = (await getRunnerRuntime()).sealer;
-    expect(() => explicit.open("a|b", box)).toThrow(); // a different key
-    expect(explicit.open("a|b", explicit.seal("a|b", { v: 2 }))).toEqual({ v: 2 });
+    // The signing-derived key remains decrypt-only during migration to an explicit result key.
+    expect(explicit.open("a|b", box)).toEqual({ v: 1 });
+    const newBox = explicit.seal("a|b", { v: 2 });
+    expect(newBox.kid).not.toBe(box.kid);
+    expect(() => derived.open("a|b", newBox)).toThrow();
+    expect(() => explicit.open("foreign|context", box)).toThrow();
+    expect(() => explicit.open("foreign|context", newBox)).toThrow();
+    expect(explicit.open("a|b", newBox)).toEqual({ v: 2 });
   });
 });

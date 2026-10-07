@@ -63,6 +63,11 @@ describe("OCI capability-scoped broker sessions", () => {
   });
   it("dispatches mutations once through operation-scoped jobs and preserves the worker's grant", async () => {
     const f = await setup("service.restart", "deploy");
+    const { operation } = await repos.operations.create(db, {
+      workspaceId: ws, principal: { kind: "user", id: "oci-session-test" },
+      proposal: { capability: f.grant.cap, scope: { workspaceId: ws, environmentId: env }, input: {}, summary: "Restart the OCI fixture", details: [], risk: "medium" },
+    });
+    f.grant.op = operation.id;
     await f.broker.withSession(f.req, (s) => asOci(s).transport.request({ ...request, service: "containerinstances", method: "POST", path: `/20210415/containerInstances/${instance}/actions/restart`, query: undefined, headers: { "opc-retry-token": "safe-idempotency-token" } }));
     expect(jobs.write).toHaveBeenCalledTimes(1); expect(jobs.read).not.toHaveBeenCalled();
     expect(jobs.write.mock.calls[0][0]).toMatchObject({ operationId: f.grant.op, capability: "service.restart" });

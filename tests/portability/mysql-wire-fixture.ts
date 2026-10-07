@@ -8,6 +8,7 @@
  */
 import { createServer, type Server, type Socket } from "node:net";
 import { createSecureContext, TLSSocket } from "node:tls";
+import { Duplex } from "node:stream";
 
 export const T = { LONG: 3, BLOB: 252, VAR_STRING: 253 } as const;
 
@@ -126,7 +127,10 @@ export async function mysqlWireFixture(opts: {
       }
       socket.pause();
       if (bytes.length > 36) socket.unshift(bytes.subarray(36));
-      const secure = new TLSSocket(socket, { isServer: true, secureContext: context });
+      // A TLS ClientHello can share the SSLRequest data chunk. A generic duplex
+      // preserves unshifted bytes; wrapping the native socket handle loses that buffered tail.
+      const transport = Duplex.from({ readable: socket, writable: socket });
+      const secure = new TLSSocket(transport, { isServer: true, secureContext: context });
       sockets.add(secure);
       secure.on("close", () => sockets.delete(secure));
       secure.on("error", () => undefined);

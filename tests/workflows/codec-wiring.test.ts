@@ -32,6 +32,8 @@ const intercepted = vi.hoisted(() => ({
   composeSweep: vi.fn<(db: unknown) => Promise<ReconcileSweepRuntime>>(),
   sourceStorage: vi.fn<(db: unknown) => () => Promise<null>>(), storageResolver: vi.fn<() => Promise<null>>(),
   activities: vi.fn<(options: unknown) => Record<string, never>>(),
+  mixedActivities: vi.fn<() => Record<string, never>>(),
+  codingActivities: vi.fn<() => Record<string, never>>(),
   criticalActivities: vi.fn<(db: unknown) => Record<string, never>>(),
   criticalHealth: vi.fn<() => Promise<{ healthy: boolean; jobs: [] }>>(),
   sweep: { assertReady: vi.fn<ReconcileSweepRuntime["assertReady"]>(), activities: { sweepReconcilePass: vi.fn<ReconcileSweepRuntime["activities"]["sweepReconcilePass"]>() } },
@@ -67,6 +69,8 @@ vi.mock("@/lib/policy", () => ({ loadPolicyEngine: vi.fn() }));
 vi.mock("@/lib/execution/plan-janitor", () => ({ startPlanArtifactJanitor: intercepted.artifactJanitor }));
 vi.mock("@/lib/workflows/activities", () => ({ createActivities: intercepted.activities }));
 vi.mock("@/lib/workflows/critical-activities", () => ({ createCriticalMaintenanceActivities: intercepted.criticalActivities }));
+vi.mock("@/lib/workflows/mixed-activities", () => ({ createMixedActivities: intercepted.mixedActivities }));
+vi.mock("@/lib/coding-agent/activities", () => ({ createProductionCodingAgentActivities: intercepted.codingActivities }));
 vi.mock("@/lib/platform/critical-jobs", () => ({ criticalJobHealth: intercepted.criticalHealth }));
 vi.mock("../../workers/execution/lifecycle", () => ({ installShutdownHandlers: () => () => false }));
 vi.mock("../../workers/execution/startup", () => ({
@@ -97,6 +101,8 @@ beforeEach(() => {
   intercepted.sourceStorage.mockReturnValue(intercepted.storageResolver);
   intercepted.activities.mockReturnValue({});
   intercepted.criticalActivities.mockReturnValue({});
+  intercepted.mixedActivities.mockReturnValue({});
+  intercepted.codingActivities.mockReturnValue({});
   intercepted.criticalHealth.mockResolvedValue({ healthy: true, jobs: [] });
   intercepted.sweep.assertReady.mockResolvedValue(undefined);
   intercepted.validateReconcile.mockImplementation(() => undefined);
@@ -269,6 +275,8 @@ describe("execution worker process codec wiring", () => {
     expect(intercepted.sourceStorage).toHaveBeenCalledExactlyOnceWith(intercepted.store);
     expect(intercepted.activities).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ db: intercepted.store, workerIdentity: config.identity, sourceBundles: { azureStorage: intercepted.storageResolver } }));
     expect(intercepted.criticalActivities).toHaveBeenCalledExactlyOnceWith(intercepted.store);
+    expect(intercepted.mixedActivities).toHaveBeenCalledExactlyOnceWith({ db: intercepted.store });
+    expect(intercepted.codingActivities).toHaveBeenCalledExactlyOnceWith(intercepted.store);
     expect(intercepted.openStore.mock.invocationCallOrder[0]).toBeLessThan(intercepted.criticalActivities.mock.invocationCallOrder[0]);
     expect(intercepted.criticalActivities.mock.invocationCallOrder[0]).toBeLessThan(intercepted.nativeConnect.mock.invocationCallOrder[0]);
     expect(options.activities).toHaveProperty("sweepReconcilePass", intercepted.sweep.activities.sweepReconcilePass);
@@ -428,6 +436,8 @@ describe("execution worker process codec wiring", () => {
     expect(intercepted.sourceStorage).not.toHaveBeenCalled();
     expect(intercepted.openReconcileClient).not.toHaveBeenCalled();
     expect(intercepted.criticalActivities).not.toHaveBeenCalled();
+    expect(intercepted.mixedActivities).not.toHaveBeenCalled();
+    expect(intercepted.codingActivities).not.toHaveBeenCalled();
     expect(intercepted.criticalHealth).not.toHaveBeenCalled();
     expect(JSON.stringify(stdout.mock.calls)).not.toContain("invalid-test-key");
   });

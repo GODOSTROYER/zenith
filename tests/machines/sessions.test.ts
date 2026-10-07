@@ -89,7 +89,7 @@ describe("machine sessions", () => {
   });
   it("default Kubernetes guest sessions use the broker's live namespace scope and original grant", async () => {
     const s = setup();
-    const connection: ProviderConnection = { ...s.connection, config: { provider: "kubernetes", mode: "kubeconfig_ref", server: "https://cluster.example", credentialRef: "vault:cluster", namespaces: ["app", "removed"] } };
+    const connection: ProviderConnection = { ...s.connection, config: { provider: "kubernetes", mode: "scoped_guest", server: "https://cluster.example", credentialRef: "vault:cluster", namespaces: ["app", "removed"] } };
     const credentialObject = {};
     const credentials: CredentialBroker = { verifyConnection: s.credentials.verifyConnection, withSession: async (request, fn) => {
       s.requests.push(request);
@@ -97,6 +97,7 @@ describe("machine sessions", () => {
         namespaces: ["app"], kubeConfig: () => credentialObject } as KubernetesMachineSession);
     } };
     const req = s.req("container.list", "kubernetes");
+    req.target = { ...req.target, targetId: "app/web" };
     let held!: KubernetesMachineSession;
     const provider = createMachineSessionProvider({ credentials, connection, grantJws: "compact", now: () => new Date(T0) });
     expect(await provider.withSession(req, async session => {
@@ -106,8 +107,18 @@ describe("machine sessions", () => {
       expect(held.expiresAt).toBe(new Date(req.grant.exp * 1000).toISOString());
       return "safe metadata";
     })).toBe("safe metadata");
-    expect(s.requests).toEqual([{ connectionId: connection.id, purpose: "observe", grant: req.grant }]);
+    expect(s.requests).toEqual([{ connectionId: connection.id, purpose: "observe", grant: req.grant, kubernetesGuest: { namespace: "app", profile: "read" } }]);
     expect(() => held.kubeConfig()).toThrow(/ended/);
+  });
+
+  it("refuses a legacy Kubernetes credential before broker or guest callback entry", async () => {
+    const s = setup();
+    const connection: ProviderConnection = { ...s.connection, config: { provider: "kubernetes", mode: "kubeconfig_ref", server: "https://cluster.example", credentialRef: "vault:cluster", namespaces: ["app"] } };
+    const callback = vi.fn(async () => undefined);
+    const provider = createMachineSessionProvider({ credentials: s.credentials, connection, grantJws: "compact", now: () => new Date(T0) });
+    await expect(provider.withSession(s.req("container.list", "kubernetes"), callback)).rejects.toThrow("legacy kubeconfig");
+    expect(callback).not.toHaveBeenCalled();
+    expect(s.requests).toHaveLength(0);
   });
 
   it("uses shared credential patterns and preserves the tofu redactor's assignment coverage", () => {

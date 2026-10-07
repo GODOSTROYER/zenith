@@ -16,7 +16,7 @@ const secretRef = `vault:${PROJECT}/svc-web/API_KEY`;
 const targetId = `${vault}secrets/API-KEY`;
 const CANARY = "AZURE-SECRET-CANARY-555-only-memory";
 let w: World;
-afterEach(() => { w?.dispose(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+afterEach(() => { vi.useRealTimers(); w?.dispose(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 async function fixture() {
   w = createWorld({ script: { observe: async (ctx, node) => ({ address: node.address, externalId: containerId, presence: "present", attributes: {}, source: "contract.fake", simulated: false, observedAt: ctx.now().toISOString() }) } });
   vi.stubEnv("ZENITH_DATA", w.planDir); vi.stubEnv("ZENITH_STORE", "file"); vi.stubEnv("ZENITH_SECRET_KEY", randomBytes(32).toString("base64"));
@@ -60,8 +60,14 @@ describe("Azure activity delivery", () => {
   });
   it.each([[403, "denied"], [429, "throttled"], [503, "unreachable"]])("classifies HTTP %s without reflecting provider body strings", async (status, reason) => {
     const { fetch, metadata, sync } = await fixture();
-    fetch.mockResolvedValueOnce(metadata()).mockResolvedValueOnce(Response.json({ error: { code: CANARY, message: CANARY } }, { status: status as number }));
-    const error = await sync().catch((e: unknown) => e);
+    // RBAC denials are retried during propagation; each read needs a fresh response body.
+    fetch.mockImplementation(async () => Response.json({ error: { code: CANARY, message: CANARY } }, { status: status as number })).mockResolvedValueOnce(metadata());
+    if (status === 403) vi.useFakeTimers();
+    const pending = sync().catch((e: unknown) => e);
+    if (status === 403) await vi.runAllTimersAsync();
+    const error = await pending;
+    if (status === 403) expect(fetch.mock.calls.length).toBeGreaterThan(2);
+    expect(fetch.mock.calls.every(([, init]) => init?.method !== "PUT")).toBe(true);
     expect(String(error)).toContain(reason); expect(String(error)).not.toContain(CANARY); expect(w.stored()).not.toContain(CANARY);
   });
 });

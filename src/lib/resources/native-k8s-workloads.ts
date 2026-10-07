@@ -28,7 +28,8 @@ const EnvEntry = z.union([
   z.object({ key: z.string().regex(ENV_KEY).max(253), secretRef: z.string().min(3).max(500) }).strict(),
 ]);
 
-const Namespace = z.string().regex(DNS_LABEL).optional();
+/** Required: drivers read and operate without the graph, so the namespace must be in the node. */
+const Namespace = z.string().regex(DNS_LABEL);
 const Image = z.string().regex(IMAGE);
 const Vcpu = z.number().min(0.001).max(256);
 const MemoryMb = z.number().int().min(4).max(1_048_576);

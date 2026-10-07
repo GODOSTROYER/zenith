@@ -68,7 +68,7 @@ export function claimOf(name: string, phase = "Bound", over: { env?: string; own
       labels: {
         ...(owned ? { "app.kubernetes.io/managed-by": "zenith" } : {}),
         "app.kubernetes.io/name": "ledger",
-        "app.kubernetes.io/part-of": ENV_ID,
+        "app.kubernetes.io/part-of": over.env ?? ENV_ID,
         ...(over.labels ?? {}),
       },
       annotations: owned ? { "zenith.dev/resource": "provider_native/ledger", "zenith.dev/environment": over.env ?? ENV_ID } : {},
@@ -88,7 +88,7 @@ export function seedClaims(fake: FakeK8s, replicas: number, phase = "Bound"): vo
 }
 
 /** A pod of the `ledger` StatefulSet; `ready` controls its Ready condition. */
-export function ledgerPod(ordinal: number, ready: boolean, extra: Record<string, unknown> = {}): Record<string, unknown> {
+export function ledgerPod(ordinal: number, ready: boolean, extra: Record<string, unknown> = {}, env: string = ENV_ID): Record<string, unknown> {
   return {
     apiVersion: "v1",
     kind: "Pod",
@@ -96,7 +96,7 @@ export function ledgerPod(ordinal: number, ready: boolean, extra: Record<string,
       name: `ledger-${ordinal}`,
       namespace: NS,
       creationTimestamp: "2026-09-30T11:00:00Z",
-      labels: { "app.kubernetes.io/name": "ledger", "app.kubernetes.io/part-of": ENV_ID },
+      labels: { "app.kubernetes.io/name": "ledger", "app.kubernetes.io/part-of": env },
     },
     status: { phase: "Running", conditions: [{ type: "Ready", status: ready ? "True" : "False" }], ...extra },
   };

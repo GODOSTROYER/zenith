@@ -34,7 +34,7 @@ import { defaultNamespace, isDnsLabel } from "./naming";
 import { pruneOrphans } from "./prune";
 import { sessionNamespaces } from "./session";
 import { listOwnedSnapshots } from "./snapshots";
-import { APPLY_ORDER, K8sError, KIND_INFO, LABEL, MANAGED_BY_VALUE, refOf, type ObjectRef } from "./types";
+import { APPLY_ORDER, K8sError, KIND_INFO, LABEL, MANAGED_BY_VALUE, refOf, type ObjectRef, type SupportedKind } from "./types";
 import { dig, isRecord, sortedUnique } from "./util";
 
 export interface KubernetesTeardownInput {
@@ -77,6 +77,15 @@ function checkedSession(input: KubernetesTeardownInput): KubernetesSession {
     throw new K8sError("session_invalid", "The Kubernetes session has an invalid namespace allowlist.");
   }
   return session as unknown as KubernetesSession;
+}
+
+/** True only when the API server positively reports the kind as not served; a discovery failure is false. */
+async function confirmedAbsent(client: K8sClient, kind: SupportedKind | "VolumeSnapshot", apiVersion = kind in KIND_INFO ? KIND_INFO[kind as SupportedKind].apiVersion : ""): Promise<boolean> {
+  try {
+    return await client.objects.kindAbsent(apiVersion, kind);
+  } catch {
+    return false;
+  }
 }
 
 /** Read, guard, delete once, then confirm absence. Never return provider text. */
@@ -176,6 +185,7 @@ export async function teardownKubernetesEnvironment(input: KubernetesTeardownInp
     try {
       const snapshots = await listOwnedSnapshots(client, namespace, input.environmentId);
       if (snapshots.truncated) record(gap, "uncertain");
+      if (snapshots.unavailable && !(await confirmedAbsent(client, "VolumeSnapshot", SNAPSHOT_KINDS.VolumeSnapshot.apiVersion))) record(gap, "uncertain");
       for (const item of snapshots.items) {
         const ref = refOf(item);
         if (dig(item, "metadata", "deletionTimestamp")) record(ref, "uncertain");
@@ -216,7 +226,9 @@ export async function teardownKubernetesEnvironment(input: KubernetesTeardownInp
       }
       try {
         const listing = await listObjects(client, kind, namespace, { labelSelector: SELECTOR });
-        if (listing.unavailable) record(gap, "skipped");
+        // A kind the cluster does not serve cannot hold an object: that is a coverage note, but only when
+        // discovery says so positively. If discovery itself fails, nothing is known about the kind.
+        if (listing.unavailable) record(gap, (await confirmedAbsent(client, kind)) ? "skipped" : "uncertain");
         if (listing.truncated) record(gap, "uncertain");
         for (const item of listing.items) {
           if (!ownedBy(item, input.environmentId).owned) continue;

@@ -42,6 +42,7 @@ import { assertEcsReplicaRepairPlan, prepareEcsReplicaRepair, recordEcsReplicaRe
 import { readRepairBinding, repairBindingDigest } from "./ecs-replica-repair-binding";
 import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
 import { errorText, safeText } from "./text";
+import { applyDirectKubernetes, isDirectKubernetes } from "./direct-kubernetes";
 import type { ApplyVerifiedResult } from "@/lib/tofu/engine";
 import { TofuPlanProvenanceError, type NormalizedPlan } from "@/lib/tofu/types";
 import { TofuDeletionRefusedError } from "@/lib/tofu/plan";
@@ -74,6 +75,7 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
     async applyInfrastructure({ operationId, planDigest, lease }) {
       if (!HEX64.test(planDigest)) throw new StepFailedError("The plan digest is not a SHA-256 hex digest; refusing to apply.");
       const ec = await loadExecContext(rt, operationId);
+      if (isDirectKubernetes(ec)) return applyDirectKubernetes(rt, ec, lease, planDigest);
       let toolStarted = false;
       let finished: ApplyVerifiedResult | undefined;
 

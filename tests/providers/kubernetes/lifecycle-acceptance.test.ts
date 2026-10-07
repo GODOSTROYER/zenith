@@ -24,7 +24,15 @@
  *   - readback (observe, runtime, verify) for every kind, and a teardown that deletes only
  *     what this run created and leaves a foreign claim alone
  *
- * What it works on: two namespaces named `zenith-l7-<random>` and `zenith-l7n-<random>`,
+ * The default journey: one case drives the SAME activities the deploy workflow calls (validate, plan,
+ * policy, approval, final plan, apply_infrastructure, deploy, verify_infrastructure) for a
+ * `kubernetes`-provider environment against the real cluster, then plans again and expects nothing
+ * to do. The cluster side is real; the platform side (ledger, capability broker, credential broker)
+ * is the scripted fakes every execution test uses, because the platform database and Temporal are
+ * not part of a kind run. It proves the Kubernetes apply stage and what it reads back, not the
+ * platform's own persistence.
+ *
+ * What it works on: three namespaces named `zenith-l7-<random>` and `zenith-l7n-<random>`,
  * created and deleted here, plus short-lived probe pods inside them. Nothing else on the
  * cluster is read or written, except read-only DaemonSet listings in kube-system and
  * calico-system to name the policy engine.
@@ -50,6 +58,8 @@ import { teardownKubernetesEnvironment } from "@/lib/providers/kubernetes";
 import { ANNOTATION, LABEL, type K8sObject } from "@/lib/providers/kubernetes/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import { driverCtx, node, serviceNode } from "./helpers";
+import { ENV as JOURNEY_ENV } from "../../execution/fakes/fixtures";
+import { startJourney } from "../../execution/kubernetes-journey-support";
 import { ctxForGraph, nativeCronNode, stsNode } from "./lifecycle-support";
 
 const profile = process.env.ZENITH_TEST_K8S_PROFILE ?? "";
@@ -87,6 +97,7 @@ describe.skipIf(!enabled)(`Kubernetes full lifecycle on a real cluster (${profil
   const suffix = randomBytes(4).toString("hex");
   const nsMain = `zenith-l7-${suffix}`;
   const nsNet = `zenith-l7n-${suffix}`;
+  const nsJourney = `zenith-l7j-${suffix}`;
   const envMain = `env-l7-${suffix}`;
   const envNet = `env-l7n-${suffix}`;
   const workspaceId = "ws-lifecycle-acceptance";
@@ -188,7 +199,7 @@ describe.skipIf(!enabled)(`Kubernetes full lifecycle on a real cluster (${profil
   afterAll(async () => {
     const failures: string[] = [];
     // Owned teardown first (it is part of what is being proved), then the namespaces themselves.
-    for (const environmentId of [envMain, envNet]) {
+    for (const environmentId of [envMain, envNet, JOURNEY_ENV]) {
       try {
         for (let i = 0; i < 40; i++) {
           const report = await teardownKubernetesEnvironment({ workspaceId, environmentId, session, retainStateful: false });
@@ -199,7 +210,7 @@ describe.skipIf(!enabled)(`Kubernetes full lifecycle on a real cluster (${profil
         failures.push(`teardown ${environmentId}: ${e instanceof Error ? e.message.slice(0, 120) : "failed"}`);
       }
     }
-    for (const ns of [nsMain, nsNet]) {
+    for (const ns of [nsMain, nsNet, nsJourney]) {
       await client?.objects.delete({ apiVersion: "v1", kind: "Namespace", metadata: { name: ns } }).catch(() => undefined);
     }
     evidence.finishedAt = new Date().toISOString();
@@ -536,6 +547,43 @@ describe.skipIf(!enabled)(`Kubernetes full lifecycle on a real cluster (${profil
       policies: policyObjects.map((o) => o.metadata.name).sort(),
     });
   }, 1_200_000);
+
+  /* ------------------------------- the default journey ------------------------------- */
+
+  it("deploys through the default journey: plan, approval, final plan, apply, release, verify, then converges", async () => {
+    const j = await startJourney({ session, namespace: nsJourney, sts: serverConfig({ namespace: nsJourney, replicas: 1 }) });
+    try {
+      const validation = await j.validate();
+      expect(validation.problems).toEqual([]);
+      const plan = await j.plan();
+      expect(plan).toMatchObject({ delete: 0, replace: 0, empty: false });
+      expect((await j.policy(plan.planDigest)).outcome).toBe("allow");
+      j.approve();
+      expect((await j.finalPlan(plan.planDigest)).planDigest).toBe(plan.planDigest);
+      const applied = await j.apply(plan.planDigest);
+      expect(applied.applied).toBe(plan.create + plan.update);
+      const released = await j.deploy([]);
+      expect(released.services).toBeGreaterThan(0);
+
+      const verified = await eventually("the deployed environment to verify", async () => {
+        const v = await j.verify();
+        return v.status === "passed" ? v : v.status === "failed" ? Promise.reject(new Error(`verification failed: ${v.failed} of ${v.checks}`)) : undefined;
+      }, { timeoutMs: 360_000, intervalMs: 6000 });
+      expect(verified.failed).toBe(0);
+      record("journey", { planned: plan.create, applied: applied.applied, deletesPlanned: plan.delete, verified: verified.checks });
+    } finally {
+      await j.releaseLease();
+    }
+    // a fresh operation over the same revision finds nothing to do
+    const again = await startJourney({ session, namespace: nsJourney, sts: serverConfig({ namespace: nsJourney, replicas: 1 }) });
+    try {
+      const replan = await again.plan();
+      expect(replan, "a converged environment must plan empty").toMatchObject({ create: 0, update: 0, empty: true });
+      record("journey", { convergedPlanEmpty: true });
+    } finally {
+      await again.releaseLease();
+    }
+  }, 900_000);
 
   /* ----------------------------------- teardown ----------------------------------- */
 

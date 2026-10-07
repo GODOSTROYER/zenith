@@ -81,6 +81,9 @@ describe.each(["kubernetes", "zenith"] as const)("%s C1 destroy", (provider) => 
     // a wildcard for a kind every cluster serves is a real coverage gap, not an absent CRD
     s.setResult({ deleted: [], retained: [], skipped: ["Service/ns/*"], uncertain: [] });
     await expect(planOnce()).rejects.toThrow(/skipped or uncertain/);
+    // a wildcard that is UNCERTAIN (discovery failed or timed out) is never an absent CRD
+    s.setResult({ deleted: [], retained: [], skipped: [], uncertain: ["Certificate/ns/*"] });
+    await expect(planOnce()).rejects.toThrow(/skipped or uncertain/);
     // a named object of a CRD kind was seen and not deleted
     s.setResult({ deleted: [], retained: [], skipped: ["Certificate/ns/web-cert"], uncertain: [] });
     await expect(planOnce()).rejects.toThrow(/skipped or uncertain/);

@@ -6,14 +6,14 @@
  * refusals, and NetworkPolicy engine detection. A fake API server is contract
  * evidence only; the real-cluster proof is lifecycle-acceptance.test.ts.
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { diff, serverSideApply } from "@/lib/providers/kubernetes/apply";
 import { getDriver } from "@/lib/drivers/types";
 import { registerKubernetesDrivers } from "@/lib/providers/kubernetes/drivers";
 import { renderGraph } from "@/lib/providers/kubernetes/render";
 import { evaluateRollout } from "@/lib/providers/kubernetes/rollout";
 import { teardownKubernetesEnvironment } from "@/lib/providers/kubernetes";
-import { createK8sClient } from "@/lib/providers/kubernetes/client";
+import { RawObjectApi, createK8sClient } from "@/lib/providers/kubernetes/client";
 import { chooseSnapshotClass, detectSnapshotSupport } from "@/lib/providers/kubernetes/snapshots";
 import { detectPolicyEngine } from "@/lib/providers/kubernetes/cni";
 import { ANNOTATION, LABEL } from "@/lib/providers/kubernetes/types";
@@ -30,6 +30,9 @@ const SNAPSHOT_API = "snapshot.storage.k8s.io/v1";
 let fake: FakeK8s;
 beforeEach(async () => {
   fake = await startFakeK8s({ snapshotsReady: true });
+});
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 afterEach(async () => {
   await fake.close();
@@ -818,5 +821,54 @@ describe("NetworkPolicy engine detection", () => {
     const verify = await d.verify(c, node, obs, runtime);
     expect(verify.checks.find((x: any) => x.id === "enforcing_cni")).toMatchObject({ passed: true, detail: "calico" });
     expect(verify.status).toBe("passed");
+  });
+});
+
+/* ------------------- an unserved kind is only absent if discovery says so ------------------- */
+
+describe("discovery of unserved kinds", () => {
+  const teardown = async () =>
+    teardownKubernetesEnvironment({ workspaceId: "ws-1", environmentId: ENV_ID, session: await sessionFor(fake, []), retainStateful: true } as any);
+  const kindAbsent = async (apiVersion: string, kind: string) => createK8sClient(await sessionFor(fake, [NS])).objects.kindAbsent(apiVersion, kind);
+
+  it("answers true only when the group is not served, and false when the kind is served", async () => {
+    expect(await kindAbsent("cert-manager.io/v1", "Certificate")).toBe(false);
+    fake.setCrds(false);
+    expect(await kindAbsent("cert-manager.io/v1", "Certificate")).toBe(true);
+    // a served group that lacks the kind is absent too (partial discovery that is positive about the kind)
+    expect(await kindAbsent("apps/v1", "NoSuchKind")).toBe(true);
+    expect(await kindAbsent("apps/v1", "StatefulSet")).toBe(false);
+  });
+
+  it("throws, rather than answering, when discovery fails: a 500, a 403 or a dead connection", async () => {
+    fake.setCrds(false);
+    for (const status of [500, 403]) {
+      fake.clearInjections();
+      fake.inject({ match: (r) => r.method === "GET" && r.path === "/apis/cert-manager.io/v1", status, message: "denied" });
+      await expect(kindAbsent("cert-manager.io/v1", "Certificate"), String(status)).rejects.toBeDefined();
+    }
+    fake.clearInjections();
+    await fake.close();
+    await expect(createK8sClient(await sessionFor(fake, [NS])).objects.kindAbsent("cert-manager.io/v1", "Certificate")).rejects.toBeDefined();
+    fake = await startFakeK8s({ snapshotsReady: true });
+  });
+
+  it("reports a confirmed-unserved kind as skipped, and a kind whose discovery fails as uncertain", async () => {
+    await deploy([networkNode(), stsNode()]);
+    fake.setCrds(false);
+    const confirmed = await teardown();
+    expect(confirmed.skipped).toEqual(expect.arrayContaining([`Certificate/${NS}/*`, `DNSEndpoint/${NS}/*`, `HTTPRoute/${NS}/*`]));
+    expect(confirmed.uncertain).toEqual([]);
+
+    const real = RawObjectApi.prototype.kindAbsent;
+    vi.spyOn(RawObjectApi.prototype, "kindAbsent").mockImplementation(async function (this: RawObjectApi, apiVersion: string, kind: string) {
+      if (kind === "Certificate" || kind === "VolumeSnapshot") throw new Error("discovery timed out");
+      return real.call(this, apiVersion, kind);
+    });
+    const unknown = await teardown();
+    expect(unknown.uncertain).toEqual(expect.arrayContaining([`Certificate/${NS}/*`, `VolumeSnapshot/${NS}/*`]));
+    expect(unknown.skipped).not.toContain(`Certificate/${NS}/*`);
+    // the kinds whose discovery did answer are still plain coverage notes
+    expect(unknown.skipped).toEqual(expect.arrayContaining([`DNSEndpoint/${NS}/*`, `HTTPRoute/${NS}/*`]));
   });
 });

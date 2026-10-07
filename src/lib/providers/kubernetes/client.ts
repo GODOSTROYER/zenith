@@ -158,6 +158,26 @@ export class RawObjectApi extends KubernetesObjectApi {
     return this.requestPromise<T>(request);
   }
 
+  /**
+   * Whether the API server positively reports that it does not serve a kind: discovery of its group/version
+   * answers 404, or answers with a resource list that lacks the kind. Anything else (a timeout, a 5xx, a 401,
+   * a 403, an unreadable list) throws: an unanswered question is not an answer, and a caller deciding that
+   * "nothing of this kind can exist" must not treat it as one.
+   */
+  async kindAbsent(apiVersion: string, kind: string): Promise<boolean> {
+    const path = apiVersion.includes("/") ? `/apis/${apiVersion}` : `/api/${apiVersion}`;
+    const request = this.configuration.baseServer.makeRequestContext(path, HttpMethod.GET);
+    request.setHeaderParam("Accept", "application/json");
+    try {
+      const list = await this.requestPromise<KubernetesObject>(request) as unknown as { resources?: unknown };
+      if (!Array.isArray(list.resources)) throw new K8sError("api_error", "Discovery returned no resource list.");
+      return !list.resources.some((r) => isRecord(r) && r.kind === kind);
+    } catch (e) {
+      if (e instanceof ApiException && e.code === 404) return true;
+      throw e;
+    }
+  }
+
   /** Successful responses are returned as the server's JSON; failures keep the library's ApiException. */
   protected override async processResponse<T extends KubernetesObject>(response: ResponseContext, _type?: string): Promise<T> {
     if (response.httpStatusCode >= 200 && response.httpStatusCode <= 299) {

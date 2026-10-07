@@ -12,6 +12,7 @@ import type { ResourceNode } from "@/lib/resources/types";
 import { asRecord, listAll, tagsOf } from "./observe-kit";
 import { isOcid, ociPath } from "./services";
 import { ociCall } from "./transport";
+import { makeProof, type DnsAssessment } from "../dns-teardown-proof";
 
 const unsafe = () => ({ safe: false, reason: "DNS target ownership could not be confirmed." });
 // DNS zone OCIDs contain a hyphen in their resource type; the generic OCI
@@ -28,7 +29,7 @@ const collection = (body: unknown): unknown[] => {
   return items;
 };
 
-export async function assessRecordDeletion(ctx: DriverContext<OciSession>, node: ResourceNode, nodes: readonly ResourceNode[]): Promise<{ safe: boolean; reason: string }> {
+export async function assessRecordDeletion(ctx: DriverContext<OciSession>, node: ResourceNode, nodes: readonly ResourceNode[]): Promise<DnsAssessment> {
   try {
     if (ctx.provider !== "oci" || ctx.session.scope.workspaceId !== ctx.workspaceId || ctx.session.scope.environmentId !== ctx.environmentId || node.provider !== "oci" || node.kind !== "dns_record" || node.nativeType !== "oci:dns_rrset" || node.ownership !== "managed" || node.spec.type !== "alias") return unsafe();
     const target = nodes.find((n) => n.address === node.spec.target);
@@ -50,7 +51,8 @@ export async function assessRecordDeletion(ctx: DriverContext<OciSession>, node:
     // A failure on any page cannot prove absence (OCI's 404 is ambiguous).
     if (!records.ok) return unsafe();
     if (records.truncated) return unsafe();
-    if (records.items.length === 0) return { safe: true, reason: "The record is absent in the readable compartment zone." };
+    const stateMatch = node.externalRef !== undefined ? "externalRef" as const : "unrecorded" as const;
+    if (records.items.length === 0) return { safe: true, reason: "The record is absent in the readable compartment zone.", proof: makeProof({ provider: "oci", address: node.address, zone: apex, name: host, type: "A", disposition: "absent", values: [], ownership: ["oci:zone_readable"], stateMatch }) };
     const values = records.items.map((item) => asRecord(item)!);
     if (!values.every((r) => domain(r.domain) === host && r.rtype === "A" && typeof r.rdata === "string" && isIP(r.rdata) === 4)) return unsafe();
     const owns = (r: Record<string, unknown>) => {
@@ -68,7 +70,7 @@ export async function assessRecordDeletion(ctx: DriverContext<OciSession>, node:
     const ips = lb.ipAddresses.map((item) => asRecord(item));
     if (ips.length === 0 || !ips.every((ip) => typeof ip?.ipAddress === "string" && isIP(ip.ipAddress) === 4)) return unsafe();
     if (!values.every((r) => ips.some((ip) => ip?.ipAddress === r.rdata))) return unsafe();
-    return { safe: true, reason: "Every record value points to the scoped managed load balancer." };
+    return { safe: true, reason: "Every record value points to the scoped managed load balancer.", proof: makeProof({ provider: "oci", address: node.address, zone: apex, name: host, type: "A", disposition: "present", values: values.map((r) => String(r.rdata)), ownership: ["oci:load_balancer_tags", "oci:rdata_in_load_balancer_ips", "oci:zone_readable"], stateMatch }) };
   } catch {
     return unsafe();
   }

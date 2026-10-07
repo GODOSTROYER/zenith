@@ -12,6 +12,8 @@ import type { ResourceNode } from "@/lib/resources/types";
 import { isPointerKey, looksSecretKey, urlHasCredentials } from "@/lib/resources/secrets";
 import { asRecord, tagsOf } from "../observe-kit";
 import { ociPath } from "../services";
+import { readDeletionEvidence } from "../deletion-evidence";
+import { awaitWorkRequest, receiptWorkRequestIds, WORK_REQUEST_APIS } from "../work-requests";
 import { container, id, instance, instances, liveWorkloads, MIGRATION_TAG, owned, pause, releaseContext, request, timeoutSignal, workload,
   type RecordValue, type ReleaseContext } from "./support";
 
@@ -75,13 +77,56 @@ async function launchBody(ctx: ReleaseContext, node: ResourceNode, source: Recor
   };
 }
 
-async function cleanup(ctx: ReleaseContext, migrationId: string, token: string): Promise<void> {
+/** The receipt journal's view of this execution (GET list with the selector never reaches OCI). */
+async function runnerReceipt(ctx: ReleaseContext, token: string): Promise<RecordValue | undefined> {
+  const res = await request(ctx, { service: "containerinstances", region: ctx.region, method: "GET",
+    path: ociPath("containerinstances", "containerInstances"), query: { compartmentId: ctx.session.compartmentOcid }, migrationKey: token });
+  return asRecord(res.body);
+}
+
+/**
+ * Evidence-only: read the create work request recorded by the runner's journal. A
+ * replacement runner that inherits the journal resumes here with GETs alone, so it
+ * can never re-execute. FAILED/CANCELED creation is refused; unreadable or in-flight
+ * work is not a conclusion and does not block observing the instance itself.
+ */
+async function checkCreateWorkRequest(ctx: ReleaseContext, token: string, workRequestId: string | undefined): Promise<void> {
+  const api = WORK_REQUEST_APIS.containerinstances;
+  if (!workRequestId || !api) return;
+  const read = await awaitWorkRequest(ctx, api, workRequestId, { migrationKey: token, maxPolls: 1 });
+  if (!read.ok) { ctx.log("OCI migration create work request could not be read; relying on instance readback.", "info"); return; }
+  if (read.receipt.state === "failed" || read.receipt.state === "canceled") throw new Error("OCI migration creation work request did not succeed; outcome is unknown.");
+  ctx.log(`OCI migration create work request is ${read.receipt.state}.`, "info");
+}
+
+/** One second apart: deletion usually finishes within seconds; the wait is bounded and never blocks the exit code. */
+export const CLEANUP_CONFIRM_ATTEMPTS = 3;
+
+async function cleanup(ctx: ReleaseContext, node: ResourceNode, migrationId: string, token: string): Promise<void> {
   try {
     await request(ctx, { service: "containerinstances", region: ctx.region, method: "DELETE",
       path: ociPath("containerinstances", "containerInstances", migrationId), migrationKey: token });
-    ctx.log("OCI migration cleanup requested; deletion completion is not verified.", "info");
+    ctx.log("OCI migration cleanup requested.", "info");
   } catch {
     ctx.log("OCI migration cleanup failed or was cancelled; cleanup remains unknown. The observed migration exit is preserved.", "info");
+    return;
+  }
+  // Independent completion check. It never changes the observed exit code: it only
+  // says whether OCI confirms the one-off is gone, and says "not confirmed" otherwise.
+  try {
+    let found: Awaited<ReturnType<typeof readDeletionEvidence>> | undefined;
+    for (let attempt = 0; attempt < CLEANUP_CONFIRM_ATTEMPTS; attempt++) {
+      // The journal gains the delete work-request id once the runner has recorded it.
+      const journal = await runnerReceipt(ctx, token);
+      found = await readDeletionEvidence(ctx, { ...node, nativeType: "oci:container_instance" }, migrationId,
+        { migrationKey: token, workRequestId: receiptWorkRequestIds(journal).delete, wait: { maxPolls: 1 } });
+      if (found.state !== "deleting" && found.state !== "present") break;
+      if (attempt < CLEANUP_CONFIRM_ATTEMPTS - 1) await pause(ctx.signal);
+    }
+    if (!found) throw new Error("no evidence");
+    ctx.log(found.state === "deleted" ? "OCI migration cleanup confirmed by independent readback." : `OCI migration cleanup is not confirmed (${found.state}); the one-off may still exist.`, "info");
+  } catch {
+    ctx.log("OCI migration cleanup could not be independently confirmed.", "info");
   }
 }
 
@@ -105,9 +150,10 @@ export function createMigrationsPort(): MigrationsPort {
       if (!receipt || !["absent", "running", "completed"].includes(String(receipt.state))) throw new Error("OCI migration durable execution intent is unresolved; outcome is unknown.");
       if (receipt.state === "completed") {
         if (!Number.isSafeInteger(receipt.exitCode) || (receipt.exitCode as number) < 0 || (receipt.exitCode as number) > 255) throw new Error("OCI migration receipt is malformed; outcome is unknown.");
-        await cleanup(bounded, id(receipt.instanceId, "computecontainerinstance"), token);
+        await cleanup(bounded, node, id(receipt.instanceId, "computecontainerinstance"), token);
         return { exitCode: receipt.exitCode as number };
       }
+      await checkCreateWorkRequest(bounded, token, receiptWorkRequestIds(receipt).create);
       const all = await instances(bounded);
       const existing = all.filter((item) => owned(bounded, item, node.address) && tagsOf(item)[MIGRATION_TAG] === token);
       if (existing.length > 1) throw new Error("OCI migration has duplicate executions; outcome is unknown.");
@@ -140,7 +186,7 @@ export function createMigrationsPort(): MigrationsPort {
             throw new Error("OCI migration stopped without an observed exit code; outcome is unknown.");
           }
           ctx.log(`OCI migration exited with code ${exitCode}; container logs suppressed.`, "info");
-          await cleanup(bounded, migrationId, token);
+          await cleanup(bounded, node, migrationId, token);
           return { exitCode };
         }
         if (["FAILED", "DELETING", "DELETED"].includes(String(full.lifecycleState)) ||

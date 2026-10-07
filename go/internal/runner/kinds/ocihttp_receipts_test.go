@@ -355,3 +355,119 @@ func TestOCIMigrationReceiptJournalFailsClosed(t *testing.T) {
 		})
 	}
 }
+
+const receiptCreateWR = "ocid1.containerinstanceworkrequest.oc1.iad.createwr1"
+const receiptDeleteWR = "ocid1.containerinstanceworkrequest.oc1.iad.deletewr1"
+
+// receiptWorkRequestWorld answers like receiptWorld but also returns OCI's
+// opc-work-request-id header on create and delete, and serves work-request reads.
+func receiptWorkRequestWorld(t *testing.T) (*OCI, *int, *int) {
+	t.Helper()
+	k, creates, deletes, _ := receiptWorld(t)
+	inner := k.deps.Client.Transport
+	k.deps.Client.Transport = ociTransportFunc(func(r *http.Request) (*http.Response, error) {
+		response, err := inner.RoundTrip(r)
+		if err != nil || response == nil {
+			return response, err
+		}
+		switch {
+		case r.Method == "POST":
+			response.Header.Set("opc-work-request-id", receiptCreateWR)
+		case r.Method == "DELETE":
+			response.Header.Set("opc-work-request-id", receiptDeleteWR)
+		case strings.Contains(r.URL.Path, "/workRequests/"):
+			data, _ := json.Marshal(map[string]any{"id": strings.TrimPrefix(r.URL.Path, ociWorkRequestPrefix), "status": "SUCCEEDED"})
+			return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(string(data)))}, nil
+		}
+		return response, nil
+	})
+	return k, creates, deletes
+}
+
+func TestOCIMigrationReceiptRecordsWorkRequestIDsAndAnswersOnlyOwnedReads(t *testing.T) {
+	k, creates, _ := receiptWorkRequestWorld(t)
+	if receiptRun(t, k, receiptPayload("POST", "/20210415/containerInstances")).Status != agent.StatusSucceeded {
+		t.Fatal("creation failed")
+	}
+	value := receiptDecode(t, receiptRun(t, k, receiptPayload("GET", "/20210415/containerInstances")))
+	if value["state"] != "running" || value["createWorkRequest"] != receiptCreateWR {
+		t.Fatalf("work request receipt not exposed: %v", value)
+	}
+	if receiptRun(t, k, receiptPayload("GET", ociWorkRequestPrefix+receiptCreateWR)).Status != agent.StatusSucceeded {
+		t.Fatal("owned work request was not readable")
+	}
+	for _, foreign := range []string{"ocid1.containerinstanceworkrequest.oc1.iad.foreign1", receiptDeleteWR} {
+		if _, err := k.Prepare(receiptJob(t, receiptPayload("GET", ociWorkRequestPrefix+foreign))); err == nil {
+			if run, _ := k.Prepare(receiptJob(t, receiptPayload("GET", ociWorkRequestPrefix+foreign))); run != nil && run(context.Background(), nil).Status == agent.StatusSucceeded {
+				t.Fatalf("read a work request this execution does not own: %s", foreign)
+			}
+		}
+	}
+	if *creates != 1 {
+		t.Fatal("work request reads re-executed the launch")
+	}
+}
+
+func TestOCIMigrationReceiptDeleteWorkRequestIsRecorded(t *testing.T) {
+	k, _, deletes := receiptWorkRequestWorld(t)
+	receiptRun(t, k, receiptPayload("POST", "/20210415/containerInstances"))
+	receiptRun(t, k, receiptPayload("GET", "/20210415/containers/"+receiptContainer))
+	if receiptRun(t, k, receiptPayload("DELETE", "/20210415/containerInstances/"+receiptInstance)).Status != agent.StatusSucceeded || *deletes != 1 {
+		t.Fatal("cleanup failed")
+	}
+	value := receiptDecode(t, receiptRun(t, k, receiptPayload("GET", "/20210415/containerInstances")))
+	if value["cleanup"] != "requested" || value["deleteWorkRequest"] != receiptDeleteWR || value["createWorkRequest"] != receiptCreateWR {
+		t.Fatalf("delete work request not recorded: %v", value)
+	}
+	if receiptRun(t, k, receiptPayload("GET", ociWorkRequestPrefix+receiptDeleteWR)).Status != agent.StatusSucceeded {
+		t.Fatal("delete work request was not readable")
+	}
+}
+
+// A replacement runner process inheriting the durable journal (new process, new
+// local bindings) resumes reading the predecessor's in-flight work request and
+// can neither re-launch nor read a request it has no receipt for.
+func TestOCIReplacementRunnerResumesWorkRequestReadsWithoutReexecution(t *testing.T) {
+	k, creates, _ := receiptWorkRequestWorld(t)
+	receiptRun(t, k, receiptPayload("POST", "/20210415/containerInstances"))
+	cfg := ociConfig()
+	cfg.AuditPath = k.cfg.AuditPath
+	replacement, err := NewOCI(cfg, k.deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ResourceCompartments[receiptCreateWR] != "" {
+		t.Fatal("fixture leaked a predecessor binding")
+	}
+	value := receiptDecode(t, receiptRun(t, replacement, receiptPayload("GET", "/20210415/containerInstances")))
+	if value["state"] != "running" || value["createWorkRequest"] != receiptCreateWR || value["instanceId"] != receiptInstance {
+		t.Fatalf("replacement lost the receipt: %v", value)
+	}
+	if receiptRun(t, replacement, receiptPayload("GET", ociWorkRequestPrefix+receiptCreateWR)).Status != agent.StatusSucceeded {
+		t.Fatal("replacement could not resume reading the in-flight work request")
+	}
+	if receiptRun(t, replacement, receiptPayload("POST", "/20210415/containerInstances")).Status != agent.StatusFailed || *creates != 1 {
+		t.Fatal("replacement re-executed the launch")
+	}
+	// A runner without the journal has no receipt and no binding: it cannot read the id.
+	blank, err := NewOCI(func() OCIConfig { c := ociConfig(); c.AuditPath = filepath.Join(t.TempDir(), "audit"); return c }(), k.deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := blank.Prepare(receiptJob(t, receiptPayload("GET", ociWorkRequestPrefix+receiptCreateWR))); err == nil {
+		t.Fatal("a runner without the journal could read an unowned work request")
+	}
+}
+
+func TestOCIMigrationReceiptWorkRequestJournalValidation(t *testing.T) {
+	k, _, _ := receiptWorkRequestWorld(t)
+	receiptRun(t, k, receiptPayload("POST", "/20210415/containerInstances"))
+	r := k.receipts[ociScope("workspace", "operation", receiptKey)]
+	r.CreateWorkRequest = "ocid1.containerinstanceworkrequest.oc1.iad.changed1"
+	if k.saveReceipt(r) != nil {
+		t.Fatal("fixture journal write failed")
+	}
+	if _, err := NewOCI(k.cfg, k.deps); err == nil {
+		t.Fatal("a changed work request id was trusted")
+	}
+}

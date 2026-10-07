@@ -107,6 +107,16 @@ export interface ControlPlaneClient {
   getDrift(environmentId: string): Promise<Record<string, unknown>>;
 }
 
+/** What the teardown-review poll returns; only the fields the harness reads. */
+export interface TeardownReviewView {
+  reviewOperationId: string;
+  status: string;
+  /** the proposed destroy operation, once the review succeeded */
+  operationId?: string;
+  planDigest?: string;
+  [k: string]: unknown;
+}
+
 export class ControlPlaneError extends Error {
   readonly status: number;
   readonly code?: string;
@@ -252,6 +262,15 @@ export class HttpControlPlaneClient implements ControlPlaneClient {
 
   cancelOperation(id: string, reason?: string) {
     return this.#request<{ operation: OperationViewLike }>("POST", `/api/platform/v1/operations/${encodeURIComponent(id)}/cancel`, reason ? { reason } : {});
+  }
+
+  /** Read-only teardown review trigger (plan scope). It never approves or applies. */
+  requestTeardownReview(environmentId: string, idempotencyKey: string) {
+    return this.#request<{ reviewOperationId: string; status: string; replayed: boolean }>("POST", `/api/platform/v1/environments/${encodeURIComponent(environmentId)}/teardown-review`, { idempotencyKey });
+  }
+
+  getTeardownReview(environmentId: string, reviewId?: string) {
+    return this.#request<{ review: TeardownReviewView | null }>("GET", `/api/platform/v1/environments/${encodeURIComponent(environmentId)}/teardown-review`, undefined, { reviewId });
   }
 
   getAutonomy(environmentId: string) {

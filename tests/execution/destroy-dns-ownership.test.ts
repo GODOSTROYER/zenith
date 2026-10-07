@@ -175,6 +175,64 @@ describe.each(["gcp", "azure", "oci"] as const)("%s destroy DNS ownership [model
     expect(f.w.tofu.applyCalls).toHaveLength(0);
   });
 
+  it("stores a per-record-set ownership proof in the reviewed plan evidence, without cloud canaries", async () => {
+    const f = await fixture(provider);
+    await reviewed(f);
+    const row = f.w.evidence.ofKind("tofu_plan").find(r => r.summary.dnsOwnership);
+    const stored = row?.summary.dnsOwnership as { digest: string; records: { provider: string; address: string; disposition: string; values: string[]; ownership: string[]; stateMatch: string }[] };
+    expect(stored.digest).toMatch(/^[0-9a-f]{64}$/);
+    expect(stored.records).toHaveLength(1);
+    expect(stored.records[0]).toMatchObject({ provider, address: f.cloud.node.address, disposition: "present", stateMatch: "unrecorded" });
+    expect(stored.records[0].ownership.length).toBeGreaterThan(1);
+    expect(JSON.stringify(stored)).not.toContain("foreign-target-canary");
+    expect(JSON.stringify(stored)).not.toContain("domain-proof-canary");
+  });
+
+  it.each(["removed", "altered", "digest forged"] as const)("refuses apply when the reviewed ownership proof is %s", async tamper => {
+    const f = await fixture(provider), args = await reviewed(f);
+    for (const row of f.w.evidence.ofKind("tofu_plan")) {
+      const summary = row.summary as Record<string, unknown> & { dnsOwnership?: { digest: string; records: { values: string[] }[] } };
+      const own = summary.dnsOwnership;
+      if (!own) continue;
+      if (tamper === "removed") delete summary.dnsOwnership;
+      if (tamper === "altered") own.records[0].values = ["203.0.113.99"];
+      if (tamper === "digest forged") own.digest = "f".repeat(64);
+    }
+    await expect(f.w.activities.applyDestroyInfrastructure(args)).rejects.toThrow(/ownership changed since review/);
+    expect(f.w.tofu.applyCalls).toHaveLength(0);
+    expect(f.w.evidence.ofKind("tofu_apply")).toHaveLength(0);
+  });
+
+  it("classifies the deleted record set against its review, and a re-run over an already absent one as already_absent", async () => {
+    const readback = async (f: Awaited<ReturnType<typeof fixture>>, args: Awaited<ReturnType<typeof reviewed>>) => {
+      await f.w.activities.applyDestroyInfrastructure(args);
+      for (const node of f.cloud.nodes) f.w.drivers(provider, node.nativeType)!.observe = async (_ctx, current) => ({
+        address: current.address, presence: "missing", attributes: {}, source: "modeled-provider-readback", observedAt: "2026-10-04T00:00:00Z", simulated: false,
+      } satisfies Observation);
+      const verified = await f.w.activities.verifyDestroyedInfrastructure(args);
+      const checks = (f.w.evidence.ofKind("verification").at(-1)?.summary.checks ?? []) as { address: string; dns?: string }[];
+      return { verified, dns: checks.find(c => c.address === f.cloud.node.address)?.dns };
+    };
+    const first = await fixture(provider), firstArgs = await reviewed(first);
+    expect(await readback(first, firstArgs)).toMatchObject({ verified: { status: "passed" }, dns: "deleted" });
+
+    const cloud = factories[provider](WS, ENV);
+    if ("jobs" in cloud) cloud.state.records = { items: [] }; else cloud.state.recordStatus = 404;
+    const second = await fixture(provider, cloud), secondArgs = await reviewed(second);
+    expect(await readback(second, secondArgs)).toMatchObject({ verified: { status: "passed" }, dns: "already_absent" });
+  });
+
+  it("does not count absence for a record set whose review proof is missing", async () => {
+    const f = await fixture(provider), args = await reviewed(f);
+    await f.w.activities.applyDestroyInfrastructure(args);
+    for (const node of f.cloud.nodes) f.w.drivers(provider, node.nativeType)!.observe = async (_ctx, current) => ({
+      address: current.address, presence: "missing", attributes: {}, source: "modeled-provider-readback", observedAt: "2026-10-04T00:00:00Z", simulated: false,
+    } satisfies Observation);
+    for (const row of f.w.evidence.ofKind("tofu_plan")) delete (row.summary as Record<string, unknown>).dnsOwnership;
+    expect((await f.w.activities.verifyDestroyedInfrastructure(args)).status).toBe("unknown");
+    expect(f.w.resources.rows.get(`${ENV}|${f.cloud.node.address}`)?.status).toBe("unknown");
+  });
+
   it("refuses a revoked current connection after inspection before dispatch", async () => {
     const f = await fixture(provider), args = await reviewed(f);
     f.control.beforeDispatch = () => { f.w.connections.connections[0].status = "revoked"; };

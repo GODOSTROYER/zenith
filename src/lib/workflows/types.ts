@@ -189,6 +189,7 @@ export const WORKFLOW_TYPES = {
   reconcileSweep: "reconcileSweepWorkflow",
   criticalMaintenance: "criticalMaintenanceWorkflow",
   codingAgentRun: "codingAgentRunWorkflow",
+  mixedParent: "mixedParentWorkflow",
 } as const;
 
 /* ------------------------------- activities ------------------------------- */

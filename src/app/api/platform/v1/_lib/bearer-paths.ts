@@ -53,6 +53,10 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/releases$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/releases/${ID}$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/releases/${ID}/approve-migration$`), methods: { POST: "browser-only" } },
+  // Mixed-cloud parent plans (PROD-MIX-01/02): reads are open to members; planning (which proposes the parent operation), binding children and starting need the person's browser.
+  { path: new RegExp(`^${ROOT}/mixed/plans$`), methods: { GET: "bearer-capable", POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/mixed/plans/${ID}$`), methods: { GET: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/mixed/plans/${ID}/(?:children|start)$`), methods: { POST: "browser-only" } },
   // Standing grants are a person's bounded pre-approval: creating, revoking and even listing stay in the person's browser.
   { path: new RegExp(`^${ROOT}/standing-grants$`), methods: { GET: "browser-only", POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/standing-grants/${ID}/revoke$`), methods: { POST: "browser-only" } },

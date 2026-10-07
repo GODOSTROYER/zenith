@@ -58,6 +58,7 @@ import * as externalEffects from "./external-effects";
 import * as k8sGuestBindings from "./k8s-guest-bindings";
 import * as mcpStreams from "./mcp-streams";
 import * as codingAgentRuns from "./coding-agent-runs";
+import * as mixedParentPlans from "./mixed-parent-plans";
 
 export {
   planArtifacts,
@@ -99,6 +100,7 @@ export {
   externalEffects,
   k8sGuestBindings,
   mcpStreams,
+  mixedParentPlans,
 };
 
 type CapabilityConstructor = "createApprovedSourceSnapshotStore" | "isApprovedSourceSnapshotStore" | "createIsolatedApprovedSourceStoreForTests" | "reserveOwnerGrant" | "insertOwnerGrant" | "inventory" | "retainCleanupWriterHold" | "reserveCleanupOwnerGrant" | "insertCleanupOwnerGrant";
@@ -164,6 +166,7 @@ export function bindRepos(sql: Sql) {
     k8sGuestBindings: bind(k8sGuestBindings, sql),
     mcpStreams: bind(mcpStreams, sql),
     codingAgentRuns: bind(codingAgentRuns, sql),
+    mixedParentPlans: bind(mixedParentPlans, sql),
   };
 }
 

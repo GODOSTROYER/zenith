@@ -25,8 +25,8 @@ export const MIXED_CHILD_SET_FORMAT = "zenith.mixed-child-set.v1" as const;
 export const MIXED_RECEIPT_FORMAT = "zenith.mixed-child-receipt.v1" as const;
 export const MIXED_ADDRESS_FORMAT = "zenith.mixed-address.v1" as const;
 
-/** The parent approval is an ordinary `infrastructure.apply` operation on the parent environment, marked by this input key. */
-export const MIXED_PARENT_CAPABILITY = "infrastructure.apply" as const;
+/** The parent approval is an ordinary `deployment.deploy` operation on the parent environment, marked by this input key. */
+export const MIXED_PARENT_CAPABILITY = "deployment.deploy" as const;
 export const MIXED_PARENT_INPUT_KEY = "mixedParentPlanId" as const;
 
 export type MixedProviderName = "aws" | "gcp" | "azure" | "oci";

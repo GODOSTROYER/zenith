@@ -25,3 +25,4 @@ export { teardownReviewWorkflow } from "./destroy-review";
 export { reconcileSweepWorkflow } from "./reconcileSweep";
 export { criticalMaintenanceWorkflow } from "./criticalMaintenance";
 export { codingAgentRunWorkflow } from "./codingAgent";
+export { mixedParentWorkflow } from "./mixedParent";

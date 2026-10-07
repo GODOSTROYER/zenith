@@ -149,7 +149,7 @@ export async function beginRequest(input: BeginRequestInput): Promise<RequestSco
 
 /* -------------------------------- dispatch -------------------------------- */
 
-export type DispatchKind = "deploy" | "destroy" | "dayTwo" | "remediation" | "runner_job";
+export type DispatchKind = "deploy" | "destroy" | "dayTwo" | "remediation" | "runner_job" | "export";
 
 export interface DispatchAdmissionInput {
   workspaceId: string;
@@ -171,6 +171,8 @@ export async function assertDispatchAdmitted(input: DispatchAdmissionInput): Pro
   });
   try {
     assertDispatchAllowed(await currentMaintenance(rt), input.workspaceId);
+    // PROD-MAN-06: billing can refuse NEW work (suspension, plan quota) but never export or destroy; `billing: disabled` returns before any I/O.
+    await (await import("@/lib/billing/admission")).assertBillingAdmitted({ workspaceId: input.workspaceId, kind: input.kind, operationId: input.operationId });
     let quota: TenantQuota | null = null;
     try { quota = await rt.quotas.get(input.workspaceId); } catch { /* defaults */ }
     const weight = quota?.weight ?? 1;

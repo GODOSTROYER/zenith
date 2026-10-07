@@ -12,16 +12,18 @@ import type { AutonomyLevel } from "@/lib/policy";
 import { textArray } from "../sql";
 import { assertDefaultMcpProductTopology, assertFinalMcpProductTopology, captureMcpDeployAuthority, requiresMcpDeployAuthority, MCP_DEPLOY_AUTHORITY } from "./workflow-start-deploy-authority";
 
-export type WorkflowStartKind = "deploy" | "destroy" | "dayTwo" | "remediation" | "teardownReview";
+export type WorkflowStartKind = "deploy" | "destroy" | "dayTwo" | "remediation" | "teardownReview" | "mixedParent";
 export type ScalarArguments = Readonly<Record<string, string | boolean>>;
 export const WORKFLOW_START_TYPES = Object.freeze({
   deploy: "infrastructureDeployWorkflow", destroy: "infrastructureDestroyWorkflow",
   dayTwo: "dayTwoOperationWorkflow", remediation: "remediationWorkflow", teardownReview: "teardownReviewWorkflow",
+  mixedParent: "mixedParentWorkflow",
 });
 const FIELDS: Readonly<Record<WorkflowStartKind, readonly string[]>> = {
   deploy: ["workspaceId","operationId","projectId","environmentId","revisionId","deploymentId","connectionId","preApproved","build"],
   destroy: ["workspaceId","operationId","environmentId"], dayTwo: ["workspaceId","operationId","environmentId","capability"],
   remediation: ["workspaceId","operationId","environmentId","incidentId"], teardownReview: ["workspaceId","operationId"],
+  mixedParent: ["workspaceId","operationId","environmentId","parentPlanId"],
 };
 const ID = /^[A-Za-z0-9_.:-]{1,128}$/;
 const HEX = /^[a-f0-9]{64}$/;
@@ -122,12 +124,16 @@ function bind(request: StartRequest, op: Operation): StartBinding {
   const args = request.arguments, input = op.proposal.input;
   if (request.kind !== "teardownReview" && args.environmentId !== op.environment_id) return refuse();
   if (request.kind === "deploy") {
+    // A mixed parent operation is a deploy-capability proposal that only the parent workflow may run (PROD-MIX-02): never the single-provider deploy workflow.
+    if (input?.mixedParentPlanId !== undefined || input?.mixedParentReviewOf !== undefined) return refuse();
     if (!["deployment.deploy","deployment.rollback","infrastructure.apply"].includes(op.capability)
       || args.projectId !== op.project_id || args.revisionId !== input?.revisionId
       || args.deploymentId !== (input?.deploymentId ?? `dep-${op.id}`)
       || (typeof input?.build === "boolean" && args.build !== input.build)
       || (requiresMcpDeployAuthority(request.kind, op)
         && (args.connectionId !== input?.connectionId || args.preApproved !== true))) return refuse();
+  } else if (request.kind === "mixedParent") {
+    if (op.capability !== "deployment.deploy" || typeof input?.mixedParentPlanId !== "string" || args.parentPlanId !== input.mixedParentPlanId) return refuse();
   } else if (request.kind === "destroy") { if (op.capability !== "infrastructure.destroy") return refuse(); }
   else if (request.kind === "teardownReview") {
     if (op.capability !== "infrastructure.plan" || input?.teardownReview !== true || input.environmentId !== op.environment_id) return refuse();

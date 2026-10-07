@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "snapshots": [
+    {
+      "provider": "aws",
+      "format": "aws_price_list",
+      "service": "AmazonEC2",
+      "region": "us-east-1",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/us-east-1/index.json",
+      "retrievedAt": "2026-10-06",
+      "sha256": "f1d84ab0d644ddb10c99a4a4b53a6aaf9b046f17d638d5cf8827be1969937d73",
+      "bytes": 3885,
+      "file": "aws-AmazonEC2-us-east-1.json"
+    },
+    {
+      "provider": "aws",
+      "format": "aws_price_list",
+      "service": "AWSDataTransfer",
+      "region": "us-east-1",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSDataTransfer/current/us-east-1/index.json",
+      "retrievedAt": "2026-10-06",
+      "sha256": "cfcb09a93f912eacf0bcfb003f6b3b1da4a5aa9e2d0d0481c53beff9281f9246",
+      "bytes": 3742,
+      "file": "aws-AWSDataTransfer-us-east-1.json"
+    },
+    {
+      "provider": "aws",
+      "format": "aws_price_list",
+      "service": "AmazonECS",
+      "region": "us-east-1",
+      "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonECS/current/us-east-1/index.json",
+      "retrievedAt": "2026-10-06",
+      "sha256": "2c794aced1bfc612898e4b7edff678ef09172417c9c4aac42abe92604c4c85f8",
+      "bytes": 1445,
+      "file": "aws-AmazonECS-us-east-1.json"
+    },
+    {
+      "provider": "gcp",
+      "format": "gcp_billing_catalog",
+      "service": "Networking",
+      "region": "us-central1",
+      "url": "https://cloudbilling.googleapis.com/v1/services/E505-1604-58F8/skus?currencyCode=USD",
+      "retrievedAt": "2026-10-06",
+      "sha256": "3774736787e30db3ae6b3530bc1843d0c689bbc7a7a89493e42b65a42315c075",
+      "bytes": 4678,
+      "file": "gcp-Networking-us-central1.json"
+    },
+    {
+      "provider": "azure",
+      "format": "azure_retail_prices",
+      "service": "Bandwidth",
+      "region": "eastus",
+      "url": "https://prices.azure.com/api/retail/prices?currencyCode='USD'",
+      "retrievedAt": "2026-10-06",
+      "sha256": "4a5dde2773257d1e0179788b27de7ee603e4ea9a3245319613e29eff2102de16",
+      "bytes": 2072,
+      "file": "azure-Bandwidth-eastus.json"
+    },
+    {
+      "provider": "azure",
+      "format": "azure_retail_prices",
+      "service": "NAT Gateway",
+      "region": "eastus",
+      "url": "https://prices.azure.com/api/retail/prices?currencyCode='USD'",
+      "retrievedAt": "2026-10-06",
+      "sha256": "b489c7d821b0dfe90fe7dd5b53d3dc5db273ea28cd042c308e6b8e28b23af1b3",
+      "bytes": 1558,
+      "file": "azure-NATGateway-eastus.json"
+    },
+    {
+      "provider": "oci",
+      "format": "oci_price_list",
+      "service": "OCI public price list",
+      "url": "https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/?currencyCode=USD",
+      "retrievedAt": "2026-10-06",
+      "sha256": "fe264d418ca756d49105862ac02dde466013580203e438302d376ca8e073764b",
+      "bytes": 1628,
+      "file": "oci-price-list.json"
+    }
+  ]
+}

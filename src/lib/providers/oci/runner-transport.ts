@@ -112,7 +112,7 @@ export function toJobPayload(req: OciApiRequest, limits: RunnerTransportLimits =
   if (!isPlainPath(req.path)) throw new OciTransportRefused("The request path is not a plain absolute path.");
 
   if (req.migrationKey !== undefined && (typeof req.migrationKey !== "string" || !/^[a-f0-9]{48}$/.test(req.migrationKey) || req.service !== "containerinstances" ||
-      !["/20210415/containerInstances", "/20210415/containerInstances/", "/20210415/containers/"].some((p) => req.path === p || (p.endsWith("/") && req.path.startsWith(p))))) throw new OciTransportRefused("Invalid OCI migration receipt selector.");
+      !["/20210415/containerInstances", "/20210415/containerInstances/", "/20210415/containers/", "/20210415/workRequests/"].some((p) => req.path === p || (p.endsWith("/") && req.path.startsWith(p))))) throw new OciTransportRefused("Invalid OCI migration receipt selector.");
   if (req.method === "DELETE" && (!req.migrationKey || req.body !== undefined || Object.values(req.query ?? {}).some((v) => v !== undefined))) throw new OciTransportRefused("OCI cleanup needs a receipt selector and no query or body.");
 
   const headers: Record<string, string> = {};

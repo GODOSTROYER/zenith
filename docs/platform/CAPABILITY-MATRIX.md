@@ -162,11 +162,11 @@ This matrix covers the **resource-driver** path (`src/lib/drivers`). The product
 | `k8s:Deployment` | `container_service` | `kubernetes.deployment@1` | yes | — | `contract` | `contract` | `contract` | `contract` | `container.logs`: `contract`<br>`deployment.rollback`: `contract`<br>`events.read`: `contract`<br>`service.restart`: `contract`<br>`service.scale`: `contract` |
 | `k8s:Ingress` | `load_balancer` | `kubernetes.ingress@1` | yes | — | `contract` | `contract` | `contract` | `contract` | — |
 | `k8s:Namespace` | `network` | `kubernetes.namespace@1` | yes | — | `contract` | `contract` | `contract` | `contract` | — |
-| `k8s:NetworkPolicy` | `firewall` | `kubernetes.networkpolicy@1` | yes | — | `contract` | — | `contract` | `contract` | — |
-| `k8s:PersistentVolumeClaim` | `volume` | `kubernetes.persistentvolumeclaim@1` | yes | — | `contract` | `contract` | `contract` | `contract` | — |
+| `k8s:NetworkPolicy` | `firewall` | `kubernetes.networkpolicy@1` | yes | — | `contract` | `contract` | `contract` | `contract` | — |
+| `k8s:PersistentVolumeClaim` | `volume` | `kubernetes.persistentvolumeclaim@1` | yes | — | `contract` | `contract` | `contract` | `contract` | `database.restore`: `contract`<br>`database.snapshot`: `contract` |
 | `k8s:Secret` | `secret` | `kubernetes.secret@1` | yes | — | `contract` | — | `contract` | `contract` | — |
 | `k8s:ServiceAccount` | `identity` | `kubernetes.serviceaccount@1` | yes | — | `contract` | — | `contract` | `contract` | — |
-| `k8s:StatefulSet` | `postgres` | `kubernetes.statefulset@1` | yes | — | `contract` | `contract` | `contract` | `contract` | `container.logs`: `contract`<br>`events.read`: `contract`<br>`service.restart`: `contract` |
+| `k8s:StatefulSet` | `postgres` | `kubernetes.statefulset@1` | yes | — | `contract` | `contract` | `contract` | `contract` | `container.logs`: `contract`<br>`database.restore`: `contract`<br>`database.snapshot`: `contract`<br>`deployment.rollback`: `contract`<br>`events.read`: `contract`<br>`service.restart`: `contract`<br>`service.scale`: `contract` |
 
 ### zenith
 
@@ -179,7 +179,7 @@ This matrix covers the **resource-driver** path (`src/lib/drivers`). The product
 | `k8s:Ingress` | `load_balancer` | `zenith.http_route@1` | yes | — | `contract` | `contract` | `contract` | — | — |
 | `k8s:Namespace` | `network` | `zenith.tenant_namespace@1` | yes | — | `contract` | `contract` | `contract` | — | — |
 | `k8s:NetworkPolicy` | `firewall` | `zenith.network_policy@1` | yes | — | `contract` | — | `contract` | — | — |
-| `k8s:PersistentVolumeClaim` | `volume` | `zenith.persistentvolumeclaim@1` | yes | — | `contract` | `contract` | `contract` | — | — |
+| `k8s:PersistentVolumeClaim` | `volume` | `zenith.persistentvolumeclaim@1` | yes | — | `contract` | `contract` | `contract` | — | `database.restore`: `contract`<br>`database.snapshot`: `contract` |
 | `k8s:Secret` | `secret` | `zenith.secret@1` | yes | — | `contract` | — | `contract` | — | — |
 | `k8s:ServiceAccount` | `identity` | `zenith.serviceaccount@1` | yes | — | `contract` | — | `contract` | — | — |
 | `zenith:managed_postgres` | `postgres` | `zenith.managed_postgres@1` | yes | — | `contract` | `contract` | `contract` | — | — |
@@ -243,12 +243,12 @@ From `CAPABILITIES` (`src/lib/capabilities/catalog.ts`): every name authorizatio
 | `traces.read` | low | no | — | 0 | environment | no driver |
 | `infrastructure.plan` | low | no | — | 1 | environment | no driver |
 | `file.read` | medium | no | — | 2 | resource | no driver |
-| `database.snapshot` | low | yes | — | 3 | resource | aws: `contract` (1 driver)<br>azure: `contract` (1 driver)<br>gcp: `contract` (1 driver)<br>oci: `contract` (1 driver) |
+| `database.snapshot` | low | yes | — | 3 | resource | aws: `contract` (1 driver)<br>azure: `contract` (1 driver)<br>gcp: `contract` (1 driver)<br>kubernetes: `contract` (2 drivers)<br>oci: `contract` (1 driver)<br>zenith: `contract` (1 driver) |
 | `service.restart` | medium | yes | — | 3 | resource | aws: `contract` (1 driver)<br>azure: `contract` (1 driver)<br>gcp: `contract` (1 driver)<br>kubernetes: `contract` (2 drivers)<br>oci: `contract` (1 driver)<br>zenith: `contract` (1 driver) |
-| `service.scale` | medium | yes | — | 3 | resource | aws: `contract` (1 driver)<br>azure: `contract` (1 driver)<br>gcp: `contract` (1 driver)<br>kubernetes: `contract` (1 driver)<br>zenith: `contract` (1 driver) |
+| `service.scale` | medium | yes | — | 3 | resource | aws: `contract` (1 driver)<br>azure: `contract` (1 driver)<br>gcp: `contract` (1 driver)<br>kubernetes: `contract` (2 drivers)<br>zenith: `contract` (1 driver) |
 | `database.migrate` | high | yes | — | 4 | resource | no driver |
 | `deployment.deploy` | high | yes | — | 4 | environment | aws: `contract` (1 driver) |
-| `deployment.rollback` | high | yes | — | 4 | environment | kubernetes: `contract` (1 driver)<br>zenith: `contract` (1 driver) |
+| `deployment.rollback` | high | yes | — | 4 | environment | kubernetes: `contract` (2 drivers)<br>zenith: `contract` (1 driver) |
 | `drift.repair` | high | yes | — | 4 | resource | no driver |
 | `function.invoke` | medium | yes | — | 4 | resource | aws: `contract` (1 driver) |
 | `machine.service.restart` | medium | yes | — | 4 | resource | no driver |
@@ -264,7 +264,7 @@ From `CAPABILITIES` (`src/lib/capabilities/catalog.ts`): every name authorizatio
 | `service.configure` | high | yes | — | 5 | resource | no driver |
 | `container.exec` | critical | yes | escape hatch | 6 (never unattended) | resource | no driver |
 | `database.delete` | critical | yes | destructive | 6 (never unattended) | resource | no driver |
-| `database.restore` | critical | yes | destructive | 6 (never unattended) | resource | no driver |
+| `database.restore` | critical | yes | destructive | 6 (never unattended) | resource | kubernetes: `contract` (2 drivers)<br>zenith: `contract` (1 driver) |
 | `identity.modify` | critical | yes | — | 6 (never unattended) | environment | no driver |
 | `infrastructure.destroy` | critical | yes | destructive | 6 (never unattended) | environment | no driver |
 | `machine.exec` | critical | yes | escape hatch | 6 (never unattended) | resource | no driver |

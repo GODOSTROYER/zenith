@@ -148,8 +148,12 @@ export interface ReconcileWorkflowResult {
   status: "observed" | "skipped" | "failed";
   drift?: number;
   unknown?: number;
-  /** `not_implemented` is retained only for replay of pre-controller histories. */
-  repair: "not_requested" | "not_implemented" | "considered";
+  /**
+   * `considered`     the canonical lifecycle ran with proposals permitted; `repairs` carries the counts.
+   * `not_requested`  the request did not permit proposals.
+   * `not_evaluated`  replay of a pre-controller history, whose pass observed without running the repair lifecycle.
+   */
+  repair: "not_requested" | "not_evaluated" | "considered";
   repairs?: ReconcileRepairSummary;
   error?: string;
 }
@@ -179,11 +183,14 @@ export const RECONCILE_WORKFLOW_ID = (environmentId: string) => `reconcile-${env
 export const WORKFLOW_TYPES = {
   destroyReview: "teardownReviewWorkflow",
   deploy: "infrastructureDeployWorkflow",
+  destroy: "infrastructureDestroyWorkflow",
   dayTwo: "dayTwoOperationWorkflow",
   remediation: "remediationWorkflow",
   reconcile: "reconcileEnvironmentWorkflow",
   reconcileSweep: "reconcileSweepWorkflow",
   criticalMaintenance: "criticalMaintenanceWorkflow",
+  codingAgentRun: "codingAgentRunWorkflow",
+  mixedParent: "mixedParentWorkflow",
 } as const;
 
 /* ------------------------------- activities ------------------------------- */
@@ -284,4 +291,6 @@ export type WorkerActivities = ExecutionActivities & ReconcileActivities;
 
 /** Production worker registration; legacy activities/stubs retain their replay contract. */
 export type RegisteredWorkerActivities = WorkerActivities & import("./definitions/reconcileSweep").ReconcileSweepActivities
-  & import("./definitions/criticalMaintenance").CriticalMaintenanceActivities;
+  & import("./definitions/criticalMaintenance").CriticalMaintenanceActivities
+  & import("./definitions/codingAgent").CodingAgentActivities
+  & import("./definitions/mixedParent").MixedActivities;

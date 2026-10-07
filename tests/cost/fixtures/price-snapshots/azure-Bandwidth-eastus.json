@@ -1,0 +1,67 @@
+{
+  "_contractFixture": "CONTRACT-LEVEL FIXTURE: hand-built to match the documented shape of the official file. Not a download from the provider. Values are illustrative.",
+  "Items": [
+    {
+      "currencyCode": "USD",
+      "tierMinimumUnits": 0,
+      "retailPrice": 0,
+      "armRegionName": "eastus",
+      "type": "Consumption",
+      "unitOfMeasure": "1 GB",
+      "skuName": "Standard",
+      "productName": "Bandwidth - Routing Preference: Internet",
+      "serviceName": "Bandwidth",
+      "meterName": "Standard Data Transfer Out"
+    },
+    {
+      "currencyCode": "USD",
+      "tierMinimumUnits": 100,
+      "retailPrice": 0.087,
+      "armRegionName": "eastus",
+      "type": "Consumption",
+      "unitOfMeasure": "1 GB",
+      "skuName": "Standard",
+      "productName": "Bandwidth - Routing Preference: Internet",
+      "serviceName": "Bandwidth",
+      "meterName": "Standard Data Transfer Out"
+    },
+    {
+      "currencyCode": "USD",
+      "tierMinimumUnits": 10100,
+      "retailPrice": 0.083,
+      "armRegionName": "eastus",
+      "type": "Consumption",
+      "unitOfMeasure": "1 GB",
+      "skuName": "Standard",
+      "productName": "Bandwidth - Routing Preference: Internet",
+      "serviceName": "Bandwidth",
+      "meterName": "Standard Data Transfer Out"
+    },
+    {
+      "currencyCode": "USD",
+      "tierMinimumUnits": 40100,
+      "retailPrice": 0.07,
+      "armRegionName": "eastus",
+      "type": "Consumption",
+      "unitOfMeasure": "1 GB",
+      "skuName": "Standard",
+      "productName": "Bandwidth - Routing Preference: Internet",
+      "serviceName": "Bandwidth",
+      "meterName": "Standard Data Transfer Out"
+    },
+    {
+      "currencyCode": "EUR",
+      "tierMinimumUnits": 100,
+      "retailPrice": 9,
+      "armRegionName": "eastus",
+      "type": "Consumption",
+      "unitOfMeasure": "1 GB",
+      "skuName": "Standard",
+      "productName": "Bandwidth - Routing Preference: Internet",
+      "serviceName": "Bandwidth",
+      "meterName": "Standard Data Transfer Out"
+    }
+  ],
+  "NextPageLink": null,
+  "Count": 5
+}

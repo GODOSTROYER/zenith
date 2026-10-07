@@ -54,6 +54,7 @@ export const CreateAzureInput = z.object({
   tenantId: guid("tenant"),
   clientId: guid("federated application (client)"),
   subscriptionId: guid("subscription"),
+  cloud: z.enum(["public", "usgov", "china"]).optional(),
   stateStorageAccount: z.string().regex(/^[a-z0-9]{3,24}$/, "Use a storage account name.").optional(),
   stateContainer: z.string().regex(/^[a-z0-9](?:[a-z0-9]|-(?!-)){1,61}[a-z0-9]$/, "Use a blob container name.").optional(),
 }).strict();
@@ -102,6 +103,22 @@ const RotateAzure = z.object({ clientId: CreateAzureInput.shape.clientId.optiona
 const RotateOci = z.object({ runnerId: runnerId.optional() }).strict();
 const RotateKubernetes = z.object({
   credentialRef: z.string().min(7).max(200).refine((v) => VAULT_REF.test(v), "Use an existing tenant vault reference.").optional(),
+  /** PROD-MACH-02: convert a legacy kubeconfig_ref connection to scoped_guest; credentialRef must name the new namespaced minter. */
+  convertToScopedGuest: z.literal(true).optional(),
+  /**
+   * PROD-K8S-CONN: the separate DEPLOYER credential of a scoped_guest connection (deploy/observe path only). Must differ from
+   * the minter reference. Setting it adds or replaces the deployer part; both parts are verified before promotion.
+   */
+  deployerCredentialRef: z.string().min(7).max(200).refine((v) => VAULT_REF.test(v), "Use an existing tenant vault reference.").optional(),
+  /** Declared reach of the deployer: "namespaced" is verified to hold no cluster-wide power; "cluster" is allowed to. Default namespaced. */
+  deployerScope: z.enum(["namespaced", "cluster"]).optional(),
+  /**
+   * With convertToScopedGuest: keep the legacy (broad) credential as the connection's deployer instead of dropping it, with the
+   * declared scope. The new minter reference goes in credentialRef. One connection then serves guests and deploy/observe.
+   */
+  retainLegacyAsDeployer: z.enum(["namespaced", "cluster"]).optional(),
+  /** Remove the deployer part (the connection serves guest sessions only again). */
+  removeDeployer: z.literal(true).optional(),
 }).strict();
 
 export const ROTATION_PATCH_SCHEMAS = {
@@ -156,8 +173,30 @@ export function applyRotationPatch(live: ConnectionConfig, rawPatch: RotationPat
     case "azure": return { ...live, ...parsePatch(RotateAzure, rawPatch) } satisfies AzureConnectionConfig;
     case "oci": return { ...live, ...parsePatch(RotateOci, rawPatch) } satisfies OciConnectionConfig;
     case "kubernetes": {
-      if (live.mode !== "kubeconfig_ref") throw new LifecycleInputError("Only kubeconfig_ref Kubernetes connections can rotate a vault reference.");
-      return { ...live, ...parsePatch(RotateKubernetes, rawPatch) } satisfies KubernetesConnectionConfig;
+      if (live.mode !== "kubeconfig_ref" && live.mode !== "scoped_guest") throw new LifecycleInputError("Only kubeconfig_ref and scoped_guest Kubernetes connections can rotate a vault reference.");
+      const { convertToScopedGuest, retainLegacyAsDeployer, removeDeployer, ...patch } = parsePatch(RotateKubernetes, rawPatch);
+      if (!convertToScopedGuest) {
+        if (retainLegacyAsDeployer) throw new LifecycleInputError("retainLegacyAsDeployer: only valid together with convertToScopedGuest.");
+        if (live.mode === "kubeconfig_ref" && (patch.deployerCredentialRef || patch.deployerScope || removeDeployer)) throw new LifecycleInputError("A legacy kubeconfig connection is its own deployer; convert it to scoped guest first (retainLegacyAsDeployer keeps its credential).");
+        if (removeDeployer && (patch.deployerCredentialRef || patch.deployerScope)) throw new LifecycleInputError("removeDeployer cannot be combined with a new deployer credential or scope.");
+        if (patch.deployerScope && !patch.deployerCredentialRef && !live.deployerCredentialRef) throw new LifecycleInputError("deployerScope: name the deployerCredentialRef too; this connection has no deployer.");
+        const next: KubernetesConnectionConfig = { ...live, ...patch };
+        if (removeDeployer) { delete next.deployerCredentialRef; delete next.deployerScope; }
+        if (next.deployerCredentialRef) {
+          if (next.deployerCredentialRef === next.credentialRef) throw new LifecycleInputError("deployerCredentialRef: the deployer must be a different vault reference than the guest minter.");
+          next.deployerScope = next.deployerScope ?? "namespaced";
+        }
+        return next;
+      }
+      if (live.mode !== "kubeconfig_ref") throw new LifecycleInputError("convertToScopedGuest: this connection is already a scoped guest connection.");
+      if (patch.deployerCredentialRef || patch.deployerScope || removeDeployer) throw new LifecycleInputError("convertToScopedGuest: use retainLegacyAsDeployer to keep the legacy credential as the deployer; a separate deployer reference can be added by a later rotation.");
+      // The legacy credential is broad by definition: it can never become the minter.
+      if (!patch.credentialRef || patch.credentialRef === live.credentialRef) throw new LifecycleInputError("convertToScopedGuest: name a different vault reference holding the namespaced minter credential.");
+      if (!live.namespaces.length || live.namespaces.some((ns) => ["kube-system", "kube-public", "kube-node-lease"].includes(ns))) throw new LifecycleInputError("convertToScopedGuest: the namespace allowlist must be non-empty and exclude system namespaces.");
+      const converted: KubernetesConnectionConfig = { ...live, ...patch, mode: "scoped_guest" };
+      // The legacy credential keeps serving deploy/observe ONLY as the deployer part, with a declared scope; it can never be the minter.
+      if (retainLegacyAsDeployer && live.credentialRef) { converted.deployerCredentialRef = live.credentialRef; converted.deployerScope = retainLegacyAsDeployer; }
+      return converted;
     }
   }
 }

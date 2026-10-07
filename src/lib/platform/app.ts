@@ -13,12 +13,14 @@ import type { RunnerRuntime } from "@/lib/runners/runtime";
 import { createPlatformRunnerStore } from "@/lib/runners/db/pg-store";
 import { reapExpiredJobs } from "@/lib/runners/service";
 import { wireReconcilePorts } from "@/lib/reconcile/ports";
+import { custodySeparationErrors } from "@/lib/keycustody/startup";
 import { log } from "@/lib/log";
 import { platformCredentialBroker } from "./credentials";
 import { composeReconcilePorts } from "./reconcile";
 import { registerAllDrivers } from "./drivers";
 import { platformScopeResolver } from "./scopes";
 import { composeAgentPorts } from "./agent-ports";
+import { withDiagnosisRecording } from "@/lib/repair/diagnosis";
 import { registerCredentialBroker, registerInvestigator } from "@/lib/agent-access/v3/adapters";
 
 type State = { boot?: Promise<boolean>; db?: Sql };
@@ -36,6 +38,8 @@ export function ensurePlatformApp(db?: Sql): Promise<boolean> {
       if (!db && platformDbConfigFromEnv().source === "default") return false;
       const sql = db ?? await platformDb();
       await assertPlatformSchemaCurrent(sql);
+      // PROD-OPS-05: report (never refuse here; the worker refuses) shared or misplaced keys, codes only.
+      try { const findings = custodySeparationErrors(); if (findings.length) log.warn("key custody separation findings; run scripts/key-custody.ts diagnose", { scope: "platform", codes: findings.map((f) => f.code) }); } catch { /* diagnostics only */ }
       registerAllDrivers();
       registerPlatformBrokerStore(new PlatformBrokerStore(sql));
       registerPlatformBrokerPorts({ scopes: platformScopeResolver(sql) });
@@ -44,7 +48,8 @@ export function ensurePlatformApp(db?: Sql): Promise<boolean> {
       wireReconcilePorts(() => composeReconcilePorts(sql, credentials));
       const agentPorts = composeAgentPorts(sql, credentials);
       registerCredentialBroker(credentials, agentPorts.observability);
-      registerInvestigator(agentPorts.investigator);
+      // Diagnose stage of the canonical repair lifecycle: finished investigations of tracked incidents are recorded, and an inconclusive one escalates.
+      registerInvestigator(withDiagnosisRecording(agentPorts.investigator, (investigation) => repos.incidentStability.recordInvestigation(sql, { investigation })));
       s.db = sql;
       return true;
     } catch {

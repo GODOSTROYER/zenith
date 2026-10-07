@@ -60,6 +60,8 @@ function isCalendarDate(value: string): boolean {
   return day <= daysInMonth;
 }
 
+const TierSchema = z.object({ fromGb: z.number().finite().nonnegative(), usd: z.number().finite().nonnegative() }).strict();
+
 const EntrySchema = z
   .object({
     provider: z.string().min(1),
@@ -69,6 +71,19 @@ const EntrySchema = z
     usd: z.number().finite().nonnegative(),
     verification: z.enum(VERIFICATIONS),
     note: z.string().min(1).optional(),
+    tiers: z.array(TierSchema).min(2).optional(),
+  })
+  .strict();
+
+const SnapshotSchema = z
+  .object({
+    provider: z.string().min(1),
+    url: z.string().url().startsWith("https://"),
+    retrievedAt: z.string().refine(isCalendarDate, "retrievedAt must be a real YYYY-MM-DD calendar date"),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/, "sha256 must be 64 lowercase hex characters"),
+    bytes: z.number().int().positive(),
+    service: z.string().min(1).optional(),
+    region: z.string().min(1).optional(),
   })
   .strict();
 
@@ -86,6 +101,7 @@ const CatalogSchema = z
   .object({
     version: z.string().regex(/^\d{4}-\d{2}-\d{2}\.\d+$/, "version must look like 2026-10-05.2").refine((value) => isCalendarDate(value.split(".")[0]!), "version must contain a real calendar date"),
     sources: z.array(SourceSchema).min(1),
+    snapshots: z.array(SnapshotSchema).optional(),
     entries: z.array(EntrySchema).min(1),
   })
   .strict();
@@ -137,6 +153,20 @@ export function parseCatalog(input: unknown): PriceCatalog {
       issues.push(`ratio entry ${e.sku} must be a *_multiplier of at least 1`);
     }
     if (e.unit !== "ratio" && e.sku.endsWith("_multiplier")) issues.push(`multiplier ${e.sku} must use unit "ratio"`);
+    if (e.tiers) {
+      const id2 = `${e.provider}/${e.region}/${e.sku}`;
+      if (e.unit !== "gb") issues.push(`tiers on ${id2} require unit "gb"`);
+      else if (e.tiers[0]!.fromGb !== 0 || e.tiers[0]!.usd !== e.usd) issues.push(`tiers on ${id2} must start at 0 GB with the entry price`);
+      for (let i = 1; i < e.tiers.length; i++) {
+        if (e.tiers[i]!.fromGb <= e.tiers[i - 1]!.fromGb) issues.push(`tiers on ${id2} must have strictly increasing fromGb`);
+        if (e.tiers[i]!.usd > e.tiers[i - 1]!.usd) issues.push(`tiers on ${id2} must not increase in price with volume`);
+      }
+    }
+  }
+  const sourceProviders = new Set(catalog.sources.map((s) => s.provider));
+  for (const snap of catalog.snapshots ?? []) {
+    if (!sourceProviders.has(snap.provider)) issues.push(`snapshot for ${snap.provider} has no matching source`);
+    if (snap.retrievedAt > versionDate) issues.push(`snapshot for ${snap.provider} was retrieved after the catalog version date`);
   }
   for (const s of catalog.sources) {
     if (s.verification !== "internal_assumption" && !/transcribed/i.test(s.source)) {

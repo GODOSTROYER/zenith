@@ -20,6 +20,7 @@ import { assertNoSecretKeys } from "../secrets";
 import { json, newId, opt } from "../sql";
 import { isOpenedPlatformDbHandle } from "../open";
 import * as events from "./events";
+import { markConnectionRevoking as markGuestBindingsRevoking } from "./k8s-guest-bindings";
 import { assertDefaultMcpProductTopology, assertFinalMcpProductTopology } from "./workflow-start-deploy-authority";
 
 interface ConnectionRow {
@@ -194,14 +195,19 @@ export async function recordCapturedVerification(sql: Sql, captured: ConnectionV
 
 /** Revoke (terminal, idempotent). Returns the connection, or null when it is not in this workspace. */
 export async function revoke(sql: Sql, workspaceId: string, id: string): Promise<ProviderConnection | null> {
-  const rows = await sql.query<ConnectionRow>(
-    `update platform.provider_connections
-        set status = 'revoked', revoked_at = coalesce(revoked_at, clock_timestamp())
-      where workspace_id = $1 and id = $2
-      returning ${COLUMNS}`,
-    [requireText("workspaceId", workspaceId), requireText("id", id)]
-  );
-  return rows.length ? toConnection(rows[0]) : null;
+  const ws = requireText("workspaceId", workspaceId);
+  const connectionId = requireText("id", id);
+  return sql.tx(async (tx) => {
+    const rows = await tx.query<ConnectionRow>(
+      `update platform.provider_connections
+          set status = 'revoked', revoked_at = coalesce(revoked_at, clock_timestamp())
+        where workspace_id = $1 and id = $2
+        returning ${COLUMNS}`,
+      [ws, connectionId]
+    );
+    if (rows.length && rows[0].config.provider === "kubernetes") await markGuestBindingsRevoking(tx, ws, connectionId);
+    return rows.length ? toConnection(rows[0]) : null;
+  });
 }
 
 export type RevokeAuditedResult = { connection: ProviderConnection; alreadyRevoked: boolean };
@@ -227,6 +233,8 @@ export async function revokeAudited(sql: Sql, input: { workspaceId: string; id: 
     await tx.query(
       `update platform.connection_rotations set status = 'aborted', resolved_by = $3, resolved_at = clock_timestamp()
         where workspace_id = $1 and connection_id = $2 and status in ('staged','verified','failed')`, [ws, id, actor]);
+    // PROD-MACH-02: in the same commit, scoped Kubernetes guest bindings stop being mintable.
+    if (rows[0].config.provider === "kubernetes") await markGuestBindingsRevoking(tx, ws, id);
     if (!alreadyRevoked) {
       await events.append(tx, { type: "connection.revoked", workspaceId: ws, correlationId: id, actor: { kind: "user", id: actor, name: actor },
         data: { connectionId: id, provider: rows[0].config.provider, ...(input.reason ? { reason: input.reason.slice(0, 300) } : {}) } });

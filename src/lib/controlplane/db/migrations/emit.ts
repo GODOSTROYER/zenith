@@ -1,5 +1,5 @@
 /**
- * Renders `supabase/migrations/0021_platform_core.sql` from the TypeScript
+ * Renders `supabase/migrations/0023_platform_core.sql` from the TypeScript
  * migrations — the ONLY way that file is produced. It is never hand-edited: a
  * test (`tests/controlplane/migrations.test.ts`) fails when the committed file
  * differs by even one byte from what `renderSupabaseMigration()` returns now,
@@ -23,7 +23,7 @@
 import { BOOTSTRAP_SQL } from "./bootstrap";
 import { PLATFORM_MIGRATIONS, migrationChecksum } from "./index";
 
-export const EMITTED_FILE = "0021_platform_core.sql";
+export const EMITTED_FILE = "0023_platform_core.sql";
 
 const HARDENING_SQL = `do $$
 declare
@@ -98,6 +98,55 @@ begin
       grant select,insert on table platform.machine_runbook_versions,platform.machine_runbook_approvals,platform.machine_runbook_audit to service_role;
       grant select,insert,update on table platform.machine_runbook_schedules,platform.machine_runbook_runs,platform.machine_runbook_run_steps to service_role;
     end if;
+    -- Platform schemas 30 to 36 (wave 3) keep the narrower grants their own migrations set.
+    if to_regclass('platform.operation_authority') is not null then
+      revoke all on table platform.operation_authority,platform.durable_intents from service_role;
+      grant select on table platform.operation_authority to service_role;
+      grant select,insert,update on table platform.durable_intents to service_role;
+    end if;
+    if to_regclass('platform.approved_semantics') is not null then
+      revoke all on table platform.approved_semantics,platform.standing_grants,platform.standing_grant_uses from service_role;
+      grant select,insert on table platform.approved_semantics to service_role;
+      grant select,insert,update on table platform.standing_grants,platform.standing_grant_uses to service_role;
+    end if;
+    if to_regclass('platform.external_effects') is not null then
+      revoke all on table platform.external_effects,platform.external_effect_events,platform.external_effect_resolutions from service_role;
+      grant select,insert,update on table platform.external_effects to service_role;
+      grant select,insert on table platform.external_effect_events,platform.external_effect_resolutions to service_role;
+    end if;
+    if to_regclass('platform.k8s_guest_bindings') is not null then
+      revoke all on table platform.k8s_guest_bindings from service_role;
+      grant select,insert,update on table platform.k8s_guest_bindings to service_role;
+    end if;
+    if to_regclass('platform.coding_agent_runs') is not null then
+      revoke all on table platform.coding_agent_runs from service_role;
+      grant select,insert,update on table platform.coding_agent_runs to service_role;
+    end if;
+    -- Platform schemas 37 to 41 (wave 4) keep the narrower grants their own migrations set.
+    if to_regclass('platform.actual_spend_snapshots') is not null then
+      revoke all on table platform.actual_spend_snapshots from service_role;
+      grant select,insert on table platform.actual_spend_snapshots to service_role;
+    end if;
+    if to_regclass('platform.ops_maintenance') is not null then
+      revoke all on table platform.ops_maintenance,platform.ops_maintenance_history,platform.tenant_quotas from service_role;
+      grant select,insert,update on table platform.ops_maintenance to service_role;
+      grant select,insert on table platform.ops_maintenance_history to service_role;
+      grant select,insert,update,delete on table platform.tenant_quotas to service_role;
+    end if;
+    if to_regclass('platform.key_custody_keys') is not null then
+      revoke all on table platform.key_custody_keys,platform.key_rewrap_jobs from service_role;
+      grant select,insert,update on table platform.key_custody_keys,platform.key_rewrap_jobs to service_role;
+    end if;
+    if to_regclass('platform.mixed_parent_plans') is not null then
+      revoke all on table platform.mixed_parent_plans,platform.mixed_child_plans,platform.mixed_child_receipts,platform.mixed_addresses from service_role;
+      grant select,insert,update on table platform.mixed_parent_plans,platform.mixed_child_plans to service_role;
+      grant select,insert on table platform.mixed_child_receipts,platform.mixed_addresses to service_role;
+    end if;
+    if to_regclass('platform.mixed_runs') is not null then
+      revoke all on table platform.mixed_runs,platform.mixed_run_events,platform.mixed_output_preauthorizations from service_role;
+      grant select,insert,update on table platform.mixed_runs,platform.mixed_output_preauthorizations to service_role;
+      grant select,insert on table platform.mixed_run_events to service_role;
+    end if;
   end if;
 end
 $$;
@@ -105,7 +154,7 @@ $$;
 
 const quote = (text: string): string => `'${text.replace(/'/g, "''")}'`;
 
-/** The exact text of `supabase/migrations/0021_platform_core.sql`. */
+/** The exact text of `supabase/migrations/0023_platform_core.sql`. */
 export function renderSupabaseMigration(): string {
   const parts: string[] = [
     `-- Zenith platform control store (ADR-0002) — schema \`platform\`.

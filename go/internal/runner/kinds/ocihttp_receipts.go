@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -31,6 +32,37 @@ type ociReceipt struct {
 	ArgumentsDigest  string `json:"argumentsDigest,omitempty"`
 	ExitCode         *int   `json:"exitCode,omitempty"`
 	Cleanup          string `json:"cleanup,omitempty"`
+	// Work-request ids are OCI-side receipts of accepted asynchronous work. They
+	// are recorded from the provider's own response header, never from a caller,
+	// and let a replacement runner that inherits this journal re-read progress
+	// instead of re-executing. An absent id never implies the work did not run.
+	CreateWorkRequest string `json:"createWorkRequest,omitempty"`
+	DeleteWorkRequest string `json:"deleteWorkRequest,omitempty"`
+}
+
+const ociWorkRequestPrefix = "/20210415/workRequests/"
+
+// ociWorkRequestID accepts only a syntactically valid OCID from the response
+// header; anything else is treated as "no receipt id", never as a failure.
+func ociWorkRequestID(header http.Header) string {
+	value := strings.TrimSpace(header.Get("opc-work-request-id"))
+	if !oci.OCID(value) {
+		return ""
+	}
+	return value
+}
+
+func (k *OCI) bindWorkRequests(r ociReceipt) {
+	for _, compartment := range k.cfg.AllowedCompartments {
+		if r.Compartment != compartment {
+			continue
+		}
+		for _, id := range []string{r.CreateWorkRequest, r.DeleteWorkRequest} {
+			if id != "" {
+				k.cfg.ResourceCompartments[id] = compartment
+			}
+		}
+	}
 }
 
 func ociDigest(value []byte) string   { sum := sha256.Sum256(value); return hex.EncodeToString(sum[:]) }
@@ -77,10 +109,12 @@ func (k *OCI) loadReceipts() error {
 		}
 		if err != nil || !receiptDigest.MatchString(r.Scope) || r.CreateJob == "" || !oci.RegionID(r.Region) || !oci.OCID(r.Compartment) || !receiptDigest.MatchString(r.BodyDigest) || !receiptDigest.MatchString(r.RetryTokenDigest) || !receiptDigest.MatchString(r.ImageDigest) || !receiptDigest.MatchString(r.CommandDigest) || !receiptDigest.MatchString(r.ArgumentsDigest) || (r.Cleanup != "" && r.Cleanup != "pending" && r.Cleanup != "unknown" && r.Cleanup != "requested") ||
 			(r.InstanceID != "" && (ociTypedID(r.InstanceID, "computecontainerinstance") == "" || ociTypedID(r.ContainerID, "computecontainer") == "")) ||
-			(r.ExitCode != nil && (r.InstanceID == "" || *r.ExitCode < 0 || *r.ExitCode > 255)) {
+			(r.ExitCode != nil && (r.InstanceID == "" || *r.ExitCode < 0 || *r.ExitCode > 255)) ||
+			(r.CreateWorkRequest != "" && (!oci.OCID(r.CreateWorkRequest) || r.InstanceID == "")) || (r.DeleteWorkRequest != "" && (!oci.OCID(r.DeleteWorkRequest) || r.ExitCode == nil)) {
 			return errors.New("oci.http receipt journal is invalid")
 		}
-		if previous, exists := k.receipts[r.Scope]; exists && (previous.Region != r.Region || previous.Compartment != r.Compartment || previous.BodyDigest != r.BodyDigest || previous.RetryTokenDigest != r.RetryTokenDigest || previous.CreateJob != r.CreateJob || previous.ImageDigest != r.ImageDigest || previous.CommandDigest != r.CommandDigest || previous.ArgumentsDigest != r.ArgumentsDigest || (previous.InstanceID != "" && (previous.InstanceID != r.InstanceID || previous.ContainerID != r.ContainerID)) || (previous.ExitCode != nil && (r.ExitCode == nil || *previous.ExitCode != *r.ExitCode))) {
+		if previous, exists := k.receipts[r.Scope]; exists && (previous.Region != r.Region || previous.Compartment != r.Compartment || previous.BodyDigest != r.BodyDigest || previous.RetryTokenDigest != r.RetryTokenDigest || previous.CreateJob != r.CreateJob || previous.ImageDigest != r.ImageDigest || previous.CommandDigest != r.CommandDigest || previous.ArgumentsDigest != r.ArgumentsDigest || (previous.InstanceID != "" && (previous.InstanceID != r.InstanceID || previous.ContainerID != r.ContainerID)) || (previous.ExitCode != nil && (r.ExitCode == nil || *previous.ExitCode != *r.ExitCode)) ||
+			(previous.CreateWorkRequest != "" && previous.CreateWorkRequest != r.CreateWorkRequest) || (previous.DeleteWorkRequest != "" && previous.DeleteWorkRequest != r.DeleteWorkRequest)) {
 			return errors.New("oci.http receipt journal conflicts")
 		}
 		for scope, previous := range k.receipts {
@@ -94,6 +128,7 @@ func (k *OCI) loadReceipts() error {
 				k.cfg.ResourceCompartments[r.ContainerID] = compartment
 			}
 		}
+		k.bindWorkRequests(r)
 		k.receipts[r.Scope] = r
 	}
 	if scanner.Err() != nil {
@@ -164,6 +199,12 @@ func (k *OCI) receiptResponse(r ociReceipt, exists bool) Outcome {
 		value["exitCode"] = *r.ExitCode
 		value["cleanup"] = r.Cleanup
 	}
+	if r.CreateWorkRequest != "" {
+		value["createWorkRequest"] = r.CreateWorkRequest
+	}
+	if r.DeleteWorkRequest != "" {
+		value["deleteWorkRequest"] = r.DeleteWorkRequest
+	}
 	data, _ := json.Marshal(value)
 	return ociJSONOutcome(200, data)
 }
@@ -219,7 +260,8 @@ func (k *OCI) migrationBefore(req *Request, pl oci.Request, body []byte) (*ociRe
 		return &r, nil
 	}
 	if !exists || r.InstanceID == "" || (pl.Method == "DELETE" && (r.ExitCode == nil || pl.Path != "/20210415/containerInstances/"+r.InstanceID)) ||
-		(pl.Method == "GET" && pl.Path != "/20210415/containerInstances/"+r.InstanceID && pl.Path != "/20210415/containers/"+r.ContainerID) {
+		(pl.Method == "GET" && pl.Path != "/20210415/containerInstances/"+r.InstanceID && pl.Path != "/20210415/containers/"+r.ContainerID &&
+			(r.CreateWorkRequest == "" || pl.Path != ociWorkRequestPrefix+r.CreateWorkRequest) && (r.DeleteWorkRequest == "" || pl.Path != ociWorkRequestPrefix+r.DeleteWorkRequest)) {
 		out := failed("oci_migration_identity_unknown: no owned creation receipt")
 		return nil, &out
 	}
@@ -237,7 +279,7 @@ func (k *OCI) migrationBefore(req *Request, pl oci.Request, body []byte) (*ociRe
 	return &r, nil
 }
 
-func (k *OCI) migrationAfter(pl oci.Request, body, data []byte, status int, truncated bool, receipt *ociReceipt) error {
+func (k *OCI) migrationAfter(pl oci.Request, body, data []byte, header http.Header, status int, truncated bool, receipt *ociReceipt) error {
 	if status < 200 || status >= 300 || truncated {
 		return nil
 	}
@@ -246,7 +288,14 @@ func (k *OCI) migrationAfter(pl oci.Request, body, data []byte, status int, trun
 	}
 	if pl.Method == "DELETE" && receipt != nil {
 		receipt.Cleanup = "requested"
-		return k.saveReceipt(*receipt)
+		if id := ociWorkRequestID(header); id != "" && receipt.DeleteWorkRequest == "" {
+			receipt.DeleteWorkRequest = id
+		}
+		if err := k.saveReceipt(*receipt); err != nil {
+			return err
+		}
+		k.bindWorkRequests(*receipt)
+		return nil
 	}
 	value, err := oci.DecodeJSON(data)
 	obj, ok := value.(map[string]any)
@@ -267,9 +316,11 @@ func (k *OCI) migrationAfter(pl oci.Request, body, data []byte, status int, trun
 		if receipt != nil {
 			receipt.InstanceID = iid
 			receipt.ContainerID = cid
+			receipt.CreateWorkRequest = ociWorkRequestID(header)
 			if k.saveReceipt(*receipt) != nil {
 				return errors.New("receipt persistence failed")
 			}
+			k.bindWorkRequests(*receipt)
 		}
 		k.cfg.ResourceCompartments[iid] = compartment
 		k.cfg.ResourceCompartments[cid] = compartment

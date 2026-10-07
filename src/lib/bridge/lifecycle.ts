@@ -11,6 +11,7 @@ import type { OperationView } from "@/lib/capabilities/types";
 import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
 import { q, revisionManifestAsync, save } from "@/lib/db/store";
 import type { Deployment } from "@/lib/domain/types";
+import { isBackpressureError } from "@/lib/ops/errors";
 import { InvalidWorkflowInputError } from "@/lib/workflows/client";
 import { bridgeDeps } from "@/lib/bridge/deps";
 import { failDeployment, finishUnstartedDeployment, noteUnconfirmedDeployment, setProjectedStatus } from "@/lib/bridge/projection";
@@ -84,6 +85,8 @@ async function start(ctx: ActionContext, d: Deployment): Promise<ActionResult> {
       connectionId: env.connectionId, preApproved: true,
       build: manifest.services.some((s) => s.ownership === "managed" && s.source.type === "git"),
     };
+    // PROD-OPS-02: refuse BEFORE the claim, so a paused or over-quota dispatch changes nothing and stays retryable.
+    await (await import("@/lib/ops/admission")).assertDispatchAdmitted({ workspaceId: ctx.workspaceId, kind: "deploy", operationId: d.operationId });
     // Never return, log or save the compact grant.
     await broker.beginExecution({ workspaceId: ctx.workspaceId, operationId: d.operationId, holder: `workflow:${d.operationId}`, audience: "worker", leaseMs: 5 * 60_000 });
     claimed = true;
@@ -96,6 +99,9 @@ async function start(ctx: ActionContext, d: Deployment): Promise<ActionResult> {
   } catch (error) {
     // A failed initial authority read cannot prove that an earlier start was
     // absent. Do not settle the operation or release its product writer here.
+    if (authorityRead && !claimed && isBackpressureError(error)) {
+      return { ok: false, summary: "Workflow start is deferred.", error: `${error.message} Retry in about ${error.retryAfterSec} seconds; the operation stays approved and nothing was started.`, data: deploymentData(d, op) };
+    }
     if (!authorityRead) return unconfirmed("The platform operation could not be inspected. Its outcome is unconfirmed; restore access and inspect it before retrying or proposing another change. No new workflow start was attempted.");
     if (!startAttempted && isBrokerError(error) && error.code === "already_claimed") return bridgeFailure(error);
     // The actual client validates payloads before connecting or dispatching.
@@ -168,18 +174,18 @@ export async function approveWorkflowDeployment(ctx: ActionContext, d: Deploymen
       setProjectedStatus(d, "planning");
       return beginWorkflow(ctx, d);
     }
-    const result = await bridgeDeps().workflows.signalApproval(op.id);
-    return { ok: result.delivered, summary: result.delivered ? "Approval recorded and delivered to the workflow." : "Approval recorded, but no active workflow was found. Inspect the platform operation.", data: { ...deploymentData(d, op), ...result } };
+    const result = await bridgeDeps().workflows.signalApproval(op.id, ctx.workspaceId);
+    return { ok: result.delivered || result.reason === "pending", summary: result.delivered ? "Approval recorded and delivered to the workflow." : result.reason === "pending" ? "Approval recorded; delivery to the workflow is queued durably and will be retried." : "Approval recorded, but no active workflow was found. Inspect the platform operation.", data: { ...deploymentData(d, op), ...result } };
   } catch (error) { return bridgeFailure(error); }
 }
 
 /** Signalling only wakes the workflow; a failed delivery does not undo the decision. */
-export async function deliverPlanApproval(op: OperationView): Promise<{ delivered: boolean; reason?: "not_found" | "unavailable" } | undefined> {
+export async function deliverPlanApproval(op: OperationView): Promise<{ delivered: boolean; reason?: "not_found" | "unavailable" | "pending" } | undefined> {
   if (op.capability === "infrastructure.destroy" && !approvalRoundOf(op) && ["approved", "queued"].includes(op.status)) {
     return (await import("./destroy")).startApprovedDestroy(op);
   }
   if (!op.planDigest || !approvalRoundOf(op) || !["approved", "rejected"].includes(op.status)) return undefined;
-  try { return await bridgeDeps().workflows.signalApproval(op.id); }
+  try { return await bridgeDeps().workflows.signalApproval(op.id, op.workspaceId); }
   catch { return { delivered: false, reason: "unavailable" }; }
 }
 
@@ -193,8 +199,8 @@ export async function cancelWorkflowDeployment(ctx: ActionContext, d: Deployment
       return { ok: true, summary: "Deployment cancelled before workflow startup.", data: deploymentData(d) };
     }
     if (op.status === "running" || (d.workflowStartedAt && ["awaiting_approval", "approved", "queued"].includes(op.status))) {
-      const result = await bridgeDeps().workflows.cancelOperation(op.id);
-      return { ok: result.delivered, summary: result.delivered ? "Cancellation requested; the worker will project the final outcome." : "No active workflow was found; cancellation is unconfirmed. Inspect the platform operation.", data: { ...deploymentData(d, op), ...result } };
+      const result = await bridgeDeps().workflows.cancelOperation(op.id, ctx.workspaceId);
+      return { ok: result.delivered || result.reason === "pending", summary: result.delivered ? "Cancellation requested; the worker will project the final outcome." : result.reason === "pending" ? "Cancellation recorded durably; delivery to the workflow will be retried. Inspect the platform operation for the outcome." : "No active workflow was found; cancellation is unconfirmed. Inspect the platform operation.", data: { ...deploymentData(d, op), ...result } };
     }
     return { ok: false, summary: "Cancellation refused.", error: `The platform operation is ${op.status}; it cannot be cancelled here.` };
   } catch (error) { return bridgeFailure(error); }

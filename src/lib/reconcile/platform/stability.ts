@@ -11,12 +11,16 @@ import {
   reserveRemediation,
   bindAttemptToOperation,
   settleAttempt,
+  listRepairsAwaitingVerification,
+  getStabilityIncident,
+  escalateIncident,
+  evaluateIncidentEscalation,
 } from "@/lib/controlplane/db/repos/incident-stability";
 import { CAPABILITIES } from "@/lib/capabilities/catalog";
 import { incidentFingerprint, type StabilityPolicy } from "@/lib/incidents/stability";
 import type { Sql } from "@/lib/controlplane/types";
 import type { DriftClass } from "@/lib/resources/types";
-import type { ReconcileStability, StabilityFindingObservation } from "../types";
+import type { RepairVerification, ReconcileStability, StabilityFindingObservation } from "../types";
 
 const TRACKED: readonly DriftClass[] = ["missing", "changed", "extra"];
 const MAX_ITEMS = 500;
@@ -82,6 +86,43 @@ export function createPlatformStability(db: Sql, policy?: StabilityPolicy): Reco
 
     async release(environment, attemptId, now) {
       await settleAttempt(db, { workspaceId: environment.workspaceId, attemptId, outcome: "abandoned", now });
+    },
+
+    async awaitingVerification(environment, now) {
+      const rows = await listRepairsAwaitingVerification(db, { workspaceId: environment.workspaceId, environmentId: environment.environmentId, now });
+      return rows.map((r) => ({ attemptId: r.attemptId, incidentId: r.incidentId, address: r.address, operationId: r.operationId, attemptStatus: r.attemptStatus, fingerprint: r.fingerprint }));
+    },
+
+    async verifyRepairs(environment, awaiting, items, now, opts) {
+      const { workspaceId, environmentId } = environment;
+      const out: RepairVerification[] = [];
+      for (const a of awaiting) {
+        const mine = opts.simulated ? [] : items.filter((i) => i.address === a.address);
+        const samePersists = mine.some((i) => i.observation === "bad" && i.class && incidentFingerprint({ workspaceId, environmentId, problem: `drift_${i.class}`, subject: i.address }) === a.fingerprint);
+        const outcome = samePersists ? "still_present" : mine.some((i) => i.observation === "good") ? "cleared" : "unverifiable";
+        let escalated = false;
+        let reasons: string[] = [];
+        let incident: RepairVerification["incident"];
+        if (outcome === "cleared") {
+          // `observe` already ran for this pass: hysteresis resolves the incident once enough clean passes accumulate.
+          const current = await getStabilityIncident(db, workspaceId, a.incidentId);
+          incident = current?.status === "resolved" ? "closed" : "closing";
+          escalated = Boolean(current?.escalatedAt);
+          reasons = current?.escalationReasons ?? [];
+        } else if (outcome === "still_present" && a.attemptStatus === "succeeded") {
+          // The operation reported success and the re-observation disagrees: a person must look.
+          const e = await escalateIncident(db, { workspaceId, incidentId: a.incidentId, reasons: ["verification_failed"], now });
+          escalated = Boolean(e?.escalatedAt);
+          reasons = e?.escalationReasons ?? [];
+        } else {
+          // A failed attempt or an unreadable node: stored facts (attempt budget, age, blocks) decide, never the absence of evidence.
+          const e = await evaluateIncidentEscalation(db, { workspaceId, incidentId: a.incidentId, now, ...(policy ? { policy } : {}) });
+          escalated = Boolean(e.incident?.escalatedAt);
+          reasons = e.incident?.escalationReasons ?? [];
+        }
+        out.push({ incidentId: a.incidentId, attemptId: a.attemptId, operationId: a.operationId, address: a.address, attemptStatus: a.attemptStatus, outcome, ...(incident ? { incident } : {}), escalated, escalationReasons: reasons });
+      }
+      return out;
     },
   };
 }

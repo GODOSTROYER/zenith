@@ -8,6 +8,17 @@ variable "subscription_id" {
   }
 }
 
+variable "cloud" {
+  description = "Azure cloud the subscription lives in: public, usgov (Azure Government) or china (Azure operated by 21Vianet). It selects the federated-credential audience. Sovereign clouds are contract-level in Zenith: configure the azurerm provider with the matching environment (usgovernment or china)."
+  type        = string
+  default     = "public"
+
+  validation {
+    condition     = contains(["public", "usgov", "china"], var.cloud)
+    error_message = "cloud must be public, usgov or china."
+  }
+}
+
 variable "location" {
   description = "Region for the bootstrap resource group, the identities and the state storage account."
   type        = string

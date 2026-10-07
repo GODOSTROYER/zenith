@@ -298,7 +298,8 @@ and [Oracle Monitoring client](https://github.com/oracle/oci-go-sdk/blob/master/
 Monitoring uses the read endpoint `telemetry`, never `telemetry-ingestion`.
 No log ingestion, metric publication, alarm mutation or broader path wildcard is
 allowed. The embedded contracts contain 9 capabilities and 18 services;
-`infrastructure.observe` and `incident.investigate` each have 52 rules,
+`infrastructure.observe` has 58 rules (52 plus six work-request listings),
+`incident.investigate` has the same 58,
 `topology.read` retains 50 driver-read rules, and `logs.read` / `metrics.read`
 each have one signal rule. Regenerate both golden
 files with `npx tsx scripts/generate-oci-allowlist.ts`; TS/Go parity is tested.
@@ -341,12 +342,31 @@ vault GET /20180608/secrets/{}
 vault PUT /20180608/secrets/{}
 ```
 
+**`infrastructure.observe` and `incident.investigate`** add compartment-scoped work-request
+listings. They are deletion and replacement evidence (`work-requests.ts`,
+`deletion-evidence.ts`): a work request is read-only proof that OCI accepted,
+is running or finished work, never authority and never sole proof of deletion.
+Listings carry `compartmentId`, so the runner can bind them. By-id work-request
+reads cannot be bound outside the runner's own receipt journal, so the only by-id
+rule is the `deployment.deploy` one below, restricted by the runner to the ids
+recorded in its journal for the signed workspace and operation.
+
+```
+containerinstances GET /20210415/workRequests
+postgresql GET /20220915/workRequests
+redis GET /20220315/workRequests
+containerengine GET /20180222/workRequests
+queue GET /20210201/workRequests
+logging GET /20200531/workRequests
+```
+
 **`deployment.deploy`** (manifest image verification and one-off migrations)
 
 ```
 containerinstances GET /20210415/containerInstances
 containerinstances GET /20210415/containerInstances/{}
 containerinstances GET /20210415/containers/{}
+containerinstances GET /20210415/workRequests/{}
 core GET /20160918/vnics/{}
 containerinstances POST /20210415/containerInstances
 containerinstances DELETE /20210415/containerInstances/{}

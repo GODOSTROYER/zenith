@@ -30,7 +30,7 @@ import type { NativeOperation } from "@/lib/drivers/types";
 import type { PortableKind, ProviderKey, ResourceNode } from "@/lib/resources/types";
 import type { ExecutionActivities } from "@/lib/workflows/types";
 import { ApplicationFailure } from "@temporalio/activity";
-import { MACHINE_OPERATIONS, createMachineDrivers, createMachineSessionProvider, executeMachineOperation, MachineOperationError, DEFAULT_TIMEOUT_SEC, DEFAULT_MAX_OUTPUT_BYTES, parseAzureVmTargetId, parseGcpInstanceTargetId, type MachineOperation, type MachineTarget } from "@/lib/machines";
+import { MACHINE_OPERATIONS, createMachineDrivers, createMachineSessionProvider, executeMachineOperation, readMachineHealth, MACHINE_HEALTH_OPERATIONS, MachineOperationError, DEFAULT_TIMEOUT_SEC, DEFAULT_MAX_OUTPUT_BYTES, parseAzureVmTargetId, parseGcpInstanceTargetId, type MachineOperation, type MachineTarget } from "@/lib/machines";
 import { loadExecContext, resolveConnection, type ExecContext } from "./context";
 import { assertLeaseFor } from "./desired";
 import { StepFailedError } from "./errors";
@@ -97,14 +97,28 @@ async function executeMachineCapability(rt: Runtime, ec: ExecContext, row: Store
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
   if (mutates) await rt.emit(ec.scope, "resource.applying", `capability:${ec.op.id}`, { capability: name, address: row.address });
   try {
-    const result = await withKeepAlive(rt, { lease, detail: `execute ${name}`, operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, (signal) =>
-      executeMachineOperation({ operationId: ec.op.id, operation: name, target, args, timeoutSec: typeof args.timeoutSec === "number" ? args.timeoutSec : DEFAULT_TIMEOUT_SEC, maxOutputBytes: DEFAULT_MAX_OUTPUT_BYTES }, {
+    // Read-only health operations go through readMachineHealth (same authority path) so every answer carries a scoped telemetry envelope (PROD-OBS-02).
+    const healthRead = MACHINE_HEALTH_OPERATIONS.has(name);
+    const request = { operationId: ec.op.id, operation: name, target, args, timeoutSec: typeof args.timeoutSec === "number" ? args.timeoutSec : DEFAULT_TIMEOUT_SEC, maxOutputBytes: DEFAULT_MAX_OUTPUT_BYTES };
+    const result = await withKeepAlive(rt, { lease, detail: `execute ${name}`, operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
+      const exec = {
         grant: claims,
         drivers: plane.drivers ?? createMachineDrivers({ sandbox: ec.product.environment.class === "sandbox", dispatcher: plane.dispatcher }),
         sessions: createMachineSessionProvider({ credentials: rt.d.credentials, grantJws: jws, connection, kubernetes: plane.kubernetes, sandbox: ec.product.environment.class === "sandbox", signal, now: rt.now }),
         evidence: plane.evidence, signal, now: rt.now,
-      })
-    );
+      };
+      if (!healthRead) return executeMachineOperation(request, exec);
+      const read = await readMachineHealth(request, exec);
+      // The envelope names scope, transport, time and freshness; it carries no machine output.
+      // A telemetry record is additive: failing to store it must not change the health answer or re-run the read.
+      try {
+        await rt.evidence(ec.scope, { kind: "observation", digest: digest({ op: ec.op.id, capability: name, address: row.address, state: read.telemetry.state }), summary: { kind: "machine_health", capability: name, address: row.address, telemetry: read.telemetry }, simulated: read.result?.simulated ?? false, key: `machine-health:${ec.op.id}` }, { critical: false });
+      } catch {
+        rt.log("warn", "machine health telemetry evidence could not be stored", { operationId: ec.op.id });
+      }
+      if (read.error) throw new MachineOperationError(read.error.code as ConstructorParameters<typeof MachineOperationError>[0], read.error.message);
+      return read.result!;
+    });
     await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
     if (result.ok && mutates) await rt.emit(ec.scope, "resource.applied", `capability:${ec.op.id}`, { capability: name, address: row.address });
     // No machine data (contents, logs, DNS answers) travels into workflow history.

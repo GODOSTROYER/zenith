@@ -3,6 +3,7 @@ import { platformDb, platformDbConfigFromEnv, assertPlatformSchemaCurrent, MIGRA
 import { planArtifactCipherFromEnv } from "@/lib/platform/plan-artifacts";
 import { TofuRunner } from "@/lib/tofu/runner";
 import { getControlSigner } from "@/lib/credentials/signing";
+import { custodySeparationErrors } from "@/lib/keycustody/startup";
 import { derivePlanFingerprintKey } from "@/lib/platform/execution";
 import type { Sql } from "@/lib/controlplane/types";
 import type { PlatformDbHandle } from "@/lib/controlplane/db";
@@ -32,6 +33,8 @@ export async function validateExecutionConfiguration(env: Readonly<Record<string
   if (!configured) throw new ExecutionStartupError("Execution requires an explicitly configured platform store (ZENITH_PLATFORM_DB or ZENITH_PLATFORM_DB_URL).");
   if (platformDbConfigFromEnv(env).kind !== "postgres") throw new ExecutionStartupError("Execution requires PostgreSQL for durable cross-worker plan custody.");
   try { planArtifactCipherFromEnv(env); } catch { throw new ExecutionStartupError("Execution requires dedicated ZENITH_PLAN_ARTIFACT_KEY and valid previous artifact keys."); }
+  // PROD-OPS-05: purposes must not share key material; fixed guidance, never key ids or values.
+  try { if (custodySeparationErrors(env).length) throw new Error(); } catch { throw new ExecutionStartupError("Key custody refused startup: encryption and signing purposes must not share keys, and no release private key may be present. Run scripts/key-custody.ts diagnose."); }
   try {
     const identity = await new TofuRunner({ hostEnv: env, identityFile: env.ZENITH_TOFU_IDENTITY_FILE ?? "/usr/local/share/zenith/tofu-identity.json" }).identity();
     if (!identity.archiveSha256) throw new Error();

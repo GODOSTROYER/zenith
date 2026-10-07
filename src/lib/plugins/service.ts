@@ -205,6 +205,19 @@ export async function revokePluginGrant(deps: PluginDeps, input: { workspaceId: 
   if (!(await repos.plugins.revokeGrant(deps.sql, input))) throw new PluginError("plugin_not_found", "That plugin token is not one this workspace can revoke, or it was already revoked.");
 }
 
+/**
+ * RFC 7009 revocation by possession (PROD-UX-02): whoever holds a valid plugin
+ * token may withdraw it. Resolves only a currently valid grant, so an unknown,
+ * expired or already revoked token is simply `false` and never an oracle.
+ * Audience binding is untouched: this only ever ends a grant.
+ */
+export async function revokePluginTokenByPossession(deps: PluginDeps, token: string): Promise<boolean> {
+  if (!PLUGIN_TOKEN_PATTERN.test(token)) return false;
+  const resolved = await repos.plugins.resolveGrantByTokenHash(deps.sql, hashPluginToken(token));
+  if (!resolved) return false;
+  return repos.plugins.revokeGrant(deps.sql, { workspaceId: resolved.grant.workspaceId, grantId: resolved.grant.id, revokedBy: `token:${resolved.grant.id}` });
+}
+
 /* ------------------------------ authentication ---------------------------- */
 
 const REFUSAL = {

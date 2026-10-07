@@ -2,12 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { hostedRewrite, isPlatformStaticPath } from "@/lib/hosted/edge";
 import { updateSession } from "@/lib/supabase/middleware";
 import { isAgentSignedPath } from "@/lib/runners/paths";
+import { edgeAdmit } from "@/lib/ops/edge";
 import { isPlatformBearerRequest, platformAccess } from "@/app/api/platform/v1/_lib/bearer-paths";
 
 export async function middleware(request: NextRequest) {
   const hosted = hostedRewrite(request);
   if (hosted) return hosted;
   if (isPlatformStaticPath(request.nextUrl.pathname)) return NextResponse.next({ request });
+  // PROD-OPS-02: coarse per-client shield and the host-level read-only override, before any gate or database work.
+  // The hosted data plane was already rewritten above and never reaches this line.
+  const shed = edgeAdmit({ method: request.method, pathname: request.nextUrl.pathname, headers: request.headers });
+  if (shed) return shed;
   // Only this POST transport authenticates raw bytes with the configured App
   // webhook secret before boot, identity lookup, or platform database access.
   if (platformAccess(request.nextUrl.pathname, request.method) === "webhook-signed") return NextResponse.next({ request });
@@ -17,6 +22,8 @@ export async function middleware(request: NextRequest) {
   // `/login?next=…` redirect (src/lib/supabase/middleware.ts:57-70).
   if (["/api/agent/v1/mcp", "/api/agent/v2/mcp", "/api/agent/v3/mcp", "/api/agent/v2/tools", "/api/agent/v2/source",
     "/api/agent/link/start", "/api/agent/link/token",
+    // RFC 7009: authorized by possession of the token being revoked, no cookie.
+    "/api/agent/oauth/revoke",
     "/.well-known/oauth-protected-resource/api/agent/v2/mcp",
     "/.well-known/oauth-protected-resource/api/agent/v3/mcp",
     // The workload-identity OIDC issuer (ADR-0006): cloud STS services fetch

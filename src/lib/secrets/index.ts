@@ -25,6 +25,8 @@
  */
 import crypto from "node:crypto";
 import { decodeSecretKey, env, SECRET_KEY_FIX } from "@/lib/env";
+import { KeyCustodyError } from "@/lib/keycustody/purposes";
+import { KeyRing } from "@/lib/keycustody/registry";
 import { asyncSecretsBackend, KEY_VERSION, secretsBackend, type SecretRecord } from "./backend";
 
 /* ---------------------------------- shape --------------------------------- */
@@ -206,42 +208,38 @@ export interface VaultCipher {
 }
 
 /**
- * Capture validated vault keys once per re-wrap run, or once per vault read.
- * Read this variable here because env.ts is outside the rotation workstream.
- * No key ids are persisted: successful GCM authentication identifies the writer.
- * Malformed configuration and authentication errors never echo input or refs.
+ * Capture the key ring for a vault-format purpose once per re-wrap run, or once per vault read.
+ * The key registry (`@/lib/keycustody`) resolves the keys: it refuses a purpose that is not a
+ * vault-format purpose and never hands out a decrypt-only key for sealing. Read the variables there
+ * because env.ts is outside the rotation workstream. No key ids are persisted: successful GCM
+ * authentication identifies the writer. Malformed configuration and authentication errors never echo
+ * input or refs.
+ *
+ * `options.purpose` defaults to the vault. Plan custody keeps its own variables; it may pass
+ * `enc:plan-artifacts` to have the registry read them; plan custody (`planArtifactCipherFromEnv`) does since the wave-4 assembly.
  */
 export function vaultCipherFromEnv(
-  source: Readonly<Record<string, string | undefined>> = process.env
+  source: Readonly<Record<string, string | undefined>> = process.env,
+  options: { purpose?: "enc:vault" | "enc:plan-artifacts" } = {}
 ): VaultCipher {
-  const decode = (raw: unknown, variable: string): Buffer => {
-    if (typeof raw !== "string" || !/^(?:[a-fA-F0-9]{64}|[A-Za-z0-9+/]{43}=?)$/.test(raw.trim()))
-      throw new Error(`${variable} must contain 32-byte hex or base64 keys.`);
-    const key = decodeSecretKey(raw);
-    if (!key) throw new Error(`${variable} must contain 32-byte hex or base64 keys.`);
-    return key;
-  };
-  const current = decode(source.ZENITH_SECRET_KEY, "ZENITH_SECRET_KEY");
-  let previous: unknown = [];
-  const raw = source.ZENITH_VAULT_PREVIOUS_SECRET_KEYS;
-  if (raw !== undefined) {
-    try { previous = JSON.parse(raw); } catch {
-      throw new Error("ZENITH_VAULT_PREVIOUS_SECRET_KEYS must be a JSON array of 32-byte keys.");
-    }
-  }
-  if (!Array.isArray(previous))
-    throw new Error("ZENITH_VAULT_PREVIOUS_SECRET_KEYS must be a JSON array of 32-byte keys.");
-  const keys = [current];
-  for (const rawKey of previous) {
-    const key = decode(rawKey, "ZENITH_VAULT_PREVIOUS_SECRET_KEYS");
-    if (!keys.some((prior) => prior.equals(key))) keys.push(key);
+  const purpose = options.purpose ?? "enc:vault";
+  const variable = purpose === "enc:vault" ? "ZENITH_SECRET_KEY" : "ZENITH_PLAN_ARTIFACT_KEY";
+  let keys: { key: Buffer }[];
+  let current: Buffer;
+  try {
+    const ring = KeyRing.fromEnv(source, { purposes: [purpose] });
+    current = ring.materialFor(purpose, "encrypt")[0].key;
+    keys = ring.materialFor(purpose, "decrypt");
+  } catch (error) {
+    if (error instanceof KeyCustodyError) throw new Error(error.code === "key_unavailable" ? `${variable} must contain 32-byte hex or base64 keys.` : error.message);
+    throw error;
   }
   return {
     seal(workspaceId, ref, value) {
       return sealWithKey(current, workspaceId, ref, value);
     },
     open(workspaceId, ref, sealed) {
-      for (const [index, key] of keys.entries()) {
+      for (const [index, { key }] of keys.entries()) {
         try {
           const iv = Buffer.from(sealed.iv, "base64");
           const tag = Buffer.from(sealed.authTag, "base64");

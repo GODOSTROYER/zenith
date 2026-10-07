@@ -1,4 +1,6 @@
 /**
+ * PROD-MACH-02 re-baseline: positive guest cases use scoped_guest connections (a namespaced minter, then per-dispatch
+ * ServiceAccount/Role/RoleBinding + TokenRequest). A legacy kubeconfig_ref connection must be refused for guests.
  * Opt-in genuine disposable-kind guest acceptance. ZENITH_TEST_KIND=1 requires
  * an explicit private KUBECONFIG and ZENITH_TEST_KIND_GUEST_CLUSTER=zenith-*.
  * Root creates/deletes that cluster and loads ZENITH_TEST_KIND_RELEASE_IMAGE.
@@ -31,6 +33,7 @@ const { createMachineSessionProvider } = await import("@/lib/machines/sessions")
 const { createKubernetesMachineDriver } = await import("@/lib/machines/transports/kubernetes");
 const { createK8sClient } = await import("@/lib/providers/kubernetes/client");
 const { sessionFromKubeConfig } = await import("@/lib/providers/kubernetes/session");
+const { guestObjectName } = await import("@/lib/providers/kubernetes/guest");
 const { generateSigningJwk, LocalJwkSigner } = await import("@/lib/credentials/signing");
 const { signCapabilityGrant, verifyCapabilityGrant } = await import("@/lib/credentials/grants");
 const vault = await import("@/lib/secrets");
@@ -238,7 +241,7 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
   let db: Awaited<ReturnType<typeof openPlatformDb>> | undefined;
   let admin: ReturnType<typeof createK8sClient> | undefined;
   let cluster: { server: string; caData: string };
-  let token: string | undefined, tokenExpiresAt: number;
+  const minterTokens: string[] = [];
   let key: Awaited<ReturnType<typeof generateSigningJwk>>, signer: ReturnType<typeof LocalJwkSigner.fromJwk>;
   let controller: AbortController;
   const setupController = new AbortController();
@@ -263,14 +266,6 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
       if (!created.metadata?.uid || created.metadata.name !== name || !Object.entries(labels).every(([k, v]) => created.metadata?.labels?.[k] === v)) throw new Error("The owned namespace creation was not confirmed.");
       ownedNamespaces.push({ name, uid: created.metadata.uid });
     }
-    const serviceAccount = await api(() => admin!.objects.create<KubernetesObject>({ apiVersion: "v1", kind: "ServiceAccount", metadata: { name: "guest-reader", namespace, labels }, automountServiceAccountToken: false } as KubernetesObject));
-    if (!serviceAccount.metadata?.uid) throw new Error("The owned guest service account identity was not confirmed.");
-    const serviceAccountUid = serviceAccount.metadata.uid;
-    await api(() => admin!.objects.create({ apiVersion: "rbac.authorization.k8s.io/v1", kind: "Role", metadata: { name: "guest-reader", namespace, labels },
-      rules: [{ apiGroups: [""], resources: ["pods"], verbs: ["get", "list"] },
-        { apiGroups: [""], resources: ["serviceaccounts"], resourceNames: ["default"], verbs: ["get"] }] } as KubernetesObject));
-    await api(() => admin!.objects.create({ apiVersion: "rbac.authorization.k8s.io/v1", kind: "RoleBinding", metadata: { name: "guest-reader", namespace, labels },
-      subjects: [{ kind: "ServiceAccount", name: "guest-reader", namespace }], roleRef: { apiGroup: "rbac.authorization.k8s.io", kind: "Role", name: "guest-reader" } } as KubernetesObject));
     await api(() => admin!.objects.create({ apiVersion: "v1", kind: "Pod", metadata: { name: "guest-marker", namespace, labels },
       spec: { restartPolicy: "Never", activeDeadlineSeconds: 30, automountServiceAccountToken: false,
         securityContext: { runAsNonRoot: true, runAsUser: 65532, seccompProfile: { type: "RuntimeDefault" } },
@@ -286,16 +281,7 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
         await wait(100, undefined, { signal: setupController.signal });
       }
     }
-    const requestedAt = Date.now();
-    const issued = await api(() => admin!.core.createNamespacedServiceAccountToken({ name: "guest-reader", namespace,
-      body: { apiVersion: "authentication.k8s.io/v1", kind: "TokenRequest", metadata: { name: "guest-reader", namespace, uid: serviceAccountUid }, spec: { audiences: [], expirationSeconds: 600 } } }));
-    const expiry = issued.status?.expirationTimestamp;
-    tokenExpiresAt = expiry instanceof Date ? expiry.getTime() : NaN;
-    if (issued.metadata?.uid !== serviceAccountUid || issued.metadata.name !== "guest-reader" || issued.metadata.namespace !== namespace
-      || typeof issued.status?.token !== "string" || !issued.status.token || !Number.isFinite(tokenExpiresAt)
-      || tokenExpiresAt <= Date.now() + 120_000 || tokenExpiresAt > requestedAt + 630_000) throw new Error("The bounded guest TokenRequest was not confirmed.");
-    token = issued.status.token;
-  }, 150_000);
+    }, 150_000);
 
   afterAll(async () => {
     setupController.abort();
@@ -325,7 +311,7 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
       }
     } catch { failure = true; }
     finally {
-      token = undefined;
+      minterTokens.length = 0;
       for (const owned of ownedVaultRefs) { try { await vault.removeSecretAsync(owned.workspaceId, owned.ref); } catch { failure = true; } }
       try { await db?.close(); } catch { failure = true; }
       vi.unstubAllEnvs();
@@ -333,35 +319,56 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
     if (failure) throw new Error("The owned kind guest fixture cleanup was not fully confirmed; root cluster cleanup remains required.");
   }, 120_000);
 
-  // Seal the genuine TokenRequest credential together with its genuine owning cluster target.
-  function boundGuestKubeconfig(credential: string): string {
-    return yamlDump({ apiVersion: "v1", kind: "Config", "current-context": "guest",
+  // Seal the minter's genuine TokenRequest credential together with its genuine owning cluster target.
+  function boundMinterKubeconfig(credential: string): string {
+    return yamlDump({ apiVersion: "v1", kind: "Config", "current-context": "minter",
       clusters: [{ name: "owning-cluster", cluster: { server: cluster.server, "certificate-authority-data": cluster.caData } }],
-      contexts: [{ name: "guest", context: { cluster: "owning-cluster", user: "guest-reader" } }],
-      users: [{ name: "guest-reader", user: { token: credential } }] }, { noRefs: true });
+      contexts: [{ name: "minter", context: { cluster: "owning-cluster", user: "zenith-minter" } }],
+      users: [{ name: "zenith-minter", user: { token: credential } }] }, { noRefs: true });
+  }
+  /**
+   * A namespaced MINTER for one connection. bind/escalate are pinned to that connection's two guest role names so
+   * Kubernetes' own privilege-escalation prevention allows exactly those Roles (fixture-only assumption).
+   */
+  async function createMinter(workspaceId: string, connectionId: string): Promise<string> {
+    const name = `minter-${randomBytes(4).toString("hex")}`, group = "rbac.authorization.k8s.io";
+    const sa = await api(() => admin!.objects.create<KubernetesObject>({ apiVersion: "v1", kind: "ServiceAccount", metadata: { name, namespace, labels }, automountServiceAccountToken: false } as KubernetesObject));
+    const guestRoles = (["read", "exec"] as const).map(profile => guestObjectName(workspaceId, connectionId, profile));
+    await api(() => admin!.objects.create({ apiVersion: `${group}/v1`, kind: "Role", metadata: { name, namespace, labels }, rules: [
+      { apiGroups: [""], resources: ["serviceaccounts"], verbs: ["create", "get", "delete"] },
+      { apiGroups: [""], resources: ["serviceaccounts/token"], verbs: ["create"] },
+      { apiGroups: [group], resources: ["roles"], verbs: ["create", "get", "update", "delete"] },
+      { apiGroups: [group], resources: ["roles"], verbs: ["bind", "escalate"], resourceNames: guestRoles },
+      { apiGroups: [group], resources: ["rolebindings"], verbs: ["create", "get", "delete"] }] } as KubernetesObject));
+    await api(() => admin!.objects.create({ apiVersion: `${group}/v1`, kind: "RoleBinding", metadata: { name, namespace, labels },
+      subjects: [{ kind: "ServiceAccount", name, namespace }], roleRef: { apiGroup: group, kind: "Role", name } } as KubernetesObject));
+    const issued = await api(() => admin!.core.createNamespacedServiceAccountToken({ name, namespace,
+      body: { apiVersion: "authentication.k8s.io/v1", kind: "TokenRequest", metadata: { name, namespace, uid: sa.metadata!.uid }, spec: { audiences: [], expirationSeconds: 1800 } } }));
+    if (!issued.metadata || issued.metadata.name !== name || typeof issued.status?.token !== "string" || !issued.status.token) throw new Error("The minter TokenRequest was not confirmed.");
+    minterTokens.push(issued.status.token);
+    return issued.status.token;
   }
 
-  async function fixture(options: { workspaceId?: string; credentialRef?: string; owningToken?: boolean } = {}) {
-    if (!db || !token || Date.now() >= tokenExpiresAt - 60_000) throw new Error("The owned kind guest fixture credentials are unavailable.");
-    const workspaceId = options.workspaceId ?? `ws-kind-guest-${randomUUID()}`, credentialRef = options.credentialRef ?? `vault:kind/${randomUUID()}/GUEST_TOKEN`;
-    const config: KubernetesConnectionConfig = { provider: "kubernetes", mode: "kubeconfig_ref", ...cluster, credentialRef, namespaces: [namespace] };
+  async function fixture(options: { workspaceId?: string; credentialRef?: string; owningToken?: boolean; legacy?: boolean } = {}) {
+    if (!db) throw new Error("The owned kind guest fixture credentials are unavailable.");
+    const workspaceId = options.workspaceId ?? `ws-kind-guest-${randomUUID()}`, credentialRef = options.credentialRef ?? `vault:kind/${randomUUID()}/MINTER_TOKEN`;
+    const config: KubernetesConnectionConfig = { provider: "kubernetes", mode: options.legacy ? "kubeconfig_ref" : "scoped_guest", ...cluster, credentialRef, namespaces: [namespace] };
     const created = await repos.connections.create(db, { workspaceId, config, createdBy: "kind-guest-fixture" });
     const credentials = platformCredentialBroker(db);
-    if (options.owningToken !== false) {
+    let minter = "";
+    if (options.owningToken !== false && !options.legacy) {
+      minter = await createMinter(workspaceId, created.id);
       ownedVaultRefs.push({ workspaceId, ref: credentialRef });
-      await vault.putSecretAsync(workspaceId, credentialRef, boundGuestKubeconfig(token), "kind-guest-fixture");
-      // Genuine HTTPS/default-ServiceAccount read through canonical onboarding.
+      await vault.putSecretAsync(workspaceId, credentialRef, boundMinterKubeconfig(minter), "kind-guest-fixture");
+      // Genuine HTTPS minter-scope verification (no over-privilege, can manage guest objects) through the canonical broker.
       const verified = await credentials.verifyConnection(created.id, { workspaceId });
       expect(verified.ok).toBe(true);
-      // Verification probes return their actual result; the scoped repository
-      // records that outcome separately before the default broker's guest use.
       const recorded = await repos.connections.recordVerification(db, { workspaceId, id: created.id, ok: verified.ok, detail: verified.detail });
       expect(recorded?.workspaceId).toBe(workspaceId); expect(recorded?.id).toBe(created.id);
       expect(recorded?.status).toBe("verified"); expect(recorded?.verifiedAt).toBeTypeOf("string");
       expect(recorded?.verificationDetail).toBe(verified.detail);
     } else {
-      // SQL-only negative fixture reaches tenant-vault lookup; never a claimed
-      // cluster identity success. The owning positive control uses real onboarding.
+      // SQL-only negative fixture reaches tenant-vault lookup (or the legacy refusal); never a claimed cluster identity success.
       await repos.connections.recordVerification(db, { workspaceId, id: created.id, ok: true, detail: "Negative vault-scope fixture only." });
     }
     const connection = (await repos.connections.get(db, workspaceId, created.id))!;
@@ -369,7 +376,7 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
     const operationId = `op-kind-guest-${randomUUID()}`, environmentId = `env-kind-guest-${suffix}`, resourceId = `res-kind-guest-${randomUUID()}`;
     const now = Math.floor(Date.now() / 1000);
     const claims: CapabilityGrantClaims = { jti: randomUUID(), iss: "kind-guest-fixture", aud: "worker", sub: "user:kind-guest-fixture", iat: now - 1,
-      exp: Math.min(now + 300, Math.floor(tokenExpiresAt / 1000)), cap: "container.list", op: operationId, digest: "d".repeat(64), ws: workspaceId, env: environmentId, res: resourceId };
+      exp: now + 300, cap: "container.list", op: operationId, digest: "d".repeat(64), ws: workspaceId, env: environmentId, res: resourceId };
     const jws = await signCapabilityGrant(claims, { signer });
     const grant = await verifyCapabilityGrant(jws, { audience: "worker", expectedCapability: "container.list", expectedOperationId: operationId, keys: [key.publicJwk] });
     const request = requestFor("container.list", { all: true }, { operationId,
@@ -379,13 +386,16 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
     const provider = createMachineSessionProvider({ credentials, connection, grantJws: jws, signal: controller.signal });
     const driver = createKubernetesMachineDriver();
     const read = () => provider.withSession(sessionRequest, session => api(() => driver.execute(request, session, controller.signal)));
-    return { workspaceId, credentialRef, connection, request, sessionRequest, provider, driver, read };
+    const restore = () => vault.putSecretAsync(workspaceId, credentialRef, boundMinterKubeconfig(minter), "kind-guest-fixture");
+    return { workspaceId, credentialRef, connection, request, sessionRequest, provider, driver, read, restore };
   }
   async function noTokenEvidence(workspaceId: string, value: unknown) {
-    if (!db || !token) throw new Error("The kind guest evidence fixture is unavailable.");
-    expect((JSON.stringify(value) ?? "").includes(token)).toBe(false);
-    expect(JSON.stringify(await repos.events.list(db, workspaceId, { limit: 100 })).includes(token)).toBe(false);
-    expect(JSON.stringify(await repos.connections.list(db, workspaceId, { includeRevoked: true })).includes(token)).toBe(false);
+    if (!db || !minterTokens.length) throw new Error("The kind guest evidence fixture is unavailable.");
+    for (const secret of minterTokens) {
+      expect((JSON.stringify(value) ?? "").includes(secret)).toBe(false);
+      expect(JSON.stringify(await repos.events.list(db, workspaceId, { limit: 100 })).includes(secret)).toBe(false);
+      expect(JSON.stringify(await repos.connections.list(db, workspaceId, { includeRevoked: true })).includes(secret)).toBe(false);
+    }
   }
 
   it("the default broker's owning vault token reads a real Pod and closes its guest handle", async () => {
@@ -393,7 +403,8 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
     const result = await f.provider.withSession(f.sessionRequest, async value => {
       held = value as KubernetesMachineSession;
       expect(held.namespaces).toEqual([namespace]); expect(Object.isFrozen(held.namespaces)).toBe(true);
-      expect((held.kubeConfig() as KubeConfig).getCurrentUser()?.name).toBe("zenith-user");
+      expect((held.kubeConfig() as KubeConfig).getCurrentUser()?.name).toBe("zenith-guest-user");
+      expect(minterTokens).not.toContain((held.kubeConfig() as KubeConfig).getCurrentUser()?.token);
       expect(Date.parse(held.expiresAt) <= f.sessionRequest.grant.exp * 1000).toBe(true);
       return api(() => f.driver.execute(f.request, held, controller.signal));
     });
@@ -422,11 +433,20 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
     const f = await fixture();
     await db!.query("update platform.provider_connections set config=$3::text::jsonb where workspace_id=$1 and id=$2", [f.workspaceId, f.connection.id, JSON.stringify({ ...f.connection.config, namespaces: [] })]);
     expect((f.connection.config as KubernetesConnectionConfig).namespaces).toEqual([namespace]);
-    await f.provider.withSession(f.sessionRequest, async value => {
-      const session = value as KubernetesMachineSession; expect(session.namespaces).toEqual([]);
-      await expect(api(() => f.driver.execute(f.request, session, controller.signal))).rejects.toMatchObject({ machineCode: "denied" });
-    });
-    expect((await (await fixture()).read()).ok).toBe(true);
+    let entered = false;
+    // The live (empty) allowlist refuses before any ServiceAccount is minted; the captured scope is never reused.
+    await expect(f.provider.withSession(f.sessionRequest, async () => { entered = true; })).rejects.toMatchObject({ code: "denied" });
+    expect(entered).toBe(false);
+    const rows = await repos.k8sGuestBindings.listForConnection(db!, f.workspaceId, f.connection.id);
+    expect(rows.filter(r => r.issuedCount > 0)).toEqual([]);
+  }, 60_000);
+
+  it("a legacy kubeconfig_ref connection is refused for guest sessions with migration guidance", async () => {
+    const f = await fixture({ legacy: true }); let entered = false;
+    const error = await f.provider.withSession(f.sessionRequest, async () => { entered = true; }).then(() => undefined, (e: unknown) => e) as Error & { code?: string };
+    expect(entered).toBe(false);
+    expect(error.code).toBe("denied");
+    expect(error.message).toMatch(/guest_credential_refused.*convertToScopedGuest/);
   }, 60_000);
 
   it("live scoped SQL revocation refuses the stale verified capture before a guest callback", async () => {
@@ -460,15 +480,17 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
     let entered = false;
     await expect(f.provider.withSession(f.sessionRequest, async () => { entered = true; })).rejects.toMatchObject({ code: "denied" });
     expect(entered).toBe(false);
-    await vault.putSecretAsync(f.workspaceId, f.credentialRef, boundGuestKubeconfig(token!), "kind-guest-fixture");
+    await f.restore();
     const result = await f.read(); expect(result.ok).toBe(true); await noTokenEvidence(f.workspaceId, result);
   }, 60_000);
 
-  it("an invalid current vault token yields a genuine HTTP 401 instead of a root-admin fallback", async () => {
+  it("an invalid current minter token is refused by the real API with no root-admin fallback", async () => {
     const f = await fixture(); expect((await f.read()).ok).toBe(true);
-    await vault.putSecretAsync(f.workspaceId, f.credentialRef, boundGuestKubeconfig("invalid-guest-fixture-token"), "kind-guest-fixture");
-    await expect(f.read()).rejects.toMatchObject({ httpStatus: 401, machineCode: "transport_error" });
-    await vault.putSecretAsync(f.workspaceId, f.credentialRef, boundGuestKubeconfig(token!), "kind-guest-fixture");
+    await vault.putSecretAsync(f.workspaceId, f.credentialRef, boundMinterKubeconfig("invalid-minter-fixture-token"), "kind-guest-fixture");
+    let entered = false;
+    await expect(f.provider.withSession(f.sessionRequest, async () => { entered = true; })).rejects.toMatchObject({ code: "denied" });
+    expect(entered).toBe(false);
+    await f.restore();
     expect((await f.read()).ok).toBe(true);
   }, 60_000);
 

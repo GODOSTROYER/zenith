@@ -3,7 +3,9 @@
  * explicit ports support contract tests without pretending to reach a cloud.
  * The secret-derived fingerprint key is mandatory even when tofu is injected.
  */
+import { createPlatformSemanticsStore } from "@/lib/controlplane/db/repos/executable-semantics";
 import { createPlanArtifactRuntime } from "./plan-artifacts";
+import { withWorkerCustody } from "./plan-custody";
 import { hkdfSync } from "node:crypto";
 import type { Sql } from "@/lib/controlplane/types";
 import { createExecutionActivities, createPlatformPorts, createPortabilityPort, createProductPort, createSafeProber, defaultCostPort, type ExecutionDeps } from "@/lib/execution";
@@ -19,6 +21,7 @@ import { createExecutionBroker } from "./broker";
 import { registerAllDrivers } from "./drivers";
 import { platformDriverLookup } from "./driver-lookup";
 import { createReleasePorts } from "./release";
+import { createEffectLedger } from "@/lib/effects/ledger";
 import { createPlatformReleaseSafety } from "./release-safety";
 import { createGithubContextVerifier } from "@/lib/sources/github/inspect";
 import { composeReconcilePorts } from "./reconcile";
@@ -88,13 +91,14 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     if ((custodyDb as Sql & {kind?:string}).kind!=="postgres") throw new Error("Production execution requires PostgreSQL durable plan custody.");
     return custodyRuntime??=createPlanArtifactRuntime(custodyDb,custodyEnv);
   };
-  const planArtifacts:NonNullable<ExecutionDeps["planArtifacts"]>=injectedArtifacts??{
+  // PROD-DUR-05: every artifact operation by this worker is admitted, identity-verified and audited; refusal precedes any read or dispatch.
+  const planArtifacts:NonNullable<ExecutionDeps["planArtifacts"]>=injectedArtifacts??withWorkerCustody({
     kind:"postgres",
     associate:input=>custody().planArtifacts.associate(input),
     publish:input=>custody().planArtifacts.publish(input),
     inspect:(input,fn)=>custody().planArtifacts.inspect(input,fn),
     consume:(input,fn)=>custody().planArtifacts.consume(input,fn),
-  };
+  },{db:custodyDb,workerIdentity:opts.workerIdentity,env:custodyEnv});
   const tofu:NonNullable<ExecutionDeps["tofu"]>=opts.ports?.tofu??{
     planWorkspace:(...args)=>custody().tofu.planWorkspace(...args),
     applyVerifiedPlan:(...args)=>custody().tofu.applyVerifiedPlan(...args),
@@ -110,7 +114,7 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
   const credentials = opts.ports?.credentials ?? platformCredentialBroker(opts.db);
   const azure: AzureBuildOptions = { readSource: sourceRuntime.readAzureSource };
   const deps: ExecutionDeps = {
-    ...platformPorts, portability: createPortabilityPort(opts.db), planArtifacts,
+    ...platformPorts, portability: createPortabilityPort(opts.db), planArtifacts, effects: createEffectLedger(opts.db),
     drivers: platformDriverLookup,
     product: createProductPort(), broker: createExecutionBroker(opts.db), credentials,
     tofu, cost: defaultCostPort(),
@@ -124,6 +128,8 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     sourceContext: createGithubContextVerifier({ db: async () => opts.db }),
     // Digest-bound release runs, provenance gate, migration approval, rollout and readback (PROD-LIFE-10).
     releaseSafety: createPlatformReleaseSafety(opts.db),
+    // The canonical executable semantics a human reviewed, recorded write-once at planning and recomputed at every dispatch (PROD-DUR-03).
+    semantics: createPlatformSemanticsStore(opts.db),
     machines: opts.ports?.machines ?? createDefaultMachinePort(opts.db, opts.secretKey ?? process.env.ZENITH_SECRET_KEY!),
     ...opts.ports,
     // The captured source authority is final; the generic test-port spread cannot replace it.

@@ -68,7 +68,7 @@ const compile = (node: ResourceNode, ctx: CompileContext): TofuFragment =>
     const eventsName = `${cloudName(ctx.namePrefix, name, 64 - EVENTS_ROLE_SUFFIX.length)}${EVENTS_ROLE_SUFFIX}`;
     const eventsRole = b.resource("aws_iam_role", `${label}_events`, {
       name: eventsName,
-      assume_role_policy: assumeRoleJson("events.amazonaws.com"),
+      assume_role_policy: assumeRoleJson("events.amazonaws.com", ctx),
       permissions_boundary: boundaryArn(t.env, "scheduler", ctx),
       tags: tagsFor(ctx, node, eventsName),
     });

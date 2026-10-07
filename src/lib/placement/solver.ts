@@ -50,7 +50,8 @@
  */
 import { digest } from "@/lib/controlplane/digest";
 import type { CostEstimate, PlacementCandidate, PlacementConstraints, PlacementResult, PriceCatalog } from "@/lib/placement/types";
-import { estimateGraphCost, listCrossBoundaryTransfers, resolveUsage, toPriceBook } from "@/lib/placement/cost";
+import { estimateGraphCost, listCrossBoundaryTransfers, resolveExtendedUsage, resolveUsage, toPriceBook } from "@/lib/placement/cost";
+import { budgetReason } from "@/lib/placement/reasons";
 import { MissingPriceError, verificationSummary, type PriceBook } from "@/lib/placement/pricebook";
 import { nativeTypeFor, placementProviders } from "@/lib/placement/capabilities";
 import {
@@ -208,6 +209,7 @@ export function solvePlacement(input: SolveInput): PlacementResult {
   const constraints = input.constraints;
   validateConstraints(constraints);
   const usage = resolveUsage(constraints.usage);
+  const extendedUsage = resolveExtendedUsage(constraints.usage);
 
   const components = [...input.components].sort((a, b) => cmp(a.address, b.address));
   const addresses = new Set<string>();
@@ -237,6 +239,7 @@ export function solvePlacement(input: SolveInput): PlacementResult {
       tolerateSingleFailure: constraints.tolerateSingleFailure ?? false,
       managedDatabaseRequired: constraints.managedDatabaseRequired ?? false,
       usage,
+      ...(Object.keys(extendedUsage).length > 0 ? { extendedUsage } : {}),
     },
     options: {
       includeZenithManagedTier: options.includeZenithManagedTier ?? false,
@@ -359,7 +362,7 @@ export function solvePlacement(input: SolveInput): PlacementResult {
     }
     const budget = constraints.budgetUsdMonthly;
     if (budget !== undefined && cost.monthlyUsd > budget) {
-      reasons.push(`budget: estimated $${money(cost.monthlyUsd)}/month exceeds the $${money(budget)} budget by $${money(cost.monthlyUsd - budget)}`);
+      reasons.push(budgetReason(cost.monthlyUsd, budget));
     }
     const assessment = assess(placed, norm.userRegions, book, constraints, options);
     const candidate: PlacementCandidate = {

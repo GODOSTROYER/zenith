@@ -14,6 +14,7 @@ import { loadDestroyPlan } from "@/lib/capabilities/destroy-plan";
 import { evaluate } from "@/lib/capabilities/evaluate";
 import { requestFromOperation } from "@/lib/capabilities/reevaluate";
 import { ROLE_RANK } from "@/lib/capabilities/ports";
+import { lapsedStandingApprovalIds } from "@/lib/capabilities/standing-grants";
 import { repos } from "@/lib/controlplane/db";
 import { approvalRoundOf, operationPlanReview } from "@/lib/controlplane/db/repos/operation-review";
 import type { ApprovalRequirement, CapabilityGrantClaims, OperationRecord, Sql } from "@/lib/controlplane/types";
@@ -149,7 +150,9 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
     const all = await broker.deps.store.listApprovals(op.workspaceId, op.id);
     const time = broker.deps.clock.now().getTime();
     const round = approvalRoundOf(op);
-    const live = all.filter((a) => approvalRoundOf(a) === round && a.proposalDigest === op.proposalDigest && Date.parse(a.expiresAt) > time);
+    // Standing-grant approvals stop counting when the grant is revoked/expired or its creator lost admin (PROD-DUR-04).
+    const lapsed = await lapsedStandingApprovalIds(broker.deps, op);
+    const live = all.filter((a) => approvalRoundOf(a) === round && a.proposalDigest === op.proposalDigest && Date.parse(a.expiresAt) > time && !lapsed.has(a.id));
     const rejected = live.some((a) => a.decision === "reject") || ["rejected", "cancelled", "denied"].includes(op.status);
     if (!requirement) return { approved: !rejected, rejected, dispatchApproval: { approvalIds: [],requiredApprovalCount:0,approvalRound:round,proposalDigest:op.proposalDigest,planDigest:op.planDigest } };
     // Round zero cannot authorize the subsequently gated concrete plan.

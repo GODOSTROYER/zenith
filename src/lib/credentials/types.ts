@@ -100,6 +100,8 @@ export interface AzureConnectionConfig {
   tenantId: string;
   clientId: string;
   subscriptionId: string;
+  /** Azure cloud (PROD-LIFE-04); absent means the public cloud. Sovereign clouds are contract-level only. */
+  cloud?: "public" | "usgov" | "china";
   /** Customer Entra-only OpenTofu state account and container. */
   stateStorageAccount?: string;
   stateContainer?: string;
@@ -132,13 +134,29 @@ export interface OciConnectionConfig {
 
 export interface KubernetesConnectionConfig {
   provider: "kubernetes";
-  mode: "kubeconfig_ref" | "runner" | "oidc_web_identity";
+  mode: "kubeconfig_ref" | "runner" | "oidc_web_identity" | "scoped_guest";
   /** API server URL */
   server: string;
   /** base64 PEM CA bundle (not secret) */
   caData?: string;
-  /** vault reference to a service-account token or kubeconfig — never inline */
+  /**
+   * vault reference to a service-account token or kubeconfig — never inline.
+   * In `scoped_guest` mode this is the namespaced MINTER credential: it may only
+   * manage Zenith guest ServiceAccounts/Roles/RoleBindings and request their
+   * tokens in the allowlisted namespaces. It is never handed to a guest caller.
+   */
   credentialRef?: string;
+  /** `scoped_guest` only: TokenRequest audiences; empty/omitted = the API server default audience. */
+  guestAudiences?: string[];
+  /**
+   * `scoped_guest` only (PROD-K8S-CONN): vault reference of the separate DEPLOYER credential. It is read only by the
+   * deploy/observe provider path (plan/apply/observe through the broker); the guest path never reads it, and the
+   * minter (`credentialRef`) is never used for deploy/observe. Absent = this connection serves guest sessions only.
+   * Must differ from `credentialRef`.
+   */
+  deployerCredentialRef?: string;
+  /** `scoped_guest` only: declared reach of the deployer credential. "namespaced" is verified to hold no cluster-wide power. Default namespaced. */
+  deployerScope?: "namespaced" | "cluster";
   /** namespaces Zenith may manage; empty = only namespaces it creates */
   namespaces: string[];
   /** for EKS: cluster name + an AWS connection id used to mint the token */
@@ -208,6 +226,8 @@ export interface AzureSession {
   readonly provider: "azure";
   readonly subscriptionId: string;
   readonly region: string;
+  /** absent means the public cloud */
+  readonly cloud?: "public" | "usgov" | "china";
   readonly expiresAt: string;
   authorizedFetch(url: string, init?: RequestInit): Promise<Response>;
   childProcessEnv(): Record<string, string>;
@@ -257,6 +277,13 @@ export interface CredentialRequest {
   secretResources?: readonly string[];
   /** ≤ grant lifetime; default 900 */
   durationSec?: number;
+  /**
+   * Kubernetes `scoped_guest` connections only (PROD-MACH-02): the single namespace
+   * and permission profile the machine request needs. The broker mints a
+   * ServiceAccount token for exactly that scope; a scoped_guest connection with no
+   * guest scope is refused, never served by the minter or any other credential.
+   */
+  kubernetesGuest?: { namespace: string; profile: "read" | "exec" };
 }
 
 export interface CredentialBroker {
@@ -304,6 +331,10 @@ export type DenialReason =
   | "issuer_unavailable"
   | "runner_unavailable"
   | "audit_failed"
+  /** a scoped Kubernetes guest credential could not be minted (never replaced by a broader one) */
+  | "guest_credential_refused"
+  /** a scoped_guest Kubernetes connection's DEPLOYER credential is absent, unverified or refused (never replaced by the minter or any other credential) */
+  | "deployer_credential_refused"
   /** the session was revoked or outlived its credentials (provider sessions refuse further calls) */
   | "session_ended";
 

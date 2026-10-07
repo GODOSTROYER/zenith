@@ -32,6 +32,7 @@ import type { Sql } from "@/lib/controlplane/types";
 import { ControlStoreError } from "@/lib/controlplane/db/errors";
 import type { ConnectionRotation } from "@/lib/controlplane/db/repos/connection-rotations";
 import { findSecret } from "@/lib/capabilities/secret-guard";
+import { azureCloud } from "@/lib/providers/azure/cloud";
 import {
   applyRotationPatch, azureConfig, gcpConfig, LifecycleInputError, ociConfig, runnerOf,
   type CreateAzureInput, type CreateGcpInput, type CreateOciInput, type RotateInput, type RotationRef,
@@ -74,7 +75,8 @@ function identityOf(config: ConnectionConfig): Record<string, string> {
     case "gcp": return { projectId: config.projectId, region: config.region };
     case "azure": return { tenantId: config.tenantId, subscriptionId: config.subscriptionId, region: config.region };
     case "oci": return { tenancyOcid: config.tenancyOcid, compartmentOcid: config.compartmentOcid, region: config.region };
-    case "kubernetes": return { server: config.server, namespaces: config.namespaces.join(",") };
+    case "kubernetes": return { server: config.server, namespaces: config.namespaces.join(","), guestCredentials: config.mode === "scoped_guest" ? "scoped" : "legacy (guest sessions refused)",
+      deployerCredentials: config.mode === "scoped_guest" ? (config.deployerCredentialRef ? `separate (${config.deployerScope ?? "namespaced"})` : "none (guest sessions only)") : "kubeconfig credential" };
   }
 }
 
@@ -196,7 +198,7 @@ export function trustFor(ctx: ActionContext, provider: "gcp" | "azure" | "oci", 
   }
   if (config.provider === "azure") {
     return { subject, issuerHost: host, steps: [
-      `Add a federated credential to application ${config.clientId} with issuer https://${host ?? "<ZENITH_OIDC_ISSUER host>"} and exact subject ${subject}.`,
+      `Add a federated credential to application ${config.clientId} with issuer https://${host ?? "<ZENITH_OIDC_ISSUER host>"}, exact subject ${subject} and audience ${azureCloud(config.cloud).federationAudience}.`,
       `Assign that application Reader (observe) and the deploy roles you intend on subscription ${config.subscriptionId}.`,
       "Run verify. It reads the configured subscription; deploy permissions remain unverified.",
     ] };
@@ -295,6 +297,10 @@ export interface RevokeOutcome {
   productMirror: "updated" | "none" | "unavailable";
   runnerRevoked?: { id: string; cancelledJobs: number };
   runnerKept?: string;
+  /** scoped Kubernetes guest bindings: cluster objects deleted now vs still pending (unmintable either way) */
+  guestBindings?: { revoked: number; pending: number };
+  /** scoped_guest with a deployer part: both parts died in the same SQL commit (nothing can mint or deploy from it); the deployer holds no cluster objects of Zenith's. */
+  deployer?: { revoked: true };
   /** what Zenith cannot do from its side */
   customerSteps: string[];
 }
@@ -317,7 +323,7 @@ const customerRevocationSteps = (provider: ConnectionConfig["provider"]): string
     case "gcp": return ["Remove the workloadIdentityUser bindings for the Zenith subject. Access tokens already issued expire within their 15 minute lifetime."];
     case "azure": return ["Delete the federated credential for the Zenith subject. Access tokens already issued expire within their short lifetime."];
     case "oci": return ["Stop zenith-runner in your tenancy. Revoke the runner here too if it is no longer needed."];
-    case "kubernetes": return ["Delete the service-account token or kubeconfig secret in your vault and revoke it in the cluster."];
+    case "kubernetes": return ["Delete the service-account token or kubeconfig secret in your vault and revoke it in the cluster. For a scoped guest connection also remove the minter identity; Zenith deletes its guest ServiceAccounts, Roles and RoleBindings (labelled zenith.dev/component=guest)."];
   }
 };
 
@@ -327,6 +333,22 @@ export async function revokeConnection(ctx: ActionContext, input: { connectionId
   if (!revoked) throw new LifecycleRefusal(NOT_FOUND, "not_found");
   const productMirror = await mirrorProduct(ctx, row, (conn) => { conn.status = "disconnected"; conn.revokedAt = revoked.connection.revokedAt ?? new Date().toISOString(); conn.lastCheckedAt = conn.revokedAt; });
   const outcome: RevokeOutcome = { connection: viewOf(ctx, revoked.connection), alreadyRevoked: revoked.alreadyRevoked, productMirror, customerSteps: customerRevocationSteps(row.config.provider) };
+  if (row.config.provider === "kubernetes" && row.config.mode === "scoped_guest" && row.config.deployerCredentialRef) {
+    // PROD-K8S-CONN: the deployer part is refused by the same status flip that stopped the minter (broker status gate and the
+    // admission re-read both see 'revoked'); there is no cluster object of Zenith's to delete, so the customer removes the identity.
+    outcome.deployer = { revoked: true };
+    outcome.customerSteps = [...outcome.customerSteps, "Also delete the deployer credential's vault secret and revoke that identity in the cluster; Zenith can no longer use it."];
+  }
+  if (row.config.provider === "kubernetes" && row.config.mode === "scoped_guest") {
+    // PROD-MACH-02: bindings are already unmintable (revoked in the same SQL commit); now remove them from the cluster.
+    // Safe to repeat: an already-revoked connection retries any binding left pending.
+    const { revokeKubernetesGuestBindings } = await import("@/lib/platform/credentials");
+    const guest = await revokeKubernetesGuestBindings(sql, revoked.connection);
+    if (guest.attempted) {
+      outcome.guestBindings = { revoked: guest.revoked, pending: guest.pending };
+      if (guest.pending > 0) outcome.customerSteps = [...outcome.customerSteps, "Some guest ServiceAccounts could not be deleted from the cluster (minter unreachable or removed). They cannot be used by Zenith; delete objects labelled zenith.dev/component=guest yourself or revoke this connection again once the minter is reachable."];
+    }
+  }
   const runner = runnerOf(row.config);
   if (input.revokeRunner && runner) {
     const retired = await retireRunner(ctx, runner, row.id);

@@ -53,6 +53,21 @@ export const OBSERVE_RULES: readonly OciAllowRule[] = [
   ...get("mysql", "dbSystems", "dbSystems/{}"),
 ];
 
+/**
+ * Compartment-scoped work-request listings (deletion/replacement evidence,
+ * work-requests.ts). Listings carry `compartmentId`, so the runner can bind
+ * them; by-id reads cannot be bound outside the runner's own receipt journal.
+ * GET only; infrastructure.observe and incident.investigate (the two stay equal), not topology.
+ */
+const WORK_REQUEST_LISTS: readonly OciAllowRule[] = [
+  ...get("containerinstances", "workRequests"),
+  ...get("postgresql", "workRequests"),
+  ...get("redis", "workRequests"),
+  ...get("containerengine", "workRequests"),
+  ...get("queue", "workRequests"),
+  ...get("logging", "workRequests"),
+];
+
 const FIREWALL_INSPECT: readonly OciAllowRule[] = get("core", "networkSecurityGroups", "networkSecurityGroups/{}/securityRules");
 const LOG_READ_RULE: OciAllowRule = { service: "loggingsearch", method: "POST", pattern: "search" };
 const METRIC_READ_RULE: OciAllowRule = { service: "monitoring", method: "POST", pattern: "metrics/actions/summarizeMetricsData" };
@@ -71,9 +86,9 @@ export const OCI_ALLOWLIST: Readonly<Record<string, readonly OciAllowRule[]>> = 
     // Read-only query APIs; POST does not imply a mutation.
     LOG_READ_RULE,
     METRIC_READ_RULE,
-  ],
+  ].concat(WORK_REQUEST_LISTS),
   "topology.read": OBSERVE_RULES,
-  "incident.investigate": [...OBSERVE_RULES, LOG_READ_RULE, METRIC_READ_RULE],
+  "incident.investigate": [...OBSERVE_RULES, LOG_READ_RULE, METRIC_READ_RULE].concat(WORK_REQUEST_LISTS),
   "logs.read": [LOG_READ_RULE],
   "metrics.read": [METRIC_READ_RULE],
   "firewall.inspect": FIREWALL_INSPECT,
@@ -82,6 +97,9 @@ export const OCI_ALLOWLIST: Readonly<Record<string, readonly OciAllowRule[]>> = 
   "deployment.deploy": [
     ...DNS_DELETION_READS,
     ...get("containerinstances", "containerInstances", "containerInstances/{}", "containers/{}"),
+    // Work-request receipt reads. The runner additionally restricts these to ids
+    // recorded in its own journal for the signed workspace and operation.
+    ...get("containerinstances", "workRequests/{}"),
     ...get("core", "vnics/{}"),
     { service: "containerinstances", method: "POST", pattern: "containerInstances" },
     { service: "containerinstances", method: "DELETE", pattern: "containerInstances/{}" },

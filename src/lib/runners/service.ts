@@ -27,6 +27,7 @@ import { queueOf, registryOf, RunnerStoreError, type AgentEffectReceipt, type Ag
 import { sanitizeInboundResult } from "@/lib/runners/custody";
 import { redactText } from "@/lib/runners/redact";
 import { parseLifecycleReport } from "@/lib/runners/lifecycle";
+import { selectRegistrationProtocol } from "@/lib/runners/protocol-window";
 import { announcedNextKeys, controlPlaneKeys, type RunnerRuntime } from "@/lib/runners/runtime";
 import { unverifiedClaims } from "@/lib/runners/signing";
 import {
@@ -93,6 +94,8 @@ const RegisterBody = z.object({
   publicKey: z.string().regex(PUBLIC_KEY),
   name: z.string().trim().min(1).max(128).regex(PRINTABLE),
   version: z.string().max(64).regex(PRINTABLE).optional(),
+  /** protocol ids the agent speaks, newest first; absent means the v1 baseline (PROD-OPS-03 negotiation) */
+  protocols: z.array(z.string().regex(/^zenith\.(?:runner|machine)\/v[1-9][0-9]{0,2}$/)).min(1).max(8).optional(),
   capabilities: z.array(z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/)).max(32).default([]),
   labels: z
     .record(z.string().max(253).regex(PRINTABLE))
@@ -151,19 +154,24 @@ export interface RegistrationResponse {
   controlPlaneKeys: { kid: string; publicKey: string }[];
   pollIntervalSec: number;
   protocol: string;
+  /** the N and N-1 protocols this control plane serves, newest first */
+  supportedProtocols: string[];
+  /** the agent negotiated an N-1 protocol and should be upgraded */
+  protocolDeprecated: boolean;
 }
 
 /** `POST /{runners|machines}/register`. The token is consumed in the same step that creates the agent. */
 export async function registerAgent(rt: RunnerRuntime, kind: AgentKind, body: unknown): Promise<RegistrationResponse> {
   const b = parse(RegisterBody, body);
-  const info = AGENT_KINDS[kind];
+  // Negotiate BEFORE the token is consumed: an agent outside the N-1 window is refused with 426 and keeps its token.
+  const selected = selectRegistrationProtocol(kind, b.protocols);
   let agent: AgentRecord;
   try {
     agent = await registryOf(rt.store, kind).register({
       tokenHash: sha256Hex(b.token),
       name: b.name,
       publicKey: b.publicKey,
-      protocol: info.protocols[0],
+      protocol: selected.protocol,
       version: b.version,
       capabilities: b.capabilities,
       labels: b.labels,
@@ -175,7 +183,7 @@ export async function registerAgent(rt: RunnerRuntime, kind: AgentKind, body: un
     throw error;
   }
   await emit(rt, { type: kind === "runner" ? "runner.registered" : "machine.registered", workspaceId: agent.workspaceId, agentId: agent.id, data: { name: agent.name, version: agent.version, capabilities: agent.capabilities } });
-  return { id: agent.id, workspaceId: agent.workspaceId, controlPlaneKeys: controlPlaneKeys(rt), pollIntervalSec: DEFAULT_POLL_INTERVAL_SEC, protocol: agent.protocol };
+  return { id: agent.id, workspaceId: agent.workspaceId, controlPlaneKeys: controlPlaneKeys(rt), pollIntervalSec: DEFAULT_POLL_INTERVAL_SEC, protocol: agent.protocol, supportedProtocols: [...AGENT_KINDS[kind].protocols], protocolDeprecated: selected.deprecated };
 }
 
 /* ---------------------------------- heartbeat ---------------------------------- */

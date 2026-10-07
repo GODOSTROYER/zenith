@@ -23,6 +23,7 @@ import { renderDataStore } from "./renderers/data";
 import { renderIdentity, renderSecret, renderVolume } from "./renderers/identity";
 import { renderCertificate, renderDnsRecord, renderFirewall, renderLoadBalancer, renderNamespace } from "./renderers/network";
 import { renderContainerService, renderScheduledJob } from "./renderers/workload";
+import { renderProviderNative } from "./renderers/stateful";
 
 const K8S_PROVIDERS = new Set(["kubernetes", "zenith"]);
 
@@ -44,6 +45,8 @@ const RENDERERS: Record<string, Renderer> = {
   secret: renderSecret,
   identity: renderIdentity,
   volume: renderVolume,
+  /** Registered native shapes only (k8s:StatefulSet, k8s:CronJob); see renderers/stateful.ts. */
+  provider_native: renderProviderNative,
 };
 
 /** Kinds this renderer can realize on Kubernetes. */

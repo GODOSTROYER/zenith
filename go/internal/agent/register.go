@@ -41,6 +41,10 @@ type registerRequest struct {
 	Capabilities []string          `json:"capabilities"`
 	Labels       map[string]string `json:"labels"`
 	Host         HostInfo          `json:"host"`
+	// Protocols are the protocol ids this agent speaks, newest first. The control
+	// plane picks the newest it also serves, or answers 426 upgrade_required when
+	// none is inside its support window (PROD-OPS-03).
+	Protocols []string `json:"protocols"`
 }
 
 type registerResponse struct {
@@ -81,6 +85,7 @@ func Register(ctx context.Context, cfg *Common, opts RegisterOptions) (*Identity
 		Capabilities: opts.Capabilities,
 		Labels:       cfg.Labels,
 		Host:         LocalHost(),
+		Protocols:    []string{opts.Kind.Protocol},
 	}
 	if req.Labels == nil {
 		req.Labels = map[string]string{}
@@ -94,6 +99,9 @@ func Register(ctx context.Context, cfg *Common, opts RegisterOptions) (*Identity
 			return nil, fmt.Errorf("registration rejected (%d %s): check that the token is unused, unexpired and for a %s agent", he.Status, he.Code, opts.Kind.Name)
 		}
 		return nil, fmt.Errorf("registration failed: %w", err)
+	}
+	if resp.Protocol != "" && resp.Protocol != opts.Kind.Protocol {
+		return nil, fmt.Errorf("the control plane selected protocol %q, which this agent does not speak (%s); upgrade the agent", resp.Protocol, opts.Kind.Protocol)
 	}
 	if !protocol.ValidID(resp.ID) || resp.WorkspaceID == "" {
 		return nil, errors.New("registration response is missing id or workspaceId")

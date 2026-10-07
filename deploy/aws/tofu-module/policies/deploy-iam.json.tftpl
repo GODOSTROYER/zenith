@@ -100,19 +100,6 @@
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "iam:CreatePolicy",
-        "iam:CreatePolicyVersion",
-        "iam:DeletePolicy",
-        "iam:DeletePolicyVersion",
-        "iam:SetDefaultPolicyVersion",
-        "iam:TagPolicy",
-        "iam:UntagPolicy"
-      ],
-      "Resource": "arn:${partition}:iam::${account_id}:policy/zenith-*"
-    },
-    {
-      "Effect": "Allow",
       "Action": "iam:PassRole",
       "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
       "Condition": {

@@ -155,3 +155,52 @@ run "rejects_wildcard_subject" {
 
   expect_failures = [var.zenith_oidc_subject]
 }
+
+# Hosted zones past the inline 20 are split into overflow managed policies (40 each).
+run "hosted_zones_overflow_into_extra_policies" {
+  command = plan
+
+  variables {
+    route53_hosted_zone_arns = [for i in range(65) : format("arn:aws:route53:::hostedzone/Z%010d", i)]
+  }
+
+  assert {
+    condition     = length(one([for s in jsondecode(aws_iam_policy.zenith["deploy-edge"].policy).Statement : s.Resource if s.Sid == "Route53ChangeRecordsInListedZones"])) == 20
+    error_message = "DeployEdge must carry exactly the first 20 zones"
+  }
+
+  assert {
+    condition     = length(aws_iam_policy.dns_overflow) == 2 && length(aws_iam_role_policy_attachment.dns_overflow) == 2
+    error_message = "45 further zones need two overflow policies, both attached to the deploy role"
+  }
+
+  assert {
+    condition     = length(jsondecode(aws_iam_policy.dns_overflow[0].policy).Statement[0].Resource) == 40 && length(jsondecode(aws_iam_policy.dns_overflow[1].policy).Statement[0].Resource) == 5
+    error_message = "overflow policies must hold 40 then the remaining 5 zones"
+  }
+
+  assert {
+    condition     = alltrue([for p in aws_iam_policy.dns_overflow : jsondecode(p.policy).Statement[0].Action == "route53:ChangeResourceRecordSets"])
+    error_message = "overflow policies grant only the record-change action"
+  }
+}
+
+run "rejects_more_zones_than_the_role_can_carry" {
+  command = plan
+
+  variables {
+    route53_hosted_zone_arns = [for i in range(101) : format("arn:aws:route53:::hostedzone/Z%010d", i)]
+  }
+
+  expect_failures = [var.route53_hosted_zone_arns]
+}
+
+run "rejects_duplicate_zones" {
+  command = plan
+
+  variables {
+    route53_hosted_zone_arns = ["arn:aws:route53:::hostedzone/Z0123456789ABC", "arn:aws:route53:::hostedzone/Z0123456789ABC"]
+  }
+
+  expect_failures = [var.route53_hosted_zone_arns]
+}

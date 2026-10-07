@@ -27,6 +27,8 @@ import { ensurePlatformApp } from "@/lib/platform/app";
 import type { PlatformDbHandle } from "@/lib/controlplane/db";
 import { composeReconcileSweepRuntime } from "@/lib/platform/execution";
 import { createCriticalMaintenanceActivities } from "@/lib/workflows/critical-activities";
+import { createMixedActivities } from "@/lib/workflows/mixed-activities";
+import { createProductionCodingAgentActivities } from "@/lib/coding-agent/activities";
 import { criticalJobHealth } from "@/lib/platform/critical-jobs";
 import type { RegisteredWorkerActivities } from "@/lib/workflows/types";
 import { listDrivers } from "@/lib/drivers/types";
@@ -34,7 +36,10 @@ import { loadPolicyEngine } from "@/lib/policy";
 import { planArtifactRetentionPreviewFromEnv, startPlanArtifactJanitor } from "@/lib/execution/plan-janitor";
 import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
 import { createActivities } from "@/lib/workflows/activities";
+import { startWorkerOpsSampler } from "@/lib/ops/sampler";
+import { ensureTelemetryExport } from "@/lib/ops/telemetry/otlp";
 import { connectionOptionsFor, describeTemporalConfig } from "@/lib/workflows/config";
+import { describeWorkerVersioning } from "@/lib/workflows/versioning";
 import { temporalDataConverterFromEnv } from "@/lib/workflows/codec";
 import { executionWorkerConfigFromEnv } from "./config";
 import { installShutdownHandlers } from "./lifecycle";
@@ -58,6 +63,7 @@ async function main(): Promise<void> {
   let policyLoaded = false;
   let stopping = () => false;
   let janitor: ReturnType<typeof startPlanArtifactJanitor> | undefined;
+  let opsSampler: ReturnType<typeof startWorkerOpsSampler> | undefined;
   let healthLog: ReturnType<typeof setInterval> | undefined;
   let reconcileLog: ReturnType<typeof setInterval> | undefined;
   let reconcileClient: Awaited<ReturnType<typeof openReconcileWorkerClient>> | undefined;
@@ -99,7 +105,7 @@ async function main(): Promise<void> {
     failureCategory = "plan-directory";
     await mkdir(planDir, { recursive: true, mode: 0o700 });
     failureCategory = "activity-composition";
-    const activities: RegisteredWorkerActivities = { ...createActivities({ db, workerIdentity: config.identity, planDir, sourceBundles: { azureStorage: createAzureSourceStorageResolver(db) }, ports: { heartbeat: (detail) => Context.current().heartbeat(detail), activitySignal: () => Context.current().cancellationSignal } }), ...sweep.activities, ...createCriticalMaintenanceActivities(db) };
+    const activities: RegisteredWorkerActivities = { ...createActivities({ db, workerIdentity: config.identity, planDir, sourceBundles: { azureStorage: createAzureSourceStorageResolver(db) }, ports: { heartbeat: (detail) => Context.current().heartbeat(detail), activitySignal: () => Context.current().cancellationSignal } }), ...sweep.activities, ...createCriticalMaintenanceActivities(db), ...createProductionCodingAgentActivities(db), ...createMixedActivities({ db }) };
     failureCategory = "temporal-runtime";
     Runtime.install({ logger: new DefaultLogger(config.logLevel) });
 
@@ -121,6 +127,11 @@ async function main(): Promise<void> {
 
     failureCategory = "worker-lifecycle";
     stopping = installShutdownHandlers({ worker, graceMs: config.shutdownGraceMs, log, signals: process, exit: (code) => process.exit(code) });
+    // PROD-OPS-02: OTLP push (when configured) and the sampled queue/maintenance gauges plus tenant weights for the fair gate.
+    // Both are best effort: a collector or store outage never stops the worker serving activities.
+    const telemetry = ensureTelemetryExport();
+    if (telemetry.error) log("warn", "telemetry export disabled", { reason: telemetry.error });
+    opsSampler = startWorkerOpsSampler(db);
     // Run even if the separately owned client cannot connect: shutdown must
     // drain/finalize this created native worker before its connection closes.
     const pollingStartedAt = Date.now();
@@ -158,6 +169,7 @@ async function main(): Promise<void> {
       maxConcurrentActivities: config.maxConcurrentActivities,
       maxConcurrentWorkflowTasks: config.maxConcurrentWorkflowTasks,
       workflowSource: workflows.origin,
+      ...describeWorkerVersioning(config.versioning),
       healthPort: endpoint.port,
     });
     healthLog =
@@ -177,6 +189,7 @@ async function main(): Promise<void> {
     stopping = () => true;
     if (healthLog) clearInterval(healthLog);
     if (reconcileLog) clearInterval(reconcileLog);
+    opsSampler?.stop();
     // A failed shutdown or close must not strand another owned resource.
     try {
       // Drain before closing the client or database used by activities.

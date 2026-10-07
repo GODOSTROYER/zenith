@@ -59,6 +59,8 @@ const NETWORK_KINDS = new Set(["network", "kubernetes_namespace"]);
 function explicitNamespace(node: ResourceNode): string | undefined {
   const s = node.spec;
   if (!isRecord(s)) return undefined;
+  // A provider-native node keeps its free-form settings under spec.config.
+  if (node.kind === "provider_native") return isRecord(s.config) && typeof s.config.namespace === "string" && s.config.namespace !== "" ? s.config.namespace : undefined;
   const ns = NETWORK_KINDS.has(node.kind) ? (s.namespace ?? s.name) : s.namespace;
   return typeof ns === "string" && ns !== "" ? ns : undefined;
 }

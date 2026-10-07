@@ -17,7 +17,7 @@ export function createAzureSourceStorageResolver(db: Sql): (scope: Scope) => Ret
     const bindings = connection.config.sourceStorage;
     if (!bindings || !Object.hasOwn(bindings, scope.environmentId)) return null;
     const binding = { ...bindings[scope.environmentId] };
-    try { sourceStorageHost(binding, scope.subscriptionId); }
+    try { sourceStorageHost(binding, scope.subscriptionId, connection.config.cloud); }
     catch { throw new AzureSourceStorageRefusedError("Trusted Azure source storage binding is invalid or outside this subscription."); }
     const resource = await repos.resources.getByAddress(db, scope.workspaceId, scope.environmentId, binding.resourceAddress);
     const observation = resource ? await repos.observations.latestObservation(db, scope.workspaceId, resource.id) : null;

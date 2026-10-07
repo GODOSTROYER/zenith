@@ -12,6 +12,7 @@ import { control, requireControl, operationView, reviewOperation } from './runti
 import { controlOrigin, jsonBody, json, failure } from './boundary';
 import { grantSchema, reviewSchema } from './contracts';
 import { oauthConfig } from './oauth';
+import { consentFacts } from '../scope-catalog';
 /** Browser-session identity, verified member and workspace; refuses agent credentials and (for mutations) cross-origin posts. */
 export async function browser(req:NextRequest, mutation=false){
   // `await`, because the capability probe that replaces this flag check is
@@ -61,13 +62,13 @@ export const browserGet=route(async(req)=>{
     // OAuth client grants exist only where an external authorization server is
     // configured; without one the screen already says so, and the Postgres
     // journal refuses grant storage, so there is nothing to list.
-    const oauthConfigured=!!oauthConfig(process.env,origin);
+    const oauth=oauthConfig(process.env,origin);const oauthConfigured=!!oauth;
     return json(redact({workspaceId:workspace.id,subject:identity.subject,role:member.role,
       grants:oauthConfigured?await journal.grants(identity.subject,workspace.id):[],
       operations:(await journal.reviewQueue(workspace.id,identity.subject,member.role==='admin')).map(op=>operationView(op,origin)),
       projects:db().projects.filter(p=>p.workspaceId===workspace.id).map(p=>({id:p.id,name:p.name})),
       linkedAgents,...(linkedAgentsUnavailable?{linkedAgentsUnavailable}:{}),
-      oauthConfigured,resource:`${origin}/api/agent/v2/mcp`}));
+      oauthConfigured,resource:`${origin}/api/agent/v2/mcp`,consent:consentFacts(origin,oauth?.issuer??null)}));
   }catch(error){return failure(error);}
 });
 

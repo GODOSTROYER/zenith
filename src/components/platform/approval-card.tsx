@@ -42,6 +42,8 @@ export interface ApprovalDecisionInput {
   /** the digest the viewer reviewed; the control plane refuses the decision if it moved */
   proposalDigest: string;
   planDigest?: string;
+  /** the executable-semantics digest shown with the plan; the control plane refuses the approval if it moved */
+  semanticsDigest?: string;
   reason?: string;
 }
 
@@ -62,6 +64,8 @@ export interface ApprovalCardProps extends AsyncSurfaceProps {
   scopeNames?: ScopeNames;
   /** the reviewed plan, for infrastructure changes */
   plan?: PlanView;
+  /** digest of everything that will execute for this plan: recipe, scripts, migration class, targets, configuration, locks, backend */
+  semanticsDigest?: string;
   onApprove: (input: ApprovalDecisionInput) => void | Promise<void>;
   onReject: (input: ApprovalDecisionInput) => void | Promise<void>;
   /** a failure the host wants shown under the buttons (for example a refusal from the server) */
@@ -93,6 +97,7 @@ export function ApprovalCard({
   capabilityTitle,
   scopeNames,
   plan,
+  semanticsDigest,
   onApprove,
   onReject,
   actionError,
@@ -152,6 +157,7 @@ export function ApprovalCard({
       operationId: operation.id,
       proposalDigest: operation.proposalDigest,
       ...(kind === "approve" && plan ? { planDigest: plan.planDigest } : {}),
+      ...(kind === "approve" && plan && semanticsDigest ? { semanticsDigest } : {}),
       ...(reason.trim() ? { reason: reason.trim() } : {}),
     };
     try {
@@ -285,6 +291,10 @@ export function ApprovalCard({
             <section aria-label="Plan summary" className="space-y-2">
               <h4 className="text-[13px] font-medium text-ink-mute">Plan summary</h4>
               <DigestValue digest={plan.planDigest} what="reviewed plan digest" />
+              {semanticsDigest && <div className="space-y-1">
+                <p className="text-[13px] text-ink-mute">Your approval binds the exact revision, build recipe, scripts, migration class, targets, configuration, provider locks and state backend. If any of them changes before it runs, nothing is dispatched and a new approval is needed.</p>
+                <DigestValue digest={semanticsDigest} what="executable semantics digest" />
+              </div>}
               {plan.executableSourceDigest && <div className="space-y-2">
                 <p className="text-[13px] text-ink-mute">This plan binds the retained source commits, build recipes and archive bytes.</p>
                 <DigestValue digest={plan.executableSourceDigest} what="approved source set digest" />

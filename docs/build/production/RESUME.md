@@ -126,6 +126,10 @@ Current verifier checkpoint: [RESULTS-2026-10.md](verification/RESULTS-2026-10.m
 
 Verifying agent: start with [HANDOFF-VERIFIER.md](HANDOFF-VERIFIER.md) (scope, done criteria, what to hand back), then [VERIFY-QUEUE.md](VERIFY-QUEUE.md).
 
+Wave 3 (DUR-01 to DUR-08, OBS-01, MACH-02, MACH-06, UX-02, LIFE-07 and the OBS-02 and LIFE-11 gap fixes) was assembled on 7 October 2026 and is appended to [VERIFY-QUEUE.md](VERIFY-QUEUE.md) as its own section; verify waves 1 and 2 first.
+
+Wave 4 (LIFE-03, LIFE-04, LIFE-05/06, COST-01/02, OPS-02, OPS-03, OPS-05/06, MIX-01 to MIX-04 and the Kubernetes one-connection join) was assembled on 7 October 2026 on top of wave 3 and is appended to [VERIFY-QUEUE.md](VERIFY-QUEUE.md) as its own section (its first verifier steps are listed there; live cloud acceptance stays deferred by user decision); verify wave 3 first. What it touched: [BUILD-WAVE4-AREAS.md](BUILD-WAVE4-AREAS.md).
+
 Current verification work for `prod/compose`: see [VERIFY-QUEUE.md](VERIFY-QUEUE.md) (ordered runbook, rules and known risks for the verifying agent). Wave 2 (OBS-04, LIFE-01, LIFE-08, LIFE-09, LIFE-10, LIFE-11, MACH-04, MACH-05, UX-01, UX-03) is appended there as its own section; verify wave 1 first.
 
 Start with [5 October machine-transfer handoff](transfer/2026-10-05/README.md). It supersedes older local absolute-path resume notes. Same publication branch: `codex/production-2026-10-02`.

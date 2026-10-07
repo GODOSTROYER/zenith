@@ -728,7 +728,7 @@
           "level": "remote_ci",
           "commit": "2c9d6fa1ee5821d6b90fef4b8aab08a9ba32352a",
           "runId": 36971241225,
-          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04\u201306:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
+          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04–06:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
           "artifact": "docs/build/production/ci-36971241225.md",
           "executionReceiptComplete": true
         },
@@ -1284,7 +1284,7 @@
           "level": "remote_ci",
           "commit": "2c9d6fa1ee5821d6b90fef4b8aab08a9ba32352a",
           "runId": 36971241225,
-          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04\u201306:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
+          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04–06:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
           "artifact": "docs/build/production/ci-36971241225.md",
           "executionReceiptComplete": true
         },
@@ -1943,7 +1943,7 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1967,7 +1967,7 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1991,7 +1991,7 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2015,7 +2015,7 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2108,7 +2108,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2127,7 +2127,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "in_progress",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -2165,7 +2165,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "approved_source_and_mcp_semantics_integrated_product_apply_correction_pending",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -2191,7 +2191,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "native_mcp_dispatch_authority_integrated_bounded_apply_and_live_acceptance_open",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -2217,7 +2217,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "in_progress",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "contract",
@@ -2252,7 +2252,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "in_progress",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "contract",
@@ -2287,7 +2287,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "in_progress",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -2326,7 +2326,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -2395,7 +2395,7 @@
         {
           "level": "contract",
           "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
-          "result": "Exact unchanged9e\u21921c catalog/source/config/support closure: derive20 passed/0 failed/0 skipped, catalog13/0/0, route7/0/0, MCP2/0/0. Each count is separately observed in the current9e terminal Verify log; no overlapping sum. Complete208-entry/16-domain versioned matrix, refusal/simulated/schema-only/contract-preview rules, drift/tamper and read-only exposure pass. No supported provider promotion.",
+          "result": "Exact unchanged9e→1c catalog/source/config/support closure: derive20 passed/0 failed/0 skipped, catalog13/0/0, route7/0/0, MCP2/0/0. Each count is separately observed in the current9e terminal Verify log; no overlapping sum. Complete208-entry/16-domain versioned matrix, refusal/simulated/schema-only/contract-preview rules, drift/tamper and read-only exposure pass. No supported provider promotion.",
           "command": "Current9e canonical core unit execution, four allowlisted offered-catalog suites; read-only exact Git input reuse to1c",
           "environment": {
             "node": "22.23.3",
@@ -2442,7 +2442,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "in_progress",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "contract",
@@ -2491,11 +2491,11 @@
       "acceptance": [
         "Trusted source wiring preserved; data-plane permission, sovereign identity/ARM endpoints and real source builds accepted."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2510,11 +2510,11 @@
       "acceptance": [
         "Same-runner receipts/lost-response uncertainty preserved; independent deletion completion and runner replacement recovery proven; MySQL remains unsupported pending safe secret sink."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2533,7 +2533,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "ownership_reads_integrated_native_and_live_teardown_acceptance_open",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -2555,11 +2555,11 @@
       "acceptance": [
         "Default build/guest credentials, StatefulSets, CronJobs, persistent data, real CNI NetworkPolicy and supported managed-cluster acceptance proven."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "local_cluster",
@@ -2677,7 +2677,7 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
-          "result": "Fresh runbook-listed unit files: 12; 322 passed /0 failed /19 skipped. File-summary attribution only; required native/engine proof is separate. Whole source\u2192actual build\u2192migration\u2192readiness\u2192cutover/readback needs owned target; progressive rollout/code rollback is distinct from approved data restore."
+          "result": "Fresh runbook-listed unit files: 12; 322 passed /0 failed /19 skipped. File-summary attribution only; required native/engine proof is separate. Whole source→actual build→migration→readiness→cutover/readback needs owned target; progressive rollout/code rollback is distinct from approved data restore."
         },
         {
           "level": "local_engine",
@@ -2705,7 +2705,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "security_transport_fix_coherent_local_verified_d6965d75; wider_backup_adoption_decommission_acceptance_and_mysql_dns_tls_support_open",
+      "implementationStatus": "security_transport_fix_coherent_local_verified_d6965d75; wider_backup_adoption_decommission_acceptance_and_mysql_dns_tls_support_open; wave3_gap_fixes_pending_verification",
       "evidence": [
         {
           "level": "local_engine",
@@ -3030,7 +3030,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "local_kind_guest_slice_accepted_default_and_changed_candidate_acceptance_open",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "local_cluster",
@@ -3194,11 +3194,11 @@
       "acceptance": [
         "Analysis and requirements lead to actual deployment journey; token/tool/runtime/spend budgets and task/unsafe/recovery evaluations enforced; repository/plugin data is not authority."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3217,7 +3217,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "in_progress",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -3268,7 +3268,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "contract_verified_ec18bb9c_default_local_engine_blocked",
+      "implementationStatus": "contract_verified_ec18bb9c_default_local_engine_blocked; wave3_gap_fixes_pending_verification",
       "evidence": [
         {
           "level": "contract",
@@ -3620,11 +3620,11 @@
       "acceptance": [
         "Backpressure/fair tenant scheduling/bounded queues/maintenance controls and correlated OpenTelemetry dashboards/alerts; workloads keep serving during control-plane outage."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3641,11 +3641,11 @@
       "acceptance": [
         "API/worker/runner upgrades with in-flight histories and schema/protocol compatibility/rollback pass."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3683,11 +3683,11 @@
       "acceptance": [
         "Production signing and vault/result/Temporal encryption rotation retain decrypt-only histories with separated purposes and safe operator codec diagnostics."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3704,11 +3704,11 @@
       "acceptance": [
         "Protect unavoidable raw plans/state, minimize persistence and test leaks; no claim redaction catches every unknown secret."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3826,11 +3826,11 @@
       "acceptance": [
         "Actual coding-agent clients over MCP/SDK/CLI prove exact OAuth audiences/issuers/scoped consent/revocation/streaming/reconnect/cancellation/version compatibility using current primary docs."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3887,7 +3887,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "dated_catalog_and_placement_models_integrated_live_spend_and_remaining_cost_coverage_open",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "contract",
@@ -3915,7 +3915,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "dated_catalog_and_placement_models_integrated_live_spend_and_remaining_cost_coverage_open",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "contract",

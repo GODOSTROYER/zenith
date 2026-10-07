@@ -31,7 +31,7 @@
 #
 # ## 0014 — the `platform` schema
 #
-# `supabase/migrations/0021_platform_core.sql` is GENERATED from the TypeScript
+# `supabase/migrations/0023_platform_core.sql` is GENERATED from the TypeScript
 # migrations of the platform control store (`npx tsx scripts/platform/emit-sql.ts`;
 # `tests/controlplane/migrations.test.ts` keeps it byte-identical). It creates the
 # `platform` schema and its own `platform.schema_migrations` ledger — checksummed,
@@ -103,6 +103,8 @@ MIGRATIONS=(
   "0019_platform_core.sql"
   "0020_platform_core.sql"
   "0021_platform_core.sql"
+  "0022_platform_core.sql"
+  "0023_platform_core.sql"
 )
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
@@ -289,7 +291,7 @@ if [ -n "$unprotected" ]; then
 fi
 echo "row level security enabled on every table in schema agent."
 
-# --- the platform schema (historical0014/0016/0017/0018/0019/0020 plus current0021) ---------------------------------------------
+# --- the platform schema (historical0014/0016/0017/0018/0019/0020/0021/0022 plus current0023) ---------------------------------------------
 #
 # Use the application's checksum/version verifier and canonical known names.
 # No pinned migration count: newly shipped versions follow the runtime manifest,

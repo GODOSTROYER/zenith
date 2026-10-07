@@ -91,7 +91,10 @@ export async function stage(sql: Sql, input: StageRotationInput): Promise<Connec
     const live = await lockConnection(tx, ws, connectionId);
     if (!live) return null;
     if (live.status === "revoked" || live.revoked_at !== null) throw new ControlStoreError("invalid_state", "A revoked connection cannot be rotated; create a new connection.");
-    if (live.config.provider !== input.candidateConfig.provider || live.config.mode !== input.candidateConfig.mode)
+    // The one sanctioned mode change: legacy kubeconfig_ref -> scoped_guest (PROD-MACH-02). It still verifies and promotes like any rotation.
+    const conversion = live.config.provider === "kubernetes" && input.candidateConfig.provider === "kubernetes"
+      && live.config.mode === "kubeconfig_ref" && input.candidateConfig.mode === "scoped_guest";
+    if (live.config.provider !== input.candidateConfig.provider || (live.config.mode !== input.candidateConfig.mode && !conversion))
       throw new ControlStoreError("invalid_input", "A rotation cannot change the provider or the federation mode.", { field: "candidateConfig" });
     const candidateDigest = digest(input.candidateConfig);
     const baseDigest = digest(live.config);

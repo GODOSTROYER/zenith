@@ -293,7 +293,7 @@ function runtime(db: Sql, ports: (signal: AbortSignal) => Promise<ReconcilePassP
           return await withLease(boundedStore(db), { scope: RECONCILE_SWEEP_LEASE, holder: `reconcile-sweep:${passId}`, ttlMs: 90_000, signal }, async (lease, heldSignal) => {
             // Health record (PROD-OBS-04): fenced by the sweep lease; a bookkeeping failure never fails the pass.
             const { outcome } = await recordLeasedRun(boundedStore(db), "reconcile", "temporal", lease.fenceToken, async () => {
-            const result = await reconcilePass({ ports: cancellablePorts(composed, heldSignal), holder: `reconcile-sweep:${passId}`, maxEnvironments: args.maxEnvironments, environmentConcurrency: args.environmentConcurrency, budgetMs: 20_000, includeSandbox: false, reconcile: { autoRepair: true, deadlineAt: Date.now() + 50_000 } });
+            const result = await reconcilePass({ entry: "sweep", ports: cancellablePorts(composed, heldSignal), holder: `reconcile-sweep:${passId}`, maxEnvironments: args.maxEnvironments, environmentConcurrency: args.environmentConcurrency, budgetMs: 20_000, includeSandbox: false, reconcile: { autoRepair: true, deadlineAt: Date.now() + 50_000 } });
             heldSignal.throwIfAborted();
             // Per-environment opt-in (default off) and proposal-only. Its failure never turns a completed reconcile pass into a failure.
             const optimizerPorts = optimizer?.(composed);

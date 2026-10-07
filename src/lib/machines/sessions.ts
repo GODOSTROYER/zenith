@@ -7,6 +7,7 @@ import { capability } from "@/lib/capabilities/catalog";
 import { CredentialDeniedError, type CredentialBroker, type ProviderConnection, type ProviderSession } from "@/lib/credentials/types";
 import { createKubernetesSession, validateServerUrl, type KubernetesSessionDeps } from "@/lib/providers/kubernetes/session";
 import { isDnsLabel } from "@/lib/providers/kubernetes/naming";
+import { guestProfileFor } from "@/lib/providers/kubernetes/guest";
 import { MachineOperationError } from "./errors";
 import type { KubernetesMachineSession, MachineSessionProvider, MachineSessionRequest } from "./types";
 
@@ -111,6 +112,19 @@ export function createMachineSessionProvider(options: MachineSessionOptions): Ma
         const expires = req.grant.exp * 1000;
         if (!Number.isSafeInteger(req.grant.exp) || !Number.isSafeInteger(expires) || !Number.isFinite(new Date(expires).getTime()) || expires <= now().getTime()) throw new MachineOperationError("grant_expired", "the capability grant has expired");
         if (options.signal?.aborted) throw new MachineOperationError("aborted", "the Kubernetes machine session was cancelled");
+        // PROD-MACH-02: a scoped_guest connection is served ONLY by a per-dispatch minted, namespace- and
+        // profile-scoped token. Neither the captured test resolver nor the minter/legacy credential may stand in.
+        let kubernetesGuest: { namespace: string; profile: "read" | "exec" } | undefined;
+        if (c.config.mode === "kubeconfig_ref" && !testKubernetes) {
+          // Legacy broad credential: never handed to a guest. Explicit refusal with guidance, no fallback.
+          throw new MachineOperationError("denied", "guest_credential_refused: this Kubernetes connection uses a legacy kubeconfig credential that is not scoped for guest sessions; convert it to a scoped guest connection (connection.rotate with convertToScopedGuest and a namespaced minter reference)");
+        }
+        if (c.config.mode === "scoped_guest") {
+          if (testKubernetes) throw new MachineOperationError("denied", "a scoped Kubernetes guest connection cannot use a captured credential adapter");
+          const namespace = req.target.targetId.split("/")[0];
+          if (!isDnsLabel(namespace) || !c.config.namespaces.includes(namespace)) throw new MachineOperationError("denied", "the Kubernetes namespace is outside the connection's guest scope");
+          kubernetesGuest = { namespace, profile: guestProfileFor(req.operation) };
+        }
         if (testKubernetes) {
           const remaining = Math.floor((expires - now().getTime()) / 1000);
           const session = await createKubernetesSession(c.config, { ...testKubernetes, now, ttlSec: Math.min(remaining, testKubernetes.ttlSec ?? 900) }, options.signal);
@@ -118,7 +132,7 @@ export function createMachineSessionProvider(options: MachineSessionOptions): Ma
         }
         let callbackEntered = false;
         try {
-          return await options.credentials.withSession({ connectionId: c.id, grant: req.grant, purpose }, async session => {
+          return await options.credentials.withSession({ connectionId: c.id, grant: req.grant, purpose, ...(kubernetesGuest ? { kubernetesGuest } : {}) }, async session => {
             return withKubernetesMachineSession(session, expires, now, options.signal, async scoped => {
               callbackEntered = true;
               return fn(scoped);

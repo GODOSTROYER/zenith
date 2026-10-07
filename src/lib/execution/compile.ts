@@ -35,12 +35,14 @@
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { ProviderConnection } from "@/lib/credentials/types";
 import { awsBootstrapContextForConnection } from "@/lib/credentials/aws/naming";
+import { AwsLimitError, assertAwsBootstrapLimits } from "@/lib/credentials/aws/limits";
 import type { ProviderKey, ResourceGraph } from "@/lib/resources/types";
 import { refLocalName } from "@/lib/providers/aws/drivers/shared/refs";
 import { assembleWorkspace, TofuWorkspaceError, type BackendConfig } from "@/lib/tofu/workspace";
 import type { ProviderSetName, ProviderSetSpec } from "@/lib/tofu/providers";
 import type { TofuWorkspace } from "@/lib/tofu/types";
 import { backendForConnection } from "@/lib/tofu/backends";
+import { assertBackendAdmissible } from "@/lib/tofu/backend-capabilities";
 import { scanHclTemplate } from "@/lib/tofu/hcl-template";
 import type { ExecContext } from "./context";
 import { StepFailedError } from "./errors";
@@ -128,6 +130,11 @@ export function compileGraph(input: { graph: ResourceGraph; environmentId: strin
   const awsBootstrap = input.connection && hasAwsNodes
     ? awsBootstrapContextForConnection(input.connection.config, input.region) : undefined;
   if (input.connection && hasAwsNodes && input.connection.status !== "verified") throw new StepFailedError("AWS compilation requires a verified connection.");
+  if (awsBootstrap) {
+    // Explicit refusal before any driver runs: the saved suffix and environment must fit every IAM/S3 name derived from them.
+    try { assertAwsBootstrapLimits({ environmentId: input.environmentId, bootstrapNameSuffix: awsBootstrap.bootstrapNameSuffix, accountId: awsBootstrap.accountId, region: input.region }); }
+    catch (error) { if (error instanceof AwsLimitError) throw new StepFailedError(error.message); throw error; }
+  }
 
   const compileNode = (address: string): TofuFragment | null => {
     const node = nodes.get(address);
@@ -147,6 +154,7 @@ export function compileGraph(input: { graph: ResourceGraph; environmentId: strin
       namePrefix: prefix,
       region: node.region || input.region,
       tags: nodeTags(input.tags, node),
+      ...(node.provider === "azure" && input.connection?.config.provider === "azure" && input.connection.config.cloud ? { azureCloud: input.connection.config.cloud } : {}),
       ...(node.provider === "aws" && awsBootstrap ? { awsBootstrap: awsBootstrapContextForConnection(input.connection!.config, node.region || input.region) } : {}),
       node: (a) => nodes.get(a),
       ref: (target, attribute) => {
@@ -216,7 +224,10 @@ function backendFor(ec: ExecContext, connection: ProviderConnection, overrides?:
   try {
     // aws: S3 (key unchanged: zenith/<ws>/<env>/terraform.tfstate); gcp: GCS; azure: azurerm (Entra);
     // oci: S3-compatible Object Storage. Kubernetes needs an explicit override.
-    return backendForConnection(connection, { workspaceId: ec.workspaceId, environmentId: ec.environmentId });
+    const chosen = backendForConnection(connection, { workspaceId: ec.workspaceId, environmentId: ec.environmentId });
+    // PROD-DUR-06: refuse a backend that definitely cannot lock or encrypt state. Unverified properties stay visible to restore, not hidden.
+    assertBackendAdmissible(chosen.backend);
+    return chosen;
   } catch (err) {
     if (err instanceof TofuWorkspaceError) throw new StepFailedError(`State backend refused: ${safeText(err.message, 400)}`);
     throw err;

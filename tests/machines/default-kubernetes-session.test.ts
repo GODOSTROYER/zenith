@@ -1,7 +1,9 @@
 /**
- * Real scoped PGlite repositories, encrypted tenant vault, provider KubeConfig,
- * and signed/verified fixture grants. No cluster, cloud API, live identity or
- * browser/policy authority is modeled as accepted here. Credential issuance is
+ * PROD-MACH-02 re-baseline: the positive guest cases use scoped_guest connections (namespaced minter +
+ * per-dispatch TokenRequest). Real scoped PGlite repositories, encrypted tenant vault, platform broker,
+ * machine provider and signed/verified fixture grants; ONLY the Kubernetes API (guest cluster port) is a
+ * model here, and the real API is covered by kubernetes-guest-scoped-kind.test.ts. A legacy kubeconfig_ref
+ * connection must be refused for guests. No live identity or browser/policy authority is modeled as accepted here. Credential issuance is
  * an upstream boundary; these fixtures sign explicit claims without minting a
  * product role or substituting a machine-session resolver.
  */
@@ -13,7 +15,32 @@ import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
 import type { CredentialBroker, KubernetesConnectionConfig, ProviderConnection, ProviderSession } from "@/lib/credentials/types";
 import type { KubernetesMachineSession, MachineOperation, MachineSessionRequest } from "@/lib/machines/types";
 import { tempDataDir } from "../_support/data-dir";
+import type { GuestClusterPort } from "@/lib/providers/kubernetes/guest";
 import { T0, grantFor, requestFor } from "./_helpers";
+
+const model = vi.hoisted(() => ({ current: undefined as undefined | { port: unknown } }));
+vi.mock("@/lib/providers/kubernetes/guest", async (original) => ({
+  ...(await original<typeof import("@/lib/providers/kubernetes/guest")>()),
+  createGuestClusterPort: () => { if (!model.current) throw new Error("no modeled cluster"); return model.current.port; },
+}));
+const modelJwt = (claims: Record<string, unknown>) => { const part = (v: unknown) => Buffer.from(JSON.stringify(v)).toString("base64url"); return `${part({ alg: "RS256" })}.${part(claims)}.${Buffer.from("sig-bytes").toString("base64url")}`; };
+/** Modeled Kubernetes API boundary: records calls; a namespaced minter holds exactly the needed rights. */
+function modeledCluster() {
+  const calls: string[] = [];
+  const port: GuestClusterPort = {
+    async allowed(a) { return !!a.namespace && a.namespace !== "kube-system" && a.verb !== "*"; },
+    async ensureServiceAccount(ns, name) { calls.push(`sa:${ns}:${name}`); return { uid: `uid-${name}` }; },
+    async ensureRole(ns, name) { calls.push(`role:${ns}:${name}`); },
+    async ensureRoleBinding(ns, name) { calls.push(`rb:${ns}:${name}`); },
+    async requestToken(ns, name, uid, aud, ttl) {
+      calls.push(`token:${ns}:${name}`);
+      return { token: modelJwt({ sub: `system:serviceaccount:${ns}:${name}`, aud: aud.length ? aud : ["modeled-audience"], exp: Math.floor(T0 / 1000) + ttl, "kubernetes.io": { serviceaccount: { uid } } }), expiresAt: new Date(T0 + ttl * 1000).toISOString() };
+    },
+    async deleteGuestObjects() { calls.push("delete"); },
+  };
+  model.current = { port };
+  return { calls };
+}
 
 tempDataDir("zenith-default-kubernetes-guest-", { fast: true });
 const { openPlatformDb, repos } = await import("@/lib/controlplane/db");
@@ -42,16 +69,17 @@ beforeAll(async () => {
   key = await generateSigningJwk("EdDSA");
   signer = LocalJwkSigner.fromJwk("guest-fixture", key.privateJwk, { alg: "EdDSA" });
 });
-beforeEach(() => { vi.stubEnv("ZENITH_SECRET_KEY", "1".repeat(64)); });
-afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
+let cluster: ReturnType<typeof modeledCluster>;
+beforeEach(() => { vi.stubEnv("ZENITH_SECRET_KEY", "1".repeat(64)); cluster = modeledCluster(); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); model.current = undefined; });
 afterAll(async () => { await db.close(); });
 function barrier() { let release!: () => void; const promise = new Promise<void>(resolve => { release = resolve; }); return { promise, release }; }
 
-async function fixture(operation: MachineOperation = "container.list") {
+async function fixture(operation: MachineOperation = "container.list", mode: KubernetesConnectionConfig["mode"] = "scoped_guest") {
   const suffix = randomUUID(), workspaceId = `ws-guest-${suffix}`, operationId = `op-guest-${suffix}`;
   const environmentId = `env-guest-${suffix}`, resourceId = `res-guest-${suffix}`;
   const credentialRef = `vault:guest/${suffix}/KUBE_TOKEN`;
-  const config: KubernetesConnectionConfig = { provider: "kubernetes", mode: "kubeconfig_ref", server: "https://cluster.example.test", caData: MODEL_CA, credentialRef, namespaces: ["app", "old"] };
+  const config: KubernetesConnectionConfig = { provider: "kubernetes", mode, server: "https://cluster.example.test", caData: MODEL_CA, credentialRef, namespaces: ["app", "old"] };
   const created = await repos.connections.create(db, { workspaceId, config, createdBy: "guest-fixture" });
   await repos.connections.recordVerification(db, { workspaceId, id: created.id, ok: true, detail: "Fixture verification only; no cluster identity read." });
   const connection = (await repos.connections.get(db, workspaceId, created.id))!;
@@ -87,14 +115,17 @@ describe("default Kubernetes guest session", () => {
       const credentialObject = held.kubeConfig();
       expect(credentialObject).toBeInstanceOf(KubeConfig);
       expect((credentialObject as InstanceType<typeof KubeConfig>).getCurrentCluster()?.server).toBe(f.config.server);
-      expect(held.namespaces).toEqual(["app", "old"]);
+      // Scoped guest: exactly the target namespace, never the connection's whole allowlist.
+      expect(held.namespaces).toEqual(["app"]);
+      expect((credentialObject as InstanceType<typeof KubeConfig>).getCurrentUser()?.token).not.toBe(TOKEN_CANARY);
       expect(Object.isFrozen(held)).toBe(true); expect(Object.isFrozen(held.namespaces)).toBe(true);
       expect(Date.parse(held.expiresAt)).toBe(f.request.grant.exp * 1000);
       await assertSafe(f, held);
       return { admitted: true };
     })).toEqual({ admitted: true });
     expect(broker).toHaveBeenCalledOnce();
-    expect(broker.mock.calls[0][0]).toEqual({ connectionId: f.connection.id, purpose, grant: f.request.grant });
+    expect(broker.mock.calls[0][0]).toEqual({ connectionId: f.connection.id, purpose, grant: f.request.grant, kubernetesGuest: { namespace: "app", profile: operation === "container.list" ? "read" : "exec" } });
+    expect(cluster.calls.filter(c => c.startsWith("token:"))).toHaveLength(1);
     expect(secretRead.mock.calls).toEqual([[f.workspaceId, f.credentialRef]]);
     expect(() => held.kubeConfig()).toThrow(/ended/);
     const events = await repos.events.list(db, f.workspaceId);
@@ -118,18 +149,31 @@ describe("default Kubernetes guest session", () => {
       expect(clients).not.toHaveBeenCalled();
     });
   });
-  it("an empty live namespace list permits no machine request and cannot fall back to old scope", async () => {
+  it("an empty live namespace list permits no machine request, mints nothing and cannot fall back to old scope", async () => {
     const f = await fixture();
     await db.query("update platform.provider_connections set config=$3::text::jsonb where workspace_id=$1 and id=$2",
       [f.workspaceId, f.connection.id, JSON.stringify({ ...f.config, namespaces: [] })]);
     const clients = vi.fn(async () => { throw new Error("Empty scope must precede client creation."); });
+    const callback = vi.fn(async () => undefined);
+    await expect(f.provider().withSession(f.request, callback)).rejects.toMatchObject({ code: "denied" });
+    expect(callback).not.toHaveBeenCalled(); expect(clients).not.toHaveBeenCalled();
+    expect(cluster.calls.some(c => c.startsWith("token:") || c.startsWith("sa:"))).toBe(false);
     const driver = createKubernetesMachineDriver({ clientFactory: clients });
-    await f.provider().withSession(f.request, async value => {
-      const session = value as KubernetesMachineSession; expect(session.namespaces).toEqual([]);
-      await expect(driver.execute(requestFor("container.list", {}, { transport: "kubernetes", targetId: "app/pod-1" }), session, new AbortController().signal))
-        .rejects.toMatchObject({ code: "denied" });
-      expect(clients).not.toHaveBeenCalled();
-    });
+    // Even a handle shaped like the old scope cannot be obtained: the driver refuses an empty allowlist outright.
+    await expect(driver.execute(requestFor("container.list", {}, { transport: "kubernetes", targetId: "app/pod-1" }),
+      { provider: "kubernetes", server: f.config.server, expiresAt: new Date(T0 + 60_000).toISOString(), namespaces: [], kubeConfig: () => ({}) } as unknown as KubernetesMachineSession, new AbortController().signal))
+      .rejects.toMatchObject({ code: "denied" });
+    expect(clients).not.toHaveBeenCalled();
+  });
+  it("a legacy kubeconfig_ref connection is refused for guest sessions with migration guidance and never reads its vault credential", async () => {
+    const f = await fixture("container.list", "kubeconfig_ref"), broker = vi.spyOn(f.credentials, "withSession"), read = vi.spyOn(vault, "readSecretValueAsync");
+    const callback = vi.fn(async () => undefined);
+    const error = await f.provider().withSession(f.request, callback).then(() => undefined, (e: unknown) => e) as Error & { code?: string };
+    expect(error.code).toBe("denied");
+    expect(error.message).toMatch(/guest_credential_refused.*convertToScopedGuest/);
+    expect(callback).not.toHaveBeenCalled(); expect(broker).not.toHaveBeenCalled(); expect(read).not.toHaveBeenCalled();
+    expect(cluster.calls).toEqual([]);
+    await assertSafe(f, error);
   });
   it.each(["absent", "foreign", "revoked", "wrong provider"] as const)("refuses a captured %s connection before any broker or vault read", async mode => {
     const f = await fixture(), broker = vi.spyOn(f.credentials, "withSession"), secretRead = vi.spyOn(vault, "readSecretValueAsync");

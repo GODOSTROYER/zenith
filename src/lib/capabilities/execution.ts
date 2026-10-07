@@ -44,6 +44,7 @@ import { newId, requesterOf } from "./internal";
 import { ROLE_RANK, type BrokerDeps } from "./ports";
 import { reevaluate, requestFromOperation } from "./reevaluate";
 import { scrubSecrets } from "./secret-guard";
+import { lapsedStandingApprovalIds } from "./standing-grants";
 import type { BrokerProposal, OperationView } from "./types";
 import { operationView } from "./views";
 
@@ -116,7 +117,12 @@ async function checkApprovals(
   }
   const now = deps.clock.now().getTime();
   const all: ApprovalRecord[] = await deps.store.listApprovals(op.workspaceId, op.id);
-  const live = all.filter((a) => approvalRoundOf(a) === approvalRoundOf(op) && a.approver.kind === "user" && a.decision === "approve" && a.proposalDigest === op.proposalDigest && !a.consumedAt && Date.parse(a.expiresAt) > now);
+  // An approval that a standing grant gave stops counting once the grant is revoked or expired or its creator lost admin (PROD-DUR-04).
+  const lapsed = await lapsedStandingApprovalIds(deps, op);
+  const live = all.filter((a) => approvalRoundOf(a) === approvalRoundOf(op) && a.approver.kind === "user" && a.decision === "approve" && a.proposalDigest === op.proposalDigest && !a.consumedAt && Date.parse(a.expiresAt) > now && !lapsed.has(a.id));
+  if (live.length === 0 && lapsed.size > 0) {
+    throw new BrokerError("standing_grant_lapsed", "The standing grant that approved this operation was revoked or expired before it was dispatched.", "Propose again, or have a person approve it.", { grants: lapsed.size });
+  }
   if (live.length === 0) {
     throw new BrokerError("approval_required", "No unconsumed, unexpired approval covers this operation.", "Have an editor or admin approve the exact proposal.");
   }
@@ -191,7 +197,7 @@ export async function beginExecution(deps: BrokerDeps, input: BeginExecutionInpu
     try {
       await checkApprovals(deps, op, decision.approval);
     } catch (error) {
-      if (isBrokerError(error) && (error.code === "approval_required" || error.code === "reapproval_required")) {
+      if (isBrokerError(error) && (error.code === "approval_required" || error.code === "reapproval_required" || error.code === "standing_grant_lapsed")) {
         // A concurrent executor may have claimed the operation (and so consumed its approvals) since we read it:
         // that is "already claimed", not a missing approval.
         const fresh = await deps.store.getOperation(workspaceId, op.id);

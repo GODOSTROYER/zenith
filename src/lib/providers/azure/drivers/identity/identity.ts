@@ -38,6 +38,8 @@ import { azureTags, cloudName, hash6, nodeKindOf, tfLabel } from "@/lib/provider
 import { API, FORBIDDEN_ROLE_NAMES, ROLE } from "@/lib/providers/azure/platform";
 import { workloadTrust } from "@/lib/providers/gcp/drivers/identity/workload-trust";
 import { tfLiteral } from "@/lib/providers/azure/drivers/more-util";
+import { assertRoleFitsTarget } from "@/lib/providers/azure/data-plane-rbac";
+import { azureCloud } from "@/lib/providers/azure/cloud";
 
 export const USER_ASSIGNED_IDENTITY = { type: "Microsoft.ManagedIdentity/userAssignedIdentities", apiVersion: API.identity } as const;
 
@@ -52,6 +54,7 @@ export const BUILTIN_ROLE_IDS: Readonly<Record<string, string>> = {
   "69a216fc-b8fb-44d8-bc22-1f3c2cd27a39": ROLE.serviceBusSender,
   "4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0": ROLE.serviceBusReceiver,
   "7f951dda-4ed3-4680-a7ca-43fe172d538d": ROLE.acrPull,
+  "8311e382-0749-4cb8-b61a-304f252e45ec": ROLE.acrPush,
 };
 
 export interface RoleGrant {
@@ -61,7 +64,7 @@ export interface RoleGrant {
   scopeKey: ExportKey;
 }
 
-const KNOWN_VERBS = new Set(["pull", "read", "list", "write", "delete", "publish", "consume", "read_credentials"]);
+const KNOWN_VERBS = new Set(["pull", "push", "read", "list", "write", "delete", "publish", "consume", "read_credentials"]);
 const NO_ROLE_KINDS = new Set(["log_group", "postgres", "mysql", "redis"]);
 
 /**
@@ -73,6 +76,12 @@ export function rolesForGrants(grants: readonly IdentityGrant[], referencedSecre
   const out: RoleGrant[] = [];
   const add = (target: string, role: string, scopeKey: ExportKey) => {
     if (FORBIDDEN_ROLE_NAMES.includes(role)) throw new AzureCompileError(`role ${role} is never granted by Zenith.`, where);
+    // Workload grants are data-plane roles from the catalog, meant for this kind of target (data-plane-rbac.ts).
+    try {
+      assertRoleFitsTarget(role, nodeKindOf(target));
+    } catch (e) {
+      throw new AzureCompileError(e instanceof Error ? e.message : `role ${role} is not grantable.`, where);
+    }
     out.push({ target, role, scopeKey });
   };
   for (const g of [...grants].sort((x, y) => (x.target < y.target ? -1 : x.target > y.target ? 1 : 0))) {
@@ -83,7 +92,9 @@ export function rolesForGrants(grants: readonly IdentityGrant[], referencedSecre
     if (NO_ROLE_KINDS.has(kind)) continue;
     switch (kind) {
       case "container_registry":
-        if (has("pull")) add(g.target, ROLE.acrPull, "id");
+        // push implies pull, so a grant with both gets the single AcrPush role (least privilege: one role, one scope)
+        if (has("push")) add(g.target, ROLE.acrPush, "id");
+        else if (has("pull")) add(g.target, ROLE.acrPull, "id");
         break;
       case "object_store":
         if (has("write", "delete")) add(g.target, ROLE.blobContributor, "resource_manager_id");
@@ -139,7 +150,7 @@ export function compileIdentity(node: ResourceNode, ctx: CompileContext): TofuFr
       user_assigned_identity_id: `\${azurerm_user_assigned_identity.${L}.id}`,
       issuer: `\${jsondecode(${issuerDeployment}.output_content).issuer.value}`,
       subject: trust.subject,
-      audience: ["api://AzureADTokenExchange"],
+      audience: [azureCloud(ctx.azureCloud).federationAudience],
     } };
   }
 
@@ -157,6 +168,9 @@ export function compileIdentity(node: ResourceNode, ctx: CompileContext): TofuFr
         role_definition_name: r.role,
         principal_id: `\${azurerm_user_assigned_identity.${L}.principal_id}`,
         principal_type: "ServicePrincipal",
+        // The identity is created in this same apply: skip the Entra existence pre-check that fails with
+        // PrincipalNotFound while the new service principal replicates (the documented managed-identity race).
+        skip_service_principal_aad_check: true,
         description: `Zenith grant on ${r.target}`,
       })
     )

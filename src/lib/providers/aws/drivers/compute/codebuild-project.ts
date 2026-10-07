@@ -201,7 +201,7 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
     const roleName = `${cloudName(ctx.namePrefix, name, 64 - BUILD_ROLE_SUFFIX.length)}${BUILD_ROLE_SUFFIX}`;
     const role = b.resource("aws_iam_role", label, {
       name: roleName,
-      assume_role_policy: assumeRoleJson("codebuild.amazonaws.com"),
+      assume_role_policy: assumeRoleJson("codebuild.amazonaws.com", ctx),
       permissions_boundary: boundaryArn(env, "build", ctx),
       tags: tagsFor(ctx, node, roleName),
     });

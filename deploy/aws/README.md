@@ -211,8 +211,15 @@ deploy session, not the EC2 agent. This does not enable `ssm:SendCommand` or
 
 The generator checks every boundary and deploy policy in `aws`, `aws-cn`
 and `aws-us-gov`, using maximum supported environment-id and connection-suffix
-lengths, with optional KMS and two hosted zones enabled. Larger custom zone
-lists still require checking their fully rendered deploy-edge policy. New family boundaries have a 5,800-character budget; legacy has a
+lengths, with optional KMS and 20 maximum-length hosted zone ARNs enabled
+(`npx tsx deploy/aws/tools/generate-tofu-policies.ts --report` prints every policy's size and headroom).
+**Hosted zone limits.** The CloudFormation template carries at most 20 zones in `ZenithDeployEdge`
+(IAM refuses a larger stack update; it is not split there). The OpenTofu module accepts up to 100
+zones: the first 20 stay in `ZenithDeployEdge` and further zones are split automatically into
+`ZenithDeployEdgeDns1` and `ZenithDeployEdgeDns2` (40 each), attached to the deploy role, which
+keeps it within IAM's default quota of 10 managed policies (8 + 2). More than 100 zones, or a
+duplicate, fails variable validation. A permissions boundary is one managed policy per role and
+is never split. New family boundaries have a 5,800-character budget; legacy has a
 6,144-character migration budget; all managed policies stay below IAM's 6,144
 non-whitespace-character limit. Run
 `npx tsx deploy/aws/tools/generate-tofu-policies.ts --check` before stack updates.

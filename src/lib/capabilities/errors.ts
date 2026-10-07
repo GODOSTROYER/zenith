@@ -41,6 +41,9 @@ export type BrokerErrorCode =
   | "duplicate_decision"
   | "idempotency_conflict"
   | "plan_changed"
+  | "semantics_changed"
+  | "semantics_mismatch"
+  | "standing_grant_lapsed"
   | "already_claimed"
   | "conflict"
   | "lease_lost"
@@ -72,6 +75,9 @@ export const BROKER_HTTP_STATUS: Readonly<Record<BrokerErrorCode, number>> = {
   duplicate_decision: 409,
   idempotency_conflict: 409,
   plan_changed: 409,
+  semantics_changed: 409,
+  semantics_mismatch: 409,
+  standing_grant_lapsed: 409,
   already_claimed: 409,
   conflict: 409,
   lease_lost: 409,

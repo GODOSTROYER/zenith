@@ -182,7 +182,7 @@
         "ssm:GetParameters",
         "ssm:GetParametersByPath"
       ],
-      "Resource": "*"
+      "NotResource": "arn:${partition}:ssm:*:${account_id}:parameter/zenith/image-pointer/*"
     }
   ]
 }

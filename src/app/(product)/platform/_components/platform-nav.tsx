@@ -14,8 +14,10 @@ export const PLATFORM_LINKS: readonly { href: string; label: string }[] = [
   { href: "/platform/runners", label: "Runners" },
   { href: "/platform/source", label: "GitHub source" },
   { href: "/platform/plugins", label: "Plugins" },
+  { href: "/platform/coding-agent", label: "Coding agents" },
   { href: "/platform/connections", label: "Connections" },
   { href: "/platform/connections/aws", label: "Connect AWS" },
+  { href: "/platform/standing-grants", label: "Standing grants" },
   { href: "/platform/settings", label: "Workspace policy" },
 ];
 

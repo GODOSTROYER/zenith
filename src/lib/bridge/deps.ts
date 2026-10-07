@@ -17,8 +17,9 @@ import { executionPlaneReadiness, type ExecutionReadiness } from "@/lib/bridge/r
 export interface WorkflowGateway {
   startDeploy(input: DeployWorkflowInput): Promise<unknown>;
   startDestroy?(input: DestroyWorkflowInput): Promise<unknown>;
-  signalApproval(operationId: string): Promise<{ delivered: true } | { delivered: false; reason: "not_found" }>;
-  cancelOperation(operationId: string): Promise<{ delivered: true } | { delivered: false; reason: "not_found" }>;
+  /** `workspaceId` selects the durable intent path; without it only the legacy direct signal is possible. */
+  signalApproval(operationId: string, workspaceId?: string): Promise<{ delivered: true } | { delivered: false; reason: "not_found" | "pending" }>;
+  cancelOperation(operationId: string, workspaceId?: string): Promise<{ delivered: true } | { delivered: false; reason: "not_found" | "pending" }>;
 }
 
 export interface BridgeDeps {
@@ -47,8 +48,22 @@ const defaults: BridgeDeps = {
   workflows: {
     startDeploy: async (input) => (await import("./workflow-start")).startDeploymentWorkflow(input),
     startDestroy: async (input) => (await import("./workflow-start")).startDestroyWorkflow(input),
-    signalApproval: async (id) => (await import("@/lib/workflows/client")).signalApproval(id),
-    cancelOperation: async (id) => (await import("@/lib/workflows/client")).cancelOperation(id),
+    // Durable first: the intent commits before any Temporal call, so a crash or outage cannot lose the request.
+    signalApproval: async (id, workspaceId) => {
+      if (!workspaceId) return (await import("@/lib/workflows/client")).signalApproval(id);
+      const [{ signalDurably, approvalSignalKey }, { platformDb }] = await Promise.all([import("@/lib/controlplane/outbox/signal"), import("@/lib/controlplane/db")]);
+      // No platform store (legacy local mode) means no durable path; the direct signal is then the only one.
+      const sql = await platformDb().catch(() => undefined);
+      if (!sql) return (await import("@/lib/workflows/client")).signalApproval(id);
+      return signalDurably({ workspaceId, operationId: id, signal: "approvalRecorded", key: await approvalSignalKey(sql, workspaceId, id) }, { sql });
+    },
+    cancelOperation: async (id, workspaceId) => {
+      if (!workspaceId) return (await import("@/lib/workflows/client")).cancelOperation(id);
+      const [{ signalDurably }, { platformDb }] = await Promise.all([import("@/lib/controlplane/outbox/signal"), import("@/lib/controlplane/db")]);
+      const sql = await platformDb().catch(() => undefined);
+      if (!sql) return (await import("@/lib/workflows/client")).cancelOperation(id);
+      return signalDurably({ workspaceId, operationId: id, signal: "cancel", key: `cancel:${id}` }, { sql });
+    },
   },
   readiness: executionPlaneReadiness,
   teardownSession: async (ctx) => (await import("./teardown-session")).teardownBrowserSession(ctx),

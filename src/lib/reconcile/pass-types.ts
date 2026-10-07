@@ -44,6 +44,8 @@ export interface ReconcilePassPorts extends ReconcilePorts {
 }
 
 export interface ReconcilePassOptions {
+  /** which trigger drives this pass, recorded by the repair lifecycle (default `tick`); never changes behaviour */
+  entry?: "tick" | "sweep";
   /** wall-clock budget (default and ceiling: `RECONCILE_BUDGET_MS`, 20 s, like `engineTickPass`) */
   budgetMs?: number;
   /** environments claimed per pass (default 25) */

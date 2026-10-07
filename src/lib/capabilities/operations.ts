@@ -26,7 +26,7 @@ export interface OperationDetail {
   /** The decision linked to the current approval round. */
   decision?: DecisionView;
   /** Original planning evidence; absent means unavailable, never an empty plan. */
-  planReview?: Pick<OperationPlanReview, "planDigest" | "view" | "cost"> & { decision?: DecisionView };
+  planReview?: Pick<OperationPlanReview, "planDigest" | "view" | "cost" | "semantics"> & { decision?: DecisionView };
   approvals: {
     id: string;
     decision: "approve" | "reject";
@@ -53,7 +53,7 @@ export async function getOperationDetail(deps: BrokerDeps, input: { workspaceId:
   return {
     operation: { ...operationView(op), approvalRound: approvalRoundOf(op) },
     ...(policy ? { decision: policy } : {}),
-    ...(review ? { planReview: { planDigest: review.planDigest, view: review.view, cost: review.cost, ...(policy ? { decision: policy } : {}) } } : {}),
+    ...(review ? { planReview: { planDigest: review.planDigest, view: review.view, cost: review.cost, ...(review.semantics ? { semantics: review.semantics } : {}), ...(policy ? { decision: policy } : {}) } } : {}),
     approvals: approvals.map((a) => ({
       id: a.id,
       decision: a.decision,

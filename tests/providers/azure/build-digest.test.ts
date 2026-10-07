@@ -168,3 +168,19 @@ describe("Azure scheduled job digest confirmation", () => {
     expect(w.fetcher.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false); expect(w.state.starts).toBe(0);
   });
 });
+
+describe("non-root context derivation happens before the permanent launch claim", () => {
+  const sub = { ...pipeline, spec: { ...pipeline.spec, source: { ...(pipeline.spec.source as object), contextDir: "apps/web", contextDigest: "a".repeat(64) } } };
+  it("a derivation failure consumes no launch key, starts no build and records nothing, and a retry is possible", async () => {
+    const w = world(); // the fixture archive is not a gzip tar, so the context cannot be derived
+    const before = w.fetcher.mock.calls.length;
+    await expect(createAzureBuildPort(w.options).startBuild(w.ctx, { ...input(), pipeline: sub })).rejects.toThrow(/unreadable/);
+    expect(w.receipts.port.claim).not.toHaveBeenCalled();
+    expect(w.receipts.port.record).not.toHaveBeenCalled();
+    expect(w.uploadFetch).not.toHaveBeenCalled();
+    expect(w.fetcher.mock.calls.slice(before).some(([u]) => u.includes("scheduleRun") || u.includes("listBuildSourceUploadUrl"))).toBe(false);
+    // nothing was consumed: a later build still claims normally
+    await createAzureBuildPort(w.options).startBuild(w.ctx, input());
+    expect(w.receipts.port.claim).toHaveBeenCalledOnce();
+  });
+});

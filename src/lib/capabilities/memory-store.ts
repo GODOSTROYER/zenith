@@ -63,6 +63,7 @@ import {
   type WorkspacePolicySettings,
 } from "./ports";
 import { findSecret } from "./secret-guard";
+import { MemoryStandingGrantStore } from "./standing-grants";
 
 const ROLE_RANK = { viewer: 0, editor: 1, admin: 2 } as const;
 const DIGEST = /^[0-9a-f]{64}$/;
@@ -95,6 +96,7 @@ interface Lease {
 }
 
 export class MemoryBrokerStore implements BrokerStore {
+  readonly standingGrants = new MemoryStandingGrantStore();
   private seq = 0;
   private eventSeq = 0;
   private counter = 0;

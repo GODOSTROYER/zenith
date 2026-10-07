@@ -62,6 +62,7 @@ const SWEPT = new Set([
   "approvals.consume", "approvals.listForOperation", "approvals.record", "approvals.requiredApprovalCount", "approvals.consumeApprovals",
   "connections.get", "connections.list", "connections.recordVerification", "connections.revoke",
   "cost.get", "cost.list",
+  "actualSpend.listActualSpend",
   "drift.latest", "drift.list",
   "events.list",
   "evidence.get", "evidence.list",
@@ -93,6 +94,10 @@ const SWEPT = new Set([
   // PROD-LIFE-01 / PROD-UX-03: tenant-scoped reads (workspace_id in SQL; a foreign id equals a missing one). Writes are classified below.
   "connectionRotations.get", "connectionRotations.getOpen", "connectionRotations.list",
   "plugins.get", "plugins.list", "plugins.listGrants", "plugins.listEvents",
+  // PROD-DUR-05/06: tenant-scoped reads of custody receipts and state recovery records.
+  "planCustody.listReads", "stateBackendRecovery.provenOwner", "stateBackendRecovery.latestProbe", "stateBackendRecovery.get", "stateBackendRecovery.backendOf", "stateBackendRecovery.list",
+  // PROD-UX-02: workspace_id AND principal digest in SQL; a foreign workspace, a foreign principal and an unknown stream are the same empty answer (real rows: tests/agent-v3/stream-store.test.ts).
+  "mcpStreams.readStreamEvents", "mcpStreams.streamCancelRequested", "mcpStreams.streamStatus",
 ]);
 
 /** Writes that bind the new row to the workspace they are given; their tenant checks are tested with the owning suite. */
@@ -138,13 +143,45 @@ const WRITES = new Set([
   // PROD-LIFE-01: every statement binds the supplied workspace and resolves the connection inside it; foreign-id refusals are covered by tests/controlplane/rotations-repo.test.ts.
   "connectionRotations.stage", "connectionRotations.recordCandidateVerification", "connectionRotations.abort", "connectionRotations.promote",
   "connections.revokeAudited", "connections.appendLifecycleEvent",
+  // PROD-DUR-05: every statement binds the supplied workspace; tenant, fence, tamper, revocation and expiry refusals are in tests/controlplane/plan-custody.test.ts.
+  "planCustody.admit", "planCustody.verify", "planCustody.revokeWorker",
+  // PROD-DUR-06: workspace-bound writes with guarded transitions; foreign-workspace, digest and state-machine refusals are in tests/controlplane/state-backend-recovery.test.ts.
+  "stateBackendRecovery.recordProbe", "stateBackendRecovery.propose", "stateBackendRecovery.approve", "stateBackendRecovery.reject", "stateBackendRecovery.beginExecution",
+  "stateBackendRecovery.complete", "stateBackendRecovery.failUncertain", "stateBackendRecovery.expireStale",
   // PROD-UX-03: workspace-bound plugin registry and grant writes; foreign-workspace refusals are covered by the plugin store tests.
   "plugins.register", "plugins.review", "plugins.revoke", "plugins.createGrant", "plugins.revokeGrant", "plugins.touchGrant",
-  "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings", "idempotency.reserve", "idempotency.complete",
+  // PROD-DUR-07/08: external-effect ledger. Every statement binds the supplied workspace in SQL and a foreign effect id equals a missing one;
+  // the foreign-workspace refusals for reads and writes are individually covered by tests/effects/ledger.test.ts (not the generic attempt sweep).
+  "externalEffects.begin", "externalEffects.get", "externalEffects.getByDedup", "externalEffects.list", "externalEffects.listEvents", "externalEffects.listResolutions",
+  "externalEffects.isFenceLive", "externalEffects.recordAccepted", "externalEffects.recordRejected", "externalEffects.markUncertain", "externalEffects.recordReadback", "externalEffects.resolve",
+  // PROD-UX-02: every statement binds the supplied workspace and the authenticated principal digest; foreign-workspace and foreign-principal refusals are covered by tests/agent-v3/stream-store.test.ts.
+  "mcpStreams.openStream", "mcpStreams.appendStreamEvent", "mcpStreams.requestStreamCancel", "mcpStreams.finishStream",
+  // PROD-MACH-06: every statement binds the supplied workspace in SQL and a foreign run id equals a missing one; foreign-workspace refusals are covered by tests/coding-agent/store.test.ts.
+  "codingAgentRuns.createRun", "codingAgentRuns.getRun", "codingAgentRuns.listRuns", "codingAgentRuns.saveRun", "codingAgentRuns.attachOutcome", "codingAgentRuns.claimResume", "codingAgentRuns.cancelRun", "codingAgentRuns.failRun",
+  // PROD-MACH-02: workspace-keyed guest binding rows (no credential column); foreign-workspace refusals are covered by tests/controlplane/k8s-guest-bindings.test.ts.
+  "k8sGuestBindings.ensure", "k8sGuestBindings.get", "k8sGuestBindings.listOpen", "k8sGuestBindings.listForConnection", "k8sGuestBindings.markActive", "k8sGuestBindings.recordIssuance", "k8sGuestBindings.recordError",
+  "k8sGuestBindings.markConnectionRevoking", "k8sGuestBindings.markRevoked", "k8sGuestBindings.markRevoking",
+  // PROD-OBS-01: workspace and environment bound in SQL (reads repairs of one environment and settles its own reserved attempts first); real SQL in tests/repair/lifecycle.platform.test.ts.
+  "incidentStability.listRepairsAwaitingVerification",
+  // PROD-MIX-01/02: every statement binds the supplied workspace in SQL (composite keys to platform.operations) and a foreign plan, child or operation id equals a missing one; real SQL in tests/controlplane/mixed-parent-plans.test.ts.
+  "mixedParentPlans.getPlan", "mixedParentPlans.getPlanByParentOperation", "mixedParentPlans.listPlansForEnvironment", "mixedParentPlans.createPlan", "mixedParentPlans.getAddresses", "mixedParentPlans.listChildren",
+  "mixedParentPlans.attachParentOperation", "mixedParentPlans.adoptChild", "mixedParentPlans.markChildStarted", "mixedParentPlans.recordExecutableSemantics", "mixedParentPlans.recordReceipt", "mixedParentPlans.getReceipt",
+  "mixedParentPlans.listReceipts", "mixedParentPlans.blockChild", "mixedParentPlans.setParentStatus", "mixedParentPlans.readOperationFacts",
+  // PROD-MIX-03/04 join (wave-4 assembly): run deadline and review lookups; each statement binds the supplied workspace, and a review approval counts only for the named parent run and a live human approval of its own proposal digest.
+  "mixedParentPlans.readParentApprovalExpiry", "mixedParentPlans.findReviewOperation", "mixedParentPlans.readReviewApprovalDigest", "mixedParentPlans.findReviewApprovalId", "mixedParentPlans.findOpenReviewOperation",
+  // PROD-MIX-03/04: run state, ledger and output preauthorizations are workspace-bound in SQL; foreign-workspace hiding is covered by tests/controlplane/mixed-runs.test.ts.
+  "mixedRuns.get", "mixedRuns.create", "mixedRuns.save", "mixedRuns.listEvents",
+  "mixedOutputPreauthorizations.create", "mixedOutputPreauthorizations.get", "mixedOutputPreauthorizations.list", "mixedOutputPreauthorizations.revoke", "mixedOutputPreauthorizations.reserveUse",
+  "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings",
+  // PROD-COST-01: binds the row and the idempotency lookup to the supplied workspace; foreign-workspace listing and cross-tenant isolation are covered by tests/cost/actual-spend-store.test.ts and the sweep below.
+  "actualSpend.insertActualSpend", "idempotency.reserve", "idempotency.complete",
 ]);
 
 /** Deliberately not workspace-filtered, with the reason. */
 const EXEMPT: Record<string, string> = {
+  "planCustody.PlanCustodyError": "pure fixed error class; no SQL or tenant data and excluded from bindRepos",
+  "stateBackendRecovery.StateRecoveryRecordError": "pure fixed error class; no SQL or tenant data and excluded from bindRepos",
+  "stateBackendRecovery.restoreProposalDigest": "pure digest over a supplied proposal; reads no SQL and is excluded from bindRepos",
   "cleanupWriterBarriers.inventoryForNativeOrigin": "reads only through a private opaque native origin whose owning workspace, project and environment are bound by the genuine paired codec; no caller-supplied tenant, and excluded from bindRepos",
   "cleanupWriterBarriers.CleanupWriterBarrierError": "pure fixed error class; no tenant query or authority and excluded from bindRepos",
   "mixedChildIntents.MixedChildAdmissionError": "pure fixed-category error class, contains no SQL or tenant data; excluded from bindRepos",
@@ -184,6 +221,8 @@ const EXEMPT: Record<string, string> = {
   "scheduledJobs.recordSkip": "system scheduler health row keyed by job name; counts only",
   "scheduledJobs.getScheduledJob": "system scheduler health read by job name; no tenant rows",
   "scheduledJobs.listScheduledJobs": "system scheduler health read; no tenant rows",
+  "externalEffects.sweepStalePending": "system maintenance under the housekeeping lease: declares pending effects whose dispatcher vanished uncertain (never retried); every returned row carries its workspace and nothing is read from tenant input",
+  "mixedRuns.listDue": "system housekeeping sweep: returns workspace-qualified run keys only (never content); each run is then ticked under its own workspace and the runs of other tenants are untouched (tests/controlplane/mixed-runs.test.ts)",
   "optimizerSettings.listOptedInEnvironments": "system scheduler only: lists (workspace, environment) pairs that opted in; every returned row carries its workspace and each is processed under that workspace",
 };
 
@@ -316,6 +355,7 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     const incident = await repos.incidents.openIncident(db, { workspaceId: A, environmentId: envId, title: "t", severity: "low", source: "user" });
     await repos.incidents.insertInvestigation(db, { id: uid("inv"), incidentId: incident.id, workspaceId: A, environmentId: envId, startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), path: [], evidence: [], hypotheses: [], recentChanges: [], simulated: false });
     const cost = await repos.cost.insert(db, { workspaceId: A, environmentId: envId, estimate: { kind: "estimate", catalogVersion: "v1", currency: "USD", monthlyUsd: 10, lines: [], assumptions: {}, included: [], excluded: [], computedAt: new Date().toISOString() } });
+    await repos.actualSpend.insertActualSpend(db, { workspaceId: A, environmentId: envId, recordedBy: "u", snapshot: { kind: "actual_spend", provider: "aws", scope: "123456789012", periodStart: "2026-10-01", periodEnd: "2026-11-01", currency: "USD", totalUsd: 1, lines: [], costBasis: "test", finalization: "provisional", source: { adapter: "test", endpoint: "https://example.invalid/", retrievedAt: "2026-10-11T00:00:00.000Z", responseSha256: hex("c") }, notice: "test" } });
     const decision = await repos.policyDecisions.listForOperation(db, A, opId);
     const investigations = await repos.incidents.listInvestigationsForIncident(db, A, incident.id);
     await repos.leases.acquire(db, { scope: `env:${envId}`, holder: "w", ttlMs: 60_000, workspaceId: A });
@@ -426,6 +466,7 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "connections.revoke": () => repos.connections.revoke(db, B, connection.id),
       "cost.get": () => repos.cost.get(db, B, cost.id),
       "cost.list": () => repos.cost.list(db, B, { environmentId: envId }),
+      "actualSpend.listActualSpend": () => repos.actualSpend.listActualSpend(db, B, { environmentId: envId }),
       "drift.latest": () => repos.drift.latest(db, B, envId),
       "drift.list": () => repos.drift.list(db, B, envId),
       "events.list": () => repos.events.list(db, B, { operationId: opId }),
@@ -503,6 +544,15 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "plugins.list": () => repos.plugins.list(db, B),
       "plugins.listGrants": () => repos.plugins.listGrants(db, B),
       "plugins.listEvents": () => repos.plugins.listEvents(db, B, "plg_foreign"),
+      "planCustody.listReads": () => repos.planCustody.listReads(db, B, opId, 10),
+      "stateBackendRecovery.provenOwner": () => repos.stateBackendRecovery.provenOwner(db, B, envId, hex("a")),
+      "stateBackendRecovery.latestProbe": () => repos.stateBackendRecovery.latestProbe(db, B, envId, hex("a")),
+      "stateBackendRecovery.get": () => repos.stateBackendRecovery.get(db, B, "sbr_foreign"),
+      "stateBackendRecovery.backendOf": () => repos.stateBackendRecovery.backendOf(db, B, "sbr_foreign"),
+      "stateBackendRecovery.list": () => repos.stateBackendRecovery.list(db, B, envId),
+      "mcpStreams.readStreamEvents": () => repos.mcpStreams.readStreamEvents(db, { workspaceId: B, principalKey: hex("a"), streamId: "f".repeat(32), afterSeq: 0 }),
+      "mcpStreams.streamCancelRequested": () => repos.mcpStreams.streamCancelRequested(db, { workspaceId: B, streamId: "f".repeat(32) }),
+      "mcpStreams.streamStatus": () => repos.mcpStreams.streamStatus(db, { workspaceId: B, principalKey: hex("a"), streamId: "f".repeat(32) }),
       "settings.getEnvironmentSettings": () => repos.settings.getEnvironmentSettings(db, B, envId),
       "settings.getWorkspacePolicy": () => repos.settings.getWorkspacePolicy(db, B),
       "optimizerSettings.getOptimizerSettings": () => repos.optimizerSettings.getOptimizerSettings(db, B, envId),

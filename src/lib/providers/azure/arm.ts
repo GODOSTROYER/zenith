@@ -14,8 +14,10 @@
  * tests against a fake ARM server only — never a live subscription.
  */
 import type { AzureSession } from "@/lib/credentials/types";
+import { PUBLIC_AZURE_CLOUD, cloudOf } from "@/lib/providers/azure/cloud";
 
-export const ARM_ORIGIN = "https://management.azure.com";
+/** The PUBLIC cloud's ARM origin; calls derive the session's own origin via `cloudOf(session).armOrigin`. */
+export const ARM_ORIGIN = PUBLIC_AZURE_CLOUD.armOrigin;
 /** generic `Microsoft.Resources` list/tag-filter API version */
 export const RESOURCES_API = "2021-04-01";
 
@@ -150,12 +152,12 @@ export interface ArmClient {
   list<T = Json>(path: string, o: ArmRequestOptions, maxPages?: number): Promise<{ items: T[]; truncated: boolean; requestIds: string[] }>;
 }
 
-function buildUrl(path: string, o: ArmRequestOptions): string {
+function buildUrl(path: string, o: ArmRequestOptions, origin: string = ARM_ORIGIN): string {
   if (!path.startsWith("/") || path.includes("..") || path.includes("//") || /[\s#\\]/.test(path)) throw new ArmError("client", 0, "Invalid ARM path.");
   const q = new URLSearchParams({ "api-version": o.apiVersion });
   for (const [k, v] of Object.entries(o.query ?? {})) q.set(k, v);
   // URLSearchParams encodes spaces as '+', which ARM filters accept; `$` stays readable
-  return `${ARM_ORIGIN}${path}?${q.toString().replace(/%24/g, "$")}`;
+  return `${origin}${path}?${q.toString().replace(/%24/g, "$")}`;
 }
 
 function classify(status: number): ArmErrorKind {
@@ -241,8 +243,9 @@ export async function sendJson<T = Json>(
 }
 
 export function armClient(session: AzureSession, signal?: AbortSignal): ArmClient {
+  const origin = cloudOf(session).armOrigin;
   const call = async <T,>(method: string, path: string, o: ArmRequestOptions, absoluteUrl?: string): Promise<ArmResponse<T>> =>
-    sendJson<T>(session, signal, method, absoluteUrl ?? buildUrl(path, o), { body: o.body, headers: o.headers });
+    sendJson<T>(session, signal, method, absoluteUrl ?? buildUrl(path, o, origin), { body: o.body, headers: o.headers });
 
   return {
     get: (p, o) => call("GET", p, o),
@@ -260,7 +263,7 @@ export function armClient(session: AzureSession, signal?: AbortSignal): ArmClien
         next = typeof r.body.nextLink === "string" && r.body.nextLink ? r.body.nextLink : undefined;
         if (!next) return { items, truncated: false, requestIds };
         // never follow a nextLink off ARM: the session would refuse, but fail with a clear reason first
-        if (!next.startsWith(`${ARM_ORIGIN}/`)) throw new ArmError("bad_response", 200, "The ARM nextLink pointed outside management.azure.com.");
+        if (!next.startsWith(`${origin}/`)) throw new ArmError("bad_response", 200, "The ARM nextLink pointed outside the cloud's ARM endpoint.");
       }
       return { items, truncated: true, requestIds };
     },
@@ -294,7 +297,7 @@ export async function pollOperation(
 ): Promise<OperationOutcome> {
   const url = response.headers.get("azure-asyncoperation") ?? response.headers.get("location");
   if (response.status !== 202 || !url) return { state: "succeeded", requestIds: [] };
-  if (!url.startsWith(`${ARM_ORIGIN}/`)) return { state: "unknown", detail: "operation URL was outside management.azure.com", requestIds: [] };
+  if (!url.startsWith(`${cloudOf(session).armOrigin}/`)) return { state: "unknown", detail: "operation URL was outside the cloud's ARM endpoint", requestIds: [] };
   const client = armClient(session, opts.signal);
   const requestIds: string[] = [];
   const maxPolls = opts.maxPolls ?? 12;

@@ -46,7 +46,7 @@ import {
   validEnvKey,
 } from "./common";
 
-const IMAGE_RE = /^[A-Za-z0-9][A-Za-z0-9._\-/:@]{0,254}$/;
+export const IMAGE_RE = /^[A-Za-z0-9][A-Za-z0-9._\-/:@]{0,254}$/;
 
 function imageOf(node: ResourceNode, ctx: K8sRenderContext): string {
   const artifact = specOf(node).artifact as ContainerServiceSpec["artifact"] | undefined;
@@ -103,13 +103,13 @@ function workloadIdentityNode(node: ResourceNode, ctx: K8sRenderContext): Resour
   return match;
 }
 
-interface PodParts {
+export interface PodParts {
   labels: Record<string, string>;
   spec: Record<string, unknown>;
   notes: string[];
 }
 
-function podParts(
+export function podParts(
   node: ResourceNode,
   ctx: K8sRenderContext,
   container: Record<string, unknown>,
@@ -153,7 +153,7 @@ function hasWhitespaceOrControl(s: string): boolean {
   return [...s].some((ch) => ch.charCodeAt(0) <= 32 || ch.charCodeAt(0) === 127);
 }
 
-function httpProbes(path: string, hasPort: boolean): Record<string, unknown> {
+export function httpProbes(path: string, hasPort: boolean): Record<string, unknown> {
   if (!path.startsWith("/") || hasWhitespaceOrControl(path) || path.length > 512) throw renderError(`health path "${path.slice(0, 40)}" must start with "/" and contain no whitespace.`);
   if (!hasPort) return {};
   const httpGet = { path, port: "http" };
@@ -243,43 +243,133 @@ export function renderContainerService(node: ResourceNode, ctx: K8sRenderContext
 const CRON_ALIASES = new Set(["@yearly", "@annually", "@monthly", "@weekly", "@daily", "@midnight", "@hourly"]);
 const CRON_FIELDS = /^(\S+\s+){4}\S+$/;
 /** A schedule that never fires in practice; used with `suspend` when the spec names none. */
-const NEVER = "0 0 1 1 *";
+export const NEVER = "0 0 1 1 *";
 
-export function renderScheduledJob(node: ResourceNode, ctx: K8sRenderContext): RenderResult {
+export type ConcurrencyPolicy = "Allow" | "Forbid" | "Replace";
+export const CONCURRENCY_POLICIES: readonly ConcurrencyPolicy[] = ["Allow", "Forbid", "Replace"];
+
+/** The CronJob behaviour knobs. Defaults reproduce what Zenith always rendered. */
+export interface CronPolicy {
+  concurrencyPolicy: ConcurrencyPolicy;
+  startingDeadlineSeconds: number;
+  successfulJobsHistoryLimit: number;
+  failedJobsHistoryLimit: number;
+  backoffLimit: number;
+  ttlSecondsAfterFinished: number;
+  activeDeadlineSeconds?: number;
+  /** IANA zone name; absent means the controller manager's zone (normally UTC) */
+  timeZone?: string;
+}
+
+export const DEFAULT_CRON_POLICY: Readonly<CronPolicy> = {
+  concurrencyPolicy: "Forbid",
+  startingDeadlineSeconds: 300,
+  successfulJobsHistoryLimit: 3,
+  failedJobsHistoryLimit: 3,
+  backoffLimit: 2,
+  ttlSecondsAfterFinished: 86400,
+};
+
+const TIME_ZONE = /^[A-Za-z][A-Za-z0-9_+\-]*(\/[A-Za-z0-9_+\-]+){0,2}$/;
+
+function boundedInt(where: string, key: string, v: unknown, min: number, max: number): number {
+  if (typeof v !== "number" || !Number.isInteger(v) || v < min || v > max) throw renderError(`${where}: ${key} must be an integer between ${min} and ${max}.`);
+  return v;
+}
+
+/**
+ * Validate a free-form policy object (portable `spec.cronPolicy` or native
+ * `config`). Unknown keys are refused so a typo cannot silently leave the
+ * default in force.
+ */
+export function readCronPolicy(where: string, raw: unknown): CronPolicy {
+  const out: CronPolicy = { ...DEFAULT_CRON_POLICY };
+  if (raw === undefined) return out;
+  if (!isRecord(raw)) throw renderError(`${where}: cronPolicy must be an object.`);
+  const known = new Set(["concurrencyPolicy", "startingDeadlineSeconds", "successfulJobsHistoryLimit", "failedJobsHistoryLimit", "backoffLimit", "ttlSecondsAfterFinished", "activeDeadlineSeconds", "timeZone"]);
+  for (const k of Object.keys(raw)) if (!known.has(k)) throw renderError(`${where}: cronPolicy.${k} is not a recognised setting.`);
+  if (raw.concurrencyPolicy !== undefined) {
+    if (typeof raw.concurrencyPolicy !== "string" || !(CONCURRENCY_POLICIES as readonly string[]).includes(raw.concurrencyPolicy)) {
+      throw renderError(`${where}: cronPolicy.concurrencyPolicy must be one of ${CONCURRENCY_POLICIES.join(", ")}.`);
+    }
+    out.concurrencyPolicy = raw.concurrencyPolicy as ConcurrencyPolicy;
+  }
+  if (raw.startingDeadlineSeconds !== undefined) out.startingDeadlineSeconds = boundedInt(where, "cronPolicy.startingDeadlineSeconds", raw.startingDeadlineSeconds, 10, 86_400);
+  if (raw.successfulJobsHistoryLimit !== undefined) out.successfulJobsHistoryLimit = boundedInt(where, "cronPolicy.successfulJobsHistoryLimit", raw.successfulJobsHistoryLimit, 0, 100);
+  if (raw.failedJobsHistoryLimit !== undefined) out.failedJobsHistoryLimit = boundedInt(where, "cronPolicy.failedJobsHistoryLimit", raw.failedJobsHistoryLimit, 0, 100);
+  if (raw.backoffLimit !== undefined) out.backoffLimit = boundedInt(where, "cronPolicy.backoffLimit", raw.backoffLimit, 0, 20);
+  if (raw.ttlSecondsAfterFinished !== undefined) out.ttlSecondsAfterFinished = boundedInt(where, "cronPolicy.ttlSecondsAfterFinished", raw.ttlSecondsAfterFinished, 60, 2_592_000);
+  if (raw.activeDeadlineSeconds !== undefined) out.activeDeadlineSeconds = boundedInt(where, "cronPolicy.activeDeadlineSeconds", raw.activeDeadlineSeconds, 1, 604_800);
+  if (raw.timeZone !== undefined) {
+    if (typeof raw.timeZone !== "string" || raw.timeZone.length > 64 || !TIME_ZONE.test(raw.timeZone)) throw renderError(`${where}: cronPolicy.timeZone must be an IANA time zone name such as Europe/Paris.`);
+    out.timeZone = raw.timeZone;
+  }
+  return out;
+}
+
+export function checkSchedule(where: string, schedule: string | undefined): void {
+  if (schedule !== undefined && !CRON_ALIASES.has(schedule) && !(CRON_FIELDS.test(schedule.trim()) && schedule.length <= 100)) {
+    throw renderError(`${where}: schedule "${schedule.slice(0, 60)}" is not a cron expression.`);
+  }
+}
+
+export interface CronJobInput {
+  node: ResourceNode;
+  ctx: K8sRenderContext;
+  schedule: string | undefined;
+  suspend: boolean | undefined;
+  policy: CronPolicy;
+  container: Record<string, unknown>;
+}
+
+/** The one CronJob shape: portable `scheduled_job` nodes and the native `k8s:CronJob` both render through it. */
+export function buildCronJob(input: CronJobInput): RenderResult {
+  const { node, ctx, schedule, policy } = input;
   const notes: string[] = [];
   const namespace = ctxNamespace(node, ctx);
   const name = objectName(node);
-  const s = specOf(node) as unknown as Partial<ScheduledJobSpec>;
-  const schedule = optString(node, "schedule");
-  if (schedule !== undefined && !CRON_ALIASES.has(schedule) && !(CRON_FIELDS.test(schedule.trim()) && schedule.length <= 100)) {
-    throw renderError(`${node.address}: schedule "${schedule.slice(0, 60)}" is not a cron expression.`);
-  }
-  const resources = computeResources(node, reqNumber(node, "vcpu", { min: 0.001, max: 256 }), reqNumber(node, "memoryMb", { min: 4, max: 1_048_576 }));
-  const container: Record<string, unknown> = { name: "job", image: imageOf(node, ctx), env: renderEnv(node, s.env), resources };
-  const pod = podParts(node, ctx, container, { component: "job", restartPolicy: "Never" });
+  const pod = podParts(node, ctx, input.container, { component: "job", restartPolicy: "Never" });
   notes.push(...pod.notes);
+  const suspended = input.suspend === true || schedule === undefined;
   if (schedule === undefined) notes.push(`${node.address}: no schedule in the spec, so the CronJob is suspended; run it on demand.`);
+  if (policy.concurrencyPolicy === "Replace") notes.push(`${node.address}: concurrencyPolicy Replace cancels a still-running Job when the next one is due; use it only for idempotent work.`);
+  if (policy.concurrencyPolicy === "Allow") notes.push(`${node.address}: concurrencyPolicy Allow lets runs overlap; the job must tolerate concurrent executions.`);
+  const selector = selectorLabels(node, ctx);
   const cron: K8sObject = {
     apiVersion: "batch/v1",
     kind: "CronJob",
     metadata: metadata(node, ctx, { name, namespace, labels: { [LABEL.name]: name } }),
     spec: {
       schedule: schedule ?? NEVER,
-      ...(schedule === undefined ? { suspend: true } : {}),
-      concurrencyPolicy: "Forbid",
-      startingDeadlineSeconds: 300,
-      successfulJobsHistoryLimit: 3,
-      failedJobsHistoryLimit: 3,
+      ...(policy.timeZone !== undefined ? { timeZone: policy.timeZone } : {}),
+      ...(suspended ? { suspend: true } : {}),
+      concurrencyPolicy: policy.concurrencyPolicy,
+      startingDeadlineSeconds: policy.startingDeadlineSeconds,
+      successfulJobsHistoryLimit: policy.successfulJobsHistoryLimit,
+      failedJobsHistoryLimit: policy.failedJobsHistoryLimit,
       jobTemplate: {
+        // Job objects carry the ownership selector so readback can list exactly this CronJob's runs.
+        metadata: { labels: { ...selector, [LABEL.managedBy]: MANAGED_BY_VALUE, [LABEL.component]: "job" } },
         spec: {
-          backoffLimit: 2,
-          ttlSecondsAfterFinished: 86400,
+          backoffLimit: policy.backoffLimit,
+          ...(policy.activeDeadlineSeconds !== undefined ? { activeDeadlineSeconds: policy.activeDeadlineSeconds } : {}),
+          ttlSecondsAfterFinished: policy.ttlSecondsAfterFinished,
           template: { metadata: { labels: pod.labels }, spec: pod.spec },
         },
       },
     },
   };
   return { objects: [cron], notes };
+}
+
+export function renderScheduledJob(node: ResourceNode, ctx: K8sRenderContext): RenderResult {
+  const s = specOf(node) as unknown as Partial<ScheduledJobSpec> & { cronPolicy?: unknown };
+  const schedule = optString(node, "schedule");
+  checkSchedule(node.address, schedule);
+  const policy = readCronPolicy(node.address, s.cronPolicy);
+  const resources = computeResources(node, reqNumber(node, "vcpu", { min: 0.001, max: 256 }), reqNumber(node, "memoryMb", { min: 4, max: 1_048_576 }));
+  const container: Record<string, unknown> = { name: "job", image: imageOf(node, ctx), env: renderEnv(node, s.env), resources };
+  return buildCronJob({ node, ctx, schedule, suspend: undefined, policy, container });
 }
 
 /** What `observe` compares to: the pieces of a workload spec that are rendered 1:1. */
@@ -305,6 +395,10 @@ export function workloadExpectations(node: ResourceNode): Record<string, unknown
     delete out.healthPath;
     out.schedule = typeof s.schedule === "string" ? s.schedule : NEVER;
     out.suspend = typeof s.schedule !== "string";
+    const policy = readCronPolicy(node.address, (s as { cronPolicy?: unknown }).cronPolicy);
+    out.concurrencyPolicy = policy.concurrencyPolicy;
+    out.successfulJobsHistoryLimit = policy.successfulJobsHistoryLimit;
+    out.failedJobsHistoryLimit = policy.failedJobsHistoryLimit;
   }
   return out;
 }

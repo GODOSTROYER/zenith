@@ -20,6 +20,8 @@
  */
 import type { Sql } from "@/lib/controlplane/types";
 import * as planArtifacts from "./plan-artifacts";
+import * as planCustody from "./plan-custody";
+import * as stateBackendRecovery from "./state-backend-recovery";
 import * as cleanupWriterBarriers from "./cleanup-writer-barriers";
 import * as mixedChildIntents from "./mixed-child-intents";
 import * as buildLaunches from "./build-launches";
@@ -29,6 +31,7 @@ import * as approvals from "./approvals";
 import * as connections from "./connections";
 import * as connectionRotations from "./connection-rotations";
 import * as cost from "./cost";
+import * as actualSpend from "./actual-spend";
 import * as drift from "./drift";
 import * as events from "./events";
 import * as evidence from "./evidence";
@@ -52,9 +55,18 @@ import * as settings from "./settings";
 import * as optimizerSettings from "./optimizer-settings";
 import * as scheduledJobs from "./scheduled-jobs";
 import * as plugins from "./plugins";
+import * as externalEffects from "./external-effects";
+import * as k8sGuestBindings from "./k8s-guest-bindings";
+import * as mcpStreams from "./mcp-streams";
+import * as codingAgentRuns from "./coding-agent-runs";
+import * as mixedParentPlans from "./mixed-parent-plans";
+import * as mixedRuns from "./mixed-runs";
+import * as mixedOutputPreauthorizations from "./mixed-output-preauthorizations";
 
 export {
   planArtifacts,
+  planCustody,
+  stateBackendRecovery,
   cleanupWriterBarriers,
   mixedChildIntents,
   buildLaunches,
@@ -64,6 +76,7 @@ export {
   connections,
   connectionRotations,
   cost,
+  actualSpend,
   drift,
   events,
   evidence,
@@ -85,8 +98,15 @@ export {
   runners,
   settings,
   optimizerSettings,
+  codingAgentRuns,
+  mixedRuns,
+  mixedOutputPreauthorizations,
   scheduledJobs,
   plugins,
+  externalEffects,
+  k8sGuestBindings,
+  mcpStreams,
+  mixedParentPlans,
 };
 
 type CapabilityConstructor = "createApprovedSourceSnapshotStore" | "isApprovedSourceSnapshotStore" | "createIsolatedApprovedSourceStoreForTests" | "reserveOwnerGrant" | "insertOwnerGrant" | "inventory" | "retainCleanupWriterHold" | "reserveCleanupOwnerGrant" | "insertCleanupOwnerGrant";
@@ -99,7 +119,7 @@ export type Bound<M> = {
 };
 
 /** Exports that are pure helpers, not repository functions: they take no `Sql`. */
-const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError", "captureArtifactAccess", "BuildLaunchError", "createIsolatedBuildClaimerForTests", "assertIsolatedBuildTestAdmission", "WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests", "MixedChildAdmissionError", "CleanupWriterBarrierError"]);
+const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError", "captureArtifactAccess", "BuildLaunchError", "createIsolatedBuildClaimerForTests", "assertIsolatedBuildTestAdmission", "WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests", "MixedChildAdmissionError", "CleanupWriterBarrierError", "PlanCustodyError", "StateRecoveryRecordError", "restoreProposalDigest"]);
 /** Capability construction/provenance is never an automatically bound row API. */
 const CAPABILITY_CONSTRUCTORS = new Set(["createApprovedSourceSnapshotStore", "isApprovedSourceSnapshotStore", "createIsolatedApprovedSourceStoreForTests", "reserveOwnerGrant", "insertOwnerGrant", "inventory", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"]);
 
@@ -114,6 +134,8 @@ function bind<M extends object>(mod: M, sql: Sql): Bound<M> {
 export function bindRepos(sql: Sql) {
   return {
     planArtifacts: bind(planArtifacts, sql),
+    planCustody: bind(planCustody, sql),
+    stateBackendRecovery: bind(stateBackendRecovery, sql),
     cleanupWriterBarriers: bind({preview:cleanupWriterBarriers.preview}, sql),
     mixedChildIntents: bind(mixedChildIntents, sql),
     buildLaunches: bind(buildLaunches, sql),
@@ -123,6 +145,7 @@ export function bindRepos(sql: Sql) {
     connections: bind(connections, sql),
     connectionRotations: bind(connectionRotations, sql),
     cost: bind(cost, sql),
+    actualSpend: bind(actualSpend, sql),
     drift: bind(drift, sql),
     events: bind(events, sql),
     evidence: bind(evidence, sql),
@@ -146,6 +169,13 @@ export function bindRepos(sql: Sql) {
     optimizerSettings: bind(optimizerSettings, sql),
     scheduledJobs: bind(scheduledJobs, sql),
     plugins: bind(plugins, sql),
+    externalEffects: bind(externalEffects, sql),
+    k8sGuestBindings: bind(k8sGuestBindings, sql),
+    mcpStreams: bind(mcpStreams, sql),
+    codingAgentRuns: bind(codingAgentRuns, sql),
+    mixedParentPlans: bind(mixedParentPlans, sql),
+    mixedRuns: bind(mixedRuns, sql),
+    mixedOutputPreauthorizations: bind(mixedOutputPreauthorizations, sql),
   };
 }
 

@@ -55,7 +55,7 @@ const AWS_ENV = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKE
 const SESSION_ENV: Record<SessionEnvProvider, readonly string[]> = {
   aws: AWS_ENV,
   gcp: ["GOOGLE_OAUTH_ACCESS_TOKEN", "GOOGLE_PROJECT", "GOOGLE_REGION"],
-  azure: ["ARM_USE_OIDC", "ARM_OIDC_TOKEN", "ARM_CLIENT_ID", "ARM_TENANT_ID", "ARM_SUBSCRIPTION_ID", "ARM_STORAGE_USE_AZUREAD", "ARM_RESOURCE_PROVIDER_REGISTRATIONS"],
+  azure: ["ARM_USE_OIDC", "ARM_OIDC_TOKEN", "ARM_CLIENT_ID", "ARM_TENANT_ID", "ARM_SUBSCRIPTION_ID", "ARM_STORAGE_USE_AZUREAD", "ARM_RESOURCE_PROVIDER_REGISTRATIONS", "ARM_ENVIRONMENT"],
   // OCI's S3 backend still needs a customer secret key, confined to the
   // customer runner. There is no control-plane OCI credential broker session.
   oci: [...AWS_ENV, "OCI_RESOURCE_PRINCIPAL_VERSION", "OCI_RESOURCE_PRINCIPAL_RPST", "OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM", "OCI_RESOURCE_PRINCIPAL_REGION"],
@@ -123,6 +123,7 @@ export function validateExtraEnv(env: Record<string, string> | undefined, label:
     }
     if ((out.ARM_USE_OIDC !== undefined && out.ARM_USE_OIDC !== "true") ||
         (out.ARM_STORAGE_USE_AZUREAD !== undefined && out.ARM_STORAGE_USE_AZUREAD !== "true") ||
+        (out.ARM_ENVIRONMENT !== undefined && !["public", "usgovernment", "china"].includes(out.ARM_ENVIRONMENT)) ||
         (out.ARM_RESOURCE_PROVIDER_REGISTRATIONS !== undefined && out.ARM_RESOURCE_PROVIDER_REGISTRATIONS !== "none")) {
       throw new TofuEnvError("Session environment would disable the Azure authentication contract.");
     }

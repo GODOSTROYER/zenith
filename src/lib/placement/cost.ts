@@ -59,6 +59,7 @@
  *   allowances are not deducted.
  */
 import type { CostDiff, CostEstimate, CostLine, UsageAssumptions } from "@/lib/placement/types";
+import { chargeExtendedDimensions } from "@/lib/placement/extended-costs";
 import { catalogSnapshotAt, MissingPriceError } from "@/lib/placement/pricebook";
 import { skuFor, type SkuRole } from "@/lib/placement/capabilities";
 import {
@@ -87,6 +88,7 @@ import {
   priceVolume,
   q6,
   replicasOf,
+  resolveExtendedUsage,
   resolveUsage,
   round2,
   specOf,
@@ -107,6 +109,7 @@ export {
   LCU_NEW_CONNECTIONS_PER_SECOND,
   OBJECT_READ_SHARE,
   SCHEDULED_JOB_DUTY,
+  resolveExtendedUsage,
   resolveUsage,
   round2,
   toPriceBook,
@@ -232,6 +235,7 @@ function isCompute(n: CostNode): boolean {
 export function estimateGraphCost(graph: CostGraph, options: CostOptions): CostEstimate {
   const book = toPriceBook(options.catalog);
   const usage = resolveUsage(options.usage);
+  const extendedUsage = resolveExtendedUsage(options.usage);
   const policyRetention = options.backupRetentionDays ?? DEFAULT_BACKUP_RETENTION_DAYS;
   if (!Number.isInteger(policyRetention) || policyRetention < 0) throw new CostInputError("backupRetentionDays must be an integer >= 0.");
   const l = new Ledger(book);
@@ -467,6 +471,7 @@ export function estimateGraphCost(graph: CostGraph, options: CostOptions): CostE
       basis: `${fmt(usage.interComponentFraction * 100)}% of ${fmt(usage.egressGb)} GB egress assumed to flow ${t.sender.provider}/${t.sender.region} -> ${t.receiver.provider}/${t.receiver.region}; billed at the sender's ${t.sameProvider ? "inter-region" : "internet egress (cross-cloud)"} price`,
     });
   }
+  const extended = chargeExtendedDimensions(l, siteList, extendedUsage);
   for (const x of transfers.excluded) l.excluded.add(x);
   for (const p of transfers.unpricedProviders) l.unpricedProviders.add(p);
 
@@ -501,6 +506,10 @@ export function estimateGraphCost(graph: CostGraph, options: CostOptions): CostE
   if (crossGb > 0) assumptions.crossBoundaryGb = q6(crossGb);
 
   const has = (pred: (x: CostLine) => boolean) => lines.some(pred);
+  const extendedIncluded: string[] = [];
+  if (extended.interAz) extendedIncluded.push("Inter-availability-zone transfer (usage supplied by the caller)");
+  if (extended.storageIo) extendedIncluded.push("Storage I/O request charges (usage supplied by the caller)");
+  if (extended.backupCopy) extendedIncluded.push("Cross-region backup copy (usage supplied by the caller)");
   const included: string[] = ["Compute, database, cache, storage and queue charges at on-demand list prices"];
   if (has((x) => x.description.startsWith("NAT gateway"))) included.push("NAT gateway hours and data processing");
   if (has((x) => x.description === "Public IPv4 addresses")) included.push("Public IPv4 addresses (load balancers, NAT gateways, public workloads)");
@@ -511,6 +520,7 @@ export function estimateGraphCost(graph: CostGraph, options: CostOptions): CostE
   if (has((x) => x.description.includes("IOPS"))) included.push("Provisioned IOPS");
   if (has((x) => x.description.includes("backup") || x.description.includes("snapshots"))) included.push("Backup and snapshot storage");
   if (has((x) => x.description === "Log ingestion")) included.push("Log ingestion");
+  included.push(...extendedIncluded);
   if (has((x) => x.description.includes("high availability"))) included.push("High-availability standby capacity");
   if (has((x) => x.description.startsWith("Managed secret"))) included.push("Supported native secret storage, active versions, API operations and rotation notifications");
   if (has((x) => x.description.startsWith("Private registry"))) included.push("Supported private registry image storage and assumed internet pulls");
@@ -520,8 +530,10 @@ export function estimateGraphCost(graph: CostGraph, options: CostOptions): CostE
     "Taxes (VAT/GST), currency conversion and payment fees",
     "Discounts: savings plans, committed use, reserved instances, spot, enterprise agreements and credits",
     "Provider free tiers and free monthly allowances are not deducted (conservative), except where the list price itself is zero",
-    "Volume-tier egress discounts: the first-tier per-GB price is applied to every GB",
-    "Data transfer between availability zones inside one region",
+    l.tiersUsed
+      ? "Free monthly allowances are not deducted; egress volume tiers follow the catalog tier schedule"
+      : "Volume-tier egress discounts: the first-tier per-GB price is applied to every GB",
+    ...(extended.interAz ? [] : ["Data transfer between availability zones inside one region"]),
     "Registry and build features outside the supported native profiles (enhanced scanning, replication, signing, external tools and services)",
     "Monitoring metrics, alarms, traces and dashboards; compute log storage (supported build log storage is modeled)",
     "Custom secret key management, automatic rotation execution and secret profiles outside the supported native drivers",

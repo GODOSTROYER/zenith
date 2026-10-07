@@ -4,4 +4,8 @@ export { sessionPolicyFor, sessionPolicyNeedsEnvironment, logGroupPrefixes, type
 export { SESSION_POLICY_MAX_CHARS, SessionPolicyError, validateSessionPolicy } from "./policy";
 export { parseRoleArn, type RoleArn } from "./arn";
 export * from "./naming";
+export * from "./partition";
+export * from "./limits";
+export * from "./policy-budget";
+export { actionMatches, allowedActionsOf, diffAgainstCompilerActions, type LeastPrivilegeReport } from "./least-privilege";
 export { roleSessionName, sanitizeTagKey, sanitizeTagValue, sessionTagList, sessionTagRecord } from "./tags";

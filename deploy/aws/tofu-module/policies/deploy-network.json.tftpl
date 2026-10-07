@@ -220,6 +220,48 @@
           "aws:ResourceTag/zenith:managed": "true"
         }
       }
+    },
+    {
+      "Sid": "Ec2CreateFlowLogsInTaggedVpcs",
+      "Effect": "Allow",
+      "Action": "ec2:CreateFlowLogs",
+      "Resource": "arn:${partition}:ec2:*:${account_id}:vpc/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "Ec2CreateTaggedFlowLogs",
+      "Effect": "Allow",
+      "Action": "ec2:CreateFlowLogs",
+      "Resource": "arn:${partition}:ec2:*:${account_id}:vpc-flow-log/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:RequestTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "Ec2DeleteTaggedFlowLogs",
+      "Effect": "Allow",
+      "Action": "ec2:DeleteFlowLogs",
+      "Resource": "arn:${partition}:ec2:*:${account_id}:vpc-flow-log/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
     }
   ]
 }

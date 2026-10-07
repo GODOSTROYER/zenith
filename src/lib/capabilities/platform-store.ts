@@ -50,12 +50,14 @@ import * as evidenceRepo from "@/lib/controlplane/db/repos/evidence";
 import * as policyDecisionRepo from "@/lib/controlplane/db/repos/policy-decisions";
 import * as settingsRepo from "@/lib/controlplane/db/repos/settings";
 import * as ownershipRepo from "@/lib/controlplane/db/repos/ownership-transfers";
+import { createPlatformStandingGrantStore } from "@/lib/controlplane/db/repos/standing-grants";
 import { decide } from "@/lib/controlplane/approvals";
 import { cancelOperation as cancelOperationService, denyOperation as denyOperationService, claimOperation, completeOperation as completeOperationService, proposeOperation, recordPolicyOutcome } from "@/lib/controlplane/operations";
 import { emitForOperation } from "@/lib/controlplane/events";
 import { LeaseLostError, type ApprovalRecord, type OperationRecord, type PlatformEvent, type PolicyDecisionRecord, type Scope, type Sql } from "@/lib/controlplane/types";
 import type { AutonomyLevel } from "@/lib/policy";
 import { BrokerError, notFound } from "./errors";
+import type { StandingGrantStore } from "./standing-grants";
 import type { FieldOwnershipGuard } from "./types";
 import type {
   BrokerStore,
@@ -127,7 +129,12 @@ export function mapStoreError(error: unknown): never {
 const PRE_EXECUTION = ["proposed", "awaiting_approval", "approved", "queued"] as const;
 
 export class PlatformBrokerStore implements BrokerStore {
-  constructor(private readonly db: Sql) {}
+  /** Bounded standing grants over the same platform store (PROD-DUR-04). */
+  readonly standingGrants: StandingGrantStore;
+
+  constructor(private readonly db: Sql) {
+    this.standingGrants = createPlatformStandingGrantStore(db);
+  }
 
   private async run<T>(fn: () => Promise<T>): Promise<T> {
     try {

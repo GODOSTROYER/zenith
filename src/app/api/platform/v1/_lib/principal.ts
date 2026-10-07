@@ -48,6 +48,14 @@ function namedWorkspace(req: NextRequest): string | undefined {
 }
 
 export async function callerOf(req: NextRequest): Promise<CallerContext> {
+  const caller = await resolveCaller(req);
+  // PROD-OPS-02: the platform API learns its workspace here (bearer credential or named workspace), so this is where
+  // that workspace's rate and concurrency quota is applied when route() could not know it. Idempotent per request.
+  await (await import("@/lib/ops/admission")).bindRequestWorkspace(caller.workspaceId);
+  return caller;
+}
+
+async function resolveCaller(req: NextRequest): Promise<CallerContext> {
   const named = namedWorkspace(req);
 
   const authorization = req.headers.get("authorization");

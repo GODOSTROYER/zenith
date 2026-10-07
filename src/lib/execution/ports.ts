@@ -465,6 +465,16 @@ export interface BuildPort {
     input: { service: ResourceNode; pipeline: ResourceNode; registry?: ResourceNode; source: { s3Key: string; digest: string; bucket?: string }; idempotencyKey: string }
   ): Promise<BuildHandle>;
   waitForBuild(ctx: DriverContext, handle: BuildHandle, opts: { timeoutMs: number }): Promise<BuildResult>;
+  /**
+   * Optional (PROD-DUR-07): the non-secret identity an independent readback needs to find THIS launch at the provider
+   * (for example the tag the launch carried). Pure; reads nothing.
+   */
+  launchIdentity?(ctx: DriverContext, input: Parameters<BuildPort["startBuild"]>[1]): Record<string, string>;
+  /**
+   * Optional (PROD-DUR-07): rebuild the handle of a launch an operator confirmed from independent readback, given the
+   * provider's id for it. It never launches anything.
+   */
+  adoptBuild?(ctx: DriverContext, input: Parameters<BuildPort["startBuild"]>[1], providerBuildId: string): Promise<BuildHandle>;
 }
 
 /** ECS rollout. Backed by the compute drivers' ECS operation (WS-AWS-CMP). */
@@ -603,6 +613,8 @@ export interface ExecutionDeps {
   portability?: PortabilityPort;
   /** Required by canonical production planning/apply. Explicit isolated adapters are for tests only. */
   planArtifacts?: PlanArtifactsPort;
+  /** External-effect ledger (PROD-DUR-07/08). Production composition always sets it; isolated contract compositions may omit it. */
+  effects?: import("@/lib/effects/ledger").EffectLedger;
   /* engine */
   /** default: the global driver registry */
   drivers?: DriverLookup;
@@ -647,6 +659,12 @@ export interface ExecutionDeps {
    * the release activities behave as before; the platform composition always supplies it.
    */
   releaseSafety?: import("@/lib/release-safety").ReleaseSafetyService;
+  /**
+   * Durable binding of the executable semantics a human reviewed (PROD-DUR-03). Planning records the canonical
+   * semantics digest write-once; final plan, apply, build, rollout and migration dispatch recompute it and refuse on
+   * any difference. When absent the dispatch points behave as before; the platform composition always supplies it.
+   */
+  semantics?: import("./semantics/store").SemanticsStore;
   /* runtime */
   /** Temporal's `Context.current().heartbeat`, wired by the worker. Default: no-op. */
   heartbeat?: (detail?: unknown) => void;

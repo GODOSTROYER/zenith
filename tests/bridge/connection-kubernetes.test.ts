@@ -30,7 +30,7 @@ const { openPlatformDb, repos } = await import("@/lib/controlplane/db");
 const { setBridgeDepsForTests } = await import("@/lib/bridge/deps");
 await import("@/lib/actions/defs");
 const CANARY = "kube-link-model-credential-canary";
-const input = { label: "Owning cluster", server: "https://cluster.example.test", caData: Buffer.from("modeled-public-ca").toString("base64"), namespaces: ["orders"], credentialRef: "vault:kube-link/KUBECONFIG" };
+const input = { label: "Owning cluster", server: "https://cluster.example.test", caData: Buffer.from("modeled-public-ca").toString("base64"), namespaces: ["orders"], credentialRef: "vault:kube-link/KUBECONFIG", scopedGuest: false };
 let owner: PlatformDbHandle;
 const exec = async (action: string, value: unknown = input, actorId = ctx.actor.id, idempotencyKey?: string) => (await runAction(action, { ...ctx, actor: { ...ctx.actor, id: actorId } }, value, { mode: "execute", idempotencyKey })).result!;
 async function preview(connectionId: string) {

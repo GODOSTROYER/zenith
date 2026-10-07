@@ -28,7 +28,7 @@ import path from "node:path";
 import { z } from "zod";
 
 /** The model that translates Navigator goals when a key is configured. */
-export const DEFAULT_LLM_MODEL = "claude-opus-5";
+export const DEFAULT_LLM_MODEL = "claude-opus-5-5";
 
 /**
  * How to produce a valid `ZENITH_SECRET_KEY`. One string, so the boot failure,
@@ -181,6 +181,13 @@ const Schema = z.object({
   ZENITH_AGENT_OAUTH_CLIENT_CLAIM: z.string().optional(),
   /** Which claim carries the subject. Defaults to `sub` at the call site. */
   ZENITH_AGENT_OAUTH_SUBJECT_CLAIM: z.string().optional(),
+  /** Platform observability backends (PROD-OBS-02). Operator configuration, never tenant input. */
+  ZENITH_OBSERVE_PROMETHEUS_URL: z.string().url().optional(),
+  ZENITH_OBSERVE_PROMETHEUS_TOKEN: z.string().optional(),
+  ZENITH_OBSERVE_LOKI_URL: z.string().url().optional(),
+  ZENITH_OBSERVE_LOKI_TOKEN: z.string().optional(),
+  /** Loki multi-tenant org id, sent as `X-Scope-OrgID`. */
+  ZENITH_OBSERVE_LOKI_TENANT: z.string().optional(),
   /** Optional. The From address on alert email. Required alongside ZENITH_SMTP_URL. */
   ZENITH_ALERT_FROM: z
     .string()
@@ -214,6 +221,11 @@ const RAW_KEYS = [
   "ZENITH_SECRET_KEY",
   "ZENITH_SMTP_URL",
   "ZENITH_ALERT_FROM",
+  "ZENITH_OBSERVE_PROMETHEUS_URL",
+  "ZENITH_OBSERVE_PROMETHEUS_TOKEN",
+  "ZENITH_OBSERVE_LOKI_URL",
+  "ZENITH_OBSERVE_LOKI_TOKEN",
+  "ZENITH_OBSERVE_LOKI_TENANT",
   "SUPABASE_DB_URL",
   "ZENITH_PLATFORM_DB",
   "ZENITH_PLATFORM_DB_URL",
@@ -275,6 +287,7 @@ export function env(): ZenithEnv {
         // actionable.
         const secretish =
           key === "ZENITH_SECRET_KEY" || key === "ZENITH_SMTP_URL" || key === "SUPABASE_DB_URL" || key === "ZENITH_PLATFORM_DB_URL" ||
+          key === "ZENITH_OBSERVE_PROMETHEUS_TOKEN" || key === "ZENITH_OBSERVE_LOKI_TOKEN" || key === "ZENITH_OBSERVE_PROMETHEUS_URL" || key === "ZENITH_OBSERVE_LOKI_URL" ||
           key === "ZENITH_OIDC_SIGNING_JWK" || key === "ZENITH_CONTROL_SIGNING_JWK";
         const shown = secretish ? `(${rawValue.length} chars, hidden)` : JSON.stringify(rawValue);
         return `  ${key}=${shown} — ${i.message}`;

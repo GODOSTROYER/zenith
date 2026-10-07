@@ -129,7 +129,7 @@ describe("cleanup readback from independent observations", () => {
   const target = { environmentId: "env_1", planDigest: "p".repeat(64), addressCount: 2, addressesDigest: digest([...ADDRESSES].sort()) };
   const effect = (over: Partial<EffectRecord> = {}): EffectRecord => ({ ...awsEffect(), family: "cleanup_apply", provider: "kubernetes", target, createdAt: new Date(Date.now() - 3_600_000).toISOString(), uncertainAt: new Date(Date.now() - 3_000_000).toISOString(), ...over });
   const obs = (address: string, presence: ObservationFact["presence"], ageMs = 0, simulated = false): ObservationFact => ({ address, presence, observedAt: new Date(Date.now() - ageMs).toISOString(), simulated });
-  const resolver = (rows: ObservationFact[], addresses: string[] | undefined = ADDRESSES) => cleanupObservationResolver({ reviewedAddresses: async () => addresses, latestObservations: async () => rows });
+  const resolver = (rows: ObservationFact[], ...reviewed: [] | [string[] | undefined]) => cleanupObservationResolver({ reviewedAddresses: async () => reviewed.length ? reviewed[0] : ADDRESSES, latestObservations: async () => rows });
 
   it("all reviewed addresses observed missing after dispatch: the deletion is observed (present)", async () => {
     expect(await read(resolver(ADDRESSES.map((a) => obs(a, "missing"))), effect())).toMatchObject({ outcome: "present", facts: { missing: 2, present: 0, partial: false } });

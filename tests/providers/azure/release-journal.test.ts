@@ -30,6 +30,22 @@ const expectedBuild = {
 
 const reference = `${ROOT}/Microsoft.App/jobs/zn-migrate-abc/executions/zn-execution-1`;
 
+/** Shared release composition records build effects against a real operation. */
+async function buildWorld() {
+  const w = world();
+  const { operation } = await repos.operations.create(db, {
+    workspaceId: w.ctx.workspaceId,
+    principal: { kind: "user", id: "journal-test" },
+    proposal: {
+      capability: "service.release",
+      scope: { workspaceId: w.ctx.workspaceId, environmentId: w.ctx.environmentId },
+      input: { service: service.address }, summary: "Build the journal fixture", details: [], risk: "medium",
+    },
+  });
+  w.ctx.operationId = operation.id;
+  return w;
+}
+
 describe("Azure durable launch journal", () => {
   it("composes the real SQL journal by default and recovers a migration on a replacement worker", async () => {
     const w = world(); const command = ["node", "migrate.js"]; const opts = { idempotencyKey: "default-journal:migrate", timeoutMs: 1000 };
@@ -38,7 +54,7 @@ describe("Azure durable launch journal", () => {
     expect(w.state.starts).toBe(1); expect(w.receipts.claims.size).toBe(0);
   });
   it("persists an ACR build receipt through the production journal and recovers it", async () => {
-    const w = world(); const options = { db, azure: { readSource: w.readSource, uploadFetch: w.uploadFetch } };
+    const w = await buildWorld(); const options = { db, azure: { readSource: w.readSource, uploadFetch: w.uploadFetch } };
     const input = { service, pipeline, registry, source: bundle, idempotencyKey: "default-journal:build" };
     const handle = await createReleasePorts(options).build.startBuild(w.ctx, input);
     expect(await createReleasePorts(options).build.startBuild(w.ctx, input)).toEqual(handle);
@@ -81,7 +97,7 @@ describe("Azure durable launch journal", () => {
     expect(await j.read(s)).toBeUndefined();
   });
   it("persists documented UUID ACR run receipts and rejects non-object receipt JSON", async () => {
-    const w = world(); const handle = await createReleasePorts({ db, azure: w.options }).build.startBuild(w.ctx, { service, pipeline, registry, source: bundle, idempotencyKey: "uuid-receipt" });
+    const w = await buildWorld(); const handle = await createReleasePorts({ db, azure: w.options }).build.startBuild(w.ctx, { service, pipeline, registry, source: bundle, idempotencyKey: "uuid-receipt" });
     const receipt = JSON.stringify({ ...JSON.parse(handle.buildId), runId: "0accec26-d6de-4757-8e74-d080f38eaaab" });
     const s = scope("uuid-receipt"); const j = createAzureReleaseLaunchJournal(db); await j.claim(s);
     await j.record(s, receipt); expect(await j.read(s)).toBe(receipt);

@@ -77,7 +77,7 @@ function azSession(answers: { registries?: unknown[]; runs?: unknown[]; runsNext
     authorizedFetch: async (url: string) => {
       urls.push(url);
       if (url.includes("/resources?")) return json({ value: answers.registries ?? [{ id: REGISTRY_ID, name: "znreg", type: "Microsoft.ContainerRegistry/registries" }] }, 200, { "x-ms-request-id": "az-1" });
-      if (url.includes("/runs?")) return json({ value: answers.runs ?? [], ...(answers.runsNext ? { nextLink: answers.runsNext } : {}) }, 200, { "x-ms-request-id": "az-2" });
+      if (url.includes("/runs?") || url === answers.runsNext) return json({ value: answers.runs ?? [], ...(answers.runsNext ? { nextLink: answers.runsNext } : {}) }, 200, { "x-ms-request-id": "az-2" });
       return json({ error: { code: "NotFound" } }, 404);
     } } as unknown as AzureSession;
   return { session, urls };
@@ -111,6 +111,7 @@ describe("Azure ACR Tasks launch readback", () => {
     expect((await read(azResolver(azSession({ registries: [] }).session), azEffect())).outcome).toBe("unavailable");
     const endless = azSession({ runs: [run("cb1", { status: "Failed", outputImages: [] })], runsNext: "https://management.azure.com/next?x=1" });
     expect((await read(azResolver(endless.session), azEffect())).outcome).toBe("unavailable");
+    expect(endless.urls.filter((u) => u.includes("/runs?") || u === "https://management.azure.com/next?x=1")).toHaveLength(6);
   });
   it("a foreign subscription session or missing identity is unavailable", async () => {
     expect((await read(azResolver(azSession({}, "22222222-2222-2222-2222-222222222222").session), azEffect())).outcome).toBe("unavailable");

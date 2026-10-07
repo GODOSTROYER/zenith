@@ -96,6 +96,8 @@ describe("lost-response uncertainty is preserved", () => {
 });
 
 describe("cleanup completion is independently confirmed", () => {
+  // Three independent probes include two one-second waits before the final verdict.
+  const multiProbeOpts = { ...migrationOpts, timeoutMs: 5000 };
   const goneAfterDelete = (w: ReturnType<typeof world>) => (req: { method: string; path: string }) => {
     if (req.method === "GET" && req.path.startsWith("/20210415/containerInstances/") && String(req.path.split("/").at(-1)).includes("migration") && !w.objects.has(req.path.split("/").at(-1)!)) {
       return { status: 404, headers: {}, body: { code: "NotAuthorizedOrNotFound", message: "x" } };
@@ -119,10 +121,13 @@ describe("cleanup completion is independently confirmed", () => {
       }
       return undefined;
     };
-    expect(await ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts)).toEqual({ exitCode: 0 });
+    expect(await ports().migrations.runOneOffTask(w.ctx, service, command, multiProbeOpts)).toEqual({ exitCode: 0 });
     const logged = JSON.stringify(vi.mocked(w.ctx.log).mock.calls);
     expect(logged).toContain("cleanup is not confirmed (present)");
     expect(logged).not.toContain("confirmed by independent readback");
+    expect(w.jobs.filter((j) => j.method === "DELETE")).toHaveLength(1);
+    const afterDelete = w.jobs.slice(w.jobs.findIndex((j) => j.method === "DELETE") + 1);
+    expect(afterDelete.filter((j) => j.method === "GET" && j.path.startsWith("/20210415/containerInstances/"))).toHaveLength(3);
   }, 20_000);
 
   it("a delete work request still in flight keeps cleanup unconfirmed even when the instance reads gone", async () => {
@@ -139,8 +144,12 @@ describe("cleanup completion is independently confirmed", () => {
       if (p.method === "DELETE" && p.migrationKey) w.receipts.get(p.migrationKey)!.deleteWorkRequest = deleteWr;
       return result;
     });
-    expect(await ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts)).toEqual({ exitCode: 0 });
+    expect(await ports().migrations.runOneOffTask(w.ctx, service, command, multiProbeOpts)).toEqual({ exitCode: 0 });
     expect(JSON.stringify(vi.mocked(w.ctx.log).mock.calls)).toContain("cleanup is not confirmed (deleting)");
+    expect(w.jobs.filter((j) => j.method === "DELETE")).toHaveLength(1);
+    const afterDelete = w.jobs.slice(w.jobs.findIndex((j) => j.method === "DELETE") + 1);
+    expect(afterDelete.filter((j) => j.method === "GET" && j.path.startsWith("/20210415/containerInstances/"))).toHaveLength(3);
+    expect(JSON.stringify(vi.mocked(w.ctx.log).mock.calls)).not.toContain("confirmed by independent readback");
   }, 20_000);
 
   it("never changes the observed exit code when confirmation itself fails", async () => {

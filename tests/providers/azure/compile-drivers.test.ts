@@ -141,8 +141,8 @@ describe("container app sizing, replicas and ingress", () => {
     expect(((plain.template as Body).container as Body[])[0].image).toBe("ghcr.io/acme/web:1.2.3");
     expect(plain).not.toHaveProperty("registry");
     expect(plain).not.toHaveProperty("lifecycle");
-    const acr = body(compile("container_service/web", setSpec("container_service/web", { artifact: { type: "image", ref: "acme.azurecr.io/web:1" } })), "azurerm_container_app");
-    expect(acr.registry).toEqual([{ server: "acme.azurecr.io", identity: "${local.identity_web__id}" }]);
+    const acr = body(compile("container_service/web", setSpec("container_service/web", { artifact: { type: "image", ref: "acmereg.azurecr.io/web:1" } })), "azurerm_container_app");
+    expect(acr.registry).toEqual([{ server: "acmereg.azurecr.io", identity: "${local.identity_web__id}" }]);
     expect(() => compile("container_service/web", setSpec("container_service/web", { artifact: { type: "blueprint", blueprint: "hello" } }))).toThrow(/sandbox/);
   });
 

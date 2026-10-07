@@ -1,0 +1,84 @@
+{
+  "date": "2026-10-08",
+  "status": "focused_lanes_passed_complete_candidate_pending",
+  "nativeHistorical": {
+    "commit": "648a3f829c6c28d189ac704531e16e9679ece388",
+    "passed": 77,
+    "failed": 0,
+    "skipped": 0,
+    "actualPostgresCases": 44,
+    "pgliteCases": 27,
+    "pureContractCases": 6,
+    "environment": {
+      "node": "22.23.3",
+      "postgres": "16.15",
+      "host": "native Darwin ARM64"
+    },
+    "run": {
+      "dirtySource": false,
+      "commit": "648a3f829c6c28d189ac704531e16e9679ece388",
+      "architecture": "native Darwin ARM64",
+      "postgres": "16.15",
+      "beforeFreeBytes": 27105472512,
+      "floorBytes": 23622320128,
+      "serverStarted": true,
+      "testExitCode": 0,
+      "minimumFreeBytes": 27013103616,
+      "durationSeconds": 28.4,
+      "status": "completed",
+      "stopExitCode": 0,
+      "ownedDataRemoved": true,
+      "afterFreeBytes": 27104043008
+    },
+    "reportSha256": "7fd9e2e5d56c20b789d3b7937cebff4cff023634508193428ccb4965d1e30740"
+  },
+  "canonicalWorkflowIntents": {
+    "commit": "4c3d6476b15fc4235409e706e30e526247492e73",
+    "passed": 156,
+    "failed": 0,
+    "skipped": 0,
+    "requiredGroups": 141,
+    "binding": "matched",
+    "exitCode": 0,
+    "cleanup": {
+      "dirtySource": false,
+      "commit": "4c3d6476b15fc4235409e706e30e526247492e73",
+      "architecture": "native Darwin ARM64",
+      "postgres": "16.15",
+      "beforeFreeBytes": 27102310400,
+      "floorBytes": 23622320128,
+      "serverStarted": true,
+      "testExitCode": 0,
+      "minimumFreeBytes": 27015360512,
+      "durationSeconds": 54.13,
+      "status": "completed",
+      "stopExitCode": 0,
+      "ownedDataRemoved": true,
+      "afterFreeBytes": 27097645056
+    },
+    "reportSha256": "55917e65a763cf25d0a42b82996758157fb2e5b3d23118a39186f6ab7872e14c"
+  },
+  "codecAndDeployment": {
+    "commit": "722c7304884b8ac4d81484ed4240fcd364df42b5",
+    "passed": 30,
+    "failed": 0,
+    "skipped": 0,
+    "helperCases": 7,
+    "actualTemporalRehearsalCases": 2,
+    "composedDeploymentCases": 21,
+    "exitCode": 0,
+    "scope": "Real local Temporal history roundtrip and Worker replay; deployment provider/gateway protocols remain modeled. Not frozen released-history corpus or live-cloud acceptance.",
+    "reportSha256": "444422af9c2e4f1bddf442ddea3018da7cc387e64b1e4b7c9a3c45784635bd15"
+  },
+  "priorAttemptsRetained": [
+    "73/4/0 historical scopes",
+    "76/1/0 missing operation TRIGGER",
+    "76/1/0 missing legacy queue index ownership",
+    "22/1/0 Temporal lease ordering"
+  ],
+  "limitations": [
+    "Counts overlap and are not summed.",
+    "Full current candidate, full PostgreSQL/workflows and final pushed CI remain pending.",
+    "No requirement promotion or release-state change."
+  ]
+}

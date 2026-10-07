@@ -548,3 +548,5 @@ Not yet run. Append one dated block per requirement here: SHA verified, commands
 - PROD-MACH-05: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
 - PROD-UX-01: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
 - PROD-UX-03: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+
+Results PROD-CI-08 (8 October):648a historical77/0/0; frozen4c canonical intents156/0/0 all141;722 actual codec/deploy30/0/0. Scopes overlap; current71 workflow inventory. Full combined gate/CI pending; no promotion.

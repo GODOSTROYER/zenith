@@ -7,6 +7,7 @@
  * lifecycle-acceptance.test.ts runs the same journey on a real cluster).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SemanticsChangedError } from "@/lib/execution/semantics/errors";
 import { TofuPlanChangedError, StepFailedError } from "@/lib/execution/errors";
 import { startFakeK8s, type FakeK8s } from "../providers/kubernetes/fake-api";
 import { claimOf, ledgerPod, stsConfig } from "../providers/kubernetes/lifecycle-support";
@@ -52,6 +53,8 @@ describe("deploying a kubernetes environment through the default journey", () =>
     expect(realWrites()).toEqual([]); // planning writes nothing
     const row = j.w.evidence.rows.find((e) => e.kind === "tofu_plan" && e.digest === plan.planDigest)!;
     expect(row.summary).toMatchObject({ engine: "kubernetes-apply", planDigest: plan.planDigest, destroysData: false });
+    expect(row.summary.semantics).toMatchObject({ digest: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    expect(await j.w.deps.semantics!.get(j.w.product.base.workspace.id, j.operationId, plan.planDigest)).toBeDefined();
     expect((await j.w.ops.get(j.operationId))?.planDigest).toBe(plan.planDigest);
 
     expect((await j.policy(plan.planDigest)).outcome).toBe("allow");
@@ -74,18 +77,75 @@ describe("deploying a kubernetes environment through the default journey", () =>
     expect(j.w.events.events.map((e: any) => e.type)).toEqual(expect.arrayContaining(["resource.planned", "resource.applying", "resource.applied"]));
     expect([...j.w.resources.rows.values()].filter((r) => r.status === "active").length).toBeGreaterThan(3);
 
-    // release: the existing Kubernetes release ports point the Deployment at a new pinned digest
-    const deployed = await j.deploy([{ service: "container_service/web", imageUri: WEB_B, digest: `sha256:${"b".repeat(64)}` }]);
+    // release: a literal image artifact keeps the exact manifest pin through the release ports
+    const deployed = await j.deploy([{ service: "container_service/web", imageUri: WEB_A, digest: `sha256:${"a".repeat(64)}` }]);
     expect(deployed.services).toBeGreaterThan(0);
-    expect(ownedBy("Deployment", "web").spec.template.spec.containers[0].image).toBe(WEB_B);
+    expect(ownedBy("Deployment", "web").spec.template.spec.containers[0].image).toBe(WEB_A);
 
     // readback: the claim and pod the StatefulSet controller would have made
-    fake.seed(claimOf("data-ledger-0", "Bound", { env: ENV }));
+    const claim = claimOf("data-ledger-0", "Bound", { env: ENV }) as any;
+    claim.metadata.namespace = NS;
+    fake.seed(claim);
     fake.setStatus("PersistentVolumeClaim", NS, "data-ledger-0", { phase: "Bound" });
-    fake.seedPod(ledgerPod(0, true, {}, ENV));
+    const pod = ledgerPod(0, true, {}, ENV) as any;
+    pod.metadata.namespace = NS;
+    fake.seedPod(pod);
     const verified = await j.verify();
     expect(verified.failed).toBe(0);
-    expect(verified.status).toBe("passed");
+    // The driver reads service accounts, but effective grants need separate readback.
+    expect(verified.status).toBe("unknown");
+    const verification = j.w.evidence.rows.find((e) => e.kind === "verification")!.summary as any;
+    expect(verification.unknown).toBe(2);
+    expect(verification.nodes.filter((n: any) => n.status !== "passed")).toEqual([
+      { address: "identity/nightly", driver: "kubernetes.serviceaccount@1", status: "unknown", failed: [], unknown: ["grants"] },
+      { address: "identity/web", driver: "kubernetes.serviceaccount@1", status: "unknown", failed: [], unknown: ["grants"] },
+    ]);
+  });
+
+  it("reports configuration drift when a released pin differs from the literal manifest image", async () => {
+    const j = await begin();
+    const plan = await j.plan();
+    await j.policy(plan.planDigest);
+    j.approve();
+    await j.apply(plan.planDigest);
+    await j.deploy([{ service: "container_service/web", imageUri: WEB_B, digest: `sha256:${"b".repeat(64)}` }]);
+    expect(ownedBy("Deployment", "web").spec.template.spec.containers[0].image).toBe(WEB_B);
+    expect(await j.verify()).toMatchObject({ status: "failed" });
+    const verification = j.w.evidence.rows.find((e) => e.kind === "verification")!.summary as any;
+    expect(verification.nodes).toContainEqual({ address: "container_service/web", driver: "kubernetes.deployment@1", status: "failed", failed: ["configuration"], unknown: [] });
+  });
+
+  it.each(["final", "apply", "release"] as const)("refuses changed connection semantics before native %s dispatch", async (stage) => {
+    const j = await begin();
+    const plan = await j.plan();
+    await j.policy(plan.planDigest);
+    j.approve();
+    if (stage === "release") await j.apply(plan.planDigest);
+    const before = realWrites().length;
+    const connection = j.w.connections.connections[0];
+    if (connection.config.provider !== "aws") throw new Error("Unexpected scripted connection configuration.");
+    connection.config = { ...connection.config, region: "us-west-2" };
+    const attempt = stage === "final" ? j.finalPlan(plan.planDigest) : stage === "apply" ? j.apply(plan.planDigest)
+      : j.deploy([{ service: "container_service/web", imageUri: WEB_B, digest: `sha256:${"b".repeat(64)}` }]);
+    await expect(attempt).rejects.toBeInstanceOf(SemanticsChangedError);
+    expect(realWrites().length).toBe(before);
+    if (stage === "release") expect(ownedBy("Deployment", "web").spec.template.spec.containers[0].image).toBe(WEB_A);
+    else expect(fake.get("Deployment", NS, "web")).toBeUndefined();
+  });
+
+  it("refuses a changed release script before native release writes", async () => {
+    const j = await begin();
+    const plan = await j.plan();
+    await j.policy(plan.planDigest);
+    j.approve();
+    await j.apply(plan.planDigest);
+    const before = realWrites().length;
+    const manifest = j.w.product.revisions.get("rev-act-1")!.manifest as any;
+    j.w.product.setManifest({ ...manifest, release: { migrate: { service: "web", command: ["node", "migrate.js"] } } });
+    await expect(j.deploy([{ service: "container_service/web", imageUri: WEB_A, digest: `sha256:${"a".repeat(64)}` }]))
+      .rejects.toMatchObject({ code: "semantics_changed", changed: expect.arrayContaining(["scripts"]) });
+    expect(realWrites().length).toBe(before);
+    expect(ownedBy("Deployment", "web").spec.template.spec.containers[0].image).toBe(WEB_A);
   });
 
   it("binds the plan digest to the live cluster: a plan that has already been applied is no longer the reviewed one", async () => {
@@ -125,7 +185,7 @@ describe("deploying a kubernetes environment through the default journey", () =>
   });
 
   it("refuses to plan over an object Zenith does not own, naming it, and never adopts it", async () => {
-    fake.seed({ apiVersion: "v1", kind: "Namespace", metadata: { name: NS } });
+    fake.seed({ apiVersion: "v1", kind: "Namespace", metadata: { name: NS, labels: { "app.kubernetes.io/managed-by": "zenith" }, annotations: { "zenith.dev/environment": ENV, "zenith.dev/resource": "network/main" } } });
     fake.seed({ apiVersion: "apps/v1", kind: "Deployment", metadata: { name: "web", namespace: NS }, spec: { replicas: 1 } });
     const j = await begin();
     await expect(j.plan()).rejects.toThrow(/Deployment\/journey\/web.*does not own/);

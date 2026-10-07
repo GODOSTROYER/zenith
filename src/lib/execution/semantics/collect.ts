@@ -41,6 +41,8 @@ export interface CollectArgs {
   connection: { id: string; config: unknown };
   /** the rendered, pinned workspace this execution will plan or apply */
   ws: Pick<TofuWorkspace, "files" | "configDigest" | "lockDigest" | "backend">;
+  /** Native declarative engines bind their own contract version. */
+  engineVersion?: string;
   /** the saved plan the human reviewed; null before any plan exists */
   planDigest: string | null;
 }
@@ -73,7 +75,7 @@ export async function collectSemanticsInputs(rt: Pick<Runtime, "d">, ec: ExecCon
       connectionConfigDigest: digest(connection.config ?? null),
     },
     configuration: { configDigest: ws.configDigest },
-    providerLocks: { lockDigest: ws.lockDigest, tofuVersion: TOFU_VERSION },
+    providerLocks: { lockDigest: ws.lockDigest, tofuVersion: args.engineVersion ?? TOFU_VERSION },
     backend: { kind: ws.backend, configDigest: backendFile ? sha256Hex(backendFile.content) : null },
     savedPlan: { planDigest: args.planDigest },
     provenance: {

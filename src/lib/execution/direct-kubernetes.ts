@@ -36,6 +36,9 @@
  *     drivers (rollout, ordered readiness, claims, CronJob runs, policy engine).
  */
 import { digest } from "@/lib/controlplane/digest";
+import { recordReviewedSemantics, assertApprovedSemantics } from "./semantics/dispatch";
+import type { CollectArgs } from "./semantics/collect";
+import { SemanticsChangedError } from "./semantics/errors";
 import type { KubernetesSession } from "@/lib/credentials/types";
 import { extractPlanFacts } from "@/lib/policy/plan-facts";
 import type { PlanFacts } from "@/lib/policy/types";
@@ -68,6 +71,17 @@ interface Rendered {
   objects: K8sObject[];
   notes: string[];
   nodes: ResourceNode[];
+}
+
+/** The immutable declaration behind native apply, independent of released image ownership and live rollout state. */
+export function kubernetesSemanticsWorkspace(ec: ExecContext, graph: ResourceGraph): CollectArgs["ws"] {
+  const nodes = graph.nodes.filter((n) => n.provider === "kubernetes" && n.ownership === "managed" && RENDERABLE_KINDS.includes(n.kind));
+  const objects = renderGraph(nodes, { environmentId: ec.environmentId, resolveImage: () => BOOTSTRAP_IMAGE }).objects.filter((o) => o.kind !== "Secret");
+  return {
+    files: [], backend: "local",
+    configDigest: digest({ engine: "kubernetes-apply/K1", graphDigest: graph.graphDigest, objects }),
+    lockDigest: digest({ provider: "kubernetes", contract: "K1" }),
+  };
 }
 
 const IMAGE_BEARING: ReadonlySet<string> = new Set(["container_service", "scheduled_job", "static_site"]);
@@ -168,7 +182,7 @@ async function dryRun(rt: Runtime, ec: ExecContext, graph: ResourceGraph, sessio
   return { plan, facts, graphDigest: graph.graphDigest, objects: rendered.objects, retained: [] };
 }
 
-async function stage(rt: Runtime, ec: ExecContext, lease: LeaseRef, detail: string, expected?: string): Promise<DirectStage> {
+async function stage(rt: Runtime, ec: ExecContext, lease: LeaseRef, detail: string, expected?: string): Promise<DirectStage & { graph: ResourceGraph; connection: Awaited<ReturnType<typeof resolveConnection>> }> {
   assertLeaseFor(ec, lease);
   const { graph } = requireExecutable(rt, ec);
   const connection = await resolveConnection(rt, ec);
@@ -181,14 +195,15 @@ async function stage(rt: Runtime, ec: ExecContext, lease: LeaseRef, detail: stri
     });
   });
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
-  return { ...result, cost: await costOf(rt, ec, graph) };
+  return { ...result, cost: await costOf(rt, ec, graph), graph, connection };
 }
 
 export async function planDirectKubernetes(rt: Runtime, ec: ExecContext, lease: LeaseRef): ReturnType<ExecutionActivities["planInfrastructure"]> {
   const s = await stage(rt, ec, lease, "kubernetes plan");
   if (ec.op.planDigest && ec.op.planDigest !== s.plan.planDigest) throw new TofuPlanChangedError(ec.op.planDigest, s.plan.planDigest);
+  const semantics = await recordReviewedSemantics(rt, ec, { graph: s.graph, connection: s.connection, ws: kubernetesSemanticsWorkspace(ec, s.graph), planDigest: s.plan.planDigest, engineVersion: "kubernetes-apply/K1" });
   const evidence = planEvidence({ plan: s.plan, facts: s.facts, cost: s.cost, graphDigest: s.graphDigest, stage: "plan", approvedSources: ec.approvedSourceSnapshots });
-  await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, key: evidence.key, summary: { ...evidence.summary, engine: "kubernetes-apply", statefulDeletes: [], dnsDeletes: [], retained: s.retained }, simulated: false }, { critical: true });
+  await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, key: evidence.key, summary: { ...evidence.summary, semantics, engine: "kubernetes-apply", statefulDeletes: [], dnsDeletes: [], retained: s.retained }, simulated: false }, { critical: true });
   if (!ec.op.planDigest) await rt.d.ops.setPlanDigest({ workspaceId: ec.workspaceId, operationId: ec.op.id, planDigest: s.plan.planDigest });
   await rt.emit(ec.scope, "resource.planned", `plan:${s.plan.planDigest}`, { planDigest: s.plan.planDigest, create: s.plan.summary.create, update: s.plan.summary.update, delete: 0, replace: 0, empty: s.plan.empty });
   return toPlanSummary(s.plan, s.facts, s.cost);
@@ -199,6 +214,7 @@ export async function finalDirectKubernetes(rt: Runtime, ec: ExecContext, lease:
   const evidence = planEvidence({ plan: s.plan, facts: s.facts, cost: s.cost, graphDigest: s.graphDigest, stage: "final_plan", approvedDigest: approved, approvedSources: ec.approvedSourceSnapshots });
   await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, key: evidence.key, summary: { ...evidence.summary, engine: "kubernetes-apply", statefulDeletes: [], dnsDeletes: [] }, simulated: false }, { critical: false });
   if (s.plan.planDigest !== approved) throw new TofuPlanChangedError(approved, s.plan.planDigest);
+  await assertApprovedSemantics(rt, ec, { graph: s.graph, connection: s.connection, ws: kubernetesSemanticsWorkspace(ec, s.graph), planDigest: approved, engineVersion: "kubernetes-apply/K1" }, "kubernetes final plan");
   return toPlanSummary(s.plan, s.facts, s.cost);
 }
 
@@ -220,6 +236,9 @@ export async function applyDirectKubernetes(rt: Runtime, ec: ExecContext, lease:
         if (currentGraph.graphDigest !== graph.graphDigest) throw new StepFailedError("The reviewed desired state changed; a new review is required.");
         const fresh = await dryRun(rt, current, currentGraph, session, signal);
         if (fresh.plan.planDigest !== planDigest) throw new TofuPlanChangedError(planDigest, fresh.plan.planDigest);
+        await approvedSources(rt, current, currentGraph, lease, false, signal);
+        const currentConnection = await resolveConnection(rt, current);
+        await assertApprovedSemantics(rt, current, { graph: currentGraph, connection: currentConnection, ws: kubernetesSemanticsWorkspace(current, currentGraph), planDigest, engineVersion: "kubernetes-apply/K1" }, "kubernetes apply dispatch");
         const authority = await rt.d.broker.approvalStatus(ec.op.id);
         if (!authority.approved || authority.rejected || (current.op.approvalRequired && !authority.approvalId)) throw new StepFailedError("Current policy or human approval changed before the reviewed plan was applied.");
         await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
@@ -244,7 +263,7 @@ export async function applyDirectKubernetes(rt: Runtime, ec: ExecContext, lease:
     await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
     return { applied: count, outputsDigest };
   } catch (err) {
-    if (err instanceof TofuPlanChangedError || err instanceof StepFailedError) throw err;
+    if (err instanceof TofuPlanChangedError || err instanceof StepFailedError || err instanceof SemanticsChangedError) throw err;
     if (started) {
       await rt.d.ops.markUncertain({ workspaceId: ec.workspaceId, operationId: ec.op.id, reason: safeText("The Kubernetes apply ended without a confirmed outcome.", 300) }).catch(() => undefined);
       throw err instanceof Error && /partial apply/.test(err.message) ? err : new Error(`The Kubernetes apply ended without a confirmed outcome (${errorText(err, 200)}); partial apply; reconcile will observe the environment.`);

@@ -328,6 +328,8 @@ export async function startFakeK8s(options: FakeK8sOptions = {}): Promise<FakeK8
     }
     obj.metadata.name = s.name;
     if (s.namespace) obj.metadata.namespace = s.namespace;
+    // Status is a controller subresource, independent of the seeded object manager.
+    if (s.base.status !== undefined) obj.status = clone(s.base.status);
     defaults(obj);
     obj.metadata.resourceVersion = String(s.resourceVersion);
     obj.metadata.generation = s.generation;

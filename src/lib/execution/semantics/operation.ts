@@ -11,6 +11,7 @@ import type { LeaseRef } from "@/lib/workflows/types";
 import { resolveConnection, type ExecContext } from "../context";
 import { requireExecutable } from "../desired";
 import { buildDeployWorkspace } from "../plan";
+import { isDirectKubernetes, kubernetesSemanticsWorkspace } from "../direct-kubernetes";
 import { StepFailedError } from "../errors";
 import type { Runtime } from "../runtime";
 import { approvedSources } from "../source-snapshot";
@@ -21,8 +22,9 @@ export async function assertOperationSemantics(rt: Runtime, ec: ExecContext, lea
   const { graph } = requireExecutable(rt, ec);
   const connection = await resolveConnection(rt, ec);
   if (ec.executableSourceDigest === undefined) await approvedSources(rt, ec, graph, lease, false, signal);
-  const { ws } = await buildDeployWorkspace(rt, ec, graph, connection);
-  await assertApprovedSemantics(rt, ec, { graph, connection, ws, planDigest: ec.op.planDigest }, stage);
+  const native = isDirectKubernetes(ec);
+  const ws = native ? kubernetesSemanticsWorkspace(ec, graph) : (await buildDeployWorkspace(rt, ec, graph, connection)).ws;
+  await assertApprovedSemantics(rt, ec, { graph, connection, ws, planDigest: ec.op.planDigest, ...(native ? { engineVersion: "kubernetes-apply/K1" } : {}) }, stage);
   const authority = await rt.d.broker.approvalStatus(ec.op.id);
   if (!authority.approved || authority.rejected || (ec.op.approvalRequired && !authority.approvalId)) {
     throw new StepFailedError(`Current policy or human approval changed before ${stage}; nothing was dispatched.`);

@@ -906,6 +906,7 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           const legacySourceOwner=uid("zt_source_owner").replace(/-/g,"");
           const legacyIncidentOwner=uid("zt_incident_owner").replace(/-/g,"");
           const legacyAgentOwner=uid("zt_agent_owner").replace(/-/g,"");
+          const legacyQueueOwner=uid("zt_queue_owner").replace(/-/g,"");
           // A distinct authorized migration owner has schema-create, ledger DML/RLS bypass, FK references,
           // and exact TRIGGER permissions on legacy tables used by migrations 15 and 30.
           const databaseName=(await tx.query<{name:string}>("select current_database() as name"))[0].name;
@@ -913,14 +914,17 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
             create role ${legacySourceOwner} nologin;
             create role ${legacyIncidentOwner} nologin;
             create role ${legacyAgentOwner} nologin;
+            create role ${legacyQueueOwner} nologin;
             grant usage on schema platform to ${legacySourceOwner};
             grant usage on schema platform to ${legacyIncidentOwner};
             grant usage on schema platform to ${legacyAgentOwner};
+            grant usage on schema platform to ${legacyQueueOwner};
             alter table platform.github_source_bindings owner to ${legacySourceOwner};
             alter table platform.github_install_intents owner to ${legacySourceOwner};
             alter table platform.incidents owner to ${legacyIncidentOwner};
             alter table platform.runners owner to ${legacyAgentOwner};
             alter table platform.machines owner to ${legacyAgentOwner};
+            alter table platform.runner_jobs owner to ${legacyQueueOwner};
             grant ${legacySourceOwner} to ${migrationOwner};
             grant create on database "${databaseName.replace(/"/g,'""')}" to ${migrationOwner};
             grant usage,create on schema platform to ${migrationOwner} with grant option;
@@ -930,14 +934,16 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           await tx.query(`set local role ${migrationOwner}`);
           expect((await tx.query<{name:string}>("select current_user as name"))[0].name).toBe(migrationOwner);
           expect(migrationOwner).not.toBe(originalUser);
+          expect(await tx.query("select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='platform' and c.relkind='r' and pg_get_userbyid(c.relowner)=$1 order by c.relname", [legacyQueueOwner])).toEqual([{relname:"runner_jobs"}]);
+          expect((await tx.query<{allowed:boolean}>("select pg_has_role(current_user,$1,'USAGE') as allowed",[legacyQueueOwner]))[0].allowed).toBe(false);
           expect((await tx.query<{allowed:boolean}>("select has_table_privilege(current_user,'platform.capability_grants','TRIGGER') as allowed"))[0].allowed).toBe(true);
           expect((await tx.query<{allowed:boolean}>("select has_table_privilege(current_user,'platform.approvals','REFERENCES') as allowed"))[0].allowed).toBe(true);
-          // Published migrations 19 and 25 change these legacy tables. DML
-          // and REFERENCES do not authorize ALTER: admit only their exact owners.
+          // Published migrations 19, 25 and 38 change or index legacy tables.
+          // DML and REFERENCES do not authorize owner DDL: admit exact owners.
           await expect(db.tx(async denied => {
             await denied.query("alter table platform.incidents add column fixture_unauthorized_owner text");
           })).rejects.toMatchObject({sqlstate:"42501"});
-          for (const table of ["runners", "machines"] as const) {
+          for (const table of ["runners", "machines", "runner_jobs"] as const) {
             await expect(db.tx(async denied => {
               await denied.query(`alter table platform.${table} add column fixture_unauthorized_owner text`);
             })).rejects.toMatchObject({sqlstate:"42501"});
@@ -970,7 +976,24 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
             await denied.query("alter table platform.operations add column fixture_unauthorized_owner text");
           })).rejects.toMatchObject({sqlstate:"42501"});
           await historicalFixtureRange(db, 30, 30);
+          // Actual migration38 indexes the legacy queue table. Its owner must
+          // be explicitly authorized; DML and TRIGGER alone do not allow INDEX.
+          const beforeCurrent = await tx.query("select * from platform.schema_migrations order by version");
+          await expect(db.tx(() => migratePlatformDb(db))).rejects.toMatchObject({sqlstate:"42501",message:"must be owner of table runner_jobs"});
+          expect(await tx.query("select * from platform.schema_migrations order by version")).toEqual(beforeCurrent);
+          expect(await tx.query("select to_regclass('platform.approved_semantics')::text as semantics, to_regclass('platform.runner_jobs_ws_queued')::text as queue_index"))
+            .toEqual([{semantics:null,queue_index:null}]);
+          await tx.query("reset role");
+          expect((await tx.query<{name:string}>("select current_user as name"))[0].name).toBe(originalUser);
+          await tx.query(`grant ${legacyQueueOwner} to ${migrationOwner}`);
+          await tx.query(`set local role ${migrationOwner}`);
+          expect((await tx.query<{allowed:boolean}>("select pg_has_role(current_user,$1,'USAGE') as allowed",[legacyQueueOwner]))[0].allowed).toBe(true);
           expect(await migratePlatformDb(db)).toEqual({applied:pending.filter(version => version > 30),alreadyApplied:ALL.filter(version => version <= 30)});
+          expect((await tx.query<{owner:string}>("select pg_get_userbyid(relowner) as owner from pg_class where oid='platform.runner_jobs'::regclass"))[0].owner).toBe(legacyQueueOwner);
+          expect((await tx.query<{owner:string}>("select pg_get_userbyid(relowner) as owner from pg_class where oid='platform.operations'::regclass"))[0].owner).toBe(originalUser);
+          await expect(db.tx(async denied => {
+            await denied.query("alter table platform.operations add column fixture_unauthorized_owner text");
+          })).rejects.toMatchObject({sqlstate:"42501"});
           await assertPlatformSchemaCurrent(db);
           expect((await platformSchemaStatus(db)).applied.map(({version,name,checksum})=>({version,name,checksum})))
             .toEqual(PLATFORM_MIGRATIONS.map(m=>({version:m.version,name:m.name,checksum:migrationChecksum(m)})));

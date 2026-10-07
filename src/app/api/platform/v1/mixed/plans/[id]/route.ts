@@ -31,6 +31,15 @@ export const GET = platformRoute<{ id: string }>(async (req, { id }) => {
     body: publicData({
       parentPlanId: stored.plan.parentPlanId, status: stored.status, parentOperationId: stored.parentOperationId ?? null, parentEnvironmentId: stored.plan.parentEnvironmentId,
       parentDigest: stored.plan.parentDigest, childSetDigest: stored.plan.childSetDigest, executionOrder: stored.plan.executionOrder, teardownOrder: stored.plan.teardownOrder,
+      // PROD-MIX-05: what the approval bound, without vault references or identity digests; the live connectivity probe reads this.
+      connectivity: stored.plan.connectivity ? {
+        digest: stored.plan.connectivity.digest, vpnOptIn: stored.plan.connectivity.declaration.vpn?.optIn === true,
+        endpoints: stored.plan.connectivity.declaration.endpoints.map((ep) => ({
+          id: ep.id, producerPartitionId: ep.producerPartitionId, consumerPartitionId: ep.consumerPartitionId, dataClass: ep.dataClass, host: ep.host, port: ep.port,
+          dnsTargets: ep.dns.expectedTargets, dnsTtlMaxSeconds: ep.dns.ttlMaxSeconds, tlsMinVersion: ep.tls.minVersion, serverNames: ep.tls.serverNames,
+          serverSpkiSha256: ep.tls.serverSpkiSha256, clientCaDigest: ep.tls.clientCaDigest, allowlist: ep.allowlist,
+        })),
+      } : null,
       children: stored.plan.children.map((child) => {
         const row = children.find((candidate) => candidate.partitionId === child.partitionId);
         return {

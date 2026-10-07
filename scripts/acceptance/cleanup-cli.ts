@@ -16,6 +16,7 @@ import { defaultEvidenceRoot } from "./evidence";
 import { readCleanupBlock, readRunState, runStatePath } from "./run-state";
 import { redactCredentials } from "@/lib/credentials/redact";
 import { LiveSafetyError, establishLiveSession, resolveLiveTarget } from "./safety";
+import { ScopeError } from "../release/scope";
 
 export const CLEANUP_USAGE = `Usage: npx tsx scripts/acceptance/cleanup.ts (--run-id <id> | --older-than <hours>) [options]
 
@@ -30,7 +31,14 @@ export const CLEANUP_USAGE = `Usage: npx tsx scripts/acceptance/cleanup.ts (--ru
 Requires ZENITH_LIVE_AWS_ACCOUNT_ID and the ambient AWS credentials of that sandbox account; the account must carry /zenith/live-sandbox=true.
 Current harness authorities cannot establish provider quiescence. Execute requests retain read-only discovery and report the missing native-resolution prerequisite; --no-tofu and missing run state do not bypass it.`;
 
-export async function runCleanupCli(argv: readonly string[], env: Readonly<Record<string, string | undefined>> = process.env, io: { out: (s: string) => void; err: (s: string) => void } = { out: (s) => process.stdout.write(s), err: (s) => process.stderr.write(s) }): Promise<number> {
+/**
+ * PROD-REL-04: the scope gate. The real entry point (`cleanup.ts` run as a program) passes one that loads the approved scope
+ * manifest and requires the `aws-cleanup` grant; it runs before any cloud call. Unit tests drive this function with modeled AWS
+ * clients and no gate, exactly as `runAzureLive` is unit tested with fakes.
+ */
+export type CleanupScopeGate = (action: "read" | "teardown_run_tagged") => void;
+
+export async function runCleanupCli(argv: readonly string[], env: Readonly<Record<string, string | undefined>> = process.env, io: { out: (s: string) => void; err: (s: string) => void } = { out: (s) => process.stdout.write(s), err: (s) => process.stderr.write(s) }, scopeGate?: CleanupScopeGate): Promise<number> {
   try {
     const args = parseArgs(argv, { booleans: ["execute", "no-tofu", "help"], strings: ["run-id", "older-than", "region", "out", "report"] });
     if (args.flags.has("help")) {
@@ -47,6 +55,8 @@ export async function runCleanupCli(argv: readonly string[], env: Readonly<Recor
 
     const config = loadLiveConfig(env, { region: args.values.get("region") });
     const target = resolveLiveTarget(config);
+    // PROD-REL-04: the approved scope manifest must grant this harness (read for a dry run, run-tagged teardown for execute) before any cloud call.
+    scopeGate?.(execute ? "teardown_run_tagged" : "read");
     const access = ambientAccess({ accountId: target.accountId, region: target.region });
     // The same gates as a live run: right account, opt-in marker, allowed region.
     await establishLiveSession({ config, access, confirmBillable: execute, mutating: execute });
@@ -84,7 +94,7 @@ export async function runCleanupCli(argv: readonly string[], env: Readonly<Recor
       io.err(`${err.message}\n\n${CLEANUP_USAGE}\n`);
       return 2;
     }
-    if (err instanceof LiveSafetyError) {
+    if (err instanceof LiveSafetyError || err instanceof ScopeError) {
       io.err(`REFUSED (${err.code}): ${err.message}\n`);
       return 2;
     }

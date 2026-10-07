@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { HttpControlPlaneClient } from "../../scripts/acceptance/clients/control-plane";
+import { scopeSkipReason } from "../../scripts/release/scope";
 import { LIVE_DNS_PROVIDERS, liveDnsGate, readApiToken, runApprovedDestroy, runForeignScenario, runOwnedScenario, type LiveDnsConfig, type LiveDnsProvider } from "../../scripts/acceptance/non-aws-dns-live";
 
 const dir = mkdtempSync(path.join(tmpdir(), "zenith-live-dns-"));
@@ -111,22 +112,25 @@ describe("live DNS harness logic against a fake control plane (route shapes only
 
 describe.each(LIVE_DNS_PROVIDERS)("LIVE %s DNS teardown acceptance", (provider) => {
   const gate = liveDnsGate(provider, process.env);
-  const reason = gate.enabled ? "" : ` (skipped: ${gate.reason})`;
+  // PROD-REL-04: an approved scope manifest that grants this harness is required before any live call; a refusal is an explicit skip.
+  const scopeRefusal = gate.enabled ? scopeSkipReason("non-aws-dns-live", provider) : "";
+  const scoped = gate.enabled && scopeRefusal === "";
+  const reason = gate.enabled ? (scopeRefusal ? ` (skipped: ${scopeRefusal})` : "") : ` (skipped: ${gate.reason})`;
 
-  it.skipIf(!gate.enabled)(`owned record set reaches human approval${reason}`, async () => {
+  it.skipIf(!scoped)(`owned record set reaches human approval${reason}`, async () => {
     if (!gate.enabled) return;
     const client = new HttpControlPlaneClient({ baseUrl: gate.config.apiUrl, token: readApiToken(gate.config), workspaceId: gate.config.workspaceId });
     const result = await runOwnedScenario(client, gate.config, { idempotencyKey: `live-${Date.now()}` });
     expect(result.status).toBe("awaiting_human_approval");
   }, 20 * 60_000);
 
-  it.skipIf(!gate.enabled || !gate.config.foreignEnvironmentId)(`re-pointed (foreign) record set is refused${reason}`, async () => {
+  it.skipIf(!scoped || !gate.enabled || !gate.config.foreignEnvironmentId)(`re-pointed (foreign) record set is refused${reason}`, async () => {
     if (!gate.enabled) return;
     const client = new HttpControlPlaneClient({ baseUrl: gate.config.apiUrl, token: readApiToken(gate.config), workspaceId: gate.config.workspaceId });
     expect((await runForeignScenario(client, gate.config, { idempotencyKey: `live-${Date.now()}` })).status).toBe("passed");
   }, 20 * 60_000);
 
-  it.skipIf(!gate.enabled || !gate.config.approvedOperationId)(`human-approved teardown succeeds and reads back absence${reason}`, async () => {
+  it.skipIf(!scoped || !gate.enabled || !gate.config.approvedOperationId)(`human-approved teardown succeeds and reads back absence${reason}`, async () => {
     if (!gate.enabled) return;
     const client = new HttpControlPlaneClient({ baseUrl: gate.config.apiUrl, token: readApiToken(gate.config), workspaceId: gate.config.workspaceId });
     expect((await runApprovedDestroy(client, gate.config, { idempotencyKey: `live-${Date.now()}` })).status).toBe("passed");

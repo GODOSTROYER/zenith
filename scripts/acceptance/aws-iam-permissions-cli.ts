@@ -16,6 +16,7 @@ import {
 } from "@aws-sdk/client-iam";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { BASELINE_PATH, readBaseline, scanDriverResourceTypes } from "../../deploy/aws/tools/least-privilege-diff";
+import { ScopeError, requireScope } from "../release/scope";
 import { runIamAcceptanceCli, type IamAcceptanceConfig, type IamPort, type SimulatedDecision } from "./aws-iam-permissions";
 
 const MAX_PAGES = 10;
@@ -61,7 +62,8 @@ export function createSdkIamPort(config: IamAcceptanceConfig): IamPort {
 
 export async function main(argv: readonly string[]): Promise<number> {
   return runIamAcceptanceCli(argv, process.env, { out: (text) => process.stdout.write(`${text}\n`), err: (text) => process.stderr.write(`${text}\n`) }, {
-    createPort: createSdkIamPort,
+    // PROD-REL-04: createPort runs only after the harness's own gates passed and before any cloud call; the approved scope must grant it.
+    createPort: (config) => { requireScope("aws-iam-live", "aws").assertGrant("aws-iam-live", "aws", "read"); return createSdkIamPort(config); },
     resourceTypes: () => scanDriverResourceTypes(),
     baseline: () => readBaseline(BASELINE_PATH),
   });
@@ -69,7 +71,7 @@ export async function main(argv: readonly string[]): Promise<number> {
 
 if (/aws-iam-permissions-cli\.[cm]?[jt]s$/.test(process.argv[1] ?? "")) {
   main(process.argv.slice(2)).then((code) => { process.exitCode = code; }, (error: unknown) => {
-    process.stderr.write(`IAM acceptance aborted: ${error instanceof Error ? error.name : "error"}\n`);
+    process.stderr.write(`IAM acceptance aborted: ${error instanceof ScopeError ? `REFUSED (${error.code}): ${error.message}` : error instanceof Error ? error.name : "error"}\n`);
     process.exitCode = 1;
   });
 }

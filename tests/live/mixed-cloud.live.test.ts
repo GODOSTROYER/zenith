@@ -17,12 +17,13 @@
  */
 import { describe, expect, it } from "vitest";
 import { fetchPlanView, verifyMixedEvidence } from "../../scripts/acceptance/mixed-evidence";
+import { scopeSkipReason } from "../../scripts/release/scope";
 
 const env = process.env;
 const enabled = env.ZENITH_LIVE_MIXED === "1";
 const missing = ["ZENITH_LIVE_MIXED_API_URL", "ZENITH_LIVE_MIXED_WORKSPACE_ID", "ZENITH_LIVE_MIXED_PLAN_ID", "ZENITH_LIVE_MIXED_TOKEN_FILE"].filter((name) => !env[name]);
 const SKIP_REASON = enabled
-  ? missing.length ? `ZENITH_LIVE_MIXED=1 but ${missing.join(", ")} not set` : ""
+  ? missing.length ? `ZENITH_LIVE_MIXED=1 but ${missing.join(", ")} not set` : scopeSkipReason("mixed-evidence-live", "control_plane") // PROD-REL-04: the approved scope must grant this harness
   : "live mixed-cloud acceptance is deferred; set ZENITH_LIVE_MIXED=1 and the ZENITH_LIVE_MIXED_* references to run it";
 
 if (SKIP_REASON) console.warn(`[mixed-cloud live] SKIPPED, not a pass: ${SKIP_REASON}`);

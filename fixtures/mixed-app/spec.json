@@ -1,0 +1,13 @@
+{
+  "format": "zenith.mixed-app-spec.v1",
+  "description": "Shared contract of the reference mixed app. The app and the independent readback checker both read this; the checker re-implements the rules itself and never imports app code.",
+  "catalogCents": { "widget": 250, "gadget": 1200, "gizmo": 4999 },
+  "maxQty": 20,
+  "checksum": {
+    "algorithm": "sha256",
+    "fields": ["clientKey", "sku", "qty", "priceCents"],
+    "separator": "|",
+    "salt": "zenith-mixed-fixture-v1"
+  },
+  "providers": { "web": "gcp", "enricher": "aws", "database": "azure" }
+}

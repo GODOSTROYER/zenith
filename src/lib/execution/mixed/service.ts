@@ -57,6 +57,8 @@ export interface PlanMixedInput {
   childEnvironmentIds: readonly string[];
   pins?: readonly PartitionPin[];
   references?: BuildParentPlanInput["references"];
+  /** PROD-MIX-05: declared protected connectivity (mTLS + allowlist endpoints, opt-in VPN); assessed and bound into the approval. */
+  connectivity?: BuildParentPlanInput["connectivity"];
   createdBy: string;
 }
 
@@ -76,6 +78,7 @@ export async function planMixed(deps: MixedDeps, input: PlanMixedInput): Promise
   const plan = buildParentPlan({
     workspaceId: input.workspaceId, projectId: parent.projectId, parentEnvironmentId: input.parentEnvironmentId, graph: parent.graph, candidates,
     ...(input.pins ? { pins: input.pins } : {}), ...(input.references ? { references: input.references } : {}),
+    ...(input.connectivity ? { connectivity: input.connectivity } : {}),
   });
   const result = await plans.createPlan(deps.sql, { plan, createdBy: input.createdBy });
   return { ...result, proposalInput: parentProposalInput(result.stored.plan) };

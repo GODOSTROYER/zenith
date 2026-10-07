@@ -1,0 +1,207 @@
+/**
+ * PROD-REL-04: the scope permission manifest. Contract level: pure rules over the shipped manifest; nothing here reaches
+ * a cloud. The shipped manifest must be unapproved, so every live harness refuses until a person approves it.
+ */
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
+import { runPermissionsCli } from "../../scripts/release/permissions-cli";
+import { FORBIDDEN_ACTIONS, Scope, ScopeError, ScopeLedger, contentDigest, loadManifestFile, parseManifest, requireScope, scopeSkipReason, type ScopeProvider, type ScopeRequest } from "../../scripts/release/scope";
+import { NOW, RUN, approvedManifest, approvedScope, shippedManifestPath, shippedRaw } from "./_support";
+
+const code = (fn: () => unknown): string | undefined => {
+  try { fn(); } catch (e) { return e instanceof ScopeError ? e.code : "other"; }
+  return undefined;
+};
+const create = (over: Partial<ScopeRequest> = {}): ScopeRequest => ({ harness: "mixed-traffic-live", provider: "gcp", action: "create_disposable", estimatedUsd: 5, runId: RUN, resourceName: `zenith-${RUN}-web`, ttlMinutes: 60, ...over });
+
+describe("the shipped manifest", () => {
+  it("parses, names every live harness and is NOT approved", () => {
+    const manifest = loadManifestFile(shippedManifestPath());
+    expect(manifest.approval).toEqual({ status: "not_approved", approvedBy: null, approvedAt: null, expiresAt: null, approvedDigest: null });
+    for (const id of ["aws-live", "aws-cleanup", "aws-iam-live", "azure-live", "non-aws-dns-live", "billing-live", "mixed-evidence-live", "mixed-traffic-live", "mixed-recovery-live", "mixed-connectivity-live", "release-acceptance"]) {
+      expect(manifest.harnesses[id], id).toBeDefined();
+    }
+    for (const action of FORBIDDEN_ACTIONS) expect(manifest.forbiddenActions).toContain(action);
+  });
+
+  it("refuses every live harness until a person approves it", () => {
+    const scope = new Scope(loadManifestFile(shippedManifestPath()), () => NOW);
+    expect(code(() => scope.assertApproved())).toBe("not_approved");
+    expect(code(() => scope.authorize({ harness: "mixed-traffic-live", provider: "control_plane", action: "read" }))).toBe("not_approved");
+    expect(scopeSkipReason("mixed-traffic-live", "control_plane", {}, () => NOW)).toContain("not been approved");
+    expect(code(() => requireScope("aws-live", "aws", {}, () => NOW))).toBe("not_approved");
+  });
+
+  it("every harness grant fits inside the per-run budget and grants no forbidden capability", () => {
+    const manifest = loadManifestFile(shippedManifestPath());
+    for (const [id, grant] of Object.entries(manifest.harnesses)) {
+      expect(grant.maxRunUsd, id).toBeLessThanOrEqual(manifest.budgets.perRunUsd);
+      expect(grant.actions.every((a) => !(FORBIDDEN_ACTIONS as readonly string[]).includes(a)), id).toBe(true);
+    }
+  });
+});
+
+describe("approval", () => {
+  it("is exactly the digest of the content a person approved", () => {
+    const scope = approvedScope();
+    expect(() => scope.assertApproved()).not.toThrow();
+    expect(() => scope.authorize({ harness: "mixed-traffic-live", provider: "control_plane", action: "read" })).not.toThrow();
+  });
+
+  it("goes stale when a budget, grant or forbidden action changes after approval", () => {
+    const base = approvedManifest();
+    const widened = parseManifest({ ...base, budgets: { ...base.budgets, perRunUsd: 30, totalUsd: base.budgets.totalUsd + 1 } });
+    expect(code(() => new Scope(widened, () => NOW).assertApproved())).toBe("approval_stale");
+    const extra = parseManifest({ ...base, harnesses: { ...base.harnesses, sneaky: { description: "x", providers: ["aws"], actions: ["read"], maxRunUsd: 0 } } });
+    expect(code(() => new Scope(extra, () => NOW).assertApproved())).toBe("approval_stale");
+  });
+
+  it("expires", () => {
+    const later = new Date(NOW.getTime() + 2 * 86_400_000);
+    expect(code(() => approvedScope(undefined, later).assertApproved())).toBe("approval_expired");
+  });
+
+  it("refuses a half-filled approval", () => {
+    const base = approvedManifest();
+    expect(code(() => new Scope(parseManifest({ ...base, approval: { ...base.approval, approvedBy: null } }), () => NOW).assertApproved())).toBe("not_approved");
+  });
+
+  it("cannot drop a forbidden action from the manifest", () => {
+    const raw = shippedRaw();
+    raw.forbiddenActions = (raw.forbiddenActions as string[]).filter((a) => a !== "purchase");
+    expect(code(() => parseManifest(raw))).toBe("manifest_invalid");
+  });
+
+  it("rejects a harness that allows more than the per-run budget and unknown keys", () => {
+    const raw = shippedRaw();
+    (raw.harnesses as Record<string, { maxRunUsd: number }>)["aws-live"]!.maxRunUsd = 999;
+    expect(code(() => parseManifest(raw))).toBe("manifest_invalid");
+    expect(code(() => parseManifest({ ...shippedRaw(), extra: true }))).toBe("manifest_invalid");
+  });
+});
+
+describe("authorize", () => {
+  it.each(FORBIDDEN_ACTIONS)("never allows %s, approved or not", (action) => {
+    expect(code(() => approvedScope().authorize({ harness: "mixed-traffic-live", provider: "control_plane", action }))).toBe("action_forbidden");
+    expect(code(() => new Scope(loadManifestFile(shippedManifestPath()), () => NOW).authorize({ harness: "x", provider: "aws", action }))).toBe("action_forbidden");
+  });
+
+  it("refuses a harness or provider or action it was not granted", () => {
+    const scope = approvedScope();
+    expect(code(() => scope.authorize({ harness: "unlisted-harness", provider: "aws", action: "read" }))).toBe("harness_unknown");
+    expect(code(() => scope.authorize({ harness: "billing-live", provider: "kubernetes", action: "read" }))).toBe("provider_not_granted");
+    expect(code(() => scope.authorize(create({ harness: "billing-live", provider: "aws" })))).toBe("action_not_granted");
+    expect(code(() => scope.authorize({ harness: "mixed-connectivity-live", provider: "aws", action: "inject_fault", runId: RUN }))).toBe("action_not_granted");
+  });
+
+  it("a creating step needs a run id, a disposable name, a lifetime and an estimate", () => {
+    const scope = approvedScope();
+    expect(() => scope.authorize(create())).not.toThrow();
+    expect(code(() => scope.authorize(create({ runId: "my-run" })))).toBe("run_id_invalid");
+    expect(code(() => scope.authorize(create({ runId: undefined })))).toBe("run_id_invalid");
+    expect(code(() => scope.authorize(create({ resourceName: "prod-database" })))).toBe("not_disposable");
+    expect(code(() => scope.authorize(create({ resourceName: undefined })))).toBe("not_disposable");
+    expect(code(() => scope.authorize(create({ ttlMinutes: undefined })))).toBe("ttl_exceeded");
+    expect(code(() => scope.authorize(create({ ttlMinutes: 241 })))).toBe("ttl_exceeded");
+    expect(code(() => scope.authorize(create({ estimatedUsd: undefined })))).toBe("budget_unknown");
+    expect(code(() => scope.authorize(create({ estimatedUsd: Number.NaN })))).toBe("budget_unknown");
+    expect(code(() => scope.authorize(create({ estimatedUsd: -1 })))).toBe("budget_unknown");
+  });
+
+  it("enforces the per-provider, per-run and per-harness budgets cumulatively", () => {
+    const scope = approvedScope();
+    const ledger = new ScopeLedger();
+    expect(code(() => scope.authorize(create({ provider: "aws", estimatedUsd: 11 }), ledger))).toBe("budget_exceeded");
+    expect(ledger.total()).toBe(0);
+    scope.authorize(create({ provider: "gcp", estimatedUsd: 10, resourceName: `zenith-${RUN}-gcp` }), ledger);
+    scope.authorize(create({ provider: "azure", estimatedUsd: 15, resourceName: `zenith-${RUN}-azure` }), ledger);
+    expect(ledger.total()).toBe(25);
+    expect(code(() => scope.authorize(create({ provider: "aws", estimatedUsd: 6, resourceName: `zenith-${RUN}-aws` }), ledger))).toBe("budget_exceeded");
+    expect(code(() => scope.authorize(create({ provider: "gcp", estimatedUsd: 0.01, resourceName: `zenith-${RUN}-gcp2` }), ledger))).toBe("budget_exceeded");
+    scope.authorize(create({ provider: "aws", estimatedUsd: 5, resourceName: `zenith-${RUN}-aws` }), ledger);
+    expect(ledger.total()).toBe(30);
+    expect(code(() => scope.authorize(create({ harness: "mixed-recovery-live", provider: "gcp", action: "create_disposable" })))).toBe("action_not_granted");
+  });
+
+  it("a zero-budget provider cannot create anything", () => {
+    expect(code(() => approvedScope().authorize(create({ provider: "control_plane", estimatedUsd: 0.01 })))).toBe("budget_exceeded");
+    expect(code(() => approvedScope().authorize(create({ harness: "azure-live", provider: "azure", estimatedUsd: 5.5 })))).toBe("budget_exceeded");
+  });
+
+  it("changing or tearing down needs this run's own tag", () => {
+    const scope = approvedScope();
+    const base: ScopeRequest = { harness: "mixed-traffic-live", provider: "gcp", action: "mutate_run_tagged", runId: RUN };
+    expect(() => scope.authorize({ ...base, tags: { "zenith:live-run": RUN } })).not.toThrow();
+    expect(code(() => scope.authorize(base))).toBe("not_disposable");
+    expect(code(() => scope.authorize({ ...base, tags: { "zenith:live-run": "zlive-202610071200-zzzz" } }))).toBe("not_disposable");
+    expect(code(() => scope.authorize({ ...base, action: "teardown_run_tagged", tags: {} }))).toBe("not_disposable");
+    expect(code(() => scope.authorize({ ...base, runId: "other", tags: { "zenith:live-run": "other" } }))).toBe("run_id_invalid");
+  });
+
+  it("assertGrant checks approval and grant without needing a run", () => {
+    const scope = approvedScope();
+    expect(() => scope.assertGrant("aws-cleanup", "aws", "teardown_run_tagged")).not.toThrow();
+    expect(code(() => scope.assertGrant("aws-cleanup", "gcp" as ScopeProvider, "read"))).toBe("provider_not_granted");
+    expect(code(() => scope.assertGrant("aws-cleanup", "aws", "create_disposable"))).toBe("action_not_granted");
+    expect(code(() => new Scope(loadManifestFile(shippedManifestPath()), () => NOW).assertGrant("aws-cleanup", "aws", "read"))).toBe("not_approved");
+  });
+});
+
+describe("loading", () => {
+  it("honours the named manifest FILE and refuses a missing or malformed one", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "zscope-"));
+    const good = path.join(dir, "ok.json");
+    writeFileSync(good, JSON.stringify(approvedManifest()));
+    expect(scopeSkipReason("mixed-traffic-live", "control_plane", { ZENITH_LIVE_SCOPE_FILE: good }, () => NOW)).toBe("");
+    expect(scopeSkipReason("mixed-traffic-live", "gcp", { ZENITH_LIVE_SCOPE_FILE: path.join(dir, "absent.json") }, () => NOW)).toContain("manifest_unreadable");
+    const bad = path.join(dir, "bad.json");
+    writeFileSync(bad, "{not json");
+    expect(scopeSkipReason("mixed-traffic-live", "control_plane", { ZENITH_LIVE_SCOPE_FILE: bad }, () => NOW)).toContain("manifest_invalid");
+    expect(scopeSkipReason("not-a-harness", "control_plane", { ZENITH_LIVE_SCOPE_FILE: good }, () => NOW)).toContain("harness_unknown");
+  });
+});
+
+describe("permissions-cli", () => {
+  function sandbox(): { file: string; env: Record<string, string>; out: string[]; err: string[]; io: { out: (s: string) => void; err: (s: string) => void } } {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "zperm-"));
+    const file = path.join(dir, "permissions.json");
+    writeFileSync(file, readFileSync(shippedManifestPath(), "utf8"));
+    const out: string[] = []; const err: string[] = [];
+    return { file, env: { ZENITH_LIVE_SCOPE_FILE: file }, out, err, io: { out: (s) => { out.push(s); }, err: (s) => { err.push(s); } } };
+  }
+
+  it("show prints the digest and the unapproved state; check exits non-zero while unapproved", async () => {
+    const s = sandbox();
+    expect(await runPermissionsCli(["show"], s.env, s.io)).toBe(0);
+    expect(s.out.join("")).toContain(contentDigest(loadManifestFile(s.file)));
+    expect(await runPermissionsCli(["check"], s.env, s.io)).toBe(1);
+    expect(s.err.join("")).toContain("not_approved");
+  });
+
+  it("approve refuses outside an interactive terminal and writes nothing", async () => {
+    const s = sandbox();
+    const before = readFileSync(s.file, "utf8");
+    expect(await runPermissionsCli(["approve", "--by", "A Person"], s.env, s.io, false)).toBe(2);
+    expect(readFileSync(s.file, "utf8")).toBe(before);
+  });
+
+  it("approve needs the typed digest; a wrong one changes nothing, the right one makes check pass", async () => {
+    const s = sandbox();
+    const before = readFileSync(s.file, "utf8");
+    expect(await runPermissionsCli(["approve", "--by", "A Person"], s.env, s.io, true, async () => "000000000000")).toBe(1);
+    expect(readFileSync(s.file, "utf8")).toBe(before);
+    const wanted = contentDigest(loadManifestFile(s.file)).slice(0, 12);
+    expect(await runPermissionsCli(["approve", "--by", "A Person", "--days", "7"], s.env, s.io, true, async () => wanted)).toBe(0);
+    expect(await runPermissionsCli(["check"], s.env, s.io)).toBe(0);
+    expect(loadManifestFile(s.file).approval).toMatchObject({ status: "approved", approvedBy: "A Person" });
+  });
+
+  it("rejects missing --by and an out-of-range --days", async () => {
+    const s = sandbox();
+    expect(await runPermissionsCli(["approve"], s.env, s.io, true)).toBe(2);
+    expect(await runPermissionsCli(["approve", "--by", "A", "--days", "400"], s.env, s.io, true)).toBe(2);
+    expect(await runPermissionsCli(["bogus"], s.env, s.io)).toBe(2);
+  });
+});

@@ -26,6 +26,7 @@ import { billingGate, createLiveBillingReader } from "@/lib/cost/billing";
 import { BILLING_PROVIDERS, assertActualSpend, type BillingProvider } from "@/lib/cost/kinds";
 import { fetchOfficialSnapshots, refreshGateOpen } from "@/lib/cost/catalog-fetch";
 import { loadSnapshotDirectory, normalizeOci } from "@/lib/placement/catalog-refresh";
+import { scopeSkipReason } from "../../scripts/release/scope";
 
 const env = process.env;
 
@@ -39,7 +40,9 @@ describe("live provider billing reads", () => {
   for (const provider of BILLING_PROVIDERS as readonly BillingProvider[]) {
     const gate = billingGate(provider, env);
     const scope = env[`ZENITH_LIVE_${provider.toUpperCase()}_BILLING_SCOPE`];
-    const reason = !gate.open ? gate.reason : !scope ? `ZENITH_LIVE_${provider.toUpperCase()}_BILLING_SCOPE is not set` : undefined;
+    // PROD-REL-04: an approved scope manifest that grants billing-live is required before any live read; a refusal is an explicit skip.
+    const scopeRefusal = gate.open && scope ? scopeSkipReason("billing-live", provider) : "";
+    const reason = !gate.open ? gate.reason : !scope ? `ZENITH_LIVE_${provider.toUpperCase()}_BILLING_SCOPE is not set` : scopeRefusal || undefined;
     it.skipIf(reason !== undefined)(`${provider}: reads actual spend for the period${reason ? ` (SKIPPED: ${reason})` : ""}`, async () => {
       const period = defaultPeriod();
       const reader = await createLiveBillingReader(provider, { env });

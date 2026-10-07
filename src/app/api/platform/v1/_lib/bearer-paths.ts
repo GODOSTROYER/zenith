@@ -66,6 +66,8 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/mixed/plans$`), methods: { GET: "bearer-capable", POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/mixed/plans/${ID}$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/mixed/plans/${ID}/(?:children|start)$`), methods: { POST: "browser-only" } },
+  // PROD-MIX-07: the estimate-only cost, latency and residency report of a stored mixed plan; read-only.
+  { path: new RegExp(`^${ROOT}/mixed/plans/${ID}/economics$`), methods: { GET: "bearer-capable" } },
   // Standing grants are a person's bounded pre-approval: creating, revoking and even listing stay in the person's browser.
   { path: new RegExp(`^${ROOT}/standing-grants$`), methods: { GET: "browser-only", POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/standing-grants/${ID}/revoke$`), methods: { POST: "browser-only" } },

@@ -35,6 +35,9 @@ export function mixedProposalDetails(input: unknown): string[] {
     `Mixed-cloud parent plan ${planId.slice(0, 80)}: approving it approves exactly this ordered set of ${value.children.length} child plan(s).`,
     `Child set digest ${value.childSetDigest.slice(0, 16)}; each child still needs its own approval and runs only after the one before it succeeded.`,
   ];
+  if (typeof value.connectivityDigest === "string" && HEX.test(value.connectivityDigest)) {
+    lines.push(`Approving also approves the declared cross-cloud connectivity ${value.connectivityDigest.slice(0, 16)} (protected endpoints over mutual TLS with an address allowlist, VPN only if opted in); read it on the plan before approving.`);
+  }
   for (const child of value.children.slice(0, 16)) {
     if (!child || typeof child !== "object") continue;
     const c = child as Record<string, unknown>;

@@ -25,6 +25,7 @@
 import { z } from "zod";
 import type { ProviderKey } from "./types";
 import { NATIVE_PREFIX } from "./native-types";
+import { CronJobNativeConfig, StatefulSetNativeConfig } from "./native-k8s-workloads";
 
 export interface NativeTypeEntry {
   provider: ProviderKey;
@@ -101,6 +102,20 @@ const SEEDS: NativeTypeEntry[] = [
         .refine((c) => c.minReplicas <= c.maxReplicas, { message: "minReplicas must not exceed maxReplicas", path: ["minReplicas"] }),
     })
   ),
+  // The managed Zenith substrate refuses StatefulSets and renders its own CronJobs, so these are
+  // customer-cluster types only (PROD-LIFE-07).
+  {
+    provider: "kubernetes",
+    type: "k8s:StatefulSet",
+    description: "StatefulSet with persistent volume claim templates, ordered rollout and an explicit PVC retention policy",
+    schema: StatefulSetNativeConfig,
+  },
+  {
+    provider: "kubernetes",
+    type: "k8s:CronJob",
+    description: "CronJob with explicit concurrency policy, history limits and time zone",
+    schema: CronJobNativeConfig,
+  },
 ];
 
 function assertRegistrable(provider: ProviderKey, type: string, schema: z.ZodTypeAny): void {

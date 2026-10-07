@@ -30,7 +30,7 @@ import type { KubernetesSession } from "@/lib/credentials/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import { READ_ONLY_KINDS, conflictsFrom, createK8sClient, isNamespacedKind, listByKind, listObjects, ownedBy, readObject, toK8sError, type K8sClient } from "./client";
 import { ANNOTATION, K8sError, OPS_FIELD_MANAGER, type ObjectRef, type SupportedKind } from "./types";
-import { rollback } from "./rollout";
+import { rollback, rollbackStatefulSet } from "./rollout";
 import { targetFor } from "./target";
 import { dig, isRecord, plain, redactText, truncate } from "./util";
 
@@ -65,6 +65,17 @@ export async function loadOwned(ctx: Ctx, node: ResourceNode, kind: SupportedKin
 function failure(summary: string, e: unknown): NativeOperationResult {
   const err = toK8sError(e);
   return { ok: false, summary: `${summary}: ${err.message}`, data: { code: err.code }, simulated: false };
+}
+
+/**
+ * The StatefulSet driver also serves the dev-tier postgres/redis nodes, which are a fixed single replica
+ * with no revision history to roll back to. Scale and rollback are for native StatefulSets only.
+ */
+function refuseDevTierStateful(node: ResourceNode, operation: string): NativeOperationResult | undefined {
+  if (node.nativeType === "k8s:StatefulSet" && node.kind !== "provider_native") {
+    return { ok: false, summary: `${operation} does not apply to the single-replica dev-tier ${node.kind}; declare a native k8s:StatefulSet for a scalable workload.`, data: { code: "unsupported" }, simulated: false };
+  }
+  return undefined;
 }
 
 const workloadKind = (node: ResourceNode): SupportedKind => {
@@ -136,14 +147,22 @@ export async function restartWorkload(ctx: Ctx, node: ResourceNode): Promise<Nat
 
 /* --------------------------------- rollback -------------------------------- */
 
-/** `deployment.rollback`: see `rollback()` in rollout.ts for the kubectl-undo equivalence and its limits. */
+/**
+ * `deployment.rollback`: see `rollback()` in rollout.ts for the kubectl-undo equivalence and its limits.
+ * A StatefulSet rolls back through its ControllerRevisions (`rollbackStatefulSet`); its volumes are never
+ * touched, so the previous revision must be able to read what the newer one wrote.
+ */
 export async function rollbackWorkload(ctx: Ctx, node: ResourceNode, input: Record<string, unknown>): Promise<NativeOperationResult> {
   try {
     const to = input.toRevision;
     if (to !== undefined && (typeof to !== "number" || !Number.isInteger(to) || to < 1)) throw new K8sError("bad_input", "toRevision must be a positive integer.");
-    if (workloadKind(node) !== "Deployment") throw new K8sError("unsupported", "deployment.rollback applies to Deployments.");
-    const { ref } = await loadOwned(ctx, node, "Deployment");
-    const r = await rollback({ namespace: ref.namespace as string, name: ref.name }, ctx.session, {
+    const kind = workloadKind(node);
+    if (kind !== "Deployment" && kind !== "StatefulSet") throw new K8sError("unsupported", "deployment.rollback applies to Deployments and StatefulSets.");
+    const dev = refuseDevTierStateful(node, "deployment.rollback");
+    if (dev) return dev;
+    const { ref } = await loadOwned(ctx, node, kind);
+    const run = kind === "Deployment" ? rollback : rollbackStatefulSet;
+    const r = await run({ namespace: ref.namespace as string, name: ref.name }, ctx.session, {
       signal: ctx.signal,
       environmentId: ctx.environmentId,
       toRevision: to as number | undefined,
@@ -153,9 +172,9 @@ export async function rollbackWorkload(ctx: Ctx, node: ResourceNode, input: Reco
       ok: true,
       summary:
         r.status === "already_applied"
-          ? `Deployment ${ref.name} is already at revision ${r.toRevision}.`
-          : `Rolled back Deployment ${ref.name} from revision ${r.fromRevision} to ${r.toRevision}; its pods are rolling.`,
-      data: { kind: "Deployment", name: ref.name, namespace: ref.namespace, ...r },
+          ? `${kind} ${ref.name} is already at revision ${r.toRevision}.`
+          : `Rolled back ${kind} ${ref.name} from revision ${r.fromRevision} to ${r.toRevision}; its pods are rolling${kind === "StatefulSet" ? " in reverse ordinal order. Its volumes were not changed." : "."}`,
+      data: { kind, name: ref.name, namespace: ref.namespace, ...r },
       simulated: false,
     };
   } catch (e) {
@@ -165,21 +184,28 @@ export async function rollbackWorkload(ctx: Ctx, node: ResourceNode, input: Reco
 
 /* ---------------------------------- scale ---------------------------------- */
 
-/** `service.scale`: set the replica count through the scale subresource. */
+/**
+ * `service.scale`: set the replica count through the scale subresource.
+ * StatefulSets scale one ordinal at a time. A scale-down of a StatefulSet whose
+ * retention policy deletes claims on scale (`whenScaled: Delete`) destroys the
+ * removed ordinals' data and is refused unless the input acknowledges it.
+ */
 export async function scaleWorkload(ctx: Ctx, node: ResourceNode, input: Record<string, unknown>): Promise<NativeOperationResult> {
   const replicas = input.replicas;
   if (typeof replicas !== "number" || !Number.isInteger(replicas) || replicas < 0 || replicas > MAX_SCALE) {
     return { ok: false, summary: `replicas must be an integer between 0 and ${MAX_SCALE}.`, data: { code: "bad_input" }, simulated: false };
   }
   const kind = workloadKind(node);
-  if (kind !== "Deployment") return { ok: false, summary: `service.scale applies to Deployments, not ${kind}.`, data: { code: "unsupported" }, simulated: false };
+  if (kind !== "Deployment" && kind !== "StatefulSet") return { ok: false, summary: `service.scale applies to Deployments and StatefulSets, not ${kind}.`, data: { code: "unsupported" }, simulated: false };
+  const dev = refuseDevTierStateful(node, "service.scale");
+  if (dev) return dev;
   try {
     const { client, ref, live } = await loadOwned(ctx, node, kind);
-    const hpa = await findHpa(client, ref);
+    const hpa = await findHpa(client, ref, kind);
     if (hpa) {
       return {
         ok: false,
-        summary: `Deployment ${ref.name} is managed by HorizontalPodAutoscaler ${hpa}; it would undo a manual scale. Change the spec replicas (min) instead.`,
+        summary: `${kind} ${ref.name} is managed by HorizontalPodAutoscaler ${hpa}; it would undo a manual scale. Change the spec replicas (min) instead.`,
         data: { code: "hpa_manages_replicas", hpa },
         simulated: false,
       };
@@ -187,22 +213,29 @@ export async function scaleWorkload(ctx: Ctx, node: ResourceNode, input: Record<
     const from = dig(live, "spec", "replicas");
     const previous = typeof from === "number" ? from : 1;
     if (previous === replicas) {
-      return { ok: true, summary: `Deployment ${ref.name} already has ${replicas} replica(s).`, data: { from: previous, to: replicas, alreadyApplied: true }, simulated: false };
+      return { ok: true, summary: `${kind} ${ref.name} already has ${replicas} replica(s).`, data: { from: previous, to: replicas, alreadyApplied: true }, simulated: false };
     }
-    await client.apps.patchNamespacedDeploymentScale(
-      { name: ref.name, namespace: ref.namespace as string, body: { spec: { replicas } }, fieldManager: OPS_FIELD_MANAGER },
-      setHeaderOptions("Content-Type", PatchStrategy.MergePatch)
-    );
-    return { ok: true, summary: `Scaled Deployment ${ref.name} from ${previous} to ${replicas}.`, data: { from: previous, to: replicas, alreadyApplied: false }, simulated: false };
+    if (kind === "StatefulSet" && replicas < previous && dig(live, "spec", "persistentVolumeClaimRetentionPolicy", "whenScaled") === "Delete" && input.acknowledgeDataLoss !== true) {
+      return {
+        ok: false,
+        summary: `StatefulSet ${ref.name} deletes the volume claims of removed ordinals when scaled down (whenScaled: Delete). Scaling from ${previous} to ${replicas} destroys that data; pass acknowledgeDataLoss: true to proceed.`,
+        data: { code: "data_loss_unacknowledged", from: previous, to: replicas },
+        simulated: false,
+      };
+    }
+    const patch = { name: ref.name, namespace: ref.namespace as string, body: { spec: { replicas } }, fieldManager: OPS_FIELD_MANAGER };
+    if (kind === "Deployment") await client.apps.patchNamespacedDeploymentScale(patch, setHeaderOptions("Content-Type", PatchStrategy.MergePatch));
+    else await client.apps.patchNamespacedStatefulSetScale(patch, setHeaderOptions("Content-Type", PatchStrategy.MergePatch));
+    return { ok: true, summary: `Scaled ${kind} ${ref.name} from ${previous} to ${replicas}.`, data: { from: previous, to: replicas, alreadyApplied: false }, simulated: false };
   } catch (e) {
     return failure("Scale failed", e);
   }
 }
 
-async function findHpa(client: K8sClient, ref: ObjectRef): Promise<string | undefined> {
+async function findHpa(client: K8sClient, ref: ObjectRef, kind: "Deployment" | "StatefulSet" = "Deployment"): Promise<string | undefined> {
   try {
     const list = await listObjects(client, "HorizontalPodAutoscaler", ref.namespace as string, { limit: 100, maxPages: 1 });
-    const hit = list.items.find((h) => dig(h, "spec", "scaleTargetRef", "name") === ref.name && dig(h, "spec", "scaleTargetRef", "kind") === "Deployment");
+    const hit = list.items.find((h) => dig(h, "spec", "scaleTargetRef", "name") === ref.name && dig(h, "spec", "scaleTargetRef", "kind") === kind);
     const name = dig(hit, "metadata", "name");
     return typeof name === "string" ? name : undefined;
   } catch (e) {

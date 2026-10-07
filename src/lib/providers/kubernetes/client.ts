@@ -377,6 +377,22 @@ export const READ_ONLY_KINDS = {
   Pod: { apiVersion: "v1", kind: "Pod", namespaced: true },
   Event: { apiVersion: "v1", kind: "Event", namespaced: true },
   ReplicaSet: { apiVersion: "apps/v1", kind: "ReplicaSet", namespaced: true },
+  ControllerRevision: { apiVersion: "apps/v1", kind: "ControllerRevision", namespaced: true },
+  DaemonSet: { apiVersion: "apps/v1", kind: "DaemonSet", namespaced: true },
+  Job: { apiVersion: "batch/v1", kind: "Job", namespaced: true },
+  PersistentVolume: { apiVersion: "v1", kind: "PersistentVolume", namespaced: false },
+} as const;
+
+/**
+ * Kinds that belong to the optional CSI snapshot add-on (external-snapshotter
+ * CRDs). Zenith creates VolumeSnapshots only through the snapshot operation and
+ * reads VolumeSnapshotClasses to decide whether a cluster can snapshot at all;
+ * neither is part of the declarative apply set (`KIND_INFO`). A cluster without
+ * the CRDs lists them as `unavailable`.
+ */
+export const SNAPSHOT_KINDS = {
+  VolumeSnapshot: { apiVersion: "snapshot.storage.k8s.io/v1", kind: "VolumeSnapshot", namespaced: true },
+  VolumeSnapshotClass: { apiVersion: "snapshot.storage.k8s.io/v1", kind: "VolumeSnapshotClass", namespaced: false },
 } as const;
 
 /** Whether a live object carries Zenith's ownership marks for this environment. */

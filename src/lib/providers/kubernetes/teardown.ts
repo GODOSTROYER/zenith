@@ -5,6 +5,14 @@
  * rechecks live environment ownership and carries UID and resourceVersion
  * preconditions (the latter also protects against an ownership-mark change).
  *
+ * Persistent data (PROD-LIFE-07). PVCs a StatefulSet made from its claim
+ * templates carry the ownership marks the template gave them, so they are found
+ * and treated exactly like Zenith-rendered PVCs: retained while `retainStateful`
+ * is true, deleted (children-first, after their StatefulSet) when it is false,
+ * and never touched when unowned. Owned VolumeSnapshots, which are copies of that
+ * data, follow the same rule. A cluster without the snapshot CRDs has none, and
+ * that is not a coverage gap.
+ *
  * Namespaces are always retained: deleting one would cascade into foreign
  * objects, including kinds Zenith cannot inventory. Only allowlisted or
  * live, environment-owned namespaces are scanned. The caller must supply a
@@ -21,10 +29,11 @@
  * cluster teardown has been verified.
  */
 import type { KubernetesSession } from "@/lib/credentials/types";
-import { createK8sClient, listObjects, ownedBy, readObject, toK8sError, type K8sClient } from "./client";
+import { SNAPSHOT_KINDS, createK8sClient, listObjects, ownedBy, readObject, toK8sError, type K8sClient } from "./client";
 import { defaultNamespace, isDnsLabel } from "./naming";
 import { pruneOrphans } from "./prune";
 import { sessionNamespaces } from "./session";
+import { listOwnedSnapshots } from "./snapshots";
 import { APPLY_ORDER, K8sError, KIND_INFO, LABEL, MANAGED_BY_VALUE, refOf, type ObjectRef } from "./types";
 import { dig, isRecord, sortedUnique } from "./util";
 
@@ -151,6 +160,31 @@ export async function teardownKubernetesEnvironment(input: KubernetesTeardownInp
     if (plan.truncated) record(namespaceRef("*"), "uncertain");
   } catch {
     record(namespaceRef("*"), "uncertain");
+  }
+
+  // Owned VolumeSnapshots are data too: keep them while stateful data is retained, delete them otherwise.
+  for (const namespace of scan) {
+    if (input.signal?.aborted) break;
+    const gap: ObjectRef = { apiVersion: SNAPSHOT_KINDS.VolumeSnapshot.apiVersion, kind: "VolumeSnapshot", namespace, name: "*" };
+    try {
+      await client.guard.assert(namespace);
+    } catch (error) {
+      // a namespace that does not exist holds no snapshots; the object scan below reports any other refusal
+      if (toK8sError(error).code !== "not_found") record(gap, "uncertain");
+      continue;
+    }
+    try {
+      const snapshots = await listOwnedSnapshots(client, namespace, input.environmentId);
+      if (snapshots.truncated) record(gap, "uncertain");
+      for (const item of snapshots.items) {
+        const ref = refOf(item);
+        if (dig(item, "metadata", "deletionTimestamp")) record(ref, "uncertain");
+        else if (input.retainStateful) record(ref, "retained");
+        else candidates.set(key(ref), ref);
+      }
+    } catch {
+      record(gap, "uncertain");
+    }
   }
 
   // Include deliberate stateful deletions in the existing children-first order.

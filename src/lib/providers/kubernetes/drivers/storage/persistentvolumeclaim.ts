@@ -4,8 +4,13 @@
  * A PVC is never pruned automatically (it holds data); `verify` also requires
  * it to be Bound, because a Pending claim with no provisioner looks configured
  * and serves nothing.
+ *
+ * Operations (PROD-LIFE-07): database.snapshot and database.restore through CSI
+ * VolumeSnapshots; both refuse where the cluster cannot snapshot (see
+ * `snapshots.ts`).
  */
 import { volumeStorageGi } from "../../renderers/identity";
+import { restoreData, snapshotData } from "../../snapshots";
 import { dig, isRecord } from "../../util";
 import { compact, safeExpected, sortedStrings } from "../attrs";
 import { pvcRuntime } from "../runtime";
@@ -31,6 +36,10 @@ export const persistentVolumeClaimDef: KindDef = {
   }),
   summary: (live) => compact({ storage: dig(live, "spec", "resources", "requests", "storage"), phase: dig(live, "status", "phase") }),
   runtime: pvcRuntime,
+  operations: {
+    "database.snapshot": (ctx, node, input) => snapshotData(ctx, node, input),
+    "database.restore": (ctx, node, input) => restoreData(ctx, node, input),
+  },
   extraChecks: (_node, _obs, runtime) => [
     {
       id: "bound",

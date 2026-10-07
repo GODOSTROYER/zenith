@@ -118,11 +118,18 @@ export function evaluateRollout(kind: "Deployment" | "StatefulSet", live: Record
 
   const ready = snapshot.readyReplicas ?? 0;
   if (ready < desired) return { done: false, reason: `${ready} of ${desired} replicas ready`, snapshot };
-  if ((snapshot.updatedReplicas ?? 0) < desired) return { done: false, reason: `${snapshot.updatedReplicas ?? 0} of ${desired} replicas updated`, snapshot };
+  // A staged rollout (partition > 0) is complete once every ordinal at or above the partition
+  // runs the update revision; the ordinals below it deliberately keep the old one.
+  const partitionRaw = dig(live, "spec", "updateStrategy", "rollingUpdate", "partition");
+  const partition = typeof partitionRaw === "number" && partitionRaw > 0 ? Math.min(partitionRaw, desired) : 0;
+  const expectedUpdated = desired - partition;
+  if ((snapshot.updatedReplicas ?? 0) < expectedUpdated) return { done: false, reason: `${snapshot.updatedReplicas ?? 0} of ${expectedUpdated} replicas updated`, snapshot };
+  const minReady = num(dig(live, "spec", "minReadySeconds")) ?? 0;
+  if (minReady > 0 && (snapshot.availableReplicas ?? 0) < desired) return { done: false, reason: `${snapshot.availableReplicas ?? 0} of ${desired} replicas available`, snapshot };
   const current = status.currentRevision;
   const update = status.updateRevision;
-  if (typeof update === "string" && current !== update) return { done: false, reason: "waiting for the update revision to become current", snapshot };
-  return { done: true, reason: "rollout complete", snapshot };
+  if (partition === 0 && typeof update === "string" && current !== update) return { done: false, reason: "waiting for the update revision to become current", snapshot };
+  return { done: true, reason: partition > 0 ? `staged rollout complete to partition ${partition}` : "rollout complete", snapshot };
 }
 
 const TRANSIENT = new Set(["api_error", "unreachable", "timeout"]);
@@ -280,6 +287,112 @@ export async function rollback(target: { namespace: string; name: string }, sess
     );
     const generation = num(dig(got, "metadata", "generation"));
     return { status: "rolled_back", fromRevision: current, toRevision: wanted, generation };
+  } catch (e) {
+    const conflicts = conflictsFrom(e);
+    if (conflicts.length > 0) {
+      throw new K8sError("field_conflict", `Rollback blocked: ${conflicts.length} field(s) are owned by another manager (${conflicts.map((c) => c.field).slice(0, 6).join(", ")}). Zenith does not force.`, 409);
+    }
+    throw toK8sError(e);
+  }
+}
+
+/* --------------------------- StatefulSet rollback --------------------------- */
+
+const revisionNumber = (cr: Record<string, unknown>): number | undefined => {
+  const n = cr.revision;
+  return typeof n === "number" && Number.isInteger(n) && n > 0 ? n : undefined;
+};
+
+/** The pod template a ControllerRevision recorded, without the strategic-merge `$patch` directive. */
+function templateOfRevision(cr: Record<string, unknown>): Record<string, unknown> | undefined {
+  const raw = dig(cr, "data", "spec", "template");
+  if (!isRecord(raw)) return undefined;
+  const template = plain<Record<string, unknown>>(raw);
+  delete template.$patch;
+  const meta = isRecord(template.metadata) ? template.metadata : undefined;
+  if (meta) {
+    if (meta.creationTimestamp === null) delete meta.creationTimestamp;
+    if (isRecord(meta.annotations)) {
+      delete meta.annotations[ANNOTATION.restartedAt];
+      if (Object.keys(meta.annotations).length === 0) delete meta.annotations;
+    }
+  }
+  return template;
+}
+
+/**
+ * `kubectl rollout undo statefulset` through server-side apply. The pod template
+ * of the target ControllerRevision replaces `spec.template` in what `zenith`
+ * currently owns; everything else (claim templates, retention, partition,
+ * strategy) is untouched, and the StatefulSet controller then rolls the pods in
+ * reverse ordinal order. PVCs are never touched by a rollback: data written by
+ * the newer revision stays on the volumes, so a rollback is only safe for
+ * revisions whose on-disk format is compatible. That is the caller's call, not
+ * something a rollout can know.
+ *
+ * Same ownership, idempotency (`zenith.dev/last-rollback`) and no-force rules as
+ * the Deployment rollback above.
+ */
+export async function rollbackStatefulSet(target: { namespace: string; name: string }, session: KubernetesSession, opts: RollbackOptions): Promise<RollbackResult> {
+  const client = createK8sClient(session, { signal: opts.signal, environmentId: opts.environmentId, requestTimeoutMs: opts.requestTimeoutMs });
+  await client.guard.assert(target.namespace);
+  const ref = { apiVersion: "apps/v1", kind: "StatefulSet", namespace: target.namespace, name: target.name };
+  const live = await readObject(client, ref);
+  if (!live) throw new K8sError("not_found", `StatefulSet ${target.name} does not exist.`);
+  const own = ownedBy(live, opts.environmentId);
+  if (!own.owned) throw new K8sError("ownership_conflict", `StatefulSet ${target.name} is not managed by Zenith for this environment (${own.reason}); not rolled back.`);
+
+  const selector = selectorString(dig(live, "spec", "selector", "matchLabels"));
+  if (!selector) throw new K8sError("rollback_unavailable", "The StatefulSet has no label selector to find its revisions.");
+  const uid = dig(live, "metadata", "uid");
+  const { items } = await listByKind(client, READ_ONLY_KINDS.ControllerRevision, target.namespace, { labelSelector: selector, limit: 100, maxPages: 2 });
+  const byNumber = new Map<number, Record<string, unknown>>();
+  const byName = new Map<string, Record<string, unknown>>();
+  for (const cr of items) {
+    const owners = dig(cr, "metadata", "ownerReferences");
+    const mine = Array.isArray(owners) && owners.some((o) => isRecord(o) && o.kind === "StatefulSet" && o.name === target.name && (uid === undefined || o.uid === uid));
+    if (!mine) continue;
+    const n = revisionNumber(cr);
+    if (n !== undefined) byNumber.set(n, cr);
+    const name = dig(cr, "metadata", "name");
+    if (typeof name === "string") byName.set(name, cr);
+  }
+  const updateName = dig(live, "status", "updateRevision");
+  const currentCr = typeof updateName === "string" ? byName.get(updateName) : undefined;
+  const current = currentCr ? revisionNumber(currentCr) : undefined;
+  if (current === undefined) throw new K8sError("rollback_unavailable", "The StatefulSet's update revision is not recorded yet; there is nothing to roll back to.");
+  if (opts.operationId && dig(live, "metadata", "annotations", ANNOTATION.lastRollback) === opts.operationId) {
+    return { status: "already_applied", fromRevision: current, toRevision: current };
+  }
+
+  let wanted = opts.toRevision;
+  if (wanted === undefined) {
+    const earlier = [...byNumber.keys()].filter((r) => r < current).sort((a, b) => b - a);
+    wanted = earlier[0];
+  }
+  if (wanted === undefined) throw new K8sError("rollback_unavailable", "There is no earlier revision to roll back to.");
+  if (wanted === current) return { status: "already_applied", fromRevision: current, toRevision: current };
+  const cr = byNumber.get(wanted);
+  if (!cr) throw new K8sError("rollback_unavailable", `Revision ${wanted} is not in the StatefulSet's history (revisionHistoryLimit may have pruned it).`);
+  const template = templateOfRevision(cr);
+  if (!template) throw new K8sError("rollback_unavailable", `Revision ${wanted} does not record a pod template.`);
+
+  const owned = extractOwned(live, FIELD_MANAGER);
+  if (!owned) throw new K8sError("rollback_unavailable", "No server-side-apply ownership record for field manager zenith; refusing to rewrite the StatefulSet.");
+  const spec = isRecord(owned.spec) ? owned.spec : {};
+  const meta = isRecord(owned.metadata) ? owned.metadata : {};
+  const annotations = isRecord(meta.annotations) ? { ...meta.annotations } : {};
+  if (opts.operationId) annotations[ANNOTATION.lastRollback] = opts.operationId;
+  const body = {
+    ...owned,
+    metadata: { ...meta, ...(Object.keys(annotations).length > 0 ? { annotations } : {}) },
+    spec: { ...spec, template },
+  };
+  try {
+    const got = plain<Record<string, unknown>>(
+      await client.objects.patch(body as KubernetesObject, undefined, undefined, FIELD_MANAGER, false, PatchStrategy.ServerSideApply)
+    );
+    return { status: "rolled_back", fromRevision: current, toRevision: wanted, generation: num(dig(got, "metadata", "generation")) };
   } catch (e) {
     const conflicts = conflictsFrom(e);
     if (conflicts.length > 0) {

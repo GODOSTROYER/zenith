@@ -262,6 +262,11 @@ export interface K8sRenderContext {
   workloadIdentity?: { cluster: string; mechanism: "eks-irsa" | "eks-pod-identity" | "gke" | "aks" };
   /** Resolved, non-secret published cloud attributes: AWS `arn`, GCP `email`, Azure `client_id`. Unresolved values render no annotation. */
   resolveAttribute?(address: string, attribute: string): unknown;
+  /**
+   * Where the cluster's DNS pods live, for the egress allow a default-deny egress namespace needs.
+   * Defaults to kube-system pods labeled k8s-app=kube-dns (CoreDNS and kube-dns on EKS, GKE, AKS, OKE and kind).
+   */
+  dns?: { namespace?: string; podLabels?: Record<string, string> };
 }
 
 export interface RenderResult {

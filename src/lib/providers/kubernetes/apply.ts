@@ -34,6 +34,7 @@ import type { KubernetesSession } from "@/lib/credentials/types";
 import { applyOrder } from "./render";
 import { conflictsFrom, createK8sClient, ownedBy, readObject, toK8sError, type K8sClient } from "./client";
 import { diffPaths, normalizeForDiff } from "./diff";
+import { immutableViolations } from "./immutability";
 import { isDnsLabel } from "./naming";
 import { validateRbac, validateRbacCompanions } from "./rbac";
 import {
@@ -166,6 +167,16 @@ async function preflight(client: K8sClient, objects: readonly K8sObject[], opts:
           status: "ownership_conflict",
           errorCode: "ownership_conflict",
           message: `${short(p.ref)} exists and is not managed by Zenith for this environment (${own.reason}). Zenith never modifies or adopts it; import it explicitly or choose another name.`,
+        });
+        continue;
+      }
+      const immutable = immutableViolations(p.live, p.obj);
+      if (immutable.length > 0) {
+        failures.push({
+          ref: p.ref,
+          status: "error",
+          errorCode: "invalid",
+          message: `${short(p.ref)}: ${immutable.join(", ")} cannot change on an existing object. Nothing was applied; create a new resource name, or expand the claims in place with the storage class's own tooling.`,
         });
         continue;
       }

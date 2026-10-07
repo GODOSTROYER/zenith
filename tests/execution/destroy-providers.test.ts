@@ -70,6 +70,21 @@ describe.each(["kubernetes", "zenith"] as const)("%s C1 destroy", (provider) => 
     await expect(s.activities.planDestroyInfrastructure({ operationId: OP, lease: await s.w.lease() })).rejects.toThrow(/uncertain/);
     expect(s.calls.every((c) => c.dryRun)).toBe(true);
   });
+  it("treats a gap marker for an unserved CRD kind as no unreviewed object, but blocks on any other skipped ref", async () => {
+    const s = setup(provider);
+    const lease = await s.w.lease();
+    const planOnce = () => s.activities.planDestroyInfrastructure({ operationId: OP, lease });
+    s.setResult({ deleted: ["Deployment/ns/web"], retained: [], skipped: ["Certificate/ns/*", "DNSEndpoint/ns/*", "HTTPRoute/ns/*"], uncertain: [] });
+    await expect(planOnce()).resolves.toMatchObject({ delete: 1 });
+    s.setResult({ deleted: [], retained: [], skipped: ["Deployment/ns/web"], uncertain: [] });
+    await expect(planOnce()).rejects.toThrow(/skipped or uncertain/);
+    // a wildcard for a kind every cluster serves is a real coverage gap, not an absent CRD
+    s.setResult({ deleted: [], retained: [], skipped: ["Service/ns/*"], uncertain: [] });
+    await expect(planOnce()).rejects.toThrow(/skipped or uncertain/);
+    // a named object of a CRD kind was seen and not deleted
+    s.setResult({ deleted: [], retained: [], skipped: ["Certificate/ns/web-cert"], uncertain: [] });
+    await expect(planOnce()).rejects.toThrow(/skipped or uncertain/);
+  });
   it("reports partial teardown as unknown even when a later list is empty", async () => {
     const s = await reviewed(provider);
     s.transport.mockImplementationOnce(async () => ({ deleted: ["Deployment/ns/web"], retained: ["PersistentVolumeClaim/ns/data"], skipped: [], uncertain: [] }))

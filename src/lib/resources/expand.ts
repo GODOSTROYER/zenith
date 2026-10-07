@@ -275,7 +275,7 @@ function emitWorkloads(ctx: Ctx, topo: Topologies): void {
     };
     const dependsOn = [...netDeps(topo, info.place, "private"), logGroup, identity, ...(pipeline ? [pipeline] : []), ...info.deps];
     if (s.kind === "cron") {
-      const spec: ScheduledJobSpec = { ...common, ...(s.schedule ? { schedule: s.schedule } : {}) };
+      const spec: ScheduledJobSpec = { ...common, ...(s.schedule ? { schedule: s.schedule } : {}), ...(tuning.cronPolicy ? { cronPolicy: tuning.cronPolicy } : {}) };
       b.add({ address: info.address, kind: "scheduled_job", place: info.place, spec: { ...spec }, origin: [s.id], dependsOn });
     } else {
       const spec: ContainerServiceSpec = {

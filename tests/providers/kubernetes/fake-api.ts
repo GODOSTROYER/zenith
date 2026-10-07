@@ -82,11 +82,14 @@ const GROUPS: Record<string, ResourceDef[]> = {
     { name: "services", kind: "Service", namespaced: true },
     { name: "pods", kind: "Pod", namespaced: true },
     { name: "events", kind: "Event", namespaced: true },
+    { name: "persistentvolumes", kind: "PersistentVolume", namespaced: false },
   ],
   "apps/v1": [
     { name: "deployments", kind: "Deployment", namespaced: true },
     { name: "statefulsets", kind: "StatefulSet", namespaced: true },
     { name: "replicasets", kind: "ReplicaSet", namespaced: true },
+    { name: "controllerrevisions", kind: "ControllerRevision", namespaced: true },
+    { name: "daemonsets", kind: "DaemonSet", namespaced: true },
   ],
   "batch/v1": [{ name: "cronjobs", kind: "CronJob", namespaced: true }, { name: "jobs", kind: "Job", namespaced: true }],
   "rbac.authorization.k8s.io/v1": [
@@ -101,8 +104,12 @@ const GROUPS: Record<string, ResourceDef[]> = {
   "cert-manager.io/v1": [{ name: "certificates", kind: "Certificate", namespaced: true }],
   "externaldns.k8s.io/v1alpha1": [{ name: "dnsendpoints", kind: "DNSEndpoint", namespaced: true }],
   "gateway.networking.k8s.io/v1": [{ name: "httproutes", kind: "HTTPRoute", namespaced: true }],
+  "snapshot.storage.k8s.io/v1": [
+    { name: "volumesnapshots", kind: "VolumeSnapshot", namespaced: true },
+    { name: "volumesnapshotclasses", kind: "VolumeSnapshotClass", namespaced: false },
+  ],
 };
-const CRD_GROUPS = new Set(["cert-manager.io/v1", "externaldns.k8s.io/v1alpha1", "gateway.networking.k8s.io/v1"]);
+const CRD_GROUPS = new Set(["cert-manager.io/v1", "externaldns.k8s.io/v1alpha1", "gateway.networking.k8s.io/v1", "snapshot.storage.k8s.io/v1"]);
 
 /* ------------------------------- json helpers ------------------------------ */
 
@@ -228,6 +235,8 @@ export interface FakeK8sOptions {
   crds?: boolean;
   /** "instant": Deployments/StatefulSets report a finished rollout; "manual": tests set status */
   rollout?: "instant" | "manual";
+  /** a created VolumeSnapshot is immediately readyToUse with a restoreSize (default false: it stays pending) */
+  snapshotsReady?: boolean;
 }
 
 export interface FakeK8s {
@@ -261,6 +270,7 @@ export async function startFakeK8s(options: FakeK8sOptions = {}): Promise<FakeK8
   const token = options.token ?? "test-token-abcdefgh-1234";
   let rolloutMode = options.rollout ?? "instant";
   let crdsEnabled = options.crds ?? true;
+  const snapshotsReady = options.snapshotsReady ?? false;
   const store = new Map<string, Stored>();
   const requests: RecordedRequest[] = [];
   const rules: Rule[] = [];
@@ -339,9 +349,49 @@ export async function startFakeK8s(options: FakeK8sOptions = {}): Promise<FakeK8
     if (s.kind === "StatefulSet") {
       const live = compose(s);
       const n = live.spec.replicas ?? 1;
+      // ControllerRevisions: one per distinct pod template; reusing an old template promotes it to the newest number,
+      // exactly as the real controller does on a rollback.
+      const tpl = live.spec.template ?? {};
+      const hash = templateHash(tpl);
+      const crName = `${s.name}-${hash}`;
+      const crs = [...store.values()].filter((x) => x.kind === "ControllerRevision" && x.namespace === s.namespace && x.base.metadata?.ownerReferences?.[0]?.name === s.name);
+      const maxRev = crs.reduce((m, x) => Math.max(m, Number(x.base.revision ?? 0)), 0);
+      const existing = crs.find((x) => x.name === crName);
+      if (!existing) {
+        store.set(keyOf("apps/v1", "ControllerRevision", s.namespace, crName), {
+          apiVersion: "apps/v1",
+          kind: "ControllerRevision",
+          namespace: s.namespace,
+          name: crName,
+          base: {
+            metadata: {
+              uid: `uid-${++counter}`,
+              creationTimestamp: "2026-01-01T00:00:00Z",
+              labels: { ...(tpl.metadata?.labels ?? {}) },
+              ownerReferences: [{ apiVersion: "apps/v1", kind: "StatefulSet", name: s.name, uid: s.base.metadata.uid, controller: true }],
+            },
+            revision: maxRev + 1,
+            data: { spec: { template: { $patch: "replace", ...clone(tpl) } } },
+          },
+          managers: new Map(),
+          resourceVersion: ++rv,
+          generation: 1,
+          lastSpecJson: "",
+        });
+      } else if (Number(existing.base.revision ?? 0) < maxRev) existing.base.revision = maxRev + 1;
+      const partition: number = live.spec.updateStrategy?.rollingUpdate?.partition ?? 0;
       if (rolloutMode === "instant") {
-        s.base.status = { observedGeneration: s.generation, replicas: n, readyReplicas: n, updatedReplicas: n, currentRevision: "rev-1", updateRevision: "rev-1" };
-      } else s.base.status = { ...(s.base.status ?? {}), observedGeneration: s.generation };
+        const updated = Math.max(0, n - Math.min(partition, n));
+        s.base.status = {
+          observedGeneration: s.generation,
+          replicas: n,
+          readyReplicas: n,
+          availableReplicas: n,
+          updatedReplicas: partition > 0 ? updated : n,
+          currentRevision: partition > 0 ? (s.base.status?.currentRevision ?? crName) : crName,
+          updateRevision: crName,
+        };
+      } else s.base.status = { ...(s.base.status ?? {}), observedGeneration: s.generation, updateRevision: crName };
       return;
     }
     if (s.kind !== "Deployment") return;
@@ -628,6 +678,7 @@ export async function startFakeK8s(options: FakeK8sOptions = {}): Promise<FakeK8
           created.managers.set(query.fieldManager ?? "unknown", { operation: "Update", config: clone(body) });
           store.set(keyOf(apiVersion, def.kind, ns, createdName), created);
           persist(created);
+          if (def.kind === "VolumeSnapshot" && snapshotsReady) created.base.status = { readyToUse: true, restoreSize: "10Gi" };
           return send(201, compose(created));
         }
         if (method !== "GET") return sendStatus(status(405, "method not allowed", "MethodNotAllowed"));
@@ -656,7 +707,7 @@ export async function startFakeK8s(options: FakeK8sOptions = {}): Promise<FakeK8
         return send(200, text, "text/plain");
       }
 
-      if (sub === "scale" && def.kind === "Deployment") {
+      if (sub === "scale" && (def.kind === "Deployment" || def.kind === "StatefulSet")) {
         const s = store.get(key);
         if (!s) return sendStatus(status(404, `deployments.apps "${name}" not found`, "NotFound", { name, kind: "deployments" }));
         const live = compose(s);
@@ -690,6 +741,9 @@ export async function startFakeK8s(options: FakeK8sOptions = {}): Promise<FakeK8
         store.delete(key);
         if (def.kind === "Deployment") {
           for (const [k, x] of [...store]) if (x.kind === "ReplicaSet" && x.namespace === ns && x.base.metadata?.ownerReferences?.[0]?.name === name) store.delete(k);
+        }
+        if (def.kind === "StatefulSet") {
+          for (const [k, x] of [...store]) if (x.kind === "ControllerRevision" && x.namespace === ns && x.base.metadata?.ownerReferences?.[0]?.name === name) store.delete(k);
         }
         return send(200, { kind: "Status", apiVersion: "v1", status: "Success", details: { name, kind: def.name, uid: s.base.metadata.uid } });
       }

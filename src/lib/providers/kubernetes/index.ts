@@ -21,3 +21,7 @@ export { generatedCredentialRef, credentialsSecretName, dataVolumeName } from ".
 export { kubernetesDrivers, driversFor, registerKubernetesDrivers, registerZenithManagedDrivers } from "./drivers";
 export { targetFor, externalIdFor, parseExternalId } from "./target";
 export { teardownKubernetesEnvironment, type KubernetesTeardownInput, type KubernetesTeardownReport } from "./teardown";
+export { rollbackStatefulSet } from "./rollout";
+export { detectPolicyEngine, type PolicyEngineReading } from "./cni";
+export { detectSnapshotSupport, snapshotData, restoreData, chooseSnapshotClass, type SnapshotSupport, type SnapshotClassInfo } from "./snapshots";
+export { immutableViolations } from "./immutability";

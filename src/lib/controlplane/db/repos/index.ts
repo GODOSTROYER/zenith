@@ -20,6 +20,8 @@
  */
 import type { Sql } from "@/lib/controlplane/types";
 import * as planArtifacts from "./plan-artifacts";
+import * as planCustody from "./plan-custody";
+import * as stateBackendRecovery from "./state-backend-recovery";
 import * as cleanupWriterBarriers from "./cleanup-writer-barriers";
 import * as mixedChildIntents from "./mixed-child-intents";
 import * as buildLaunches from "./build-launches";
@@ -55,6 +57,8 @@ import * as plugins from "./plugins";
 
 export {
   planArtifacts,
+  planCustody,
+  stateBackendRecovery,
   cleanupWriterBarriers,
   mixedChildIntents,
   buildLaunches,
@@ -99,7 +103,7 @@ export type Bound<M> = {
 };
 
 /** Exports that are pure helpers, not repository functions: they take no `Sql`. */
-const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError", "captureArtifactAccess", "BuildLaunchError", "createIsolatedBuildClaimerForTests", "assertIsolatedBuildTestAdmission", "WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests", "MixedChildAdmissionError", "CleanupWriterBarrierError"]);
+const PURE_HELPERS = new Set(["toOperation", "generateRegistrationToken", "hashRegistrationToken", "PlanArtifactError", "captureArtifactAccess", "BuildLaunchError", "createIsolatedBuildClaimerForTests", "assertIsolatedBuildTestAdmission", "WorkflowStartIntentError", "snapshotWorkflowArguments", "createIsolatedStartIntentStoreForTests", "MixedChildAdmissionError", "CleanupWriterBarrierError", "PlanCustodyError", "StateRecoveryRecordError", "restoreProposalDigest"]);
 /** Capability construction/provenance is never an automatically bound row API. */
 const CAPABILITY_CONSTRUCTORS = new Set(["createApprovedSourceSnapshotStore", "isApprovedSourceSnapshotStore", "createIsolatedApprovedSourceStoreForTests", "reserveOwnerGrant", "insertOwnerGrant", "inventory", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"]);
 
@@ -114,6 +118,8 @@ function bind<M extends object>(mod: M, sql: Sql): Bound<M> {
 export function bindRepos(sql: Sql) {
   return {
     planArtifacts: bind(planArtifacts, sql),
+    planCustody: bind(planCustody, sql),
+    stateBackendRecovery: bind(stateBackendRecovery, sql),
     cleanupWriterBarriers: bind({preview:cleanupWriterBarriers.preview}, sql),
     mixedChildIntents: bind(mixedChildIntents, sql),
     buildLaunches: bind(buildLaunches, sql),

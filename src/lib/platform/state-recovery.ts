@@ -10,7 +10,7 @@
  *  - runs under the environment lease, so Zenith's own apply/destroy cannot interleave;
  *  - writes the approved earlier version as a NEW current version (compare-and-set) and reads it back to prove its digest.
  * No path in this module deletes an object, a version or a lock. A write that cannot be confirmed is recorded as
- * failed_uncertain and is never retried automatically. Only AWS S3 has a restore adapter: GCS, Azure, OCI and http are refused
+ * failed_uncertain and is never retried automatically. AWS S3, GCS, Azure Blob and OCI Object Storage have restore adapters; http and local are refused
  * with a plain reason, and a PostgreSQL state backend is refused because it has no object versions.
  */
 import { createHash } from "node:crypto";
@@ -24,7 +24,8 @@ import { backendFile, type BackendConfig } from "@/lib/tofu/backend-config";
 import { backendForConnection } from "@/lib/tofu/backends";
 import { stableJson } from "@/lib/tofu/stable";
 import { assessBackend, assertBackendAdmissible, restoreRefusals, type BackendCapabilities, type BackendProbeVerdict } from "@/lib/tofu/backend-capabilities";
-import { openS3StateStore, parseStateCredentials, StateBackendError, type S3StateCredentials, type StateBackendStore, type StateObjectVersion } from "@/lib/tofu/state-backend-s3";
+import { StateBackendError, type StateBackendStore, type StateObjectVersion } from "@/lib/tofu/state-backend-s3";
+import { openStateStore } from "@/lib/tofu/state-backend-open";
 import { TofuWorkspaceError } from "@/lib/tofu/workspace-error";
 import * as recovery from "@/lib/controlplane/db/repos/state-backend-recovery";
 import { withLease, LeaseUnavailableError } from "@/lib/controlplane/leases";
@@ -36,7 +37,8 @@ export interface StateRecoveryDeps {
   readonly roles: RoleResolver;
   readonly connection: (workspaceId: string, connectionId: string) => Promise<ProviderConnection | null>;
   readonly secret: (workspaceId: string, ref: string) => Promise<string | undefined>;
-  readonly openStore?: (backend: BackendConfig, region: string, stateKey: string, credentials: S3StateCredentials) => Promise<StateBackendStore>;
+  /** Receives the raw tenant vault secret and parses it per provider. Defaults to the AWS, GCS, Azure and OCI adapters. */
+  readonly openStore?: (backend: BackendConfig, region: string, stateKey: string, rawSecret: string) => Promise<StateBackendStore>;
 }
 export interface StateBackendView {
   environmentId: string; backendKind: string; backendDigest: string; stateKey: string;
@@ -55,7 +57,7 @@ export function backendDigestFor(backend: BackendConfig, region: string, stateKe
 }
 
 export function createStateRecovery(deps: StateRecoveryDeps) {
-  const open = deps.openStore ?? openS3StateStore;
+  const open = deps.openStore ?? openStateStore;
 
   async function member(caller: RecoveryCaller, writer: boolean) {
     const access = await deps.roles.resolve(caller.principal, caller.workspaceId);
@@ -82,7 +84,7 @@ export function createStateRecovery(deps: StateRecoveryDeps) {
     if (!isVaultRef(credentialsRef)) throw new BrokerError("invalid_request", "credentialsRef must be a vault reference.");
     const raw = await deps.secret(workspaceId, credentialsRef);
     if (raw === undefined) throw refused("The credentials secret was not found in this workspace.");
-    try { return await open(t.backend, t.region, t.stateKey, parseStateCredentials(raw)); }
+    try { return await open(t.backend, t.region, t.stateKey, raw); }
     catch (error) {
       if (error instanceof StateBackendError) throw refused(error.message);
       throw refused("The state backend could not be opened with the supplied credentials.");

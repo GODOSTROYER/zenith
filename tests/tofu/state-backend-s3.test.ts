@@ -138,10 +138,11 @@ describe("opening a store", () => {
 
 describe("no destructive backend operation exists in the recovery source", () => {
   it("never imports or constructs a delete, lifecycle or lock-removal command", () => {
-    for (const file of ["src/lib/tofu/state-backend-s3.ts", "src/lib/platform/state-recovery.ts", "src/lib/controlplane/db/repos/state-backend-recovery.ts"]) {
+    for (const file of ["src/lib/tofu/state-backend-s3.ts", "src/lib/tofu/state-backend-http.ts", "src/lib/tofu/state-backend-open.ts", "src/lib/platform/state-recovery.ts", "src/lib/controlplane/db/repos/state-backend-recovery.ts"]) {
       const source = readFileSync(path.join(process.cwd(), file), "utf8");
       expect(source, file).not.toMatch(/Delete(?:Object|Objects|Bucket|ObjectVersion)Command|PutBucketLifecycle|DeleteBucketLifecycle|force-unlock|forceUnlock/);
       expect(source, file).not.toMatch(/\bdelete from\b/i);
+      expect(source, file).not.toContain('method: "DELETE"');
     }
   });
 });

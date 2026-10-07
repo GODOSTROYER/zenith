@@ -13,16 +13,22 @@ describe("backend capability matrix", () => {
     const caps = assessBackend({ kind: "s3", bucket: "state-bucket" });
     expect(caps).toMatchObject({ locking: "supported", encryption: "supported", versioning: "unverified", restoreAdapter: true });
   });
-  it("OCI S3 compatibility is not claimed to lock and has no restore adapter", () => {
+  it("OCI S3 compatibility is not claimed to lock; restore uses the native API and stays conditional", () => {
     const caps = assessBackend({ kind: "s3", bucket: "b", endpoint: "https://ns.compat.objectstorage.us-ashburn-1.oraclecloud.com" });
-    expect(caps).toMatchObject({ locking: "unverified", encryption: "provider_managed", restoreAdapter: false });
-    expect(restoreRefusals(caps, ready()).join(" ")).toMatch(/restore adapter/);
+    expect(caps).toMatchObject({ locking: "unverified", encryption: "provider_managed", restoreAdapter: true });
+    expect(restoreRefusals(caps, ready())).toEqual([]);
+    expect(restoreRefusals(caps, ready({ lockObject: "present" })).join(" ")).toMatch(/lock is held/);
   });
-  it("GCS and Azure rely on provider locking but are refused for restore", () => {
+  it("GCS and Azure rely on provider locking and have conditional restore adapters", () => {
     for (const kind of ["gcs", "azurerm"]) {
       const caps = assessBackend({ kind });
-      expect(caps).toMatchObject({ locking: "provider_managed", encryption: "provider_managed", restoreAdapter: false });
-      expect(restoreRefusals(caps, ready()).join(" ")).toMatch(/restore adapter/);
+      expect(caps).toMatchObject({ locking: "provider_managed", encryption: "provider_managed", restoreAdapter: true });
+      expect(restoreRefusals(caps, ready())).toEqual([]);
+    }
+    for (const kind of ["http", "local", "pg", "mystery"]) {
+      const caps = assessBackend({ kind });
+      expect(caps.restoreAdapter, kind).toBe(false);
+      expect(restoreRefusals(caps, ready()).join(" "), kind).toMatch(/restore adapter/);
     }
     expect(assessBackend({ kind: "gcs", kmsEncryptionKey: "projects/p/locations/l/keyRings/r/cryptoKeys/k" }).encryption).toBe("supported");
   });

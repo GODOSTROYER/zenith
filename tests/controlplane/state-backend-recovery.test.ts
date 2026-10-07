@@ -179,7 +179,7 @@ describe.each(LANES)("state backend recovery [$name]", (lane) => {
     expect(w.store.versions).toHaveLength(3);
   });
 
-  it("refuses backends without a restore adapter with a plain reason and creates nothing", async () => {
+  it("refuses a backend whose credentials secret is not usable for its provider and creates nothing", async () => {
     const w = await world({ connection: gcpConnection, store: null });
     expect(await code(w.service.propose(w.approver, w.input()))).toBe("invalid_state");
     expect(await db.query("select 1 from platform.state_backend_restores where workspace_id=$1", [w.workspaceId])).toHaveLength(0);

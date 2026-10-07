@@ -93,6 +93,8 @@ const SWEPT = new Set([
   // PROD-LIFE-01 / PROD-UX-03: tenant-scoped reads (workspace_id in SQL; a foreign id equals a missing one). Writes are classified below.
   "connectionRotations.get", "connectionRotations.getOpen", "connectionRotations.list",
   "plugins.get", "plugins.list", "plugins.listGrants", "plugins.listEvents",
+  // PROD-DUR-05/06: tenant-scoped reads of custody receipts and state recovery records.
+  "planCustody.listReads", "stateBackendRecovery.provenOwner", "stateBackendRecovery.latestProbe", "stateBackendRecovery.get", "stateBackendRecovery.backendOf", "stateBackendRecovery.list",
 ]);
 
 /** Writes that bind the new row to the workspace they are given; their tenant checks are tested with the owning suite. */
@@ -138,6 +140,11 @@ const WRITES = new Set([
   // PROD-LIFE-01: every statement binds the supplied workspace and resolves the connection inside it; foreign-id refusals are covered by tests/controlplane/rotations-repo.test.ts.
   "connectionRotations.stage", "connectionRotations.recordCandidateVerification", "connectionRotations.abort", "connectionRotations.promote",
   "connections.revokeAudited", "connections.appendLifecycleEvent",
+  // PROD-DUR-05: every statement binds the supplied workspace; tenant, fence, tamper, revocation and expiry refusals are in tests/controlplane/plan-custody.test.ts.
+  "planCustody.admit", "planCustody.verify", "planCustody.revokeWorker",
+  // PROD-DUR-06: workspace-bound writes with guarded transitions; foreign-workspace, digest and state-machine refusals are in tests/controlplane/state-backend-recovery.test.ts.
+  "stateBackendRecovery.recordProbe", "stateBackendRecovery.propose", "stateBackendRecovery.approve", "stateBackendRecovery.reject", "stateBackendRecovery.beginExecution",
+  "stateBackendRecovery.complete", "stateBackendRecovery.failUncertain", "stateBackendRecovery.expireStale",
   // PROD-UX-03: workspace-bound plugin registry and grant writes; foreign-workspace refusals are covered by the plugin store tests.
   "plugins.register", "plugins.review", "plugins.revoke", "plugins.createGrant", "plugins.revokeGrant", "plugins.touchGrant",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings", "idempotency.reserve", "idempotency.complete",
@@ -145,6 +152,9 @@ const WRITES = new Set([
 
 /** Deliberately not workspace-filtered, with the reason. */
 const EXEMPT: Record<string, string> = {
+  "planCustody.PlanCustodyError": "pure fixed error class; no SQL or tenant data and excluded from bindRepos",
+  "stateBackendRecovery.StateRecoveryRecordError": "pure fixed error class; no SQL or tenant data and excluded from bindRepos",
+  "stateBackendRecovery.restoreProposalDigest": "pure digest over a supplied proposal; reads no SQL and is excluded from bindRepos",
   "cleanupWriterBarriers.inventoryForNativeOrigin": "reads only through a private opaque native origin whose owning workspace, project and environment are bound by the genuine paired codec; no caller-supplied tenant, and excluded from bindRepos",
   "cleanupWriterBarriers.CleanupWriterBarrierError": "pure fixed error class; no tenant query or authority and excluded from bindRepos",
   "mixedChildIntents.MixedChildAdmissionError": "pure fixed-category error class, contains no SQL or tenant data; excluded from bindRepos",
@@ -503,6 +513,12 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "plugins.list": () => repos.plugins.list(db, B),
       "plugins.listGrants": () => repos.plugins.listGrants(db, B),
       "plugins.listEvents": () => repos.plugins.listEvents(db, B, "plg_foreign"),
+      "planCustody.listReads": () => repos.planCustody.listReads(db, B, opId, 10),
+      "stateBackendRecovery.provenOwner": () => repos.stateBackendRecovery.provenOwner(db, B, envId, hex("a")),
+      "stateBackendRecovery.latestProbe": () => repos.stateBackendRecovery.latestProbe(db, B, envId, hex("a")),
+      "stateBackendRecovery.get": () => repos.stateBackendRecovery.get(db, B, "sbr_foreign"),
+      "stateBackendRecovery.backendOf": () => repos.stateBackendRecovery.backendOf(db, B, "sbr_foreign"),
+      "stateBackendRecovery.list": () => repos.stateBackendRecovery.list(db, B, envId),
       "settings.getEnvironmentSettings": () => repos.settings.getEnvironmentSettings(db, B, envId),
       "settings.getWorkspacePolicy": () => repos.settings.getWorkspacePolicy(db, B),
       "optimizerSettings.getOptimizerSettings": () => repos.optimizerSettings.getOptimizerSettings(db, B, envId),

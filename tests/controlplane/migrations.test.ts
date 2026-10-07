@@ -130,6 +130,18 @@ async function historicalFixtureRange(db: PlatformDbHandle, from: number, throug
   await assertPlatformSchemaCurrent(db, PLATFORM_MIGRATIONS.filter(m => m.version <= through));
 }
 
+/** Only the already approved repair 42 is admitted across owned, drained fixtures. */
+async function withOwnedHistoricalRepairAdmission<T>(admit42: boolean, fixture: () => Promise<T>): Promise<T> {
+  const admission = process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+  try {
+    if (admit42) process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = [admission, "42"].filter(Boolean).join(",");
+    return await fixture();
+  } finally {
+    if (admission === undefined) delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+    else process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = admission;
+  }
+}
+
 async function expectHistoricalContractRefusal(db: PlatformDbHandle, versions: number[], target = PLATFORM_MIGRATIONS) {
   const ledger = await db.query("select * from platform.schema_migrations order by version");
   // Retain all rows this fixture principal can read; distinct-owner fixtures
@@ -138,13 +150,8 @@ async function expectHistoricalContractRefusal(db: PlatformDbHandle, versions: n
   const rows = () => Promise.all(tables.map(({ tablename }) => db.query(`select to_jsonb(t) as row from platform.${JSON.stringify(tablename)} t order by to_jsonb(t)::text`)));
   const before = await rows();
   const enforcement = process.env.ZENITH_ENFORCE_EXPAND_ONLY;
-  const admission = process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
   try {
     process.env.ZENITH_ENFORCE_EXPAND_ONLY = "1";
-    // This owned, drained fixture isolates UNREGISTERED historical contracts;
-    // only the already-approved42 repair receives explicit admission here.
-    if (target.some(m => m.version === 42))
-      process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = [admission, "42"].filter(Boolean).join(",");
     const error = await migratePlatformDb(db, target).catch((error: unknown) => error);
     expect(error).toBeInstanceOf(ContractMigrationRefusedError);
     expect((error as ContractMigrationRefusedError).details?.versions).toEqual(versions);
@@ -153,8 +160,6 @@ async function expectHistoricalContractRefusal(db: PlatformDbHandle, versions: n
   } finally {
     if (enforcement === undefined) delete process.env.ZENITH_ENFORCE_EXPAND_ONLY;
     else process.env.ZENITH_ENFORCE_EXPAND_ONLY = enforcement;
-    if (admission === undefined) delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
-    else process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = admission;
   }
   expect(await db.query("select * from platform.schema_migrations order by version")).toEqual(ledger);
   expect(await rows()).toEqual(before);
@@ -736,7 +741,7 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
     });
   }, 120_000);
   it.each(["fresh", "same-owner schema6"] as const)("%s canonical migrations keep permanent agent receipts select/insert-only", async mode => {
-    await withScratchDatabase(async url => {
+    await withScratchDatabase(async url => withOwnedHistoricalRepairAdmission(mode === "same-owner schema6", async () => {
       const db = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 1 });
       const rollback = new Error("Deliberate private receipt privilege fixture rollback.");
       try {
@@ -773,11 +778,11 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
         if (result !== rollback) throw result;
         expect(result).toBe(rollback);
       } finally { await db.close(); }
-    });
+    }));
   }, 60_000);
 
   it.each(["fresh", "same-owner schema6"] as const)("%s canonical migrations keep permanent approved source snapshots select/insert-only", async mode => {
-    await withScratchDatabase(async url => {
+    await withScratchDatabase(async url => withOwnedHistoricalRepairAdmission(mode === "same-owner schema6", async () => {
       const db = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 1 });
       const rollback = new Error("Deliberate private source privilege fixture rollback.");
       try {
@@ -847,11 +852,11 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
         if (result !== rollback) throw result;
         expect(result).toBe(rollback);
       } finally { await db.close(); }
-    });
+    }));
   }, 60_000);
 
   it("schema12 refuses startup and even source-free plan review until the canonical source migration is applied", async () => {
-    await withScratchDatabase(async url => {
+    await withScratchDatabase(async url => withOwnedHistoricalRepairAdmission(true, async () => {
       const db = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 1 });
       try {
         await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version < 13));
@@ -872,11 +877,11 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
         await assertPlatformSchemaCurrent(db);
         expect((await withPlanReview(db, { ...operation, approvalRound: 0 })).planReview?.view).toEqual(summary.view);
       } finally { await db.close(); }
-    });
+    }));
   }, 60_000);
 
   it("schema 6 emitted hardening upgrades through the canonical migrator under a distinct owner with RLS, role isolation and immutable artifacts",async()=>{
-    await withScratchDatabase(async url=>{
+    await withScratchDatabase(async url => withOwnedHistoricalRepairAdmission(true, async () => {
       const db=await openPlatformDb({kind:"postgres",url,migrate:false,max:1});
       const rollback=new Error("Deliberate private upgrade fixture rollback");
       try {
@@ -1016,7 +1021,7 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
         if (result !== rollback) throw result;
         expect(result).toBe(rollback);
       } finally {await db.close();}
-    });
+    }));
   },60000);
 
   it("two migrators racing on an empty database converge: one applies, the other finds it done", async () => {

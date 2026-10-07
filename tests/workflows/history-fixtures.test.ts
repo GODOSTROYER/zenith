@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { temporal } from "@temporalio/proto";
-import { FIXTURE_FORMAT, historyOf, serializeFixture, type HistoryFixture } from "./history-fixtures";
+import { FIXTURE_FORMAT, historyOf, patchMarkersIn, serializeFixture, type HistoryFixture } from "./history-fixtures";
 
 const identity = { scenario: "codec", workflowType: "deployWorkflow", covers: "codec compatibility", workflowId: "codec-run", temporalSdk: "1.24.0" };
 const fixture = (history: unknown): HistoryFixture => ({ format: FIXTURE_FORMAT, ...identity, history });
@@ -52,5 +52,44 @@ describe("recorded history full ProtoJSON codec", () => {
     ] };
     expect(jsonOf(aliases)).toEqual(jsonOf(canonical));
     expect(jsonOf(aliases).history).toEqual(canonical);
+  });
+});
+
+describe("authentic Core patch marker inventory", () => {
+  const encoded = (text: string) => Buffer.from(text, "utf8").toString("base64");
+  const payload = (patch: unknown) => ({ metadata: { encoding: encoded("json/plain") }, data: encoded(JSON.stringify(patch)) });
+  const markerEvent = (value: unknown) => ({ eventType: "EVENT_TYPE_MARKER_RECORDED", markerRecordedEventAttributes: { markerName: "core_patch", details: { "patch-data": { payloads: [value] } } } });
+  const marker = (value: unknown) => fixture({ events: [markerEvent(value)] });
+
+  it.each([false, true])("extracts the exact id from Core's object payload with deprecated=%s", (deprecated) => {
+    const ids = ["durable-build-launch-v1", "ecs-replica-repair-v1", "reconcile-canonical-proposals-v1"];
+    expect([...patchMarkersIn(fixture({ events: ids.map(id => markerEvent(payload({ id, deprecated }))) }))]).toEqual(ids);
+  });
+
+  it("does not treat lookalike marker names or unrelated event payloads as patch authority", () => {
+    const value = payload({ id: "durable-build-launch-v1", deprecated: false });
+    expect([...patchMarkersIn(fixture({ events: [
+      { eventType: "EVENT_TYPE_MARKER_RECORDED", markerRecordedEventAttributes: { markerName: "application-marker", details: { "patch-data": { payloads: [value] } } } },
+      { eventType: "EVENT_TYPE_WORKFLOW_EXECUTION_STARTED", workflowExecutionStartedEventAttributes: { input: { payloads: [value] } } },
+      { ...markerEvent(value), eventType: "EVENT_TYPE_WORKFLOW_EXECUTION_STARTED" },
+    ] }))]).toEqual([]);
+  });
+
+  it.each([null, "durable-build-launch-v1", { id: "durable-build-launch-v1" }, { id: "", deprecated: false }, { id: "durable-build-launch-v1", deprecated: "false" }, { id: "durable-build-launch-v1", deprecated: false, extra: true }])("refuses malformed Core patch data %j", (patch) => {
+    expect(() => patchMarkersIn(marker(payload(patch)))).toThrow("Patch marker data must contain exactly an id and deprecated flag.");
+  });
+
+  it("refuses malformed JSON and noncanonical base64 instead of silently dropping required markers", () => {
+    expect(() => patchMarkersIn(marker({ ...payload({}), data: encoded("{") }))).toThrow();
+    expect(() => patchMarkersIn(marker({ ...payload({}), data: "%%%" }))).toThrow("canonical base64");
+    expect(() => patchMarkersIn(marker({ ...payload({}), data: Buffer.from([0xff]).toString("base64") }))).toThrow("valid UTF-8");
+  });
+
+  it("refuses wrong encoding, extra metadata, missing details and multiple payloads", () => {
+    const value = payload({ id: "durable-build-launch-v1", deprecated: false });
+    expect(() => patchMarkersIn(marker({ ...value, metadata: { encoding: encoded("binary/plain") } }))).toThrow("encoding must be json/plain");
+    expect(() => patchMarkersIn(marker({ ...value, metadata: { ...value.metadata, extra: encoded("lookalike") } }))).toThrow("encoding must be json/plain");
+    expect(() => patchMarkersIn(fixture({ events: [{ eventType: "EVENT_TYPE_MARKER_RECORDED", markerRecordedEventAttributes: { markerName: "core_patch", details: { other: { payloads: [value] } } } }] }))).toThrow("exactly patch-data");
+    expect(() => patchMarkersIn(fixture({ events: [{ eventType: "EVENT_TYPE_MARKER_RECORDED", markerRecordedEventAttributes: { markerName: "core_patch", details: { "patch-data": { payloads: [value, value] } } } }] }))).toThrow("exactly one payload");
   });
 });

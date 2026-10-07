@@ -170,8 +170,36 @@ export function stringsIn(value: unknown, out: string[] = []): string[] {
 
 /** The patch ids recorded as markers in a history. */
 export function patchMarkersIn(fixture: HistoryFixture): Set<string> {
-  const events = ((fixture.history as { events?: Array<Record<string, unknown>> }).events ?? []).filter((e) => e.markerRecordedEventAttributes);
+  const events = (fixture.history as { events?: Array<{ eventType?: unknown; markerRecordedEventAttributes?: { markerName?: unknown; details?: Record<string, { payloads?: Array<{ metadata?: Record<string, unknown>; data?: unknown }> }> } }> }).events ?? [];
   const found = new Set<string>();
-  for (const event of events) for (const s of stringsIn(event.markerRecordedEventAttributes)) found.add(s.replace(/^"|"$/g, ""));
+  function decode(bytes: unknown): Buffer {
+    if (typeof bytes !== "string") throw new Error("Patch marker bytes must be canonical base64.");
+    const decoded = Buffer.from(bytes, "base64");
+    if (decoded.toString("base64") !== bytes) throw new Error("Patch marker bytes must be canonical base64.");
+    return decoded;
+  }
+  // Pinned Core 1.24.0: constants.rs core_patch; mod.rs patch-data and json/plain
+  // encode PatchedMarkerData { id, deprecated }. Do not infer markers from strings.
+  for (const event of events) {
+    const marker = event.markerRecordedEventAttributes;
+    if (event.eventType !== "EVENT_TYPE_MARKER_RECORDED" || marker?.markerName !== "core_patch") continue;
+    const detailKeys = Object.keys(marker.details ?? {});
+    if (detailKeys.length !== 1 || detailKeys[0] !== "patch-data") throw new Error("Patch marker details must contain exactly patch-data.");
+    const payloads = marker.details?.["patch-data"]?.payloads;
+    if (!Array.isArray(payloads) || payloads.length !== 1) throw new Error("Patch marker must contain exactly one payload.");
+    const payload = payloads[0];
+    const metadataKeys = Object.keys(payload?.metadata ?? {});
+    if (!payload || metadataKeys.length !== 1 || metadataKeys[0] !== "encoding" || decode(payload.metadata?.encoding).toString("utf8") !== "json/plain") {
+      throw new Error("Patch marker payload encoding must be json/plain.");
+    }
+    const bytes = decode(payload.data);
+    const text = bytes.toString("utf8");
+    if (!Buffer.from(text, "utf8").equals(bytes)) throw new Error("Patch marker data must be valid UTF-8.");
+    const patch = JSON.parse(text) as { id?: unknown; deprecated?: unknown };
+    if (!patch || Array.isArray(patch) || Object.keys(patch).length !== 2 || typeof patch.id !== "string" || !patch.id || typeof patch.deprecated !== "boolean") {
+      throw new Error("Patch marker data must contain exactly an id and deprecated flag.");
+    }
+    found.add(patch.id);
+  }
   return found;
 }

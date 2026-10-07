@@ -117,6 +117,26 @@ export function createBuildPort(options: AzureBuildOptions = {}): BuildPort {
       try { await options.launches.record(journalScope, encoded); } catch { throw new Error("ACR build was scheduled but its launch receipt was not persisted; reconcile before retrying."); }
       return { buildId: encoded };
     },
+    /** Rebuild the handle of a launch an operator confirmed from readback (the ACR run id); launches nothing. */
+    async adoptBuild(raw, input, runId) {
+      const ctx = context(raw); managed(ctx, input.service); managed(ctx, input.pipeline, "build_pipeline");
+      if (!input.registry || !ACR_RUN_ID.test(runId)) throw new StepFailedError("The confirmed ACR run id or registry is malformed.");
+      const registry = await locate(ctx, input.registry, "Microsoft.ContainerRegistry/registries");
+      const loginServer = rec(registry.properties).loginServer; const repository = nodeNameOf(input.service.address);
+      if (typeof loginServer !== "string" || !/^[a-z0-9]{5,50}.azurecr.io$/.test(loginServer) || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(repository)) throw new StepFailedError("Build output registry/repository is malformed.");
+      const key = digest([scope(ctx), "build", input.service.address, input.source.digest, input.idempotencyKey]);
+      const h: Handle = { version: 1, scope: scope(ctx), registryId: registry.id, registryAddress: input.registry.address, loginServer, repository, runId, tag: `zn-${key}` };
+      const encoded = JSON.stringify(h);
+      // Keep the launch journal consistent with the confirmed run; the ledger, not the journal, is the authority here.
+      try { await options.launches?.record({ workspaceId: ctx.workspaceId, environmentId: ctx.environmentId, key }, encoded); } catch { /* already recorded */ }
+      return { buildId: encoded };
+    },
+    /** The tag and repository this launch carries, for independent readback. Pure. */
+    launchIdentity(raw, input) {
+      const ctx = context(raw);
+      const key = digest([scope(ctx), "build", input.service.address, input.source.digest, input.idempotencyKey]);
+      return { tag: `zn-${key}`, repository: nodeNameOf(input.service.address), registryAddress: input.registry?.address ?? "", subscriptionId: ctx.session.subscriptionId, region: ctx.region };
+    },
     async waitForBuild(raw, handle, opts): Promise<BuildResult> {
       const original = context(raw); const h = decode(original, handle.buildId); const wait = bounded(original, opts.timeoutMs); const ctx = wait.ctx;
       try {

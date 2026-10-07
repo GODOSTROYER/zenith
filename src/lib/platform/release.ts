@@ -35,7 +35,7 @@ export function createReleasePorts(options: { db?: Sql; azure?: AzureBuildOption
     return ports[ctx.provider];
   };
   return {
-    build: { startBuild: async (ctx, input) => ctx.provider === "aws" ? select(ctx).build.startBuild(ctx, input) : startBuildOnce(options.db, ctx, input, (c, i) => select(c).build.startBuild(c, i)), waitForBuild: async (ctx, handle, opts) => select(ctx).build.waitForBuild(ctx, handle, opts) },
+    build: { startBuild: async (ctx, input) => ctx.provider === "aws" ? select(ctx).build.startBuild(ctx, input) : startBuildOnce(options.db, ctx, input, select(ctx).build), waitForBuild: async (ctx, handle, opts) => select(ctx).build.waitForBuild(ctx, handle, opts) },
     workloads: {
       deployImage: async (ctx, node, image, opts) => select(ctx).workloads.deployImage(ctx, node, image, opts),
       waitSteady: async (ctx, node, opts) => select(ctx).workloads.waitSteady(ctx, node, opts),

@@ -148,12 +148,12 @@ Verified behaviour changed (explicitly): none intended. Existing contracts kept:
 
 Known gaps (honest limits):
 
-1. **Readback coverage.** Independent build readback exists for AWS only. GCP, Azure, Kubernetes and OCI builds are deduplicated and kept uncertain, and the effect says "no independent readback"; they cannot be resolved by evidence yet (a tag-based list read for GCP Cloud Build and ACR runs is the natural next resolver).
+1. **Readback coverage.** See section 6: AWS, GCP and Azure builds have independent readback. Kubernetes and OCI have no build path at all (their ports refuse), so there is nothing to read back. Mutating proxied requests (section 6) have a readback hint only, so a lost one stays uncertain.
 2. **Absence is not quiescence.** A settled absent readback plus a gone fence is strong evidence, not proof that no request is still in flight inside the provider; DUR-C's quiescence barrier remains the authority for destructive cleanup. The 15 minute settle window is a constant (`ABSENCE_SETTLE_MS`, mirrored in the trigger).
 3. **CodeBuild list readback is bounded** (5 pages of 100 builds, then "too long to read back"), and a build listed by the project but owned by a different launch is excluded only if the ledger or `build_launches` knows its id.
 4. **Cleanup readback needs reconcile observations newer than the dispatch.** If no reconcile pass has observed the reviewed addresses since, the readback is unavailable; trigger a reconcile pass.
 5. **Operation status is not rewritten.** The journey projects an unresolved effect as `uncertain` (UI, `readJourney`), but `platform.operations.status` stays what the workflow wrote (for a build that is usually `failed`). Consumers that read only the status column (MCP `get_operation`, CLI) do not yet see the effect state; they can list `/api/platform/v1/effects?operationId=`.
-6. **Late agent receipts** keep their own table; they are not mirrored into the effects ledger and the `machine_delivery`/`workflow_start` families were deliberately not added (each needs its own resolver and caller wiring).
+6. **Late agent receipts** keep their own table; they are not mirrored into the effects ledger and the `machine_delivery`/`workflow_start` families were deliberately not added (each needs its own resolver and caller wiring). Families are now `build_launch`, `cleanup_apply`, `proxy_request`.
 7. **No real-engine proof here.** The AWS resolver is tested against an in-memory CodeBuild double using the exact read commands; real CodeBuild, real `observe` session wiring (`platformEffects()` composition) and the Temporal retry path are unexercised. The route tests use explicit identity/credential adapters like `runbook-routes.test.ts`.
 8. **Resolver provenance.** `otherBuildIds` consults ledger receipts and `build_launches` of the same workspace only.
 
@@ -162,3 +162,37 @@ Known gaps (honest limits):
 - PROD-DUR-07 `implementationStatus`: `implementation_complete_verification_pending` (external-effect ledger, readback resolvers for AWS builds and cleanup observations, evidence-bound browser resolution and UX-01 projection built; real PostgreSQL, real CodeBuild readback and operator journey runtime evidence pending; non-AWS build readback not built).
 - PROD-DUR-08 `implementationStatus`: `implementation_complete_verification_pending` (ledger receipts and deduplicated retry for build launches on all providers and for destroy apply; independent readback for AWS builds and cleanup; runtime acceptance pending).
 - Suggested `testPaths`: `tests/effects/ledger.test.ts`, `tests/effects/resolvers.test.ts`, `tests/effects/build-launch.test.ts`, `tests/effects/cleanup.test.ts`, `tests/effects/routes.test.ts`, `tests/effects/model.test.ts`, `tests/effects/effects-panel.test.tsx`.
+
+## 6. Follow-up: non-AWS build readback and runner HTTP proxy requests
+
+### 6.1 GCP Cloud Build and Azure ACR Tasks readback
+
+- `src/lib/effects/resolvers/gcp-cloudbuild.ts`: lists the project's builds with a `tags="zenith-op-..."` filter through the brokered GCP session. One tagged build is `present` (id as the resource), none `absent`, several `mismatch`; any error, foreign project or missing identity is `unavailable`.
+- `src/lib/effects/resolvers/azure-acr.ts`: finds the build registry by its `zenith:resource` tag, lists QuickBuild runs since the dispatch and matches a SUCCEEDED run by repository and `zn-<64 hex>` output tag. Running or failed runs expose no tag, so if any exist since the dispatch the answer is `unavailable`, never `absent`.
+- Both use the existing reconcile `withObserveSession` (the reconciler's `infrastructure.observe` read grant, the verified connection of the effect's environment); `createEffectResolvers` in `src/lib/platform/effects.ts` now opens one such session per provider.
+- The ledger target now carries the launch identity: `BuildPort.launchIdentity?` (GCP: tag, project, region; Azure: tag, repository, registry address, subscription) and the receipt's resource id is the provider's own id (GCP build id, ACR run id).
+- Adoption: `BuildPort.adoptBuild?` rebuilds the handle of a launch an operator confirmed (GCP and Azure implement it; GCP's `startBuild` was split into a read-only `prepare` plus the launch, behaviour unchanged). `startBuildOnce` calls it for a `confirmed` effect with no saved handle, so a confirmed build is waited on, never started twice.
+- OCI and Kubernetes: no build path exists (their ports refuse), so there is no launch to resolve.
+
+### 6.2 Runner HTTP proxies (`aws.http`, `oci.http`, `k8s.http`)
+
+- `src/lib/effects/proxy.ts`: classification by an explicit per-provider READ allowlist, never HTTP method alone; everything not listed mutates.
+  - AWS: RPC/query actions are read only if the action name starts with `Describe`, `List`, `Get`, `BatchGet`, `Head`, `Lookup` or `Search` (`x-amz-target` or the form `Action`); REST GET/HEAD is read only for the listed services (`s3`, `route53`, `lambda`, `apigateway`, `cloudfront`, `eks`, `elasticfilesystem`). An opaque POST is mutating.
+  - OCI: read means the request is in the existing OCI observe allowlist (service, method, path rules); anything else mutates. A POST's `opc-retry-token` (already mandatory) is recorded as the idempotency key.
+  - Kubernetes: GET and three self-review POSTs are reads; everything else mutates. The API has no client token; the effect says so and names the object to GET.
+- Wiring (production): `aws-runner-transport.ts` (`RunnerAwsTransportOptions.effects`, set by `platform/credentials.ts` for every runner-mode AWS session) and the OCI runner session in `platform/credentials.ts`. Only sessions whose capability mutates are guarded; read sessions (no operation row) are untouched. `k8s.http` has no TypeScript sender today; the classifier and `runProxyJob` are what any sender must use.
+- Every mutating request is recorded BEFORE it is queued (family `proxy_request`: operation, provider, action, resource, token location, readback hint). AWS APIs that take a client token and were sent without one get a deterministic token (CodeBuild `idempotencyToken`, ECS `clientToken` on RunTask/CreateService/CreateTaskSet, EC2 `ClientToken` on RunInstances/CreateNatGateway/CreateFleet), derived from the operation and the exact request. A caller's own token is never replaced.
+- Outcomes: 2xx accepted (the compact reply is kept up to 6 KB, so an identical repeat is answered from it without reaching the runner; a larger reply is not kept and a repeat is refused); 4xx (not 408), 429 and 503 are definite non-application, so the attempt is retired and a new attempt (`:a1`) is allowed; other 3xx/5xx, a failed or timed-out job, or a lost wait are `uncertain` with the readback hint in the reason, and an identical repeat is refused. A runner rejection or a job cancelled before delivery retires the attempt, as does a refusal before queueing.
+- `proxyRequestHintResolver` (family `proxy_request`): there is no generic independent read, so a readback records `unavailable` with the hint; these effects stay uncertain until a family specific resolver exists.
+
+### 6.3 Shared-file edits in this follow-up (all additive)
+
+`src/lib/execution/ports.ts` (two optional `BuildPort` methods), `src/lib/runners/aws-runner-transport.ts`, `src/lib/platform/credentials.ts`, `src/lib/platform/release.ts`, `src/lib/providers/gcp/release/build.ts`, `azure/release/build.ts`, migration 33 (family check now includes `proxy_request`). `destroy.ts`, `execution.ts`, `failures.ts`, `housekeeping.ts` were not touched again.
+
+### 6.4 Tests added
+
+`tests/effects/proxy.test.ts` (classification, token injection, `runProxyJob` on the real store) and `tests/effects/provider-resolvers.test.ts` (GCP and Azure resolvers against session doubles; lost launch to readback, authorization and adoption without a second launch). Register both in the gate manifest. Not covered: the real `RunnerHttpHandler` and OCI session end to end with a live runner, and real GCP/Azure APIs; the Azure `$filter` on runs (`RunType eq 'QuickBuild'`) is unverified against live ACR.
+
+### 6.5 Added limits
+
+Identical mutating proxied requests inside one operation are deduplicated by exact request digest, so a deliberate second identical mutation is answered from the first reply; right for idempotent provider calls, wrong for any API where repeating is the point (it would need a per-call nonce). The AWS read-verb allowlist is by action prefix (an action named `GetOrDeleteX` would count as read): add exceptions if one appears.

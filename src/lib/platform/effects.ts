@@ -22,8 +22,13 @@ import { ROLE_RANK } from "@/lib/capabilities/ports";
 import { platformDb, repos } from "@/lib/controlplane/db";
 import { loadPlatformEnvironment } from "@/lib/reconcile/platform";
 import type { AwsSession } from "@/lib/credentials/types";
+import type { EffectRecord } from "@/lib/effects/types";
 import { ResolverRegistry, cleanupObservationResolver } from "@/lib/effects/readback";
 import { awsBuildLaunchResolver } from "@/lib/effects/resolvers/aws-codebuild";
+import { gcpBuildLaunchResolver } from "@/lib/effects/resolvers/gcp-cloudbuild";
+import { azureBuildLaunchResolver } from "@/lib/effects/resolvers/azure-acr";
+import { proxyRequestHintResolver } from "@/lib/effects/proxy";
+import type { GcpSession, AzureSession as AzureSessionType } from "@/lib/credentials/types";
 import { createPlatformEffects, type PlatformEffects } from "./effects-service";
 import { platformCredentialBroker } from "./credentials";
 import { composeReconcilePorts } from "./reconcile";
@@ -46,10 +51,17 @@ export function resetPlatformEffectsForTests(): void {
 }
 
 /** Resolvers over an explicit store; the platform composition and the tests share this. */
-export function createEffectResolvers(db: Sql, aws?: {
-  withClient<T>(effect: Parameters<Parameters<typeof awsBuildLaunchResolver>[0]["withClient"]>[0], signal: AbortSignal, fn: (client: CodeBuildClient) => Promise<T>): Promise<T>;
-}): ResolverRegistry {
+export function createEffectResolvers(db: Sql, sessions: {
+  aws?: { withClient: Parameters<typeof awsBuildLaunchResolver>[0]["withClient"] };
+  gcp?: { withSession: Parameters<typeof gcpBuildLaunchResolver>[0]["withSession"] };
+  azure?: { withSession: Parameters<typeof azureBuildLaunchResolver>[0]["withSession"] };
+} = {}): ResolverRegistry {
   const registry = new ResolverRegistry();
+  // Mutating requests sent through runner HTTP proxies have no generic independent read; the readback names what to read.
+  registry.add(proxyRequestHintResolver());
+  if (sessions.gcp) registry.add(gcpBuildLaunchResolver(sessions.gcp));
+  if (sessions.azure) registry.add(azureBuildLaunchResolver(sessions.azure));
+  const aws = sessions.aws;
   if (aws) {
     registry.add(awsBuildLaunchResolver({
       withClient: aws.withClient,
@@ -86,19 +98,31 @@ async function build(): Promise<PlatformEffects> {
   const broker = await platformBroker();
   const credentials = platformCredentialBroker(db);
   const reconcile = composeReconcilePorts(db, credentials);
+  /** One read-only observe session (the reconciler's `infrastructure.observe` read grant) for the effect's environment. */
+  const observed = <T>(effect: EffectRecord, provider: "aws" | "gcp" | "azure", signal: AbortSignal, fn: (session: unknown, region: string) => Promise<T>): Promise<T> => {
+    const environmentId = effect.environmentId, region = effect.target.region;
+    if (!environmentId || typeof region !== "string") throw new Error("effect_not_readable");
+    return loadPlatformEnvironment(db, effect.workspaceId, environmentId).then((env) => {
+      if (!env || env.provider !== provider || env.region !== region || !env.connection || env.connection.status !== "verified") throw new Error("connection_unavailable");
+      return reconcile.withObserveSession({ workspaceId: effect.workspaceId, projectId: env.projectId, environmentId, provider, region, connectionId: env.connection.id, correlationId: `effect-${effect.effectId}`.slice(0, 120), signal }, (session) => fn(session, region));
+    });
+  };
   const registry = createEffectResolvers(db, {
-    async withClient(effect, signal, fn) {
-      const environmentId = effect.environmentId;
-      const region = effect.target.region, accountId = effect.target.accountId;
-      if (!environmentId || typeof region !== "string" || typeof accountId !== "string") throw new Error("effect_not_readable");
-      const env = await loadPlatformEnvironment(db, effect.workspaceId, environmentId);
-      if (!env || env.provider !== "aws" || env.region !== region || !env.connection || env.connection.status !== "verified") throw new Error("connection_unavailable");
-      return reconcile.withObserveSession({ workspaceId: effect.workspaceId, projectId: env.projectId, environmentId, provider: "aws", region, connectionId: env.connection.id, correlationId: `effect-${effect.effectId}`.slice(0, 120), signal }, async (session) => {
-        const aws = session as AwsSession;
-        if (aws.provider !== "aws" || aws.accountId !== accountId || aws.region !== region) throw new Error("session_mismatch");
-        return fn(aws.client(CodeBuildClient));
-      });
-    },
+    aws: { withClient: (effect, signal, fn) => observed(effect, "aws", signal, async (session, region) => {
+      const aws = session as AwsSession;
+      if (aws.provider !== "aws" || aws.accountId !== effect.target.accountId || aws.region !== region) throw new Error("session_mismatch");
+      return fn(aws.client(CodeBuildClient));
+    }) },
+    gcp: { withSession: (effect, signal, fn) => observed(effect, "gcp", signal, async (session) => {
+      const gcp = session as GcpSession;
+      if (gcp.provider !== "gcp") throw new Error("session_mismatch");
+      return fn(gcp);
+    }) },
+    azure: { withSession: (effect, signal, fn) => observed(effect, "azure", signal, async (session) => {
+      const az = session as AzureSessionType;
+      if (az.provider !== "azure") throw new Error("session_mismatch");
+      return fn(az);
+    }) },
   });
   return createPlatformEffects({
     db, registry,

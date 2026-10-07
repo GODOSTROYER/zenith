@@ -93,34 +93,49 @@ type StartInput = Parameters<BuildPort["startBuild"]>[1];
 /** A refusal raised before the provider call (validation, identity, ownership) proves nothing was dispatched. */
 const isDefiniteRefusal = (error: unknown): boolean => error instanceof StepFailedError || (error instanceof Error && error.name === "OperationRefused");
 
+/** The provider's own id inside an opaque port handle (GCP build id, ACR run id); a digest for any other shape. */
+function providerIdOf(handle: string): string {
+  try {
+    const h = JSON.parse(handle) as { id?: unknown; runId?: unknown };
+    if (typeof h.id === "string" && h.id) return h.id;
+    if (typeof h.runId === "string" && h.runId) return h.runId;
+  } catch { /* opaque handle */ }
+  return digest(handle);
+}
+
+export type BuildOncePort = Pick<BuildPort, "startBuild" | "launchIdentity" | "adoptBuild"> | BuildPort["startBuild"];
+
 /**
  * GCP, Azure, Kubernetes and OCI build ports. The call happens at most once per (operation, service): the ledger
- * records it before the provider is called, stores the returned handle as the receipt, and answers every later
- * caller from that receipt or refuses it as unresolved. Without a database (isolated test composition) the port is
- * called directly, exactly as before.
+ * records it before the provider is called, stores the returned handle as the receipt (with the provider's own id and
+ * the identity an independent readback needs), and answers every retry from it or refuses it as unresolved. After an
+ * operator confirmed a lost launch from readback, `adoptBuild` rebuilds the handle from the provider's id. Without a
+ * database (isolated test composition) the port is called directly, exactly as before.
  */
-export async function startBuildOnce(
-  db: Sql | undefined,
-  ctx: DriverContext,
-  input: StartInput,
-  start: (ctx: DriverContext, input: StartInput) => Promise<BuildHandle>
-): Promise<BuildHandle> {
-  if (!db || !ctx.operationId) return start(ctx, input);
+export async function startBuildOnce(db: Sql | undefined, ctx: DriverContext, input: StartInput, portOrStart: BuildOncePort): Promise<BuildHandle> {
+  const port = typeof portOrStart === "function" ? { startBuild: portOrStart } : portOrStart;
+  if (!db || !ctx.operationId) return port.startBuild(ctx, input);
   const ledger = createEffectLedger(db);
+  let identity: Record<string, string> = {};
+  try { identity = (port as { launchIdentity?: BuildPort["launchIdentity"] }).launchIdentity?.(ctx, input) ?? {}; } catch { identity = {}; }
   const requestDigest = digest({ provider: ctx.provider, workspaceId: ctx.workspaceId, environmentId: ctx.environmentId, region: ctx.region,
     service: input.service.address, pipeline: input.pipeline.address, registry: input.registry?.address ?? null, source: input.source.digest, key: input.idempotencyKey });
   const outcome = await ledger.dispatchOnce({
     workspaceId: ctx.workspaceId, family: "build_launch", operationId: ctx.operationId, environmentId: ctx.environmentId, provider: ctx.provider,
     dedupKey: awsBuildDedupKey(ctx.operationId, input.service.address), requestDigest,
-    target: { region: ctx.region, serviceAddress: input.service.address, pipelineAddress: input.pipeline.address, sourceDigest: input.source.digest },
+    target: { region: ctx.region, serviceAddress: input.service.address, pipelineAddress: input.pipeline.address, sourceDigest: input.source.digest, ...identity },
     idempotencySupported: false, ...(ctx.fence ? { fence: ctx.fence } : {}),
   }, async () => {
-    const handle = await start(ctx, input);
+    const handle = await port.startBuild(ctx, input);
     // Provider handles are opaque (and can be long); keep them verbatim as the receipt identity.
-    return { value: handle, receipt: { resourceId: digest(handle.buildId), requestIds: [], identity: { handle: handle.buildId } } };
+    return { value: handle, receipt: { resourceId: providerIdOf(handle.buildId), requestIds: [], identity: { handle: handle.buildId } } };
   }, (error) => (isDefiniteRefusal(error) ? "rejected" : "unknown"));
   if (outcome.kind === "dispatched") return outcome.value;
   const saved = outcome.effect.providerReceipt?.identity?.handle;
-  if (!saved) throw new EffectUnresolvedError(outcome.effect.effectId, outcome.effect.state);
-  return { buildId: saved };
+  if (saved) return { buildId: saved };
+  // Confirmed by an authorized resolution from independent readback: rebuild the handle from the provider's id.
+  const confirmedId = outcome.effect.providerReceipt?.resourceId;
+  const adopt = (port as { adoptBuild?: BuildPort["adoptBuild"] }).adoptBuild;
+  if (outcome.effect.state === "confirmed" && confirmedId && adopt) return adopt.call(port, ctx, input, confirmedId);
+  throw new EffectUnresolvedError(outcome.effect.effectId, outcome.effect.state);
 }

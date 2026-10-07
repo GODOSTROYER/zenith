@@ -33,6 +33,8 @@ import { signCapabilityGrant } from "@/lib/credentials/grants";
 import { createRunnerOciTransport, type OciHttpJobResult } from "@/lib/providers/oci/runner-transport";
 import { isOcid, isRegionId } from "@/lib/providers/oci/services";
 import { awaitRunnerJob, enqueueRunnerJob } from "@/lib/runners/dispatch";
+import { createEffectLedger } from "@/lib/effects/ledger";
+import { runProxyJob } from "@/lib/effects/proxy";
 import { getRunnerRuntime } from "@/lib/runners/runtime";
 import type { OciSession } from "@/lib/credentials/types";
 import { awsBootstrapPreflightSessionPolicy, preflightAwsBootstrap, type AwsBootstrapPreflight } from "@/lib/credentials/aws/bootstrap-preflight";
@@ -235,7 +237,8 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
     const operation = event.operationId ? await repos.operations.get(db, event.workspaceId, event.operationId) : null;
     await repos.events.append(db, { ...event, operationId: operation?.id });
   };
-  const aws = new AwsCredentialBroker({ ...options.aws, now, resolveConnection, emit, runnerTransport: createRunnerAwsTransportFactory() });
+  const effects = createEffectLedger(db);
+  const aws = new AwsCredentialBroker({ ...options.aws, now, resolveConnection, emit, runnerTransport: createRunnerAwsTransportFactory({ effects }) });
 
   // One capability per session. Only unsigned REST payloads leave this callback;
   // the runner authenticates locally. C4 is supplied by the read-jobs workstream.
@@ -274,16 +277,20 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
         signal.throwIfAborted();
         const timeoutSec = Math.max(1, Math.min(60, Math.floor((expires - now().getTime()) / 1000)));
         const common = { workspaceId: grant.ws, runnerId: config.runnerId, bindingConnectionId: connection.id, capability: grant.cap, kind: "oci.http" as const, payload, grant: runnerGrant, timeoutSec, maxOutputBytes: 1024 * 1024 };
-        let jobId: string;
-        if (capability(grant.cap).mutates) jobId = await enqueueRunnerJob({ ...common, operationId: grant.op }, rt);
+        const settle = (id: string) => awaitRunnerJob<OciHttpJobResult>(id, { workspaceId: grant.ws, signal, deadlineMs: Math.min(expires, now().getTime() + 90_000) }, rt);
+        let done;
+        // Mutating requests (everything outside the OCI observe allowlist) are recorded before they are queued; the
+        // POST's opc-retry-token is the provider's idempotency key and is stored with the effect.
+        if (capability(grant.cap).mutates) done = await runProxyJob<OciHttpJobResult>({ ledger: effects, kind: "oci.http", payload, scope: { workspaceId: grant.ws, operationId: grant.op, capability: grant.cap, mutates: true },
+          enqueue: () => enqueueRunnerJob({ ...common, operationId: grant.op }, rt), settle });
         else {
           if (!grant.env) throw new CredentialDeniedError("OCI read jobs require an environment grant.", { reason: "grant_invalid" });
           const { enqueueReadJob } = await import("@/lib/runners/read-jobs");
           signal.throwIfAborted();
           const { bindingConnectionId, ...readCommon } = common;
-          jobId = await enqueueReadJob({ ...readCommon, connectionId: bindingConnectionId, environmentId: grant.env });
+          const jobId = await enqueueReadJob({ ...readCommon, connectionId: bindingConnectionId, environmentId: grant.env });
+          done = await settle(jobId);
         }
-        const done = await awaitRunnerJob<OciHttpJobResult>(jobId, { workspaceId: grant.ws, signal, deadlineMs: Math.min(expires, now().getTime() + 90_000) }, rt);
         signal.throwIfAborted();
         if (done.status !== "succeeded" || done.uncertain || !done.result || typeof done.result !== "object" || !Number.isInteger(done.result.status) || done.result.status < 100 || done.result.status > 599 || done.result.truncated || (done.result.bodyB64 !== undefined && (typeof done.result.bodyB64 !== "string" || done.result.bodyB64.length > Math.ceil(1024 * 1024 / 3) * 4 || Buffer.from(done.result.bodyB64, "base64").toString("base64") !== done.result.bodyB64)) || !done.result.headers || typeof done.result.headers !== "object" || Array.isArray(done.result.headers)) throw new CredentialDeniedError("The OCI runner did not return a complete successful job result.", { reason: "runner_unavailable" });
         return done.result;

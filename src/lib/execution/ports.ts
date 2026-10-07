@@ -465,6 +465,16 @@ export interface BuildPort {
     input: { service: ResourceNode; pipeline: ResourceNode; registry?: ResourceNode; source: { s3Key: string; digest: string; bucket?: string }; idempotencyKey: string }
   ): Promise<BuildHandle>;
   waitForBuild(ctx: DriverContext, handle: BuildHandle, opts: { timeoutMs: number }): Promise<BuildResult>;
+  /**
+   * Optional (PROD-DUR-07): the non-secret identity an independent readback needs to find THIS launch at the provider
+   * (for example the tag the launch carried). Pure; reads nothing.
+   */
+  launchIdentity?(ctx: DriverContext, input: Parameters<BuildPort["startBuild"]>[1]): Record<string, string>;
+  /**
+   * Optional (PROD-DUR-07): rebuild the handle of a launch an operator confirmed from independent readback, given the
+   * provider's id for it. It never launches anything.
+   */
+  adoptBuild?(ctx: DriverContext, input: Parameters<BuildPort["startBuild"]>[1], providerBuildId: string): Promise<BuildHandle>;
 }
 
 /** ECS rollout. Backed by the compute drivers' ECS operation (WS-AWS-CMP). */

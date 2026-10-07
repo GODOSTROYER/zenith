@@ -18,7 +18,7 @@ export const migration0033ExternalEffects: PlatformMigration = {
 create table if not exists platform.external_effects (
   workspace_id text not null check (workspace_id ~ '^[A-Za-z0-9_.:-]{1,128}$'),
   effect_id text not null check (effect_id ~ '^[A-Za-z0-9_.:-]{1,128}$'),
-  family text not null check (family in ('build_launch','cleanup_apply')),
+  family text not null check (family in ('build_launch','cleanup_apply','proxy_request')),
   operation_id text not null check (operation_id ~ '^[A-Za-z0-9_.:-]{1,128}$'),
   environment_id text check (environment_id is null or environment_id ~ '^[A-Za-z0-9_.:-]{1,128}$'),
   provider text not null check (provider ~ '^[a-z0-9_-]{1,32}$'),

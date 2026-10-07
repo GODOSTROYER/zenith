@@ -36,6 +36,8 @@ import { LeaseLostError, StepFailedError, TofuPlanChangedError } from "./errors"
 import { withKeepAlive } from "./keepalive";
 import { outputsDigest } from "./plan-evidence";
 import { approvedSources } from "./source-snapshot";
+import { assertApprovedSemantics } from "./semantics/dispatch";
+import { SemanticsChangedError } from "./semantics/errors";
 import { planCustody, type Runtime } from "./runtime";
 import { LONG_SESSION_SEC, OBSERVE_CAPABILITY, withProviderSession } from "./session";
 import { assertEcsReplicaRepairPlan, prepareEcsReplicaRepair, recordEcsReplicaRepairReadback } from "./ecs-replica-repair";
@@ -146,10 +148,15 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
                 const currentConnection = await resolveConnection(rt,current);
                 await approvedSources(rt,current,currentGraph,lease,false,signal);
                 if (digest(planCustody(current,currentGraph.graphDigest,currentConnection)) !== digest(custody)) throw new StepFailedError("Reviewed plan source or connection changed; a new review is required.");
+                let currentWorkspace = ws;
                 if (!repair) {
-                  const currentWorkspace = (await buildDeployWorkspace(rt,current,currentGraph,currentConnection)).ws;
+                  currentWorkspace = (await buildDeployWorkspace(rt,current,currentGraph,currentConnection)).ws;
                   if (digest(currentWorkspace) !== digest(ws)) throw new StepFailedError("Reviewed workspace changed; a new review is required.");
                 }
+                // PROD-DUR-03: the canonical executable semantics (revision, recipe, scripts, migration class, targets, configuration,
+                // locks, backend, saved plan, provenance inputs, ownership transfers, runbook version) must equal what the approver reviewed.
+                await assertApprovedSemantics(rt, current, { graph: currentGraph, connection: currentConnection, ws: currentWorkspace, planDigest }, "apply dispatch");
+                // PROD-DUR-04: authorization is decided again at the dispatch point from current policy, roles, grants and approvals.
                 const authority = await rt.d.broker.approvalStatus(operationId);
                 if (!authority.approved || authority.rejected || (current.op.approvalRequired && !authority.approvalId)) throw new StepFailedError("Current policy or human approval changed before the reviewed original dispatch.");
                 await rt.d.leases.assertFence(lease.scope, lease.fenceToken); toolStarted = true; await dispatch();
@@ -188,7 +195,7 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
 }
 
 async function classifyApplyFailure(rt: Runtime, ec: ExecContext, err: unknown, toolStarted: boolean): Promise<unknown> {
-  if (err instanceof TofuPlanChangedError || err instanceof StepFailedError) return err;
+  if (err instanceof TofuPlanChangedError || err instanceof StepFailedError || err instanceof SemanticsChangedError) return err;
   if (err instanceof TofuDeletionRefusedError) return new StepFailedError(err.message);
   if (err instanceof LeaseLostError) {
     if (toolStarted) await markUncertain(rt, ec, "The environment lease was lost while OpenTofu was applying.");

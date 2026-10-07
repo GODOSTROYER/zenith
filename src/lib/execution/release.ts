@@ -45,6 +45,7 @@ import type { Runtime } from "./runtime";
 import { driverContext, LONG_SESSION_SEC, withProviderSession } from "./session";
 import { safeText } from "./text";
 import { approvedSources, type ApprovedSourceSnapshot } from "./source-snapshot";
+import { assertOperationSemantics } from "./semantics/operation";
 import { isApprovedSourceSnapshotStore } from "@/lib/controlplane/db/repos/approved-source-snapshots";
 import { assertBuildIsolation, BuildIsolationError, contextDirOf, type BuildAttestation, type BuildProviderKey } from "./build-isolation";
 import { BuildProvenanceError, provenanceEvidenceDigest, signBuildProvenance, verifyBuildProvenance } from "./build-provenance";
@@ -78,6 +79,8 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
       await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
       const images = await withKeepAlive(rt, { lease, detail: "build artifacts", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
         await approvedSources(rt,ec,graph,lease,false,signal);
+        // PROD-DUR-03: nothing is built from semantics other than the ones the approver reviewed.
+        await assertOperationSemantics(rt, ec, lease, "build dispatch", signal);
         return withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
           const failures: unknown[] = [];
           const built = await mapLimit(workloads, 3, async (node) => {
@@ -122,6 +125,8 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
       // The ONE verification of signed build provenance. Its result feeds the release gate as the `attested` verdict.
       const admissions = await admitBuiltArtifacts(rt, ec, graph, targets, byService);
       const connection = await resolveConnection(rt, ec);
+      // PROD-DUR-03: the first rollout effect (secret sync included) happens only under the approved semantics.
+      await assertOperationSemantics(rt, ec, lease, "rollout dispatch");
 
       await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
       const rolled = await withKeepAlive(rt, { lease, detail: "deploy workloads", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
@@ -221,6 +226,9 @@ async function runMigrationTask(rt: Runtime, ec: ExecContext, lease: LeaseRef, m
   }
   const migrations = rt.d.migrations;
   if (!migrations) throw new StepFailedError("This worker has no one-off task runner configured; the declared migration cannot run.");
+  // PROD-DUR-03: the migration command, its class and the image it runs in are part of the approved semantics. Checked
+  // before the single-use migration approval is consumed, so a refusal spends nothing.
+  await assertOperationSemantics(rt, ec, lease, "migration dispatch");
   const safety = rt.d.releaseSafety;
   // The approval for a data or contract migration is checked and consumed HERE, immediately before dispatch.
   let current = run;

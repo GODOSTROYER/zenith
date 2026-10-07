@@ -38,6 +38,7 @@ import { withKeepAlive } from "./keepalive";
 import { planEvidence, readPlanEvidence, toPlanSummary, type PlanCost } from "./plan-evidence";
 import { approvedSources } from "./source-snapshot";
 import { planCustody, type Runtime } from "./runtime";
+import { assertApprovedSemantics, recordReviewedSemantics } from "./semantics/dispatch";
 import { digest } from "@/lib/controlplane/digest";
 import { baseTags, driverContext, environmentIdProblem, LONG_SESSION_SEC, PLAN_CAPABILITY, withProviderSession } from "./session";
 import { safeList, safeText } from "./text";
@@ -61,6 +62,10 @@ type PlanActivities = Pick<ExecutionActivities, "validateDesiredState" | "planIn
 
 interface PlanStage {
   plan: NormalizedPlan;
+  /** what the executable semantics digest is computed from (PROD-DUR-03): the workspace and trusted authorities this stage planned */
+  workspace: import("@/lib/tofu/types").TofuWorkspace;
+  graph: ResourceGraph;
+  connection: Awaited<ReturnType<typeof resolveConnection>>;
   produced?: import("@/lib/tofu/engine").ProducedPlan;
   facts: PlanFacts;
   cost: PlanCost;
@@ -261,7 +266,7 @@ async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<Exec
     dnsChanges: [...new Set([...extracted.dnsChanges, ...deletions.dnsDeletes])].sort(),
   };
   const cost = await costOf(rt, ec, graph);
-  return { plan: result.plan, produced: result.produced, facts, cost, graphDigest: graph.graphDigest, deletions, repairBinding, approvedSources: ec.approvedSourceSnapshots };
+  return { plan: result.plan, workspace: ws, graph, connection, produced: result.produced, facts, cost, graphDigest: graph.graphDigest, deletions, repairBinding, approvedSources: ec.approvedSourceSnapshots };
 }
 
 export function createPlanActivities(rt: Runtime): PlanActivities {
@@ -299,10 +304,13 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
       if (ec.op.planDigest && ec.op.planDigest !== stage.plan.planDigest) throw new TofuPlanChangedError(ec.op.planDigest, stage.plan.planDigest);
       const evidence = planEvidence({ plan: stage.plan, facts: stage.facts, cost: stage.cost, graphDigest: stage.graphDigest, stage: "plan", repairBinding: stage.repairBinding, approvedSources: stage.approvedSources });
       if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required.");
+      // PROD-DUR-03: the one canonical semantics digest the approver is shown and the approval binds. Recorded write-once
+      // BEFORE the reviewed plan is published, so a plan a person can see always has its semantics on record.
+      const semantics = await recordReviewedSemantics(rt, ec, { graph: stage.graph, connection: stage.connection, ws: stage.workspace, planDigest: stage.plan.planDigest });
       await rt.d.planArtifacts.publish({ produced: stage.produced, lease, evidence: {
         id: `evd_${digest({ w: ec.scope.id, kind: "tofu_plan", key: evidence.key }).slice(0,32)}`,
         workspaceId: ec.workspaceId, operationId: ec.op.id, kind: "tofu_plan", digest: evidence.digest,
-        summary: { ...evidence.summary, ...stage.deletions, ...(stage.repairBinding ? { repairBinding: stage.repairBinding } : {}) }, simulated: false,
+        summary: { ...evidence.summary, ...stage.deletions, semantics, ...(stage.repairBinding ? { repairBinding: stage.repairBinding } : {}) }, simulated: false,
       } });
       await rt.emit(ec.scope, "resource.planned", `plan:${stage.plan.planDigest}`, {
         planDigest: stage.plan.planDigest,
@@ -345,6 +353,10 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
     async finalPlan({ operationId, approvedPlanDigest, lease }) {
       const ec = await loadExecContext(rt, operationId);
       const stage = await runPlanStage(rt, ec, lease, "tofu plan (final)", approvedPlanDigest);
+      // PROD-DUR-03: the re-plan right before apply must carry exactly the executable semantics that were reviewed.
+      if (stage.plan.planDigest === approvedPlanDigest) {
+        await assertApprovedSemantics(rt, ec, { graph: stage.graph, connection: stage.connection, ws: stage.workspace, planDigest: approvedPlanDigest }, "final plan");
+      }
       const evidence = planEvidence({ plan: stage.plan, facts: stage.facts, cost: stage.cost, graphDigest: stage.graphDigest, stage: "final_plan", approvedDigest: approvedPlanDigest, repairBinding: stage.repairBinding, approvedSources: stage.approvedSources });
       await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, summary: { ...evidence.summary, ...stage.deletions }, simulated: false, key: evidence.key }, { critical: false });
       if (stage.plan.planDigest !== approvedPlanDigest) {

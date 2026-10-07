@@ -144,6 +144,15 @@ export function loadEnvironment(id: string, cursor?: string) {
 }
 
 export function loadInvestigations(id: string) { return loadPage((context) => readIncidents(context, id)); }
+/** Standing grants with their usage history, newest use first. Public fields only. */
+export function loadStandingGrants() {
+  return loadPage(async (context, broker) => {
+    const grants = await broker.listStandingGrants({ workspaceId: context.workspaceId, principal: context.principal });
+    const rows = await Promise.all(grants.map(async (g) => ({ grant: g, uses: await broker.listStandingGrantUsage({ workspaceId: context.workspaceId, principal: context.principal, grantId: g.id }) })));
+    return publicData(rows);
+  });
+}
+
 export function loadPolicy() { return loadPage((context, broker) => broker.getWorkspacePolicy(context)); }
 
 /** Runbook composition with its errors mapped onto the broker's, so pages show the same words as the API. */

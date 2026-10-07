@@ -281,6 +281,11 @@ export interface BrokerStore {
    */
   fieldOwnership?(scope: Scope): Promise<import("./types").FieldOwnershipGuard | undefined>;
   /**
+   * Bounded standing grants (PROD-DUR-04). Optional like `fieldOwnership`: a store without it can neither create nor
+   * honour a grant, so every approval stays a person's, never an implicit one.
+   */
+  readonly standingGrants?: import("./standing-grants").StandingGrantStore;
+  /**
    * Create an operation together with its policy decision, atomically, with
    * idempotency: the same `idempotencyKey` + `requestHash` returns the existing
    * operation (`created: false`, no new events); the same key with a different

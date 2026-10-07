@@ -22,6 +22,7 @@ import { assertVaultKubeconfigTarget } from "@/lib/providers/kubernetes/vault-ta
 import { createK8sClient } from "@/lib/providers/kubernetes/client";
 import { isDnsLabel } from "@/lib/providers/kubernetes/naming";
 import { K8sError } from "@/lib/providers/kubernetes/types";
+import { DeployerCredentialError, verifyDeployerCredential, deployerScopeOf } from "@/lib/providers/kubernetes/deployer";
 import { GuestCredentialError, assertGuestNamespace, buildGuestKubeConfig, createGuestClusterPort, mintGuestCredential, revokeGuestBindings, verifyGuestMinter, type GuestRevocationOutcome } from "@/lib/providers/kubernetes/guest";
 import { createGuestStore } from "@/lib/providers/kubernetes/guest-store";
 import type { KubernetesSessionDeps } from "@/lib/providers/kubernetes/session";
@@ -167,7 +168,13 @@ async function nativeAwsReadiness(db: Sql, broker: CredentialBroker, original: C
  * `scoped_guest` connection: the MINTER). Same target-bound, exec-plugin-refusing path
  * as every other Kubernetes session; there is no other source for it.
  */
-async function kubernetesVaultSession(connection: ProviderConnection, config: KubernetesConnectionConfig, now: () => Date, ttlSec: number, deps?: Pick<KubernetesSessionDeps, "eksToken" | "oidcToken">) {
+async function kubernetesVaultSession(connection: ProviderConnection, config: KubernetesConnectionConfig, now: () => Date, ttlSec: number, deps?: Pick<KubernetesSessionDeps, "eksToken" | "oidcToken">, part: "minter" | "deployer" = "minter") {
+  if (part === "deployer") {
+    // PROD-K8S-CONN: the deployer is a distinct credential of a scoped_guest connection. It is only ever read here, for the
+    // deploy/observe path; the minter reference is never substituted for it (and vice versa), whatever is missing.
+    if (config.mode !== "scoped_guest" || !config.deployerCredentialRef || config.deployerCredentialRef === config.credentialRef) throw new DeployerCredentialError("not_configured");
+    config = { ...config, mode: "kubeconfig_ref", credentialRef: config.deployerCredentialRef, deployerCredentialRef: undefined };
+  }
   return createKubernetesSession(config, { ...deps, now, ttlSec, resolveCredential: async (ref) => {
     if (!isVaultRef(ref)) throw new K8sError("session_invalid", "Only Zenith vault references are supported.");
     const value = await readSecretValueAsync(connection.workspaceId, ref);
@@ -175,6 +182,13 @@ async function kubernetesVaultSession(connection: ProviderConnection, config: Ku
     assertVaultKubeconfigTarget(config, value);
     return value;
   } });
+}
+
+/** The deployer and the minter must resolve to different credentials (PROD-K8S-CONN). Compares the resolved vault values in memory. */
+async function assertSeparateCredentials(connection: ProviderConnection, config: KubernetesConnectionConfig): Promise<void> {
+  if (!config.credentialRef || !config.deployerCredentialRef || config.credentialRef === config.deployerCredentialRef) throw new DeployerCredentialError("same_as_minter");
+  const [minter, deployer] = await Promise.all([config.credentialRef, config.deployerCredentialRef].map((ref) => isVaultRef(ref) ? readSecretValueAsync(connection.workspaceId, ref) : Promise.resolve(undefined)));
+  if (typeof minter === "string" && typeof deployer === "string" && minter.trim() === deployer.trim()) throw new DeployerCredentialError("same_as_minter");
 }
 
 /**
@@ -345,7 +359,7 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
 
   // One private callback lifecycle for regular operations and onboarding.
   // The public broker still refuses pending connections for general use.
-  const withProviderSession = async <T>(connection: ProviderConnection, purpose: "observe" | "deploy", ttlSec: number, operationId: string, cap: string, assumed: () => void | Promise<void>, fn: (session: ProviderSession) => Promise<T>, sourceScope?: { environmentId: string; resourceId?: string }, kubernetesGuest?: NonNullable<CredentialRequest["kubernetesGuest"]> | "verify_minter"): Promise<T> => {
+  const withProviderSession = async <T>(connection: ProviderConnection, purpose: "observe" | "deploy", ttlSec: number, operationId: string, cap: string, assumed: () => void | Promise<void>, fn: (session: ProviderSession) => Promise<T>, sourceScope?: { environmentId: string; resourceId?: string }, kubernetesGuest?: NonNullable<CredentialRequest["kubernetesGuest"]> | "verify_minter" | "verify_deployer"): Promise<T> => {
     const mint = (audience: string) => mintWorkloadToken({ workspaceId: connection.workspaceId, connectionId: connection.id, operationId, capability: cap, audience, ttlSec: Math.min(120, ttlSec) }, { ...options.oidc, now: now() });
     const c = connection.config;
     // Capture before any asynchronous vault/token/audit work. No caller proof
@@ -370,12 +384,23 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
         session = handle; close = () => handle.revoke(); break;
       }
       case "kubernetes": {
-        if (c.mode === "scoped_guest" && !kubernetesGuest) {
-          // Explicit refusal: a guest connection serves scoped machine sessions only, never a deploy/observe provider path.
-          throw new CredentialDeniedError("Scoped Kubernetes guest connections serve guest machine sessions only.", { reason: "guest_credential_refused" });
+        if (c.mode === "scoped_guest" && (!kubernetesGuest || kubernetesGuest === "verify_deployer")) {
+          // PROD-K8S-CONN: deploy/observe (and deployer verification) use ONLY the connection's separate deployer credential.
+          // No deployer part, an unverified connection (the broker already required status verified) or any failure here is a
+          // refusal: never the minter, a guest token, a kubeconfig of another connection or a runner identity.
+          if (!c.deployerCredentialRef) throw new CredentialDeniedError("This scoped Kubernetes connection has no deployer credential; it serves guest machine sessions only.", { reason: "deployer_credential_refused" });
+          let deployer;
+          try { deployer = await kubernetesVaultSession(connection, c, now, ttlSec, options.kubernetes, "deployer"); }
+          catch { throw new CredentialDeniedError("The Kubernetes deployer credential is unavailable.", { reason: "deployer_credential_refused" }); }
+          let deployerEnded = false;
+          session = { provider: "kubernetes", server: deployer.server, expiresAt: deployer.expiresAt, namespaces: deployer.namespaces, kubeConfig: () => {
+            if (deployerEnded) throw new CredentialDeniedError("The session has ended.", { reason: "session_ended" });
+            return deployer.kubeConfig();
+          } } as ProviderSession;
+          close = () => { deployerEnded = true; }; break;
         }
         const handle = await kubernetesVaultSession(connection, c, now, ttlSec, options.kubernetes);
-        if (c.mode === "scoped_guest" && kubernetesGuest && kubernetesGuest !== "verify_minter") {
+        if (c.mode === "scoped_guest" && kubernetesGuest && kubernetesGuest !== "verify_minter" && kubernetesGuest !== "verify_deployer") {
           // The minter stays inside this block. Guest callers receive only the scoped TokenRequest token.
           try {
             assertGuestNamespace(kubernetesGuest.namespace, c.namespaces);
@@ -469,9 +494,10 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
       } catch (error) {
         if (!created && connection.config.provider === "oci" && error instanceof CredentialDeniedError) return deny(error.reason ?? "runner_unavailable", error.message);
         if (!created && connection.config.provider === "kubernetes" && connection.config.mode === "scoped_guest") {
+          const part = req.kubernetesGuest ? "guest_credential_refused" as const : "deployer_credential_refused" as const;
           return error instanceof CredentialDeniedError
-            ? deny(error.reason ?? "guest_credential_refused", error.message)
-            : deny("guest_credential_refused", "The scoped Kubernetes guest credential could not be minted.");
+            ? deny(error.reason ?? part, error.message)
+            : deny(part, part === "guest_credential_refused" ? "The scoped Kubernetes guest credential could not be minted." : "The Kubernetes deployer credential could not be used.");
         }
         if (!created) return deny("not_supported", "Provider session could not be created; check federation or vault configuration.");
         throw error;
@@ -498,6 +524,13 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
         } else {
           if (config.mode === "runner") return { ok: false, detail: "This provider's runner verification transport is unavailable." };
           if (config.provider === "kubernetes" && (!config.namespaces.length || config.namespaces.some((ns) => !isDnsLabel(ns)))) return { ok: false, detail: "Kubernetes verification requires valid allowlisted namespaces for a namespaced get." };
+          // PROD-K8S-CONN: a scoped_guest connection verifies EACH part with that part's own credential (minter, then deployer
+          // when one is configured); the connection verifies only when every part does. Other connections have one part.
+          const parts: Array<"verify_minter" | "verify_deployer" | undefined> = config.provider === "kubernetes" && config.mode === "scoped_guest"
+            ? ["verify_minter", ...(config.deployerCredentialRef ? ["verify_deployer" as const] : [])] : [undefined];
+          const details: string[] = [];
+          result = { ok: false, detail: "Provider identity verification is unsupported." };
+          for (const part of parts) {
           const operationId = `verify-${randomUUID()}`;
           result = await withProviderSession(connection, "observe", 900, operationId, "connection.verify", async () => {
             try { await emit({ workspaceId: connection.workspaceId, operationId, correlationId: operationId, type: "credential.assumed", data: { connectionId: id, provider: config.provider, purpose: "observe" } }); }
@@ -519,10 +552,18 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
               if (typeof actual !== "string" || (session.provider === "azure" ? actual.toLowerCase() !== expected.toLowerCase() : actual !== expected)) return { ok: false, detail: "Provider identity read returned a missing or mismatched project/subscription identifier." };
               return { ok: true, detail: `${session.provider === "gcp" ? "GCP observe service account read the configured project" : "Azure federated identity read the configured subscription"}.`, accountId: expected };
             }
+            if (session.provider === "kubernetes" && config.provider === "kubernetes" && config.mode === "scoped_guest" && part === "verify_deployer") {
+              // Creates nothing: the DEPLOYER credential (never the minter) is separate, and namespaced-only when declared so.
+              try {
+                await assertSeparateCredentials(connection, config);
+                await verifyDeployerCredential(createGuestClusterPort(session, signal), { scope: deployerScopeOf(config), namespaces: config.namespaces });
+              } catch (error) { return { ok: false, detail: `Deployer credential: ${error instanceof DeployerCredentialError ? error.message : "verification failed."}` }; }
+              return { ok: true, detail: `Kubernetes deployer (${deployerScopeOf(config)}) credential can read and deploy in every allowlisted namespace${deployerScopeOf(config) === "namespaced" ? " and holds no cluster-wide or system-namespace privilege" : ""}.` };
+            }
             if (session.provider === "kubernetes" && config.provider === "kubernetes" && config.mode === "scoped_guest") {
               // Creates nothing: proves the minter is namespaced-only and can manage guest objects in each namespace.
               try { await verifyGuestMinter(createGuestClusterPort(session, signal), config.namespaces); }
-              catch (error) { return { ok: false, detail: error instanceof GuestCredentialError ? error.message : "Kubernetes minter verification failed." }; }
+              catch (error) { return { ok: false, detail: `Guest minter: ${error instanceof GuestCredentialError ? error.message : "Kubernetes minter verification failed."}` }; }
               return { ok: true, detail: "Kubernetes minter is namespaced-only and can manage guest ServiceAccounts and Roles in every allowlisted namespace. Guest tokens are minted per dispatch." };
             }
             if (session.provider === "kubernetes" && config.provider === "kubernetes") {
@@ -534,7 +575,11 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
               return { ok: true, detail: "Kubernetes credential read the default ServiceAccount in every allowlisted namespace. Additional permissions are unverified." };
             }
             return { ok: false, detail: "Provider identity verification is unsupported." };
-          }, undefined, config.provider === "kubernetes" && config.mode === "scoped_guest" ? "verify_minter" : undefined);
+          }, undefined, part);
+          details.push(result.detail);
+          if (!result.ok) break;
+          }
+          if (parts.length > 1) result = { ...result, detail: details.join(" ") };
         }
         if (result.ok) {
           const current = adopt(await repos.connections.get(db, connection.workspaceId, id));

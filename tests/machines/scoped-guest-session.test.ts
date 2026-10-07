@@ -140,10 +140,10 @@ describe("scoped Kubernetes guest sessions through the default stack", () => {
     expect((await bindings(f))[0]).toMatchObject({ issuedCount: 0, lastError: "cluster_error" });
   });
 
-  it("the broker refuses a scoped_guest connection on every non-guest path (no deploy/observe fallback)", async () => {
+  it("without a deployer part the broker refuses deploy/observe (no minter fallback); a bad guest scope stays a guest refusal", async () => {
     const f = await fixture(), cluster = modeledCluster();
     await expect(f.credentials.withSession({ connectionId: f.connection.id, grant: f.request.grant, purpose: "observe" }, async () => "entered"))
-      .rejects.toMatchObject({ name: "CredentialDeniedError", reason: "guest_credential_refused" });
+      .rejects.toMatchObject({ name: "CredentialDeniedError", reason: "deployer_credential_refused" });
     await expect(f.credentials.withSession({ connectionId: f.connection.id, grant: f.request.grant, purpose: "observe", kubernetesGuest: { namespace: "elsewhere", profile: "read" } }, async () => "entered"))
       .rejects.toMatchObject({ reason: "guest_credential_refused" });
     expect(cluster.calls).toEqual([]);

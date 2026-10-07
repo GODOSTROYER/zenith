@@ -62,7 +62,11 @@ const ROTATE_FIELDS: Record<string, Field[]> = {
   ],
   azure: [{ key: "clientId", label: "New application (client) id", placeholder: "00000000-0000-0000-0000-000000000000", optional: true }],
   oci: [{ key: "runnerId", label: "New runner id", placeholder: "Register the new runner first", optional: true }],
-  kubernetes: [{ key: "credentialRef", label: "New vault reference", placeholder: "vault:kubeconfig-v2", optional: true }],
+  kubernetes: [
+    { key: "credentialRef", label: "New vault reference (guest minter for a scoped guest connection)", placeholder: "vault:kubeconfig-v2", optional: true },
+    { key: "deployerCredentialRef", label: "Deployer vault reference (deploy and observe only; scoped guest connections)", placeholder: "vault:cluster-deployer", optional: true },
+    { key: "deployerScope", label: "Deployer scope: namespaced or cluster", placeholder: "namespaced", optional: true },
+  ],
 };
 
 const ENDPOINT = "/api/platform/v1/connections";
@@ -153,15 +157,20 @@ function RotatePanel({ c, base, busy, call, onDone }: { c: ConnectionView; base:
   const [promote, setPromote] = useState(false);
   const [retire, setRetire] = useState(false);
   const [convert, setConvert] = useState(false);
+  const [retainLegacy, setRetainLegacy] = useState(false);
   const legacyKube = c.provider === "kubernetes" && c.mode === "kubeconfig_ref";
   const patch: Record<string, unknown> = Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim() !== "").map(([k, v]) => [k, v.trim()]));
   if (legacyKube && convert) patch.convertToScopedGuest = true;
+  if (legacyKube && convert && retainLegacy) patch.retainLegacyAsDeployer = patch.deployerScope === "cluster" ? "cluster" : "namespaced";
+  if (legacyKube) { delete patch.deployerCredentialRef; if (!(convert && retainLegacy)) delete patch.deployerScope; }
   if (externalId) patch.rotateExternalId = true;
   const empty = Object.keys(patch).length === 0;
   return <div className="mt-3 space-y-3 border-t border-line pt-3">
     <p className="text-[12.5px] text-ink-mute">Name only what changes. The cloud account, project, tenant or cluster stays pinned. Zenith verifies the new access beside the current one; nothing switches until it passes.</p>
     {legacyKube && <Callout tone="warn" compact title="Legacy kubeconfig connection">Guest sessions are refused for this connection because its credential is broad and tenant-supplied. Convert it to a scoped guest connection (the default): enter a new vault reference holding a namespaced minter credential, Zenith verifies it, then promote. Zenith then mints a short-lived least-privilege token per guest dispatch.</Callout>}
     {legacyKube && <label className="flex items-center gap-2 text-[12.5px]"><input type="checkbox" checked={convert} onChange={(e) => setConvert(e.target.checked)} />Convert to scoped guest (requires a new minter vault reference below)</label>}
+    {legacyKube && convert && <label className="flex items-center gap-2 text-[12.5px]"><input type="checkbox" checked={retainLegacy} onChange={(e) => setRetainLegacy(e.target.checked)} />Keep the current credential as the deployer of this connection for deploy and observe (declare its scope below; default namespaced)</label>}
+    {c.provider === "kubernetes" && c.mode === "scoped_guest" && <Callout tone="info" compact title="One connection, two credentials">The guest minter and the deployer are separate vault credentials. The deployer serves deploy and observe only; the minter serves guest sessions only. Neither can stand in for the other. Zenith verifies both before anything switches, and revoking the connection ends both together.</Callout>}
     {fields.map((f) => <label key={f.key} className="block space-y-1 text-[12.5px]">{f.label}<Input value={values[f.key] ?? ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} placeholder={f.placeholder} /></label>)}
     {c.provider === "aws" && c.mode === "aws_assume_role" && <label className="flex items-center gap-2 text-[12.5px]"><input type="checkbox" checked={externalId} onChange={(e) => setExternalId(e.target.checked)} />Generate a new ExternalId (add it to both role trust policies next to the current one)</label>}
     {c.runnerId && <label className="flex items-center gap-2 text-[12.5px]"><input type="checkbox" checked={retire} onChange={(e) => setRetire(e.target.checked)} />After switching, revoke the previous runner if no other connection uses it</label>}

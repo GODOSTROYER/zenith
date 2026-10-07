@@ -146,6 +146,15 @@ export interface KubernetesConnectionConfig {
   credentialRef?: string;
   /** `scoped_guest` only: TokenRequest audiences; empty/omitted = the API server default audience. */
   guestAudiences?: string[];
+  /**
+   * `scoped_guest` only (PROD-K8S-CONN): vault reference of the separate DEPLOYER credential. It is read only by the
+   * deploy/observe provider path (plan/apply/observe through the broker); the guest path never reads it, and the
+   * minter (`credentialRef`) is never used for deploy/observe. Absent = this connection serves guest sessions only.
+   * Must differ from `credentialRef`.
+   */
+  deployerCredentialRef?: string;
+  /** `scoped_guest` only: declared reach of the deployer credential. "namespaced" is verified to hold no cluster-wide power. Default namespaced. */
+  deployerScope?: "namespaced" | "cluster";
   /** namespaces Zenith may manage; empty = only namespaces it creates */
   namespaces: string[];
   /** for EKS: cluster name + an AWS connection id used to mint the token */
@@ -320,6 +329,8 @@ export type DenialReason =
   | "audit_failed"
   /** a scoped Kubernetes guest credential could not be minted (never replaced by a broader one) */
   | "guest_credential_refused"
+  /** a scoped_guest Kubernetes connection's DEPLOYER credential is absent, unverified or refused (never replaced by the minter or any other credential) */
+  | "deployer_credential_refused"
   /** the session was revoked or outlived its credentials (provider sessions refuse further calls) */
   | "session_ended";
 

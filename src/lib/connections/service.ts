@@ -74,7 +74,8 @@ function identityOf(config: ConnectionConfig): Record<string, string> {
     case "gcp": return { projectId: config.projectId, region: config.region };
     case "azure": return { tenantId: config.tenantId, subscriptionId: config.subscriptionId, region: config.region };
     case "oci": return { tenancyOcid: config.tenancyOcid, compartmentOcid: config.compartmentOcid, region: config.region };
-    case "kubernetes": return { server: config.server, namespaces: config.namespaces.join(","), guestCredentials: config.mode === "scoped_guest" ? "scoped" : "legacy (guest sessions refused)" };
+    case "kubernetes": return { server: config.server, namespaces: config.namespaces.join(","), guestCredentials: config.mode === "scoped_guest" ? "scoped" : "legacy (guest sessions refused)",
+      deployerCredentials: config.mode === "scoped_guest" ? (config.deployerCredentialRef ? `separate (${config.deployerScope ?? "namespaced"})` : "none (guest sessions only)") : "kubeconfig credential" };
   }
 }
 
@@ -297,6 +298,8 @@ export interface RevokeOutcome {
   runnerKept?: string;
   /** scoped Kubernetes guest bindings: cluster objects deleted now vs still pending (unmintable either way) */
   guestBindings?: { revoked: number; pending: number };
+  /** scoped_guest with a deployer part: both parts died in the same SQL commit (nothing can mint or deploy from it); the deployer holds no cluster objects of Zenith's. */
+  deployer?: { revoked: true };
   /** what Zenith cannot do from its side */
   customerSteps: string[];
 }
@@ -329,6 +332,12 @@ export async function revokeConnection(ctx: ActionContext, input: { connectionId
   if (!revoked) throw new LifecycleRefusal(NOT_FOUND, "not_found");
   const productMirror = await mirrorProduct(ctx, row, (conn) => { conn.status = "disconnected"; conn.revokedAt = revoked.connection.revokedAt ?? new Date().toISOString(); conn.lastCheckedAt = conn.revokedAt; });
   const outcome: RevokeOutcome = { connection: viewOf(ctx, revoked.connection), alreadyRevoked: revoked.alreadyRevoked, productMirror, customerSteps: customerRevocationSteps(row.config.provider) };
+  if (row.config.provider === "kubernetes" && row.config.mode === "scoped_guest" && row.config.deployerCredentialRef) {
+    // PROD-K8S-CONN: the deployer part is refused by the same status flip that stopped the minter (broker status gate and the
+    // admission re-read both see 'revoked'); there is no cluster object of Zenith's to delete, so the customer removes the identity.
+    outcome.deployer = { revoked: true };
+    outcome.customerSteps = [...outcome.customerSteps, "Also delete the deployer credential's vault secret and revoke that identity in the cluster; Zenith can no longer use it."];
+  }
   if (row.config.provider === "kubernetes" && row.config.mode === "scoped_guest") {
     // PROD-MACH-02: bindings are already unmintable (revoked in the same SQL commit); now remove them from the cluster.
     // Safe to repeat: an already-revoked connection retries any binding left pending.

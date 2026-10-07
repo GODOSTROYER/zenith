@@ -183,11 +183,12 @@ describe("the real clients", () => {
     } finally { restoreSpawn(); await rm(dir, { recursive: true }); }
   });
 
-  it("refuses hostname TLS, private destinations without opt-in and caller-supplied redirect options before spawning", async () => {
+  it("refuses private destinations without opt-in (including for hostname TLS) and caller-supplied redirect options before connecting or spawning", async () => {
     let reads = 0;
-    const cli = spawnMysqlCli({ ZENITH_MYSQL_BIN: "zenith-definitely-not-installed-mysql" }, { lookup: async () => { reads++; return ["93.184.216.34"]; } });
+    // Hostname TLS now runs in-process; a private answer without the operator opt-in is refused before any socket exists.
+    const cli = spawnMysqlCli({ ZENITH_MYSQL_BIN: "zenith-definitely-not-installed-mysql" }, { lookup: async () => { reads++; return ["10.0.0.1"]; } });
     const base = ["--host=db.example.test", "--port=3306", "--user=app", "--ssl-mode=REQUIRED", "-e", "select 1", "shop"];
-    await expect(cli.run("mysql", base, { env: { MYSQL_PWD: PW }, maxBytes: 4096, timeoutMs: 5000 })).rejects.toMatchObject({ code: "unsupported_objects" });
+    await expect(cli.run("mysql", base, { env: { MYSQL_PWD: PW }, maxBytes: 4096, timeoutMs: 5000 })).rejects.toMatchObject({ code: "invalid_input" });
     expect(reads).toBe(1);
     for (const redirect of ["--host=127.0.0.1", "--socket=/tmp/other", "--protocol=SOCKET", "--defaults-file=/tmp/other", "--dns-srv-name=other", "--ssl-mode=PREFERRED", "--ssl-ca=/tmp/other", "--reconnect"]) {
       await expect(cli.run("mysql", [...base.slice(0, -1), redirect, "shop"], { env: { MYSQL_PWD: PW }, maxBytes: 4096, timeoutMs: 5000 })).rejects.toMatchObject({ code: "invalid_input" });
@@ -225,12 +226,6 @@ describe.skipIf(!REAL)("real MySQL server (needs mysql and mysqldump on PATH and
       await expect(invoke(rebinding)).rejects.toMatchObject({ code: "invalid_input" });
       expect(firstReads).toBe(2); expect(spawned.mock.calls.length).toBe(0);
 
-      let retryReads = 0;
-      const retry = await openMysql(dnsUri.toString(), { allowPrivate: false, lookup: async () => ++retryReads <= 2 ? ["93.184.216.34"] : ["10.0.0.1"] });
-      openedNegative.push(retry);
-      await expect(invoke(retry)).rejects.toMatchObject({ code: "unsupported_objects" });
-      await expect(invoke(retry)).rejects.toMatchObject({ code: "invalid_input" });
-      expect(retryReads).toBe(3); expect(spawned.mock.calls.length).toBe(0);
     } finally {
       spawned.mockRestore();
       syncBuiltinESMExports();

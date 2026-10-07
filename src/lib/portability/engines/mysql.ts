@@ -29,6 +29,7 @@ import { isAbsolute, join } from "node:path";
 import { createSecureContext, rootCertificates } from "node:tls";
 import { digest } from "@/lib/controlplane/digest";
 import { allowPrivateHostsFromEnv, classifyAddress, resolveConnectableHost, type HostLookup } from "../net";
+import { runMysqlInProcess } from "./mysql-inprocess";
 import { DEFAULT_LIMITS, PortabilityError, type EmitFile, type EngineExport, type EngineLimits, type EngineReadback } from "../types";
 
 const sha = (b: Buffer | string): string => createHash("sha256").update(b).digest("hex");
@@ -71,10 +72,13 @@ export interface MysqlNetworkOptions { allowPrivate?: boolean; lookup?: HostLook
 
 /**
  * The real clients. Each child has a newly vetted literal TCP destination.
- * Stock VERIFY_IDENTITY authenticates --host, not its separate SNI option:
- * DNS-host TLS is refused rather than silently replacing hostname identity
- * with encryption-only or a detached preflight. Literal IP TLS verifies IP SAN.
- * ZENITH_MYSQL_CA_FILE is a trusted operator file, never a connection-URI path.
+ * Stock VERIFY_IDENTITY authenticates --host, not its separate SNI option, so a
+ * DNS-host TLS connection is NOT given to the stock client: it runs in-process
+ * (`mysql-inprocess.ts`, mysql2) which dials only a freshly validated address
+ * while verifying the certificate chain and the ORIGINAL hostname. Literal IP
+ * TLS (and the private-network opt-in no-TLS mode) still use the stock client
+ * and verify the IP SAN. ZENITH_MYSQL_CA_FILE is a trusted operator file, never
+ * a connection-URI path.
  */
 export function spawnMysqlCli(env: Record<string, string | undefined> = process.env, network: MysqlNetworkOptions = {}): MysqlCli {
   const binaries = { mysql: env.ZENITH_MYSQL_BIN || "mysql", mysqldump: env.ZENITH_MYSQLDUMP_BIN || "mysqldump" };
@@ -95,11 +99,28 @@ export function spawnMysqlCli(env: Record<string, string | undefined> = process.
       const parsed = version ? undefined : parseClientArgs(tool, supplied);
       let prepared = supplied;
       let ca: Buffer | undefined;
+      if (parsed && parsed.ssl !== "DISABLED" && !isIP(parsed.host.replace(/^\[|\]$/g, ""))) {
+        // The in-process transport validates (and re-validates on every connection and retry) itself.
+        return runMysqlInProcess({
+          tool,
+          host: parsed.host,
+          port: parsed.port,
+          user: parsed.user,
+          database: parsed.database,
+          ...(parsed.sql !== undefined ? { sql: parsed.sql } : {}),
+          ...(tool === "mysql" && parsed.sql === undefined ? { script: input ?? Buffer.alloc(0) } : {}),
+          password: password ?? "",
+          maxBytes,
+          timeoutMs,
+          ca: await trustedCa(caFile),
+          allowPrivate,
+          lookup,
+        });
+      }
       if (parsed) {
         const addresses = await resolveConnectableHost(parsed.host, { allowPrivate, lookup });
         if (parsed.ssl === "DISABLED" && (!allowPrivate || addresses.some(({ address }) => !["private", "loopback"].includes(classifyAddress(address))))) throw new PortabilityError("invalid_input", "A MySQL connection without TLS requires the operator's private-network opt-in and only private destinations.");
         if (parsed.ssl !== "DISABLED") {
-          if (!isIP(parsed.host)) throw new PortabilityError("unsupported_objects", "Stock MySQL clients cannot preserve DNS hostname TLS identity when connecting to a vetted address; this connection is refused.");
           ca = await trustedCa(caFile);
         }
         prepared = supplied.map((arg) => arg.startsWith("--host=") ? `--host=${addresses[0]!.address}` : arg.startsWith("--ssl-mode=") ? `--ssl-mode=${parsed.ssl === "DISABLED" ? "DISABLED" : "VERIFY_IDENTITY"}` : arg);
@@ -179,8 +200,13 @@ export function spawnMysqlCli(env: Record<string, string | undefined> = process.
   };
 }
 
-function parseClientArgs(tool: "mysqldump" | "mysql", args: readonly string[]): { host: string; ssl: "REQUIRED" | "DISABLED" } {
+interface ClientArgs { host: string; ssl: "REQUIRED" | "DISABLED"; port: number; user: string; database: string; sql?: string }
+
+function parseClientArgs(tool: "mysqldump" | "mysql", args: readonly string[]): ClientArgs {
   let host: string | undefined;
+  let port = 0;
+  let user = "";
+  let sql: string | undefined;
   let ssl: "REQUIRED" | "DISABLED" = "REQUIRED";
   const seen = new Set<string>();
   const dump = new Set(["--single-transaction", "--skip-comments", "--skip-add-locks", "--no-tablespaces", "--set-gtid-purged=OFF", "--hex-blob", "--triggers"]);
@@ -192,6 +218,8 @@ function parseClientArgs(tool: "mysqldump" | "mysql", args: readonly string[]): 
       seen.add(key);
       const value = arg.slice(key.length + 1);
       if (key === "--host") host = value;
+      if (key === "--port") port = Number(value);
+      if (key === "--user") user = value;
       if (key === "--port" && (!/^\d{1,5}$/.test(value) || Number(value) < 1 || Number(value) > 65535)) throw new PortabilityError("invalid_input", "The MySQL client port is invalid.");
       if (key === "--user" && !/^[A-Za-z0-9_.@$-]{1,64}$/.test(value)) throw new PortabilityError("invalid_input", "The MySQL client user is invalid.");
       if (key === "--ssl-mode") {
@@ -200,14 +228,14 @@ function parseClientArgs(tool: "mysqldump" | "mysql", args: readonly string[]): 
       }
     } else if (arg === "--default-character-set=utf8mb4" || (tool === "mysqldump" && dump.has(arg)) || (tool === "mysql" && ["--batch", "--skip-column-names", "--binary-as-hex"].includes(arg))) {
       continue;
-    } else if (tool === "mysql" && arg === "-e" && i + 1 < args.length - 1) {
-      i++;
+    } else if (tool === "mysql" && arg === "-e" && i + 1 < args.length - 1 && sql === undefined) {
+      sql = args[++i]!;
     } else if (i !== args.length - 1 || arg.startsWith("-") || !/^[A-Za-z0-9_$.-]{1,64}$/.test(arg)) {
       throw new PortabilityError("invalid_input", "The MySQL client arguments include an unsupported connection or command option.");
     }
   }
   if (!host || !seen.has("--port") || !seen.has("--user") || !args.length || args[args.length - 1]!.startsWith("-") || !/^[A-Za-z0-9_$.-]{1,64}$/.test(args[args.length - 1]!)) throw new PortabilityError("invalid_input", "The MySQL client requires an explicit host, port, user and database.");
-  return { host, ssl };
+  return { host, ssl, port, user, database: args[args.length - 1]!, ...(sql !== undefined ? { sql } : {}) };
 }
 
 async function trustedCa(file: string | undefined): Promise<Buffer> {

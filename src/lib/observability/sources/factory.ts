@@ -45,6 +45,7 @@ import { createSandboxSource, SANDBOX_SOURCE_ID, type SandboxDeps, type SandboxS
 import { createUnavailableSource } from "./unavailable";
 import { createOciLoggingSource, OCI_LOGGING_SOURCE_ID } from "./oci-logging";
 import { createOciMonitoringSource, OCI_MONITORING_SOURCE_ID } from "./oci-monitoring";
+import { configuredEndpoints } from "./configured-endpoints";
 import { bindSource, kubernetesSignalGraph, scopedKubernetesApi } from "./provider-scope";
 
 export type PrometheusEndpoint = Omit<PrometheusConfig, "graph" | "workspaceId">;
@@ -199,8 +200,12 @@ export function sourcesForEnvironment(input: SourcesForEnvironmentInput): Observ
       );
   }
 
-  if (input.endpoints?.prometheus) sources.push(createPrometheusSource({ ...input.endpoints.prometheus, ...base }));
-  if (input.endpoints?.loki) sources.push(createLokiSource({ ...input.endpoints.loki, ...base }));
+  // Explicit endpoints win (tests, embedders); otherwise the platform configuration (ZENITH_OBSERVE_*) applies to every default caller.
+  const configured = input.endpoints ? undefined : configuredEndpoints();
+  const endpoints = input.endpoints ?? configured!.endpoints;
+  if (configured) sources.push(...configured.invalid(provider));
+  if (endpoints.prometheus) sources.push(createPrometheusSource({ ...endpoints.prometheus, ...base }));
+  if (endpoints.loki) sources.push(createLokiSource({ ...endpoints.loki, ...base }));
   return sources.map((source) => bindSource(source, graph, workspaceId));
 }
 

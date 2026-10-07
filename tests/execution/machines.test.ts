@@ -113,6 +113,23 @@ describe("machine capability activities", () => {
     expect(evidence.records[0].summary).toMatchObject({ outcome: "uncertain", transportRef: "mreq_fixture" });
     expect(w.events.ofType("resource.applied")).toHaveLength(0);
   });
+  it("a machine health read stores a scoped telemetry envelope through the real activity (PROD-OBS-02)", async () => {
+    const { w, lease, row } = await machineWorld("aws_ssm", "service.status", { unit: "nginx.service" });
+    await w.activities.executeCapability({ operationId: OP, lease });
+    const [record] = w.evidence.ofKind("observation");
+    expect(record!.summary).toMatchObject({ kind: "machine_health", capability: "service.status", address: row.address, telemetry: { schemaVersion: 1, signal: "health", scope: { workspaceId: WS, environmentId: ENV, addresses: [row.address] } } });
+    const telemetry = (record!.summary as { telemetry: { state: string; provenance: { source: string; provider: string }[] } }).telemetry;
+    expect(["fresh", "stale"]).toContain(telemetry.state);
+    expect(telemetry.provenance[0]).toMatchObject({ source: "machines.aws_ssm", provider: "aws" });
+    expect(JSON.stringify(record)).not.toContain(CANARY_GRANT);
+  });
+  it("a refused machine health read is stored as an inaccessible envelope and still refuses the operation", async () => {
+    const { w, plane, lease } = await machineWorld("aws_ssm", "machine.inspect");
+    plane.drivers!.aws_ssm!.execute = async () => { throw new MachineOperationError("denied", "not permitted"); };
+    await expect(w.activities.executeCapability({ operationId: OP, lease })).rejects.toBeInstanceOf(StepFailedError);
+    const [record] = w.evidence.ofKind("observation");
+    expect((record!.summary as { telemetry: { state: string } }).telemetry.state).toBe("inaccessible");
+  });
   it("refuses unknown observations and foreign/stale machine bindings before execution", async () => {
     const { w, plane, calls, lease, binding } = await machineWorld("zenithd");
     for (const invalid of [{ ...binding, workspaceId: "foreign" }, { ...binding, environmentId: "foreign" }, { ...binding, stale: true }, { ...binding, status: "revoked" as const }]) {

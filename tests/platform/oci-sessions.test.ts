@@ -64,7 +64,7 @@ describe("OCI capability-scoped broker sessions", () => {
   it("dispatches mutations once through operation-scoped jobs and preserves the worker's grant", async () => {
     const f = await setup("service.restart", "deploy");
     const { operation } = await repos.operations.create(db, {
-      workspaceId: ws, principal: { kind: "user", id: "oci-session-test" },
+      workspaceId: ws, principal: { kind: "user", id: "oci-session-test", name: "OCI session fixture user" },
       proposal: { capability: f.grant.cap, scope: { workspaceId: ws, environmentId: env }, input: {}, summary: "Restart the OCI fixture", details: [], risk: "medium" },
     });
     f.grant.op = operation.id;

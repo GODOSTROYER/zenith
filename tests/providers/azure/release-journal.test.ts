@@ -35,7 +35,7 @@ async function buildWorld() {
   const w = world();
   const { operation } = await repos.operations.create(db, {
     workspaceId: w.ctx.workspaceId,
-    principal: { kind: "user", id: "journal-test" },
+    principal: { kind: "user", id: "journal-test", name: "Journal fixture user" },
     proposal: {
       capability: "service.release",
       scope: { workspaceId: w.ctx.workspaceId, environmentId: w.ctx.environmentId },

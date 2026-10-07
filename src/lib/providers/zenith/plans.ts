@@ -26,6 +26,8 @@ import type { PlanTier } from "./types";
 export interface ContainerBounds {
   cpu: string;
   memory: string;
+  /** container scratch + log + writable-layer ceiling; the quota demands one, so every container gets a default (MAN-05) */
+  "ephemeral-storage"?: string;
 }
 
 export interface PlanLimits {
@@ -85,8 +87,14 @@ const PRO_STORAGE = "200Gi";
 
 /** The smallest request any container may make; below the lightest thing Zenith renders (a static site asks 100m / 128Mi). */
 const CONTAINER_MIN: ContainerBounds = { cpu: "10m", memory: "16Mi" };
-const CONTAINER_DEFAULT_REQUEST: ContainerBounds = { cpu: "100m", memory: "128Mi" };
-const CONTAINER_DEFAULT_LIMIT: ContainerBounds = { cpu: "250m", memory: "256Mi" };
+/**
+ * Ephemeral storage defaults: the ResourceQuota requires requests and limits for ephemeral-storage, and a pod
+ * that names none is refused unless the LimitRange supplies them. The default LIMIT is what bounds a container
+ * that writes without end: the kubelet evicts a pod that exceeds it, so one tenant's disk fill cannot take the
+ * node's disk from its neighbours (verified by the PROD-MAN-05 acceptance suite, never assumed).
+ */
+const CONTAINER_DEFAULT_REQUEST: ContainerBounds = { cpu: "100m", memory: "128Mi", "ephemeral-storage": "64Mi" };
+const CONTAINER_DEFAULT_LIMIT: ContainerBounds = { cpu: "250m", memory: "256Mi", "ephemeral-storage": "512Mi" };
 
 const base = (cpu: string, memory: string, pods: number, services: number, secrets: number, configmaps: number, ephemeral: string, pvcs: number, storage: string): Record<string, string> => ({
   "requests.cpu": cpu,
@@ -113,7 +121,7 @@ export const PLAN_LIMITS: Readonly<Record<PlanTier, PlanLimits>> = {
       default: CONTAINER_DEFAULT_LIMIT,
       defaultRequest: CONTAINER_DEFAULT_REQUEST,
       min: CONTAINER_MIN,
-      max: { cpu: "500m", memory: "1Gi" },
+      max: { cpu: "500m", memory: "1Gi", "ephemeral-storage": "1Gi" },
     },
     maxManagedDatabases: 1,
     maxObjectStores: 0,
@@ -126,7 +134,7 @@ export const PLAN_LIMITS: Readonly<Record<PlanTier, PlanLimits>> = {
       default: CONTAINER_DEFAULT_LIMIT,
       defaultRequest: CONTAINER_DEFAULT_REQUEST,
       min: CONTAINER_MIN,
-      max: { cpu: "2", memory: "4Gi" },
+      max: { cpu: "2", memory: "4Gi", "ephemeral-storage": "4Gi" },
     },
     pvc: { min: "1Gi", max: "10Gi" },
     maxManagedDatabases: 3,
@@ -140,7 +148,7 @@ export const PLAN_LIMITS: Readonly<Record<PlanTier, PlanLimits>> = {
       default: CONTAINER_DEFAULT_LIMIT,
       defaultRequest: CONTAINER_DEFAULT_REQUEST,
       min: CONTAINER_MIN,
-      max: { cpu: "4", memory: "8Gi" },
+      max: { cpu: "4", memory: "8Gi", "ephemeral-storage": "10Gi" },
     },
     pvc: { min: "1Gi", max: "50Gi" },
     maxManagedDatabases: 10,

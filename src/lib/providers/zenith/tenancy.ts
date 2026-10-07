@@ -37,6 +37,7 @@
  */
 import { createHash } from "node:crypto";
 import { OWNERSHIP, type K8sObject } from "./k8s-port";
+import { usesFqdnEgress } from "./isolation-profile";
 import { planLimits } from "./plans";
 import type { ZenithSubstrate } from "./substrate";
 import { assertTenant } from "./substrate";
@@ -116,6 +117,9 @@ export const PRIVATE_IPV4_RANGES: readonly string[] = [
 export const PRIVATE_IPV6_RANGES: readonly string[] = ["fc00::/7", "fe80::/10", "::1/128"];
 
 /* --------------------------------- objects --------------------------------- */
+
+/** Ownership-marked metadata for an object of this tenant; shared with the isolation bundle so every generated object carries identical marks. */
+export const tenancyMetadata = (tenant: ZenithTenant, address: string, name: string, namespace: string | undefined, extra?: { labels?: Record<string, string> }): K8sObject["metadata"] => meta(tenant, address, name, namespace, extra);
 
 function meta(tenant: ZenithTenant, address: string, name: string, namespace: string | undefined, extra?: { labels?: Record<string, string> }): K8sObject["metadata"] {
   return {
@@ -233,11 +237,17 @@ export function renderTenancy(tenantInput: ZenithTenant, substrate: ZenithSubstr
         { protocol: "TCP", port: 53 },
       ],
     },
-    {
+  ];
+  if (usesFqdnEgress(substrate.isolation)) {
+    // hostname mode: the "any public address on 443" rule is NOT rendered; the hostname allowlist is the
+    // isolation bundle's CiliumNetworkPolicy. Until that policy is applied the tenant has DNS and nothing else.
+    notes.push("Hostname egress is enforced by the CNI (ZENITH_MANAGED_FQDN_ENGINE): the baseline renders no public-address egress, so workloads reach only the hostnames in the isolation bundle's CiliumNetworkPolicy.");
+  } else {
+    egress.push({
       to: [{ ipBlock: { cidr: "0.0.0.0/0", except: except4 } }, { ipBlock: { cidr: "::/0", except: except6 } }],
       ports: [{ protocol: "TCP", port: 443 }],
-    },
-  ];
+    });
+  }
   if (opts.withManagedDatabase === true) {
     const endpoints = substrate.database?.egress ?? [];
     if (endpoints.length === 0) {

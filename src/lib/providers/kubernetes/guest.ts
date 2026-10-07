@@ -247,6 +247,31 @@ export interface GuestCredential { token: string; expiresAt: string; bindingId: 
 
 const clampTtl = (s: number | undefined) => Math.min(Math.max(Math.floor(s ?? GUEST_TOKEN_MIN_SEC), GUEST_TOKEN_MIN_SEC), GUEST_TOKEN_MAX_SEC);
 
+export interface VerifiedTokenRequest {
+  namespace: string;
+  serviceAccount: string;
+  uid: string;
+  /** TokenRequest audiences; empty = API server default */
+  audiences?: readonly string[];
+  tokenTtlSec?: number;
+  now?: () => Date;
+}
+
+/**
+ * The TokenRequest half of the minter, shared by every scoped identity Zenith issues tokens for (guest sessions here,
+ * the per-tenant operator in `execution/tenant-isolation.ts`): clamp the lifetime to 600..3600 s, request an
+ * audience-bound token for the ServiceAccount UID, and refuse it unless its claims name that ServiceAccount, that UID,
+ * a non-empty audience and an expiry inside the requested bound. Throws {@link GuestCredentialError}.
+ */
+export async function requestVerifiedToken(cluster: Pick<GuestClusterPort, "requestToken">, req: VerifiedTokenRequest): Promise<{ token: string; expiresAt: Date; claims: GuestTokenClaims }> {
+  const now = req.now ?? (() => new Date());
+  const audiences = [...(req.audiences ?? [])];
+  const ttl = clampTtl(req.tokenTtlSec);
+  const issued = await cluster.requestToken(req.namespace, req.serviceAccount, req.uid, audiences, ttl);
+  const claims = assertGuestTokenClaims(issued.token, { namespace: req.namespace, serviceAccount: req.serviceAccount, uid: req.uid, audiences, nowMs: now().getTime(), maxLifetimeSec: ttl });
+  return { token: issued.token, expiresAt: new Date(claims.exp * 1000), claims };
+}
+
 /**
  * Mint one scoped credential or throw {@link GuestCredentialError}. The returned
  * token has been claim-checked and its issuance recorded against a live binding.
@@ -270,11 +295,9 @@ export async function mintGuestCredential(deps: GuestMintDeps, req: GuestMintReq
     await deps.cluster.ensureRoleBinding(req.namespace, name, labels, name);
     const active = await deps.store.markActive(binding.id, account.uid);
     if (!active || active.status !== "active") throw new GuestCredentialError("binding_revoked");
-    const issued = await deps.cluster.requestToken(req.namespace, name, account.uid, audiences, ttl);
-    const claims = assertGuestTokenClaims(issued.token, { namespace: req.namespace, serviceAccount: name, uid: account.uid, audiences, nowMs: now().getTime(), maxLifetimeSec: ttl });
-    const expiresAt = new Date(claims.exp * 1000);
-    if (!(await deps.store.recordIssuance(binding.id, expiresAt))) throw new GuestCredentialError("binding_revoked");
-    return { token: issued.token, expiresAt: expiresAt.toISOString(), bindingId: binding.id, serviceAccount: name };
+    const issued = await requestVerifiedToken(deps.cluster, { namespace: req.namespace, serviceAccount: name, uid: account.uid, audiences, tokenTtlSec: ttl, now });
+    if (!(await deps.store.recordIssuance(binding.id, issued.expiresAt))) throw new GuestCredentialError("binding_revoked");
+    return { token: issued.token, expiresAt: issued.expiresAt.toISOString(), bindingId: binding.id, serviceAccount: name };
   } catch (error) {
     const code = error instanceof GuestCredentialError ? error.code : "cluster_error";
     await deps.store.recordError(binding.id, code).catch(() => undefined);

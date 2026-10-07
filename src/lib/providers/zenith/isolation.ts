@@ -17,6 +17,11 @@
  *     type outside a short allow list, no privileged or escalation, all
  *     capabilities dropped and none added, non-root, seccomp, no service
  *     account token);
+ *   - pods cannot choose where or how they run: no `runtimeClassName` other
+ *     than the substrate's mandated one (and none at all when it mandates
+ *     none), no `priorityClassName` (a system class would preempt neighbours),
+ *     no `nodeName`, no wildcard tolerations (they would let a pod onto
+ *     control-plane or other tenants' dedicated nodes);
  *   - Services are ClusterIP only, without externalIPs;
  *   - NetworkPolicies rendered from bindings name no `ipBlock` peer and select
  *     only the tenant namespace or the gateway namespace;
@@ -34,6 +39,7 @@ import { tenantNamespace } from "./tenancy";
 import { isManagedHost, type ZenithSubstrate } from "./substrate";
 import { TENANCY_ADDRESS, TENANT_SERVICE_ACCOUNT, ZenithError, type ZenithTenant } from "./types";
 import { isRouteParentFor } from "./tls";
+import type { IsolationProfile } from "./isolation-profile";
 
 export interface IsolationViolation {
   /** `Kind/name` of the offending object */
@@ -99,8 +105,19 @@ function checkContainer(where: string, c: unknown, pod: Record<string, unknown>,
   if (argv) out("secret_value", `${at} ${argv.path} holds ${argv.what}; secrets must not be passed on the command line.`);
 }
 
-function checkPod(obj: K8sObject, pod: Record<string, unknown>, out: (rule: string, detail: string) => void): void {
+function checkPod(obj: K8sObject, pod: Record<string, unknown>, out: (rule: string, detail: string) => void, profile?: IsolationProfile): void {
   const where = label(obj);
+  const wantRuntime = profile?.runtimeClass;
+  if (wantRuntime !== undefined) {
+    if (pod.runtimeClassName !== wantRuntime) out("runtime_class", `${where} must run under RuntimeClass "${wantRuntime}" (the substrate's mandated sandbox); it names ${pod.runtimeClassName === undefined ? "none" : `"${String(pod.runtimeClassName).slice(0, 63)}"`}.`);
+  } else if (pod.runtimeClassName !== undefined) {
+    out("runtime_class", `${where} names a runtimeClassName; the substrate mandates none, so a tenant may not pick its own runtime.`);
+  }
+  if (pod.priorityClassName !== undefined) out("priority_class", `${where} sets priorityClassName; a tenant may not raise its scheduling priority over its neighbours.`);
+  if (pod.nodeName !== undefined) out("node_name", `${where} pins a nodeName; scheduling is the platform's.`);
+  for (const t of Array.isArray(pod.tolerations) ? pod.tolerations : []) {
+    if (isRecord(t) && (t.operator === "Exists" || t.key === undefined || t.key === "")) out("tolerations", `${where} has a wildcard toleration (operator Exists or no key); it would admit the pod to tainted nodes.`);
+  }
   for (const k of ["hostNetwork", "hostPID", "hostIPC"] as const) if (pod[k] === true) out("host_namespace", `${where} sets ${k}.`);
   if (pod.automountServiceAccountToken !== false) out("service_account_token", `${where} must set automountServiceAccountToken: false; tenant pods get no Kubernetes API access.`);
   if (pod.serviceAccountName !== undefined && typeof pod.serviceAccountName !== "string") out("service_account", `${where} has a malformed serviceAccountName.`);
@@ -169,7 +186,7 @@ export function validateTenantObjects(objects: readonly K8sObject[], ctx: Isolat
     if (WORKLOAD_KINDS.has(obj.kind)) {
       const pods = podSpecsOf(obj);
       if (pods.length === 0) push("pod_spec", "workload has no pod spec.");
-      for (const pod of pods) checkPod(obj, pod, push);
+      for (const pod of pods) checkPod(obj, pod, push, substrate.isolation);
     }
     if (obj.kind === "ServiceAccount" && obj.automountServiceAccountToken !== false) push("service_account_token", "ServiceAccount must set automountServiceAccountToken: false.");
     if (obj.kind === "ServiceAccount" && obj.metadata.annotations?.[OWNERSHIP.resourceAnnotation] !== TENANCY_ADDRESS.serviceAccount && obj.metadata.name === TENANT_SERVICE_ACCOUNT) push("ownership", "the tenant ServiceAccount must be the tenancy baseline's own.");

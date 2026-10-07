@@ -95,7 +95,10 @@ const GROUPS: Record<string, ResourceDef[]> = {
   "rbac.authorization.k8s.io/v1": [
     { name: "roles", kind: "Role", namespaced: true },
     { name: "rolebindings", kind: "RoleBinding", namespaced: true },
+    { name: "clusterroles", kind: "ClusterRole", namespaced: false },
+    { name: "clusterrolebindings", kind: "ClusterRoleBinding", namespaced: false },
   ],
+  "cilium.io/v2": [{ name: "ciliumnetworkpolicies", kind: "CiliumNetworkPolicy", namespaced: true }],
   "networking.k8s.io/v1": [
     { name: "networkpolicies", kind: "NetworkPolicy", namespaced: true },
     { name: "ingresses", kind: "Ingress", namespaced: true },
@@ -109,7 +112,7 @@ const GROUPS: Record<string, ResourceDef[]> = {
     { name: "volumesnapshotclasses", kind: "VolumeSnapshotClass", namespaced: false },
   ],
 };
-const CRD_GROUPS = new Set(["cert-manager.io/v1", "externaldns.k8s.io/v1alpha1", "gateway.networking.k8s.io/v1", "snapshot.storage.k8s.io/v1"]);
+const CRD_GROUPS = new Set(["cilium.io/v2", "cert-manager.io/v1", "externaldns.k8s.io/v1alpha1", "gateway.networking.k8s.io/v1", "snapshot.storage.k8s.io/v1"]);
 
 /* ------------------------------- json helpers ------------------------------ */
 

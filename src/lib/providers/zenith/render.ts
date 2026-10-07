@@ -39,6 +39,7 @@ import { ingressToRoutes, rewriteRoutes, servableCustomHosts, sourceHostsByManag
 import { constrainAutoscalers } from "./autoscale";
 import { storageIntentFromNode, type ManagedStorageIntent } from "@/lib/managed-serving/storage";
 import { assertTenant, type ZenithSubstrate } from "./substrate";
+import { renderIsolationBundle, validateIsolationBundle, type IsolationBundle } from "./isolation-bundle";
 import { renderTenancy, tenantNamespace } from "./tenancy";
 import { TENANT_SERVICE_ACCOUNT, ZenithError, type ZenithTenant } from "./types";
 import { renderEnvironmentTls } from "./tls";
@@ -169,6 +170,8 @@ export interface ZenithRenderInput extends Pick<ToolkitRenderBase, "workloadIden
   verifiedDomains?: readonly string[];
   /** Render HorizontalPodAutoscalers for services with more than one replica, under the tier's policy (`autoscale.ts`). Default off. */
   autoscaling?: boolean;
+  /** hostnames this environment may reach on TCP 443 in addition to the platform's list; needs a substrate with a hostname-egress engine (MAN-04) */
+  egressFqdns?: readonly string[];
 }
 
 export interface ZenithRenderResult {
@@ -180,6 +183,8 @@ export interface ZenithRenderResult {
   /** Platform-owned Certificate/Gateway in the gateway namespace; never tenant toolkit input. */
   platformTls: K8sObject[];
   hostnames: HostMapping[];
+  /** platform-owned isolation extras (hostname egress policy, operator access, priority quota); applied by the platform's bootstrap path, never tenant input */
+  isolation: IsolationBundle;
   databases: ManagedDatabaseIntent[];
   /** tenant object stores to provision (scoped credentials); empty unless enabled */
   storage: ManagedStorageIntent[];
@@ -212,9 +217,13 @@ function imageResolver(substrate: ZenithSubstrate, built: Readonly<Record<string
   };
 }
 
-function withServiceAccount(obj: K8sObject): K8sObject {
+/** Pod defaults the platform owns: the tenant ServiceAccount and, when the substrate mandates one, the sandbox RuntimeClass. A value the node spec already set is left for the isolation gate to judge, never overwritten. */
+function withPodDefaults(obj: K8sObject, substrate: ZenithSubstrate): K8sObject {
   const clone = structuredClone(obj);
-  for (const pod of podSpecsOf(clone)) if (pod.serviceAccountName === undefined) pod.serviceAccountName = TENANT_SERVICE_ACCOUNT;
+  for (const pod of podSpecsOf(clone)) {
+    if (pod.serviceAccountName === undefined) pod.serviceAccountName = TENANT_SERVICE_ACCOUNT;
+    if (substrate.isolation?.runtimeClass !== undefined && pod.runtimeClassName === undefined) pod.runtimeClassName = substrate.isolation.runtimeClass;
+  }
   return clone;
 }
 
@@ -266,7 +275,8 @@ export function renderZenithEnvironment(input: ZenithRenderInput): ZenithRenderR
     ...(input.autoscaling === true && limits.maxAutoscaleReplicas > 0 ? { autoscale: true } : {}),
   });
 
-  const notes: string[] = [...tenancy.notes, ...rendered.notes];
+  const isolation = renderIsolationBundle(tenant, substrate, { egressFqdns: input.egressFqdns });
+  const notes: string[] = [...tenancy.notes, ...isolation.notes, ...rendered.notes];
   const workloads: K8sObject[] = [];
   const scaled = constrainAutoscalers(rendered.objects, tenant);
   notes.push(...scaled.notes);
@@ -276,7 +286,7 @@ export function renderZenithEnvironment(input: ZenithRenderInput): ZenithRenderR
       notes.push(...r.notes);
       workloads.push(...r.objects);
     } else {
-      workloads.push(withServiceAccount(obj));
+      workloads.push(withPodDefaults(obj, substrate));
     }
   }
   for (const d of input.verifiedDomains ?? []) {
@@ -292,6 +302,7 @@ export function renderZenithEnvironment(input: ZenithRenderInput): ZenithRenderR
 
   // the gate: nothing leaves this function that would escape the tenancy model
   assertTenantObjects([...tenancy.objects, ...workloads], { tenant, substrate, customHosts });
+  validateIsolationBundle(isolation, { tenant, substrate });
 
   // every rendered object must still carry this environment's ownership marks (the apply guard compares them)
   for (const o of workloads) {
@@ -306,6 +317,7 @@ export function renderZenithEnvironment(input: ZenithRenderInput): ZenithRenderR
     workloads,
     platformTls: renderEnvironmentTls(tenant, substrate, { customDomains: servedCustom }),
     hostnames: mappings,
+    isolation,
     databases,
     storage,
     customDomains: servedCustom,

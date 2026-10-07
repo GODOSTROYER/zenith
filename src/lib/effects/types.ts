@@ -26,11 +26,11 @@
 
 /**
  * Families wired into real callers: provider build launches (all providers), the destructive apply of a reviewed
- * destroy plan, and every mutating request sent through a runner HTTP proxy (`aws.http`, `oci.http`, `k8s.http`). A new family is a new migration (the family check) plus a resolver, never an implicit string.
+ * destroy plan, and every mutating request sent through a runner HTTP proxy (`aws.http`, `oci.http`, `k8s.http`), and the apply of a tenant isolation bundle (`isolation_apply`, migration 50). A new family is a new migration (the family check) plus a resolver, never an implicit string.
  * Workflow starts keep their own tombstone table (migration 12) and agent deliveries their immutable receipt table
  * (migration 11); both already preserve uncertainty and are projected through the operation they belong to.
  */
-export const EFFECT_FAMILIES = ["build_launch", "cleanup_apply", "proxy_request"] as const;
+export const EFFECT_FAMILIES = ["build_launch", "cleanup_apply", "proxy_request", "isolation_apply"] as const;
 export type EffectFamily = (typeof EFFECT_FAMILIES)[number];
 
 export const EFFECT_STATES = ["pending", "accepted", "uncertain", "conflict", "confirmed", "tombstoned"] as const;

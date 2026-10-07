@@ -1,0 +1,60 @@
+# The BOOTSTRAP identity for per-tenant operator separation (PROD-MAN-04): PLACEHOLDER, review it, never
+# applied by kustomization.yaml.
+#
+# What it does: creates a tenant's namespace and the per-tenant operator access that
+# `renderIsolationBundle` renders (ServiceAccount, Role, RoleBinding, and a ClusterRole and ClusterRoleBinding
+# limited by resourceNames to that one namespace), plus the hostname policy and quota of the bundle. Apply a
+# tenant's objects with this identity: scripts/isolation/render-tenant-bundle.ts prints them.
+#
+# Why it is dangerous: RBAC cannot scope namespace creation, and writing Roles and bindings requires `escalate`
+# and `bind` (or holding every permission being granted). This identity can therefore make any identity
+# powerful. It is the most sensitive credential on the platform:
+#   - held ONLY by platform automation, never by a tenant session or a tenant-reachable pod
+#   - short-lived tokens (TokenRequest), rotated, every use audited
+#   - NO access to Secret values: Secrets do not appear below, so compromise of this identity does not read tenant data
+#     directly, but it can grant itself access, so audit its RBAC writes
+# The per-tenant operator identities it creates are what Zenith sessions use afterwards.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zenith-bootstrap
+  namespace: zenith-system
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: zenith-tenant-bootstrap
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, create, patch]
+  - apiGroups: [""]
+    resources: [serviceaccounts, resourcequotas, limitranges]
+    verbs: [get, list, create, patch, delete]
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies]
+    verbs: [get, list, create, patch, delete]
+  - apiGroups: [cilium.io]
+    resources: [ciliumnetworkpolicies]
+    verbs: [get, list, create, patch, delete]
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources: [roles, rolebindings, clusterroles, clusterrolebindings]
+    verbs: [get, list, create, patch, delete, escalate, bind]
+  # tokens for the per-tenant operator ServiceAccounts, to hand to the vault prefix
+  - apiGroups: [""]
+    resources: [serviceaccounts/token]
+    verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: zenith-tenant-bootstrap
+subjects:
+  - kind: ServiceAccount
+    name: zenith-bootstrap
+    namespace: zenith-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: zenith-tenant-bootstrap

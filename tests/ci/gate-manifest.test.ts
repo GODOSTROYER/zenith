@@ -1,4 +1,4 @@
-import { historyCodecWorkflowId, incomingPlatformIds, incomingWorkflowFiles, incomingWorkflowIds, withoutIncomingPlatform } from "./incoming-cohort-fixture";
+import { historyCodecWorkflowId, mixedRunStorePlatformIds, incomingPlatformIds, incomingWorkflowFiles, incomingWorkflowIds, withoutIncomingPlatform } from "./incoming-cohort-fixture";
 /** Shared gate commands preserve required local engines and precisely scoped external acceptance. */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
-import { AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, MIXED_RUN_STORE_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 import { validateGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
@@ -2516,7 +2516,7 @@ describe("registered incident and ownership hardening [report models]", () => {
     const current = requirementsFor("platform-postgres", root), previous = priorHardeningPlatformRequirements();
     const added = INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
     expect(previous).toHaveLength(1119); expect(new Set(previous.map(item => item.id)).size).toBe(1119);
-    expect(current).toHaveLength(1141); expect(new Set(current.map(item => item.id)).size).toBe(1141);
+    expect(current).toHaveLength(1146); expect(new Set(current.map(item => item.id)).size).toBe(1146);
     expect(current.filter(item => hardeningPlatformIds.includes(item.id))).toEqual(added);
     expect(withoutIncomingPlatform(current).map(item => item.id).sort()).toEqual([...previous, ...added].map(item => item.id).sort());
     expect(priorCurrentSuccessorPlatformRequirements()).toHaveLength(1113);
@@ -2825,7 +2825,7 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     expect(manifest.excludeFiles).not.toContain(file);
     expect(manifest.command).not.toContain("--passWithNoTests");
     expect(reportFailures(named(), contractReport(named()), root)).toEqual([]);
-    expect(requirementsFor("platform-postgres", root)).toHaveLength(1141);
+    expect(requirementsFor("platform-postgres", root)).toHaveLength(1146);
     expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
     expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
     expect(requirementsFor("postgres", root)).toHaveLength(93);
@@ -3010,9 +3010,9 @@ describe("mandatory live agent journal PostgreSQL cases [report models]", () => 
 describe("incoming platform and workflow obligations", () => {
   it("requires every fixed additive native identity without losing historical obligations", () => {
     const current = requirementsFor("platform-postgres", root);
-    expect(current).toHaveLength(1141);
+    expect(current).toHaveLength(1146);
     const added = current.filter(item => incomingPlatformIds.has(item.id));
-    expect(added).toHaveLength(17);
+    expect(added).toHaveLength(22);
     expect(new Set(added.map(item => item.id))).toEqual(incomingPlatformIds);
     expect(withoutIncomingPlatform(current)).toHaveLength(1124);
     expect(withoutIncomingPlatform([...current, { ...current[0], id: "unknown-successor" }]).some(item => item.id === "unknown-successor")).toBe(true);
@@ -3057,5 +3057,74 @@ describe("full history codec successor admission", () => {
     }
     expect([...current.requirements, { ...codec[0], id: "unknown-successor" }]
       .filter(item => !incomingWorkflowIds.has(item.id)).some(item => item.id === "unknown-successor")).toBe(true);
+  });
+});
+
+
+// Report/source models for PROD-MIX-04; actual SQL evidence is the owning lane.
+describe("mixed run store application-boundary gate", () => {
+  const file = "tests/execution/mixed-run-store.test.ts";
+  const names = [
+    "refuses malformed 'state version' before create or save touches SQL",
+    "refuses malformed 'child attempts' before create or save touches SQL",
+    "refuses legacy logical environmentId mismatch without changing the retained row or ledger",
+    "refuses legacy logical desiredDigest mismatch without changing the retained row or ledger",
+    "preserves valid writes, ordered ledger and stale-version refusal",
+  ];
+  const named = () => requirementsFor("platform-postgres", root).filter(item => mixedRunStorePlatformIds.has(item.id));
+
+  it("adds exactly five PostgreSQL cases while preserving the complete 1141 predecessor and native 100", () => {
+    const current = requirementsFor("platform-postgres", root), required = named();
+    expect(required).toHaveLength(5);
+    expect(required).toEqual(names.map(test => {
+      const item = { file, suite: "mixed run store validation [postgres]", test, postgres: true };
+      return { ...item, id: requirementId("platform-postgres", item) };
+    }));
+    expect(MIXED_RUN_STORE_POSTGRES_REQUIREMENTS.map(item => item.test)).toEqual(names);
+    expect(new Set(required.map(item => item.id))).toEqual(mixedRunStorePlatformIds);
+    const prior = current.filter(item => !mixedRunStorePlatformIds.has(item.id));
+    expect(current).toHaveLength(1146); expect(prior).toHaveLength(1141);
+    expect(createHash("sha256").update(JSON.stringify(prior.map(item => item.id).sort())).digest("hex"))
+      .toBe("133320ef5a7fac2ba03281e597a3305d7cdf0957c61fe6b8c8b4704973d4cdd3");
+    expect(manifestFor("platform-postgres", root).files).toContain(file);
+    expect(manifestFor("platform-postgres", root).excludeFiles).not.toContain(file);
+    expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
+    expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
+    const future = { ...current[0], id: "future-mixed-successor" };
+    expect(withoutIncomingPlatform([...current, future])).toContainEqual(future);
+  });
+
+  it("rejects each missing failed skipped and PGlite observation despite passing siblings", () => {
+    const required = named();
+    expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+    for (const item of required) {
+      const missing = contractReport(required);
+      missing.testResults[0].assertionResults = missing.testResults[0].assertionResults.filter(assertion => assertion.title !== item.test);
+      expect(reportFailures(required, missing, root), item.id).toHaveLength(1);
+      for (const status of ["failed", "skipped", "pending"]) {
+        const changed = contractReport(required);
+        changed.testResults[0].assertionResults.find(assertion => assertion.title === item.test)!.status = status;
+        expect(reportFailures(required, changed, root), `${item.id}: ${status}`).toHaveLength(1);
+      }
+      const modeled = contractReport(required);
+      const assertion = modeled.testResults[0].assertionResults.find(value => value.title === item.test)!;
+      assertion.ancestorTitles = ["mixed run store validation [pglite]"];
+      assertion.fullName = [...assertion.ancestorTitles, assertion.title].join(" ");
+      expect(reportFailures(required, modeled, root), item.id).toHaveLength(1);
+    }
+  });
+
+  it("retains all five literal requirements after trusted source deletion", () => {
+    const sourceRoot = modelRoot(path.join(scratch, "deleted-mixed-store-"));
+    for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/execution"])
+      fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
+    fs.copyFileSync(path.join(root, file), path.join(sourceRoot, file));
+    const select = () => requirementsFor("platform-postgres", sourceRoot).filter(item => mixedRunStorePlatformIds.has(item.id));
+    const before = select(); expect(before).toHaveLength(5);
+    fs.unlinkSync(path.join(sourceRoot, file));
+    expect(select()).toEqual(before);
+    expect(reportFailures(before, { success: true, testResults: [] }, sourceRoot)).toHaveLength(5);
+    const source = fs.readFileSync(path.join(root, file));
+    expect(createHash("sha256").update(source).digest("hex")).toBe("87ea55e3784a21caf21620080c4e19b99fa79904c68b0a1efc1bbaf4d489c30d");
   });
 });

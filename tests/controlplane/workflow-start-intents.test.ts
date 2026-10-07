@@ -255,16 +255,48 @@ describe.skipIf(!PG_URL)("workflow start tombstone privileges [postgres]",()=>{
           const request:intents.StartRequest={kind:"dayTwo",arguments:{workspaceId:h.ids.wsA,operationId:proposed.id,environmentId:h.ids.envAProd,capability:"service.restart"},
             namespace:"default",endpointDigest:digest("owned tombstone privilege frontend"),taskQueue:"owned-tombstone-privileges"};
           const store=intents.createIsolatedStartIntentStoreForTests(broker);
-          await store.prepare(tx,request);const first=await store.claim(tx,request);
-          expect(first.dispatch).toBe(true);expect(first.intent.phase).toBe("attempted");
+          // Current start authority deliberately rebinds to the locked SQL
+          // store: it cannot authorize a new start against historical schema12.
+          await expect(store.prepare(tx,request)).rejects.toBeInstanceOf(intents.WorkflowStartIntentError);
+          expect(await intents.get(tx,h.ids.wsA,proposed.id)).toBeNull();
+          const operation=(await tx.query<{proposal_digest:string;input_digest:string}>(
+            "select proposal_digest,input_digest from platform.operations where workspace_id=$1 and id=$2",[h.ids.wsA,proposed.id]))[0];
+          const argumentsDigest=digest(request.arguments);
+          const binding:intents.StartBinding={...request,format:"zenith.workflow-start.v1",
+            workflowType:intents.WORKFLOW_START_TYPES.dayTwo,workflowId:`op-${proposed.id}`,argumentsDigest,
+            proposalDigest:operation.proposal_digest,inputDigest:operation.input_digest,
+            sourceDigest:digest({proposalDigest:operation.proposal_digest,inputDigest:operation.input_digest,argumentsDigest}),
+            configDigest:digest(intents.START_CONFIG)};
+          // Historical fixture construction only, not current start authorization.
+          // The real SQL operation, lease and consumed human approval guard this
+          // schema12 phase CAS; no transport or modern authority is simulated.
+          await tx.query("insert into platform.workflow_start_intents(workspace_id,operation_id,binding,binding_digest) values($1,$2,$3::jsonb,$4)",
+            [h.ids.wsA,proposed.id,JSON.stringify(binding),digest(binding)]);
+          await expect(store.claim(tx,request)).rejects.toBeInstanceOf(intents.WorkflowStartIntentError);
+          expect((await intents.get(tx,h.ids.wsA,proposed.id))?.phase).toBe("prepared");
+          const historicalFixtureAttempt=()=>tx.query<intents.WorkflowStartIntent>(`update platform.workflow_start_intents i
+            set phase='attempted',attempt_id=$3,attempted_at=clock_timestamp()
+            from platform.operations o where i.workspace_id=$1 and i.operation_id=$2 and i.phase='prepared'
+              and o.workspace_id=i.workspace_id and o.id=i.operation_id and o.status='running'
+              and o.expires_at>clock_timestamp() and o.lease_holder=$4 and o.lease_until>clock_timestamp()
+              and o.proposal_digest=$5 and o.input_digest=$6 and o.approval_required
+              and exists(select 1 from platform.approvals a where a.workspace_id=o.workspace_id and a.operation_id=o.id
+                and a.approval_round=o.approval_round and a.proposal_digest=o.proposal_digest
+                and a.approver_id='erin' and a.approver->>'kind'='user' and a.decision='approve'
+                and a.consumed_at is not null and a.expires_at>clock_timestamp()) returning i.*`,
+            [h.ids.wsA,proposed.id,randomUUID(),`workflow:${proposed.id}`,operation.proposal_digest,operation.input_digest]);
+          expect(await historicalFixtureAttempt()).toHaveLength(1);
+          const attempted=(await intents.get(tx,h.ids.wsA,proposed.id))!;
+          expect(attempted.phase).toBe("attempted");
           // Real PostgreSQL permission denial, not a mocked row-delete trigger.
           await expect(db.tx(async denied=>{await denied.query("set local role service_role");
             await denied.query("truncate table platform.workflow_start_intents");})).rejects.toMatchObject({sqlstate:"42501"});
           expect((await tx.query<{name:string}>("select current_user as name"))[0].name).toBe(owner);
-          expect(await intents.get(tx,h.ids.wsA,proposed.id)).toEqual(first.intent);
+          expect(await intents.get(tx,h.ids.wsA,proposed.id)).toEqual(attempted);
           expect(await tx.query("select id from platform.operations where workspace_id=$1 and id=$2 and status='running' and expires_at>clock_timestamp() and lease_until>clock_timestamp()",[h.ids.wsA,proposed.id])).toHaveLength(1);
+          expect(await historicalFixtureAttempt()).toHaveLength(0);
           const second=await store.claim(tx,request);
-          expect(second.dispatch).toBe(false);expect(second.intent.attempt_id).toBe(first.intent.attempt_id);
+          expect(second.dispatch).toBe(false);expect(second.intent.attempt_id).toBe(attempted.attempt_id);
           throw rollback;
         }).catch((error:unknown)=>error);
         expect(result).toBe(rollback);

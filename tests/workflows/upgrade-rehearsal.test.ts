@@ -119,13 +119,16 @@ describe("rolling worker upgrade with in-flight workflows", () => {
     });
     approved.add(oldInput.operationId);
     const results = await withBuild(h, newBundle, fake, taskQueue, async () => {
-      const fresh = await h.client.workflow.start(WORKFLOW_TYPES.deploy, { workflowId: WORKFLOW_ID(newInput.operationId), taskQueue, args: [newInput] });
       await signalApproval(oldInput.operationId, { client: h.client });
+      const resumed = await oldHandle.result() as WorkflowResult;
+      expect(resumed.status).toBe("succeeded");
+      expect(fake.lease.held, "the old run releases its environment before the fresh run starts").toBeUndefined();
+      const fresh = await h.client.workflow.start(WORKFLOW_TYPES.deploy, { workflowId: WORKFLOW_ID(newInput.operationId), taskQueue, args: [newInput] });
       await waitForStatus(fresh, "awaiting_approval");
       expect(fake.callsTo("applyInfrastructure").filter(c => (c.input as { operationId: string }).operationId === newInput.operationId)).toHaveLength(0);
       approved.add(newInput.operationId);
       await signalApproval(newInput.operationId, { client: h.client });
-      return [await oldHandle.result(), await fresh.result()] as WorkflowResult[];
+      return [resumed, await fresh.result()] as WorkflowResult[];
     });
     expect(results.map((r) => r.status)).toEqual(["succeeded", "succeeded"]);
   }, 120_000);

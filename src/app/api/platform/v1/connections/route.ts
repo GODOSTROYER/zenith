@@ -2,7 +2,7 @@
  * GET  /api/platform/v1/connections          list (viewer; person or linked credential)
  * POST /api/platform/v1/connections          create (admin; browser only)
  *
- * POST body: `{ provider: "gcp" | "azure" | "oci", ...identifiers }`. AWS and
+ * POST body: `{ provider: "gcp" | "azure" | "oci" | "zenith", ...identifiers }` (zenith takes only an optional label). AWS and
  * Kubernetes creation keep their dedicated web flows (`/platform/connections/aws`,
  * Settings, Connections) because they hand back trust values the person must
  * act on; every provider is verified, revoked and rotated here.
@@ -16,8 +16,8 @@ import { browserCaller, idempotencyKey, personOrCredentialCaller, runLifecycle }
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const ACTION = { gcp: "connection.createGcp", azure: "connection.createAzure", oci: "connection.createOci" } as const;
-const Body = z.object({ provider: z.enum(["gcp", "azure", "oci"]) }).passthrough();
+const ACTION = { gcp: "connection.createGcp", azure: "connection.createAzure", oci: "connection.createOci", zenith: "connection.createZenith" } as const;
+const Body = z.object({ provider: z.enum(["gcp", "azure", "oci", "zenith"]) }).passthrough();
 
 export const GET = platformRoute(async (req) => {
   const caller = await personOrCredentialCaller(req);

@@ -18,7 +18,7 @@ import type {
 import { parseRoleArn } from "@/lib/credentials/aws/arn";
 import { PROJECT_ID_RE, REGION_RE, SA_EMAIL_RE } from "@/lib/providers/gcp/validate";
 
-export const LIFECYCLE_PROVIDERS = ["aws", "gcp", "azure", "oci", "kubernetes"] as const;
+export const LIFECYCLE_PROVIDERS = ["aws", "gcp", "azure", "oci", "kubernetes", "zenith"] as const;
 export type LifecycleProvider = (typeof LIFECYCLE_PROVIDERS)[number];
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -47,6 +47,10 @@ export const CreateGcpInput = z.object({
   stateKmsKey: z.string().max(400).regex(/^projects\/[a-z0-9-]+\/locations\/[a-z0-9-]+\/keyRings\/[A-Za-z0-9_-]+\/cryptoKeys\/[A-Za-z0-9_-]+$/, "Use a Cloud KMS key resource name.").optional(),
 }).strict();
 export type CreateGcpInput = z.infer<typeof CreateGcpInput>;
+
+/** The Zenith-managed platform holds nothing of the customer's, so the only input is an optional label. */
+export const CreateZenithInput = z.object({ label }).strict();
+export type CreateZenithInput = z.infer<typeof CreateZenithInput>;
 
 export const CreateAzureInput = z.object({
   label,

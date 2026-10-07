@@ -19,7 +19,7 @@ import {
   type CreateProviderInput,
 } from "@/lib/connections/service";
 import {
-  ConnectionRef, CreateAzureInput, CreateGcpInput, CreateOciInput, RevokeInput, RotateInput, RotationRef,
+  ConnectionRef, CreateAzureInput, CreateGcpInput, CreateOciInput, CreateZenithInput, RevokeInput, RotateInput, RotationRef,
 } from "@/lib/connections/schemas";
 
 const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
@@ -52,7 +52,7 @@ const basePlan = (summary: string, details: string[], extra: Partial<ActionPlan>
 
 /* ---------------------------------- create --------------------------------- */
 
-function createAction<S extends z.ZodTypeAny>(provider: "gcp" | "azure" | "oci", id: string, title: string, schema: S, details: string[]) {
+function createAction<S extends z.ZodTypeAny>(provider: "gcp" | "azure" | "oci" | "zenith", id: string, title: string, schema: S, details: string[]) {
   defineAction<z.infer<S>>({
     id, title, category: "connection", risk: "medium", requiredRole: "admin", mutates: true, input: schema,
     async plan(ctx) {
@@ -78,6 +78,10 @@ createAction("gcp", "connection.createGcp", "Connect Google Cloud keylessly", Cr
 ]);
 createAction("azure", "connection.createAzure", "Connect Azure keylessly", CreateAzureInput, [
   "Zenith signs in as your federated application; it never holds a client secret.",
+]);
+createAction("zenith", "connection.createZenith", "Use the Zenith-managed platform", CreateZenithInput, [
+  "Zenith operates the infrastructure for this connection, so nothing of yours is granted, stored or revoked: no role, key, token or trust.",
+  "Environments on it run in per-environment namespaces on the managed cluster. Per-tenant isolation of that cluster is the operator's responsibility and is verified separately from this connection.",
 ]);
 createAction("oci", "connection.createOci", "Connect OCI through a runner", CreateOciInput, [
   "OCI credentials never leave your tenancy: jobs run on your registered zenith-runner using its own principal.",

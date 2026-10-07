@@ -37,6 +37,7 @@ export const NEEDS: Record<string, Role> = {
   "connection.createGcp": "admin",
   "connection.createAzure": "admin",
   "connection.createOci": "admin",
+  "connection.createZenith": "admin",
   "connection.verify": "editor",
   "connection.revoke": "admin",
   "connection.rotate": "admin",

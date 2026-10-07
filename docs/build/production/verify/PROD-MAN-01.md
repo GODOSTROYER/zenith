@@ -242,3 +242,62 @@ schedule or route.
 ## 5. Suggested ledger implementationStatus
 
 `partial: default managed substrate composition built (session opener, tenant resolution, plan/apply, source build, release, teardown opener) with contract tests and a local kind + Calico harness, none run by the author; no product front door for provider zenith, shared operator credential, shared build namespace, 700 KiB source limit, no live hosted acceptance`
+
+## 6. Follow-up: the product front door and managed database teardown (completes the WIP commit e2ee7ed4)
+
+Not RUN by the author (worker rules). `tsc --noEmit` and `eslint` over every changed file are the only checks made.
+
+### Front door: a managed environment can now be created through the product
+
+- `ProviderId` includes `zenith`; `ConnectionConfig` has `ZenithConnectionConfig` (non-secret: `{ provider, mode: "managed", region }`).
+  Every exhaustive switch was fixed without casts (identity, scope text, revocation steps, rotation refusal). The capability
+  matrix and the offered catalog regenerate unchanged (checked: both "already up to date").
+- `connection.createZenith` (`connection-lifecycle.ts`; admin, human only, refused for agents and the Navigator like every
+  other connection-creation verb) records the platform row and its product mirror through `createProviderConnection`. It
+  reads the region label from the configured substrate and refuses with the variable names when the substrate is not
+  configured. One live managed connection per workspace. No OIDC issuer is needed (nothing is federated).
+- Verification (`verifyAnyConnection`, reached by `connection.verify`, the REST `verify` route and now also
+  `connection.check` for a zenith connection) records `verified`/`failed` on the platform row (what the deploy route reads)
+  and mirrors it to the product row. It states only that the managed substrate is configured: no cluster call, no tenant
+  session, and no claim about tenant isolation.
+- Surfaces: REST `POST /api/platform/v1/connections` accepts `provider: "zenith"`; Platform, Connections has a "Zenith
+  managed" tab; Settings, Connections has a "Use the managed platform" card (runs `connection.createZenith` through the
+  plan/confirm dialog); the environment form's connection picker lists the connection once verified (`unusableReason` reads
+  the registered adapter, which is now `src/lib/providers/zenith/adapter.ts`, registered by `ensureEngine`).
+  `connection.create` (the legacy sandbox-style verb) refuses `zenith` and points at `connection.createZenith`.
+- MCP: environments are created through `env.create`, which the capability bridge already exposes; it takes a
+  `connectionId`, so an agent creates a managed environment by naming the workspace's zenith connection. Creating the
+  connection itself stays human-only (`connection.createZenith` is in the bridge's refused list in
+  `tests/capabilities/action-bridge.test.ts`).
+- The adapter is `available` and always refuses `planSteps`/`executeStep`/`exportBundle` with a message naming the
+  execution plane: a zenith environment is a real-provider route, so it is never run by the in-process engine.
+
+### Teardown inventories and tears down managed databases
+
+`destroy.ts` (`zenithDatabaseInventory`, `directCall`): for a zenith environment the worker builds the complete managed
+database inventory from the deployed graph PLUS removed resources merged from the workspace-scoped store (provider id from
+the stored row) and attaches it to the tenant session as `teardown.databases`. Before this, the provider teardown always saw
+"no inventory", reported `ManagedDatabase/<ns>/*` uncertain and so every managed teardown was refused at review.
+Ownership proof is layered: only `managed` nodes on provider `zenith` are listed; a stored row must agree on kind,
+provider, workspace and environment; adoption claims are still checked by `assertTeardownOwnership`; and the database
+adapter's own delete refuses a provider project that is not the one created for this exact (workspace, environment,
+address). Policy: `deny` is always retained, `approval` deletes only when `approved`, `allow` deletes. `approved` is true at
+review/verify (nothing is deleted; the destroy operation's digest-bound human approval covers exactly the reviewed list) and
+at apply only after the fresh `checkDestroyApproval` re-check passes. The managed-database port comes from
+`managed.databaseRuntime` and is passed to the session opener only when the inventory is non-empty; failure to build it is a
+refusal, never an empty inventory. A caller-supplied `withZenithSession` (contract tests) keeps full control of its session.
+`directPlan` now also flags a `ManagedDatabase/...` deletion as `destroysData`.
+
+Tests written, not run: `tests/execution/zenith-destroy-databases.test.ts`, `tests/connections/zenith-connection.test.ts`;
+`tests/capabilities/action-bridge.test.ts` lists `connection.createZenith`.
+Verify with: `npx vitest run tests/execution/zenith-destroy-databases.test.ts tests/execution/destroy-providers.test.ts tests/connections tests/capabilities/action-bridge.test.ts tests/providers/zenith`.
+
+### Known gaps
+
+1. Per-tenant isolation (separate credentials/namespaces/limits per tenant on the shared cluster) is NOT addressed here; it is
+   left to the merge join with MAN-04/05. A zenith connection and its verification say nothing about it.
+2. A database created at the provider whose resource row was never recorded (apply failed between create and row write) is not
+   in the inventory; the port has no list operation. Teardown cannot discover it.
+3. `connection.createZenith` has no PGlite lifecycle test (needs a configured substrate fixture); the preflight/verify branch
+   is covered only at contract level.
+4. Assembler: add the two new test files to the gate manifest lanes.

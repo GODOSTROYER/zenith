@@ -33,9 +33,11 @@ import { ControlStoreError } from "@/lib/controlplane/db/errors";
 import type { ConnectionRotation } from "@/lib/controlplane/db/repos/connection-rotations";
 import { findSecret } from "@/lib/capabilities/secret-guard";
 import { azureCloud } from "@/lib/providers/azure/cloud";
+import { ManagedSubstrateError } from "@/lib/providers/zenith/managed-port";
+import { defaultManagedSubstrate } from "@/lib/platform/zenith-managed";
 import {
   applyRotationPatch, azureConfig, gcpConfig, LifecycleInputError, ociConfig, runnerOf,
-  type CreateAzureInput, type CreateGcpInput, type CreateOciInput, type RotateInput, type RotationRef,
+  type CreateAzureInput, type CreateGcpInput, type CreateOciInput, type CreateZenithInput, type RotateInput, type RotationRef,
 } from "./schemas";
 
 /* ----------------------------------- views --------------------------------- */
@@ -172,7 +174,8 @@ export async function describeConnection(ctx: ActionContext, connectionId: strin
 export type CreateProviderInput =
   | { provider: "gcp"; input: CreateGcpInput }
   | { provider: "azure"; input: CreateAzureInput }
-  | { provider: "oci"; input: CreateOciInput };
+  | { provider: "oci"; input: CreateOciInput }
+  | { provider: "zenith"; input: CreateZenithInput };
 
 export interface TrustValues {
   subject?: string;
@@ -181,7 +184,8 @@ export interface TrustValues {
   steps: string[];
 }
 
-export function trustFor(ctx: ActionContext, provider: "gcp" | "azure" | "oci", connectionId: string, config: ConnectionConfig): TrustValues {
+export function trustFor(ctx: ActionContext, provider: "gcp" | "azure" | "oci" | "zenith", connectionId: string, config: ConnectionConfig): TrustValues {
+  if (provider === "zenith") return { steps: ["Nothing to set up: the managed platform is the operator, so no role, key or trust is created in any account of yours.", "Run verify to confirm the managed substrate is configured, then create an environment on this connection."] };
   if (provider === "oci") {
     return { steps: [
       "Run zenith-runner in your OCI tenancy with an instance or resource principal that can read the compartment.",
@@ -214,9 +218,17 @@ export async function createProviderConnection(ctx: ActionContext, request: Crea
   let region: string;
   if (request.provider === "gcp") { config = gcpConfig(request.input); label = labelOf(request.input, `GCP ${request.input.projectId}`); region = request.input.region; }
   else if (request.provider === "azure") { config = azureConfig(request.input); label = labelOf(request.input, `Azure ${request.input.subscriptionId.slice(0, 8)}`); region = request.input.region; }
+  else if (request.provider === "zenith") {
+    try { region = defaultManagedSubstrate().substrate().region; }
+    catch (error) { throw new LifecycleRefusal(error instanceof ManagedSubstrateError ? error.message : "The Zenith-managed platform is not configured on this installation.", "unavailable"); }
+    config = { provider: "zenith", mode: "managed", region };
+    label = labelOf(request.input, "Zenith managed platform");
+    const existing = await (async () => { const { repos, sql } = await stores(); return (await repos.connections.list(sql, ctx.workspaceId, { provider: "zenith" })).filter((c) => c.status !== "revoked"); })();
+    if (existing.length) throw new LifecycleRefusal("This workspace already has a Zenith-managed connection. Create environments on it, or revoke it first.", "invalid_state");
+  }
   else { config = ociConfig(request.input); label = labelOf(request.input, `OCI ${request.input.region}`); region = request.input.region; await activeRunner(ctx, request.input.runnerId); }
   if (findSecret(label)) throw new LifecycleRefusal("Use a label without secret material.", "invalid_input");
-  if (request.provider !== "oci" && !issuerHost()) throw new LifecycleRefusal("Set ZENITH_OIDC_ISSUER to the public HTTPS issuer URL, then create this connection.", "unavailable");
+  if (request.provider !== "oci" && request.provider !== "zenith" && !issuerHost()) throw new LifecycleRefusal("Set ZENITH_OIDC_ISSUER to the public HTTPS issuer URL, then create this connection.", "unavailable");
 
   const { repos, sql } = await stores();
   const connectionId = id();
@@ -256,7 +268,7 @@ const SCOPE: Record<ConnectionConfig["provider"], string> = {
   azure: "Federated identity read of the configured subscription only; deploy permissions remain unverified.",
   oci: "The registered runner is active and advertises oci.http; OCI identity and permissions remain unverified.",
   kubernetes: "Default ServiceAccount read in each saved namespace; deployment permissions remain unverified.",
-  zenith: "The managed substrate is configured and a tenant session can be opened for this workspace; the cluster's own isolation is not established by this check.",
+  zenith: "The managed substrate is configured on this installation. No cluster call is made and no tenant session is opened here; tenant isolation is established per environment, not by this check.",
 };
 
 /**
@@ -277,6 +289,16 @@ export async function verifyAnyConnection(ctx: ActionContext, connectionId: stri
     const result = await getAction(provider === "aws" ? "connection.verifyAws" : "connection.verifyKubernetes").execute(ctx, { connectionId });
     ok = result.ok;
     detail = result.ok ? result.summary : (result.error ?? result.summary);
+  } else if (provider === "zenith") {
+    // The platform is the operator: there is no customer credential to broker. Verification states whether the managed
+    // substrate is configured; it never opens a tenant session and proves nothing about a tenant's isolation.
+    const status = defaultManagedSubstrate().status();
+    ok = status.configured;
+    const unready = Object.entries(status.description.components).filter(([, c]) => c.state !== "configured").map(([name, c]) => `${name} (${c.detail})`);
+    detail = ok ? "The managed substrate is configured; no cluster call was made." : `The managed substrate is not configured: ${unready.join(", ") || "see ZENITH_MANAGED_* variables"}.`;
+    const recorded = await repos.connections.recordVerification(sql, { workspaceId: ctx.workspaceId, id: row.id, ok, detail: detail.slice(0, 900) });
+    if (!recorded) throw new LifecycleRefusal("The connection was revoked during verification; the result was not recorded.");
+    await mirrorProduct(ctx, row, (conn) => { conn.status = ok ? "healthy" : "disconnected"; conn.lastCheckedAt = new Date().toISOString(); });
   } else {
     const broker = await bridgeDeps().providerBroker(sql);
     const result = await broker.verifyConnection(row.id, { workspaceId: ctx.workspaceId });

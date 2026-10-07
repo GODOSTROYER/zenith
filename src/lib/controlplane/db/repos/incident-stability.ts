@@ -718,7 +718,7 @@ export async function listRepairsAwaitingVerification(sql: Sql, input: { workspa
   const environmentId = requireText("environmentId", input.environmentId);
   await syncAttemptOutcomes(sql, { workspaceId, now: input.now });
   const rows = await sql.query<{ id: string; incident_id: string; fingerprint: string; resource_id: string | null; operation_id: string; status: "succeeded" | "failed"; settled_at: string | null }>(
-    `select distinct on (a.incident_id) a.id, a.incident_id, a.fingerprint, a.resource_id, a.operation_id, a.status, ${iso("a.settled_at")} as settled_at
+    `select distinct on (a.incident_id) a.id, a.incident_id, a.fingerprint, a.resource_id, a.operation_id, a.status, to_char(a.settled_at at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as settled_at
        from platform.incident_remediation_attempts a
        join platform.incidents i on i.workspace_id = a.workspace_id and i.id = a.incident_id
       where a.workspace_id = $1 and a.environment_id = $2 and a.capability = 'drift.repair'

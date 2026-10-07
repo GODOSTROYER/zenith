@@ -105,10 +105,7 @@ export async function list(sql: Sql, workspaceId: string, environmentId: string,
   return rows.map(record);
 }
 
-async function transition(sql: Sql, workspaceId: string, id: string, from: RestoreStatus, set: string, params: readonly unknown[], requireLive: boolean): Promise<StateRestoreRecord> {
-  const rows = await sql.query<Row>(
-    `update platform.state_backend_restores set ${set} where workspace_id=$1 and id=$2 and status='${from}'${requireLive ? " and expires_at > clock_timestamp()" : ""} returning ${COLUMNS}`,
-    [workspaceId, id, ...params]);
+function transitionResult(rows: Row[], from: RestoreStatus): StateRestoreRecord {
   if (!rows[0]) throw new StateRecoveryRecordError(`not_${from}`);
   return record(rows[0]);
 }
@@ -123,17 +120,29 @@ export async function approve(sql: Sql, input: { workspaceId: string; id: string
   return record(rows[0]);
 }
 export async function reject(sql: Sql, input: { workspaceId: string; id: string; approverId: string }): Promise<StateRestoreRecord> {
-  return transition(sql, input.workspaceId, input.id, "proposed", `status='rejected', approved_by=$3, approved_at=clock_timestamp()`, [input.approverId], false);
+  return transitionResult(await sql.query<Row>(
+    `update platform.state_backend_restores set status='rejected', approved_by=$3, approved_at=clock_timestamp()
+     where workspace_id=$1 and id=$2 and status='proposed' returning ${COLUMNS}`,
+    [input.workspaceId, input.id, input.approverId]), "proposed");
 }
 /** Exactly one executor wins this transition; a lost response never re-enters it. */
 export async function beginExecution(sql: Sql, workspaceId: string, id: string): Promise<StateRestoreRecord> {
-  return transition(sql, workspaceId, id, "approved", `status='executing'`, [], true);
+  return transitionResult(await sql.query<Row>(
+    `update platform.state_backend_restores set status='executing'
+     where workspace_id=$1 and id=$2 and status='approved' and expires_at > clock_timestamp() returning ${COLUMNS}`,
+    [workspaceId, id]), "approved");
 }
 export async function complete(sql: Sql, workspaceId: string, id: string, input: { restoredVersionId: string; readbackSha256: string }): Promise<StateRestoreRecord> {
-  return transition(sql, workspaceId, id, "executing", `status='restored', restored_version_id=$3, readback_sha256=$4`, [input.restoredVersionId, input.readbackSha256], false);
+  return transitionResult(await sql.query<Row>(
+    `update platform.state_backend_restores set status='restored', restored_version_id=$3, readback_sha256=$4
+     where workspace_id=$1 and id=$2 and status='executing' returning ${COLUMNS}`,
+    [workspaceId, id, input.restoredVersionId, input.readbackSha256]), "executing");
 }
 export async function failUncertain(sql: Sql, workspaceId: string, id: string, failureCode: string): Promise<StateRestoreRecord> {
-  return transition(sql, workspaceId, id, "executing", `status='failed_uncertain', failure_code=$3`, [/^[a-z_]{1,48}$/.test(failureCode) ? failureCode : "unknown"], false);
+  return transitionResult(await sql.query<Row>(
+    `update platform.state_backend_restores set status='failed_uncertain', failure_code=$3
+     where workspace_id=$1 and id=$2 and status='executing' returning ${COLUMNS}`,
+    [workspaceId, id, /^[a-z_]{1,48}$/.test(failureCode) ? failureCode : "unknown"]), "executing");
 }
 /** Mark unreviewed or unexecuted proposals past their deadline. Returns how many changed. Rows are never deleted. */
 export async function expireStale(sql: Sql, workspaceId: string): Promise<number> {

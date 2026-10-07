@@ -163,7 +163,10 @@ describe.each(STORE_KINDS)("standing grants [%s]", (kind) => {
     it("keeps separation of duties: an agent acting for the grant's creator is not self-approved", async () => {
       const h = await makeHarness({ kind, engine: engine(true) });
       await create(h);
+      const integration = h.world.integrations.get(`${h.ids.wsA}|${h.ids.intRW}`)!;
+      integration.subject = "alice";
       expect((await proposeRestart(h, agent(h, "alice"))).operation.status).toBe("awaiting_approval");
+      integration.subject = "bob";
       expect((await proposeRestart(h, agent(h, "bob"))).operation.status).toBe("approved");
     });
 

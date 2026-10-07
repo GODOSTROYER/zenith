@@ -164,32 +164,31 @@ describe("planInfrastructure", () => {
   });
 
   it("reports a cost delta from the cost port: new cost minus the deployed revision's, zero for a redeploy, absent when unknown", async () => {
+    const firstEstimates: number[] = [];
+    const cost: import("@/lib/execution/ports").CostPort = { estimate: async graph => {
+      firstEstimates.push(graph.nodes.length);
+      return { monthlyUsd: graph.nodes.length, catalogVersion: "test-1" };
+    } };
+    // Each changed deployed revision is a separate proposal and review.
+    const firstWorld = world({ cost });
+    const first = await firstWorld.activities.planInfrastructure({ operationId: OP, lease: await firstWorld.lease() });
+    const evidence = firstWorld.evidence.ofKind("tofu_plan")[0].summary.cost as { deltaUsdMonthly: number; projectedMonthlyUsd: number; catalogVersion: string };
+    expect(first.costDeltaUsdMonthly).toBe(firstEstimates[0]);
+    expect(evidence).toEqual({ deltaUsdMonthly: firstEstimates[0], projectedMonthlyUsd: firstEstimates[0], catalogVersion: "test-1" });
+
     const estimates: number[] = [];
-    const w = world({
-      cost: {
-        estimate: async (graph) => {
-          estimates.push(graph.nodes.length);
-          return { monthlyUsd: graph.nodes.length, catalogVersion: "test-1" };
-        },
-      },
-    });
-    const lease = await w.lease();
-    // first deploy: the whole monthly cost is new
-    const first = await w.activities.planInfrastructure({ operationId: OP, lease });
-    expect(first.costDeltaUsdMonthly).toBe(estimates[0]);
-    const evidence = w.evidence.ofKind("tofu_plan")[0].summary.cost as { deltaUsdMonthly: number; projectedMonthlyUsd: number; catalogVersion: string };
-    expect(evidence).toEqual({ deltaUsdMonthly: estimates[0], projectedMonthlyUsd: estimates[0], catalogVersion: "test-1" });
+    const changedWorld = world({ cost: { estimate: async graph => {
+      estimates.push(graph.nodes.length);
+      return { monthlyUsd: graph.nodes.length, catalogVersion: "test-1" };
+    } } });
+    changedWorld.product.setManifest(bucketManifest(), "rev-old");
+    changedWorld.product.base.environment.deployedRevisionId = "rev-old";
+    const second = await changedWorld.activities.planInfrastructure({ operationId: OP, lease: await changedWorld.lease() });
+    expect(second.costDeltaUsdMonthly).toBe(estimates[0] - estimates.at(-1)!);
 
-    // a different deployed revision: the delta is the difference of the two estimates
-    w.product.setManifest(bucketManifest(), "rev-old");
-    w.product.base.environment.deployedRevisionId = "rev-old";
-    const second = await w.activities.planInfrastructure({ operationId: OP, lease });
-    const before = estimates.at(-1)!;
-    expect(second.costDeltaUsdMonthly).toBe(estimates.at(-3)! - before);
-
-    // redeploying what is deployed: no cost change
-    w.product.base.environment.deployedRevisionId = "rev-act-1";
-    expect((await w.activities.planInfrastructure({ operationId: OP, lease })).costDeltaUsdMonthly).toBe(0);
+    const redeployWorld = world({ cost });
+    redeployWorld.product.base.environment.deployedRevisionId = "rev-act-1";
+    expect((await redeployWorld.activities.planInfrastructure({ operationId: OP, lease: await redeployWorld.lease() })).costDeltaUsdMonthly).toBe(0);
   });
 
   it("leaves the cost delta absent (never zero) when there is no estimate or the estimator fails", async () => {

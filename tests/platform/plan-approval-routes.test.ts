@@ -58,7 +58,7 @@ describe("plan gate over browser REST", () => {
     expect(await read.json()).toMatchObject({ operation: { approvalRound: 1 }, planReview: { planDigest: plan.planDigest, view: { planDigest: plan.planDigest }, cost: {}, decision: { outcome: "require_approval" } } });
     const reply = await call(approve, { proposalDigest: op.proposalDigest, planDigest: plan.planDigest });
     expect(reply.status).toBe(200); expect(await reply.json()).toMatchObject({ operation: { status: "approved", approvalRound: 1 }, signal: { delivered: true } });
-    expect(signal).toHaveBeenCalledExactlyOnceWith(op.id);
+    expect(signal).toHaveBeenCalledExactlyOnceWith(op.id, h.ids.wsA);
   });
   it.each([undefined, "f".repeat(64)])("refuses the missing or stale digest %s without recording a plan approval or signalling", async (planDigest) => {
     const reply = await call(approve, { proposalDigest: op.proposalDigest, planDigest });
@@ -72,7 +72,7 @@ describe("plan gate over browser REST", () => {
   it("rejects without a readable plan digest and wakes the workflow", async () => {
     const reply = await call(reject, { proposalDigest: op.proposalDigest });
     expect(reply.status).toBe(200); expect(await reply.json()).toMatchObject({ operation: { status: "rejected" }, signal: { delivered: true } });
-    expect(signal).toHaveBeenCalledExactlyOnceWith(op.id);
+    expect(signal).toHaveBeenCalledExactlyOnceWith(op.id, h.ids.wsA);
   });
   it("reports delivery failure without pretending the persisted approval failed or leaking transport errors", async () => {
     signal.mockRejectedValueOnce(new Error("TRANSPORT-SECRET-CANARY"));

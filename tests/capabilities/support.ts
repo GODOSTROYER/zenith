@@ -149,6 +149,7 @@ export interface Ids {
   envASbx: string;
   envBProd: string;
   resAWebProd: string;
+  resAWebStg: string;
   resADbProd: string;
   resAWebSbx: string;
   resBWeb: string;
@@ -227,6 +228,7 @@ export async function makeHarness(options: { kind?: StoreKind; engine?: PolicyEn
     envASbx: `${p}_envASbx`,
     envBProd: `${p}_envBProd`,
     resAWebProd: `${p}_resAWebProd`,
+    resAWebStg: `${p}_resAWebStg`,
     resADbProd: `${p}_resADbProd`,
     resAWebSbx: `${p}_resAWebSbx`,
     resBWeb: `${p}_resBWeb`,
@@ -249,6 +251,7 @@ export async function makeHarness(options: { kind?: StoreKind; engine?: PolicyEn
     ]),
     resources: new Map([
       [ids.resAWebProd, { environmentId: ids.envAProd, facts: managedService }],
+      [ids.resAWebStg, { environmentId: ids.envAStg, facts: managedService }],
       [ids.resADbProd, { environmentId: ids.envAProd, facts: { address: "resource/db", kind: "postgres", stateful: true, ownership: "managed", publiclyExposed: false } }],
       [ids.resAWebSbx, { environmentId: ids.envASbx, facts: managedService }],
       [ids.resBWeb, { environmentId: ids.envBProd, facts: managedService }],
@@ -351,7 +354,7 @@ export type Where = "prod" | "stg" | "sbx";
 export function requestFor(h: Harness, capability: CapabilityName, where: Where = "prod", extra: Record<string, unknown> = {}): Record<string, unknown> {
   const def = CAPABILITIES[capability];
   const env = where === "prod" ? h.ids.envAProd : where === "stg" ? h.ids.envAStg : h.ids.envASbx;
-  const resource = where === "prod" ? h.ids.resAWebProd : where === "sbx" ? h.ids.resAWebSbx : undefined;
+  const resource = where === "prod" ? h.ids.resAWebProd : where === "sbx" ? h.ids.resAWebSbx : h.ids.resAWebStg;
   const scope: Record<string, string> = { workspaceId: h.ids.wsA };
   if (def.scopeLevel !== "workspace") scope.projectId = h.ids.projA;
   if (def.scopeLevel === "environment" || def.scopeLevel === "resource") scope.environmentId = env;

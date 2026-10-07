@@ -232,8 +232,14 @@ describe.skipIf(!PG_URL)("workflow start tombstone privileges [postgres]",()=>{
           for(const privilege of ["SELECT","INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"])
             expect((await tx.query<{allowed:boolean}>("select has_table_privilege('service_role','platform.workflow_start_intents',$1) as allowed",[privilege]))[0].allowed,
               `${mode}: ${privilege}`).toBe(["SELECT","INSERT","UPDATE"].includes(privilege));
+          // This fixture declares historical schema12, before standing grants.
+          // Only that optional port is absent; approvals, claims and tombstones
+          // continue through the actual historical SQL authority.
+          expect((await tx.query<{table_name:string|null}>("select to_regclass('platform.standing_grant_uses')::text as table_name"))[0].table_name).toBeNull();
           const h=await makeHarness({kind:"memory",engine:scriptedEngine("tombstone-privilege-one",()=>requireApproval(1,"admin"))});
-          const deps={...h.deps,store:new PlatformBrokerStore(tx),clock:{now:()=>new Date()}};
+          const legacyStore = new PlatformBrokerStore(tx);
+          Object.defineProperty(legacyStore, "standingGrants", { value: undefined });
+          const deps={...h.deps,store:legacyStore,clock:{now:()=>new Date()}};
           const broker=createBroker(deps),bound={...h,broker,deps,store:deps.store};
           const proposed=await proposeOk(bound,requestFor(bound,"service.restart","prod"),user("bob"));
           await approveAs(bound,proposed.operation,"erin");

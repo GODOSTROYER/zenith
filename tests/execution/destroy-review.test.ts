@@ -1,3 +1,4 @@
+import { operationPlanReview } from "@/lib/controlplane/db/repos/operation-review";
 /** Real PGlite ledger, broker and committed OPA; cloud/Tofu/product ports are explicit contract fakes. */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDestroyActivities } from "@/lib/execution/destroy";
@@ -104,7 +105,7 @@ describe("first destroy review", () => {
     const { h, scope, agent, review, w } = await setup(); const result = await review();
     const op = (await h.store.getOperation(scope.workspaceId, result.operationId))!;
     const decide = (actor = user("erin"), planDigest?: string) => h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest,
-      planDigest, approver: actor, session: sessionFor(actor.id) });
+      planDigest, semanticsDigest: operationPlanReview(op)?.semantics?.digest, approver: actor, session: sessionFor(actor.id) });
     await expect(decide(agent, result.planDigest)).rejects.toMatchObject({ code: "approver_not_human" });
     await expect(decide(user("erin"), undefined)).rejects.toMatchObject({ code: "digest_mismatch" });
     await expect(decide(user("erin"), "b".repeat(64))).rejects.toMatchObject({ code: "digest_mismatch" });
@@ -124,7 +125,7 @@ describe("first destroy review", () => {
     const { h, scope, agent, review } = await setup(); const result = await review();
     const op = (await h.store.getOperation(scope.workspaceId, result.operationId))!;
     h.world.integrations.get(`${scope.workspaceId}|${agent.id}`)!.scopes = [];
-    await expect(h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: result.planDigest,
+    await expect(h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: result.planDigest, semanticsDigest: operationPlanReview(op)?.semantics?.digest,
       approver: user("erin"), session: sessionFor("erin") })).rejects.toMatchObject({ code: "policy_denied" });
   });
   it("does not replace or cancel a teardown approved at the cancellation boundary", async () => {
@@ -137,7 +138,7 @@ describe("first destroy review", () => {
     const cancel = vi.spyOn(h.store, "cancelOperation").mockImplementation(async (input) => {
       if (input.id === op.id) {
         expect(input.expectedStatus).toBe("awaiting_approval");
-        await h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: first.planDigest,
+        await h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: first.planDigest, semanticsDigest: operationPlanReview(op)?.semantics?.digest,
           approver: user("erin"), session: sessionFor("erin") });
         approved = await h.store.getOperation(scope.workspaceId, op.id);
         events = await h.store.listEvents(scope.workspaceId, { operationId: op.id });
@@ -262,14 +263,14 @@ describe("first destroy review", () => {
     const { h, scope, review } = await setup(); const result = await review();
     const op = (await h.store.getOperation(scope.workspaceId, result.operationId))!;
     await h.db!.query("delete from platform.evidence where workspace_id = $1 and operation_id = $2", [scope.workspaceId, op.id]);
-    await expect(h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: result.planDigest,
+    await expect(h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: result.planDigest, semanticsDigest: operationPlanReview(op)?.semantics?.digest,
       approver: user("erin"), session: sessionFor("erin") })).rejects.toMatchObject({ code: "digest_mismatch" });
   });
   it("records a valid source destroy plan and refuses to supersede an approved teardown", async () => {
     const { h, scope, review } = await setup(); const result = await review();
     const op = (await h.store.getOperation(scope.workspaceId, result.operationId))!;
     expect(await loadDestroyPlan(h.deps, scope, { operationId: result.operationId, planDigest: result.planDigest })).toMatchObject({ facts: { delete: 1 } });
-    await h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: result.planDigest,
+    await h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: result.planDigest, semanticsDigest: operationPlanReview(op)?.semantics?.digest,
       approver: user("erin"), session: sessionFor("erin") });
     await expect(review("refresh-approved", true)).rejects.toMatchObject({ code: "conflict" });
   });

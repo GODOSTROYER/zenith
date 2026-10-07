@@ -49,7 +49,7 @@ import { PLATFORM_SCHEMA_VERSION, type PlatformMigration } from "./migrations/in
 export function compatBaseline(env: Readonly<Record<string, string | undefined>> = process.env): number {
   const raw = env.ZENITH_COMPAT_BASELINE_VERSION?.trim();
   if (raw === undefined || raw === "") return PLATFORM_SCHEMA_VERSION;
-  if (!/^d{1,6}$/.test(raw)) throw new ContractMigrationRefusedError("ZENITH_COMPAT_BASELINE_VERSION must be a whole migration version.", {});
+  if (!/^\d{1,6}$/.test(raw)) throw new ContractMigrationRefusedError("ZENITH_COMPAT_BASELINE_VERSION must be a whole migration version.", {});
   return Number(raw);
 }
 

@@ -6,7 +6,7 @@
  * plan and in execute — the plan is what disables the confirm button, so if
  * they drift the button becomes a dead control again.
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionContext } from "@/lib/actions/core";
 import { emptyManifest, type CloudConnection, type Deployment } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
@@ -68,6 +68,64 @@ function fakeDeployment(environmentId: string, status: Deployment["status"], rev
   save();
   return dep;
 }
+
+afterEach(() => vi.restoreAllMocks());
+
+describe("environment mutation authority", () => {
+  async function authority(active: boolean, unreadable = false) {
+    vi.spyOn(await import("@/lib/capabilities/platform"), "isMemoryStoreEnabled").mockReturnValue(false);
+    const platform = await import("@/lib/controlplane/db");
+    vi.spyOn(platform, "platformDb").mockImplementation(async () => {
+      if (unreadable) throw new Error("authority unavailable fixture");
+      return {} as Awaited<ReturnType<typeof platform.platformDb>>;
+    });
+    const activity = await import("@/lib/controlplane/authority");
+    vi.spyOn(activity, "environmentActivity").mockResolvedValue(active
+      ? [{ status: "running" }] as Awaited<ReturnType<typeof activity.environmentActivity>> : []);
+  }
+
+  it.each(["absent", "terminal"])("unreadable authority with %s projection refuses every mutation", async projection => {
+    if (projection === "terminal") fakeDeployment(envId, "succeeded");
+    await authority(false, true);
+    const connection = { ...q.connection(q.environment(envId)!.connectionId)!, id: "authority-next", label: "Next" };
+    db().connections.push(connection); save();
+    const before = JSON.stringify(db());
+    for (const [id, input] of [
+      ["env.update", { environmentId: envId, name: "changed" }],
+      ["env.setConnection", { environmentId: envId, connectionId: connection.id }],
+      ["env.delete", { environmentId: envId }],
+      ["project.delete", { projectId }],
+      ["env.reviewTeardown", { environmentId: envId, idempotencyKey: "owned-review-01" }],
+    ] as const) {
+      const preview = await plan(id, input), result = await exec(id, input);
+      expect(preview.blocked).toContain("cannot check current deployment activity");
+      expect(result).toMatchObject({ ok: false, error: preview.blocked });
+      expect(JSON.stringify(db())).toBe(before);
+    }
+    const teardown = await exec("env.teardown", { environmentId: envId });
+    expect(teardown).toMatchObject({ ok: false, error: expect.stringContaining("cannot check current deployment activity") });
+    expect(JSON.stringify(db())).toBe(before);
+  });
+
+  it("active authoritative work blocks mutation without a deployment projection", async () => {
+    await authority(true);
+    const before = q.environment(envId)!.name;
+    expect((await exec("env.update", { environmentId: envId, name: "changed" })).ok).toBe(false);
+    expect(q.environment(envId)!.name).toBe(before);
+  });
+
+  it("readable idle authority still respects active simulator work", async () => {
+    await authority(false); fakeDeployment(envId, "applying");
+    expect((await exec("env.update", { environmentId: envId, name: "changed" })).ok).toBe(false);
+  });
+
+  it("explicit memory mode uses its product projection", async () => {
+    vi.spyOn(await import("@/lib/capabilities/platform"), "isMemoryStoreEnabled").mockReturnValue(true);
+    expect((await exec("env.update", { environmentId: envId, name: "memory-idle" })).ok).toBe(true);
+    fakeDeployment(envId, "applying");
+    expect((await exec("env.update", { environmentId: envId, name: "memory-busy" })).ok).toBe(false);
+  });
+});
 
 describe("env.update", () => {
   it("renames the environment and moves its managed hostnames", async () => {

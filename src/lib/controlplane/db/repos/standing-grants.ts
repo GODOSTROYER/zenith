@@ -12,7 +12,7 @@ import { json } from "../sql";
 type Row = Record<string, unknown>;
 const iso = (v: unknown): string => (v instanceof Date ? v.toISOString() : new Date(String(v)).toISOString());
 const parse = <T>(v: unknown): T => (typeof v === "string" ? (JSON.parse(v) as T) : (v as T));
-const isUnique = (e: unknown): boolean => typeof e === "object" && e !== null && (e as { code?: unknown }).code === "23505";
+const isUnique = (e: unknown): boolean => typeof e === "object" && e !== null && ((e as { code?: unknown }).code === "23505" || (e as { sqlstate?: unknown }).sqlstate === "23505");
 
 const COLS = "id, workspace_id, created_by, created_by_name, project_id, environment_id, resource_id, capabilities, max_risk, allowed_principals, max_uses, uses, expires_at, created_at, status, revoked_at, revoked_by, revoked_reason";
 const USE_COLS = "id, workspace_id, grant_id, operation_id, principal_key, approval_id, created_at, voided_at";

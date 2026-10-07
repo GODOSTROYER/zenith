@@ -24,6 +24,7 @@ vi.mock("@/lib/controlplane/db/repos/workflow-start-deploy-authority", async ori
 tempDataDir("zenith-compose-e2e-", { fast: true });
 const { db: productFixture, resetDb, save, q } = await import("@/lib/db/store");
 const { openPlatformDb, repos } = await import("@/lib/controlplane/db");
+const { operationPlanReview } = await import("@/lib/controlplane/db/repos/operation-review");
 const { createBroker } = await import("@/lib/capabilities/platform");
 const { PlatformBrokerStore } = await import("@/lib/capabilities/platform-store");
 const { productRoleResolver, productScopeResolver } = await import("@/lib/capabilities/product-adapters");
@@ -159,7 +160,7 @@ async function approvedOperation() {
 }
 async function approvePlan(operationId: string) {
   const op = (await repos.operations.get(db, WS, operationId))!;
-  await broker.approve({ workspaceId: WS, operationId, proposalDigest: op.proposalDigest, planDigest: op.planDigest, approver, session: { method: "browser_session", subject: approver.id, verifiedAtMs: Date.now() } });
+  await broker.approve({ workspaceId: WS, operationId, proposalDigest: op.proposalDigest, planDigest: op.planDigest, semanticsDigest: operationPlanReview(op)?.semantics?.digest, approver, session: { method: "browser_session", subject: approver.id, verifiedAtMs: Date.now() } });
 }
 async function planRound(operationId: string, lease: Awaited<ReturnType<WorkerActivities["acquireLease"]>>) {
   expect(await activities.checkApproval({ operationId })).toMatchObject({ approved: false, rejected: false });

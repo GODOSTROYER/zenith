@@ -23,7 +23,7 @@ import { importCompose } from "@/lib/importers/compose";
 import type { ImportReport } from "@/lib/importers/types";
 import { slugify, uniqueName } from "@/lib/importers/types";
 import { providerRegistry } from "@/lib/providers/types";
-import { buildEnvironment, envPlanDetails, environmentBusy, liveRevision } from "./env";
+import { buildEnvironment, envPlanDetails, environmentBusy, activityUnavailableMessage, liveRevision } from "./env";
 import { getEngine } from "./_engine";
 import { fmtUsd } from "@/lib/format";
 import { clone, commit, manifestLossNote, planFromDiff, requireConnection, requireProject } from "./_shared";
@@ -494,7 +494,7 @@ async function projectDelete(ctx: ActionContext, input: DeleteProject) {
   }))).flat();
   const live = envs.filter((e) => e.deployedRevisionId);
 
-  const blocked = busy.length
+  const blocked = busy.some(b => b.dep.status === "authority_unavailable") ? activityUnavailableMessage : busy.length
     ? `${busy.map((b) => `${b.env.name} is ${b.dep.status}`).join(", ")}. Wait for that deployment to finish, or cancel it on the Deploys page, then delete the project.`
     : undefined;
 

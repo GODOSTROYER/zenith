@@ -97,10 +97,12 @@ export async function environmentBusy(ctx: { workspaceId: string }, environmentI
     if (active[0]) return { status: active[0].status, source: "authority" };
     return simulated ? { status: simulated.status, source: "product" } : undefined;
   } catch {
-    // Authority unreadable: fail closed on any product evidence, never report an environment idle on a guess.
-    return product ? { status: product.status, source: "product" } : undefined;
+    // A missing or terminal projection cannot prove authoritative work is idle.
+    return { status: "authority_unavailable", source: "authority" };
   }
 }
+
+export const activityUnavailableMessage = "Zenith cannot check current deployment activity. Try again when the deployment service is available.";
 
 /** "revision 4" when an environment is running one, else undefined. */
 export function liveRevision(env: Environment): string | undefined {
@@ -373,7 +375,9 @@ async function envUpdate(ctx: ActionContext, input: UpdateEnv) {
 
   const busy = await environmentBusy(ctx, env.id);
   if (busy)
-    blocked = `A deployment is ${busy.status} on ${env.name} right now. Wait for it to finish, or cancel it on the Deploys page, then try again.`;
+    blocked = busy.status === "authority_unavailable"
+      ? activityUnavailableMessage
+      : `A deployment is ${busy.status} on ${env.name} right now. Wait for it to finish, or cancel it on the Deploys page, then try again.`;
 
   if (name && name !== env.name) {
     if (!blocked && q.environmentsOf(project.id).some((e) => e.id !== env.id && e.name === name))
@@ -549,7 +553,9 @@ async function envSetConnection(ctx: ActionContext, input: SetConnection) {
     blocked = `Connection "${input.connectionId}" is not in this workspace. Pick one from Settings → Connections, or connect a cloud first.`;
   else if (next.id === env.connectionId) blocked = `${env.name} already deploys through ${next.label}.`;
   else if (busy)
-    blocked = `A deployment is ${busy.status} on ${env.name} right now. Wait for it to finish, or cancel it on the Deploys page, then move the environment.`;
+    blocked = busy.status === "authority_unavailable"
+      ? activityUnavailableMessage
+      : `A deployment is ${busy.status} on ${env.name} right now. Wait for it to finish, or cancel it on the Deploys page, then move the environment.`;
 
   const details: string[] = [];
   const warnings: string[] = [];
@@ -628,7 +634,9 @@ async function envDelete(ctx: ActionContext, input: DeleteEnv) {
 
   let blocked: string | undefined;
   if (busy)
-    blocked = `A deployment is ${busy.status} on ${env.name}. Wait for it to finish, or cancel it on the Deploys page, then delete the environment.`;
+    blocked = busy.status === "authority_unavailable"
+      ? activityUnavailableMessage
+      : `A deployment is ${busy.status} on ${env.name}. Wait for it to finish, or cancel it on the Deploys page, then delete the environment.`;
   else if (siblings.length === 0)
     blocked = `${env.name} is the only environment in ${project.name}, and every project screen needs one. Create another environment first, or delete the whole project in Settings → Danger zone.`;
 

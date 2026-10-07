@@ -47,6 +47,13 @@ const RLS_EXISTING = m(V + 6, "alter table platform.operations disable row level
 const UNKNOWN = m(V + 7, "reindex table platform.operations;");
 
 describe("migration compatibility classification", () => {
+  it("accepts only bounded whole numeric compatibility baseline versions", () => {
+    expect(compatBaseline({ ZENITH_COMPAT_BASELINE_VERSION: " 41 " })).toBe(41);
+    expect(compatBaseline({ ZENITH_COMPAT_BASELINE_VERSION: "0" })).toBe(0);
+    expect(compatBaseline({ ZENITH_COMPAT_BASELINE_VERSION: "999999" })).toBe(999999);
+    for (const value of ["d", "ddd", "-1", "1.5", "1e2", "1000000", "41,42"])
+      expect(() => compatBaseline({ ZENITH_COMPAT_BASELINE_VERSION: value })).toThrow(ContractMigrationRefusedError);
+  });
   it("binds the authorized external-effect repair to exact SQL and an explicit drained-writer version", () => {
     const repair = PLATFORM_MIGRATIONS.find((migration) => migration.version === 42)!;
     expect(assessPlatformMigration(repair, 41).class).toBe("contract");

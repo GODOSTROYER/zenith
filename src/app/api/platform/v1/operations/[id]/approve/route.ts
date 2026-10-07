@@ -7,8 +7,9 @@
  * for an identity the provider does not confirm right now. A model, an
  * integration or the Navigator can never reach the service behind it.
  *
- * Body: `{ proposalDigest: <64 hex>, planDigest?: <64 hex>, reason?: string }`.
- * A plan gate requires the plan digest the browser actually reviewed.
+ * Body: `{ proposalDigest: <64 hex>, planDigest?: <64 hex>, semanticsDigest?: <64 hex>, reason?: string }`.
+ * A plan gate requires the plan digest the browser actually reviewed, and the executable-semantics
+ * digest (recipe, scripts, migration class, targets, configuration, locks, backend) when one is recorded.
  */
 import { z } from "zod";
 import { notFound } from "@/lib/capabilities/errors";
@@ -21,7 +22,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const ID = /^[A-Za-z0-9_-]{1,200}$/;
-const Body = z.object({ proposalDigest: z.string().regex(/^[0-9a-f]{64}$/), planDigest: z.string().regex(/^[0-9a-f]{64}$/).optional(), reason: z.string().max(2000).optional() }).strict();
+const Body = z.object({ proposalDigest: z.string().regex(/^[0-9a-f]{64}$/), planDigest: z.string().regex(/^[0-9a-f]{64}$/).optional(), semanticsDigest: z.string().regex(/^[0-9a-f]{64}$/).optional(), reason: z.string().max(2000).optional() }).strict();
 
 export const POST = platformRoute<{ id: string }>(async (req, { id }) => {
   const caller = await assertBrowserSession(req);
@@ -32,6 +33,7 @@ export const POST = platformRoute<{ id: string }>(async (req, { id }) => {
       operationId: id,
       proposalDigest: body.proposalDigest,
       planDigest: body.planDigest,
+      semanticsDigest: body.semanticsDigest,
       approver: caller.principal,
       session: caller.session,
       reason: body.reason,

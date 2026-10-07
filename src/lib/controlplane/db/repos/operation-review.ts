@@ -8,6 +8,7 @@ import { z } from "zod";
 import type { OperationRecord, Sql } from "@/lib/controlplane/types";
 import type { PlanView } from "@/lib/tofu/plan";
 import { redactOutput } from "@/lib/tofu/redact";
+import { readExecutableSemantics, type ExecutableSemantics } from "@/lib/execution/semantics/digest";
 
 const factText = z.string().max(500);
 const text = factText.transform((s) => redactOutput(s).replace(/[\u0000-\u001f\u007f]/g, " "));
@@ -48,6 +49,8 @@ export interface OperationPlanReview {
   view: PlanView;
   facts: z.infer<typeof ReviewFactsSchema>;
   cost: z.infer<typeof CostSchema>;
+  /** The canonical executable-semantics digest the reviewer is shown and an approval binds (PROD-DUR-03); absent for plans reviewed before it existed. */
+  semantics?: ExecutableSemantics;
 }
 export interface ApprovalRoundMetadata { approvalRound: number }
 export type ReviewedOperation = OperationRecord & ApprovalRoundMetadata & { planReview?: OperationPlanReview };
@@ -72,7 +75,10 @@ export function projectPlanReview(summary: Record<string, unknown>, planDigest: 
   if(view.success && (view.data.executableSourceDigest!==summary.executableSourceDigest || Buffer.byteLength(JSON.stringify(view.data))>40_000))return undefined;
   if (!view.success || !facts.success || view.data.planDigest !== planDigest) return undefined;
   const cost = CostSchema.safeParse(summary.cost);
-  const review = { planDigest, view: view.data as PlanView, facts: facts.data, cost: cost.success ? cost.data : {} };
+  // A present but malformed semantics document makes the whole review unreadable; it is never silently dropped.
+  const semantics = summary.semantics === undefined ? undefined : readExecutableSemantics(summary.semantics);
+  if (summary.semantics !== undefined && !semantics) return undefined;
+  const review = { planDigest, view: view.data as PlanView, facts: facts.data, cost: cost.success ? cost.data : {}, ...(semantics ? { semantics } : {}) };
   return Buffer.byteLength(JSON.stringify(review)) <= 60_000 ? review : undefined;
 }
 

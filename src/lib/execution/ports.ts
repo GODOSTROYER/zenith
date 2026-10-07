@@ -647,6 +647,12 @@ export interface ExecutionDeps {
    * the release activities behave as before; the platform composition always supplies it.
    */
   releaseSafety?: import("@/lib/release-safety").ReleaseSafetyService;
+  /**
+   * Durable binding of the executable semantics a human reviewed (PROD-DUR-03). Planning records the canonical
+   * semantics digest write-once; final plan, apply, build, rollout and migration dispatch recompute it and refuse on
+   * any difference. When absent the dispatch points behave as before; the platform composition always supplies it.
+   */
+  semantics?: import("./semantics/store").SemanticsStore;
   /* runtime */
   /** Temporal's `Context.current().heartbeat`, wired by the worker. Default: no-op. */
   heartbeat?: (detail?: unknown) => void;

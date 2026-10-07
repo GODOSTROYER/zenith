@@ -27,6 +27,7 @@ import { newId, requesterOf, requireHumanSession } from "./internal";
 import { loadDestroyPlan } from "./destroy-plan";
 import type { BrokerDeps } from "./ports";
 import { findSecret } from "./secret-guard";
+import { applyStandingGrant } from "./standing-grants";
 import { isPortabilityCapability, parsePortabilityInput, portabilityDetails } from "@/lib/portability/inputs";
 import { portabilitySupport } from "@/lib/portability/matrix";
 import { blocking, checkNativeOperation, FieldOwnershipConflictError, NATIVE_OPERATION_WRITES, type OwnershipTransferRequest } from "@/lib/ownership";
@@ -380,8 +381,23 @@ export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn
     ttlMs: ctx.ttlMs ?? 24 * 60 * 60 * 1000,
   });
 
+  // A person's bounded standing grant can satisfy a single-approver, non-plan-gate requirement for an agent's
+  // proposal (PROD-DUR-04). It records an ordinary approval row; anything it does not cover keeps waiting for a person.
+  let record = created.operation;
+  if (created.created) {
+    const approved = await applyStandingGrant(deps, {
+      operation: created.operation,
+      def: parsed.def,
+      risk: evaluation.risk,
+      approval: decision.approval,
+      policyVersion: evaluated.policyVersion,
+      hasOwnershipTransfers: (ownership.transfers?.length ?? 0) > 0,
+    });
+    if (approved) record = approved;
+  }
+
   return {
-    operation: operationView(created.operation),
+    operation: operationView(record),
     decision: decisionView(created.decision, { risk: evaluation.risk, environment: created.created ? environmentView(evaluation) : undefined }),
     replayed: !created.created,
   };

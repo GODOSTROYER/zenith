@@ -3,6 +3,7 @@
  * explicit ports support contract tests without pretending to reach a cloud.
  * The secret-derived fingerprint key is mandatory even when tofu is injected.
  */
+import { createPlatformSemanticsStore } from "@/lib/controlplane/db/repos/executable-semantics";
 import { createPlanArtifactRuntime } from "./plan-artifacts";
 import { hkdfSync } from "node:crypto";
 import type { Sql } from "@/lib/controlplane/types";
@@ -124,6 +125,8 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     sourceContext: createGithubContextVerifier({ db: async () => opts.db }),
     // Digest-bound release runs, provenance gate, migration approval, rollout and readback (PROD-LIFE-10).
     releaseSafety: createPlatformReleaseSafety(opts.db),
+    // The canonical executable semantics a human reviewed, recorded write-once at planning and recomputed at every dispatch (PROD-DUR-03).
+    semantics: createPlatformSemanticsStore(opts.db),
     machines: opts.ports?.machines ?? createDefaultMachinePort(opts.db, opts.secretKey ?? process.env.ZENITH_SECRET_KEY!),
     ...opts.ports,
     // The captured source authority is final; the generic test-port spread cannot replace it.

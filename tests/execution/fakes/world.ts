@@ -43,6 +43,8 @@ export interface WorldOptions {
   withoutRelease?: boolean;
   /** the release pipeline service (PROD-LIFE-10); absent means the legacy release behaviour */
   releaseSafety?: import("@/lib/release-safety").ReleaseSafetyService;
+  /** the approved executable-semantics store (PROD-DUR-03); absent means the legacy dispatch behaviour */
+  semantics?: import("@/lib/execution/semantics/store").SemanticsStore;
   /** seed the operation (default: an approved deployment.deploy) */
   op?: Parameters<FakeOps["seed"]>[0];
 }
@@ -177,6 +179,7 @@ export function createWorld(opts: WorldOptions = {}): World {
     provenance,
     buildIsolation: { allowOpenEgress: false },
     ...(opts.releaseSafety ? { releaseSafety: opts.releaseSafety } : {}),
+    ...(opts.semantics ? { semantics: opts.semantics } : {}),
     heartbeat: (detail) => heartbeats.push(detail),
     ...(opts.signal ? { activitySignal: () => opts.signal } : {}),
     clock: () => new Date(NOW),

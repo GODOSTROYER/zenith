@@ -47,6 +47,9 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/releases$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/releases/${ID}$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/releases/${ID}/approve-migration$`), methods: { POST: "browser-only" } },
+  // Standing grants are a person's bounded pre-approval: creating, revoking and even listing stay in the person's browser.
+  { path: new RegExp(`^${ROOT}/standing-grants$`), methods: { GET: "browser-only", POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/standing-grants/${ID}/revoke$`), methods: { POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/capability-catalog$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/workspace/policy$`), methods: { GET: "bearer-capable", PUT: "browser-only" } },
   // Installation and repository binding require the human admin's browser session.

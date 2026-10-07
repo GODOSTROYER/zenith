@@ -18,6 +18,11 @@
  *     user is refused (`duplicate_decision`) and counts once.
  *  8. `count > 1` needs N DISTINCT approvers; the operation becomes `approved`
  *     only when the Nth lands.
+ *  9. At a plan gate whose recorded review carries executable semantics (PROD-DUR-03),
+ *     the approver must present the semantics digest they reviewed
+ *     (`semantics_mismatch` otherwise). The approval is thereby bound to the recipe,
+ *     scripts, migration class, targets, configuration, provider locks, backend and
+ *     saved plan the plan view stands for, and every dispatch recomputes it.
  *
  * Steps 3–8 are enforced again by the store (`recordApproval` is the only path
  * to `approved`), so the database, not this function, is the last word.
@@ -52,6 +57,8 @@ export interface DecideInput {
   proposalDigest: string;
   /** The concrete plan the browser reviewed, required at a plan gate. */
   planDigest?: string;
+  /** The executable-semantics digest the browser reviewed, required at a plan gate that records one. */
+  semanticsDigest?: string;
   approver: Principal;
   session: BrowserSessionProof;
   reason?: string;
@@ -80,7 +87,7 @@ export function isStricter(current: ApprovalRequirement, stored: ApprovalRequire
   return current.count > stored.count || ROLE_RANK[current.minRole] > ROLE_RANK[stored.minRole] || (current.separationOfDuties && !stored.separationOfDuties);
 }
 
-const REFUSAL_CODES = new Set(["approver_not_human", "browser_session_required", "approver_role_insufficient", "separation_of_duties", "duplicate_decision", "digest_mismatch", "invalid_state", "operation_expired", "policy_denied", "reapproval_required"]);
+const REFUSAL_CODES = new Set(["semantics_mismatch", "approver_not_human", "browser_session_required", "approver_role_insufficient", "separation_of_duties", "duplicate_decision", "digest_mismatch", "invalid_state", "operation_expired", "policy_denied", "reapproval_required"]);
 
 /** Write the refusal to the audit log (best effort: a failed audit write never turns a refusal into an allow) and return the error for throwing. */
 async function audited(
@@ -145,6 +152,11 @@ async function decide(deps: BrokerDeps, input: DecideInput, decision: "approve" 
     if (decision === "approve" && round > 0 && op.planDigest && !review) {
       throw new BrokerError("invalid_state", "The gated plan is unavailable for review.", "Restore its planning evidence before approving.");
     }
+    if (decision === "approve" && review?.semantics && input.semanticsDigest !== review.semantics.digest) {
+      throw new BrokerError("semantics_mismatch", "The executable semantics you reviewed do not match the ones recorded for this plan.", "Reload the operation and review the plan with its executable semantics digest.", {
+        recorded: review.semantics.digest,
+      });
+    }
     const stored = op.policyDecisionId ? await deps.store.getPolicyDecision(workspaceId, op.policyDecisionId) : null;
     if (!stored?.approval) {
       throw new BrokerError("invalid_state", "This operation has no recorded approval requirement, so it cannot be approved.");
@@ -192,6 +204,21 @@ async function decide(deps: BrokerDeps, input: DecideInput, decision: "approve" 
       expectedApprovalRound: round,
     };
     const recorded = await deps.store.recordApproval(recordInput);
+
+    if (decision === "approve" && review?.semantics) {
+      // The approval row is bound to (proposal digest, plan digest); this audit row names the semantics it was given against.
+      await deps.store.appendEvent({
+        workspaceId,
+        projectId: op.projectId,
+        environmentId: op.environmentId,
+        resourceId: op.resourceId,
+        operationId,
+        correlationId: op.correlationId,
+        actor: approver,
+        type: "policy.evaluated",
+        data: { kind: "approval_semantics_bound", approvalId: recorded.approval.id, semanticsDigest: review.semantics.digest, planDigest: op.planDigest ?? null },
+      }).catch(() => 0);
+    }
 
     const finalized = recorded.operation.status !== "awaiting_approval";
     // The store appended operation.approved / operation.rejected with the decision. A partial

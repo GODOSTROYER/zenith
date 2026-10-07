@@ -34,6 +34,7 @@ import { beginExecution, completeExecution, markUncertain } from "./execution";
 import { CredentialGrantSigner } from "./credential-signer";
 import { MemoryBrokerStore } from "./memory-store";
 import { PlatformBrokerStore } from "./platform-store";
+import { createStandingGrant, listStandingGrants, revokeStandingGrant } from "./standing-grants";
 import { cancelOperation, getOperationDetail, listOperationEvents, listOperations } from "./operations";
 import { getWorkspacePolicy, setWorkspacePolicy } from "./policy-settings";
 import { systemClock, type BrokerDeps, type BrokerStore, type GrantSigner, type RoleResolver, type ScopeResolver } from "./ports";
@@ -65,6 +66,9 @@ export interface Broker {
   setAutonomy(...args: Args<typeof setEnvironmentAutonomy>): ReturnType<typeof setEnvironmentAutonomy>;
   getWorkspacePolicy(...args: Args<typeof getWorkspacePolicy>): ReturnType<typeof getWorkspacePolicy>;
   setWorkspacePolicy(...args: Args<typeof setWorkspacePolicy>): ReturnType<typeof setWorkspacePolicy>;
+  createStandingGrant(...args: Args<typeof createStandingGrant>): ReturnType<typeof createStandingGrant>;
+  revokeStandingGrant(...args: Args<typeof revokeStandingGrant>): ReturnType<typeof revokeStandingGrant>;
+  listStandingGrants(...args: Args<typeof listStandingGrants>): ReturnType<typeof listStandingGrants>;
 }
 
 export function createBroker(deps: BrokerDeps): Broker {
@@ -87,6 +91,9 @@ export function createBroker(deps: BrokerDeps): Broker {
     setAutonomy: (...a) => setEnvironmentAutonomy(deps, ...a),
     getWorkspacePolicy: (...a) => getWorkspacePolicy(deps, ...a),
     setWorkspacePolicy: (...a) => setWorkspacePolicy(deps, ...a),
+    createStandingGrant: (...a) => createStandingGrant(deps, ...a),
+    revokeStandingGrant: (...a) => revokeStandingGrant(deps, ...a),
+    listStandingGrants: (...a) => listStandingGrants(deps, ...a),
   };
 }
 

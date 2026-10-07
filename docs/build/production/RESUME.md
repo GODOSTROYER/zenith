@@ -1,3 +1,11 @@
+## Local startup authorization and bounded result, 7 October 2026
+
+DEC-STARTUP approved for disposable local default API/server startup only. Root executed **2 HTTP / 3 real-browser controls, all passed, zero failed or skipped**, with owned processes, ports and private data removed. Login keyboard and axe scans passed at1280/375px; six nonpublic prefetch requests were blocked. This used an existing warmed build whose source origin is unestablished, not an authenticated operator journey or clean packaged API proof. First fixture failure is retained with separate cleanup recovery. [Scoped result](verification/RESULTS-2026-10.md#local-startup-2026-10-07).
+
+Ledger remains **12 verified / 38 in progress / 28 planned**; all78 criteria and four false release states unchanged. Authenticated default acceptance needs private real Supabase Auth/PostgREST and verified-TLS pooler configuration; shipped7GiB fixture ceilings exceed Docker5.79GiB before Supabase. Default telemetry endpoint/machine-health wiring remains builder work. Cloud/DNS/privateApp and retention/business/signoff permissions remain open; NOT_READY maintenance draft never run. Publisheda370 fullCI20/20 green remains historical until any successor publication is inspected.
+
+Earlier entries retain their historical source and permission scope.
+
 ## Coherent verifier result, 7 October 2026
 
 Tested published `d6965d75eb9522527c7a91b06cf8f490f6531d20`: all20 CI jobs completed successfully, with no fresh job-status anomaly. Unit **19,622 passed / 0 failed / 1,532 skipped**. Real PostgreSQL **3,034/0/8**, all1,124 required; workflows **1,275/0/0**, all62; PG **379/0/0**, all93. Native packaged AMD64 and ARM64 each **22/0/0**, no emulation, all cleanup flags. Complete dependency audit zero known findings, no exception. [Fresh job/skip report](verification/CI-2026-10-07-d6965d75.md). Counts overlap and are not summed.

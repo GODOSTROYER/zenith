@@ -1,3 +1,11 @@
+## Local startup authorization and bounded result, 7 October 2026
+
+DEC-STARTUP approved for disposable local default API/server startup only. Root executed **2 HTTP / 3 real-browser controls, all passed, zero failed or skipped**, with owned processes, ports and private data removed. Login keyboard and axe scans passed at1280/375px; six nonpublic prefetch requests were blocked. This used an existing warmed build whose source origin is unestablished, not an authenticated operator journey or clean packaged API proof. First fixture failure is retained with separate cleanup recovery. [Scoped result](../verification/RESULTS-2026-10.md#local-startup-2026-10-07).
+
+Ledger remains **12 verified / 38 in progress / 28 planned**; all78 criteria and four false release states unchanged. Authenticated default acceptance needs private real Supabase Auth/PostgREST and verified-TLS pooler configuration; shipped7GiB fixture ceilings exceed Docker5.79GiB before Supabase. Default telemetry endpoint/machine-health wiring remains builder work. Cloud/DNS/privateApp and retention/business/signoff permissions remain open; NOT_READY maintenance draft never run. Publisheda370 fullCI20/20 green remains historical until any successor publication is inspected.
+
+Earlier entries retain their historical source and permission scope.
+
 ## Verifier update, 7 October 2026
 
 Exactd696 CI20 jobs green; scoped native transport27/45/15 all green and owned cleanup complete. DNS security repair/Sharp bump integrated. Four fixture-only setup failures recovered; no new product defect inferred. MySQLDNS-TLS remains unsupported; full adoption/backup/decommission and prior20-ID acceptance gaps stay open. Default API/server DEC-STARTUP and live account/DNS/privateApp DEC-CLOUD remain prerequisites. Never run NOT_READY maintenance draft. See [coherent results](../verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).

@@ -4438,12 +4438,16 @@
     {
       "id": "DEC-STARTUP",
       "scope": "Disposable default API/browser installation startup; approve concrete isolated topology before dependent startup if existing startup restriction still applies",
-      "state": "pending",
+      "state": "approved",
       "blocks": [
         "PROD-PKG-05"
       ],
       "requested": "2026-10-02",
-      "status": "pending"
+      "status": "approved",
+      "approved": "2026-10-07",
+      "approvalScope": "Disposable local default API/server startup only; owned PostgreSQL/Temporal/worker resources with cleanup. No cloud access/spend, unrelated services, or authority bypass.",
+      "startupObservation": "docs/build/production/evidence/PROD-UX-01/2026-10-07-unconfigured-startup.json",
+      "acceptance": "Unconfigured warmed-build public startup controls passed; authenticated default acceptance remains open."
     },
     {
       "id": "DEC-CLOUD",

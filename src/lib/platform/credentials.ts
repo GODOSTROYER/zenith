@@ -15,6 +15,7 @@ import { mintWorkloadToken, type WorkloadTokenDeps } from "@/lib/credentials/oid
 import { CredentialDeniedError, type CredentialBroker, type CredentialRequest, type DenialReason, type ProviderConnection, type ProviderSession } from "@/lib/credentials/types";
 import { createGcpSession } from "@/lib/providers/gcp";
 import { createAzureSession } from "@/lib/providers/azure";
+import { azureCloud } from "@/lib/providers/azure/cloud";
 import { AzureSourceStorageRefusedError } from "@/lib/providers/azure/release/source-storage";
 import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
 import { createKubernetesSession } from "@/lib/providers/kubernetes";
@@ -505,7 +506,7 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
           }, async (session): Promise<ConnectionVerification> => {
             const signal = AbortSignal.timeout(30_000);
             if (session.provider === "gcp" || session.provider === "azure") {
-              const url = session.provider === "gcp" ? `https://cloudresourcemanager.googleapis.com/v3/projects/${session.projectId}` : `https://management.azure.com/subscriptions/${session.subscriptionId}?api-version=2022-12-01`;
+              const url = session.provider === "gcp" ? `https://cloudresourcemanager.googleapis.com/v3/projects/${session.projectId}` : `${azureCloud(session.cloud).armOrigin}/subscriptions/${session.subscriptionId}?api-version=2022-12-01`;
               const response = await session.authorizedFetch(url, { method: "GET", signal });
               if (!response.ok) {
                 await response.body?.cancel().catch(() => undefined);

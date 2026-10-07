@@ -27,6 +27,7 @@ import type { ArtifactSpec, EnvEntry } from "@/lib/resources/specs";
 import { AzureCompileError, dependencies, requireNode } from "@/lib/providers/azure/compile-util";
 import { exportRef } from "@/lib/providers/azure/exports";
 import { cloudName, hash6, nodeNameOf, slug } from "@/lib/providers/azure/naming";
+import { ANY_ACR_LOGIN_SERVER as ANY_ACR_HOST } from "@/lib/providers/azure/cloud";
 import { acaMemory, acaSize, type AcaSize } from "@/lib/providers/azure/platform";
 
 export const CONTAINER_APP_NAME_MAX = 32;
@@ -123,7 +124,7 @@ export function buildWorkload(node: ResourceNode, ctx: CompileContext, spec: Wor
     literalImage = artifact.ref;
     image = artifact.ref;
     const host = artifact.ref.split("/")[0];
-    if (/\.azurecr\.io$/i.test(host)) {
+    if (ANY_ACR_HOST.test(host.toLowerCase())) {
       if (!identityId) throw new AzureCompileError(`image ${artifact.ref} is in an Azure Container Registry but the workload has no identity to pull with.`, a);
       registry.push({ server: host.toLowerCase(), identity: identityId });
     }

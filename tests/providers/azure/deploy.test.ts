@@ -43,7 +43,7 @@ describe("deploy/azure bootstrap module (static)", () => {
     expect(main).toContain('deploy_subject  = "zenith:ws:${var.workspace_id}:conn:${var.deploy_connection_id}"');
     expect(main.match(/resource "azurerm_federated_identity_credential"/g)).toHaveLength(2);
     expect(main.match(/issuer\s+= var\.zenith_issuer/g)).toHaveLength(2);
-    expect(main.match(/audience\s+= \[local\.token_audience\]/g)).toHaveLength(2);
+    expect(main.match(/audience\s+= \[local\.federation_audience\]/g)).toHaveLength(2);
     // a wildcard subject or a shared subject would let one connection mint the other's token
     expect(main).not.toMatch(/subject\s*=\s*"[^"]*\*/);
     expect(read("variables.tf")).toContain("deploy_connection_id must differ from observe_connection_id");

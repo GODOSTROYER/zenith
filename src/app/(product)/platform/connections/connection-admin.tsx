@@ -40,6 +40,7 @@ const CREATE_FIELDS: Record<"gcp" | "azure" | "oci", Field[]> = {
     { key: "clientId", label: "Application (client) id", placeholder: "00000000-0000-0000-0000-000000000000" },
     { key: "subscriptionId", label: "Subscription id", placeholder: "00000000-0000-0000-0000-000000000000" },
     { key: "region", label: "Region", placeholder: "eastus" },
+    { key: "cloud", label: "Azure cloud", placeholder: "public (default), usgov or china", optional: true },
     { key: "label", label: "Label", placeholder: "Optional", optional: true },
   ],
   oci: [

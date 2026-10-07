@@ -32,6 +32,7 @@ import type { Sql } from "@/lib/controlplane/types";
 import { ControlStoreError } from "@/lib/controlplane/db/errors";
 import type { ConnectionRotation } from "@/lib/controlplane/db/repos/connection-rotations";
 import { findSecret } from "@/lib/capabilities/secret-guard";
+import { azureCloud } from "@/lib/providers/azure/cloud";
 import {
   applyRotationPatch, azureConfig, gcpConfig, LifecycleInputError, ociConfig, runnerOf,
   type CreateAzureInput, type CreateGcpInput, type CreateOciInput, type RotateInput, type RotationRef,
@@ -196,7 +197,7 @@ export function trustFor(ctx: ActionContext, provider: "gcp" | "azure" | "oci", 
   }
   if (config.provider === "azure") {
     return { subject, issuerHost: host, steps: [
-      `Add a federated credential to application ${config.clientId} with issuer https://${host ?? "<ZENITH_OIDC_ISSUER host>"} and exact subject ${subject}.`,
+      `Add a federated credential to application ${config.clientId} with issuer https://${host ?? "<ZENITH_OIDC_ISSUER host>"}, exact subject ${subject} and audience ${azureCloud(config.cloud).federationAudience}.`,
       `Assign that application Reader (observe) and the deploy roles you intend on subscription ${config.subscriptionId}.`,
       "Run verify. It reads the configured subscription; deploy permissions remain unverified.",
     ] };

@@ -18,6 +18,7 @@ import { defineAzureDriver, props, pick } from "@/lib/providers/azure/kit";
 import { privateEndpoint } from "@/lib/providers/azure/drivers/data/private-endpoint";
 import { privateSubnet, workloadIdentity, invalid, rejectCredentials, tfLiteral, readString, readBool, textSpec } from "@/lib/providers/azure/drivers/more-util";
 import { ROLE } from "@/lib/providers/azure/platform";
+import { ANY_ACR_LOGIN_SERVER } from "@/lib/providers/azure/cloud";
 import { armTemplate } from "@/lib/providers/azure/drivers/arm-template";
 
 export const FUNCTION_APP = { type: "Microsoft.Web/sites", apiVersion: "2024-04-01" } as const;
@@ -35,7 +36,7 @@ function image(node: ResourceNode, ctx: CompileContext) {
   if (artifact?.type !== "image" || typeof artifact.ref !== "string") invalid(node, "Linux Functions requires a container image artifact.");
   // Explicit host and tag; private non-ACR registries need credentials and are refused.
   const match = /^([a-z0-9.-]+)\/([a-z0-9/_-]+):([A-Za-z0-9_.-]+)$/.exec(artifact.ref);
-  if (!match || !(match[1] === "mcr.microsoft.com" || match[1].endsWith(".azurecr.io"))) invalid(node, "the function image must use a tagged MCR or ACR image.");
+  if (!match || !(match[1] === "mcr.microsoft.com" || ANY_ACR_LOGIN_SERVER.test(match[1]))) invalid(node, "the function image must use a tagged MCR or ACR image.");
   return { registry_url: `https://${match[1]}`, image_name: match[2], image_tag: match[3] };
 }
 

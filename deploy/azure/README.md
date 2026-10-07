@@ -55,6 +55,8 @@ output "zenith" {
 }
 ```
 
+For Azure Government or China set `cloud = "usgov"` / `"china"` and the azurerm provider's `environment` to `usgovernment` / `china`; the federated credentials then trust that cloud's exchange audience. Those clouds are contract-tested only, never run live.
+
 Run it as an identity that can create role definitions and role assignments at the subscription (Owner, or
 User Access Administrator + Contributor). Then paste the two connection objects into Zenith. Every value in the
 outputs is an identifier, not a secret.

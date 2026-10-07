@@ -100,6 +100,8 @@ export interface AzureConnectionConfig {
   tenantId: string;
   clientId: string;
   subscriptionId: string;
+  /** Azure cloud (PROD-LIFE-04); absent means the public cloud. Sovereign clouds are contract-level only. */
+  cloud?: "public" | "usgov" | "china";
   /** Customer Entra-only OpenTofu state account and container. */
   stateStorageAccount?: string;
   stateContainer?: string;
@@ -215,6 +217,8 @@ export interface AzureSession {
   readonly provider: "azure";
   readonly subscriptionId: string;
   readonly region: string;
+  /** absent means the public cloud */
+  readonly cloud?: "public" | "usgov" | "china";
   readonly expiresAt: string;
   authorizedFetch(url: string, init?: RequestInit): Promise<Response>;
   childProcessEnv(): Record<string, string>;

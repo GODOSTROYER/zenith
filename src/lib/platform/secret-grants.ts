@@ -17,6 +17,7 @@ import { kvSecretName } from "@/lib/providers/azure/drivers/identity/key-vault-s
 import { assertVaultScope } from "@/lib/secrets/resolver";
 import { partitionOfRegion } from "@/lib/providers/aws/drivers/shared/arn";
 import { platformDriverLookup } from "./driver-lookup";
+import { azureCloud, keyVaultUri } from "@/lib/providers/azure/cloud";
 
 const refuse = (): never => { throw new StepFailedError("Secret grant targets are unavailable or outside the reviewed environment."); };
 
@@ -80,7 +81,7 @@ export async function secretResourcesForOperation(db: Sql, op: OperationRecord):
         case "azure": {
           const match = /^\/subscriptions\/([0-9a-f-]+)\/resourceGroups\/[^/]+\/providers\/Microsoft\.KeyVault\/vaults\/([a-z0-9-]{3,24})$/i.exec(id);
           if (!match || match[1].toLowerCase() !== connection.config.subscriptionId.toLowerCase() || match[2].toLowerCase() !== container("azurerm_key_vault", "name")) return refuse();
-          targets.push(`https://${match[2].toLowerCase()}.vault.azure.net/secrets/${kvSecretName(node.spec.secretRef as string)}`); break;
+          targets.push(`${keyVaultUri(azureCloud(connection.config.cloud), match[2].toLowerCase())}secrets/${kvSecretName(node.spec.secretRef as string)}`); break;
         }
         default: return refuse();
       }

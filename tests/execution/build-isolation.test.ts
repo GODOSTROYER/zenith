@@ -80,9 +80,9 @@ describe("build context directory and builder admission", () => {
   it.each(["/abs", "../up", "a/../b", "a//b", "a/./b", "a/", "a\b", "a b", "$(id)", "x".repeat(201), 7])("refuses %j", (raw) => {
     expect(() => normalizeContextDir(raw)).toThrow(BuildIsolationError);
   });
-  it("refuses buildpack builders explicitly and a subdirectory on Azure, honors it elsewhere", () => {
+  it("refuses buildpack builders explicitly and honors a subdirectory on every provider", () => {
     expect(() => contextDirOf({ source: { builder: "buildpacks" } }, "aws")).toThrow(/no isolated builder/);
-    expect(() => contextDirOf({ source: { contextDir: "apps/web" } }, "azure")).toThrow(/Azure ACR Tasks/);
+    expect(contextDirOf({ source: { contextDir: "apps/web" } }, "azure")).toBe("apps/web");
     expect(contextDirOf({ source: { contextDir: "apps/web", builder: "dockerfile" } }, "gcp")).toBe("apps/web");
     expect(contextDirOf({ source: {} }, "azure")).toBe(".");
   });

@@ -31,10 +31,10 @@ import type { AzureSession } from "@/lib/credentials/types";
 import { armClient, armTypeOf, inSubscription, safeText, sameArmType, type Json } from "@/lib/providers/azure/arm";
 import { pick } from "@/lib/providers/azure/kit";
 import { API } from "@/lib/providers/azure/platform";
+import { PUBLIC_AZURE_CLOUD, acrLoginServerPattern, blobHostPattern, cloudOf, type AzureCloud } from "@/lib/providers/azure/cloud";
 
 export const MAX_SOURCE_BYTES = 200 * 1024 * 1024;
 
-const BLOB_HOST = /^[a-z0-9]{3,24}\.blob\.core\.windows\.net$/;
 const REPOSITORY = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$/;
 const TAG = /^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$/;
 const DOCKERFILE = /^(?!\/)(?!.*\.\.)[A-Za-z0-9._\-/]{1,200}$/;
@@ -80,10 +80,10 @@ export interface AcrBuildResult {
   requestIds: string[];
 }
 
-export function validateBuildInput(i: AcrBuildInput, subscriptionId: string): void {
+export function validateBuildInput(i: AcrBuildInput, subscriptionId: string, cloud: AzureCloud = PUBLIC_AZURE_CLOUD): void {
   const t = armTypeOf(i.registryId);
   if (!t || !sameArmType(t, "Microsoft.ContainerRegistry/registries") || !inSubscription(i.registryId, subscriptionId)) throw new AcrBuildError("invalid_input", "registryId is not a container registry of this subscription.");
-  if (!/^[a-z0-9]{5,50}\.azurecr\.io$/.test(i.loginServer)) throw new AcrBuildError("invalid_input", "loginServer is not an ACR login server.");
+  if (!acrLoginServerPattern(cloud).test(i.loginServer)) throw new AcrBuildError("invalid_input", "loginServer is not an ACR login server.");
   if (i.repository.length > 200 || !REPOSITORY.test(i.repository)) throw new AcrBuildError("invalid_input", "repository is not a valid image repository name.");
   for (const tag of i.tags ?? []) if (!TAG.test(tag)) throw new AcrBuildError("invalid_input", "an image tag is not valid.");
   if (i.dockerfilePath !== undefined && !DOCKERFILE.test(i.dockerfilePath)) throw new AcrBuildError("invalid_input", "dockerfilePath must be a relative path without '..'.");
@@ -92,14 +92,14 @@ export function validateBuildInput(i: AcrBuildInput, subscriptionId: string): vo
 }
 
 /** The SAS upload URL is network data: accept only a blob endpoint over https carrying a signature. */
-export function assertUploadUrl(raw: string): URL {
+export function assertUploadUrl(raw: string, cloud: AzureCloud = PUBLIC_AZURE_CLOUD): URL {
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
     throw new AcrBuildError("upload_url_rejected", "The registry returned an upload URL that is not a URL.");
   }
-  if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443") || !BLOB_HOST.test(url.hostname) || !url.searchParams.has("sig")) {
+  if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443") || !blobHostPattern(cloud).test(url.hostname) || !url.searchParams.has("sig")) {
     throw new AcrBuildError("upload_url_rejected", "The registry returned an upload URL that is not a signed Azure blob URL.");
   }
   return url;
@@ -108,7 +108,8 @@ export function assertUploadUrl(raw: string): URL {
 const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((r) => (signal?.aborted ? r() : (setTimeout(r, ms), signal?.addEventListener("abort", () => r(), { once: true }))));
 
 export async function runAcrBuild(session: AzureSession, input: AcrBuildInput, signal?: AbortSignal): Promise<AcrBuildResult> {
-  validateBuildInput(input, session.subscriptionId);
+  const cloud = cloudOf(session);
+  validateBuildInput(input, session.subscriptionId, cloud);
   const arm = armClient(session, signal);
   const requestIds: string[] = [];
   const headers = input.clientRequestId ? { "x-ms-client-request-id": input.clientRequestId.replace(/[^A-Za-z0-9_.:-]/g, "").slice(0, 80) } : undefined;
@@ -116,7 +117,7 @@ export async function runAcrBuild(session: AzureSession, input: AcrBuildInput, s
 
   const up = await arm.post<{ uploadUrl?: string; relativePath?: string }>(`${input.registryId}/listBuildSourceUploadUrl`, { apiVersion: api, headers });
   if (up.requestId) requestIds.push(up.requestId);
-  const uploadUrl = assertUploadUrl(String(up.body.uploadUrl ?? ""));
+  const uploadUrl = assertUploadUrl(String(up.body.uploadUrl ?? ""), cloud);
   const relativePath = String(up.body.relativePath ?? "");
   if (!/^[A-Za-z0-9._\-/]{1,300}$/.test(relativePath) || relativePath.includes("..")) throw new AcrBuildError("upload_url_rejected", "The registry returned an unusable source path.", requestIds);
 

@@ -47,6 +47,7 @@ import { exportLocals } from "@/lib/providers/azure/exports";
 import { defineAzureDriver, getById, pick, props } from "@/lib/providers/azure/kit";
 import type { ArmResource, Json } from "@/lib/providers/azure/arm";
 import { cloudName, azureTags, tfLabel } from "@/lib/providers/azure/naming";
+import { azureCloud } from "@/lib/providers/azure/cloud";
 import { API, DEFAULT_LOG_RETENTION_DAYS, landingZoneCidrs } from "@/lib/providers/azure/platform";
 import { findLandingZoneTagged } from "@/lib/providers/azure/drivers/network/landing";
 
@@ -62,12 +63,6 @@ export const PLATFORM = {
 
 const JOIN_ACTION = "Microsoft.Network/virtualNetworks/subnets/join/action";
 
-const PRIVATE_DNS = {
-  redis: "privatelink.redis.cache.windows.net",
-  blob: "privatelink.blob.core.windows.net",
-  queue: "privatelink.queue.core.windows.net",
-  web: "privatelink.azurewebsites.net",
-} as const;
 
 export function compileNetwork(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const spec = specOf<NetworkSpec>(node);
@@ -123,7 +118,9 @@ export function compileNetwork(node: ResourceNode, ctx: CompileContext): TofuFra
       })
     );
 
-  const pgZoneName = `${cloudName(ctx, a, { max: 50, suffix: "pg" })}.private.postgres.database.azure.com`;
+  const zones = azureCloud(ctx.azureCloud).privateZones;
+  const PRIVATE_DNS = { redis: zones.redis, blob: zones.blob, queue: zones.queue, web: zones.web } as const;
+  const pgZoneName = `${cloudName(ctx, a, { max: 50, suffix: "pg" })}.${zones.postgres}`;
 
   const resource = mergeBlocks(
     block("azurerm_resource_group", L("rg"), { name: cloudName(ctx, a, { max: 90, suffix: "rg" }), location, tags }),

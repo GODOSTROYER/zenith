@@ -138,6 +138,7 @@ export const ROLE = {
   serviceBusSender: "Azure Service Bus Data Sender",
   serviceBusReceiver: "Azure Service Bus Data Receiver",
   acrPull: "AcrPull",
+  acrPush: "AcrPush",
 } as const;
 
 /** Names that must never be granted by a Zenith-compiled role assignment. */

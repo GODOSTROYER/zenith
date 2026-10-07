@@ -42,6 +42,7 @@ import { redactDeep } from "@/lib/providers/azure/kit";
 import { kqlInt, kqlString } from "@/lib/providers/azure/kql";
 import { scopedName } from "@/lib/providers/azure/naming";
 import { API } from "@/lib/providers/azure/platform";
+import { cloudOf } from "@/lib/providers/azure/cloud";
 
 export const AZURE_LOGS_SOURCE_ID = "azure.log-analytics";
 export const AZURE_METRICS_SOURCE_ID = "azure.monitor-metrics";
@@ -49,7 +50,7 @@ export const AZURE_METRICS_SOURCE_ID = "azure.monitor-metrics";
 const LOG_DEFAULT_LIMIT = 200;
 const LOG_MAX_LIMIT = 1000;
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const LOG_QUERY_HOST = "https://api.loganalytics.io";
+const logQueryHost = (session: AzureSession): string => `https://${cloudOf(session).logAnalyticsHosts[0]}`;
 
 /**
  * WS-OBS adds `notes` to `QueryResult` and `covers` to `ObservabilitySource`
@@ -191,7 +192,7 @@ export function createAzureLogsSource(config: AzureObservabilityConfig): AzureOb
           continue;
         }
         try {
-          const r = await sendJson<{ tables?: { columns?: { name?: string }[]; rows?: unknown[][] }[] }>(config.session, signal, "POST", `${LOG_QUERY_HOST}/v1/workspaces/${workspace}/query`, { body: { query, timespan: `${from}/${to}` } });
+          const r = await sendJson<{ tables?: { columns?: { name?: string }[]; rows?: unknown[][] }[] }>(config.session, signal, "POST", `${logQueryHost(config.session)}/v1/workspaces/${workspace}/query`, { body: { query, timespan: `${from}/${to}` } });
           const table = r.body.tables?.[0];
           const cols = (table?.columns ?? []).map((c) => String(c.name ?? ""));
           const rows = table?.rows ?? [];

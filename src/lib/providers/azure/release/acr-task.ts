@@ -8,6 +8,7 @@
 import { armClient } from "@/lib/providers/azure/arm";
 import { API } from "@/lib/providers/azure/platform";
 import { assertUploadUrl, validateBuildInput, type AcrBuildInput } from "@/lib/providers/azure/acr-build";
+import { cloudOf } from "@/lib/providers/azure/cloud";
 import { rec, type Ctx } from "./support";
 
 export const ACR_RUN_ID = /^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/;
@@ -18,7 +19,8 @@ export const ACR_RUN_CPU = 2;
 const AGENT_POOL = /^[A-Za-z][A-Za-z0-9]{2,19}$/;
 
 export async function scheduleBuild(ctx: Ctx, input: AcrBuildInput & { tag: string; agentPool?: string }): Promise<string> {
-  validateBuildInput(input, ctx.session.subscriptionId);
+  const cloud = cloudOf(ctx.session);
+  validateBuildInput(input, ctx.session.subscriptionId, cloud);
   if (input.agentPool !== undefined && !AGENT_POOL.test(input.agentPool)) throw new Error("Invalid Azure build agent pool name.");
   if (!/^zn-[a-f0-9]{64}$/.test(input.tag)) throw new Error("Invalid Azure build operation tag.");
   const arm = armClient(ctx.session, ctx.signal);
@@ -26,7 +28,7 @@ export async function scheduleBuild(ctx: Ctx, input: AcrBuildInput & { tag: stri
   const apiVersion = API.containerRegistryRuns;
   const up = await arm.post(`${input.registryId}/listBuildSourceUploadUrl`, { apiVersion, headers });
   if (typeof up.body.uploadUrl !== "string" || typeof up.body.relativePath !== "string") throw new Error("Azure build source upload location is unknown.");
-  const url = assertUploadUrl(up.body.uploadUrl);
+  const url = assertUploadUrl(up.body.uploadUrl, cloud);
   const relativePath = up.body.relativePath;
   if (url.hash || !url.searchParams.get("sig") || !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,299}$/.test(relativePath) || relativePath.split("/").some((p) => !p || p === "." || p === "..")) throw new Error("Azure build source upload location is invalid.");
   ctx.signal.throwIfAborted();

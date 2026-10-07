@@ -6,7 +6,8 @@
  * holds the resumable conversation state written after every model turn and
  * tool batch, so a hard stop (budget, crash, abort) loses nothing. `result` is
  * the stored proposal artifact (manifest + digest) the model produced: it is
- * data, never authority. `proposal_operation_id` links it to the capability
+ * data, never authority. `workflow_id` is the Temporal workflow currently driving the run
+ * (a resume gets a fresh one). `proposal_operation_id` links it to the capability
  * broker operation that a person or policy must settle before anything adopts it.
  */
 export const migration0037CodingAgentRuns = {
@@ -29,6 +30,7 @@ create table if not exists platform.coding_agent_runs (
   checkpoint            jsonb not null,
   result                jsonb,
   proposal_operation_id text,
+  workflow_id           text not null,
   version               integer not null default 1 check (version >= 1),
   created_at            timestamptz not null default clock_timestamp(),
   updated_at            timestamptz not null default clock_timestamp(),

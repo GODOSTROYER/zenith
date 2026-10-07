@@ -161,6 +161,32 @@ describe("hard stops with a resumable checkpoint", () => {
   });
 });
 
+describe("durable step mode", () => {
+  it("does one unit of work per call (a model turn, or a batch of pending tool calls) and a fresh call continues from the checkpoint", async () => {
+    const provider = scriptedProvider(goodAgentScript());
+    const turns: string[] = [];
+    let checkpoint: RunAgentInput["checkpoint"];
+    for (let i = 0; i < 20; i++) {
+      const out = await runAgent(base({ provider, step: true, ...(checkpoint ? { checkpoint } : {}) }));
+      turns.push(`${out.status}:${provider.calls.length}`);
+      checkpoint = out.checkpoint;
+      if (out.status !== "running") break;
+    }
+    // model, tools, model, tools, model, tools, model, tools, model(final)
+    expect(turns).toEqual(["running:1", "running:1", "running:2", "running:2", "running:3", "running:3", "running:4", "running:4", "completed:5"]);
+    expect(checkpoint?.toolHistogram).toEqual({ list_files: 1, read_file: 1, analyze_repository: 1, propose_manifest: 1 });
+  });
+
+  it("checks the tool budget before every tool in a batch, even in step mode", async () => {
+    const provider = scriptedProvider([() => ({ content: [toolUse("list_files", {}), toolUse("list_files", {}), toolUse("list_files", {})] })]);
+    const first = await runAgent(base({ provider, step: true, limits: { toolCalls: 2 } }));
+    expect(first.status).toBe("running");
+    const second = await runAgent(base({ provider, step: true, limits: { toolCalls: 2 }, checkpoint: first.checkpoint }));
+    expect(second.status).toBe("budget_exhausted");
+    expect(second.checkpoint.usage.toolCalls).toBe(2);
+  });
+});
+
 describe("recovery after failure", () => {
   it("a provider error fails the run with a code only, and a resume finishes it", async () => {
     const provider = scriptedProvider([

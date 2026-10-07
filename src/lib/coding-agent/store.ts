@@ -18,7 +18,9 @@ export interface RunStore {
   list(workspaceId: string, limit?: number): Promise<CodingAgentRunRow[]>;
   save(input: SaveRunInput): Promise<CodingAgentRunRow>;
   attachOutcome(input: { workspaceId: string; id: string; result?: unknown; proposalOperationId?: string }): Promise<CodingAgentRunRow>;
-  claimResume(input: { workspaceId: string; id: string; limits: unknown }): Promise<CodingAgentRunRow>;
+  claimResume(input: { workspaceId: string; id: string; limits: unknown; workflowId: string }): Promise<CodingAgentRunRow>;
+  cancel(input: { workspaceId: string; id: string }): Promise<CodingAgentRunRow>;
+  fail(input: { workspaceId: string; id: string; stopReason: unknown }): Promise<CodingAgentRunRow | null>;
 }
 
 export const platformRunStore = (sql: Sql): RunStore => ({
@@ -28,6 +30,8 @@ export const platformRunStore = (sql: Sql): RunStore => ({
   save: (i) => repo.saveRun(sql, i),
   attachOutcome: (i) => repo.attachOutcome(sql, i),
   claimResume: (i) => repo.claimResume(sql, i),
+  cancel: (i) => repo.cancelRun(sql, i),
+  fail: (i) => repo.failRun(sql, i),
 });
 
 export function memoryRunStore(): RunStore {
@@ -41,7 +45,7 @@ export function memoryRunStore(): RunStore {
       const row: CodingAgentRunRow = {
         id: i.id, workspaceId: i.workspaceId, ...(i.projectId ? { projectId: i.projectId } : {}), ...(i.environmentId ? { environmentId: i.environmentId } : {}),
         createdBy: i.createdBy, status: "running", model: i.model, task: i.task, source: clone(i.source), limits: clone(i.limits), usage: clone(i.usage), checkpoint: clone(i.checkpoint),
-        version: 1, createdAt: stamp(), updatedAt: stamp(),
+        workflowId: i.workflowId, version: 1, createdAt: stamp(), updatedAt: stamp(),
       };
       if (rows.has(key(i.workspaceId, i.id))) throw new ControlStoreError("conflict", "Run exists.", { id: i.id });
       rows.set(key(i.workspaceId, i.id), row);
@@ -86,7 +90,27 @@ export function memoryRunStore(): RunStore {
       if (r.status !== "budget_exhausted" && r.status !== "failed" && !crashed) throw new ControlStoreError("invalid_state", "Only a run stopped by a budget or an error can be resumed.", { id: i.id, status: r.status });
       r.status = "running";
       delete r.stopReason;
+      r.workflowId = i.workflowId;
       r.limits = clone(i.limits);
+      r.version += 1;
+      r.updatedAt = stamp();
+      return clone(r);
+    },
+    async cancel(i) {
+      const r = find(i.workspaceId, i.id);
+      if (!r) throw new ControlStoreError("not_found", "Run not found.", { id: i.id });
+      if (r.status !== "running" && r.status !== "budget_exhausted" && r.status !== "failed") throw new ControlStoreError("invalid_state", "The run already finished.", { id: i.id, status: r.status });
+      r.status = "cancelled";
+      r.stopReason = { kind: "cancelled" };
+      r.version += 1;
+      r.updatedAt = stamp();
+      return clone(r);
+    },
+    async fail(i) {
+      const r = find(i.workspaceId, i.id);
+      if (!r || r.status !== "running") return null;
+      r.status = "failed";
+      r.stopReason = clone(i.stopReason);
       r.version += 1;
       r.updatedAt = stamp();
       return clone(r);

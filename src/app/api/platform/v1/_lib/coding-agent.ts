@@ -10,6 +10,7 @@ import type { NextRequest } from "next/server";
 import { BrokerError, notFound } from "@/lib/capabilities/errors";
 import { currentProductRoleResolver } from "@/lib/capabilities/current-product-roles";
 import type { ActionContext } from "@/lib/actions/core";
+import type { Principal } from "@/lib/controlplane/types";
 import { ControlStoreError } from "@/lib/controlplane/db/errors";
 import { AgentServiceError, type AgentCaller } from "@/lib/coding-agent/service";
 import { buildCtx } from "@/lib/server/scope";
@@ -18,6 +19,7 @@ import { assertBrowserSession } from "./browser";
 
 export interface AgentRouteCaller {
   agent: AgentCaller;
+  principal: Principal;
   ctx: ActionContext;
 }
 
@@ -33,7 +35,8 @@ export async function agentAdmin(req: NextRequest): Promise<AgentRouteCaller> {
   if (role === "none") throw notFound();
   if (role !== "admin") throw new BrokerError("role_insufficient", "Only a workspace admin can run coding agents.", "Ask a workspace admin.");
   return {
-    agent: { workspaceId: caller.workspaceId, userId: caller.principal.id, principal: caller.principal },
+    agent: { workspaceId: caller.workspaceId, userId: caller.principal.id },
+    principal: caller.principal,
     ctx: buildCtx({}, { type: "user", id: caller.principal.id, name: caller.principal.name }),
   };
 }

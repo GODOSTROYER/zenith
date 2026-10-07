@@ -29,6 +29,7 @@ const { findTemporalCli, waitFor, workflowBundlePath, DEFINITIONS_ENTRY } = awai
 import type { PlatformDbHandle } from "@/lib/controlplane/db";
 import type { Broker } from "@/lib/capabilities/platform";
 import { createCriticalMaintenanceActivities } from "@/lib/workflows/critical-activities";
+import { createProductionCodingAgentActivities } from "@/lib/coding-agent/activities";
 import type { ReconcileSweepResult } from "@/lib/workflows/definitions/reconcileSweep";
 import type { RegisteredWorkerActivities } from "@/lib/workflows/types";
 import type { ReconcileSweepRuntime } from "@/lib/workflows/reconcile-schedule";
@@ -172,7 +173,7 @@ describe("actual default activity composition: PostgreSQL and owned durable Temp
     let running: Promise<void> | undefined;
     let client: Awaited<ReturnType<typeof clientFor>> | undefined;
     try {
-      const activities: RegisteredWorkerActivities = { ...createActivities({ db, workerIdentity: cfg.identity, planDir: path.join(root, "plans"), ports: { heartbeat: detail => Context.current().heartbeat(detail), activitySignal: () => Context.current().cancellationSignal } }), ...runtime.activities, ...createCriticalMaintenanceActivities(db) };
+      const activities: RegisteredWorkerActivities = { ...createActivities({ db, workerIdentity: cfg.identity, planDir: path.join(root, "plans"), ports: { heartbeat: detail => Context.current().heartbeat(detail), activitySignal: () => Context.current().cancellationSignal } }), ...runtime.activities, ...createCriticalMaintenanceActivities(db), ...createProductionCodingAgentActivities(db) };
       worker = await Worker.create({ ...workerOptions({ config: cfg, connection, activities, workflows: { workflowBundle: { codePath: bundle }, origin: "prebuilt-bundle" } }), dataConverter: converter() });
       const pollingStartedAt = Date.now();
       running = worker.run();

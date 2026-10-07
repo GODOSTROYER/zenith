@@ -22,6 +22,8 @@ export function runView(row: CodingAgentRunRow): Record<string, unknown> {
     unsafeAttempts: cp?.unsafeAttempts ?? [],
     injectionSignals: cp?.injectionSignals ?? [],
     resumable: row.status === "budget_exhausted" || row.status === "failed",
+    cancellable: row.status === "running" || row.status === "budget_exhausted" || row.status === "failed",
+    workflowId: row.workflowId,
     result: row.result ?? null,
     proposalOperationId: row.proposalOperationId ?? null,
     createdAt: row.createdAt,

@@ -29,7 +29,7 @@ export const POST = platformRoute<{ id: string }>(async (req, { id }) => {
   const run = await (await codingAgentStore()).get(caller.agent.workspaceId, id);
   if (!run) throw notFound();
   if (!run.projectId || !run.proposalOperationId) throw new BrokerError("invalid_state", "This run has no proposal for a project to adopt.");
-  const detail = await (await platformBroker()).getOperationDetail({ workspaceId: caller.agent.workspaceId, operationId: run.proposalOperationId, principal: caller.agent.principal });
+  const detail = await (await platformBroker()).getOperationDetail({ workspaceId: caller.agent.workspaceId, operationId: run.proposalOperationId, principal: caller.principal });
   let artifact;
   try {
     artifact = assertAdoptable({ id: run.id, status: run.status, result: run.result as { artifact?: never } | null, proposalOperationId: run.proposalOperationId }, detail.operation);

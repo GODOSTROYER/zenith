@@ -21,6 +21,7 @@ const base = (id: string, workspaceId: string) => ({
   limits: { toolCalls: 40 },
   usage: { toolCalls: 0 },
   checkpoint: { version: 1, messages: [] },
+  workflowId: `car-${id}`,
 });
 
 describe.each(LANES)("coding_agent_runs on $name", (lane) => {
@@ -66,22 +67,23 @@ describe.each(LANES)("coding_agent_runs on $name", (lane) => {
   it("a stopped run is claimed for resume exactly once, with the limits it is given", async () => {
     const id = `car_${randomUUID()}`;
     await repos.createRun(base(id, ws));
-    await expect(repos.claimResume({ workspaceId: ws, id, limits: { toolCalls: 80 } })).rejects.toMatchObject({ code: "invalid_state" });
+    await expect(repos.claimResume({ workspaceId: ws, id, limits: { toolCalls: 80 }, workflowId: "wf_2" })).rejects.toMatchObject({ code: "invalid_state" });
     const stopped = await repos.saveRun({ workspaceId: ws, id, expectedVersion: 1, status: "budget_exhausted", stopReason: { kind: "budget", dimension: "toolCalls" }, limits: { toolCalls: 40 }, usage: {}, checkpoint: { version: 1, messages: [] } });
-    const results = await Promise.allSettled([repos.claimResume({ workspaceId: ws, id, limits: { toolCalls: 80 } }), repos.claimResume({ workspaceId: ws, id, limits: { toolCalls: 90 } })]);
+    const results = await Promise.allSettled([repos.claimResume({ workspaceId: ws, id, limits: { toolCalls: 80 }, workflowId: "wf_2" }), repos.claimResume({ workspaceId: ws, id, limits: { toolCalls: 90 }, workflowId: "wf_3" })]);
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     const claimed = await repos.getRun(ws, id);
     expect(claimed).toMatchObject({ status: "running", version: stopped.version + 1 });
     expect(claimed?.stopReason).toBeUndefined();
-    await expect(repos.claimResume({ workspaceId: other, id, limits: {} })).rejects.toMatchObject({ code: "not_found" });
+    expect(claimed?.workflowId).toMatch(/^wf_[23]$/);
+    await expect(repos.claimResume({ workspaceId: other, id, limits: {}, workflowId: "wf_x" })).rejects.toMatchObject({ code: "not_found" });
   });
 
   it("recovers a crashed worker: a running row untouched for ten minutes can be claimed, a fresh one cannot", async () => {
     const id = `car_${randomUUID()}`;
     await repos.createRun(base(id, ws));
-    await expect(repos.claimResume({ workspaceId: ws, id, limits: {} })).rejects.toMatchObject({ code: "invalid_state" });
+    await expect(repos.claimResume({ workspaceId: ws, id, limits: {}, workflowId: "wf_x" })).rejects.toMatchObject({ code: "invalid_state" });
     await sql.query("update platform.coding_agent_runs set updated_at = clock_timestamp() - interval '11 minutes' where id = $1", [id]);
-    expect((await repos.claimResume({ workspaceId: ws, id, limits: { toolCalls: 40 } })).status).toBe("running");
+    expect((await repos.claimResume({ workspaceId: ws, id, limits: { toolCalls: 40 }, workflowId: "wf_y" })).status).toBe("running");
   });
 
   it("attaches the proposal link and result once, only after the run has stopped", async () => {
@@ -94,6 +96,25 @@ describe.each(LANES)("coding_agent_runs on $name", (lane) => {
     const second = await repos.attachOutcome({ workspaceId: ws, id, result: { artifact: { manifestDigest: "m2" } }, proposalOperationId: "op_2" });
     expect(second).toMatchObject({ proposalOperationId: "op_1", result: { artifact: { manifestDigest: "m1" } } });
     await expect(repos.attachOutcome({ workspaceId: other, id, proposalOperationId: "op_x" })).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  it("cancel makes any non-terminal row cancelled once, tenant scoped; a finished row cannot be cancelled", async () => {
+    const id = `car_${randomUUID()}`;
+    await repos.createRun(base(id, ws));
+    await expect(repos.cancelRun({ workspaceId: other, id })).rejects.toMatchObject({ code: "not_found" });
+    const cancelled = await repos.cancelRun({ workspaceId: ws, id });
+    expect(cancelled).toMatchObject({ status: "cancelled", stopReason: { kind: "cancelled" } });
+    await expect(repos.cancelRun({ workspaceId: ws, id })).rejects.toMatchObject({ code: "invalid_state" });
+    // a worker that still holds the old version can no longer write
+    await expect(repos.saveRun({ workspaceId: ws, id, expectedVersion: 1, status: "running", limits: {}, usage: {}, checkpoint: { version: 1, messages: [] } })).rejects.toMatchObject({ code: "conflict" });
+  });
+
+  it("failRun only moves a running row, scoped to the workspace", async () => {
+    const id = `car_${randomUUID()}`;
+    await repos.createRun(base(id, ws));
+    expect(await repos.failRun({ workspaceId: other, id, stopReason: { kind: "provider_error", detail: "x" } })).toBeNull();
+    expect((await repos.failRun({ workspaceId: ws, id, stopReason: { kind: "provider_error", detail: "step_failed" } }))?.status).toBe("failed");
+    expect(await repos.failRun({ workspaceId: ws, id, stopReason: { kind: "provider_error", detail: "again" } })).toBeNull();
   });
 
   it("refuses an invalid status and an oversized checkpoint at the database", async () => {

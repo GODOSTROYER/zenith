@@ -3942,6 +3942,7 @@
     {
       "id": "PROD-COST-01",
       "title": "Source-backed dated price catalog",
+      "implementationNote": "J8: GCP/Azure/OCI compute and PostgreSQL refresh rules, checked page assembly and offline dry-run built; owner-key/live price adoption and actual billing acceptance deferred. See verify/COST-01.md.",
       "acceptance": [
         "Refreshable official-source-backed catalogs replace weak values and distinguish estimates/forecasts/actual spend."
       ],
@@ -3970,6 +3971,7 @@
     {
       "id": "PROD-COST-02",
       "title": "Complete placement costs and constraints",
+      "implementationNote": "J8: extended MCP usage schema v2 with digest/golden update and AWS published SigV4 vector; targeted verification pending. See verify/COST-02.md.",
       "acceptance": [
         "Include egress/NAT/IPv4/IO/requests/backups; reject infeasible budgets/residency/availability; estimates never represented as hard billing caps."
       ],
@@ -3998,6 +4000,7 @@
     {
       "id": "PROD-COST-03",
       "title": "Bounded economic optimization",
+      "implementationNote": "J8: measured collector, scoped ownership and human consent endpoint handlers built; default sweep/route/exporter joins remain with the orchestrator because they are outside J8 ownership. Real seven-day measurements, PostgreSQL and browser verification pending. See verify/COST-03.md.",
       "acceptance": [
         "Measurable bounded nonflapping optimizations respect approval/field ownership and transfer/latency/residency cost."
       ],

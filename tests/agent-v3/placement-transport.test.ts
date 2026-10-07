@@ -71,7 +71,7 @@ describe.each(["2025-06-18", "2026-07-28"])("placement MCP HTTP %s", (protocol) 
     expect((await list.json()).result.tools).toContainEqual(expect.objectContaining({
       name, inputSchema: descriptor.inputSchema, annotations: descriptor.annotations,
       _meta: { zenith: expect.objectContaining({ access: "read", capability: "placement.solve", requiredScope: "plan",
-        schemaVersion: 1, schemaDigest: descriptor.schemaDigest }) },
+        schemaVersion: 2, schemaDigest: descriptor.schemaDigest }) },
     }));
     expect(h.authorizeRead).not.toHaveBeenCalled();
     expect(placementReads.project).not.toHaveBeenCalled();
@@ -80,7 +80,7 @@ describe.each(["2025-06-18", "2026-07-28"])("placement MCP HTTP %s", (protocol) 
     const body = await call.json();
     expect(body.result.isError).not.toBe(true);
     expect(body.result.structuredContent).toMatchObject({
-      contractVersion: 3, tool: name, schemaVersion: 1, ok: true, note: UNTRUSTED_NOTE,
+      contractVersion: 3, tool: name, schemaVersion: 2, ok: true, note: UNTRUSTED_NOTE,
       data: { workspaceId: ids.ws, projectId: ids.project, environmentId: ids.env, connectedProviders: ["aws"], isEstimate: true },
       untrusted_data: { label: "untrusted_data", content: { result: { chosen: {
         requiresConnection: false, cost: { lines: expect.any(Array) },

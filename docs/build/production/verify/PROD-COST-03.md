@@ -1,5 +1,7 @@
 # PROD-COST-03 Bounded economic optimization
 
+J8 follow-up at base `3a9de905`: [collector, consent and exact production joins](COST-03.md), [executed check report](J8-COST-REPORT.md). The default composition remains unmeasured until the listed assembler joins land. Earlier evidence below remains historical.
+
 ## 1. Summary
 - `src/lib/placement/optimizer.ts`: pure optimizer `optimizeEconomics`. Right-sizing (one size step or one replica) and same-provider site relocation, priced with the COST-01 catalog and COST-02 cost/latency/residency models. Defines `FieldOwnershipCheck` (default `refuseUnknownFieldOwnership`, plus `staticFieldOwnership` for tests).
 - `src/lib/placement/optimizer-submit.ts`: `submitOptimizationProposals` hands proposals to the existing capability broker (`service.scale` for container-service steps, `infrastructure.plan` otherwise). Proposes only; never approves or executes. Returns history entries for the caller to persist.

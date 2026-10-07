@@ -13,6 +13,7 @@
 import { buildTiered, resolveCandidates, toNumber, type Dimension, type Priced } from "@/lib/placement/catalog-refresh/common";
 import type { Normalizer, PriceObservation, Skipped } from "@/lib/placement/catalog-refresh/types";
 import type { PriceEntry } from "@/lib/placement/types";
+import { derivePrices, type DerivedPriceRule } from "./derived";
 
 interface OciItem {
   partNumber?: string;
@@ -33,6 +34,10 @@ interface OciRule {
 }
 
 export const OCI_RULES: readonly OciRule[] = [
+  { sku: "component.oci.e4.cpu", unit: "hour", display: /^(?:Oracle Cloud Infrastructure - |OCI )?Compute - Standard - E4(?: - OCPU)?$/i, metric: /^OCPU Per Hour$/i, pick: "first_paid", note: "Standard E4 OCPU-hour" },
+  { sku: "component.oci.e4.memory", unit: "hour", display: /^(?:Oracle Cloud Infrastructure - |OCI )?Compute - Standard - E4 - Memory$/i, metric: /^(?:GB|Gigabyte) Per Hour$/i, pick: "first_paid", note: "Standard E4 memory GB-hour" },
+  { sku: "component.oci.pg.cpu", unit: "hour", display: /^(?:Oracle Cloud Infrastructure |OCI )?Database with PostgreSQL(?: - Compute| - X86)?$/i, metric: /^OCPU Per Hour$/i, pick: "first_paid", note: "Database with PostgreSQL X86 OCPU-hour; optional additional memory/VPU fees are not included" },
+  { sku: "oci.postgres.storage_gb_month", unit: "gb_month", display: /Database (?:with PostgreSQL - |Optimized )Storage/i, metric: /^(?:GB|Gigabyte) Storage Capacity Per Month$/i, pick: "first_paid", note: "PostgreSQL database optimized storage" },
   {
     sku: "oci.network.internet_gb",
     unit: "gb",
@@ -97,9 +102,14 @@ export const normalizeOci: Normalizer = (text, snapshot, ctx) => {
       });
     }
   }
-  return { observations, skipped };
+  return derivePrices({ observations, skipped }, OCI_DERIVED_RULES, ctx.regions);
 };
 
+const OCI_DERIVED_RULES: DerivedPriceRule[] = [
+  ...[["small", 2], ["medium", 4], ["large", 8]].map(([size, memory]) => ({ sku: `oci.compute.${size}_hour`, components: [{ sku: "component.oci.e4.cpu", quantity: 1 }, { sku: "component.oci.e4.memory", quantity: Number(memory) }], note: `VM.Standard.E4.Flex 1 OCPU and ${memory} GB` })),
+  ...[["nano", 1], ["small", 1], ["standard", 2], ["performance", 4]].map(([size, cpu]) => ({ sku: `oci.postgres.${size}_hour`, components: [{ sku: "component.oci.pg.cpu", quantity: Number(cpu) }], note: `Database with PostgreSQL ${cpu} OCPU, no HA` })),
+];
+
 export function ociRefreshableSkus(): string[] {
-  return OCI_RULES.map((r) => r.sku);
+  return [...OCI_RULES.map(r => r.sku).filter(s => !s.startsWith("component.")), ...OCI_DERIVED_RULES.map(r => r.sku)];
 }

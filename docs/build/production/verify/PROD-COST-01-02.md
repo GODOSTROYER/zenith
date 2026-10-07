@@ -2,6 +2,8 @@
 
 # PROD-COST-01 and PROD-COST-02: dated price catalog, complete costs, actual spend
 
+J8 follow-up at base `3a9de905`: [COST-01](COST-01.md), [COST-02](COST-02.md) and [executed check report](J8-COST-REPORT.md). Those packets add compute/database refresh rules, offline dry run, MCP usage schema v2 and the published AWS signing vector. Earlier evidence below remains historical.
+
 Branch `prod/cost-01-02-w4`, base `c9a942d6`. Build only: nothing here was run (no vitest, no database, no cloud). Typecheck (`npx tsc --noEmit -p .`, Node 22) and `eslint` on every changed file were clean at the last run. COST-03 interfaces (`src/lib/placement/optimizer*.ts`) are untouched; the optimizer keeps consuming the same catalog and `estimateGraphCost` API, which only gained optional fields.
 
 ## 1. Summary

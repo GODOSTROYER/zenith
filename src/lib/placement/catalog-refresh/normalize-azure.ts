@@ -23,6 +23,7 @@ interface AzureItem {
   serviceName?: string;
   unitOfMeasure?: string;
   type?: string;
+  armSkuName?: string;
 }
 
 interface AzureRule {
@@ -40,6 +41,12 @@ const meter = (service: string, meterName: RegExp, product?: RegExp) => (i: Azur
   i.serviceName === service && meterName.test(i.meterName ?? "") && (product ? product.test(i.productName ?? "") : true);
 
 export const AZURE_RULES: readonly AzureRule[] = [
+  ...[["small", "B1ms"], ["medium", "B2s"], ["large", "D2s_v5"]].map(([size, shape]): AzureRule => ({
+    sku: `azure.vm.${size}_hour`, unit: "hour", match: i => i.serviceName === "Virtual Machines" && i.armSkuName === `Standard_${shape}` && i.meterName === shape && !/Windows|Spot|Low Priority/i.test(`${i.productName} ${i.skuName}`), unitOfMeasure: /^1 Hour$/i, pick: "first_paid", note: `Standard_${shape} Linux consumption VM, no Spot or Windows license`,
+  })),
+  ...[["nano", "B1ms"], ["small", "B2s"], ["standard", "D2ds_v5"], ["performance", "D4ds_v5"]].map(([size, shape]): AzureRule => ({
+    sku: `azure.postgres_flexible.${size}_hour`, unit: "hour", match: i => i.serviceName === "Azure Database for PostgreSQL" && /Flexible Server/i.test(i.productName ?? "") && i.armSkuName === `Standard_${shape}` && i.meterName === shape && !/Reserved|HA|High Availability/i.test(`${i.productName} ${i.skuName}`), unitOfMeasure: /^1 Hour$/i, pick: "first_paid", note: `PostgreSQL Flexible Server Standard_${shape} consumption compute, no HA`,
+  })),
   { sku: "azure.public_ip.hour", unit: "hour", match: meter("Virtual Network", /^Standard IPv4 Static Public IP$/), unitOfMeasure: /^1 Hour$/i, pick: "first_paid", note: "Standard IPv4 Static Public IP per hour" },
   {
     sku: "azure.bandwidth.internet_gb",

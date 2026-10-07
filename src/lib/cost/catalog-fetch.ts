@@ -30,8 +30,9 @@ export const GCP_SERVICES: Readonly<Record<string, string>> = {
   "Cloud Run": "152E-C115-5142",
   Networking: "E505-1604-58F8",
   "Cloud Storage": "95FF-2EF5-5EA1",
+  "Cloud SQL": "9662-B51E-5089",
 };
-export const AZURE_SERVICES: readonly string[] = ["Virtual Network", "Bandwidth", "NAT Gateway", "Azure Container Apps", "Storage", "Log Analytics", "Azure DNS", "Azure Database for PostgreSQL"];
+export const AZURE_SERVICES: readonly string[] = ["Virtual Machines", "Virtual Network", "Bandwidth", "NAT Gateway", "Azure Container Apps", "Storage", "Log Analytics", "Azure DNS", "Azure Database for PostgreSQL"];
 export const OCI_PRICE_LIST_URL = "https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/?currencyCode=USD";
 
 export type EnvLike = Readonly<Record<string, string | undefined>>;

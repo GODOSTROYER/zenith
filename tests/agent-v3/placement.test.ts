@@ -26,9 +26,9 @@ describe("placement MCP tool", () => {
     expect(PLACEMENT_TOOL.annotations).toEqual({ readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false });
     expect(PLACEMENT_TOOL.inputSchema.additionalProperties).toBe(false);
     expect(PLACEMENT_TOOL.schemaDigest).toBe(`sha256:${digest(PLACEMENT_TOOL.inputSchema)}`);
-    // Preserve the advertised input contract when moving it into the catalog.
-    expect({ schemaVersion: PLACEMENT_TOOL.schemaVersion, schemaDigest: PLACEMENT_TOOL.schemaDigest }).toEqual({ schemaVersion: 1,
-      schemaDigest: "sha256:78e1049dc738e078f695692906abec01e75f83615cedc581d4f562630c4d811a" });
+    // COST-02 deliberately adds the extended usage dimensions in placement schema v2.
+    expect({ schemaVersion: PLACEMENT_TOOL.schemaVersion, schemaDigest: PLACEMENT_TOOL.schemaDigest }).toEqual({ schemaVersion: 2,
+      schemaDigest: "sha256:05139168b57e9e2c3b1d294cdd8df1df278cff54f15f64b526ef88effddf8531" });
     expect(RecommendPlacementInput.safeParse({ target, approved: true }).success).toBe(false);
   });
   it("authorizes before any product read and returns explanation and costs as untrusted data", async () => {

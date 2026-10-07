@@ -27,6 +27,13 @@ locals {
   has_kms_key      = var.state_bucket_kms_key_arn != ""
   has_hosted_zones = length(var.route53_hosted_zone_arns) > 0
 
+  # IAM caps a managed policy at 6,144 characters and a role at 10 managed
+  # policies. The first 20 zones live in ZenithDeployEdge; any further zones are
+  # split into overflow policies of 40, attached to the deploy role (8 + 2 = 10).
+  # The literals mirror src/lib/credentials/aws/limits.ts (a test pins them).
+  dns_zones_inline   = slice(var.route53_hosted_zone_arns, 0, min(length(var.route53_hosted_zone_arns), 20))
+  dns_zones_overflow = length(var.route53_hosted_zone_arns) > 20 ? chunklist(slice(var.route53_hosted_zone_arns, 20, length(var.route53_hosted_zone_arns)), 40) : []
+
   bootstrap_tags = merge(var.tags, { "zenith:bootstrap" = "true" })
 
   # Names are deterministic so policy documents can reference them without
@@ -57,7 +64,7 @@ locals {
     boundary_arn             = local.boundary_arn
     environment_tag_value    = var.environment_tag_value
     kms_key_arn              = var.state_bucket_kms_key_arn
-    route53_hosted_zone_arns = var.route53_hosted_zone_arns
+    route53_hosted_zone_arns = local.dns_zones_inline
   }, { for key, arn in local.family_boundary_arns : "${key}_boundary_arn" => arn })
 
   optional = jsondecode(templatefile("${path.module}/policies/optional-statements.json.tftpl", local.policy_vars))
@@ -335,6 +342,27 @@ resource "aws_iam_role_policy" "secret_writer" {
   name   = "ZenithSecretWriter"
   role   = aws_iam_role.secret_writer.id
   policy = templatefile("${path.module}/policies/secret-writer.json.tftpl", local.policy_vars)
+}
+
+# Hosted zones beyond the inline 20 get their own managed policies, each with only
+# the same Route53 record-change statement over its own chunk of zones.
+resource "aws_iam_policy" "dns_overflow" {
+  count = length(local.dns_zones_overflow)
+
+  name        = "ZenithDeployEdgeDns${count.index + 1}${var.name_suffix}"
+  description = "Zenith deploy role - DNS records in additional listed zones (overflow ${count.index + 1})."
+  policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [merge(local.optional.route53[0], { Resource = local.dns_zones_overflow[count.index] })]
+  })
+  tags = local.bootstrap_tags
+}
+
+resource "aws_iam_role_policy_attachment" "dns_overflow" {
+  count = length(local.dns_zones_overflow)
+
+  role       = aws_iam_role.deploy.name
+  policy_arn = aws_iam_policy.dns_overflow[count.index].arn
 }
 
 resource "aws_iam_role_policy_attachment" "observe" {

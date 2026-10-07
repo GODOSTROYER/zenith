@@ -1,0 +1,232 @@
+{
+  "version": 1,
+  "knownMissing": {
+    "cloudfront:CreateDistribution": {
+      "via": [
+        "aws_cloudfront_distribution"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "cloudfront:CreateDistributionWithTags": {
+      "via": [
+        "aws_cloudfront_distribution"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "cloudfront:CreateOriginAccessControl": {
+      "via": [
+        "aws_cloudfront_origin_access_control"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "cloudfront:DeleteDistribution": {
+      "via": [
+        "aws_cloudfront_distribution"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "cloudfront:DeleteOriginAccessControl": {
+      "via": [
+        "aws_cloudfront_origin_access_control"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "cloudfront:TagResource": {
+      "via": [
+        "aws_cloudfront_distribution"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "cloudfront:UpdateDistribution": {
+      "via": [
+        "aws_cloudfront_distribution"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "cloudfront:UpdateOriginAccessControl": {
+      "via": [
+        "aws_cloudfront_origin_access_control"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "ec2:CreateFlowLogs": {
+      "via": [
+        "aws_flow_log"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "ec2:DeleteFlowLogs": {
+      "via": [
+        "aws_flow_log"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "elasticache:CreateUser": {
+      "via": [
+        "aws_elasticache_user"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "elasticache:CreateUserGroup": {
+      "via": [
+        "aws_elasticache_user_group"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "elasticache:DeleteUser": {
+      "via": [
+        "aws_elasticache_user"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "elasticache:DeleteUserGroup": {
+      "via": [
+        "aws_elasticache_user_group"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "elasticache:ModifyUser": {
+      "via": [
+        "aws_elasticache_user"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "elasticache:ModifyUserGroup": {
+      "via": [
+        "aws_elasticache_user_group"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "iam:AddClientIDToOpenIDConnectProvider": {
+      "via": [
+        "aws_iam_openid_connect_provider"
+      ],
+      "status": "denied_by_design",
+      "note": "Explicitly denied by the DenyPrincipalCreation statement of the deploy-iam policy: OIDC providers are bootstrap/customer owned. The aws_iam_openid_connect_provider resource the IAM role driver can emit for EKS workload trust therefore cannot be applied through the deploy role; the cluster's OIDC provider must be created by the customer stack."
+    },
+    "iam:AddRoleToInstanceProfile": {
+      "via": [
+        "aws_iam_instance_profile"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "iam:CreateInstanceProfile": {
+      "via": [
+        "aws_iam_instance_profile"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "iam:CreateOpenIDConnectProvider": {
+      "via": [
+        "aws_iam_openid_connect_provider"
+      ],
+      "status": "denied_by_design",
+      "note": "Explicitly denied by the DenyPrincipalCreation statement of the deploy-iam policy: OIDC providers are bootstrap/customer owned. The aws_iam_openid_connect_provider resource the IAM role driver can emit for EKS workload trust therefore cannot be applied through the deploy role; the cluster's OIDC provider must be created by the customer stack."
+    },
+    "iam:DeleteInstanceProfile": {
+      "via": [
+        "aws_iam_instance_profile"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "iam:DeleteOpenIDConnectProvider": {
+      "via": [
+        "aws_iam_openid_connect_provider"
+      ],
+      "status": "denied_by_design",
+      "note": "Explicitly denied by the DenyPrincipalCreation statement of the deploy-iam policy: OIDC providers are bootstrap/customer owned. The aws_iam_openid_connect_provider resource the IAM role driver can emit for EKS workload trust therefore cannot be applied through the deploy role; the cluster's OIDC provider must be created by the customer stack."
+    },
+    "iam:RemoveRoleFromInstanceProfile": {
+      "via": [
+        "aws_iam_instance_profile"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "iam:TagInstanceProfile": {
+      "via": [
+        "aws_iam_instance_profile"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "iam:TagOpenIDConnectProvider": {
+      "via": [
+        "aws_iam_openid_connect_provider"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "iam:UpdateOpenIDConnectProviderThumbprint": {
+      "via": [
+        "aws_iam_openid_connect_provider"
+      ],
+      "status": "denied_by_design",
+      "note": "Explicitly denied by the DenyPrincipalCreation statement of the deploy-iam policy: OIDC providers are bootstrap/customer owned. The aws_iam_openid_connect_provider resource the IAM role driver can emit for EKS workload trust therefore cannot be applied through the deploy role; the cluster's OIDC provider must be created by the customer stack."
+    },
+    "kms:ScheduleKeyDeletion": {
+      "via": [
+        "aws_kms_key"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "ssm:AddTagsToResource": {
+      "via": [
+        "aws_ssm_parameter"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "ssm:DeleteParameter": {
+      "via": [
+        "aws_ssm_parameter"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "ssm:PutParameter": {
+      "via": [
+        "aws_ssm_parameter"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "ssm:RemoveTagsFromResource": {
+      "via": [
+        "aws_ssm_parameter"
+      ],
+      "status": "gap_to_triage",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    }
+  },
+  "allowedUnusedSensitive": [
+    "iam:CreatePolicy",
+    "iam:CreatePolicyVersion",
+    "iam:DeletePolicy",
+    "iam:DeletePolicyVersion",
+    "iam:SetDefaultPolicyVersion",
+    "iam:TagPolicy",
+    "iam:UntagPolicy",
+    "kms:CreateGrant"
+  ]
+}

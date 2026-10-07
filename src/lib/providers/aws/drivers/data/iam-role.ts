@@ -40,6 +40,7 @@
  * only.
  */
 import { AWS_ROLE_BOUNDARIES, awsBoundaryArn, trustedAwsBoundaryArn } from "@/lib/credentials/aws/naming";
+import { isAwsPartition, principalForPartition, type AwsPartition } from "@/lib/credentials/aws/partition";
 import {
   GetRoleCommand,
   GetRolePolicyCommand,
@@ -64,6 +65,7 @@ import {
   nodeName,
   paginate,
   parseArn,
+  partitionOfRegion,
   REF,
   resourceTags,
   refLocalName,
@@ -128,11 +130,17 @@ export function readIdentitySpec(node: ResourceNode): IdentitySpec {
 }
 
 /** The service principal that may assume the role, from the workload node's kind (or its address prefix). */
-export function trustPrincipalFor(node: ResourceNode, ctx: Pick<CompileContext, "node">, workload: string): string {
+export function trustPrincipalFor(node: ResourceNode, ctx: Pick<CompileContext, "node"> & Partial<Pick<CompileContext, "awsBootstrap" | "region">>, workload: string): string {
   const kind = ctx.node(workload)?.kind ?? nodeKindPrefix(workload);
   const principal = TRUST_PRINCIPAL_BY_WORKLOAD[kind];
   if (!principal) throw new DriverCompileError("unsupported", node.address, `no trust principal is defined for a ${kind} workload (${workload}).`);
-  return principal;
+  return principalForPartition(contractPartition(ctx.awsBootstrap?.partition, ctx.region), principal);
+}
+
+/** Partition-aware principal rendering is contract-level; commercial regions render exactly the commercial principals. */
+function contractPartition(known: string | undefined, region: string | undefined): AwsPartition {
+  const partition = known ?? (region ? partitionOfRegion(region) : "aws");
+  return isAwsPartition(partition) ? partition : "aws";
 }
 
 export const roleNameFor = (ctx: Pick<CompileContext, "namePrefix">, address: string): string => `${cloudName(ctx.namePrefix, nodeName(address), 64 - "-role".length)}-role`;
@@ -266,7 +274,7 @@ export function expectedIamAttributes(node: ResourceNode, ctx?: Pick<CompileCont
     const principal = TRUST_PRINCIPAL_BY_WORKLOAD[workloadKind];
     // Explicit Kubernetes links do not select the native service principal.
     // The issuer ARN and namespace are graph facts unavailable to this method.
-    if (principal && node.spec.cluster === undefined && node.spec.serviceAccount === undefined) out.trustPrincipals = [principal];
+    if (principal && node.spec.cluster === undefined && node.spec.serviceAccount === undefined) out.trustPrincipals = [principalForPartition(contractPartition(ctx?.awsBootstrap?.partition, node.region), principal)];
   } catch (err) {
     // An invalid spec has no defined action set; drift then compares only the fixed attributes instead of failing for every node.
     if (!(err instanceof DriverCompileError)) throw err;

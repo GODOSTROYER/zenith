@@ -25,8 +25,10 @@
  */
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import { AWS_ROLE_BOUNDARIES, trustedAwsBoundaryArn, type AwsRoleFamily } from "@/lib/credentials/aws/naming";
+import { isAwsPartition, principalForPartition } from "@/lib/credentials/aws/partition";
 import type { ResourceNode } from "@/lib/resources/types";
 import { bareExpr, tfLiteral, FragmentBuilder as SharedFragmentBuilder } from "@/lib/providers/aws/drivers/shared";
+import { partitionOfRegion } from "@/lib/providers/aws/drivers/shared/arn";
 
 export class ComputeCompileError extends Error {
   readonly code: "invalid_spec" | "missing_neighbour" | "unsupported" | "invalid_reference";
@@ -252,11 +254,17 @@ export function policyJson(statements: readonly PolicyStatement[], where: string
   });
 }
 
-/** Trust policy text for a service principal. */
-export function assumeRoleJson(servicePrincipal: string): TfText {
+/**
+ * Trust policy text for a service principal. Given the compile context, the commercial
+ * principal is re-rendered for the context's partition (contract-level: commercial
+ * regions are unchanged and sovereign runtime registration remains unsupported).
+ */
+export function assumeRoleJson(servicePrincipal: string, ctx?: Pick<CompileContext, "awsBootstrap" | "region">): TfText {
+  const known = ctx?.awsBootstrap?.partition ?? (ctx?.region ? partitionOfRegion(ctx.region) : "aws");
+  const principal = ctx ? principalForPartition(isAwsPartition(known) ? known : "aws", servicePrincipal) : servicePrincipal;
   return renderJsonText({
     Version: "2012-10-17",
-    Statement: [{ Effect: "Allow", Principal: { Service: servicePrincipal }, Action: "sts:AssumeRole" }],
+    Statement: [{ Effect: "Allow", Principal: { Service: principal }, Action: "sts:AssumeRole" }],
   });
 }
 

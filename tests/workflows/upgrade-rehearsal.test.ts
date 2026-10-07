@@ -18,12 +18,15 @@
 import path from "node:path";
 import { describe, expect } from "vitest";
 import type { WorkflowHandle } from "@temporalio/client";
+import { Worker } from "@temporalio/worker";
+import { temporal } from "@temporalio/proto";
 import { WORKFLOW_ID, WORKFLOW_TYPES, type WorkflowResult } from "@/lib/workflows/types";
 import { signalApproval } from "@/lib/workflows/client";
 import { createFakeActivities, type FakeActivities } from "@/lib/workflows/activities/fake";
 import { createExecutionWorker } from "../../workers/execution/run";
 import { executionWorkerConfigFromEnv } from "../../workers/execution/config";
 import { deployInput, serverSuite, waitForStatus, workflowBundlePath, type Harness } from "./support";
+import { historyOf, serializeFixture, type HistoryFixture } from "./history-fixtures";
 
 const { scenario } = serverSuite("local");
 
@@ -101,6 +104,15 @@ describe("rolling worker upgrade with in-flight workflows", () => {
     expect(fake.callsTo("applyInfrastructure")).toHaveLength(1);
     expect(fake.callsTo("buildArtifacts")).toHaveLength(1);
     expect([...await markersOf(handle)], "post-replay the new build records its patch marker").toContain("durable-build-launch-v1");
+    // Prove the complete codec on fetched history, without replacing frozen fixtures.
+    const actual = await handle.fetchHistory();
+    expect(actual.events!.length).toBeGreaterThan(3);
+    const identity = { scenario: "upgrade-codec", workflowType: WORKFLOW_TYPES.deploy, covers: "actual old-to-new history codec and replay", workflowId: handle.workflowId, temporalSdk: "1.24.0" };
+    const serialized = serializeFixture({ ...identity, history: actual });
+    const decoded = historyOf(JSON.parse(serialized) as HistoryFixture);
+    expect(temporal.api.history.v1.History.encode(decoded).finish()).toEqual(temporal.api.history.v1.History.encode(actual).finish());
+    expect(serializeFixture({ ...identity, history: decoded })).toBe(serialized);
+    await Worker.runReplayHistory({ workflowBundle: { codePath: newBundle } }, decoded, handle.workflowId);
   }, 120_000);
 
   scenario("a workflow started by the old build and a workflow started by the new build both complete on the new build", async (h) => {

@@ -14,8 +14,77 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import type { History } from "@temporalio/common/lib/proto-utils";
-import { historyFromJSON, historyToJSON } from "@temporalio/common/lib/proto-utils";
+import type * as Proto from "@temporalio/proto";
+
+// SDK 1.24.0 resolves its converter and schema through separate protobufjs 8.8.0
+// copies in our lockfile. The public full ProtoJSON converter must share the
+// reflected schema's Type constructor; no protobuf fields are encoded here.
+const localRequire = createRequire(import.meta.url);
+const protoRequire = createRequire(localRequire.resolve("@temporalio/proto"));
+const proto = localRequire("@temporalio/proto") as typeof Proto & { lookupType(name: string): unknown };
+const historyType = proto.lookupType("temporal.api.history.v1.History");
+const protoJson = protoRequire("protobufjs/ext/protojson") as {
+  toJson(type: unknown, history: History): unknown;
+  fromJson(type: unknown, json: unknown, options: { ignoreUnknownFields: boolean }): History | null;
+};
+
+/* Legacy enum normalization below is retained from @temporalio/common 1.24.0,
+ * src/proto-utils.ts (historyFromJSON), with its original parse policy.
+ * The MIT License
+ * Copyright (c) 2021-2025 Temporal Technologies Inc. All rights reserved.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+function historyFromJSON(history: unknown): History {
+  function pascalCaseToConstantCase(s: string) {
+    return s.replace(/[^\b][A-Z]/g, (m) => `${m[0]}_${m[1]}`).toUpperCase();
+  }
+  // Preserve the SDK's compatibility transformation rather than a partial codec.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function fixEnumValue<O extends Record<string, any>>(obj: O, attr: keyof O, prefix: string) {
+    return obj[attr] && { [attr]: obj[attr].startsWith(prefix) ? obj[attr] : `${prefix}_${pascalCaseToConstantCase(obj[attr])}` };
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function fixHistoryEvent(e: Record<string, any>) {
+    const type = Object.keys(e).find((k) => k.endsWith("EventAttributes"));
+    if (!type) throw new TypeError(`Missing attributes in history event: ${JSON.stringify(e)}`);
+    return {
+      ...e, ...fixEnumValue(e, "eventType", "EVENT_TYPE"),
+      [type]: {
+        ...e[type],
+        ...(e[type].taskQueue && { taskQueue: { ...e[type].taskQueue, ...fixEnumValue(e[type].taskQueue, "kind", "TASK_QUEUE_KIND") } }),
+        ...fixEnumValue(e[type], "parentClosePolicy", "PARENT_CLOSE_POLICY"),
+        ...fixEnumValue(e[type], "workflowIdReusePolicy", "WORKFLOW_ID_REUSE_POLICY"),
+        ...fixEnumValue(e[type], "initiator", "CONTINUE_AS_NEW_INITIATOR"),
+        ...fixEnumValue(e[type], "retryState", "RETRY_STATE"),
+        ...(e[type].childWorkflowExecutionFailureInfo && {
+          childWorkflowExecutionFailureInfo: { ...e[type].childWorkflowExecutionFailureInfo, ...fixEnumValue(e[type].childWorkflowExecutionFailureInfo, "retryState", "RETRY_STATE") },
+        }),
+      },
+    };
+  }
+  if (typeof history !== "object" || history == null || !Array.isArray((history as { events?: unknown }).events)) {
+    throw new TypeError("Invalid history, expected an object with an array of events");
+  }
+  const loaded = protoJson.fromJson(historyType, { events: (history as { events: Array<Record<string, unknown>> }).events.map(fixHistoryEvent) }, { ignoreUnknownFields: true });
+  if (loaded === null) throw new TypeError("Invalid history");
+  return loaded;
+}
 
 export const FIXTURE_FORMAT = "zenith.workflow-history.v1";
 export const FIXTURE_DIR = path.resolve(__dirname, "../fixtures/workflow-histories");
@@ -67,7 +136,7 @@ export function serializeFixture(input: { scenario: string; workflowType: string
     covers: input.covers,
     workflowId: input.workflowId,
     temporalSdk: input.temporalSdk,
-    history: JSON.parse(historyToJSON(input.history)),
+    history: protoJson.toJson(historyType, proto.temporal.api.history.v1.History.fromObject(input.history)),
   };
   return `${JSON.stringify(fixture, null, 2)}\n`;
 }

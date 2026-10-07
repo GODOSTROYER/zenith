@@ -16,6 +16,12 @@
  * Supavisor transaction pooler. Mutual exclusion is one atomic
  * `INSERT … ON CONFLICT (scope) DO UPDATE … WHERE <free or mine> RETURNING`.
  *
+ * Recovery epochs (PROD-OPS-04): a fence token carries the epoch it was issued in
+ * (`platform.recovery_fence_floor()` = epoch * 1e9 + 1 is the lowest token a new acquire can receive), and a
+ * restore bump expires every lease and raises every counter to the new floor. A token from before a restore can
+ * therefore never equal a live fence again, even when the restored rows hold a lower counter. In epoch 0 the floor
+ * is 1 and nothing changes.
+ *
  * Holders must renew before `expires_at`; a holder that cannot renew must stop
  * (see `controlplane/leases` `withLease`) and any operation it was running is
  * reconciled to `uncertain`, never retried.
@@ -68,11 +74,11 @@ export async function acquire(sql: Sql, input: AcquireLeaseInput): Promise<Lease
   const workspaceId = optionalText("workspaceId", input.workspaceId) ?? null;
   const rows = await sql.query<LeaseRow>(
     `insert into platform.leases as l (scope, workspace_id, holder, fence_token, acquired_at, renewed_at, expires_at, released_at)
-     values ($1, $4, $2, 1, clock_timestamp(), clock_timestamp(), clock_timestamp() + ($3::bigint * interval '1 millisecond'), null)
+     values ($1, $4, $2, platform.recovery_fence_floor(), clock_timestamp(), clock_timestamp(), clock_timestamp() + ($3::bigint * interval '1 millisecond'), null)
      on conflict (scope) do update
        set holder       = excluded.holder,
            workspace_id = coalesce(l.workspace_id, excluded.workspace_id),
-           fence_token  = l.fence_token + 1,
+           fence_token  = greatest(l.fence_token + 1, platform.recovery_fence_floor()),
            acquired_at  = excluded.acquired_at,
            renewed_at   = excluded.renewed_at,
            expires_at   = excluded.expires_at,

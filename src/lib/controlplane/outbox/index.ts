@@ -130,7 +130,9 @@ export async function getIntent(sql: Sql, workspaceId: string, kind: IntentKind,
 export interface ClaimOptions { holder: string; leaseMs?: number; limit?: number; only?: { workspaceId: string; id: string } }
 
 /**
- * Claim due intents under a new fence. `FOR UPDATE SKIP LOCKED` means two relays
+ * Claim due intents under a new fence. Only intents of the CURRENT recovery epoch are claimable (PROD-OPS-04): an
+ * intent restored from a backup may already have been delivered in the timeline that was lost, so it waits for an
+ * operator decision (`resume` re-stamps it, `abandon` settles it superseded). `FOR UPDATE SKIP LOCKED` means two relays
  * never receive the same row in one instant; an expired lease is reclaimable and
  * the new claim_epoch invalidates the previous holder's settle.
  * Cross-tenant by design (system relay) unless `only` narrows it to one row.
@@ -145,6 +147,7 @@ export async function claimDue(sql: Sql, options: ClaimOptions): Promise<Durable
       where d.id in (
         select q.id from platform.durable_intents q
          where q.state = 'pending' and q.next_attempt_at <= clock_timestamp()
+           and q.recovery_epoch = platform.current_recovery_epoch()
            and (q.lease_until is null or q.lease_until <= clock_timestamp())
            and ($4::text is null or (q.workspace_id = $4 and q.id = $5))
          order by q.next_attempt_at, q.id
@@ -176,6 +179,7 @@ export async function settleIntent(sql: Sql, intent: Pick<DurableIntent, "worksp
             lease_until = null,
             next_attempt_at = case when $4 = 'pending' then clock_timestamp() + ($7::bigint * interval '1 millisecond') else next_attempt_at end
       where workspace_id = $1 and id = $2 and state = 'pending' and claim_epoch = $3
+        and recovery_epoch = platform.current_recovery_epoch()
       returning id`,
     [intent.workspaceId, intent.id, intent.claimEpoch, state, outcome, code, backoffMs(intent.attempts)]);
   return rows.length > 0;
@@ -194,7 +198,9 @@ export async function adoptStartIntents(sql: Sql, limit = 50, graceMs = START_AD
             i.workspace_id, i.operation_id, 'workflow_start', 'start:' || i.operation_id, $2, a.version
        from platform.workflow_start_intents i
        join platform.operation_authority a on a.workspace_id = i.workspace_id and a.operation_id = i.operation_id
+       join platform.operations po on po.workspace_id = i.workspace_id and po.id = i.operation_id
       where i.phase <> 'acknowledged'
+        and po.recovery_epoch = platform.current_recovery_epoch()
         and coalesce(i.attempted_at, i.created_at) < clock_timestamp() - ($3::bigint * interval '1 millisecond')
       order by i.created_at
       limit $1::bigint
@@ -220,7 +226,9 @@ export async function deriveApprovalSignals(sql: Sql, limit = 50): Promise<numbe
             a.workspace_id, a.operation_id, 'workflow_signal', 'approval-sweep:' || a.operation_id || ':' || a.version, $2::text::jsonb, $3, a.version
        from platform.operation_authority a
        join platform.workflow_start_intents i on i.workspace_id = a.workspace_id and i.operation_id = a.operation_id and i.phase = 'acknowledged'
-      where a.status in ('approved','rejected') and a.approval_round > 0 and a.plan_digest is not null
+       join platform.operations po on po.workspace_id = a.workspace_id and po.id = a.operation_id
+      where po.recovery_epoch = platform.current_recovery_epoch()
+        and a.status in ('approved','rejected') and a.approval_round > 0 and a.plan_digest is not null
         and a.updated_at < clock_timestamp() - ($4::bigint * interval '1 millisecond')
         and not exists (select 1 from platform.durable_intents d
                          where d.workspace_id = a.workspace_id and d.operation_id = a.operation_id and d.kind = 'workflow_signal'

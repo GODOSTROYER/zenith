@@ -75,6 +75,10 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/effects/${ID}$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/effects/${ID}/readback$`), methods: { POST: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/effects/${ID}/resolve$`), methods: { POST: "browser-only" } },
+  // Recovery after a restore (PROD-OPS-04): the epoch and the work list are readable by a person or a human-bound credential;
+  // deciding what happens to work that was in flight at a restore needs the approver's own browser.
+  { path: new RegExp(`^${ROOT}/recovery$`), methods: { GET: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/recovery/items/${ID}/decide$`), methods: { POST: "browser-only" } },
   // Coding-agent runs spend the workspace's model budget and stage a proposal: a workspace admin's own browser only.
   { path: new RegExp(`^${ROOT}/coding-agent/runs$`), methods: { GET: "browser-only", POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/coding-agent/runs/${ID}$`), methods: { GET: "browser-only" } },

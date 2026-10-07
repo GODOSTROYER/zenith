@@ -44,6 +44,7 @@
     "hosted:acceptance": "tsx scripts/hosted-acceptance.ts",
     "hosted:browser": "tsx scripts/hosted-browser.ts",
     "ops:upgrade": "node scripts/ops/rolling-upgrade.mjs",
+    "ops:recovery": "tsx --env-file-if-exists=.env.local scripts/ops/recovery.ts",
     "replay:record": "node scripts/ops/replay-lane.mjs record",
     "replay:check": "node scripts/ops/replay-lane.mjs check",
     "agent:acceptance": "tsx scripts/agent-acceptance.ts",

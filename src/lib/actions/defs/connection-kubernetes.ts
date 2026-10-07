@@ -30,8 +30,16 @@ const Input = z.object({
   namespaces: z.array(z.string().refine(isDnsLabel, "Use a Kubernetes namespace name.")).min(1).max(32)
     .refine(values => new Set(values).size === values.length, "Use distinct namespaces."),
   credentialRef: z.string().min(7).max(200).regex(/^vault:[A-Za-z0-9_./:-]+$/, "Use an existing tenant vault reference."),
+  /**
+   * PROD-MACH-02 default guest resolution: the vault credential is a namespaced MINTER and Zenith mints a
+   * per-binding, short-lived ServiceAccount token for each guest dispatch. Omitted keeps the legacy
+   * tenant-supplied token/kubeconfig, which this connection then uses as-is for deploy and guest reads.
+   */
+  scopedGuest: z.boolean().optional(),
+  guestAudiences: z.array(z.string().min(1).max(253)).max(4).optional(),
 }).strict();
-const SavedTarget = Input.omit({ label: true });
+const SavedTarget = Input.omit({ label: true, scopedGuest: true, guestAudiences: true });
+const modeOf = (input: { scopedGuest?: boolean }): "kubeconfig_ref" | "scoped_guest" => input.scopedGuest ? "scoped_guest" : "kubeconfig_ref";
 const Ref = z.object({ connectionId: z.string().min(1).max(200) }).strict();
 
 async function human(ctx: ActionContext, minimum: "editor" | "admin"): Promise<boolean> {
@@ -47,7 +55,8 @@ async function human(ctx: ActionContext, minimum: "editor" | "admin"): Promise<b
   } catch { return false; }
 }
 const roleRefusal = () => ({ ok: false, summary: "Kubernetes connection refused.", error: "Current human workspace membership could not authorize this action." });
-const permissions = ["Verification reads the default ServiceAccount in each saved namespace; it does not establish deployment, deletion, TLS or complete RBAC permissions."];
+const permissions = ["Verification reads the default ServiceAccount in each saved namespace; it does not establish deployment, deletion, TLS or complete RBAC permissions.",
+  "Scoped guest connections instead verify that the vault credential is a namespaced minter (no cluster-wide or kube-system privilege) able to manage guest ServiceAccounts and Roles in each saved namespace."];
 
 defineAction<z.infer<typeof Input>>({
   id: "connection.createKubernetes", title: "Connect Kubernetes", category: "connection", risk: "medium", requiredRole: "admin", mutates: true, input: Input,
@@ -60,8 +69,9 @@ defineAction<z.infer<typeof Input>>({
   },
   async execute(ctx, input) {
     if (!await human(ctx, "admin")) return roleRefusal();
-    const connectionId = id(), { label, ...identifiers } = input;
-    const config: KubernetesConnectionConfig = { provider: "kubernetes", mode: "kubeconfig_ref", ...identifiers, server: validateServerUrl(input.server) };
+    const connectionId = id(), { label, scopedGuest, guestAudiences, ...identifiers } = input;
+    const config: KubernetesConnectionConfig = { provider: "kubernetes", mode: modeOf(input), ...identifiers, server: validateServerUrl(input.server),
+      ...(scopedGuest && guestAudiences?.length ? { guestAudiences } : {}) };
     let nativeWritten = false;
     try {
       const { repos } = await import("@/lib/controlplane/db");
@@ -96,8 +106,11 @@ defineAction<z.infer<typeof Ref>>({
       const captured = await repos.connections.captureVerification(owner, ctx.workspaceId, connection.platformConnectionId, ctx.actor.id);
       if (!captured || captured.connection.id !== connection.id || captured.connection.workspaceId !== ctx.workspaceId
         || captured.connection.legacyConnectionId !== connection.id) throw new Error();
-      const { provider, mode, ...identifiers } = captured.connection.config;
-      if (provider !== "kubernetes" || mode !== "kubeconfig_ref" || !SavedTarget.safeParse(identifiers).success
+      const saved = captured.connection.config;
+      if (saved.provider !== "kubernetes") throw new Error();
+      const identifiers: Record<string, unknown> = { ...saved };
+      delete identifiers.provider; delete identifiers.mode; delete identifiers.guestAudiences;
+      if ((saved.mode !== "kubeconfig_ref" && saved.mode !== "scoped_guest") || !SavedTarget.safeParse(identifiers).success
         || !await human(ctx, "editor") || q.connection(connection.id) !== connection || digest(connection) !== originalProduct) throw new Error();
       available = true;
     } catch { /* Missing, foreign and unavailable authority use the same disabled preview. */ }
@@ -116,7 +129,7 @@ defineAction<z.infer<typeof Ref>>({
       const owner = await bridgeDeps().connectionSql();
       const captured = await repos.connections.captureVerification(owner, ctx.workspaceId, connection.platformConnectionId, ctx.actor.id);
       if (!captured || captured.connection.legacyConnectionId !== connection.id || captured.connection.config.provider !== "kubernetes"
-        || captured.connection.config.mode !== "kubeconfig_ref") throw new Error();
+        || (captured.connection.config.mode !== "kubeconfig_ref" && captured.connection.config.mode !== "scoped_guest")) throw new Error();
       const result = await platformCredentialBroker(owner).verifyConnection(captured.connection.id, { workspaceId: ctx.workspaceId });
       const current = await repos.connections.get(owner, ctx.workspaceId, captured.connection.id);
       if (!current || digest(current) !== digest(captured.connection) || !await human(ctx, "editor")

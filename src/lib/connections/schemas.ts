@@ -156,7 +156,7 @@ export function applyRotationPatch(live: ConnectionConfig, rawPatch: RotationPat
     case "azure": return { ...live, ...parsePatch(RotateAzure, rawPatch) } satisfies AzureConnectionConfig;
     case "oci": return { ...live, ...parsePatch(RotateOci, rawPatch) } satisfies OciConnectionConfig;
     case "kubernetes": {
-      if (live.mode !== "kubeconfig_ref") throw new LifecycleInputError("Only kubeconfig_ref Kubernetes connections can rotate a vault reference.");
+      if (live.mode !== "kubeconfig_ref" && live.mode !== "scoped_guest") throw new LifecycleInputError("Only kubeconfig_ref and scoped_guest Kubernetes connections can rotate a vault reference.");
       return { ...live, ...parsePatch(RotateKubernetes, rawPatch) } satisfies KubernetesConnectionConfig;
     }
   }

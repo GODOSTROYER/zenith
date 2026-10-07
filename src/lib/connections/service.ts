@@ -295,6 +295,8 @@ export interface RevokeOutcome {
   productMirror: "updated" | "none" | "unavailable";
   runnerRevoked?: { id: string; cancelledJobs: number };
   runnerKept?: string;
+  /** scoped Kubernetes guest bindings: cluster objects deleted now vs still pending (unmintable either way) */
+  guestBindings?: { revoked: number; pending: number };
   /** what Zenith cannot do from its side */
   customerSteps: string[];
 }
@@ -317,7 +319,7 @@ const customerRevocationSteps = (provider: ConnectionConfig["provider"]): string
     case "gcp": return ["Remove the workloadIdentityUser bindings for the Zenith subject. Access tokens already issued expire within their 15 minute lifetime."];
     case "azure": return ["Delete the federated credential for the Zenith subject. Access tokens already issued expire within their short lifetime."];
     case "oci": return ["Stop zenith-runner in your tenancy. Revoke the runner here too if it is no longer needed."];
-    case "kubernetes": return ["Delete the service-account token or kubeconfig secret in your vault and revoke it in the cluster."];
+    case "kubernetes": return ["Delete the service-account token or kubeconfig secret in your vault and revoke it in the cluster. For a scoped guest connection also remove the minter identity; Zenith deletes its guest ServiceAccounts, Roles and RoleBindings (labelled zenith.dev/component=guest)."];
   }
 };
 
@@ -327,6 +329,16 @@ export async function revokeConnection(ctx: ActionContext, input: { connectionId
   if (!revoked) throw new LifecycleRefusal(NOT_FOUND, "not_found");
   const productMirror = await mirrorProduct(ctx, row, (conn) => { conn.status = "disconnected"; conn.revokedAt = revoked.connection.revokedAt ?? new Date().toISOString(); conn.lastCheckedAt = conn.revokedAt; });
   const outcome: RevokeOutcome = { connection: viewOf(ctx, revoked.connection), alreadyRevoked: revoked.alreadyRevoked, productMirror, customerSteps: customerRevocationSteps(row.config.provider) };
+  if (row.config.provider === "kubernetes" && row.config.mode === "scoped_guest") {
+    // PROD-MACH-02: bindings are already unmintable (revoked in the same SQL commit); now remove them from the cluster.
+    // Safe to repeat: an already-revoked connection retries any binding left pending.
+    const { revokeKubernetesGuestBindings } = await import("@/lib/platform/credentials");
+    const guest = await revokeKubernetesGuestBindings(sql, revoked.connection);
+    if (guest.attempted) {
+      outcome.guestBindings = { revoked: guest.revoked, pending: guest.pending };
+      if (guest.pending > 0) outcome.customerSteps = [...outcome.customerSteps, "Some guest ServiceAccounts could not be deleted from the cluster (minter unreachable or removed). They cannot be used by Zenith; delete objects labelled zenith.dev/component=guest yourself or revoke this connection again once the minter is reachable."];
+    }
+  }
   const runner = runnerOf(row.config);
   if (input.revokeRunner && runner) {
     const retired = await retireRunner(ctx, runner, row.id);

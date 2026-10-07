@@ -81,8 +81,9 @@ export const LOG_STREAM_PREFIX = "ecs";
 export const BOOTSTRAP_TAG = "zenith-bootstrap";
 
 /** SSM parameter holding the deployed image of a built workload. */
-export function imagePointerName(environmentId: string, address: string): string {
-  return `/zenith/${environmentId}/${address}/image`;
+export function imagePointerName(environmentId: string, address: string, bootstrapNameSuffix = ""): string {
+  // The prefix carries the saved bootstrap suffix: the bootstrap grants SSM access to exactly /zenith<suffix>/*.
+  return `/zenith${bootstrapNameSuffix}/${environmentId}/${address}/image`;
 }
 
 const ENV_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -161,7 +162,8 @@ function emitImage(b: Frag, node: ResourceNode, ctx: CompileContext, label: stri
   if (!/^[A-Za-z0-9_.-]+$/.test(ctx.environmentId)) throw new ComputeCompileError("invalid_spec", "the environment id cannot be used in an SSM parameter name.");
   const repoUrl = refOf(ctx, registry.address, "repository_url");
   const pointer = b.resource("aws_ssm_parameter", `${label}_image`, {
-    name: imagePointerName(ctx.environmentId, node.address),
+    name: imagePointerName(ctx.environmentId, node.address, ctx.awsBootstrap?.bootstrapNameSuffix),
+    // Plain String on purpose: the image reference is not a secret, and the deploy role may only touch SSM under the pointer prefix.
     type: "String",
     description: `Deployed image of ${node.address}. Written by Zenith deployments; tofu never overwrites it.`,
     insecure_value: cat(repoUrl, `:${BOOTSTRAP_TAG}`),

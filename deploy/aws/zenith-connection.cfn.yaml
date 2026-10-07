@@ -1315,10 +1315,12 @@ Resources:
               Action: [kms:Decrypt, kms:DescribeKey]
               Resource: !Ref StateBucketKmsKeyArn
             - !Ref "AWS::NoValue"
+          # The one carve-out: the non-secret ECS image pointer parameters (see SsmImagePointerParameters in
+          # DeployBalancingPolicy). Every other secret or parameter value stays unreadable.
           - Sid: NeverReadSecretValues
             Effect: Deny
             Action: [secretsmanager:GetSecretValue, ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
-            Resource: "*"
+            NotResource: !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:parameter/zenith${NameSuffix}/*"
 
   # ------------------------------------------------- deploy: network + EC2
   # Pattern used throughout: NEW resources must be created WITH the tag
@@ -1511,7 +1513,7 @@ Resources:
     Type: AWS::IAM::ManagedPolicy
     Properties:
       ManagedPolicyName: !Sub "ZenithDeployBalancing${NameSuffix}"
-      Description: Zenith deploy role - load balancers, target groups, auto scaling groups, EC2 instance profiles and ElastiCache users named zenith-*.
+      Description: Zenith deploy role - load balancers, target groups, auto scaling groups, EC2 instance profiles, ElastiCache users and image pointer parameters named zenith-*.
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -1587,6 +1589,20 @@ Resources:
             Effect: Allow
             Action: [iam:DeleteInstanceProfile, iam:AddRoleToInstanceProfile, iam:RemoveRoleFromInstanceProfile]
             Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:instance-profile/zenith-*"
+          # ECS image pointers: plain String parameters holding the deployed image reference (never a secret,
+          # never SecureString). Scoped to the exact Zenith pointer prefix including the bootstrap suffix; the
+          # general ban on ssm:PutParameter and parameter reads stays for every other path.
+          - Sid: SsmImagePointerParameters
+            Effect: Allow
+            Action:
+              - ssm:PutParameter
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:DeleteParameter
+              - ssm:AddTagsToResource
+              - ssm:RemoveTagsFromResource
+              - ssm:ListTagsForResource
+            Resource: !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:parameter/zenith${NameSuffix}/*"
           # aws_elasticache_user and aws_elasticache_user_group (IAM-authenticated RBAC).
           - Sid: ElastiCacheCreateTaggedUsers
             Effect: Allow

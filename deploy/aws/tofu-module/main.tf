@@ -72,7 +72,7 @@ locals {
   policy_docs = {
     observe          = { name = "ZenithObservePolicy${var.name_suffix}", desc = "Read-only access for Zenith (describe, list, get). No secret values." }
     deploy-network   = { name = "ZenithDeployNetwork${var.name_suffix}", desc = "Zenith deploy role - VPC and EC2 resources tagged zenith:managed." }
-    deploy-balancing = { name = "ZenithDeployBalancing${var.name_suffix}", desc = "Zenith deploy role - load balancers, target groups, auto scaling groups, EC2 instance profiles and ElastiCache users named zenith-*." }
+    deploy-balancing = { name = "ZenithDeployBalancing${var.name_suffix}", desc = "Zenith deploy role - load balancers, target groups, auto scaling groups, EC2 instance profiles, ElastiCache users and image pointer parameters named zenith-*." }
     deploy-compute   = { name = "ZenithDeployCompute${var.name_suffix}", desc = "Zenith deploy role - ECS, ECR, Lambda, EventBridge rules and CodeBuild projects named zenith-*." }
     deploy-data      = { name = "ZenithDeployData${var.name_suffix}", desc = "Zenith deploy role - RDS, ElastiCache, S3 buckets, SQS and secret containers named zenith-*." }
     deploy-edge      = { name = "ZenithDeployEdge${var.name_suffix}", desc = "Zenith deploy role - log groups and alarms named zenith-*, certificates, keys and CloudFront distributions tagged zenith:managed, DNS records in listed zones." }

@@ -35,34 +35,6 @@
       ],
       "status": "denied_by_design",
       "note": "Explicitly denied by the DenyPrincipalCreation statement of the deploy-iam policy: OIDC providers are bootstrap/customer owned. The aws_iam_openid_connect_provider resource the IAM role driver can emit for EKS workload trust therefore cannot be applied through the deploy role; the cluster's OIDC provider must be created by the customer stack."
-    },
-    "ssm:AddTagsToResource": {
-      "via": [
-        "aws_ssm_parameter"
-      ],
-      "status": "denied_by_design",
-      "note": "Denied by design and re-justified: the pointer is NOT a secret (it holds the deployed image reference, ecs-task.ts:163, written at runtime by setImagePointer, ecs-operations.ts:188) but the deploy role must never write SSM parameters (bootstrap test 'never read or write secret values'). No sanctioned replacement exists today: ECS task-definition secrets and container environment cannot carry the image, the deploy role may not read secret values, and tofu has no variables. Consequence found by this diff: for built artifacts both the aws_ssm_parameter resource and setImagePointer fail at IAM. Needs an owner decision (a dedicated brokered pointer-writer role like the secret writer, or native task-definition ownership of the image with ECS ignore_changes), not a wider deploy grant."
-    },
-    "ssm:DeleteParameter": {
-      "via": [
-        "aws_ssm_parameter"
-      ],
-      "status": "denied_by_design",
-      "note": "Denied by design and re-justified: the pointer is NOT a secret (it holds the deployed image reference, ecs-task.ts:163, written at runtime by setImagePointer, ecs-operations.ts:188) but the deploy role must never write SSM parameters (bootstrap test 'never read or write secret values'). No sanctioned replacement exists today: ECS task-definition secrets and container environment cannot carry the image, the deploy role may not read secret values, and tofu has no variables. Consequence found by this diff: for built artifacts both the aws_ssm_parameter resource and setImagePointer fail at IAM. Needs an owner decision (a dedicated brokered pointer-writer role like the secret writer, or native task-definition ownership of the image with ECS ignore_changes), not a wider deploy grant."
-    },
-    "ssm:PutParameter": {
-      "via": [
-        "aws_ssm_parameter"
-      ],
-      "status": "denied_by_design",
-      "note": "Denied by design and re-justified: the pointer is NOT a secret (it holds the deployed image reference, ecs-task.ts:163, written at runtime by setImagePointer, ecs-operations.ts:188) but the deploy role must never write SSM parameters (bootstrap test 'never read or write secret values'). No sanctioned replacement exists today: ECS task-definition secrets and container environment cannot carry the image, the deploy role may not read secret values, and tofu has no variables. Consequence found by this diff: for built artifacts both the aws_ssm_parameter resource and setImagePointer fail at IAM. Needs an owner decision (a dedicated brokered pointer-writer role like the secret writer, or native task-definition ownership of the image with ECS ignore_changes), not a wider deploy grant."
-    },
-    "ssm:RemoveTagsFromResource": {
-      "via": [
-        "aws_ssm_parameter"
-      ],
-      "status": "denied_by_design",
-      "note": "Denied by design and re-justified: the pointer is NOT a secret (it holds the deployed image reference, ecs-task.ts:163, written at runtime by setImagePointer, ecs-operations.ts:188) but the deploy role must never write SSM parameters (bootstrap test 'never read or write secret values'). No sanctioned replacement exists today: ECS task-definition secrets and container environment cannot carry the image, the deploy role may not read secret values, and tofu has no variables. Consequence found by this diff: for built artifacts both the aws_ssm_parameter resource and setImagePointer fail at IAM. Needs an owner decision (a dedicated brokered pointer-writer role like the secret writer, or native task-definition ownership of the image with ECS ignore_changes), not a wider deploy grant."
     }
   },
   "allowedUnusedSensitive": []

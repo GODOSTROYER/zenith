@@ -185,7 +185,7 @@ export function registerInputFrom(td: TaskDefinition, containerName: string, ima
 /** The pointer the tofu task definition reads (see ecs-task.ts). */
 export async function setImagePointer(ctx: AwsCtx, node: ResourceNode, image: string): Promise<string[]> {
   const ssm = ctx.session.client(SSMClient);
-  const res = await ssm.send(new PutParameterCommand({ Name: imagePointerName(ctx.environmentId, node.address), Value: image, Type: "String", Overwrite: true }), { abortSignal: ctx.signal });
+  const res = await ssm.send(new PutParameterCommand({ Name: imagePointerName(ctx.environmentId, node.address, ctx.awsBootstrap?.bootstrapNameSuffix), Value: image, Type: "String", Overwrite: true }), { abortSignal: ctx.signal });
   return requestIds(res.$metadata);
 }
 

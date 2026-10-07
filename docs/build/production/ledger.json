@@ -676,6 +676,16 @@
           "command": "Inspect complete fresh exact-source main37578066932/native37578066955/platform37578066934 jobs and sanitized source-bound artifact/log content.",
           "environment": "Canonical TS Node22.23.3 Linux x64; Go1.27.1 nativeLinux AMD64; workers actual nativeLinux AMD64 andARM64 separately, no emulation; source/environment fingerprints and exported tool fields inspected.",
           "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-07-ci-d6965d75.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "80bb7352765ba83655a191b9b34d7e10827475ec",
+          "result": "20/20 terminal jobs passed across main16/native-workers2/native-platform2. Unit19622 passed /0 failed /1532 skipped; platform3034/0/8 required1124; workflows1275/0/0 required62; PG379/0/0 required93. NativeAMD64 and ARM64 each22/0/0, all6cleanup flags. NativeACL1 and Linuxsystemd1 are scoped harness results. Counts overlap, never summed; full default Mac acceptance unproved.",
+          "command": "Inspect all exact-SHA jobs and source-bound exported counts for runs37607673808,37607673813,37607674018",
+          "environment": "GitHub hosted canonical Node22.23.3 Linux x64; separate nativeLinux AMD64/ARM64 worker runners; native WindowsACL/Linuxsystemd lanes",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-80bb7352-ci-jobs.json",
+          "runId": 37607673808,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808"
         }
       ],
       "requiredEvidence": [
@@ -1181,6 +1191,24 @@
           "environment": "GitHub hosted main16 jobs; separate native AMD64/ARM64 workers and WindowsACL/Linuxsystemd",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-c9a942d6-ci-jobs.json",
           "result": "Exactc9 source20/20jobs passed. Unit19622/0/1532, platform3034/0/8/all1124, workflows1275/0/0/all62, PG379/0/0/all93; each native worker22/0/0/allcleanup, nativeACL1/systemd1. Counts overlap; defaultMac acceptance unproved. Later evidence-publication CI must be observed separately."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "80bb7352765ba83655a191b9b34d7e10827475ec",
+          "result": "20/20 terminal jobs passed across main16/native-workers2/native-platform2. Unit19622 passed /0 failed /1532 skipped; platform3034/0/8 required1124; workflows1275/0/0 required62; PG379/0/0 required93. NativeAMD64 and ARM64 each22/0/0, all6cleanup flags. NativeACL1 and Linuxsystemd1 are scoped harness results. Counts overlap, never summed; full default Mac acceptance unproved.",
+          "command": "Inspect all exact-SHA jobs and source-bound exported counts for runs37607673808,37607673813,37607674018",
+          "environment": "GitHub hosted canonical Node22.23.3 Linux x64; separate nativeLinux AMD64/ARM64 worker runners; native WindowsACL/Linuxsystemd lanes",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-80bb7352-ci-jobs.json",
+          "runId": 37607673808,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808"
+        },
+        {
+          "level": "local_engine",
+          "commit": "80bb7352765ba83655a191b9b34d7e10827475ec",
+          "result": "Partial preparation only: R13/R15 genuine5-service bootstrap exit0; R13twoCA/identity-verified HTTPS200 health probes; fresh Next standalone build exit0/194.7s. Post-start continuous22GiB disk floor stopped both owned stacks. Zero full default acceptance cases; SQL/Auth/API/worker/browser journey unexecuted. Docker4GiB successor untested. No acceptance promotion.",
+          "command": "Owned reduced-resource Supabase bootstrap, bounded verified HTTPS health probes, fresh npm run build, continuous disk monitor and exact owned cleanup",
+          "environment": "Darwin nativeARM64 8GiB host; Node22.23.3; SupabaseCLI2.116.0; fiveLinuxARM64 images; Docker29.1.3 memory6GiB/swap4GiB duringbootstrap, reduced4GiB/swap4GiB after floor stops; buildheap4096MiB",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-mac-bootstrap-80bb7352.json"
         }
       ],
       "requiredEvidence": [
@@ -1525,6 +1553,16 @@
           "environment": "GitHub hosted main16 jobs; separate native AMD64/ARM64 workers and WindowsACL/Linuxsystemd",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-c9a942d6-ci-jobs.json",
           "result": "Exactc9 source20/20jobs passed. Unit19622/0/1532, platform3034/0/8/all1124, workflows1275/0/0/all62, PG379/0/0/all93; each native worker22/0/0/allcleanup, nativeACL1/systemd1. Counts overlap; defaultMac acceptance unproved. Later evidence-publication CI must be observed separately."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "80bb7352765ba83655a191b9b34d7e10827475ec",
+          "result": "20/20 terminal jobs passed across main16/native-workers2/native-platform2. Unit19622 passed /0 failed /1532 skipped; platform3034/0/8 required1124; workflows1275/0/0 required62; PG379/0/0 required93. NativeAMD64 and ARM64 each22/0/0, all6cleanup flags. NativeACL1 and Linuxsystemd1 are scoped harness results. Counts overlap, never summed; full default Mac acceptance unproved.",
+          "command": "Inspect all exact-SHA jobs and source-bound exported counts for runs37607673808,37607673813,37607674018",
+          "environment": "GitHub hosted canonical Node22.23.3 Linux x64; separate nativeLinux AMD64/ARM64 worker runners; native WindowsACL/Linuxsystemd lanes",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-80bb7352-ci-jobs.json",
+          "runId": 37607673808,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808"
         }
       ],
       "requiredEvidence": [

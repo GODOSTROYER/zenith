@@ -1,3 +1,11 @@
+## Mac bootstrap and disk-floor checkpoint, 7 October 2026
+
+Source `80bb7352765ba83655a191b9b34d7e10827475ec`: all20 CI jobs inspected terminal success. Unit19,622 passed /0 failed /1,532 skipped; lane counts overlap. Actual reduced-profile five-service Supabase startup passed twice; two verified HTTPS health probes passed. Fresh native standalone build passed in194.7s. Both stacks subsequently crossed continuous22GiB disk floor and were stopped/cleaned. Zero full default acceptance cases; no requirement promotion.
+
+Docker now4GiB memory/4GiB swap, VirtioFS, Resource Saver off; full4GiB stack untested. Five owned Supabase images and owned network removed; baseline resources preserved. Current disk23.1GiB, cached images absent; additional pull/startup/swap headroom required before heavy work. Ledger **12 verified /38 in progress /28 planned**, recomputed across78 rows; all four release flags false. [Exact bootstrap and remaining gates](verification/RESULTS-2026-10.md#mac-bootstrap-and-storage-2026-10-07), [20 CI jobs](verification/CI-2026-10-07-80bb7352.md), [safe resume](verification/RESUME-REDUCED-RESOURCE-2026-10-07.md).
+
+Earlier entries retain historical scope.
+
 ## Reduced-resource local checkpoint, 7 October 2026
 
 Local730 leaf verification passed within scoped evidence; default Supabase startup disk-blocked before tests despite Docker6GiB/swap4GiB. Owned resources removed. Newerc9 fresh install/security/compiler/lint/ledger checks passed; failed resource attempts retained. Docker backend stopped idle; settings retained. Further heavy work blocked below22GiB floor. Ledger12 verified/38 in progress/28 planned; all78 criteria/four false release flags retained. Counts overlap. [Exact results, skips, cleanup and resume](verification/RESULTS-2026-10.md#reduced-resource-verification-7-october-2026).

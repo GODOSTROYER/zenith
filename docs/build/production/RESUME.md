@@ -1,3 +1,9 @@
+## Current verifier checkpoint, 7 October 2026
+
+Source80bb7352 CI20/20 inspected success. Genuine five-service bootstrap and fresh native standalone build passed; post-start disk guard stopped owned stacks, full default acceptance remains blocked. Docker4GiB/swap4GiB successor untested, idle backend stopped, own images/network removed, baseline resources preserved. Ledger12/38/28; all78 criteria/four false release flags retained. Local startup on this Mac approved, cloud unapproved. [Exact continuation](verification/RESUME-REDUCED-RESOURCE-2026-10-07.md), [results](verification/RESULTS-2026-10.md#mac-bootstrap-and-storage-2026-10-07), [CI jobs](verification/CI-2026-10-07-80bb7352.md).
+
+Earlier entries retain historical scope.
+
 ## Local startup authorization and bounded result, 7 October 2026
 
 DEC-STARTUP approved for disposable local default API/server startup only. Root executed **2 HTTP / 3 real-browser controls, all passed, zero failed or skipped**, with owned processes, ports and private data removed. Login keyboard and axe scans passed at1280/375px; six nonpublic prefetch requests were blocked. This used an existing warmed build whose source origin is unestablished, not an authenticated operator journey or clean packaged API proof. First fixture failure is retained with separate cleanup recovery. [Scoped result](verification/RESULTS-2026-10.md#local-startup-2026-10-07).

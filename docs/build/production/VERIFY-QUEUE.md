@@ -1,3 +1,16 @@
+## Results: Mac bootstrap and storage, 7 October 2026
+
+Source80bb7352 remote CI20/20 passed. Full default acceptance remains resource-blocked after healthy bootstrap, not a Vitest skip. See [exact scope](verification/RESULTS-2026-10.md#mac-bootstrap-and-storage-2026-10-07).
+
+- PROD-CI-07: Results exact-source remote CI20/20 passed; existing verified state retained; successor publication CI pending.
+- PROD-CI-08: Results exact-source remote CI20/20 passed; existing verified state retained; successor publication CI pending.
+- PROD-CI-09: Results exact-source remote CI20/20 passed; existing verified state retained; successor publication CI pending.
+- PROD-UX-01: Results default acceptance blocked, zero complete cases at80bb7352; prior leaf evidence retained; storage floor and exact prerequisites remain open.
+- PROD-OBS-04: Results default acceptance blocked, zero complete cases at80bb7352; prior leaf evidence retained; storage floor and exact prerequisites remain open.
+- PROD-MACH-03: Results default acceptance blocked, zero complete cases at80bb7352; prior leaf evidence retained; storage floor and exact prerequisites remain open.
+- PROD-OBS-02: Results default acceptance blocked, zero complete cases at80bb7352; prior leaf evidence retained; storage floor and exact prerequisites remain open.
+- PROD-MACH-04: Results default acceptance blocked, zero complete cases at80bb7352; prior leaf evidence retained; storage floor and exact prerequisites remain open.
+
 ## Reduced-resource local checkpoint, 7 October 2026
 
 Local730 leaf verification passed within scoped evidence; default Supabase startup disk-blocked before tests despite Docker6GiB/swap4GiB. Owned resources removed. Newerc9 fresh install/security/compiler/lint/ledger checks passed; failed resource attempts retained. Docker backend stopped idle; settings retained. Further heavy work blocked below22GiB floor. Ledger12 verified/38 in progress/28 planned; all78 criteria/four false release flags retained. Counts overlap. [Exact results, skips, cleanup and resume](verification/RESULTS-2026-10.md#reduced-resource-verification-7-october-2026).

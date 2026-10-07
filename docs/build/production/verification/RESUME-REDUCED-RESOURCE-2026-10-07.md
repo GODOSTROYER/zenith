@@ -1,3 +1,29 @@
+# Current reduced-resource resume checkpoint: 7 October 2026
+
+Source `80bb7352765ba83655a191b9b34d7e10827475ec`, branch `codex/production-2026-10-02`. [Sanitized bootstrap and build evidence](../evidence/PROD-CI-08/2026-10-07-mac-bootstrap-80bb7352.json) records root-executed results; this documentation update ran no services or tests. All78 criteria, ledger12 verified/38 in progress/28 planned and four false release flags remain unchanged.
+
+## Actual results and current host state
+
+Supabase CLI2.116.0 R13 and R15 each started five owned services and completed the genuine Auth migration helper with exit0 and confirmed removal, in30.43s and45.19s respectively. Both used Docker6GiB memory/4GiB swap. R13 actual CA-verified HTTPS reads returned200 for `/auth/v1/health` and `/rest/v1/`. These are bootstrap/health observations; no application schema, Auth users, default API/worker, signed-in browser or default-schedule acceptance cases executed.
+
+Both later crossed the22GiB disk floor and were stopped: R13 minimum22,990,254,080bytes and R15 minimum23,038,238,720bytes, below the23,622,320,128byte floor. Successful startup did not clear the resource blocker. Owned service containers/database volumes were removed; final cleanup removed the five owned images and owned network, preserving protected baseline images without global prune. Earlier failed attempts and recoveries remain preserved privately.
+
+The fresh native Node22.23.3 ARM64 Next standalone build on source80 exited0 in194.7s with4096MiB heap. Its standalone output survived removal of build-owned cache files. A successful build is separate from default runtime acceptance.
+
+Docker is now configured4GiB memory/4GiB swap, Resource Saver off and VirtioFS enabled. An owned Busybox probe exited0 and reported4,012,908KiB guest memory and4,194,300KiB swap. The probe used no network and dropped all capabilities; the4GiB stack profile remains untested. Root confirmed zero containers, then stopped the idle Docker backend with exit0. Latest root free-space measurement is approximately23.1GiB; remeasure before launch.
+
+## Current next steps
+
+1. Recheck current Git, free disk and swap. Keep heavy work serial and the22GiB floor enforced. Existing measurements do not prove enough headroom for image pulls plus the full API/worker/browser composition.
+2. Start Docker under the approved4GiB/4GiB settings. Repin actual images and create a fresh owned network with explicit loopback publications. Old frozen controllers refer to a removed network; bind a new attempt/source/config/image/network freeze and obtain independent review before any startup.
+3. Preserve genuine TLS and roles. Verify the pooler TLS frontend and default database connection, then apply the canonical application/platform/agent migrations to the single genuine Supabase instance. The bare-PG CI role helper is forbidden here. Create two actual private Auth users; keep all values out of public logs.
+4. Run the fresh Next standalone API and documented development SQLite Temporal/native worker profile only after those prerequisites. Label the reduced local profile and worker deviation explicitly. Execute the signed-in browser and scheduling checks separately; source-only plans and NOT_READY maintenance drafts are not runnable evidence.
+5. Preserve installer separate-platform/production Temporal and hosted MCP authority blockers. No hostname aliases, fake API keys, cloud/provider calls or authority bypass. DEC-STARTUP authorizes disposable local startup only.
+
+## Historical checkpoint: local730 and dependency/CIc9
+
+The prior snapshot below is retained for history. Its resource settings and next-step list are superseded by the current checkpoint above; its leaf test counts retain their original source and scope.
+
 # Resume verifier after reduced-resource acceptance attempt
 
 Branch `codex/production-2026-10-02`. Preserve published ancestry, user files and builder wave3 ownership. Latest integrated builder parent `c9a942d664128d982415b4c8b671de88e8c3fe02`; verifier publication commit is the Git commit containing this file. Commit author and committer Arnav Bule `<arnav.bule05@gmail.com>`, no trailer/history rewrite. Before each push, `git pull --no-rebase`.

@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-07",
+  "sourceCommit": "80bb7352765ba83655a191b9b34d7e10827475ec",
+  "scope": "Same-Mac reduced-resource Supabase bootstrap and fresh native standalone build. No default application acceptance.",
+  "runtimeExecutedByRoot": true,
+  "runtimeExecutedByDocumentationAuthor": false,
+  "bootstrapProfile": {
+    "supabaseCliVersion": "2.116.0",
+    "dockerMemoryMiBAtBootstrap": 6144,
+    "dockerSwapMiBAtBootstrap": 4096,
+    "loopbackPublicationAdapter": true,
+    "bridgeInternal": false,
+    "outboundNetworkEnforced": false,
+    "cloudOrProviderAcceptance": false,
+    "resourceLimits": {
+      "dbMemoryMiB": 768,
+      "authMemoryMiB": 256,
+      "restMemoryMiB": 128,
+      "kongMemoryMiB": 256,
+      "poolerMemoryMiB": 512,
+      "serviceSwapMultiplier": 2,
+      "serviceCpus": 2,
+      "servicePidsLimit": 256,
+      "authMigrationMemoryMiB": 256,
+      "authMigrationSwapMiB": 512,
+      "authMigrationCpus": 1,
+      "authMigrationPidsLimit": 64
+    }
+  },
+  "attempts": {
+    "r13": {
+      "startupExitCode": 0,
+      "elapsedSeconds": 30.43,
+      "serviceCount": 5,
+      "serviceRoles": [
+        "db",
+        "auth",
+        "rest",
+        "kong",
+        "pooler"
+      ],
+      "startupDiskBeforeBytes": 24231485440,
+      "startupDiskMinBytes": 24080343040,
+      "requiredFloorBytes": 23622320128,
+      "authMigration": {
+        "exitCode": 0,
+        "removed": true,
+        "custodyInspected": true,
+        "clientAbsent": true,
+        "containerAbsent": true,
+        "networkEndpointAbsent": true,
+        "controllerObserved": true
+      },
+      "laterResourceStop": {
+        "status": "disk_floor_stopped_owned_services",
+        "minimumFreeBytes": 22990254080,
+        "floorBytes": 23622320128,
+        "ownedServiceStopCount": 5
+      },
+      "cleanupScope": "Five owned service containers and the owned database volume; receipt records successful removal commands. Final empty container inventory was independently checked by root.",
+      "defaultAcceptanceCaseCount": 0,
+      "tlsHealthReads": [
+        {
+          "path": "/auth/v1/health",
+          "status": 200,
+          "tlsVerified": true
+        },
+        {
+          "path": "/rest/v1/",
+          "status": 200,
+          "tlsVerified": true
+        }
+      ]
+    },
+    "r15": {
+      "startupExitCode": 0,
+      "elapsedSeconds": 45.19,
+      "serviceCount": 5,
+      "serviceRoles": [
+        "db",
+        "auth",
+        "rest",
+        "kong",
+        "pooler"
+      ],
+      "startupDiskBeforeBytes": 24232312832,
+      "startupDiskMinBytes": 24176844800,
+      "requiredFloorBytes": 23622320128,
+      "authMigration": {
+        "exitCode": 0,
+        "removed": true,
+        "custodyInspected": true,
+        "clientAbsent": true,
+        "containerAbsent": true,
+        "networkEndpointAbsent": true,
+        "controllerObserved": true
+      },
+      "laterResourceStop": {
+        "status": "disk_floor_stopped_owned_services",
+        "minimumFreeBytes": 23038238720,
+        "floorBytes": 23622320128,
+        "ownedServiceStopCount": 5
+      },
+      "cleanupScope": "Five owned service containers and the owned database volume; receipt records successful removal commands. Final empty container inventory was independently checked by root.",
+      "defaultAcceptanceCaseCount": 0
+    }
+  },
+  "nativeStandaloneBuild": {
+    "exitCode": 0,
+    "elapsedSeconds": 194.7,
+    "nodeVersion": "22.23.3",
+    "hostOs": "Darwin",
+    "hostArchitecture": "arm64",
+    "heapMiB": 4096,
+    "childMaxRssBytes": 3050586112,
+    "diskMinBytes": 24019976192,
+    "logSha256": "e21247a9bf47ab2e6765ca5502865f66bf95c714a59bf2eb2e7fe52dfa192e4b",
+    "standalonePreservedAfterBuildCacheCleanup": true,
+    "apiServerStarted": false,
+    "defaultAcceptanceCaseCount": 0
+  },
+  "currentDockerProfile": {
+    "memoryMiB": 4096,
+    "swapMiB": 4096,
+    "resourceSaver": false,
+    "virtioFs": true,
+    "guestProbeExitCode": 0,
+    "guestMemoryKiB": 4012908,
+    "guestSwapKiB": 4194300,
+    "probeScope": "Owned Busybox process, no network, all capabilities dropped; verifies VM capacity only.",
+    "stackAcceptanceExecuted": false,
+    "backendStopped": true,
+    "idleStopExitCode": 0,
+    "emptyContainerInventoryBeforeStop": true,
+    "latestRootReportedFreeGiBApprox": 23.1,
+    "freeSpaceMustBeRemeasured": true
+  },
+  "ownedCleanup": {
+    "ownedImageRemovalCount": 5,
+    "ownedNetworkRemovalExitCode": 0,
+    "baselineImagesPreserved": true,
+    "globalPruneUsed": false,
+    "rootConfirmedNoContainers": true,
+    "oldControllerNetworkRemoved": true,
+    "oldControllersReadyToRun": false,
+    "privateAttemptAndFailureReceiptsPreserved": true
+  },
+  "pinnedImages": [
+    {
+      "role": "db",
+      "ref": "public.ecr.aws/supabase/postgres:17.6.1.165",
+      "repoDigest": "public.ecr.aws/supabase/postgres@sha256:28f0e16a019e648089fc1a6d333549a55548f6019c15ae4bd7cd58b989027518"
+    },
+    {
+      "role": "auth",
+      "ref": "public.ecr.aws/supabase/gotrue:v2.196.0",
+      "repoDigest": "public.ecr.aws/supabase/gotrue@sha256:c0c25187a6b835e65a6f6e6c6b39d090e832d40e6de5186f2c038e0411944232"
+    },
+    {
+      "role": "rest",
+      "ref": "public.ecr.aws/supabase/postgrest:v16.1",
+      "repoDigest": "public.ecr.aws/supabase/postgrest@sha256:5922bde07147b82b1c9d8f749e48c1e5b99ebb233f3888bb7ab65f07cf4ac82d"
+    },
+    {
+      "role": "kong",
+      "ref": "public.ecr.aws/supabase/kong:2.8.1",
+      "repoDigest": "public.ecr.aws/supabase/kong@sha256:1b53405d8680a09d6f44494b7990bf7da2ea43f84a258c59717d4539abf09f6d"
+    },
+    {
+      "role": "pooler",
+      "ref": "public.ecr.aws/supabase/supavisor:2.9.7",
+      "repoDigest": "public.ecr.aws/supabase/supavisor@sha256:be033cf4746a438fa7bfb6a7e589c9a4c950cc7fafea1ea8ec1a15952aa851e6"
+    }
+  ],
+  "acceptanceNotExecuted": [
+    "Canonical application SQL migrations and current platform/agent schema validation on this genuine Supabase fixture",
+    "Creation and use of two actual Auth operator users",
+    "Native Next standalone default API runtime acceptance",
+    "Native default worker runtime acceptance",
+    "Real signed-in browser journey, accessibility, MFA or step-up",
+    "Actual seven default schedules and maintenance effects",
+    "Pooler TLS frontend and real default database connection verification"
+  ],
+  "resumePrerequisites": [
+    "Remeasure disk and swap; preserve the 22 GiB runtime floor and execute heavy jobs serially. The observed bootstrap peak is not a full-composition capacity proof.",
+    "Start Docker with the recorded 4 GiB/4 GiB profile, repin actual images, create a fresh owned loopback-published network and freeze a new source-bound controller for independent review. Removed network IDs cannot be reused.",
+    "Verify the genuine TLS pooler and API, then apply canonical application migrations using genuine Supabase roles. Do not use the bare-PG CI role helper.",
+    "Create private Auth users before actual default API/worker/browser acceptance. Keep the single-Supabase profile and development SQLite Temporal deviation explicit."
+  ],
+  "limits": [
+    "The two TLS health responses establish GoTrue/PostgREST reachability only; they do not establish application schema, user, worker, browser or full default-composition acceptance.",
+    "R13 and R15 used the 6 GiB Docker profile; the later 4 GiB profile has no stack acceptance run.",
+    "Non-internal bridge permits outbound networking; no cloud/provider credentials or cloud acceptance was supplied.",
+    "Installer separate-platform/production Temporal admission and hosted MCP authority remain blocked; no aliases, fake API keys, role bypass or unreviewed maintenance draft is permitted.",
+    "Prior failed preparations and recovery receipts remain historical evidence. No requirement, acceptance criterion, dependency or release flag is changed by this checkpoint."
+  ],
+  "ledgerSnapshot": {
+    "verified": 12,
+    "inProgress": 38,
+    "planned": 28,
+    "criteriaCount": 78,
+    "releaseFlagsRemainFalse": true
+  },
+  "privateReceiptSha256": {
+    "r13Startup": "de56b7e91983da44a6aaa2f9b96c19803c76ad5b2a5f304fbc07b10581a956a9",
+    "r13TlsHealth": "dc0adb08f9fbc63d8eb935a1f717975c85d2063382c476f3b1dfad874da832a3",
+    "r13DiskStop": "800ef9e77a02a22c14639925fa4e9183c6ea90c60fd1d4c35b6079bb257faf8a",
+    "r13Cleanup": "d4fbe9725dcf3d44e5454e1b515bfaed78f645e44427f81e6b08c59c53f960a6",
+    "r15Startup": "889eb68176320f8aac0481c7ac0a6e75a6bfd1a50c922a46fcc1307888d1bce5",
+    "r15DiskStop": "c8c7852f520d11c6231ba7e40ff3b362d41be664b9ce697f0a01b4556d5efddc",
+    "r15Cleanup": "282d568cc3fc143c7548092ac5b0023474cc905ab5e7545e44a92aa3b762937f",
+    "nativeBuild": "162004cdcabbc7fa05147fb2db3e38f6814b10bd856850dbd1c44c48be2121d6",
+    "buildCacheCleanup": "8dc660de9a21be8b8ad99bdc0f91a541a86a2e0b844ffed189a5be1232a4f43f",
+    "finalDockerCleanup": "5050e651839cacfff5c21728633d63e20d0b6968eb1fb9ecf2a7914217a61e71",
+    "imagePins": "c2e54cc9c33bd878f471a89b85e0f5cdaaaab4a11ff701a93d6c78ede2de0360",
+    "docker4GSettings": "fe961780c6973be454c80d9eca9339541549a0760d76c1713758d73cb5840101",
+    "docker4GProbe": "2c8cafbdb17f7cc0a12bb262a3c0d661b07ba58f048fe323889354049c27c63f",
+    "idleStop": "4e357534bf56b997a97ccf3ae362bdc4482ace9eb26753a8bb90ddfcdba5ad4f"
+  }
+}

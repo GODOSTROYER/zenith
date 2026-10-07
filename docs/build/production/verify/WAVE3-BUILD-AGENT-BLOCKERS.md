@@ -1,3 +1,18 @@
+## Bootstrap successor and remaining builder gaps, 7 October 2026
+
+Source80bb7352 remote CI20/20 passed. Genuine reduced-profile Supabase bootstrap succeeded twice; verified HTTPS health2/0 and fresh native standalone build0 are preparation evidence. Full default acceptance remains resource-blocked after continuous22GiB floor crossings; no code/gate changes or requirement promotions. [Exact current evidence](../verification/RESULTS-2026-10.md#mac-bootstrap-and-storage-2026-10-07).
+
+- Resource-only: own stack/images/network cleaned, Docker4GiB/swap4GiB successor untested. Current23.1GiB free lacks measured pull/startup/swap headroom; verifier stays on this Mac, never offloads or prunes unrelated resources.
+- Supported native profile can share genuine Supabase PostgreSQL for product/platform stores; prior suggestion that no native composition exists is too broad. Separately, shipped installer production Temporal/platform-server authority and hosted MCP20-character project admission remain unresolved; do not bypass those guards.
+- OBS-04 default scheduling proof remains unexecuted; unreviewed maintenance draft stays NOT_READY. OBS-02 endpoint/caller wiring remains builder-owned.
+- UX-01 signed-in two-identity review/approval and MFA/step-up still require actual default acceptance. Private Chrome profile CA plan is source-only, no certificate bypass.
+- MACH-04 actual default installed-agent registration/revocation/rotation/signed update/rollback and least-privilege local PID1 recipe remain open; systemd CI leaf is narrower.
+- COST-03 measured default optimization/field ownership and broader lifecycle/live acceptance remain at original criteria.
+
+DEC-STARTUP local disposable approved; DEC-CLOUD/private App/DNS and retention/business/sign-off remain unapproved. All78 criteria and four false release flags retained; no wave3 source edited.
+
+Earlier entries retain historical scope.
+
 ## Reduced-resource default acceptance blockers, 7 October 2026
 
 DEC-STARTUP approved on this Mac only. Supabase actual pull crossed22GiB disk floor before service startup; resource-blocked acceptance, no fake green. Root Docker6GiB/swap4GiB applied; source-only parallel review and six serial leaf lanes completed. [Actual scopes and exact counts](../verification/RESULTS-2026-10.md#reduced-resource-verification-7-october-2026).

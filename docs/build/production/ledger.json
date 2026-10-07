@@ -33,7 +33,9 @@
     "workersCommit": false,
     "rootReviewsAndVerifies": true,
     "dockerStorage": "Check host free bytes before and during image gates. Remove owned test images, containers, volumes and dedicated build cache after runs. Preserve unrelated services/data; one heavy process.",
-    "minimumFreeGiBBeforeImageGate": 12
+    "minimumFreeGiBBeforeImageGate": 18,
+    "localDefaultStackDiskFloorGiB": 22,
+    "localDefaultStackProfile": "reduced-resource local profile on this Mac only; one heavy workload; Docker6GiB/swap4GiB; no unrelated cleanup"
   },
   "evidenceLevels": [
     "contract",
@@ -1163,6 +1165,22 @@
           "command": "Inspect complete fresh exact-source main37578066932/native37578066955/platform37578066934 jobs and sanitized source-bound artifact/log content.",
           "environment": "Canonical TS Node22.23.3 Linux x64; Go1.27.1 nativeLinux AMD64; workers actual nativeLinux AMD64 andARM64 separately, no emulation; source/environment fingerprints and exported tool fields inspected.",
           "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-07-ci-d6965d75.json"
+        },
+        {
+          "level": "contract",
+          "commit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+          "command": "npm ci; lockfile-integrity; complete security-audit; compiler; lint; generated production ledger check (serial)",
+          "environment": "Node22.23.3 native Darwin ARM64; actual fresh install after builder mysql2 addition; no exception; resource-floor monitor",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-c9a942d6-integration-checks.json",
+          "result": "Fresh installation/lockfile915+6/audit0known/compiler/lint/ledger passed. Compiler2OOM+1disk interruption recovered after idle Docker shutdown; attempts retained. End-of-run host below22GiB remains a resource blocker, not a green default stack."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+          "command": "Inspect all20 terminal GitHub jobs plus exact-source logs/small artifacts",
+          "environment": "GitHub hosted main16 jobs; separate native AMD64/ARM64 workers and WindowsACL/Linuxsystemd",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-c9a942d6-ci-jobs.json",
+          "result": "Exactc9 source20/20jobs passed. Unit19622/0/1532, platform3034/0/8/all1124, workflows1275/0/0/all62, PG379/0/0/all93; each native worker22/0/0/allcleanup, nativeACL1/systemd1. Counts overlap; defaultMac acceptance unproved. Later evidence-publication CI must be observed separately."
         }
       ],
       "requiredEvidence": [
@@ -1491,6 +1509,22 @@
           "command": "Inspect complete fresh exact-source main37578066932/native37578066955/platform37578066934 jobs and sanitized source-bound artifact/log content.",
           "environment": "Canonical TS Node22.23.3 Linux x64; Go1.27.1 nativeLinux AMD64; workers actual nativeLinux AMD64 andARM64 separately, no emulation; source/environment fingerprints and exported tool fields inspected.",
           "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-07-ci-d6965d75.json"
+        },
+        {
+          "level": "contract",
+          "commit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+          "command": "npm ci; lockfile-integrity; complete security-audit; compiler; lint; generated production ledger check (serial)",
+          "environment": "Node22.23.3 native Darwin ARM64; actual fresh install after builder mysql2 addition; no exception; resource-floor monitor",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-c9a942d6-integration-checks.json",
+          "result": "Fresh installation/lockfile915+6/audit0known/compiler/lint/ledger passed. Compiler2OOM+1disk interruption recovered after idle Docker shutdown; attempts retained. End-of-run host below22GiB remains a resource blocker, not a green default stack."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+          "command": "Inspect all20 terminal GitHub jobs plus exact-source logs/small artifacts",
+          "environment": "GitHub hosted main16 jobs; separate native AMD64/ARM64 workers and WindowsACL/Linuxsystemd",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-c9a942d6-ci-jobs.json",
+          "result": "Exactc9 source20/20jobs passed. Unit19622/0/1532, platform3034/0/8/all1124, workflows1275/0/0/all62, PG379/0/0/all93; each native worker22/0/0/allcleanup, nativeACL1/systemd1. Counts overlap; defaultMac acceptance unproved. Later evidence-publication CI must be observed separately."
         }
       ],
       "requiredEvidence": [
@@ -2291,6 +2325,14 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "Fresh runbook-listed unit files: 13; 423 passed /0 failed /13 skipped. File-summary attribution only; required native/engine proof is separate. Default UI/API/CLI product mirror/customer runner create/onboard/verify/revoke/rotate full join missing; external trust/rotation/accounts need explicit authority. retirePreviousRunner in-use branch lacks focused default-route proof."
+        },
+        {
+          "level": "local_engine",
+          "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+          "command": "Runbook-listed Vitest targets --no-file-parallelism --maxWorkers=1; exact targets in sanitized receipt",
+          "environment": "Node22.23.3 native Darwin ARM64,768MiB heap; owned PostgreSQL16.15 ARM64,384MiB memory,strict verify-full TLS and private CA. Bare-PG SET ROLE stand-ins; no Supabase Auth or pooler proof.",
+          "logs": "docs/build/production/evidence/PROD-LIFE-01/2026-10-07-prod-life-01-retry-roles.json",
+          "result": "602 passed /0 failed /1 Windows-only skip. Initial600/2/1 failed canonical fixture role prerequisite; exact CI NOLOGIN role bootstrap through verifiedTLS recovered both cases without source/test edits. Default interface create/verify/revoke/rotate acceptance remains open."
         }
       ],
       "requiredEvidence": [
@@ -2522,6 +2564,14 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "Fresh runbook-listed unit files: 8; 269 passed /0 failed /31 skipped. File-summary attribution only; required native/engine proof is separate. Original engine/contract receipts retain their tested commits: e64d00fc. Actual private App installation bind/remove/uninstall/revoke requires authorized GitHub App/repo. Monorepo/buildpack contracts intentionally avoid host execution."
+        },
+        {
+          "level": "local_engine",
+          "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+          "command": "Runbook-listed Vitest targets --no-file-parallelism --maxWorkers=1; exact targets in sanitized receipt",
+          "environment": "Node22.23.3 native Darwin ARM64,768MiB heap; owned PostgreSQL16.15 ARM64,384MiB memory,strict verify-full TLS and private CA. Bare-PG SET ROLE stand-ins; no Supabase Auth or pooler proof.",
+          "logs": "docs/build/production/evidence/PROD-LIFE-08/2026-10-07-prod-life-08-retry-roles.json",
+          "result": "312 passed /0 failed /1 private GitHub App skip. Actual PostgreSQL contract cases executed; private App/repository runtime binding acceptance remains unapproved and unexecuted."
         }
       ],
       "requiredEvidence": [
@@ -2590,6 +2640,14 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "Fresh runbook-listed unit files: 12; 322 passed /0 failed /19 skipped. File-summary attribution only; required native/engine proof is separate. Whole source\u2192actual build\u2192migration\u2192readiness\u2192cutover/readback needs owned target; progressive rollout/code rollback is distinct from approved data restore."
+        },
+        {
+          "level": "local_engine",
+          "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+          "command": "Runbook-listed Vitest targets --no-file-parallelism --maxWorkers=1; exact targets in sanitized receipt",
+          "environment": "Node22.23.3 native Darwin ARM64,768MiB heap; owned PostgreSQL16.15 ARM64,384MiB memory,strict verify-full TLS and private CA. Bare-PG SET ROLE stand-ins; no Supabase Auth or pooler proof.",
+          "logs": "docs/build/production/evidence/PROD-LIFE-10/2026-10-07-prod-life-10-serial-r2.json",
+          "result": "899 passed /0 failed /13 skipped in broad leaf lane. Separate actual Temporal deploy rerun21/0/0 executed six previously skipped Temporal scenarios; counts overlap and are not summed. Seven kind cases were not executed in this leaf lane; prior native cluster/CI evidence remains separately scoped. Default isolated build/DNS/traffic/migration rollback journey remains open."
         }
       ],
       "requiredEvidence": [
@@ -2761,6 +2819,14 @@
           "command": "node node_modules/vitest/vitest.mjs run tests/ownership tests/capabilities/field-ownership-broker.test.ts tests/capabilities/ownership-transfers.test.ts tests/providers/aws/drivers/compute/ecs-ownership-lifecycle.test.ts --maxWorkers=1 --no-file-parallelism --reporter=json",
           "environment": "Node22.23.3/npm10.9.9; native macOS ARM64; fresh positively owned PostgreSQL16.15. Fixture container/network/volume removed and absence verified.",
           "logs": "docs/build/production/evidence/PROD-LIFE-12/2026-10-06-ownership-contracts-ec18bb9c.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+          "command": "Runbook-listed Vitest targets --no-file-parallelism --maxWorkers=1; exact targets in sanitized receipt",
+          "environment": "Node22.23.3 native Darwin ARM64,768MiB heap; owned PostgreSQL16.15 ARM64,384MiB memory,strict verify-full TLS and private CA. Bare-PG SET ROLE stand-ins; no Supabase Auth or pooler proof.",
+          "logs": "docs/build/production/evidence/PROD-LIFE-12/2026-10-07-prod-life-12-serial-r2.json",
+          "result": "Targeted ownership/SQL lane236 passed /0 failed /0 skipped. Real PostgreSQL and PGlite controls distinct; independent review. Broader native/IaC/autoscaler ownership and successful default cleanup acceptance remain open."
         }
       ],
       "requiredEvidence": [
@@ -2979,6 +3045,14 @@
           "command": "node node_modules/vitest/vitest.mjs run tests/machines/runbooks.test.ts tests/machines/runbook-step-executor.test.ts tests/machines/runbook-routes.test.ts tests/observability/local-telemetry-engine.test.ts tests/observability/telemetry.test.ts tests/machines/telemetry.test.ts --maxWorkers=1 --no-file-parallelism --reporter=json",
           "environment": "Node22.23.3/npm10.9.9/Vitest4.1.11; native macOS ARM64; fresh owned PostgreSQL16.15 configured; controlled adapters and owned protocol endpoints.",
           "logs": "docs/build/production/evidence/PROD-MACH-03/2026-10-06-default-join-assessment-ec18bb9c.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+          "command": "Guarded reduced-resource private Supabase bootstrap; disk monitored every2s,22GiB floor",
+          "environment": "This8GiB Mac; Docker configured6144MiB memory4096MiB swap,VirtioFS,ResourceSaveroff; intended native API768MiB/worker1024MiB not started",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-reduced-resource-local.json",
+          "result": "Resource blocked before service startup:24.68GiB initial free fell to21.77GiB during required image pulls; exit130,zero tests/containers. Owned downloaded images/network removed; baseline resources preserved. No signed-in/default scheduling/runbook/telemetry/installed-agent acceptance. NOT_READY maintenance draft unrun; builder wiring and Linux delegation admission remain explicit."
         }
       ],
       "requiredEvidence": [
@@ -3021,6 +3095,14 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "Fresh runbook-listed unit files: 5; 149 passed /0 failed /8 skipped. File-summary attribution only; required native/engine proof is separate. Original engine/contract receipts retain their tested commits: 4bfda972,c355eeef. Installed registered runner signed release/update/restart/rollback+customer key rotation join not established by package/unit/golden run."
+        },
+        {
+          "level": "local_engine",
+          "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+          "command": "Guarded reduced-resource private Supabase bootstrap; disk monitored every2s,22GiB floor",
+          "environment": "This8GiB Mac; Docker configured6144MiB memory4096MiB swap,VirtioFS,ResourceSaveroff; intended native API768MiB/worker1024MiB not started",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-reduced-resource-local.json",
+          "result": "Resource blocked before service startup:24.68GiB initial free fell to21.77GiB during required image pulls; exit130,zero tests/containers. Owned downloaded images/network removed; baseline resources preserved. No signed-in/default scheduling/runbook/telemetry/installed-agent acceptance. NOT_READY maintenance draft unrun; builder wiring and Linux delegation admission remain explicit."
         }
       ],
       "requiredEvidence": [
@@ -3051,6 +3133,14 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "Fresh runbook-listed unit files: 6; 93 passed /0 failed /0 skipped. File-summary attribution only; required native/engine proof is separate. Dedicated current default transport+registered credential-absence/revocation journey absent. Unknown secret shapes remain best_effort, federated mode not a CP token-file minting proof."
+        },
+        {
+          "level": "local_engine",
+          "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+          "command": "Runbook-listed Vitest targets --no-file-parallelism --maxWorkers=1; exact targets in sanitized receipt",
+          "environment": "Node22.23.3 native Darwin ARM64,768MiB heap; owned PostgreSQL16.15 ARM64,384MiB memory,strict verify-full TLS and private CA. Bare-PG SET ROLE stand-ins; no Supabase Auth or pooler proof.",
+          "logs": "docs/build/production/evidence/PROD-MACH-05/2026-10-07-prod-mach-05-serial-r2.json",
+          "result": "Broad lane1526 passed /0 failed /11 skipped, including250 passed actual native database identities. Eight unsupported memory/PGlite cases have passed PostgreSQL equivalents. Separate security-tool rerun11/0/0 covers three prior opt-in skips; overlapping counts not summed. Genuine customer local-credential/default authenticated execution acceptance remains open."
         }
       ],
       "requiredEvidence": [
@@ -3167,6 +3257,14 @@
           "command": "node node_modules/vitest/vitest.mjs run tests/machines/runbooks.test.ts tests/machines/runbook-step-executor.test.ts tests/machines/runbook-routes.test.ts tests/observability/local-telemetry-engine.test.ts tests/observability/telemetry.test.ts tests/machines/telemetry.test.ts --maxWorkers=1 --no-file-parallelism --reporter=json",
           "environment": "Node22.23.3/npm10.9.9/Vitest4.1.11; native macOS ARM64; fresh owned PostgreSQL16.15 configured; controlled adapters and owned protocol endpoints.",
           "logs": "docs/build/production/evidence/PROD-OBS-02/2026-10-06-default-join-assessment-ec18bb9c.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+          "command": "Guarded reduced-resource private Supabase bootstrap; disk monitored every2s,22GiB floor",
+          "environment": "This8GiB Mac; Docker configured6144MiB memory4096MiB swap,VirtioFS,ResourceSaveroff; intended native API768MiB/worker1024MiB not started",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-reduced-resource-local.json",
+          "result": "Resource blocked before service startup:24.68GiB initial free fell to21.77GiB during required image pulls; exit130,zero tests/containers. Owned downloaded images/network removed; baseline resources preserved. No signed-in/default scheduling/runbook/telemetry/installed-agent acceptance. NOT_READY maintenance draft unrun; builder wiring and Linux delegation admission remain explicit."
         }
       ],
       "requiredEvidence": [
@@ -3279,6 +3377,14 @@
           "command": "node scripts/ci/run-gate.mjs workflows --run; strict require-execution validation",
           "environment": "Node22.23.3 Darwin ARM64; owned fresh PostgreSQL and Temporal test dependencies",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-local-gates-f582e193.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+          "command": "Guarded reduced-resource private Supabase bootstrap; disk monitored every2s,22GiB floor",
+          "environment": "This8GiB Mac; Docker configured6144MiB memory4096MiB swap,VirtioFS,ResourceSaveroff; intended native API768MiB/worker1024MiB not started",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-reduced-resource-local.json",
+          "result": "Resource blocked before service startup:24.68GiB initial free fell to21.77GiB during required image pulls; exit130,zero tests/containers. Owned downloaded images/network removed; baseline resources preserved. No signed-in/default scheduling/runbook/telemetry/installed-agent acceptance. NOT_READY maintenance draft unrun; builder wiring and Linux delegation admission remain explicit."
         }
       ],
       "requiredEvidence": [
@@ -3659,6 +3765,14 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "Fresh runbook-listed unit files: 2; 84 passed /0 failed /0 skipped. File-summary attribution only; required native/engine proof is separate. Those browser suites are not platform MFA/step-up/default readiness/runbook end-to-end/a11y audit. Existing auth lacks a step-up primitive in this slice; no axe/contrast/screen-reader evidence."
+        },
+        {
+          "level": "local_engine",
+          "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+          "command": "Guarded reduced-resource private Supabase bootstrap; disk monitored every2s,22GiB floor",
+          "environment": "This8GiB Mac; Docker configured6144MiB memory4096MiB swap,VirtioFS,ResourceSaveroff; intended native API768MiB/worker1024MiB not started",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-reduced-resource-local.json",
+          "result": "Resource blocked before service startup:24.68GiB initial free fell to21.77GiB during required image pulls; exit130,zero tests/containers. Owned downloaded images/network removed; baseline resources preserved. No signed-in/default scheduling/runbook/telemetry/installed-agent acceptance. NOT_READY maintenance draft unrun; builder wiring and Linux delegation admission remain explicit."
         }
       ],
       "requiredEvidence": [
@@ -3802,6 +3916,14 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "Fresh runbook-listed unit files: 9; 255 passed /0 failed /27 skipped. File-summary attribution only; required native/engine proof is separate. Default noMeasurements/refuseUnknownFieldOwnership; no collector/human opt-in endpoint. Measurable default savings cannot be established by another controlled-input test."
+        },
+        {
+          "level": "local_engine",
+          "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+          "command": "Runbook-listed Vitest targets --no-file-parallelism --maxWorkers=1; exact targets in sanitized receipt",
+          "environment": "Node22.23.3 native Darwin ARM64,768MiB heap; owned PostgreSQL16.15 ARM64,384MiB memory,strict verify-full TLS and private CA. Bare-PG SET ROLE stand-ins; no Supabase Auth or pooler proof.",
+          "logs": "docs/build/production/evidence/PROD-COST-03/2026-10-07-prod-cost-03-serial-r2.json",
+          "result": "449 passed /0 failed /0 skipped; required Temporal flag enabled. Scheduling subset19 includes5 scalar and14 actual owned SQLiteTemporal/nativePG cases. Default measurement/ownership wiring and measurable optimization remain builder-pending; no optimizer/default seven-job acceptance promotion."
         }
       ],
       "requiredEvidence": [
@@ -4445,9 +4567,9 @@
       "requested": "2026-10-02",
       "status": "approved",
       "approved": "2026-10-07",
-      "approvalScope": "Disposable local default API/server startup only; owned PostgreSQL/Temporal/worker resources with cleanup. No cloud access/spend, unrelated services, or authority bypass.",
-      "startupObservation": "docs/build/production/evidence/PROD-UX-01/2026-10-07-unconfigured-startup.json",
-      "acceptance": "Unconfigured warmed-build public startup controls passed; authenticated default acceptance remains open."
+      "approvalScope": "All remaining default-stack acceptance on this Mac only, disposable local resources; Docker6GiB/swap4GiB and owned cleanup. No offload, cloud calls/spend, unrelated-resource changes or authority bypass.",
+      "startupObservation": "docs/build/production/evidence/PROD-CI-08/2026-10-07-reduced-resource-local.json",
+      "acceptance": "Reduced-resource Supabase attempt disk-blocked before containers/tests; leaf PostgreSQL/Temporal proof remains separate from authenticated default acceptance."
     },
     {
       "id": "DEC-CLOUD",

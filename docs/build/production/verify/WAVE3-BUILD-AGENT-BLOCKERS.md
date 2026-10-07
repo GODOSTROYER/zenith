@@ -1,3 +1,16 @@
+## Reduced-resource default acceptance blockers, 7 October 2026
+
+DEC-STARTUP approved on this Mac only. Supabase actual pull crossed22GiB disk floor before service startup; resource-blocked acceptance, no fake green. Root Docker6GiB/swap4GiB applied; source-only parallel review and six serial leaf lanes completed. [Actual scopes and exact counts](../verification/RESULTS-2026-10.md#reduced-resource-verification-7-october-2026).
+
+- Installer/current runtime: separate platform-server authority and hard-bound disposable endpoints do not support the requested native/same-server/SQLite profile. Do not weaken guards or use host aliases as authority separation. Builder must review supported lean composition if needed; this is not shipped-container proof.
+- OBS-04: default maintenance draft remains NOT_READY. Preserve immutable cleanup epoch singleton; actual Auth/PostgREST/API/worker composition, seven natural timer histories, real health/fallback/restart/no-overlap and owned cleanup must be independently reviewed before running.
+- OBS-02: endpoint composition and machine-health caller stay builder-owned; verifier did not patch them.
+- UX-01: real two-identity operator journey and application MFA/step-up enforcement remain open. Public warmed login accessibility proof is separate.
+- MACH-04: prove effective cgroup delegation/service sandbox and real registered signed-update/rollback channel; component Go passes are not installed-agent proof.
+- COST-03: real scheduling contracts passed, but default measurements and field-ownership integration remain required for measurable optimization.
+
+New mysql2 dependency commit67866789 preserved; no MySQL transport implementation changed by verifier. Live account/DNS/privateApp and commercial/retention/signoff decisions remain unapproved. No wave3 code edits.
+
 ## Local startup authorization and bounded result, 7 October 2026
 
 DEC-STARTUP approved for disposable local default API/server startup only. Root executed **2 HTTP / 3 real-browser controls, all passed, zero failed or skipped**, with owned processes, ports and private data removed. Login keyboard and axe scans passed at1280/375px; six nonpublic prefetch requests were blocked. This used an existing warmed build whose source origin is unestablished, not an authenticated operator journey or clean packaged API proof. First fixture failure is retained with separate cleanup recovery. [Scoped result](../verification/RESULTS-2026-10.md#local-startup-2026-10-07).

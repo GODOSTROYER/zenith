@@ -1,3 +1,39 @@
+## Reduced-resource verification, 7 October 2026
+
+Local source `730c7ce099160b6454a38a4b7510145c9bb826f0`, Node22.23.3, native Darwin ARM64, real PostgreSQL16.15 ARM64 with verified TLS. Root serialized every heavy workload; workers reviewed source and receipts only. [Host and resource evidence](../evidence/PROD-CI-08/2026-10-07-reduced-resource-local.json).
+
+| Requirement | Actual passed / failed / skipped | Scope and remaining acceptance |
+| --- | --- | --- |
+| LIFE-01 | 602 / 0 / 1 | Windows-only ACL case excluded on this Mac. Initial600/2/1 failed missing canonical NOLOGIN role prerequisites; unchanged assertions passed after exact CI role bootstrap. Full default connection journey remains open. |
+| LIFE-08 | 312 / 0 / 1 | Private GitHub App case remains unapproved; actual PostgreSQL contracts passed. |
+| LIFE-10 | 899 / 0 / 13; supplemental21 / 0 / 0 | Six Temporal skips executed successfully in supplemental actual-server run. Seven kind cases unexecuted in this leaf lane; historical/native CI scope retained separately. Full default deployment/migration/rollback journey open. |
+| LIFE-12 | 236 / 0 / 0 | Targeted ownership and real SQL controls; broader writer coordination/readback acceptance remains open. |
+| MACH-05 | 1526 / 0 / 11; supplemental11 / 0 / 0 | All250 native database identities passed. Eight memory/PGlite exclusions have exact passed PostgreSQL counterparts. Supplemental OpenTofu/Temporal run executed other three skips. Not a default customer-credential journey. |
+| COST-03 | 449 / 0 / 0 | Includes19 schedule cases,14 against actual owned SQLite Temporal/native PG. Default measurement/ownership integration remains builder-pending. |
+| MACH-05 reader / Go | 15 / 0 / 0;368 / 0 / 2; supplemental2 / 0 / 0 | Pinned Go1.27.1 native Darwin ARM64; both skipped real OpenTofu cases reran successfully. Not installed Linux/systemd acceptance. |
+
+Counts overlap and are not summed. Initial failures and all skipped case identities remain in evidence; no assertions, migrations, gates or required counts changed. Leaf TLS readback used TLS1.3; canonical agent migrations1–3 applied unchanged and canonical schema verifier passed. No actual Supabase Auth or pooler proof is inferred from NOLOGIN SET ROLE stand-ins.
+
+### Newer dependency integration
+
+Pulled builder `c9a942d664128d982415b4c8b671de88e8c3fe02` normally. Fresh `npm ci` passed on Node22.23.3. Lock integrity915 registry-pinned packages plus6 parent-bundled entries passed; complete locked audit zero known findings and zero exceptions. Compiler, lint and generated production ledger check passed. Initial compiler768/1536MiB heap failures and4096MiB disk-floor interruption remain recorded; after stopping idle Docker backend, compiler4096MiB passed with observed peakRSS1540928KiB. Only one heavy command ran at once.
+
+Disk recovered temporarily to23.3GiB, then unexpectedly fell below22GiB during final ledger completion; no further heavy jobs started, cleanup task notified. This does not invalidate commands that already exited0 or close default runtime acceptance. [Exact attempt receipts](../evidence/PROD-CI-08/2026-10-07-c9a942d6-integration-checks.json). New published checkpoint CI must be inspected independently; c9 CI20/20 is exact-source historical proof.
+
+### Default-stack attempts and blockers
+
+User authorized this Mac only, Docker6GiB/swap4GiB, VirtioFS and Resource Saver off. Root applied requested settings after backing up official settings; actual Linux swap4194300kB confirmed. No unrelated container existed before restart. macOS swap and before/after disk values are recorded.
+
+Supabase R3 failed before tests because CLI resolves TLS paths beneath `workdir/supabase`; only two private fixture path values changed, with independent R4 review. R4 then reached real required image pulls but crossed22GiB floor:24.68GiB initial free,21.77GiB minimum, exit130 after69.48s, zero containers/tests. This is a resource-blocked attempt, not a skipped or passed gate. New owned downloaded images and labelled empty network removed; all baseline images preserved. No global prune. Remaining partial pull reclamation is not claimed.
+
+Steps3a–3c: installer, two signed-in operators/axe journey and seven default schedules were not executed. Steps3d–3f: default registered runbook, default telemetry and installed signed-agent lifecycle remain unexecuted because real Auth/default resources were unavailable; Linux writable cgroup delegation and effective sandbox admission also remain unproved. NOT_READY maintenance draft never ran. Current installer requires separate platform server authority and hard-bound disposable container endpoints, so requested native/same-server/SQLite profile cannot be relabeled shipped installer topology. Installer guards remain unchanged.
+
+Builder prerequisites remain: OBS-02 endpoint composition and machine-health caller; UX-01 MFA/step-up application enforcement; COST-03 actual measurements/ownership integration; independently reviewed OBS-04 default timer/restart/fallback/no-overlap harness. Linux systemd acceptance requires safe actual cgroup delegation plus registered default control-plane update/rollback, not PID1 alone. Live clouds, real DNS and private GitHub App remain unapproved. DEC-STARTUP stays approved; no repeated permission request.
+
+Owned leaf PostgreSQL removed; private CA/certificates/keys deleted, no OS-global trust change. Private fixtures must regenerate TLS, rebind a new owned network, freeze/review argv and recheck resources before continuation. The measured >2.91GiB image-pull growth plus22GiB floor is a lower bound; remaining downloads/build growth is unknown. Do not reuse deleted network/container IDs or old successful receipts.
+
+Ledger remains12 verified/38 in progress/28 planned, all78 criteria and four false release flags preserved. Newer builder commits `67866789` and `c9a942d6` pulled normally after local runs; local receipts remain bound to730, not relabeled. Fresh installation/security and exact pushed-source CI are separate integration checks.
+
 ## Local startup, 2026-10-07
 
 User granted DEC-STARTUP for disposable local default API/server startup only; DEC-CLOUD remains unapproved. Checkout inspected:a370b508f4f81db4b98e85297312f51e23c0c8cc. Served artifact was a private copy of the existing warmed standalone build, with independent inventory hashes and **unestablished source origin**. No exact-source clean build, authenticated operator journey, packaged API acceptance or new requirement closure follows.

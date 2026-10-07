@@ -1,0 +1,253 @@
+{
+  "id": "PROD-LIFE-01",
+  "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+  "status": "executed",
+  "exitCode": 0,
+  "refusal": null,
+  "passed": 602,
+  "failed": 0,
+  "skipped": 1,
+  "commandTargets": [
+    "tests/connections",
+    "tests/cli/connections.test.ts",
+    "tests/middleware/platform-bearer.test.ts",
+    "tests/bridge/connection-aws.test.ts",
+    "tests/bridge/connection-kubernetes.test.ts",
+    "tests/actions/connection-env-isolation.test.ts",
+    "tests/platform/credentials-verification.test.ts",
+    "tests/cli",
+    "tests/controlplane/migrations.test.ts",
+    "tests/controlplane/tenancy.test.ts",
+    "tests/security/controlplane-sql-scoping.test.ts",
+    "tests/capabilities/action-bridge.test.ts",
+    "tests/docs/operator-docs.test.ts"
+  ],
+  "nodeVersion": "v22.23.3",
+  "heapMiB": 768,
+  "architecture": "native Darwin ARM64 with Docker ARM64 real PostgreSQL16.15, TLS verify-full",
+  "environmentScope": "isolated contract/real-PG leaf tests; no real Auth/default-stack/live-cloud proof",
+  "diskBeforeBytes": 24165961728,
+  "diskMinBytes": 24139968512,
+  "diskAfterBytes": 24163983360,
+  "elapsedSeconds": 56.22,
+  "rawLogs": "private only; not retained publicly",
+  "schema": 1,
+  "reportSha256": "d31da22be6ac2cc6ba6d60d4c3cd70ac32fb0ddd085236d33d861d5064969241",
+  "perFile": [
+    {
+      "file": "tests/actions/connection-env-isolation.test.ts",
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/bridge/connection-aws.test.ts",
+      "passed": 40,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/bridge/connection-kubernetes.test.ts",
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/connections/lifecycle.test.ts",
+      "passed": 32,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/connections/rotations-repo.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/cli/bin.test.ts",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/cli/commands.test.ts",
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/cli/config.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 1,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/cli/connections.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/cli/failures.test.ts",
+      "passed": 68,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/cli/follow.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/capabilities/action-bridge.test.ts",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/controlplane/migrations.test.ts",
+      "passed": 34,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/controlplane/tenancy.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/client/poll.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/client/stream-fallback.test.ts",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/docs/operator-docs.test.ts",
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/middleware/platform-bearer.test.ts",
+      "passed": 81,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/platform/credentials-verification.test.ts",
+      "passed": 89,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/controlplane-sql-scoping.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/client/bootstrap-backoff.test.tsx",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/client/navigator-poll-budget.test.tsx",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/client/read-cancellation.test.tsx",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/client/stream-url-switch.test.tsx",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/client/use-json.test.tsx",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    }
+  ],
+  "unpassedCases": [
+    {
+      "file": "tests/cli/config.test.ts",
+      "name": "private login config Windows refuses inherited ACLs that grant other identities access",
+      "status": "skipped"
+    }
+  ],
+  "scopeLimit": "Counts overlap other lanes and are not summed. No full default-stack, cloud, real Auth or installed customer-runner proof. Required acceptance remains open.",
+  "priorAttempt": {
+    "passed": 600,
+    "failed": 2,
+    "skipped": 1,
+    "exitCode": 1,
+    "cause": "Missing canonical NOLOGIN cluster role prerequisites at migrations.test.ts:498; not a demonstrated product migration defect. Exact CI role bootstrap applied through verified TLS. Assertions unchanged; prior raw receipt retained privately."
+  }
+}

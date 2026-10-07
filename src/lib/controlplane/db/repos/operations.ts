@@ -461,8 +461,8 @@ export async function claimForExecution(sql: Sql, input: ClaimInput): Promise<Op
   return sql.tx(async (tx) => {
     // Live fence first: all fenced writers retain the same lock order. A stale fence takes failure priority.
     if (lease) await assertFence(tx, lease.scope, lease.fenceToken);
-    const locked = await tx.query<OperationRow & { is_expired: boolean }>(
-      `select ${OPERATION_COLUMNS}, (expires_at <= clock_timestamp()) as is_expired
+    const locked = await tx.query<OperationRow & { is_expired: boolean; is_stale: boolean }>(
+      `select ${OPERATION_COLUMNS}, (expires_at <= clock_timestamp()) as is_expired, (recovery_epoch < platform.current_recovery_epoch()) as is_stale
          from platform.operations where workspace_id = $1 and id = $2 for update`,
       [workspaceId, id]
     );
@@ -473,6 +473,10 @@ export async function claimForExecution(sql: Sql, input: ClaimInput): Promise<Op
     if (op.proposal_digest !== expectedDigest)
       throw new ControlStoreError("digest_mismatch", "The digest to execute does not match the reviewed proposal digest.", { id });
     if (op.is_expired) throw new ControlStoreError("operation_expired", "The operation expired before it could be executed.", { id });
+    // PROD-OPS-04: a row written before the latest restore is not authority to run. An operator reopens it
+    // (recovery decision `resume`), which opens a fresh approval round in the current epoch.
+    if (op.is_stale)
+      throw new ControlStoreError("invalid_state", "This operation predates a restore (the recovery epoch changed) and needs an operator decision before it can run.", { id, reason: "recovery_epoch_stale" });
 
     const ownershipRows = await lockForOperation(tx, workspaceId, id);
 
@@ -541,7 +545,7 @@ export async function acquireExecutionLease(sql: Sql, input: AcquireLeaseInput &
       // a concurrent owning insert is locked and revalidated before any retry.
       const fresh=await tx.query<{scope:string;holder:string;fence_token:number;acquired_at:string;expires_at:string}>(
         `insert into platform.leases (scope,workspace_id,holder,fence_token,acquired_at,renewed_at,expires_at,released_at)
-          values ($2,$1,$3,1,clock_timestamp(),clock_timestamp(),clock_timestamp()+($4::bigint * interval '1 millisecond'),null)
+          values ($2,$1,$3,platform.recovery_fence_floor(),clock_timestamp(),clock_timestamp()+($4::bigint * interval '1 millisecond'),null)
           on conflict (scope) do nothing returning scope,holder,fence_token,acquired_at,expires_at`,
         [requested.workspaceId,requested.scope,requested.holder,requested.ttlMs]);
       if(fresh[0]) {

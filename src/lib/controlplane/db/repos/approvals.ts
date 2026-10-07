@@ -122,8 +122,9 @@ export async function record(sql: Sql, input: RecordApprovalInput): Promise<Reco
   const ttl = boundedMs("ttlMs", input.ttlMs ?? 60 * 60 * 1000, 1000, 7 * 24 * 60 * 60 * 1000);
 
   return sql.tx(async (tx) => {
-    const locked = await tx.query<{ status: OperationStatus; proposal_digest: string; plan_digest: string | null; principal: Principal; policy_decision_id: string | null; approval_round: number; is_expired: boolean }>(
-      `select status, proposal_digest, plan_digest, principal, policy_decision_id, approval_round, (expires_at <= clock_timestamp()) as is_expired
+    const locked = await tx.query<{ status: OperationStatus; proposal_digest: string; plan_digest: string | null; principal: Principal; policy_decision_id: string | null; approval_round: number; is_expired: boolean; is_stale: boolean }>(
+      `select status, proposal_digest, plan_digest, principal, policy_decision_id, approval_round, (expires_at <= clock_timestamp()) as is_expired,
+              (recovery_epoch < platform.current_recovery_epoch()) as is_stale
          from platform.operations where workspace_id = $1 and id = $2 for update`,
       [workspaceId, operationId]
     );
@@ -132,6 +133,10 @@ export async function record(sql: Sql, input: RecordApprovalInput): Promise<Reco
     if (op.status !== "awaiting_approval")
       throw new ControlStoreError("invalid_state", `Operation is ${op.status}; only an operation awaiting approval can be approved or rejected.`, { id: operationId, status: op.status });
     if (op.is_expired) throw new ControlStoreError("operation_expired", "The operation expired before it was reviewed.", { id: operationId });
+    // PROD-OPS-04: an operation restored from a backup is reopened by an operator decision (which opens a fresh
+    // approval round in the current epoch) before anyone can approve it.
+    if (op.is_stale)
+      throw new ControlStoreError("invalid_state", "This operation predates a restore (the recovery epoch changed); an operator must reopen it before it can be approved.", { id: operationId, reason: "recovery_epoch_stale" });
     if (op.proposal_digest !== proposalDigest)
       throw new ControlStoreError("digest_mismatch", "The digest you reviewed does not match the operation's current proposal. Reload and review the exact proposal.", { id: operationId });
     if (input.expectedApprovalRound !== undefined && input.expectedApprovalRound !== op.approval_round)
@@ -180,7 +185,7 @@ export async function record(sql: Sql, input: RecordApprovalInput): Promise<Reco
         `select count(*)::int as n from platform.approvals
           where workspace_id = $1 and operation_id = $2 and decision = 'approve' and proposal_digest = $3
             and approval_round = $4::integer and consumed_at is null and expires_at > clock_timestamp()
-            and policy_version = $5`,
+            and policy_version = $5 and recovery_epoch = platform.current_recovery_epoch()`,
         [workspaceId, operationId, proposalDigest, op.approval_round, policyVersion]
       );
       have = counted[0]?.n ?? 0;

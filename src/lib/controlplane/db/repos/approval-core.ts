@@ -30,7 +30,8 @@ export interface ConsumeApprovalsInput {
 
 /**
  * Mark every valid, unconsumed `approve` row in the current round as consumed, in
- * one UPDATE, and return them. Single-use: a second call returns an empty list
+ * one UPDATE, and return them. Only approvals stamped with the CURRENT recovery epoch count (PROD-OPS-04): an
+ * approval restored from a backup was consumed or not in a timeline that no longer exists, so it never authorizes. Single-use: a second call returns an empty list
  * because `consumed_at IS NULL` no longer matches. Valid means: same workspace,
  * same operation, same digest, not expired, (optionally) same policy version.
  */
@@ -39,6 +40,7 @@ export async function consumeApprovals(sql: Sql, input: ConsumeApprovalsInput): 
     `update platform.approvals set consumed_at = clock_timestamp()
       where workspace_id = $1 and operation_id = $2 and decision = 'approve'
         and proposal_digest = $3 and consumed_at is null and expires_at > clock_timestamp()
+        and recovery_epoch = platform.current_recovery_epoch()
         and approval_round = (select approval_round from platform.operations where workspace_id = $1 and id = $2)
         and ($4::text is null or policy_version = $4::text)
       returning id, approver_id`,
@@ -53,6 +55,7 @@ export async function countUnconsumedApprovals(sql: Sql, input: Omit<ConsumeAppr
     `select count(*)::int as n from platform.approvals
       where workspace_id = $1 and operation_id = $2 and decision = 'approve'
         and proposal_digest = $3 and consumed_at is null and expires_at > clock_timestamp()
+        and recovery_epoch = platform.current_recovery_epoch()
         and approval_round = (select approval_round from platform.operations where workspace_id = $1 and id = $2)`,
     [input.workspaceId, input.operationId, input.proposalDigest]
   );

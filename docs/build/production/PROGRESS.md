@@ -1,3 +1,7 @@
+## 8 October 2026: integrated repair publication
+
+Sourcec7332a56: native100100/0/0, historical77/0/0, workflow-intents156/0/0, Temporal/codec30/0/0, metadata345/0/0, marker18/0/0. Counts overlap. Native dispatch successor97/6/0; failed recording19/2/1 quarantined, no frozen corpus acceptance. Ledger10 verified/49 in_progress/19 planned across78; release flagsfalse. Complete successor gates/CI remain open. [Publication context](WIP-HANDOFF-2026-10-08.md).
+
 ## 8 October2026: focused native repair checkpoint
 
 Sourceb69a6c12: root41 passed/0 failed/0 skipped,23 actual PostgreSQL/17 PGlite/1 contract. Owned services cleaned; minimum25.18GiB free above22GiB floor. Compiler9b895088 passed; root CI/browser1626/0/6 with Linux-only supervisor controls open. Earlier broader65/12/0 retained; remaining historical migration and Temporal rehearsal work active. Ledger recomputed10 verified/49 in_progress/19 planned across78; all release flagsfalse. [Progress context](WIP-HANDOFF-2026-10-08.md). New pushed CI pending.
@@ -343,3 +347,14 @@ Code candidate `5f4713a7` integrates six reviewed fixes: Go build-event parsing;
 - Local kind on387b: provider6/release1/guest48 passed, zero failures/skips, owned cleanup complete. Supervisor137 passed including6 actual native Linux ARM64 process-group cases. These are scoped historical receipts, not new-candidate/live-cloud acceptance.
 
 Remaining: fresh pushed Linux diagnostic, conditional six-test-path owned-database/backend-lifetime candidate, complete unit successor, final exact-SHA CI, then ordered wave1, missing joins and wave2. All78 requirements retained; ledger6 verified/44 in progress/28 planned; all four release states false. Read evidence JSON above; counts overlap and must not be summed.
+
+
+## Native historical and codec successors, 8 October 2026
+
+Actual source `648a3f82`: historical/index/tombstone suites **77 passed / 0 failed / 0 skipped**, comprising44 actual PostgreSQL,27 PGlite and6 pure controls. Dedicated migration42 refusals remain; four owned historical cases scope42 through both phases. Exact migration30 operations TRIGGER and migration38 runner_jobs owner failures were reproduced inside savepoints before narrowly authorized fixture permissions and successful current upgrades. Published SQL and production privilege boundaries are unchanged. Prior73/4 and both76/1 attempts remain evidence. Owned PostgreSQL stopped/data removed; minimum free27,013,103,616 bytes exceeded22GiB floor.
+
+Separate frozen `4c3d6476`: canonical workflow-intents **156/0/0**, all141 mandatory groups, matched source/report/environment binding, observed exit0 and cleanup0. Separate `722c7304`: actual local Temporal plus composed deployment/helper **30/0/0**:7 helper,2 rehearsal and21 composed cases. Matching-runtime full protobuf converter preserves SDK normalization; actual-history binary equality, stable JSON and Worker replay passed. This closes the reproduced coupled codec defect, not missing frozen released-history corpus acceptance or live-cloud behavior.
+
+Current canonical workflows require71 groups, including the new full codec helper. Exact historical70/60/58 comparisons retain unchanged prior identities; unknown additions are not excluded. Root two-suite metadata verification345/0/0 and independent Astra source review passed; native100 stays100. Whole lint passed with0errors/3existing vendor warnings, compiler passed on4c; combined successor remains mandatory.
+
+Published `3dae8f9a` CI remains separate: native AMD64/ARM64 workers and Windows ACL/Linux systemd all successful; main13 successful jobs, workflows failed1330/1/0 (sole already-repaired same-environment rehearsal contention), verify/platform-postgres still running at inspection. No complete green or zero-skip project claim. Ledger10verified/49in_progress/19planned; all78 requirements/four false release states preserved.

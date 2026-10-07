@@ -20,6 +20,7 @@ import {
   type PlatformMigration,
 } from "@/lib/controlplane/db";
 import { EMITTED_FILE, EMITTED_RELATIVE_PATH, renderSupabaseMigration } from "@/lib/controlplane/db/migrations/emit";
+import { ContractMigrationRefusedError } from "@/lib/controlplane/db/compat";
 import { BOOTSTRAP_SQL } from "@/lib/controlplane/db/migrations/bootstrap";
 import { PG_URL, withScratchDatabase } from "./_support/harness";
 import * as repos from "@/lib/controlplane/db/repos";
@@ -109,6 +110,60 @@ const lanes: Lane[] = [
       ]
     : []),
 ];
+
+/** Historical SQL fixture setup never supplies current contract admission. */
+async function historicalFixtureRange(db: PlatformDbHandle, from: number, through: number) {
+  const prior = PLATFORM_MIGRATIONS.filter(m => m.version < from);
+  await assertPlatformSchemaCurrent(db, prior);
+  const ledger = await db.query("select * from platform.schema_migrations order by version");
+  expect(ledger.map(row => row.version)).toEqual(prior.map(m => m.version));
+  const emitted = renderSupabaseMigration();
+  const first = PLATFORM_MIGRATIONS.find(m => m.version === from)!;
+  const after = PLATFORM_MIGRATIONS.find(m => m.version === through + 1)!;
+  const start = emitted.indexOf(`-- ============================ migration ${first.version}: ${first.name} `);
+  const end = emitted.indexOf(`-- ============================ migration ${after.version}: ${after.name} `);
+  if (start < 0 || end <= start) throw new Error("Canonical historical fixture boundaries are unavailable.");
+  // No aggregate hardening here: creator defaults/owner context remain the
+  // actual counterexample under test. These bytes are historical fixture DDL.
+  await db.exec(emitted.slice(start, end));
+  expect(await db.query("select * from platform.schema_migrations where version<$1 order by version", [from])).toEqual(ledger);
+  await assertPlatformSchemaCurrent(db, PLATFORM_MIGRATIONS.filter(m => m.version <= through));
+}
+
+/** Only the already approved repair 42 is admitted across owned, drained fixtures. */
+async function withOwnedHistoricalRepairAdmission<T>(admit42: boolean, fixture: () => Promise<T>): Promise<T> {
+  const admission = process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+  try {
+    if (admit42) process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = [admission, "42"].filter(Boolean).join(",");
+    return await fixture();
+  } finally {
+    if (admission === undefined) delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+    else process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = admission;
+  }
+}
+
+async function expectHistoricalContractRefusal(db: PlatformDbHandle, versions: number[], target = PLATFORM_MIGRATIONS) {
+  const ledger = await db.query("select * from platform.schema_migrations order by version");
+  // Retain all rows this fixture principal can read; distinct-owner fixtures
+  // deliberately include unrelated tables for which it has REFERENCES only.
+  const tables = await db.query<{ tablename: string }>("select tablename from pg_tables where schemaname='platform' and has_table_privilege(current_user,quote_ident(schemaname)||'.'||quote_ident(tablename),'SELECT') order by tablename");
+  const rows = () => Promise.all(tables.map(({ tablename }) => db.query(`select to_jsonb(t) as row from platform.${JSON.stringify(tablename)} t order by to_jsonb(t)::text`)));
+  const before = await rows();
+  const enforcement = process.env.ZENITH_ENFORCE_EXPAND_ONLY;
+  try {
+    process.env.ZENITH_ENFORCE_EXPAND_ONLY = "1";
+    const error = await migratePlatformDb(db, target).catch((error: unknown) => error);
+    expect(error).toBeInstanceOf(ContractMigrationRefusedError);
+    expect((error as ContractMigrationRefusedError).details?.versions).toEqual(versions);
+    for (const version of versions) expect((error as Error).message).toContain(`migration ${version} (`);
+    expect((error as Error).message).toContain("no LIFE-10 approval is registered");
+  } finally {
+    if (enforcement === undefined) delete process.env.ZENITH_ENFORCE_EXPAND_ONLY;
+    else process.env.ZENITH_ENFORCE_EXPAND_ONLY = enforcement;
+  }
+  expect(await db.query("select * from platform.schema_migrations order by version")).toEqual(ledger);
+  expect(await rows()).toEqual(before);
+}
 
 describe("migration set", () => {
   it("has contiguous versions from 1, unique names, and a stable checksum of the SQL text", () => {
@@ -245,7 +300,9 @@ describe.each(lanes)("migrator [$name]", (lane) => {
         values ($1,$2,$3,$4,'approve',$5::text::jsonb,$6,'editor','legacy',clock_timestamp() + interval '1 hour')`,
       [approvalId, workspaceId, op.id, op.proposalDigest, JSON.stringify(approver), approver.id]);
       await db.query("update platform.operations set status = 'approved' where workspace_id = $1 and id = $2", [workspaceId, op.id]);
-      expect((await migratePlatformDb(db)).applied).toEqual(PLATFORM_MIGRATIONS.filter((m) => m.version >= 4).map((m) => m.version));
+      await expectHistoricalContractRefusal(db, [4, 5, 11, 15, 28, 30]);
+      await historicalFixtureRange(db, 4, 30);
+      expect((await migratePlatformDb(db)).applied).toEqual(PLATFORM_MIGRATIONS.filter(m => m.version > 30).map(m => m.version));
       expect(await db.query("select approval_round from platform.approvals where workspace_id = $1 and id = $2", [workspaceId, approvalId])).toEqual([{ approval_round: 0 }]);
       await claimOperation(db, { workspaceId, id: op.id, expectedDigest: op.proposalDigest, holder: "worker" });
       await suspendForApproval(db, { workspaceId, id: op.id });
@@ -663,7 +720,8 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
         expect(await db.query("select version,name,checksum,applied_at::text from platform.schema_migrations where version<=20 order by version")).toEqual(ledger);
         const publishedLedger = await db.query("select version,name,checksum,applied_at::text from platform.schema_migrations order by version");
         expect(publishedLedger).toHaveLength(27);
-        expect((await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version <= 28))).applied).toEqual([28]);
+        await expectHistoricalContractRefusal(db, [28], PLATFORM_MIGRATIONS.filter(m => m.version <= 28));
+        await historicalFixtureRange(db, 28, 28);
         const direct = await incidentBoundary(db);
         expect(await retainedRows()).toEqual(before);
         expect(await db.query("select version,name,checksum,applied_at::text from platform.schema_migrations where version<=20 order by version")).toEqual(ledger);
@@ -683,7 +741,7 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
     });
   }, 120_000);
   it.each(["fresh", "same-owner schema6"] as const)("%s canonical migrations keep permanent agent receipts select/insert-only", async mode => {
-    await withScratchDatabase(async url => {
+    await withScratchDatabase(async url => withOwnedHistoricalRepairAdmission(mode === "same-owner schema6", async () => {
       const db = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 1 });
       const rollback = new Error("Deliberate private receipt privilege fixture rollback.");
       try {
@@ -703,6 +761,10 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
               expect((await tx.query<{ inherited: boolean }>("select has_table_privilege('service_role','platform.agent_receipt_acl_probe',$1) as inherited", [privilege]))[0].inherited).toBe(true);
             await tx.query("drop table platform.agent_receipt_acl_probe");
           }
+          if (mode === "same-owner schema6") {
+            await expectHistoricalContractRefusal(db, [11, 15, 28, 30]);
+            await historicalFixtureRange(db, 7, 30);
+          }
           await migratePlatformDb(db);
           await assertPlatformSchemaCurrent(db);
           expect((await tx.query<{ owner: string }>("select pg_get_userbyid(relowner) as owner from pg_class where oid='platform.agent_effect_receipts'::regclass"))[0].owner).toBe(owner);
@@ -713,13 +775,14 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
             await expect(db.tx(async denied => { await denied.query("set local role service_role"); await denied.query(statement); })).rejects.toMatchObject({ sqlstate: "42501" });
           throw rollback;
         }).catch((error: unknown) => error);
+        if (result !== rollback) throw result;
         expect(result).toBe(rollback);
       } finally { await db.close(); }
-    });
+    }));
   }, 60_000);
 
   it.each(["fresh", "same-owner schema6"] as const)("%s canonical migrations keep permanent approved source snapshots select/insert-only", async mode => {
-    await withScratchDatabase(async url => {
+    await withScratchDatabase(async url => withOwnedHistoricalRepairAdmission(mode === "same-owner schema6", async () => {
       const db = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 1 });
       const rollback = new Error("Deliberate private source privilege fixture rollback.");
       try {
@@ -741,6 +804,10 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
             for (const privilege of ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"])
               expect((await tx.query<{ inherited: boolean }>("select has_table_privilege('service_role','platform.approved_source_acl_probe',$1) as inherited", [privilege]))[0].inherited).toBe(true);
             await tx.query("drop table platform.approved_source_acl_probe");
+            await expectHistoricalContractRefusal(db, [11, 15, 28, 30]);
+            await historicalFixtureRange(db, 7, 12);
+            expect((await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version <= 13))).applied).toEqual([13]);
+            await historicalFixtureRange(db, 14, 30);
             await migratePlatformDb(db);
           } else {
             // Fresh canonical Supabase SQL includes the final aggregate ACL
@@ -782,13 +849,14 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           expect(await migratePlatformDb(db)).toEqual({ applied: [], alreadyApplied: ALL });
           throw rollback;
         }).catch((error: unknown) => error);
+        if (result !== rollback) throw result;
         expect(result).toBe(rollback);
       } finally { await db.close(); }
-    });
+    }));
   }, 60_000);
 
   it("schema12 refuses startup and even source-free plan review until the canonical source migration is applied", async () => {
-    await withScratchDatabase(async url => {
+    await withScratchDatabase(async url => withOwnedHistoricalRepairAdmission(true, async () => {
       const db = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 1 });
       try {
         await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version < 13));
@@ -801,15 +869,19 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
         const { operation } = await repos.operations.create(db, { workspaceId, principal: user(), proposal: proposalFor(workspaceId, { planDigest: plan.planDigest }) });
         await repos.evidence.insert(db,{workspaceId,operationId:operation.id,kind:"tofu_plan",digest:plan.planDigest,summary,simulated:false});
         await expect(withPlanReview(db, { ...operation, approvalRound: 0 })).rejects.toThrow("Approved source review is unavailable");
+        expect((await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version <= 13))).applied).toEqual([13]);
+        expect((await withPlanReview(db, { ...operation, approvalRound: 0 })).planReview?.view).toEqual(summary.view);
+        await expectHistoricalContractRefusal(db, [15, 28, 30]);
+        await historicalFixtureRange(db, 14, 30);
         await migratePlatformDb(db);
         await assertPlatformSchemaCurrent(db);
         expect((await withPlanReview(db, { ...operation, approvalRound: 0 })).planReview?.view).toEqual(summary.view);
       } finally { await db.close(); }
-    });
+    }));
   }, 60_000);
 
   it("schema 6 emitted hardening upgrades through the canonical migrator under a distinct owner with RLS, role isolation and immutable artifacts",async()=>{
-    await withScratchDatabase(async url=>{
+    await withScratchDatabase(async url => withOwnedHistoricalRepairAdmission(true, async () => {
       const db=await openPlatformDb({kind:"postgres",url,migrate:false,max:1});
       const rollback=new Error("Deliberate private upgrade fixture rollback");
       try {
@@ -834,21 +906,25 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           const legacySourceOwner=uid("zt_source_owner").replace(/-/g,"");
           const legacyIncidentOwner=uid("zt_incident_owner").replace(/-/g,"");
           const legacyAgentOwner=uid("zt_agent_owner").replace(/-/g,"");
+          const legacyQueueOwner=uid("zt_queue_owner").replace(/-/g,"");
           // A distinct authorized migration owner has schema-create, ledger DML/RLS bypass, FK references,
-          // and TRIGGER only on the three legacy delivery tables used by migration 15.
+          // and exact TRIGGER permissions on legacy tables used by migrations 15 and 30.
           const databaseName=(await tx.query<{name:string}>("select current_database() as name"))[0].name;
           await db.exec(`create role ${migrationOwner} nologin bypassrls;
             create role ${legacySourceOwner} nologin;
             create role ${legacyIncidentOwner} nologin;
             create role ${legacyAgentOwner} nologin;
+            create role ${legacyQueueOwner} nologin;
             grant usage on schema platform to ${legacySourceOwner};
             grant usage on schema platform to ${legacyIncidentOwner};
             grant usage on schema platform to ${legacyAgentOwner};
+            grant usage on schema platform to ${legacyQueueOwner};
             alter table platform.github_source_bindings owner to ${legacySourceOwner};
             alter table platform.github_install_intents owner to ${legacySourceOwner};
             alter table platform.incidents owner to ${legacyIncidentOwner};
             alter table platform.runners owner to ${legacyAgentOwner};
             alter table platform.machines owner to ${legacyAgentOwner};
+            alter table platform.runner_jobs owner to ${legacyQueueOwner};
             grant ${legacySourceOwner} to ${migrationOwner};
             grant create on database "${databaseName.replace(/"/g,'""')}" to ${migrationOwner};
             grant usage,create on schema platform to ${migrationOwner} with grant option;
@@ -858,14 +934,16 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           await tx.query(`set local role ${migrationOwner}`);
           expect((await tx.query<{name:string}>("select current_user as name"))[0].name).toBe(migrationOwner);
           expect(migrationOwner).not.toBe(originalUser);
+          expect(await tx.query("select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='platform' and c.relkind='r' and pg_get_userbyid(c.relowner)=$1 order by c.relname", [legacyQueueOwner])).toEqual([{relname:"runner_jobs"}]);
+          expect((await tx.query<{allowed:boolean}>("select pg_has_role(current_user,$1,'USAGE') as allowed",[legacyQueueOwner]))[0].allowed).toBe(false);
           expect((await tx.query<{allowed:boolean}>("select has_table_privilege(current_user,'platform.capability_grants','TRIGGER') as allowed"))[0].allowed).toBe(true);
           expect((await tx.query<{allowed:boolean}>("select has_table_privilege(current_user,'platform.approvals','REFERENCES') as allowed"))[0].allowed).toBe(true);
-          // Published migrations 19 and 25 change these legacy tables. DML
-          // and REFERENCES do not authorize ALTER: admit only their exact owners.
+          // Published migrations 19, 25 and 38 change or index legacy tables.
+          // DML and REFERENCES do not authorize owner DDL: admit exact owners.
           await expect(db.tx(async denied => {
             await denied.query("alter table platform.incidents add column fixture_unauthorized_owner text");
           })).rejects.toMatchObject({sqlstate:"42501"});
-          for (const table of ["runners", "machines"] as const) {
+          for (const table of ["runners", "machines", "runner_jobs"] as const) {
             await expect(db.tx(async denied => {
               await denied.query(`alter table platform.${table} add column fixture_unauthorized_owner text`);
             })).rejects.toMatchObject({sqlstate:"42501"});
@@ -876,7 +954,46 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           await tx.query(`set local role ${migrationOwner}`);
           expect((await tx.query<{allowed:boolean}>("select pg_has_role(current_user,$1,'USAGE') as allowed",[legacyIncidentOwner]))[0].allowed).toBe(true);
           expect((await tx.query<{allowed:boolean}>("select pg_has_role(current_user,$1,'USAGE') as allowed",[legacyAgentOwner]))[0].allowed).toBe(true);
-          expect(await migratePlatformDb(db)).toEqual({applied:pending,alreadyApplied:[1,2,3,4,5,6]});
+          // Current admission refuses the historical contracts. Canonical7..30
+          // constructs the owned historical fixture, then actual31..current runs.
+          await expectHistoricalContractRefusal(db, [11, 15, 28, 30]);
+          await historicalFixtureRange(db, 7, 29);
+          expect((await tx.query<{allowed:boolean}>("select has_table_privilege(current_user,'platform.operations','TRIGGER') as allowed"))[0].allowed).toBe(false);
+          const before30 = await tx.query("select * from platform.schema_migrations order by version");
+          // Canonical historical30 requires one additional exact legacy-table
+          // privilege. Its failed DDL stays inside this owned savepoint; this
+          // is historical SQL construction, not current contract admission.
+          await expect(db.tx(() => historicalFixtureRange(db, 30, 30))).rejects.toMatchObject({sqlstate:"42501"});
+          expect(await tx.query("select * from platform.schema_migrations order by version")).toEqual(before30);
+          expect((await tx.query<{name:string|null}>("select to_regclass('platform.operation_authority')::text as name"))[0].name).toBeNull();
+          await tx.query("reset role");
+          expect((await tx.query<{name:string}>("select current_user as name"))[0].name).toBe(originalUser);
+          await tx.query(`grant trigger on table platform.operations to ${migrationOwner}`);
+          await tx.query(`set local role ${migrationOwner}`);
+          expect((await tx.query<{allowed:boolean}>("select has_table_privilege(current_user,'platform.operations','TRIGGER') as allowed"))[0].allowed).toBe(true);
+          expect((await tx.query<{owner:string}>("select pg_get_userbyid(relowner) as owner from pg_class where oid='platform.operations'::regclass"))[0].owner).toBe(originalUser);
+          await expect(db.tx(async denied => {
+            await denied.query("alter table platform.operations add column fixture_unauthorized_owner text");
+          })).rejects.toMatchObject({sqlstate:"42501"});
+          await historicalFixtureRange(db, 30, 30);
+          // Actual migration38 indexes the legacy queue table. Its owner must
+          // be explicitly authorized; DML and TRIGGER alone do not allow INDEX.
+          const beforeCurrent = await tx.query("select * from platform.schema_migrations order by version");
+          await expect(db.tx(() => migratePlatformDb(db))).rejects.toMatchObject({sqlstate:"42501",message:"must be owner of table runner_jobs"});
+          expect(await tx.query("select * from platform.schema_migrations order by version")).toEqual(beforeCurrent);
+          expect(await tx.query("select to_regclass('platform.approved_semantics')::text as semantics, to_regclass('platform.runner_jobs_ws_queued')::text as queue_index"))
+            .toEqual([{semantics:null,queue_index:null}]);
+          await tx.query("reset role");
+          expect((await tx.query<{name:string}>("select current_user as name"))[0].name).toBe(originalUser);
+          await tx.query(`grant ${legacyQueueOwner} to ${migrationOwner}`);
+          await tx.query(`set local role ${migrationOwner}`);
+          expect((await tx.query<{allowed:boolean}>("select pg_has_role(current_user,$1,'USAGE') as allowed",[legacyQueueOwner]))[0].allowed).toBe(true);
+          expect(await migratePlatformDb(db)).toEqual({applied:pending.filter(version => version > 30),alreadyApplied:ALL.filter(version => version <= 30)});
+          expect((await tx.query<{owner:string}>("select pg_get_userbyid(relowner) as owner from pg_class where oid='platform.runner_jobs'::regclass"))[0].owner).toBe(legacyQueueOwner);
+          expect((await tx.query<{owner:string}>("select pg_get_userbyid(relowner) as owner from pg_class where oid='platform.operations'::regclass"))[0].owner).toBe(originalUser);
+          await expect(db.tx(async denied => {
+            await denied.query("alter table platform.operations add column fixture_unauthorized_owner text");
+          })).rejects.toMatchObject({sqlstate:"42501"});
           await assertPlatformSchemaCurrent(db);
           expect((await platformSchemaStatus(db)).applied.map(({version,name,checksum})=>({version,name,checksum})))
             .toEqual(PLATFORM_MIGRATIONS.map(m=>({version:m.version,name:m.name,checksum:migrationChecksum(m)})));
@@ -924,8 +1041,10 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           const destination=await repos.operations.create(tx,{workspaceId:ws,principal:user(),proposal:proposalFor(ws,{capability:"infrastructure.destroy",planDigest})});
           // Synthetic ciphertext exercises upgrade triggers/ACLs only; this is not producer or dispatch evidence.
           await tx.query(`insert into platform.plan_artifacts(workspace_id,operation_id,manifest,manifest_digest,plan_digest,iv,auth_tag,ciphertext,expires_at)
-            values($1,$2,$3::jsonb,$4,$4,$5,$6,'synthetic-ciphertext',clock_timestamp()+interval '1 hour')`,
+            values($1,$2,$3::text::jsonb,$4,$4,$5,$6,'synthetic-ciphertext',clock_timestamp()+interval '1 hour')`,
             [ws,source.operation.id,JSON.stringify({workspaceId:ws,operationId:source.operation.id,planDigest}),planDigest,"A".repeat(16),"A".repeat(24)]);
+          expect(await tx.query("select manifest from platform.plan_artifacts where workspace_id=$1 and operation_id=$2", [ws,source.operation.id]))
+            .toEqual([{manifest:{workspaceId:ws,operationId:source.operation.id,planDigest}}]);
           await tx.query(`insert into platform.plan_artifact_associations(workspace_id,operation_id,source_operation_id,source_evidence_id,source_manifest_digest,source_raw_sha256,proposal_digest,input_digest,expires_at)
             values($1,$2,$3,'synthetic-evidence',$4,$4,$5,$6,clock_timestamp()+interval '1 hour')`,[ws,destination.operation.id,source.operation.id,planDigest,destination.operation.proposalDigest,destination.operation.inputDigest]);
           for(const table of ["plan_artifacts","plan_artifact_associations"]) {
@@ -940,9 +1059,10 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           expect(await migratePlatformDb(db)).toEqual({applied:[],alreadyApplied:ALL});
           throw rollback;
         }).catch((error:unknown)=>error);
+        if (result !== rollback) throw result;
         expect(result).toBe(rollback);
       } finally {await db.close();}
-    });
+    }));
   },60000);
 
   it("two migrators racing on an empty database converge: one applies, the other finds it done", async () => {

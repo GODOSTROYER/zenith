@@ -6,7 +6,7 @@
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import * as repos from "@/lib/controlplane/db/repos";
-import type { PlatformDbHandle } from "@/lib/controlplane/db";
+import { openPlatformDb, type PlatformDbHandle } from "@/lib/controlplane/db";
 import { assertDispatchAdmitted } from "@/lib/ops/admission";
 import { BackpressureError } from "@/lib/ops/errors";
 import { opsLimitsFromEnv } from "@/lib/ops/config";
@@ -14,7 +14,7 @@ import { buildRuntime, setOpsRuntimeForTests } from "@/lib/ops/runtime";
 import { sampleControlPlane } from "@/lib/ops/sampler";
 import { activeOperationCount, deleteTenantQuota, drainStatus, getMaintenance, getTenantQuota, listTenantQuotas, maintenanceHistory, putTenantQuota, queuedJobCount, setMaintenance } from "@/lib/ops/store";
 import { metricsRegistry } from "@/lib/ops/telemetry/metrics";
-import { LANES, expectCode, newWorkspace, openLane, seedApprovedOperation, uid } from "../controlplane/_support/harness";
+import { LANES, expectCode, newWorkspace, openLane, seedApprovedOperation, uid, withScratchDatabase } from "../controlplane/_support/harness";
 
 const KEY = "A".repeat(43);
 
@@ -27,6 +27,17 @@ describe.each(LANES)("fair bounded control plane [$name]", (lane) => {
   // The maintenance row is process-global. On a shared PostgreSQL it would flip maintenance under any other suite
   // using the same database, so those cases run on PGlite always and on PostgreSQL only when it is exclusively owned.
   const itGlobal = it.skipIf(lane.name === "postgres" && process.env.ZENITH_TEST_OPS_EXCLUSIVE_PG !== "1");
+
+  // These two invariants need an actual row and an undisplaced bounded drain
+  // catalog, so they use fresh owned engines rather than shared global state.
+  async function withOwnedFixtureDb(body: (owned: PlatformDbHandle) => Promise<void>) {
+    const run = async (url?: string) => {
+      const owned = await openPlatformDb(url ? { kind: "postgres", url, migrate: true, max: 1 } : { kind: "pglite", migrate: true });
+      try { await body(owned); } finally { await owned.close(); }
+    };
+    if (lane.name === "postgres") await withScratchDatabase(url => run(url));
+    else await run();
+  }
 
   async function runner(ws: string) {
     const { tokenHash } = repos.runners.generateRegistrationToken("runner");
@@ -68,8 +79,16 @@ describe.each(LANES)("fair bounded control plane [$name]", (lane) => {
     });
 
     it("allows only the single global row and a closed set of modes", async () => {
-      await expect(db().query("insert into platform.ops_maintenance (id, mode, updated_by) values ('other', 'off', 'x')")).rejects.toThrow();
-      await expect(db().query("update platform.ops_maintenance set mode = 'sideways'")).rejects.toThrow();
+      await withOwnedFixtureDb(async owned => {
+        await setMaintenance(owned, { mode: "off", reason: "Owned constraint fixture", actor: "fixture" });
+        expect(await owned.query("select id from platform.ops_maintenance")).toEqual([{ id: "global" }]);
+        const before = await getMaintenance(owned);
+        const history = await maintenanceHistory(owned);
+        await expect(owned.query("insert into platform.ops_maintenance (id, mode, updated_by) values ('other', 'off', 'x')")).rejects.toMatchObject({ sqlstate: "23514" });
+        await expect(owned.query("update platform.ops_maintenance set mode = 'sideways' where id='global'")).rejects.toMatchObject({ sqlstate: "23514" });
+        expect(await getMaintenance(owned)).toEqual(before);
+        expect(await maintenanceHistory(owned)).toEqual(history);
+      });
     });
   });
 
@@ -128,14 +147,16 @@ describe.each(LANES)("fair bounded control plane [$name]", (lane) => {
     });
 
     it("reports a drain: not drained while anything is queued or running, with the busiest workspaces named by id and counts only", async () => {
-      const ws = newWorkspace();
-      const { operation } = await seedApprovedOperation(db(), ws);
-      await repos.operations.claimForExecution(db(), { workspaceId: ws, id: operation.id, expectedDigest: operation.proposalDigest, holder: "w1", leaseMs: 45_000 });
-      const status = await drainStatus(db(), 50);
-      expect(status.runningOperations).toBeGreaterThanOrEqual(1);
-      expect(status.drained).toBe(false);
-      expect(status.busiest.find((b) => b.workspaceId === ws)).toMatchObject({ activeOperations: 1 });
-      expect(JSON.stringify(status)).not.toMatch(/envelope|proposal|principal/);
+      await withOwnedFixtureDb(async owned => {
+        const ws = newWorkspace();
+        const { operation } = await seedApprovedOperation(owned, ws);
+        await repos.operations.claimForExecution(owned, { workspaceId: ws, id: operation.id, expectedDigest: operation.proposalDigest, holder: "w1", leaseMs: 45_000 });
+        const status = await drainStatus(owned, 50);
+        expect(status.runningOperations).toBe(1);
+        expect(status.drained).toBe(false);
+        expect(status.busiest).toEqual([{ workspaceId: ws, queuedJobs: 0, activeOperations: 1 }]);
+        expect(JSON.stringify(status)).not.toMatch(/envelope|proposal|principal/);
+      });
     });
 
     itGlobal("samples queue depth, active operations and maintenance into gauges and reports the store as up", async () => {

@@ -1,3 +1,30 @@
+## Verification publication checkpoint, 8 October 2026
+
+Integrated source before this documentation commit: `c7332a56c18e2021c5c583fd93565b53d5cdb015`. Twelve repair/evidence commits follow published `3dae8f9a`. This publication saves current integrated fixes and context for the other machine; it does not assert a complete green candidate.
+
+| Exact tested source | Executed result | Scope |
+|---|---|---|
+| `648a3f82` | 77 passed / 0 failed / 0 skipped | Historical/index/tombstone: 44 actual PostgreSQL, 27 PGlite, 6 pure controls |
+| `4c3d6476` | 156 / 0 / 0; all 141 required groups | Canonical workflow-intents, actual PostgreSQL and Temporal |
+| `722c7304` | 30 / 0 / 0 | Full protobuf helper, real Temporal rehearsal/replay and composed deployment |
+| `a3737103` | 345 / 0 / 0 | Strict current/historical CI metadata identities |
+| `5fc3cb2c` | 100 / 0 / 0 | Native100, actual PostgreSQL and OpenTofu saved plans; no cloud execution |
+| `272a3d73` | 18 / 0 / 0 | Authenticated Core patch-marker helper controls |
+| `c7332a56` | 97 / 6 / 0 | Native apply/mixed/maintenance successor; six approval-audit assertions failed |
+| `c7332a56` | 19 / 2 / 1 | First history recording attempt, failed candidate; not replay acceptance |
+
+Counts overlap and must not be summed. Native100 and dedicated maintenance controls executed on this Mac using an owned PostgreSQL server. Owned servers, data and sockets were removed. Initial invalid-owner and missing-password fixture attempts remain failed evidence, not valid skip allowances. Disk inspected before publication: approximately25.2GiB free, above22GiB continuous floor; Docker remained stopped.
+
+Integrated fixes include strict Core marker parsing (`5fc3cb2c`), isolated native maintenance fixtures (`272a3d73`), text-to-JSONB mixed-run writes plus raw-row assertions (`99614d55`), and explicit human-reviewed semantics in six native dispatch fixtures (`c7332a56`). Those six cases now reach successful approval but fail an additional audit-event assertion. The assertion remains intact. Worker diagnosis and independent review continue outside this publication.
+
+The first recording attempt produced19 histories but omitted two mixed-parent scenarios. Seven generated histories contained activity-registration failures despite passing recording tests: both coding-agent cases, critical-maintenance, both destroy cases, reconcile-sweep and teardown-review. All19 histories and their manifest were quarantined outside the repository, unchanged, with private SHA256 inventory. None are published or claimed as frozen released-version histories. Activity registration and explicit expected-outcome assertions need repair before a fresh recording/replay run.
+
+Separate mixed-store finding: write-side validation currently occurs after persistence and migration41's nullable binding check admits malformed state. Reviewed JSON casts close double encoding; pre-write validation/read binding remains an unintegrated candidate. Database constraint hardening requires explicit old-writer compatibility evidence or a drained-writer rollout decision. No published migration was rewritten and no new migration44 is included.
+
+Published `3dae8f9a` main CI run `37698194288` inspected before this push:13 successful jobs,2 failed jobs,1 running verify job. Workflows failed1330/1/0; platform-postgres failed3737/13/15. Separate native worker AMD64/ARM64 jobs and native Windows ACL/Linux systemd jobs succeeded; this is job-status evidence, not newly audited per-case counts. A new publication may supersede the running old verify job; its pending status is not passed. Fresh CI on this checkpoint must be inspected separately.
+
+Ledger remains10 verified /49 in progress /19 planned across all78 requirements; all four release states remain false. Complete combined gates, current default Mac operator acceptance, current kind/package acceptance and external prerequisites remain open. Local disposable startup is approved; cloud calls/spend remain unapproved. Pending worker packets are not part of this commit. Author and committer remain Arnav Bule, with normal same-branch push after pull and no history rewrite.
+
 ## Native migration42 successor, 7 October 2026
 
 Tested `9b56810829ecf1467ce2c20571bc060af1f39144`: migration9/0 with48 filtered
@@ -666,3 +693,14 @@ Next: builder ownership review and safe migration/semantics/docs repairs, then t
 Integrated source `b69a6c121ee1fae033246231ffad85d4d9f3b95f`. Root41/0/0 across MCP tenant-index upgrade and workflow-start intent suites:23 real PostgreSQL,17 PGlite,1 pure contract; Node22.23.3/PG16.15 on native MacARM64. Original-byte history, row custody, RLS/ACL and exact payload controls preserved; current authority refuses new starts against historical12 and prevents retained-attempt replay. Owned services cleaned. [Sanitized evidence](../evidence/PROD-CI-08/2026-10-08-native-index-tombstone-b69a6c12.json).
 
 Broader predecessor65/12/0 remains failed for unrerun historical migration cases. Full canonical gates, remaining Temporal rehearsal and exact new pushed CI pending. Other recent focused root results:1626/0/6 (six actual Linux supervisor cases unavailable on Mac), compiler exit0; counts overlap, not summed. Ledger stays10 verified/49 in progress/19 planned,78 requirements/four false release flags. [Current progress context](../WIP-HANDOFF-2026-10-08.md).
+
+
+## Native historical and codec successors, 8 October 2026
+
+Actual source `648a3f82`: historical/index/tombstone suites **77 passed / 0 failed / 0 skipped**, comprising44 actual PostgreSQL,27 PGlite and6 pure controls. Dedicated migration42 refusals remain; four owned historical cases scope42 through both phases. Exact migration30 operations TRIGGER and migration38 runner_jobs owner failures were reproduced inside savepoints before narrowly authorized fixture permissions and successful current upgrades. Published SQL and production privilege boundaries are unchanged. Prior73/4 and both76/1 attempts remain evidence. Owned PostgreSQL stopped/data removed; minimum free27,013,103,616 bytes exceeded22GiB floor.
+
+Separate frozen `4c3d6476`: canonical workflow-intents **156/0/0**, all141 mandatory groups, matched source/report/environment binding, observed exit0 and cleanup0. Separate `722c7304`: actual local Temporal plus composed deployment/helper **30/0/0**:7 helper,2 rehearsal and21 composed cases. Matching-runtime full protobuf converter preserves SDK normalization; actual-history binary equality, stable JSON and Worker replay passed. This closes the reproduced coupled codec defect, not missing frozen released-history corpus acceptance or live-cloud behavior.
+
+Current canonical workflows require71 groups, including the new full codec helper. Exact historical70/60/58 comparisons retain unchanged prior identities; unknown additions are not excluded. Root two-suite metadata verification345/0/0 and independent Astra source review passed; native100 stays100. Whole lint passed with0errors/3existing vendor warnings, compiler passed on4c; combined successor remains mandatory.
+
+Published `3dae8f9a` CI remains separate: native AMD64/ARM64 workers and Windows ACL/Linux systemd all successful; main13 successful jobs, workflows failed1330/1/0 (sole already-repaired same-environment rehearsal contention), verify/platform-postgres still running at inspection. No complete green or zero-skip project claim. Ledger10verified/49in_progress/19planned; all78 requirements/four false release states preserved.

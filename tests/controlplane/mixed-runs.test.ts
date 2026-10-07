@@ -61,6 +61,10 @@ describe.each(LANES)("mixed runs and output preauthorizations [$name]", (lane) =
     const created = await store.create(state, { kind: "run_created", data: { parentDigest: state.parentDigest } });
     expect(created.version).toBe(1);
     expect(created.state).toEqual(state);
+    expect(await ctx.db.query("select jsonb_typeof(state) as state_kind, state from platform.mixed_runs where workspace_id=$1 and parent_operation_id=$2", [ws, parent]))
+      .toEqual([{ state_kind: "object", state }]);
+    expect(await ctx.db.query("select jsonb_typeof(event) as event_kind, event from platform.mixed_run_events where workspace_id=$1 and parent_operation_id=$2", [ws, parent]))
+      .toEqual([{ event_kind: "object", event: { parentDigest: state.parentDigest } }]);
     expect((await store.get(ws, parent))?.state).toEqual(state);
     expect(await store.get(`ws_${uid("other")}`, parent)).toBeNull();
     await expect(store.create(state, { kind: "run_created", data: {} })).rejects.toMatchObject({ code: "conflict" });
@@ -80,6 +84,10 @@ describe.each(LANES)("mixed runs and output preauthorizations [$name]", (lane) =
     await store.save(ws, parent, 2, { ...structuredClone(first), seq: first.seq + 1 }, { kind: "cancel", data: {} });
     const events = await store.events(ws, parent);
     expect(events.map((event) => [event.seq, event.kind])).toEqual([[0, "run_created"], [1, "tick"], [2, "cancel"]]);
+    expect(await ctx.db.query("select jsonb_typeof(state) as state_kind, state from platform.mixed_runs where workspace_id=$1 and parent_operation_id=$2", [ws, parent]))
+      .toEqual([{ state_kind: "object", state: { ...structuredClone(first), seq: first.seq + 1 } }]);
+    expect(await ctx.db.query("select seq, jsonb_typeof(event) as event_kind, event from platform.mixed_run_events where workspace_id=$1 and parent_operation_id=$2 order by seq", [ws, parent]))
+      .toEqual([{ seq: 0, event_kind: "object", event: {} }, { seq: 1, event_kind: "object", event: { at: "t1" } }, { seq: 2, event_kind: "object", event: {} }]);
     expect((await store.get(ws, parent))?.version).toBe(3);
     // A save naming the wrong parent or workspace cannot move another run.
     await expect(store.save(`ws_${uid("other")}`, parent, 3, first, { kind: "tick", data: {} })).rejects.toMatchObject({ code: "invalid_input" });
@@ -109,6 +117,13 @@ describe.each(LANES)("mixed runs and output preauthorizations [$name]", (lane) =
     // A parent operation that does not exist cannot own a run.
     await expect(repos.mixedRuns.create({ workspaceId: ws, parentOperationId: "op_missing", environmentId: state.environmentId, parentDigest: state.parentDigest, desiredDigest: state.desiredDigest,
       state: { ...structuredClone(state), parentOperationId: "op_missing" }, stateDigest: H("x"), open: true, nextDeadlineAt: null, event: { seq: 0, kind: "run_created", data: {} } })).rejects.toThrow();
+    const valid = { workspaceId: ws, parentOperationId: parent, environmentId: state.environmentId, parentDigest: state.parentDigest, desiredDigest: state.desiredDigest,
+      state, stateDigest: H("x"), open: true, nextDeadlineAt: null, event: { seq: 0, kind: "run_created", data: {} } };
+    await repos.mixedRuns.create(valid);
+    await expect(repos.mixedRuns.save({ ...valid, state: mismatched, expectedVersion: 1, event: { seq: 1, kind: "tick", data: {} } })).rejects.toThrow();
+    expect(await ctx.db.query("select version, jsonb_typeof(state) as state_kind, state from platform.mixed_runs where workspace_id=$1 and parent_operation_id=$2", [ws, parent]))
+      .toEqual([{ version: 1, state_kind: "object", state }]);
+    expect((await repos.mixedRuns.listEvents(ws, parent)).map(event => [event.seq, event.kind])).toEqual([[0, "run_created"]]);
   });
 
   it("finds overdue runs and the sweep ticks them without touching other tenants' runs that are not due", async () => {

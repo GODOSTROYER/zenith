@@ -74,3 +74,14 @@ User requested immediate WIP commit and complete in-progress handoff. `WIP-HANDO
 ## Published-context update requested
 
 User requested immediate commit and GitHub publication with updated progress context. Root native successor at `b69a6c121ee1fae033246231ffad85d4d9f3b95f`:41 passed/0 failed/0 skipped, including23 actual PostgreSQL,17 PGlite and1 pure contract case. Historical JSON repair1c449864 and schema upgrade fixtureb69a6c12 source-reviewed by Astra. Server stop exit0, owned data/socket removed; minimum27,039,387,648bytes above22GiB floor. Earlier broader65/12/0 remains failed and unsuperseded for unrerun migration cases. Public sanitized receipt added under CI08; no requirement state or release flag promoted. Final pushed SHA CI must be inspected separately.
+
+
+## Native historical and codec successors, 8 October 2026
+
+Actual source `648a3f82`: historical/index/tombstone suites **77 passed / 0 failed / 0 skipped**, comprising44 actual PostgreSQL,27 PGlite and6 pure controls. Dedicated migration42 refusals remain; four owned historical cases scope42 through both phases. Exact migration30 operations TRIGGER and migration38 runner_jobs owner failures were reproduced inside savepoints before narrowly authorized fixture permissions and successful current upgrades. Published SQL and production privilege boundaries are unchanged. Prior73/4 and both76/1 attempts remain evidence. Owned PostgreSQL stopped/data removed; minimum free27,013,103,616 bytes exceeded22GiB floor.
+
+Separate frozen `4c3d6476`: canonical workflow-intents **156/0/0**, all141 mandatory groups, matched source/report/environment binding, observed exit0 and cleanup0. Separate `722c7304`: actual local Temporal plus composed deployment/helper **30/0/0**:7 helper,2 rehearsal and21 composed cases. Matching-runtime full protobuf converter preserves SDK normalization; actual-history binary equality, stable JSON and Worker replay passed. This closes the reproduced coupled codec defect, not missing frozen released-history corpus acceptance or live-cloud behavior.
+
+Current canonical workflows require71 groups, including the new full codec helper. Exact historical70/60/58 comparisons retain unchanged prior identities; unknown additions are not excluded. Root two-suite metadata verification345/0/0 and independent Astra source review passed; native100 stays100. Whole lint passed with0errors/3existing vendor warnings, compiler passed on4c; combined successor remains mandatory.
+
+Published `3dae8f9a` CI remains separate: native AMD64/ARM64 workers and Windows ACL/Linux systemd all successful; main13 successful jobs, workflows failed1330/1/0 (sole already-repaired same-environment rehearsal contention), verify/platform-postgres still running at inspection. No complete green or zero-skip project claim. Ledger10verified/49in_progress/19planned; all78 requirements/four false release states preserved.

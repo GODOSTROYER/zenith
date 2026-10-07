@@ -1,3 +1,11 @@
+## Results: 8 October publication checkpoint
+
+PROD-CI-08: in_progress; c7332a56; native100 successor100/0/0 at5fc3cb2c, native dispatch97/6/0 and failed history recording19/2/1 retained. Full combined gate pending.
+
+PROD-CI-09: in_progress; 3dae8f9a CI13 passed/2 failed/1 running at pre-publication inspection; exact successor CI pending.
+
+[Executed scopes and pending packets](verification/RESULTS-2026-10.md#verification-publication-checkpoint-8-october-2026).
+
 PROD-CI-08: Results sourceb69a6c12 focused native41/0/0;23 PostgreSQL/17 PGlite/1 contract; full mandatory successor pending, earlier65/12/0 retained.
 
 PROD-CI-09: in_progress;9b568108; all20CIjobs inspected14passed/6failed.
@@ -548,3 +556,5 @@ Not yet run. Append one dated block per requirement here: SHA verified, commands
 - PROD-MACH-05: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
 - PROD-UX-01: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
 - PROD-UX-03: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+
+Results PROD-CI-08 (8 October):648a historical77/0/0; frozen4c canonical intents156/0/0 all141;722 actual codec/deploy30/0/0. Scopes overlap; current71 workflow inventory. Full combined gate/CI pending; no promotion.

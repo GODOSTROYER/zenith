@@ -18,14 +18,15 @@
 import path from "node:path";
 import { describe, expect } from "vitest";
 import type { WorkflowHandle } from "@temporalio/client";
-import { historyToJSON } from "@temporalio/common/lib/proto-utils";
+import { Worker } from "@temporalio/worker";
+import { temporal } from "@temporalio/proto";
 import { WORKFLOW_ID, WORKFLOW_TYPES, type WorkflowResult } from "@/lib/workflows/types";
 import { signalApproval } from "@/lib/workflows/client";
 import { createFakeActivities, type FakeActivities } from "@/lib/workflows/activities/fake";
 import { createExecutionWorker } from "../../workers/execution/run";
 import { executionWorkerConfigFromEnv } from "../../workers/execution/config";
-import { patchMarkersIn } from "./history-fixtures";
 import { deployInput, serverSuite, waitForStatus, workflowBundlePath, type Harness } from "./support";
+import { historyOf, serializeFixture, type HistoryFixture } from "./history-fixtures";
 
 const { scenario } = serverSuite("local");
 
@@ -44,12 +45,40 @@ async function withBuild<T>(h: Harness, bundle: string, fake: FakeActivities, ta
 
 const markersOf = async (handle: WorkflowHandle): Promise<Set<string>> => {
   const history = await handle.fetchHistory();
-  return patchMarkersIn({ format: "zenith.workflow-history.v1", scenario: "live", workflowType: "x", covers: "", workflowId: handle.workflowId, temporalSdk: "", history: JSON.parse(historyToJSON(history)) });
+  const markers = new Set<string>();
+  // Read the pinned Core marker payload from the actual history, without whole-history protobuf conversion.
+  for (const event of history.events ?? []) {
+    const marker = event.markerRecordedEventAttributes;
+    if (marker?.markerName !== "core_patch") continue;
+    expect(Object.keys(marker.details ?? {})).toEqual(["patch-data"]);
+    const payloads = marker.details?.["patch-data"]?.payloads;
+    expect(payloads).toHaveLength(1);
+    const payload = payloads?.[0];
+    if (!payload?.data || !payload.metadata?.encoding) throw new Error("The actual patch marker payload is missing.");
+    expect(payload.data).toBeInstanceOf(Uint8Array);
+    expect(Buffer.from(payload.metadata.encoding).toString("utf8")).toBe("json/plain");
+    const patch = JSON.parse(Buffer.from(payload.data).toString("utf8")) as { id?: unknown; deprecated?: unknown };
+    if (typeof patch?.id !== "string" || typeof patch.deprecated !== "boolean") throw new Error("The actual patch marker payload has an unexpected shape.");
+    expect(patch).toEqual({ id: patch.id, deprecated: patch.deprecated });
+    expect(patch.id.length).toBeGreaterThan(0);
+    markers.add(patch.id);
+  }
+  return markers;
 };
+
+function approvalsFor(fake: FakeActivities): Set<string> {
+  const approved = new Set<string>();
+  fake.setResult("checkApproval", ({ operationId }) => ({
+    approved: approved.has(operationId), rejected: false,
+    ...(approved.has(operationId) ? { approvalId: `approval-${operationId}` } : {}),
+  }));
+  return approved;
+}
 
 describe("rolling worker upgrade with in-flight workflows", () => {
   scenario("a deploy waiting for approval on the OLD build is finished by the NEW build, which takes the patched branch only after replay", async (h) => {
     const fake = createFakeActivities();
+    const approved = approvalsFor(fake);
     fake.setResult("evaluatePolicy", { outcome: "require_approval", decisionId: "d-rehearsal", reasons: ["prod"] });
     const oldBundle = await workflowBundlePath(path.resolve(__dirname, "fixtures/legacy-build-deploy.ts"));
     const newBundle = await workflowBundlePath();
@@ -66,7 +95,7 @@ describe("rolling worker upgrade with in-flight workflows", () => {
     expect(fake.callsTo("applyInfrastructure"), "nothing past approval ran on the old build").toHaveLength(0);
 
     // The old worker is gone. A human approves while NO worker is polling; the signal waits in history.
-    fake.approve();
+    approved.add(input.operationId);
     await signalApproval(input.operationId, { client: h.client });
 
     // The NEW build picks the same queue up, replays the old history deterministically and finishes it.
@@ -75,10 +104,20 @@ describe("rolling worker upgrade with in-flight workflows", () => {
     expect(fake.callsTo("applyInfrastructure")).toHaveLength(1);
     expect(fake.callsTo("buildArtifacts")).toHaveLength(1);
     expect([...await markersOf(handle)], "post-replay the new build records its patch marker").toContain("durable-build-launch-v1");
+    // Prove the complete codec on fetched history, without replacing frozen fixtures.
+    const actual = await handle.fetchHistory();
+    expect(actual.events!.length).toBeGreaterThan(3);
+    const identity = { scenario: "upgrade-codec", workflowType: WORKFLOW_TYPES.deploy, covers: "actual old-to-new history codec and replay", workflowId: handle.workflowId, temporalSdk: "1.24.0" };
+    const serialized = serializeFixture({ ...identity, history: actual });
+    const decoded = historyOf(JSON.parse(serialized) as HistoryFixture);
+    expect(temporal.api.history.v1.History.encode(decoded).finish()).toEqual(temporal.api.history.v1.History.encode(actual).finish());
+    expect(serializeFixture({ ...identity, history: decoded })).toBe(serialized);
+    await Worker.runReplayHistory({ workflowBundle: { codePath: newBundle } }, decoded, handle.workflowId);
   }, 120_000);
 
   scenario("a workflow started by the old build and a workflow started by the new build both complete on the new build", async (h) => {
     const fake = createFakeActivities();
+    const approved = approvalsFor(fake);
     fake.setResult("evaluatePolicy", { outcome: "require_approval", decisionId: "d-mixed", reasons: [] });
     const oldBundle = await workflowBundlePath(path.resolve(__dirname, "fixtures/legacy-build-deploy.ts"));
     const newBundle = await workflowBundlePath();
@@ -90,13 +129,18 @@ describe("rolling worker upgrade with in-flight workflows", () => {
       await waitForStatus(started, "awaiting_approval");
       return started;
     });
-    fake.approve();
+    approved.add(oldInput.operationId);
     const results = await withBuild(h, newBundle, fake, taskQueue, async () => {
-      const fresh = await h.client.workflow.start(WORKFLOW_TYPES.deploy, { workflowId: WORKFLOW_ID(newInput.operationId), taskQueue, args: [newInput] });
       await signalApproval(oldInput.operationId, { client: h.client });
+      const resumed = await oldHandle.result() as WorkflowResult;
+      expect(resumed.status).toBe("succeeded");
+      expect(fake.lease.held, "the old run releases its environment before the fresh run starts").toBeUndefined();
+      const fresh = await h.client.workflow.start(WORKFLOW_TYPES.deploy, { workflowId: WORKFLOW_ID(newInput.operationId), taskQueue, args: [newInput] });
       await waitForStatus(fresh, "awaiting_approval");
+      expect(fake.callsTo("applyInfrastructure").filter(c => (c.input as { operationId: string }).operationId === newInput.operationId)).toHaveLength(0);
+      approved.add(newInput.operationId);
       await signalApproval(newInput.operationId, { client: h.client });
-      return [await oldHandle.result(), await fresh.result()] as WorkflowResult[];
+      return [resumed, await fresh.result()] as WorkflowResult[];
     });
     expect(results.map((r) => r.status)).toEqual(["succeeded", "succeeded"]);
   }, 120_000);

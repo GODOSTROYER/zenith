@@ -74,6 +74,13 @@ interface LinkedAgent {
   lastUsedAt: string | null;
   revokedAt: string | null;
 }
+/** What a person needs to see before authorizing a client; supplied by the server so the screen never guesses an audience. */
+interface Consent {
+  issuer: string | null;
+  resources: { v2: string; v3: string };
+  revocationEndpoint: string;
+  scopeCatalog: { name: string; oauthScope: string; summary: string; tools: string[]; alwaysIncluded: boolean }[];
+}
 interface State {
   workspaceId: string;
   subject: string;
@@ -84,6 +91,7 @@ interface State {
   grants: Grant[];
   operations: Operation[];
   linkedAgents: LinkedAgent[];
+  consent?: Consent;
   /** present only when the credential authority could not be read at all */
   linkedAgentsUnavailable?: string;
 }
@@ -115,6 +123,58 @@ const SCOPE_HELP: Record<(typeof SCOPES)[number], string> = {
   publish: "Release an app it also has an explicit owner grant for.",
   logs: "Read redacted deployment logs.",
 };
+
+/**
+ * The exact access being granted, shown before the button: which client, whose
+ * tokens, where the tokens are accepted, and the literal OAuth scopes. Nothing
+ * here is a choice; it restates the form so a person reads what the server
+ * will enforce.
+ */
+function ConsentSummary({
+  consent,
+  clientId,
+  scopes,
+  days,
+  projectNames,
+}: {
+  consent?: Consent;
+  clientId: string;
+  scopes: string[];
+  days: number;
+  projectNames: string[];
+}) {
+  if (!consent) return null;
+  const exact = [...new Set(["read", ...scopes])].map((s) => `zenith:${s}`);
+  return (
+    <Callout tone="info" title="You are authorizing">
+      <dl className="mt-1 grid gap-x-4 gap-y-1 text-[12.5px] sm:grid-cols-[10rem_1fr]">
+        <dt className="text-ink-faint">Client</dt>
+        <dd className="font-mono break-all">{clientId || "(enter the client ID above)"}</dd>
+        <dt className="text-ink-faint">Tokens issued by</dt>
+        <dd className="font-mono break-all">
+          {consent.issuer ?? "no authorization server configured"}
+        </dd>
+        <dt className="text-ink-faint">Accepted at</dt>
+        <dd className="font-mono break-all">{consent.resources.v3}</dd>
+        <dt className="text-ink-faint">Also accepted at</dt>
+        <dd className="font-mono break-all">{consent.resources.v2}</dd>
+        <dt className="text-ink-faint">Exact scopes</dt>
+        <dd className="font-mono break-all">{exact.join(" ")}</dd>
+        <dt className="text-ink-faint">Projects</dt>
+        <dd>{projectNames.length ? projectNames.join(", ") : "none chosen yet"}</dd>
+        <dt className="text-ink-faint">Expires</dt>
+        <dd>
+          {days} day{days === 1 ? "" : "s"} after you authorize
+        </dd>
+      </dl>
+      <p className="mt-2 text-[12.5px]">
+        A token minted for any other resource is refused. You can revoke this below at any time and
+        the client loses access on its next request. A client can also revoke its own token at{" "}
+        {consent.revocationEndpoint}.
+      </p>
+    </Callout>
+  );
+}
 
 /** How each phase reads to a person, and how loudly. */
 const PHASE: Record<string, { label: string; tone: ChipTone }> = {
@@ -386,9 +446,9 @@ export default function IntegrationControl() {
                             key={s}
                             label={s}
                             help={
-                              roleBlocked
+                              (roleBlocked
                                 ? `${SCOPE_HELP[s]} Your role in this workspace is viewer, so you cannot grant it.`
-                                : SCOPE_HELP[s]
+                                : SCOPE_HELP[s]) + ` OAuth scope: zenith:${s}.`
                             }
                             checked={scopes.includes(s)}
                             disabled={locked || roleBlocked}
@@ -435,6 +495,16 @@ export default function IntegrationControl() {
                       className="w-40"
                     />
                   </Field>
+
+                  <ConsentSummary
+                    consent={state.consent}
+                    clientId={clientId}
+                    scopes={scopes}
+                    days={days}
+                    projectNames={state.projects
+                      .filter((p) => projectIds.includes(p.id))
+                      .map((p) => p.name)}
+                  />
 
                   {projectIds.length === 0 && (
                     <p className="text-[12.5px] text-ink-faint">

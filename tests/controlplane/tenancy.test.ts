@@ -95,6 +95,8 @@ const SWEPT = new Set([
   "plugins.get", "plugins.list", "plugins.listGrants", "plugins.listEvents",
   // PROD-DUR-05/06: tenant-scoped reads of custody receipts and state recovery records.
   "planCustody.listReads", "stateBackendRecovery.provenOwner", "stateBackendRecovery.latestProbe", "stateBackendRecovery.get", "stateBackendRecovery.backendOf", "stateBackendRecovery.list",
+  // PROD-UX-02: workspace_id AND principal digest in SQL; a foreign workspace, a foreign principal and an unknown stream are the same empty answer (real rows: tests/agent-v3/stream-store.test.ts).
+  "mcpStreams.readStreamEvents", "mcpStreams.streamCancelRequested", "mcpStreams.streamStatus",
 ]);
 
 /** Writes that bind the new row to the workspace they are given; their tenant checks are tested with the owning suite. */
@@ -151,6 +153,8 @@ const WRITES = new Set([
   // the foreign-workspace refusals for reads and writes are individually covered by tests/effects/ledger.test.ts (not the generic attempt sweep).
   "externalEffects.begin", "externalEffects.get", "externalEffects.getByDedup", "externalEffects.list", "externalEffects.listEvents", "externalEffects.listResolutions",
   "externalEffects.isFenceLive", "externalEffects.recordAccepted", "externalEffects.recordRejected", "externalEffects.markUncertain", "externalEffects.recordReadback", "externalEffects.resolve",
+  // PROD-UX-02: every statement binds the supplied workspace and the authenticated principal digest; foreign-workspace and foreign-principal refusals are covered by tests/agent-v3/stream-store.test.ts.
+  "mcpStreams.openStream", "mcpStreams.appendStreamEvent", "mcpStreams.requestStreamCancel", "mcpStreams.finishStream",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings", "idempotency.reserve", "idempotency.complete",
 ]);
 
@@ -524,6 +528,9 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "stateBackendRecovery.get": () => repos.stateBackendRecovery.get(db, B, "sbr_foreign"),
       "stateBackendRecovery.backendOf": () => repos.stateBackendRecovery.backendOf(db, B, "sbr_foreign"),
       "stateBackendRecovery.list": () => repos.stateBackendRecovery.list(db, B, envId),
+      "mcpStreams.readStreamEvents": () => repos.mcpStreams.readStreamEvents(db, { workspaceId: B, principalKey: hex("a"), streamId: "f".repeat(32), afterSeq: 0 }),
+      "mcpStreams.streamCancelRequested": () => repos.mcpStreams.streamCancelRequested(db, { workspaceId: B, streamId: "f".repeat(32) }),
+      "mcpStreams.streamStatus": () => repos.mcpStreams.streamStatus(db, { workspaceId: B, principalKey: hex("a"), streamId: "f".repeat(32) }),
       "settings.getEnvironmentSettings": () => repos.settings.getEnvironmentSettings(db, B, envId),
       "settings.getWorkspacePolicy": () => repos.settings.getWorkspacePolicy(db, B),
       "optimizerSettings.getOptimizerSettings": () => repos.optimizerSettings.getOptimizerSettings(db, B, envId),

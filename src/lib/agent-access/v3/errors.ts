@@ -38,6 +38,11 @@ export class McpToolError extends Error {
   }
 }
 
+/** The refusal for a request the client explicitly cancelled before it changed anything. */
+export function requestCancelled(detail = "The client cancelled this request."): McpToolError {
+  return new McpToolError("request_cancelled", detail, 499, "Nothing further was done for this request. Start it again, with the same idempotency key, if it is still wanted.");
+}
+
 export interface ErrorBody {
   code: string;
   message: string;

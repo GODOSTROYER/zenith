@@ -17,6 +17,8 @@ export async function middleware(request: NextRequest) {
   // `/login?next=…` redirect (src/lib/supabase/middleware.ts:57-70).
   if (["/api/agent/v1/mcp", "/api/agent/v2/mcp", "/api/agent/v3/mcp", "/api/agent/v2/tools", "/api/agent/v2/source",
     "/api/agent/link/start", "/api/agent/link/token",
+    // RFC 7009: authorized by possession of the token being revoked, no cookie.
+    "/api/agent/oauth/revoke",
     "/.well-known/oauth-protected-resource/api/agent/v2/mcp",
     "/.well-known/oauth-protected-resource/api/agent/v3/mcp",
     // The workload-identity OIDC issuer (ADR-0006): cloud STS services fetch

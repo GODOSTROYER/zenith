@@ -56,6 +56,7 @@ import * as scheduledJobs from "./scheduled-jobs";
 import * as plugins from "./plugins";
 import * as externalEffects from "./external-effects";
 import * as k8sGuestBindings from "./k8s-guest-bindings";
+import * as mcpStreams from "./mcp-streams";
 
 export {
   planArtifacts,
@@ -95,6 +96,7 @@ export {
   plugins,
   externalEffects,
   k8sGuestBindings,
+  mcpStreams,
 };
 
 type CapabilityConstructor = "createApprovedSourceSnapshotStore" | "isApprovedSourceSnapshotStore" | "createIsolatedApprovedSourceStoreForTests" | "reserveOwnerGrant" | "insertOwnerGrant" | "inventory" | "retainCleanupWriterHold" | "reserveCleanupOwnerGrant" | "insertCleanupOwnerGrant";
@@ -158,6 +160,7 @@ export function bindRepos(sql: Sql) {
     plugins: bind(plugins, sql),
     externalEffects: bind(externalEffects, sql),
     k8sGuestBindings: bind(k8sGuestBindings, sql),
+    mcpStreams: bind(mcpStreams, sql),
   };
 }
 

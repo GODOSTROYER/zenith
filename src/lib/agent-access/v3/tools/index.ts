@@ -17,7 +17,7 @@ import { TOOL_NAMES, type ToolName } from "../contract";
 import { TOOL_SCHEMAS, toolDescriptor } from "../catalog";
 import type { ToolContext } from "../context";
 import { buildEnvelope, buildErrorEnvelope, type Envelope, type ToolOutput } from "../envelope";
-import { mapError, McpToolError } from "../errors";
+import { mapError, McpToolError, requestCancelled } from "../errors";
 import type { McpPrincipal } from "../principal";
 import { assertInGrant, requirePluginTool, requireScope, type TargetLike } from "../principal";
 import type { McpPorts } from "../ports";
@@ -54,6 +54,9 @@ export interface InvokeOptions {
   principal: McpPrincipal;
   ports: McpPorts;
   signal?: AbortSignal;
+  /** explicit client cancellation only; see ToolContext.cancel */
+  cancel?: AbortSignal;
+  progress?: (message: string) => Promise<void>;
 }
 
 /** Run a tool and return its envelope; throws on any refusal. */
@@ -69,10 +72,24 @@ export async function invokeTool(name: string, rawArgs: unknown, options: Invoke
   // product-store snapshot. Grant-restricted ids must never touch tenant data.
   const target = "target" in args ? args.target : { workspaceId: args.workspaceId };
   assertInGrant(options.principal, target);
-  return options.ports.scope(options.principal.identity, async () => {
+  const run = options.ports.scope(options.principal.identity, async () => {
     const broker = await options.ports.broker();
-    const output = await HANDLERS[tool.name](args as never, { principal: options.principal, ports: options.ports, broker, tool, signal: options.signal });
+    const output = await HANDLERS[tool.name](args as never, { principal: options.principal, ports: options.ports, broker, tool, signal: options.signal,
+      ...(options.cancel ? { cancel: options.cancel } : {}), ...(options.progress ? { progress: options.progress } : {}) });
     return buildEnvelope(tool, output);
+  });
+  // A read has no side effect, so an explicit client cancellation can stop waiting for it at once (the
+  // work finishes harmlessly in the background). Proposals and execution are NOT raced: they stop at
+  // their own checkpoints so a recorded proposal is withdrawn and a claimed operation is never stranded.
+  return tool.access === "read" && options.cancel ? raceCancel(run, options.cancel) : run;
+}
+
+function raceCancel<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) { void work.catch(() => undefined); return Promise.reject(requestCancelled()); }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => { void work.catch(() => undefined); reject(requestCancelled()); };
+    signal.addEventListener("abort", onAbort, { once: true });
+    work.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
   });
 }
 
@@ -82,7 +99,9 @@ export async function runTool(name: string, rawArgs: unknown, options: InvokeOpt
     return await invokeTool(name, rawArgs, options);
   } catch (error) {
     const tool = toolDescriptor(name) ?? { name: name.slice(0, 64), schemaVersion: 0 };
-    return buildErrorEnvelope(tool, mapError(error).body);
+    // An abort that surfaced as a bare AbortError/TimeoutError is a cancellation, not an internal failure.
+    const aborted = options.signal?.aborted === true && error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError" || error === options.signal.reason);
+    return buildErrorEnvelope(tool, mapError(aborted ? requestCancelled() : error).body);
   }
 }
 

@@ -44,6 +44,7 @@
     "hosted:browser": "tsx scripts/hosted-browser.ts",
     "agent:acceptance": "tsx scripts/agent-acceptance.ts",
     "agent:browser": "tsx scripts/agent-browser.ts",
+    "agent:conformance": "tsx scripts/agent/mcp-conformance.ts",
     "test:contract": "vitest run tests/db/contract --no-file-parallelism",
     "migrate:platform": "tsx --env-file-if-exists=.env.local scripts/platform/migrate.ts",
     "platform:emit-sql": "tsx scripts/platform/emit-sql.ts",

@@ -168,18 +168,18 @@ export async function approveWorkflowDeployment(ctx: ActionContext, d: Deploymen
       setProjectedStatus(d, "planning");
       return beginWorkflow(ctx, d);
     }
-    const result = await bridgeDeps().workflows.signalApproval(op.id);
-    return { ok: result.delivered, summary: result.delivered ? "Approval recorded and delivered to the workflow." : "Approval recorded, but no active workflow was found. Inspect the platform operation.", data: { ...deploymentData(d, op), ...result } };
+    const result = await bridgeDeps().workflows.signalApproval(op.id, ctx.workspaceId);
+    return { ok: result.delivered || result.reason === "pending", summary: result.delivered ? "Approval recorded and delivered to the workflow." : result.reason === "pending" ? "Approval recorded; delivery to the workflow is queued durably and will be retried." : "Approval recorded, but no active workflow was found. Inspect the platform operation.", data: { ...deploymentData(d, op), ...result } };
   } catch (error) { return bridgeFailure(error); }
 }
 
 /** Signalling only wakes the workflow; a failed delivery does not undo the decision. */
-export async function deliverPlanApproval(op: OperationView): Promise<{ delivered: boolean; reason?: "not_found" | "unavailable" } | undefined> {
+export async function deliverPlanApproval(op: OperationView): Promise<{ delivered: boolean; reason?: "not_found" | "unavailable" | "pending" } | undefined> {
   if (op.capability === "infrastructure.destroy" && !approvalRoundOf(op) && ["approved", "queued"].includes(op.status)) {
     return (await import("./destroy")).startApprovedDestroy(op);
   }
   if (!op.planDigest || !approvalRoundOf(op) || !["approved", "rejected"].includes(op.status)) return undefined;
-  try { return await bridgeDeps().workflows.signalApproval(op.id); }
+  try { return await bridgeDeps().workflows.signalApproval(op.id, op.workspaceId); }
   catch { return { delivered: false, reason: "unavailable" }; }
 }
 
@@ -193,8 +193,8 @@ export async function cancelWorkflowDeployment(ctx: ActionContext, d: Deployment
       return { ok: true, summary: "Deployment cancelled before workflow startup.", data: deploymentData(d) };
     }
     if (op.status === "running" || (d.workflowStartedAt && ["awaiting_approval", "approved", "queued"].includes(op.status))) {
-      const result = await bridgeDeps().workflows.cancelOperation(op.id);
-      return { ok: result.delivered, summary: result.delivered ? "Cancellation requested; the worker will project the final outcome." : "No active workflow was found; cancellation is unconfirmed. Inspect the platform operation.", data: { ...deploymentData(d, op), ...result } };
+      const result = await bridgeDeps().workflows.cancelOperation(op.id, ctx.workspaceId);
+      return { ok: result.delivered || result.reason === "pending", summary: result.delivered ? "Cancellation requested; the worker will project the final outcome." : result.reason === "pending" ? "Cancellation recorded durably; delivery to the workflow will be retried. Inspect the platform operation for the outcome." : "No active workflow was found; cancellation is unconfirmed. Inspect the platform operation.", data: { ...deploymentData(d, op), ...result } };
     }
     return { ok: false, summary: "Cancellation refused.", error: `The platform operation is ${op.status}; it cannot be cancelled here.` };
   } catch (error) { return bridgeFailure(error); }

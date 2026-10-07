@@ -229,6 +229,38 @@ export interface StabilityAdmission {
   codes: string[];
 }
 
+/** One settled repair awaiting re-observation, as the stability store reports it. Opaque to the controller. */
+export interface RepairAwaitingVerification {
+  attemptId: string;
+  incidentId: string;
+  address: string;
+  operationId: string;
+  attemptStatus: "succeeded" | "failed";
+  fingerprint: string;
+}
+
+/**
+ * What the post-remediation re-observation found for one settled repair.
+ *   cleared        the node was read and no longer shows the drift (the incident closes by hysteresis)
+ *   still_present  the node was read and the same drift persists
+ *   unverifiable   the node could not be read (unknown/inaccessible/skipped): nothing is claimed
+ */
+export type RepairVerificationOutcome = "cleared" | "still_present" | "unverifiable";
+
+export interface RepairVerification {
+  incidentId: string;
+  attemptId: string;
+  operationId: string;
+  address: string;
+  attemptStatus: "succeeded" | "failed";
+  outcome: RepairVerificationOutcome;
+  /** cleared only: the incident is now resolved (`closed`) or still collecting clean observations (`closing`) */
+  incident?: "closed" | "closing";
+  /** the incident is escalated to a person as a result of (or alongside) this verification */
+  escalated: boolean;
+  escalationReasons: string[];
+}
+
 /**
  * Durable incident stability for the controller (PROD-OBS-03): hysteresis and
  * fingerprint dedup of drift, and the fail-closed reservation every repair
@@ -243,6 +275,17 @@ export interface ReconcileStability {
   attach(environment: ReconcileEnvironment, attemptId: string, operationId: string): Promise<void>;
   /** The proposal never became an operation: free the attempt. */
   release(environment: ReconcileEnvironment, attemptId: string, now: Date): Promise<void>;
+  /**
+   * Settled repairs of open incidents that still need a re-observation. Called
+   * BEFORE the environment is read so the read provably postdates the operation.
+   */
+  awaitingVerification?(environment: ReconcileEnvironment, now: Date): Promise<readonly RepairAwaitingVerification[]>;
+  /**
+   * Close or escalate each awaiting repair from this pass's verdicts (the same
+   * `StabilityFindingObservation`s fed to `observe`, which has already run).
+   * `simulated` observations verify nothing.
+   */
+  verifyRepairs?(environment: ReconcileEnvironment, awaiting: readonly RepairAwaitingVerification[], items: readonly StabilityFindingObservation[], now: Date, opts: { simulated: boolean }): Promise<readonly RepairVerification[]>;
 }
 
 /** Ports `reconcileEnvironment` needs. */
@@ -403,6 +446,8 @@ export interface ReconcileResult {
   changed: boolean;
   openFindings: number;
   repairs: RepairDecision[];
+  /** post-remediation verification of earlier repairs, from this pass's re-observation */
+  verifications: RepairVerification[];
   startedAt: string;
   finishedAt: string;
 }

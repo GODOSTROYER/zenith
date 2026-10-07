@@ -695,6 +695,42 @@ export async function syncAttemptOutcomes(sql: Sql, input: { workspaceId: string
   return rows.length;
 }
 
+/** A settled drift.repair attempt of a still-open incident, awaiting a post-remediation re-observation. */
+export interface RepairAwaitingVerification {
+  attemptId: string;
+  incidentId: string;
+  fingerprint: string;
+  /** the finding address the repair targeted (stored as the attempt's resource id) */
+  address: string;
+  operationId: string;
+  attemptStatus: "succeeded" | "failed";
+  settledAt?: string;
+}
+
+/**
+ * Settled `drift.repair` attempts (operation reached a terminal status) of the
+ * environment's OPEN incidents, latest per incident. The caller must list these
+ * BEFORE it reads the environment, so the re-observation provably postdates the
+ * operation. Settles reserved attempts first through the existing outcome sync.
+ */
+export async function listRepairsAwaitingVerification(sql: Sql, input: { workspaceId: string; environmentId: string; now?: Date; limit?: number }): Promise<RepairAwaitingVerification[]> {
+  const workspaceId = requireText("workspaceId", input.workspaceId);
+  const environmentId = requireText("environmentId", input.environmentId);
+  await syncAttemptOutcomes(sql, { workspaceId, now: input.now });
+  const rows = await sql.query<{ id: string; incident_id: string; fingerprint: string; resource_id: string | null; operation_id: string; status: "succeeded" | "failed"; settled_at: string | null }>(
+    `select distinct on (a.incident_id) a.id, a.incident_id, a.fingerprint, a.resource_id, a.operation_id, a.status, ${iso("a.settled_at")} as settled_at
+       from platform.incident_remediation_attempts a
+       join platform.incidents i on i.workspace_id = a.workspace_id and i.id = a.incident_id
+      where a.workspace_id = $1 and a.environment_id = $2 and a.capability = 'drift.repair'
+        and a.status in ('succeeded','failed') and a.operation_id is not null and a.resource_id is not null
+        and i.status <> 'resolved'
+      order by a.incident_id, a.settled_at desc nulls last, a.id
+      limit $3::bigint`,
+    [workspaceId, environmentId, Math.max(1, Math.min(200, Math.trunc(input.limit ?? 100)))]
+  );
+  return rows.map((r) => ({ attemptId: r.id, incidentId: r.incident_id, fingerprint: r.fingerprint, address: r.resource_id!, operationId: r.operation_id, attemptStatus: r.status, ...(r.settled_at ? { settledAt: r.settled_at } : {}) }));
+}
+
 /* ------------------------------ escalation queue ------------------------------ */
 
 /** Escalated, unresolved incidents for a workspace (optionally one environment), oldest first. */

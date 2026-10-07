@@ -19,6 +19,7 @@ import { composeReconcilePorts } from "./reconcile";
 import { registerAllDrivers } from "./drivers";
 import { platformScopeResolver } from "./scopes";
 import { composeAgentPorts } from "./agent-ports";
+import { withDiagnosisRecording } from "@/lib/repair/diagnosis";
 import { registerCredentialBroker, registerInvestigator } from "@/lib/agent-access/v3/adapters";
 
 type State = { boot?: Promise<boolean>; db?: Sql };
@@ -44,7 +45,8 @@ export function ensurePlatformApp(db?: Sql): Promise<boolean> {
       wireReconcilePorts(() => composeReconcilePorts(sql, credentials));
       const agentPorts = composeAgentPorts(sql, credentials);
       registerCredentialBroker(credentials, agentPorts.observability);
-      registerInvestigator(agentPorts.investigator);
+      // Diagnose stage of the canonical repair lifecycle: finished investigations of tracked incidents are recorded, and an inconclusive one escalates.
+      registerInvestigator(withDiagnosisRecording(agentPorts.investigator, (investigation) => repos.incidentStability.recordInvestigation(sql, { investigation })));
       s.db = sql;
       return true;
     } catch {

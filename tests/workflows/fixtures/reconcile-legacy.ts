@@ -48,7 +48,8 @@ export async function reconcileEnvironmentWorkflow(input: ReconcileWorkflowInput
       status: "observed",
       drift: observed.drift,
       unknown: observed.unknown,
-      repair: input.allowAutoRepair && observed.drift > 0 ? "not_implemented" : "not_requested",
+      // The historical literal, kept byte-for-byte for replay; the live type no longer admits it.
+      repair: (input.allowAutoRepair && observed.drift > 0 ? "not_implemented" : "not_requested") as ReconcileWorkflowResult["repair"],
     };
   } catch (err) {
     if (isCancellation(err)) throw err;

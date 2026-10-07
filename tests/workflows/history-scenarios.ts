@@ -45,6 +45,25 @@ export interface HistoryScenario {
 
 const needsApproval = (h: Harness): void => h.fake.setResult("evaluatePolicy", { outcome: "require_approval", decisionId: "d-1", reasons: ["prod"] });
 const install = (h: Harness, impl: object): void => void Object.assign(h.fake.activities as unknown as Record<string, unknown>, impl);
+// Synthetic activity failures keep their actual type/flags/details/cause; only their
+// pre-SDK stack metadata is deterministic, so recorded fixtures do not publish a
+// recorder's local home directory. Unexpected failures retain their original stack.
+const syntheticFailure = <T extends Error>(error: T): T => {
+  error.stack = `${error.name}: ${error.message}\n    at workflow-history.synthetic-activity`;
+  return error;
+};
+const scopedScriptedFailure = (h: Harness, name: "applyInfrastructure" | "evaluatePolicy", message: string, type?: string): void => {
+  const original = h.fake.activities[name] as (...args: unknown[]) => Promise<unknown>;
+  install(h, { [name]: async (...args: unknown[]) => {
+    try { return await original(...args); } catch (error) {
+      const intended = type === undefined
+        ? error instanceof Error && error.constructor === Error
+        : error instanceof ApplicationFailure && error.type === type && error.nonRetryable === true;
+      if (intended && error instanceof Error && error.message === message) syntheticFailure(error);
+      throw error;
+    }
+  } });
+};
 const repairPlan: PlanSummary = { planDigest: "a".repeat(64), create: 0, update: 1, delete: 0, replace: 0, destroysData: false, empty: false };
 
 async function startAndWait(h: Harness, type: string, workflowId: string, arg: unknown): Promise<WorkflowHandle> {
@@ -111,11 +130,14 @@ export const WORKFLOW_HISTORY_SCENARIOS: readonly HistoryScenario[] = [
     covers: "non-retryable LeaseLost during apply finalizing uncertain",
     outcome: { result: { status: "uncertain" }, errorIncludes: "lease was lost" },
     activityCounts: { applyInfrastructure: 1, verifyInfrastructure: 0 },
-    run: (h) => h.run(async () => {
+    run: (h) => {
       h.fake.failOn("applyInfrastructure", { type: FAILURE_TYPES.leaseLost, message: "fence moved" });
-      const input = deployInput();
-      return [await startAndWait(h, WORKFLOW_TYPES.deploy, WORKFLOW_ID(input.operationId), input)];
-    }),
+      scopedScriptedFailure(h, "applyInfrastructure", "fence moved", FAILURE_TYPES.leaseLost);
+      return h.run(async () => {
+        const input = deployInput();
+        return [await startAndWait(h, WORKFLOW_TYPES.deploy, WORKFLOW_ID(input.operationId), input)];
+      });
+    },
   },
   {
     id: "deploy-cancelled",
@@ -139,11 +161,14 @@ export const WORKFLOW_HISTORY_SCENARIOS: readonly HistoryScenario[] = [
     covers: "activity attempts that fail and retry (evaluatePolicy x2) do not disturb replay",
     outcome: { result: { status: "succeeded" } },
     fakeActivityCounts: { evaluatePolicy: 3 },
-    run: (h) => h.run(async () => {
+    run: (h) => {
       h.fake.failOn("evaluatePolicy", { message: "temporarily unavailable", times: 2 });
-      const input = deployInput();
-      return [await startAndWait(h, WORKFLOW_TYPES.deploy, WORKFLOW_ID(input.operationId), input)];
-    }),
+      scopedScriptedFailure(h, "evaluatePolicy", "temporarily unavailable");
+      return h.run(async () => {
+        const input = deployInput();
+        return [await startAndWait(h, WORKFLOW_TYPES.deploy, WORKFLOW_ID(input.operationId), input)];
+      });
+    },
   },
   {
     id: "destroy-happy",
@@ -178,7 +203,7 @@ export const WORKFLOW_HISTORY_SCENARIOS: readonly HistoryScenario[] = [
       const plan = { planDigest: "a".repeat(64), create: 0, update: 0, delete: 1, replace: 0, empty: false, destroysData: true };
       const extra: DestroyActivities = {
         planDestroyInfrastructure: async () => plan,
-        finalDestroyPlan: async () => { throw ApplicationFailure.nonRetryable("plan moved", FAILURE_TYPES.planChanged); },
+        finalDestroyPlan: async () => { throw syntheticFailure(ApplicationFailure.nonRetryable("plan moved", FAILURE_TYPES.planChanged)); },
         applyDestroyInfrastructure: async () => ({ deleted: 1 }),
         verifyDestroyedInfrastructure: async () => ({ status: "passed", checks: 1, failed: 0 }),
       };
@@ -365,7 +390,7 @@ export const WORKFLOW_HISTORY_SCENARIOS: readonly HistoryScenario[] = [
     activityCounts: { agentStep: 1, agentFinalize: 1 },
     run: (h) => {
       const impl: CodingAgentActivities = {
-        async agentStep() { throw ApplicationFailure.nonRetryable("step failed", "CodingAgentContractInvalid"); },
+        async agentStep() { throw syntheticFailure(ApplicationFailure.nonRetryable("step failed", "CodingAgentContractInvalid")); },
         async agentFinalize() { return { status: "failed" } as CodingAgentStepResult; },
       };
       install(h, impl);

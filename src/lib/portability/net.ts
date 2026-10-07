@@ -59,6 +59,13 @@ export function classifyAddress(address: string): "public" | "private" | "loopba
     if (a === 0 || a >= 224) return "never";
     if (a === 169 && b === 254) return "never";
     if (a === 127) return "loopback";
+    // Alibaba Cloud instance metadata: reachable only through the private-range opt-in otherwise, and never a service.
+    if (a === 100 && b === 100 && (p as number[])[2] === 100 && (p as number[])[3] === 200) return "never";
+    const c = (p as number[])[2]!;
+    // IETF protocol assignments, documentation and the deprecated 6to4 relay never carry a legitimate service.
+    if ((a === 192 && b === 0 && (c === 0 || c === 2)) || (a === 192 && b === 88 && c === 99) || (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113)) return "never";
+    // Benchmarking space is internal use: private, so only an operator opt-in reaches it.
+    if (a === 198 && (b === 18 || b === 19)) return "private";
     if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127)) return "private";
     return "public";
   }
@@ -67,6 +74,18 @@ export function classifyAddress(address: string): "public" | "private" | "loopba
     if (p.every((n) => n === 0) || (p[0]! & 0xff00) === 0xff00) return "never";
     if (p.slice(0, 7).every((n) => n === 0) && p[7] === 1) return "loopback";
     if ((p[0]! & 0xffc0) === 0xfe80) return "never";
+    // Transition and special-purpose prefixes that smuggle an IPv4 destination past the checks above (a NAT64 or 6to4
+    // literal of 169.254.169.254 or 127.0.0.1) or never name a tenant service: IPv4-compatible ::/96, IPv4-translated
+    // ::ffff:0:0:0/96, NAT64 64:ff9b::/96 and 64:ff9b:1::/48, discard 100::/64, 2001::/23 (Teredo, ORCHID, documentation),
+    // 6to4 2002::/16, 3fff::/20 documentation and deprecated site-local fec0::/10.
+    if (p.slice(0, 6).every((n) => n === 0)) return "never";
+    if (p.slice(0, 4).every((n) => n === 0) && p[4] === 0xffff && p[5] === 0) return "never";
+    if (p[0] === 0x64 && p[1] === 0xff9b && (p.slice(2, 6).every((n) => n === 0) || p[2] === 1)) return "never";
+    if (p[0] === 0x100 && p.slice(1, 4).every((n) => n === 0)) return "never";
+    if (p[0] === 0x2001 && (p[1]! < 0x200 || p[1] === 0xdb8)) return "never";
+    if (p[0] === 0x2002 || (p[0] === 0x3fff && p[1]! < 0x1000) || (p[0]! & 0xffc0) === 0xfec0) return "never";
+    // The AWS IPv6 instance-metadata address lives inside fc00::/7; the private-range opt-in must not open it.
+    if (p[0] === 0xfd00 && p[1] === 0xec2 && p.slice(2, 7).every((n) => n === 0) && p[7] === 0x254) return "never";
     if ((p[0]! & 0xfe00) === 0xfc00) return "private";
     return "public";
   }

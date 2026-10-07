@@ -108,7 +108,8 @@ export class BuildIsolationError extends Error {
 }
 
 export function profileFor(provider: string): BuildIsolationProfile {
-  const p = (BUILD_ISOLATION_PROFILES as Record<string, BuildIsolationProfile | undefined>)[provider];
+  // Own keys only: "__proto__" and "constructor" must not resolve to an inherited object.
+  const p = Object.prototype.hasOwnProperty.call(BUILD_ISOLATION_PROFILES, provider) ? (BUILD_ISOLATION_PROFILES as Record<string, BuildIsolationProfile | undefined>)[provider] : undefined;
   if (!p) throw new BuildIsolationError([`${provider} has no build isolation profile, so its source builds are refused`]);
   return p;
 }

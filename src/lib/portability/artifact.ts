@@ -11,7 +11,7 @@ import { EXPORT_SCHEMA, MANIFEST_FILE, PortabilityError, isDataKind, type Artifa
 export const sha256 = (bytes: Buffer | string): string => createHash("sha256").update(bytes).digest("hex");
 
 /** Relative, forward slashes, no traversal; the same rule as the hosted backup bundle. */
-export const ARTIFACT_NAME = /^(?!\/)(?!.*\/\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9][A-Za-z0-9._/-]{0,200}$/;
+export const ARTIFACT_NAME = /^(?!\/)(?!.*\/\/)(?!.*(?:^|\/)\.{1,2}(?:\/|$))[A-Za-z0-9][A-Za-z0-9._/-]{0,200}$/;
 
 export function assertArtifactName(name: string): string {
   if (!ARTIFACT_NAME.test(name) || name === MANIFEST_FILE) throw new PortabilityError("artifact_invalid", "An artifact file name is not a usable relative path.");

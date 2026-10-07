@@ -215,6 +215,14 @@ const revokedError = (): AgentApiError => new AgentApiError(401, "agent_revoked"
  * invocation). Revocation is re-checked every few steps so a revoked agent is
  * told promptly instead of at the end of the wait.
  */
+/** True when the grant embedded in the (control-plane signed) envelope has been revoked since the job was enqueued. */
+async function grantRevokedFor(rt: RunnerRuntime, job: AgentJob): Promise<boolean> {
+  if (!rt.grantRevoked) return false;
+  const grant = unverifiedClaims(job.envelope)?.grant;
+  const jti = typeof grant === "string" ? unverifiedClaims(grant)?.jti : undefined;
+  return typeof jti === "string" && (await rt.grantRevoked(job.workspaceId, jti));
+}
+
 export async function pollAgent(rt: RunnerRuntime, agent: AgentRecord, body: unknown, signal?: AbortSignal): Promise<{ jobs: string[]; pollIntervalSec: number }> {
   const b = parse(PollBody, body);
   const queue = queueOf(rt.store, agent.kind);
@@ -225,6 +233,12 @@ export async function pollAgent(rt: RunnerRuntime, agent: AgentRecord, body: unk
     const claimed = await queue.claimNext({ workspaceId: agent.workspaceId, agentId: agent.id, max: b.max, leaseMs: CLAIM_LEASE_MS });
     const delivered: string[] = [];
     for (const job of claimed) {
+      // A grant revoked after enqueue must never reach the agent: withdraw the claimed job as refused instead of handing it over.
+      if (await grantRevokedFor(rt, job)) {
+        await queue.settle({ workspaceId: agent.workspaceId, agentId: agent.id, jobId: job.id, status: "rejected", error: "The capability grant was revoked before this job was delivered; it was withdrawn." });
+        await emit(rt, { type: "runner.job.completed", workspaceId: agent.workspaceId, operationId: job.operationId, agentId: agent.id, data: { jobId: job.id, kind: job.kind, capability: job.capability, agentKind: agent.kind, status: "rejected", reason: "grant_revoked" } });
+        continue;
+      }
       const started = await queue.markRunning({ workspaceId: agent.workspaceId, agentId: agent.id, jobId: job.id, leaseMs: leaseMsFor(job) });
       if (!started) continue; // lease lapsed between claim and hand-over: not delivered, the reaper settles it
       delivered.push(job.envelope);

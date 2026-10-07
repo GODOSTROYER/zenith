@@ -5,7 +5,8 @@
  * Mock HTTP contracts are not evidence of a live GitHub installation.
  */
 import { createPrivateKey, sign } from "node:crypto";
-import { open } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, open } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import { GithubSourceError, numericId, repository, type GithubAppConfig, type GithubRepository, type GithubSourceBinding } from "./types";
 
@@ -24,9 +25,20 @@ async function secretFile(file: string): Promise<Buffer> {
   let handle;
   try {
     if (!isAbsolute(file)) throw new GithubSourceError("unavailable");
-    handle = await open(file, "r");
+    // Custody (same posture as the webhook secret): a private regular file owned by this process, reached without a
+    // symlink or a second hard link. POSIX checks uid and mode and opens with O_NOFOLLOW. Windows has no POSIX
+    // ownership or mode, so it reuses the CLI's native-security-API check that the file's NTFS ACL is owner-only; any
+    // failure of that check refuses (reads as "unavailable", never as a weaker mode).
+    const win = process.platform === "win32";
+    const uid = process.getuid?.();
+    if (!win && (uid === undefined || constants.O_NOFOLLOW === undefined)) throw new GithubSourceError("unavailable");
+    const before = await lstat(file);
+    if (!before.isFile() || before.nlink !== 1) throw new GithubSourceError("unavailable");
+    if (win) await (await import("@/cli/config")).verifyWindowsOwnerOnlyAcl(file);
+    else if (before.uid !== uid || (before.mode & 0o077) !== 0) throw new GithubSourceError("unavailable");
+    handle = await open(file, win ? constants.O_RDONLY : constants.O_RDONLY | constants.O_NOFOLLOW);
     const stat = await handle.stat();
-    if (!stat.isFile() || stat.size <= 0 || stat.size > 64 * 1024) throw new GithubSourceError("unavailable");
+    if (!stat.isFile() || stat.size <= 0 || stat.size > 64 * 1024 || stat.ino !== before.ino || stat.dev !== before.dev) throw new GithubSourceError("unavailable");
     const bytes = Buffer.alloc(64 * 1024 + 1);
     const { bytesRead } = await handle.read(bytes, 0, bytes.length, 0);
     if (bytesRead > 64 * 1024) { bytes.fill(0); throw new GithubSourceError("unavailable"); }

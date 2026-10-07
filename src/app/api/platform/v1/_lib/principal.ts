@@ -47,6 +47,31 @@ function namedWorkspace(req: NextRequest): string | undefined {
   return named;
 }
 
+/** Hosts the configured origin names; a forwarded or spoofed Host header cannot stand in for it. */
+function configuredHost(): string | undefined {
+  for (const raw of [process.env.ZENITH_PLATFORM_ORIGIN, process.env.ZENITH_AGENT_ORIGIN]) {
+    try { if (raw) return new URL(raw).host; } catch { /* ignore a malformed value: the request origin rules */ }
+  }
+  return undefined;
+}
+const isLoopbackHttp = (origin: string): boolean => /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?$/.test(origin);
+
+/**
+ * This surface takes exactly one bearer kind: a linked `za_` agent credential, on the configured host. Plugin
+ * (`zp_`) tokens are audience-bound to MCP v3, OAuth access tokens to the MCP resources, and browser sessions never
+ * arrive as a bearer, so none of them can cross onto this API.
+ */
+export function assertBearerSurface(req: NextRequest, authorization: string): void {
+  const expected = configuredHost();
+  const host = req.headers.get("host") ?? new URL(req.url).host;
+  if (expected !== undefined && host !== expected) {
+    throw new BrokerError("unauthenticated", "Use the configured Zenith host. Forwarded host headers are not trusted.", "Call the platform API at the Zenith origin.");
+  }
+  if (!/^Bearer za_[^\s]+$/.test(authorization)) {
+    throw new BrokerError("unauthenticated", "This API accepts only a linked Zenith agent credential (za_...); plugin and OAuth tokens belong to their own endpoints.", "Send Authorization: Bearer <agent credential>.");
+  }
+}
+
 export async function callerOf(req: NextRequest): Promise<CallerContext> {
   const caller = await resolveCaller(req);
   // PROD-OPS-02: the platform API learns its workspace here (bearer credential or named workspace), so this is where
@@ -60,7 +85,13 @@ async function resolveCaller(req: NextRequest): Promise<CallerContext> {
 
   const authorization = req.headers.get("authorization");
   if (authorization) {
+    assertBearerSurface(req, authorization);
     const authority = await requireCredentialAuthority();
+    // Same authority-kind rule as the MCP endpoints: an operator-issued file credential is one host's loopback
+    // development grant and is never accepted over a remote origin.
+    if (authority.kind === "file" && !isLoopbackHttp(new URL(req.url).origin)) {
+      throw new BrokerError("unauthenticated", "Remote access needs a credential linked through Zenith; development credentials are accepted only on the loopback origin.", "Link the agent from Zenith, then retry.");
+    }
     const credential = await authority.verify(authorization);
     if (named !== undefined && named !== credential.workspaceId) throw notFound();
     return {

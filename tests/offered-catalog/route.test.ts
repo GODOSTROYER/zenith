@@ -32,7 +32,7 @@ vi.mock("@/lib/hosted/access/identity", () => ({
 vi.mock("@/lib/agent-access/authority", async () => {
   const { AgentError } = await import("@/lib/agent-access/security");
   const authority = {
-    kind: "file" as const,
+    kind: "postgres" as const,
     ready: async () => undefined,
     verify: async (header: string | null) => {
       const found = header === `Bearer ${state.token}` ? state.credentials[0] : undefined;

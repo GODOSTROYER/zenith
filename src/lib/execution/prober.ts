@@ -75,6 +75,7 @@ for (const [net4, bits] of [
   BLOCKED.addSubnet(net4, bits, "ipv4");
 for (const [net6, bits] of [
   ["::", 96], // unspecified, loopback, IPv4-compatible
+  ["::ffff:0:0:0", 96], // IPv4-translated (SIIT)
   ["64:ff9b::", 96], // NAT64
   ["64:ff9b:1::", 48], // local-use NAT64
   ["100::", 64], // discard

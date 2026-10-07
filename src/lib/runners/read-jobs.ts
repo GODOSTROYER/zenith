@@ -84,6 +84,7 @@ export async function enqueueReadJob(input: EnqueueReadJobInput, runtime?: Runne
       expectedCapability: input.capability,
       keys: await rt.verificationKeys(),
       now: new Date(rt.now()),
+      ...(rt.grantRevoked ? { isRevoked: (jti: string) => rt.grantRevoked!(input.workspaceId, jti) } : {}),
     });
   } catch (error) {
     if (error instanceof GrantVerificationError)

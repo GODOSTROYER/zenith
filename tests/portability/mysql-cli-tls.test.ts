@@ -1,5 +1,5 @@
 /**
- * Actual stock mysql TLS/auth/query sockets against a bounded owned protocol
+ * Actual stock mysql TLS/auth/query sockets (literal IP) and the in-process mysql2 transport (DNS names) against a bounded owned protocol
  * fixture. This is not a MySQL engine or live provider acceptance test. Explicit
  * invocation is required and fails when the stock client/openssl is absent.
  */
@@ -199,9 +199,14 @@ describe.skipIf(!REQUIRED)("stock MySQL authenticated TLS destination custody (e
     try { const result = await run(f); expect(result.code).not.toBe(0); expect(f.encryptedAuth).toBe(0); expect(f.plaintextAuth).toBe(0); expect(f.queries).toBe(0); }
     finally { await f.close(); }
   });
-  it("explicitly refuses a legitimate DNS TLS name instead of claiming a detached identity proof", async () => {
+  it("verifies a DNS TLS name against the certificate identity in-process (never the stock client) before credentials", async () => {
     const f = await fixture(wrong.key, wrong.cert);
-    try { await expect(run(f, "db.example.test")).rejects.toMatchObject({ code: "unsupported_objects" }); expect(f.connections).toBe(0); expect(f.encryptedAuth).toBe(0); }
+    try { const result = await run(f, "db.example.test"); expect(result.code).toBe(0); expect(result.stdout.toString()).toBe("1\n"); expect(f.encryptedAuth).toBe(1); expect(f.plaintextAuth).toBe(0); expect(f.queries).toBe(1); }
+    finally { await f.close(); }
+  });
+  it("refuses a DNS TLS name the certificate does not name, before credential authentication", async () => {
+    const f = await fixture(wrong.key, wrong.cert);
+    try { await expect(run(f, "other.example.test")).rejects.toMatchObject({ code: "unavailable" }); expect(f.encryptedAuth).toBe(0); expect(f.queries).toBe(0); }
     finally { await f.close(); }
   });
 });

@@ -63,6 +63,19 @@ assignment bodies gain `skip_service_principal_aad_check` (no existing test asse
 `function-app.ts`/`workload.ts` ACR host detection is now the strict registry-name pattern (5-50 chars, single label)
 instead of any `*.azurecr.io`.
 
+### Non-root contextDir (added)
+
+Mechanism: uploaded archive built only from the validated contextDir (`release/context-archive.ts`, called from
+`release/build.ts` after the full archive's sha256 was checked against the recorded digest). The LIFE-08
+`contextDigest` binding is untouched: `admitBuildContext` in `execution/release.ts` still re-derives it for the
+approved commit before any provider build starts, and the provenance statement still records contextDir and
+contextDigest; the Azure upload only narrows bytes that digest covers. A Dockerfile outside the context (repo-root
+Dockerfile with a subdirectory context, as on AWS/GCP) is copied to `.zenith/Dockerfile`; nothing else from outside is
+uploaded. LIFE-09 isolation attestation is unchanged. The Azure refusal in `contextDirOf` was removed; its test in
+`tests/execution/build-isolation.test.ts` now expects `apps/web` (VERIFIED-CONTRACT CHANGE). The launch journal key
+includes contextDir for non-root builds only (root keys unchanged). Tests: `tests/providers/azure/context-archive.test.ts`.
+Caveat: a deterministic derivation failure happens after the permanent launch claim, so that key stays consumed.
+
 ## 2. Acceptance mapping
 
 Acceptance: "Trusted source wiring preserved; data-plane permission, sovereign identity/ARM endpoints and real source
@@ -113,8 +126,7 @@ refused.
 - No migration, no new table, no store function, no workflow or gate wiring: nothing for the migrations inventory or
   tenancy tests. Gate manifest: add the four new test files to the Azure provider cohort if cohorts are listed by file.
 - LIMITATIONS.md: sovereign Azure is contract-level only (values from published tables; ARM, Entra, Key Vault, ACR,
-  Blob, DNS zone names unverified live); ACR Tasks cannot build a context SUBDIRECTORY (unchanged `contextDirOf`
-  refusal); the per-cloud USGov/China `azurerm` provider environment must also be configured by the customer in
+  Blob, DNS zone names unverified live); the per-cloud USGov/China `azurerm` provider environment must also be configured by the customer in
   their bootstrap provider block (documented in `deploy/azure/README.md`); live acceptance for Azure not run.
 - `findRoleAssignment` is used by the live harness and exported for operators; the runtime does not call it on a
   hot path (the session has no principal object id). Propagation handling is wired at Key Vault secret sync, source

@@ -168,8 +168,8 @@ export function contextDirOf(spec: { source?: { contextDir?: unknown; builder?: 
     throw new BuildIsolationError(["buildpack builds have no isolated builder; provide a Dockerfile (source.builder must be \"dockerfile\")"]);
   }
   const dir = normalizeContextDir(spec.source?.contextDir);
-  // ACR Tasks builds an uploaded archive whose root is the context; a subdirectory cannot be selected there.
-  if (provider === "azure" && dir !== ".") throw new BuildIsolationError(["Azure ACR Tasks cannot build from a context subdirectory of an uploaded archive; use the repository root or another provider"]);
+  // Azure honors a subdirectory by uploading an archive built only from it (azure/release/context-archive.ts).
+  void provider;
   return dir;
 }
 

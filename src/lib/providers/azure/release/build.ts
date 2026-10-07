@@ -21,6 +21,7 @@ import { context, managed, locate, validId, assertResource, bounded, pause, rec,
 import { scheduleBuild, ACR_RUN_ID, ACR_RUN_CPU, ACR_RUN_TIMEOUT_SEC } from "./acr-task";
 import { allowlistDigest, BUILD_ISOLATION_PROFILES, contextDirOf, type BuildAttestation } from "@/lib/execution/build-isolation";
 import { readArchive, type AzureSourceReader } from "./source";
+import { contextArchive } from "./context-archive";
 
 export interface AzureBuildOptions {
   /** C3 createSourceBundles(deps); Azure uses read(), not its S3/GCS upload port. */
@@ -86,13 +87,13 @@ export function createBuildPort(options: AzureBuildOptions = {}): BuildPort {
   return {
     async startBuild(raw, input) {
       const ctx = context(raw); managed(ctx, input.service); managed(ctx, input.pipeline, "build_pipeline");
-      const spec = input.pipeline.spec as unknown as BuildPipelineSpec; contextDirOf(spec, "azure"); const artifact = rec(input.service.spec.artifact);
+      const spec = input.pipeline.spec as unknown as BuildPipelineSpec; const contextDir = contextDirOf(spec, "azure"); const artifact = rec(input.service.spec.artifact);
       if (!input.registry || spec.location !== "customer_account" || rec(spec.output).registry !== input.registry.address || artifact.type !== "built" || artifact.pipeline !== input.pipeline.address || artifact.registry !== input.registry.address || !input.idempotencyKey || !/^(?:sha256:)?[a-f0-9]{64}$/.test(input.source.digest) || typeof input.source.s3Key !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,1023}$/.test(input.source.s3Key) || input.source.s3Key.split("/").some((p) => p === "." || p === "..") || (input.source.bucket !== undefined && !/^[A-Za-z0-9._/-]{1,300}$/.test(input.source.bucket))) throw new StepFailedError("Azure build inputs do not identify this workload's source/pipeline/registry.");
       if ((!options.sourceBundles && !options.readSource) || !options.launches) throw new StepFailedError("Azure builds require a source reader and durable tenant-scoped launch journal.");
       const registry = await locate(ctx, input.registry, "Microsoft.ContainerRegistry/registries");
       const loginServer = rec(registry.properties).loginServer; const repository = nodeNameOf(input.service.address);
       if (typeof loginServer !== "string" || !acrLoginServerPattern(cloudOf(ctx.session)).test(loginServer) || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(repository)) throw new StepFailedError("Azure build output registry/repository is malformed.");
-      const key = digest([scope(ctx), "build", input.service.address, input.source.digest, input.idempotencyKey]);
+      const key = digest([scope(ctx), "build", input.service.address, input.source.digest, input.idempotencyKey, ...(contextDir === "." ? [] : [contextDir])]);
       const journalScope = { workspaceId: ctx.workspaceId, environmentId: ctx.environmentId, key };
       let claimed: boolean;
       try { claimed = await options.launches.claim(journalScope); } catch { throw new Error("Azure build launch claim could not be confirmed."); }
@@ -111,8 +112,10 @@ export function createBuildPort(options: AzureBuildOptions = {}): BuildPort {
       }
       ctx.signal.throwIfAborted();
       if (!(source instanceof Uint8Array) || source.byteLength === 0 || source.byteLength > MAX_SOURCE_BYTES || sha256Hex(source) !== input.source.digest.replace(/^sha256:/, "")) throw new StepFailedError("Source bundle bytes do not match the recorded digest/size bounds.");
+      // Non-root context: upload an archive built only from the validated contextDir (the LIFE-08 digest was admitted upstream for this commit).
+      const built = contextArchive(source, contextDir, spec.source?.dockerfile);
       let runId;
-      try { runId = await scheduleBuild(ctx, { registryId: registry.id, loginServer, repository, source, tag: `zn-${key}`, dockerfilePath: spec.source?.dockerfile, uploadFetch: options.uploadFetch, ...(spec.isolation?.workerPool ? { agentPool: spec.isolation.workerPool } : {}) }); } catch { ctx.signal.throwIfAborted(); throw new Error("ACR build launch was not confirmed; reconcile the consumed launch key before retrying."); }
+      try { runId = await scheduleBuild(ctx, { registryId: registry.id, loginServer, repository, source: built.archive, tag: `zn-${key}`, dockerfilePath: built.dockerfilePath, uploadFetch: options.uploadFetch, ...(spec.isolation?.workerPool ? { agentPool: spec.isolation.workerPool } : {}) }); } catch { ctx.signal.throwIfAborted(); throw new Error("ACR build launch was not confirmed; reconcile the consumed launch key before retrying."); }
       const h: Handle = { version: 1, scope: scope(ctx), registryId: registry.id, registryAddress: input.registry.address, loginServer, repository, runId, tag: `zn-${key}` };
       const encoded = JSON.stringify(h);
       try { await options.launches.record(journalScope, encoded); } catch { throw new Error("ACR build was scheduled but its launch receipt was not persisted; reconcile before retrying."); }

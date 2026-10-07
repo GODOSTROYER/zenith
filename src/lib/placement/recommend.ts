@@ -16,6 +16,8 @@ import { componentsFromGraph } from "./components";
 import { solvePlacement } from "./solver";
 import { explainPlacement } from "./explain";
 import { loadDefaultCatalog } from "./pricebook";
+import { assessFeasibility, type FeasibilityReport } from "./feasibility";
+import { costDisclosure, type CostDisclosure } from "@/lib/cost/wording";
 import { regionInfo, regionSatisfiesResidency } from "./latency";
 import type { PlacementCandidate, PlacementConstraints, PlacementResult } from "./types";
 import type { ProviderKey, ResourceGraph } from "@/lib/resources/types";
@@ -39,6 +41,9 @@ export const RecommendConstraints = z.object({
     logGbPerService: z.number().finite().nonnegative().optional(),
     dbStorageGb: z.number().finite().nonnegative().optional(),
     interComponentFraction: z.number().finite().min(0).max(1).optional(),
+    interAzGb: z.number().finite().nonnegative().optional(),
+    storageIoMillions: z.number().finite().nonnegative().optional(),
+    crossRegionBackupCopyGb: z.number().finite().nonnegative().optional(),
   }).strict().optional(),
 }).strict();
 export const RecommendOptions = z.object({
@@ -100,6 +105,10 @@ export interface PlacementRecommendation {
   connectedProviders: string[];
   result: Omit<PlacementResult, "chosen" | "alternatives"> & { chosen?: RecommendedCandidate; alternatives: RecommendedCandidate[] };
   explanation: string;
+  /** Typed answer to "can the constraints be met at all"; when not, the binding blockers and nearest miss. */
+  feasibility: FeasibilityReport;
+  /** Costs here are estimates; a budget is a planning limit, never a billing cap. */
+  disclosure: CostDisclosure;
   /** Discovery is separate: an unconnected option never displaces a recommendation. */
   unconnectedCandidates: RecommendedCandidate[];
 }
@@ -211,5 +220,6 @@ export async function recommendPlacement(raw: RecommendInput, reads: RecommendRe
       ...(discovery ? ["Unconnected discovery options are listed separately after connected placements; connect and verify them before applying."] : [])] };
   return { workspaceId: input.workspaceId, projectId: input.projectId, ...(env ? { environmentId: env.id } : {}), manifestHash: contentHash(project.workingManifest),
     graphDigest: graph.graphDigest, constraints, connectedProviders, result, unconnectedCandidates,
+    feasibility: assessFeasibility(result, constraints), disclosure: costDisclosure(),
     explanation: explainPlacement(result) + (connectedProviders.length === 0 ? "\nConnect and verify a cloud account in Settings → Connections, then request placement again." : "") };
 }

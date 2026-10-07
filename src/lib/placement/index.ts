@@ -21,6 +21,9 @@ export {
 } from "@/lib/placement/candidates";
 export * from "@/lib/placement/solver";
 export * from "@/lib/placement/explain";
+export * from "@/lib/placement/reasons";
+export * from "@/lib/placement/feasibility";
+export * from "@/lib/placement/extended-costs";
 export * from "@/lib/placement/optimizer";
 export * from "@/lib/placement/optimizer-submit";
 export * from "@/lib/placement/optimizer-history";

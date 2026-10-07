@@ -1,0 +1,55 @@
+{
+  "_contractFixture": "CONTRACT-LEVEL FIXTURE: hand-built to match the documented shape of the official file. Not a download from the provider. Values are illustrative.",
+  "Items": [
+    {
+      "currencyCode": "USD",
+      "tierMinimumUnits": 0,
+      "retailPrice": 0.045,
+      "armRegionName": "eastus",
+      "type": "Consumption",
+      "unitOfMeasure": "1 Hour",
+      "skuName": "Standard",
+      "productName": "x",
+      "serviceName": "NAT Gateway",
+      "meterName": "Standard Gateway"
+    },
+    {
+      "currencyCode": "USD",
+      "tierMinimumUnits": 0,
+      "retailPrice": 0.05,
+      "armRegionName": "eastus",
+      "type": "Consumption",
+      "unitOfMeasure": "1 Hour",
+      "skuName": "Standard Zone-redundant",
+      "productName": "x",
+      "serviceName": "NAT Gateway",
+      "meterName": "Standard Gateway"
+    },
+    {
+      "currencyCode": "USD",
+      "tierMinimumUnits": 0,
+      "retailPrice": 0.045,
+      "armRegionName": "eastus",
+      "type": "Consumption",
+      "unitOfMeasure": "1 GB",
+      "skuName": "Standard",
+      "productName": "x",
+      "serviceName": "NAT Gateway",
+      "meterName": "Standard Data Processed"
+    },
+    {
+      "currencyCode": "USD",
+      "tierMinimumUnits": 0,
+      "retailPrice": 0.005,
+      "armRegionName": "eastus",
+      "type": "Consumption",
+      "unitOfMeasure": "1 Hour",
+      "skuName": "Standard",
+      "productName": "x",
+      "serviceName": "Virtual Network",
+      "meterName": "Standard IPv4 Static Public IP"
+    }
+  ],
+  "NextPageLink": null,
+  "Count": 4
+}

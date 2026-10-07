@@ -24,6 +24,8 @@ export const PLATFORM_PATHS: readonly {
   // reads authorised by the broker (authorizeRead); placement is a POST only to carry constraints
   { path: new RegExp(`^${ROOT}/environments/${ID}/(?:resources|drift|incidents)$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/environments/${ID}/placement$`), methods: { POST: "bearer-capable" } },
+  // Spend: estimate, provider-reported actual spend and forecast are readable; reading the provider's billing API needs the person's browser.
+  { path: new RegExp(`^${ROOT}/environments/${ID}/spend$`), methods: { GET: "bearer-capable", POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/environments/${ID}/teardown-review$`), methods: { GET: "bearer-capable", POST: "bearer-capable" } },
   // Portability: stored verified exports, restores and adoptions are readable; starting an approved export, import, adopt or release needs the approver's own browser.
   { path: new RegExp(`^${ROOT}/environments/${ID}/portability$`), methods: { GET: "bearer-capable" } },

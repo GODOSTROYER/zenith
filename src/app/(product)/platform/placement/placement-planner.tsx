@@ -51,7 +51,7 @@ export function PlacementPlanner({ projects }: { projects: PlacementProject[] })
       <Button variant="primary" busy={busy} disabled={!projectId || busy} disabledReason={busy ? "Placement is being computed." : "Choose a project."} onClick={() => void request()}>Compare placement</Button>
     </div>}
     {error ? <ErrorNote error={error} /> : null}
-    <PlacementComparison result={recommendation?.result} loading={busy} />
+    <PlacementComparison result={recommendation?.result} feasibility={recommendation?.feasibility} loading={busy} />
     {recommendation && <>
       <section aria-label="Placement explanation"><h2 className="mb-2 font-medium">Why this placement</h2><pre className="whitespace-pre-wrap break-words text-sm text-ink-mute">{recommendation.explanation}</pre></section>
       {candidates.length > 0 && <section className="space-y-2" aria-label="Apply placement"><h2 className="font-medium">Stage a reviewed recommendation</h2><p className="text-sm text-ink-mute">This edits the working manifest. Review the environment connection separately before deploying.</p>

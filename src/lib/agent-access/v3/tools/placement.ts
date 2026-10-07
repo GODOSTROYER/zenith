@@ -17,9 +17,10 @@ export async function recommendPlacementTool(args: RecommendPlacementArgs, ctx: 
     data: { workspaceId: recommendation.workspaceId, projectId: recommendation.projectId, environmentId: recommendation.environmentId,
       manifestHash: recommendation.manifestHash, graphDigest: recommendation.graphDigest, catalogVersion: recommendation.result.catalogVersion,
       deterministicSeed: recommendation.result.deterministicSeed, connectedProviders: recommendation.connectedProviders, isEstimate: true,
-      chosenCandidateId: recommendation.result.chosen?.id ?? null },
+      chosenCandidateId: recommendation.result.chosen?.id ?? null,
+      feasible: recommendation.feasibility.feasible, disclosure: recommendation.disclosure },
     untrusted: { result: recommendation.result, explanation: recommendation.explanation, constraints: recommendation.constraints,
-      unconnectedCandidates: recommendation.unconnectedCandidates },
+      unconnectedCandidates: recommendation.unconnectedCandidates, feasibility: recommendation.feasibility },
     notes: ["Costs are static list-price estimates, not invoices; latency is approximate and not measured.",
       "Connection verification is stored metadata, not a fresh cloud permission check. Applying requires a person's reviewed manifest edit."],
   };

@@ -13,6 +13,7 @@ import {
   SIZE_SPECS,
   SKU_ROLES,
   SKU_ROLE_MAP,
+  allExtendedSkus,
   buildPriceBook,
   catalogSnapshotAt,
   knownRegions,
@@ -107,6 +108,8 @@ describe("catalog contents", () => {
         }
       }
     }
+    // extended dimensions (inter-AZ, storage I/O, cross-region backup copy) are priced only when a refreshed catalog carries them
+    for (const sku of allExtendedSkus(book.providers())) used.add(sku);
     for (const e of catalog.entries) expect(used.has(e.sku), "catalog sku " + e.sku + " is mapped to a role").toBe(true);
   });
 

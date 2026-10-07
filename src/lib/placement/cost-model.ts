@@ -6,7 +6,7 @@
  * keep each file focused.
  */
 import type { PortableKind } from "@/lib/resources/types";
-import type { CostLine, PriceCatalog, PriceEntry, PriceVerification, UsageAssumptions } from "@/lib/placement/types";
+import type { CostLine, CostUsage, ExtendedUsageAssumptions, PriceCatalog, PriceEntry, PriceTier, PriceVerification, UsageAssumptions } from "@/lib/placement/types";
 import { buildPriceBook, MissingPriceError, type PriceBook } from "@/lib/placement/pricebook";
 import { skuFor, type SkuRole } from "@/lib/placement/capabilities";
 import { containerShape, isPlacementSize, vmClass, type PlacementSize } from "@/lib/placement/sizes";
@@ -64,7 +64,7 @@ export interface CostGraph {
 
 export interface CostOptions {
   catalog: PriceCatalog | PriceBook;
-  usage?: UsageAssumptions;
+  usage?: CostUsage;
   /** policy default for database backup retention when a node does not set one */
   backupRetentionDays?: number;
   /** ISO timestamp stamped into `computedAt`; defaults to the catalog snapshot time (never the wall clock) */
@@ -111,6 +111,33 @@ export function resolveUsage(u: UsageAssumptions | undefined): Required<UsageAss
   }
   if (out.interComponentFraction > 1) throw new CostInputError("usage.interComponentFraction must be between 0 and 1.");
   return out;
+}
+
+const EXTENDED_USAGE_KEYS = ["interAzGb", "storageIoMillions", "crossRegionBackupCopyGb"] as const satisfies readonly (keyof ExtendedUsageAssumptions)[];
+
+/** Validated extended usage: only the dimensions the caller supplied (no defaults, never invented). */
+export function resolveExtendedUsage(u: CostUsage | undefined): ExtendedUsageAssumptions {
+  const out: ExtendedUsageAssumptions = {};
+  if (!u) return out;
+  for (const k of EXTENDED_USAGE_KEYS) {
+    const v = u[k];
+    if (v === undefined) continue;
+    if (typeof v !== "number" || !Number.isFinite(v) || v < 0) throw new CostInputError(`usage.${k} must be a finite number >= 0.`);
+    out[k] = v;
+  }
+  return out;
+}
+
+/** Marginal cost of `quantity` GB through ascending volume tiers. */
+export function tieredUsd(tiers: readonly PriceTier[], quantity: number): number {
+  let total = 0;
+  for (let i = 0; i < tiers.length; i++) {
+    const from = tiers[i]!.fromGb;
+    const to = i + 1 < tiers.length ? tiers[i + 1]!.fromGb : Infinity;
+    const gb = Math.min(quantity, to) - from;
+    if (gb > 0) total += gb * tiers[i]!.usd;
+  }
+  return total;
 }
 
 export function specOf(n: CostNode): Record<string, unknown> {
@@ -168,6 +195,8 @@ export class Ledger {
   readonly excluded = new Set<string>();
   readonly assumed: Record<string, number | string> = {};
   readonly unpricedProviders = new Set<string>();
+  /** true once any charged entry carried volume tiers (the first-tier-only exclusion note then no longer applies) */
+  tiersUsed = false;
   constructor(readonly book: PriceBook) {}
 
   /** entry for a role, or undefined (and an exclusion note) when the provider has no such role */
@@ -186,9 +215,26 @@ export class Ledger {
   charge(args: { address?: string; description: string; provider: string; region: string; role: SkuRole; quantity: number; basis: string; who?: string }): PriceEntry | undefined {
     const e = this.entry(args.provider, args.region, args.role, args.who ?? args.address ?? args.description);
     if (!e) return undefined;
+    return this.post(e, args);
+  }
+
+  /** price a quantity of an explicit catalog SKU (extended dimensions); a missing price refuses, never zero */
+  chargeSku(args: { address?: string; description: string; provider: string; region: string; sku: string; quantity: number; basis: string }): PriceEntry {
+    const e = this.book.find(args.provider, args.region, args.sku);
+    if (!e) throw new MissingPriceError(args.provider, args.region, args.sku);
+    return this.post(e, args);
+  }
+
+  private post(e: PriceEntry, args: { address?: string; description: string; quantity: number; basis: string }): PriceEntry {
     if (args.quantity <= 0) return e;
     const quantity = q6(args.quantity);
-    const raw = quantity * e.usd;
+    const tiered = e.tiers !== undefined && e.unit === "gb";
+    const raw = tiered ? tieredUsd(e.tiers!, quantity) : quantity * e.usd;
+    let basis = args.basis;
+    if (tiered) {
+      this.tiersUsed = true;
+      basis += `; volume tiers applied (${e.tiers!.map((x) => `from ${fmt(x.fromGb)} GB at USD ${fmt(x.usd)}/GB`).join(", ")}), blended unit price shown`;
+    }
     this.lines.push({
       line: {
         ...(args.address !== undefined ? { address: args.address } : {}),
@@ -196,9 +242,9 @@ export class Ledger {
         sku: e.sku,
         quantity,
         unit: e.unit,
-        unitUsd: e.usd,
+        unitUsd: tiered ? q6(raw / quantity) : e.usd,
         monthlyUsd: round2(raw),
-        basis: args.basis,
+        basis,
         ...(e.verification ? { priceVerification: e.verification } : {}),
       },
       raw,

@@ -45,20 +45,55 @@ are estimates, and no provider change or deployment is performed by this read.
 
 ## Estimates, forecasts and actuals
 
-Three different things, and **only the first exists**.
+Three different things, each its own type (`src/lib/cost/kinds.ts`).
 
 | Kind | Exists? | What it is |
 |---|---|---|
 | **Estimate** | Yes | A monthly USD figure computed from a resource graph, an assumed usage profile and the bundled list-price catalog. Deterministic: the same inputs give the same number, and `computedAt` is the catalog snapshot time, never the clock. Typed `kind: "estimate"`. |
-| **Forecast** | **No** | Nothing projects spend from observed usage or history. "Projected" in the policy input (`projectedMonthlyUsd`) means the *estimated total after the change*, not a forecast. |
-| **Actual** | **No** | Nothing reads a bill, a cost report, an invoice, a billing API or a tag-based cost allocation, in any account. There is no code path from a cloud's real charges into Zenith. |
+| **Forecast** | Code path built, gated | `kind: "forecast"`: a run-rate projection derived **only** from provider-reported actual spend (never from an estimate): the spend so far as a floor, plus the observed daily average over the remaining days. It refuses an ended period and fewer than one full observed day. "Projected" in the policy input (`projectedMonthlyUsd`) still means the *estimated total after the change*, not a forecast. |
+| **Actual spend** | Code path built, gated, not run live | `kind: "actual_spend"`: what a provider billing API reported for a period, with the SHA-256 of the response, the retrieval time and a `provisional` or `final` flag (final only five days after the period closed). Adapters exist for AWS Cost Explorer, the GCP Cloud Billing export in BigQuery, Azure Cost Management and the OCI Usage API. They run only behind `ZENITH_LIVE_<PROVIDER>=1` plus a credentials file reference, and have been exercised only against recorded, hand-built provider responses (contract level), never a real account. |
 
 So an estimate is never an invoice and the code is built not to let it be mistaken
 for one: `platform.cost_estimates` stores only `kind: "estimate"` documents and
-refuses anything else ("this store never records an invoice as a cost"), and every
-estimate carries the line "This is an estimate from a static list-price catalog, not
+refuses anything else ("this store never records an invoice as a cost"),
+`platform.actual_spend_snapshots` stores only `kind: "actual_spend"` documents that carry a response
+checksum, and every estimate carries the line "This is an estimate from a static list-price catalog, not
 an invoice or a quote". If a screen shows a figure from this engine it must say
 "estimate".
+
+### Estimates and budgets are not billing caps
+
+Nothing in Zenith stops, throttles or deletes anything because an estimate, a
+forecast or actual spend crossed a number. A **budget** is a planning limit on an
+**estimate**: placement refuses candidates whose estimated cost is over it and
+deploy plans warn before they run. It does not cap what your cloud provider
+bills. `src/lib/cost/wording.ts` holds the standard notices, and
+`findCapClaims` is the guard `tests/cost/kinds.test.ts` runs over the product
+copy so a sentence cannot present an estimate or budget as a hard limit.
+
+### Reading spend: `GET` and `POST /api/platform/v1/environments/:id/spend`
+
+`GET` (read scope) returns four separate fields: `estimate`, `actualSpend` (newest
+period first), `forecast` and `comparison`, plus the `disclosure`. `POST` (browser
+session only) asks the provider's billing API for one period and stores the
+answer. The billing account is taken from the environment's own verified
+connection (AWS account id, Azure subscription, OCI tenancy; for GCP the operator
+maps the project to its billing export table in `ZENITH_GCP_BILLING_EXPORT_TABLES`), never from the request,
+and repeating the same period inside ten minutes returns the stored snapshot
+instead of calling the provider again. With the gate closed it answers 409
+"Live billing reads are disabled on this deployment."
+
+Live billing gate, per provider (`AWS`, `GCP`, `AZURE`, `OCI`):
+
+```
+ZENITH_LIVE_<PROVIDER>=1
+ZENITH_LIVE_<PROVIDER>_BILLING_CREDENTIALS_FILE=<absolute path to a JSON credentials file>
+```
+
+Credentials are read only from that file and are never logged or returned.
+Currencies other than USD, a further result page, an unfinished BigQuery job or a
+period the provider API cannot answer faithfully are refused rather than summed
+or converted.
 
 ## What goes into an estimate
 
@@ -142,6 +177,47 @@ still refuses the whole estimate. A managed node on a provider without a
 catalog (including Kubernetes, sandbox and LocalStack) also refuses. Referenced
 and external nodes remain outside this estimate; their actual cost is unknown to
 Zenith, rather than asserted to be free in their owner's account.
+
+## Extended cost dimensions and egress volume tiers
+
+The base model already prices NAT hours and processed GB, public IPv4 hours, load
+balancer hours and capacity, internet egress, cross-region and cross-cloud
+transfer, object, queue and DNS requests, provisioned IOPS, backups and
+snapshots, and logs. Three more dimensions are priced **only when you supply the
+usage AND the catalog carries the price** (`src/lib/placement/extended-costs.ts`):
+
+| Usage field | Dimension | SKU pattern |
+|---|---|---|
+| `usage.interAzGb` | Data moving between availability zones of one region (split across compute sites) | `<provider>.data_transfer.inter_az_gb` |
+| `usage.storageIoMillions` | Billable storage I/O requests, per database, volume and VM | `<provider>.storage.io_million` |
+| `usage.crossRegionBackupCopyGb` | Backup copied to another region, per database | `<provider>.backup.cross_region_copy_gb` |
+
+Usage is never defaulted. Supplying one for a provider and region whose catalog
+has no price refuses the whole estimate (and the solver rejects that candidate
+with a `price:` reason); it is never priced at zero. When a dimension is priced
+the estimate says so in `included` and drops the matching exclusion.
+
+Internet egress can carry **marginal volume tiers** on the catalog entry
+(`tiers`: `fromGb` and `usd`, ascending and never rising with volume; the first tier is the entry
+price). When present each GB is charged at its tier and the line shows the
+blended unit price; the exclusion then reads "Free monthly allowances are not deducted; egress volume
+tiers follow the catalog tier schedule". Free allowances are never encoded: the first paid price
+starts at 0 GB, which over-estimates small volumes on purpose.
+
+The bundled catalog `2026-10-05.2` carries **no** tier schedules and none of the
+three extended prices. Which dimensions each provider and region is priced for is
+reported by `costDimensionCoverage(catalog)` and printed by the refresh tool.
+These dimensions become priced by refreshing the catalog from official files
+(next section).
+
+Infeasible constraints are refused with a typed report
+(`assessFeasibility` in `src/lib/placement/feasibility.ts`, returned as
+`feasibility` by `recommendPlacement`, the REST route, the `placement.recommend`
+action and the MCP tool): `feasible: false`, the binding blockers (budget,
+residency, availability, capability, pin, price, connection and others) with the
+rejected-candidate counts, the cheapest estimate that fails only on budget and
+its shortfall, and what to change. The budget section says it is an estimate and
+`notABillingCap: true`.
 
 ## Supported secret and Git-build profiles
 
@@ -293,8 +369,31 @@ managed tier four placeholder regions. A node in any other region throws
 
 ## Refreshing the catalog
 
-A refresh is a **deliberate, reviewed change**; nothing does it for you and no script
-exists. This snapshot refreshes only eight entries:
+A refresh is a **deliberate, reviewed change**; nothing applies one for you.
+`scripts/cost/refresh-catalog.ts` (`npm run cost:catalog -- <command>`) does the
+mechanical part:
+
+- `apply --snapshots <dir> --version <YYYY-MM-DD.n> --out <file>`: **offline**. Verifies every saved
+  official price file against the byte count and SHA-256 in `<dir>/manifest.json` (one edited byte refuses the
+  whole refresh), parses them with the AWS Price List, GCP Cloud Billing Catalog, Azure Retail Prices and
+  OCI price list normalizers, and writes a **new** catalog JSON that records the files it came from
+  (`snapshots`, each with URL, retrieval date and checksum). Entries it reads become `official_api` with the
+  retrieved note; a price that moves more than 50% (or drops to zero) is **not applied** and is flagged
+  until you allow it; entries it has no rule for keep their old value and old evidence class and are
+  counted ("not refreshed"). It prints the report and the cost dimensions still not priced, and never
+  edits the bundled catalog.
+- `fetch --providers aws,gcp,azure,oci --out <abs dir>`: **live and gated** by
+  `ZENITH_LIVE_CATALOG_REFRESH=1` (GCP also needs `ZENITH_LIVE_GCP_CATALOG_API_KEY_FILE`, sent as a header).
+  Saves public price files with checksums. Files over 450 MB (the AWS regional EC2 offer is near that) are refused.
+- `age [--max-days n]`: **offline**. Fails when the newest source retrieval is older than the limit.
+
+The normalizers encode the documented shape of each provider file and are tested
+against hand-built recorded fixtures in that shape, **not against live files**. Review the first live
+refresh's report line by line before adopting it. Adopting a refreshed catalog is still a reviewed change: add
+the file under `src/lib/placement/catalog/`, select it in `pricebook.ts`, update the pinned versions and figures
+in `tests/placement`, and update the counts table here.
+
+This snapshot refreshes only eight entries:
 
 - Four `aws.acm.public_cert_month` entries were checked against the
   [official ACM pricing page](https://aws.amazon.com/certificate-manager/pricing/)
@@ -377,9 +476,14 @@ required; a source retrieval date after the snapshot version date is refused.
 
 ## Remaining production gaps
 
-This bounded change does not refresh every weak price or migrate the legacy V1
-screens. Forecasts and actual spend still have no ingestion path. The existing
-solver remains deterministic and read-only, with its 15% optional cross-cloud
+The bundled catalog has not been refreshed from the tooling: weak prices remain
+weak, tier schedules and the three extended dimension prices are absent, and the
+first live refresh and the first live billing read against a real account have
+not been run (live acceptance is deferred). The billing credential for the
+gated reader is an operator-supplied file, not yet bound to Zenith's credential
+broker, and a scheduled collector that stores spend periodically does not exist:
+snapshots are stored only when a person asks. The legacy V1 screens are not
+migrated. The existing solver remains deterministic and read-only, with its 15% optional cross-cloud
 savings margin and explicit complexity/transfer/latency costs; it does not perform
 an autonomous economic migration. A repeated optimization workflow with current
 field ownership, approvals and durable cooldown remains separate work.

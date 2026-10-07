@@ -29,6 +29,7 @@ import * as approvals from "./approvals";
 import * as connections from "./connections";
 import * as connectionRotations from "./connection-rotations";
 import * as cost from "./cost";
+import * as actualSpend from "./actual-spend";
 import * as drift from "./drift";
 import * as events from "./events";
 import * as evidence from "./evidence";
@@ -64,6 +65,7 @@ export {
   connections,
   connectionRotations,
   cost,
+  actualSpend,
   drift,
   events,
   evidence,
@@ -123,6 +125,7 @@ export function bindRepos(sql: Sql) {
     connections: bind(connections, sql),
     connectionRotations: bind(connectionRotations, sql),
     cost: bind(cost, sql),
+    actualSpend: bind(actualSpend, sql),
     drift: bind(drift, sql),
     events: bind(events, sql),
     evidence: bind(evidence, sql),

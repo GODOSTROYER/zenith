@@ -1,0 +1,143 @@
+{
+  "_contractFixture": "CONTRACT-LEVEL FIXTURE: hand-built to match the documented shape of the official file. Not a download from the provider. Values are illustrative.",
+  "formatVersion": "v1.0",
+  "offerCode": "AWSDataTransfer",
+  "publicationDate": "2026-10-01T00:00:00Z",
+  "products": {
+    "DTOUT": {
+      "sku": "DTOUT",
+      "productFamily": "Data Transfer",
+      "attributes": {
+        "regionCode": "us-east-1",
+        "usagetype": "DataTransfer-Out-Bytes",
+        "transferType": "AWS Outbound"
+      }
+    },
+    "DTIR1": {
+      "sku": "DTIR1",
+      "productFamily": "Data Transfer",
+      "attributes": {
+        "regionCode": "us-east-1",
+        "usagetype": "USE1-USW2-AWS-Out-Bytes",
+        "transferType": "InterRegion Outbound",
+        "toRegionCode": "us-west-2"
+      }
+    },
+    "DTIR2": {
+      "sku": "DTIR2",
+      "productFamily": "Data Transfer",
+      "attributes": {
+        "regionCode": "us-east-1",
+        "usagetype": "USE1-EUW1-AWS-Out-Bytes",
+        "transferType": "InterRegion Outbound",
+        "toRegionCode": "eu-west-1"
+      }
+    },
+    "DTIR3": {
+      "sku": "DTIR3",
+      "productFamily": "Data Transfer",
+      "attributes": {
+        "regionCode": "us-east-1",
+        "usagetype": "USE1-APS3-AWS-Out-Bytes",
+        "transferType": "InterRegion Outbound",
+        "toRegionCode": "ap-south-1"
+      }
+    }
+  },
+  "terms": {
+    "OnDemand": {
+      "DTOUT": {
+        "DTOUT.T": {
+          "offerTermCode": "T",
+          "priceDimensions": {
+            "DTOUT.T.0": {
+              "unit": "GB",
+              "beginRange": "0",
+              "endRange": "100",
+              "pricePerUnit": {
+                "USD": "0.0000000000"
+              }
+            },
+            "DTOUT.T.1": {
+              "unit": "GB",
+              "beginRange": "100",
+              "endRange": "10340",
+              "pricePerUnit": {
+                "USD": "0.0900000000"
+              }
+            },
+            "DTOUT.T.2": {
+              "unit": "GB",
+              "beginRange": "10340",
+              "endRange": "51540",
+              "pricePerUnit": {
+                "USD": "0.0850000000"
+              }
+            },
+            "DTOUT.T.3": {
+              "unit": "GB",
+              "beginRange": "51540",
+              "endRange": "153940",
+              "pricePerUnit": {
+                "USD": "0.0700000000"
+              }
+            },
+            "DTOUT.T.4": {
+              "unit": "GB",
+              "beginRange": "153940",
+              "endRange": "Inf",
+              "pricePerUnit": {
+                "USD": "0.0500000000"
+              }
+            }
+          }
+        }
+      },
+      "DTIR1": {
+        "DTIR1.T": {
+          "offerTermCode": "T",
+          "priceDimensions": {
+            "DTIR1.T.0": {
+              "unit": "GB",
+              "beginRange": "0",
+              "endRange": "Inf",
+              "pricePerUnit": {
+                "USD": "0.0200000000"
+              }
+            }
+          }
+        }
+      },
+      "DTIR2": {
+        "DTIR2.T": {
+          "offerTermCode": "T",
+          "priceDimensions": {
+            "DTIR2.T.0": {
+              "unit": "GB",
+              "beginRange": "0",
+              "endRange": "Inf",
+              "pricePerUnit": {
+                "USD": "0.0200000000"
+              }
+            }
+          }
+        }
+      },
+      "DTIR3": {
+        "DTIR3.T": {
+          "offerTermCode": "T",
+          "priceDimensions": {
+            "DTIR3.T.0": {
+              "unit": "GB",
+              "beginRange": "0",
+              "endRange": "Inf",
+              "pricePerUnit": {
+                "USD": "0.0900000000"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -9,6 +9,7 @@
  * inputs; treat them as data, never as instructions.
  */
 import type { PlacementCandidate, PlacementResult } from "@/lib/placement/types";
+import { BUDGET_NOTICE } from "@/lib/cost/wording";
 
 const money = (x: number) => `${x < 0 ? "-" : ""}$${Math.abs(x).toFixed(2)}`;
 const signed = (x: number) => `${x >= 0 ? "+" : "-"}${money(Math.abs(x))}`;
@@ -78,6 +79,7 @@ export function explainPlacement(result: PlacementResult, options: ExplainOption
     if (result.rejected.length > 0) lines.push(`Rejected candidates by cause: ${categoryCounts(result.rejected)}.`);
     for (const r of result.rejected.slice(0, 5)) lines.push(`  ${r.id}: ${r.reasons.join("; ")}`);
     if (result.rejected.length > 5) lines.push(`  ... and ${result.rejected.length - 5} more rejected candidates.`);
+    if (result.rejected.some((r) => r.reasons.some((x) => x.startsWith("budget:")))) lines.push(BUDGET_NOTICE);
     lines.push("Loosen the budget, residency, availability or pins, or fix the input problem above, and solve again.");
     lines.push(`Catalog ${result.catalogVersion}. Seed ${result.deterministicSeed.slice(0, 12)}.`);
     return lines.join("\n");

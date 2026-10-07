@@ -16,6 +16,7 @@
  */
 import { Scale } from "lucide-react";
 import type { PlacementCandidate, PlacementResult } from "@/lib/placement/types";
+import type { FeasibilityReport } from "@/lib/placement/feasibility";
 import { fmtUsd } from "@/lib/format";
 import { Callout } from "@/components/ui/callout";
 import { Card } from "@/components/ui/card";
@@ -39,6 +40,8 @@ export interface PlacementComparisonProps extends AsyncSurfaceProps {
     alternatives: ComparedCandidate[];
   };
   title?: string;
+  /** why nothing fits, when nothing does: binding blockers, the nearest budget miss and what to change */
+  feasibility?: FeasibilityReport;
 }
 
 const TOPOLOGY: Record<NonNullable<ComparedCandidate["topology"]>, string> = {
@@ -70,7 +73,7 @@ function Latency({ c }: { c: PlacementCandidate }) {
   );
 }
 
-export function PlacementComparison({ result, title = "Placement options", loading, error, onRetry }: PlacementComparisonProps) {
+export function PlacementComparison({ result, title = "Placement options", loading, error, onRetry, feasibility }: PlacementComparisonProps) {
   const candidates: { candidate: ComparedCandidate; chosen: boolean }[] = result
     ? [
         ...(result.chosen ? [{ candidate: result.chosen, chosen: true }] : []),
@@ -82,7 +85,7 @@ export function PlacementComparison({ result, title = "Placement options", loadi
   return (
     <Card
       title={title}
-      subtitle="Zenith's solver picks by fixed rules from your constraints. Costs are estimates, latencies are estimated from a table."
+      subtitle="Zenith's solver picks by fixed rules from your constraints. Costs are estimates, latencies are estimated from a table, and a budget is a planning limit on estimates, not a cap on what your cloud bills."
     >
       <SurfaceGate loading={loading} error={error} onRetry={onRetry} what="placement options" rows={4}>
         {!result ? (
@@ -97,6 +100,20 @@ export function PlacementComparison({ result, title = "Placement options", loadi
               <Callout tone="warn" title="No placement meets every constraint">
                 Zenith found no option that satisfies all of your constraints, so it is not recommending one.
                 {result.rejected.length > 0 ? " The reasons each option was ruled out are listed below." : ""}
+                {feasibility && !feasibility.feasible && feasibility.blockers.length > 0 && (
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {feasibility.blockers.map((b) => (
+                      <li key={b.kind}>{b.message}</li>
+                    ))}
+                  </ul>
+                )}
+                {feasibility?.budget?.cheapestOtherwiseFeasibleUsdMonthly !== undefined && (
+                  <p className="mt-2">
+                    The cheapest option that meets everything else is estimated at {fmtUsd(feasibility.budget.cheapestOtherwiseFeasibleUsdMonthly)} a month, {fmtUsd(feasibility.budget.shortfallUsdMonthly ?? 0)} over
+                    your {fmtUsd(feasibility.budget.limitUsdMonthly)} budget. {feasibility.budget.notice}
+                  </p>
+                )}
+                {feasibility && feasibility.remedies.length > 0 && <p className="mt-2">{feasibility.remedies.join(" ")}</p>}
               </Callout>
             ) : (
               <div className="overflow-x-auto">

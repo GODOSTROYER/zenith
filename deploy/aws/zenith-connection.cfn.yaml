@@ -1320,7 +1320,7 @@ Resources:
           - Sid: NeverReadSecretValues
             Effect: Deny
             Action: [secretsmanager:GetSecretValue, ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
-            NotResource: !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:parameter/zenith${NameSuffix}/*"
+            NotResource: !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:parameter/zenith${NameSuffix}/image-pointer/*"
 
   # ------------------------------------------------- deploy: network + EC2
   # Pattern used throughout: NEW resources must be created WITH the tag
@@ -1602,7 +1602,7 @@ Resources:
               - ssm:AddTagsToResource
               - ssm:RemoveTagsFromResource
               - ssm:ListTagsForResource
-            Resource: !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:parameter/zenith${NameSuffix}/*"
+            Resource: !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:parameter/zenith${NameSuffix}/image-pointer/*"
           # aws_elasticache_user and aws_elasticache_user_group (IAM-authenticated RBAC).
           - Sid: ElastiCacheCreateTaggedUsers
             Effect: Allow

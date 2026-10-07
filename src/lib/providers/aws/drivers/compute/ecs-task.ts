@@ -22,7 +22,7 @@
  *               (TofuFragment has no `variable` key and TF_VAR_* is refused by
  *               the runner), so the image that a build produced cannot be
  *               passed in as a variable. Instead the image reference lives in an
- *               SSM parameter ("image pointer", `/zenith/<environment>/<node>/image`):
+ *               SSM parameter ("image pointer", `/zenith<suffix>/image-pointer/<environment>/<node>/image`):
  *               tofu creates it once with a bootstrap value and then ignores its
  *               value; the deploy workflow's `deployImage` writes the new
  *               digest there, and the task definition reads it through a data
@@ -82,8 +82,9 @@ export const BOOTSTRAP_TAG = "zenith-bootstrap";
 
 /** SSM parameter holding the deployed image of a built workload. */
 export function imagePointerName(environmentId: string, address: string, bootstrapNameSuffix = ""): string {
-  // The prefix carries the saved bootstrap suffix: the bootstrap grants SSM access to exactly /zenith<suffix>/*.
-  return `/zenith${bootstrapNameSuffix}/${environmentId}/${address}/image`;
+  // Dedicated sub-path: the bootstrap grants SSM access to exactly /zenith<suffix>/image-pointer/*, so no other
+  // parameter under /zenith (workload-read config or secrets) is reachable through that grant.
+  return `/zenith${bootstrapNameSuffix}/image-pointer/${environmentId}/${address}/image`;
 }
 
 const ENV_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;

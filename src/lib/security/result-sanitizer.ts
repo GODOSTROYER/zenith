@@ -26,6 +26,7 @@
  * Pure and synchronous; never throws.
  */
 import { credentialPatternsIn, redactCredentials } from "@/lib/credentials/redact";
+import { isRawPlanRecord, isRawPlanString } from "@/lib/security/raw-plan-material";
 
 export const MAX_SANITIZE_NODES = 50_000;
 export const MAX_SANITIZE_DEPTH = 24;
@@ -253,6 +254,11 @@ export function sanitizeForModel<T>(value: T, options: SanitizeOptions = {}): { 
       return marker("unscanned");
     }
     if (typeof node === "string") {
+      // PROD-DUR-05: the binary plan (zip container in base64) never reaches a model, whatever member it sits in.
+      if (isRawPlanString(node)) {
+        c.hit("raw-plan-material", path);
+        return marker("raw-plan-material");
+      }
       if (forced && !isReferenceValue(node)) {
         c.hit("secret-member", path);
         return marker("secret-member");
@@ -270,6 +276,11 @@ export function sanitizeForModel<T>(value: T, options: SanitizeOptions = {}): { 
     const obj = node as object;
     if (seen.has(obj)) return "[Circular]";
     seen.add(obj);
+    // PROD-DUR-05: sealed custody records and plan-byte carriers are structurally withheld, with an explicit marker.
+    if (!Array.isArray(obj) && isRawPlanRecord(obj)) {
+      c.hit("raw-plan-material", path);
+      return marker("raw-plan-material");
+    }
     if (obj instanceof Error) return { name: scanString(obj.name, c, path, exact), message: scanString(obj.message, c, `${path}.message`, exact) };
     if (obj instanceof Map) return walk(Object.fromEntries(obj), path, depth, forced);
     if (obj instanceof Set) return walk([...obj], path, depth, forced);
@@ -317,7 +328,7 @@ export function redactionNote(report: SanitizeReport): string | undefined {
   return `${report.redactions} value(s) were replaced by [REDACTED:<kind>] markers (${report.kinds.join(", ") || "none"}). ${SANITIZER_NOTE}`;
 }
 
-const NON_SHAPE_KINDS = new Set(["secret-assignment", "secret-member", "unscanned", "unscanned-tail", "binary", "known-secret", "long-base64", "aws-secret-access-key", "authorization-header"]);
+const NON_SHAPE_KINDS = new Set(["raw-plan-material", "secret-assignment", "secret-member", "unscanned", "unscanned-tail", "binary", "known-secret", "long-base64", "aws-secret-access-key", "authorization-header"]);
 
 /**
  * High-confidence credential shapes (private key, cloud key id, JWT, vendor token) found in `value`,

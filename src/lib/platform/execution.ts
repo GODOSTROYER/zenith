@@ -5,6 +5,7 @@
  */
 import { createPlatformSemanticsStore } from "@/lib/controlplane/db/repos/executable-semantics";
 import { createPlanArtifactRuntime } from "./plan-artifacts";
+import { withWorkerCustody } from "./plan-custody";
 import { hkdfSync } from "node:crypto";
 import type { Sql } from "@/lib/controlplane/types";
 import { createExecutionActivities, createPlatformPorts, createPortabilityPort, createProductPort, createSafeProber, defaultCostPort, type ExecutionDeps } from "@/lib/execution";
@@ -89,13 +90,14 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     if ((custodyDb as Sql & {kind?:string}).kind!=="postgres") throw new Error("Production execution requires PostgreSQL durable plan custody.");
     return custodyRuntime??=createPlanArtifactRuntime(custodyDb,custodyEnv);
   };
-  const planArtifacts:NonNullable<ExecutionDeps["planArtifacts"]>=injectedArtifacts??{
+  // PROD-DUR-05: every artifact operation by this worker is admitted, identity-verified and audited; refusal precedes any read or dispatch.
+  const planArtifacts:NonNullable<ExecutionDeps["planArtifacts"]>=injectedArtifacts??withWorkerCustody({
     kind:"postgres",
     associate:input=>custody().planArtifacts.associate(input),
     publish:input=>custody().planArtifacts.publish(input),
     inspect:(input,fn)=>custody().planArtifacts.inspect(input,fn),
     consume:(input,fn)=>custody().planArtifacts.consume(input,fn),
-  };
+  },{db:custodyDb,workerIdentity:opts.workerIdentity,env:custodyEnv});
   const tofu:NonNullable<ExecutionDeps["tofu"]>=opts.ports?.tofu??{
     planWorkspace:(...args)=>custody().tofu.planWorkspace(...args),
     applyVerifiedPlan:(...args)=>custody().tofu.applyVerifiedPlan(...args),

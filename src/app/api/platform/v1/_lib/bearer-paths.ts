@@ -28,6 +28,12 @@ export const PLATFORM_PATHS: readonly {
   // Portability: stored verified exports, restores and adoptions are readable; starting an approved export, import, adopt or release needs the approver's own browser.
   { path: new RegExp(`^${ROOT}/environments/${ID}/portability$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/operations/${ID}/start-portability$`), methods: { POST: "browser-only" } },
+  // State backend recovery (PROD-DUR-06): the capability matrix, a read-only probe and a proposal are open to a person or a human-bound credential;
+  // approving, rejecting and running a restore need the approver's own browser.
+  { path: new RegExp(`^${ROOT}/environments/${ID}/state-backend$`), methods: { GET: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/environments/${ID}/state-backend/probe$`), methods: { POST: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/environments/${ID}/state-backend/restores$`), methods: { POST: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/environments/${ID}/state-backend/restores/(?:approve|reject|execute)$`), methods: { POST: "browser-only" } },
   // Signed runbooks: publish and approve need the person's browser; agents may request, schedule, cancel and read.
   { path: new RegExp(`^${ROOT}/runbooks$`), methods: { GET: "bearer-capable", POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/runbooks/${ID}/(?:runs|schedules)$`), methods: { POST: "bearer-capable" } },

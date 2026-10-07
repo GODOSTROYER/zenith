@@ -9,6 +9,7 @@ import type { OperationRecord, Sql } from "@/lib/controlplane/types";
 import type { PlanView } from "@/lib/tofu/plan";
 import { redactOutput } from "@/lib/tofu/redact";
 import { readExecutableSemantics, type ExecutableSemantics } from "@/lib/execution/semantics/digest";
+import { containsRawPlanMaterial } from "@/lib/security/raw-plan-material";
 
 const factText = z.string().max(500);
 const text = factText.transform((s) => redactOutput(s).replace(/[\u0000-\u001f\u007f]/g, " "));
@@ -70,6 +71,8 @@ export function operationPlanReview(record: OperationRecord): OperationPlanRevie
 
 export function projectPlanReview(summary: Record<string, unknown>, planDigest: string): OperationPlanReview | undefined {
   if (summary.stage !== "plan" || summary.planDigest !== planDigest) return undefined;
+  // PROD-DUR-05: a stored summary carrying raw custody material is never a reviewable PlanView; fail closed.
+  if (containsRawPlanMaterial(summary)) return undefined;
   const view = ViewSchema.safeParse(summary.view);
   const facts = ReviewFactsSchema.safeParse(summary.facts);
   if(view.success && (view.data.executableSourceDigest!==summary.executableSourceDigest || Buffer.byteLength(JSON.stringify(view.data))>40_000))return undefined;

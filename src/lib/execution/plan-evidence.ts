@@ -23,6 +23,7 @@ import { z } from "zod";
 import { digest } from "@/lib/controlplane/digest";
 import type { PlanFacts } from "@/lib/policy/types";
 import { planView, type PlanView } from "@/lib/tofu/plan";
+import { assertPlanViewOnly } from "@/lib/security/raw-plan-material";
 import type { NormalizedPlan } from "@/lib/tofu/types";
 import type { PlanSummary } from "@/lib/workflows/types";
 import { safeText } from "./text";
@@ -125,6 +126,8 @@ export function planEvidence(input: PlanEvidenceInput): { digest: string; key: s
     ...(input.repairBinding ? { repairBinding: input.repairBinding, repairBindingDigest: repairBindingDigest(input.repairBinding) } : {}),
     ...(input.stage === "final_plan" && input.approvedDigest ? { approvedDigest: input.approvedDigest, matchesApproved: input.approvedDigest === plan.planDigest } : {}),
   };
+  // PROD-DUR-05: evidence is the sanitized PlanView side only; raw custody material can never be persisted here.
+  assertPlanViewOnly(summary);
   return { digest: plan.planDigest, key: `${input.stage}:${plan.planDigest}`, summary };
 }
 

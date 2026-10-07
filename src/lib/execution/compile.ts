@@ -41,6 +41,7 @@ import { assembleWorkspace, TofuWorkspaceError, type BackendConfig } from "@/lib
 import type { ProviderSetName, ProviderSetSpec } from "@/lib/tofu/providers";
 import type { TofuWorkspace } from "@/lib/tofu/types";
 import { backendForConnection } from "@/lib/tofu/backends";
+import { assertBackendAdmissible } from "@/lib/tofu/backend-capabilities";
 import { scanHclTemplate } from "@/lib/tofu/hcl-template";
 import type { ExecContext } from "./context";
 import { StepFailedError } from "./errors";
@@ -216,7 +217,10 @@ function backendFor(ec: ExecContext, connection: ProviderConnection, overrides?:
   try {
     // aws: S3 (key unchanged: zenith/<ws>/<env>/terraform.tfstate); gcp: GCS; azure: azurerm (Entra);
     // oci: S3-compatible Object Storage. Kubernetes needs an explicit override.
-    return backendForConnection(connection, { workspaceId: ec.workspaceId, environmentId: ec.environmentId });
+    const chosen = backendForConnection(connection, { workspaceId: ec.workspaceId, environmentId: ec.environmentId });
+    // PROD-DUR-06: refuse a backend that definitely cannot lock or encrypt state. Unverified properties stay visible to restore, not hidden.
+    assertBackendAdmissible(chosen.backend);
+    return chosen;
   } catch (err) {
     if (err instanceof TofuWorkspaceError) throw new StepFailedError(`State backend refused: ${safeText(err.message, 400)}`);
     throw err;

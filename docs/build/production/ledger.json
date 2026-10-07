@@ -716,7 +716,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "migration42_source_reviewed_targeted_pass_native_pg_compiler_ci_pending",
+      "implementationStatus": "migration42_repaired_native_verified_whole_ci_failed_9b568108",
       "evidence": [
         {
           "level": "local_engine",
@@ -1227,6 +1227,24 @@
           "command": "vitest touched migration/compat/inventory tests with named filters, serial worker; eslint touched TS; emit-sql --check; historical byte comparison; tsc --noEmit --incremental false",
           "environment": "Darwin nativeARM64 8GiB; Node22.23.3; Vitest4.1.11; PGlite embedded engine. Docker stopped; no native PostgreSQL acceptance or architecture-container claim.",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-migration42-local.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "9b56810829ecf1467ce2c20571bc060af1f39144",
+          "result": "Migration9 passed /0 failed /48 filtered siblings: actual networkedPG4, embedded4, purecontract1. Effects96 passed /0 failed /0 skipped: actual networkedPG48 plus embedded48. Compilerpassed4GiB/53.97s; prior2GiB exit134 retained. Both ownedservers stopped/data removed; disk remained above22GiB. Overlapping counts not summed. Broader CI still pending/failed, no promotion.",
+          "command": "Owned PostgreSQL16.15 loopback fixtures; serial migration/compat filtered cases; serial ledger/build-launch full suites; guarded tsc --noEmit --incremental false with4GiB heap",
+          "environment": "This Mac nativeDarwinARM64 8GiB; Node22.23.3; PostgreSQL16.15 native server; Vitest4.1.11; shared_buffers32MB/max_connections25; no Docker/default API/cloud acceptance",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-migration42-native.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "9b56810829ecf1467ce2c20571bc060af1f39144",
+          "result": "20 terminal jobs:14 passed /6 failed. Unit21569P175F1610S; platform3705P41F15S; workflows1302P29F0S; tofu4315P5F19S; intents154P2F0S; generated104P6F0S. Counts overlap; no sums. NativeAMD64 and ARM64 each22P0F0S with all6cleanupflags. SeparatePG379P0F0S required93. Unitjob44m23s actual test failure, not timeout; downstream smoke/Gimbal steps skipped. No new normalized failed identities; source guard/refusal/provider/guide failures remain. No promotion.",
+          "command": "Inspect all terminal jobs on runs37663658515,37663658448,37663658268; bounded actual failed-job summaries plus canonical platform/native artifacts",
+          "environment": "GitHub hosted Linux canonical verification; separate nativeLinuxAMD64/ARM64 workers, nativeLinuxsystemd and nativeWindowsACL. Mac nativePG/compiler receipts separate; no default-stack/live-cloud proof.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-9b568108-ci-jobs.json",
+          "runId": 37663658515,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515"
         }
       ],
       "requiredEvidence": [
@@ -1253,7 +1271,7 @@
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "verification_failed_c02c097e_six_current_ci_jobs; historical80bb7352green_and_local_bootstrap_retained",
+      "implementationStatus": "migration42_repaired_native_verified_whole_ci_failed_9b568108",
       "evidence": [
         {
           "level": "remote_ci",
@@ -1591,6 +1609,16 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-c02c097e-ci-jobs.json",
           "runId": 37621641842,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "9b56810829ecf1467ce2c20571bc060af1f39144",
+          "result": "20 terminal jobs:14 passed /6 failed. Unit21569P175F1610S; platform3705P41F15S; workflows1302P29F0S; tofu4315P5F19S; intents154P2F0S; generated104P6F0S. Counts overlap; no sums. NativeAMD64 and ARM64 each22P0F0S with all6cleanupflags. SeparatePG379P0F0S required93. Unitjob44m23s actual test failure, not timeout; downstream smoke/Gimbal steps skipped. No new normalized failed identities; source guard/refusal/provider/guide failures remain. No promotion.",
+          "command": "Inspect all terminal jobs on runs37663658515,37663658448,37663658268; bounded actual failed-job summaries plus canonical platform/native artifacts",
+          "environment": "GitHub hosted Linux canonical verification; separate nativeLinuxAMD64/ARM64 workers, nativeLinuxsystemd and nativeWindowsACL. Mac nativePG/compiler receipts separate; no default-stack/live-cloud proof.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-9b568108-ci-jobs.json",
+          "runId": 37663658515,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515"
         }
       ],
       "requiredEvidence": [

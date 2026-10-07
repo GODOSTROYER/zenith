@@ -1,3 +1,17 @@
+## Native migration42 successor, 7 October 2026
+
+Tested `9b56810829ecf1467ce2c20571bc060af1f39144`: migration9/0 with48 filtered
+siblings (four networked PostgreSQL, four embedded, one pure contract); effects
+96/0/0 (48 networked,48 embedded). Compilerpassed4GiB/53.97s after original
+2GiB exit134. Disk remained above22GiB. Temporary PostgreSQL16.15 native Mac
+servers/data/socket directories removed; unused installer cluster removed; Docker
+unused. Not default Supabase, API/operator/cloud or Linux-container evidence.
+No requirement promotion. [Sanitized native receipt](../evidence/PROD-CI-08/2026-10-07-migration42-native.json).
+Complete9b CI:14 passed /6 failed across20 terminal jobs. Unit21569/175/1610;
+platform3705/41/15; workflows1302/29/0; tofu4315/5/19; intents154/2/0; generated104/6/0.
+Counts overlap. Native workers each22/22. [Every job](CI-2026-10-07-9b568108.md).
+Publication successor CI remains separate; broader failure classes remain open.
+
 ## Additive migration42 repair, 7 October 2026
 
 Fix `cc9fb51bb639f1e7813a8ad4977b647b24e0d3ad`: published33 regex bound repaired by new42/0024; history untouched,

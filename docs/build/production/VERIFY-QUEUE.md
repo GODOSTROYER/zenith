@@ -1,3 +1,11 @@
+PROD-CI-09: in_progress;9b568108; all20CIjobs inspected14passed/6failed.
+[Report](verification/CI-2026-10-07-9b568108.md).
+
+## Results: native migration42 successor
+
+PROD-CI-08: in_progress;9b568108; migration9/0/48filtered, effects96/0/0,
+compilerpassed; full9b CI14passed/6failed, all20terminal; no promotion. [Results](verification/RESULTS-2026-10.md#native-migration42-successor-7-october-2026).
+
 ## Results: migration42 repair, 7 October 2026
 
 PROD-CI-08: in_progress; `cc9fb51bb639f1e7813a8ad4977b647b24e0d3ad`; local focused8/0/105filtered, nativePG/compiler/CI

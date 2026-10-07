@@ -1,3 +1,20 @@
+## Migration42 native acceptance and complete CI successor
+
+User authorized additive migration repair on7October. Fixcc9fb51b plus inventory
+correction9b568108 preserves published33/history, adds42/0024 and retains exact-SQL
+contract approval plus explicit drained-writer admission. Native same-Mac PostgreSQL
+and compiler checks passed; owned test databases cleaned, Docker unused.
+
+Exact9b CI inspected all20terminal jobs:14passed /6failed. Unit21569/175/1610;
+platform3705/41/15; counts overlap. CI08/09 stay in_progress; ledger10/49/19 across78
+rows; all four release flags false. Publication successor CI remains separate.
+Latest identity: author and committer Arnav Bule, per latest human authorization.
+
+Read [builder changes and safe next steps](verification/BUILDER-MIGRATION42-2026-10-07.md)
+and [every exact-source CI job](verification/CI-2026-10-07-9b568108.md).
+Earlier entries retain historical scope; nativePG/compiler pending claims are
+superseded for this repair only. DefaultMac journey and broader builder fixes remain open.
+
 ## Incoming builder CI stop, 7 October 2026
 
 Merged newer builder source `c02c097e79de032e9414c104183961329e834c77`, preserving62 incoming commits and source80 verifier history. Current builder CI: **14 jobs passed /6 failed**; prior80bb7352 green result remains historical. CI08/09 reopened; ledger **10 verified /49 in progress /19 planned**, recomputed across78 rows. All criteria and four false release flags retained. [Every current job, counts and causes](verification/CI-2026-10-07-c02c097e.md), [stop and next work](verification/RESULTS-2026-10.md#incoming-builder-ci-stop-2026-10-07).

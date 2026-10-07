@@ -3,6 +3,13 @@
 Fix commit: `cc9fb51bb639f1e7813a8ad4977b647b24e0d3ad`. Branch: `codex/production-2026-10-02`.
 Last upstream check: already current at822e7867 before repair; check again before publishing.
 
+## Current status
+
+Native same-Mac migration and ledger checks plus compiler passed on9b568108;
+see native acceptance successor below. No need to repeat completed repair merely
+because older preparation entries said pending. Full9b CI finished14 passed /6 failed, all20 jobs terminal. Other known failures
+stay open. All release states false.
+
 ## Change and upgrade contract
 
 Published migration33 used PostgreSQL regex bounds `{1,256}`; PostgreSQL rejects
@@ -50,7 +57,7 @@ Counts overlap. Ledger stays78 rows: 10 verified /
 49 in progress /19 planned. Four release states false.
 Sanitized receipt: `evidence/PROD-CI-08/2026-10-07-migration42-local.json`.
 
-## Next executable steps
+## Earlier preparation commands, now superseded where native acceptance passed
 
 1. Restore disk above22GiB plus enough runtime growth margin. Latest20.66GiB;
    helper found no safe recovery. No Docker startup while below floor.
@@ -95,3 +102,64 @@ routes13/0/0; provider-resolvers10/1/0 and resolvers18/1/0. Remaining failures:
 Azure ACR Tasks readback HTTP404 and cleanup readback returns present where
 unavailable was expected. Preserve as builder findings; migration regex errors
 no longer appear in these suites. Counts overlap other lanes and are not summed.
+
+## Current native acceptance successor
+
+Tested `9b56810829ecf1467ce2c20571bc060af1f39144` on this Mac after disk recovered
+above 22 GiB. Compiler passed with a 4 GiB heap in 53.97 seconds; minimum free
+space remained above the floor. Original exit134 attempt remains recorded.
+
+Installed PostgreSQL 16.15 native ARM64 server package. Homebrew additionally
+installed json-c0.19 and upgraded its xz dependency to5.8.4; prior xz keg retained.
+Other existing prerequisites and project package manifests/lockfile stayed unchanged.
+No Homebrew service was started. Two uniquely owned,
+loopback-only temporary servers used 32 MB shared buffers and 25 connections.
+This is a SQL fixture topology, not default Supabase or product authorization proof.
+
+Migration acceptance: 9 passed / 0 failed / 48 filtered siblings: four real
+networked PostgreSQL cases, four embedded engine cases and one pure contract case.
+Actual schema41 upgrade, missing-drain refusal, exact256 boundaries, history and
+authority preservation, fresh SQL, reapplication and narrow role grants passed.
+Ledger/build-launch acceptance: 96 passed / 0 failed / 0 skipped, comprising
+48 networked PostgreSQL cases and 48 embedded cases. Counts overlap earlier
+runs; never sum them. Both servers stopped, both data/socket directories removed,
+installer-created unused default cluster removed, private connection file deleted.
+Server binaries retained for reuse. Docker stayed stopped and untouched.
+
+Native receipt: `evidence/PROD-CI-08/2026-10-07-migration42-native.json`.
+Earlier resource-blocked statements are historical, superseded for these SQL and
+compiler checks only. Default Mac stack still needs image/swap headroom; no API,
+browser, cloud, packaged-container or release approval is established here.
+Final9b CI is complete14/6; original broader failures stay open.
+
+## Current next steps for builder
+
+1. Fetch same branch normally; preserve42/0024 and use a later additive version
+   for any separate new migration. Do not weaken its contract/drain admission.
+2. Address remaining approved-semantics bindings, historical standing-grant fixtures,
+   provider/cleanup readbacks, global-maintenance tenancy assertion, strict gate
+   count projections and existing six operator-guide regressions in owned lanes.
+3. Run mandatory combined gates on that repaired source. Native SQL/compiler evidence
+   above applies to9b only; rerun relevant scopes when their inputs change.
+4. Restore image/swap headroom before default Mac composition. No live cloud,
+   privateGitHubApp/DNS or production/retention authority was granted.
+
+## Complete exact-source CI verdict
+
+All20 jobs on9b568108 inspected:14 passed /6 failed. Unit21569/175/1610;
+platform3705/41/15; workflows1302/29/0; tofu4315/5/19; intents154/2/0;
+generated104/6/0. Counts are passed/failed/skipped and overlap. Compared with
+prior c02/822 case identities,207 platform and85 unit failures resolved, no new
+normalized failure identities. Workflow two Azure journal cases resolved. Never
+sum these improvements across overlapping lanes. Unit job44m23s (unit41m01s)
+ended with real test failures, within45-minute limit; no timeout claim.
+Smoke/Gimbal downstream steps were skipped after unit failure, separate from1610
+unit test skips. NativeLinuxAMD64 and ARM64 each22/22 with allsix cleanup flags;
+WindowsACL and Linuxsystemd scoped harness checks passed. No Mac default journey,
+live cloud or production sign-off inferred.
+
+[Every job and exact counts](CI-2026-10-07-9b568108.md).
+This following documentation/evidence publication has identical non-doc source;
+its own CI remains separate and must be inspected on its exact SHA. Do not report
+it green using9b's results. Safe resume: list runs for published HEAD, inspect each
+job and append any new findings; retain9b report as its own historical source.

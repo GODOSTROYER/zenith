@@ -1,3 +1,12 @@
+## 7 October 2026: native migration42 acceptance
+
+Tested9b568108: migration9/0/48filtered; effects96/0/0,48 actual networkedPG and
+48 embedded. Compiler4GiB passed53.97s. Owned nativeMacPG cleaned; Docker unused.
+Full9b CI14 passed /6 failed, all20 terminal. Unit21569/175/1610; platform3705/41/15,
+counts overlap. Publication successor CI separate. Ledger10verified /49in_progress /19planned,
+all78 requirements and four false release states retained. Counts overlap prior
+runs. [Builder resume](verification/BUILDER-MIGRATION42-2026-10-07.md).
+
 ## 7 October 2026: migration42 source checkpoint
 
 Integrated fix `cc9fb51bb639f1e7813a8ad4977b647b24e0d3ad`;8 focused passes,105 filtered siblings; wider87/15/11

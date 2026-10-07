@@ -2,7 +2,7 @@
 
 Read [builder migration42 handoff](verification/BUILDER-MIGRATION42-2026-10-07.md)
 first. New42/0024 source fix, scoped contract admission, test results and resource
-blockers recorded; native PostgreSQL/compiler/fresh CI remain open.
+blockers recorded; native PostgreSQL/compiler now passed on9b568108; complete9b CI inspected14/6; broader failures and publication successor CI remain open.
 
 ## Incoming builder CI stop, 7 October 2026
 

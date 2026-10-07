@@ -1,3 +1,17 @@
+## Migration42 repair successor, 7 October 2026
+
+Published fix cc9fb51b plus inventory correction9b568108 closes the specific
+migration33 regex defect locally: native Mac PostgreSQL16.15 fresh/41upgrade,
+bounds/refusals/grants/reapplication passed; compiler4GiB passed. New migration42
+and emitted0024 preserve all published history. Do not rebuild this repair or
+reuse version42 for an unmerged builder candidate. Upgrade requires exact SQL
+registration plus drained writers and explicit ALLOW42; no permanent startup flag.
+
+[Builder changes and next commands](../verification/BUILDER-MIGRATION42-2026-10-07.md).
+Other semantics/provider/tenancy-fixture/guide failures remain open. Full9b CI inspected14 passed /6 failed, all20terminal; no release promotion. Earlier stop entries below
+are historical and retain their source scope. Default Mac stack still needs more
+image/swap headroom; DEC-CLOUD remains unapproved.
+
 ## Current builder integration failures, 7 October 2026
 
 Currentc02c097e CI14successful/6failedjobs, newer than historical80green. [Exact failure report](../verification/CI-2026-10-07-c02c097e.md), [source-supported stop](../verification/RESULTS-2026-10.md#incoming-builder-ci-stop-2026-10-07). CI08/09 reopened; ledger10/49/19.

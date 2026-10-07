@@ -1,0 +1,270 @@
+{
+  "sourceCommit": "9b56810829ecf1467ce2c20571bc060af1f39144",
+  "poll": 50,
+  "elapsedSeconds": 2709.4,
+  "terminal": true,
+  "runs": [
+    {
+      "runId": 37663658515,
+      "sourceCommit": "9b56810829ecf1467ce2c20571bc060af1f39144",
+      "name": "CI",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515",
+      "status": "completed",
+      "conclusion": "failure",
+      "jobs": [
+        {
+          "databaseId": 112937949294,
+          "name": "ledger",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949294",
+          "counts": null,
+          "countLimitation": "No exact test count extracted; success conclusion only."
+        },
+        {
+          "databaseId": 112937949356,
+          "name": "supply-chain",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949356",
+          "counts": null,
+          "countLimitation": "No exact test count extracted; success conclusion only."
+        },
+        {
+          "databaseId": 112937949534,
+          "name": "verify",
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949534",
+          "counts": {
+            "passed": 21569,
+            "failed": 175,
+            "skipped": 1610,
+            "unit": "test cases"
+          }
+        },
+        {
+          "databaseId": 112937949545,
+          "name": "policy",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949545",
+          "counts": null,
+          "countLimitation": "No exact test count extracted; success conclusion only."
+        },
+        {
+          "databaseId": 112937949549,
+          "name": "postgres",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949549",
+          "counts": {
+            "passed": 379,
+            "failed": 0,
+            "skipped": 0,
+            "unit": "test cases"
+          }
+        },
+        {
+          "databaseId": 112937949569,
+          "name": "hosted",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949569",
+          "counts": null,
+          "countLimitation": "No exact test count extracted; success conclusion only."
+        },
+        {
+          "databaseId": 112937949591,
+          "name": "platform-postgres",
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949591",
+          "counts": {
+            "passed": 3705,
+            "failed": 41,
+            "skipped": 15,
+            "unit": "test cases"
+          }
+        },
+        {
+          "databaseId": 112937949627,
+          "name": "agent",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949627",
+          "counts": null,
+          "countLimitation": "No exact test count extracted; success conclusion only."
+        },
+        {
+          "databaseId": 112937949644,
+          "name": "workflows",
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949644",
+          "counts": {
+            "passed": 1302,
+            "failed": 29,
+            "skipped": 0,
+            "unit": "test cases"
+          }
+        },
+        {
+          "databaseId": 112937949655,
+          "name": "tofu",
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949655",
+          "counts": {
+            "passed": 4315,
+            "failed": 5,
+            "skipped": 19,
+            "unit": "test cases"
+          }
+        },
+        {
+          "databaseId": 112937949739,
+          "name": "build",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949739",
+          "counts": null,
+          "countLimitation": "No exact test count extracted; success conclusion only."
+        },
+        {
+          "databaseId": 112937949742,
+          "name": "operation-gates (reconciliation)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949742",
+          "counts": null,
+          "countLimitation": "No exact test count extracted; success conclusion only."
+        },
+        {
+          "databaseId": 112937949871,
+          "name": "docker",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949871",
+          "counts": null,
+          "countLimitation": "No exact test count extracted; success conclusion only."
+        },
+        {
+          "databaseId": 112937949884,
+          "name": "operation-gates (workflow-intents)",
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949884",
+          "counts": {
+            "passed": 154,
+            "failed": 2,
+            "skipped": 0,
+            "unit": "test cases"
+          }
+        },
+        {
+          "databaseId": 112937949967,
+          "name": "go",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937949967",
+          "counts": null,
+          "countLimitation": "No exact test count extracted; success conclusion only."
+        },
+        {
+          "databaseId": 112937950082,
+          "name": "generated",
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515/job/112937950082",
+          "counts": {
+            "passed": 104,
+            "failed": 6,
+            "skipped": 0,
+            "unit": "test cases"
+          }
+        }
+      ]
+    },
+    {
+      "runId": 37663658448,
+      "sourceCommit": "9b56810829ecf1467ce2c20571bc060af1f39144",
+      "name": "Native skipped platforms",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658448",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "databaseId": 112937253048,
+          "name": "linux-systemd",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658448/job/112937253048",
+          "counts": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unit": "test cases"
+          }
+        },
+        {
+          "databaseId": 112937253365,
+          "name": "windows-acl",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658448/job/112937253365",
+          "counts": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unit": "test cases"
+          }
+        }
+      ]
+    },
+    {
+      "runId": 37663658268,
+      "sourceCommit": "9b56810829ecf1467ce2c20571bc060af1f39144",
+      "name": "Native packaged workers",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658268",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "databaseId": 112937928115,
+          "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658268/job/112937928115",
+          "counts": {
+            "passed": 22,
+            "failed": 0,
+            "skipped": 0,
+            "unit": "native acceptance checks"
+          }
+        },
+        {
+          "databaseId": 112937928410,
+          "name": "packaged-worker (amd64, ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658268/job/112937928410",
+          "counts": {
+            "passed": 22,
+            "failed": 0,
+            "skipped": 0,
+            "unit": "native acceptance checks"
+          }
+        }
+      ]
+    }
+  ],
+  "jobConclusions": {
+    "success": 14,
+    "failure": 6,
+    "pending": 0
+  },
+  "countsOverlap": true,
+  "defaultAcceptanceClaim": false,
+  "originalTerminalSnapshotSha256": "066d675389240f6f4e8866be478edd3de389c56ba4df97f4df98f38531fa89db"
+}

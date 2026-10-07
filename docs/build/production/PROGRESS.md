@@ -1,3 +1,13 @@
+## Coherent verifier result, 7 October 2026
+
+Tested published `d6965d75eb9522527c7a91b06cf8f490f6531d20`: all20 CI jobs completed successfully, with no fresh job-status anomaly. Unit **19,622 passed / 0 failed / 1,532 skipped**. Real PostgreSQL **3,034/0/8**, all1,124 required; workflows **1,275/0/0**, all62; PG **379/0/0**, all93. Native packaged AMD64 and ARM64 each **22/0/0**, no emulation, all cleanup flags. Complete dependency audit zero known findings, no exception. [Fresh job/skip report](verification/CI-2026-10-07-d6965d75.md). Counts overlap and are not summed.
+
+Fresh root transport rerun on that same source: DNS/socket/TLS **27/0/0**, portability regressions **45/0/0**, MySQL **15/0/0**. Contract, protocol-fixture and real-engine scopes are distinct; these are not87 engine or cloud acceptances. Both parent exits0; independent report/case/source/cleanup review accepted. Four setup failures remain recorded, each0 tests, all recovered; corrections only addressed Docker profile representation, mount ordering and exact Docker Desktop binary mapping. No product assertion/gate/TLS weakening. [Transport evidence](evidence/PROD-LIFE-11/2026-10-07-coherent-transports-d6965d75.json).
+
+Ledger **12 verified / 38 in progress / 28 planned**, all78 criteria and four false release flags retained. MySQL DNS-hostname TLS remains explicitly unsupported; wider adoption/backup/decommission, installed-agent update/rollback and default operated journey remain incomplete. Default API/server startup, live cloud/DNS/private GitHub App and retention/business/sign-off decisions remain blocked. Maintenance draft NOT_READY, never run. This evidence-only publication retains the tested source SHA; inspect its successor CI independently. Author/committer Arnav Bule; normal same-branch push after pull --no-rebase. [Results and next steps](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+
+Earlier entries retain their original scope.
+
 ## Verifier continuation, 7 October 2026
 
 Published repair baseline `f582e1934a42283d316cf7c4fc65673cf948eccd` finished all three CI runs successfully: main16 job success conclusions, native workers2 and native platform2. Unit **19,609 passed / 0 failed / 1,532 skipped**. AMD64 and ARM64 each executed **22 native controls / 0 failed / 0 skipped**, with all six cleanup flags. One GitHub ledger-job status field remains inconsistent with its success conclusion/completion timestamp and terminal parent run; retained literally. [Every job and skip accounting](verification/CI-2026-10-07-f582e193.md).

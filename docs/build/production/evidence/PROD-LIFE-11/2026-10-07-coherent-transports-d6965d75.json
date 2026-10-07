@@ -1,0 +1,601 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-LIFE-11",
+  "testedCommit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+  "testedTree": "93f8ab8859a29a7ea5efffdc5e9e89247ad026ef",
+  "securityFixCommit": "50e08ca659d0d49399297f705c5249f246b77ab9",
+  "result": "passed_scoped_transport_controls; wider requirement remains in_progress",
+  "sourceInputs": {
+    "src/lib/portability/net.ts": "2d8a21d40417b19fb5b0f68b140c200ec24458af3af724c8d0b749b435d7dc7e",
+    "src/lib/portability/connect.ts": "85c22d618579f228e68ceaad52aa75f64b0d06ab968b1499703995741cd209d2",
+    "src/lib/portability/engines/s3.ts": "23261688f05051bb58e0105479ca71c43428feb4deee6975be3f4d7d9078b203",
+    "src/lib/portability/engines/mysql.ts": "d6bd2473b77d3cb5d521a404b5927c0db799aa3ee41900f3955835251f6f96a7",
+    "tests/portability/dns-transport.test.ts": "7d012bcb7bc19438f0a82dee060989c277f73db46fce36e2777685d34502fe0a",
+    "tests/portability/dns-transport-native.test.ts": "f8fe3eee7499c1c26e5f6cbe40653d807b0970aed3e1a0270108ed954211c571",
+    "tests/portability/tls-support.ts": "4d0f61cfac65cc8cae28dc9231a587a3087befe17c89c2b3675f891fb1858216",
+    "tests/portability/mysql-cli-tls.test.ts": "e8d1350bd2fb6e798a60365e8a2555009c64cfcdecc4f9f3036110c6e081d22a",
+    "tests/portability/mysql-engine.test.ts": "d9ff8951e367351fa717ffe0a34c72f3262afcb4ea85495affd542068eaa7ded",
+    "tests/portability/postgres-engine.test.ts": "00bf67dd5538390ec439bf4d156b860902c4e378a2d8d44fc0c357e07c1a3626",
+    "tests/portability/objectstore-engine.test.ts": "186a09bbefa1c59b10ea8e6e2633a0625be6c6c41f66a6a2fd503fa7ec2bd9c7",
+    "tests/portability/store.test.ts": "d71272d1a9741ca738450e7e7f95c8f9cf1185edb1ae22063bb75cf7a0813016",
+    "tests/portability/adoption-decommission.test.ts": "dde8515ad9e865de8110fbf907139796574f359368d62c13783aa8de2414ae3d",
+    "src/lib/portability/decommission.ts": "7d57271445807dbff91f3a607f7ca430e970656f9515ab69f8ced54a702025eb",
+    "src/lib/portability/adoption.ts": "04b1cfc958a9ec5fd38d8bffbf0ba474a509280499a4c506aafa110bf9bf83f8",
+    "src/lib/portability/inputs.ts": "c734fa0cf0f19fd61d366cfd0e54259071eac32efda1d76537f3c95989e0519c",
+    "src/lib/portability/start.ts": "40bc8710318e5fef037f6a8abb4c2bc8aa3335153fcfba81208b3a8bdc684da6",
+    "src/lib/portability/types.ts": "e59beb5e38afa1af393f6dc1b7eb253ccbcd7ec12ccf07933478504fdf19e0a1",
+    "src/lib/portability/artifact.ts": "66d06ebbeed587cabfaba7e56d8ef5327f1d2586494fdd547d03c8cce8b933b0",
+    "src/lib/portability/service.ts": "8a88d23def0af0594af56246de8c0f414aaf68c0b5b4e57748d7311fafe77745",
+    "src/lib/portability/matrix.ts": "f20aaa2661b7f6a3090000149e33c1c47793929f6b679ccc193f9f1c1a620486",
+    "src/lib/portability/engines/postgres.ts": "52749e8d41adc551601faeb0271e4121f6160fa72fdd7207235d315f37db7d19",
+    "src/lib/portability/engines/objectstore.ts": "d0f4e5f2f50f1700200a0d6452608d021f033c6acab64af28f1ef06055489d1f",
+    "tests/portability/support.ts": "6f958b46e10e6f81af6150978c12e0a6c82ee3aeb3a311dfa57048240fd8ba93",
+    "package.json": "d1de91baa755f37b8aacd3746ca8761b7eb32316ec76af3f80a9d6bd79807349",
+    "package-lock.json": "b1d5cddb24f525f94f1cb864f404bbfa856ea243180f9bd575de3ae853f125fb",
+    "vitest.config.ts": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08",
+    "tsconfig.json": "b89775a27b9a4dc3719331c14f9fcac06ba6be6bfb3b10cd23100fb4d85950dd",
+    "tests/plugins/service.test.ts": "36d5451e65e43ff0abbb565bc04fd8a4a3e477b3f9fd28278b1e9d7f14cb92a7",
+    "tests/execution/build-egress-composition.test.ts": "331aae6d305ce1c00dcbfe731ac27f9826d0c7e50dc8605c203c31e20ae6af0e"
+  },
+  "helperSha256": "ef69b69f32052b9710675b5475eb17d138f5be39e34f50a40d9ac26515c8b9be",
+  "freezeSha256": "9eee45ab158cd3bb992aff829e2c3532e84c267d3d1e0c0e66b7863f96330acd",
+  "independentSourceReviewSha256": "4cd9ff761f97ef8c534f85fe1e3dd4de9f4e8e35e0429013b29c88f7326b7abb",
+  "environment": {
+    "node": "22.23.3",
+    "npm": "10.9.9",
+    "vitest": "4.1.11",
+    "host": "native Darwin ARM64 clients",
+    "engines": "native Linux ARM64 disposable PostgreSQL16.15, MinIO, MySQL8.4.11",
+    "docker": "29.1.3",
+    "mysqlCli": "9.6.0 Darwin ARM64",
+    "architectureLimit": "No local AMD64 transport execution; separate native worker CI is a different gate"
+  },
+  "images": {
+    "mysql": "mysql@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242",
+    "minioBinary": {
+      "baseImage": "debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587",
+      "release": "RELEASE.2025-09-07T16-13-09Z",
+      "sha256": "5c83cd2cf151717ba0243f73e1c7802ff36e272b67144bdd7f1f7d684fd6f03d"
+    },
+    "postgres": "postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685"
+  },
+  "groups": [
+    {
+      "group": "mysql",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "observedChildExitCode": 0,
+      "rawReportSha256": "e03f2c2f57877b1b6f8232f7c295a55b569ed9338ca6a0e53a063cf43e7d7c69",
+      "cases": [
+        {
+          "file": "tests/portability/mysql-cli-tls.test.ts",
+          "fullName": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1) authenticates a CA-trusted literal IP SAN on the same real stock-client TLS socket before query",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-cli-tls.test.ts",
+          "fullName": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1) refuses a CA-valid certificate lacking the destination IP SAN before credential authentication",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-cli-tls.test.ts",
+          "fullName": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1) refuses an untrusted CA on the real TLS socket before credential authentication",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-cli-tls.test.ts",
+          "fullName": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1) refuses a non-TLS greeting rather than downgrading or sending an authentication response",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-cli-tls.test.ts",
+          "fullName": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1) explicitly refuses a legitimate DNS TLS name instead of claiming a detached identity proof",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-engine.test.ts",
+          "fullName": "mysql connection parses a connection URI and never lets the password reach a command line",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-engine.test.ts",
+          "fullName": "mysql export refuses a database with routines or events rather than exporting it incompletely",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-engine.test.ts",
+          "fullName": "mysql export emits a plain mysqldump file, the restore note and a digest that is stable across reads",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-engine.test.ts",
+          "fullName": "mysql export refuses an export when the database changed while mysqldump ran, and reports a failing dump without leaking the client's message",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-engine.test.ts",
+          "fullName": "mysql restore restores the dump into an empty target through mysql stdin and verifies by reading the target back",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-engine.test.ts",
+          "fullName": "mysql restore never merges into a populated target and reports a failed load without detail",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-engine.test.ts",
+          "fullName": "the real clients report a missing binary as unavailable, not as a database failure",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-engine.test.ts",
+          "fullName": "the real clients revalidates every invocation, pins only the vetted address and excludes ambient redirects",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-engine.test.ts",
+          "fullName": "the real clients refuses hostname TLS, private destinations without opt-in and caller-supplied redirect options before spawning",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/mysql-engine.test.ts",
+          "fullName": "real MySQL server (needs mysql and mysqldump on PATH and an EMPTY scratch database) exports, restores into a second empty database and verifies by readback",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "group": "dns",
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "observedChildExitCode": 0,
+      "rawReportSha256": "994228fa9df42ad9f85952a060bfae00c188c92f1e7556bfdc8e3cb9dab3e518",
+      "cases": [
+        {
+          "file": "tests/portability/dns-transport-native.test.ts",
+          "fullName": "owned PostgreSQL 16 TLS DNS transport exports and imports actual databases with fresh independent readback and original-host TLS",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport-native.test.ts",
+          "fullName": "owned PostgreSQL 16 TLS DNS transport refuses rebinding after public preflight before any connection to the actual engine",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport-native.test.ts",
+          "fullName": "owned PostgreSQL 16 TLS DNS transport revalidates after the actual engine closes an owned session",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport-native.test.ts",
+          "fullName": "owned MinIO TLS DNS transport exports actual MinIO bytes and imports them with a fresh independent production-adapter readback",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport-native.test.ts",
+          "fullName": "owned MinIO TLS DNS transport refuses rebinding after public preflight without connecting to actual MinIO",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport-native.test.ts",
+          "fullName": "owned MinIO TLS DNS transport revalidates a retry after a real MinIO TLS connection closes",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport classifies equivalent forbidden literal ::ffff:7f00:1",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport classifies equivalent forbidden literal 0:0:0:0:0:ffff:a00:1",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport classifies equivalent forbidden literal ::ffff:a9fe:a9fe",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport classifies equivalent forbidden literal 0:0:0:0:0:0:0:1",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport classifies equivalent forbidden literal 0:0:0:0:0:0:0:0",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport returns validated literals and refuses all answers if one is forbidden without exposing resolver values",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport Postgres refuses a private connect answer after a public preflight, without opening a socket",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport Postgres connects to the opt-in validated IP while verifying the original hostname and SNI",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport Postgres reconnect revalidates changed DNS before creating a replacement socket",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport Postgres rejects a trusted certificate for a different hostname",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport Postgres never downgrades TLS when the server refuses negotiation",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport Postgres literal-IP TLS verifies IP SAN (matching: true)",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport Postgres literal-IP TLS verifies IP SAN (matching: false)",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport S3 literal-IP TLS verifies IP SAN (matching: true)",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport S3 literal-IP TLS verifies IP SAN (matching: false)",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport S3 refuses a private connect answer after its public preflight with no request or value leakage",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport S3 TLS uses the validated IP and preserves signed Host and original-host certificate identity",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport S3 rejects a trusted certificate for a different hostname",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport S3 retry revalidates changed DNS and never opens a second socket to a forbidden answer",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport S3 does not follow an HTTP redirect to another authority",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/dns-transport.test.ts",
+          "fullName": "validated DNS transport private opt-in never allows metadata, including hexadecimal mapped IPv6",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "group": "contracts",
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "observedChildExitCode": 0,
+      "rawReportSha256": "a29d0e0eb3addc0e9291c76587117e8775cf239d0eaed177aa31b2749a23231a",
+      "cases": [
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "support matrix says exactly what each provider can do and why not",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "support matrix never claims support without naming a method, and never refuses without a reason",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "adoption claim requires an explicit acknowledgement and an exact object, and defaults to the safe lifecycle",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "adoption claim binds the approval digest to the object, the lifecycle, the fields and the resource it is for",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "adoption claim takes field owners from the registry and refuses a claim that contradicts it",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "drift baseline captures only known, IaC-owned attributes and records what another owner holds",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "drift baseline reports drift from the baseline on owned fields and treats another owner's movement as expected variance",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "drift baseline refuses a baseline too large to record",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "the claimed object must be the live object accepts only a present, real observation of exactly that object",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "decommission gate leaves objects Zenith created to the existing guards",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "decommission gate refuses everything the claim did not allow, with a reason per object",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "decommission gate allows an adopted object only while its destroy-allowing claim is active and exact, and says which claim",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "capability inputs are strict references, normalized, and shown to the approver",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "where the worker may connect classifies addresses",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/adoption-decommission.test.ts",
+          "fullName": "where the worker may connect refuses metadata, loopback and private hosts by default, and a name that resolves to one",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/objectstore-engine.test.ts",
+          "fullName": "object store export copies every object byte for byte, with its content type, and verifies the artifact from storage",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/objectstore-engine.test.ts",
+          "fullName": "object store export exports an empty bucket as a valid, restorable empty export",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/objectstore-engine.test.ts",
+          "fullName": "object store export refuses a bucket over the object or size limits instead of exporting part of it",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/objectstore-engine.test.ts",
+          "fullName": "object store restore, verified by readback from the target restores into an empty bucket and a separate listing-and-hashing pass reads the same content back",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/objectstore-engine.test.ts",
+          "fullName": "object store restore, verified by readback from the target reports a mismatch when an object changes between restore and readback",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/objectstore-engine.test.ts",
+          "fullName": "object store restore, verified by readback from the target never merges into a non-empty bucket, and refuses a changed artifact before writing anything",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/objectstore-engine.test.ts",
+          "fullName": "object store restore, verified by readback from the target computes the same digest regardless of listing order, and a different one when a byte changes",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/objectstore-engine.test.ts",
+          "fullName": "S3 adapter validates the credentials secret and never echoes a value",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/objectstore-engine.test.ts",
+          "fullName": "S3 adapter scopes artifact keys under its base prefix and refuses traversal",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/objectstore-engine.test.ts",
+          "fullName": "S3 adapter speaks the S3 API through the SDK commands (contract: a scripted client, not a service)",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/objectstore-engine.test.ts",
+          "fullName": "LocalStack / S3-compatible endpoint through the production adapter exports one bucket and restores into another, verified by listing and hashing the target",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "postgres logical export writes a manifest last, lists every file with its digest, and verifies the artifact by reading it back from storage",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "postgres logical export is idempotent for the same operation and refuses to reuse a location for another",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "postgres logical export refuses a database holding objects it cannot carry, naming them, and writes nothing",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "postgres logical export refuses unsupported provider and kind combinations before touching anything",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "postgres restore into a new target, verified by independent readback restores the artifact alone into an empty database and a re-opened engine reads back the same logical content",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "postgres restore into a new target, verified by independent readback reports a mismatch, not success, when the target reads back differently",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "postgres restore into a new target, verified by independent readback never merges into a populated target",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "postgres restore into a new target, verified by independent readback refuses an artifact that was changed after Zenith recorded it, and one that no longer matches its own manifest",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "postgres restore into a new target, verified by independent readback refuses to run DDL the exporter would not have written",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "postgres restore into a new target, verified by independent readback refuses to restore across kinds and into an older major version",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "independent readback computes the same logical digest from any session, whatever order rows were inserted in",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "independent readback enforces the export limits instead of exporting a truncated database",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "real network Postgres through the production connector restores encoded JSON row batches through the production connector and independently reads their exact values",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/postgres-engine.test.ts",
+          "fullName": "real network Postgres through the production connector exports and restores between two scratch databases of the same server",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/store.test.ts",
+          "fullName": "portability store [pglite] records a verified export once per operation, and refuses a different digest for the same operation",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/store.test.ts",
+          "fullName": "portability store [pglite] derives a restore's verdict from the two digests and only accepts an export of this workspace",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/store.test.ts",
+          "fullName": "portability store [pglite] adopts a referenced resource only under a human approval of the exact operation, atomically with the ownership change",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/store.test.ts",
+          "fullName": "portability store [pglite] refuses to adopt without a human approval, with a stale or foreign approval, for a managed resource, or a second claim on the same object",
+          "status": "passed"
+        },
+        {
+          "file": "tests/portability/store.test.ts",
+          "fullName": "portability store [pglite] releases an adopted resource back under approval, once, without ever touching the object",
+          "status": "passed"
+        }
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "mode": "mysql",
+      "receiptSha256": "ed0c25d38eece002bef8d80a01b545759a66bbf9c4678cc1d87fc5bd86d8568e",
+      "observedParentExitCode": 0,
+      "cleanupComplete": true,
+      "engineCleanupReadback": true,
+      "ownedContainerVolumeNetworkAbsence": true,
+      "privateInputsRootsScratchAbsent": true
+    },
+    {
+      "mode": "pgs3",
+      "receiptSha256": "40f11a24010d284f6290eb7b7acc0cc443fb4717d8b9701762ee4bd75fb302be",
+      "observedParentExitCode": 0,
+      "cleanupComplete": true,
+      "engineCleanupReadback": true,
+      "ownedContainerVolumeNetworkAbsence": true,
+      "privateInputsRootsScratchAbsent": true
+    }
+  ],
+  "preservedFailedSetupAttempts": [
+    {
+      "attempt": "revision2",
+      "result": "failed_setup_before_tests",
+      "observedParentExitCode": 1,
+      "testsExecuted": 0,
+      "reason": "container_profile_refused: CHOWN versus CAP_CHOWN representation",
+      "cleanupComplete": true,
+      "recoveryReceiptSha256": "65c0e68a495f591e5e6b3f2908f42b4c036799b652c8c7d5e0d5f0323bf1a01c",
+      "originalFailureReceiptSha256": "b7b211cfb65a27e8e35a87bec7d745cb4ca59fc88fde5c0bb2480fc3673f976d"
+    },
+    {
+      "attempt": "revision3",
+      "result": "failed_setup_before_tests",
+      "observedParentExitCode": 1,
+      "testsExecuted": 0,
+      "reason": "container_changed: OomKillDisable false versus null representation",
+      "cleanupComplete": true,
+      "recoveryReceiptSha256": "f8f159d23a0e9efd7e0eec26b84e6b9b14c3cedb99c1fff8fba381a72078cd91",
+      "originalFailureReceiptSha256": "349d024f398aff22fcee96cbf4de55510a81387781a56db3082c10429df15b62"
+    },
+    {
+      "attempt": "revision4",
+      "result": "failed_setup_before_tests",
+      "observedParentExitCode": 1,
+      "testsExecuted": 0,
+      "reason": "container_changed: unordered complete Mounts array",
+      "cleanupComplete": true,
+      "recoveryReceiptSha256": "d4130d6d7114a3c8059124762a5475d1e133f86f0b2bef2a48f29749a186ae2e",
+      "originalFailureReceiptSha256": "469e22b5e92df825c6bb6cb2487cdf6e1e602b19efecaf027ead7f2afe8ac779"
+    },
+    {
+      "attempt": "revision5",
+      "result": "failed_setup_before_tests",
+      "observedParentExitCode": 1,
+      "testsExecuted": 0,
+      "reason": "mount_admission_refused: Docker Desktop exact /host_mnt bind mapping",
+      "cleanupComplete": true,
+      "recoveryReceiptSha256": "7e2b9421dd1261d86a0bfc6f3ba32f9bd1cce96a5ec8dee2e2480ad7064e7605",
+      "originalFailureReceiptSha256": "df520ab64961d96d15bcfbfb0fa6b3d600cd2e08d15b94a504b45cd227a4b366"
+    }
+  ],
+  "scope": [
+    "DNS group27:21 resolver/socket/TLS contract controls plus6 actual PostgreSQL/MinIO transport controls",
+    "Portability regression group45 includes contract controls and real PostgreSQL/S3 engine cases; not45 cloud or native-engine acceptances",
+    "MySQL group15:9 contracts,5 actual stock-client TLS protocol fixture cases and1 actual MySQL8.4.11 export/import/readback case; protocol fixture is not engine evidence",
+    "MySQL DNS-hostname TLS targets explicitly refused; literal-IP CA/IP-SAN accepted; no downgrade or detached hostname probe",
+    "Complete backup/export/import/adoption/ownership-safe decommission acceptance remains open",
+    "No cloud, default API/server, live DNS, private GitHub App or release-state promotion"
+  ],
+  "sanitization": "Only case identities/statuses and hashes retained; no raw logs, credentials, URLs with credentials, resolved destinations, private files or absolute home paths",
+  "independentActualEvidenceReviewSha256": "fc6008321695ceee38080790de1c5294c4af99a84ca18a3dce76c80cecde8c13"
+}

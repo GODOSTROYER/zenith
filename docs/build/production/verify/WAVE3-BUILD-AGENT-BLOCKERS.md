@@ -1,3 +1,7 @@
+## Verifier update, 7 October 2026
+
+Exactd696 CI20 jobs green; scoped native transport27/45/15 all green and owned cleanup complete. DNS security repair/Sharp bump integrated. Four fixture-only setup failures recovered; no new product defect inferred. MySQLDNS-TLS remains unsupported; full adoption/backup/decommission and prior20-ID acceptance gaps stay open. Default API/server DEC-STARTUP and live account/DNS/privateApp DEC-CLOUD remain prerequisites. Never run NOT_READY maintenance draft. See [coherent results](../verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+
 ## Verifier findings carried forward, 7 October 2026
 
 CI/security repairs passed on f582; root integration d3e adds tests only. No new tenant/security defect was reproduced by latest acceptance review. Keep these gaps visible for wave3:

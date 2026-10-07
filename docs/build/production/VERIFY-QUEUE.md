@@ -1,3 +1,13 @@
+## Coherent verifier result, 7 October 2026
+
+Tested published `d6965d75eb9522527c7a91b06cf8f490f6531d20`: all20 CI jobs completed successfully, with no fresh job-status anomaly. Unit **19,622 passed / 0 failed / 1,532 skipped**. Real PostgreSQL **3,034/0/8**, all1,124 required; workflows **1,275/0/0**, all62; PG **379/0/0**, all93. Native packaged AMD64 and ARM64 each **22/0/0**, no emulation, all cleanup flags. Complete dependency audit zero known findings, no exception. [Fresh job/skip report](verification/CI-2026-10-07-d6965d75.md). Counts overlap and are not summed.
+
+Fresh root transport rerun on that same source: DNS/socket/TLS **27/0/0**, portability regressions **45/0/0**, MySQL **15/0/0**. Contract, protocol-fixture and real-engine scopes are distinct; these are not87 engine or cloud acceptances. Both parent exits0; independent report/case/source/cleanup review accepted. Four setup failures remain recorded, each0 tests, all recovered; corrections only addressed Docker profile representation, mount ordering and exact Docker Desktop binary mapping. No product assertion/gate/TLS weakening. [Transport evidence](evidence/PROD-LIFE-11/2026-10-07-coherent-transports-d6965d75.json).
+
+Ledger **12 verified / 38 in progress / 28 planned**, all78 criteria and four false release flags retained. MySQL DNS-hostname TLS remains explicitly unsupported; wider adoption/backup/decommission, installed-agent update/rollback and default operated journey remain incomplete. Default API/server startup, live cloud/DNS/private GitHub App and retention/business/sign-off decisions remain blocked. Maintenance draft NOT_READY, never run. This evidence-only publication retains the tested source SHA; inspect its successor CI independently. Author/committer Arnav Bule; normal same-branch push after pull --no-rebase. [Results and next steps](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+
+Earlier entries retain their original scope.
+
 ## Results, 7 October 2026 repair checkpoint
 
 Inspected f582 CI and local PG/kind passed; CI07/08/09 verified on that exact source. Ledger12/38/28. Integrated d3e test candidate88/0/0; fresh successor CI/native transport rerun pending. Existing skipped cases remain explicitly accounted; no waiver. Earlier tables below are historical.
@@ -341,3 +351,27 @@ Not yet run. Append one dated block per requirement here: SHA verified, commands
 - PROD-MACH-05: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-mach-05).
 - PROD-UX-01: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-ux-01).
 - PROD-UX-03: pending complete acceptance; tested code387b0efe; [results](verification/RESULTS-2026-10.md#prod-ux-03).
+
+## Results, coherent verifier source 7 October 2026
+
+- PROD-CI-05: verified; Prior scoped verification retained; currentd6965d75 CI also passed, no wider release promotion. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-CI-07: verified; Fresh exactd6965d75 mandatory CI scopes passed; all20 job conclusions success. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-CI-08: verified; Fresh exactd6965d75 mandatory CI scopes passed; all20 job conclusions success. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-CI-09: verified; Fresh exactd6965d75 mandatory CI scopes passed; all20 job conclusions success. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-MACH-01: verified; Prior scoped verification retained; currentd6965d75 CI also passed, no wider release promotion. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-MACH-03: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-OBS-02: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-OBS-03: verified; Prior scoped verification retained; currentd6965d75 CI also passed, no wider release promotion. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-LIFE-02: verified; Prior scoped verification retained; currentd6965d75 CI also passed, no wider release promotion. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-LIFE-12: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-COST-03: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-OBS-04: in_progress; Exactd6965d75 workflows1275/0/0/all62 passed; NOT_READY maintenance draft never run; default scheduling proof open. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-LIFE-01: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-LIFE-08: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-LIFE-09: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-LIFE-10: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-LIFE-11: in_progress; Exactd6965d75 local DNS27/45regressions/MySQL15 all passed and cleaned; broader portability criteria remain open. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-MACH-04: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-MACH-05: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-UX-01: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
+- PROD-UX-03: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).

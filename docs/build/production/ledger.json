@@ -544,7 +544,7 @@
       ],
       "state": "verified",
       "dependencies": [],
-      "implementationStatus": "verified_f582e193",
+      "implementationStatus": "verified_d6965d75_exact_ci_source_and_artifacts; wider_product_release_acceptance_remains_open",
       "evidence": [
         {
           "level": "contract",
@@ -664,6 +664,16 @@
           "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-07-ci-f582e193.json",
           "runId": 37572787941,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37572787941"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+          "runId": 37578066932,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932",
+          "result": "All20 jobs completed/success across main16/native-workers2/native-platform2. Unit19622 passed /0 failed /1532 skipped. Platform3034/0/8 all1124; workflows1275/0/0 all62; PostgreSQL379/0/0 all93; native AMD64 and ARM64 each22/0/0. Zero known dependency findings. Overlapping lane counts never summed.",
+          "command": "Inspect complete fresh exact-source main37578066932/native37578066955/platform37578066934 jobs and sanitized source-bound artifact/log content.",
+          "environment": "Canonical TS Node22.23.3 Linux x64; Go1.27.1 nativeLinux AMD64; workers actual nativeLinux AMD64 andARM64 separately, no emulation; source/environment fingerprints and exported tool fields inspected.",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-07-ci-d6965d75.json"
         }
       ],
       "requiredEvidence": [
@@ -694,7 +704,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "verified_f582e193",
+      "implementationStatus": "verified_d6965d75_exact_ci_source_and_artifacts; wider_product_release_acceptance_remains_open",
       "evidence": [
         {
           "level": "local_engine",
@@ -1143,6 +1153,16 @@
           "command": "Three owned kind suites; maxWorkers1/no-file-parallelism; cleanup confirmed",
           "environment": "kind0.33.0; kubectl/server1.37.0; Linux ARM64 native cluster, Darwin ARM64 Node22.23.3",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-kind55-f582e193.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+          "runId": 37578066932,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932",
+          "result": "All20 jobs completed/success across main16/native-workers2/native-platform2. Unit19622 passed /0 failed /1532 skipped. Platform3034/0/8 all1124; workflows1275/0/0 all62; PostgreSQL379/0/0 all93; native AMD64 and ARM64 each22/0/0. Zero known dependency findings. Overlapping lane counts never summed.",
+          "command": "Inspect complete fresh exact-source main37578066932/native37578066955/platform37578066934 jobs and sanitized source-bound artifact/log content.",
+          "environment": "Canonical TS Node22.23.3 Linux x64; Go1.27.1 nativeLinux AMD64; workers actual nativeLinux AMD64 andARM64 separately, no emulation; source/environment fingerprints and exported tool fields inspected.",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-07-ci-d6965d75.json"
         }
       ],
       "requiredEvidence": [
@@ -1169,7 +1189,7 @@
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "verified_f582e193",
+      "implementationStatus": "verified_d6965d75_exact_ci_source_and_artifacts; wider_product_release_acceptance_remains_open",
       "evidence": [
         {
           "level": "remote_ci",
@@ -1461,6 +1481,16 @@
           "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-07-ci-f582e193.json",
           "runId": 37572787941,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37572787941"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+          "runId": 37578066932,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932",
+          "result": "All20 jobs completed/success across main16/native-workers2/native-platform2. Unit19622 passed /0 failed /1532 skipped. Platform3034/0/8 all1124; workflows1275/0/0 all62; PostgreSQL379/0/0 all93; native AMD64 and ARM64 each22/0/0. Zero known dependency findings. Overlapping lane counts never summed.",
+          "command": "Inspect complete fresh exact-source main37578066932/native37578066955/platform37578066934 jobs and sanitized source-bound artifact/log content.",
+          "environment": "Canonical TS Node22.23.3 Linux x64; Go1.27.1 nativeLinux AMD64; workers actual nativeLinux AMD64 andARM64 separately, no emulation; source/environment fingerprints and exported tool fields inspected.",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-07-ci-d6965d75.json"
         }
       ],
       "requiredEvidence": [
@@ -2579,7 +2609,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "transport_security_repaired_50e08ca6_local_verified_remaining_lifecycle_acceptance_open",
+      "implementationStatus": "security_transport_fix_coherent_local_verified_d6965d75; wider_backup_adoption_decommission_acceptance_and_mysql_dns_tls_support_open",
       "evidence": [
         {
           "level": "local_engine",
@@ -2643,6 +2673,22 @@
             "vitest": "4.1.11",
             "architecture": "Native Darwin ARM64 clients; native Linux ARM64 disposable engines. AMD64 not executed in this repair."
           }
+        },
+        {
+          "level": "contract",
+          "commit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+          "result": "DNS/socket/TLS27 passed /0 failed /0 skipped; portability regressions45/0/0; MySQL15/0/0. Separate groups include mixed contract/native/protocol-fixture evidence, not87 engine acceptances. Both parent exits0; all owned cleanup independently confirmed. Four failed setup attempts0 tests preserved and recovered.",
+          "command": "Reviewed private fixture R6: run pgs3 then complete cleanup, run mysql then complete cleanup; exact test files and case identities in artifact.",
+          "environment": "Native Darwin ARM64 clients Node22.23.3/npm10.9.9/Vitest4.1.11/MySQLCLI9.6.0; Docker29.1.3 native Linux ARM64 pinned PostgreSQL16.15/MinIO/MySQL8.4.11 engines. No local AMD64 transport claim.",
+          "logs": "docs/build/production/evidence/PROD-LIFE-11/2026-10-07-coherent-transports-d6965d75.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+          "result": "DNS/socket/TLS27 passed /0 failed /0 skipped; portability regressions45/0/0; MySQL15/0/0. Separate groups include mixed contract/native/protocol-fixture evidence, not87 engine acceptances. Both parent exits0; all owned cleanup independently confirmed. Four failed setup attempts0 tests preserved and recovered.",
+          "command": "Reviewed private fixture R6: run pgs3 then complete cleanup, run mysql then complete cleanup; exact test files and case identities in artifact.",
+          "environment": "Native Darwin ARM64 clients Node22.23.3/npm10.9.9/Vitest4.1.11/MySQLCLI9.6.0; Docker29.1.3 native Linux ARM64 pinned PostgreSQL16.15/MinIO/MySQL8.4.11 engines. No local AMD64 transport claim.",
+          "logs": "docs/build/production/evidence/PROD-LIFE-11/2026-10-07-coherent-transports-d6965d75.json"
         }
       ],
       "requiredEvidence": [
@@ -4616,15 +4662,15 @@
     }
   ],
   "sessionState": {
-    "status": "verifier_continuing_from_green_repair_baseline",
-    "sourceCheckpoint": "d3e710d29957a35ad19eeb5c7192723af6f4c6ec",
+    "status": "verifier_coherent_transport_and_ci_green_external_acceptance_open",
+    "sourceCheckpoint": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
-    "lastPushedRun": 37572787941,
-    "lastPushedRunStatus": "completed_success_ledger_status_metadata_anomaly_retained",
-    "currentVerification": "docs/build/production/verification/CI-2026-10-07-f582e193.md",
+    "lastPushedCommit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+    "lastPushedRun": 37578066932,
+    "lastPushedRunStatus": "completed_success_all20_jobs_completed_success",
+    "currentVerification": "docs/build/production/verification/CI-2026-10-07-d6965d75.md",
     "remainingLocalPackets": {
-      "nativeTransportRerun": "Private reviewed TLS helper successor awaits final publication source binding and root execution; no fresh native transport result claimed. Previous50e08ca6 transport evidence remains scoped.",
+      "nativeTransportRerun": "Complete on exactd696: DNS27/0/0, portability45/0/0, MySQL15/0/0; root exits0 and independent evidence/ownedcleanup accepted. MySQLDNS-TLS remains explicit unsupported; wider LIFE11 not promoted.",
       "defaultMaintenanceHarness": "Independent NOT_READY draft never run; default scheduling acceptance remains open.",
       "remainingVerification": "LIFE12 concurrent new owner/resource-fact proof; installed Linux agent update/rollback; default operated interfaces/live resources; see20-ID map and RESULTS."
     },
@@ -4632,8 +4678,8 @@
       "approved": "Owned disposable PG/Temporal/kind/Linux/native worker checks including intrinsic worker health listener; same-branch normal push. New author and committer Arnav Bule per6October explicit instruction; prior commits preserved.",
       "pending": "Default product API/server startup; live cloud/account/region/budget; real DNS/private GitHub App configuration; retention/business/production decisions."
     },
-    "releaseVerdict": "CI07/08/09 verified on f582;12verified/38in_progress/28planned. New test/docs candidate full CI/native transport rerun pending. Four production release flags remain false.",
-    "next": "Push this reviewed test/evidence checkpoint normally after pull --no-rebase; observe every fresh exact-source CI job. Freeze reviewed private TLS helper to publication SHA, execute PG/S3 then MySQL serially with full cleanup; record failures honestly.",
+    "releaseVerdict": "12verified/38in_progress/28planned. Exactd696 CI and local scoped transport acceptance passed; all78 criteria/fourfalseflags preserved. Wider LIFE11 and20-ID gaps remain open.",
+    "next": "Fetch latest codex/production-2026-10-02; inspect latest publication CI. Building agent addresses listed acceptance gaps; default API/server and live acceptance require DEC-STARTUP/DEC-CLOUD. Do not rerun unchanged source-bound gates or maintenance draft.",
     "completedLocalKind": {
       "sourceCommit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
       "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-07-kind55-f582e193.json",
@@ -4641,9 +4687,9 @@
       "scope": "Local provider6/release1/guest48 only; default CNI/PGlite tenant-ledger limits retained"
     },
     "recordedAt": "2026-10-07",
-    "nativeRun": 37572788006,
-    "cleanup": "R1/R2/R3 PG groups and fresh kind55 complete; unrelated Docker resources preserved.",
-    "nativeSkippedPlatformsRun": 37572788039
+    "nativeRun": 37578066955,
+    "cleanup": "All four failed setup attempts and both successful native transport fixtures fully cleaned; unrelated resources/images preserved.",
+    "nativeSkippedPlatformsRun": 37578066934
   },
   "sessionHistory": [
     {

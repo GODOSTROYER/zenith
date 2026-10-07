@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "commit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
+  "execution": "root-executed; fresh owned PostgreSQL 16.15 Linux ARM64, Node22.23.3 Darwin ARM64; no API/cloud startup",
+  "platformPostgres": {
+    "lane": "platform-postgres",
+    "evidenceSha256": "f0a417e1f787487f203c9be2d0ac3a00ccb16411f48279f553e951566731ae50",
+    "reportSha256": "90c48e07ae1dd3f321fde5dffae7d4bbaccdb7e30005c7f3d75891be1c5f9b91",
+    "counts": {
+      "total": 3042,
+      "passed": 3034,
+      "failed": 0,
+      "skipped": 8,
+      "unknown": 0
+    },
+    "requiredGroups": 1124
+  },
+  "workflows": {
+    "passed": 1275,
+    "failed": 0,
+    "skipped": 0,
+    "requiredGroups": 62
+  },
+  "postgres": {
+    "passed": 379,
+    "failed": 0,
+    "skipped": 0,
+    "requiredGroups": 93
+  },
+  "migrations": {
+    "product": 0,
+    "agent": 0,
+    "platform": 0
+  },
+  "native100": "100 unique required cases passed; included in platform totals; group and single-case mappings overlap",
+  "cleanup": "All R1/R2/R3 owned PG containers, networks, volumes, keys/private inputs and short scratch roots removed after settled processes",
+  "historicalFailures": [
+    {
+      "attempt": "R1",
+      "result": "product SQL applied; verifier IPC socket startup failed",
+      "cause": "owned TMPDIR exceeded macOS Unix socket path limit",
+      "correction": "short physically owned temporary root; no production or gate changes",
+      "cleanup": "complete"
+    },
+    {
+      "attempt": "R2",
+      "counts": {
+        "passed": 3033,
+        "failed": 1,
+        "skipped": 8
+      },
+      "file": "tests/capabilities/routes.test.ts:760",
+      "cause": "global fixture signing JWK contradicted expected signer_unavailable refusal",
+      "correction": "R3 platform environment omits signing key and product-store selector, as canonical CI does; assertions and strict1124 unchanged",
+      "cleanup": "complete"
+    }
+  ],
+  "commands": [
+    "bash scripts/ci/apply-supabase-migrations.sh",
+    "node node_modules/tsx/dist/cli.mjs scripts/agent/apply-schema.ts",
+    "bash scripts/ci/apply-platform-migrations.sh",
+    "node scripts/ci/run-gate.mjs workflows --run",
+    "node scripts/ci/run-gate.mjs postgres --run",
+    "node scripts/ci/run-gate.mjs platform-postgres --run",
+    "node scripts/ci/run-gate.mjs platform-postgres --validate <owned-report> --require-execution"
+  ],
+  "rawLogs": "not retained in Git; local private reports hashed in receipts",
+  "scope": "Separate lanes overlap; no aggregate pass total. Eight backend-inapplicable cases retain executed PostgreSQL counterparts."
+}

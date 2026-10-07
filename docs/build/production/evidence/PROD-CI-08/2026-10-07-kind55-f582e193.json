@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "commit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
+  "execution": "root-executed outside sandbox; owned disposable local kind cluster",
+  "helperSha256": "9596ad7f9631693137ba83ab429cd641dc25d05df57d7a39f07397dc9d8f8bf3",
+  "counts": {
+    "provider": {
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "reportSha256": "c429da05c069cc87f5975a25ca1ab77b38d2e9fe29cfb002b64469662afc0a54"
+    },
+    "release": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "reportSha256": "0793aa521e9026fab648f5ab0e1278f8b9eb6881ea4377f288c534b505de020a"
+    },
+    "guest": {
+      "passed": 48,
+      "failed": 0,
+      "skipped": 0,
+      "reportSha256": "1cffc1be1eba4fa310a05b88f5314cc48e2e54e33a17499ceaca23a10a4ad648"
+    }
+  },
+  "cleanupComplete": true,
+  "imagesPreserved": true,
+  "privateInputsAbsent": true,
+  "limitations": [
+    "Local kind55 only; no managed-cloud/default-API/systemd/full-guest152/full-workers proof.",
+    "Eight real API controls use a PGlite tenant ledger and signed fixture claims; browser/current-human SQL authorization is unproved.",
+    "Default kind CNI does not prove NetworkPolicy enforcement."
+  ],
+  "environment": {
+    "host": "Darwin ARM64 native",
+    "container": "Linux ARM64 native",
+    "Node": "22.23.3",
+    "Docker": "29.1.3",
+    "kind": "0.33.0",
+    "kubectl": "1.37.0",
+    "serverVersionValidated": "1.37.0"
+  },
+  "commands": [
+    "ZENITH_TEST_KIND=1 KUBECONFIG=<owned-private-kubeconfig> node node_modules/vitest/vitest.mjs run --maxWorkers=1 --no-file-parallelism tests/providers/kubernetes/kind.test.ts",
+    "ZENITH_TEST_KIND=1 KUBECONFIG=<owned-private-kubeconfig> node node_modules/vitest/vitest.mjs run --maxWorkers=1 --no-file-parallelism tests/providers/kubernetes/release-kind.test.ts",
+    "ZENITH_TEST_KIND=1 KUBECONFIG=<owned-private-kubeconfig> node node_modules/vitest/vitest.mjs run --maxWorkers=1 --no-file-parallelism tests/machines/kubernetes-kind.test.ts"
+  ]
+}

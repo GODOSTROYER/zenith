@@ -1,3 +1,71 @@
+## Verifier repair checkpoint, 2026-10-07
+
+Tested repair baseline: `f582e1934a42283d316cf7c4fc65673cf948eccd`. Integrated test candidate: `d3e710d29957a35ad19eeb5c7192723af6f4c6ec`. New source additions are tests only; security fix50e08ca6 and Sharp patch27d47f07 remain in ancestry. Fresh successor CI and coherent transport rerun are pending, not passed.
+
+| Executed lane | Passed | Failed | Skipped | Scope |
+|---|---:|---:|---:|---|
+| CI whole unit | 19609 | 0 | 1532 | Exact f582; all skip rows retained |
+| Canonical workflows | 1275 | 0 | 0 | All62 required |
+| Canonical PostgreSQL | 379 | 0 | 0 | All93 required |
+| Canonical platform PostgreSQL | 3034 | 0 | 8 | All1124/native100 required; PG equivalents executed |
+| OPA | 242 | 0 | 0 | All8 required groups |
+| OpenTofu | 3916 | 0 | 18 | All27 required groups;18 separate PG counterparts passed |
+| Reconciliation | 38 | 0 | 0 | All26 required |
+| Workflow intents | 156 | 0 | 0 | All141 required |
+| Native worker AMD64 | 22 | 0 | 0 | Actual native Linux; all6 cleanup flags |
+| Native worker ARM64 | 22 | 0 | 0 | Actual native Linux; all6 cleanup flags |
+| Local kind provider | 6 | 0 | 0 | Fresh owned local cluster |
+| Local kind release | 1 | 0 | 0 | Pinned digest; fresh cluster |
+| Local kind guest | 48 | 0 | 0 | Eight real API controls plus40 raw-config controls |
+| Integrated test controls | 88 | 0 | 0 | Exact d3e;13 new cases; modeled ports declared |
+| Focused lifecycle candidate | 296 | 0 | 0 | Isolated source candidate;15 files; no default operation claim |
+| Focused source/release candidate | 162 | 0 | 0 | Isolated source candidate;9 files; no private GitHub App claim |
+
+Never sum these overlapping lanes. Actual Go race148 plus4 separate direct-package IDs, interop27, guest/systemd required controls and browser24/44 passed; exact per-job scope/step records are in the [CI report](CI-2026-10-07-f582e193.md). Dependency audit: zero known findings, no exception. Informational success is not a blanket vulnerability clearance.
+
+### Preserved failures and corrections
+
+R1 product SQL applied, then migration verifier startup failed because the private temporary path exceeded macOS Unix socket length. A physically owned short path corrected fixture startup. R2 platform ran3033/1/8: `tests/capabilities/routes.test.ts:760` expected `signer_unavailable`, but the workflow fixture had globally supplied a valid signer. R3 removes that signer/product selector for the platform lane as CI does, then re-runs unchanged strict1124/actual PostgreSQL:3034/0/8. All three owned fixtures were cleaned. No production change or weaker assertion was needed. Prior compiler heap exhaustion and earlier security/TLS fixture failures remain in their original sections.
+
+New test fixes: `b685ed83` (LIFE09, twelve actual default-composition egress-policy controls), `d3e710d2` (UX03, default environment publisher trust, removal and unchanged registration-list control; generated key). Full candidate compiler and changed-test lint exited0 before integration; root exact d3e combined88 exited0 afterward. API/cloud/plugin process-isolation effects are not claimed.
+
+### Requirement results and remaining acceptance
+
+| Requirement | Status | Remaining acceptance |
+|---|---|---|
+| PROD-CI-05 | verified | No new mandatory source defect identified; preserve skip/per-leaf attribution limitations. |
+| PROD-CI-08 | verified on f582 | Root final coherent matrix review and currently running local kind/R3 cleanup receipts; CI07 dependency clearance remains time-bound, not evergreen. |
+| PROD-CI-09 | verified on f582 | Root must retain complete exact-run per-job/skip records and failed predecessor history; this is no future-CI guarantee. |
+| PROD-MACH-01 | verified | Prior verified scope retained; inert fixture/model issuer and fixed cleanup transportNNPfalse remain explicit. |
+| PROD-MACH-03 | in_progress | Registered signed guest/default broker per-step grant→real machine delivery/cancel/uncertainty/audit join remains unproved. |
+| PROD-OBS-02 | in_progress | Actual default broker-issued session plus registered machine health/full telemetry provenance not established by synthetic endpoint token. |
+| PROD-OBS-03 | verified | No new exact runnable stability gap identified; live paging/cloud remediation is not claimed. |
+| PROD-LIFE-02 | verified | Matrix disclosure is not positive proof of every provider service; offered cells stay bounded by evidence. |
+| PROD-LIFE-12 | in_progress | Broad no-competing-writers clause lacks a coherent concurrent-new-owner/resource-fact/delivery boundary proof. No counterexample, tenancy leak or new security defect was reproduced by this source review. Preissued/provider-accepted effects are not asserted revocable. |
+| PROD-COST-03 | in_progress | Default collector/field-ownership/human opt-in composition and measured savings absent; controlled measurements are not default measurements. |
+| PROD-OBS-04 | in_progress | Default maintenance effects/current stored health/fallback not established by controlled callback scheduling. |
+| PROD-LIFE-01 | in_progress | Complete default UI/API/CLI customer trust/create/onboard/verify/revoke/rotate journey unproved. |
+| PROD-LIFE-08 | in_progress | Private GitHub App install/bind/remove/uninstall/revoke needs actual authorized App/repository. |
+| PROD-LIFE-09 | in_progress | Actual builder identity/network/filesystem/metadata/resources and signed provenance need owned build environment; returned protocol attestation is not local-engine isolation. |
+| PROD-LIFE-10 | in_progress | Whole source→real build→migration→readiness→cutover/readback and progressive/code rollback target proof absent. |
+| PROD-LIFE-11 | in_progress | Complete adoption/ownership-safe decommission remains unproved; MySQL legitimate DNS-name TLS positive explicitly unsupported/refused, literal-IP TLS positive is distinct. |
+| PROD-MACH-04 | in_progress | Installed registered runner with two signed real binaries, actual exec/restart/authenticated health commit/update/rollback and customer key rotation not established. Model CP/stubProcessor/fake artifact/smoke/Decide are explicit. |
+| PROD-MACH-05 | in_progress | Complete registered customer runner/default local credential absence/current revocation transport join unproved. |
+| PROD-UX-01 | in_progress | Platform MFA/step-up primitive explicitly absent in runbook; default platform keyboard/focus/axe/contrast/screen-reader journey unproved. |
+| PROD-UX-03 | in_progress | Actual plugin artifact fetch/hash/launch process isolation/default parent join not implemented by server boundary; external plugin repo/host owns sandbox and archive verification. |
+
+Supplemental PROD-CI-07 is verified on f582: authorized Sharp0.35.5 with mandatory bundled closure, unchanged unrelated lock records, fresh registry provenance/audit, native package evidence and no security exception. CI closure does not close operated application or production acceptance.
+
+### Exact next steps and permission boundaries
+
+1. Normally push integrated tests/evidence after `git pull --no-rebase`; inspect every fresh job on that publication SHA. This checkpoint reports f582, not a future run.
+2. Freeze the independently reviewed private TLS fixture helper successor to that exact source; run PG/S3 native6+wire21+contracts45, complete cleanup, then MySQL15 including actual engine and five stock-client protocol checks. No old receipt satisfies fresh execution. Stop on resource/custody/security failure; retain the failed attempt.
+3. Preserve default scheduling draft NOT_READY. LIFE12 needs missing concurrent owner/resource-fact acceptance; MACH04 needs installed two-version Linux registration/update/health/rollback evidence. These are missing evidence, not newly reproduced defects.
+4. DEC-STARTUP: explicit default API/server composition startup authorization is still absent. Required for actual operator accessibility journey, registered runbook delivery and default scoped telemetry. Existing worker/fixture permission does not authorize it.
+5. DEC-CLOUD: authorized disposable account, region, budget and securely configured cloud/DNS/private GitHub App are still absent. Do not request secret values in chat or replace these levels with mocks.
+6. Retention, business and production sign-off remain human decisions. All four release flags stay false. No wave3 source is changed by this verifier.
+
+
 ## Sharp repair and local package closure, 7 October 2026
 
 Sharp fix `27d47f0770d77487762c992e828683e5f4e55b74` follows transport fix50e08ca6; Arnav author/committer. Human Continue accepted the finite mandatory native bundle scope. Exactly26 official companions updated;886 unrelated lock records unchanged. Independent integration review accepted exact package/lock bytes. Fresh canonical install, lock integrity and complete security audit exited0 with **zero known findings**, no exception. Fresh compiler3GiB heap failure retained; serial4GiB retry passed. Lint and Next production build passed. Package suites **544 passed /0 failed /6 skipped**; six Linux process-supervisor cases remain mandatory CI execution. Real native DarwinARM Sharp0.35.5 PNG roundtrip passed; worker/client/workflow bundles compiled and workflow sandbox passed. These are closure results, not composed/native worker startup acceptance.

@@ -1,0 +1,414 @@
+{
+  "schemaVersion": 1,
+  "commit": "d3e710d29957a35ad19eeb5c7192723af6f4c6ec",
+  "rootExecutionExitCode": 0,
+  "counts": {
+    "passed": 88,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": {
+    "Node": "22.23.3",
+    "host": "Darwin ARM64 native",
+    "heavyWorkers": 1
+  },
+  "sourceFixCommits": [
+    "b685ed83",
+    "d3e710d29957a35ad19eeb5c7192723af6f4c6ec"
+  ],
+  "command": "node node_modules/vitest/vitest.mjs run tests/execution/build-egress-composition.test.ts tests/execution/build-admission.test.ts tests/plugins tests/execution/build-release-joins.test.ts --maxWorkers=1 --no-file-parallelism",
+  "reportSha256": "84f21e0a88729949e51cb8a4c79ff5beeebe2bee04394bbdfc9e3be107090f18",
+  "files": [
+    {
+      "file": "tests/execution/build-admission.test.ts",
+      "cases": [
+        {
+          "name": "isolated build provenance in the release path signs provenance after an isolated build, retains it as critical evidence and admits the rollout",
+          "status": "passed"
+        },
+        {
+          "name": "isolated build provenance in the release path refuses a build whose provider returned no isolation attestation, and records no provenance",
+          "status": "passed"
+        },
+        {
+          "name": "isolated build provenance in the release path refuses to release an artifact when the build ran under a role that is not a build role",
+          "status": "passed"
+        },
+        {
+          "name": "isolated build provenance in the release path refuses to release an artifact when the source mount was writable",
+          "status": "passed"
+        },
+        {
+          "name": "isolated build provenance in the release path refuses to release an artifact when the build ran past the timeout bound",
+          "status": "passed"
+        },
+        {
+          "name": "isolated build provenance in the release path refuses to release an artifact when the build had unrestricted egress",
+          "status": "passed"
+        },
+        {
+          "name": "isolated build provenance in the release path admits unrestricted egress only under the recorded operator exception",
+          "status": "passed"
+        },
+        {
+          "name": "isolated build provenance in the release path refuses to build or release without a provenance signer",
+          "status": "passed"
+        },
+        {
+          "name": "release admission refuses a built image that has no provenance evidence",
+          "status": "passed"
+        },
+        {
+          "name": "release admission refuses an image whose digest differs from the one the provenance covers",
+          "status": "passed"
+        },
+        {
+          "name": "release admission refuses provenance edited after signing",
+          "status": "passed"
+        },
+        {
+          "name": "release admission refuses provenance that is malformed storage (not exactly three segments)",
+          "status": "passed"
+        },
+        {
+          "name": "release admission refuses provenance signed by a key that is not pinned",
+          "status": "passed"
+        },
+        {
+          "name": "release admission verifies against the reviewed source snapshot the store holds, not anything the workflow supplies",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/execution/build-egress-composition.test.ts",
+      "cases": [
+        {
+          "name": "build egress operator environment in actual execution composition refuses unrestricted build egress when the environment is absent",
+          "status": "passed"
+        },
+        {
+          "name": "build egress operator environment in actual execution composition refuses unrestricted build egress when the environment is empty",
+          "status": "passed"
+        },
+        {
+          "name": "build egress operator environment in actual execution composition refuses unrestricted build egress when the environment is zero",
+          "status": "passed"
+        },
+        {
+          "name": "build egress operator environment in actual execution composition refuses unrestricted build egress when the environment is word true",
+          "status": "passed"
+        },
+        {
+          "name": "build egress operator environment in actual execution composition refuses unrestricted build egress when the environment is leading zero",
+          "status": "passed"
+        },
+        {
+          "name": "build egress operator environment in actual execution composition refuses unrestricted build egress when the environment is trailing whitespace",
+          "status": "passed"
+        },
+        {
+          "name": "build egress operator environment in actual execution composition admits an allowlisted build with no operator exception and records no exception",
+          "status": "passed"
+        },
+        {
+          "name": "build egress operator environment in actual execution composition admits literal one and retains the signed open_egress exception before release",
+          "status": "passed"
+        },
+        {
+          "name": "build egress operator environment in actual execution composition captures the default when composed rather than accepting a later environment enable",
+          "status": "passed"
+        },
+        {
+          "name": "build egress operator environment in actual execution composition a freshly composed closed worker refuses the signed artifact from an earlier open worker",
+          "status": "passed"
+        },
+        {
+          "name": "build egress operator environment in actual execution composition an explicit closed dependency overrides literal one",
+          "status": "passed"
+        },
+        {
+          "name": "build egress operator environment in actual execution composition an explicit open dependency overrides the absent environment and its revocation refuses release",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/execution/build-release-joins.test.ts",
+      "cases": [
+        {
+          "name": "inspected source to signed build to release safety re-derives the inspected context before build and consumes signed provenance once as an attested release verdict",
+          "status": "passed"
+        },
+        {
+          "name": "inspected source to signed build to release safety refuses a mismatched inspection digest before preparing source or starting a build",
+          "status": "passed"
+        },
+        {
+          "name": "inspected source to signed build to release safety refuses a different context directory paired with the inspected digest before build",
+          "status": "passed"
+        },
+        {
+          "name": "inspected source to signed build to release safety refuses a non-inspected subdirectory without a digest before context access or build",
+          "status": "passed"
+        },
+        {
+          "name": "inspected source to signed build to release safety rechecks the pinned Dockerfile blob and refuses changed tree evidence before build",
+          "status": "passed"
+        },
+        {
+          "name": "inspected source to signed build to release safety refuses tampered signed provenance before the release gate or any rollout",
+          "status": "passed"
+        },
+        {
+          "name": "platform provenance floors at the build and release join refuses an unattested Zenith-built image even when a genuine build-record verifier accepts its evidence",
+          "status": "passed"
+        },
+        {
+          "name": "platform provenance floors at the build and release join admits an external pinned digest only as pinned_digest and refuses it at the attested floor",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/plugins/manifest.test.ts",
+      "cases": [
+        {
+          "name": "plugin manifest schema accepts a well formed manifest and derives a stable digest",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema changes the digest when any capability changes",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses unknown tool",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses tool whose scope is not requested",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses no read scope",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses duplicate tools",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses credential access request",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses direct store access request",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses token passthrough request",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses unrestricted network request",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses id outside the publisher namespace",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses bad version",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses bad artifact digest",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses extra undeclared member",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses unenforceable api version",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses credential smuggled in MCP env",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses shell-like MCP command",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema describes a Claude Code plugin package (skills, subagents, MCP server) and covers it with the signature",
+          "status": "passed"
+        },
+        {
+          "name": "plugin manifest schema refuses a manifest with no signature member",
+          "status": "passed"
+        },
+        {
+          "name": "plugin provenance verifies a manifest signed by a trusted publisher key",
+          "status": "passed"
+        },
+        {
+          "name": "plugin provenance refuses every registration when no publisher is trusted",
+          "status": "passed"
+        },
+        {
+          "name": "plugin provenance refuses a manifest edited after signing (capability widened, artifact swapped, version bumped)",
+          "status": "passed"
+        },
+        {
+          "name": "plugin provenance refuses a signature from a key the publisher does not hold, or a different publisher's key",
+          "status": "passed"
+        },
+        {
+          "name": "plugin provenance rejects malformed trusted-publisher configuration instead of ignoring it",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/plugins/mcp-boundary.test.ts",
+      "cases": [
+        {
+          "name": "plugin tokens at MCP v3 tools/list shows only the approved tools",
+          "status": "passed"
+        },
+        {
+          "name": "plugin tokens at MCP v3 an approved tool runs through the broker as the parent integration, labelled as the plugin",
+          "status": "passed"
+        },
+        {
+          "name": "plugin tokens at MCP v3 a tool outside the approval is not callable even by name (HTTP) and is denied before the broker (dispatcher)",
+          "status": "passed"
+        },
+        {
+          "name": "plugin tokens at MCP v3 a tool held by the parent credential but not approved for the plugin stays denied",
+          "status": "passed"
+        },
+        {
+          "name": "plugin tokens at MCP v3 revocation is effective mid-session: the next request and an in-flight call are both refused",
+          "status": "passed"
+        },
+        {
+          "name": "plugin tokens at MCP v3 never forwards a bearer into the tool layer",
+          "status": "passed"
+        },
+        {
+          "name": "plugin tokens at MCP v3 a plugin token is refused as unavailable when the deployment has no plugin authenticator (not treated as another credential)",
+          "status": "passed"
+        },
+        {
+          "name": "plugin tokens at MCP v3 the response scrubber removes plugin tokens",
+          "status": "passed"
+        },
+        {
+          "name": "plugin tokens are refused everywhere else the v2 control endpoint does not accept a plugin token",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/plugins/service.test.ts",
+      "cases": [
+        {
+          "name": "registration and review uses the deployment publisher environment for registration and refuses absent or removed trust",
+          "status": "passed"
+        },
+        {
+          "name": "registration and review verifies provenance, stores pending_review, and is idempotent for the same digest",
+          "status": "passed"
+        },
+        {
+          "name": "registration and review refuses an unsigned-by-trusted-key manifest and stores nothing",
+          "status": "passed"
+        },
+        {
+          "name": "registration and review refuses a different manifest for an already registered version",
+          "status": "passed"
+        },
+        {
+          "name": "registration and review approval binds the exact digest and can only narrow what was declared",
+          "status": "passed"
+        },
+        {
+          "name": "registration and review is tenant scoped: another workspace sees nothing and cannot review, revoke or issue",
+          "status": "passed"
+        },
+        {
+          "name": "grants and authentication issues nothing until approved",
+          "status": "passed"
+        },
+        {
+          "name": "grants and authentication issues an opaque audience-bound token, stores only its hash, and never the parent secret",
+          "status": "passed"
+        },
+        {
+          "name": "grants and authentication only binds the issuing member's own live credential, and requires read",
+          "status": "passed"
+        },
+        {
+          "name": "grants and authentication authenticates as the parent attenuated to approved tools and scopes only",
+          "status": "passed"
+        },
+        {
+          "name": "grants and authentication refuses a token presented to a different resource (audience binding)",
+          "status": "passed"
+        },
+        {
+          "name": "grants and authentication refuses unknown, malformed and foreign-shaped tokens uniformly",
+          "status": "passed"
+        },
+        {
+          "name": "grants and authentication follows the parent credential live: revocation, expiry and narrowing apply on the next request",
+          "status": "passed"
+        },
+        {
+          "name": "grants and authentication caps the number of live tokens per plugin",
+          "status": "passed"
+        },
+        {
+          "name": "revocation revoking a plugin invalidates every grant immediately and is terminal",
+          "status": "passed"
+        },
+        {
+          "name": "revocation revoking one grant leaves the others working",
+          "status": "passed"
+        },
+        {
+          "name": "revocation refuses a registration row altered at rest (manifest no longer hashes to its digest)",
+          "status": "passed"
+        },
+        {
+          "name": "MCP authentication path (real service, real SQL) a zp_ bearer becomes a plugin principal bound to the parent integration, never routed to other verifiers",
+          "status": "passed"
+        },
+        {
+          "name": "MCP authentication path (real service, real SQL) selection headers cannot widen a plugin grant",
+          "status": "passed"
+        },
+        {
+          "name": "MCP authentication path (real service, real SQL) revocation is effective on the very next MCP request",
+          "status": "passed"
+        },
+        {
+          "name": "MCP authentication path (real service, real SQL) principalFromIdentity keeps the binding so the dispatcher can enforce it",
+          "status": "passed"
+        }
+      ]
+    }
+  ],
+  "checksBeforeIntegration": {
+    "fullCompiler": 0,
+    "changedTestLint": 0
+  },
+  "limits": [
+    "Provider/storage seams are modeled; generated Ed25519 signatures and actual default composition are exercised.",
+    "Default API/browser operator journey, cloud build/readback, private GitHub App and plugin process isolation are not established.",
+    "Earlier separate 296 lifecycle contracts and162 source/release contracts passed in isolated candidate worktree; no overlapping totals."
+  ]
+}

@@ -1,3 +1,31 @@
+## Results, 7 October 2026 repair checkpoint
+
+Inspected f582 CI and local PG/kind passed; CI07/08/09 verified on that exact source. Ledger12/38/28. Integrated d3e test candidate88/0/0; fresh successor CI/native transport rerun pending. Existing skipped cases remain explicitly accounted; no waiver. Earlier tables below are historical.
+
+- PROD-CI-05: verified; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-CI-08: verified; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-CI-09: verified; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-MACH-01: verified; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-MACH-03: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-OBS-02: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-OBS-03: verified; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-LIFE-02: verified; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-LIFE-12: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-COST-03: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-OBS-04: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-LIFE-01: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-LIFE-08: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-LIFE-09: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-LIFE-10: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-LIFE-11: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-MACH-04: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-MACH-05: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-UX-01: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+- PROD-UX-03: in_progress; tested f582 scoped evidence, d3e for new test controls only; [results](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+
+- PROD-CI-07: verified f582; audit zero known findings/no exceptions; same results anchor.
+
+
 ## Sharp repair and local package closure, 7 October 2026
 
 Sharp fix `27d47f0770d77487762c992e828683e5f4e55b74` follows transport fix50e08ca6; Arnav author/committer. Human Continue accepted the finite mandatory native bundle scope. Exactly26 official companions updated;886 unrelated lock records unchanged. Independent integration review accepted exact package/lock bytes. Fresh canonical install, lock integrity and complete security audit exited0 with **zero known findings**, no exception. Fresh compiler3GiB heap failure retained; serial4GiB retry passed. Lint and Next production build passed. Package suites **544 passed /0 failed /6 skipped**; six Linux process-supervisor cases remain mandatory CI execution. Real native DarwinARM Sharp0.35.5 PNG roundtrip passed; worker/client/workflow bundles compiled and workflow sandbox passed. These are closure results, not composed/native worker startup acceptance.

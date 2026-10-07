@@ -1,3 +1,15 @@
+## Verifier continuation, 7 October 2026
+
+Published repair baseline `f582e1934a42283d316cf7c4fc65673cf948eccd` finished all three CI runs successfully: main16 job success conclusions, native workers2 and native platform2. Unit **19,609 passed / 0 failed / 1,532 skipped**. AMD64 and ARM64 each executed **22 native controls / 0 failed / 0 skipped**, with all six cleanup flags. One GitHub ledger-job status field remains inconsistent with its success conclusion/completion timestamp and terminal parent run; retained literally. [Every job and skip accounting](verification/CI-2026-10-07-f582e193.md).
+
+Root fresh local gates on that source: workflows **1,275/0/0** (62 required), PostgreSQL **379/0/0** (93 required), corrected platform **3,034/0/8** (1,124 required, including native100), kind provider **6/0/0**, release **1/0/0**, guest **48/0/0**. All owned cleanup confirmed. Prior fixture failures remain recorded; no assertion or gate weakened. Counts overlap and are not summed.
+
+Integrated test commits `b685ed83` and `d3e710d29957a35ad19eeb5c7192723af6f4c6ec` add default build-egress and generated-key publisher-trust controls. Root combined **88/0/0**, compiler/lint passed. These test additions and this documentation checkpoint still need their fresh exact-source CI. A private TLS fixture successor is undergoing source review/binding before a fresh coherent native transport rerun; old50 transport receipts are not relabeled.
+
+CI07/08/09 close on the inspected f582 source: **12 verified / 38 in progress / 28 planned**, all78 requirements and four false release flags preserved. LIFE12/MACH04 broader acceptance remains open; no new security defect was reproduced by that evidence review. Default API/server startup, live clouds/DNS/private GitHub App and retention/business/sign-off decisions remain blocked. Identity: author and committer **Arnav Bule <arnav.bule05@gmail.com>**, per latest human instruction. Normal same-branch pushes only, preceded by `git pull --no-rebase`. See [results and precise next work](verification/RESULTS-2026-10.md#verifier-repair-checkpoint-2026-10-07).
+
+Earlier entries below are historical and retain their original source scope.
+
 ## Security stop, 6 October 2026
 
 Verifier stopped under HANDOFF-VERIFIER §7 after independently confirming current LIFE11 destination-custody defect: DNS addresses are checked, then PostgreSQL/MySQL/S3 transports independently resolve original hostname. Required repair spans actual transports, TLS hostname identity and reconnect/retry behavior; existing preflight tests cannot prove containment. No exploit or secret disclosure was executed or claimed. Report-only checkpoint follows group1–2 publication `adb6fb42`; no product fix or requirement promotion. Ledger **9 verified / 41 in progress / 28 planned**, all78 criteria and four false release flags preserved.

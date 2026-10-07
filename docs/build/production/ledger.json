@@ -542,9 +542,9 @@
       "acceptance": [
         "Reconcile advisories by ID/version/platform and production/build/dev reachability; safe patches, mandatory gates, reviewed expiring exceptions, no force upgrades."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [],
-      "implementationStatus": "sharp_0355_local_audit_clear_pending_exact_candidate_ci",
+      "implementationStatus": "verified_f582e193",
       "evidence": [
         {
           "level": "contract",
@@ -654,6 +654,16 @@
           "commit": "27d47f0770d77487762c992e828683e5f4e55b74",
           "result": "Fresh canonicalnpmci/lock integrity/full audit0 with zero knownfindings/noexceptions; compiler4GiBretry/lint/Nextbuild0; package544P0F6Linux-onlyS, workflow sandbox58P0F0S; realDarwinARM Sharp0.35.5 PNGroundtrip; worker/client/workflowclosurecompiled. Whole exactpushed CI/native architecture gates pending.",
           "artifact": "docs/build/production/evidence/PROD-CI-07/2026-10-07-sharp-27d47f07.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
+          "result": "Main16 success conclusions/0 failed; native workers AMD64 22P0F0S and ARM64 22P0F0S, cleanup complete; native platform2 successful jobs. Unit19609P0F1532S; strict specialized cohorts passed; audit0 known findings/no exceptions. Ledger job API status inconsistency retained.",
+          "command": "GitHub CI, Native packaged workers and Native skipped platforms; inspect every exact-source job/artifact",
+          "environment": "Node22.23.3; native Linux AMD64/ARM64 runners reported separately; measured runtime fields distinct from expected tool pins",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-07-ci-f582e193.json",
+          "runId": 37572787941,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37572787941"
         }
       ],
       "requiredEvidence": [
@@ -675,7 +685,7 @@
       "acceptance": [
         "Clean installation, migrations, typecheck/lint/generated artifacts, real OpenTofu, OPA, Go race/interoperability, PostgreSQL, Temporal and real browser gates run with exact counts."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
@@ -684,7 +694,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "reopened_adb6fb42_supply_chain_failure_sharp_GHSA_wq5f_xc86_pv6w",
+      "implementationStatus": "verified_f582e193",
       "evidence": [
         {
           "level": "local_engine",
@@ -1107,6 +1117,32 @@
           "command": "node scripts/ci/security-audit.mjs (failed remote step); root inspected job-only log and current primary advisory.",
           "environment": "GitHub ubuntu-latest supply-chain; repository Node22.23.3 setup. Lockfile unchanged; sharp0.35.4/Next15.5.24. No native package execution or exploit performed in disposition.",
           "logs": "docs/build/production/evidence/PROD-CI-07/2026-10-06-sharp-advisory-adb6fb42.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
+          "result": "Main16 success conclusions/0 failed; native workers AMD64 22P0F0S and ARM64 22P0F0S, cleanup complete; native platform2 successful jobs. Unit19609P0F1532S; strict specialized cohorts passed; audit0 known findings/no exceptions. Ledger job API status inconsistency retained.",
+          "command": "GitHub CI, Native packaged workers and Native skipped platforms; inspect every exact-source job/artifact",
+          "environment": "Node22.23.3; native Linux AMD64/ARM64 runners reported separately; measured runtime fields distinct from expected tool pins",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-07-ci-f582e193.json",
+          "runId": 37572787941,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37572787941"
+        },
+        {
+          "level": "local_engine",
+          "commit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
+          "result": "Fresh migrations0; workflows1275P0F0S required62; postgres379P0F0S required93; corrected platform3034P0F8S required1124/native100. Historical fixture failures retained; all owned cleanup complete.",
+          "command": "Canonical migration scripts and run-gate workflows/postgres/platform-postgres plus require-execution validation",
+          "environment": "Node22.23.3 Darwin ARM64; PostgreSQL16.15 Docker29.1.3 Linux ARM64 native; OpenTofu1.12.5/OPA1.19.1 pinned binaries",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-local-gates-f582e193.json"
+        },
+        {
+          "level": "local_cluster",
+          "commit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
+          "result": "Provider6P0F0S, release1P0F0S, guest48P0F0S; all55 identities/cleanup verified. Default kind CNI and modeled tenant-ledger limitations retained.",
+          "command": "Three owned kind suites; maxWorkers1/no-file-parallelism; cleanup confirmed",
+          "environment": "kind0.33.0; kubectl/server1.37.0; Linux ARM64 native cluster, Darwin ARM64 Node22.23.3",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-kind55-f582e193.json"
         }
       ],
       "requiredEvidence": [
@@ -1126,14 +1162,14 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "reopened_adb6fb42_supply_chain_failure_sharp_GHSA_wq5f_xc86_pv6w",
+      "implementationStatus": "verified_f582e193",
       "evidence": [
         {
           "level": "remote_ci",
@@ -1415,6 +1451,16 @@
           "command": "node scripts/ci/security-audit.mjs (failed remote step); root inspected job-only log and current primary advisory.",
           "environment": "GitHub ubuntu-latest supply-chain; repository Node22.23.3 setup. Lockfile unchanged; sharp0.35.4/Next15.5.24. No native package execution or exploit performed in disposition.",
           "logs": "docs/build/production/evidence/PROD-CI-07/2026-10-06-sharp-advisory-adb6fb42.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
+          "result": "Main16 success conclusions/0 failed; native workers AMD64 22P0F0S and ARM64 22P0F0S, cleanup complete; native platform2 successful jobs. Unit19609P0F1532S; strict specialized cohorts passed; audit0 known findings/no exceptions. Ledger job API status inconsistency retained.",
+          "command": "GitHub CI, Native packaged workers and Native skipped platforms; inspect every exact-source job/artifact",
+          "environment": "Node22.23.3; native Linux AMD64/ARM64 runners reported separately; measured runtime fields distinct from expected tool pins",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-07-ci-f582e193.json",
+          "runId": 37572787941,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37572787941"
         }
       ],
       "requiredEvidence": [
@@ -2465,7 +2511,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationStatus": "default_contract_controls_verified_d3e710d2_remaining_operated_acceptance_open",
       "evidence": [
         {
           "level": "contract",
@@ -2476,6 +2522,14 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "Fresh runbook-listed unit files: 14; 335 passed /0 failed /37 skipped. File-summary attribution only; required native/engine proof is separate. Actual builder identity/network/filesystem/metadata/resources/provenance acceptance requires an owned build environment, not returned protocol attestation."
+        },
+        {
+          "level": "contract",
+          "commit": "d3e710d29957a35ad19eeb5c7192723af6f4c6ec",
+          "result": "Combined admission/default-egress/plugin/provenance controls88P0F0S. New12 real composeExecutionActivities environment controls; actual default trusted-publisher env registration/revocation control with runtime-generated key. No default API/cloud/plugin process-isolation acceptance.",
+          "command": "node node_modules/vitest/vitest.mjs run tests/execution/build-egress-composition.test.ts tests/execution/build-admission.test.ts tests/plugins tests/execution/build-release-joins.test.ts --maxWorkers=1 --no-file-parallelism",
+          "environment": "Node22.23.3 Darwin ARM64 native; maxWorkers1; modeled provider/store seams declared",
+          "logs": "docs/build/production/evidence/PROD-LIFE-09/2026-10-07-integrated-controls-d3e710d2.json"
         }
       ],
       "requiredEvidence": [
@@ -3144,7 +3198,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "canonical_workflows62_verified_ec18bb9c_pending_default_worker_effects",
+      "implementationStatus": "canonical_workflows62_verified_f582e193_default_scheduling_proof_open",
       "evidence": [
         {
           "level": "local_engine",
@@ -3171,6 +3225,14 @@
           "command": "node scripts/ci/run-gate.mjs workflows --run --report <private-report> --evidence <sanitized-evidence>",
           "environment": "Fresh npm ci; Node22.23.3/npm10.9.9/Vitest4.1.11; PostgreSQL16.15; TemporalCLI1.9.1 and configured Temporal test server; native macOS ARM64. Fresh compiler/lint and product/platform/agent migrations exit0.",
           "logs": "docs/build/production/evidence/PROD-OBS-04/2026-10-06-workflows62-ec18bb9c.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
+          "result": "Full canonical workflows1275P0F0S, required62 executed. Default maintenance draft independently NOT_READY and never run; no default-worker effects/restart promotion.",
+          "command": "node scripts/ci/run-gate.mjs workflows --run; strict require-execution validation",
+          "environment": "Node22.23.3 Darwin ARM64; owned fresh PostgreSQL and Temporal test dependencies",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-local-gates-f582e193.json"
         }
       ],
       "requiredEvidence": [
@@ -3589,7 +3651,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationStatus": "default_contract_controls_verified_d3e710d2_remaining_operated_acceptance_open",
       "evidence": [
         {
           "level": "contract",
@@ -3600,6 +3662,14 @@
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
           "result": "Fresh runbook-listed unit files: 6; 64 passed /0 failed /13 skipped. File-summary attribution only; required native/engine proof is separate. External actual plugin archive fetch/hash/launch isolation/default parent authority join missing; server does not sandbox plugin process. OAuth grant parents unsupported."
+        },
+        {
+          "level": "contract",
+          "commit": "d3e710d29957a35ad19eeb5c7192723af6f4c6ec",
+          "result": "Combined admission/default-egress/plugin/provenance controls88P0F0S. New12 real composeExecutionActivities environment controls; actual default trusted-publisher env registration/revocation control with runtime-generated key. No default API/cloud/plugin process-isolation acceptance.",
+          "command": "node node_modules/vitest/vitest.mjs run tests/execution/build-egress-composition.test.ts tests/execution/build-admission.test.ts tests/plugins tests/execution/build-release-joins.test.ts --maxWorkers=1 --no-file-parallelism",
+          "environment": "Node22.23.3 Darwin ARM64 native; maxWorkers1; modeled provider/store seams declared",
+          "logs": "docs/build/production/evidence/PROD-LIFE-09/2026-10-07-integrated-controls-d3e710d2.json"
         }
       ],
       "requiredEvidence": [
@@ -4546,34 +4616,34 @@
     }
   ],
   "sessionState": {
-    "status": "verifier_security_stop_dns_transport_gap_report_only",
-    "sourceCheckpoint": "ec18bb9c8973787ab16123040d00d7be1407eb08",
+    "status": "verifier_continuing_from_green_repair_baseline",
+    "sourceCheckpoint": "d3e710d29957a35ad19eeb5c7192723af6f4c6ec",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "adb6fb422b337bb6b981e99039ad5ce0a6aa45ed",
-    "lastPushedRun": 37505657907,
-    "lastPushedRunStatus": "in_progress_supply_chain_failed_final_run_incomplete",
-    "currentVerification": "docs/build/production/evidence/PROD-LIFE-11/2026-10-06-dns-transport-security-review-ec18bb9c.json",
+    "lastPushedCommit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
+    "lastPushedRun": 37572787941,
+    "lastPushedRunStatus": "completed_success_ledger_status_metadata_anomaly_retained",
+    "currentVerification": "docs/build/production/verification/CI-2026-10-07-f582e193.md",
     "remainingLocalPackets": {
-      "pluginTest": "One independently source-reviewed, unintegrated tests/plugins/service.test.ts packet remains local; runtime publisher loader control. Freeze f069b097, patch f3ff6a7a; not in published branch.",
-      "defaultMaintenanceHarness": "Three frozen private drafts, Python syntax only; no TypeScript/independent/runtime review; no services started. Must not execute until review and private configuration are complete.",
-      "remainingVerification": "Steps3\u20135 paused after current LIFE11 security boundary finding; MySQL restore extension unstarted. Default API/cloud/DNS/private GitHub App/retention/business permissions unchanged.",
-      "dependencySecurity": "sharp0.35.4 now reported by GHSA-wq5f-xc86-pv6w; primary patched0.35.5 fits current Next range but remediation not validated/authorized under current dependency exclusions. No upgrade or exception applied."
+      "nativeTransportRerun": "Private reviewed TLS helper successor awaits final publication source binding and root execution; no fresh native transport result claimed. Previous50e08ca6 transport evidence remains scoped.",
+      "defaultMaintenanceHarness": "Independent NOT_READY draft never run; default scheduling acceptance remains open.",
+      "remainingVerification": "LIFE12 concurrent new owner/resource-fact proof; installed Linux agent update/rollback; default operated interfaces/live resources; see20-ID map and RESULTS."
     },
     "permissions": {
       "approved": "Owned disposable PG/Temporal/kind/Linux/native worker checks including intrinsic worker health listener; same-branch normal push. New author and committer Arnav Bule per6October explicit instruction; prior commits preserved.",
       "pending": "Default product API/server startup; live cloud/account/region/budget; real DNS/private GitHub App configuration; retention/business/production decisions."
     },
-    "releaseVerdict": "All four release states false; CI07/08/09 reopened after new advisory/supply-chain failure; LIFE11 current-source security/default acceptance blocked; no new requirement closed.",
-    "next": "Address actual PG/MySQL/S3 destination custody with independently reviewed transport contract and real socket tests. Preserve TLS hostname/auth/tenant scopes/retry behavior. Then resume stopped verifier groups; do not start unreviewed maintenance harness or claim final CI/gates complete.",
+    "releaseVerdict": "CI07/08/09 verified on f582;12verified/38in_progress/28planned. New test/docs candidate full CI/native transport rerun pending. Four production release flags remain false.",
+    "next": "Push this reviewed test/evidence checkpoint normally after pull --no-rebase; observe every fresh exact-source CI job. Freeze reviewed private TLS helper to publication SHA, execute PG/S3 then MySQL serially with full cleanup; record failures honestly.",
     "completedLocalKind": {
-      "sourceCommit": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820",
-      "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-06-kind55-f36eb5d4.json",
+      "sourceCommit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
+      "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-07-kind55-f582e193.json",
       "cleanupComplete": true,
-      "scope": "Local provider/release/guest components only; CNI/PGlite limits retained"
+      "scope": "Local provider6/release1/guest48 only; default CNI/PGlite tenant-ledger limits retained"
     },
-    "recordedAt": "2026-10-06T05:29:19.747441+00:00",
-    "nativeRun": 37416369867,
-    "cleanup": "Owned fresh PG container/network/volume removed and absence checked. No maintenance worker or Temporal server started. Unrelated Docker resources preserved."
+    "recordedAt": "2026-10-07",
+    "nativeRun": 37572788006,
+    "cleanup": "R1/R2/R3 PG groups and fresh kind55 complete; unrelated Docker resources preserved.",
+    "nativeSkippedPlatformsRun": 37572788039
   },
   "sessionHistory": [
     {

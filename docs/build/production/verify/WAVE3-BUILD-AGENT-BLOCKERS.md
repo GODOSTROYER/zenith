@@ -1,3 +1,16 @@
+## Verifier findings carried forward, 7 October 2026
+
+CI/security repairs passed on f582; root integration d3e adds tests only. No new tenant/security defect was reproduced by latest acceptance review. Keep these gaps visible for wave3:
+
+- LIFE12: demonstrate coordination of concurrent new owner/resource-fact insertion and dispatch/readback; current row-lock/transfer controls do not establish the entire no-competing-writers clause. Do not assume fences retract accepted provider calls.
+- MACH04: installed signed two-version agent registration, health, restart/update and rollback acceptance; Go modeled-server/state controls and Node worker gates cover different scopes.
+- OBS04: default maintenance draft independently NOT_READY and never run; fix seed-table preconditions/current source binding, then review before actual scheduling/restart/fallback proof.
+- UX03: real trusted plugin launcher/archive verification/process isolation and default parent-authority join; API-boundary contracts are not process isolation.
+- Default runbook/scoped telemetry/operator accessibility journey needs DEC-STARTUP; private source/cloud/DNS/application traffic needs DEC-CLOUD. No unauthorized workarounds.
+- Broader provider/cleanup/measured optimizer lifecycle remains at original acceptance levels; use RESULTS requirement table. Native MySQL DNS-hostname TLS refusal remains explicit, without TLS downgrade.
+
+All78 requirements/four false release states preserved. Fresh publication CI and new coherent native transport execution remain pending. Earlier findings below retain original source scope.
+
 ## Current verified transport repair and remaining blockers, 7 October 2026
 
 PROD-LIFE-11 destination-custody security fix50e08ca6 independently reviewed and locally executed: PG/S3 72/0/0, MySQL15/0/0, compiler/lint0. Prior preflight-only finding repaired within authorized portability scope. Stock CLI DNS-hostname TLS safely refuses; implementing original-hostname identity on pinned destination remains a capability gap. Wider backup/adoption/decommission acceptance remains open. No wave3 source changed.

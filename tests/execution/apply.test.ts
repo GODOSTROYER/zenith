@@ -316,6 +316,7 @@ import * as repos from "@/lib/controlplane/db/repos";
 import { openPlatformDb, json, type PlatformDbHandle } from "@/lib/controlplane/db";
 import { createApprovedSourceSnapshotStore } from "@/lib/controlplane/db/repos/approved-source-snapshots";
 import { operationPlanReview } from "@/lib/controlplane/db/repos/operation-review";
+import { createPlatformSemanticsStore } from "@/lib/controlplane/db/repos/executable-semantics";
 import type { Sql } from "@/lib/controlplane/types";
 closeSharedPgliteAfterAll();
 
@@ -397,7 +398,7 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
     const entered=dispatchBarrier(),release=dispatchBarrier();const state=path.join(w.planDir,"customer-state.tfstate");
     const tofu={planWorkspace:runtime.tofu.planWorkspace,applyVerifiedPlan:(ws:Parameters<typeof runtime.tofu.applyVerifiedPlan>[0],args:Parameters<typeof runtime.tofu.applyVerifiedPlan>[1])=>
       runtime.tofu.applyVerifiedPlan(ws,{...args,beforeDispatch:async()=>{entered.release();await release.promise;await args.beforeDispatch?.();}})};
-    const activities=createExecutionActivities({...w.deps,...ports,broker,tofu,planArtifacts:runtime.planArtifacts,sourceSnapshots:createApprovedSourceSnapshotStore(h.db!),
+    const activities=createExecutionActivities({...w.deps,...ports,broker,tofu,planArtifacts:runtime.planArtifacts,sourceSnapshots:createApprovedSourceSnapshotStore(h.db!),semantics:createPlatformSemanticsStore(h.db!),
       tofuWorkspace:{providerSet:()=>"builtin",backend:()=>({backend:{kind:"local",path:state}})},clock:()=>new Date(),limits:{heartbeatIntervalMs:1000}});
     await activities.validateDesiredState({operationId});const lease=await activities.acquireLease({operationId,scope:`env:${scope.environmentId}`,ttlMs:120000});
     try {

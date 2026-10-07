@@ -47,6 +47,17 @@ const RLS_EXISTING = m(V + 6, "alter table platform.operations disable row level
 const UNKNOWN = m(V + 7, "reindex table platform.operations;");
 
 describe("migration compatibility classification", () => {
+  it("binds the authorized external-effect repair to exact SQL and an explicit drained-writer version", () => {
+    const repair = PLATFORM_MIGRATIONS.find((migration) => migration.version === 42)!;
+    expect(assessPlatformMigration(repair, 41).class).toBe("contract");
+    expect(contractViolations([repair], { baseline: 41 })).toEqual([]);
+    expect(() => assertPendingMigrationsCompatible([repair], { baseline: 41, allowed: new Set() })).toThrow("previous release is drained");
+    expect(() => assertPendingMigrationsCompatible([repair], { baseline: 41, allowed: new Set([41]) })).toThrow("previous release is drained");
+    expect(() => assertPendingMigrationsCompatible([repair], { baseline: 41, allowed: new Set([42]) })).not.toThrow();
+    expect(() => assertPendingMigrationsCompatible([{ ...repair, sql: repair.sql + " " }], { baseline: 41, allowed: new Set([42]) })).toThrow("SQL changed after approval");
+    expect(() => assertPendingMigrationsCompatible([repair], { baseline: 41, approvals: [], allowed: new Set([42]) })).toThrow("no LIFE-10 approval");
+  });
+
   it("accepts an expand migration, including RLS/index on a table created in the same migration", () => {
     const a = assessPlatformMigration(EXPAND);
     expect(a.class).toBe("expand");

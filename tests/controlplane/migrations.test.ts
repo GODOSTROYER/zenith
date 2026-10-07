@@ -6,7 +6,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   PLATFORM_MIGRATIONS,
   PLATFORM_SCHEMA_VERSION,
@@ -168,6 +168,68 @@ describe("migration set", () => {
 });
 
 describe.each(lanes)("migrator [$name]", (lane) => {
+  let allowedBefore: string | undefined;
+  beforeEach(() => {
+    // These are freshly owned scratch databases with no live N-1 writers.
+    // Historical upgrade rehearsals explicitly admit only this approved repair.
+    allowedBefore = process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+    process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = [allowedBefore, "42"].filter(Boolean).join(",");
+  });
+  afterEach(() => {
+    if (allowedBefore === undefined) delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+    else process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = allowedBefore;
+  });
+
+  it("repairs published external-effect key checks through an approved upgrade without changing history or authority", async () => {
+    await lane.withFresh(async (open) => {
+      const db = await open(false);
+      const previous = PLATFORM_MIGRATIONS.filter((m) => m.version < 42);
+      const repair = PLATFORM_MIGRATIONS.find((m) => m.version === 42)!;
+      await migratePlatformDb(db, previous);
+      const history = await db.query("select * from platform.schema_migrations order by version");
+      const authority = () => db.query(`select c.relrowsecurity, c.relacl::text,
+        (select array_agg(t.tgname order by t.tgname) from pg_trigger t where t.tgrelid=c.oid and not t.tgisinternal) as triggers
+        from pg_class c where c.oid='platform.external_effects'::regclass`);
+      const before = await authority();
+      const workspaceId = uid("ws");
+      const { operation } = await repos.operations.create(db, { workspaceId, principal: user(), proposal: proposalFor(workspaceId), status: "awaiting_approval" });
+      const insert = (key: string, token: string | null) => db.query(`insert into platform.external_effects
+        (workspace_id,effect_id,family,operation_id,provider,dedup_key,request_digest,idempotency_token,idempotency_supported)
+        values ($1,$2,'build_launch',$3,'aws',$4,$5,$6,false)`, [workspaceId,uid("fx"),operation.id,key,"a".repeat(64),token]);
+      await expect(insert("before", null)).rejects.toThrow("invalid repetition count");
+      const oldAllowed = process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+      const oldEnforcement = process.env.ZENITH_ENFORCE_EXPAND_ONLY;
+      try {
+        process.env.ZENITH_ENFORCE_EXPAND_ONLY = "1";
+        delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+        await expect(migratePlatformDb(db)).rejects.toThrow("previous release is drained");
+        expect(await db.query("select * from platform.schema_migrations order by version")).toEqual(history);
+        process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = "42";
+        expect((await migratePlatformDb(db)).applied).toEqual([42]);
+        expect(await db.query("select * from platform.schema_migrations where version < 42 order by version")).toEqual(history);
+        expect(await authority()).toEqual(before);
+        for (const length of [1,255,256]) await insert("k".repeat(length),"t".repeat(length));
+        await insert("Az09_.:/=+-", "Az09_.:-");
+        await insert("null-token", null);
+        for (const bad of ["", "x".repeat(257), "space key", "x\ny", "é", "@", "x\n"]) {
+          await expect(insert(bad, null)).rejects.toMatchObject({ sqlstate: "23514", constraint: "external_effects_dedup_key_check" });
+          await expect(insert(uid("key"), bad)).rejects.toMatchObject({ sqlstate: "23514", constraint: "external_effects_idempotency_token_check" });
+        }
+        for (const bad of ["/", "=", "+"]) await expect(insert(uid("key"), bad)).rejects.toMatchObject({ sqlstate: "23514", constraint: "external_effects_idempotency_token_check" });
+        const rows = await db.query("select * from platform.external_effects where workspace_id=$1 order by effect_id", [workspaceId]);
+        expect(rows).toHaveLength(5);
+        await db.tx(async (tx) => { await tx.query(repair.sql); });
+        expect(await db.query("select * from platform.external_effects where workspace_id=$1 order by effect_id", [workspaceId])).toEqual(rows);
+        expect((await migratePlatformDb(db)).applied).toEqual([]);
+      } finally {
+        if (oldAllowed === undefined) delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+        else process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = oldAllowed;
+        if (oldEnforcement === undefined) delete process.env.ZENITH_ENFORCE_EXPAND_ONLY;
+        else process.env.ZENITH_ENFORCE_EXPAND_ONLY = oldEnforcement;
+      }
+    });
+  }, 60_000);
+
   it("upgrades existing approvals without dropping their audit history, permitting a fresh plan round", async () => {
     await lane.withFresh(async (open) => {
       const db = await open(false);

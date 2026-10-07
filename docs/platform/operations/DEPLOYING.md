@@ -1044,3 +1044,21 @@ executed (no sandbox AWS account exists); until it has, nothing is `real`.
 - The REST routes over HTTP against a real Supabase identity provider, the
   integration bearer path, and the runner and `zenithd` registration and poll flow
   end to end with the Go agents.
+
+
+### External-effect key repair, schema 42
+
+Migration42 (`external_effect_key_bounds`) repairs PostgreSQL's maximum regex
+repeat count while retaining the original ASCII alphabets and 1–256-character
+bounds. Apply the new cumulative `0024_platform_core.sql` after earlier published
+snapshots; never modify migration33 or snapshots through0023. Fresh installations
+apply42 before inserting external-effect records.
+
+For an existing schema41 installation, stop and drain API/worker mutation writers
+before running `ZENITH_ALLOW_CONTRACT_MIGRATIONS=42 npm run migrate:platform`.
+The in-process migrator retains its contract gate: both the registered exact SQL
+checksum and this explicit operator confirmation are required. The SQL snapshot
+is an operator migration path; it must likewise be applied only after draining
+writers. Never set this flag permanently on server or worker startup. Constraint
+replacement is atomic and validates existing rows; invalid stored data stops the
+upgrade without deleting receipts. Resume writers after schema verification.

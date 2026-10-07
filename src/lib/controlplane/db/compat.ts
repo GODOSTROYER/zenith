@@ -64,11 +64,15 @@ export interface ContractMigrationApproval {
 }
 
 /**
- * Reviewed registry of approved contract migrations. Empty today: every migration
- * shipped so far is baseline. Adding an entry is a code change that needs the
+ * Reviewed registry of approved contract migrations. Adding an entry needs the
  * LIFE-10 approval reference; it does not by itself allow the migration to run.
  */
-export const CONTRACT_MIGRATION_APPROVALS: readonly ContractMigrationApproval[] = [];
+export const CONTRACT_MIGRATION_APPROVALS: readonly ContractMigrationApproval[] = [{
+  version: 42,
+  sqlSha256: "3dcc8f12119594941f82dd749f5471fb2578f1d5c37ec09083491aa6dc91f4b2",
+  approvalRef: "user-2026-10-07-external-effect-key-bounds",
+  rationale: "Explicitly authorized repair of migration 33's PostgreSQL regex bound; preserves key alphabet and 256-character limit. Drain previous writers before applying.",
+}];
 
 export interface MigrationCompatAssessment {
   version: number;

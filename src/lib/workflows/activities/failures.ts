@@ -14,6 +14,7 @@
 import { ApplicationFailure, CancelledFailure } from "@temporalio/activity";
 import { LeaseLostError } from "@/lib/controlplane/types";
 import { TofuPlanChangedError } from "@/lib/tofu/types";
+import { EffectTombstonedError, EffectUnresolvedError } from "@/lib/effects/ledger";
 import { FAILURE_TYPES } from "../types";
 
 const nonRetryable = (message: string, type: string): ApplicationFailure => ApplicationFailure.create({ message, type, nonRetryable: true });
@@ -48,6 +49,8 @@ export function toTemporalFailure(err: unknown): unknown {
   if (err instanceof ApplicationFailure || err instanceof CancelledFailure) return err;
   if (err instanceof LeaseLostError) return leaseLost(err.message);
   if (err instanceof TofuPlanChangedError) return planChanged(err.message);
+  // An unresolved external effect must never be retried by the activity policy: the ledger refuses every replay.
+  if (err instanceof EffectUnresolvedError || err instanceof EffectTombstonedError) return stepFailed(err.message);
   return err;
 }
 

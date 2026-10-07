@@ -25,6 +25,7 @@ import {
   projectRunbookRun,
   reapprovalState,
   type JourneyView,
+  type EffectLike,
   type LegacyDeploymentLike,
   type PlatformOperationLike,
   type RunbookRunLike,
@@ -41,10 +42,11 @@ export const POLL_MS = 3000;
 const MAX_QUIET_FAILURES = 2;
 
 /** Pure: one read of the server, projected. Exported for tests. */
-export async function readJourney(workspaceId: string, target: JourneyTarget, signal?: AbortSignal): Promise<JourneyView> {
+export async function readJourney(workspaceId: string, target: JourneyTarget, signal?: AbortSignal, effects?: readonly EffectLike[]): Promise<JourneyView> {
   if (target.kind === "platform_operation") {
     const body = await browserRead<{ operation: PlatformOperationLike }>(workspaceId, `/api/platform/v1/operations/${encodeURIComponent(target.operationId)}`, signal);
-    return projectPlatformOperation(body.operation);
+    // External effects come from the server render: an unresolved one must not disappear between polls.
+    return projectPlatformOperation(effects ? { ...body.operation, effects } : body.operation);
   }
   if (target.kind === "runbook_run") {
     const body = await browserRead<{ run: RunbookRunLike; steps: RunbookStepLike[] }>(workspaceId, `/api/platform/v1/runbooks/runs/${encodeURIComponent(target.runId)}`, signal);
@@ -56,11 +58,13 @@ export async function readJourney(workspaceId: string, target: JourneyTarget, si
     // The control plane is the authority for a workflow deployment; a failed read falls back to the legacy record.
     linked = (await browserRead<{ operation: PlatformOperationLike }>(workspaceId, `/api/platform/v1/operations/${encodeURIComponent(target.operationId)}`, signal).catch(() => undefined))?.operation;
   }
-  return projectLegacyDeployment(dep, linked);
+  return projectLegacyDeployment(dep, linked && effects ? { ...linked, effects } : linked);
 }
 
-export function JourneyLive({ workspaceId, target, initial, actions, heading, pollMs = POLL_MS }: {
+export function JourneyLive({ workspaceId, target, initial, actions, heading, pollMs = POLL_MS, effects }: {
   workspaceId: string;
+  /** unresolved/known ledger effects of this operation, from the server render */
+  effects?: readonly EffectLike[];
   target: JourneyTarget;
   initial: JourneyView;
   /** rendered inside the panel, under the steps */
@@ -80,13 +84,15 @@ export function JourneyLive({ workspaceId, target, initial, actions, heading, po
   const noticeRef = useRef<HTMLDivElement>(null);
   const [replanned, setReplanned] = useState<ReturnType<typeof reapprovalState>>({ required: false });
   const targetKey = JSON.stringify(target);
+  const effectsRef = useRef(effects);
+  effectsRef.current = effects;
 
   const read = useCallback(async (signal?: AbortSignal) => {
     if (busy.current) return;
     busy.current = true;
     setRefreshing(true);
     try {
-      const next = await readJourney(workspaceId, JSON.parse(targetKey) as JourneyTarget, signal);
+      const next = await readJourney(workspaceId, JSON.parse(targetKey) as JourneyTarget, signal, effectsRef.current);
       failures.current = 0;
       setStale(false);
       setView(next);

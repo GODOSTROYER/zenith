@@ -15,6 +15,7 @@ import { nodeName } from "@/lib/providers/aws/drivers/shared";
 import { createGcpBuildPort, createGcpWorkloadsPort, createGcpMigrationsPort } from "./release-gcp";
 import { createOciBuildPort, createOciWorkloadsPort, createOciMigrationsPort } from "./release-oci";
 import { createAzureBuildPort, createAzureWorkloadsPort, createAzureMigrationsPort, createAzureReleaseLaunchJournal, type AzureBuildOptions } from "./release-azure";
+import { startBuildOnce } from "@/lib/effects/build-launch";
 import { progressiveUnsupportedReason } from "@/lib/release-safety/rollout";
 import { createKubernetesBuildPort, createKubernetesWorkloadsPort, createKubernetesMigrationsPort } from "./release-k8s";
 
@@ -34,7 +35,7 @@ export function createReleasePorts(options: { db?: Sql; azure?: AzureBuildOption
     return ports[ctx.provider];
   };
   return {
-    build: { startBuild: async (ctx, input) => select(ctx).build.startBuild(ctx, input), waitForBuild: async (ctx, handle, opts) => select(ctx).build.waitForBuild(ctx, handle, opts) },
+    build: { startBuild: async (ctx, input) => ctx.provider === "aws" ? select(ctx).build.startBuild(ctx, input) : startBuildOnce(options.db, ctx, input, (c, i) => select(c).build.startBuild(c, i)), waitForBuild: async (ctx, handle, opts) => select(ctx).build.waitForBuild(ctx, handle, opts) },
     workloads: {
       deployImage: async (ctx, node, image, opts) => select(ctx).workloads.deployImage(ctx, node, image, opts),
       waitSteady: async (ctx, node, opts) => select(ctx).workloads.waitSteady(ctx, node, opts),

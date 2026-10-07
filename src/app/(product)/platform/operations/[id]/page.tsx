@@ -7,6 +7,7 @@ import { Callout } from "@/components/ui/callout";
 import { loadOperation } from "../../_lib/loaders";
 import { EvidenceNote, PageState } from "../../_components/page-state";
 import { OperationActions } from "./operation-actions";
+import { EffectsActions } from "./effects-actions";
 import Link from "next/link";
 import { OwnershipTransferReview } from "@/components/platform/ownership-transfer-review";
 import { ownershipTransferRows, ownershipWarnings, projectPlatformOperation } from "@/lib/platform/operator-journey";
@@ -18,11 +19,14 @@ export default async function OperationPage({ params }: { params: Promise<{ id: 
   const result = await loadOperation(id);
   if ("error" in result) return <PageState {...result} />;
   const { data, context } = result;
+  // Loader data from an older shape (or an isolated page test) may carry no ledger rows.
+  const effects = data.effects ?? [];
   const review = operationPlanReview(data.operation);
-  const journey = projectPlatformOperation(data.operation);
+  const journey = projectPlatformOperation({ ...data.operation, effects });
   const transfers = ownershipTransferRows(data.operation.proposal);
   return <div className="space-y-5"><h1 className="app-page-title">Operation details</h1><EvidenceNote />
-    <JourneyLive workspaceId={context.workspaceId} target={{ kind: "platform_operation", operationId: data.operation.id }} initial={journey} />
+    <JourneyLive key={effects.map((e) => `${e.effectId}:${e.version}`).join(",")} workspaceId={context.workspaceId} target={{ kind: "platform_operation", operationId: data.operation.id }} initial={journey} effects={effects} />
+    <EffectsActions effects={effects} viewerRole={context.role} workspaceId={context.workspaceId} />
     {data.linkedDeploymentId && <p className="text-[13px] text-ink-mute">This operation is also shown as a deployment: <Link className="text-signal hover:underline" href={`/platform/deployments/${encodeURIComponent(data.linkedDeploymentId)}`}>open the deployment view</Link>. Both views read the same state.</p>}
     <OwnershipTransferReview transfers={transfers} warnings={ownershipWarnings(data.operation.proposal)} proposalDigest={data.operation.proposalDigest} />
     <OperationActions key={`${data.operation.updatedAt}:${data.approvals.map((a) => a.id).join(",")}`} operation={data.operation} decision={data.decision} approvals={data.approvals} viewer={{ id: context.principal.id, role: context.role, reviewedDigest: data.operation.proposalDigest }} workspaceId={context.workspaceId} plan={review?.view} planCostDeltaUsd={review ? review.cost.deltaUsdMonthly ?? null : undefined} />

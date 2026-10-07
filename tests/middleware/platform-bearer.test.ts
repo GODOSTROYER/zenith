@@ -21,6 +21,7 @@ const bearerRoutes = [
   ["GET", "/environments/env_1/autonomy"], ["GET", "/workspace/policy"], ["GET", "/capability-catalog"],
   ["GET", "/environments/env_1/teardown-review"], ["POST", "/environments/env_1/teardown-review"],
   ["GET", "/connections"], ["GET", "/connections/conn_1"], ["POST", "/connections/conn_1/verify"], ["POST", "/connections/conn_1/revoke"],
+  ["GET", "/effects"], ["GET", "/effects/fx_1"], ["POST", "/effects/fx_1/readback"],
 ];
 const browserRoutes = [
   ["POST", "/operations/op_1/approve"], ["POST", "/operations/op_1/reject"],
@@ -28,6 +29,7 @@ const browserRoutes = [
   ["GET", "/github/callback"], ["POST", "/github/callback"],
   ["GET", "/runners"], ["GET", "/machines"], ["POST", "/runners/tokens"],
   ["POST", "/runners/run_1/revoke"], ["POST", "/machines/mac_1/revoke"],
+  ["POST", "/effects/fx_1/resolve"],
   ["POST", "/connections"], ["POST", "/connections/conn_1/rotate"], ["POST", "/connections/conn_1/rotation/promote"], ["POST", "/connections/conn_1/rotation/abort"],
 ];
 

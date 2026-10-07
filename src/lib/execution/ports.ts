@@ -603,6 +603,8 @@ export interface ExecutionDeps {
   portability?: PortabilityPort;
   /** Required by canonical production planning/apply. Explicit isolated adapters are for tests only. */
   planArtifacts?: PlanArtifactsPort;
+  /** External-effect ledger (PROD-DUR-07/08). Production composition always sets it; isolated contract compositions may omit it. */
+  effects?: import("@/lib/effects/ledger").EffectLedger;
   /* engine */
   /** default: the global driver registry */
   drivers?: DriverLookup;

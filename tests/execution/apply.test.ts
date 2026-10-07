@@ -415,7 +415,11 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
       expect(review.planDigest).toBe(plan.planDigest);
       expect(await peer.query("select semantics_digest from platform.approved_semantics where workspace_id=$1 and operation_id=$2 and plan_digest=$3", [scope.workspaceId, operationId, plan.planDigest]))
         .toEqual([{ semantics_digest: review.semantics.digest }]);
+      const auditWrites = vi.spyOn(h.store, "appendEvent");
       const approval = await h.broker.approve({workspaceId:scope.workspaceId,operationId,proposalDigest:proposed.operation.proposalDigest,planDigest:plan.planDigest,semanticsDigest:review.semantics.digest,approver:user("erin"),session:sessionFor("erin")});
+      const bindingIndexes = auditWrites.mock.calls.flatMap(([input], index) => input.data?.kind === "approval_semantics_bound" ? [index] : []);
+      expect(bindingIndexes, "the real broker attempts exactly one reviewed-semantics audit write").toHaveLength(1);
+      await expect(auditWrites.mock.results[bindingIndexes[0]].value, "the actual audit writer promise must succeed even if the broker catches its error").resolves.toEqual(expect.any(Number));
       expect(await peer.query("select data from platform.events where workspace_id=$1 and operation_id=$2 and type='policy.evaluated' and data->>'kind'='approval_semantics_bound'", [scope.workspaceId, operationId]))
         .toEqual([{ data: { kind: "approval_semantics_bound", approvalId: approval.approval.id, semanticsDigest: review.semantics.digest, planDigest: plan.planDigest } }]);
       const approved = await peer.query<{ id: string; proposal_digest: string; approval_round: number }>("select id,proposal_digest,approval_round from platform.approvals where workspace_id=$1 and operation_id=$2 and id=$3 and decision='approve' and approver->>'id'='erin'", [scope.workspaceId, operationId, approval.approval.id]);

@@ -130,6 +130,7 @@ async function checkGrant(rt: RunnerRuntime, grant: string, want: { audience: st
       expectedOperationId: want.operationId,
       keys: await rt.verificationKeys(),
       now: new Date(rt.now()),
+      ...(rt.grantRevoked ? { isRevoked: (jti: string) => rt.grantRevoked!(want.workspaceId, jti) } : {}),
     });
   } catch (error) {
     if (error instanceof GrantVerificationError) throw new DispatchError("grant_invalid", `The capability grant was refused (${error.code}): ${error.message}`);

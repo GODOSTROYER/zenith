@@ -6,7 +6,7 @@ changed files are clean; the vitest files below must be run on the verifying mac
 ## 1. Summary
 
 New suite under `tests/adversarial/`, one file per threat class, plus the threat model
-`docs/platform/ADVERSARIAL-ACCEPTANCE.md`. Eight narrow fixes for vulnerabilities the suite's cases exposed by reading
+`docs/platform/ADVERSARIAL-ACCEPTANCE.md`. Thirteen narrow fixes (F1-F8, then F9-F13 for the five residual risks the coordinator asked to close) for vulnerabilities the suite's cases exposed by reading
 the code (the tests assert the fixed behaviour, so each fix is also its regression test).
 
 Files added:
@@ -20,6 +20,7 @@ Files added:
 - `tests/adversarial/token-forgery.test.ts`
 - `tests/adversarial/build-exfiltration.test.ts`
 - `tests/adversarial/integration-compromise.test.ts`
+- `tests/adversarial/residual-hardening.test.ts` (F9-F13 regression tests)
 - `docs/platform/ADVERSARIAL-ACCEPTANCE.md`
 
 Source changed (all narrow): `src/lib/portability/net.ts`, `src/lib/alerts/webhook-policy.ts`,
@@ -40,8 +41,13 @@ No migration, no new table, no new dependency, no workflow or gate-manifest chan
 | F6 | `src/lib/portability/artifact.ts:14` `ARTIFACT_NAME` | Low | `a/./b` aliases `a/b`: two distinct manifest names for one location. | `.` segments refused like `..`. |
 | F7 | `src/lib/execution/build-isolation.ts:112` `profileFor` | Low | `__proto__` and `constructor` resolved to inherited objects, failing later with a `TypeError` instead of the typed refusal. Fail-closed but off-contract. | Own-property lookup only. |
 | F8 | `src/lib/alerts/deliver.ts:~222` `slackBody` | Low | Alert titles, details and close reasons went into Slack mrkdwn unescaped, so attacker-influenced text could page a channel (`<!channel>`), mention users or render a link. | `slackEscape` (`&`, `<`, `>`) applied to every interpolated field. |
+| F9 | `src/lib/hosted/gateway/reserved.ts` (`signIn`, `authCallback`) | Medium | Launch `state` travelled in the same URL as the single-use code and was compared only with the value stored beside it, so a code minted for an attacker's own launch signed any browser that opened the callback in as the attacker (login CSRF, session fixation). | The app-host sign-in page mints a random nonce in a host-only `__Host-zenith_login` cookie (Secure, HttpOnly, SameSite=Lax, 10 minutes) and links the launch with it as `state`; the callback refuses, before consuming the code, any `state` that is not exactly that cookie, and clears it on success. |
+| F10 | `src/app/api/platform/v1/_lib/principal.ts` `callerOf` | Medium | The platform REST bearer path verified any `Authorization` header with no host check and no authority-kind rule, unlike the MCP endpoints (a file-authority development credential was accepted over a remote origin; forwarded Host not checked). | `assertBearerSurface`: only `Bearer za_...` accepted (plugin, OAuth, other schemes refused), Host must equal the configured origin, and a `file` authority is accepted only on a loopback http origin. Two test mocks that used `kind: "file"` over https now say `postgres`. |
+| F11 | `src/lib/runners/dispatch.ts` `checkGrant`, `read-jobs.ts`, `runtime.ts` | Medium | Runner dispatch verified the grant signature, audience and operation but never consulted revocation, so a grant revoked after issue still started a job. | `RunnerRuntime.grantRevoked` (default reads `platform.capability_grants`; an unknown jti is not revoked) is passed to `verifyCapabilityGrant` as `isRevoked` in both enqueue paths. A runtime built with its own store and no hook has no revocation source and behaves as before. Not covered: revocation between enqueue and the agent's poll. |
+| F12 | `src/lib/hosted/source/tar.ts` `scanTar` | Medium | The reader accepted an archive with no end-of-archive marker, a single trailing zero block and arbitrary bytes after the marker (stored raw by upload), and treated cut-short archives as complete. | Requires two zero blocks followed only by zero padding; refuses a missing or partial marker and any non-zero trailing data. Truncated entries, size mismatches and bad checksums were already refused and are now regression-tested. |
+| F13 | `src/lib/sources/github/app.ts` `secretFile` | Medium | The GitHub App private key and OAuth client secret were read with no ownership, mode, symlink or hard-link check, unlike the webhook secret. | Reads only a regular file owned by the process uid, with no group or world bits, one link, opened with O_NOFOLLOW and matched to the lstat inode. On Windows (no POSIX ownership or mode) it refuses explicitly as "unavailable": run the GitHub App on a POSIX host. Parent-directory checks are not applied. |
 
-Observed, not fixed (not narrow, or a documented decision): see "Residual risk and non-goals" in
+Residual items F9-F13 were first recorded as observations and are now fixed. Still observed and not fixed (not narrow, or a documented decision): see "Residual risk and non-goals" in
 `docs/platform/ADVERSARIAL-ACCEPTANCE.md`. The ones most worth a follow-up requirement are the hosted launch `state`
 not being browser-bound, the platform REST bearer path lacking the MCP origin/authority-kind check, and the
 hosted source tar reader's missing terminator and trailing-data checks.
@@ -71,7 +77,7 @@ skipped with a reason on Windows).
 ```
 npx vitest run tests/adversarial
 npx vitest run tests/portability tests/alerts tests/execution/prober.test.ts tests/hosted/source tests/hosted/backup tests/platform/source-bundle.test.ts tests/execution/build-isolation.test.ts
-npx vitest run tests/capabilities tests/security tests/controlplane/tenancy.test.ts
+npx vitest run tests/capabilities tests/security tests/controlplane/tenancy.test.ts tests/runners tests/hosted tests/sources tests/platform tests/offered-catalog tests/effects tests/machines
 ```
 
 Expected: all pass. The first command is the new suite. The second and third are the regression neighbourhood of the
@@ -106,3 +112,7 @@ Things most likely to need a first-run adjustment, because they were written wit
 
 `implementation_complete_verification_pending`: nine-file adversarial suite with generated cases, threat model, eight
 narrow fixes recorded; unrun pending verifier execution; eight observed residual items recorded as follow-ups.
+
+## 7. Residual-risk follow-up (F9-F13)
+
+Regression tests: `tests/adversarial/residual-hardening.test.ts`. Existing tests adjusted because they exercised the old behaviour: the hosted gateway callback tests (`tests/hosted/gateway/reserved.test.ts`, `journey.test.ts`, `tests/hosted/acceptance/gate-02-second-identity.test.ts`) now send the login nonce cookie; `tests/capabilities/routes.test.ts` and `tests/offered-catalog/route.test.ts` mock a `postgres` authority. Tests that write a GitHub App key file (`tests/sources/fixtures.ts` uses mode 0600) need a POSIX host; the F13 block is skipped on Windows.

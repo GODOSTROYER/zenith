@@ -36,6 +36,12 @@ export interface RunnerRuntime {
   /** fresh read of a provider connection, used to re-prove a runner binding at dispatch (never cached) */
   connections: ConnectionLookup;
   events: RunnerEventSink;
+  /**
+   * True when the broker revoked this capability grant. Consulted at dispatch so a grant revoked after it was issued
+   * stops the job. The default reads the platform grant row (an unknown jti is not revoked); the composition root or a
+   * test that supplies its own store supplies its own answer, and without one no revocation source exists.
+   */
+  grantRevoked?(workspaceId: string, jti: string): Promise<boolean>;
   /** epoch milliseconds (tests fake it; it must be the clock the store uses when they do) */
   now(): number;
   /** wait `ms`, rejecting with an AbortError when `signal` aborts */
@@ -108,6 +114,7 @@ export async function getRunnerRuntime(): Promise<RunnerRuntime> {
     sealer: o.sealer ?? defaultSealer(),
     connections: o.connections ?? (async (workspaceId, connectionId) => repos.connections.get(await platformDb(), workspaceId, connectionId)),
     events: o.events ?? noopEvents,
+    grantRevoked: o.grantRevoked ?? (o.store ? undefined : async (workspaceId, jti) => repos.grants.isRevoked(await platformDb(), workspaceId, jti)),
     now: o.now ?? Date.now,
     sleep: o.sleep ?? realSleep,
     pollStepMs: o.pollStepMs ?? POLL_STEP_MS,

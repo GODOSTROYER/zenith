@@ -123,7 +123,7 @@ export interface GatewayResponseInit extends GuardOptions {
   /** Content headers: content-type, etag, content-length, content-range, allow… */
   headers?: Record<string, string>;
   /** A cookie the gateway itself is setting. Survives the strip. */
-  setCookie?: string;
+  setCookie?: string | string[];
   /** A redirect the gateway itself is issuing. Survives the strip. */
   location?: string;
 }
@@ -133,7 +133,7 @@ export function gatewayResponse(body: BodyInit | null, init: GatewayResponseInit
   const headers = new Headers(init.headers ?? {});
   const owned: string[] = [];
   if (init.setCookie !== undefined) {
-    headers.append("set-cookie", init.setCookie);
+    for (const cookie of Array.isArray(init.setCookie) ? init.setCookie : [init.setCookie]) headers.append("set-cookie", cookie);
     owned.push("set-cookie");
   }
   if (init.location !== undefined) {

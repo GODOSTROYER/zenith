@@ -143,6 +143,7 @@ describe("Gate 2 — a second identity with no workspace membership", () => {
       host: appHost("alpha"),
       path: `${url.pathname}${url.search}`,
       accept: "text/html",
+      cookie: `__Host-zenith_login=${state}`,
     });
     const res = await m.gateway.handleGateway(req, params);
     expect(res.status, "the callback answers a redirect to the app root").toBe(303);

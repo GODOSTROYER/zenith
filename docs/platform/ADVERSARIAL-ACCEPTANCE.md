@@ -37,28 +37,20 @@ Nothing here is live-cloud acceptance. No test calls a real provider, DNS server
 
 See the findings table in [verify/PROD-OPS-08.md](../build/production/verify/PROD-OPS-08.md).
 
+## Residual risks closed in the follow-up
+
+Fixed and tested in `residual-hardening.test.ts` (findings F9-F13 in the verify doc): hosted launch state bound to a browser nonce cookie; platform REST bearer limited to a linked `za_` credential on the configured host with the authority-kind rule; runner dispatch honours grant revocation; hosted source tar requires a proper terminator and refuses trailing data; GitHub App private key custody checks.
+
 ## Residual risk and non-goals
 
-Recorded as observed but not fixed (a fix is not narrow, or the behaviour is a documented design decision):
+Recorded as observed but not fixed:
 
-- Hosted launch exchange: the `state` that binds a redeemed code to a browser is carried in the same URL as the code
-  and is not checked against a browser-held value (login CSRF within the 60 second, single-use window).
-- The platform REST bearer path (`principal.ts`) accepts any `za_` credential without the origin and authority-kind
-  check the MCP endpoints apply.
-- `verifyCapabilityGrant` callers at runner dispatch pass no revocation hook; `CredentialBroker.withSession` trusts
-  decoded in-process claims; the Go agent's workspace check is vacuous when its own workspace id is empty.
-- The GitHub App private key file is read without the ownership, mode and symlink checks applied to the webhook secret.
-- `CRON_SECRET` has no minimum strength; `/api/internal/*` is public at the edge and relies on every route calling the
-  gate.
-- Hosted source tar reader: no end-of-archive terminator or trailing-data check, quadratic directory handling, lossy
-  UTF-8 decoding, GNU magic accepted as ustar, lenient base64 in `decodeTarball`.
+- `CredentialBroker.withSession` trusts decoded in-process claims; the Go agent's workspace check is vacuous when its own workspace id is empty; a grant revoked after enqueue but before the agent polls is not re-checked.
+- `CRON_SECRET` has no minimum strength; `/api/internal/*` is public at the edge and relies on every route calling the gate.
+- Hosted source tar reader: quadratic directory handling, lossy UTF-8 decoding, GNU magic accepted as ustar, lenient base64 in `decodeTarball`.
 - `assertDispatchAdmitted` admits when the quota lookup fails (documented fail-open for availability).
-- The Navigator translation prompt interpolates manifest names unescaped; the coding agent proposes as the creating
-  human principal with the agent identity only in the free-text reason.
-- The semantics digest is verified in the broker, not in the approval store; dispatch re-checks it against the
-  write-once approved row.
+- The Navigator translation prompt interpolates manifest names unescaped; the coding agent proposes as the creating human principal with the agent identity only in the free-text reason.
+- The semantics digest is verified in the broker, not in the approval store; dispatch re-checks it against the write-once approved row.
 - Runner request signing does not include the agent kind in the signed string (bound by registry lookup only).
 
-Not covered: live cloud, live DNS, a real GitHub, real OAuth issuers, timing side channels beyond use of constant-time
-comparison, denial of service beyond the size and count bounds named above, and the Go runner's own archive reader
-(its Go tests own that).
+Not covered: live cloud, live DNS, a real GitHub, real OAuth issuers, timing side channels beyond use of constant-time comparison, denial of service beyond the size and count bounds named above, and the Go runner's own archive reader (its Go tests own that).

@@ -5,7 +5,8 @@
  * Mock HTTP contracts are not evidence of a live GitHub installation.
  */
 import { createPrivateKey, sign } from "node:crypto";
-import { open } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, open } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import { GithubSourceError, numericId, repository, type GithubAppConfig, type GithubRepository, type GithubSourceBinding } from "./types";
 
@@ -24,9 +25,16 @@ async function secretFile(file: string): Promise<Buffer> {
   let handle;
   try {
     if (!isAbsolute(file)) throw new GithubSourceError("unavailable");
-    handle = await open(file, "r");
+    // Custody (same posture as the webhook secret): a private regular file owned by this process, reached without a
+    // symlink or a second hard link. Windows has no POSIX ownership or mode, so it is refused explicitly: run the
+    // GitHub App on a POSIX host (a refusal reads as "unavailable", never as a weaker mode).
+    const uid = process.getuid?.();
+    if (uid === undefined || process.platform === "win32" || constants.O_NOFOLLOW === undefined) throw new GithubSourceError("unavailable");
+    const before = await lstat(file);
+    if (!before.isFile() || before.uid !== uid || before.nlink !== 1 || (before.mode & 0o077) !== 0) throw new GithubSourceError("unavailable");
+    handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
     const stat = await handle.stat();
-    if (!stat.isFile() || stat.size <= 0 || stat.size > 64 * 1024) throw new GithubSourceError("unavailable");
+    if (!stat.isFile() || stat.size <= 0 || stat.size > 64 * 1024 || stat.ino !== before.ino || stat.dev !== before.dev) throw new GithubSourceError("unavailable");
     const bytes = Buffer.alloc(64 * 1024 + 1);
     const { bytesRead } = await handle.read(bytes, 0, bytes.length, 0);
     if (bytesRead > 64 * 1024) { bytes.fill(0); throw new GithubSourceError("unavailable"); }

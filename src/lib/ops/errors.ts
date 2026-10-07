@@ -15,18 +15,23 @@ export type BackpressureCode =
   | "queue_full"
   | "overloaded"
   | "maintenance_read_only"
-  | "maintenance_dispatch_paused";
+  | "maintenance_dispatch_paused"
+  // PROD-MAN-06: only ever raised in `billing: managed` mode; BYOC and self-hosted installs never see them.
+  | "billing_suspended"
+  | "plan_quota_exceeded";
 
-export type BackpressureLayer = "edge" | "api" | "dispatch" | "runner_queue" | "worker" | "maintenance";
+export type BackpressureLayer = "edge" | "api" | "dispatch" | "runner_queue" | "worker" | "maintenance" | "billing";
 
-/** 429: the caller's own quota. 503: platform/operator load shedding. */
-export const BACKPRESSURE_STATUS: Readonly<Record<BackpressureCode, 429 | 503>> = {
+/** 429: the caller's own quota. 503: platform/operator load shedding. 402: billing state refuses NEW work (never reads or export). */
+export const BACKPRESSURE_STATUS: Readonly<Record<BackpressureCode, 402 | 429 | 503>> = {
   rate_limited: 429,
   concurrency_exceeded: 429,
   queue_full: 429,
   overloaded: 503,
   maintenance_read_only: 503,
   maintenance_dispatch_paused: 503,
+  billing_suspended: 402,
+  plan_quota_exceeded: 429,
 };
 
 export const MIN_RETRY_AFTER_SEC = 1;
@@ -37,7 +42,7 @@ export const clampRetryAfter = (seconds: number): number =>
 
 export class BackpressureError extends Error {
   readonly name = "BackpressureError";
-  readonly status: 429 | 503;
+  readonly status: 402 | 429 | 503;
   readonly retryAfterSec: number;
   constructor(
     readonly code: BackpressureCode,

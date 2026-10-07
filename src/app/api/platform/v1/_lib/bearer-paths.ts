@@ -96,6 +96,11 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/github/binding/unbind$`), methods: { POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/github/inspect$`), methods: { GET: "browser-only" } },
   { path: new RegExp(`^${ROOT}/github/webhook$`), methods: { POST: "webhook-signed" } },
+  // Billing (PROD-MAN-06, managed mode only): a member reads plan and usage and an admin downloads the tenant export (both a person in the browser);
+  // the payment provider's webhook is authenticated by its signature over the raw body, not by a cookie.
+  { path: new RegExp(`^${ROOT}/billing$`), methods: { GET: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/billing/export$`), methods: { GET: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/billing/webhook$`), methods: { POST: "webhook-signed" } },
   { path: new RegExp(`^${ROOT}/(?:runners|machines)$`), methods: { GET: "admin" } },
   { path: new RegExp(`^${ROOT}/runners/tokens$`), methods: { POST: "admin" } },
   { path: new RegExp(`^${ROOT}/(?:runners|machines)/${AGENT_ID}/revoke$`), methods: { POST: "admin" } },

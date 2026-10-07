@@ -30,6 +30,7 @@ import { isUnsupportedNativeType } from "@/lib/resources/native-types";
 import type { ResourceGraph } from "@/lib/resources/types";
 import { STATEFUL_KINDS } from "@/lib/resources/types";
 import { upgradeManifest } from "@/lib/resources/upgrade";
+import { RENDERABLE_KINDS } from "@/lib/providers/kubernetes/render";
 import type { ArtifactSpec } from "@/lib/resources/specs";
 import type { DriverLookup, ProductContext } from "./ports";
 import { errorText, safeText } from "./text";
@@ -87,6 +88,9 @@ export function findGraphProblems(graph: ResourceGraph, environmentProvider: str
   for (const node of graph.nodes) {
     if (node.ownership === "external") continue;
 
+    // Kubernetes has no log group object: logs are the pods' own, read through container.logs. The derived
+    // node is not an unexecutable resource there, it is simply realized by the workload.
+    if (environmentProvider === "kubernetes" && node.kind === "log_group" && isUnsupportedNativeType(node.nativeType)) continue;
     if (isUnsupportedNativeType(node.nativeType)) {
       problems.push(`${node.address}: a ${node.kind} has no native realization on ${node.provider} (${node.nativeType}); it cannot be executed there.`);
       continue;
@@ -101,7 +105,10 @@ export function findGraphProblems(graph: ResourceGraph, environmentProvider: str
     if (node.ownership === "managed") {
       const driver = drivers(node.provider, node.nativeType);
       if (!driver) problems.push(`${node.address}: no driver is registered for ${node.provider} ${node.nativeType}.`);
-      else if (typeof driver.compile !== "function") problems.push(`${node.address}: driver ${driver.id} cannot compile (it is observe-only), so it cannot manage this node.`);
+      else if (environmentProvider === "kubernetes") {
+        // Kubernetes realizes nodes by render + server-side apply, not by compiling OpenTofu: what matters is that it can render the kind.
+        if (!RENDERABLE_KINDS.includes(node.kind)) problems.push(`${node.address}: a ${node.kind} cannot be rendered on Kubernetes.`);
+      } else if (typeof driver.compile !== "function") problems.push(`${node.address}: driver ${driver.id} cannot compile (it is observe-only), so it cannot manage this node.`);
       const artifact = node.spec.artifact as ArtifactSpec | undefined;
       if (artifact?.type === "blueprint" && node.provider !== "sandbox") {
         problems.push(`${node.address} uses blueprint source "${artifact.blueprint}", which only the sandbox provider can run; ${node.provider} needs an image or git source.`);

@@ -29,6 +29,12 @@ export interface NetworkSpec {
   zones: number;
   egress?: { natGateways: "none" | "single" | "per_az" };
   namespace?: string;
+  /**
+   * Kubernetes only. `default-deny` adds a default-deny EGRESS policy plus a DNS allow to the
+   * namespace; each firewall then also renders the egress allow for its source. `open` (the
+   * default) leaves egress unrestricted. Ingress is always default-deny.
+   */
+  isolation?: { egress: "open" | "default-deny" };
 }
 
 export interface SubnetSpec {
@@ -117,8 +123,19 @@ export interface ContainerServiceSpec extends WorkloadCommon {
   healthPath?: string;
 }
 
+/** Kubernetes CronJob behaviour; absent fields keep Zenith's defaults (Forbid, history 3/3, 300 s start deadline). */
+export interface CronPolicySpec {
+  concurrencyPolicy?: "Allow" | "Forbid" | "Replace";
+  startingDeadlineSeconds?: number;
+  successfulJobsHistoryLimit?: number;
+  failedJobsHistoryLimit?: number;
+  timeZone?: string;
+}
+
 export interface ScheduledJobSpec extends WorkloadCommon {
   schedule?: string;
+  /** Kubernetes only */
+  cronPolicy?: CronPolicySpec;
 }
 
 export interface StaticSiteSpec {

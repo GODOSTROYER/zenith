@@ -16,6 +16,7 @@ import {
 import { v1View } from "./upgrade";
 import { assertHost, assertName, cmp, GraphBuilder, ManifestExpansionError, placeKey, uniqSorted, type Place } from "./expand-support";
 import type { PortableKind, ProviderKey } from "./types";
+import type { CronPolicySpec } from "./specs";
 
 export interface ExpandEnv {
   id: string;
@@ -68,6 +69,10 @@ export interface Tuning {
   storageClass?: string;
   ingress?: string;
   shape?: string;
+  /** kubernetes: namespace egress isolation */
+  egress?: "open" | "default-deny";
+  /** kubernetes: CronJob behaviour for cron services */
+  cronPolicy?: CronPolicySpec;
 }
 
 export interface Ctx {
@@ -135,7 +140,7 @@ export function tuningFor(v2: ManifestV2 | undefined, provider: ProviderKey): Tu
     case "kubernetes":
     case "zenith": {
       const c = pc.kubernetes;
-      return c ? { namespace: c.namespace, ingressClass: c.ingressClass, storageClass: c.storageClass } : {};
+      return c ? { namespace: c.namespace, ingressClass: c.ingressClass, storageClass: c.storageClass, egress: c.egress, cronPolicy: c.cronJob } : {};
     }
     default:
       return {};

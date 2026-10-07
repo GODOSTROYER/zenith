@@ -55,6 +55,16 @@ export interface DestroyProviderPorts {
 }
 const ObjectRef = z.string().min(1).max(500).regex(/^[A-Za-z][A-Za-z0-9]*\/[^/\s]*\/[^/\s]+$/);
 const ResultSchema = z.object({ deleted: z.array(ObjectRef).max(10_000), retained: z.array(ObjectRef).max(10_000), skipped: z.array(ObjectRef).max(10_000), uncertain: z.array(ObjectRef).max(10_000) }).strict();
+/**
+ * A coverage-gap marker for a kind the cluster does not serve (`Certificate/ns/*` when cert-manager is not installed).
+ * A kind the API does not serve cannot hold an object, so it is not an unreviewed part of the teardown. Any other
+ * skipped ref (a named object, or a wildcard for a kind the cluster serves) still blocks.
+ */
+const UNSERVED_CRD_KINDS: ReadonlySet<string> = new Set(["Certificate", "DNSEndpoint", "HTTPRoute"]);
+const blockingSkips = (skipped: readonly string[]): string[] => skipped.filter((ref) => {
+  const [kind, , name] = ref.split("/");
+  return !(name === "*" && UNSERVED_CRD_KINDS.has(kind));
+});
 const isDirect = (ec: ExecContext) => ["kubernetes", "zenith"].includes(ec.product.environment.provider);
 
 async function teardown(ports: DestroyProviderPorts, provider: string, input: TeardownInput): Promise<TeardownResult> {
@@ -109,7 +119,7 @@ async function directCall(rt: Runtime, ec: ExecContext, graph: ResourceGraph, le
 
 function directPlan(rt: Runtime, ec: ExecContext, graph: ResourceGraph, result: TeardownResult): NormalizedPlan {
   const provider = ec.product.environment.provider;
-  const stateful = (ref: string) => /^(PersistentVolumeClaim|PersistentVolume|StatefulSet|Secret|Postgres|Database)\//i.test(ref);
+  const stateful = (ref: string) => /^(PersistentVolumeClaim|PersistentVolume|StatefulSet|VolumeSnapshot|Secret|Postgres|Database)\//i.test(ref);
   return { tofuVersion: "provider-teardown/C1", formatVersion: "C1", configDigest: graph.graphDigest,
     lockDigest: digest({ provider, contract: "C1" }),
     planDigest: digest({ provider, graphDigest: graph.graphDigest, retainStateful: retainStateful(ec, graph), ...result }),
@@ -126,7 +136,7 @@ const directWorkspace = (graph: ResourceGraph) => ({ files: [], configDigest: gr
 async function directPlanStage(rt: Runtime, ec: ExecContext, graph: ResourceGraph, lease: LeaseRef, ports: DestroyProviderPorts, approvedDigest?: string): Promise<PlanSummary> {
   const result = await directCall(rt, ec, graph, lease, ports, true);
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
-  if (result.uncertain.length || result.skipped.length) throw new StepFailedError("The provider could not completely review teardown; skipped or uncertain objects require investigation.");
+  if (result.uncertain.length || blockingSkips(result.skipped).length) throw new StepFailedError("The provider could not completely review teardown; skipped or uncertain objects require investigation.");
   const plan = directPlan(rt, ec, graph, result), facts = extractPlanFacts(plan);
   const evidence = planEvidence({ plan, facts, cost: {}, graphDigest: graph.graphDigest, stage: approvedDigest ? "final_plan" : "plan", approvedDigest });
   await rt.evidence(ec.scope, { kind: "tofu_plan", digest: plan.planDigest, key: `destroy:${evidence.key}`, simulated: false,
@@ -386,9 +396,9 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
         const remaining = await directCall(rt, ec, graph, lease, ports, true);
         await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
         const applied = await rt.d.evidence.find({ workspaceId: ec.workspaceId, operationId, kind: "tofu_apply" });
-        const unresolved = !applied || applied.simulated || applied.summary.planDigest !== planDigest || applied.summary.matchesReviewed === false || remaining.uncertain.length > 0 || remaining.skipped.length > 0 ||
+        const unresolved = !applied || applied.simulated || applied.summary.planDigest !== planDigest || applied.summary.matchesReviewed === false || remaining.uncertain.length > 0 || blockingSkips(remaining.skipped).length > 0 ||
           (Array.isArray(applied.summary.uncertain) && applied.summary.uncertain.length > 0) ||
-          (Array.isArray(applied.summary.skipped) && applied.summary.skipped.length > 0);
+          (Array.isArray(applied.summary.skipped) && blockingSkips(applied.summary.skipped.filter((ref): ref is string => typeof ref === "string")).length > 0);
         const failed = new Set([...remaining.deleted, ...remaining.retained.filter((ref) => addresses.includes(ref))]).size;
         // C1 dry-run enumerates deletable live objects; retained objects are not absence targets.
         const status = unresolved ? "unknown" : failed ? "failed" : "passed";

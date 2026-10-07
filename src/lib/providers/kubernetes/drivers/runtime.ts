@@ -19,6 +19,7 @@ import type { RuntimeArgs } from "./shared";
 import { READ_ONLY_KINDS, listByKind } from "../client";
 import { evaluateRollout } from "../rollout";
 import { dig, isRecord } from "../util";
+import { cronJobReadback, statefulSetReadback } from "./readback";
 
 type RuntimePart = { health: HealthState; counts: Record<string, number>; signals: string[] };
 
@@ -66,6 +67,7 @@ function tally(pods: Record<string, unknown>[]): { counts: Record<string, number
 }
 
 export async function podBasedRuntime({ client, ref, live }: RuntimeArgs): Promise<RuntimePart> {
+  let cap: HealthState | undefined;
   const kind = ref.kind === "StatefulSet" ? "StatefulSet" : "Deployment";
   const ev = evaluateRollout(kind, live);
   const counts: Record<string, number> = {
@@ -75,6 +77,7 @@ export async function podBasedRuntime({ client, ref, live }: RuntimeArgs): Promi
     available: ev.snapshot.availableReplicas ?? 0,
   };
   const signals: string[] = [];
+  let listedPods: Record<string, unknown>[] = [];
 
   const match = dig(live, "spec", "selector", "matchLabels");
   if (isRecord(match) && ref.namespace) {
@@ -84,10 +87,17 @@ export async function podBasedRuntime({ client, ref, live }: RuntimeArgs): Promi
       .map(([k, v]) => `${k}=${v as string}`)
       .join(",");
     const pods = (await listByKind(client, READ_ONLY_KINDS.Pod, ref.namespace, { labelSelector, limit: MAX_PODS, maxPages: 1 })).items;
+    listedPods = pods;
     const t = tally(pods);
     Object.assign(counts, t.counts);
     for (const [sig, n] of [...t.signals].sort(([a], [b]) => (a < b ? -1 : 1))) signals.push(`${sig}:${n}`);
     if (pods.length >= MAX_PODS) signals.push("pods_truncated");
+  }
+  if (kind === "StatefulSet" && ref.namespace) {
+    const extra = await statefulSetReadback(client, ref.namespace, live, listedPods);
+    Object.assign(counts, extra.counts);
+    signals.push(...extra.signals);
+    cap = extra.cap;
   }
   if (ev.failed) signals.push(ev.failed === "ProgressDeadlineExceeded" ? "rollout_deadline_exceeded" : "rollout_failed");
   else if (!ev.done && counts.desired > 0) signals.push("rollout_in_progress");
@@ -100,17 +110,27 @@ export async function podBasedRuntime({ client, ref, live }: RuntimeArgs): Promi
   } else if (ev.failed || counts.ready === 0) health = "unhealthy";
   else if (counts.ready < counts.desired || bad || !ev.done) health = "degraded";
   else health = "healthy";
+  // Readback may only lower health: a Ready pod with a Pending or Lost claim is not a serving database.
+  const order: HealthState[] = ["unhealthy", "degraded", "healthy"];
+  if (cap && order.indexOf(cap) < order.indexOf(health)) health = cap;
   return { health, counts, signals };
 }
 
-export async function cronJobRuntime({ live }: RuntimeArgs): Promise<RuntimePart> {
+export async function cronJobRuntime({ client, ref, live }: RuntimeArgs): Promise<RuntimePart> {
   const active = dig(live, "status", "active");
   const suspended = dig(live, "spec", "suspend") === true;
   const signals: string[] = [];
+  const counts: Record<string, number> = { active: Array.isArray(active) ? active.length : 0, suspended: suspended ? 1 : 0 };
   if (suspended) signals.push("suspended");
-  if (dig(live, "status", "lastScheduleTime") === undefined && !suspended) signals.push("never_scheduled");
-  // The CronJob alone cannot say whether its last run succeeded; that needs Job results, so health is not guessed.
-  return { health: "unknown", counts: { active: Array.isArray(active) ? active.length : 0, suspended: suspended ? 1 : 0 }, signals };
+  const scheduled = dig(live, "status", "lastScheduleTime") !== undefined;
+  if (!scheduled && !suspended) signals.push("never_scheduled");
+  // The CronJob alone cannot say whether its last run succeeded; the Jobs it created can. Without
+  // any run, health is not guessed.
+  if (!scheduled || !ref.namespace) return { health: "unknown", counts, signals };
+  const { part, health } = await cronJobReadback(client, ref.namespace, live);
+  Object.assign(counts, part.counts);
+  signals.push(...part.signals);
+  return { health, counts, signals };
 }
 
 export async function pvcRuntime({ live }: RuntimeArgs): Promise<RuntimePart> {

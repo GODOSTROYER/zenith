@@ -6,9 +6,15 @@
  * dns_record                   → external-dns DNSEndpoint
  *
  * Fail-closed rules for NetworkPolicy:
- *   - Every namespace Zenith creates gets a default-deny INGRESS policy. Egress
- *     is left open so DNS and dependencies keep working; locking egress down is
- *     a separate decision this driver does not make.
+ *   - Every namespace Zenith creates gets a default-deny INGRESS policy.
+ *   - Egress is open by default, so DNS and dependencies keep working. A
+ *     network node with `spec.isolation.egress: "default-deny"` also gets a
+ *     default-deny EGRESS policy and a DNS allow; every firewall whose source is
+ *     a workload in that namespace then renders the matching egress allow
+ *     (source pods to target pods, same ports), so a declared dependency keeps
+ *     working and nothing else leaves the pod. Anything the application reaches
+ *     outside the cluster (a payment API, an object store) is blocked until a
+ *     rule names it; Zenith has no rule kind for external egress yet.
  *   - A rule is rendered only with an explicit `from` peer list. An empty
  *     `from` in Kubernetes means "from anywhere", so a source Zenith cannot
  *     express inside the cluster (a node on another provider) yields a policy
@@ -33,9 +39,13 @@ import { isRecord, sortedUnique } from "../util";
 import { ctxNamespace, metadata, namespaceOf, renderError, specOf } from "./common";
 
 const WORKLOAD_KINDS = new Set(["container_service", "static_site", "postgres", "redis", "mysql"]);
+/** Pods a NetworkPolicy can select: portable workloads and the native StatefulSet (same selector labels). */
+const isPodWorkload = (n: Pick<ResourceNode, "kind" | "nativeType">): boolean => WORKLOAD_KINDS.has(n.kind) || (n.kind === "provider_native" && n.nativeType === "k8s:StatefulSet");
 const K8S_PROVIDERS = new Set(["kubernetes", "zenith"]);
 
 export const DEFAULT_DENY_NAME = "zenith-default-deny-ingress";
+export const DEFAULT_DENY_EGRESS_NAME = "zenith-default-deny-egress";
+export const ALLOW_DNS_EGRESS_NAME = "zenith-allow-dns-egress";
 export const DEFAULT_ISSUERS = { dns01: "zenith-letsencrypt-dns01", http01: "zenith-letsencrypt-http01" } as const;
 
 /* -------------------------------- namespace -------------------------------- */
@@ -64,7 +74,43 @@ export function renderNamespace(node: ResourceNode, ctx: K8sRenderContext): Rend
     metadata: metadata(node, ctx, { name: DEFAULT_DENY_NAME, namespace: name }),
     spec: { podSelector: {}, policyTypes: ["Ingress"] },
   };
-  return { objects: [ns, deny], notes };
+  const objects = [ns, deny];
+  const isolation = isRecord(spec.isolation) ? spec.isolation : undefined;
+  if (isolation?.egress !== undefined && isolation.egress !== "open" && isolation.egress !== "default-deny") {
+    throw renderError(`${node.address}: isolation.egress must be "open" or "default-deny".`);
+  }
+  if (isolation?.egress === "default-deny") {
+    const dnsNs = ctx.dns?.namespace ?? "kube-system";
+    const dnsPods = ctx.dns?.podLabels ?? { "k8s-app": "kube-dns" };
+    objects.push(
+      {
+        apiVersion: "networking.k8s.io/v1",
+        kind: "NetworkPolicy",
+        metadata: metadata(node, ctx, { name: DEFAULT_DENY_EGRESS_NAME, namespace: name }),
+        spec: { podSelector: {}, policyTypes: ["Egress"] },
+      },
+      {
+        apiVersion: "networking.k8s.io/v1",
+        kind: "NetworkPolicy",
+        metadata: metadata(node, ctx, { name: ALLOW_DNS_EGRESS_NAME, namespace: name }),
+        spec: {
+          podSelector: {},
+          policyTypes: ["Egress"],
+          egress: [
+            {
+              to: [{ namespaceSelector: nsSelector(dnsNs), podSelector: { matchLabels: dnsPods } }],
+              ports: [
+                { protocol: "UDP", port: 53 },
+                { protocol: "TCP", port: 53 },
+              ],
+            },
+          ],
+        },
+      }
+    );
+    notes.push(`${node.address}: egress is default-deny with DNS allowed to ${dnsNs}; pods reach only DNS and the targets of declared firewalls, so calls to anything outside the cluster are blocked until a rule names them. Needs a CNI that enforces NetworkPolicy.`);
+  }
+  return { objects, notes };
 }
 
 /* -------------------------------- firewall --------------------------------- */
@@ -106,6 +152,17 @@ function backendsOf(lb: ResourceNode, ctx: K8sRenderContext): Backend[] {
 }
 
 export const firewallObjectName = (node: Pick<ResourceNode, "address">): string => dnsLabel(`fw-${addressLeaf(node.address)}`);
+export const firewallEgressObjectName = (node: Pick<ResourceNode, "address">): string => dnsLabel(`fw-${addressLeaf(node.address)}-egress`);
+
+/** Whether the network node that owns `namespace` asks for default-deny egress. */
+function egressIsolated(ctx: K8sRenderContext, namespace: string): boolean {
+  for (const n of ctx.nodes?.() ?? []) {
+    if (n.kind !== "network" && n.kind !== "kubernetes_namespace") continue;
+    if (!isRecord(n.spec) || !isRecord(n.spec.isolation) || n.spec.isolation.egress !== "default-deny") continue;
+    if (namespaceOf(n, ctx.environmentId, ctx.node) === namespace) return true;
+  }
+  return false;
+}
 
 export function renderFirewall(node: ResourceNode, ctx: K8sRenderContext): RenderResult {
   const spec = specOf(node) as unknown as Partial<FirewallSpec>;
@@ -127,7 +184,7 @@ export function renderFirewall(node: ResourceNode, ctx: K8sRenderContext): Rende
     ports = sortedUnique(backends.map((b) => b.port).filter((p): p is number => typeof p === "number"));
     if (names.length === 0 || ports.length === 0) throw renderError(`${node.address}: the load balancer ${spec.target} has no backends with known ports to protect.`);
     podSelector = { matchLabels: { [LABEL.partOf]: labelValue(ctx.environmentId) }, matchExpressions: [{ key: LABEL.name, operator: "In", values: names }] };
-  } else if (!target || WORKLOAD_KINDS.has(target.kind)) {
+  } else if (!target || isPodWorkload(target)) {
     podSelector = podMatch({ address: spec.target }, ctx);
     ports = [spec.port];
   } else {
@@ -160,6 +217,7 @@ export function renderFirewall(node: ResourceNode, ctx: K8sRenderContext): Rende
   }
   if (spec.crossBoundary) notes.push(`${node.address}: crossBoundary=${spec.crossBoundary}; traffic between clouds/regions also depends on routing and firewalls outside this cluster.`);
 
+  const objects: K8sObject[] = [];
   const np: K8sObject = {
     apiVersion: "networking.k8s.io/v1",
     kind: "NetworkPolicy",
@@ -174,7 +232,27 @@ export function renderFirewall(node: ResourceNode, ctx: K8sRenderContext): Rende
       ingress: peers.length === 0 ? [] : [{ from: peers, ports: ports.map((p) => ({ protocol: "TCP", port: p })) }],
     },
   };
-  return { objects: [np], notes };
+  objects.push(np);
+
+  // Egress allow for the source, only when its namespace is egress-isolated and both ends are pods here.
+  if (isRecord(source) && typeof source.address === "string" && target && isPodWorkload(target)) {
+    const src = ctx.node?.(source.address);
+    if (src && isInCluster(src) && isPodWorkload(src)) {
+      const srcNs = namespaceOf(src, ctx.environmentId, ctx.node);
+      if (egressIsolated(ctx, srcNs)) {
+        const toNs = namespaceOf(target, ctx.environmentId, ctx.node);
+        const peer: Peer = { podSelector: podMatch(target, ctx) };
+        if (toNs !== srcNs) peer.namespaceSelector = nsSelector(toNs);
+        objects.push({
+          apiVersion: "networking.k8s.io/v1",
+          kind: "NetworkPolicy",
+          metadata: metadata(node, ctx, { name: firewallEgressObjectName(node), namespace: srcNs }),
+          spec: { podSelector: podMatch(src, ctx), policyTypes: ["Egress"], egress: [{ to: [peer], ports: ports.map((p) => ({ protocol: "TCP", port: p })) }] },
+        });
+      }
+    }
+  }
+  return { objects, notes };
 }
 
 function defaultControllerNamespace(ctx: K8sRenderContext, target: ResourceNode | undefined): string | undefined {

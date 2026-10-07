@@ -1,0 +1,20 @@
+# kind cluster for the PROD-LIFE-07 acceptance profile: a stock kind cluster has a
+# CNI that Zenith does not rely on for NetworkPolicy, so the default CNI is disabled
+# and Calico is installed by kind-calico-up.sh from a checksum-verified manifest with
+# digest-pinned images. The node image digest below must equal KIND_NODE_IMAGE in
+# images.env (tests/providers/kubernetes/lifecycle-profile.test.ts enforces it).
+#
+# podSubnet is Calico's default pool, so the manifest needs no pool override.
+# One control-plane and one worker: ordered StatefulSet rollout and pod-to-pod policy
+# are then exercised across nodes as well as on one.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  disableDefaultCNI: true
+  podSubnet: 192.168.0.0/16
+  serviceSubnet: 10.96.0.0/12
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+  - role: worker
+    image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5

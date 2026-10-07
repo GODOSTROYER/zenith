@@ -231,7 +231,10 @@ describe("service.scale", () => {
     fake.seed({ apiVersion: "apps/v1", kind: "Deployment", metadata: { name: "web", namespace: NS }, spec: { replicas: 1 } });
     expect(await op("service.scale")(await ctx(), web(), { replicas: 3 })).toMatchObject({ ok: false, data: { code: "ownership_conflict" } });
     expect(fake.get("Deployment", NS, "web")).toMatchObject({ spec: { replicas: 1 } });
-    expect(((getDriver("kubernetes", "k8s:StatefulSet").operations ?? {}) as any)["service.scale"]).toBeUndefined();
+    // PROD-LIFE-07: the StatefulSet driver now offers service.scale for native StatefulSets, and still refuses the dev-tier database.
+    await deploy([networkNode(), dbNode()]);
+    expect(await op("service.scale", "k8s:StatefulSet")(await ctx(), inNs(dbNode()), { replicas: 3 })).toMatchObject({ ok: false, data: { code: "unsupported" } });
+    expect((fake.get("StatefulSet", NS, "db") as any).spec.replicas).toBe(1);
   });
 });
 

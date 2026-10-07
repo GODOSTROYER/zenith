@@ -48,7 +48,7 @@ export function emitTopology(ctx: Ctx, places: Place[], origins: Map<string, str
 
     if (place.provider === "kubernetes" || place.provider === "zenith") {
       const namespace = tuning.namespace ?? `zenith-${slug(ctx.env.name, 40)}`;
-      const spec: NetworkSpec = { namespace, zones: ctx.zones };
+      const spec: NetworkSpec = { namespace, zones: ctx.zones, ...(place.provider === "kubernetes" && tuning.egress ? { isolation: { egress: tuning.egress } } : {}) };
       b.add({ address: network, kind: "network", place, spec: { ...spec }, origin });
       b.note("topology", `${network}: namespace ${namespace}; kubernetes has no subnet primitive, so ${ctx.zones} zone${ctx.zones === 1 ? "" : "s"} become topology spread on workloads.`);
       topo.set(key, { network, publicDeps: [network], privateDeps: [network] });

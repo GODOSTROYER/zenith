@@ -152,6 +152,19 @@ export const KubernetesConfig = z
     namespace: z.string().regex(DNS_LABEL).optional(),
     ingressClass: z.string().regex(DNS_LABEL).optional(),
     storageClass: z.string().regex(DNS_LABEL).optional(),
+    /** `default-deny` isolates the namespace's egress too (DNS stays open); needs a CNI that enforces NetworkPolicy */
+    egress: z.enum(["open", "default-deny"]).optional(),
+    /** applies to every cron service on this cluster */
+    cronJob: z
+      .object({
+        concurrencyPolicy: z.enum(["Allow", "Forbid", "Replace"]).optional(),
+        startingDeadlineSeconds: z.number().int().min(10).max(86_400).optional(),
+        successfulJobsHistoryLimit: z.number().int().min(0).max(100).optional(),
+        failedJobsHistoryLimit: z.number().int().min(0).max(100).optional(),
+        timeZone: z.string().regex(/^[A-Za-z][A-Za-z0-9_+-]*(\/[A-Za-z0-9_+-]+){0,2}$/).max(64).optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export type KubernetesConfig = z.infer<typeof KubernetesConfig>;

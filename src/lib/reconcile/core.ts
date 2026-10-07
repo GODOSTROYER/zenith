@@ -47,6 +47,8 @@ import {
   type ReconcileOptions,
   type ReconcilePorts,
   type ReconcileResult,
+  type RepairAwaitingVerification,
+  type RepairVerification,
   type ResolvedReconcileOptions,
   type SkippedNode,
   type StabilityFindingObservation,
@@ -171,10 +173,21 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
       changed: false,
       openFindings: 0,
       repairs: [],
+      verifications: [],
       startedAt: startedAt.toISOString(),
       finishedAt: ports.now().toISOString(),
     };
 
+  // Settled repairs are listed BEFORE any read, so the observation below provably postdates them.
+  // A store failure here only means nothing is verified this pass; it never blocks observation.
+  let awaiting: readonly RepairAwaitingVerification[] = [];
+  if (ports.stability?.awaitingVerification) {
+    try {
+      awaiting = await ports.stability.awaitingVerification(environment, ports.now());
+    } catch {
+      awaiting = [];
+    }
+  }
   const previous = await ports.store.loadPrevious(environment);
   const deadlineAt = Math.min(options.deadlineAt ?? Number.POSITIVE_INFINITY, Date.now() + options.environmentTimeoutMs);
   const items: ObservableNode[] = reconcile.map(({ node, resource }) => ({ node, resource, driver: driverFor(node) }));
@@ -245,6 +258,17 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
       stabilityFailed = true;
     }
   }
+  // Post-remediation verification: this pass's re-observation closes or escalates earlier repairs.
+  let verifications: RepairVerification[] = [];
+  if (ports.stability?.verifyRepairs && awaiting.length > 0) {
+    await assertCurrent();
+    try {
+      verifications = [...(await ports.stability.verifyRepairs(environment, awaiting, stabilityObservations(report, observed), ports.now(), { simulated: report.simulated === true }))];
+    } catch {
+      // Unverified is not cleared: the incident stays open and the next pass re-verifies.
+      verifications = [];
+    }
+  }
   const proposed = await proposeRepairs({ environment, report, selection, ports, options, findingSince, assertCurrent, fence: input.fence, signal: input.signal, ...(incidents ? { incidents } : {}), ...(stabilityFailed ? { stabilityFailed } : {}) });
   if (proposed.events.length > 0) {
     try {
@@ -271,6 +295,7 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
     changed: previous === null || previous.report.graphDigest !== report.graphDigest || diff.detected.length > 0 || diff.cleared.length > 0,
     openFindings: report.findings.length,
     repairs: proposed.decisions,
+    verifications,
     startedAt: startedAt.toISOString(),
     finishedAt: ports.now().toISOString(),
   };

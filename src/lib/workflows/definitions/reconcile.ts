@@ -56,7 +56,7 @@ export async function reconcileEnvironmentWorkflow(input: ReconcileWorkflowInput
       status: "observed",
       drift: observed.drift,
       unknown: observed.unknown,
-      repair: canonical ? (input.allowAutoRepair ? "considered" : "not_requested") : (input.allowAutoRepair && observed.drift > 0 ? "not_implemented" : "not_requested"),
+      repair: canonical ? (input.allowAutoRepair ? "considered" : "not_requested") : (input.allowAutoRepair && observed.drift > 0 ? "not_evaluated" : "not_requested"),
       ...(canonical ? { repairs: repairSummary(observed.repairs) } : {}),
     };
   } catch (err) {

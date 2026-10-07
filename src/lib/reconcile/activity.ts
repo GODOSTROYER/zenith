@@ -19,7 +19,7 @@
  * (`missing`, `changed`, `extra`); `unknown` counts findings that mean "Zenith
  * could not tell" (`unknown`, `inaccessible`). Neither is an absence of drift.
  */
-import { reconcileEnvironment } from "./core";
+import { runRepairLifecycle, summarizeRepairs } from "@/lib/repair/lifecycle";
 import { ReconcileError } from "./errors";
 import { digest } from "@/lib/controlplane/digest";
 import type { FenceRef, ReconcileEnvironment, ReconcileOptions, ReconcilePorts } from "./types";
@@ -68,7 +68,8 @@ export async function reconcileObserveOnce(input: ReconcileOnceInput, deps: Reco
   input.signal?.throwIfAborted();
   if (!graph) return { drift: 0, unknown: 0, status: "nothing_to_reconcile", repairsProposed: 0, ...(input.includeRepairSummary ? { repairs: emptyRepairs() } : {}) };
 
-  const result = await reconcileEnvironment({
+  const { reconcile: result } = await runRepairLifecycle({
+    entry: "temporal",
     environment,
     graph,
     ports: deps.ports,
@@ -81,17 +82,7 @@ export async function reconcileObserveOnce(input: ReconcileOnceInput, deps: Reco
     unknown: result.counts.unknown + result.counts.inaccessible,
     status: result.status,
     repairsProposed: result.repairs.filter((r) => r.status === "proposed").length,
-    ...(input.includeRepairSummary ? { repairs: {
-      proposed: result.repairs.filter((r) => r.status === "proposed").length,
-      started: result.repairs.filter((r) => r.started === true).length,
-      awaitingApproval: result.repairs.filter((r) => r.outcome === "require_approval").length,
-      denied: result.repairs.filter((r) => r.outcome === "deny").length,
-      blockedUncertain: result.repairs.filter((r) => r.reason === "repair_uncertain").length,
-      unsupported: result.repairs.filter((r) => r.reason === "repair_not_supported").length,
-      failed: result.repairs.filter((r) => r.status === "failed" || r.started === false).length,
-      skipped: result.repairs.filter((r) => r.status === "skipped").length,
-      digest: digest({ graphDigest: result.report?.graphDigest ?? null, repairs: result.repairs.map(({ address, class: findingClass, status, outcome, operationId, started, reason }) => ({ address, findingClass, status, outcome, operationId, started, reason })) }),
-    } } : {}),
+    ...(input.includeRepairSummary ? { repairs: summarizeRepairs(result) } : {}),
   };
 }
 

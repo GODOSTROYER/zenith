@@ -22,7 +22,7 @@
  * and the pass moves on. Counts, not prose, come back — a pass that says
  * nothing is indistinguishable from one that did nothing.
  */
-import { reconcileEnvironment } from "./core";
+import { runRepairLifecycle } from "@/lib/repair/lifecycle";
 import type { ReconcilePassOptions, ReconcilePassPorts, ReconcilePassResult } from "./pass-types";
 import { reconcilePassPorts } from "./ports";
 import { eligibility, resolveSchedulerConfig, scheduleAfterRun, type ClaimedEnvironment, type ScheduleOutcome } from "./scheduler";
@@ -149,7 +149,7 @@ export async function reconcilePass(options: ReconcilePassOptions = {}): Promise
           const graph = await ports.loadGraph(environment);
           if (!graph) return null;
           const deadlineAt = Math.min(hardDeadline, options.reconcile?.deadlineAt ?? Number.POSITIVE_INFINITY);
-          return reconcileEnvironment({ environment, graph, ports, options: { ...options.reconcile, deadlineAt }, ...(held.fence ? { fence: held.fence } : {}), ...(held.signal ? { signal: held.signal } : {}) });
+          return (await runRepairLifecycle({ entry: options.entry ?? "tick", environment, graph, ports, options: { ...options.reconcile, deadlineAt }, ...(held.fence ? { fence: held.fence } : {}), ...(held.signal ? { signal: held.signal } : {}) })).reconcile;
         });
         if (!guarded.ran) {
           result.busy++;

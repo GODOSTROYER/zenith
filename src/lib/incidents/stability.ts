@@ -386,7 +386,7 @@ export function autoscalerManaged(graph: ResourceGraph, capability: string, reso
 
 /* -------------------------------- escalation -------------------------------- */
 
-export type EscalationReason = "inconclusive_diagnosis" | "attempts_exhausted" | "remediation_requires_human" | "unresolved_too_long";
+export type EscalationReason = "inconclusive_diagnosis" | "attempts_exhausted" | "remediation_requires_human" | "unresolved_too_long" | "verification_failed";
 
 export interface EscalationInput {
   now: Date;

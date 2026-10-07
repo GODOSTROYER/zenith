@@ -28,11 +28,12 @@
  * enforcement that matters at runtime; this catches mistakes earlier and gives
  * a named reason.
  */
+import { findSecret } from "@/lib/capabilities/secret-guard";
 import { WORKLOAD_KINDS, dig, isRecord, podSpecsOf, OWNERSHIP, type K8sObject } from "./k8s-port";
 import { tenantNamespace } from "./tenancy";
 import { isManagedHost, type ZenithSubstrate } from "./substrate";
 import { TENANCY_ADDRESS, TENANT_SERVICE_ACCOUNT, ZenithError, type ZenithTenant } from "./types";
-import { isEnvironmentGatewayParent } from "./tls";
+import { isRouteParentFor } from "./tls";
 
 export interface IsolationViolation {
   /** `Kind/name` of the offending object */
@@ -61,6 +62,9 @@ const ALLOWED_KINDS: ReadonlySet<string> = new Set([
 const ALLOWED_VOLUME_TYPES: ReadonlySet<string> = new Set(["emptyDir", "configMap", "secret", "persistentVolumeClaim", "projected", "downwardAPI", "ephemeral"]);
 const ALLOWED_SECCOMP: ReadonlySet<string> = new Set(["RuntimeDefault", "Localhost"]);
 
+/** Env names that are secrets by name: a literal value under one is a plaintext secret in a manifest. */
+const SECRET_ENV_NAME = /(PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY|PRIVATE_?KEY|CREDENTIAL|CONNECTION_?(STRING|URI)|DATABASE_URL)/i;
+
 const label = (o: K8sObject): string => `${o.kind}/${String(o.metadata?.name ?? "?")}`;
 
 function checkContainer(where: string, c: unknown, pod: Record<string, unknown>, out: (rule: string, detail: string) => void): void {
@@ -86,6 +90,13 @@ function checkContainer(where: string, c: unknown, pod: Record<string, unknown>,
   if (!seccomp || typeof seccomp.type !== "string" || !ALLOWED_SECCOMP.has(seccomp.type)) out("seccomp", `${at} needs a seccompProfile of RuntimeDefault or Localhost.`);
   if (Array.isArray(c.ports) && c.ports.some((p) => isRecord(p) && (p.hostPort !== undefined || p.hostIP !== undefined))) out("host_port", `${at} binds a host port.`);
   if (typeof c.image !== "string" || c.image === "") out("image", `${at} has no image.`);
+  // PROD-MAN-02: secrets reach a workload only by reference (valueFrom.secretKeyRef, resolved from the vault at apply time).
+  for (const e of Array.isArray(c.env) ? c.env : []) {
+    if (!isRecord(e) || typeof e.name !== "string" || typeof e.value !== "string" || e.value === "") continue;
+    if (SECRET_ENV_NAME.test(e.name) || findSecret({ [e.name]: e.value }) !== undefined) out("secret_value", `${at} env ${e.name.slice(0, 60)} carries a literal value that is, or is named like, a secret; deliver secrets by reference (secretRef).`);
+  }
+  const argv = findSecret({ command: c.command, args: c.args });
+  if (argv) out("secret_value", `${at} ${argv.path} holds ${argv.what}; secrets must not be passed on the command line.`);
 }
 
 function checkPod(obj: K8sObject, pod: Record<string, unknown>, out: (rule: string, detail: string) => void): void {
@@ -121,11 +132,14 @@ function peerProblems(peers: unknown, allowedNamespaces: readonly string[]): str
 export interface IsolationContext {
   tenant: ZenithTenant;
   substrate: ZenithSubstrate;
+  /** verified custom hostnames this environment may serve (PROD-MAN-03); absent = managed hostnames only */
+  customHosts?: ReadonlySet<string>;
 }
 
 /** Every way `objects` would escape the tenancy model; empty means none found. */
 export function validateTenantObjects(objects: readonly K8sObject[], ctx: IsolationContext): IsolationViolation[] {
   const { tenant, substrate } = ctx;
+  const customHosts = ctx.customHosts ?? new Set<string>();
   const ns = tenantNamespace(tenant.workspaceId, tenant.environmentId);
   const violations: IsolationViolation[] = [];
   for (const obj of objects) {
@@ -178,13 +192,13 @@ export function validateTenantObjects(objects: readonly K8sObject[], ctx: Isolat
       const spec = isRecord(obj.spec) ? obj.spec : {};
       const parents = Array.isArray(spec.parentRefs) ? spec.parentRefs : [];
       if (parents.length !== 1) push("route_parent", "HTTPRoute must attach to exactly one environment HTTPS listener.");
-      for (const p of parents) {
-        if (!isEnvironmentGatewayParent(p, tenant, substrate)) push("route_parent", "HTTPRoute may attach only to this environment's platform HTTPS listener.");
-      }
       const hosts = Array.isArray(spec.hostnames) ? spec.hostnames : [];
+      for (const p of parents) {
+        if (!isRouteParentFor(p, hosts, tenant, substrate)) push("route_parent", "HTTPRoute may attach only to this environment's platform HTTPS listener for its own hostnames.");
+      }
       if (hosts.length === 0) push("route_hostname", "HTTPRoute has no hostnames; it would match every host.");
       for (const h of hosts) {
-        if (typeof h !== "string" || !isManagedHost(h, tenant, substrate.baseDomain)) push("route_hostname", `hostname "${String(h).slice(0, 80)}" is not under this tenant's managed suffix.`);
+        if (typeof h !== "string" || !(isManagedHost(h, tenant, substrate.baseDomain) || customHosts.has(h))) push("route_hostname", `hostname "${String(h).slice(0, 80)}" is not under this tenant's managed suffix or one of its verified custom domains.`);
       }
     }
   }

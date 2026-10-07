@@ -47,6 +47,7 @@ import * as observations from "./observations";
 import * as operations from "./operations";
 import * as ownershipTransfers from "./ownership-transfers";
 import * as portability from "./portability";
+import * as managedServing from "./managed-serving";
 import * as operationExecution from "./operations-execution";
 import * as policyDecisions from "./policy-decisions";
 import * as resources from "./resources";
@@ -94,6 +95,7 @@ export {
   operations,
   ownershipTransfers,
   portability,
+  managedServing,
   operationExecution,
   policyDecisions,
   resources,
@@ -165,6 +167,7 @@ export function bindRepos(sql: Sql) {
     operations: bind(operations, sql),
     ownershipTransfers: bind(ownershipTransfers, sql),
     portability: bind(portability, sql),
+    managedServing: bind(managedServing, sql),
     operationExecution: bind(operationExecution, sql),
     policyDecisions: bind(policyDecisions, sql),
     resources: bind(resources, sql),

@@ -84,6 +84,11 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/coding-agent/runs/${ID}$`), methods: { GET: "browser-only" } },
   { path: new RegExp(`^${ROOT}/coding-agent/runs/${ID}/(?:resume|cancel|adopt)$`), methods: { POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/capability-catalog$`), methods: { GET: "bearer-capable" } },
+  // Managed serving (PROD-MAN-02/03): the promised service catalog and a member's view of custom domains are readable; claiming, proving and
+  // revoking a domain decide who may serve a hostname, so they need an admin's own browser.
+  { path: new RegExp(`^${ROOT}/managed-services$`), methods: { GET: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/environments/${ID}/domains$`), methods: { GET: "bearer-capable", POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/environments/${ID}/domains/(?:verify|revoke)$`), methods: { POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/workspace/policy$`), methods: { GET: "bearer-capable", PUT: "browser-only" } },
   // Installation and repository binding require the human admin's browser session.
   { path: new RegExp(`^${ROOT}/github/callback$`), methods: { GET: "browser-only", POST: "browser-only" } },

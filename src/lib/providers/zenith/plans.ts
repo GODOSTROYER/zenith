@@ -43,6 +43,10 @@ export interface PlanLimits {
   pvc?: { min: string; max: string };
   /** managed Postgres projects one environment may hold */
   maxManagedDatabases: number;
+  /** tenant object stores (a scoped prefix of the shared bucket each) one environment may hold; PROVISIONAL */
+  maxObjectStores: number;
+  /** ceiling a HorizontalPodAutoscaler's maxReplicas is clamped to; 0 = autoscaling is not part of the tier. PROVISIONAL */
+  maxAutoscaleReplicas: number;
 }
 
 /* ------------------------------- free tier -------------------------------- */
@@ -112,6 +116,8 @@ export const PLAN_LIMITS: Readonly<Record<PlanTier, PlanLimits>> = {
       max: { cpu: "500m", memory: "1Gi" },
     },
     maxManagedDatabases: 1,
+    maxObjectStores: 0,
+    maxAutoscaleReplicas: 0,
   },
   starter: {
     tier: "starter",
@@ -124,6 +130,8 @@ export const PLAN_LIMITS: Readonly<Record<PlanTier, PlanLimits>> = {
     },
     pvc: { min: "1Gi", max: "10Gi" },
     maxManagedDatabases: 3,
+    maxObjectStores: 2,
+    maxAutoscaleReplicas: 5,
   },
   pro: {
     tier: "pro",
@@ -136,6 +144,8 @@ export const PLAN_LIMITS: Readonly<Record<PlanTier, PlanLimits>> = {
     },
     pvc: { min: "1Gi", max: "50Gi" },
     maxManagedDatabases: 10,
+    maxObjectStores: 10,
+    maxAutoscaleReplicas: 20,
   },
 };
 

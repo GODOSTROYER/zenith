@@ -1,0 +1,35 @@
+# ACME HTTP-01 solver Gateway: PLACEHOLDER (PROD-MAN-03 custom domains).
+#
+# A verified custom domain gets its own HTTPS listener and Certificate on its environment
+# Gateway; the certificate is issued by ClusterIssuer ZENITH_MANAGED_HTTP_CLUSTER_ISSUER
+# (20-clusterissuer-http01.yaml) through the HTTP-01 challenge, which needs port 80 on the
+# address the customer's CNAME points at. This single platform Gateway carries that port.
+# It accepts routes ONLY from its own namespace (the temporary HTTPRoutes cert-manager
+# creates beside each Certificate), never from a tenant namespace, so a tenant cannot
+# attach to port 80 or answer another host's challenge.
+#
+# OPERATOR REQUIREMENT, not proven here: this Gateway and the environment Gateways must be
+# reachable at the SAME address custom hostnames CNAME to (controller-specific; Gateway API
+# v1 promises no address sharing), and cert-manager must run with Gateway API support
+# enabled (--enable-gateway-api, or the config-file equivalent).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: zenith-acme-http01
+  namespace: zenith-gateway
+  labels:
+    app.kubernetes.io/managed-by: zenith-operator-baseline
+  annotations:
+    zenith.dev/placeholder: "true"
+spec:
+  gatewayClassName: zenith
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute
+        namespaces:
+          from: Same

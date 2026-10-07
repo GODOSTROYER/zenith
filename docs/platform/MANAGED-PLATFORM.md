@@ -152,15 +152,16 @@ Variables of this path (the substrate variables below are unchanged):
 | Drivers: tenant namespace, network policy, http route, platform dns and tls, managed postgres, object store (refusal), plus wrapped Kubernetes drivers | implemented, `contract` evidence |
 | Export bundle and README | implemented, deterministic |
 | Cluster baseline manifests | placeholders, never applied |
-| `object_store` | **not offered**: needs per-tenant prefix-scoped credentials, which do not exist |
-| Custom domains | **not offered**: any host outside the tenant's managed suffix is rewritten to the managed hostname and reported |
+| `object_store` | **offered only when `ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CREDENTIAL_REF` is set**: one prefix-scoped principal and key per store (PROD-MAN-03, see "Managed serving"); otherwise it stays refused exactly as before; contract and emulator evidence only |
+| Custom domains | **offered only for hostnames proven by DNS TXT challenge and only when `ZENITH_MANAGED_HTTP_CLUSTER_ISSUER` is set** (PROD-MAN-03); any other host outside the tenant's managed suffix is still rewritten to the managed hostname and reported |
 | redis, mysql, queue, pubsub, functions, VMs, clusters | **not offered**: the render refuses with a named list |
 | Builds | implemented (PROD-MAN-01): one builder Job in the platform build namespace, push to the Zenith-operated registry, LIFE-09 attestation; contract tests and a local kind acceptance, no live hosted build. Without `ZENITH_MANAGED_BUILDER_IMAGE` and `ZENITH_MANAGED_REGISTRY` a `built` artifact refuses and an image reference supplied by the caller is the only path |
 | Default session opener, plan/apply, release and teardown composition | implemented (PROD-MAN-01); contract tests and a local kind acceptance; no live hosted run |
 | Logs/events | Kubernetes observability sources can read the managed namespace with an authorized tenant-scoped session (`src/lib/observability/sources/factory.ts`); no live managed signal read verified |
-| Metrics, tracing (OpenTelemetry), autoscaling (HPA), backups | No managed automation supplied by this provider; external observability endpoints can be injected; live substrate unverified |
+| Autoscaling (HPA) | opt-in per apply (`autoscaling: true`), clamped by tier and quota (`autoscale.ts`); needs metrics-server, which is not probed |
+| Metrics, tracing (OpenTelemetry), backups | No managed automation supplied by this provider; external observability endpoints can be injected; live substrate unverified |
 | Per-environment wildcard TLS and listeners | Implemented with cert-manager `Certificate` and Gateway API HTTPS resources through a separate gateway-namespace session; contract evidence only, live DNS/ACME unverified |
-| Database data export | **not built**; the main remaining lock-in gap |
+| Database data export and restore | built by PROD-LIFE-11 (`data.export`, `data.import`, `postgres-logical-v1`) for the managed Postgres; local-engine evidence, not run against a Neon account |
 | Billing, plan assignment, workspace and slug management | not part of this module |
 | Any live acceptance run | **none** |
 
@@ -188,6 +189,7 @@ Absent optional components make their drivers answer `unavailable` or
 | `ZENITH_MANAGED_GATEWAY_LISTENER` | no | listener `sectionName` routes attach to |
 | `ZENITH_MANAGED_INGRESS_CLASS` | with `ingress` mode | IngressClass for ingress mode |
 | `ZENITH_MANAGED_CLUSTER_ISSUER` | no | cert-manager ClusterIssuer (default `zenith-letsencrypt-dns01`) |
+| `ZENITH_MANAGED_HTTP_CLUSTER_ISSUER` | no | cert-manager ACME HTTP-01 ClusterIssuer used for verified custom domains; absent = custom domains are not served |
 | `ZENITH_MANAGED_INTERNAL_CIDRS` | no | extra CIDRs (pod/service ranges) tenants must never reach on 443 |
 | `ZENITH_MANAGED_REGISTRY` | no | `host[:port][/prefix]` of the platform registry for built images |
 | `ZENITH_MANAGED_OBJECT_STORAGE_ENDPOINT` | no | S3-compatible endpoint (https); needs the bucket too |
@@ -195,6 +197,9 @@ Absent optional components make their drivers answer `unavailable` or
 | `ZENITH_MANAGED_OBJECT_STORAGE_PREFIX` | no | key prefix root (default `tenants`) |
 | `ZENITH_MANAGED_OBJECT_STORAGE_REGION` | no | storage region |
 | `ZENITH_MANAGED_OBJECT_STORAGE_CREDENTIAL_REF` | no | `vault:` reference to the platform's own credential (never handed to tenants) |
+| `ZENITH_MANAGED_OBJECT_STORAGE_IAM_ENDPOINT` | no | https endpoint of the IAM-compatible API used to create one scoped principal per tenant object store (absent = AWS IAM default) |
+| `ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CONNECTION` | no | `<workspaceId>/<connectionId>` of an AWS provider connection (operator workspace) the durable job uses, through the credential broker, to revoke owed tenant keys and read the revocation back; without it owed revocations raise an operator incident |
+| `ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CREDENTIAL_REF` | no | `vault:` reference to the IAM-admin credential that may create those principals; without it tenant object stores are unavailable |
 | `ZENITH_MANAGED_DB_PROVIDER` | no | `neon` is the only adapter |
 | `ZENITH_MANAGED_DB_API_BASE` | no | API base (default `https://console.neon.tech/api/v2`) |
 | `ZENITH_MANAGED_DB_API_KEY_REF` | with a DB provider | `vault:` reference to the API key, resolved on every call |
@@ -377,6 +382,58 @@ exactly when a managed route in the tenant namespace stands in for the node's ho
 (recorded as `zenith.dev/source-hosts`), never because DNS or a certificate was
 checked. Workspace slugs must be globally unique; two workspaces sharing a slug
 would share hostnames, and this code cannot detect it.
+
+## Managed serving (PROD-MAN-02 / PROD-MAN-03)
+
+Code: `src/lib/managed-serving/**`, wired into `src/lib/providers/zenith/{render,apply,tls,routing,isolation,session}.ts`.
+Tests: `tests/managed-serving/**`. Operator add-on: `deploy/zenith-managed/custom-domains/`. Verification notes:
+`docs/build/production/verify/PROD-MAN-02-03.md`.
+
+**What the managed tier promises is one catalog.** `GET /api/platform/v1/managed-services` (`buildManagedServiceCatalog`)
+lists each promised service (web services, scheduled jobs, vault secrets, managed Postgres with export and restore, tenant
+object storage, persistent volumes, custom domains, autoscaling, built images) with its per-plan limits, what it needs from
+the substrate, whether this deployment has it, and the kinds the tier refuses. It is joined to the offered capability catalog
+(`src/lib/offered-catalog`) and a drift check fails when a promised kind is not offered, an offered kind is not promised, or a
+kind is both promised and platform-provided.
+
+**Integrations operate or they are not reported as operating.** The same route reports each integration (cluster, registry,
+gateway, wildcard DNS, TLS, secret delivery, object storage, managed database, custom domains, autoscaling) as
+`not_configured`, `configured_unverified`, `verified` or `failing`; `?probe=true` runs the bounded registry-v2 and wildcard-DNS
+probes, and `environmentServingStatus` reads a Certificate's `Ready` and a Gateway's `Programmed` condition so issuance is
+observed rather than assumed.
+
+**Secrets** reach workloads only as `secretRef`s resolved from the encrypted vault at apply time. The isolation gate now also
+refuses a literal under a secret-named variable, a credential-shaped value in `env` and a secret on the command line.
+
+**Custom domains.** A workspace admin (browser only) claims a hostname and publishes the TXT record
+`_zenith-challenge.<host>` with value `zenith-domain-verification=<token>`; the token is shown once and only its SHA-256 is
+stored. Verification is a real DNS lookup; a missing or wrong record never verifies and a DNS failure is `uncertain`, never
+"missing". A proof is valid 30 days (PROVISIONAL), is re-checked by the durable `managed-serving` critical job from 7 days
+before expiry, keeps serving through a 3 day grace (PROVISIONAL) and then lapses; the read that feeds the render filters by
+time as well as status, so a stopped job cannot keep a host served. A verified host gets its own listener and `Certificate`
+(ACME HTTP-01 through `ZENITH_MANAGED_HTTP_CLUSTER_ISSUER`) on the environment Gateway and a route attached to exactly that
+listener. A verified hostname belongs to one workspace at a time. Not proven: HTTP-01 through a real gateway, address sharing
+between the ACME Gateway and the environment Gateways, DNS pointing at the gateway (CNAME alignment is the customer's and is
+not checked).
+
+**Tenant object storage.** One shared bucket; each object store is the prefix `<root>/<workspace>/<environment>/<store>/`.
+Apply creates one IAM principal per store whose only policy allows object access under that prefix and listing only with that
+`s3:prefix` (`scopedStoragePolicy`, evaluated in tests, not just compared), creates its access key, writes the two halves to
+the vault as `vault:generated/<env>/<address>/storage-key-id` and `storage-secret`, and records only references. Rotation
+creates the new key, records it, then revokes the old one; an unrevoked key stays `revoke_pending`. Removing a store revokes
+its key and never deletes objects. The platform's own bucket credential is never given to a tenant. Per-store byte quotas are
+not enforceable this way and are not promised.
+
+**Autoscaling.** `applyZenithEnvironment({ autoscaling: true })` has the Kubernetes renderer emit HorizontalPodAutoscalers and
+applies the tier policy (`maxAutoscaleReplicas`: free 0, starter 5, pro 20; PROVISIONAL), clamped further by the namespace
+pod and CPU-request quota.
+
+**Join with the managed substrate (PROD-MAN-01).** The substrate worker owns the cluster, the session composition root and
+the platform credential resolver. This module needs three things from it per environment: a `ZenithSession` whose
+`customDomains` come from `loadServingInputs` and whose `storage` is `{ admin: createIamAdminPort(...), sink, store:
+platformStorageKeyStore(...) }` (`sink` from `createVaultDatabaseRuntime(...).storageCredentials`), and the same
+`verifiedDomains`/`retiredDomains` passed to `applyZenithEnvironment`. Until it composes them, domains and storage report
+`unavailable` and nothing is half-applied.
 
 ## Export (no lock-in)
 

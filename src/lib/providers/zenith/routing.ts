@@ -18,17 +18,18 @@
  * cross-namespace checks already live in the Kubernetes provider's renderer;
  * reusing its output keeps one source of truth for what a route means.
  *
- * Custom domains are NOT served on the managed platform today: a host outside
- * the tenant's managed suffix is rewritten to the managed hostname and the
- * mapping is reported (`HostMapping`) so the UI can say where the app really
- * lives. The TLS lifecycle provisions an environment wildcard Certificate and
+ * Custom domains are served ONLY when the caller passes the set of hosts whose
+ * ownership was proven and the substrate can issue for them (gateway mode with an
+ * ACME HTTP-01 ClusterIssuer). Any other host outside the tenant's managed suffix
+ * is rewritten to the managed hostname and the mapping is reported
+ * (`HostMapping`) so the UI can say where the app really lives. The TLS lifecycle provisions an environment wildcard Certificate and
  * Gateway; wildcard DNS and the DNS-01 ClusterIssuer remain operator-provisioned.
  */
 import { OWNERSHIP, dig, isRecord, type K8sObject } from "./k8s-port";
 import { dnsLabelOf } from "./tenancy";
 import { isManagedHost, managedHostname, serviceLabelOf, type ZenithSubstrate } from "./substrate";
 import { TENANT_ANNOTATION, TENANT_LABEL, ZenithError, type ZenithTenant } from "./types";
-import { environmentGatewayParent, environmentTlsNames } from "./tls";
+import { environmentGatewayParent, environmentTlsNames, listenerForHost } from "./tls";
 
 export interface HostMapping {
   /** the host the manifest asked for */
@@ -46,7 +47,12 @@ interface RouteLike {
 }
 
 /** Rewrite every route's host to its managed hostname; returns the new routes and the mapping. */
-export function rewriteRoutes(routes: unknown, tenant: ZenithTenant, substrate: ZenithSubstrate): { routes: unknown[]; mappings: HostMapping[] } {
+/** The verified custom hosts this substrate is able to serve; empty when it cannot (ingress mode, or no HTTP-01 issuer). */
+export function servableCustomHosts(substrate: ZenithSubstrate, verified: readonly string[] | undefined): ReadonlySet<string> {
+  return substrate.gateway.mode === "gateway_api" && substrate.certManager.httpClusterIssuer ? new Set(verified ?? []) : new Set();
+}
+
+export function rewriteRoutes(routes: unknown, tenant: ZenithTenant, substrate: ZenithSubstrate, customHosts?: ReadonlySet<string>): { routes: unknown[]; mappings: HostMapping[] } {
   if (!Array.isArray(routes)) return { routes: [], mappings: [] };
   const out: unknown[] = [];
   const mappings: HostMapping[] = [];
@@ -56,7 +62,7 @@ export function rewriteRoutes(routes: unknown, tenant: ZenithTenant, substrate: 
       continue;
     }
     const route = r as RouteLike;
-    const managed = isManagedHost(route.host, tenant, substrate.baseDomain)
+    const managed = isManagedHost(route.host, tenant, substrate.baseDomain) || customHosts?.has(route.host) === true
       ? route.host
       : managedHostname({ service: serviceLabelOf(route.target), environmentSlug: tenant.environmentSlug, workspaceSlug: tenant.workspaceSlug, baseDomain: substrate.baseDomain });
     out.push({ ...route, host: managed });
@@ -146,7 +152,7 @@ export function ingressToRoutes(ingress: K8sObject, substrate: ZenithSubstrate, 
         },
       },
       spec: {
-        parentRefs: [environmentGatewayParent(tenant, substrate)],
+        parentRefs: [environmentGatewayParent(tenant, substrate, listenerForHost(host, tenant, substrate))],
         hostnames: [host],
         rules: paths.map((p) => ({
           matches: [{ path: { type: "PathPrefix", value: p.path } }],

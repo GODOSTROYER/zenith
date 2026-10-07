@@ -19,13 +19,16 @@ export interface SecretResolverScope extends SecretTenant {
   allowedRefs?: readonly string[];
 }
 
-export function assertVaultScope(ref: string, scope: SecretResolverScope): "password" | "connection-uri" | "stored" {
+/** The generated-reference kinds: a database password or URI, and the two halves of a tenant object-store credential (PROD-MAN-03). */
+export type GeneratedKind = "password" | "connection-uri" | "storage-key-id" | "storage-secret";
+
+export function assertVaultScope(ref: string, scope: SecretResolverScope): GeneratedKind | "stored" {
   if (scope.allowedRefs && !scope.allowedRefs.includes(ref)) throw new SecretDeliveryError("denied");
   if (typeof ref !== "string" || ref.length > 1024 || /\s|\\|%/.test(ref)) throw new SecretDeliveryError("invalid");
-  const generated = /^vault:generated\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+)\/(password|connection-uri)$/.exec(ref);
+  const generated = /^vault:generated\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+)\/(password|connection-uri|storage-key-id|storage-secret)$/.exec(ref);
   if (ref.startsWith("vault:generated/")) {
     if (!generated || generated[1] !== scope.environmentId || !scope.resourceAddresses.includes(generated[2])) throw new SecretDeliveryError("denied");
-    return generated[3] as "password" | "connection-uri";
+    return generated[3] as GeneratedKind;
   }
   const regular = /^vault:([A-Za-z0-9_.-]+)(?:\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+))?$/.exec(ref);
   if (!regular || regular.slice(1).some((p) => p === "." || p === "..") || (regular[2] && regular[1] !== scope.projectId)) throw new SecretDeliveryError("denied");
@@ -70,6 +73,42 @@ export function createConnectionSecretSink(scope: SecretResolverScope, backend: 
       try {
         const stored = await insertOnce(backend, scope, ref, value);
         if (!sameSecret(stored, value)) throw new SecretDeliveryError("conflict");
+      } catch (err) {
+        if (err instanceof SecretDeliveryError) throw err;
+        throw new SecretDeliveryError("unreachable");
+      }
+    },
+  };
+}
+
+/**
+ * Where a scoped object-store credential is written (PROD-MAN-03): the two `storage-*` generated kinds of one environment's
+ * object-store addresses, nothing else. Unlike a connection URI a credential is ROTATED, so `put` replaces the sealed record
+ * (version + 1) instead of insert-once; the vault never returns a value from here.
+ */
+export interface StorageCredentialSink {
+  put(ref: string, value: string): Promise<void>;
+  exists(ref: string): Promise<boolean>;
+}
+
+export function createStorageCredentialSink(scope: SecretResolverScope, backend: AsyncSecretsBackend = asyncSecretsBackend()): StorageCredentialSink {
+  const check = (ref: string) => { const kind = assertVaultScope(ref, scope); if (kind !== "storage-key-id" && kind !== "storage-secret") throw new SecretDeliveryError("denied"); };
+  return {
+    async exists(ref) {
+      check(ref);
+      try { return Boolean(await backend.get(scope.workspaceId, ref)); }
+      catch { throw new SecretDeliveryError("unreachable"); }
+    },
+    async put(ref, value) {
+      check(ref);
+      if (!value || Buffer.byteLength(value, "utf8") > 8192) throw new SecretDeliveryError("invalid");
+      try {
+        const existing = await backend.get(scope.workspaceId, ref);
+        const now = new Date().toISOString();
+        await backend.put(scope.workspaceId, {
+          ref, createdAt: existing?.createdAt ?? now, updatedAt: now, createdBy: existing?.createdBy ?? "storage-provisioner", updatedBy: "storage-provisioner",
+          version: (existing?.version ?? 0) + 1, keyVersion: KEY_VERSION, ...seal(scope.workspaceId, ref, value),
+        });
       } catch (err) {
         if (err instanceof SecretDeliveryError) throw err;
         throw new SecretDeliveryError("unreachable");

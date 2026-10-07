@@ -26,6 +26,7 @@
  */
 import type { KubernetesConnectionConfig, KubernetesSession } from "@/lib/credentials/types";
 import type { ManagedDatabaseProvider } from "./database";
+import type { ObjectStoragePorts } from "@/lib/managed-serving/storage";
 import { assertTenant, substrateConnectionConfig, type ZenithSubstrate } from "./substrate";
 import { tenantNamespace } from "./tenancy";
 import { ZenithError, type ZenithTenant } from "./types";
@@ -39,6 +40,10 @@ export interface ZenithSession {
   /** Separate operator scope for platform TLS; absent in ingress mode or older injected sessions. */
   readonly gatewayKubernetes?: KubernetesSession;
   readonly databases: ManagedDatabaseProvider;
+  /** Verified custom hostnames this environment may serve (PROD-MAN-03); absent = managed hostnames only. */
+  readonly customDomains?: readonly string[];
+  /** Tenant object-store provisioning ports (PROD-MAN-03); absent = object stores report unavailable. */
+  readonly storage?: ObjectStoragePorts;
   readonly expiresAt: string;
   toJSON(): Record<string, unknown>;
 }
@@ -48,6 +53,8 @@ export interface ZenithSessionDeps {
   /** the Kubernetes provider's `createKubernetesSession` with its resolver bound (`vault:` reference → credential) */
   createKubernetesSession(config: KubernetesConnectionConfig, signal?: AbortSignal): Promise<KubernetesSession>;
   databases: ManagedDatabaseProvider;
+  customDomains?: readonly string[];
+  storage?: ObjectStoragePorts;
 }
 
 /** Open a session for one tenant. The credential is resolved inside `createKubernetesSession`, never here. */
@@ -67,6 +74,8 @@ export async function openZenithSession(tenantInput: ZenithTenant, deps: ZenithS
     kubernetes,
     ...(gatewayKubernetes ? { gatewayKubernetes } : {}),
     databases: deps.databases,
+    ...(deps.customDomains ? { customDomains: [...deps.customDomains] } : {}),
+    ...(deps.storage ? { storage: deps.storage } : {}),
     expiresAt,
     toJSON: () => ({ provider: "zenith", workspaceId: tenant.workspaceId, environmentId: tenant.environmentId, expiresAt }),
   };

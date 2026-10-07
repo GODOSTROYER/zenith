@@ -35,7 +35,9 @@ import { assertTenantObjects } from "./isolation";
 import { OWNERSHIP, isRecord, podSpecsOf, renderToolkitGraph, type K8sObject, type KubernetesToolkit, type ToolkitRenderBase } from "./k8s-port";
 import { planLimits } from "./plans";
 import { NOT_OFFERED, PLATFORM_MANAGED, UNSUPPORTED, firewallPlatformReason } from "./platform";
-import { ingressToRoutes, rewriteRoutes, sourceHostsByManaged, type HostMapping } from "./routing";
+import { ingressToRoutes, rewriteRoutes, servableCustomHosts, sourceHostsByManaged, type HostMapping } from "./routing";
+import { constrainAutoscalers } from "./autoscale";
+import { storageIntentFromNode, type ManagedStorageIntent } from "@/lib/managed-serving/storage";
 import { assertTenant, type ZenithSubstrate } from "./substrate";
 import { renderTenancy, tenantNamespace } from "./tenancy";
 import { TENANT_SERVICE_ACCOUNT, ZenithError, type ZenithTenant } from "./types";
@@ -54,6 +56,8 @@ export interface ZenithAssessment {
   render: ResourceNode[];
   /** postgres nodes served by the managed database provider */
   databases: ResourceNode[];
+  /** object_store nodes served by tenant-scoped credentials; always empty unless object storage is enabled for the assessment */
+  storage: ResourceNode[];
   /** nodes the platform provides itself; render nothing */
   platformManaged: AssessedNode[];
   /** kinds with no managed-platform equivalent that do not block a deploy */
@@ -69,9 +73,17 @@ const RENDERABLE = new Set(["load_balancer", "container_service", "static_site",
 const at = (n: ResourceNode, reason: string): AssessedNode => ({ address: n.address, kind: n.kind, reason });
 const byAddressOrder = (a: { address: string }, b: { address: string }): number => (a.address < b.address ? -1 : a.address > b.address ? 1 : 0);
 
+export interface AssessOptions {
+  /**
+   * The substrate can provision scoped per-tenant object-store credentials (it has an IAM-admin credential reference).
+   * Without it `object_store` stays unsupported, exactly as before PROD-MAN-03.
+   */
+  objectStorage?: boolean;
+}
+
 /** Classify every node. Pure; the same function placement and planning can call without rendering. */
-export function assessZenithGraph(nodes: readonly ResourceNode[]): ZenithAssessment {
-  const out: ZenithAssessment = { render: [], databases: [], platformManaged: [], notOffered: [], unsupported: [], skipped: [] };
+export function assessZenithGraph(nodes: readonly ResourceNode[], opts: AssessOptions = {}): ZenithAssessment {
+  const out: ZenithAssessment = { render: [], databases: [], storage: [], platformManaged: [], notOffered: [], unsupported: [], skipped: [] };
   const mine = new Map<string, ResourceNode>();
   for (const n of nodes) if (n.provider === "zenith" && n.ownership === "managed") mine.set(n.address, n);
   for (const n of [...nodes].sort(byAddressOrder)) {
@@ -87,6 +99,7 @@ export function assessZenithGraph(nodes: readonly ResourceNode[]): ZenithAssessm
     // `unsupported:zenith:*` because the contract table has no row, and those must not block a deploy
     if (PLATFORM_MANAGED[n.kind]) out.platformManaged.push(at(n, PLATFORM_MANAGED[n.kind]));
     else if (n.kind === "postgres") out.databases.push(n);
+    else if (n.kind === "object_store" && opts.objectStorage === true) out.storage.push(n);
     else if (NOT_OFFERED[n.kind]) out.notOffered.push(at(n, NOT_OFFERED[n.kind]));
     else if (UNSUPPORTED[n.kind]) out.unsupported.push(at(n, UNSUPPORTED[n.kind]));
     else if (n.kind === "firewall") {
@@ -97,7 +110,7 @@ export function assessZenithGraph(nodes: readonly ResourceNode[]): ZenithAssessm
     else out.unsupported.push(at(n, `${n.kind} is not offered on the managed platform`));
   }
   // a kind we would realize but whose node expansion marked unsupported has no driver behind it: block, do not guess
-  for (const list of [out.render, out.databases]) {
+  for (const list of [out.render, out.databases, out.storage]) {
     for (const n of [...list]) {
       if (!n.nativeType.startsWith("unsupported:")) continue;
       list.splice(list.indexOf(n), 1);
@@ -115,19 +128,19 @@ export function assessZenithGraph(nodes: readonly ResourceNode[]): ZenithAssessm
  * hostnames. The digest and every other field are untouched, so drift and
  * ownership still join on the original node.
  */
-export function zenithNodeView(node: ResourceNode, tenantInput: ZenithTenant, substrate: ZenithSubstrate): ResourceNode {
+export function zenithNodeView(node: ResourceNode, tenantInput: ZenithTenant, substrate: ZenithSubstrate, customHosts?: ReadonlySet<string>): ResourceNode {
   const tenant = assertTenant(tenantInput);
   const spec: Record<string, unknown> = isRecord(node.spec) ? { ...node.spec } : {};
   spec.namespace = tenantNamespace(tenant.workspaceId, tenant.environmentId);
-  if (node.kind === "load_balancer") spec.routes = rewriteRoutes(spec.routes, tenant, substrate).routes;
+  if (node.kind === "load_balancer") spec.routes = rewriteRoutes(spec.routes, tenant, substrate, customHosts).routes;
   return { ...node, spec };
 }
 
 /** The original → managed host mapping of every load balancer node. */
-export function hostMappingsOf(nodes: readonly ResourceNode[], tenant: ZenithTenant, substrate: ZenithSubstrate): HostMapping[] {
+export function hostMappingsOf(nodes: readonly ResourceNode[], tenant: ZenithTenant, substrate: ZenithSubstrate, customHosts?: ReadonlySet<string>): HostMapping[] {
   const out: HostMapping[] = [];
   for (const n of [...nodes].filter((x) => x.kind === "load_balancer").sort(byAddressOrder)) {
-    out.push(...rewriteRoutes(isRecord(n.spec) ? n.spec.routes : undefined, tenant, substrate).mappings);
+    out.push(...rewriteRoutes(isRecord(n.spec) ? n.spec.routes : undefined, tenant, substrate, customHosts).mappings);
   }
   return out.sort((a, b) => (a.managed + a.source < b.managed + b.source ? -1 : a.managed + a.source > b.managed + b.source ? 1 : 0));
 }
@@ -149,6 +162,13 @@ export interface ZenithRenderInput extends Pick<ToolkitRenderBase, "workloadIden
   toolkit: Pick<KubernetesToolkit, "renderGraph">;
   /** pipeline name → digest-pinned image reference in the platform registry, for `built` artifacts */
   builtImages?: Readonly<Record<string, string>>;
+  /**
+   * Hostnames whose ownership is currently proven for this environment (PROD-MAN-03; `servedCustomHostnames`). A route
+   * for any other host outside the managed suffix is rewritten to its managed hostname, as before.
+   */
+  verifiedDomains?: readonly string[];
+  /** Render HorizontalPodAutoscalers for services with more than one replica, under the tier's policy (`autoscale.ts`). Default off. */
+  autoscaling?: boolean;
 }
 
 export interface ZenithRenderResult {
@@ -161,6 +181,10 @@ export interface ZenithRenderResult {
   platformTls: K8sObject[];
   hostnames: HostMapping[];
   databases: ManagedDatabaseIntent[];
+  /** tenant object stores to provision (scoped credentials); empty unless enabled */
+  storage: ManagedStorageIntent[];
+  /** the verified custom hostnames actually served by a rendered route (each has its own listener and Certificate) */
+  customDomains: string[];
   platformManaged: AssessedNode[];
   notOffered: AssessedNode[];
   skipped: AssessedNode[];
@@ -199,7 +223,7 @@ export function renderZenithEnvironment(input: ZenithRenderInput): ZenithRenderR
   const tenant = assertTenant(input.tenant);
   const { substrate } = input;
   const namespace = tenantNamespace(tenant.workspaceId, tenant.environmentId);
-  const assessed = assessZenithGraph(input.nodes);
+  const assessed = assessZenithGraph(input.nodes, { objectStorage: substrate.objectStorage?.adminCredentialRef !== undefined });
 
   if (assessed.unsupported.length > 0) {
     const list = assessed.unsupported.map((u) => `${u.address} (${u.reason})`).join("; ");
@@ -211,6 +235,11 @@ export function renderZenithEnvironment(input: ZenithRenderInput): ZenithRenderR
     throw new ZenithError("plan_limit", `The ${tenant.planTier} plan allows ${limits.maxManagedDatabases} managed database(s) per environment; this environment declares ${assessed.databases.length}.`);
   }
 
+  if (assessed.storage.length > limits.maxObjectStores) {
+    throw new ZenithError("plan_limit", `The ${tenant.planTier} plan allows ${limits.maxObjectStores} object store(s) per environment; this environment declares ${assessed.storage.length}.`);
+  }
+  const storage: ManagedStorageIntent[] = assessed.storage.map((n) => storageIntentFromNode(tenant, substrate, n));
+
   const databases: ManagedDatabaseIntent[] = [];
   for (const n of assessed.databases) {
     const made = databaseSpecFromNode(tenant, { address: n.address, spec: isRecord(n.spec) ? n.spec : {} });
@@ -220,8 +249,10 @@ export function renderZenithEnvironment(input: ZenithRenderInput): ZenithRenderR
 
   const tenancy = renderTenancy(tenant, substrate, { withManagedDatabase: databases.length > 0 });
 
-  const views = assessed.render.map((n) => zenithNodeView(n, tenant, substrate));
-  const mappings = hostMappingsOf(assessed.render, tenant, substrate);
+  const customHosts = servableCustomHosts(substrate, input.verifiedDomains);
+  const views = assessed.render.map((n) => zenithNodeView(n, tenant, substrate, customHosts));
+  const mappings = hostMappingsOf(assessed.render, tenant, substrate, customHosts);
+  const servedCustom = [...new Set(mappings.filter((m) => m.source === m.managed && customHosts.has(m.managed)).map((m) => m.managed))].sort();
   const sources = sourceHostsByManaged(mappings);
   const rendered = renderToolkitGraph(input.toolkit, input.nodes, views, {
     environmentId: tenant.environmentId,
@@ -232,11 +263,14 @@ export function renderZenithEnvironment(input: ZenithRenderInput): ZenithRenderR
     workloadIdentity: input.workloadIdentity,
     resolveAttribute: input.resolveAttribute,
     clusterIssuers: { dns01: substrate.certManager.clusterIssuer, http01: substrate.certManager.clusterIssuer },
+    ...(input.autoscaling === true && limits.maxAutoscaleReplicas > 0 ? { autoscale: true } : {}),
   });
 
   const notes: string[] = [...tenancy.notes, ...rendered.notes];
   const workloads: K8sObject[] = [];
-  for (const obj of rendered.objects) {
+  const scaled = constrainAutoscalers(rendered.objects, tenant);
+  notes.push(...scaled.notes);
+  for (const obj of scaled.objects) {
     if (obj.kind === "Ingress") {
       const r = ingressToRoutes(obj, substrate, sources, tenant);
       notes.push(...r.notes);
@@ -245,15 +279,19 @@ export function renderZenithEnvironment(input: ZenithRenderInput): ZenithRenderR
       workloads.push(withServiceAccount(obj));
     }
   }
+  for (const d of input.verifiedDomains ?? []) {
+    if (!customHosts.has(d)) notes.push(`Custom domain ${d} is verified but this platform cannot serve it (needs gateway mode and ZENITH_MANAGED_HTTP_CLUSTER_ISSUER).`);
+  }
+  for (const s of storage) notes.push(...s.notes);
   for (const m of mappings) {
-    if (m.source !== m.managed) notes.push(`${m.target}: host ${m.source} is not served on the managed platform (custom domains are not supported); it is served at ${m.managed}.`);
+    if (m.source !== m.managed) notes.push(`${m.target}: host ${m.source} is not served on the managed platform (it is not a verified custom domain of this environment: claim it and prove DNS ownership first); it is served at ${m.managed}.`);
   }
   for (const d of databases) notes.push(...d.notes);
   for (const p of assessed.platformManaged) notes.push(`${p.address}: platform-managed (${p.reason}).`);
   for (const p of assessed.notOffered) notes.push(`${p.address}: not offered (${p.reason}).`);
 
   // the gate: nothing leaves this function that would escape the tenancy model
-  assertTenantObjects([...tenancy.objects, ...workloads], { tenant, substrate });
+  assertTenantObjects([...tenancy.objects, ...workloads], { tenant, substrate, customHosts });
 
   // every rendered object must still carry this environment's ownership marks (the apply guard compares them)
   for (const o of workloads) {
@@ -266,9 +304,11 @@ export function renderZenithEnvironment(input: ZenithRenderInput): ZenithRenderR
     namespace,
     baseline: tenancy.objects,
     workloads,
-    platformTls: renderEnvironmentTls(tenant, substrate),
+    platformTls: renderEnvironmentTls(tenant, substrate, { customDomains: servedCustom }),
     hostnames: mappings,
     databases,
+    storage,
+    customDomains: servedCustom,
     platformManaged: assessed.platformManaged,
     notOffered: assessed.notOffered,
     skipped: assessed.skipped,

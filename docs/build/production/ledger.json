@@ -3911,7 +3911,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "default_contract_controls_verified_d3e710d2_remaining_operated_acceptance_open",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J9 reference container launcher and contract tests built. Dedicated scoped za_ launch/check authority and main CLI dispatch joins require integration; actual Docker and operated default-stack acceptance pending. Prior contract evidence retained.",
       "evidence": [
         {
           "level": "contract",
@@ -3937,7 +3938,13 @@
         "local_engine"
       ],
       "owner": null,
-      "testPaths": []
+      "testPaths": [
+        "tests/cli/plugin-launcher.test.ts",
+        "tests/cli/plugin-sandbox.test.ts",
+        "tests/cli/plugin-runtime.test.ts",
+        "tests/cli/plugin-launcher-docker.test.ts",
+        "tests/plugins"
+      ]
     },
     {
       "id": "PROD-COST-01",

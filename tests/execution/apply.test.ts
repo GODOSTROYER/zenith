@@ -315,6 +315,7 @@ import { connectionConfig } from "./fakes/fixtures";
 import * as repos from "@/lib/controlplane/db/repos";
 import { openPlatformDb, json, type PlatformDbHandle } from "@/lib/controlplane/db";
 import { createApprovedSourceSnapshotStore } from "@/lib/controlplane/db/repos/approved-source-snapshots";
+import { operationPlanReview } from "@/lib/controlplane/db/repos/operation-review";
 import type { Sql } from "@/lib/controlplane/types";
 closeSharedPgliteAfterAll();
 
@@ -407,7 +408,16 @@ describe.skipIf(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK
       expect(await peer.query("select service_address from platform.approved_source_snapshots where workspace_id=$1 and operation_id=$2", [scope.workspaceId, operationId])).toEqual([]);
       expect((await activities.evaluatePolicy({operationId,planDigest:plan.planDigest})).outcome).toBe("require_approval");
       await ports.ops.transition({workspaceId:scope.workspaceId,operationId,to:"awaiting_approval"});
-      const approval = await h.broker.approve({workspaceId:scope.workspaceId,operationId,proposalDigest:proposed.operation.proposalDigest,planDigest:plan.planDigest,approver:user("erin"),session:sessionFor("erin")});
+      const operation = await h.store.getOperation(scope.workspaceId, operationId);
+      if (!operation) throw new Error("The human approval fixture cannot read the reviewed operation.");
+      const review = operationPlanReview(operation);
+      if (!review?.semantics) throw new Error("The human approval fixture cannot read the reviewed executable semantics.");
+      expect(review.planDigest).toBe(plan.planDigest);
+      expect(await peer.query("select semantics_digest from platform.approved_semantics where workspace_id=$1 and operation_id=$2 and plan_digest=$3", [scope.workspaceId, operationId, plan.planDigest]))
+        .toEqual([{ semantics_digest: review.semantics.digest }]);
+      const approval = await h.broker.approve({workspaceId:scope.workspaceId,operationId,proposalDigest:proposed.operation.proposalDigest,planDigest:plan.planDigest,semanticsDigest:review.semantics.digest,approver:user("erin"),session:sessionFor("erin")});
+      expect(await peer.query("select data from platform.events where workspace_id=$1 and operation_id=$2 and type='policy.evaluated' and data->>'kind'='approval_semantics_bound'", [scope.workspaceId, operationId]))
+        .toEqual([{ data: { kind: "approval_semantics_bound", approvalId: approval.approval.id, semanticsDigest: review.semantics.digest, planDigest: plan.planDigest } }]);
       const approved = await peer.query<{ id: string; proposal_digest: string; approval_round: number }>("select id,proposal_digest,approval_round from platform.approvals where workspace_id=$1 and operation_id=$2 and id=$3 and decision='approve' and approver->>'id'='erin'", [scope.workspaceId, operationId, approval.approval.id]);
       expect(approved).toHaveLength(1); expect(approved[0].proposal_digest).toBe(proposed.operation.proposalDigest); expect(approved[0].approval_round).toBeGreaterThan(0); approvalId = approved[0].id;
       await repos.operations.claimForExecution(h.db!, { workspaceId: scope.workspaceId, id: operationId,

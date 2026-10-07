@@ -377,3 +377,69 @@ export async function readOperationFacts(sql: Sql, workspaceId: string, operatio
     ...(row.plan_digest ? { planDigest: row.plan_digest } : {}), ...(row.lease_holder ? { leaseHolder: row.lease_holder } : {}),
   };
 }
+
+/* ----------------------- run orchestration join (MIX-03/04) ----------------------- */
+
+/** Latest expiry of a live human approval of the parent operation: the run's own deadline for starting new children. */
+export async function readParentApprovalExpiry(sql: Sql, workspaceId: string, parentOperationId: string): Promise<string | null> {
+  const ws = id("workspaceId", workspaceId), op = id("operationId", parentOperationId);
+  const rows = await sql.query<{ expires_at: string | Date | null }>(
+    `select max(a.expires_at) as expires_at from platform.approvals a join platform.operations o on o.workspace_id = a.workspace_id and o.id = a.operation_id
+      where a.workspace_id = $1 and a.operation_id = $2 and a.proposal_digest = o.proposal_digest and a.decision = 'approve' and a.approver->>'kind' = 'user'`, [ws, op]);
+  const value = rows[0]?.expires_at;
+  return value ? new Date(value).toISOString() : null;
+}
+
+export interface ReviewOperationRef { operationId: string; status: string }
+
+/** The review operation (if any) that asks a person to approve exactly this new parent digest for this parent run. */
+export async function findReviewOperation(sql: Sql, workspaceId: string, parentOperationId: string, requiredParentDigest: string): Promise<ReviewOperationRef | null> {
+  const ws = id("workspaceId", workspaceId), op = id("parentOperationId", parentOperationId);
+  if (!/^[a-f0-9]{64}$/.test(requiredParentDigest)) throw new ControlStoreError("invalid_input", "requiredParentDigest must be a sha256 hex digest.", { field: "requiredParentDigest" });
+  const rows = await sql.query<{ id: string; status: string }>(
+    `select o.id, o.status from platform.operations o
+      where o.workspace_id = $1 and o.capability = 'deployment.deploy' and o.proposal->'input'->>'mixedParentReviewOf' = $2 and o.proposal->'input'->>'requiredParentDigest' = $3
+      order by o.seq desc limit 1`, [ws, op, requiredParentDigest]);
+  return rows[0] ? { operationId: rows[0].id, status: rows[0].status } : null;
+}
+
+/**
+ * Verify one approval id is a live, human, non-rejected approval of a review operation of THIS parent run, bound to the
+ * operation's own proposal digest; returns the exact parent digest that approval covers, or null. A policy allow, an agent
+ * approval, a rejected, expired or foreign approval all return null.
+ */
+export async function readReviewApprovalDigest(sql: Sql, workspaceId: string, parentOperationId: string, approvalId: string): Promise<string | null> {
+  const ws = id("workspaceId", workspaceId), op = id("parentOperationId", parentOperationId);
+  if (typeof approvalId !== "string" || approvalId.length < 1 || approvalId.length > 200) return null;
+  const rows = await sql.query<{ required: string | null }>(
+    `select o.proposal->'input'->>'requiredParentDigest' as required
+       from platform.approvals a join platform.operations o on o.workspace_id = a.workspace_id and o.id = a.operation_id
+      where a.workspace_id = $1 and a.id = $3 and o.capability = 'deployment.deploy' and o.proposal->'input'->>'mixedParentReviewOf' = $2
+        and a.proposal_digest = o.proposal_digest and a.decision = 'approve' and a.approver->>'kind' = 'user'
+        and a.approver->>'onBehalfOf' is null and a.approver->>'integrationId' is null and a.expires_at > clock_timestamp()
+        and not exists (select 1 from platform.approvals r where r.workspace_id = o.workspace_id and r.operation_id = o.id and r.decision = 'reject')`, [ws, op, approvalId]);
+  const required = rows[0]?.required;
+  return required && /^[a-f0-9]{64}$/.test(required) ? required : null;
+}
+
+/** The human approval id of a review operation, when one exists (the same predicate as `readReviewApprovalDigest`). */
+export async function findReviewApprovalId(sql: Sql, workspaceId: string, reviewOperationId: string): Promise<string | null> {
+  const ws = id("workspaceId", workspaceId), op = id("operationId", reviewOperationId);
+  const rows = await sql.query<{ id: string }>(
+    `select a.id from platform.approvals a join platform.operations o on o.workspace_id = a.workspace_id and o.id = a.operation_id
+      where a.workspace_id = $1 and a.operation_id = $2 and a.proposal_digest = o.proposal_digest and a.decision = 'approve' and a.approver->>'kind' = 'user'
+        and a.approver->>'onBehalfOf' is null and a.approver->>'integrationId' is null and a.expires_at > clock_timestamp()
+        and not exists (select 1 from platform.approvals r where r.workspace_id = o.workspace_id and r.operation_id = o.id and r.decision = 'reject')
+      order by a.created_at desc limit 1`, [ws, op]);
+  return rows[0]?.id ?? null;
+}
+
+/** The most recent review operation of this parent run that has not been decided yet (still waiting for a person). */
+export async function findOpenReviewOperation(sql: Sql, workspaceId: string, parentOperationId: string): Promise<ReviewOperationRef | null> {
+  const ws = id("workspaceId", workspaceId), op = id("parentOperationId", parentOperationId);
+  const rows = await sql.query<{ id: string; status: string }>(
+    `select o.id, o.status from platform.operations o
+      where o.workspace_id = $1 and o.capability = 'deployment.deploy' and o.proposal->'input'->>'mixedParentReviewOf' = $2 and o.status in ('proposed','awaiting_approval','approved')
+      order by o.seq desc limit 1`, [ws, op]);
+  return rows[0] ? { operationId: rows[0].id, status: rows[0].status } : null;
+}

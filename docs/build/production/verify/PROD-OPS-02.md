@@ -1,6 +1,8 @@
+> Assembly note (wave 4): this migration was authored as version 41 and is registered as version 38 in `prod/compose` (aggregate `0023_platform_core.sql`). Read "41" below as 38; the file is now `0038_fair_bounded_control_plane.ts`.
+
 # PROD-OPS-02 Fair bounded control plane
 
-Branch `prod/ops-02-w4`, base `c9a942d6`. Platform migration `41` (`0041_fair_bounded_control_plane`). Build only: nothing here has been
+Branch `prod/ops-02-w4`, base `c9a942d6`. Platform migration `41` (`0038_fair_bounded_control_plane`). Build only: nothing here has been
 run by the builder except `tsc --noEmit` and `eslint` (both clean on the changed files). Operator guide and runbooks:
 `docs/platform/operations/CONTROL-PLANE-FAIRNESS.md`. Dashboards and alerts: `deploy/observability/`.
 
@@ -35,7 +37,7 @@ Wiring into existing files (all additive, one to a few lines each):
 - Dispatch, BEFORE the claim: `src/lib/bridge/lifecycle.ts` (deploy), `src/lib/bridge/destroy.ts`, `src/lib/portability/start.ts`,
   `src/lib/agent-access/v3/tools/execute.ts` (MCP execute, returns a retryable `dispatch_backpressure`).
 - `src/lib/controlplane/db/repos/jobs.ts` `enqueue`: `assertRunnerQueueRoom`.
-- `src/lib/controlplane/db/migrations/0041_fair_bounded_control_plane.ts` and its registration in `migrations/index.ts`.
+- `src/lib/controlplane/db/migrations/0038_fair_bounded_control_plane.ts` and its registration in `migrations/index.ts`.
 - `workers/execution/run.ts` (activity interceptor), `worker.ts` (telemetry export, sampler, weights), `health.ts` (`/metrics` on the loopback listener).
 - `src/lib/log.ts`: `traceId` on every log line inside a span.
 - Routes: `src/app/api/admin/ops/maintenance/route.ts`, `src/app/api/admin/ops/quotas/route.ts`, `src/app/api/internal/metrics/route.ts`.
@@ -47,7 +49,7 @@ Execution core untouched: `execution.ts`, `destroy.ts`, broker, dispatch core, `
 workflow definitions are unmodified. The one place an admission hook sits near them is the four dispatch entry points above, deliberately
 BEFORE `beginExecution`, so a refusal can never leave a claimed operation and cannot turn into `uncertain`.
 
-Database objects (migration 41): `platform.ops_maintenance` (single `global` row), `platform.ops_maintenance_history` (append-only trigger),
+Database objects (migration 38): `platform.ops_maintenance` (single `global` row), `platform.ops_maintenance_history` (append-only trigger),
 `platform.tenant_quotas`, index `runner_jobs_ws_queued`. RLS enabled, no anon/authenticated grants, service role only.
 
 ## 2. Acceptance mapping
@@ -92,7 +94,7 @@ npx vitest run tests/middleware tests/api tests/runners tests/controlplane tests
 
 Expected: all pass, with these deliberate exceptions until the assembler runs:
 
-- `tests/controlplane/migrations.test.ts` "has contiguous versions from 1" fails while versions 30 to 40 are absent from the registry (migration 41 is
+- `tests/controlplane/migrations.test.ts` "has contiguous versions from 1" fails while versions 30 to 40 are absent from the registry (migration 38 is
   registered alone, as assigned). The assembler's `0022_platform_core.sql` composition fills the range.
 - `PLATFORM_SCHEMA_VERSION` is 41 after this branch alone; checksum, ledger and emitted SQL files are the assembler's.
 
@@ -107,7 +109,7 @@ Things that may break first:
 
 1. `route()` now runs admission for every API route. Defaults (per workspace 50 req/s burst 200, 16 concurrent, process 256 in flight) are generous but any test
    or client that hammers one workspace harder than that will see 429. All are env knobs. A test that sets `ZENITH_PLATFORM_DB*` at a real Postgres makes
-   `route()` read `platform.ops_maintenance` (cached 2 s); on a database that has not applied migration 41 that read fails and is treated as "no maintenance".
+   `route()` read `platform.ops_maintenance` (cached 2 s); on a database that has not applied migration 38 that read fails and is treated as "no maintenance".
 2. `tests/docs/operator-docs.test.ts` guide-set checks walk `docs/platform/operations/`: the new guide has the required branch/commit header, a README link and a
    `SOURCE_SNAPSHOTS` pin (`prod/ops-02-w4`, `c9a942d`). If the assembler renames the branch, update both.
 3. Real Temporal behaviour of the activity interceptor was not run (no Temporal on the building machine). It uses the documented `interceptors.activity` factory
@@ -119,7 +121,7 @@ Things that may break first:
 
 Shared-file updates for the assembler (I did not touch these):
 
-- Migrations inventory: version 41 `fair_bounded_control_plane`, tables `ops_maintenance`, `ops_maintenance_history`, `tenant_quotas`, index `runner_jobs_ws_queued`;
+- Migrations inventory: version 38 `fair_bounded_control_plane`, tables `ops_maintenance`, `ops_maintenance_history`, `tenant_quotas`, index `runner_jobs_ws_queued`;
   re-emit supabase SQL, `scripts/ci/apply-supabase-migrations.sh` expected versions, `docs/platform/operations/DEPLOYING.md` migration list,
   `tests/controlplane/migrations.test.ts` checksums.
 - `docs/platform/operations/DEPLOYING.md`: document the new `ZENITH_OPS_*`, `ZENITH_MAINTENANCE_*`, `ZENITH_WORKER_FAIR_*`, `ZENITH_OTEL_*` variables

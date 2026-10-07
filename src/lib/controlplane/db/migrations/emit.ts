@@ -1,5 +1,5 @@
 /**
- * Renders `supabase/migrations/0022_platform_core.sql` from the TypeScript
+ * Renders `supabase/migrations/0023_platform_core.sql` from the TypeScript
  * migrations — the ONLY way that file is produced. It is never hand-edited: a
  * test (`tests/controlplane/migrations.test.ts`) fails when the committed file
  * differs by even one byte from what `renderSupabaseMigration()` returns now,
@@ -23,7 +23,7 @@
 import { BOOTSTRAP_SQL } from "./bootstrap";
 import { PLATFORM_MIGRATIONS, migrationChecksum } from "./index";
 
-export const EMITTED_FILE = "0022_platform_core.sql";
+export const EMITTED_FILE = "0023_platform_core.sql";
 
 const HARDENING_SQL = `do $$
 declare
@@ -122,6 +122,31 @@ begin
       revoke all on table platform.coding_agent_runs from service_role;
       grant select,insert,update on table platform.coding_agent_runs to service_role;
     end if;
+    -- Platform schemas 37 to 41 (wave 4) keep the narrower grants their own migrations set.
+    if to_regclass('platform.actual_spend_snapshots') is not null then
+      revoke all on table platform.actual_spend_snapshots from service_role;
+      grant select,insert on table platform.actual_spend_snapshots to service_role;
+    end if;
+    if to_regclass('platform.ops_maintenance') is not null then
+      revoke all on table platform.ops_maintenance,platform.ops_maintenance_history,platform.tenant_quotas from service_role;
+      grant select,insert,update on table platform.ops_maintenance to service_role;
+      grant select,insert on table platform.ops_maintenance_history to service_role;
+      grant select,insert,update,delete on table platform.tenant_quotas to service_role;
+    end if;
+    if to_regclass('platform.key_custody_keys') is not null then
+      revoke all on table platform.key_custody_keys,platform.key_rewrap_jobs from service_role;
+      grant select,insert,update on table platform.key_custody_keys,platform.key_rewrap_jobs to service_role;
+    end if;
+    if to_regclass('platform.mixed_parent_plans') is not null then
+      revoke all on table platform.mixed_parent_plans,platform.mixed_child_plans,platform.mixed_child_receipts,platform.mixed_addresses from service_role;
+      grant select,insert,update on table platform.mixed_parent_plans,platform.mixed_child_plans to service_role;
+      grant select,insert on table platform.mixed_child_receipts,platform.mixed_addresses to service_role;
+    end if;
+    if to_regclass('platform.mixed_runs') is not null then
+      revoke all on table platform.mixed_runs,platform.mixed_run_events,platform.mixed_output_preauthorizations from service_role;
+      grant select,insert,update on table platform.mixed_runs,platform.mixed_output_preauthorizations to service_role;
+      grant select,insert on table platform.mixed_run_events to service_role;
+    end if;
   end if;
 end
 $$;
@@ -129,7 +154,7 @@ $$;
 
 const quote = (text: string): string => `'${text.replace(/'/g, "''")}'`;
 
-/** The exact text of `supabase/migrations/0022_platform_core.sql`. */
+/** The exact text of `supabase/migrations/0023_platform_core.sql`. */
 export function renderSupabaseMigration(): string {
   const parts: string[] = [
     `-- Zenith platform control store (ADR-0002) — schema \`platform\`.

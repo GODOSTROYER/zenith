@@ -16,10 +16,11 @@ import type { Sql } from "@/lib/controlplane/types";
 import * as plans from "@/lib/controlplane/db/repos/mixed-parent-plans";
 import type { SemanticsStore } from "@/lib/execution/semantics/store";
 import type { DeployWorkflowInput } from "@/lib/workflows/types";
+import { planMixedPartitions, type MixedPartitionInput, type PartitionReference } from "@/lib/execution/mixed-partitions";
 import { assertAddressesStable, deriveAddresses } from "./addresses";
 import { admitMixedGraph, type MixedAdmission } from "./admission";
 import { buildParentPlan, assertParentPlanIntegrity, parentProposalInput, proposalMatchesPlan, type BuildParentPlanInput } from "./parent-plan";
-import type { PartitionPin } from "./partitioner";
+import { assignPartitions, type PartitionPin } from "./partitioner";
 import { outcomeOfOperationStatus } from "./receipt";
 import {
   CHILD_TERMINAL, MIXED_PARENT_CAPABILITY, MixedPlanError, type ChildReceipt, type ChildState, type ChildSubplan, type MixedBlockReason, type MixedParentPlan, type MixedParentProposalInput,
@@ -78,6 +79,35 @@ export async function planMixed(deps: MixedDeps, input: PlanMixedInput): Promise
   });
   const result = await plans.createPlan(deps.sql, { plan, createdBy: input.createdBy });
   return { ...result, proposalInput: parentProposalInput(result.stored.plan) };
+}
+
+/**
+ * Rebuild, from the stored plan alone, the exact planner input the parent plan was derived from (graph, bindings,
+ * assignments and the declared reference inventory with every value still unavailable), and prove it re-derives the
+ * stored parent digest. This is what MIX-03 judges new materializations against; a graph, connection or backend that
+ * changed since the plan refuses with `plan_refused` instead of being judged against something nobody approved.
+ */
+export async function plannerInputOf(deps: Pick<MixedDeps, "world">, plan: MixedParentPlan): Promise<MixedPartitionInput> {
+  const parent = await deps.world.parentGraph(plan.workspaceId, plan.parentEnvironmentId);
+  const candidates = [];
+  for (const child of plan.children) candidates.push({ childEnvironmentId: child.childEnvironmentId, connection: (await deps.world.childEnvironment(plan.workspaceId, child.childEnvironmentId)).connection });
+  const pins = plan.children.flatMap((child) => child.nodes.map((node) => ({ address: node.address, childEnvironmentId: child.childEnvironmentId })));
+  const assigned = assignPartitions({ workspaceId: plan.workspaceId, graph: parent.graph, candidates, pins });
+  const references: PartitionReference[] = plan.references.map((ref) => {
+    if (!ref.producerAddress || !ref.producerOutput || !ref.consumerAddress || !ref.consumerInput || !ref.valueType) {
+      throw new MixedPlanError("plan_refused", "This plan stored a reference without its declared contract, so its outputs cannot be materialized; plan again.", { referenceId: ref.referenceId });
+    }
+    return {
+      id: ref.referenceId, scope: { workspaceId: plan.workspaceId, environmentId: parent.graph.environmentId },
+      producer: { address: ref.producerAddress, output: ref.producerOutput, type: ref.valueType }, consumer: { address: ref.consumerAddress, input: ref.consumerInput, type: ref.valueType },
+      materialization: { state: "unavailable", reason: "not_produced" },
+    };
+  });
+  const input: MixedPartitionInput = { workspaceId: plan.workspaceId, graph: parent.graph, bindings: assigned.bindings, assignments: assigned.assignments, references };
+  let derived;
+  try { derived = planMixedPartitions(input); } catch { throw new MixedPlanError("plan_refused", "The parent graph can no longer be partitioned the way the approved plan was."); }
+  if (derived.parentDigest !== plan.parentDigest) throw new MixedPlanError("plan_refused", "The parent graph, a connection or a backend changed since the plan was approved; plan again.");
+  return input;
 }
 
 async function loadPlan(sql: Sql, workspaceId: string, planId: string): Promise<plans.StoredMixedPlan> {

@@ -410,7 +410,7 @@ describe("canonical gate manifest", () => {
     expect(suites).toHaveLength(4);
     expect(suites).toContainEqual(expect.objectContaining({ suite: "live public GitHub source (opt-in network)" }));
     expect(manifest.env).toMatchObject({ ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REPO: "https://github.com/GODOSTROYER/zenith", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b" });
-    expect(manifest.excludeFiles).toEqual(["tests/workflows/mtls-live.test.ts", "tests/platform/codebuild-launch-authority.test.ts", "tests/workflows/start-intent.test.ts"]);
+    expect(manifest.excludeFiles).toEqual(["tests/workflows/mtls-live.test.ts", "tests/platform/codebuild-launch-authority.test.ts", "tests/workflows/start-intent.test.ts", "tests/workflows/history-replay.test.ts", "tests/workflows/history-record.test.ts"]);
   });
 
   it("declares mTLS prerequisites and an unverified release blocker rather than a pass", () => {

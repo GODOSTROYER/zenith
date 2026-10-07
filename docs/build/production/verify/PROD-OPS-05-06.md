@@ -1,6 +1,8 @@
+> Assembly note (wave 4): this migration was authored as version 42 and is registered as version 39 in `prod/compose` (aggregate `0023_platform_core.sql`). Read "42" below as 39; the file is now `0039_key_custody.ts`.
+
 # PROD-OPS-05 and PROD-OPS-06: purpose-separated key custody, sensitive persistence minimization
 
-Branch `prod/ops-05-06-w4`, base `c9a942d6`. Platform migration 42 only. Built without running any test: the
+Branch `prod/ops-05-06-w4`, base `c9a942d6`. Platform migration 39 only. Built without running any test: the
 verifying machine runs everything below. Live cloud acceptance is deferred; nothing here calls a cloud API, a live
 Temporal server or a live Postgres. Evidence is contract and local engine (PGlite, real file store, real
 redactors and sealers).
@@ -16,7 +18,7 @@ No retention policy is approved. `data-minimize` is a **dry run by default** (co
 | Area | Files |
 | --- | --- |
 | Registry: purposes, roles, refusal, separation findings | `src/lib/keycustody/purposes.ts`, `src/lib/keycustody/registry.ts` |
-| Durable records: key facts, retirement dates, re-wrap jobs (migration 42, 2 tables) | `src/lib/controlplane/db/migrations/0042_key_custody.ts` (registered in `index.ts`), `src/lib/keycustody/store.ts` |
+| Durable records: key facts, retirement dates, re-wrap jobs (migration 39, 2 tables) | `src/lib/controlplane/db/migrations/0039_key_custody.ts` (registered in `index.ts`), `src/lib/keycustody/store.ts` |
 | Durable re-wrap on the scheduler (`key-rewrap` critical job) | `src/lib/keycustody/rewrap-job.ts`, `src/lib/keycustody/product-db.ts`, `rewrapVaultStep` in `src/lib/secrets/rewrap.ts`, `src/lib/platform/critical-jobs.ts` |
 | Operator diagnostics and codec diagnostic | `src/lib/keycustody/diagnostics.ts`, `scripts/key-custody.ts` |
 | Start-up refusal and boot warning | `src/lib/keycustody/startup.ts`, `workers/execution/startup.ts`, `src/lib/platform/app.ts` |
@@ -105,7 +107,7 @@ npx vitest run tests/docs/operator-docs.test.ts   # fails until the DEPLOYING.md
 # CLI smoke (no database): ids, purposes, roles only
 npx tsx scripts/key-custody.ts diagnose --no-db
 npx tsx scripts/sensitive-inventory.ts --only unreviewed
-# with a Postgres platform store and migration 42 applied
+# with a Postgres platform store and migration 39 applied
 npx tsx --env-file-if-exists=.env.local scripts/key-custody.ts sync
 npx tsx --env-file-if-exists=.env.local scripts/key-custody.ts rewrap --workspace <id> --run
 npx tsx --env-file-if-exists=.env.local scripts/sensitive-data-census.ts
@@ -118,7 +120,7 @@ Typecheck and lint were run on this branch (`npx tsc --noEmit -p .`, `npx eslint
 
 Shared-file updates (not touched here):
 
-1. **Migrations inventory**: version 42 `key_custody`: tables `platform.key_custody_keys` (system-level, no `workspace_id`, non-secret key facts) and `platform.key_rewrap_jobs` (workspace-owned). RLS enabled, `anon`/`authenticated` revoked, `service_role` select/insert/update, following 0021/0022. Regenerate `supabase/migrations/0021_platform_core.sql` via emit-sql, update DEPLOYING.md migration list and `tests/controlplane/migrations.test.ts` as usual.
+1. **Migrations inventory**: version 39 `key_custody`: tables `platform.key_custody_keys` (system-level, no `workspace_id`, non-secret key facts) and `platform.key_rewrap_jobs` (workspace-owned). RLS enabled, `anon`/`authenticated` revoked, `service_role` select/insert/update, following 0021/0022. Regenerate `supabase/migrations/0021_platform_core.sql` via emit-sql, update DEPLOYING.md migration list and `tests/controlplane/migrations.test.ts` as usual.
 2. **Tenancy classification**: the store functions live in `src/lib/keycustody/store.ts`, deliberately outside `src/lib/controlplane/db/repos/`, so `tests/controlplane/tenancy.test.ts` and `tests/security/controlplane-sql-scoping.test.ts` (which scan `repos/*.ts`) do not see them; they were not added to `repos/index.ts`. Classification if you prefer to move them: `recordKeys`, `listKeys`, `setRetireAfter`, `markRetired`, `claimRewrapJob` (exempt: system key facts / system scheduler claim, every returned row carries its workspace and later calls use it), `enqueueRewrapJob`, `advanceRewrapJob`, `finishRewrapJob`, `getRewrapJob`, `listRewrapJobs(workspaceId)` (workspace-bound; the no-workspace form is the operator system view), `rewrapBacklog` (system counts).
 3. **DEPLOYING.md variable rows** (`tests/docs/operator-docs.test.ts` requires every `ZENITH_*` name in `src/lib/runners`, `src/lib/workflows`, etc. to be documented): `ZENITH_RUNNER_RESULT_PREVIOUS_KEYS` (JSON array of 32-byte base64url keys, decrypt-only), `ZENITH_TEMPORAL_PAYLOAD_KEY` (64 hex, dedicated Temporal payload root; client and worker must agree; old root goes into `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS`). `ZENITH_RESULT_RETENTION_HOURS` (1 to 720, no default for deletion; also needs ZENITH_DATA_MINIMIZE_APPLY=1) is read in `src/lib/sensitivedata`, outside the checked roots, but should be documented with them. Also update the `ZENITH_RUNNER_RESULT_KEY` row (rotation now has a previous list and key ids) and add `docs/platform/operations/README.md` rows for `KEY-CUSTODY.md` and `SENSITIVE-DATA.md`.
 4. **Critical jobs**: two new jobs (`key-rewrap`, `data-minimize`) ride the existing `criticalMaintenanceWorkflow`; the workflow result validation checks only the original six keys, so no workflow contract change. Add them to any gate manifest or status documentation that lists critical jobs. `tests/workflows/critical-schedule.test.ts` fixtures need no change.
@@ -129,7 +131,7 @@ Hooks needed from plan-artifacts / custody internals (wave 3 DUR-C; not edited h
 
 - `planArtifactCipherFromEnv` may call `vaultCipherFromEnv(process.env, { purpose: "enc:plan-artifacts" })` instead of mapping its variables onto `ZENITH_SECRET_KEY`, so the registry owns the parsing and the previous-key overlap for plan custody. Its own separation checks can then be replaced by `KeyRing.violations()`.
 - `platform.plan_artifacts.manifest` is plaintext next to the ciphertext (addresses and digests); the inventory marks it `unreviewed`. DUR-C should confirm it holds no values.
-- A plan rewrap job kind (`enc:plan-artifacts`) is not implemented: `key_rewrap_jobs.purpose` is restricted to `enc:vault` in migration 42. Extending it needs a later migration owned by plan custody.
+- A plan rewrap job kind (`enc:plan-artifacts`) is not implemented: `key_rewrap_jobs.purpose` is restricted to `enc:vault` in migration 39. Extending it needs a later migration owned by plan custody.
 - The agent effect receipts (`sealed`, immutable by trigger) keep a sealed copy of every outcome forever under the result key; the retention policy (PROD-OPS-07) must decide how receipts age out, and removing a result key makes old receipts unreadable.
 
 Things that may break first:
@@ -152,6 +154,6 @@ Limitations not claimed away:
 
 ## 5. Suggested ledger text
 
-- `PROD-OPS-05` implementationStatus: `built_unverified: key registry with per-key purpose and role, refusal outside purpose, decrypt-only histories for vault/result/machine/Temporal keys, durable key-rewrap critical job, retirement records (migration 42), operator diagnose and Temporal codec CLI; contract and local-engine tests written, not run; no live KMS, Temporal Cloud or rotation-drill evidence`
+- `PROD-OPS-05` implementationStatus: `built_unverified: key registry with per-key purpose and role, refusal outside purpose, decrypt-only histories for vault/result/machine/Temporal keys, durable key-rewrap critical job, retirement records (migration 39), operator diagnose and Temporal codec CLI; contract and local-engine tests written, not run; no live KMS, Temporal Cloud or rotation-drill evidence`
 - `PROD-OPS-06` implementationStatus: `built_unverified: complete sensitive persistence inventory with a both-direction migration guard, at-rest census, data-minimize critical job, log redaction, and a runtime-canary leak suite across API, agent broker, logs, telemetry, model results, Temporal payloads and stores; characterization tests pin that unrecognised secrets are not caught; tests written, not run; no live evidence`
 - LIMITATIONS.md: redaction and write guards recognise shapes only (an unknown secret in free-text stores, logs or model results is not removed); legacy product tables and hosted app data are inventoried but unreviewed and protected by access control; effect receipts retain a sealed copy of every outcome until PROD-OPS-07; backups, agent-link and invite sealing lack decrypt-only overlap.

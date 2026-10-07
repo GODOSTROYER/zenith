@@ -102,6 +102,16 @@ export interface ChildReference {
   materializationDigest: string;
   state: "available" | "unavailable";
   unavailableReason?: string;
+  /**
+   * The declared contract (addresses, output and input names, value type), kept so the run orchestration (MIX-03/04) can
+   * rebuild the planner input and its reference view from the stored plan alone. Additive: absent on a reference stored
+   * before the join; such a plan cannot materialize outputs and refuses with plan_refused.
+   */
+  producerAddress?: string;
+  producerOutput?: string;
+  consumerAddress?: string;
+  consumerInput?: string;
+  valueType?: "string" | "number" | "boolean" | "resource_id" | "endpoint" | "secret_ref";
 }
 
 export interface StableAddressEntry {
@@ -131,6 +141,23 @@ export interface MixedParentPlan {
   /** Reverse of executionOrder. Teardown ordering is MIX-04's; this is the dependency fact it starts from. */
   teardownOrder: readonly string[];
   addresses: readonly StableAddressEntry[];
+}
+
+/** Marks a parent REVIEW operation: a human approval of a changed parent digest after outputs were materialized (MIX-03 join). Never executable. */
+export const MIXED_PARENT_REVIEW_KEY = "mixedParentReviewOf" as const;
+
+/**
+ * The immutable input of a parent review operation. It binds the exact new parent digest and the child set the original
+ * parent approval pinned, plus every consumer whose effect digest the new materialization changes, so the approver sees
+ * exactly what moved. Opened by the run orchestration (never by a caller) when `consumeOutputs` returns review_required.
+ */
+export interface MixedParentReviewInput {
+  mixedParentReviewOf: string;
+  parentPlanId: string;
+  previousParentDigest: string;
+  requiredParentDigest: string;
+  childSetDigest: string;
+  consumers: readonly { childId: string; previousEffectDigest: string; newEffectDigest: string; referenceIds: readonly string[] }[];
 }
 
 /** The immutable input of the parent operation. A human approves exactly this. */
@@ -190,6 +217,8 @@ export type MixedBlockReason =
   | "connection_unverified"
   | "address_drift"
   | "plan_changed"
+  | "outputs_unavailable"
+  | "review_pending"
   | "cancelled"
   | "outage";
 

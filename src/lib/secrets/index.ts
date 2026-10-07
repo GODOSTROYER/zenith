@@ -216,7 +216,7 @@ export interface VaultCipher {
  * input or refs.
  *
  * `options.purpose` defaults to the vault. Plan custody keeps its own variables; it may pass
- * `enc:plan-artifacts` to have the registry read them (see the OPS-05 verify doc for the hook).
+ * `enc:plan-artifacts` to have the registry read them; plan custody (`planArtifactCipherFromEnv`) does since the wave-4 assembly.
  */
 export function vaultCipherFromEnv(
   source: Readonly<Record<string, string | undefined>> = process.env,

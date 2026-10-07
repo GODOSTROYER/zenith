@@ -4,6 +4,7 @@
  */
 import type { Broker } from "@/lib/capabilities/platform";
 import type { Sql } from "@/lib/controlplane/types";
+import * as mixedPlansRepo from "@/lib/controlplane/db/repos/mixed-parent-plans";
 import * as preauthRepo from "@/lib/controlplane/db/repos/mixed-output-preauthorizations";
 import * as resourceRepo from "@/lib/controlplane/db/repos/resources";
 import type { PreauthorizationStore } from "./preauthorization";
@@ -23,10 +24,16 @@ export function platformPreauthorizationStore(sql: Sql): PreauthorizationStore {
 }
 
 /**
- * Review of a changed parent digest needs a parent approval round bound to that digest. That round belongs to the
- * parent approval path that joins this work with the partition executor; until it is joined, nothing can claim a
- * review, so a `review_required` decision stays a decision and no consumer is rebound.
+ * Review of a changed parent digest is a person's approval of a review operation the partition executor opened for exactly
+ * that digest (`mixedParentReviewOf`, PROD-MIX-01/02 join). The port answers with the parent digest a LIVE, human, non-rejected
+ * approval of THIS parent run's review operation covers, bound to that operation's own proposal digest; anything else
+ * (an agent, a policy allow, a foreign run, an expired or rejected approval) answers null and nothing is rebound.
  */
+export function platformParentReviewPort(sql: Sql): ParentReviewPort {
+  return { approvedParentDigest: (workspaceId, parentOperationId, approvalId) => mixedPlansRepo.readReviewApprovalDigest(sql, workspaceId, parentOperationId, approvalId) };
+}
+
+/** A port that never confirms a review: for tests and for compositions that have no review path. */
 export const refusingParentReviewPort: ParentReviewPort = { approvedParentDigest: async () => null };
 
 export function platformMixedRunDeps(sql: Sql, broker: Broker): MixedRunDeps {
@@ -35,7 +42,7 @@ export function platformMixedRunDeps(sql: Sql, broker: Broker): MixedRunDeps {
     preauthorizations: platformPreauthorizationStore(sql),
     roles: broker.deps.roles,
     teardownApprovals: brokerTeardownApprovalPort(broker.deps),
-    parentReview: refusingParentReviewPort,
+    parentReview: platformParentReviewPort(sql),
     now: () => broker.deps.clock.now(),
   };
 }

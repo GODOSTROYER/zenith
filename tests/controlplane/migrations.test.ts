@@ -54,6 +54,8 @@ const EXPECTED_TABLES = [
   "standalone_plan_settlements", "workflow_start_intents", "workspace_policy",
   // Platform schemas 30 to 36 (wave 3).
   "operation_authority", "durable_intents", "approved_semantics", "standing_grants", "standing_grant_uses", "plan_custody_grants", "plan_custody_reads", "state_backend_probes", "state_backend_restores", "external_effects", "external_effect_events", "external_effect_resolutions", "k8s_guest_bindings", "mcp_streams", "mcp_stream_events", "coding_agent_runs",
+  // Platform schemas 37 to 41 (wave 4).
+  "actual_spend_snapshots", "ops_maintenance", "ops_maintenance_history", "tenant_quotas", "key_custody_keys", "key_rewrap_jobs", "mixed_parent_plans", "mixed_child_plans", "mixed_child_receipts", "mixed_addresses", "mixed_runs", "mixed_run_events", "mixed_output_preauthorizations",
 ];
 
 /** Tables that hold no tenant-visible rows keyed by workspace (see the header of 0001_core.ts). */

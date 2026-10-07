@@ -20,4 +20,4 @@ export {
   cancelMixedRun, consumeOutputs, NO_SIGNALS, openMixedRun, proposeTeardown, readMixedRun, recordChildEvent, releaseTeardown, sweepDueMixedRuns, syncTeardownStep, tickMixedRun,
   type MixedRunDeps, type ParentReviewPort,
 } from "./service";
-export { platformMixedRunDeps, platformPreauthorizationStore, platformTeardownPlanInput, refusingParentReviewPort } from "./platform";
+export { platformMixedRunDeps, platformParentReviewPort, platformPreauthorizationStore, platformTeardownPlanInput, refusingParentReviewPort } from "./platform";

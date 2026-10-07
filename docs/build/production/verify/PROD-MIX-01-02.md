@@ -1,3 +1,7 @@
+> Assembly note (wave 4): this migration was authored as version 43 and is registered as version 40 in `prod/compose` (aggregate `0023_platform_core.sql`). Read "43" below as 40; the file is now `0040_mixed_parent_plans.ts`.
+> Join note (wave-4 assembly): every child transition is now recorded on the MIX-03/04 run by `orchestration-join.ts`; `mixedParentWorkflow` and its activities are registered in `REGISTERED_WORKFLOW_TYPES` and `RegisteredWorkerActivities`; `ChildReference` stores the declared contract additively so the run can rebuild its planner input. See VERIFY-QUEUE.md wave 4.
+
+
 # PROD-MIX-01 Execution partitions and authorities / PROD-MIX-02 Parent and immutable child plans
 
 Branch `prod/mix-01-02-w4b`, base ad78c593 (wave 3). Platform migration **43** (versions 37-42 belong to sibling workers; the
@@ -75,7 +79,7 @@ New:
 | `src/lib/execution/mixed/world.ts`, `runtime.ts` | product-store/connection port and production composition |
 | `src/lib/execution/mixed/start.ts` | browser start of the approved parent (claim + durable start intent) |
 | `src/lib/execution/mixed/details.ts` | approver-facing lines for the parent proposal |
-| `src/lib/controlplane/db/migrations/0043_mixed_parent_plans.ts` | tables, triggers, RLS, grants |
+| `src/lib/controlplane/db/migrations/0040_mixed_parent_plans.ts` | tables, triggers, RLS, grants |
 | `src/lib/controlplane/db/repos/mixed-parent-plans.ts` | store functions |
 | `src/lib/workflows/definitions/mixedParent.ts`, `src/lib/workflows/mixed-activities.ts` | workflow and worker activities |
 | `src/app/api/platform/v1/mixed/plans/**`, `_lib/mixed.ts` | REST: plan+propose, read, adopt child, start |
@@ -87,7 +91,7 @@ parent can never run through the single-provider deploy workflow), `workflows/ty
 `definitions/index.ts`, `workers/execution/worker.ts` (registers `createMixedActivities`), `capabilities/broker.ts` (details lines),
 `repos/index.ts`, `migrations/index.ts`, `_lib/bearer-paths.ts` (3 route patterns).
 
-### Database (migration 43)
+### Database (migration 40)
 
 Tables `platform.mixed_parent_plans`, `mixed_child_plans`, `mixed_child_receipts`, `mixed_addresses`; all tenant-owned
 (`workspace_id`), RLS enabled, no anon/authenticated access, service role select/insert/update (receipts and addresses select/insert
@@ -195,7 +199,7 @@ Known gaps (honest):
 
 Shared-file updates the orchestrator/assembler must make:
 
-- **Migration 43**: emit-sql, `supabase/migrations/*`, `scripts/ci/apply-supabase-migrations.sh`, `DEPLOYING.md` inventory,
+- **Migration 40**: emit-sql, `supabase/migrations/*`, `scripts/ci/apply-supabase-migrations.sh`, `DEPLOYING.md` inventory,
   `tests/controlplane/migrations.test.ts` table list (4 new tables, 5 functions: `mixed_parent_plan_guard`, `mixed_child_plan_guard`,
   `mixed_append_only`, `mixed_child_receipt_guard`). `index.ts` lists 43 after 36; the contiguity check needs 37-42 filled.
 - **Tenancy / SQL scoping classification** (`repos.mixedParentPlans`, every function takes `workspaceId` and filters on it in SQL, none is

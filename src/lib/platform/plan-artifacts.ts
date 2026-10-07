@@ -127,7 +127,8 @@ export function planArtifactCipherFromEnv(env: Readonly<Record<string,string|und
     const artifactKeys = [env.ZENITH_PLAN_ARTIFACT_KEY.toLowerCase(),...overlap(env.ZENITH_PLAN_ARTIFACT_PREVIOUS_KEYS)];
     const vaultKeys = [...(env.ZENITH_SECRET_KEY ? overlap(JSON.stringify([env.ZENITH_SECRET_KEY])) : []),...overlap(env.ZENITH_VAULT_PREVIOUS_SECRET_KEYS)];
     if (artifactKeys.some(key => vaultKeys.includes(key))) throw new Error();
-    return vaultCipherFromEnv({ ZENITH_SECRET_KEY: env.ZENITH_PLAN_ARTIFACT_KEY, ZENITH_VAULT_PREVIOUS_SECRET_KEYS: env.ZENITH_PLAN_ARTIFACT_PREVIOUS_KEYS });
+    // PROD-OPS-05: the key registry owns the parsing and the decrypt-only overlap of the plan custody purpose (same AES-256-GCM format and AAD as before). The checks above stay as the fail-closed separation guard.
+    return vaultCipherFromEnv(env, { purpose: "enc:plan-artifacts" });
   } catch { throw new Error("Plan artifact keys are unavailable or invalid."); }
 }
 function pairedRuntime(db: Sql, env: Readonly<Record<string,string|undefined>>, broker: Pick<BrokerPort,"approvalStatus">, kind: PlanArtifactsPort["kind"]) {

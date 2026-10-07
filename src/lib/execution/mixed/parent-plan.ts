@@ -106,11 +106,16 @@ export function buildParentPlan(input: BuildParentPlanInput): MixedParentPlan {
     if (!childEnvironmentId) throw new MixedPlanError("child_mismatch", "A partition has no child environment.");
     return toChild(partition, ordinal, childEnvironmentId);
   });
-  const refs: ChildReference[] = plan.references.map((ref) => ({
-    referenceId: ref.id, producerPartitionId: ref.producerPartitionId, consumerPartitionId: ref.consumerPartitionId,
-    contractDigest: ref.contractDigest, materializationDigest: ref.materializationDigest, state: ref.state,
-    ...(ref.unavailableReason ? { unavailableReason: ref.unavailableReason } : {}),
-  }));
+  const declared = new Map((input.references ?? []).map((ref) => [ref.id, ref]));
+  const refs: ChildReference[] = plan.references.map((ref) => {
+    const contract = declared.get(ref.id);
+    return {
+      referenceId: ref.id, producerPartitionId: ref.producerPartitionId, consumerPartitionId: ref.consumerPartitionId,
+      contractDigest: ref.contractDigest, materializationDigest: ref.materializationDigest, state: ref.state,
+      ...(ref.unavailableReason ? { unavailableReason: ref.unavailableReason } : {}),
+      ...(contract ? { producerAddress: contract.producer.address, producerOutput: contract.producer.output, consumerAddress: contract.consumer.address, consumerInput: contract.consumer.input, valueType: contract.producer.type } : {}),
+    };
+  });
   const set = childSetDigest(children, plan.executionOrder);
   return {
     format: MIXED_PARENT_PLAN_FORMAT,

@@ -21,6 +21,7 @@ import { cancelOperation, signalApproval, startDeploy } from "@/lib/workflows/cl
 import type { CodingAgentActivities, CodingAgentStepResult } from "@/lib/workflows/definitions/codingAgent";
 import type { CriticalMaintenanceActivities } from "@/lib/workflows/definitions/criticalMaintenance";
 import type { DestroyActivities } from "@/lib/workflows/definitions/destroy";
+import type { MixedActivities } from "@/lib/workflows/definitions/mixedParent";
 import type { ReconcileSweepActivities } from "@/lib/workflows/definitions/reconcileSweep";
 import { deployInput, uniqueId, waitForStatus, type Harness } from "./support";
 
@@ -257,6 +258,38 @@ export const WORKFLOW_HISTORY_SCENARIOS: readonly HistoryScenario[] = [
       install(h, impl);
       const runId = uniqueId("car");
       return [await startAndWait(h, WORKFLOW_TYPES.codingAgentRun, `car-${runId}`, { contract: "zenith.coding-agent-run.v1", runId, workspaceId: "ws_test" })];
+    }),
+  },
+  {
+    id: "mixed-parent-all-children-succeed",
+    workflowType: WORKFLOW_TYPES.mixedParent,
+    covers: "wave-4 mixed parent: children advance and are observed one at a time in dependency order, then the parent settles succeeded",
+    run: (h) => h.run(async () => {
+      const impl: MixedActivities = {
+        async verifyMixedParent() { return { order: [{ partitionId: "partition/a", ordinal: 0 }, { partitionId: "partition/b", ordinal: 1 }], childSetDigest: "d".repeat(64) }; },
+        async advanceMixedChild() { return { state: "started" }; },
+        async awaitMixedChild() { Context.current().heartbeat({ phase: "observing" }); return { state: "succeeded" }; },
+        async settleMixedParent(i) { return { status: i.outcome }; },
+      };
+      install(h, impl);
+      const operationId = uniqueId("opm");
+      return [await startAndWait(h, WORKFLOW_TYPES.mixedParent, WORKFLOW_ID(operationId), { workspaceId: "ws-1", operationId, environmentId: "env-parent", parentPlanId: "mpp_test" })];
+    }),
+  },
+  {
+    id: "mixed-parent-child-fails",
+    workflowType: WORKFLOW_TYPES.mixedParent,
+    covers: "wave-4 mixed parent: the first child ends failed, later children are never started, nothing is compensated and the parent settles failed",
+    run: (h) => h.run(async () => {
+      const impl: MixedActivities = {
+        async verifyMixedParent() { return { order: [{ partitionId: "partition/a", ordinal: 0 }, { partitionId: "partition/b", ordinal: 1 }], childSetDigest: "d".repeat(64) }; },
+        async advanceMixedChild() { return { state: "started" }; },
+        async awaitMixedChild() { Context.current().heartbeat({ phase: "observing" }); return { state: "failed" }; },
+        async settleMixedParent(i) { return { status: i.outcome }; },
+      };
+      install(h, impl);
+      const operationId = uniqueId("opm");
+      return [await startAndWait(h, WORKFLOW_TYPES.mixedParent, WORKFLOW_ID(operationId), { workspaceId: "ws-1", operationId, environmentId: "env-parent", parentPlanId: "mpp_test" })];
     }),
   },
   {

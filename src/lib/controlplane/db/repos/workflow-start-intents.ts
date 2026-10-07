@@ -125,7 +125,7 @@ function bind(request: StartRequest, op: Operation): StartBinding {
   if (request.kind !== "teardownReview" && args.environmentId !== op.environment_id) return refuse();
   if (request.kind === "deploy") {
     // A mixed parent operation is a deploy-capability proposal that only the parent workflow may run (PROD-MIX-02): never the single-provider deploy workflow.
-    if (input?.mixedParentPlanId !== undefined) return refuse();
+    if (input?.mixedParentPlanId !== undefined || input?.mixedParentReviewOf !== undefined) return refuse();
     if (!["deployment.deploy","deployment.rollback","infrastructure.apply"].includes(op.capability)
       || args.projectId !== op.project_id || args.revisionId !== input?.revisionId
       || args.deploymentId !== (input?.deploymentId ?? `dep-${op.id}`)

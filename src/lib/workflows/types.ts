@@ -292,4 +292,5 @@ export type WorkerActivities = ExecutionActivities & ReconcileActivities;
 /** Production worker registration; legacy activities/stubs retain their replay contract. */
 export type RegisteredWorkerActivities = WorkerActivities & import("./definitions/reconcileSweep").ReconcileSweepActivities
   & import("./definitions/criticalMaintenance").CriticalMaintenanceActivities
-  & import("./definitions/codingAgent").CodingAgentActivities;
+  & import("./definitions/codingAgent").CodingAgentActivities
+  & import("./definitions/mixedParent").MixedActivities;

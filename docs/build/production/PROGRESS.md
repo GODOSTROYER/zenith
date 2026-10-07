@@ -1,3 +1,9 @@
+## Wave 4 assembly, 7 October 2026 (prod/compose)
+
+Wave 3 (`ad78c593`) was already pushed and `origin/codex/production-2026-10-02` had no newer verifier commits, so nothing was merged from it. The ten wave-4 branches were merged one commit each on top: wave 4a (LIFE-03, LIFE-04, LIFE-05/06, COST-01/02, OPS-02, OPS-05/06; branched from `c9a942d6`, before wave 3) and wave 4b (K8S-CONN, OPS-03, MIX-01/02, MIX-03/04; branched from `ad78c593`). Conflicts were composed, not dropped: `destroy.ts` keeps the wave-3 guard order (OPS-02 fairness and quota before the authority claim, then DUR-A intent, DUR-B semantics, DUR-C custody, DUR-D effect record, provider call) with the LIFE-05/06 DNS ownership proofs inside `guardDns` and bound at the apply guard calls; `workers/execution/run.ts` carries both the OPS-02 fair-activity interceptor and the OPS-03 worker deployment options; both mix branches created `_lib/mixed.ts`, so MIX-03/04's helper moved to `_lib/mixed-run.ts`. Platform migrations are renumbered contiguously after 36 (37 actual_spend, 38 fair_bounded_control_plane, 39 key_custody, 40 mixed_parent_plans, 41 mixed_runs; the workers built them as 40 to 44). The Supabase aggregate is `0023_platform_core.sql` (migrations 1 to 41); `0016` to `0022` are byte-identical. Assembly joins: the MIX-01/02 parent workflow and activities now record every child transition on the MIX-03/04 run and open a review operation (a separate human approval binding the exact new parent digest and the original child set) instead of silently rebinding when materialized outputs change the digest; plan custody takes its key through the OPS-05 registry; every wave-3 and wave-4 table is classified in the sensitive-data inventory; the platform-bearer route inventory is recounted at 97; the ECS image pointer path move (LIFE-03), the non-AWS DNS review redo (LIFE-06), the one-connection Kubernetes deployer part, DEC-RETENTION dry-run defaults and the ZENITH_LIVE_* gates are documented in DEPLOYING and LIMITATIONS; the workflow-history replay lane stays out of the mandatory lanes until the verifier records fixtures.
+
+Ledger **12 verified / 47 in progress / 19 planned**, all 78 criteria and four false release flags retained. PROD-LIFE-03, LIFE-04, LIFE-05, LIFE-06, COST-01, COST-02, OPS-02, OPS-03, OPS-05, OPS-06 and MIX-01 to MIX-04 are `implementation_complete_verification_pending` (state in_progress); `; live_acceptance_deferred_by_user` is appended where requiredEvidence includes live_sandbox (OPS-02, OPS-03, OPS-05, OPS-06 and MIX-01 to MIX-04). No test was run for any wave-4 byte: checks were typecheck, eslint on changed files, emit-sql, capability-matrix, offered-catalog, production-ledger, Go build, vet and gofmt, lockfile integrity, and the AWS policy generator and least-privilege checks. Next: [VERIFY-QUEUE.md](VERIFY-QUEUE.md) section Wave 4 (first steps: record the replay fixtures, refresh the cost catalog snapshots, check the SigV4 vector; live harnesses stay deferred by user decision). What wave 4 touched: [BUILD-WAVE4-AREAS.md](BUILD-WAVE4-AREAS.md).
+
 ## Wave 3 assembly, 7 October 2026 (prod/compose)
 
 Merged origin/codex/production-2026-10-02 (verifier results through `80bb7352`) and then the ten wave-3 branches, one merge commit each: gap fixes (OBS-02 composition, LIFE-11 MySQL by hostname), DUR-A (DUR-01/02), DUR-B (DUR-03/04), DUR-C (DUR-05/06), DUR-D (DUR-07/08), OBS-01, MACH-02, UX-02, MACH-06 and LIFE-07. Platform migrations 30 to 36 are registered contiguously (30 durable_intent_authority, 31 executable_semantics, 32 plan_custody_state_recovery, 33 external_effects, 34 k8s_guest_bindings, 35 mcp_streams, 36 coding_agent_runs; the workers built MACH-02, UX-02 and MACH-06 as 35, 36 and 37 and the assembler renumbered them). The Supabase aggregate is now `0022_platform_core.sql` (migrations 1 to 36); `0016` to `0021` are byte-identical. Where DUR-A to DUR-D wrap the same call the order is authority and durable intent, semantics and authorization re-check, plan custody re-verify, external-effect record, then the provider call. Joins checked at assembly: OBS-01 remediation reaches execution only through the broker `beginExecution` (re-authorized by DUR-04); the DUR-B semantics digest already carries ownership transfers, runbook version, build context provenance and adoption claims; DUR-D records mutating `aws.http` and `oci.http` proxy requests that DUR-A leaves unkeyed; `codingAgentRunWorkflow` is exported from the workflow definitions bundle and its activities are registered in the execution worker. LIFE-07 deploy and observe paths cannot use a `scoped_guest` Kubernetes connection (MACH-02 refuses non-guest use), so one cluster needs a legacy and a scoped connection; this is recorded in LIMITATIONS rather than resolved. Platform route inventory is 84.
@@ -244,8 +250,8 @@ Counts overlap across source references and lanes. Historical unit18682P0F1167S,
 - [ ] PROD-LIFE-01: Connection administration lifecycle (in_progress).
 - [ ] PROD-LIFE-02: Versioned offered capability catalog (in_progress).
 - [ ] PROD-LIFE-03: AWS family migration and suffixes (in_progress).
-- [ ] PROD-LIFE-04: Azure data plane and sovereign identity (planned).
-- [ ] PROD-LIFE-05: OCI replacement and deletion evidence (planned).
+- [ ] PROD-LIFE-04: Azure data plane and sovereign identity (in_progress).
+- [ ] PROD-LIFE-05: OCI replacement and deletion evidence (in_progress).
 - [ ] PROD-LIFE-06: Non-AWS ownership-safe DNS teardown (in_progress).
 - [ ] PROD-LIFE-07: Kubernetes full lifecycle acceptance (in_progress).
 - [ ] PROD-LIFE-08: GitHub source binding lifecycle (in_progress).
@@ -271,11 +277,11 @@ Counts overlap across source references and lanes. Historical unit18682P0F1167S,
 - [ ] PROD-MAN-06: Separable metering and billing (planned).
 - [ ] PROD-MAN-07: Operator commercial decisions (planned).
 - [ ] PROD-OPS-01: Measured service and recovery objectives (planned).
-- [ ] PROD-OPS-02: Fair bounded control plane (planned).
-- [ ] PROD-OPS-03: Rolling upgrades and replay (planned).
+- [ ] PROD-OPS-02: Fair bounded control plane (in_progress).
+- [ ] PROD-OPS-03: Rolling upgrades and replay (in_progress).
 - [ ] PROD-OPS-04: Clean-host restore and recovery epochs (planned).
-- [ ] PROD-OPS-05: Purpose-separated key custody (planned).
-- [ ] PROD-OPS-06: Sensitive persistence minimization (planned).
+- [ ] PROD-OPS-05: Purpose-separated key custody (in_progress).
+- [ ] PROD-OPS-06: Sensitive persistence minimization (in_progress).
 - [ ] PROD-OPS-07: Configurable non-destructive retention (planned).
 - [ ] PROD-OPS-08: Independent adversarial security acceptance (planned).
 - [ ] PROD-OPS-09: Verified release supply chain (planned).

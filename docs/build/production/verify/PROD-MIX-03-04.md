@@ -1,3 +1,7 @@
+> Assembly note (wave 4): this migration was authored as version 44 and is registered as version 41 in `prod/compose` (aggregate `0023_platform_core.sql`). Read "44" below as 41; the file is now `0041_mixed_runs.ts`.
+> Join note (wave-4 assembly): the join described in section 4 ("Join with MIX-01/02") is built in `src/lib/execution/mixed/orchestration-join.ts` and called from `src/lib/workflows/mixed-activities.ts`; a changed parent digest opens a review operation (`mixedParentReviewOf`) verified by `platformParentReviewPort` instead of the former refusing port. Still refused: no producer output reader, no drift or migration signals. See VERIFY-QUEUE.md wave 4.
+
+
 # PROD-MIX-03 Typed scoped dependency outputs and PROD-MIX-04 Distributed failure and teardown order: verification notes
 
 Built only; nothing here was executed (typecheck and eslint on the changed files only). Another machine runs every test below. Branch `prod/mix-03-04-w4b`, base `ad78c593` (wave 3), platform migration **44** (versions 37 to 43 belong to sibling wave-4 workers; the assembler fills them in).
@@ -24,7 +28,7 @@ Audit first. The base already holds the pure partition planner (`src/lib/executi
 
 ### Persistence, wiring
 
-- `src/lib/controlplane/db/migrations/0044_mixed_runs.ts` (version 44, registered in `migrations/index.ts`): `mixed_runs` (CAS version trigger, immutable identity, never deleted, `open`/`next_deadline_at` for the sweep), `mixed_run_events` (append-only ledger by trigger), `mixed_output_preauthorizations` (all bounds NOT NULL and CHECKed, immutable except `uses` and one-way revocation). RLS enabled, anon/authenticated revoked, service_role grants.
+- `src/lib/controlplane/db/migrations/0041_mixed_runs.ts` (version 41, registered in `migrations/index.ts`): `mixed_runs` (CAS version trigger, immutable identity, never deleted, `open`/`next_deadline_at` for the sweep), `mixed_run_events` (append-only ledger by trigger), `mixed_output_preauthorizations` (all bounds NOT NULL and CHECKed, immutable except `uses` and one-way revocation). RLS enabled, anon/authenticated revoked, service_role grants.
 - `repos/mixed-runs.ts`, `repos/mixed-output-preauthorizations.ts`, registered in `repos/index.ts`.
 - **Housekeeping hook (additive, `src/lib/platform/housekeeping.ts`, one call inside the existing locked transaction):** `sweepMixedRunDeadlines` ticks every open run whose child timeout or approval expiry has passed, so timeout and expiry propagate with no executor running. It starts nothing and destroys nothing. The result shape of `housekeepingPass` is unchanged.
 - REST (all in `bearer-paths.ts`): `GET /api/platform/v1/operations/:id/mixed-run` (state, summary, ledger; any member who can see the operation; bearer-capable), `POST .../mixed-run/cancel` (requester, the human an agent proposed it for, editor or admin; bearer-capable), `POST .../mixed-run/teardown` (`propose` / `release` / `sync`; editor or admin; browser-only), `GET|POST /api/platform/v1/mixed-output-preauthorizations` and `POST .../:id/revoke` (admin; browser-only).
@@ -100,7 +104,7 @@ Live acceptance is deferred by the user and not performed or claimed. Everything
 5. Preauthorization creation in the browser needs the exact digests (contract, consumer and producer subplan, desired); the UI for that is not built (REST only).
 
 **Shared-file updates the orchestrator must make.**
-- Migrations inventory: version 44 `mixed_runs`; tables `mixed_runs` (select/insert/update), `mixed_run_events` (select/insert), `mixed_output_preauthorizations` (select/insert/update); RLS enabled; no anon/authenticated access. Emit supabase SQL after the 37 to 43 merge; renumber if another worker takes 44.
+- Migrations inventory: version 41 `mixed_runs`; tables `mixed_runs` (select/insert/update), `mixed_run_events` (select/insert), `mixed_output_preauthorizations` (select/insert/update); RLS enabled; no anon/authenticated access. Emit supabase SQL after the 37 to 43 merge; renumber if another worker takes 44.
 - Tenancy classification (`tenancy.test.ts`): tenant-scoped functions `mixedRuns.get`, `mixedRuns.create`, `mixedRuns.save`, `mixedRuns.listEvents`, `mixedOutputPreauthorizations.create`, `.get`, `.list`, `.revoke`, `.reserveUse`; system maintenance `mixedRuns.listDue` (returns workspace-qualified keys only, never content). All filter on `workspace_id`. Tenant tables: `mixed_runs`, `mixed_run_events`, `mixed_output_preauthorizations` (FK to `platform.operations(workspace_id, id)`).
 - Gate manifest and platform coverage: `tests/execution/mixed-orchestration.test.ts`, `tests/execution/mixed-orchestration-service.test.ts` (unit); `tests/controlplane/mixed-runs.test.ts` (postgres lane via the `tests/controlplane` directory entry, `postgres: true`).
 - Route inventory: five new route files (classified in `bearer-paths.ts`).

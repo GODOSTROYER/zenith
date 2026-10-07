@@ -1,3 +1,5 @@
+> Assembly note (wave 4): this migration was authored as version 40 and is registered as version 37 in `prod/compose` (aggregate `0023_platform_core.sql`). Read "40" below as 37; the file is now `0037_actual_spend.ts`.
+
 # PROD-COST-01 and PROD-COST-02: dated price catalog, complete costs, actual spend
 
 Branch `prod/cost-01-02-w4`, base `c9a942d6`. Build only: nothing here was run (no vitest, no database, no cloud). Typecheck (`npx tsc --noEmit -p .`, Node 22) and `eslint` on every changed file were clean at the last run. COST-03 interfaces (`src/lib/placement/optimizer*.ts`) are untouched; the optimizer keeps consuming the same catalog and `estimateGraphCost` API, which only gained optional fields.
@@ -13,7 +15,7 @@ Branch `prod/cost-01-02-w4`, base `c9a942d6`. Build only: nothing here was run (
 | Catalog schema additions (optional `tiers` on `gb` entries, optional `snapshots[]` with sha256/bytes/url/date) | `src/lib/placement/types.ts`, `src/lib/placement/pricebook.ts` |
 | Estimate / Forecast / ActualSpend as three types, forecast and comparison helpers | `src/lib/cost/kinds.ts` |
 | Actual-spend reader interface and provider adapters (AWS Cost Explorer + SigV4, GCP BigQuery billing export, Azure Cost Management, OCI Usage API + request signing), live gate | `src/lib/cost/billing/{types,gate,reader,aws,gcp,azure,oci,dates,live,index}.ts` |
-| Persistence | migration `src/lib/controlplane/db/migrations/0040_actual_spend.ts` (registered as 40), repo `src/lib/controlplane/db/repos/actual-spend.ts`, `repos/index.ts` |
+| Persistence | migration `src/lib/controlplane/db/migrations/0037_actual_spend.ts` (registered as 37), repo `src/lib/controlplane/db/repos/actual-spend.ts`, `repos/index.ts` |
 | Service and REST route (GET view, POST gated refresh) | `src/lib/cost/spend-service.ts`, `src/app/api/platform/v1/environments/[id]/spend/route.ts`, classification in `src/app/api/platform/v1/_lib/bearer-paths.ts` (GET bearer-capable, POST browser-only) |
 | Wording that never calls an estimate a cap | `src/lib/cost/wording.ts` (notices, `findCapClaims` guard), `explain.ts`, `placement-comparison.tsx` |
 
@@ -103,9 +105,9 @@ Things most likely to break first on the other machine:
 4. `tests/placement/feasibility.test.ts` availability/residency cases that depend on the latency table's OCI zone counts (`oci/ap-mumbai-1` has 1 zone per the existing solver test).
 
 Shared-file updates the orchestrator must make (I did not touch these):
-- `src/lib/controlplane/db/migrations/emit.ts`: hardening grant for `platform.actual_spend_snapshots` (service_role: select, insert only), and regenerate `supabase/migrations/*` (the migration is `0040_actual_spend.ts`, version 40, table below).
+- `src/lib/controlplane/db/migrations/emit.ts`: hardening grant for `platform.actual_spend_snapshots` (service_role: select, insert only), and regenerate `supabase/migrations/*` (the migration is `0037_actual_spend.ts`, version 37, table below).
 - `tests/controlplane/migrations.test.ts`: add `actual_spend_snapshots` to the expected table list.
-- `docs/platform/operations/DEPLOYING.md`: inventory row for migration 40; document `ZENITH_LIVE_<PROVIDER>=1`, `ZENITH_LIVE_<PROVIDER>_BILLING_CREDENTIALS_FILE` (AWS, GCP, AZURE, OCI), `ZENITH_GCP_BILLING_EXPORT_TABLES`, `ZENITH_LIVE_CATALOG_REFRESH`, `ZENITH_LIVE_GCP_CATALOG_API_KEY_FILE`. These live outside `src/lib/placement` and the other scanned module roots, so `operator-docs.test.ts` does not require them, but operators need them.
+- `docs/platform/operations/DEPLOYING.md`: inventory row for migration 37; document `ZENITH_LIVE_<PROVIDER>=1`, `ZENITH_LIVE_<PROVIDER>_BILLING_CREDENTIALS_FILE` (AWS, GCP, AZURE, OCI), `ZENITH_GCP_BILLING_EXPORT_TABLES`, `ZENITH_LIVE_CATALOG_REFRESH`, `ZENITH_LIVE_GCP_CATALOG_API_KEY_FILE`. These live outside `src/lib/placement` and the other scanned module roots, so `operator-docs.test.ts` does not require them, but operators need them.
 - `scripts/ci/gate-manifest.mjs` / `.github/workflows/*`: register the new test files (`tests/cost/*.test.ts`, `tests/placement/extended-costs.test.ts`, `tests/placement/feasibility.test.ts`); `live-billing.live.test.ts` must be reported as skipped, never passed, when ungated.
 - `docs/LIMITATIONS.md` line about cost: forecast and actual spend now have a gated code path (not run live); catalog refresh tooling exists but the bundled catalog is unrefreshed.
 - Ledger/PROGRESS: see section 5.

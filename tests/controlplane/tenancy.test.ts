@@ -163,6 +163,15 @@ const WRITES = new Set([
   "k8sGuestBindings.markConnectionRevoking", "k8sGuestBindings.markRevoked", "k8sGuestBindings.markRevoking",
   // PROD-OBS-01: workspace and environment bound in SQL (reads repairs of one environment and settles its own reserved attempts first); real SQL in tests/repair/lifecycle.platform.test.ts.
   "incidentStability.listRepairsAwaitingVerification",
+  // PROD-MIX-01/02: every statement binds the supplied workspace in SQL (composite keys to platform.operations) and a foreign plan, child or operation id equals a missing one; real SQL in tests/controlplane/mixed-parent-plans.test.ts.
+  "mixedParentPlans.getPlan", "mixedParentPlans.getPlanByParentOperation", "mixedParentPlans.listPlansForEnvironment", "mixedParentPlans.createPlan", "mixedParentPlans.getAddresses", "mixedParentPlans.listChildren",
+  "mixedParentPlans.attachParentOperation", "mixedParentPlans.adoptChild", "mixedParentPlans.markChildStarted", "mixedParentPlans.recordExecutableSemantics", "mixedParentPlans.recordReceipt", "mixedParentPlans.getReceipt",
+  "mixedParentPlans.listReceipts", "mixedParentPlans.blockChild", "mixedParentPlans.setParentStatus", "mixedParentPlans.readOperationFacts",
+  // PROD-MIX-03/04 join (wave-4 assembly): run deadline and review lookups; each statement binds the supplied workspace, and a review approval counts only for the named parent run and a live human approval of its own proposal digest.
+  "mixedParentPlans.readParentApprovalExpiry", "mixedParentPlans.findReviewOperation", "mixedParentPlans.readReviewApprovalDigest", "mixedParentPlans.findReviewApprovalId", "mixedParentPlans.findOpenReviewOperation",
+  // PROD-MIX-03/04: run state, ledger and output preauthorizations are workspace-bound in SQL; foreign-workspace hiding is covered by tests/controlplane/mixed-runs.test.ts.
+  "mixedRuns.get", "mixedRuns.create", "mixedRuns.save", "mixedRuns.listEvents",
+  "mixedOutputPreauthorizations.create", "mixedOutputPreauthorizations.get", "mixedOutputPreauthorizations.list", "mixedOutputPreauthorizations.revoke", "mixedOutputPreauthorizations.reserveUse",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings",
   // PROD-COST-01: binds the row and the idempotency lookup to the supplied workspace; foreign-workspace listing and cross-tenant isolation are covered by tests/cost/actual-spend-store.test.ts and the sweep below.
   "actualSpend.insertActualSpend", "idempotency.reserve", "idempotency.complete",
@@ -213,6 +222,7 @@ const EXEMPT: Record<string, string> = {
   "scheduledJobs.getScheduledJob": "system scheduler health read by job name; no tenant rows",
   "scheduledJobs.listScheduledJobs": "system scheduler health read; no tenant rows",
   "externalEffects.sweepStalePending": "system maintenance under the housekeeping lease: declares pending effects whose dispatcher vanished uncertain (never retried); every returned row carries its workspace and nothing is read from tenant input",
+  "mixedRuns.listDue": "system housekeeping sweep: returns workspace-qualified run keys only (never content); each run is then ticked under its own workspace and the runs of other tenants are untouched (tests/controlplane/mixed-runs.test.ts)",
   "optimizerSettings.listOptedInEnvironments": "system scheduler only: lists (workspace, environment) pairs that opted in; every returned row carries its workspace and each is processed under that workspace",
 };
 

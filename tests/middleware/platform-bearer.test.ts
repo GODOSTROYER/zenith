@@ -148,7 +148,7 @@ describe("platform route inventory", () => {
         expect(isAgentSignedPath(normalized), normalized).toBe(access === "agent-signed");
       }
     }
-    expect(seen.size).toBe(84);
+    expect(seen.size).toBe(97);
     for (const entry of PLATFORM_PATHS) {
       expect(entry.path.source.startsWith("^")).toBe(true);
       expect(entry.path.source.endsWith("$")).toBe(true);

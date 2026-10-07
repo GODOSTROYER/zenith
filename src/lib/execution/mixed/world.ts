@@ -27,6 +27,16 @@ export interface MixedWorld {
   connections(workspaceId: string, ids: readonly string[]): Promise<ReadonlyMap<string, ProviderConnection | null>>;
   /** Optional digest of a finished child's recorded outputs, for its receipt. Absent means the receipt carries none. */
   childOutputsDigest?(workspaceId: string, operation: { id: string; environmentId: string; input: unknown }): Promise<string | undefined>;
+  /**
+   * Optional source of the typed outputs (PROD-MIX-03) a SUCCEEDED producer child exposes for the references its consumers
+   * declared. Returns candidate `TypedOutput` documents (digests and vault references, never values); the run orchestration
+   * validates each against the contract, scope, provenance and the producer's recorded receipt before using it. ABSENT in the
+   * production world: the platform records no producer output reader yet, so a consumer with incoming references stays
+   * blocked with `outputs_unavailable` instead of starting on a guess.
+   */
+  childTypedOutputs?(workspaceId: string, producer: { partitionId: string; childOperationId: string; receiptDigest: string }, references: readonly { referenceId: string; consumerChildId: string; producerAddress: string; producerOutput: string }[]): Promise<readonly unknown[]>;
+  /** Optional drift and migration observations for the ordering rules of PROD-MIX-04. Absent means none are known (the rules then see no drift). */
+  orderingSignals?(workspaceId: string, children: readonly { partitionId: string; childEnvironmentId: string }[]): Promise<{ drift: readonly { childId: string; klass: "unauthorized_change" | "native_divergence" | "expected_variance" }[]; migrationChildIds: readonly string[] }>;
 }
 
 export interface MixedWorldPorts {

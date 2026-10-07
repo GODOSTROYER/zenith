@@ -1905,7 +1905,7 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1929,7 +1929,7 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1953,7 +1953,7 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -1977,7 +1977,7 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "source_work_in_progress_runtime_acceptance_pending",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2404,7 +2404,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "in_progress",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "contract",
@@ -2453,11 +2453,11 @@
       "acceptance": [
         "Trusted source wiring preserved; data-plane permission, sovereign identity/ARM endpoints and real source builds accepted."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2472,11 +2472,11 @@
       "acceptance": [
         "Same-runner receipts/lost-response uncertainty preserved; independent deletion completion and runner replacement recovery proven; MySQL remains unsupported pending safe secret sink."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2495,7 +2495,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "ownership_reads_integrated_native_and_live_teardown_acceptance_open",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -3582,11 +3582,11 @@
       "acceptance": [
         "Backpressure/fair tenant scheduling/bounded queues/maintenance controls and correlated OpenTelemetry dashboards/alerts; workloads keep serving during control-plane outage."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3603,11 +3603,11 @@
       "acceptance": [
         "API/worker/runner upgrades with in-flight histories and schema/protocol compatibility/rollback pass."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3645,11 +3645,11 @@
       "acceptance": [
         "Production signing and vault/result/Temporal encryption rotation retain decrypt-only histories with separated purposes and safe operator codec diagnostics."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3666,11 +3666,11 @@
       "acceptance": [
         "Protect unavoidable raw plans/state, minimize persistence and test leaks; no claim redaction catches every unknown secret."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3849,7 +3849,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "dated_catalog_and_placement_models_integrated_live_spend_and_remaining_cost_coverage_open",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "contract",
@@ -3877,7 +3877,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "dated_catalog_and_placement_models_integrated_live_spend_and_remaining_cost_coverage_open",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [
         {
           "level": "contract",

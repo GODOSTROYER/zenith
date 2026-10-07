@@ -129,4 +129,5 @@ export const REGISTERED_WORKFLOW_TYPES = [
   "reconcileSweepWorkflow",
   "criticalMaintenanceWorkflow",
   "codingAgentRunWorkflow",
+  "mixedParentWorkflow",
 ] as const;

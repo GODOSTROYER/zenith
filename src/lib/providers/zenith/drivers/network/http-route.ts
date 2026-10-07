@@ -23,10 +23,10 @@ import type { KubernetesSession } from "@/lib/credentials/types";
 import type { ResourceDriver } from "@/lib/drivers/types";
 import type { ObservedValue, ResourceNode } from "@/lib/resources/types";
 import { dig, isRecord, type KubernetesToolkit } from "../../k8s-port";
-import { HTTPROUTE_API_VERSION, rewriteRoutes, routeObjectName } from "../../routing";
+import { HTTPROUTE_API_VERSION, rewriteRoutes, routeObjectName, servableCustomHosts } from "../../routing";
 import { assertSessionMatches, type ZenithSession } from "../../session";
 import { tenantNamespace } from "../../tenancy";
-import { isEnvironmentGatewayParent } from "../../tls";
+import { isRouteParentFor } from "../../tls";
 import { wrapKubernetesDriver } from "../kubernetes/wrap";
 import { contractEvidence, known, observation, presenceFromError, runtimeState, unknownValue, verifyAgainst } from "../common";
 
@@ -35,7 +35,7 @@ export const HTTP_ROUTE_DRIVER_ID = "zenith.http_route@1";
 const EXPECTED = { allRoutesPresent: true, allRoutesAccepted: true, attachedToPlatformGateway: true };
 
 function managedHosts(node: ResourceNode, session: ZenithSession): string[] {
-  const routes = rewriteRoutes(isRecord(node.spec) ? node.spec.routes : undefined, session.tenant, session.substrate).routes;
+  const routes = rewriteRoutes(isRecord(node.spec) ? node.spec.routes : undefined, session.tenant, session.substrate, servableCustomHosts(session.substrate, session.customDomains)).routes;
   return [...new Set(routes.filter(isRecord).map((r) => r.host).filter((h): h is string => typeof h === "string"))].sort();
 }
 
@@ -94,7 +94,8 @@ export function createHttpRouteDriver(toolkit: KubernetesToolkit, baseIngress?: 
         const now = ctx.now();
         const attached = found.every(({ route }) => {
           const parents = dig(route, "spec", "parentRefs");
-          return Array.isArray(parents) && parents.length === 1 && isEnvironmentGatewayParent(parents[0], ctx.session.tenant, ctx.session.substrate);
+          const hostnames = dig(route, "spec", "hostnames");
+          return Array.isArray(parents) && parents.length === 1 && Array.isArray(hostnames) && isRouteParentFor(parents[0], hostnames, ctx.session.tenant, ctx.session.substrate);
         });
         const accepted = found.map(({ route }) => acceptance(route));
         const acceptedAttr: ObservedValue =

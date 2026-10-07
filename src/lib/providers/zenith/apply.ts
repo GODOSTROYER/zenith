@@ -7,6 +7,8 @@
  *   1. databases  — `ensureManagedDatabases` (idempotent). Their connection
  *                   URIs go to the vault behind the `ConnectionSecretSink`;
  *                   the report carries only references.
+ *      Tenant object stores follow the databases: one scoped principal and access key per store,
+ *      written to the vault, never to a manifest (`provisionObjectStores`, PROD-MAN-03).
  *   2. baseline   — Namespace, ServiceAccount, ResourceQuota, LimitRange,
  *                   NetworkPolicies. Applied FIRST and on their own so a
  *                   workload can never exist in a namespace without its
@@ -35,6 +37,7 @@ import { renderZenithEnvironment, type ZenithRenderResult } from "./render";
 import { assertSessionMatches, type ZenithSession } from "./session";
 import type { HostMapping } from "./routing";
 import { ensureZenithTls, type ZenithTlsReport } from "./tls-lifecycle";
+import { OBJECT_STORAGE_UNCONFIGURED_REASON, provisionObjectStores, refuseObjectStores, type EnsureStorageOutcome } from "@/lib/managed-serving/storage";
 import type { TlsObjectClient } from "./tls-client";
 
 export interface ZenithApplyInput extends Pick<ToolkitRenderBase, "workloadIdentity" | "resolveAttribute"> {
@@ -51,9 +54,15 @@ export interface ZenithApplyInput extends Pick<ToolkitRenderBase, "workloadIdent
   log?: (line: string) => void;
   /** Contract test port; production uses session.gatewayKubernetes. */
   tlsClient?: TlsObjectClient;
+  /** Verified custom hostnames to serve; defaults to the session's. */
+  verifiedDomains?: readonly string[];
+  /** Custom hostnames that lapsed or were revoked: their listener, Certificate and key are removed. */
+  retiredDomains?: readonly string[];
+  /** Render HorizontalPodAutoscalers under the tier's policy. Default off. */
+  autoscaling?: boolean;
 }
 
-export type ZenithApplyBlocker = "database" | "baseline" | "tls" | "workloads";
+export type ZenithApplyBlocker = "database" | "storage" | "baseline" | "tls" | "workloads";
 
 export interface ZenithApplyReport {
   ok: boolean;
@@ -62,6 +71,8 @@ export interface ZenithApplyReport {
   /** the phase that stopped the apply, when it did not fully succeed */
   blockedBy?: ZenithApplyBlocker;
   databases: EnsureDatabaseOutcome[];
+  /** scoped object-store credentials: references and prefixes only, never a key or secret */
+  storage: EnsureStorageOutcome[];
   baseline?: ToolkitApplyReport;
   tls?: ZenithTlsReport;
   workloads?: ToolkitApplyReport;
@@ -84,13 +95,22 @@ export async function applyZenithEnvironment(input: ZenithApplyInput): Promise<Z
     builtImages: input.builtImages,
     workloadIdentity: input.workloadIdentity,
     resolveAttribute: input.resolveAttribute,
+    verifiedDomains: input.verifiedDomains ?? session.customDomains,
+    autoscaling: input.autoscaling,
   });
 
   const base = { dryRun, namespace: rendered.namespace, hostnames: rendered.hostnames, notes: rendered.notes };
   const databases = await ensureManagedDatabases(rendered.databases, session.databases, { dryRun, signal: input.signal });
   if (databases.some((d) => d.status === "failed")) {
     input.log?.("zenith apply blocked: a managed database could not be ensured");
-    return { ...base, ok: false, blockedBy: "database", databases };
+    return { ...base, ok: false, blockedBy: "database", databases, storage: [] };
+  }
+  const storage = rendered.storage.length === 0 ? []
+    : session.storage ? await provisionObjectStores(rendered.storage, { ...session.storage, signal: input.signal }, { dryRun })
+    : refuseObjectStores(rendered.storage, OBJECT_STORAGE_UNCONFIGURED_REASON);
+  if (storage.some((s) => s.status === "failed")) {
+    input.log?.("zenith apply blocked: a tenant object store could not be provisioned");
+    return { ...base, ok: false, blockedBy: "storage", databases, storage };
   }
 
   const dryRunRefs = new Set(rendered.databases.map((d) => d.connectionSecretRef));
@@ -105,14 +125,14 @@ export async function applyZenithEnvironment(input: ZenithApplyInput): Promise<Z
   const baseline = await toolkit.apply(rendered.baseline, session.kubernetes, opts);
   if (!baseline.ok) {
     input.log?.("zenith apply blocked: the tenancy baseline did not apply");
-    return { ...base, ok: false, blockedBy: "baseline", databases, baseline };
+    return { ...base, ok: false, blockedBy: "baseline", databases, storage, baseline };
   }
-  const tls = await ensureZenithTls({ session, expect: input.expect, tlsClient: input.tlsClient, dryRun, signal: input.signal });
+  const tls = await ensureZenithTls({ session, expect: input.expect, tlsClient: input.tlsClient, dryRun, signal: input.signal, customDomains: rendered.customDomains, retiredDomains: input.retiredDomains });
   if (!tls.ok) {
     input.log?.("zenith apply blocked: platform TLS objects did not apply");
-    return { ...base, ok: false, blockedBy: "tls", databases, baseline, tls };
+    return { ...base, ok: false, blockedBy: "tls", databases, storage, baseline, tls };
   }
   const workloads = await toolkit.apply(rendered.workloads, session.kubernetes, opts);
-  if (!workloads.ok) return { ...base, ok: false, blockedBy: "workloads", databases, baseline, tls, workloads };
-  return { ...base, ok: true, databases, baseline, tls, workloads };
+  if (!workloads.ok) return { ...base, ok: false, blockedBy: "workloads", databases, storage, baseline, tls, workloads };
+  return { ...base, ok: true, databases, storage, baseline, tls, workloads };
 }

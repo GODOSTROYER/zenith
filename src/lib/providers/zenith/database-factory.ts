@@ -6,7 +6,7 @@
  */
 import type { ResourceNode } from "@/lib/resources/types";
 import { asyncSecretsBackend, type AsyncSecretsBackend } from "@/lib/secrets/backend";
-import { createConnectionSecretSink, createSecretResolver } from "@/lib/secrets/resolver";
+import { createConnectionSecretSink, createSecretResolver, createStorageCredentialSink, type StorageCredentialSink } from "@/lib/secrets/resolver";
 import type { SecretTenant } from "@/lib/secrets/delivery";
 import { DATABASE_UNCONFIGURED_REASON, dbError, unavailableDatabaseProvider, type DatabaseProviderDeps, type DatabaseTarget, type ManagedDatabaseProvider } from "./database";
 import { createNeonProvider } from "./neon";
@@ -29,18 +29,20 @@ export function createManagedDatabaseProvider(substrate: ZenithSubstrate, deps: 
 export function createVaultDatabaseRuntime(
   input: SecretTenant & { substrate: ZenithSubstrate; nodes: readonly ResourceNode[] },
   deps: Omit<DatabaseProviderDeps, "sink"> & { backend?: AsyncSecretsBackend }
-): { databases: ManagedDatabaseProvider; resolveSecret: (ref: string) => Promise<string | undefined> } {
-  const resourceAddresses = input.nodes.filter((node) => node.provider === "zenith" && node.ownership === "managed" && node.kind === "postgres").map((node) => node.address);
+): { databases: ManagedDatabaseProvider; resolveSecret: (ref: string) => Promise<string | undefined>; storageCredentials: StorageCredentialSink } {
+  // managed Postgres connection URIs and tenant object-store credentials are the only generated references of the managed tier
+  const resourceAddresses = input.nodes.filter((node) => node.provider === "zenith" && node.ownership === "managed" && (node.kind === "postgres" || node.kind === "object_store")).map((node) => node.address);
   const scope = { workspaceId: input.workspaceId, projectId: input.projectId, environmentId: input.environmentId, resourceAddresses };
+  const databaseAddresses = input.nodes.filter((node) => node.provider === "zenith" && node.ownership === "managed" && node.kind === "postgres").map((node) => node.address);
   const backend = deps.backend ?? asyncSecretsBackend();
   const provider = createManagedDatabaseProvider(input.substrate, {
     fetch: deps.fetch,
     resolveSecret: deps.resolveSecret,
     timeoutMs: deps.timeoutMs,
-    sink: createConnectionSecretSink(scope, backend),
+    sink: createConnectionSecretSink({ ...scope, resourceAddresses: databaseAddresses }, backend),
   });
   const matches = (target: Pick<DatabaseTarget, "environmentId" | "address">) =>
-    target.environmentId === scope.environmentId && resourceAddresses.includes(target.address);
+    target.environmentId === scope.environmentId && databaseAddresses.includes(target.address);
   const matchesTenant = (target: DatabaseTarget) => target.workspaceId === scope.workspaceId && matches(target);
   const denied = () => dbError("forbidden", "The managed database target is outside this vault scope.", false);
   const databases: ManagedDatabaseProvider = {
@@ -54,5 +56,5 @@ export function createVaultDatabaseRuntime(
       return provider.connectionSecretRef(target);
     },
   };
-  return { databases, resolveSecret: createSecretResolver(scope, backend) };
+  return { databases, resolveSecret: createSecretResolver(scope, backend), storageCredentials: createStorageCredentialSink(scope, backend) };
 }

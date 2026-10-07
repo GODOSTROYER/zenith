@@ -43,6 +43,9 @@ export const CRITICAL_JOBS = {
   // went stale is.
   "key-rewrap": { cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "custody", durableOnly: true },
   "data-minimize": { cadenceMs: 60_000, leaseTtlMs: 90_000, kind: "custody", durableOnly: true },
+  // PROD-MAN-03: custom-domain proof renewal and owed object-store key revocations. Durable-only like the custody jobs: no
+  // cron fallback exists, so never having run (no Temporal scheduler installed) is not a health failure; going stale is.
+  "managed-serving": { cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "serving", durableOnly: true },
 } as const;
 export type CriticalJobName = keyof typeof CRITICAL_JOBS;
 export const CRITICAL_JOB_NAMES = Object.keys(CRITICAL_JOBS) as CriticalJobName[];
@@ -153,6 +156,11 @@ export const MAINTENANCE_JOBS = {
   async "data-minimize"(db: Sql): Promise<JobOutcome<import("@/lib/sensitivedata/minimize").MinimizeResult>> {
     const { minimizePass } = await import("@/lib/sensitivedata/minimize");
     const r = await minimizePass(db);
+    return { value: r, performed: true, counts: countsOf(r) };
+  },
+  async "managed-serving"(db: Sql): Promise<JobOutcome<import("@/lib/managed-serving/job").ManagedServingResult>> {
+    const { managedServingPass } = await import("@/lib/managed-serving/job");
+    const r = await managedServingPass(db);
     return { value: r, performed: true, counts: countsOf(r) };
   },
   async runbooks(): Promise<JobOutcome<import("./runbooks").RunbookTickResult>> {

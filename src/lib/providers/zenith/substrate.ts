@@ -64,8 +64,10 @@ export interface ZenithSubstrate {
     ingressClass?: string;
   };
   certManager: {
-    /** ClusterIssuer the platform certificates use */
+    /** ClusterIssuer the platform certificates use (DNS-01, for the wildcard of each managed zone) */
     clusterIssuer: string;
+    /** ACME HTTP-01 ClusterIssuer for verified custom domains (PROD-MAN-03); absent = custom domains are not served */
+    httpClusterIssuer?: string;
   };
   /** CIDRs tenants must never reach on 443 (pod/service ranges beyond the private defaults) */
   internalCidrs: string[];
@@ -82,6 +84,14 @@ export interface ZenithSubstrate {
     region?: string;
     /** `vault:` reference to the platform's credential; never per-tenant (see drivers/data/object-store.ts) */
     credentialRef?: string;
+    /**
+     * Per-tenant scoped credentials (PROD-MAN-03): the IAM-compatible endpoint the platform creates one principal per
+     * tenant object store on (absent = the AWS IAM default endpoint) and the `vault:` reference of the IAM-ADMIN credential
+     * that may do so. Without the admin reference the object store stays unavailable; tenants never receive the platform
+     * credential above.
+     */
+    iamEndpoint?: string;
+    adminCredentialRef?: string;
   };
   database?: {
     provider: "neon";
@@ -116,6 +126,7 @@ export const SUBSTRATE_ENV_VARS = [
   "ZENITH_MANAGED_GATEWAY_LISTENER",
   "ZENITH_MANAGED_INGRESS_CLASS",
   "ZENITH_MANAGED_CLUSTER_ISSUER",
+  "ZENITH_MANAGED_HTTP_CLUSTER_ISSUER",
   "ZENITH_MANAGED_INTERNAL_CIDRS",
   "ZENITH_MANAGED_REGISTRY",
   "ZENITH_MANAGED_OBJECT_STORAGE_ENDPOINT",
@@ -123,6 +134,8 @@ export const SUBSTRATE_ENV_VARS = [
   "ZENITH_MANAGED_OBJECT_STORAGE_PREFIX",
   "ZENITH_MANAGED_OBJECT_STORAGE_REGION",
   "ZENITH_MANAGED_OBJECT_STORAGE_CREDENTIAL_REF",
+  "ZENITH_MANAGED_OBJECT_STORAGE_IAM_ENDPOINT",
+  "ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CREDENTIAL_REF",
   "ZENITH_MANAGED_DB_PROVIDER",
   "ZENITH_MANAGED_DB_API_BASE",
   "ZENITH_MANAGED_DB_API_KEY_REF",
@@ -260,8 +273,10 @@ function parseObjectStorage(r: Reader): ZenithSubstrate["objectStorage"] {
   if (!/^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/.test(prefixRoot) || prefixRoot.split("/").includes("..")) r.fail("ZENITH_MANAGED_OBJECT_STORAGE_PREFIX", "must be a plain key prefix without '..'");
   const region = r.raw("ZENITH_MANAGED_OBJECT_STORAGE_REGION");
   const credentialRef = r.ref("ZENITH_MANAGED_OBJECT_STORAGE_CREDENTIAL_REF", false);
+  const iamEndpoint = r.url("ZENITH_MANAGED_OBJECT_STORAGE_IAM_ENDPOINT", false);
+  const adminCredentialRef = r.ref("ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CREDENTIAL_REF", false);
   if (endpoint === undefined || bucket === undefined) return undefined;
-  return { endpoint, bucket, prefixRoot, ...(region ? { region } : {}), ...(credentialRef ? { credentialRef } : {}) };
+  return { endpoint, bucket, prefixRoot, ...(region ? { region } : {}), ...(credentialRef ? { credentialRef } : {}), ...(iamEndpoint ? { iamEndpoint } : {}), ...(adminCredentialRef ? { adminCredentialRef } : {}) };
 }
 
 function parseDatabase(r: Reader): ZenithSubstrate["database"] {
@@ -312,6 +327,9 @@ export function readSubstrateConfig(env: ZenithEnv): SubstrateConfig {
   if (mode === "ingress" && ingressClass === undefined) r.missing.push("ZENITH_MANAGED_INGRESS_CLASS");
   if (ingressClass !== undefined && !DNS_LABEL_RE.test(ingressClass)) r.fail("ZENITH_MANAGED_INGRESS_CLASS", "must be a DNS-1123 label");
   const clusterIssuer = r.label("ZENITH_MANAGED_CLUSTER_ISSUER", "zenith-letsencrypt-dns01");
+  const httpIssuerRaw = r.raw("ZENITH_MANAGED_HTTP_CLUSTER_ISSUER");
+  if (httpIssuerRaw !== undefined && !DNS_LABEL_RE.test(httpIssuerRaw)) r.fail("ZENITH_MANAGED_HTTP_CLUSTER_ISSUER", "must be a DNS-1123 label");
+  const httpClusterIssuer = httpIssuerRaw !== undefined && DNS_LABEL_RE.test(httpIssuerRaw) ? httpIssuerRaw : undefined;
   const region = r.label("ZENITH_MANAGED_REGION", "zenith-managed");
 
   const internalCidrs = r.list("ZENITH_MANAGED_INTERNAL_CIDRS");
@@ -333,7 +351,7 @@ export function readSubstrateConfig(env: ZenithEnv): SubstrateConfig {
     cluster: { server, ...(caData ? { caData } : {}), kubeconfigRef },
     baseDomain,
     gateway: { mode, className: gatewayClass, namespace: gatewayNamespace, name: gatewayName, ...(listener ? { listener } : {}), ...(ingressClass ? { ingressClass } : {}) },
-    certManager: { clusterIssuer },
+    certManager: { clusterIssuer, ...(httpClusterIssuer ? { httpClusterIssuer } : {}) },
     internalCidrs,
     ...(registry ? { registry } : {}),
     ...(objectStorage ? { objectStorage } : {}),
@@ -474,7 +492,7 @@ export function describeSubstrate(cfg: SubstrateConfig): SubstrateDescription {
       cluster: { state: "configured", detail: `${new URL(s.cluster.server).host}, domain ${s.baseDomain}` },
       gateway: { state: "configured", detail: s.gateway.mode === "gateway_api" ? `Gateway ${s.gateway.namespace}/${s.gateway.name}` : `Ingress class ${s.gateway.ingressClass ?? "?"}` },
       registry: s.registry ? { state: "configured", detail: s.registry.host } : { state: "not_configured", detail: "no built-image registry; only prebuilt image references run" },
-      objectStorage: s.objectStorage ? { state: "configured", detail: `bucket ${s.objectStorage.bucket} (per-tenant credentials are not implemented)` } : { state: "not_configured", detail: "not configured" },
+      objectStorage: s.objectStorage ? { state: "configured", detail: s.objectStorage.adminCredentialRef ? `bucket ${s.objectStorage.bucket}, per-tenant scoped credentials enabled` : `bucket ${s.objectStorage.bucket} (no admin credential reference: per-tenant object stores unavailable)` } : { state: "not_configured", detail: "not configured" },
       managedDatabase: s.database ? { state: "configured", detail: `${s.database.provider} ${s.database.regionId}` } : { state: "not_configured", detail: "no managed database provider; postgres resources are unavailable" },
     },
     warnings: cfg.warnings,

@@ -51,13 +51,15 @@ import type { ArtifactSpec } from "@/lib/resources/specs";
 import type { ResourceGraph } from "@/lib/resources/types";
 import type { NormalizedPlan } from "@/lib/tofu/types";
 import type { ExecutionActivities, LeaseRef } from "@/lib/workflows/types";
-import { loadExecContext, type ExecContext } from "./context";
+import { loadExecContext, resolveConnection, type ExecContext } from "./context";
 import { assertLeaseFor, costOf, requireExecutable } from "./desired";
 import { StepFailedError, TofuPlanChangedError } from "./errors";
 import { withKeepAlive } from "./keepalive";
 import { planEvidence, toPlanSummary, type PlanCost } from "./plan-evidence";
 import type { Runtime } from "./runtime";
 import { LONG_SESSION_SEC, PLAN_CAPABILITY, withManagedSession } from "./session";
+import { assertApprovedSemantics, recordReviewedSemantics } from "./semantics/dispatch";
+import { directSemanticsArgs } from "./semantics/direct";
 import { approvedSources } from "./source-snapshot";
 import { errorText, safeText } from "./text";
 
@@ -70,6 +72,7 @@ const ENGINE = "zenith-managed-apply/Z1";
 type Runtimeish = ReturnType<ManagedSubstratePort["databaseRuntime"]>;
 
 interface DirectStage {
+  graph: ResourceGraph;
   plan: NormalizedPlan;
   facts: PlanFacts;
   cost: PlanCost;
@@ -114,7 +117,7 @@ async function builtImagesOf(managed: ManagedSubstratePort, session: ZenithSessi
   return out;
 }
 
-async function dryRun(rt: Runtime, ec: ExecContext, graph: ResourceGraph, managed: ManagedSubstratePort, session: ZenithSession, signal: AbortSignal): Promise<Omit<DirectStage, "cost">> {
+async function dryRun(rt: Runtime, ec: ExecContext, graph: ResourceGraph, managed: ManagedSubstratePort, session: ZenithSession, signal: AbortSignal): Promise<Omit<DirectStage, "cost" | "graph">> {
   const builtImages = await builtImagesOf(managed, session, graph, signal);
   let rendered: ZenithRenderResult;
   try {
@@ -186,14 +189,17 @@ async function stage(rt: Runtime, ec: ExecContext, lease: LeaseRef, detail: stri
       (session) => dryRun(rt, ec, graph, managed, session, signal));
   });
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
-  return { ...result, cost: await costOf(rt, ec, graph) };
+  return { ...result, graph, cost: await costOf(rt, ec, graph) };
 }
 
 export async function planDirectZenith(rt: Runtime, ec: ExecContext, lease: LeaseRef): ReturnType<ExecutionActivities["planInfrastructure"]> {
   const s = await stage(rt, ec, lease, "zenith managed plan");
   if (ec.op.planDigest && ec.op.planDigest !== s.plan.planDigest) throw new TofuPlanChangedError(ec.op.planDigest, s.plan.planDigest);
   const evidence = planEvidence({ plan: s.plan, facts: s.facts, cost: s.cost, graphDigest: s.graphDigest, stage: "plan", approvedSources: ec.approvedSourceSnapshots });
-  await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, key: evidence.key, summary: { ...evidence.summary, engine: "zenith-managed-apply", statefulDeletes: [], dnsDeletes: [], retained: [] }, simulated: false }, { critical: true });
+  // PROD-DUR-03: the executable semantics the approver is shown, recorded write-once BEFORE the plan evidence exists, and
+  // recomputed at final plan, apply, build, rollout and migration dispatch.
+  const semantics = await recordReviewedSemantics(rt, ec, directSemanticsArgs(s.graph, await resolveConnection(rt, ec), s.plan.planDigest));
+  await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, key: evidence.key, summary: { ...evidence.summary, semantics, engine: "zenith-managed-apply", statefulDeletes: [], dnsDeletes: [], retained: [] }, simulated: false }, { critical: true });
   if (!ec.op.planDigest) await rt.d.ops.setPlanDigest({ workspaceId: ec.workspaceId, operationId: ec.op.id, planDigest: s.plan.planDigest });
   await rt.emit(ec.scope, "resource.planned", `plan:${s.plan.planDigest}`, { planDigest: s.plan.planDigest, create: s.plan.summary.create, update: s.plan.summary.update, delete: 0, replace: 0, empty: s.plan.empty });
   return toPlanSummary(s.plan, s.facts, s.cost);
@@ -204,6 +210,7 @@ export async function finalDirectZenith(rt: Runtime, ec: ExecContext, lease: Lea
   const evidence = planEvidence({ plan: s.plan, facts: s.facts, cost: s.cost, graphDigest: s.graphDigest, stage: "final_plan", approvedDigest: approved, approvedSources: ec.approvedSourceSnapshots });
   await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, key: evidence.key, summary: { ...evidence.summary, engine: "zenith-managed-apply", statefulDeletes: [], dnsDeletes: [] }, simulated: false }, { critical: false });
   if (s.plan.planDigest !== approved) throw new TofuPlanChangedError(approved, s.plan.planDigest);
+  await assertApprovedSemantics(rt, ec, directSemanticsArgs(s.graph, await resolveConnection(rt, ec), approved), "final plan");
   return toPlanSummary(s.plan, s.facts, s.cost);
 }
 
@@ -225,6 +232,7 @@ export async function applyDirectZenith(rt: Runtime, ec: ExecContext, lease: Lea
         if (currentGraph.graphDigest !== graph.graphDigest) throw new StepFailedError("The reviewed desired state changed; a new review is required.");
         const fresh = await dryRun(rt, current, currentGraph, managed, session, signal);
         if (fresh.plan.planDigest !== planDigest) throw new TofuPlanChangedError(planDigest, fresh.plan.planDigest);
+        await assertApprovedSemantics(rt, current, directSemanticsArgs(currentGraph, await resolveConnection(rt, current), planDigest), "apply");
         const authority = await rt.d.broker.approvalStatus(ec.op.id);
         if (!authority.approved || authority.rejected || (current.op.approvalRequired && !authority.approvalId)) throw new StepFailedError("Current policy or human approval changed before the reviewed plan was applied.");
         await rt.d.leases.assertFence(lease.scope, lease.fenceToken);

@@ -99,6 +99,47 @@ escape defeats everything above. The operator ClusterRole
 tenant namespace, because RBAC cannot scope to labeled namespaces; its credential
 is the most sensitive thing in the platform.
 
+## Default composition, sessions, builds and releases (PROD-MAN-01)
+
+The default worker composition (`src/lib/platform/execution.ts`) now builds the managed substrate itself, from
+`ZENITH_MANAGED_*`, with no injected port: `createDefaultManagedSubstrate` in `src/lib/platform/zenith-managed.ts`.
+Unconfigured, it is a port that refuses every managed operation by variable name; non-managed environments are
+unaffected. The stable interface is `ManagedSubstratePort` (`src/lib/providers/zenith/managed-port.ts`); the full
+account, with the verification commands and every limit, is
+[verify/PROD-MAN-01.md](../build/production/verify/PROD-MAN-01.md).
+
+- **Session opener.** A session is requested by `{ workspaceId, environmentId }` only. The tenant (workspace slug,
+  environment id as the hostname segment, plan tier) comes from the control plane's product store, never from the
+  caller. The platform's own cluster credential is a `vault:` reference resolved from the PLATFORM scope of the encrypted
+  vault (`ZENITH_MANAGED_VAULT_SCOPE`, default `zenith-platform`), written only by
+  `scripts/managed/seed-platform-vault.ts`. The session allows exactly the tenant namespace (and, in `gateway_api` mode, a
+  separate gateway-namespace session). The operator credential behind it is still the broad ClusterRole described above:
+  separating observe from deploy credentials and narrowing the operator is PROD-MAN-04's work and is not claimed here.
+- **Plan and apply.** A `zenith` environment plans by render + server-side dry-run in the tenant namespace and applies
+  through `applyZenithEnvironment`, behind the same lease, policy, approval and plan-digest checks as every other
+  provider (`src/lib/execution/direct-zenith.ts`). Secrets and managed-database URIs are written by that apply through a
+  resolver scoped to the environment.
+- **Source builds.** The LIFE-08 approved source snapshot is handed to the cluster as an immutable Secret (at most about
+  700 KiB), built by ONE Job in the platform build namespace (`deploy/zenith-managed/50-build-namespace.yaml`) with an
+  operator-chosen, digest-pinned builder (`ZENITH_MANAGED_BUILDER_IMAGE`), pushed to the Zenith-operated registry
+  (`ZENITH_MANAGED_REGISTRY`), and attested for LIFE-09 from the executed Job and the namespace's egress policy
+  (profile `zenith.k8s-build.v1`). Larger sources refuse by name until managed object storage exists (PROD-MAN-03).
+- **Release.** Rollouts, readback and migrations are the Kubernetes provider's LIFE-07/LIFE-10 adapters through the managed
+  session; a built image may only roll out from the tenant's own repositories. There is no canary on the managed platform.
+- **Evidence.** Contract tests and a local kind + Calico acceptance (`scripts/k8s/managed-substrate-acceptance.sh`). There
+  is no live hosted acceptance.
+
+Variables of this path (the substrate variables below are unchanged):
+
+| Variable | Required | Meaning |
+| --- | --- | --- |
+| `ZENITH_MANAGED_VAULT_SCOPE` | no | vault scope the platform credentials are sealed under (default `zenith-platform`) |
+| `ZENITH_MANAGED_DEFAULT_PLAN` | no | plan tier of every managed workspace until billing supplies one: `free` (default), `starter`, `pro`. Provisional |
+| `ZENITH_MANAGED_BUILDER_IMAGE` | for builds | builder image pinned by sha256 digest; no default |
+| `ZENITH_MANAGED_BUILD_NAMESPACE` | no | platform build namespace (default `zenith-build`) |
+| `ZENITH_MANAGED_BUILD_PUSH_SECRET` | no | name of a `kubernetes.io/dockerconfigjson` Secret in the build namespace the builder pushes with |
+| `ZENITH_MANAGED_BUILD_REGISTRY_INSECURE` | no | `1` passes `--insecure` to the builder (a plain-http registry; local kind only) |
+
 ## What is and is not implemented
 
 | Area | State |
@@ -114,7 +155,8 @@ is the most sensitive thing in the platform.
 | `object_store` | **not offered**: needs per-tenant prefix-scoped credentials, which do not exist |
 | Custom domains | **not offered**: any host outside the tenant's managed suffix is rewritten to the managed hostname and reported |
 | redis, mysql, queue, pubsub, functions, VMs, clusters | **not offered**: the render refuses with a named list |
-| Builds | **not run**: a `built` artifact needs a digest-pinned image in the platform registry supplied by the caller |
+| Builds | implemented (PROD-MAN-01): one builder Job in the platform build namespace, push to the Zenith-operated registry, LIFE-09 attestation; contract tests and a local kind acceptance, no live hosted build. Without `ZENITH_MANAGED_BUILDER_IMAGE` and `ZENITH_MANAGED_REGISTRY` a `built` artifact refuses and an image reference supplied by the caller is the only path |
+| Default session opener, plan/apply, release and teardown composition | implemented (PROD-MAN-01); contract tests and a local kind acceptance; no live hosted run |
 | Logs/events | Kubernetes observability sources can read the managed namespace with an authorized tenant-scoped session (`src/lib/observability/sources/factory.ts`); no live managed signal read verified |
 | Metrics, tracing (OpenTelemetry), autoscaling (HPA), backups | No managed automation supplied by this provider; external observability endpoints can be injected; live substrate unverified |
 | Per-environment wildcard TLS and listeners | Implemented with cert-manager `Certificate` and Gateway API HTTPS resources through a separate gateway-namespace session; contract evidence only, live DNS/ACME unverified |
@@ -193,8 +235,8 @@ Behaviour that matters:
   reference exists and repairs a missing sink entry on a converged create by
   reading the owned project's URI. A sink failure returns `secret_store_failed`
   with fixed guidance; the database may already exist, so retry to converge
-  rather than assume it was rolled back. The caller must inject a durable sink;
-  default worker composition does not wire a managed provider session.
+  rather than assume it was rolled back. The default worker composition supplies the
+  encrypted vault sink and the platform credential resolver (PROD-MAN-01); no live Neon account was exercised.
 - **Deletion.** Never automatic. `deletionPolicy` `deny` never deletes,
   `approval` needs an explicit approval, `allow` permits; the adapter additionally
   refuses to delete a project that is not the one it created for that tuple.
@@ -247,8 +289,9 @@ is required to assert there are no managed databases. Incomplete discovery,
 foreign supported objects, retention or uncertainty prevents namespace deletion.
 Unknown custom kinds are not inventoried, so tenant namespaces must be exclusive.
 The adapter's `deleted` means accepted deletion, not confirmed absence; the
-execution workflow verifies afterwards. Default composition lacks the managed
-session opener. See [TEARDOWN.md](operations/TEARDOWN.md) for the browser flow,
+execution workflow verifies afterwards. The default composition supplies the
+managed session opener (PROD-MAN-01) but not the trusted database inventory, so database teardown is still unproven by
+it and databases are never deleted by that path. See [TEARDOWN.md](operations/TEARDOWN.md) for the browser flow,
 human approvals, entry-point limits and preserved evidence. No live teardown is
 verified.
 

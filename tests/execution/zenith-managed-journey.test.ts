@@ -116,6 +116,7 @@ describe("deploying a Zenith-managed environment through the default journey", (
     expect(realWrites()).toEqual([]); // planning writes nothing
     const row = j.w.evidence.rows.find((e: any) => e.kind === "tofu_plan" && e.digest === plan.planDigest)!;
     expect(row.summary).toMatchObject({ engine: "zenith-managed-apply", planDigest: plan.planDigest, destroysData: false });
+    expect((row.summary as any).semantics).toBeDefined(); // the reviewed executable semantics the approval binds (PROD-DUR-03)
 
     expect((await j.policy(plan.planDigest)).outcome).toBe("allow");
     j.approve();

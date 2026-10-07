@@ -72,9 +72,10 @@ The dedicated Temporal workflow has a disposable test-server check with fake
 cloud ports; live cloud/cluster planning and deletion remain unverified.
 Unavailable dispatch fails closed. Do not
 synthesize evidence, inject SQL rows or bypass a refusal.
-Managed Zenith teardown additionally requires an injected `withZenithSession`
-opener; default execution composition does not supply it
-(`src/lib/platform/execution.ts`, `src/lib/execution/destroy.ts`).
+Managed Zenith teardown opens its tenant-scoped session through the composed managed
+substrate (PROD-MAN-01, `src/lib/platform/execution.ts`, `src/lib/execution/destroy.ts`); an explicit
+`withZenithSession` still wins. It supplies no trusted managed-database inventory, so database teardown is not proven
+complete by this path and a managed database is never deleted by it.
 
 ## What can be deleted
 

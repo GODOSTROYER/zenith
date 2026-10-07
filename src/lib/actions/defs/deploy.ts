@@ -284,7 +284,7 @@ defineAction<ApplyInput>({
 
 const DeploymentRef = z.object({ deploymentId: z.string().min(1) });
 type DeploymentRef = z.infer<typeof DeploymentRef>;
-const DeploymentApproval = DeploymentRef.extend({ planDigest: z.string().regex(/^[a-f0-9]{64}$/).optional() });
+const DeploymentApproval = DeploymentRef.extend({ planDigest: z.string().regex(/^[a-f0-9]{64}$/).optional(), semanticsDigest: z.string().regex(/^[a-f0-9]{64}$/).optional() });
 type DeploymentApproval = z.infer<typeof DeploymentApproval>;
 
 /*
@@ -353,7 +353,7 @@ defineAction<DeploymentApproval>({
         error: separation.blocked,
       };
     if (deployment.executor === "workflow") {
-      const result = await approveWorkflowDeployment(ctx, deployment, input.planDigest);
+      const result = await approveWorkflowDeployment(ctx, deployment, input.planDigest, input.semanticsDigest);
       if (result.ok && separation.selfApproved) result.summary += " Self-approved (sole admin).";
       return result;
     }

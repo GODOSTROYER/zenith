@@ -152,7 +152,7 @@ export async function workflowApprovalPlan(ctx: ActionContext, d: Deployment): P
   return plan;
 }
 
-export async function approveWorkflowDeployment(ctx: ActionContext, d: Deployment, reviewedPlanDigest?: string): Promise<ActionResult> {
+export async function approveWorkflowDeployment(ctx: ActionContext, d: Deployment, reviewedPlanDigest?: string, reviewedSemanticsDigest?: string): Promise<ActionResult> {
   if (ctx.actor.type !== "user" || ctx.integration) return { ok: false, summary: "Approval refused.", error: browserFix };
   const session = await bridgeDeps().browserSession(ctx);
   if (!session) return { ok: false, summary: "Approval refused.", error: browserFix };
@@ -165,7 +165,7 @@ export async function approveWorkflowDeployment(ctx: ActionContext, d: Deploymen
     const planGate = approvalRoundOf(op) > 0 && ["awaiting_approval", "approved", "queued"].includes(op.status);
     if (d.status !== "awaiting_approval" && !planGate) return { ok: false, summary: "Approval refused.", error: `This deployment is ${d.status}; only a deployment awaiting approval can be approved.` };
     if (op.status === "awaiting_approval") {
-      const approved = await broker.approve({ workspaceId: ctx.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: reviewedPlanDigest, approver: { kind: "user", id: ctx.actor.id, name: ctx.actor.name }, session });
+      const approved = await broker.approve({ workspaceId: ctx.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: reviewedPlanDigest, semanticsDigest: reviewedSemanticsDigest, approver: { kind: "user", id: ctx.actor.id, name: ctx.actor.name }, session });
       op = approved.operation;
       if (!approved.finalized) return { ok: true, summary: `Approval recorded (${approved.approvals.have}/${approved.approvals.need}); waiting for other approvers.`, data: deploymentData(d, op) };
     }

@@ -132,9 +132,9 @@ describe("approval and cancellation", () => {
   it("product approval forwards the browser's reviewed plan digest without substituting the current digest", async () => {
     h.setEngine(scriptedEngine("approval", () => requireApproval(1, "admin", true))); await exec("deploy.apply");
     const approve = vi.spyOn(broker, "approve"); browser();
-    const planDigest = "a".repeat(64);
-    await exec("deploy.approve", { deploymentId: latest().id, planDigest }, browserCtx);
-    expect(approve).toHaveBeenCalledWith(expect.objectContaining({ planDigest }));
+    const planDigest = "a".repeat(64), semanticsDigest = "b".repeat(64);
+    await exec("deploy.approve", { deploymentId: latest().id, planDigest, semanticsDigest }, browserCtx);
+    expect(approve).toHaveBeenCalledWith(expect.objectContaining({ planDigest, semanticsDigest }));
   });
   it("a projected workflow approval gate records approval then signals, never starts twice", async () => {
     h.setEngine(scriptedEngine("approval", () => requireApproval(1))); await exec("deploy.apply"); const d = latest();

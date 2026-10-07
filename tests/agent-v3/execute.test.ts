@@ -1,6 +1,11 @@
 /** Real broker claims and single-use approvals; explicit modeled product commits and durable starts. */
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { argsFor, approve, denyDecision, ids, makeHarness, proposeDeploy, requireApproval, target, user } from "./support";
+
+beforeEach(async () => {
+  // Each case owns its admission bucket; defaults and within-case limits stay real.
+  (await import("@/lib/ops/runtime")).setOpsRuntimeForTests(undefined);
+});
 
 describe("approved execution", () => {
   it("refuses awaiting approval without claiming or starting", async () => {

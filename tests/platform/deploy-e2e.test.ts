@@ -236,8 +236,12 @@ describe("composed deploy workflow (contract evidence)", () => {
         const detail = await broker.getOperationDetail({ workspaceId: WS, operationId: waiting.id, principal: approver });
         expect(detail.planReview?.view.planDigest).toBe(reviewedPlan.planDigest);
         expect(detail.planReview?.decision?.outcome).toBe("require_approval");
-        expect((await approveWorkflowDeployment(reviewerContext, d, detail.planReview!.planDigest)).ok).toBe(true);
-        expect(signal).toHaveBeenCalledExactlyOnceWith(waiting.id);
+        const reviewed = detail.planReview!;
+        await expect(approveWorkflowDeployment(reviewerContext, d, reviewed.planDigest)).resolves.toMatchObject({ ok: false });
+        await expect(approveWorkflowDeployment(reviewerContext, d, reviewed.planDigest, "f".repeat(64))).resolves.toMatchObject({ ok: false });
+        expect(signal).not.toHaveBeenCalled();
+        expect((await approveWorkflowDeployment(reviewerContext, d, reviewed.planDigest, reviewed.semantics!.digest)).ok).toBe(true);
+        expect(signal).toHaveBeenCalledExactlyOnceWith(waiting.id, WS);
         const result = await actual.result() as WorkflowResult;
         expect(result.status).toBe("succeeded");
         expect((await repos.operations.get(db, WS, waiting.id))?.status).toBe("succeeded");
@@ -411,8 +415,12 @@ describe("composed activities against local stores (no Temporal fallback)", () =
       expect(detail.operation.approvalRound).toBe(1); expect(detail.planReview?.view.resources.length).toBeGreaterThan(0);
       await expect(approveWorkflowDeployment(reviewerContext, d)).resolves.toMatchObject({ ok: false });
       d.status = "planning"; // Best-effort projection can lag; the ledger owns the gate.
-      expect((await approveWorkflowDeployment(reviewerContext, d, detail.planReview!.planDigest)).ok).toBe(true);
-      expect(signal).toHaveBeenCalledExactlyOnceWith(operationId); expect(start).toHaveBeenCalledOnce();
+      const reviewed = detail.planReview!;
+      await expect(approveWorkflowDeployment(reviewerContext, d, reviewed.planDigest)).resolves.toMatchObject({ ok: false });
+      await expect(approveWorkflowDeployment(reviewerContext, d, reviewed.planDigest, "f".repeat(64))).resolves.toMatchObject({ ok: false });
+      expect(signal).not.toHaveBeenCalled();
+      expect((await approveWorkflowDeployment(reviewerContext, d, reviewed.planDigest, reviewed.semantics!.digest)).ok).toBe(true);
+      expect(signal).toHaveBeenCalledExactlyOnceWith(operationId, WS); expect(start).toHaveBeenCalledOnce();
       await activities.markOperation({ operationId, status: "running" });
       const lease = await activities.acquireLease({ operationId, scope: `env:${ENV}`, ttlMs: 180_000 });
       expect(lease.fenceToken).toBeGreaterThan(first.fenceToken);

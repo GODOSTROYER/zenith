@@ -72,6 +72,7 @@ export interface ConnectionView {
 function identityOf(config: ConnectionConfig): Record<string, string> {
   switch (config.provider) {
     case "aws": return { accountId: config.accountId, region: config.region, ...(config.bootstrapNameSuffix ? { bootstrapNameSuffix: config.bootstrapNameSuffix } : {}) };
+    case "zenith": return { operator: "Zenith (managed platform)", region: config.region };
     case "gcp": return { projectId: config.projectId, region: config.region };
     case "azure": return { tenantId: config.tenantId, subscriptionId: config.subscriptionId, region: config.region };
     case "oci": return { tenancyOcid: config.tenancyOcid, compartmentOcid: config.compartmentOcid, region: config.region };
@@ -255,6 +256,7 @@ const SCOPE: Record<ConnectionConfig["provider"], string> = {
   azure: "Federated identity read of the configured subscription only; deploy permissions remain unverified.",
   oci: "The registered runner is active and advertises oci.http; OCI identity and permissions remain unverified.",
   kubernetes: "Default ServiceAccount read in each saved namespace; deployment permissions remain unverified.",
+  zenith: "The managed substrate is configured and a tenant session can be opened for this workspace; the cluster's own isolation is not established by this check.",
 };
 
 /**
@@ -320,6 +322,7 @@ async function retireRunner(ctx: ActionContext, runner: string, excluding: strin
 const customerRevocationSteps = (provider: ConnectionConfig["provider"]): string[] => {
   switch (provider) {
     case "aws": return ["Remove the Zenith trust from the observe and deploy roles (or delete the bootstrap stack). STS sessions already issued expire within their 15 minute lifetime."];
+    case "zenith": return ["Nothing of yours to remove: the managed platform holds no credential for your account. Environments on it keep running until torn down."];
     case "gcp": return ["Remove the workloadIdentityUser bindings for the Zenith subject. Access tokens already issued expire within their 15 minute lifetime."];
     case "azure": return ["Delete the federated credential for the Zenith subject. Access tokens already issued expire within their short lifetime."];
     case "oci": return ["Stop zenith-runner in your tenancy. Revoke the runner here too if it is no longer needed."];

@@ -169,6 +169,7 @@ export function applyRotationPatch(live: ConnectionConfig, rawPatch: RotationPat
       }
       return next;
     }
+    case "zenith": throw new LifecycleInputError("A Zenith-managed connection holds no credential of yours, so there is nothing to rotate.");
     case "gcp": return { ...live, ...parsePatch(RotateGcp, rawPatch) } satisfies GcpConnectionConfig;
     case "azure": return { ...live, ...parsePatch(RotateAzure, rawPatch) } satisfies AzureConnectionConfig;
     case "oci": return { ...live, ...parsePatch(RotateOci, rawPatch) } satisfies OciConnectionConfig;

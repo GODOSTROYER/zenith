@@ -778,8 +778,12 @@ describe("saved builtin settlement mandatory CI admission", () => {
     const manifest = manifestFor("platform-postgres", root);
     const added = currentSuccessorPlatformCohort.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
     expect(manifest.requirements.filter(item => added.some(value => value.id === item.id)).sort((a, b) => a.id.localeCompare(b.id))).toEqual(added.sort((a, b) => a.id.localeCompare(b.id)));
-    expect(manifest.requirements).toHaveLength(1141);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1141);
+    expect(manifest.requirements).toHaveLength(1146);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1146);
+    const mixedStore = manifest.requirements.filter(item => item.file === "tests/execution/mixed-run-store.test.ts");
+    expect(mixedStore).toHaveLength(5);
+    expect(mixedStore.every(item => item.postgres && item.suite === "mixed run store validation [postgres]" && item.test)).toBe(true);
+    expect(manifest.requirements.filter(item => !mixedStore.some(addition => addition.id === item.id))).toHaveLength(1141);
     expect(withoutIncomingPlatform(manifest.requirements).map(item => item.id).sort()).toEqual([...priorCurrentSuccessorPlatformRequirements(), ...added, ...INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }))].map(item => item.id).sort());
     for (const item of added) {
       expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);

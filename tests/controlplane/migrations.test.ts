@@ -907,7 +907,7 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           const legacyIncidentOwner=uid("zt_incident_owner").replace(/-/g,"");
           const legacyAgentOwner=uid("zt_agent_owner").replace(/-/g,"");
           // A distinct authorized migration owner has schema-create, ledger DML/RLS bypass, FK references,
-          // and TRIGGER only on the three legacy delivery tables used by migration 15.
+          // and exact TRIGGER permissions on legacy tables used by migrations 15 and 30.
           const databaseName=(await tx.query<{name:string}>("select current_database() as name"))[0].name;
           await db.exec(`create role ${migrationOwner} nologin bypassrls;
             create role ${legacySourceOwner} nologin;
@@ -951,7 +951,25 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
           // Current admission refuses the historical contracts. Canonical7..30
           // constructs the owned historical fixture, then actual31..current runs.
           await expectHistoricalContractRefusal(db, [11, 15, 28, 30]);
-          await historicalFixtureRange(db, 7, 30);
+          await historicalFixtureRange(db, 7, 29);
+          expect((await tx.query<{allowed:boolean}>("select has_table_privilege(current_user,'platform.operations','TRIGGER') as allowed"))[0].allowed).toBe(false);
+          const before30 = await tx.query("select * from platform.schema_migrations order by version");
+          // Canonical historical30 requires one additional exact legacy-table
+          // privilege. Its failed DDL stays inside this owned savepoint; this
+          // is historical SQL construction, not current contract admission.
+          await expect(db.tx(() => historicalFixtureRange(db, 30, 30))).rejects.toMatchObject({sqlstate:"42501"});
+          expect(await tx.query("select * from platform.schema_migrations order by version")).toEqual(before30);
+          expect((await tx.query<{name:string|null}>("select to_regclass('platform.operation_authority')::text as name"))[0].name).toBeNull();
+          await tx.query("reset role");
+          expect((await tx.query<{name:string}>("select current_user as name"))[0].name).toBe(originalUser);
+          await tx.query(`grant trigger on table platform.operations to ${migrationOwner}`);
+          await tx.query(`set local role ${migrationOwner}`);
+          expect((await tx.query<{allowed:boolean}>("select has_table_privilege(current_user,'platform.operations','TRIGGER') as allowed"))[0].allowed).toBe(true);
+          expect((await tx.query<{owner:string}>("select pg_get_userbyid(relowner) as owner from pg_class where oid='platform.operations'::regclass"))[0].owner).toBe(originalUser);
+          await expect(db.tx(async denied => {
+            await denied.query("alter table platform.operations add column fixture_unauthorized_owner text");
+          })).rejects.toMatchObject({sqlstate:"42501"});
+          await historicalFixtureRange(db, 30, 30);
           expect(await migratePlatformDb(db)).toEqual({applied:pending.filter(version => version > 30),alreadyApplied:ALL.filter(version => version <= 30)});
           await assertPlatformSchemaCurrent(db);
           expect((await platformSchemaStatus(db)).applied.map(({version,name,checksum})=>({version,name,checksum})))

@@ -435,6 +435,7 @@ const UNSCOPED: Record<string, string> = {
   "machines.registerMachine": "the workspace comes from the registration token, never from the caller",
   "runners.findRunnerForAuth": "the one documented unscoped lookup: a signed request names only the agent id",
   "machines.findMachineForAuth": "the one documented unscoped lookup: a signed request names only the machine id",
+  "externalEffects.sweepStalePending": "system maintenance under the housekeeping lease: declares pending effects whose dispatcher vanished uncertain (never retried); every returned row carries its workspace and nothing is read from tenant input",
   "optimizerSettings.listOptedInEnvironments": "system scheduler only: returns (workspace, environment) pairs that opted in; every later call uses the returned workspace",
   "operations.getForSystem": "execution worker only: a workflow carries just the operation id; every later call uses the workspace of the returned row (callers pinned below)",
 };

@@ -33,6 +33,8 @@ import { safeText } from "./text";
 import { buildDesiredState } from "./graph";
 import { z } from "zod";
 import { platformBroker, type Broker } from "@/lib/capabilities/platform";
+import { acceptCleanupEffect, beginCleanupEffect, priorCleanupResult, uncertainCleanupEffect, type CleanupEffectScope } from "@/lib/effects/cleanup";
+import type { EffectRecord } from "@/lib/effects/types";
 import { runDestroyReview, type DestroyReviewResult } from "@/lib/capabilities/destroy-review";
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -300,18 +302,28 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
       const reviewedAddresses = await reviewedPlan(rt, ec, planDigest);
       const approval = await checkDestroyApproval(rt, operationId);
       if (!approval.approved || approval.rejected) throw new StepFailedError("Teardown requires a current digest-bound human approval.");
+      // PROD-DUR-08: this exact destroy is applied at most once. A retry returns the saved result or refuses; it never re-applies.
+      const effects = rt.d.effects;
+      const effectScope: CleanupEffectScope | undefined = effects ? { workspaceId: ec.workspaceId, operationId, environmentId: ec.environmentId,
+        provider: ec.product.environment.provider, planDigest, addresses: reviewedAddresses, fence: { scope: lease.scope, token: lease.fenceToken } } : undefined;
+      if (effects && effectScope) { const prior = await priorCleanupResult(effects, effectScope); if (prior) return prior; }
+      let effect: EffectRecord | undefined;
       if (isDirect(ec)) {
         await directPlanStage(rt, ec, graph, lease, ports, planDigest);
         await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
         const freshApproval = await checkDestroyApproval(rt, operationId);
         if (!freshApproval.approved || freshApproval.rejected) throw new StepFailedError("The human approval is no longer valid.");
+        if (effects && effectScope) effect = await beginCleanupEffect(effects, effectScope);
         try {
           const result = await directCall(rt, ec, graph, lease, ports, false);
+          // The provider's answer is evidence even when the lease has since been lost.
+          if (effects && effect) effect = await acceptCleanupEffect(effects, effect, result.deleted.length);
           await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
           await rt.evidence(ec.scope, { kind: "tofu_apply", digest: digest({ destroy: true, planDigest, ...result }), key: `destroy:${planDigest}`,
             summary: { engine: "provider-teardown", destroy: true, planDigest, matchesReviewed: result.deleted.every((ref) => reviewedAddresses.includes(ref)), ...result }, simulated: false }, { critical: true });
           return { deleted: result.deleted.length };
         } catch (error) {
+          if (effects && effect) await uncertainCleanupEffect(effects, effect, "Provider teardown outcome is unconfirmed; partial deletion is possible.");
           await rt.d.ops.markUncertain({ workspaceId: ec.workspaceId, operationId, reason: "Provider teardown outcome is unconfirmed; partial deletion is possible." }).catch(() => undefined);
           if (error instanceof LeaseLostError) throw error;
           throw new StepFailedError("Provider teardown ended without a confirmed outcome; partial deletion is possible.");
@@ -339,7 +351,9 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
                 const current = await checkDestroyApproval(rt, operationId);
                 if (!current.approved || current.rejected) throw new StepFailedError("The human approval is no longer valid.");
                 await guardDns(rt, freshContext.ec, freshContext.graph.nodes, session, signal, lease);
-                await rt.d.leases.assertFence(lease.scope,lease.fenceToken); started=true; await dispatch();
+                await rt.d.leases.assertFence(lease.scope,lease.fenceToken);
+                if (effects && effectScope) effect = await beginCleanupEffect(effects, effectScope);
+                started=true; await dispatch();
               }, destroy: true, deletionNodes: graph.nodes, session: tofuSession(session), signal, normalize: { fingerprintKey: rt.d.fingerprintKey }, inspectPlan: async (plan) => {
               guard(plan, graph.nodes);
               await guardDns(rt, ec, graph.nodes, session, signal, lease);
@@ -347,6 +361,8 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
             } });
           }))
         );
+        // The provider's answer is evidence even when the lease has since been lost.
+        if (effects && effect) effect = await acceptCleanupEffect(effects, effect, result.plan.summary.delete);
         await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
         await rt.evidence(ec.scope, { kind: "tofu_apply", digest: digest({ destroy: true, planDigest, deleted: result.plan.summary.delete }), key: `destroy:${planDigest}`, summary: { destroy: true, planDigest, deleted: result.plan.summary.delete, exitCode: result.apply.exitCode }, simulated: false }, { critical: true });
         // Resource status stays unconfirmed until observation proves absence.
@@ -355,6 +371,7 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
         if (err instanceof TofuPlanChangedError || err instanceof StepFailedError || err instanceof SemanticsChangedError) throw err;
         if (err instanceof TofuDeletionRefusedError) throw new StepFailedError(err.message);
         if (!started && err instanceof TofuPlanProvenanceError) throw new StepFailedError("Reviewed plan provenance changed; a new review is required.");
+        if (effects && effect) await uncertainCleanupEffect(effects, effect, "Teardown did not complete; resource absence is unconfirmed.");
         if (started) await rt.d.ops.markUncertain({ workspaceId: ec.workspaceId, operationId, reason: "Teardown did not complete; resource absence is unconfirmed." }).catch(() => undefined);
         if (err instanceof LeaseLostError) throw err;
         if (!started) throw new StepFailedError("Teardown did not start; nothing was applied.");

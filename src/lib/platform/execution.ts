@@ -21,6 +21,7 @@ import { createExecutionBroker } from "./broker";
 import { registerAllDrivers } from "./drivers";
 import { platformDriverLookup } from "./driver-lookup";
 import { createReleasePorts } from "./release";
+import { createEffectLedger } from "@/lib/effects/ledger";
 import { createPlatformReleaseSafety } from "./release-safety";
 import { createGithubContextVerifier } from "@/lib/sources/github/inspect";
 import { composeReconcilePorts } from "./reconcile";
@@ -113,7 +114,7 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
   const credentials = opts.ports?.credentials ?? platformCredentialBroker(opts.db);
   const azure: AzureBuildOptions = { readSource: sourceRuntime.readAzureSource };
   const deps: ExecutionDeps = {
-    ...platformPorts, portability: createPortabilityPort(opts.db), planArtifacts,
+    ...platformPorts, portability: createPortabilityPort(opts.db), planArtifacts, effects: createEffectLedger(opts.db),
     drivers: platformDriverLookup,
     product: createProductPort(), broker: createExecutionBroker(opts.db), credentials,
     tofu, cost: defaultCostPort(),

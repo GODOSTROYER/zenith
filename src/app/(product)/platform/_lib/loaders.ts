@@ -17,6 +17,7 @@ import type { PlatformRunbooks } from "@/lib/platform/runbooks";
 import { RunbookError, classifyRunbook } from "@/lib/machines/runbooks";
 import { describeSchedule, diffRunbookSteps, type RunbookStepSpec } from "@/lib/platform/operator-journey";
 import { executionPlaneReadiness, isRealProvider, REAL_PROVIDERS, type ExecutionReadiness } from "@/lib/bridge/readiness";
+import { effectView, type EffectView } from "@/lib/effects/view";
 import { publicData, readResources, readDrift, readIncidents, ENVIRONMENT_ID, type ReadCaller } from "./read-models";
 
 export interface PageContext extends ReadCaller {
@@ -68,6 +69,13 @@ export function loadOperations(params: Search) {
   });
 }
 
+/** External effects (provider calls whose outcome may be unknown) of one operation, newest first. Read-only. */
+async function loadOperationEffects(workspaceId: string, operationId: string): Promise<EffectView[]> {
+  const db = await platformDb();
+  const rows = await repos.externalEffects.list(db, workspaceId, { operationId, includeContradicted: false, limit: 50 });
+  return Promise.all(rows.map(async (e) => effectView(e, { fenceLive: await repos.externalEffects.isFenceLive(db, workspaceId, e.effectId) })));
+}
+
 export function loadOperation(id: string) {
   return loadPage(async (context, broker) => {
     if (!ENVIRONMENT_ID.test(id)) throw notFound();
@@ -75,11 +83,12 @@ export function loadOperation(id: string) {
     await broker.getOperationDetail({ ...context, operationId: id });
     const record = await broker.deps.store.getOperation(context.workspaceId, id);
     if (!record) throw notFound();
-    const [decision, approvals, timeline, estimates] = await Promise.all([
+    const [decision, approvals, timeline, estimates, effects] = await Promise.all([
       record.policyDecisionId ? broker.deps.store.getPolicyDecision(context.workspaceId, record.policyDecisionId) : undefined,
       broker.deps.store.listApprovals(context.workspaceId, id),
       broker.listOperationEvents({ ...context, operationId: id, limit: 500 }),
       repos.cost.list(await platformDb(), context.workspaceId, { operationId: id, limit: 1 }),
+      loadOperationEffects(context.workspaceId, id),
     ]);
     // Preserve the native, validated review and current round alongside the
     // stored digests. A digest alone cannot supply a readable plan.
@@ -109,7 +118,7 @@ export function loadOperation(id: string) {
     const projectIds = new Set(db().projects.filter((p) => p.workspaceId === context.workspaceId).map((p) => p.id));
     const linkedDeployment = db().deployments.find((d) => d.operationId === id && projectIds.has(d.projectId));
     return { operation, decision: decision ? publicData(decision) : undefined, approvals: approvals.map((a) => publicData(a)), events,
-      linkedDeploymentId: linkedDeployment?.id,
+      linkedDeploymentId: linkedDeployment?.id, effects,
       timelineTruncated: timeline.items.length === 500, estimate: estimates[0] ? publicData(estimates[0].estimate) : undefined };
   });
 }

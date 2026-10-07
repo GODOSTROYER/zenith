@@ -43,6 +43,9 @@ import type { HttpHandlerOptions, HttpRequest } from "@smithy/types";
 import { signCapabilityGrant } from "@/lib/credentials/grants";
 import type { AwsClientCtor, AwsSession, RunnerAwsTransport, RunnerAwsTransportFactory } from "@/lib/credentials/types";
 import { awaitRunnerJob, DispatchError, enqueueRunnerJob, requireSucceeded } from "@/lib/runners/dispatch";
+import { capability as catalogCapability, isCapability } from "@/lib/capabilities/catalog";
+import type { EffectLedger } from "@/lib/effects/ledger";
+import { keyAwsRequest, runProxyJob, type ProxyHttpResult } from "@/lib/effects/proxy";
 import { getRunnerRuntime, type RunnerRuntime } from "@/lib/runners/runtime";
 import { unverifiedClaims } from "@/lib/runners/signing";
 
@@ -76,6 +79,12 @@ export interface RunnerAwsTransportOptions {
   /** return false once the brokered session has ended; further calls are refused */
   isActive?: () => boolean;
   runtime?: RunnerRuntime;
+  /**
+   * External-effect ledger. When set, every MUTATING request (decided by an explicit read-action allowlist, never by
+   * HTTP method) is recorded before it is queued, keyed with a client token where the API has one, and marked
+   * uncertain on a lost reply. Production composition always sets it.
+   */
+  effects?: EffectLedger;
 }
 
 /** An SDK request rejected before or instead of a job (payload cap, ended session, non-https endpoint). */
@@ -166,12 +175,29 @@ export class RunnerHttpHandler {
     }
     const query = buildQueryString(request.query ?? {});
     const url = `https://${request.hostname}${request.port ? `:${request.port}` : ""}${request.path || "/"}${query ? `?${query}` : ""}`;
-    const body = await readBody(request.body);
+    let body = await readBody(request.body);
     if (body.length > MAX_REQUEST_BYTES) throw new RunnerTransportError("request_too_large", `The request body exceeds ${MAX_REQUEST_BYTES} bytes; the runner transport buffers bodies.`);
 
     const rt = opts.runtime ?? (await getRunnerRuntime());
     const capability = opts.capability ?? String(unverifiedClaims(opts.grant)?.cap ?? "");
-    const jobId = await enqueueRunnerJob(
+    const mutates = opts.effects !== undefined && !(isCapability(capability) && !catalogCapability(capability).mutates);
+    if (mutates) {
+      // The SDK sent no client token for an API that takes one: add a deterministic one (the runner signs afterwards).
+      body = keyAwsRequest({ service: service ?? serviceFromHost(request.hostname), method: request.method.toUpperCase(), url, headers, body }, opts.operationId).body;
+    }
+    const payload = {
+      service: service ?? serviceFromHost(request.hostname),
+      region: signingRegion ?? this.region,
+      method: request.method.toUpperCase(),
+      url,
+      headers,
+      ...(body.length > 0 ? { bodyB64: body.toString("base64") } : {}),
+    };
+    const abortSignal = handlerOptions?.abortSignal as AbortSignal | undefined;
+    const awaited = await runProxyJob<ProxyHttpResult & { status: number }>({
+      ledger: opts.effects, kind: "aws.http", payload,
+      scope: { workspaceId: opts.workspaceId, operationId: opts.operationId, capability, mutates },
+      enqueue: () => enqueueRunnerJob(
       {
         workspaceId: opts.workspaceId,
         runnerId: opts.runnerId,
@@ -183,18 +209,12 @@ export class RunnerHttpHandler {
         timeoutSec: opts.timeoutSec,
         maxOutputBytes: opts.maxOutputBytes,
         queueTtlSec: opts.queueTtlSec,
-        payload: {
-          service: service ?? serviceFromHost(request.hostname),
-          region: signingRegion ?? this.region,
-          method: request.method.toUpperCase(),
-          url,
-          headers,
-          ...(body.length > 0 ? { bodyB64: body.toString("base64") } : {}),
-        },
+        payload,
       },
       rt
-    );
-    const awaited = await awaitRunnerJob<{ status: number; headers?: Record<string, string>; bodyB64?: string }>(jobId, { workspaceId: opts.workspaceId, signal: handlerOptions?.abortSignal as AbortSignal | undefined }, rt);
+      ),
+      settle: (jobId) => awaitRunnerJob<ProxyHttpResult & { status: number }>(jobId, { workspaceId: opts.workspaceId, signal: abortSignal }, rt),
+    });
     const { result } = requireSucceeded(awaited);
     if (!result || typeof result.status !== "number") throw new DispatchError("invalid_payload", "The runner's aws.http result has no HTTP status.");
     return {
@@ -229,6 +249,8 @@ export function createRunnerAwsSessionClientFactory(opts: RunnerAwsTransportOpti
 
 export interface RunnerTransportFactoryOptions {
   runtime?: RunnerRuntime;
+  /** see `RunnerAwsTransportOptions.effects` */
+  effects?: EffectLedger;
   timeoutSec?: number;
   maxOutputBytes?: number;
   queueTtlSec?: number;
@@ -272,6 +294,7 @@ export function createRunnerAwsTransportFactory(options: RunnerTransportFactoryO
           maxOutputBytes: options.maxOutputBytes,
           queueTtlSec: options.queueTtlSec,
           maxAttempts: options.maxAttempts,
+          effects: options.effects,
           isActive: () => !closed && rt.now() < expiresAt.getTime(),
           runtime: rt,
         }),

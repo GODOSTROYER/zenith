@@ -46,6 +46,9 @@ export async function housekeepingPass(db: Sql, options: { limit?: number } = {}
       const idempotencyKeys = await repos.idempotency.prune(tx, limit);
       const nonces = await repos.nonces.prune(tx, NONCE_WINDOW_MS * 2, limit);
       const operations = await reconcileOperations(tx, { limit });
+      // PROD-DUR-07: a provider call whose dispatcher vanished before any reply becomes uncertain. Never retried; an
+      // operator resolves it from readback. The count stays out of the result shape other callers depend on.
+      await repos.externalEffects.sweepStalePending(tx, { limit });
       return { ran: true, idempotencyKeys, nonces, uncertain: operations.uncertain.length, expired: operations.expired.length };
     });
   } catch {

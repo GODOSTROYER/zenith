@@ -198,15 +198,43 @@ const OPERATION_STAGE: Record<OperationStatus, JourneyStage> = {
 /** Statuses the cancel route accepts: nothing has started yet. */
 export const CANCELLABLE_OPERATION_STATUSES: readonly OperationStatus[] = ["proposed", "awaiting_approval", "approved", "queued"];
 
+/** The part of an external-effect ledger row the journey needs (see `@/lib/effects/view`). */
+export interface EffectLike {
+  effectId: string;
+  state: "pending" | "accepted" | "uncertain" | "conflict" | "confirmed" | "tombstoned";
+  familyLabel: string;
+}
+
 export interface PlatformOperationLike {
   id: string;
   status: OperationStatus;
   planDigest?: string;
   proposalDigest?: string;
+  /** Ledger effects of this operation. An unresolved one makes the outcome unknown whatever the status says. */
+  effects?: readonly EffectLike[];
+}
+
+/** PROD-DUR-07/08: effects that leave the outcome unknown, shown as `uncertain` rather than as a failure. */
+export function unresolvedEffects(effects: readonly EffectLike[] | undefined): EffectLike[] {
+  return (effects ?? []).filter((e) => e.state === "uncertain" || e.state === "conflict");
+}
+
+export function effectNextSteps(effects: readonly EffectLike[]): string[] {
+  if (effects.length === 0) return [];
+  const names = [...new Set(effects.map((e) => e.familyLabel.toLowerCase()))].join(", ");
+  return [
+    `Do not retry: Zenith will not repeat the ${names} on its own. The provider may already have done it.`,
+    "Run readback on each effect below. It reads the provider independently and changes nothing.",
+    "Review the evidence. An admin in the browser can then confirm it happened, or confirm it did not (only after the original lease is gone and the settle window has passed).",
+    "After a resolution, propose a new operation for whatever is still missing.",
+  ];
 }
 
 export function projectPlatformOperation(op: PlatformOperationLike): JourneyView {
-  const stage = OPERATION_STAGE[op.status] ?? "proposed";
+  const recorded = OPERATION_STAGE[op.status] ?? "proposed";
+  const open = unresolvedEffects(op.effects);
+  // A provider call whose outcome is unknown outranks a recorded failure or success: the operation cannot be called either.
+  const stage: JourneyStage = open.length > 0 && (recorded === "failed" || recorded === "succeeded" || recorded === "running" || recorded === "uncertain") ? "uncertain" : recorded;
   const ended = TERMINAL.has(stage);
   const neverRan = stage === "rejected" || stage === "denied" || stage === "expired" || stage === "cancelled";
   const approval: JourneyStepState = stage === "awaiting_approval" ? "running" : stage === "proposed" ? "pending" : stage === "rejected" || stage === "denied" || stage === "expired" ? "failed" : "done";
@@ -218,9 +246,11 @@ export function projectPlatformOperation(op: PlatformOperationLike): JourneyView
     { id: "execution", title: "Execution", state: execution },
     { id: "outcome", title: "Outcome", state: outcome, detail: stage === "uncertain" ? "Not known" : stage === "succeeded" ? "Recorded, confirmed at next observation" : undefined },
   ];
+  if (open.length > 0 && stage === "uncertain") steps.push({ id: "effects", title: "External changes", state: "uncertain", detail: `${open.length} need review` });
   const cancellable = CANCELLABLE_OPERATION_STATUSES.includes(op.status);
   return make("platform_operation", op.id, stage, {
     steps,
+    ...(open.length > 0 && stage === "uncertain" ? { nextSteps: effectNextSteps(open) } : {}),
     reviewDigest: op.planDigest ?? op.proposalDigest,
     cancel: cancellable
       ? { available: true }
@@ -264,7 +294,7 @@ export function projectLegacyDeployment(dep: LegacyDeploymentLike, linked?: Plat
     .sort((a, b) => a.seq - b.seq)
     .map((s) => ({ id: s.id, title: s.title, state: stage === "uncertain" && s.status === "running" ? "uncertain" : LEGACY_STEP_STATE[s.status], ...(s.status === "failed" ? { detail: "Stopped here. See the deployment log." } : {}) }));
   const cancellable = base ? base.cancel : { available: false, reason: dep.executor === "workflow" ? "Open the linked platform operation to cancel." : "The in-process engine does not support cancelling from this screen." };
-  return make("legacy_deployment", dep.id, stage, { steps: steps.length ? steps : base?.steps, cancel: cancellable, reviewDigest: base?.reviewDigest });
+  return make("legacy_deployment", dep.id, stage, { steps: steps.length ? steps : base?.steps, cancel: cancellable, reviewDigest: base?.reviewDigest, ...(base && base.stage === "uncertain" ? { nextSteps: base.nextSteps } : {}) });
 }
 
 /* ---------------------------------- runbook run ---------------------------------- */

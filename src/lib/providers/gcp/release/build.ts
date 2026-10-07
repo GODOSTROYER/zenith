@@ -93,9 +93,9 @@ async function attest(ctx: Ctx, obj: Record<string, unknown>, h: Handle): Promis
   };
 }
 
-export function createBuildPort(): BuildPort {
-  return {
-    async startBuild(raw, input) {
+type StartInput = Parameters<BuildPort["startBuild"]>[1];
+/** Everything before the launch: validation and read-only lookups. Shared by startBuild and adoptBuild. */
+async function prepare(raw: Parameters<BuildPort["startBuild"]>[0], input: StartInput) {
       const ctx = context(raw);
       managed(ctx, input.service); managed(ctx, input.pipeline, "build_pipeline");
       if (!["container_service", "scheduled_job"].includes(input.service.kind)) throw new StepFailedError("Build target must be a managed GCP workload.");
@@ -124,10 +124,29 @@ export function createBuildPort(): BuildPort {
       if (!/^[a-z0-9][a-z0-9._-]{0,127}$/.test(imageName)) throw new StepFailedError("Build workload name is not an image repository name.");
       const key = digest([scope(ctx), input.service.address, input.pipeline.address, input.source.digest, input.idempotencyKey]);
       const image = `${output.uri}/${imageName}:zn-${key}`;
-      const started = await startBuild({ ...ctx, operationId: key }, { sourceBucket: bucket, sourceObject: object, sourceGeneration: metadata.generation, imageRef: image, buildServiceAccount: names.serviceAccount, dockerfile: spec.source?.dockerfile, contextDir: contextDirOf(spec, "gcp"), ...(spec.isolation?.workerPool ? { workerPool: spec.isolation.workerPool } : {}) });
+      const registryAddress = input.registry.address, pinnedGeneration: string = metadata.generation;
+      return { ctx, key, startArgs: { sourceBucket: bucket, sourceObject: object, sourceGeneration: pinnedGeneration, imageRef: image, buildServiceAccount: names.serviceAccount, dockerfile: spec.source?.dockerfile, contextDir: contextDirOf(spec, "gcp"), ...(spec.isolation?.workerPool ? { workerPool: spec.isolation.workerPool } : {}) }, handleFor: (id: string): Handle => ({ version: 1, scope: scope(ctx), id, tag: opTag(key), image, registry: output.name, registryAddress, bucket, object, generation: pinnedGeneration, serviceAccount: names.serviceAccount }) };
+}
+
+export function createBuildPort(): BuildPort {
+  return {
+    async startBuild(raw, input) {
+      const p = await prepare(raw, input);
+      const started = await startBuild({ ...p.ctx, operationId: p.key }, p.startArgs);
       if (!started.ok || !started.buildId) throw new Error("Cloud Build launch could not be confirmed; reconcile before retrying.");
-      const handle: Handle = { version: 1, scope: scope(ctx), id: started.buildId, tag: opTag(key), image, registry: output.name, registryAddress: input.registry.address, bucket, object, generation: metadata.generation, serviceAccount: names.serviceAccount };
-      return { buildId: JSON.stringify(handle) };
+      return { buildId: JSON.stringify(p.handleFor(started.buildId)) };
+    },
+    /** Rebuild the handle of a launch an operator confirmed from readback; launches nothing. */
+    async adoptBuild(raw, input, buildId) {
+      if (!/^[a-f0-9-]{8,64}$/.test(buildId)) throw new StepFailedError("The confirmed Cloud Build id is malformed.");
+      const p = await prepare(raw, input);
+      return { buildId: JSON.stringify(p.handleFor(buildId)) };
+    },
+    /** The tag this launch carries, for independent readback. Pure. */
+    launchIdentity(raw, input) {
+      const ctx = context(raw);
+      const key = digest([scope(ctx), input.service.address, input.pipeline.address, input.source.digest, input.idempotencyKey]);
+      return { tag: opTag(key), projectId: ctx.session.projectId, region: ctx.region };
     },
     async waitForBuild(raw, handle, opts): Promise<BuildResult> {
       const original = context(raw); const h = decode(original, handle.buildId);

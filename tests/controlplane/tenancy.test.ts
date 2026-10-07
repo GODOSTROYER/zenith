@@ -147,6 +147,10 @@ const WRITES = new Set([
   "stateBackendRecovery.complete", "stateBackendRecovery.failUncertain", "stateBackendRecovery.expireStale",
   // PROD-UX-03: workspace-bound plugin registry and grant writes; foreign-workspace refusals are covered by the plugin store tests.
   "plugins.register", "plugins.review", "plugins.revoke", "plugins.createGrant", "plugins.revokeGrant", "plugins.touchGrant",
+  // PROD-DUR-07/08: external-effect ledger. Every statement binds the supplied workspace in SQL and a foreign effect id equals a missing one;
+  // the foreign-workspace refusals for reads and writes are individually covered by tests/effects/ledger.test.ts (not the generic attempt sweep).
+  "externalEffects.begin", "externalEffects.get", "externalEffects.getByDedup", "externalEffects.list", "externalEffects.listEvents", "externalEffects.listResolutions",
+  "externalEffects.isFenceLive", "externalEffects.recordAccepted", "externalEffects.recordRejected", "externalEffects.markUncertain", "externalEffects.recordReadback", "externalEffects.resolve",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings", "idempotency.reserve", "idempotency.complete",
 ]);
 
@@ -194,6 +198,7 @@ const EXEMPT: Record<string, string> = {
   "scheduledJobs.recordSkip": "system scheduler health row keyed by job name; counts only",
   "scheduledJobs.getScheduledJob": "system scheduler health read by job name; no tenant rows",
   "scheduledJobs.listScheduledJobs": "system scheduler health read; no tenant rows",
+  "externalEffects.sweepStalePending": "system maintenance under the housekeeping lease: declares pending effects whose dispatcher vanished uncertain (never retried); every returned row carries its workspace and nothing is read from tenant input",
   "optimizerSettings.listOptedInEnvironments": "system scheduler only: lists (workspace, environment) pairs that opted in; every returned row carries its workspace and each is processed under that workspace",
 };
 

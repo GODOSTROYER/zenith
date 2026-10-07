@@ -35,6 +35,8 @@ import type { Broker } from "@/lib/capabilities/platform";
 import { HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { digest as bindingDigest } from "@/lib/controlplane/digest";
 import * as launches from "@/lib/controlplane/db/repos/build-launches";
+import { createEffectLedger } from "@/lib/effects/ledger";
+import { awsBuildEffectInput, confirmBuildFromExactRead, registerExistingLaunch, resolveUnreceiptedLaunch } from "@/lib/effects/build-launch";
 import type { DriverContext } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import { hash6 } from "@/lib/providers/aws/drivers/shared";
@@ -123,33 +125,52 @@ async function launchBuild(ctx: Ctx, node: ResourceNode, input: StartBuildInput,
   ctx.signal.throwIfAborted();
   // The repository's paired canonical broker evaluates after all blocking
   // locks; no caller can supply a boolean, callback or stale dispatch proof.
+  // Provider idempotency is defence in depth. The durable claim and the effect ledger supply the no-replay rule.
+  const token = `zn-${ctx.operationId.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 100)}-${hash6(input.service.address)}`;
+  const ledger = createEffectLedger(authority);
+  const effectInput = awsBuildEffectInput(binding, token, ctx.fence);
   const claim=await claimLaunch(authority,binding,ctx.fence);
   if(!claim.claimed) {
-    if(!claim.launch.build_id) throw new launches.BuildLaunchError();
-    const readback=await readExactBuild(ctx,claim.launch,authority);
-    return { buildId:claim.launch.build_id,status:readback.buildStatus ?? "IN_PROGRESS",requestIds:claim.launch.request_ids ?? [] };
+    // Never start a second build. A launch without a receipt is uncertain until its ledger effect is adopted or resolved.
+    let launch=claim.launch;
+    if(!launch.build_id) launch=await resolveUnreceiptedLaunch(authority,ledger,launch,effectInput);
+    else await registerExistingLaunch(ledger,launch,effectInput);
+    const readback=await readExactBuild(ctx,launch,authority);
+    return { buildId:launch.build_id!,status:readback.buildStatus ?? "IN_PROGRESS",requestIds:launch.request_ids ?? [] };
   }
 
   const cb = ctx.session.client(SingleAttemptCodeBuildClient);
-  // Provider idempotency is defence in depth. The durable claim supplies the no-replay rule.
-  const token = `zn-${ctx.operationId.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 100)}-${hash6(input.service.address)}`;
+  let dispatched;
   try {
-    ctx.signal.throwIfAborted();
-    const res = await cb.send(
-    new StartBuildCommand({
-      projectName: project.name,
-      sourceLocationOverride: `${bucket}/${key}`,
-      environmentVariablesOverride: [{ name: "ZENITH_SOURCE_DIGEST", value: digest, type: "PLAINTEXT" }],
-      idempotencyToken: token,
-      autoRetryLimitOverride: 0,
-    }),
-    { abortSignal: ctx.signal }
-  );
-    const build = res.build;
-    if (!build?.id || build.projectName!==project.name || build.arn!==`arn:aws:codebuild:${ctx.region}:${ctx.session.accountId}:build/${build.id}` || !res.$metadata?.requestId) throw new launches.BuildLaunchError();
-    await launches.acknowledge(authority,claim.launch,build.id,[res.$metadata.requestId]);
+    dispatched = await ledger.dispatchOnce(effectInput, async () => {
+      ctx.signal.throwIfAborted();
+      const res = await cb.send(
+        new StartBuildCommand({
+          projectName: project.name,
+          sourceLocationOverride: `${bucket}/${key}`,
+          environmentVariablesOverride: [{ name: "ZENITH_SOURCE_DIGEST", value: digest, type: "PLAINTEXT" }],
+          idempotencyToken: token,
+          autoRetryLimitOverride: 0,
+        }),
+        { abortSignal: ctx.signal }
+      );
+      const build = res.build;
+      if (!build?.id || build.projectName!==project.name || build.arn!==`arn:aws:codebuild:${ctx.region}:${ctx.session.accountId}:build/${build.id}` || !res.$metadata?.requestId) throw new launches.BuildLaunchError();
+      return { value: { build, requestId: res.$metadata.requestId },
+        receipt: { resourceId: build.id, requestIds: [res.$metadata.requestId], identity: { accountId: ctx.session.accountId, region: ctx.region, project: project.name! } } };
+    });
+  } catch { throw new launches.BuildLaunchError(); }
+  try {
+    if (dispatched.kind === "deduplicated") {
+      const receipt = dispatched.effect.providerReceipt;
+      if (!receipt?.resourceId || !receipt.requestIds.length) throw new launches.BuildLaunchError();
+      await launches.acknowledge(authority,claim.launch,receipt.resourceId,receipt.requestIds);
+      return { buildId: receipt.resourceId, status: "IN_PROGRESS", requestIds: receipt.requestIds };
+    }
+    const { build, requestId } = dispatched.value;
+    await launches.acknowledge(authority,claim.launch,build.id!,[requestId]);
     ctx.log(`build started for ${node.address}: ${build.id}`);
-    return { buildId: build.id, status: build.buildStatus ?? "IN_PROGRESS", ...(build.buildNumber !== undefined ? { buildNumber: build.buildNumber } : {}), requestIds: [res.$metadata.requestId] };
+    return { buildId: build.id!, status: build.buildStatus ?? "IN_PROGRESS", ...(build.buildNumber !== undefined ? { buildNumber: build.buildNumber } : {}), requestIds: [requestId] };
   } catch { throw new launches.BuildLaunchError(); }
 }
 
@@ -164,7 +185,7 @@ function settingsDigest(project: Project): string {
  * API_Project). Source location and the one digest variable are checked against
  * the launch binding separately. No other environment/source setting is omitted.
  */
-function executedSettingsDigest(value: Project | Build): string {
+export function executedSettingsDigest(value: Project | Build): string {
   const environment=value.environment, variables=environment?.environmentVariables;
   if(!value.source || !environment || !environment.type || !environment.image || !environment.computeType
     || !Array.isArray(variables) || !value.serviceRole || value.timeoutInMinutes===undefined
@@ -218,6 +239,8 @@ async function readExactBuild(ctx: Ctx, launch: launches.BuildLaunch, db: Sql): 
   if(launch.phase==="terminal" && (build.buildStatus!==launch.terminal_status || build.buildComplete!==true
     || !build.endTime || build.endTime.getTime()!==Date.parse(launch.provider_finished_at ?? ""))) throw new launches.BuildLaunchError();
   if(build.buildStatus!=="IN_PROGRESS" && build.buildComplete!==true) throw new launches.BuildLaunchError();
+  // The exact, independent read is the ledger's confirmation of the accepted launch.
+  await confirmBuildFromExactRead(createEffectLedger(db),launch,{id:launch.build_id,status:build.buildStatus ?? "IN_PROGRESS"},response.$metadata?.requestId);
   if(build.buildComplete===true) {
     if(!build.endTime || !["SUCCEEDED","FAILED","FAULT","TIMED_OUT","STOPPED"].includes(build.buildStatus ?? "") || !response.$metadata?.requestId) throw new launches.BuildLaunchError();
     await launches.observeTerminal(db,launch,{status:build.buildStatus as launches.BuildTerminalStatus,finishedAt:build.endTime,requestId:response.$metadata.requestId});

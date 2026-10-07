@@ -22,6 +22,7 @@ import {
 } from "@/lib/execution/mixed-partitions";
 import type { ResourceGraph } from "@/lib/resources/types";
 import { deriveAddresses, stableAddress } from "./addresses";
+import { assessConnectivity, connectivityDigest, describeProblems, type ConnectivityDeclaration } from "./connectivity";
 import { assignPartitions, type ChildEnvironmentCandidate, type PartitionPin } from "./partitioner";
 import {
   MIXED_CHILD_SEMANTICS_FORMAT, MIXED_CHILD_SET_FORMAT, MIXED_PARENT_INPUT_KEY, MIXED_PARENT_PLAN_FORMAT, MixedPlanError,
@@ -43,6 +44,8 @@ export interface BuildParentPlanInput {
   candidates: readonly ChildEnvironmentCandidate[];
   pins?: readonly PartitionPin[];
   references?: readonly DeclaredReference[];
+  /** PROD-MIX-05: declared protected connectivity; assessed here, refused on any problem, bound into the plan id and approval. */
+  connectivity?: ConnectivityDeclaration;
 }
 
 /** The digest the parent approval pins for one child. */
@@ -60,8 +63,16 @@ export function childSetDigest(children: readonly Pick<ChildSubplan, "partitionI
   });
 }
 
-export function parentPlanIdFor(workspaceId: string, parentEnvironmentId: string, parentDigest: string): string {
-  return `mpp_${digest({ workspaceId, parentEnvironmentId, parentDigest }).slice(0, 32)}`;
+export function parentPlanIdFor(workspaceId: string, parentEnvironmentId: string, parentDigest: string, connectivityDigestValue?: string): string {
+  // Without a declaration the id is exactly what it was before MIX-05 (undefined members are dropped by `digest`).
+  return `mpp_${digest({ workspaceId, parentEnvironmentId, parentDigest, ...(connectivityDigestValue ? { connectivityDigest: connectivityDigestValue } : {}) }).slice(0, 32)}`;
+}
+
+/** Assess a declaration against children and references, refusing the plan with the first problems named. */
+function checkConnectivity(plan: Pick<MixedParentPlan, "children" | "references">, declaration: ConnectivityDeclaration): string {
+  const assessment = assessConnectivity(plan, declaration);
+  if (!assessment.ok) throw new MixedPlanError("plan_refused", `Cross-cloud connectivity is not acceptable: ${describeProblems(assessment.problems)}`, { code: assessment.problems[0]!.code, problems: assessment.problems.length });
+  return assessment.digest;
 }
 
 function toChild(partition: PlannedPartition, ordinal: number, childEnvironmentId: string): ChildSubplan {
@@ -117,12 +128,14 @@ export function buildParentPlan(input: BuildParentPlanInput): MixedParentPlan {
     };
   });
   const set = childSetDigest(children, plan.executionOrder);
+  const connectivity = input.connectivity ? { declaration: input.connectivity, digest: checkConnectivity({ children, references: refs }, input.connectivity) } : undefined;
   return {
     format: MIXED_PARENT_PLAN_FORMAT,
-    parentPlanId: parentPlanIdFor(workspaceId, input.parentEnvironmentId, plan.parentDigest),
+    parentPlanId: parentPlanIdFor(workspaceId, input.parentEnvironmentId, plan.parentDigest, connectivity?.digest),
     workspaceId, projectId: input.projectId, parentEnvironmentId: input.parentEnvironmentId,
     manifestDigest: plan.manifestDigest, graphDigest: plan.graphDigest, desiredDigest: plan.desiredDigest, parentDigest: plan.parentDigest, childSetDigest: set,
     children, references: refs, executionOrder: plan.executionOrder, teardownOrder: plan.teardownOrder, addresses: deriveAddresses(children),
+    ...(connectivity ? { connectivity } : {}),
   };
 }
 
@@ -145,12 +158,18 @@ export function assertParentPlanIntegrity(plan: MixedParentPlan): void {
   if (plan.teardownOrder.join("|") !== [...plan.executionOrder].reverse().join("|")) throw new MixedPlanError("plan_refused", "The teardown order is not the reverse of the execution order.");
   const fresh = deriveAddresses(ordered);
   if (fresh.length !== plan.addresses.length) throw new MixedPlanError("address_drift", "The parent plan's address registry does not match its children.");
+  if (plan.connectivity) {
+    if (connectivityDigest(plan.connectivity.declaration) !== plan.connectivity.digest) throw new MixedPlanError("plan_refused", "The stored connectivity declaration does not match its digest.");
+    checkConnectivity(plan, plan.connectivity.declaration);
+    if (plan.parentPlanId !== parentPlanIdFor(plan.workspaceId, plan.parentEnvironmentId, plan.parentDigest, plan.connectivity.digest)) throw new MixedPlanError("plan_refused", "The plan id does not bind the connectivity declaration.");
+  }
 }
 
 /** The immutable input the parent operation carries. A human approves exactly this value. */
 export function parentProposalInput(plan: MixedParentPlan): MixedParentProposalInput {
   return {
     [MIXED_PARENT_INPUT_KEY]: plan.parentPlanId, parentDigest: plan.parentDigest, childSetDigest: plan.childSetDigest,
+    ...(plan.connectivity ? { connectivityDigest: plan.connectivity.digest } : {}),
     children: [...plan.children].sort((a, b) => a.ordinal - b.ordinal).map((child) => ({
       partitionId: child.partitionId, ordinal: child.ordinal, childEnvironmentId: child.childEnvironmentId, subplanDigest: child.subplanDigest,
       semanticsDigest: child.semanticsDigest, connectionIdentityDigest: child.authority.connectionIdentityDigest, backendDigest: child.authority.backendDigest,

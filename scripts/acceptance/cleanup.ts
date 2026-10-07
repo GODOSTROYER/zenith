@@ -417,6 +417,8 @@ async function deleteDnsRecord(access: AwsAccess, runId: string, rec: NonNullabl
 // started with, not at how the module system loaded this file.
 if (process.argv[1] && /(?:^|[/\\])cleanup\.(?:ts|mts|js|mjs|cjs)$/.test(process.argv[1])) {
   void import("./cleanup-cli").then(async ({ runCleanupCli }) => {
-    process.exitCode = await runCleanupCli(process.argv.slice(2));
+    // PROD-REL-04: the program entry loads the approved scope manifest and requires the aws-cleanup grant before any cloud call.
+    const { requireScope } = await import("../release/scope");
+    process.exitCode = await runCleanupCli(process.argv.slice(2), process.env, undefined, (action) => { requireScope("aws-cleanup", "aws", process.env).assertGrant("aws-cleanup", "aws", action); });
   });
 }

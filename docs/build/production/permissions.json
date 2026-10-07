@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "budgets": {
+    "currency": "USD",
+    "perRunUsd": 30,
+    "perProviderPerRunUsd": {
+      "aws": 10,
+      "gcp": 10,
+      "azure": 15,
+      "oci": 0,
+      "kubernetes": 5,
+      "control_plane": 0,
+      "public": 0
+    },
+    "totalUsd": 100,
+    "maxRunTtlMinutes": 240
+  },
+  "disposable": {
+    "runIdPattern": "^zlive-\\d{12}-[a-z0-9]{4}$",
+    "namePrefix": "zenith-",
+    "requiredTag": "zenith:live-run",
+    "ttlTag": "zenith:ttl-expires"
+  },
+  "harnesses": {
+    "aws-live": {
+      "description": "AWS sandbox scenarios A-J (scripts/acceptance/aws-live.ts)",
+      "providers": ["aws", "control_plane"],
+      "actions": ["read", "create_disposable", "mutate_run_tagged", "teardown_run_tagged"],
+      "maxRunUsd": 30
+    },
+    "aws-cleanup": {
+      "description": "Run-tagged AWS cleanup (scripts/acceptance/cleanup-cli.ts)",
+      "providers": ["aws"],
+      "actions": ["read", "teardown_run_tagged"],
+      "maxRunUsd": 0
+    },
+    "aws-iam-live": {
+      "description": "Read-only IAM permission simulation against the sandbox account (scripts/acceptance/aws-iam-permissions-cli.ts)",
+      "providers": ["aws"],
+      "actions": ["read"],
+      "maxRunUsd": 0
+    },
+    "azure-live": {
+      "description": "Azure live acceptance (scripts/acceptance/azure-live.ts)",
+      "providers": ["azure"],
+      "actions": ["read", "create_disposable", "teardown_run_tagged"],
+      "maxRunUsd": 5
+    },
+    "non-aws-dns-live": {
+      "description": "GCP, Azure and OCI DNS teardown review acceptance",
+      "providers": ["gcp", "azure", "oci", "control_plane"],
+      "actions": ["read", "teardown_run_tagged"],
+      "maxRunUsd": 0
+    },
+    "billing-live": {
+      "description": "Read-only actual-spend reads",
+      "providers": ["aws", "gcp", "azure", "oci"],
+      "actions": ["read"],
+      "maxRunUsd": 0
+    },
+    "mixed-evidence-live": {
+      "description": "Read-only verification of a stored mixed plan (tests/live/mixed-cloud.live.test.ts)",
+      "providers": ["control_plane"],
+      "actions": ["read"],
+      "maxRunUsd": 0
+    },
+    "mixed-traffic-live": {
+      "description": "Reference mixed app on GCP compute, Azure PostgreSQL and AWS functions with traffic and independent readback",
+      "providers": ["aws", "gcp", "azure", "control_plane"],
+      "actions": ["read", "create_disposable", "mutate_run_tagged", "teardown_run_tagged"],
+      "maxRunUsd": 30
+    },
+    "mixed-recovery-live": {
+      "description": "One-provider failure injection and recovery on the reference mixed app",
+      "providers": ["aws", "gcp", "azure", "control_plane"],
+      "actions": ["read", "mutate_run_tagged", "teardown_run_tagged", "inject_fault"],
+      "maxRunUsd": 5
+    },
+    "mixed-connectivity-live": {
+      "description": "Read-only probes of protected endpoints (mTLS, allowlist, DNS, TLS binding) of a deployed mixed run",
+      "providers": ["aws", "gcp", "azure", "control_plane"],
+      "actions": ["read"],
+      "maxRunUsd": 0
+    },
+    "release-acceptance": {
+      "description": "End-to-end release acceptance orchestrator (scripts/release/acceptance-orchestrator.ts)",
+      "providers": ["control_plane"],
+      "actions": ["read"],
+      "maxRunUsd": 0
+    }
+  },
+  "forbiddenActions": [
+    "purchase",
+    "accept_terms",
+    "create_account",
+    "production_resource",
+    "unrelated_service",
+    "secret_bypass",
+    "protected_branch_write",
+    "history_rewrite",
+    "delete_untagged",
+    "modify_billing",
+    "modify_iam_outside_run",
+    "disable_security_control"
+  ],
+  "exemptions": [
+    {
+      "file": "src/lib/cost/catalog-fetch.ts",
+      "reason": "Downloads public provider price files only (no account, no credentials, no spend); gated by ZENITH_LIVE_CATALOG_REFRESH=1 and recorded with checksums."
+    },
+    {
+      "file": "scripts/cost/refresh-catalog.ts",
+      "reason": "Command-line wrapper of the same public price-file download; no account, no credentials, no spend."
+    },
+    {
+      "file": "src/lib/cost/spend-service.ts",
+      "reason": "Product route service for the operator-enabled actual-spend reads; it only names the opt-in variables in its refusal message."
+    },
+    {
+      "file": "src/lib/cost/billing",
+      "reason": "Product feature (operator-enabled, read-only actual-spend reads inside the control plane), not an acceptance harness; its live acceptance test is scoped as billing-live."
+    }
+  ],
+  "approval": {
+    "status": "not_approved",
+    "approvedBy": null,
+    "approvedAt": null,
+    "expiresAt": null,
+    "approvedDigest": null
+  }
+}

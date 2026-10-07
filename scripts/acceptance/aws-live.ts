@@ -21,6 +21,7 @@ import { createMcpClient } from "./clients/mcp";
 import type { ScenarioContext, ScenarioDefinition, ScenarioId } from "./types";
 import { settleRunOperations, trackControlPlane } from "./lifecycle";
 import { redactAcceptance } from "./redact";
+import { ScopeError, requireScope } from "../release/scope";
 
 export const LIVE_USAGE = `Usage: npx tsx scripts/acceptance/aws-live.ts --scenario A[,B,...] [options]
   --dry-run                 Print actions/prerequisites; no cloud calls
@@ -102,6 +103,12 @@ export async function runLiveCli(argv: readonly string[], env: EnvLike = process
     }
     const local = defs.every((d) => d.runsLocally);
     const aws = defs.some((d) => d.needs.cloud === "aws");
+    // PROD-REL-04: a live run loads the approved scope manifest and is granted BEFORE its first cloud call; its budget is clamped to the approved per-run budget.
+    if (!local) {
+      const scope = requireScope("aws-live", aws ? "aws" : "control_plane", env);
+      scope.assertGrant("aws-live", aws ? "aws" : "control_plane", mutating ? "create_disposable" : "read");
+      config.maxMonthlyUsd = Math.min(config.maxMonthlyUsd, scope.manifest.budgets.perRunUsd);
+    }
     // Mixed non-AWS endpoints need different clients and teardown contracts.
     if (defs.some((d) => d.id === "I") && defs.some((d) => d.needs.controlPlane && d.id !== "I")) throw new UsageError("Run I separately: its managed API origin differs from the other scenarios.");
     let session: LiveSession | undefined;
@@ -140,7 +147,7 @@ export async function runLiveCli(argv: readonly string[], env: EnvLike = process
     return await executeScenarios(ctx, evidence.hasCheck("harness", "setup") ? [] : defs, env, sweep, io);
   } catch (err) {
     io.err(redactAcceptance(`${err instanceof Error ? err.name : "Error"}: ${err instanceof Error ? err.message : "unexpected error"}`, [env.ZENITH_LIVE_API_TOKEN ?? "", env.ZENITH_LIVE_MCP_TOKEN ?? ""]));
-    return err instanceof UsageError || err instanceof LiveConfigError || err instanceof LiveSafetyError ? 2 : 1;
+    return err instanceof UsageError || err instanceof LiveConfigError || err instanceof LiveSafetyError || err instanceof ScopeError ? 2 : 1;
   }
 }
 

@@ -1,0 +1,249 @@
+/**
+ * End-to-end release acceptance orchestrator (PROD-REL-01).
+ *
+ *   npx tsx scripts/release/acceptance-orchestrator.ts list
+ *   npx tsx scripts/release/acceptance-orchestrator.ts check                      every mapped file exists; required scenarios present
+ *   npx tsx scripts/release/acceptance-orchestrator.ts run [--only a,b] [--out DIR] [--run-id ID] [--include-live]
+ *
+ * `run` executes the LOCAL lanes of each scenario with vitest (one process per lane, one worker), records what really
+ * happened (passed, failed, how many tests skipped) and writes `acceptance-report.json`. LIVE lanes are never run
+ * unless `--include-live` is given AND the scope manifest is approved by a person AND the harness's own gates are set;
+ * otherwise they are recorded as `deferred` with the reason. A live harness that declines to run (exit code 2) is
+ * `skipped`. Nothing here converts a deferred, skipped or unperformed lane into a pass.
+ *
+ * Scenario status (never plain "passed"):
+ *   failed                      a lane failed
+ *   not_run                     nothing ran
+ *   incomplete                  a local lane skipped tests or ran none
+ *   local_passed                every local lane passed and the scenario has no live lane
+ *   local_passed_live_pending   every local lane passed; the live lane is deferred or skipped
+ *   verified_live               every local lane passed AND every live lane passed
+ *
+ * Resumable: lane results are checkpointed (`checkpoint.json` in the run directory) and a resumed run does not repeat
+ * a lane that finished. The checkpoint never claims unattended work.
+ */
+import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import os from "node:os";
+import path from "node:path";
+import { digest } from "@/lib/controlplane/digest";
+import { RunCheckpoint, fileStore, type CheckpointStore } from "./checkpoint";
+import { REQUIRED_SCENARIO_IDS, SCENARIOS, allLaneFiles, type Lane, type LiveLane, type Scenario } from "./scenarios";
+import { Scope, ScopeError, defaultManifestPath, loadScope } from "./scope";
+
+export type LaneStatus = "passed" | "passed_with_skips" | "no_tests" | "failed" | "not_run" | "deferred" | "skipped" | "passed_live";
+export interface LaneResult { scenarioId: string; laneId: string; kind: Lane["kind"]; status: LaneStatus; detail: string; counts?: { passed: number; failed: number; skipped: number }; command?: string[]; missingGates?: string[] }
+
+export type ScenarioStatus = "failed" | "not_run" | "incomplete" | "local_passed" | "local_passed_live_pending" | "verified_live";
+export interface ScenarioResult { id: string; title: string; requirements: readonly string[]; status: ScenarioStatus; lanes: LaneResult[]; limits: string }
+
+export interface AcceptanceReport {
+  schema: 1;
+  runId: string;
+  generatedAt: string;
+  sourceCommit: string | null;
+  scenarios: ScenarioResult[];
+  summary: Record<ScenarioStatus, number> & { total: number };
+  /** always present: what this report is not */
+  statement: string;
+}
+
+export interface ExecResult { code: number; stdout: string; stderr: string }
+export type Exec = (argv: readonly string[], options: { cwd: string; timeoutMs: number; env?: NodeJS.ProcessEnv }) => Promise<ExecResult>;
+
+export const defaultExec: Exec = (argv, options) => new Promise((resolve) => {
+  const child = spawn(argv[0]!, argv.slice(1), { cwd: options.cwd, env: options.env ?? process.env, stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" && argv[0] === "npx" });
+  let stdout = ""; let stderr = "";
+  const timer = setTimeout(() => child.kill("SIGKILL"), options.timeoutMs);
+  child.stdout.on("data", (c: Buffer) => { stdout = (stdout + c.toString()).slice(-20_000); });
+  child.stderr.on("data", (c: Buffer) => { stderr = (stderr + c.toString()).slice(-20_000); });
+  child.on("close", (code) => { clearTimeout(timer); resolve({ code: code ?? 1, stdout, stderr }); });
+  child.on("error", () => { clearTimeout(timer); resolve({ code: 127, stdout, stderr: `${stderr}\ncould not start ${argv[0]}` }); });
+});
+
+const STATEMENT = "This report records which lanes actually ran. A deferred, skipped or not-run lane is not evidence of anything. A scenario is verified_live only when every lane, including the live harness, passed.";
+
+export function missingFiles(root: string, scenarios: readonly Scenario[] = SCENARIOS, exists: (p: string) => boolean = existsSync): string[] {
+  return allLaneFiles(scenarios).filter((file) => !exists(path.join(root, file)));
+}
+
+export function gateName(gate: string): { name: string; value?: string } | undefined {
+  const m = /^([A-Z][A-Z0-9_]+)(?:=(\S+))?/.exec(gate);
+  return m ? { name: m[1]!, ...(m[2] ? { value: m[2] } : {}) } : undefined;
+}
+
+export function missingGates(lane: LiveLane, env: Readonly<Record<string, string | undefined>>): string[] {
+  const out: string[] = [];
+  for (const gate of lane.gates) {
+    const parsed = gateName(gate);
+    if (!parsed || gate.includes("(")) continue; // annotations such as "(approved)" are checked by the scope manifest
+    const actual = env[parsed.name];
+    if (!actual || (parsed.value !== undefined && actual !== parsed.value)) out.push(gate);
+  }
+  return out;
+}
+
+interface VitestJson { numPassedTests?: number; numFailedTests?: number; numPendingTests?: number; numTodoTests?: number }
+
+export function classifyVitest(code: number, json: VitestJson | undefined): { status: LaneStatus; detail: string; counts?: { passed: number; failed: number; skipped: number } } {
+  if (!json) return { status: code === 0 ? "no_tests" : "failed", detail: code === 0 ? "vitest produced no readable result" : `vitest exited ${code} without a readable result` };
+  const counts = { passed: json.numPassedTests ?? 0, failed: json.numFailedTests ?? 0, skipped: (json.numPendingTests ?? 0) + (json.numTodoTests ?? 0) };
+  if (code !== 0 || counts.failed > 0) return { status: "failed", detail: `${counts.failed} failed, ${counts.passed} passed, ${counts.skipped} skipped (exit ${code})`, counts };
+  if (counts.passed === 0) return { status: "no_tests", detail: `no test ran (${counts.skipped} skipped)`, counts };
+  if (counts.skipped > 0) return { status: "passed_with_skips", detail: `${counts.passed} passed, ${counts.skipped} SKIPPED (a skip is not a pass)`, counts };
+  return { status: "passed", detail: `${counts.passed} passed`, counts };
+}
+
+export function scenarioStatus(scenario: Pick<Scenario, "lanes">, lanes: readonly LaneResult[]): ScenarioStatus {
+  if (lanes.some((l) => l.status === "failed")) return "failed";
+  const local = lanes.filter((l) => l.kind !== "live_sandbox");
+  const live = lanes.filter((l) => l.kind === "live_sandbox");
+  if (lanes.every((l) => l.status === "not_run")) return "not_run";
+  if (local.length === 0 || local.some((l) => l.status !== "passed")) return "incomplete";
+  if (live.length === 0) return scenario.lanes.some((l) => l.kind === "live_sandbox") ? "incomplete" : "local_passed";
+  return live.every((l) => l.status === "passed_live") ? "verified_live" : "local_passed_live_pending";
+}
+
+export interface RunOptions {
+  root: string;
+  outDir: string;
+  runId: string;
+  only?: readonly string[];
+  includeLive: boolean;
+  timeoutMs?: number;
+  scenarios?: readonly Scenario[];
+}
+export interface RunDeps {
+  exec?: Exec;
+  env?: Readonly<Record<string, string | undefined>>;
+  now?: () => Date;
+  store?: CheckpointStore;
+  readFile?: (file: string) => string;
+  scope?: Scope | ScopeError;
+}
+
+export async function runAcceptance(options: RunOptions, deps: RunDeps = {}): Promise<AcceptanceReport> {
+  const exec = deps.exec ?? defaultExec;
+  const env = deps.env ?? process.env;
+  const now = deps.now ?? (() => new Date());
+  const readFile = deps.readFile ?? ((file: string) => readFileSync(file, "utf8"));
+  const scenarios = (options.scenarios ?? SCENARIOS).filter((s) => !options.only || options.only.includes(s.id));
+  if (options.only) {
+    const unknown = options.only.filter((id) => !(options.scenarios ?? SCENARIOS).some((s) => s.id === id));
+    if (unknown.length) throw new Error(`Unknown scenario ${unknown.join(", ").slice(0, 80)}.`);
+  }
+  if (!/^[A-Za-z0-9_-]{1,60}$/.test(options.runId)) throw new Error("The run id must be 1 to 60 letters, digits, dashes or underscores.");
+  const runDir = path.join(options.outDir, options.runId);
+  mkdirSync(path.join(runDir, "lanes"), { recursive: true });
+  let scope: Scope | undefined;
+  let scopeRefusal = "";
+  if (options.includeLive) {
+    try { scope = deps.scope instanceof Scope ? deps.scope : deps.scope instanceof ScopeError ? (() => { throw deps.scope; })() : loadScope(defaultManifestPath(env), now); scope.assertApproved(); }
+    catch (error) { scope = undefined; scopeRefusal = error instanceof ScopeError ? `${error.code}: ${error.message}` : "the scope manifest could not be loaded"; }
+  }
+  const laneIds = scenarios.flatMap((s) => s.lanes.map((l) => `${s.id}.${l.id}`));
+  const { checkpoint } = RunCheckpoint.open({ store: deps.store ?? fileStore(path.join(runDir, "checkpoint.json")), runId: options.runId, harness: "release-acceptance", scopeDigest: digest(scope?.digest ?? "no-live-scope"), steps: laneIds, now });
+  const cachePath = (id: string): string => path.join(runDir, "lanes", `${id}.json`);
+
+  const results: ScenarioResult[] = [];
+  for (const scenario of scenarios) {
+    const lanes: LaneResult[] = [];
+    for (const lane of scenario.lanes) {
+      const id = `${scenario.id}.${lane.id}`;
+      const prior = checkpoint.state.steps.find((s) => s.id === id);
+      if (prior?.status === "done") {
+        let restored: LaneResult = { scenarioId: scenario.id, laneId: lane.id, kind: lane.kind, status: lane.kind === "live_sandbox" ? "passed_live" : "passed", detail: `${prior.note ?? "passed earlier"} (restored from the checkpoint)` };
+        try { restored = JSON.parse(readFile(cachePath(id))) as LaneResult; } catch { /* keep the checkpoint note */ }
+        lanes.push(restored);
+        continue;
+      }
+      let result: LaneResult;
+      if (lane.kind === "live_sandbox") result = await liveLane(scenario, lane, { options, exec, env, scope, scopeRefusal });
+      else {
+        checkpoint.begin(id);
+        result = await localLane(scenario, lane, { options, exec, env, readFile });
+      }
+      lanes.push(result);
+      if (result.status === "passed" || result.status === "passed_live") {
+        writeFileSync(cachePath(id), JSON.stringify(result));
+        if (lane.kind === "live_sandbox") checkpoint.begin(id);
+        checkpoint.complete(id, result.detail.slice(0, 300), digest(result));
+      } else {
+        // Anything that is not a plain pass is never `done`, so a resume runs it again (or reports it again).
+        if (lane.kind === "live_sandbox") checkpoint.begin(id);
+        checkpoint.fail(id, `${result.status}: ${result.detail}`.slice(0, 300));
+      }
+    }
+    results.push({ id: scenario.id, title: scenario.title, requirements: scenario.requirements, status: scenarioStatus(scenario, lanes), lanes, limits: scenario.limits });
+  }
+  const summary = { total: results.length, failed: 0, not_run: 0, incomplete: 0, local_passed: 0, local_passed_live_pending: 0, verified_live: 0 } as AcceptanceReport["summary"];
+  for (const r of results) summary[r.status] += 1;
+  const commit = await exec(["git", "rev-parse", "HEAD"], { cwd: options.root, timeoutMs: 10_000 }).then((r) => (r.code === 0 ? r.stdout.trim().slice(0, 40) : null)).catch(() => null);
+  checkpoint.setNextCommands([
+    "Re-run the scenarios that did not pass: npx tsx scripts/release/acceptance-orchestrator.ts run --only <ids> --run-id " + options.runId,
+    "Live lanes (a person approves the scope first): npx tsx scripts/release/permissions-cli.ts approve --by <name>, then run with --include-live",
+  ]);
+  const report: AcceptanceReport = { schema: 1, runId: options.runId, generatedAt: now().toISOString(), sourceCommit: commit, scenarios: results, summary, statement: STATEMENT };
+  writeFileSync(path.join(runDir, "acceptance-report.json"), JSON.stringify(report, null, 2));
+  return report;
+}
+
+async function localLane(scenario: Scenario, lane: Extract<Lane, { kind: "contract" | "local_engine" }>, ctx: { options: RunOptions; exec: Exec; env: Readonly<Record<string, string | undefined>>; readFile: (file: string) => string }): Promise<LaneResult> {
+  const out = path.join(os.tmpdir(), `zenith-acceptance-${ctx.options.runId}-${scenario.id}-${lane.id}.json`);
+  const argv = ["node", "node_modules/vitest/vitest.mjs", "run", ...lane.files, "--project=node", "--maxWorkers=1", "--reporter=json", `--outputFile=${out}`];
+  const run = await ctx.exec(argv, { cwd: ctx.options.root, timeoutMs: ctx.options.timeoutMs ?? 30 * 60_000, env: { ...process.env, ...(ctx.env as NodeJS.ProcessEnv) } });
+  let json: VitestJson | undefined;
+  try { json = JSON.parse(ctx.readFile(out)) as VitestJson; } catch { json = undefined; }
+  const verdict = classifyVitest(run.code, json);
+  return { scenarioId: scenario.id, laneId: lane.id, kind: lane.kind, ...verdict, command: argv.slice(0, 5) };
+}
+
+async function liveLane(scenario: Scenario, lane: LiveLane, ctx: { options: RunOptions; exec: Exec; env: Readonly<Record<string, string | undefined>>; scope: Scope | undefined; scopeRefusal: string }): Promise<LaneResult> {
+  const base = { scenarioId: scenario.id, laneId: lane.id, kind: "live_sandbox" as const, command: [...lane.command] };
+  if (!ctx.options.includeLive) return { ...base, status: "deferred", detail: `Deferred: ${lane.deferredBecause}. Not run, not counted.` };
+  if (!ctx.scope) return { ...base, status: "deferred", detail: `Deferred: the scope manifest refuses live work (${ctx.scopeRefusal}).` };
+  try { ctx.scope.authorize({ harness: lane.scopeHarness, provider: "control_plane", action: "read" }); }
+  catch (error) { return { ...base, status: "deferred", detail: `Deferred: the scope grants nothing to ${lane.scopeHarness} (${error instanceof ScopeError ? error.code : "refused"}).` }; }
+  const gates = missingGates(lane, ctx.env);
+  if (gates.length) return { ...base, status: "deferred", detail: `Deferred: ${gates.length} gate(s) not set.`, missingGates: gates };
+  const run = await ctx.exec(lane.command, { cwd: ctx.options.root, timeoutMs: ctx.options.timeoutMs ?? 4 * 60 * 60_000, env: { ...process.env, ...(ctx.env as NodeJS.ProcessEnv) } });
+  if (run.code === 0) return { ...base, status: "passed_live", detail: "The live harness exited 0." };
+  if (lane.skipExitCodes.includes(run.code)) return { ...base, status: "skipped", detail: `The live harness declined to run (exit ${run.code}); a skip is not a pass.` };
+  return { ...base, status: "failed", detail: `The live harness exited ${run.code}.` };
+}
+
+export function renderList(scenarios: readonly Scenario[] = SCENARIOS): string {
+  return scenarios.map((s) => `${s.id}  ${s.title}\n  requirements: ${s.requirements.join(", ")}\n${s.lanes.map((l) => `  - ${l.id} [${l.kind}] ${l.kind === "live_sandbox" ? `live harness ${l.scopeHarness}` : `${l.files.length} file(s)`}`).join("\n")}`).join("\n");
+}
+
+export function checkScenarios(root: string, scenarios: readonly Scenario[] = SCENARIOS, exists: (p: string) => boolean = existsSync): string[] {
+  const problems: string[] = [];
+  for (const id of REQUIRED_SCENARIO_IDS) if (!scenarios.some((s) => s.id === id)) problems.push(`required scenario "${id}" is missing`);
+  for (const file of missingFiles(root, scenarios, exists)) problems.push(`mapped file does not exist: ${file}`);
+  for (const s of scenarios) if (!s.lanes.some((l) => l.kind !== "live_sandbox")) problems.push(`scenario "${s.id}" has no local lane`);
+  return problems;
+}
+
+export async function runOrchestratorCli(argv: readonly string[], io: { out: (s: string) => void; err: (s: string) => void } = { out: (s) => { process.stdout.write(s); }, err: (s) => { process.stderr.write(s); } }, root: string = process.cwd()): Promise<number> {
+  const [command, ...rest] = argv;
+  const value = (flag: string): string | undefined => { const i = rest.indexOf(flag); return i >= 0 ? rest[i + 1] : undefined; };
+  if (command === "list") { io.out(`${renderList()}\n`); return 0; }
+  if (command === "check") {
+    const problems = checkScenarios(root);
+    io.out(problems.length ? `${problems.join("\n")}\n` : `${SCENARIOS.length} scenarios, ${allLaneFiles().length} mapped files, all present.\n`);
+    return problems.length ? 1 : 0;
+  }
+  if (command === "run") {
+    const only = value("--only")?.split(",").map((s) => s.trim()).filter(Boolean);
+    const runId = value("--run-id") ?? `accept-${new Date().toISOString().replace(/[-:T]/g, "").slice(0, 12)}`;
+    try {
+      const report = await runAcceptance({ root, outDir: path.resolve(value("--out") ?? ".data-live/acceptance"), runId, includeLive: rest.includes("--include-live"), ...(only ? { only } : {}) });
+      io.out(`${report.scenarios.map((s) => `${s.status.padEnd(26)} ${s.id}`).join("\n")}\n${JSON.stringify(report.summary)}\n${report.statement}\n`);
+      return report.summary.failed > 0 ? 1 : 0;
+    } catch (error) { io.err(`${error instanceof Error ? error.message : "unexpected error"}\n`); return 2; }
+  }
+  io.err("usage: acceptance-orchestrator <list|check|run [--only a,b] [--out DIR] [--run-id ID] [--include-live]>\n");
+  return 2;
+}
+
+if (process.argv[1] && /(?:^|[/\\])acceptance-orchestrator\.(?:ts|mts|js|mjs)$/.test(process.argv[1])) void runOrchestratorCli(process.argv.slice(2)).then((code) => { process.exitCode = code; });

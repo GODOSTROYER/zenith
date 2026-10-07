@@ -1,0 +1,43 @@
+{
+  "version": 2,
+  "services": [
+    {
+      "id": "web", "name": "web", "kind": "web",
+      "source": { "type": "image", "image": "registry.example.test/zenith-mixed-web:1" },
+      "size": "small", "replicas": 1, "port": 8080, "healthPath": "/health",
+      "env": [
+        { "key": "ENRICHER_URL", "value": "https://enricher.mixed.example.test:8443" },
+        { "key": "DATABASE_URL_FILE", "value": "/run/secrets/database-url" },
+        { "key": "WEB_PROVIDER", "value": "gcp" }
+      ],
+      "ownership": "managed"
+    },
+    {
+      "id": "enricher", "name": "enricher", "kind": "web",
+      "source": { "type": "image", "image": "registry.example.test/zenith-mixed-enricher:1" },
+      "size": "nano", "replicas": 1, "port": 8081, "healthPath": "/health",
+      "env": [{ "key": "ENRICHER_PROVIDER", "value": "aws" }],
+      "ownership": "managed"
+    }
+  ],
+  "resources": [
+    { "id": "db", "name": "db", "kind": "postgres", "config": {}, "size": "small", "ownership": "managed" }
+  ],
+  "routes": [
+    { "id": "route-web", "host": "mixed.example.test", "pathPrefix": "/", "tls": true, "managedDns": false }
+  ],
+  "bindings": [
+    { "id": "route-to-web", "from": "route-web", "to": "web", "capability": "http", "note": "public HTTPS entry to the web tier on GCP" },
+    { "id": "web-to-db", "from": "web", "to": "db", "capability": "sql", "note": "web writes and reads orders in PostgreSQL on Azure over a protected endpoint" },
+    { "id": "web-to-enricher", "from": "web", "to": "enricher", "capability": "http", "note": "web asks the enricher on AWS for price and checksum over a protected endpoint" }
+  ],
+  "placement": { "provider": "gcp", "regions": ["us-central1"], "residency": ["us"] },
+  "constraints": { "budgetUsdMonthly": 60, "latencyTargetMs": 120 },
+  "policies": { "deletion": "approval", "backup": "daily" },
+  "nodePlacement": {
+    "web": { "provider": "gcp", "region": "us-central1" },
+    "enricher": { "provider": "aws", "region": "us-east-1" },
+    "db": { "provider": "azure", "region": "eastus" }
+  },
+  "release": { "migrate": { "service": "web", "command": ["node", "web/migrate.mjs"], "timeoutSec": 120 } }
+}

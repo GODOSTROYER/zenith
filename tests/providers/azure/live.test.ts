@@ -13,6 +13,7 @@ import { gunzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { AzureLiveConfigError, loadAzureLiveConfig, runAzureLive, tarGz } from "../../../scripts/acceptance/azure-live";
 import { CLIENT, SUB, TENANT, fakeArm, fakeAssertion } from "./_helpers";
+import { scopeSkipReason } from "../../../scripts/release/scope";
 
 const CRED = { tenantId: TENANT, clientId: CLIENT, subscriptionId: SUB, region: "westeurope", assertionFile: "/run/secrets/assertion.jwt" };
 const read = (obj: unknown) => () => JSON.stringify(obj);
@@ -93,8 +94,11 @@ describe("Azure live harness logic (fake endpoints; NOT live evidence)", () => {
   });
 });
 
-const live = process.env.ZENITH_LIVE_AZURE === "1" && !!process.env.ZENITH_LIVE_AZURE_CRED_FILE;
-const skipReason = !process.env.ZENITH_LIVE_AZURE ? "ZENITH_LIVE_AZURE=1 not set" : process.env.ZENITH_LIVE_AZURE !== "1" ? "ZENITH_LIVE_AZURE is not exactly 1" : "ZENITH_LIVE_AZURE_CRED_FILE not set";
+const gated = process.env.ZENITH_LIVE_AZURE === "1" && !!process.env.ZENITH_LIVE_AZURE_CRED_FILE;
+// PROD-REL-04: an approved scope manifest that grants azure-live is required before any live call; a refusal is an explicit skip.
+const scopeRefusal = gated ? scopeSkipReason("azure-live", "azure") : "";
+const live = gated && scopeRefusal === "";
+const skipReason = !process.env.ZENITH_LIVE_AZURE ? "ZENITH_LIVE_AZURE=1 not set" : process.env.ZENITH_LIVE_AZURE !== "1" ? "ZENITH_LIVE_AZURE is not exactly 1" : !process.env.ZENITH_LIVE_AZURE_CRED_FILE ? "ZENITH_LIVE_AZURE_CRED_FILE not set" : scopeRefusal;
 
 if (!live) {
   // reported as skipped, with the reason in the name; never counted as passed

@@ -19,6 +19,8 @@
  * never compensates or destroys anything.
  */
 
+import type { ConnectivityDeclaration } from "./connectivity";
+
 export const MIXED_PARENT_PLAN_FORMAT = "zenith.mixed-parent-plan.v1" as const;
 export const MIXED_CHILD_SEMANTICS_FORMAT = "zenith.mixed-child-semantics.v1" as const;
 export const MIXED_CHILD_SET_FORMAT = "zenith.mixed-child-set.v1" as const;
@@ -141,6 +143,12 @@ export interface MixedParentPlan {
   /** Reverse of executionOrder. Teardown ordering is MIX-04's; this is the dependency fact it starts from. */
   teardownOrder: readonly string[];
   addresses: readonly StableAddressEntry[];
+  /**
+   * PROD-MIX-05, additive and optional: the declared protected connectivity between partitions and its digest. When present
+   * it is assessed at planning time and again on every integrity check, its digest is part of the plan id and of the
+   * approved proposal input, so a person approves exactly these endpoints. Absent on plans made without a declaration.
+   */
+  connectivity?: { declaration: ConnectivityDeclaration; digest: string };
 }
 
 /** Marks a parent REVIEW operation: a human approval of a changed parent digest after outputs were materialized (MIX-03 join). Never executable. */
@@ -165,6 +173,8 @@ export interface MixedParentProposalInput {
   mixedParentPlanId: string;
   parentDigest: string;
   childSetDigest: string;
+  /** PROD-MIX-05: present only when the plan carries a connectivity declaration; binds the approval to it. */
+  connectivityDigest?: string;
   children: readonly {
     partitionId: string;
     ordinal: number;

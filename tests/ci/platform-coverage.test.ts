@@ -766,7 +766,7 @@ describe("mandatory native custody, retention and Kubernetes target execution", 
     const declaration = script.match(/^MIGRATIONS=\(\r?\n([\s\S]*?)^\)/m)?.[1];
     expect(declaration).toBeDefined();
     expect([...(declaration ?? "").matchAll(/"([^"\n]+\.sql)"/g)].map(match => match[1])).toEqual(committed);
-    expect(committed.slice(-10)).toEqual(["0015_agent_oauth_grants.sql", "0016_platform_core.sql", "0017_platform_core.sql", "0018_platform_core.sql", "0019_platform_core.sql", "0020_platform_core.sql", "0021_platform_core.sql", "0022_platform_core.sql", "0023_platform_core.sql", "0024_platform_core.sql"]);
+    expect(committed.slice(-10)).toEqual(["0016_platform_core.sql", "0017_platform_core.sql", "0018_platform_core.sql", "0019_platform_core.sql", "0020_platform_core.sql", "0021_platform_core.sql", "0022_platform_core.sql", "0023_platform_core.sql", "0024_platform_core.sql", "0025_platform_core.sql"]);
     expect(fs.readFileSync(path.join(root, "scripts/ci/apply-platform-migrations.sh"), "utf8")).toContain("scripts/platform/migrate.ts");
     expect(script).toContain('"$TSX" "$PLATFORM_VERIFIER"');
   });
@@ -778,8 +778,8 @@ describe("saved builtin settlement mandatory CI admission", () => {
     const manifest = manifestFor("platform-postgres", root);
     const added = currentSuccessorPlatformCohort.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
     expect(manifest.requirements.filter(item => added.some(value => value.id === item.id)).sort((a, b) => a.id.localeCompare(b.id))).toEqual(added.sort((a, b) => a.id.localeCompare(b.id)));
-    expect(manifest.requirements).toHaveLength(1140);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1140);
+    expect(manifest.requirements).toHaveLength(1141);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1141);
     expect(withoutIncomingPlatform(manifest.requirements).map(item => item.id).sort()).toEqual([...priorCurrentSuccessorPlatformRequirements(), ...added, ...INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }))].map(item => item.id).sort());
     for (const item of added) {
       expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);

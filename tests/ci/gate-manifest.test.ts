@@ -2496,7 +2496,7 @@ describe("current platform discovery successors [report models]", () => {
       fs.unlinkSync(path.join(sourceRoot, item.file));
       const after = requirementsFor("platform-postgres", sourceRoot);
       expect(after.some(value => value.id === id)).toBe(false);
-      expect(after).toHaveLength(1139);
+      expect(after).toHaveLength(1140);
       expect(priorCurrentSuccessorPlatformRequirements(sourceRoot)).toEqual(priorCurrentSuccessorPlatformRequirements());
       // Discovery itself cannot retain a deleted suite. Current source-presence
       // assertions above fail if it disappears; literal admission is a follow-up.
@@ -2516,7 +2516,7 @@ describe("registered incident and ownership hardening [report models]", () => {
     const current = requirementsFor("platform-postgres", root), previous = priorHardeningPlatformRequirements();
     const added = INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
     expect(previous).toHaveLength(1119); expect(new Set(previous.map(item => item.id)).size).toBe(1119);
-    expect(current).toHaveLength(1140); expect(new Set(current.map(item => item.id)).size).toBe(1140);
+    expect(current).toHaveLength(1141); expect(new Set(current.map(item => item.id)).size).toBe(1141);
     expect(current.filter(item => hardeningPlatformIds.includes(item.id))).toEqual(added);
     expect(withoutIncomingPlatform(current).map(item => item.id).sort()).toEqual([...previous, ...added].map(item => item.id).sort());
     expect(priorCurrentSuccessorPlatformRequirements()).toHaveLength(1113);
@@ -2825,7 +2825,7 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     expect(manifest.excludeFiles).not.toContain(file);
     expect(manifest.command).not.toContain("--passWithNoTests");
     expect(reportFailures(named(), contractReport(named()), root)).toEqual([]);
-    expect(requirementsFor("platform-postgres", root)).toHaveLength(1140);
+    expect(requirementsFor("platform-postgres", root)).toHaveLength(1141);
     expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
     expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
     expect(requirementsFor("postgres", root)).toHaveLength(93);
@@ -3010,9 +3010,9 @@ describe("mandatory live agent journal PostgreSQL cases [report models]", () => 
 describe("incoming platform and workflow obligations", () => {
   it("requires every fixed additive native identity without losing historical obligations", () => {
     const current = requirementsFor("platform-postgres", root);
-    expect(current).toHaveLength(1140);
+    expect(current).toHaveLength(1141);
     const added = current.filter(item => incomingPlatformIds.has(item.id));
-    expect(added).toHaveLength(16);
+    expect(added).toHaveLength(17);
     expect(new Set(added.map(item => item.id))).toEqual(incomingPlatformIds);
     expect(withoutIncomingPlatform(current)).toHaveLength(1124);
     expect(withoutIncomingPlatform([...current, { ...current[0], id: "unknown-successor" }]).some(item => item.id === "unknown-successor")).toBe(true);

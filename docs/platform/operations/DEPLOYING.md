@@ -668,7 +668,7 @@ current aggregate emitter output, including additive cleanup writer barrier migr
 function, then verifies every row, the count and highest version. A new migration
 requires a regenerated inventory; changing a literal count alone does not pass.
 
-Registered migrations: **42**; highest version: **42**.
+Registered migrations: **43**; highest version: **43**.
 
 <!-- platform-migrations:start -->
 | Version | Name | SQL SHA-256 |
@@ -715,6 +715,7 @@ Registered migrations: **42**; highest version: **42**.
 | 40 | `mixed_parent_plans` | `53231efa3ea0a8275287b0672a1b76845ac1a3196bb2df6678843c61fe5bbd40` |
 | 41 | `mixed_runs` | `adf77c2f92db4d7c74a58b4a056482a66866f12e43909eaf34f9c008a884cff8` |
 | 42 | `external_effect_key_bounds` | `3dcc8f12119594941f82dd749f5471fb2578f1d5c37ec09083491aa6dc91f4b2` |
+| 43 | `mcp_stream_events_tenant_index` | `903751ca1e2e2fff64979f699e6c44c6c98502f90374b788686e77ee080249cd` |
 <!-- platform-migrations:end -->
 
 For the actual target, `npm run migrate:platform -- --status` calls the canonical
@@ -1063,3 +1064,12 @@ is an operator migration path; it must likewise be applied only after draining
 writers. Never set this flag permanently on server or worker startup. Constraint
 replacement is atomic and validates existing rows; invalid stored data stops the
 upgrade without deleting receipts. Resume writers after schema verification.
+
+### Additive MCP replay index, schema43
+
+The current cumulative snapshot is `0025_platform_core.sql`. Migration43 adds a
+nonunique `(workspace_id, stream_id, seq)` index to tenant-scoped MCP replay events.
+Published migrations and prior snapshots remain immutable. Upgrade42→43 is
+expand-only and does not require a contract exception; upgrading through42 still
+requires its explicit drained-writer admission. Ordinary index creation may block
+writes while building: no zero-downtime or live migration claim follows local tests.

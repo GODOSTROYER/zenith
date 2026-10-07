@@ -206,7 +206,7 @@ describe.each(lanes)("migrator [$name]", (lane) => {
         await expect(migratePlatformDb(db)).rejects.toThrow("previous release is drained");
         expect(await db.query("select * from platform.schema_migrations order by version")).toEqual(history);
         process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = "42";
-        expect((await migratePlatformDb(db)).applied).toEqual([42]);
+        expect((await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version <= 42))).applied).toEqual([42]);
         expect(await db.query("select * from platform.schema_migrations where version < 42 order by version")).toEqual(history);
         expect(await authority()).toEqual(before);
         for (const length of [1,255,256]) await insert("k".repeat(length),"t".repeat(length));

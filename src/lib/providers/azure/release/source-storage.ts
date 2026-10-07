@@ -12,6 +12,7 @@ import { sha256Hex } from "@/lib/controlplane/digest";
 import { StepFailedError } from "@/lib/execution/errors";
 import { armClient, type ArmResource } from "@/lib/providers/azure/arm";
 import { sourceStorageHost } from "../credentials";
+import { awaitDataPlaneAccess, DataPlanePropagationTimeoutError } from "../data-plane-rbac";
 import { API } from "@/lib/providers/azure/platform";
 import { assertResource, context, rec, validId } from "./support";
 
@@ -29,6 +30,13 @@ export interface AzureSourceStorageOptions {
   resolveStorage?: AzureSourceStorageResolver;
   maxBytes?: number;
   timeoutMs?: number;
+  /**
+   * Retry an RBAC denial (403 AuthorizationPermissionMismatch) of the source container for up to this long, because a
+   * data role assigned moments ago may not have propagated. 0 or omitted = fail at once. Firewall denials never retry.
+   */
+  propagationMs?: number;
+  /** first backoff delay between propagation retries (default 2000 ms; tests shorten it) */
+  propagationDelayMs?: number;
 }
 interface Location { bucket: string; origin: string; container: string }
 interface Bundle { archive: Uint8Array; sha256: string; bytes: number }
@@ -81,7 +89,7 @@ export function createAzureSourceStorage(options: AzureSourceStorageOptions = {}
     try { assertResource(ctx, { address: binding.resourceAddress } as Parameters<typeof assertResource>[1], account, "Microsoft.Storage/storageAccounts"); }
     catch { refuse("Azure source storage account is outside this workspace/environment/subscription."); }
     let host: string;
-    try { host = sourceStorageHost(binding, ctx.session.subscriptionId); }
+    try { host = sourceStorageHost(binding, ctx.session.subscriptionId, ctx.session.cloud); }
     catch { refuse("Azure source storage binding is outside this subscription or malformed."); }
     const origin = `https://${host}`;
     const properties = rec(account.properties);
@@ -91,7 +99,25 @@ export function createAzureSourceStorage(options: AzureSourceStorageOptions = {}
     if (typeof container.id !== "string" || container.id.toLowerCase() !== containerId.toLowerCase() || container.name !== binding.container || container.type?.toLowerCase() !== "microsoft.storage/storageaccounts/blobservices/containers" || ![undefined, "None"].includes(rec(container.properties).publicAccess as string | undefined)) refuse("Azure source container identity or private access could not be verified.");
     return { bucket: `${accountName}/${binding.container}`, origin, container: binding.container };
   };
-  const request = async (ctx: DriverContext<AzureSession>, url: string, init: RequestInit = {}) => {
+  const propagationMs = options.propagationMs ?? 0;
+  if (!Number.isSafeInteger(propagationMs) || propagationMs < 0 || propagationMs > 600_000) refuse("Azure source storage propagation bound is invalid.");
+  class BlobRbacDenied extends Error {}
+  const request = async (ctx: DriverContext<AzureSession>, url: string, init: RequestInit = {}): Promise<Response> => {
+    if (propagationMs === 0) return requestOnce(ctx, url, init);
+    try {
+      const waited = await awaitDataPlaneAccess(async () => {
+        const res = await requestOnce(ctx, url, init);
+        const code = res.headers.get("x-ms-error-code");
+        if (res.status === 403 && (code === null || code === "AuthorizationPermissionMismatch")) { cancel(res); throw new BlobRbacDenied(); }
+        return res;
+      }, (error) => error instanceof BlobRbacDenied, { timeoutMs: propagationMs, signal: ctx.signal, initialDelayMs: options.propagationDelayMs });
+      return waited.result;
+    } catch (error) {
+      if (error instanceof BlobRbacDenied || error instanceof DataPlanePropagationTimeoutError) refuse("Azure source container denied the deploy identity; assign Storage Blob Data Contributor on the source container (data plane) and allow time for role propagation.");
+      throw error;
+    }
+  };
+  const requestOnce = async (ctx: DriverContext<AzureSession>, url: string, init: RequestInit = {}) => {
     check(ctx.signal);
     const pending = ctx.session.authorizedFetch(url, { ...init, headers: { "x-ms-version": STORAGE_VERSION, "x-ms-date": ctx.now().toUTCString(), ...init.headers }, redirect: "error", signal: ctx.signal });
     void pending.then((res) => { if (ctx.signal.aborted) cancel(res); }, () => undefined);

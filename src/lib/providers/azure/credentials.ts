@@ -40,28 +40,27 @@
  * is an error, not a hop that carries the token).
  *
  * Honest limits: exercised against a fake Entra endpoint and a fake ARM
- * server only. Not run against a real tenant. Sovereign clouds (China, US
- * Gov) are not supported: the authority and resource hosts are the public
- * cloud's.
+ * server only. Not run against a real tenant. The authority, ARM host, token
+ * scopes, federation audience and DNS suffixes come from the connection's
+ * `AzureCloud` (cloud.ts). USGov and China are contract-level only: their
+ * values are from Microsoft's published endpoint tables and have never been
+ * run live. The host allowlist above names the public cloud's hosts; other
+ * clouds use the matching hosts from cloud.ts.
  */
 import type { AzureConnectionConfig, AzureSession, CredentialPurpose } from "@/lib/credentials/types";
 import { CredentialDeniedError } from "@/lib/credentials/types";
+import { PUBLIC_AZURE_CLOUD, UnknownAzureCloudError, audienceForCloudHost, azureCloud, type AzureCloud, type AzureCloudName, type AzureTokenAudience } from "@/lib/providers/azure/cloud";
 
 /* -------------------------------- constants -------------------------------- */
 
+/** Public-cloud values, kept as exports; every code path derives the real ones from the connection's `AzureCloud`. */
 export const FEDERATION_AUDIENCE = "api://AzureADTokenExchange" as const;
 export const CLIENT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
-export const AUTHORITY_HOST = "https://login.microsoftonline.com";
+export const AUTHORITY_HOST = PUBLIC_AZURE_CLOUD.authorityHost;
 
-export type TokenAudience = "arm" | "keyvault" | "loganalytics" | "monitor" | "storage";
+export type TokenAudience = AzureTokenAudience;
 
-export const TOKEN_SCOPES: Readonly<Record<TokenAudience, string>> = {
-  arm: "https://management.azure.com/.default",
-  storage: "https://storage.azure.com/.default",
-  keyvault: "https://vault.azure.net/.default",
-  loganalytics: "https://api.loganalytics.io/.default",
-  monitor: "https://monitor.azure.com/.default",
-};
+export const TOKEN_SCOPES: Readonly<Record<TokenAudience, string>> = PUBLIC_AZURE_CLOUD.tokenScopes;
 
 const DEFAULT_SESSION_SEC = 900;
 const MAX_SESSION_SEC = 3600;
@@ -108,37 +107,26 @@ export class AzureRequestRefusedError extends CredentialDeniedError {
 /* --------------------------------- host policy ------------------------------ */
 
 /** Which token audience a URL's host is entitled to, or `undefined` when the host is not allowed. */
-export function audienceForHost(hostname: string, trustedSourceHost?: string): TokenAudience | undefined {
-  const h = hostname.toLowerCase();
-  if (trustedSourceHost && h === trustedSourceHost) return "storage";
-  if (h === "management.azure.com") return "arm";
-  if (h === "api.loganalytics.io" || h === "api.loganalytics.azure.com") return "loganalytics";
-  if (isSubdomainOf(h, "vault.azure.net", 1, 1)) return "keyvault";
-  if (isSubdomainOf(h, "monitor.azure.com", 1, 3)) return "monitor";
-  return undefined;
+export function audienceForHost(hostname: string, trustedSourceHost?: string, cloud: AzureCloud = PUBLIC_AZURE_CLOUD): TokenAudience | undefined {
+  return audienceForCloudHost(cloud, hostname, trustedSourceHost);
 }
 
 /** Validates trusted source identifiers before any token is minted or host permitted. */
-export function sourceStorageHost(binding: NonNullable<AzureConnectionConfig["sourceStorage"]>[string], subscriptionId: string): string {
+export function sourceStorageHost(binding: NonNullable<AzureConnectionConfig["sourceStorage"]>[string], subscriptionId: string, connectionCloud?: AzureCloudName): string {
   const match = typeof binding.accountResourceId === "string" ? /^\/subscriptions\/([a-f0-9-]{36})\/resourceGroups\/([A-Za-z0-9_.()-]{1,90})\/providers\/Microsoft\.Storage\/storageAccounts\/([a-z0-9]{3,24})$/i.exec(binding.accountResourceId) : null;
-  const suffixes = { public: "blob.core.windows.net", usgov: "blob.core.usgovcloudapi.net", china: "blob.core.chinacloudapi.cn" } as const;
-  const cloud = binding.cloud ?? "public";
-  if (!match || !GUID.test(subscriptionId) || match[1].toLowerCase() !== subscriptionId.toLowerCase() || !/^[a-z0-9]{3,24}$/.test(match[3]) || typeof binding.container !== "string" || !/^[a-z0-9](?:[a-z0-9]|-(?!-)){1,61}[a-z0-9]$/.test(binding.container) || typeof binding.resourceAddress !== "string" || !/^object_store\/[A-Za-z0-9_.-]{1,128}$/.test(binding.resourceAddress) || [".", ".."].includes(binding.resourceAddress.split("/")[1]) || !Object.hasOwn(suffixes, cloud)) {
+  // The binding's own cloud picks the Blob suffix. When the connection names its cloud explicitly, a binding for another cloud is refused.
+  const cloudName = binding.cloud ?? connectionCloud ?? "public";
+  if (connectionCloud !== undefined && binding.cloud !== undefined && binding.cloud !== connectionCloud) {
+    throw new AzureRequestRefusedError("invalid_request", "Trusted Azure source storage binding names a different cloud than the connection.");
+  }
+  if (!match || !GUID.test(subscriptionId) || match[1].toLowerCase() !== subscriptionId.toLowerCase() || !/^[a-z0-9]{3,24}$/.test(match[3]) || typeof binding.container !== "string" || !/^[a-z0-9](?:[a-z0-9]|-(?!-)){1,61}[a-z0-9]$/.test(binding.container) || typeof binding.resourceAddress !== "string" || !/^object_store\/[A-Za-z0-9_.-]{1,128}$/.test(binding.resourceAddress) || [".", ".."].includes(binding.resourceAddress.split("/")[1]) || !["public", "usgov", "china"].includes(cloudName)) {
     throw new AzureRequestRefusedError("invalid_request", "Trusted Azure source storage binding is invalid or outside this subscription.");
   }
-  return `${match[3]}.${suffixes[cloud]}`;
-}
-
-/** `<labels>.<suffix>` with 1..max DNS-safe labels (no empty labels, no odd characters). */
-function isSubdomainOf(host: string, suffix: string, minLabels: number, maxLabels: number): boolean {
-  if (!host.endsWith(`.${suffix}`)) return false;
-  const prefix = host.slice(0, host.length - suffix.length - 1);
-  const labels = prefix.split(".");
-  return labels.length >= minLabels && labels.length <= maxLabels && labels.every((l) => /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(l));
+  return `${match[3]}.${azureCloud(cloudName).blobSuffix}`;
 }
 
 /** Validate a URL for an authorized call; returns the parsed URL and the audience it gets. */
-export function checkAuthorizedUrl(raw: string, trustedSourceHost?: string): { url: URL; audience: TokenAudience } {
+export function checkAuthorizedUrl(raw: string, trustedSourceHost?: string, cloud: AzureCloud = PUBLIC_AZURE_CLOUD): { url: URL; audience: TokenAudience } {
   let url: URL;
   try {
     url = new URL(raw);
@@ -148,7 +136,7 @@ export function checkAuthorizedUrl(raw: string, trustedSourceHost?: string): { u
   if (url.protocol !== "https:") throw new AzureRequestRefusedError("insecure_url", "authorizedFetch only calls https URLs.");
   if (url.username || url.password) throw new AzureRequestRefusedError("invalid_request", "URLs with embedded credentials are refused.");
   if (url.port && url.port !== "443") throw new AzureRequestRefusedError("host_not_allowed", "Only the default https port is allowed.");
-  const audience = audienceForHost(url.hostname, trustedSourceHost);
+  const audience = audienceForHost(url.hostname, trustedSourceHost, cloud);
   if (!audience) {
     throw new AzureRequestRefusedError("host_not_allowed", `Host "${safeHost(url.hostname)}" is not an Azure endpoint this session may call.`);
   }
@@ -184,7 +172,8 @@ export interface CreateAzureSessionOptions {
   /** One trusted environment binding supplied by the broker, never request input. */
   sourceStorage?: NonNullable<AzureConnectionConfig["sourceStorage"]>[string];
   /** mints the ≤5-minute Zenith-signed assertion for the given audience */
-  mintClientAssertion: (audience: typeof FEDERATION_AUDIENCE) => Promise<string>;
+  /** receives the cloud's federation audience (`api://AzureADTokenExchange` in the public cloud) */
+  mintClientAssertion: (audience: string) => Promise<string>;
   purpose: CredentialPurpose;
   fetchImpl?: typeof fetch;
   now?: () => Date;
@@ -210,6 +199,13 @@ export interface AzureSessionHandle extends AzureSession {
  */
 export async function createAzureSession(opts: CreateAzureSessionOptions): Promise<AzureSessionHandle> {
   const { connection, purpose } = opts;
+  let cloud: AzureCloud;
+  try {
+    cloud = azureCloud(connection.cloud);
+  } catch (e) {
+    if (e instanceof UnknownAzureCloudError) throw new CredentialDeniedError("Azure connection cloud is not public, usgov or china.");
+    throw e;
+  }
   const now = opts.now ?? (() => new Date());
   const doFetch = opts.fetchImpl ?? fetch;
 
@@ -228,7 +224,7 @@ export async function createAzureSession(opts: CreateAzureSessionOptions): Promi
   const durationSec = Math.min(Math.max(Math.trunc(opts.durationSec ?? DEFAULT_SESSION_SEC), 60), MAX_SESSION_SEC);
 
   const { tenantId, clientId, subscriptionId, region } = connection;
-  const sourceHost = opts.sourceStorage ? sourceStorageHost(opts.sourceStorage, subscriptionId) : undefined;
+  const sourceHost = opts.sourceStorage ? sourceStorageHost(opts.sourceStorage, subscriptionId, connection.cloud) : undefined;
   const startedMs = now().getTime();
   const expiresAtMs = startedMs + durationSec * 1000;
   let revoked = false;
@@ -239,7 +235,7 @@ export async function createAzureSession(opts: CreateAzureSessionOptions): Promi
   const inflight = new Map<TokenAudience, Promise<string>>();
 
   const mint = async (): Promise<string> => {
-    const assertion = await opts.mintClientAssertion(FEDERATION_AUDIENCE);
+    const assertion = await opts.mintClientAssertion(cloud.federationAudience);
     if (typeof assertion !== "string" || assertion.length < 16) throw new CredentialDeniedError("The client assertion minter returned no usable assertion.");
     secrets.push(assertion);
     return assertion;
@@ -253,11 +249,13 @@ export async function createAzureSession(opts: CreateAzureSessionOptions): Promi
     if (now().getTime() >= expiresAtMs) throw new AzureRequestRefusedError("session_expired", "This Azure session has expired.");
   };
 
+  const tokenEndpoint = `${cloud.authorityHost}/${tenantId}/oauth2/v2.0/token`;
+
   async function exchange(audience: TokenAudience): Promise<string> {
     const assertion = await mint();
     const body = new URLSearchParams({
       client_id: clientId,
-      scope: TOKEN_SCOPES[audience],
+      scope: cloud.tokenScopes[audience],
       client_assertion_type: CLIENT_ASSERTION_TYPE,
       client_assertion: assertion,
       grant_type: "client_credentials",
@@ -266,7 +264,7 @@ export async function createAzureSession(opts: CreateAzureSessionOptions): Promi
     const timer = setTimeout(() => controller.abort(), opts.exchangeTimeoutMs ?? EXCHANGE_TIMEOUT_MS);
     let res: Response;
     try {
-      res = await doFetch(`${AUTHORITY_HOST}/${tenantId}/oauth2/v2.0/token`, {
+      res = await doFetch(tokenEndpoint, {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
         body: body.toString(),
@@ -279,7 +277,7 @@ export async function createAzureSession(opts: CreateAzureSessionOptions): Promi
     } finally {
       clearTimeout(timer);
     }
-    if (res.redirected || (res.url && res.url !== `${AUTHORITY_HOST}/${tenantId}/oauth2/v2.0/token`)) {
+    if (res.redirected || (res.url && res.url !== tokenEndpoint)) {
       await res.body?.cancel().catch(() => undefined);
       throw new AzureTokenError("Entra token exchange returned a redirected or foreign response.", res.status);
     }
@@ -326,7 +324,7 @@ export async function createAzureSession(opts: CreateAzureSessionOptions): Promi
 
   async function authorizedFetch(input: string, init: RequestInit = {}): Promise<Response> {
     assertLive();
-    let target = checkAuthorizedUrl(input, sourceHost);
+    let target = checkAuthorizedUrl(input, sourceHost, cloud);
     if (target.audience === "storage" && init.redirect !== "error") throw new AzureRequestRefusedError("invalid_request", "Source Blob requests require redirect refusal.");
     const headers = new Headers(init.headers);
     // the caller can never choose the credential
@@ -357,7 +355,7 @@ export async function createAzureSession(opts: CreateAzureSessionOptions): Promi
       if (noRedirect || !location || hop >= MAX_REDIRECTS) throw new AzureRequestRefusedError("redirect_refused", "The Azure endpoint redirected in a way this session will not follow.");
       let next: { url: URL; audience: TokenAudience };
       try {
-        next = checkAuthorizedUrl(new URL(location, target.url).toString());
+        next = checkAuthorizedUrl(new URL(location, target.url).toString(), undefined, cloud);
       } catch {
         throw new AzureRequestRefusedError("redirect_refused", "The Azure endpoint redirected to a host this session may not call.");
       }
@@ -385,6 +383,8 @@ export async function createAzureSession(opts: CreateAzureSessionOptions): Promi
       ARM_STORAGE_USE_AZUREAD: "true",
       // The deploy identity has no subscription-level rights; the customer bootstrap registers the resource providers.
       ARM_RESOURCE_PROVIDER_REGISTRATIONS: "none",
+      // azurerm and its azurerm backend must reach the same sovereign endpoints this session does.
+      ...(cloud.tofuEnvironment === "public" ? {} : { ARM_ENVIRONMENT: cloud.tofuEnvironment }),
     };
   }
 
@@ -393,6 +393,7 @@ export async function createAzureSession(opts: CreateAzureSessionOptions): Promi
     provider: "azure",
     subscriptionId,
     region,
+    ...(cloud.name === "public" ? {} : { cloud: cloud.name }),
     expiresAt: view.expiresAt,
     purpose,
     authorizedFetch,

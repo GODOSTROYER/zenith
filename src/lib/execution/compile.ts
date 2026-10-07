@@ -147,6 +147,7 @@ export function compileGraph(input: { graph: ResourceGraph; environmentId: strin
       namePrefix: prefix,
       region: node.region || input.region,
       tags: nodeTags(input.tags, node),
+      ...(node.provider === "azure" && input.connection?.config.provider === "azure" && input.connection.config.cloud ? { azureCloud: input.connection.config.cloud } : {}),
       ...(node.provider === "aws" && awsBootstrap ? { awsBootstrap: awsBootstrapContextForConnection(input.connection!.config, node.region || input.region) } : {}),
       node: (a) => nodes.get(a),
       ref: (target, attribute) => {

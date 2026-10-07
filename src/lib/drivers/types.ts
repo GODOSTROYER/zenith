@@ -106,6 +106,8 @@ export interface CompileContext {
   /** Present for production AWS compilation; absent only for standalone rendering. */
   awsBootstrap?: AwsBootstrapContext;
   environmentId: string;
+  /** Azure cloud of the deploy connection (PROD-LIFE-04); absent means the public cloud. */
+  azureCloud?: "public" | "usgov" | "china";
   /** deterministic short name prefix, lowercase, ≤ 20 chars */
   namePrefix: string;
   region: string;

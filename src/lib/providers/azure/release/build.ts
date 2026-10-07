@@ -16,6 +16,7 @@ import { MAX_SOURCE_BYTES } from "@/lib/providers/azure/acr-build";
 import { armClient, type ArmResource } from "@/lib/providers/azure/arm";
 import { API } from "@/lib/providers/azure/platform";
 import { nodeNameOf } from "@/lib/providers/azure/naming";
+import { acrLoginServerPattern, cloudOf } from "@/lib/providers/azure/cloud";
 import { context, managed, locate, validId, assertResource, bounded, pause, rec, arr, IMAGE_DIGEST, type Ctx, type LaunchJournal } from "./support";
 import { scheduleBuild, ACR_RUN_ID, ACR_RUN_CPU, ACR_RUN_TIMEOUT_SEC } from "./acr-task";
 import { allowlistDigest, BUILD_ISOLATION_PROFILES, contextDirOf, type BuildAttestation } from "@/lib/execution/build-isolation";
@@ -35,7 +36,7 @@ const scope = (ctx: Ctx) => digest([ctx.workspaceId, ctx.environmentId, ctx.sess
 function decode(ctx: Ctx, raw: string): Handle {
   let h: Handle;
   try { if (raw.length > 4000) throw new Error(); h = JSON.parse(raw) as Handle; } catch { throw new StepFailedError("Invalid Azure build handle."); }
-  if (!h || h.version !== 1 || h.scope !== scope(ctx) || typeof h.registryId !== "string" || !validId(ctx, h.registryId, "Microsoft.ContainerRegistry/registries") || typeof h.runId !== "string" || !ACR_RUN_ID.test(h.runId) || typeof h.registryAddress !== "string" || !/^[a-z_]+\/[A-Za-z0-9_.-]+$/.test(h.registryAddress) || typeof h.loginServer !== "string" || !/^[a-z0-9]{5,50}\.azurecr\.io$/.test(h.loginServer) || typeof h.repository !== "string" || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(h.repository) || typeof h.tag !== "string" || !/^zn-[a-f0-9]{64}$/.test(h.tag)) throw new StepFailedError("Azure build handle is outside this environment or malformed.");
+  if (!h || h.version !== 1 || h.scope !== scope(ctx) || typeof h.registryId !== "string" || !validId(ctx, h.registryId, "Microsoft.ContainerRegistry/registries") || typeof h.runId !== "string" || !ACR_RUN_ID.test(h.runId) || typeof h.registryAddress !== "string" || !/^[a-z_]+\/[A-Za-z0-9_.-]+$/.test(h.registryAddress) || typeof h.loginServer !== "string" || !acrLoginServerPattern(cloudOf(ctx.session)).test(h.loginServer) || typeof h.repository !== "string" || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(h.repository) || typeof h.tag !== "string" || !/^zn-[a-f0-9]{64}$/.test(h.tag)) throw new StepFailedError("Azure build handle is outside this environment or malformed.");
   return h;
 }
 async function verifyRegistry(ctx: Ctx, h: Handle): Promise<void> {
@@ -90,7 +91,7 @@ export function createBuildPort(options: AzureBuildOptions = {}): BuildPort {
       if ((!options.sourceBundles && !options.readSource) || !options.launches) throw new StepFailedError("Azure builds require a source reader and durable tenant-scoped launch journal.");
       const registry = await locate(ctx, input.registry, "Microsoft.ContainerRegistry/registries");
       const loginServer = rec(registry.properties).loginServer; const repository = nodeNameOf(input.service.address);
-      if (typeof loginServer !== "string" || !/^[a-z0-9]{5,50}\.azurecr\.io$/.test(loginServer) || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(repository)) throw new StepFailedError("Azure build output registry/repository is malformed.");
+      if (typeof loginServer !== "string" || !acrLoginServerPattern(cloudOf(ctx.session)).test(loginServer) || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(repository)) throw new StepFailedError("Azure build output registry/repository is malformed.");
       const key = digest([scope(ctx), "build", input.service.address, input.source.digest, input.idempotencyKey]);
       const journalScope = { workspaceId: ctx.workspaceId, environmentId: ctx.environmentId, key };
       let claimed: boolean;

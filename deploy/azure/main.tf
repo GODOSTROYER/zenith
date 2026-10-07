@@ -3,6 +3,14 @@ data "azurerm_client_config" "current" {}
 locals {
   subscription_scope = "/subscriptions/${var.subscription_id}"
   token_audience     = "api://AzureADTokenExchange"
+  # Sovereign clouds exchange against their own audience (src/lib/providers/azure/cloud.ts); the federated credentials
+  # below trust exactly the audience of the cloud the subscription lives in.
+  federation_audiences = {
+    public = local.token_audience
+    usgov  = "api://AzureADTokenExchangeUSGov"
+    china  = "api://AzureADTokenExchangeChina"
+  }
+  federation_audience = local.federation_audiences[var.cloud]
   has_deployer       = var.deploy_connection_id != ""
 
   # Zenith's token subject: zenith:ws:<workspace>:conn:<connection> (ADR-0006). The federated
@@ -41,6 +49,7 @@ locals {
   # These are the built-in data roles src/lib/providers/azure/drivers/identity/identity.ts can produce.
   assignable_role_guids = [
     "7f951dda-4ed3-4680-a7ca-43fe172d538d", # AcrPull
+    "8311e382-0749-4cb8-b61a-304f252e45ec", # AcrPush (a builder identity, data plane, one registry)
     "2a2b9908-6ea1-4ae2-8e65-a410df84e7d1", # Storage Blob Data Reader
     "ba92f5b4-2d11-453d-a403-e96b0029c9fe", # Storage Blob Data Contributor
     "b7e6dc6d-f1e8-4753-8033-0f276bb0955b", # Storage Blob Data Owner (Function host account only)
@@ -107,7 +116,7 @@ resource "azurerm_federated_identity_credential" "observe" {
   user_assigned_identity_id = azurerm_user_assigned_identity.observe.id
   issuer                    = var.zenith_issuer
   subject                   = local.observe_subject
-  audience                  = [local.token_audience]
+  audience                  = [local.federation_audience]
 }
 
 resource "azurerm_user_assigned_identity" "deploy" {
@@ -124,7 +133,7 @@ resource "azurerm_federated_identity_credential" "deploy" {
   user_assigned_identity_id = azurerm_user_assigned_identity.deploy[0].id
   issuer                    = var.zenith_issuer
   subject                   = local.deploy_subject
-  audience                  = [local.token_audience]
+  audience                  = [local.federation_audience]
 }
 
 /* ------------------------------- observe (read-only) ------------------------------ */
@@ -266,7 +275,7 @@ resource "azurerm_role_assignment" "deployer" {
 
 # Zenith grants each workload identity its data roles (AcrPull, Key Vault Secrets User, ...). Writing role
 # assignments is how privilege escalates, so this is the built-in administrator role CONSTRAINED by a condition to the
-# nine data roles above and to service principals. The deploy identity cannot assign Owner, Contributor, itself
+# data roles above and to service principals. The deploy identity cannot assign Owner, Contributor, itself
 # a broader role, or anything to a user.
 resource "azurerm_role_assignment" "deployer_assigns_data_roles" {
   count                = local.has_deployer ? 1 : 0

@@ -7,7 +7,8 @@
  */
 import { isIP } from "node:net";
 import type { ResourceNode } from "@/lib/resources/types";
-import { armClient, armTypeOf, ARM_ORIGIN, RESOURCES_API, inSubscription, type ArmResource, type ArmClient } from "./arm";
+import { cloudOf } from "./cloud";
+import { armClient, armTypeOf, RESOURCES_API, inSubscription, type ArmResource, type ArmClient } from "./arm";
 import { getById, props, type AzureCtx } from "./kit";
 import { resolveNetwork } from "./compile-util";
 import { API } from "./platform";
@@ -31,7 +32,7 @@ async function list(ctx: AzureCtx, arm: ArmClient, path: string, apiVersion: str
     if (next === undefined || next === "") return items;
     if (typeof next !== "string") return undefined;
     const url = new URL(next);
-    if (url.origin !== ARM_ORIGIN || url.pathname.toLowerCase() !== path.toLowerCase() || url.hash || url.username || url.password) return undefined;
+    if (url.origin !== cloudOf(ctx.session).armOrigin || url.pathname.toLowerCase() !== path.toLowerCase() || url.hash || url.username || url.password) return undefined;
     if (url.searchParams.has("api-version") && url.searchParams.get("api-version") !== apiVersion) return undefined;
     query = Object.fromEntries([...url.searchParams].filter(([key]) => key !== "api-version"));
   }

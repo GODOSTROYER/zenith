@@ -53,6 +53,8 @@ export interface SourceBundleDeps {
   timeoutMs?: number;
   /** Trusted worker binding lookup; no credential or SAS URL may be returned. */
   azureStorage?: AzureSourceStorageResolver;
+  /** How long an Azure source-container RBAC denial may be retried for role propagation; default min(timeout, 90s), 0 disables. */
+  azurePropagationMs?: number;
   /** Standalone read requires a connector already bound to its workspace. */
   withGithubAccess?<T>(input: { owner: string; repo: string; workspaceId?: string; environmentId?: string }, fn: (token?: string) => Promise<T>): Promise<T>;
 }
@@ -368,7 +370,7 @@ function sourceBundles(deps: SourceBundleDeps = {}, githubDb: () => Promise<impo
   const limits = { ...SOURCE_BUNDLE_LIMITS, ...deps.limits }; const timeoutMs = deps.timeoutMs ?? 60_000;
   for (const key of Object.keys(SOURCE_BUNDLE_LIMITS) as (keyof SourceBundleLimits)[]) if (!Number.isSafeInteger(limits[key]) || limits[key] <= 0 || limits[key] > SOURCE_BUNDLE_LIMITS[key]) refuse("Source limits must be positive integers within the hard ceilings.");
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 300_000) refuse("Source deadline must be 1–300000 milliseconds.");
-  const azureStorage = createAzureSourceStorage({ resolveStorage: deps.azureStorage, maxBytes: limits.maxArchiveBytes, timeoutMs });
+  const azureStorage = createAzureSourceStorage({ resolveStorage: deps.azureStorage, maxBytes: limits.maxArchiveBytes, timeoutMs, propagationMs: deps.azurePropagationMs ?? Math.min(timeoutMs, 90_000) });
   const boundedSignal = (signal?: AbortSignal) => AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(timeoutMs)]);
   const acquire = async (source: BundleSource, signal: AbortSignal, scope: { workspaceId?: string; environmentId?: string } = {}, format: "tar.gz" | "zip" = "tar.gz"): Promise<SourceBundle> => {
     checkSignal(signal); const location = coordinates(source);

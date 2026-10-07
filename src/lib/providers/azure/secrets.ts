@@ -28,11 +28,12 @@
 import type { AzureSession } from "@/lib/credentials/types";
 import { ArmError, safeText, sendJson, type Json } from "@/lib/providers/azure/arm";
 import { API } from "@/lib/providers/azure/platform";
+import { keyVaultUriPattern, cloudOf } from "@/lib/providers/azure/cloud";
+import { awaitDataPlaneAccess, DataPlanePropagationTimeoutError, type PropagationOptions } from "@/lib/providers/azure/data-plane-rbac";
 import { sameSecret } from "@/lib/secrets/delivery";
 import { kvSecretName } from "@/lib/providers/azure/drivers/identity/key-vault-secret";
 
 export const MAX_SECRET_BYTES = 25 * 1024;
-const VAULT_URI = /^https:\/\/([a-z0-9][a-z0-9-]{1,22}[a-z0-9])\.vault\.azure\.net\/?$/;
 const SECRET_NAME = /^[0-9A-Za-z-]{1,127}$/;
 
 export type SecretSyncFailure = "invalid_input" | "forbidden_by_firewall" | "forbidden_by_rbac" | "throttled" | "unreachable" | "conflict" | "rejected";
@@ -59,6 +60,11 @@ export interface SyncSecretInput {
   value: string;
   /** operation id + fence token for the Azure Activity Log */
   clientRequestId?: string;
+  /**
+   * Wait for a freshly assigned data role to propagate: a Key Vault RBAC denial (not a firewall denial) is retried with
+   * bounded backoff up to this deadline. Omitted = fail at once (contract default).
+   */
+  propagation?: PropagationOptions;
 }
 
 export interface SyncSecretResult {
@@ -71,8 +77,16 @@ export interface SyncSecretResult {
 
 const versionOf = (id: unknown): string => (typeof id === "string" ? (id.split("/").pop() ?? "") : "").replace(/[^0-9a-f]/gi, "").slice(0, 64);
 
+/** a 401/403 that Key Vault attributes to RBAC, not to the vault firewall (only that can be a propagation delay) */
+function isRbacDenial(e: unknown): boolean {
+  if (!(e instanceof ArmError) || e.kind !== "forbidden") return false;
+  const code = (e.armCode ?? "").toLowerCase();
+  return !(code === "forbiddenbyfirewall" || (code !== "forbiddenbyrbac" && /firewall|client address is not authorized|not a trusted service/i.test(e.message)));
+}
+
 function fail(e: unknown): never {
   if (e instanceof SecretSyncError) throw e;
+  if (e instanceof DataPlanePropagationTimeoutError) throw new SecretSyncError("forbidden_by_rbac", `The deploy identity still has no data-plane permission on this vault after waiting for role propagation (${Math.round(e.waitedMs / 1000)}s). Assign Key Vault Secrets Officer (or the Zenith deploy role) on the vault.`);
   if (e instanceof ArmError) {
     if (e.kind === "forbidden") {
       // Key Vault names the cause in the error code; the message wording is only a fallback
@@ -90,18 +104,21 @@ function fail(e: unknown): never {
 
 /** Write `value` as the current version of the node's secret, unless it already is. */
 export async function syncSecretValue(session: AzureSession, input: SyncSecretInput, signal?: AbortSignal): Promise<SyncSecretResult> {
-  const vault = VAULT_URI.exec(input.vaultUri);
-  if (!vault) throw new SecretSyncError("invalid_input", "vaultUri is not a Key Vault URI (https://<name>.vault.azure.net).");
+  const cloud = cloudOf(session);
+  const vault = keyVaultUriPattern(cloud).exec(input.vaultUri);
+  if (!vault) throw new SecretSyncError("invalid_input", `vaultUri is not a Key Vault URI (https://<name>.${cloud.keyVaultSuffix}).`);
   const secretName = kvSecretName(input.secretRef);
   if (!SECRET_NAME.test(secretName)) throw new SecretSyncError("invalid_input", "The derived Key Vault secret name is not valid.");
   if (typeof input.value !== "string" || input.value.length === 0) throw new SecretSyncError("invalid_input", "The secret value is empty.");
   if (Buffer.byteLength(input.value, "utf8") > MAX_SECRET_BYTES) throw new SecretSyncError("invalid_input", `The secret value exceeds Key Vault's ${MAX_SECRET_BYTES / 1024} KiB limit.`);
-  const base = `https://${vault[1]}.vault.azure.net/secrets/${secretName}`;
+  const base = `https://${vault[1]}.${cloud.keyVaultSuffix}/secrets/${secretName}`;
+  const send = <T,>(method: string, url: string, o: { body?: unknown; headers?: Record<string, string> }) =>
+    input.propagation ? awaitDataPlaneAccess(() => sendJson<T>(session, signal, method, url, o), isRbacDenial, { ...input.propagation, signal: input.propagation.signal ?? signal }).then((r) => r.result) : sendJson<T>(session, signal, method, url, o);
   const headers = input.clientRequestId ? { "x-ms-client-request-id": input.clientRequestId.replace(/[^A-Za-z0-9_.:-]/g, "").slice(0, 80) } : undefined;
 
   let current: { id?: unknown; value?: unknown } | undefined;
   try {
-    current = (await sendJson<Json>(session, signal, "GET", `${base}?api-version=${API.keyVaultData}`, { headers })).body;
+    current = (await send<Json>("GET", `${base}?api-version=${API.keyVaultData}`, { headers })).body;
   } catch (e) {
     if (!(e instanceof ArmError && e.kind === "not_found")) fail(e);
   }
@@ -109,7 +126,7 @@ export async function syncSecretValue(session: AzureSession, input: SyncSecretIn
     return { status: "unchanged", secretName, version: versionOf(current.id) };
   }
   try {
-    const r = await sendJson<Json>(session, signal, "PUT", `${base}?api-version=${API.keyVaultData}`, {
+    const r = await send<Json>("PUT", `${base}?api-version=${API.keyVaultData}`, {
       headers,
       body: { value: input.value, contentType: "text/plain", attributes: { enabled: true }, tags: { "zenith:managed": "true" } },
     });

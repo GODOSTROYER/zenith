@@ -14,6 +14,7 @@ import type { ResourceNode } from "@/lib/resources/types";
 import { block, configBool, fragment, mergeBlocks, resolveNetwork } from "@/lib/providers/azure/compile-util";
 import { exportLocals, exportRef } from "@/lib/providers/azure/exports";
 import { azureTags, cloudName, tfLabel } from "@/lib/providers/azure/naming";
+import { azureCloud } from "@/lib/providers/azure/cloud";
 import { defineAzureDriver, locateByTags, props, pick, unknownRead, locatedFromError, type UnknownRead } from "@/lib/providers/azure/kit";
 import { armClient, type ArmResource } from "@/lib/providers/azure/arm";
 import { deletionLock, protectFromDestroy } from "@/lib/providers/azure/drivers/data/private-endpoint";
@@ -70,7 +71,7 @@ export const mysqlDriver = defineAzureDriver({
     const bootstrap = mode === "Default" ? mysqlBootstrap(node, ctx) : undefined;
     const result = fragment({ resource: mergeBlocks(
       bootstrap?.resource ?? {},
-      block("azurerm_private_dns_zone", L("dns"), { ...common, name: `${cloudName(ctx, node.address, { max: 50, suffix: "private" })}.mysql.database.azure.com` }),
+      block("azurerm_private_dns_zone", L("dns"), { ...common, name: `${cloudName(ctx, node.address, { max: 50, suffix: "private" })}.${azureCloud(ctx.azureCloud).privateZones.mysql}` }),
       block("azurerm_private_dns_zone_virtual_network_link", L("dns_link"), { name: "mysql", private_dns_zone_id: `\${${dns}.id}`, virtual_network_id: exportRef(net, "vnet_id"), registration_enabled: false, tags }),
       block("azurerm_mysql_flexible_server", L("srv"), {
         ...common, location: node.region, name: cloudName(ctx, node.address, { max: 63, suffix: "mysql" }),

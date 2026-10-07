@@ -16,6 +16,7 @@ import { writeAwsSecret } from "@/lib/providers/aws/secret-writer";
 import { writeGcpSecret } from "@/lib/providers/gcp/secret-writer";
 import { syncSecretValue, SecretSyncError } from "@/lib/providers/azure/secrets";
 import { kvSecretName } from "@/lib/providers/azure/drivers/identity/key-vault-secret";
+import { cloudOf, keyVaultUri } from "@/lib/providers/azure/cloud";
 import { renderObjects } from "@/lib/providers/kubernetes/render";
 import { serverSideApply } from "@/lib/providers/kubernetes/apply";
 import { createK8sClient, readObject, ownedBy } from "@/lib/providers/kubernetes/client";
@@ -74,7 +75,7 @@ export async function syncEnvironmentSecrets(rt: Runtime, ec: ExecContext, graph
             const id = observation.externalId;
             const match = /^\/subscriptions\/([0-9a-f-]+)\/resourceGroups\/[^/]+\/providers\/Microsoft\.KeyVault\/vaults\/([a-z0-9-]{3,24})$/i.exec(id);
             if (!match || match[1].toLowerCase() !== session.subscriptionId.toLowerCase()) throw new SecretDeliveryError("denied");
-            const vaultUri = `https://${match[2].toLowerCase()}.vault.azure.net/`;
+            const vaultUri = keyVaultUri(cloudOf(session), match[2].toLowerCase());
             targets.push({ node, ref, id: `${vaultUri}secrets/${kvSecretName(ref)}`, vaultUri, containerId: id });
           } else targets.push({ node, ref, id: observation.externalId });
         }
@@ -128,14 +129,14 @@ async function writeTarget(rt: Runtime, ec: ExecContext, target: Target, session
   if (session.provider === "azure") {
     let value: string | undefined;
     try {
-      const response = await session.authorizedFetch(`https://management.azure.com${target.containerId}?api-version=2023-07-01`, { signal, redirect: "error" });
+      const response = await session.authorizedFetch(`${cloudOf(session).armOrigin}${target.containerId}?api-version=2023-07-01`, { signal, redirect: "error" });
       if (!response.ok) throw secretFailure({ status: response.status });
       const container = await response.json() as { id?: unknown; tags?: Record<string, unknown>; properties?: { vaultUri?: unknown } };
       const tags = container.tags ?? {};
       if (typeof container.id !== "string" || container.id.toLowerCase() !== target.containerId?.toLowerCase() || tags["zenith:managed"] !== "true" || tags["zenith:workspace"] !== ec.workspaceId || tags["zenith:environment"] !== ec.environmentId || tags["zenith:resource"] !== target.node.address || container.properties?.vaultUri !== target.vaultUri) throw new SecretDeliveryError("denied");
       value = await resolve();
       if (value === undefined) throw new SecretDeliveryError("missing");
-      const result = await syncSecretValue(session, { vaultUri: target.vaultUri!, secretRef: target.ref, value }, signal);
+      const result = await syncSecretValue(session, { vaultUri: target.vaultUri!, secretRef: target.ref, value, propagation: { timeoutMs: Math.min(rt.limits.nodeTimeoutMs, 180_000) } }, signal);
       return { changed: result.status !== "unchanged" };
     } catch (err) {
       if (err instanceof SecretSyncError) throw new SecretDeliveryError(err.reason === "forbidden_by_rbac" || err.reason === "forbidden_by_firewall" ? "denied" : err.reason === "throttled" ? "throttled" : err.reason === "unreachable" ? "unreachable" : "invalid");

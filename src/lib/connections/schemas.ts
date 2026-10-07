@@ -54,6 +54,7 @@ export const CreateAzureInput = z.object({
   tenantId: guid("tenant"),
   clientId: guid("federated application (client)"),
   subscriptionId: guid("subscription"),
+  cloud: z.enum(["public", "usgov", "china"]).optional(),
   stateStorageAccount: z.string().regex(/^[a-z0-9]{3,24}$/, "Use a storage account name.").optional(),
   stateContainer: z.string().regex(/^[a-z0-9](?:[a-z0-9]|-(?!-)){1,61}[a-z0-9]$/, "Use a blob container name.").optional(),
 }).strict();

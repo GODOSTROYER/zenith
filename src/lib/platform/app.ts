@@ -13,6 +13,7 @@ import type { RunnerRuntime } from "@/lib/runners/runtime";
 import { createPlatformRunnerStore } from "@/lib/runners/db/pg-store";
 import { reapExpiredJobs } from "@/lib/runners/service";
 import { wireReconcilePorts } from "@/lib/reconcile/ports";
+import { custodySeparationErrors } from "@/lib/keycustody/startup";
 import { log } from "@/lib/log";
 import { platformCredentialBroker } from "./credentials";
 import { composeReconcilePorts } from "./reconcile";
@@ -37,6 +38,8 @@ export function ensurePlatformApp(db?: Sql): Promise<boolean> {
       if (!db && platformDbConfigFromEnv().source === "default") return false;
       const sql = db ?? await platformDb();
       await assertPlatformSchemaCurrent(sql);
+      // PROD-OPS-05: report (never refuse here; the worker refuses) shared or misplaced keys, codes only.
+      try { const findings = custodySeparationErrors(); if (findings.length) log.warn("key custody separation findings; run scripts/key-custody.ts diagnose", { scope: "platform", codes: findings.map((f) => f.code) }); } catch { /* diagnostics only */ }
       registerAllDrivers();
       registerPlatformBrokerStore(new PlatformBrokerStore(sql));
       registerPlatformBrokerPorts({ scopes: platformScopeResolver(sql) });

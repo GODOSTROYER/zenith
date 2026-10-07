@@ -5,6 +5,9 @@
  * Encoding/version and a non-secret key fingerprint are authenticated as AAD.
  * Fresh nonces are generated on every encode; keys never leave this process.
  *
+ * The payload root is ZENITH_TEMPORAL_PAYLOAD_KEY when set, else ZENITH_SECRET_KEY; the key registry
+ * (src/lib/keycustody) reports both as the enc:temporal-payload purpose with this same key id.
+ *
  * Legacy plaintext payloads remain readable for existing history replay. This
  * does not encrypt workflow ids, visibility fields or default failure messages.
  * No live Temporal Cloud acceptance is claimed by this module.
@@ -112,7 +115,9 @@ export class TemporalPayloadCodec implements PayloadCodec {
 export function temporalDataConverterFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env
 ): DataConverter & { payloadCodecs: TemporalPayloadCodec[] } {
-  const secretKey = env.ZENITH_SECRET_KEY;
+  // A dedicated payload root (PROD-OPS-05) rotates independently of the vault key; otherwise the vault root is used
+  // through the same HKDF domain as always.
+  const secretKey = env.ZENITH_TEMPORAL_PAYLOAD_KEY?.trim() || env.ZENITH_SECRET_KEY;
   const previous = env.ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS;
   if (!secretKey) {
     if (env.NODE_ENV === "production" || secretKey !== undefined || previous !== undefined) {

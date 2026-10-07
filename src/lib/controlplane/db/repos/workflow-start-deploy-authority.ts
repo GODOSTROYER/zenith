@@ -6,6 +6,7 @@ import { isOpenedPlatformDbHandle, isOpenedPlatformPostgresTarget, platformDbCon
 import { parseManifest } from "@/lib/resources/manifest-v2";
 import { expandManifest } from "@/lib/resources/expand";
 import { textArray } from "../sql";
+import { mcpProductEndpoint } from "./mcp-product-endpoint";
 
 const Id = z.string().regex(/^[A-Za-z0-9_-]{1,100}$/), Hash = z.string().regex(/^[a-f0-9]{64}$/);
 const Input = z.object({ operation: z.literal("deploy"), admissionVersion: z.literal(1),
@@ -43,22 +44,15 @@ async function defaultMcpProductTopology(sql: Sql, session: Sql): Promise<void> 
   ]);
   const currentComposition = (): void => {
     if (!isOpenedPlatformDbHandle(sql, "postgres") || process.env.ZENITH_STORE !== "postgres") return refused();
-    const api = new URL(SUPABASE_URL), match = /^([a-z0-9]{20})\.supabase\.co$/.exec(api.hostname);
-    if (!match || api.protocol !== "https:" || api.port || api.username || api.password || api.search || api.hash
-      || !["", "/"].includes(api.pathname)) return refused();
+    const api = new URL(SUPABASE_URL);
     const config = platformDbConfigFromEnv(), product = process.env.SUPABASE_DB_URL;
     if (config.kind !== "postgres" || !config.url || !product) return refused();
     const selected = new URL(config.url), productDb = new URL(product);
     const endpoint = (url: URL) => JSON.stringify([url.hostname, url.port || "5432", url.pathname, decodeURIComponent(url.username), [...url.searchParams.entries()].sort()]);
     if (![selected, productDb].every(url => ["postgres:", "postgresql:"].includes(url.protocol) && !url.hash)
       || endpoint(selected) !== endpoint(productDb) || selected.pathname !== "/postgres") return refused();
-    const options = [...selected.searchParams];
-    if (options.length > 1 || options.some(([key, value]) => key !== "sslmode" || !["require", "verify-full"].includes(value))) return refused();
-    const ref = match[1], port = selected.port || "5432", username = decodeURIComponent(selected.username);
-    const direct = selected.hostname === `db.${ref}.supabase.co` && ["5432", "6543"].includes(port) && username === "postgres";
-    const shared = /^[a-z0-9-]+\.pooler\.supabase\.com$/.test(selected.hostname)
-      && ["5432", "6543"].includes(port) && username === `postgres.${ref}`;
-    if ((!direct && !shared) || sql.identity !== `postgres://${selected.host}/postgres`
+    const port = selected.port || "5432", username = decodeURIComponent(selected.username);
+    if (!mcpProductEndpoint(api, selected) || sql.identity !== `postgres://${selected.host}/postgres`
       || !isOpenedPlatformPostgresTarget(sql, selected.hostname, Number(port), "postgres", username)) return refused();
     if (!isDefaultProductClientFor(api.origin)) return refused();
   };

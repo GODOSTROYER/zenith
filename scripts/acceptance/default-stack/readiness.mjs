@@ -1,0 +1,70 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import https from 'node:https';
+import { fileURLToPath } from 'node:url';
+import { readPrepared, probeReadiness, sourceBinding } from '../../deploy/installation.mjs';
+import { cli, requireEngineGate, inventory, compose, docker, readState, save } from './runtime.mjs';
+import { fail, topology, ports, root } from './config.mjs';
+
+/** Explicit private CA and hostname verification, without changing machine trust. */
+export function supabaseRequest(state, endpoint, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const request = https.request({ host: '127.0.0.1', port: ports.supabase, servername: 'supabase.localhost',
+      path: endpoint, method: 'GET', ca: fs.readFileSync(path.join(state.directory, 'tls/ca.crt')), rejectUnauthorized: true, headers, timeout: 5000 }, response => {
+      let body = '', size = 0;
+      response.on('data', chunk => { size += chunk.length; if (size > 1024 * 1024) request.destroy(); else body += chunk; });
+      response.on('end', () => resolve({ status: response.statusCode, body }));
+    });
+    request.on('timeout', () => request.destroy()); request.on('error', () => reject(new Error('default-stack:supabase-https'))); request.end();
+  });
+}
+
+export async function poolerProbe(state, mode = 'tls') {
+  return JSON.parse(await docker(['run', '--rm', '--network', `${state.applicationProjectName}_installation`,
+    '--label', `io.zenith.installation=${state.installationId}`, '--user', '1001:1001', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true',
+    '--memory', '192m', '--env-file', path.join(state.directory, 'installation/worker.env'), '-e', 'NODE_EXTRA_CA_CERTS=/run/zenith-ca.crt',
+    '--mount', `type=bind,source=${path.join(state.directory, 'tls/ca.crt')},target=/run/zenith-ca.crt,readonly`,
+    '--mount', `type=bind,source=${path.join(root, 'scripts/acceptance/default-stack/pooler-probe.mjs')},target=/app/pooler-probe.mjs,readonly`,
+    '--entrypoint', 'node', readPrepared(path.join(state.directory, 'installation')).images.migration, '/app/pooler-probe.mjs', mode], { id: 'pooler-probe' }));
+}
+
+export async function readiness(state) {
+  requireEngineGate();
+  if (JSON.stringify(sourceBinding()) !== JSON.stringify(state.source)) fail('source-drift');
+  const sizing = topology(state.profile), resources = await inventory(state);
+  const checks = {};
+  const expected = ['api', 'execution-worker', 'platform-db', 'temporal', ...(sizing.apis === 2 ? ['api-peer', 'execution-worker-peer'] : [])];
+  for (const name of expected) {
+    const containers = resources.filter(resource => resource.kind === 'container' && resource.item.Config.Labels?.['com.docker.compose.project'] === state.applicationProjectName && resource.item.Config.Labels?.['com.docker.compose.service'] === name);
+    checks[name] = containers.length === 1 && containers[0].item.State?.Health?.Status === 'healthy';
+  }
+  const config = readPrepared(path.join(state.directory, 'installation'));
+  if (sizing.workers === 2) {
+    const peer = readPrepared(path.join(state.directory, 'worker-peer'));
+    if (peer.installationId !== config.installationId || !peer.workerId
+      || JSON.stringify(peer.environment) !== JSON.stringify(config.environment)) fail('worker-keyring-drift');
+  }
+  for (let i = 0; i < sizing.apis; i++) {
+    const result = await probeReadiness({ ...config, environment: { ...config.environment, NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${ports.api + i}` } });
+    checks[`http-api-${i + 1}`] = result.ready;
+  }
+  const headers = { apikey: config.environment.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY };
+  checks['supabase-auth-https'] = (await supabaseRequest(state, '/auth/v1/health', headers)).status === 200;
+  checks['supabase-postgrest-https'] = (await supabaseRequest(state, '/rest/v1/', headers)).status === 200;
+  const tls = await poolerProbe(state);
+  checks['pooler-verify-full'] = tls.verifiedTls === true && tls.wrongCaRefused === true && tls.wrongHostnameRefused === true;
+  await compose(state, ['run', '--rm', '--no-deps', 'platform-migrate', '--status']);
+  checks['platform-schema-current'] = true;
+  const receipt = { schemaVersion: 1, kind: 'local_engine', source: state.source, architecture: state.architecture,
+    minimumObservedFreeBytes: state.minimumObservedFreeBytes,
+    profile: state.profile, apis: sizing.apis, workers: sizing.workers, checks,
+    passed: Object.values(checks).filter(Boolean).length, failed: Object.values(checks).filter(value => !value).length, skipped: 0,
+    authenticatedJourney: false, crossWorkerExecution: false, hostedProductionAcceptance: false, productionReady: false };
+  save(path.join(state.directory, 'readiness.receipt.json'), receipt);
+  if (receipt.failed) fail('readiness');
+  return receipt;
+}
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await cli(async () => {
+  if (process.argv.length !== 3) fail('usage');
+  process.stdout.write(`${JSON.stringify(await readiness(readState(process.argv[2])))}\n`);
+});

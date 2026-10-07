@@ -5,7 +5,7 @@ import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { load } from 'js-yaml';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { checkCompose, composeArgs, composeEnvironment, planFor, prepare, probeReadiness, readPrepared, validateInput } from '../../scripts/deploy/installation.mjs';
+import { checkCompose, composeArgs, composeEnvironment, planFor, prepare, prepareJoin, probeReadiness, readPrepared, validateInput } from '../../scripts/deploy/installation.mjs';
 
 type Input = Parameters<typeof prepare>[0];
 type Prepared = ReturnType<typeof prepare>;
@@ -128,6 +128,27 @@ describe('supported installation structural preflight', () => {
 });
 
 describe('private preparation and ownership', () => {
+  it('prepares an additional worker from the private keyring with independent scratch and unchanged keys', () => {
+    const directory = path.join(temp, 'joined-worker');
+    const peer = prepareJoin(path.join(privateDir, 'keyring.json'), directory);
+    expect(peer.environment).toEqual(production.environment);
+    expect(peer.installationId).toBe(production.installationId);
+    expect(readPrepared(directory)).toEqual(peer);
+    const composition = JSON.parse(fs.readFileSync(path.join(directory, 'worker.compose.json'), 'utf8'));
+    expect(Object.keys(composition.services)).toEqual([`execution-worker-${peer.workerId}`]);
+    expect(composition.services[`execution-worker-${peer.workerId}`].volumes).toEqual([`worker-${peer.workerId}:/var/lib/zenith`]);
+    expect(composeArgs(peer, directory)).toContain(path.join(directory, 'worker.compose.json'));
+  });
+  it('refuses keyring drift before creating any joined worker files', () => {
+    const file = path.join(privateDir, 'keyring.json'), content = fs.readFileSync(file, 'utf8');
+    const directory = path.join(temp, 'join-refused');
+    try {
+      const altered = JSON.parse(content); altered.environment.ZENITH_PLAN_ARTIFACT_KEY = runtimeSecret();
+      fs.writeFileSync(file, JSON.stringify(altered));
+      expect(() => prepareJoin(file, directory)).toThrow('join-keyring-drift');
+      expect(fs.existsSync(directory)).toBe(false);
+    } finally { fs.writeFileSync(file, content); }
+  });
   it('generates private keys and a unique project at runtime, with separate scratch paths', () => {
     expect(production.installationId).not.toBe(disposable.installationId);
     expect(production.environment.ZENITH_PLAN_ARTIFACT_KEY).toMatch(/^[a-f0-9]{64}$/);
@@ -192,7 +213,7 @@ describe('private preparation and ownership', () => {
     expect(Object.keys(safe.images)).toEqual(['api', 'worker', 'migration']);
     expect(Object.keys(safe.source)).toEqual(['head', 'contentSha256', 'dirty']);
     expect(() => validateInput({ ...production, source: value.source }, true)).toThrow('unknown-source-field');
-    expect(safe.additionalWorkerPreparationSupported).toBe(false);
+    expect(safe.additionalWorkerPreparationSupported).toBe(true);
   });
 });
 

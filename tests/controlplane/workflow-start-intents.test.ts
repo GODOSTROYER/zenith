@@ -270,7 +270,7 @@ describe.skipIf(!PG_URL)("workflow start tombstone privileges [postgres]",()=>{
           // Historical fixture construction only, not current start authorization.
           // The real SQL operation, lease and consumed human approval guard this
           // schema12 phase CAS; no transport or modern authority is simulated.
-          await tx.query("insert into platform.workflow_start_intents(workspace_id,operation_id,binding,binding_digest) values($1,$2,$3::jsonb,$4)",
+          await tx.query("insert into platform.workflow_start_intents(workspace_id,operation_id,binding,binding_digest) values($1,$2,$3::text::jsonb,$4)",
             [h.ids.wsA,proposed.id,JSON.stringify(binding),digest(binding)]);
           await expect(store.claim(tx,request)).rejects.toBeInstanceOf(intents.WorkflowStartIntentError);
           expect((await intents.get(tx,h.ids.wsA,proposed.id))?.phase).toBe("prepared");
@@ -299,6 +299,7 @@ describe.skipIf(!PG_URL)("workflow start tombstone privileges [postgres]",()=>{
           expect(second.dispatch).toBe(false);expect(second.intent.attempt_id).toBe(attempted.attempt_id);
           throw rollback;
         }).catch((error:unknown)=>error);
+        if(result !== rollback) throw result;
         expect(result).toBe(rollback);
       } finally {await db.close();}
     });

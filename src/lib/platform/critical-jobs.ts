@@ -37,6 +37,12 @@ export const CRITICAL_JOBS = {
   engine: { cadenceMs: 60_000, leaseTtlMs: 60_000, kind: "observation" },
   alerts: { cadenceMs: 60_000, leaseTtlMs: 60_000, kind: "observation" },
   outbox: { cadenceMs: 60_000, leaseTtlMs: 60_000, kind: "observation" },
+  // PROD-OPS-05 / PROD-OPS-06: key records and durable vault re-wrap; minimization of sealed results and uploads.
+  // Durable-only: no cron fallback trigger exists for them (the operator CLIs run them under the same lease), so
+  // a durable job that has never run (no Temporal scheduler installed) is not a health failure; one that ran and
+  // went stale is.
+  "key-rewrap": { cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "custody", durableOnly: true },
+  "data-minimize": { cadenceMs: 60_000, leaseTtlMs: 90_000, kind: "custody", durableOnly: true },
 } as const;
 export type CriticalJobName = keyof typeof CRITICAL_JOBS;
 export const CRITICAL_JOB_NAMES = Object.keys(CRITICAL_JOBS) as CriticalJobName[];
@@ -135,6 +141,16 @@ export const MAINTENANCE_JOBS = {
     const r = await reapRunnerJobs(db);
     return { value: r, performed: r.ran, counts: { jobs: r.jobs } };
   },
+  async "key-rewrap"(db: Sql): Promise<JobOutcome<import("@/lib/keycustody/rewrap-job").KeyRewrapResult>> {
+    const { keyRewrapPass } = await import("@/lib/keycustody/rewrap-job");
+    const r = await keyRewrapPass(db);
+    return { value: r, performed: true, counts: countsOf(r) };
+  },
+  async "data-minimize"(db: Sql): Promise<JobOutcome<import("@/lib/sensitivedata/minimize").MinimizeResult>> {
+    const { minimizePass } = await import("@/lib/sensitivedata/minimize");
+    const r = await minimizePass(db);
+    return { value: r, performed: true, counts: countsOf(r) };
+  },
   async runbooks(): Promise<JobOutcome<import("./runbooks").RunbookTickResult>> {
     const { runbookTickPass } = await import("./runbooks");
     const r = await runbookTickPass({ budgetMs: 15_000 });
@@ -191,7 +207,8 @@ export function classifyJob(job: CriticalJobName, row: ScheduledJobRow | null): 
 export async function criticalJobHealth(db: Sql): Promise<{ healthy: boolean; jobs: CriticalJobHealth[] }> {
   const rows = new Map((await repos.scheduledJobs.listScheduledJobs(db)).map((row) => [row.job, row]));
   const jobs = CRITICAL_JOB_NAMES.map((job) => classifyJob(job, rows.get(job) ?? null));
-  return { healthy: jobs.every((j) => j.state === "healthy"), jobs };
+  // A durable-only job that has never run means no durable scheduler is installed; it does not fail the overall view.
+  return { healthy: jobs.every((j) => j.state === "healthy" || ("durableOnly" in CRITICAL_JOBS[j.job] && j.state === "never_run")), jobs };
 }
 
 /* ------------------------------ fallback trigger ---------------------------- */

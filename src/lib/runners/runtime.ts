@@ -92,7 +92,7 @@ async function defaultStore(): Promise<RunnerStore> {
 
 function defaultSealer(): ResultSealer {
   const g = globalThis as G;
-  const key = createHash("sha256").update(`${process.env.ZENITH_RUNNER_RESULT_KEY ?? ""}|${process.env.ZENITH_CONTROL_SIGNING_JWK ?? ""}`).digest("hex");
+  const key = createHash("sha256").update(`${process.env.ZENITH_RUNNER_RESULT_KEY ?? ""}|${process.env.ZENITH_RUNNER_RESULT_PREVIOUS_KEYS ?? ""}|${process.env.ZENITH_CONTROL_SIGNING_JWK ?? ""}`).digest("hex");
   if (g.__zenithRunnerSealer?.key !== key) g.__zenithRunnerSealer = { key, sealer: createResultSealerFromEnv() };
   return g.__zenithRunnerSealer.sealer;
 }

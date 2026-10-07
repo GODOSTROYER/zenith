@@ -7,10 +7,10 @@
  * domain. Cached artifacts may be pruned after 30 days; key rotation makes them
  * unreadable. Both cases fail closed. No grants or provider sessions are stored.
  */
-import { hkdfSync } from "node:crypto";
 import { digest } from "@/lib/controlplane/digest";
 import { repos } from "@/lib/controlplane/db";
 import type { EvidenceRecord, Sql } from "@/lib/controlplane/types";
+import { KeyRing } from "@/lib/keycustody/registry";
 import { createAesResultSealer, type ResultSealer } from "@/lib/runners/seal";
 import { MachineOperationError } from "./errors";
 import type { MachineEvidenceSink, MachineRequest, MachineResult } from "./types";
@@ -20,10 +20,24 @@ const MAX_CACHE_BYTES = 2 * 1024 * 1024;
 const keyFor = (ws: string, op: string): string => `machine-dispatch:${digest({ ws, op })}`;
 const aadFor = (ws: string, key: string): string => `zenith.machine|${ws}|${key}`;
 
-/** Uses the worker's mandatory secret, independently of plan and runner keys. */
-export function machineResultSealer(secretKey: string): ResultSealer {
+/**
+ * Uses the worker's mandatory secret, independently of plan and runner keys, through the key registry's
+ * enc:machine-results purpose (an HKDF domain of ZENITH_SECRET_KEY). Previous roots default to the vault's
+ * decrypt-only list, so a rotation keeps cached artifacts readable until their 30 day expiry.
+ */
+export function machineResultSealer(secretKey: string, previousRoots: readonly string[] = previousVaultRoots()): ResultSealer {
   if (!/^[a-f0-9]{64}$/i.test(secretKey)) throw new Error("Machine persistence requires the worker's 64-hex secret key.");
-  return createAesResultSealer(new Uint8Array(hkdfSync("sha256", Buffer.from(secretKey, "hex"), Buffer.alloc(0), "zenith.machine.results.v1", 32)));
+  const ring = KeyRing.fromEnv({ ZENITH_SECRET_KEY: secretKey, ZENITH_VAULT_PREVIOUS_SECRET_KEYS: JSON.stringify(previousRoots) }, { purposes: ["enc:machine-results"] });
+  const [current] = ring.materialFor("enc:machine-results", "encrypt");
+  const previous = ring.materialFor("enc:machine-results", "decrypt").filter((m) => m.role === "decrypt_only").map((m) => ({ keyId: m.keyId, key: new Uint8Array(m.key) }));
+  return createAesResultSealer(new Uint8Array(current.key), { keyId: current.keyId, previous });
+}
+
+function previousVaultRoots(): string[] {
+  try {
+    const parsed: unknown = JSON.parse(process.env.ZENITH_VAULT_PREVIOUS_SECRET_KEYS ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch { return []; }
 }
 
 async function insertOnce(db: Sql, input: Parameters<typeof repos.evidence.insert>[1]): Promise<EvidenceRecord> {

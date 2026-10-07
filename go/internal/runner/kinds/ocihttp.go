@@ -191,7 +191,7 @@ func (k *OCI) Prepare(req *Request) (Runnable, error) {
 	if bindingErr != nil {
 		return nil, notAllowed("OCI compartment binding is absent or outside the local allowlist")
 	}
-	if pl.MigrationKey != "" && (req.JTI == "" || req.WorkspaceID == "" || req.OperationID == "" || req.Capability != "deployment.deploy" || pl.Service != "containerinstances" || (template != "/20210415/containerInstances" && template != "/20210415/containerInstances/{}" && template != "/20210415/containers/{}")) {
+	if pl.MigrationKey != "" && (req.JTI == "" || req.WorkspaceID == "" || req.OperationID == "" || req.Capability != "deployment.deploy" || pl.Service != "containerinstances" || (template != "/20210415/containerInstances" && template != "/20210415/containerInstances/{}" && template != "/20210415/containers/{}" && template != "/20210415/workRequests/{}")) {
 		return nil, notAllowed("OCI migration requires its signed workspace and operation context")
 	}
 	if pl.Method == "DELETE" && pl.MigrationKey == "" {
@@ -314,7 +314,7 @@ func (k *OCI) execute(ctx context.Context, pl oci.Request, body []byte, host str
 		if truncated {
 			data = data[:maxOutput]
 		}
-		if k.migrationAfter(pl, body, data, response.StatusCode, truncated, receipt) != nil {
+		if k.migrationAfter(pl, body, data, response.Header, response.StatusCode, truncated, receipt) != nil {
 			return k.auditOutcome(audit, failed("oci_receipt_failed: provider identity or durable migration outcome is unknown"))
 		}
 		return k.auditOutcome(audit, Outcome{Status: agent.StatusSucceeded, Result: map[string]any{

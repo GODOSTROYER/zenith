@@ -12,6 +12,7 @@ import { armClient, armTypeOf, RESOURCES_API, inSubscription, type ArmResource, 
 import { getById, props, type AzureCtx } from "./kit";
 import { resolveNetwork } from "./compile-util";
 import { API } from "./platform";
+import { makeProof, type DnsAssessment } from "../dns-teardown-proof";
 
 const unsafe = () => ({ safe: false, reason: "DNS target ownership could not be confirmed." });
 const domain = (value: unknown): string | undefined => {
@@ -39,7 +40,7 @@ async function list(ctx: AzureCtx, arm: ArmClient, path: string, apiVersion: str
   return undefined;
 }
 
-export async function assessRecordDeletion(ctx: AzureCtx, node: ResourceNode, nodes: readonly ResourceNode[]): Promise<{ safe: boolean; reason: string }> {
+export async function assessRecordDeletion(ctx: AzureCtx, node: ResourceNode, nodes: readonly ResourceNode[]): Promise<DnsAssessment> {
   try {
     if (ctx.provider !== "azure" || node.provider !== "azure" || node.nativeType !== "azure:dns_record_set" || node.kind !== "dns_record" || node.ownership !== "managed" || node.spec.type !== "alias") return unsafe();
     const target = nodes.find((n) => n.address === node.spec.target);
@@ -105,6 +106,14 @@ export async function assessRecordDeletion(ctx: AzureCtx, node: ResourceNode, no
         if (typeof expected !== "string" || isIP(expected) !== 4 || !Array.isArray(p.ARecords) || p.ARecords.length === 0 || !p.ARecords.every((r) => r && typeof r === "object" && r.ipv4Address === expected)) return unsafe();
       }
     }
+    const markers: string[] = ["azure:record_tags", "azure:endpoint_tags", "azure:zone_in_subscription"];
+    const live: string[] = [];
+    if (record.state === "found") {
+      const p = props(record.resource);
+      if (type === "CNAME") live.push(String((p.CNAMERecord as { cname?: unknown } | undefined)?.cname).toLowerCase().replace(/\.$/, ""));
+      else for (const r of p.ARecords as { ipv4Address?: unknown }[]) live.push(String(r.ipv4Address));
+      markers.push("azure:value_matches_endpoint");
+    }
     if (!staticSite) {
       const txtId = `${zone.id}/TXT/${rel === "@" ? "asuid" : `asuid.${rel}`}`;
       const txt = await getById(arm, txtId, API.dns);
@@ -114,9 +123,10 @@ export async function assessRecordDeletion(ctx: AzureCtx, node: ResourceNode, no
         const value = expected?.customDomainVerificationId;
         const records = props(txt.resource).TXTRecords;
         if (typeof value !== "string" || value.length === 0 || !Array.isArray(records) || records.length !== 1 || !Array.isArray(records[0]?.value) || !records[0].value.every((v: unknown) => typeof v === "string") || records[0].value.join("") !== value) return unsafe();
+        markers.push("azure:asuid_txt_marker");
       }
     }
-    return { safe: true, reason: "The DNS record sets are absent or point to scoped managed endpoints." };
+    return { safe: true, reason: "The DNS record sets are absent or point to scoped managed endpoints.", proof: makeProof({ provider: "azure", address: node.address, zone: apex, name: host, type, disposition: record.state === "found" ? "present" : "absent", values: live, ownership: markers, stateMatch: node.externalRef ? "externalRef" : "unrecorded" }) };
   } catch {
     return unsafe();
   }

@@ -14,6 +14,7 @@ import { gcpLabels } from "./naming";
 import { computePath, rec } from "./read-kit";
 import { gcpGet, MAX_LIST_PAGES, type RestContext } from "./rest";
 import { DNS } from "./drivers/edge/dns-managed-zone";
+import { makeProof, type DnsAssessment } from "../dns-teardown-proof";
 
 const unsafe = () => ({ safe: false, reason: "DNS target ownership could not be confirmed." });
 const domain = (value: unknown): string | undefined => {
@@ -39,7 +40,7 @@ async function list(ctx: RestContext, url: string, key: string): Promise<Record<
   return undefined;
 }
 
-export async function assessRecordDeletion(ctx: DriverContext<GcpSession>, node: ResourceNode, nodes: readonly ResourceNode[]): Promise<{ safe: boolean; reason: string }> {
+export async function assessRecordDeletion(ctx: DriverContext<GcpSession>, node: ResourceNode, nodes: readonly ResourceNode[]): Promise<DnsAssessment> {
   try {
     if (ctx.provider !== "gcp" || node.provider !== "gcp" || node.nativeType !== "gcp:dns_record_set" || node.kind !== "dns_record" || node.ownership !== "managed" || node.spec.type !== "alias") return unsafe();
     const target = nodes.find((n) => n.address === node.spec.target);
@@ -60,7 +61,8 @@ export async function assessRecordDeletion(ctx: DriverContext<GcpSession>, node:
     if (node.externalRef !== undefined && node.externalRef !== recordId) return unsafe();
     if (zoneNode.externalRef !== undefined && zoneNode.externalRef !== `projects/${project}/managedZones/${zone}` && zoneNode.externalRef !== zone) return unsafe();
     const record = await gcpGet(ctx, `${DNS}/${recordId}`);
-    if (record.outcome === "missing") return { safe: true, reason: "The record is absent in the readable zone." };
+    const stateMatch = node.externalRef !== undefined ? "externalRef" as const : "unrecorded" as const;
+    if (record.outcome === "missing") return { safe: true, reason: "The record is absent in the readable zone.", proof: makeProof({ provider: "gcp", address: node.address, zone: apex, name: host, type: "A", disposition: "absent", values: [], ownership: ["gcp:zone_readable"], stateMatch }) };
     if (record.outcome !== "ok" || domain(record.json.name) !== host || record.json.type !== "A" || !Array.isArray(record.json.rrdatas) || record.json.rrdatas.length === 0) return unsafe();
     const values: unknown[] = record.json.rrdatas;
     if (!values.every((v) => typeof v === "string" && isIP(v) === 4)) return unsafe();
@@ -76,7 +78,7 @@ export async function assessRecordDeletion(ctx: DriverContext<GcpSession>, node:
     if (live.outcome !== "ok" || !owns(live.json) || live.json.selfLink !== owned[0].selfLink || live.json.loadBalancingScheme !== "EXTERNAL_MANAGED") return unsafe();
     const ip = live.json.IPAddress;
     if (typeof ip !== "string" || isIP(ip) !== 4 || !values.every((v) => v === ip)) return unsafe();
-    return { safe: true, reason: "Every record value points to the scoped managed load balancer." };
+    return { safe: true, reason: "Every record value points to the scoped managed load balancer.", proof: makeProof({ provider: "gcp", address: node.address, zone: apex, name: host, type: "A", disposition: "present", values: values as string[], ownership: ["gcp:forwarding_rule_labels", "gcp:value_equals_rule_ip", "gcp:zone_readable"], stateMatch }) };
   } catch {
     return unsafe();
   }

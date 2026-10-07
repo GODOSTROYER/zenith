@@ -325,6 +325,36 @@
       "service": "monitoring",
       "method": "POST",
       "pattern": "metrics/actions/summarizeMetricsData"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "workRequests"
     }
   ],
   "topology.read": [
@@ -839,6 +869,36 @@
       "service": "monitoring",
       "method": "POST",
       "pattern": "metrics/actions/summarizeMetricsData"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "workRequests"
     }
   ],
   "logs.read": [
@@ -902,6 +962,11 @@
       "service": "containerinstances",
       "method": "GET",
       "pattern": "containers/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "workRequests/{}"
     },
     {
       "service": "core",

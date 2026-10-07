@@ -13,6 +13,8 @@ import { assessRecordDeletion } from "@/lib/providers/aws/drivers/network/route5
 import { assessRecordDeletion as assessGcpRecordDeletion } from "@/lib/providers/gcp/dns-ownership";
 import { assessRecordDeletion as assessAzureRecordDeletion } from "@/lib/providers/azure/dns-ownership";
 import { assessRecordDeletion as assessOciRecordDeletion } from "@/lib/providers/oci/dns-ownership";
+import { presenceOfDeletion, readDeletionEvidence } from "@/lib/providers/oci/deletion-evidence";
+import { assertProofsMatchReview, dnsDisposition, dnsOwnershipSummary, reviewedProofFor, type DnsAssessment, type DnsRecordSetProof } from "@/lib/providers/dns-teardown-proof";
 import { assertDeletionAllowed, TofuDeletionRefusedError } from "@/lib/tofu/plan";
 import { assertTeardownOwnership } from "./decommission";
 import { TofuCommandError } from "@/lib/tofu/runner";
@@ -193,13 +195,16 @@ function guard(plan: NormalizedPlan, nodes: readonly ResourceNode[]): void {
 }
 
 /** Current provider reads confirm historical targets; no assessor grants write authority. */
-async function guardDns(rt: Runtime, ec: ExecContext, nodes: readonly ResourceNode[], session: ProviderSession, signal: AbortSignal, lease: LeaseRef): Promise<void> {
+async function guardDns(rt: Runtime, ec: ExecContext, nodes: readonly ResourceNode[], session: ProviderSession, signal: AbortSignal, lease: LeaseRef): Promise<DnsRecordSetProof[]> {
   const dns = nodes.filter((node) => node.ownership === "managed" && node.kind === "dns_record");
-  if (dns.length === 0) return;
+  if (dns.length === 0) return [];
+  // Non-AWS record sets each leave an ownership proof that the review stores and apply must reproduce.
+  let proofs: DnsRecordSetProof[] = [];
   const assess = async (readSession: ProviderSession): Promise<void> => {
+    proofs = [];
     for (const node of dns) {
       const ctx = driverContext(rt, ec, readSession, signal, { node, fence: lease });
-      let result: { safe: boolean; reason: string };
+      let result: DnsAssessment;
       if (node.provider === "aws" && node.nativeType === "aws:route53_record" && readSession.provider === "aws") {
         result = await assessRecordDeletion({ ...ctx, session: readSession }, node);
       } else if (node.provider === "gcp" && node.nativeType === "gcp:dns_record_set" && readSession.provider === "gcp") {
@@ -212,6 +217,11 @@ async function guardDns(rt: Runtime, ec: ExecContext, nodes: readonly ResourceNo
         throw new StepFailedError("DNS record teardown is unsupported without a provider target ownership guard.");
       }
       if (!result.safe) throw new StepFailedError("DNS record target ownership could not be confirmed; refusing teardown.");
+      if (node.provider !== "aws") {
+        // A safe non-AWS verdict without a proof cannot be bound to the approval.
+        if (!result.proof) throw new StepFailedError("DNS record target ownership could not be confirmed; refusing teardown.");
+        proofs.push(result.proof);
+      }
     }
   };
   try {
@@ -235,6 +245,18 @@ async function guardDns(rt: Runtime, ec: ExecContext, nodes: readonly ResourceNo
     if (error instanceof LeaseLostError || error instanceof StepFailedError) throw error;
     throw new StepFailedError("DNS record target ownership could not be confirmed; refusing teardown.");
   }
+  return proofs;
+}
+
+/** Apply may dispatch only if the record sets proven now are exactly the reviewed ones. */
+function bindDnsProofs(fresh: readonly DnsRecordSetProof[], reviewed: unknown): void {
+  try { assertProofsMatchReview(fresh, reviewed); }
+  catch { throw new StepFailedError("DNS record ownership changed since review; a new review is required."); }
+}
+
+async function reviewedDnsOwnership(rt: Runtime, ec: ExecContext, planDigest: string): Promise<unknown> {
+  const row = await rt.d.evidence.find({ workspaceId: ec.workspaceId, operationId: ec.op.id, kind: "tofu_plan", digest: planDigest });
+  return row?.summary.dnsOwnership;
 }
 
 async function planStage(rt: Runtime, operationId: string, lease: LeaseRef, ports: DestroyProviderPorts, approvedDigest?: string): Promise<PlanSummary> {
@@ -247,9 +269,10 @@ async function planStage(rt: Runtime, operationId: string, lease: LeaseRef, port
   const connection = await resolveConnection(rt, ec);
   const { ws } = buildWorkspace({ ec, graph, connection, drivers: rt.drivers, overrides: rt.d.tofuWorkspace });
   const semanticsArgs = (plan: NormalizedPlan) => ({ graph, connection, ws, planDigest: plan.planDigest });
+  let dnsProofs: DnsRecordSetProof[] = [];
   const result = await withKeepAlive(rt, { lease, detail: "tofu destroy plan", operation: { workspaceId: ec.workspaceId, operationId } }, (signal) =>
     withProviderSession(rt, ec, { purpose: "observe", capability: PLAN_CAPABILITY, fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
-      await guardDns(rt, ec, graph.nodes, session, signal, lease);
+      dnsProofs = await guardDns(rt, ec, graph.nodes, session, signal, lease);
       if (originalDigest) {
         if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required; a new review is required.");
         await rt.d.planArtifacts.inspect({ custody: planCustody(ec,graph.graphDigest,connection), planDigest: originalDigest, lease }, async () => undefined);
@@ -270,7 +293,8 @@ async function planStage(rt: Runtime, operationId: string, lease: LeaseRef, port
   let semantics: Awaited<ReturnType<typeof recordReviewedSemantics>> | undefined;
   if (originalDigest) await assertApprovedSemantics(rt, ec, semanticsArgs(result.plan), "destroy final plan", { operationId: semanticsOperation(ec) });
   else semantics = await recordReviewedSemantics(rt, ec, semanticsArgs(result.plan));
-  const summary = { ...evidence.summary, destroy: true, destroyAddresses, statefulDeletes: facts.destroyedStatefulAddresses, ...(semantics ? { semantics } : {}) };
+  const dnsOwnership = dnsOwnershipSummary(dnsProofs);
+  const summary = { ...evidence.summary, destroy: true, destroyAddresses, statefulDeletes: facts.destroyedStatefulAddresses, ...(semantics ? { semantics } : {}), ...(dnsOwnership ? { dnsOwnership } : {}) };
   if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required.");
   if (!originalDigest) await rt.d.planArtifacts.publish({ produced: result.produced, lease, evidence: {
     id: `evd_${digest({ w: ec.scope.id, kind: "tofu_plan", key: `destroy:${evidence.key}` }).slice(0,32)}`,
@@ -310,6 +334,7 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
     async applyDestroyInfrastructure({ operationId, planDigest, lease }) {
       const { ec, graph } = await context(rt, operationId, lease);
       const reviewedAddresses = await reviewedPlan(rt, ec, planDigest);
+      const reviewedDns = isDirect(ec) ? undefined : await reviewedDnsOwnership(rt, ec, planDigest);
       const approval = await checkDestroyApproval(rt, operationId);
       if (!approval.approved || approval.rejected) throw new StepFailedError("Teardown requires a current digest-bound human approval.");
       // PROD-DUR-08: this exact destroy is applied at most once. A retry returns the saved result or refuses; it never re-applies.
@@ -360,13 +385,13 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
                 await assertApprovedSemantics(rt, freshContext.ec, { graph: freshContext.graph, connection: freshConnection, ws: freshWorkspace, planDigest }, "destroy dispatch", { operationId: semanticsOperation(freshContext.ec) });
                 const current = await checkDestroyApproval(rt, operationId);
                 if (!current.approved || current.rejected) throw new StepFailedError("The human approval is no longer valid.");
-                await guardDns(rt, freshContext.ec, freshContext.graph.nodes, session, signal, lease);
+                bindDnsProofs(await guardDns(rt, freshContext.ec, freshContext.graph.nodes, session, signal, lease), reviewedDns);
                 await rt.d.leases.assertFence(lease.scope,lease.fenceToken);
                 if (effects && effectScope) effect = await beginCleanupEffect(effects, effectScope);
                 started=true; await dispatch();
               }, destroy: true, deletionNodes: graph.nodes, session: tofuSession(session), signal, normalize: { fingerprintKey: rt.d.fingerprintKey }, inspectPlan: async (plan) => {
               guard(plan, graph.nodes);
-              await guardDns(rt, ec, graph.nodes, session, signal, lease);
+              bindDnsProofs(await guardDns(rt, ec, graph.nodes, session, signal, lease), reviewedDns);
               await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
             } });
           }))
@@ -407,25 +432,40 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
         return { status, checks: addresses.length, failed };
       }
       const connection = await resolveConnection(rt, ec);
+      const reviewedDns = await reviewedDnsOwnership(rt, ec, planDigest);
       let failed = 0, unknown = 0;
-      const checks: { address: string; presence: string; simulated: boolean }[] = [];
+      const checks: { address: string; presence: string; simulated: boolean; basis?: string[]; dns?: string }[] = [];
       await withKeepAlive(rt, { lease, detail: "verify destroy absence", operation: { workspaceId: ec.workspaceId, operationId } }, (signal) =>
         withProviderSession(rt, ec, { purpose: "observe", capability: OBSERVE_CAPABILITY, fence: lease, connection }, async (session) => {
           const stored = new Map((await rt.d.resources.list(ec.workspaceId, ec.environmentId)).map((row) => [row.address, row]));
           for (const address of addresses) {
             const node = graph.nodes.find((n) => n.address === address);
             const driver = node ? rt.drivers(node.provider, node.nativeType) : undefined;
-            let presence = "unknown", simulated = false;
+            let presence = "unknown", simulated = false, basis: string[] | undefined;
             if (node && driver?.observe) {
               try {
-                const obs = await driver.observe(driverContext(rt, ec, session, signal, { node, fence: lease, connection }), node, stored.get(address)?.externalId);
+                const dctx = driverContext(rt, ec, session, signal, { node, fence: lease, connection });
+                const obs = await driver.observe(dctx, node, stored.get(address)?.externalId);
                 simulated = obs.simulated;
                 if (obs.address === address && !simulated) presence = obs.presence;
+                // OCI: a driver `missing` stands only if independent family readback (GET state / 404 plus
+                // complete listing, newest delete work request) agrees. MySQL and unregistered types never pass.
+                if (presence === "missing" && node.provider === "oci" && session.provider === "oci") {
+                  const found = await readDeletionEvidence({ ...dctx, session }, node, stored.get(address)?.externalId, { observation: obs });
+                  presence = presenceOfDeletion(found);
+                  basis = found.basis;
+                }
               } catch { /* An unreadable API cannot prove absence. */ }
+            }
+            // Non-AWS DNS: absence counts only against the reviewed ownership proof (idempotent re-run = already_absent).
+            let dns: string | undefined;
+            if (node?.kind === "dns_record" && node.provider !== "aws") {
+              dns = dnsDisposition(reviewedProofFor(reviewedDns, address), { presence, simulated });
+              if (presence === "missing" && dns === "unknown") presence = "unknown";
             }
             if (presence === "present") failed++;
             else if (presence !== "missing") unknown++;
-            checks.push({ address, presence, simulated });
+            checks.push({ address, presence, simulated, ...(basis ? { basis } : {}), ...(dns ? { dns } : {}) });
             const row = stored.get(address);
             if (row) await rt.d.resources.setStatus({ workspaceId: ec.workspaceId, resourceId: row.id, status: presence === "missing" ? "deleted" : "unknown" });
           }

@@ -46,7 +46,7 @@ function ca(value: unknown): Buffer {
 /** No target/proof is returned. The default broker checks its actual tenant vault value before credential use. */
 export function assertVaultKubeconfigTarget(config: KubernetesConnectionConfig, text: string): void {
   try {
-    if (config.mode !== "kubeconfig_ref" || typeof text !== "string" || Buffer.byteLength(text, "utf8") > MAX_BYTES) return refuse();
+    if ((config.mode !== "kubeconfig_ref" && config.mode !== "scoped_guest") || typeof text !== "string" || Buffer.byteLength(text, "utf8") > MAX_BYTES) return refuse();
     const document = object(yamlLoad(text));
     if (document.apiVersion !== "v1" || document.kind !== "Config") return refuse();
     const context = entries(document.contexts, name(document["current-context"]), "context");

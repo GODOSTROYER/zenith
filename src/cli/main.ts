@@ -152,7 +152,7 @@ export async function runCli(argv: string[], runtime: CliRuntime = {}): Promise<
           const parsed = schemas[provider as keyof typeof schemas].safeParse(input);
           if (!parsed.success) throw new CliError(2, "invalid_input", `Invalid ${provider} connection input: ${parsed.error.issues.slice(0, 6).map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ")}`);
           checked = { provider, inputValid: true };
-        } else checked = { provider, inputValid: null, note: "This provider's creation flow returns trust values you must act on; use its browser page." };
+        } else checked = { provider, inputValid: null, note: provider === "kubernetes" ? "Kubernetes connections default to scoped guest (a namespaced minter credential). Legacy kubeconfig mode needs an explicit admin choice, with a warning, in the browser page." : "This provider's creation flow returns trust values you must act on; use its browser page." };
       } else {
         identifier(target);
         if (name === "connections rotate") {

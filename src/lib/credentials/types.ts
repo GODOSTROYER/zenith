@@ -132,13 +132,20 @@ export interface OciConnectionConfig {
 
 export interface KubernetesConnectionConfig {
   provider: "kubernetes";
-  mode: "kubeconfig_ref" | "runner" | "oidc_web_identity";
+  mode: "kubeconfig_ref" | "runner" | "oidc_web_identity" | "scoped_guest";
   /** API server URL */
   server: string;
   /** base64 PEM CA bundle (not secret) */
   caData?: string;
-  /** vault reference to a service-account token or kubeconfig — never inline */
+  /**
+   * vault reference to a service-account token or kubeconfig — never inline.
+   * In `scoped_guest` mode this is the namespaced MINTER credential: it may only
+   * manage Zenith guest ServiceAccounts/Roles/RoleBindings and request their
+   * tokens in the allowlisted namespaces. It is never handed to a guest caller.
+   */
   credentialRef?: string;
+  /** `scoped_guest` only: TokenRequest audiences; empty/omitted = the API server default audience. */
+  guestAudiences?: string[];
   /** namespaces Zenith may manage; empty = only namespaces it creates */
   namespaces: string[];
   /** for EKS: cluster name + an AWS connection id used to mint the token */
@@ -257,6 +264,13 @@ export interface CredentialRequest {
   secretResources?: readonly string[];
   /** ≤ grant lifetime; default 900 */
   durationSec?: number;
+  /**
+   * Kubernetes `scoped_guest` connections only (PROD-MACH-02): the single namespace
+   * and permission profile the machine request needs. The broker mints a
+   * ServiceAccount token for exactly that scope; a scoped_guest connection with no
+   * guest scope is refused, never served by the minter or any other credential.
+   */
+  kubernetesGuest?: { namespace: string; profile: "read" | "exec" };
 }
 
 export interface CredentialBroker {
@@ -304,6 +318,8 @@ export type DenialReason =
   | "issuer_unavailable"
   | "runner_unavailable"
   | "audit_failed"
+  /** a scoped Kubernetes guest credential could not be minted (never replaced by a broader one) */
+  | "guest_credential_refused"
   /** the session was revoked or outlived its credentials (provider sessions refuse further calls) */
   | "session_ended";
 

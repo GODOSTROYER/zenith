@@ -22,6 +22,8 @@ import { assertVaultKubeconfigTarget } from "@/lib/providers/kubernetes/vault-ta
 import { createK8sClient } from "@/lib/providers/kubernetes/client";
 import { isDnsLabel } from "@/lib/providers/kubernetes/naming";
 import { K8sError } from "@/lib/providers/kubernetes/types";
+import { GuestCredentialError, assertGuestNamespace, buildGuestKubeConfig, createGuestClusterPort, mintGuestCredential, revokeGuestBindings, verifyGuestMinter, type GuestRevocationOutcome } from "@/lib/providers/kubernetes/guest";
+import { createGuestStore } from "@/lib/providers/kubernetes/guest-store";
 import type { KubernetesSessionDeps } from "@/lib/providers/kubernetes/session";
 import { GcpAuthError, GcpSessionError } from "@/lib/providers/gcp/errors";
 import { AzureTokenError, AzureRequestRefusedError } from "@/lib/providers/azure/credentials";
@@ -36,7 +38,7 @@ import { awaitRunnerJob, enqueueRunnerJob } from "@/lib/runners/dispatch";
 import { createEffectLedger } from "@/lib/effects/ledger";
 import { runProxyJob } from "@/lib/effects/proxy";
 import { getRunnerRuntime } from "@/lib/runners/runtime";
-import type { OciSession } from "@/lib/credentials/types";
+import type { OciSession, KubernetesConnectionConfig } from "@/lib/credentials/types";
 import { awsBootstrapPreflightSessionPolicy, preflightAwsBootstrap, type AwsBootstrapPreflight } from "@/lib/credentials/aws/bootstrap-preflight";
 import { StepFailedError } from "@/lib/execution/errors";
 
@@ -158,6 +160,43 @@ async function nativeAwsReadiness(db: Sql, broker: CredentialBroker, original: C
   await repos.evidence.insert(db,{ workspaceId, operationId, kind:"observation", digest:digest(readiness),
     summary:{ stage:"aws_bootstrap_readiness", ...readiness, authorization:"unverified", migration:"not_performed" }, simulated:false });
   return readiness;
+}
+
+/**
+ * The workspace-vault Kubernetes session for a connection's stored credential (for a
+ * `scoped_guest` connection: the MINTER). Same target-bound, exec-plugin-refusing path
+ * as every other Kubernetes session; there is no other source for it.
+ */
+async function kubernetesVaultSession(connection: ProviderConnection, config: KubernetesConnectionConfig, now: () => Date, ttlSec: number, deps?: Pick<KubernetesSessionDeps, "eksToken" | "oidcToken">) {
+  return createKubernetesSession(config, { ...deps, now, ttlSec, resolveCredential: async (ref) => {
+    if (!isVaultRef(ref)) throw new K8sError("session_invalid", "Only Zenith vault references are supported.");
+    const value = await readSecretValueAsync(connection.workspaceId, ref);
+    if (!value) throw new K8sError("session_invalid", "Vault credential is unavailable in this workspace.");
+    assertVaultKubeconfigTarget(config, value);
+    return value;
+  } });
+}
+
+/**
+ * Connection revocation (LIFE-01) for `scoped_guest`: after the SQL revoke committed (bindings are
+ * already `revoking`, so nothing can mint), delete the cluster objects with the minter. A binding whose
+ * deletion cannot be completed stays `revoking` and is reported as pending; it is retried by the next
+ * call. Other connections are a no-op.
+ */
+export async function revokeKubernetesGuestBindings(db: Sql, connection: ProviderConnection, options: { now?: () => Date } = {}): Promise<GuestRevocationOutcome & { attempted: boolean }> {
+  const config = connection.config;
+  if (config.provider !== "kubernetes" || config.mode !== "scoped_guest") return { revoked: 0, pending: 0, attempted: false };
+  const store = createGuestStore(db, connection.workspaceId);
+  const open = await store.listOpen(connection.id);
+  if (!open.length) return { revoked: 0, pending: 0, attempted: true };
+  try {
+    const session = await kubernetesVaultSession(connection, config, options.now ?? (() => new Date()), 300);
+    const outcome = await revokeGuestBindings({ cluster: createGuestClusterPort(session, AbortSignal.timeout(60_000)), store }, { workspaceId: connection.workspaceId, connectionId: connection.id });
+    return { ...outcome, attempted: true };
+  } catch {
+    // Minter unavailable (vault value removed, cluster unreachable): bindings stay revoking and unmintable.
+    return { revoked: 0, pending: open.length, attempted: true };
+  }
 }
 
 export interface PlatformCredentialOptions {
@@ -306,7 +345,7 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
 
   // One private callback lifecycle for regular operations and onboarding.
   // The public broker still refuses pending connections for general use.
-  const withProviderSession = async <T>(connection: ProviderConnection, purpose: "observe" | "deploy", ttlSec: number, operationId: string, cap: string, assumed: () => void | Promise<void>, fn: (session: ProviderSession) => Promise<T>, sourceScope?: { environmentId: string; resourceId?: string }): Promise<T> => {
+  const withProviderSession = async <T>(connection: ProviderConnection, purpose: "observe" | "deploy", ttlSec: number, operationId: string, cap: string, assumed: () => void | Promise<void>, fn: (session: ProviderSession) => Promise<T>, sourceScope?: { environmentId: string; resourceId?: string }, kubernetesGuest?: NonNullable<CredentialRequest["kubernetesGuest"]> | "verify_minter"): Promise<T> => {
     const mint = (audience: string) => mintWorkloadToken({ workspaceId: connection.workspaceId, connectionId: connection.id, operationId, capability: cap, audience, ttlSec: Math.min(120, ttlSec) }, { ...options.oidc, now: now() });
     const c = connection.config;
     // Capture before any asynchronous vault/token/audit work. No caller proof
@@ -331,13 +370,31 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
         session = handle; close = () => handle.revoke(); break;
       }
       case "kubernetes": {
-        const handle = await createKubernetesSession(c, { ...options.kubernetes, now, ttlSec, resolveCredential: async (ref) => {
-          if (!isVaultRef(ref)) throw new K8sError("session_invalid", "Only Zenith vault references are supported.");
-          const value = await readSecretValueAsync(connection.workspaceId, ref);
-          if (!value) throw new K8sError("session_invalid", "Vault credential is unavailable in this workspace.");
-          assertVaultKubeconfigTarget(c, value);
-          return value;
-        } });
+        if (c.mode === "scoped_guest" && !kubernetesGuest) {
+          // Explicit refusal: a guest connection serves scoped machine sessions only, never a deploy/observe provider path.
+          throw new CredentialDeniedError("Scoped Kubernetes guest connections serve guest machine sessions only.", { reason: "guest_credential_refused" });
+        }
+        const handle = await kubernetesVaultSession(connection, c, now, ttlSec, options.kubernetes);
+        if (c.mode === "scoped_guest" && kubernetesGuest && kubernetesGuest !== "verify_minter") {
+          // The minter stays inside this block. Guest callers receive only the scoped TokenRequest token.
+          try {
+            assertGuestNamespace(kubernetesGuest.namespace, c.namespaces);
+            const minter = createGuestClusterPort(handle, AbortSignal.timeout(30_000));
+            const guest = await mintGuestCredential({ cluster: minter, store: createGuestStore(db, connection.workspaceId), now },
+              { workspaceId: connection.workspaceId, connectionId: connection.id, namespace: kubernetesGuest.namespace, profile: kubernetesGuest.profile, namespaces: c.namespaces, audiences: c.guestAudiences });
+            const kc = buildGuestKubeConfig({ server: handle.server, caData: c.caData, token: guest.token });
+            const guestExpiresAt = new Date(Math.min(Date.parse(guest.expiresAt), now().getTime() + ttlSec * 1000)).toISOString();
+            let guestEnded = false;
+            session = { provider: "kubernetes", server: handle.server, expiresAt: guestExpiresAt, namespaces: [kubernetesGuest.namespace], kubeConfig: () => {
+              if (guestEnded || now().getTime() >= Date.parse(guestExpiresAt)) throw new CredentialDeniedError("The session has ended.", { reason: "session_ended" });
+              return kc;
+            } } as ProviderSession;
+            close = () => { guestEnded = true; };
+          } catch (error) {
+            throw new CredentialDeniedError(error instanceof GuestCredentialError ? error.message : "The scoped Kubernetes guest credential could not be minted.", { reason: "guest_credential_refused" });
+          }
+          break;
+        }
         let ended = false;
         session = { provider: "kubernetes", server: handle.server, expiresAt: handle.expiresAt, namespaces: handle.namespaces, kubeConfig: () => {
           if (ended) throw new CredentialDeniedError("The session has ended.", { reason: "session_ended" });
@@ -408,9 +465,14 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
           created = true;
           try { await emit({ ...base, type: "credential.assumed", data: { connectionId: connection.id, provider: connection.config.provider, purpose: req.purpose } }); }
           catch { return deny("audit_failed", "Credential audit could not be recorded; session refused."); }
-        }, fn, grant.env ? { environmentId: grant.env, resourceId: grant.res } : undefined);
+        }, fn, grant.env ? { environmentId: grant.env, resourceId: grant.res } : undefined, req.kubernetesGuest);
       } catch (error) {
         if (!created && connection.config.provider === "oci" && error instanceof CredentialDeniedError) return deny(error.reason ?? "runner_unavailable", error.message);
+        if (!created && connection.config.provider === "kubernetes" && connection.config.mode === "scoped_guest") {
+          return error instanceof CredentialDeniedError
+            ? deny(error.reason ?? "guest_credential_refused", error.message)
+            : deny("guest_credential_refused", "The scoped Kubernetes guest credential could not be minted.");
+        }
         if (!created) return deny("not_supported", "Provider session could not be created; check federation or vault configuration.");
         throw error;
       }
@@ -457,6 +519,12 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
               if (typeof actual !== "string" || (session.provider === "azure" ? actual.toLowerCase() !== expected.toLowerCase() : actual !== expected)) return { ok: false, detail: "Provider identity read returned a missing or mismatched project/subscription identifier." };
               return { ok: true, detail: `${session.provider === "gcp" ? "GCP observe service account read the configured project" : "Azure federated identity read the configured subscription"}.`, accountId: expected };
             }
+            if (session.provider === "kubernetes" && config.provider === "kubernetes" && config.mode === "scoped_guest") {
+              // Creates nothing: proves the minter is namespaced-only and can manage guest objects in each namespace.
+              try { await verifyGuestMinter(createGuestClusterPort(session, signal), config.namespaces); }
+              catch (error) { return { ok: false, detail: error instanceof GuestCredentialError ? error.message : "Kubernetes minter verification failed." }; }
+              return { ok: true, detail: "Kubernetes minter is namespaced-only and can manage guest ServiceAccounts and Roles in every allowlisted namespace. Guest tokens are minted per dispatch." };
+            }
             if (session.provider === "kubernetes" && config.provider === "kubernetes") {
               const client = createK8sClient(session, { signal });
               for (const namespace of [...new Set(config.namespaces)].sort()) {
@@ -466,7 +534,7 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
               return { ok: true, detail: "Kubernetes credential read the default ServiceAccount in every allowlisted namespace. Additional permissions are unverified." };
             }
             return { ok: false, detail: "Provider identity verification is unsupported." };
-          });
+          }, undefined, config.provider === "kubernetes" && config.mode === "scoped_guest" ? "verify_minter" : undefined);
         }
         if (result.ok) {
           const current = adopt(await repos.connections.get(db, connection.workspaceId, id));

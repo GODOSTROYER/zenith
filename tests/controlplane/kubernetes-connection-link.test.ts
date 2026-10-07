@@ -83,7 +83,7 @@ describe.skipIf(!PG_URL)("human Kubernetes connection linking [postgres; modeled
     return output.plan;
   }
   async function fixture() {
-    const credentialRef = `vault:link/${randomUUID()}/KUBECONFIG`, input = { server: "https://cluster.example.test", caData: CA, namespaces: ["orders"], credentialRef };
+    const credentialRef = `vault:link/${randomUUID()}/KUBECONFIG`, input = { server: "https://cluster.example.test", caData: CA, namespaces: ["orders"], credentialRef, scopedGuest: false };
     const result = await action("connection.createKubernetes", input); expect(result.ok).toBe(true);
     const { connectionId } = result.data as { connectionId: string };
     expect(await repos.connections.get(owner, workspaceId, connectionId)).toMatchObject({ id: connectionId, legacyConnectionId: connectionId, status: "pending_verification", config: { provider: "kubernetes", mode: "kubeconfig_ref" } });

@@ -55,6 +55,7 @@ import * as optimizerSettings from "./optimizer-settings";
 import * as scheduledJobs from "./scheduled-jobs";
 import * as plugins from "./plugins";
 import * as externalEffects from "./external-effects";
+import * as k8sGuestBindings from "./k8s-guest-bindings";
 
 export {
   planArtifacts,
@@ -93,6 +94,7 @@ export {
   scheduledJobs,
   plugins,
   externalEffects,
+  k8sGuestBindings,
 };
 
 type CapabilityConstructor = "createApprovedSourceSnapshotStore" | "isApprovedSourceSnapshotStore" | "createIsolatedApprovedSourceStoreForTests" | "reserveOwnerGrant" | "insertOwnerGrant" | "inventory" | "retainCleanupWriterHold" | "reserveCleanupOwnerGrant" | "insertCleanupOwnerGrant";
@@ -155,6 +157,7 @@ export function bindRepos(sql: Sql) {
     scheduledJobs: bind(scheduledJobs, sql),
     plugins: bind(plugins, sql),
     externalEffects: bind(externalEffects, sql),
+    k8sGuestBindings: bind(k8sGuestBindings, sql),
   };
 }
 

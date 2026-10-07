@@ -45,6 +45,8 @@ import { backendForConnection } from "@/lib/tofu/backends";
 import { assertBackendAdmissible } from "@/lib/tofu/backend-capabilities";
 import { scanHclTemplate } from "@/lib/tofu/hcl-template";
 import type { ExecContext } from "./context";
+import { inputVariable, type ConsumedInput } from "./typed-inputs";
+import { placeholdersIn, rewriteSpecMarkers, substituteInputTokens } from "./typed-substitution";
 import { StepFailedError } from "./errors";
 import type { DriverLookup, WorkspaceOverrides } from "./ports";
 import { baseTags, namePrefix, nodeTags } from "./session";
@@ -72,6 +74,8 @@ export function primaryAddress(nodeAddress: string, fragment: TofuFragment): str
 
 export interface CompiledGraph {
   fragments: Map<string, TofuFragment>;
+  /** Typed inputs the compiled output actually uses (a driver's `ctx.input` or a substituted manifest marker). */
+  usedInputs: ReadonlySet<string>;
 }
 
 interface PendingReference { source: string; target: string; attribute: string }
@@ -120,9 +124,16 @@ function substituteReferences(value: unknown, source: string, resolved: Readonly
   return value;
 }
 
-export function compileGraph(input: { graph: ResourceGraph; environmentId: string; region: string; tags: Record<string, string>; drivers: DriverLookup; connection?: ProviderConnection }): CompiledGraph {
+export function compileGraph(input: { graph: ResourceGraph; environmentId: string; region: string; tags: Record<string, string>; drivers: DriverLookup; connection?: ProviderConnection; inputs?: readonly ConsumedInput[] }): CompiledGraph {
   const { graph, drivers } = input;
-  const nodes = new Map(graph.nodes.map((n) => [n.address, n]));
+  // Manifest markers `{{zenith.input.<name>}}` in non-secret fields become placeholders the drivers copy like any string; they become the
+  // typed-input variable expression after compilation. Every marker is validated here (undeclared, secret in a non-secret field, ...).
+  const consumed = new Map((input.inputs ?? []).map((item) => [item.name, item]));
+  const names = [...consumed.keys()].sort();
+  const indexOf = new Map(names.map((name, index) => [name, index]));
+  const prepared = new Map(graph.nodes.map((n) => [n.address, rewriteSpecMarkers(n, consumed, indexOf)]));
+  const nodes = new Map([...prepared].map(([address, rewrite]) => [address, rewrite.node]));
+  const usedNames = new Set<string>();
   const pending = new Map<string, PendingReference>();
   const fragments = new Map<string, TofuFragment>();
   const prefix = namePrefix(input.environmentId);
@@ -157,6 +168,12 @@ export function compileGraph(input: { graph: ResourceGraph; environmentId: strin
       ...(node.provider === "azure" && input.connection?.config.provider === "azure" && input.connection.config.cloud ? { azureCloud: input.connection.config.cloud } : {}),
       ...(node.provider === "aws" && awsBootstrap ? { awsBootstrap: awsBootstrapContextForConnection(input.connection!.config, node.region || input.region) } : {}),
       node: (a) => nodes.get(a),
+      input: (name) => {
+        // A typed dependency input of this consumer: only a declared one resolves, as the interpolation of its variable.
+        if (!input.inputs?.some((declared) => declared.name === name)) throw new StepFailedError(`${safeText(node.address, 120)} asked for the typed input "${safeText(name, 60)}", which this operation does not consume.`);
+        usedNames.add(name);
+        return "${var." + inputVariable(name) + "}";
+      },
       ref: (target, attribute) => {
         const reference = { source: node.address, target, attribute };
         if (!nodes.has(target) || typeof attribute !== "string" || attribute.length > 512 || !REFERENCE_KEY.test(attribute)) return refuseReference(reference);
@@ -199,7 +216,17 @@ export function compileGraph(input: { graph: ResourceGraph; environmentId: strin
     resolved.set(token, `${primary}.${attribute}`);
   }
   for (const [address, fragment] of fragments) fragments.set(address, substituteReferences(fragment, address, resolved) as TofuFragment);
-  return { fragments };
+  // Typed inputs: a marker the node's own spec used must have reached its compiled output (else its field cannot take the value),
+  // then every placeholder becomes the variable expression.
+  const seen = new Set<number>();
+  for (const [address, rewrite] of prepared) {
+    if (!rewrite.used.size) continue;
+    const present = fragments.has(address) ? placeholdersIn(fragments.get(address)) : new Set<number>();
+    for (const index of rewrite.used) if (!present.has(index)) throw new StepFailedError(`${safeText(address, 120)}: the typed input "${safeText(names[index] ?? "?", 60)}" was not carried into this resource's configuration; its field cannot accept the reference.`);
+  }
+  for (const [address, fragment] of fragments) fragments.set(address, substituteInputTokens(fragment, address, names, seen) as TofuFragment);
+  for (const index of seen) usedNames.add(names[index]);
+  return { fragments, usedInputs: usedNames };
 }
 
 /* ------------------------------ workspace -------------------------------- */
@@ -249,11 +276,18 @@ export function buildWorkspace(input: {
     if (connection.status !== "verified") throw new StepFailedError("AWS compilation requires a verified connection.");
     awsBootstrapContextForConnection(connection.config, env.region);
   }
-  const { fragments } = compileGraph({ graph, environmentId: ec.environmentId, region: env.region, tags, drivers: input.drivers, connection });
+  const typed = ec.typedInputs ?? [];
+  const { fragments, usedInputs } = compileGraph({ graph, environmentId: ec.environmentId, region: env.region, tags, drivers: input.drivers, connection, ...(typed.length ? { inputs: typed } : {}) });
+  // Non-secret inputs are always declared (their value is part of the configuration digest). A secret input is declared as a sensitive
+  // variable only when the compiled output uses it; a secret used through a `secretRef` is delivered by the provider's secret path instead.
+  const declared = typed.filter((item) => item.secret === undefined || usedInputs.has(item.name));
   const { backend, stateKey } = backendFor(ec, connection, input.overrides);
   const providerSet = providerSetFor(env.provider, input.overrides);
   try {
-    const ws = assembleWorkspace({ graph, fragments, providerSet, region: env.region, backend, stateKey, tags });
+    const ws = assembleWorkspace({
+      graph, fragments, providerSet, region: env.region, backend, stateKey, tags,
+      ...(declared.length ? { inputs: declared.map((item) => ({ name: item.name, type: item.type === "number" ? "number" as const : item.type === "boolean" ? "boolean" as const : "string" as const, sensitive: item.secret !== undefined, ...(item.secret === undefined ? { value: item.value } : {}) })) } : {}),
+    });
     return { ws, fragments };
   } catch (err) {
     // Assembler refusals (duplicate addresses, forbidden constructs, credential-shaped keys) name node addresses, never values.

@@ -4,6 +4,7 @@
  * The secret-derived fingerprint key is mandatory even when tofu is injected.
  */
 import { createPlatformSemanticsStore } from "@/lib/controlplane/db/repos/executable-semantics";
+import { createPlatformTypedInputs } from "@/lib/execution/mixed/typed-inputs";
 import { createPlanArtifactRuntime } from "./plan-artifacts";
 import { withWorkerCustody } from "./plan-custody";
 import { hkdfSync } from "node:crypto";
@@ -130,6 +131,8 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     releaseSafety: createPlatformReleaseSafety(opts.db),
     // The canonical executable semantics a human reviewed, recorded write-once at planning and recomputed at every dispatch (PROD-DUR-03).
     semantics: createPlatformSemanticsStore(opts.db),
+    // Producer outputs captured at apply, and the typed inputs a mixed consumer receives (PROD-MIX follow-up).
+    typedInputs: createPlatformTypedInputs({ sql: opts.db }),
     machines: opts.ports?.machines ?? createDefaultMachinePort(opts.db, opts.secretKey ?? process.env.ZENITH_SECRET_KEY!),
     ...opts.ports,
     // The captured source authority is final; the generic test-port spread cannot replace it.

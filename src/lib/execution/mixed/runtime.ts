@@ -14,7 +14,7 @@ export async function mixedDeps(): Promise<MixedDeps> {
   const sql = await platformDb();
   return {
     sql,
-    world: createMixedWorld({ product: createProductPort(), connections: createConnectionsPort(sql), platformConnection: (workspaceId, id) => repos.connections.get(sql, workspaceId, id) }),
+    world: createMixedWorld({ product: createProductPort(), connections: createConnectionsPort(sql), platformConnection: (workspaceId, id) => repos.connections.get(sql, workspaceId, id), sql }),
     semantics: createPlatformSemanticsStore(sql),
   };
 }

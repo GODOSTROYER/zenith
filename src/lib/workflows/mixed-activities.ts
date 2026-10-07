@@ -114,7 +114,7 @@ export interface MixedActivityDeps {
 
 export function createMixedActivities(options: MixedActivityDeps): MixedActivities {
   const world = options.world ?? createMixedWorld({
-    product: createProductPort(), connections: createConnectionsPort(options.db), platformConnection: (workspaceId, id) => repos.connections.get(options.db, workspaceId, id),
+    product: createProductPort(), connections: createConnectionsPort(options.db), platformConnection: (workspaceId, id) => repos.connections.get(options.db, workspaceId, id), sql: options.db,
   });
   const launcher = options.launcher ?? createChildLauncher();
   // A child with cross-partition references may start only when the world can supply the producers' typed outputs; the run

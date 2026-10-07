@@ -30,7 +30,7 @@ import { extractPlanFacts } from "@/lib/policy/plan-facts";
 import type { ExecutionActivities } from "@/lib/workflows/types";
 import { mapLimit } from "./concurrency";
 import { loadExecContext, loadOperation, resolveConnection, type ExecContext } from "./context";
-import { assertLeaseFor, costOf, requireExecutable, tofuSession } from "./desired";
+import { assertLeaseFor, costOf, requireExecutable, tofuSessionFor } from "./desired";
 import { buildWorkspace, compileGraph } from "./compile";
 import { errorCode, StepFailedError, TofuPlanChangedError } from "./errors";
 import { buildDesiredState, findGraphProblems } from "./graph";
@@ -140,7 +140,7 @@ export async function buildDeployWorkspace(rt: Runtime, ec: ExecContext, graph: 
   }
   // Compile the historical graph solely to recover the driver's exact address
   // list (including auxiliary resources). No names are guessed from tofu output.
-  const { fragments } = compileGraph({ graph: { ...previous, nodes: [...prior.values()] }, environmentId: ec.environmentId, region: ec.product.environment.region, tags: baseTags(ec), drivers: rt.drivers, connection });
+  const { fragments } = compileGraph({ graph: { ...previous, nodes: [...prior.values()] }, environmentId: ec.environmentId, region: ec.product.environment.region, tags: baseTags(ec), drivers: rt.drivers, connection, ...(ec.typedInputs?.length ? { inputs: ec.typedInputs } : {}) });
   const owner = new Map<string, string>();
   const addressMap: Record<string, string[]> = {};
   const add = (nodeAddress: string, addresses: readonly string[]): void => {
@@ -245,7 +245,7 @@ async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<Exec
       const deletionGuard = inspectDeployDeletions(rt, ec, deletionNodes, dnsNodes, session, signal, lease);
       // lock: false — the read-only observe role cannot write the S3 state-lock object; the fenced env lease
       // (held, renewed and asserted around this call) is what serialises work on the environment. Apply always locks.
-      return rt.tofu.planWorkspace(ws, tofuSession(session), { signal, custody: planCustody(ec, graph.graphDigest, connection), lock: false, expectedDigest, deletionNodes, inspectPlan: async (plan, raw) => {
+      return rt.tofu.planWorkspace(ws, await tofuSessionFor(rt, ec, session, ws), { signal, custody: planCustody(ec, graph.graphDigest, connection), lock: false, expectedDigest, deletionNodes, inspectPlan: async (plan, raw) => {
         await deletionGuard(plan, raw);
         if (repairBinding) {
           await prepareEcsReplicaRepair(rt, ec, graph, baseWorkspace, connection, session, signal, lease);

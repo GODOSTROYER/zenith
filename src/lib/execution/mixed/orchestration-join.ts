@@ -29,6 +29,7 @@ import { applyOutputs } from "../mixed-orchestration/outputs";
 import { planMixedPartitions } from "../mixed-partitions";
 import { plannerInputOf, type ChildLauncher } from "./service";
 import { MixedPlanError, type ChildReceipt, type ChildState, type MixedParentPlan, type MixedParentReviewInput } from "./types";
+import { ProducerOutputError } from "./output-reader";
 import type { MixedWorld } from "./world";
 
 /** Longest the run lets one child run before it records a timeout: the run limit, just under the workflow's own wait cap. */
@@ -102,10 +103,19 @@ const effectApprovedFor = (state: MixedRunState, partitionId: string, planEffect
   return rebinds.length ? rebinds[rebinds.length - 1].effectDigest : planEffectDigest;
 };
 
-async function signalsFor(deps: JoinDeps, plan: MixedParentPlan) {
+/**
+ * Drift (OBS-01 / reconcile) and migration (LIFE-10) observations for the ordering rules, read from the platform for this
+ * plan's children. Without a signal source in the world (a contract test with fakes) the rules see none.
+ */
+export async function signalsFor(deps: JoinDeps, plan: MixedParentPlan) {
   if (!deps.world.orderingSignals) return NO_SIGNALS;
-  const observed = await deps.world.orderingSignals(plan.workspaceId, plan.children.map((child) => ({ partitionId: child.partitionId, childEnvironmentId: child.childEnvironmentId })));
-  return { drift: [...observed.drift], migrationChildIds: [...observed.migrationChildIds] };
+  const rows = await plans.listChildren(deps.sql, plan.workspaceId, plan.parentPlanId);
+  const operationOf = new Map(rows.map((row) => [row.partitionId, row.childOperationId]));
+  const observed = await deps.world.orderingSignals(plan.workspaceId, plan.children.map((child) => {
+    const childOperationId = operationOf.get(child.partitionId);
+    return { partitionId: child.partitionId, childEnvironmentId: child.childEnvironmentId, ...(childOperationId ? { childOperationId } : {}) };
+  }));
+  return { drift: [...observed.drift], migrationChildIds: [...observed.migrationChildIds], contractMigrationChildIds: [...(observed.contractMigrationChildIds ?? [])] };
 }
 
 /**
@@ -211,7 +221,7 @@ export type MaterializeResult =
   | { state: "waiting"; reviewOperationId: string }
   | { state: "blocked"; reason: "outputs_unavailable" | "review_pending" | "approval_changed" };
 
-async function producerOutputs(deps: JoinDeps, input: { workspaceId: string; plan: MixedParentPlan; references: readonly ReferenceView[] }): Promise<unknown[]> {
+async function producerOutputs(deps: JoinDeps, input: { workspaceId: string; plan: MixedParentPlan; references: readonly ReferenceView[]; state: MixedRunState }): Promise<unknown[]> {
   const source = deps.world.childTypedOutputs;
   if (!source) return [];
   const rows = await plans.listChildren(deps.sql, input.workspaceId, input.plan.parentPlanId);
@@ -222,7 +232,9 @@ async function producerOutputs(deps: JoinDeps, input: { workspaceId: string; pla
     const row = rows.find((candidate) => candidate.partitionId === producerId);
     const receipt = await plans.getReceipt(deps.sql, input.workspaceId, input.plan.parentPlanId, producerId);
     if (!row?.childOperationId || !receipt || receipt.outcome !== "succeeded") throw new MixedPlanError("child_mismatch", "A producer has no succeeded receipt to take outputs from.");
-    out.push(...(await source.call(deps.world, input.workspaceId, { partitionId: producerId, childOperationId: row.childOperationId, receiptDigest: receipt.receiptDigest },
+    const effectDigest = input.state.children[producerId]?.effectDigest;
+    if (!effectDigest) throw new MixedPlanError("child_mismatch", "A producer has no effect digest in the run.");
+    out.push(...(await source.call(deps.world, input.workspaceId, { partitionId: producerId, childOperationId: row.childOperationId, receiptDigest: receipt.receiptDigest, receipt, plan: input.plan, effectDigest },
       refs.map((ref) => ({ referenceId: ref.id, consumerChildId: ref.consumerChildId, producerAddress: ref.producerAddress, producerOutput: ref.producerOutput })))));
   }
   return out;
@@ -246,13 +258,26 @@ export async function materializeIncoming(deps: JoinDeps, input: { workspaceId: 
   if (producers.some((producerId) => run.state.children[producerId]?.status !== "succeeded")) return { state: "ready" };
 
   const newRefs = view.references.filter((reference) => missing.has(reference.id));
-  const newOutputs = await producerOutputs(deps, { workspaceId: input.workspaceId, plan: input.plan, references: newRefs });
+  // The producer's outputs are read back through its own partition (output-reader.ts). Unreadable outputs end the consumer's
+  // start as blocked with a fixed reason; nothing starts on a guess and nothing partial is applied.
+  let newOutputs: unknown[];
+  try {
+    newOutputs = await producerOutputs(deps, { workspaceId: input.workspaceId, plan: input.plan, references: newRefs, state: run.state });
+  } catch (error) {
+    if (error instanceof ProducerOutputError) return { state: "blocked", reason: "outputs_unavailable" };
+    throw error;
+  }
   // The reviewed planner input includes outputs that earlier consumers already took (their effect digests moved with review or preauthorization).
   const prior = view.references.filter((reference) => !missing.has(reference.id) && run.state.children[reference.consumerChildId]?.incoming.find((entry) => entry.referenceId === reference.id)?.materialized && !reference.materialized);
   const base = await plannerInputOf({ world: deps.world }, input.plan);
   let approvedInput = base;
   if (prior.length) {
-    const validated = (await producerOutputs(deps, { workspaceId: input.workspaceId, plan: input.plan, references: prior })).map((raw) => validateOutput(raw, run.state, view));
+    let earlier: unknown[];
+    try { earlier = await producerOutputs(deps, { workspaceId: input.workspaceId, plan: input.plan, references: prior, state: run.state }); } catch (error) {
+      if (error instanceof ProducerOutputError) return { state: "blocked", reason: "outputs_unavailable" };
+      throw error;
+    }
+    const validated = earlier.map((raw) => validateOutput(raw, run.state, view));
     approvedInput = applyOutputs(base, planMixedPartitions(base), validated);
   }
   if (planMixedPartitions(approvedInput).parentDigest !== run.state.parentDigest) throw new MixedOrchestrationError("stale_digest", [child.id]);

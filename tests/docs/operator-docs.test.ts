@@ -49,6 +49,7 @@ const SOURCE_SNAPSHOTS: Record<string, { branch: string; commit: string }> = {
   "ROLLING-UPGRADES.md": { branch: "codex/production-2026-10-02", commit: "ebcece3fb774f2c9feaf110cc1b3a37aa5a62ad0" },
   "SENSITIVE-DATA.md": { branch: "codex/production-2026-10-02", commit: "e34c4673daf20f167311a3b9c9b148de1c027f4c" },
   "CONTROL-PLANE-FAIRNESS.md": { branch: "prod/ops-02-w4", commit: "c9a942d" },
+  "SLO.md": { branch: "prod/ops-01-w5", commit: "c02c097" },
 };
 
 /* -------------------------------- structure ------------------------------- */

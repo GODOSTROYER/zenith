@@ -1,0 +1,182 @@
+{
+  "groups": [
+    {
+      "name": "zenith-slo-recording",
+      "interval": "30s",
+      "rules": [
+        {
+          "record": "zenith:slo_api_availability:error_ratio_rate5m",
+          "expr": "sum(rate(zenith_api_requests_total{status_class=\"5xx\"}[5m])) / sum(rate(zenith_api_requests_total[5m]))",
+          "labels": {
+            "service": "zenith-control-plane"
+          }
+        },
+        {
+          "record": "zenith:slo_api_availability:error_ratio_rate30m",
+          "expr": "sum(rate(zenith_api_requests_total{status_class=\"5xx\"}[30m])) / sum(rate(zenith_api_requests_total[30m]))",
+          "labels": {
+            "service": "zenith-control-plane"
+          }
+        },
+        {
+          "record": "zenith:slo_api_availability:error_ratio_rate1h",
+          "expr": "sum(rate(zenith_api_requests_total{status_class=\"5xx\"}[1h])) / sum(rate(zenith_api_requests_total[1h]))",
+          "labels": {
+            "service": "zenith-control-plane"
+          }
+        },
+        {
+          "record": "zenith:slo_api_availability:error_ratio_rate6h",
+          "expr": "sum(rate(zenith_api_requests_total{status_class=\"5xx\"}[6h])) / sum(rate(zenith_api_requests_total[6h]))",
+          "labels": {
+            "service": "zenith-control-plane"
+          }
+        },
+        {
+          "record": "zenith:slo_api_availability:error_ratio_rate3d",
+          "expr": "sum(rate(zenith_api_requests_total{status_class=\"5xx\"}[3d])) / sum(rate(zenith_api_requests_total[3d]))",
+          "labels": {
+            "service": "zenith-control-plane"
+          }
+        },
+        {
+          "record": "zenith:slo_api_latency:error_ratio_rate5m",
+          "expr": "1 - (sum(rate(zenith_api_request_duration_seconds_bucket{le=\"0.5\"}[5m])) / sum(rate(zenith_api_request_duration_seconds_count[5m])))",
+          "labels": {
+            "service": "zenith-control-plane"
+          }
+        },
+        {
+          "record": "zenith:slo_api_latency:error_ratio_rate30m",
+          "expr": "1 - (sum(rate(zenith_api_request_duration_seconds_bucket{le=\"0.5\"}[30m])) / sum(rate(zenith_api_request_duration_seconds_count[30m])))",
+          "labels": {
+            "service": "zenith-control-plane"
+          }
+        },
+        {
+          "record": "zenith:slo_api_latency:error_ratio_rate1h",
+          "expr": "1 - (sum(rate(zenith_api_request_duration_seconds_bucket{le=\"0.5\"}[1h])) / sum(rate(zenith_api_request_duration_seconds_count[1h])))",
+          "labels": {
+            "service": "zenith-control-plane"
+          }
+        },
+        {
+          "record": "zenith:slo_api_latency:error_ratio_rate6h",
+          "expr": "1 - (sum(rate(zenith_api_request_duration_seconds_bucket{le=\"0.5\"}[6h])) / sum(rate(zenith_api_request_duration_seconds_count[6h])))",
+          "labels": {
+            "service": "zenith-control-plane"
+          }
+        },
+        {
+          "record": "zenith:slo_api_latency:error_ratio_rate3d",
+          "expr": "1 - (sum(rate(zenith_api_request_duration_seconds_bucket{le=\"0.5\"}[3d])) / sum(rate(zenith_api_request_duration_seconds_count[3d])))",
+          "labels": {
+            "service": "zenith-control-plane"
+          }
+        }
+      ]
+    },
+    {
+      "name": "zenith-slo-burn",
+      "interval": "30s",
+      "rules": [
+        {
+          "alert": "ZenithSloAvailabilityBurnFast",
+          "expr": "zenith:slo_api_availability:error_ratio_rate1h > 0.072 and zenith:slo_api_availability:error_ratio_rate5m > 0.072 and sum(increase(zenith_api_requests_total[1h])) >= 20",
+          "for": "2m",
+          "labels": {
+            "severity": "critical",
+            "service": "zenith-control-plane",
+            "slo": "control_plane_availability",
+            "provisional": "true"
+          },
+          "annotations": {
+            "summary": "Control-plane availability error budget burning 14.4x too fast (provisional SLO, not approved)",
+            "description": "Both the 1h and 5m error ratios exceed 0.072, which is 14.4x the allowed rate for the provisional 99.5% target in deploy/slo/slo-definitions.json. The target is an engineering default awaiting DEC-BUSINESS, not a commitment.",
+            "runbook_url": "docs/platform/operations/SLO.md#zenithsloavailabilityburnfast"
+          }
+        },
+        {
+          "alert": "ZenithSloAvailabilityBurnSlow",
+          "expr": "zenith:slo_api_availability:error_ratio_rate6h > 0.03 and zenith:slo_api_availability:error_ratio_rate30m > 0.03 and sum(increase(zenith_api_requests_total[6h])) >= 20",
+          "for": "15m",
+          "labels": {
+            "severity": "warning",
+            "service": "zenith-control-plane",
+            "slo": "control_plane_availability",
+            "provisional": "true"
+          },
+          "annotations": {
+            "summary": "Control-plane availability error budget burning 6x too fast (provisional SLO, not approved)",
+            "description": "Both the 6h and 30m error ratios exceed 0.03, which is 6x the allowed rate for the provisional 99.5% target in deploy/slo/slo-definitions.json. The target is an engineering default awaiting DEC-BUSINESS, not a commitment.",
+            "runbook_url": "docs/platform/operations/SLO.md#zenithsloavailabilityburnslow"
+          }
+        },
+        {
+          "alert": "ZenithSloAvailabilityBurnTicket",
+          "expr": "zenith:slo_api_availability:error_ratio_rate3d > 0.005 and zenith:slo_api_availability:error_ratio_rate6h > 0.005 and sum(increase(zenith_api_requests_total[3d])) >= 20",
+          "for": "1h",
+          "labels": {
+            "severity": "info",
+            "service": "zenith-control-plane",
+            "slo": "control_plane_availability",
+            "provisional": "true"
+          },
+          "annotations": {
+            "summary": "Control-plane availability error budget burning 1x too fast (provisional SLO, not approved)",
+            "description": "Both the 3d and 6h error ratios exceed 0.005, which is 1x the allowed rate for the provisional 99.5% target in deploy/slo/slo-definitions.json. The target is an engineering default awaiting DEC-BUSINESS, not a commitment.",
+            "runbook_url": "docs/platform/operations/SLO.md#zenithsloavailabilityburnticket"
+          }
+        },
+        {
+          "alert": "ZenithSloLatencyBurnFast",
+          "expr": "zenith:slo_api_latency:error_ratio_rate1h > 0.72 and zenith:slo_api_latency:error_ratio_rate5m > 0.72 and sum(increase(zenith_api_request_duration_seconds_count[1h])) >= 20",
+          "for": "2m",
+          "labels": {
+            "severity": "critical",
+            "service": "zenith-control-plane",
+            "slo": "api_latency",
+            "provisional": "true"
+          },
+          "annotations": {
+            "summary": "API latency (p95 under 500 ms) error budget burning 14.4x too fast (provisional SLO, not approved)",
+            "description": "Both the 1h and 5m error ratios exceed 0.72, which is 14.4x the allowed rate for the provisional 95% target in deploy/slo/slo-definitions.json. The target is an engineering default awaiting DEC-BUSINESS, not a commitment.",
+            "runbook_url": "docs/platform/operations/SLO.md#zenithslolatencyburnfast"
+          }
+        },
+        {
+          "alert": "ZenithSloLatencyBurnSlow",
+          "expr": "zenith:slo_api_latency:error_ratio_rate6h > 0.3 and zenith:slo_api_latency:error_ratio_rate30m > 0.3 and sum(increase(zenith_api_request_duration_seconds_count[6h])) >= 20",
+          "for": "15m",
+          "labels": {
+            "severity": "warning",
+            "service": "zenith-control-plane",
+            "slo": "api_latency",
+            "provisional": "true"
+          },
+          "annotations": {
+            "summary": "API latency (p95 under 500 ms) error budget burning 6x too fast (provisional SLO, not approved)",
+            "description": "Both the 6h and 30m error ratios exceed 0.3, which is 6x the allowed rate for the provisional 95% target in deploy/slo/slo-definitions.json. The target is an engineering default awaiting DEC-BUSINESS, not a commitment.",
+            "runbook_url": "docs/platform/operations/SLO.md#zenithslolatencyburnslow"
+          }
+        },
+        {
+          "alert": "ZenithSloLatencyBurnTicket",
+          "expr": "zenith:slo_api_latency:error_ratio_rate3d > 0.05 and zenith:slo_api_latency:error_ratio_rate6h > 0.05 and sum(increase(zenith_api_request_duration_seconds_count[3d])) >= 20",
+          "for": "1h",
+          "labels": {
+            "severity": "info",
+            "service": "zenith-control-plane",
+            "slo": "api_latency",
+            "provisional": "true"
+          },
+          "annotations": {
+            "summary": "API latency (p95 under 500 ms) error budget burning 1x too fast (provisional SLO, not approved)",
+            "description": "Both the 3d and 6h error ratios exceed 0.05, which is 1x the allowed rate for the provisional 95% target in deploy/slo/slo-definitions.json. The target is an engineering default awaiting DEC-BUSINESS, not a commitment.",
+            "runbook_url": "docs/platform/operations/SLO.md#zenithslolatencyburnticket"
+          }
+        }
+      ]
+    }
+  ]
+}

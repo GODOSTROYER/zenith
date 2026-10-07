@@ -43,6 +43,8 @@ export const CRITICAL_JOBS = {
   // went stale is.
   "key-rewrap": { cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "custody", durableOnly: true },
   "data-minimize": { cadenceMs: 60_000, leaseTtlMs: 90_000, kind: "custody", durableOnly: true },
+  // PROD-OPS-07: configurable retention. Archive-first and copy-only; deletion needs an approved policy plus ZENITH_RETENTION_APPLY=1.
+  "data-retention": { cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "custody", durableOnly: true },
 } as const;
 export type CriticalJobName = keyof typeof CRITICAL_JOBS;
 export const CRITICAL_JOB_NAMES = Object.keys(CRITICAL_JOBS) as CriticalJobName[];
@@ -153,6 +155,11 @@ export const MAINTENANCE_JOBS = {
   async "data-minimize"(db: Sql): Promise<JobOutcome<import("@/lib/sensitivedata/minimize").MinimizeResult>> {
     const { minimizePass } = await import("@/lib/sensitivedata/minimize");
     const r = await minimizePass(db);
+    return { value: r, performed: true, counts: countsOf(r) };
+  },
+  async "data-retention"(db: Sql): Promise<JobOutcome<import("@/lib/retention/job").RetentionResult>> {
+    const { retentionPass } = await import("@/lib/retention/job");
+    const r = await retentionPass(db);
     return { value: r, performed: true, counts: countsOf(r) };
   },
   async runbooks(): Promise<JobOutcome<import("./runbooks").RunbookTickResult>> {

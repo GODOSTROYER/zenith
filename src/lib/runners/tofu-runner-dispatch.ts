@@ -101,7 +101,7 @@ interface RunnerTofuResult {
 
 const claimsCap = (grant: string): string => String(unverifiedClaims(grant)?.cap ?? "");
 
-async function runJob(rt: RunnerRuntime, target: RunnerTofuTarget, grant: string, payload: TofuRunPayload): Promise<{ jobId: string; result: RunnerTofuResult }> {
+async function runJob(rt: RunnerRuntime, target: RunnerTofuTarget, grant: string, payload: TofuRunPayload, idempotencyKey?: string): Promise<{ jobId: string; result: RunnerTofuResult }> {
   const jobId = await enqueueRunnerJob(
     {
       workspaceId: target.workspaceId,
@@ -115,6 +115,7 @@ async function runJob(rt: RunnerRuntime, target: RunnerTofuTarget, grant: string
       timeoutSec: target.timeoutSec,
       queueTtlSec: target.queueTtlSec,
       maxOutputBytes: target.maxOutputBytes,
+      ...(idempotencyKey !== undefined ? { idempotencyKey } : {}),
     },
     rt
   );
@@ -182,7 +183,9 @@ export async function applyVerifiedOnRunner(ws: TofuWorkspace, target: RunnerTof
   const planned = await planOnRunner(ws, { ...target, runtime: rt }, { destroy: target.destroy, grant: target.planGrant ?? target.grant });
   assertApplyAllowed(planned, { approvedDigest: target.approvedDigest, ws, runnerId: target.runnerId });
   const payload = buildTofuRunPayload(ws, "apply", { planFileSha256: planned.planFileSha256 });
-  const { jobId, result } = await runJob(rt, target, target.grant, payload);
+  // The effect's identity is "apply the approved plan of this operation" (each retry re-plans, so the plan file hash is not stable).
+  // A retry after a lost enqueue acknowledgement re-attaches to the queued job instead of queueing a second apply.
+  const { jobId, result } = await runJob(rt, target, target.grant, payload, `tofu.${target.destroy ? "destroy" : "apply"}:${target.approvedDigest}`);
   return {
     plan: planned.plan,
     planJobId: planned.jobId,

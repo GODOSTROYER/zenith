@@ -79,6 +79,29 @@ export function inFlight(environmentId: string): Deployment | undefined {
   return q.deploymentsOf(environmentId).find((d) => IN_FLIGHT.includes(d.status));
 }
 
+/**
+ * The dispatch/concurrency decision for an environment (PROD-DUR-02). For real
+ * (workflow-executed) deployments it reads the platform authority record, never
+ * the product Deployment projection. Only simulator deployments, which have no
+ * platform operation, are decided from the product store. Without an open
+ * platform store (local memory mode) the product record is all there is.
+ */
+export async function environmentBusy(ctx: { workspaceId: string }, environmentId: string): Promise<{ status: string; source: "authority" | "product" } | undefined> {
+  const product = inFlight(environmentId);
+  const simulated = product && product.executor !== "workflow" ? product : undefined;
+  try {
+    const { isMemoryStoreEnabled } = await import("@/lib/capabilities/platform");
+    if (isMemoryStoreEnabled()) return product ? { status: product.status, source: "product" } : undefined;
+    const [{ platformDb }, { environmentActivity }] = await Promise.all([import("@/lib/controlplane/db"), import("@/lib/controlplane/authority")]);
+    const active = await environmentActivity(await platformDb(), ctx.workspaceId, environmentId);
+    if (active[0]) return { status: active[0].status, source: "authority" };
+    return simulated ? { status: simulated.status, source: "product" } : undefined;
+  } catch {
+    // Authority unreadable: fail closed on any product evidence, never report an environment idle on a guess.
+    return product ? { status: product.status, source: "product" } : undefined;
+  }
+}
+
 /** "revision 4" when an environment is running one, else undefined. */
 export function liveRevision(env: Environment): string | undefined {
   if (!env.deployedRevisionId) return undefined;
@@ -337,7 +360,7 @@ type UpdateEnv = z.infer<typeof UpdateEnv>;
  * One reading of a rename/region change, shared by plan and execute so the
  * refusal a plan shows is character-for-character the one execute would give.
  */
-function envUpdate(ctx: ActionContext, input: UpdateEnv) {
+async function envUpdate(ctx: ActionContext, input: UpdateEnv) {
   const env = requireEnvironment(ctx, input.environmentId);
   const project = requireProject(ctx, env.projectId);
   const name = input.name?.trim();
@@ -348,7 +371,7 @@ function envUpdate(ctx: ActionContext, input: UpdateEnv) {
   const warnings: string[] = [];
   let blocked: string | undefined;
 
-  const busy = inFlight(env.id);
+  const busy = await environmentBusy(ctx, env.id);
   if (busy)
     blocked = `A deployment is ${busy.status} on ${env.name} right now. Wait for it to finish, or cancel it on the Deploys page, then try again.`;
 
@@ -398,8 +421,8 @@ defineAction<UpdateEnv>({
   requiredRole: "admin",
   mutates: true,
   input: UpdateEnv,
-  plan(ctx, input) {
-    const { env, details, warnings, blocked } = envUpdate(ctx, input);
+  async plan(ctx, input) {
+    const { env, details, warnings, blocked } = await envUpdate(ctx, input);
     return {
       summary: `Update the "${env.name}" environment.`,
       details,
@@ -410,8 +433,8 @@ defineAction<UpdateEnv>({
       blocked,
     };
   },
-  execute(ctx, input) {
-    const { env, project, name, region, blocked } = envUpdate(ctx, input);
+  async execute(ctx, input) {
+    const { env, project, name, region, blocked } = await envUpdate(ctx, input);
     if (blocked) return { ok: false, summary: `"${env.name}" was not changed.`, error: blocked };
     const was = env.name;
     if (name && name !== env.name) {
@@ -515,11 +538,11 @@ const SetConnection = z.object({
 });
 type SetConnection = z.infer<typeof SetConnection>;
 
-function envSetConnection(ctx: ActionContext, input: SetConnection) {
+async function envSetConnection(ctx: ActionContext, input: SetConnection) {
   const env = requireEnvironment(ctx, input.environmentId);
   const current = q.connection(env.connectionId);
   const next = q.connection(input.connectionId);
-  const busy = inFlight(env.id);
+  const busy = await environmentBusy(ctx, env.id);
 
   let blocked: string | undefined;
   if (!next || next.workspaceId !== ctx.workspaceId)
@@ -563,8 +586,8 @@ defineAction<SetConnection>({
   requiredRole: "admin",
   mutates: true,
   input: SetConnection,
-  plan(ctx, input) {
-    const { env, next, details, warnings, blocked } = envSetConnection(ctx, input);
+  async plan(ctx, input) {
+    const { env, next, details, warnings, blocked } = await envSetConnection(ctx, input);
     return {
       summary: next
         ? `Point "${env.name}" at ${next.label}.`
@@ -577,8 +600,8 @@ defineAction<SetConnection>({
       blocked,
     };
   },
-  execute(ctx, input) {
-    const { env, next, blocked } = envSetConnection(ctx, input);
+  async execute(ctx, input) {
+    const { env, next, blocked } = await envSetConnection(ctx, input);
     if (blocked || !next) return { ok: false, summary: `"${env.name}" was not moved.`, error: blocked };
     env.connectionId = next.id;
     save();
@@ -595,13 +618,13 @@ defineAction<SetConnection>({
 const DeleteEnv = z.object({ environmentId: z.string().optional() });
 type DeleteEnv = z.infer<typeof DeleteEnv>;
 
-function envDelete(ctx: ActionContext, input: DeleteEnv) {
+async function envDelete(ctx: ActionContext, input: DeleteEnv) {
   const env = requireEnvironment(ctx, input.environmentId);
   const project = requireProject(ctx, env.projectId);
   const siblings = q.environmentsOf(project.id).filter((e) => e.id !== env.id);
   const deployments = q.deploymentsOf(env.id);
   const live = liveRevision(env);
-  const busy = inFlight(env.id);
+  const busy = await environmentBusy(ctx, env.id);
 
   let blocked: string | undefined;
   if (busy)
@@ -635,8 +658,8 @@ defineAction<DeleteEnv>({
   requiredRole: "admin",
   mutates: true,
   input: DeleteEnv,
-  plan(ctx, input) {
-    const { env, live, details, warnings, blocked } = envDelete(ctx, input);
+  async plan(ctx, input) {
+    const { env, live, details, warnings, blocked } = await envDelete(ctx, input);
     return {
       summary: `Delete the "${env.name}" environment.`,
       details,
@@ -647,8 +670,8 @@ defineAction<DeleteEnv>({
       blocked,
     };
   },
-  execute(ctx, input) {
-    const { env, project, deployments, blocked } = envDelete(ctx, input);
+  async execute(ctx, input) {
+    const { env, project, deployments, blocked } = await envDelete(ctx, input);
     if (blocked) return { ok: false, summary: `"${env.name}" was not deleted.`, error: blocked };
     const d = db();
     d.environments = d.environments.filter((e) => e.id !== env.id);

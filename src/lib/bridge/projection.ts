@@ -36,3 +36,18 @@ export function noteUnconfirmedDeployment(d: Deployment, error: string): void {
   d.error = error;
   save(d.projectId);
 }
+
+/**
+ * Derive the product's "workflow started" fact from the platform authority.
+ * A crash between an accepted Temporal start and the product save leaves the
+ * deployment without `workflowStartedAt` while the retained start intent is
+ * acknowledged; this repairs the projection, never the authority. It never
+ * touches steps, status or the active writer (the worker owns those).
+ */
+export function projectAcknowledgedStart(deploymentId: string, observedStartAt: string): boolean {
+  const d = q.deployment(deploymentId);
+  if (!d || d.workflowStartedAt || ["succeeded", "failed", "cancelled", "rolled_back"].includes(d.status)) return false;
+  d.workflowStartedAt = observedStartAt;
+  save(d.projectId);
+  return true;
+}

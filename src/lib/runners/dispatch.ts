@@ -24,7 +24,7 @@
  * That first waiter returns `timed_out` for delivered work or `expired` for work
  * never delivered. Later waiters read `cancelled`; delivered work stays uncertain.
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { isCapability } from "@/lib/capabilities/catalog";
 import { GrantVerificationError } from "@/lib/credentials/errors";
 import { verifyCapabilityGrant } from "@/lib/credentials/grants";
@@ -161,6 +161,13 @@ export interface EnqueueRunnerJobInput {
    * Absent only for jobs that act through no provider connection (probes, runner-direct tooling).
    */
   bindingConnectionId?: string;
+  /**
+   * Makes the job id deterministic: the same (workspace, runner, operation, key) is the same job, so a crash
+   * between "job queued" and "caller learned its id" followed by a retry attaches to the queued job instead of
+   * queueing a second effect (PROD-DUR-01). Use only for effects that are idempotent by identity (for example
+   * the apply of one exact plan file); never for repeatable requests.
+   */
+  idempotencyKey?: string;
 }
 
 interface Built {
@@ -172,7 +179,7 @@ interface Built {
 async function enqueueCommon(
   rt: RunnerRuntime,
   kind: AgentKind,
-  args: { workspaceId: string; agentId: string; operationId: string; capability: string; jobKind: string; envelope: (b: { jti: string; iat: number; exp: number }) => JobEnvelope | MachineEnvelope; grant: string; ttlSec: number }
+  args: { workspaceId: string; agentId: string; operationId: string; capability: string; jobKind: string; idempotencyKey?: string; envelope: (b: { jti: string; iat: number; exp: number }) => JobEnvelope | MachineEnvelope; grant: string; ttlSec: number }
 ): Promise<Built> {
   const grantExp = await checkGrant(rt, args.grant, {
     audience: `${kind}:${args.agentId}`,
@@ -183,16 +190,49 @@ async function enqueueCommon(
   const iat = Math.floor(rt.now() / 1000);
   const ttlSec = Math.min(args.ttlSec, grantExp - iat);
   if (ttlSec < MIN_GRANT_REMAINING_SEC) throw new DispatchError("grant_invalid", "The capability grant has expired or is about to expire.");
-  const jti = `${AGENT_KINDS[kind].jobPrefix}_${randomUUID()}`;
+  const resolved = await resolveIdentity(rt, kind, args);
+  if (resolved.attached) return resolved.attached;
+  const jti = resolved.jti;
   const envelope = await signEnvelope(rt.signer, AGENT_KINDS[kind].jobTyp, args.envelope({ jti, iat, exp: iat + ttlSec }));
   if (envelope.length > MAX_ENVELOPE_BYTES) throw new DispatchError("payload_too_large", `The signed job is ${envelope.length} bytes; the store keeps at most ${MAX_ENVELOPE_BYTES}. Split the work or reduce the workspace files.`);
   try {
     await queueOf(rt.store, kind).enqueue({ id: jti, workspaceId: args.workspaceId, agentId: args.agentId, operationId: args.operationId, kind: args.jobKind, capability: args.capability, envelope, ttlMs: ttlSec * 1000 });
   } catch (error) {
     if (error instanceof RunnerStoreError && error.code === "not_found") throw new DispatchError("agent_not_found", "The agent is no longer active in this workspace, or the operation does not exist.");
+    // A concurrent enqueue of the same identity won the primary key: attach to it.
+    if (args.idempotencyKey !== undefined) {
+      const raced = await resolveIdentity(rt, kind, args);
+      if (raced.attached) return raced.attached;
+    }
     throw error;
   }
   return { jti, envelope, ttlSec };
+}
+
+/**
+ * Job identity. Without a key every job is new. With a key the id is deterministic per
+ * (workspace, agent, operation, job kind, key, generation). Generation 0 is tried first: a job that is
+ * queued, claimed, running, succeeded or timed out (outcome unknown) is ATTACHED to, never duplicated.
+ * Only a job that definitively did not take effect (failed, rejected, expired, cancelled) lets the next
+ * generation be queued, which preserves ordinary activity retry after a definite failure.
+ */
+const RETRYABLE_STATUSES: ReadonlySet<string> = new Set(["failed", "rejected", "expired", "cancelled"]);
+const MAX_GENERATIONS = 8;
+async function resolveIdentity(
+  rt: RunnerRuntime,
+  kind: AgentKind,
+  args: { workspaceId: string; agentId: string; operationId: string; capability: string; jobKind: string; idempotencyKey?: string }
+): Promise<{ jti: string; attached?: Built }> {
+  if (args.idempotencyKey === undefined) return { jti: `${AGENT_KINDS[kind].jobPrefix}_${randomUUID()}` };
+  for (let generation = 0; generation < MAX_GENERATIONS; generation++) {
+    const jti = `${AGENT_KINDS[kind].jobPrefix}_${createHash("sha256").update(JSON.stringify([args.workspaceId, args.agentId, args.operationId, args.jobKind, args.idempotencyKey, generation])).digest("hex").slice(0, 32)}`;
+    const job = await queueOf(rt.store, kind).get(args.workspaceId, jti);
+    if (!job) return { jti };
+    if (job.agentId !== args.agentId || job.operationId !== args.operationId || job.kind !== args.jobKind || job.capability !== args.capability)
+      throw new DispatchError("invalid_input", "The idempotency key already identifies a different job.");
+    if (!RETRYABLE_STATUSES.has(job.status)) return { jti, attached: { jti, envelope: job.envelope, ttlSec: 0 } };
+  }
+  throw new DispatchError("invalid_input", "The idempotency key has exhausted its definite-failure retry budget; inspect the operation.");
 }
 
 /** Sign a job for `runnerId` and queue it. Returns the job id (`job_…`). */
@@ -245,6 +285,7 @@ export async function enqueueRunnerJob(input: EnqueueRunnerJobInput, runtime?: R
     jobKind: input.kind,
     grant: input.grant,
     ttlSec: queueTtlSec,
+    ...(input.idempotencyKey !== undefined ? { idempotencyKey: input.idempotencyKey } : {}),
     envelope: ({ jti, iat, exp }): JobEnvelope => ({
       protocol: runner.protocol,
       jti,
@@ -275,6 +316,8 @@ export interface EnqueueMachineRequestInput {
   timeoutSec?: number;
   maxOutputBytes?: number;
   queueTtlSec?: number;
+  /** See `EnqueueRunnerJobInput.idempotencyKey`. Set for every mutating machine operation. */
+  idempotencyKey?: string;
 }
 
 /** Sign a request for a zenithd machine and queue it. Returns the request id (`mreq_…`). */
@@ -309,6 +352,7 @@ export async function enqueueMachineRequest(input: EnqueueMachineRequestInput, r
     jobKind: input.operation,
     grant: input.grant,
     ttlSec: queueTtlSec,
+    ...(input.idempotencyKey !== undefined ? { idempotencyKey: input.idempotencyKey } : {}),
     envelope: ({ jti, iat, exp }): MachineEnvelope => ({
       protocol: machine.protocol,
       jti,

@@ -128,6 +128,25 @@ async function readExact(client: Client, intent: WorkflowStartIntent, knownRunId
   return Object.freeze({runId:actual,startedAt,evidenceDigest:digest({format:"zenith.workflow-start-readback.v1",
     bindingDigest:intent.binding_digest,attemptId:intent.attempt_id,runId:actual,startedAt})});
 }
+/** The sole transport write for a retained attempt. Same permanent requestId/identity/arguments on every send, so the server deduplicates a resend of an attempt it already accepted. An RPC error, including AlreadyExists, is evidence-readback only. */
+async function sendStart(client: Client, intent: WorkflowStartIntent, payloads: Payload[]): Promise<string|undefined> {
+  const c=context(intent), converter=client.options.loadedDataConverter;
+  const fields=await encodeMapToPayloads(converter,memo(intent),c);
+  boundedPayloads(Object.values(fields));
+  try {
+    const ack=await client.withDeadline(Date.now()+RPC_MS,()=>client.workflowService.startWorkflowExecution({
+      namespace:intent.binding.namespace, workflowId:intent.binding.workflowId,
+      workflowType:{name:intent.binding.workflowType}, taskQueue:{name:intent.binding.taskQueue,kind:1},
+      input:{payloads}, memo:{fields}, identity:`zenith.workflow-start.v1:${intent.attempt_id}`,
+      requestId:intent.attempt_id!, workflowTaskTimeout:msToTs("10s"), retryPolicy:{maximumAttempts:1},
+      workflowIdReusePolicy:enums.WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
+      workflowIdConflictPolicy:enums.WorkflowIdConflictPolicy.WORKFLOW_ID_CONFLICT_POLICY_FAIL,
+      requestEagerExecution:false,
+    }));
+    if (!ack.runId || !UUID.test(ack.runId)) return undefined;
+    return ack.runId;
+  } catch { return undefined; }
+}
 type Store = Pick<typeof intents,"prepare"|"claim">;
 async function start(db: PlatformDbHandle, store: Store, config: TemporalConnectionConfig,
   getClient: ()=>Promise<Client>, taskQueue: string, kind: WorkflowStartKind, input: unknown): Promise<ConfirmedWorkflowStart> {
@@ -148,22 +167,7 @@ async function start(db: PlatformDbHandle, store: Store, config: TemporalConnect
       const claim=await store.claim(db,desired);
       intent=claim.intent;
       if(claim.dispatch) {
-        const fields=await encodeMapToPayloads(converter,memo(intent),c);
-        boundedPayloads(Object.values(fields));
-        try {
-          // One logical request; gRPC retry of this request retains the same permanent requestId.
-          const ack=await client.withDeadline(Date.now()+RPC_MS,()=>client.workflowService.startWorkflowExecution({
-            namespace:intent.binding.namespace, workflowId:intent.binding.workflowId,
-            workflowType:{name:intent.binding.workflowType}, taskQueue:{name:intent.binding.taskQueue,kind:1},
-            input:{payloads}, memo:{fields}, identity:`zenith.workflow-start.v1:${intent.attempt_id}`,
-            requestId:intent.attempt_id!, workflowTaskTimeout:msToTs("10s"), retryPolicy:{maximumAttempts:1},
-            workflowIdReusePolicy:enums.WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
-            workflowIdConflictPolicy:enums.WorkflowIdConflictPolicy.WORKFLOW_ID_CONFLICT_POLICY_FAIL,
-            requestEagerExecution:false,
-          }));
-          if (!ack.runId || !UUID.test(ack.runId)) return unconfirmed();
-          acceptedRun=ack.runId;
-        } catch { /* An RPC error, including AlreadyExists, is evidence-readback only. No second write. */ }
+        acceptedRun=await sendStart(client,intent,payloads);
       }
     }
     const observed=await readExact(client,intent,acceptedRun);
@@ -184,6 +188,84 @@ export async function startWorkflowIntent(kind: WorkflowStartKind, input: unknow
     await assertPlatformSchemaCurrent(db);
     return await start(db,intents,config,()=>workflowClient(config),TASK_QUEUE,kind,args);
   } finally { await db.close(); }
+}
+/**
+ * Resend/readback window for an attempt whose acknowledgement was lost (PROD-DUR-01).
+ * Far below the shortest Temporal retention, so "workflow not found" within it proves
+ * the server never accepted the attempt rather than that a closed run was purged.
+ */
+export const START_RECOVERY_WINDOW_MS = 30 * 60_000;
+export type StartRecovery = "acknowledged" | "refused" | "retry";
+function isNotFound(error: unknown): boolean {
+  const e = error as { code?: unknown; cause?: { code?: unknown }; name?: string } | null;
+  return !!e && (e.code === 5 || e.cause?.code === 5 || e.name === "WorkflowNotFoundError");
+}
+export interface StartRecoveryDeps {
+  config?: TemporalConnectionConfig;
+  getClient?: (config: TemporalConnectionConfig) => Promise<Client>;
+  /** Test clock for the recovery window. */
+  now?: () => number;
+  /** Test-only isolated authority store (honoured only under NODE_ENV=test). */
+  store?: Store;
+}
+/**
+ * Relay entrypoint: bring ONE retained start intent to a confirmed state after a crash.
+ *
+ *  - prepared: the original request never reached the permanent attempt CAS; run the ordinary
+ *    start path, which re-validates current authority and may refuse.
+ *  - attempted: independent Describe + first-history readback first. Only when the workflow
+ *    does not exist, the attempt is inside START_RECOVERY_WINDOW_MS and the operation is still
+ *    running under a live lease, resend the IDENTICAL request (same requestId, workflow id,
+ *    arguments, memo and identity), which Temporal deduplicates. Nothing new is authorized: no
+ *    new attempt id, no new workflow id, no approval or lease is minted.
+ *  - anything else (found-but-different workflow, expired window, lapsed operation) is
+ *    "refused": the intent is kept as evidence and an operator inspects it.
+ */
+export async function recoverWorkflowStartIntent(db: PlatformDbHandle, workspaceId: string, operationId: string,
+  deps: StartRecoveryDeps = {}): Promise<StartRecovery> {
+  const intent=await intents.get(db,workspaceId,operationId);
+  if (!intent) return "refused";
+  if (intent.phase === "acknowledged") return "acknowledged";
+  let config: TemporalConnectionConfig;
+  try { config=deps.config ?? temporalConfigFromEnv(); } catch { return "retry"; }
+  const binding=intent.binding;
+  if (endpoint(config) !== binding.endpointDigest || config.namespace !== binding.namespace) return "refused";
+  const getClient=()=>(deps.getClient ?? workflowClient)(config);
+  const now=deps.now ?? Date.now;
+  try {
+    if (intent.phase === "prepared") {
+      const store=process.env.NODE_ENV === "test" && deps.store ? deps.store : intents;
+      await start(db,store,config,getClient,binding.taskQueue,binding.kind,binding.arguments);
+      return "acknowledged";
+    }
+    const client=await getClient();
+    if (client.options.namespace !== config.namespace) return "retry";
+    let exists=true;
+    try {
+      await client.withDeadline(Date.now()+RPC_MS,()=>client.workflowService.describeWorkflowExecution({
+        namespace:binding.namespace, execution:{workflowId:binding.workflowId} }));
+    } catch (error) { if (!isNotFound(error)) return "retry"; exists=false; }
+    let accepted: string|undefined;
+    if (!exists) {
+      const age=now()-Date.parse(intent.attempted_at ?? "");
+      if (!(age >= 0 && age <= START_RECOVERY_WINDOW_MS)) return "refused";
+      const live=await db.query("select 1 from platform.operations where workspace_id=$1 and id=$2 and status='running' and lease_holder is not null and lease_until>clock_timestamp()",
+        [workspaceId,operationId]);
+      if (!live.length) return "refused";
+      const c=context(intent);
+      const payloads=await encodeToPayloadsWithContext(client.options.loadedDataConverter,c,[binding.arguments]);
+      if (!payloads || payloads.length !== 1) return "retry";
+      boundedPayloads(payloads);
+      accepted=await sendStart(client,intent,payloads);
+    }
+    let observed: intents.StartReadback;
+    try { observed=await readExact(client,intent,accepted); }
+    catch (error) { return exists && error instanceof WorkflowStartUnconfirmedError ? "refused" : "retry"; }
+    await intents.acknowledge(db,intent,observed);
+    return "acknowledged";
+  } catch (error) {
+    return error instanceof intents.WorkflowStartIntentError ? "refused" : "retry";
+  }
 }
 /** Test isolation captures real SDK client and actual canonical Broker once. No per-call approval callback or production override. */
 export function createIsolatedWorkflowStarterForTests(db: PlatformDbHandle, broker: Broker, client: Client,

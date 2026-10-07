@@ -130,10 +130,14 @@ export const MAINTENANCE_JOBS = {
     const r = await housekeepingPass(db);
     return { value: r, performed: r.ran, counts: countsOf(r) };
   },
-  async "runner-reaper"(db: Sql): Promise<JobOutcome<{ ran: boolean; jobs: number }>> {
+  async "runner-reaper"(db: Sql): Promise<JobOutcome<{ ran: boolean; jobs: number } & Partial<import("@/lib/controlplane/outbox").RelayResult>>> {
     const { reapRunnerJobs } = await import("./app");
     const r = await reapRunnerJobs(db);
-    return { value: r, performed: r.ran, counts: { jobs: r.jobs } };
+    // Durable intent relay (PROD-DUR-01): adopt abandoned start intents, derive approval wake-ups, deliver every due
+    // intent under a fenced claim. Isolated from reaping: a Temporal outage is counted, never a reaper failure.
+    const { runIntentRelay } = await import("@/lib/controlplane/outbox/temporal");
+    const relay = await runIntentRelay({ sql: db, limit: 50 }).catch(() => null);
+    return { value: { ...r, ...(relay ?? {}) }, performed: r.ran, counts: { jobs: r.jobs, ...(relay ?? { relayFailed: 1 }) } };
   },
   async runbooks(): Promise<JobOutcome<import("./runbooks").RunbookTickResult>> {
     const { runbookTickPass } = await import("./runbooks");

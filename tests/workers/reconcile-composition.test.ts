@@ -188,7 +188,13 @@ describe("actual default activity composition: PostgreSQL and owned durable Temp
     }
   }
   async function scheduled(client: Client): Promise<WorkflowHandle> {
-    const before = (await client.schedule.getHandle(RECONCILE_SCHEDULE_ID).describe()).info.numActionsTaken;
+    // Workflow completion may precede the scheduler observing it, especially
+    // after restart. Keep SKIP: wait for actual schedule quiescence first.
+    const settled = await waitFor("composition schedule action settled", async () => {
+      const current = await client.schedule.getHandle(RECONCILE_SCHEDULE_ID).describe();
+      return current.info.runningActions.length === 0 ? current : false;
+    });
+    const before = settled.info.numActionsTaken;
     await client.schedule.getHandle(RECONCILE_SCHEDULE_ID).trigger(ScheduleOverlapPolicy.SKIP);
     const description = await waitFor("new composition schedule action", async () => { const current = await client.schedule.getHandle(RECONCILE_SCHEDULE_ID).describe(); return current.info.numActionsTaken > before ? current : false; });
     const action = description.info.recentActions.at(-1)?.action;

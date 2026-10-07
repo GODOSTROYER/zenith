@@ -82,7 +82,7 @@ const MAX_LISTED = 100;
 
 const defaultObservability: ObservabilityFactory = ({ session, provider, graph, workspaceId, observations }) =>
   createObservabilityFabric(
-    sourcesForEnvironment({ provider, graph, workspaceId, observations, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} }),
+    sourcesForEnvironment({ provider, graph, workspaceId, observations, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : (session as { provider?: string }).provider === "zenith" ? { kubernetes: (session as unknown as { kubernetes: import("@/lib/credentials/types").KubernetesSession }).kubernetes } : {} }),
     { session: describeSession(session) }
   );
 

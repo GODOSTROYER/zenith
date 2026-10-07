@@ -38,6 +38,8 @@ import { platformBroker, type Broker } from "@/lib/capabilities/platform";
 import { acceptCleanupEffect, beginCleanupEffect, priorCleanupResult, uncertainCleanupEffect, type CleanupEffectScope } from "@/lib/effects/cleanup";
 import type { EffectRecord } from "@/lib/effects/types";
 import { runDestroyReview, type DestroyReviewResult } from "@/lib/capabilities/destroy-review";
+import type { ManagedDatabaseProvider } from "@/lib/providers/zenith/database";
+import type { ZenithTeardownDatabase } from "@/lib/providers/zenith/teardown";
 
 const HEX64 = /^[0-9a-f]{64}$/;
 
@@ -53,7 +55,7 @@ export interface DestroyProviderPorts {
   teardownKubernetesEnvironment?: (input: TeardownInput) => Promise<TeardownResult>;
   teardownZenithEnvironment?: (input: TeardownInput) => Promise<TeardownResult>;
   /** Managed sessions need a platform opener: the customer credential broker has no zenith config. */
-  withZenithSession?<T>(input: { workspaceId: string; environmentId: string; signal: AbortSignal }, fn: (session: unknown) => Promise<T>): Promise<T>;
+  withZenithSession?<T>(input: { workspaceId: string; environmentId: string; signal: AbortSignal; databases?: ManagedDatabaseProvider }, fn: (session: unknown) => Promise<T>): Promise<T>;
 }
 const ObjectRef = z.string().min(1).max(500).regex(/^[A-Za-z][A-Za-z0-9]*\/[^/\s]*\/[^/\s]+$/);
 const ResultSchema = z.object({ deleted: z.array(ObjectRef).max(10_000), retained: z.array(ObjectRef).max(10_000), skipped: z.array(ObjectRef).max(10_000), uncertain: z.array(ObjectRef).max(10_000) }).strict();
@@ -101,15 +103,57 @@ function retainStateful(ec: ExecContext, graph: ResourceGraph): boolean {
     node.spec.deletionPolicy !== "allow" && node.spec.deletionPolicy !== "approval");
 }
 
-async function directCall(rt: Runtime, ec: ExecContext, graph: ResourceGraph, lease: LeaseRef, ports: DestroyProviderPorts, dryRun: boolean): Promise<TeardownResult> {
+/**
+ * The complete managed-database inventory of a managed environment (PROD-MAN-01): every managed `postgres` node of the
+ * deployed graph PLUS the removed resources `context()` merged in from the workspace-scoped store, each with the provider
+ * id the store recorded. It is built by the worker from trusted state; the provider teardown refuses a missing inventory as
+ * unknown (never as empty), so a managed environment can only be torn down once its databases are accounted for.
+ *
+ * Ownership proof is layered: only nodes this environment owns as `managed` on provider `zenith` are listed (adopted or
+ * referenced databases never are), a stored row for the address must agree on kind, provider and tenant, adoption claims
+ * were already checked by `assertTeardownOwnership`, and the database adapter itself refuses a provider project it did not
+ * create for this exact (workspace, environment, address). `deny` always retains; `approval` deletes only when approved.
+ */
+async function zenithDatabaseInventory(rt: Runtime, ec: ExecContext, graph: ResourceGraph): Promise<ZenithTeardownDatabase[]> {
+  const rows = new Map((await rt.d.resources.list(ec.workspaceId, ec.environmentId)).map((row) => [row.address, row]));
+  const inventory: ZenithTeardownDatabase[] = [];
+  for (const node of graph.nodes) {
+    if (node.kind !== "postgres" || node.ownership !== "managed" || node.provider !== "zenith") continue;
+    const stored = rows.get(node.address);
+    if (stored && (stored.kind !== "postgres" || stored.provider !== "zenith" || stored.workspaceId !== ec.workspaceId || stored.environmentId !== ec.environmentId))
+      throw new StepFailedError("A stored managed database does not match the deployed graph; refusing teardown.");
+    const externalId = stored?.externalId ?? node.externalRef;
+    const policy = node.spec.deletionPolicy;
+    inventory.push({
+      address: node.address,
+      deletionPolicy: policy === "allow" || policy === "approval" ? policy : "deny",
+      ...(externalId && /^[A-Za-z0-9_-]{1,200}$/.test(externalId) ? { externalId } : {}),
+    });
+  }
+  return inventory;
+}
+
+async function directCall(rt: Runtime, ec: ExecContext, graph: ResourceGraph, lease: LeaseRef, ports: DestroyProviderPorts, dryRun: boolean, approved: boolean): Promise<TeardownResult> {
   return withKeepAlive(rt, { lease, detail: dryRun ? "provider destroy review" : "provider teardown", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
     const invoke = (session: unknown) => teardown(ports, ec.product.environment.provider,
       { workspaceId: ec.workspaceId, environmentId: ec.environmentId, session, retainStateful: retainStateful(ec, graph), dryRun, signal });
     if (ec.product.environment.provider === "zenith") {
-      if (!ports.withZenithSession) throw new StepFailedError("Managed Zenith teardown requires a platform-scoped session opener.");
+      const inventory = (await zenithDatabaseInventory(rt, ec, graph)).map((db) => ({ ...db, approved }));
+      const invokeManaged = (session: unknown) => invoke(typeof session === "object" && session !== null ? { ...session, teardown: { databases: inventory } } : session);
+      // An explicit opener (contract tests) wins; otherwise the composed managed substrate opens the tenant-scoped session (PROD-MAN-01).
+      const managed = rt.d.managed;
+      const open: DestroyProviderPorts["withZenithSession"] | undefined = ports.withZenithSession ?? (managed ? (input, fn) => managed.withSession({ workspaceId: input.workspaceId, environmentId: input.environmentId, signal: input.signal }, fn) : undefined);
+      if (!open) throw new StepFailedError("Managed Zenith teardown requires a platform-scoped session opener.");
       // A grant still gates platform credentials even though they use a separate opener.
       await rt.d.broker.issueGrant(ec.op.id, "worker", lease, { capability: dryRun ? PLAN_CAPABILITY : "infrastructure.destroy" });
-      return ports.withZenithSession({ workspaceId: ec.workspaceId, environmentId: ec.environmentId, signal }, invoke);
+      // The managed-database port exists only when there is something to delete; failing to build it is a refusal, never an empty inventory.
+      let databases: ManagedDatabaseProvider | undefined;
+      if (inventory.length && !ports.withZenithSession) {
+        if (!managed) throw new StepFailedError("Managed Zenith teardown of databases requires the composed managed substrate.");
+        try { databases = managed.databaseRuntime({ workspaceId: ec.workspaceId, projectId: ec.product.project.id, environmentId: ec.environmentId, nodes: graph.nodes }).databases; }
+        catch { throw new StepFailedError("The managed database provider is not available, so this environment's databases cannot be torn down; nothing was applied."); }
+      }
+      return open({ workspaceId: ec.workspaceId, environmentId: ec.environmentId, signal, ...(databases ? { databases } : {}) }, invokeManaged);
     }
     const connection = await resolveConnection(rt, ec);
     return withProviderSession(rt, ec, { purpose: dryRun ? "observe" : "deploy", capability: dryRun ? PLAN_CAPABILITY : "infrastructure.destroy", fence: lease, connection }, (session) => {
@@ -121,7 +165,7 @@ async function directCall(rt: Runtime, ec: ExecContext, graph: ResourceGraph, le
 
 function directPlan(rt: Runtime, ec: ExecContext, graph: ResourceGraph, result: TeardownResult): NormalizedPlan {
   const provider = ec.product.environment.provider;
-  const stateful = (ref: string) => /^(PersistentVolumeClaim|PersistentVolume|StatefulSet|VolumeSnapshot|Secret|Postgres|Database)\//i.test(ref);
+  const stateful = (ref: string) => /^(PersistentVolumeClaim|PersistentVolume|StatefulSet|VolumeSnapshot|Secret|Postgres|Database|ManagedDatabase)\//i.test(ref);
   return { tofuVersion: "provider-teardown/C1", formatVersion: "C1", configDigest: graph.graphDigest,
     lockDigest: digest({ provider, contract: "C1" }),
     planDigest: digest({ provider, graphDigest: graph.graphDigest, retainStateful: retainStateful(ec, graph), ...result }),
@@ -136,7 +180,9 @@ const semanticsOperation = (ec: ExecContext): string => (ec.op.proposal as { bro
 const directWorkspace = (graph: ResourceGraph) => ({ files: [], configDigest: graph.graphDigest, lockDigest: digest({ contract: "provider-teardown/C1" }), backend: "local" as const });
 
 async function directPlanStage(rt: Runtime, ec: ExecContext, graph: ResourceGraph, lease: LeaseRef, ports: DestroyProviderPorts, approvedDigest?: string): Promise<PlanSummary> {
-  const result = await directCall(rt, ec, graph, lease, ports, true);
+  // Review deletes nothing. The destroy operation is digest-bound to a human approval before apply, and that approval covers exactly this
+  // list, so an approval-policy database is shown here as a deletion; apply re-checks the approval before passing approved=true.
+  const result = await directCall(rt, ec, graph, lease, ports, true, true);
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
   if (result.uncertain.length || blockingSkips(result.skipped).length) throw new StepFailedError("The provider could not completely review teardown; skipped or uncertain objects require investigation.");
   const plan = directPlan(rt, ec, graph, result), facts = extractPlanFacts(plan);
@@ -350,7 +396,7 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
         if (!freshApproval.approved || freshApproval.rejected) throw new StepFailedError("The human approval is no longer valid.");
         if (effects && effectScope) effect = await beginCleanupEffect(effects, effectScope);
         try {
-          const result = await directCall(rt, ec, graph, lease, ports, false);
+          const result = await directCall(rt, ec, graph, lease, ports, false, freshApproval.approved && !freshApproval.rejected);
           // The provider's answer is evidence even when the lease has since been lost.
           if (effects && effect) effect = await acceptCleanupEffect(effects, effect, result.deleted.length);
           await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
@@ -419,7 +465,7 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
       const { ec, graph } = await context(rt, operationId, lease);
       const addresses = await reviewedPlan(rt, ec, planDigest);
       if (isDirect(ec)) {
-        const remaining = await directCall(rt, ec, graph, lease, ports, true);
+        const remaining = await directCall(rt, ec, graph, lease, ports, true, true);
         await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
         const applied = await rt.d.evidence.find({ workspaceId: ec.workspaceId, operationId, kind: "tofu_apply" });
         const unresolved = !applied || applied.simulated || applied.summary.planDigest !== planDigest || applied.summary.matchesReviewed === false || remaining.uncertain.length > 0 || blockingSkips(remaining.skipped).length > 0 ||

@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import { renderZenithEnvironment } from "@/lib/providers/zenith/render";
 import { TENANT_LABEL } from "@/lib/providers/zenith/types";
 import { renderEnvironmentTls } from "@/lib/providers/zenith/tls";
+import { classifyBuildEgress } from "@/lib/platform/zenith-managed-build";
+import { BUILD_EGRESS_POLICY, BUILD_SERVICE_ACCOUNT, DEFAULT_BUILD_NAMESPACE } from "@/lib/providers/zenith/managed-build-config";
 import { FakeToolkit, TENANT, TYPICAL_GRAPH, substrate } from "./support";
 
 const DIR = path.resolve(__dirname, "../../../deploy/zenith-managed");
@@ -19,7 +21,7 @@ describe("deploy/zenith-managed", () => {
   it("every file parses and the kustomization lists exactly the cluster objects, not the API-server config", () => {
     expect(kustomization.kind).toBe("Kustomization");
     for (const f of kustomization.resources!) expect(fs.existsSync(path.join(DIR, f)), f).toBe(true);
-    expect(kustomization.resources).toEqual(["00-namespaces.yaml", "10-gateway.yaml", "20-clusterissuer.yaml", "30-networkpolicy-baseline.yaml", "40-operator-rbac.yaml"]);
+    expect(kustomization.resources).toEqual(["00-namespaces.yaml", "10-gateway.yaml", "20-clusterissuer.yaml", "30-networkpolicy-baseline.yaml", "40-operator-rbac.yaml", "50-build-namespace.yaml"]);
     expect(JSON.stringify(kustomization)).not.toContain("apiserver");
     const stray = fs.readdirSync(DIR).filter((f) => /^\d\d-.*\.yaml$/.test(f));
     expect([...stray].sort()).toEqual(kustomization.resources);
@@ -79,6 +81,37 @@ describe("deploy/zenith-managed", () => {
     }
     const gw = np.find((d) => d.metadata.name === "zenith-gateway-allow")!;
     expect(JSON.stringify(gw.spec.egress)).toContain(`"${TENANT_LABEL.tenant}":"true"`);
+  });
+
+  describe("the build namespace (PROD-MAN-01)", () => {
+    const docs = read("50-build-namespace.yaml");
+    const named = (kind: string, name: string) => docs.find((d) => d.kind === kind && d.metadata.name === name)!;
+
+    it("carries the names the managed build path looks for", () => {
+      expect(named("Namespace", DEFAULT_BUILD_NAMESPACE)).toBeDefined();
+      const account = named("ServiceAccount", BUILD_SERVICE_ACCOUNT) as unknown as { metadata: { namespace: string }; automountServiceAccountToken: boolean };
+      expect(account.metadata.namespace).toBe(DEFAULT_BUILD_NAMESPACE);
+      expect(account.automountServiceAccountToken).toBe(false);
+      expect(named("NetworkPolicy", BUILD_EGRESS_POLICY).metadata.namespace).toBe(DEFAULT_BUILD_NAMESPACE);
+    });
+
+    it("is not a tenant namespace, and Pod Security still forbids privileged builders", () => {
+      const ns = named("Namespace", DEFAULT_BUILD_NAMESPACE);
+      expect(ns.metadata.labels?.[TENANT_LABEL.tenant]).toBeUndefined();
+      expect(ns.metadata.labels?.["pod-security.kubernetes.io/enforce"]).toBe("baseline");
+    });
+
+    it("ships an egress policy the build path admits: restricted, and no route to the metadata address", () => {
+      const reading = classifyBuildEgress(named("NetworkPolicy", BUILD_EGRESS_POLICY) as unknown as Record<string, unknown>);
+      expect(reading.egress).toBe("allowlisted");
+      expect(reading.metadataReachable).toBe(false);
+      expect(JSON.stringify(named("NetworkPolicy", BUILD_EGRESS_POLICY).spec)).not.toContain("0.0.0.0/0");
+    });
+
+    it("denies ingress to builds outright", () => {
+      const deny = docs.find((d) => d.kind === "NetworkPolicy" && JSON.stringify(d.spec.policyTypes) === JSON.stringify(["Ingress"]) && Object.keys(d.spec.podSelector).length === 0 && d.spec.ingress === undefined)!;
+      expect(deny).toBeDefined();
+    });
   });
 
   describe("operator RBAC", () => {

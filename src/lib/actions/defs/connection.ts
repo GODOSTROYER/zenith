@@ -31,6 +31,9 @@ function checkLines(report: PreflightReport): string[] {
 
 /* ----------------------------- connection.create --------------------------- */
 
+const ZENITH_ELSEWHERE =
+  "The Zenith-managed platform is a platform-linked connection: create it with connection.createZenith (Platform, Connections), which records it in the platform store so deploys can run through it.";
+
 const CreateConn = z.object({
   provider: ProviderId,
   label: z.string().optional(),
@@ -61,6 +64,16 @@ defineAction<CreateConn>({
     const region = resolveRegion(adapter, input.region);
     const availability = input.provider === "aws" ? "preview" : adapter.availability;
     const planned = adapter.availability === "planned";
+    if (input.provider === "zenith")
+      return {
+        summary: "Use the Zenith-managed platform from Platform, Connections.",
+        details: [ZENITH_ELSEWHERE],
+        costDeltaUsd: 0,
+        risk: "low",
+        warnings: [],
+        requiresApproval: false,
+        blocked: ZENITH_ELSEWHERE,
+      };
     return {
       summary: planned
         ? `${adapter.displayName} cannot be connected yet.`
@@ -83,6 +96,7 @@ defineAction<CreateConn>({
     };
   },
   async execute(ctx, input) {
+    if (input.provider === "zenith") return { ok: false, summary: "Use the Zenith-managed platform from Platform, Connections.", error: ZENITH_ELSEWHERE };
     const adapter = await adapterFor(input.provider);
     if (adapter.availability === "planned")
       return {
@@ -173,6 +187,19 @@ defineAction<ConnRef>({
   },
   async execute(ctx, input) {
     const conn = requireConnection(ctx, input.connectionId);
+    if (conn.provider === "zenith") {
+      // A managed connection is platform-linked: the check must record on the platform row (what the deploy route reads),
+      // not only on the product mirror, so it is the same verification the platform surfaces run.
+      const { verifyAnyConnection, LifecycleRefusal } = await import("@/lib/connections/service");
+      try {
+        const outcome = await verifyAnyConnection(ctx, conn.platformConnectionId ?? conn.id);
+        return { ok: outcome.ok, summary: outcome.ok ? `${conn.label} is healthy.` : `${conn.label} is not usable yet.`, ...(outcome.ok ? {} : { error: outcome.detail }),
+          data: { connectionId: conn.id, status: q.connection(conn.id)?.status ?? conn.status, detail: outcome.detail, scope: outcome.scope } };
+      } catch (error) {
+        if (error instanceof LifecycleRefusal) return { ok: false, summary: `${conn.label} could not be checked.`, error: error.message };
+        throw error;
+      }
+    }
     const adapter = await adapterFor(conn.provider);
     const report = await adapter.preflight(conn);
     conn.status = statusFrom(report);

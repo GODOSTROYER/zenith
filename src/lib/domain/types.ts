@@ -200,6 +200,7 @@ export const ProviderId = z.enum([
   "kubernetes",
   "gcp",
   "azure",
+  "zenith",
 ]);
 export type ProviderId = z.infer<typeof ProviderId>;
 

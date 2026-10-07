@@ -124,6 +124,8 @@ async function render(ec: ExecContext, graph: ResourceGraph, session: Kubernetes
 const refAddress = (o: { kind: string; metadata: { name: string; namespace?: string } }): string => `${o.kind}/${o.metadata.namespace ?? ""}/${o.metadata.name}`;
 
 interface DirectStage {
+  graph: ResourceGraph;
+  connection: Awaited<ReturnType<typeof resolveConnection>>;
   plan: NormalizedPlan;
   facts: PlanFacts;
   cost: PlanCost;
@@ -133,7 +135,7 @@ interface DirectStage {
 }
 
 /** Dry-run the rendered objects against the cluster and fold the result into a normalized plan. */
-async function dryRun(rt: Runtime, ec: ExecContext, graph: ResourceGraph, session: KubernetesSession, signal: AbortSignal): Promise<Omit<DirectStage, "cost">> {
+async function dryRun(rt: Runtime, ec: ExecContext, graph: ResourceGraph, session: KubernetesSession, signal: AbortSignal): Promise<Omit<DirectStage, "cost" | "graph" | "connection">> {
   const rendered = await render(ec, graph, session, signal);
   const changes = await diff(rendered.objects, session, { environmentId: ec.environmentId, signal });
   const problem = changes.find((c) => ["conflict", "ownership_conflict", "error"].includes(c.action));
@@ -201,6 +203,7 @@ async function stage(rt: Runtime, ec: ExecContext, lease: LeaseRef, detail: stri
 export async function planDirectKubernetes(rt: Runtime, ec: ExecContext, lease: LeaseRef): ReturnType<ExecutionActivities["planInfrastructure"]> {
   const s = await stage(rt, ec, lease, "kubernetes plan");
   if (ec.op.planDigest && ec.op.planDigest !== s.plan.planDigest) throw new TofuPlanChangedError(ec.op.planDigest, s.plan.planDigest);
+  // Record the reviewed semantics once before evidence, and re-check them at final plan, apply and release dispatch.
   const semantics = await recordReviewedSemantics(rt, ec, { graph: s.graph, connection: s.connection, ws: kubernetesSemanticsWorkspace(ec, s.graph), planDigest: s.plan.planDigest, engineVersion: "kubernetes-apply/K1" });
   const evidence = planEvidence({ plan: s.plan, facts: s.facts, cost: s.cost, graphDigest: s.graphDigest, stage: "plan", approvedSources: ec.approvedSourceSnapshots });
   await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, key: evidence.key, summary: { ...evidence.summary, semantics, engine: "kubernetes-apply", statefulDeletes: [], dnsDeletes: [], retained: s.retained }, simulated: false }, { critical: true });

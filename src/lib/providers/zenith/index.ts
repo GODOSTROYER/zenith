@@ -34,3 +34,4 @@ export * from "./tls-lifecycle";
 export * from "./teardown";
 export * from "./export";
 export * from "./drivers";
+export * from "./managed-port";

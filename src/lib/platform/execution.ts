@@ -29,6 +29,8 @@ import { composeReconcilePorts } from "./reconcile";
 import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
 import type { SourceBundleDeps } from "./source-bundle";
 import { createApprovedSourceRuntime } from "./approved-source-runtime";
+import { createDefaultManagedSubstrate } from "./zenith-managed";
+import { createZenithSourceStore } from "./zenith-managed-build";
 import { createDefaultMachinePort } from "@/lib/machines/composition";
 import type { AzureBuildOptions } from "./release-azure";
 import type { PlatformDbHandle } from "@/lib/controlplane/db";
@@ -105,11 +107,16 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     applyVerifiedPlan:(...args)=>custody().tofu.applyVerifiedPlan(...args),
   };
   const platformPorts = createPlatformPorts(opts.db);
+  // PROD-MAN-01: the Zenith-operated cluster, registry and build path. Always composed from ZENITH_MANAGED_*; when those are
+  // absent it is a port that refuses every managed operation by variable name, so non-managed environments are unaffected.
+  const product = createProductPort();
+  const managed = opts.ports?.managed ?? createDefaultManagedSubstrate({ product });
   const azureStorage = opts.sourceBundles?.azureStorage ?? createAzureSourceStorageResolver(opts.db);
   const sourceRuntime = createApprovedSourceRuntime(opts.db, {
     resources: opts.ports?.resources ?? platformPorts.resources,
     sourceBundles: opts.sourceBundles, azureStorage,
     sourceBundle: opts.ports?.sourceBundle, sourceSnapshots: opts.ports?.sourceSnapshots,
+    zenithSources: createZenithSourceStore(managed),
   });
   registerAllDrivers();
   const credentials = opts.ports?.credentials ?? platformCredentialBroker(opts.db);
@@ -117,10 +124,10 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
   const deps: ExecutionDeps = {
     ...platformPorts, portability: createPortabilityPort(opts.db), planArtifacts, effects: createEffectLedger(opts.db),
     drivers: platformDriverLookup,
-    product: createProductPort(), broker: createExecutionBroker(opts.db), credentials,
+    product, managed, broker: createExecutionBroker(opts.db), credentials,
     tofu, cost: defaultCostPort(),
-    observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} }), { session: describeSession(session) }),
-    prober: createSafeProber(), ...createReleasePorts({ db: opts.db, azure }),
+    observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : (session as { provider?: string }).provider === "zenith" ? { kubernetes: (session as unknown as { kubernetes: import("@/lib/credentials/types").KubernetesSession }).kubernetes } : {} }), { session: describeSession(session) }),
+    prober: createSafeProber(), ...createReleasePorts({ db: opts.db, azure, managed }),
     // PROD-LIFE-09: built artifacts are signed with, and admitted against, the pinned control-plane key.
     provenance: { signer: () => getControlSigner(), keys: () => getControlVerificationKeys() },
     // Unrestricted build egress is refused unless the operator sets this recorded exception.

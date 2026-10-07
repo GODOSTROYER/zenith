@@ -82,6 +82,7 @@ describe("the mapping table", () => {
         "connection.createGcp",
         "connection.createAzure",
         "connection.createOci",
+        "connection.createZenith",
         "connection.verify",
         "connection.revoke",
         "connection.rotate",

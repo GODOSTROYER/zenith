@@ -8,3 +8,4 @@ resources:
   - 20-clusterissuer.yaml
   - 30-networkpolicy-baseline.yaml
   - 40-operator-rbac.yaml
+  - 50-build-namespace.yaml

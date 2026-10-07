@@ -57,6 +57,7 @@ import type { EngineApi, StartDeploymentInput } from "@/lib/engine/types";
 import { sandboxProvider } from "@/lib/providers/sandbox";
 import { localstackProvider } from "@/lib/providers/localstack";
 import { awsProvider } from "@/lib/providers/aws";
+import { zenithProvider } from "@/lib/providers/zenith/adapter";
 import { plannedProviders } from "@/lib/providers/planned";
 
 /* ------------------------------ stored shape ------------------------------ */
@@ -439,6 +440,7 @@ export function ensureEngine(): void {
     registerProvider(sandboxProvider);
     registerProvider(localstackProvider);
     registerProvider(awsProvider);
+    registerProvider(zenithProvider);
     for (const p of plannedProviders) registerProvider(p);
     gl.__zenithProvidersReady = true;
   }

@@ -167,11 +167,19 @@ export interface ZenithRenderResult {
   notes: string[];
 }
 
+/**
+ * An image no registry serves: a workload whose first build has not produced a digest yet is applied with it and stays
+ * inert (it cannot be pulled) until the release step supplies the real, tenant-owned digest. `.invalid` is reserved
+ * (RFC 2606): it never resolves, so this can never run anything.
+ */
+export const ZENITH_BOOTSTRAP_IMAGE = "registry.invalid/zenith/bootstrap:unavailable";
+
 function imageResolver(substrate: ZenithSubstrate, built: Readonly<Record<string, string>> | undefined) {
   return (_node: ResourceNode, artifact: ArtifactSpec): string | undefined => {
     if (artifact.type !== "built") return undefined;
     const ref = built?.[artifact.pipeline];
     if (ref === undefined) return undefined;
+    if (ref === ZENITH_BOOTSTRAP_IMAGE) return ref;
     if (!substrate.registry) throw new ZenithError("unsupported", "A built image was supplied but no platform registry is configured (ZENITH_MANAGED_REGISTRY); built images must live in the platform registry.");
     const prefix = `${substrate.registry.host}/${substrate.registry.repositoryPrefix ? `${substrate.registry.repositoryPrefix}/` : ""}`;
     if (!ref.startsWith(prefix)) throw new ZenithError("isolation_violation", `Built image for pipeline "${artifact.pipeline}" is not in the platform registry (${substrate.registry.host}).`);

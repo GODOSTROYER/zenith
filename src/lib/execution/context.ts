@@ -12,6 +12,7 @@
  */
 import type { OperationRecord } from "@/lib/controlplane/types";
 import type { ProviderConnection } from "@/lib/credentials/types";
+import { ManagedSubstrateError } from "@/lib/providers/zenith/managed-port";
 import { z } from "zod";
 import { errorCode, StepFailedError } from "./errors";
 import type { ConsumedInput } from "./typed-inputs";
@@ -83,8 +84,36 @@ export async function loadExecContext(rt: Runtime, operationId: string): Promise
   return { op, workspaceId: op.workspaceId, environmentId: op.environmentId, scope: scopeOf(op), product, deploymentId: input.deploymentId, ...(typedInputs.length ? { typedInputs } : {}) };
 }
 
+/** Id prefix of the synthetic connection a Zenith-managed environment resolves to (it has no customer connection). */
+export const MANAGED_CONNECTION_PREFIX = "zenith-managed:";
+export const isManagedEnvironment = (ec: Pick<ExecContext, "product">): boolean => ec.product.environment.provider === "zenith";
+export const isManagedConnection = (connection: Pick<ProviderConnection, "id">): boolean => connection.id.startsWith(MANAGED_CONNECTION_PREFIX);
+
+/**
+ * The connection of a Zenith-managed environment. There is no customer credential: the platform is the operator.
+ * This is a NON-SECRET descriptor (the cluster URL is public configuration) that lets every step that asks for "the
+ * environment's connection" proceed; `withProviderSession` recognizes it and opens the managed, tenant-pinned session
+ * instead of calling the customer credential broker. It carries no credential reference and no namespace grant.
+ */
+function managedConnection(rt: Runtime, ec: Pick<ExecContext, "workspaceId" | "product">): ProviderConnection {
+  const managed = rt.d.managed;
+  if (!managed) throw new StepFailedError("This worker has no Zenith-managed substrate composed, so a managed environment cannot be operated.");
+  let server: string;
+  try { server = managed.substrate().cluster.server; }
+  catch (err) { throw new StepFailedError(err instanceof ManagedSubstrateError ? err.message : "The Zenith-managed substrate is unavailable."); }
+  return {
+    id: `${MANAGED_CONNECTION_PREFIX}${ec.product.environment.id}`,
+    workspaceId: ec.workspaceId,
+    config: { provider: "kubernetes", mode: "kubeconfig_ref", server, namespaces: [] },
+    status: "verified",
+    createdBy: "zenith-managed",
+    createdAt: "1970-01-01T00:00:00.000Z",
+  };
+}
+
 /** The provider connection behind the environment; it must be verified. */
 export async function resolveConnection(rt: Runtime, ec: Pick<ExecContext, "workspaceId" | "product">): Promise<ProviderConnection> {
+  if (isManagedEnvironment(ec)) return managedConnection(rt, ec);
   const connection = await rt.d.connections.resolve({ workspaceId: ec.workspaceId, connectionId: ec.product.environment.connectionId });
   if (!connection) throw new StepFailedError("This environment has no usable provider connection (it is missing, belongs to another workspace, or was revoked).");
   if (connection.status !== "verified") throw new StepFailedError(`The provider connection is ${connection.status.replace("_", " ")}; verify it before executing against it.`);

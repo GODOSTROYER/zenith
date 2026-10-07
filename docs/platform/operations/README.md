@@ -112,10 +112,11 @@ These limits are present in code; they are not promises about delivery dates:
 - The standalone REST connections route; AWS setup already uses the product's
   browser action adapter and page.
 - A readable matching PlanView artifact for plan-bound UI approvals.
-- The first read-only destroy-review trigger and default Zenith session opener
-  ([TEARDOWN.md](TEARDOWN.md)).
+- The first read-only destroy-review trigger ([TEARDOWN.md](TEARDOWN.md)); the managed Zenith session opener is
+  composed by default (PROD-MAN-01) but supplies no trusted database inventory.
 - Azure source-reader/preparation wiring and default source-build release ports
-  for OCI, Kubernetes and managed Zenith ([BUILDS.md](BUILDS.md)).
+  for OCI and Kubernetes ([BUILDS.md](BUILDS.md)). Managed Zenith has a default source-build path (PROD-MAN-01) with
+  contract and local-kind evidence only.
 - OCI MySQL creation: the pinned provider lacks a proven write-only password
   sink ([DEPLOYING.md](DEPLOYING.md#ephemeral-database-credentials)).
 - Live provider/session/backend acceptance and a hosted Zenith substrate.

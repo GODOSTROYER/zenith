@@ -18,7 +18,7 @@ const Binding = z.object({ appId: z.string().regex(/^[1-9]\d{0,15}$/), installat
 export const ApprovedSourceSchema = z.object({
   format: z.literal(APPROVED_SOURCE_FORMAT), workspaceId: Id, operationId: Id, projectId: Id, environmentId: Id,
   serviceAddress: Address, serviceSpecDigest: Hash, pipelineAddress: Address, pipelineSpecDigest: Hash,
-  provider: z.enum(["aws", "gcp", "azure"]), region: Id,
+  provider: z.enum(["aws", "gcp", "azure", "zenith"]), region: Id,
   owner: z.string().regex(/^[a-z0-9][a-z0-9-]{0,38}$/), repo: z.string().regex(/^[a-z0-9._-]{1,100}$/).refine(v => ![".", ".."].includes(v)),
   repositoryId: z.number().int().positive().safe(), requestedRef: Ref, commitSha: z.string().regex(/^[a-f0-9]{40}$/),
   githubBinding: Binding.nullable(), dockerfile: Path, dockerfileDigest: Hash, recipeDigest: Hash,
@@ -76,11 +76,11 @@ function inputs(ec: ExecContext, graph: ResourceGraph): SourceCaptureInput[] {
     const artifact = service.spec.artifact as { pipeline: string };
     const pipeline = graph.nodes.find(n => n.address === artifact.pipeline && n.kind === "build_pipeline" && n.ownership === "managed");
     const source = pipeline?.spec.source as { repo?: string; ref?: string; dockerfile?: string } | undefined;
-    if (!pipeline || !source?.repo || !source.ref || !["aws", "gcp", "azure"].includes(service.provider)
+    if (!pipeline || !source?.repo || !source.ref || !["aws", "gcp", "azure", "zenith"].includes(service.provider)
       || pipeline.provider !== service.provider || pipeline.region !== service.region) throw new StepFailedError("Approved source requires a supported owned build pipeline.");
     return { workspaceId: ec.workspaceId, operationId: ec.op.id, projectId: ec.product.project.id, environmentId: ec.environmentId,
       serviceAddress: service.address, serviceSpecDigest: service.specDigest, pipelineAddress: pipeline.address, pipelineSpecDigest: pipeline.specDigest,
-      provider: service.provider as "aws" | "gcp" | "azure", region: service.region, repository: source.repo, requestedRef: source.ref,
+      provider: service.provider as "aws" | "gcp" | "azure" | "zenith", region: service.region, repository: source.repo, requestedRef: source.ref,
       dockerfile: source.dockerfile ?? "Dockerfile", recipeDigest: sourceRecipe(service, pipeline), archiveFormat: service.provider === "aws" ? "zip" as const : "tar.gz" as const };
   }).sort((a, b) => a.serviceAddress < b.serviceAddress ? -1 : a.serviceAddress > b.serviceAddress ? 1 : 0);
 }

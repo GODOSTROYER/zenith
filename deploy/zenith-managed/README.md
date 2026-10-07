@@ -15,8 +15,9 @@ The architecture, the isolation model and what is and is not implemented are in
 | `20-clusterissuer.yaml` | cert-manager `ClusterIssuer` placeholder (DNS-01, ACME staging) |
 | `30-networkpolicy-baseline.yaml` | default-deny and minimal allows for the platform namespaces |
 | `40-operator-rbac.yaml` | tenant ServiceAccount/ClusterRole plus a gateway-namespace Role for TLS Certificates and Gateways |
+| `50-build-namespace.yaml` | the platform build namespace: `zenith-build`, the `zenith-builder` ServiceAccount (no token) and the `zenith-build-egress` NetworkPolicy builds are admitted against |
 | `apiserver/podsecurity-admission.example.yaml` | API-server admission config making `restricted` the cluster default. **Not** a cluster object: do not `kubectl apply` it |
-| `kustomization.yaml` | applies the first five files |
+| `kustomization.yaml` | applies the files above (all but `apiserver/`) |
 
 Tenant namespaces (`zt-<workspace>-<env>-<hash>`) and everything in them are
 created by Zenith through server-side apply. Nothing tenant-specific lives here.

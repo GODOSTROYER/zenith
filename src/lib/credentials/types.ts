@@ -166,8 +166,21 @@ export interface KubernetesConnectionConfig {
   runnerCustody?: "local_only" | "federated";
 }
 
+/**
+ * The Zenith-managed platform as a connection (PROD-MAN-01). NON-SECRET: the platform is the operator, so there is no
+ * credential, role or namespace grant here. It exists so a managed environment has a workspace-owned connection row to
+ * point at (route, workflow authority, audit); sessions come from the managed substrate, never from the credential broker.
+ */
+export interface ZenithConnectionConfig {
+  provider: "zenith";
+  mode: "managed";
+  /** the substrate region label reported as the driver context region */
+  region: string;
+}
+
 export type ConnectionConfig =
   | AwsConnectionConfig
+  | ZenithConnectionConfig
   | GcpConnectionConfig
   | AzureConnectionConfig
   | OciConnectionConfig

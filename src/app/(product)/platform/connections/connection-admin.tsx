@@ -20,13 +20,14 @@ import { browserMutation, mutationError } from "../_lib/browser-api";
 interface Answer { ok: boolean; summary: string; error?: string; data: Record<string, unknown> | null }
 interface Notice { tone: CalloutTone; title: string; lines: string[] }
 
-const PROVIDER_LABEL: Record<string, string> = { aws: "AWS", gcp: "Google Cloud", azure: "Azure", oci: "Oracle Cloud", kubernetes: "Kubernetes" };
+const PROVIDER_LABEL: Record<string, string> = { aws: "AWS", gcp: "Google Cloud", azure: "Azure", oci: "Oracle Cloud", kubernetes: "Kubernetes", zenith: "Zenith managed" };
 const STATUS_LABEL: Record<string, string> = { pending_verification: "Not verified yet", verified: "Verified", failed: "Verification failed", revoked: "Revoked" };
 const STATUS_DOT: Record<string, DotStatus> = { pending_verification: "info", verified: "ok", failed: "err", revoked: "idle" };
 const ROTATION_LABEL: Record<string, string> = { staged: "Staged", verified: "Verified, ready to promote", failed: "Failed verification" };
 
 type Field = { key: string; label: string; placeholder: string; optional?: boolean };
-const CREATE_FIELDS: Record<"gcp" | "azure" | "oci", Field[]> = {
+const CREATE_FIELDS: Record<"gcp" | "azure" | "oci" | "zenith", Field[]> = {
+  zenith: [{ key: "label", label: "Label", placeholder: "Optional", optional: true }],
   gcp: [
     { key: "projectId", label: "Project id", placeholder: "my-project-123" },
     { key: "region", label: "Region", placeholder: "us-central1" },
@@ -207,16 +208,16 @@ function RevokePanel({ c, base, busy, call, onDone }: { c: ConnectionView; base:
 }
 
 function CreatePanel({ admin, busy, call }: { admin: boolean; busy: string | undefined; call: Call }) {
-  const [provider, setProvider] = useState<"gcp" | "azure" | "oci">("gcp");
+  const [provider, setProvider] = useState<"gcp" | "azure" | "oci" | "zenith">("gcp");
   const [values, setValues] = useState<Record<string, string>>({});
   const fields = CREATE_FIELDS[provider];
   const missing = fields.some((f) => !f.optional && !(values[f.key] ?? "").trim());
   const body = { provider, ...Object.fromEntries(fields.map((f) => [f.key, (values[f.key] ?? "").trim()]).filter(([, v]) => v !== "")) };
   return <div className="rounded-ctl border border-line bg-bg1 p-4">
     <h2 className="text-[14px] font-medium">Connect a cloud</h2>
-    <p className="mt-1 text-[12.5px] text-ink-mute">Saving records identifiers only and runs no cloud call. Set up the trust shown afterwards, then verify. AWS and Kubernetes have their own guided flows: <Link href="/platform/connections/aws" className="text-signal">Connect AWS</Link>, and Settings, Connections for Kubernetes.</p>
+    <p className="mt-1 text-[12.5px] text-ink-mute">Saving records identifiers only and runs no cloud call. Set up the trust shown afterwards, then verify. Zenith managed needs no cloud account: it stores and grants nothing of yours, then verify confirms the platform is configured. AWS and Kubernetes have their own guided flows: <Link href="/platform/connections/aws" className="text-signal">Connect AWS</Link>, and Settings, Connections for Kubernetes.</p>
     <div className="mt-3 flex flex-wrap gap-2" role="tablist" aria-label="Provider">
-      {(["gcp", "azure", "oci"] as const).map((p) => <Button key={p} size="sm" variant={provider === p ? "primary" : "quiet"} onClick={() => { setProvider(p); setValues({}); }}>{PROVIDER_LABEL[p]}</Button>)}
+      {(["gcp", "azure", "oci", "zenith"] as const).map((p) => <Button key={p} size="sm" variant={provider === p ? "primary" : "quiet"} onClick={() => { setProvider(p); setValues({}); }}>{PROVIDER_LABEL[p]}</Button>)}
     </div>
     <div className="mt-3 grid gap-3 sm:grid-cols-2">
       {fields.map((f) => <label key={f.key} className="block space-y-1 text-[12.5px]">{f.label}<Input value={values[f.key] ?? ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} placeholder={f.placeholder} /></label>)}

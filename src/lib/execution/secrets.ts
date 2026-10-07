@@ -32,6 +32,10 @@ interface Target { node: ResourceNode; ref: string; id: string; vaultUri?: strin
 export interface SecretSyncReport { status: "done" | "partial" | "failed"; total: number; completed: number; changed: number; reason?: SecretFailure; outcomeUnknown?: true }
 
 export async function syncEnvironmentSecrets(rt: Runtime, ec: ExecContext, graph: ResourceGraph, connection: ProviderConnection, lease: LeaseRef, signal: AbortSignal): Promise<SecretSyncReport> {
+  // PROD-MAN-01: a Zenith-managed environment's Secrets and managed-database URIs are written by the apply step
+  // (providers/zenith/apply.ts), through a resolver scoped to exactly this workspace, project and environment, under
+  // the same lease and approved plan. There is no customer connection to grant per-target writes against.
+  if (ec.product.environment.provider === "zenith") return { status: "done", total: 0, completed: 0, changed: 0 };
   const nodes = graph.nodes.filter((n) => n.kind === "secret" && typeof n.spec.secretRef === "string" && n.spec.secretRef.startsWith("vault:"));
   const localNodes = graph.nodes.filter((n) => n.ownership === "managed" && ["kubernetes", "zenith"].includes(n.provider) && ["secret", "postgres", "redis"].includes(n.kind));
   if (!nodes.length && !localNodes.length) return { status: "done", total: 0, completed: 0, changed: 0 };

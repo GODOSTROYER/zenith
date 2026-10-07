@@ -232,3 +232,17 @@ describe("validation for kubernetes", () => {
     expect(bad.problems.join("\n")).toMatch(/queue|native realization|cannot be rendered/);
   });
 });
+
+describe("the production dispatch re-check (PROD-DUR-03) for a kubernetes deploy", () => {
+  it("records the reviewed semantics at plan, and apply and the release dispatch pass the guard chain", async () => {
+    const j = await begin();
+    const plan = await j.plan();
+    const recorded = await (j.w.deps.semantics as { get(w: string, o: string, d: string): Promise<unknown> }).get("ws-act-1", j.operationId, plan.planDigest);
+    expect(recorded).toBeDefined();
+    await j.policy(plan.planDigest);
+    j.approve();
+    await j.finalPlan(plan.planDigest).catch(() => undefined); // fresh cluster: the digest is unchanged until applied
+    await j.apply(plan.planDigest);
+    await expect(j.deploy([{ service: "container_service/web", imageUri: WEB_B, digest: `sha256:${"b".repeat(64)}` }])).resolves.toMatchObject({ services: expect.any(Number) });
+  });
+});

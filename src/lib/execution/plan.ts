@@ -58,6 +58,7 @@ import type { LeaseRef } from "@/lib/workflows/types";
 import { assertEcsReplicaRepairPlan, prepareEcsReplicaRepair } from "./ecs-replica-repair";
 import type { EcsReplicaRepairBindingV1 } from "./ecs-replica-repair-binding";
 import { finalDirectKubernetes, isDirectKubernetes, planDirectKubernetes } from "./direct-kubernetes";
+import { finalDirectZenith, isDirectZenith, planDirectZenith } from "./direct-zenith";
 
 type PlanActivities = Pick<ExecutionActivities, "validateDesiredState" | "planInfrastructure" | "evaluatePolicy" | "checkApproval" | "finalPlan">;
 
@@ -302,6 +303,8 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
       const ec = await loadExecContext(rt, operationId);
       // Kubernetes environments plan by render + server-side dry-run, not OpenTofu (direct-kubernetes.ts).
       if (isDirectKubernetes(ec)) return planDirectKubernetes(rt, ec, lease);
+      // Zenith-managed environments plan by render + server-side dry-run in the tenant namespace (direct-zenith.ts).
+      if (isDirectZenith(ec)) return planDirectZenith(rt, ec, lease);
       const stage = await runPlanStage(rt, ec, lease, "tofu plan");
       // A fresh observation can require a new proposal; it cannot replace this operation's reviewed original.
       if (ec.op.planDigest && ec.op.planDigest !== stage.plan.planDigest) throw new TofuPlanChangedError(ec.op.planDigest, stage.plan.planDigest);
@@ -356,6 +359,7 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
     async finalPlan({ operationId, approvedPlanDigest, lease }) {
       const ec = await loadExecContext(rt, operationId);
       if (isDirectKubernetes(ec)) return finalDirectKubernetes(rt, ec, lease, approvedPlanDigest);
+      if (isDirectZenith(ec)) return finalDirectZenith(rt, ec, lease, approvedPlanDigest);
       const stage = await runPlanStage(rt, ec, lease, "tofu plan (final)", approvedPlanDigest);
       // PROD-DUR-03: the re-plan right before apply must carry exactly the executable semantics that were reviewed.
       if (stage.plan.planDigest === approvedPlanDigest) {

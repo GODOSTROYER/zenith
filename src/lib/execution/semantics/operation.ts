@@ -15,6 +15,7 @@ import { isDirectKubernetes, kubernetesSemanticsWorkspace } from "../direct-kube
 import { StepFailedError } from "../errors";
 import type { Runtime } from "../runtime";
 import { approvedSources } from "../source-snapshot";
+import { directSemanticsArgs } from "./direct";
 import { assertApprovedSemantics } from "./dispatch";
 
 export async function assertOperationSemantics(rt: Runtime, ec: ExecContext, lease: LeaseRef, stage: string, signal?: AbortSignal): Promise<void> {
@@ -22,9 +23,13 @@ export async function assertOperationSemantics(rt: Runtime, ec: ExecContext, lea
   const { graph } = requireExecutable(rt, ec);
   const connection = await resolveConnection(rt, ec);
   if (ec.executableSourceDigest === undefined) await approvedSources(rt, ec, graph, lease, false, signal);
-  const native = isDirectKubernetes(ec);
-  const ws = native ? kubernetesSemanticsWorkspace(ec, graph) : (await buildDeployWorkspace(rt, ec, graph, connection)).ws;
-  await assertApprovedSemantics(rt, ec, { graph, connection, ws, planDigest: ec.op.planDigest, ...(native ? { engineVersion: "kubernetes-apply/K1" } : {}) }, stage);
+  // Zenith-managed dispatch uses its provider-direct plan inputs; native Kubernetes keeps its rendered declaration and engine contract.
+  if (ec.product.environment.provider === "zenith") await assertApprovedSemantics(rt, ec, directSemanticsArgs(graph, connection, ec.op.planDigest), stage);
+  else {
+    const native = isDirectKubernetes(ec);
+    const ws = native ? kubernetesSemanticsWorkspace(ec, graph) : (await buildDeployWorkspace(rt, ec, graph, connection)).ws;
+    await assertApprovedSemantics(rt, ec, { graph, connection, ws, planDigest: ec.op.planDigest, ...(native ? { engineVersion: "kubernetes-apply/K1" } : {}) }, stage);
+  }
   const authority = await rt.d.broker.approvalStatus(ec.op.id);
   if (!authority.approved || authority.rejected || (ec.op.approvalRequired && !authority.approvalId)) {
     throw new StepFailedError(`Current policy or human approval changed before ${stage}; nothing was dispatched.`);

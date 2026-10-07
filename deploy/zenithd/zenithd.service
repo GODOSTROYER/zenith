@@ -59,7 +59,15 @@ PrivateDevices=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectKernelLogs=yes
-ProtectControlGroups=yes
+# PID 1 delegates only this unit's cgroup subtree to the service user.
+# Read-only cgroup mounts would prevent the bounded guest-operation supervisor
+# from creating its per-operation groups. No capabilities or other cgroups are
+# granted: their ownership remains root. Requires unified cgroup v2.
+Delegate=cpu memory pids
+ProtectControlGroups=no
+TasksMax=256
+MemoryMax=512M
+CPUQuota=100%
 ProtectClock=yes
 ProtectHostname=yes
 # /proc stays fully visible: process.list and system.metrics need it.

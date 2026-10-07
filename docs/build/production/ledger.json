@@ -3173,6 +3173,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J5 update/hold API, durable controller and gated signed systemd harness built; shared agent-loop patch and unassigned storage migration are integration joins; native acceptance not run.",
       "evidence": [
         {
           "level": "contract",
@@ -3210,7 +3211,7 @@
         "local_engine"
       ],
       "owner": "root",
-      "testPaths": []
+      "testPaths": ["tests/runners/update-control.test.ts", "tests/runners/update-control-postgres.test.ts", "go/internal/runner/update/control_test.go", "go/internal/runner/update/systemd_test.go"]
     },
     {
       "id": "PROD-MACH-05",

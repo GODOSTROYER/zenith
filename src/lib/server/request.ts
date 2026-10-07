@@ -188,10 +188,16 @@ export function route<P extends Record<string, string> = Record<string, string>>
     const requestId = suppliedId && /^[A-Za-z0-9_-]{1,64}$/.test(suppliedId) && redactCredentials(suppliedId) === suppliedId
       ? suppliedId : crypto.randomUUID().slice(0, 8);
     return withRequestId(requestId, async () => {
+      // PROD-OPS-02: admission (maintenance, in-flight ceiling) and the request's trace span. A refusal
+      // is a BackpressureError that errorResponse() answers as 429/503 + Retry-After.
+      let scope: import("@/lib/ops/admission").RequestScope | undefined;
       try {
-        const access = await options.integrationAccess?.(req);
+        scope = await (await import("@/lib/ops/admission")).beginRequest({ method: req.method, pathname: req.nextUrl.pathname, headers: req.headers, requestId });
+        // Inside the request scope so a transport that resolves the workspace (bearer credential) can apply its quota.
+        const access = await scope.run(async () => options.integrationAccess?.(req));
         if (access instanceof Response) {
           access.headers.set("x-request-id", requestId);
+          scope.finish(access.status);
           return access;
         }
         if (access && options.workspaceRole) throw new ApiError("This route requires a browser session.", 403);
@@ -222,6 +228,8 @@ export function route<P extends Record<string, string> = Record<string, string>>
             // Integration principals are resolved by their transport, never by
             // browser membership helpers (which can accept invitations).
             const state: RequestState = { ...(access ? { user: null } : await resolveRequest(req)), snapshot };
+            // The workspace is known now: apply its rate and concurrency quota (throws BackpressureError).
+            await scope!.bindWorkspace(state.workspace?.id);
             const result = await requestState.run(state, async () => {
               const params = ctx?.params ? await ctx.params : ({} as P);
               // A route that demands nothing must not resolve an actor: the
@@ -229,7 +237,7 @@ export function route<P extends Record<string, string> = Record<string, string>>
               const grant = options.workspaceRole
                 ? await routeGrant(req, options.workspaceRole)
                 : (undefined as unknown as RouteGrant);
-              return handler(req, params, grant);
+              return scope!.run(() => handler(req, params, grant));
             });
             // Inside the snapshot scope, deliberately: the flush writes *this*
             // request's snapshot, and outside it would find the process-global one.
@@ -240,10 +248,13 @@ export function route<P extends Record<string, string> = Record<string, string>>
         );
         const res = out instanceof Response ? out : json(out);
         res.headers.set("x-request-id", requestId);
+        res.headers.set("traceparent", scope.traceparent);
+        scope.finish(res.status);
         return res;
       } catch (err) {
         const res = errorResponse(err);
         res.headers.set("x-request-id", requestId);
+        if (scope) { res.headers.set("traceparent", scope.traceparent); scope.finish(res.status, err); }
         return res;
       }
     });

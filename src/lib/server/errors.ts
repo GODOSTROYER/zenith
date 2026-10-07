@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { log, currentRequestId } from "@/lib/log";
 import { redactCredentials } from "@/lib/credentials/redact";
 import { redactOutput } from "@/lib/tofu/redact";
+import { backpressureBody, isBackpressureError } from "@/lib/ops/errors";
 
 /** Every error body is `{ error: { message, fix? } }` — errors name their fix. */
 export class ApiError extends Error {
@@ -52,6 +53,8 @@ export function safeRequestError(error: unknown): unknown {
 }
 
 export function errorResponse(raw: unknown): NextResponse {
+  // PROD-OPS-02: load shedding is an expected, explicit answer (429/503 + Retry-After), never a 500.
+  if (isBackpressureError(raw)) return NextResponse.json(backpressureBody(raw), { status: raw.status, headers: { "cache-control": "no-store", "retry-after": String(raw.retryAfterSec) } });
   // Every error is cleaned here, whatever threw it: ApiError text is redacted for the
   // response, anything else is reduced to a redacted, bounded name/message/stack for the log.
   const err = safeRequestError(raw);

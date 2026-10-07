@@ -8,6 +8,7 @@
  */
 import { BrokerError, isBrokerError, notFound } from "@/lib/capabilities/errors";
 import type { OperationView } from "@/lib/capabilities/types";
+import { isBackpressureError } from "@/lib/ops/errors";
 import { type DayTwoWorkflowInput, type DeployWorkflowInput } from "@/lib/workflows/types";
 import { type ToolContext } from "../context";
 import type { ToolOutput } from "../envelope";
@@ -124,6 +125,15 @@ export async function executeApprovedOperation(args: ExecuteApprovedOperationArg
   let startedNow = false;
   let mode: "new" | "retained" = "retained";
   if (op.status === "approved" || op.status === "queued") {
+    // PROD-OPS-02: refuse BEFORE the claim so a paused or over-quota dispatch consumes no approval.
+    try {
+      await (await import("@/lib/ops/admission")).assertDispatchAdmitted({ workspaceId: op.workspaceId, kind: kind === "deploy" ? "deploy" : "dayTwo", operationId: op.id });
+    } catch (error) {
+      if (!isBackpressureError(error)) throw error;
+      throw new McpToolError("dispatch_backpressure", error.message, error.status,
+        `Retry the same call in about ${error.retryAfterSec} seconds; this call did not claim the operation.`,
+        { operationStatus: op.status, reason: error.code, retryAfterSec: error.retryAfterSec }, true);
+    }
     try {
       // The returned grant is deliberately not kept: it is a bearer for executing surfaces and has no business in a model-visible process.
       await ctx.broker.beginExecution({ workspaceId: op.workspaceId, operationId: op.id, holder: `workflow:${op.id}`, audience: "worker", leaseMs: 5 * 60_000 });

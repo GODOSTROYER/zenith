@@ -2,12 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { hostedRewrite, isPlatformStaticPath } from "@/lib/hosted/edge";
 import { updateSession } from "@/lib/supabase/middleware";
 import { isAgentSignedPath } from "@/lib/runners/paths";
+import { edgeAdmit } from "@/lib/ops/edge";
 import { isPlatformBearerRequest, platformAccess } from "@/app/api/platform/v1/_lib/bearer-paths";
 
 export async function middleware(request: NextRequest) {
   const hosted = hostedRewrite(request);
   if (hosted) return hosted;
   if (isPlatformStaticPath(request.nextUrl.pathname)) return NextResponse.next({ request });
+  // PROD-OPS-02: coarse per-client shield and the host-level read-only override, before any gate or database work.
+  // The hosted data plane was already rewritten above and never reaches this line.
+  const shed = edgeAdmit({ method: request.method, pathname: request.nextUrl.pathname, headers: request.headers });
+  if (shed) return shed;
   // Only this POST transport authenticates raw bytes with the configured App
   // webhook secret before boot, identity lookup, or platform database access.
   if (platformAccess(request.nextUrl.pathname, request.method) === "webhook-signed") return NextResponse.next({ request });

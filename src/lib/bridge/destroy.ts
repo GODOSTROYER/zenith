@@ -83,6 +83,8 @@ async function start(op: OperationView): Promise<{ delivered: boolean; reason?: 
     const stored = await broker.deps.store.getOperation(op.workspaceId, op.id);
     if (!stored || stored.capability !== "infrastructure.destroy" || stored.environmentId !== op.environmentId ||
         stored.proposalDigest !== op.proposalDigest || stored.proposal.planDigest !== op.proposal.planDigest) return { delivered: false, reason: "unavailable" };
+    // PROD-OPS-02: a paused or over-quota dispatch is refused before the claim; the operation stays approved.
+    await (await import("@/lib/ops/admission")).assertDispatchAdmitted({ workspaceId: op.workspaceId, kind: "destroy", operationId: op.id });
     await broker.beginExecution({ workspaceId: op.workspaceId, operationId: op.id, holder: `workflow:${op.id}`, audience: "worker", leaseMs: 5 * 60_000 });
     claimed = true;
     attempted = true;

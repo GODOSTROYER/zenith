@@ -45,6 +45,7 @@ const SOURCE_SNAPSHOTS: Record<string, { branch: string; commit: string }> = {
   "WORKFLOW-START-INTENTS.md": { branch: "codex/workflow-start-outbox-r4-20261003", commit: "15ce74f81a4919d1d12780d1e7c95445595bbceb" },
   "CURRENT-HUMAN-AUTHORITY.md": { branch: "ws/prod-default-current-membership-20261003", commit: "dc40ee9ad590640c78659796c9b932436ea1e426" },
   "OPERATION-GATES.md": { branch: "ws/prod-operation-gates-20261003", commit: "dc40ee9ad590640c78659796c9b932436ea1e426" },
+  "CONTROL-PLANE-FAIRNESS.md": { branch: "prod/ops-02-w4", commit: "c9a942d" },
 };
 
 /* -------------------------------- structure ------------------------------- */

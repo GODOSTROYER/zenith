@@ -7,6 +7,7 @@
  * remains single-flight rather than accumulating new background checks.
  */
 import { createServer, type Server } from "node:http";
+import { metricsRegistry } from "@/lib/ops/telemetry/metrics";
 
 export type CheckStatus = "ok" | "unavailable" | "unknown";
 export type HealthCheck = () => boolean | undefined | Promise<boolean | undefined>;
@@ -64,6 +65,8 @@ export async function startHealthServer(options: { port: number; checks: Readine
     if (req.method !== "GET" && req.method !== "HEAD") { res.setHeader("allow", "GET, HEAD"); send(405, { error: "method_not_allowed" }); return; }
     const pathname = req.url?.split("?", 1)[0];
     if (pathname === "/healthz") { send(200, { alive: true }); return; }
+    // PROD-OPS-02: Prometheus scrape of this worker (loopback listener; fair-scheduling and activity metrics).
+    if (pathname === "/metrics") { res.setHeader("content-type", "text/plain; version=0.0.4; charset=utf-8"); res.writeHead(200); res.end(req.method === "HEAD" ? undefined : metricsRegistry().renderPrometheus()); return; }
     if (pathname !== "/readyz") { send(404, { error: "not_found" }); return; }
     void probe().then((result) => send(result.ready ? 200 : 503, result));
   });

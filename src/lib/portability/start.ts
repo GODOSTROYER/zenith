@@ -71,6 +71,8 @@ export async function startPortabilityOperation(
 
   let startedNow = false;
   if (op.status !== "running") {
+    // PROD-OPS-02: refuse BEFORE the claim; the route answers 429/503 + Retry-After and the operation stays approved.
+    await (await import("@/lib/ops/admission")).assertDispatchAdmitted({ workspaceId: op.workspaceId, kind: "dayTwo", operationId: op.id });
     try {
       await broker.beginExecution({ workspaceId: op.workspaceId, operationId: op.id, holder: `workflow:${op.id}`, audience: "worker", leaseMs: 5 * 60_000 });
       startedNow = true;

@@ -28,6 +28,8 @@ export interface ClassSpec {
   /** SQL expressions (alias `l`, parent `p`) a resource-scoped hold can match */
   readonly resourceExprs: readonly string[];
   /** keep the newest row per this column group: the latest observation is live state, not history */
+  /** the row a restore needs to exist before it can be re-inserted (foreign key) */
+  readonly restoreParent?: { readonly table: string; readonly fk: string };
   readonly keepLatestBy?: { readonly column: string; readonly orderColumn: string };
   readonly label: string;
   readonly description: string;
@@ -36,17 +38,17 @@ export interface ClassSpec {
 export const CLASS_SPECS: Readonly<Record<RetentionClass, ClassSpec>> = {
   runner_job_logs: {
     table: "platform.runner_job_logs", idType: "bigint", timeColumn: "recorded_at",
-    parent: { table: "platform.runner_jobs", fk: "job_id" }, resourceExprs: ["l.job_id", "p.operation_id"],
+    parent: { table: "platform.runner_jobs", fk: "job_id" }, restoreParent: { table: "platform.runner_jobs", fk: "job_id" }, resourceExprs: ["l.job_id", "p.operation_id"],
     label: "Runner job log lines", description: "Operator-visible log lines of settled runner jobs. The job row, result digest and operation ledger stay.",
   },
   machine_request_logs: {
     table: "platform.machine_request_logs", idType: "bigint", timeColumn: "recorded_at",
-    parent: { table: "platform.machine_requests", fk: "request_id" }, resourceExprs: ["l.request_id", "p.operation_id"],
+    parent: { table: "platform.machine_requests", fk: "request_id" }, restoreParent: { table: "platform.machine_requests", fk: "request_id" }, resourceExprs: ["l.request_id", "p.operation_id"],
     label: "Machine request log lines", description: "Log lines of settled zenithd requests. The request row and operation ledger stay.",
   },
   resource_observations: {
     table: "platform.resource_observations", idType: "bigint", timeColumn: "recorded_at",
-    resourceExprs: ["l.resource_id"], keepLatestBy: { column: "resource_id", orderColumn: "observed_at" },
+    resourceExprs: ["l.resource_id"], restoreParent: { table: "platform.resources", fk: "resource_id" }, keepLatestBy: { column: "resource_id", orderColumn: "observed_at" },
     label: "Resource observation history", description: "Older observed-state snapshots. The latest observation of every resource is always kept.",
   },
   drift_reports: {
@@ -86,6 +88,8 @@ export const NEVER_PRUNABLE: Readonly<Record<string, string>> = {
   "platform.ops_maintenance_history": "maintenance change audit",
   "platform.legal_holds": "legal holds",
   "platform.retention_archives": "archive manifests",
+  "platform.retention_destinations": "tenant archive destinations",
+  "platform.retention_restores": "restore audit",
   "platform.leases": "fenced leases",
 };
 

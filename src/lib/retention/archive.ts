@@ -79,6 +79,8 @@ export interface ArchivePayload {
 
 export interface ArchiveContext {
   target: ArchiveTarget;
+  /** where `target` is: null id = the operator bucket, else the tenant destination row */
+  destination?: { id: string | null; label: string };
   /** 32-byte sealing key; defaults to ZENITH_BACKUP_KEY */
   key?: Buffer;
   now?: Date;
@@ -92,7 +94,7 @@ export type ArchiveOutcome =
   | { status: "failed"; reason: "key_unavailable" | "write_failed" | "readback_failed" | "digest_mismatch" };
 
 /** Read the archive object back and prove it holds exactly the expected rows. */
-async function readBack(target: ArchiveTarget, key: Buffer, objectKey: string, expectedDigest: string, expectedIds?: readonly string[]): Promise<ArchivePayload | null> {
+export async function readBack(target: ArchiveTarget, key: Buffer, objectKey: string, expectedDigest: string, expectedIds?: readonly string[]): Promise<ArchivePayload | null> {
   const bytes = await target.get(objectKey);
   if (!bytes) return null;
   let payload: ArchivePayload;
@@ -139,6 +141,7 @@ export async function archiveBatch(db: Sql, workspaceId: string, cls: RetentionC
   const archive = await recordArchive(db, {
     workspaceId, dataClass: cls, objectKey, rowsDigest, rowCount: data.length, firstRowId: first.id, lastRowId: last.id,
     lastRecordedAt: last.ts, keyId: sealed.keyId, policyDigest: policyDigest(ctx.policy),
+    destinationId: ctx.destination?.id ?? null, destinationLabel: ctx.destination?.label ?? ctx.target.label,
   });
   return { status: "archived", archive, rows: data.length };
 }

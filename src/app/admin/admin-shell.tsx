@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowUpRight, History, LayoutDashboard, ListChecks, Orbit, ShieldCheck } from "lucide-react";
+import { Archive, ArrowUpRight, History, LayoutDashboard, ListChecks, Orbit, ShieldCheck } from "lucide-react";
 import { Wordmark } from "@/components/shell/wordmark";
 import { Button } from "@/components/ui/button";
 import styles from "./admin.module.css";
 
-export function AdminShell({ email, children }: { email: string; children: ReactNode }) {
+export function AdminShell({ email, showRetention = false, children }: { email: string; showRetention?: boolean; children: ReactNode }) {
   return (
     <div className={`${styles.theme} ${styles.shell}`}>
       <a className={styles.skipLink} href="#admin-main">Skip to administration</a>
@@ -16,6 +16,7 @@ export function AdminShell({ email, children }: { email: string; children: React
           <a href="#overview"><LayoutDashboard size={17} aria-hidden="true" /> Overview</a>
           <a href="#waitlist"><ListChecks size={17} aria-hidden="true" /> Waitlist</a>
           <a href="#approval-history"><History size={17} aria-hidden="true" /> Approval history</a>
+          {showRetention ? <Link href="/admin/retention"><Archive size={17} aria-hidden="true" /> Data retention</Link> : null}
         </nav>
         <div className={styles.sidebarFooter}>
           <p>Owner access</p><p className={styles.ownerEmail}>{email}</p>

@@ -17,6 +17,9 @@ vi.mock("@/lib/ops/operator", async (importOriginal) => ({ ...(await importOrigi
 const overview = await import("@/app/api/admin/ops/retention/route");
 const previewRoute = await import("@/app/api/admin/ops/retention/preview/route");
 const holdsRoute = await import("@/app/api/admin/ops/retention/holds/route");
+const archivesRoute = await import("@/app/api/admin/ops/retention/archives/route");
+const verifyRoute = await import("@/app/api/admin/ops/retention/archives/[id]/verify/route");
+const restoreRoute = await import("@/app/api/admin/ops/retention/archives/[id]/restore/route");
 const { CRITICAL_JOBS, MAINTENANCE_JOBS } = await import("@/lib/platform/critical-jobs");
 
 const ORIGIN = "http://zenith.test";
@@ -100,6 +103,25 @@ describe("holds", () => {
     expect(after.holds).toHaveLength(0);
     const everything = await (await holdsRoute.GET(req("GET", "/api/admin/ops/retention/holds?workspaceId=ws_h&all=1"))).json();
     expect(everything.holds).toHaveLength(1);
+  });
+});
+
+describe("archives, verify and restore routes", () => {
+  const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
+  it("are operator-only and validate input", async () => {
+    mocks.session.mockResolvedValue({ id: STRANGER, email: "x@example.com" });
+    expect((await archivesRoute.GET(req("GET", "/api/admin/ops/retention/archives"))).status).toBe(403);
+    expect((await verifyRoute.POST(req("POST", "/api/admin/ops/retention/archives/a/verify"), ctx("a"))).status).toBe(403);
+    expect((await restoreRoute.POST(req("POST", "/api/admin/ops/retention/archives/a/restore", { mode: "source" }), ctx("a"))).status).toBe(403);
+    asOperator();
+    const list = await archivesRoute.GET(req("GET", "/api/admin/ops/retention/archives?limit=5"));
+    expect(list.status).toBe(200);
+    expect(Array.isArray((await list.json()).archives)).toBe(true);
+    expect((await archivesRoute.GET(req("GET", "/api/admin/ops/retention/archives?limit=0"))).status).toBe(400);
+    expect((await verifyRoute.POST(req("POST", "/api/admin/ops/retention/archives/arc_none/verify"), ctx("arc_none"))).status).toBe(404);
+    expect((await restoreRoute.POST(req("POST", "/api/admin/ops/retention/archives/a/restore", { mode: "drop" }), ctx("a"))).status).toBe(400);
+    expect((await restoreRoute.POST(req("POST", "/api/admin/ops/retention/archives/a/restore", { mode: "staging", stagingSuffix: "Bad Name" }), ctx("a"))).status).toBe(400);
+    expect((await restoreRoute.POST(req("POST", "/api/admin/ops/retention/archives/arc_none/restore", { mode: "source" }), ctx("arc_none"))).status).toBe(409);
   });
 });
 

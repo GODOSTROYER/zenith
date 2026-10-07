@@ -126,6 +126,7 @@ export default async function RetentionPage() {
 
             <section className={styles.section} aria-labelledby="archives-heading">
               <h2 id="archives-heading">Recent archives</h2>
+              <p>Verify an archive or restore records from it (to a staging schema, or back to the source without overwriting anything) with the archives API or <code>scripts/retention-archive.ts</code>. Every restore is read back and audited.</p>
               {overview.archives.length === 0 ? (
                 <p className={styles.empty}>Nothing has been archived. Archiving starts only when a policy sets an archive window and archive storage is configured.</p>
               ) : (
@@ -133,7 +134,7 @@ export default async function RetentionPage() {
                   {overview.archives.map((a) => (
                     <li key={a.id}>
                       <span>{CLASS_SPECS[a.dataClass].label}: {n(a.rowCount)} rows, {n(a.prunedRows)} pruned{a.completedAt ? " (done)" : ""}</span>
-                      <span className={styles.meta}>workspace {a.workspaceId}, verified {a.verifiedAt.slice(0, 16).replace("T", " ")} UTC</span>
+                      <span className={styles.meta}>workspace {a.workspaceId}, verified {a.verifiedAt.slice(0, 16).replace("T", " ")} UTC, stored in {a.destinationLabel}</span>
                     </li>
                   ))}
                 </ul>

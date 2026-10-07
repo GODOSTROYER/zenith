@@ -246,6 +246,8 @@ describe("archive: copy only, sealed, read back", () => {
   });
 
   it("does nothing without archive storage or with an invalid policy, and reports why", async () => {
+    const wsNoStore = newWorkspace();
+    await jobWithLogs(wsNoStore, (await runner(wsNoStore)).id, 60, 2);
     const noStorage = await run({ env: {}, load: loadOf(policyOf(LOGS)), key: KEY });
     expect(noStorage).toMatchObject({ policyActive: 1, archiveBatches: 0, prunedRows: 0 });
     expect(noStorage.note).toMatch(/archive storage/i);

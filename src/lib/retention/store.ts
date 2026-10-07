@@ -177,6 +177,8 @@ export interface ArchiveRecord {
   lastRowId: string;
   lastRecordedAt: string;
   keyId: string;
+  destinationId: string | null;
+  destinationLabel: string;
   policyDigest: string;
   verifiedAt: string;
   prunedRows: number;
@@ -185,13 +187,13 @@ export interface ArchiveRecord {
 
 interface ArchiveRow {
   id: string; workspace_id: string; data_class: RetentionClass; object_key: string; rows_digest: string; row_count: number;
-  first_row_id: string; last_row_id: string; last_recorded_at: string; key_id: string; policy_digest: string; verified_at: unknown;
+  first_row_id: string; last_row_id: string; last_recorded_at: string; key_id: string; destination_id: string | null; destination_label: string; policy_digest: string; verified_at: unknown;
   pruned_rows: number; completed_at: unknown;
 }
-const ARCHIVE_COLUMNS = "id, workspace_id, data_class, object_key, rows_digest, row_count, first_row_id, last_row_id, last_recorded_at::text as last_recorded_at, key_id, policy_digest, verified_at, pruned_rows, completed_at";
+const ARCHIVE_COLUMNS = "id, workspace_id, data_class, object_key, rows_digest, row_count, first_row_id, last_row_id, last_recorded_at::text as last_recorded_at, key_id, destination_id, destination_label, policy_digest, verified_at, pruned_rows, completed_at";
 const toArchive = (r: ArchiveRow): ArchiveRecord => ({
   id: r.id, workspaceId: r.workspace_id, dataClass: r.data_class, objectKey: r.object_key, rowsDigest: r.rows_digest, rowCount: Number(r.row_count),
-  firstRowId: r.first_row_id, lastRowId: r.last_row_id, lastRecordedAt: r.last_recorded_at, keyId: r.key_id, policyDigest: r.policy_digest,
+  firstRowId: r.first_row_id, lastRowId: r.last_row_id, lastRecordedAt: r.last_recorded_at, keyId: r.key_id, destinationId: r.destination_id, destinationLabel: r.destination_label, policyDigest: r.policy_digest,
   verifiedAt: iso(r.verified_at)!, prunedRows: Number(r.pruned_rows), completedAt: iso(r.completed_at),
 });
 
@@ -207,17 +209,18 @@ export async function archiveWatermark(sql: Sql, workspaceId: string, cls: Reten
 export interface NewArchive {
   workspaceId: string; dataClass: RetentionClass; objectKey: string; rowsDigest: string; rowCount: number;
   firstRowId: string; lastRowId: string; lastRecordedAt: string; keyId: string; policyDigest: string;
+  destinationId?: string | null; destinationLabel?: string;
 }
 
 /** Insert the record of an archive that was read back and digest-verified. Idempotent on the object key. */
 export async function recordArchive(sql: Sql, a: NewArchive): Promise<ArchiveRecord> {
   assertPrunableClass(a.dataClass);
   const rows = await sql.query<ArchiveRow>(
-    `insert into platform.retention_archives (id, workspace_id, data_class, object_key, rows_digest, row_count, first_row_id, last_row_id, last_recorded_at, key_id, policy_digest, next_prune_check_at)
-     values ($1, $2, $3, $4, $5, $6::int, $7, $8, $9::timestamptz, $10, $11, clock_timestamp())
+    `insert into platform.retention_archives (id, workspace_id, data_class, object_key, rows_digest, row_count, first_row_id, last_row_id, last_recorded_at, key_id, policy_digest, destination_id, destination_label, next_prune_check_at)
+     values ($1, $2, $3, $4, $5, $6::int, $7, $8, $9::timestamptz, $10, $11, $12, $13, clock_timestamp())
      on conflict (workspace_id, data_class, object_key) do update set key_id = platform.retention_archives.key_id
      returning ${ARCHIVE_COLUMNS}`,
-    [`arc_${randomUUID()}`, a.workspaceId, a.dataClass, a.objectKey, a.rowsDigest, a.rowCount, a.firstRowId, a.lastRowId, a.lastRecordedAt, a.keyId, a.policyDigest]);
+    [`arc_${randomUUID()}`, a.workspaceId, a.dataClass, a.objectKey, a.rowsDigest, a.rowCount, a.firstRowId, a.lastRowId, a.lastRecordedAt, a.keyId, a.policyDigest, a.destinationId ?? null, a.destinationLabel ?? "operator storage"]);
   return toArchive(rows[0]);
 }
 
@@ -227,6 +230,11 @@ export async function listArchives(sql: Sql, options: { workspaceId?: string; li
     `select ${ARCHIVE_COLUMNS} from platform.retention_archives where ($1::text is null or workspace_id = $1::text) order by created_at desc, id limit $2::int`,
     [options.workspaceId ?? null, limit]);
   return rows.map(toArchive);
+}
+
+export async function getArchive(sql: Sql, id: string, workspaceId?: string): Promise<ArchiveRecord | null> {
+  const rows = await sql.query<ArchiveRow>(`select ${ARCHIVE_COLUMNS} from platform.retention_archives where id = $1 and ($2::text is null or workspace_id = $2::text)`, [id, workspaceId ?? null]);
+  return rows[0] ? toArchive(rows[0]) : null;
 }
 
 /** Verified archives that still have source rows to examine, due for a prune check. */

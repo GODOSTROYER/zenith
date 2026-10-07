@@ -39,13 +39,13 @@ See the findings table in [verify/PROD-OPS-08.md](../build/production/verify/PRO
 
 ## Residual risks closed in the follow-up
 
-Fixed and tested in `residual-hardening.test.ts` (findings F9-F13 in the verify doc): hosted launch state bound to a browser nonce cookie; platform REST bearer limited to a linked `za_` credential on the configured host with the authority-kind rule; runner dispatch honours grant revocation; hosted source tar requires a proper terminator and refuses trailing data; GitHub App private key custody checks.
+Fixed and tested in `residual-hardening.test.ts` (findings F9-F13 in the verify doc): hosted launch state bound to a browser nonce cookie; platform REST bearer limited to a linked `za_` credential on the configured host with the authority-kind rule; runner dispatch honours grant revocation; hosted source tar requires a proper terminator and refuses trailing data; GitHub App private key custody checks (POSIX uid/mode/link checks; Windows reuses the native owner-only ACL verification); a grant revoked after enqueue is withdrawn at poll.
 
 ## Residual risk and non-goals
 
 Recorded as observed but not fixed:
 
-- `CredentialBroker.withSession` trusts decoded in-process claims; the Go agent's workspace check is vacuous when its own workspace id is empty; a grant revoked after enqueue but before the agent polls is not re-checked.
+- `CredentialBroker.withSession` trusts decoded in-process claims; the Go agent's workspace check is vacuous when its own workspace id is empty; a grant revoked after the agent has received the job is not recalled.
 - `CRON_SECRET` has no minimum strength; `/api/internal/*` is public at the edge and relies on every route calling the gate.
 - Hosted source tar reader: quadratic directory handling, lossy UTF-8 decoding, GNU magic accepted as ustar, lenient base64 in `decodeTarball`.
 - `assertDispatchAdmitted` admits when the quota lookup fails (documented fail-open for availability).

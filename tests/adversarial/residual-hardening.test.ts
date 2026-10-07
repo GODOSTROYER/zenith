@@ -102,6 +102,39 @@ describe("F11: runner dispatch honours grant revocation", () => {
   });
 });
 
+describe("F11: revoke between enqueue and poll", () => {
+  it("a job whose grant was revoked after enqueue is withdrawn as rejected at poll and never handed to the agent", async () => {
+    const { createPlane, registerFakeAgent, runnerGrant, teardownPlane, OPERATION } = await import("../runners/_support");
+    const { POST: registerRunner } = await import("@/app/api/platform/v1/runners/register/route");
+    const { POST: pollRunner } = await import("@/app/api/platform/v1/runners/[id]/poll/route");
+    const { enqueueRunnerJob } = await import("@/lib/runners/dispatch");
+    const revoked = new Set<string>();
+    const plane = await createPlane("fake", { grantRevoked: async (_workspace, jti) => revoked.has(jti) });
+    try {
+      const runner = await registerFakeAgent(plane, registerRunner);
+      const grant = await runnerGrant(plane, { runnerId: runner.id, workspaceId: "w-a", operationId: OPERATION, capability: "infrastructure.observe" });
+      const jti = (JSON.parse(Buffer.from(grant.split(".")[1]!, "base64url").toString("utf8")) as { jti: string }).jti;
+      const base = { workspaceId: "w-a", runnerId: runner.id, operationId: OPERATION, capability: "infrastructure.observe", kind: "probe.tcp" as const, payload: { host: "10.0.0.1", port: 22, timeoutMs: 2000 }, grant };
+      const revokedJob = await enqueueRunnerJob(base);
+      revoked.add(jti);
+      const polled = await runner.post(pollRunner, "/poll", { max: 5, waitSec: 0 });
+      expect(polled.status).toBe(200);
+      expect((polled.body as { jobs: unknown[] }).jobs).toEqual([]);
+      const row = await plane.store.jobs.get("w-a", revokedJob);
+      expect(row?.status).toBe("rejected");
+      expect(row?.error).toMatch(/revoked/i);
+      // a job under a still-valid grant is delivered normally
+      revoked.clear();
+      const okGrant = await runnerGrant(plane, { runnerId: runner.id, workspaceId: "w-a", operationId: OPERATION, capability: "infrastructure.observe" });
+      await enqueueRunnerJob({ ...base, grant: okGrant });
+      const delivered = await runner.post(pollRunner, "/poll", { max: 5, waitSec: 0 });
+      expect((delivered.body as { jobs: unknown[] }).jobs).toHaveLength(1);
+    } finally {
+      teardownPlane();
+    }
+  });
+});
+
 /* ------------------------------ F12: hosted source tar terminator ------------------------------ */
 
 describe("F12: hosted source tar reader needs a real end-of-archive marker", () => {
@@ -148,7 +181,7 @@ describe("F12: hosted source tar reader needs a real end-of-archive marker", () 
 
 /* ------------------------------ F13: GitHub App private key custody ------------------------------ */
 
-describe.skipIf(process.platform === "win32")("F13: GitHub App private key custody (POSIX; Windows refuses explicitly)", () => {
+describe.skipIf(process.platform === "win32")("F13: GitHub App private key custody (POSIX checks; Windows reuses the native ACL verification)", () => {
   let dir = "";
   const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs1", format: "pem" });
   afterAll(async () => { if (dir) await rm(dir, { recursive: true, force: true }); });

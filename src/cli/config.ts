@@ -63,6 +63,9 @@ async function windowsAcl(path: string, action: "secure" | "verify"): Promise<vo
     { env, windowsHide: true, timeout: 15_000, maxBuffer: 4096 }, (error) => error ? reject(new CliError(2, "unsafe_config", "Could not establish or verify an owner-only Windows config ACL.")) : resolve()));
 }
 
+/** Verify (never change) that `path` has an owner-only NTFS ACL. Rejects when it is shared or the check cannot run. Windows only. */
+export const verifyWindowsOwnerOnlyAcl = (path: string): Promise<void> => windowsAcl(path, "verify");
+
 async function assertPrivate(path: string, directory: boolean): Promise<void> {
   const stat = await lstat(path);
   if (stat.isSymbolicLink() || (directory ? !stat.isDirectory() : !stat.isFile() || stat.nlink !== 1) ||

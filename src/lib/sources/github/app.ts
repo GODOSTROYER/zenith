@@ -26,13 +26,17 @@ async function secretFile(file: string): Promise<Buffer> {
   try {
     if (!isAbsolute(file)) throw new GithubSourceError("unavailable");
     // Custody (same posture as the webhook secret): a private regular file owned by this process, reached without a
-    // symlink or a second hard link. Windows has no POSIX ownership or mode, so it is refused explicitly: run the
-    // GitHub App on a POSIX host (a refusal reads as "unavailable", never as a weaker mode).
+    // symlink or a second hard link. POSIX checks uid and mode and opens with O_NOFOLLOW. Windows has no POSIX
+    // ownership or mode, so it reuses the CLI's native-security-API check that the file's NTFS ACL is owner-only; any
+    // failure of that check refuses (reads as "unavailable", never as a weaker mode).
+    const win = process.platform === "win32";
     const uid = process.getuid?.();
-    if (uid === undefined || process.platform === "win32" || constants.O_NOFOLLOW === undefined) throw new GithubSourceError("unavailable");
+    if (!win && (uid === undefined || constants.O_NOFOLLOW === undefined)) throw new GithubSourceError("unavailable");
     const before = await lstat(file);
-    if (!before.isFile() || before.uid !== uid || before.nlink !== 1 || (before.mode & 0o077) !== 0) throw new GithubSourceError("unavailable");
-    handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+    if (!before.isFile() || before.nlink !== 1) throw new GithubSourceError("unavailable");
+    if (win) await (await import("@/cli/config")).verifyWindowsOwnerOnlyAcl(file);
+    else if (before.uid !== uid || (before.mode & 0o077) !== 0) throw new GithubSourceError("unavailable");
+    handle = await open(file, win ? constants.O_RDONLY : constants.O_RDONLY | constants.O_NOFOLLOW);
     const stat = await handle.stat();
     if (!stat.isFile() || stat.size <= 0 || stat.size > 64 * 1024 || stat.ino !== before.ino || stat.dev !== before.dev) throw new GithubSourceError("unavailable");
     const bytes = Buffer.alloc(64 * 1024 + 1);

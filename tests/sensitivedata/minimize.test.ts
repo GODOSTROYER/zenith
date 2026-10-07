@@ -10,11 +10,12 @@ import * as repos from "@/lib/controlplane/db/repos";
 import { createMachineRequestQueue } from "@/lib/runners/db/machine-requests";
 import { createAesResultSealer, isSealedBox } from "@/lib/runners/seal";
 import { verifyResultEnvelope } from "@/lib/sensitivedata/at-rest";
-import { DEFAULT_RESULT_RETENTION_HOURS, minimizePass, resultRetentionHours } from "@/lib/sensitivedata/minimize";
+import { DEFAULT_RESULT_RETENTION_HOURS, minimizeApplyEnabled, minimizePass, resultRetentionHours } from "@/lib/sensitivedata/minimize";
 import { newWorkspace, seedApprovedOperation, uid } from "../controlplane/_support/harness";
 
 const KEY = "A".repeat(43);
 const sealer = createAesResultSealer(randomBytes(32), { keyId: "test-key" });
+const APPLY = { ZENITH_DATA_MINIMIZE_APPLY: "1", ZENITH_RESULT_RETENTION_HOURS: "72" };
 const secretBody = (): string => `opaque-${randomBytes(12).toString("base64url")}`;
 
 let db: PlatformDbHandle;
@@ -43,6 +44,15 @@ const resultOf = async (table: "runner_jobs" | "machine_requests", id: string): 
   (await db.query<{ result: Record<string, unknown> | null }>(`select result from platform.${table} where id = $1`, [id]))[0].result;
 
 describe("retention window", () => {
+  it("deletion needs the apply flag AND an explicit valid window (DEC-RETENTION is pending)", () => {
+    expect(minimizeApplyEnabled({})).toBe(false);
+    expect(minimizeApplyEnabled({ ZENITH_DATA_MINIMIZE_APPLY: "1" })).toBe(false);
+    expect(minimizeApplyEnabled({ ZENITH_RESULT_RETENTION_HOURS: "24" })).toBe(false);
+    expect(minimizeApplyEnabled({ ZENITH_DATA_MINIMIZE_APPLY: "true", ZENITH_RESULT_RETENTION_HOURS: "24" })).toBe(false);
+    expect(minimizeApplyEnabled({ ZENITH_DATA_MINIMIZE_APPLY: "1", ZENITH_RESULT_RETENTION_HOURS: "0" })).toBe(false);
+    expect(minimizeApplyEnabled({ ZENITH_DATA_MINIMIZE_APPLY: "1", ZENITH_RESULT_RETENTION_HOURS: "24" })).toBe(true);
+  });
+
   it("defaults to 72 hours and ignores an invalid override rather than erasing at once or never", () => {
     expect(DEFAULT_RESULT_RETENTION_HOURS).toBe(72);
     expect(resultRetentionHours({})).toBe(72);
@@ -65,8 +75,16 @@ describe("sealed result minimization", () => {
 
     const beforeOld = await resultOf("runner_jobs", old);
     expect(isSealedBox((beforeOld as { sealed: unknown }).sealed)).toBe(true);
-    const outcome = await minimizePass(db, { env: {} });
-    expect(outcome).toMatchObject({ retentionHours: 72, retry: 0 });
+    const dry = await minimizePass(db, { env: {} });
+    expect(dry).toMatchObject({ applied: false, retry: 0 });
+    expect(dry.runnerResults).toBeGreaterThanOrEqual(2);
+    expect(isSealedBox(((await resultOf("runner_jobs", old)) as { sealed: unknown }).sealed)).toBe(true);
+    // apply without an explicit window, or the window without the apply flag, still deletes nothing
+    expect((await minimizePass(db, { env: { ZENITH_DATA_MINIMIZE_APPLY: "1" } })).applied).toBe(false);
+    expect((await minimizePass(db, { env: { ZENITH_RESULT_RETENTION_HOURS: "72" } })).applied).toBe(false);
+    expect(isSealedBox(((await resultOf("runner_jobs", old)) as { sealed: unknown }).sealed)).toBe(true);
+    const outcome = await minimizePass(db, { env: APPLY });
+    expect(outcome).toMatchObject({ retentionHours: 72, applied: true, retry: 0 });
     expect(outcome.runnerResults).toBeGreaterThanOrEqual(2);
 
     for (const id of [old, failedOld]) {
@@ -80,18 +98,18 @@ describe("sealed result minimization", () => {
     const rows = await db.query<{ status: string; envelope: string }>("select status, envelope from platform.runner_jobs where id = $1", [old]);
     expect(rows[0]).toEqual({ status: "succeeded", envelope: "eyJhbGciOiJFZERTQSJ9.payload.signature" });
     // idempotent
-    expect((await minimizePass(db, { env: {} })).runnerResults).toBe(0);
+    expect((await minimizePass(db, { env: APPLY })).runnerResults).toBe(0);
   });
 
   it("honours ZENITH_RESULT_RETENTION_HOURS and the batch limit", async () => {
     const ws = newWorkspace();
     const { id: runnerId } = await runner(ws);
     const ids = [await settledRunnerJob(ws, runnerId, 5, secretBody()), await settledRunnerJob(ws, runnerId, 6, secretBody()), await settledRunnerJob(ws, runnerId, 7, secretBody())];
-    expect((await minimizePass(db, { env: { ZENITH_RESULT_RETENTION_HOURS: "24" } })).runnerResults).toBe(0);
-    const first = await minimizePass(db, { env: { ZENITH_RESULT_RETENTION_HOURS: "4" }, limit: 2 });
+    expect((await minimizePass(db, { env: { ...APPLY, ZENITH_RESULT_RETENTION_HOURS: "24" } })).runnerResults).toBe(0);
+    const first = await minimizePass(db, { env: { ...APPLY, ZENITH_RESULT_RETENTION_HOURS: "4" }, limit: 2 });
     expect(first.runnerResults).toBe(2);
     expect(first.retentionHours).toBe(4);
-    expect((await minimizePass(db, { env: { ZENITH_RESULT_RETENTION_HOURS: "4" }, limit: 2 })).runnerResults).toBe(1);
+    expect((await minimizePass(db, { env: { ...APPLY, ZENITH_RESULT_RETENTION_HOURS: "4" }, limit: 2 })).runnerResults).toBe(1);
     for (const id of ids) expect((await resultOf("runner_jobs", id))?.minimized).toBe(true);
   });
 
@@ -107,13 +125,13 @@ describe("sealed result minimization", () => {
     expect(await queue.claimNext({ workspaceId: ws, agentId: machine.id, max: 1, leaseMs: 60_000 })).toHaveLength(1);
     expect(await queue.settle({ workspaceId: ws, agentId: machine.id, jobId: id, status: "succeeded", result: { sealed: sealer.seal(`${ws}|${id}`, { out: secretBody() }), exitCode: 0 } })).toBe(true);
     await db.query("update platform.machine_requests set settled_at = clock_timestamp() - interval '100 hours' where id = $1", [id]);
-    expect((await minimizePass(db, { env: {} })).machineResults).toBeGreaterThanOrEqual(1);
+    expect((await minimizePass(db, { env: APPLY })).machineResults).toBeGreaterThanOrEqual(1);
     expect(await resultOf("machine_requests", id)).toEqual({ exitCode: 0, minimized: true });
   });
 
   it("leaves the immutable effect receipts alone (their retention is PROD-OPS-07)", async () => {
     const before = await db.query<{ n: number }>("select count(*)::int as n from platform.agent_effect_receipts");
-    await minimizePass(db, { env: {} });
+    await minimizePass(db, { env: APPLY });
     const after = await db.query<{ n: number }>("select count(*)::int as n from platform.agent_effect_receipts");
     expect(after[0].n).toBe(before[0].n);
   });

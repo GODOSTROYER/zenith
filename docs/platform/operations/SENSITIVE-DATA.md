@@ -50,8 +50,10 @@ nothing plain-looking sits in a column that must be ciphertext; it is a sample a
 The `data-minimize` critical job (Temporal critical-maintenance schedule, cron fallback with the same lease
 and run record) removes three things that outlived their need:
 
+**DEC-RETENTION is pending, so this job is a dry run by default.** It reports candidate counts and deletes nothing unless the operator sets both `ZENITH_DATA_MINIMIZE_APPLY=1` and an explicit `ZENITH_RESULT_RETENTION_HOURS` (1 to 720; there is no default window for deletion). Only the sealed result body may go; receipts, the effect ledger, approvals and audit evidence are never touched.
+
 1. The sealed result body in `platform.runner_jobs.result` and `platform.machine_requests.result` once the
-   job settled and `ZENITH_RESULT_RETENTION_HOURS` passed (default 72, 1 to 720). The row, status, signed
+   job settled and the configured window passed (apply mode only). The row, status, signed
    assignment, exit code and timestamps stay; a `minimized` marker replaces the body. The result was only a
    rendezvous between the reporting agent and the awaiting activity.
 2. Expired source uploads in `agent.agent_uploads`, swept on every tick instead of only when another upload

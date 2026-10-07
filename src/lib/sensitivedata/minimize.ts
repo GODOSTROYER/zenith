@@ -1,5 +1,8 @@
 /**
- * Persistence minimization (PROD-OPS-06): the `data-minimize` critical job.
+ * Persistence minimization (PROD-OPS-06): the `data-minimize` critical job. DEC-RETENTION-GATED: no retention policy is
+ * approved, so sealed results are only REPORTED (dry run) unless an operator sets both ZENITH_DATA_MINIMIZE_APPLY=1 and an
+ * explicit ZENITH_RESULT_RETENTION_HOURS. Only the sealed result body goes, never a row that receipts, the effect ledger,
+ * approvals or audit evidence depend on. The upload sweep stays on: uploads are one-hour temporary copies with no receipts.
  *
  * Three stores kept sensitive material longer than anything needs it. This pass removes it, in bounded batches, on
  * the durable critical-maintenance schedule (cron fallback shares the same lease and record):
@@ -35,8 +38,16 @@ export interface MinimizeResult {
   machineResults: number;
   agentUploads: number;
   retentionHours: number;
+  /** true only when deletion was explicitly enabled; otherwise the counts above are candidates and nothing changed */
+  applied: boolean;
   /** a store was unavailable this tick; it is retried next tick */
   retry: number;
+}
+
+export function minimizeApplyEnabled(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  const raw = env.ZENITH_RESULT_RETENTION_HOURS?.trim();
+  const hours = Number(raw);
+  return env.ZENITH_DATA_MINIMIZE_APPLY === "1" && !!raw && Number.isInteger(hours) && hours >= 1 && hours <= 720;
 }
 
 export function resultRetentionHours(env: Readonly<Record<string, string | undefined>> = process.env): number {
@@ -49,7 +60,12 @@ export function resultRetentionHours(env: Readonly<Record<string, string | undef
 
 const TERMINAL = "('succeeded','failed','rejected','timed_out','expired','cancelled')";
 
-async function scrubResults(db: Sql, table: "runner_jobs" | "machine_requests", hours: number, limit: number): Promise<number> {
+async function scrubResults(db: Sql, table: "runner_jobs" | "machine_requests", hours: number, limit: number, apply: boolean): Promise<number> {
+  const eligible = `status in ${TERMINAL} and result is not null and jsonb_typeof(result) = 'object' and jsonb_exists(result, 'sealed') and settled_at < clock_timestamp() - make_interval(hours => $1)`;
+  if (!apply) {
+    const rows = await db.query<{ n: number }>(`select count(*)::int as n from (select 1 from platform.${table} where ${eligible} limit $2) c`, [hours, limit]);
+    return rows[0]?.n ?? 0;
+  }
   // System maintenance across tenants: candidates come from the database, never from caller input.
   const rows = await db.query(
     `update platform.${table} set result = (result - 'sealed') || '{"minimized":true}'::jsonb
@@ -67,10 +83,11 @@ export async function minimizePass(db: Sql, options: MinimizeOptions = {}): Prom
   const env = options.env ?? process.env;
   const limit = Math.max(1, Math.min(1000, Math.trunc(options.limit ?? MINIMIZE_LIMIT)));
   const retentionHours = resultRetentionHours(env);
-  const out: MinimizeResult = { runnerResults: 0, machineResults: 0, agentUploads: 0, retentionHours, retry: 0 };
+  const apply = minimizeApplyEnabled(env);
+  const out: MinimizeResult = { runnerResults: 0, machineResults: 0, agentUploads: 0, retentionHours, applied: apply, retry: 0 };
   try {
-    out.runnerResults = await scrubResults(db, "runner_jobs", retentionHours, limit);
-    out.machineResults = await scrubResults(db, "machine_requests", retentionHours, limit);
+    out.runnerResults = await scrubResults(db, "runner_jobs", retentionHours, limit, apply);
+    out.machineResults = await scrubResults(db, "machine_requests", retentionHours, limit, apply);
   } catch { out.retry++; }
   try {
     const product = await (options.product ?? (() => productSql(db, env)))();

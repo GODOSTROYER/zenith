@@ -186,12 +186,45 @@ describe("scoped Kubernetes guest sessions through the default stack", () => {
     expect(await revokeKubernetesGuestBindings(db, revoked, { now: f.now })).toEqual({ revoked: 1, pending: 0, attempted: true });
   });
 
-  it("legacy kubeconfig_ref connections are untouched: no minting, no binding rows", async () => {
-    const f = await fixture("container.list", "app/pod-1", "kubeconfig_ref"), cluster = modeledCluster();
-    await f.provider().withSession(f.request, async (s) => { expect((s as KubernetesMachineSession).namespaces).toEqual(["app", "other"]); });
+  it("legacy kubeconfig_ref guest sessions are refused with migration guidance: no broad credential is handed out", async () => {
+    const f = await fixture("container.list", "app/pod-1", "kubeconfig_ref"), cluster = modeledCluster(), read = vi.spyOn(vault, "readSecretValueAsync");
+    let entered = false;
+    const error = await f.provider().withSession(f.request, async () => { entered = true; }).then(() => undefined, (e: unknown) => e) as Error & { code?: string };
+    expect(error.code).toBe("denied");
+    expect(error.message).toMatch(/guest_credential_refused.*convertToScopedGuest/);
+    expect(entered).toBe(false);
+    expect(read).not.toHaveBeenCalled();
     expect(cluster.calls).toEqual([]);
     expect(await bindings(f)).toEqual([]);
     expect(await revokeKubernetesGuestBindings(db, f.connection)).toEqual({ revoked: 0, pending: 0, attempted: false });
+  });
+
+  it("conversion through rotate: patch needs a different minter ref, candidate verifies as a minter, promote switches mode", async () => {
+    const f = await fixture("container.list", "app/pod-1", "kubeconfig_ref");
+    const { applyRotationPatch, LifecycleInputError } = await import("@/lib/connections/schemas");
+    const live = f.connection.config as KubernetesConnectionConfig;
+    expect(() => applyRotationPatch(live, { convertToScopedGuest: true })).toThrow(LifecycleInputError);
+    expect(() => applyRotationPatch(live, { convertToScopedGuest: true, credentialRef: live.credentialRef })).toThrow(LifecycleInputError);
+    const minterRef = `vault:minter-new/${randomUUID()}/KUBE_TOKEN`;
+    await vault.putSecretAsync(f.workspaceId, minterRef, boundKubeconfig(live.server, MINTER_CANARY), "scoped-guest-fixture");
+    const candidate = applyRotationPatch(live, { convertToScopedGuest: true, credentialRef: minterRef }) as KubernetesConnectionConfig;
+    expect(candidate).toMatchObject({ mode: "scoped_guest", credentialRef: minterRef, namespaces: live.namespaces });
+    const staged = (await repos.connectionRotations.stage(db, { workspaceId: f.workspaceId, connectionId: f.connection.id, candidateConfig: candidate, createdBy: "admin" }))!;
+    // An over-privileged minter candidate does not verify and cannot be promoted.
+    modeledCluster({ allow: () => true });
+    const broker = platformCredentialBroker(db, { now: f.now, verifyCandidate: { workspaceId: f.workspaceId, connectionId: f.connection.id, config: candidate } });
+    const bad = await broker.verifyConnection(f.connection.id, { workspaceId: f.workspaceId });
+    expect(bad.ok).toBe(false);
+    await repos.connectionRotations.recordCandidateVerification(db, { workspaceId: f.workspaceId, id: staged.id, ok: false, detail: bad.detail });
+    expect(await repos.connectionRotations.promote(db, { workspaceId: f.workspaceId, id: staged.id, actorId: "admin" })).toMatchObject({ ok: false });
+    modeledCluster();
+    const good = await broker.verifyConnection(f.connection.id, { workspaceId: f.workspaceId });
+    expect(good.ok).toBe(true);
+    await repos.connectionRotations.recordCandidateVerification(db, { workspaceId: f.workspaceId, id: staged.id, ok: true, detail: good.detail });
+    expect(await repos.connectionRotations.promote(db, { workspaceId: f.workspaceId, id: staged.id, actorId: "admin" })).toMatchObject({ ok: true });
+    expect((await repos.connections.get(db, f.workspaceId, f.connection.id))!.config).toMatchObject({ mode: "scoped_guest", credentialRef: minterRef });
+    // Other mode changes stay refused.
+    await expect(repos.connectionRotations.stage(db, { workspaceId: f.workspaceId, connectionId: f.connection.id, candidateConfig: { ...candidate, mode: "kubeconfig_ref" }, createdBy: "admin" })).rejects.toThrow();
   });
 
   it("verification of a scoped_guest connection checks the minter scope and creates nothing", async () => {

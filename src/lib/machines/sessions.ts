@@ -115,6 +115,10 @@ export function createMachineSessionProvider(options: MachineSessionOptions): Ma
         // PROD-MACH-02: a scoped_guest connection is served ONLY by a per-dispatch minted, namespace- and
         // profile-scoped token. Neither the captured test resolver nor the minter/legacy credential may stand in.
         let kubernetesGuest: { namespace: string; profile: "read" | "exec" } | undefined;
+        if (c.config.mode === "kubeconfig_ref" && !testKubernetes) {
+          // Legacy broad credential: never handed to a guest. Explicit refusal with guidance, no fallback.
+          throw new MachineOperationError("denied", "guest_credential_refused: this Kubernetes connection uses a legacy kubeconfig credential that is not scoped for guest sessions; convert it to a scoped guest connection (connection.rotate with convertToScopedGuest and a namespaced minter reference)");
+        }
         if (c.config.mode === "scoped_guest") {
           if (testKubernetes) throw new MachineOperationError("denied", "a scoped Kubernetes guest connection cannot use a captured credential adapter");
           const namespace = req.target.targetId.split("/")[0];

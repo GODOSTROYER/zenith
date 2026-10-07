@@ -31,15 +31,16 @@ const Input = z.object({
     .refine(values => new Set(values).size === values.length, "Use distinct namespaces."),
   credentialRef: z.string().min(7).max(200).regex(/^vault:[A-Za-z0-9_./:-]+$/, "Use an existing tenant vault reference."),
   /**
-   * PROD-MACH-02 default guest resolution: the vault credential is a namespaced MINTER and Zenith mints a
-   * per-binding, short-lived ServiceAccount token for each guest dispatch. Omitted keeps the legacy
-   * tenant-supplied token/kubeconfig, which this connection then uses as-is for deploy and guest reads.
+   * PROD-MACH-02 default guest resolution (true unless an admin explicitly passes false): the vault credential is a
+   * namespaced MINTER and Zenith mints a per-binding, short-lived ServiceAccount token for each guest dispatch.
+   * false saves a legacy kubeconfig_ref connection: it serves deploy/observe only; guest sessions are refused
+   * until it is converted to scoped_guest through connection.rotate.
    */
-  scopedGuest: z.boolean().optional(),
+  scopedGuest: z.boolean().default(true),
   guestAudiences: z.array(z.string().min(1).max(253)).max(4).optional(),
 }).strict();
 const SavedTarget = Input.omit({ label: true, scopedGuest: true, guestAudiences: true });
-const modeOf = (input: { scopedGuest?: boolean }): "kubeconfig_ref" | "scoped_guest" => input.scopedGuest ? "scoped_guest" : "kubeconfig_ref";
+const modeOf = (input: { scopedGuest?: boolean }): "kubeconfig_ref" | "scoped_guest" => input.scopedGuest === false ? "kubeconfig_ref" : "scoped_guest";
 const Ref = z.object({ connectionId: z.string().min(1).max(200) }).strict();
 
 async function human(ctx: ActionContext, minimum: "editor" | "admin"): Promise<boolean> {
@@ -58,13 +59,17 @@ const roleRefusal = () => ({ ok: false, summary: "Kubernetes connection refused.
 const permissions = ["Verification reads the default ServiceAccount in each saved namespace; it does not establish deployment, deletion, TLS or complete RBAC permissions.",
   "Scoped guest connections instead verify that the vault credential is a namespaced minter (no cluster-wide or kube-system privilege) able to manage guest ServiceAccounts and Roles in each saved namespace."];
 
-defineAction<z.infer<typeof Input>>({
+defineAction<z.input<typeof Input>>({
   id: "connection.createKubernetes", title: "Connect Kubernetes", category: "connection", risk: "medium", requiredRole: "admin", mutates: true, input: Input,
-  async plan(ctx) {
-    return { summary: "Save a pending Kubernetes connection.", details: ["Only the saved HTTPS target, public CA, namespaces and tenant vault reference are recorded.",
+  async plan(ctx, input) {
+    return { summary: "Save a pending Kubernetes connection.", details: [
+      input.scopedGuest === false
+        ? "Legacy mode chosen explicitly: the saved credential is used as-is for deploy and observe, and guest (machine) sessions are refused until you convert it to a scoped guest connection."
+        : "Scoped guest (default): the saved vault credential is a namespaced minter; Zenith mints a short-lived, least-privilege ServiceAccount token per guest dispatch and deletes it on revoke.","Only the saved HTTPS target, public CA, namespaces and tenant vault reference are recorded.",
       "The credential value is not read at creation. No cluster call or automatic verification runs.",
       "Run connection.verifyKubernetes after saving the full target-bound kubeconfig in the owning vault.", ...permissions],
-      costDeltaUsd: 0, risk: "medium", warnings: [], requiresApproval: false,
+      costDeltaUsd: 0, risk: "medium", requiresApproval: false,
+      warnings: input.scopedGuest === false ? ["Legacy kubeconfig connections hold a broad, tenant-supplied credential and cannot serve guest sessions. Prefer scoped guest."] : [],
       ...(!await human(ctx, "admin") ? { blocked: "A current human workspace admin is required." } : {}) };
   },
   async execute(ctx, input) {

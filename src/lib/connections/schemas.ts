@@ -102,6 +102,8 @@ const RotateAzure = z.object({ clientId: CreateAzureInput.shape.clientId.optiona
 const RotateOci = z.object({ runnerId: runnerId.optional() }).strict();
 const RotateKubernetes = z.object({
   credentialRef: z.string().min(7).max(200).refine((v) => VAULT_REF.test(v), "Use an existing tenant vault reference.").optional(),
+  /** PROD-MACH-02: convert a legacy kubeconfig_ref connection to scoped_guest; credentialRef must name the new namespaced minter. */
+  convertToScopedGuest: z.literal(true).optional(),
 }).strict();
 
 export const ROTATION_PATCH_SCHEMAS = {
@@ -157,7 +159,13 @@ export function applyRotationPatch(live: ConnectionConfig, rawPatch: RotationPat
     case "oci": return { ...live, ...parsePatch(RotateOci, rawPatch) } satisfies OciConnectionConfig;
     case "kubernetes": {
       if (live.mode !== "kubeconfig_ref" && live.mode !== "scoped_guest") throw new LifecycleInputError("Only kubeconfig_ref and scoped_guest Kubernetes connections can rotate a vault reference.");
-      return { ...live, ...parsePatch(RotateKubernetes, rawPatch) } satisfies KubernetesConnectionConfig;
+      const { convertToScopedGuest, ...patch } = parsePatch(RotateKubernetes, rawPatch);
+      if (!convertToScopedGuest) return { ...live, ...patch } satisfies KubernetesConnectionConfig;
+      if (live.mode !== "kubeconfig_ref") throw new LifecycleInputError("convertToScopedGuest: this connection is already a scoped guest connection.");
+      // The legacy credential is broad by definition: it can never become the minter.
+      if (!patch.credentialRef || patch.credentialRef === live.credentialRef) throw new LifecycleInputError("convertToScopedGuest: name a different vault reference holding the namespaced minter credential.");
+      if (!live.namespaces.length || live.namespaces.some((ns) => ["kube-system", "kube-public", "kube-node-lease"].includes(ns))) throw new LifecycleInputError("convertToScopedGuest: the namespace allowlist must be non-empty and exclude system namespaces.");
+      return { ...live, ...patch, mode: "scoped_guest" } satisfies KubernetesConnectionConfig;
     }
   }
 }

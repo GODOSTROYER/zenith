@@ -152,11 +152,16 @@ function RotatePanel({ c, base, busy, call, onDone }: { c: ConnectionView; base:
   const [externalId, setExternalId] = useState(false);
   const [promote, setPromote] = useState(false);
   const [retire, setRetire] = useState(false);
+  const [convert, setConvert] = useState(false);
+  const legacyKube = c.provider === "kubernetes" && c.mode === "kubeconfig_ref";
   const patch: Record<string, unknown> = Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim() !== "").map(([k, v]) => [k, v.trim()]));
+  if (legacyKube && convert) patch.convertToScopedGuest = true;
   if (externalId) patch.rotateExternalId = true;
   const empty = Object.keys(patch).length === 0;
   return <div className="mt-3 space-y-3 border-t border-line pt-3">
     <p className="text-[12.5px] text-ink-mute">Name only what changes. The cloud account, project, tenant or cluster stays pinned. Zenith verifies the new access beside the current one; nothing switches until it passes.</p>
+    {legacyKube && <Callout tone="warn" compact title="Legacy kubeconfig connection">Guest sessions are refused for this connection because its credential is broad and tenant-supplied. Convert it to a scoped guest connection (the default): enter a new vault reference holding a namespaced minter credential, Zenith verifies it, then promote. Zenith then mints a short-lived least-privilege token per guest dispatch.</Callout>}
+    {legacyKube && <label className="flex items-center gap-2 text-[12.5px]"><input type="checkbox" checked={convert} onChange={(e) => setConvert(e.target.checked)} />Convert to scoped guest (requires a new minter vault reference below)</label>}
     {fields.map((f) => <label key={f.key} className="block space-y-1 text-[12.5px]">{f.label}<Input value={values[f.key] ?? ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} placeholder={f.placeholder} /></label>)}
     {c.provider === "aws" && c.mode === "aws_assume_role" && <label className="flex items-center gap-2 text-[12.5px]"><input type="checkbox" checked={externalId} onChange={(e) => setExternalId(e.target.checked)} />Generate a new ExternalId (add it to both role trust policies next to the current one)</label>}
     {c.runnerId && <label className="flex items-center gap-2 text-[12.5px]"><input type="checkbox" checked={retire} onChange={(e) => setRetire(e.target.checked)} />After switching, revoke the previous runner if no other connection uses it</label>}

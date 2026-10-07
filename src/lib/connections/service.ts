@@ -74,7 +74,7 @@ function identityOf(config: ConnectionConfig): Record<string, string> {
     case "gcp": return { projectId: config.projectId, region: config.region };
     case "azure": return { tenantId: config.tenantId, subscriptionId: config.subscriptionId, region: config.region };
     case "oci": return { tenancyOcid: config.tenancyOcid, compartmentOcid: config.compartmentOcid, region: config.region };
-    case "kubernetes": return { server: config.server, namespaces: config.namespaces.join(",") };
+    case "kubernetes": return { server: config.server, namespaces: config.namespaces.join(","), guestCredentials: config.mode === "scoped_guest" ? "scoped" : "legacy (guest sessions refused)" };
   }
 }
 

@@ -17,6 +17,7 @@ import { drainStatus, getMaintenance, listTenantQuotas } from "./store";
 import { opsMetrics } from "./telemetry/catalog";
 import { tenantLabeler } from "./telemetry/metrics";
 import { workerFairGate } from "./worker-gate";
+import { flushSloSamples } from "@/lib/slo/recorder";
 
 export interface SampleResult { up: boolean; drained?: boolean }
 
@@ -31,6 +32,8 @@ export async function sampleControlPlane(sql: Sql, env: Readonly<Record<string, 
     const state = effectiveMaintenance(stored, opsLimitsFromEnv(env).maintenanceOverride);
     for (const mode of ["off", "dispatch_paused", "read_only"] as const) m.maintenanceMode.set({ mode }, state.mode === mode ? 1 : 0);
     m.controlStoreUp.set({}, 1);
+    // PROD-OPS-01: persist this process's SLI deltas (best effort, never throws).
+    await flushSloSamples(sql);
     return { up: true, drained: drain.drained };
   } catch {
     m.controlStoreUp.set({}, 0);

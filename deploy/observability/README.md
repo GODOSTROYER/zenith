@@ -7,6 +7,7 @@ Dashboard, alert and collector definitions for the fair, bounded control plane. 
 |---|---|
 | `grafana/zenith-control-plane.dashboard.json` | Grafana dashboard (import; pick your Prometheus datasource for `DS_PROMETHEUS`). Tenant variable `tenant` filters every tenant-scoped panel. |
 | `alerts/zenith-control-plane.rules.json` | Prometheus rule groups in JSON (a YAML subset: `promtool check rules` and Prometheus accept it as is). Every alert carries `severity`, `service` and a `runbook_url` to a heading in the runbook. |
+| `alerts/zenith-slo.rules.json` | Recording rules and multiwindow burn-rate alerts for the PROVISIONAL service objectives (PROD-OPS-01; see `docs/platform/operations/SLO.md`). |
 | `otel/collector.json` | Example OpenTelemetry Collector config: OTLP/HTTP in, Prometheus scrape endpoint for metrics, OTLP to your trace backend (`ZENITH_TRACES_BACKEND_ENDPOINT`). |
 
 These are definitions only. Nothing here has been imported into a live Grafana, Prometheus or collector from this

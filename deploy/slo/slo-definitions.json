@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "definitionVersion": "2026-10-07.1",
+  "approval": {
+    "status": "not_approved",
+    "pendingDecision": "DEC-BUSINESS",
+    "note": "Every target in this file is a provisional engineering default. No accountable owner has approved any of them, and this file deliberately has no field that could record an approver. Approval is a business decision made outside this repository; until it is made, no report, page or alert may describe these as commitments."
+  },
+  "budgetWindowDays": 30,
+  "burnAlerts": [
+    { "name": "fast", "severity": "critical", "longWindow": "1h", "shortWindow": "5m", "factor": 14.4 },
+    { "name": "slow", "severity": "warning", "longWindow": "6h", "shortWindow": "30m", "factor": 6 },
+    { "name": "ticket", "severity": "info", "longWindow": "3d", "shortWindow": "6h", "factor": 1 }
+  ],
+  "objectives": [
+    {
+      "id": "control_plane_availability",
+      "title": "Control-plane availability",
+      "category": "availability",
+      "status": "provisional",
+      "kind": "ratio",
+      "target": 0.995,
+      "sli": "API requests that did not fail with a 5xx status, over all API requests (zenith_api_requests_total). 429 answers are the caller's own quota and count as served."
+    },
+    {
+      "id": "api_latency",
+      "title": "API latency (p95 under 500 ms)",
+      "category": "latency",
+      "status": "provisional",
+      "kind": "latency_ratio",
+      "target": 0.95,
+      "thresholdSeconds": 0.5,
+      "sli": "API requests answered within 500 ms, over all API requests (zenith_api_request_duration_seconds). A 95% target is the statement 'p95 is under 500 ms'."
+    },
+    {
+      "id": "dispatch_latency",
+      "title": "Dispatch latency (p95 under 30 s)",
+      "category": "dispatch",
+      "status": "provisional",
+      "kind": "latency_ratio",
+      "target": 0.95,
+      "thresholdSeconds": 30,
+      "sli": "Operations that needed no human approval and started running within 30 s of being created, over all such operations that started (platform.operations created_at to started_at)."
+    },
+    {
+      "id": "workflow_completion",
+      "title": "Workflow completion",
+      "category": "workflow",
+      "status": "provisional",
+      "kind": "ratio",
+      "target": 0.95,
+      "sli": "Operations that finished as succeeded, over operations that finished as succeeded, failed or uncertain (platform.operations). Failures caused by a tenant's own configuration are included: the indicator does not yet separate them."
+    },
+    {
+      "id": "scheduler_health",
+      "title": "Scheduler health",
+      "category": "scheduler",
+      "status": "provisional",
+      "kind": "ratio",
+      "target": 0.99,
+      "sli": "Critical periodic jobs that are healthy (recent success, not failing) at each sample, over all critical jobs sampled (platform.scheduled_job_runs, PROD-OBS-04). Durable-only jobs that have never run are not sampled."
+    },
+    {
+      "id": "capacity",
+      "title": "Sustained capacity",
+      "category": "capacity",
+      "status": "provisional",
+      "kind": "capacity",
+      "minRequestsPerSecond": 25,
+      "maxP95Ms": 500,
+      "maxErrorRate": 0.005,
+      "sli": "Requests per second the capacity test (scripts/slo/capacity-test.mjs) sustained with p95 under 500 ms and an error rate of at most 0.5%. Measured on the machine that ran the test, not on a production topology."
+    },
+    {
+      "id": "rpo",
+      "title": "Recovery point objective",
+      "category": "rpo",
+      "status": "provisional",
+      "kind": "recovery_seconds",
+      "maxSeconds": 900,
+      "sli": "Seconds between the last data recovered by a restore rehearsal and the moment of the simulated failure."
+    },
+    {
+      "id": "rto",
+      "title": "Recovery time objective",
+      "category": "rto",
+      "status": "provisional",
+      "kind": "recovery_seconds",
+      "maxSeconds": 14400,
+      "sli": "Seconds between the simulated failure and the moment a restore rehearsal reports the service answering again."
+    }
+  ]
+}

@@ -46,6 +46,7 @@ const SOURCE_SNAPSHOTS: Record<string, { branch: string; commit: string }> = {
   "CURRENT-HUMAN-AUTHORITY.md": { branch: "ws/prod-default-current-membership-20261003", commit: "dc40ee9ad590640c78659796c9b932436ea1e426" },
   "OPERATION-GATES.md": { branch: "ws/prod-operation-gates-20261003", commit: "dc40ee9ad590640c78659796c9b932436ea1e426" },
   "CONTROL-PLANE-FAIRNESS.md": { branch: "prod/ops-02-w4", commit: "c9a942d" },
+  "SLO.md": { branch: "prod/ops-01-w5", commit: "c02c097" },
 };
 
 /* -------------------------------- structure ------------------------------- */

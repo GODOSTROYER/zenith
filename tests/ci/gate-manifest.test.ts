@@ -2496,7 +2496,8 @@ describe("current platform discovery successors [report models]", () => {
       fs.unlinkSync(path.join(sourceRoot, item.file));
       const after = requirementsFor("platform-postgres", sourceRoot);
       expect(after.some(value => value.id === id)).toBe(false);
-      expect(after).toHaveLength(1140);
+      expect(after).toHaveLength(1145);
+      expect(after.filter(value => !mixedRunStorePlatformIds.has(value.id))).toHaveLength(1140);
       expect(priorCurrentSuccessorPlatformRequirements(sourceRoot)).toEqual(priorCurrentSuccessorPlatformRequirements());
       // Discovery itself cannot retain a deleted suite. Current source-presence
       // assertions above fail if it disappears; literal admission is a follow-up.

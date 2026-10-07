@@ -588,7 +588,22 @@ describe("mandatory unchanged APPLY authority continuation [report models]", () 
     expect(manifest.command).toContain(required[0].file); expect(manifest.excludeFiles).not.toContain(required[0].file);
     expect(manifest.prerequisites.some(value => value.startsWith("ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1;"))).toBe(true);
     const source = fs.readFileSync(path.join(root, required[0].file), "utf8");
-    expect(createHash("sha256").update(source).digest("hex")).toBe("3fb495f33a29736991f966c2c7c521552e864fea17d99ac39b94e63ca972e9ff");
+    // Historical fixture binding: 3fb495f33a29736991f966c2c7c521552e864fea17d99ac39b94e63ca972e9ff.
+    // The reviewed native fixture now binds real SQL semantics and audit writes.
+    expect(createHash("sha256").update(source).digest("hex")).toBe("a30a056f3e5a8a1d402e9828011978aa599bf0c081355108209e15d4f727f561");
+    expect(source).toContain("semantics:createPlatformSemanticsStore(h.db!)");
+    expect(source).toContain("semanticsDigest:review.semantics.digest");
+    const preApproval = source.indexOf("select semantics_digest from platform.approved_semantics");
+    expect(preApproval).toBeGreaterThanOrEqual(0);
+    expect(preApproval).toBeLessThan(source.indexOf("const approval = await h.broker.approve"));
+    expect(source).toContain('const auditWrites = vi.spyOn(h.store, "appendEvent")');
+    expect(source).toContain("await expect(auditWrites.mock.results[bindingIndexes[0]].value");
+    expect(source).toContain("data->>'kind'='approval_semantics_bound'");
+    expect(manifest.requirements.filter(item => item.file === required[0].file && item.suite === required[0].suite).map(item => item.test)).toEqual([
+      ...["expired approval", "revoked approver role", "new policy denial", "expiry after authority check", "expiry during role lookup"]
+        .map(mode => `refuses ${mode} after fresh replan and before durable dispatch`),
+      required[0].test,
+    ]);
     expect(source).toContain(JSON.stringify(required[0].test));
     expect(source.indexOf("ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED")).toBeLessThan(source.indexOf("beforeAll("));
     expect(source).toContain('(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK !== "1")');

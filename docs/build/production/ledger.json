@@ -1273,6 +1273,18 @@
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native100-and-open-successors.json",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native100-and-open-successors.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "dd1d4858a08bde1339f0f3f2b729e9303e3aa08b",
+          "result": "12 passed / 0 failed / 0 skipped; native PostgreSQL, PGlite and memory pre-write validation/read-binding controls. Compiler and touched-source lint passed. Nullable DB binding constraint and full combined gates remain open.",
+          "command": "Owned serial native PostgreSQL controller: tests/execution/mixed-run-store.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": {
+            "node": "22.23.3",
+            "postgres": "16.15",
+            "architecture": "native Darwin ARM64"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-mixed-state-validation.json"
         }
       ],
       "requiredEvidence": [

@@ -150,7 +150,7 @@ it("all selectable family boundaries preserve headroom at maximum suffix/environ
   }
 });
 
-it("adds only the exact bootstrap version read statement and preserves every prior bootstrap resource and policy statement", () => {
+it("adds the exact bootstrap version read statement and preserves the reviewed resource and policy inventory", () => {
   const resources = structuredClone(template.Resources);
   const properties = resources.ObservePolicy.Properties;
   const document = properties?.PolicyDocument;
@@ -161,8 +161,9 @@ it("adds only the exact bootstrap version read statement and preserves every pri
     Resource: ["AppBoundary", "BuildBoundary", "MachineBoundary", "SchedulerBoundary", "EksClusterBoundary", "EksNodeBoundary", "WorkloadBoundary"].map((Ref) => ({ Ref })),
   }]);
   properties.PolicyDocument = { ...document, Statement: document.Statement.filter((statement: unknown) => !additions.includes(statement)) };
-  // Canonical parsed Resources at clean a9af54c, before the one read-only statement.
-  expect(createHash("sha256").update(JSON.stringify(resources)).digest("hex")).toBe("1e062fa54bfd86d4741ff3f0614519d408f0bc74a71bfee9390c68f6194d38b2");
+  // Reviewed 9b568108 resource inventory with the exact read-only statement removed.
+  // Incoming bootstrap changes include suffix-scoped image pointers and bounded flow-log/IAM policies.
+  expect(createHash("sha256").update(JSON.stringify(resources)).digest("hex")).toBe("fd40c3d57af5efdc11605b91bcef5561018d783bcda8651b6b517fbfd7781dbe");
 });
 
 describe.each(["aws", "aws-cn", "aws-us-gov"])("exact bootstrap boundary reads in %s", (partition) => {
@@ -339,7 +340,7 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
     // Documented, path-scoped exception: plain-String ECS image pointers under /zenith<suffix>/ only.
     const pointer = allowed.filter((s) => s.Sid === "SsmImagePointerParameters");
     expect(pointer).toHaveLength(1);
-    expect(asList(pointer[0].Resource)).toEqual([`arn:aws:ssm:*:${ACCOUNT}:parameter/zenith/image-pointer/*`]);
+    expect(asList(pointer[0].Resource)).toEqual([`arn:aws:ssm:*:${ACCOUNT}:parameter/zenith${SCENARIOS[scenario].NameSuffix ?? ""}/image-pointer/*`]);
     expect(asList(pointer[0].Action).sort()).toEqual(["ssm:AddTagsToResource", "ssm:DeleteParameter", "ssm:GetParameter", "ssm:GetParameters", "ssm:ListTagsForResource", "ssm:PutParameter", "ssm:RemoveTagsFromResource"]);
     expect(pointer[0].Condition).toBeUndefined();
     const actions = allowed.filter((s) => s.Sid !== "SsmImagePointerParameters").flatMap((s) => asList(s.Action));

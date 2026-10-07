@@ -378,7 +378,7 @@ describe.each(LANES)("mixed parent and child plans [$name]", (lane) => {
 
     it("refuses to advance when the parent is not running or approval is gone", async () => {
       const s = await scenario("approved");
-      await refusal(advance(s, s.plan.children[0].partitionId), "child_mismatch");
+      await refusal(advance(s, s.plan.children[0].partitionId), "invalid_state");
       const t = await scenario("adopted");
       await refusal(advance(t, t.plan.children[0].partitionId), "invalid_state");
     });

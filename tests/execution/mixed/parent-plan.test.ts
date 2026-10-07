@@ -198,7 +198,7 @@ describe("parent plan: immutable ordered child subplans and the approved set (MI
     const lines = mixedProposalDetails(parentProposalInput(parent));
     expect(lines[0]).toContain(parent.parentPlanId);
     expect(lines[1]).toContain(parent.childSetDigest.slice(0, 16));
-    expect(lines.filter((line) => line.startsWith("Child "))).toHaveLength(3);
+    expect(lines.filter((line) => /^Child \d+:/.test(line))).toHaveLength(3);
     expect(lines.join("\n")).toContain("env-azure");
     expect(mixedProposalDetails({ capability: "x" })).toEqual([]);
     expect(mixedProposalDetails(null)).toEqual([]);

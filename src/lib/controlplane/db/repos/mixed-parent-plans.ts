@@ -323,6 +323,9 @@ export async function blockChild(sql: Sql, input: { workspaceId: string; planId:
 /** Forward-only parent status compare-and-set. */
 export async function setParentStatus(sql: Sql, input: { workspaceId: string; planId: string; from: ParentStatus; to: ParentStatus }): Promise<StoredMixedPlan> {
   const ws = id("workspaceId", input.workspaceId), planId = id("planId", input.planId);
+  const forward = input.from === input.to || (input.from === "planned" && ["running", "cancelled"].includes(input.to))
+    || (input.from === "running" && ["succeeded", "failed", "uncertain", "cancelled"].includes(input.to));
+  if (!forward) throw new ControlStoreError("invalid_state", "The mixed parent plan transition is not forward-only.", { from: input.from, to: input.to });
   const updated = await sql.query<PlanRow>(
     `update platform.mixed_parent_plans set status = $4, version = version + 1
       where workspace_id = $1 and plan_id = $2 and status = $3

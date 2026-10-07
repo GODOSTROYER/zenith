@@ -50,7 +50,7 @@ describe("state model", () => {
   });
 
   it("classifies every state and covers all six", () => {
-    expect([...EFFECT_STATES].sort()).toEqual(["accepted", "conflict", "confirmed", "pending", "tombstoned", "uncertain"]);
+    expect([...EFFECT_STATES].sort()).toEqual(["accepted", "confirmed", "conflict", "pending", "tombstoned", "uncertain"]);
     expect(UNRESOLVED_STATES).toEqual(expect.arrayContaining(["pending", "accepted", "uncertain", "conflict"]));
     expect(BLOCKING_STATES).toEqual(["pending", "uncertain", "conflict"]);
   });

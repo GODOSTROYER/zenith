@@ -25,6 +25,7 @@ const CORE_ALLOWED = [
   /^@\/lib\/resources(\/(types|drift))?$/,
   /^@\/lib\/ownership\/drift$/,
   /^@\/lib\/workflows\/types$/,
+  /^@\/lib\/repair\/lifecycle$/,
 ];
 const PLATFORM_ALLOWED = [
   /^\.\.?\//,
@@ -47,7 +48,7 @@ describe("reconcile module boundaries", () => {
   it("the core imports only the contracts it is coded against", () => {
     for (const f of core)
       for (const spec of importsOf(read(f))) expect(CORE_ALLOWED.some((re) => re.test(spec)), `${f} imports ${spec}`).toBe(true);
-    for (const spec of ["@/lib/ownership", "@/lib/ownership/registry", "@/lib/ownership/conflicts", "@/lib/ownership/drift-extra", "node:fs", "@/lib/controlplane/db/open"])
+    for (const spec of ["@/lib/ownership", "@/lib/ownership/registry", "@/lib/ownership/conflicts", "@/lib/ownership/drift-extra", "@/lib/repair/lifecycle-extra", "@/lib/repair/platform", "node:fs", "@/lib/controlplane/db/open"])
       expect(CORE_ALLOWED.some((re) => re.test(spec)), `core refuses ${spec}`).toBe(false);
   });
 

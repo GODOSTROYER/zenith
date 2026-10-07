@@ -165,7 +165,9 @@ describe("journey with a linked credential", () => {
   const client = (token = ZA) => new McpClient({ url: `${live.origin}/api/agent/v3/mcp`, token, protocolVersion: "2025-11-25" });
 
   it("runs every journey step over HTTP; only the audience step needs an OAuth token", async () => {
+    const propose = vi.spyOn(h.broker, "propose");
     expectJourney(await runInOrder(config(), h), ["audience"]);
+    expect(propose).not.toHaveBeenCalled();
     expect(revoked.has(ZA)).toBe(true);
   });
 
@@ -334,12 +336,14 @@ describe("journey with an OAuth access token", () => {
 
   it("completes the whole journey: exact issuer and audience, scopes, streaming, resume, cancel, audience refusal and grant revocation", async () => {
     const v3 = `${live.origin}/api/agent/v3/mcp`;
+    const propose = vi.spyOn(h.broker, "propose");
     const results = await runInOrder({
       baseUrl: live.origin, token: await mint(v3), workspaceId: ids.ws, readTool: topology, expectedScopes: ["read", "plan", "logs"], expectedIssuer: ISSUER, slowTool: topology,
       foreignAudienceToken: await mint(`${live.origin}/api/agent/v2/mcp`), revoke: {},
       foreignPrincipalToken: await mint(v3, { sub: "carol", client_id: "other-client" }),
     }, h);
     expectJourney(results);
+    expect(propose).not.toHaveBeenCalled();
     // the Zenith grant is revoked: the same client cannot come back with a fresh token
     const { status, body } = await new McpClient({ url: v3, token: await mint(v3), workspaceId: ids.ws }).rpc("tools/list");
     expect(status).toBe(403);
@@ -348,8 +352,8 @@ describe("journey with an OAuth access token", () => {
 
   it("refuses a token for another resource, issuer or key, an expired token, a missing grant and a missing workspace", async () => {
     const v3 = `${live.origin}/api/agent/v3/mcp`;
-    const call = async (token: string, workspaceId: string | undefined = ids.ws) => {
-      const { status, body } = await new McpClient({ url: v3, token, workspaceId }).rpc("tools/list");
+    const call = async (token: string, workspaceId: string | null = ids.ws) => {
+      const { status, body } = await new McpClient({ url: v3, token, workspaceId: workspaceId ?? undefined }).rpc("tools/list");
       return { status, code: (body as { error?: { code?: string } }).error?.code };
     };
     const now = Math.floor(Date.now() / 1000);
@@ -360,7 +364,7 @@ describe("journey with an OAuth access token", () => {
     expect(await call(await mint(v3, { exp: now - 10, iat: now - 60 }))).toEqual({ status: 401, code: "invalid_token" });
     expect(await call(await mint(v3, { client_id: "unknown-client" }))).toEqual({ status: 403, code: "integration_grant_required" });
     expect(await call(await mint(v3), "ws-other")).toEqual({ status: 403, code: "integration_grant_required" });
-    expect(await call(await mint(v3), undefined)).toEqual({ status: 400, code: "scope_required" });
+    expect(await call(await mint(v3), null)).toEqual({ status: 400, code: "scope_required" });
     // only scopes in BOTH the token and the grant are served
     const names = ((await new McpClient({ url: v3, token: await mint(v3, { scope: "zenith:read" }), workspaceId: ids.ws }).rpc("tools/list")).body.result.tools as { name: string }[]).map((t) => t.name);
     expect(names).toContain("zenith_get_topology");

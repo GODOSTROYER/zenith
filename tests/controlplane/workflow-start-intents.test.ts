@@ -224,8 +224,16 @@ describe.skipIf(!PG_URL)("workflow start tombstone privileges [postgres]",()=>{
               expect((await tx.query<{inherited:boolean}>("select has_table_privilege('service_role','platform.workflow_start_acl_probe',$1) as inherited",[privilege]))[0].inherited,
                 `existing same-creator ${privilege}`).toBe(true);
             await tx.query("drop table platform.workflow_start_acl_probe");
+            expect((await tx.query<{version:number}>("select max(version) as version from platform.schema_migrations"))[0].version).toBe(6);
+            // Construct the historical pre12 fixture from canonical emitted
+            // bytes, retaining same-owner schema6 defaults through its history.
+            // This is fixture setup, not current migrator approval of old DDL.
+            const twelfth=emitted.indexOf("-- ============================ migration 12: workflow_start_intents");
+            if(twelfth<seventh)throw new Error("Canonical historical schema11 boundary is unavailable.");
+            await db.exec(emitted.slice(seventh,twelfth));
+            expect((await tx.query<{version:number}>("select max(version) as version from platform.schema_migrations"))[0].version).toBe(11);
           }
-          // The production migrator is reused; root owns migration12 registry.
+          // The production migrator applies canonical12 to the historical fixture.
           const migrations=[...PLATFORM_MIGRATIONS.filter(m=>m.version<12),migration0012WorkflowStartIntents];
           await migratePlatformDb(db,migrations);await assertPlatformSchemaCurrent(db,migrations);
           expect((await tx.query<{owner:string}>("select pg_get_userbyid(relowner) as owner from pg_class where oid='platform.workflow_start_intents'::regclass"))[0].owner).toBe(owner);

@@ -135,9 +135,11 @@ async function scoped(config: JourneyConfig, client: () => McpClient): Promise<s
   let detail = `${names.length} tools for scopes ${config.expectedScopes!.join(",")}`;
   if (withheld) {
     const call = await client().callTool(withheld.name, {});
-    const error = toolResult(call.body)?.error?.code;
-    expect(error === "insufficient_scope", `calling ${withheld.name} without ${withheld.requiredScope} must be insufficient_scope (was ${error})`);
-    detail += `; ${withheld.name} refused with insufficient_scope`;
+    // The server registers only scoped tools. A withheld tool cannot reach a
+    // handler and the MCP SDK returns InvalidParams for its unknown name.
+    expect(call.body.error?.code === -32602 && call.body.error?.message === `Tool ${withheld.name} not found` && !call.body.result,
+      `calling withheld ${withheld.name} must be refused before execution (was ${JSON.stringify(call.body).slice(0, 250)})`);
+    detail += `; ${withheld.name} refused as an unavailable tool`;
   }
   return detail;
 }
@@ -242,7 +244,7 @@ async function revocation(config: JourneyConfig, client: () => McpClient): Promi
 export const STEPS: Step[] = [
   { id: "discovery", title: "RFC 9728 discovery: 401 challenge, exact resource and issuer", run: discovery },
   { id: "versions", title: "Protocol version negotiation and explicit refusal", run: versions },
-  { id: "scopes", title: "Scoped tool catalog and insufficient_scope refusal", run: scoped },
+  { id: "scopes", title: "Scoped tool catalog and withheld tool refusal", run: scoped },
   { id: "read", title: "Authenticated read call", run: readCall },
   { id: "streaming", title: "Streamed call with progress and resumable event ids", run: streaming },
   { id: "resume", title: "Reconnect with Last-Event-ID", run: resume },

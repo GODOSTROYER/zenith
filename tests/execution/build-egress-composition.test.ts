@@ -32,7 +32,12 @@ afterEach(() => {
 });
 
 function compose(w: World, policy?: BuildIsolationPolicy) {
-  const ports = { ...w.deps, releaseSafety: undefined };
+  const unavailable = async (): Promise<never> => { throw new Error("Unexpected portability mutation in egress fixture."); };
+  const ports = { ...w.deps, releaseSafety: undefined, portability: {
+    recordExport: unavailable, getExport: unavailable, recordRestore: unavailable,
+    adopt: unavailable, release: unavailable, getAdoption: unavailable,
+    adoptionFacts: async () => [],
+  } };
   // Omitting this field is essential: createWorld supplies a closed test policy.
   // The actual constructor must derive the default from the operator environment.
   delete ports.buildIsolation;

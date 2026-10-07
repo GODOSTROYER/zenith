@@ -34,6 +34,7 @@ const browser = () => setBridgeDepsForTests({ workflows: gateway, readiness, pla
 
 beforeEach(async () => {
   vi.restoreAllMocks(); vi.clearAllMocks(); gateway.startDeploy.mockResolvedValue({ started: true }); gateway.signalApproval.mockResolvedValue({ delivered: true }); gateway.cancelOperation.mockResolvedValue({ delivered: true });
+  (await import("@/lib/ops/runtime")).setOpsRuntimeForTests(undefined);
   seed(); ensureEngine();
   h = await makeHarness({ engine: scriptedEngine("bridge-v1", () => allowDecision()) });
   broker = createBroker({ ...h.deps, scopes: productScopeResolver(), roles: productRoleResolver() });
@@ -140,7 +141,7 @@ describe("approval and cancellation", () => {
     // Represents a worker that already started and parked at its plan gate.
     d.workflowStartedAt = new Date().toISOString(); browser();
     expect((await exec("deploy.approve", { deploymentId: d.id }, browserCtx)).ok).toBe(true);
-    expect(gateway.signalApproval).toHaveBeenCalledExactlyOnceWith(d.operationId); expect(gateway.startDeploy).not.toHaveBeenCalled();
+    expect(gateway.signalApproval).toHaveBeenCalledExactlyOnceWith(d.operationId, ctx.workspaceId); expect(gateway.startDeploy).not.toHaveBeenCalled();
   });
   it("multiple approvals do not start until the required count", async () => {
     h.setEngine(scriptedEngine("approval", () => requireApproval(2))); await exec("deploy.apply"); const id = latest().id; browser();
@@ -182,7 +183,7 @@ describe("approval and cancellation", () => {
   });
   it("running cancellation signals without claiming a final outcome", async () => {
     await exec("deploy.apply"); const d = latest();
-    expect((await exec("deploy.cancel", { deploymentId: d.id })).ok).toBe(true); expect(d.status).toBe("planning"); expect(gateway.cancelOperation).toHaveBeenCalledExactlyOnceWith(d.operationId);
+    expect((await exec("deploy.cancel", { deploymentId: d.id })).ok).toBe(true); expect(d.status).toBe("planning"); expect(gateway.cancelOperation).toHaveBeenCalledExactlyOnceWith(d.operationId, ctx.workspaceId);
   });
   it("missing cancellation signal is reported honestly", async () => {
     await exec("deploy.apply");
@@ -378,7 +379,7 @@ describe("unconfirmed workflow start responses", () => {
     expect(approved.ok).toBe(true); expect(approved.data).toMatchObject({ delivered: true, operationStatus: "approved" });
     expect(approve).toHaveBeenLastCalledWith(expect.objectContaining({ planDigest: normalized.planDigest, session: expect.objectContaining({ method: "browser_session", subject: browserCtx.actor.id }) }));
     expect(begin).not.toHaveBeenCalled(); expect(gateway.startDeploy).toHaveBeenCalledOnce();
-    expect(gateway.signalApproval).toHaveBeenCalledExactlyOnceWith(d.operationId);
+    expect(gateway.signalApproval).toHaveBeenCalledExactlyOnceWith(d.operationId, ctx.workspaceId);
     expect(d.workflowStartedAt).toBeUndefined(); expect(d.endedAt).toBeUndefined();
   });
 

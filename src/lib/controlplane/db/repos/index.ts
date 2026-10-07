@@ -57,6 +57,7 @@ import * as plugins from "./plugins";
 import * as externalEffects from "./external-effects";
 import * as k8sGuestBindings from "./k8s-guest-bindings";
 import * as mcpStreams from "./mcp-streams";
+import * as codingAgentRuns from "./coding-agent-runs";
 
 export {
   planArtifacts,
@@ -92,6 +93,7 @@ export {
   runners,
   settings,
   optimizerSettings,
+  codingAgentRuns,
   scheduledJobs,
   plugins,
   externalEffects,
@@ -161,6 +163,7 @@ export function bindRepos(sql: Sql) {
     externalEffects: bind(externalEffects, sql),
     k8sGuestBindings: bind(k8sGuestBindings, sql),
     mcpStreams: bind(mcpStreams, sql),
+    codingAgentRuns: bind(codingAgentRuns, sql),
   };
 }
 

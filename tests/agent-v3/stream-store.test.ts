@@ -1,7 +1,7 @@
 /**
  * Resumable streams over the real platform schema (PGlite here; set
  * ZENITH_TEST_PLATFORM_PG_URL to run the same file on PostgreSQL). Nothing is
- * mocked: migration 36, the repository, the port, the SDK EventStore adapter
+ * mocked: migration 35, the repository, the port, the SDK EventStore adapter
  * and the resume stream all run against the engine.
  */
 import { afterAll, describe, expect, it } from "vitest";

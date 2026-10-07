@@ -28,7 +28,7 @@ import path from "node:path";
 import { z } from "zod";
 
 /** The model that translates Navigator goals when a key is configured. */
-export const DEFAULT_LLM_MODEL = "claude-opus-5";
+export const DEFAULT_LLM_MODEL = "claude-opus-5-5";
 
 /**
  * How to produce a valid `ZENITH_SECRET_KEY`. One string, so the boot failure,

@@ -20,7 +20,7 @@ Missing, now built:
 |---|---|
 | explicit protocol refusal | `src/lib/agent-access/v3/protocol.ts` (pinned 2026-07-28, 2025-11-25, 2025-06-18, 2025-03-26; 400/-32602 with `supported`; 2024-11-05, 2024-10-07, malformed and unknown-older refused; newer unknown counter-offered); wired in `v3/server.ts` for every method |
 | streaming + resumable reconnect | `v3/stream.ts` + `server.ts`: SSE for `tools/call` with `_meta.progressToken` and `Accept: text/event-stream`; durable events; `GET` + `Last-Event-ID` resume bound to the principal; progress from the wrapper and from execute/propose steps |
-| durable storage | platform migration **36** `0036_mcp_streams.ts`: `platform.mcp_streams`, `platform.mcp_stream_events`; repo `repos/mcp-streams.ts` (registered in `repos/index.ts` and `bindRepos`) |
+| durable storage | platform migration **35** (assembled; was 36 on the branch) `0035_mcp_streams.ts`: `platform.mcp_streams`, `platform.mcp_stream_events`; repo `repos/mcp-streams.ts` (registered in `repos/index.ts` and `bindRepos`) |
 | client cancellation to the broker | `notifications/cancelled` handling (202, in-process registry + durable `cancel_requested_at`); `ToolContext.cancel/progress`; reads race the cancel; `propose.ts` withdraws a recorded proposal via `broker.cancelOperation`; `execute.ts` stops before the claim; `requestCancelled()` error |
 | revocation endpoint | RFC 7009 `POST /api/agent/oauth/revoke` (`src/app/api/agent/oauth/revoke/route.ts`, `src/lib/agent-access/oauth/revoke.ts`, `revoke-default.ts`); `za_` -> authority revoke, `zp_` -> `revokePluginTokenByPossession` (new, `src/lib/plugins/service.ts`), OAuth -> revoke the Zenith grant; middleware bypass entry |
 | issuer metadata (RFC 8414) | `src/lib/agent-access/oauth/as-metadata.ts` (discovery order, exact-issuer and PKCE/https/JWKS checks); wired into `npm run doctor` (`scripts/doctor.ts`) and the harness |
@@ -100,7 +100,7 @@ produced exactly as before).
 
 ## 5. Shared-file updates the orchestrator/assembler must make
 
-- Migration inventory: new **platform migration 36 `mcp_streams`** (`src/lib/controlplane/db/migrations/0036_mcp_streams.ts`,
+- Migration inventory: new **platform migration 35 `mcp_streams` (renumbered from 36 at assembly)** (`src/lib/controlplane/db/migrations/0035_mcp_streams.ts`,
   registered in `migrations/index.ts`); include in the wave-3 `0022_platform_core.sql` emit. Tables:
   `platform.mcp_streams`, `platform.mcp_stream_events` (both RLS enabled, anon/authenticated revoked,
   service_role select/insert/update/delete).

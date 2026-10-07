@@ -33,6 +33,7 @@ import { migration0024Portability } from "./0024_portability";
 import { migration0025AgentLifecycle } from "./0025_agent_lifecycle";
 import { migration0026PluginBoundaries } from "./0026_plugin_boundaries";
 import { migration0027GithubRevocationReason } from "./0027_github_revocation_reason";
+import { migration0036CodingAgentRuns } from "./0036_coding_agent_runs";
 import { migration0028IncidentStabilityHardening } from "./0028_incident_stability_hardening";
 import { migration0029CleanupWriterRecordFields } from "./0029_cleanup_writer_record_fields";
 import { migration0030DurableIntentAuthority } from "./0030_durable_intent_authority";
@@ -40,7 +41,7 @@ import { migration0031ExecutableSemantics } from "./0031_executable_semantics";
 import { migration0032PlanCustodyStateRecovery } from "./0032_plan_custody_state_recovery";
 import { migration0033ExternalEffects } from "./0033_external_effects";
 import { migration0034K8sGuestBindings } from "./0034_k8s_guest_bindings";
-import { migration0036McpStreams } from "./0036_mcp_streams";
+import { migration0035McpStreams } from "./0035_mcp_streams";
 
 // Versions 21-23 belong to sibling wave-2 requirements; the assembler fills them in before 24.
 
@@ -52,7 +53,7 @@ export interface PlatformMigration {
   sql: string;
 }
 
-export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts, migration0008BuildLaunches, migration0009GithubRevocation, migration0010GithubDeliveries, migration0011AgentEffectReceipts, migration0012WorkflowStartIntents, migration0013ApprovedSourceSnapshots, migration0014MixedChildIntents, migration0015CleanupWriterBarriers, migration0016CleanupWriterSettlements, migration0017MachineRunbooks, migration0018OwnershipTransfers, migration0019IncidentStability, migration0020OptimizerSettings, migration0021ScheduledJobRuns, migration0022ConnectionRotations, migration0023ReleasePipelines, migration0024Portability, migration0025AgentLifecycle, migration0026PluginBoundaries, migration0027GithubRevocationReason, migration0028IncidentStabilityHardening, migration0029CleanupWriterRecordFields, migration0030DurableIntentAuthority, migration0031ExecutableSemantics, migration0032PlanCustodyStateRecovery, migration0033ExternalEffects, migration0034K8sGuestBindings, migration0036McpStreams];
+export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts, migration0008BuildLaunches, migration0009GithubRevocation, migration0010GithubDeliveries, migration0011AgentEffectReceipts, migration0012WorkflowStartIntents, migration0013ApprovedSourceSnapshots, migration0014MixedChildIntents, migration0015CleanupWriterBarriers, migration0016CleanupWriterSettlements, migration0017MachineRunbooks, migration0018OwnershipTransfers, migration0019IncidentStability, migration0020OptimizerSettings, migration0021ScheduledJobRuns, migration0022ConnectionRotations, migration0023ReleasePipelines, migration0024Portability, migration0025AgentLifecycle, migration0026PluginBoundaries, migration0027GithubRevocationReason, migration0028IncidentStabilityHardening, migration0029CleanupWriterRecordFields, migration0030DurableIntentAuthority, migration0031ExecutableSemantics, migration0032PlanCustodyStateRecovery, migration0033ExternalEffects, migration0034K8sGuestBindings, migration0035McpStreams, migration0036CodingAgentRuns];
 
 /** The highest version this build knows. */
 export const PLATFORM_SCHEMA_VERSION: number = PLATFORM_MIGRATIONS[PLATFORM_MIGRATIONS.length - 1].version;

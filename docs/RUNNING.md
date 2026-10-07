@@ -371,7 +371,7 @@ received and what it accepts — never a silent default.
 | `ZENITH_FAST` | `0` | `1` collapses simulated step durations; a deploy finishes in seconds. Used by tests and smoke |
 | `ZENITH_LOCALSTACK_ENDPOINT` | `http://localhost:4566` | LocalStack edge endpoint. The container gets `http://localstack:4566` |
 | `ZENITH_LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error` |
-| `ZENITH_LLM_MODEL` | `claude-opus-5` | Model for the Navigator's language front-end. Only used when `ANTHROPIC_API_KEY` is set |
+| `ZENITH_LLM_MODEL` | `claude-opus-5-5` | Model for the Navigator's language front-end. Only used when `ANTHROPIC_API_KEY` is set |
 | `ZENITH_SECRET_KEY` | *(unset)* | 32 bytes, base64 or hex (`openssl rand -base64 32`). Encrypts the secret store. Unset means every secret write is refused, saying so. **Keep the same key** — values written under an old one cannot be read back, and there is no recovery |
 | `ZENITH_SMTP_URL` | *(unset)* | `smtp://user:pass@host:port` (`smtps://` for implicit TLS). Email alert delivery. Webhook and Slack channels need neither this nor the next |
 | `ZENITH_ALERT_FROM` | *(unset)* | From address on alert email, e.g. `Zenith <zenith@example.com>`. Required alongside `ZENITH_SMTP_URL` |

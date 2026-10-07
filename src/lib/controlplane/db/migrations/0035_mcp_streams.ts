@@ -12,8 +12,8 @@
  *    after Last-Event-ID. Rows expire with their stream (cascade) and are
  *    bounded per stream by the repository.
  */
-export const migration0036McpStreams = {
-  version: 36,
+export const migration0035McpStreams = {
+  version: 35,
   name: "mcp_streams",
   sql: `
 create table if not exists platform.mcp_streams (

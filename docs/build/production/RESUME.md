@@ -1,3 +1,11 @@
+## Incoming builder CI stop, 7 October 2026
+
+Merged newer builder source `c02c097e79de032e9414c104183961329e834c77`, preserving62 incoming commits and source80 verifier history. Current builder CI: **14 jobs passed /6 failed**; prior80bb7352 green result remains historical. CI08/09 reopened; ledger **10 verified /49 in progress /19 planned**, recomputed across78 rows. All criteria and four false release flags retained. [Every current job, counts and causes](verification/CI-2026-10-07-c02c097e.md), [stop and next work](verification/RESULTS-2026-10.md#incoming-builder-ci-stop-2026-10-07).
+
+Default Mac acceptance also remains resource-blocked. Docker4GiB/swap4GiB settings retained, idle backend stopped, disk23.1GiB. Schema now41 with23 SQL files, six saved worker/package/schema bindings changed; old21-file migration wrapper and source80 standalone build cannot verify current bytes. OBS02 endpoint wiring now exists; actual default acceptance remains open. No builder-owned code or published migration edited. New checkpoint CI is pending until exact pushed SHA is inspected.
+
+Earlier entries retain their exact historical source scope.
+
 ## Current verifier checkpoint, 7 October 2026
 
 Source80bb7352 CI20/20 inspected success. Genuine five-service bootstrap and fresh native standalone build passed; post-start disk guard stopped owned stacks, full default acceptance remains blocked. Docker4GiB/swap4GiB successor untested, idle backend stopped, own images/network removed, baseline resources preserved. Ledger12/38/28; all78 criteria/four false release flags retained. Local startup on this Mac approved, cloud unapproved. [Exact continuation](verification/RESUME-REDUCED-RESOURCE-2026-10-07.md), [results](verification/RESULTS-2026-10.md#mac-bootstrap-and-storage-2026-10-07), [CI jobs](verification/CI-2026-10-07-80bb7352.md).

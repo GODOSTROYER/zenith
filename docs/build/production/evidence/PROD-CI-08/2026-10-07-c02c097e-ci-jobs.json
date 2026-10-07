@@ -1,0 +1,678 @@
+{
+  "schema": 1,
+  "sourceCommit": "c02c097e79de032e9414c104183961329e834c77",
+  "status": "FAILED_CURRENT_SOURCE",
+  "jobCounts": {
+    "passed": 14,
+    "failed": 6,
+    "pending": 0
+  },
+  "runs": [
+    {
+      "runId": 37621641842,
+      "sourceCommit": "c02c097e79de032e9414c104183961329e834c77",
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "failure",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842",
+      "jobs": [
+        {
+          "databaseId": 112793093212,
+          "name": "postgres",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093212"
+        },
+        {
+          "databaseId": 112793093353,
+          "name": "tofu",
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093353"
+        },
+        {
+          "databaseId": 112793093408,
+          "name": "build",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093408"
+        },
+        {
+          "databaseId": 112793093410,
+          "name": "hosted",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093410"
+        },
+        {
+          "databaseId": 112793093431,
+          "name": "verify",
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093431"
+        },
+        {
+          "databaseId": 112793093566,
+          "name": "docker",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093566"
+        },
+        {
+          "databaseId": 112793093593,
+          "name": "go",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093593"
+        },
+        {
+          "databaseId": 112793093633,
+          "name": "agent",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093633"
+        },
+        {
+          "databaseId": 112793093637,
+          "name": "ledger",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093637"
+        },
+        {
+          "databaseId": 112793093645,
+          "name": "supply-chain",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093645"
+        },
+        {
+          "databaseId": 112793093656,
+          "name": "operation-gates (reconciliation)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093656"
+        },
+        {
+          "databaseId": 112793093672,
+          "name": "platform-postgres",
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093672"
+        },
+        {
+          "databaseId": 112793093739,
+          "name": "operation-gates (workflow-intents)",
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093739"
+        },
+        {
+          "databaseId": 112793093765,
+          "name": "workflows",
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093765"
+        },
+        {
+          "databaseId": 112793093814,
+          "name": "generated",
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093814"
+        },
+        {
+          "databaseId": 112793094007,
+          "name": "policy",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793094007"
+        }
+      ]
+    },
+    {
+      "runId": 37621641704,
+      "sourceCommit": "c02c097e79de032e9414c104183961329e834c77",
+      "name": "Native packaged workers",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641704",
+      "jobs": [
+        {
+          "databaseId": 112793092323,
+          "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641704/job/112793092323"
+        },
+        {
+          "databaseId": 112793092745,
+          "name": "packaged-worker (amd64, ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641704/job/112793092745"
+        }
+      ]
+    },
+    {
+      "runId": 37621641693,
+      "sourceCommit": "c02c097e79de032e9414c104183961329e834c77",
+      "name": "Native skipped platforms",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641693",
+      "jobs": [
+        {
+          "databaseId": 112793091456,
+          "name": "linux-systemd",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641693/job/112793091456"
+        },
+        {
+          "databaseId": 112793091755,
+          "name": "windows-acl",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641693/job/112793091755"
+        }
+      ]
+    }
+  ],
+  "failedJobs": [
+    {
+      "jobId": 112793093353,
+      "name": "tofu",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093353",
+      "logBytes": 109147,
+      "logReadExit": 0,
+      "boundedLogLimitHit": false,
+      "privateLogSha256": "ca3a72f0ad28b8b465479e344c0fb2032ebb8c3ba062f3b4066b332ffd5ae423",
+      "summaries": [
+        "Test Files  3 failed | 131 passed | 1 skipped (135)",
+        "Tests  5 failed | 4315 passed | 19 skipped (4339)"
+      ],
+      "fixedKeywordIndicators": {
+        "Test timed out": false,
+        "Hook timed out": false,
+        "TimeoutError": false,
+        "ECONNREFUSED": false,
+        "out of memory": false
+      },
+      "failedSteps": [
+        {
+          "name": "OpenTofu and all provider suites",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Lane report - fail if a required suite ran zero tests",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Every real provider validation must pass",
+          "status": "completed",
+          "conclusion": "failure"
+        }
+      ],
+      "downstreamNotExecutedSteps": [
+        "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+        "Go runner exercises real OpenTofu and provider lock enforcement",
+        "Post Cache provider plugins",
+        "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
+      ],
+      "failedFileCounts": {
+        "tests/providers/azure/compile-drivers.test.ts": 1,
+        "tests/providers/azure/release-journal.test.ts": 2,
+        "tests/providers/oci/release-work-requests.test.ts": 2
+      },
+      "failedCaseHeadersObserved": 5,
+      "failedCaseIdentitiesSha256": "adac5cc0ff22936bf19cb463b1d92d863e5bb560553ccb5cb9077775792ed252",
+      "counts": {
+        "passed": 4315,
+        "failed": 5,
+        "skipped": 19,
+        "total": 4339
+      }
+    },
+    {
+      "jobId": 112793093431,
+      "name": "verify",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093431",
+      "logBytes": 1966849,
+      "logReadExit": 0,
+      "boundedLogLimitHit": false,
+      "privateLogSha256": "1be7d40bb4a20a296d008b5b8e90c3079f91bed559aad0029f38c09ff0f3a1e9",
+      "summaries": [
+        "Test Files  47 failed | 939 passed | 57 skipped (1043)",
+        "Tests  260 failed | 21482 passed | 1610 skipped (23352)"
+      ],
+      "fixedKeywordIndicators": {
+        "Test timed out": false,
+        "Hook timed out": false,
+        "TimeoutError": false,
+        "ECONNREFUSED": false,
+        "out of memory": false
+      },
+      "failedSteps": [
+        {
+          "name": "Unit suites (Node and DOM projects)",
+          "status": "completed",
+          "conclusion": "failure"
+        }
+      ],
+      "downstreamNotExecutedSteps": [
+        "Smoke",
+        "Verify Gimbal assets",
+        "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
+      ],
+      "failedFileCounts": {
+        "tests/agent-v3/client-conformance.test.ts": 3,
+        "tests/agent-v3/execute.test.ts": 1,
+        "tests/bridge/deploy-bridge.test.ts": 16,
+        "tests/ci/assert-lane-report.test.ts": 2,
+        "tests/ci/evidence-sanitizer.test.ts": 3,
+        "tests/ci/gate-manifest.test.ts": 53,
+        "tests/ci/platform-coverage.test.ts": 14,
+        "tests/ci/release-gates.test.ts": 1,
+        "tests/capabilities/standing-grants.test.ts": 4,
+        "tests/cost/billing.test.ts": 1,
+        "tests/cost/kinds.test.ts": 1,
+        "tests/credentials/bootstrap-templates.test.ts": 2,
+        "tests/controlplane/executable-semantics.test.ts": 1,
+        "tests/controlplane/k8s-guest-bindings.test.ts": 1,
+        "tests/controlplane/migrations.test.ts": 1,
+        "tests/controlplane/mixed-parent-plans.test.ts": 2,
+        "tests/docs/operator-docs.test.ts": 6,
+        "tests/effects/build-launch.test.ts": 10,
+        "tests/effects/cleanup.test.ts": 9,
+        "tests/effects/ledger.test.ts": 35,
+        "tests/effects/provider-resolvers.test.ts": 4,
+        "tests/effects/proxy.test.ts": 10,
+        "tests/effects/resolvers.test.ts": 6,
+        "tests/providers/azure/release-journal.test.ts": 2,
+        "tests/effects/model.test.ts": 1,
+        "tests/effects/routes.test.ts": 12,
+        "tests/execution/build-egress-composition.test.ts": 24,
+        "tests/execution/destroy-review.test.ts": 4,
+        "tests/execution/kubernetes-deploy-journey.test.ts": 2,
+        "tests/execution/plan.test.ts": 1,
+        "tests/execution/secrets-azure.test.ts": 1,
+        "tests/machines/sessions.test.ts": 1,
+        "tests/platform/deploy-e2e.test.ts": 11,
+        "tests/platform/oci-sessions.test.ts": 1,
+        "tests/platform/plan-approval-routes.test.ts": 2,
+        "tests/portability/mysql-inprocess.test.ts": 10,
+        "tests/reconcile/boundary.test.ts": 1,
+        "tests/runners/runtime.test.ts": 1,
+        "tests/security/controlplane-sql-scoping.test.ts": 1,
+        "tests/security/image-pins.test.ts": 1,
+        "tests/workflows/codec-wiring.test.ts": 1,
+        "tests/workflows/sandbox.test.ts": 2,
+        "tests/execution/mixed/parent-plan.test.ts": 1,
+        "tests/providers/azure/compile-drivers.test.ts": 1,
+        "tests/providers/kubernetes/lifecycle-contract.test.ts": 2,
+        "tests/providers/oci/release-work-requests.test.ts": 2,
+        "tests/screens/platform/client-safety.test.ts": 1
+      },
+      "failedCaseHeadersObserved": 272,
+      "failedCaseIdentitiesSha256": "fbe98bc8750eb5aa8ebc9a8b3b2466da3f616e518a613edff38bd11ea1d515bf",
+      "counts": {
+        "passed": 21482,
+        "failed": 260,
+        "skipped": 1610,
+        "total": 23352
+      }
+    },
+    {
+      "jobId": 112793093672,
+      "name": "platform-postgres",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093672",
+      "logBytes": 1155593,
+      "logReadExit": 0,
+      "boundedLogLimitHit": false,
+      "privateLogSha256": "b7ed9711b784636ebb60d04d1a7ee6e86f55c78a25e262d5dd7cdb27f8056a1b",
+      "summaries": [
+        "Test Files  22 failed | 100 passed (122)",
+        "Tests  248 failed | 3495 passed | 15 skipped (3758)"
+      ],
+      "fixedKeywordIndicators": {
+        "Test timed out": false,
+        "Hook timed out": false,
+        "TimeoutError": false,
+        "ECONNREFUSED": false,
+        "out of memory": false
+      },
+      "failedSteps": [
+        {
+          "name": "Platform control store suites",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Lane report - fail if the control store ran zero tests, or none on Postgres",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Every platform Postgres contract must pass",
+          "status": "completed",
+          "conclusion": "failure"
+        }
+      ],
+      "downstreamNotExecutedSteps": [
+        "Say so when there is no platform migrator yet",
+        "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
+      ],
+      "failedFileCounts": {
+        "tests/capabilities/standing-grants.test.ts": 6,
+        "tests/controlplane/build-launch-broker-binding.test.ts": 27,
+        "tests/controlplane/executable-semantics.test.ts": 2,
+        "tests/controlplane/k8s-guest-bindings.test.ts": 2,
+        "tests/controlplane/migrations.test.ts": 8,
+        "tests/controlplane/mixed-parent-plans.test.ts": 4,
+        "tests/controlplane/mixed-runs.test.ts": 1,
+        "tests/controlplane/workflow-start-intents.test.ts": 2,
+        "tests/effects/build-launch.test.ts": 20,
+        "tests/effects/cleanup.test.ts": 16,
+        "tests/effects/ledger.test.ts": 70,
+        "tests/effects/provider-resolvers.test.ts": 7,
+        "tests/effects/proxy.test.ts": 20,
+        "tests/effects/resolvers.test.ts": 11,
+        "tests/platform/source-bundle-composition.test.ts": 2,
+        "tests/effects/model.test.ts": 1,
+        "tests/effects/routes.test.ts": 12,
+        "tests/execution/apply.test.ts": 6,
+        "tests/execution/destroy-review.test.ts": 4,
+        "tests/ops/store.engine.test.ts": 2,
+        "tests/platform/codebuild-launch-authority.test.ts": 24,
+        "tests/runners/runtime.test.ts": 1
+      },
+      "failedCaseHeadersObserved": 248,
+      "failedCaseIdentitiesSha256": "b5bd408a72ae7c413f3ea53e7538e9bf58c0c83fe542fbc12533237d336b191c",
+      "counts": {
+        "passed": 3495,
+        "failed": 248,
+        "skipped": 15,
+        "total": 3758
+      }
+    },
+    {
+      "jobId": 112793093739,
+      "name": "operation-gates (workflow-intents)",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093739",
+      "logBytes": 105310,
+      "logReadExit": 0,
+      "boundedLogLimitHit": false,
+      "privateLogSha256": "01c252129f5c64e6fc32a25dc037197bb6cdb01059a54bb633c0d97dcccb5af9",
+      "summaries": [
+        "Test Files  1 failed | 5 passed (6)",
+        "Tests  2 failed | 154 passed (156)"
+      ],
+      "fixedKeywordIndicators": {
+        "Test timed out": false,
+        "Hook timed out": false,
+        "TimeoutError": false,
+        "ECONNREFUSED": false,
+        "out of memory": false
+      },
+      "failedSteps": [
+        {
+          "name": "Required operation scenarios",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Independently revalidate canonical execution and every required scenario",
+          "status": "completed",
+          "conclusion": "failure"
+        }
+      ],
+      "downstreamNotExecutedSteps": [
+        "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
+      ],
+      "failedFileCounts": {
+        "tests/controlplane/workflow-start-intents.test.ts": 2
+      },
+      "failedCaseHeadersObserved": 2,
+      "failedCaseIdentitiesSha256": "4d0841c529bd279105a216d557400d83e7cfd1b74aa97d0d7a0ebf009e20d600",
+      "counts": {
+        "passed": 154,
+        "failed": 2,
+        "skipped": 0,
+        "total": 156
+      }
+    },
+    {
+      "jobId": 112793093765,
+      "name": "workflows",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093765",
+      "logBytes": 280199,
+      "logReadExit": 0,
+      "boundedLogLimitHit": false,
+      "privateLogSha256": "757583fea41645dd7623023872160ea7f9be8ca1c7bba426e87c4a64fde8f24e",
+      "summaries": [
+        "Test Files  8 failed | 57 passed (65)",
+        "Tests  31 failed | 1300 passed (1331)"
+      ],
+      "fixedKeywordIndicators": {
+        "Test timed out": false,
+        "Hook timed out": false,
+        "TimeoutError": false,
+        "ECONNREFUSED": false,
+        "out of memory": false
+      },
+      "failedSteps": [
+        {
+          "name": "Workflow suites",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Lane report - fail if a required suite ran zero tests",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Every Temporal and platform e2e scenario must pass",
+          "status": "completed",
+          "conclusion": "failure"
+        }
+      ],
+      "downstreamNotExecutedSteps": [
+        "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
+      ],
+      "failedFileCounts": {
+        "tests/platform/deploy-e2e.test.ts": 15,
+        "tests/platform/oci-sessions.test.ts": 1,
+        "tests/platform/plan-approval-routes.test.ts": 2,
+        "tests/platform/source-bundle-composition.test.ts": 2,
+        "tests/platform-ui/reads-and-loaders.test.ts": 6,
+        "tests/workflows/codec-wiring.test.ts": 1,
+        "tests/workflows/sandbox.test.ts": 2,
+        "tests/workflows/upgrade-rehearsal.test.ts": 2
+      },
+      "failedCaseHeadersObserved": 31,
+      "failedCaseIdentitiesSha256": "dbaa666d5382634b7af9077c72ed3dd4a0043fe5b7a26a4393335c3a6f80a28f",
+      "counts": {
+        "passed": 1300,
+        "failed": 31,
+        "skipped": 0,
+        "total": 1331
+      }
+    },
+    {
+      "jobId": 112793093814,
+      "name": "generated",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842/job/112793093814",
+      "logBytes": 102514,
+      "logReadExit": 0,
+      "boundedLogLimitHit": false,
+      "privateLogSha256": "4230440d7cdce6bb447ffdde8b71db9ad4992ac63c083993949f1fbe12cec7fd",
+      "summaries": [
+        "Test Files  1 failed | 3 passed (4)",
+        "Tests  6 failed | 104 passed (110)"
+      ],
+      "fixedKeywordIndicators": {
+        "Test timed out": false,
+        "Hook timed out": false,
+        "TimeoutError": false,
+        "ECONNREFUSED": false,
+        "out of memory": false
+      },
+      "failedSteps": [
+        {
+          "name": "Documentation drift suites",
+          "status": "completed",
+          "conclusion": "failure"
+        }
+      ],
+      "downstreamNotExecutedSteps": [
+        "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020"
+      ],
+      "failedFileCounts": {
+        "tests/docs/operator-docs.test.ts": 6
+      },
+      "failedCaseHeadersObserved": 6,
+      "failedCaseIdentitiesSha256": "57f398eb4ca64898f3093b7b346b53516f690c99dbceb9e035f9979ee777b840",
+      "counts": {
+        "passed": 104,
+        "failed": 6,
+        "skipped": 0,
+        "total": 110
+      }
+    }
+  ],
+  "canonicalFailureArtifacts": [
+    {
+      "artifactId": 11483531023,
+      "compressedBytes": 19645,
+      "memberBytes": 427073,
+      "memberSha256": "623f252d635e5862a7021f0e719379183b252a2182af4f56b975ecaca75fccae",
+      "lane": "platform-postgres",
+      "verdict": "failed",
+      "counts": {
+        "total": 3758,
+        "passed": 3495,
+        "failed": 248,
+        "skipped": 15,
+        "unknown": 0
+      },
+      "requiredIdentities": 1140,
+      "nonPassingRequiredRecords": 1140,
+      "requiredRecordInterpretation": "Execution failed; non-passing record count is not the number of failed test cases."
+    },
+    {
+      "artifactId": 11483340144,
+      "compressedBytes": 4444,
+      "memberBytes": 31293,
+      "memberSha256": "6cd93d62cbf8c31d62132573306c07fa79a0c0330018dbe5bd7ff084c42e8556",
+      "lane": "workflows",
+      "verdict": "failed",
+      "counts": {
+        "total": 1331,
+        "passed": 1300,
+        "failed": 31,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredIdentities": 70,
+      "nonPassingRequiredRecords": 70,
+      "requiredRecordInterpretation": "Execution failed; non-passing record count is not the number of failed test cases."
+    },
+    {
+      "artifactId": 11482466576,
+      "compressedBytes": 3646,
+      "memberBytes": 16709,
+      "memberSha256": "ec252f1a829df711ba650f26268c0befa87f7f0694a0d183b4c3bd9dc5f15549",
+      "lane": "tofu",
+      "verdict": "failed",
+      "counts": {
+        "total": 4339,
+        "passed": 4315,
+        "failed": 5,
+        "skipped": 19,
+        "unknown": 0
+      },
+      "requiredIdentities": 27,
+      "nonPassingRequiredRecords": 27,
+      "requiredRecordInterpretation": "Execution failed; non-passing record count is not the number of failed test cases."
+    },
+    {
+      "artifactId": 11481734396,
+      "compressedBytes": 5222,
+      "memberBytes": 57632,
+      "memberSha256": "eb4cfcc077100d024f6cbab42a0eae350bc747160a854ed2a2bdf507457cba27",
+      "lane": "workflow-intents",
+      "verdict": "failed",
+      "counts": {
+        "total": 156,
+        "passed": 154,
+        "failed": 2,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredIdentities": 141,
+      "nonPassingRequiredRecords": 141,
+      "requiredRecordInterpretation": "Execution failed; non-passing record count is not the number of failed test cases."
+    }
+  ],
+  "boundedRootCauses": [
+    {
+      "id": "external-effects-postgres-regex",
+      "confidence": "Source-supported concrete incompatibility; observed native SQL error",
+      "source": "src/lib/controlplane/db/migrations/0033_external_effects.ts",
+      "lines": [
+        25,
+        28
+      ],
+      "summary": "CHECK regex bounds use {1,256}; PostgreSQL16 permits bounds only0..255. Native runtime reports invalid regular expression repetition count. Affects external-effect inserts including ACR durable journal and many platform/unit cases.",
+      "primarySource": "https://www.postgresql.org/docs/16/functions-matching.html#POSIX-SYNTAX-DETAILS"
+    },
+    {
+      "id": "executable-semantics-integration",
+      "confidence": "Observed refusal; integration/fixture compatibility requires builder review",
+      "source": "src/lib/capabilities/approvals.ts",
+      "lines": [
+        155,
+        156
+      ],
+      "summary": "New semanticsDigest comparison refuses existing deploy/plan-approval calls with semantics_mismatch. Do not weaken the DUR03 guard; review recorded authority and existing caller/fixture composition."
+    },
+    {
+      "id": "workflow-intent-old-schema",
+      "confidence": "Observed native failure; builder migration compatibility review required",
+      "source": "tests/controlplane/workflow-start-intents.test.ts",
+      "summary": "Two inherited-TRUNCATE tombstone tests at fresh migration12 and same-owner schema6 receive missing platform.standing_grant_uses or migration refusal instead of the intended owned tombstone fault. Do not fabricate schema ledger/roles or alter wave3 migration guards."
+    },
+    {
+      "id": "provider-fixture-behavior",
+      "confidence": "Observed assertions; remaining source-versus-fixture ownership unresolved",
+      "summary": "Tofu5 failures: Azure compile container-app image identity1, Azure durable ACR journal2 (one includes the regex failure), OCI independently-confirmed cleanup2. Actual provider validation jobs fail; no cloud runtime or timeout explanation was observed."
+    },
+    {
+      "id": "generated-doc-drift",
+      "confidence": "Observed documentation assertions",
+      "source": "tests/docs/operator-docs.test.ts",
+      "summary": "Six guide drift failures: guide index, guide input/source pins including KEY-CUSTODY, recorded-evidence browser teardown, Azure launch composition, repository code-span paths, and current app durable broker/runner/reconcile wiring."
+    },
+    {
+      "id": "remaining-unit-workflow-integration",
+      "confidence": "Bounded grouped diagnosis only; not every failing case independently root-caused",
+      "summary": "Unit and workflows also contain stale workflow export/sandbox expectations, authority/read-boundary assertions, CI manifest/source-deletion models, egress composition SQL sentinel and MySQL verified-TLS fixture refusals. Private exact case headers/log hashes are retained for scoped owner review. Do not infer all260 unit failures or248 platform failures from one cause."
+    }
+  ],
+  "reviewBindings": {
+    "rootSavedJobsSha256": "313fa0f440631e2074cf1b2e8de9c806fe5c87717f2a5c1570113db254a2d72e",
+    "freshJobsSha256": "77d6030914ab5ae837e14f5ac4827046f140c7e2f03556a194724da3fee4cb02"
+  },
+  "limitations": [
+    "Counts overlap and are not summed. Non-passing canonical required records are not all actual failed assertions.",
+    "Downstream skipped CI steps were not executed; they are separate from Vitest skipped tests.",
+    "No Test/Hook timeout, TimeoutError, OOM or ECONNREFUSED marker observed in bounded failed-job logs; this does not exhaust every runner diagnostic.",
+    "Source comparison is62 commits ahead of80; GitHub compare returned a truncated300-file list, not full changed-path inventory.",
+    "80bb green is historical, not current c02 default acceptance. No CI08/09 promotion or runtime migration through old41-incompatible fixtures.",
+    "No raw logs, secrets, credentials, private paths or private source contents published. Investigation did not execute tests/services or change product code."
+  ]
+}

@@ -1,3 +1,9 @@
+## Incoming current-source override, 7 October 2026
+
+Root mergedc02c097e newer builder work; source80 section below is historical. Current CI14/6, sixfailedjobs; CI08/09 reopened, ledger10/49/19. [Exact current report](CI-2026-10-07-c02c097e.md). All78 criteria/fourfalse flags retained. Native plan source freeze invalidated: platform41, canonicalSQL23, sixof17bindings changed. Rebuild/refreeze current bytes; never use old21SQLwrapper/source80standalone as current proof. OBS02 endpoint wiring now implemented, actual default acceptance still pending. Publishedmigration0033regex256 and semanticsDigest/historical-schema joins need builder review; no forbidden migration edit or guard relaxation.
+
+Docker4GiB/swap4GiB backend stopped idle, ownimages/network removed, baselinepreserved; disk23.1GiB versus22GiBcontinuousfloor still lacks measured repull/startup/swapheadroom. Source-only currentdelta/receipts saved privately. Only after safe headroom and source repairs: startDocker, restore5pinneddigests, fresh ownednetwork/sourceboundcontroller, genuine23SQL+canonical41/agentchecks+verifiedpooler/twoAuthusers, nativeAPI/worker, realChrome and remaining acceptance serially. Same Mac only, no cloud permission. New checkpoint CI pending, inspect exact pushed SHA separately.
+
 # Current reduced-resource resume checkpoint: 7 October 2026
 
 Source `80bb7352765ba83655a191b9b34d7e10827475ec`, branch `codex/production-2026-10-02`. [Sanitized bootstrap and build evidence](../evidence/PROD-CI-08/2026-10-07-mac-bootstrap-80bb7352.json) records root-executed results; this documentation update ran no services or tests. All78 criteria, ledger12 verified/38 in progress/28 planned and four false release flags remain unchanged.

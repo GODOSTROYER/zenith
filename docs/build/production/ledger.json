@@ -707,7 +707,7 @@
       "acceptance": [
         "Clean installation, migrations, typecheck/lint/generated artifacts, real OpenTofu, OPA, Go race/interoperability, PostgreSQL, Temporal and real browser gates run with exact counts."
       ],
-      "state": "verified",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
@@ -716,7 +716,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "verified_d6965d75_exact_ci_source_and_artifacts; wider_product_release_acceptance_remains_open",
+      "implementationStatus": "verification_failed_c02c097e_six_current_ci_jobs; historical80bb7352green_and_local_bootstrap_retained",
       "evidence": [
         {
           "level": "local_engine",
@@ -728,7 +728,7 @@
           "level": "remote_ci",
           "commit": "2c9d6fa1ee5821d6b90fef4b8aab08a9ba32352a",
           "runId": 36971241225,
-          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04–06:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
+          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04\u201306:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
           "artifact": "docs/build/production/ci-36971241225.md",
           "executionReceiptComplete": true
         },
@@ -1209,6 +1209,16 @@
           "command": "Owned reduced-resource Supabase bootstrap, bounded verified HTTPS health probes, fresh npm run build, continuous disk monitor and exact owned cleanup",
           "environment": "Darwin nativeARM64 8GiB host; Node22.23.3; SupabaseCLI2.116.0; fiveLinuxARM64 images; Docker29.1.3 memory6GiB/swap4GiB duringbootstrap, reduced4GiB/swap4GiB after floor stops; buildheap4096MiB",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-mac-bootstrap-80bb7352.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "c02c097e79de032e9414c104183961329e834c77",
+          "result": "14 passed /6 failed terminal jobs. Failed tofu,verify,platform-postgres,operation-gates(workflow-intents),workflows,generated. Per-lane counts overlap: verify21482P260F1610S; platform3495P248F15S; workflows1300P31F0S; workflow-intents154P2F0S; generated104P6F0S; tofu4315P5F19S. Four nativejobs passed. No required failure or skip waived.",
+          "command": "Inspect every job on runs37621641842,37621641704,37621641693 and bounded failed-job logs",
+          "environment": "GitHub current builder source c02c097e; hosted Linux TS/PG/Temporal/OpenTofu and separate native AMD64/ARM64 workers plus native platform leaves; local source80default receipts do not verify changedbytes",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-c02c097e-ci-jobs.json",
+          "runId": 37621641842,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842"
         }
       ],
       "requiredEvidence": [
@@ -1228,14 +1238,14 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "verified",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "verified_d6965d75_exact_ci_source_and_artifacts; wider_product_release_acceptance_remains_open",
+      "implementationStatus": "verification_failed_c02c097e_six_current_ci_jobs; historical80bb7352green_and_local_bootstrap_retained",
       "evidence": [
         {
           "level": "remote_ci",
@@ -1284,7 +1294,7 @@
           "level": "remote_ci",
           "commit": "2c9d6fa1ee5821d6b90fef4b8aab08a9ba32352a",
           "runId": 36971241225,
-          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04–06:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
+          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04\u201306:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
           "artifact": "docs/build/production/ci-36971241225.md",
           "executionReceiptComplete": true
         },
@@ -1563,6 +1573,16 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-80bb7352-ci-jobs.json",
           "runId": 37607673808,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "c02c097e79de032e9414c104183961329e834c77",
+          "result": "14 passed /6 failed terminal jobs. Failed tofu,verify,platform-postgres,operation-gates(workflow-intents),workflows,generated. Per-lane counts overlap: verify21482P260F1610S; platform3495P248F15S; workflows1300P31F0S; workflow-intents154P2F0S; generated104P6F0S; tofu4315P5F19S. Four nativejobs passed. No required failure or skip waived.",
+          "command": "Inspect every job on runs37621641842,37621641704,37621641693 and bounded failed-job logs",
+          "environment": "GitHub current builder source c02c097e; hosted Linux TS/PG/Temporal/OpenTofu and separate native AMD64/ARM64 workers plus native platform leaves; local source80default receipts do not verify changedbytes",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-c02c097e-ci-jobs.json",
+          "runId": 37621641842,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37621641842"
         }
       ],
       "requiredEvidence": [
@@ -2395,7 +2415,7 @@
         {
           "level": "contract",
           "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
-          "result": "Exact unchanged9e→1c catalog/source/config/support closure: derive20 passed/0 failed/0 skipped, catalog13/0/0, route7/0/0, MCP2/0/0. Each count is separately observed in the current9e terminal Verify log; no overlapping sum. Complete208-entry/16-domain versioned matrix, refusal/simulated/schema-only/contract-preview rules, drift/tamper and read-only exposure pass. No supported provider promotion.",
+          "result": "Exact unchanged9e\u21921c catalog/source/config/support closure: derive20 passed/0 failed/0 skipped, catalog13/0/0, route7/0/0, MCP2/0/0. Each count is separately observed in the current9e terminal Verify log; no overlapping sum. Complete208-entry/16-domain versioned matrix, refusal/simulated/schema-only/contract-preview rules, drift/tamper and read-only exposure pass. No supported provider promotion.",
           "command": "Current9e canonical core unit execution, four allowlisted offered-catalog suites; read-only exact Git input reuse to1c",
           "environment": {
             "node": "22.23.3",
@@ -2677,7 +2697,7 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
-          "result": "Fresh runbook-listed unit files: 12; 322 passed /0 failed /19 skipped. File-summary attribution only; required native/engine proof is separate. Whole source→actual build→migration→readiness→cutover/readback needs owned target; progressive rollout/code rollback is distinct from approved data restore."
+          "result": "Fresh runbook-listed unit files: 12; 322 passed /0 failed /19 skipped. File-summary attribution only; required native/engine proof is separate. Whole source\u2192actual build\u2192migration\u2192readiness\u2192cutover/readback needs owned target; progressive rollout/code rollback is distinct from approved data restore."
         },
         {
           "level": "local_engine",

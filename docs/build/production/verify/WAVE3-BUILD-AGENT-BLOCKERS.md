@@ -1,3 +1,17 @@
+## Current builder integration failures, 7 October 2026
+
+Currentc02c097e CI14successful/6failedjobs, newer than historical80green. [Exact failure report](../verification/CI-2026-10-07-c02c097e.md), [source-supported stop](../verification/RESULTS-2026-10.md#incoming-builder-ci-stop-2026-10-07). CI08/09 reopened; ledger10/49/19.
+
+- DUR07/08: published0033_external_effects.ts:25/:28 regex bounds256 exceed PostgreSQL16 maximum255. Preserve immutable published migrations; provide new migration replacing these constraints with equivalent character checks plus explicit1–256 length bounds, then fresh/upgrade/reapply and actualPG insertion/refusal proof. Preserve migration33 bytes and checksum.
+- DUR03/04: new semanticsDigest guard rejects existing plan/deploy compositions; fix authoritative binding/fixtures, never weaken approval guard. Old migration12/schema6 controls hit missing standing_grant_uses; reconcile supported history/dispatch semantics.
+- LIFE04/05/06: actual ToFu lane Azurecompile/ACRjournal/OCIcleanup failures; source-supported case list in current report. Do not hide behind mocks or broad skips.
+- Documentation: six operator-guide drift failures require current source-aligned documentation. Full failed-case set not yet exhaustively diagnosed.
+- Runtime: incoming41migrations/23SQL and six changed native bindings invalidate saved80 plan/build; refreeze current native composition before execution. OBS02 endpoint code now exists, backend/default acceptance remains open.
+
+No builder source or published migration changed by verifier. Mac-only default acceptance remains resource-blocked; DEC-CLOUD stays unapproved. All78 criteria/four false release states retained.
+
+Earlier entries retain historical source scope.
+
 ## Bootstrap successor and remaining builder gaps, 7 October 2026
 
 Source80bb7352 remote CI20/20 passed. Genuine reduced-profile Supabase bootstrap succeeded twice; verified HTTPS health2/0 and fresh native standalone build0 are preparation evidence. Full default acceptance remains resource-blocked after continuous22GiB floor crossings; no code/gate changes or requirement promotions. [Exact current evidence](../verification/RESULTS-2026-10.md#mac-bootstrap-and-storage-2026-10-07).

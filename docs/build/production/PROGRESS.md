@@ -1,3 +1,11 @@
+## Incoming builder CI stop, 7 October 2026
+
+Merged newer builder source `c02c097e79de032e9414c104183961329e834c77`, preserving62 incoming commits and source80 verifier history. Current builder CI: **14 jobs passed /6 failed**; prior80bb7352 green result remains historical. CI08/09 reopened; ledger **10 verified /49 in progress /19 planned**, recomputed across78 rows. All criteria and four false release flags retained. [Every current job, counts and causes](verification/CI-2026-10-07-c02c097e.md), [stop and next work](verification/RESULTS-2026-10.md#incoming-builder-ci-stop-2026-10-07).
+
+Default Mac acceptance also remains resource-blocked. Docker4GiB/swap4GiB settings retained, idle backend stopped, disk23.1GiB. Schema now41 with23 SQL files, six saved worker/package/schema bindings changed; old21-file migration wrapper and source80 standalone build cannot verify current bytes. OBS02 endpoint wiring now exists; actual default acceptance remains open. No builder-owned code or published migration edited. New checkpoint CI is pending until exact pushed SHA is inspected.
+
+Earlier entries retain their exact historical source scope.
+
 ## Mac bootstrap and disk-floor checkpoint, 7 October 2026
 
 Source `80bb7352765ba83655a191b9b34d7e10827475ec`: all20 CI jobs inspected terminal success. Unit19,622 passed /0 failed /1,532 skipped; lane counts overlap. Actual reduced-profile five-service Supabase startup passed twice; two verified HTTPS health probes passed. Fresh native standalone build passed in194.7s. Both stacks subsequently crossed continuous22GiB disk floor and were stopped/cleaned. Zero full default acceptance cases; no requirement promotion.

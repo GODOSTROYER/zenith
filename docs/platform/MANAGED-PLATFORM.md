@@ -92,8 +92,8 @@ it disjoint from `kube-*`, `zenith-*` and `cert-manager`.
 | Session scope | each session allows exactly the tenant namespace and is pinned to one workspace and environment; drivers refuse a mismatch | one tenant's session operating another's | the operator credential's own breadth (see below) |
 
 What is **not** isolated: tenants share nodes and the node kernel. There is no
-sandboxed runtime (gVisor, Kata), no dedicated node pools, no noisy-neighbour
-control beyond quotas, no per-tenant egress identity. A kernel or container-runtime
+sandboxed runtime installed by Zenith (a RuntimeClass hook exists, `ZENITH_MANAGED_RUNTIME_CLASS`), no dedicated node pools, no noisy-neighbour
+control beyond quotas, limits and the kubelet PID limit, no per-tenant egress identity. `docs/platform/TENANT-ISOLATION.md` holds the threat model, the sandbox runtime evaluation, the hostname egress and operator separation generators, and the two-tenant acceptance suite (written, never run). A kernel or container-runtime
 escape defeats everything above. The operator ClusterRole
 (`deploy/zenith-managed/40-operator-rbac.yaml`) can read and write Secrets in every
 tenant namespace, because RBAC cannot scope to labeled namespaces; its credential
@@ -159,6 +159,10 @@ Absent optional components make their drivers answer `unavailable` or
 | `ZENITH_MANAGED_DB_REGION` | with a DB provider | provider region id, e.g. `aws-us-east-2` |
 | `ZENITH_MANAGED_DB_ORG_ID` | no | provider organization id |
 | `ZENITH_MANAGED_DB_EGRESS` | no | comma list of `cidr:port` tenants with a managed database may reach; empty means none (fail closed) |
+| `ZENITH_MANAGED_FQDN_ENGINE` | no | `none` (default) or `cilium`. `cilium` replaces the baseline's "public addresses on 443" egress rule with a hostname allowlist (CiliumNetworkPolicy `toFQDNs`); see `docs/platform/TENANT-ISOLATION.md` |
+| `ZENITH_MANAGED_EGRESS_FQDNS` | needs `cilium` | comma list of hostnames (or `*.suffix`) every tenant may reach on TCP 443; refused when the engine is `none` |
+| `ZENITH_MANAGED_RUNTIME_CLASS` | no | RuntimeClass every tenant pod must run under (gVisor, Kata); the isolation gate refuses any other value |
+| `ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX` | no | `vault:` path prefix; the session for a tenant uses `<prefix>/<tenant namespace>` instead of the platform-wide operator credential |
 
 A test pins this table to the variables the reader recognizes.
 

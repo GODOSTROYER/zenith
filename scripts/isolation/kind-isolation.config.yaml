@@ -1,0 +1,26 @@
+# kind cluster for the PROD-MAN-04/05 tenant isolation acceptance profile.
+#
+# Same shape as scripts/k8s/kind-calico.config.yaml (default CNI off so the policy engine is the one the
+# script installs, pinned node image, one control plane and one worker so pod-to-pod policy crosses nodes)
+# plus ONE kubelet setting the noisy-neighbour test depends on: podPidsLimit. Without it a single pod can fork
+# until the node runs out of PIDs, and the suite fails on purpose ("a node without podPidsLimit has no PID
+# isolation"). 256 is the value used for this proof; the production value is an operator decision recorded in
+# docs/platform/TENANT-ISOLATION.md.
+#
+# The node image digest below must equal KIND_NODE_IMAGE in scripts/k8s/images.env
+# (tests/isolation/isolation-profile.test.ts enforces it).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  disableDefaultCNI: true
+  podSubnet: 192.168.0.0/16
+  serviceSubnet: 10.96.0.0/12
+kubeadmConfigPatches:
+  - |
+    kind: KubeletConfiguration
+    podPidsLimit: 256
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+  - role: worker
+    image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5

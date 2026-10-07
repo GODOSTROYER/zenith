@@ -26,6 +26,7 @@
  */
 import { createHash } from "node:crypto";
 import type { KubernetesConnectionConfig } from "@/lib/credentials/types";
+import { isRuntimeClassName, normalizeFqdnRules, type FqdnEngine, type IsolationProfile } from "./isolation-profile";
 import { ZenithError, type ZenithTenant } from "./types";
 
 /* --------------------------------- shapes --------------------------------- */
@@ -94,6 +95,8 @@ export interface ZenithSubstrate {
     /** (cidr, port) pairs tenants with a managed database may reach; empty = none (fail closed) */
     egress: EgressRule[];
   };
+  /** tenant isolation decisions beyond the baseline (hostname egress, sandbox runtime, per-tenant operator credentials); absent means the baseline alone */
+  isolation?: IsolationProfile;
 }
 
 export type SubstrateConfig =
@@ -129,6 +132,10 @@ export const SUBSTRATE_ENV_VARS = [
   "ZENITH_MANAGED_DB_REGION",
   "ZENITH_MANAGED_DB_ORG_ID",
   "ZENITH_MANAGED_DB_EGRESS",
+  "ZENITH_MANAGED_FQDN_ENGINE",
+  "ZENITH_MANAGED_EGRESS_FQDNS",
+  "ZENITH_MANAGED_RUNTIME_CLASS",
+  "ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX",
 ] as const;
 
 export const DEFAULT_NEON_API_BASE = "https://console.neon.tech/api/v2";
@@ -284,6 +291,36 @@ function parseDatabase(r: Reader): ZenithSubstrate["database"] {
   return { provider: "neon", apiBase, apiKeyRef, regionId, ...(orgId ? { orgId } : {}), egress };
 }
 
+function parseIsolation(r: Reader): IsolationProfile | undefined {
+  const engineRaw = r.raw("ZENITH_MANAGED_FQDN_ENGINE");
+  let fqdnEngine: FqdnEngine = "none";
+  if (engineRaw === "none" || engineRaw === "cilium") fqdnEngine = engineRaw;
+  else if (engineRaw !== undefined) r.fail("ZENITH_MANAGED_FQDN_ENGINE", 'must be "none" or "cilium"; no other CNI has a hostname policy renderer');
+  let platformFqdns: string[] = [];
+  const listed = r.list("ZENITH_MANAGED_EGRESS_FQDNS");
+  if (listed.length > 0) {
+    try {
+      platformFqdns = normalizeFqdnRules(listed, "ZENITH_MANAGED_EGRESS_FQDNS");
+    } catch (e) {
+      r.fail("ZENITH_MANAGED_EGRESS_FQDNS", e instanceof Error ? e.message : "invalid hostname list");
+    }
+    if (fqdnEngine === "none") r.fail("ZENITH_MANAGED_EGRESS_FQDNS", 'needs ZENITH_MANAGED_FQDN_ENGINE=cilium: without an engine that enforces hostnames the list would be silently ignored');
+  }
+  const runtimeClass = r.raw("ZENITH_MANAGED_RUNTIME_CLASS");
+  if (runtimeClass !== undefined && !isRuntimeClassName(runtimeClass)) r.fail("ZENITH_MANAGED_RUNTIME_CLASS", "must be a RuntimeClass name (lowercase DNS-1123)");
+  const operatorCredentialPrefix = r.ref("ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX", false);
+  if (operatorCredentialPrefix !== undefined && (operatorCredentialPrefix.endsWith("/") || operatorCredentialPrefix.length > 240)) {
+    r.fail("ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX", "must be a vault: path prefix without a trailing slash (a per-tenant name is appended)");
+  }
+  if (fqdnEngine === "none" && runtimeClass === undefined && operatorCredentialPrefix === undefined) return undefined;
+  return {
+    fqdnEngine,
+    platformFqdns,
+    ...(runtimeClass ? { runtimeClass } : {}),
+    ...(operatorCredentialPrefix ? { operatorCredentialPrefix } : {}),
+  };
+}
+
 /**
  * Read the substrate from `env` (pass `process.env`; tests pass a plain object).
  * The ONE place `ZENITH_MANAGED_*` is interpreted.
@@ -320,6 +357,7 @@ export function readSubstrateConfig(env: ZenithEnv): SubstrateConfig {
   const registry = parseRegistry(r);
   const objectStorage = parseObjectStorage(r);
   const database = parseDatabase(r);
+  const isolation = parseIsolation(r);
 
   if (r.missing.length > 0 || r.invalid.length > 0 || server === undefined || kubeconfigRef === undefined || baseDomain === undefined) {
     const parts: string[] = [];
@@ -338,6 +376,7 @@ export function readSubstrateConfig(env: ZenithEnv): SubstrateConfig {
     ...(registry ? { registry } : {}),
     ...(objectStorage ? { objectStorage } : {}),
     ...(database ? { database } : {}),
+    ...(isolation ? { isolation } : {}),
   };
   return { configured: true, substrate, warnings: r.warnings };
 }
@@ -434,7 +473,8 @@ export function substrateConnectionConfig(substrate: ZenithSubstrate, tenantName
     mode: "kubeconfig_ref",
     server: substrate.cluster.server,
     ...(substrate.cluster.caData ? { caData: substrate.cluster.caData } : {}),
-    credentialRef: substrate.cluster.kubeconfigRef,
+    // with a per-tenant prefix the session holds THIS tenant's operator credential, never the platform-wide one
+    credentialRef: substrate.isolation?.operatorCredentialPrefix ? `${substrate.isolation.operatorCredentialPrefix}/${tenantNamespaceName}` : substrate.cluster.kubeconfigRef,
     namespaces: [tenantNamespaceName],
   };
 }

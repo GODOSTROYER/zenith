@@ -45,7 +45,7 @@ kubeconfig="$workdir/kubeconfig"
 rm -f "$kubeconfig"
 
 echo "creating kind cluster $name (node image pinned by digest)"
-kind create cluster --name "$name" --config "$here/kind-calico.config.yaml" --kubeconfig "$kubeconfig" --wait 0s
+kind create cluster --name "$name" --config "${ZENITH_KIND_CONFIG:-$here/kind-calico.config.yaml}" --kubeconfig "$kubeconfig" --wait 0s
 chmod 600 "$kubeconfig"
 export KUBECONFIG="$kubeconfig"
 

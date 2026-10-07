@@ -1,5 +1,29 @@
 # WIP verification checkpoint, 8 October 2026
 
+## Latest publication context, 8 October 2026
+
+This section supersedes older current/pending statements below; those sections preserve the earlier checkpoint history. Source before this documentation commit: `32b522f3d1186fdc44c605ec395f41db8c32bf7a`. Previous GitHub publication: `3a9de9053778bc1b92d31ce7437bd578de68217e`.
+
+Three additional integrated fixes are included in this publication:
+
+- `3a25db3e`: remove the unused historical cohort import that caused the previous CI lint failure.
+- `af902ba8`: preserve historical migration fixture custody and explicit current-contract refusal without approving unregistered historical contracts.
+- `32b522f3`: inspect authentic Temporal patch-marker bytes and retain independent per-operation approval in the upgrade rehearsal. This does not change the SDK or shared production authority.
+
+Latest actual local attempts on `32b522f3`: historical/index/tombstone suites **73 passed / 4 failed / 0 skipped**; Temporal rehearsal plus composed deployment suites **22 passed / 1 failed / 0 skipped**. All 21 composed deployment cases passed. Counts overlap earlier evidence and must not be summed. The four migration failures require owned-fixture migration42 admission across both refusal and successful-upgrade phases. The remaining rehearsal failure concerns two operations competing for the same environment lease; the proposed fix completes the resumed operation before starting the fresh operation, preserving independent approval and exclusive leases.
+
+Pending independent source packets remain outside this publication: authority refusal-helper correction `6e79bf22` is incomplete without positive-phase admission and is being replaced with an exact four-case scope; provider rehearsal sequencing `5c9cc505f91431b47afe15d12887a34b2396febe` has Astra source approval but no root Temporal rerun. Neither packet is claimed integrated or runtime verified. An earlier root assertion that a positive `migrateFixtureCurrent` helper already existed was incorrect; actual source lacks that helper. The corrected review requires explicit scope spanning both phases, exact environment restoration and unchanged dedicated migration42 negative controls.
+
+GitHub status inspected for exact previous publication `3a9de905`:
+
+- Main run `37696819280`: **13 successful jobs / 1 failed job / 2 running jobs**. `verify` failed; local unused-import correction is committed. `workflows` and `platform-postgres` are still running. This is not a green full CI result.
+- Native packaged-worker run `37696819348`: AMD64 and ARM64 jobs both completed successfully, each on its native runner. This job-status inspection does not assert fresh per-case counts.
+- Native platform run `37696819381`: Windows ACL and Linux systemd jobs both completed successfully.
+
+Lockfile integrity and full dependency security audit passed locally with zero known findings and no exception; compiler passed on the earlier scoped source. Fresh whole-candidate compiler/lint, complete mandatory gates and successor CI remain open. Ledger remains **10 verified / 49 in progress / 19 planned**, all 78 requirements preserved and all four release states false.
+
+This document gives the other machine progress context. No cloud authority, release promotion or all-tests-green claim accompanies this WIP publication. User files and unrelated services remain untouched. Commit identity remains Arnav Bule for both author and committer. Normal same-branch publication follows `git pull --no-rebase`; no history rewrite.
+
 Updated green **focused lane**: source `b69a6c121ee1fae033246231ffad85d4d9f3b95f`,41 passed /0 failed /0 skipped. Includes23 actual PostgreSQL,17 PGlite and1 pure contract control; owned services cleaned. New fixes `1c449864` and `b69a6c12` correct historical/upgrade fixture JSON binding without changing production guards. Complete project verification and fresh GitHub CI remain pending.
 
 This update is progress context for the other machine. Previous broader failed attempts remain recorded below; the focused green result does not erase their unrerun cases.

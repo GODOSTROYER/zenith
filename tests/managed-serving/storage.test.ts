@@ -8,6 +8,8 @@ import {
   assertScopedPrefix, createIamAdminPort, policyDigest, principalNameFor, provisionObjectStores, refuseObjectStores, revokeObjectStoreKeys, scopedStoragePolicy, settleRevocations,
   storageIntentFromNode, storageKeyIdRef, storageSecretRef, storageWorkloadEnv, unavailableStorageAdmin, type IamClientLike, type IamSdk, type ManagedStorageIntent,
 } from "@/lib/managed-serving/storage";
+import { createBrokeredIamAdminPort } from "@/lib/managed-serving/storage";
+import { CredentialDeniedError } from "@/lib/credentials/types";
 import { assertVaultScope } from "@/lib/secrets/resolver";
 import { FULL_ENV, TENANT, mkNode, substrate } from "../providers/zenith/support";
 import { FakeAdmin, MemoryKeyStore, MemorySink, bucketArn, evaluate, objectArn } from "./_support/storage";
@@ -335,6 +337,24 @@ function fakeIam(handlers: Record<string, (input: Record<string, unknown>) => Re
 const noSuchEntity = () => Object.assign(new Error("nope"), { name: "NoSuchEntityException", $metadata: { httpStatusCode: 404 } });
 const ADMIN_CRED = JSON.stringify({ accessKeyId: "AKIAADMINEXAMPLE0001", secretAccessKey: "admin-secret-value", sessionToken: "tok" });
 const config = { region: "us-east-1", endpoint: "https://iam.storage.example.com", credentialRef: "vault:zenith-managed/object-store-admin" };
+
+describe("the brokered admin port", () => {
+  it("runs every call inside a broker session and never sees a credential", async () => {
+    const fake = fakeIam({ ListAccessKeys: () => ({ AccessKeyMetadata: [{ AccessKeyId: "AKIAONE" }] }), DeleteAccessKey: () => ({}) });
+    let sessions = 0;
+    const port = createBrokeredIamAdminPort(async (fn) => { sessions++; return fn(fake.sdk.createClient({ region: "us-east-1", credentials: { accessKeyId: "x", secretAccessKey: "y" } })); });
+    expect(await port.listAccessKeys("u")).toEqual({ ok: true, value: ["AKIAONE"] });
+    expect((await port.deleteAccessKey("u", "AKIAONE")).ok).toBe(true);
+    expect(sessions).toBe(2);
+  });
+
+  it("reports a denied, revoked or unavailable session as unavailable, without the broker's text", async () => {
+    const port = createBrokeredIamAdminPort(async () => { throw new CredentialDeniedError("connection conn_secret_123 was revoked by alice@example.com"); });
+    const r = await port.deleteAccessKey("u", "AKIAONE");
+    expect(r).toMatchObject({ ok: false, error: { code: "unavailable" } });
+    expect(JSON.stringify(r)).not.toMatch(/conn_secret_123|alice/);
+  });
+});
 
 describe("the IAM adapter (contract, recording SDK)", () => {
   it("creates a tagged principal, puts exactly the scoped policy and resolves the credential from the vault per call", async () => {

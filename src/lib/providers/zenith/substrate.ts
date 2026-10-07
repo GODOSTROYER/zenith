@@ -92,6 +92,12 @@ export interface ZenithSubstrate {
      */
     iamEndpoint?: string;
     adminCredentialRef?: string;
+    /**
+     * Brokered revocation (PROD-MAN-03): `<workspaceId>/<connectionId>` of an AWS provider connection in the operator workspace
+     * whose session may delete tenant access keys. The durable job reaches the platform credential only through the credential
+     * broker with it (custody modes and revocation honoured); without it owed revocations raise an operator alert.
+     */
+    adminConnection?: { workspaceId: string; connectionId: string };
   };
   database?: {
     provider: "neon";
@@ -136,6 +142,7 @@ export const SUBSTRATE_ENV_VARS = [
   "ZENITH_MANAGED_OBJECT_STORAGE_CREDENTIAL_REF",
   "ZENITH_MANAGED_OBJECT_STORAGE_IAM_ENDPOINT",
   "ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CREDENTIAL_REF",
+  "ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CONNECTION",
   "ZENITH_MANAGED_DB_PROVIDER",
   "ZENITH_MANAGED_DB_API_BASE",
   "ZENITH_MANAGED_DB_API_KEY_REF",
@@ -275,8 +282,12 @@ function parseObjectStorage(r: Reader): ZenithSubstrate["objectStorage"] {
   const credentialRef = r.ref("ZENITH_MANAGED_OBJECT_STORAGE_CREDENTIAL_REF", false);
   const iamEndpoint = r.url("ZENITH_MANAGED_OBJECT_STORAGE_IAM_ENDPOINT", false);
   const adminCredentialRef = r.ref("ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CREDENTIAL_REF", false);
+  const connRaw = r.raw("ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CONNECTION");
+  const connMatch = connRaw === undefined ? undefined : /^([A-Za-z0-9_-]{1,100})\/([A-Za-z0-9_-]{1,100})$/.exec(connRaw);
+  if (connRaw !== undefined && !connMatch) r.fail("ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CONNECTION", "must be <workspaceId>/<connectionId>");
+  const adminConnection = connMatch ? { workspaceId: connMatch[1], connectionId: connMatch[2] } : undefined;
   if (endpoint === undefined || bucket === undefined) return undefined;
-  return { endpoint, bucket, prefixRoot, ...(region ? { region } : {}), ...(credentialRef ? { credentialRef } : {}), ...(iamEndpoint ? { iamEndpoint } : {}), ...(adminCredentialRef ? { adminCredentialRef } : {}) };
+  return { endpoint, bucket, prefixRoot, ...(adminConnection ? { adminConnection } : {}), ...(region ? { region } : {}), ...(credentialRef ? { credentialRef } : {}), ...(iamEndpoint ? { iamEndpoint } : {}), ...(adminCredentialRef ? { adminCredentialRef } : {}) };
 }
 
 function parseDatabase(r: Reader): ZenithSubstrate["database"] {

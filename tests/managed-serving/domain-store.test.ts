@@ -298,6 +298,18 @@ describe.each(STORE_KINDS.filter((k) => k !== "memory"))("custom domains [%s]", 
     expect(blocked.revocationsOwed).toBeGreaterThanOrEqual(1);
     expect(blocked.revocationsBlocked).toBe(blocked.revocationsOwed);
     expect(blocked.revoked).toBe(0);
+    // ...and an operator-visible incident is opened and escalated through the OBS-03 stability store
+    expect(blocked.alertsRaised).toBeGreaterThanOrEqual(1);
+    const incidents = await sql.query<{ escalated_at: unknown; source: string }>("select escalated_at, source from platform.incidents where workspace_id = $1 and source = 'managed-serving'", [A]);
+    expect(incidents.length).toBeGreaterThanOrEqual(1);
+    expect(incidents.every((i) => i.escalated_at !== null)).toBe(true);
+
+    // a delete that the provider did not actually carry out (the key is still listed) stays owed
+    const sticky = { id: "fake", availability: () => ({ available: true as const }), ensurePrincipal: async () => ({ ok: true as const, value: { created: false } }), readPolicyDigest: async () => ({ ok: true as const, value: undefined }), createAccessKey: async () => ({ ok: true as const, value: { accessKeyId: "x", secretAccessKey: "y" } }), listAccessKeys: async () => ({ ok: true as const, value: ["AKIAEXAMPLE1"] }), deleteAccessKey: async () => ({ ok: true as const, value: undefined }) };
+    const stuck = await managedServingPass(sql, { dns: systemDomainDns({ servers: [dns.server], timeoutMs: 250 }), clock: () => T0, baseDomain: BASE, storageAdmin: sticky });
+    expect(stuck.revoked).toBe(0);
+    expect(stuck.revocationsBlocked).toBeGreaterThanOrEqual(1);
+    expect((await repos.managedServing.listStorageKeys(sql, A, ENV_A)).find((k) => k.accessKeyId === "AKIAEXAMPLE1")!.status).toBe("revoke_pending");
 
     // with a working admin port the same pass settles them
     const deleted: string[] = [];

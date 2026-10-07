@@ -156,6 +156,7 @@ Absent optional components make their drivers answer `unavailable` or
 | `ZENITH_MANAGED_OBJECT_STORAGE_REGION` | no | storage region |
 | `ZENITH_MANAGED_OBJECT_STORAGE_CREDENTIAL_REF` | no | `vault:` reference to the platform's own credential (never handed to tenants) |
 | `ZENITH_MANAGED_OBJECT_STORAGE_IAM_ENDPOINT` | no | https endpoint of the IAM-compatible API used to create one scoped principal per tenant object store (absent = AWS IAM default) |
+| `ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CONNECTION` | no | `<workspaceId>/<connectionId>` of an AWS provider connection (operator workspace) the durable job uses, through the credential broker, to revoke owed tenant keys and read the revocation back; without it owed revocations raise an operator incident |
 | `ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CREDENTIAL_REF` | no | `vault:` reference to the IAM-admin credential that may create those principals; without it tenant object stores are unavailable |
 | `ZENITH_MANAGED_DB_PROVIDER` | no | `neon` is the only adapter |
 | `ZENITH_MANAGED_DB_API_BASE` | no | API base (default `https://console.neon.tech/api/v2`) |

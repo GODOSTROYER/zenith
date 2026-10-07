@@ -316,6 +316,11 @@ export interface IamAdminDeps {
   resolveSecret(ref: string): Promise<string | null | undefined>;
   /** injected for tests; production lazily imports the AWS SDK */
   loadSdk?(): Promise<IamSdk>;
+  /**
+   * Brokered mode: run `fn` with an IAM client obtained inside a credential-broker session (the credential never reaches this
+   * module, and the client is only valid inside the callback). When set, `resolveSecret` and `loadSdk` are not used.
+   */
+  withClient?<T>(fn: (client: IamClientLike) => Promise<T>): Promise<T>;
 }
 
 /** The slice of `@aws-sdk/client-iam` used here, so contract tests can supply a recording client. */
@@ -329,25 +334,36 @@ export interface IamClientLike {
 
 const MANAGED_TAG = { Key: "zenith-managed", Value: "tenant-object-store" };
 
-async function loadAwsSdk(): Promise<IamSdk> {
-  const mod = await import("@aws-sdk/client-iam");
+type IamModule = typeof import("@aws-sdk/client-iam");
+
+/** Wrap an AWS SDK IAM client in the narrow command interface used here. */
+export function wrapIamClient(mod: IamModule, client: { send(c: never): Promise<unknown>; destroy?(): void }): IamClientLike {
   const commands = {
     GetUser: mod.GetUserCommand, CreateUser: mod.CreateUserCommand, PutUserPolicy: mod.PutUserPolicyCommand, GetUserPolicy: mod.GetUserPolicyCommand,
     CreateAccessKey: mod.CreateAccessKeyCommand, ListAccessKeys: mod.ListAccessKeysCommand, DeleteAccessKey: mod.DeleteAccessKeyCommand, ListUserTags: mod.ListUserTagsCommand,
   } as const;
   return {
+    send: (command) => {
+      const Ctor = (commands as unknown as Record<string, new (i: never) => never>)[command.name];
+      if (!Ctor) throw new Error("unsupported IAM command");
+      return (client as unknown as { send(c: unknown): Promise<Record<string, unknown>> }).send(new Ctor(command.input as never));
+    },
+    destroy: () => client.destroy?.(),
+  };
+}
+
+async function loadAwsSdk(): Promise<IamSdk> {
+  const mod = await import("@aws-sdk/client-iam");
+  return {
     createClient(input) {
-      const client = new mod.IAMClient({ region: input.region, credentials: input.credentials, ...(input.endpoint ? { endpoint: input.endpoint } : {}), maxAttempts: 2 });
-      return {
-        send: (command) => {
-          const Ctor = (commands as unknown as Record<string, new (i: never) => never>)[command.name];
-          if (!Ctor) throw new Error("unsupported IAM command");
-          return (client as unknown as { send(c: unknown): Promise<Record<string, unknown>> }).send(new Ctor(command.input as never));
-        },
-        destroy: () => client.destroy(),
-      };
+      return wrapIamClient(mod, new mod.IAMClient({ region: input.region, credentials: input.credentials, ...(input.endpoint ? { endpoint: input.endpoint } : {}), maxAttempts: 2 }) as never);
     },
   };
+}
+
+/** The admin port over a brokered provider session: every call opens a fresh session through `withClient` (credential custody, revocation and audit are the broker's). */
+export function createBrokeredIamAdminPort(withClient: NonNullable<IamAdminDeps["withClient"]>): ObjectStorageAdminPort {
+  return createIamAdminPort({ region: "us-east-1", credentialRef: "brokered" }, { resolveSecret: async () => undefined, withClient });
 }
 
 function mapIamError(error: unknown): StorageError {
@@ -387,10 +403,12 @@ export function createIamAdminPort(config: IamAdminConfig | undefined, deps: Iam
     let c: IamClientLike | undefined;
     try {
       opts?.signal?.throwIfAborted();
+      if (deps.withClient) return { ok: true, value: await deps.withClient(fn) };
       c = await client();
       return { ok: true, value: await fn(c) };
     } catch (error) {
       const name = String((error as { name?: unknown } | null)?.name ?? "");
+      if (name === "CredentialDeniedError") return storageError("unavailable", "The platform storage credential could not be obtained (denied, revoked or unavailable).", false);
       if (name === "CredentialMissing" || name === "CredentialMalformed") return storageError("unavailable", "The IAM-admin credential could not be read from the vault.", false);
       return { ok: false, error: mapIamError(error) };
     } finally {

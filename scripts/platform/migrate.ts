@@ -25,6 +25,7 @@ import fs from "node:fs";
 import { ControlStoreError } from "@/lib/controlplane/db/errors";
 import { openPlatformDb, platformDbConfigFromEnv, type OpenPlatformDbOptions } from "@/lib/controlplane/db/open";
 import { assertPlatformSchemaCurrent, migratePlatformDb, platformSchemaStatus } from "@/lib/controlplane/db/migrator";
+import { assessPlatformMigration, contractViolations } from "@/lib/controlplane/db/compat";
 
 function loadDotEnvLocal(): void {
   try {
@@ -65,6 +66,16 @@ async function main(): Promise<number> {
     if (flags.has("--status")) return status.current ? 0 : 1;
     if (flags.has("--dry-run")) {
       process.stdout.write(status.pending.length ? `Would apply: ${pending}\n` : "Nothing to apply.\n");
+      // N-1/N compatibility class of each pending migration (src/lib/controlplane/db/compat.ts).
+      for (const m of status.pending) {
+        const a = assessPlatformMigration(m);
+        process.stdout.write(`  ${m.version}:${m.name} -> ${a.baseline ? `${a.class} (baseline, grandfathered)` : a.class}${a.findings.length ? ` [${a.findings.join("; ")}]` : ""}\n`);
+      }
+      const refused = contractViolations(status.pending);
+      if (refused.length > 0) {
+        process.stderr.write(`Would REFUSE: contract migration(s) without a registered approval: ${refused.map((r) => r.version).join(", ")}\n`);
+        return 1;
+      }
       return 0;
     }
 

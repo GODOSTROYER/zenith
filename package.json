@@ -42,6 +42,8 @@
     "hosted:backup-live-check": "tsx --env-file-if-exists=.env.local scripts/hosted/backup-live-check.ts",
     "hosted:acceptance": "tsx scripts/hosted-acceptance.ts",
     "hosted:browser": "tsx scripts/hosted-browser.ts",
+    "ops:upgrade": "node scripts/ops/rolling-upgrade.mjs",
+    "workflow-histories:check": "vitest run tests/workflows/history-replay.test.ts tests/workflows/versioning-audit.test.ts",
     "agent:acceptance": "tsx scripts/agent-acceptance.ts",
     "eval:coding-agent": "tsx scripts/eval/coding-agent.ts",
     "agent:browser": "tsx scripts/agent-browser.ts",

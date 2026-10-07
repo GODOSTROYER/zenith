@@ -183,6 +183,7 @@ export const RECONCILE_WORKFLOW_ID = (environmentId: string) => `reconcile-${env
 export const WORKFLOW_TYPES = {
   destroyReview: "teardownReviewWorkflow",
   deploy: "infrastructureDeployWorkflow",
+  destroy: "infrastructureDestroyWorkflow",
   dayTwo: "dayTwoOperationWorkflow",
   remediation: "remediationWorkflow",
   reconcile: "reconcileEnvironmentWorkflow",

@@ -26,6 +26,7 @@ import { PlatformDbError, PlatformSchemaError } from "./errors";
 import type { ExecSql, PlatformDbHandle } from "./executor";
 import { BOOTSTRAP_SQL } from "./migrations/bootstrap";
 import { PLATFORM_MIGRATIONS, migrationChecksum, type PlatformMigration } from "./migrations/index";
+import { assertPendingMigrationsCompatible } from "./compat";
 
 export interface AppliedMigration {
   version: number;
@@ -150,6 +151,9 @@ export async function migratePlatformDb(
   await bootstrap(db);
   const before = await platformSchemaStatus(db, migrations);
   if (before.tampered.length > 0) throw tamperedError(before);
+  // N-1/N contract (PROD-OPS-03): refuse before applying anything if a pending migration is a
+  // contract change without its registered LIFE-10 approval and operator confirmation.
+  assertPendingMigrationsCompatible(before.pending);
 
   const applied: number[] = [];
   const alreadyApplied = before.applied.filter((a) => migrations.some((m) => m.version === a.version)).map((a) => a.version);

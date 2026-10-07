@@ -12,6 +12,7 @@ import { bundleDefinitions, type BundlerKind } from "./bundle";
 import type { ExecutionWorkerConfig } from "./config";
 import type { Client } from "@temporalio/client";
 import { TASK_QUEUE } from "@/lib/workflows/types";
+import { workerDeploymentOptionsFor } from "@/lib/workflows/versioning";
 
 /** Where the TypeScript workflow definitions live, relative to this file. */
 export function defaultWorkflowsPath(): string {
@@ -74,6 +75,8 @@ export function workerOptions({ config, connection, activities, workflows }: Cre
     maxHeartbeatThrottleInterval: config.heartbeatThrottleMs,
     defaultHeartbeatThrottleInterval: config.heartbeatThrottleMs,
     workflowBundle: workflows.workflowBundle,
+    // Deployment-version routing for rolling upgrades; absent unless explicitly configured.
+    ...(config.versioning ? { workerDeploymentOptions: workerDeploymentOptionsFor(config.versioning) } : {}),
   };
 }
 

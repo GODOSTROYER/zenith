@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "commit": "cc9fb51bb639f1e7813a8ad4977b647b24e0d3ad",
+  "parent": "822e7867fd64603faf5091da43db975054528771",
+  "scope": "additive migration42; source-only review and embedded PostgreSQL checks, not native networked PostgreSQL acceptance",
+  "environment": {
+    "host": "Darwin native ARM64, 8 GiB RAM",
+    "node": "22.23.3",
+    "vitest": "4.1.11",
+    "docker": "stopped; no resources started"
+  },
+  "targeted": {
+    "passed": 8,
+    "failed": 0,
+    "filteredSiblings": 105,
+    "executed": [
+      {
+        "suite": "tests/controlplane/migration-compat.test.ts",
+        "name": "migration compatibility classification binds the authorized external-effect repair to exact SQL and an explicit drained-writer version",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migration set has contiguous versions from 1, unique names, and a stable checksum of the SQL text",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migration set preserves the checksums of shipped migrations 1 through 5",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migration set preserves the accepted SQL checksums 1 through 12 and derives the current schema from the canonical list",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migration set the emitted Supabase file is byte-identical to what the emitter renders now",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migration set rendering is deterministic",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migrator ['pglite'] repairs published external-effect key checks through an approved upgrade without changing history or authority",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/ci/platform-coverage.test.ts",
+        "name": "mandatory native custody, retention and Kubernetes target execution initializes canonical schema16 and agent prerequisites before the unchanged mandatory lane",
+        "status": "passed"
+      }
+    ]
+  },
+  "widerRun": {
+    "passed": 87,
+    "failed": 15,
+    "skipped": 11,
+    "failureClasses": [
+      "14 pre-existing stale mandatory gate-count assertions",
+      "ops_maintenance table wrongly included in tenant-table fixture"
+    ],
+    "scope": "three touched suites; overlaps targeted run; not summed"
+  },
+  "initialNewTestAttempt": {
+    "passed": 0,
+    "failed": 1,
+    "filteredSiblings": 25,
+    "cause": "fixture expected raw code23514; wrapper uses sqlstate23514; corrected assertions retain exact constraint names"
+  },
+  "checks": {
+    "eslint": "passed exit0 on eight touched TS files",
+    "emittedSql": "passed exit0; new0024 matches renderer",
+    "diffCheck": "passed",
+    "historicalFiles": "64 byte-identical to parent: migrations1-41 and SQL0001-0023",
+    "typecheck": "failed exit134, default2GiB heap exhausted; larger retry blocked by resource floor",
+    "nativePostgres": "not executed; resource-blocked",
+    "freshCi": "pending publication"
+  },
+  "storage": {
+    "freeGiB": 20.66,
+    "floorGiB": 22,
+    "shortfallGiB": 1.34,
+    "helperResult": "No safe useful recovery; protected resources unchanged"
+  },
+  "migration": {
+    "version": 42,
+    "name": "external_effect_key_bounds",
+    "sqlSha256": "3dcc8f12119594941f82dd749f5471fb2578f1d5c37ec09083491aa6dc91f4b2",
+    "operatorGate": "ZENITH_ALLOW_CONTRACT_MIGRATIONS=42 after draining prior writers; never permanent startup setting"
+  },
+  "releasePromotion": false
+}

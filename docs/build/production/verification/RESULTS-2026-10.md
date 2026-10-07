@@ -1,3 +1,12 @@
+## Additive migration42 repair, 7 October 2026
+
+Fix `cc9fb51bb639f1e7813a8ad4977b647b24e0d3ad`: published33 regex bound repaired by new42/0024; history untouched,
+exact SQL registration plus drained-writer flag retained. Focused8/0 with105
+filtered siblings; wider87/15/11 remains failed. Compilerexit134 at2GiB heap;
+ESLint/emission/history checks passed. Native PostgreSQL blocked20.66GiB vs22GiB
+floor; fresh CI pending. No requirement promotion. [Builder change and resume
+instructions](BUILDER-MIGRATION42-2026-10-07.md), [sanitized receipt](../evidence/PROD-CI-08/2026-10-07-migration42-local.json).
+
 ## Reduced-resource verification, 7 October 2026
 
 Local source `730c7ce099160b6454a38a4b7510145c9bb826f0`, Node22.23.3, native Darwin ARM64, real PostgreSQL16.15 ARM64 with verified TLS. Root serialized every heavy workload; workers reviewed source and receipts only. [Host and resource evidence](../evidence/PROD-CI-08/2026-10-07-reduced-resource-local.json).

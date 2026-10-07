@@ -1,3 +1,8 @@
+## Results: migration42 repair, 7 October 2026
+
+PROD-CI-08: in_progress; `cc9fb51bb639f1e7813a8ad4977b647b24e0d3ad`; local focused8/0/105filtered, nativePG/compiler/CI
+pending. [Results](verification/RESULTS-2026-10.md#additive-migration42-repair-7-october-2026).
+
 ## Incoming builder CI stop, 7 October 2026
 
 Merged newer builder source `c02c097e79de032e9414c104183961329e834c77`, preserving62 incoming commits and source80 verifier history. Current builder CI: **14 jobs passed /6 failed**; prior80bb7352 green result remains historical. CI08/09 reopened; ledger **10 verified /49 in progress /19 planned**, recomputed across78 rows. All criteria and four false release flags retained. [Every current job, counts and causes](verification/CI-2026-10-07-c02c097e.md), [stop and next work](verification/RESULTS-2026-10.md#incoming-builder-ci-stop-2026-10-07).

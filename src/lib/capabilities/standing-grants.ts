@@ -96,6 +96,8 @@ export interface StandingGrantStore {
   /** Give a reserved use back (the approval could not be recorded). */
   voidUse(input: { workspaceId: string; useId: string; at: Date }): Promise<boolean>;
   usesForOperation(workspaceId: string, operationId: string): Promise<StandingGrantUse[]>;
+  /** Usage history of one grant, newest first, bounded. */
+  usesForGrant(workspaceId: string, grantId: string, limit?: number): Promise<StandingGrantUse[]>;
 }
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -173,6 +175,14 @@ export class MemoryStandingGrantStore implements StandingGrantStore {
 
   async usesForOperation(workspaceId: string, operationId: string): Promise<StandingGrantUse[]> {
     return this.uses.filter((u) => u.workspaceId === workspaceId && u.operationId === operationId).map(clone);
+  }
+
+  async usesForGrant(workspaceId: string, grantId: string, limit = 50): Promise<StandingGrantUse[]> {
+    return this.uses
+      .filter((u) => u.workspaceId === workspaceId && u.grantId === grantId)
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
+      .slice(0, Math.max(1, Math.min(200, limit)))
+      .map(clone);
   }
 }
 
@@ -345,6 +355,15 @@ export async function listStandingGrants(deps: BrokerDeps, input: { workspaceId:
   const access = await memberAccess(deps, input.principal, input.workspaceId);
   const all = await store.list(input.workspaceId, { environmentId: input.environmentId, activeOnly: input.activeOnly, now: deps.clock.now() });
   return all.filter((g) => (!access.allowedEnvironmentIds || access.allowedEnvironmentIds.includes(g.environmentId)) && (!access.allowedProjectIds || !g.projectId || access.allowedProjectIds.includes(g.projectId)));
+}
+
+/** Usage history of one grant for any member who can see the grant. Operation ids only; nothing about the operation's content. */
+export async function listStandingGrantUsage(deps: BrokerDeps, input: { workspaceId: string; principal: Principal; grantId: string }): Promise<StandingGrantUse[]> {
+  const store = standingStore(deps);
+  await memberAccess(deps, input.principal, input.workspaceId);
+  const visible = await listStandingGrants(deps, { workspaceId: input.workspaceId, principal: input.principal });
+  if (!visible.some((g) => g.id === input.grantId)) throw notFound();
+  return store.usesForGrant(input.workspaceId, input.grantId);
 }
 
 /* ------------------------------- use at propose ----------------------------- */

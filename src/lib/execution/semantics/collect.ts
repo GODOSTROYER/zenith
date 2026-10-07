@@ -54,6 +54,7 @@ export async function collectSemanticsInputs(rt: Pick<Runtime, "d">, ec: ExecCon
   const assessment = migrate ? assessMigration({ declared: migrate.class as MigrationClass | undefined }) : undefined;
   const addresses = new Set(graph.nodes.map((n) => n.address));
   const transfers = ((await rt.d.resources.activeOwnershipTransfers?.(ec.workspaceId, ec.environmentId)) ?? []).filter((t) => addresses.has(t.address));
+  const adoptions = (await rt.d.portability?.adoptionFacts(ec.workspaceId, ec.environmentId)) ?? [];
   const backendFile = ws.files.find((f) => f.path === "backend.tf.json");
   return {
     revision: { id: revision?.id ?? null, deployedRevisionId: ec.product.environment.deployedRevisionId ?? null, manifestDigest: revision ? digest(revision.manifest) : null },
@@ -85,6 +86,7 @@ export async function collectSemanticsInputs(rt: Pick<Runtime, "d">, ec: ExecCon
     },
     ownership: { transfers: transfers.map((t) => ({ address: t.address, path: t.path, from: String(t.from), to: String(t.to), digest: t.digest })) },
     runbook: runbookOf(ec.op.proposal.input),
+    decommission: { adoptions: adoptions.map((a) => ({ address: a.address, externalId: a.externalId, status: a.status, lifecycle: a.lifecycle })) },
   };
 }
 

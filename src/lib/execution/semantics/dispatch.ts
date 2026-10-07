@@ -37,10 +37,11 @@ export async function recordReviewedSemantics(rt: Pick<Runtime, "d">, ec: ExecCo
  * the components that moved. With no store wired this is a no-op; with a store, a plan that has no
  * recorded semantics is refused rather than treated as unchanged.
  */
-export async function assertApprovedSemantics(rt: Pick<Runtime, "d">, ec: ExecContext, args: CollectArgs & { planDigest: string }, stage: string): Promise<void> {
+export async function assertApprovedSemantics(rt: Pick<Runtime, "d">, ec: ExecContext, args: CollectArgs & { planDigest: string }, stage: string, opts: { operationId?: string } = {}): Promise<void> {
   const store = rt.d.semantics;
   if (!store) return;
-  const approved = await store.get(ec.workspaceId, ec.op.id, args.planDigest);
+  // A teardown operation reuses the plan another (read-only review) operation recorded; that operation holds the row.
+  const approved = await store.get(ec.workspaceId, opts.operationId ?? ec.op.id, args.planDigest);
   if (!approved) throw new StepFailedError("No executable semantics were recorded for the reviewed plan, so nothing was dispatched. Plan again and have the new plan approved.");
   const current = await collectExecutableSemantics(rt, ec, args);
   assertSemanticsMatch(approved.semantics, current, stage);

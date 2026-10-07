@@ -269,6 +269,21 @@ describe.each(STORE_KINDS)("standing grants [%s]", (kind) => {
     });
   });
 
+  describe("usage history", () => {
+    it("lists the operations a grant approved, newest first, to any member, and only for a visible grant", async () => {
+      const h = await makeHarness({ kind, engine: engine() });
+      const g = await create(h);
+      const a = await proposeRestart(h);
+      const b = await proposeRestart(h);
+      const uses = await h.broker.listStandingGrantUsage({ workspaceId: h.ids.wsA, principal: user("carol"), grantId: g.id });
+      expect(uses.map((u) => u.operationId).sort()).toEqual([a.operation.id, b.operation.id].sort());
+      expect(uses).toHaveLength(2);
+      expect(uses.every((u) => u.principalKey === `integration:${h.ids.intRW}` && u.approvalId)).toBe(true);
+      await expectBrokerError(h.broker.listStandingGrantUsage({ workspaceId: h.ids.wsA, principal: user("carol"), grantId: "nope" }), "not_found");
+      await expectBrokerError(h.broker.listStandingGrantUsage({ workspaceId: h.ids.wsA, principal: user("mallory"), grantId: g.id }), "not_found");
+    });
+  });
+
   describe("listing and tenancy", () => {
     it("lists to any member, filters by environment and activity, and never crosses workspaces", async () => {
       const h = await makeHarness({ kind, engine: engine() });

@@ -35,6 +35,7 @@ const semantics = computeExecutableSemantics({
   provenance: { pipelines: [] },
   ownership: { transfers: [] },
   runbook: null,
+  decommission: { adoptions: [] },
 });
 
 async function gated(withSemantics: boolean) {
@@ -63,7 +64,7 @@ describe("approval binds the canonical executable semantics", () => {
     const { h, op } = await gated(true);
     const detail = await h.broker.getOperationDetail({ workspaceId: h.ids.wsA, operationId: op.id, principal: user("erin") });
     expect(detail.planReview?.semantics?.digest).toBe(semantics.digest);
-    expect(Object.keys(detail.planReview!.semantics!.components)).toHaveLength(12);
+    expect(Object.keys(detail.planReview!.semantics!.components)).toHaveLength(13);
   });
 
   it("refuses an approval that omits the semantics digest", async () => {

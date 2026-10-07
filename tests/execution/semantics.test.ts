@@ -54,6 +54,7 @@ function base(): ExecutableSemanticsInputs {
     },
     ownership: { transfers: [{ address: "container_service/web", path: "desired_count", from: "iac", to: "autoscaler", digest: h("1") }] },
     runbook: { runbookId: "rb_1", version: 3, definitionDigest: h("2") },
+    decommission: { adoptions: [{ address: "postgres/db", externalId: "db-1", status: "active", lifecycle: "manage" }] },
   };
 }
 
@@ -67,7 +68,7 @@ describe("canonical executable semantics digest", () => {
     expect(a.format).toBe(SEMANTICS_FORMAT);
     expect(a.digest).toMatch(/^[0-9a-f]{64}$/);
     expect(Object.keys(a.components).sort()).toEqual([...SEMANTIC_COMPONENTS].sort());
-    expect([...SEMANTIC_COMPONENTS]).toEqual(["revision", "recipe", "scripts", "migrations", "targets", "configuration", "providerLocks", "backend", "savedPlan", "provenance", "ownership", "runbook"]);
+    expect([...SEMANTIC_COMPONENTS]).toEqual(["revision", "recipe", "scripts", "migrations", "targets", "configuration", "providerLocks", "backend", "savedPlan", "provenance", "ownership", "runbook", "decommission"]);
   });
 
   // Every input the requirement names, and each one's own component must be the only one that moves.
@@ -108,6 +109,9 @@ describe("canonical executable semantics digest", () => {
     ["a revoked ownership transfer", "ownership", (i) => { i.ownership.transfers = []; }],
     ["the runbook version (MACH-03)", "runbook", (i) => { i.runbook!.version = 4; }],
     ["the runbook definition", "runbook", (i) => { i.runbook!.definitionDigest = h("3"); }],
+    ["an adoption claim upgraded to destroy (LIFE-11)", "decommission", (i) => { i.decommission.adoptions[0].lifecycle = "manage_and_destroy"; }],
+    ["an adoption released", "decommission", (i) => { i.decommission.adoptions[0].status = "released"; }],
+    ["a new adoption claim", "decommission", (i) => { i.decommission.adoptions.push({ address: "bucket/x", externalId: "x", status: "active", lifecycle: "manage" }); }],
     ["a runbook appearing", "runbook", (i) => { i.runbook = null; }],
   ];
 

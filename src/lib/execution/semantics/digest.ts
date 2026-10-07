@@ -20,6 +20,7 @@
  *                   signed build provenance itself is produced AFTER approval and is verified against the recipe at admission
  *   ownership       the active field-ownership transfers in force (LIFE-12)
  *   runbook         the signed runbook version and definition digest the operation names (MACH-03)
+ *   decommission    the adoption claims (address, external id, status, lifecycle) that decide what a delete may touch (LIFE-11)
  *
  * Each component is hashed on its own so a refusal can name WHICH input moved
  * (component names only, never values). The overall digest hashes the component
@@ -46,6 +47,7 @@ export const SEMANTIC_COMPONENTS = [
   "provenance",
   "ownership",
   "runbook",
+  "decommission",
 ] as const;
 export type SemanticComponentName = (typeof SEMANTIC_COMPONENTS)[number];
 
@@ -86,6 +88,7 @@ export interface ExecutableSemanticsInputs {
   provenance: { pipelines: PipelineProvenanceSemantics[] };
   ownership: { transfers: OwnershipTransferSemantics[] };
   runbook: { runbookId: string; version: number; definitionDigest: string } | null;
+  decommission: { adoptions: { address: string; externalId: string; status: string; lifecycle: string }[] };
 }
 
 export type SemanticsComponents = Readonly<Record<SemanticComponentName, string>>;
@@ -125,6 +128,8 @@ export function normalizedComponent(name: SemanticComponentName, inputs: Executa
       return { transfers: byKey(inputs.ownership.transfers, (t) => `${t.address}\u0000${t.path}\u0000${t.digest}`) };
     case "runbook":
       return inputs.runbook;
+    case "decommission":
+      return { adoptions: byKey(inputs.decommission.adoptions, (a) => a.address + "\u0000" + a.externalId) };
   }
 }
 

@@ -26,6 +26,8 @@ import { LeaseLostError, StepFailedError, TofuPlanChangedError } from "./errors"
 import { withKeepAlive } from "./keepalive";
 import { planEvidence, toPlanSummary } from "./plan-evidence";
 import { planCustody, type Runtime } from "./runtime";
+import { assertApprovedSemantics, recordReviewedSemantics } from "./semantics/dispatch";
+import { SemanticsChangedError } from "./semantics/errors";
 import { driverContext, LONG_SESSION_SEC, OBSERVE_CAPABILITY, PLAN_CAPABILITY, withProviderSession } from "./session";
 import { safeText } from "./text";
 import { buildDesiredState } from "./graph";
@@ -114,6 +116,11 @@ function directPlan(rt: Runtime, ec: ExecContext, graph: ResourceGraph, result: 
     empty: result.deleted.length === 0, diagnostics: [], createdAt: rt.now().toISOString() };
 }
 
+/** The operation whose planning recorded the reviewed semantics: a teardown reuses its source review's plan. */
+const semanticsOperation = (ec: ExecContext): string => (ec.op.proposal as { broker?: { destroyPlan?: { operationId?: string } } }).broker?.destroyPlan?.operationId ?? ec.op.id;
+/** Provider-direct teardown has no rendered workspace; the graph digest and the contract stand in for configuration and locks. */
+const directWorkspace = (graph: ResourceGraph) => ({ files: [], configDigest: graph.graphDigest, lockDigest: digest({ contract: "provider-teardown/C1" }), backend: "local" as const });
+
 async function directPlanStage(rt: Runtime, ec: ExecContext, graph: ResourceGraph, lease: LeaseRef, ports: DestroyProviderPorts, approvedDigest?: string): Promise<PlanSummary> {
   const result = await directCall(rt, ec, graph, lease, ports, true);
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
@@ -124,6 +131,10 @@ async function directPlanStage(rt: Runtime, ec: ExecContext, graph: ResourceGrap
     summary: { ...evidence.summary, engine: "provider-teardown", destroy: true, destroyAddresses: result.deleted, retained: result.retained, statefulDeletes: facts.destroyedStatefulAddresses } }, { critical: false });
   const expected = approvedDigest ?? ec.op.planDigest;
   if (expected && expected !== plan.planDigest) throw new TofuPlanChangedError(expected, plan.planDigest);
+  // PROD-DUR-03: the executable semantics of a teardown are recorded at review and must be identical at every later stage.
+  const directArgs = { graph, connection: { id: ec.product.environment.connectionId, config: null }, ws: directWorkspace(graph), planDigest: plan.planDigest };
+  if (approvedDigest || ec.op.planDigest) await assertApprovedSemantics(rt, ec, directArgs, "teardown dispatch", { operationId: semanticsOperation(ec) });
+  else await recordReviewedSemantics(rt, ec, directArgs);
   if (!approvedDigest) await rt.d.ops.setPlanDigest({ workspaceId: ec.workspaceId, operationId: ec.op.id, planDigest: plan.planDigest });
   return toPlanSummary(plan, facts, {});
 }
@@ -223,6 +234,7 @@ async function planStage(rt: Runtime, operationId: string, lease: LeaseRef, port
   if (destroyRef && (!destroyRef.operationId || !destroyRef.evidenceId || !originalDigest || originalDigest!==ec.op.proposal.planDigest || originalDigest!==ec.op.planDigest)) throw new StepFailedError("The source destroy review is unavailable; a new review is required.");
   const connection = await resolveConnection(rt, ec);
   const { ws } = buildWorkspace({ ec, graph, connection, drivers: rt.drivers, overrides: rt.d.tofuWorkspace });
+  const semanticsArgs = (plan: NormalizedPlan) => ({ graph, connection, ws, planDigest: plan.planDigest });
   const result = await withKeepAlive(rt, { lease, detail: "tofu destroy plan", operation: { workspaceId: ec.workspaceId, operationId } }, (signal) =>
     withProviderSession(rt, ec, { purpose: "observe", capability: PLAN_CAPABILITY, fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
       await guardDns(rt, ec, graph.nodes, session, signal, lease);
@@ -242,7 +254,11 @@ async function planStage(rt: Runtime, operationId: string, lease: LeaseRef, port
   const destroyAddresses = graph.nodes.filter((node) => node.ownership === "managed").map((node) => node.address).sort();
   if (approvedDigest && result.plan.planDigest !== approvedDigest) throw new TofuPlanChangedError(approvedDigest, result.plan.planDigest);
   if (!approvedDigest && ec.op.planDigest && ec.op.planDigest !== result.plan.planDigest) throw new TofuPlanChangedError(ec.op.planDigest, result.plan.planDigest);
-  const summary = { ...evidence.summary, destroy: true, destroyAddresses, statefulDeletes: facts.destroyedStatefulAddresses };
+  // PROD-DUR-03: record at review, compare at every later stage (the source review operation holds the row).
+  let semantics: Awaited<ReturnType<typeof recordReviewedSemantics>> | undefined;
+  if (originalDigest) await assertApprovedSemantics(rt, ec, semanticsArgs(result.plan), "destroy final plan", { operationId: semanticsOperation(ec) });
+  else semantics = await recordReviewedSemantics(rt, ec, semanticsArgs(result.plan));
+  const summary = { ...evidence.summary, destroy: true, destroyAddresses, statefulDeletes: facts.destroyedStatefulAddresses, ...(semantics ? { semantics } : {}) };
   if (!rt.d.planArtifacts) throw new StepFailedError("Durable reviewed-plan custody is required.");
   if (!originalDigest) await rt.d.planArtifacts.publish({ produced: result.produced, lease, evidence: {
     id: `evd_${digest({ w: ec.scope.id, kind: "tofu_plan", key: `destroy:${evidence.key}` }).slice(0,32)}`,
@@ -318,6 +334,8 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
                 const freshConnection = await resolveConnection(rt,freshContext.ec);
                 const freshWorkspace = buildWorkspace({ec:freshContext.ec,graph:freshContext.graph,connection:freshConnection,drivers:rt.drivers,overrides:rt.d.tofuWorkspace}).ws;
                 if (digest(planCustody(freshContext.ec,freshContext.graph.graphDigest,freshConnection)) !== digest(custody) || digest(freshWorkspace) !== digest(ws)) throw new StepFailedError("Reviewed destroy provenance changed; a new review is required.");
+                // PROD-DUR-03: targets, locks, backend, adoption claims and ownership must equal what the reviewer approved.
+                await assertApprovedSemantics(rt, freshContext.ec, { graph: freshContext.graph, connection: freshConnection, ws: freshWorkspace, planDigest }, "destroy dispatch", { operationId: semanticsOperation(freshContext.ec) });
                 const current = await checkDestroyApproval(rt, operationId);
                 if (!current.approved || current.rejected) throw new StepFailedError("The human approval is no longer valid.");
                 await guardDns(rt, freshContext.ec, freshContext.graph.nodes, session, signal, lease);
@@ -334,7 +352,7 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
         // Resource status stays unconfirmed until observation proves absence.
         return { deleted: result.plan.summary.delete };
       } catch (err) {
-        if (err instanceof TofuPlanChangedError || err instanceof StepFailedError) throw err;
+        if (err instanceof TofuPlanChangedError || err instanceof StepFailedError || err instanceof SemanticsChangedError) throw err;
         if (err instanceof TofuDeletionRefusedError) throw new StepFailedError(err.message);
         if (!started && err instanceof TofuPlanProvenanceError) throw new StepFailedError("Reviewed plan provenance changed; a new review is required.");
         if (started) await rt.d.ops.markUncertain({ workspaceId: ec.workspaceId, operationId, reason: "Teardown did not complete; resource absence is unconfirmed." }).catch(() => undefined);

@@ -29,6 +29,7 @@ function inputs(over: Partial<ExecutableSemanticsInputs> = {}): ExecutableSemant
     provenance: { pipelines: [] },
     ownership: { transfers: [] },
     runbook: null,
+    decommission: { adoptions: [] },
     ...over,
   };
 }
@@ -228,6 +229,8 @@ describe.each(LANES)("approved semantics and standing grants [$name]", (lane) =>
       expect(await grants.attachApproval({ workspaceId: ws, useId: reserved.use.id, approvalId: "apr_2" })).toBe(false);
       expect(await grants.voidUse({ workspaceId: ws, useId: reserved.use.id, at: new Date() })).toBe(false);
       expect((await grants.usesForOperation(ws, o.id))[0]).toMatchObject({ approvalId: "apr_1", grantId: g.id });
+      expect((await grants.usesForGrant(ws, g.id)).map((u) => u.id)).toEqual([reserved.use.id]);
+      expect(await grants.usesForGrant(newWorkspace(), g.id)).toEqual([]);
       expect((await grants.get(ws, g.id))?.uses).toBe(1);
       await expect(ctx.db.query("update platform.standing_grant_uses set approval_id = 'apr_9' where workspace_id = $1 and id = $2", [ws, reserved.use.id])).rejects.toThrow(/attached once/);
     });

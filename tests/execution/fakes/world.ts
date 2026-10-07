@@ -16,6 +16,7 @@ import type { Sealed } from "@/lib/secrets";
 import type { ApprovedPlan, ProducedPlan } from "@/lib/tofu/engine";
 import type { BrokerPort, CostPort, ExecutionDeps, ExecutionLimits, PlanArtifactsPort, TofuPort } from "@/lib/execution/ports";
 import type { LeaseRef, ReconcileActivities } from "@/lib/workflows/types";
+import { MemorySemanticsStore } from "@/lib/execution/semantics/store";
 import { FakeBroker, FakeCredentialBroker } from "./broker";
 import { genericDrivers, type DriverScript } from "./drivers";
 import { ENV, OP } from "./fixtures";
@@ -43,8 +44,8 @@ export interface WorldOptions {
   withoutRelease?: boolean;
   /** the release pipeline service (PROD-LIFE-10); absent means the legacy release behaviour */
   releaseSafety?: import("@/lib/release-safety").ReleaseSafetyService;
-  /** the approved executable-semantics store (PROD-DUR-03); absent means the legacy dispatch behaviour */
-  semantics?: import("@/lib/execution/semantics/store").SemanticsStore;
+  /** the approved executable-semantics store (PROD-DUR-03). On by default, like the production composition; `null` opts a test out to prove the legacy behaviour. */
+  semantics?: import("@/lib/execution/semantics/store").SemanticsStore | null;
   /** seed the operation (default: an approved deployment.deploy) */
   op?: Parameters<FakeOps["seed"]>[0];
 }
@@ -179,7 +180,7 @@ export function createWorld(opts: WorldOptions = {}): World {
     provenance,
     buildIsolation: { allowOpenEgress: false },
     ...(opts.releaseSafety ? { releaseSafety: opts.releaseSafety } : {}),
-    ...(opts.semantics ? { semantics: opts.semantics } : {}),
+    ...(opts.semantics === null ? {} : { semantics: opts.semantics ?? new MemorySemanticsStore() }),
     heartbeat: (detail) => heartbeats.push(detail),
     ...(opts.signal ? { activitySignal: () => opts.signal } : {}),
     clock: () => new Date(NOW),

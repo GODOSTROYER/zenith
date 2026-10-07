@@ -143,6 +143,10 @@ export function createPlatformStandingGrantStore(db: Sql): StandingGrantStore {
       const rows = await db.query<Row>(`select ${USE_COLS} from platform.standing_grant_uses where workspace_id = $1 and operation_id = $2 order by created_at, id limit 100`, [workspaceId, operationId]);
       return rows.map(useOf);
     },
+    async usesForGrant(workspaceId: string, grantId: string, limit = 50): Promise<StandingGrantUse[]> {
+      const rows = await db.query<Row>(`select ${USE_COLS} from platform.standing_grant_uses where workspace_id = $1 and grant_id = $2 order by created_at desc, id limit $3`, [workspaceId, grantId, Math.max(1, Math.min(200, limit))]);
+      return rows.map(useOf);
+    },
   };
   return store;
 }

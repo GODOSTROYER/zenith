@@ -34,7 +34,7 @@ import { beginExecution, completeExecution, markUncertain } from "./execution";
 import { CredentialGrantSigner } from "./credential-signer";
 import { MemoryBrokerStore } from "./memory-store";
 import { PlatformBrokerStore } from "./platform-store";
-import { createStandingGrant, listStandingGrants, revokeStandingGrant } from "./standing-grants";
+import { createStandingGrant, listStandingGrants, listStandingGrantUsage, revokeStandingGrant } from "./standing-grants";
 import { cancelOperation, getOperationDetail, listOperationEvents, listOperations } from "./operations";
 import { getWorkspacePolicy, setWorkspacePolicy } from "./policy-settings";
 import { systemClock, type BrokerDeps, type BrokerStore, type GrantSigner, type RoleResolver, type ScopeResolver } from "./ports";
@@ -69,6 +69,7 @@ export interface Broker {
   createStandingGrant(...args: Args<typeof createStandingGrant>): ReturnType<typeof createStandingGrant>;
   revokeStandingGrant(...args: Args<typeof revokeStandingGrant>): ReturnType<typeof revokeStandingGrant>;
   listStandingGrants(...args: Args<typeof listStandingGrants>): ReturnType<typeof listStandingGrants>;
+  listStandingGrantUsage(...args: Args<typeof listStandingGrantUsage>): ReturnType<typeof listStandingGrantUsage>;
 }
 
 export function createBroker(deps: BrokerDeps): Broker {
@@ -94,6 +95,7 @@ export function createBroker(deps: BrokerDeps): Broker {
     createStandingGrant: (...a) => createStandingGrant(deps, ...a),
     revokeStandingGrant: (...a) => revokeStandingGrant(deps, ...a),
     listStandingGrants: (...a) => listStandingGrants(deps, ...a),
+    listStandingGrantUsage: (...a) => listStandingGrantUsage(deps, ...a),
   };
 }
 

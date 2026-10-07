@@ -23,7 +23,7 @@ afterEach(() => {
 
 function world(withStore = true): { w: World; store: MemorySemanticsStore } {
   const store = new MemorySemanticsStore();
-  const w = createWorld(withStore ? { semantics: store } : {});
+  const w = createWorld({ semantics: withStore ? store : null });
   w.product.setManifest(bucketManifest());
   // Explicit isolated human-authority fixture; the real broker's dispatch authority is tested in tests/capabilities.
   w.broker.approval = { approved: true, rejected: false, approvalId: "isolated-reviewed-human-fixture" };
@@ -211,7 +211,7 @@ describe("release steps: build, rollout and migration dispatch", () => {
   });
 
   it("a legacy worker without the store dispatches as before", async () => {
-    const w = createWorld({ releaseSafety: new ReleaseSafetyService({ store: createMemoryReleaseStore(), verifiers: [verifier], minProvenance: "pinned_digest" }) });
+    const w = createWorld({ semantics: null, releaseSafety: new ReleaseSafetyService({ store: createMemoryReleaseStore(), verifiers: [verifier], minProvenance: "pinned_digest" }) });
     worlds.push(w);
     const manifest = migratingManifest();
     manifest.release = { migrate: { ...manifest.release!.migrate!, class: "expand" } };

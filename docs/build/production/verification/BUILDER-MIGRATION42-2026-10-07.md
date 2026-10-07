@@ -78,3 +78,20 @@ Sanitized receipt: `evidence/PROD-CI-08/2026-10-07-migration42-local.json`.
   migration change. Never relax guards to clear these failures.
 - Default OBS02/MACH04/operator journey and full native container acceptance remain
   open. No cloud/DNS/privateGitHubApp authorization; no release promotion.
+
+## Post-publication follow-up
+
+Publication39364bf4 started three exact-SHA CI runs:37663153252(main),
+37663153110(native platforms),37663152996(native workers). PostgreSQL/bootstrap
+passed; complete job set remains pending. Generated lane reported103 passed /
+7 failed /0 skipped: six prior documentation failures plus a missed42 inventory
+row introduced by this repair. Inventory/count/checksum correction now passes
+its exact focused documentation test:1 passed /0 failed /58 filtered siblings.
+No assertions weakened; final corrected publication requires fresh exact-SHA CI.
+
+Fresh five effects suites on39364bf4:89 passed /2 failed /0 skipped (embedded
+PostgreSQL/protocol fixtures, not live providers). Ledger35/0/0, build-launch13/0/0,
+routes13/0/0; provider-resolvers10/1/0 and resolvers18/1/0. Remaining failures:
+Azure ACR Tasks readback HTTP404 and cleanup readback returns present where
+unavailable was expected. Preserve as builder findings; migration regex errors
+no longer appear in these suites. Counts overlap other lanes and are not summed.

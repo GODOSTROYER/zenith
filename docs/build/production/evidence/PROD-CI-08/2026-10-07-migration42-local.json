@@ -93,5 +93,33 @@
     "sqlSha256": "3dcc8f12119594941f82dd749f5471fb2578f1d5c37ec09083491aa6dc91f4b2",
     "operatorGate": "ZENITH_ALLOW_CONTRACT_MIGRATIONS=42 after draining prior writers; never permanent startup setting"
   },
-  "releasePromotion": false
+  "releasePromotion": false,
+  "postPublication": {
+    "commit": "39364bf4fcdacedc04f8899374dc321c333acda2",
+    "effects": {
+      "passed": 89,
+      "failed": 2,
+      "skipped": 0,
+      "environment": "embedded PostgreSQL and protocol fixtures; not real cloud engines",
+      "failures": [
+        "Azure ACR Tasks readback HTTP404",
+        "cleanup readback present versus unavailable"
+      ]
+    },
+    "ci": {
+      "runIds": [
+        37663153252,
+        37663153110,
+        37663152996
+      ],
+      "status": "pending complete inspection; PostgreSQL bootstrap job passed",
+      "generated": "103 passed /7 failed /0 skipped; six historical doc failures plus missed42 inventory"
+    },
+    "inventoryCorrection": {
+      "passed": 1,
+      "failed": 0,
+      "filteredSiblings": 58,
+      "scope": "corrected DEPLOYING registry/count/checksum; working-tree document check; no test changes"
+    }
+  }
 }

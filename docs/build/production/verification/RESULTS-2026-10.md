@@ -1,7 +1,10 @@
 ## Additive migration42 repair, 7 October 2026
 
 Fix `cc9fb51bb639f1e7813a8ad4977b647b24e0d3ad`: published33 regex bound repaired by new42/0024; history untouched,
-exact SQL registration plus drained-writer flag retained. Focused8/0 with105
+exact SQL registration plus drained-writer flag retained. Fresh effects on39364bf4:
+89 passed /2 failed /0 skipped; Azure404 and cleanup readback findings retained.
+Generated CI caught missed42 documentation inventory; focused correction1/0 with58
+filtered siblings passes. Complete corrected-source CI pending. Focused8/0 with105
 filtered siblings; wider87/15/11 remains failed. Compilerexit134 at2GiB heap;
 ESLint/emission/history checks passed. Native PostgreSQL blocked20.66GiB vs22GiB
 floor; fresh CI pending. No requirement promotion. [Builder change and resume

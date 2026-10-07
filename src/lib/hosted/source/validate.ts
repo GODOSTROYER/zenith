@@ -276,6 +276,23 @@ export function validateSource(input: SourceInput): ValidatedSource {
       );
   }
 
+  // Two entries that name one location on a case-insensitive or normalizing filesystem, or a path that is both a file and
+  // a directory, would materialize differently from the pinned digest (the second write wins) or fail unclassified.
+  const fileNames = new Set(files.map((f) => f.path));
+  const folded = new Map<string, string>();
+  for (const entry of [...files.map((f) => f.path), ...scan.dirs]) {
+    const key = entry.normalize("NFC").toLowerCase();
+    const prior = folded.get(key);
+    if (prior !== undefined && prior !== entry) reasons.push(`${entry}: collides with ${prior} on a case-insensitive or Unicode-normalizing filesystem. Rename one of them.`);
+    else folded.set(key, entry);
+  }
+  for (const dir of scan.dirs) if (fileNames.has(dir)) reasons.push(`${dir}: is both a file and a directory in this submission.`);
+  for (const entry of [...files.map((f) => f.path), ...scan.dirs]) {
+    for (let at = entry.indexOf("/"); at !== -1; at = entry.indexOf("/", at + 1)) {
+      if (fileNames.has(entry.slice(0, at))) reasons.push(`${entry}: sits under ${entry.slice(0, at)}, which is a file in this submission.`);
+    }
+  }
+
   const indexHtml = byName.get("index.html");
   if (!indexHtml) reasons.push("index.html is missing from the source root. Add the entry document.");
 

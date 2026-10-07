@@ -51,8 +51,7 @@ this work closes:
 - `substrateConnectionConfig` (used when a session is opened for a tenant) uses the per-tenant credential
   reference when `ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX` is set.
 - The bundle reaches a cluster through `scripts/isolation/render-tenant-bundle.ts` and the acceptance suite, both
-  using the bootstrap identity or the admin kubeconfig. **It is not applied by the control plane's executor.** That
-  is deliberate: the Kubernetes provider's apply set (`KIND_INFO`) has no Cilium kinds and its RBAC validator accepts
+  using the bootstrap identity or the admin kubeconfig. **The control plane's own apply path (`apply.ts` of the managed provider) does not apply it; the provisioner in section 8 does.** The original reason stands: the Kubernetes provider's apply set (`KIND_INFO`) has no Cilium kinds and its RBAC validator accepts
   only exact-name workload-identity Roles; widening it would change prune and teardown behaviour that other
   waves verified. The join is MAN-01's apply path calling `bundleObjects(result.isolation)` with the bootstrap
   identity. Until then a Cilium substrate renders a baseline with no public egress and the CiliumNetworkPolicy must
@@ -148,10 +147,9 @@ validated List; exit 3 names the violated rule.
    test names and restores it afterward. The Cilium behaviours asserted (deny beats allow for a name that resolves to
    metadata; per-tenant FQDN cache separation) are the most likely thing to differ by Cilium version: a failure there
    is a finding, not necessarily a test bug.
-4. **The isolation bundle is not applied by the control plane.** See "How it is reached". The Cilium and RBAC kinds
-   are applied only by the bootstrap path (script, suite). Per-tenant token minting and storage under the vault
-   prefix is not built, so setting `ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX` today makes sessions look up
-   credentials nobody has stored; leave it unset until MAN-01/MACH-02 mint them. With it unset the render notes say
+4. **The provisioner (section 8) is built but nobody calls it yet**: MAN-01 does at the join. Until then setting
+   `ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX` makes sessions look up credentials nobody has stored; leave it unset until
+   onboarding provisions them. With it unset the render notes say
    operator separation is not active.
 5. **Route attachment is not exercised live** (no Gateway API CRDs on kind): route hijack is proven at the gate and by
    RBAC refusals only.
@@ -192,3 +190,80 @@ control plane executor, token minting, Gateway API attachment proof and any sand
 PROD-MAN-05: `limits_and_load_test_built_live_unrun` - ephemeral-storage limits added, PID, CPU, memory and disk
 bounds and a victim-latency load test are written for kind; not run; latency bound provisional; IOPS, bandwidth and
 shared-service load are documented as unbounded.
+
+## 8. Follow-up: the bundle is applied by the product (same branch)
+
+Coordinator request: the isolation bundle must be applied by the product, not only by a script; per-tenant tokens must
+reuse the MACH-02 minter.
+
+### Built
+
+| Piece | File |
+|---|---|
+| Platform apply set of the Kubernetes provider: ClusterRole, ClusterRoleBinding, CiliumNetworkPolicy, plus Role/RoleBinding that are not exact-name, accepted only with a `platform` vet; ResourceQuota, LimitRange, ServiceAccount, NetworkPolicy, Namespace were already in the set. `KIND_INFO` / `APPLY_ORDER` are unchanged on purpose (prune, teardown and observe iterate them and would start listing cluster RBAC and a CRD on every cluster). | `src/lib/providers/kubernetes/platform-kinds.ts`, `apply.ts` (`ApplyOptions.platform`) |
+| `provisionTenantIsolation`: `createTenantIsolationProvisioner` with `plan`, `apply`, `provision`, `rotateCredential` | `src/lib/execution/tenant-isolation.ts` |
+| The interface MAN-01 calls, the error type, the request digest for the onboarding operation's proposal | `src/lib/providers/zenith/onboarding.ts` |
+| MACH-02 minter reuse: the TokenRequest half of `mintGuestCredential` factored into `requestVerifiedToken` (clamp 600..3600 s, audience-bound request, claims checked against ServiceAccount name and UID); `mintGuestCredential` now calls it, no behaviour change; the operator token uses the same function and the same `GuestClusterPort` (`ensureServiceAccount` for the UID, `requestToken`) | `src/lib/providers/kubernetes/guest.ts` |
+| Effect family `isolation_apply` (the ledger needs the family in its CHECK) | migration `0050_tenant_isolation_effects.ts` (version 50), `effects/types.ts`, `effects/view.ts` |
+| Operator ClusterRole renamed `zop-ns-<namespace>` (the old name exceeded 63 characters, which the provider's DNS-label rule refuses) | `isolation-bundle.ts` |
+| Contract fake gains ClusterRole, ClusterRoleBinding and the cilium.io/v2 group | `tests/providers/kubernetes/fake-api.ts` |
+| Tests | `tests/execution/tenant-isolation.test.ts` |
+
+### The interface MAN-01 calls (`TenantIsolationProvisioner`)
+
+```
+plan(request)                       -> { planDigest, bundleDigest, namespace, objects[{kind,namespace,name,action}], notes }
+apply(request, approvedPlanDigest)  -> { planDigest, bundleDigest, namespace, applied, verified, credential:{ref,expiresAt}, deduplicated }
+provision(request)                  -> plan, then apply under the current approval (refuses unless that approval is bound to this digest)
+rotateCredential(request)           -> { ref, expiresAt }   re-reads the bundle from the cluster, mints, stores; applies nothing
+request = { tenant, substrate, operationId, lease:{scope,fenceToken}, egressFqdns?, withManagedDatabase?, audiences?, tokenTtlSec? }
+```
+
+Dependencies MAN-01 supplies when it builds the provisioner (`TenantIsolationDeps`): the execution `Runtime` (leases,
+broker `approvalStatus`, `effects` ledger, emit, evidence), `openBootstrapSession` (a session for the BOOTSTRAP identity
+with an allowlist of exactly the tenant namespace and `zenith-system`), `storeOperatorCredential` (a vault write under
+`<ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX>/<tenant namespace>`; the token is only ever given to it), and optionally
+`openOperatorProbe` (SelfSubjectAccessReview as the minted token; supplied means the minted identity must hold its own
+namespace and be refused nine other checks, or onboarding fails).
+
+Fail closed: onboarding is complete only when `apply`/`provision` returns. Any `TenantIsolationError` (codes:
+`not_configured`, `invalid_request`, `admission_refused`, `plan_failed`, `plan_changed`, `approval_required`,
+`lease_lost`, `effect_unresolved`, `apply_failed`, `verify_failed`, `credential_failed`) means the tenant is not
+onboarded and must not receive a session. A substrate with no per-tenant credential prefix is refused (`not_configured`).
+
+Guard order: OPS-02 `assertDispatchAdmitted` -> lease fence (DUR-A) -> recomputed plan digest and the current approval
+bound to it (DUR-B stand-in) -> digest-exact vet of the batch (DUR-C stand-in) -> `isolation_apply` effect recorded
+before the call (DUR-D) -> server-side apply -> readback of every object -> token mint -> optional live probe -> sink.
+
+Joins MAN-01 must make: create the onboarding operation through the normal propose/approval path with
+`isolationRequestDigest(request)` in its proposal input; call plan in the plan step and apply in the apply step;
+schedule `rotateCredential`; supply the three ports above. DUR-B's executable-semantics record and DUR-C's plan-file
+custody are tied to an environment deploy's ExecContext and are NOT recorded for an onboarding operation; the approval
+bound to the plan digest and the digest-exact vet stand in. Add them if MAN-01's operation type has the context.
+
+### Verification
+
+```
+npx vitest run tests/execution/tenant-isolation.test.ts tests/providers/zenith tests/providers/kubernetes tests/effects tests/machines/scoped-guest-session.test.ts tests/providers/kubernetes/guest.test.ts
+```
+The provisioner suite runs on PGlite (and PostgreSQL with `ZENITH_TEST_PLATFORM_PG_URL`) for the real ledger; the API is the
+contract fake, so it proves wiring, ordering, refusals and the readback logic, not RBAC or Cilium behaviour. The
+kind suite (`scripts/isolation/tenant-isolation-acceptance.sh`) is unchanged and still the cluster evidence; it applies the
+bundle with kubectl, not through the provisioner. `cilium.env` is still empty for the verifier.
+
+### Behaviour changes and risks
+
+- `apply.ts`: preflight asserts the namespace guard for any object that names a namespace (before: any kind except
+  Namespace); identical for every existing kind. `platform` unset leaves every path as it was.
+- `guest.ts`: `mintGuestCredential` refactor only; `guest.test.ts` and `scoped-guest-session.test.ts` should be re-run.
+- `fake-api.ts` gained groups; tests that count served groups (none known) would notice.
+- Migration 50 drops and re-adds the family CHECK; the assembler renumbers it into the contiguous sequence. The
+  family list is pinned by `EFFECT_FAMILIES`; tests that enumerate families need the new member.
+- A verify failure after a successful apply puts the effect in `conflict`; resolving it is an operator action (existing
+  effect resolution flow) and a retry meanwhile returns `effect_unresolved`.
+- The plan evidence is written as a `tofu_plan` row with a minimal summary (engine `tenant-isolation`); if MAN-01's policy
+  path expects the full plan summary shape it needs an adapter.
+- Shared files for the assembler: gate-manifest (add `tests/execution/tenant-isolation.test.ts`), migrations inventory (50,
+  no new table, no RLS change), `tests/controlplane/migrations.test.ts` (new version), LIMITATIONS (provisioner built,
+  not called, not run against a cluster; DUR-B semantics and DUR-C custody not recorded for onboarding).
+- Updated ledger status: PROD-MAN-04 `provisioner_and_generators_built_live_unrun`.

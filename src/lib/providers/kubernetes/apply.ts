@@ -17,7 +17,10 @@
  *      applied: Zenith never modifies, re-labels or adopts an object it does
  *      not own (adoption is an explicit import, not an apply side effect).
  *   3. Namespace allowlist on every namespaced object (`client.ts`).
- *   4. Only the kinds Zenith renders are accepted; anything else is refused.
+ *   4. Only the kinds Zenith renders are accepted; anything else is refused. The one exception is the PLATFORM
+ *      apply set (`platform-kinds.ts`): a caller that passes `platform` (the tenant isolation bundle, applied by
+ *      the bootstrap identity) may also apply ClusterRole, ClusterRoleBinding and CiliumNetworkPolicy, and Roles
+ *      that are not exact-name, but only after the caller's `vet` approved the whole batch.
  *   5. Secrets: the rendered Secret has no data. Values come from the injected
  *      `resolveSecret(ref)`, are merged into the REQUEST BODY in memory only,
  *      and appear in no result, log line or error (errors are scrubbed of the
@@ -34,6 +37,7 @@ import type { KubernetesSession } from "@/lib/credentials/types";
 import { applyOrder } from "./render";
 import { conflictsFrom, createK8sClient, ownedBy, readObject, toK8sError, type K8sClient } from "./client";
 import { diffPaths, normalizeForDiff } from "./diff";
+import { PLATFORM_KIND_INFO, assertPlatformPolicy, isPlatformKind, platformOrder, type PlatformApplyPolicy } from "./platform-kinds";
 import { immutableViolations } from "./immutability";
 import { isDnsLabel } from "./naming";
 import { validateRbac, validateRbacCompanions } from "./rbac";
@@ -71,6 +75,8 @@ export interface ApplyOptions {
   resolveSecret?: SecretResolver;
   log?: (line: string) => void;
   requestTimeoutMs?: number;
+  /** accept the platform kinds (isolation bundle) under this vet; see `platform-kinds.ts` */
+  platform?: PlatformApplyPolicy;
 }
 
 interface Prepared {
@@ -85,14 +91,16 @@ const short = (r: ObjectRef) => `${r.kind}/${r.name}${r.namespace ? ` in ${r.nam
 
 /* ------------------------------ validation -------------------------------- */
 
-function validate(obj: K8sObject, expectEnv: string | undefined): { ref: ObjectRef; environment: string } {
+function validate(obj: K8sObject, expectEnv: string | undefined, platform: PlatformApplyPolicy | undefined): { ref: ObjectRef; environment: string } {
   if (!isRecord(obj) || typeof obj.kind !== "string" || typeof obj.apiVersion !== "string" || !isRecord(obj.metadata) || typeof obj.metadata.name !== "string") {
     throw new K8sError("invalid_object", "Object needs apiVersion, kind and metadata.name.");
   }
-  if (!isSupportedKind(obj.kind) || KIND_INFO[obj.kind].apiVersion !== obj.apiVersion) {
+  const viaPlatform = platform !== undefined && isPlatformKind(obj.kind);
+  if (viaPlatform) assertPlatformPolicy(platform);
+  const info: { apiVersion: string; namespaced: boolean } | undefined = viaPlatform ? PLATFORM_KIND_INFO[obj.kind as keyof typeof PLATFORM_KIND_INFO] : isSupportedKind(obj.kind) ? KIND_INFO[obj.kind] : undefined;
+  if (!info || info.apiVersion !== obj.apiVersion) {
     throw new K8sError("invalid_object", `Zenith does not apply ${obj.apiVersion} ${obj.kind}.`);
   }
-  const info = KIND_INFO[obj.kind];
   if (!isDnsLabel(obj.metadata.name)) throw new K8sError("invalid_object", `${obj.kind} name "${obj.metadata.name.slice(0, 70)}" is not a valid DNS label.`);
   if (info.namespaced && !(typeof obj.metadata.namespace === "string" && isDnsLabel(obj.metadata.namespace))) {
     throw new K8sError("invalid_object", `${obj.kind}/${obj.metadata.name} needs an explicit, valid namespace.`);
@@ -104,7 +112,8 @@ function validate(obj: K8sObject, expectEnv: string | undefined): { ref: ObjectR
   if (expectEnv !== undefined && environment !== expectEnv) throw new K8sError("invalid_object", `${obj.kind}/${obj.metadata.name} belongs to a different environment than this apply.`);
   if (typeof obj.metadata.annotations?.[ANNOTATION.resource] !== "string") throw new K8sError("invalid_object", `${obj.kind}/${obj.metadata.name} is missing ${ANNOTATION.resource}.`);
   if (obj.kind === "Secret" && ("data" in obj || "stringData" in obj)) throw new K8sError("invalid_object", "A Secret must be rendered without data; values are merged at apply time.");
-  validateRbac(obj, "invalid_object");
+  // The exact-name workload-identity rule does not fit an operator role; under a platform policy the batch vet decides.
+  if (!(platform && (obj.kind === "Role" || obj.kind === "RoleBinding"))) validateRbac(obj, "invalid_object");
   return { ref: refOf(obj), environment };
 }
 
@@ -136,11 +145,20 @@ async function preflight(client: K8sClient, objects: readonly K8sObject[], opts:
   const failures: ApplyItemResult[] = [];
   const secretValues: string[] = [];
 
-  for (const obj of applyOrder(objects)) {
+  if (opts.platform) {
+    try {
+      assertPlatformPolicy(opts.platform);
+      opts.platform.vet(objects);
+    } catch (e) {
+      const err = toK8sError(e);
+      return { prepared: [], failures: objects.map((o) => ({ ref: refOf(o ?? {}), status: "error", errorCode: err.code, message: err.message })), secretValues };
+    }
+  }
+  for (const obj of opts.platform ? platformOrder(objects) : applyOrder(objects)) {
     let v: { ref: ObjectRef; environment: string };
     try {
-      v = validate(obj, environmentId);
-      validateRbacCompanions(obj, objects);
+      v = validate(obj, environmentId, opts.platform);
+      if (!opts.platform) validateRbacCompanions(obj, objects);
     } catch (e) {
       const err = toK8sError(e);
       failures.push({ ref: refOf(obj ?? {}), status: "error", errorCode: err.code, message: err.message });
@@ -148,7 +166,7 @@ async function preflight(client: K8sClient, objects: readonly K8sObject[], opts:
     }
     const p: Prepared = { obj, ref: v.ref, environment: v.environment };
     try {
-      if (p.ref.kind !== "Namespace") await client.guard.assert(p.ref.namespace as string);
+      if (p.ref.namespace !== undefined) await client.guard.assert(p.ref.namespace);
       p.live = await readObject(client, p.ref);
     } catch (e) {
       const err = toK8sError(e);
@@ -328,7 +346,7 @@ async function run(objects: readonly K8sObject[], session: KubernetesSession, op
     const one = await applyOne(client, p, opts, pre.secretValues);
     results.push(one.result);
     // A binding must never activate stale rules after its Role failed to apply.
-    if (p.obj.kind === "Role" && !["created", "configured", "unchanged"].includes(one.result.status)) {
+    if ((p.obj.kind === "Role" || p.obj.kind === "ClusterRole") && !["created", "configured", "unchanged"].includes(one.result.status)) {
       stopped = "Stopped because a Role failed to apply; dependent bindings were not activated.";
     }
     if (one.applied) applied.set(refKey(p.ref), one.applied);

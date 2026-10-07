@@ -62,7 +62,7 @@ export interface OperatorSubject {
 
 /** The per-tenant operator identity: one ServiceAccount per tenant namespace, never shared. */
 export const operatorSubjectOf = (tenantNs: string): OperatorSubject => ({ namespace: OPERATOR_NAMESPACE, name: `zenith-op-${tenantNs}` });
-const clusterRoleName = (tenantNs: string): string => `zenith-op-ns-${tenantNs}`;
+const clusterRoleName = (tenantNs: string): string => `zop-ns-${tenantNs}`;
 
 export interface RbacRule {
   apiGroups: string[];

@@ -20,6 +20,7 @@ Read this with `docs/platform/MANAGED-PLATFORM.md` (the baseline) and
 | Pod placement rules: no `priorityClassName`, `nodeName` or wildcard toleration | `isolation.ts` | new |
 | System-priority quota (zero pods of `system-*` classes) | `isolation-bundle.ts` | new |
 | Operator separation: one ServiceAccount, one namespaced Role and one by-name namespace grant per tenant; a static cross-tenant analysis; a per-tenant credential reference | `isolation-bundle.ts` (`renderIsolationBundle`, `validateOperatorAccess`, `analyzeOperatorSeparation`), `substrate.ts` (`substrateConnectionConfig`) | new |
+| Product apply of the bundle: plan, approval-bound apply, readback, operator token | `src/lib/execution/tenant-isolation.ts` (`createTenantIsolationProvisioner`), contract `src/lib/providers/zenith/onboarding.ts`, platform apply set `src/lib/providers/kubernetes/platform-kinds.ts`, effect family `isolation_apply` (migration 50) | new, written, not run; MAN-01 calls it at the join |
 | Operator script that prints a tenant's bundle for the bootstrap identity | `scripts/isolation/render-tenant-bundle.ts` | new |
 | kind acceptance with two adversarial tenants and a noisy-neighbour load test | `tests/isolation/`, `scripts/isolation/` | new, gated, not run |
 | RuntimeClass and bootstrap RBAC examples | `deploy/zenith-managed/optional/` | new, never applied |
@@ -186,10 +187,13 @@ Two identities, never one:
   tenant A cannot hold tenant B's authority even if the application's own namespace
   allowlist were bypassed.
 
-Tokens for the per-tenant ServiceAccount are minted by the platform with the TokenRequest
-API (short-lived) and stored under the prefix; minting and rotation is **not built** here
-(join below). Until `ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX` is set, sessions still use the
-platform-wide operator credential and the bundle's notes say so on every render.
+Tokens for the per-tenant ServiceAccount are minted with the MACH-02 minter's TokenRequest path
+(`requestVerifiedToken` in `providers/kubernetes/guest.ts`: audience-bound, 600 to 3600 seconds, claims
+checked against the ServiceAccount name and UID) and handed only to an injected credential sink that
+stores them under the prefix. `provisioner.rotateCredential` mints the next one after re-reading the
+bundle from the cluster; it applies nothing. Until `ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX` is set,
+sessions still use the platform-wide operator credential, the bundle's notes say so on every render, and
+onboarding through the provisioner is refused (`not_configured`).
 
 What this does not change: the platform operator and bootstrap credentials are still
 cluster-powerful. Compromise of platform automation is compromise of every tenant; the
@@ -200,12 +204,29 @@ compromised *platform*.
 
 | Join | Needed from | State |
 | --- | --- | --- |
-| Apply the isolation bundle on environment create | MAN-01 (substrate) apply path with the bootstrap identity: `renderZenithEnvironment(...).isolation` carries the validated objects in apply order (`bundleObjects`); the Kubernetes provider's apply set deliberately does not contain Cilium or RBAC kinds | **not wired**: use `scripts/isolation/render-tenant-bundle.ts` or the acceptance suite until then |
-| Mint and rotate per-tenant operator tokens into the vault prefix | MAN-01/MACH-02 credential brokering | not built |
-| A manifest field that carries a tenant's allowed hostnames | MAN-02/03 serving: `ZenithRenderInput.egressFqdns` accepts them today; nothing in the manifest or UI sets it | not wired |
+| Call the provisioner on tenant onboarding | MAN-01: `TenantIsolationProvisioner` (`providers/zenith/onboarding.ts`): create the onboarding operation through the normal propose and approval path, `plan(request)`, approve its digest, `apply(request, digest)` (or `provision`), `rotateCredential` on a schedule shorter than the token lifetime, and treat any `TenantIsolationError` as "tenant not onboarded" | **interface and implementation built; the call is MAN-01's** |
+| Supply the ports | MAN-01: `openBootstrapSession` (the bootstrap identity's session, allowlist = tenant namespace + operator namespace), `storeOperatorCredential` (vault write under the prefix), optional `openOperatorProbe` (a SelfSubjectAccessReview as the minted token), and the execution `Runtime` | not wired |
+| A manifest field that carries a tenant's allowed hostnames | MAN-02/03 serving: `TenantIsolationRequest.egressFqdns` and `ZenithRenderInput.egressFqdns` accept them today; nothing in the manifest or UI sets it | not wired |
 | Mandatory sandbox for a plan tier | commercial decision (not approved); the substrate flag is per cluster | decision open |
 | Dedicated node pools per tier | MAN-01 placement | not built |
 | Object storage with prefix-scoped credentials | MAN-0x object store; refused today (`object-store.ts`), prefixes derive and are tested for non-overlap | not built |
+
+### The provisioning step
+
+`createTenantIsolationProvisioner` runs, in order: OPS-02 quota admission; the writer lease fence; a plan
+(server-side dry-run of baseline plus bundle under the platform apply set, folded with the rendered bytes into a
+plan digest); at apply, a recomputed plan that must equal the approved digest (`plan_changed` otherwise),
+the CURRENT approval bound to exactly that digest (`dispatchApproval.planDigest`), a digest-exact vet of the
+batch, an `isolation_apply` effect recorded before the call, server-side apply (field manager `zenith`, never
+forced, whole-batch ownership preflight), then a **readback of every rendered object** compared with what was
+rendered, the MACH-02 token mint, an optional live access probe as the minted identity, and the credential sink.
+Every failure is a fixed-code `TenantIsolationError`; there is no partial success. A repeat of an apply the
+ledger already holds only verifies again. A failed probe or readback mismatch puts the effect in `conflict` for an
+operator; a sink or mint failure leaves it accepted so a retry re-mints.
+
+The Kubernetes provider accepts ClusterRole, ClusterRoleBinding, CiliumNetworkPolicy and non-exact-name
+Role/RoleBinding only when the caller passes `platform` (a vet that approves the whole batch); the default apply set
+(`KIND_INFO`) is unchanged, so prune, teardown and observe behave as before.
 
 ## 9. Operator checklist before a second tenant
 

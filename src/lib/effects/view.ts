@@ -39,6 +39,7 @@ const FAMILY: Record<EffectFamily, string> = {
   build_launch: "Build launch",
   cleanup_apply: "Cleanup",
   proxy_request: "Provider request",
+  isolation_apply: "Tenant isolation",
 };
 
 const STATE_LABEL: Record<EffectState, string> = {

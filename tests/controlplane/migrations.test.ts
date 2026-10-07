@@ -138,8 +138,13 @@ async function expectHistoricalContractRefusal(db: PlatformDbHandle, versions: n
   const rows = () => Promise.all(tables.map(({ tablename }) => db.query(`select to_jsonb(t) as row from platform.${JSON.stringify(tablename)} t order by to_jsonb(t)::text`)));
   const before = await rows();
   const enforcement = process.env.ZENITH_ENFORCE_EXPAND_ONLY;
+  const admission = process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
   try {
     process.env.ZENITH_ENFORCE_EXPAND_ONLY = "1";
+    // This owned, drained fixture isolates UNREGISTERED historical contracts;
+    // only the already-approved42 repair receives explicit admission here.
+    if (target.some(m => m.version === 42))
+      process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = [admission, "42"].filter(Boolean).join(",");
     const error = await migratePlatformDb(db, target).catch((error: unknown) => error);
     expect(error).toBeInstanceOf(ContractMigrationRefusedError);
     expect((error as ContractMigrationRefusedError).details?.versions).toEqual(versions);
@@ -148,6 +153,8 @@ async function expectHistoricalContractRefusal(db: PlatformDbHandle, versions: n
   } finally {
     if (enforcement === undefined) delete process.env.ZENITH_ENFORCE_EXPAND_ONLY;
     else process.env.ZENITH_ENFORCE_EXPAND_ONLY = enforcement;
+    if (admission === undefined) delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+    else process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = admission;
   }
   expect(await db.query("select * from platform.schema_migrations order by version")).toEqual(ledger);
   expect(await rows()).toEqual(before);

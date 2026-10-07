@@ -836,7 +836,7 @@ describe("saved builtin settlement mandatory CI admission", () => {
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
     expect(manifestFor("postgres", root).requirements).toHaveLength(93);
-    expect(requirementsFor("workflows", root)).toHaveLength(70);
+    expect(requirementsFor("workflows", root)).toHaveLength(71);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().requiredCases).toHaveLength(152); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
@@ -856,8 +856,8 @@ describe("critical scheduling native admission [workflow source models]", () => 
     const manifest = manifestFor("workflows", root), job = workflow.jobs.workflows;
     expect(manifest.requirements.filter(item => criticalScheduleWorkflowIds.has(item.id)))
       .toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
-    expect(manifest.requirements).toHaveLength(70);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(70);
+    expect(manifest.requirements).toHaveLength(71);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(71);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(createHash("sha256").update(JSON.stringify(priorCriticalScheduleWorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b");

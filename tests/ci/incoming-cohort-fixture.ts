@@ -9,4 +9,10 @@ export function withoutIncomingPlatform<T extends { id: string }>(items: T[]): T
   return items.filter(item => !incomingPlatformIds.has(item.id));
 }
 
-export const incomingWorkflowIds = new Set([...incomingWorkflowFiles].map(file => `workflows:${file}:4ee93ed6c454`));
+// The full codec successor is mandatory now; only historical cohort projections
+// remove this exact known addition. Unknown future identities remain visible.
+export const historyCodecWorkflowId = "workflows:tests/workflows/history-fixtures.test.ts:4ee93ed6c454";
+export const incomingWorkflowIds = new Set([
+  ...[...incomingWorkflowFiles].map(file => `workflows:${file}:4ee93ed6c454`),
+  historyCodecWorkflowId,
+]);

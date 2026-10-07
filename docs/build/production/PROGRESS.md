@@ -1,3 +1,9 @@
+## Wave 3 assembly, 7 October 2026 (prod/compose)
+
+Merged origin/codex/production-2026-10-02 (verifier results through `80bb7352`) and then the ten wave-3 branches, one merge commit each: gap fixes (OBS-02 composition, LIFE-11 MySQL by hostname), DUR-A (DUR-01/02), DUR-B (DUR-03/04), DUR-C (DUR-05/06), DUR-D (DUR-07/08), OBS-01, MACH-02, UX-02, MACH-06 and LIFE-07. Platform migrations 30 to 36 are registered contiguously (30 durable_intent_authority, 31 executable_semantics, 32 plan_custody_state_recovery, 33 external_effects, 34 k8s_guest_bindings, 35 mcp_streams, 36 coding_agent_runs; the workers built MACH-02, UX-02 and MACH-06 as 35, 36 and 37 and the assembler renumbered them). The Supabase aggregate is now `0022_platform_core.sql` (migrations 1 to 36); `0016` to `0021` are byte-identical. Where DUR-A to DUR-D wrap the same call the order is authority and durable intent, semantics and authorization re-check, plan custody re-verify, external-effect record, then the provider call. Joins checked at assembly: OBS-01 remediation reaches execution only through the broker `beginExecution` (re-authorized by DUR-04); the DUR-B semantics digest already carries ownership transfers, runbook version, build context provenance and adoption claims; DUR-D records mutating `aws.http` and `oci.http` proxy requests that DUR-A leaves unkeyed; `codingAgentRunWorkflow` is exported from the workflow definitions bundle and its activities are registered in the execution worker. LIFE-07 deploy and observe paths cannot use a `scoped_guest` Kubernetes connection (MACH-02 refuses non-guest use), so one cluster needs a legacy and a scoped connection; this is recorded in LIMITATIONS rather than resolved. Platform route inventory is 84.
+
+Ledger **12 verified / 41 in progress / 25 planned**, all78 criteria and four false release flags retained. PROD-DUR-01..08, OBS-01, MACH-02, MACH-06, UX-02 and LIFE-07 are `implementation_complete_verification_pending`; OBS-02 and LIFE-11 keep their state and evidence with `wave3_gap_fixes_pending_verification` appended. No test was run for any wave-3 byte: checks were typecheck, eslint on changed files, emit-sql, capability-matrix, offered-catalog, production-ledger, Go build and vet, and lockfile integrity. Next: [VERIFY-QUEUE.md](VERIFY-QUEUE.md) section Wave 3.
+
 ## Reduced-resource local checkpoint, 7 October 2026
 
 Local730 leaf verification passed within scoped evidence; default Supabase startup disk-blocked before tests despite Docker6GiB/swap4GiB. Owned resources removed. Newerc9 fresh install/security/compiler/lint/ledger checks passed; failed resource attempts retained. Docker backend stopped idle; settings retained. Further heavy work blocked below22GiB floor. Ledger12 verified/38 in progress/28 planned; all78 criteria/four false release flags retained. Counts overlap. [Exact results, skips, cleanup and resume](verification/RESULTS-2026-10.md#reduced-resource-verification-7-october-2026).
@@ -241,7 +247,7 @@ Counts overlap across source references and lanes. Historical unit18682P0F1167S,
 - [ ] PROD-LIFE-04: Azure data plane and sovereign identity (planned).
 - [ ] PROD-LIFE-05: OCI replacement and deletion evidence (planned).
 - [ ] PROD-LIFE-06: Non-AWS ownership-safe DNS teardown (in_progress).
-- [ ] PROD-LIFE-07: Kubernetes full lifecycle acceptance (planned).
+- [ ] PROD-LIFE-07: Kubernetes full lifecycle acceptance (in_progress).
 - [ ] PROD-LIFE-08: GitHub source binding lifecycle (in_progress).
 - [ ] PROD-LIFE-09: Isolated untrusted build provenance (in_progress).
 - [ ] PROD-LIFE-10: Release and data migration safety (in_progress).
@@ -252,7 +258,7 @@ Counts overlap across source references and lanes. Historical unit18682P0F1167S,
 - [ ] PROD-MACH-03: Signed automation and scheduling (in_progress).
 - [ ] PROD-MACH-04: Linux runner delivery and lifecycle (in_progress).
 - [ ] PROD-MACH-05: Local customer credential custody (in_progress).
-- [ ] PROD-MACH-06: Bounded evaluated coding agents (planned).
+- [ ] PROD-MACH-06: Bounded evaluated coding agents (in_progress).
 - [ ] PROD-OBS-01: Canonical observation-to-repair engine (in_progress).
 - [ ] PROD-OBS-02: Fresh scoped telemetry provenance (in_progress).
 - [ ] PROD-OBS-03: Incident stability and escalation (in_progress).
@@ -274,7 +280,7 @@ Counts overlap across source references and lanes. Historical unit18682P0F1167S,
 - [ ] PROD-OPS-08: Independent adversarial security acceptance (planned).
 - [ ] PROD-OPS-09: Verified release supply chain (planned).
 - [ ] PROD-UX-01: Accessible privileged operator journey (in_progress).
-- [ ] PROD-UX-02: Configured client interoperability (planned).
+- [ ] PROD-UX-02: Configured client interoperability (in_progress).
 - [ ] PROD-UX-03: Reviewed revocable plugin boundaries (in_progress).
 - [ ] PROD-COST-01: Source-backed dated price catalog (in_progress).
 - [ ] PROD-COST-02: Complete placement costs and constraints (in_progress).

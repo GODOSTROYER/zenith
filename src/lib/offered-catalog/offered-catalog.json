@@ -1,7 +1,7 @@
 {
  "schemaVersion": 1,
- "catalogVersion": "v1-b786e6049dcd",
- "contentDigest": "b786e6049dcd5ed89b20ba0f01d4dcc2150510af6296d8d281ce49e393a0b0b6",
+ "catalogVersion": "v1-3e05c4662ac4",
+ "contentDigest": "3e05c4662ac46f2ef27f92e21c3cd5d1dd2fee026710b95527ad58d3bee6dca3",
  "levelPolicy": {
   "supported": "A registered, non-experimental driver implements the operation and it has emulator or live-account evidence.",
   "preview": "Implemented and reachable, but only contract-level evidence (mocked SDK or HTTP), or experimental, or an ambiguous shared native type.",
@@ -8331,8 +8331,9 @@
      "evidence": "contract"
     },
     "runtime": {
-     "level": "unsupported",
-     "reason": "The driver does not implement runtime state reads."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run.",
+     "evidence": "contract"
     },
     "verify": {
      "level": "preview",
@@ -9007,20 +9008,23 @@
      "reason": "The driver does not declare this operation."
     },
     "database.restore": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run.",
+     "evidence": "contract"
     },
     "database.snapshot": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run.",
+     "evidence": "contract"
     },
     "deployment.deploy": {
      "level": "unsupported",
      "reason": "The driver does not declare this operation."
     },
     "deployment.rollback": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run.",
+     "evidence": "contract"
     },
     "events.read": {
      "level": "preview",
@@ -9045,8 +9049,9 @@
      "evidence": "contract"
     },
     "service.scale": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run.",
+     "evidence": "contract"
     }
    }
   },
@@ -9097,20 +9102,23 @@
      "reason": "The driver does not declare this operation."
     },
     "database.restore": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run. The native type is shared with kind postgres; the driver is declared for postgres and disambiguates by spec.",
+     "evidence": "contract"
     },
     "database.snapshot": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run. The native type is shared with kind postgres; the driver is declared for postgres and disambiguates by spec.",
+     "evidence": "contract"
     },
     "deployment.deploy": {
      "level": "unsupported",
      "reason": "The driver does not declare this operation."
     },
     "deployment.rollback": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run. The native type is shared with kind postgres; the driver is declared for postgres and disambiguates by spec.",
+     "evidence": "contract"
     },
     "events.read": {
      "level": "preview",
@@ -9135,8 +9143,9 @@
      "evidence": "contract"
     },
     "service.scale": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run. The native type is shared with kind postgres; the driver is declared for postgres and disambiguates by spec.",
+     "evidence": "contract"
     }
    }
   },
@@ -9187,20 +9196,23 @@
      "reason": "The driver does not declare this operation."
     },
     "database.restore": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run. The native type is shared with kind postgres; the driver is declared for postgres and disambiguates by spec.",
+     "evidence": "contract"
     },
     "database.snapshot": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run. The native type is shared with kind postgres; the driver is declared for postgres and disambiguates by spec.",
+     "evidence": "contract"
     },
     "deployment.deploy": {
      "level": "unsupported",
      "reason": "The driver does not declare this operation."
     },
     "deployment.rollback": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run. The native type is shared with kind postgres; the driver is declared for postgres and disambiguates by spec.",
+     "evidence": "contract"
     },
     "events.read": {
      "level": "preview",
@@ -9225,8 +9237,9 @@
      "evidence": "contract"
     },
     "service.scale": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run. The native type is shared with kind postgres; the driver is declared for postgres and disambiguates by spec.",
+     "evidence": "contract"
     }
    }
   },
@@ -9575,12 +9588,14 @@
      "reason": "The driver does not declare this operation."
     },
     "database.restore": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run.",
+     "evidence": "contract"
     },
     "database.snapshot": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run.",
+     "evidence": "contract"
     },
     "deployment.deploy": {
      "level": "unsupported",
@@ -10880,12 +10895,14 @@
      "reason": "The driver does not declare this operation."
     },
     "database.restore": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run.",
+     "evidence": "contract"
     },
     "database.snapshot": {
-     "level": "unsupported",
-     "reason": "The driver does not declare this operation."
+     "level": "preview",
+     "reason": "Evidence is contract-level only (mocked SDK or HTTP tests); no emulator or live-account acceptance run.",
+     "evidence": "contract"
     },
     "deployment.deploy": {
      "level": "unsupported",

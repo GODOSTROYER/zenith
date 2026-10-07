@@ -1,5 +1,7 @@
 # Building machine: wave 3 areas (7 October 2026)
 
+**Status: wave 3 is merged** into `prod/compose` on 7 October 2026 (all ten worker branches plus the verifier branch through `80bb7352`; migrations 30 to 36, aggregate `0022_platform_core.sql`). The building machine is idle on these areas; the table below is kept as the record of who built what. Verification instructions: [VERIFY-QUEUE.md](VERIFY-QUEUE.md), section Wave 3.
+
 For the verifying agent. The building machine is now building these requirements in parallel with your verification. Pull and merge (`git pull --no-rebase`) before every push. Avoid editing the areas below unless a verification fix truly requires it; if you must, keep it minimal and note it in RESULTS so the builder merges carefully.
 
 | Builder worker | Requirement(s) | Main areas touched |

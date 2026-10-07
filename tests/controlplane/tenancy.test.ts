@@ -155,6 +155,13 @@ const WRITES = new Set([
   "externalEffects.isFenceLive", "externalEffects.recordAccepted", "externalEffects.recordRejected", "externalEffects.markUncertain", "externalEffects.recordReadback", "externalEffects.resolve",
   // PROD-UX-02: every statement binds the supplied workspace and the authenticated principal digest; foreign-workspace and foreign-principal refusals are covered by tests/agent-v3/stream-store.test.ts.
   "mcpStreams.openStream", "mcpStreams.appendStreamEvent", "mcpStreams.requestStreamCancel", "mcpStreams.finishStream",
+  // PROD-MACH-06: every statement binds the supplied workspace in SQL and a foreign run id equals a missing one; foreign-workspace refusals are covered by tests/coding-agent/store.test.ts.
+  "codingAgentRuns.createRun", "codingAgentRuns.getRun", "codingAgentRuns.listRuns", "codingAgentRuns.saveRun", "codingAgentRuns.attachOutcome", "codingAgentRuns.claimResume", "codingAgentRuns.cancelRun", "codingAgentRuns.failRun",
+  // PROD-MACH-02: workspace-keyed guest binding rows (no credential column); foreign-workspace refusals are covered by tests/controlplane/k8s-guest-bindings.test.ts.
+  "k8sGuestBindings.ensure", "k8sGuestBindings.get", "k8sGuestBindings.listOpen", "k8sGuestBindings.listForConnection", "k8sGuestBindings.markActive", "k8sGuestBindings.recordIssuance", "k8sGuestBindings.recordError",
+  "k8sGuestBindings.markConnectionRevoking", "k8sGuestBindings.markRevoked", "k8sGuestBindings.markRevoking",
+  // PROD-OBS-01: workspace and environment bound in SQL (reads repairs of one environment and settles its own reserved attempts first); real SQL in tests/repair/lifecycle.platform.test.ts.
+  "incidentStability.listRepairsAwaitingVerification",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings", "idempotency.reserve", "idempotency.complete",
 ]);
 

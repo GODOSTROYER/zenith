@@ -52,6 +52,8 @@ const EXPECTED_TABLES = [
   "plugin_registrations", "policy_decisions", "portability_exports", "portability_restores", "provider_connections", "reconcile_state", "release_events", "release_migration_approvals", "release_runs", "resource_adoptions",
   "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners", "scheduled_job_runs", "ownership_transfers", "schema_migrations", "standalone_plan_backends",
   "standalone_plan_settlements", "workflow_start_intents", "workspace_policy",
+  // Platform schemas 30 to 36 (wave 3).
+  "operation_authority", "durable_intents", "approved_semantics", "standing_grants", "standing_grant_uses", "plan_custody_grants", "plan_custody_reads", "state_backend_probes", "state_backend_restores", "external_effects", "external_effect_events", "external_effect_resolutions", "k8s_guest_bindings", "mcp_streams", "mcp_stream_events", "coding_agent_runs",
 ];
 
 /** Tables that hold no tenant-visible rows keyed by workspace (see the header of 0001_core.ts). */

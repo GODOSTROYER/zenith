@@ -47,6 +47,10 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/releases$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/releases/${ID}$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/releases/${ID}/approve-migration$`), methods: { POST: "browser-only" } },
+  // Coding-agent runs spend the workspace's model budget and stage a proposal: a workspace admin's own browser only.
+  { path: new RegExp(`^${ROOT}/coding-agent/runs$`), methods: { GET: "browser-only", POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/coding-agent/runs/${ID}$`), methods: { GET: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/coding-agent/runs/${ID}/(?:resume|adopt)$`), methods: { POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/capability-catalog$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/workspace/policy$`), methods: { GET: "bearer-capable", PUT: "browser-only" } },
   // Installation and repository binding require the human admin's browser session.

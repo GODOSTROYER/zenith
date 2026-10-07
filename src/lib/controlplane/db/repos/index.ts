@@ -52,6 +52,7 @@ import * as settings from "./settings";
 import * as optimizerSettings from "./optimizer-settings";
 import * as scheduledJobs from "./scheduled-jobs";
 import * as plugins from "./plugins";
+import * as codingAgentRuns from "./coding-agent-runs";
 
 export {
   planArtifacts,
@@ -85,6 +86,7 @@ export {
   runners,
   settings,
   optimizerSettings,
+  codingAgentRuns,
   scheduledJobs,
   plugins,
 };
@@ -146,6 +148,7 @@ export function bindRepos(sql: Sql) {
     optimizerSettings: bind(optimizerSettings, sql),
     scheduledJobs: bind(scheduledJobs, sql),
     plugins: bind(plugins, sql),
+    codingAgentRuns: bind(codingAgentRuns, sql),
   };
 }
 

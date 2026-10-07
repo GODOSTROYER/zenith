@@ -23,7 +23,7 @@ export const NOT_OFFERED: Readonly<Record<string, string>> = {
   subnet: "Kubernetes namespaces have no subnets",
   log_group: "the managed platform does not collect or retain application logs yet",
   container_registry: "the managed platform's registry is substrate configuration, not a per-app resource",
-  build_pipeline: "the managed platform runs no builds; a built artifact needs an image reference supplied by the caller",
+  build_pipeline: "source builds run as platform build Jobs in the build namespace (ZENITH_MANAGED_BUILDER_IMAGE, ZENITH_MANAGED_REGISTRY), not as a per-app resource; without them a built artifact needs an image reference supplied by the caller",
 };
 
 export const UNSUPPORTED: Readonly<Record<string, string>> = {

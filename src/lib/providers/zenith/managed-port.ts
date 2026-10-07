@@ -25,6 +25,7 @@
 import type { KubernetesSession } from "@/lib/credentials/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import type { ManagedDatabaseProvider } from "./database";
+import type { ManagedBuildConfig } from "./managed-build-config";
 import type { KubernetesToolkit } from "./k8s-port";
 import type { ZenithSession } from "./session";
 import type { SubstrateDescription, ZenithSubstrate } from "./substrate";
@@ -70,6 +71,11 @@ export interface PlatformCredentialResolver {
 
 export interface ManagedSessionRequest extends TenantRef {
   signal?: AbortSignal;
+  /**
+   * Managed-database port for this session, from `databaseRuntime()`. Absent, the session carries a port that
+   * answers `unavailable` (a session that only observes, releases or tears down needs no database scope).
+   */
+  databases?: ManagedDatabaseProvider;
 }
 
 /** Where tenant images live on the Zenith-operated registry. Pure naming and ownership; no network. */
@@ -114,6 +120,8 @@ export interface ManagedSubstratePort {
   readonly tenants: TenantResolver;
   /** The Zenith-operated registry, or undefined when none is configured (built images then refuse). */
   registry(): ManagedRegistryPort | undefined;
+  /** The validated build configuration. Throws `build_unavailable` (naming what to set) when builds are not configured. */
+  buildConfig(): ManagedBuildConfig;
   /** Open a tenant-scoped session. The caller owns its lifetime (it expires); prefer `withSession`. */
   openSession(request: ManagedSessionRequest): Promise<ZenithSession>;
   /** Open, run, drop. The session never leaves `fn`. */

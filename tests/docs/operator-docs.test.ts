@@ -157,8 +157,10 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     expect(k8s).toContain("ownedBy(");
     const zenith = source("src/lib/providers/zenith/teardown.ts");
     for (const value of ["session.teardown?.databases", "destroyManagedDatabase(", "teardownZenithTls(", "input.retainStateful || !discoveryComplete || foreign"]) expect(zenith).toContain(value);
-    expect(source("src/lib/execution/destroy.ts")).toContain("if (!ports.withZenithSession)");
-    expect(source("src/lib/platform/execution.ts")).not.toContain("withZenithSession:");
+    // PROD-MAN-01: an explicit opener wins, otherwise the composed managed substrate opens the tenant-scoped session.
+    expect(source("src/lib/execution/destroy.ts")).toContain("ports.withZenithSession ??");
+    expect(source("src/lib/execution/destroy.ts")).toContain("if (!open) throw new StepFailedError(\"Managed Zenith teardown requires a platform-scoped session opener.\")");
+    expect(source("src/lib/platform/execution.ts")).toContain("createDefaultManagedSubstrate");
     expect(teardown).toContain("Namespaces are **always retained**");
     expect(managed).toContain("Missing inventory is unknown");
   });

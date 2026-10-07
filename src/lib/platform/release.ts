@@ -17,10 +17,13 @@ import { createOciBuildPort, createOciWorkloadsPort, createOciMigrationsPort } f
 import { createAzureBuildPort, createAzureWorkloadsPort, createAzureMigrationsPort, createAzureReleaseLaunchJournal, type AzureBuildOptions } from "./release-azure";
 import { startBuildOnce } from "@/lib/effects/build-launch";
 import { progressiveUnsupportedReason } from "@/lib/release-safety/rollout";
+import type { ManagedSubstratePort } from "@/lib/providers/zenith/managed-port";
+import { createZenithBuildPort } from "./zenith-managed-build";
+import { createZenithWorkloadsPort, createZenithMigrationsPort } from "./release-zenith";
 import { createKubernetesBuildPort, createKubernetesWorkloadsPort, createKubernetesMigrationsPort } from "./release-k8s";
 
 /** Dispatch on the environment's driver context, then each adapter verifies its broker session. */
-export function createReleasePorts(options: { db?: Sql; azure?: AzureBuildOptions } = {}): { build: BuildPort; workloads: WorkloadsPort; migrations: MigrationsPort } {
+export function createReleasePorts(options: { db?: Sql; azure?: AzureBuildOptions; managed?: ManagedSubstratePort } = {}): { build: BuildPort; workloads: WorkloadsPort; migrations: MigrationsPort } {
   const azure = { ...options.azure, launches: options.azure?.launches ?? (options.db ? createAzureReleaseLaunchJournal(options.db) : undefined) };
   const ports = {
     aws: { build: createAwsBuildPort(options.db), workloads: createAwsWorkloadsPort(), migrations: createAwsMigrationsPort() },
@@ -28,11 +31,14 @@ export function createReleasePorts(options: { db?: Sql; azure?: AzureBuildOption
     azure: { build: createAzureBuildPort(azure), workloads: createAzureWorkloadsPort(), migrations: createAzureMigrationsPort(azure.launches) },
     kubernetes: { build: createKubernetesBuildPort(), workloads: createKubernetesWorkloadsPort(), migrations: createKubernetesMigrationsPort() },
     oci: { build: createOciBuildPort(), workloads: createOciWorkloadsPort(), migrations: createOciMigrationsPort() },
+    // PROD-MAN-01: the Zenith-operated cluster. Present only when a managed substrate is composed (never faked).
+    ...(options.managed ? { zenith: { build: createZenithBuildPort({ managed: options.managed }), workloads: createZenithWorkloadsPort(options.managed), migrations: createZenithMigrationsPort() } } : {}),
   };
   const select = (ctx: DriverContext) => {
-    if (ctx.provider !== "aws" && ctx.provider !== "gcp" && ctx.provider !== "azure" && ctx.provider !== "kubernetes" && ctx.provider !== "oci") throw new StepFailedError("Release ports are unavailable for this provider.");
+    if (ctx.provider === "zenith" && !("zenith" in ports)) throw new StepFailedError("Zenith-managed release requires the managed substrate; set the ZENITH_MANAGED_* configuration.");
+    if (ctx.provider !== "aws" && ctx.provider !== "gcp" && ctx.provider !== "azure" && ctx.provider !== "kubernetes" && ctx.provider !== "oci" && ctx.provider !== "zenith") throw new StepFailedError("Release ports are unavailable for this provider.");
     if ((ctx.session as { provider?: string } | undefined)?.provider !== ctx.provider) throw new StepFailedError("Release provider does not match the broker session.");
-    return ports[ctx.provider];
+    return (ports as Record<string, typeof ports.aws>)[ctx.provider];
   };
   return {
     build: { startBuild: async (ctx, input) => ctx.provider === "aws" ? select(ctx).build.startBuild(ctx, input) : startBuildOnce(options.db, ctx, input, select(ctx).build), waitForBuild: async (ctx, handle, opts) => select(ctx).build.waitForBuild(ctx, handle, opts) },

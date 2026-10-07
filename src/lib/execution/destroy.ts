@@ -106,10 +106,13 @@ async function directCall(rt: Runtime, ec: ExecContext, graph: ResourceGraph, le
     const invoke = (session: unknown) => teardown(ports, ec.product.environment.provider,
       { workspaceId: ec.workspaceId, environmentId: ec.environmentId, session, retainStateful: retainStateful(ec, graph), dryRun, signal });
     if (ec.product.environment.provider === "zenith") {
-      if (!ports.withZenithSession) throw new StepFailedError("Managed Zenith teardown requires a platform-scoped session opener.");
+      // An explicit opener (contract tests) wins; otherwise the composed managed substrate opens the tenant-scoped session (PROD-MAN-01).
+      const managed = rt.d.managed;
+      const open: DestroyProviderPorts["withZenithSession"] | undefined = ports.withZenithSession ?? (managed ? (input, fn) => managed.withSession({ workspaceId: input.workspaceId, environmentId: input.environmentId, signal: input.signal }, fn) : undefined);
+      if (!open) throw new StepFailedError("Managed Zenith teardown requires a platform-scoped session opener.");
       // A grant still gates platform credentials even though they use a separate opener.
       await rt.d.broker.issueGrant(ec.op.id, "worker", lease, { capability: dryRun ? PLAN_CAPABILITY : "infrastructure.destroy" });
-      return ports.withZenithSession({ workspaceId: ec.workspaceId, environmentId: ec.environmentId, signal }, invoke);
+      return open({ workspaceId: ec.workspaceId, environmentId: ec.environmentId, signal }, invoke);
     }
     const connection = await resolveConnection(rt, ec);
     return withProviderSession(rt, ec, { purpose: dryRun ? "observe" : "deploy", capability: dryRun ? PLAN_CAPABILITY : "infrastructure.destroy", fence: lease, connection }, (session) => {

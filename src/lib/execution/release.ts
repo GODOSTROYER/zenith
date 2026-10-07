@@ -459,7 +459,7 @@ function contextDirFor(node: ResourceNode, pipeline: ResourceNode): string {
 
 const buildPolicy = (rt: Runtime) => rt.d.buildIsolation ?? { allowOpenEgress: false };
 const providerOf = (node: ResourceNode): BuildProviderKey => {
-  if (node.provider !== "aws" && node.provider !== "gcp" && node.provider !== "azure") throw new StepFailedError(`Source builds on ${safeText(node.provider, 20)} have no build isolation profile and are refused.`);
+  if (node.provider !== "aws" && node.provider !== "gcp" && node.provider !== "azure" && node.provider !== "zenith") throw new StepFailedError(`Source builds on ${safeText(node.provider, 20)} have no build isolation profile and are refused.`);
   return node.provider;
 };
 

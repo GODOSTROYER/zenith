@@ -25,7 +25,11 @@ import type { CredentialPurpose, ProviderConnection, ProviderSession } from "@/l
 import type { DriverContext } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import { ENVIRONMENT_ID_PATTERN, TAG_ENVIRONMENT, TAG_MANAGED, TAG_WORKSPACE, environmentName, awsBootstrapContextForConnection } from "@/lib/credentials/aws/naming";
-import type { ExecLike } from "./context";
+import { isManagedConnection, MANAGED_CONNECTION_PREFIX, type ExecLike } from "./context";
+import { ManagedSubstrateError } from "@/lib/providers/zenith/managed-port";
+import type { ZenithSession } from "@/lib/providers/zenith/session";
+import type { ManagedDatabaseProvider } from "@/lib/providers/zenith/database";
+import { StepFailedError } from "./errors";
 import type { FenceRef } from "./ports";
 import type { Runtime } from "./runtime";
 import { safeText } from "./text";
@@ -103,12 +107,46 @@ export interface SessionOptions {
 /** Plan, re-plan, apply and rollouts routinely outlive the default 15-minute session. */
 export const LONG_SESSION_SEC = 3600;
 
+/**
+ * A Zenith-managed environment's session (PROD-MAN-01). The capability broker still issues the grant (so the operation's
+ * capability, fence, approval and policy gate this exactly as they gate a customer session); only the credential
+ * source differs: the platform's own cluster credential, resolved in memory by the managed substrate and pinned to this
+ * environment's namespace. The session never leaves `fn`. Observe and deploy purposes use the SAME operator credential:
+ * a read-only managed credential is a separate hardening step (PROD-MAN-04), not claimed here.
+ */
+export async function withManagedSession<T>(
+  rt: Runtime,
+  ec: { op: { id: string } },
+  opts: Omit<SessionOptions, "connection" | "purpose"> & { workspaceId: string; environmentId: string; databases?: ManagedDatabaseProvider },
+  fn: (session: ZenithSession, claims: CapabilityGrantClaims) => Promise<T>
+): Promise<T> {
+  const managed = rt.d.managed;
+  if (!managed) throw new StepFailedError("This worker has no Zenith-managed substrate composed, so a managed environment cannot be operated.");
+  const fence = opts.fence ? { scope: opts.fence.scope, fenceToken: opts.fence.fenceToken } : undefined;
+  const { claims } = await rt.d.broker.issueGrant(ec.op.id, GRANT_AUDIENCE, fence, {
+    ...(opts.capability ? { capability: opts.capability } : {}),
+    ...(opts.durationSec ? { durationSec: opts.durationSec } : {}),
+  });
+  try {
+    return await managed.withSession({ workspaceId: opts.workspaceId, environmentId: opts.environmentId, ...(opts.databases ? { databases: opts.databases } : {}) }, (session) => fn(session, claims));
+  } catch (err) {
+    if (err instanceof ManagedSubstrateError) throw new StepFailedError(err.message);
+    throw err;
+  }
+}
+
 export async function withProviderSession<T>(
   rt: Runtime,
   ec: Pick<ExecLike, "op">,
   opts: SessionOptions,
   fn: (session: ProviderSession, claims: CapabilityGrantClaims) => Promise<T>
 ): Promise<T> {
+  if (isManagedConnection(opts.connection)) {
+    // Typed as ProviderSession for the shared step code; it IS a ZenithSession, which the zenith drivers and release
+    // adapters assert on (`provider: "zenith"`, tenant pinned to this operation's workspace and environment).
+    return withManagedSession(rt, ec, { ...opts, workspaceId: opts.connection.workspaceId, environmentId: opts.connection.id.slice(MANAGED_CONNECTION_PREFIX.length) },
+      (session, claims) => fn(session as unknown as ProviderSession, claims));
+  }
   const fence = opts.fence ? { scope: opts.fence.scope, fenceToken: opts.fence.fenceToken } : undefined; // the grant names the fence, never the holder
   const { claims } = await rt.d.broker.issueGrant(ec.op.id, GRANT_AUDIENCE, fence, {
     ...(opts.capability ? { capability: opts.capability } : {}),

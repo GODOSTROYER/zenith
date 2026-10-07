@@ -55,6 +55,8 @@ export interface SourceBundleDeps {
   azureStorage?: AzureSourceStorageResolver;
   /** How long an Azure source-container RBAC denial may be retried for role propagation; default min(timeout, 90s), 0 disables. */
   azurePropagationMs?: number;
+  /** PROD-MAN-01: where a Zenith-managed build finds its source (immutable in-cluster object). Absent = managed builds refuse. */
+  zenithSources?: import("./zenith-managed-build").ZenithSourceStore;
   /** Standalone read requires a connector already bound to its workspace. */
   withGithubAccess?<T>(input: { owner: string; repo: string; workspaceId?: string; environmentId?: string }, fn: (token?: string) => Promise<T>): Promise<T>;
 }
@@ -422,7 +424,11 @@ function sourceBundles(deps: SourceBundleDeps = {}, githubDb: () => Promise<impo
         checkSignal(ctx.signal); coordinates(input.source);
         if (!/^[a-z0-9][a-z0-9-]{0,47}$/.test(ctx.environmentId) || !ctx.workspaceId || !/^[a-z_]+\/[A-Za-z0-9_.-]{1,128}$/.test(input.service.address) || [".", ".."].includes(input.service.address.split("/")[1])) refuse("Source scope or service identifier is invalid.");
         const provider = (ctx.session as { provider?: string } | undefined)?.provider;
-        if (!["aws", "gcp", "azure"].includes(ctx.provider) || provider !== ctx.provider || (ctx.session as { region?: string } | undefined)?.region !== ctx.region) refuse("Source preparation requires a matching AWS, GCP or Azure brokered session.");
+        const managedSession = ctx.provider === "zenith" ? (ctx.session as { tenant?: { workspaceId?: string; environmentId?: string } } | undefined) : undefined;
+        if (ctx.provider === "zenith") {
+          if (provider !== "zenith" || managedSession?.tenant?.workspaceId !== ctx.workspaceId || managedSession?.tenant?.environmentId !== ctx.environmentId) refuse("Source preparation requires a Zenith-managed session for this workspace and environment.");
+          if (!deps.zenithSources) refuse("This worker has no managed source hand-off configured; Zenith-managed builds are refused.");
+        } else if (!["aws", "gcp", "azure"].includes(ctx.provider) || provider !== ctx.provider || (ctx.session as { region?: string } | undefined)?.region !== ctx.region) refuse("Source preparation requires a matching AWS, GCP or Azure brokered session.");
         try {
           const pipeline = await abortable(pipelineFor(deps, ctx, input.service, input.source), ctx.signal);
           const snapshot=input.approvedSource ? immutableSourceSnapshot(input.approvedSource) : undefined;
@@ -447,6 +453,8 @@ function sourceBundles(deps: SourceBundleDeps = {}, githubDb: () => Promise<impo
             const metadata = await abortable(get(gcp, `https://storage.googleapis.com/storage/v1/b/${bucket}`), ctx.signal);
             if (metadata.name !== bucket) refuse("Source bucket identity does not match the pipeline.");
             assertLabels(gcp, pipeline, metadata);
+          } else if (ctx.provider === "zenith") {
+            bucket = ""; // the in-cluster hand-off names its own namespace after the upload
           } else {
             azureLocation = await azureStorage.resolve(ctx); bucket = azureLocation.bucket;
           }
@@ -463,6 +471,11 @@ function sourceBundles(deps: SourceBundleDeps = {}, githubDb: () => Promise<impo
           checkSignal(ctx.signal);
           if (ctx.provider === "aws") await abortable(uploadAws(ctx as DriverContext<AwsSession>, bucket, key, bundle), ctx.signal);
           else if (ctx.provider === "gcp") await abortable(uploadGcp(ctx as DriverContext<GcpSession>, bucket, key, bundle, limits), ctx.signal);
+          else if (ctx.provider === "zenith") {
+            const stored = await abortable(deps.zenithSources!.upload(ctx, bundle), ctx.signal);
+            checkSignal(ctx.signal);
+            return { s3Key: stored.name, digest: bundle.sha256, bucket: stored.namespace, objectKey: stored.name, uri: `k8s-secret://${stored.namespace}/${stored.name}` };
+          }
           else await azureStorage.upload(ctx, azureLocation!, key, bundle);
           checkSignal(ctx.signal);
           const uri = azureLocation ? `${azureLocation.origin}/${azureLocation.container}/${key}` : `${ctx.provider === "aws" ? "s3" : "gs"}://${bucket}/${key}`;
@@ -509,7 +522,7 @@ export function createOwningSourceBundles(db: import("@/lib/controlplane/types")
   const owningDb = async () => { buildAdmission(); return db; };
   const access = createGithubAccess({ db: owningDb, fetchImpl });
   const bundles = sourceBundles({
-    resources: deps.resources, azureStorage: deps.azureStorage, sourceSnapshots, fetchImpl,
+    resources: deps.resources, azureStorage: deps.azureStorage, zenithSources: deps.zenithSources, sourceSnapshots, fetchImpl,
     limits: deps.limits ? Object.freeze({ ...deps.limits }) : undefined, timeoutMs: deps.timeoutMs,
     withGithubAccess: (input, fn) => access(input, fn),
   }, owningDb);

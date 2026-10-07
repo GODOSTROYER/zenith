@@ -26,7 +26,7 @@ import { digest } from "@/lib/controlplane/digest";
 
 export const BUILD_ISOLATION_VERSION = "zenith.build-isolation.v1" as const;
 
-export type BuildProviderKey = "aws" | "gcp" | "azure";
+export type BuildProviderKey = "aws" | "gcp" | "azure" | "zenith";
 
 export interface BuildIsolationProfile {
   id: string;
@@ -80,6 +80,20 @@ export const BUILD_ISOLATION_PROFILES: Readonly<Record<BuildProviderKey, BuildIs
       dependencies: "agent pool network routes dependency downloads through the allowlisted proxy",
       filesystem: "source archive uploaded once to a registry-owned blob and consumed read-only",
       resources: "fixed 2 vCPU agent, bounded run timeout",
+    },
+  },
+  zenith: {
+    id: "zenith.k8s-build.v1",
+    provider: "zenith",
+    limits: { maxTimeoutSec: 1800, computeClasses: ["k8s-2cpu-4gi"] },
+    identityPattern: /^system:serviceaccount:[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?:zenith-builder$/,
+    mechanisms: {
+      identity: "one Job in the platform build namespace under the dedicated zenith-builder ServiceAccount with no token mounted; its only Secrets are the immutable source bundle and the registry push credential, never a deploy credential",
+      metadata: "the build namespace NetworkPolicy is read back after the build; no egress rule may cover the link-local metadata address",
+      network: "the build namespace NetworkPolicy zenith-build-egress is read back after the build: egress is allowlisted only when no rule opens the public internet. Enforcement depends on the cluster's CNI, which the control plane cannot prove",
+      dependencies: "dependency downloads are allowed only to the destinations the build namespace policy names",
+      filesystem: "the source bundle is an immutable Secret mounted read-only and addressed by digest",
+      resources: "fixed 2 CPU / 4 GiB limits, 1800 second active deadline, no retries",
     },
   },
 });

@@ -611,6 +611,12 @@ export interface ExecutionDeps {
   credentials: CredentialBroker;
   machines?: MachineExecutionPort;
   portability?: PortabilityPort;
+  /**
+   * The Zenith-operated cluster, registry and build path (PROD-MAN-01). The platform composition always supplies it
+   * (it reports itself unconfigured, by variable name, when ZENITH_MANAGED_* is absent); an environment whose provider
+   * is `zenith` has no other way to obtain a session, so a worker without it refuses such an environment by name.
+   */
+  managed?: import("@/lib/providers/zenith/managed-port").ManagedSubstratePort;
   /** Required by canonical production planning/apply. Explicit isolated adapters are for tests only. */
   planArtifacts?: PlanArtifactsPort;
   /** External-effect ledger (PROD-DUR-07/08). Production composition always sets it; isolated contract compositions may omit it. */

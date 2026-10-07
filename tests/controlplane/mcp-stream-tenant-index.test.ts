@@ -24,12 +24,19 @@ async function upgrade(db: PlatformDbHandle) {
   await migratePlatformDb(db, previous);
   await assertPlatformSchemaCurrent(db, previous);
   const history = await db.query("select * from platform.schema_migrations order by version");
-  for (const [workspaceId, streamId] of [["tenant-index-a", "a".repeat(32)], ["tenant-index-b", "b".repeat(32)]]) {
+  const tenants = [["tenant-index-a", "a".repeat(32)], ["tenant-index-b", "b".repeat(32)]] as const;
+  for (const [workspaceId, streamId] of tenants) {
     await db.query("insert into platform.mcp_streams(id,workspace_id,principal_key,request_id,protocol_version,status,expires_at) values($1,$2,$3,$4,$5,$6,clock_timestamp()+interval '1 hour')",
       [streamId, workspaceId, "c".repeat(64), "tenant-index-request", "2025-11-25", "completed"]);
-    await db.query("insert into platform.mcp_stream_events(stream_id,workspace_id,seq,payload) values($1,$2,$3,$4::jsonb)",
+    await db.query("insert into platform.mcp_stream_events(stream_id,workspace_id,seq,payload) values($1,$2,$3,$4::text::jsonb)",
       [streamId, workspaceId, 1, JSON.stringify({ jsonrpc: "2.0", id: workspaceId, result: { retained: true } })]);
   }
+  const payloadFacts = () => db.query("select workspace_id,stream_id,seq,pg_typeof(payload)::text as sql_type,jsonb_typeof(payload) as json_type,payload from platform.mcp_stream_events order by workspace_id,stream_id,seq");
+  const expectedPayloads = tenants.map(([workspaceId, streamId]) => ({
+    workspace_id: workspaceId, stream_id: streamId, seq: 1, sql_type: "jsonb", json_type: "object",
+    payload: { jsonrpc: "2.0", id: workspaceId, result: { retained: true } },
+  }));
+  expect(await payloadFacts()).toEqual(expectedPayloads);
   const streamRows = () => db.query("select * from platform.mcp_streams order by workspace_id,id");
   const eventRows = () => db.query("select * from platform.mcp_stream_events order by workspace_id,stream_id,seq");
   const custody = () => db.query("select c.relname,c.relowner,c.relrowsecurity,c.relforcerowsecurity,coalesce(c.relacl::text,'') as acl from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='platform' and c.relname in ('mcp_streams','mcp_stream_events') order by c.relname");
@@ -54,6 +61,7 @@ async function upgrade(db: PlatformDbHandle) {
   expect(await db.query("select * from platform.schema_migrations where version<=42 order by version")).toEqual(history);
   expect(await db.query("select indexdef from pg_indexes where schemaname='platform' and indexname='mcp_stream_events_workspace_stream'")).toEqual([{ indexdef: indexDefinition }]);
   expect({ streams: await streamRows(), events: await eventRows(), custody: await custody(), constraints: await constraints(), policies: await policies() }).toEqual(before);
+  expect(await payloadFacts()).toEqual(expectedPayloads);
   expect(await db.query("select pg_get_constraintdef(oid) as definition from pg_constraint where conrelid='platform.mcp_stream_events'::regclass and contype='p'")).toEqual([{ definition: "PRIMARY KEY (stream_id, seq)" }]);
   expect(await db.query("select seq,payload from platform.mcp_stream_events where workspace_id=$1 and stream_id=$2 and seq>$3 order by seq limit $4",
     ["tenant-index-a", "a".repeat(32), 0, 10])).toEqual([{ seq: 1, payload: { jsonrpc: "2.0", id: "tenant-index-a", result: { retained: true } } }]);

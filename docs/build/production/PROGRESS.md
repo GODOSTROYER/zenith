@@ -1,3 +1,7 @@
+## Reduced-resource local checkpoint, 7 October 2026
+
+Local730 leaf verification passed within scoped evidence; default Supabase startup disk-blocked before tests despite Docker6GiB/swap4GiB. Owned resources removed. Newerc9 fresh install/security/compiler/lint/ledger checks passed; failed resource attempts retained. Docker backend stopped idle; settings retained. Further heavy work blocked below22GiB floor. Ledger12 verified/38 in progress/28 planned; all78 criteria/four false release flags retained. Counts overlap. [Exact results, skips, cleanup and resume](verification/RESULTS-2026-10.md#reduced-resource-verification-7-october-2026).
+
 ## Local startup authorization and bounded result, 7 October 2026
 
 DEC-STARTUP approved for disposable local default API/server startup only. Root executed **2 HTTP / 3 real-browser controls, all passed, zero failed or skipped**, with owned processes, ports and private data removed. Login keyboard and axe scans passed at1280/375px; six nonpublic prefetch requests were blocked. This used an existing warmed build whose source origin is unestablished, not an authenticated operator journey or clean packaged API proof. First fixture failure is retained with separate cleanup recovery. [Scoped result](verification/RESULTS-2026-10.md#local-startup-2026-10-07).

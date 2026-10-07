@@ -1,0 +1,741 @@
+{
+  "id": "PROD-MACH-05",
+  "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+  "status": "executed",
+  "exitCode": 0,
+  "refusal": null,
+  "passed": 1526,
+  "failed": 0,
+  "skipped": 11,
+  "commandTargets": [
+    "tests/runners",
+    "tests/agent-v3",
+    "tests/agent-control",
+    "tests/security",
+    "tests/execution/platform.test.ts",
+    "tests/agent-access/credential-authority-origin.test.ts",
+    "tests/agent-access/native-oauth-origin.test.ts",
+    "tests/agent-link",
+    "tests/agent-journey.test.ts",
+    "tests/agent-access/journal-tenancy.test.ts"
+  ],
+  "nodeVersion": "v22.23.3",
+  "heapMiB": 768,
+  "architecture": "native Darwin ARM64 with Docker ARM64 real PostgreSQL16.15, TLS verify-full",
+  "environmentScope": "isolated contract/real-PG leaf tests; no real Auth/default-stack/live-cloud proof",
+  "diskBeforeBytes": 24128159744,
+  "diskMinBytes": 24046141440,
+  "diskAfterBytes": 24077918208,
+  "elapsedSeconds": 116.44,
+  "rawLogs": "private only; not retained publicly",
+  "schema": 1,
+  "reportSha256": "1da6f6541623e69e85bf26b22e75a722b3154829be1318052a65f34958bafb99",
+  "perFile": [
+    {
+      "file": "tests/agent-control-advance.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-control-capabilities.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-control-coordinator.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-control-journal-fixes.test.ts",
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-control-journal.test.ts",
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-control-oauth.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-control-rate-limit.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-control-reconcile.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-control-upload.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-journey.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-link-authority.test.ts",
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-link-protocol.test.ts",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-link-routes.test.ts",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-access/credential-authority-origin.test.ts",
+      "passed": 61,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-access/journal-tenancy.test.ts",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-access/native-oauth-origin.test.ts",
+      "passed": 49,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-control/pg-contract.test.ts",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-control/pg-oauth-grants.test.ts",
+      "passed": 71,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-link/pg-contract.test.ts",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/adapters.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/auth.test.ts",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/catalog.test.ts",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/envelope.test.ts",
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/execute.test.ts",
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/oauth-metadata.test.ts",
+      "passed": 36,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/observability-wired.test.ts",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/placement-transport.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/placement.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/principal.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/propose.test.ts",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/read.test.ts",
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/route.test.ts",
+      "passed": 36,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/schemas.test.ts",
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/sdk.test.ts",
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/agent-v3/tenancy.test.ts",
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/execution/platform.test.ts",
+      "passed": 23,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/admin-routes.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/aws-transport.test.ts",
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/custody.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/dispatch.test.ts",
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/e2e-platform-store.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/isolation.test.ts",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/late-effect-receipts.test.ts",
+      "passed": 112,
+      "failed": 0,
+      "skipped": 8,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/lifecycle.test.ts",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/oci-contract.test.ts",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/oci-payload.test.ts",
+      "passed": 46,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/paths.test.ts",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/poll.test.ts",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/read-jobs.test.ts",
+      "passed": 40,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/registration.test.ts",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/request-auth.test.ts",
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/results.test.ts",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/runtime.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/signing.test.ts",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/store-contract.test.ts",
+      "passed": 44,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/runners/tofu-dispatch.test.ts",
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/agent-credentials.test.ts",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/audit-secret-leakage.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/controlplane-sql-scoping.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/credential-boundaries.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/digest-canonical.test.ts",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/driver-inert.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/image-pins.test.ts",
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/mcp-secret-leakage.test.ts",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/mcp-v1-tenant-isolation.test.ts",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/mcp-v2-tenant-isolation.test.ts",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/plan-artifact-secrecy.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/policy-invariants.test.ts",
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/reconcile-value-boundaries.test.ts",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/redaction-coverage.test.ts",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/request-error-logging.test.ts",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/result-sanitizer.test.ts",
+      "passed": 23,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/runtime-sanity.test.ts",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/signal-boundaries.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/ssrf-address-oracle.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/store-value-boundaries.test.ts",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/support.test.ts",
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/tofu-runner-env.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/tofu-secrets.test.ts",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/tofu-workspace-injection.test.ts",
+      "passed": 34,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/workflow-history.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 2,
+      "pending": 0,
+      "todo": 0
+    }
+  ],
+  "unpassedCases": [
+    {
+      "file": "tests/runners/late-effect-receipts.test.ts",
+      "name": "agent effect receipts ['memory'] runner authenticated outcomes rolls back the receipt and active projection together, then accepts a fresh delivery",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/runners/late-effect-receipts.test.ts",
+      "name": "agent effect receipts ['memory'] runner authenticated outcomes makes receipt update/delete and original assignment substitution fail at the database boundary",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/runners/late-effect-receipts.test.ts",
+      "name": "agent effect receipts ['memory'] runner authenticated outcomes observes a blocked PostgreSQL result writer and retains late evidence when cancellation wins the job lock",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/runners/late-effect-receipts.test.ts",
+      "name": "agent effect receipts ['memory'] machine authenticated outcomes rolls back the receipt and active projection together, then accepts a fresh delivery",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/runners/late-effect-receipts.test.ts",
+      "name": "agent effect receipts ['memory'] machine authenticated outcomes makes receipt update/delete and original assignment substitution fail at the database boundary",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/runners/late-effect-receipts.test.ts",
+      "name": "agent effect receipts ['memory'] machine authenticated outcomes observes a blocked PostgreSQL result writer and retains late evidence when cancellation wins the job lock",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/runners/late-effect-receipts.test.ts",
+      "name": "agent effect receipts ['pglite'] runner authenticated outcomes observes a blocked PostgreSQL result writer and retains late evidence when cancellation wins the job lock",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/runners/late-effect-receipts.test.ts",
+      "name": "agent effect receipts ['pglite'] machine authenticated outcomes observes a blocked PostgreSQL result writer and retains late evidence when cancellation wins the job lock",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/security/plan-artifact-secrecy.test.ts",
+      "name": "encrypted plan artifact secrecy [postgres] sensitive read-only originals persist only ciphertext; key rotation, tenant domains and tampering fail closed",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/security/workflow-history.test.ts",
+      "name": "real Temporal history (opt-in; fake activities) ids/digests-only inputs and fake activity results leave synthetic node specs outside history",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/security/workflow-history.test.ts",
+      "name": "real Temporal history (opt-in; fake activities) SEC-F12: runtime node-spec extras are absent from actual durable history",
+      "status": "skipped"
+    }
+  ],
+  "scopeLimit": "Counts overlap other lanes and are not summed. No full default-stack, cloud, real Auth or installed customer-runner proof. Required acceptance remains open."
+}

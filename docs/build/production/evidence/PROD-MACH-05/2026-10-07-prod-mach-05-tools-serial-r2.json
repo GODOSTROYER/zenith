@@ -1,0 +1,45 @@
+{
+  "id": "PROD-MACH-05-TOOLS",
+  "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+  "status": "executed",
+  "exitCode": 0,
+  "refusal": null,
+  "passed": 11,
+  "failed": 0,
+  "skipped": 0,
+  "commandTargets": [
+    "tests/security/plan-artifact-secrecy.test.ts",
+    "tests/security/workflow-history.test.ts"
+  ],
+  "nodeVersion": "v22.23.3",
+  "heapMiB": 768,
+  "architecture": "native Darwin ARM64 with Docker ARM64 real PostgreSQL16.15, TLS verify-full",
+  "environmentScope": "isolated contract/real-PG leaf tests; no real Auth/default-stack/live-cloud proof",
+  "diskBeforeBytes": 24076902400,
+  "diskMinBytes": 24065519616,
+  "diskAfterBytes": 24076783616,
+  "elapsedSeconds": 16.07,
+  "rawLogs": "private only; not retained publicly",
+  "schema": 1,
+  "reportSha256": "142e264bf9935c4cec2453b70c15a6938fcc154ec2fef4b8181b1145cb7ba843",
+  "perFile": [
+    {
+      "file": "tests/security/plan-artifact-secrecy.test.ts",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/workflow-history.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    }
+  ],
+  "unpassedCases": [],
+  "scopeLimit": "Counts overlap other lanes and are not summed. No full default-stack, cloud, real Auth or installed customer-runner proof. Required acceptance remains open."
+}

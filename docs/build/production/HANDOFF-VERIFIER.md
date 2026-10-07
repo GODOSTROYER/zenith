@@ -1,3 +1,9 @@
+## Latest reduced-resource verifier handoff, 7 October 2026
+
+Docker6GiB/swap4GiB applied on this Mac; owned resources cleaned. Six serial leaf lanes and actual PostgreSQL/Temporal/OpenTofu/reader/Go supplements passed within their scopes; default Supabase startup crossed22GiB floor before tests. Current heavy work resource-blocked; no default acceptance promotion. Fresh pulledc9 dependency audit/install/compiler/lint/ledger passed, CI20/20 inspected. Local730 source, c9 checks and publication-source CI remain separate. Ledger12 verified/38 in progress/28 planned; all78 criteria/four false release states unchanged. Latest human identity Arnav Bule author+committer. [Exact safe continuation](verification/RESUME-REDUCED-RESOURCE-2026-10-07.md), [counts/failures/skips](verification/RESULTS-2026-10.md#reduced-resource-verification-7-october-2026), [c9 jobs](verification/CI-2026-10-07-c9a942d6.md).
+
+Earlier entries preserve historical scope and permissions.
+
 ## Coherent verifier result, 7 October 2026
 
 Tested published `d6965d75eb9522527c7a91b06cf8f490f6531d20`: all20 CI jobs completed successfully, with no fresh job-status anomaly. Unit **19,622 passed / 0 failed / 1,532 skipped**. Real PostgreSQL **3,034/0/8**, all1,124 required; workflows **1,275/0/0**, all62; PG **379/0/0**, all93. Native packaged AMD64 and ARM64 each **22/0/0**, no emulation, all cleanup flags. Complete dependency audit zero known findings, no exception. [Fresh job/skip report](verification/CI-2026-10-07-d6965d75.md). Counts overlap and are not summed.

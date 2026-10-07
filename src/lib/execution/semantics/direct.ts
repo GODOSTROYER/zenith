@@ -14,12 +14,13 @@ import type { ResourceGraph } from "@/lib/resources/types";
 import type { CollectArgs } from "./collect";
 
 export const MANAGED_APPLY_CONTRACT = "zenith-managed-apply/Z1";
+export const KUBERNETES_APPLY_CONTRACT = "kubernetes-apply/K1";
 
-export function directSemanticsArgs(graph: ResourceGraph, connection: Pick<ProviderConnection, "id" | "config">, planDigest: string): CollectArgs & { planDigest: string } {
+export function directSemanticsArgs(graph: ResourceGraph, connection: Pick<ProviderConnection, "id" | "config">, planDigest: string, contract: string = MANAGED_APPLY_CONTRACT): CollectArgs & { planDigest: string } {
   return {
     graph,
     connection: { id: connection.id, config: connection.config },
-    ws: { files: [], configDigest: graph.graphDigest, lockDigest: digest({ contract: MANAGED_APPLY_CONTRACT }), backend: "local" },
+    ws: { files: [], configDigest: graph.graphDigest, lockDigest: digest({ contract }), backend: "local" },
     planDigest,
   };
 }

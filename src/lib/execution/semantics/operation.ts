@@ -14,7 +14,7 @@ import { buildDeployWorkspace } from "../plan";
 import { StepFailedError } from "../errors";
 import type { Runtime } from "../runtime";
 import { approvedSources } from "../source-snapshot";
-import { directSemanticsArgs } from "./direct";
+import { directSemanticsArgs, KUBERNETES_APPLY_CONTRACT } from "./direct";
 import { assertApprovedSemantics } from "./dispatch";
 
 export async function assertOperationSemantics(rt: Runtime, ec: ExecContext, lease: LeaseRef, stage: string, signal?: AbortSignal): Promise<void> {
@@ -22,8 +22,11 @@ export async function assertOperationSemantics(rt: Runtime, ec: ExecContext, lea
   const { graph } = requireExecutable(rt, ec);
   const connection = await resolveConnection(rt, ec);
   if (ec.executableSourceDigest === undefined) await approvedSources(rt, ec, graph, lease, false, signal);
-  // A Zenith-managed environment has no OpenTofu workspace: its semantics are bound with the provider-direct stand-in (direct.ts).
-  if (ec.product.environment.provider === "zenith") await assertApprovedSemantics(rt, ec, directSemanticsArgs(graph, connection, ec.op.planDigest), stage);
+  // Provider-direct environments (Zenith-managed, Kubernetes) have no OpenTofu workspace: their semantics are bound with the
+  // provider-direct stand-in (direct.ts), recorded at plan by direct-zenith.ts / direct-kubernetes.ts.
+  const provider = ec.product.environment.provider;
+  if (provider === "zenith") await assertApprovedSemantics(rt, ec, directSemanticsArgs(graph, connection, ec.op.planDigest), stage);
+  else if (provider === "kubernetes") await assertApprovedSemantics(rt, ec, directSemanticsArgs(graph, connection, ec.op.planDigest, KUBERNETES_APPLY_CONTRACT), stage);
   else {
     const { ws } = await buildDeployWorkspace(rt, ec, graph, connection);
     await assertApprovedSemantics(rt, ec, { graph, connection, ws, planDigest: ec.op.planDigest }, stage);

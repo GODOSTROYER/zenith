@@ -72,7 +72,11 @@ describe("managed serving through the Kubernetes HTTP contract API", () => {
     // autoscaling: the production renderer's HPA, clamped by the tier, owning the replica count
     const hpa = fake.get("HorizontalPodAutoscaler", NS, "web");
     expect(hpa?.spec).toMatchObject({ scaleTargetRef: { kind: "Deployment", name: "web" }, minReplicas: 2, maxReplicas: 4, behavior: { scaleDown: { stabilizationWindowSeconds: 300 } } });
-    expect(fake.get("Deployment", NS, "web")?.spec).not.toHaveProperty("replicas");
+    // The API defaults live replicas to 1; Zenith must omit the field from its SSA intent so the HPA owns it.
+    const deploymentWrites = fake.writes().filter((write) => write.body.kind === "Deployment" && write.body.metadata.name === "web");
+    expect(deploymentWrites.length).toBeGreaterThan(0);
+    for (const write of deploymentWrites) expect(write.body.spec).not.toHaveProperty("replicas");
+    expect(fake.get("Deployment", NS, "web")?.spec).toHaveProperty("replicas", 1);
     expect(fake.get("HorizontalPodAutoscaler", NS, "worker")).toBeUndefined();
 
     // the verified custom domain: a route for exactly that host on exactly that host's listener

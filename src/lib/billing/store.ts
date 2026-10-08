@@ -18,6 +18,7 @@
  * Nothing in this module deletes a row, and the tables refuse deletion by trigger. Deliberately NOT exported from
  * `controlplane/db/repos` (same stance as src/lib/ops/store.ts), so callers pass the platform `Sql` explicitly.
  */
+import { assertNoSecretValues } from "@/lib/controlplane/db/secrets";
 import type { Sql } from "@/lib/controlplane/types";
 import { ControlStoreError, requireText } from "@/lib/controlplane/db/errors";
 import { json, newId } from "@/lib/controlplane/db/sql";
@@ -141,6 +142,7 @@ export async function recordAccountEvent(
   sql: Sql,
   input: { workspaceId: string; kind: AccountEventKind; actor: string; reason?: string; detail?: Record<string, unknown> }
 ): Promise<void> {
+  assertNoSecretValues(input.detail ?? {});
   await sql.query(
     "insert into platform.billing_account_events (workspace_id, kind, actor, reason, detail) values ($1, $2, $3, $4, $5::text::jsonb)",
     [ws(input.workspaceId), input.kind, requireText("actor", input.actor, 200), input.reason ? input.reason.slice(0, 300) : null, json(input.detail ?? {})]
@@ -333,8 +335,10 @@ export const markInvoiceOpen = (sql: Sql, workspaceId: string, id: string, ids: 
 export const markInvoiceNoCharge = (sql: Sql, workspaceId: string, id: string): Promise<Invoice | null> =>
   updateInvoice(sql, workspaceId, id, ["draft"], "status = 'no_charge', last_error = null", []);
 
-export const recordInvoiceError = (sql: Sql, workspaceId: string, id: string, message: string): Promise<Invoice | null> =>
-  updateInvoice(sql, workspaceId, id, ["draft"], "last_error = $4", [message.slice(0, 300)]);
+export const recordInvoiceError = (sql: Sql, workspaceId: string, id: string, message: string): Promise<Invoice | null> => {
+  assertNoSecretValues(message);
+  return updateInvoice(sql, workspaceId, id, ["draft"], "last_error = $4", [message.slice(0, 300)]);
+};
 
 export interface InvoiceTransition {
   to: "paid" | "failed" | "void";

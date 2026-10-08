@@ -21,8 +21,8 @@
  *  - `billing_webhook_events`  one row per provider event id: the idempotency record. Holds the digest of the verified
  *                              payload and the outcome, never the payload.
  */
-export const migration0051Billing = {
-  version: 51,
+export const migration0052Billing = {
+  version: 52,
   name: "billing",
   sql: `
 create table if not exists platform.billing_accounts (

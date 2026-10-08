@@ -205,8 +205,11 @@ describe("a changed producer output invalidates the consumer's approval (DUR-B)"
     port.inputs = [HOST];
     const w = world(port);
     const { lease, plan } = await planned(w);
+    let effectsStarted = false;
+    void w.tofu.applyStarted.then(() => { effectsStarted = true; });
     port.inputs = [{ ...HOST, value: "db.other.example", valueDigest: digest({ type: "endpoint", value: "db.other.example" }) }];
-    await expect(w.activities.applyInfrastructure({ operationId: OP, planDigest: plan.planDigest, lease })).rejects.toBeInstanceOf(StepFailedError);
+    await expect(w.activities.applyInfrastructure({ operationId: OP, planDigest: plan.planDigest, lease })).rejects.toMatchObject({ code: "plan_changed" });
+    expect(effectsStarted).toBe(false);
   });
 
   it("still applies when nothing moved", async () => {

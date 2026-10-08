@@ -266,3 +266,55 @@ describe("the Zenith-operated registry policy", () => {
     expect(registry.isManagedHost(`registry.example.com.evil.test/x@${digest}`)).toBe(false);
   });
 });
+
+
+describe("managed serving assembly", () => {
+  it("loads current domain proof and retirement state for every session", async () => {
+    let verifiedDomains = ["first.customer.example"];
+    const scopes: unknown[] = [];
+    const { port } = setup(FULL_ENV, { servingInputs: async (tenant) => { scopes.push(tenant); return { verifiedDomains, retiredDomains: ["retired.customer.example"] }; } });
+    expect(await port.openSession(REF)).toMatchObject({ customDomains: ["first.customer.example"], retiredDomains: ["retired.customer.example"] });
+    verifiedDomains = ["second.customer.example"];
+    expect(await port.openSession(REF)).toMatchObject({ customDomains: ["second.customer.example"] });
+    expect(scopes).toEqual([expect.objectContaining(REF), expect.objectContaining(REF)]);
+  });
+
+  it("refuses a session before credential opening when domain proof cannot be read", async () => {
+    const { port, opened } = setup(FULL_ENV, { servingInputs: async () => { throw new Error("store unavailable"); } });
+    await expect(port.openSession(REF)).rejects.toMatchObject({ code: "session_refused" });
+    expect(opened).toEqual([]);
+  });
+
+  it("composes an environment-bound object-store runtime and passes it into the managed session", async () => {
+    const scopes: unknown[] = [];
+    const store = { active: async () => null, known: async () => [], record: async () => { throw new Error("unused"); }, markRevoked: async () => {} };
+    const { port } = setup({ ...FULL_ENV, ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CREDENTIAL_REF: "vault:storage-admin" }, {
+      storageKeyStore: (tenant) => { scopes.push(tenant); return store; },
+    });
+    const runtime = port.databaseRuntime({ ...REF, projectId: "p1", nodes: [] });
+    expect(runtime.storage?.admin.availability()).toMatchObject({ available: true });
+    expect(runtime.storage?.store).toBe(store);
+    const session = await port.openSession({ ...REF, storage: runtime.storage });
+    expect(session.storage).toBe(runtime.storage);
+    expect(scopes).toEqual([expect.objectContaining(REF)]);
+    await expect(runtime.storage!.sink.put("vault:generated/foreign/object/data/storage-secret", "unused")).rejects.toThrow();
+  });
+
+  it("reuses the exact tenant session whose isolation access was checked", async () => {
+    const checked = fakeSession({ provider: "kubernetes", mode: "kubeconfig_ref", server: "https://cluster.example", credentialRef: "vault:checked", namespaces: [tenantNamespace(REF.workspaceId, REF.environmentId)] });
+    const { port, opened } = setup(FULL_ENV, { assertTenantReady: async () => checked });
+    expect((await port.openSession(REF)).kubernetes).toBe(checked);
+    expect(opened).toHaveLength(1);
+    expect(opened[0].namespaces).toEqual(["zenith-gateway"]);
+  });
+
+  it("uses per-tenant workload credentials and a separate gateway-only platform session", async () => {
+    const { port, opened } = setup({ ...FULL_ENV, ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX: "vault:operators" });
+    await port.openSession(REF);
+    expect(opened).toHaveLength(2);
+    expect(opened[0].credentialRef).toBe(`vault:operators/${tenantNamespace(REF.workspaceId, REF.environmentId)}`);
+    expect(opened[0].namespaces).toEqual([tenantNamespace(REF.workspaceId, REF.environmentId)]);
+    expect(opened[1].credentialRef).toBe(FULL_ENV.ZENITH_MANAGED_KUBECONFIG_REF);
+    expect(opened[1].namespaces).toEqual(["zenith-gateway"]);
+  });
+});

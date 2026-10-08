@@ -23,7 +23,7 @@ import type { SemanticsStore } from "@/lib/execution/semantics/store";
 import type { DeployWorkflowInput } from "@/lib/workflows/types";
 import type { ProviderConnection } from "@/lib/credentials/types";
 import { LANES, approve, expectCode, openLane, seedApprovedOperation, seedAwaitingApproval, user, uid } from "./_support/harness";
-import { PARENT_ENV, PROJECT, connection, mixedGraph, refresh } from "../execution/mixed/_fixtures";
+import { PARENT_ENV, PROJECT, connection, fixtureConnectivity, mixedGraph, refresh } from "../execution/mixed/_fixtures";
 
 const ENVIRONMENTS = ["env-azure", "env-gcp", "env-aws"] as const;
 const PROVIDER_OF: Record<string, "azure" | "gcp" | "aws"> = { "env-azure": "azure", "env-gcp": "gcp", "env-aws": "aws" };
@@ -91,7 +91,7 @@ describe.each(LANES)("mixed parent and child plans [$name]", (lane) => {
     const store = { get: async (workspaceId: string, operationId: string, planDigest: string) => (semantics.value ? { workspaceId, operationId, planDigest, semantics: { digest: semantics.value }, createdAt: new Date().toISOString() } : null), record: async () => { throw new Error("fake store is read-only"); } } as unknown as SemanticsStore;
     const deps: MixedDeps = { sql: db(), world, semantics: store };
     const launcher = new FakeLauncher(db());
-    const planned = await planMixed(deps, { workspaceId: ws, parentEnvironmentId: PARENT_ENV, childEnvironmentIds: [...ENVIRONMENTS], createdBy: "user-planner" });
+    const planned = await planMixed(deps, { workspaceId: ws, parentEnvironmentId: PARENT_ENV, childEnvironmentIds: [...ENVIRONMENTS], createdBy: "user-planner", connectivity: fixtureConnectivity({ workspaceId: ws, projectId: PROJECT, parentEnvironmentId: PARENT_ENV, graph: mixedGraph(), candidates: ENVIRONMENTS.map(env => ({childEnvironmentId: env, connection: conns[env]})) }) });
     const base = { ws, deps, launcher, conns, graphFor, plan: planned.stored.plan, parentOperationId: "", childOperations: {} as Record<string, string>, semantics };
     if (stage === "planned") return base;
     const seeded = await seedAwaitingApproval(db(), { workspaceId: ws, proposal: { capability: "deployment.deploy", scope: { workspaceId: ws, projectId: PROJECT, environmentId: PARENT_ENV }, input: parentProposalInput(planned.stored.plan) } });
@@ -127,10 +127,17 @@ describe.each(LANES)("mixed parent and child plans [$name]", (lane) => {
       expect((await plans.getAddresses(db(), s.ws, s.plan.parentPlanId)).map((entry) => entry.stableAddress)).toEqual(s.plan.addresses.map((entry) => entry.stableAddress));
       const children = await plans.listChildren(db(), s.ws, s.plan.parentPlanId);
       expect(children.map((child) => [child.ordinal, child.state])).toEqual([[0, "pending"], [1, "pending"], [2, "pending"]]);
-      const again = await planMixed(s.deps, { workspaceId: s.ws, parentEnvironmentId: PARENT_ENV, childEnvironmentIds: [...ENVIRONMENTS], createdBy: "user-planner" });
+      const again = await planMixed(s.deps, { workspaceId: s.ws, parentEnvironmentId: PARENT_ENV, childEnvironmentIds: [...ENVIRONMENTS], createdBy: "user-planner", connectivity: s.plan.connectivity!.declaration });
       expect(again.created).toBe(false);
       expect(again.stored.plan.parentPlanId).toBe(s.plan.parentPlanId);
       expect(again.proposalInput).toEqual(parentProposalInput(s.plan));
+    });
+
+    it("refuses undeclared protected connectivity before persisting a plan", async () => {
+      const s = await scenario("planned");
+      const failure = await refusal(planMixed(s.deps, {workspaceId:s.ws,parentEnvironmentId:PARENT_ENV,childEnvironmentIds:[...ENVIRONMENTS],createdBy:"user-planner"}), "plan_refused");
+      expect(failure.detail).toMatchObject({code:"missing_connectivity"});
+      expect((await plans.listPlansForEnvironment(db(),s.ws,PARENT_ENV)).map(p => p.plan.parentPlanId)).toEqual([s.plan.parentPlanId]);
     });
 
     it("refuses to plan when a partition has no verified connection, and stores nothing", async () => {
@@ -198,7 +205,7 @@ describe.each(LANES)("mixed parent and child plans [$name]", (lane) => {
       for (const env of ENVIRONMENTS) conns[env] = connection(PROVIDER_OF[env], { workspaceId: ws });
       const world: MixedWorld = { ...s.deps.world, childEnvironment: async (_w, env) => ({ projectId: PROJECT, connection: conns[env] }), connections: async (_w, ids) => new Map(ids.map((id) => [id, Object.values(conns).find((c) => c.id === id) ?? null])) };
       const deps: MixedDeps = { ...s.deps, world };
-      const planned = await planMixed(deps, { workspaceId: ws, parentEnvironmentId: PARENT_ENV, childEnvironmentIds: [...ENVIRONMENTS], createdBy: "user-planner" });
+      const planned = await planMixed(deps, { workspaceId: ws, parentEnvironmentId: PARENT_ENV, childEnvironmentIds: [...ENVIRONMENTS], createdBy: "user-planner", connectivity: fixtureConnectivity({ workspaceId: ws, projectId: PROJECT, parentEnvironmentId: PARENT_ENV, graph: mixedGraph(), candidates: ENVIRONMENTS.map(env => ({childEnvironmentId: env, connection: conns[env]})) }) });
       const op = await seedApprovedOperation(db(), ws, { proposal: { capability: "deployment.deploy", scope: { workspaceId: ws, projectId: PROJECT, environmentId: PARENT_ENV }, input: parentProposalInput(planned.stored.plan) } });
       await plans.attachParentOperation(db(), { workspaceId: ws, planId: planned.stored.plan.parentPlanId, operationId: op.operation.id });
       return { deps, plan: planned.stored.plan, parentOperationId: op.operation.id };
@@ -222,8 +229,8 @@ describe.each(LANES)("mixed parent and child plans [$name]", (lane) => {
       for (const env of ENVIRONMENTS) conns[env] = connection(PROVIDER_OF[env], { workspaceId: ws });
       const world: MixedWorld = { ...s.deps.world, parentGraph: async () => ({ projectId: PROJECT, graph: graphWithEdge }), childEnvironment: async (_w, env) => ({ projectId: PROJECT, connection: conns[env] }), connections: async (_w, ids) => new Map(ids.map((id) => [id, Object.values(conns).find((c) => c.id === id) ?? null])) };
       const deps: MixedDeps = { ...s.deps, world };
-      const planned = await planMixed(deps, { workspaceId: ws, parentEnvironmentId: PARENT_ENV, childEnvironmentIds: [...ENVIRONMENTS], createdBy: "user-planner",
-        references: [{ id: "db-host", producer: { address: "resource/db", output: "endpoint", type: "endpoint" }, consumer: { address: "service/web", input: "endpoint_db", type: "endpoint" } }] });
+      const references = [{ id: "db-host", producer: { address: "resource/db", output: "endpoint", type: "endpoint" as const }, consumer: { address: "service/web", input: "endpoint_db", type: "endpoint" as const } }];
+      const planned = await planMixed(deps, { workspaceId: ws, parentEnvironmentId: PARENT_ENV, childEnvironmentIds: [...ENVIRONMENTS], createdBy: "user-planner", connectivity: fixtureConnectivity({ workspaceId: ws, projectId: PROJECT, parentEnvironmentId: PARENT_ENV, graph: graphWithEdge, references, candidates: ENVIRONMENTS.map(env => ({childEnvironmentId: env, connection: conns[env]})) }), references });
       const seeded = await seedAwaitingApproval(db(), { workspaceId: ws, proposal: { capability: "deployment.deploy", scope: { workspaceId: ws, projectId: PROJECT, environmentId: PARENT_ENV }, input: parentProposalInput(planned.stored.plan) } });
       await plans.attachParentOperation(db(), { workspaceId: ws, planId: planned.stored.plan.parentPlanId, operationId: seeded.operation.id });
       await approve(db(), seeded);

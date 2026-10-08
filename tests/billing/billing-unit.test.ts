@@ -3,7 +3,9 @@
  * `billing: disabled` default), pure invoice pricing, the Stripe TEST-mode adapter's request shapes (injected fetch,
  * contract-level) and webhook signature verification with a run-time generated secret.
  */
-import { createHmac } from "node:crypto";
+import { recordAccountEvent, recordInvoiceError } from "@/lib/billing/store";
+import type { Sql } from "@/lib/controlplane/types";
+import { createHmac, randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { STRIPE_API_BASE, billingConfigFromEnv, billingEnabled, isStripeTestKey } from "@/lib/billing/config";
 import { priceInvoice } from "@/lib/billing/invoice";
@@ -258,5 +260,23 @@ describe("webhook signature verification (run-time generated secret)", () => {
     const header = signStripePayload("", payload, nowSec);
     expect(verifyStripeSignature({ secret: undefined, header, payload, nowMs })).toEqual({ ok: false, reason: "secret_not_configured" });
     expect(verifyStripeSignature({ secret: "", header, payload, nowMs })).toEqual({ ok: false, reason: "secret_not_configured" });
+  });
+});
+
+
+describe("billing diagnostic persistence", () => {
+  it("refuses recognizable secret material before an account event can reach SQL", async () => {
+    let calls = 0;
+    const sql = {query: async () => { calls++; return []; }} as unknown as Sql;
+    const token = `Bearer ${randomBytes(24).toString("base64url")}`;
+    await expect(recordAccountEvent(sql,{workspaceId:"ws-guard",kind:"plan_assigned",actor:"operator",detail:{diagnostic:token}})).rejects.toMatchObject({code:"secret_material"});
+    expect(calls).toBe(0);
+  });
+  it("refuses recognizable secret material before an invoice error can reach SQL", () => {
+    let calls = 0;
+    const sql = {query: async () => { calls++; return []; }} as unknown as Sql;
+    const token = `Bearer ${randomBytes(24).toString("base64url")}`;
+    expect(() => recordInvoiceError(sql,"ws-guard","invoice-guard",token)).toThrow();
+    expect(calls).toBe(0);
   });
 });

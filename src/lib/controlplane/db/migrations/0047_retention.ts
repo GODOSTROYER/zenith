@@ -17,8 +17,8 @@
  *
  * `retention_restores`: append-only audit of every archive restore attempt (who, what, how many rows, verdict).
  */
-export const migration0045Retention = {
-  version: 45,
+export const migration0047Retention = {
+  version: 47,
   name: "retention",
   sql: `
 create table if not exists platform.legal_holds (
@@ -148,6 +148,7 @@ create table if not exists platform.retention_restores (
   detail                  text,
   created_at              timestamptz not null default clock_timestamp()
 );
+create index if not exists retention_restores_workspace on platform.retention_restores (workspace_id, created_at desc);
 create index if not exists retention_restores_archive on platform.retention_restores (archive_id, created_at desc);
 
 create or replace function platform.retention_restores_immutable() returns trigger language plpgsql as $$

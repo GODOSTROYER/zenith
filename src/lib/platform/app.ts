@@ -17,6 +17,7 @@ import { custodySeparationErrors } from "@/lib/keycustody/startup";
 import { log } from "@/lib/log";
 import { platformCredentialBroker } from "./credentials";
 import { composeReconcilePorts } from "./reconcile";
+import { createDefaultManagedSubstrate } from "./zenith-managed";
 import { registerAllDrivers } from "./drivers";
 import { platformScopeResolver } from "./scopes";
 import { composeAgentPorts } from "./agent-ports";
@@ -45,7 +46,8 @@ export function ensurePlatformApp(db?: Sql): Promise<boolean> {
       registerPlatformBrokerPorts({ scopes: platformScopeResolver(sql) });
       configureRunnerRuntime(runnerPorts(sql));
       const credentials = platformCredentialBroker(sql);
-      wireReconcilePorts(() => composeReconcilePorts(sql, credentials));
+      const managed = createDefaultManagedSubstrate({ db: sql });
+      wireReconcilePorts(() => composeReconcilePorts(sql, credentials, undefined, managed));
       const agentPorts = composeAgentPorts(sql, credentials);
       registerCredentialBroker(credentials, agentPorts.observability);
       // Diagnose stage of the canonical repair lifecycle: finished investigations of tracked incidents are recorded, and an inconclusive one escalates.

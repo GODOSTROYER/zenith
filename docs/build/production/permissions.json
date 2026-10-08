@@ -24,68 +24,141 @@
   "harnesses": {
     "aws-live": {
       "description": "AWS sandbox scenarios A-J (scripts/acceptance/aws-live.ts)",
-      "providers": ["aws", "control_plane"],
-      "actions": ["read", "create_disposable", "mutate_run_tagged", "teardown_run_tagged"],
+      "providers": [
+        "aws",
+        "control_plane"
+      ],
+      "actions": [
+        "read",
+        "create_disposable",
+        "mutate_run_tagged",
+        "teardown_run_tagged"
+      ],
       "maxRunUsd": 30
     },
     "aws-cleanup": {
       "description": "Run-tagged AWS cleanup (scripts/acceptance/cleanup-cli.ts)",
-      "providers": ["aws"],
-      "actions": ["read", "teardown_run_tagged"],
+      "providers": [
+        "aws"
+      ],
+      "actions": [
+        "read",
+        "teardown_run_tagged"
+      ],
       "maxRunUsd": 0
     },
     "aws-iam-live": {
       "description": "Read-only IAM permission simulation against the sandbox account (scripts/acceptance/aws-iam-permissions-cli.ts)",
-      "providers": ["aws"],
-      "actions": ["read"],
+      "providers": [
+        "aws"
+      ],
+      "actions": [
+        "read"
+      ],
       "maxRunUsd": 0
     },
     "azure-live": {
       "description": "Azure live acceptance (scripts/acceptance/azure-live.ts)",
-      "providers": ["azure"],
-      "actions": ["read", "create_disposable", "teardown_run_tagged"],
+      "providers": [
+        "azure"
+      ],
+      "actions": [
+        "read",
+        "create_disposable",
+        "teardown_run_tagged"
+      ],
       "maxRunUsd": 5
     },
     "non-aws-dns-live": {
       "description": "GCP, Azure and OCI DNS teardown review acceptance",
-      "providers": ["gcp", "azure", "oci", "control_plane"],
-      "actions": ["read", "teardown_run_tagged"],
+      "providers": [
+        "gcp",
+        "azure",
+        "oci",
+        "control_plane"
+      ],
+      "actions": [
+        "read",
+        "teardown_run_tagged"
+      ],
       "maxRunUsd": 0
     },
     "billing-live": {
       "description": "Read-only actual-spend reads",
-      "providers": ["aws", "gcp", "azure", "oci"],
-      "actions": ["read"],
+      "providers": [
+        "aws",
+        "gcp",
+        "azure",
+        "oci"
+      ],
+      "actions": [
+        "read"
+      ],
       "maxRunUsd": 0
     },
     "mixed-evidence-live": {
       "description": "Read-only verification of a stored mixed plan (tests/live/mixed-cloud.live.test.ts)",
-      "providers": ["control_plane"],
-      "actions": ["read"],
+      "providers": [
+        "control_plane"
+      ],
+      "actions": [
+        "read"
+      ],
       "maxRunUsd": 0
     },
     "mixed-traffic-live": {
       "description": "Reference mixed app on GCP compute, Azure PostgreSQL and AWS functions with traffic and independent readback",
-      "providers": ["aws", "gcp", "azure", "control_plane"],
-      "actions": ["read", "create_disposable", "mutate_run_tagged", "teardown_run_tagged"],
+      "providers": [
+        "aws",
+        "gcp",
+        "azure",
+        "control_plane"
+      ],
+      "actions": [
+        "read",
+        "create_disposable",
+        "mutate_run_tagged",
+        "teardown_run_tagged"
+      ],
       "maxRunUsd": 30
     },
     "mixed-recovery-live": {
       "description": "One-provider failure injection and recovery on the reference mixed app",
-      "providers": ["aws", "gcp", "azure", "control_plane"],
-      "actions": ["read", "mutate_run_tagged", "teardown_run_tagged", "inject_fault"],
+      "providers": [
+        "aws",
+        "gcp",
+        "azure",
+        "control_plane"
+      ],
+      "actions": [
+        "read",
+        "mutate_run_tagged",
+        "teardown_run_tagged",
+        "inject_fault"
+      ],
       "maxRunUsd": 5
     },
     "mixed-connectivity-live": {
       "description": "Read-only probes of protected endpoints (mTLS, allowlist, DNS, TLS binding) of a deployed mixed run",
-      "providers": ["aws", "gcp", "azure", "control_plane"],
-      "actions": ["read"],
+      "providers": [
+        "aws",
+        "gcp",
+        "azure",
+        "control_plane"
+      ],
+      "actions": [
+        "read"
+      ],
       "maxRunUsd": 0
     },
     "release-acceptance": {
       "description": "End-to-end release acceptance orchestrator (scripts/release/acceptance-orchestrator.ts)",
-      "providers": ["control_plane"],
-      "actions": ["read"],
+      "providers": [
+        "control_plane"
+      ],
+      "actions": [
+        "read"
+      ],
       "maxRunUsd": 0
     }
   },
@@ -119,6 +192,10 @@
     {
       "file": "src/lib/cost/billing",
       "reason": "Product feature (operator-enabled, read-only actual-spend reads inside the control plane), not an acceptance harness; its live acceptance test is scoped as billing-live."
+    },
+    {
+      "file": "scripts/ci/gate-manifest.mjs",
+      "reason": "Declares required environment gates and inventories suites; never opens a cloud connection. The live tests it inventories remain governed by their own enforcing scope wrappers."
     }
   ],
   "approval": {

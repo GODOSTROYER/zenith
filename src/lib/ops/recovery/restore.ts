@@ -26,7 +26,7 @@ import {
   COMPONENT_IDS, verifyBackupDirectory, sha256File, type BackupManifest, type ComponentId, type KeyRequirement, type ManifestComponent,
 } from "./manifest";
 import { RecoveryToolError, mustRun, pgArgs, scrub, type CommandRunner, type Tools } from "./process";
-import { RECOVERY_REPORT_FORMAT, deliverReport, measureContinuation, measureRecovery, targetsFromEnv, type ContinuationMeasurement, type RecoveryMeasurement } from "./report";
+import { RECOVERY_REPORT_FORMAT, fileSink, deliverReport, measureContinuation, measureRecovery, targetsFromEnv, type ContinuationMeasurement, type RecoveryMeasurement } from "./report";
 
 export type StepStatus = "ok" | "refused" | "handed_off" | "skipped" | "not_run";
 export interface RestoreStep { readonly id: string; readonly status: StepStatus; readonly detail: string; readonly at: string }
@@ -111,7 +111,12 @@ export async function runRestore(deps: RestoreDeps, options: RestoreOptions): Pr
       format: RECOVERY_REPORT_FORMAT, runId: options.runId, backupId: manifest?.backupId ?? "unknown", manifestDigest: manifest?.digest ?? "unknown",
       ok, steps, epoch, counts, replayed, measurement, continuation, needsPerson,
     };
-    await deliverReport(report as unknown as Record<string, unknown>, options.reportFile);
+    const delivery = await deliverReport(report as unknown as Record<string, unknown>, options.reportFile);
+    if (delivery.failed.length) {
+      needsPerson.push(`Recovery measurement delivery failed: ${delivery.failed.join(", ")}. The restore report is not SLO publication evidence.`);
+      // Persist the failure without retrying external sinks or publishing duplicate measurements.
+      try { await fileSink(options.reportFile).record(report as unknown as Record<string, unknown>); } catch { /* The original delivery failure remains explicit in the returned hand-off. */ }
+    }
     return report;
   };
   const refuse = async (id: string, detail: string): Promise<RestoreReport> => { step(id, "refused", detail); return finish(); };

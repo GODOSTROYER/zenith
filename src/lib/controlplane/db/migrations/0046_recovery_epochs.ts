@@ -21,8 +21,8 @@
  * Expand-only: new tables and functions, defaulted columns. The previous release keeps working against this
  * schema (its inserts take the default).
  */
-export const migration0044RecoveryEpochs = {
-  version: 44,
+export const migration0046RecoveryEpochs = {
+  version: 46,
   name: "recovery_epochs",
   sql: `
 create table if not exists platform.recovery_epochs (

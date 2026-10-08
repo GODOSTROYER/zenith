@@ -10,8 +10,8 @@
  */
 import type { PlatformMigration } from "./index";
 
-export const migration0050TenantIsolationEffects: PlatformMigration = {
-  version: 50,
+export const migration0051TenantIsolationEffects: PlatformMigration = {
+  version: 51,
   name: "tenant_isolation_effects",
   sql: `
 alter table platform.external_effects drop constraint if exists external_effects_family_check;

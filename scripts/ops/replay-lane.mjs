@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Named lane for the workflow-history replay gate (PROD-OPS-03). Not in the default test run or gate manifest
- * until fixtures are committed.
+ * Named workflow-history tools (PROD-OPS-03). The canonical workflow gate also
+ * selects replay against the frozen current-code synthetic corpus; recording remains opt-in.
  *   npm run replay:record   record fixtures (needs a Temporal test server; ZENITH_TEST_TEMPORAL=1 is set)
  *   npm run replay:check    replay every committed fixture; missing fixtures FAIL
  */

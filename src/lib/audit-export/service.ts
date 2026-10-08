@@ -1,8 +1,7 @@
 /**
  * Signed, hash-chained export of a range of a workspace's audit log (PROD-OPS-09).
  *
- * The export is signed with the control-plane signing key (purpose `signing:jobs`, the only signing purpose the control
- * plane may use; `signing:release` is verify-only here by design). No signer configured means no export: there is no
+ * The export is signed with the control-plane signing key (purpose `signing:audit-export`, independent of capability grants; `signing:release` is verify-only here by design). No signer configured means no export: there is no
  * unsigned fallback. The signed claims (a compact EdDSA JWS) carry the chain genesis and head, the event count, the
  * range and the link to the workspace's previous export, so the offline verifier can detect any edit, removal,
  * insertion or re-ordering of events, a swapped header, and (with the ledger) a dropped or forked earlier export.
@@ -95,7 +94,7 @@ export async function createAuditExport(
   deps: AuditExportDeps,
   input: { workspaceId: string; createdBy: string; from?: string; to?: string },
 ): Promise<{ document: AuditExportDocument; record: AuditExportRecord }> {
-  if (!deps.signer) throw new AuditExportError("signer_unavailable", "No control signing key is configured, so an audit export cannot be signed; nothing was exported.");
+  if (!deps.signer) throw new AuditExportError("signer_unavailable", "No audit export signing key is configured, so an audit export cannot be signed; nothing was exported.");
   const from = isoBound("from", input.from);
   const to = isoBound("to", input.to);
   if (from && to && from > to) throw new AuditExportError("range_invalid", "from is after to.");

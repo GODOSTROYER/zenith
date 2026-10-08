@@ -99,6 +99,16 @@ const OPERATOR_PROBES: { allow: boolean; attrs: (ns: string) => AccessAttributes
 
 const fail = (code: ConstructorParameters<typeof TenantIsolationError>[0], message: string): TenantIsolationError => new TenantIsolationError(code, message);
 
+/** The operator must hold only the authority tested by the isolation contract. Read-only authorization reviews. */
+export async function assertTenantOperatorAccess(probe: Pick<GuestClusterPort, "allowed">, namespace: string): Promise<void> {
+  for (const check of OPERATOR_PROBES) {
+    const attrs = check.attrs(namespace);
+    if (await probe.allowed(attrs) !== check.allow) {
+      throw fail("verify_failed", `The operator identity ${check.allow ? "lacks" : "holds"} ${attrs.verb} ${attrs.resource}${attrs.subresource ? `/${attrs.subresource}` : ""}${attrs.namespace ? ` in ${attrs.namespace}` : " (cluster scope)"}.`);
+    }
+  }
+}
+
 /* ------------------------------- comparison -------------------------------- */
 
 const UNIT: Record<string, number> = { "": 1, m: 1e-3, k: 1e3, K: 1e3, M: 1e6, G: 1e9, T: 1e12, Ki: 1024, Mi: 1024 ** 2, Gi: 1024 ** 3, Ti: 1024 ** 4 };
@@ -124,12 +134,27 @@ export function subsetMismatches(desired: unknown, live: unknown, at = "", out: 
   return out;
 }
 
+/** API representations may omit empty optional lists; they must not add policy rules or selector keys. */
+function normalizedIsolationSpec(value: unknown, quantities = false): unknown {
+  if (Array.isArray(value)) return value.map(v => normalizedIsolationSpec(v, quantities));
+  if (!isRecord(value)) return quantities && typeof value === "string" ? quantity(value) ?? value : value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([, v]) => v !== undefined && v !== null && !(Array.isArray(v) && v.length === 0))
+    .map(([k, v]) => [k, normalizedIsolationSpec(v, quantities || k === "hard")]));
+}
+
 const COMPARED = ["spec", "rules", "subjects", "roleRef", "automountServiceAccountToken"] as const;
 
 function mismatchesOf(desired: K8sObject, live: Record<string, unknown>): string[] {
   const out: string[] = [];
   const d = desired as unknown as Record<string, unknown>;
   for (const key of COMPARED) if (d[key] !== undefined) subsetMismatches(d[key], live[key], key, out);
+  // Subset comparison alone permits a live default-deny to add allow-all ingress,
+  // or a quota/policy to narrow its selector. Those additions weaken isolation.
+  if (["NetworkPolicy", "CiliumNetworkPolicy", "ResourceQuota"].includes(desired.kind)
+    && digest(normalizedIsolationSpec(d.spec)) !== digest(normalizedIsolationSpec(live.spec))) out.push("spec (isolation policy changed)");
+  if (desired.kind === "CiliumNetworkPolicy" && Array.isArray(live.specs) && live.specs.length) out.push("specs (additional isolation policies)");
+  if (desired.kind === "ClusterRole" && live.aggregationRule !== undefined) out.push("aggregationRule");
   const meta = isRecord(live.metadata) ? live.metadata : {};
   subsetMismatches(desired.metadata.labels ?? {}, meta.labels ?? {}, "metadata.labels", out);
   subsetMismatches(desired.metadata.annotations ?? {}, meta.annotations ?? {}, "metadata.annotations", out);
@@ -181,6 +206,30 @@ export function prepareIsolation(request: TenantIsolationRequest): Prepared {
     if (e instanceof ZenithError) throw fail(e.code === "unsupported" || e.code === "isolation_violation" ? "plan_failed" : "invalid_request", e.message);
     throw fail("invalid_request", "The tenant isolation request could not be rendered.");
   }
+}
+
+/** Read every rendered object back and compare. Throws `verify_failed` naming the object and field paths, never values. */
+export async function readBackTenantIsolation(session: KubernetesSession, p: Pick<Prepared, "tenant" | "objects" | "bundleDigest">, s: AbortSignal): Promise<{ verified: number; facts: Record<string, string | number | boolean | null> }> {
+  const client = createK8sClient(session, { environmentId: p.tenant.environmentId, signal: s });
+  let verified = 0;
+  for (const o of p.objects) {
+    const ref = refOf(o);
+    let live: Record<string, unknown> | undefined;
+    try {
+      if (ref.namespace) await client.guard.assert(ref.namespace);
+      live = await readObject(client, ref);
+    } catch (e) {
+      throw fail("verify_failed", `${refText(ref)} could not be read back (${errorText(e, 100)}).`);
+    }
+    if (!live) throw fail("verify_failed", `${refText(ref)} is not present after the apply.`);
+    if (isRecord(live.metadata) && live.metadata.deletionTimestamp) throw fail("verify_failed", `${refText(ref)} is being deleted.`);
+    const marks = isRecord(live.metadata) && isRecord(live.metadata.annotations) ? live.metadata.annotations : {};
+    if (marks[ANNOTATION.environment] !== p.tenant.environmentId) throw fail("verify_failed", `${refText(ref)} is not owned by this environment.`);
+    const wrong = mismatchesOf(o, live);
+    if (wrong.length > 0) throw fail("verify_failed", `${refText(ref)} does not match what was rendered (${wrong.slice(0, 6).join(", ")}).`);
+    verified++;
+  }
+  return { verified, facts: { objects: p.objects.length, verified, bundleDigest: p.bundleDigest } };
 }
 
 /* --------------------------------- provisioner ------------------------------ */
@@ -268,30 +317,6 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
     }
   }
 
-  /** Read every rendered object back and compare. Throws `verify_failed` naming the object and field paths, never values. */
-  async function readBack(session: KubernetesSession, p: Prepared, s: AbortSignal): Promise<{ verified: number; facts: Record<string, string | number | boolean | null> }> {
-    const client = createK8sClient(session, { environmentId: p.tenant.environmentId, signal: s });
-    let verified = 0;
-    for (const o of p.objects) {
-      const ref = refOf(o);
-      let live: Record<string, unknown> | undefined;
-      try {
-        if (ref.namespace) await client.guard.assert(ref.namespace);
-        live = await readObject(client, ref);
-      } catch (e) {
-        throw fail("verify_failed", `${refText(ref)} could not be read back (${errorText(e, 100)}).`);
-      }
-      if (!live) throw fail("verify_failed", `${refText(ref)} is not present after the apply.`);
-      if (isRecord(live.metadata) && live.metadata.deletionTimestamp) throw fail("verify_failed", `${refText(ref)} is being deleted.`);
-      const marks = isRecord(live.metadata) && isRecord(live.metadata.annotations) ? live.metadata.annotations : {};
-      if (marks[ANNOTATION.environment] !== p.tenant.environmentId) throw fail("verify_failed", `${refText(ref)} is not owned by this environment.`);
-      const wrong = mismatchesOf(o, live);
-      if (wrong.length > 0) throw fail("verify_failed", `${refText(ref)} does not match what was rendered (${wrong.slice(0, 6).join(", ")}).`);
-      verified++;
-    }
-    return { verified, facts: { objects: p.objects.length, verified, bundleDigest: p.bundleDigest } };
-  }
-
   /** Mint with the MACH-02 TokenRequest path, probe the identity, store the token. Returns only where it went. */
   async function mintAndStore(request: TenantIsolationRequest, p: Prepared, session: KubernetesSession, s: AbortSignal): Promise<{ ref: string; expiresAt: string; probed: boolean }> {
     const prefix = request.substrate.isolation?.operatorCredentialPrefix as string;
@@ -315,13 +340,7 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
       let probe: Pick<GuestClusterPort, "allowed">;
       try {
         probe = await deps.openOperatorProbe(token, request);
-        for (const check of OPERATOR_PROBES) {
-          const got = await probe.allowed(check.attrs(p.namespace));
-          if (got !== check.allow) {
-            const a = check.attrs(p.namespace);
-            throw fail("verify_failed", `The minted operator identity ${check.allow ? "lacks" : "holds"} ${a.verb} ${a.resource}${a.subresource ? `/${a.subresource}` : ""}${a.namespace ? ` in ${a.namespace}` : " (cluster scope)"}.`);
-          }
-        }
+        await assertTenantOperatorAccess(probe, p.namespace);
       } catch (e) {
         if (e instanceof TenantIsolationError) throw e;
         throw fail("verify_failed", "The minted operator identity could not be probed.");
@@ -404,7 +423,7 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
 
       let verified: { verified: number; facts: Record<string, string | number | boolean | null> };
       try {
-        verified = await readBack(session, p, s);
+        verified = await readBackTenantIsolation(session, p, s);
       } catch (e) {
         await settleReadback(ledger, effect, { outcome: "mismatch", source: "kubernetes.read", observedAt: rt.now().toISOString(), facts: { objects: p.objects.length }, reason: e instanceof TenantIsolationError ? e.message.slice(0, 400) : "readback failed" });
         throw e instanceof TenantIsolationError ? e : fail("verify_failed", "The isolation objects could not be read back.");
@@ -436,7 +455,7 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
       await fence(request);
       return withBootstrap(request, p, async (session, s) => {
         // rotation never applies anything: the bundle must already be present and matching, or the token is not minted
-        await readBack(session, p, s);
+        await readBackTenantIsolation(session, p, s);
         const c = await mintAndStore(request, p, session, s);
         return { ref: c.ref, expiresAt: c.expiresAt };
       });

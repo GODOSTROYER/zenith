@@ -37,6 +37,10 @@ import { openZenithSession, type ZenithSession } from "./session";
 import { describeSubstrate, readSubstrateConfig, substrateConnectionConfig, type SubstrateConfig, type ZenithEnv, type ZenithSubstrate } from "./substrate";
 import { ZenithError } from "./types";
 import type { AsyncSecretsBackend } from "@/lib/secrets/backend";
+import type { ServingInputs } from "@/lib/managed-serving/platform-store";
+import type { ObjectStoragePorts, StorageKeyStore } from "@/lib/managed-serving/storage";
+import { createIamAdminPort } from "@/lib/managed-serving/storage";
+import type { StorageCredentialSink } from "@/lib/secrets/resolver";
 
 export interface ManagedSubstrateDeps {
   /** Result of `readSubstrateConfig(env)`. */
@@ -52,6 +56,10 @@ export interface ManagedSubstrateDeps {
   fetch: typeof fetch;
   /** Vault backend for per-tenant connection secrets; default the process backend. */
   backend?: AsyncSecretsBackend;
+  servingInputs?: NonNullable<ManagedSubstratePort["servingInputs"]>;
+  storageKeyStore?(tenant: { workspaceId: string; environmentId: string }): StorageKeyStore;
+  /** Default composition requires readback of separately approved isolation before opening sessions. */
+  assertTenantReady?(tenant: Awaited<ReturnType<TenantResolver["resolve"]>>, signal?: AbortSignal): Promise<KubernetesSession | void>;
 }
 
 export function createManagedSubstrate(deps: ManagedSubstrateDeps): ManagedSubstratePort {
@@ -69,6 +77,17 @@ export function createManagedSubstrate(deps: ManagedSubstrateDeps): ManagedSubst
     throw new ManagedSubstrateError("session_refused", "The managed cluster session could not be opened.");
   };
 
+  function storageFor(tenant: { workspaceId: string; environmentId: string }, sink: StorageCredentialSink): ObjectStoragePorts | undefined {
+    const storage = requireSubstrate().objectStorage;
+    if (!storage?.adminCredentialRef || !deps.storageKeyStore) return undefined;
+    return {
+      admin: createIamAdminPort({ credentialRef: storage.adminCredentialRef, region: storage.region ?? "us-east-1", ...(storage.iamEndpoint ? { endpoint: storage.iamEndpoint } : {}) }, { resolveSecret: (ref) => deps.resolvePlatformCredential(ref) }),
+      sink, store: deps.storageKeyStore(tenant),
+    };
+  }
+
+  const servingInputs = (tenant: { workspaceId: string; environmentId: string }): Promise<ServingInputs> => deps.servingInputs?.(tenant) ?? Promise.resolve({ verifiedDomains: [], retiredDomains: [] });
+
   async function openSession(request: ManagedSessionRequest): Promise<ZenithSession> {
     const substrate = requireSubstrate();
     const tenant = await deps.tenants.resolve({ workspaceId: request.workspaceId, environmentId: request.environmentId }, request.signal);
@@ -77,7 +96,13 @@ export function createManagedSubstrate(deps: ManagedSubstrateDeps): ManagedSubst
     }
     const databases: ManagedDatabaseProvider = request.databases ?? unavailableDatabaseProvider("No managed database scope was supplied for this session.");
     try {
-      return await openZenithSession(tenant, { substrate, createKubernetesSession: (c, s) => deps.createKubernetesSession(c, s ?? request.signal), databases }, request.signal);
+      const kubernetes = await deps.assertTenantReady?.(tenant, request.signal);
+      const serving = await servingInputs(tenant);
+      const storage = request.storage ?? storageFor(tenant, {
+        async exists() { throw new ManagedSubstrateError("session_refused", "Storage credential reads require the reviewed environment resource scope."); },
+        async put() { throw new ManagedSubstrateError("session_refused", "Storage credential writes require the reviewed environment resource scope."); },
+      });
+      return await openZenithSession(tenant, { substrate, createKubernetesSession: (c, s) => deps.createKubernetesSession(c, s ?? request.signal), ...(kubernetes ? { kubernetes } : {}), databases, customDomains: serving.verifiedDomains, retiredDomains: serving.retiredDomains, ...(storage ? { storage } : {}) }, request.signal);
     } catch (e) {
       return sessionError(e);
     }
@@ -99,6 +124,7 @@ export function createManagedSubstrate(deps: ManagedSubstrateDeps): ManagedSubst
     substrate: requireSubstrate,
     toolkit: deps.toolkit,
     tenants: deps.tenants,
+    servingInputs,
     registry: () => registry,
     buildConfig() {
       const availability = buildAvailability();
@@ -112,10 +138,12 @@ export function createManagedSubstrate(deps: ManagedSubstrateDeps): ManagedSubst
     },
     databaseRuntime(input: ManagedDatabaseRuntimeInput) {
       const substrate = requireSubstrate();
-      return createVaultDatabaseRuntime(
+      const runtime = createVaultDatabaseRuntime(
         { workspaceId: input.workspaceId, projectId: input.projectId, environmentId: input.environmentId, substrate, nodes: input.nodes },
         { fetch: deps.fetch, resolveSecret: async (ref) => deps.resolvePlatformCredential(ref), ...(deps.backend ? { backend: deps.backend } : {}) },
       );
+      const storage = storageFor(input, runtime.storageCredentials);
+      return { ...runtime, ...(storage ? { storage } : {}) };
     },
     async withBuildSession(request, fn) {
       const substrate = requireSubstrate();

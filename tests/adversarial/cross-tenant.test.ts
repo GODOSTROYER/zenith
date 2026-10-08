@@ -21,6 +21,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { buildRuntime, setOpsRuntimeForTests } from "@/lib/ops/runtime";
+import { opsLimitsFromEnv } from "@/lib/ops/config";
 import type { SessionUser } from "@/lib/auth/session";
 import { tempDataDir } from "../_support/data-dir";
 import { phantomId, twoTenantFixture } from "../_support/security";
@@ -83,6 +85,8 @@ const NOT_A_TENANT_LOOKUP: Record<string, string> = {
   "api/actions/[actionId]/route.ts": "the id names a catalog action, not a stored row; every action runs through runAction with workspace admission (covered by tests/actions)",
   "api/providers/[id]/health/route.ts": "the id names a built-in provider kind; the response carries no tenant data",
   "api/workspace/invites/[id]/accept/route.ts": "an invite is accepted by the invited email's owner by design; account-bound by requireAccountUser (tests/api/workspace-sharing)",
+  "api/admin/ops/retention/archives/[id]/restore/route.ts": "operator archive restore behind requireOpsAdmin; cross-workspace tenant access is never admitted (tests/retention/admin-route)",
+  "api/admin/ops/retention/archives/[id]/verify/route.ts": "operator archive verification behind requireOpsAdmin; not a tenant lookup (tests/retention/admin-route)",
   "api/admin/waitlist/history/[requestId]/route.ts": "operator surface behind requireWaitlistOperator, not a tenant route",
 };
 
@@ -162,6 +166,7 @@ function seed(): void {
 }
 beforeEach(() => {
   seed();
+  setOpsRuntimeForTests(buildRuntime(opsLimitsFromEnv({ ZENITH_OPS_API_RATE_PER_SEC: "1000", ZENITH_OPS_API_BURST: "1000" })));
   session.user = bravoUser;
 });
 
@@ -239,6 +244,8 @@ describe("every product route, attacked with every identifier of another tenant"
   });
 });
 
+afterAll(() => setOpsRuntimeForTests(undefined));
+
 /* ------------------------------------ repository sweep ------------------------------------ */
 
 describe("every repository function with a (sql, workspaceId, ...) signature, called as another tenant", () => {
@@ -274,12 +281,17 @@ describe("every repository function with a (sql, workspaceId, ...) signature, ca
         try {
           value = await Promise.race([Promise.resolve((fn as (...a: unknown[]) => unknown)(...args)), new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000))]);
         } catch { continue; }
+        // Missing settings deliberately return a default echoing the requested scope; an echo is not a loaded foreign row.
+        if ((namespace === "settings" && name === "getEnvironmentSettings" || namespace === "optimizerSettings" && name === "getOptimizerSettings") && (value as { isDefault?: boolean })?.isDefault === true) {
+          expect(value).toMatchObject({ workspaceId: attacker, environmentId: seeded.operation.id, version: 0, isDefault: true });
+          value = { ...(value as Record<string, unknown>), environmentId: "caller-supplied-identifier" };
+        }
         const text = JSON.stringify(value, (_k, v) => (typeof v === "bigint" ? String(v) : v)) ?? "";
         if (text.includes(seeded.workspaceId) || text.includes(seeded.operation.id) && /workspace/i.test(text)) leaks.push(`${namespace}.${name}`);
       }
     }
     expect(exercised.length, "the reflective sweep found too few functions to be meaningful").toBeGreaterThan(15);
-    expect(leaks, "repository functions returned workspace A data to workspace B").toEqual([]);
+    expect(leaks, `repository functions returned workspace A data to workspace B: ${leaks.join(", ")}`).toEqual([]);
     expect(await snapshot(), "workspace A's operation changed after workspace B's calls").toBe(before);
   });
 });

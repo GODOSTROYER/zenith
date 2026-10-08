@@ -1,5 +1,7 @@
 # Clean-host restore, recovery epochs and operator continuation
 
+Written against branch `prod/compose`, guide input at `443bfeaf537dd5d5324d33c84fc544ede0baa632`. Working-tree assembly; native and live acceptance remain unverified.
+
 PROD-OPS-04. Built, not rehearsed against production: the rehearsal below runs on real PostgreSQL and a Temporal dev
 server on one machine, and nothing here has been run against a hosted cluster, Temporal Cloud or a customer cloud.
 Not verified live. Targets quoted anywhere in this page are provisional until PROD-OPS-01 records an accountable approval.
@@ -60,7 +62,7 @@ Stop every actor first (workers, runners, the web app's operation routes). The r
 database; it never overwrites.
 
 ```bash
-export RESTORE_TARGET_URL='postgres://…/zenith_restored'   # DIRECT url of the EMPTY target; never a CLI argument
+export RESTORE_TARGET_URL='postgres://â€¦/zenith_restored'   # DIRECT url of the EMPTY target; never a CLI argument
 npm run ops:recovery -- restore --backup /backups/zenith-2026-10-07 --target-url-env RESTORE_TARGET_URL \
   --run-id restore-2026-10-07-a --actor "alice@example.com" --reason "region loss" --report /backups/restore-report.json \
   --confirm-customer-state --incident-at 2026-10-07T09:41:00Z --observed-epoch 0 \
@@ -103,7 +105,7 @@ Nothing resumes on a timer; a person decides each, bound to the exact state they
 ```bash
 npm run ops:recovery -- status [--workspace W]                    # epoch, items opened/decided/pending
 npm run ops:recovery -- continue list --workspace W --state pending
-npm run ops:recovery -- continue resume --workspace W --item ri_… --binding <digest> --actor alice --reason "reviewed"
+npm run ops:recovery -- continue resume --workspace W --item ri_â€¦ --binding <digest> --actor alice --reason "reviewed"
 ```
 
 The same decisions are available to a signed-in workspace admin in the browser:

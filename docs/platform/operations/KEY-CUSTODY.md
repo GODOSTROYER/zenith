@@ -21,8 +21,10 @@ no material at all.
 | `enc:machine-results` | encrypt, decrypt | HKDF domain of `ZENITH_SECRET_KEY` | previous vault keys, derived the same way |
 | `enc:temporal-payload` | encrypt, decrypt | `ZENITH_TEMPORAL_PAYLOAD_KEY`, else HKDF domain of `ZENITH_SECRET_KEY` | `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` (decrypt-only) |
 | `enc:plan-artifacts` | encrypt, decrypt | `ZENITH_PLAN_ARTIFACT_KEY` | `ZENITH_PLAN_ARTIFACT_PREVIOUS_KEYS` (plan custody owns its rewrap) |
+| `enc:archive` | encrypt, decrypt | distinct archive HKDF domain of `ZENITH_BACKUP_KEY` | explicit legacy restore key only; no backup-purpose fallback |
 | `enc:backup` | encrypt, decrypt | `ZENITH_BACKUP_KEY` | none in this build (backups carry their key id) |
 | `signing:jobs` | sign, verify | `ZENITH_CONTROL_SIGNING_JWK` or `ZENITH_CONTROL_KMS_KEY_ID` | `ZENITH_CONTROL_EXTRA_PUBLIC_JWKS` (verify-only) |
+| `signing:audit-export` | sign, verify | independent local `ZENITH_AUDIT_EXPORT_SIGNING_JWK` | no control/OIDC/release key reuse or KMS fallback |
 | `signing:oidc` | sign, verify | `ZENITH_OIDC_SIGNING_JWK` or `ZENITH_OIDC_KMS_KEY_ID` | `ZENITH_OIDC_EXTRA_PUBLIC_JWKS` (verify-only) |
 | `signing:release` | verify | none on the control plane (offline key; agents pin public keys) | a private key present here is an error |
 | `signing:plugin-publisher` | verify | `ZENITH_PLUGIN_TRUSTED_PUBLISHERS` | all keys are verify-only public keys |

@@ -14,6 +14,7 @@ export const PLATFORM_PATHS: readonly {
   path: RegExp;
   methods: Readonly<Partial<Record<string, PlatformAccess>>>;
 }[] = [
+  { path: new RegExp(`^${ROOT}/audit/exports$`), methods: { GET: "browser-only", POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/capabilities/(?:propose|check)$`), methods: { POST: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/operations$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/operations/${ID}$`), methods: { GET: "bearer-capable" } },

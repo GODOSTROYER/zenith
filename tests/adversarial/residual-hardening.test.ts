@@ -38,7 +38,7 @@ describe("F10: platform REST bearer surface", () => {
   });
   const za = `za_${randomBytes(32).toString("base64url")}`;
   const request = (authorization: string, url = "https://zenith.test/api/platform/v1/operations", headers: Record<string, string> = {}) =>
-    new NextRequest(url, { headers: { authorization, ...headers } });
+    new NextRequest(url, { headers: { authorization, host: new URL(url).host, ...headers } });
   const outcome = async (req: NextRequest) => {
     const { callerOf } = await import("@/app/api/platform/v1/_lib/principal");
     try { return { ok: true as const, caller: await callerOf(req) }; } catch (error) { return { ok: false as const, code: (error as { code?: string }).code }; }

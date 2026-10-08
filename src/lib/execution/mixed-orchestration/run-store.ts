@@ -68,7 +68,8 @@ function mapStoreError(error: unknown): never {
 export function platformMixedRunStore(sql: Sql): MixedRunStore {
   const toStored = (row: repo.MixedRunRow): StoredRun => {
     const state = parseRunState(row.state);
-    if (state.workspaceId !== row.workspaceId || state.parentOperationId !== row.parentOperationId) return refuse("invalid_input");
+    if (state.workspaceId !== row.workspaceId || state.parentOperationId !== row.parentOperationId
+      || state.environmentId !== row.environmentId || state.desiredDigest !== row.desiredDigest) return refuse("invalid_input");
     return { state, version: row.version };
   };
   return {
@@ -76,11 +77,17 @@ export function platformMixedRunStore(sql: Sql): MixedRunStore {
       try { const row = await repo.get(sql, workspaceId, parentOperationId); return row ? toStored(row) : null; } catch (error) { return mapStoreError(error); }
     },
     async create(state, event) {
-      try { return toStored(await repo.create(sql, { ...write(state), event: { seq: state.seq, ...event } })); } catch (error) { return mapStoreError(error); }
+      try {
+        const clean = parseRunState(structuredClone(state));
+        return toStored(await repo.create(sql, { ...write(clean), event: { seq: clean.seq, ...event } }));
+      } catch (error) { return mapStoreError(error); }
     },
     async save(workspaceId, parentOperationId, expectedVersion, state, event) {
-      if (state.workspaceId !== workspaceId || state.parentOperationId !== parentOperationId) return refuse("invalid_input");
-      try { return toStored(await repo.save(sql, { ...write(state), expectedVersion, event: { seq: state.seq, ...event } })); } catch (error) { return mapStoreError(error); }
+      try {
+        const clean = parseRunState(structuredClone(state));
+        if (clean.workspaceId !== workspaceId || clean.parentOperationId !== parentOperationId) return refuse("invalid_input");
+        return toStored(await repo.save(sql, { ...write(clean), expectedVersion, event: { seq: clean.seq, ...event } }));
+      } catch (error) { return mapStoreError(error); }
     },
     async events(workspaceId, parentOperationId, limit) {
       try {

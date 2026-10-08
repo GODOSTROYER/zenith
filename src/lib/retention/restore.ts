@@ -17,10 +17,12 @@
  * Tenancy: every statement is bound by the archive's workspace_id; the archive is looked up by (workspace_id, id) pair as
  * recorded, never from caller-supplied row data.
  */
+import { assertNoSecretValues } from "@/lib/controlplane/db/secrets";
 import { randomUUID } from "node:crypto";
 import type { Sql } from "@/lib/controlplane/types";
 import { canonical } from "@/lib/controlplane/digest";
-import { backupKey, keyIdOf } from "@/lib/hosted/backup/crypto";
+import { archiveKey } from "./key";
+import { keyIdOf } from "@/lib/hosted/backup/crypto";
 import { CLASS_SPECS, assertPrunableClass } from "./classes";
 import { readBack, type ArchivePayload, type ArchiveTarget } from "./archive";
 import { resolveDestination, type ResolveDeps } from "./destination";
@@ -42,7 +44,7 @@ async function loadVerified(db: Sql, archive: ArchiveRecord, ctx: RestoreContext
   const dest = await resolveDestination(db, archive.workspaceId, ctx.deps, { destinationId: archive.destinationId });
   if (!dest.ok) return { problems: [dest.detail] };
   let key: Buffer;
-  try { key = ctx.key ?? backupKey(); } catch { return { problems: ["The sealing key (ZENITH_BACKUP_KEY) is not available."] }; }
+  try { key = ctx.key ?? archiveKey(); } catch { return { problems: ["The sealing key (ZENITH_BACKUP_KEY) is not available."] }; }
   if (keyIdOf(key) !== archive.keyId) return { problems: ["The sealing key is not the key this archive was sealed with."] };
   let payload: ArchivePayload | null = null;
   try { payload = await readBack(dest.destination.target as ArchiveTarget, key, archive.objectKey, archive.rowsDigest); } catch { /* unreadable */ }
@@ -87,6 +89,7 @@ export interface RestoreResult {
 }
 
 async function audit(db: Sql, archive: ArchiveRecord, input: RestoreInput, r: Omit<RestoreResult, "auditId">): Promise<string> {
+  assertNoSecretValues(r.detail);
   const id = `rrest_${randomUUID()}`;
   await db.query(
     `insert into platform.retention_restores (id, workspace_id, archive_id, data_class, mode, staging_schema, requested_by, rows_selected, rows_inserted, rows_existing_identical, rows_existing_differ, rows_skipped_no_parent, verdict, detail)

@@ -1,18 +1,34 @@
 /** Exact additive successor identities used ONLY for historical test projections. */
+export const wave5PlatformIds = new Set([
+  "platform-postgres:tests/controlplane/mixed-follow-up.test.ts:4ffb771187f9",
+  "platform-postgres:tests/slo/slo.engine.test.ts:b91cf3d98b2b",
+  "platform-postgres:tests/billing/billing.engine.test.ts:9a5544b04d11",
+]);
+export const mixedRunStorePlatformIds = new Set([
+  "platform-postgres:tests/execution/mixed-run-store.test.ts:1ddbcdaf45c3",
+  "platform-postgres:tests/execution/mixed-run-store.test.ts:7fdd1696d09e",
+  "platform-postgres:tests/execution/mixed-run-store.test.ts:c8f88d9bf71d",
+  "platform-postgres:tests/execution/mixed-run-store.test.ts:cf422a33bfa8",
+  "platform-postgres:tests/execution/mixed-run-store.test.ts:e35daa2ea56a",
+]);
 export const incomingPlatformIds = new Set(
-["platform-postgres:tests/controlplane/durable-intent-authority.test.ts:932f3808dde1", "platform-postgres:tests/controlplane/executable-semantics.test.ts:e9879ff0d6eb", "platform-postgres:tests/controlplane/k8s-guest-bindings.test.ts:69e0124d07dc", "platform-postgres:tests/controlplane/mixed-parent-plans.test.ts:a2c1d654d201", "platform-postgres:tests/controlplane/mixed-runs.test.ts:e483ae1e82c7", "platform-postgres:tests/controlplane/plan-custody.test.ts:35394b79986e", "platform-postgres:tests/controlplane/state-backend-recovery.test.ts:7d391123fdde", "platform-postgres:tests/capabilities/standing-grants.test.ts:8e0139c01528", "platform-postgres:tests/effects/build-launch.test.ts:66558e46614c", "platform-postgres:tests/effects/cleanup.test.ts:56d57a2f04e0", "platform-postgres:tests/effects/ledger.test.ts:5b8ae9d0841b", "platform-postgres:tests/effects/provider-resolvers.test.ts:ae6277c04b4b", "platform-postgres:tests/effects/proxy.test.ts:71ecab8d34b4", "platform-postgres:tests/effects/resolvers.test.ts:514f933542c5", "platform-postgres:tests/repair/lifecycle.platform.test.ts:8c02d63e3cde", "platform-postgres:tests/coding-agent/store.test.ts:a2b7923f32dd", "platform-postgres:tests/controlplane/mcp-stream-tenant-index.test.ts:2754979ea1cc"]
+["platform-postgres:tests/controlplane/durable-intent-authority.test.ts:932f3808dde1", "platform-postgres:tests/controlplane/executable-semantics.test.ts:e9879ff0d6eb", "platform-postgres:tests/controlplane/k8s-guest-bindings.test.ts:69e0124d07dc", "platform-postgres:tests/controlplane/mixed-parent-plans.test.ts:a2c1d654d201", "platform-postgres:tests/controlplane/mixed-runs.test.ts:e483ae1e82c7", "platform-postgres:tests/controlplane/plan-custody.test.ts:35394b79986e", "platform-postgres:tests/controlplane/state-backend-recovery.test.ts:7d391123fdde", "platform-postgres:tests/capabilities/standing-grants.test.ts:8e0139c01528", "platform-postgres:tests/effects/build-launch.test.ts:66558e46614c", "platform-postgres:tests/effects/cleanup.test.ts:56d57a2f04e0", "platform-postgres:tests/effects/ledger.test.ts:5b8ae9d0841b", "platform-postgres:tests/effects/provider-resolvers.test.ts:ae6277c04b4b", "platform-postgres:tests/effects/proxy.test.ts:71ecab8d34b4", "platform-postgres:tests/effects/resolvers.test.ts:514f933542c5", "platform-postgres:tests/repair/lifecycle.platform.test.ts:8c02d63e3cde", "platform-postgres:tests/coding-agent/store.test.ts:a2b7923f32dd", "platform-postgres:tests/controlplane/mcp-stream-tenant-index.test.ts:2754979ea1cc", ...mixedRunStorePlatformIds]
 );
 export const incomingWorkflowFiles = new Set(
 ["tests/platform/plan-custody-crypto.test.ts", "tests/platform/semantics-approval.test.ts", "tests/platform/state-session.test.ts", "tests/workflows/coding-agent.test.ts", "tests/workflows/mixed-parent.test.ts", "tests/workflows/start-recovery.test.ts", "tests/workflows/upgrade-rehearsal.test.ts", "tests/workflows/versioning-audit.test.ts"]
 );
 export function withoutIncomingPlatform<T extends { id: string }>(items: T[]): T[] {
-  return items.filter(item => !incomingPlatformIds.has(item.id));
+  return items.filter(item => !incomingPlatformIds.has(item.id) && !wave5PlatformIds.has(item.id));
 }
 
 // The full codec successor is mandatory now; only historical cohort projections
 // remove this exact known addition. Unknown future identities remain visible.
 export const historyCodecWorkflowId = "workflows:tests/workflows/history-fixtures.test.ts:4ee93ed6c454";
+export const wave5WorkflowIds = new Set(
+  ["tests/platform/recovery-service.test.ts", "tests/platform/zenith-build.test.ts", "tests/platform/zenith-managed-composition.test.ts", "tests/platform/managed-reconcile.test.ts", "tests/platform/zenith-onboarding.test.ts"].map(file => `workflows:${file}:4ee93ed6c454`),
+);
 export const incomingWorkflowIds = new Set([
   ...[...incomingWorkflowFiles].map(file => `workflows:${file}:4ee93ed6c454`),
   historyCodecWorkflowId,
+  ...wave5WorkflowIds,
 ]);

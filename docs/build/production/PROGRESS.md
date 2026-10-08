@@ -1,3 +1,23 @@
+## 8 October 2026: Wave 5 assembly, verification pending
+
+All 11 branches were already merged at443bfeaf. Assembly renumbers unpublished schemas44â€“52, emits0026, preserves verifier42/43 and published0016â€“0025, joins OPS/MAN/mixed contracts and adds required gate lanes. Billing is durable, archive/audit keys have separate purposes, restore measurements feed SLOs, and managed first deploy refuses unprovisioned isolation. Latest83-file contract results:1367 passed/0 failed/68 skipped across scoped reruns; compiler/lint/generated checks pass. Full gates466 passed/1 timeout followed by the required1-case passing retry (282 selection skips). Exact failed/successor receipts are in [W5-ASSEMBLY-RESULTS.md](verify/W5-ASSEMBLY-RESULTS.md), with native commands in [W5-ASSEMBLY.md](verify/W5-ASSEMBLY.md). Real PostgreSQL/Temporal/kind/browser/cloud acceptance remains pending; privileged bootstrap, isolated managed build custody and manifest Lambda invocation remain documented limitations. Requirement states stay in_progress/implementation_complete_verification_pending; all four release flags false. No commits or integration performed.
+
+## Integrated native checkpoint, 8 October 2026
+
+Integrated871f73d9: native platform3762/0/15, all1146 required; reviewed reconciliation38/0/0, all26. MySQL2 and Rclone1 selected real-engine cases passed with filtered siblings reported separately. MinIO2/1 and PostgreSQL cleanup custody failure remain open. Exact historicaldd8017 CI19/20 jobs succeeded; unit21819/0/1637; sole failure fixed locally, fresh pushed CI pending. Ledger recomputed:10 verified/49 in_progress/19 planned across78; all release flags false. [Current evidence and gaps](WIP-HANDOFF-2026-10-08.md).
+
+## Current verification publication, 8 October 2026
+
+Source105b5ea4 full native workflows105:1376 passed/2 failed/0 skipped; owned cleanup confirmed. Publisheda7 CI:18 successful/1 failed/1 running across20 jobs; platform runtime3762/0/15 but seven required backend labels rejected by strict checker. Backend parser and test-only schedule fixture repairs remain local candidates. Ledger recomputed78:10 verified/49 in progress/19 planned; release flags false. [Current building-machine context](WIP-HANDOFF-2026-10-08.md). No completion claim.
+
+## Replay integration, 8 October 2026
+
+Integrateda1259fdc: workflows105 mandatory IDs, prior71 preserved. Root exact reviewed packet: metadata463/0/0, actual SDK replay/audit34/0/0, compiler and lint passed. Full105 and1146 gates pending. Local build resource-blocked after successful compilation; publisheda7f8 GitHub build passed. Ledger recomputed78:10 verified/49 in progress/19 planned; four release flags false. No completion percentage inferred.
+
+## Publication checkpoint, 8 October 2026
+
+Source22967b64: native dispatch successor103/0/0, metadata348/0/0, mixed validation12/0/0; Next audit zero known findings. Current-source Temporal corpus21 recorded and34 replay/audit passes, one opt-in placeholder per run. Full build and combined gate remain open. Previous65b CI17 jobs passed/3 failed; fixes now included, fresh publication CI pending. Ledger recomputed:10 verified/49 in progress/19 planned across78; release flags false. Counts overlap. See [updated context](WIP-HANDOFF-2026-10-08.md) and [exact CI jobs](verification/CI-2026-10-08-65b24ccc.md).
+
 ## 8 October 2026: integrated repair publication
 
 Sourcec7332a56: native100100/0/0, historical77/0/0, workflow-intents156/0/0, Temporal/codec30/0/0, metadata345/0/0, marker18/0/0. Counts overlap. Native dispatch successor97/6/0; failed recording19/2/1 quarantined, no frozen corpus acceptance. Ledger10 verified/49 in_progress/19 planned across78; release flagsfalse. Complete successor gates/CI remain open. [Publication context](WIP-HANDOFF-2026-10-08.md).
@@ -103,15 +123,15 @@ Default maintenance draft independently reviewed **NOT_READY_DO_NOT_EXECUTE** an
 
 ## Security stop, 6 October 2026
 
-Verifier stopped under HANDOFF-VERIFIER §7 after independently confirming current LIFE11 destination-custody defect: DNS addresses are checked, then PostgreSQL/MySQL/S3 transports independently resolve original hostname. Required repair spans actual transports, TLS hostname identity and reconnect/retry behavior; existing preflight tests cannot prove containment. No exploit or secret disclosure was executed or claimed. Report-only checkpoint follows group1–2 publication `adb6fb42`; no product fix or requirement promotion. Ledger **9 verified / 41 in progress / 28 planned**, all78 criteria and four false release flags preserved.
+Verifier stopped under HANDOFF-VERIFIER Â§7 after independently confirming current LIFE11 destination-custody defect: DNS addresses are checked, then PostgreSQL/MySQL/S3 transports independently resolve original hostname. Required repair spans actual transports, TLS hostname identity and reconnect/retry behavior; existing preflight tests cannot prove containment. No exploit or secret disclosure was executed or claimed. Report-only checkpoint follows group1â€“2 publication `adb6fb42`; no product fix or requirement promotion. Ledger **9 verified / 41 in progress / 28 planned**, all78 criteria and four false release flags preserved.
 
 Executed before stop: fresh install/compiler/lint/migrations passed; canonical workflows **1275/0/0**, required62; focused runbook/telemetry contracts **113/0/0**; ownership controls **65/0/0**. Counts overlap and are not summed. Plugin233 result remains an independently reviewed local candidate, not root-integrated evidence. Default maintenance drafts were never run. Owned PG container/network/volume removed; unrelated resources preserved; disk26GiB free. [Finding and stop record](verification/RESULTS-2026-10.md#security-stop-prod-life-11-2026-10-06); [precise handoff](verification/VERIFIER-SECURITY-STOP-2026-10-06.md).
 
-Current dependency blocker: sharp0.35.4 / GHSA-wq5f-xc86-pv6w; group1–2 supply-chain job failed with1 finding. CI07/08/09 reopened; no upgrade or exception applied. Primary advisory lists patched0.35.5, within current Next declared range; disposition/provenance/runtime checks remain open. [Dependency receipt](evidence/PROD-CI-07/2026-10-06-sharp-advisory-adb6fb42.json).
+Current dependency blocker: sharp0.35.4 / GHSA-wq5f-xc86-pv6w; group1â€“2 supply-chain job failed with1 finding. CI07/08/09 reopened; no upgrade or exception applied. Primary advisory lists patched0.35.5, within current Next declared range; disposition/provenance/runtime checks remain open. [Dependency receipt](evidence/PROD-CI-07/2026-10-06-sharp-advisory-adb6fb42.json).
 
 Earlier notes retain their original source scope.
 
-## Verifier continuation, group 1–2, 6 October 2026
+## Verifier continuation, group 1â€“2, 6 October 2026
 
 Tested `ec18bb9c8973787ab16123040d00d7be1407eb08`: fresh installation, compiler, lint and fresh product/platform/agent migrations passed. Full canonical workflows62: **1,275 passed / 0 failed / 0 skipped**, all62 mandatory identities executed. Fresh runbook/telemetry contracts: **113 passed / 0 failed / 0 skipped** across6 files. Counts overlap with other evidence and are not summed. Default maintenance worker effects/health/fallback proof remains in progress; registered runbook delivery and complete default scoped telemetry remain blocked or incomplete. Ledger: **12 verified / 38 in progress / 28 planned**, all78 requirements preserved, all four release flags false.
 
@@ -339,7 +359,7 @@ Full criteria and dependencies remain in [REQUIREMENTS.md](REQUIREMENTS.md). Pen
 
 ## 6 October verifier integration checkpoint
 
-Code candidate `5f4713a7` integrates six reviewed fixes: Go build-event parsing; complete provider build attestations; owned Temporal schedule database; safe native-backend diagnostic; Verify budget30→45 within the unchanged maximum; PostgreSQL encoded-row transport. Authors and committers: Saivedant Hava. No requirement or release state is promoted.
+Code candidate `5f4713a7` integrates six reviewed fixes: Go build-event parsing; complete provider build attestations; owned Temporal schedule database; safe native-backend diagnostic; Verify budget30â†’45 within the unchanged maximum; PostgreSQL encoded-row transport. Authors and committers: Saivedant Hava. No requirement or release state is promoted.
 
 - Actual clean `3616b02c` database/Temporal lanes: platform3016 passed/0 failed/8 declared skipped, PostgreSQL322/0/0, workflows1273/0/0, reconciliation38/0/0, durable intents156/0/0. Strict required identities1124/80/60/26/141 passed. Native100100/0/0. Overall attempt remains failed: supplemental restore12/1/0, SQLSTATE22023. All owned Docker cleanup flags true.
 - Fix `5f4713a7`: real PostgreSQL portability14 passed/0 failed/0 skipped; exact original13 plus new network case. Fresh combined matrix still running. Compiler and affected lint passed; actionlint and370 CI contract cases passed.

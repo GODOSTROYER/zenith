@@ -57,14 +57,14 @@
       "owner": "J1/J2"
     },
     "upgrade": {
-      "target": "default-journey",
-      "driver": "scripts/acceptance/default-journey.mjs",
-      "owner": "J1/J2"
+      "target": "operated-upgrade",
+      "driver": "scripts/release/drivers/upgrade.ts",
+      "owner": "DRV-3/J1/J2"
     },
     "restore": {
-      "target": "default-journey",
-      "driver": "scripts/acceptance/default-journey.mjs",
-      "owner": "J1/J2"
+      "target": "operated-restore",
+      "driver": "scripts/release/drivers/restore.ts",
+      "owner": "DRV-3/J1/J2"
     },
     "two-tenants": {
       "target": "default-journey",

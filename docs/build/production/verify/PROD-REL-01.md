@@ -1,5 +1,12 @@
 # PROD-REL-01: Required end-to-end release evidence
 
+DRV-3 implements the local operated upgrade and restore slices through dedicated
+drivers, scenario-runner registration and canonical gated lanes. See
+[DRV-3](DRV-3.md) for exact sequential lean Mac commands, per-clause evidence and
+limits. Expected operated test count per lane is 1 passed / 0 failed / 0 skipped;
+this PC has not run either. Other J15 scenarios and live acceptance remain
+separate; no production readiness or release signoff is asserted.
+
 ## L1-LIVE-AWS provider slice (8 October 2026)
 
 Acceptance: Clean install/private source/plan approval/DNS-TLS/stateful traffic/update-rollback/machine schedules/drift-repair/revocation/crash-partition-writers/key rotation/upgrade/restore/mixed traffic/two tenants/export/teardown independently verified.

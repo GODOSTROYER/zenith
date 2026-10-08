@@ -46,7 +46,7 @@ export interface LocalCommandLane {
   files: readonly string[];
   command: readonly string[];
   gates: readonly string[];
-  evidenceLabel: "local_rehearsal";
+  evidenceLabel: "local_rehearsal" | "local_operated_rehearsal";
 }
 export type Lane = LocalLane | LiveLane | LocalCommandLane;
 
@@ -158,14 +158,14 @@ export const SCENARIOS: readonly Scenario[] = [
     limits: "Provider-side credential rotation is covered by connection lifecycle contracts, not a live cloud.",
   },
   {
-    id: "upgrade", title: "Rolling upgrade and rollback", requirements: ["PROD-REL-01"],
+    id: "upgrade", title: "Rolling upgrade and rollback", requirements: ["PROD-REL-01", "PROD-OPS-03"],
     lanes: [{ id: "rolling-upgrade", kind: "local_engine", files: ["tests/ops/rolling-upgrade.test.ts", "tests/controlplane/migration-compat.test.ts", "tests/workflows/codec-replay.test.ts"] }],
-    limits: "A real rolling upgrade of a deployed topology is the operations rehearsal, not a unit lane.",
+    limits: "The dedicated local operated lane replaces owned lean J1 images with an in-flight J2 browser review, injects API outage and rolls back. Single-process pauses and no live/HA claim.",
   },
   {
-    id: "restore", title: "Backup and restore", requirements: ["PROD-REL-01"],
+    id: "restore", title: "Backup and restore", requirements: ["PROD-REL-01", "PROD-OPS-04"],
     lanes: [{ id: "backup-restore", kind: "local_engine", files: ["tests/hosted/backup/create-restore.test.ts", "tests/hosted/backup/reopen.test.ts", "tests/controlplane/state-backend-recovery.test.ts"] }],
-    limits: "Restore into a fresh environment from off-site storage is the operations rehearsal.",
+    limits: "The dedicated local operated lane restores the owned J1 database to a fresh database, fences a post-snapshot consumed browser approval and requires fresh browser continuation. Off-site/live recovery remains deferred.",
   },
   {
     id: "two-tenants", title: "Two tenants cannot see or affect each other", requirements: ["PROD-REL-01"],

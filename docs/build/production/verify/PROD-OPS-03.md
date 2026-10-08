@@ -1,5 +1,11 @@
 # PROD-OPS-03 Rolling upgrades and replay: verification notes
 
+DRV-3 adds the dedicated operated J1/J2 upgrade driver and gated
+`j15-operated-upgrade` lane. Exact lean Mac preparation, candidate images,
+commands, acceptance mapping, independent readback and cleanup are in
+[DRV-3](DRV-3.md). Not run here (needs Docker, Temporal, kind and Chromium).
+This addendum does not promote the historical checks below to operated evidence.
+
 Built only. Nothing below was executed except typecheck (`npx tsc --noEmit -p .`, exit 0), eslint on every changed file (clean), and `go build` / `go vet` / `gofmt` for `go/internal/agent` (clean). Another machine runs every test. Branch `prod/ops-03-w4b`, base ad78c593. No platform migration was needed (version 45 is unused); the compat baseline is 45 on purpose (see section 4).
 
 ## 1. What was built

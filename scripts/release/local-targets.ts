@@ -2,6 +2,7 @@
 import { z } from "zod";
 import catalog from "../../deploy/acceptance/local-targets/scenarios.json";
 import type { LocalCommandLane, Scenario } from "./scenarios";
+import { OPERATED_CHECKS, OPERATED_LABEL, operatedScenario } from "./drivers/contracts";
 
 export const LOCAL_GATE = "ZENITH_LOCAL_TARGETS";
 export const LOCAL_LABEL = "local_rehearsal";
@@ -19,15 +20,15 @@ export function localTargetLane(scenario: Scenario): LocalCommandLane {
   const target = LOCAL_TARGETS[scenario.id];
   if (!target) throw new Error(`No local target for ${scenario.id}`);
   return {
-    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json"],
+    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json", ...(operatedScenario(scenario.id) ? [LOCAL_TARGETS[scenario.id]!.driver!] : [])],
     command: ["node", "node_modules/tsx/dist/cli.mjs", "scripts/release/local-target-runner.ts", "run", "--scenario", scenario.id],
-    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT"],
-    evidenceLabel: LOCAL_LABEL,
+    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(operatedScenario(scenario.id) ? ["ZENITH_LOCAL_OPERATED=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", ...(scenario.id === "upgrade" ? ["ZENITH_LOCAL_UPGRADE_IMAGES_FILE"] : [])] : [])],
+    evidenceLabel: operatedScenario(scenario.id) ? OPERATED_LABEL : LOCAL_LABEL,
   };
 }
 
 const Receipt = z.object({
-  schema: z.literal(1), evidenceLabel: z.literal(LOCAL_LABEL),
+  schema: z.literal(1), evidenceLabel: z.enum([LOCAL_LABEL, OPERATED_LABEL]),
   scenarioId: z.string().regex(/^[a-z][a-z0-9-]{1,50}$/),
   runId: z.string().regex(/^[a-z0-9][a-z0-9-]{3,19}$/),
   sourceCommit: z.string().regex(/^[a-f0-9]{40}$/),
@@ -37,6 +38,7 @@ const Receipt = z.object({
 export type LocalReceipt = z.infer<typeof Receipt>;
 
 export function requiredChecks(scenarioId: string): readonly string[] {
+  if (operatedScenario(scenarioId)) return OPERATED_CHECKS[scenarioId];
   if (scenarioId === "billing") return TARGET_CHECKS.billing!;
   const target = LOCAL_TARGETS[scenarioId];
   if (!target) throw new Error("Unknown local scenario");
@@ -46,10 +48,12 @@ export function requiredChecks(scenarioId: string): readonly string[] {
 
 export function validateLocalReceipt(raw: unknown, expected: { scenarioId: string; runId: string; sourceCommit: string }): LocalReceipt {
   const receipt = Receipt.parse(raw);
+  if (receipt.evidenceLabel !== (operatedScenario(expected.scenarioId) ? OPERATED_LABEL : LOCAL_LABEL)) throw new Error("Local receipt evidence label mismatch");
   for (const key of ["scenarioId", "runId", "sourceCommit"] as const) if (receipt[key] !== expected[key]) throw new Error(`Local receipt ${key} mismatch`);
   const ids = receipt.checks.map(c => c.id);
   if (new Set(ids).size !== ids.length) throw new Error("Duplicate local check");
   for (const id of requiredChecks(expected.scenarioId)) if (!ids.includes(id)) throw new Error(`Missing required local check: ${id}`);
+  if (operatedScenario(expected.scenarioId) && ids.some(id => !requiredChecks(expected.scenarioId).includes(id))) throw new Error("Unknown operated check");
   return receipt;
 }
 

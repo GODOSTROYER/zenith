@@ -33,7 +33,7 @@ import { Scope, ScopeError, defaultManifestPath, loadScope } from "./scope";
 import { localTargetLane, validateLocalReceipt, localEnvironment } from "./local-targets";
 
 export type LaneStatus = "passed" | "passed_with_skips" | "no_tests" | "failed" | "not_run" | "deferred" | "skipped" | "passed_live";
-export interface LaneResult { scenarioId: string; laneId: string; kind: Lane["kind"]; status: LaneStatus; detail: string; counts?: { passed: number; failed: number; skipped: number }; command?: string[]; missingGates?: string[]; evidenceLabel?: "local_rehearsal"; limits?: string[] }
+export interface LaneResult { scenarioId: string; laneId: string; kind: Lane["kind"]; status: LaneStatus; detail: string; counts?: { passed: number; failed: number; skipped: number }; command?: string[]; missingGates?: string[]; evidenceLabel?: LocalCommandLane["evidenceLabel"]; limits?: string[] }
 
 export type ScenarioStatus = "failed" | "not_run" | "incomplete" | "local_passed" | "local_passed_live_pending" | "verified_live";
 export interface ScenarioResult { id: string; title: string; requirements: readonly string[]; status: ScenarioStatus; lanes: LaneResult[]; limits: string }
@@ -299,7 +299,7 @@ export function sourceFingerprint(root: string): string {
 async function localCommandLane(scenario: Scenario, lane: LocalCommandLane, ctx: {
   options: RunOptions; exec: Exec; env: Readonly<Record<string, string | undefined>>; readFile: (file: string) => string; sourceCommit: string | null;
 }): Promise<LaneResult> {
-  const base = { scenarioId: scenario.id, laneId: lane.id, kind: "local_engine" as const, evidenceLabel: "local_rehearsal" as const };
+  const base = { scenarioId: scenario.id, laneId: lane.id, kind: "local_engine" as const, evidenceLabel: lane.evidenceLabel };
   const gates = missingGates(lane, ctx.env);
   if (gates.length) return { ...base, status: "deferred", detail: "Local target not run: missing explicit local gate or target prerequisites.", missingGates: gates };
   const out = path.join(os.tmpdir(), `zenith-local-${ctx.options.runId}-${scenario.id}.json`);

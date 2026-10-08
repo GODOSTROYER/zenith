@@ -63,8 +63,8 @@ export function reportFailures(requirements, report, root) {
 /** @param {string[]} args @returns {number} */
 export function main(args) {
   const [lane, reportPath] = args;
-  if (args.length !== 2 || !["postgres", "policy", "tofu", "workflows", "platform-postgres"].includes(lane)) {
-    console.error("usage: node tests/ci/assert-lane-report.mjs <postgres|policy|tofu|workflows|platform-postgres> <vitest-json-report>");
+  if (args.length !== 2 || !["postgres", "policy", "tofu", "workflows", "platform-postgres", "drv1-private-source", "drv1-update-rollback"].includes(lane)) {
+    console.error("usage: node tests/ci/assert-lane-report.mjs <postgres|policy|tofu|workflows|platform-postgres|drv1-private-source|drv1-update-rollback> <vitest-json-report>");
     return 2;
   }
   try {

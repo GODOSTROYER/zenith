@@ -46,7 +46,7 @@ export interface LocalCommandLane {
   files: readonly string[];
   command: readonly string[];
   gates: readonly string[];
-  evidenceLabel: "local_rehearsal";
+  evidenceLabel: "local_rehearsal" | "local_operated_rehearsal";
 }
 export type Lane = LocalLane | LiveLane | LocalCommandLane;
 
@@ -73,8 +73,8 @@ export const SCENARIOS: readonly Scenario[] = [
   },
   {
     id: "private-source", title: "Private source admitted by approved snapshot", requirements: ["PROD-REL-01"],
-    lanes: [{ id: "source-authority", kind: "local_engine", files: ["tests/execution/approved-source.test.ts", "tests/controlplane/approved-source-snapshots.test.ts", "tests/sources/github-app.test.ts", "tests/sources/github-lifecycle.test.ts"], optionalGates: ["ZENITH_TEST_PLATFORM_PG_URL", "ZENITH_TEST_SOURCE_GITHUB_APP"] }],
-    limits: "A real GitHub App installation is opt-in and not part of the default lane.",
+    lanes: [{ id: "source-authority", kind: "local_engine", files: ["tests/execution/approved-source.test.ts", "tests/controlplane/approved-source-snapshots.test.ts", "tests/sources/github-app.test.ts", "tests/sources/github-lifecycle.test.ts", "tests/release/drivers/drv1.test.ts"], optionalGates: ["ZENITH_TEST_PLATFORM_PG_URL", "ZENITH_TEST_SOURCE_GITHUB_APP"] }],
+    limits: "The dedicated local target operates source admission, browser review and revocation on J1/J2 with an authenticated GitHub emulator. It intentionally refuses execution after revocation; private builds and live GitHub acceptance remain separate.",
   },
   {
     id: "plan-approval", title: "Plan, human approval bound to exact effects", requirements: ["PROD-REL-01"],
@@ -107,8 +107,8 @@ export const SCENARIOS: readonly Scenario[] = [
   },
   {
     id: "update-rollback", title: "Compatible update and rollback", requirements: ["PROD-REL-01"],
-    lanes: [{ id: "release-safety", kind: "local_engine", files: ["tests/execution/release.test.ts", "tests/execution/release-safety.test.ts", "tests/release-safety/pipeline.test.ts", "tests/execution/manifest-release.test.ts", "tests/hosted/acceptance/gate-08-compatible-update.test.ts"] }],
-    limits: "Provider-side rollback of a live stack is covered by the live deploy scenarios only.",
+    lanes: [{ id: "release-safety", kind: "local_engine", files: ["tests/execution/release.test.ts", "tests/execution/release-safety.test.ts", "tests/release-safety/pipeline.test.ts", "tests/execution/manifest-release.test.ts", "tests/hosted/acceptance/gate-08-compatible-update.test.ts", "tests/release/drivers/drv1.test.ts"] }],
+    limits: "The dedicated local target operates compatible revisions, failed rollout and browser-approved rollback on J1/J2/kind. Live provider rollback and data-migration compatibility remain separately gated.",
   },
   {
     id: "machine-schedules", title: "Machine runbooks and scheduled jobs", requirements: ["PROD-REL-01"],

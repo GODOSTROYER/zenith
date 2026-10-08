@@ -36,6 +36,10 @@ export async function runLocalScenario(scenarioId: string, receiptFile: string, 
   const env = localEnvironment(rawEnv);
   const target = scenarioId === "billing" ? { target: "billing" } : LOCAL_TARGETS[scenarioId];
   if (!target) throw new Error("Unknown local scenario");
+  if ("owner" in target && target.owner === "DRV-1") {
+    const driver = scenarioId === "private-source" ? await import("./drivers/private-source") : await import("./drivers/update-rollback");
+    return driver.run(receiptFile, env);
+  }
   const sourceCommit = (await command(["git", "rev-parse", "HEAD"], env)).trim();
   if (!/^[a-f0-9]{40}$/.test(sourceCommit)) throw new Error("Source commit unavailable");
   if ("driver" in target && target.driver) {

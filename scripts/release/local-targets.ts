@@ -6,7 +6,16 @@ import type { LocalCommandLane, Scenario } from "./scenarios";
 export const LOCAL_GATE = "ZENITH_LOCAL_TARGETS";
 export const LOCAL_LABEL = "local_rehearsal";
 export type LocalTarget = { target: string; driver?: string; owner?: string };
-export const LOCAL_TARGETS: Readonly<Record<string, LocalTarget>> = catalog.scenarios;
+export const LOCAL_TARGETS: Readonly<Record<string, LocalTarget>> = {
+  ...catalog.scenarios,
+  "private-source": { target: "operated", driver: "scripts/release/drivers/private-source.ts", owner: "DRV-1" },
+  "update-rollback": { target: "operated", driver: "scripts/release/drivers/update-rollback.ts", owner: "DRV-1" },
+};
+export const OPERATED_LABEL = "local_operated_rehearsal";
+export const OPERATED_CHECKS: Readonly<Record<string, readonly string[]>> = {
+  "private-source": ["preconditions", "browser-source-binding", "private-source-snapshot", "browser-snapshot-approval", "source-revocation-refused", "independent-source-readback", "owned-cleanup", "source-unchanged"],
+  "update-rollback": ["preconditions", "baseline-readback", "compatible-update-readback", "failed-rollout-readback", "browser-rollback-readback", "independent-release-readback", "owned-cleanup", "source-unchanged"],
+};
 export const TARGET_CHECKS: Readonly<Record<string, readonly string[]>> = {
   mixed: ["traffic-acknowledged", "independent-readback", "tls-peer-auth", "private-database"],
   pebble: ["dns-http01", "certificate-issued", "tls-hostname"],
@@ -19,24 +28,26 @@ export function localTargetLane(scenario: Scenario): LocalCommandLane {
   const target = LOCAL_TARGETS[scenario.id];
   if (!target) throw new Error(`No local target for ${scenario.id}`);
   return {
-    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json"],
+    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json", ...(target.owner === "DRV-1" ? [target.driver!] : [])],
     command: ["node", "node_modules/tsx/dist/cli.mjs", "scripts/release/local-target-runner.ts", "run", "--scenario", scenario.id],
-    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT"],
-    evidenceLabel: LOCAL_LABEL,
+    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(target.owner === "DRV-1" ? ["ZENITH_LOCAL_DRV1=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE"] : [])],
+    evidenceLabel: target.owner === "DRV-1" ? OPERATED_LABEL : LOCAL_LABEL,
   };
 }
 
 const Receipt = z.object({
-  schema: z.literal(1), evidenceLabel: z.literal(LOCAL_LABEL),
+  schema: z.literal(1), evidenceLabel: z.enum([LOCAL_LABEL, OPERATED_LABEL]),
   scenarioId: z.string().regex(/^[a-z][a-z0-9-]{1,50}$/),
   runId: z.string().regex(/^[a-z0-9][a-z0-9-]{3,19}$/),
   sourceCommit: z.string().regex(/^[a-f0-9]{40}$/),
+  sourceDigest: z.string().regex(/^[a-f0-9]{64}$/).optional(), dirty: z.boolean().optional(),
   checks: z.array(z.object({ id: z.string().regex(/^[a-z][a-z0-9-]{1,70}$/), status: z.enum(["passed", "failed", "skipped"]) }).strict()).min(1),
   limits: z.array(z.string().min(1).max(300)).min(1),
 }).strict();
 export type LocalReceipt = z.infer<typeof Receipt>;
 
 export function requiredChecks(scenarioId: string): readonly string[] {
+  if (OPERATED_CHECKS[scenarioId]) return OPERATED_CHECKS[scenarioId]!;
   if (scenarioId === "billing") return TARGET_CHECKS.billing!;
   const target = LOCAL_TARGETS[scenarioId];
   if (!target) throw new Error("Unknown local scenario");
@@ -50,6 +61,10 @@ export function validateLocalReceipt(raw: unknown, expected: { scenarioId: strin
   const ids = receipt.checks.map(c => c.id);
   if (new Set(ids).size !== ids.length) throw new Error("Duplicate local check");
   for (const id of requiredChecks(expected.scenarioId)) if (!ids.includes(id)) throw new Error(`Missing required local check: ${id}`);
+  if (OPERATED_CHECKS[expected.scenarioId]) {
+    if (receipt.evidenceLabel !== OPERATED_LABEL || !receipt.sourceDigest || receipt.dirty === undefined) throw new Error("Operated source-bound evidence required");
+    if (ids.some(id => !requiredChecks(expected.scenarioId).includes(id))) throw new Error("Unknown operated check");
+  } else if (receipt.evidenceLabel !== LOCAL_LABEL) throw new Error("Unexpected operated label");
   return receipt;
 }
 
@@ -63,7 +78,7 @@ export function loopbackUrl(raw: string, port: number): URL {
 export function localEnvironment(env: Readonly<Record<string, string | undefined>>): NodeJS.ProcessEnv {
   const clean: NodeJS.ProcessEnv = { NODE_ENV: "test" };
   for (const [key, value] of Object.entries(env)) {
-    if (value && (/^(PATH|HOME|USERPROFILE|TMP|TEMP|TMPDIR|SystemRoot|COMSPEC|DOCKER_HOST|DOCKER_CONTEXT|KUBECONFIG)$/i.test(key) || /^ZENITH_(LOCAL_|TEST_)/.test(key) || ["ZENITH_DEFAULT_JOURNEY", "ZENITH_ACCEPTANCE_DEFAULT_STACK", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR"].includes(key))) clean[key] = value;
+    if (value && (/^(PATH|HOME|USERPROFILE|TMP|TEMP|TMPDIR|SystemRoot|COMSPEC|DOCKER_HOST|DOCKER_CONTEXT|KUBECONFIG|NODE_EXTRA_CA_CERTS)$/i.test(key) || /^ZENITH_(LOCAL_|TEST_)/.test(key) || ["ZENITH_DEFAULT_JOURNEY", "ZENITH_ACCEPTANCE_DEFAULT_STACK", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR"].includes(key))) clean[key] = value;
   }
   clean.AWS_EC2_METADATA_DISABLED = "true";
   return clean;

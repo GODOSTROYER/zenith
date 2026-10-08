@@ -71,6 +71,38 @@ export const CreateOciInput = z.object({
 }).strict();
 export type CreateOciInput = z.infer<typeof CreateOciInput>;
 
+/** Explicit customer-runner onboarding. Federation identifiers remain pinned,
+ * but no federation exchange or credential upload happens in this mode. */
+const runnerFields = { mode: z.literal("runner"), runnerId, runnerCustody: z.enum(["local_only", "federated"]).optional() };
+const runnerRole = z.string().max(2048).refine((v) => !!parseRoleArn(v), "Use an IAM role ARN.");
+export const CreateRunnerInput = z.discriminatedUnion("provider", [
+  z.object({ provider: z.literal("aws"), label, ...runnerFields,
+    accountId: z.string().regex(/^\d{12}$/), region: z.string().regex(/^[a-z]{2}(?:-[a-z]+)+-\d$/),
+    observeRoleArn: runnerRole, deployRoleArn: runnerRole,
+    stateBucket: z.string().refine((v) => BUCKET.test(v), "Use a state bucket name.").optional(),
+  }).strict(),
+  CreateGcpInput.extend({ provider: z.literal("gcp"), ...runnerFields }).strict(),
+  CreateAzureInput.extend({ provider: z.literal("azure"), ...runnerFields }).strict(),
+  CreateOciInput.extend({ provider: z.literal("oci"), ...runnerFields }).strict(),
+  z.object({ provider: z.literal("kubernetes"), label, ...runnerFields,
+    server: z.string().url().max(2048).refine((v) => {
+      try {
+        const url = new URL(v);
+        return url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash && url.pathname === "/";
+      } catch { return false; }
+    }, "Use the HTTPS Kubernetes API origin."),
+    namespaces: z.array(z.string().regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/)).min(1).max(100),
+  }).strict(),
+]).superRefine((value, ctx) => {
+  if (value.provider === "aws") {
+    for (const key of ["observeRoleArn", "deployRoleArn"] as const) {
+      const role = parseRoleArn(value[key]);
+      if (!role || role.accountId !== value.accountId || role.partition !== "aws") ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: "The role must be in the configured commercial AWS account." });
+    }
+  }
+});
+export type CreateRunnerInput = z.infer<typeof CreateRunnerInput>;
+
 export function gcpConfig(input: CreateGcpInput): GcpConnectionConfig {
   const { label: _label, ...rest } = input;
   return { provider: "gcp", mode: "oidc_web_identity", ...rest };
@@ -98,10 +130,12 @@ const RotateGcp = z.object({
   workloadIdentityProvider: CreateGcpInput.shape.workloadIdentityProvider.optional(),
   observeServiceAccount: CreateGcpInput.shape.observeServiceAccount.optional(),
   deployServiceAccount: CreateGcpInput.shape.deployServiceAccount.optional(),
+  runnerId: runnerId.optional(),
 }).strict();
-const RotateAzure = z.object({ clientId: CreateAzureInput.shape.clientId.optional() }).strict();
+const RotateAzure = z.object({ clientId: CreateAzureInput.shape.clientId.optional(), runnerId: runnerId.optional() }).strict();
 const RotateOci = z.object({ runnerId: runnerId.optional() }).strict();
 const RotateKubernetes = z.object({
+  runnerId: runnerId.optional(),
   credentialRef: z.string().min(7).max(200).refine((v) => VAULT_REF.test(v), "Use an existing tenant vault reference.").optional(),
   /** PROD-MACH-02: convert a legacy kubeconfig_ref connection to scoped_guest; credentialRef must name the new namespaced minter. */
   convertToScopedGuest: z.literal(true).optional(),
@@ -147,6 +181,8 @@ export interface RotationOptions {
 
 /** Apply a validated patch to the live config. Never changes provider, mode or the pinned identity. */
 export function applyRotationPatch(live: ConnectionConfig, rawPatch: RotationPatch, options: RotationOptions = {}): ConnectionConfig {
+  if (live.mode === "runner" && live.provider === "kubernetes") return { ...live, ...parsePatch(z.object({ runnerId }).strict(), rawPatch) };
+  if ("runnerId" in rawPatch && live.mode !== "runner") throw new LifecycleInputError("runnerId: only runner-mode connections use a runner.");
   switch (live.provider) {
     case "aws": {
       const patch = parsePatch(RotateAws, rawPatch);

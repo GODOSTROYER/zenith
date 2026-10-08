@@ -68,6 +68,7 @@ export function idempotencyKey(req: NextRequest): string | undefined {
 /** Run one registered action and translate refusals into the platform error body. */
 export async function runLifecycle(caller: LifecycleCaller, actionId: string, input: unknown, key?: string): Promise<Answer> {
   await import("@/lib/actions/defs");
+  if (actionId === "connection.createRunner") await import("@/lib/connections/runner-action");
   const run: ActionRun = await runAction(actionId, caller.ctx, input, { mode: "execute", idempotencyKey: key });
   const result = run.result;
   if (!result) throw new BrokerError("internal", "The action returned no result.");

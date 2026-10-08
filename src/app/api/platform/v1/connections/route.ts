@@ -2,7 +2,9 @@
  * GET  /api/platform/v1/connections          list (viewer; person or linked credential)
  * POST /api/platform/v1/connections          create (admin; browser only)
  *
- * POST body: `{ provider: "gcp" | "azure" | "oci", ...identifiers }`. AWS and
+ * POST body: `{ provider: "gcp" | "azure" | "oci", ...identifiers }`, or
+ * `{ provider, mode: "runner", runnerId, ...identifiers }` for customer runners.
+ * AWS and
  * Kubernetes creation keep their dedicated web flows (`/platform/connections/aws`,
  * Settings, Connections) because they hand back trust values the person must
  * act on; every provider is verified, revoked and rotated here.
@@ -17,7 +19,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const ACTION = { gcp: "connection.createGcp", azure: "connection.createAzure", oci: "connection.createOci" } as const;
-const Body = z.object({ provider: z.enum(["gcp", "azure", "oci"]) }).passthrough();
+const Body = z.object({ provider: z.enum(["aws", "gcp", "azure", "oci", "kubernetes"]), mode: z.enum(["runner"]).optional() }).passthrough();
 
 export const GET = platformRoute(async (req) => {
   const caller = await personOrCredentialCaller(req);
@@ -28,6 +30,9 @@ export const GET = platformRoute(async (req) => {
 
 export const POST = platformRoute(async (req) => {
   const caller = await browserCaller(req);
-  const { provider, ...input } = parseWith(Body, await readJson(req));
-  return runLifecycle(caller, ACTION[provider], input, idempotencyKey(req));
+  const body = parseWith(Body, await readJson(req));
+  if (body.mode === "runner") return runLifecycle(caller, "connection.createRunner", body, idempotencyKey(req));
+  const { provider, ...input } = body;
+  if (!(provider in ACTION)) throw new BrokerError("invalid_request", "Use the guided browser flow for this provider, or explicitly select runner mode.");
+  return runLifecycle(caller, ACTION[provider as keyof typeof ACTION], input, idempotencyKey(req));
 });

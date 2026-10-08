@@ -64,6 +64,23 @@ describe("browser handoff for verbs that change what Zenith can reach", () => {
     expect(result.stdout).not.toContain("acme-prod-123456.iam");
   });
 
+  it.each(["aws", "gcp", "kubernetes"])("%s runner creation validates identifiers and hands off without sending", async provider => {
+    const input = provider === "gcp" ? { ...JSON.parse(gcp) as object, mode: "runner", runnerId: "run_registered" }
+      : provider === "aws" ? { mode: "runner", runnerId: "run_registered", accountId: "123456789012", region: "us-east-1", observeRoleArn: "arn:aws:iam::123456789012:role/Observe", deployRoleArn: "arn:aws:iam::123456789012:role/Deploy" }
+      : { mode: "runner", runnerId: "run_registered", server: "https://kubernetes.zenith.test", namespaces: ["customer"] };
+    const result = await invoke(server.url, ["connections", "create", provider, "--input", "-", "--json"], JSON.stringify(input));
+    expect(result.code).toBe(3);
+    expect(JSON.parse(result.stdout)).toMatchObject({ provider, mode: "runner", inputValid: true, note: expect.stringContaining("signed-in browser") });
+    expect(server.requests).toHaveLength(0);
+  });
+
+  it("explains the separate Kubernetes deployer in its browser handoff", async () => {
+    const result = await invoke(server.url, ["connections", "create", "kubernetes", "--input", "-", "--json"], "{}");
+    expect(result.code).toBe(3);
+    expect(JSON.parse(result.stdout).note).toContain("deployerCredentialRef");
+    expect(server.requests).toHaveLength(0);
+  });
+
   it("create rejects an invalid or secret-bearing input with exit 2", async () => {
     const invalid = await invoke(server.url, ["connections", "create", "gcp", "--input", "-", "--json"], JSON.stringify({ projectId: "x" }));
     expect(invalid.code).toBe(2);

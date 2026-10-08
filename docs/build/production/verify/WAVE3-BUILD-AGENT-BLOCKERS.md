@@ -1,3 +1,9 @@
+## Current LIFE-12 builder contract, 8 October 2026
+
+Integrated40012d75/7427a7d0 security CAS closes changed ownership committed before final grant SQL; native17/0/0 and mixed124/0/0 passed. Remaining code: coordinate all ownership fact writers and admission paths before resource-row locks, with a consistent lock order and actual enforcement for SQL paths in scope. Define preissued/consumed-grant behavior, late provider receipts, uncertainty and operator-authorized continuation. Test insert after final SQL snapshot, opposite lock order, rollback, tenancy and accepted-but-unrecorded calls. Fences cannot retract a provider call. LIFE-12 remains open; verifier does not claim this broader criterion complete.
+
+Local disposable default API/server startup is authorized on this Mac. DEC-CLOUD, retention/business and production sign-off remain unapproved. Continuous floor12GB per latest user decision; packaged-worker18GiB prerequisite remains separate. Older permission/resource notes below retain historical scope.
+
 ## Verifier milestone, 8 October 2026
 
 Exact e4c0c237 CI20/20 is green, including native packaged AMD64/ARM64. Native bootstrap86/0/0 now includes the real OpenTofu case; only private verification harness archive layout/socket paths changed. No product code or builder-owned source changed. Full native Node/DOM gate remains pending. Default stack is resource-blocked: [cold metadata lower bound](../evidence/PROD-CI-08/2026-10-08-default-cold-storage-lower-bound.json) leaves less than0.4GB above22GiB before DB/overlay/swap, with no safe expanded upper bound. Current25SQL/43 registry and native build input bindings match retained artifacts; avoid rebuilding unchanged bytes. No cloud/DNS/private App or business permission granted. See current RESULTS for exact scope; no new requirement or release promotion.

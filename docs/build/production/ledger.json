@@ -34,8 +34,10 @@
     "rootReviewsAndVerifies": true,
     "dockerStorage": "Check host free bytes before and during image gates. Remove owned test images, containers, volumes and dedicated build cache after runs. Preserve unrelated services/data; one heavy process.",
     "minimumFreeGiBBeforeImageGate": 18,
-    "localDefaultStackDiskFloorGiB": 22,
-    "localDefaultStackProfile": "reduced-resource local profile on this Mac only; one heavy workload; Docker4GiB/swap4GiB;22GiB floor; no unrelated cleanup"
+    "localDefaultStackDiskFloorGiB": 11.175870895385742,
+    "localDefaultStackProfile": "Reduced-resource local profile on this Mac only; one heavy workload; Docker4GiB/swap4GiB; user continuous12GB floor; original packaged-worker18GiB prerequisite retained separately; no unrelated cleanup",
+    "historicalLocalDefaultStackDiskFloorGiB": 22,
+    "localDefaultStackDiskFloorBytes": 12000000000
   },
   "evidenceLevels": [
     "contract",
@@ -1432,14 +1434,14 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "verified",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "verified_e4c0c237",
+      "implementationStatus": "historical_e4_a4_green; awaiting_current_cas_and_mandatory_manifest_candidate_ci",
       "evidence": [
         {
           "level": "remote_ci",
@@ -3117,7 +3119,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationStatus": "bounded_snapshot_cas_integrated; common_writer_coordination_and_preissued_grant_policy_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -3174,6 +3176,22 @@
           "environment": "Node22.23.3 native Darwin ARM64,768MiB heap; owned PostgreSQL16.15 ARM64,384MiB memory,strict verify-full TLS and private CA. Bare-PG SET ROLE stand-ins; no Supabase Auth or pooler proof.",
           "logs": "docs/build/production/evidence/PROD-LIFE-12/2026-10-07-prod-life-12-serial-r2.json",
           "result": "Targeted ownership/SQL lane236 passed /0 failed /0 skipped. Real PostgreSQL and PGlite controls distinct; independent review. Broader native/IaC/autoscaler ownership and successful default cleanup acceptance remain open."
+        },
+        {
+          "level": "local_engine",
+          "commit": "40012d75bf6734399786dbc258d972789caf44ff",
+          "result": "Original joined PostgreSQL 10/1/0 finding repaired with bounded final-statement snapshot CAS. Native17/0/0 and mixed six-file124/0/0 passed with exact source equivalence, compiler/lint and independent cleanup review. Broader writer coordination/preissued-grant policy remains open; no acceptance promotion.",
+          "command": "Full six affected Vitest files on actual PostgreSQL and PGlite, maxWorkers1/no-file-parallelism, strict collection equality and17mandatory native cases",
+          "environment": "Node22.23.3/Vitest4.1.11; native Mac ARM64 PostgreSQL16.15;25SQL/platform43; authentic service_role ACL with stand-in CI Auth roles; no Supabase/browser/cloud proof",
+          "logs": "docs/build/production/evidence/PROD-LIFE-12/2026-10-08-ownership-snapshot-cas.json"
+        },
+        {
+          "level": "contract",
+          "commit": "d25b1a859d6de7f71110e2bd70c3fcabbfbff1db",
+          "result": "Ten exact native PostgreSQL cases required, current1156 identities; original1146/1141 hashes retained. Full gate-manifest295/0/0 plus platform coverage/evidence sanitizer174/0/0 passed; lint and independent source review accepted. Full current1156 engine lane/CI still pending.",
+          "command": "Complete gate-manifest, platform-coverage and evidence-sanitizer files, maxWorkers1/no-file-parallelism",
+          "environment": "Node22.23.3/Vitest4.1.11 native Mac ARM64; report models test admission only, genuine SQL evidence recorded separately.",
+          "logs": "docs/build/production/evidence/PROD-LIFE-12/2026-10-08-ownership-snapshot-cas.json"
         }
       ],
       "requiredEvidence": [
@@ -5168,24 +5186,25 @@
     }
   ],
   "sessionState": {
-    "status": "kind56_passed_validator_repaired_successor_ci_and_default_stack_open",
-    "sourceCheckpoint": "455d12e547c4cfdd42a050a0bb6a68167a6a038e",
+    "status": "bounded_ownership_security_fix_integrated_current_combined_gates_pending",
+    "sourceCheckpoint": "d25b1a859d6de7f71110e2bd70c3fcabbfbff1db",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "455d12e547c4cfdd42a050a0bb6a68167a6a038e",
-    "lastPushedRun": 37720373970,
-    "lastPushedRunStatus": "in_progress_exact455d",
-    "currentVerification": "docs/build/production/WIP-HANDOFF-2026-10-08.md",
+    "lastPushedCommit": "351fa2b6497e10beeeeb7432445035e0a1182b4e",
+    "lastPushedRun": 37745436240,
+    "lastPushedRunStatus": "19_of_20_jobs_success_verify_live; exact351_only",
+    "currentVerification": "docs/build/production/CURRENT-VERIFIER-CONTEXT.md",
     "remainingLocalPackets": {
-      "integratedRepairs": "12547335 validator performance;0f995b44 exact kind read ceiling. Normal publication pending.",
-      "nativeBuild": "Fresh455d build failed diskfloor23518019584bytes, child143; separate native-group proof and bounded runtime cleanup succeeded, recovered1011752960bytes. Raw/auth/controllers preserved; older unregistered attempt untouched.22.84GiBfree insufficient measured build/cold-stack headroom.",
-      "defaultStackPreparation": "Private source-bound preparation:25 SQL and43 migration files independently matched; five ARM64 registry manifests,753049784 compressed bytes. Expanded storage/cold admission unproved, no pulls/startup. Reduced profile deviates from shipped installer."
+      "integratedRepairs": "40012d75 security CAS integrated7427a7d0; d25b1a85 ten mandatory PG identities. Rootnative17/0/0 and mixed124/0/0, compiler/lint/review accepted; broader writer/preissued policy open.",
+      "nativeBuild": "Changed runtime requires fresh cache-disabled native build and APFS assembly; prepared private bindings disabled until clean final commit.",
+      "defaultStackPreparation": "Independently reviewed five-service profile source, genuine25SQL/platform43/agent3, PostgreSQL STARTTLS and private credential composition; no current-source default startup acceptance. Bind fresh source/artifact before admission.",
+      "fullNativeUnit": "Prior completea4 run21848/1/1614 retained; isolated Docker environment corrected, allinstallation62/0/0. Full current-candidate runtime rerun pending."
     },
     "permissions": {
       "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Arnav Bule.",
       "pending": "Live cloud calls/spend, real DNS/private GitHub App configuration, destructive retention/business/production sign-off."
     },
-    "releaseVerdict": "10 verified /49 in_progress /19 planned; all four release flags false; no promotion.",
-    "next": "Publish reviewed validator/kind fixes and inspect every new CI job. Resolve native build controller custody failure; continue authorized default Mac acceptance. Builder owns MACH02 bearer deadline repair.",
+    "releaseVerdict": "10 verified /49 in_progress /19 planned; all four release flags false; CI09 reopened for changed candidate, historical green preserved",
+    "next": "Complete coherent current-candidate installation/gates, fresh native build and authorized same-Mac default-stack acceptance; push and inspect every exact CI job.",
     "completedLocalKind": {
       "sourceCommit": "ddc27415f77c090cd9d26423c7cf9a1eaf519d92",
       "integratedRootCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",

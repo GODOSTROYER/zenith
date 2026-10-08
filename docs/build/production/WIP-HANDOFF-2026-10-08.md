@@ -1,3 +1,7 @@
+## Current integrated verifier context, 8 October 2026
+
+Security fix40012d75 integrated at7427a7d0; mandatory native identities added byd25b1a85. Actual affected124/0/0, including17nativePG; compiler/lint/independent review passed. Gate-manifest295/0/0 and platform coverage/evidence sanitizer174/0/0 passed, exact prior1146/1141 requirements preserved, current1156 mandatory. CI09 reopened pending changed-candidate CI:10verified/49in_progress/19planned; historical green preserved. New complete gate/default build/stack/CI pending. [Current scope and builder boundaries](CURRENT-VERIFIER-CONTEXT.md). This is cross-machine progress context, not restart steps.
+
 ## Latest cross-machine verifier context, 8 October 2026
 
 [Current results, active lanes, remaining task coverage and boundaries](CURRENT-VERIFIER-CONTEXT.md). Tested a4 baseline: 20/20 CI jobs succeeded. New native full run: 21,848/1/1,614; environment repair reran all installation cases 62/0/0. Native LIFE-12 joins: 10/1/0, exposing a stale-ownership grant race. Four-path security candidate independently reviewed; actual 17-case rerun and integration pending. User disk floor now 12 GB; heavy workloads serial, source/review parallel. Ledger unchanged 11/48/19; all release flags false. This is builder context, not resume instructions. Earlier entries retain historical source scope.

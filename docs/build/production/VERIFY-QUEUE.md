@@ -1,3 +1,5 @@
+Results PROD-LIFE-12 (8 October): integrated7427a7d0/fix40012d75; mandatory additiond25b1a85/current1156, gate295/0/0 and coverage/sanitizer174/0/0; native17/0/0 and mixed affected124/0/0, compiler/lint/independent cleanup accepted. Bounded CAS only; common writer coordination/preissued policy/default acceptance remain open. [Evidence](evidence/PROD-LIFE-12/2026-10-08-ownership-snapshot-cas.json).
+
 Results: PROD-CI-09 verified for exact e4c0c237,20/20 terminal CI jobs; PROD-CI-08 native bootstrap86/0/0 plus remote unit21826/0/1637, complete native local gate still pending. [Current milestone](verification/RESULTS-2026-10.md#green-e4-ci-and-native-bootstrap-acceptance-8-october-2026).
 
 ## Results: green published baseline, 8 October 2026

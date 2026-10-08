@@ -1,3 +1,15 @@
+## Integrated ownership grant security repair, 8 October 2026
+
+Root integration `7427a7d0b0fcafeca92a1d2c768f74d0317ad9a7`; fix `40012d75bf6734399786dbc258d972789caf44ff`, Arnav author/committer. Real PostgreSQL finding10/1/0 retained. Exact repaired native17/0/0 and complete affected six-file124/0/0 passed; compiler, affected lint and independent source/receipt/cleanup review passed. Counts overlap. [Sanitized source-bound evidence](../evidence/PROD-LIFE-12/2026-10-08-ownership-snapshot-cas.json).
+
+Bounded CAS checks the complete scoped resource inventory again in final grant SQL, preserving JSONB precision, tenant scope and lock order; changed/missing/oversized inventories refuse. It does not coordinate inserts after that SQL snapshot or retroactively revoke issued grants. LIFE-12 remains in_progress, broader writer coordination/preissued-grant policy remains builder-owned follow-up. No cloud/default-stack/production acceptance inferred.
+
+First broader-suite setup executed zero tests because an optional JSON output argument consumed a source path. Failed receipt and overwritten output retained; exact reviewed source recovered and hash-verified. Corrected wrapper uses an explicit private output path, snapshots and post-collection source binding. R2 executed124 exact cases, zero failed/skipped/excluded; owned cleanup complete. No gate/assertion weakened.
+
+Latest native whole-unit failure remains21,848/1/1,614 until complete coherent rerun. Focused Docker-environment correction passed all62 installation cases. Ten new mandatory PostgreSQL identities integrated in d25b1a85: current1156 required, exact historical1146/1141 cohorts preserved. Gate-manifest295/0/0 and platform coverage/evidence sanitizer174/0/0 passed; lint and independent review passed. Fresh native build/default startup, full combined gates and exact-push CI remain pending. User disk floor12GB; original packaged-worker18GiB prerequisite reported separately. Ledger10verified/49in_progress/19planned, all78 criteria and four false release states retained.
+
+CI09 reopened for changed candidate awaiting exact pushed terminal CI. Historical e4/a4 green results remain valid at their original SHAs.
+
 ## Green e4 CI and native bootstrap acceptance, 8 October 2026
 
 Exact `e4c0c23782b5deb6b5b385ef58b504588d3a546b` completed **20/20 CI jobs successfully**. Unit: **21,826 passed /0 failed /1,637 skipped**,2,026.17s; compiler/lint/Smoke/Gimbal passed. All seven canonical required sets passed; native AMD64 and ARM64 workers each22/0/0, no emulation, cleanup complete. [Every job and evidence scope](CI-2026-10-08-e4c0c237.md). Counts overlap and are never summed.

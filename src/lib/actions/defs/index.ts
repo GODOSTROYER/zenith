@@ -22,6 +22,7 @@ import "./connection";
 import "./connection-aws";
 import "./connection-kubernetes";
 import "./connection-lifecycle";
+import "@/lib/connections/runner-action";
 import "./workspace";
 import "./alerts-rules";
 import "./alerts-channels";

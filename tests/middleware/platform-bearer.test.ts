@@ -31,6 +31,8 @@ const browserRoutes = [
   ["GET", "/github/callback"], ["POST", "/github/callback"],
   ["GET", "/runners"], ["GET", "/machines"], ["POST", "/runners/tokens"],
   ["POST", "/runners/run_1/revoke"], ["POST", "/machines/mac_1/revoke"],
+  ["GET", "/runners/run_1/update"], ["POST", "/runners/run_1/update"],
+  ["GET", "/machines/mac_1/update"], ["POST", "/machines/mac_1/update"],
   ["POST", "/effects/fx_1/resolve"],
   ["POST", "/environments/env_1/spend"],
   ["POST", "/connections"], ["POST", "/connections/conn_1/rotate"], ["POST", "/connections/conn_1/rotation/promote"], ["POST", "/connections/conn_1/rotation/abort"],
@@ -71,6 +73,15 @@ describe("platform bearer cookie-gate bypass", () => {
   it.each(browserRoutes)("keeps %s %s on the cookie gate even with a bearer", async (method, suffix) => {
     expect((await middleware(new NextRequest(`https://zenith.test${ROOT}${suffix}`, { method, headers: { authorization: TOKEN } }))).status).toBe(401);
     expect(gate.session).toHaveBeenCalledOnce();
+  });
+
+  it.each(["runners", "machines"])("keeps %s update controls on human browser authority", (collection) => {
+    const pathname = `${ROOT}/${collection}/x/update`;
+    expect(platformAccess(pathname, "GET")).toBe("browser-only");
+    expect(platformAccess(pathname, "POST")).toBe("admin");
+    expect(isPlatformBearerRequest(pathname, "GET", TOKEN)).toBe(false);
+    expect(isPlatformBearerRequest(pathname, "POST", TOKEN)).toBe(false);
+    expect(isAgentSignedPath(pathname)).toBe(false);
   });
 
   it.each(["GET", "POST"])("classifies GitHub installation and binding %s as browser-only", (method) => {
@@ -148,7 +159,7 @@ describe("platform route inventory", () => {
         expect(isAgentSignedPath(normalized), normalized).toBe(access === "agent-signed");
       }
     }
-    expect(seen.size).toBe(110);
+    expect(seen.size).toBe(114);
     for (const entry of PLATFORM_PATHS) {
       expect(entry.path.source.startsWith("^")).toBe(true);
       expect(entry.path.source.endsWith("$")).toBe(true);

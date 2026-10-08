@@ -1,6 +1,9 @@
 /** Connection lifecycle CLI verbs against a loopback fixture: wire contracts, confirmation and browser handoff. */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TOKEN, fixture, invoke, reply, scope } from "./support";
+import { parseConnectionHandoff } from "@/lib/connections/handoff";
+import { CreateRunnerInput } from "@/lib/connections/schemas";
+import { runnerInput } from "../connections/runner-inputs";
 
 const canary = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");
 const view = { id: "conn_1", provider: "gcp", mode: "oidc_web_identity", label: "GCP acme", status: "verified", createdAt: "2026-10-01T00:00:00Z", productLinked: true, identity: { projectId: "acme-prod-123456" } };
@@ -64,6 +67,27 @@ describe("browser handoff for verbs that change what Zenith can reach", () => {
     expect(result.stdout).not.toContain("acme-prod-123456.iam");
   });
 
+  it.each(["aws", "gcp", "azure", "oci", "kubernetes"] as const)("%s runner creation validates identifiers and hands off without sending", async provider => {
+    const input = provider === "gcp" ? { ...JSON.parse(gcp) as object, mode: "runner", runnerId: "run_registered" }
+      : provider === "aws" ? { mode: "runner", runnerId: "run_registered", accountId: "123456789012", region: "us-east-1", observeRoleArn: "arn:aws:iam::123456789012:role/Observe", deployRoleArn: "arn:aws:iam::123456789012:role/Deploy" }
+      : provider === "azure" || provider === "oci" ? runnerInput(provider)
+      : { mode: "runner", runnerId: "run_registered", server: "https://kubernetes.zenith.test", namespaces: ["customer"] };
+    const result = await invoke(server.url, ["connections", "create", provider, "--input", "-", "--json"], JSON.stringify(input));
+    expect(result.code).toBe(3);
+    expect(JSON.parse(result.stdout)).toMatchObject({ provider, mode: "runner", inputValid: true, note: expect.stringContaining("signed-in browser") });
+    const url = new URL(JSON.parse(result.stdout).browserUrl);
+    expect(url.origin).toBe(server.url); expect(url.pathname).toBe("/platform/connections/confirm"); expect(url.search).toBe("");
+    expect(parseConnectionHandoff(url.hash)).toEqual({ version: 1, workspaceId: scope.workspaceId, request: { action: "connection.createRunner", input: CreateRunnerInput.parse({ provider, ...input }) } });
+    expect(server.requests).toHaveLength(0);
+  });
+
+  it("explains the separate Kubernetes deployer in its browser handoff", async () => {
+    const result = await invoke(server.url, ["connections", "create", "kubernetes", "--input", "-", "--json"], "{}");
+    expect(result.code).toBe(3);
+    expect(JSON.parse(result.stdout).note).toContain("deployerCredentialRef");
+    expect(server.requests).toHaveLength(0);
+  });
+
   it("create rejects an invalid or secret-bearing input with exit 2", async () => {
     const invalid = await invoke(server.url, ["connections", "create", "gcp", "--input", "-", "--json"], JSON.stringify({ projectId: "x" }));
     expect(invalid.code).toBe(2);
@@ -81,7 +105,14 @@ describe("browser handoff for verbs that change what Zenith can reach", () => {
   ])("%j hands off to the browser without calling the server", async (args, input) => {
     const result = await invoke(server.url, args, input);
     expect(result.code).toBe(3);
-    expect(JSON.parse(result.stdout)).toMatchObject({ code: "browser_session_required", browserUrl: `${server.url}/platform/connections` });
+    expect(JSON.parse(result.stdout)).toMatchObject({ approved: false, code: "browser_session_required" });
+    const url = new URL(JSON.parse(result.stdout).browserUrl);
+    expect(url.origin).toBe(server.url); expect(url.pathname).toBe("/platform/connections/confirm"); expect(url.search).toBe("");
+    const request = parseConnectionHandoff(url.hash).request;
+    expect(parseConnectionHandoff(url.hash).workspaceId).toBe(scope.workspaceId);
+    expect(request).toEqual(args[1] === "rotate"
+      ? { action: "connection.rotate", input: { connectionId: "conn_1", patch: JSON.parse(input), promote: true } }
+      : { action: args[1] === "promote" ? "connection.promoteRotation" : "connection.abortRotation", input: { connectionId: "conn_1", rotationId: "rot_1" } });
     expect(server.requests).toHaveLength(0);
   });
 

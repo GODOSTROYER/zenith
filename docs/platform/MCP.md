@@ -1,6 +1,6 @@
 # MCP v3 and the platform REST SDK
 
-Zenith exposes sixteen semantic infrastructure tools at
+Zenith exposes seventeen semantic infrastructure tools at
 `<origin>/api/agent/v3/mcp`. Every read, proposal and execution uses the same
 capability broker as UI and REST. There is no unrestricted shell, cloud CLI,
 OpenTofu, kubectl, database administration or approval tool.
@@ -13,6 +13,23 @@ one authenticated tool factory. Subscriptions are disabled; poll operations.
 
 ## Tool catalog
 
+`zenith_plan_runner_connection` prepares an identifier-only browser review
+draft for create, verify, rotate, promote, abort or revoke. It uses the central
+`connection.proposeRunner` action under the current membership, project grant,
+`plan` scope and policy. Input uses `{target: {workspaceId, projectId}, action,
+input}`; `action` is one of `connection.createRunner`, `connection.verify`,
+`connection.rotate`, `connection.promoteRotation`, `connection.abortRotation`,
+`connection.revoke`. The nested input is validated against that action's shared
+strict contract. Runner creation requires `provider`, `mode: "runner"`, a
+registered `runnerId`, custody and provider identifiers; use the same inputs as
+the connections UI or CLI. The result carries an exact fragment-based
+`browserUrl`, `requiredRole`, `requiresBrowserConfirmation: true`,
+`approved: false` and `executed: false`. A draft creates no connection,
+operation or approval. Read authorization is audited normally. It cannot be
+applied by `zenith_execute_approved_operation`. A current admin confirms access
+changes in the signed-in browser; verification requires editor or admin, and
+browser revocation additionally requires typing the exact connection id.
+
 This table is generated from `src/lib/agent-access/v3/catalog.ts`; the catalog
 test checks it against the code. Scopes are integration scopes; all connections
 also require `read`. Hints describe a tool, and never confer authorization.
@@ -24,6 +41,7 @@ also require `read`. Hints describe a tool, and never confer authorization.
 | `zenith_get_topology` | `topology.read` | read | `read` | T/F/T/F |
 | `zenith_get_capabilities` | `topology.read` | read | `read` | T/F/T/F |
 | `zenith_plan_change` | `infrastructure.plan` | propose | `plan` | F/F/T/F |
+| `zenith_plan_runner_connection` | `connection.plan` | read | `plan` | T/F/T/F |
 | `zenith_review_teardown` | `infrastructure.plan` | propose | `plan` | F/F/T/T |
 | `zenith_prepare_deploy` | `deployment.deploy` | propose | `write` | F/F/T/F |
 | `zenith_execute_approved_operation` | operation capability | execute | `write` | F/T/T/T |

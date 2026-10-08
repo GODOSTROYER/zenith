@@ -94,8 +94,7 @@ defineAction<ConnectionRef>({
   async plan(ctx, input) {
     const view = await describeConnection(ctx, input.connectionId);
     return basePlan(`Verify ${view.label} (${view.provider}).`, [
-      "Read-only identity check with short-lived credentials; nothing in your cloud changes.",
-      "A pass proves the observe identity only. Deploy permissions are never claimed.",
+      ...(view.mode === "runner" ? ["Checks runner registration, heartbeat, protocol, advertised job kind and credential custody.", "A readiness pass does not prove cloud identity, connectivity or permissions."] : ["Read-only identity check with short-lived credentials; nothing in your cloud changes.", "A pass proves the observe identity only. Deploy permissions are never claimed."]),
       `Currently ${view.status}${view.verifiedAt ? `, last verified ${view.verifiedAt}` : ""}.`,
     ], { risk: "low", ...(view.status === "revoked" ? { blocked: "This connection is revoked. Revocation is terminal; create a new connection." } : {}) });
   },
@@ -149,7 +148,7 @@ defineAction<RotateInput>({
       "The candidate is verified under the same connection id and workload subject while the current access keeps serving.",
       input.promote ? "If it verifies it is promoted immediately in one guarded swap; if not, nothing changes." : "Nothing switches until you promote a verified candidate.",
       "A candidate that fails verification is never promoted.",
-    ], { ...(blocked ? { blocked } : {}), warnings: changing.length || blocked ? [] : ["Name at least one value to rotate."] });
+    ], { requiresApproval: true, ...(blocked ? { blocked } : {}), warnings: changing.length || blocked ? [] : ["Name at least one value to rotate."] });
   },
   async execute(ctx, input) {
     return guarded(ctx, "admin", async () => {
@@ -169,7 +168,7 @@ defineAction<RotationRef>({
     return basePlan(`Switch ${view.label} to its verified new access.`, [
       `Swaps in the candidate (changes: ${open?.changes.join(", ") ?? "none"}) in one guarded transaction; refused if the connection changed or the verification is older than an hour.`,
       "The previous access stops being used at the swap. Remove it on the customer side afterwards.",
-    ], { ...(blocked ? { blocked } : {}) });
+    ], { requiresApproval: true, ...(blocked ? { blocked } : {}) });
   },
   async execute(ctx, input) {
     return guarded(ctx, "admin", async () => {
@@ -183,7 +182,7 @@ defineAction<RotationRef>({
   id: "connection.abortRotation", title: "Discard staged rotation", category: "connection", risk: "low", requiredRole: "admin", mutates: true, input: RotationRef,
   async plan(ctx, input) {
     const view = await describeConnection(ctx, input.connectionId);
-    return basePlan(`Discard the staged access for ${view.label}.`, ["The current access is untouched and keeps serving."], { risk: "low",
+    return basePlan(`Discard the staged access for ${view.label}.`, ["The current access is untouched and keeps serving."], { risk: "low", requiresApproval: true,
       ...(!view.rotation || view.rotation.id !== input.rotationId ? { blocked: "That rotation is not open for this connection." } : {}) });
   },
   async execute(ctx, input) {

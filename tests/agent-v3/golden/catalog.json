@@ -1,5 +1,5 @@
 {
-  "catalogDigest": "sha256:f79c7a0ece61e4f05c2365ee01952e30571aeed9e265ce3d551a9beeced73ee7",
+  "catalogDigest": "sha256:989b06e82ec62e37c183a5fb03da0534ecce8ddd11596153e2fea94db9ecde1a",
   "tools": [
     {
       "name": "zenith_get_topology",
@@ -15,6 +15,11 @@
       "name": "zenith_plan_change",
       "schemaVersion": 1,
       "schemaDigest": "sha256:6ac3b87d9e1b32b4735c28bdd6571aaccc39a78a845edbe9212158d5f1415434"
+    },
+    {
+      "name": "zenith_plan_runner_connection",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:feb5220d01238a1878cd40dbdc2f23c3ba47ed6424e6c96e9f59d0609b80e0df"
     },
     {
       "name": "zenith_review_teardown",

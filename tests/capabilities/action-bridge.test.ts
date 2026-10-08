@@ -83,6 +83,8 @@ describe("the mapping table", () => {
         "connection.createAzure",
         "connection.createOci",
         "connection.createZenith",
+        // Registered centrally; agents use connection.proposeRunner, never this mutation.
+        "connection.createRunner",
         "connection.verify",
         "connection.revoke",
         "connection.rotate",

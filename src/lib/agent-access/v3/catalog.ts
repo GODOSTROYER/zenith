@@ -43,6 +43,7 @@ import {
   ScaleServiceInput,
 } from "./schemas";
 import { ReviewTeardownInput } from "./teardown-review-schema";
+import { PlanRunnerConnectionInput } from "./connection-schema";
 
 /** MCP `ToolAnnotations` (2025-06-18 and later). */
 export interface ToolHints {
@@ -125,6 +126,10 @@ const SOURCES: Record<ToolName, Source> = {
     schemaVersion: 1,
     annotations: PROPOSE,
     schema: PlanChangeInput,
+  },
+  zenith_plan_runner_connection: {
+    title: "Plan a runner connection change", description: "Build an identifier-only review draft for a registered connection action: create a runner connection, verify, rotate, promote, discard or revoke. Returns the exact request, required human role and browser confirmation URL. It writes no connection, operation, approval or grant. Only a signed-in person can confirm in the browser; no agent execute tool can apply it.",
+    access: "read", capability: "connection.plan", requiredScope: "plan", schemaVersion: 1, annotations: READ, schema: PlanRunnerConnectionInput,
   },
   zenith_review_teardown: {
     title: "Review teardown",

@@ -2503,6 +2503,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "Earlier J2 handoff: J2 adds default local Kubernetes create/verify/rotate/promote/old-identity-retire/revoke journey; J7 runner modes and CLI/provider lanes remain joins. J7 follow-up: J7 runner lifecycle build complete including all five provider forms, exact CLI/browser confirmation, central actions and policy-scoped MCP review drafts; native PostgreSQL, operated browser/default-stack and live evidence remain verification pending.",
       "evidence": [
         {
           "level": "contract",
@@ -2531,8 +2532,7 @@
       "testPaths": [
         "tests/e2e/default/journey.spec.mjs",
         "tests/e2e/default/receipt.test.ts"
-      ],
-      "implementationNote": "J2 adds default local Kubernetes create/verify/rotate/promote/old-identity-retire/revoke journey; J7 runner modes and CLI/provider lanes remain joins."
+      ]
     },
     {
       "id": "PROD-LIFE-02",

@@ -107,6 +107,9 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/(?:runners|machines)$`), methods: { GET: "admin" } },
   { path: new RegExp(`^${ROOT}/runners/tokens$`), methods: { POST: "admin" } },
   { path: new RegExp(`^${ROOT}/(?:runners|machines)/${AGENT_ID}/revoke$`), methods: { POST: "admin" } },
+  // Update controls are browser reads and human admin decisions. Signed agents
+  // receive the result through their existing authenticated heartbeat.
+  { path: new RegExp(`^${ROOT}/(?:runners|machines)/${AGENT_ID}/update$`), methods: { GET: "browser-only", POST: "admin" } },
   { path: new RegExp(`^${ROOT}/(?:runners|machines)/register$`), methods: { POST: "agent-signed" } },
   { path: new RegExp(`^${ROOT}/(?:runners|machines)/${AGENT_ID}/(?:poll|heartbeat)$`), methods: { POST: "agent-signed" } },
   { path: new RegExp(`^${ROOT}/(?:runners|machines)/${AGENT_ID}/jobs/${AGENT_ID}/(?:result|logs)$`), methods: { POST: "agent-signed" } },

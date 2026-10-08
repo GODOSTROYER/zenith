@@ -12,7 +12,8 @@ import { configPaths, loadConfig, removeConfig, saveConfig, validateToken, valid
 import { CliError, diagnostic, interrupted, statusExit } from "./errors";
 import { identifier, integer, jsonInput, parse, required, scopeInput, readStdin } from "./input";
 import type { Arguments } from "./input";
-import { CreateAzureInput, CreateGcpInput, CreateOciInput } from "@/lib/connections/schemas";
+import { CreateAzureInput, CreateGcpInput, CreateOciInput, CreateRunnerInput } from "@/lib/connections/schemas";
+import { ConnectionRequest, connectionHandoff } from "@/lib/connections/handoff";
 import { createOutput } from "./output";
 import { containsCredential, object, sanitize, serialize } from "./security";
 import { boundedFetch, McpClient, pause } from "./transport";
@@ -142,16 +143,24 @@ export async function runCli(argv: string[], runtime: CliRuntime = {}): Promise<
       // These change what Zenith can reach: validate locally, never send, hand off to the browser.
       const target = words[2];
       let checked: Record<string, unknown> = {};
+      let reviewPath = "/platform/connections";
       if (name === "connections create") {
         const provider = target;
         const schemas = { gcp: CreateGcpInput, azure: CreateAzureInput, oci: CreateOciInput } as const;
         if (!["aws", "gcp", "azure", "oci", "kubernetes"].includes(provider)) throw new CliError(2, "invalid_arguments", "PROVIDER must be aws, gcp, azure, oci or kubernetes.");
-        if (provider in schemas) {
+        if (provider in schemas || flags.input !== undefined) {
           const input = await jsonInput(required(flags, "input"), stdin, runtime.signal);
           if (findSecret(input) || containsCredential(input, secrets)) throw new CliError(2, "secret_input", "Input contains credential material. Connections hold identifiers only; values are never echoed.");
-          const parsed = schemas[provider as keyof typeof schemas].safeParse(input);
-          if (!parsed.success) throw new CliError(2, "invalid_input", `Invalid ${provider} connection input: ${parsed.error.issues.slice(0, 6).map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ")}`);
-          checked = { provider, inputValid: true };
+          const runner = typeof input === "object" && input !== null && "mode" in input && input.mode === "runner";
+          const schema = runner ? CreateRunnerInput : schemas[provider as keyof typeof schemas];
+          if (!schema) {
+            checked = { provider, inputValid: null, note: "Use the provider's guided browser creation flow. Kubernetes scoped guest connections need a separate deployerCredentialRef and deployerScope for deploy/observe; the minter serves guest sessions only." };
+          } else {
+            const parsed = schema.safeParse(runner ? { ...input, provider } : input);
+            if (!parsed.success) throw new CliError(2, "invalid_input", `Invalid ${provider} connection input: ${parsed.error.issues.slice(0, 6).map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ")}`);
+            if (runner) reviewPath = connectionHandoff({ action: "connection.createRunner", input: CreateRunnerInput.parse(parsed.data) }, workspaceId);
+            checked = { provider, inputValid: true, ...(runner ? { mode: "runner", note: "Register the customer runner first. In the signed-in browser confirm runner mode, its registered id, custody and the same provider identifiers. Verify checks readiness only; cloud identity and permissions remain unverified." } : {}) };
+          }
         } else checked = { provider, inputValid: null, note: provider === "kubernetes" ? "Kubernetes connections default to scoped guest: the vault credential is a namespaced minter and serves guest sessions only. To deploy to or observe the cluster add a SEPARATE deployer credential (deployerCredentialRef, deployerScope namespaced or cluster) in the browser page or with connections rotate; without it deploy and observe are refused. Legacy kubeconfig mode needs an explicit admin choice, with a warning, in the browser page." : "This provider's creation flow returns trust values you must act on; use its browser page." };
       } else {
         identifier(target);
@@ -159,12 +168,16 @@ export async function runCli(argv: string[], runtime: CliRuntime = {}): Promise<
           const patch = await jsonInput(required(flags, "input"), stdin, runtime.signal);
           if (findSecret(patch) || containsCredential(patch, secrets)) throw new CliError(2, "secret_input", "Input contains credential material. Rotation changes identifiers only; values are never echoed.");
           checked = { connectionId: target, fields: Object.keys(patch), promote: flags.promote === true };
+          const request = ConnectionRequest.safeParse({ action: "connection.rotate", input: { connectionId: target, patch, promote: flags.promote === true } });
+          if (!request.success) throw new CliError(2, "invalid_input", "Use an identifier-only rotation patch.");
+          reviewPath = connectionHandoff(request.data, workspaceId);
         } else {
           identifier(required(flags, "rotation"));
           checked = { connectionId: target, rotationId: flags.rotation };
+          reviewPath = connectionHandoff({ action: name === "connections promote" ? "connection.promoteRotation" : "connection.abortRotation", input: { connectionId: target, rotationId: String(flags.rotation) } }, workspaceId);
         }
       }
-      output({ approved: false, code: "browser_session_required", ...checked, browserUrl: `${baseUrl}/platform/connections`,
+      output({ approved: false, code: "browser_session_required", ...checked, browserUrl: `${baseUrl}${reviewPath}`,
         message: "Creating, rotating, promoting or aborting connection access changes what Zenith can reach, so only a person signed in to the browser can do it. Nothing was sent." });
       return 3;
     }

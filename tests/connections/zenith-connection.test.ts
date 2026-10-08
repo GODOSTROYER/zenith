@@ -4,7 +4,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProviderId } from "@/lib/domain/types";
-import { applyRotationPatch, CreateZenithInput, LIFECYCLE_PROVIDERS, LifecycleInputError } from "@/lib/connections/schemas";
+import { applyRotationPatch, CreateRunnerInput, CreateZenithInput, LIFECYCLE_PROVIDERS, LifecycleInputError, RUNNER_CONNECTION_PROVIDERS } from "@/lib/connections/schemas";
 import { zenithProvider } from "@/lib/providers/zenith/adapter";
 import { isRealProvider } from "@/lib/bridge/readiness";
 import type { CloudConnection } from "@/lib/domain/types";
@@ -29,6 +29,11 @@ describe("zenith as a provider id", () => {
 
   it("has nothing to rotate", () => {
     expect(() => applyRotationPatch({ provider: "zenith", mode: "managed", region: "r" }, {})).toThrow(LifecycleInputError);
+  });
+
+  it("refuses to treat the managed platform as a customer runner", () => {
+    expect(RUNNER_CONNECTION_PROVIDERS).not.toContain("zenith");
+    expect(CreateRunnerInput.safeParse({ provider: "zenith", mode: "runner", runnerId: "run_registered" }).success).toBe(false);
   });
 });
 

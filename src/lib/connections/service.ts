@@ -22,7 +22,7 @@
  */
 import { randomBytes } from "node:crypto";
 import type { ActionContext } from "@/lib/actions/core";
-import { db, flushPendingAsync, q, save } from "@/lib/db/store";
+import { db, flushPendingAsync, isPostgres, q, save } from "@/lib/db/store";
 import { id, type CloudConnection, type ProviderId } from "@/lib/domain/types";
 import { bridgeDeps } from "@/lib/bridge/deps";
 import { loadCredentialsConfig } from "@/lib/credentials/config";
@@ -35,9 +35,11 @@ import { findSecret } from "@/lib/capabilities/secret-guard";
 import { azureCloud } from "@/lib/providers/azure/cloud";
 import { ManagedSubstrateError } from "@/lib/providers/zenith/managed-port";
 import { defaultManagedSubstrate } from "@/lib/platform/zenith-managed";
+import { canonical } from "@/lib/controlplane/digest";
+import { RUNNER_VERIFICATION_SCOPE, verifyRunnerReadiness } from "./runner";
 import {
   applyRotationPatch, azureConfig, gcpConfig, LifecycleInputError, ociConfig, runnerOf,
-  type CreateAzureInput, type CreateGcpInput, type CreateOciInput, type CreateZenithInput, type RotateInput, type RotationRef,
+  type CreateAzureInput, type CreateGcpInput, type CreateOciInput, type CreateZenithInput, type CreateRunnerInput, type RotateInput, type RotationRef,
 } from "./schemas";
 
 /* ----------------------------------- views --------------------------------- */
@@ -230,13 +232,39 @@ export async function createProviderConnection(ctx: ActionContext, request: Crea
   if (findSecret(label)) throw new LifecycleRefusal("Use a label without secret material.", "invalid_input");
   if (request.provider !== "oci" && request.provider !== "zenith" && !issuerHost()) throw new LifecycleRefusal("Set ZENITH_OIDC_ISSUER to the public HTTPS issuer URL, then create this connection.", "unavailable");
 
+  const connection = await saveProviderConnection(ctx, config, label, region);
+  return { connection, trust: trustFor(ctx, request.provider, connection.id, config) };
+}
+
+export async function createRunnerConnection(ctx: ActionContext, input: CreateRunnerInput): Promise<{ connection: ConnectionView; trust: TrustValues }> {
+  const { label, ...config } = input;
+  await activeRunner(ctx, input.runnerId);
+  const connection = await saveProviderConnection(ctx, config, label || `${input.provider} runner`, "region" in input ? input.region : "local");
+  return { connection, trust: { steps: [
+    "Keep zenith-runner running in your network with its locally configured workload identity. Never upload its credentials to Zenith.",
+    "Run Verify to check runner readiness. Cloud identity, target connectivity and permissions remain unverified.",
+    "GCP and Azure runner jobs use tofu.run; their direct provider session transports remain unavailable. Kubernetes runner connections do not mint guest credentials.",
+  ] } };
+}
+
+async function saveProviderConnection(ctx: ActionContext, config: ConnectionConfig, label: string, region: string): Promise<ConnectionView> {
+  if (findSecret(label)) throw new LifecycleRefusal("Use a label without secret material.", "invalid_input");
+
   const { repos, sql } = await stores();
   const connectionId = id();
-  const productProvider: ProviderId | undefined = request.provider === "oci" ? undefined : request.provider;
+  const productProvider: ProviderId | undefined = config.provider === "oci" ? undefined : config.provider;
   try {
-    const created = await repos.connections.create(sql, { id: connectionId, workspaceId: ctx.workspaceId, createdBy: ctx.actor.id, config, ...(productProvider ? { legacyConnectionId: connectionId } : {}) });
-    await repos.connections.appendLifecycleEvent(sql, { workspaceId: ctx.workspaceId, id: created.id, type: "connection.created", actorId: ctx.actor.id });
+    await sql.tx(async (tx) => {
+      if (config.mode === "runner") {
+        await tx.query("select id from platform.runners where workspace_id=$1 and id=$2 for share", [ctx.workspaceId, runnerOf(config)]);
+        const runner = await repos.runners.getRunner(tx, ctx.workspaceId, runnerOf(config)!);
+        if (!runner || runner.status !== "active") throw new LifecycleRefusal("An active registered runner in this workspace is required.", "invalid_input");
+      }
+      const created = await repos.connections.create(tx, { id: connectionId, workspaceId: ctx.workspaceId, createdBy: ctx.actor.id, config, ...(productProvider ? { legacyConnectionId: connectionId } : {}) });
+      if (!await repos.connections.appendLifecycleEvent(tx, { workspaceId: ctx.workspaceId, id: created.id, type: "connection.created", actorId: ctx.actor.id })) throw new LifecycleRefusal("The connection creation event could not be recorded.", "unavailable");
+    });
   } catch (error) {
+    if (error instanceof LifecycleRefusal) throw error;
     if (error instanceof ControlStoreError) throw new LifecycleRefusal(`The platform connection store refused the write (${error.code}).`, "invalid_input");
     throw new LifecycleRefusal("The platform connection store is unavailable. Check its configuration and schema, then retry.", "unavailable");
   }
@@ -249,7 +277,7 @@ export async function createProviderConnection(ctx: ActionContext, request: Crea
   }
   const row = await repos.connections.get(sql, ctx.workspaceId, connectionId);
   if (!row) throw new LifecycleRefusal("The connection was saved but could not be read back.", "unavailable");
-  return { connection: viewOf(ctx, row), trust: trustFor(ctx, request.provider, connectionId, config) };
+  return viewOf(ctx, row);
 }
 
 /* ---------------------------------- verify --------------------------------- */
@@ -283,7 +311,30 @@ export async function verifyAnyConnection(ctx: ActionContext, connectionId: stri
   const provider = row.config.provider;
   let ok: boolean;
   let detail: string;
-  if (provider === "aws" || provider === "kubernetes") {
+  if (row.config.mode === "runner") {
+    // Preserve the native verification authority used by the existing AWS/K8s
+    // flows: exact captured tuple, default topology and final live membership.
+    const captured = isPostgres() ? await repos.connections.captureVerification(sql, ctx.workspaceId, row.id, ctx.actor.id) : null;
+    if (isPostgres() && !captured) throw new LifecycleRefusal("The native connection and current membership could not be captured for verification.", "unavailable");
+    const result = await sql.tx(async (tx) => {
+      // Read readiness while holding both rows; never apply an observation to a
+      // different binding promoted while this request was waiting for a lock.
+      await tx.query("select id from platform.provider_connections where workspace_id=$1 and id=$2 for update", [ctx.workspaceId, row.id]);
+      const current = await repos.connections.get(tx, ctx.workspaceId, row.id);
+      if (!current || current.status === "revoked" || canonical(current.config) !== canonical(row.config)) throw new LifecycleRefusal("The connection changed or was revoked during verification.");
+      await tx.query("select id from platform.runners where workspace_id=$1 and id=$2 for share", [ctx.workspaceId, runnerOf(row.config)]);
+      const checked = await verifyRunnerReadiness(tx, ctx.workspaceId, current.config);
+      const recorded = captured
+        ? await repos.connections.recordCapturedVerification(sql, captured, checked)
+        : await repos.connections.recordVerification(tx, { workspaceId: ctx.workspaceId, id: row.id, ...checked });
+      if (!recorded) throw new LifecycleRefusal("The connection or current membership changed during verification.");
+      if (!await repos.connections.appendLifecycleEvent(tx, { workspaceId: ctx.workspaceId, id: row.id, type: "connection.verified", actorId: ctx.actor.id, data: { ok: checked.ok } })) throw new LifecycleRefusal("The verification event could not be recorded.", "unavailable");
+      return checked;
+    });
+    ok = result.ok;
+    detail = result.detail;
+    await mirrorProduct(ctx, row, (conn) => { conn.status = ok ? "healthy" : "disconnected"; conn.lastCheckedAt = new Date().toISOString(); });
+  } else if (provider === "aws" || provider === "kubernetes") {
     const { getAction } = await import("@/lib/actions/core");
     await import("@/lib/actions/defs");
     const result = await getAction(provider === "aws" ? "connection.verifyAws" : "connection.verifyKubernetes").execute(ctx, { connectionId });
@@ -308,9 +359,9 @@ export async function verifyAnyConnection(ctx: ActionContext, connectionId: stri
     detail = result.detail;
     await mirrorProduct(ctx, row, (conn) => { conn.status = result.ok ? "healthy" : "disconnected"; conn.lastCheckedAt = new Date().toISOString(); });
   }
-  await repos.connections.appendLifecycleEvent(sql, { workspaceId: ctx.workspaceId, id: row.id, type: "connection.verified", actorId: ctx.actor.id, data: { ok } }).catch(() => false);
+  if (row.config.mode !== "runner") await repos.connections.appendLifecycleEvent(sql, { workspaceId: ctx.workspaceId, id: row.id, type: "connection.verified", actorId: ctx.actor.id, data: { ok } }).catch(() => false);
   const after = await repos.connections.get(sql, ctx.workspaceId, row.id);
-  return { ok, detail, scope: SCOPE[provider], connection: viewOf(ctx, after ?? row, await repos.connectionRotations.getOpen(sql, ctx.workspaceId, row.id)) };
+  return { ok, detail, scope: row.config.mode === "runner" ? RUNNER_VERIFICATION_SCOPE : SCOPE[provider], connection: viewOf(ctx, after ?? row, await repos.connectionRotations.getOpen(sql, ctx.workspaceId, row.id)) };
 }
 
 /* ---------------------------------- revoke --------------------------------- */
@@ -402,6 +453,7 @@ export interface RotationOutcome {
 const generateExternalId = () => `zenith-${randomBytes(16).toString("hex")}`;
 
 async function verifyCandidate(ctx: ActionContext, sql: Sql, row: ProviderConnection, candidate: ConnectionConfig): Promise<{ ok: boolean; detail: string }> {
+  if (candidate.mode === "runner") return verifyRunnerReadiness(sql, ctx.workspaceId, candidate);
   const deps = bridgeDeps();
   try {
     if (candidate.provider === "aws") {
@@ -483,7 +535,15 @@ export async function promoteRotation(ctx: ActionContext, input: RotationRef): P
   const { repos, sql, row } = await load(ctx, input.connectionId);
   const rotation = await repos.connectionRotations.get(sql, ctx.workspaceId, input.rotationId);
   if (!rotation || rotation.connectionId !== row.id) throw new LifecycleRefusal("That rotation does not exist for this connection.", "not_found");
-  const result = await repos.connectionRotations.promote(sql, { workspaceId: ctx.workspaceId, id: rotation.id, actorId: ctx.actor.id });
+  const promote = (handle: Sql) => repos.connectionRotations.promote(handle, { workspaceId: ctx.workspaceId, id: rotation.id, actorId: ctx.actor.id });
+  const result = rotation.candidateConfig.mode === "runner" ? await sql.tx(async (tx) => {
+    await tx.query("select id from platform.connection_rotations where workspace_id=$1 and id=$2 for update", [ctx.workspaceId, rotation.id]);
+    await tx.query("select id from platform.provider_connections where workspace_id=$1 and id=$2 for update", [ctx.workspaceId, row.id]);
+    await tx.query("select id from platform.runners where workspace_id=$1 and id=$2 for share", [ctx.workspaceId, runnerOf(rotation.candidateConfig)]);
+    const checked = await verifyRunnerReadiness(tx, ctx.workspaceId, rotation.candidateConfig);
+    if (!checked.ok) throw new LifecycleRefusal(`The candidate runner is no longer ready: ${checked.detail}`);
+    return promote(tx);
+  }) : await promote(sql);
   if (!result.ok) {
     const why: Record<typeof result.reason, string> = {
       not_found: "That rotation does not exist for this connection.",

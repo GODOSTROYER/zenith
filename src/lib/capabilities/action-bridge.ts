@@ -55,6 +55,7 @@ const local = (why: string): LocalMapping => ({ kind: "local", why });
 const MANIFEST_EDIT = "Edits Zenith's working manifest only; nothing outside Zenith changes until a deploy, which is brokered.";
 
 export const ACTION_CAPABILITY_MAP: Readonly<Record<string, ActionMapping>> = {
+  "connection.proposeRunner": cap("connection.plan", ["action", "input"]),
   /* deploy */
   "deploy.plan": cap("infrastructure.plan", ["message"]),
   "deploy.apply": cap("deployment.deploy", ["message"]),

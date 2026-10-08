@@ -5,7 +5,7 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OPERATED_CHECKS, RESTORE_ORDER, restoreDatabaseName, upgradeImages } from "../../scripts/release/drivers/contracts";
-import { assertOperatedGate, driverCli, finishOwned, receiptFor, operatedRun, UpgradeRestoreSession as OperatedSession, type DriverInput } from "../../scripts/release/drivers/operated";
+import { assertOperatedGate, driverCli, finishOwned, receiptFor, operatedRun, runOperated, UpgradeRestoreSession as OperatedSession, type DriverInput } from "../../scripts/release/drivers/operated";
 import { requireRefusal, removePrivateTree } from "../../scripts/release/drivers/restore";
 import { upgradeOrder } from "../../scripts/release/drivers/upgrade";
 import { localTargetLane, requiredChecks, validateLocalReceipt } from "../../scripts/release/local-targets";
@@ -21,6 +21,11 @@ const scratch: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); for (const file of scratch.splice(0)) rmSync(file, { recursive: true, force: true }); });
 
 describe("DRV-3 operated planners and receipts", () => {
+  it("keeps the tenant/export protocol separate from upgrade/restore before any engine access", async () => {
+    expect(() => assertOperatedGate({ ...input(), scenarioId: "two-tenants" })).toThrow("operated:scenario-binding");
+    expect(() => runOperated(input(), async () => {}, [])).toThrow("tenant-export-scenario");
+    expect(await runOperated({ ...input(), scenarioId: "two-tenants", env: { NODE_ENV: "test" } }, async () => {}, [])).toBe(2);
+  });
   it("uses the shipped expand-worker-api ordering and distinct immutable owned candidates", () => {
     const previous = images(), candidate = images();
     const parsed = upgradeImages({ schema: 1, ...candidate }, owner, previous);

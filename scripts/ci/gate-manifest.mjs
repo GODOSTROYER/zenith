@@ -6080,6 +6080,12 @@ export const GATE_LANES = {
     report: ".data-ci-lane/drv1-update-rollback.json", tools: { node: "22.23.3" },
     prerequisites: ["Native Mac ARM64, Node 22, actual Chromium trusting the J1 CA, owned lean J1 and J2 kind fixture", "Fresh private ZENITH_LOCAL_ROOT, ZENITH_LOCAL_RUN_ID, ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR, ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "Local pinned J2 witness image present; actual failed rollout waits for the Kubernetes progress deadline", "Run sequentially; no LocalStack/Pebble/stripe-mock profile alongside J1; no live credentials or provider APIs"],
   },
+  ...Object.fromEntries(["two-tenants", "export"].map(scenario => [`drivers-d4-${scenario}`, {
+    files: ["tests/release/drivers/d4.operated.test.ts"], testNamePattern: `^J15 DRV-4 actual owned operated stack ${scenario}: browser authority, independent readback and owned cleanup$`,
+    env: {}, report: `.data-ci-lane/drivers-d4-${scenario}.json`, tools: { node: "22.23.3", tofu: "1.12.5" },
+    prerequisites: ["ZENITH_LOCAL_DRIVER_D4=1; fresh J1 lean/J2 config in the scenario's ZENITH_LOCAL_TWO_TENANTS_CONFIG_FILE or ZENITH_LOCAL_EXPORT_CONFIG_FILE", "Native arm64 Mac, local Docker, real PostgreSQL/Temporal, one owned kind node, Mailpit, Chromium and trusted J1 CA", "Owned stack/kind cleanup transfers to this driver; prepare the fixtures sequentially (see verify/DRV-4.md)", "Native pinned J15 LocalStack image cached locally for export; no live cloud credentials or API calls",
+      ...(scenario === "export" ? ["ZENITH_LOCAL_EXPORT_DATA=1 and native digest-pinned ZENITH_LOCAL_EXPORT_POSTGRES_IMAGE, ZENITH_LOCAL_EXPORT_MYSQL_IMAGE, ZENITH_LOCAL_EXPORT_MINIO_IMAGE cached locally; verified MySQL TLS, exact customer-data witnesses required (verify/PROD-LIFE-11.md)"] : [])],
+  }])),
   "wave5-contract": {
     files: WAVE5_CONTRACT_FILES.filter(file => !file.startsWith("tests/adversarial/")), env: {}, report: ".data-ci-lane/wave5-contract.json",
     tools: { node: "22.23.3", go: "1.27.1" }, prerequisites: ["Node 22.23.3", "Go1.27.1 at ZENITH_TEST_GO, GOTOOLCHAIN=local for SBOM build-info", "Local PGlite/contract tests; provider protocols are modeled"],
@@ -6440,6 +6446,10 @@ export function requirementsFor(lane, root) {
     case "drv1-update-rollback":
       requirements = [{ file: "tests/acceptance/drv1-update-rollback.operated.test.ts", suite: "DRV-1 update-rollback operated", test: "updates a compatible image, observes a real failed rollout and browser-approved rollback with owned cleanup" }];
       break;
+    case "drivers-d4-two-tenants":
+    case "drivers-d4-export":
+      requirements = [{ file: "tests/release/drivers/d4.operated.test.ts", suite: "J15 DRV-4 actual owned operated stack", test: `${lane.slice("drivers-d4-".length)}: browser authority, independent readback and owned cleanup` }];
+      break;
     case "wave5-contract":
       requirements = WAVE5_CONTRACT_FILES.filter(file => !file.startsWith("tests/adversarial/")).map(file => ({ file }));
       break;
@@ -6571,7 +6581,7 @@ export function manifestFor(lane, root = process.cwd(), reportPath) {
   if (!Object.hasOwn(GATE_LANES, lane)) throw new Error("Unknown CI lane");
   const config = GATE_LANES[lane];
   const report = reportPath ?? config.report;
-  const args = ["run", ...config.files, ...(config.excludeFiles ?? []).flatMap((file) => ["--exclude", file]), "--maxWorkers=1", "--no-file-parallelism", "--reporter=default", "--reporter=json", `--outputFile.json=${report}`];
+  const args = ["run", ...config.files, ...(config.excludeFiles ?? []).flatMap((file) => ["--exclude", file]), ...(config.testNamePattern ? ["--testNamePattern", config.testNamePattern] : []), "--maxWorkers=1", "--no-file-parallelism", "--reporter=default", "--reporter=json", `--outputFile.json=${report}`];
   const activation = lane === "workflow-history-replay" ? workflowHistoryReplayStatus(root) : undefined;
   return { schemaVersion: 1, lane, ...config, ...(activation ? { required: activation.required, activationReason: activation.reason } : {}), excludeFiles: config.excludeFiles ?? [], steps: [], report, command: ["node", "node_modules/vitest/vitest.mjs", ...args], requirements: requirementsFor(lane, root), externalAcceptance: lane === "workflows" ? EXTERNAL_ACCEPTANCE : [] };
 }

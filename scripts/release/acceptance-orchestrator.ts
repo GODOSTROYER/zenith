@@ -305,7 +305,7 @@ async function localCommandLane(scenario: Scenario, lane: LocalCommandLane, ctx:
   const out = path.join(realpathSync(os.tmpdir()), `zenith-local-${ctx.options.runId}-${scenario.id}.json`);
   if (existsSync(out)) unlinkSync(out);
   const argv = [...lane.command, "--run-id", ctx.options.runId, "--receipt", out];
-  const run = await ctx.exec(argv, { cwd: ctx.options.root, timeoutMs: ctx.options.timeoutMs ?? 30 * 60_000, env: localEnvironment(ctx.env) });
+  const run = await ctx.exec(argv, { cwd: ctx.options.root, timeoutMs: ctx.options.timeoutMs ?? (lane.evidenceLabel === "local_operated_rehearsal" ? 45 : 30) * 60_000, env: localEnvironment(ctx.env) });
   if (run.code === 2) return { ...base, command: argv, status: "skipped", detail: "Local target declined: needs its joined scenario driver and prerequisites. Not run, not counted." };
   let receipt;
   try {

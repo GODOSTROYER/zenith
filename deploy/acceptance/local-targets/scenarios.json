@@ -67,14 +67,14 @@
       "owner": "DRV-3/J1/J2"
     },
     "two-tenants": {
-      "target": "default-journey",
-      "driver": "scripts/acceptance/default-journey.mjs",
-      "owner": "J2/J14"
+      "target": "operated-two-tenants",
+      "driver": "scripts/release/drivers/two-tenants.ts",
+      "owner": "DRV-4"
     },
     "export": {
-      "target": "default-journey",
-      "driver": "scripts/acceptance/default-journey.mjs",
-      "owner": "J2"
+      "target": "operated-export",
+      "driver": "scripts/release/drivers/export.ts",
+      "owner": "DRV-4"
     },
     "teardown": {
       "target": "default-journey",

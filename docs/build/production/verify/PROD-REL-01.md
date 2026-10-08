@@ -29,6 +29,33 @@ missing job fails both checks. The lanes and assertions are retained; an owned
 native Mac fixture workflow still needs integration. No operated or live pass,
 complete CI pass, or release approval follows from the offline results.
 
+## DRV-4 local operated two-tenants and export (8 October 2026)
+
+Dedicated browser/API/MCP tenant-isolation, customer-data and infrastructure-export drivers are
+implemented. Exact sequential **lean** fixture preparation, cleanup, receipt
+counts, offline commands and boundaries: [DRV-4](DRV-4.md). Each scenario requires
+its own fresh owned J1/J2 fixture; the driver destroys it. No local or live
+operated execution is claimed on the Windows builder.
+
+After the corresponding private configuration and native Mac fixtures described
+there are ready, the exact gated commands are:
+
+```bash
+export PATH="$HOME/.local/sdk/node22:$PATH"
+ZENITH_LOCAL_DRIVER_D4=1 node scripts/ci/run-gate.mjs drivers-d4-two-tenants --run --report "$PRIVATE_RECEIPT_ROOT/two-tenants-vitest.json" --evidence "$PRIVATE_RECEIPT_ROOT/two-tenants-gate.json"
+# Prepare a new J1/J2 lean fixture before the next command.
+ZENITH_LOCAL_DRIVER_D4=1 node scripts/ci/run-gate.mjs drivers-d4-export --run --report "$PRIVATE_RECEIPT_ROOT/export-vitest.json" --evidence "$PRIVATE_RECEIPT_ROOT/export-gate.json"
+```
+
+Required config FILE variables are `ZENITH_LOCAL_TWO_TENANTS_CONFIG_FILE` and
+`ZENITH_LOCAL_EXPORT_CONFIG_FILE`. Expected required operated case: passed, never
+skipped; receipts: 11/0/0 tenant checks and 17/0/0 export checks, labelled
+`local_operated_rehearsal`. Infrastructure export is independent OpenTofu into
+LocalStack. The follow-up also exercises customer-data portability through
+LIFE-11 PostgreSQL/MySQL/MinIO engines; a second real cloud provider remains
+live-deferred. See [exact data fixture commands and boundaries](PROD-LIFE-11.md).
+The full PROD-REL-01 status remains verification pending.
+
 ## L1-LIVE-AWS provider slice (8 October 2026)
 
 Acceptance: Clean install/private source/plan approval/DNS-TLS/stateful traffic/update-rollback/machine schedules/drift-repair/revocation/crash-partition-writers/key rotation/upgrade/restore/mixed traffic/two tenants/export/teardown independently verified.

@@ -86,6 +86,8 @@ export interface ResolvedScope {
   scope: Scope;
   environment?: { id: string; class: EnvironmentClass; provider: string; region: string };
   resource?: NonNullable<PolicyInput["resource"]>;
+  /** Canonical resource placement, which can differ from the environment's default. */
+  resourceProvider?: string;
 }
 
 export interface ScopeResolver {

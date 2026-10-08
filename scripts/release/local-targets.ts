@@ -4,6 +4,7 @@ import path from "node:path";
 import catalog from "../../deploy/acceptance/local-targets/scenarios.json";
 import type { LocalCommandLane, Scenario } from "./scenarios";
 import { DRIVER_CHECKS, OperatedReceiptSchema, OPERATED_LABEL } from "./drivers/operated-contract";
+import { DRIVER_CHECKS as TENANT_EXPORT_CHECKS, validateOperatedReceipt as validateTenantExportReceipt } from "./drivers/protocol";
 import { OPERATED_CHECKS as UPGRADE_RESTORE_CHECKS, operatedScenario } from "./drivers/contracts";
 
 export { OPERATED_LABEL };
@@ -21,12 +22,15 @@ export const LOCAL_TARGETS: Readonly<Record<string, LocalTarget>> = {
 export const OPERATED_CHECKS: Readonly<Record<string, readonly string[]>> = {
   ...DRIVER_CHECKS,
   ...UPGRADE_RESTORE_CHECKS,
+  ...TENANT_EXPORT_CHECKS,
   "private-source": ["preconditions", "source-build-preconditions", "browser-source-binding", "private-source-snapshot", "isolated-private-build", "provenance-verified-deploy", "browser-snapshot-approval", "source-revocation-refused", "post-revocation-proposal-refused", "independent-source-readback", "owned-cleanup", "source-unchanged"],
   "update-rollback": ["preconditions", "baseline-readback", "compatible-update-readback", "failed-rollout-readback", "browser-rollback-readback", "independent-release-readback", "owned-cleanup", "source-unchanged"],
 };
 function sourceScenario(id: string): boolean { return id === "private-source" || id === "update-rollback"; }
 
 export const TARGET_CHECKS: Readonly<Record<string, readonly string[]>> = {
+  "operated-two-tenants": TENANT_EXPORT_CHECKS["two-tenants"],
+  "operated-export": TENANT_EXPORT_CHECKS.export,
   mixed: ["traffic-acknowledged", "independent-readback", "tls-peer-auth", "private-database"],
   pebble: ["dns-http01", "certificate-issued", "tls-hostname"],
   economics: ["priced", "transfer", "latency", "residency"],
@@ -40,11 +44,14 @@ export function localTargetLane(scenario: Scenario): LocalCommandLane {
   const drv1 = sourceScenario(scenario.id);
   const drv2 = target.target === "operated-drv2";
   const drv3 = operatedScenario(scenario.id);
+  const drv4 = scenario.id === "two-tenants" || scenario.id === "export";
   return {
-    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json", ...(drv1 || drv2 || drv3 ? [target.driver!, "scripts/release/drivers/operated.ts", ...(drv2 ? ["scripts/release/drivers/operated-contract.ts"] : drv3 ? ["scripts/release/drivers/contracts.ts"] : [])] : [])],
+    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json", ...(drv1 || drv2 || drv3 || drv4 ? [target.driver!, "scripts/release/drivers/operated.ts", ...(drv2 ? ["scripts/release/drivers/operated-contract.ts"] : drv3 ? ["scripts/release/drivers/contracts.ts"] : drv4 ? ["scripts/release/drivers/protocol.ts"] : [])] : []),
+      ...(scenario.id === "export" ? ["scripts/release/drivers/export-data.ts", "scripts/release/drivers/export-data-plan.ts", "scripts/release/drivers/export-data-leg.ts", "scripts/release/drivers/export-data-postgres.ts", "scripts/release/drivers/export-data-mysql.ts", "scripts/release/drivers/export-data-objects.ts"] : [])],
     command: ["node", "node_modules/tsx/dist/cli.mjs", "scripts/release/local-target-runner.ts", "run", "--scenario", scenario.id],
-    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(drv1 ? ["ZENITH_LOCAL_DRV1=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE"] : []), ...(drv2 ? ["ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "ZENITH_TEST_DRV2_OPERATED=1"] : []), ...(drv3 ? ["ZENITH_LOCAL_OPERATED=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", ...(scenario.id === "upgrade" ? ["ZENITH_LOCAL_UPGRADE_IMAGES_FILE"] : [])] : [])],
-    evidenceLabel: drv1 || drv2 || drv3 ? OPERATED_LABEL : LOCAL_LABEL,
+    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(drv1 ? ["ZENITH_LOCAL_DRV1=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE"] : []), ...(drv2 ? ["ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "ZENITH_TEST_DRV2_OPERATED=1"] : []), ...(drv3 ? ["ZENITH_LOCAL_OPERATED=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", ...(scenario.id === "upgrade" ? ["ZENITH_LOCAL_UPGRADE_IMAGES_FILE"] : [])] : []), ...(drv4 ? ["ZENITH_LOCAL_DRIVER_D4=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE"] : []),
+      ...(scenario.id === "export" ? ["ZENITH_LOCAL_EXPORT_DATA=1", "ZENITH_LOCAL_EXPORT_POSTGRES_IMAGE", "ZENITH_LOCAL_EXPORT_MYSQL_IMAGE", "ZENITH_LOCAL_EXPORT_MINIO_IMAGE"] : [])],
+    evidenceLabel: drv1 || drv2 || drv3 || drv4 ? OPERATED_LABEL : LOCAL_LABEL,
   };
 }
 
@@ -60,7 +67,7 @@ const SourceBoundReceipt = Receipt.extend({
   sourceDigest: z.string().regex(/^[a-f0-9]{64}$/), dirty: z.boolean(),
 }).strict();
 export type SourceBoundLocalReceipt = z.infer<typeof SourceBoundReceipt>;
-export type LocalReceipt = z.infer<typeof Receipt> | SourceBoundLocalReceipt | z.infer<typeof OperatedReceiptSchema>;
+export type LocalReceipt = z.infer<typeof Receipt> | SourceBoundLocalReceipt | z.infer<typeof OperatedReceiptSchema> | ReturnType<typeof validateTenantExportReceipt>;
 
 export function requiredChecks(scenarioId: string): readonly string[] {
   if (sourceScenario(scenarioId)) return OPERATED_CHECKS[scenarioId]!;
@@ -74,6 +81,7 @@ export function requiredChecks(scenarioId: string): readonly string[] {
 }
 
 export function validateLocalReceipt(raw: unknown, expected: { scenarioId: string; runId: string; sourceCommit: string }): LocalReceipt {
+  if (expected.scenarioId === "two-tenants" || expected.scenarioId === "export") return validateTenantExportReceipt(raw, expected);
   const drv1 = sourceScenario(expected.scenarioId);
   const drv2 = expected.scenarioId === "drift-repair" || expected.scenarioId === "crash-partition";
   const receipt = drv2 ? OperatedReceiptSchema.parse(raw) : drv1 ? SourceBoundReceipt.parse(raw) : Receipt.parse(raw);

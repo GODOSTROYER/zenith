@@ -1,5 +1,137 @@
 # PROD-LIFE-11 Backup export import and adoption
 
+## DRV-4 customer DATA operated rehearsal (8 October 2026)
+
+The `export` J15 driver now runs LIFE-11 exports and imports through real browser
+capability proposals, another enrolled admin's UI approval, and the browser-only
+`start-portability` path. It seeds three known rows per tenant in separate
+PostgreSQL/MySQL databases and three objects per tenant in separate MinIO buckets.
+Fresh owned target containers hold empty matching databases/buckets. The driver
+requires exact counts and per-row/object SHA-256 witnesses from independent host
+connections, the product's verified export/restore digest binding, unchanged
+source/foreign tenant content, an empty foreign target, and scoped API refusals.
+It also exercises an approved nonempty-target import refusal, a foreign-workspace
+export-ID import refusal, and MySQL's verified TLS hostname rejection. All checks
+and owned cleanup must pass; a partial receipt cannot establish acceptance.
+
+Fixture setup writes **only** explicit `platform.resources` descriptors for the
+independently ready owned local containers. Source/target descriptors are managed;
+artifact storage is referenced. Their `aws` provider field selects existing
+LIFE-11 SQL/S3-compatible engines. This does not claim AWS provisioning, observation
+or ownership-tag verification. No operation, approval or portability evidence row
+is seeded. Runtime credentials are encrypted through `system.setSecret`; the
+private worker alone gets the explicit private-network opt-in. MySQL uses the J1
+CA, certificates valid for the actual Docker DNS name, and the existing DNS
+transport with verified chain and hostname. There is no TLS verification bypass.
+
+The split leg contract is `scripts/release/drivers/export-data-leg.ts`. SQL legs
+derive `tenant_a`/`tenant_b` from the admin endpoint and preserve `knownData` rows;
+object legs use `drv4-<runId>-data-a/b` buckets and preserve its object keys.
+Fixture provisioning and `seedSource` prepare both empty target units and return independently read source
+content. `readTarget` supports empty targets and source-as-target readback.
+Ownership-checked cleanup attempts both endpoints even after a failure. PostgreSQL,
+MySQL and object legs compose through `export-data.ts`; receipt validation is
+closed over all three independent witnesses. Data fixtures are settled before
+the existing independent OpenTofu/LocalStack infrastructure-export leg starts.
+
+### Exact sequential lean-profile Mac command
+
+Not run on the Windows builder: requires native arm64 Mac Docker, real local
+PostgreSQL/Temporal, owned kind, Mailpit, Chromium, OpenSSL and trusted J1 browser
+CA. Use Node22 as a disposable unprivileged verifier. No live gates or real cloud
+credential variables may be set. Confirm memory headroom: SQL pairs run one at a
+time with two bounded MinIO containers; up to 1 GiB additional container limits
+are used beyond J1/J2. A 6 GiB Docker allocation is recommended; no measured 4 GiB
+fit is claimed. The driver destroys this fresh J1/J2 fixture.
+
+Provide approved native digest references for PostgreSQL17, MySQL8.4 and MinIO,
+and J1/J2's existing build/registry/kind pins. Install prerequisites and add
+`supabase.localhost`/`issuer.zenith.localhost` loopback hosts first as documented
+in `PKG-04.md`, `PKG-05.md` and `tests/e2e/default/prepare.mjs`. Never use floating fixture image tags.
+
+```bash
+export PATH="$HOME/.local/sdk/node22:$PATH"
+set -euo pipefail
+test "$(node -p 'process.versions.node.split(".")[0]')" = 22
+test "$(uname -m)" = arm64
+: "${GO_BUILDER_IMAGE:?native approved digest required}"
+: "${DISTROLESS_IMAGE:?native approved digest required}"
+: "${KIND_NODE_IMAGE:?native approved digest required}"
+: "${ZENITH_DEFAULT_STACK_REGISTRY_IMAGE:?native approved registry digest required}"
+: "${ZENITH_LOCAL_EXPORT_POSTGRES_IMAGE:?native PostgreSQL17 digest required}"
+: "${ZENITH_LOCAL_EXPORT_MYSQL_IMAGE:?native MySQL8.4 digest required}"
+: "${ZENITH_LOCAL_EXPORT_MINIO_IMAGE:?native MinIO digest required}"
+export ZENITH_ACCEPTANCE_DEFAULT_STACK=1 ZENITH_DEFAULT_JOURNEY=1
+export ZENITH_LOCAL_TARGETS=1 ZENITH_LOCAL_JOINED_DRIVERS=1 ZENITH_LOCAL_DRIVER_D4=1
+export ZENITH_LOCAL_EXPORT_DATA=1 ZENITH_LOCAL_RUN_ID=drv4-export
+
+docker build -f tests/e2e/default/zenithd.Dockerfile \
+  --build-arg GO_BUILDER_IMAGE="$GO_BUILDER_IMAGE" \
+  --build-arg DISTROLESS_IMAGE="$DISTROLESS_IMAGE" \
+  -t localhost:5000/zenith-j2-witness:drv4 .
+npx --no-install playwright install chromium
+for image in "$ZENITH_LOCAL_EXPORT_POSTGRES_IMAGE" "$ZENITH_LOCAL_EXPORT_MYSQL_IMAGE" "$ZENITH_LOCAL_EXPORT_MINIO_IMAGE"; do docker pull "$image"; done
+LOCALSTACK_IMAGE="$(node -e 'const fs=require("node:fs"); const s=fs.readFileSync("deploy/acceptance/local-targets/compose.yml","utf8"); process.stdout.write(s.match(/image: (localstack\/localstack:[^\s]+)/)[1])')"
+docker pull "$LOCALSTACK_IMAGE"
+
+PRIVATE_PARENT="$(node -e 'process.stdout.write(require("node:fs").realpathSync(require("node:os").tmpdir()))')"
+export ZENITH_LOCAL_ROOT="$(mktemp -d "$PRIVATE_PARENT/zenith-j15-$ZENITH_LOCAL_RUN_ID-XXXXXX")"
+chmod 700 "$ZENITH_LOCAL_ROOT"
+STACK="$ZENITH_LOCAL_ROOT/stack"
+TARGETS="$ZENITH_LOCAL_ROOT/targets"
+export ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR="$STACK"
+export ZENITH_LOCAL_JOURNEY_CONFIG_FILE="$TARGETS/journey.json"
+export ZENITH_LOCAL_EXPORT_CONFIG_FILE="$ZENITH_LOCAL_JOURNEY_CONFIG_FILE"
+trap 'if test -f "$STACK/state.json" && test -f "$STACK/input.json"; then node scripts/acceptance/default-stack/down.mjs "$STACK"; fi' EXIT
+node scripts/acceptance/default-stack/up.mjs --profile lean --directory "$STACK"
+node scripts/acceptance/default-stack/env.mjs "$STACK" "$ZENITH_LOCAL_ROOT/host.env"
+while IFS='=' read -r key value; do export "$key=$value"; done < "$ZENITH_LOCAL_ROOT/host.env"
+
+# Trust this invocation's STACK/tls/ca.crt in the disposable browser/keychain
+# using J1/J2's trust procedure before Auth. Never disable TLS verification.
+docker push localhost:5000/zenith-j2-witness:drv4
+WITNESS_IMAGE="$(docker image inspect localhost:5000/zenith-j2-witness:drv4 --format '{{index .RepoDigests 0}}')"
+node tests/e2e/default/prepare.mjs --directory "$TARGETS" --stack "$STACK" \
+  --node-image "$KIND_NODE_IMAGE" --witness-image "$WITNESS_IMAGE" \
+  --mailpit-url http://127.0.0.1:8025
+node scripts/ci/gate-manifest.mjs drivers-d4-export
+node scripts/ci/run-gate.mjs drivers-d4-export --run \
+  --report "$ZENITH_LOCAL_ROOT/vitest.json" --evidence "$ZENITH_LOCAL_ROOT/gate-evidence.json"
+node scripts/ci/run-gate.mjs drivers-d4-export --validate "$ZENITH_LOCAL_ROOT/vitest.json" \
+  --require-execution --evidence "$ZENITH_LOCAL_ROOT/gate-evidence.json"
+trap - EXIT
+```
+
+Expected: one selected required operated case passes; its receipt has 17 passed,
+0 failed, 0 skipped checks and all three data witnesses. The other scenario case
+is filtered, not evidence. The private receipt is
+`$ZENITH_LOCAL_ROOT/export.operated-receipt.json`, labelled
+`local_operated_rehearsal` and bound to this checkout's commit/content digest.
+Raw SQL rows, object keys/bodies, passwords, certificates, sessions and vault refs
+are absent from it. A failed cleanup prevents a pass. For a forced process/machine
+failure, use the J1/J2 owned recovery runbook plus exact `io.zenith.driver=DRV4-DATA`
+and `io.zenith.driver.run=<runId>` inventories; independently inspect IDs/labels
+before removing only this invocation's containers. Never globally prune Docker.
+
+To verify the scenario runner join on another fresh fixture prepared exactly
+above, replace the three gate commands with:
+
+```bash
+node node_modules/tsx/dist/cli.mjs scripts/release/local-target-runner.ts run \
+  --scenario export --run-id "$ZENITH_LOCAL_RUN_ID" \
+  --receipt "$ZENITH_LOCAL_ROOT/scenario-receipt.json"
+```
+
+Expected exit0, the same 17/0/0 operated checks and three witnesses. Missing explicit
+gates decline rather than pass. The full release orchestrator is separately
+documented in [DRV-4](DRV-4.md); skipped component lanes leave its report incomplete.
+
+A second real cloud provider remains **live-deferred**. Local PostgreSQL/MySQL/
+MinIO equality and independent LocalStack apply do not establish a live multi-cloud
+roundtrip. Object metadata beyond content type, versions/ACLs, users/grants and
+production managed-service networking/IAM are outside these local assertions.
+The older LIFE-11 build notes below are historical, not current execution proof.
+
 Branch `prod/life-11-w2`, base 8031ce0d. Build only: nothing below was executed on the build machine except `npx tsc --noEmit -p .` (clean) and `npx eslint` on every changed and new TypeScript file (clean). Platform migration version 25.
 
 Operator documentation: `docs/platform/PORTABILITY.md`.

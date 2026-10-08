@@ -11,6 +11,8 @@ import { referenceEconomics } from "../acceptance/mixed/cost-report";
 import { StripeTestInvoiceProvider } from "@/lib/billing/stripe";
 import { SCENARIOS } from "./scenarios";
 import { runJoinedScenario } from "./local-joined";
+import { readState as defaultStackState } from "../acceptance/default-stack/runtime.mjs";
+import { hostEnvironment } from "../acceptance/default-stack/env.mjs";
 
 export async function billingRehearsal(env: NodeJS.ProcessEnv): Promise<void> {
   if (readState(env).profile !== "billing") throw new Error("Needs the billing profile");
@@ -52,6 +54,14 @@ export async function runLocalScenario(scenarioId: string, receiptFile: string, 
     if (!existsSync(target.driver) || rawEnv.ZENITH_LOCAL_JOINED_DRIVERS !== "1") {
       process.stderr.write(`not run: needs ${target.driver} (${"owner" in target ? target.owner : "join"}), ZENITH_LOCAL_JOINED_DRIVERS=1, and the default local stack\n`);
       return 2;
+    }
+    if (scenarioId === "two-tenants" || scenarioId === "export") {
+      if (env.ZENITH_LOCAL_DRIVER_D4 !== "1" || env.ZENITH_ACCEPTANCE_DEFAULT_STACK !== "1" || !env.ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR) return 2;
+      const child = await defaultExec([process.execPath, "node_modules/tsx/dist/cli.mjs", target.driver, "--run-id", runId, "--receipt", receiptFile],
+        { cwd: process.cwd(), env: { ...env, ...hostEnvironment(defaultStackState(env.ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR)) }, timeoutMs: 2_400_000 });
+      if (child.code === 2) return 2;
+      const receipt = validateLocalReceipt(JSON.parse(readFileSync(receiptFile, "utf8")), { scenarioId, runId, sourceCommit });
+      return child.code === 0 && receipt.checks.every(check => check.status === "passed") ? 0 : 1;
     }
     return await runJoinedScenario({ scenarioId, runId, sourceCommit, receiptFile, env });
   }

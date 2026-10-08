@@ -311,7 +311,7 @@ function reviewPortability(parsed: ParsedRequest, evaluation: Evaluation): void 
   const name = parsed.def.name;
   if (!isPortabilityCapability(name)) return;
   const resource = evaluation.resolved.resource;
-  const provider = evaluation.resolved.environment?.provider;
+  const provider = evaluation.resolved.resourceProvider ?? evaluation.resolved.environment?.provider;
   if (!resource || !provider) throw new BrokerError("invalid_request", `${name} acts on one resource; name it in the request scope.`);
   const operation = name === "data.export" ? "export" : name === "data.import" ? "import" : name === "resource.adopt" ? "adopt" : "release";
   const support = portabilitySupport(operation, provider, resource.kind);

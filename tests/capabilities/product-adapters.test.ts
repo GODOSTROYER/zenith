@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CloudConnection, Environment, Manifest, Member, Project, Workspace } from "@/lib/domain/types";
 import type { Principal } from "@/lib/controlplane/types";
+import type { PlatformResource } from "@/lib/controlplane/db/repos/resources";
 import { tempDataDir } from "../_support/data-dir";
 
 tempDataDir("zenith-cap-adapters-");
@@ -22,7 +23,7 @@ vi.mock("@/lib/agent-access/authority", () => ({
   }),
 }));
 
-const { resetDb } = await import("@/lib/db/store");
+const { db, resetDb } = await import("@/lib/db/store");
 const { productRoleResolver, productScopeResolver, credentialDirectory } = await import("@/lib/capabilities/product-adapters");
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -48,6 +49,12 @@ const project = (id: string, workspaceId: string, slug: string): Project => ({ i
 const env = (id: string, projectId: string, klass: Environment["class"], connectionId: string): Environment =>
   ({ id, projectId, name: id, class: klass, connectionId, region: "us-east-1", policies: { approvalRequired: false, allowStatefulDeletion: false }, baseDomain: "test", createdAt: AT }) as unknown as Environment;
 const connection = (id: string, workspaceId: string, provider: string): CloudConnection => ({ id, workspaceId, provider, label: id, region: "us-east-1", status: "healthy", grantedPermissions: [], createdAt: AT }) as unknown as CloudConnection;
+const canonicalResource = (overrides: Partial<PlatformResource> = {}): PlatformResource => ({
+  id: "res_canonical", workspaceId: "ws-a", projectId: "pa", environmentId: "env-a",
+  address: "object_store/customer-data", kind: "object_store", provider: "aws", nativeType: "aws_s3_bucket",
+  ownership: "managed", specDigest: "a".repeat(64), spec: {}, dependsOn: [], origin: [], labels: {},
+  status: "active", createdAt: AT, updatedAt: AT, ...overrides,
+});
 
 function seed(members: Member[] = [member("ada", "ws-a", "admin"), member("eve", "ws-a", "editor"), member("vic", "ws-a", "viewer"), member("bo", "ws-b", "admin")]) {
   resetDb({
@@ -114,6 +121,67 @@ describe("ScopeResolver over the product store", () => {
     expect(await resolver.resolve({ workspaceId: "ws-a", environmentId: "env-a", resourceId: "nope" })).toBeNull();
     expect(await resolver.resolve({ workspaceId: "ws-a", resourceId: "svc-web" })).toBeNull(); // a resource needs its environment
     expect(await resolver.resolve({ workspaceId: "ws-b", environmentId: "env-b", resourceId: "svc-web" })).toMatchObject({ scope: { resourceId: "svc-web" } }); // B has its own manifest
+  });
+});
+
+describe("ScopeResolver canonical resource IDs", () => {
+  const scope = { workspaceId: "ws-a", environmentId: "env-a", resourceId: "res_canonical" };
+
+  it("resolves the exact tenant row and preserves its provider independently of the environment default", async () => {
+    resetDb({ ...db(), connections: [connection("conn-a", "ws-a", "kubernetes")] });
+    const read = vi.fn(async () => canonicalResource());
+    const resolved = await productScopeResolver(read).resolve(scope);
+    expect(read).toHaveBeenCalledExactlyOnceWith("ws-a", "res_canonical");
+    expect(resolved).toEqual({
+      scope: { ...scope, projectId: "pa" },
+      environment: { id: "env-a", class: "production", provider: "kubernetes", region: "us-east-1" },
+      resourceProvider: "aws",
+      resource: { address: "object_store/customer-data", kind: "object_store", stateful: true, ownership: "managed", publiclyExposed: false },
+    });
+  });
+
+  it.each([
+    ["missing", null],
+    ["different ID", canonicalResource({ id: "res_other" })],
+    ["other tenant", canonicalResource({ workspaceId: "ws-b" })],
+    ["other project", canonicalResource({ projectId: "pb" })],
+    ["unbound project", canonicalResource({ projectId: undefined })],
+    ["other environment", canonicalResource({ environmentId: "env-a2" })],
+    ["deleted", canonicalResource({ status: "deleted" })],
+  ] as const)("refuses a %s canonical row", async (_label, row) => {
+    expect(await productScopeResolver(async () => row).resolve(scope)).toBeNull();
+  });
+
+  it("re-reads ownership after adoption or release instead of retaining manifest or cached facts", async () => {
+    let row = canonicalResource({ address: "resource/db", kind: "postgres", nativeType: "aws_db_instance" });
+    const read = vi.fn(async () => row);
+    const resolver = productScopeResolver(read);
+    expect((await resolver.resolve(scope))?.resource?.ownership).toBe("managed");
+    row = { ...row, ownership: "referenced" };
+    expect((await resolver.resolve(scope))?.resource?.ownership).toBe("referenced");
+    row = { ...row, ownership: "external" };
+    expect((await resolver.resolve(scope))?.resource?.ownership).toBe("external");
+    expect(read).toHaveBeenCalledTimes(3);
+  });
+
+  it("requires a valid parent chain before querying the canonical store", async () => {
+    const read = vi.fn(async () => canonicalResource());
+    const resolver = productScopeResolver(read);
+    expect(await resolver.resolve({ ...scope, workspaceId: "ws-b" })).toBeNull();
+    expect(await resolver.resolve({ ...scope, projectId: "pb" })).toBeNull();
+    expect(await resolver.resolve({ workspaceId: "ws-a", resourceId: scope.resourceId })).toBeNull();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to a same-ID manifest node when its canonical row is missing or deleted", async () => {
+    const shadow = project("pa", "ws-a", "atlas");
+    const edited = manifest();
+    edited.resources[0].id = scope.resourceId;
+    shadow.workingManifest = edited;
+    resetDb({ ...db(), projects: [shadow] });
+    for (const row of [null, canonicalResource({ status: "deleted" })]) {
+      expect(await productScopeResolver(async () => row).resolve(scope)).toBeNull();
+    }
   });
 });
 

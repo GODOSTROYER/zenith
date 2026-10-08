@@ -100,7 +100,7 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
               }
               const prior = priors.get(node.address);
               if (prior) return { service: node.address, imageUri: prior.imageUri, digest: prior.digest };
-              return await buildOne(rt, ec, graph, node, artifact, ctx);
+              return await buildOne(rt, ec, graph, node, artifact, ctx, lease);
             } catch (error) { failures.push(error); return undefined; }
           });
           if (failures.length) throw failures.find(error => !(error instanceof StepFailedError)) ?? failures[0];
@@ -354,7 +354,8 @@ async function buildOne(
   graph: ResourceGraph,
   node: ResourceNode,
   artifact: Extract<ArtifactSpec, { type: "built" }>,
-  ctx: ReturnType<typeof driverContext>
+  ctx: ReturnType<typeof driverContext>,
+  lease: LeaseRef
 ): Promise<{ service: string; imageUri: string; digest: string }> {
   const build = rt.d.build;
   const bundler = rt.d.sourceBundle;
@@ -371,11 +372,15 @@ async function buildOne(
   if(!approvedSource) throw new StepFailedError("This build plan has no approved source snapshot; a new operation and review are required.");
   // A non-root context is accepted only when it carries the digest source inspection produced AND that digest re-derives from the approved commit.
   const contextDigest = await admitBuildContext(rt, ec, node, pipeline, approvedSource, contextDir);
+  ctx = { ...ctx, ...(rt.d.buildProfile && ["zenith", "kubernetes"].includes(ctx.provider)
+    ? { reviewedBuildProfileDigest: rt.d.buildProfile(ctx) } : {}) };
+  await assertOperationSemantics(rt, ec, lease, "source custody", ctx.signal);
   const bundle = await bundler.prepare(ctx, { service: node, approvedSource, source: { repo: source.repo, ref: source.ref, ...(source.dockerfile ? { dockerfile: source.dockerfile } : {}) } });
   if(bundle.digest!==approvedSource.archiveDigest)throw new StepFailedError("Prepared build bytes do not match the reviewed source.");
   // Refresh after upload, before requesting a build. This never grants/rebinds source access.
   await bundler.verify!(approvedSource,ctx.signal);
   await rt.d.sourceSnapshots!.assertCurrent(approvedSource);
+  await assertOperationSemantics(rt, ec, lease, "isolated build launch", ctx.signal);
   const authority=await rt.d.broker.approvalStatus(ec.op.id);
   if(!authority.approved || authority.rejected || (ec.op.approvalRequired && !authority.approvalId))throw new StepFailedError("Current approval changed before build dispatch.");
   const started = rt.now().getTime();
@@ -459,7 +464,7 @@ function contextDirFor(node: ResourceNode, pipeline: ResourceNode): string {
 
 const buildPolicy = (rt: Runtime) => rt.d.buildIsolation ?? { allowOpenEgress: false };
 const providerOf = (node: ResourceNode): BuildProviderKey => {
-  if (node.provider !== "aws" && node.provider !== "gcp" && node.provider !== "azure" && node.provider !== "zenith") throw new StepFailedError(`Source builds on ${safeText(node.provider, 20)} have no build isolation profile and are refused.`);
+  if (node.provider !== "aws" && node.provider !== "gcp" && node.provider !== "azure" && node.provider !== "zenith" && node.provider !== "kubernetes") throw new StepFailedError(`Source builds on ${safeText(node.provider, 20)} have no build isolation profile and are refused.`);
   return node.provider;
 };
 

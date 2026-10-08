@@ -73,6 +73,8 @@ export interface DriverContext<Session = unknown> {
   workspaceId: string;
   environmentId: string;
   operationId?: string;
+  /** Non-secret reviewed build custody binding, set only by the execution release guard. */
+  reviewedBuildProfileDigest?: string;
   session: Session;
   signal: AbortSignal;
   log: DriverLog;

@@ -88,3 +88,336 @@ Things that may break first:
 - Buildpack plans (`builder: "buildpacks"`) are refused at admission: "buildpack builds have no isolated builder; provide a Dockerfile". No isolated buildpack builder exists.
 - NOT done here (LIFE-08 owns the archive and `ApprovedSourceSnapshot`): verifying that `contextDir` exists at the approved commit, that no symlink in it escapes the archive, and binding `contextDir` into the approved snapshot/recipe digest. The recipe digest already covers the pipeline spec, so changing `contextDir` invalidates a reviewed plan.
 - Tests: `build-isolation.test.ts` (`build context directory and builder admission`), `build-provenance.test.ts` (different context refused).
+
+## J6 isolated builder addendum (2026-10-08)
+
+Owned implementation: src/lib/providers/kubernetes/build/{config,render,admission,port,artifact,index}.ts;
+deploy/zenith-managed/build/{builder.go,builder_test.go,proxy.py,Dockerfile.builder,Dockerfile.proxy,Dockerfile.fixture,fixture-app.c,resolve-images.sh,render.ts,README.md};
+tests/providers/kubernetes/build/{contracts,kind}.test.ts. No platform migrations.
+
+Acceptance mapping:
+- Identity/metadata/filesystem/resources: tokenless UID1000 userns Job, read-only
+  root/source, bounded scratch/deadline/cgroups; trusted actual denial probes.
+- Network/dependencies: default-deny, no build DNS, separate exact host/IP/port
+  proxy; all policies inspected because Kubernetes permissions are additive.
+- Provenance: digest readback of OCI index/platform/attestation/SLSA statement,
+  then the existing signed LIFE-09 statement and admission. Generated test keys,
+  altered bytes, wrong builder, revoked key and substituted source tested.
+- Render/policy tests: contracts.test.ts. Operated isolation and source release:
+  kind.test.ts, explicitly gated and not counted as a pass when disabled.
+
+### Required assembly joins (outside J6 ownership)
+
+1. src/lib/platform/release.ts: import createZenithBuildPort from
+   @/lib/providers/kubernetes/build rather than ./zenith-managed-build.
+   Keep the durable startBuildOnce wrapper and authority/approval ordering.
+2. Managed build configuration/session/RBAC must read the configured proxy
+   namespace baseline and RuntimeClass as well as the build namespace. Read-only
+   namespace access must be explicit; tenant workload sessions remain separate.
+3. Kubernetes: add provider key/profile and SLSA provider enum to
+   execution/build-isolation.ts, build-provenance.ts and source-snapshot.ts;
+   extend the approved-source custody/upload branch in platform/source-bundle.ts
+   and select the new build port in platform/release-k8s.ts. Replace the explicit
+   pre-launch and completion refusals in the owned port ONLY when that full join
+   exists. Never label a Kubernetes result as provider zenith.
+   The published approved_source_snapshots CHECK admits aws/gcp/azure and the wave-5 managed-source migration adds zenith, but not kubernetes. Assign a new additive migration to widen only that provider CHECK, retaining archive-format and immutable-custody conditions. No number was assigned to J6 and no migration was edited.
+4. RuntimeClass, reviewed node-local seccomp/AppArmor profiles, user namespaces,
+   process sandbox/proc mounts and admission must be operable on the verifier.
+   This job does not install or invent a host runtime/security policy.
+5. Add both owned vitest files to the production gate inventory. No store/table,
+   sensitive-data classification is needed for the owned managed controller. The native Kubernetes custody CHECK join above requires a separately assigned additive migration.
+6. Set ZENITH_RELEASE_MIN_PROVENANCE=attested. Built artifacts already have an
+   attested floor and createBuiltAdmissionVerifier is registered by default.
+7. Old 50-build-namespace.yaml is not the isolated baseline. Do not install its
+   DNS policy beside this one. Render this baseline instead in a disposable cluster.
+
+### Exact Mac commands and prerequisites
+
+Run on the frozen assembly commit after joins. Node 22, native ARM64, Docker
+4 GiB, one kind node and one build at a time. Quota permits only two pods (probe
+then build); requests are 256 MiB per Job, 32 MiB proxy and 64 MiB fixture.
+Limits are bounds, not reservations. No concurrent full default stack rehearsal.
+
+First start the existing enforcing-CNI kind environment:
+```bash
+export ZENITH_KIND_CLUSTER_NAME=zenith-j6
+export ZENITH_K8S_WORKDIR="$(mktemp -d)"
+bash scripts/k8s/kind-calico-up.sh
+export KUBECONFIG="$ZENITH_K8S_WORKDIR/kubeconfig"
+```
+The chosen node/runtime must actually support hostUsers:false, nested rootless
+UID mappings, proc isolation, cgroup v2 and the configured Localhost profiles.
+Install a reviewed runtime/profile configuration before testing. Stock runtimes
+that cannot satisfy these requirements are BLOCKED, never a pass. Do not use
+Unconfined, privileged pods, disabled process sandbox or lowered tests as fixes.
+
+Resolve the operator-reviewed toolchain tags to real ARM64 manifest digests:
+```bash
+export GO_TAG=golang:1.24-alpine
+export BUILDKIT_TAG=moby/buildkit:rootless
+export PYTHON_TAG=python:3.13-alpine
+export COMPILER_TAG=gcc:14
+bash deploy/zenith-managed/build/resolve-images.sh > "$ZENITH_K8S_WORKDIR/images.env"
+. "$ZENITH_K8S_WORKDIR/images.env"
+: "${ZENITH_J6_REGISTRY:?set the owned registry reachable from Mac, kind nodes and proxy}"
+docker build --platform linux/arm64 -f deploy/zenith-managed/build/Dockerfile.builder --build-arg GO_IMAGE="$GO_IMAGE" --build-arg BUILDKIT_IMAGE="$BUILDKIT_IMAGE" -t "$ZENITH_J6_REGISTRY/j6-builder:verifier" .
+docker build --platform linux/arm64 -f deploy/zenith-managed/build/Dockerfile.proxy --build-arg PYTHON_IMAGE="$PYTHON_IMAGE" -t "$ZENITH_J6_REGISTRY/j6-proxy:verifier" .
+docker build --platform linux/arm64 -f deploy/zenith-managed/build/Dockerfile.fixture --build-arg COMPILER_IMAGE="$COMPILER_IMAGE" -t zenith-j6-fixture:verifier .
+docker push "$ZENITH_J6_REGISTRY/j6-builder:verifier"
+docker push "$ZENITH_J6_REGISTRY/j6-proxy:verifier"
+docker buildx imagetools inspect "$ZENITH_J6_REGISTRY/j6-builder:verifier"
+docker buildx imagetools inspect "$ZENITH_J6_REGISTRY/j6-proxy:verifier"
+container="$(docker create zenith-j6-fixture:verifier)"
+docker cp "$container:/app" "$ZENITH_K8S_WORKDIR/app"
+docker rm "$container"
+export ZENITH_J6_FIXTURE_BINARY="$ZENITH_K8S_WORKDIR/app"
+```
+Record the displayed **actual** digests in the configuration file; none is
+invented here. For the builder/proxy use the linux/arm64 child manifest digest when an index is displayed, so the running imageID matches; for a single-platform manifest use its displayed digest. The toolchain resolver rejects missing or ambiguous ARM64 selections. Registry TLS is validated by the control plane. Basic exact-host
+dockerconfig auth is supported; bearer-challenge registry auth refuses and needs
+an owned adapter. HTTP is an explicitly configured disposable-registry setting.
+
+Create "$ZENITH_K8S_WORKDIR/build.json" using ConfigSchema: namespace,
+builderImage@sha256, runtimeClass, seccompProfile, appArmorProfile, proxy
+{namespace,ip,port,image@sha256,destinations:[{host,ip,port,tls}]}, optional
+pushSecret, timeoutSec. The IPs/port must be the actual proxy Service and owned
+registry/mirror endpoints. Both namespaces must be dedicated to this harness.
+The file contains references/configuration only, no credentials.
+```bash
+export ZENITH_ISOLATED_BUILD_CONFIG="$(cat "$ZENITH_K8S_WORKDIR/build.json")"
+npx tsx deploy/zenith-managed/build/render.ts "$ZENITH_K8S_WORKDIR/build.json" > "$ZENITH_K8S_WORKDIR/baseline.json"
+kubectl apply -f "$ZENITH_K8S_WORKDIR/baseline.json"
+kubectl -n zenith-build-proxy rollout status deployment/zenith-build-proxy --timeout=120s
+go test -json deploy/zenith-managed/build/builder.go deploy/zenith-managed/build/builder_test.go
+npx vitest run tests/providers/kubernetes/build/contracts.test.ts tests/execution/build-provenance.test.ts tests/execution/build-release-joins.test.ts --no-file-parallelism --maxWorkers=2
+```
+Use J1's real disposable product store and platform vault provisioning. Create
+a real managed environment with ID env-j6-* through the normal product path;
+export ZENITH_J6_WORKSPACE_ID and ZENITH_J6_ENVIRONMENT_ID to those recorded
+IDs. Export the managed substrate/vault/database variables from that operated
+fixture, including the same build namespace/image. No in-memory product lookup,
+credential resolver, session factory or provider port may be injected.
+```bash
+export ZENITH_RELEASE_MIN_PROVENANCE=attested
+export ZENITH_TEST_ISOLATED_BUILD_KIND=1
+npx vitest run tests/providers/kubernetes/build/kind.test.ts --no-file-parallelism --maxWorkers=2
+```
+Expected: one real kind journey passes: fresh isolation probe receipt, actual
+source push and OCI provenance readback, ready non-root Deployment, successful
+one-off command Job and independent HTTP body zenith-j6-source-release.
+The fixture command proves Job execution; it does not perform a SQL migration. SQL expand/contract and migration-pause acceptance remain in the LIFE-10/J2 lane.
+Runtime/profile installation is explicit and uses reviewed files supplied by the verifier:
+```bash
+: "${ZENITH_J6_SECCOMP_PROFILE_FILE:?reviewed node seccomp profile}"
+: "${ZENITH_J6_APPARMOR_PROFILE_FILE:?reviewed AppArmor profile named zenith-build}"
+: "${ZENITH_J6_RUNTIMECLASS_MANIFEST:?reviewed manifest for an installed userns-capable handler}"
+for node in $(kind get nodes --name "$ZENITH_KIND_CLUSTER_NAME"); do
+  docker exec "$node" mkdir -p /var/lib/kubelet/seccomp
+  docker cp "$ZENITH_J6_SECCOMP_PROFILE_FILE" "$node:/var/lib/kubelet/seccomp/zenith-build.json"
+  docker cp "$ZENITH_J6_APPARMOR_PROFILE_FILE" "$node:/etc/apparmor.d/zenith-build"
+  docker exec "$node" apparmor_parser -r /etc/apparmor.d/zenith-build
+done
+kubectl apply -f "$ZENITH_J6_RUNTIMECLASS_MANIFEST"
+```
+Run those installation commands before the enabled acceptance invocation.
+Missing kernel support, AppArmor loader, reviewed profiles or runtime handler is
+BLOCKED provisioning. No profiles or runtime installation are fabricated here.
+
+A missing assembly join, real product fixture or runtime/profile is a failure
+or BLOCKED prerequisite, never an accepted fake. Default API/human approval,
+Temporal migration-pause, progressive rollout/rollback/data restore acceptance
+remains in the LIFE-10/J1/J2 lanes; this adapter harness does not replace them.
+Cleanup only the disposable harness cluster after inspecting evidence:
+```bash
+bash scripts/k8s/kind-calico-down.sh
+```
+
+Status: implementation_complete_verification_pending. Runtime/profile
+provisioning, default-port joins and operated acceptance remain explicit.
+
+## J6 Step 2 (authoritative, 2026-10-08)
+
+Default Kubernetes and zenith-managed source builds now select the isolated builder. The old
+assembly refusal is replaced by per-environment `ZENITH_ISOLATED_BUILD_PROFILES` custody.
+No deployment credential fallback exists. Migration 59 adds only Kubernetes to the immutable
+approved-source provider CHECK; 44-52 and aggregate 0026 remain unchanged. The default
+approved-source runtime, source uploader, native registry/pipeline graph admission, signed
+provenance provider and DUR-B reviewed semantics are joined. The reviewed provenance component
+includes the entire tenant build profile: cluster/CA, both vault references, pinned images,
+registry repository, runtime file digest, node allocation policy and proxy destinations.
+Profile changes require another plan/review and are checked again before source upload/launch.
+
+Controller and verifier credentials must be separately provisioned. Controller can read/create
+Jobs and immutable source Secrets only in its build namespace; it cannot exec pods or write
+workloads/RBAC. Verifier has cluster-wide read-only node/pod and binding/role readback, no Secrets
+or mutations. Runtime verifies effective API identities, all applicable bindings/role contents,
+complete permissions and explicit denied deployment access. Build Jobs have no API token.
+
+Build nodes must have both protected tenant/profile labels, Ready status and both dedicated
+NoSchedule/NoExecute taints. Unapproved nonterminal workloads cause refusal. Only named,
+reviewed kube-system DaemonSets are permitted alongside owned build Jobs. Admission uses the
+scheduler, then binds the probe node and its UID/allocation digest; replacement or moved custody
+refuses completion/release. Baseline policies, actual proxy image, RuntimeClass, actual build
+pod/image and all 14 fresh denial probes are checked before Dockerfile execution. Provenance
+bytes are read and verified from the registry before the existing control-plane signature and
+release admission. Failures remain user-visible StepFailedError reasons, never a privileged retry.
+
+### Exact Mac preparation and commands
+
+This replaces the historical one-node/shared-build-namespace setup above. Run one environment
+and one build at a time. Use two kind nodes so product workloads/proxy/DB/Temporal never run on
+the dedicated build node. Keep Docker at 4 GiB: reserve about 2 GiB for the worker node, 768 MiB
+for control plane and 256 MiB each for disposable DB/Temporal; run Next and the execution worker
+on the Mac host with `NODE_OPTIONS=--max-old-space-size=512`. The small fixtures need no package
+installation during a source build. CPU/memory limits stay intact; a real OOM is a failed check.
+
+Prerequisites: Node 22; kind/kubectl/Docker; enforcing CNI; operator-reviewed userns-capable
+runtime handler, seccomp and AppArmor files supported by the Linux Docker VM. A missing kernel,
+handler or reviewed file is BLOCKED provisioning, never PASS. Reuse J1's real isolated product,
+local signing keys and encrypted vault configuration in a private env file. No mock product,
+credential resolver, provider port or simulated approval is accepted.
+
+```bash
+umask 077
+export ZENITH_KIND_CLUSTER_NAME=zenith-j6
+export ZENITH_K8S_WORKDIR="$(mktemp -d)"
+# Preserve the repository's real digest-pinned node image; add an isolated worker.
+cp scripts/k8s/kind-calico.config.yaml "$ZENITH_K8S_WORKDIR/kind.yaml"
+node --input-type=module -e 'import fs from "node:fs"; import yaml from "js-yaml"; const p=process.argv[1]; const c=yaml.load(fs.readFileSync(p,"utf8")); c.nodes.push({role:"worker",image:c.nodes[0].image}); fs.writeFileSync(p,yaml.dump(c));' "$ZENITH_K8S_WORKDIR/kind.yaml"
+export ZENITH_KIND_CONFIG="$ZENITH_K8S_WORKDIR/kind.yaml"
+bash scripts/k8s/kind-calico-up.sh
+export KUBECONFIG="$ZENITH_K8S_WORKDIR/kubeconfig"
+export ZENITH_J6_BUILD_NODE="$ZENITH_KIND_CLUSTER_NAME-worker"
+# Allow ordinary fixtures on the control plane. Build workloads still require protected worker labels.
+if kubectl get node "$ZENITH_KIND_CLUSTER_NAME-control-plane" -o jsonpath='{.spec.taints}' | grep -q node-role.kubernetes.io/control-plane; then
+  kubectl taint nodes "$ZENITH_KIND_CLUSTER_NAME-control-plane" node-role.kubernetes.io/control-plane:NoSchedule-
+fi
+```
+
+Use the digest resolver/build/push commands above. Supply a nonsecret `profile.input.json` with
+workspaceId, environmentId, provider (`zenith` or `kubernetes`), matching deployment server/CA,
+credentialRef, verifierCredentialRef, registryRepositoryRoot (native: `<registry>/<tenant-key>`)
+and full ConfigSchema config. Derive the key with
+`npx tsx -e 'import {buildTenantKey} from "./src/lib/providers/kubernetes/build"; console.log(buildTenantKey({workspaceId:process.env.ZENITH_J6_WORKSPACE_ID!,environmentId:process.env.ZENITH_J6_ENVIRONMENT_ID!}));'`.
+Use namespace `zb-<key>`, proxy.namespace `zp-<key>`, nodeIsolation.tenant `<key>`, reviewed
+systemDaemonSets `["calico-node","kube-proxy"]` only if those are the actual installed DaemonSets.
+Use actual proxy service/registry IPs, exact host/port allowlist and digest-pinned images.
+An initial 64-hex profileDigest placeholder is replaced by the offline review helper.
+
+```bash
+: "${ZENITH_J6_SECCOMP_PROFILE_FILE:?reviewed node seccomp JSON}"
+: "${ZENITH_J6_APPARMOR_PROFILE_FILE:?reviewed AppArmor file named zenith-build}"
+: "${ZENITH_J6_RUNTIMECLASS_MANIFEST:?reviewed RuntimeClass JSON for installed handler}"
+npx tsx deploy/zenith-managed/build/review-profile.ts "$ZENITH_K8S_WORKDIR/profile.input.json" "$ZENITH_J6_SECCOMP_PROFILE_FILE" "$ZENITH_J6_APPARMOR_PROFILE_FILE" "$ZENITH_J6_RUNTIMECLASS_MANIFEST" "$ZENITH_K8S_WORKDIR/profile.json"
+export ZENITH_J6_TENANT_KEY="$(node -p 'require(process.argv[1]).config.nodeIsolation.tenant' "$ZENITH_K8S_WORKDIR/profile.json")"
+export ZENITH_J6_PROFILE_DIGEST="$(node -p 'require(process.argv[1]).config.nodeIsolation.profileDigest' "$ZENITH_K8S_WORKDIR/profile.json")"
+# These filenames must match config.seccompProfile/appArmorProfile exactly.
+docker exec "$ZENITH_J6_BUILD_NODE" mkdir -p /var/lib/kubelet/seccomp
+docker cp "$ZENITH_J6_SECCOMP_PROFILE_FILE" "$ZENITH_J6_BUILD_NODE:/var/lib/kubelet/seccomp/zenith-build.json"
+docker cp "$ZENITH_J6_APPARMOR_PROFILE_FILE" "$ZENITH_J6_BUILD_NODE:/etc/apparmor.d/zenith-build"
+docker exec "$ZENITH_J6_BUILD_NODE" apparmor_parser -r /etc/apparmor.d/zenith-build
+kubectl apply -f "$ZENITH_J6_RUNTIMECLASS_MANIFEST"
+kubectl taint node "$ZENITH_J6_BUILD_NODE" "zenith.dev/build-tenant=$ZENITH_J6_TENANT_KEY:NoSchedule" "zenith.dev/build-tenant=$ZENITH_J6_TENANT_KEY:NoExecute"
+kubectl drain "$ZENITH_J6_BUILD_NODE" --ignore-daemonsets --delete-emptydir-data
+kubectl label node "$ZENITH_J6_BUILD_NODE" "zenith.node-restriction.kubernetes.io/build-tenant=$ZENITH_J6_TENANT_KEY" "zenith.node-restriction.kubernetes.io/build-profile=${ZENITH_J6_PROFILE_DIGEST:0:63}"
+kubectl uncordon "$ZENITH_J6_BUILD_NODE"
+node -e 'const fs=require("node:fs");fs.writeFileSync(process.argv[2],JSON.stringify(require(process.argv[1]).config));' "$ZENITH_K8S_WORKDIR/profile.json" "$ZENITH_K8S_WORKDIR/build.json"
+npx tsx deploy/zenith-managed/build/render.ts "$ZENITH_K8S_WORKDIR/build.json" > "$ZENITH_K8S_WORKDIR/baseline.json"
+kubectl apply -f "$ZENITH_K8S_WORKDIR/baseline.json"
+kubectl -n "zp-$ZENITH_J6_TENANT_KEY" rollout status deployment/zenith-build-proxy --timeout=120s
+kubectl -n "zb-$ZENITH_J6_TENANT_KEY" create token zenith-build-controller --duration=1h > "$ZENITH_K8S_WORKDIR/controller.token"
+kubectl -n "zp-$ZENITH_J6_TENANT_KEY" create token zenith-build-verifier --duration=1h > "$ZENITH_K8S_WORKDIR/verifier.token"
+# Zenith platform scope by default. Native: set this to the owning workspace for these two seed commands only.
+export ZENITH_J6_CUSTODY_SCOPE="${ZENITH_MANAGED_VAULT_SCOPE:-zenith-platform}"
+export ZENITH_J6_CONTROLLER_REF="$(node -p 'require(process.argv[1]).credentialRef' "$ZENITH_K8S_WORKDIR/profile.json")"
+export ZENITH_J6_VERIFIER_REF="$(node -p 'require(process.argv[1]).verifierCredentialRef' "$ZENITH_K8S_WORKDIR/profile.json")"
+ZENITH_MANAGED_VAULT_SCOPE="$ZENITH_J6_CUSTODY_SCOPE" npx tsx --env-file-if-exists=.env.local scripts/managed/seed-platform-vault.ts --ref "$ZENITH_J6_CONTROLLER_REF" --file "$ZENITH_K8S_WORKDIR/controller.token"
+ZENITH_MANAGED_VAULT_SCOPE="$ZENITH_J6_CUSTODY_SCOPE" npx tsx --env-file-if-exists=.env.local scripts/managed/seed-platform-vault.ts --ref "$ZENITH_J6_VERIFIER_REF" --file "$ZENITH_K8S_WORKDIR/verifier.token"
+export ZENITH_ISOLATED_BUILD_PROFILES="[$(cat "$ZENITH_K8S_WORKDIR/profile.json")]"
+export ZENITH_RELEASE_MIN_PROVENANCE=attested
+export ZENITH_TEST_ISOLATED_BUILD_KIND=1
+npx vitest run tests/providers/kubernetes/build/kind.test.ts --no-file-parallelism --maxWorkers=2
+```
+
+Set custody scope to `ZENITH_J6_WORKSPACE_ID` for native Kubernetes. Do not alter the worker's
+managed platform scope. Seed with the same real vault key/store as the product. Token expiry
+fails closed; renew the same separately scoped identities for longer rehearsals. Provision a
+push Secret with the owning repository's credential if registry auth is required; never mount
+the controller/verifier credential in a builder or use the deployment identity for that Secret.
+
+Expected kind result: one real adapter journey passes with actual fresh probes, source execution,
+OCI provenance verification, readiness and serving digest/HTTP readback. The component fixture's
+one-off command remains a command check; the separate operated LIFE-10 harness below verifies SQL.
+For denial probes, revoke one precondition at a time (node protected label/taint, an extra policy,
+wrong credential/binding, proxy destination or runtime profile), run again with a fresh disposable
+environment, and require an explicit refusal before the source Job. Keep the captured refusal and
+actual Jobs for review; restoring a precondition requires another reviewed profile when it changes.
+
+### Real PostgreSQL and whole default release
+
+Assembly must merge migrations 53-58 from their assigned jobs before the contiguous migration
+inventory gate. J6 registers 59 without placeholders or edits to published SQL/aggregate snapshots.
+Drain old writers before explicitly admitting registered contract migrations on the disposable DB.
+
+```bash
+export ZENITH_PLATFORM_DB=postgres
+export ZENITH_PLATFORM_DB_URL="$ZENITH_TEST_PLATFORM_PG_URL"
+export ZENITH_ALLOW_CONTRACT_MIGRATIONS=42,49,59
+npx tsx --env-file-if-exists=.env.local scripts/platform/migrate.ts
+npx tsx --env-file-if-exists=.env.local scripts/platform/migrate.ts --status
+ZENITH_TEST_J6_SOURCE_PG=1 npx vitest run tests/providers/kubernetes/build/schema.test.ts --no-file-parallelism --maxWorkers=2
+```
+
+Expected: 15 schema/compatibility tests pass with 0 skipped, including real PostgreSQL native
+custody, original provider preservation, rejected malformed format and immutable update/delete.
+Use a disposable database; immutable custody records are retained until that database is removed.
+Additional assigned migrations may need their own documented explicit admission; never add an
+unregistered version just to make migration application pass.
+
+Use J1's real product/DB/Temporal configuration. Start the host processes in three terminals with
+that same private env and the profile above (Temporal dev server is a local verifier only):
+
+```bash
+temporal server start-dev --ip 127.0.0.1 --port 7233 --namespace default --headless
+NODE_OPTIONS=--max-old-space-size=512 npm run dev -- --hostname 127.0.0.1
+NODE_OPTIONS=--max-old-space-size=512 npm run worker
+```
+
+Create a real git-source service in the product with a manifest release.migrate command
+`["/app","migrate"]`, service `j6`, class `expand`. Use `release-fixture/{app.c,migration.sql}` and
+Dockerfile.template as the owned GitHub fixture. Resolve compiler and PostgreSQL ARM64 digests
+with `docker buildx imagetools inspect gcc:14` and `docker buildx imagetools inspect postgres:16-alpine`;
+set both ARG defaults in the reviewed Dockerfile to the actual pinned image refs before
+committing that fixture through the operator's normal repository path. Its only RUN compiles C;
+no dependencies are downloaded. Allow just the owned image mirror/registry hosts through the
+build proxy. Connect the service to an actual disposable Postgres and bind `PGHOST`, `PGPORT`,
+`PGDATABASE`, `PGUSER`, and `PGPASSWORD` through the normal service config/vault refs. No literal
+password is in the fixture. Publish the reviewed fixture before planning, capture its approved
+source snapshot, require human approval in the environment policy and approve through the real review route, and let the default Temporal worker
+complete the operation. The harness neither creates nor bypasses approvals or provider ports.
+
+Forward the actual workload service to localhost:18080 and its database to localhost:15432,
+using J1's recorded namespace/service identifiers. Export those real local readback endpoints:
+
+```bash
+: "${ZENITH_J6_WORKLOAD_NAMESPACE:?recorded product namespace}"
+: "${ZENITH_J6_WORKLOAD_SERVICE:?actual rendered service name}"
+: "${ZENITH_J6_DATABASE_SERVICE:?actual disposable application DB service}"
+kubectl -n "$ZENITH_J6_WORKLOAD_NAMESPACE" port-forward "service/$ZENITH_J6_WORKLOAD_SERVICE" 18080:8080
+# Separate terminal:
+kubectl -n "$ZENITH_J6_WORKLOAD_NAMESPACE" port-forward "service/$ZENITH_J6_DATABASE_SERVICE" 15432:5432
+# Verification terminal, same local public verification keys and owning DB:
+export ZENITH_J6_HTTP_URL=http://127.0.0.1:18080/
+: "${ZENITH_J6_APPLICATION_PG_URL:?actual localhost:15432 application DB connection}"
+: "${ZENITH_J6_OPERATION_ID:?operation created and approved through the real product}"
+ZENITH_TEST_J6_OPERATED_RELEASE=1 npx vitest run tests/providers/kubernetes/build/operated-release.test.ts --no-file-parallelism --maxWorkers=2
+```
+
+Expected: one real reviewed default operation succeeds; immutable source and signed provenance
+verify against owning public keys; release events show attested admission before deploy, migration
+before cutover, readiness and digest readback; independently queried application SQL contains the
+fixture marker and HTTP serves that marker. Requires root-context source (`contextDir: "."`) and
+one service. Progressive rollout, destructive migration review, rollback and separate data-restore
+contracts continue to use the existing LIFE-10 suites; this lane does not replace those checks.
+All Mac checks above are **not run here (needs Docker/kind, real PG, Temporal and product/browser)**.
+Ledger remains implementation_complete_verification_pending.

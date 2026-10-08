@@ -31,7 +31,7 @@ import type { SourceBundleDeps } from "./source-bundle";
 import { createApprovedSourceRuntime } from "./approved-source-runtime";
 import { createDefaultManagedSubstrate } from "./zenith-managed";
 import { createIsolationCustody } from "./zenith-isolation-custody";
-import { createZenithSourceStore } from "./zenith-managed-build";
+import { createIsolatedSourceStore, createBuildCustody, buildProfileDigest } from "@/lib/providers/kubernetes/build";
 import { createDefaultMachinePort } from "@/lib/machines/composition";
 import type { AzureBuildOptions } from "./release-azure";
 import type { PlatformDbHandle } from "@/lib/controlplane/db";
@@ -117,7 +117,7 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     resources: opts.ports?.resources ?? platformPorts.resources,
     sourceBundles: opts.sourceBundles, azureStorage,
     sourceBundle: opts.ports?.sourceBundle, sourceSnapshots: opts.ports?.sourceSnapshots,
-    zenithSources: createZenithSourceStore(managed),
+    zenithSources: createIsolatedSourceStore(), kubernetesSources: createIsolatedSourceStore(),
   });
   registerAllDrivers();
   const credentials = opts.ports?.credentials ?? platformCredentialBroker(opts.db);
@@ -140,6 +140,7 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     releaseSafety: createPlatformReleaseSafety(opts.db),
     // The canonical executable semantics a human reviewed, recorded write-once at planning and recomputed at every dispatch (PROD-DUR-03).
     semantics: createPlatformSemanticsStore(opts.db),
+    buildProfile: ref => buildProfileDigest(createBuildCustody().profile(ref)),
     // Producer outputs captured at apply, and the typed inputs a mixed consumer receives (PROD-MIX follow-up).
     typedInputs: createPlatformTypedInputs({ sql: opts.db }),
     machines: opts.ports?.machines ?? createDefaultMachinePort(opts.db, opts.secretKey ?? process.env.ZENITH_SECRET_KEY!),

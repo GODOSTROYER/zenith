@@ -655,6 +655,8 @@ export interface ExecutionDeps {
    */
   sourceContext?: (input: { workspaceId: string; environmentId?: string; repository: string; commitSha: string; contextDir: string; dockerfile: string; contextDigest: string; signal?: AbortSignal }) => Promise<boolean>;
   build?: BuildPort;
+  /** Non-secret digest of the current tenant build custody/runtime/egress profile, reviewed before execution. */
+  buildProfile?: (ref: { workspaceId: string; environmentId: string; provider: string }) => string;
   /** Required to release any built artifact: signs provenance after a build and verifies it before rollout. */
   provenance?: BuildProvenanceAuthority;
   /** Build isolation admission policy; default refuses unrestricted egress. */

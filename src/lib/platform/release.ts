@@ -18,9 +18,9 @@ import { createAzureBuildPort, createAzureWorkloadsPort, createAzureMigrationsPo
 import { startBuildOnce } from "@/lib/effects/build-launch";
 import { progressiveUnsupportedReason } from "@/lib/release-safety/rollout";
 import type { ManagedSubstratePort } from "@/lib/providers/zenith/managed-port";
-import { createZenithBuildPort } from "./zenith-managed-build";
+import { createZenithBuildPort, createKubernetesBuildPort } from "@/lib/providers/kubernetes/build";
 import { createZenithWorkloadsPort, createZenithMigrationsPort } from "./release-zenith";
-import { createKubernetesBuildPort, createKubernetesWorkloadsPort, createKubernetesMigrationsPort } from "./release-k8s";
+import { createKubernetesWorkloadsPort, createKubernetesMigrationsPort } from "./release-k8s";
 
 /** Dispatch on the environment's driver context, then each adapter verifies its broker session. */
 export function createReleasePorts(options: { db?: Sql; azure?: AzureBuildOptions; managed?: ManagedSubstratePort } = {}): { build: BuildPort; workloads: WorkloadsPort; migrations: MigrationsPort } {

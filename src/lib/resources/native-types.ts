@@ -37,6 +37,8 @@ export const NATIVE_PREFIX: Readonly<Record<ProviderKey, string>> = {
 export type NativeTypeTable = Readonly<Record<ProviderKey, Readonly<Partial<Record<PortableKind, string>>>>>;
 
 const KUBERNETES: Partial<Record<PortableKind, string>> = {
+  container_registry: "k8s:BuildRegistry",
+  build_pipeline: "k8s:BuildPipeline",
   network: "k8s:Namespace",
   kubernetes_namespace: "k8s:Namespace",
   firewall: "k8s:NetworkPolicy",

@@ -178,7 +178,7 @@ describe("the real composition wires every managed caller (no test-only port)", 
     expect(execution).toContain("createDefaultManagedSubstrate({ product, db: opts.db })");
     expect(execution).toContain("product, managed, broker:");
     expect(execution).toContain("createReleasePorts({ db: opts.db, azure, managed })");
-    expect(execution).toContain("zenithSources: createZenithSourceStore(managed)");
+    expect(execution).toContain("zenithSources: createIsolatedSourceStore()");
   });
 
   it("plan, final plan, apply and teardown are routed to the managed paths by provider", () => {
@@ -202,7 +202,7 @@ describe("the real composition wires every managed caller (no test-only port)", 
 
   it("source preparation has a managed branch that needs the managed source hand-off", () => {
     const bundle = source("src/lib/platform/source-bundle.ts");
-    expect(bundle).toContain("deps.zenithSources!.upload(ctx, bundle)");
+    expect(bundle).toContain('(ctx.provider === "zenith" ? deps.zenithSources! : deps.kubernetesSources!).upload(ctx, bundle)');
     expect(bundle).toContain("Zenith-managed builds are refused");
   });
 });

@@ -120,6 +120,10 @@ export function findGraphProblems(graph: ResourceGraph, environmentProvider: str
       continue;
     }
 
+    // Native build nodes are release inputs fulfilled by the tenant isolated builder, not Kubernetes objects.
+    if (environmentProvider === "kubernetes" && node.provider === "kubernetes" && node.ownership === "managed" &&
+      (node.kind === "build_pipeline" && node.nativeType === "k8s:BuildPipeline" ||
+       node.kind === "container_registry" && node.nativeType === "k8s:BuildRegistry")) continue;
     // Kubernetes has no log group object: logs are the pods' own, read through container.logs. The derived
     // node is not an unexecutable resource there, it is simply realized by the workload.
     if (environmentProvider === "kubernetes" && node.kind === "log_group" && isUnsupportedNativeType(node.nativeType)) continue;

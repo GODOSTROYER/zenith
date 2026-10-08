@@ -14,6 +14,7 @@ export interface ApprovedSourceRuntimeOptions {
   azureStorage?: SourceBundleDeps["azureStorage"];
   /** PROD-MAN-01 managed source hand-off; absent = Zenith-managed builds refuse. */
   zenithSources?: SourceBundleDeps["zenithSources"];
+  kubernetesSources?: SourceBundleDeps["kubernetesSources"];
   sourceBundles?: Omit<SourceBundleDeps, "resources">;
   sourceBundle?: SourceBundlePort;
   sourceSnapshots?: ApprovedSourceSnapshotStore;
@@ -60,7 +61,7 @@ export function createApprovedSourceRuntime(db: Sql, options: ApprovedSourceRunt
   }
   const bundles = createOwningSourceBundles(owningDb, {
     resources: options.resources,
-    azureStorage: configured?.azureStorage ?? options.azureStorage, zenithSources: configured?.zenithSources ?? options.zenithSources, limits: configured?.limits ? Object.freeze({ ...configured.limits }) : undefined,
+    azureStorage: configured?.azureStorage ?? options.azureStorage, zenithSources: configured?.zenithSources ?? options.zenithSources, kubernetesSources: configured?.kubernetesSources ?? options.kubernetesSources, limits: configured?.limits ? Object.freeze({ ...configured.limits }) : undefined,
     timeoutMs: configured?.timeoutMs,
     ...(isolated ? { sourceSnapshots: selectedStore, fetchImpl: configured?.fetchImpl } : {}),
   });

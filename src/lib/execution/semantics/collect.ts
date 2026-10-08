@@ -80,6 +80,9 @@ export async function collectSemanticsInputs(rt: Pick<Runtime, "d">, ec: ExecCon
     backend: { kind: ws.backend, configDigest: backendFile ? sha256Hex(backendFile.content) : null },
     savedPlan: { planDigest: args.planDigest },
     provenance: {
+      ...(["kubernetes", "zenith"].includes(ec.product.environment.provider) &&
+        graph.nodes.some(n => (n.spec.artifact as { type?: string } | undefined)?.type === "built") && rt.d.buildProfile
+        ? { buildProfileDigest: rt.d.buildProfile({ workspaceId: ec.workspaceId, environmentId: ec.environmentId, provider: ec.product.environment.provider }) } : {}),
       pipelines: graph.nodes
         .filter((n) => n.kind === "build_pipeline")
         .map((n) => {

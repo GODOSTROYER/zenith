@@ -81,7 +81,7 @@ export const StatementSchema = z
             buildType: z.literal(ZENITH_BUILD_TYPE),
             externalParameters: z
               .object({
-                provider: z.enum(["aws", "gcp", "azure", "zenith"]),
+                provider: z.enum(["aws", "gcp", "azure", "zenith", "kubernetes"]),
                 service: z.string().max(200),
                 pipeline: z.string().max(200),
                 source: z.object({ repository: z.string().max(200), ref: z.string().max(250), commit: z.string().regex(/^[a-f0-9]{40}$/), dockerfile: z.string().max(200), contextDir: z.string().max(200), contextDigest: z.string().regex(HEX64).optional() }).strict(),

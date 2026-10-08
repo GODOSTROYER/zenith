@@ -2827,7 +2827,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "default_contract_controls_verified_d3e710d2_remaining_operated_acceptance_open",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNotes": "J6 Step 2 joins default native/managed factories, tenant vault/RBAC custody, protected node runtime proofs, reviewed build semantics and immutable native source migration 59. Release-join collision repaired by assembly. Contract checks run locally; real PG/kind/Temporal/default-product SQL and HTTP acceptance awaits Mac gated harnesses.",
       "evidence": [
         {
           "level": "contract",
@@ -2866,6 +2867,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNotes": "J6 Step 2 joins default native/managed factories, tenant vault/RBAC custody, protected node runtime proofs, reviewed build semantics and immutable native source migration 59. Release-join collision repaired by assembly. Contract checks run locally; real PG/kind/Temporal/default-product SQL and HTTP acceptance awaits Mac gated harnesses.",
       "evidence": [
         {
           "level": "contract",
@@ -3680,7 +3682,7 @@
         "scripts/acceptance/live/dns/offline.test.ts",
         "scripts/acceptance/live/dns/clouds.live.test.ts"
       ],
-      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed. J6 Step 2 joins default native/managed factories, tenant vault/RBAC custody, protected node runtime proofs, reviewed build semantics and immutable native source migration 59. Release-join collision repaired by assembly. Contract checks run locally; real PG/kind/Temporal/default-product SQL and HTTP acceptance awaits Mac gated harnesses."
     },
     {
       "id": "PROD-MAN-02",

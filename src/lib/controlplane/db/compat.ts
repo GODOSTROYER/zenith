@@ -68,6 +68,11 @@ export interface ContractMigrationApproval {
  * LIFE-10 approval reference; it does not by itself allow the migration to run.
  */
 export const CONTRACT_MIGRATION_APPROVALS: readonly ContractMigrationApproval[] = [{
+  version: 59,
+  sqlSha256: "afef954e9417c33a3a0dadc254253ab523c9dbc425af27da5120927e8064df9a",
+  approvalRef: "user-2026-10-08-j6-native-source-custody",
+  rationale: "Step 2 explicitly assigns native Kubernetes schema joins and migration 59. Existing providers and immutable custody remain valid; require drained writers and explicit operator admission.",
+}, {
   version: 42,
   sqlSha256: "3dcc8f12119594941f82dd749f5471fb2578f1d5c37ec09083491aa6dc91f4b2",
   approvalRef: "user-2026-10-07-external-effect-key-bounds",
@@ -142,7 +147,7 @@ export function assessPlatformMigration(migration: PlatformMigration, baseline: 
   const statements = splitStatements(migration.sql);
   // This exact migration replaces an existing CHECK inside an anonymous block.
   // It must not inherit the generic data-block class and bypass contract admission.
-  const sourceWiden = migration.version === 49 && migration.name === "managed_source_provider";
+  const sourceWiden = (migration.version === 49 && migration.name === "managed_source_provider") || (migration.version === 59 && migration.name === "kubernetes_source_provider");
   const created = new Set<string>();
   for (const stmt of statements) {
     const t = createdTable(stmt);

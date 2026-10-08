@@ -9,6 +9,7 @@ import { PG_URL, withScratchDatabase } from "./_support/harness";
 
 const previous = PLATFORM_MIGRATIONS.filter(m => m.version <= 42);
 const repair = PLATFORM_MIGRATIONS.find(m => m.version === 43)!;
+const schema43 = [...previous, repair];
 const indexDefinition = "CREATE INDEX mcp_stream_events_workspace_stream ON platform.mcp_stream_events USING btree (workspace_id, stream_id, seq)";
 
 it("schema43 is expand-only and needs no contract admission", () => {
@@ -50,14 +51,14 @@ async function upgrade(db: PlatformDbHandle) {
   try {
     process.env.ZENITH_ENFORCE_EXPAND_ONLY = "1";
     delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
-    expect((await migratePlatformDb(db)).applied).toEqual([43]);
+    expect((await migratePlatformDb(db, schema43)).applied).toEqual([43]);
   } finally {
     if (enforcement === undefined) delete process.env.ZENITH_ENFORCE_EXPAND_ONLY;
     else process.env.ZENITH_ENFORCE_EXPAND_ONLY = enforcement;
     if (admission === undefined) delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
     else process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = admission;
   }
-  await assertPlatformSchemaCurrent(db);
+  await assertPlatformSchemaCurrent(db, schema43);
   expect(await db.query("select * from platform.schema_migrations where version<=42 order by version")).toEqual(history);
   expect(await db.query("select indexdef from pg_indexes where schemaname='platform' and indexname='mcp_stream_events_workspace_stream'")).toEqual([{ indexdef: indexDefinition }]);
   expect({ streams: await streamRows(), events: await eventRows(), custody: await custody(), constraints: await constraints(), policies: await policies() }).toEqual(before);
@@ -65,7 +66,7 @@ async function upgrade(db: PlatformDbHandle) {
   expect(await db.query("select pg_get_constraintdef(oid) as definition from pg_constraint where conrelid='platform.mcp_stream_events'::regclass and contype='p'")).toEqual([{ definition: "PRIMARY KEY (stream_id, seq)" }]);
   expect(await db.query("select seq,payload from platform.mcp_stream_events where workspace_id=$1 and stream_id=$2 and seq>$3 order by seq limit $4",
     ["tenant-index-a", "a".repeat(32), 0, 10])).toEqual([{ seq: 1, payload: { jsonrpc: "2.0", id: "tenant-index-a", result: { retained: true } } }]);
-  expect((await migratePlatformDb(db)).applied).toEqual([]);
+  expect((await migratePlatformDb(db, schema43)).applied).toEqual([]);
 }
 
 it("schema42 to43 preserves stream rows, ledger, primary key, RLS and ACL [pglite]", async () => {

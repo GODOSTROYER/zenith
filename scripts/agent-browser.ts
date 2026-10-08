@@ -54,6 +54,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import net from "node:net";
+import type { Request } from "playwright-core";
 import { spawn, type ChildProcess } from "node:child_process";
 
 const DATA_DIR = path.join(process.cwd(), ".data-agent-browser");
@@ -116,6 +117,7 @@ const SCOPES = [
  * by a user reading their credential's expiry date.
  */
 const DEFAULT_DAYS = 30;
+const APPROVAL_ROUTE = "/api/integrations/agent/link/approve";
 
 const NO_BROWSER_MESSAGE =
   "the approval-screen gate needs a real browser and found none.\n" +
@@ -368,6 +370,34 @@ async function main(): Promise<number> {
           ...cookie.map(([name, value]) => ({ name, value, domain: "localhost", path: "/" })),
         ]);
         const page = await context.newPage();
+        const approvalRequests = new WeakMap<Request, number>();
+        let approvalDiagnosticEvents = 0;
+        let approvalClickedAt = 0;
+        const approvalDiagnostic = (fields: Record<string, string | number>): void => {
+          if (approvalDiagnosticEvents++ < 8) {
+            process.stdout.write(`${JSON.stringify({ diagnostic: "agent-approval-request", viewport: viewport.name, route: APPROVAL_ROUTE, ...fields })}\n`);
+          }
+        };
+        page.on("request", (request) => {
+          if (request.method() === "POST" && new URL(request.url()).pathname === APPROVAL_ROUTE) {
+            approvalRequests.set(request, performance.now());
+            approvalDiagnostic({ phase: "request", elapsedMs: Math.round(performance.now() - approvalClickedAt) });
+          }
+        });
+        page.on("response", (response) => {
+          const requestStartedAt = approvalRequests.get(response.request());
+          if (requestStartedAt !== undefined) {
+            approvalDiagnostic({ phase: "response", status: response.status(), elapsedMs: Math.round(performance.now() - requestStartedAt) });
+          }
+        });
+        const approvalSettled = (request: Request, phase: "requestfinished" | "requestfailed"): void => {
+          const requestStartedAt = approvalRequests.get(request);
+          if (requestStartedAt !== undefined) {
+            approvalDiagnostic({ phase, elapsedMs: Math.round(performance.now() - requestStartedAt) });
+          }
+        };
+        page.on("requestfinished", (request) => approvalSettled(request, "requestfinished"));
+        page.on("requestfailed", (request) => approvalSettled(request, "requestfailed"));
         await page.goto(`${origin}/agent/link?code=${pending.userCode}`, { waitUntil: "domcontentloaded" });
         // The screen fetches the request after hydration; judge it only once the
         // decision controls exist, otherwise the checks below race the fetch.
@@ -508,7 +538,9 @@ async function main(): Promise<number> {
         /* --- approve, and the terminal comes back to life --- */
 
         const approveControl = page.getByRole("button", { name: PAGE.approve }).first();
+        approvalClickedAt = performance.now();
         await approveControl.click();
+        const approvalWaitStartedAt = performance.now();
         const done = await page
           .waitForFunction(
             (pattern: string) => new RegExp(pattern, "i").test(document.body.innerText),
@@ -516,7 +548,26 @@ async function main(): Promise<number> {
             { timeout: 20_000 }
           )
           .then(() => true)
-          .catch(() => false);
+          .catch(async (error: unknown) => {
+            const elapsedMs = Math.round(performance.now() - approvalWaitStartedAt);
+            const errorClass = error instanceof Error && error.name === "TimeoutError" ? "TimeoutError" : error instanceof Error ? "Error" : "Unknown";
+            let snapshotTimer: ReturnType<typeof setTimeout> | undefined;
+            const unavailable = { approvedMessagePresent: null, visibleErrorIndicator: null };
+            const rendered = await Promise.race([
+              page.evaluate((pattern) => ({
+                approvedMessagePresent: new RegExp(pattern, "i").test(document.body.innerText),
+                visibleErrorIndicator: Array.from(document.querySelectorAll('[role="alert"]')).some((element) => {
+                  const style = getComputedStyle(element);
+                  return style.visibility !== "hidden" && style.display !== "none" && element.getClientRects().length > 0;
+                }),
+              }), PAGE.approved.source).catch(() => unavailable),
+              new Promise<typeof unavailable>((resolve) => {
+                snapshotTimer = setTimeout(() => resolve(unavailable), 1000);
+              }),
+            ]).finally(() => { clearTimeout(snapshotTimer); });
+            process.stdout.write(`${JSON.stringify({ diagnostic: "agent-approval-copy-wait", viewport: viewport.name, errorClass, elapsedMs, ...rendered, compileTimings: server.approvalCompileTimings() })}\n`);
+            return false;
+          });
         record(label, "Approve confirms, and sends the person back to their terminal", done, "the page says so");
 
         const issued = await poll(origin, pending.deviceCode, 20_000);
@@ -582,6 +633,7 @@ async function main(): Promise<number> {
 
 interface DevServer {
   stop: () => void;
+  approvalCompileTimings: () => Array<{ route: string; durationMs: number }>;
 }
 
 /**
@@ -622,7 +674,13 @@ async function startDevServer(port: number): Promise<DevServer | null> {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   process.stdout.write(`next dev is answering on http://localhost:${port}\n`);
-  return { stop: () => child.kill("SIGKILL") };
+  return {
+    stop: () => child.kill("SIGKILL"),
+    approvalCompileTimings: () => Array.from(
+      log.join("").matchAll(/\bCompiled \/api\/integrations\/agent\/link\/approve in (\d+(?:\.\d+)?)(ms|s)(?=\s|$)/g),
+      (match) => ({ route: APPROVAL_ROUTE, durationMs: Math.round(Number(match[1]) * (match[2] === "s" ? 1000 : 1)) })
+    ).filter((entry) => Number.isFinite(entry.durationMs) && entry.durationMs >= 0 && entry.durationMs <= 180_000).slice(-4),
+  };
 }
 
 /** Begin a device flow the way the plugin does: no credential, no cookie. */

@@ -28,6 +28,47 @@ import { describe, expect, it } from "vitest";
 const ROOT = path.join(process.cwd(), "src", "lib", "controlplane", "db");
 const REPOS = path.join(ROOT, "repos");
 
+// COST joins add direct reads outside repositories; each new query is reviewed here too.
+const COST_SQL_INVENTORY = {
+  "src/lib/cost/optimizer-settings-service.ts": 1,
+  "src/lib/cost/optimizer/optimizer-ownership.ts": 2,
+  "src/lib/cost/usage-exporter.ts": 1,
+  "src/lib/platform/optimizer.ts": 1,
+} as const;
+
+describe("cost direct SQL scoping inventory", () => {
+  it("binds the actual workspace predicate for every inventoried tenant query", () => {
+    for (const [file, expected] of Object.entries(COST_SQL_INVENTORY)) {
+      const source = ts.createSourceFile(file, readFileSync(path.join(process.cwd(), file), "utf8"), ts.ScriptTarget.Latest, true);
+      let queries = 0;
+      const visit = (node: ts.Node) => {
+        if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === "query") {
+          const [text, params] = node.arguments;
+          expect(ts.isStringLiteral(text) || ts.isNoSubstitutionTemplateLiteral(text), `${file}: SQL must be literal`).toBe(true);
+          if (ts.isStringLiteral(text) || ts.isNoSubstitutionTemplateLiteral(text)) {
+            queries++;
+            if (file === "src/lib/cost/optimizer-settings-service.ts") {
+              expect(text.text).toBe("select pg_advisory_xact_lock(hashtext($1), hashtext($2))");
+              expect(ts.isArrayLiteralExpression(params)).toBe(true);
+              if (ts.isArrayLiteralExpression(params)) {
+                expect(params.elements[0].getText(source)).toBe("input.workspaceId");
+                expect(params.elements[1].getText(source)).toBe("`optimizer-settings:${input.environmentId}`");
+              }
+              return;
+            }
+            expect(text.text, file).toMatch(/\bwhere\s+workspace_id\s*=\s*\$1\b/i);
+            expect(ts.isArrayLiteralExpression(params), `${file}: explicit bindings`).toBe(true);
+            if (ts.isArrayLiteralExpression(params)) expect(params.elements[0].getText(source), file).toMatch(/^(scope|report|environment)\.workspaceId$/);
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+      expect(queries, `${file}: query inventory changed; review its scope`).toBe(expected);
+    }
+  });
+});
+
 /** Tables that carry a `workspace_id` column, read from the migrations. */
 function tenantTables(): string[] {
   const tables = new Set<string>();

@@ -18,6 +18,8 @@ import { platformConfigured } from "@/lib/ops/runtime";
 import { sampleControlPlane } from "@/lib/ops/sampler";
 import { opsMetrics } from "@/lib/ops/telemetry/catalog";
 import { metricsRegistry } from "@/lib/ops/telemetry/metrics";
+import { usageExporter } from "@/lib/cost/usage-exporter";
+import { ApiError } from "@/lib/server/errors";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -33,6 +35,29 @@ export async function GET(req: NextRequest): Promise<Response> {
         await sampleControlPlane(await platformDb());
       } catch { opsMetrics().controlStoreUp.set({}, 0); }
     }
-    return new Response(metricsRegistry().renderPrometheus(), { headers: { "content-type": "text/plain; version=0.0.4; charset=utf-8", "cache-control": "no-store" } });
+    return new Response(metricsRegistry().renderPrometheus() + usageExporter().renderPrometheus(), { headers: { "content-type": "text/plain; version=0.0.4; charset=utf-8", "cache-control": "no-store" } });
+  } catch (error) { return errorResponse(error); }
+}
+
+/** Trusted infrastructure collector ingress. Never accepts a browser cookie or tenant bearer token. */
+export async function POST(req: NextRequest): Promise<Response> {
+  try {
+    authorizeCron(req);
+    if (!req.body) throw new ApiError("Usage report is required.", 400);
+    const reader = req.body.getReader();
+    const chunks: Uint8Array[] = []; let length = 0;
+    try {
+      for (;;) {
+        const part = await reader.read(); if (part.done) break;
+        length += part.value.byteLength;
+        if (length > 16_384) { await reader.cancel(); throw new ApiError("Usage report exceeds the limit.", 413); }
+        chunks.push(part.value);
+      }
+    } finally { reader.releaseLock(); }
+    let report: unknown;
+    try { report = JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { throw new ApiError("Usage report is invalid.", 400); }
+    const { platformDb } = await import("@/lib/controlplane/db");
+    await usageExporter().record(await platformDb(), report);
+    return Response.json({ accepted: true }, { headers: { "cache-control": "no-store" } });
   } catch (error) { return errorResponse(error); }
 }

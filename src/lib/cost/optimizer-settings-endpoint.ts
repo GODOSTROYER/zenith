@@ -1,4 +1,4 @@
-/** Orchestrator join: re-export these handlers at environments/[id]/optimizer/route.ts. */
+/** Browser-only handlers registered at environments/[id]/optimizer/route.ts. */
 import { platformBroker } from "@/lib/capabilities/platform";
 import { notFound } from "@/lib/capabilities/errors";
 import { platformDb } from "@/lib/controlplane/db";

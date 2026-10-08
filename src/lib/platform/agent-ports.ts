@@ -95,7 +95,7 @@ export function composeAgentPorts(sql: Sql, credentials: CredentialBroker, optio
 
   function fabricFor(request: FabricRequest, observations: readonly Observation[], session?: ProviderSession, reason?: string) {
     const sources = reason ? [createUnavailableSource({ id: "credential-broker", provider: request.environment.provider, supports: ["log", "metric", "event", "trace"], reason })]
-      : sourceFactory({ provider: request.environment.provider, graph: request.graph, workspaceId: request.workspaceId, sessions: session ? sessionsOf(session) : {}, observations });
+      : sourceFactory({ provider: request.environment.provider, graph: request.graph, workspaceId: request.workspaceId, sessions: session ? sessionsOf(session) : {}, observations, purpose: request.purpose });
     const fabric = createObservabilityFabric(sources, { now, ...(describeSession(session) ? { session: describeSession(session)! } : {}) });
     const permitted = (signal: "log" | "metric" | "event" | "trace", scope: SignalScope) => {
       if (scope.workspaceId !== request.workspaceId || scope.environmentId !== request.environment.id || (scope.projectId !== undefined && scope.projectId !== request.environment.projectId)) throw notFound();

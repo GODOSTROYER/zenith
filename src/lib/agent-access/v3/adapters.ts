@@ -35,6 +35,7 @@ import { controlOrigin } from "../control/boundary";
 import { inAgentScope } from "../control/runtime";
 import { McpToolError } from "./errors";
 import { deployAdmissionPort } from "./deploy-admission";
+import { ManifestPolicies } from "@/lib/domain/types";
 import type { AgentIdentity } from "./principal";
 import type {
   EnvironmentInfo,
@@ -77,8 +78,10 @@ const PROVIDERS: ReadonlySet<string> = new Set(["aws", "gcp", "azure", "oci", "k
 
 function environmentInfo(workspaceId: string, projectId: string, environmentId: string): EnvironmentInfo | null {
   const d = db();
-  if (!d.projects.some((p) => p.id === projectId && p.workspaceId === workspaceId)) return null;
-  const env = d.environments.find((e) => e.id === environmentId && e.projectId === projectId);
+  if (d.projects.filter((p) => p.id === projectId && p.workspaceId === workspaceId).length !== 1) return null;
+  const environments = d.environments.filter((e) => e.id === environmentId && e.projectId === projectId);
+  if (environments.length !== 1) return null;
+  const env = environments[0];
   if (!env) return null;
   const connection = q.connection(env.connectionId);
   if (!connection || connection.workspaceId !== workspaceId || !PROVIDERS.has(connection.provider)) {
@@ -93,6 +96,8 @@ function environmentInfo(workspaceId: string, projectId: string, environmentId: 
     region: env.region,
     baseDomain: env.baseDomain,
     connectionId: env.connectionId,
+    // Do not normalize malformed legacy policies into unconstrained defaults.
+    ...(ManifestPolicies.strict().safeParse(env.policies).success ? { policies: structuredClone(env.policies) } : {}),
     ...(env.deployedRevisionId ? { deployedRevisionId: env.deployedRevisionId } : {}),
   };
 }
@@ -115,7 +120,9 @@ export function productReads(): ProjectReads {
     },
     async revision(workspaceId, projectId, revisionId): Promise<RevisionInfo | null> {
       if (!db().projects.some((p) => p.id === projectId && p.workspaceId === workspaceId)) return null;
-      const r = db().revisions.find((x) => x.id === revisionId && x.projectId === projectId);
+      const revisions = db().revisions.filter((x) => x.id === revisionId && x.projectId === projectId);
+      if (revisions.length !== 1) return null;
+      const r = revisions[0];
       if (!r) return null;
       const manifest = (await revisionManifestAsync(r.id)) ?? r.manifest;
       return { id: r.id, projectId: r.projectId, number: r.number, message: r.message, createdAt: r.createdAt, ...(r.deployedTo ? { deployedTo: [...r.deployedTo] } : {}), manifest: structuredClone(manifest) };
@@ -151,10 +158,10 @@ export function observabilityPort(options: ObservabilityOptions = {}): Observabi
   const brokerOf = options.credentialBroker ?? (() => registry().credentialBroker);
   const sources = options.sources ?? sourcesForEnvironment;
   return {
-    async withFabric({ workspaceId, environment, graph, grant }, fn) {
+    async withFabric({ workspaceId, environment, graph, grant, purpose }, fn) {
       const build = (sessions: SourceSessions, session?: ProviderSession) => {
         const described = describeSession(session);
-        return createObservabilityFabric(sources({ provider: environment.provider, graph, workspaceId, sessions }), described ? { session: described } : {});
+        return createObservabilityFabric(sources({ provider: environment.provider, graph, workspaceId, sessions, purpose }), described ? { session: described } : {});
       };
       const broker = brokerOf();
       if (!NEEDS_SESSION.has(environment.provider) || !broker) return fn(build({}));

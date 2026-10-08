@@ -4000,7 +4000,7 @@
     {
       "id": "PROD-COST-03",
       "title": "Bounded economic optimization",
-      "implementationNote": "J8: measured collector, scoped ownership and human consent endpoint handlers built; default sweep/route/exporter joins remain with the orchestrator because they are outside J8 ownership. Real seven-day measurements, PostgreSQL and browser verification pending. See verify/COST-03.md.",
+      "implementationNote": "J8 owner-expanded scope: browser-only route, canonical measured durable sweep, tenant-scoped usage ingress/source coverage including DB/object stores, dispatch-time size ownership, SQL inventory and authoritative V1 policy reads built. Real seven-day measurements, PostgreSQL, browser and default-stack verification pending. See verify/COST-03.md and verify/J8-COST-JOINS-REPORT.md.",
       "acceptance": [
         "Measurable bounded nonflapping optimizations respect approval/field ownership and transfer/latency/residency cost."
       ],

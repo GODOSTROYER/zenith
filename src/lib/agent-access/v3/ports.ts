@@ -19,7 +19,7 @@
 import type { Broker } from "@/lib/capabilities/platform";
 import type { OperationView } from "@/lib/capabilities/types";
 import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
-import type { AnyManifest } from "@/lib/domain/types";
+import type { AnyManifest, ManifestPolicies } from "@/lib/domain/types";
 import type { Investigation } from "@/lib/incidents/types";
 import type { ObservabilityFabric } from "@/lib/observability/types";
 import type { ProviderKey, ResourceGraph } from "@/lib/resources/types";
@@ -47,6 +47,8 @@ export interface EnvironmentInfo {
   /** product-store connection id; the credential broker's resolver maps it to a provider connection */
   connectionId: string;
   deployedRevisionId?: string;
+  /** Authoritative product environment policies; absent adapters cannot authorize V1 optimization. */
+  policies?: ManifestPolicies;
 }
 
 export interface RevisionSummary {
@@ -101,6 +103,8 @@ export interface DeployAdmissionPort {
 /* ------------------------------ observability ------------------------------ */
 
 export interface FabricRequest {
+  /** Internal deterministic collector selection; never a caller-supplied endpoint or credential. */
+  purpose?: "cost";
   workspaceId: string;
   environment: EnvironmentInfo;
   graph: ResourceGraph;

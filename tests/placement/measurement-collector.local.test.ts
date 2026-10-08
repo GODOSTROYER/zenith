@@ -4,7 +4,7 @@ import { isAbsolute } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createPrometheusSource } from "@/lib/observability/sources/prometheus";
 import { createObservabilityFabric } from "@/lib/observability/fabric";
-import { COST_PROMETHEUS_METRICS, createMeasurementCollector } from "@/lib/cost/optimizer/measurement-collector";
+import { createMeasurementCollector } from "@/lib/cost/optimizer/measurement-collector";
 import { optimizeEconomics } from "@/lib/placement/optimizer";
 import { createOptimizerOwnership } from "@/lib/cost/optimizer/optimizer-ownership";
 import { loadDefaultCatalog } from "@/lib/placement/pricebook";
@@ -28,7 +28,7 @@ describe.skipIf(!enabled)("actual local measured optimization (needs local Prome
     const first = graph.nodes.find(n => n.kind === "container_service" && n.ownership === "managed")!;
     expect(first).toBeDefined();
     const environment: ReconcileEnvironment = { workspaceId, projectId, environmentId: graph.environmentId, class: "production", provider: first.provider, region: first.region };
-    const fabric = createObservabilityFabric([createPrometheusSource({ baseUrl: endpoint.href, graph, workspaceId, metrics: { ...COST_PROMETHEUS_METRICS } })]);
+    const fabric = createObservabilityFabric([createPrometheusSource({ baseUrl: endpoint.href, graph, workspaceId, costUsage: true })]);
     const collector = createMeasurementCollector({ now: () => new Date(), read: (_env, _graph, query, signal) => fabric.queryMetrics(query, signal), constraints: async () => {
       const parsed = RecommendConstraints.parse(JSON.parse(readFileSync(constraintsFile, "utf8")));
       return { ...parsed, userRegions: parsed.userRegions ?? [] };

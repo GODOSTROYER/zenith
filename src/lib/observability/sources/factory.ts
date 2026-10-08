@@ -65,6 +65,7 @@ export interface SourceSessions {
 }
 
 export interface SourcesForEnvironmentInput {
+  purpose?: "cost";
   provider: ProviderKey;
   graph: ResourceGraph;
   /** when given, scopes for any other workspace are refused by every source */
@@ -94,6 +95,16 @@ export function sourcesForEnvironment(input: SourcesForEnvironmentInput): Observ
   const { provider, graph, sessions, workspaceId } = input;
   const base = workspaceId === undefined ? { graph } : { graph, workspaceId };
   const sources: ObservabilitySource[] = [];
+
+  // The optimizer needs boundary usage, including DB/object occupancy. Native total network
+  // metrics cannot stand in for billed internet/inter-component traffic or log ingestion.
+  if (input.purpose === "cost") {
+    const configured = input.endpoints ? undefined : configuredEndpoints();
+    const endpoint = (input.endpoints ?? configured!.endpoints).prometheus;
+    const selected = endpoint ? createPrometheusSource({ ...endpoint, ...base, costUsage: true })
+      : createUnavailableSource({ id: PROMETHEUS_SOURCE_ID, provider, supports: ["metric"], reason: "Cost usage Prometheus endpoint is not configured." });
+    return [bindSource(selected, graph, workspaceId)];
+  }
 
   switch (provider) {
     case "sandbox":

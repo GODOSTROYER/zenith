@@ -28,6 +28,7 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/mixed-output-preauthorizations$`), methods: { GET: "browser-only", POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/mixed-output-preauthorizations/${ID}/revoke$`), methods: { POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/environments/${ID}/autonomy$`), methods: { GET: "bearer-capable", PUT: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/environments/${ID}/optimizer$`), methods: { GET: "browser-only", POST: "browser-only" } },
   // reads authorised by the broker (authorizeRead); placement is a POST only to carry constraints
   { path: new RegExp(`^${ROOT}/environments/${ID}/(?:resources|drift|incidents)$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/environments/${ID}/placement$`), methods: { POST: "bearer-capable" } },

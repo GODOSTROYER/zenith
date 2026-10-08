@@ -54,4 +54,13 @@ describe("optimizer measurements broker and applied-policy adapter", () => {
     delete current.deployedRevisionId;
     await expect(deps.constraints(env)).rejects.toMatchObject({ code: "invalid_state" });
   });
+  it("reads authoritative V1 environment policies without rewriting the applied revision", async () => {
+    const { deps, env, current, revision } = await setup();
+    const before = structuredClone(revision.manifest);
+    current.policies = { approvalRequired: true, allowStatefulDeletion: false, budgetUsdMonthly: 123 };
+    expect(await deps.constraints(env)).toMatchObject({ budgetUsdMonthly: 123, userRegions: [], tolerateSingleFailure: false });
+    expect(revision.manifest).toEqual(before);
+    current.policies = { ...current.policies, budgetUsdMonthly: Number.NaN };
+    await expect(deps.constraints(env)).rejects.toMatchObject({ code: "invalid_state" });
+  });
 });

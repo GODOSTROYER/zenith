@@ -93,6 +93,8 @@ export const blocking = (c: FieldConflict): boolean => c.verdict !== "allowed";
 export interface NativeOperationWrite {
   path: string;
   writer: WriterKind;
+  /** Only checked when this top-level input field is being changed. */
+  inputField?: string;
 }
 
 /**
@@ -100,7 +102,7 @@ export interface NativeOperationWrite {
  * field (restart, reads). Extend by passing `table` to the check functions.
  */
 export const NATIVE_OPERATION_WRITES: Readonly<Record<string, readonly NativeOperationWrite[]>> = {
-  "service.scale": [{ path: "replicas", writer: "native-op" }],
+  "service.scale": [{ path: "replicas", writer: "native-op", inputField: "replicas" }, { path: "size", writer: "native-op", inputField: "size" }],
   "deployment.deploy": [{ path: "artifact.image", writer: "native-op" }],
   "deployment.rollback": [{ path: "artifact.image", writer: "native-op" }],
 };
@@ -115,6 +117,7 @@ export interface NativeOperationCheck extends EnforcementOptions {
   facts?: OwnershipFacts;
   /** for `drift.repair`: the attributes the repair re-applies */
   repairAttributes?: readonly string[];
+  input?: Readonly<Record<string, unknown>>;
   table?: Readonly<Record<string, readonly NativeOperationWrite[]>>;
 }
 
@@ -122,7 +125,8 @@ export function checkNativeOperation(check: NativeOperationCheck): FieldConflict
   const writes: readonly NativeOperationWrite[] =
     check.capability === "drift.repair" ? driftRepairWrites(check.repairAttributes ?? []) : ((check.table ?? NATIVE_OPERATION_WRITES)[check.capability] ?? []);
   const facts = { ...factsForNode(check.node), ...(check.facts ?? {}) };
-  return writes.map((w) =>
+  const typedScaleInput = check.input && (Object.hasOwn(check.input, "replicas") || Object.hasOwn(check.input, "size"));
+  return writes.filter(w => !w.inputField || (typedScaleInput ? Object.hasOwn(check.input!, w.inputField) : w.inputField === "replicas")).map((w) =>
     evaluateWrite({ address: check.node.address, resourceType: check.node.nativeType, path: w.path, writer: w.writer, via: check.capability, facts }, check)
   );
 }

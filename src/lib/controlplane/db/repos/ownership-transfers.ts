@@ -183,18 +183,21 @@ export async function guardFor(sql: Sql, workspaceId: string, environmentId: str
  * a caller-mintable authorization capability, and need a final live predicate.
  */
 export async function lockForOperation(sql: Sql, workspaceId: string, operationId: string): Promise<string[] | null> {
-  const [op] = await sql.query<{ capability: string; environment_id: string | null; resource_id: string | null }>(
-    "select capability, environment_id, resource_id from platform.operations where workspace_id=$1 and id=$2",
+  const [op] = await sql.query<{ capability: string; environment_id: string | null; resource_id: string | null; proposal: { input: Record<string, unknown> } }>(
+    "select capability, environment_id, resource_id, proposal from platform.operations where workspace_id=$1 and id=$2",
     [requireText("workspaceId", workspaceId), requireText("operationId", operationId)],
   );
   if (!op) throw new ControlStoreError("operation_not_found", "Operation not found.");
+  const changesSize = op.capability === "service.scale" && !!op.proposal?.input && Object.hasOwn(op.proposal.input, "size");
+  if (changesSize && (!op.environment_id || !op.resource_id)) throw new ControlStoreError("conflict", "Current size-field ownership refuses this operation.");
   if (!NATIVE_OPERATION_WRITES[op.capability] || !op.environment_id || !op.resource_id) return null;
-  const nodes = await sql.query<{ id: string; address: string; kind: string; native_type: string; spec: Record<string, unknown> }>(
-    `select id, address, kind, native_type, spec from platform.resources
+  const nodes = await sql.query<{ id: string; address: string; kind: string; native_type: string; status: string; spec: Record<string, unknown> }>(
+    `select id, address, kind, native_type, status, spec from platform.resources
       where workspace_id=$1 and environment_id=$2 order by address limit 2000 for share`,
     [workspaceId, op.environment_id],
   );
   const target = nodes.find(row => row.id === op.resource_id);
+  if (changesSize && (!target || target.status === "deleted" || nodes.length >= 2000)) throw new ControlStoreError("conflict", "Current size-field ownership could not be established.");
   if (!target) return null;
   const rows = await sql.query<Row & { id: string; revoked_at: unknown }>(
     `select id, ${COLUMNS}, revoked_at from platform.ownership_transfers
@@ -206,18 +209,18 @@ export async function lockForOperation(sql: Sql, workspaceId: string, operationI
   const now = new Date(clock!.now);
   const transfers = rows.filter(row => row.revoked_at === null).map(row => ({ row, transfer: toTransfer(row) }));
   const facts = factsByAddress({ nodes: nodes.map(row => ({ address: row.address, kind: row.kind as ResourceNode["kind"], nativeType: row.native_type, spec: row.spec ?? {} })) }).get(target.address) ?? {};
-  const conflicts = checkNativeOperation({ capability: op.capability, node: { address: target.address, nativeType: target.native_type, spec: target.spec ?? {} }, facts, transfers: transfers.map(item => item.transfer), now });
+  const conflicts = checkNativeOperation({ capability: op.capability, input: op.proposal.input, node: { address: target.address, nativeType: target.native_type, spec: target.spec ?? {} }, facts, transfers: transfers.map(item => item.transfer), now });
   const selected = new Set<string>();
   for (const conflict of conflicts) {
     // Match the default PlatformBrokerStore's existing IaC warning baseline.
     // If a transfer moved a non-IaC base to IaC, that live receipt is still
     // an enabling dependency: expiry would restore the other base owner.
-    const warning = conflict.verdict === "transfer_required" && conflict.resolution.owner === "iac" && conflict.write.writer === "native-op";
+    const warning = conflict.write.path !== "size" && conflict.verdict === "transfer_required" && conflict.resolution.owner === "iac" && conflict.write.writer === "native-op";
     if (!warning && conflict.verdict !== "allowed") throw new ControlStoreError("conflict", "Current field ownership refuses this operation.", { reason: "field_ownership_conflict" });
     if (conflict.resolution.source !== "transfer") continue;
     // An IaC -> native transfer is not an enabling dependency where this
     // store already permits the native write with its existing IaC warning.
-    if (conflict.resolution.baseOwner === "iac" && conflict.write.writer === "native-op") continue;
+    if (conflict.write.path !== "size" && conflict.resolution.baseOwner === "iac" && conflict.write.writer === "native-op") continue;
     const query = { address: conflict.write.address, resourceType: conflict.write.resourceType, path: conflict.write.path, facts };
     const applicable = transfers.filter(item => defaultFieldOwnershipRegistry.transferApplies(item.transfer, query, conflict.resolution.baseOwner, now))
       .sort((a, b) => Date.parse(b.transfer.approvedAt) - Date.parse(a.transfer.approvedAt) || (a.transfer.digest < b.transfer.digest ? -1 : 1));

@@ -60,13 +60,22 @@ const COVERED_BY: Record<string, string> = {
 };
 
 /** The release tooling and its tests mention the gates as data; the scope module and manifest they implement govern everything else. */
-const isTooling = (file: string): boolean => file.startsWith("scripts/release/") || file.startsWith("tests/release/");
+const isTooling = (file: string): boolean => file.startsWith("scripts/release/") || file.startsWith("tests/release/")
+  // This exact fixture inspects workflow YAML paths as data; it never reads a live gate or executes a live harness.
+  || file === "tests/ci/release-gates.test.ts";
 
 const candidates = [...walk("scripts"), ...walk("src"), ...walk("tests")].filter((f) => !isTooling(f) && /ZENITH_LIVE_/.test(read(f)));
 
 describe("live harness scope coverage", () => {
   const manifest = loadManifestFile(shippedManifestPath());
   const exempt = (file: string): boolean => manifest.exemptions.some((e) => file === e.file || file.startsWith(`${e.file}/`));
+
+  it("classifies the workflow YAML fixture without exempting other CI harnesses", () => {
+    expect(isTooling("tests/ci/release-gates.test.ts")).toBe(true);
+    expect(isTooling("tests/ci/other-live-harness.test.ts")).toBe(false);
+    expect(isTooling("tests/ci/release-gates.test.ts/live.ts")).toBe(false);
+    expect(candidates).not.toContain("tests/ci/release-gates.test.ts");
+  });
 
   it("finds the known live harnesses (the scan itself works)", () => {
     for (const known of ["scripts/acceptance/aws-live.ts", "scripts/acceptance/mixed/live-run.ts", "scripts/acceptance/mixed/live-recovery.ts", "tests/live/mixed-cloud.live.test.ts", "tests/live/mixed-connectivity.live.test.ts"]) expect(candidates, known).toContain(known);

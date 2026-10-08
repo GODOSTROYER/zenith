@@ -91,6 +91,26 @@ function fullRequiredStream() {
 }
 
 describe("native Go evidence admission", () => {
+  it("reports only bounded fixed malformed-event reasons without admitting or exposing their contents", () => {
+    const marker = "private-event-content-never-publish";
+    const rejected: unknown[] = [null, { Action: marker }, { Action: "start", Package: marker },
+      { Action: "run", Package: pkg, Test: marker }, { Action: "output", Package: pkg, Output: { marker } },
+      { Action: "pass", Package: pkg, Elapsed: marker },
+      { Action: "build-output", ImportPath: pkg, Output: marker, [marker]: marker },
+      { Action: "build-output", ImportPath: marker + "\n", Output: marker },
+      { Action: "build-output", ImportPath: pkg, Output: { marker } }];
+    const raw = rejected.map(item => JSON.stringify(item)).join("\n") + "\n" + stream();
+    const result = validateGoEvents(raw, goodExit, contract);
+    expect(result.verdict).toBe("failed"); expect(result.problems).toEqual(["malformed"]);
+    expect(result.counts).toEqual(verdict(records()).counts);
+    expect(result.required).toEqual(verdict(records()).required);
+    expect(result.malformedEvents).toEqual(["event_shape", "action", "package", "test_name", "output", "elapsed", "build_unknown_field", "build_import_path"]
+      .map((reason, index) => ({ line: index + 1, reason })));
+    expect(JSON.stringify(result)).not.toContain(marker);
+    expect(validateGoEvents(marker + "\n" + stream(), goodExit, contract).malformedEvents).toEqual([{ line: 1, reason: "json_parse" }]);
+    expect(validateGoEvents(JSON.stringify(rejected[8]) + "\n" + stream(), goodExit, contract).malformedEvents).toEqual([{ line: 1, reason: "build_output" }]);
+  });
+
   it("admits inert official Go build output without granting test or package authority", () => {
     const before = verdict(records());
     const marker = "inert-build-output-do-not-publish";

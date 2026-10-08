@@ -5298,7 +5298,7 @@ export const OWNERSHIP_SNAPSHOT_CAS_POSTGRES_REQUIREMENTS = [
   {
     "file": "tests/controlplane/ownership-transfers.test.ts",
     "suite": "ownership transfer immutable service-role custody [postgres]",
-    "test": "refuses a mutation grant when a new autoscaler commits after its ownership snapshot",
+    "test": "refuses a mutation grant after a new autoscaler commits through the environment coordinator",
     "postgres": true
   },
   {
@@ -5316,7 +5316,7 @@ export const OWNERSHIP_SNAPSHOT_CAS_POSTGRES_REQUIREMENTS = [
   {
     "file": "tests/controlplane/ownership-transfers.test.ts",
     "suite": "ownership transfer immutable service-role custody [postgres]",
-    "test": "refuses an owner INSERT committed after an intermediate fresh read but before the final grant statement",
+    "test": "blocks an independent owner INSERT while retaining final-statement snapshot refusal",
     "postgres": true
   },
   {

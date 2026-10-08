@@ -328,10 +328,10 @@ function withoutCurrentSuccessorCohort(requirements: Requirement[]): Requirement
 const ownershipSnapshotCasIds = new Set([
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:7ba9c4b9e2c1",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:01845bf26fdf",
-  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:1c2299148826",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:2ecc5e990013",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:65045d56d958",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:a3e783c044c9",
-  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:348894d82a33",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:6c2424b7f1de",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:b0212eb1a020",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:852f3777058a",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:7049bff8d926",

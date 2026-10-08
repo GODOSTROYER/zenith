@@ -176,11 +176,12 @@ async function claimAfterFactCommit(db: PlatformDbHandle, independent: PlatformD
 
 async function grantAfterFactCommit(db: PlatformDbHandle, independent: PlatformDbHandle,
   owned: Awaited<ReturnType<typeof manifestAdmission>>, change: (tx: Sql) => Promise<unknown>) {
-  await db.query("insert into platform.cleanup_writer_scopes(workspace_id) values($1) on conflict do nothing", [owned.workspaceId]);
   const ready = signal<number>(), release = signal<void>(), started = signal<number>();
-  const blocker = asService(independent, async tx => {
+  // The mutation owns the environment coordinator first. Migration 53 prevents
+  // independent writers from committing behind an admission that already owns it.
+  const writer = asService(independent, async tx => {
     const [backend] = await tx.query<{ pid: number }>("select pg_backend_pid() as pid");
-    await tx.query("select workspace_id from platform.cleanup_writer_scopes where workspace_id=$1 for update", [owned.workspaceId]);
+    await change(tx);
     ready.resolve(backend!.pid); await release.promise;
   }).then(() => undefined, error => { ready.reject(error); return error; });
   let attempt: Promise<unknown> | undefined;
@@ -191,18 +192,19 @@ async function grantAfterFactCommit(db: PlatformDbHandle, independent: PlatformD
       return repos.grants.insert(tx, owned.grant);
     }).then(value => ({ value }), error => { started.reject(error); return { error }; });
     const waiterPid = await started.promise;
+    expect(waiterPid).not.toBe(blockerPid);
     await waitForNativeLock(db, waiterPid, blockerPid);
-    // This is a real INSERT, not a mutation of an already share-locked row.
-    await asService(independent, async tx => {
-      const [backend] = await tx.query<{ pid: number }>("select pg_backend_pid() as pid");
-      expect([blockerPid, waiterPid]).not.toContain(backend!.pid);
-      await change(tx);
-    });
-    expect(await repos.resources.getByAddress(db, owned.workspaceId, owned.environmentId, "native/web-autoscaler")).not.toBeNull();
-    await waitForNativeLock(db, waiterPid, blockerPid);
+    expect(await db.query("select locktype from pg_locks where pid=$1 and locktype='advisory' and not granted", [waiterPid]))
+      .toEqual([{ locktype: "advisory" }]);
+    expect(await repos.resources.getByAddress(db, owned.workspaceId, owned.environmentId, "native/web-autoscaler")).toBeNull();
   } finally {
-    release.resolve(); expect(await blocker).toBeUndefined(); await attempt;
+    release.resolve();
+    const writerOutcome = await writer;
+    await attempt;
+    expect(writerOutcome).toBeUndefined();
   }
+  // The writer is committed before admission can take its fresh graph snapshot.
+  expect(await repos.resources.getByAddress(db, owned.workspaceId, owned.environmentId, "native/web-autoscaler")).not.toBeNull();
   return attempt!;
 }
 
@@ -211,10 +213,11 @@ describe.skipIf(!PG_URL)("ownership transfer immutable service-role custody [pos
     await withNative(async (db, independent) => {
       const owned = await admission(db, 3_000, "native-op", "size");
       expect(await asService(db, tx => repos.operations.claimForExecution(tx, owned.claim))).not.toBeNull();
+      await db.query("insert into platform.cleanup_writer_scopes(workspace_id) values($1) on conflict do nothing", [owned.workspaceId]);
       const ready = signal<number>(), release = signal<void>(), started = signal<number>();
       const blocker = asService(independent, async tx => {
         const [backend] = await tx.query<{ pid: number }>("select pg_backend_pid() as pid");
-        await tx.query("select workspace_id from platform.cleanup_writer_scopes where workspace_id=$1 for update", [owned.workspaceId]);
+        expect(await tx.query("select workspace_id from platform.cleanup_writer_scopes where workspace_id=$1 for update", [owned.workspaceId])).toEqual([{ workspace_id: owned.workspaceId }]);
         ready.resolve(backend!.pid); await release.promise;
       }).then(() => undefined, error => { ready.reject(error); return error; });
       const blockerPid = await ready.promise;
@@ -397,12 +400,11 @@ describe.skipIf(!PG_URL)("ownership transfer immutable service-role custody [pos
     });
   }, 60_000);
 
-  it("refuses a mutation grant when a new autoscaler commits after its ownership snapshot", async () => {
+  it("refuses a mutation grant after a new autoscaler commits through the environment coordinator", async () => {
     await withNative(async (db, independent) => {
       const owned = await manifestAdmission(db);
       await asService(db, tx => repos.operations.claimForExecution(tx, owned.claim));
       const attempt = await grantAfterFactCommit(db, independent, owned, tx => addAutoscaler(tx, owned));
-      // Do not make stale issuance a passing expectation: this adverse contract may expose a production gap.
       expect(await attempt).toMatchObject({ error: { code: "conflict", details: { reason: "field_ownership_conflict" } } });
       expect(await repos.grants.get(db, owned.workspaceId, owned.grant.jti)).toBeNull();
       expect(await stateOf(db, owned)).toEqual({ status: "running", grants: 0, consumed: 1 });
@@ -470,20 +472,32 @@ describe.skipIf(!PG_URL)("ownership transfer immutable service-role custody [pos
     });
   }, 60_000);
 
-  it("refuses an owner INSERT committed after an intermediate fresh read but before the final grant statement", async () => {
+  it("blocks an independent owner INSERT while retaining final-statement snapshot refusal", async () => {
     await withNative(async (db, independent) => {
       const owned = await manifestAdmission(db);
       await asService(db, tx => repos.operations.claimForExecution(tx, owned.claim));
-      const ready = signal<void>(), release = signal<void>();
+      const ready = signal<number>(), release = signal<void>(), writerStarted = signal<number>(), writerRelease = signal<void>(), writerInserted = signal<void>();
+      const insertedOutcome = writerInserted.promise.then(() => undefined, error => error);
       let finalStatements = 0;
+      const queries: string[] = [];
       const result = asService(db, tx => {
         const observe = (current: Sql): Sql => ({
           query: async <T>(text: string, params?: readonly unknown[]): Promise<T[]> => {
+            queries.push(text);
             if (text.includes("insert into platform.capability_grants") && text.includes("from platform.operations o")) {
               finalStatements++;
+              expect(queries.some(query => query.includes("pg_advisory_xact_lock"))).toBe(true);
+              expect(queries.some(query => query.includes("as snapshot from platform.resources"))).toBe(true);
               expect(await current.query("select count(*)::integer as count from platform.resources where workspace_id=$1 and environment_id=$2",
                 [owned.workspaceId, owned.environmentId])).toEqual([{ count: 1 }]);
-              ready.resolve(); await release.promise;
+              const [backend] = await current.query<{ pid: number }>("select pg_backend_pid() as pid");
+              ready.resolve(backend!.pid); await release.promise;
+              // Same-transaction mutation can reacquire its coordinator. Its
+              // distinct address proves final refusal rolls back this row.
+              const spec = { config: { target: owned.node.address } };
+              await repos.resources.upsertDesired(current, { workspaceId: owned.workspaceId, environmentId: owned.environmentId,
+                projectId: owned.projectId, node: { address: "native/injected-autoscaler", kind: "provider_native", provider: "aws", region: "us-east-1",
+                  nativeType: "aws:appautoscaling_target", ownership: "managed", spec, specDigest: digest(spec), origin: ["web"], dependsOn: [], labels: {} } });
             }
             return current.query<T>(text, params);
           },
@@ -491,13 +505,28 @@ describe.skipIf(!PG_URL)("ownership transfer immutable service-role custody [pos
         });
         return repos.grants.insert(observe(tx), owned.grant);
       }).then(value => ({ value }), error => { ready.reject(error); return { error }; });
+      let writer: Promise<unknown> | undefined;
       try {
-        await ready.promise;
-        await asService(independent, tx => addAutoscaler(tx, owned));
-        expect(await repos.resources.getByAddress(db, owned.workspaceId, owned.environmentId, "native/web-autoscaler")).not.toBeNull();
-      } finally { release.resolve(); await result; }
+        const blockerPid = await ready.promise;
+        writer = asService(independent, async tx => {
+          const [backend] = await tx.query<{ pid: number }>("select pg_backend_pid() as pid");
+          writerStarted.resolve(backend!.pid);
+          await addAutoscaler(tx, owned); writerInserted.resolve(); await writerRelease.promise;
+        }).then(() => undefined, error => { writerStarted.reject(error); writerInserted.reject(error); return error; });
+        const waiterPid = await writerStarted.promise;
+        expect(waiterPid).not.toBe(blockerPid);
+        await waitForNativeLock(db, waiterPid, blockerPid);
+        expect(await db.query("select locktype from pg_locks where pid=$1 and locktype='advisory' and not granted", [waiterPid]))
+          .toEqual([{ locktype: "advisory" }]);
+        release.resolve();
+        expect(await result).toMatchObject({ error: { code: "conflict", details: { reason: "field_ownership_conflict" } } });
+        expect(await insertedOutcome).toBeUndefined();
+        expect(await repos.resources.getByAddress(db, owned.workspaceId, owned.environmentId, "native/injected-autoscaler")).toBeNull();
+        expect(await repos.resources.getByAddress(db, owned.workspaceId, owned.environmentId, "native/web-autoscaler")).toBeNull();
+      } finally { release.resolve(); writerRelease.resolve(); await result; expect(await writer).toBeUndefined(); }
       expect(finalStatements).toBe(1);
-      expect(await result).toMatchObject({ error: { code: "conflict", details: { reason: "field_ownership_conflict" } } });
+      expect(await repos.resources.getByAddress(db, owned.workspaceId, owned.environmentId, "native/web-autoscaler")).not.toBeNull();
+      expect(await repos.resources.getByAddress(db, owned.workspaceId, owned.environmentId, "native/injected-autoscaler")).toBeNull();
       expect(await stateOf(db, owned)).toEqual({ status: "running", grants: 0, consumed: 1 });
     });
   }, 60_000);

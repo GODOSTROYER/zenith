@@ -126,11 +126,24 @@ class CriticalDurableServer {
   private closed?: Promise<void>;
   private childClosed = false;
   private launchFailed = false;
+  private startupStderr = Buffer.alloc(0);
+  private startupStderrTruncated = false;
   private connectionUnconfirmed = false;
   private sqlite?: CriticalFileIdentity;
   env?: TestWorkflowEnvironment;
   readonly ownershipAttribute = `ZenithCriticalFixture${randomUUID().replace(/-/g, "")}`;
   constructor(readonly cli: string, readonly directory: string, readonly port: number, readonly rootIdentity: CriticalFileIdentity) {}
+  private startupFailure(message: string): Error {
+    // Drain stderr without publishing provider text, paths or arbitrary messages.
+    const text = this.startupStderr.toString("utf8");
+    const classifier = this.launchFailed ? "spawn_failed"
+      : text.includes("bind: address already in use") ? "address_in_use"
+      : text.includes("database is locked") ? "database_locked"
+      : text.includes("unable to open database file") ? "database_open_failed"
+      : text.includes("permission denied") ? "permission_denied" : "unknown";
+    return new Error(`${message} ${JSON.stringify({ classifier, exitCode: this.child?.exitCode ?? null,
+      signalCode: this.child?.signalCode ?? null, stderrTruncated: this.startupStderrTruncated })}`);
+  }
   async assertDirectory(): Promise<void> {
     const actual = await lstat(this.directory);
     if (!actual.isDirectory() || actual.isSymbolicLink() || (actual.mode & 0o777) !== 0o700 || actual.dev !== this.rootIdentity.device || actual.ino !== this.rootIdentity.inode || actual.uid !== this.rootIdentity.uid) throw new Error("Owned Temporal directory custody changed; retain it.");
@@ -160,14 +173,20 @@ class CriticalDurableServer {
     const http = await criticalFreePort(), metrics = await criticalFreePort();
     if (new Set([this.port, http, metrics]).size !== 3 || [this.port, http, metrics].some(port => [7233, 8233, 8000, 9000, 9090].includes(port))) throw new Error("Owned Temporal ports must be exclusive and nondefault.");
     this.childClosed = false; this.launchFailed = false;
+    this.startupStderr = Buffer.alloc(0); this.startupStderrTruncated = false;
     const child = spawn(this.cli, ["--disable-config-env", "--disable-config-file", "server", "start-dev", "--headless", "--ip", "127.0.0.1", "--port", String(this.port), "--http-port", String(http), "--metrics-port", String(metrics), "--db-filename", path.join(this.directory, "owned-temporal.sqlite"), "--search-attribute", `${this.ownershipAttribute}=Keyword`], {
-      detached: true, stdio: "ignore", windowsHide: true,
+      detached: true, stdio: ["ignore", "ignore", "pipe"], windowsHide: true,
       env: { PATH: process.env.PATH, NODE_ENV: "test", HOME: this.directory, XDG_CONFIG_HOME: this.directory },
     });
     this.child = child;
+    child.stderr?.on("data", (chunk: Buffer) => {
+      const remaining = 8192 - this.startupStderr.length;
+      if (chunk.length > remaining) this.startupStderrTruncated = true;
+      if (remaining > 0) this.startupStderr = Buffer.concat([this.startupStderr, chunk.subarray(0, remaining)]);
+    });
     this.closed = new Promise(resolve => { child.once("error", () => { this.launchFailed = true; }); child.once("close", () => { this.childClosed = true; resolve(); }); });
     await waitFor("owned durable critical Temporal frontend", async () => {
-      if (this.launchFailed || this.childClosed) throw new Error("Owned Temporal process failed before readiness.");
+      if (this.launchFailed || this.childClosed) throw this.startupFailure("Owned Temporal process failed before readiness.");
       let connection: Connection | undefined;
       try {
         connection = await Connection.connect({ address: `127.0.0.1:${this.port}`, connectTimeout: 500 });
@@ -178,7 +197,7 @@ class CriticalDurableServer {
       } catch { return false; }
       finally { try { await connection?.close(); } catch { this.connectionUnconfirmed = true; throw new Error("Owned Temporal readiness connection did not settle."); } }
     }, 45_000);
-    if (this.launchFailed || this.childClosed) throw new Error("Owned Temporal readiness lost its process.");
+    if (this.launchFailed || this.childClosed) throw this.startupFailure("Owned Temporal readiness lost its process.");
     this.env = await TestWorkflowEnvironment.createFromExistingServer({ address: `127.0.0.1:${this.port}`, namespace: "default" });
   }
   async stop(): Promise<void> {

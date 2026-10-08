@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { CAPABILITIES } from "@/lib/capabilities/catalog";
+import { createBroker } from "@/lib/capabilities/platform";
 import { STORE_KINDS, approveAs, expectBrokerError, makeHarness, proposeOk, user, type Harness } from "./support";
 
 const destination = { resourceAddress: "object_store/backups", credentialsRef: "vault:proj/backups/creds" };
@@ -78,5 +79,46 @@ describe.each(STORE_KINDS)("portability proposals [%s]", (kind) => {
     expect(op.operation.status).toBe("awaiting_approval");
     expect(op.operation.proposal.input).toEqual({ claim: { externalId: "db-1", acknowledge: true, lifecycle: "manage", fields: [] } });
     expect(op.operation.proposal.details?.join(" ")).toContain("does NOT allow Zenith to delete");
+  });
+
+  it.each(["data.export", "data.import"])("uses the canonical resource provider for %s in a mixed-placement environment", async (capability) => {
+    const h = await makeHarness({ kind });
+    const scopes = h.deps.scopes;
+    h.deps.scopes = { resolve: async (scope) => {
+      const resolved = await scopes.resolve(scope);
+      if (!resolved?.environment || !resolved.resource) return resolved;
+      return { ...resolved, environment: { ...resolved.environment, provider: "kubernetes" }, resourceProvider: "aws", resource: { ...resolved.resource, address: "object_store/customer-data", kind: "object_store" } };
+    } };
+    h.broker = createBroker(h.deps);
+    const input = capability === "data.import" ? { destination, exportId: "export-owned" } : { destination };
+    const result = await proposeOk(h, request(h, capability, h.ids.resADbProd, input), user("bob"));
+    expect(result.operation.status).toBe("awaiting_approval");
+    expect(result.operation.proposal.scope.resourceId).toBe(h.ids.resADbProd);
+  });
+
+  it("refuses an unsupported canonical provider even when the environment default supports export", async () => {
+    const h = await makeHarness({ kind });
+    const scopes = h.deps.scopes;
+    h.deps.scopes = { resolve: async (scope) => {
+      const resolved = await scopes.resolve(scope);
+      if (!resolved?.resource) return resolved;
+      return { ...resolved, resourceProvider: "kubernetes", resource: { ...resolved.resource, address: "object_store/customer-data", kind: "object_store" } };
+    } };
+    h.broker = createBroker(h.deps);
+    const error = await expectBrokerError(h.broker.propose(request(h, "data.export", h.ids.resADbProd, { destination }), user("bob")), "conflict");
+    expect(error.details).toMatchObject({ reason: "portability_unsupported", provider: "kubernetes", kind: "object_store" });
+  });
+
+  it("refuses import after release and preserves the policy denial for mutations on a referenced resource", async () => {
+    const h = await makeHarness({ kind });
+    const input = { destination, exportId: "export-owned" };
+    expect((await h.broker.check(request(h, "data.import", h.ids.resADbProd, input), user("bob"))).decision.outcome).toBe("require_approval");
+    const current = h.world.resources.get(h.ids.resADbProd)!;
+    h.world.resources.set(h.ids.resADbProd, { ...current, facts: { ...current.facts, ownership: "referenced" } });
+    const error = await expectBrokerError(h.broker.propose(request(h, "data.import", h.ids.resADbProd, input), user("bob")), "conflict");
+    expect(error.details).toMatchObject({ reason: "portability_ownership", ownership: "referenced" });
+    const exported = await h.broker.check(request(h, "data.export", h.ids.resADbProd, { destination }), user("bob"));
+    expect(exported.decision.outcome).toBe("deny");
+    expect(exported.decision.reasons).toEqual(expect.arrayContaining([expect.objectContaining({ code: "unowned_resource_mutation" })]));
   });
 });

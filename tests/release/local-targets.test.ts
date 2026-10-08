@@ -38,7 +38,8 @@ describe("local target boundaries", () => {
     for (const scenario of SCENARIOS) {
       const operated = scenario.id === "two-tenants" || scenario.id === "export";
       expect(localTargetLane(scenario)).toMatchObject({ kind: "local_engine",
-        gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(operated ? ["ZENITH_LOCAL_DRIVER_D4=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE"] : [])],
+        gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(operated ? ["ZENITH_LOCAL_DRIVER_D4=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE"] : []),
+          ...(scenario.id === "export" ? ["ZENITH_LOCAL_EXPORT_DATA=1", "ZENITH_LOCAL_EXPORT_POSTGRES_IMAGE", "ZENITH_LOCAL_EXPORT_MYSQL_IMAGE", "ZENITH_LOCAL_EXPORT_MINIO_IMAGE"] : [])],
         evidenceLabel: operated ? "local_operated_rehearsal" : "local_rehearsal" });
     }
     expect(LOCAL_TARGETS["install"]).toMatchObject({ owner: "J1" });

@@ -173,9 +173,9 @@ export const SCENARIOS: readonly Scenario[] = [
     limits: "--local-targets selects the dedicated gated browser/API/MCP driver and independent kind readback. Component lanes alone do not establish an operated run; no live customer or hostile-cluster isolation is claimed.",
   },
   {
-    id: "export", title: "Export and portability", requirements: ["PROD-REL-01"],
-    lanes: [{ id: "export", kind: "local_engine", files: ["tests/hosted/export/roundtrip.test.ts", "tests/portability/store.test.ts", "tests/portability/postgres-engine.test.ts", "tests/release/drivers/d4.test.ts"] }],
-    limits: "--local-targets selects the dedicated gated infrastructure export driver, re-applied by independent OpenTofu to owned LocalStack. Database/customer-data copying and another live provider are separate acceptance.",
+    id: "export", title: "Export and portability", requirements: ["PROD-REL-01", "PROD-LIFE-11"],
+    lanes: [{ id: "export", kind: "local_engine", files: ["tests/hosted/export/roundtrip.test.ts", "tests/portability/store.test.ts", "tests/portability/postgres-engine.test.ts", "tests/release/drivers/d4.test.ts", "tests/release/drivers/export-data.test.ts"] }],
+    limits: "--local-targets selects the gated operated driver: approved LIFE-11 PostgreSQL/MySQL/MinIO data roundtrips with exact tenant content readback, followed by independent infrastructure apply to owned LocalStack. A second real cloud provider remains live-deferred.",
   },
   {
     id: "teardown", title: "Approved teardown in reverse dependency order", requirements: ["PROD-REL-01", "PROD-MIX-07"],

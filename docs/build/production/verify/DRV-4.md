@@ -1,10 +1,18 @@
-# DRV-4: operated two-tenants and infrastructure export
+# DRV-4: operated two-tenants, customer data and infrastructure export
 
-Build complete; Mac operated verification pending. These are two dedicated J15
+The a7371b55 base drivers are build complete; Mac operated verification pending. These are two dedicated J15
 drivers, not adapters that promote J2 component evidence. Every successful receipt
 is labelled `local_operated_rehearsal`; it never establishes live or production
 acceptance. No migrations, dependency metadata, credentials, commits or cloud API
 calls were added or performed.
+
+Customer-data follow-up integration: DRV-4M and DRV-4O own the MySQL/object legs.
+They must implement the separate database/bucket contract in `export-data-leg.ts`;
+the source/target readbacks cannot share a tenant export unit. The deliberately
+temporary `export-data-helper-stubs.d.ts` supplies only their type signatures for
+this worker's typecheck. Remove it when merging the two real helper files, rerun
+typecheck/scoped helper tests, then run the Mac lane below. Missing helper runtime
+imports fail; the stub cannot produce an operated pass.
 
 ## Files and acceptance mapping
 
@@ -19,6 +27,7 @@ calls were added or performed.
 | Export operations | Create a real local S3 project/production environment through Zenith actions, obtain the second admin's actual browser approval and observe the created bucket independently with `awslocal`. Export through `/api/environments/:id/export`. Require the deployed revision id; edit the working copy and require byte-identical export of the deployed revision. |
 | Portable artifact | Write the exact exported files privately, reopen and compare every byte, scan actual Auth admin/kubeconfig/cookie canaries, and refuse path traversal, duplicates, unexpected files, provisioners/modules/backends, nonlocal endpoints and effects outside S3/default-VPC/security-group scaffolding. |
 | Export without Zenith | Empty the owned source revision through an independently browser-approved Zenith deployment. Require independent source-bucket absence. Run native OpenTofu1.12.5 from J1's pinned worker image as the host uid, with a private mount, fresh local state and no product environment/credential forwarding. Inspect the actual saved plan before applying its unchanged bytes. Read S3 versioning, encryption, public-access blocks and EC2 security-group identity independently from LocalStack. |
+| Customer DATA roundtrip follow-up | `export-data.ts` composes PostgreSQL/MySQL/MinIO legs. Separate local tenant databases/buckets, fresh owned target containers, actual `data.export`/`data.import` proposals, UI human approvals and browser-only workflow starts. Independent per-row/object digests, exact counts, unchanged source/other tenant, wrong MySQL TLS identity, nonempty-target and cross-workspace export-ID refusals. See [PROD-LIFE-11](PROD-LIFE-11.md) for fixture setup boundaries and commands. |
 | Owned cleanup | `OwnedCleanup` registers responsibilities before mutations and settles all in reverse order even after failure. Revoke issued agents, delete owned Auth identities, close browsers, destroy independent Terraform resources and require absence, remove only exact labelled runner/emulator containers, remove private artifact scratch, delete only the J2-owned kind cluster with independent absence, and run J1's canonical ownership-aware cleanup with independent inventory. Any cleanup failure prevents a pass. |
 | Receipt | `drivers/protocol.ts` admits only closed scenario/check/readback inventories, exact run/commit/digest binding and the operated label. Diagnostics, bodies, cookie values, kubeconfigs and tokens never enter receipts. Partial/failed/cleanup-failed evidence stays nonpassing. |
 | Registration | The two catalog entries dispatch their dedicated CLI through `local-target-runner.ts`. J1 derives the child environment/CA before Node starts. `local-targets.ts`, `scenarios.ts` and `acceptance-orchestrator.ts` preserve labels and strict receipts. `gate-manifest.mjs` has one exact named required case per gated lane; missing or skipped cases cannot pass report validation. |
@@ -33,7 +42,10 @@ this handoff. All other scenarios retain their existing expectations.
 ## Exact lean-profile Mac commands
 
 Run sequentially, from this unchanged checkout under a disposable verifier user.
-Docker Desktop: 4 GiB; one kind node; no mixed/acme/billing profile in parallel.
+One kind node; no mixed/acme/billing profile in parallel. The data follow-up adds
+up to 1 GiB of bounded container memory to J1/J2 during its sequential database
+pairs; confirm headroom on the Mac (6 GiB Docker allocation recommended). This is
+still the J1 `lean` profile; no measured fit in a 4 GiB allocation is claimed.
 J1 builds current native images; its Node/Go/OpenTofu build pins, Supabase CLI and
 canonical platform migrations remain prerequisites from `PKG-04.md`/`PKG-05.md`.
 Provide actual digest references in the four image variables below. Install
@@ -92,6 +104,11 @@ node tests/e2e/default/prepare.mjs --directory "$TARGETS" --stack "$STACK" \
 
 # Export ONLY: cache the exact native J15 emulator image, no mixed-profile startup.
 if test "$SCENARIO" = export; then
+  export ZENITH_LOCAL_EXPORT_DATA=1
+  : "${ZENITH_LOCAL_EXPORT_POSTGRES_IMAGE:?native PostgreSQL17 digest required}"
+  : "${ZENITH_LOCAL_EXPORT_MYSQL_IMAGE:?native MySQL8.4 digest required}"
+  : "${ZENITH_LOCAL_EXPORT_MINIO_IMAGE:?native MinIO digest required}"
+  for image in "$ZENITH_LOCAL_EXPORT_POSTGRES_IMAGE" "$ZENITH_LOCAL_EXPORT_MYSQL_IMAGE" "$ZENITH_LOCAL_EXPORT_MINIO_IMAGE"; do docker pull "$image"; done
   LOCALSTACK_IMAGE="$(node -e 'const fs=require("node:fs"); const s=fs.readFileSync("deploy/acceptance/local-targets/compose.yml","utf8"); process.stdout.write(s.match(/image: (localstack\/localstack:[^\s]+)/)[1])')"
   docker pull "$LOCALSTACK_IMAGE"
 fi
@@ -112,7 +129,7 @@ trap - EXIT
 Each gate's selected actual case must pass, with zero failed or skipped **required**
 cases. The other scenario in the file is filtered and establishes no evidence.
 Two-tenants receipt: 11 passed / 0 failed / 0 skipped checks. Export receipt:
-12 passed / 0 failed / 0 skipped checks. The gate case independently validates
+17 passed / 0 failed / 0 skipped checks. The gate case independently validates
 the source digest and receipt, including owned cleanup. Its scratch directory is
 `ZENITH_LOCAL_ROOT`; the receipt is `<scenario>.operated-receipt.json` there. No
 secret, diagnostic body or raw Playwright output is published.
@@ -139,9 +156,12 @@ skipped components keep that broader report incomplete.
 
 Not run here: both operated cases (needs Mac Docker, actual PostgreSQL/Temporal,
 kind, browser and private POSIX fixtures). No live acceptance was run. Export
-covers portable **infrastructure**, including the existing exporter's default
-VPC/security-group scaffold; it does not certify hosted-app data or LIFE-11
-database/object-content roundtrips, another provider, public DNS or payments.
+covers local customer data through LIFE-11 and portable infrastructure, including
+the existing exporter's default VPC/security-group scaffold. The aws resource
+descriptors in the data fixture select SQL/S3 compatibility engines and do not
+certify AWS provisioning or observation. A second real cloud provider remains
+live-deferred; public DNS, payments, production HA, object metadata/ACL/version
+portability and access/session import are outside these local data assertions.
 Two-tenants covers application tenant authority and owned kind objects; it does
 not certify isolation from a hostile shared cluster or CNI network enforcement.
 No J4 timer evidence is fabricated: schedules are unrelated to these drivers and
@@ -160,10 +180,101 @@ J1 private environment and dispatches the two files; `acceptance-orchestrator.ts
 preserves their evidence label and permits time for canonical worker drain;
 catalog/scenarios/local-target/gate registries add only these two scenarios.
 No SQL-scoping, scheduler, policy, migration or CLI product-dispatch seam remains.
+The customer-data join also changes `src/lib/capabilities/{ports,product-adapters,broker}.ts`:
+canonical `res_` IDs are resolved from current scoped platform rows; portability
+uses that row's provider instead of the environment default. Missing/deleted/
+foreign/unbound rows refuse, and existing ownership/policy denials stay enforced.
+No new tables, store functions, migrations or SQL-scoping classifications were added.
 Suggested ledger status: `implementation_complete_verification_pending` for the
 DRV-4 slice of PROD-REL-01; the whole requirement is not promoted.
 
 ## Builder commands and observed counts
+
+### Customer-data follow-up builder verification
+
+Follow-up inventory: **22 files, 16 modified and 6 added**, all left in the working
+tree. Added modules: `scripts/release/drivers/export-data.ts`,
+`export-data-plan.ts`, `export-data-postgres.ts`, the orchestrator-provided
+`export-data-leg.ts` contract (comments clarified), and temporary type-only
+`export-data-helper-stubs.d.ts`; added test:
+`tests/release/drivers/export-data.test.ts`. Modified driver modules:
+`scripts/release/drivers/{export,operated,protocol}.ts`; registries:
+`scripts/release/{local-targets,scenarios}.ts`, `scripts/ci/gate-manifest.mjs`;
+canonical resource join: `src/lib/capabilities/{broker,ports,product-adapters}.ts`;
+tests: `tests/capabilities/{product-adapters,portability-broker}.test.ts`,
+`tests/release/drivers/d4.test.ts`, `tests/release/local-targets.test.ts`; runbooks:
+`docs/build/production/verify/{DRV-4,PROD-LIFE-11,PROD-REL-01}.md`.
+`export-data-mysql.ts` and `export-data-objects.ts` were not written or copied by
+this worker. Their drafts in the helper worktrees still shared tenant export units
+when inspected; the required separate-unit correction was relayed to the
+orchestrator. Remove the type-only stub after compatible helpers are integrated.
+No deviation from the split handoff, dependency metadata/migration changes or git
+mutations. Suggested commit: `feat(release): rehearse tenant data export and restore`.
+
+All shell invocations prepend
+`$env:PATH = 'C:\Users\user\.local\sdk\node22;' + $env:PATH`.
+The following are actual offline results, separate from the Mac commands above.
+
+```powershell
+npx vitest run tests/capabilities/product-adapters.test.ts tests/capabilities/portability-broker.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/release/drivers/export-data.test.ts tests/release/drivers/d4.test.ts tests/release/local-targets.test.ts tests/release/scenarios.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/release/drivers/export-data.test.ts tests/release/drivers/d4.test.ts tests/release/local-targets.test.ts tests/release/acceptance-scenarios.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/release/drivers/export-data.test.ts tests/release/drivers/d4.test.ts tests/release/local-targets.test.ts tests/release/acceptance-scenarios.test.ts tests/release/orchestrator.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/release/drivers/export-data.test.ts tests/release/drivers/d4.test.ts --no-file-parallelism --maxWorkers=2
+```
+
+Counts in command order:
+
+- Canonical join command: three invocations, 41 passed / 3 failed / 0 skipped,
+  then 44 / 0 / 0 twice. Initial failures were new test fixture resets and a new
+  test that incorrectly expected referenced-resource export approval; full fixture
+  resets and the retained policy-denial expectation fixed them. No existing policy
+  assertion was weakened.
+- First release command: 68 passed / 1 failed / 0 skipped, three discovered files.
+  The nonexistent `scenarios.test.ts` filter discovered nothing; corrected in the
+  next command. The one failure was the existing exact gate inventory expectation.
+  Its additive four required customer-data/image gates make that expectation stale.
+- Corrected four-file release command: 76 / 0 / 0.
+- Five-file release command after DNS/cleanup planner tests: 88 / 0 / 0.
+- Focused command after compiler fixes: 38 / 0 / 0, two files.
+
+```powershell
+npx eslint scripts/release/drivers/export-data.ts scripts/release/drivers/export-data-plan.ts scripts/release/drivers/export-data-postgres.ts scripts/release/drivers/export.ts scripts/release/drivers/operated.ts scripts/release/drivers/protocol.ts scripts/release/local-targets.ts scripts/release/scenarios.ts scripts/ci/gate-manifest.mjs src/lib/capabilities/broker.ts src/lib/capabilities/ports.ts src/lib/capabilities/product-adapters.ts tests/release/drivers/export-data.test.ts tests/release/drivers/d4.test.ts
+npx eslint scripts/release/drivers/export-data.ts scripts/release/drivers/export-data-plan.ts scripts/release/drivers/export-data-postgres.ts scripts/release/drivers/export.ts scripts/release/drivers/operated.ts scripts/release/drivers/protocol.ts scripts/release/local-targets.ts scripts/release/scenarios.ts scripts/ci/gate-manifest.mjs src/lib/capabilities/broker.ts src/lib/capabilities/ports.ts src/lib/capabilities/product-adapters.ts tests/release/drivers/export-data.test.ts tests/release/drivers/d4.test.ts tests/release/local-targets.test.ts
+npx eslint scripts/release/drivers/export-data.ts scripts/release/drivers/export-data-plan.ts scripts/release/drivers/export-data-leg.ts scripts/release/drivers/export-data-postgres.ts scripts/release/drivers/export-data-helper-stubs.d.ts scripts/release/drivers/export.ts scripts/release/drivers/operated.ts scripts/release/drivers/protocol.ts scripts/release/local-targets.ts scripts/release/scenarios.ts scripts/ci/gate-manifest.mjs src/lib/capabilities/broker.ts src/lib/capabilities/ports.ts src/lib/capabilities/product-adapters.ts tests/release/drivers/export-data.test.ts tests/release/drivers/d4.test.ts tests/release/local-targets.test.ts tests/capabilities/product-adapters.test.ts tests/capabilities/portability-broker.test.ts
+npx eslint tests/capabilities/product-adapters.test.ts tests/capabilities/portability-broker.test.ts
+npx eslint scripts/release/drivers/export-data.ts
+bash Z:/Projects/Spawned.ai/zenith-wt/.resume/codex/tsc-serial.sh
+node scripts/ci/gate-manifest.mjs drivers-d4-export
+node scripts/ci/gate-manifest.mjs drivers-d4-two-tenants
+node node_modules/tsx/dist/cli.mjs scripts/release/acceptance-orchestrator.ts check
+git diff --check
+```
+
+Lint command order: initial 14-file run failed with 1 `prefer-const` error and
+0 warnings; fixed through a const-owned mutable container identity. The 15-file
+and 19-file runs passed, 0 errors / 0 warnings. The two-file command ran twice,
+both 0 / 0. The final one-file command passed, 0 errors / 0 warnings.
+First serialized typecheck failed with 3 errors in the new orchestrator: inferred
+JavaScript command option excess properties and a union needing explicit narrowing.
+Second serialized typecheck passed (exit0, 0 errors). It uses only the
+clearly marked temporary type signatures for the absent helper implementations;
+it cannot validate those files. Each manifest print passed once (exit0), with one
+required operated case, no engine/test execution. Registry check passed once
+(exit0): 19 scenarios, 81 mapped files present. All completed `git diff --check`
+invocations passed. Read-only `git status --short`, `git log --oneline -10`, `git
+diff`, `rg`, `rg --files`, `Get-Content`, `Select-Object`, `Select-String`,
+`Test-Path` and directory listings have no test counts. Missing exploratory paths
+(including `deploy/docker/Dockerfile.worker` and a `J2.md` runbook) were corrected
+without changing assertions, gates or other jobs' files.
+
+Not run: the two operated cases, including all real data roundtrips (needs Mac
+Docker, PostgreSQL/MySQL/MinIO/Temporal, kind, browser and trusted private CA).
+This is not an observed Vitest skip count. A second real cloud provider remains
+live-deferred. The helper files are not written by this worker; their separate
+database/bucket contract is a required integration dependency, not a waived seam.
+
+### Historical a7371b55 base driver verification
 
 All PowerShell invocations prepended
 `$env:PATH = 'C:\Users\user\.local\sdk\node22;' + $env:PATH`.

@@ -21,6 +21,7 @@ export interface Tenant {
 export interface OperatedContext {
   config: JourneyConfig; stack: Stack; browser: Browser; scratch: string; input: DriverInput; cleanup: OwnedCleanup;
   readbacks: Record<string, string>; step(id: string, work: () => Promise<void>): Promise<void>;
+  dataRoundtrips: NonNullable<OperatedReceipt["dataRoundtrips"]>;
 }
 
 export async function runOperated(input: DriverInput, work: (context: OperatedContext) => Promise<void>, limits: readonly string[]): Promise<number> {
@@ -80,7 +81,8 @@ export async function runOperated(input: DriverInput, work: (context: OperatedCo
       const { chromium } = await import("@playwright/test");
       const browser = await chromium.launch({ headless: true });
       cleanup.add(async () => { await browser.close(); });
-      context = { config, stack, browser, scratch, input, cleanup, readbacks: receipt.readbacks, step };
+      const dataRoundtrips = input.scenarioId === "export" ? (receipt.dataRoundtrips = {}) : {};
+      context = { config, stack, browser, scratch, input, cleanup, readbacks: receipt.readbacks, dataRoundtrips, step };
     });
     await work(context);
     await step("source-stable", async () => { ensure(JSON.stringify(sourceBinding()) === JSON.stringify(source), "source-drift"); });

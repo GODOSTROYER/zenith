@@ -6,6 +6,7 @@ import { z } from "zod";
 import { load as loadYaml } from "js-yaml";
 import { browserRequest, ok, action, nonce, until, command, ensure, sha256, privateFile } from "../../../tests/e2e/default/support.mjs";
 import { runOperated, createTenant, runDriverCli, type DriverInput, type OperatedContext, type Tenant } from "./operated";
+import { operatedDataRoundtrips } from "./export-data";
 
 const Bundle = z.object({
   provider: z.literal("localstack"), readme: z.string().min(1),
@@ -94,8 +95,12 @@ async function localstack(ctx: OperatedContext): Promise<{ id: string; aws(args:
 }
 
 export async function runExport(input: DriverInput): Promise<number> {
+  if (input.env.ZENITH_LOCAL_EXPORT_DATA !== "1") return 2;
   ensure(input.scenarioId === "export", "scenario-binding");
   return runOperated(input, async ctx => {
+    // Settle data engines before starting the independent infrastructure leg,
+    // keeping the peak fixture footprint bounded on the lean verifier.
+    await operatedDataRoundtrips(ctx);
     const target = await localstack(ctx);
     let tenant!: Tenant, deployed!: { deploymentId: string; revisionId: string }, bucket = "";
     const resourceName = "drv4-assets-" + input.runId;
@@ -194,8 +199,9 @@ export async function runExport(input: DriverInput): Promise<number> {
       ctx.readbacks.portable = sha256({ name, encrypted, blocked, groups });
       ensure(sha256(bundle.files.map(file => ({ path: file.path, content: readFileSync(path.join(directory, file.path), "utf8") }))) === ctx.readbacks.bundle, "export-bytes-unchanged-after-apply");
     });
-  }, ["LocalStack S3 export plus the exporter's default-VPC/security-group scaffold, applied by independent OpenTofu1.12.5. No customer-data, database dump, vault value or access/session import is claimed.",
-    "J1 lean plus one 512 MiB LocalStack fixture. No pebble, stripe-mock or mixed Lambda profile is needed for this scenario; J4 scheduling is separate.",
+  }, ["Local operated SQL/object data roundtrips plus LocalStack infrastructure export and independent OpenTofu1.12.5 apply. No vault value or access/session portability is claimed.",
+    "LIFE-11 aws descriptors select the SQL/S3 compatibility engines for owned local containers. No AWS resource provisioning or real cloud-provider observation is claimed; a second real cloud provider remains live-deferred.",
+    "J1 lean; database pairs run sequentially with two MinIO fixtures, settled before the 512 MiB LocalStack leg. Resource limits are plans, not measured host fitness; no production HA claim.",
     "The exported AWS~5/random~3 provider constraints are preserved; init needs the verifier's provider cache or registry downloads. No real cloud API is used."]);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) void runDriverCli("export", runExport).then(code => { process.exitCode = code; });

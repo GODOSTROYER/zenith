@@ -5982,7 +5982,8 @@ export const GATE_LANES = {
   ...Object.fromEntries(["two-tenants", "export"].map(scenario => [`drivers-d4-${scenario}`, {
     files: ["tests/release/drivers/d4.operated.test.ts"], testNamePattern: `^J15 DRV-4 actual owned operated stack ${scenario}: browser authority, independent readback and owned cleanup$`,
     env: {}, report: `.data-ci-lane/drivers-d4-${scenario}.json`, tools: { node: "22.23.3", tofu: "1.12.5" },
-    prerequisites: ["ZENITH_LOCAL_DRIVER_D4=1; fresh J1 lean/J2 config in the scenario's ZENITH_LOCAL_TWO_TENANTS_CONFIG_FILE or ZENITH_LOCAL_EXPORT_CONFIG_FILE", "Native arm64 Mac, local Docker, real PostgreSQL/Temporal, one owned kind node, Mailpit, Chromium and trusted J1 CA", "Owned stack/kind cleanup transfers to this driver; prepare the fixtures sequentially (see verify/DRV-4.md)", "Native pinned J15 LocalStack image cached locally for export; no live cloud credentials or API calls"],
+    prerequisites: ["ZENITH_LOCAL_DRIVER_D4=1; fresh J1 lean/J2 config in the scenario's ZENITH_LOCAL_TWO_TENANTS_CONFIG_FILE or ZENITH_LOCAL_EXPORT_CONFIG_FILE", "Native arm64 Mac, local Docker, real PostgreSQL/Temporal, one owned kind node, Mailpit, Chromium and trusted J1 CA", "Owned stack/kind cleanup transfers to this driver; prepare the fixtures sequentially (see verify/DRV-4.md)", "Native pinned J15 LocalStack image cached locally for export; no live cloud credentials or API calls",
+      ...(scenario === "export" ? ["ZENITH_LOCAL_EXPORT_DATA=1 and native digest-pinned ZENITH_LOCAL_EXPORT_POSTGRES_IMAGE, ZENITH_LOCAL_EXPORT_MYSQL_IMAGE, ZENITH_LOCAL_EXPORT_MINIO_IMAGE cached locally; verified MySQL TLS, exact customer-data witnesses required (verify/PROD-LIFE-11.md)"] : [])],
   }])),
   "wave5-contract": {
     files: WAVE5_CONTRACT_FILES.filter(file => !file.startsWith("tests/adversarial/")), env: {}, report: ".data-ci-lane/wave5-contract.json",

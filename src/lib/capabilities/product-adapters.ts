@@ -26,6 +26,7 @@ import type { Principal, Scope } from "@/lib/controlplane/types";
 import { STATEFUL_KINDS } from "@/lib/resources/types";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { BrokerError } from "./errors";
+import type { PlatformResource } from "@/lib/controlplane/db/repos/resources";
 import type { ResolvedAccess, ResolvedScope, RoleResolver, ScopeResolver, WorkspaceRoleOrNone } from "./ports";
 
 /* --------------------------------- scopes ---------------------------------- */
@@ -48,7 +49,10 @@ function resourceFacts(manifest: Manifest, id: string): ResolvedScope["resource"
   return undefined;
 }
 
-export function productScopeResolver(): ScopeResolver {
+export function productScopeResolver(readResource: (workspaceId: string, id: string) => Promise<PlatformResource | null> = async (workspaceId, id) => {
+  const { platformDb, repos } = await import("@/lib/controlplane/db");
+  return repos.resources.get(await platformDb(), workspaceId, id);
+}): ScopeResolver {
   return {
     async resolve(scope: Scope): Promise<ResolvedScope | null> {
       const d = db();
@@ -74,6 +78,19 @@ export function productScopeResolver(): ScopeResolver {
 
       if (scope.resourceId) {
         if (!env || !projectId) return null;
+        // Day-two execution and the resource API use canonical platform IDs.
+        // Resolve these against the authoritative tenant row, including its
+        // current ownership after adoption/release, rather than a manifest ID.
+        if (scope.resourceId.startsWith("res_")) {
+          const row = await readResource(scope.workspaceId, scope.resourceId);
+          if (!row || row.id !== scope.resourceId || row.workspaceId !== scope.workspaceId || row.environmentId !== env.id
+            || row.projectId !== projectId || row.status === "deleted") return null;
+          resolved.scope.resourceId = row.id;
+          resolved.resourceProvider = row.provider;
+          resolved.resource = { address: row.address, kind: row.kind, stateful: STATEFUL.has(row.kind), ownership: row.ownership,
+            publiclyExposed: ["container_service", "static_site", "load_balancer", "function"].includes(row.kind) || row.spec.publicAccess === true };
+          return resolved;
+        }
         const owner = d.projects.find((p) => p.id === projectId);
         // The deployed revision is what exists in the environment; the working copy is what the project is editing.
         const manifest = (env.deployedRevisionId ? await revisionManifestAsync(env.deployedRevisionId) : undefined) ?? owner?.workingManifest;

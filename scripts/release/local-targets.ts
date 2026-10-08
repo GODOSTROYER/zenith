@@ -23,9 +23,11 @@ export function localTargetLane(scenario: Scenario): LocalCommandLane {
   if (!target) throw new Error(`No local target for ${scenario.id}`);
   const operated = scenario.id === "two-tenants" || scenario.id === "export";
   return {
-    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json", ...(operated ? [target.driver!, "scripts/release/drivers/operated.ts", "scripts/release/drivers/protocol.ts"] : [])],
+    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json", ...(operated ? [target.driver!, "scripts/release/drivers/operated.ts", "scripts/release/drivers/protocol.ts"] : []),
+      ...(scenario.id === "export" ? ["scripts/release/drivers/export-data.ts", "scripts/release/drivers/export-data-plan.ts", "scripts/release/drivers/export-data-leg.ts", "scripts/release/drivers/export-data-postgres.ts", "scripts/release/drivers/export-data-mysql.ts", "scripts/release/drivers/export-data-objects.ts"] : [])],
     command: ["node", "node_modules/tsx/dist/cli.mjs", "scripts/release/local-target-runner.ts", "run", "--scenario", scenario.id],
-    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(operated ? ["ZENITH_LOCAL_DRIVER_D4=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE"] : [])],
+    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(operated ? ["ZENITH_LOCAL_DRIVER_D4=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE"] : []),
+      ...(scenario.id === "export" ? ["ZENITH_LOCAL_EXPORT_DATA=1", "ZENITH_LOCAL_EXPORT_POSTGRES_IMAGE", "ZENITH_LOCAL_EXPORT_MYSQL_IMAGE", "ZENITH_LOCAL_EXPORT_MINIO_IMAGE"] : [])],
     evidenceLabel: operated ? OPERATED_LABEL : LOCAL_LABEL,
   };
 }

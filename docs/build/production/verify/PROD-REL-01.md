@@ -2,7 +2,7 @@
 
 ## DRV-4 local operated two-tenants and export (8 October 2026)
 
-Dedicated browser/API/MCP tenant-isolation and infrastructure-export drivers are
+Dedicated browser/API/MCP tenant-isolation, customer-data and infrastructure-export drivers are
 implemented. Exact sequential **lean** fixture preparation, cleanup, receipt
 counts, offline commands and boundaries: [DRV-4](DRV-4.md). Each scenario requires
 its own fresh owned J1/J2 fixture; the driver destroys it. No local or live
@@ -20,10 +20,12 @@ ZENITH_LOCAL_DRIVER_D4=1 node scripts/ci/run-gate.mjs drivers-d4-export --run --
 
 Required config FILE variables are `ZENITH_LOCAL_TWO_TENANTS_CONFIG_FILE` and
 `ZENITH_LOCAL_EXPORT_CONFIG_FILE`. Expected required operated case: passed, never
-skipped; receipts: 11/0/0 tenant checks and 12/0/0 export checks, labelled
+skipped; receipts: 11/0/0 tenant checks and 17/0/0 export checks, labelled
 `local_operated_rehearsal`. Infrastructure export is independent OpenTofu into
-LocalStack, not customer-data portability or another live cloud provider. The
-full PROD-REL-01 status remains verification pending.
+LocalStack. The follow-up also exercises customer-data portability through
+LIFE-11 PostgreSQL/MySQL/MinIO engines; a second real cloud provider remains
+live-deferred. See [exact data fixture commands and boundaries](PROD-LIFE-11.md).
+The full PROD-REL-01 status remains verification pending.
 
 ## L1-LIVE-AWS provider slice (8 October 2026)
 

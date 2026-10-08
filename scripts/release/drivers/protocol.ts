@@ -1,10 +1,11 @@
 /** Closed, sanitized evidence for DRV-4. Importing this module starts no engines. */
 import { z } from "zod";
+import { DATA_KINDS, DataProofSchema } from "./export-data-plan";
 
 export const OPERATED_LABEL = "local_operated_rehearsal";
 export const DRIVER_CHECKS = {
   "two-tenants": ["preconditions", "independent-tenants", "browser-approved-deployments", "provider-readback", "browser-read-isolation", "browser-write-isolation", "mcp-isolation", "foreign-approval-refused", "no-cross-tenant-effects", "source-stable", "owned-cleanup"],
-  export: ["preconditions", "browser-approved-deployment", "provider-readback", "revision-export", "working-copy-divergence", "export-file-readback", "credential-absence", "browser-approved-teardown", "portable-plan", "portable-apply-readback", "source-stable", "owned-cleanup"],
+  export: ["preconditions", "browser-approved-deployment", "provider-readback", "revision-export", "working-copy-divergence", "export-file-readback", "credential-absence", "browser-approved-teardown", "portable-plan", "portable-apply-readback", "data-preconditions", "postgres-data-roundtrip", "mysql-data-roundtrip", "object-store-data-roundtrip", "data-tenant-scoping", "source-stable", "owned-cleanup"],
 } as const;
 export type DriverScenario = keyof typeof DRIVER_CHECKS;
 const READBACKS: Record<DriverScenario, readonly string[]> = { "two-tenants": ["tenant-a", "tenant-b"], export: ["source", "bundle", "portable-plan", "portable"] };
@@ -15,6 +16,7 @@ const Receipt = z.object({
   sourceCommit: z.string().regex(/^[a-f0-9]{40}$/), sourceDigest: z.string().regex(/^[a-f0-9]{64}$/),
   checks: z.array(z.object({ id: z.string(), status: z.enum(["passed", "failed", "skipped"]) }).strict()),
   readbacks: z.record(z.string().regex(/^[a-z][a-z0-9-]{1,60}$/), z.string().regex(/^[a-f0-9]{64}$/)),
+  dataRoundtrips: z.object({ postgres: DataProofSchema.optional(), mysql: DataProofSchema.optional(), object_store: DataProofSchema.optional() }).strict().optional(),
   limits: z.array(z.string().min(1).max(300)).min(1),
 }).strict();
 export type OperatedReceipt = z.infer<typeof Receipt>;
@@ -25,6 +27,15 @@ export function validateOperatedReceipt(raw: unknown, expected: { scenarioId: st
   if (receipt.checks.length !== required.length || receipt.checks.some((check, index) => check.id !== required[index])) throw new Error("Operated receipt check inventory mismatch");
   const keys = Object.keys(receipt.readbacks), readbacks = READBACKS[receipt.scenarioId];
   if (keys.some(key => !readbacks.includes(key)) || (receipt.checks.every(check => check.status === "passed") && readbacks.some(key => !keys.includes(key)))) throw new Error("Independent readback inventory mismatch");
+  if (receipt.scenarioId === "two-tenants" && receipt.dataRoundtrips) throw new Error("Unexpected data evidence");
+  if (receipt.scenarioId === "export") {
+    for (const kind of DATA_KINDS) {
+      const proof = receipt.dataRoundtrips?.[kind];
+      const check = receipt.checks.find(c => c.id === `${kind.replace("_", "-")}-data-roundtrip`)!;
+      if (check.status === "passed" && !proof) throw new Error("Missing data roundtrip witness");
+      if (proof && proof.mysqlTls !== (kind === "mysql" ? "verified_identity" : "not_applicable")) throw new Error("TLS witness mismatch");
+    }
+  }
   return receipt;
 }
 /** Register before mutation. Attempt every owned cleanup even after one fails. */

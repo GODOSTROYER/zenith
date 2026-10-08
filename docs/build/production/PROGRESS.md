@@ -2,6 +2,22 @@
 
 All 11 branches were already merged at443bfeaf. Assembly renumbers unpublished schemas44â€“52, emits0026, preserves verifier42/43 and published0016â€“0025, joins OPS/MAN/mixed contracts and adds required gate lanes. Billing is durable, archive/audit keys have separate purposes, restore measurements feed SLOs, and managed first deploy refuses unprovisioned isolation. Latest83-file contract results:1367 passed/0 failed/68 skipped across scoped reruns; compiler/lint/generated checks pass. Full gates466 passed/1 timeout followed by the required1-case passing retry (282 selection skips). Exact failed/successor receipts are in [W5-ASSEMBLY-RESULTS.md](verify/W5-ASSEMBLY-RESULTS.md), with native commands in [W5-ASSEMBLY.md](verify/W5-ASSEMBLY.md). Real PostgreSQL/Temporal/kind/browser/cloud acceptance remains pending; privileged bootstrap, isolated managed build custody and manifest Lambda invocation remain documented limitations. Requirement states stay in_progress/implementation_complete_verification_pending; all four release flags false. No commits or integration performed.
 
+## Integrated native checkpoint, 8 October 2026
+
+Integrated871f73d9: native platform3762/0/15, all1146 required; reviewed reconciliation38/0/0, all26. MySQL2 and Rclone1 selected real-engine cases passed with filtered siblings reported separately. MinIO2/1 and PostgreSQL cleanup custody failure remain open. Exact historicaldd8017 CI19/20 jobs succeeded; unit21819/0/1637; sole failure fixed locally, fresh pushed CI pending. Ledger recomputed:10 verified/49 in_progress/19 planned across78; all release flags false. [Current evidence and gaps](WIP-HANDOFF-2026-10-08.md).
+
+## Current verification publication, 8 October 2026
+
+Source105b5ea4 full native workflows105:1376 passed/2 failed/0 skipped; owned cleanup confirmed. Publisheda7 CI:18 successful/1 failed/1 running across20 jobs; platform runtime3762/0/15 but seven required backend labels rejected by strict checker. Backend parser and test-only schedule fixture repairs remain local candidates. Ledger recomputed78:10 verified/49 in progress/19 planned; release flags false. [Current building-machine context](WIP-HANDOFF-2026-10-08.md). No completion claim.
+
+## Replay integration, 8 October 2026
+
+Integrateda1259fdc: workflows105 mandatory IDs, prior71 preserved. Root exact reviewed packet: metadata463/0/0, actual SDK replay/audit34/0/0, compiler and lint passed. Full105 and1146 gates pending. Local build resource-blocked after successful compilation; publisheda7f8 GitHub build passed. Ledger recomputed78:10 verified/49 in progress/19 planned; four release flags false. No completion percentage inferred.
+
+## Publication checkpoint, 8 October 2026
+
+Source22967b64: native dispatch successor103/0/0, metadata348/0/0, mixed validation12/0/0; Next audit zero known findings. Current-source Temporal corpus21 recorded and34 replay/audit passes, one opt-in placeholder per run. Full build and combined gate remain open. Previous65b CI17 jobs passed/3 failed; fixes now included, fresh publication CI pending. Ledger recomputed:10 verified/49 in progress/19 planned across78; release flags false. Counts overlap. See [updated context](WIP-HANDOFF-2026-10-08.md) and [exact CI jobs](verification/CI-2026-10-08-65b24ccc.md).
+
 ## 8 October 2026: integrated repair publication
 
 Sourcec7332a56: native100100/0/0, historical77/0/0, workflow-intents156/0/0, Temporal/codec30/0/0, metadata345/0/0, marker18/0/0. Counts overlap. Native dispatch successor97/6/0; failed recording19/2/1 quarantined, no frozen corpus acceptance. Ledger10 verified/49 in_progress/19 planned across78; release flagsfalse. Complete successor gates/CI remain open. [Publication context](WIP-HANDOFF-2026-10-08.md).

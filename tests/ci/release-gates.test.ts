@@ -823,9 +823,9 @@ describe("canonical execution and evidence in CI", () => {
 
   it("requires local Temporal replay and pinned public source acquisition, retaining all external blockers", () => {
     const manifest = manifestFor("workflows");
-    expect(manifest.env).toMatchObject({ ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b" });
+    expect(manifest.env).toMatchObject({ ZENITH_REPLAY_LANE: "1", ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b" });
     for (const file of ["tests/workflows/codec-replay.test.ts", "tests/workflows/destroy-replay.test.ts", "tests/platform/source-bundle.test.ts"]) expect(manifest.requirements).toContainEqual(expect.objectContaining({ file }));
-    expect(manifest.excludeFiles).toEqual(["tests/workflows/mtls-live.test.ts", "tests/platform/codebuild-launch-authority.test.ts", "tests/workflows/start-intent.test.ts", "tests/workflows/history-replay.test.ts", "tests/workflows/history-record.test.ts"]);
+    expect(manifest.excludeFiles).toEqual(["tests/workflows/mtls-live.test.ts", "tests/platform/codebuild-launch-authority.test.ts", "tests/workflows/start-intent.test.ts", "tests/workflows/history-record.test.ts"]);
     for (const file of manifest.excludeFiles.slice(1, 3)) {
       const requiredLane = file === "tests/platform/codebuild-launch-authority.test.ts" ? "platform-postgres" : "workflow-intents";
       const required = manifestFor(requiredLane);

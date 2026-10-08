@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "scope": "Focused source-bound successor evidence; not full-candidate acceptance. Counts overlap and must not be summed.",
+  "nativeDispatch": {
+    "commit": "bb54ab166563d1392b9ac0ad430a220067fbabfd",
+    "architecture": "native Darwin ARM64",
+    "database": "actual PostgreSQL 16.15",
+    "counts": {
+      "passed": 103,
+      "failed": 0,
+      "skipped": 0,
+      "total": 103
+    },
+    "testExitCode": 0,
+    "stopExitCode": 0,
+    "ownedDataRemoved": true,
+    "minimumFreeBytes": 26534486016,
+    "floorBytes": 23622320128
+  },
+  "metadata": {
+    "commit": "f38bc8a2332a75507064a7a45754a289115ea24d",
+    "counts": {
+      "passed": 348,
+      "failed": 0,
+      "skipped": 0,
+      "total": 348
+    }
+  },
+  "portableHistories": {
+    "recordedSource": "edff0f9fd8ea3d259a800ed18252213c2de178ff",
+    "frozenCommit": "22967b64",
+    "recordCounts": {
+      "passed": 21,
+      "failed": 0,
+      "skipped": 1,
+      "total": 22
+    },
+    "replayCounts": {
+      "passed": 34,
+      "failed": 0,
+      "skipped": 1,
+      "total": 35
+    },
+    "independentInspection": {
+      "checksPassed": 185,
+      "decodedPayloads": 711,
+      "histories": 21,
+      "absoluteHomePaths": 0,
+      "recognizedCredentialPatterns": 0,
+      "ActivityNotFound": 0
+    },
+    "limitations": [
+      "First current-source synthetic corpus, not previous-release replay compatibility.",
+      "One explicit opt-in placeholder per focused invocation; required replay scenarios executed.",
+      "Cloud activities simulated; Temporal recording and Worker SDK replay are real.",
+      "Mandatory canonical replay activation remains pending at this evidence checkpoint."
+    ]
+  },
+  "buildAttempts": [
+    {
+      "commit": "bb54ab166563d1392b9ac0ad430a220067fbabfd",
+      "floorBytes": 23622320128,
+      "steps": [
+        {
+          "name": "compiler",
+          "beforeFreeBytes": 26607714304,
+          "minimumFreeBytes": 24381890560,
+          "exitCode": 0,
+          "durationSeconds": 75.55,
+          "afterFreeBytes": 24381976576
+        },
+        {
+          "name": "lint",
+          "beforeFreeBytes": 24381976576,
+          "minimumFreeBytes": 24367292416,
+          "exitCode": 0,
+          "durationSeconds": 31.95,
+          "afterFreeBytes": 24367280128
+        },
+        {
+          "name": "build",
+          "beforeFreeBytes": 24367280128,
+          "minimumFreeBytes": 23398088704,
+          "status": "disk_floor_stop",
+          "exitCode": 143,
+          "durationSeconds": 109.06,
+          "afterFreeBytes": 23397445632
+        }
+      ],
+      "beforeFreeBytes": 26607714304,
+      "afterFreeBytes": 23397363712
+    },
+    {
+      "commit": "f38bc8a2332a75507064a7a45754a289115ea24d",
+      "beforeFreeBytes": 24962600960,
+      "floorBytes": 23622320128,
+      "heapMB": 2048,
+      "command": "npm run build",
+      "profile": "same production build configuration; reduced Node heap only",
+      "minimumFreeBytes": 24962564096,
+      "exitCode": 1,
+      "durationSeconds": 100.41,
+      "afterFreeBytes": 24983334912,
+      "status": "completed"
+    },
+    {
+      "commit": "a7f8d16071a9db3e6569764e90aaf610650056df",
+      "floorBytes": 23622320128,
+      "heapMB": 3072,
+      "beforeFreeBytes": 26164019200,
+      "profile": "same production configuration; heap increased after observed 2048 MB OOM",
+      "exitCode": 1,
+      "durationSeconds": 164.17,
+      "minimumFreeBytes": 24634900480,
+      "afterFreeBytes": 24633991168,
+      "status": "completed",
+      "failure": "Production compilation succeeded; subsequent type-check build worker exhausted 3072 MB heap and exited with SIGABRT."
+    },
+    {
+      "commit": "a7f8d16071a9db3e6569764e90aaf610650056df",
+      "floorBytes": 23622320128,
+      "heapMB": 4096,
+      "beforeFreeBytes": 24636133376,
+      "profile": "same production configuration; heap increased after observed 3072 MB type-check worker OOM; existing build cache retained",
+      "status": "disk_floor_stop",
+      "exitCode": 143,
+      "durationSeconds": 69.63,
+      "minimumFreeBytes": 23585742848,
+      "afterFreeBytes": 23585742848
+    }
+  ]
+}

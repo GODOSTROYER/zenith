@@ -1,3 +1,84 @@
+## Integrated native verification checkpoint, 8 October 2026
+
+Integrated source `871f73d91cbb1056f6a1830a0d5e361beb2aeacb` includes `95fd7cc5` (strict quoted-backend label normalization) and `871f73d9` (test-only scheduling execution settlement). Both packets received independent Astra source review and root verification. No assertion, required count, production lease, cadence or gate was weakened. Native100 remains exactly100.
+
+| Tested source | Executed result | Scope |
+|---|---|---|
+| `871f73d9` | 3,762 passed / 0 failed / 15 skipped; all1,146 required passed | Full actual native PostgreSQL platform lane; agent schema initialized through canonical API before platform migrations; child0, stop0, owned data removed |
+| `a8416305`, integrated as `871f73d9` | 38 passed / 0 failed / 0 skipped; all26 required passed | Full native PostgreSQL/Temporal reconciliation lane on exact reviewed scheduling packet; compiler/lint0, cleanup confirmed |
+| `871f73d9` | 2 required cases passed / 0 failed | Actual MySQL9.6.0 stock CLI and in-process hostname TLS; filtered siblings9 and20, not full-suite zero-skips evidence; cleanup confirmed |
+| `871f73d9` | 1 required case passed / 0 failed | Experimental Rclone1.75.1 literal-loopback HTTPS S3-compatible export/import;10 filtered siblings; not MinIO/DNS/cloud acceptance; cleanup confirmed |
+| `871f73d9` | 2 PostgreSQL export/import cases passed, overall attempt failed | Strict cleanup custody refused owned-tree removal; server stopped/listeners absent, retained data untouched; not green acceptance |
+| `871f73d9` | MinIO2 passed /1 failed;3 filtered PostgreSQL siblings | Genuine native MinIO; rebinding case expected lookup2 but observed0; root cause unproven, negative assertions unchanged; cleanup confirmed |
+
+Earlier full local workflows105 failure1376/2/0 remains preserved. Initial platform retry3707/6/64 failed because fixture omitted canonical agent schema; corrected full native successor above includes it. MySQL/Rclone initial certificate/setup failures are retained; corrections preserve strict TLS and hostname identity. Counts overlap and are not summed. [Sanitized receipt](evidence/PROD-CI-08/2026-10-08-integrated-native-successors.json).
+
+Exact previous publication `dd8017ad`: all20 CI jobs terminal,19 succeeded/1 failed. Unit21,819 passed/0 failed/1,637 skipped; workflows1,378/0/0 with all105 required passed. Sole failing platform job ran3,762/0/15 but strict checker rejected seven quoted backend labels; local95fd repair has full native successor evidence above. Native AMD64 and ARM64 workers each22/0/0, both native. Previous CI does not verify these new repair commits. [Per-job report](verification/CI-2026-10-08-dd8017ad.md).
+
+Remaining: diagnose MinIO rebinding fixture/transport failure without relaxing checks; identify PostgreSQL cleanup custody refusal before narrowly reviewed repair; run three native PostgreSQL DNS cases; full combined gate/new exact-push CI; default Mac application/browser acceptance and wider lifecycle requirements. Native controllers/raw logs remain private; sanitized hashes/counts retained. Root platform source was tracked-clean with user untracked files preserved; canonical evidence reports worktreeDirty=true from those untracked files, not clean-clone acceptance. Legacy platform wrapper's initializer delta was reviewed; whole wrapper was not independently accepted. Cleanup was independently checked after this owned run.
+
+Storage stayed above22GiB floor; lowest new successful platform run25,361,526,784B. Docker remains stopped; no unrelated cleanup. Local disposable default startup on this Mac remains approved. Cloud calls/spend, real DNS/private GitHub App, retention/business decisions and production sign-off remain unapproved. Ledger78:10 verified/49 in progress/19 planned. All four release flags false; no requirement promotion. This checkpoint gives building machine current progress context, not full green acceptance.
+
+## Current verification publication, 8 October 2026
+
+Integrated source `105b5ea4a077921d9c9b84cdaf5515ca3e925fe6` includes mandatory replay activation `a1259fdc`. The full native Mac PostgreSQL/Temporal workflows105 attempt completed with **1,376 passed / 2 failed / 0 skipped**, across67 files. Both failures are in `tests/workflows/reconcile-schedule.test.ts`: held SKIP overlap timed out after90 seconds; independent concurrent sweep expected completed but observed busy. Child test exit1 is authoritative despite controller exit0. Owned PostgreSQL stopped and data removed; minimum24,919,982,080B stayed above23,622,320,128B floor. Failed attempt remains preserved. [Sanitized exact-source receipt](evidence/PROD-CI-08/2026-10-08-workflows105-failure.json).
+
+Published `a7f8d160` CI snapshot:18 jobs succeeded,1 failed and1 still running across three runs. Main run37705618627 has14 successful jobs, platform-postgres failed and verify remains running. Native worker and platform runs have four successful jobs. Platform executed **3,762 passed / 0 failed / 15 skipped** but strict canonical validation rejected seven quoted PostgreSQL backend suite labels; all1,146 required identities remain mandatory. Runtime test success does not make that gate green. Published workflows71 passed1,349/0/0; native AMD64 and ARM64 workers each22/0/0. Counts overlap and are not summed.
+
+Remaining local packets, not integrated or published: backend-label correction `34ab64566f2d67d4dc43f04148cb202b4a8ee48d` has independent source acceptance and root470/0/0 metadata, compiler/lint exit0; fresh actual native1,146-case acceptance remains pending. Test-only scheduling-fixture correction is under independent review, with native execution pending. No production timing, lease or assertion weakening is authorized. Prepared native MySQL and local S3-compatible controllers/tools have not supplied new executed acceptance.
+
+This publication is progress context for the building machine, not a green-candidate claim. Fresh publication CI must be inspected separately. Ledger remains78 requirements:10 verified/49 in progress/19 planned; all four release flags false. Native Mac default composition remains resource-blocked; cloud/DNS/private GitHub App and business/retention decisions remain unapproved. Local disposable default startup on this Mac remains approved. Existing source, failed attempts, user files and historical commits are preserved.
+
+## Mandatory replay integration, 8 October 2026
+
+Integrated `a1259fdcb49ff34805be5610edbec8ca16e0b36d` activates the first frozen current-source corpus in the existing canonical workflows lane. All71 prior requirement IDs remain unchanged;34 literal replay/audit checks bring the total to105. Recording remains opt-in. Selected replay has no placeholder skip. Historical71/70/60/58 projections remain exact and unknown future IDs remain visible. No fixture bytes, authority controls or receipt validator changed.
+
+Independent Astra source review accepted the exact seven-file packet. Root executed on reviewed worker37862473: metadata463 passed/0 failed/0 skipped, actual SDK replay plus versioning34/0/0, complete compiler exit0 and seven-file lint exit0. Storage remained above22GiB. Full combined workflows105 and fresh exact pushed CI are still pending. This synthetic corpus does not prove previous-release compatibility or live-cloud operations. See [sanitized receipt](evidence/PROD-OPS-03/2026-10-08-mandatory-replay-activation.json).
+
+Local Next production compilation succeeded in the3GiB attempt, then type-check worker exhausted its heap. The subsequent4GiB retry stopped at storage floor:23,585,742,848B against23,622,320,128B, exit143. GitHub build on exact publisheda7f8d160 completed successfully; native Mac default-stack build remains separate and open. Storage helper removed only inventoried rebuildable failed .next/cache after process absence, freeing1,504,169,984B; outputs, source, dependencies and evidence preserved. A private receipt filename collision was corrected from separately saved attempt3 evidence; both original build logs remain intact.
+
+## GitHub publication context, 8 October 2026
+
+Integrated source before this documentation commit: `22967b64`. Eleven repair commits follow published `65b24ccc6cbc82af9c0cb8f6dfcd261fd717755d`. This checkpoint publishes source and progress context for the building machine, without claiming a green full candidate.
+
+| Exact tested source | Result | Evidence scope |
+|---|---|---|
+| `dd1d4858` | 12 passed / 0 failed / 0 skipped | Mixed-state validation on actual PostgreSQL 16.15, PGlite and memory; owned resources cleaned |
+| `bb54ab16` | 103 / 0 / 0 | Actual PostgreSQL native apply/mixed/maintenance successor, including all six previously failing dispatch fixtures |
+| `bb54ab16` | Install, lockfile integrity, full security audit, compiler and lint passed | Next 15.5.27 and mandatory version-coupled companions; zero known dependency findings, no exception; lint retained three existing vendor warnings |
+| `f38bc8a2` | 348 / 0 / 0 | Strict gate metadata and historical/current requirement identities |
+| `edff0f9f` | Recording 21 / 0 / 1; replay/audit 34 / 0 / 1 | Actual Temporal recording and SDK replay; each run includes one opt-in placeholder skip, not a required scenario waiver |
+| `22967b64` | 21 immutable histories plus manifest committed | Independent inspection: 185 controls, 711 decoded payloads, no recognized credential patterns, home paths or ActivityNotFound failures |
+
+Counts overlap and are not summed. The frozen histories are the first current-source synthetic corpus. They do not prove compatibility with a previous released version or live provider behavior. Two earlier recording attempts remain quarantined privately, unchanged: the first had branch/registration failures; the second had absolute local paths in synthetic error stacks. The accepted correction creates portable synthetic stacks before recording and retains the same thrown error objects and authority checks.
+
+The six dispatch failures were fixture composition errors before approval: the fake world supplied MemorySemanticsStore rather than production's actual PostgreSQL semantics store. The correction preserves durable preapproval binding, explicit reviewed digest, actual audit writes and all six authority controls. No production approval-audit failure was demonstrated.
+
+### Latest complete published CI
+
+Exact `65b24ccc`: all 20 jobs inspected terminal, 17 successful and 3 failed. Main CI: 13 successful / 3 failed. Native worker and native platform runs: all four jobs successful. See [per-job report](verification/CI-2026-10-08-65b24ccc.md).
+
+Failures: supply-chain (Next advisories), platform-postgres (six native dispatch fixtures), verify (one stale source-hash assertion). Their bounded fixes are included in this checkpoint; complete successor CI is still required. Historical unit result remains 21,804 passed / 1 failed / 1,611 skipped; historical platform result remains 3,744 / 6 / 15. Those results are not relabeled green by focused successor checks. Published workflows passed 1,349 / 0 / 0 with all 71 mandatory requirements executed. Native AMD64 and ARM64 workers each passed 22 / 0 / 0. Native Linux systemd and Windows ACL each passed one selected leaf; Windows excluded 15 sibling cases.
+
+### Remaining work and blockers
+
+- Activate committed replay corpus in the existing canonical workflows gate. Independent Astra design review accepted 34 additional literal requirements while preserving all 71 existing IDs, targeting 105. Activation is not implemented in this checkpoint; the selected lane's opt-in placeholder must be removed without weakening default opt-out or negative replay controls.
+- Production Next build remains unverified: the 4 GiB heap attempt crossed the continuous 22 GiB disk floor and stopped (exit143); the 2 GiB heap attempt exhausted its heap (exit1, child SIGABRT). Same-config 3 GiB retry remains pending. Neither result demonstrates a source compilation failure or a passing build.
+- Complete current-source PostgreSQL 1,146-requirement gate, remaining combined gates and fresh pushed CI remain pending. Native100 remains exactly 100.
+- Default Mac stack, browser accessibility, kind and changed-byte packaged acceptance remain open subject to measured capacity. One heavy workload at a time; preserve 18 GiB minimum plus 4 GiB swap headroom. No unrelated Docker prune or deletion.
+- Migration41's nullable JSON CHECK remains an open database defense gap. Application validation does not close it; no migration44 or incompatible old-writer rollout is approved by this checkpoint.
+- Live clouds, paid resources, real DNS/private GitHub App, retention/business decisions and production sign-off remain unapproved. Local disposable default startup on this Mac remains authorized.
+
+All 78 requirements retained: 10 verified / 49 in progress / 19 planned. All four release flags remain false. No requirement promoted from overlapping focused evidence. Source, original failed attempts, private receipts and user files are preserved. Commit author and committer: Arnav Bule <arnav.bule05@gmail.com>. Same branch, normal pull/merge and push, no history rewrite.
+
+## Approval fixture diagnosis correction and mixed validation, 8 October 2026
+
+The previous publication described six failures as missing approval-audit events after a successful approval. Inspection of the exact failure diffs disproved that description: both c7332a56 and diagnostic63a4192a fail the earlier approved_semantics row assertion before approval executes. Counts97/6/0 are unchanged; the reported stage was wrong. The native fixture inherited MemorySemanticsStore from its fake world while production composition supplies createPlatformSemanticsStore. The corrective fixture must wire the actual PostgreSQL semantics store, preserve preapproval durable binding, explicit human review, actual audit-write proof and all authority controls. No production audit failure has been demonstrated by these attempts.
+
+Integrated dd1d4858 validates mixed run state before any durable create/save and checks environmentId/desiredDigest on read. Root owned serial run:12 passed /0 failed /0 skipped on native PostgreSQL16.15, PGlite and memory; parent exit0, PostgreSQL stop0 and data/socket removal. Compiler and touched-source lint passed. The migration41 nullable database constraint gap remains open and is not closed by application validation. No schema44 is included.
+
+Fresh65b24ccc CI supply-chain failed for Next15.5.24, GHSA-4jqv-mc3x-m676 and GHSA-mcj8-r9mp-w47p. Official Next15.5.27 release fixes both. Latest user instruction to fix remaining failures authorizes this exact bounded security patch and mandatory version-coupled @next/env/SWC companions; no general upgrades or exceptions. Existing lint override, Sharp, React and unrelated dependencies must remain unchanged. Source-reviewed disposition found the advisories' specific Pages Router/root catch-all prerequisites absent from current App Router source; the mandatory security gate still blocks. Fresh install, full audit, compiler/lint, standalone build and package checks remain required before acceptance.
+
 ## Verification publication checkpoint, 8 October 2026
 
 Integrated source before this documentation commit: `c7332a56c18e2021c5c583fd93565b53d5cdb015`. Twelve repair/evidence commits follow published `3dae8f9a`. This publication saves current integrated fixes and context for the other machine; it does not assert a complete green candidate.

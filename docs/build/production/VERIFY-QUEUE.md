@@ -1,3 +1,18 @@
+## Results, integrated native checkpoint, 8 October 2026
+
+- PROD-CI-08: in_progress;871f73d9 native platform3762/0/15, all1146 required; new complete CI pending. [Results](verification/RESULTS-2026-10.md#integrated-native-verification-checkpoint-8-october-2026).
+- PROD-OPS-03: in_progress; reviewed a8416305 reconciliation38/0/0, all26, integrated871f73d9; previous-release/in-flight upgrade acceptance remains open.
+- PROD-LIFE-11: in_progress;871f73d9 MySQL2/Rclone1 selected cases passed; genuine MinIO2/1; PostgreSQL2 passed but cleanup failed; native DNS3 not run. No promotion.
+
+## Results: 8 October publication successor
+
+PROD-CI-08: source105b5ea4 workflows105 failed1376/2/0; sourcea7 native platform runtime3762/0/15 failed strict seven-label binding. Corrective packets not integrated; no verified promotion. PROD-OPS-03: mandatory105 replay activation integrateda1259fdc, scoped34/0/0; combined105 remains failed. Fresh pushed CI pending. See [current context](WIP-HANDOFF-2026-10-08.md).
+
+## Results: mandatory replay integration, 8 October 2026
+
+- PROD-OPS-03 Results: a1259fdc activates105 canonical workflow requirements, preserving71; root metadata463/0/0, SDK replay/audit34/0/0, compiler/lint passed. Full105 lane, previous-release/upgrade proof and fresh CI pending. No promotion.
+- PROD-CI-08 Results: bb54ab16 native dispatch successor103/0/0; f38bc8a2 metadata348/0/0. Full1146 PostgreSQL gate and fresh CI pending; earlier failures retained.
+
 ## Results: 8 October publication checkpoint
 
 PROD-CI-08: in_progress; c7332a56; native100 successor100/0/0 at5fc3cb2c, native dispatch97/6/0 and failed history recording19/2/1 retained. Full combined gate pending.

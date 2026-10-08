@@ -716,7 +716,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "migration42_repaired_native_verified_whole_ci_failed_9b568108",
+      "implementationStatus": "native_browser44_passed_integrated74729261_full_local_gate_and_publication_ci_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -1387,6 +1387,14 @@
           "command": "Owned serial exact-source native Chrome agent-browser controllers with continuous22GiB disk guard; per-Node heaps1536,2048,4096 independently reviewed",
           "environment": "Native Darwin ARM64 Node22.23.3, actualChrome1280/380px, declared local identity-provider double; noDocker/cloud; not defaultSupabase/375px operator accessibility evidence",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-browser-heap4096.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "74729261720aba23058dd6a4d43e042a43e978da",
+          "result": "44 passed/0 failed/0 skipped, actual native Chrome69s; original44/deadlines preserved,3072MiB per-Node profile; source-bounde69 differs from integrated747 only productiondocs. Full CI/local bootstrap/default stack remain open.",
+          "command": "Exact-source owned native agent-browser controller; private3072MiB Node old-space profile; continuous22GiBfloor and owned cleanup",
+          "environment": "DarwinARM64 native Node22.23.3, actualChrome1280/380, declared identity-provider double; noDocker/cloud/defaultSupabase/375pxWCAG claim",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-browser-heap3072-passed.json"
         }
       ],
       "requiredEvidence": [

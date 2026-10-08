@@ -1,3 +1,9 @@
+## Native browser accepted, 8 October 2026
+
+Integrated `74729261720aba23058dd6a4d43e042a43e978da`: reviewed browser diagnostics, actual same-Mac Chrome **44 passed/0 failed/0 skipped**,69seconds with3072MiB per-Node heap. Minimum disk24.526GB above22GiB floor; owned cleanup complete, independent review accepted. Original assertions/deadlines unchanged. Runtime source parity against executede69 differs only in productiondocs; affected lint passed, complete new compiler/CI pending.
+
+This proves the agent-consent gate with declared identity-provider double and1280/380px views, not defaultSupabase/375px operator accessibility. Old pending patch now reflects integrated source and must not be reapplied. Default stack/originalbootstrap gates remain open. Publishedb919 has19/20 successful terminaljobs; verify still running. Ledger **10 verified/49 in progress/19 planned**,78 requirements/four false release states retained. [Exact accepted and failed attempts](verification/RESULTS-2026-10.md#native-browser-accepted-with-bounded3072mib-profile-8-october-2026).
+
 ## Current storage-bound local result
 
 Actual isolatede69 browser diagnostics establish memory-triggered dev-server restarts at1536/2048MiB. Reviewed4096MiB profile eliminates observed restarts and reaches20 passing controls, but disk guard aborts before44 required checks:20 passed/2 failed/22 discovered, minimum23,408,803,840bytes below22GiB floor. Owned cleanup complete. This remains failed/resource-blocked; user-authorized disk helper completed its check:0bytes reclaimed,22.44GiB free/0.44GiB floor margin,7GiB swap allocated; no safe additional3–5GiB available within protected scope. [Exact results](verification/RESULTS-2026-10.md#same-mac-browser-resource-correction-and-remaining-storage-blocker). Freshb919 CI native workers/platform/browser/workflows passed; complete main verification still pending.

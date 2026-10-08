@@ -1,3 +1,9 @@
+## Native browser accepted, 8 October 2026
+
+Integrated `74729261720aba23058dd6a4d43e042a43e978da`: reviewed browser diagnostics, actual same-Mac Chrome **44 passed/0 failed/0 skipped**,69seconds with3072MiB per-Node heap. Minimum disk24.526GB above22GiB floor; owned cleanup complete, independent review accepted. Original assertions/deadlines unchanged. Runtime source parity against executede69 differs only in productiondocs; affected lint passed, complete new compiler/CI pending.
+
+This proves the agent-consent gate with declared identity-provider double and1280/380px views, not defaultSupabase/375px operator accessibility. Old pending patch now reflects integrated source and must not be reapplied. Default stack/originalbootstrap gates remain open. Publishedb919 has19/20 successful terminaljobs; verify still running. Ledger **10 verified/49 in progress/19 planned**,78 requirements/four false release states retained. [Exact accepted and failed attempts](verification/RESULTS-2026-10.md#native-browser-accepted-with-bounded3072mib-profile-8-october-2026).
+
 ## Post-publication native browser evidence, 8 October 2026
 
 Publishedb9191887 CI has18/20 successful terminal jobs; mainverify andplatform-postgres still running, no current failure. Native workers each22/0/0; nativeplatform leaves1/0/0; browser44/0; workflows1378/0/0 with105 required. Counts overlap and are not summed.

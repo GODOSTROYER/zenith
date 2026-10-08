@@ -51,12 +51,11 @@ resource "azurerm_user_assigned_identity" "observer" {
   tags                = azurerm_resource_group.sandbox.tags
 }
 resource "azurerm_federated_identity_credential" "github" {
-  name                = "github-protected-environment"
-  resource_group_name = azurerm_resource_group.sandbox.name
-  parent_id           = azurerm_user_assigned_identity.observer.id
-  issuer              = "https://token.actions.githubusercontent.com"
-  audience            = ["api://AzureADTokenExchange"]
-  subject             = "repo:${var.github_repository}:environment:${var.github_environment}"
+  name                      = "github-protected-environment"
+  user_assigned_identity_id = azurerm_user_assigned_identity.observer.id
+  issuer                    = "https://token.actions.githubusercontent.com"
+  audience                  = ["api://AzureADTokenExchange"]
+  subject                   = "repo:${var.github_repository}:environment:${var.github_environment}"
 }
 resource "azurerm_role_definition" "observer" {
   name              = "${var.name}-acceptance-readback"

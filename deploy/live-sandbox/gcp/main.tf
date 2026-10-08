@@ -36,7 +36,7 @@ variable "notification_channel" { type = string }
 data "google_project" "sandbox" { project_id = var.project_id }
 resource "google_iam_workload_identity_pool" "github" {
   workload_identity_pool_id = var.pool_id
-  display_name             = "Zenith acceptance observer"
+  display_name              = "Zenith acceptance observer"
 }
 resource "google_iam_workload_identity_pool_provider" "github" {
   workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
@@ -55,8 +55,8 @@ resource "google_service_account" "observer" {
 }
 resource "google_service_account_iam_member" "github" {
   service_account_id = google_service_account.observer.name
-  role              = "roles/iam.workloadIdentityUser"
-  member            = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/subject/repo:${var.github_repository}:environment:${var.github_environment}"
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/subject/repo:${var.github_repository}:environment:${var.github_environment}"
 }
 resource "google_project_iam_custom_role" "observer" {
   role_id = "zenithLiveReadback"
@@ -103,7 +103,7 @@ resource "google_billing_budget" "sandbox" {
   }
   all_updates_rule {
     monitoring_notification_channels = [var.notification_channel]
-    disable_default_iam_recipients    = false
+    disable_default_iam_recipients   = false
   }
 }
 output "workload_identity_provider" { value = google_iam_workload_identity_pool_provider.github.name }

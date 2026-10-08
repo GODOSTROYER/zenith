@@ -2925,6 +2925,40 @@
             "architecture": "native Darwin ARM64"
           },
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-integrated-native-successors.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "60d78730a148f175e0d63c3be4c600545fdf43d0",
+          "result": "Fresh original MySQL TLS protocol6 passed/0 failed/0 skipped, parent0/source-bound/all owned cleanup. Preintegration worker6/0/0, compiler4GiB0/lint0 after preserved2/3GiB OOM. Native5687 PG2/DNS3/MinIO3 passed in separate artifacts; not engine/provider proof from protocolfixture or whole lifecycle promotion.",
+          "environment": {
+            "node": "22.23.3",
+            "mysql": "9.6.0",
+            "openssl": "3.6.5",
+            "architecture": "native Darwin ARM64"
+          },
+          "artifact": "docs/build/production/evidence/PROD-LIFE-11/2026-10-08-native-mysql-cli-fixture-successor.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "5687c3bea1a5c6288199c9fef885de97c5dce5f9",
+          "result": "Native PostgreSQL selected2+3 cases passed, parent0/source binding/all owned cleanup;12+3 filtered siblings separate.22 guard controls separate; failed predecessors retained.",
+          "environment": {
+            "node": "22.23.3",
+            "postgres": "16.15",
+            "architecture": "native Darwin ARM64"
+          },
+          "artifact": "docs/build/production/evidence/PROD-LIFE-11/2026-10-08-native-postgres-atomic-successors.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "5687c3bea1a5c6288199c9fef885de97c5dce5f9",
+          "result": "Genuine native MinIO selected3 passed/0 failed/0 required skipped;3 filtered PG siblings, parent0/source-bound/all owned cleanup; predecessor2/1 retained.",
+          "environment": {
+            "node": "22.23.3",
+            "postgres": "16.15",
+            "architecture": "native Darwin ARM64"
+          },
+          "artifact": "docs/build/production/evidence/PROD-LIFE-11/2026-10-08-native-minio-host-successor.json"
         }
       ],
       "requiredEvidence": [
@@ -2935,7 +2969,7 @@
       "testPaths": [],
       "followUps": [
         "Acceptance cleanup must preserve unresolved mutation blockers across original/follow-up CLI runs. No quiescence authority from terminal operation projection alone. Backup/export/import/adoption and live ownership-safe teardown remain incomplete.",
-        "MySQL DNS-hostname TLS targets explicitly refused: stock CLI cannot preserve original hostname certificate identity while connecting to validated IP. Literal-IP CA/IP-SAN acceptance executed. Hostname support and wider backup/adoption/decommission acceptance remain open; no downgrade or detached identity probe."
+        "Historical stock-CLI hostname refusal remains correct; current in-process mysql2 hostname transport passed native MySQL engine and six real-client TLS protocol controls in separate scopes. Stock CLI literal-IP identity stays enforced. Wider adoption/backup/decommission acceptance remains open."
       ]
     },
     {
@@ -4998,23 +5032,23 @@
     }
   ],
   "sessionState": {
-    "status": "verification_continuing_native_platform_repaired_transport_and_full_gate_pending",
-    "sourceCheckpoint": "871f73d91cbb1056f6a1830a0d5e361beb2aeacb",
+    "status": "verification_continuing_native_transport_successors_passed_full_ci_and_default_stack_open",
+    "sourceCheckpoint": "60d78730a148f175e0d63c3be4c600545fdf43d0",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "dd8017ad8d8d7e2a08c2ad3a62346d88f3c15952",
-    "lastPushedRun": 37708661093,
-    "lastPushedRunStatus": "terminal_19_success_1_failure_across20_jobs",
+    "lastPushedCommit": "5687c3bea1a5c6288199c9fef885de97c5dce5f9",
+    "lastPushedRun": 37712658835,
+    "lastPushedRunStatus": "terminal_19_success_1_verify_failure_across20_jobs",
     "currentVerification": "docs/build/production/WIP-HANDOFF-2026-10-08.md",
     "remainingLocalPackets": {
-      "integratedRepairs": "95fd7cc5 backend labels;871f73d9 schedule fixture. Awaiting normal publication.",
-      "nativeEngines": "MySQL2/Rclone1 passed;MinIO2/1 failed;PG2 cleanup failed;PGDNS3 pending."
+      "integratedRepairs": "4467a567 MinIO evidence;69e732db actual close-event waits;60d78730 buffered TLS handoff. Awaiting normal publication.",
+      "nativeEngines": "PG2/DNS3/MinIO3 selected cases nowpassed at5687;MySQLprotocol6passed60d; earlierengineMySQL2/Rclone1 retain871 scope."
     },
     "permissions": {
       "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Arnav Bule.",
       "pending": "Live cloud calls/spend, real DNS/private GitHub App configuration, destructive retention/business/production sign-off."
     },
     "releaseVerdict": "10 verified /49 in_progress /19 planned; all four release flags false; no promotion.",
-    "next": "Publish integrated repairs/context, inspect fresh CI; continue MinIO and PostgreSQL custody diagnosis.",
+    "next": "Publish integrated correction/evidence and terminal5687 report; independently review exact-title early refusal performance repair, retain all controls, then inspect exact successor CI. Default Mac resource and external permission blockers remain.",
     "completedLocalKind": {
       "sourceCommit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
       "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-07-kind55-f582e193.json",
@@ -5023,8 +5057,18 @@
     },
     "recordedAt": "2026-10-08",
     "nativeRun": 37578066955,
-    "cleanup": "Successful platform/reconciliation/MySQL/Rclone and failed MinIO cleaned. PostgreSQL TLS fixture stopped but owned data retained after custody refusal.",
-    "nativeSkippedPlatformsRun": 37578066934
+    "cleanup": "All fresh successful native engine/protocol fixtures cleaned. Earlier failed PostgreSQL/certificate attempts retained; no blind deletion. Storage helper found zero new safe cache.",
+    "nativeSkippedPlatformsRun": 37578066934,
+    "lastPushedUnitResult": {
+      "passed": 21825,
+      "failed": 1,
+      "skipped": 1637,
+      "failure": "tests/ci/gate-manifest.test.ts:1736 exhaustive negative-control timeout20000ms",
+      "downstreamUnexecuted": [
+        "Smoke",
+        "Verify Gimbal assets"
+      ]
+    }
   },
   "sessionHistory": [
     {

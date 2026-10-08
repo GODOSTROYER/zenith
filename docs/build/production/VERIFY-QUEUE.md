@@ -1,3 +1,8 @@
+## Results, native transport successors, 8 October 2026
+
+- PROD-LIFE-11: in_progress; integrated60d78730 MySQL protocol6/0/0 and cleanup;5687 PG2/DNS3/MinIO3 selected cases passed with filtered siblings separate. Wider lifecycle remains open. [Results](verification/RESULTS-2026-10.md#native-transport-acceptance-successors-8-october-2026).
+- PROD-CI-08: in_progress; exact5687 native1146/workflows105 succeeded;19/20 jobs success, terminal verify failure:unit21825/1/1637, exhaustive gate-manifest timeout. Final integrated source/push CI pending.
+
 ## Results, integrated native checkpoint, 8 October 2026
 
 - PROD-CI-08: in_progress;871f73d9 native platform3762/0/15, all1146 required; new complete CI pending. [Results](verification/RESULTS-2026-10.md#integrated-native-verification-checkpoint-8-october-2026).

@@ -1,3 +1,7 @@
+## Native transport successors, 8 October 2026
+
+Integrated60d78730: fresh MySQL TLS protocol6/0/0, cleanup confirmed; compiler4GiB/lint passed after two preserved lower-heap OOM attempts. Native5687 PostgreSQL2+DNS3 and MinIO3 selected cases passed with cleanup; counts/filter scopes remain separate. CI5687 terminal19success/1failure:unit21825/1/1637, gate-manifest20-second timeout. OpenTofu19 skips:18 mandatory PG equivalents passed;1 live Azure blocked. Storage helper found zero additional safe cleanup. Ledger recomputed10 verified/49 in_progress/19 planned across78; four release flags false. [Evidence and remaining gaps](WIP-HANDOFF-2026-10-08.md).
+
 ## Integrated native checkpoint, 8 October 2026
 
 Integrated871f73d9: native platform3762/0/15, all1146 required; reviewed reconciliation38/0/0, all26. MySQL2 and Rclone1 selected real-engine cases passed with filtered siblings reported separately. MinIO2/1 and PostgreSQL cleanup custody failure remain open. Exact historicaldd8017 CI19/20 jobs succeeded; unit21819/0/1637; sole failure fixed locally, fresh pushed CI pending. Ledger recomputed:10 verified/49 in_progress/19 planned across78; all release flags false. [Current evidence and gaps](WIP-HANDOFF-2026-10-08.md).

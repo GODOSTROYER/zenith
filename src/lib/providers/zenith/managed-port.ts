@@ -32,6 +32,8 @@ import type { SubstrateDescription, ZenithSubstrate } from "./substrate";
 import type { ZenithTenant } from "./types";
 import type { ServingInputs } from "@/lib/managed-serving/platform-store";
 import type { ObjectStoragePorts } from "@/lib/managed-serving/storage";
+import type { TenantIsolationProvisioner, TenantIsolationRequest } from "./onboarding";
+import type { TenantIsolationRuntime } from "@/lib/execution/tenant-isolation";
 
 export type ManagedSubstrateErrorCode =
   | "not_configured"
@@ -121,6 +123,12 @@ export interface ManagedSubstratePort {
   /** The Kubernetes provider's render/apply/read/list, shared by drivers and the apply pipeline. */
   readonly toolkit: KubernetesToolkit;
   readonly tenants: TenantResolver;
+  /** Internal worker path; planning credentials reject every non-dry-run write. */
+  onboarding?: {
+    provisioner(rt: TenantIsolationRuntime): TenantIsolationProvisioner;
+    withPlanningSession<T>(request: ManagedSessionRequest, fn: (session: ZenithSession) => Promise<T>): Promise<T>;
+    request(tenant: ZenithTenant, operationId: string, lease: TenantIsolationRequest["lease"], withManagedDatabase: boolean): TenantIsolationRequest;
+  };
   /** Current domain proof and retirement state, re-read at each reviewed dispatch. */
   servingInputs?(tenant: TenantRef): Promise<ServingInputs>;
   /** The Zenith-operated registry, or undefined when none is configured (built images then refuse). */

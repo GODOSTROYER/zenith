@@ -57,13 +57,14 @@ import { StepFailedError, TofuPlanChangedError } from "./errors";
 import { withKeepAlive } from "./keepalive";
 import { planEvidence, toPlanSummary, type PlanCost } from "./plan-evidence";
 import type { Runtime } from "./runtime";
-import { LONG_SESSION_SEC, PLAN_CAPABILITY, withManagedSession } from "./session";
+import { LONG_SESSION_SEC, PLAN_CAPABILITY, GRANT_AUDIENCE, withManagedSession } from "./session";
 import { assertApprovedSemantics, recordReviewedSemantics } from "./semantics/dispatch";
 import { zenithSemanticsArgs } from "./semantics/zenith";
 import { planLimits } from "@/lib/providers/zenith/plans";
 import { provisionObjectStores, refuseObjectStores, OBJECT_STORAGE_UNCONFIGURED_REASON } from "@/lib/managed-serving/storage";
 import { approvedSources } from "./source-snapshot";
 import { errorText, safeText } from "./text";
+import type { TenantIsolationPlan, TenantIsolationRequest } from "@/lib/providers/zenith/onboarding";
 
 export const isDirectZenith = (ec: Pick<ExecContext, "product">): boolean => ec.product.environment.provider === "zenith";
 
@@ -81,6 +82,7 @@ interface DirectStage {
   graphDigest: string;
   objects: K8sObject[];
   builtImages: Record<string, string>;
+  onboarding?: { request: TenantIsolationRequest; plan: TenantIsolationPlan };
 }
 
 const refAddress = (o: { kind: string; metadata: { name: string; namespace?: string } }): string => `${o.kind}/${o.metadata.namespace ?? ""}/${o.metadata.name}`;
@@ -119,7 +121,7 @@ async function builtImagesOf(managed: ManagedSubstratePort, session: ZenithSessi
   return out;
 }
 
-async function dryRun(rt: Runtime, ec: ExecContext, graph: ResourceGraph, managed: ManagedSubstratePort, session: ZenithSession, signal: AbortSignal): Promise<Omit<DirectStage, "cost" | "graph">> {
+async function dryRun(rt: Runtime, ec: ExecContext, graph: ResourceGraph, managed: ManagedSubstratePort, session: ZenithSession, signal: AbortSignal, onboarding?: DirectStage["onboarding"]): Promise<Omit<DirectStage, "cost" | "graph">> {
   const builtImages = await builtImagesOf(managed, session, graph, signal);
   let rendered: ZenithRenderResult;
   try {
@@ -136,7 +138,8 @@ async function dryRun(rt: Runtime, ec: ExecContext, graph: ResourceGraph, manage
   const blockedStorage = storage.find((s) => s.status === "failed");
   if (blockedStorage) throw new StepFailedError(`The managed object store ${safeText(blockedStorage.address, 80)} cannot be planned: ${safeText(blockedStorage.error?.message ?? "unavailable", 300)}`);
 
-  const all = [...rendered.baseline, ...rendered.workloads];
+  // Isolation is a separately custodied phase of this SAME reviewed composite plan.
+  const all = onboarding ? rendered.workloads : [...rendered.baseline, ...rendered.workloads];
   // Secret values are never resolved while planning; their objects are written at apply.
   const diffable = all.filter((o) => o.kind !== "Secret");
   const namespace = await managed.toolkit.read(session.kubernetes, { apiVersion: "v1", kind: "Namespace", name: rendered.namespace }, signal);
@@ -169,6 +172,7 @@ async function dryRun(rt: Runtime, ec: ExecContext, graph: ResourceGraph, manage
   const planDigest = digest({
     engine: ENGINE, graphDigest: graph.graphDigest, objects: all, platformTls: rendered.platformTls,
     databases: rendered.databases.map((d) => [d.address, d.spec]), storage: rendered.storage, retiredDomains: session.retiredDomains ?? [],
+    ...(onboarding ? { isolation: { planDigest: onboarding.plan.planDigest, bundleDigest: onboarding.plan.bundleDigest } } : {}),
     actions: resourceChanges.map((r) => [r.address, r.action, r.changes]),
   });
   const diagnostics = [
@@ -181,7 +185,7 @@ async function dryRun(rt: Runtime, ec: ExecContext, graph: ResourceGraph, manage
     resourceChanges, outputChanges: [], summary, empty: summary.create === 0 && summary.update === 0, diagnostics, createdAt: rt.now().toISOString(),
   } as unknown as NormalizedPlan;
   const facts: PlanFacts = { ...extractPlanFacts(plan), statefulDeletes: [], dnsDeletes: [], destroysData: false, destroyedStatefulAddresses: [] } as PlanFacts;
-  return { plan, facts, graphDigest: graph.graphDigest, objects: all, builtImages };
+  return { plan, facts, graphDigest: graph.graphDigest, objects: all, builtImages, ...(onboarding ? { onboarding } : {}) };
 }
 
 function runtimeFor(managed: ManagedSubstratePort, ec: ExecContext, graph: ResourceGraph): Runtimeish {
@@ -197,8 +201,20 @@ async function stage(rt: Runtime, ec: ExecContext, lease: LeaseRef, detail: stri
   const runtime = runtimeFor(managed, ec, graph);
   const result = await withKeepAlive(rt, { lease, detail, operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
     await approvedSources(rt, ec, graph, lease, !expected, signal);
-    return withManagedSession(rt, ec, { capability: PLAN_CAPABILITY, fence: lease, durationSec: LONG_SESSION_SEC, workspaceId: ec.workspaceId, environmentId: ec.environmentId, databases: runtime.databases, storage: runtime.storage },
-      (session) => dryRun(rt, ec, graph, managed, session, signal));
+    let isolationRequest: TenantIsolationRequest | undefined;
+    if (managed.onboarding) {
+      if (expected) await assertApprovedSemantics(rt, ec, await zenithSemanticsArgs(managed, ec, graph, await resolveConnection(rt, ec), expected), "isolation custody inspection");
+      const tenant = await managed.tenants.resolve(ec);
+      isolationRequest = managed.onboarding.request(tenant, ec.op.id, lease, graph.nodes.some(n => n.provider === "zenith" && n.kind === "postgres" && n.ownership === "managed"));
+    }
+    return withManagedSession(rt, ec, { capability: PLAN_CAPABILITY, planning: !!isolationRequest, fence: lease, durationSec: LONG_SESSION_SEC, workspaceId: ec.workspaceId, environmentId: ec.environmentId, databases: runtime.databases, storage: runtime.storage }, async session => {
+      let onboarding: DirectStage["onboarding"];
+      if (isolationRequest) {
+        const provisioner = managed.onboarding!.provisioner(rt);
+        onboarding = { request: isolationRequest, plan: expected ? await provisioner.reviewedPlan(isolationRequest, expected) : await provisioner.preview(isolationRequest) };
+      }
+      return dryRun(rt, ec, graph, managed, session, signal, onboarding);
+    });
   });
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
   return { ...result, graph, cost: await costOf(rt, ec, graph) };
@@ -211,7 +227,8 @@ export async function planDirectZenith(rt: Runtime, ec: ExecContext, lease: Leas
   // PROD-DUR-03: the executable semantics the approver is shown, recorded write-once BEFORE the plan evidence exists, and
   // recomputed at final plan, apply, build, rollout and migration dispatch.
   const semantics = await recordReviewedSemantics(rt, ec, await zenithSemanticsArgs(managedOf(rt), ec, s.graph, await resolveConnection(rt, ec), s.plan.planDigest));
-  await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, key: evidence.key, summary: { ...evidence.summary, semantics, engine: "zenith-managed-apply", statefulDeletes: [], dnsDeletes: [], retained: [] }, simulated: false }, { critical: true });
+  if (s.onboarding) await managedOf(rt).onboarding!.provisioner(rt).recordReviewed(s.onboarding.request, s.onboarding.plan, { planDigest: s.plan.planDigest, semanticsDigest: semantics.digest });
+  await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, key: evidence.key, summary: { ...evidence.summary, semantics, ...(s.onboarding ? { isolation: s.onboarding.plan, isolationCustody: "zenith.isolation-artifact.v1" } : {}), engine: "zenith-managed-apply", statefulDeletes: [], dnsDeletes: [], retained: [] }, simulated: false }, { critical: true });
   if (!ec.op.planDigest) await rt.d.ops.setPlanDigest({ workspaceId: ec.workspaceId, operationId: ec.op.id, planDigest: s.plan.planDigest });
   await rt.emit(ec.scope, "resource.planned", `plan:${s.plan.planDigest}`, { planDigest: s.plan.planDigest, create: s.plan.summary.create, update: s.plan.summary.update, delete: 0, replace: 0, empty: s.plan.empty });
   return toPlanSummary(s.plan, s.facts, s.cost);
@@ -237,17 +254,38 @@ export async function applyDirectZenith(rt: Runtime, ec: ExecContext, lease: Lea
   try {
     const applied = await withKeepAlive(rt, { lease, detail: "zenith managed apply", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
       await approvedSources(rt, ec, graph, lease, false, signal);
+      const current = await loadExecContext(rt, ec.op.id);
+      const currentGraph = requireExecutable(rt, current).graph;
+      if (currentGraph.graphDigest !== graph.graphDigest) throw new StepFailedError("The reviewed desired state changed; a new review is required.");
+      let preflight: DirectStage | undefined;
+      if (managed.onboarding) {
+        preflight = await stage(rt, current, lease, "reviewed isolation dispatch", planDigest);
+        if (preflight.plan.planDigest !== planDigest) throw new TofuPlanChangedError(planDigest, preflight.plan.planDigest);
+        await assertApprovedSemantics(rt, current, await zenithSemanticsArgs(managed, current, currentGraph, await resolveConnection(rt, current), planDigest), "isolation dispatch");
+        const semantics = await rt.d.semantics?.get(ec.workspaceId, ec.op.id, planDigest);
+        if (!semantics || !preflight.onboarding) throw new StepFailedError("Reviewed isolation semantics are unavailable; nothing was dispatched.");
+        // Bootstrap mutations require the operation's mutating grant as well as exact current human approval.
+        await rt.d.broker.issueGrant(current.op.id, GRANT_AUDIENCE, { scope: lease.scope, fenceToken: lease.fenceToken }, { durationSec: LONG_SESSION_SEC });
+        // This phase can write before workload dispatch; subsequent failures must acknowledge it.
+        started = true;
+        await managed.onboarding.provisioner(rt).apply(preflight.onboarding.request, preflight.onboarding.plan.planDigest, { planDigest, semanticsDigest: semantics.semantics.digest });
+      }
       return withManagedSession(rt, ec, { fence: lease, durationSec: LONG_SESSION_SEC, workspaceId: ec.workspaceId, environmentId: ec.environmentId, databases: runtime.databases, storage: runtime.storage }, async (session) => {
         // Everything the reviewed plan depended on must be unchanged, and the plan must still be the approved one.
         const current = await loadExecContext(rt, ec.op.id);
         const currentGraph = requireExecutable(rt, current).graph;
         if (currentGraph.graphDigest !== graph.graphDigest) throw new StepFailedError("The reviewed desired state changed; a new review is required.");
-        const fresh = await dryRun(rt, current, currentGraph, managed, session, signal);
+        const fresh = await dryRun(rt, current, currentGraph, managed, session, signal, preflight?.onboarding);
         if (fresh.plan.planDigest !== planDigest) throw new TofuPlanChangedError(planDigest, fresh.plan.planDigest);
         await assertApprovedSemantics(rt, current, await zenithSemanticsArgs(managedOf(rt), current, currentGraph, await resolveConnection(rt, current), planDigest), "apply");
         const authority = await rt.d.broker.approvalStatus(ec.op.id);
-        if (!authority.approved || authority.rejected || (current.op.approvalRequired && !authority.approvalId)) throw new StepFailedError("Current policy or human approval changed before the reviewed plan was applied.");
+        if (!authority.approved || authority.rejected || (current.op.approvalRequired && !authority.approvalId) || preflight && (!authority.approvalId || authority.dispatchApproval?.planDigest !== planDigest)) throw new StepFailedError("Current policy or human approval changed before the reviewed plan was applied.");
         await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
+        if (preflight?.onboarding) {
+          const reviewed = await rt.d.semantics?.get(ec.workspaceId, ec.op.id, planDigest);
+          if (!reviewed) throw new StepFailedError("Reviewed isolation semantics are unavailable.");
+          await managed.onboarding!.provisioner(rt).assertReviewed(preflight.onboarding.request, preflight.onboarding.plan.planDigest, { planDigest, semanticsDigest: reviewed.semantics.digest });
+        }
         started = true;
         const report = await applyZenithEnvironment({
           session, expect: { workspaceId: ec.workspaceId, environmentId: ec.environmentId }, toolkit: managed.toolkit, nodes: currentGraph.nodes,

@@ -1,12 +1,7 @@
 /**
- * Read-only admission of a pre-provisioned managed tenant (W5 assembly).
- *
- * A managed deploy approval binds its composite plan, not the isolation provisioner's
- * independent plan digest. Session creation therefore MUST NOT run provision/apply or
- * mint a token under that approval. Until the dedicated onboarding operation binds
- * DUR-B semantics and DUR-C custody, operators must provision the isolation bundle and
- * deposit its own short-lived operator credential separately. This boundary verifies
- * those prerequisites on the real cluster; it never changes them.
+ * Read-only planning firewall and admission of a managed tenant. First-deploy
+ * provisioning is a reviewed/custodied phase in direct-zenith.ts; session opening
+ * verifies its complete readback and scoped operator identity without creating either.
  */
 import type { KubernetesConnectionConfig, KubernetesSession } from "@/lib/credentials/types";
 import { assertTenantOperatorAccess, readBackTenantIsolation } from "@/lib/execution/tenant-isolation";
@@ -21,11 +16,31 @@ import { renderTenancy, tenantNamespace } from "@/lib/providers/zenith/tenancy";
 import type { ZenithTenant } from "@/lib/providers/zenith/types";
 import { isVaultRef } from "@/lib/secrets/refs";
 
+/** Authentication firewall for internal first-deploy planning. No mutating request can use this credential. */
+export function readOnlyManagedPlanningSession(session: KubernetesSession): KubernetesSession {
+  type Context = { getHttpMethod(): string; getUrl(): string };
+  const source = session.kubeConfig() as { getCurrentCluster(): unknown; applySecurityAuthentication(context: Context): Promise<void> };
+  const config = {
+    getCurrentCluster: () => source.getCurrentCluster(),
+    async applySecurityAuthentication(context: Context) {
+      const method = String(context.getHttpMethod()).toUpperCase();
+      const url = new URL(context.getUrl());
+      if (method !== "GET" && method !== "HEAD" && !(method === "PATCH" && url.searchParams.getAll("dryRun").length === 1 && url.searchParams.get("dryRun") === "All")) {
+        throw new ManagedSubstrateError("session_refused", "Managed planning credentials cannot mutate the cluster.");
+      }
+      await source.applySecurityAuthentication(context);
+    },
+  };
+  return { provider: "kubernetes", server: session.server, expiresAt: session.expiresAt,
+    namespaces: (session as KubernetesSession & { namespaces?: readonly string[] }).namespaces ?? [],
+    kubeConfig() { session.kubeConfig(); return config; }, toJSON: () => ({ provider: "kubernetes", purpose: "managed-planning", expiresAt: session.expiresAt }) } as KubernetesSession;
+}
+
 /** Must run before resolving any cluster credential; no platform-wide tenant fallback. */
 export function assertManagedOperatorConfigured(substrate: ZenithSubstrate): void {
   const prefix = substrate.isolation?.operatorCredentialPrefix;
   if (!prefix || !isVaultRef(prefix) || prefix.endsWith("/")) {
-    throw new ManagedSubstrateError("not_configured", "Managed tenant sessions require ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX and a separately provisioned, verified tenant operator identity. Automatic isolation onboarding is unavailable until its own approval, semantics and custody are bound.");
+    throw new ManagedSubstrateError("not_configured", "Managed tenant sessions require ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX and a verified tenant operator identity issued through reviewed isolation custody.");
   }
 }
 
@@ -74,6 +89,6 @@ export async function assertManagedTenantReady(input: ManagedTenantReadinessInpu
     return operator;
   } catch {
     // A provider can echo a token or private object into its error; expose only this fixed refusal.
-    throw new ManagedSubstrateError("session_refused", "Managed tenant isolation is not ready: the complete isolation bundle and the tenant operator credential must already be provisioned and verified. Automatic onboarding cannot use a deployment approval.");
+    throw new ManagedSubstrateError("session_refused", "Managed tenant isolation is not ready: the complete reviewed isolation bundle and scoped tenant operator credential must be provisioned and verified before opening a tenant session.");
   }
 }

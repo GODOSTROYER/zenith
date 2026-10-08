@@ -30,6 +30,7 @@ import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/
 import type { SourceBundleDeps } from "./source-bundle";
 import { createApprovedSourceRuntime } from "./approved-source-runtime";
 import { createDefaultManagedSubstrate } from "./zenith-managed";
+import { createIsolationCustody } from "./zenith-isolation-custody";
 import { createZenithSourceStore } from "./zenith-managed-build";
 import { createDefaultMachinePort } from "@/lib/machines/composition";
 import type { AzureBuildOptions } from "./release-azure";
@@ -123,6 +124,7 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
   const azure: AzureBuildOptions = { readSource: sourceRuntime.readAzureSource };
   const deps: ExecutionDeps = {
     ...platformPorts, portability: createPortabilityPort(opts.db), planArtifacts, effects: createEffectLedger(opts.db),
+    isolationCustody: createIsolationCustody({ db: opts.db, ops: platformPorts.ops, leases: platformPorts.leases }),
     drivers: platformDriverLookup,
     product, managed, broker: createExecutionBroker(opts.db), credentials,
     tofu, cost: defaultCostPort(),

@@ -3756,7 +3756,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
-      "implementationNote": "J11: Cilium exact-version/archive-SHA resolver interface; compatible chart selection, kind and Wave 5/J14 two-tenant runtime acceptance pending. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
+      "implementationNote": "J11: Cilium exact-version/archive-SHA resolver interface; compatible chart selection, kind and Wave 5/J14 two-tenant runtime acceptance pending. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. J14 step 2: default first deploy binds isolation and scoped token constraints into DUR-B composite review, authenticates immutable encrypted direct-object custody (migration 56), records effects before bootstrap apply, verifies readback and stores only scoped tokens. Cilium Gateway ingress identity join and gated two-tenant attachment/HTTPS harnesses built. Mac real-engine, live and operational acceptance pending; not verified.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3767,7 +3767,12 @@
       "owner": "production verifier",
       "testPaths": [
         "tests/execution/tenant-isolation.test.ts",
-        "tests/isolation/managed-onboarding-readiness.test.ts"
+        "tests/isolation/managed-onboarding-readiness.test.ts",
+        "tests/execution/zenith-first-deploy.test.ts",
+        "tests/platform/zenith-isolation-custody.test.ts",
+        "tests/isolation/gvisor-onboarding-acceptance.test.ts",
+        "tests/isolation/gateway-isolation-acceptance.test.ts",
+        "tests/isolation/gvisor-runtime-acceptance.test.ts"
       ]
     },
     {
@@ -3783,7 +3788,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
-      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. J14 step 2: reviewed default onboarding activates quota, CNI and gVisor runtime before tenant workload dispatch; existing CPU/memory/disk/PID/latency and sandbox OOM harnesses retained. Lean same-node Mac verification pending; latency/PID/quota bounds provisional; not verified.",
       "evidence": [],
       "requiredEvidence": [
         "contract",

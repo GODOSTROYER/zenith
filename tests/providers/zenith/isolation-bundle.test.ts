@@ -126,6 +126,16 @@ describe("substrate isolation configuration", () => {
 });
 
 describe("hostname egress (cilium engine)", () => {
+  it("allows only Cilium Gateway's reserved ingress identity with an exact reviewed policy", () => {
+    const sub = substrate({ ...CILIUM_ENV, ZENITH_MANAGED_GATEWAY_CLASS: "cilium", ZENITH_MANAGED_GATEWAY_MODE: "gateway_api" });
+    const b = renderIsolationBundle(TENANT, sub);
+    expect(b.fqdnEgress[0].spec?.ingress).toEqual([{ fromEntities: ["ingress"] }]);
+    expect(collectIsolationBundleViolations(b, { tenant: TENANT, substrate: sub })).toEqual([]);
+    for (const ingress of [[], [{ fromEntities: ["world"] }], [{ fromEntities: ["ingress", "cluster"] }], [{ fromEntities: ["ingress"] }, {}]]) {
+      const changed = structuredClone(b); changed.fqdnEgress[0].spec!.ingress = ingress;
+      expect(collectIsolationBundleViolations(changed, { tenant: TENANT, substrate: sub }).map(v => v.rule)).toContain("network_policy");
+    }
+  });
   const baseline = renderTenancy(TENANT, cilium, { withManagedDatabase: true });
   const bundle = renderIsolationBundle(TENANT, cilium, { egressFqdns: ["api.example.com"] });
   const cnp = bundle.fqdnEgress[0];

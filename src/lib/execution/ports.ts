@@ -621,6 +621,8 @@ export interface ExecutionDeps {
   planArtifacts?: PlanArtifactsPort;
   /** External-effect ledger (PROD-DUR-07/08). Production composition always sets it; isolated contract compositions may omit it. */
   effects?: import("@/lib/effects/ledger").EffectLedger;
+  /** Authenticated direct-object custody for tenant bootstrap; no missing-store fallback. */
+  isolationCustody?: import("./isolation-custody").IsolationCustodyPort;
   /* engine */
   /** default: the global driver registry */
   drivers?: DriverLookup;

@@ -1,4 +1,116 @@
-# PROD-MAN-04 and PROD-MAN-05 verify notes: two untrusted tenants, resource isolation under load
+# PROD-MAN-04 and PROD-MAN-05 verification
+
+## J14 step 2, 2026-10-08
+
+This section supersedes the original J14 missing-join notes and the historical wave-5 record below.
+Base merge eb338840 includes assembled migrations 44-52 and aggregate 0026. No published migration or
+aggregate was changed. New expand-only migration 56 stores authenticated direct-object isolation plans;
+the registry appends it and sensitive-data inventory classifies its ciphertext under enc:plan-artifacts.
+Current build commands and exact outcomes are in [J14 step 2 receipt](J14-ISOLATION-RUNTIME-STEP2.md).
+Both MAN rows remain implementation_complete_verification_pending, with no fabricated engine evidence.
+
+| Acceptance | Implementation and checks |
+|---|---|
+| First managed deploy provisions isolation only after review | Default zenith-managed composition exposes onboarding to direct-zenith's existing plan/final-plan/apply activities. The composite digest includes the isolation plan. Canonical reviewed semantics include the exact baseline/bundle, cluster/runtime, credential references, normalized token lifetime and audiences. Planning obtains an attenuated grant before credentials and uses an HTTP authentication firewall allowing only GET/HEAD or PATCH dryRun=All. Missing-namespace objects are explicitly projected, not server-validated. After approval, a mutating capability grant, current canonical semantics, exact human approval and live fence precede encrypted custody verification and bootstrap apply. |
+| DUR-C and scoped credentials | Migration 56 is immutable and workspace/operation scoped. AEAD authenticates workspace and operation/plan reference; the envelope binds project/environment/proposal/input/expiry, review and exact object bytes. Expired/terminal operations and stale fences refuse. Every dispatch and token mint/storage rechecks review and custody. The existing isolation_apply ledger records before SSA, confirms complete readback, and never replays unresolved effects. TokenRequest claim checking and actual operator SSAR precede the sealed platform-scope vault write. No bootstrap credential leaves planning/provisioning for workload callers. |
+| Two-tenant routes, storage, CNI, metadata, FQDN, PSA, quota, operator separation | Existing tenant-isolation-acceptance suite remains. New Gateway suite uses actual Cilium Gateway/HTTPRoute status plus trusted local TLS HTTPS requests to two distinct sandbox backends; foreign listener attachment and foreign backend without ReferenceGrant must fail while the other tenant still serves. Renderer already uses per-environment Gateway selectors; the join adds only Cilium's reserved ingress identity when gateway class is cilium. Exact-policy validation rejects broader peers. |
+| Stronger runtime and resource exhaustion | Offline complete gVisor installation, actual containerd runtime readback for both tenants, bidirectional CNI controls, restricted PSA and sandbox OOM checks. Existing CPU/memory/disk/PID/latency harness retained with mandatory CPU accounting; bounds are provisional. Single-node ARM64 profile is same-node evidence, not a scaled rehearsal. |
+| Contract regression | zenith-first-deploy tests use real PGlite semantics/custody/effects/leases with explicitly scripted approval/product/cluster contracts. They cover first deploy, grant refusal, missing custody/semantics, revoked approval, changed bundle, expiry/fence and discard after mint. zenith-isolation-custody tests exercise immutable SQL and AEAD/scope refusals. Real kind onboarding uses the default provisioner, real TokenRequest/readback/SSAR and encrypted credential sink; its approval/product doubles remain contract evidence. |
+
+Cilium Gateway semantics reference: [official Gateway API policy documentation](https://docs.cilium.io/en/stable/network/servicemesh/gateway-api/gateway-api/).
+The per-node Envoy uses reserved ingress identity. Namespace-pod ingress permission alone cannot establish
+that path. The Gateway lane requires kube-proxy replacement and the Gateway controller with CRDs installed.
+Runtime references: [gVisor installation](https://gvisor.dev/docs/user_guide/install/),
+[containerd configuration](https://gvisor.dev/docs/user_guide/containerd/configuration/).
+
+## Exact Mac commands, Node 22 / ARM64 / Docker VM 4 GiB
+
+Run PostgreSQL and kind lanes sequentially. Stop the default stack first. Supply reviewed publisher/chart/CRD
+pins from the release owners; enabled lanes fail on incomplete inputs. No real cloud APIs are needed.
+Need Docker, kind, matching kubectl, Helm, host bzip2, openssl and existing node_modules.
+
+### PostgreSQL authority/immutability lane
+
+Use a fresh local test database, never a shared or production database. The selected image must be a reviewed
+ARM64 PostgreSQL 17 image digest. Password is an ephemeral test value generated at runtime.
+
+```bash
+export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
+export ZENITH_TEST_PLATFORM_PG_IMAGE="<reviewed-postgres-17-image>@sha256:<digest>"
+export J14_PG_PASSWORD="$(openssl rand -hex 24)"
+docker run -d --name zenith-j14-pg --memory=512m --cpus=1 -p 127.0.0.1:55456:5432 -e POSTGRES_PASSWORD="$J14_PG_PASSWORD" -e POSTGRES_DB=zenith_test "$ZENITH_TEST_PLATFORM_PG_IMAGE"
+until docker exec zenith-j14-pg pg_isready -U postgres -d zenith_test; do sleep 1; done
+export ZENITH_TEST_PLATFORM_PG_URL="postgresql://postgres:$J14_PG_PASSWORD@127.0.0.1:55456/zenith_test"
+export ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1
+npx vitest run tests/execution/tenant-isolation.test.ts tests/execution/zenith-first-deploy.test.ts tests/platform/zenith-isolation-custody.test.ts tests/controlplane/first-source-lease-binding.test.ts --no-file-parallelism --maxWorkers=2
+unset ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED J14_PG_PASSWORD
+docker rm -f zenith-j14-pg
+```
+
+Expected: all enabled PGlite and PostgreSQL cases pass, including first lease creation, exact reviewed first
+deploy and immutable encrypted custody. PostgreSQL tests were not run on the builder. Migration registry
+applies 56 directly here; assembly must generate the next aggregate/export separately.
+
+### Lean kind + Cilium + gVisor + Gateway
+
+```bash
+export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
+export ZENITH_KIND_CLUSTER_NAME=zenith-life07-j14
+export ZENITH_K8S_WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/zenith-j14.XXXXXX")"
+export KUBECONFIG="$ZENITH_K8S_WORKDIR/kubeconfig"
+export ZENITH_GVISOR_ARCHIVE=/absolute/path/to/publisher/gvisor-aarch64.tar.bz2
+export ZENITH_GVISOR_RELEASE="<publisher-point-release-YYYYMMDD.N>"
+export ZENITH_GVISOR_SHA256="<publisher-SHA256SUMS-entry-for-that-archive>"
+export ZENITH_CILIUM_CHART_ARCHIVE=/absolute/path/to/cilium-reviewed-version.tgz
+export ZENITH_CILIUM_CHART_VERSION="<J11-reviewed-version>"
+export ZENITH_CILIUM_CHART_SHA256="<J11-reviewed-chart-SHA256>"
+export ZENITH_TEST_GVISOR_GATEWAY_SETUP=1
+export ZENITH_GATEWAY_CRD_MANIFEST=/absolute/path/to/reviewed/gateway-standard-install.yaml
+export ZENITH_GATEWAY_CRD_SHA256="<reviewed-SHA256>"
+bash deploy/zenith-managed/runtime/kind-up.sh
+source scripts/k8s/images.env
+export ZENITH_TEST_K8S_IMAGE="$ACCEPTANCE_IMAGE"
+export ZENITH_TEST_K8S_CURL_IMAGE="<reviewed-ARM64-curl-image>@sha256:<digest>"
+export ZENITH_TEST_TENANT_ISOLATION=1
+export ZENITH_TEST_ISOLATION_PROFILE=kind-cilium
+export ZENITH_TEST_ISOLATION_RUNTIME_CLASS=zenith-gvisor
+export ZENITH_TEST_ISOLATION_REQUIRE_RUNTIME=1
+export ZENITH_TEST_ISOLATION_MUTATE_COREDNS=1
+export ZENITH_TEST_ISOLATION_EVIDENCE_OUT="$ZENITH_K8S_WORKDIR/isolation-evidence.json"
+npx vitest run tests/isolation/tenant-isolation-acceptance.test.ts --no-file-parallelism --maxWorkers=2 --reporter=default --reporter=json --outputFile.json="$ZENITH_K8S_WORKDIR/isolation-vitest.json"
+export ZENITH_TEST_GVISOR_RUNTIME=1
+export ZENITH_TEST_GVISOR_EVIDENCE_OUT="$ZENITH_K8S_WORKDIR/gvisor-evidence.json"
+npx vitest run tests/isolation/gvisor-runtime-acceptance.test.ts --no-file-parallelism --maxWorkers=2 --reporter=default --reporter=json --outputFile.json="$ZENITH_K8S_WORKDIR/gvisor-vitest.json"
+export ZENITH_TEST_GVISOR_ONBOARDING=1
+npx vitest run tests/isolation/gvisor-onboarding-acceptance.test.ts --no-file-parallelism --maxWorkers=2
+export ZENITH_TEST_GVISOR_GATEWAY=1
+export ZENITH_TEST_GATEWAY_EVIDENCE_OUT="$ZENITH_K8S_WORKDIR/gateway-evidence.json"
+npx vitest run tests/isolation/gateway-isolation-acceptance.test.ts --no-file-parallelism --maxWorkers=2 --reporter=default --reporter=json --outputFile.json="$ZENITH_K8S_WORKDIR/gateway-vitest.json"
+# Preserve receipts, then clean only this owned disposable cluster.
+bash scripts/k8s/kind-calico-down.sh
+```
+
+Expected: mandatory tenant suite passes (only deliberately unbounded optional control may skip), runtime
+4/4 pass, native provisioning 1/1 pass and Gateway 3/3 pass, with zero gated skips when enabled. The latter
+uses locally generated short-lived TLS certificates to prove attachment/routing, not public ACME/DNS.
+The profile has one Cilium operator, no Hubble, one node, small Envoy requests; run lanes sequentially.
+A missing controller, unpinned image, rejected token, absent runtime, failed positive control or broader
+policy is a failure, never a skip or a claimed proof. Fresh node setup is required; do not adopt clusters.
+
+## Remaining verification and integration
+
+No local kind, Docker, real PostgreSQL, Temporal, browser, live cloud or operational rehearsal was run.
+No claim of verified MAN acceptance. Existing managed build refusal remains: this job authorizes environment
+isolation, not per-tenant build-node onboarding. Token renewal requires a new current reviewed operation after
+operation expiry; no unattended approval bypass was added. Logical custody expiry is implemented; immutable
+artifact retention/purge needs a separately reviewed retention migration. Gateway class cilium activates the
+reserved identity join; other controllers retain namespace-pod policy and require their own engine proof.
+Assembly must add migration 56 to its next aggregate/export, classify native stores in the tenancy/scoping
+gates and add new test paths to the gate manifest. Historical assertions about absent joins below are superseded.
+
+---
+
+## Historical wave-5 build record
 
 Built on branch `prod/man-04-05-w5` from `c02c097e`. **Nothing here was executed**: no vitest, no kind, no
 cluster, no docker. The only checks run on the building machine were `npx tsc --noEmit -p .` and `npx eslint` on

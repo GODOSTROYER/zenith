@@ -118,7 +118,7 @@ export const LONG_SESSION_SEC = 3600;
 export async function withManagedSession<T>(
   rt: Runtime,
   ec: { op: { id: string } },
-  opts: Omit<SessionOptions, "connection" | "purpose"> & { workspaceId: string; environmentId: string; databases?: ManagedDatabaseProvider; storage?: ObjectStoragePorts },
+  opts: Omit<SessionOptions, "connection" | "purpose"> & { workspaceId: string; environmentId: string; databases?: ManagedDatabaseProvider; storage?: ObjectStoragePorts; planning?: boolean },
   fn: (session: ZenithSession, claims: CapabilityGrantClaims) => Promise<T>
 ): Promise<T> {
   const managed = rt.d.managed;
@@ -129,6 +129,10 @@ export async function withManagedSession<T>(
     ...(opts.durationSec ? { durationSec: opts.durationSec } : {}),
   });
   try {
+    if (opts.planning) {
+      if (opts.capability !== PLAN_CAPABILITY || !managed.onboarding) throw new StepFailedError("The managed read-only planning path is not configured.");
+      return await managed.onboarding.withPlanningSession({ workspaceId: opts.workspaceId, environmentId: opts.environmentId, databases: opts.databases, storage: opts.storage }, session => fn(session, claims));
+    }
     return await managed.withSession({ workspaceId: opts.workspaceId, environmentId: opts.environmentId, ...(opts.databases ? { databases: opts.databases } : {}), ...(opts.storage ? { storage: opts.storage } : {}) }, (session) => fn(session, claims));
   } catch (err) {
     if (err instanceof ManagedSubstrateError) throw new StepFailedError(err.message);

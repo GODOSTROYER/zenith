@@ -169,6 +169,10 @@ export const TABLES: Readonly<Record<string, TableSink>> = {
     columns: { envelope_digest: digestOnly(), sealed: sealedBox("enc:results", "the whole outcome body, sealed under the result key ring; this copy is immutable") } },
 
   /* ------------------------------- platform: plans ------------------------------ */
+  "platform.isolation_plan_custody": { owner: "managed isolation custody (DUR-C)", classification: "raw-plan-or-state", retention: immutable("write-once; logically unavailable after operation expiry; retention purge requires a future reviewed migration"), purpose: "authenticated direct-object onboarding plans",
+    columns: { plan_digest: digestOnly(),
+      auth_tag: { protection: { kind: "sealed", scheme: "plan-columns", purpose: "enc:plan-artifacts" }, classification: "raw-plan-or-state", assurance: "design" },
+      ciphertext: { protection: { kind: "sealed", scheme: "plan-columns", purpose: "enc:plan-artifacts" }, classification: "raw-plan-or-state", assurance: "design" } } },
   "platform.plan_artifacts": { owner: "plan custody (DUR-C)", classification: "raw-plan-or-state", retention: expiring("logical expiry by planArtifacts.expire"), purpose: "encrypted raw plan custody",
     columns: { manifest: unreviewed("plaintext manifest beside the ciphertext: addresses and digests; DUR-C owns it", "operational"), manifest_digest: digestOnly(), plan_digest: digestOnly(),
       auth_tag: { protection: { kind: "sealed", scheme: "plan-columns", purpose: "enc:plan-artifacts" }, classification: "raw-plan-or-state", assurance: "tested" },

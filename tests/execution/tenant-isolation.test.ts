@@ -11,6 +11,11 @@
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createEffectLedger } from "@/lib/effects/ledger";
+import { randomBytes } from "node:crypto";
+import { createIsolationCustody } from "@/lib/platform/zenith-isolation-custody";
+import { vaultCipherFromEnv } from "@/lib/secrets";
+import { createPlatformSemanticsStore } from "@/lib/controlplane/db/repos/executable-semantics";
+import { createPlatformPorts } from "@/lib/execution/platform";
 import { subsetMismatches, createTenantIsolationProvisioner, prepareIsolation, type TenantIsolationDeps } from "@/lib/execution/tenant-isolation";
 import { serverSideApply } from "@/lib/providers/kubernetes/apply";
 import type { GuestClusterPort } from "@/lib/providers/kubernetes/guest";
@@ -166,6 +171,9 @@ describe.each(LANES)("provisionTenantIsolation ($name)", (lane) => {
   const calls = { admit: 0, fence: 0, tokens: 0 };
 
   const make = (over: Partial<TenantIsolationDeps> = {}, ledger = true) => {
+    const ports = createPlatformPorts(ctx.db);
+    const leases = { async assertFence() { calls.fence++; } };
+    const cipher = vaultCipherFromEnv({ ZENITH_PLAN_ARTIFACT_KEY: custodyKey }, { purpose: "enc:plan-artifacts" });
     const cluster = (tokenLifetimeSec = 900): Pick<GuestClusterPort, "ensureServiceAccount" | "requestToken"> => ({
       async ensureServiceAccount() {
         return { uid: "uid-operator-1" };
@@ -179,7 +187,9 @@ describe.each(LANES)("provisionTenantIsolation ($name)", (lane) => {
     const deps: TenantIsolationDeps = {
       rt: {
         d: {
-          leases: { async assertFence() { calls.fence++; } },
+          leases,
+          semantics: createPlatformSemanticsStore(ctx.db),
+          isolationCustody: createIsolationCustody({ db: ctx.db, ops: ports.ops, leases, cipher }),
           broker: { async approvalStatus() { return { approved: approval.approved, rejected: approval.rejected, approvalId: approval.approvalId, ...(approval.planDigest ? { dispatchApproval: { approvalIds: [approval.approvalId ?? ""], requiredApprovalCount: 1, approvalRound: 1, proposalDigest: "p".repeat(64), planDigest: approval.planDigest } } : {}) }; } },
           ...(ledger ? { effects: createEffectLedger(ctx.db) } : {}),
         } as any,
@@ -204,6 +214,7 @@ describe.each(LANES)("provisionTenantIsolation ($name)", (lane) => {
 
   const trusted = (verb: string, resource: string, namespace?: string): boolean => namespace === tenantNamespace(tenant.workspaceId, tenant.environmentId)
     && ((verb === "create" && resource === "deployments@ns") || (verb === "get" && resource === "secrets@ns"));
+  const custodyKey = randomBytes(32).toString("hex");
 
   beforeEach(async () => {
     fake = await startFakeK8s();

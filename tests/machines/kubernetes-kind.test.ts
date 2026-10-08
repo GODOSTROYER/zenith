@@ -17,7 +17,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { setTimeout as wait } from "node:timers/promises";
-import { ApiException, KubeConfig, type KubernetesObject } from "@kubernetes/client-node";
+import { ApiException, AuthorizationV1Api, KubeConfig, type KubernetesObject } from "@kubernetes/client-node";
 import { dump as yamlDump, FAILSAFE_SCHEMA, load as yamlLoad } from "js-yaml";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
@@ -327,24 +327,58 @@ describe.skipIf(!enabled)("default Kubernetes guest credentials against the owne
       users: [{ name: "zenith-minter", user: { token: credential } }] }, { noRefs: true });
   }
   /**
-   * A namespaced MINTER for one connection. bind/escalate are pinned to that connection's two guest role names so
-   * Kubernetes' own privilege-escalation prevention allows exactly those Roles (fixture-only assumption).
+   * This suite delegates only the read profile. The owning namespace minter holds that exact read ceiling:
+   * Kubernetes checks CREATE Role escalation against an unnamed collection request, so a named escalate grant
+   * cannot authorize it. Use the normal no-escalation check and bind only the connection's read Role.
    */
   async function createMinter(workspaceId: string, connectionId: string): Promise<string> {
     const name = `minter-${randomBytes(4).toString("hex")}`, group = "rbac.authorization.k8s.io";
     const sa = await api(() => admin!.objects.create<KubernetesObject>({ apiVersion: "v1", kind: "ServiceAccount", metadata: { name, namespace, labels }, automountServiceAccountToken: false } as KubernetesObject));
-    const guestRoles = (["read", "exec"] as const).map(profile => guestObjectName(workspaceId, connectionId, profile));
+    const guestRole = guestObjectName(workspaceId, connectionId, "read");
     await api(() => admin!.objects.create({ apiVersion: `${group}/v1`, kind: "Role", metadata: { name, namespace, labels }, rules: [
       { apiGroups: [""], resources: ["serviceaccounts"], verbs: ["create", "get", "delete"] },
       { apiGroups: [""], resources: ["serviceaccounts/token"], verbs: ["create"] },
       { apiGroups: [group], resources: ["roles"], verbs: ["create", "get", "update", "delete"] },
-      { apiGroups: [group], resources: ["roles"], verbs: ["bind", "escalate"], resourceNames: guestRoles },
+      { apiGroups: [""], resources: ["pods"], verbs: ["get", "list"] },
+      { apiGroups: [""], resources: ["pods/log"], verbs: ["get"] },
+      { apiGroups: [group], resources: ["roles"], verbs: ["bind"], resourceNames: [guestRole] },
       { apiGroups: [group], resources: ["rolebindings"], verbs: ["create", "get", "delete"] }] } as KubernetesObject));
     await api(() => admin!.objects.create({ apiVersion: `${group}/v1`, kind: "RoleBinding", metadata: { name, namespace, labels },
       subjects: [{ kind: "ServiceAccount", name, namespace }], roleRef: { apiGroup: group, kind: "Role", name } } as KubernetesObject));
     const issued = await api(() => admin!.core.createNamespacedServiceAccountToken({ name, namespace,
       body: { apiVersion: "authentication.k8s.io/v1", kind: "TokenRequest", metadata: { name, namespace, uid: sa.metadata!.uid }, spec: { audiences: [], expirationSeconds: 1800 } } }));
     if (!issued.metadata || issued.metadata.name !== name || typeof issued.status?.token !== "string" || !issued.status.token) throw new Error("The minter TokenRequest was not confirmed.");
+    // Real self-subject reviews use only this minter token, never the administrative cleanup identity.
+    const minterConfig = new KubeConfig(); minterConfig.loadFromString(boundMinterKubeconfig(issued.status.token));
+    const authorization = minterConfig.makeApiClient(AuthorizationV1Api);
+    const allowed = async (attributes: { verb: string; resource: string; group?: string; namespace?: string; subresource?: string; name?: string }) => {
+      const review = await api(() => authorization.createSelfSubjectAccessReview({ body: {
+        apiVersion: "authorization.k8s.io/v1", kind: "SelfSubjectAccessReview",
+        spec: { resourceAttributes: { group: "", ...attributes } },
+      } }, { signal: controller.signal } as never));
+      expect(review.status?.allowed).toBeTypeOf("boolean");
+      expect(Boolean(review.status?.evaluationError)).toBe(false);
+      return review.status?.allowed === true;
+    };
+    for (const attributes of [
+      { verb: "get", resource: "pods", namespace },
+      { verb: "list", resource: "pods", namespace },
+      { verb: "get", resource: "pods", subresource: "log", namespace },
+      { verb: "bind", group, resource: "roles", name: guestRole, namespace },
+    ]) expect(await allowed(attributes)).toBe(true);
+    for (const attributes of [
+      { verb: "create", resource: "pods", namespace },
+      { verb: "get", resource: "secrets", namespace },
+      { verb: "create", resource: "pods", subresource: "exec", namespace },
+      { verb: "get", resource: "pods", subresource: "exec", namespace },
+      { verb: "get", resource: "pods", namespace: foreignNamespace },
+      { verb: "get", resource: "pods", namespace: "kube-system" },
+      { verb: "get", resource: "namespaces" },
+      { verb: "create", group, resource: "clusterroles" },
+      { verb: "create", group, resource: "clusterrolebindings" },
+      { verb: "escalate", group, resource: "roles", namespace },
+      { verb: "bind", group, resource: "roles", name: guestObjectName(workspaceId, connectionId, "exec"), namespace },
+    ]) expect(await allowed(attributes)).toBe(false);
     minterTokens.push(issued.status.token);
     return issued.status.token;
   }

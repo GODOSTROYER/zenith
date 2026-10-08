@@ -112,6 +112,9 @@ describe("native packaged worker canonical source contract", () => {
     expect(instructions).toContain("WORKDIR /app");
     expect(instructions).toContain("COPY package.json package-lock.json ./");
     expect(instructions).toContain("COPY src/lib ./src/lib");
+    const sloAsset = "COPY deploy/slo/slo-definitions.json ./deploy/slo/slo-definitions.json";
+    expect(instructions).toContain(sloAsset);
+    expect(instructions.indexOf(sloAsset)).toBeLessThan(instructions.findIndex(line => line.startsWith("RUN npx esbuild workers/execution/entrypoint.ts")));
     expect(instructions.indexOf("WORKDIR /app")).toBeLessThan(instructions.indexOf(install));
     expect(instructions.indexOf("COPY package.json package-lock.json ./")).toBeLessThan(instructions.indexOf(install));
     expect(instructions.indexOf(install)).toBeLessThan(instructions.indexOf("COPY src/lib ./src/lib"));

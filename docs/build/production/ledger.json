@@ -3893,13 +3893,18 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J10: pinned official SDK 2.0 conformance and local TLS Keycloak DCR/browser harness built. Targeted in-process verification recorded in verify/PROD-UX-02.md; actual issuer, PostgreSQL and Claude Code/Codex operated acceptance await Mac verification.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
       "owner": null,
-      "testPaths": []
+      "testPaths": [
+        "tests/agent-v3/official-client-conformance.test.ts",
+        "tests/agent-v3/oauth-issuer-fixture.test.ts",
+        "tests/agent-v3/oauth-issuer-live.test.ts"
+      ]
     },
     {
       "id": "PROD-UX-03",

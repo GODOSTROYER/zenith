@@ -11,7 +11,7 @@ import type { Sql } from "@/lib/controlplane/types";
 import { ControlStoreError, requireText } from "../errors";
 import { NATIVE_OPERATION_WRITES } from "@/lib/ownership/conflicts";
 import { assertFence } from "./leases";
-import { lockForOperation } from "./ownership-transfers";
+import { lockForGrant } from "./ownership-transfers";
 import { textArray } from "../sql";
 
 export interface GrantRecord {
@@ -112,8 +112,8 @@ export async function insert(sql: Sql, input: InsertGrantInput): Promise<GrantRe
     if (!locked || locked.capability !== observed.capability || locked.lease_scope !== observed.lease_scope || locked.fence_token !== observed.fence_token
       || ((locked.lease_scope === null) !== (locked.fence_token === null)))
       throw new ControlStoreError("conflict", "Current execution ownership changed before grant admission.", { reason: "field_ownership_conflict" });
-    const ownershipRows = await lockForOperation(tx, workspaceId, operationId);
-    if (ownershipRows === null) return originalInsert(tx);
+    const ownership = await lockForGrant(tx, workspaceId, operationId);
+    if (ownership === null) return originalInsert(tx);
     // The trigger also takes this coordinator. Waiting for it here ensures
     // expiry is judged by a fresh final statement, rather than before its wait.
     const [schema] = await tx.query<{ present: boolean }>("select to_regclass('platform.cleanup_writer_scopes') is not null as present");
@@ -137,8 +137,16 @@ export async function insert(sql: Sql, input: InsertGrantInput): Promise<GrantRe
             select 1 from platform.ownership_transfers t where t.id=selected.id and t.workspace_id=o.workspace_id
               and t.environment_id=o.environment_id and t.revoked_at is null
               and (t.expires_at is null or t.expires_at>clock_timestamp())))
+          and exists (select 1 from platform.resources target where target.workspace_id=o.workspace_id
+            and target.environment_id=o.environment_id and target.id=o.resource_id)
+          and $12::text::jsonb=coalesce((select jsonb_agg(jsonb_build_object(
+            'id', current_node.id, 'address', current_node.address, 'kind', current_node.kind,
+            'native_type', current_node.native_type, 'spec', current_node.spec) order by current_node.address)
+            from (select id, address, kind, native_type, spec from platform.resources
+              where workspace_id=o.workspace_id and environment_id=o.environment_id
+              order by address limit 2001) current_node), '[]'::jsonb)
        returning ${COLUMNS}`,
-      [...args, locked.capability, locked.lease_scope, locked.fence_token, textArray(ownershipRows)],
+      [...args, locked.capability, locked.lease_scope, locked.fence_token, textArray(ownership.selectedTransferIds), ownership.nodesSnapshot],
     );
     if (rows.length !== 1) throw new ControlStoreError("conflict", "Current field ownership or execution validity changed before grant admission.", { reason: "field_ownership_conflict" });
     return toGrant(rows[0]);

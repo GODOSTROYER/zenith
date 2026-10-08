@@ -22,6 +22,7 @@ import type { ScenarioContext, ScenarioDefinition, ScenarioId } from "./types";
 import { settleRunOperations, trackControlPlane } from "./lifecycle";
 import { redactAcceptance } from "./redact";
 import { ScopeError, requireScope } from "../release/scope";
+import { runProductionCli } from "./live/cli";
 
 export const LIVE_USAGE = `Usage: npx tsx scripts/acceptance/aws-live.ts --scenario A[,B,...] [options]
   --dry-run                 Print actions/prerequisites; no cloud calls
@@ -74,6 +75,9 @@ export async function executeScenarios(ctx: ScenarioContext, defs: readonly Scen
 }
 
 export async function runLiveCli(argv: readonly string[], env: EnvLike = process.env, io: CliIO = consoleIO): Promise<number> {
+  // Keep legacy A-J journeys intact. Dispatch/no-argument invocations use the
+  // explicit-budget production envelope; --plan is strictly credential-free.
+  if (!argv.includes("--scenario")) return runProductionCli(argv, env, io);
   try {
     const args = parseArgs(argv, { booleans: ["dry-run", "confirm-billable", "check-control-plane", "help"], strings: ["scenario", "region", "out"] });
     if (args.flags.has("help")) { io.out(LIVE_USAGE); return 0; }
@@ -109,6 +113,9 @@ export async function runLiveCli(argv: readonly string[], env: EnvLike = process
       scope.assertGrant("aws-live", aws ? "aws" : "control_plane", mutating ? "create_disposable" : "read");
       config.maxMonthlyUsd = Math.min(config.maxMonthlyUsd, scope.manifest.budgets.perRunUsd);
     }
+    // Legacy AWS clients cannot supply the exact production request envelope.
+    // Keep local J and planning reachable; no live path may bypass DEC-CLOUD.
+    if (aws) throw new UsageError("Legacy AWS live journeys require the production permission/guard join; use --plan and the gated production harness until that join is assembled.");
     // Mixed non-AWS endpoints need different clients and teardown contracts.
     if (defs.some((d) => d.id === "I") && defs.some((d) => d.needs.controlPlane && d.id !== "I")) throw new UsageError("Run I separately: its managed API origin differs from the other scenarios.");
     let session: LiveSession | undefined;

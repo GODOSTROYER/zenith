@@ -27,6 +27,12 @@ const read = (rel: string): string => readFileSync(path.join(root, rel), "utf8")
 
 /** file -> the file that enforces the scope manifest for it. */
 const COVERED_BY: Record<string, string> = {
+  // The production fixture entrypoint and pre-OIDC preflight enforce both envelopes.
+  "scripts/acceptance/live/cli.ts": "scripts/acceptance/live/scope.ts",
+  "scripts/acceptance/live/preflight.ts": "scripts/acceptance/live/scope.ts",
+  "scripts/acceptance/live/sdk.ts": "scripts/acceptance/live/scope.ts",
+  "tests/acceptance/aws-production.test.ts": "scripts/acceptance/live/scope.ts",
+  "tests/acceptance/aws-production.live.test.ts": "scripts/acceptance/live/scope.ts",
   "scripts/acceptance/aws-iam-permissions.ts": "scripts/acceptance/aws-iam-permissions-cli.ts",
   "scripts/acceptance/azure-live.ts": "tests/providers/azure/live.test.ts",
   "scripts/acceptance/non-aws-dns-live.ts": "tests/acceptance/non-aws-dns-live.test.ts",
@@ -75,6 +81,10 @@ describe("live harness scope coverage", () => {
 
   it("the entry points that make live calls call the scope before acting", () => {
     expect(read("scripts/acceptance/aws-live.ts")).toMatch(/requireScope\("aws-live"/);
+    expect(read("scripts/acceptance/live/scope.ts")).toMatch(/requireScope\("aws-live"/);
+    for (const file of ["scripts/acceptance/live/cli.ts", "scripts/acceptance/live/preflight.ts"]) {
+      expect(read(file), file).toMatch(/requireProductionScope\(plan,/);
+    }
     expect(read("scripts/acceptance/cleanup.ts")).toMatch(/requireScope\("aws-cleanup"/);
     expect(read("scripts/acceptance/cleanup-cli.ts")).toMatch(/scopeGate\?\.\(/);
     expect(read("scripts/acceptance/aws-iam-permissions-cli.ts")).toMatch(/requireScope\("aws-iam-live"/);

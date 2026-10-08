@@ -42,10 +42,11 @@ name: Live acceptance (sandbox AWS)
 #      scenarios create, a permissions boundary, and a one-hour maximum session.
 #      Do not reuse a role from any account that holds real workloads.
 #
-#   3. `scripts/acceptance/aws-live.ts`, written by another workstream. This
-#      file references it and does not define it. Until it exists the job fails
-#      at its first step, before assuming any role, with a message saying so: a
-#      dispatch that silently did nothing would look like a pass.
+#   3. A clean committed candidate, an owner-approved exact permissions.json
+#      awsLive envelope in LIVE_SANDBOX_AWS_PERMISSIONS_JSON, private DB bootstrap
+#      outputs, and approved provisional regional costs. The production harness
+#      performs bounded AWS fixtures; full product journeys remain pending until
+#      the Wave 5 ProductScenarioPort is joined. Incomplete acceptance fails.
 #
 # ## No long-lived credentials
 #
@@ -59,13 +60,21 @@ name: Live acceptance (sandbox AWS)
 #
 # ## Honest status
 #
-# Nothing in this workflow has ever been executed: no sandbox account exists yet
-# (ledger blocker B-AWS-LIVE), so neither the role, nor the environment, nor
-# aws-live.ts has been exercised. What IS checked on every pull request is that
+# No live dispatch or cloud acceptance is claimed: DEC-CLOUD is still deferred.
+# What IS checked on every pull request is that
 # it parses under actionlint and that its shape (dispatch-only, environment,
 # id-token, pinned SHAs, guards) is what this comment says.
 on:
   workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Run ID from the owner-approved plan (zlive-YYYYMMDDHHmm-xxxx)'
+        required: true
+        type: string
+      budget_usd:
+        description: 'Explicit USD ceiling including cleanup reserve, approved by DEC-CLOUD'
+        required: true
+        type: string
 
 # Source read only at the workflow level; the one job that needs more asks for
 # it below.
@@ -95,6 +104,17 @@ jobs:
     env:
       LIVE_SANDBOX_AWS_ROLE_ARN: ${{ vars.LIVE_SANDBOX_AWS_ROLE_ARN }}
       LIVE_SANDBOX_AWS_ACCOUNT_ID: ${{ vars.LIVE_SANDBOX_AWS_ACCOUNT_ID }}
+      ZENITH_LIVE_AWS: '1'
+      ZENITH_LIVE_AWS_ENVIRONMENT: live-sandbox
+      ZENITH_LIVE_AWS_ACCOUNT_ID: ${{ vars.LIVE_SANDBOX_AWS_ACCOUNT_ID }}
+      ZENITH_LIVE_REGION: ${{ vars.LIVE_SANDBOX_AWS_REGION || 'ap-south-1' }}
+      ZENITH_LIVE_AWS_RUN_ID: ${{ inputs.run_id }}
+      ZENITH_LIVE_AWS_BUDGET_USD: ${{ inputs.budget_usd }}
+      ZENITH_LIVE_AWS_DB_SUBNET_GROUP: ${{ vars.LIVE_SANDBOX_AWS_DB_SUBNET_GROUP }}
+      ZENITH_LIVE_AWS_DB_SECURITY_GROUP: ${{ vars.LIVE_SANDBOX_AWS_DB_SECURITY_GROUP }}
+      ZENITH_LIVE_AWS_PERMISSIONS: ${{ runner.temp }}/zenith-aws-permissions.json
+      ZENITH_LIVE_SCOPE_FILE: ${{ runner.temp }}/zenith-live-scope.json
+      ZENITH_LIVE_AWS_OUT: ${{ runner.temp }}/zenith-aws-production
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -150,6 +170,22 @@ jobs:
         if: hashFiles('scripts/acceptance/aws-live.ts') != ''
         run: npm ci --ignore-scripts
 
+      - name: Validate the approved permission envelope before OIDC
+        if: hashFiles('scripts/acceptance/aws-live.ts') != ''
+        env:
+          PERMISSIONS_JSON: ${{ vars.LIVE_SANDBOX_AWS_PERMISSIONS_JSON }}
+          SCOPE_JSON: ${{ vars.LIVE_SANDBOX_SCOPE_JSON }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$PERMISSIONS_JSON"
+          test -n "$SCOPE_JSON"
+          printf '%s\n' "$PERMISSIONS_JSON" > "$ZENITH_LIVE_AWS_PERMISSIONS"
+          chmod 600 "$ZENITH_LIVE_AWS_PERMISSIONS"
+          printf '%s\n' "$SCOPE_JSON" > "$ZENITH_LIVE_SCOPE_FILE"
+          chmod 600 "$ZENITH_LIVE_SCOPE_FILE"
+          npx tsx scripts/acceptance/live/preflight.ts
+
       - name: Assume the sandbox role through GitHub OIDC
         if: hashFiles('scripts/acceptance/aws-live.ts') != ''
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
@@ -163,9 +199,46 @@ jobs:
           role-duration-seconds: 3600
 
       - name: Live acceptance against the sandbox account
+        id: acceptance
         if: hashFiles('scripts/acceptance/aws-live.ts') != ''
-        # The script's own inputs, flags and cleanup are defined by the
-        # workstream that owns it; if it needs more than the ambient session
-        # credentials the action just exported, add them here. It is expected to
-        # clean up what it creates: nothing in this workflow does.
+        # The final step remains a hard gate. Continuing here permits owned
+        # recovery and artifact publication after failure; it never makes it green.
+        continue-on-error: true
+        # The harness journals intents/counters, finalizes and attempts owned
+        # teardown. Recovery below cannot erase a failed original acceptance.
         run: npx tsx scripts/acceptance/aws-live.ts
+
+      - name: Recover an incomplete owned journal
+        id: recovery
+        if: hashFiles('scripts/acceptance/aws-live.ts') != ''
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          journal="${RUNNER_TEMP}/zenith-aws-production/${ZENITH_LIVE_AWS_RUN_ID}/journal.json"
+          if [ -f "$journal" ]; then
+            if node -e 'const fs=require("node:fs"); process.exit(JSON.parse(fs.readFileSync(process.argv[1],"utf8")).closed ? 0 : 1)' "$journal"; then
+              echo "Owned journal already closed; no recovery cloud calls."
+            else
+              npx tsx scripts/acceptance/aws-live.ts --cleanup "$journal"
+            fi
+          fi
+
+      - name: Publish sanitized AWS evidence and recovery journal
+        if: hashFiles('scripts/acceptance/aws-live.ts') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: aws-live-${{ github.run_id }}
+          path: ${{ runner.temp }}/zenith-aws-production/${{ inputs.run_id }}/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Require complete acceptance and successful cleanup
+        if: hashFiles('scripts/acceptance/aws-live.ts') != ''
+        env:
+          ACCEPTANCE_OUTCOME: ${{ steps.acceptance.outcome }}
+          RECOVERY_OUTCOME: ${{ steps.recovery.outcome }}
+        run: |
+          set -euo pipefail
+          test "$ACCEPTANCE_OUTCOME" = success
+          test "$RECOVERY_OUTCOME" = success

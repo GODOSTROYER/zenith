@@ -13,7 +13,9 @@
  * bootstrap identity, never the tenant's. This file holds only the contract so MAN-01 can code against it without
  * importing the execution runtime.
  *
- * Calling sequence for MAN-01 (one onboarding is one platform operation):
+ * MAN-01 first deploy calls preview, binds isolation into its composite reviewed semantics,
+ * calls recordReviewed with that composite review, then apply under the same approved operation.
+ * Dedicated onboarding operations use this sequence:
  *   1. create the operation through the normal propose / approval path (kind: day-two, the proposal input carries
  *      `isolationRequestDigest(request)`);
  *   2. `plan(request)` inside that operation's plan step. The returned `planDigest` is what the reviewer approves;
@@ -29,6 +31,7 @@ import type { BrokerPort } from "@/lib/execution/ports";
 import { GUEST_TOKEN_MIN_SEC, GUEST_TOKEN_MAX_SEC } from "@/lib/providers/kubernetes/guest";
 import type { ZenithSubstrate } from "./substrate";
 import type { ZenithTenant } from "./types";
+import type { IsolationReview } from "@/lib/execution/isolation-custody";
 
 export type TenantIsolationErrorCode =
   | "not_configured"
@@ -102,8 +105,14 @@ export interface TenantIsolationResult {
 }
 
 export interface TenantIsolationProvisioner {
+  /** Read-only planning for a composite deployment, before review evidence is published. */
+  preview(request: TenantIsolationRequest): Promise<TenantIsolationPlan>;
+  recordReviewed(request: TenantIsolationRequest, plan: TenantIsolationPlan, review?: IsolationReview): Promise<void>;
+  /** Metadata from authenticated custody, for composite final-plan and retry checks. */
+  reviewedPlan(request: TenantIsolationRequest, reviewedPlanDigest: string): Promise<TenantIsolationPlan>;
+  assertReviewed(request: TenantIsolationRequest, isolationPlanDigest: string, review?: IsolationReview): Promise<void>;
   plan(request: TenantIsolationRequest): Promise<TenantIsolationPlan>;
-  apply(request: TenantIsolationRequest, approvedPlanDigest: string): Promise<TenantIsolationResult>;
+  apply(request: TenantIsolationRequest, approvedPlanDigest: string, review?: IsolationReview): Promise<TenantIsolationResult>;
   /** plan, then apply only if the current approval is bound to exactly that plan digest */
   provision(request: TenantIsolationRequest): Promise<TenantIsolationResult>;
   /** mint the next operator token for an already-provisioned tenant (MACH-02 minter) and store it */

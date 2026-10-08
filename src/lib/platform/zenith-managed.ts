@@ -39,7 +39,15 @@ import { createKubernetesToolkit } from "./kubernetes-toolkit";
 import { platformDb, repos } from "@/lib/controlplane/db";
 import type { Sql } from "@/lib/controlplane/types";
 import { loadServingInputs, platformStorageKeyStore } from "@/lib/managed-serving/platform-store";
-import { assertManagedOperatorConfigured, assertManagedTenantReady } from "./zenith-onboarding";
+import { assertManagedOperatorConfigured, assertManagedTenantReady, readOnlyManagedPlanningSession } from "./zenith-onboarding";
+import { createTenantIsolationProvisioner } from "@/lib/execution/tenant-isolation";
+import { createGuestClusterPort } from "@/lib/providers/kubernetes/guest";
+import { openZenithSession } from "@/lib/providers/zenith/session";
+import { substrateConnectionConfig } from "@/lib/providers/zenith/substrate";
+import { tenantNamespace } from "@/lib/providers/zenith/tenancy";
+import { asyncSecretsBackend, KEY_VERSION, type AsyncSecretsBackend } from "@/lib/secrets/backend";
+import { unavailableDatabaseProvider } from "@/lib/providers/zenith/database";
+import { vaultCipherFromEnv } from "@/lib/secrets";
 
 /** Reserved workspace id of the platform credential scope. */
 export const DEFAULT_PLATFORM_VAULT_SCOPE = "zenith-platform";
@@ -115,6 +123,8 @@ export interface DefaultManagedSubstrateOptions {
   fetch?: typeof fetch;
   /** default: the encrypted vault; kind acceptance and tests may pass another reader of the SAME shape */
   readPlatformSecret?: PlatformCredentialDeps["read"];
+  /** Sealed-record storage seam; production uses the configured async vault backend. */
+  operatorCredentialBackend?: AsyncSecretsBackend;
   /** Execution supplies its existing store; other surfaces resolve the process store lazily. */
   db?: Sql;
 }
@@ -142,7 +152,53 @@ export function createDefaultManagedSubstrate(options: DefaultManagedSubstrateOp
     : configs.config;
   const db = async () => options.db ?? platformDb();
   const openKubernetes: Parameters<typeof assertManagedTenantReady>[1]["createKubernetesSession"] = (cfg, signal) => createKubernetesSession(cfg, { ttlSec: 3600, resolveCredential: (ref, s) => credentials.resolve(ref, s) }, signal);
+  const bootstrapConfig = (namespace: string) => {
+    if (!config.configured) throw new ManagedSubstrateError("not_configured", config.message);
+    return { ...substrateConnectionConfig(config.substrate, namespace), credentialRef: config.substrate.cluster.kubeconfigRef };
+  };
+  const onboarding: NonNullable<ManagedSubstratePort["onboarding"]> = {
+    request(tenant, operationId, lease, withManagedDatabase) {
+      if (!config.configured) throw new ManagedSubstrateError("not_configured", config.message);
+      assertManagedOperatorConfigured(config.substrate);
+      return { tenant, substrate: config.substrate, operationId, lease, withManagedDatabase, tokenTtlSec: 3600 };
+    },
+    provisioner(rt) {
+      return createTenantIsolationProvisioner({ rt,
+        openBootstrapSession: async (request, namespaces, signal) => ({ session: await openKubernetes({ ...bootstrapConfig(namespaces[0]), namespaces: [...namespaces] }, signal) }),
+        async openOperatorProbe(token, request) {
+          const namespace = tenantNamespace(request.tenant.workspaceId, request.tenant.environmentId);
+          const session = await createKubernetesSession(substrateConnectionConfig(request.substrate, namespace), { ttlSec: 600, resolveCredential: async () => token });
+          return createGuestClusterPort(session);
+        },
+        async storeOperatorCredential(value) {
+          if (!config.configured) throw new ManagedSubstrateError("not_configured", config.message);
+          const tenant = await tenants.resolve(value);
+          const namespace = tenantNamespace(tenant.workspaceId, tenant.environmentId);
+          if (value.ref !== `${config.substrate.isolation?.operatorCredentialPrefix}/${namespace}` || Date.parse(value.expiresAt) <= Date.now()) throw new ManagedSubstrateError("session_refused", "Operator credential custody scope or expiry is invalid.");
+          const scope = platformVaultScope(env);
+          const backend = options.operatorCredentialBackend ?? asyncSecretsBackend();
+          const current = await backend.get(scope, value.ref);
+          const now = new Date().toISOString();
+          await backend.put(scope, { ref: value.ref, createdAt: current?.createdAt ?? now, createdBy: current?.createdBy ?? "system:tenant-isolation", updatedAt: now, updatedBy: "system:tenant-isolation", version: (current?.version ?? 0) + 1, keyVersion: KEY_VERSION,
+            ...vaultCipherFromEnv(env).seal(scope, value.ref, value.token) });
+        },
+      });
+    },
+    async withPlanningSession(request, fn) {
+      if (!config.configured) throw new ManagedSubstrateError("not_configured", config.message);
+      const tenant = await tenants.resolve(request);
+      assertManagedOperatorConfigured(config.substrate);
+      const namespace = tenantNamespace(tenant.workspaceId, tenant.environmentId);
+      const kubernetes = readOnlyManagedPlanningSession(await openKubernetes(bootstrapConfig(namespace), request.signal));
+      const serving = await loadServingInputs(await db(), tenant);
+      const session = await openZenithSession(tenant, { substrate: config.substrate, kubernetes,
+        createKubernetesSession: async (cfg, signal) => readOnlyManagedPlanningSession(await openKubernetes(cfg, signal)),
+        databases: request.databases ?? unavailableDatabaseProvider("No managed database scope was supplied for planning."), storage: request.storage, customDomains: serving.verifiedDomains, retiredDomains: serving.retiredDomains });
+      return fn(session);
+    },
+  };
   return createManagedSubstrate({
+    onboarding,
     config,
     // No shared namespace/worker privilege for untrusted builds. The per-tenant build approval and node-pool
     // provisioning path is not composed yet; source hand-off and build dispatch refuse before any write.

@@ -3674,7 +3674,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "J14: offline gVisor kind installation, lean Mac profile and gated runtime evaluation built. DUR-B seam contract-tested; MAN-01 caller join, direct-engine custody and Gateway attachment remain orchestrator joins outside owned files. Mac/local-engine and live acceptance pending; not verified.",
+      "implementationNote": "J14 step 2: default first deploy binds isolation and scoped token constraints into DUR-B composite review, authenticates immutable encrypted direct-object custody (migration 56), records effects before bootstrap apply, verifies readback and stores only scoped tokens. Cilium Gateway ingress identity join and gated two-tenant attachment/HTTPS harnesses built. Mac real-engine, live and operational acceptance pending; not verified.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3685,7 +3685,12 @@
       "owner": "production verifier",
       "testPaths": [
         "tests/execution/tenant-isolation.test.ts",
-        "tests/isolation/managed-onboarding-readiness.test.ts"
+        "tests/isolation/managed-onboarding-readiness.test.ts",
+        "tests/execution/zenith-first-deploy.test.ts",
+        "tests/platform/zenith-isolation-custody.test.ts",
+        "tests/isolation/gvisor-onboarding-acceptance.test.ts",
+        "tests/isolation/gateway-isolation-acceptance.test.ts",
+        "tests/isolation/gvisor-runtime-acceptance.test.ts"
       ]
     },
     {
@@ -3701,7 +3706,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "J14: existing CPU/memory/disk/PID and latency harness retained, CPU accounting made mandatory, gated sandbox OOM containment added. Lean same-node Mac verification pending; latency/PID/quota bounds provisional; not verified.",
+      "implementationNote": "J14 step 2: reviewed default onboarding activates quota, CNI and gVisor runtime before tenant workload dispatch; existing CPU/memory/disk/PID/latency and sandbox OOM harnesses retained. Lean same-node Mac verification pending; latency/PID/quota bounds provisional; not verified.",
       "evidence": [],
       "requiredEvidence": [
         "contract",

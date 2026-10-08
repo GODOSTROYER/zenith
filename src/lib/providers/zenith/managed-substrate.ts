@@ -60,6 +60,7 @@ export interface ManagedSubstrateDeps {
   storageKeyStore?(tenant: { workspaceId: string; environmentId: string }): StorageKeyStore;
   /** Default composition requires readback of separately approved isolation before opening sessions. */
   assertTenantReady?(tenant: Awaited<ReturnType<TenantResolver["resolve"]>>, signal?: AbortSignal): Promise<KubernetesSession | void>;
+  onboarding?: ManagedSubstratePort["onboarding"];
 }
 
 export function createManagedSubstrate(deps: ManagedSubstrateDeps): ManagedSubstratePort {
@@ -124,6 +125,7 @@ export function createManagedSubstrate(deps: ManagedSubstrateDeps): ManagedSubst
     substrate: requireSubstrate,
     toolkit: deps.toolkit,
     tenants: deps.tenants,
+    ...(deps.onboarding ? { onboarding: deps.onboarding } : {}),
     servingInputs,
     registry: () => registry,
     buildConfig() {

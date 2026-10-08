@@ -13,17 +13,15 @@
  *                          digest (`dispatchApproval.planDigest`); a missing, rejected, unbound or different approval
  *                          refuses. The plan digest is recomputed against the live cluster and a moved digest is
  *                          `plan_changed`: nothing is applied.
- *   4. DUR-C custody       the platform vet function: the batch handed to server-side apply must be byte-for-byte the
- *                          bundle that was rendered and validated here (digest compared), or the apply refuses before
- *                          any write.
+ *   4. DUR-C custody       authenticated write-once direct-object artifact under enc:plan-artifacts;
+ *                          scope, expiry, fence, semantics and exact object bytes checked before dispatch.
  *   5. DUR-D effect ledger one `isolation_apply` effect per (operation, plan digest) is recorded BEFORE the cluster
  *                          call; a retried activity finds it (accepted: verify only; pending, uncertain, conflict or
  *                          tombstoned: refuse).
  *   6. provider call       server-side apply under the bootstrap identity (`platform` kinds of the Kubernetes
  *                          provider), never forced, whole-batch preflight with ownership refusals.
- * What is not here: DUR-B's executable-semantics record and DUR-C's plan-file custody are tied to an ExecContext (an
- * environment deploy) that an onboarding operation does not have. The approval bound to the plan digest and the
- * digest-exact vet stand in for them; MAN-01's operation type may add them at the join.
+ * Standalone review binds its isolation digest. Managed first deploy binds the isolation phase
+ * into its composite deployment digest and canonical semantics; neither approval can substitute for the other.
  *
  * Fail closed, always: after the apply, every rendered object is read back and compared with what was rendered, the
  * operator token is minted, and (when an access probe is supplied) the minted identity is shown to hold its own
@@ -50,6 +48,8 @@ import { bundleObjects, operatorSubjectOf, renderIsolationBundle, validateIsolat
 import { validateTenantObjects } from "@/lib/providers/zenith/isolation";
 import {
   TenantIsolationError,
+  createIsolationSemanticsGuard,
+  isolationExecutableSemantics,
   type TenantIsolationPlan,
   type TenantIsolationProvisioner,
   type TenantIsolationRequest,
@@ -60,6 +60,7 @@ import { renderTenancy, tenantNamespace } from "@/lib/providers/zenith/tenancy";
 import { ZenithError } from "@/lib/providers/zenith/types";
 import { errorText } from "./text";
 import type { Runtime } from "./runtime";
+import type { IsolationReview } from "./isolation-custody";
 
 /** The pieces of the execution runtime this step uses; the real `Runtime` satisfies it. */
 export type TenantIsolationRuntime = Pick<Runtime, "d" | "emit" | "evidence" | "log" | "now">;
@@ -196,7 +197,7 @@ export function prepareIsolation(request: TenantIsolationRequest): Prepared {
     const bundleDigest = bundleDigestOf(objects);
     const vet: PlatformApplyPolicy = {
       vet(batch) {
-        // DUR-C stand-in: the batch must be exactly what was rendered and validated here
+        // Defense in depth after DUR-C: only the exact custodied batch may use the platform apply set.
         if (bundleDigestOf(batch) !== bundleDigest) throw new K8sError("invalid_object", "The batch is not the rendered tenant isolation bundle; refusing before any write.");
       },
     };
@@ -279,7 +280,12 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
   async function dryRun(session: KubernetesSession, p: Prepared, s: AbortSignal): Promise<{ plan: TenantIsolationPlan }> {
     let changes: DiffItem[];
     try {
-      changes = await diff(p.objects, session, { environmentId: p.tenant.environmentId, signal: s, platform: p.vet });
+      const namespace = await readObject(createK8sClient(session, { environmentId: p.tenant.environmentId, signal: s }), { apiVersion: "v1", kind: "Namespace", name: p.namespace });
+      // The API cannot dry-run namespaced objects before the reviewed namespace create.
+      // Only those absent-namespace objects are projected locally; all other objects are server checked.
+      const candidates = namespace ? p.objects : p.objects.filter(o => o.metadata.namespace !== p.namespace);
+      const candidateDigest = bundleDigestOf(candidates);
+      changes = await diff(candidates, session, { environmentId: p.tenant.environmentId, signal: s, platform: { vet(batch) { if (bundleDigestOf(batch) !== candidateDigest) throw fail("plan_changed", "The isolation planning batch changed."); } } });
     } catch (e) {
       throw fail("plan_failed", `The cluster could not be consulted for the plan (${errorText(e, 120)}).`);
     }
@@ -298,15 +304,55 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
     return { plan: { planDigest, bundleDigest: p.bundleDigest, namespace: p.namespace, objects, notes: p.bundle.notes } };
   }
 
-  async function plan(request: TenantIsolationRequest): Promise<TenantIsolationPlan> {
+  async function preview(request: TenantIsolationRequest): Promise<TenantIsolationPlan> {
     const p = prepareIsolation(request);
     await admit(request);
     await fence(request);
     const { plan: made } = await withBootstrap(request, p, (session, s) => dryRun(session, p, s));
-    await rt
-      .evidence(scopeOf(request), { kind: "tofu_plan", digest: made.planDigest, key: `isolation-plan:${made.planDigest}`, simulated: false, summary: { planDigest: made.planDigest, engine: "tenant-isolation", resources: made.objects.length, create: made.objects.filter((o) => o.action === "create").length, update: made.objects.filter((o) => o.action === "update").length } }, { critical: false })
-      .catch(() => undefined);
     return made;
+  }
+
+  const semanticsGuard = createIsolationSemanticsGuard(rt.d.semantics, rt.d.broker);
+  const custody = () => {
+    if (!rt.d.isolationCustody) throw fail("not_configured", "Durable isolation custody is not configured; onboarding must not dispatch.");
+    return rt.d.isolationCustody;
+  };
+  async function recordReviewed(request: TenantIsolationRequest, made: TenantIsolationPlan, review?: IsolationReview): Promise<void> {
+    const p = prepareIsolation(request);
+    if (p.bundleDigest !== made.bundleDigest || p.namespace !== made.namespace) throw fail("plan_changed", "The isolation bundle changed before review.");
+    const semantics = isolationExecutableSemantics(request, made);
+    if (!review) {
+      await semanticsGuard.recordReviewed(request, made);
+      review = { planDigest: made.planDigest, semanticsDigest: semantics.digest };
+    } else {
+      const registered = await rt.d.semantics?.get(request.tenant.workspaceId, request.operationId, review.planDigest);
+      if (!registered || registered.semantics.digest !== review.semanticsDigest) throw fail("plan_changed", "The composite reviewed semantics are unavailable.");
+    }
+    await custody().publish(request, { plan: made, objects: p.objects, isolationSemanticsDigest: semantics.digest, review });
+  }
+  async function plan(request: TenantIsolationRequest): Promise<TenantIsolationPlan> {
+    const made = await preview(request);
+    await recordReviewed(request, made);
+    const semantics = isolationExecutableSemantics(request, made);
+    await rt.evidence(scopeOf(request), { kind: "tofu_plan", digest: made.planDigest, key: `isolation-plan:${made.planDigest}`, simulated: false, summary: { planDigest: made.planDigest, semantics, engine: "tenant-isolation", custody: "zenith.isolation-artifact.v1", resources: made.objects.length, create: made.objects.filter(o => o.action === "create").length, update: made.objects.filter(o => o.action === "update").length } }, { critical: true });
+    return made;
+  }
+  async function assertCustody(request: TenantIsolationRequest, p: Prepared, approvedPlanDigest: string, review?: IsolationReview): Promise<void> {
+    // DUR-B precedes every DUR-C decrypt/read and every credential resolution.
+    if (!review) await semanticsGuard.assertReviewed(request, { planDigest: approvedPlanDigest, bundleDigest: p.bundleDigest, namespace: p.namespace });
+    else {
+      const registered = await rt.d.semantics?.get(request.tenant.workspaceId, request.operationId, review.planDigest);
+      if (!registered || registered.semantics.digest !== review.semanticsDigest) throw fail("plan_changed", "Reviewed composite semantics are missing or changed.");
+      await approvalBound(request, review.planDigest);
+    }
+    await custody().inspect(request, review?.planDigest ?? approvedPlanDigest, async artifact => {
+      const registered = await rt.d.semantics?.get(request.tenant.workspaceId, request.operationId, artifact.review.planDigest);
+      if (!registered || registered.semantics.digest !== artifact.review.semanticsDigest || review && review.semanticsDigest !== artifact.review.semanticsDigest
+        || artifact.plan.planDigest !== approvedPlanDigest || artifact.plan.bundleDigest !== p.bundleDigest || bundleDigestOf(artifact.objects) !== p.bundleDigest
+        || isolationExecutableSemantics(request, artifact.plan).digest !== artifact.isolationSemanticsDigest) throw fail("plan_changed", "The reviewed isolation semantics or custody changed; nothing was dispatched.");
+      await approvalBound(request, artifact.review.planDigest);
+      await fence(request);
+    });
   }
 
   async function approvalBound(request: TenantIsolationRequest, planDigest: string): Promise<void> {
@@ -318,7 +364,7 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
   }
 
   /** Mint with the MACH-02 TokenRequest path, probe the identity, store the token. Returns only where it went. */
-  async function mintAndStore(request: TenantIsolationRequest, p: Prepared, session: KubernetesSession, s: AbortSignal): Promise<{ ref: string; expiresAt: string; probed: boolean }> {
+  async function mintAndStore(request: TenantIsolationRequest, p: Prepared, session: KubernetesSession, s: AbortSignal, beforeCredential: () => Promise<void>): Promise<{ ref: string; expiresAt: string; probed: boolean }> {
     const prefix = request.substrate.isolation?.operatorCredentialPrefix as string;
     const ref = `${prefix}/${p.namespace}`;
     const subject = p.bundle.operatorSubject;
@@ -329,6 +375,7 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
     try {
       // ensureServiceAccount reads the live account (created by the apply), refuses a foreign one, and returns the UID the token is bound to
       const account = await cluster.ensureServiceAccount(subject.namespace, subject.name, sa.metadata.labels ?? {});
+      await beforeCredential();
       const issued = await requestVerifiedToken(cluster, { namespace: subject.namespace, serviceAccount: subject.name, uid: account.uid, audiences: request.audiences, tokenTtlSec: request.tokenTtlSec, now: rt.now });
       token = issued.token;
       expiresAt = issued.expiresAt;
@@ -348,6 +395,7 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
       probed = true;
     }
     try {
+      await beforeCredential();
       await deps.storeOperatorCredential({ ref, token, expiresAt: expiresAt.toISOString(), workspaceId: p.tenant.workspaceId, environmentId: p.tenant.environmentId });
     } catch {
       throw fail("credential_failed", "The operator credential could not be stored; onboarding is not complete.");
@@ -373,13 +421,14 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
     await ledger.recordReadback(effect.workspaceId, effect.effectId, buildReadback(readback), "system:tenant-isolation").catch(() => undefined);
   }
 
-  async function apply(request: TenantIsolationRequest, approvedPlanDigest: string): Promise<TenantIsolationResult> {
+  async function apply(request: TenantIsolationRequest, approvedPlanDigest: string, review?: IsolationReview): Promise<TenantIsolationResult> {
     if (!/^[a-f0-9]{64}$/.test(approvedPlanDigest)) throw fail("invalid_request", "The plan digest is not a SHA-256 hex digest; refusing to apply.");
     const p = prepareIsolation(request);
     const ledger = rt.d.effects;
     if (!ledger) throw fail("not_configured", "The external-effect ledger is not available in this composition; refusing to apply without a record.");
     await admit(request);
     await fence(request);
+    await assertCustody(request, p, approvedPlanDigest, review);
     return withBootstrap(request, p, async (session, s) => {
       // A repeat of an apply this ledger already holds (accepted or confirmed) changes nothing: it is verified again, and
       // the live cluster no longer matches the plan it was made against, so the plan is not recomputed. Any other recorded
@@ -393,7 +442,7 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
         const fresh = (await dryRun(session, p, s)).plan;
         if (fresh.planDigest !== approvedPlanDigest) throw fail("plan_changed", "The isolation plan changed since it was approved; a new review is required. Nothing was applied.");
       }
-      await approvalBound(request, approvedPlanDigest);
+      await assertCustody(request, p, approvedPlanDigest, review);
       await fence(request);
       await rt.emit(scopeOf(request), "resource.applying", `isolation:${approvedPlanDigest}`, { planDigest: approvedPlanDigest, engine: "tenant-isolation" });
 
@@ -402,6 +451,7 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
       let effect!: EffectRecord;
       try {
         const outcome = await ledger.dispatchOnce(input, async () => {
+          await assertCustody(request, p, approvedPlanDigest, review);
           const report = await serverSideApply(p.objects, session, { environmentId: p.tenant.environmentId, signal: s, platform: p.vet });
           if (!report.ok) {
             const failed = report.results.filter((r) => !["created", "configured", "unchanged"].includes(r.status));
@@ -428,7 +478,8 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
         await settleReadback(ledger, effect, { outcome: "mismatch", source: "kubernetes.read", observedAt: rt.now().toISOString(), facts: { objects: p.objects.length }, reason: e instanceof TenantIsolationError ? e.message.slice(0, 400) : "readback failed" });
         throw e instanceof TenantIsolationError ? e : fail("verify_failed", "The isolation objects could not be read back.");
       }
-      const credential = await mintAndStore(request, p, session, s).catch(async (e) => {
+      await assertCustody(request, p, approvedPlanDigest, review);
+      const credential = await mintAndStore(request, p, session, s, () => assertCustody(request, p, approvedPlanDigest, review)).catch(async (e) => {
         // A failed access probe is evidence the cluster does not hold what was rendered: the effect goes to conflict for an
         // operator. A mint or sink failure is not: the apply is accepted and verified, and a retry only re-mints.
         if (e instanceof TenantIsolationError && e.code === "verify_failed") {
@@ -443,6 +494,18 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
   }
 
   return {
+    preview,
+    recordReviewed,
+    async reviewedPlan(request, reviewedPlanDigest) {
+      const reviewed = await rt.d.semantics?.get(request.tenant.workspaceId, request.operationId, reviewedPlanDigest);
+      if (!reviewed) throw fail("plan_changed", "Reviewed isolation semantics are unavailable.");
+      await approvalBound(request, reviewedPlanDigest);
+      return custody().inspect(request, reviewedPlanDigest, async artifact => {
+        if (artifact.review.semanticsDigest !== reviewed.semantics.digest) throw fail("plan_changed", "Reviewed isolation custody does not match its semantics.");
+        return structuredClone(artifact.plan);
+      });
+    },
+    assertReviewed: (request, approvedPlanDigest, review) => assertCustody(request, prepareIsolation(request), approvedPlanDigest, review),
     plan,
     apply,
     async provision(request) {
@@ -453,13 +516,17 @@ export function createTenantIsolationProvisioner(deps: TenantIsolationDeps): Ten
       const p = prepareIsolation(request);
       await admit(request);
       await fence(request);
+      const authority = await rt.d.broker.approvalStatus(request.operationId);
+      const approved = authority.dispatchApproval?.planDigest;
+      if (!approved) throw fail("approval_required", "Credential rotation requires the reviewed onboarding plan.");
+      const artifact = await custody().inspect(request, approved, async a => ({ plan: a.plan, review: a.review }));
+      await assertCustody(request, p, artifact.plan.planDigest, artifact.review);
       return withBootstrap(request, p, async (session, s) => {
         // rotation never applies anything: the bundle must already be present and matching, or the token is not minted
         await readBackTenantIsolation(session, p, s);
-        const c = await mintAndStore(request, p, session, s);
+        const c = await mintAndStore(request, p, session, s, () => assertCustody(request, p, artifact.plan.planDigest, artifact.review));
         return { ref: c.ref, expiresAt: c.expiresAt };
       });
     },
   };
 }
-

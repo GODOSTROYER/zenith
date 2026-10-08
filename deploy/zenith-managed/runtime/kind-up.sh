@@ -20,6 +20,12 @@ k8s_require node npx kind docker kubectl helm bzip2
 : "${ZENITH_GVISOR_ARCHIVE:?supply the complete publisher gVisor tar.bz2 for Linux aarch64 on the Mac}"
 : "${ZENITH_GVISOR_SHA256:?supply its publisher SHA-256}"
 : "${ZENITH_GVISOR_RELEASE:?supply the exact publisher point release, YYYYMMDD.N}"
+if [ "${ZENITH_TEST_GVISOR_GATEWAY_SETUP:-0}" = 1 ]; then
+  : "${ZENITH_GATEWAY_CRD_MANIFEST:?supply the reviewed local Gateway API standard CRD manifest}"
+  : "${ZENITH_GATEWAY_CRD_SHA256:?supply its reviewed SHA-256}"
+  [[ "$ZENITH_GATEWAY_CRD_SHA256" =~ ^[a-f0-9]{64}$ ]] || k8s_die "invalid Gateway CRD checksum" 2
+  [ "$(k8s_sha256 "$ZENITH_GATEWAY_CRD_MANIFEST")" = "$ZENITH_GATEWAY_CRD_SHA256" ] || k8s_die "Gateway CRD checksum mismatch" 4
+fi
 [[ "$ZENITH_CILIUM_CHART_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || k8s_die "invalid Cilium version" 2
 [[ "$ZENITH_CILIUM_CHART_SHA256" =~ ^[a-f0-9]{64}$ ]] || k8s_die "invalid Cilium checksum" 2
 [[ "$ZENITH_GVISOR_SHA256" =~ ^[a-f0-9]{64}$ ]] || k8s_die "invalid gVisor checksum" 2
@@ -41,6 +47,13 @@ touch "$ZENITH_K8S_WORKDIR/zenith-life07.marker"
 kind create cluster --name "$name" --image "$KIND_NODE_IMAGE" --config "$here/kind-lean.yaml" --kubeconfig "$KUBECONFIG" --wait 0s
 chmod 600 "$KUBECONFIG"
 values=(--namespace kube-system --set ipam.mode=kubernetes --set operator.replicas=1 --set kubeProxyReplacement=false --set hubble.enabled=false --set image.pullPolicy=IfNotPresent --set resources.requests.cpu=50m --set resources.requests.memory=256Mi --set operator.resources.requests.cpu=50m --set operator.resources.requests.memory=64Mi)
+if [ "${ZENITH_TEST_GVISOR_GATEWAY_SETUP:-0}" = 1 ]; then
+  kubectl apply --server-side -f "$ZENITH_GATEWAY_CRD_MANIFEST"
+  # KIND's internal API endpoint is reachable before kube-proxy replacement initializes.
+  api_server_ip="$(docker inspect "$name-control-plane" --format '{{(index .NetworkSettings.Networks "kind").IPAddress}}')"
+  [[ "$api_server_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || k8s_die "owned KIND API address is unavailable" 4
+  values+=(--set kubeProxyReplacement=true --set gatewayAPI.enabled=true --set envoy.enabled=true --set envoy.resources.requests.cpu=50m --set envoy.resources.requests.memory=64Mi --set "k8sServiceHost=$api_server_ip" --set k8sServicePort=6443)
+fi
 helm show chart "$ZENITH_CILIUM_CHART_ARCHIVE" | grep -qx "version: $ZENITH_CILIUM_CHART_VERSION" || k8s_die "chart version differs from reviewed pin" 4
 helm template cilium "$ZENITH_CILIUM_CHART_ARCHIVE" "${values[@]}" > "$ZENITH_K8S_WORKDIR/cilium.rendered.yaml"
 if ! grep -E '^[[:space:]]*image:' "$ZENITH_K8S_WORKDIR/cilium.rendered.yaml" >/dev/null || grep -E '^[[:space:]]*image:' "$ZENITH_K8S_WORKDIR/cilium.rendered.yaml" | grep -v '@sha256:' >/dev/null; then

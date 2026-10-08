@@ -1,7 +1,8 @@
 /** Contract test: local fake Kubernetes API and mocked authorization reviews, not cluster isolation evidence. */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { KubernetesConnectionConfig } from "@/lib/credentials/types";
-import { assertManagedOperatorConfigured, assertManagedTenantReady } from "@/lib/platform/zenith-onboarding";
+import { assertManagedOperatorConfigured, assertManagedTenantReady, readOnlyManagedPlanningSession } from "@/lib/platform/zenith-onboarding";
+import { diff, serverSideApply } from "@/lib/providers/kubernetes/apply";
 import { prepareIsolation } from "@/lib/execution/tenant-isolation";
 import type { AccessAttributes } from "@/lib/providers/kubernetes/guest";
 import { substrateConnectionConfig } from "@/lib/providers/zenith/substrate";
@@ -54,6 +55,18 @@ describe("managed readiness readback", () => {
   });
   afterEach(async () => { await fake.close(); });
   const sessions = () => vi.fn(async (config: KubernetesConnectionConfig) => sessionFor(fake, config.namespaces ?? []));
+
+  it("internal planning authenticates server dry-runs but refuses actual writes through the real client", async () => {
+    const preparedBundle = prepared();
+    const session = readOnlyManagedPlanningSession(await sessionFor(fake, preparedBundle.namespaces));
+    const changes = await diff(preparedBundle.objects, session, { environmentId: TENANT.environmentId, platform: preparedBundle.vet });
+    expect(changes.every(c => c.action === "none")).toBe(true);
+    expect(fake.writes().length).toBeGreaterThan(0);
+    expect(fake.writes().every(w => w.query.dryRun === "All")).toBe(true);
+    const report = await serverSideApply(preparedBundle.objects, session, { environmentId: TENANT.environmentId, platform: preparedBundle.vet });
+    expect(report.ok).toBe(false);
+    expect(fake.writes().filter(w => w.query.dryRun !== "All")).toEqual([]);
+  });
 
   it("reads the complete isolation bundle and probes the tenant operator without applying or minting", async () => {
     const createKubernetesSession = sessions();

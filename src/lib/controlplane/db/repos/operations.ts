@@ -545,7 +545,7 @@ export async function acquireExecutionLease(sql: Sql, input: AcquireLeaseInput &
       // a concurrent owning insert is locked and revalidated before any retry.
       const fresh=await tx.query<{scope:string;holder:string;fence_token:number;acquired_at:string;expires_at:string}>(
         `insert into platform.leases (scope,workspace_id,holder,fence_token,acquired_at,renewed_at,expires_at,released_at)
-          values ($2,$1,$3,platform.recovery_fence_floor(),clock_timestamp(),clock_timestamp()+($4::bigint * interval '1 millisecond'),null)
+          values ($2,$1,$3,platform.recovery_fence_floor(),clock_timestamp(),clock_timestamp(),clock_timestamp()+($4::bigint * interval '1 millisecond'),null)
           on conflict (scope) do nothing returning scope,holder,fence_token,acquired_at,expires_at`,
         [requested.workspaceId,requested.scope,requested.holder,requested.ttlMs]);
       if(fresh[0]) {

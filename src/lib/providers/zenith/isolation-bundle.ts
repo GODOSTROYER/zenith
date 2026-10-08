@@ -37,6 +37,7 @@ import type { IsolationViolation } from "./isolation";
 import { assertTenant, type ZenithSubstrate } from "./substrate";
 import { labelValue, tenancyMetadata, tenantNamespace } from "./tenancy";
 import { ZenithError, type ZenithTenant } from "./types";
+import { digest } from "@/lib/controlplane/digest";
 
 /** Namespace of the platform's own ServiceAccounts (matches deploy/zenith-managed/40-operator-rbac.yaml). */
 export const OPERATOR_NAMESPACE = "zenith-system";
@@ -113,6 +114,10 @@ const dnsRule = () => ({
   toPorts: [{ ports: [{ port: "53", protocol: "ANY" }], rules: { dns: [{ matchPattern: "*" }] } }],
 });
 
+/** Cilium Gateway's Envoy uses the reserved ingress identity, not a gateway-namespace pod identity. */
+const ciliumGatewayIngress = (substrate: ZenithSubstrate) => substrate.gateway.mode === "gateway_api" && substrate.gateway.className === "cilium"
+  ? [{ fromEntities: ["ingress"] }] : undefined;
+
 /** Render the platform-owned isolation extras for one tenant. Throws `ZenithError` for a hostname request the substrate cannot enforce. */
 export function renderIsolationBundle(tenantInput: ZenithTenant, substrate: ZenithSubstrate, opts: IsolationBundleOptions = {}): IsolationBundle {
   const tenant = assertTenant(tenantInput);
@@ -128,6 +133,7 @@ export function renderIsolationBundle(tenantInput: ZenithTenant, substrate: Zeni
       metadata: tenancyMetadata(tenant, ADDRESS.fqdn, FQDN_POLICY_NAME, ns),
       spec: {
         endpointSelector: {},
+        ...(ciliumGatewayIngress(substrate) ? { ingress: ciliumGatewayIngress(substrate) } : {}),
         egress: [
           dnsRule(),
           ...(fqdns.length > 0
@@ -321,7 +327,9 @@ function validateFqdnEgress(objects: readonly K8sObject[], tenant: ZenithTenant,
     if (o.metadata.annotations?.[OWNERSHIP.environmentAnnotation] !== tenant.environmentId) push("ownership", "environment annotation is not this tenant's.");
     const spec = isRecord(o.spec) ? o.spec : {};
     if (!isRecord(spec.endpointSelector) || Object.keys(spec.endpointSelector).length !== 0) push("network_policy", "must select every pod of the namespace (empty endpointSelector).");
-    for (const k of Object.keys(spec)) if (!["endpointSelector", "egress", "egressDeny"].includes(k)) push("network_policy", `unexpected spec field ${k}; ingress and other directions belong to the tenancy baseline.`);
+    const gatewayIngress = ciliumGatewayIngress(substrate);
+    for (const k of Object.keys(spec)) if (!["endpointSelector", "egress", "egressDeny", ...(gatewayIngress ? ["ingress"] : [])].includes(k)) push("network_policy", `unexpected spec field ${k}; only the configured Cilium Gateway may add reserved ingress identity access.`);
+    if (gatewayIngress && digest(spec.ingress ?? null) !== digest(gatewayIngress)) push("network_policy", "Cilium Gateway ingress must allow only the reserved ingress identity, without additional peers or rules.");
     for (const rule of Array.isArray(spec.egress) ? spec.egress : []) {
       if (!isRecord(rule)) continue;
       for (const k of Object.keys(rule)) if (!CNP_ALLOWED_KEYS.has(k)) push("network_policy", `egress rule uses ${k}; only DNS to kube-dns and toFQDNs on 443 are allowed (no CIDR, entity or service peers).`);

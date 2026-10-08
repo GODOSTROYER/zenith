@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "evidenceLabel": "local_rehearsal",
+  "scenarios": {
+    "install": {
+      "target": "default-stack",
+      "driver": "scripts/acceptance/default-stack/verify.mjs",
+      "owner": "J1"
+    },
+    "private-source": {
+      "target": "default-journey",
+      "driver": "scripts/acceptance/default-journey.mjs",
+      "owner": "J2"
+    },
+    "plan-approval": {
+      "target": "default-journey",
+      "driver": "scripts/acceptance/default-journey.mjs",
+      "owner": "J2"
+    },
+    "dns-tls": {
+      "target": "pebble"
+    },
+    "stateful-traffic": {
+      "target": "mixed"
+    },
+    "update-rollback": {
+      "target": "default-journey",
+      "driver": "scripts/acceptance/default-journey.mjs",
+      "owner": "J2"
+    },
+    "machine-schedules": {
+      "target": "maintenance",
+      "driver": "scripts/acceptance/maintenance/run.mjs",
+      "owner": "J4"
+    },
+    "drift-repair": {
+      "target": "default-journey",
+      "driver": "scripts/acceptance/default-journey.mjs",
+      "owner": "J2"
+    },
+    "revocation": {
+      "target": "default-journey",
+      "driver": "scripts/acceptance/default-journey.mjs",
+      "owner": "J2/J7"
+    },
+    "crash-partition": {
+      "target": "default-journey",
+      "driver": "scripts/acceptance/default-journey.mjs",
+      "owner": "J1/J2"
+    },
+    "mixed-recovery": {
+      "target": "mixed"
+    },
+    "rotation": {
+      "target": "default-journey",
+      "driver": "scripts/acceptance/default-journey.mjs",
+      "owner": "J1/J2"
+    },
+    "upgrade": {
+      "target": "default-journey",
+      "driver": "scripts/acceptance/default-journey.mjs",
+      "owner": "J1/J2"
+    },
+    "restore": {
+      "target": "default-journey",
+      "driver": "scripts/acceptance/default-journey.mjs",
+      "owner": "J1/J2"
+    },
+    "two-tenants": {
+      "target": "default-journey",
+      "driver": "scripts/acceptance/default-journey.mjs",
+      "owner": "J2/J14"
+    },
+    "export": {
+      "target": "default-journey",
+      "driver": "scripts/acceptance/default-journey.mjs",
+      "owner": "J2"
+    },
+    "teardown": {
+      "target": "default-journey",
+      "driver": "scripts/acceptance/default-journey.mjs",
+      "owner": "J2"
+    },
+    "mixed-economics": {
+      "target": "economics"
+    },
+    "release-governance": {
+      "target": "contracts"
+    }
+  }
+}

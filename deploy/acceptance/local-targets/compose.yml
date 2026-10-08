@@ -1,0 +1,62 @@
+name: zenith-j15-${ZENITH_LOCAL_RUN_ID:?run id required}
+services:
+  localstack:
+    image: localstack/localstack:4.8.1
+    profiles: [mixed]
+    mem_limit: 768m
+    cpus: 0.75
+    environment:
+      SERVICES: lambda,iam,sts
+      DEBUG: "0"
+      LAMBDA_LIMITS_CONCURRENT_EXECUTIONS: "1"
+      LAMBDA_DOCKER_NETWORK: zenith-j15-${ZENITH_LOCAL_RUN_ID}-mixed
+      LAMBDA_KEEPALIVE_MS: "60000"
+    ports: ["127.0.0.1:14566:4566"]
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock"]
+    networks: [mixed]
+  challenge:
+    image: node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+    profiles: [acme]
+    mem_limit: 96m
+    cpus: 0.15
+    command: [node, /fixture/challenge.mjs]
+    volumes:
+      - ${ZENITH_LOCAL_ROOT:?private scratch required}/challenge:/challenge:ro
+      - ../../../fixtures/mixed-app/acme:/fixture:ro
+    networks:
+      acme: { ipv4_address: 172.30.115.10 }
+  coredns:
+    image: coredns/coredns:1.12.4
+    profiles: [acme]
+    mem_limit: 64m
+    cpus: 0.1
+    command: [-conf, /config/Corefile]
+    volumes: ["./Corefile:/config/Corefile:ro"]
+    networks:
+      acme: { ipv4_address: 172.30.115.11 }
+  pebble:
+    image: ghcr.io/letsencrypt/pebble:v2.8.0
+    profiles: [acme]
+    mem_limit: 128m
+    cpus: 0.2
+    command: [-config, /config/pebble.json, -dnsserver, "172.30.115.11:53"]
+    environment:
+      PEBBLE_VA_NOSLEEP: "1"
+    ports: ["127.0.0.1:14000:14000", "127.0.0.1:15000:15000"]
+    volumes:
+      - ./pebble.json:/config/pebble.json:ro
+      - ${ZENITH_LOCAL_ROOT}/pki/pebble.crt:/pki/pebble.crt:ro
+      - ${ZENITH_LOCAL_ROOT}/pki/pebble.key:/pki/pebble.key:ro
+    networks: [acme]
+  stripe:
+    image: stripe/stripe-mock:v0.197.0${ZENITH_LOCAL_STRIPE_ARCH_SUFFIX:-}
+    profiles: [billing]
+    mem_limit: 128m
+    cpus: 0.2
+    ports: ["127.0.0.1:12111:12111"]
+networks:
+  mixed:
+    name: zenith-j15-${ZENITH_LOCAL_RUN_ID}-mixed
+  acme:
+    ipam:
+      config: [{ subnet: 172.30.115.0/24 }]

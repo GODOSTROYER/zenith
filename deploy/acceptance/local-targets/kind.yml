@@ -1,0 +1,9 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    # One node, no ingress controller, no registry, no Temporal in this profile.
+    kubeadmConfigPatches:
+      - |
+        kind: KubeletConfiguration
+        maxPods: 24

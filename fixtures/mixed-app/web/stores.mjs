@@ -25,11 +25,16 @@ export function createMemoryStore() {
 }
 
 /** The connection URL comes from a FILE (DATABASE_URL_FILE), never from an environment value; it is never logged. */
-export async function createPostgresStore({ urlFile }) {
+export async function createPostgresStore({ urlFile, tlsFiles = undefined }) {
   if (!urlFile) throw new Error("DATABASE_URL_FILE is not set");
   const url = readFileSync(urlFile, "utf8").trim();
   const { default: postgres } = await import("postgres");
-  const sql = postgres(url, { ssl: "require", max: 4, idle_timeout: 20, connect_timeout: 10 });
+  let ssl = "require";
+  if (tlsFiles) {
+    if (!tlsFiles.ca || !tlsFiles.cert || !tlsFiles.key) throw new Error("All database TLS credential files are required");
+    ssl = { ca: readFileSync(tlsFiles.ca), cert: readFileSync(tlsFiles.cert), key: readFileSync(tlsFiles.key), rejectUnauthorized: true };
+  }
+  const sql = postgres(url, { ssl, max: 4, idle_timeout: 20, connect_timeout: 10 });
   const toRow = (r) => ({ id: Number(r.id), clientKey: r.client_key, sku: r.sku, qty: r.qty, priceCents: r.price_cents, checksum: r.checksum, webProvider: r.web_provider, enricherProvider: r.enricher_provider });
   return {
     kind: "postgres",
@@ -56,5 +61,6 @@ export async function createPostgresStore({ urlFile }) {
 
 export async function createStoreFromEnv(env = process.env) {
   if (env.STORE === "memory") return createMemoryStore();
-  return createPostgresStore({ urlFile: env.DATABASE_URL_FILE });
+  const hasTlsFiles = env.DATABASE_CA_FILE || env.DATABASE_CERT_FILE || env.DATABASE_KEY_FILE;
+  return createPostgresStore({ urlFile: env.DATABASE_URL_FILE, tlsFiles: hasTlsFiles ? { ca: env.DATABASE_CA_FILE, cert: env.DATABASE_CERT_FILE, key: env.DATABASE_KEY_FILE } : undefined });
 }

@@ -1,0 +1,9 @@
+# MIX-06 local target verification
+
+J15 harness built; engine and live acceptance pending. The existing cloud manifest remains the documented container equivalent because manifest services do not reach the experimental Lambda driver. Added explicit `fixtures/mixed-app/enricher/lambda.mjs` (direct Invoke plus API Gateway body/base64 handling), `local-lambda.mjs` (LocalStack-only mTLS transport), and `fixtures/mixed-app/Dockerfile`. Existing container wrapper can also serve mutual TLS.
+
+Acceptance mapping: local web runs in kind, PostgreSQL runs in kind with TLS/client certificate authentication, and the function runs in LocalStack's real Lambda runtime. Traffic calls the web process; independent PostgreSQL read-only queries recompute price/checksum with the existing checker and validate every acknowledgement and idempotent replay. Provider labels explicitly say kind/LocalStack rather than GCP/Azure/AWS. Tests: `tests/release/local-targets.test.ts`, `tests/acceptance/local-targets.engine.test.ts`, existing `tests/acceptance/mixed-traffic.test.ts`.
+
+Exact Mac commands: run the [mixed Lambda profile and container equivalent](../../../../deploy/acceptance/local-targets/README.md). Lambda profile engine expectation: 2 passed/2 skipped (the recovery case also runs); container direct stateful-traffic expectation: exit 0 with four passed receipt checks and local_rehearsal label. No npm install, Docker image build reuses installed postgres. Requires Node 22, Docker, kind, kubectl, zip, OpenSSL; Docker has 4 GiB, one heavy workload.
+
+Live GCP/Azure/AWS acceptance stays deferred under the existing scoped `scripts/acceptance/mixed/live-run.ts`; these targets prove a local equivalent, not those clouds. J1/J2 must separately demonstrate the approved Zenith parent/child deployment journey. No migration or dependency/package change. Suggested ledger status: implementation_complete_verification_pending.

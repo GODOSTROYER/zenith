@@ -2173,6 +2173,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J15 gated local rehearsal harness built; Mac Docker/kind/PostgreSQL/ACME verification pending; live cloud acceptance deferred.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2200,6 +2201,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J15 gated local rehearsal harness built; Mac Docker/kind/PostgreSQL/ACME verification pending; live cloud acceptance deferred.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2227,6 +2229,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J15 gated local rehearsal harness built; Mac Docker/kind/PostgreSQL/ACME verification pending; live cloud acceptance deferred.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4253,6 +4256,7 @@
       "state": "in_progress",
       "dependencies": [],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J15 local targets and strict receipts built; J1/J2/J4 driver joins and Mac engine/browser verification pending; live acceptance deferred.",
       "evidence": [],
       "requiredEvidence": [
         "contract",

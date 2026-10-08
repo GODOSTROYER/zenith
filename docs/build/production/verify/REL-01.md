@@ -1,0 +1,19 @@
+# REL-01 local scenario targets
+
+Built the opt-in `--local-targets` mode in `scripts/release/acceptance-orchestrator.ts`, strict source/run/scenario-bound receipts, and the 19-scenario target catalog. Added genuine mixed, ACME and stripe-mock runtimes plus engine-gated tests. Existing component and live lanes remain; every result carries its evidence limits. A skipped/missing/zero/malformed lane never becomes a pass; incomplete CLI runs exit 2. Cached results require their matching evidence digest; changed source/harness/config or missing completed artifacts refuse resume.
+
+Acceptance mapping: install -> J1 default-stack verify driver; private source, approval, update/rollback, drift/repair, revocation, crash/writers, rotation, upgrade, restore, two tenants, export, teardown -> J2 journey driver with J1/J7/J14 joins; machine schedules -> J4 maintenance driver. DNS-TLS -> Pebble/CoreDNS; stateful/mixed traffic -> kind/LocalStack/PostgreSQL; partition recovery -> actual LocalStack stop/start; economics -> existing dated cost engine; release tooling -> existing contract lanes. Billing wire target uses the real adapter against stripe-mock, with an explicit stateless schema-only limit.
+
+Exact Mac commands, prerequisites, counts and cleanup are in [local-target README](../../../../deploy/acceptance/local-targets/README.md). For real default-stack scenarios, confirm/adapt the three driver filenames and CLI/receipt interfaces there before setting ZENITH_LOCAL_JOINED_DRIVERS=1. They are owned by J1/J2/J4 and absent at this base; the local lane declines until supplied. Do not count a declined join as fulfilled end-to-end acceptance. Browser/Temporal/real-PG lanes and J1's 4-GiB feasibility remain Mac verifier work.
+
+PC checks:
+```powershell
+$env:PATH = 'C:\Users\user\.local\sdk\node22;' + $env:PATH
+npx vitest run tests/release/local-targets.test.ts tests/release/orchestrator.test.ts tests/release/acceptance-scenarios.test.ts tests/acceptance/mixed-traffic.test.ts --no-file-parallelism --maxWorkers=2
+npx eslint scripts/release/acceptance-orchestrator.ts scripts/release/scenarios.ts scripts/release/local-targets.ts scripts/release/local-environment.ts scripts/release/local-kubernetes.ts scripts/release/local-mixed.ts scripts/release/local-pebble.ts scripts/release/local-target-runner.ts fixtures/mixed-app/enricher/server.mjs fixtures/mixed-app/enricher/lambda.mjs fixtures/mixed-app/enricher/local-lambda.mjs fixtures/mixed-app/acme/challenge.mjs fixtures/mixed-app/web/stores.mjs tests/release/local-targets.test.ts tests/acceptance/local-targets.engine.test.ts
+bash Z:/Projects/Spawned.ai/zenith-wt/.resume/codex/tsc-serial.sh
+```
+
+Final PC results: 74 passed, 0 failed, 0 skipped across 4 targeted files; final 15-file eslint passed with 0 errors/0 warnings; serialized typecheck retry passed with 0 errors. The first typecheck had 4 now-fixed errors; the command/attempt history is in J15-HARNESS-COMPLETION.md. The runner also requires JSON counts for live Vitest commands, so a skipped/missing/zero-test live result cannot become live verification. No live command was executed.
+
+No migration/table/store/sensitive-data inventory change. Orchestrator should register the new unit test and gated engine suite in its gate manifest; do not run engine suites on this PC. There is no production/live promotion. Suggested ledger implementationStatus: implementation_complete_verification_pending; J1/J2/J4 driver joins and Mac verification pending.

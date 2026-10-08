@@ -5,6 +5,7 @@ import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
 import { PACKAGED_WORKER_CHECKS, packagedWorkerManifest } from "../../scripts/ci/gate-manifest.mjs";
 import { assertArtifactShape, assertAttemptedBuilderCapture, assertBuilderScope, assertLoadedImage, assertNativePrerequisites, assertOwnedContext, assertOriginalContextSnapshot, assertPublishedEvidence, assertReleaseMarker, baselinePreserved, boundBuild, builderDescriptors, executedChecks, parseHarnessOutput, parseNativeArgs, assertOwnedProcessProof, restoreContextOverride, runOwnedProcess, sanitizeChildFailure } from "../../scripts/ci/packaged-worker-native.mjs";
+import { command, PackagedCommandError, classifyPackagedBuildFailure, sanitizePackagedBuildFailure } from "../../scripts/acceptance/packaged-worker.mjs";
 import { digest } from "../../src/lib/controlplane/digest";
 
 const platform = "linux/amd64", hex = "a".repeat(64), commit = "b".repeat(40), imageId = `sha256:${hex}`;
@@ -543,4 +544,40 @@ describe.skipIf(process.platform !== "linux")("native process supervisor [actual
     await expect(runOwnedProcess(process.execPath, ["-e", "process.on('SIGTERM',()=>{});setInterval(()=>{},1000)"], { timeout: 1000, grace: 300 }))
       .rejects.toMatchObject({ code: "native_process_unsettled" });
   }, 15_000);
+});
+
+
+describe("failed fresh worker build diagnostics", () => {
+  it("retains the actual command refusal and publishes only fixed observed markers and a bound Dockerfile line", async () => {
+    const marker = "private-compiler-output-never-publish";
+    const output = `Could not resolve "${marker}"\nFATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory\nDockerfile:5\n`;
+    const error = await command(process.execPath, ["-e", `process.stderr.write(${JSON.stringify(output)});process.exit(7)`], "fresh-image-build").catch(error => error);
+    expect(error).toBeInstanceOf(PackagedCommandError);
+    expect(error.diagnostic).toEqual({ category: "command-exit", exitCode: 7, signal: null });
+    const build = { observedMarkers: ["esbuild_resolution", "node_oom"], dockerfile: "docker/worker.Dockerfile", line: 5 };
+    expect(error.buildFailure).toEqual(build);
+    expect(sanitizeChildFailure("fresh-image-build", undefined, undefined, undefined, undefined, error.buildFailure)).toEqual({
+      phase: "fresh-image-build", workerCategory: "unavailable", buildFailure: build,
+    });
+    expect(JSON.stringify(error)).not.toContain(marker);
+    expect(sanitizeChildFailure("operator-pause", undefined, undefined, undefined, undefined, build)).toEqual({ phase: "operator-pause", workerCategory: "unavailable" });
+    const other = await command(process.execPath, ["-e", `process.stderr.write(${JSON.stringify(output)});process.exit(7)`], "not-a-build").catch(error => error);
+    expect(other.diagnostic).toEqual({ category: "command-exit", exitCode: 7, signal: null }); expect(other.buildFailure).toBeUndefined();
+  });
+
+  it("refuses hostile diagnostic fields and omits ambiguous or unbound source-line attribution", () => {
+    const valid = { observedMarkers: ["node_oom"], dockerfile: "docker/worker.Dockerfile", line: 5 };
+    expect(sanitizePackagedBuildFailure(valid)).toEqual(valid);
+    for (const value of [null, "private-canary", { ...valid, raw: "private-canary" },
+      { observedMarkers: ["private-canary"] }, { observedMarkers: ["node_oom", "node_oom"] },
+      { observedMarkers: ["node_oom", "esbuild_resolution"] }, { ...valid, dockerfile: "/private-canary" },
+      { ...valid, line: 0 }, { ...valid, line: 1.5 }, { ...valid, line: 10001 }, { observedMarkers: [], line: 1 }]) {
+      expect(sanitizePackagedBuildFailure(value)).toBeUndefined();
+      expect(JSON.stringify(sanitizeChildFailure("fresh-image-build", undefined, undefined, undefined, undefined, value))).not.toContain("private-canary");
+    }
+    expect(classifyPackagedBuildFailure("Dockerfile:2\nDockerfile:3\n", 10)).toEqual({ observedMarkers: [] });
+    expect(classifyPackagedBuildFailure("Dockerfile:11\n", 10)).toEqual({ observedMarkers: [] });
+    expect(classifyPackagedBuildFailure("/private-canary/Dockerfile:2\n", 10)).toEqual({ observedMarkers: [] });
+    expect(classifyPackagedBuildFailure("unrecognized private-canary", 10)).toEqual({ observedMarkers: [] });
+  });
 });

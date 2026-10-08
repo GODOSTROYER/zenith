@@ -262,7 +262,7 @@ async function reviewFieldOwnership(deps: BrokerDeps, parsed: ParsedRequest, ctx
   if (!OWNERSHIP_CAPABILITIES.has(parsed.def.name)) return {};
   const guard = ctx.fieldOwnership ?? (await deps.store.fieldOwnership?.(scope));
   if (!guard) {
-    if (parsed.def.name === "service.scale" && Object.hasOwn(parsed.input as object, "size")) throw new BrokerError("conflict", "Current size-field ownership could not be established.");
+    if (parsed.def.name === "service.scale" && Object.hasOwn(parsed.input ?? {}, "size")) throw new BrokerError("conflict", "Current size-field ownership could not be established.");
     return {};
   }
   const conflicts = checkNativeOperation({

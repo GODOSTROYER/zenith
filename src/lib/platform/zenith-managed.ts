@@ -26,6 +26,7 @@
  * has no billing source yet, so it is the operator-set default
  * (`ZENITH_MANAGED_DEFAULT_PLAN`, default `free`): PROVISIONAL, not a price.
  */
+import { createBuildCustody, readBuildProfiles } from "@/lib/providers/kubernetes/build/custody";
 import { readSecretValueAsync } from "@/lib/secrets";
 import { isVaultRef } from "@/lib/secrets/refs";
 import type { ProductPort } from "@/lib/execution/ports";
@@ -141,13 +142,37 @@ export function createDefaultManagedSubstrate(options: DefaultManagedSubstrateOp
     ? { configured: false as const, missing: [], invalid: [{ variable: "ZENITH_MANAGED_*", problem: problem.message }], message: `Zenith-managed hosting is not configured (${problem.message}).` }
     : configs.config;
   const db = async () => options.db ?? platformDb();
+  const buildCustody = createBuildCustody({ env });
+  let isolatedBuild: typeof configs.build;
+  try {
+    const profile = readBuildProfiles(env).find(p => p.provider === "zenith");
+    if (!profile) throw new Error();
+    isolatedBuild = { configured: true, config: { namespace: profile.config.namespace, builderImage: profile.config.builderImage,
+      pushSecret: profile.config.pushSecret, insecureRegistry: false, serviceAccount: "zenith-builder" } };
+  } catch {
+    isolatedBuild = { configured: false, reason: "Source builds require ZENITH_ISOLATED_BUILD_PROFILES with per-tenant build namespaces, separate tenant build credentials and verified dedicated nodes." };
+  }
   const openKubernetes: Parameters<typeof assertManagedTenantReady>[1]["createKubernetesSession"] = (cfg, signal) => createKubernetesSession(cfg, { ttlSec: 3600, resolveCredential: (ref, s) => credentials.resolve(ref, s) }, signal);
   return createManagedSubstrate({
     config,
-    // No shared namespace/worker privilege for untrusted builds. The per-tenant build approval and node-pool
-    // provisioning path is not composed yet; source hand-off and build dispatch refuse before any write.
-    build: configs.build.configured ? { configured: false, reason: "Managed builds require approved per-tenant build namespaces, credentials and node-pool isolation; automatic build onboarding is not available." } : configs.build,
+    build: isolatedBuild,
     toolkit: createKubernetesToolkit(),
+    async withIsolatedBuildSession(request, fn) {
+      if (!isolatedBuild.configured) throw new ManagedSubstrateError("build_unavailable", isolatedBuild.reason);
+      // Tenant existence and the target cluster are re-derived before credential custody is consumed.
+      const tenant = await tenants.resolve(request, request.signal);
+      if (tenant.workspaceId !== request.workspaceId || tenant.environmentId !== request.environmentId) {
+        throw new ManagedSubstrateError("build_refused", "Build custody belongs to another tenant.");
+      }
+      if (!config.configured) throw new ManagedSubstrateError("not_configured", config.message);
+      const profile = buildCustody.profile({ ...request, provider: "zenith" });
+      if (profile.server.replace(/\/+$/, "") !== config.substrate.cluster.server.replace(/\/+$/, "") ||
+          request.namespace && request.namespace !== profile.config.namespace) {
+        throw new ManagedSubstrateError("build_refused", "Tenant build custody belongs to another cluster or namespace.");
+      }
+      return buildCustody.withSessions({ ...request, provider: "zenith", signal: request.signal ?? AbortSignal.timeout(3_600_000) },
+        (writer, _verifier, current) => fn(writer, current.config.namespace));
+    },
     tenants,
     async assertTenantReady(tenant, signal) {
       if (!config.configured) throw new ManagedSubstrateError("not_configured", config.message);

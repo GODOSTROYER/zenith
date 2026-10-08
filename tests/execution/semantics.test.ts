@@ -102,6 +102,7 @@ describe("canonical executable semantics digest", () => {
     ["the backend kind", "backend", (i) => { i.backend.kind = "gcs"; }],
     ["the backend configuration", "backend", (i) => { i.backend.configDigest = h("0"); }],
     ["the saved plan", "savedPlan", (i) => { i.savedPlan.planDigest = h("0"); }],
+    ["the tenant build custody and runtime profile", "provenance", (i) => { i.provenance.buildProfileDigest = h("9"); }],
     ["a build context directory", "provenance", (i) => { i.provenance.pipelines[0].contextDir = "services/other"; }],
     ["a build context digest (LIFE-08 inspection)", "provenance", (i) => { i.provenance.pipelines[0].contextDigest = h("9"); }],
     ["a new ownership transfer (LIFE-12)", "ownership", (i) => { i.ownership.transfers.push({ address: "container_service/api", path: "image", from: "iac", to: "release", digest: h("4") }); }],

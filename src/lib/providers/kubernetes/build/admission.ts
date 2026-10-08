@@ -37,7 +37,11 @@ export function verifyProbe(message: unknown): z.infer<typeof ProbeSchema> {
   try { if (typeof message !== "string" || Buffer.byteLength(message) > 4096) throw new Error(); raw = JSON.parse(message); }
   catch { throw new StepFailedError("The isolation probe did not return a bounded receipt."); }
   const parsed = ProbeSchema.safeParse(raw);
-  if (!parsed.success) throw new StepFailedError("Every runtime isolation precondition must be proven before source execution.");
+  if (!parsed.success) {
+    const checks = isRecord(raw) && isRecord(raw.checks) ? raw.checks : {};
+    const failed = PROBE_CHECKS.filter(check => checks[check] !== true);
+    throw new StepFailedError("Every runtime isolation precondition must be proven before source execution. " + (failed.length ? "Failed or missing checks: " + failed.join(", ") + "." : "The probe receipt is malformed."));
+  }
   return parsed.data;
 }
 

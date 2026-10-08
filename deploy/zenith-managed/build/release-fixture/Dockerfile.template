@@ -1,0 +1,11 @@
+ARG COMPILER_IMAGE
+ARG POSTGRES_IMAGE
+FROM ${COMPILER_IMAGE} AS compile
+COPY app.c /src/app.c
+RUN cc -static -Os -s -o /app /src/app.c
+FROM ${POSTGRES_IMAGE}
+COPY --from=compile /app /app
+COPY migration.sql /migration.sql
+USER 65532:65532
+EXPOSE 8080
+ENTRYPOINT ["/app"]

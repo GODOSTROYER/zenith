@@ -320,3 +320,41 @@ Until assembly selects this factory, its probeUID assertion fails on the old
 kaniko-style factory. Local adapter proof is distinct from J1/J2's whole operated
 default product journey and live managed-cloud acceptance, which remain pending.
 Status: implementation_complete_verification_pending.
+
+## J6 Step 2 (authoritative, 2026-10-08)
+
+Default native Kubernetes and managed builders, per-tenant vault/RBAC custody,
+protected dedicated node admission, native source/provenance schema migration 59
+and DUR-B reviewed build profile semantics are joined. Missing or changed custody,
+permissions, runtime/profile, node UID/allocation or denial probe refuses source
+execution/release with a user-visible reason. Published migrations/aggregate SQL
+remain unchanged. The migration-42 collision is repaired in assembly; release-join
+checks pass locally.
+
+Use the complete exact two-node/4-GiB Docker preparation, runtime-file hashing/install,
+token/vault seeding, digest resolution, source fixture and host API/Temporal/worker
+commands in [LIFE-09 J6 Step 2](PROD-LIFE-09.md#j6-step-2-authoritative-2026-10-08).
+Prepare the real disposable product and owning Postgres as specified there. Set
+ZENITH_ISOLATED_BUILD_PROFILES, ZENITH_J6_WORKSPACE_ID, ZENITH_J6_ENVIRONMENT_ID,
+ZENITH_TEST_PLATFORM_PG_URL, ZENITH_J6_APPLICATION_PG_URL, ZENITH_J6_HTTP_URL and
+ZENITH_J6_OPERATION_ID to the recorded real fixture, local endpoints and reviewed
+operation; use local signing keys, no KMS/cloud credentials.
+
+```bash
+export ZENITH_ALLOW_CONTRACT_MIGRATIONS=42,49,59
+npx tsx --env-file-if-exists=.env.local scripts/platform/migrate.ts
+npx tsx --env-file-if-exists=.env.local scripts/platform/migrate.ts --status
+ZENITH_TEST_J6_SOURCE_PG=1 npx vitest run tests/providers/kubernetes/build/schema.test.ts --no-file-parallelism --maxWorkers=2
+ZENITH_TEST_ISOLATED_BUILD_KIND=1 npx vitest run tests/providers/kubernetes/build/kind.test.ts --no-file-parallelism --maxWorkers=2
+ZENITH_TEST_J6_OPERATED_RELEASE=1 npx vitest run tests/providers/kubernetes/build/operated-release.test.ts --no-file-parallelism --maxWorkers=2
+```
+
+Expected: 15 schema tests, one real isolation/component journey and one real reviewed
+source release pass with zero skips. The operated harness independently reads the
+application's migration marker from SQL and HTTP, re-verifies signed source provenance
+and requires migration before cutover plus readiness/digest readback. It neither
+creates nor bypasses approval and uses no provider doubles. Requires a root-context
+one-service fixture; broader rollback/progressive/data-restore acceptance keeps its
+existing LIFE-10 lanes. Assembly must join assigned 53-58 before the contiguous
+migration gate. Not run here (needs real PG, kind/Docker, Temporal and product/browser).
+Status: implementation_complete_verification_pending.

@@ -13,6 +13,11 @@ export const ConfigSchema = z.object({
   runtimeClass: label,
   seccompProfile: z.string().regex(/^[A-Za-z0-9/_-]+\.json$/).refine(value => !value.includes("..")),
   appArmorProfile: z.string().regex(/^[A-Za-z0-9_-]+$/),
+  nodeIsolation: z.object({
+    tenant: label,
+    profileDigest: z.string().regex(/^[a-f0-9]{64}$/),
+    systemDaemonSets: z.array(label).max(16),
+  }).strict(),
   proxy: z.object({ namespace: label, ip, port: z.number().int().min(1024).max(65535), image: z.string().regex(PINNED_IMAGE),
     destinations: z.array(z.object({ host, ip, port: z.number().int().min(1).max(65535), tls: z.boolean() }).strict()).min(1).max(64),
   }).strict(),

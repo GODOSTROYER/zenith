@@ -59,6 +59,8 @@ export interface ManagedSubstrateDeps {
   servingInputs?: NonNullable<ManagedSubstratePort["servingInputs"]>;
   storageKeyStore?(tenant: { workspaceId: string; environmentId: string }): StorageKeyStore;
   /** Default composition requires readback of separately approved isolation before opening sessions. */
+  /** Default build custody opens the separately verified tenant build controller, never the deployer. */
+  withIsolatedBuildSession?: ManagedSubstratePort["withBuildSession"];
   assertTenantReady?(tenant: Awaited<ReturnType<TenantResolver["resolve"]>>, signal?: AbortSignal): Promise<KubernetesSession | void>;
 }
 
@@ -146,6 +148,7 @@ export function createManagedSubstrate(deps: ManagedSubstrateDeps): ManagedSubst
       return { ...runtime, ...(storage ? { storage } : {}) };
     },
     async withBuildSession(request, fn) {
+      if (deps.withIsolatedBuildSession) return deps.withIsolatedBuildSession(request, fn);
       const substrate = requireSubstrate();
       const availability = buildAvailability();
       if (!availability.available) throw new ManagedSubstrateError("build_unavailable", availability.reason);

@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { validateConfig, configDigest, readIsolatedBuildConfig, renderBaseline, renderProxy, renderJob, verifyProbe, PROBE_CHECKS,
-  assertBaseline, assertPod, verifyJob, validateBuildRequest, createIsolatedBuildPort, verifyPublishedArtifact, type BuildRequest, type IsolatedBuildConfig, sourceName } from "@/lib/providers/kubernetes/build";
+  assertBaseline, assertPod, verifyJob, validateBuildRequest, createIsolatedBuildPort, verifyPublishedArtifact,  sourceName } from "@/lib/providers/kubernetes/build";
 import { dig } from "@/lib/providers/kubernetes/util";
 import type { DriverContext } from "@/lib/drivers/types";
 import type { ManagedSubstratePort } from "@/lib/providers/zenith/managed-port";
@@ -11,15 +11,7 @@ import { signBuildProvenance, verifyBuildProvenance, type ProvenanceInput } from
 import { immutableSourceSnapshot } from "@/lib/execution/source-snapshot";
 import { BUILD_ISOLATION_PROFILES } from "@/lib/execution/build-isolation";
 
-export const config: IsolatedBuildConfig = {
- namespace: "zenith-build", builderImage: "example.invalid/builder@sha256:"+"1".repeat(64),
- runtimeClass:"userns",seccompProfile:"zenith-build.json",appArmorProfile:"zenith-build",
- proxy:{namespace:"zenith-build-proxy",ip:"10.96.0.100",port:3128,image:"example.invalid/proxy@sha256:"+"2".repeat(64),
- destinations:[{host:"registry.test",ip:"10.96.0.101",port:5000,tls:false}]},
- timeoutSec:1800,
-};
-export const request: BuildRequest={workspaceId:"ws",environmentId:"env",operationId:"op",serviceAddress:"container_service/web",pipelineAddress:"build_pipeline/web",
- sourceSecret:"zsrc-"+"3".repeat(40),sourceDigest:"4".repeat(64),image:"registry.test:5000/web:zn-"+"5".repeat(40),dockerfile:"apps/web/Dockerfile",contextDir:"apps/web",idempotencyKey:"once"};
+import { config, request } from "./fixtures";
 const clone=<T>(v:T):T=>structuredClone(v);
 const proof=()=>JSON.stringify({version:1,checks:Object.fromEntries(PROBE_CHECKS.map(k=>[k,true]))});
 function readings() {
@@ -106,9 +98,9 @@ describe("owned isolated builder admission (contract)",()=>{
   const wrong={...ctx,session:{tenant:{workspaceId:"another",environmentId:request.environmentId}}} as unknown as DriverContext;
   expect(()=>port.launchIdentity!(wrong,input)).toThrow(/different workspace or environment/);
  });
- it("refuses Kubernetes before any source execution until the out-of-scope provider join",async()=>{
+ it("refuses an unconfigured native build before source execution",async()=>{
   const port=createIsolatedBuildPort({config});
-  await expect(port.startBuild({provider:"kubernetes"} as never,{service:serviceNode(),pipeline:node({address:"build_pipeline/web",kind:"build_pipeline",spec:{source:{},output:{}}})} as never)).rejects.toThrow(/provider profile/);
+  await expect(port.startBuild({provider:"kubernetes"} as never,{service:serviceNode(),pipeline:node({address:"build_pipeline/web",kind:"build_pipeline",spec:{source:{},output:{}}})} as never)).rejects.toThrow(/operation identity/);
  });
 });
 

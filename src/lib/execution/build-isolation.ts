@@ -26,7 +26,7 @@ import { digest } from "@/lib/controlplane/digest";
 
 export const BUILD_ISOLATION_VERSION = "zenith.build-isolation.v1" as const;
 
-export type BuildProviderKey = "aws" | "gcp" | "azure" | "zenith";
+export type BuildProviderKey = "aws" | "gcp" | "azure" | "zenith" | "kubernetes";
 
 export interface BuildIsolationProfile {
   id: string;
@@ -80,6 +80,19 @@ export const BUILD_ISOLATION_PROFILES: Readonly<Record<BuildProviderKey, BuildIs
       dependencies: "agent pool network routes dependency downloads through the allowlisted proxy",
       filesystem: "source archive uploaded once to a registry-owned blob and consumed read-only",
       resources: "fixed 2 vCPU agent, bounded run timeout",
+    },
+  },
+  kubernetes: {
+    id: "kubernetes.rootless-build.v1", provider: "kubernetes",
+    limits: { maxTimeoutSec: 1800, computeClasses: ["k8s-2cpu-4gi"] },
+    identityPattern: /^system:serviceaccount:zb-[a-f0-9]{40}:zenith-builder$/,
+    mechanisms: {
+      identity: "tenant-dedicated rootless Job with no service-account token or deploy credential",
+      metadata: "fresh node-bound runtime denial probes before source execution and proxy-only egress readback",
+      network: "all tenant build/proxy policies and executed proxy image read back; actual positive and negative network probes",
+      dependencies: "exact dedicated mirror host/IP/port allowlist proxy",
+      filesystem: "digest-checked immutable source Secret, read-only rootfs and source, bounded private scratch",
+      resources: "fixed 2 CPU / 4 GiB maximum, 1800 second deadline, no retries",
     },
   },
   zenith: {
@@ -158,6 +171,10 @@ export function assertBuildIsolation(provider: string, observed: ObservedBuildIs
   } else if (!observed.network.allowlistDigest || !observed.network.verifiedBy) v.push("the egress allowlist is not bound to a verification");
   // Controlled downloads need a proxy; an admitted open-egress exception already covers direct ones.
   if (observed?.dependencies?.downloads !== "allowlisted" && !exceptions.includes("open_egress")) v.push("dependency downloads are not controlled");
+  if (provider === "kubernetes") {
+    if (observed?.metadata?.exposes !== "none") v.push("isolated Kubernetes builds must deny all metadata exposure");
+    if (observed?.network?.egress !== "allowlisted") v.push("isolated Kubernetes builds do not allow an open-egress exception");
+  }
   if (v.length) throw new BuildIsolationError(v);
   return { exceptions };
 }

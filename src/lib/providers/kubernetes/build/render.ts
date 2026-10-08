@@ -2,6 +2,9 @@ import { digest } from "@/lib/controlplane/digest";
 import type { K8sObject } from "../types";
 import { configDigest, proxyUrl, validateConfig, type IsolatedBuildConfig } from "./config";
 
+export const BUILD_NODE_LABEL = "zenith.node-restriction.kubernetes.io/build-tenant";
+export const BUILD_PROFILE_LABEL = "zenith.node-restriction.kubernetes.io/build-profile";
+export const BUILD_TAINT = "zenith.dev/build-tenant";
 export const BUILD_ACCOUNT = "zenith-builder";
 export const LIMITS = { cpu: "2", memory: "4Gi", "ephemeral-storage": "4Gi" } as const;
 export interface BuildRequest {
@@ -46,7 +49,9 @@ export function renderJob(raw: IsolatedBuildConfig, r: BuildRequest, probe = fal
     spec: { backoffLimit: 0, completions: 1, parallelism: 1, activeDeadlineSeconds: probe ? 180 : c.timeoutSec, ttlSecondsAfterFinished: 3600,
       template: { metadata: { labels: { "zenith.dev/isolated-build": "true" }, annotations }, spec: {
         runtimeClassName: c.runtimeClass, hostUsers: false, hostNetwork: false, hostPID: false, hostIPC: false, shareProcessNamespace: false,
-        ...(nodeName ? { nodeName } : {}),
+        // Affinity remains effective even for a node-bound build; never bypass the scheduler with nodeName.
+        nodeSelector: { [BUILD_NODE_LABEL]: c.nodeIsolation.tenant, [BUILD_PROFILE_LABEL]: c.nodeIsolation.profileDigest.slice(0, 63), ...(nodeName ? { "kubernetes.io/hostname": nodeName } : {}) },
+        tolerations: ["NoSchedule", "NoExecute"].map(effect => ({ key: BUILD_TAINT, operator: "Equal", value: c.nodeIsolation.tenant, effect })),
         automountServiceAccountToken: false, serviceAccountName: BUILD_ACCOUNT, enableServiceLinks: false, restartPolicy: "Never",
         securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000, fsGroupChangePolicy: "OnRootMismatch" },
         containers: [{ name: "build", image: c.builderImage, command: ["/usr/local/bin/zenith-builder"], args, env,

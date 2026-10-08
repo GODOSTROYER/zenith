@@ -86,7 +86,7 @@ export interface ExecutableSemanticsInputs {
   providerLocks: { lockDigest: string; tofuVersion: string | null };
   backend: { kind: string; configDigest: string | null };
   savedPlan: { planDigest: string | null };
-  provenance: { pipelines: PipelineProvenanceSemantics[] };
+  provenance: { pipelines: PipelineProvenanceSemantics[]; buildProfileDigest?: string };
   ownership: { transfers: OwnershipTransferSemantics[] };
   runbook: { runbookId: string; version: number; definitionDigest: string } | null;
   decommission: { adoptions: { address: string; externalId: string; status: string; lifecycle: string }[] };
@@ -127,7 +127,7 @@ export function normalizedComponent(name: SemanticComponentName, inputs: Executa
     case "savedPlan":
       return inputs.savedPlan;
     case "provenance":
-      return { pipelines: byKey(inputs.provenance.pipelines, (p) => p.service) };
+      return { pipelines: byKey(inputs.provenance.pipelines, (p) => p.service), ...(inputs.provenance.buildProfileDigest ? { buildProfileDigest: inputs.provenance.buildProfileDigest } : {}) };
     case "ownership":
       return { transfers: byKey(inputs.ownership.transfers, (t) => `${t.address}\u0000${t.path}\u0000${t.digest}`) };
     case "runbook":

@@ -35,9 +35,9 @@ describe("build isolation profiles", () => {
     expect(BUILD_ISOLATION_PROFILES.aws.mechanisms.identity).toMatch(/never the deploy role/);
   });
 
-  it("refuses a provider with no profile (OCI and Kubernetes source builds stay refused)", () => {
+  it("refuses a provider with no profile (OCI source builds stay refused)", () => {
     expect(() => profileFor("oci")).toThrow(BuildIsolationError);
-    expect(() => assertBuildIsolation("kubernetes", awsIsolation(), closed)).toThrow(/no build isolation profile/);
+    expect(() => assertBuildIsolation("kubernetes", awsIsolation(), closed)).toThrow(/different profile/);
   });
 
   it("accepts a compliant AWS observation and records no exception", () => {

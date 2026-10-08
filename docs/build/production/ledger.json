@@ -2766,7 +2766,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNotes": "J6 owned rootless builder, runtime denial probes and OCI provenance checks built; default-port/provider joins, reviewed runtime profiles and Mac operated acceptance remain pending.",
+      "implementationNotes": "J6 Step 2 joins default native/managed factories, tenant vault/RBAC custody, protected node runtime proofs, reviewed build semantics and immutable native source migration 59. Release-join collision repaired by assembly. Contract checks run locally; real PG/kind/Temporal/default-product SQL and HTTP acceptance awaits Mac gated harnesses.",
       "evidence": [
         {
           "level": "contract",
@@ -2805,7 +2805,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNotes": "J6 owned rootless builder, runtime denial probes and OCI provenance checks built; default-port/provider joins, reviewed runtime profiles and Mac operated acceptance remain pending.",
+      "implementationNotes": "J6 Step 2 joins default native/managed factories, tenant vault/RBAC custody, protected node runtime proofs, reviewed build semantics and immutable native source migration 59. Release-join collision repaired by assembly. Contract checks run locally; real PG/kind/Temporal/default-product SQL and HTTP acceptance awaits Mac gated harnesses.",
       "evidence": [
         {
           "level": "contract",
@@ -3596,7 +3596,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNotes": "J6 owned rootless builder, runtime denial probes and OCI provenance checks built; default-port/provider joins, reviewed runtime profiles and Mac operated acceptance remain pending.",
+      "implementationNotes": "J6 Step 2 joins default native/managed factories, tenant vault/RBAC custody, protected node runtime proofs, reviewed build semantics and immutable native source migration 59. Release-join collision repaired by assembly. Contract checks run locally; real PG/kind/Temporal/default-product SQL and HTTP acceptance awaits Mac gated harnesses.",
       "evidence": [],
       "requiredEvidence": [
         "contract",

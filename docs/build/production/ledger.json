@@ -2027,7 +2027,8 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2051,7 +2052,8 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2075,7 +2077,8 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2099,7 +2102,8 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2123,7 +2127,8 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2147,7 +2152,8 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2171,7 +2177,8 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3528,7 +3535,8 @@
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3551,7 +3559,8 @@
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3574,7 +3583,8 @@
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3597,7 +3607,8 @@
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3620,7 +3631,8 @@
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3643,7 +3655,8 @@
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3666,7 +3679,8 @@
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3687,7 +3701,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3708,7 +3723,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3729,7 +3745,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3750,7 +3767,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3771,7 +3789,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3792,7 +3811,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3813,7 +3833,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3834,7 +3855,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3855,7 +3877,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4063,7 +4086,8 @@
       ],
       "state": "planned",
       "dependencies": [],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4082,7 +4106,8 @@
       ],
       "state": "planned",
       "dependencies": [],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4101,7 +4126,8 @@
       ],
       "state": "planned",
       "dependencies": [],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4120,7 +4146,8 @@
       ],
       "state": "planned",
       "dependencies": [],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",

@@ -25,7 +25,8 @@ ARG TOFU_VERSION=1.12.5
 ARG TOFU_SHA256_AMD64=a6894d45ae7a17ce83189cce8fe04b5a65f68cefceb62455b5a6a89fa53ab38f
 ARG TOFU_SHA256_ARM64=e67e9da2b1ddf5050ebee62a584cb826eafe1dfd3827d7ec20899ac62791ed1a
 
-FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS build
+# TODO J11: resolve this base with scripts/deploy/pin-digests.mjs on the Mac.
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS build
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=0.0.0-dev
@@ -39,7 +40,8 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
       -o /out/zenith-runner ./cmd/zenith-runner \
  && mkdir -p /out/state && chmod 0700 /out/state
 
-FROM --platform=$BUILDPLATFORM alpine:${ALPINE_VERSION} AS tofu
+# TODO J11: resolve this base with scripts/deploy/pin-digests.mjs on the Mac.
+FROM --platform=$BUILDPLATFORM alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8 AS tofu
 ARG TARGETARCH
 ARG TOFU_VERSION
 ARG TOFU_SHA256_AMD64
@@ -59,7 +61,8 @@ RUN set -eu; \
     mkdir -p /out && tar -xzf /tmp/tofu.tar.gz -C /out tofu; \
     chmod 0755 /out/tofu
 
-FROM gcr.io/distroless/static-debian12:nonroot
+# TODO J11: resolve this base with scripts/deploy/pin-digests.mjs on the Mac.
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
 ARG VERSION=0.0.0-dev
 ARG TOFU_VERSION
 LABEL org.opencontainers.image.title="zenith-runner" \

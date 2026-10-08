@@ -3698,6 +3698,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J11: Cilium exact-version/archive-SHA resolver interface; compatible chart selection, kind and Wave 5/J14 two-tenant runtime acceptance pending.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3822,6 +3823,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
+      "implementationNote": "J11: gated local Grafana/Prometheus/OTel import and offline contracts; Docker import, fairness and outage rehearsal remain pending.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3843,6 +3845,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
+      "implementationNote": "J11: real-digest resolver and fixture-activated history replay manifest lane; registry pins, recorded histories and rollout/rollback acceptance pending on Mac. Integration: the verifier's frozen current-source histories and replay evidence below are retained; previous-release compatibility and rollout/rollback acceptance remain pending.",
       "evidence": [
         {
           "level": "local_engine",
@@ -4019,6 +4022,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J11: owned base-image inventory/resolver and reused Node pin; remaining real digests and Wave 5 supply-chain acceptance pending. Integration: committed upstream base/observability digests and the Cilium 1.20.2 chart pin are retained; API, worker and migrate release-image digests remain unresolved.",
       "evidence": [],
       "requiredEvidence": [
         "contract",

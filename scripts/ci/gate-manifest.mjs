@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 export const TOFU_SUITES = [
@@ -5674,6 +5675,8 @@ export const AGENT_JOURNAL_POSTGRES_REQUIREMENTS = [
 /** Recording remains opt-in; the frozen current-code corpus replays in the canonical workflow lane.
  * These literal case identities survive missing/deleted test sources and fixtures. They
  * prove current synthetic history compatibility, not histories from a prior release.
+ * The dedicated workflow-history-replay lane is mandatory when fixtures exist or are committed.
+ * Deleting committed fixtures cannot disable it; an explicit invocation fails on missing or partial fixtures.
  */
 export const WORKFLOW_HISTORY_REPLAY_REQUIREMENTS = [
   {
@@ -5938,6 +5941,25 @@ export const WAVE5_EXTERNAL_FILES = [
   "tests/tofu/typed-substitution.test.ts"
 ];
 
+function committedWorkflowHistoryFiles(root) {
+  if (!fs.existsSync(path.join(root, ".git"))) return [];
+  const result = spawnSync("git", ["ls-tree", "-r", "--name-only", "HEAD", "--", "tests/fixtures/workflow-histories"], { cwd: root, encoding: "utf8", timeout: 10_000, stdio: ["ignore", "pipe", "ignore"] });
+  if (result.status !== 0 || result.error) throw new Error("Committed replay fixture inventory unavailable; cannot disable the gate");
+  return result.stdout.trim().split(/\r?\n/).filter(Boolean);
+}
+
+/**
+ * Presence activates the ratchet; deleting committed histories cannot disable it.
+ * @param {string} root
+ * @param {(root: string) => string[]} committedInventory
+ */
+export function workflowHistoryReplayStatus(root = process.cwd(), committedInventory = committedWorkflowHistoryFiles) {
+  const directory = path.join(root, "tests/fixtures/workflow-histories");
+  const present = fs.existsSync(directory) && fs.readdirSync(directory).some(file => file.endsWith(".json"));
+  const committed = committedInventory(root).some(file => /^tests\/fixtures\/workflow-histories\/[^/]+\.json$/.test(file));
+  return { required: present || committed, reason: present || committed ? "Recorded fixture set present or committed; replay is mandatory and integrity/coverage must pass" : "not run (needs replay:record fixtures from the Mac Temporal verifier)" };
+}
+
 export const GATE_LANES = {
   "wave5-contract": {
     files: WAVE5_CONTRACT_FILES.filter(file => !file.startsWith("tests/adversarial/")), env: {}, report: ".data-ci-lane/wave5-contract.json",
@@ -5951,6 +5973,12 @@ export const GATE_LANES = {
     files: ["tests/ops/recovery-rehearsal.test.ts"], env: { ZENITH_TEST_RECOVERY_REQUIRED: "1", ZENITH_TEST_TEMPORAL: "1" }, report: ".data-ci-lane/recovery.json",
     tools: { node: "22.23.3", postgres: "16.15", temporal: "1.9.1" },
     prerequisites: ["Owned PostgreSQL16, pg_dump/pg_restore and scratch database privileges", "Pinned Temporal CLI1.9.1 and owned local dev server", "ZENITH_TEST_PLATFORM_PG_URL and ZENITH_TEST_TEMPORAL_CLI"],
+  },
+  "workflow-history-replay": {
+    files: ["tests/workflows/history-replay.test.ts", "tests/workflows/versioning-audit.test.ts"],
+    env: { ZENITH_REPLAY_LANE: "1" }, report: ".data-ci-lane/workflow-history-replay-lane.json",
+    prerequisites: ["Node 22.23.3", "Recorded and reviewed tests/fixtures/workflow-histories including MANIFEST.json; run npm run replay:record on the Mac with pinned Temporal CLI 1.9.1", "Native Temporal replay library and workflow bundler; no server needed for replay; missing, partial, tampered or nondeterministic histories fail"],
+    tools: { node: "22.23.3", temporal: "1.9.1" },
   },
   postgres: {
     files: ["tests/hosted/authority/contract", "tests/scripts/migrate-hosted-to-postgres.test.ts", "tests/agent-link/pg-contract.test.ts", "tests/agent-control/pg-contract.test.ts", "tests/db/contract/workspace-sharing.test.ts", "tests/waitlist/pg-contract.test.ts", "tests/agent-control/pg-oauth-grants.test.ts", "tests/agent-control-journal.test.ts", "tests/agent-control-journal-fixes.test.ts"],
@@ -6285,6 +6313,9 @@ export function requirementsFor(lane, root) {
     case "recovery":
       requirements = ["backup", "clean-host restore", "temporal"].map(suite => ({ file: "tests/ops/recovery-rehearsal.test.ts", suite, backend: "postgres" }));
       break;
+    case "workflow-history-replay":
+      requirements = WORKFLOW_HISTORY_REPLAY_REQUIREMENTS;
+      break;
     case "postgres":
       requirements = [
         ...testFiles(root, "tests/hosted/authority/contract").map((file) => ({ file, suite: file.endsWith("ledgers.test.ts") ? "PostgresAuthority ledgers" : "PostgresAuthority", backend: "postgres" })),
@@ -6392,6 +6423,8 @@ export function requirementsFor(lane, root) {
  * @property {Record<string, string>} tools
  * @property {string[]} prerequisites
  * @property {string} [reportValidation]
+ * @property {boolean} [required]
+ * @property {string} [activationReason]
  */
 /** @param {string} lane @param {string} [root] @param {string} [reportPath] @returns {GateManifest} */
 export function manifestFor(lane, root = process.cwd(), reportPath) {
@@ -6402,7 +6435,8 @@ export function manifestFor(lane, root = process.cwd(), reportPath) {
   const config = GATE_LANES[lane];
   const report = reportPath ?? config.report;
   const args = ["run", ...config.files, ...(config.excludeFiles ?? []).flatMap((file) => ["--exclude", file]), "--maxWorkers=1", "--no-file-parallelism", "--reporter=default", "--reporter=json", `--outputFile.json=${report}`];
-  return { schemaVersion: 1, lane, ...config, excludeFiles: config.excludeFiles ?? [], steps: [], report, command: ["node", "node_modules/vitest/vitest.mjs", ...args], requirements: requirementsFor(lane, root), externalAcceptance: lane === "workflows" ? EXTERNAL_ACCEPTANCE : [] };
+  const activation = lane === "workflow-history-replay" ? workflowHistoryReplayStatus(root) : undefined;
+  return { schemaVersion: 1, lane, ...config, ...(activation ? { required: activation.required, activationReason: activation.reason } : {}), excludeFiles: config.excludeFiles ?? [], steps: [], report, command: ["node", "node_modules/vitest/vitest.mjs", ...args], requirements: requirementsFor(lane, root), externalAcceptance: lane === "workflows" ? EXTERNAL_ACCEPTANCE : [] };
 }
 
 export function main(args) {
@@ -6412,7 +6446,7 @@ export function main(args) {
     console.log(JSON.stringify(result, null, 2));
     return 0;
   } catch {
-    console.error("usage: node scripts/ci/gate-manifest.mjs [fresh|core|postgres|policy|tofu|workflows|reconciliation|workflow-intents|platform-postgres|wave5-contract|adversarial|recovery|linux-guest|packaged-worker|external-acceptance]");
+    console.error("usage: node scripts/ci/gate-manifest.mjs [fresh|core|postgres|policy|tofu|workflows|workflow-history-replay|reconciliation|workflow-intents|platform-postgres|wave5-contract|adversarial|recovery|linux-guest|packaged-worker|external-acceptance]");
     return 2;
   }
 }

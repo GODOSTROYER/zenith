@@ -22,7 +22,7 @@ const REFERENCE = /^(?:[a-z0-9.-]+(?::\d+)?\/)?[a-z0-9][a-z0-9._/-]*(?::[A-Za-z0
 // In an explicit image field even these strings are checked as image values.
 const NON_IMAGE_PREFIX = /^(?:aws|gcp|azure|oci|kubernetes|k8s|zenith|vault|arn|service|resource|scheduled_job|ecr|ecs|ec2|eks|s3|ssm|rds|rds-db|iam|logs|events|codebuild|lambda|sns|sqs|cloudfront|elasticache|secretsmanager|state|presence|last_execution|activation_policy|serverless_neg|node_pool):/;
 // Exact readback diagnostics are not image values. Image fields still reject them.
-const READBACK_DIAGNOSTICS = new Set(["id:not_addressable", "get:malformed", "get:denied", "get:404", "list:unavailable", "list:truncated", "list:present", "list:absent", "family:mysql_refused", "family:unregistered", "observation:simulated", "observation:absent", "observe:present", "id:absent", "work_request:none"]);
+const READBACK_DIAGNOSTICS = new Set(["id:not_addressable", "get:malformed", "get:denied", "get:404", "list:unavailable", "list:truncated", "list:present", "list:absent", "family:mysql_refused", "family:unregistered", "observation:simulated", "observation:absent", "observe:present", "id:absent", "work_request:none", "gateway:upstream"]);
 const IMAGE_FIELD = /^(?:image|imageRef|imageUri|imageName|images|[a-zA-Z_]*Image|[A-Z_]*IMAGE)$/;
 const HELM = "deploy/helm/zenith-runner";
 
@@ -67,6 +67,30 @@ function imageContext(node: ts.Node): boolean {
     }
   }
   return false;
+}
+
+// Prometheus scrape addresses, collector listener addresses and Compose security
+// options have a defined non-image role. Explicit image fields still win.
+function endpointContext(node: ts.Node, text: string): boolean {
+  for (let parent: ts.Node | undefined = node.parent; parent; parent = parent.parent) {
+    if (!ts.isPropertyAssignment(parent)) continue;
+    const name = parent.name.getText().replaceAll('"', "").replaceAll("'", "");
+    return ((name === "endpoint" || name === "targets") && /^[a-z0-9.-]+:\d+$/.test(text))
+      || (name === "security_opt" && text === "no-new-privileges:true");
+  }
+  return false;
+}
+
+// OpenSSL's -newkey algorithm/size argument does not select a container image.
+// The same text remains checked in image fields or other argument positions.
+function opensslKeyContext(node: ts.Node, text: string): boolean {
+  const parent = node.parent;
+  if (!/^rsa:\d+$/.test(text) || !ts.isArrayLiteralExpression(parent)) return false;
+  const call = parent.parent;
+  if (!ts.isCallExpression(call) || !ts.isIdentifier(call.expression) || call.expression.text !== "openssl" || call.arguments[0] !== parent) return false;
+  const index = parent.elements.findIndex(element => element === node);
+  const flag = parent.elements[index - 1];
+  return flag !== undefined && ts.isStringLiteralLike(flag) && flag.text === "-newkey";
 }
 
 function scan(sources: Sources): ImageReference[] {
@@ -142,7 +166,7 @@ function scan(sources: Sources): ImageReference[] {
         if (ts.isStringLiteralLike(node) || ts.isTemplateExpression(node) || (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken)) {
           if ((ts.isPropertyAssignment(node.parent) || ts.isMethodDeclaration(node.parent)) && node.parent.name === node) return;
           const text = valueOf(node);
-          candidate(text, imageContext(node));
+          if (imageContext(node) || (!endpointContext(node, text) && !opensslKeyContext(node, text))) candidate(text, imageContext(node));
           if (/\s|["']?image["']?\s*[:=]/.test(text)) fields(text);
           return;
         }
@@ -204,6 +228,13 @@ describe("provider and deployment image pins", () => {
     expect(violations(scan(fixture(`const IMAGE = "${value}";`)), [])).toHaveLength(1);
   });
 
+  it.each(["rsa:2048", "rsa:4096"])("recognizes OpenSSL key selection %s only after -newkey", value => {
+    expect(scan(fixture(`openssl(["req", "-newkey", "${value}"]);`))).toEqual([]);
+    expect(violations(scan(fixture(`const image = "${value}";`)), [])).toHaveLength(1);
+    expect(violations(scan(fixture(`openssl(["req", "-other", "${value}"]);`)), [])).toHaveLength(1);
+    expect(violations(scan(fixture(`launch(["req", "-newkey", "${value}"]);`)), [])).toHaveLength(1);
+  });
+
   it.each([
     'export const IMAGE = "gcr.io/cloud-builders/docker";',
     'export const IMAGE = "ghcr.io/example/tool:1.2";',
@@ -245,6 +276,12 @@ describe("provider and deployment image pins", () => {
     const source = '// former image: alpine:latest\n/* gcr.io/cloud-builders/docker:latest */\nimport fs from "node:fs";\nconst url = "https://gcr.io/v2/tool/manifests/latest";\nconst nativeType = "aws:codebuild_project";\nconst metadata = { "pod-security.kubernetes.io/enforce-version": "latest" };';
     expect(scan(fixture(source))).toEqual([]);
     expect(scan(fixture("# image: alpine:latest\nenforce-version: latest", "deploy/new/config.yaml"))).toEqual([]);
+  });
+
+  it.each(["collector:8889", "0.0.0.0:13133", "no-new-privileges:true"])("excludes a declared endpoint/security option %s while still checking image fields", value => {
+    const property = value === "no-new-privileges:true" ? `security_opt: ["${value}"]` : `targets: ["${value}"], endpoint: "${value}"`;
+    expect(scan(fixture(`const config = { ${property} };`))).toEqual([]);
+    expect(violations(scan(fixture(`const config = { image: "${value}" };`)), [])).toHaveLength(1);
   });
 
   it("scans only the two owned scan roots and executable files", () => {

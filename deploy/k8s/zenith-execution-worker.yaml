@@ -21,8 +21,20 @@ spec:
           envFrom: [{secretRef: {name: zenith-worker-env}}]
           ports: [{containerPort: 9464, name: health}]
           securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
-          readinessProbe: {httpGet: {path: /readyz, port: 9464}, periodSeconds: 15, failureThreshold: 4}
-          startupProbe: {httpGet: {path: /readyz, port: 9464}, periodSeconds: 5, failureThreshold: 24}
+          # The health listener is deliberately loopback-only. Kubelet's HTTP
+          # probe targets the Pod IP, so run the same check inside the container.
+          readinessProbe:
+            exec: &workerHealthExec
+              command:
+                - node
+                - -e
+                - "const p=(process.env.ZENITH_WORKER_HEALTH_PORT||'9464').trim(); if(!/^[0-9]+$/.test(p)||Number(p)<1||Number(p)>65535)process.exit(1); fetch('http://127.0.0.1:'+p+'/readyz',{signal:AbortSignal.timeout(800),redirect:'error'}).then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1));"
+            periodSeconds: 15
+            failureThreshold: 4
+          startupProbe:
+            exec: *workerHealthExec
+            periodSeconds: 5
+            failureThreshold: 24
           volumeMounts: [{name: data, mountPath: /var/lib/zenith}, {name: tmp, mountPath: /tmp}]
       volumes: [{name: data, emptyDir: {}}, {name: tmp, emptyDir: {sizeLimit: 1Gi}}]
 ---

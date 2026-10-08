@@ -620,6 +620,7 @@ async function main(): Promise<number> {
       }
     }
   } finally {
+    process.stdout.write(`${JSON.stringify({ diagnostic: "agent-browser-server-final", server: server.diagnosticState() })}\n`);
     await browser.close();
     server.stop();
     await provider.close();
@@ -660,7 +661,7 @@ function fetchCauseCode(error: unknown): string {
 
 interface DevServer {
   stop: () => void;
-  diagnosticState: () => { exitCode: number | null; signalCode: NodeJS.Signals | null; nodeOomObserved: boolean };
+  diagnosticState: () => { exitCode: number | null; signalCode: NodeJS.Signals | null; nodeOomObserved: boolean; devMemoryRestartCount: number };
   approvalCompileTimings: () => Array<{ route: string; durationMs: number }>;
 }
 
@@ -708,6 +709,7 @@ async function startDevServer(port: number): Promise<DevServer | null> {
       exitCode: child.exitCode,
       signalCode: child.signalCode,
       nodeOomObserved: /FATAL ERROR: [^\r\n]*JavaScript heap out of memory/.test(log.join("")),
+      devMemoryRestartCount: log.join("").split("Server is approaching the used memory threshold, restarting...").length - 1,
     }),
     approvalCompileTimings: () => Array.from(
       log.join("").matchAll(/\bCompiled \/api\/integrations\/agent\/link\/approve in (\d+(?:\.\d+)?)(ms|s)(?=\s|$)/g),

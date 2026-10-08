@@ -11,7 +11,7 @@
 ARG GO_VERSION=1.27
 
 # TODO J11: resolve this base with scripts/deploy/pin-digests.mjs on the Mac.
-FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS build
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=0.0.0-dev
@@ -26,7 +26,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
  && mkdir -p /out/state && chmod 0700 /out/state
 
 # TODO J11: resolve this base with scripts/deploy/pin-digests.mjs on the Mac.
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
 ARG VERSION=0.0.0-dev
 LABEL org.opencontainers.image.title="zenithd" \
       org.opencontainers.image.description="Zenith machine agent (test image; install on VMs with the systemd unit)" \

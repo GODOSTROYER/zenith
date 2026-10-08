@@ -1,3 +1,13 @@
+## Green tested CI and native artifact progress, 8 October 2026
+
+Tested `455d12e547c4cfdd42a050a0bb6a68167a6a038e`: **20/20 CI jobs succeeded**, independently inspected across main, native workers and native platform runs. Unit **21,826 passed / 0 failed / 1,637 skipped**; platform **3,762/0/15**, all1,146 required; workflows **1,378/0/0**, all105 required. Native AMD64 and ARM64 workers each22/0/0 with all cleanup flags; no emulation. Smoke and Gimbal executed successfully. Counts overlap and are never summed. [Every exact-source job](verification/CI-2026-10-08-455d12e5.md). The new documentation publication requires its own CI; no zero-skip project claim.
+
+Native Mac source `e5c4f325c1f0a5d373617a9a62211e1b3e4eafb9`: disabling only private webpack disk cache and limiting static workers allowed compilation, lint/typecheck, pages and tracing to complete, child0 in160.27s. Original controller still failed its asset-assembly assertion because public assets were partially present; a separate external dependency link also required containment. Original failed receipt remains unchanged. Independently reviewed APFS successor completed in86.03s, with68,529 files, all71 public assets and328 static assets,73 recorded process groups absent, no external links or source hardlinks, and original/shared dependencies unchanged. The artifact uses full installed locked dependencies, including development tools/caches; it is not fresh installation, minimal production packaging or shipped Linux topology proof. Repository Next configuration stayed unchanged. [Source-bound native evidence](evidence/PROD-CI-08/2026-10-08-native-next-resource-and-closure.json).
+
+Continuous22GiB floor held: native build minimum24,294,100,992 bytes; materialization minimum24,263,634,944 bytes, about22.60GiB free. Docker stays stopped. Cold default stack still lacks measured image/database/swap headroom; no API/browser/scheduling acceptance was run. All25SQL/43migration inputs and five native ARM64 image metadata prerequisites are prepared, not executed acceptance. Builder-owned MACH02 token-expiry finding remains open. Live clouds/spend, real DNS/private GitHub App, retention/business decisions and production sign-off remain unapproved.
+
+Ledger remains **10 verified / 49 in progress / 19 planned** across78 requirements, with all four release flags false. Current source and earlier failed attempts remain preserved. This document gives building-machine progress context, without adding resume steps or claiming unattended work.
+
 
 ## Bounded native runtime cleanup, 8 October 2026
 

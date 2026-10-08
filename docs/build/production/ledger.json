@@ -1335,6 +1335,24 @@
           "integratedCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",
           "result": "Provider6/release1/guest49 passed,0 failures/skips; all12 relevant inputs match integration; owned cleanup confirmed. Local kind ARM64 only; default browser/CNI and full candidate gates open.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-kind56-read-minter-successor.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "455d12e547c4cfdd42a050a0bb6a68167a6a038e",
+          "result": "20/20 terminal jobs succeeded; unit21826 passed/0 failed/1637 skipped; platform3762/0/15, all1146 required; workflows1378/0/0, all105 required; nativeAMD64 and ARM64 workers each22/0/0 with cleanup. Counts overlap. Default Mac acceptance and external scopes remain open.",
+          "command": "Inspect every exact-source job and canonical exported execution/source/environment artifacts for three terminal runs",
+          "environment": "GitHub hosted canonical Linux Node22.23.3; separate native Linux AMD64 and ARM64 workers, native Linux systemd and Windows ACL; no emulation claimed",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-ci-455d12e5.json",
+          "runId": 37720373970,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37720373970"
+        },
+        {
+          "level": "local_engine",
+          "commit": "e5c4f325c1f0a5d373617a9a62211e1b3e4eafb9",
+          "result": "Native reduced-resource Next child0 in160.27s; original assembly parent1 preserved. Separate APFS materialization parent0 in86.03s,68529 files,71 public/328 static,73 groups absent, source/dependencies unchanged, no external links/hardlinks. Not test counts/default startup/fresh install/shipped topology.",
+          "command": "Reviewed frozen native Next controller followed by independently reviewed APFS artifact materializer",
+          "environment": "Native Darwin ARM64, Node22.23.3, Next15.5.27, heap4096MiB, private cache=false/cpus1/webpackBuildWorker=true; continuous22GiB floor",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-next-resource-and-closure.json"
         }
       ],
       "requiredEvidence": [
@@ -1709,6 +1727,16 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-9b568108-ci-jobs.json",
           "runId": 37663658515,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "455d12e547c4cfdd42a050a0bb6a68167a6a038e",
+          "result": "20/20 terminal jobs succeeded; unit21826 passed/0 failed/1637 skipped; platform3762/0/15, all1146 required; workflows1378/0/0, all105 required; nativeAMD64 and ARM64 workers each22/0/0 with cleanup. Counts overlap. Default Mac acceptance and external scopes remain open.",
+          "command": "Inspect every exact-source job and canonical exported execution/source/environment artifacts for three terminal runs",
+          "environment": "GitHub hosted canonical Linux Node22.23.3; separate native Linux AMD64 and ARM64 workers, native Linux systemd and Windows ACL; no emulation claimed",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-ci-455d12e5.json",
+          "runId": 37720373970,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37720373970"
         }
       ],
       "requiredEvidence": [

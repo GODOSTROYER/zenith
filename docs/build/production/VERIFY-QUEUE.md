@@ -1,3 +1,8 @@
+## Results update, 8 October 2026
+
+- PROD-CI-08: complete remote gate passed on455d12e5,20/20jobs; unit21826/0/1637. Native e5c4 reduced-resource compilation and independent artifact assembly passed their scoped child/closure checks; default-stack acceptance resource-blocked. [Results](verification/RESULTS-2026-10.md#green-tested-ci-and-native-artifact-progress-8-october-2026).
+- PROD-CI-09: exact455d12e5 nativeAMD64/ARM64 workers22/0/0 each, all cleanup; new publication CI remains pending. [Every job](verification/CI-2026-10-08-455d12e5.md). Broader requirement states unchanged.
+
 ## Results, 8 October kind successor and publication
 
 - PROD-CI-08 Results: integrated12547335 validator; 293 gate plus160 report controls, zero failures/skips. Exact5f4 CI19/20 succeeded; sole pre-repair timeout. New pushed CI pending.

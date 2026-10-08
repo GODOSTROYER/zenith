@@ -33,3 +33,13 @@ Current integrated source: `5e5417b943f08734ceeab90a003f97bccdd09d2c`. Seventeen
 Integrated `59fe02bee566b244dc458b33cc58e34281994078`. Typecheck-only5120MiB heap fix preserves canonical command and all120 release-gate identities; root120/0/0, actionlint/lint/diff0. Full compiler passed in12.62s on ea8 plus exact reviewed heap change, cleanup/source binding passed. Subsequent single release fixture correction passed all5 cases and lint; compiler result does not include that later test edit. No Next/image/default journey acceptance claimed. Ownership concurrency, Linux6/PID1, full gates and fresh pushed CI remain pending. Historical0cc CI remains10 successful/14 failed jobs. Dependency disposition remains pending human scope approval.
 
 [Sanitized successor evidence](../evidence/PROD-CI-08/2026-10-08-heap-release-successor.json).
+
+
+## Packaged worker COPY custody correction, 8 October 2026
+
+Fix `58c4e192dfc3bbbf717e28b6769130cdde83714d` binds canonical SLO asset in the strict source inventory. Fresh d90 native ARM64 and AMD64 jobs failed before building: original source digest refused `Packaged Docker COPY inventory differs from its source binding.` Root independently reproduced exit1, verified repaired digest exit0, ran whole affected suite136/0/6 and lint/diff0. New controls cover changed bytes, restoration and missing/directory/symlink refusal. Six actual Linux cases, native image/runtime and complete new CI remain pending. No gate or inventory bound weakened.
+
+
+## Ownership native successor, 8 October 2026
+
+Integrated `c8c874027dd687d4a133e5de5d971a323eeed40b` after two complete files55/0/0, including36 genuine PostgreSQL and19 PGlite cases. Root and independent reviewer verified full case Counter, source/tool binding,155 absent process groups, removed runtime/socket and refused listener. Whole gate/platform contract successor368/0/0, compiler0 in14.69s, lint/diff0. Prior339/29 contract attempt remains failed: two renamed IDs leaked into historical cohorts until their exact finite metadata references were updated. Current1160, ownership10, other1158, custody101 and native100 counts remain unchanged. Human approvals are modeled; default Auth/cloud/user journey remains open.

@@ -707,3 +707,13 @@ Results: PROD-CI-08 remains in_progress. Published0cc full CI10 successful/14 fa
 Results: PROD-CI-08 remains in_progress at integratedea8f7093: native107/0/0 including58 required; contracts671/0/0; route82/0/0; packaging135/0/6; combinedcompiler0. Every broader gate/remainingLinuxcase/pushedCI still open. RESULTS integrated-targeted-successor section preserves source scope and prior failures.
 
 Results PROD-CI-08: `59fe02bee566b244dc458b33cc58e34281994078` integrates heap guard120/0/0, full compiler0 (before later release test edit), release fixture5/0/0. Complete gates/new CI/Linux/default journeys pending.
+
+
+## Packaged worker COPY custody correction, 8 October 2026
+
+Fix `58c4e192dfc3bbbf717e28b6769130cdde83714d` binds canonical SLO asset in the strict source inventory. Fresh d90 native ARM64 and AMD64 jobs failed before building: original source digest refused `Packaged Docker COPY inventory differs from its source binding.` Root independently reproduced exit1, verified repaired digest exit0, ran whole affected suite136/0/6 and lint/diff0. New controls cover changed bytes, restoration and missing/directory/symlink refusal. Six actual Linux cases, native image/runtime and complete new CI remain pending. No gate or inventory bound weakened.
+
+
+## Ownership native successor, 8 October 2026
+
+Integrated `c8c874027dd687d4a133e5de5d971a323eeed40b` after two complete files55/0/0, including36 genuine PostgreSQL and19 PGlite cases. Root and independent reviewer verified full case Counter, source/tool binding,155 absent process groups, removed runtime/socket and refused listener. Whole gate/platform contract successor368/0/0, compiler0 in14.69s, lint/diff0. Prior339/29 contract attempt remains failed: two renamed IDs leaked into historical cohorts until their exact finite metadata references were updated. Current1160, ownership10, other1158, custody101 and native100 counts remain unchanged. Human approvals are modeled; default Auth/cloud/user journey remains open.

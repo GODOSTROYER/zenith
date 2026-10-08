@@ -1492,6 +1492,18 @@
           "result": "Heap guard120/0/0 and full compiler exit0 in12.62s at5120MiB; subsequent sole release fixture5/0/0. Lint/actionlint/diff0. Separate scopes; full gate and new CI pending.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-heap-release-successor.json",
           "level": "contract"
+        },
+        {
+          "level": "contract",
+          "commit": "58c4e192dfc3bbbf717e28b6769130cdde83714d",
+          "result": "SLO source custody repair: root136/0/6; actual original strictCOPY refusal reproduced, repaired digest accepted. Six Linux cases and image/runtime remain open.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-worker-slo-copy-binding.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c8c874027dd687d4a133e5de5d971a323eeed40b",
+          "result": "Ownership two complete files55/0/0 including36actualPG; source binding and155groups cleanup independently accepted. Gate metadata368/0/0; compiler0 in14.69s. Historical339/29 retained;1160/10/101/native100 unchanged.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-ownership-native-successor.json"
         }
       ],
       "requiredEvidence": [
@@ -5536,12 +5548,12 @@
   ],
   "sessionState": {
     "status": "current_verifier_test_repairs_active_full_ci_failed",
-    "sourceCheckpoint": "59fe02bee566b244dc458b33cc58e34281994078",
+    "sourceCheckpoint": "c8c874027dd687d4a133e5de5d971a323eeed40b",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "0cc97c4ad395aabd621167371e5fe1776a1cb956",
-    "lastPushedRun": 37786124111,
-    "lastPushedRunStatus": "terminal_main8_success12_failure_nativeworkers2_failure_nativeplatforms2_success; current repairs unpushed",
-    "currentVerification": "docs/build/production/verification/CI-2026-10-08-0cc97c4a.md",
+    "lastPushedCommit": "d90fca08ea224ac16cdc70318f74a44dd97a1ce9",
+    "lastPushedRun": 37796491420,
+    "lastPushedRunStatus": "Main CI still running; nativeworkers37796491251 two prebuild failures; nativeplatforms two successes. Full terminal inspection pending.",
+    "currentVerification": "Freshd90 CI37796491420 running; nativeworkers37796491251 failed prebuild strictCOPYinventory. SLO binding58c4 sourceverified, freshimage/runtime pending.",
     "remainingLocalPackets": {
       "integratedRepairs": "733f81f8 nine reviewed CI paths; root437/0/6, compiler/lint/actionlint0. Six actualLinux cases and complete native/full/successorCI pending.",
       "authorityFixtures": "Reviewed4e07113d/d8ad975d integrated5e5417b9; exactfinal6files92/0/0, combinedcompiler/lint0. Model/provider-fixture proof only.",
@@ -5550,7 +5562,8 @@
       "nativeBuild": "Packagingasset2 integrated19a2ae14; rootactualcomponentmissingasset1\u2192canonicalasset0 and packaging135/0/6. Go5 integrated7b9ae3e3; root671/0/0 strictcontracts, current154/158 requiredcount. GenuineLinux6/newrunnerPID1/image/runtime stillpending; no generic skip exception.",
       "defaultStackPreparation": "Historical9d reduced five-service startup/configuration capture passed limitedscope; subsequentTLS initialization failed. Ownedresources/certificates removed; fresh26SQL/schema58/defaultsource composition needed.",
       "fullNativeUnit": "Historical9d unit counts retained only for9d. Exact0cc mainverify failed typecheck with heap OOM before full unit; current combined full unit pending.",
-      "workflowFixtures": "Integrated ea8 authority82/0/0 and 59fe release5/0/0; actual default agent/hosted journeys remain open."
+      "workflowFixtures": "Integrated ea8 authority82/0/0 and 59fe release5/0/0; actual default agent/hosted journeys remain open.",
+      "ownership": "Integratedc8c87402 after actual55/0/0/36PG, independent155groups/sourcebindingcleanup,368/0/0contracts, compiler0. Exacttwo truthful titleIDs changed, counts preserved."
     },
     "permissions": {
       "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Arnav Bule.",

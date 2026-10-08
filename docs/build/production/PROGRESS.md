@@ -1,3 +1,11 @@
+## Ownership native integration, 8 October 2026
+
+Code `c8c874027dd687d4a133e5de5d971a323eeed40b`:55/0/0 including36realPG;155groups cleanup independently accepted. Gate contracts368/0/0; compiler0 in14.69s. Counts overlap. Freshd90 CI remains pending overall, nativeworker2failed beforebuild. Linux/runtime/defaultjourney/security gaps stay open; ledger9/67/2 unchanged.
+
+## Worker COPY source binding correction, 8 October 2026
+
+Fix `58c4e192dfc3bbbf717e28b6769130cdde83714d`: original strict source-inventory failure reproduced and corrected. Whole affected suite136/0/6; lint/diff passed. Six actual Linux cases and packaged image/runtime remain pending. Currentd90 CI still running, both native worker jobs failed before build. Ledger9/67/2 unchanged.
+
 ## Compiler and release fixture successor, 8 October 2026
 
 Code `59fe02bee566b244dc458b33cc58e34281994078`. Heap guards120/0/0; compiler0 in12.62s; subsequent release fixture5/0/0. Counts overlap and evidence scopes differ. Complete gates/new CI/Linux runtime/default journeys pending. Ledger9 verified/67 in progress/2 planned; four release states false. [Evidence](evidence/PROD-CI-08/2026-10-08-heap-release-successor.json).

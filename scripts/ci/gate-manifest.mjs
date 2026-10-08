@@ -6128,7 +6128,11 @@ export function testFiles(root, directory) {
 
 /** Normalize only complete backend labels; mismatched quotes never identify a backend. */
 export function canonicalSuite(value) {
-  return String(value).replace(/^(['"])(PostgresAuthority)\1(?=\s|$)/, "$2").replace(/\[\s*(?:'([^']+)'|"([^"]+)"|([a-z]+))\s*\]/gi, (_all, single, double, bare) => `[${single ?? double ?? bare}]`);
+  return String(value)
+    .replace(/^(['"])(PostgresAuthority)\1(?=\s|$)/, "$2")
+    .replace(/\[\s*(?:'([^']+)'|"([^"]+)"|([a-z]+))\s*\]/gi, (_all, single, double, bare) => `[${single ?? double ?? bare}]`)
+    .replace(/\((['"])(postgres|pglite)\1\)$/, "($2)")
+    .replace(/\bon (['"])(postgres|pglite)\1$/, "on $2");
 }
 
 export function assertionMatches(required, assertion) {

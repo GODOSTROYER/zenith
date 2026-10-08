@@ -1373,6 +1373,47 @@ describe("mandatory ECS replica repair gates", () => {
 });
 
 describe("stable backend ancestry", () => {
+  // A raw native report observes two quoted suites; all seven share Vitest's $name formatter.
+  const quotedNativeGroups = [
+    ["tests/effects/build-launch.test.ts", "build launch effects (postgres)", "66558e46614c"],
+    ["tests/effects/cleanup.test.ts", "cleanup effect helpers (postgres)", "56d57a2f04e0"],
+    ["tests/effects/ledger.test.ts", "external effect ledger (postgres)", "5b8ae9d0841b"],
+    ["tests/effects/provider-resolvers.test.ts", "lost non-AWS launch to confirmed adoption (postgres)", "ae6277c04b4b"],
+    ["tests/effects/proxy.test.ts", "runProxyJob on the control store (postgres)", "71ecab8d34b4"],
+    ["tests/effects/resolvers.test.ts", "runReadback on the control store (postgres)", "514f933542c5"],
+    ["tests/coding-agent/store.test.ts", "coding_agent_runs on postgres", "a2b7923f32dd"],
+  ];
+
+  it.each(quotedNativeGroups)("binds the unchanged native requirement for %s to complete quoted backend ancestry", (file, suite, suffix) => {
+    const required = requirementsFor("platform-postgres", root).filter((item) => item.file === file && item.suite === suite);
+    expect(required).toHaveLength(1);
+    expect(required[0].id).toBe(`platform-postgres:${file}:${suffix}`);
+    expect(required[0].postgres).toBe(true);
+    const report = (ancestor: string, status = "passed") => ({ success: true, testResults: [{
+      name: path.resolve(root, file), status: "passed", assertionResults: [{
+        fullName: ancestor + " native scenario", ancestorTitles: [ancestor], title: "native scenario", status,
+      }],
+    }] });
+    for (const quote of ["'", '"']) {
+      const ancestor = suite.replace("postgres", quote + "postgres" + quote);
+      expect(canonicalSuite(ancestor)).toBe(suite);
+      expect(reportFailures(required, report(ancestor), root)).toEqual([]);
+      for (const status of ["failed", "skipped", "pending", "todo", "unknown"]) {
+        expect(reportFailures(required, report(ancestor, status), root)).toHaveLength(1);
+      }
+      expect(reportFailures(required, report(ancestor.replace("postgres", "pglite")), root)).toHaveLength(1);
+    }
+    for (const token of ["'postgres\"", "postgres-replica", "'Postgres'", "'memory'", "'postgres' trailing"]) {
+      expect(reportFailures(required, report(suite.replace("postgres", token)), root)).toHaveLength(1);
+    }
+    const titleOnly = report(suite.replace("postgres", "pglite"));
+    titleOnly.testResults[0].assertionResults[0].fullName = suite + " native scenario";
+    titleOnly.testResults[0].assertionResults[0].title = suite;
+    expect(reportFailures(required, titleOnly, root)).toHaveLength(1);
+    expect(reportFailures(required, { success: true, testResults: [] }, root)).toHaveLength(1);
+    expect(reportFailures(required, { success: true, testResults: [{ name: path.resolve(root, file), status: "passed", assertionResults: [] }] }, root)).toHaveLength(1);
+  });
+
   it.each(["[postgres]", "['postgres']", '["postgres"]', "[ 'postgres' ]"])("accepts complete %s suite labels", (label) => {
     const assertion = { fullName: `leases ${label} passed`, ancestorTitles: ["leases " + label], status: "passed" };
     expect(assertionMatches({ suite: "leases [postgres]", postgres: true }, assertion)).toBe(true);

@@ -1,5 +1,5 @@
 /** Provider dispatch with native adapters over synthetic sessions; no live clouds. */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createReleasePorts } from "@/lib/platform/release";
 import { world as gcpWorld, service as gcpService } from "../providers/gcp/release-fixtures";
 import { world as azureWorld, service as azureService } from "../providers/azure/release-fixtures";
@@ -8,14 +8,16 @@ import { IMAGE, DIGEST } from "../providers/aws/drivers/compute/ecs-mocks";
 import { releaseWorld } from "../providers/kubernetes/release-fixtures";
 
 describe("release provider composition", () => {
+  afterEach(() => vi.unstubAllEnvs());
   it("dispatches Kubernetes rollout reads and explicitly refuses an unconfigured builder", async () => {
+    vi.stubEnv("ZENITH_ISOLATED_BUILD_PROFILES", "");
     const w = await releaseWorld();
     try {
       const ports = createReleasePorts();
       expect(await ports.workloads.waitSteady(w.ctx, w.node, { timeoutMs: 1000 })).toMatchObject({ steady: true });
       const reads = w.fake.requests.length;
-      await expect(ports.build.startBuild(w.ctx, { service: w.node, pipeline: w.node, source: { s3Key: "source", digest: "source-digest" }, idempotencyKey: "build" })).rejects.toThrow("pre-built");
-      await expect(ports.build.waitForBuild(w.ctx, { buildId: "invented" }, { timeoutMs: 1000 })).rejects.toThrow("external builder");
+      await expect(ports.build.startBuild(w.ctx, { service: w.node, pipeline: w.node, source: { s3Key: "source", digest: "source-digest" }, idempotencyKey: "build" })).rejects.toThrow("ZENITH_ISOLATED_BUILD_PROFILES");
+      await expect(ports.build.waitForBuild(w.ctx, { buildId: "invented" }, { timeoutMs: 1000 })).rejects.toThrow("ZENITH_ISOLATED_BUILD_PROFILES");
       await expect(ports.workloads.waitSteady({ ...w.ctx, session: { provider: "aws" } }, w.node, { timeoutMs: 1000 })).rejects.toThrow("broker session");
       expect(w.fake.requests).toHaveLength(reads);
     } finally { await w.fake.close(); }
@@ -33,7 +35,8 @@ describe("release provider composition", () => {
   it("rejects mismatched broker session and unsupported providers before cloud calls", async () => {
     const w = gcpWorld(); const ports = createReleasePorts();
     await expect(ports.workloads.waitSteady({ ...w.ctx, provider: "azure" }, gcpService, { timeoutMs: 1000 })).rejects.toThrow("broker session");
-    await expect(ports.workloads.waitSteady({ ...w.ctx, provider: "zenith" }, gcpService, { timeoutMs: 1000 })).rejects.toThrow("unavailable"); expect(w.fetcher).not.toHaveBeenCalled();
+    await expect(ports.workloads.waitSteady({ ...w.ctx, provider: "zenith" }, gcpService, { timeoutMs: 1000 })).rejects.toThrow("managed substrate");
+    await expect(ports.workloads.waitSteady({ ...w.ctx, provider: "sandbox" }, gcpService, { timeoutMs: 1000 })).rejects.toThrow("unavailable"); expect(w.fetcher).not.toHaveBeenCalled();
   });
   it("forwards explicit Azure build/source dependencies and migration launch receipts", async () => {
     const w = azureWorld(); const ports = createReleasePorts({ azure: w.options });

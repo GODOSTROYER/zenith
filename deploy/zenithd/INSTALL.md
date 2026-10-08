@@ -27,6 +27,16 @@ systemd-sysusers                      # creates user "zenithd", member of system
 install -m 0644 zenithd.service /etc/systemd/system/zenithd.service
 ```
 
+The unit requires unified cgroup v2. It delegates the `cpu`, `memory` and `pids`
+controllers to the unprivileged `zenithd` account; other units remain root-owned.
+It keeps an empty capability set and `NoNewPrivileges=yes`, and bounds the whole
+service to 512 MiB, 256 tasks and one CPU. `ProtectControlGroups=no` lets the
+service use its delegated subtree. Check effective delegation under PID 1 with
+the gated harness in `deploy/zenithd/acceptance/`; a unit property alone is not
+runtime verification. Kernel/cgroup delegation unavailable: fail the acceptance
+check rather than run the agent as root. Adjust resource ceilings in a reviewed
+drop-in for a workload that needs more.
+
 ## 3. Configure it
 
 ```sh
@@ -79,6 +89,24 @@ You can also pass the token through the environment for the registration only:
 `ZENITH_REGISTRATION_TOKEN=... sudo -E -u zenithd zenithd register`.
 
 ## 5. Operate it
+
+Control-plane update intent is exposed at
+`GET|POST /api/platform/v1/machines/<id>/update` (the runner route is analogous).
+A signed-in workspace admin posts `{ expectedRevision, hold, manifestSha256 }`.
+Use `hold: true, manifestSha256: null` to hold automatic remote updates; use
+`hold: false` and the SHA-256 of the exact signed envelope at the locally pinned
+channel URL to request an update. The control plane cannot choose a different
+URL or release key. The response records intent, not machine acknowledgement.
+A hold is acknowledged only after the local controller persists it; an already
+started stage finishes first. Health checks and automatic rollback still run
+while held. A local host owner retains the manual update CLI.
+
+Apply platform migration 54 before enabling control-plane updates. The agent
+control loop is installed whenever the local signed update channel is enabled.
+Requests refuse with 409 for an agent without `agent.update.control.v1` and 503
+when durable storage is absent. The native harness refuses an installed binary
+without the marker. Verification commands are in
+`docs/build/production/verify/PROD-MACH-04.md`.
 
 | Task | How |
 |---|---|

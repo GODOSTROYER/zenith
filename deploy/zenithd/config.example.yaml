@@ -54,6 +54,9 @@ log:
 # complete an authenticated heartbeat and poll within healthWindowSec, or keeps
 # restarting, it is rolled back to the previous binary automatically. The
 # control plane cannot change any of this. See docs/platform/RUNNER-UPDATES.md.
+# With the MACH-04 loop/storage integration, staging also requires fresh signed
+# human intent for the exact envelope digest. Holds are durable locally and
+# suppress staging; they never suppress health checks or automatic rollback.
 update:
   enabled: false
   # channel: stable

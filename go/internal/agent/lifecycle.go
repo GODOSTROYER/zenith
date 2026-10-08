@@ -400,8 +400,14 @@ func (a *Agent) updateLoop(ctx context.Context) {
 		return
 	}
 	delay := 30*time.Second + time.Duration(jitter()*float64(30*time.Second))
-	for sleepCtx(ctx, delay) {
-		out, err := a.updater.CheckAndStage(ctx)
+	for a.waitUpdate(ctx, delay) {
+		var out update.Outcome
+		var err error
+		if a.updateControl != nil {
+			out, err = a.updateControl.CheckAndStage(ctx, a.cfg.StateDir, ComponentOf(a.opts.Kind), a.opts.Version, set, update.ManagerOptions{HTTPClient: a.opts.UpdateHTTPClient, Now: a.opts.Now})
+		} else {
+			out, err = a.updater.CheckAndStage(ctx)
+		}
 		switch {
 		case err != nil:
 			if ctx.Err() != nil {
@@ -475,4 +481,20 @@ func newUpdater(cfg *Common, kind Kind, version string, httpc *http.Client, now 
 		return nil
 	}
 	return update.NewManager(cfg.StateDir, ComponentOf(kind), version, cfg.Update.Settings(), update.ManagerOptions{HTTPClient: httpc, Now: now})
+}
+
+func (a *Agent) waitUpdate(ctx context.Context, delay time.Duration) bool {
+	if a.updateControl == nil {
+		return sleepCtx(ctx, delay)
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	case <-a.updateControl.Wake():
+		return true
+	}
 }

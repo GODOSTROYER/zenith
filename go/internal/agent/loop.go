@@ -14,6 +14,7 @@ import (
 	"github.com/GODOSTROYER/zenith/go/internal/agent/spool"
 	"github.com/GODOSTROYER/zenith/go/internal/agent/update"
 	"github.com/GODOSTROYER/zenith/go/internal/protocol"
+	updatecontrol "github.com/GODOSTROYER/zenith/go/internal/runner/update"
 )
 
 // Process exit codes shared by both binaries.
@@ -108,15 +109,16 @@ type Agent struct {
 	pollSec   atomic.Int32
 
 	// Lifecycle: delivery, reconnect and update state (lifecycle.go).
-	conn         *connTracker
-	spool        *spool.Spool
-	updater      *update.Manager
-	inflightMu   sync.Mutex
-	inflight     map[string]struct{}
-	replayed     atomic.Int64
-	hbOK         atomic.Bool // an authenticated heartbeat succeeded this run
-	pollOK       atomic.Bool // an authenticated poll succeeded this run
-	exitOverride atomic.Int32
+	conn          *connTracker
+	spool         *spool.Spool
+	updater       *update.Manager
+	updateControl *updatecontrol.Controller
+	inflightMu    sync.Mutex
+	inflight      map[string]struct{}
+	replayed      atomic.Int64
+	hbOK          atomic.Bool // an authenticated heartbeat succeeded this run
+	pollOK        atomic.Bool // an authenticated poll succeeded this run
+	exitOverride  atomic.Int32
 
 	stopLoop   context.CancelFunc
 	loopCtx    context.Context // cancelled when the agent stops taking work
@@ -175,6 +177,13 @@ func New(opts Options) (*Agent, error) {
 		return nil, fmt.Errorf("open result spool: %w", err)
 	}
 	a.updater = newUpdater(opts.Config, opts.Kind, opts.Version, opts.UpdateHTTPClient, opts.Now)
+	if opts.Config.Update.Enabled {
+		control, err := updatecontrol.Open(opts.Config.StateDir, updatecontrol.Binding{WorkspaceID: opts.Identity.WorkspaceID, AgentID: opts.Identity.ID, Kind: opts.Kind.Name}, opts.Now)
+		if err != nil {
+			return nil, fmt.Errorf("open durable update control: %w", err)
+		}
+		a.updateControl = control
+	}
 	poll := opts.Identity.PollIntervalSec
 	if poll <= 0 {
 		poll = 5
@@ -580,10 +589,12 @@ type heartbeatRequest struct {
 	Host         HostInfo `json:"host"`
 	// Lifecycle reports connection, result-spool and update state so the
 	// control plane can show offline / recovering / rolled-back honestly.
-	Lifecycle lifecycleReport `json:"lifecycle"`
+	Lifecycle          lifecycleReport `json:"lifecycle"`
+	UpdateControlNonce string          `json:"updateControlNonce,omitempty"`
 }
 
 type heartbeatResponse struct {
+	UpdateControl   string              `json:"updateControl"`
 	Revoked         bool                `json:"revoked"`
 	NextKeys        []protocol.KeyEntry `json:"nextKeys"`
 	PollIntervalSec int                 `json:"pollIntervalSec"`
@@ -621,13 +632,22 @@ func (a *Agent) heartbeatLoop(ctx context.Context) {
 }
 
 func (a *Agent) heartbeat(ctx context.Context) error {
+	var controlNonce string
+	if a.updateControl != nil {
+		nonce, err := updatecontrol.Nonce()
+		if err != nil {
+			return err
+		}
+		controlNonce = nonce
+	}
 	var resp heartbeatResponse
 	_, err := a.client.Do(ctx, http.MethodPost, a.itemPath("/heartbeat"), heartbeatRequest{
-		Version:      a.opts.Version,
-		Capabilities: a.opts.Processor.Capabilities(),
-		Running:      int(a.running.Load()),
-		Host:         LocalHost(),
-		Lifecycle:    a.lifecycle(),
+		Version:            a.opts.Version,
+		Capabilities:       a.updateCapabilities(),
+		UpdateControlNonce: controlNonce,
+		Running:            int(a.running.Load()),
+		Host:               LocalHost(),
+		Lifecycle:          a.lifecycle(),
 	}, &resp, 20*time.Second, 1<<20)
 	if err != nil {
 		return err
@@ -640,6 +660,11 @@ func (a *Agent) heartbeat(ctx context.Context) error {
 	}
 	if len(resp.NextKeys) > 0 {
 		a.acceptNextKeys(resp.NextKeys)
+	}
+	if a.updateControl != nil {
+		if err := a.updateControl.Observe(resp.UpdateControl, a.keys, controlNonce); err != nil {
+			a.log.Warn("update authority unavailable; retaining the current version")
+		}
 	}
 	return nil
 }
@@ -695,4 +720,13 @@ func (a *Agent) acceptNextKeys(next []protocol.KeyEntry) {
 		}
 		a.log.Info("pinned announced control-plane key", "kid", k.Kid)
 	}
+}
+
+// Marker is reported only by agents with the installed control loop.
+func (a *Agent) updateCapabilities() []string {
+	caps := append([]string(nil), a.opts.Processor.Capabilities()...)
+	if a.updateControl != nil {
+		caps = append(caps, "agent.update.control.v1")
+	}
+	return caps
 }

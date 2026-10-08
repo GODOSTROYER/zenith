@@ -3261,6 +3261,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J5 update/hold wired into the real agent loop; migration 54 and table inventory added; Windows identity reader/replacement contention fixed without changing the rotation assertion. Real PostgreSQL and Linux systemd acceptance remain pending.",
       "evidence": [
         {
           "level": "contract",
@@ -3298,7 +3299,7 @@
         "local_engine"
       ],
       "owner": "root",
-      "testPaths": []
+      "testPaths": ["tests/runners/update-control.test.ts", "tests/runners/update-control-postgres.test.ts", "go/internal/runner/update/control_test.go", "go/internal/runner/update/systemd_test.go", "tests/runners/agent-update-repo.test.ts", "go/internal/agent/update_control_internal_test.go", "go/internal/agent/identity_open_windows_test.go", "go/internal/agent/rotation_internal_test.go"]
     },
     {
       "id": "PROD-MACH-05",

@@ -1,5 +1,5 @@
-import { heartbeatHandler } from "@/lib/runners/http";
+import { updateHeartbeatHandler } from "@/lib/runners/update-control";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const POST = heartbeatHandler("machine");
+export const POST = updateHeartbeatHandler("machine");

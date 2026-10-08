@@ -1361,6 +1361,24 @@
           "command": "Owned serial native OpenTofu, Temporal and PostgreSQL controllers; exact commands/identities retained in sanitized receipt",
           "environment": "Native Darwin ARM64 Node22.23.3,OpenTofu1.12.5,PostgreSQL16.15,real localTemporal time-skipping binary; Docker unused, no cloud calls; strict22GiBfloor",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-real-skipped-successors.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "413334166890bb610ae73a045e0aaeb981e8b8a9",
+          "command": "node node_modules/vitest/vitest.mjs run --project=node tests/tofu/hcl-template-real.test.ts tests/tofu/plan-lock.test.ts tests/providers/terraform-lb-names.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Node22.23.3 and OpenTofu1.12.5 native Darwin ARM64; builtin/local backend plus console; no cloud/Docker",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-tofu-oracles.json",
+          "result": "17 passed/0 failed/0 skipped; HCL2, plan-lock1, LB14 (including static and actual console cases). Original setup-only failed packet retained. Astra independently matched16 source inputs/cases/report/log, absent group and empty temporary root. Overall gate remains in_progress."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "b420d0e16410592d47de0740293e730a1121af23",
+          "result": "19/20 jobs succeeded; agent browser43 passed/1 failed. Unit21826 passed/0 failed/1637 skipped. Native AMD64 and ARM64 workers each22/0/0. Counts overlap; overall gate remains in_progress.",
+          "command": "Inspect every job and canonical artifacts for all three exact-source CI runs",
+          "environment": "GitHub-hosted runners; native Linux AMD64 and ARM64 worker receipts inspected separately; local Mac attempts are separate evidence",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-ci-b420d0e1-final.json",
+          "runId": "37727364785",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785"
         }
       ],
       "requiredEvidence": [
@@ -2830,6 +2848,14 @@
           "command": "node node_modules/vitest/vitest.mjs run tests/execution/build-egress-composition.test.ts tests/execution/build-admission.test.ts tests/plugins tests/execution/build-release-joins.test.ts --maxWorkers=1 --no-file-parallelism",
           "environment": "Node22.23.3 Darwin ARM64 native; maxWorkers1; modeled provider/store seams declared",
           "logs": "docs/build/production/evidence/PROD-LIFE-09/2026-10-07-integrated-controls-d3e710d2.json"
+        },
+        {
+          "level": "contract",
+          "commit": "413334166890bb610ae73a045e0aaeb981e8b8a9",
+          "command": "node node_modules/vitest/vitest.mjs run --project=node --no-file-parallelism --maxWorkers=1 tests/execution/build-provenance.test.ts",
+          "environment": "Native Darwin ARM64, Node22.23.3, actual generated Ed25519 keys; no Docker/cloud/default-stack acceptance. Compiler retry heap4096MiB.",
+          "logs": "docs/build/production/evidence/PROD-LIFE-09/2026-10-08-signature-fixture.json",
+          "result": "24 passed /0 failed /0 skipped. Reviewed negative fixture flips one actual signature byte instead of potentially unchanged random AA suffix. Original eight refusal cases retained; affected lint and full compiler passed. Initial compiler heap exit134 remains recorded. Requirement remains in_progress."
         }
       ],
       "requiredEvidence": [

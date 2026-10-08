@@ -1,0 +1,440 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "b420d0e16410592d47de0740293e730a1121af23",
+  "capturedAt": "2026-10-08T04:52:19.543360+00:00",
+  "runs": [
+    {
+      "runId": 37727364785,
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "runId": 37727364710,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "runId": 37727364736,
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "terminalJobs": 20,
+  "successfulJobs": 19,
+  "failedJobs": 1,
+  "pendingJobs": 0,
+  "jobs": [
+    {
+      "runId": 37727364785,
+      "job": "build",
+      "jobId": 113148489958,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148489958"
+    },
+    {
+      "runId": 37727364785,
+      "job": "agent",
+      "jobId": 113148490049,
+      "status": "completed",
+      "conclusion": "failure",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490049",
+      "agent": {
+        "acceptance": {
+          "passed": 35,
+          "failed": 0,
+          "scope": "Link through revoke; one identity-provider double"
+        },
+        "browser": {
+          "passed": 43,
+          "failed": 1,
+          "total": 44,
+          "failureViewport": "desktop 1280px",
+          "failureTitle": "Approve confirms, and sends the person back to their terminal",
+          "file": "scripts/agent-browser.ts",
+          "line": 520,
+          "predicateLine": 513,
+          "timeoutMs": 20000,
+          "observed": "Confirmation predicate failed; subsequent terminal poll issued credential; same narrow380 confirmation passed; no console errors.",
+          "rootCause": "Unproven; persistent UI confirmation renders after successful approval POST. Cold dev compilation/response timing remains a hypothesis requiring preserved request/response/DOM diagnostics."
+        }
+      }
+    },
+    {
+      "runId": 37727364785,
+      "job": "docker",
+      "jobId": 113148490084,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490084"
+    },
+    {
+      "runId": 37727364785,
+      "job": "policy",
+      "jobId": 113148490118,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490118",
+      "canonical": {
+        "counts": {
+          "total": 242,
+          "passed": 242,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "requiredPassed": 8,
+        "requiredTotal": 8,
+        "exitCode": 0,
+        "binding": "matched",
+        "sourceClean": true,
+        "sourceBindingComplete": true,
+        "gateHashesIndependentlyMatched": true,
+        "artifactSha256": "e47286fa2f80d21e79f566eb544dd4798b217d932e120ec65be5b39a527388e2"
+      }
+    },
+    {
+      "runId": 37727364785,
+      "job": "verify",
+      "jobId": 113148490120,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490120",
+      "unit": {
+        "total": 23463,
+        "passed": 21826,
+        "failed": 0,
+        "skipped": 1637,
+        "files": {
+          "total": 1046,
+          "passed": 989,
+          "failed": 0,
+          "skipped": 57
+        },
+        "durationSeconds": 1309.5,
+        "smoke": "passed happy path and failure/rollback",
+        "gimbal": "all production asset checks passed"
+      },
+      "allStepsSucceeded": true
+    },
+    {
+      "runId": 37727364785,
+      "job": "hosted",
+      "jobId": 113148490123,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490123"
+    },
+    {
+      "runId": 37727364785,
+      "job": "generated",
+      "jobId": 113148490142,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490142"
+    },
+    {
+      "runId": 37727364785,
+      "job": "go",
+      "jobId": 113148490143,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490143"
+    },
+    {
+      "runId": 37727364785,
+      "job": "platform-postgres",
+      "jobId": 113148490145,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490145",
+      "canonical": {
+        "counts": {
+          "total": 3777,
+          "passed": 3762,
+          "failed": 0,
+          "skipped": 15,
+          "unknown": 0
+        },
+        "requiredPassed": 1146,
+        "requiredTotal": 1146,
+        "exitCode": 0,
+        "binding": "matched",
+        "sourceClean": true,
+        "sourceBindingComplete": true,
+        "gateHashesIndependentlyMatched": true,
+        "artifactSha256": "3a9af39e8b8853e2234115e496720f21ff31ad70aab0b751f6f129abf2d84060"
+      }
+    },
+    {
+      "runId": 37727364785,
+      "job": "operation-gates (reconciliation)",
+      "jobId": 113148490152,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490152",
+      "canonical": {
+        "counts": {
+          "total": 38,
+          "passed": 38,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "requiredPassed": 26,
+        "requiredTotal": 26,
+        "exitCode": 0,
+        "binding": "matched",
+        "sourceClean": true,
+        "sourceBindingComplete": true,
+        "gateHashesIndependentlyMatched": true,
+        "artifactSha256": "91ea113c6a389ca90bbdd72c3e889a9133ad968fcc10f3dd5ef7245e30be0296"
+      }
+    },
+    {
+      "runId": 37727364785,
+      "job": "workflows",
+      "jobId": 113148490183,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490183",
+      "canonical": {
+        "counts": {
+          "total": 1378,
+          "passed": 1378,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "requiredPassed": 105,
+        "requiredTotal": 105,
+        "exitCode": 0,
+        "binding": "matched",
+        "sourceClean": true,
+        "sourceBindingComplete": true,
+        "gateHashesIndependentlyMatched": true,
+        "artifactSha256": "4b60bac6f675da363ce877a9a5d30bdf590275d3e4855abc9ae5d19d99fe0764"
+      }
+    },
+    {
+      "runId": 37727364785,
+      "job": "ledger",
+      "jobId": 113148490218,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490218"
+    },
+    {
+      "runId": 37727364785,
+      "job": "postgres",
+      "jobId": 113148490245,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490245",
+      "canonical": {
+        "counts": {
+          "total": 379,
+          "passed": 379,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "requiredPassed": 93,
+        "requiredTotal": 93,
+        "exitCode": 0,
+        "binding": "matched",
+        "sourceClean": true,
+        "sourceBindingComplete": true,
+        "gateHashesIndependentlyMatched": true,
+        "artifactSha256": "94f95c8a87b4874454ecf7bcdcc47ae432b259fbf068f2465360be23c75b5f1a"
+      }
+    },
+    {
+      "runId": 37727364785,
+      "job": "tofu",
+      "jobId": 113148490247,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490247",
+      "canonical": {
+        "counts": {
+          "total": 4339,
+          "passed": 4320,
+          "failed": 0,
+          "skipped": 19,
+          "unknown": 0
+        },
+        "requiredPassed": 27,
+        "requiredTotal": 27,
+        "exitCode": 0,
+        "binding": "matched",
+        "sourceClean": true,
+        "sourceBindingComplete": true,
+        "gateHashesIndependentlyMatched": true,
+        "artifactSha256": "d7e09dc8b763aa427bce0b5e65a9627c83955543ec23049b2f93347b9fe8caf8"
+      }
+    },
+    {
+      "runId": 37727364785,
+      "job": "supply-chain",
+      "jobId": 113148490275,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490275"
+    },
+    {
+      "runId": 37727364785,
+      "job": "operation-gates (workflow-intents)",
+      "jobId": 113148490300,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785/job/113148490300",
+      "canonical": {
+        "counts": {
+          "total": 156,
+          "passed": 156,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "requiredPassed": 141,
+        "requiredTotal": 141,
+        "exitCode": 0,
+        "binding": "matched",
+        "sourceClean": true,
+        "sourceBindingComplete": true,
+        "gateHashesIndependentlyMatched": true,
+        "artifactSha256": "2865ed470d6c8c8016041c0139be6addac53f19eb982bf83125f3dc7fa92b175"
+      }
+    },
+    {
+      "runId": 37727364710,
+      "job": "packaged-worker (amd64, ubuntu-24.04)",
+      "jobId": 113148489459,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364710/job/113148489459",
+      "native": {
+        "platform": "linux/amd64",
+        "environment": {
+          "os": "linux",
+          "processArch": "x64",
+          "dockerOS": "linux",
+          "dockerArch": "amd64",
+          "emulated": false,
+          "node": "22.23.3",
+          "totalRamGiB": 15.61,
+          "availableRamGiB": 14.26,
+          "dockerRamGiB": 15.61,
+          "sourceFreeGiB": 85.84,
+          "temporaryFreeGiB": 85.84,
+          "dockerFreeGiB": 85.84
+        },
+        "checksPassed": 22,
+        "checksTotal": 22,
+        "childExitCode": 0,
+        "cleanup": {
+          "builderAbsent": true,
+          "builderContainerAbsent": true,
+          "cacheVolumeAbsent": true,
+          "baselinePreserved": true,
+          "wrapperPrivateFilesRemoved": true,
+          "ownedContextAbsent": true
+        },
+        "threeSourceHashesIndependentlyMatched": true,
+        "artifactSha256": "5e05ebc32795526dd5cc9a9475a27619583104dc04a2010ecef5b144285d458f"
+      }
+    },
+    {
+      "runId": 37727364710,
+      "job": "packaged-worker (arm64, ubuntu-24.04-arm)",
+      "jobId": 113148489761,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364710/job/113148489761",
+      "native": {
+        "platform": "linux/arm64",
+        "environment": {
+          "os": "linux",
+          "processArch": "arm64",
+          "dockerOS": "linux",
+          "dockerArch": "arm64",
+          "emulated": false,
+          "node": "22.23.3",
+          "totalRamGiB": 15.57,
+          "availableRamGiB": 14.36,
+          "dockerRamGiB": 15.57,
+          "sourceFreeGiB": 107.76,
+          "temporaryFreeGiB": 107.76,
+          "dockerFreeGiB": 107.76
+        },
+        "checksPassed": 22,
+        "checksTotal": 22,
+        "childExitCode": 0,
+        "cleanup": {
+          "builderAbsent": true,
+          "builderContainerAbsent": true,
+          "cacheVolumeAbsent": true,
+          "baselinePreserved": true,
+          "wrapperPrivateFilesRemoved": true,
+          "ownedContextAbsent": true
+        },
+        "threeSourceHashesIndependentlyMatched": true,
+        "artifactSha256": "6b651c223d8f2f783d78871038c6ffb2c13200d1b3964fab4540661d742068a7"
+      }
+    },
+    {
+      "runId": 37727364736,
+      "job": "linux-systemd",
+      "jobId": 113148489540,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364736/job/113148489540",
+      "native": {
+        "leaf": {
+          "name": "TestRealSystemctlAndJournalctl",
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "excludedSiblingCount": 0
+        },
+        "tools": {
+          "node": "22.23.3",
+          "go": "go version go1.27.1 linux/amd64"
+        },
+        "cleanup": "complete",
+        "threeSourceHashesIndependentlyMatched": true,
+        "artifactSha256": "6072a046bd22f5fcc0c40cd81f5a281ad80d974e24597650925f88da6650be42"
+      }
+    },
+    {
+      "runId": 37727364736,
+      "job": "windows-acl",
+      "jobId": 113148489617,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364736/job/113148489617",
+      "native": {
+        "leaf": {
+          "name": "private login config Windows refuses inherited ACLs that grant other identities access",
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "excludedSiblingCount": 15
+        },
+        "tools": {
+          "node": "22.23.3"
+        },
+        "cleanup": "complete",
+        "threeSourceHashesIndependentlyMatched": true,
+        "artifactSha256": "2656bf763d4bfe3126bd763445c05c349b8a2e7451e71c527e67161c3abbb8bf"
+      }
+    }
+  ],
+  "limitations": [
+    "Counts overlap across lanes and are not summed.",
+    "Unit1,637 skips, platform15 skips and Tofu19 skips remain distinct; separate scoped native receipts do not rewrite them.",
+    "Production/cloud account authorization, external Temporal mTLS and complete default browser-human stack acceptance are unverified.",
+    "A later provenance-fixture fix is outside this historical b420 receipt."
+  ]
+}

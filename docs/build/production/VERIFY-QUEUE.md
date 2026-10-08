@@ -1,3 +1,11 @@
+## Publication context, 8 October 2026
+
+Results: PROD-CI-08 remains in_progress; b420d0e1 terminal19/20 jobs, browser43/1, unit21826/0/1637. Provenance fix41333416 focused24/0/0; nativeTofu17/0/0. Two partial Mac browser attempts failed and were cleaned. Isolated diagnostic packetd887c7b7 is reviewed but not integrated or executed. See [current context](WIP-HANDOFF-2026-10-08.md) and [CI jobs](verification/CI-2026-10-08-b420d0e1.md).
+
+## Results update: provenance fixture, 8 October 2026
+
+- PROD-LIFE-09: fix41333416, full provenance contract24/0/0; lint/compiler passed after recorded heap retry. [Evidence](evidence/PROD-LIFE-09/2026-10-08-signature-fixture.json). Default operated isolation acceptance remains open.
+
 ## Results update: real skipped cases, 8 October 2026
 
 - PROD-CI-08: five formerly excluded engine identities executed in their exact scopes; Temporal fixture fixed40c53c94/root1/0/0, Tofu10/0/0 and nativePG57/0/0 source10ec, SSM1selected/95filtered source40c. [Results](verification/RESULTS-2026-10.md#real-skipped-case-successors-8-october-2026). No project-wide zero-skip claim; full default acceptance still open.

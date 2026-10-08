@@ -1,0 +1,76 @@
+{
+  "status": "passed",
+  "ownershipReceiptSha256": "37180c90b58ae2f33d1d1cc5b340569438789bd68ef7ca30b1da68f6bde5eb5d",
+  "targets": [
+    "sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+    "sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c"
+  ],
+  "floorBytes": 23622320128,
+  "removed": [
+    {
+      "id": "sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+      "exitCode": 0
+    },
+    {
+      "id": "sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c",
+      "exitCode": 0
+    }
+  ],
+  "baselineImageIds": [
+    "sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242",
+    "sha256:7a01c372e107dad232ed02a6445a2c26de51585612bcf5d44bd38b5aa3a26e9f",
+    "sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587",
+    "sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+    "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+    "sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c"
+  ],
+  "baselineVolumeCount": 1,
+  "baselineNetworkCount": 4,
+  "targetMetadata": [
+    {
+      "Id": "sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+      "RepoTags": [
+        "kindest/node@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5"
+      ],
+      "RepoDigests": [
+        "kindest/node@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5"
+      ],
+      "Os": "linux",
+      "Architecture": "arm64"
+    },
+    {
+      "Id": "sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c",
+      "RepoTags": [
+        "busybox@sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c"
+      ],
+      "RepoDigests": [
+        "busybox@sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c"
+      ],
+      "Os": "linux",
+      "Architecture": "arm64"
+    }
+  ],
+  "unrelatedResourcesUnchanged": true,
+  "diskBeforeBytes": 25106886656,
+  "diskMinBytes": 25106747392,
+  "diskAfterBytes": 25106866176,
+  "elapsedSeconds": 0.75,
+  "desktopStarted": false,
+  "supportedRestart": {
+    "exitCode": 0,
+    "daemonVersion": "29.1.3",
+    "subsequentContainers": 0
+  },
+  "originalCleanupAttempt": {
+    "status": "failed",
+    "removed": 0,
+    "failureClass": "AssertionError"
+  },
+  "readonlyFailedAttempt": {
+    "status": "failed",
+    "removed": 0,
+    "failureClass": "TimeoutExpired"
+  },
+  "physicalHostReclaimNotInferredFromLogicalImageSize": true,
+  "independentReview": "Astra accepted exact controller SHA24cc17ef9d29fde333e26de95ed631be9890fb5284f03e66281daaf77699823b and positive ownership/metadata custody."
+}

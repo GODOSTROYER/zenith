@@ -1,3 +1,7 @@
+## Results: 8 October publication successor
+
+PROD-CI-08: source105b5ea4 workflows105 failed1376/2/0; sourcea7 native platform runtime3762/0/15 failed strict seven-label binding. Corrective packets not integrated; no verified promotion. PROD-OPS-03: mandatory105 replay activation integrateda1259fdc, scoped34/0/0; combined105 remains failed. Fresh pushed CI pending. See [current context](WIP-HANDOFF-2026-10-08.md).
+
 ## Results: mandatory replay integration, 8 October 2026
 
 - PROD-OPS-03 Results: a1259fdc activates105 canonical workflow requirements, preserving71; root metadata463/0/0, SDK replay/audit34/0/0, compiler/lint passed. Full105 lane, previous-release/upgrade proof and fresh CI pending. No promotion.

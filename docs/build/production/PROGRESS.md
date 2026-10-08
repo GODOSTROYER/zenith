@@ -1,3 +1,7 @@
+## Current verification publication, 8 October 2026
+
+Source105b5ea4 full native workflows105:1376 passed/2 failed/0 skipped; owned cleanup confirmed. Publisheda7 CI:18 successful/1 failed/1 running across20 jobs; platform runtime3762/0/15 but seven required backend labels rejected by strict checker. Backend parser and test-only schedule fixture repairs remain local candidates. Ledger recomputed78:10 verified/49 in progress/19 planned; release flags false. [Current building-machine context](WIP-HANDOFF-2026-10-08.md). No completion claim.
+
 ## Replay integration, 8 October 2026
 
 Integrateda1259fdc: workflows105 mandatory IDs, prior71 preserved. Root exact reviewed packet: metadata463/0/0, actual SDK replay/audit34/0/0, compiler and lint passed. Full105 and1146 gates pending. Local build resource-blocked after successful compilation; publisheda7f8 GitHub build passed. Ledger recomputed78:10 verified/49 in progress/19 planned; four release flags false. No completion percentage inferred.

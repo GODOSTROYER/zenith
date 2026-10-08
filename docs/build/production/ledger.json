@@ -1297,6 +1297,12 @@
             "architecture": "native Darwin ARM64"
           },
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-publication-successors.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "105b5ea4a077921d9c9b84cdaf5515ca3e925fe6",
+          "result": "Full canonical workflows105 failed:1376 passed/2 failed/0 skipped; two schedule-fixture failures. Actual native PostgreSQL/Temporal, childexit1, cleanup confirmed, no promotion. Controllerexit0 is not gate success.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-workflows105-failure.json"
         }
       ],
       "requiredEvidence": [
@@ -4953,21 +4959,21 @@
     }
   ],
   "sessionState": {
-    "status": "verifier_coherent_transport_and_ci_green_external_acceptance_open",
-    "sourceCheckpoint": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+    "status": "verification_continuing_combined_workflows_failed_ci_platform_binding_failed",
+    "sourceCheckpoint": "105b5ea4a077921d9c9b84cdaf5515ca3e925fe6",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
-    "lastPushedRun": 37578066932,
-    "lastPushedRunStatus": "completed_success_all20_jobs_completed_success",
-    "currentVerification": "docs/build/production/verification/CI-2026-10-07-d6965d75.md",
+    "lastPushedCommit": "a7f8d16071a9db3e6569764e90aaf610650056df",
+    "lastPushedRun": 37705618627,
+    "lastPushedRunStatus": "in_progress_18_success_1_failure_1_running_across20_jobs",
+    "currentVerification": "docs/build/production/WIP-HANDOFF-2026-10-08.md",
     "remainingLocalPackets": {
-      "nativeTransportRerun": "Complete on exactd696: DNS27/0/0, portability45/0/0, MySQL15/0/0; root exits0 and independent evidence/ownedcleanup accepted. MySQLDNS-TLS remains explicit unsupported; wider LIFE11 not promoted.",
-      "defaultMaintenanceHarness": "Independent NOT_READY draft never run; default scheduling acceptance remains open.",
-      "remainingVerification": "LIFE12 concurrent new owner/resource-fact proof; installed Linux agent update/rollback; default operated interfaces/live resources; see20-ID map and RESULTS."
+      "backendLabels": "34ab6456 independently accepted source; root470/0/0 compiler/lint0; native1146 pending; not integrated.",
+      "scheduleFixture": "Test-only isolation/heartbeat/terminal settlement draft under independent review; real native proof pending.",
+      "nativeEngines": "MySQL controller and Rclone tool prepared; no new executed engine evidence."
     },
     "permissions": {
-      "approved": "Owned disposable PG/Temporal/kind/Linux/native worker checks including intrinsic worker health listener; same-branch normal push. New author and committer Arnav Bule per6October explicit instruction; prior commits preserved.",
-      "pending": "Default product API/server startup; live cloud/account/region/budget; real DNS/private GitHub App configuration; retention/business/production decisions."
+      "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Arnav Bule.",
+      "pending": "Live cloud calls/spend, real DNS/private GitHub App configuration, destructive retention/business/production sign-off."
     },
     "releaseVerdict": "12verified/38in_progress/28planned. Exactd696 CI and local scoped transport acceptance passed; all78 criteria/fourfalseflags preserved. Wider LIFE11 and20-ID gaps remain open.",
     "next": "Fetch latest codex/production-2026-10-02; inspect latest publication CI. Building agent addresses listed acceptance gaps; default API/server and live acceptance require DEC-STARTUP/DEC-CLOUD. Do not rerun unchanged source-bound gates or maintenance draft.",

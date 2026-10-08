@@ -101,11 +101,12 @@ A hold is acknowledged only after the local controller persists it; an already
 started stage finishes first. Health checks and automatic rollback still run
 while held. A local host owner retains the manual update CLI.
 
-Integration prerequisites are explicit: the storage migration and the small
-agent-loop patch described in `docs/build/production/verify/PROD-MACH-04.md`.
+Apply platform migration 54 before enabling control-plane updates. The agent
+control loop is installed whenever the local signed update channel is enabled.
 Requests refuse with 409 for an agent without `agent.update.control.v1` and 503
-when durable storage is absent. Do not deploy the API schema without the loop
-integration. The native harness refuses an installed binary without the marker.
+when durable storage is absent. The native harness refuses an installed binary
+without the marker. Verification commands are in
+`docs/build/production/verify/PROD-MACH-04.md`.
 
 | Task | How |
 |---|---|

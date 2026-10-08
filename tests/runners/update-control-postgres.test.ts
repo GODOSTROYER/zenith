@@ -4,7 +4,7 @@ import { openPlatformDb } from "@/lib/controlplane/db";
 import { getUpdateControl, putUpdateControl } from "@/lib/controlplane/db/repos/agent-updates";
 
 const url = process.env.ZENITH_TEST_PLATFORM_PG_URL;
-it.skipIf(!url)("real PostgreSQL serializes conflicting update/hold intents after the integrator migration", async () => {
+it.skipIf(!url)("real PostgreSQL serializes conflicting update/hold intents after migration 54", async () => {
   const db = await openPlatformDb({ kind: "postgres", url, max: 2 });
   const id = `run_update_${randomBytes(8).toString("hex")}`, workspaceId = `ws_update_${randomBytes(8).toString("hex")}`;
   try {

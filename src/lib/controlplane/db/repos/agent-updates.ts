@@ -1,4 +1,4 @@
-/** Durable human update intent. Migration is deliberately owned by the integrator. */
+/** Durable human update intent stored by platform migration 54. */
 import { z } from "zod";
 import type { Sql } from "@/lib/controlplane/types";
 import { ControlStoreError, PlatformDbError } from "../errors";
@@ -32,7 +32,7 @@ const view = (r: Row): UpdateControl => ({ revision: r.revision, hold: r.hold, m
 async function storage<T>(work: () => Promise<T>): Promise<T> {
   try { return await work(); } catch (error) {
     const code = error instanceof PlatformDbError ? error.sqlstate : (error as { code?: string })?.code;
-    if (code === "42P01" || code === "42703") throw new ControlStoreError("schema_behind", "Durable agent update storage is unavailable; integrate the MACH-04 schema before enabling control-plane updates.");
+    if (code === "42P01" || code === "42703") throw new ControlStoreError("schema_behind", "Durable agent update storage is unavailable; apply platform migration 54 before enabling control-plane updates.");
     throw error;
   }
 }

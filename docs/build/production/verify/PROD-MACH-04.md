@@ -94,6 +94,9 @@ Expected: pass. `store-contract` and `e2e-platform-store` apply migration 26 on 
 
 ## 6. J5 update/hold successor, 8 October 2026
 
+Historical pre-review delivery, committed by the orchestrator as `87986de9`.
+Section 7 supersedes its pending loop/storage joins and rotation investigation.
+
 Base `3a9de905`. Historical evidence above is retained; its statement that no
 control-plane update/hold mechanism exists is superseded by this successor.
 This successor is **not integrated or verified Linux acceptance**. Shared Go
@@ -130,7 +133,7 @@ loop wiring and an unassigned storage migration remain explicit joins.
   server is explicitly a **protocol fixture**, not production control-plane
   acceptance. No cloud API, Docker, PID 1 or PostgreSQL was run here.
 
-### Required integration joins
+### Historical integration joins (fulfilled by section 7)
 
 1. Apply `deploy/zenithd/agent-loop-integration.patch` to the shared
    `go/internal/agent/{loop,lifecycle}.go` and `agent/update/manager.go`, then
@@ -186,7 +189,7 @@ loop wiring and an unassigned storage migration remain explicit joins.
 
 ### Exact Mac verification commands
 
-Prerequisites: integrate the patch and migration first; Node 22, local Go 1.27,
+Prerequisites: apply migration 54 from the assembled registry first; Node 22, local Go 1.27,
 Docker with unified cgroup v2, an owned **disposable** PostgreSQL database with
 all canonical migrations and service role setup. No credential or external
 cloud account is required. On the 8 GB ARM64 Mac use two Go workers and a
@@ -197,7 +200,7 @@ container. Run this separately from PostgreSQL/Temporal/kind heavy lanes.
 export GOTOOLCHAIN=local GOMAXPROCS=2
 export PATH="$NODE22_BIN:$PATH"                 # verifier's local Node 22 bin
 node --version                               # must be v22.x
-npx vitest run tests/runners/update-control.test.ts tests/runners/admin-routes.test.ts tests/runners/lifecycle.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/runners/agent-update-repo.test.ts tests/runners/update-control.test.ts tests/runners/admin-routes.test.ts tests/runners/lifecycle.test.ts tests/security/sensitive-inventory.test.ts --no-file-parallelism --maxWorkers=2
 export ZENITH_TEST_PLATFORM_PG_URL="$OWNED_PLATFORM_PG_URL"
 npx vitest run tests/runners/update-control-postgres.test.ts --no-file-parallelism --maxWorkers=2
 (cd go && go test -p 2 -count=1 ./internal/runner/update ./internal/agent/... ./internal/release ./internal/protocol)
@@ -245,3 +248,124 @@ the PGlite fixture. Suggested/current status remains
 `implementation_complete_verification_pending`; state remains `in_progress`.
 That requested status does **not** imply the two joins, real database evidence,
 full original lifecycle acceptance or actual systemd harness are complete.
+
+## 7. Integrated review follow-up, 8 October 2026
+
+Base `87986de9`. The loop patch is applied to real
+`go/internal/agent/{loop,lifecycle}.go` and `agent/update/manager.go`; its `.patch`
+file is deleted. Local enablement now installs the controller, advertises the
+marker, generates heartbeat nonces, verifies fresh signed intent with shared
+persisted trust, wakes the staging loop, and checks cancellation before swap.
+`update_control_internal_test.go` exercises the real heartbeat path against the
+TLS protocol fixture, including durable hold after restart and refused nonce.
+This contract test does not replace real PostgreSQL or installed systemd proof.
+
+Migration **54**, `0054_agent_update_controls.ts`, is appended to the registry.
+Versions 44-53 are deliberately absent here because parallel jobs own them;
+the assembler inserts them before 54. No placeholder migrations, published
+migration edits or aggregate snapshots were created. The repository uses this
+canonical table and reports missing storage as actionable `schema_behind`.
+The test-only schema is deleted. PGlite opens through the actual migrator.
+
+New table: `platform.agent_update_controls`, composite tenant/kind/agent key,
+positive integer revision, bounded identifiers/actor, exact lowercase SHA-256,
+hold/digest exclusion, RLS enabled, PUBLIC/browser-role privileges revoked,
+service-role CRUD grants. It stores current intent and the human actor id.
+`src/lib/sensitivedata/inventory.ts` classifies the table as personal data and
+the manifest digest as digest-only, with no automatic retention/deletion claim.
+The inventory discovery parser now accepts digits after the first identifier
+character; previously it silently missed `manifest_sha256`. A regression case
+requires discovery of that column and an exact inventory match. The original
+inventory completeness assertion is unchanged.
+This exposes two older digest columns too: webhook `body_sha256` and billing
+`response_sha256`, now explicitly classified digest-only in the same inventory.
+`getUpdateControl` and `putUpdateControl` remain **tenant-scoped** store functions.
+`agent-update-repo.test.ts` checks migration ledger/checksum, idempotence,
+optimistic concurrency, kinds/tenants, revocation, direct SQL constraints, RLS
+and exact grants. The SQL only creates/configures this new table. The existing
+compatibility classifier labels the conditional role-grant `DO` block `data`
+because its body is opaque; the unchanged compatibility gate accepts it.
+No contract approval or classifier bypass is added.
+
+### Windows rotation cause and repair
+
+The original concurrent rotation assertion at
+`rotation_internal_test.go:309` is unchanged. The issue was persistence refusal,
+not publication before persistence: concurrent `LoadIdentity` calls held open
+the replacement target while `SaveIdentity` called `os.Rename`. This SDK's
+Windows `syscall.Open` uses `FILE_SHARE_READ | FILE_SHARE_WRITE`; the SDK's
+`os.Rename` ultimately calls `MoveFileEx(..., MOVEFILE_REPLACE_EXISTING)`.
+The deterministic held-reader probe reproduced Windows errno **5** (Access is
+denied) on this machine's temporary filesystem. A separate attempt with
+`FILE_SHARE_DELETE` also reproduced errno 5 here, so that attempted fix was
+discarded. All three announcement retries could lose to active readers; the
+final pin-count assertion then failed even though no unpersisted key published.
+
+`identity.go` now takes a process-wide read/write lock around identity read and
+replacement. The read uses one opened handle for permissions and bytes and
+closes it before releasing the lease. Replacement keeps its write lease through
+file sync, atomic rename and Unix directory sync. A waiting writer blocks new
+agent readers until the existing handles close. A single lock avoids path-alias
+and lock-registry lifetime problems. External non-sharing handles still cause
+safe persistence refusal; later announcements may retry. No deletion gap,
+in-place overwrite, weaker pin assertion or trust-publication fallback is used.
+Windows still has no directory/power-loss durability claim. Unix keeps atomic
+replacement and directory fsync; Linux execution must be verified below.
+
+`identity_open_windows_test.go` proves the actual sharing refusal, preservation
+on failure and blocked publication until the read lease closes. Twenty repeats
+of both Windows cases and the unchanged concurrent-rotation case passed:
+**60 passed /0 failed /0 skipped**. Full Go agent/update/release/protocol scope
+passed **119 passing leaves +5 passing parents /0 failures /3 skips**. Skips are
+the existing Windows permission/symlink cases and the gated Linux systemd case.
+Exact commands and all failed diagnostic attempts are in `J5-COMMANDS.md`.
+PGlite repository/API attribution is **15 passing cases**, with the real
+PostgreSQL case gated off. Final isolated global inventory is **13/0/0**,
+with both its original assertions and 20-second timeout preserved. Typecheck
+and ESLint passed after the final inventory fix; build/vet/gofmt and integrated
+Linux ARM64 agent/systemd-test compilation passed. Earlier failed attempts are
+retained, rather than replaced with these successor results.
+
+### Mac/Linux commands and remaining acceptance
+
+After assembly, use Node 22 and local Go 1.27 with two workers. The earlier
+512 MiB systemd container commands remain the real two-version acceptance lane.
+The patch prerequisites are fulfilled; rebuild its fixture binaries from these
+integrated sources before running it. Require **1 pass /0 fail /0 skip** from
+the enabled systemd test. Linux ARM64 cross-compilation here is compile evidence
+only. Run original result-spool/reconnect/full-lifecycle acceptance too; the
+empty-job update fixture does not establish those outcomes.
+
+For a standalone lean PostgreSQL lane, start only this owned database, separately
+from systemd/Temporal/kind/browser lanes (Mac Docker total budget 4 GiB):
+
+```sh
+export PATH="$NODE22_BIN:$PATH" GOTOOLCHAIN=local GOMAXPROCS=2
+fixture="zenith-mach04-pg-$(date +%s)"
+password="$(openssl rand -hex 24)" # generated disposable fixture credential
+docker run -d --name "$fixture" --memory=512m --cpus=1 --pids-limit=128 -p 127.0.0.1:5440:5432 -e POSTGRES_DB=mach04 -e POSTGRES_PASSWORD="$password" postgres:17-alpine
+until docker exec "$fixture" pg_isready -U postgres -d mach04; do sleep 1; done
+export ZENITH_TEST_PLATFORM_PG_URL="postgres://postgres:$password@127.0.0.1:5440/mach04"
+export ZENITH_PLATFORM_DB=postgres ZENITH_PLATFORM_DB_URL="$ZENITH_TEST_PLATFORM_PG_URL"
+npx tsx scripts/platform/migrate.ts
+npx vitest run tests/runners/update-control-postgres.test.ts --no-file-parallelism --maxWorkers=2
+result=$?
+docker rm -f "$fixture"
+unset ZENITH_TEST_PLATFORM_PG_URL ZENITH_PLATFORM_DB ZENITH_PLATFORM_DB_URL password
+test "$result" -eq 0
+npx vitest run tests/runners/agent-update-repo.test.ts tests/runners/update-control.test.ts tests/security/sensitive-inventory.test.ts --no-file-parallelism --maxWorkers=2
+(cd go && go test -race -p 2 -count=1 ./internal/agent/... ./internal/runner/update ./internal/release ./internal/protocol)
+(cd go && go test -race -p 2 -count=20 -run '^TestRotationConcurrentReadersObservePersistenceBeforePublication$' ./internal/agent)
+```
+
+Expected: PostgreSQL **1 pass /0 fail /0 skip**, no fixture-DDL fallback;
+PGlite/API/inventory pass; Mac Go cases pass with explicitly reported Linux-only
+skips; focused rotation **20 pass /0 fail /0 skip**. Run the same focused and
+full Go commands on native Linux (race detector/toolchain prerequisites).
+The Windows-specific handle probes are build-excluded on Unix, not Linux proof.
+
+Assembler still owns test/gate manifest and tenancy registry registration plus
+assembly of migrations 44-53 and aggregate emission. No other Wave-5 seams were
+reimplemented. Ledger remains `implementation_complete_verification_pending`,
+state `in_progress`; real PostgreSQL, Linux systemd and original full lifecycle
+acceptance were **not run here**. No verified claim or historical receipt changes.

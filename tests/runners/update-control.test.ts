@@ -4,7 +4,7 @@ import { tempDataDir } from "../_support/data-dir";
 import type { SessionUser } from "@/lib/auth/session";
 import type { Workspace, Member } from "@/lib/domain/types";
 import type { PlatformDbHandle } from "@/lib/controlplane/db";
-import { updateControlSchema } from "./update-control-schema";
+import { migration0054AgentUpdateControls } from "@/lib/controlplane/db/migrations/0054_agent_update_controls";
 
 tempDataDir("zenith-update-controls-", { fast: true });
 process.env.ZENITH_STORE = "file";
@@ -39,7 +39,7 @@ const intent = (expectedRevision = 0, hold = true, manifestSha256: string | null
 const request = (handler: unknown, id: string, body?: unknown, method = "POST") => call(handler, new NextRequest(new URL(`/api/platform/v1/runners/${id}/update`, ORIGIN), { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), { id });
 const agent = (workspaceId = "w-a") => registerFakeAgent(plane, registerRunner, { workspaceId, capabilities: ["probe.http", "agent.update.control.v1"] });
 
-beforeAll(async () => { state.db = await openPlatformDb({ kind: "pglite" }); await state.db.exec(updateControlSchema); });
+beforeAll(async () => { state.db = await openPlatformDb({ kind: "pglite" }); });
 afterAll(async () => { await state.db?.close(); });
 beforeEach(async () => {
   await state.db!.exec("truncate platform.agent_update_controls, platform.agent_nonces, platform.runners, platform.machines, platform.runner_registration_tokens cascade");
@@ -49,7 +49,7 @@ beforeEach(async () => {
 });
 afterEach(() => teardownPlane());
 
-describe("human update and hold API with proposed PGlite storage contract", () => {
+describe("human update and hold API with migrated PGlite storage", () => {
   it("persists exact digest intent, hold and revision, with no-store reads", async () => {
     const a = await agent(), sha = digest();
     const first = await request(write, a.id, intent(0, false, sha));
@@ -116,7 +116,7 @@ describe("human update and hold API with proposed PGlite storage contract", () =
     expect((await a.post(heartbeat, "/heartbeat", { updateControlNonce: "wrong" })).status).toBe(400);
     expect((await a.post(heartbeat, "/heartbeat", {})).body.updateControl).toBeUndefined();
   });
-  it("fails closed when the unassigned migration is absent", async () => {
+  it("fails closed when migration 54 storage is absent", async () => {
     const a = await agent();
     await state.db!.exec("drop table platform.agent_update_controls");
     try {
@@ -125,6 +125,6 @@ describe("human update and hold API with proposed PGlite storage contract", () =
       expect(res.status).toBe(503);
       expect(res.body.error?.code).toBe("schema_behind");
       expect(res.body.updateControl).toBeUndefined();
-    } finally { await state.db!.exec(updateControlSchema); }
+    } finally { await state.db!.exec(migration0054AgentUpdateControls.sql); }
   });
 });

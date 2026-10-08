@@ -148,6 +148,8 @@ export const TABLES: Readonly<Record<string, TableSink>> = {
   "platform.scheduled_job_runs": { owner: "platform/critical-jobs", classification: "operational", retention: operational("one row per job"), purpose: "critical job health", columns: { last_error_code: plain("fixed code vocabulary"), last_counts: plain("numbers only") } },
 
   /* ------------------------------ platform: agents ------------------------------ */
+  "platform.agent_update_controls": { owner: "runners/update-control", classification: "personal-data", retention: operational("current desired intent and human actor id; no automatic deletion"), purpose: "tenant-scoped human update and hold intent; no release credentials or artifact content",
+    columns: { manifest_sha256: digestOnly("SHA-256 of exact signed release envelope bytes") } },
   "platform.runners": { owner: "runners", classification: "operational", retention: operational("until revoked"), purpose: "registered runners (public key only)",
     columns: { capabilities: plain("capability names"), labels: plain("labels"), host: plain("host facts"), lifecycle: plain("lifecycle state") } },
   "platform.runner_registration_tokens": { owner: "runners", classification: "credential-derived", retention: expiring("single use, expires"), purpose: "registration tokens, stored as a hash",
@@ -218,7 +220,7 @@ export const TABLES: Readonly<Record<string, TableSink>> = {
       checkpoint: tenant("model conversation and tool results needed to resume; tool results come from broker-mediated reads that are scrubbed, model text is not; a secret with no recognisable shape pasted into a task would be stored as given", "design"),
       result: tenant("final outcome summary and proposal ids; no credentials (proposals go through the broker)", "design") } },
   "platform.actual_spend_snapshots": { owner: "cost/billing (COST-01)", classification: "operational", retention: ledger("snapshots are kept as billing history; " + OPS07), purpose: "provider-reported actual spend snapshots",
-    columns: { snapshot: plain("totals, service line names, currency and the SHA-256 of the provider response; billing credentials are read from files at call time and never stored") } },
+    columns: { response_sha256: digestOnly("SHA-256 of the provider billing response; no raw response"), snapshot: plain("totals, service line names, currency and the SHA-256 of the provider response; billing credentials are read from files at call time and never stored") } },
   "platform.ops_maintenance": { owner: "ops/maintenance (OPS-02)", classification: "operational", retention: operational("single global row"), purpose: "maintenance mode state", columns: {} },
   "platform.ops_maintenance_history": { owner: "ops/maintenance (OPS-02)", classification: "personal-data", retention: immutable("append-only by trigger; " + OPS07), purpose: "maintenance mode change history", columns: {} },
   "platform.tenant_quotas": { owner: "ops/quotas (OPS-02)", classification: "operational", retention: operational("current per-workspace quota overrides"), purpose: "per-tenant dispatch quotas", columns: {} },
@@ -246,7 +248,7 @@ export const TABLES: Readonly<Record<string, TableSink>> = {
   "platform.github_install_intents": { owner: "sources/github", classification: "operational", retention: expiring("deleted when consumed or expired"), purpose: "install intents (digests only)", columns: {} },
   "platform.github_binding_events": { owner: "sources/github", classification: "operational", retention: ledger(OPS07), purpose: "binding audit events", columns: {} },
   "platform.github_webhook_installation_epochs": { owner: "sources/github", classification: "operational", retention: operational("per app"), purpose: "webhook installation epochs", columns: {} },
-  "platform.github_webhook_deliveries": { owner: "sources/github", classification: "operational", retention: ledger(OPS07), purpose: "webhook delivery ids; payloads are not stored", columns: {} },
+  "platform.github_webhook_deliveries": { owner: "sources/github", classification: "operational", retention: ledger(OPS07), purpose: "webhook delivery ids; payloads are not stored", columns: { body_sha256: digestOnly("SHA-256 of the signed webhook body; no body content") } },
   "platform.machine_runbook_versions": { owner: "machines/runbooks", classification: "operational", retention: ledger(OPS07), purpose: "signed runbook definitions",
     columns: { definition: unreviewed("runbook steps and parameters; signed; no credentials by contract", "operational") } },
   "platform.machine_runbook_approvals": { owner: "machines/runbooks", classification: "operational", retention: ledger(OPS07), purpose: "runbook approvals", columns: {} },
@@ -373,7 +375,7 @@ export const SENSITIVE_TEXT_COLUMN = /(secret|token|password|credential|cipherte
 
 export interface DiscoveredTable { table: string; columns: string[] }
 
-const TYPE = /^\s{1,4}([a-z_]+)\s+(jsonb|bytea|text|bigint|integer|boolean|timestamptz|double|text\[\]|inet)\b/;
+const TYPE = /^\s{1,4}([a-z_][a-z_0-9]*)\s+(jsonb|bytea|text|bigint|integer|boolean|timestamptz|double|text\[\]|inet)\b/;
 const NOT_COLUMN = new Set(["primary", "unique", "check", "foreign", "constraint"]);
 
 /** Tables and their sensitive-looking columns, from `create table` / `alter table add column` statements. */

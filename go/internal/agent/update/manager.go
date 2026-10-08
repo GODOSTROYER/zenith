@@ -206,6 +206,9 @@ func (m *Manager) checkAndStage(ctx context.Context) (Outcome, error) {
 	}
 	now := m.now().UTC()
 	if _, err := m.store.Update(func(cur *State) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if cur.Pending != nil {
 			return errors.New("another update was staged concurrently")
 		}

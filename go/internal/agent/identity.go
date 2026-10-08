@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/GODOSTROYER/zenith/go/internal/protocol"
@@ -17,6 +19,12 @@ import (
 
 // IdentityFileName is the identity file inside the state directory.
 const IdentityFileName = "identity.json"
+
+// Windows replacement can fail while an identity reader holds the target
+// open. Serialize our short file reads with replacement, including its sync.
+// A single lock avoids per-path lock leaks and path-alias mismatches. External
+// non-sharing handles still refuse persistence, and therefore trust publication.
+var identityFileMu sync.RWMutex
 
 // Kind selects runner vs machine wiring.
 type Kind struct {
@@ -74,6 +82,8 @@ func (id *Identity) String() string {
 // The parent directory is synced on Unix. Windows directory sync is unsupported;
 // neither this function nor its tests establish power-loss durability there.
 func SaveIdentity(stateDir string, id *Identity) error {
+	identityFileMu.Lock()
+	defer identityFileMu.Unlock()
 	if err := os.MkdirAll(stateDir, 0o700); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
 	}
@@ -115,18 +125,25 @@ var ErrNoIdentity = errors.New("agent is not registered (no identity file)")
 // LoadIdentity reads and validates the identity. On Unix it refuses a file
 // readable by group or others, because the private key lives in it.
 func LoadIdentity(stateDir string, kind Kind) (*Identity, error) {
+	identityFileMu.RLock()
+	defer identityFileMu.RUnlock()
 	path := filepath.Join(stateDir, IdentityFileName)
-	st, err := os.Stat(path)
+	f, err := os.Open(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, ErrNoIdentity
 	}
+	if err != nil {
+		return nil, fmt.Errorf("open identity: %w", err)
+	}
+	defer f.Close()
+	st, err := f.Stat()
 	if err != nil {
 		return nil, fmt.Errorf("stat identity: %w", err)
 	}
 	if runtime.GOOS != "windows" && st.Mode().Perm()&0o077 != 0 {
 		return nil, fmt.Errorf("identity file %s has insecure permissions %o (expected 0600); fix with chmod 600", path, st.Mode().Perm())
 	}
-	raw, err := os.ReadFile(path)
+	raw, err := io.ReadAll(f)
 	if err != nil {
 		return nil, fmt.Errorf("read identity: %w", err)
 	}

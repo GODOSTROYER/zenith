@@ -110,3 +110,114 @@ tests/runners/update-control-postgres.test.ts
 tests/runners/update-control-schema.ts
 tests/runners/update-control.test.ts
 ```
+
+## Orchestrator review follow-up, base 87986de9
+
+The orchestrator committed the first delivery as `87986de9` and expanded
+ownership. This follow-up applies the patch to real source and adds assigned
+migration 54. Changes are uncommitted; no index/history writes, dependency
+installs, published migration edits, aggregate emission or live APIs.
+The Node/Go environment and SDK paths above apply to every command below.
+
+Go counts include parent events; the full lane has **119 passing leaves plus
+5 passing parents**, 0 failures and 3 test skips. The no-tests `agent/fakecp`
+package event is excluded from test-case skip counts. Counts never add reruns.
+
+| Exact executed verification command | Pass / fail / skip or check result |
+|---|---|
+| `git apply deploy/zenithd/agent-loop-integration.patch`, then PowerShell `Remove-Item -LiteralPath deploy/zenithd/agent-loop-integration.patch` | Both passed, working-tree source only |
+| `C:/Users/user/.local/sdk/go/bin/gofmt.exe -w internal/agent/identity.go internal/agent/identity_open_unix.go internal/agent/identity_open_windows.go internal/agent/identity_open_windows_test.go internal/agent/loop.go internal/agent/lifecycle.go internal/agent/update/manager.go` | Passed; transient platform-open helper approach was subsequently deleted |
+| `C:/Users/user/.local/sdk/go/bin/go.exe test -json -count=1 -p 2 -run 'TestWindows.*IdentityReplacement\|TestWindowsIdentityReadHandlePermitsAtomicReplacement\|TestRotationConcurrentReadersObservePersistenceBeforePublication' ./internal/agent` | **1 /2 /0**, exit 1: adding deletion sharing alone did not fix replacement on this filesystem |
+| `C:/Users/user/.local/sdk/go/bin/go.exe test -p 2 -count=1 -run '^TestWindowsIdentityReadHandlePermitsAtomicReplacement$' ./internal/agent` | **0 /1 /0**, exit 1: direct save probe proved errno 5 with deletion sharing too |
+| `C:/Users/user/.local/sdk/go/bin/gofmt.exe -w internal/agent/identity.go internal/agent/identity_open_windows_test.go` | Passed |
+| `C:/Users/user/.local/sdk/go/bin/go.exe test -json -count=20 -p 2 -run 'TestWindows.*IdentityReplacement\|TestWindowsIdentityReadLeaseSerializesReplacement\|TestRotationConcurrentReadersObservePersistenceBeforePublication' ./internal/agent` | **60 /0 /0**, exit 0: replacement lease fix; default-read probe reproduced errno 5 on all 20 repeats |
+| `npx vitest run tests/runners/agent-update-repo.test.ts tests/runners/update-control.test.ts tests/runners/update-control-postgres.test.ts --no-file-parallelism --maxWorkers=2` | **13 /1 /1**, exit 1: new test incorrectly expected the conservative classifier to label an opaque DO block expand |
+| `C:/Users/user/.local/sdk/go/bin/gofmt.exe -w internal/agent/update_control_internal_test.go` | Passed |
+| `C:/Users/user/.local/sdk/go/bin/go.exe test -json -count=1 -p 2 ./internal/agent/... ./internal/runner/update ./internal/release ./internal/protocol` | **124 /0 /3**, exit 0; agent 51/0/2, agent/update 6/0/0, agent/spool 4/0/0, runner/update 23/0/1, release 5/0/0, protocol 35/0/0 |
+| `npx vitest run tests/runners/agent-update-repo.test.ts tests/runners/update-control.test.ts tests/runners/update-control-postgres.test.ts tests/security/sensitive-inventory.test.ts --no-file-parallelism --maxWorkers=2` | First invocation **25 /2 /1**, exit 1: inventory parser missed digits in manifest_sha256; unchanged source-walk assertion hit its 20-second timeout under concurrent load |
+| Same four-file Vitest command after digit-parser repair | **26 /2 /1**, exit 1: all 6 repo and 9 API cases passed; inventory exposed old body_sha256/response_sha256 classifications (subsequently added); source walk took 21.257 s and hit the unchanged 20 s limit |
+| `npx vitest run tests/security/sensitive-inventory.test.ts --no-file-parallelism --maxWorkers=2` after final inventory fix, run alone after compiler completion | **13 /0 /0**, exit 0; all original assertions and 20 s timeout retained, total file test execution 8.50 s |
+| `npx eslint src/lib/controlplane/db/migrations/0054_agent_update_controls.ts src/lib/controlplane/db/migrations/index.ts src/lib/controlplane/db/repos/agent-updates.ts src/lib/sensitivedata/inventory.ts tests/runners/agent-update-repo.test.ts tests/runners/update-control.test.ts tests/runners/update-control-postgres.test.ts` | Passed, 7 files, zero errors/warnings |
+| `NODE_OPTIONS=--max-old-space-size=4096 npx tsc --noEmit -p .` | Passed, exit 0, zero diagnostics |
+| `C:/Users/user/.local/sdk/go/bin/gofmt.exe -w internal/agent/identity_open_windows_test.go` | Passed after improving failed-test lease cleanup |
+| `C:/Users/user/.local/sdk/go/bin/gofmt.exe -l internal/agent/identity.go internal/agent/identity_open_windows_test.go internal/agent/update_control_internal_test.go internal/agent/loop.go internal/agent/lifecycle.go internal/agent/update/manager.go` | Passed, no unformatted files |
+| `C:/Users/user/.local/sdk/go/bin/go.exe build -p 2 ./internal/agent/... ./internal/runner/update ./cmd/zenithd ./cmd/zenith-runner` | Passed, exit 0 |
+| `C:/Users/user/.local/sdk/go/bin/go.exe vet -p 2 ./internal/agent/... ./internal/runner/update ./internal/release ./internal/protocol ./cmd/zenithd ./cmd/zenith-runner` | Passed, zero diagnostics |
+| `GOOS=linux GOARCH=arm64 C:/Users/user/.local/sdk/go/bin/go.exe test -p 2 -c -o $TEMP/zenith-j5-agent-integrated-arm64.test ./internal/agent` | Passed, **0 tests executed**, compile only |
+| `GOOS=linux GOARCH=arm64 C:/Users/user/.local/sdk/go/bin/go.exe test -p 2 -c -o $TEMP/zenith-j5-update-systemd-arm64.test ./internal/runner/update` | Passed, **0 tests executed**, compile only |
+| `GOOS=linux GOARCH=arm64 C:/Users/user/.local/sdk/go/bin/go.exe vet -p 2 ./internal/agent/... ./internal/runner/update ./cmd/zenithd ./cmd/zenith-runner` | Passed, zero diagnostics |
+| `C:/Users/user/.local/sdk/go/bin/go.exe test -p 2 -count=1 -run '^TestWindowsIdentityReadLeaseSerializesReplacement$' ./internal/agent` | **1 /0 /0**, exit 0 after cleanup edit |
+| `npx eslint src/lib/sensitivedata/inventory.ts tests/runners/agent-update-repo.test.ts` | Passed, 2 files, zero errors/warnings |
+| Same two-file ESLint command after classifying the two revealed digest columns | Passed, zero errors/warnings |
+| `NODE_OPTIONS=--max-old-space-size=4096 npx tsc --noEmit -p .` after final inventory fix | Passed, exit 0, zero diagnostics; repeated only because implementation changed |
+| `git diff --exit-code -- go/internal/agent/rotation_internal_test.go tests/security/sensitive-inventory.test.ts` | Passed, both original test files unchanged |
+| `git diff --check` (repeated) | All passed |
+
+Test-expectation correction: the new repository test's `class: expand`/empty
+findings expectation was wrong against the existing classifier, which always
+labels opaque DO blocks `data`. It now checks the exact `data` classification
+and finding **plus** acceptance by the unchanged `contractViolations` gate.
+The block only grants/revokes on the newly created table, so the SQL leaves N-1
+tables, data and permissions unchanged. No existing test/gate was modified.
+Both original rotation and global sensitive-inventory assertions are untouched.
+The digit-identifier parser bug was fixed in implementation, not in its assertion.
+The parser also exposed existing webhook/billing digest columns; both were
+classified digest-only, without editing their migrations. The final isolated
+13/0/0 inventory run resolves both inventory failures and the source-walk
+timeout. API/repository file attribution from the preceding four-file command
+is **15 passed /0 failed** (6 repo +9 API); its PostgreSQL case skipped because
+the URL gate was absent. This attribution does not relabel that command's
+recorded 26/2/1 aggregate as a passing invocation.
+
+Final compiler/lint result is green after the final inventory repair. Windows
+full Go scope, focused rotation and Linux ARM64 compilation/vet are green as
+listed above. The temporary JSON logs are
+`$TEMP/zenith-j5-rotation-successor.jsonl`,
+`$TEMP/zenith-j5-rotation-final.jsonl` and
+`$TEMP/zenith-j5-full-go-final.jsonl`; they are local command evidence, not
+native Linux or production acceptance receipts.
+
+Read-only diagnostics used `Get-Content`, `rg`, `git status --short`,
+`git log --oneline -10`, `git diff --stat`, `git diff --numstat`, targeted
+`git diff -- <paths>` and Node JSON event counters. No test-case counts apply.
+Missing lookup paths were `0043_mcp_stream_replay_index.ts`,
+`0042_mach_restore_operations.ts`, `tests/sensitivedata/inventory.test.ts`,
+`src/lib/sensitivedata/schema.ts`, `go/internal/agent/fakecp/server.go`,
+`go/internal/agent/updates.go` and `src/lib/controlplane/db/sql-classify.ts`;
+the matching real files were read instead. `Get-Volume -DriveLetter C,Z` was
+denied, so no filesystem-type claim is made. An rg Windows wildcard path was
+replaced with `-g`. A premature JSON counter read an unfinished Go log and
+failed parsing; its completed-log successor reports 124/0/3 above. A separate
+Node digit-column diagnostic had a syntax error; it was not a test or evidence.
+No-match searches and Git no-index patch-generation results remain diagnostic.
+
+Not run here: real PostgreSQL, Linux PID 1/systemd/cgroups, Docker, original
+native full lifecycle, Temporal, kind, browser or live clouds. Native and engine
+commands/lean resource profile are in section 7 of `PROD-MACH-04.md`.
+Ledger stays `implementation_complete_verification_pending`, never verified.
+
+### Follow-up files changed, added or deleted (19)
+
+```text
+deploy/zenithd/INSTALL.md
+deploy/zenithd/agent-loop-integration.patch [deleted]
+docs/build/production/ledger.json
+docs/build/production/verify/PROD-MACH-04.md
+docs/build/production/verify/J5-COMMANDS.md
+go/internal/agent/identity.go
+go/internal/agent/identity_open_windows_test.go [added]
+go/internal/agent/update_control_internal_test.go [added]
+go/internal/agent/lifecycle.go
+go/internal/agent/loop.go
+go/internal/agent/update/manager.go
+src/lib/controlplane/db/migrations/0054_agent_update_controls.ts [added]
+src/lib/controlplane/db/migrations/index.ts
+src/lib/controlplane/db/repos/agent-updates.ts
+src/lib/sensitivedata/inventory.ts
+tests/runners/agent-update-repo.test.ts [added]
+tests/runners/update-control.test.ts
+tests/runners/update-control-postgres.test.ts
+tests/runners/update-control-schema.ts [deleted]
+```
+
+Suggested commit: `feat(runners): integrate update control and durable agent storage`

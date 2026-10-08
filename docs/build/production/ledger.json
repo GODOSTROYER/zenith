@@ -2085,7 +2085,11 @@
         "operational_rehearsal"
       ],
       "owner": null,
-      "testPaths": []
+      "testPaths": [
+        "scripts/acceptance/live/dns/offline.test.ts",
+        "scripts/acceptance/live/dns/clouds.live.test.ts"
+      ],
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
     },
     {
       "id": "PROD-MIX-02",
@@ -2109,7 +2113,11 @@
         "operational_rehearsal"
       ],
       "owner": null,
-      "testPaths": []
+      "testPaths": [
+        "scripts/acceptance/live/dns/offline.test.ts",
+        "scripts/acceptance/live/dns/clouds.live.test.ts"
+      ],
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
     },
     {
       "id": "PROD-MIX-03",
@@ -2133,7 +2141,11 @@
         "operational_rehearsal"
       ],
       "owner": null,
-      "testPaths": []
+      "testPaths": [
+        "scripts/acceptance/live/dns/offline.test.ts",
+        "scripts/acceptance/live/dns/clouds.live.test.ts"
+      ],
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
     },
     {
       "id": "PROD-MIX-04",
@@ -2157,7 +2169,11 @@
         "operational_rehearsal"
       ],
       "owner": null,
-      "testPaths": []
+      "testPaths": [
+        "scripts/acceptance/live/dns/offline.test.ts",
+        "scripts/acceptance/live/dns/clouds.live.test.ts"
+      ],
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
     },
     {
       "id": "PROD-MIX-05",
@@ -2184,8 +2200,11 @@
       "owner": "production verifier",
       "testPaths": [
         "tests/controlplane/mixed-follow-up.test.ts",
-        "tests/execution/mixed/typed-inputs-activities.test.ts"
-      ]
+        "tests/execution/mixed/typed-inputs-activities.test.ts",
+        "scripts/acceptance/live/dns/offline.test.ts",
+        "scripts/acceptance/live/dns/clouds.live.test.ts"
+      ],
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
     },
     {
       "id": "PROD-MIX-06",
@@ -2212,8 +2231,11 @@
       "owner": "production verifier",
       "testPaths": [
         "tests/acceptance/mixed-connectivity-probe.test.ts",
-        "tests/acceptance/mixed-live-run.test.ts"
-      ]
+        "tests/acceptance/mixed-live-run.test.ts",
+        "scripts/acceptance/live/dns/offline.test.ts",
+        "scripts/acceptance/live/dns/clouds.live.test.ts"
+      ],
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
     },
     {
       "id": "PROD-MIX-07",
@@ -2240,8 +2262,11 @@
       "owner": "production verifier",
       "testPaths": [
         "tests/acceptance/mixed-live-recovery.test.ts",
-        "tests/controlplane/mixed-follow-up.test.ts"
-      ]
+        "tests/controlplane/mixed-follow-up.test.ts",
+        "scripts/acceptance/live/dns/offline.test.ts",
+        "scripts/acceptance/live/dns/clouds.live.test.ts"
+      ],
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
     },
     {
       "id": "PROD-DUR-01",
@@ -2659,7 +2684,11 @@
         "local_engine"
       ],
       "owner": null,
-      "testPaths": []
+      "testPaths": [
+        "scripts/acceptance/live/dns/offline.test.ts",
+        "scripts/acceptance/live/dns/clouds.live.test.ts"
+      ],
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
     },
     {
       "id": "PROD-LIFE-05",
@@ -2678,7 +2707,11 @@
         "local_engine"
       ],
       "owner": null,
-      "testPaths": []
+      "testPaths": [
+        "scripts/acceptance/live/dns/offline.test.ts",
+        "scripts/acceptance/live/dns/clouds.live.test.ts"
+      ],
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
     },
     {
       "id": "PROD-LIFE-06",
@@ -2704,7 +2737,11 @@
         "local_engine"
       ],
       "owner": "root",
-      "testPaths": []
+      "testPaths": [
+        "scripts/acceptance/live/dns/offline.test.ts",
+        "scripts/acceptance/live/dns/clouds.live.test.ts"
+      ],
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
     },
     {
       "id": "PROD-LIFE-07",
@@ -3632,8 +3669,11 @@
       "testPaths": [
         "tests/execution/zenith-managed-journey.test.ts",
         "tests/platform/managed-reconcile.test.ts",
-        "tests/platform/zenith-onboarding.test.ts"
-      ]
+        "tests/platform/zenith-onboarding.test.ts",
+        "scripts/acceptance/live/dns/offline.test.ts",
+        "scripts/acceptance/live/dns/clouds.live.test.ts"
+      ],
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
     },
     {
       "id": "PROD-MAN-02",
@@ -3658,8 +3698,11 @@
       "owner": "production verifier",
       "testPaths": [
         "tests/managed-serving/services-route.test.ts",
-        "tests/managed-serving/serving-contract.test.ts"
-      ]
+        "tests/managed-serving/serving-contract.test.ts",
+        "scripts/acceptance/live/dns/offline.test.ts",
+        "scripts/acceptance/live/dns/clouds.live.test.ts"
+      ],
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
     },
     {
       "id": "PROD-MAN-03",
@@ -3685,8 +3728,11 @@
       "testPaths": [
         "tests/managed-serving/domain-routes.test.ts",
         "tests/managed-serving/domain-store.test.ts",
-        "tests/managed-serving/storage-emulator.test.ts"
-      ]
+        "tests/managed-serving/storage-emulator.test.ts",
+        "scripts/acceptance/live/dns/offline.test.ts",
+        "scripts/acceptance/live/dns/clouds.live.test.ts"
+      ],
+      "implementationNotes": "L2 live harness slice built; Wave 5 operated packet, run-tag and startup joins plus live acceptance remain pending. No whole-requirement verification claimed."
     },
     {
       "id": "PROD-MAN-04",

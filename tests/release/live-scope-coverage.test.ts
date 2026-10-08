@@ -27,6 +27,8 @@ const read = (rel: string): string => readFileSync(path.join(root, rel), "utf8")
 
 /** file -> the file that enforces the scope manifest for it. */
 const COVERED_BY: Record<string, string> = {
+  "scripts/acceptance/live/dns/offline.test.ts": "scripts/acceptance/live/dns/cli.ts",
+  "scripts/acceptance/live/dns/clouds.live.test.ts": "scripts/acceptance/live/dns/cli.ts",
   // The production fixture entrypoint and pre-OIDC preflight enforce both envelopes.
   "scripts/acceptance/live/cli.ts": "scripts/acceptance/live/scope.ts",
   "scripts/acceptance/live/preflight.ts": "scripts/acceptance/live/scope.ts",
@@ -80,6 +82,7 @@ describe("live harness scope coverage", () => {
   });
 
   it("the entry points that make live calls call the scope before acting", () => {
+    expect(read("scripts/acceptance/live/dns/cli.ts")).toMatch(/requireScope\("non-aws-dns-live"/);
     expect(read("scripts/acceptance/aws-live.ts")).toMatch(/requireScope\("aws-live"/);
     expect(read("scripts/acceptance/live/scope.ts")).toMatch(/requireScope\("aws-live"/);
     for (const file of ["scripts/acceptance/live/cli.ts", "scripts/acceptance/live/preflight.ts"]) {

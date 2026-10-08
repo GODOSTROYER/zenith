@@ -143,3 +143,30 @@ refused.
 ## 5. Suggested ledger implementationStatus
 
 `built_contract_verified_pending_run: cloud abstraction (public/usgov/china) wired through credentials, ARM, Key Vault, Log Analytics, ACR, Blob, DNS, tofu env and bootstrap; data-plane role catalog with least-privilege and propagation handling at Key Vault, Blob and compiled assignments; gated public-Azure live harness (not run). Sovereign clouds contract-level only; live acceptance deferred.`
+# L2-LIVE-CLOUDS successor (2026-10-08)
+
+The new entry point is `scripts/acceptance/live/azure/run.ts`, with packet-bound owner permissions, audience-specific short-lived token FILE references, independent paginated inventory and browser-approved teardown in finally. The prior `azure-live.ts` remains unchanged; do not use its direct build path as proof of the new permission/cleanup contract.
+
+See [cloud campaign](../LIVE-ACCEPTANCE-CLOUDS.md) for acceptance mapping: azure-source-binding, azure-data-plane, azure-source-build and a separate sovereign-account azure-sovereign packet. Public Azure cannot close sovereign acceptance. Real source builds remain operated through the existing release fixture. Wave 5 packet/startup/run-tag joins remain pending.
+
+Exact Mac offline commands (Node 22):
+
+```bash
+npx vitest run --config scripts/acceptance/live/dns/vitest.config.ts scripts/acceptance/live/dns/offline.test.ts --no-file-parallelism --maxWorkers=2
+npx eslint scripts/acceptance/live
+npx tsx scripts/acceptance/live/azure/run.ts --plan --packet scripts/acceptance/live/azure/packet.json.example
+tofu -chdir=deploy/live-sandbox/azure init -backend=false
+tofu -chdir=deploy/live-sandbox/azure validate
+```
+
+Exact Mac live successor, only after accountable approval, clean frozen commit and the operated Wave 5 API/worker/runner fixture (startup/packet-emitter join absent from this base):
+
+```bash
+export ZENITH_LIVE_AZURE=1
+export ZENITH_LIVE_AZURE_CREDENTIAL_FILE="$HOME/.zenith-live/azure-credential-ref.json"
+export ZENITH_LIVE_API_TOKEN_FILE="$HOME/.zenith-live/api-token"
+npx tsx scripts/acceptance/live/azure/run.ts --packet "$HOME/.zenith-live/azure-packet.json" --permissions "$HOME/.zenith-live/permissions.json" --out "$HOME/.zenith-live/azure-evidence.json"
+npx tsx scripts/acceptance/live/azure/run.ts --cleanup --packet "$HOME/.zenith-live/azure-packet.json" --permissions "$HOME/.zenith-live/permissions.json" --out "$HOME/.zenith-live/azure-cleanup-evidence.json"
+```
+
+Expected: actual data-plane/build/source/sovereign readbacks for every clause, consumed human destroy approvals, complete independent inventories empty except reviewed bootstrap IDs. Offline fakes or missing sovereignty are not a live pass. Mac profile is one provider/fixture and worker at a time, two small replicas maximum, 4 GiB Docker. No new table, migration or production caller changes; assembler registers custom test config and joins Wave 5 emission/tagging. Suggested harness status: implementation_complete_verification_pending.

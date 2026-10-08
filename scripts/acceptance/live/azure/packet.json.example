@@ -1,0 +1,514 @@
+{
+  "schema": "zenith.live-clouds.v1",
+  "provider": "azure",
+  "runId": "znlive-0000000000000000",
+  "commit": "0000000000000000000000000000000000000000",
+  "account": "REPLACE_SUBSCRIPTION_ID",
+  "region": "eastus",
+  "workspaceId": "REPLACE_WORKSPACE",
+  "environmentIds": [
+    "REPLACE_PRODUCER",
+    "REPLACE_CONSUMER"
+  ],
+  "apiOrigin": "https://control.example.test",
+  "estimatedUsd": 15,
+  "durationHours": 1,
+  "estimateBasis": "Provisional starter fixture allowance; replace from catalog with measured egress and 24h orphan contingency",
+  "inventory": [
+    {
+      "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/resources?api-version=2021-04-01",
+      "itemsPointer": "/value",
+      "idPointer": "/id",
+      "tagsPointer": "/tags",
+      "pagination": "azure"
+    }
+  ],
+  "checks": [
+    {
+      "id": "azure-source-binding",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "azure-data-plane",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "azure-source-build",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "azure-sovereign",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dns-owned",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dns-foreign",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "failed"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dns-unreadable",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "failed"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-authorities",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-immutable-plans",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-output-scope",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-failure-order",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-connectivity",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-traffic",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-recovery-economics",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "managed-substrate",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "managed-serving",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "domain-proof-renewal",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "managed-data-catalog",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://management.azure.com/subscriptions/REPLACE_SUBSCRIPTION_ID/resourceGroups/REPLACE_RESOURCE_GROUP/providers/REPLACE_RESOURCE?api-version=REPLACE_API",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

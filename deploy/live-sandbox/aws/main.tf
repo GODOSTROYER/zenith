@@ -46,10 +46,10 @@ variable "github_oidc_provider_arn" {
   }
 }
 locals {
-  name = "ZenithLiveAcceptance"
-  base = "arn:aws"
-  iam  = "${local.base}:iam::${var.account_id}"
-  tags = { "zenith:bootstrap" = "live-sandbox" }
+  name          = "ZenithLiveAcceptance"
+  base          = "arn:aws"
+  iam           = "${local.base}:iam::${var.account_id}"
+  tags          = { "zenith:bootstrap" = "live-sandbox" }
   workload_role = "${local.iam}:role/zenith-zlive-*-lambda"
   boundary      = "${local.iam}:policy/ZenithLiveWorkloadBoundary"
   owned_tags = {
@@ -61,9 +61,9 @@ locals {
   }
 }
 resource "aws_iam_openid_connect_provider" "github" {
-  count           = var.github_oidc_provider_arn == "" ? 1 : 0
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
+  count          = var.github_oidc_provider_arn == "" ? 1 : 0
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
 }
 resource "aws_iam_policy" "workload_boundary" {
   name = "ZenithLiveWorkloadBoundary"
@@ -83,7 +83,7 @@ resource "aws_iam_role" "acceptance" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow", Action = "sts:AssumeRoleWithWebIdentity"
+      Effect    = "Allow", Action = "sts:AssumeRoleWithWebIdentity"
       Principal = { Federated = var.github_oidc_provider_arn != "" ? var.github_oidc_provider_arn : aws_iam_openid_connect_provider.github[0].arn }
       Condition = { StringEquals = {
         "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
@@ -134,7 +134,7 @@ locals {
   runner_policy = jsonencode({ Version = "2012-10-17", Statement = local.statements })
 }
 resource "aws_iam_policy" "runner_boundary" {
-  name   = "ZenithLiveRunnerBoundary"
+  name = "ZenithLiveRunnerBoundary"
   # Action ceiling only; the role's identity policy below further narrows every
   # operation to its supported resources/conditions. No policy edit/attach grant.
   policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = distinct(flatten([for statement in local.statements : statement.Action])), Resource = "*" }] })

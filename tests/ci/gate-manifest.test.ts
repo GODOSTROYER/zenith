@@ -3197,7 +3197,7 @@ describe("Wave 5 additive gate inventory", () => {
       expect(manifestFor(lane, root).command).toContain(file.startsWith("tests/adversarial/") ? "tests/adversarial" : file);
       expect(requirementsFor(lane, root).some(r => r.file === file)).toBe(true);
     }
-    expect(files).toHaveLength(78);
+    expect(files).toHaveLength(79);
     expect(WAVE5_EXTERNAL_FILES).toHaveLength(12);
     for (const file of WAVE5_EXTERNAL_FILES) expect([
       ...EXTERNAL_ACCEPTANCE.map(g=>g.file),

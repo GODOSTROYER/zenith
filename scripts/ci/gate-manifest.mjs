@@ -5991,6 +5991,7 @@ export const WAVE5_CONTRACT_FILES = [
   "tests/providers/zenith/managed-profile.test.ts",
   "tests/providers/zenith/managed-substrate.test.ts",
   "tests/release/acceptance-scenarios.test.ts",
+  "tests/release/drivers/drv1.test.ts",
   "tests/release/checkpoint.test.ts",
   "tests/release/dossier.test.ts",
   "tests/release/live-scope-coverage.test.ts",
@@ -6066,6 +6067,18 @@ export const GATE_LANES = {
     env: { ZENITH_LOCAL_OPERATED: "1", ZENITH_LOCAL_TARGETS: "1", ZENITH_LOCAL_JOINED_DRIVERS: "1", ZENITH_ACCEPTANCE_DEFAULT_STACK: "1", ZENITH_DEFAULT_JOURNEY: "1" },
     report: ".data-ci-lane/j15-operated-restore.json", tools: { node: "22.23.3" },
     prerequisites: ["Fresh lean J1 stack and private J2 kind configuration; native Mac ARM64 Chromium/Docker/kind/Temporal", "ZENITH_LOCAL_ROOT, ZENITH_LOCAL_RUN_ID, ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR, ZENITH_LOCAL_JOURNEY_CONFIG_FILE; see verify/DRV-3.md", "pg_dump/pg_restore clients matching actual J1 PostgreSQL major, Temporal CLI; cleanup consumes this stack"],
+  },
+  "drv1-private-source": {
+    files: ["tests/acceptance/drv1-private-source.operated.test.ts"],
+    env: { ZENITH_LOCAL_DRV1: "1", ZENITH_LOCAL_TARGETS: "1", ZENITH_DEFAULT_JOURNEY: "1", ZENITH_ACCEPTANCE_DEFAULT_STACK: "1" },
+    report: ".data-ci-lane/drv1-private-source.json", tools: { node: "22.23.3" },
+    prerequisites: ["Native Mac ARM64, Node 22, actual Chromium trusting the J1 CA, owned lean J1 and two-node J2 kind fixture", "Fresh private ZENITH_LOCAL_ROOT, ZENITH_LOCAL_RUN_ID, ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR, ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "Private ZENITH_LOCAL_SOURCE_BUILD_DECLARATION_FILE, ZENITH_LOCAL_SOURCE_BINARY_FILE, pinned ZENITH_LOCAL_SOURCE_REGISTRY_IMAGE; actual J6 runtime/profiles and enforcing CNI, all runtime probes must pass", "Run sequentially; no LocalStack/Pebble/stripe-mock profile alongside J1; no live credentials or provider APIs"],
+  },
+  "drv1-update-rollback": {
+    files: ["tests/acceptance/drv1-update-rollback.operated.test.ts"],
+    env: { ZENITH_LOCAL_DRV1: "1", ZENITH_LOCAL_TARGETS: "1", ZENITH_DEFAULT_JOURNEY: "1", ZENITH_ACCEPTANCE_DEFAULT_STACK: "1" },
+    report: ".data-ci-lane/drv1-update-rollback.json", tools: { node: "22.23.3" },
+    prerequisites: ["Native Mac ARM64, Node 22, actual Chromium trusting the J1 CA, owned lean J1 and J2 kind fixture", "Fresh private ZENITH_LOCAL_ROOT, ZENITH_LOCAL_RUN_ID, ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR, ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "Local pinned J2 witness image present; actual failed rollout waits for the Kubernetes progress deadline", "Run sequentially; no LocalStack/Pebble/stripe-mock profile alongside J1; no live credentials or provider APIs"],
   },
   "wave5-contract": {
     files: WAVE5_CONTRACT_FILES.filter(file => !file.startsWith("tests/adversarial/")), env: {}, report: ".data-ci-lane/wave5-contract.json",
@@ -6420,6 +6433,12 @@ export function requirementsFor(lane, root) {
       break;
     case "j15-operated-restore":
       requirements = [{ file: "tests/acceptance/operated-restore.engine.test.ts", suite: "DRV-3 operated restore", test: "operates restore with independent readback and owned cleanup" }];
+      break;
+    case "drv1-private-source":
+      requirements = [{ file: "tests/acceptance/drv1-private-source.operated.test.ts", suite: "DRV-1 private-source operated", test: "admits an exact private snapshot through browser approval and refuses revoked execution with owned cleanup" }];
+      break;
+    case "drv1-update-rollback":
+      requirements = [{ file: "tests/acceptance/drv1-update-rollback.operated.test.ts", suite: "DRV-1 update-rollback operated", test: "updates a compatible image, observes a real failed rollout and browser-approved rollback with owned cleanup" }];
       break;
     case "wave5-contract":
       requirements = WAVE5_CONTRACT_FILES.filter(file => !file.startsWith("tests/adversarial/")).map(file => ({ file }));

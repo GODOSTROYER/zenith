@@ -92,3 +92,31 @@ node scripts/ci/wave6-gates.mjs --requirement PROD-REL-01 --print > /tmp/zenith-
 ```
 
 This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).
+
+## DRV-1 dedicated operated scenario successors (2026-10-08)
+
+`private-source` and `update-rollback` now have dedicated J15 runner registrations
+and strict gated manifest lanes, `drv1-private-source` and `drv1-update-rollback`.
+Follow [DRV-1](DRV-1.md) for the exact sequential lean-profile Mac setup, commands,
+owned teardown and expected **1 passed / 0 failed / 0 skipped per gate**. Both
+receipts are labelled `local_operated_rehearsal`. The source lane establishes
+private admission, browser approval, a successful J6 isolated build, independently
+verified provenance and running digest, then revoked execution refusal with an
+authenticated local GitHub emulator. The lane requires the dedicated worker and
+real enforcing runtime/CNI described in DRV-1. The update lane performs real deployments,
+failed rollout, independent serving/release readbacks and exact browser-approved
+rollback. Neither closes live-cloud or complete PROD-REL-01 acceptance.
+
+```bash
+export PATH="$ZENITH_NODE22_BIN:$PATH"
+node scripts/ci/gate-manifest.mjs drv1-private-source
+node scripts/ci/gate-manifest.mjs drv1-update-rollback
+# After the actual Mac runs in DRV-1.md, validate their fresh private reports:
+node tests/ci/assert-lane-report.mjs drv1-private-source "$DRV1_PRIVATE/evidence/private-source.json"
+node tests/ci/assert-lane-report.mjs drv1-update-rollback "$DRV1_PRIVATE/evidence/update-rollback.json"
+```
+
+Windows: offline contracts built and checked; two operated cases not run (needs
+Mac Docker, native PostgreSQL, Temporal, kind and browser). Requirement status
+remains `implementation_complete_verification_pending`; no acceptance receipt was
+manufactured and no live API was called.

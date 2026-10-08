@@ -22,7 +22,7 @@
  * Resumable: lane results are checkpointed (`checkpoint.json` in the run directory) and a resumed run does not repeat
  * a lane that finished. The checkpoint never claims unattended work.
  */
-import { mkdirSync, existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync } from "node:fs";
+import { mkdirSync, existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync, realpathSync } from "node:fs";
 import { spawn } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
@@ -302,7 +302,7 @@ async function localCommandLane(scenario: Scenario, lane: LocalCommandLane, ctx:
   const base = { scenarioId: scenario.id, laneId: lane.id, kind: "local_engine" as const, evidenceLabel: lane.evidenceLabel };
   const gates = missingGates(lane, ctx.env);
   if (gates.length) return { ...base, status: "deferred", detail: "Local target not run: missing explicit local gate or target prerequisites.", missingGates: gates };
-  const out = path.join(os.tmpdir(), `zenith-local-${ctx.options.runId}-${scenario.id}.json`);
+  const out = path.join(realpathSync(os.tmpdir()), `zenith-local-${ctx.options.runId}-${scenario.id}.json`);
   if (existsSync(out)) unlinkSync(out);
   const argv = [...lane.command, "--run-id", ctx.options.runId, "--receipt", out];
   const run = await ctx.exec(argv, { cwd: ctx.options.root, timeoutMs: ctx.options.timeoutMs ?? 30 * 60_000, env: localEnvironment(ctx.env) });

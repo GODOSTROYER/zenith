@@ -4,16 +4,28 @@ import path from "node:path";
 import catalog from "../../deploy/acceptance/local-targets/scenarios.json";
 import type { LocalCommandLane, Scenario } from "./scenarios";
 import { DRIVER_CHECKS, OperatedReceiptSchema, OPERATED_LABEL } from "./drivers/operated-contract";
-import { OPERATED_CHECKS, operatedScenario } from "./drivers/contracts";
+import { OPERATED_CHECKS as UPGRADE_RESTORE_CHECKS, operatedScenario } from "./drivers/contracts";
+
+export { OPERATED_LABEL };
 
 export const LOCAL_GATE = "ZENITH_LOCAL_TARGETS";
 export const LOCAL_LABEL = "local_rehearsal";
 export type LocalTarget = { target: string; driver?: string; owner?: string };
 export const LOCAL_TARGETS: Readonly<Record<string, LocalTarget>> = {
   ...catalog.scenarios,
+  "private-source": { target: "operated", driver: "scripts/release/drivers/private-source.ts", owner: "DRV-1" },
+  "update-rollback": { target: "operated", driver: "scripts/release/drivers/update-rollback.ts", owner: "DRV-1" },
   "drift-repair": { target: "operated-drv2", driver: "scripts/release/drivers/drift-repair.ts", owner: "DRV-2" },
   "crash-partition": { target: "operated-drv2", driver: "scripts/release/drivers/crash-partition.ts", owner: "DRV-2" },
 };
+export const OPERATED_CHECKS: Readonly<Record<string, readonly string[]>> = {
+  ...DRIVER_CHECKS,
+  ...UPGRADE_RESTORE_CHECKS,
+  "private-source": ["preconditions", "source-build-preconditions", "browser-source-binding", "private-source-snapshot", "isolated-private-build", "provenance-verified-deploy", "browser-snapshot-approval", "source-revocation-refused", "post-revocation-proposal-refused", "independent-source-readback", "owned-cleanup", "source-unchanged"],
+  "update-rollback": ["preconditions", "baseline-readback", "compatible-update-readback", "failed-rollout-readback", "browser-rollback-readback", "independent-release-readback", "owned-cleanup", "source-unchanged"],
+};
+function sourceScenario(id: string): boolean { return id === "private-source" || id === "update-rollback"; }
+
 export const TARGET_CHECKS: Readonly<Record<string, readonly string[]>> = {
   mixed: ["traffic-acknowledged", "independent-readback", "tls-peer-auth", "private-database"],
   pebble: ["dns-http01", "certificate-issued", "tls-hostname"],
@@ -25,13 +37,14 @@ export const TARGET_CHECKS: Readonly<Record<string, readonly string[]>> = {
 export function localTargetLane(scenario: Scenario): LocalCommandLane {
   const target = LOCAL_TARGETS[scenario.id];
   if (!target) throw new Error(`No local target for ${scenario.id}`);
+  const drv1 = sourceScenario(scenario.id);
   const drv2 = target.target === "operated-drv2";
   const drv3 = operatedScenario(scenario.id);
   return {
-    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json", ...(drv2 || drv3 ? [target.driver!, "scripts/release/drivers/operated.ts", ...(drv2 ? ["scripts/release/drivers/operated-contract.ts"] : ["scripts/release/drivers/contracts.ts"])] : [])],
+    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json", ...(drv1 || drv2 || drv3 ? [target.driver!, "scripts/release/drivers/operated.ts", ...(drv2 ? ["scripts/release/drivers/operated-contract.ts"] : drv3 ? ["scripts/release/drivers/contracts.ts"] : [])] : [])],
     command: ["node", "node_modules/tsx/dist/cli.mjs", "scripts/release/local-target-runner.ts", "run", "--scenario", scenario.id],
-    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(drv2 ? ["ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "ZENITH_TEST_DRV2_OPERATED=1"] : []), ...(drv3 ? ["ZENITH_LOCAL_OPERATED=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", ...(scenario.id === "upgrade" ? ["ZENITH_LOCAL_UPGRADE_IMAGES_FILE"] : [])] : [])],
-    evidenceLabel: drv2 || drv3 ? OPERATED_LABEL : LOCAL_LABEL,
+    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(drv1 ? ["ZENITH_LOCAL_DRV1=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE"] : []), ...(drv2 ? ["ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "ZENITH_TEST_DRV2_OPERATED=1"] : []), ...(drv3 ? ["ZENITH_LOCAL_OPERATED=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", ...(scenario.id === "upgrade" ? ["ZENITH_LOCAL_UPGRADE_IMAGES_FILE"] : [])] : [])],
+    evidenceLabel: drv1 || drv2 || drv3 ? OPERATED_LABEL : LOCAL_LABEL,
   };
 }
 
@@ -43,11 +56,16 @@ const Receipt = z.object({
   checks: z.array(z.object({ id: z.string().regex(/^[a-z][a-z0-9-]{1,70}$/), status: z.enum(["passed", "failed", "skipped"]) }).strict()).min(1),
   limits: z.array(z.string().min(1).max(300)).min(1),
 }).strict();
-export type LocalReceipt = z.infer<typeof Receipt> | z.infer<typeof OperatedReceiptSchema>;
+const SourceBoundReceipt = Receipt.extend({
+  sourceDigest: z.string().regex(/^[a-f0-9]{64}$/), dirty: z.boolean(),
+}).strict();
+export type SourceBoundLocalReceipt = z.infer<typeof SourceBoundReceipt>;
+export type LocalReceipt = z.infer<typeof Receipt> | SourceBoundLocalReceipt | z.infer<typeof OperatedReceiptSchema>;
 
 export function requiredChecks(scenarioId: string): readonly string[] {
+  if (sourceScenario(scenarioId)) return OPERATED_CHECKS[scenarioId]!;
   if (scenarioId === "drift-repair" || scenarioId === "crash-partition") return DRIVER_CHECKS[scenarioId];
-  if (operatedScenario(scenarioId)) return OPERATED_CHECKS[scenarioId];
+  if (operatedScenario(scenarioId)) return UPGRADE_RESTORE_CHECKS[scenarioId];
   if (scenarioId === "billing") return TARGET_CHECKS.billing!;
   const target = LOCAL_TARGETS[scenarioId];
   if (!target) throw new Error("Unknown local scenario");
@@ -56,14 +74,15 @@ export function requiredChecks(scenarioId: string): readonly string[] {
 }
 
 export function validateLocalReceipt(raw: unknown, expected: { scenarioId: string; runId: string; sourceCommit: string }): LocalReceipt {
+  const drv1 = sourceScenario(expected.scenarioId);
   const drv2 = expected.scenarioId === "drift-repair" || expected.scenarioId === "crash-partition";
-  const receipt = drv2 ? OperatedReceiptSchema.parse(raw) : Receipt.parse(raw);
-  if (receipt.evidenceLabel !== (drv2 || operatedScenario(expected.scenarioId) ? OPERATED_LABEL : LOCAL_LABEL)) throw new Error("Local receipt evidence label mismatch");
+  const receipt = drv2 ? OperatedReceiptSchema.parse(raw) : drv1 ? SourceBoundReceipt.parse(raw) : Receipt.parse(raw);
+  if (receipt.evidenceLabel !== (drv1 || drv2 || operatedScenario(expected.scenarioId) ? OPERATED_LABEL : LOCAL_LABEL)) throw new Error("Local receipt evidence label mismatch");
   for (const key of ["scenarioId", "runId", "sourceCommit"] as const) if (receipt[key] !== expected[key]) throw new Error(`Local receipt ${key} mismatch`);
   const ids = receipt.checks.map(c => c.id);
   if (new Set(ids).size !== ids.length) throw new Error("Duplicate local check");
   for (const id of requiredChecks(expected.scenarioId)) if (!ids.includes(id)) throw new Error(`Missing required local check: ${id}`);
-  if (operatedScenario(expected.scenarioId) && ids.some(id => !requiredChecks(expected.scenarioId).includes(id))) throw new Error("Unknown operated check");
+  if ((drv1 || operatedScenario(expected.scenarioId)) && ids.some(id => !requiredChecks(expected.scenarioId).includes(id))) throw new Error("Unknown operated check");
   return receipt;
 }
 

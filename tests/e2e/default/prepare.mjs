@@ -1,7 +1,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { command, docker, ensure, localUrl } from './support.mjs';
+import { command, docker, ensure, localUrl, privateFile } from './support.mjs';
+import { load as yamlLoad } from 'js-yaml';
+
+export function isolatedKindConfig(raw) {
+  const c = yamlLoad(raw);
+  ensure(c?.kind === 'Cluster' && c.apiVersion === 'kind.x-k8s.io/v1alpha4' && c.networking?.apiServerAddress === '127.0.0.1'
+    && c.networking.disableDefaultCNI === true && c.networking.podSubnet === '10.244.0.0/16'
+    && c.nodes?.length === 2 && c.nodes[0].role === 'control-plane' && c.nodes[1].role === 'worker', 'isolated-kind-two-nodes');
+  // Profiles/runtime come from the reviewed native node image. Never inject host mounts or executable patches.
+  ensure(Object.keys(c).every(k => ['kind','apiVersion','networking','nodes'].includes(k))
+    && Object.keys(c.networking).every(k => ['apiServerAddress','disableDefaultCNI','podSubnet'].includes(k))
+    && c.nodes.every(n => Object.keys(n).length === 1), 'isolated-kind-no-host-injection');
+  return raw;
+}
 
 export async function prepare(args) {
   if (process.env.ZENITH_DEFAULT_JOURNEY !== '1') return { status: 'skipped' };
@@ -9,10 +22,11 @@ export async function prepare(args) {
   const values = {};
   while (args.length) {
     const key = args.shift(), value = args.shift();
-    ensure(['--directory', '--stack', '--node-image', '--witness-image', '--mailpit-url'].includes(key) && value && !values[key], 'prepare-usage');
+    ensure(['--directory', '--stack', '--node-image', '--witness-image', '--mailpit-url', '--isolated-kind-config'].includes(key) && value && !values[key], 'prepare-usage');
     values[key] = value;
   }
-  ensure(Object.keys(values).length === 5, 'prepare-usage');
+  ensure(Object.keys(values).length === (values['--isolated-kind-config'] ? 6 : 5), 'prepare-usage');
+  const kindConfig = values['--isolated-kind-config'] ? isolatedKindConfig(privateFile(values['--isolated-kind-config'])) : 'kind: Cluster\napiVersion: kind.x-k8s.io/v1alpha4\nnetworking:\n  apiServerAddress: 127.0.0.1\nnodes:\n- role: control-plane\n';
   const directory = path.resolve(values['--directory']), root = process.cwd();
   ensure(!fs.existsSync(directory) && !directory.startsWith(root + path.sep) && directory !== root &&
     fs.realpathSync(path.dirname(directory)) === path.dirname(directory), 'prepare-private-directory');
@@ -26,7 +40,7 @@ export async function prepare(args) {
   const state = runtime.readState(stackDirectory);
   fs.mkdirSync(directory, { mode: 0o700 });
   const save = (name, data) => fs.writeFileSync(path.join(directory, name), data, { mode: 0o600, flag: 'wx' });
-  save('kind.yaml', 'kind: Cluster\napiVersion: kind.x-k8s.io/v1alpha4\nnetworking:\n  apiServerAddress: 127.0.0.1\nnodes:\n- role: control-plane\n');
+  save('kind.yaml', kindConfig);
   // Record cleanup responsibility before starting any target.
   save('targets.json', JSON.stringify({ schemaVersion: 1, kind: 'zenith-j2', createdBy: 'J2-DEFAULT-JOURNEY', status: 'preparing' }));
   const bootstrap = path.join(directory, 'kind-bootstrap.yaml');
@@ -40,6 +54,14 @@ export async function prepare(args) {
   const [kindImage] = JSON.parse(await docker(['image', 'inspect', node.Image]));
   ensure(kindImage.Architecture === 'arm64', 'kind-native-arm64');
   await docker(['update', '--memory', '640m', '--memory-swap', '1g', '--cpus', '1', node.Id]);
+  if (values['--isolated-kind-config']) {
+    const [worker] = JSON.parse(await docker(['inspect','zenith-j2-worker']));
+    ensure(worker.Config.Labels?.['io.x-k8s.kind.cluster'] === 'zenith-j2', 'build-worker-owner');
+    const [image] = JSON.parse(await docker(['image','inspect',worker.Image]));
+    ensure(image.Architecture === 'arm64', 'build-worker-native');
+    fs.writeFileSync(path.join(directory,'targets.json'), JSON.stringify({schemaVersion:1,kind:'zenith-j2',createdBy:'J2-DEFAULT-JOURNEY',status:'created',containerId:node.Id,buildContainerId:worker.Id}), {mode:0o600});
+    await docker(['update','--memory','640m','--memory-swap','1g','--cpus','1',worker.Id]);
+  }
   const api = (await runtime.compose(state, ['ps', '-q', 'api'])).trim();
   const [apiContainer] = JSON.parse(await docker(['inspect', api]));
   const network = Object.keys(apiContainer.NetworkSettings.Networks).find(name => name === state.applicationProjectName + '_installation');
@@ -58,6 +80,17 @@ export async function prepare(args) {
   // Independent observer is exported only from this new local kind cluster.
   save('observer.json', await command('kind', ['get', 'kubeconfig', '--name', 'zenith-j2']));
   const kubectl = args => command('kubectl', ['--kubeconfig', observer, '--context', 'kind-zenith-j2', ...args]);
+  if (values['--isolated-kind-config']) {
+    // The worker is reserved for tenant builds. Allow owned proxy/application/system pods on the control plane.
+    const current = JSON.parse(await kubectl(['get','node','zenith-j2-control-plane','-o','json']));
+    const taints = current.spec.taints ?? [];
+    if (taints.some(t => t.key === 'node-role.kubernetes.io/control-plane' && t.effect === 'NoSchedule'))
+      await kubectl(['patch','node',current.metadata.name,'--type=json','-p',JSON.stringify([
+        {op:'test',path:'/metadata/uid',value:current.metadata.uid},
+        {op:'test',path:'/metadata/resourceVersion',value:current.metadata.resourceVersion},
+        {op:'replace',path:'/spec/taints',value:taints.filter(t=>!(t.key==='node-role.kubernetes.io/control-plane' && t.effect==='NoSchedule'))},
+      ])]);
+  }
   const manifest = {
     apiVersion: 'v1', kind: 'List', items: [
       { apiVersion: 'v1', kind: 'Namespace', metadata: { name: 'zenith-j2' } },

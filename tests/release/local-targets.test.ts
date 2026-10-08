@@ -36,10 +36,11 @@ describe("local target boundaries", () => {
   it("maps all nineteen scenarios, including joined journeys, to gated targets", () => {
     expect(Object.keys(LOCAL_TARGETS).sort()).toEqual(SCENARIOS.map(s => s.id).sort());
     for (const scenario of SCENARIOS) {
+      const drv1 = ["private-source", "update-rollback"].includes(scenario.id);
       const drv2 = ["drift-repair", "crash-partition"].includes(scenario.id);
       const drv3 = scenario.id === "upgrade" || scenario.id === "restore";
-      const gates = ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(drv2 ? ["ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "ZENITH_TEST_DRV2_OPERATED=1"] : []), ...(drv3 ? ["ZENITH_LOCAL_OPERATED=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", ...(scenario.id === "upgrade" ? ["ZENITH_LOCAL_UPGRADE_IMAGES_FILE"] : [])] : [])];
-      expect(localTargetLane(scenario)).toMatchObject({ kind: "local_engine", gates, evidenceLabel: drv2 || drv3 ? "local_operated_rehearsal" : "local_rehearsal" });
+      const gates = ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(drv1 ? ["ZENITH_LOCAL_DRV1=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE"] : []), ...(drv2 ? ["ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "ZENITH_TEST_DRV2_OPERATED=1"] : []), ...(drv3 ? ["ZENITH_LOCAL_OPERATED=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", ...(scenario.id === "upgrade" ? ["ZENITH_LOCAL_UPGRADE_IMAGES_FILE"] : [])] : [])];
+      expect(localTargetLane(scenario)).toMatchObject({ kind: "local_engine", gates, evidenceLabel: drv1 || drv2 || drv3 ? "local_operated_rehearsal" : "local_rehearsal" });
     }
     expect(LOCAL_TARGETS["install"]).toMatchObject({ owner: "J1" });
     expect(LOCAL_TARGETS["machine-schedules"]).toMatchObject({ owner: "J4" });

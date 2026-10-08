@@ -469,3 +469,15 @@ Separate frozen `4c3d6476`: canonical workflow-intents **156/0/0**, all141 manda
 Current canonical workflows require71 groups, including the new full codec helper. Exact historical70/60/58 comparisons retain unchanged prior identities; unknown additions are not excluded. Root two-suite metadata verification345/0/0 and independent Astra source review passed; native100 stays100. Whole lint passed with0errors/3existing vendor warnings, compiler passed on4c; combined successor remains mandatory.
 
 Published `3dae8f9a` CI remains separate: native AMD64/ARM64 workers and Windows ACL/Linux systemd all successful; main13 successful jobs, workflows failed1330/1/0 (sole already-repaired same-environment rehearsal contention), verify/platform-postgres still running at inspection. No complete green or zero-skip project claim. Ledger10verified/49in_progress/19planned; all78 requirements/four false release states preserved.
+
+## Identity and Temporal diagnostic integration, 8 October 2026
+
+Integrated `5072c4a0` (stable waitlist title) at `b5430146`, and `98a3f6f5` (bounded Temporal startup diagnostics) at `2fb5f888`. Author and committer Arnav Bule; no trailer. Root combined compiler passed. No gate, payload, assertion, startup deadline or ownership-cleanup guard weakened.
+
+- Native full9354 run: **21,851 passed /0 failed /1,624 skipped**, Vitestexit0; strict verifier failed because one title embeds random UUIDs. All1,046files present; source/end binding and cleanup passed;61 registered groups absent; minimum24,437,710,848bytes. Rejected receipt preserved.
+- Stable title correction: entire waitlist file **44/0/0**, exact fresh collection/runtime Counter match, lint0 and independent review. All1,001 random UUID payload values remain runtime-generated. A complete new full run is still required.
+- Actual pinned Python collector: **6/0/0**, native Mac only; no Azure/cloud or Linux delivery claim. Separate counts overlap with core scope.
+- Actual owned durable Temporal target: **10/0/0**, eight models plus two restart/overlap cases,56.76seconds. All seven groups absent; source/end binding/cleanup passed; minimum24,784,904,192bytes. Remote startup cause remains unreproduced. Diagnostics emit fixed classifications and process status only; at most8KiB captured privately.
+- Exact9354CI: **19 successful jobs /one failed workflow job**, allterminal. Unit21828/0/1647; platformPG3772/0/15 with all1156mandatorygroups passed; workflow1376/0assertionfailures/2skipped, one failed suite and exit1. Native worker/platform job conclusions successful; per-case inspection remains distinct.
+
+Ledger remains **10verified /49in progress /19planned** across78rows; all four release states false. Default startup effects/browser journey, broader requirements and external blockers remain open. Fresh Next preparation for9354 becomes stale after integration and requires rebinding; older artifacts cannot verify changed source. Next step: fresh coherent fullunit/gates, exact pushed CI with diagnostics, then authorized default stack on this Mac.

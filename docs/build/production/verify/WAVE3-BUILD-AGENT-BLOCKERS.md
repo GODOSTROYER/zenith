@@ -161,3 +161,7 @@ First dependency: finish PROD-CI-05/08/09 on one coherent pushed commit, inspect
 The handoff names exactly 48 existing wave 3 criteria. PKG-01/02/03/06 remain separate cross-cutting verification dependencies. The current user scope is tests and failure fixes only; this is a queue for a later authorized building pass.
 
 Pending decisions: DEC-STARTUP, DEC-CLOUD, DEC-RETENTION and DEC-BUSINESS retain their ledger states. No live accounts, budgets, default API startup, destructive retention or production signoff is approved by this note. Keep published migration history immutable and retain the packaged-worker 18GiB floor.
+
+## Verifier boundary update, 8 October 2026
+
+Verifier integrated only stable test identities and bounded owned-Temporal startup diagnostics. No builder feature code changed. Local targeted Temporal10/0/0 does not explain remote9354startup failure or prove default job effects. Broader LIFE12 common-writer/preissued-grant coordination remains builder-owned. Default real interfaces and local scheduling acceptance continue under existing Mac-only authorization; cloud/business decisions stay blocked.

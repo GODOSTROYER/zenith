@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "9354a3f5629f1efe91ea1a7d7e7b6291569be38f",
+  "sourceDirty": true,
+  "ownedDirtyPath": "tests/workflows/critical-schedule.test.ts",
+  "ownedSourceSha256": "ca059bda3200b9ac56be008e9d76230c262ef9138ae2fd18b4afbaa72f583f65",
+  "fixCommit": "98a3f6f5de1e0d11de378cfe995db8642f6cc182",
+  "integrationCommit": "2fb5f888cf53a8473c42997fbbfa94ac4808cb17",
+  "environment": {
+    "node": "22.23.3",
+    "vitest": "4.1.11",
+    "temporalCLI": "1.9.1",
+    "architecture": "native Darwin ARM64",
+    "floorBytes": 12000000000
+  },
+  "counts": {
+    "numTotalTests": 10,
+    "numPassedTests": 10,
+    "numFailedTests": 0,
+    "numPendingTests": 0,
+    "numTodoTests": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "receiptSha256": "699a362c5d22d89b891f41bfc6e5d58246698faf2b21d2c8995c38e77dd9bbb7",
+  "reportSha256": "059fb04622bece4a17859a39c649e3ca71ebd837370830fb846c8ceaa4ef614c",
+  "collectionSha256": "2ab29aacc0d989fde157ee6c3a5141f8ff7cdf0078b4e0f9e461df2de8175232",
+  "exactRequiredIdentities": 10,
+  "registeredGroups": 7,
+  "allRegisteredGroupsAbsent": true,
+  "cleanupComplete": true,
+  "endSourceBinding": true,
+  "minimumFreeBytes": 24784904192,
+  "elapsedSeconds": 56.76,
+  "rootLintExit": 0,
+  "combinedCompilerExit": 0,
+  "scope": "Eight models plus two genuine owned durable Temporal restart/overlap cases; controlled maintenance outcomes",
+  "limitations": [
+    "Remote9354 startup failure not reproduced or uniquely explained. Diagnostic patch captures at most8KiB privately; exposes only fixed classifications, exit code and signal.",
+    "No startup deadline, port, SQLite custody or cleanup refusal changed.",
+    "No default maintenance effects, browser journey or cloud proof.",
+    "Executed freeze retains inherited preparation wording about1046files; actual runtime strictly checks the single target and all10identities. Frozen bytes preserved."
+  ]
+}

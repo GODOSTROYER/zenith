@@ -615,3 +615,6 @@ Not yet run. Append one dated block per requirement here: SHA verified, commands
 - PROD-UX-03: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
 
 Results PROD-CI-08 (8 October):648a historical77/0/0; frozen4c canonical intents156/0/0 all141;722 actual codec/deploy30/0/0. Scopes overlap; current71 workflow inventory. Full combined gate/CI pending; no promotion.
+
+Results PROD-CI-08 (8October): full9354Vitest21851/0/1624, strictidentityadmissionFAILED; stabletitle44/0/0+Countermatch/lint0 integrated5072c4a0; six actualPythoncollectorpasses separate. Fullsuccessorpending.
+Results PROD-OBS-04 (8October): actualownedTemporal10/0/0 with boundeddiagnostic98a3f6f5; cleanup/endbindingverified; remote9354startupcause/defaultmaintenanceeffectsstillopen.

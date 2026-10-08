@@ -1,5 +1,7 @@
 # Current verifier progress for the building machine, 8 October 2026
 
+Latest integration: `2fb5f888`, waitlist identity correction and bounded Temporal diagnostics. Root targeted44/0/0 plus actualTemporal10/0/0 and compiler passed. Full9354Vitest21851/0/1624 was rejected by strict identity admission; next complete successor pending. Exact9354CI finished19successful/oneworkflowfailure. Earlier paragraphs retain historical scope. See latest RESULTS section for current evidence.
+
 This is progress context, not a restart instruction or a claim of completed production acceptance. Branch: `codex/production-2026-10-02`. Published/tested baseline: `a4c933ecb75d4dd46bba3a027e127df8a3b67257`. Latest local integration: `7427a7d0b0fcafeca92a1d2c768f74d0317ad9a7`, security fix `40012d75bf6734399786dbc258d972789caf44ff`; new whole-candidate gates/CI remain pending.
 
 ## Latest results

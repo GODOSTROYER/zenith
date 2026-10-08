@@ -1415,6 +1415,18 @@
           "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-08-ci-e4c0c237-final.json",
           "runId": 37734039686,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37734039686"
+        },
+        {
+          "level": "local_engine",
+          "commit": "9354a3f5629f1efe91ea1a7d7e7b6291569be38f",
+          "result": "Complete nativeMac21851P0F1624S/Vitestexit0, strictverifierfailed one randomUUID case identity. All1046runtimefiles/cleanup/endbinding confirmed. Stabletitle successor44P0F0S exactCounter/lint0; actualPythoncollector6P0F0S separate. Fresh coherent full successor pending.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-unit-identity.json"
+        },
+        {
+          "level": "contract",
+          "commit": "2fb5f888cf53a8473c42997fbbfa94ac4808cb17",
+          "result": "Root combined compilerexit0 after reviewed waitlist identity fix and bounded Temporal diagnostic integration. No test/gate weakening; full candidate successor pending.",
+          "artifact": "docs/build/production/evidence/PROD-OBS-04/2026-10-08-owned-temporal-diagnostics.json"
         }
       ],
       "requiredEvidence": [
@@ -1819,6 +1831,13 @@
           "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-08-ci-e4c0c237-final.json",
           "runId": 37734039686,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37734039686"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "9354a3f5629f1efe91ea1a7d7e7b6291569be38f",
+          "runId": 37749426058,
+          "result": "All20jobs terminal:19success/1workflowsfailure. Unit21828P0F1647S. PlatformPG3772P0F15S/all1156mandatorypassed. Workflows1376P0assertF2S/one failedsuite startup+custody; exit1. Nativeworkers/platformfourjobs success conclusions, per-case latest inspection remains open. CI09 stays in_progress.",
+          "artifact": "docs/build/production/verification/CI-2026-10-08-9354a3f5.md"
         }
       ],
       "requiredEvidence": [
@@ -3751,6 +3770,16 @@
           "environment": "This8GiB Mac; Docker configured6144MiB memory4096MiB swap,VirtioFS,ResourceSaveroff; intended native API768MiB/worker1024MiB not started",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-reduced-resource-local.json",
           "result": "Resource blocked before service startup:24.68GiB initial free fell to21.77GiB during required image pulls; exit130,zero tests/containers. Owned downloaded images/network removed; baseline resources preserved. No signed-in/default scheduling/runbook/telemetry/installed-agent acceptance. NOT_READY maintenance draft unrun; builder wiring and Linux delegation admission remain explicit."
+        },
+        {
+          "level": "local_engine",
+          "commit": "9354a3f5629f1efe91ea1a7d7e7b6291569be38f",
+          "sourceDirty": true,
+          "sourceFreezeSha256": "ca059bda3200b9ac56be008e9d76230c262ef9138ae2fd18b4afbaa72f583f65",
+          "result": "Actual nativeMac targeted10P0F0S, exact10 identities, owned durable restart/overlap controls and independently confirmedcleanup/endbinding. Eightmodels/tworealTemporal cases; modeled job outcomes. Remote9354startup cause unreproduced; default effects open.",
+          "artifact": "docs/build/production/evidence/PROD-OBS-04/2026-10-08-owned-temporal-diagnostics.json",
+          "fixCommit": "98a3f6f5de1e0d11de378cfe995db8642f6cc182",
+          "integrationCommit": "2fb5f888cf53a8473c42997fbbfa94ac4808cb17"
         }
       ],
       "requiredEvidence": [
@@ -5187,11 +5216,11 @@
   ],
   "sessionState": {
     "status": "bounded_ownership_security_fix_integrated_current_combined_gates_pending",
-    "sourceCheckpoint": "d25b1a859d6de7f71110e2bd70c3fcabbfbff1db",
+    "sourceCheckpoint": "2fb5f888cf53a8473c42997fbbfa94ac4808cb17",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "351fa2b6497e10beeeeb7432445035e0a1182b4e",
-    "lastPushedRun": 37745436240,
-    "lastPushedRunStatus": "19_of_20_jobs_success_verify_live; exact351_only",
+    "lastPushedCommit": "9354a3f5629f1efe91ea1a7d7e7b6291569be38f",
+    "lastPushedRun": 37749426058,
+    "lastPushedRunStatus": "terminal_19_success_1_workflows_failure_exact9354",
     "currentVerification": "docs/build/production/CURRENT-VERIFIER-CONTEXT.md",
     "remainingLocalPackets": {
       "integratedRepairs": "40012d75 security CAS integrated7427a7d0; d25b1a85 ten mandatory PG identities. Rootnative17/0/0 and mixed124/0/0, compiler/lint/review accepted; broader writer/preissued policy open.",
@@ -5225,7 +5254,8 @@
         "Smoke",
         "Verify Gimbal assets"
       ]
-    }
+    },
+    "currentWork": "Reviewed stable waitlist identity and bounded Temporal diagnostics integrated; compiler0; complete fresh candidate gates/CI and default local journey remain open."
   },
   "sessionHistory": [
     {

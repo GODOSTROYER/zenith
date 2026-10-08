@@ -83,3 +83,22 @@ Decisions and honest limits:
 ## 5. Suggested ledger implementationStatus
 
 `release_pipeline_digest_provenance_migration_approval_progressive_gcp_rollback_readback_wired_verification_pending_live_provider_and_attestation_open`
+
+## J6 source build join (2026-10-08)
+
+The isolated BuildKit controller and gated default-port source/build/migration/
+readiness/readback harness are in tests/providers/kubernetes/build/kind.test.ts.
+Use the exact Mac setup and commands in PROD-LIFE-09.md, J6 addendum.
+Built artifacts already require attested provenance, and the built-admission
+verifier is registered by createPlatformReleaseSafety. Set
+ZENITH_RELEASE_MIN_PROVENANCE=attested for this rehearsal.
+
+The harness builds a small static non-root server, verifies its registry OCI
+provenance, runs a one-off fixture command Job, checks readiness and the serving
+digest, then reads the running HTTP body through the real API server.
+The fixture command does not perform a SQL migration; SQL expand/contract and migration-pause verification remain in the LIFE-10/J2 lane.
+It does not replace the full Temporal/human-approval/progressive/code-rollback/
+reviewed-data-restore lanes or erase their remaining gaps. Assembly must select
+the isolated default build port and provision its runtime/proxy prerequisites.
+No kind, PostgreSQL, Temporal or browser test ran on this Windows machine.
+Status: implementation_complete_verification_pending.

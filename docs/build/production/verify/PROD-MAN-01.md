@@ -301,3 +301,22 @@ Verify with: `npx vitest run tests/execution/zenith-destroy-databases.test.ts te
 3. `connection.createZenith` has no PGlite lifecycle test (needs a configured substrate fixture); the preflight/verify branch
    is covered only at contract level.
 4. Assembler: add the two new test files to the gate manifest lanes.
+
+## J6 managed source build replacement (2026-10-08)
+
+The new owned builder is src/lib/providers/kubernetes/build, with its trusted
+toolchain and proxy in deploy/zenith-managed/build. Select its
+createZenithBuildPort from src/lib/platform/release.ts at assembly, preserving
+startBuildOnce and all authority guards. Keep the current source-store hand-off
+and its 700 KiB cap; its archive/workspace/environment hashes are re-read before
+any source execution. Provision explicit read access to the proxy baseline and
+RuntimeClass in the managed build session/RBAC. Do not change tenant sessions.
+
+Exact Mac image resolution, lean kind setup, runtime prerequisites and test
+commands are in PROD-LIFE-09.md's J6 addendum. The new kind harness constructs
+createDefaultManagedSubstrate and createReleasePorts without port/session/
+credential/product doubles and requires a real seeded disposable environment.
+Until assembly selects this factory, its probeUID assertion fails on the old
+kaniko-style factory. Local adapter proof is distinct from J1/J2's whole operated
+default product journey and live managed-cloud acceptance, which remain pending.
+Status: implementation_complete_verification_pending.

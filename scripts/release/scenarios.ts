@@ -174,7 +174,7 @@ export const SCENARIOS: readonly Scenario[] = [
   },
   {
     id: "export", title: "Export and portability", requirements: ["PROD-REL-01", "PROD-LIFE-11"],
-    lanes: [{ id: "export", kind: "local_engine", files: ["tests/hosted/export/roundtrip.test.ts", "tests/portability/store.test.ts", "tests/portability/postgres-engine.test.ts", "tests/release/drivers/d4.test.ts", "tests/release/drivers/export-data.test.ts"] }],
+    lanes: [{ id: "export", kind: "local_engine", files: ["tests/hosted/export/roundtrip.test.ts", "tests/portability/store.test.ts", "tests/portability/postgres-engine.test.ts", "tests/release/drivers/d4.test.ts", "tests/release/drivers/export-data.test.ts", "tests/release/drivers/export-data-postgres.test.ts", "tests/release/drivers/export-data-mysql.test.ts", "tests/release/drivers/export-data-objects.test.ts"] }],
     limits: "--local-targets selects the gated operated driver: approved LIFE-11 PostgreSQL/MySQL/MinIO data roundtrips with exact tenant content readback, followed by independent infrastructure apply to owned LocalStack. A second real cloud provider remains live-deferred.",
   },
   {

@@ -33,7 +33,8 @@ export interface DataLeg {
    * Seed both tenants into SEPARATE export units: tenant_a/tenant_b databases,
    * or drv4-<runId>-data-a/b buckets. LIFE-11 exports a whole database/bucket.
    * SQL endpoints are admin endpoints; object endpoint.bucket selects ctx.tenant.
-   * Create the corresponding empty target databases/buckets too. Preserve
+   * PostgreSQL creates the empty target databases; orchestration provisions
+   * MySQL databases and tagged object target buckets before seedSource. Preserve
    * knownData row fields and object keys; return an independent source witness.
    */
   seedSource(ctx: LegContext): Promise<Witness>;

@@ -6,13 +6,22 @@ is labelled `local_operated_rehearsal`; it never establishes live or production
 acceptance. No migrations, dependency metadata, credentials, commits or cloud API
 calls were added or performed.
 
-Customer-data follow-up integration: DRV-4M and DRV-4O own the MySQL/object legs.
-They must implement the separate database/bucket contract in `export-data-leg.ts`;
-the source/target readbacks cannot share a tenant export unit. The deliberately
-temporary `export-data-helper-stubs.d.ts` supplies only their type signatures for
-this worker's typecheck. Remove it when merging the two real helper files, rerun
-typecheck/scoped helper tests, then run the Mac lane below. Missing helper runtime
-imports fail; the stub cannot produce an operated pass.
+Customer-data wiring round after the helper merge at `399bd27b`: all three real
+legs are imported, and `export-data-helper-stubs.d.ts` is deleted. MySQL seeds
+`tenant_a` and `tenant_b` in separate databases; each tenant's object keys occupy
+its own `drv4-<runId>-data-a/b` bucket. Orchestration creates the MySQL databases
+in both owned containers and tags both empty object targets with
+`zenith-owner=DRV4-DATA:<runId>` before seeding. Verified MySQL TLS, table ownership
+comments and bucket tags are preserved. Whole-unit independent readbacks and
+foreign-target emptiness refuse leakage; all four MySQL table/object bucket
+cleanup responsibilities are attempted even after an ownership refusal.
+Socket-only image initialization is not treated as TCP readiness: both published
+database endpoints are probed before seeding, with verified TLS for MySQL and
+bounded retries while the final listener starts.
+
+The three offline leg tests are registered additively in the export component
+lane. They exercise protocol fakes and cannot certify real engine acceptance;
+the exact gated Mac lane below remains required.
 
 ## Files and acceptance mapping
 
@@ -189,6 +198,84 @@ Suggested ledger status: `implementation_complete_verification_pending` for the
 DRV-4 slice of PROD-REL-01; the whole requirement is not promoted.
 
 ## Builder commands and observed counts
+
+### Wiring round on 399bd27b
+
+Current working-tree inventory: nine modified files, one added and one deleted.
+Modified: `scripts/release/drivers/{export-data,export-data-leg,export-data-mysql,export-data-objects}.ts`,
+`scripts/release/scenarios.ts`, `tests/release/drivers/{export-data-mysql,export-data-objects}.test.ts`,
+this runbook and `PROD-LIFE-11.md`. Added:
+`tests/release/drivers/export-data-postgres.test.ts`. Deleted:
+`scripts/release/drivers/export-data-helper-stubs.d.ts`. All changes remain
+uncommitted. No migration, dependency metadata or cloud API changes.
+
+All shell commands prepend
+`$env:PATH = 'C:\Users\user\.local\sdk\node22;' + $env:PATH`.
+Exact verification commands for this wiring round:
+
+```powershell
+npx vitest run tests/release/drivers/export-data-postgres.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/release/drivers/export-data-mysql.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/release/drivers/export-data-objects.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/release/drivers/export-data-postgres.test.ts tests/release/drivers/export-data-mysql.test.ts tests/release/drivers/export-data-objects.test.ts tests/release/drivers/export-data.test.ts tests/release/drivers/d4.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/release/acceptance-scenarios.test.ts --no-file-parallelism --maxWorkers=2
+npx eslint tests/release/drivers/export-data-postgres.test.ts
+npx eslint scripts/release/drivers/export-data-objects.ts tests/release/drivers/export-data-objects.test.ts
+npx eslint scripts/release/drivers/export-data.ts scripts/release/drivers/export-data-mysql.ts tests/release/drivers/export-data-mysql.test.ts
+npx eslint scripts/release/drivers/export-data.ts scripts/release/drivers/export-data-mysql.ts scripts/release/drivers/export-data-objects.ts scripts/release/scenarios.ts tests/release/drivers/export-data-postgres.test.ts tests/release/drivers/export-data-mysql.test.ts tests/release/drivers/export-data-objects.test.ts
+npx eslint scripts/release/drivers/export-data-leg.ts
+npx eslint scripts/release/drivers/export-data.ts
+bash Z:/Projects/Spawned.ai/zenith-wt/.resume/codex/tsc-serial.sh
+node node_modules/tsx/dist/cli.mjs scripts/release/acceptance-orchestrator.ts check
+git diff --check -- scripts/release/drivers/export-data-objects.ts tests/release/drivers/export-data-objects.test.ts
+git diff --check
+```
+
+- PostgreSQL focused command ran twice: initially 11 passed / 1 failed / 0 skipped;
+  final 12 / 0 / 0. A new corruption test expected the wrong substring of the
+  existing `Independent content readback mismatch` error; corrected, no assertion
+  removed.
+- MySQL focused command ran twice: first 12 / 0 / 0; after adding preflight and
+  corruption coverage, 10 passed / 3 failed / 0 skipped. The insecure-source tests
+  correctly caught target connections occurring before source validation. The code
+  now validates both endpoints before any connection; the assertion is unchanged.
+- Objects focused command: 18 / 0 / 0.
+- Combined five-file command: **81 passed / 0 failed / 0 skipped**, five files.
+  Repeated after the review caught socket-only initialization readiness; the final
+  repeat also passed **81 / 0 / 0**. Independent review confirmed both published
+  endpoints are probed and transient refusals retry before the pair is returned.
+- Registry unit command: 7 / 0 / 0. CLI check: exit0, 19 scenarios, 84 mapped files
+  present, including the three dedicated leg test files.
+- Each completed lint command above: exit0, 0 errors / 0 warnings.
+- Both serialized typechecks passed (exit0, 0 errors); the second follows the
+  actual TCP/TLS readiness fix. This round has no helper stubs; the compiler reads
+  the actual leg implementations.
+- Whitespace checks passed: five root invocations and one helper scoped invocation,
+  0 failed. Read-only `git status --short`,
+  `git log --oneline -10`, `git diff --stat`, `rg --files`, `Get-Content` and
+  `Select-Object` have no test counts. One combined delete/add patch on the same
+  test path was rejected atomically by the patch tool; the full updated test file
+  was written once afterward, retaining the security/ownership assertions.
+
+Provably stale helper expectations changed to match whole-unit export isolation:
+MySQL still binds all six rows, now three per separate database with two source
+transactions and independently reopened reads. Cleanup covers both source
+databases and both target databases (three populated tables in the modeled
+roundtrip), while preserving unowned data and continuing other cleanup.
+Objects now have two source buckets of three original keys instead of one bucket
+of six tenant-prefixed keys; prefix rejection becomes exact selected-content
+validation plus independently tagged foreign-target emptiness. The mock separates
+source/target engines by endpoint because their tenant bucket names match.
+Ownership tests retain nine object removals across the modeled source/restore
+and require four bucket removals. Plaintext, unverified-chain and wrong-identity
+TLS refusals remain asserted.
+
+Not run: real operated data roundtrips (needs Mac Docker, PostgreSQL/MySQL/MinIO,
+Temporal, kind, browser and trusted private CA). No observed skip count is claimed
+for them. A second real cloud provider stays live-deferred. Exact lean-profile
+Mac commands and the 17/0/0 operated receipt requirement above remain unchanged.
+No deviation from the wiring handoff. Suggested commit:
+`fix(release): isolate tenant export data units`.
 
 ### Customer-data follow-up builder verification
 

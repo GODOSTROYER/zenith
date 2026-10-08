@@ -27,7 +27,7 @@ transport with verified chain and hostname. There is no TLS verification bypass.
 The split leg contract is `scripts/release/drivers/export-data-leg.ts`. SQL legs
 derive `tenant_a`/`tenant_b` from the admin endpoint and preserve `knownData` rows;
 object legs use `drv4-<runId>-data-a/b` buckets and preserve its object keys.
-`seedSource` prepares both empty target units and returns independently read source
+Fixture provisioning and `seedSource` prepare both empty target units and return independently read source
 content. `readTarget` supports empty targets and source-as-target readback.
 Ownership-checked cleanup attempts both endpoints even after a failure. PostgreSQL,
 MySQL and object legs compose through `export-data.ts`; receipt validation is

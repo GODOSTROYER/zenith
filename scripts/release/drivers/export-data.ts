@@ -2,13 +2,16 @@
 import { randomBytes } from "node:crypto";
 import { chmodSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { S3Client, CreateBucketCommand } from "@aws-sdk/client-s3";
+import postgres from "postgres";
+import { S3Client, CreateBucketCommand, PutBucketTaggingCommand } from "@aws-sdk/client-s3";
 import { browserRequest, ok, action, nonce, until, command, ensure, privateFile } from "../../../tests/e2e/default/support.mjs";
 import { readState, save } from "../../acceptance/default-stack/runtime.mjs";
 import { OwnedCleanup } from "./protocol";
 import { approveOperation, connectKind, createTenant, deployKind, detailOf, type OperatedContext, type Tenant } from "./operated";
 import { assertHttpRefusal } from "./two-tenants";
-import { postgresLeg } from "./export-data-postgres";
+import { postgresEndpoint, postgresLeg } from "./export-data-postgres";
+import { mysqlLeg } from "./export-data-mysql";
+import { objectStoreLeg } from "./export-data-objects";
 import type { DataLeg, LegContext, LegEndpoint } from "./export-data-leg";
 import { DATA_KINDS, DataProofSchema, assertEqualContent, fixtureContainerName, hash, knownData, objectWitness, pinnedFixtureImages, rowWitness, type DataKind } from "./export-data-plan";
 
@@ -118,10 +121,26 @@ async function databasePair(ctx: OperatedContext, cleanup: OwnedCleanup, network
       kind === "postgres" ? { POSTGRES_PASSWORD: password } : { MYSQL_ROOT_PASSWORD: password, MYSQL_ROOT_HOST: "%" }, args, mounts, name);
     pair.push(container);
     await until(async () => serverSql(container, kind, "select 1;").then(() => true).catch(() => false), (ready: boolean) => ready);
+    if (kind === "mysql") await serverSql(container, kind,
+      "CREATE DATABASE tenant_a CHARACTER SET utf8mb4 COLLATE utf8mb4_bin; CREATE DATABASE tenant_b CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;");
   }
   const [source, target] = pair as [Container, Container];
   const endpoint = (c: Container): LegEndpoint => ({ url: `${kind}://127.0.0.1:${c.port}/${kind === "postgres" ? "postgres" : "mysql"}`, user, password,
     ...(kind === "mysql" ? { caFile: path.join(ctx.config.stackDirectory, "tls/ca.crt") } : {}) });
+  // Stock images briefly run socket-only initialization servers. A socket query
+  // allows provisioning but cannot establish readiness for host or worker TCP.
+  for (const container of pair) await until(async () => {
+    try {
+      const host = endpoint(container);
+      if (kind === "mysql") {
+        // The real leg verifies the CA chain, IP identity and TLS before any SQL.
+        return (await leg.readTarget({ runId: ctx.input.runId, ownerLabel: `DRV4-DATA:${ctx.input.runId}`,
+          tenant: "a", source: host, target: host })).count === 0;
+      }
+      const sql = postgres(postgresEndpoint(host), { max: 1, ssl: false, prepare: false, connect_timeout: 5, onnotice: () => undefined });
+      try { await sql`select 1`; return true; } finally { await sql.end({ timeout: 5 }); }
+    } catch { return false; } // Initial listener refusal is retried within the bounded readiness deadline.
+  }, (ready: boolean) => ready);
   return { source, target, sourceEndpoint: endpoint(source), targetEndpoint: endpoint(target), password, user };
 }
 async function platformFixtureSql(ctx: OperatedContext, sql: string): Promise<string> {
@@ -204,9 +223,6 @@ export async function operatedDataRoundtrips(ctx: OperatedContext): Promise<void
     stores = [await storage(ctx, cleanup, network, images.object_store, "source"), await storage(ctx, cleanup, network, images.object_store, "target")];
     for (const letter of ["a", "b"] as const) await stores[0].client.send(new CreateBucketCommand({ Bucket: bucket("artifacts", letter, ctx.input.runId) }));
   });
-  const [{ mysqlLeg }, { objectStoreLeg }] = await Promise.all([
-    import("./export-data-mysql"), import("./export-data-objects"),
-  ]);
   const legs: DataLeg[] = [postgresLeg, mysqlLeg, objectStoreLeg];
   ensure(JSON.stringify(legs.map(l => l.kind)) === JSON.stringify(DATA_KINDS), "complete-data-leg-inventory");
   for (const leg of legs) await ctx.step(`${leg.kind.replace("_", "-")}-data-roundtrip`, async () => {
@@ -218,6 +234,11 @@ export async function operatedDataRoundtrips(ctx: OperatedContext): Promise<void
     const legContext: LegContext = { runId: ctx.input.runId, tenant: "a", ownerLabel: `DRV4-DATA:${ctx.input.runId}`,
       source: pair?.sourceEndpoint ?? objectEndpoint(stores[0]), target: pair?.targetEndpoint ?? objectEndpoint(stores[1]) };
     engines.add(() => leg.cleanup(legContext)); // before seed, even partially failed setup gets settled
+    if (kind === "object_store") for (const letter of ["a", "b"] as const) {
+      const Bucket = bucket("data", letter, ctx.input.runId);
+      await stores[1].client.send(new CreateBucketCommand({ Bucket }));
+      await stores[1].client.send(new PutBucketTaggingCommand({ Bucket, Tagging: { TagSet: [{ Key: "zenith-owner", Value: legContext.ownerLabel }] } }));
+    }
     const before = await leg.seedSource(legContext);
     const expected = (letter: "a" | "b") => kind === "object_store" ? objectWitness(knownData(ctx.input.runId, letter).objects) : rowWitness(knownData(ctx.input.runId, letter).rows);
     assertEqualContent(expected("a"), before);

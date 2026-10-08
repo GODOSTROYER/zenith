@@ -8,6 +8,7 @@ import { execFile } from "node:child_process";
 import { chmod, lstat, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
+import { Duplex } from "node:stream";
 import { join } from "node:path";
 import { createSecureContext, TLSSocket } from "node:tls";
 import { spawnMysqlCli, type CliResult } from "@/lib/portability/engines/mysql";
@@ -73,7 +74,10 @@ async function fixture(key: Buffer, cert: Buffer, tls = true): Promise<Fixture> 
       // bytes to the same socket before installing its TLS record parser.
       socket.pause();
       if (bytes.length > 36) socket.unshift(bytes.subarray(36));
-      const secure = new TLSSocket(socket, { isServer: true, secureContext: context });
+      // A generic duplex feeds the unshifted ClientHello to TLS; wrapping the
+      // native handle directly bypasses the raw socket's buffered tail.
+      const transport = Duplex.from({ readable: socket, writable: socket });
+      const secure = new TLSSocket(transport, { isServer: true, secureContext: context });
       trackSocket(secure);
       secure.setTimeout(5000, () => secure.destroy());
       let encrypted = Buffer.alloc(0);

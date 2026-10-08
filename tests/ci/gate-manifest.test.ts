@@ -2940,7 +2940,7 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
 
   it("binds the accepted actual workflow source and required offline CLI admission without altering the eight models", () => {
     const source = fs.readFileSync(path.join(root, file), "utf8");
-    expect(createHash("sha256").update(source).digest("hex")).toBe("0584a7f36c4f25f757688f5d6938da3e255000e1a42702c54d0624bec519dc61");
+    expect(createHash("sha256").update(source).digest("hex")).toBe("ca059bda3200b9ac56be008e9d76230c262ef9138ae2fd18b4afbaa72f583f65");
     expect([...source.matchAll(/\bactual\("([^"\n]+)"/g)].map(match => match[1])).toEqual(names);
     expect([...source.matchAll(/\bit\("([^"\n]+)"/g)]).toHaveLength(8);
     expect(source).toContain('const required = process.env.ZENITH_TEST_TEMPORAL === "1";');

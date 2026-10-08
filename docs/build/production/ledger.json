@@ -5053,15 +5053,16 @@
   ],
   "sessionState": {
     "status": "kind56_passed_validator_repaired_successor_ci_and_default_stack_open",
-    "sourceCheckpoint": "0f995b44391bf935df262f729cde688bf8af1a2f",
+    "sourceCheckpoint": "455d12e547c4cfdd42a050a0bb6a68167a6a038e",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "5f4b0516471614bb78a4cbaa526e36306abbd7c1",
-    "lastPushedRun": 37716368194,
-    "lastPushedRunStatus": "terminal_19_success_1_verify_failure_across20_jobs",
+    "lastPushedCommit": "455d12e547c4cfdd42a050a0bb6a68167a6a038e",
+    "lastPushedRun": 37720373970,
+    "lastPushedRunStatus": "in_progress_exact455d",
     "currentVerification": "docs/build/production/WIP-HANDOFF-2026-10-08.md",
     "remainingLocalPackets": {
       "integratedRepairs": "12547335 validator performance;0f995b44 exact kind read ceiling. Normal publication pending.",
-      "nativeBuild": "0f native standalone attempt exited1; finalization PermissionError before terminal receipt. Custody/cleanup unresolved."
+      "nativeBuild": "Fresh455d build failed diskfloor23518019584bytes, child143; separate native-group proof and bounded runtime cleanup succeeded, recovered1011752960bytes. Raw/auth/controllers preserved; older unregistered attempt untouched.22.84GiBfree insufficient measured build/cold-stack headroom.",
+      "defaultStackPreparation": "Private source-bound preparation:25 SQL and43 migration files independently matched; five ARM64 registry manifests,753049784 compressed bytes. Expanded storage/cold admission unproved, no pulls/startup. Reduced profile deviates from shipped installer."
     },
     "permissions": {
       "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Arnav Bule.",
@@ -5078,7 +5079,7 @@
     },
     "recordedAt": "2026-10-08",
     "nativeRun": 37578066955,
-    "cleanup": "All fresh successful native engine/protocol fixtures cleaned. Earlier failed PostgreSQL/certificate attempts retained; no blind deletion. Storage helper found zero new safe cache.",
+    "cleanup": "Fresh native fixtures/kind cleaned. Failed Next4968runtime removed only after independently proven group absence and frozen custody; nine outside-runtime files unchanged. Older559a/failedPGdatasets retained. Storagehelper0safeextra.",
     "nativeSkippedPlatformsRun": 37578066934,
     "lastPushedUnitResult": {
       "passed": 21825,

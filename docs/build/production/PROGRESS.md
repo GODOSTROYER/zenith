@@ -1,3 +1,7 @@
+## Native build resource successor, 8 October 2026
+
+Published455d12e5 CI still running; native workers each22/22 and both native platform leaves passed. Fresh native Mac Next build failed diskfloor after99.97s, child143. Separate owned-runtime cleanup succeeded, recovered1,011,752,960 bytes; retained logs/Auth/evidence and older attempt preserved. Current22.84GiB free, insufficient measured build/cold-stack headroom. Storage helper found0safe extra cache. All25SQL/43migration and five ARM64 image metadata prerequisites prepared; no pulls/services/installation acceptance. Ledger10verified/49in_progress/19planned across78; release flags false. [Exact results and building-machine context](WIP-HANDOFF-2026-10-08.md).
+
 ## Kind acceptance and publication checkpoint, 8 October 2026
 
 Integrated source `0f995b44391bf935df262f729cde688bf8af1a2f` includes validator repair `12547335` and independently reviewed kind minter fixture repair `0f995b44`. Root executed all 293 gate controls and 160 report regressions, with zero failures/skips; compiler and affected lint passed. No timeout, assertion, required identity or native100 count changed.

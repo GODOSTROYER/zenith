@@ -1,3 +1,5 @@
+Results: PROD-CI-09 verified for exact e4c0c237,20/20 terminal CI jobs; PROD-CI-08 native bootstrap86/0/0 plus remote unit21826/0/1637, complete native local gate still pending. [Current milestone](verification/RESULTS-2026-10.md#green-e4-ci-and-native-bootstrap-acceptance-8-october-2026).
+
 ## Results: green published baseline, 8 October 2026
 
 Results: PROD-CI-09 verified for exact b9191887 after 20/20 terminal jobs; CI08 remains in_progress. Later root 74729261 native browser 44/0/0 is separately accepted, fresh diagnostic publication CI pending. Original bootstrap/default-stack and external gates stay open. [Every job](verification/CI-2026-10-08-b9191887.md), [current evidence](verification/RESULTS-2026-10.md#green-published-baseline-and-integrated-browser-diagnostics-8-october-2026).

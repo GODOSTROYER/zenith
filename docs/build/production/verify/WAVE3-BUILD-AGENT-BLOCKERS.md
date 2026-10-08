@@ -1,3 +1,7 @@
+## Verifier milestone, 8 October 2026
+
+Exact e4c0c237 CI20/20 is green, including native packaged AMD64/ARM64. Native bootstrap86/0/0 now includes the real OpenTofu case; only private verification harness archive layout/socket paths changed. No product code or builder-owned source changed. Full native Node/DOM gate remains pending. Default stack is resource-blocked: [cold metadata lower bound](../evidence/PROD-CI-08/2026-10-08-default-cold-storage-lower-bound.json) leaves less than0.4GB above22GiB before DB/overlay/swap, with no safe expanded upper bound. Current25SQL/43 registry and native build input bindings match retained artifacts; avoid rebuilding unchanged bytes. No cloud/DNS/private App or business permission granted. See current RESULTS for exact scope; no new requirement or release promotion.
+
 ## PROD-MACH-02 security finding, 8 October 2026
 
 Independent Astra review confirmed a bearer-expiry gap on integrated0f995b44. Verifier left builder-owned source untouched.

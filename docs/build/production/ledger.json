@@ -716,7 +716,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "native_browser44_passed_integrated74729261_full_local_gate_and_publication_ci_pending",
+      "implementationStatus": "remote20_and_native_bootstrap86_passed_e4c0c237_full_native_local_gate_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -1395,6 +1395,24 @@
           "command": "Exact-source owned native agent-browser controller; private3072MiB Node old-space profile; continuous22GiBfloor and owned cleanup",
           "environment": "DarwinARM64 native Node22.23.3, actualChrome1280/380, declared identity-provider double; noDocker/cloud/defaultSupabase/375pxWCAG claim",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-browser-heap3072-passed.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "e4c0c23782b5deb6b5b385ef58b504588d3a546b",
+          "result": "86 passed /0 failed /0 skipped /0 excluded in67.31s; original bootstrap file, one real OpenTofu init/validate/test case and85 ordinary controls. Independent source/provider/sandbox/floor/cleanup review accepted. No seven separately observed mock-run records or cloud/default installation claim.",
+          "command": "Original Node Vitest bootstrap-templates.test.ts, project=node, no file parallelism, maxWorkers=1, reporting-only JSON; ZENITH_TEST_TOFU=1 with owned short PLUGIN_UNIX_SOCKET_DIR",
+          "environment": "Darwin ARM64 native Node22.23.3/OpenTofu1.12.5/hashicorp AWS6.68.0;1536MiB Node heap; validation/test external network denied, IPv4/IPv6/Unix positive controls and externalEPERM passed",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-bootstrap86-passed.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "e4c0c23782b5deb6b5b385ef58b504588d3a546b",
+          "result": "20/20 terminal jobs success; unit21826 passed/0 failed/1637 skipped; all seven canonical required sets passed. Native AMD64 and ARM64 each22/0/0, no emulation, cleanup complete; remaining skipped/default/cloud scopes explicitly open.",
+          "command": "CI, Native packaged workers, Native platform smoke; inspect all jobs and authenticated artifacts on exact e4c0c237",
+          "environment": "Linux native x64/ARM64 and native Windows; Node22.23.3, each effective canonical environment/source binding retained in companion JSON",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-08-ci-e4c0c237-final.json",
+          "runId": 37734039686,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37734039686"
         }
       ],
       "requiredEvidence": [
@@ -1421,7 +1439,7 @@
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "verified_b9191887_entire20_job_cohort_observed_new_diagnostic_publication_pending",
+      "implementationStatus": "verified_e4c0c237",
       "evidence": [
         {
           "level": "remote_ci",
@@ -1789,6 +1807,16 @@
           "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-08-ci-b9191887-final.json",
           "runId": "37730455416",
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "e4c0c23782b5deb6b5b385ef58b504588d3a546b",
+          "result": "20/20 terminal jobs success; unit21826 passed/0 failed/1637 skipped; all seven canonical required sets passed. Native AMD64 and ARM64 each22/0/0, no emulation, cleanup complete; remaining skipped/default/cloud scopes explicitly open.",
+          "command": "CI, Native packaged workers, Native platform smoke; inspect all jobs and authenticated artifacts on exact e4c0c237",
+          "environment": "Linux native x64/ARM64 and native Windows; Node22.23.3, each effective canonical environment/source binding retained in companion JSON",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-08-ci-e4c0c237-final.json",
+          "runId": 37734039686,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37734039686"
         }
       ],
       "requiredEvidence": [

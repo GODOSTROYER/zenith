@@ -53,6 +53,10 @@ afterEach(() => { vi.unstubAllEnvs(); });
 
 const privileged = [
   ["/api/workspace/mfa", "PUT"],
+  ["/api/workspace/retention-destination", "PUT"],
+  ["/api/workspace/retention-destination", "DELETE"],
+  ["/api/platform/v1/runners/runner/update", "POST"],
+  ["/api/platform/v1/machines/machine/update", "POST"],
   ["/api/platform/v1/audit/exports", "POST"],
   ["/api/platform/v1/environments/env/domains", "POST"], ["/api/platform/v1/environments/env/domains/verify", "POST"], ["/api/platform/v1/environments/env/domains/revoke", "POST"],
   ["/api/platform/v1/recovery/items/item/decide", "POST"],

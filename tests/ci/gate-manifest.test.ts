@@ -29,10 +29,14 @@ function modelRoot(prefix: string): string {
 // Discovery reads only test source files. Preserve all source bytes and every
 // directory while avoiding unrelated fixture/artifact copies in deletion models.
 function copyDiscoverySources(destination: string): void {
-  fs.cpSync(path.join(root, "tests"), path.join(destination, "tests"), {
-    recursive: true,
-    filter: source => fs.statSync(source).isDirectory() || /\.test\.tsx?$/.test(source),
-  });
+  // requirementsFor(platform-postgres) discovers exactly these directories.
+  // Literal requirements remain in the manifest even when their source is absent.
+  for (const directory of ["controlplane", "capabilities", "reconcile", "effects", "repair", "coding-agent"]) {
+    fs.cpSync(path.join(root, "tests", directory), path.join(destination, "tests", directory), {
+      recursive: true,
+      filter: source => fs.statSync(source).isDirectory() || /\.test\.tsx?$/.test(source),
+    });
+  }
 }
 
 const scratch = modelRoot(path.join(os.tmpdir(), "zenith-manifest-"));
@@ -2872,6 +2876,7 @@ describe("mandatory native service.configure observations [report models]", () =
     const sourceRoot = modelRoot(path.join(scratch, "service-native-source-"));
     fs.mkdirSync(path.join(sourceRoot, "scripts/ci"), { recursive: true });
     fs.copyFileSync(path.join(root, "scripts/ci/gate-manifest.mjs"), path.join(sourceRoot, "scripts/ci/gate-manifest.mjs"));
+    for (const file of ["scripts/ci/wave6-manifest.mjs", "scripts/ci/wave6-gates.json"]) fs.copyFileSync(path.join(root, file), path.join(sourceRoot, file));
     const sourceFiles = ["go/internal/machine/ops/serviceconfigure_test.go", "go/internal/machine/ops/serviceconfigure_linux_test.go", "go/internal/machine/serviceconfigure_test.go", "go/internal/machine/executor_test.go", "go/internal/machine/ops/results_golden_test.go", "go/internal/machine/ops/serviceconfigure_golden_linux_test.go"];
     for (const file of sourceFiles) {
       fs.mkdirSync(path.dirname(path.join(sourceRoot, file)), { recursive: true });

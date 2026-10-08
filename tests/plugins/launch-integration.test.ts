@@ -15,7 +15,7 @@ import type { PluginDeps } from "@/lib/plugins/service";
 const state = vi.hoisted(() => ({
   deps: undefined as PluginDeps | undefined, authority: undefined as Awaited<ReturnType<typeof openLaunchPlatform>>["authority"] | undefined,
   member: true, role: "admin", aal: "aal2", claimsError: false, providerDown: false, session: "session-test",
-  claimsSubject: "bob", liveIdentity: true, getClaims: vi.fn(),
+  claimsSubject: "bob", liveIdentity: true, getClaims: vi.fn(), getUser: vi.fn(),
 }));
 vi.mock("@/lib/server/request", () => ({ route: (fn: unknown) => fn,
   currentRequest: () => ({ user: { id: "bob" }, workspace: { id: state.deps?.sql ? currentWorkspace : "missing" } }) }));
@@ -32,7 +32,8 @@ vi.mock("@/lib/agent-access/control/runtime", () => ({ requireControl: () => {},
     return fn();
   } }));
 vi.mock("@/lib/supabase/env", () => ({ isSupabaseConfigured: () => true, SUPABASE_URL: "https://identity.example.test", SUPABASE_PUBLIC_KEY: "" }));
-vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: { getClaims: state.getClaims } }) }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: { getClaims: state.getClaims, getUser: state.getUser } }) }));
+vi.mock("@/lib/auth/mfa-policy", () => ({ workspaceMfaControl: async () => ({ privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null }) }));
 vi.mock("@/lib/agent-access/authority", () => ({
   requireCredentialAuthority: async () => { if (!state.authority) throw new Error("no authority"); return state.authority; },
   credentialAuthority: () => state.authority,
@@ -105,6 +106,7 @@ beforeEach(async () => {
   vi.stubEnv("ZENITH_AGENT_ORIGIN", origin);
   state.member = true; state.role = "admin"; state.aal = "aal2"; state.claimsError = false;
   state.providerDown = false; state.claimsSubject = "bob"; state.session = "session-test"; state.liveIdentity = true;
+  state.getUser.mockReset().mockResolvedValue({ error: null, data: { user: { id: "bob", email_confirmed_at: new Date().toISOString(), factors: [{ factor_type: "totp", status: "verified" }] } } });
   state.getClaims.mockReset().mockImplementation(async () => {
     if (state.providerDown) throw new Error("modeled provider outage");
     return { error: state.claimsError ? new Error("invalid claims") : null,

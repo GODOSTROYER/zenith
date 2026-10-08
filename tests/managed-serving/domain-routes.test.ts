@@ -31,6 +31,11 @@ vi.mock("@/lib/server/boot", () => ({ ensureBoot: async () => undefined }));
 vi.mock("@/lib/supabase/env", async (original) => ({ ...(await original<typeof import("@/lib/supabase/env")>()), isSupabaseConfigured: () => true }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => state.user }));
 vi.mock("@/lib/waitlist/enforcement", () => ({ requireProductRequestAccess: async () => undefined }));
+vi.mock("@/lib/auth/mfa-policy", () => ({ workspaceMfaControl: async () => ({ privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null }) }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: {
+  getClaims: async () => ({ data: { claims: { sub: state.user?.id, aal: "aal2", exp: Date.now() / 1000 + 600 } }, error: null }),
+  getUser: async () => ({ data: { user: { id: state.user?.id, email_confirmed_at: state.identityVerified ? new Date().toISOString() : null, factors: [{ factor_type: "totp", status: "verified" }] } }, error: null }),
+} }) }));
 vi.mock("@/lib/hosted/access/identity", () => ({
   verifyRequestIdentity: async () => ({ subject: state.user?.id ?? "nobody", email: state.user?.email ?? "", emailVerified: state.identityVerified }),
 }));

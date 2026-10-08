@@ -603,4 +603,74 @@ Results PROD-CI-08 (8 October):648a historical77/0/0; frozen4c canonical intents
 
 ## Wave 5
 
-Assembly schema 52, aggregate 0026, release states false. Run every command in [W5-ASSEMBLY.md](verify/W5-ASSEMBLY.md) in order: (1) owned PostgreSQL16 migration/tenancy/SLO/billing/domain stores, (2) matching pg_dump/pg_restore and pinned Temporal CLI for recovery plus complete workflows, (3) OpenTofu1.12.5 provider/local-variable contracts, adversarial and Wave 5 contracts, (4) Docker/kind/Gateway API with digest-pinned registry/builder/probe images, tenant bootstrap readiness and Calico/Cilium isolation, (5) IAM-enforcing S3 emulator, (6) browser/DOM operator QA. The linked runbook supplies exact env gates and commands; W5-ASSEMBLY-ONBOARDING supplies prepared/missing namespace fixtures and cleanup. No skipped gate is a pass. Live clouds, protected release-key creation and permissions.json approval remain deferred human actions.
+Historical Wave 5 assembly used schema 52. Final integration now uses contiguous schema 58 and aggregate 0026; release states remain false. Run every command in [W5-ASSEMBLY.md](verify/W5-ASSEMBLY.md) in order: (1) owned PostgreSQL16 migration/tenancy/SLO/billing/domain stores, (2) matching pg_dump/pg_restore and pinned Temporal CLI for recovery plus complete workflows, (3) OpenTofu1.12.5 provider/local-variable contracts, adversarial and Wave 5 contracts, (4) Docker/kind/Gateway API with digest-pinned registry/builder/probe images, tenant bootstrap readiness and Calico/Cilium isolation, (5) IAM-enforcing S3 emulator, (6) browser/DOM operator QA. The linked runbook supplies exact env gates and commands; W5-ASSEMBLY-ONBOARDING supplies prepared/missing namespace fixtures and cleanup. No skipped gate is a pass. Live clouds, protected release-key creation and permissions.json approval remain deferred human actions.
+
+## Wave 6 build jobs
+
+Run sequentially on the native Mac with Node 22, the owned lean profile (8 GB), at most two Vitest workers and no file parallelism. Full commands and external prerequisite lanes are in [FINAL-INTEGRATION](verify/FINAL-INTEGRATION.md) and the committed `scripts/ci/wave6-gates.json`. Do not enable live gates without the owner scope and DEC-CLOUD approval.
+
+| Requirement | Exact Mac command |
+|---|---|
+| PROD-PKG-04 | `node scripts/ci/wave6-gates.mjs --requirement PROD-PKG-04 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-PKG-05 | `node scripts/ci/wave6-gates.mjs --requirement PROD-PKG-05 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-PKG-06 | `node scripts/ci/wave6-gates.mjs --requirement PROD-PKG-06 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MIX-01 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MIX-01 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MIX-02 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MIX-02 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MIX-03 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MIX-03 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MIX-04 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MIX-04 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MIX-05 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MIX-05 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MIX-06 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MIX-06 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MIX-07 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MIX-07 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-DUR-01 | `node scripts/ci/wave6-gates.mjs --requirement PROD-DUR-01 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-DUR-02 | `node scripts/ci/wave6-gates.mjs --requirement PROD-DUR-02 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-DUR-03 | `node scripts/ci/wave6-gates.mjs --requirement PROD-DUR-03 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-DUR-04 | `node scripts/ci/wave6-gates.mjs --requirement PROD-DUR-04 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-DUR-05 | `node scripts/ci/wave6-gates.mjs --requirement PROD-DUR-05 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-DUR-06 | `node scripts/ci/wave6-gates.mjs --requirement PROD-DUR-06 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-DUR-07 | `node scripts/ci/wave6-gates.mjs --requirement PROD-DUR-07 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-DUR-08 | `node scripts/ci/wave6-gates.mjs --requirement PROD-DUR-08 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-LIFE-01 | `node scripts/ci/wave6-gates.mjs --requirement PROD-LIFE-01 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-LIFE-03 | `node scripts/ci/wave6-gates.mjs --requirement PROD-LIFE-03 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-LIFE-04 | `node scripts/ci/wave6-gates.mjs --requirement PROD-LIFE-04 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-LIFE-05 | `node scripts/ci/wave6-gates.mjs --requirement PROD-LIFE-05 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-LIFE-06 | `node scripts/ci/wave6-gates.mjs --requirement PROD-LIFE-06 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-LIFE-07 | `node scripts/ci/wave6-gates.mjs --requirement PROD-LIFE-07 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-LIFE-08 | `node scripts/ci/wave6-gates.mjs --requirement PROD-LIFE-08 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-LIFE-09 | `node scripts/ci/wave6-gates.mjs --requirement PROD-LIFE-09 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-LIFE-10 | `node scripts/ci/wave6-gates.mjs --requirement PROD-LIFE-10 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-LIFE-12 | `node scripts/ci/wave6-gates.mjs --requirement PROD-LIFE-12 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MACH-02 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MACH-02 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MACH-03 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MACH-03 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MACH-04 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MACH-04 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MACH-05 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MACH-05 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MACH-06 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MACH-06 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-OBS-01 | `node scripts/ci/wave6-gates.mjs --requirement PROD-OBS-01 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-OBS-04 | `node scripts/ci/wave6-gates.mjs --requirement PROD-OBS-04 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MAN-01 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MAN-01 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MAN-02 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MAN-02 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MAN-03 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MAN-03 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MAN-04 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MAN-04 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MAN-05 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MAN-05 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MAN-06 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MAN-06 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-MAN-07 | `node scripts/ci/wave6-gates.mjs --requirement PROD-MAN-07 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-OPS-01 | `node scripts/ci/wave6-gates.mjs --requirement PROD-OPS-01 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-OPS-02 | `node scripts/ci/wave6-gates.mjs --requirement PROD-OPS-02 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-OPS-03 | `node scripts/ci/wave6-gates.mjs --requirement PROD-OPS-03 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-OPS-04 | `node scripts/ci/wave6-gates.mjs --requirement PROD-OPS-04 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-OPS-05 | `node scripts/ci/wave6-gates.mjs --requirement PROD-OPS-05 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-OPS-06 | `node scripts/ci/wave6-gates.mjs --requirement PROD-OPS-06 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-OPS-07 | `node scripts/ci/wave6-gates.mjs --requirement PROD-OPS-07 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-OPS-08 | `node scripts/ci/wave6-gates.mjs --requirement PROD-OPS-08 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-OPS-09 | `node scripts/ci/wave6-gates.mjs --requirement PROD-OPS-09 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-UX-01 | `node scripts/ci/wave6-gates.mjs --requirement PROD-UX-01 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-UX-02 | `node scripts/ci/wave6-gates.mjs --requirement PROD-UX-02 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-UX-03 | `node scripts/ci/wave6-gates.mjs --requirement PROD-UX-03 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-COST-01 | `node scripts/ci/wave6-gates.mjs --requirement PROD-COST-01 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-COST-02 | `node scripts/ci/wave6-gates.mjs --requirement PROD-COST-02 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-COST-03 | `node scripts/ci/wave6-gates.mjs --requirement PROD-COST-03 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-REL-01 | `node scripts/ci/wave6-gates.mjs --requirement PROD-REL-01 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-REL-02 | `node scripts/ci/wave6-gates.mjs --requirement PROD-REL-02 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-REL-03 | `node scripts/ci/wave6-gates.mjs --requirement PROD-REL-03 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+| PROD-REL-04 | `node scripts/ci/wave6-gates.mjs --requirement PROD-REL-04 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
+
+Live procedure: [one owner runbook](LIVE-ACCEPTANCE.md). All rows remain implementation_complete_verification_pending. Unsupported J2 scenario projections remain incomplete, never passed.

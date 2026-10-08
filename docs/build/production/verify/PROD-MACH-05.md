@@ -60,3 +60,14 @@ Expected: all pass. Things most likely to need a look:
 ## 6. Suggested ledger implementationStatus
 
 `implemented_unverified: runner credential modes (local_only/federated) with dispatch binding re-proof and custody mismatch refusal, local runner payload/result custody guard, shared best-effort model-visible sanitizer on MCP v3/v2/reader/runner logs; tests written, not run`
+
+
+## Wave 6 final integration
+
+Status remains `implementation_complete_verification_pending`. Node 22 only. Execute sequentially with Docker Desktop 4 GiB and one kind node; stop each heavy profile before starting another. Live acceptance stays deferred until separate owner approval.
+
+```bash
+node scripts/ci/wave6-gates.mjs --requirement PROD-MACH-05 --print > /tmp/zenith-wave6-PROD-MACH-05.commands.json
+```
+
+This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).

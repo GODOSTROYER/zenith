@@ -55,7 +55,7 @@ export async function cli(argv: readonly string[], env: Env = process.env): Prom
   if (env[gate] !== "1") throw new Error("Live acceptance is deferred; set the explicit profile gate on the Mac after DEC-CLOUD");
   const scope = loadScope(defaultManifestPath(env)); scope.assertApproved();
   const approval = Approval.parse(JSON.parse(readFileSync(privateFile("ZENITH_L3_APPROVAL_FILE", env), "utf8")));
-  const budget = env.ZENITH_L3_BUDGET_FILE;
+  const budget = env.ZENITH_LIVE_BUDGET_FILE ?? env.ZENITH_L3_BUDGET_FILE;
   if (!budget || !path.isAbsolute(budget)) throw new Error("Use one absolute owner budget FILE across all live jobs");
   const out = path.resolve(env.ZENITH_L3_OUT ?? ".data-live/l3", plan.runId);
   mkdirSync(out, { recursive: true, mode: 0o700 });

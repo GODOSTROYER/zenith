@@ -6,6 +6,7 @@ import {
   kindReadback, adminHeaders, command,
 } from './support.mjs';
 import { Machine } from './engines.mjs';
+import { enrollOperator } from './mfa.mjs';
 
 // Collection (--list) never reads a credential/config or starts an engine.
 test.skip(process.env.ZENITH_DEFAULT_JOURNEY !== '1', 'needs ZENITH_DEFAULT_JOURNEY=1, J1 stack, Mailpit, kind and Chromium');
@@ -84,6 +85,7 @@ test('default operated browser, REST, MCP and customer machine journey', async (
       const operatorB = await operator(stack, config.mailpitUrl, 'b', users);
       ensure(operatorA.id !== operatorB.id, 'independent-identities');
       await login(a, stack, operatorA); await login(b, stack, operatorB);
+      await enrollOperator(a, stack); await enrollOperator(b, stack);
     });
     await step('two-operator-workspace', async () => {
       const workspace = ok(await browserRequest(a, '/api/workspace', { name: 'Zenith J2 ' + runId })).workspace;

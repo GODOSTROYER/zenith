@@ -309,6 +309,12 @@ type Review = "guarded" | "operator-config" | "relative-or-in-process" | "provid
  * one must call a guard.
  */
 const REVIEWED: Record<string, Review> = {
+  // Trusted local operator CLI destinations; these are not server-side tenant request inputs.
+  "src/cli/plugins/launcher.ts": "operator-config",
+  "src/cli/plugins/main.ts": "operator-config",
+  "src/lib/ops/recovery/health.ts": "operator-config",
+  // Exact configured registry origin, immutable digest paths, no redirects or provider-selected token endpoint.
+  "src/lib/providers/kubernetes/build/artifact.ts": "operator-config",
   "src/lib/billing/stripe.ts": "provider-api",
   "src/lib/managed-serving/domains.ts": "dns-query",
   "src/lib/managed-serving/readiness.ts": "operator-config",

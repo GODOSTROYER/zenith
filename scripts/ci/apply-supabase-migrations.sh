@@ -305,21 +305,133 @@ echo "--- platform verification"
 
 # Tables the runtime code addresses by name. A subset check, like the agent one.
 PLATFORM_TABLES=(
-  operations idempotency_keys leases approvals policy_decisions capability_grants events evidence
-  environment_settings workspace_policy provider_connections resources resource_observations
-  resource_runtime drift_reports runners runner_registration_tokens runner_jobs runner_job_logs
-  agent_nonces machines incidents investigations cost_estimates
-  machine_runbook_versions machine_runbook_approvals machine_runbook_schedules machine_runbook_runs
-  machine_runbook_run_steps machine_runbook_audit
-  incident_signal_state incident_remediation_attempts incident_maintenance_windows incident_postmortems
-  scheduled_job_runs connection_rotations release_runs release_events release_migration_approvals
-  portability_exports portability_restores resource_adoptions plugin_registrations plugin_grants plugin_events
+  actual_spend_snapshots
+  agent_effect_receipts
+  agent_nonces
+  agent_update_controls
+  approvals
+  approved_semantics
+  approved_source_snapshots
+  audit_exports
+  billing_account_events
+  billing_accounts
+  billing_invoices
+  billing_usage_events
+  billing_webhook_events
+  build_launches
+  capability_grants
+  cleanup_owner_grants
+  cleanup_writer_deliveries
+  cleanup_writer_epoch
+  cleanup_writer_holds
+  cleanup_writer_scopes
+  coding_agent_runs
+  connection_rotations
+  cost_estimates
+  drift_reports
+  durable_intents
+  environment_settings
+  events
+  evidence
+  external_effect_events
+  external_effect_resolutions
+  external_effects
+  github_binding_events
+  github_install_intents
+  github_source_bindings
+  github_webhook_deliveries
+  github_webhook_installation_epochs
+  idempotency_keys
+  incident_maintenance_windows
+  incident_postmortems
+  incident_remediation_attempts
+  incident_signal_state
+  incidents
+  investigations
+  isolation_plan_custody
+  k
+  key_custody_keys
+  key_rewrap_jobs
+  leases
+  legal_holds
+  machine_request_logs
+  machine_requests
+  machine_runbook_approvals
+  machine_runbook_audit
+  machine_runbook_run_steps
+  machine_runbook_runs
+  machine_runbook_schedules
+  machine_runbook_versions
+  machines
+  managed_domains
+  managed_storage_keys
+  mcp_stream_events
+  mcp_streams
+  mixed_addresses
+  mixed_child_custody
+  mixed_child_intents
+  mixed_child_plans
+  mixed_child_receipts
+  mixed_output_preauthorizations
+  mixed_output_records
+  mixed_parent_plans
+  mixed_run_events
+  mixed_runs
+  operation_authority
+  operations
+  ops_maintenance
+  ops_maintenance_history
+  optimizer_settings
+  ownership_transfers
+  plan_artifact_associations
+  plan_artifact_uses
+  plan_artifacts
+  plan_custody_grants
+  plan_custody_reads
+  plugin_events
+  plugin_grants
+  plugin_registrations
+  policy_decisions
+  portability_exports
+  portability_restores
+  provider_connections
+  reconcile_state
+  recovery_epochs
+  recovery_items
+  release_events
+  release_migration_approvals
+  release_runs
+  resource_adoptions
+  resource_observations
+  resource_runtime
+  resources
+  retention_archives
+  retention_destinations
+  retention_restores
+  runner_job_logs
+  runner_jobs
+  runner_registration_tokens
+  runners
+  scheduled_job_runs
+  schema_migrations
+  slo_measurements
+  slo_samples
+  standalone_plan_backends
+  standalone_plan_settlements
+  standing_grant_uses
+  standing_grants
+  state_backend_probes
+  state_backend_restores
+  tenant_quotas
+  workflow_start_intents
+  workspace_mfa_controls
+  workspace_policy
 )
 platform_present="$(psql_safe --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select tablename from pg_tables where schemaname = 'platform' order by 1" "$SUPABASE_DB_URL")"
 for table in "${PLATFORM_TABLES[@]}"; do
   if ! printf '%s\n' "$platform_present" | grep -qx -- "$table"; then
-    echo "::error::platform.${table} is missing; 0014 did not create it." >&2
+    echo "::error::platform.${table} is missing after the full platform migration chain." >&2
     exit 1
   fi
 done

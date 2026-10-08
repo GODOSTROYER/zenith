@@ -7,7 +7,7 @@ export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 export const cliVersion = '2.75.0';
 export const installationLabel = 'io.zenith.installation';
 export const projectLabel = 'com.supabase.cli.project';
-export const ports = Object.freeze({ api: 36400, peerApi: 36401, supabase: 54321, cliApi: 54326, db: 54322, shadow: 54320, mail: 54324, pooler: 6543, cliPooler: 54329, registry: 5000 });
+export const ports = Object.freeze({ api: 36400, peerApi: 36401, supabase: 54321, cliApi: 54326, db: 54322, shadow: 54320, mail: 8025, pooler: 6543, cliPooler: 54329, registry: 5000 });
 export const fail = id => { throw new Error(`default-stack:${id}`); };
 export const minimumFreeBytes = 22 * 1024 ** 3;
 export function assertHeadroom(availableBytes) {
@@ -23,7 +23,7 @@ export function topology(profile = 'default') {
   return { profile, apis: profile === 'lean' ? 1 : 2, workers: profile === 'lean' ? 1 : 2,
     // Limits are a plan, not measured headroom or an HA claim.
     apiMiB: profile === 'lean' ? 512 : 768, workerMiB: profile === 'lean' ? 768 : 1024,
-    supabaseMiB: { db: 512, auth: 192, rest: 96, kong: 128, pooler: 256, inbucket: 64 },
+    supabaseMiB: { db: 512, auth: 192, rest: 96, kong: 128, pooler: 256 },
     poolSize: profile === 'lean' ? 5 : 15, nativeArchOnly: true, productionReady: false };
 }
 
@@ -59,8 +59,7 @@ work_mem = "4MB"
 [studio]
 enabled = false
 [inbucket]
-enabled = true
-port = ${ports.mail}
+enabled = false
 [storage]
 enabled = false
 [realtime]
@@ -79,6 +78,19 @@ enable_signup = true
 enable_signup = true
 enable_confirmations = true
 max_frequency = "1s"
+[auth.email.smtp]
+enabled = true
+host = "mailpit"
+port = 1025
+user = ""
+pass = ""
+admin_email = "auth@journey.local"
+sender_name = "Zenith local acceptance"
+[auth.mfa]
+max_enrolled_factors = 10
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
 `;
 }
 

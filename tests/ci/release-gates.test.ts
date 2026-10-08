@@ -837,7 +837,8 @@ describe("canonical execution and evidence in CI", () => {
       expect(manifest.requirements.some((item) => item.file === file)).toBe(false);
     }
     expect(manifest.externalAcceptance).toEqual(EXTERNAL_ACCEPTANCE);
-    expect(manifest.externalAcceptance).toHaveLength(7);
+    expect(manifest.externalAcceptance).toHaveLength(EXTERNAL_ACCEPTANCE.length);
+    expect(new Set(manifest.externalAcceptance.map(item => item.id)).size).toBe(EXTERNAL_ACCEPTANCE.length);
     expect(manifest.externalAcceptance[0]).toMatchObject({ id: "external-temporal-mtls", releaseBlocker: expect.stringContaining("unverified") });
     for (const external of manifest.externalAcceptance) expect(external.releaseBlocker).toContain("unverified");
     expect(manifest.tools).toMatchObject({ node: NODE_VERSION, temporal: "1.9.1" });

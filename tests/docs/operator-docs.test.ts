@@ -35,6 +35,7 @@ const SOURCE_SNAPSHOTS: Record<string, { branch: string; commit: string }> = {
   ...Object.fromEntries(["README.md", "DEPLOYING.md", "RECOVERY.md", "AWS-SETUP.md", "POLICY.md", "COST.md", "TEARDOWN.md", "BUILDS.md", "OCI-SIGNALS.md"]
     .map(name => [name, { branch: "ws/docs-sync-2", commit: "3c1fa66" }])),
   "DEPLOYING.md": { branch: "prod/compose", commit: "443bfeaf537dd5d5324d33c84fc544ede0baa632" },
+  "MFA.md": { branch: "prod/compose", commit: "9594a9e" },
   "RECOVERY.md": { branch: "prod/compose", commit: "443bfeaf537dd5d5324d33c84fc544ede0baa632" },
   "OBSERVATION-REPAIR.md": { branch: "codex/production-2026-10-02", commit: "8657abd" },
   "ECS-REPLICA-REPAIR.md": { branch: "ws/prod-ecs-replica-repair", commit: "b46fb8a" },
@@ -519,12 +520,19 @@ describe("environment variables", () => {
   ];
   const TOKEN = /\bZENITH_[A-Z][A-Z0-9_]*[A-Z0-9]\b/g;
 
+  const fileTokens = new Map<string, Set<string>>();
   function tokensIn(rel: string): Set<string> {
     const out = new Set<string>();
     const abs = path.join(REPO_ROOT, rel);
     if (!fs.existsSync(abs)) return out;
-    const files = fs.statSync(abs).isDirectory() ? [...walk(abs, ".ts"), ...walk(abs, ".tsx"), ...walk(abs, ".mjs"), ...walk(abs, ".cjs")] : [abs];
-    for (const f of files) for (const m of read(f).matchAll(TOKEN)) out.add(m[0]);
+    // Inspect the same source extensions in one directory traversal. These
+    // read-only checks share a source snapshot; each file needs tokenizing once.
+    const files = fs.statSync(abs).isDirectory() ? walk(abs, "").filter(file => /\.(?:ts|tsx|mjs|cjs)$/.test(file)) : [abs];
+    for (const f of files) {
+      let tokens = fileTokens.get(f);
+      if (!tokens) { tokens = new Set([...read(f).matchAll(TOKEN)].map(match => match[0])); fileTokens.set(f, tokens); }
+      for (const token of tokens) out.add(token);
+    }
     return out;
   }
 
@@ -918,7 +926,7 @@ describe("operator claims match current wiring", () => {
     const connections = source("src/app/api/platform/v1/connections/route.ts");
     expect(connections).toContain("const caller = await personOrCredentialCaller(req)");
     expect(connections).toContain("const caller = await browserCaller(req)");
-    expect(connections).toContain("return runLifecycle(caller, ACTION[provider], input, idempotencyKey(req))");
+    expect(connections).toContain("return runLifecycle(caller, ACTION[provider as keyof typeof ACTION], input, idempotencyKey(req))");
     expect(deploying).toContain("`/api/platform/v1/connections` lists scoped connections and creates GCP/Azure/OCI connections through the browser-only lifecycle adapter");
     const actions = source("src/app/(product)/platform/operations/[id]/operation-actions.tsx");
     expect(actions).toContain("plan={plan}");
@@ -1005,9 +1013,9 @@ describe("operator claims match current wiring", () => {
     const names = [...new Set([...catalog.matchAll(/\bzenith_[a-z_]+\b/g)].map((m) => m[0]))].sort();
     const mcp = source("docs/platform/MCP.md");
     const listed = [...mcp.matchAll(/^\| `(zenith_[a-z_]+)` \|/gm)].map((m) => m[1]).sort();
-    expect(names).toHaveLength(16);
+    expect(names).toHaveLength(17);
     expect(listed).toEqual(names);
-    expect(mcp).toContain("sixteen");
+    expect(mcp).toContain("seventeen");
     expect(guide("README.md")).toContain("CLI.md");
   });
 

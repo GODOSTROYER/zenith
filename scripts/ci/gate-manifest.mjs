@@ -4,6 +4,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { WAVE6_LANES, wave6Manifest } from "./wave6-manifest.mjs";
 
 export const TOFU_SUITES = [
   ["tests/tofu/network.test.ts", "real provider install through the committed lockfile (network)"],
@@ -6319,6 +6320,7 @@ export function requirementId(lane, required) {
  * @returns {GateRequirement[]}
  */
 export function requirementsFor(lane, root) {
+  if (lane.startsWith("wave6-")) return wave6Manifest(lane, root).requirements;
   let requirements;
   switch (lane) {
     case "wave5-contract":
@@ -6445,6 +6447,7 @@ export function requirementsFor(lane, root) {
  */
 /** @param {string} lane @param {string} [root] @param {string} [reportPath] @returns {GateManifest} */
 export function manifestFor(lane, root = process.cwd(), reportPath) {
+  if (lane.startsWith("wave6-")) return wave6Manifest(lane, root, reportPath);
   if (lane === "linux-guest") return linuxGuestManifest();
   if (lane === "packaged-worker") return packagedWorkerManifest();
   if (lane === "core" || lane === "fresh") return { schemaVersion: 1, lane, files: [], excludeFiles: [], env: {}, report: "", command: [], requirements: [], externalAcceptance: [], tools: { node: "22.23.3" }, prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts"], steps: lane === "fresh" ? [{ id: "install", command: ["npm", "ci", "--ignore-scripts"] }, ...CORE_CHECKS] : CORE_CHECKS, reportValidation: "Command exits establish core checks; real-engine requirements are validated by their dedicated lanes." };
@@ -6459,7 +6462,7 @@ export function manifestFor(lane, root = process.cwd(), reportPath) {
 export function main(args) {
   try {
     if (args.length > 1) throw new Error("usage");
-    const result = args[0] === "external-acceptance" ? { schemaVersion: 1, groups: EXTERNAL_ACCEPTANCE.map((group) => ({ ...group, status: "unverified", command: ["node", "node_modules/vitest/vitest.mjs", "run", group.file, "--testNamePattern", group.suite.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "--maxWorkers=1"] })) } : args[0] ? manifestFor(args[0]) : { schemaVersion: 1, lanes: ["fresh", "core", ...Object.keys(GATE_LANES), "linux-guest", "packaged-worker"].map((lane) => manifestFor(lane)) };
+    const result = args[0] === "external-acceptance" ? { schemaVersion: 1, groups: EXTERNAL_ACCEPTANCE.map((group) => ({ ...group, status: "unverified", command: ["node", "node_modules/vitest/vitest.mjs", "run", group.file, "--testNamePattern", group.suite.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "--maxWorkers=1"] })) } : args[0] ? manifestFor(args[0]) : { schemaVersion: 1, lanes: ["fresh", "core", ...Object.keys(GATE_LANES), ...WAVE6_LANES, "linux-guest", "packaged-worker"].map((lane) => manifestFor(lane)) };
     console.log(JSON.stringify(result, null, 2));
     return 0;
   } catch {

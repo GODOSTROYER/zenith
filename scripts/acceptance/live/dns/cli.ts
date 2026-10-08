@@ -4,6 +4,8 @@ import { Packet, Permissions, planner, type Provider } from "./contracts";
 import { Guard } from "./guard";
 import { livePort, run } from "./runtime";
 import { requireScope } from "../../../release/scope";
+import { reserveRunBudget } from "../shared";
+import { digest } from "./guard";
 
 export async function main(provider: Provider, args = process.argv.slice(2), env: Readonly<Record<string, string | undefined>> = process.env, dns = false): Promise<number> {
   let outputFd: number | undefined;
@@ -49,6 +51,7 @@ export async function main(provider: Provider, args = process.argv.slice(2), env
       else if (p.kind === "dns") guard.dns(p.name);
       else guard.url(p.url, p.kind === "cloud" ? "cloud" : "traffic");
     }
+    if (!args.includes("--cleanup")) reserveRunBudget(env.ZENITH_LIVE_BUDGET_FILE ?? "", { runId: packet.runId, planSha256: digest(packet), usd: packet.estimatedUsd }, scope.manifest.budgets.totalUsd);
     outputFd = openSync(out, "wx", 0o600);
     const cancelled = { value: false };
     const stop = () => { cancelled.value = true; process.stdout.write("Cancellation requested; entering bounded teardown and leak scan\n"); };

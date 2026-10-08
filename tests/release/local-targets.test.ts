@@ -2,6 +2,7 @@
 import { mkdtempSync, writeFileSync, readFileSync, unlinkSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { LOCAL_TARGETS, localTargetLane, requiredChecks, validateLocalReceipt, localEnvironment, loopbackUrl } from "../../scripts/release/local-targets";
 import { localPaths, upLocal, downLocal, assertLocalDocker } from "../../scripts/release/local-environment";
@@ -13,6 +14,7 @@ import { memoryStore } from "../../scripts/release/checkpoint";
 import { approvedScope } from "./_support";
 import { handler } from "../../fixtures/mixed-app/enricher/lambda.mjs";
 import { handler as enrich } from "../../fixtures/mixed-app/enricher/handler.mjs";
+import { maintenanceEnvironment } from "../../scripts/release/local-joined";
 import { createEnricherServer } from "../../fixtures/mixed-app/enricher/server.mjs";
 import { createStoreFromEnv } from "../../fixtures/mixed-app/web/stores.mjs";
 
@@ -24,6 +26,13 @@ const receipt = (scenarioId = "stateful-traffic") => ({
   checks: requiredChecks(scenarioId).map(id => ({ id, status: "passed" })), limits: ["Contract fixture; no engine was executed."],
 });
 describe("local target boundaries", () => {
+  it("requires scenario-specific J2 evidence and retains uncovered scenarios as incomplete", async () => {
+    const { journeyScenarioStatus } = await import("../../scripts/release/local-joined");
+    expect(journeyScenarioStatus("rotation", { status: "passed", checks: [{ id: "connection-rotation-readback", status: "passed" }] })).toBe("passed");
+    expect(journeyScenarioStatus("revocation", { status: "passed", checks: [{ id: "connection-rotation-readback", status: "passed" }] })).toBe("failed");
+    expect(journeyScenarioStatus("restore", { status: "passed", checks: [] })).toBe("skipped");
+    expect(journeyScenarioStatus("rotation", { status: "passed", checks: [{ id: "connection-rotation-readback", status: "passed" }, { id: "connection-rotation-readback", status: "passed" }] })).toBe("failed");
+  });
   it("maps all nineteen scenarios, including joined journeys, to gated targets", () => {
     expect(Object.keys(LOCAL_TARGETS).sort()).toEqual(SCENARIOS.map(s => s.id).sort());
     for (const scenario of SCENARIOS) expect(localTargetLane(scenario)).toMatchObject({ kind: "local_engine", gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT"], evidenceLabel: "local_rehearsal" });
@@ -202,3 +211,21 @@ describe("live vitest receipt honesty (faked command only, no cloud)", () => {
   });
 });
 
+describe("J4 owned maintenance environment join", () => {
+  const credential = randomBytes(24).toString("hex");
+  const base: NodeJS.ProcessEnv = { NODE_ENV: "test", ZENITH_PLATFORM_DB_URL: `postgresql://postgres:${credential}@localhost:6543/postgres`, ZENITH_TEMPORAL_NAMESPACE: "zenith-disposable", ZENITH_J4_API_ORIGIN: "http://127.0.0.1:36400" };
+  const overlay = { ZENITH_PLATFORM_DB_URL: `postgresql://postgres:${credential}@127.0.0.1:6543/j4_fresh`, ZENITH_PLATFORM_DB_MAX: "2", ZENITH_TEMPORAL_ADDRESS: "127.0.0.1:17233", ZENITH_TEMPORAL_NAMESPACE: "j4-owned", ZENITH_J4_API_ORIGIN: "http://127.0.0.1:3100", ZENITH_J4_CRON_SECRET_FILE: path.join(os.tmpdir(), "j4-cron.secret"), ZENITH_DATA: path.join(os.tmpdir(), "j4-worker"), ZENITH_SERVERLESS: "1", ZENITH_BILLING: "managed" };
+  it("derives one actual product/control database while preserving J1 credentials", () => {
+    const env = maintenanceEnvironment(base, overlay);
+    expect(env.SUPABASE_DB_URL).toBe(env.ZENITH_PLATFORM_DB_URL);
+    expect(env.ZENITH_PLATFORM_MIGRATION_URL).toBe(env.ZENITH_PLATFORM_DB_URL);
+    expect(env.ZENITH_TEMPORAL_NAMESPACE).toBe("j4-owned");
+  });
+  it.each(["http://127.0.0.1:6543/j4_fresh", `postgresql://postgres:${credential}@example.test:6543/j4_fresh`, `postgresql://postgres:${credential}@localhost:6544/j4_fresh`, `postgresql://foreign:${credential}@localhost:6543/j4_fresh`])("refuses a re-pointed database %s", url => {
+    expect(() => maintenanceEnvironment(base, { ...overlay, ZENITH_PLATFORM_DB_URL: url })).toThrow(/exact local server/);
+  });
+  it("refuses unrelated credentials, ordinary namespace and timer/billing mode changes", () => {
+    expect(() => maintenanceEnvironment(base, { ...overlay, AWS_SECRET_ACCESS_KEY: randomBytes(24).toString("hex") })).toThrow(/Unknown/);
+    for (const change of [{ ZENITH_TEMPORAL_NAMESPACE: "zenith-disposable" }, { ZENITH_SERVERLESS: "0" }, { ZENITH_BILLING: "stripe" }, { ZENITH_PLATFORM_DB_MAX: "20" }, { ZENITH_J4_API_ORIGIN: "https://example.test" }]) expect(() => maintenanceEnvironment(base, { ...overlay, ...change })).toThrow();
+  });
+});

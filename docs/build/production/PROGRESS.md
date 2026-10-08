@@ -418,3 +418,7 @@ Separate frozen `4c3d6476`: canonical workflow-intents **156/0/0**, all141 manda
 Current canonical workflows require71 groups, including the new full codec helper. Exact historical70/60/58 comparisons retain unchanged prior identities; unknown additions are not excluded. Root two-suite metadata verification345/0/0 and independent Astra source review passed; native100 stays100. Whole lint passed with0errors/3existing vendor warnings, compiler passed on4c; combined successor remains mandatory.
 
 Published `3dae8f9a` CI remains separate: native AMD64/ARM64 workers and Windows ACL/Linux systemd all successful; main13 successful jobs, workflows failed1330/1/0 (sole already-repaired same-environment rehearsal contention), verify/platform-postgres still running at inspection. No complete green or zero-skip project claim. Ledger10verified/49in_progress/19planned; all78 requirements/four false release states preserved.
+
+## Final integration build, 8 October 2026
+
+Merged prod/compose migration chain closes the unused slot at 55 and is contiguous through 58. Central step-up, SMTP/TOTP, owned issuer, local harness adapters and shared live budget/inventory/teardown are joined. Generated catalogs and unpublished aggregate regenerated. Exact local counts and remaining verifier prerequisites are in [the build report](verify/FINAL-INTEGRATION.md). No Git writes, publication, cloud execution, ledger verification promotion or release sign-off.

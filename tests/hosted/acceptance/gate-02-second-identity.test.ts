@@ -188,7 +188,7 @@ describe("Gate 2 — a second identity with no workspace membership", () => {
     expect(page.status).toBe(200);
     const html = await page.text();
     expect(html, "the page explains where the door is").toContain("Open this app from Zenith");
-    expect(html, "and links to the control origin").toContain("http://localhost:3400/apps");
+    expect(html, "and binds the launch to this app on the control origin").toContain(`http://localhost:3400/api/hosted/apps/${alpha.id}/launch?state=`);
     expect(html, "the page holds no credential field").not.toMatch(/<input/i);
   });
 
@@ -203,7 +203,7 @@ describe("Gate 2 — a second identity with no workspace membership", () => {
     });
     const res = await m.gateway.handleGateway(tampered.req, tampered.params);
     expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("/_zenith/auth/signin?error=forbidden");
+    expect(res.headers.get("location")).toBe("/_zenith/auth/signin?error=invalid_input");
     expect(cookieValueOf(res), "a mismatched state mints no session").toBeNull();
 
     // A code minted for alpha, presented on beta's host.
@@ -212,6 +212,7 @@ describe("Gate 2 — a second identity with no workspace membership", () => {
       host: appHost("beta"),
       path: `${second.pathname}${second.search}`,
       accept: "text/html",
+      cookie: `__Host-zenith_login=${second.searchParams.get("state")}`,
     });
     const wrongHost = await m.gateway.handleGateway(crossed.req, crossed.params);
     expect(wrongHost.status).toBe(303);
@@ -224,6 +225,7 @@ describe("Gate 2 — a second identity with no workspace membership", () => {
       host: appHost("alpha"),
       path: `${second.pathname}${second.search}`,
       accept: "text/html",
+      cookie: `__Host-zenith_login=${second.searchParams.get("state")}`,
     });
     const spent = await m.gateway.handleGateway(replay.req, replay.params);
     expect(cookieValueOf(spent), "a misdirected code is consumed, not left lying around").toBeNull();

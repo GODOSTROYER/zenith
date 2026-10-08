@@ -48,6 +48,15 @@ begin
     grant usage, select, update on all sequences in schema platform to service_role;
     alter default privileges in schema platform grant select, insert, update, delete on tables to service_role;
     alter default privileges in schema platform grant usage, select, update on sequences to service_role;
+    -- Direct-object custody is immutable and must not inherit aggregate DML.
+    if to_regclass('platform.isolation_plan_custody') is not null then
+      revoke all on table platform.isolation_plan_custody from service_role;
+      grant select, insert on table platform.isolation_plan_custody to service_role;
+    end if;
+    if to_regclass('platform.workspace_mfa_controls') is not null then
+      revoke all on table platform.workspace_mfa_controls from service_role;
+      grant select, insert, update on table platform.workspace_mfa_controls to service_role;
+    end if;
     -- Permanent agent receipts keep their narrower migration-specific grants.
     -- Guard absence for the exact legacy schema6 upgrade fixture.
     if to_regclass('platform.agent_effect_receipts') is not null then

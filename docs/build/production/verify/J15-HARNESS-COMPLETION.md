@@ -1,5 +1,7 @@
 # J15 harness completion build report
 
+Original J15 job record. FINAL-INTEGRATION now connects J1 readiness/state/private environment, J2 configuration/receipt protocol and J4 natural-maintenance CLI, registers the tests, and supplies native fixture image pins and the J8 pricing join. Eight scenarios still lack dedicated operated drivers: private-source, update-rollback, drift-repair, crash-partition, upgrade, restore, two-tenants and export. Their component evidence cannot satisfy end-to-end acceptance. Current checks and exact Mac plans are in [FINAL-INTEGRATION](FINAL-INTEGRATION.md); the attempt history and base-relative limitations below are retained as historical evidence.
+
 Worktree: Z:/Projects/Spawned.ai/zenith-wt/prod6-j15-harness-completion  
 Branch: prod/j15-harness-completion  
 Base: 443bfeaf537dd5d5324d33c84fc544ede0baa632  
@@ -100,4 +102,3 @@ Read-only inspection included git status/log/branch/rev-parse/diff/ls-files, rg/
 - Scope deviation: no unrelated production code edited. The runner also strengthens stale-artifact and live-Vitest skip handling because skipped or missing evidence must never become verification.
 
 Suggested commit: `feat(release): add gated local acceptance targets`
-

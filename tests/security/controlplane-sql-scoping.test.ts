@@ -27,6 +27,19 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = path.join(process.cwd(), "src", "lib", "controlplane", "db");
 const REPOS = path.join(ROOT, "repos");
+// Proofs never mutate ASTs. Cache only exact source bytes, including hostile
+// mutations, so repeated provenance checks avoid reparsing the large repository.
+// Bound the cache to keep the shared builder's memory use predictable.
+const sourceCache = new Map<string, ts.SourceFile>();
+function parseSource(file: string, source: string): ts.SourceFile {
+  const key = `${file}\0${source}`;
+  let parsed = sourceCache.get(key);
+  if (!parsed) parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  sourceCache.delete(key);
+  sourceCache.set(key, parsed);
+  if (sourceCache.size > 128) sourceCache.delete(sourceCache.keys().next().value!);
+  return parsed;
+}
 
 // COST joins add direct reads outside repositories; each new query is reviewed here too.
 const COST_SQL_INVENTORY = {
@@ -293,7 +306,7 @@ function isFixedCleanupWriteContext(fn: Fn, repo: ts.SourceFile, owning: ts.Func
 function isFixedPlanProductInterpolation(fn: Fn, expression: string, sqlText: string, composerSource: string): boolean {
   if (fn.file !== "plan-artifacts.ts" || !["claim", "dispatch", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant", "finishStandalone"].includes(fn.name)
     || expression !== "planProductDispatchPredicate(productAuthority)") return false;
-  const parse = (file: string, source: string) => ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const parse = parseSource;
   const repo = parse(fn.file, fn.source), composer = parse("plan-artifact-product-authority.ts", composerSource);
   const walk = (node: ts.Node, predicate: (node: ts.Node) => boolean): boolean => {
     if (predicate(node)) return true;
@@ -460,6 +473,8 @@ function isFixedPlanProductInterpolation(fn: Fn, expression: string, sqlText: st
  * a new entry here needs a security review, not just a reason.
  */
 const UNSCOPED: Record<string, string> = {
+  "managedServing.listRevokePending": "system-only revocation inventory under the managed-serving lease; rows carry their owning workspace and settlement rebinds key.workspaceId (domain-store.test.ts)",
+  "plugins.hasGrantTokenHash": "authentication discriminator keyed by a high-entropy token digest; returns only existence before live audience-bound grant authentication (launch-integration.test.ts)",
   "leases.acquire": "keyed by a globally unique scope string; a workspace-tagged scope refuses a foreign workspace",
   "leases.renew": "keyed by scope + holder + fence",
   "leases.release": "keyed by scope + holder + fence",
@@ -524,6 +539,21 @@ describe("control-store repositories: workspace scoping is present in every func
   it("every UNSCOPED entry still exists (a stale exemption would hide a future function of the same name)", () => {
     const names = new Set(fns.map(key));
     for (const entry of Object.keys(UNSCOPED)) expect(names.has(entry), `${entry} no longer exists; remove its exemption`).toBe(true);
+  });
+
+  it("keeps pending storage-key discovery in the system job and rebinds settlement to each row's workspace", () => {
+    const callers: string[] = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const file = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(file);
+        else if (/\.tsx?$/.test(entry.name) && readFileSync(file, "utf8").includes("listRevokePending")) callers.push(path.relative(process.cwd(), file).split(path.sep).join("/"));
+      }
+    };
+    walk(path.join(process.cwd(), "src"));
+    expect(callers.filter(file => !file.startsWith("src/lib/controlplane/")).sort()).toEqual(["src/lib/managed-serving/job.ts"]);
+    const job = readFileSync(path.join(process.cwd(), "src/lib/managed-serving/job.ts"), "utf8");
+    expect(job).toContain("markStorageKeyRevoked(db, key.workspaceId, key.id, now)");
   });
 
   it("SQL that carries a tenant id takes it as a bound parameter, never by string concatenation", () => {

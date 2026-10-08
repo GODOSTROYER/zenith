@@ -1,6 +1,7 @@
 import { Guard } from "./guard";
 import { digest, teardownOrder } from "./plan";
 import { isNativeTransport, resolveInput } from "./sdk";
+import { tagsMatch, inventoryEmpty, teardownUntilFailure } from "./shared";
 import type { Call, Check, Family, Journal, Json, Plan, ProductScenarioPort, Transport } from "./contracts";
 
 const record = (v: unknown): Record<string, unknown> => v && typeof v === "object" ? v as Record<string, unknown> : {};
@@ -14,7 +15,7 @@ export function absent(call: Call, response: Record<string, unknown>): boolean {
 export function owned(response: Record<string, unknown>, plan: Plan): boolean {
   const data = response.Tags ?? response.TagSet ?? response.TagList ?? response.tags ?? record(response.ResourceTagSet).Tags;
   const tags = Array.isArray(data) ? Object.fromEntries(rows(data).map(t => [t.Key ?? t.key, t.Value ?? t.value])) : record(data);
-  return Object.entries(plan.tags).every(([k, v]) => tags[k] === v);
+  return tagsMatch(tags, plan.tags);
 }
 export function checkReadback(family: Family, responses: Record<string, Record<string, unknown>>, plan: Plan): boolean {
   if (family === "s3") return responses["s3-read"]?.Body === plan.settings.runId && Object.values(record(responses["s3-read-private"]?.PublicAccessBlockConfiguration)).length === 4 && Object.values(record(responses["s3-read-private"]?.PublicAccessBlockConfiguration)).every(v => v === true);
@@ -114,7 +115,7 @@ export async function execute(plan: Plan, guard: Guard, transport: Transport, jo
         // resource and maximum calls, not the provider-issued opaque page token.
         guard.consume(inventory); await save();
         const out = await transport.send(inventory, { ...inventory.input, ...(page ? { PaginationToken: page } : {}) }, options.signal);
-        if (rows(out.ResourceTagMappingList).length) throw new Error("Prior live-acceptance leaks require owner recovery before a new run");
+        if (!inventoryEmpty(out.ResourceTagMappingList)) throw new Error("Prior live-acceptance leaks require owner recovery before a new run");
         page = typeof out.PaginationToken === "string" && out.PaginationToken ? out.PaginationToken : undefined;
       } while (page);
       for (const c of plan.preflight.filter(c => c.id.endsWith("-preexist"))) if (await available(c)) throw new Error("Planned resource already exists; refusing adoption/mutation");
@@ -165,12 +166,12 @@ export async function execute(plan: Plan, guard: Guard, transport: Transport, jo
     // first read alone is insufficient; marker must also be authentic.
     const authorized = responses.identity?.Account === plan.settings.accountId && typeof responses.identity?.Arn === "string" && responses.identity.Arn.startsWith(`arn:aws:sts::${plan.settings.accountId}:assumed-role/ZenithLiveAcceptance/`) && record(responses.marker?.Parameter).Value === "true" && (!journal.attempted.length || record(responses["run-claim-read"]?.Parameter).Value === plan.settings.runId);
     if (authorized) {
-      for (const fixture of teardownOrder(plan.fixtures).filter(f => journal.attempted.includes(f.family))) {
+      await teardownUntilFailure(teardownOrder(plan.fixtures).filter(f => journal.attempted.includes(f.family)), async fixture => {
         try {
           if (blocked.has(fixture.family)) throw new Error("Dependent resource not cleared");
           if (fixture.family === "dns") await discoverDns();
-          if (fixture.family === "dns" && !responses["dns-create"]) continue;
-          if (!await available(fixture.leak[0])) continue;
+          if (fixture.family === "dns" && !responses["dns-create"]) return true;
+          if (!await available(fixture.leak[0])) return true;
           if (fixture.family === "rds") {
             for (let attempt = 0; !responses["rds-secret"] && attempt < 179; attempt++) {
               await io.sleep(5000); await available(fixture.leak[0]);
@@ -211,7 +212,8 @@ export async function execute(plan: Plan, guard: Guard, transport: Transport, jo
           fixture.dependsOn.forEach(f => blocked.add(f));
         }
         await save();
-      }
+        return !blocked.has(fixture.family);
+      }, false); // Independent fixtures continue; the existing dependency blocklist refuses their parents.
     } else if (journal.attempted.length) { cleanupFailed = true; add({ id: "authority", status: "failed", scope: "cleanup", reason: "Authentic sandbox authority unavailable; cleanup refused" }); }
     journal.closed = authorized && !cleanupFailed;
     await save();

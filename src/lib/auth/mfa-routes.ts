@@ -17,10 +17,11 @@ export function privilegedRoute(path: string, method: string): Boundary | undefi
   if (path === `${PLATFORM}/github/callback` || path === "/api/auth/mfa/verify") return "human";
   if (READ.has(method.toUpperCase())) return undefined;
   if (path === "/platform/connections/aws/action") return "human";
-  if (/^\/api\/(workspace\/(members|invites|ownership|mfa)|integrations\/|secrets(?:\/|$)|settings(?:\/|$)|account$)/.test(path)) return "human";
+  if (/^\/api\/(workspace\/(members|invites|ownership|mfa|retention-destination)|integrations\/|secrets(?:\/|$)|settings(?:\/|$)|account$)/.test(path)) return "human";
   if (/^\/api\/hosted\/(apps(?:\/|$)|ops\/)/.test(path)) return "human";
   if (!path.startsWith(`${PLATFORM}/`)) return undefined;
   const relative = path.slice(PLATFORM.length);
+  if (/^\/(runners|machines)\/[^/]+\/update$/.test(relative)) return "human";
   if (/^\/(audit\/exports|environments\/[^/]+\/domains(?:\/(verify|revoke))?|recovery\/items\/[^/]+\/decide)$/.test(relative)) return "human";
   if (/^\/(workspace\/policy|environments\/[^/]+\/(autonomy|optimizer|spend|state-backend\/restores\/(approve|reject|execute))|standing-grants(?:\/[^/]+\/revoke)?|mixed-output-preauthorizations(?:\/[^/]+\/revoke)?|releases\/[^/]+\/approve-migration|effects\/[^/]+\/resolve|operations\/[^/]+\/(approve|reject|start-portability|mixed-run\/teardown)|runbooks(?:\/(runs|schedules)\/[^/]+\/approve)?|github\/(binding(?:\/unbind)?|callback)|mixed\/plans(?:\/[^/]+\/(children|start))?|runners\/tokens|(?:runners|machines)\/[^/]+\/revoke)$/.test(relative)) return "human";
   if (/^\/connections(?:\/[^/]+(?:\/(rotate|rotation\/(promote|abort)))?)?$/.test(relative)) return "human";
@@ -34,6 +35,8 @@ export function privilegedAction(def: Pick<ActionDef, "id" | "requiredRole" | "r
 
 export async function guardPrivilegedRoute(req: NextRequest, adminMutation = false, verifiedIntegration = false): Promise<void> {
   const state = currentRequest();
+  let boundary = privilegedRoute(req.nextUrl.pathname, req.method);
+  if (READ.has(req.method.toUpperCase()) && !boundary) return;
   const header = req.headers.get("x-zenith-workspace");
   const query = req.nextUrl.searchParams.get("workspace");
   // The caller/role resolver still owns membership and foreign-workspace denials.
@@ -41,8 +44,6 @@ export async function guardPrivilegedRoute(req: NextRequest, adminMutation = fal
   const namedScope = req.nextUrl.pathname.startsWith(`${PLATFORM}/`);
   const workspaceId = namedScope ? header ?? query ?? state?.workspace?.id : state?.workspace?.id;
   if (workspaceId && !/^[A-Za-z0-9_-]{1,100}$/.test(workspaceId)) throw new ApiError("Workspace not found.", 404);
-  let boundary = privilegedRoute(req.nextUrl.pathname, req.method);
-  if (READ.has(req.method.toUpperCase()) && !boundary) return;
   if (adminMutation) boundary = "human";
   const action = /^\/api\/actions\/([^/]+)$/.exec(req.nextUrl.pathname);
   if (action) {
@@ -58,7 +59,16 @@ export async function guardPrivilegedRoute(req: NextRequest, adminMutation = fal
   if (boundary !== "human" && machine) {
     // Header presence is not authentication. Only the wrapper's verified transport
     // or the existing keyed in-process Navigator may retain machine authority.
-    if (verifiedIntegration || (await resolveActor(req)).type === "navigator") return;
+    if (verifiedIntegration) return;
+    if (req.headers.has("x-zenith-actor") && (await resolveActor(req)).type === "navigator") return;
+    if (req.headers.has("authorization")) {
+      const { requireCredentialAuthority } = await import("@/lib/agent-access/authority");
+      let credential;
+      try { credential = await (await requireCredentialAuthority()).verify(req.headers.get("authorization")); }
+      catch { throw new ApiError("Supply a verified integration credential.", 403); }
+      if (credential.workspaceId === workspaceId) return;
+      throw new ApiError("Workspace not found.", 404);
+    }
   }
   if (!boundary && !(await workspaceMfaControl(workspaceId)).requireForAllMutations) return;
   await requireStepUp(req, { subject: state?.user?.id ?? "", workspaceId });

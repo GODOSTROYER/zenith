@@ -16,7 +16,7 @@ completion and release. Generated OCI provenance is verified before signed relea
 DUR-B provenance semantics now include the full tenant build profile, captured before the
 review comparison and rechecked before upload/launch. DUR-C vault scopes remain platform for
 managed hosting and workspace for native Kubernetes, with no deployment credential fallback.
-Migration 59 widens only the immutable approved-source provider CHECK; existing providers,
+Migration 58 widens only the immutable approved-source provider CHECK; existing providers,
 archive rules, immutable triggers and RLS remain. It retains explicit drained-writer/operator
 contract admission. Native registry/pipeline resources are owned release inputs, with an
 operator-provisioned tenant registry root, rather than claims of a Kubernetes registry API.
@@ -64,7 +64,7 @@ operator-provisioned tenant registry root, rather than claims of a Kubernetes re
 - deploy/zenith-managed/build/release-fixture/app.c
 - deploy/zenith-managed/build/release-fixture/migration.sql
 - deploy/zenith-managed/build/review-profile.ts
-- src/lib/controlplane/db/migrations/0059_kubernetes_source_provider.ts
+- src/lib/controlplane/db/migrations/0058_kubernetes_source_provider.ts
 - src/lib/providers/kubernetes/build/custody.ts
 - src/lib/providers/kubernetes/build/nodes.ts
 - src/lib/providers/kubernetes/build/rbac.ts
@@ -93,7 +93,7 @@ operator-provisioned tenant registry root, rather than claims of a Kubernetes re
   with no open-egress or metadata exception.
 - execution/ports.ts, drivers/types.ts, execution/semantics/{collect,digest}.ts and release.ts:
   trusted profile digest seam and reviewed semantics at source custody/build dispatch.
-- controlplane/db/migrations/0059_kubernetes_source_provider.ts, migrations/index.ts and compat.ts:
+- controlplane/db/migrations/0058_kubernetes_source_provider.ts, migrations/index.ts and compat.ts:
   assigned storage widening, registration and exact approved checksum with operator admission.
 - tests/execution/build-isolation.test.ts and tests/platform/zenith-managed-composition.test.ts:
   replace provably stale no-native-profile/old-factory expectations.
@@ -133,8 +133,8 @@ Counts below overlap across reruns and must not be added as unique evidence.
 | Same serialized typecheck (second) | Exit1, 5 diagnostics: opaque KubeConfig access and optional nonResourceURLs. Fixed without widening credentials. |
 | Same serialized typecheck (third) | Exit1, 1 diagnostic: compilation captured the old optional nonResourceURLs access before that edit. It is fixed. Final rerun below. |
 | npx eslint $lintPaths $newPaths, where $lintPaths=@(git diff --name-only -- '*.ts'), $newPaths=@(git ls-files --others --exclude-standard -- '*.ts') | Four runs all exit0, 0 errors, 0 warnings; final run exit0, 0 errors, 0 warnings. |
-| npx eslint $lintPaths src/lib/providers/kubernetes/build/custody.ts src/lib/providers/kubernetes/build/nodes.ts src/lib/providers/kubernetes/build/source.ts src/lib/providers/kubernetes/build/rbac.ts src/lib/controlplane/db/migrations/0059_kubernetes_source_provider.ts | Earlier scope check exit0, 0 errors, 0 warnings. |
-| npx tsx -e "import { migration0059KubernetesSourceProvider as m } from './src/lib/controlplane/db/migrations/0059_kubernetes_source_provider'; import { migrationChecksum } from './src/lib/controlplane/db/migrations'; console.log(migrationChecksum(m));" | Twice exit0. Final SQL checksum afef954e9417c33a3a0dadc254253ab523c9dbc425af27da5120927e8064df9a registered and checked by tests. |
+| npx eslint $lintPaths src/lib/providers/kubernetes/build/custody.ts src/lib/providers/kubernetes/build/nodes.ts src/lib/providers/kubernetes/build/source.ts src/lib/providers/kubernetes/build/rbac.ts src/lib/controlplane/db/migrations/0058_kubernetes_source_provider.ts | Earlier scope check exit0, 0 errors, 0 warnings. |
+| npx tsx -e "import { migration0058KubernetesSourceProvider as m } from './src/lib/controlplane/db/migrations/0058_kubernetes_source_provider'; import { migrationChecksum } from './src/lib/controlplane/db/migrations'; console.log(migrationChecksum(m));" | Twice exit0. Final SQL checksum afef954e9417c33a3a0dadc254253ab523c9dbc425af27da5120927e8064df9a registered and checked by tests. |
 | node scripts/build/production-ledger.mjs --check | Six runs exit0. JSON/check valid, no row marked verified. |
 
 | Final command | Result |

@@ -10,6 +10,7 @@ import { pebbleIssuance } from "./local-pebble";
 import { referenceEconomics } from "../acceptance/mixed/cost-report";
 import { StripeTestInvoiceProvider } from "@/lib/billing/stripe";
 import { SCENARIOS } from "./scenarios";
+import { runJoinedScenario } from "./local-joined";
 
 export async function billingRehearsal(env: NodeJS.ProcessEnv): Promise<void> {
   if (readState(env).profile !== "billing") throw new Error("Needs the billing profile");
@@ -42,10 +43,7 @@ export async function runLocalScenario(scenarioId: string, receiptFile: string, 
       process.stderr.write(`not run: needs ${target.driver} (${"owner" in target ? target.owner : "join"}), ZENITH_LOCAL_JOINED_DRIVERS=1, and the default local stack\n`);
       return 2;
     }
-    const result = await defaultExec(["node", target.driver, "--scenario", scenarioId, "--run-id", runId, "--receipt", receiptFile], { cwd: process.cwd(), env, timeoutMs: 30 * 60_000 });
-    if (result.code !== 0) return result.code;
-    validateLocalReceipt(JSON.parse(readFileSync(receiptFile, "utf8")), { scenarioId, runId, sourceCommit });
-    return 0;
+    return await runJoinedScenario({ scenarioId, runId, sourceCommit, receiptFile, env });
   }
   const checks: LocalReceipt["checks"] = [];
   const pass = (id: string) => { checks.push({ id, status: "passed" }); };
@@ -104,4 +102,3 @@ export async function localTargetCli(argv: readonly string[], env = process.env)
   }
 }
 if (process.argv[1] && /(?:^|[/\\])local-target-runner\.(?:ts|js)$/.test(process.argv[1])) void localTargetCli(process.argv.slice(2)).then(code => { process.exitCode = code; });
-

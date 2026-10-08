@@ -221,6 +221,7 @@ From `CAPABILITIES` (`src/lib/capabilities/catalog.ts`): every name authorizatio
 
 | Capability | Risk floor | Mutates | Flags | Default autonomy | Scope | Driver support |
 |---|---|---|---|---|---|---|
+| `connection.plan` | low | no | — | 0 | project | no driver |
 | `container.inspect` | low | no | — | 0 | resource | no driver |
 | `container.list` | low | no | — | 0 | resource | no driver |
 | `container.logs` | low | no | — | 0 | resource | kubernetes: `contract` (2 drivers)<br>zenith: `contract` (1 driver) |

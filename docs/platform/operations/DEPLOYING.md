@@ -667,7 +667,7 @@ current aggregate emitter output, including additive cleanup writer barrier migr
 function, then verifies every row, the count and highest version. A new migration
 requires a regenerated inventory; changing a literal count alone does not pass.
 
-Registered migrations: **52**; highest version: **52**.
+Registered migrations: **58**; highest version: **58**.
 
 <!-- platform-migrations:start -->
 | Version | Name | SQL SHA-256 |
@@ -724,6 +724,12 @@ Registered migrations: **52**; highest version: **52**.
 | 50 | `managed_serving` | `84fd09e1866b387eb422173d38da18dd97aa7f5b967da8eb02f452a38ea99804` |
 | 51 | `tenant_isolation_effects` | `78d3690342ffc5f35e73f67566ccfc48087095cfec2acf191468e560a99bb16a` |
 | 52 | `billing` | `0236a9a6624adff33cce485ef54e4954cec5d629bfbb2fe4a0ccab5a51f5c45f` |
+| 53 | `field_ownership_serialization` | `2c0dc88805c9d96c9ba133542ca4a31b8e8a0422f061250c14e92b5e513f2269` |
+| 54 | `agent_update_controls` | `cbb2c080c4e5e5c3f09b4d999571d7bec54e121cb1f85b43fac407563ed189de` |
+| 55 | `isolation_custody` | `b6e75e8ca5e06d8147f7b34086008551858f2bdf642cfc97f493d6ac9b902192` |
+| 56 | `workspace_mfa_controls` | `aad9739d5412fe15b5ecd065a80dd205e74818287861c8484c68de578ecef3b0` |
+| 57 | `wave5_gaps` | `55b72ecf1af8739036f17f1cd7f77b7e13f6de0e1de76773dd110af12aa8e450` |
+| 58 | `kubernetes_source_provider` | `afef954e9417c33a3a0dadc254253ab523c9dbc425af27da5120927e8064df9a` |
 <!-- platform-migrations:end -->
 
 For the actual target, `npm run migrate:platform -- --status` calls the canonical
@@ -753,7 +759,7 @@ A database that applied the emitted SQL before a later
 migration landed is behind and the application refuses to use it until you re-apply
 the file or run `npm run migrate:platform`.
 
-Schemas 17 to 27 add, in order, the signed-runbook tables (`machine_runbook_*`; migration 17), append-only ownership transfers (18), incident stability state, remediation attempts, maintenance windows and postmortems (19), per-environment optimizer opt-in settings (20), scheduled critical job runs (21: `scheduled_job_runs`, PROD-OBS-04), connection rotation state (22: `connection_rotations`, PROD-LIFE-01), digest-bound release pipelines (23: `release_pipelines`, PROD-LIFE-10), portability export/restore records and resource adoptions (24: `portability`, PROD-LIFE-11), machine and runner lifecycle columns (25: `agent_lifecycle`, PROD-MACH-04), audience-bound plugin boundaries and grants (26: `plugin_boundaries`, PROD-UX-03) and the GitHub revocation reason (27: `github_revocation_reason`, PROD-LIFE-08). Schema 28 enables RLS without client policies on the four incident tables for direct canonical upgrades, retains only existing service-role DML, and adds a workspace-leading runbook schedule index. Schema 29 isolates grant-only record fields inside the grant branch of the shared cleanup trigger, preserving the existing held-plan and grant authority checks. Schemas 30 to 36 add durable operation authority and the intent outbox (30), approved executable semantics and standing grants (31), worker custody grants, reads and state backend probes and restores (32), the external-effect ledger (33), Kubernetes guest bindings (34), MCP streams (35) and coding-agent runs (36). The aggregate through schema 36 was `0022_platform_core.sql`; the current aggregate through schema 52 is `0026_platform_core.sql`. historical platform aggregates `0014`, `0016`, `0017`, `0018`, `0019`, `0020` and `0021` remain unchanged (published files are immutable, and an aggregate is a cumulative snapshot). The committed Supabase bootstrap applies `0023` after those aggregates and agent OAuth `0015`. Schema 16 adds immutable physical local-backend ownership and authenticated standalone builtin completion receipts. These receipts reconcile only eligible saved-plan history; they do not settle cloud calls, grants, workflows, builds or guest deliveries. Schemas 37 to 41 (wave 4) add actual spend snapshots (37), per-tenant maintenance, history and quotas (38), key custody facts and re-wrap jobs (39), mixed parent plans, child plans, receipts and the stable address registry (40) and mixed runs, their ledger and output preauthorizations (41); they are expand-only (new tables) and are emitted into `0023_platform_core.sql`.
+Schemas 17 to 27 add, in order, the signed-runbook tables (`machine_runbook_*`; migration 17), append-only ownership transfers (18), incident stability state, remediation attempts, maintenance windows and postmortems (19), per-environment optimizer opt-in settings (20), scheduled critical job runs (21: `scheduled_job_runs`, PROD-OBS-04), connection rotation state (22: `connection_rotations`, PROD-LIFE-01), digest-bound release pipelines (23: `release_pipelines`, PROD-LIFE-10), portability export/restore records and resource adoptions (24: `portability`, PROD-LIFE-11), machine and runner lifecycle columns (25: `agent_lifecycle`, PROD-MACH-04), audience-bound plugin boundaries and grants (26: `plugin_boundaries`, PROD-UX-03) and the GitHub revocation reason (27: `github_revocation_reason`, PROD-LIFE-08). Schema 28 enables RLS without client policies on the four incident tables for direct canonical upgrades, retains only existing service-role DML, and adds a workspace-leading runbook schedule index. Schema 29 isolates grant-only record fields inside the grant branch of the shared cleanup trigger, preserving the existing held-plan and grant authority checks. Schemas 30 to 36 add durable operation authority and the intent outbox (30), approved executable semantics and standing grants (31), worker custody grants, reads and state backend probes and restores (32), the external-effect ledger (33), Kubernetes guest bindings (34), MCP streams (35) and coding-agent runs (36). The aggregate through schema 36 was `0022_platform_core.sql`; the current aggregate through schema 58 is `0026_platform_core.sql`. historical platform aggregates `0014`, `0016`, `0017`, `0018`, `0019`, `0020` and `0021` remain unchanged (published files are immutable, and an aggregate is a cumulative snapshot). The committed Supabase bootstrap applies `0023` after those aggregates and agent OAuth `0015`. Schema 16 adds immutable physical local-backend ownership and authenticated standalone builtin completion receipts. These receipts reconcile only eligible saved-plan history; they do not settle cloud calls, grants, workflows, builds or guest deliveries. Schemas 37 to 41 (wave 4) add actual spend snapshots (37), per-tenant maintenance, history and quotas (38), key custody facts and re-wrap jobs (39), mixed parent plans, child plans, receipts and the stable address registry (40) and mixed runs, their ledger and output preauthorizations (41); they are expand-only (new tables) and are emitted into `0023_platform_core.sql`.
 If you apply migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any
@@ -1085,7 +1091,7 @@ writes while building: no zero-downtime or live migration claim follows local te
 
 ## Wave 5 assembly inventory and operator gates
 
-The current cumulative snapshot is `0026_platform_core.sql`, schema 52. Published schemas 1â€“43 and aggregates 0016â€“0025 remain byte-identical. The canonical inventory/checksums above include schemas 44 mixed outputs, 45 SLO measurements, 46 recovery epochs, 47 retention, 48 audit exports, 49 managed source CHECK widening, 50 managed serving, 51 isolation effect-family widening and 52 billing. `scripts/ci/apply-supabase-migrations.sh` applies 0026 last. Emit with `npx tsx scripts/platform/emit-sql.ts`; verify with `--check`.
+The current cumulative snapshot is `0026_platform_core.sql`, schema 58. Published schemas 1â€“43 and aggregates 0016â€“0025 remain byte-identical. The canonical inventory/checksums above include schemas 44 mixed outputs, 45 SLO measurements, 46 recovery epochs, 47 retention, 48 audit exports, 49 managed source CHECK widening, 50 managed serving, 51 isolation effect-family widening and 52 billing. `scripts/ci/apply-supabase-migrations.sh` applies 0026 last. Emit with `npx tsx scripts/platform/emit-sql.ts`; verify with `--check`.
 
 When upgrading schema 43, first drain writers, then explicitly name `ZENITH_ALLOW_CONTRACT_MIGRATIONS=49,51`. An older installation still needing the published regex repair also needs 42 in that list. Exact reviewed SQL hashes and approval references live in `CONTRACT_MIGRATION_APPROVALS`; changing SQL voids admission. This flag never authorizes real execution or bootstrap. Cumulative Supabase snapshots are a separate explicitly operated schema application path; drain writers there too.
 
@@ -1115,3 +1121,13 @@ Managed configuration additions (all external references, never inline credentia
 | `ZENITH_MANAGED_BUILD_NAMESPACE` | `zenith-build` in the injected build adapter; shared builds are unavailable in default composition. |
 | `ZENITH_MANAGED_BUILD_PUSH_SECRET` | Optional existing dockerconfigjson Secret name in that build namespace; no secret material is accepted here. |
 | `ZENITH_MANAGED_BUILD_REGISTRY_INSECURE` | `0`; `1` is only for a disposable loopback kind registry, never production. |
+
+## Final integration configuration (verification pending)
+
+`ZENITH_ISOLATED_BUILD_CONFIG` declares the owned isolated builder; `ZENITH_ISOLATED_BUILD_PROFILES` binds per-tenant namespaces, credentials and dedicated nodes. Source builds refuse absent or invalid custody.
+
+`ZENITH_API_VERSION=3` is the only plugin entrypoint environment override. The isolated builder itself receives `ZENITH_BUILD_ID`, `ZENITH_REGISTRY_PROBE_URL` and `ZENITH_REGISTRY_PROBE_ENDPOINT` from deterministic rendering; these identify the bound build and pinned registry probe, and are not operator credentials.
+
+Unpublished integration closes the unused J4 slot: isolation custody 55, workspace MFA 56, Wave 5 gaps 57 and Kubernetes source provider 58. Contract migrations 49, 51, 57 and 58 need their explicit reviewed compatibility approvals and a drained migration window. Published snapshots 0016 through 0025 are unchanged.
+
+`ZENITH_LOCAL_MAINTENANCE_ENV_FILE`: Mac-only absolute private J4 overlay FILE for J15; local server/credentials remain bound to J1, with a fresh maintenance database, serverless/managed billing, pool 2 and an isolated j4-* namespace. See `docs/build/production/verify/J4-SCHEDULES-RUNBOOKS.md`.

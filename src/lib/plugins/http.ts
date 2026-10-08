@@ -77,7 +77,7 @@ export const pluginsRegister = route(async (req: NextRequest) => {
   try {
     const { identity, member, workspace } = await browser(req, true);
     requireAdmin(member.role);
-    await assertPrivilegedConsent(req, identity);
+    await assertPrivilegedConsent(req, identity, workspace.id);
     const input = registerBody.parse(await jsonBody(req));
     const registered = await registerPlugin(await defaultPluginDeps(), { workspaceId: workspace.id, manifest: input.manifest, requestedBy: identity.subject });
     return json({ plugin: view(registered), created: registered.created }, registered.created ? 201 : 200);
@@ -90,7 +90,7 @@ export const pluginsReview = route(async (req: NextRequest) => {
   try {
     const { identity, member, workspace } = await browser(req, true);
     requireAdmin(member.role);
-    await assertPrivilegedConsent(req, identity);
+    await assertPrivilegedConsent(req, identity, workspace.id);
     const input = reviewBody.parse(await jsonBody(req));
     const reviewed = await reviewPlugin(await defaultPluginDeps(), { workspaceId: workspace.id, reviewedBy: identity.subject, ...input });
     return json({ plugin: view(reviewed) });
@@ -115,7 +115,7 @@ export const pluginsTokenIssue = route(async (req: NextRequest) => {
   try {
     const { identity, member, workspace } = await browser(req, true);
     if (!["admin", "editor"].includes(member.role)) throw new PluginError("plugin_forbidden", "This role cannot give a plugin access.");
-    await assertPrivilegedConsent(req, identity);
+    await assertPrivilegedConsent(req, identity, workspace.id);
     const input = issueBody.parse(await jsonBody(req));
     const issued = await issuePluginToken(await defaultPluginDeps(), {
       workspaceId: workspace.id,
@@ -138,7 +138,7 @@ export const pluginsLaunchTokenIssue = route(async (req: NextRequest) => {
   try {
     const { identity, member, workspace } = await browser(req, true);
     if (!["admin", "editor"].includes(member.role)) throw new PluginError("plugin_forbidden", "This role cannot give a plugin access.");
-    await assertPrivilegedConsent(req, identity);
+    await assertPrivilegedConsent(req, identity, workspace.id);
     const input = launchIssueBody.parse(await jsonBody(req));
     const issued = await issueLauncherToken(await defaultPluginDeps(), { ...input,
       workspaceId: workspace.id, subject: identity.subject, audience: resourceFor(controlOrigin()) });

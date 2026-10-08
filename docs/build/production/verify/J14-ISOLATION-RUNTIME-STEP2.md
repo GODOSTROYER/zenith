@@ -9,7 +9,7 @@ published migration edits, aggregate generation, real cloud API calls or product
 
 Added:
 
-- `src/lib/controlplane/db/migrations/056_isolation_custody.ts`
+- `src/lib/controlplane/db/migrations/0055_isolation_custody.ts`
 - `src/lib/execution/isolation-custody.ts`
 - `src/lib/platform/zenith-isolation-custody.ts`
 - `tests/execution/zenith-first-deploy.test.ts`
@@ -42,7 +42,7 @@ Minimal edits outside the original owned source paths, explicitly authorized by 
 | `src/lib/execution/semantics/zenith.ts` | Bind complete isolation and token constraints in canonical deployment semantics. |
 | `src/lib/execution/tenant-isolation.ts` | DUR-B/C guards, critical evidence, effect-before-call, repeat/readback and token issuance/storage guards. |
 | `src/lib/providers/zenith/isolation-bundle.ts` | Exact reserved Cilium ingress identity permission for class cilium; broader peers refused. |
-| `src/lib/controlplane/db/migrations/index.ts` | Append assigned migration 56; preserve migrations 44-52. |
+| `src/lib/controlplane/db/migrations/index.ts` | Append assigned migration 55; preserve migrations 44-52. |
 | `src/lib/sensitivedata/inventory.ts` | Classify new sealed direct-plan table and immutable logical expiry. |
 | `src/lib/sensitivedata/at-rest.ts` | Add new table's ciphertext/tag to existing at-rest census. |
 | `src/lib/controlplane/db/repos/operations.ts` | One-value SQL repair: fresh execution lease had 8 columns but 7 expressions, missing renewed_at. |

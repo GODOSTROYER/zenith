@@ -4,7 +4,7 @@
 
 This section supersedes the original J14 missing-join notes and the historical wave-5 record below.
 Base merge eb338840 includes assembled migrations 44-52 and aggregate 0026. No published migration or
-aggregate was changed. New expand-only migration 56 stores authenticated direct-object isolation plans;
+aggregate was changed. New expand-only migration 55 stores authenticated direct-object isolation plans;
 the registry appends it and sensitive-data inventory classifies its ciphertext under enc:plan-artifacts.
 Current build commands and exact outcomes are in [J14 step 2 receipt](J14-ISOLATION-RUNTIME-STEP2.md).
 Both MAN rows remain implementation_complete_verification_pending, with no fabricated engine evidence.
@@ -12,7 +12,7 @@ Both MAN rows remain implementation_complete_verification_pending, with no fabri
 | Acceptance | Implementation and checks |
 |---|---|
 | First managed deploy provisions isolation only after review | Default zenith-managed composition exposes onboarding to direct-zenith's existing plan/final-plan/apply activities. The composite digest includes the isolation plan. Canonical reviewed semantics include the exact baseline/bundle, cluster/runtime, credential references, normalized token lifetime and audiences. Planning obtains an attenuated grant before credentials and uses an HTTP authentication firewall allowing only GET/HEAD or PATCH dryRun=All. Missing-namespace objects are explicitly projected, not server-validated. After approval, a mutating capability grant, current canonical semantics, exact human approval and live fence precede encrypted custody verification and bootstrap apply. |
-| DUR-C and scoped credentials | Migration 56 is immutable and workspace/operation scoped. AEAD authenticates workspace and operation/plan reference; the envelope binds project/environment/proposal/input/expiry, review and exact object bytes. Expired/terminal operations and stale fences refuse. Every dispatch and token mint/storage rechecks review and custody. The existing isolation_apply ledger records before SSA, confirms complete readback, and never replays unresolved effects. TokenRequest claim checking and actual operator SSAR precede the sealed platform-scope vault write. No bootstrap credential leaves planning/provisioning for workload callers. |
+| DUR-C and scoped credentials | Migration 55 is immutable and workspace/operation scoped. AEAD authenticates workspace and operation/plan reference; the envelope binds project/environment/proposal/input/expiry, review and exact object bytes. Expired/terminal operations and stale fences refuse. Every dispatch and token mint/storage rechecks review and custody. The existing isolation_apply ledger records before SSA, confirms complete readback, and never replays unresolved effects. TokenRequest claim checking and actual operator SSAR precede the sealed platform-scope vault write. No bootstrap credential leaves planning/provisioning for workload callers. |
 | Two-tenant routes, storage, CNI, metadata, FQDN, PSA, quota, operator separation | Existing tenant-isolation-acceptance suite remains. New Gateway suite uses actual Cilium Gateway/HTTPRoute status plus trusted local TLS HTTPS requests to two distinct sandbox backends; foreign listener attachment and foreign backend without ReferenceGrant must fail while the other tenant still serves. Renderer already uses per-environment Gateway selectors; the join adds only Cilium's reserved ingress identity when gateway class is cilium. Exact-policy validation rejects broader peers. |
 | Stronger runtime and resource exhaustion | Offline complete gVisor installation, actual containerd runtime readback for both tenants, bidirectional CNI controls, restricted PSA and sandbox OOM checks. Existing CPU/memory/disk/PID/latency harness retained with mandatory CPU accounting; bounds are provisional. Single-node ARM64 profile is same-node evidence, not a scaled rehearsal. |
 | Contract regression | zenith-first-deploy tests use real PGlite semantics/custody/effects/leases with explicitly scripted approval/product/cluster contracts. They cover first deploy, grant refusal, missing custody/semantics, revoked approval, changed bundle, expiry/fence and discard after mint. zenith-isolation-custody tests exercise immutable SQL and AEAD/scope refusals. Real kind onboarding uses the default provisioner, real TokenRequest/readback/SSAR and encrypted credential sink; its approval/product doubles remain contract evidence. |
@@ -105,7 +105,7 @@ isolation, not per-tenant build-node onboarding. Token renewal requires a new cu
 operation expiry; no unattended approval bypass was added. Logical custody expiry is implemented; immutable
 artifact retention/purge needs a separately reviewed retention migration. Gateway class cilium activates the
 reserved identity join; other controllers retain namespace-pod policy and require their own engine proof.
-Assembly must add migration 56 to its next aggregate/export, classify native stores in the tenancy/scoping
+Assembly must add migration 55 to its next aggregate/export, classify native stores in the tenancy/scoping
 gates and add new test paths to the gate manifest. Historical assertions about absent joins below are superseded.
 
 ---

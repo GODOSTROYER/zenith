@@ -6,7 +6,8 @@
  * `GET /api/platform/v1/mixed/plans/:id/economics`.
  *
  * The graph is derived from the manifest's own services, resources, node placement and bindings, so the report cannot
- * drift from the fixture. Every figure is a list-price estimate, never an invoice or a billing cap.
+ * drift from the fixture. This report prices the container-equivalent local variant;
+ * it does not quote Lambda invocation/duration charges. Every figure is an estimate.
  */
 import { mixedEconomics, renderEconomics, type MixedEconomicsReport } from "@/lib/execution/mixed/economics";
 import type { CostGraph, CostNode } from "@/lib/placement/cost";
@@ -24,7 +25,7 @@ type ManifestShape = {
 };
 
 /** The reference app's cost graph, derived from its manifest. */
-export function referenceCostGraph(source: ManifestShape = manifest as ManifestShape): CostGraph {
+export function referenceCostGraph(source: ManifestShape = manifest as ManifestShape, profile: "native" | "container-equivalent" = "native"): CostGraph {
   const nodes: CostNode[] = [];
   const placed = (id: string, name: string): { provider: string; region: string } => {
     const entry = source.nodePlacement[id] ?? source.nodePlacement[name];
@@ -36,20 +37,22 @@ export function referenceCostGraph(source: ManifestShape = manifest as ManifestS
     // Public workloads: the protected endpoints are reached over public addresses (mutual TLS plus allowlist), so no NAT is assumed.
     nodes.push({ address: `service/${s.name}`, kind: "container_service", ...where, spec: { size: s.size ?? "small", replicas: s.replicas ?? 1, publicIp: true }, ownership: "managed" });
   }
-  for (const f of source.functions ?? []) nodes.push({ address: `function/${f.name}`, kind: "function", provider: f.provider, region: f.region, spec: { memoryMb: f.memoryMb ?? 256 }, ownership: "managed" });
+  for (const f of source.functions ?? []) nodes.push({ address: `${profile === "native" ? "function" : "service"}/${f.name}`, kind: profile === "native" ? "function" : "container_service", provider: f.provider, region: f.region, spec: profile === "native" ? { memoryMb: f.memoryMb ?? 256 } : { size: "small", replicas: 1, publicIp: true }, ownership: "managed" });
   for (const r of source.resources) {
     const where = placed(r.id, r.name);
     nodes.push({ address: `resource/${r.name}`, kind: r.kind === "postgres" ? "postgres" : "object_store", ...where, spec: { size: r.size ?? "small", ...(r.config?.storageGb ? { storageGb: r.config.storageGb } : {}) }, ownership: "managed" });
   }
   const addressOf = new Map<string, string>([...source.services.flatMap((s) => [[s.id, `service/${s.name}`], [s.name, `service/${s.name}`]] as const), ...source.resources.flatMap((r) => [[r.id, `resource/${r.name}`], [r.name, `resource/${r.name}`]] as const)]);
   const edges = source.bindings.filter((b) => addressOf.has(b.from) && addressOf.has(b.to)).map((b) => ({ from: addressOf.get(b.from)!, to: addressOf.get(b.to)!, relation: "connects_to" }));
-  for (const f of source.functions ?? []) for (const id of f.invokedBy) if (addressOf.has(id)) edges.push({ from: addressOf.get(id)!, to: `function/${f.name}`, relation: "connects_to" });
+  for (const f of source.functions ?? []) for (const id of f.invokedBy) if (addressOf.has(id)) edges.push({ from: addressOf.get(id)!, to: `${profile === "native" ? "function" : "service"}/${f.name}`, relation: "connects_to" });
   return { nodes, edges };
 }
 
 export function referenceEconomics(options: { egressGb?: number; fraction?: number; residency?: readonly string[]; latencyBudgetMs?: number } = {}): MixedEconomicsReport {
   const usage: CostUsage = { ...(options.egressGb !== undefined ? { egressGb: options.egressGb } : {}), ...(options.fraction !== undefined ? { interComponentFraction: options.fraction } : {}) };
-  return mixedEconomics({ graph: referenceCostGraph(), catalog: loadDefaultCatalog(), usage, ...(options.residency ? { residency: options.residency } : {}), ...(options.latencyBudgetMs !== undefined ? { latencyBudgetMs: options.latencyBudgetMs } : {}) });
+  const report = mixedEconomics({ graph: referenceCostGraph(undefined, "container-equivalent"), catalog: loadDefaultCatalog(), usage, ...(options.residency ? { residency: options.residency } : {}), ...(options.latencyBudgetMs !== undefined ? { latencyBudgetMs: options.latencyBudgetMs } : {}) });
+  report.notes.push("Container-equivalent local variant: each function is estimated as one small container. This is not Lambda pricing or measured spend.");
+  return report;
 }
 
 export function runCostReportCli(argv: readonly string[], io: { out: (s: string) => void; err: (s: string) => void } = { out: (s) => { process.stdout.write(s); }, err: (s) => { process.stderr.write(s); } }): number {

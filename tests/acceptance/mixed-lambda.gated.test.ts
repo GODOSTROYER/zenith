@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { createLambdaEnricher } from "../../fixtures/mixed-app/web/lambda.mjs";
 import { handler } from "../../fixtures/mixed-app/enricher/handler.mjs";
+import { requireScope } from "../../scripts/release/scope";
 const local = process.env.ZENITH_TEST_MIXED_LAMBDA === "1";
 const live = process.env.ZENITH_LIVE_AWS_LAMBDA === "1";
 const enabled = local || live;
@@ -11,7 +12,12 @@ describe.skipIf(!enabled)("mixed Lambda endpoint [needs explicit LocalStack or d
     if (local) expect(process.env.ENRICHER_LAMBDA_ENDPOINT).toMatch(/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/);
     else expect(process.env.ENRICHER_LAMBDA_ENDPOINT).toBeUndefined();
     expect(process.env.ENRICHER_LAMBDA_CREDENTIAL_FILE).toBeTruthy();
-    const invoke = createLambdaEnricher({ ...process.env, ...(local ? { ZENITH_MIXED_LOCALSTACK: "1" } : {}) });
+    const scope = live ? requireScope("mixed-traffic-live", "aws") : undefined;
+    const invoke = createLambdaEnricher({ ...process.env, ...(local ? { ZENITH_MIXED_LOCALSTACK: "1" } : {}) }, {
+      authorize: async (observed: { Tags?: Record<string, string> }) => {
+        if (scope) scope.authorize({ harness: "mixed-traffic-live", provider: "aws", action: "mutate_run_tagged", runId: process.env.ZENITH_LIVE_MIXED_RUN_ID, tags: observed.Tags });
+      },
+    });
     const request = { clientKey: `gated-${Date.now()}`, sku: "widget", qty: 2 };
     const result = await invoke(request);
     const independentlyComputed = await handler(request);

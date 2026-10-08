@@ -20,7 +20,7 @@ const REFERENCE = /^(?:[a-z0-9.-]+(?::\d+)?\/)?[a-z0-9][a-z0-9._/-]*(?::[A-Za-z0
 // Provider/native-resource identifiers, diagnostic codes and IAM actions are
 // not container refs.
 // In an explicit image field even these strings are checked as image values.
-const NON_IMAGE_PREFIX = /^(?:aws|gcp|azure|oci|kubernetes|k8s|zenith|vault|arn|service|resource|scheduled_job|ecr|ecs|ec2|eks|s3|ssm|rds|rds-db|iam|logs|events|codebuild|lambda|sns|sqs|cloudfront|elasticache|secretsmanager|state|presence|last_execution|activation_policy|serverless_neg|node_pool):/;
+const NON_IMAGE_PREFIX = /^(?:system|aws|gcp|azure|oci|kubernetes|k8s|zenith|vault|arn|service|resource|scheduled_job|ecr|ecs|ec2|eks|s3|ssm|rds|rds-db|iam|logs|events|codebuild|lambda|sns|sqs|cloudfront|elasticache|secretsmanager|state|presence|last_execution|activation_policy|serverless_neg|node_pool):/;
 // Exact readback diagnostics are not image values. Image fields still reject them.
 const READBACK_DIAGNOSTICS = new Set(["id:not_addressable", "get:malformed", "get:denied", "get:404", "list:unavailable", "list:truncated", "list:present", "list:absent", "family:mysql_refused", "family:unregistered", "observation:simulated", "observation:absent", "observe:present", "id:absent", "work_request:none", "gateway:upstream"]);
 const IMAGE_FIELD = /^(?:image|imageRef|imageUri|imageName|images|[a-zA-Z_]*Image|[A-Z_]*IMAGE)$/;
@@ -32,6 +32,7 @@ const ALLOWLIST: readonly Exception[] = [
   { file: "src/lib/providers/aws/drivers/compute/codebuild-project.ts", ref: "aws/codebuild/standard:7.0", count: 1, reason: "AWS-managed curated CodeBuild image, selected by name; CodeBuild does not take a digest for curated images." },
   { file: `${HELM}/values.yaml`, ref: "zenith-runner:1.0.0", count: 1, reason: "unpublished; pin by digest at first release" },
   { file: "src/lib/providers/aws/drivers/compute/ecs-task.ts", ref: "${repoUrl}:zenith-bootstrap", count: 1, reason: "Deliberately nonexistent bootstrap tag; release writes a verified digest before the workload can run." },
+  { file: "src/lib/providers/zenith/render.ts", ref: "registry.invalid/zenith/bootstrap:unavailable", count: 1, reason: "Deliberately nonexistent RFC2606 bootstrap sentinel; source admission replaces it with verified immutable custody before execution. It cannot resolve or run." },
   { file: "src/lib/providers/kubernetes/renderers/data.ts", ref: "postgres:${v}", count: 1, reason: "Existing dev-tier data renderer outside this workstream's owned paths; orchestrator follow-up to pin supported versions." },
   { file: "src/lib/providers/kubernetes/renderers/data.ts", ref: "redis:7-alpine", count: 1, reason: "Existing dev-tier data renderer outside this workstream's owned paths; orchestrator follow-up." },
   { file: "src/lib/providers/sandbox/provider.ts", ref: "postgres:16-alpine", count: 1, reason: "Legacy sandbox Compose export outside this workstream's owned paths; orchestrator follow-up." },
@@ -220,7 +221,8 @@ describe("provider and deployment image pins", () => {
   it("rejects unpinned references and stale or expanded exceptions in the repository", () => {
     const references = scan(sourcesOnDisk());
     expect(references.some((ref) => ref.ref.startsWith("gcr.io/cloud-builders/docker@sha256:"))).toBe(true);
-    expect(violations(references, ALLOWLIST)).toEqual([]);
+    const errors = violations(references, ALLOWLIST);
+    expect(errors, errors.join("\n")).toEqual([]);
   });
 
   it.each([...READBACK_DIAGNOSTICS])("readback diagnostic %s is excluded only outside image fields", value => {
@@ -276,6 +278,11 @@ describe("provider and deployment image pins", () => {
     const source = '// former image: alpine:latest\n/* gcr.io/cloud-builders/docker:latest */\nimport fs from "node:fs";\nconst url = "https://gcr.io/v2/tool/manifests/latest";\nconst nativeType = "aws:codebuild_project";\nconst metadata = { "pod-security.kubernetes.io/enforce-version": "latest" };';
     expect(scan(fixture(source))).toEqual([]);
     expect(scan(fixture("# image: alpine:latest\nenforce-version: latest", "deploy/new/config.yaml"))).toEqual([]);
+  });
+
+  it("recognizes Kubernetes RBAC subjects while refusing them in an image field", () => {
+    expect(scan(fixture('const subjects = ["system:authenticated", "system:serviceaccounts"];'))).toEqual([]);
+    expect(violations(scan(fixture('const config = { image: "system:authenticated" };')), [])).toHaveLength(1);
   });
 
   it.each(["collector:8889", "0.0.0.0:13133", "no-new-privileges:true"])("excludes a declared endpoint/security option %s while still checking image fields", value => {

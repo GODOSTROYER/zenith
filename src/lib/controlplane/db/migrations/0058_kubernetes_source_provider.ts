@@ -1,10 +1,10 @@
 /**
  * J6 native Kubernetes approved source custody. Widen only the existing provider CHECK.
  * Every other condition, archive-format binding, immutability trigger and RLS rule stays intact.
- * Registered contract migration: apply only after explicitly admitting version 59.
+ * Registered contract migration: apply only after explicitly admitting version 58.
  */
-export const migration0059KubernetesSourceProvider = {
-  version: 59,
+export const migration0058KubernetesSourceProvider = {
+  version: 58,
   name: "kubernetes_source_provider",
   sql: `
 do $$

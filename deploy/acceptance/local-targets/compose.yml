@@ -1,7 +1,7 @@
 name: zenith-j15-${ZENITH_LOCAL_RUN_ID:?run id required}
 services:
   localstack:
-    image: localstack/localstack:4.8.1
+    image: localstack/localstack:4.8.1@sha256:8c9756bddc44625cd6e890f5e4bcc29b045eebe108b268482b848f4f832ec153
     profiles: [mixed]
     mem_limit: 768m
     cpus: 0.75
@@ -26,7 +26,7 @@ services:
     networks:
       acme: { ipv4_address: 172.30.115.10 }
   coredns:
-    image: coredns/coredns:1.12.4
+    image: coredns/coredns:1.12.4@sha256:986f04c2e15e147d00bdd51e8c51bcef3644b13ff806be7d2ff1b261d6dfbae1
     profiles: [acme]
     mem_limit: 64m
     cpus: 0.1
@@ -35,7 +35,7 @@ services:
     networks:
       acme: { ipv4_address: 172.30.115.11 }
   pebble:
-    image: ghcr.io/letsencrypt/pebble:v2.8.0
+    image: ghcr.io/letsencrypt/pebble:2.8.0@sha256:d9080f68f6cb6af8d82134ab26de0aaaf312ac9cba42aecc6d3aede6cb63007b
     profiles: [acme]
     mem_limit: 128m
     cpus: 0.2
@@ -49,7 +49,7 @@ services:
       - ${ZENITH_LOCAL_ROOT}/pki/pebble.key:/pki/pebble.key:ro
     networks: [acme]
   stripe:
-    image: stripe/stripe-mock:v0.197.0${ZENITH_LOCAL_STRIPE_ARCH_SUFFIX:-}
+    image: ${ZENITH_LOCAL_STRIPE_IMAGE:-stripe/stripe-mock:v0.203.0@sha256:50034484b1fc54208514859cf83808632cb01825eb488219d2eb2e589f3554d2}
     profiles: [billing]
     mem_limit: 128m
     cpus: 0.2

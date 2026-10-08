@@ -6,6 +6,7 @@ import { load } from 'js-yaml';
 import { describe, expect, it } from 'vitest';
 import { joinedConfiguration, validateInput, planFor, installationEnvironment, environmentsFor } from '../../scripts/deploy/installation.mjs';
 import { apiProbeRequest } from '../../scripts/acceptance/default-stack/readiness.mjs';
+import { issuerBindings, issuer } from '../../scripts/acceptance/default-stack/issuer.mjs';
 import { cleanupPlan, supabaseConfig, stackComposition, topology, ports, root, installationLabel, projectLabel, digestImage, assertHeadroom, minimumFreeBytes } from '../../scripts/acceptance/default-stack/config.mjs';
 
 const secret = () => randomBytes(32).toString('hex');
@@ -36,6 +37,13 @@ interface Service { image:string; labels:Record<string,string>; volumes:string[]
 interface Stack { services:Record<string,Service>; volumes:Record<string,{labels:Record<string,string>}>; networks:Record<string,{labels:Record<string,string>}>; }
 
 describe('default stack pure configuration contracts', () => {
+  it('joins issuer discovery and JWKS to the same TLS name reachable by API containers and the host', () => {
+    expect(issuerBindings()).toEqual({ ZENITH_AGENT_OAUTH_ISSUER: issuer, ZENITH_AGENT_OAUTH_JWKS: `${issuer}/protocol/openid-connect/certs`, ZENITH_AGENT_OAUTH_CLIENT_CLAIM: 'azp', ZENITH_AGENT_OAUTH_SUBJECT_CLAIM: 'zenith_subject' });
+    const join = fs.readFileSync('scripts/acceptance/default-stack/issuer.mjs', 'utf8');
+    expect(join).toContain("aliases: ['issuer.zenith.localhost']");
+    expect(join).toContain("identity.id !== subject || !identity.email_confirmed_at");
+    expect(join).toContain("/api/agent/v3/mcp");
+  });
   it('refuses resource headroom below the verifier floor and does not waive it for lean', () => {
     expect(() => assertHeadroom(minimumFreeBytes)).not.toThrow();
     expect(() => assertHeadroom(minimumFreeBytes - 1)).toThrow('disk-headroom');
@@ -56,6 +64,8 @@ describe('default stack pure configuration contracts', () => {
     expect(supabaseConfig(`zenith-local-${id()}`, 'lean')).toContain('default_pool_size = 5');
     expect(text).toContain('pool_mode = "transaction"'); expect(text).toContain('schemas = ["public", "graphql_public"]');
     expect(text).toContain('enabled = false\n[db.seed]'); expect(text).toContain('enable_confirmations = true');
+    expect(text).toContain('[auth.email.smtp]\nenabled = true\nhost = "mailpit"\nport = 1025');
+    expect(text).toContain('[auth.mfa.totp]\nenroll_enabled = true\nverify_enabled = true');
     expect(text).not.toContain('schemas = ["platform"'); expect(text).not.toContain('password =');
     expect(() => supabaseConfig('zenith')).toThrow('project-identity');
   });

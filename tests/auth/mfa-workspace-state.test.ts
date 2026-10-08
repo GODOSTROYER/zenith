@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { openPlatformDb, type PlatformDbHandle } from "@/lib/controlplane/db";
 import { PLATFORM_MIGRATIONS } from "@/lib/controlplane/db/migrations";
-import { migration0057WorkspaceMfaControls } from "@/lib/controlplane/db/migrations/0057_workspace_mfa_controls";
+import { migration0056WorkspaceMfaControls } from "@/lib/controlplane/db/migrations/0056_workspace_mfa_controls";
 import * as controls from "@/lib/controlplane/db/repos/workspace-mfa-controls";
 import * as events from "@/lib/controlplane/db/repos/events";
 import { workspaceMfaControl } from "@/lib/auth/mfa-policy";
@@ -29,10 +29,10 @@ const pgEnabled = process.env.ZENITH_MFA_PG === "1";
 const pgUrl = process.env.ZENITH_TEST_PLATFORM_PG_URL;
 if (pgEnabled && !pgUrl) throw new Error("ZENITH_MFA_PG=1 requires an owned ZENITH_TEST_PLATFORM_PG_URL.");
 
-it("registers assigned expand-only migration 57 last and enables default-stack TOTP", () => {
-  expect(PLATFORM_MIGRATIONS.at(-1)).toEqual(migration0057WorkspaceMfaControls);
-  expect(migration0057WorkspaceMfaControls.version).toBe(57);
-  expect(migration0057WorkspaceMfaControls.sql).not.toMatch(/drop\s|delete\s|truncate\s/i);
+it("registers the integrated expand-only MFA migration and enables default-stack TOTP", () => {
+  expect(PLATFORM_MIGRATIONS.find(migration => migration.version === 56)).toEqual(migration0056WorkspaceMfaControls);
+  expect(migration0056WorkspaceMfaControls.version).toBe(56);
+  expect(migration0056WorkspaceMfaControls.sql).not.toMatch(/drop\s|delete\s|truncate\s/i);
   const config = readFileSync("supabase/config.toml", "utf8");
   const totp = config.split("[auth.mfa.totp]")[1].split("[auth.mfa.phone]")[0];
   expect(totp).toMatch(/^enroll_enabled\s*=\s*true$/m); expect(totp).toMatch(/^verify_enabled\s*=\s*true$/m);
@@ -147,7 +147,7 @@ describe("MFA table permissions on an owned PGlite database", () => {
     const db = await openPlatformDb({ kind: "pglite" });
     try {
       await db.exec("create role anon; create role authenticated; create role service_role bypassrls;");
-      await db.exec(migration0057WorkspaceMfaControls.sql);
+      await db.exec(migration0056WorkspaceMfaControls.sql);
       const [rls] = await db.query<{ relrowsecurity: boolean }>("select relrowsecurity from pg_class where oid='platform.workspace_mfa_controls'::regclass"); expect(rls.relrowsecurity).toBe(true);
       for (const role of ["anon", "authenticated"]) {
         const [row] = await db.query<{ allowed: boolean }>("select has_table_privilege($1, 'platform.workspace_mfa_controls', 'select,insert,update,delete') as allowed", [role]); expect(row.allowed).toBe(false);

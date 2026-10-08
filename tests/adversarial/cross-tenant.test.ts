@@ -170,8 +170,18 @@ beforeEach(() => {
   session.user = bravoUser;
 });
 
+// Resolve each fixed route once. Hundreds of hostile identifiers must exercise
+// the handler, rather than repeatedly paying the development module-loader cost.
+const handlers = new Map<Attack, Awaited<ReturnType<Attack["handler"]>>>();
+beforeAll(async () => {
+  for (const attack of attacks) handlers.set(attack, await attack.handler());
+  // The merged request guard reads durable MFA policy even on product-store
+  // mutations. Migrate its real isolated PGlite store during fixture setup.
+  await (await import("@/lib/auth/mfa-policy")).workspaceMfaControl(bravo.workspaceId);
+}, 60_000);
 async function invoke(attack: Attack, ids: string[]): Promise<{ status: number; text: string }> {
-  const handler = await attack.handler();
+  const handler = handlers.get(attack);
+  if (!handler) throw new Error("Attack route was not loaded");
   const params = Object.fromEntries(attack.params.map((name, i) => [name, ids[i]!]));
   const request = new NextRequest(`http://localhost${attack.url(ids)}`, {
     method: attack.method,

@@ -102,7 +102,12 @@ export async function setupLambda(root: string): Promise<void> {
 }
 export async function upLocal(profile: Profile, variant: "lambda" | "container", rawEnv: Readonly<Record<string, string | undefined>>, exec: Exec = defaultExec): Promise<LocalState> {
   const paths = localPaths(rawEnv); const env = localEnvironment(rawEnv);
-  env.ZENITH_LOCAL_STRIPE_ARCH_SUFFIX = process.arch === "arm64" ? "-arm64" : "";
+  const pins = Object.fromEntries(readFileSync("deploy/observability/images.env", "utf8").split(/\r?\n/).filter(line => /^[A-Z][A-Z0-9_]*=/.test(line)).map(line => { const at = line.indexOf("="); return [line.slice(0, at), line.slice(at + 1)]; }));
+  if (!["arm64", "x64"].includes(process.arch)) throw new Error("Local acceptance requires a supported native Docker architecture");
+  env.ZENITH_LOCAL_STRIPE_IMAGE = pins[process.arch === "arm64" ? "ZENITH_LOCAL_STRIPE_ARM64_IMAGE" : "ZENITH_LOCAL_STRIPE_AMD64_IMAGE"];
+  if (!/^stripe\/stripe-mock:v[\w.-]+@sha256:[a-f0-9]{64}$/.test(env.ZENITH_LOCAL_STRIPE_IMAGE ?? "")) throw new Error("Native Stripe fixture pin is absent");
+  const postgresImage = pins.ZENITH_LOCAL_POSTGRES_IMAGE;
+  if (!/^postgres:16\.[\d]+-alpine@sha256:[a-f0-9]{64}$/.test(postgresImage ?? "")) throw new Error("Local PostgreSQL pin is absent");
   if (!["mixed", "acme", "billing"].includes(profile) || !["lambda", "container"].includes(variant)) throw new Error("Unknown profile or fixture variant");
   mkdirSync(paths.root, { recursive: true, mode: 0o700 });
   if (lstatSync(paths.root).isSymbolicLink()) throw new Error("Scratch must not be a symlink");
@@ -128,6 +133,13 @@ export async function upLocal(profile: Profile, variant: "lambda" | "container",
   save(); mkdirSync(path.join(paths.root, "challenge"), { mode: 0o700 });
   await pki(paths.root, env, exec);
   chmodSync(path.join(paths.root, "pki/pebble.key"), 0o644);
+  const images = (await command([...composeArgs(profile), "config", "--images"], env, exec)).trim().split(/\s+/);
+  for (const ref of new Set([...images, ...(profile === "mixed" ? [postgresImage] : [])])) {
+    if (!/@sha256:[a-f0-9]{64}$/.test(ref)) throw new Error("Local engine image is not pinned");
+    await command(["docker", "pull", ref], env, exec);
+    const [image] = JSON.parse(await command(["docker", "image", "inspect", ref], env, exec)) as { Architecture: string }[];
+    if (image.Architecture !== (process.arch === "arm64" ? "arm64" : "amd64")) throw new Error("Local image does not support the native architecture");
+  }
   await command([...composeArgs(profile), "up", "-d", "--wait", "--wait-timeout", "120"], env, exec);
   if (profile === "mixed") {
     await waitFor(async () => (await fetch("http://127.0.0.1:14566/_localstack/health", { redirect: "error", signal: AbortSignal.timeout(3000) })).ok);
@@ -136,15 +148,14 @@ export async function upLocal(profile: Profile, variant: "lambda" | "container",
     cpSync(realpathSync("node_modules/postgres"), path.join(context, "postgres"), { recursive: true });
     const image = `zenith-j15-fixture:${paths.runId}`;
     await command(["docker", "build", "-f", "fixtures/mixed-app/Dockerfile", "-t", image, context], env, exec);
-    await command(["docker", "pull", "postgres:16.6-alpine"], env, exec);
     state.createdCluster = true; save();
     await command(["kind", "create", "cluster", "--name", paths.cluster, "--config", "deploy/acceptance/local-targets/kind.yml", "--kubeconfig", state.kubeconfig, "--wait", "120s"], env, exec);
     await command(["docker", "update", "--memory", "2048m", "--memory-swap", "2560m", `${paths.cluster}-control-plane`], env, exec);
-    await command(["kind", "load", "docker-image", image, "postgres:16.6-alpine", "--name", paths.cluster], env, exec);
+    await command(["kind", "load", "docker-image", image, postgresImage, "--name", paths.cluster], env, exec);
     await command(["docker", "network", "connect", `${paths.cluster}-mixed`, `${paths.cluster}-control-plane`], env, exec);
     const cid = (await command([...composeArgs("mixed"), "ps", "-q", "localstack"], env, exec)).trim();
     const ip = (await command(["docker", "inspect", "-f", `{{(index .NetworkSettings.Networks "${paths.cluster}-mixed").IPAddress}}`, cid], env, exec)).trim();
-    const objects = mixedObjects({ runId: paths.runId, image, postgresImage: "postgres:16.6-alpine", localstackIp: ip, variant });
+    const objects = mixedObjects({ runId: paths.runId, image, postgresImage, localstackIp: ip, variant });
     const nsFile = path.join(paths.root, "namespace.json");
     writeFileSync(nsFile, JSON.stringify(objects[0]));
     await command([...kubeArgs(state), "apply", "-f", nsFile], env, exec);
@@ -184,4 +195,3 @@ export async function downLocal(rawEnv: Readonly<Record<string, string | undefin
   // Keep private scratch for diagnosis; never recursively remove a computed path.
   unlinkSync(path.join(state.root, "state.json"));
 }
-

@@ -577,3 +577,14 @@ No env vars: PGlite plus the synthetic cloud fetch. Expected: all pass. The firs
 ## 5. Suggested ledger implementationStatus
 
 "implemented_unverified: create/verify/revoke/rotate for aws, gcp, azure, oci, kubernetes via UI, REST and CLI (create/rotate/promote browser-only; CLI hands off), staged zero-downtime rotation with candidate verification, immediate terminal revoke blocking all dispatch paths, platform events and audit, migration 22; contract + local_engine tests written, not yet run"
+
+
+## Wave 6 final integration
+
+Status remains `implementation_complete_verification_pending`. Node 22 only. Execute sequentially with Docker Desktop 4 GiB and one kind node; stop each heavy profile before starting another. Live acceptance stays deferred until separate owner approval.
+
+```bash
+node scripts/ci/wave6-gates.mjs --requirement PROD-LIFE-01 --print > /tmp/zenith-wave6-PROD-LIFE-01.commands.json
+```
+
+This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).

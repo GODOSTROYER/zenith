@@ -99,3 +99,20 @@ Unset real-engine gates produce explicit skips, never passes. Enabling a gate wi
 ## Local checks
 
 See [J4-CHECKS.md](J4-CHECKS.md) for exact command results. The required serialized whole-repo typecheck and changed-file eslint passed. No existing assertion, gate or expectation was removed or relaxed. The historical base migration failure is retained in the command report; assembly fixed the registry before these successful SQL reruns. No migration was dropped or bypassed.
+
+
+### J4 maintenance overlay for the J15 joined driver
+
+Set `ZENITH_LOCAL_MAINTENANCE_ENV_FILE` to an absolute private mode-0600 file containing only the J4 overlay below. The J15 driver retains J1 credentials, TLS/query settings and local server/port, binds product/control/migration URLs to the selected fresh database, and refuses unknown credential fields. Prepare the genuine API against that same fresh database and the separate namespace first, using [J4's setup](J4-SCHEDULES-RUNBOOKS.md). J4 still checks an immutable seeded epoch, zero existing scheduled health/provider connections and no pollers/schedules in its namespace. The ordinary J1 namespace is not accepted.
+
+```dotenv
+ZENITH_PLATFORM_DB_URL=postgresql://<J1 generated user/password>@localhost:6543/<fresh_j4_database>
+ZENITH_PLATFORM_DB_MAX=2
+ZENITH_TEMPORAL_ADDRESS=127.0.0.1:17233
+ZENITH_TEMPORAL_NAMESPACE=j4-maintenance-<owned-suffix>
+ZENITH_J4_API_ORIGIN=http://127.0.0.1:3100
+ZENITH_J4_CRON_SECRET_FILE=<absolute private J1 cron-secret FILE>
+ZENITH_DATA=<absolute private J4 worker directory>
+ZENITH_SERVERLESS=1
+ZENITH_BILLING=managed
+```

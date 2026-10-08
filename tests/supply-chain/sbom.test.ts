@@ -139,7 +139,12 @@ describe("container inputs", () => {
     }
     const runner = dockerfileComponents(fs.readFileSync("docker/runner.Dockerfile", "utf8"), "docker/runner.Dockerfile");
     const tagOnly = runner.filter((c: { properties: { name: string; value: string }[] }) => c.properties.some((p) => p.name === "zenith:pinned" && p.value === "tag-only"));
-    expect(tagOnly.map((c: { name: string }) => c.name)).toEqual(expect.arrayContaining(["golang", "gcr.io/distroless/static-debian12"]));
+    expect(tagOnly).toEqual([]);
+    for (const name of ["golang", "gcr.io/distroless/static-debian12"]) {
+      const image = runner.find((c: { name: string }) => c.name === name);
+      expect(image?.hashes?.[0].content).toMatch(/^[a-f0-9]{64}$/);
+      expect(image?.properties).toContainEqual({ name: "zenith:pinned", value: "digest" });
+    }
     const tofu = runner.find((c: { name: string }) => c.name === "opentofu");
     expect(tofu?.hashes).toHaveLength(2);
     const worker = dockerfileComponents(fs.readFileSync("docker/worker.Dockerfile", "utf8"), "docker/worker.Dockerfile");

@@ -14,7 +14,7 @@ const required = () => new ApiError(MFA_REQUIRED, 403, { fix: "Open /account/mfa
  * Never trusts getSession(), metadata, headers, role claims or an AAL on another session.
  * No demo bypass. No positive cache. AAL2 is additional to membership/policy/approval.
  */
-export async function requireStepUp(req: NextRequest, options: { subject: string; workspaceId?: string }): Promise<{ subject: string; aal: "aal2" }> {
+export async function requireStepUp(req: NextRequest, options: { subject: string; workspaceId?: string; sessionId?: string }): Promise<{ subject: string; aal: "aal2" }> {
   if (req.headers.has("authorization") || req.headers.has("x-zenith-actor") || req.headers.has("x-zenith-actor-key")) throw required();
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method.toUpperCase())) {
     const configured = process.env.ZENITH_PLATFORM_ORIGIN ?? process.env.ZENITH_AGENT_ORIGIN;
@@ -27,6 +27,7 @@ export async function requireStepUp(req: NextRequest, options: { subject: string
     if (site !== null && site !== "same-origin") throw required();
   }
   if (!isSupabaseConfigured()) throw unavailable();
+  if (!options.subject) throw new ApiError("Sign in again to verify your session.", 401);
   const policy = await workspaceMfaControl(options.workspaceId);
   try {
     const client = createServerClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY, {
@@ -36,6 +37,7 @@ export async function requireStepUp(req: NextRequest, options: { subject: string
     if (verified.error) throw unavailable();
     const claims = verified.data?.claims;
     if (!claims || claims.sub !== options.subject || !options.subject) throw new ApiError("Sign in again to verify your session.", 401);
+    if (options.sessionId !== undefined && (!options.sessionId || claims.session_id !== options.sessionId)) throw required();
     if (claims.aal !== "aal2") throw required();
     // getClaims verifies expiration; explicitly refuse incomplete provider responses too.
     if (typeof claims.exp !== "number" || !Number.isFinite(claims.exp) || claims.exp <= Date.now() / 1000) throw required();

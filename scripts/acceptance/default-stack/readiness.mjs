@@ -42,6 +42,10 @@ export async function readiness(state) {
   if (JSON.stringify(sourceBinding()) !== JSON.stringify(state.source)) fail('source-drift');
   const sizing = topology(state.profile), resources = await inventory(state);
   const checks = {};
+  const mailpit = resources.filter(resource => resource.kind === 'container' && resource.id && resource.item.Name === `/zenith-local-${state.installationId}-mailpit`);
+  checks['mailpit-owned-running'] = mailpit.length === 1 && mailpit[0].item.State?.Running === true && mailpit[0].item.Image === state.mailpitImage?.imageId;
+  const mail = await fetch(`http://127.0.0.1:${ports.mail}/api/v1/messages`, { redirect: 'error', signal: AbortSignal.timeout(5000) });
+  checks['mailpit-api'] = mail.ok && Array.isArray((await mail.json()).messages);
   const expected = ['api', 'execution-worker', 'temporal', ...(sizing.apis === 2 ? ['api-peer', 'execution-worker-peer'] : [])];
   for (const name of expected) {
     const containers = resources.filter(resource => resource.kind === 'container' && resource.item.Config.Labels?.['com.docker.compose.project'] === state.applicationProjectName && resource.item.Config.Labels?.['com.docker.compose.service'] === name);

@@ -226,6 +226,7 @@ const EXEMPT: Record<string, string> = {
   "machines.findMachineForAuth": "the one documented unscoped lookup: a signed request names only the machine id",
   "plugins.resolveGrantByTokenHash": "authentication lookup keyed by a 256-bit token hash; the workspace comes FROM the grant row and the caller binds it for every later call, never from caller input",
   "plugins.diagnoseTokenHash": "audit-only diagnosis keyed by a 256-bit token hash; returns a fixed vocabulary word and no tenant data",
+  "plugins.hasGrantTokenHash": "authentication discriminator keyed by a 256-bit token hash; returns only existence, never tenant data, before authenticating the audience-bound grant (launch-integration.test.ts)",
   "scheduledJobs.beginRun": "system scheduler health row keyed by a fixed job name and lease fence; holds counts only, no tenant data",
   "scheduledJobs.finishRun": "system scheduler health row keyed by job name and lease fence; a stale holder cannot finish",
   "scheduledJobs.recordSkip": "system scheduler health row keyed by job name; counts only",

@@ -8,6 +8,7 @@ import { HttpControlPlaneClient, isTerminalStatus } from "../../clients/control-
 import { CASES, gcpInventoryItemsPointer, isCompleteGcpInventoryUrl, type Assertion, type Inventory, type Packet, type Probe } from "./contracts";
 import { digest, Guard } from "./guard";
 import { verifyMixedEvidence } from "../../mixed-evidence";
+import { tagsMatch, teardownUntilFailure } from "../shared";
 
 const Credentials = z.discriminatedUnion("provider", [
   z.object({ provider: z.literal("azure"), account: z.string(), region: z.string(), tokenFiles: z.record(z.string().min(1)), trafficTokenFiles: z.record(z.string().min(1)).optional() }).strict(),
@@ -219,11 +220,11 @@ export async function inventory(port: Port, descriptor: Inventory, guard: Guard)
       const tags = pointer(item, descriptor.tagsPointer);
       if (typeof id === "string" && guard.permissions.retainedResourceIds.includes(id)) continue;
       if (typeof id !== "string" || !id) throw new Error("Inventory identity is unreadable");
-      let owned = !!tags && typeof tags === "object" && (tags as Record<string, unknown>).zenith_live_run === guard.packet.runId;
+      let owned = tagsMatch(tags, { zenith_live_run: guard.packet.runId });
       const p = descriptor.parentOwnership;
       if (p) {
         const parentTags = pointer(parent, p.tagsPointer);
-        const parentOwned = !!parentTags && typeof parentTags === "object" && (parentTags as Record<string, unknown>).zenith_live_run === guard.packet.runId;
+        const parentOwned = tagsMatch(parentTags, { zenith_live_run: guard.packet.runId });
         const matchesId = p.childIdPrefix ? id.startsWith(p.childIdPrefix.endsWith("/") ? p.childIdPrefix : p.childIdPrefix + "/") : true;
         let matchesValues = true;
         if (p.targetValuesPointer !== undefined && p.itemValuesPointer !== undefined) {
@@ -327,11 +328,11 @@ export async function run(packet: Packet, guard: Guard, port: Port, cleanupOnly 
   finally {
     // Never delete directly. The real destroy path revalidates ownership and exact human approval.
     // A failed consumer stops destructive dependency cleanup; every leak scan still runs.
-    if (safeToDestroy) for (const environment of [...packet.environmentIds].reverse()) {
+    if (safeToDestroy) cleanup.succeeded = await teardownUntilFailure([...packet.environmentIds].reverse(), async environment => {
       cleanup.attempted++;
-      try { guard.check(); await port.teardown(environment); cleanup.succeeded++; }
-      catch { break; }
-    }
+      guard.check(); await port.teardown(environment);
+      return true;
+    });
     try {
       let remaining = -1;
       for (let attempt = 0; attempt < 12; attempt++) {

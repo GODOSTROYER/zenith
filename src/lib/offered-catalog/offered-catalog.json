@@ -1,7 +1,7 @@
 {
  "schemaVersion": 1,
- "catalogVersion": "v1-3e05c4662ac4",
- "contentDigest": "3e05c4662ac46f2ef27f92e21c3cd5d1dd2fee026710b95527ad58d3bee6dca3",
+ "catalogVersion": "v1-bf756bdae05e",
+ "contentDigest": "bf756bdae05efe9073c62224f75385edc3e79ec081f8ae372873aa2231bea2d2",
  "levelPolicy": {
   "supported": "A registered, non-experimental driver implements the operation and it has emulator or live-account evidence.",
   "preview": "Implemented and reachable, but only contract-level evidence (mocked SDK or HTTP), or experimental, or an ambiguous shared native type.",
@@ -8763,7 +8763,8 @@
    "domain": "container",
    "status": "not_offered",
    "level": "unsupported",
-   "reason": "No native type maps container_registry on kubernetes; expansion reports it as unsupported."
+   "reason": "The compiler names k8s:BuildRegistry, but no resource driver implements it (schema or vocabulary only).",
+   "nativeType": "k8s:BuildRegistry"
   },
   {
    "provider": "kubernetes",
@@ -9637,7 +9638,8 @@
    "domain": "container",
    "status": "not_offered",
    "level": "unsupported",
-   "reason": "No native type maps build_pipeline on kubernetes; expansion reports it as unsupported."
+   "reason": "The compiler names k8s:BuildPipeline, but no resource driver implements it (schema or vocabulary only).",
+   "nativeType": "k8s:BuildPipeline"
   },
   {
    "provider": "zenith",

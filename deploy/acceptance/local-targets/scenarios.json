@@ -4,7 +4,7 @@
   "scenarios": {
     "install": {
       "target": "default-stack",
-      "driver": "scripts/acceptance/default-stack/verify.mjs",
+      "driver": "scripts/acceptance/default-stack/readiness.mjs",
       "owner": "J1"
     },
     "private-source": {
@@ -30,7 +30,7 @@
     },
     "machine-schedules": {
       "target": "maintenance",
-      "driver": "scripts/acceptance/maintenance/run.mjs",
+      "driver": "scripts/acceptance/maintenance/run.ts",
       "owner": "J4"
     },
     "drift-repair": {

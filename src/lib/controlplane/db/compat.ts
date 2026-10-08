@@ -68,10 +68,15 @@ export interface ContractMigrationApproval {
  * LIFE-10 approval reference; it does not by itself allow the migration to run.
  */
 export const CONTRACT_MIGRATION_APPROVALS: readonly ContractMigrationApproval[] = [{
-  version: 59,
+  version: 57,
+  sqlSha256: "55b72ecf1af8739036f17f1cd7f77b7e13f6de0e1de76773dd110af12aa8e450",
+  approvalRef: "user-2026-10-08-final-integration-wave5-gaps",
+  rationale: "Integration explicitly assigns the unpublished restore-evidence CHECK widening. Existing kinds remain valid; drain previous writers and explicitly admit the constraint replacement.",
+}, {
+  version: 58,
   sqlSha256: "afef954e9417c33a3a0dadc254253ab523c9dbc425af27da5120927e8064df9a",
   approvalRef: "user-2026-10-08-j6-native-source-custody",
-  rationale: "Step 2 explicitly assigns native Kubernetes schema joins and migration 59. Existing providers and immutable custody remain valid; require drained writers and explicit operator admission.",
+  rationale: "Step 2 explicitly assigns native Kubernetes schema joins and migration 58. Existing providers and immutable custody remain valid; require drained writers and explicit operator admission.",
 }, {
   version: 42,
   sqlSha256: "3dcc8f12119594941f82dd749f5471fb2578f1d5c37ec09083491aa6dc91f4b2",
@@ -101,6 +106,9 @@ const LOCAL_GRANT_BLOCK_SQL: Readonly<Record<number, string>> = {
   48: "44d625c45bf2e665cd424e96394d739a3d9733ce4a37a8812ff0fbedccae4fba",
   50: "84fd09e1866b387eb422173d38da18dd97aa7f5b967da8eb02f452a38ea99804",
   52: "0236a9a6624adff33cce485ef54e4954cec5d629bfbb2fe4a0ccab5a51f5c45f",
+  54: "cbb2c080c4e5e5c3f09b4d999571d7bec54e121cb1f85b43fac407563ed189de",
+  55: "b6e75e8ca5e06d8147f7b34086008551858f2bdf642cfc97f493d6ac9b902192",
+  56: "aad9739d5412fe15b5ecd065a80dd205e74818287861c8484c68de578ecef3b0",
 };
 
 export interface MigrationCompatAssessment {
@@ -147,7 +155,7 @@ export function assessPlatformMigration(migration: PlatformMigration, baseline: 
   const statements = splitStatements(migration.sql);
   // This exact migration replaces an existing CHECK inside an anonymous block.
   // It must not inherit the generic data-block class and bypass contract admission.
-  const sourceWiden = (migration.version === 49 && migration.name === "managed_source_provider") || (migration.version === 59 && migration.name === "kubernetes_source_provider");
+  const sourceWiden = (migration.version === 49 && migration.name === "managed_source_provider") || (migration.version === 58 && migration.name === "kubernetes_source_provider");
   const created = new Set<string>();
   for (const stmt of statements) {
     const t = createdTable(stmt);

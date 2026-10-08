@@ -62,3 +62,14 @@ Expected: all pass; the platform file runs on PGlite without the env var and add
 ## 5. Suggested ledger implementationStatus
 
 `lifecycle_unified_local: runRepairLifecycle is the single door for Temporal, HTTP tick and durable sweep; typed refusals for every unrepaired finding; post-remediation verification closes or escalates; diagnosis recording wired. Tests written, not yet executed. Live provider remediation unproven.`
+
+
+## Wave 6 final integration
+
+Status remains `implementation_complete_verification_pending`. Node 22 only. Execute sequentially with Docker Desktop 4 GiB and one kind node; stop each heavy profile before starting another. Live acceptance stays deferred until separate owner approval.
+
+```bash
+node scripts/ci/wave6-gates.mjs --requirement PROD-OBS-01 --print > /tmp/zenith-wave6-PROD-OBS-01.commands.json
+```
+
+This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).

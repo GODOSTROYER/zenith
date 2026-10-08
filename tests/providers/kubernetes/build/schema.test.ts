@@ -3,7 +3,7 @@ import { openPlatformDb, type PlatformDbHandle, repos } from "@/lib/controlplane
 import { PLATFORM_MIGRATIONS, migrationChecksum } from "@/lib/controlplane/db/migrations";
 import { migratePlatformDb } from "@/lib/controlplane/db/migrator";
 import { assessPlatformMigration, contractViolations, assertPendingMigrationsCompatible } from "@/lib/controlplane/db/compat";
-import { migration0059KubernetesSourceProvider as migration } from "@/lib/controlplane/db/migrations/0059_kubernetes_source_provider";
+import { migration0058KubernetesSourceProvider as migration } from "@/lib/controlplane/db/migrations/0058_kubernetes_source_provider";
 import { immutableSourceSnapshot, sourceSnapshotDigest } from "@/lib/execution/source-snapshot";
 
 const source = (provider: "aws" | "gcp" | "azure" | "zenith" | "kubernetes", operationId: string) => immutableSourceSnapshot({
@@ -25,7 +25,7 @@ describe.each([
     let before: string;
     beforeAll(async () => {
       db = await openPlatformDb(kind === "pglite" ? { kind, migrate: false } : { kind, url: pg!, max: 1 });
-      if (kind === "pglite") await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version < 59));
+      if (kind === "pglite") await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version < migration.version));
       before = await constraint(db);
       // Exact migration under test. PG is an owned verifier database with explicit migration admission.
       if (kind === "pglite") await db.exec(migration.sql);
@@ -65,7 +65,7 @@ describe("J6 migration compatibility admission", () => {
     expect(assessPlatformMigration(migration, 52).class).toBe("contract");
     expect(contractViolations([migration], { baseline: 52 })).toEqual([]);
     expect(() => assertPendingMigrationsCompatible([migration], { baseline: 52, allowed: new Set() })).toThrow();
-    expect(() => assertPendingMigrationsCompatible([migration], { baseline: 52, allowed: new Set([59]) })).not.toThrow();
+    expect(() => assertPendingMigrationsCompatible([migration], { baseline: 52, allowed: new Set([migration.version]) })).not.toThrow();
     expect(contractViolations([{ ...migration, sql: migration.sql + "\n" }], { baseline: 52 })).toMatchObject([{ reason: "sql_changed_since_approval" }]);
     expect(migrationChecksum(migration)).toBe("afef954e9417c33a3a0dadc254253ab523c9dbc425af27da5120927e8064df9a");
   });

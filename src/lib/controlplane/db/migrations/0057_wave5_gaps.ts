@@ -1,6 +1,6 @@
 /** Expand-only W5-GAPS: separate restore completion evidence and explicit legacy key audit. */
-export const migration0058Wave5Gaps = {
-  version: 58,
+export const migration0057Wave5Gaps = {
+  version: 57,
   name: "wave5_gaps",
   sql: `
 alter table platform.slo_measurements drop constraint if exists slo_measurements_kind_check;

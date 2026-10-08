@@ -14,6 +14,14 @@ function adapter(over: { digest?: string; error?: string; version?: string } = {
   return { send, invoke: createLambdaEnricher(env, { client: { send } }) };
 }
 describe("mixed Lambda authenticated invocation adapter [contract]", () => {
+  it("refuses invocation when the live ownership authorization rejects observed tags", async () => {
+    const send = vi.fn(async () => ({ Configuration: { CodeSha256: Buffer.from(sha, "hex").toString("base64") }, Tags: { owner: "foreign" } }));
+    const authorize = vi.fn(async (observed: { Tags: Record<string, string> }) => { expect(observed.Tags).toEqual({ owner: "foreign" }); throw new Error("Run ownership refused"); });
+    const invoke = createLambdaEnricher(env, { client: { send }, authorize });
+    await expect(invoke(payload)).rejects.toThrow("Run ownership refused");
+    expect(authorize).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
   it("uses the exact published ARN and checks its code digest before invocation", async () => {
     const a = adapter(); expect(await a.invoke(payload)).toMatchObject({ status: 200, provider: "aws", body: { priceCents: 500 } });
     expect(a.send.mock.calls.map(c => c[0].input.FunctionName)).toEqual([env.ENRICHER_LAMBDA_ARN, env.ENRICHER_LAMBDA_ARN]);

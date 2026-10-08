@@ -7,6 +7,7 @@ import { prepareJoin, privateLocation, assertPrivate, writeJson, readPrepared, s
 import { root, cliVersion, ports, topology, supabaseConfig, digestImage, installationLabel, projectLabel, stackComposition, fail, assertHeadroom } from './config.mjs';
 import { cli, run, docker, compose, requireEngineGate, save, cleanup, setResourceGuard } from './runtime.mjs';
 import { readiness } from './readiness.mjs';
+import { envValues } from '../../deploy/pin-digests.mjs';
 
 const nodeImage = 'node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402';
 const privateFile = (file, text) => fs.writeFileSync(file, text, { mode: 0o600, flag: 'wx' });
@@ -117,7 +118,16 @@ export async function up(directory, profile = 'default', imageLockFile) {
     const cliDir = path.join(dir, 'supabase-project'); fs.mkdirSync(path.join(cliDir, 'supabase'), { recursive: true, mode: 0o700 });
     privateFile(path.join(cliDir, 'supabase/config.toml'), supabaseConfig(state.projectId, profile));
     await docker(['network', 'create', '--label', `${installationLabel}=${installationId}`, '--opt', 'com.docker.network.bridge.host_binding_ipv4=127.0.0.1', state.supabaseNetwork]);
-    await run('supabase', ['start', '--workdir', cliDir, '--network-id', state.supabaseNetwork, '--exclude', 'storage-api,imgproxy,realtime,studio,pg-meta,logflare,vector,edge-runtime'], { timeout: 600_000, id: 'supabase-start' });
+    const mailpitImage = digestImage(envValues(fs.readFileSync(path.join(root, 'deploy/observability/images.env'), 'utf8')).ZENITH_MAILPIT_IMAGE);
+    await docker(['pull', mailpitImage]);
+    const [mailImage] = JSON.parse(await docker(['image', 'inspect', mailpitImage])); nativeArch(mailImage.Architecture);
+    await docker(['run', '-d', '--name', `zenith-local-${installationId}-mailpit`, '--network', state.supabaseNetwork, '--network-alias', 'mailpit',
+      '--label', `${installationLabel}=${installationId}`, '--memory', '64m', '--cpus', '0.25', '--pids-limit', '64', '--user', '1000:1000',
+      '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true', '--tmpfs', '/tmp:rw,noexec,nosuid,size=32m,uid=1000,gid=1000,mode=1770',
+      '-e', 'MP_DATABASE=/tmp/mailpit.db', '-p', `127.0.0.1:${ports.mail}:8025`, mailpitImage]);
+    state.mailpitUrl = `http://127.0.0.1:${ports.mail}`;
+    state.mailpitImage = { reference: mailpitImage, imageId: mailImage.Id, architecture: mailImage.Architecture };
+    await run('supabase', ['start', '--workdir', cliDir, '--network-id', state.supabaseNetwork, '--exclude', 'inbucket,storage-api,imgproxy,realtime,studio,pg-meta,logflare,vector,edge-runtime'], { timeout: 600_000, id: 'supabase-start' });
     const status = JSON.parse(await run('supabase', ['status', '--workdir', cliDir, '--output', 'json']));
     // Never assume or print the CLI's credentials; use its actual status output.
     if (!status.ANON_KEY || !status.SERVICE_ROLE_KEY || !status.DB_URL) fail('supabase-status');

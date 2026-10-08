@@ -44,7 +44,7 @@ npx tsx scripts/release/local-target-runner.ts down
 
 Expected engine counts: **1 passed, 3 skipped**. The CA performs real HTTP-01 through CoreDNS, issues a certificate for mixed.j15.test, and a separate HTTPS handshake verifies its hostname/key/chain using only Pebble's root. No validation bypass is set. Bad nonces are retried within a bound. The fixed 172.30.115.0/24 DNS network must not overlap any existing Docker network; up refuses overlaps. CoreDNS has no public forwarder.
 
-The configuration follows [Pebble's versioned configuration](https://github.com/letsencrypt/pebble/blob/v2.8.0/test/config/pebble-config.json) and [upstream Compose image/arguments](https://github.com/letsencrypt/pebble/blob/v2.8.0/docker-compose.yml). Images are version tags except the reused Node digest; immutable emulator/PG/CA image digests remain an integration task for J11, not a fabricated pin.
+The configuration follows [Pebble's versioned configuration](https://github.com/letsencrypt/pebble/blob/v2.8.0/test/config/pebble-config.json) and [upstream Compose image/arguments](https://github.com/letsencrypt/pebble/blob/v2.8.0/docker-compose.yml). LocalStack, CoreDNS, Pebble, Node, kind and PostgreSQL now use immutable digests. The harness pulls and checks native image architecture before starting a profile; real execution remains Mac-pending.
 
 ## stripe-mock wire rehearsal
 
@@ -57,11 +57,11 @@ npx tsx scripts/release/local-target-runner.ts run --scenario billing
 npx tsx scripts/release/local-target-runner.ts down
 ```
 
-Expected engine counts: **1 passed, 3 skipped**. Runtime-generated fake test key; the actual billing adapter creates/finalizes an invoice against loopback and an independent GET checks its schema and stripe-mock header. stripe-mock is not a persistence, payment, webhook or durable billing-schedule test. ARM64 uses the upstream `v0.197.0-arm64` image suffix; AMD64 uses `v0.197.0`.
+Expected engine counts: **1 passed, 3 skipped**. Runtime-generated fake test key; the actual billing adapter creates/finalizes an invoice against loopback and an independent GET checks its schema and stripe-mock header. stripe-mock is not a persistence, payment, webhook or durable billing-schedule test. ARM64 and AMD64 use the publisher-specific immutable `v0.203.0` digests from `deploy/observability/images.env`. This fixture update replaces the unpinned v0.197.0 transport; it is not real Stripe acceptance. PostgreSQL reuses J11's pinned 16.15 image.
 
 ## Joined scenario driver protocol
 
-`scenarios.json` covers all 19 existing release scenarios. Install uses J1's `scripts/acceptance/default-stack/verify.mjs`; product journeys use J2's `scripts/acceptance/default-journey.mjs`; schedules use J4's `scripts/acceptance/maintenance/run.mjs`. These filenames and argument contracts require confirmation/adapters from their owners. No stub succeeds when one is absent. Without a driver and `ZENITH_LOCAL_JOINED_DRIVERS=1`, the local lane declines with exit 2.
+`scenarios.json` covers all 19 existing release scenarios. Install uses J1's `scripts/acceptance/default-stack/readiness.mjs`; product journeys use J2's `scripts/acceptance/default-journey.mjs`; schedules use J4's `scripts/acceptance/maintenance/run.ts`. These filenames and argument contracts require confirmation/adapters from their owners. No stub succeeds when one is absent. Without a driver and `ZENITH_LOCAL_JOINED_DRIVERS=1`, the local lane declines with exit 2.
 
 After those joins and their own documented setup, use:
 ```bash
@@ -73,3 +73,12 @@ npx tsx scripts/release/acceptance-orchestrator.ts run --local-targets --run-id 
 Each driver receives `--scenario ID --run-id ID --receipt FILE`. It must exercise its real local journey and write schema 1, evidenceLabel local_rehearsal, matching scenarioId/runId/sourceCommit, nonempty checks with required `scenario-<ID>` and statuses passed/failed/skipped, and nonempty limits. Its independent readback belongs to the driver, not this receipt parser. Zero-exit with absent/malformed/foreign receipts fails. Skipped checks remain incomplete. Child environment excludes live gates and real provider credentials; local auth uses ZENITH_LOCAL_* credential FILE references. No privileged fallback.
 
 Resume binds source commit, harness/fixture/config bytes, lane plan and local scratch/join choice. Missing/tampered completed lane artifacts refuse resume. Use a fresh run after such a refusal; never repair the evidence to pass.
+
+
+## Final integration join (8 October 2026)
+
+Use J1 `up.mjs --profile lean --directory <new-private-directory>`, `env.mjs <directory> <new-private-host.env>` and `down.mjs <directory>`. The host environment is secret-bearing; load it without logging it. J15 derives this environment from the owned J1 state for J2 and J4 children. J2 uses its actual `--config <private-config> --receipt <new-private-receipt>` protocol. It enrolls both operators in real Supabase TOTP before privileged approvals. Set `ZENITH_LOCAL_JOINED_DRIVERS=1`, `ZENITH_DEFAULT_JOURNEY=1`, `ZENITH_ACCEPTANCE_DEFAULT_STACK=1`, `ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR`, and `ZENITH_LOCAL_JOURNEY_CONFIG_FILE` for joined runs. Natural maintenance also requires `ZENITH_TEST_MAINTENANCE=1` and J4's private cron-secret/isolated namespace prerequisites.
+
+The closed J2 receipt projection covers plan-approval, rotation, revocation and teardown only. Private-source, update-rollback, drift-repair, crash-partition, upgrade, restore, two-tenants and export need dedicated operated acceptance; the adapter writes incomplete/skipped evidence for them and cannot make a release green. Their component lanes and owner-run gates remain executable separately.
+
+For `machine-schedules`, also set `ZENITH_LOCAL_MAINTENANCE_ENV_FILE` to the private mode-0600 J4 overlay described in [J4 setup](../../../docs/build/production/verify/J4-SCHEDULES-RUNBOOKS.md). This is a fresh maintenance database on J1's owned local server and a separately started real local API/Temporal namespace; ordinary default-stack health cannot be reused as fresh acceptance. No J4 precondition is bypassed.

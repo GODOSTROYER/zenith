@@ -4543,6 +4543,210 @@ insert into platform.schema_migrations (version, name, checksum)
 values (52, 'billing', '0236a9a6624adff33cce485ef54e4954cec5d629bfbb2fe4a0ccab5a51f5c45f')
 on conflict (version) do nothing;
 
+-- ============================ migration 53: field_ownership_serialization ============================
+
+create or replace function platform.serialize_field_ownership() returns trigger
+language plpgsql set search_path=pg_catalog as $$
+declare
+  old_key bigint;
+  new_key bigint;
+begin
+  -- INSERT foreign-key locks precede the environment coordinator, just as
+  -- native admission takes its operation lock before that coordinator.
+  if TG_TABLE_NAME='ownership_transfers' and TG_OP='INSERT' then
+    perform id from platform.operations where workspace_id=new.workspace_id and id=new.operation_id for key share;
+    if not found then raise exception 'Ownership transfer operation is unavailable' using errcode='23514'; end if;
+    perform id from platform.approvals where workspace_id=new.workspace_id and id=new.approval_id for key share;
+    if not found then raise exception 'Ownership transfer approval is unavailable' using errcode='23514'; end if;
+  end if;
+  if TG_OP<>'INSERT' then
+    old_key:=hashtextextended('zenith:field-ownership:' || jsonb_build_array(old.workspace_id,old.environment_id)::text,0);
+  end if;
+  if TG_OP<>'DELETE' then
+    new_key:=hashtextextended('zenith:field-ownership:' || jsonb_build_array(new.workspace_id,new.environment_id)::text,0);
+  end if;
+  -- A resource moved between environments locks both scopes in key order.
+  -- A hash collision only causes extra serialization, never missing exclusion.
+  perform pg_advisory_xact_lock(least(old_key,new_key));
+  if old_key is not null and new_key is not null and old_key<>new_key then
+    perform pg_advisory_xact_lock(greatest(old_key,new_key));
+  end if;
+  if TG_OP='DELETE' then return old; end if;
+  return new;
+end
+$$;
+create or replace trigger field_ownership_resource_serialization
+before insert or delete or update of id,workspace_id,environment_id,address,kind,native_type,spec on platform.resources
+for each row execute function platform.serialize_field_ownership();
+create or replace trigger field_ownership_transfer_serialization
+before insert or update or delete on platform.ownership_transfers
+for each row execute function platform.serialize_field_ownership();
+
+insert into platform.schema_migrations (version, name, checksum)
+values (53, 'field_ownership_serialization', '2c0dc88805c9d96c9ba133542ca4a31b8e8a0422f061250c14e92b5e513f2269')
+on conflict (version) do nothing;
+
+-- ============================ migration 54: agent_update_controls ============================
+
+create table if not exists platform.agent_update_controls (
+  workspace_id text not null check (char_length(workspace_id) between 1 and 128),
+  kind text not null check (kind in ('runner','machine')),
+  agent_id text not null check (char_length(agent_id) between 1 and 128),
+  revision integer not null check (revision > 0),
+  hold boolean not null,
+  manifest_sha256 text check (manifest_sha256 ~ '^[a-f0-9]{64}$'),
+  requested_by text not null check (char_length(requested_by) between 1 and 128),
+  updated_at timestamptz not null default clock_timestamp(),
+  primary key (workspace_id, kind, agent_id),
+  check (not hold or manifest_sha256 is null)
+);
+
+alter table platform.agent_update_controls enable row level security;
+revoke all on table platform.agent_update_controls from public;
+do $$
+declare r text;
+begin
+  foreach r in array array['anon','authenticated'] loop
+    if exists(select 1 from pg_roles where rolname=r) then
+      execute format('revoke all on table platform.agent_update_controls from %I',r);
+    end if;
+  end loop;
+  if exists(select 1 from pg_roles where rolname='service_role') then
+    grant select,insert,update,delete on table platform.agent_update_controls to service_role;
+  end if;
+end
+$$;
+
+insert into platform.schema_migrations (version, name, checksum)
+values (54, 'agent_update_controls', 'cbb2c080c4e5e5c3f09b4d999571d7bec54e121cb1f85b43fac407563ed189de')
+on conflict (version) do nothing;
+
+-- ============================ migration 55: isolation_custody ============================
+
+create table if not exists platform.isolation_plan_custody (
+  workspace_id text not null,
+  operation_id text not null,
+  plan_digest text not null check (plan_digest ~ '^[a-f0-9]{64}$'),
+  artifact_digest text not null check (artifact_digest ~ '^[a-f0-9]{64}$'),
+  iv text not null,
+  auth_tag text not null,
+  ciphertext text not null,
+  created_at timestamptz not null default clock_timestamp(),
+  primary key (workspace_id, operation_id, plan_digest),
+  foreign key (workspace_id, operation_id) references platform.operations(workspace_id, id)
+);
+create or replace function platform.isolation_custody_immutable() returns trigger language plpgsql as $$
+begin
+  raise exception 'Isolation plan custody is write-once' using errcode = '23514';
+end
+$$;
+drop trigger if exists isolation_custody_immutable on platform.isolation_plan_custody;
+create trigger isolation_custody_immutable before update or delete on platform.isolation_plan_custody
+for each row execute function platform.isolation_custody_immutable();
+alter table platform.isolation_plan_custody enable row level security;
+do $$
+declare r text;
+begin
+  foreach r in array array['anon','authenticated','service_role'] loop
+    if exists(select 1 from pg_roles where rolname=r) then
+      execute format('revoke all on table platform.isolation_plan_custody from %I',r);
+    end if;
+  end loop;
+  if exists(select 1 from pg_roles where rolname='service_role') then
+    grant select,insert on table platform.isolation_plan_custody to service_role;
+  end if;
+end
+$$;
+
+insert into platform.schema_migrations (version, name, checksum)
+values (55, 'isolation_custody', 'b6e75e8ca5e06d8147f7b34086008551858f2bdf642cfc97f493d6ac9b902192')
+on conflict (version) do nothing;
+
+-- ============================ migration 56: workspace_mfa_controls ============================
+
+create table if not exists platform.workspace_mfa_controls (
+  workspace_id text primary key,
+  require_for_all_mutations boolean not null default false,
+  max_age_seconds integer check (max_age_seconds between 60 and 86400),
+  version integer not null default 1 check (version >= 1),
+  updated_by text not null,
+  updated_at timestamptz not null default clock_timestamp()
+);
+alter table platform.workspace_mfa_controls enable row level security;
+do $$
+declare r text;
+begin
+  foreach r in array array['anon','authenticated'] loop
+    if exists(select 1 from pg_roles where rolname=r) then
+      execute format('revoke all on table platform.workspace_mfa_controls from %I',r);
+    end if;
+  end loop;
+  if exists(select 1 from pg_roles where rolname='service_role') then
+    revoke all on table platform.workspace_mfa_controls from service_role;
+    grant select,insert,update on table platform.workspace_mfa_controls to service_role;
+  end if;
+end
+$$;
+
+insert into platform.schema_migrations (version, name, checksum)
+values (56, 'workspace_mfa_controls', 'aad9739d5412fe15b5ecd065a80dd205e74818287861c8484c68de578ecef3b0')
+on conflict (version) do nothing;
+
+-- ============================ migration 57: wave5_gaps ============================
+
+alter table platform.slo_measurements drop constraint if exists slo_measurements_kind_check;
+alter table platform.slo_measurements add constraint slo_measurements_kind_check
+  check (kind in ('rpo','rto','capacity','database_restore','application_health'));
+alter table platform.slo_measurements drop constraint if exists slo_measurements_check;
+alter table platform.slo_measurements add constraint slo_measurements_check
+  check ((kind in ('rpo','rto','database_restore','application_health') and unit = 'seconds') or (kind = 'capacity' and unit = 'requests_per_second'));
+alter table platform.retention_restores add column if not exists key_purpose text
+  check (key_purpose is null or key_purpose in ('enc:archive','enc:backup'));
+alter table platform.retention_restores add column if not exists restore_key_id text
+  check (restore_key_id is null or char_length(restore_key_id) between 1 and 128);
+alter table platform.retention_restores add column if not exists legacy_reason text
+  check (legacy_reason is null or legacy_reason ~ '^[A-Za-z0-9 ._:/()-]{1,200}$');
+
+insert into platform.schema_migrations (version, name, checksum)
+values (57, 'wave5_gaps', '55b72ecf1af8739036f17f1cd7f77b7e13f6de0e1de76773dd110af12aa8e450')
+on conflict (version) do nothing;
+
+-- ============================ migration 58: kubernetes_source_provider ============================
+
+do $$
+declare
+  c record;
+  widened text;
+  found boolean := false;
+begin
+  for c in
+    select conname, pg_get_constraintdef(oid) as def
+      from pg_constraint
+     where conrelid = 'platform.approved_source_snapshots'::regclass
+       and contype = 'c'
+       and pg_get_constraintdef(oid) like '%''azure''::text%'
+       and pg_get_constraintdef(oid) like '%tar.gz%'
+  loop
+    found := true;
+    if c.def like '%''kubernetes''::text%' then
+      continue;
+    end if;
+    widened := replace(c.def, '''zenith''::text]', '''zenith''::text, ''kubernetes''::text]');
+    if widened = c.def then
+      raise exception 'approved_source_snapshots provider constraint has an unexpected shape';
+    end if;
+    execute format('alter table platform.approved_source_snapshots drop constraint %I', c.conname);
+    execute format('alter table platform.approved_source_snapshots add constraint %I %s', c.conname, widened);
+  end loop;
+  if not found then
+    raise exception 'approved_source_snapshots provider constraint was not found';
+  end if;
+end $$;
+
+insert into platform.schema_migrations (version, name, checksum)
+values (58, 'kubernetes_source_provider', 'afef954e9417c33a3a0dadc254253ab523c9dbc425af27da5120927e8064df9a')
+on conflict (version) do nothing;
+
 -- ============================ hardening (Supabase roles) ============================
 
 do $$
@@ -4568,6 +4772,15 @@ begin
     grant usage, select, update on all sequences in schema platform to service_role;
     alter default privileges in schema platform grant select, insert, update, delete on tables to service_role;
     alter default privileges in schema platform grant usage, select, update on sequences to service_role;
+    -- Direct-object custody is immutable and must not inherit aggregate DML.
+    if to_regclass('platform.isolation_plan_custody') is not null then
+      revoke all on table platform.isolation_plan_custody from service_role;
+      grant select, insert on table platform.isolation_plan_custody to service_role;
+    end if;
+    if to_regclass('platform.workspace_mfa_controls') is not null then
+      revoke all on table platform.workspace_mfa_controls from service_role;
+      grant select, insert, update on table platform.workspace_mfa_controls to service_role;
+    end if;
     -- Permanent agent receipts keep their narrower migration-specific grants.
     -- Guard absence for the exact legacy schema6 upgrade fixture.
     if to_regclass('platform.agent_effect_receipts') is not null then

@@ -25,10 +25,9 @@ describe("agent update repository on canonical migration 54 (PGlite)", () => {
     expect(compareInventory(discovered, { "platform.agent_update_controls": TABLES["platform.agent_update_controls"] })).toEqual([]);
   });
   it("registers expand-only SQL with its real checksum and reapplies idempotently", async () => {
-    // The existing classifier deliberately labels an opaque DO role-grant block
-    // as data. Its body only grants/revokes on this newly created table, so N-1
-    // remains unaffected; the actual compatibility gate must still accept it.
-    expect(assessPlatformMigration(migration, 43)).toMatchObject({ class: "data", findings: ["data: runs a procedure or anonymous block whose effect is opaque"] });
+    // The exact reviewed grant-only block on the new table is classified as
+    // expand; all unknown procedures still remain opaque/fail-closed.
+    expect(assessPlatformMigration(migration, 43)).toMatchObject({ class: "expand", findings: [] });
     expect(contractViolations([migration], { baseline: 43 })).toEqual([]);
     expect(await db.query("select version, name, checksum from platform.schema_migrations where version = 54")).toEqual([{ version: 54, name: migration.name, checksum: migrationChecksum(migration) }]);
     await putUpdateControl(db, "ws_update", "runner", "run_update", "actor", hold);

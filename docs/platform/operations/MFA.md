@@ -1,5 +1,7 @@
 # Privileged operator MFA
 
+Written against branch `prod/compose`, committed guide input `9594a9e`. Integration verification remains pending.
+
 Zenith uses Supabase Auth TOTP for privileged human actions. Set up an authenticator at `/account/mfa/enrol`, then verify at `/account/mfa/challenge`. Review and resubmit the intended action after verification; the screens never replay a refused mutation. Signed AAL2, an unexpired token, a matching confirmed live user and a currently verified TOTP factor are required. Existing workspace roles, approvals, policy and execution checks still apply.
 
 ## Local and default stack (J1 join)

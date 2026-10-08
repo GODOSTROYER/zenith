@@ -17,7 +17,7 @@ Additional joins: the billing settings navigation/section, billing read-model/AP
 
 ## Migration and SQL classification
 
-Only new platform migration **58**, `0058_wave5_gaps.ts`, is appended to `migrations/index.ts`. It expands allowed SLO kinds/seconds units and adds nullable legacy key-purpose/fingerprint/reason audit columns. Existing rows, append-only triggers, RLS and grants remain. No tables or secret storage are added. `key_purpose` and `restore_key_id` are plaintext metadata; `legacy_reason` is guarded operator text. The inventory discovery regex now explicitly detects these columns and its test requires that detection.
+Only new platform migration **58**, `0057_wave5_gaps.ts`, is appended to `migrations/index.ts`. It expands allowed SLO kinds/seconds units and adds nullable legacy key-purpose/fingerprint/reason audit columns. Existing rows, append-only triggers, RLS and grants remain. No tables or secret storage are added. `key_purpose` and `restore_key_id` are plaintext metadata; `legacy_reason` is guarded operator text. The inventory discovery regex now explicitly detects these columns and its test requires that detection.
 
 `reportRestoreCompletion` and the readiness route intentionally read system recovery/SLO data; they accept no tenant row data. The former uses a per-restore transaction advisory lock for append-once evidence, and the latter binds the exact restore run id. Billing remains workspace-bound. Archive restore SQL remains bound to the archive's verified workspace. The pre-existing `managedServing.listRevokePending` static SQL audit classification failure is unrelated and its code/test are unchanged; see checks below. No exemption or assertion was removed to hide it.
 
@@ -197,7 +197,7 @@ Suggested commit: `fix(production): close wave 5 billing lambda and recovery gap
 - `src/lib/billing/admission.ts`
 - `src/lib/billing/plans.ts`
 - `src/lib/billing/service.ts`
-- `src/lib/controlplane/db/migrations/0058_wave5_gaps.ts`
+- `src/lib/controlplane/db/migrations/0057_wave5_gaps.ts`
 - `src/lib/controlplane/db/migrations/index.ts`
 - `src/lib/ops/errors.ts`
 - `src/lib/ops/recovery/health.ts`

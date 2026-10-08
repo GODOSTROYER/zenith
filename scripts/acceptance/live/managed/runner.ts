@@ -1,8 +1,9 @@
-import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { Scope, contentDigest } from "../../../release/scope";
 import { at, assertionsPass, buildPlan, harness, scenarios, type Plan, type Request, type Resource, type Step, type Target } from "./plan";
+import { inventoryEmpty, reserveRunBudget, teardownUntilFailure } from "../shared";
 
 export interface Response { status: number; body: unknown }
 export interface Transport {
@@ -22,20 +23,10 @@ export function fileJournal(file: string): JournalStore {
 }
 
 /** Persistent conservative reservations across runs. A reservation is never refunded by this harness.
- * Use ONE owner budget file across accounts and L1/L2/L3; adapters must share this seam at integration. */
+ * Uses the same owner file and reservation schema as L1/L2. */
 export function reserveBudget(file: string, plan: Plan, scope: Scope): void {
-  mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  const lock = `${file}.lock`;
-  writeFileSync(lock, "L3 budget lock\n", { flag: "wx", mode: 0o600 });
-  try {
-    const schema = z.object({ schema: z.literal(1), reservations: z.array(z.object({ runId: z.string(), planSha256: z.string(), usd: z.number().finite().nonnegative() }).strict()) }).strict();
-    const book = schema.parse(existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : { schema: 1, reservations: [] });
-    if (book.reservations.some(r => r.runId === plan.runId)) throw new Error("Run already reserved; resume cleanup only, never replay effects");
-    const usd = Object.values(plan.estimate.byProviderUsd).reduce((sum, n) => sum + n, 0) + plan.estimate.cleanupReserveUsd;
-    if (book.reservations.reduce((sum, r) => sum + r.usd, 0) + usd > scope.manifest.budgets.totalUsd) throw new Error("Persistent total budget exhausted");
-    book.reservations.push({ runId: plan.runId, planSha256: plan.sha256, usd });
-    writeFileSync(`${file}.new`, `${JSON.stringify(book)}\n`, { mode: 0o600 }); renameSync(`${file}.new`, file);
-  } finally { unlinkSync(lock); }
+  const usd = Object.values(plan.estimate.byProviderUsd).reduce((sum, n) => sum + n, 0) + plan.estimate.cleanupReserveUsd;
+  reserveRunBudget(file, { runId: plan.runId, planSha256: plan.sha256, usd }, scope.manifest.budgets.totalUsd);
 }
 
 export interface RunDeps {
@@ -139,7 +130,7 @@ export async function runPlan(input: Plan, deps: RunDeps): Promise<Report> {
         const q = s.request;
         const passed = q.kind === "http" ? response.status === q.status && assertionsPass(response.body, q.assertions)
           : q.kind === "kubernetes" ? response.status === 200 && assertionsPass(response.body, q.assertions)
-          : q.kind === "inventory" ? response.status === 200 && Array.isArray(response.body) && response.body.length === 0
+          : q.kind === "inventory" ? response.status === 200 && inventoryEmpty(response.body)
           : q.kind === "delete_namespace" || q.kind === "scale_deployment" ? response.status === 200 || response.status === 202
           : response.status === 200 && (response.body as { ok?: boolean } | null)?.ok === true;
         if (passed) { results.push({ id: s.id, scenario: s.scenario, phase, status: "passed", attempts, detail: q.kind === "inventory" ? "Declared provider inventory is empty; untagged or unsupported resources are not covered" : "Independent response satisfied the exact approved assertions" }); return true; }
@@ -159,7 +150,7 @@ export async function runPlan(input: Plan, deps: RunDeps): Promise<Report> {
     }
   } finally {
     // Exact owner-approved teardown only. Always attempt every entry; no automatic compensation or permission fallback.
-    for (const s of plan.cleanup) await perform(s, "cleanup");
+    await teardownUntilFailure(plan.cleanup, step => perform(step, "cleanup"), false);
     // Leak scan is independent of teardown success and never restored from a checkpoint.
     for (const s of plan.scans) await perform(s, "leak_scan");
     journal.closed = results.filter(r => r.phase !== "scenario").every(r => r.status === "passed");

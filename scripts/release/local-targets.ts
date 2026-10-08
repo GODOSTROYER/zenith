@@ -63,7 +63,7 @@ export function loopbackUrl(raw: string, port: number): URL {
 export function localEnvironment(env: Readonly<Record<string, string | undefined>>): NodeJS.ProcessEnv {
   const clean: NodeJS.ProcessEnv = { NODE_ENV: "test" };
   for (const [key, value] of Object.entries(env)) {
-    if (value && (/^(PATH|HOME|USERPROFILE|TMP|TEMP|TMPDIR|SystemRoot|COMSPEC|DOCKER_HOST|DOCKER_CONTEXT|KUBECONFIG)$/i.test(key) || /^ZENITH_(LOCAL_|TEST_)/.test(key))) clean[key] = value;
+    if (value && (/^(PATH|HOME|USERPROFILE|TMP|TEMP|TMPDIR|SystemRoot|COMSPEC|DOCKER_HOST|DOCKER_CONTEXT|KUBECONFIG)$/i.test(key) || /^ZENITH_(LOCAL_|TEST_)/.test(key) || ["ZENITH_DEFAULT_JOURNEY", "ZENITH_ACCEPTANCE_DEFAULT_STACK", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR"].includes(key))) clean[key] = value;
   }
   clean.AWS_EC2_METADATA_DISABLED = "true";
   return clean;

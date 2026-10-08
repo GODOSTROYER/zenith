@@ -1,6 +1,6 @@
 /** UX-01: workspace-owned MFA controls. Expand-only; no Auth factors or secrets. */
-export const migration0057WorkspaceMfaControls = {
-  version: 57,
+export const migration0056WorkspaceMfaControls = {
+  version: 56,
   name: "workspace_mfa_controls",
   sql: `
 create table if not exists platform.workspace_mfa_controls (

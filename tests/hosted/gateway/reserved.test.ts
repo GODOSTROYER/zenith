@@ -77,7 +77,7 @@ describe("the sign-in page", () => {
 
     const html = await res.text();
     expect(html).toContain("Open this app from Zenith");
-    expect(html).toContain(`href="${CONTROL_ORIGIN}/apps"`);
+    expect(html).toContain(`href="${CONTROL_ORIGIN}/api/hosted/apps/${alpha.id}/launch?state=`);
     expect(html).not.toContain("<script");
     expect(html).not.toContain("onclick");
     expect(html).not.toContain("<input");

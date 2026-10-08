@@ -60,15 +60,13 @@ import { migration0051TenantIsolationEffects } from "./0051_tenant_isolation_eff
 import { migration0052Billing } from "./0052_billing";
 import { migration0053FieldOwnershipSerialization } from "./0053_field_ownership_serialization";
 import { migration0054AgentUpdateControls } from "./0054_agent_update_controls";
-import { migration0056IsolationCustody } from "./056_isolation_custody";
-import { migration0057WorkspaceMfaControls } from "./0057_workspace_mfa_controls";
-import { migration0058Wave5Gaps } from "./0058_wave5_gaps";
-import { migration0059KubernetesSourceProvider } from "./0059_kubernetes_source_provider";
+import { migration0055IsolationCustody } from "./0055_isolation_custody";
+import { migration0056WorkspaceMfaControls } from "./0056_workspace_mfa_controls";
+import { migration0057Wave5Gaps } from "./0057_wave5_gaps";
+import { migration0058KubernetesSourceProvider } from "./0058_kubernetes_source_provider";
 
-// Version 55 is reserved for a sibling job and joins before 56; no placeholders.
-
-// Versions 37-43 belong to sibling wave-4 requirements; the assembler fills them in before 44.
-// Versions 21-23 belong to sibling wave-2 requirements; the assembler fills them in before 24.
+// Unpublished integration closes the unused J4 reservation: versions 55..58
+// are isolation custody, workspace MFA, Wave 5 gaps and Kubernetes source custody.
 
 export interface PlatformMigration {
   /** contiguous from 1 */
@@ -78,7 +76,7 @@ export interface PlatformMigration {
   sql: string;
 }
 
-export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts, migration0008BuildLaunches, migration0009GithubRevocation, migration0010GithubDeliveries, migration0011AgentEffectReceipts, migration0012WorkflowStartIntents, migration0013ApprovedSourceSnapshots, migration0014MixedChildIntents, migration0015CleanupWriterBarriers, migration0016CleanupWriterSettlements, migration0017MachineRunbooks, migration0018OwnershipTransfers, migration0019IncidentStability, migration0020OptimizerSettings, migration0021ScheduledJobRuns, migration0022ConnectionRotations, migration0023ReleasePipelines, migration0024Portability, migration0025AgentLifecycle, migration0026PluginBoundaries, migration0027GithubRevocationReason, migration0028IncidentStabilityHardening, migration0029CleanupWriterRecordFields, migration0030DurableIntentAuthority, migration0031ExecutableSemantics, migration0032PlanCustodyStateRecovery, migration0033ExternalEffects, migration0034K8sGuestBindings, migration0035McpStreams, migration0036CodingAgentRuns, migration0037ActualSpend, migration0038FairBoundedControlPlane, migration0039KeyCustody, migration0040MixedParentPlans, migration0041MixedRuns, migration0042ExternalEffectKeyBounds, migration0043McpStreamEventsTenantIndex, migration0044MixedOutputRecords, migration0045SloMeasurements, migration0046RecoveryEpochs, migration0047Retention, migration0048AuditExports, migration0049ManagedSourceProvider, migration0050ManagedServing, migration0051TenantIsolationEffects, migration0052Billing, migration0053FieldOwnershipSerialization, migration0054AgentUpdateControls, migration0056IsolationCustody, migration0057WorkspaceMfaControls, migration0058Wave5Gaps, migration0059KubernetesSourceProvider];
+export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources, migration0007PlanArtifacts, migration0008BuildLaunches, migration0009GithubRevocation, migration0010GithubDeliveries, migration0011AgentEffectReceipts, migration0012WorkflowStartIntents, migration0013ApprovedSourceSnapshots, migration0014MixedChildIntents, migration0015CleanupWriterBarriers, migration0016CleanupWriterSettlements, migration0017MachineRunbooks, migration0018OwnershipTransfers, migration0019IncidentStability, migration0020OptimizerSettings, migration0021ScheduledJobRuns, migration0022ConnectionRotations, migration0023ReleasePipelines, migration0024Portability, migration0025AgentLifecycle, migration0026PluginBoundaries, migration0027GithubRevocationReason, migration0028IncidentStabilityHardening, migration0029CleanupWriterRecordFields, migration0030DurableIntentAuthority, migration0031ExecutableSemantics, migration0032PlanCustodyStateRecovery, migration0033ExternalEffects, migration0034K8sGuestBindings, migration0035McpStreams, migration0036CodingAgentRuns, migration0037ActualSpend, migration0038FairBoundedControlPlane, migration0039KeyCustody, migration0040MixedParentPlans, migration0041MixedRuns, migration0042ExternalEffectKeyBounds, migration0043McpStreamEventsTenantIndex, migration0044MixedOutputRecords, migration0045SloMeasurements, migration0046RecoveryEpochs, migration0047Retention, migration0048AuditExports, migration0049ManagedSourceProvider, migration0050ManagedServing, migration0051TenantIsolationEffects, migration0052Billing, migration0053FieldOwnershipSerialization, migration0054AgentUpdateControls, migration0055IsolationCustody, migration0056WorkspaceMfaControls, migration0057Wave5Gaps, migration0058KubernetesSourceProvider];
 
 /** The highest version this build knows. */
 export const PLATFORM_SCHEMA_VERSION: number = PLATFORM_MIGRATIONS[PLATFORM_MIGRATIONS.length - 1].version;

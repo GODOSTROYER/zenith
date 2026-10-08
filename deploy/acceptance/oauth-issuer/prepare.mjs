@@ -62,7 +62,8 @@ export function realmFor({ origin, subject, password }) {
   };
 }
 
-export async function prepare({ dir, origin, subject }) {
+export async function prepare({ dir, origin, subject, issuer = ISSUER }) {
+  if (![ISSUER, 'https://issuer.zenith.localhost:8443/realms/zenith-interop'].includes(issuer)) throw new Error('Choose the standalone or owned-stack issuer');
   const root = resolve(dir);
   if (/[\r\n'"$`]/.test(root)) throw new Error("Choose a plain absolute fixture directory");
   // Refuse overwrites, preserving any existing fixture and its credentials.
@@ -83,7 +84,7 @@ export async function prepare({ dir, origin, subject }) {
   ].join("\n"), { mode: 0o644 });
   openssl(["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2", "-keyout", "ca.key", "-out", "ca.crt", "-config", "ca.cnf"]);
   openssl(["req", "-newkey", "rsa:2048", "-nodes", "-keyout", "server.key", "-out", "server.csr", "-subj", "/CN=localhost"]);
-  await writeFile(resolve(root, "tls", "server.ext"), "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1\nbasicConstraints=critical,CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n", { mode: 0o644 });
+  await writeFile(resolve(root, "tls", "server.ext"), "subjectAltName=DNS:localhost,DNS:issuer.zenith.localhost,IP:127.0.0.1,IP:::1\nbasicConstraints=critical,CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n", { mode: 0o644 });
   openssl(["x509", "-req", "-in", "server.csr", "-CA", "ca.crt", "-CAkey", "ca.key", "-CAcreateserial", "-out", "server.crt", "-days", "2", "-extfile", "server.ext"]);
   // Keycloak UID 1000 needs to read the disposable server key; the host root stays 0700.
   const { chmod } = await import("node:fs/promises");
@@ -92,12 +93,12 @@ export async function prepare({ dir, origin, subject }) {
   await writeFile(resolve(root, "compose.env"), `ZENITH_INTEROP_DIR=${root}\nZENITH_INTEROP_ADMIN_PASSWORD=${adminPassword}\n`, { mode: 0o600 });
   await writeFile(resolve(root, "credentials.json"), JSON.stringify({ username: "interop-user", password: userPassword, adminUsername: "interop-admin", adminPassword }), { mode: 0o600 });
   await writeFile(resolve(root, "zenith.env"), [
-    `export ZENITH_AGENT_OAUTH_ISSUER='${ISSUER}'`,
-    `export ZENITH_AGENT_OAUTH_JWKS='${ISSUER}/protocol/openid-connect/certs'`,
+    `export ZENITH_AGENT_OAUTH_ISSUER='${issuer}'`,
+    `export ZENITH_AGENT_OAUTH_JWKS='${issuer}/protocol/openid-connect/certs'`,
     "export ZENITH_AGENT_OAUTH_CLIENT_CLAIM='azp'", "export ZENITH_AGENT_OAUTH_SUBJECT_CLAIM='zenith_subject'",
     `export NODE_EXTRA_CA_CERTS='${root}/tls/ca.crt'`, "",
   ].join("\n"), { mode: 0o600 });
-  return { root, issuer: ISSUER };
+  return { root, issuer };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

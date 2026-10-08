@@ -34,6 +34,16 @@ vi.mock("@/lib/server/boot", () => ({ ensureBoot: async () => undefined }));
 vi.mock("@/lib/supabase/env", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/supabase/env")>()), isSupabaseConfigured: () => state.supabase }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => state.user }));
 vi.mock("@/lib/waitlist/enforcement", () => ({ requireProductRequestAccess: async () => undefined }));
+// Model the new provider protocol explicitly; the real step-up guard still runs.
+vi.mock("@/lib/auth/mfa-policy", () => ({ workspaceMfaControl: async () => ({ privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null }) }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: {
+  getClaims: async () => ({ data: { claims: { sub: state.user?.id, aal: "aal2", exp: Date.now() / 1000 + 600 } }, error: null }),
+  getUser: async () => ({ data: { user: state.identity.mode === "signed_out" ? null : {
+    id: state.identity.mode === "other_subject" ? "someone-else" : state.user?.id,
+    email_confirmed_at: state.identity.mode === "unverified" ? null : new Date().toISOString(),
+    factors: [{ factor_type: "totp", status: "verified" }],
+  } }, error: state.identity.mode === "down" ? { status: 503 } : null }),
+} }) }));
 vi.mock("@/lib/hosted/access/identity", async () => {
   const { HostedError } = await import("@/lib/hosted/contracts");
   return {
@@ -62,6 +72,17 @@ vi.mock("@/lib/agent-access/authority", async () => {
   };
   return { credentialAuthority: () => authority, requireCredentialAuthority: async () => authority };
 });
+
+// The provider grant read is modeled, like the credential authority above.
+// Native factory/custody tests independently enforce the default PostgreSQL brand.
+vi.mock("@/lib/capabilities/current-integration-grants", async (original) => ({
+  ...await original<typeof import("@/lib/capabilities/current-integration-grants")>(),
+  currentIntegrationGrant: async (principal: { integrationId?: string; onBehalfOf?: string }, workspaceId: string) => {
+    const found = state.credentials.find(c => c.id === principal.integrationId && c.subject === principal.onBehalfOf && c.workspaceId === workspaceId);
+    if (!found || found.revokedAt || Date.parse(String(found.expiresAt)) <= Date.now()) return null;
+    return { scopes: found.scopes, projectIds: found.projectIds };
+  },
+}));
 
 const { resetDb } = await import("@/lib/db/store");
 const { WORKSPACE_COOKIE } = await import("@/lib/server/workspace");
@@ -371,7 +392,7 @@ describe.each([
     for (const value of [`Bearer ${state.token}`, "Bearer anything", "Basic abc", "x"]) {
       const res = await go(op, { headers: { authorization: value } });
       expect(res.status, value).toBe(403);
-      expect(res.body.error.code).toBe("browser_session_required");
+      expect(res.body.error.message).toContain("Verify your authenticator");
     }
     const after = await call(operation.GET as Handler, "GET", `operations/${op.id}`, { id: op.id });
     expect(after.body.operation.status).toBe("awaiting_approval");
@@ -382,7 +403,7 @@ describe.each([
     signIn("dan");
     const res = await go(op, { headers: { "x-zenith-actor": "navigator", "x-zenith-actor-key": "whatever" } });
     expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("browser_session_required");
+    expect(res.body.error.message).toContain("Verify your authenticator");
   });
 
   it("requires the exact same origin", async () => {
@@ -391,7 +412,7 @@ describe.each([
     for (const origin of [false, "https://evil.test", "https://zenith.test.evil.test", "http://zenith.test", "https://sub.zenith.test", "https://zenith.test:8443", "null", "https://ZENITH.test"] as const) {
       const res = await go(op, { origin });
       expect(res.status, String(origin)).toBe(403);
-      expect(res.body.error.code).toBe("browser_session_required");
+      expect(res.body.error.message).toContain("Verify your authenticator");
     }
     // Sec-Fetch-Site, when the browser sends it, must say same-origin
     for (const site of ["cross-site", "same-site", "none"]) {
@@ -412,7 +433,7 @@ describe.each([
     state.identity.mode = "down";
     const down = await go(op);
     expect(down.status).toBe(503);
-    expect(down.body.error.code).toBe("policy_unavailable");
+    expect(down.body.error.message).toContain("MFA could not be verified");
     state.identity.mode = "ok";
     signIn(null);
     expect((await go(op)).status).toBe(401);
@@ -467,7 +488,7 @@ describe("separation of duties over HTTP", () => {
     signIn(null);
     const res = await call(approve.POST as Handler, "POST", `operations/${op.id}/approve`, { id: op.id, body: { proposalDigest: op.digest }, headers: { authorization: `Bearer ${state.token}` } });
     expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("browser_session_required");
+    expect(res.body.error.message).toContain("Verify your authenticator");
   });
 });
 
@@ -653,7 +674,7 @@ describe("environments/:id/autonomy", () => {
     const put = (opts: Options) => call(autonomy.PUT as Handler, "PUT", "environments/env-prod/autonomy", { id: "env-prod", body: { level: 5 }, ...opts });
     const agent = await put({ headers: { authorization: `Bearer ${state.token}` } });
     expect(agent.status).toBe(403);
-    expect(agent.body.error.code).toBe("browser_session_required");
+    expect(agent.body.error.message).toContain("Verify your authenticator");
     expect((await put({ origin: "https://evil.test" })).status).toBe(403);
     expect((await put({ origin: false })).status).toBe(403);
     expect((await put({ body: { level: 9 } })).status).toBe(400);

@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { LambdaClient, GetFunctionCommand, InvokeCommand } from "@aws-sdk/client-lambda";
 
-export function createLambdaEnricher(env, { client: injected } = {}) {
+export function createLambdaEnricher(env, { client: injected, authorize } = {}) {
   const arn = env.ENRICHER_LAMBDA_ARN;
   const match = /^arn:(aws|aws-us-gov|aws-cn):lambda:([a-z0-9-]+):(\d{12}):function:([A-Za-z0-9_-]{1,64}):([1-9][0-9]*)$/.exec(arn ?? "");
   const digest = env.ENRICHER_LAMBDA_SHA256;
@@ -29,6 +29,7 @@ export function createLambdaEnricher(env, { client: injected } = {}) {
     const signal = AbortSignal.timeout(Number(env.ENRICHER_TIMEOUT_MS ?? 3000));
     const observed = await client.send(new GetFunctionCommand({ FunctionName: arn }), { abortSignal: signal });
     if (observed.Configuration?.CodeSha256 !== Buffer.from(digest, "hex").toString("base64")) throw new Error("Lambda code digest differs from the reviewed artifact.");
+    await authorize?.(observed);
     const response = await client.send(new InvokeCommand({ FunctionName: arn, InvocationType: "RequestResponse", LogType: "None", Payload: bytes }), { abortSignal: signal });
     if (response.FunctionError || response.StatusCode !== 200 || response.Payload?.length > 16384 || response.ExecutedVersion !== match[5]) throw new Error("Lambda invocation failed or answered with a different version.");
     const result = JSON.parse(Buffer.from(response.Payload ?? []).toString("utf8"));

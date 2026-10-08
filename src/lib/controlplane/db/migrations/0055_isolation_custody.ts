@@ -1,6 +1,6 @@
 /** Expand-only, direct-object isolation custody; no change to the OpenTofu artifact contract. */
-export const migration0056IsolationCustody = {
-  version: 56,
+export const migration0055IsolationCustody = {
+  version: 55,
   name: "isolation_custody",
   sql: `
 create table if not exists platform.isolation_plan_custody (

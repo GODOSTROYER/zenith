@@ -10,9 +10,14 @@ tempDataDir("zenith-update-controls-", { fast: true });
 process.env.ZENITH_STORE = "file";
 const state = vi.hoisted(() => ({ user: null as SessionUser | null, db: null as PlatformDbHandle | null }));
 vi.mock("@/lib/server/boot", () => ({ ensureBoot: async () => undefined }));
-vi.mock("@/lib/supabase/env", () => ({ isSupabaseConfigured: () => true }));
+vi.mock("@/lib/supabase/env", () => ({ SUPABASE_URL: "http://auth.test", SUPABASE_PUBLIC_KEY: "", isSupabaseConfigured: () => true }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => state.user }));
 vi.mock("@/lib/waitlist/enforcement", () => ({ requireProductRequestAccess: async () => undefined }));
+vi.mock("@/lib/auth/mfa-policy", () => ({ workspaceMfaControl: async () => ({ privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null }) }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: {
+  getClaims: async () => ({ data: { claims: { sub: state.user?.id, aal: "aal2", exp: Date.now() / 1000 + 600 } }, error: null }),
+  getUser: async () => ({ data: { user: { id: state.user?.id, email_confirmed_at: new Date().toISOString(), factors: [{ factor_type: "totp", status: "verified" }] } }, error: null }),
+} }) }));
 vi.mock("@/lib/controlplane/db", async (original) => ({ ...await original<object>(), platformDb: async () => state.db! }));
 
 const { openPlatformDb } = await import("@/lib/controlplane/db");
@@ -36,7 +41,7 @@ const member = (id: string, workspaceId: string, role: Member["role"]): Member =
 const digest = () => randomBytes(32).toString("hex");
 const nonce = () => randomBytes(16).toString("base64url");
 const intent = (expectedRevision = 0, hold = true, manifestSha256: string | null = null) => ({ expectedRevision, hold, manifestSha256 });
-const request = (handler: unknown, id: string, body?: unknown, method = "POST") => call(handler, new NextRequest(new URL(`/api/platform/v1/runners/${id}/update`, ORIGIN), { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), { id });
+const request = (handler: unknown, id: string, body?: unknown, method = "POST") => call(handler, new NextRequest(new URL(`/api/platform/v1/runners/${id}/update`, ORIGIN), { method, headers: { origin: ORIGIN }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), { id });
 const agent = (workspaceId = "w-a") => registerFakeAgent(plane, registerRunner, { workspaceId, capabilities: ["probe.http", "agent.update.control.v1"] });
 
 beforeAll(async () => { state.db = await openPlatformDb({ kind: "pglite" }); });
@@ -94,13 +99,13 @@ describe("human update and hold API with migrated PGlite storage", () => {
     expect((await request(write, old.id, intent())).status).toBe(409);
     const a = await agent();
     for (const body of [intent(0, true, digest()), { ...intent(), manifestUrl: "https://other.test" }, { ...intent(), expectedRevision: -1 }, { ...intent(), manifestSha256: "bad" }]) expect((await request(write, a.id, body)).status).toBe(400);
-    expect((await call(revoke, new NextRequest(new URL(`/api/platform/v1/runners/${a.id}/revoke`, ORIGIN), { method: "POST" }), { id: a.id })).status).toBe(200);
+    expect((await call(revoke, new NextRequest(new URL(`/api/platform/v1/runners/${a.id}/revoke`, ORIGIN), { method: "POST", headers: { origin: ORIGIN } }), { id: a.id })).status).toBe(200);
     expect((await request(write, a.id, intent())).status).toBe(409);
     expect((await a.post(heartbeat, "/heartbeat", { updateControlNonce: nonce() })).status).toBe(401);
   });
   it("supports machine intent using the machine registry", async () => {
     const a = await registerFakeAgent(plane, registerMachine, { kind: "machine", capabilities: ["machine.inspect", "agent.update.control.v1"] });
-    const res = await call(writeMachine, new NextRequest(new URL(`/api/platform/v1/machines/${a.id}/update`, ORIGIN), { method: "POST", body: JSON.stringify(intent()) }), { id: a.id });
+    const res = await call(writeMachine, new NextRequest(new URL(`/api/platform/v1/machines/${a.id}/update`, ORIGIN), { method: "POST", headers: { origin: ORIGIN }, body: JSON.stringify(intent()) }), { id: a.id });
     expect(res.status).toBe(200);
     expect(await getUpdateControl(state.db!, "w-a", "machine", a.id)).toMatchObject({ revision: 1, hold: true });
   });

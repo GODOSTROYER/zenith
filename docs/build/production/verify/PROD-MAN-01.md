@@ -407,7 +407,7 @@ Status: implementation_complete_verification_pending.
 ## J6 Step 2 (authoritative, 2026-10-08)
 
 Default native Kubernetes and managed builders, per-tenant vault/RBAC custody,
-protected dedicated node admission, native source/provenance schema migration 59
+protected dedicated node admission, native source/provenance schema migration 58
 and DUR-B reviewed build profile semantics are joined. Missing or changed custody,
 permissions, runtime/profile, node UID/allocation or denial probe refuses source
 execution/release with a user-visible reason. Published migrations/aggregate SQL
@@ -441,3 +441,14 @@ one-service fixture; broader rollback/progressive/data-restore acceptance keeps 
 existing LIFE-10 lanes. Assembly must join assigned 53-58 before the contiguous
 migration gate. Not run here (needs real PG, kind/Docker, Temporal and product/browser).
 Status: implementation_complete_verification_pending.
+
+
+## Wave 6 final integration
+
+Status remains `implementation_complete_verification_pending`. Node 22 only. Execute sequentially with Docker Desktop 4 GiB and one kind node; stop each heavy profile before starting another. Live acceptance stays deferred until separate owner approval.
+
+```bash
+node scripts/ci/wave6-gates.mjs --requirement PROD-MAN-01 --print > /tmp/zenith-wave6-PROD-MAN-01.commands.json
+```
+
+This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).

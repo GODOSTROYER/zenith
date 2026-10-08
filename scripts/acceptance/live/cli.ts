@@ -11,6 +11,8 @@ import { execute, newJournal } from "./execute";
 import { evidencePacket } from "./evidence";
 import { sdkTransport } from "./sdk";
 import { requireProductionScope } from "./scope";
+import { reserveRunBudget } from "./shared";
+import { requireScope } from "../../release/scope";
 import type { Journal, Plan, ProductScenarioPort, Transport } from "./contracts";
 import type { EnvLike } from "../config";
 
@@ -79,6 +81,7 @@ export async function runProductionCli(argv: readonly string[], env: EnvLike = p
     if (commit !== permission.sourceCommit) throw new Error("Permission source commit mismatch");
     if (existing && existing.commit !== commit) throw new Error("Journal source commit mismatch");
     requireProductionScope(plan, budget, env, !!existing);
+    if (!existing) reserveRunBudget(env.ZENITH_LIVE_BUDGET_FILE ?? "", { runId: plan.settings.runId, planSha256: plan.sha256, usd: plan.estimate.usd }, requireScope("aws-live", "aws", env).manifest.budgets.totalUsd);
     const journal = existing ?? newJournal(plan, guard, commit);
     if (existing?.closed) throw new Error("Journal already closed; no further cloud calls required");
     const directory = existing ? path.dirname(path.resolve(cleanupFile!)) : path.join(args.values.get("out") ?? env.ZENITH_LIVE_AWS_OUT ?? path.join(os.tmpdir(), "zenith-aws-production"), plan.settings.runId);

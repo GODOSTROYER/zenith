@@ -1,5 +1,6 @@
 /** Real broker/OPA and PGlite SQL. Session and bearer identity are explicit test fakes; no cloud is contacted. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { PlatformDbHandle } from "@/lib/controlplane/db";
@@ -13,6 +14,8 @@ tempDataDir("zenith-platform-ui-", { fast: true });
 process.env.ZENITH_STORE = "file";
 process.env.ZENITH_PLATFORM_ORIGIN = "https://zenith.test";
 const state = vi.hoisted(() => ({ sql: null as PlatformDbHandle | null, user: { id: "alice", name: "Alice", email: "alice@zenith.test" } as SessionUser | null, bearer: null as { id: string; workspaceId: string; subject: string } | null }));
+const stepUp = vi.hoisted(() => ({ aal: "aal2", policyAvailable: true }));
+const credential = vi.hoisted(() => ({ token: "", verify: vi.fn() }));
 vi.mock("@/lib/controlplane/db", async (original) => ({ ...await original<typeof import("@/lib/controlplane/db")>(), platformDb: async () => state.sql! }));
 vi.mock("@/lib/auth/session", async (original) => ({ ...await original<typeof import("@/lib/auth/session")>(), getSessionUser: async () => state.user }));
 vi.mock("@/lib/server/boot", () => ({ ensureBoot: async () => undefined }));
@@ -20,7 +23,18 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/lib/supabase/env", async (original) => ({ ...await original<typeof import("@/lib/supabase/env")>(), isSupabaseConfigured: () => true }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => state.user }));
 vi.mock("@/lib/waitlist/enforcement", () => ({ requireProductPageAccess: async () => undefined, requireProductRequestAccess: async () => undefined }));
-vi.mock("@/lib/agent-access/authority", () => ({ requireCredentialAuthority: async () => ({ verify: async () => state.bearer }) }));
+vi.mock("@/lib/agent-access/authority", () => ({ requireCredentialAuthority: async () => ({ kind: "postgres", verify: credential.verify }) }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: {
+  getClaims: async () => ({ data: { claims: { sub: state.user?.id ?? "", aal: stepUp.aal, exp: Date.now() / 1000 + 600 } }, error: null }),
+  getUser: async () => ({ data: { user: state.user ? { id: state.user.id, email_confirmed_at: "2026-01-01T00:00:00.000Z", factors: [{ factor_type: "totp", status: "verified" }] } : null }, error: null }),
+} }) }));
+vi.mock("@/lib/auth/mfa-policy", async (original) => {
+  const policy = await original<typeof import("@/lib/auth/mfa-policy")>();
+  return { ...policy, workspaceMfaControl: async () => {
+    if (!stepUp.policyAvailable) { const { ApiError } = await import("@/lib/server/errors"); throw new ApiError("Workspace MFA controls could not be verified.", 503); }
+    return policy.DEFAULT_MFA_CONTROL;
+  } };
+});
 vi.mock("@/lib/hosted/access/identity", async () => {
   const { HostedError } = await import("@/lib/hosted/contracts");
   return { verifyRequestIdentity: async () => {
@@ -73,6 +87,12 @@ function resetProductScope() {
 }
 beforeEach(async () => {
   vi.restoreAllMocks();
+  stepUp.aal = "aal2"; stepUp.policyAvailable = true;
+  credential.token = `za_${randomUUID()}`;
+  credential.verify.mockReset().mockImplementation(async (authorization: string) => {
+    if (authorization !== `Bearer ${credential.token}` || !state.bearer) throw new Error("Fixture credential refused");
+    return state.bearer;
+  });
   state.sql = await sharedDatabase("pglite");
   h = await makeHarness();
   state.user = { id: "alice", name: "Alice", email: "alice@zenith.test" };
@@ -82,6 +102,13 @@ beforeEach(async () => {
 });
 
 describe("AWS browser action adapter", () => {
+  it.each(["aal1", "origin", "policy unavailable"])("refuses %s before dispatching an action", async (failure) => {
+    if (failure === "aal1") stepUp.aal = "aal1";
+    if (failure === "policy unavailable") stepUp.policyAvailable = false;
+    const execute = vi.spyOn(actions, "runAction");
+    expect((await submit(failure === "origin" ? { origin: "https://other.test" } : {})).status).toBe(failure === "policy unavailable" ? 503 : 403);
+    expect(execute).not.toHaveBeenCalled();
+  });
   function submit(headers: Record<string, string> = {}, body: unknown = { actionId: "connection.verifyAws", input: { connectionId: "conn-id" } }) {
     return awsAction(new NextRequest("https://zenith.test/platform/connections/aws/action", {
       method: "POST", headers: { "content-type": "application/json", origin: "https://zenith.test", cookie: `zenith-workspace=${h.ids.wsA}`, "x-zenith-workspace": h.ids.wsA, ...headers }, body: JSON.stringify(body),
@@ -129,7 +156,7 @@ describe.each(routes)("$name read boundary", ({ handler, readTable, payloadTable
   });
   it("supports read-scoped bearer callers without a browser session", async () => {
     state.user = null;
-    const result = await call(handler, h.ids.envAProd, "", { authorization: "Bearer test-credential" });
+    const result = await call(handler, h.ids.envAProd, "", { authorization: `Bearer ${credential.token}` });
     expect(result.status).toBe(200);
     expect(result.headers.get("cache-control")).toContain("no-store");
     expect(await result.json()).toMatchObject({ evidence: "contract" });
@@ -137,8 +164,15 @@ describe.each(routes)("$name read boundary", ({ handler, readTable, payloadTable
   it("refuses a credential restricted to a different environment", async () => {
     state.user = null;
     state.bearer = { id: h.ids.intScoped, workspaceId: h.ids.wsA, subject: "bob" };
-    const result = await call(handler, h.ids.envAProd, "", { authorization: "Bearer test-credential" });
+    const result = await call(handler, h.ids.envAProd, "", { authorization: `Bearer ${credential.token}` });
     expect(result.status).toBe(404);
+  });
+  it("refuses a wrong bearer prefix before verification or protected SQL", async () => {
+    state.user = null;
+    const query = vi.spyOn(state.sql!, "query");
+    expect((await call(handler, h.ids.envAProd, "", { authorization: "Bearer test-credential" })).status).toBe(401);
+    expect(credential.verify).not.toHaveBeenCalled();
+    expect(query.mock.calls.filter(([sql]) => payloadTables.some(table => protectedRead(sql, table)))).toEqual([]);
   });
   it("fails closed on policy deny and does not execute a store read", async () => {
     h.setEngine({ version: "deny", evaluate: async () => ({ decision: { outcome: "deny", reasons: [{ code: "denied", message: "Denied" }] }, policyVersion: "deny", inputDigest: "input", evaluatedAt: at }) });

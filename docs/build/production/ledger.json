@@ -2958,6 +2958,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J13 adds migration53 environment ownership serialization for claim, grant and readback, mandatory resource/transfer mutation triggers, PGlite controls and gated independent PostgreSQL races. Native verification and wave-5 migration/aggregate integration pending; no acceptance promotion.",
       "evidence": [
         {
           "level": "local_engine",

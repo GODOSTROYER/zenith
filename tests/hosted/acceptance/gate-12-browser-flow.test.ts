@@ -122,7 +122,8 @@ async function launch(who: typeof OWNER | typeof EDITOR) {
 describe("Gate 12 — the journey over a real socket, and the browser script", () => {
   it("redeems a real exchange over HTTP and is handed a host-locked cookie", async () => {
     const { redirect, loginCookie } = await launch(EDITOR);
-    for (const headers of [{ accept: "text/html" }, { accept: "text/html", cookie: "__Host-zenith_login=wrong-browser-state" }]) {
+    const refusedHeaders: Record<string, string>[] = [{ accept: "text/html" }, { accept: "text/html", cookie: "__Host-zenith_login=wrong-browser-state" }];
+    for (const headers of refusedHeaders) {
       const refused = await loopbackRequest(server.port, { host, path: `${redirect.pathname}${redirect.search}`, headers });
       expect(refused.status).toBe(303);
       expect(refused.headers.location).toBe("/_zenith/auth/signin?error=invalid_input");

@@ -73,7 +73,7 @@ export async function createPrivateScratch(source, base, prefix) {
   }
 }
 
-const COPY_INPUTS = ["package.json", "package-lock.json", "tsconfig.json", "src/lib", "workers/execution", "deploy/aws/ssm-documents", "policy/dist"];
+const COPY_INPUTS = ["package.json", "package-lock.json", "tsconfig.json", "src/lib", "workers/execution", "deploy/aws/ssm-documents", "deploy/slo/slo-definitions.json", "policy/dist"];
 const CONTEXT_CONTROLS = ["docker/worker.Dockerfile", ".dockerignore"];
 const OPTIONAL_CONTEXT_CONTROL = "docker/worker.Dockerfile.dockerignore";
 const SOURCE_BYTE_LIMIT = 64 * 1024 * 1024;
@@ -106,7 +106,7 @@ export async function packagedSourceDigest(source) {
       if ((await lstat(ancestor)).isSymbolicLink()) throw new Error("Packaged source cannot contain symlinks.");
     }
     const before = await lstat(filename);
-    if ((CONTEXT_CONTROLS.includes(relative) || ["package.json", "package-lock.json", "tsconfig.json", OPTIONAL_CONTEXT_CONTROL].includes(relative)) && !before.isFile()) {
+    if ((CONTEXT_CONTROLS.includes(relative) || ["package.json", "package-lock.json", "tsconfig.json", "deploy/slo/slo-definitions.json", OPTIONAL_CONTEXT_CONTROL].includes(relative)) && !before.isFile()) {
       throw new Error("Packaged source controls must be regular files.");
     }
     if (["src/lib", "workers/execution", "deploy/aws/ssm-documents", "policy/dist"].includes(relative) && !before.isDirectory()) {

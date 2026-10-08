@@ -1,3 +1,7 @@
+## Latest cross-machine verifier context, 8 October 2026
+
+[Current results, active lanes, remaining task coverage and boundaries](CURRENT-VERIFIER-CONTEXT.md). Tested a4 baseline: 20/20 CI jobs succeeded. New native full run: 21,848/1/1,614; environment repair reran all installation cases 62/0/0. Native LIFE-12 joins: 10/1/0, exposing a stale-ownership grant race. Four-path security candidate independently reviewed; actual 17-case rerun and integration pending. User disk floor now 12 GB; heavy workloads serial, source/review parallel. Ledger unchanged 11/48/19; all release flags false. This is builder context, not resume instructions. Earlier entries retain historical source scope.
+
 ## Green e4 CI and native bootstrap acceptance, 8 October 2026
 
 Exact `e4c0c23782b5deb6b5b385ef58b504588d3a546b` completed **20/20 CI jobs successfully**. Unit: **21,826 passed /0 failed /1,637 skipped**,2,026.17s; compiler/lint/Smoke/Gimbal passed. All seven canonical required sets passed; native AMD64 and ARM64 workers each22/0/0, no emulation, cleanup complete. [Every job and evidence scope](verification/CI-2026-10-08-e4c0c237.md). Counts overlap and are never summed.

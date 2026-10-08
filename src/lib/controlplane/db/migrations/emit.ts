@@ -1,5 +1,5 @@
 /**
- * Renders `supabase/migrations/0025_platform_core.sql` from the TypeScript
+ * Renders `supabase/migrations/0026_platform_core.sql` from the TypeScript
  * migrations — the ONLY way that file is produced. It is never hand-edited: a
  * test (`tests/controlplane/migrations.test.ts`) fails when the committed file
  * differs by even one byte from what `renderSupabaseMigration()` returns now,
@@ -23,7 +23,7 @@
 import { BOOTSTRAP_SQL } from "./bootstrap";
 import { PLATFORM_MIGRATIONS, migrationChecksum } from "./index";
 
-export const EMITTED_FILE = "0025_platform_core.sql";
+export const EMITTED_FILE = "0026_platform_core.sql";
 
 const HARDENING_SQL = `do $$
 declare
@@ -147,6 +147,38 @@ begin
       grant select,insert,update on table platform.mixed_runs,platform.mixed_output_preauthorizations to service_role;
       grant select,insert on table platform.mixed_run_events to service_role;
     end if;
+    -- Wave 5 (44 to 52): aggregate grants must preserve every immutable ledger.
+    if to_regclass('platform.mixed_output_records') is not null then
+      revoke all on table platform.mixed_output_records from service_role;
+      grant select,insert on table platform.mixed_output_records to service_role;
+    end if;
+    if to_regclass('platform.slo_measurements') is not null then
+      revoke all on table platform.slo_measurements from service_role;
+      grant select,insert on table platform.slo_measurements to service_role;
+    end if;
+    if to_regclass('platform.recovery_epochs') is not null then
+      revoke all on table platform.recovery_epochs,platform.recovery_items from service_role;
+      grant select,insert on table platform.recovery_epochs to service_role;
+      grant select,insert,update on table platform.recovery_items to service_role;
+    end if;
+    if to_regclass('platform.legal_holds') is not null then
+      revoke all on table platform.legal_holds,platform.retention_archives,platform.retention_destinations,platform.retention_restores from service_role;
+      grant select,insert,update on table platform.legal_holds,platform.retention_archives,platform.retention_destinations to service_role;
+      grant select,insert on table platform.retention_restores to service_role;
+    end if;
+    if to_regclass('platform.audit_exports') is not null then
+      revoke all on table platform.audit_exports from service_role;
+      grant select,insert on table platform.audit_exports to service_role;
+    end if;
+    if to_regclass('platform.managed_domains') is not null then
+      revoke all on table platform.managed_domains,platform.managed_storage_keys from service_role;
+      grant select,insert,update on table platform.managed_domains,platform.managed_storage_keys to service_role;
+    end if;
+    if to_regclass('platform.billing_accounts') is not null then
+      revoke all on table platform.billing_accounts,platform.billing_account_events,platform.billing_invoices,platform.billing_usage_events,platform.billing_webhook_events from service_role;
+      grant select,insert,update on table platform.billing_accounts,platform.billing_invoices,platform.billing_usage_events,platform.billing_webhook_events to service_role;
+      grant select,insert on table platform.billing_account_events to service_role;
+    end if;
   end if;
 end
 $$;
@@ -154,7 +186,7 @@ $$;
 
 const quote = (text: string): string => `'${text.replace(/'/g, "''")}'`;
 
-/** The exact text of `supabase/migrations/0025_platform_core.sql`. */
+/** The exact text of `supabase/migrations/0026_platform_core.sql`. */
 export function renderSupabaseMigration(): string {
   const parts: string[] = [
     `-- Zenith platform control store (ADR-0002) — schema \`platform\`.

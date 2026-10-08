@@ -48,8 +48,8 @@ k8s_require kind kubectl docker npx node
 pinned='@sha256:[a-f0-9]{64}$'
 registry_image="${ZENITH_MAN_REGISTRY_IMAGE:-}"
 builder_image="${ZENITH_MAN_BUILDER_IMAGE:-}"
-[[ "$registry_image" =~ $pinned ]] || k8s_die "set ZENITH_MAN_REGISTRY_IMAGE to a registry image pinned by sha256 digest" 2
-[[ "$builder_image" =~ $pinned ]] || k8s_die "set ZENITH_MAN_BUILDER_IMAGE to a builder image pinned by sha256 digest" 2
+[[ "$registry_image" =~ $pinned ]] || k8s_die "set ZENITH_MAN_REGISTRY_IMAGE to a pinned image for the registry, using its sha256 digest" 2
+[[ "$builder_image" =~ $pinned ]] || k8s_die "set ZENITH_MAN_BUILDER_IMAGE to a pinned image for the builder, using its sha256 digest" 2
 
 evidence_dir="${ZENITH_K8S_EVIDENCE_OUT:-$repo/.data-k8s-evidence}"
 mkdir -p "$evidence_dir"

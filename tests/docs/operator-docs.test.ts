@@ -34,6 +34,8 @@ const squash = (text: string): string => text.replace(/\s+/g, " ");
 const SOURCE_SNAPSHOTS: Record<string, { branch: string; commit: string }> = {
   ...Object.fromEntries(["README.md", "DEPLOYING.md", "RECOVERY.md", "AWS-SETUP.md", "POLICY.md", "COST.md", "TEARDOWN.md", "BUILDS.md", "OCI-SIGNALS.md"]
     .map(name => [name, { branch: "ws/docs-sync-2", commit: "3c1fa66" }])),
+  "DEPLOYING.md": { branch: "prod/compose", commit: "443bfeaf537dd5d5324d33c84fc544ede0baa632" },
+  "RECOVERY.md": { branch: "prod/compose", commit: "443bfeaf537dd5d5324d33c84fc544ede0baa632" },
   "OBSERVATION-REPAIR.md": { branch: "codex/production-2026-10-02", commit: "8657abd" },
   "ECS-REPLICA-REPAIR.md": { branch: "ws/prod-ecs-replica-repair", commit: "b46fb8a" },
   "AGENT-EFFECT-RECEIPTS.md": { branch: "ws/prod-default-accepted-20261003", commit: "dc40ee9ad590640c78659796c9b932436ea1e426" },
@@ -50,6 +52,9 @@ const SOURCE_SNAPSHOTS: Record<string, { branch: string; commit: string }> = {
   "SENSITIVE-DATA.md": { branch: "codex/production-2026-10-02", commit: "e34c4673daf20f167311a3b9c9b148de1c027f4c" },
   "CONTROL-PLANE-FAIRNESS.md": { branch: "prod/ops-02-w4", commit: "c9a942d" },
   "SLO.md": { branch: "prod/ops-01-w5", commit: "c02c097" },
+  "MIXED-RECOVERY.md": { branch: "prod/compose", commit: "443bfeaf537dd5d5324d33c84fc544ede0baa632" },
+  "RESTORE-RUNBOOK.md": { branch: "prod/compose", commit: "443bfeaf537dd5d5324d33c84fc544ede0baa632" },
+  "SUPPLY-CHAIN.md": { branch: "prod/compose", commit: "443bfeaf537dd5d5324d33c84fc544ede0baa632" },
 };
 
 /* -------------------------------- structure ------------------------------- */
@@ -255,7 +260,7 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     const acr = source("src/lib/providers/azure/release/acr-task.ts");
     for (const value of ["/listBuildSourceUploadUrl", "assertUploadUrl(up.body.uploadUrl, cloud)", 'redirect: "error"', 'type: "DockerBuildRequest"', "imageNames: [`${input.repository}:${input.tag}`]"]) expect(acr).toContain(value);
     expect(source("src/lib/providers/azure/release/source.ts")).toContain("await readArchive(reader, input.source, ctx.signal)");
-    expect(source("src/lib/platform/execution.ts")).toContain("createReleasePorts({ db: opts.db, azure })");
+    expect(source("src/lib/platform/execution.ts")).toContain("createReleasePorts({ db: opts.db, azure, managed })");
     const execution = source("src/lib/platform/execution.ts");
     expect(execution).toContain("opts.sourceBundles?.azureStorage ?? createAzureSourceStorageResolver(opts.db)");
     expect(execution).toContain("readSource: sourceRuntime.readAzureSource");
@@ -454,6 +459,9 @@ describe("paths and commands named in the guides", () => {
 
 /** Names that look like environment variables but are not (and why). */
 const NOT_ENVIRONMENT: Record<string, string> = {
+  ZENITH_BOOTSTRAP_IMAGE: "constant unavailable image sentinel in the managed renderer, not process configuration",
+  ZENITH_BUILD_COMPUTE_CLASS: "constant build provenance compute class, not process configuration",
+  ZENITH_PERMISSIONS: "constant provider adapter permission list, not process configuration",
   ZENITH_EGRESS_HOSTS: "generated isolated CodeBuild shell variable, not control-plane process configuration",
   ZENITH_EGRESS: "iptables chain name inside the isolated CodeBuild build",
   ZENITH_BUILD_TYPE: "constant provenance URI in execution/build-provenance.ts",
@@ -722,7 +730,7 @@ describe("operator claims match current wiring", () => {
 
   it("app composition configures durable broker, scope, runner and reconcile ports", () => {
     const app = source("src/lib/platform/app.ts");
-    for (const call of ["assertPlatformSchemaCurrent(sql)", "registerPlatformBrokerStore(new PlatformBrokerStore(sql))", "registerPlatformBrokerPorts({ scopes: platformScopeResolver(sql) })", "configureRunnerRuntime(runnerPorts(sql))", "wireReconcilePorts(() => composeReconcilePorts(sql, credentials))", "registerCredentialBroker(credentials, agentPorts.observability)", "registerInvestigator(withDiagnosisRecording(agentPorts.investigator, (investigation) => repos.incidentStability.recordInvestigation(sql, { investigation })))"]) {
+    for (const call of ["assertPlatformSchemaCurrent(sql)", "registerPlatformBrokerStore(new PlatformBrokerStore(sql))", "registerPlatformBrokerPorts({ scopes: platformScopeResolver(sql) })", "configureRunnerRuntime(runnerPorts(sql))", "wireReconcilePorts(() => composeReconcilePorts(sql, credentials, undefined, managed))", "registerCredentialBroker(credentials, agentPorts.observability)", "registerInvestigator(withDiagnosisRecording(agentPorts.investigator, (investigation) => repos.incidentStability.recordInvestigation(sql, { investigation })))"]) {
       expect(app).toContain(call);
     }
     expect(app).toContain('platformDbConfigFromEnv().source === "default"');
@@ -741,7 +749,7 @@ describe("operator claims match current wiring", () => {
     for (const call of ["validateExecutionConfiguration()", "openExecutionStore()", "ensurePlatformApp(db)", "createActivities({ db", "Context.current().heartbeat(detail)", "Context.current().cancellationSignal"]) expect(worker).toContain(call);
     expect(worker).not.toContain("createStubActivities");
     const composition = source("src/lib/platform/execution.ts");
-    for (const call of ["derivePlanFingerprintKey(opts.secretKey)", "createExecutionActivities(deps)", "createPlatformPorts(opts.db)", "createExecutionBroker(opts.db)", "platformCredentialBroker(opts.db)", "composeReconcilePorts(opts.db, credentials)", "createHeldReconcileActivity(createRuntime(deps)", "loadPlatformEnvironment(opts.db, ws, env)", "loadGraphFromStore(opts.db, env)"]) expect(composition).toContain(call);
+    for (const call of ["derivePlanFingerprintKey(opts.secretKey)", "createExecutionActivities(deps)", "createPlatformPorts(opts.db)", "createExecutionBroker(opts.db)", "platformCredentialBroker(opts.db)", "composeReconcilePorts(opts.db, credentials, undefined, managed)", "createHeldReconcileActivity(createRuntime(deps)", "loadPlatformEnvironment(opts.db, ws, env)", "loadGraphFromStore(opts.db, env)"]) expect(composition).toContain(call);
     const verification = source("src/lib/execution/verify.ts");
     const held = verification.slice(verification.indexOf("export function createHeldReconcileActivity("), verification.indexOf("const MAX_LISTED"));
     for (const call of ["withKeepAlive(rt, { lease: input.lease", "createReconcileObserveActivity({ ...deps, signal", "rt.d.leases.assertFence(input.lease.scope, input.lease.fenceToken)", "rt.d.leases.assertFence(fence.scope, fence.token)", "deps.ports.assertFence?.(fence)", "signal.throwIfAborted()"]) expect(held).toContain(call);

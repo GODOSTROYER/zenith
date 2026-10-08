@@ -72,7 +72,31 @@ export const CONTRACT_MIGRATION_APPROVALS: readonly ContractMigrationApproval[] 
   sqlSha256: "3dcc8f12119594941f82dd749f5471fb2578f1d5c37ec09083491aa6dc91f4b2",
   approvalRef: "user-2026-10-07-external-effect-key-bounds",
   rationale: "Explicitly authorized repair of migration 33's PostgreSQL regex bound; preserves key alphabet and 256-character limit. Drain previous writers before applying.",
+}, {
+  version: 49,
+  sqlSha256: "2ff01c3f1ccb9c4ed33122b7cfccfcb486aba0cec508dd9e555f62396b1a6313",
+  approvalRef: "user-2026-10-08-w5-assembly-managed-source-widen",
+  rationale: "Assembly explicitly assigns the provider CHECK widening. Existing providers remain valid; the drop/recreate DDL still requires drained writers and operator admission.",
+}, {
+  version: 51,
+  sqlSha256: "78d3690342ffc5f35e73f67566ccfc48087095cfec2acf191468e560a99bb16a",
+  approvalRef: "user-2026-10-08-w5-assembly-isolation-family-widen",
+  rationale: "Assembly explicitly assigns the isolation_apply effect-family widening. Previous effect families remain valid; drain previous writers before the drop/recreate DDL.",
 }];
+
+/** Exact reviewed Wave 5 blocks only: role grants/revokes on newly created tables.
+ * No SQL-text heuristic can admit an edited block or an existing-table mutation.
+ * The remaining statements still go through the normal compatibility classifier.
+ */
+const LOCAL_GRANT_BLOCK_SQL: Readonly<Record<number, string>> = {
+  44: "027e9fdbaced8902ee63d9c551ecfb812bd1fd7d96ea0356497200bac336d0d2",
+  45: "1494c27a7ce8bdb8ca49b9c78cdf68e8e4bb7d3879e92f9e0a25a90bd55c5bf6",
+  46: "b60c5b5fd4ae95b2e7e3b14d503d0def9904561fceb73f8432c9984717ef4daf",
+  47: "6be0f7bd6711cc5a37507541488bb09305d181823398929ed29e3aa9c8295909",
+  48: "44d625c45bf2e665cd424e96394d739a3d9733ce4a37a8812ff0fbedccae4fba",
+  50: "84fd09e1866b387eb422173d38da18dd97aa7f5b967da8eb02f452a38ea99804",
+  52: "0236a9a6624adff33cce485ef54e4954cec5d629bfbb2fe4a0ccab5a51f5c45f",
+};
 
 export interface MigrationCompatAssessment {
   version: number;
@@ -116,17 +140,29 @@ function targetTable(stmt: string): string | undefined {
 /** Classify one platform migration for N-1 compatibility. Pure. */
 export function assessPlatformMigration(migration: PlatformMigration, baseline: number = compatBaseline()): MigrationCompatAssessment {
   const statements = splitStatements(migration.sql);
+  // This exact migration replaces an existing CHECK inside an anonymous block.
+  // It must not inherit the generic data-block class and bypass contract admission.
+  const sourceWiden = migration.version === 49 && migration.name === "managed_source_provider";
   const created = new Set<string>();
   for (const stmt of statements) {
     const t = createdTable(stmt);
     if (t) created.add(t);
   }
-  let cls: MigrationClass = "none";
+  let cls: MigrationClass = sourceWiden ? "contract" : "none";
   let local = 0;
   const findings = new Set<string>();
   for (const stmt of statements) {
     const target = targetTable(stmt);
     if (target && created.has(target)) { local += 1; continue; }
+    if (/^do\s+\$/i.test(stmt.trim()) && LOCAL_GRANT_BLOCK_SQL[migration.version]) {
+      if (LOCAL_GRANT_BLOCK_SQL[migration.version] === sha256Hex(migration.sql)) {
+        local += 1;
+        continue;
+      }
+      cls = maxClass(cls, "unclassified");
+      findings.add("unclassified: reviewed new-table privilege block SQL changed");
+      continue;
+    }
     const r = classifyStatement(stmt);
     cls = maxClass(cls, r.class);
     if (r.class !== "none" && r.class !== "expand") findings.add(r.finding);
@@ -202,7 +238,7 @@ export function assertPendingMigrationsCompatible(
   if (bad.length === 0 && unconfirmed.length === 0) return;
   const parts = [
     ...bad.map((b) => `migration ${b.version} ("${b.name}") is ${b.class}: ${b.reason === "not_registered" ? "no LIFE-10 approval is registered for it" : "its SQL changed after approval"} (${b.findings.join("; ") || "no detail"})`),
-    ...unconfirmed.map((v) => `migration ${v} is an approved contract migration; confirm the previous release is drained by setting ZENITH_ALLOW_CONTRACT_MIGRATIONS=${v}`),
+    ...unconfirmed.map((v) => `migration ${v} ("${pending.find(m => m.version === v)!.name}") is an approved contract migration; confirm the previous release is drained by setting ZENITH_ALLOW_CONTRACT_MIGRATIONS=${v}`),
   ];
   throw new ContractMigrationRefusedError(
     `Refusing to apply: ${parts.join(". ")}. Within a release a migration must be expand-only so the previous release keeps working and rollback stays possible. Nothing was applied.`,

@@ -12,8 +12,8 @@
  * Both are system-level (no workspace_id): objectives apply to the platform, not to a tenant. The service role is
  * the only grantee, like the other platform tables.
  */
-export const migration0043SloMeasurements = {
-  version: 43,
+export const migration0045SloMeasurements = {
+  version: 45,
   name: "slo_measurements",
   sql: `
 create table if not exists platform.slo_samples (

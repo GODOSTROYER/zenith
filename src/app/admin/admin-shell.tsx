@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Archive, ArrowUpRight, History, LayoutDashboard, ListChecks, Orbit, ShieldCheck } from "lucide-react";
+import { Activity, Archive, ArrowUpRight, History, LayoutDashboard, ListChecks, Orbit, ShieldCheck } from "lucide-react";
 import { Wordmark } from "@/components/shell/wordmark";
 import { Button } from "@/components/ui/button";
 import styles from "./admin.module.css";
@@ -16,6 +16,7 @@ export function AdminShell({ email, showRetention = false, children }: { email: 
           <a href="#overview"><LayoutDashboard size={17} aria-hidden="true" /> Overview</a>
           <a href="#waitlist"><ListChecks size={17} aria-hidden="true" /> Waitlist</a>
           <a href="#approval-history"><History size={17} aria-hidden="true" /> Approval history</a>
+          {showRetention ? <Link href="/admin/slo"><Activity size={17} aria-hidden="true" /> Service objectives</Link> : null}
           {showRetention ? <Link href="/admin/retention"><Archive size={17} aria-hidden="true" /> Data retention</Link> : null}
         </nav>
         <div className={styles.sidebarFooter}>

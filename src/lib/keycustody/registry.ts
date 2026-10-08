@@ -139,6 +139,13 @@ const BUILDERS: Record<KeyPurpose, Builder> = {
     return out;
   },
 
+  "enc:archive"(env) {
+    const raw = env.ZENITH_BACKUP_KEY;
+    if (!raw?.trim()) return [];
+    const root = decodeSecretKey(raw);
+    if (!root) throw invalid("ZENITH_BACKUP_KEY must decode to 32 bytes.");
+    return [{ purpose: "enc:archive", keyId: "", role: "current", source: "ZENITH_BACKUP_KEY (archive HKDF)", derivation: "hkdf-of-secret-key", algorithm: "AES-256-GCM", material: hkdf(root, "zenith.retention.archive.v1") }];
+  },
   "enc:backup"(env) {
     const raw = env.ZENITH_BACKUP_KEY;
     if (raw === undefined || raw.trim() === "") return [];
@@ -212,6 +219,7 @@ const BUILDERS: Record<KeyPurpose, Builder> = {
     return out;
   },
 
+  "signing:audit-export": (env) => signingEntries("signing:jobs", "EdDSA", { ZENITH_CONTROL_SIGNING_JWK: env.ZENITH_AUDIT_EXPORT_SIGNING_JWK }).map(entry => ({ ...entry, purpose: "signing:audit-export" as const, source: "ZENITH_AUDIT_EXPORT_SIGNING_JWK" })),
   "signing:jobs": (env) => signingEntries("signing:jobs", "EdDSA", env),
   "signing:oidc": (env) => signingEntries("signing:oidc", "RS256", env),
 

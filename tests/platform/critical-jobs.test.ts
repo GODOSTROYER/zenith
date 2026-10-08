@@ -1,11 +1,16 @@
 /** PROD-OBS-04: durable critical job execution, overlap, fencing, catch-up, fallback idempotency and health (real PGlite dialect). */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { openPlatformDb, repos } from "@/lib/controlplane/db";
 import {
   CRITICAL_JOBS, FALLBACK_DEFER_MS, MAINTENANCE_JOBS, criticalJobHealth, jobLeaseScope, runCriticalJob, type JobOutcome,
 } from "@/lib/platform/critical-jobs";
 
 let db: Awaited<ReturnType<typeof openPlatformDb>>;
+// Compile the real reaper and relay as setup, rather than charging a cold
+// Temporal/native module graph to this SQL wrapper case's execution timeout.
+beforeAll(async () => {
+  await Promise.all([import("@/lib/platform/app"), import("@/lib/controlplane/outbox/temporal")]);
+});
 beforeEach(async () => { db = await openPlatformDb({ kind: "pglite" }); });
 afterEach(async () => { await db.close(); });
 
@@ -25,6 +30,20 @@ describe("critical job runs", () => {
     // jobs that never ran are reported, not hidden
     expect(health.jobs.find((j) => j.job === "runbooks")?.state).toBe("never_run");
     expect(health.healthy).toBe(false);
+  });
+
+  it("records billing durably and defers its fallback after a successful durable tick", async () => {
+    vi.stubEnv("ZENITH_BILLING", "disabled");
+    try {
+      const result = await runCriticalJob(db, "billing", "temporal", () => MAINTENANCE_JOBS.billing(db));
+      expect(result).toMatchObject({ status: "ok", value: { enabled: false } });
+      expect(await repos.scheduledJobs.getScheduledJob(db, "billing")).toMatchObject({ lastStatus: "ok", lastSuccessSource: "temporal", runsTotal: 1 });
+      let dispatched = false;
+      expect(await runCriticalJob(db, "billing", "fallback", async () => { dispatched = true; return ok(); })).toEqual({ status: "skipped", reason: "durable_current" });
+      expect(dispatched).toBe(false);
+      expect((await criticalJobHealth(db)).jobs.find(j => j.job === "billing")).toMatchObject({ state: "healthy", durable: true });
+      expect(await repos.leases.current(db, jobLeaseScope("billing"))).toBeNull();
+    } finally { vi.unstubAllEnvs(); }
   });
 
   it("runs the runner reaper through the same wrapper", async () => {

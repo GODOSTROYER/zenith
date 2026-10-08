@@ -40,7 +40,7 @@ export interface SloDefinitions {
 
 export class SloDefinitionError extends Error {}
 
-const APPROVAL_KEYS = /approv|sign.?off|accountab|owner|ratif/i;
+const APPROVAL_KEYS = /approv|sign(?:ed)?.?off|accountab|owner|ratif/i;
 const ALLOWED_KEYS: Readonly<Record<string, readonly string[]>> = {
   ratio: ["id", "title", "category", "status", "kind", "target", "sli"],
   latency_ratio: ["id", "title", "category", "status", "kind", "target", "thresholdSeconds", "sli"],

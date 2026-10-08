@@ -66,13 +66,37 @@ describe("npm components", () => {
     expect(() => npmComponents({ lockfileVersion: 1, packages: {} }, undefined)).toThrow(/lockfileVersion/);
   });
 
-  it("inventories every entry of the repository's own package-lock.json with a sha512 hash", () => {
+  it("inventories every entry of the repository's own package-lock.json with its own sha512 hash or a verified enclosing tarball", () => {
     const lock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
     const expected = Object.keys(lock.packages).filter((n) => n !== "").length;
     const { components } = npmComponents(lock, JSON.parse(fs.readFileSync("package.json", "utf8")));
     expect(components).toHaveLength(expected);
-    expect(components.every((c: { hashes?: unknown[]; purl: string }) => c.purl.startsWith("pkg:npm/") && (c.hashes?.length ?? 0) === 1)).toBe(true);
+    for (const c of components) {
+      expect(c.purl.startsWith("pkg:npm/")).toBe(true);
+      const node = c.properties.find((p: { name: string }) => p.name === "zenith:npm:node")!.value;
+      if (lock.packages[node].inBundle === true) {
+        expect(c.hashes).toBeUndefined(); // never mislabel a parent tarball hash as this child's hash
+        const ownerNode = c.properties.find((p: { name: string }) => p.name === "zenith:npm:bundled-in-node")!.value;
+        expect(node.startsWith(`${ownerNode}/node_modules/`)).toBe(true);
+        expect(c.properties).toContainEqual({ name: "zenith:npm:bundle-sha512", value: sriToHex(lock.packages[ownerNode].integrity) });
+      } else expect(c.hashes).toHaveLength(1);
+    }
+    expect(validateSbom(buildSbom({ lock, version: "1.0.0", commit: "0123456789abcdef" }))).toEqual([]);
     expect(npmPurl("@a/b", "1.0.0")).toBe("pkg:npm/%40a/b@1.0.0");
+  });
+});
+
+describe("bundled npm provenance", () => {
+  it("refuses an unhashed bundle without its pinned parent", () => {
+    expect(() => npmComponents(lockOf({ "node_modules/a/node_modules/b": { version: "1.0.0", inBundle: true } }), undefined)).toThrow(/enclosing tarball/);
+  });
+  it("refuses fabricated or missing parent integrity evidence", () => {
+    const lock = lockOf({ "node_modules/a": { version: "1.0.0", integrity: integrity() }, "node_modules/a/node_modules/b": { version: "1.0.0", inBundle: true } });
+    const bom = buildSbom({ lock, version: "1.0.0", commit: "0123456789abcdef" });
+    expect(validateSbom(bom)).toEqual([]);
+    const bundled = bom.components.find((c: { name: string }) => c.name === "b")!;
+    bundled.properties.find((p: { name: string }) => p.name === "zenith:npm:bundle-sha512")!.value = "0".repeat(128);
+    expect(validateSbom(bom).join(" ")).toMatch(/verified enclosing bundle/);
   });
 });
 

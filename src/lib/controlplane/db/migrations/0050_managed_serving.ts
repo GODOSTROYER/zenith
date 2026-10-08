@@ -11,8 +11,8 @@
  * Both tables are tenant-owned (workspace_id on every row, every repository statement filters on it) with RLS on and no
  * policies; the service role is the only grantee.
  */
-export const migration0049ManagedServing = {
-  version: 49,
+export const migration0050ManagedServing = {
+  version: 50,
   name: "managed_serving",
   sql: `
 create table if not exists platform.managed_domains (
@@ -56,7 +56,7 @@ create table if not exists platform.managed_storage_keys (
   policy_digest  text        not null check (policy_digest ~ '^[0-9a-f]{64}$'),
   principal_name text        not null check (char_length(principal_name) between 1 and 64),
   access_key_id  text        not null check (char_length(access_key_id) between 1 and 128),
-  secret_ref     text        not null check (secret_ref ~ '^vault:[A-Za-z0-9._/-]{1,300}$'),
+  secret_ref     text        not null check (char_length(secret_ref) between 7 and 306 and secret_ref ~ '^vault:[A-Za-z0-9._/-]+$'),
   status         text        not null default 'active' check (status in ('active','revoke_pending','revoked')),
   created_at     timestamptz not null default clock_timestamp(),
   superseded_at  timestamptz,

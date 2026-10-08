@@ -1,4 +1,4 @@
-import { incomingWorkflowIds, withoutIncomingPlatform } from "./incoming-cohort-fixture";
+import { incomingWorkflowIds, wave5PlatformIds, wave5WorkflowIds, withoutIncomingPlatform } from "./incoming-cohort-fixture";
 /**
  * Parsed workflow gates cover the platform that exists. Suite discovery catches
  * narrower filters; mandatory evidence reports catch skipped real-engine tests.
@@ -66,9 +66,49 @@ const wave2WorkflowIds = new Set([
   "workflows:tests/workflows/critical-schedule.test.ts:4ee93ed6c454",
   "workflows:tests/platform/critical-jobs.test.ts:4ee93ed6c454",
 ]);
+// Exactly the reviewed replay addition leaves predecessor comparisons; unknown IDs stay visible.
+const replayAdditionIds = new Set([
+  "workflows:tests/workflows/history-replay.test.ts:11c9372298c4",
+  "workflows:tests/workflows/history-replay.test.ts:ca053d4a7ffa",
+  "workflows:tests/workflows/history-replay.test.ts:fd56cd941022",
+  "workflows:tests/workflows/history-replay.test.ts:8744128c0a9e",
+  "workflows:tests/workflows/history-replay.test.ts:1c364350141a",
+  "workflows:tests/workflows/history-replay.test.ts:eaca45b6d6b7",
+  "workflows:tests/workflows/history-replay.test.ts:87db48b6511e",
+  "workflows:tests/workflows/history-replay.test.ts:3aef3e2319a2",
+  "workflows:tests/workflows/history-replay.test.ts:2511e70410ac",
+  "workflows:tests/workflows/history-replay.test.ts:f862c0ca2f28",
+  "workflows:tests/workflows/history-replay.test.ts:217cee7bdf53",
+  "workflows:tests/workflows/history-replay.test.ts:d24898d990cb",
+  "workflows:tests/workflows/history-replay.test.ts:9bd63aa2eb20",
+  "workflows:tests/workflows/history-replay.test.ts:d9916b20ed8f",
+  "workflows:tests/workflows/history-replay.test.ts:10fbc2c302bb",
+  "workflows:tests/workflows/history-replay.test.ts:4f2aef1cd9ac",
+  "workflows:tests/workflows/history-replay.test.ts:e0a8479c4469",
+  "workflows:tests/workflows/history-replay.test.ts:599d31f58731",
+  "workflows:tests/workflows/history-replay.test.ts:c7ee74ad2f02",
+  "workflows:tests/workflows/history-replay.test.ts:be8dffb99b65",
+  "workflows:tests/workflows/history-replay.test.ts:7d76388ab023",
+  "workflows:tests/workflows/history-replay.test.ts:404108cfbc97",
+  "workflows:tests/workflows/history-replay.test.ts:dcdea3bad29a",
+  "workflows:tests/workflows/history-replay.test.ts:b614b4ac1f76",
+  "workflows:tests/workflows/history-replay.test.ts:faa76b639737",
+  "workflows:tests/workflows/history-replay.test.ts:be6df6808e1a",
+  "workflows:tests/workflows/history-replay.test.ts:7a72efa28e05",
+  "workflows:tests/workflows/history-replay.test.ts:1bb1bc14d9b8",
+  "workflows:tests/workflows/history-replay.test.ts:1ed963fe5b4e",
+  "workflows:tests/workflows/versioning-audit.test.ts:42b84e22c212",
+  "workflows:tests/workflows/versioning-audit.test.ts:7d93ce0f1ca7",
+  "workflows:tests/workflows/versioning-audit.test.ts:05156f32cdf6",
+  "workflows:tests/workflows/versioning-audit.test.ts:c336390bb162",
+  "workflows:tests/workflows/versioning-audit.test.ts:daf8e7f59be8"
+]);
+function withoutReplayAdditions(items: ReturnType<typeof requirementsFor>): ReturnType<typeof requirementsFor> {
+  return items.filter(item => !replayAdditionIds.has(item.id));
+}
 const criticalScheduleWorkflowIds = new Set(CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS.map(item => requirementId("workflows", item)));
 function priorCriticalScheduleWorkflowRequirements(sourceRoot = root) {
-  return requirementsFor("workflows", sourceRoot).filter(item => !criticalScheduleWorkflowIds.has(item.id) && !incomingWorkflowIds.has(item.id));
+  return withoutReplayAdditions(requirementsFor("workflows", sourceRoot)).filter(item => !criticalScheduleWorkflowIds.has(item.id) && !incomingWorkflowIds.has(item.id));
 }
 function priorWave2WorkflowRequirements() {
   return priorCriticalScheduleWorkflowRequirements().filter(item => !wave2WorkflowIds.has(item.id));
@@ -154,6 +194,9 @@ function testsUnder(directory: string): string[] {
 
 /** Detect executable comparisons, including static bracket access, without treating quoted source or comments as runtime gates. */
 function hasTofuNetworkComparison(source: string, fileName = "fixture.test.ts"): boolean {
+  // Escape sequences can spell the property without its literal source token.
+  // Sources with either form still use the complete AST walk below.
+  if (!source.includes("ZENITH_TEST_TOFU_NETWORK") && !source.includes("\\")) return false;
   const ast = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const unwrap = (input: ts.Expression): ts.Expression => {
     let node = input;
@@ -588,7 +631,22 @@ describe("mandatory unchanged APPLY authority continuation [report models]", () 
     expect(manifest.command).toContain(required[0].file); expect(manifest.excludeFiles).not.toContain(required[0].file);
     expect(manifest.prerequisites.some(value => value.startsWith("ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1;"))).toBe(true);
     const source = fs.readFileSync(path.join(root, required[0].file), "utf8");
-    expect(createHash("sha256").update(source).digest("hex")).toBe("3fb495f33a29736991f966c2c7c521552e864fea17d99ac39b94e63ca972e9ff");
+    // Historical fixture binding: 3fb495f33a29736991f966c2c7c521552e864fea17d99ac39b94e63ca972e9ff.
+    // The reviewed native fixture now binds real SQL semantics and audit writes.
+    expect(createHash("sha256").update(source).digest("hex")).toBe("a30a056f3e5a8a1d402e9828011978aa599bf0c081355108209e15d4f727f561");
+    expect(source).toContain("semantics:createPlatformSemanticsStore(h.db!)");
+    expect(source).toContain("semanticsDigest:review.semantics.digest");
+    const preApproval = source.indexOf("select semantics_digest from platform.approved_semantics");
+    expect(preApproval).toBeGreaterThanOrEqual(0);
+    expect(preApproval).toBeLessThan(source.indexOf("const approval = await h.broker.approve"));
+    expect(source).toContain('const auditWrites = vi.spyOn(h.store, "appendEvent")');
+    expect(source).toContain("await expect(auditWrites.mock.results[bindingIndexes[0]].value");
+    expect(source).toContain("data->>'kind'='approval_semantics_bound'");
+    expect(manifest.requirements.filter(item => item.file === required[0].file && item.suite === required[0].suite).map(item => item.test)).toEqual([
+      ...["expired approval", "revoked approver role", "new policy denial", "expiry after authority check", "expiry during role lookup"]
+        .map(mode => `refuses ${mode} after fresh replan and before durable dispatch`),
+      required[0].test,
+    ]);
     expect(source).toContain(JSON.stringify(required[0].test));
     expect(source.indexOf("ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED")).toBeLessThan(source.indexOf("beforeAll("));
     expect(source).toContain('(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK !== "1")');
@@ -646,7 +704,7 @@ describe("network gate AST detection [source models]", () => {
     };
     expect(hasTofuNetworkComparison(source[kind])).toBe(false);
   });
-  it.each(["strict equal", "strict unequal", "reversed", "loose equal", "loose unequal", "static bracket", "optional chain", "parenthesized", "typed expression", "template interpolation"])("detects actual %s runtime comparison without a file exemption", kind => {
+  it.each(["strict equal", "strict unequal", "reversed", "loose equal", "loose unequal", "static bracket", "escaped bracket", "optional chain", "parenthesized", "typed expression", "template interpolation"])("detects actual %s runtime comparison without a file exemption", kind => {
     const source: Record<string, string> = {
       "strict equal": 'describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK === "1")("suite", () => {});',
       "strict unequal": 'describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK !== "1")("suite", () => {});',
@@ -654,6 +712,7 @@ describe("network gate AST detection [source models]", () => {
       "loose equal": 'const enabled = process.env.ZENITH_TEST_TOFU_NETWORK == "1";',
       "loose unequal": 'const enabled = process.env.ZENITH_TEST_TOFU_NETWORK != "1";',
       "static bracket": 'const enabled = process["env"]["ZENITH_TEST_TOFU_NETWORK"] === "1";',
+      "escaped bracket": 'const enabled = process["env"]["\\u005aENITH_TEST_TOFU_NETWORK"] === "1";',
       "optional chain": 'const enabled = process?.env?.ZENITH_TEST_TOFU_NETWORK !== "1";',
       parenthesized: 'const enabled = (((process.env.ZENITH_TEST_TOFU_NETWORK))) !== "1";',
       "typed expression": 'const enabled = (process.env.ZENITH_TEST_TOFU_NETWORK as string | undefined) === "1";',
@@ -766,7 +825,7 @@ describe("mandatory native custody, retention and Kubernetes target execution", 
     const declaration = script.match(/^MIGRATIONS=\(\r?\n([\s\S]*?)^\)/m)?.[1];
     expect(declaration).toBeDefined();
     expect([...(declaration ?? "").matchAll(/"([^"\n]+\.sql)"/g)].map(match => match[1])).toEqual(committed);
-    expect(committed.slice(-10)).toEqual(["0016_platform_core.sql", "0017_platform_core.sql", "0018_platform_core.sql", "0019_platform_core.sql", "0020_platform_core.sql", "0021_platform_core.sql", "0022_platform_core.sql", "0023_platform_core.sql", "0024_platform_core.sql", "0025_platform_core.sql"]);
+    expect(committed.slice(-11)).toEqual(["0016_platform_core.sql", "0017_platform_core.sql", "0018_platform_core.sql", "0019_platform_core.sql", "0020_platform_core.sql", "0021_platform_core.sql", "0022_platform_core.sql", "0023_platform_core.sql", "0024_platform_core.sql", "0025_platform_core.sql", "0026_platform_core.sql"]);
     expect(fs.readFileSync(path.join(root, "scripts/ci/apply-platform-migrations.sh"), "utf8")).toContain("scripts/platform/migrate.ts");
     expect(script).toContain('"$TSX" "$PLATFORM_VERIFIER"');
   });
@@ -778,8 +837,14 @@ describe("saved builtin settlement mandatory CI admission", () => {
     const manifest = manifestFor("platform-postgres", root);
     const added = currentSuccessorPlatformCohort.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
     expect(manifest.requirements.filter(item => added.some(value => value.id === item.id)).sort((a, b) => a.id.localeCompare(b.id))).toEqual(added.sort((a, b) => a.id.localeCompare(b.id)));
-    expect(manifest.requirements).toHaveLength(1141);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1141);
+    expect(manifest.requirements).toHaveLength(1149);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1149);
+    const mixedStore = manifest.requirements.filter(item => item.file === "tests/execution/mixed-run-store.test.ts");
+    expect(mixedStore).toHaveLength(5);
+    expect(mixedStore.every(item => item.postgres && item.suite === "mixed run store validation [postgres]" && item.test)).toBe(true);
+    const beforeMixedStore = manifest.requirements.filter(item => !mixedStore.some(addition => addition.id === item.id));
+    expect(beforeMixedStore).toHaveLength(1144);
+    expect(beforeMixedStore.filter(item => !wave5PlatformIds.has(item.id))).toHaveLength(1141);
     expect(withoutIncomingPlatform(manifest.requirements).map(item => item.id).sort()).toEqual([...priorCurrentSuccessorPlatformRequirements(), ...added, ...INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }))].map(item => item.id).sort());
     for (const item of added) {
       expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);
@@ -836,7 +901,7 @@ describe("saved builtin settlement mandatory CI admission", () => {
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
     expect(manifestFor("postgres", root).requirements).toHaveLength(93);
-    expect(requirementsFor("workflows", root)).toHaveLength(71);
+    expect(requirementsFor("workflows", root)).toHaveLength(110);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().requiredCases).toHaveLength(152); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
@@ -856,8 +921,17 @@ describe("critical scheduling native admission [workflow source models]", () => 
     const manifest = manifestFor("workflows", root), job = workflow.jobs.workflows;
     expect(manifest.requirements.filter(item => criticalScheduleWorkflowIds.has(item.id)))
       .toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
-    expect(manifest.requirements).toHaveLength(71);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(71);
+    expect(manifest.requirements).toHaveLength(110);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(110);
+    const previous = withoutReplayAdditions(manifest.requirements);
+    expect(previous).toHaveLength(76);
+    expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex"))
+      .toBe("a44fa4e252de4b6c3236294297ede9d4c97f0b151971ebee1c7ccfe06590796b");
+    const verifierPrevious = previous.filter(item => !wave5WorkflowIds.has(item.id));
+    expect(verifierPrevious).toHaveLength(71);
+    expect(createHash("sha256").update(JSON.stringify(verifierPrevious.map(item => item.id).sort())).digest("hex"))
+      .toBe("5d59799c849b2180643bdbdbd2196c2cef6a966a9fc703d78208f27a617dd77d");
+    expect(withoutReplayAdditions([...manifest.requirements, { ...manifest.requirements[0], id: "unknown-successor" }]).some(item => item.id === "unknown-successor")).toBe(true);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(createHash("sha256").update(JSON.stringify(priorCriticalScheduleWorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b");

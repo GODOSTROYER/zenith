@@ -1,3 +1,18 @@
+## Results, integrated native checkpoint, 8 October 2026
+
+- PROD-CI-08: in_progress;871f73d9 native platform3762/0/15, all1146 required; new complete CI pending. [Results](verification/RESULTS-2026-10.md#integrated-native-verification-checkpoint-8-october-2026).
+- PROD-OPS-03: in_progress; reviewed a8416305 reconciliation38/0/0, all26, integrated871f73d9; previous-release/in-flight upgrade acceptance remains open.
+- PROD-LIFE-11: in_progress;871f73d9 MySQL2/Rclone1 selected cases passed; genuine MinIO2/1; PostgreSQL2 passed but cleanup failed; native DNS3 not run. No promotion.
+
+## Results: 8 October publication successor
+
+PROD-CI-08: source105b5ea4 workflows105 failed1376/2/0; sourcea7 native platform runtime3762/0/15 failed strict seven-label binding. Corrective packets not integrated; no verified promotion. PROD-OPS-03: mandatory105 replay activation integrateda1259fdc, scoped34/0/0; combined105 remains failed. Fresh pushed CI pending. See [current context](WIP-HANDOFF-2026-10-08.md).
+
+## Results: mandatory replay integration, 8 October 2026
+
+- PROD-OPS-03 Results: a1259fdc activates105 canonical workflow requirements, preserving71; root metadata463/0/0, SDK replay/audit34/0/0, compiler/lint passed. Full105 lane, previous-release/upgrade proof and fresh CI pending. No promotion.
+- PROD-CI-08 Results: bb54ab16 native dispatch successor103/0/0; f38bc8a2 metadata348/0/0. Full1146 PostgreSQL gate and fresh CI pending; earlier failures retained.
+
 ## Results: 8 October publication checkpoint
 
 PROD-CI-08: in_progress; c7332a56; native100 successor100/0/0 at5fc3cb2c, native dispatch97/6/0 and failed history recording19/2/1 retained. Full combined gate pending.
@@ -558,3 +573,8 @@ Not yet run. Append one dated block per requirement here: SHA verified, commands
 - PROD-UX-03: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
 
 Results PROD-CI-08 (8 October):648a historical77/0/0; frozen4c canonical intents156/0/0 all141;722 actual codec/deploy30/0/0. Scopes overlap; current71 workflow inventory. Full combined gate/CI pending; no promotion.
+
+
+## Wave 5
+
+Assembly schema 52, aggregate 0026, release states false. Run every command in [W5-ASSEMBLY.md](verify/W5-ASSEMBLY.md) in order: (1) owned PostgreSQL16 migration/tenancy/SLO/billing/domain stores, (2) matching pg_dump/pg_restore and pinned Temporal CLI for recovery plus complete workflows, (3) OpenTofu1.12.5 provider/local-variable contracts, adversarial and Wave 5 contracts, (4) Docker/kind/Gateway API with digest-pinned registry/builder/probe images, tenant bootstrap readiness and Calico/Cilium isolation, (5) IAM-enforcing S3 emulator, (6) browser/DOM operator QA. The linked runbook supplies exact env gates and commands; W5-ASSEMBLY-ONBOARDING supplies prepared/missing namespace fixtures and cleanup. No skipped gate is a pass. Live clouds, protected release-key creation and permissions.json approval remain deferred human actions.

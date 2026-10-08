@@ -27,10 +27,12 @@ import type { ManagedSubstratePort } from "@/lib/providers/zenith/managed-port";
 import { createManagedSubstrate, readManagedConfigs } from "@/lib/providers/zenith/managed-substrate";
 import { tenantNamespace } from "@/lib/providers/zenith/tenancy";
 import type { AsyncSecretsBackend } from "@/lib/secrets/backend";
+import type { ZenithEnv } from "@/lib/providers/zenith/substrate";
 import { startFakeK8s, type FakeK8s } from "../providers/kubernetes/fake-api";
 import { FULL_ENV } from "../providers/zenith/support";
+import { FakeAdmin, MemoryKeyStore, MemorySink } from "../managed-serving/_support/storage";
 import { createWorld, type World } from "./fakes/world";
-import { ENV, OP, WS } from "./fakes/fixtures";
+import { ENV, OP, WS, bucketManifest } from "./fakes/fixtures";
 
 const NS = tenantNamespace(WS, ENV);
 const WEB_A = `registry.example.com/acme/web@sha256:${"a".repeat(64)}`;
@@ -56,11 +58,11 @@ let world: World | undefined;
 beforeEach(async () => { fake = await startFakeK8s(); });
 afterEach(async () => { world?.dispose(); world = undefined; vi.restoreAllMocks(); await fake.close(); });
 
-function managedOver(w: World): ManagedSubstratePort {
+function managedOver(w: World, env: ZenithEnv = SUBSTRATE_ENV, tier: "free" | "starter" = "free"): ManagedSubstratePort {
   return createManagedSubstrate({
-    ...readManagedConfigs(SUBSTRATE_ENV),
+    ...readManagedConfigs(env),
     toolkit: createKubernetesToolkit(),
-    tenants: createProductTenantResolver(w.product),
+    tenants: createProductTenantResolver(w.product, { defaultPlanTier: tier }),
     // The substrate's URL must be https; the contract fake is plain http on loopback, so only the URL is swapped.
     createKubernetesSession: (config, signal) => createKubernetesSession({ ...config, server: fake.url }, { resolveCredential: async () => fake.token, allowInsecureLoopback: true }, signal),
     resolvePlatformCredential: async () => fake.token,
@@ -139,13 +141,64 @@ describe("deploying a Zenith-managed environment through the default journey", (
     expect(j.w.evidence.rows.some((e: any) => e.kind === "tofu_apply" && e.summary.planDigest === plan.planDigest)).toBe(true);
     expect(j.w.events.events.map((e: any) => e.type)).toEqual(expect.arrayContaining(["resource.planned", "resource.applying", "resource.applied"]));
 
-    // release: the Kubernetes rollout adapter, through the managed session, points the Deployment at a new pinned digest
-    const deployed = await j.deploy([{ service: "container_service/web", imageUri: WEB_B, digest: `sha256:${"b".repeat(64)}` }]);
+    // A literal manifest image must retain its reviewed digest through release and verification.
+    const deployed = await j.deploy([{ service: "container_service/web", imageUri: WEB_A, digest: `sha256:${"a".repeat(64)}` }]);
     expect(deployed.services).toBeGreaterThan(0);
-    expect((fake.get("Deployment", NS, "web") as any).spec.template.spec.containers[0].image).toBe(WEB_B);
+    expect((fake.get("Deployment", NS, "web") as any).spec.template.spec.containers[0].image).toBe(WEB_A);
 
     const verified = await j.verify();
     expect(verified.failed).toBe(0);
+    await j.release();
+  });
+
+  it("reports configuration drift when a released pin differs from the literal manifest image", async () => {
+    const j = await start();
+    const plan = await j.plan();
+    await j.policy(plan.planDigest);
+    j.approve();
+    await j.apply(plan.planDigest);
+    await j.deploy([{ service: "container_service/web", imageUri: WEB_B, digest: `sha256:${"b".repeat(64)}` }]);
+    expect((fake.get("Deployment", NS, "web") as any).spec.template.spec.containers[0].image).toBe(WEB_B);
+    expect(await j.verify()).toMatchObject({ status: "failed" });
+    const verification = j.w.evidence.rows.find((e) => e.kind === "verification")!.summary as any;
+    expect(verification.nodes).toContainEqual({ address: "container_service/web", driver: "zenith.deployment@1", status: "failed", failed: ["configuration"], unknown: [] });
+    await j.release();
+  });
+
+  it("plans a scoped object store without writes and provisions it only after reviewed approval", async () => {
+    const storage = { admin: new FakeAdmin(), sink: new MemorySink(), store: new MemoryKeyStore(WS, ENV) };
+    const j = await start((w) => {
+      const port = managedOver(w, { ...SUBSTRATE_ENV, ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CREDENTIAL_REF: "vault:zenith-managed/object-store-admin" }, "starter");
+      const runtime = port.databaseRuntime.bind(port);
+      vi.spyOn(port, "databaseRuntime").mockImplementation((input) => ({ ...runtime(input), storage }));
+      return port;
+    });
+    j.w.product.setManifest(bucketManifest("media"));
+    expect((await j.validate()).problems).toEqual([]);
+    const plan = await j.plan();
+    expect(plan.create).toBeGreaterThan(0);
+    expect(storage.admin.calls).toEqual([]);
+    expect(storage.sink.puts).toEqual([]);
+    expect(realWrites()).toEqual([]);
+    expect(await j.policy(plan.planDigest)).toMatchObject({ outcome: "allow" });
+    j.approve();
+    expect((await j.finalPlan(plan.planDigest)).planDigest).toBe(plan.planDigest);
+    const applied = await j.apply(plan.planDigest);
+    expect(applied.applied).toBe(plan.create + plan.update);
+    expect(storage.store.rows).toEqual([expect.objectContaining({ address: "object_store/media", status: "active" })]);
+    expect(storage.admin.principals.size).toBe(1);
+    expect(storage.sink.puts).toHaveLength(2);
+    await j.release();
+  });
+
+  it.each(["admin configuration", "scoped runtime ports"] as const)("refuses an object-store plan before writes without %s", async (missing) => {
+    const env = { ...SUBSTRATE_ENV, ...(missing === "scoped runtime ports" ? { ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CREDENTIAL_REF: "vault:zenith-managed/object-store-admin" } : {}) };
+    const j = await start((w) => managedOver(w, env, "starter"));
+    j.w.product.setManifest(bucketManifest("media"));
+    expect((await j.validate()).problems).toEqual([]);
+    await expect(j.plan()).rejects.toThrow(/object_store\/media/);
+    expect(realWrites()).toEqual([]);
+    expect(j.w.evidence.rows.filter((row) => row.kind === "tofu_plan")).toEqual([]);
     await j.release();
   });
 
@@ -179,6 +232,18 @@ describe("deploying a Zenith-managed environment through the default journey", (
     await expect(j.plan()).rejects.toThrow(/does not own/);
     expect(realWrites()).toEqual([]);
     expect((fake.get("Namespace", undefined, NS) as any).metadata.labels?.["app.kubernetes.io/managed-by"]).toBeUndefined();
+    await j.release();
+  });
+
+  it("refuses a namespace read outage instead of approving an unvalidated create plan", async () => {
+    const j = await start((w) => {
+      const managed = managedOver(w);
+      vi.spyOn(managed.toolkit, "read").mockRejectedValue(new Error("cluster read unavailable"));
+      return managed;
+    });
+    await expect(j.plan()).rejects.toThrow(/cluster read unavailable/);
+    expect(realWrites()).toEqual([]);
+    expect(j.w.evidence.rows.filter((row: any) => row.kind === "tofu_plan")).toEqual([]);
     await j.release();
   });
 

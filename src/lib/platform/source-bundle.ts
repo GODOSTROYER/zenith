@@ -139,6 +139,7 @@ async function download(source: BundleSource, token: string | undefined, deps: S
 
 function textField(data: Buffer, offset = 0, length = data.length): string {
   const bytes = data.subarray(offset, offset + length); const end = bytes.indexOf(0);
+  if (end >= 0 && bytes.subarray(end).some(byte => byte !== 0)) refuse("Source archive has bytes after a NUL path terminator.");
   try { return utf8.decode(bytes.subarray(0, end < 0 ? bytes.length : end)); } catch { return refuse("Source archive has an invalid UTF-8 path."); }
 }
 function octal(data: Buffer, offset: number, length: number): number {
@@ -217,8 +218,16 @@ function unpack(bytes: Buffer, limits: SourceBundleLimits, signal: AbortSignal):
     entries.set(relative, { path: relative, directory: type === "5", mode, data });
   }
   if (!terminated || ![...entries.values()].some((e) => !e.directory)) refuse("Source archive is empty or truncated.");
+  const folded = new Map<string, string>();
   for (const entry of entries.values()) {
     const parts = entry.path.split("/");
+    for (let depth = 1; depth <= parts.length; depth++) {
+      const prefix = parts.slice(0, depth).join("/");
+      const key = prefix.normalize("NFC").toLowerCase();
+      const prior = folded.get(key);
+      if (prior !== undefined && prior !== prefix) refuse("Source archive has case or Unicode-normalization path collisions.");
+      folded.set(key, prefix);
+    }
     for (let i = 1; i < parts.length; i++) if (entries.get(parts.slice(0, i).join("/"))?.directory === false) refuse("Source archive has conflicting file and directory paths.");
   }
   return [...entries.values()].sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));

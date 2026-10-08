@@ -1273,6 +1273,49 @@
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native100-and-open-successors.json",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native100-and-open-successors.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "dd1d4858a08bde1339f0f3f2b729e9303e3aa08b",
+          "result": "12 passed / 0 failed / 0 skipped; native PostgreSQL, PGlite and memory pre-write validation/read-binding controls. Compiler and touched-source lint passed. Nullable DB binding constraint and full combined gates remain open.",
+          "command": "Owned serial native PostgreSQL controller: tests/execution/mixed-run-store.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": {
+            "node": "22.23.3",
+            "postgres": "16.15",
+            "architecture": "native Darwin ARM64"
+          },
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-mixed-state-validation.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "bb54ab166563d1392b9ac0ad430a220067fbabfd",
+          "result": "Actual PostgreSQL native dispatch/mixed/maintenance successor103 passed/0 failed/0 skipped, all six former dispatch fixtures executed with SQL semantics custody. Owned server stopped and data removed. Metadata atf38bc8a2348/0/0; scopes overlap. Full current candidate remains pending.",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "postgres": "16.15",
+            "architecture": "native Darwin ARM64"
+          },
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-publication-successors.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "105b5ea4a077921d9c9b84cdaf5515ca3e925fe6",
+          "result": "Full canonical workflows105 failed:1376 passed/2 failed/0 skipped; two schedule-fixture failures. Actual native PostgreSQL/Temporal, childexit1, cleanup confirmed, no promotion. Controllerexit0 is not gate success.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-workflows105-failure.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "871f73d91cbb1056f6a1830a0d5e361beb2aeacb",
+          "result": "Native platform3762 passed/0 failed/15 skipped; all1146 required passed, child0/stop0/data removed. Historical dd CI19/20 terminal success, sole strict binding failure; new pushed CI pending.",
+          "environment": {
+            "node": "22.23.3",
+            "postgres": "16.15",
+            "mysql": "9.6.0",
+            "rclone": "1.75.1",
+            "architecture": "native Darwin ARM64"
+          },
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-integrated-native-successors.json"
         }
       ],
       "requiredEvidence": [
@@ -2116,14 +2159,14 @@
       "acceptance": [
         "Prove cross-provider network/DNS/TLS/identity/secret bindings, overlap handling and private connectivity or explicitly approved protected endpoints; databases never silently public."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2131,8 +2174,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/controlplane/mixed-follow-up.test.ts",
+        "tests/execution/mixed/typed-inputs-activities.test.ts"
+      ]
     },
     {
       "id": "PROD-MIX-06",
@@ -2140,14 +2186,14 @@
       "acceptance": [
         "GCP compute, Azure PostgreSQL and AWS functions or justified equivalent serve actual application traffic with independently checked readback."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2155,8 +2201,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/acceptance/mixed-connectivity-probe.test.ts",
+        "tests/acceptance/mixed-live-run.test.ts"
+      ]
     },
     {
       "id": "PROD-MIX-07",
@@ -2164,14 +2213,14 @@
       "acceptance": [
         "Transfer/latency/residency costs included; one-provider failure recovery demonstrated; full acceptance harness exists even when live accounts unavailable."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2179,8 +2228,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/acceptance/mixed-live-recovery.test.ts",
+        "tests/controlplane/mixed-follow-up.test.ts"
+      ]
     },
     {
       "id": "PROD-DUR-01",
@@ -2870,6 +2922,19 @@
           "command": "Reviewed private fixture R6: run pgs3 then complete cleanup, run mysql then complete cleanup; exact test files and case identities in artifact.",
           "environment": "Native Darwin ARM64 clients Node22.23.3/npm10.9.9/Vitest4.1.11/MySQLCLI9.6.0; Docker29.1.3 native Linux ARM64 pinned PostgreSQL16.15/MinIO/MySQL8.4.11 engines. No local AMD64 transport claim.",
           "logs": "docs/build/production/evidence/PROD-LIFE-11/2026-10-07-coherent-transports-d6965d75.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "871f73d91cbb1056f6a1830a0d5e361beb2aeacb",
+          "result": "Selected MySQL2 and Rclone1 actual cases passed with filtered siblings9/20/10. Genuine MinIO2 passed/1 failed. PostgreSQL2 cases passed but cleanup custody failed; overall attempt failed. Native PG DNS3 not run; no promotion.",
+          "environment": {
+            "node": "22.23.3",
+            "postgres": "16.15",
+            "mysql": "9.6.0",
+            "rclone": "1.75.1",
+            "architecture": "native Darwin ARM64"
+          },
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-integrated-native-successors.json"
         }
       ],
       "requiredEvidence": [
@@ -3525,13 +3590,13 @@
       "acceptance": [
         "Default Zenith session opener/substrate/source build/release composition operates without manually injected test ports."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3539,8 +3604,12 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/execution/zenith-managed-journey.test.ts",
+        "tests/platform/managed-reconcile.test.ts",
+        "tests/platform/zenith-onboarding.test.ts"
+      ]
     },
     {
       "id": "PROD-MAN-02",
@@ -3548,13 +3617,13 @@
       "acceptance": [
         "Supported registry/gateway/DNS/TLS/secret delivery/storage/managed database integrations operate; established managed DB services reused."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3562,8 +3631,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/managed-serving/services-route.test.ts",
+        "tests/managed-serving/serving-contract.test.ts"
+      ]
     },
     {
       "id": "PROD-MAN-03",
@@ -3571,13 +3643,13 @@
       "acceptance": [
         "Tenant object storage, domain ownership proof/renewal, DB export/restore, autoscaling and promised services function."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3585,8 +3657,12 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/managed-serving/domain-routes.test.ts",
+        "tests/managed-serving/domain-store.test.ts",
+        "tests/managed-serving/storage-emulator.test.ts"
+      ]
     },
     {
       "id": "PROD-MAN-04",
@@ -3594,13 +3670,13 @@
       "acceptance": [
         "Two tenants prove route/storage/CNI/metadata/FQDN-egress/pod security/quota/operator separation; sandboxed or stronger runtime evaluated against threat model."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3608,8 +3684,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/execution/tenant-isolation.test.ts",
+        "tests/isolation/managed-onboarding-readiness.test.ts"
+      ]
     },
     {
       "id": "PROD-MAN-05",
@@ -3617,13 +3696,13 @@
       "acceptance": [
         "Noisy-neighbor/resource-exhaustion tests prove bounded tenant impact; namespaces alone do not establish isolation."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3631,8 +3710,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/isolation/tenant-isolation-acceptance.test.ts",
+        "tests/providers/zenith/isolation-bundle.test.ts"
+      ]
     },
     {
       "id": "PROD-MAN-06",
@@ -3640,13 +3722,13 @@
       "acceptance": [
         "Metering/quotas/plan assignment/invoice/payment-webhook reconciliation and safe suspension/export operate; BYOC/selfhosted do not require Zenith billing."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3654,8 +3736,12 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/billing/billing-routes.test.ts",
+        "tests/billing/billing.engine.test.ts",
+        "tests/platform/critical-jobs.test.ts"
+      ]
     },
     {
       "id": "PROD-MAN-07",
@@ -3686,11 +3772,11 @@
       "acceptance": [
         "Measurable availability/latency/capacity/RPO/RTO objectives defined and tested, with provisional targets clearly separated from accountable approval."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3698,8 +3784,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/slo/restore-sink.test.ts",
+        "tests/slo/slo.engine.test.ts"
+      ]
     },
     {
       "id": "PROD-OPS-02",
@@ -3733,7 +3822,39 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "local_engine",
+          "commit": "edff0f9fd8ea3d259a800ed18252213c2de178ff",
+          "result": "Actual Temporal recorded21/0/1 and Worker SDK replay/audit34/0/1; one opt-in placeholder per invocation, not a required scenario allowance. First current-source synthetic corpus21 histories frozen22967b64. Independent185controls/711decodedpayloads passed. Previous-release compatibility, in-flight rolling upgrades and required operational/live levels remain open; no promotion.",
+          "environment": {
+            "node": "22.23.3",
+            "temporalCLI": "1.9.1",
+            "temporalServer": "1.32",
+            "architecture": "native Darwin ARM64"
+          },
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-publication-successors.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "a1259fdcb49ff34805be5610edbec8ca16e0b36d",
+          "result": "Exact reviewed worker37862473 root metadata463/0/0, actual SDK replay/versioning34/0/0, compiler/lint exit0. Same seven-file source integrateda1259fdc; canonical105 execution and pushedCI pending. First current-source corpus, not previous-release compatibility or rolling upgrade proof.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-03/2026-10-08-mandatory-replay-activation.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "a8416305487c8ab6034fcf94532472ed9cc630c0",
+          "result": "Reviewed scheduling reconciliation38 passed/0 failed/0 skipped, all26 required; compiler/lint0, cleanup confirmed. Integrated871f73d9; no full rolling-upgrade acceptance.",
+          "environment": {
+            "node": "22.23.3",
+            "postgres": "16.15",
+            "mysql": "9.6.0",
+            "rclone": "1.75.1",
+            "architecture": "native Darwin ARM64"
+          },
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-integrated-native-successors.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine",
@@ -3749,11 +3870,11 @@
       "acceptance": [
         "Restore product/platform/agent/hosted/source stores, Temporal/artifacts/customer state and keys; consumed approvals/mutations cannot resurrect, controlled epoch reconciliation/reopen required."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3761,8 +3882,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/controlplane/recovery-epoch.test.ts",
+        "tests/ops/recovery-rehearsal.test.ts"
+      ]
     },
     {
       "id": "PROD-OPS-05",
@@ -3812,11 +3936,11 @@
       "acceptance": [
         "Archive/holds/bounded pruning preserve active/audit/receipts/replay prevention; implementation and dry-run allowed, deletion awaits approved policy."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3824,8 +3948,12 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/retention/key-purpose.test.ts",
+        "tests/retention/restore-destination.test.ts",
+        "tests/retention/retention.test.ts"
+      ]
     },
     {
       "id": "PROD-OPS-08",
@@ -3833,11 +3961,11 @@
       "acceptance": [
         "Tenant/role/stale-approval/SSRF/rebinding/prompt injection/archive/build/exfiltration/forgery/escalation/integration compromise tested independently."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3845,8 +3973,19 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/adversarial/approvals-forgery.test.ts",
+        "tests/adversarial/build-exfiltration.test.ts",
+        "tests/adversarial/cross-tenant.test.ts",
+        "tests/adversarial/integration-compromise.test.ts",
+        "tests/adversarial/malicious-archives.test.ts",
+        "tests/adversarial/prompt-injection.test.ts",
+        "tests/adversarial/residual-hardening.test.ts",
+        "tests/adversarial/role-escalation.test.ts",
+        "tests/adversarial/ssrf-rebinding.test.ts",
+        "tests/adversarial/token-forgery.test.ts"
+      ]
     },
     {
       "id": "PROD-OPS-09",
@@ -3854,11 +3993,11 @@
       "acceptance": [
         "Pinned verified dependencies/SBOM/provenance/signed releases/updater verification/vulnerability triage/tamper-evident audit export ship; no unperformed certification claim."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3866,8 +4005,12 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/audit-export/audit-export.test.ts",
+        "tests/audit-export/purpose.test.ts",
+        "tests/supply-chain/sbom.test.ts"
+      ]
     },
     {
       "id": "PROD-UX-01",
@@ -4064,9 +4207,9 @@
       "acceptance": [
         "Clean install/private source/plan approval/DNS-TLS/stateful traffic/update-rollback/machine schedules/drift-repair/revocation/crash-partition-writers/key rotation/upgrade/restore/mixed traffic/two tenants/export/teardown independently verified."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4074,8 +4217,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/release/dossier.test.ts",
+        "tests/release/orchestrator.test.ts"
+      ]
     },
     {
       "id": "PROD-REL-02",
@@ -4083,9 +4229,9 @@
       "acceptance": [
         "Every requirement maps implementation/tests/environment/commit/evidence and deployment/upgrade/recovery instructions; skipped/unperformed items remain visible."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4093,8 +4239,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/release/checkpoint.test.ts",
+        "tests/release/scope.test.ts"
+      ]
     },
     {
       "id": "PROD-REL-03",
@@ -4913,33 +5062,32 @@
     }
   ],
   "sessionState": {
-    "status": "verifier_coherent_transport_and_ci_green_external_acceptance_open",
-    "sourceCheckpoint": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+    "status": "verification_continuing_native_platform_repaired_transport_and_full_gate_pending",
+    "sourceCheckpoint": "871f73d91cbb1056f6a1830a0d5e361beb2aeacb",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
-    "lastPushedRun": 37578066932,
-    "lastPushedRunStatus": "completed_success_all20_jobs_completed_success",
-    "currentVerification": "docs/build/production/verification/CI-2026-10-07-d6965d75.md",
+    "lastPushedCommit": "dd8017ad8d8d7e2a08c2ad3a62346d88f3c15952",
+    "lastPushedRun": 37708661093,
+    "lastPushedRunStatus": "terminal_19_success_1_failure_across20_jobs",
+    "currentVerification": "docs/build/production/WIP-HANDOFF-2026-10-08.md",
     "remainingLocalPackets": {
-      "nativeTransportRerun": "Complete on exactd696: DNS27/0/0, portability45/0/0, MySQL15/0/0; root exits0 and independent evidence/ownedcleanup accepted. MySQLDNS-TLS remains explicit unsupported; wider LIFE11 not promoted.",
-      "defaultMaintenanceHarness": "Independent NOT_READY draft never run; default scheduling acceptance remains open.",
-      "remainingVerification": "LIFE12 concurrent new owner/resource-fact proof; installed Linux agent update/rollback; default operated interfaces/live resources; see20-ID map and RESULTS."
+      "integratedRepairs": "95fd7cc5 backend labels;871f73d9 schedule fixture. Awaiting normal publication.",
+      "nativeEngines": "MySQL2/Rclone1 passed;MinIO2/1 failed;PG2 cleanup failed;PGDNS3 pending."
     },
     "permissions": {
-      "approved": "Owned disposable PG/Temporal/kind/Linux/native worker checks including intrinsic worker health listener; same-branch normal push. New author and committer Arnav Bule per6October explicit instruction; prior commits preserved.",
-      "pending": "Default product API/server startup; live cloud/account/region/budget; real DNS/private GitHub App configuration; retention/business/production decisions."
+      "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Arnav Bule.",
+      "pending": "Live cloud calls/spend, real DNS/private GitHub App configuration, destructive retention/business/production sign-off."
     },
-    "releaseVerdict": "12verified/38in_progress/28planned. Exactd696 CI and local scoped transport acceptance passed; all78 criteria/fourfalseflags preserved. Wider LIFE11 and20-ID gaps remain open.",
-    "next": "Fetch latest codex/production-2026-10-02; inspect latest publication CI. Building agent addresses listed acceptance gaps; default API/server and live acceptance require DEC-STARTUP/DEC-CLOUD. Do not rerun unchanged source-bound gates or maintenance draft.",
+    "releaseVerdict": "10 verified /49 in_progress /19 planned; all four release flags false; no promotion.",
+    "next": "Publish integrated repairs/context, inspect fresh CI; continue MinIO and PostgreSQL custody diagnosis.",
     "completedLocalKind": {
       "sourceCommit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
       "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-07-kind55-f582e193.json",
       "cleanupComplete": true,
       "scope": "Local provider6/release1/guest48 only; default CNI/PGlite tenant-ledger limits retained"
     },
-    "recordedAt": "2026-10-07",
+    "recordedAt": "2026-10-08",
     "nativeRun": 37578066955,
-    "cleanup": "All four failed setup attempts and both successful native transport fixtures fully cleaned; unrelated resources/images preserved.",
+    "cleanup": "Successful platform/reconciliation/MySQL/Rclone and failed MinIO cleaned. PostgreSQL TLS fixture stopped but owned data retained after custody refusal.",
     "nativeSkippedPlatformsRun": 37578066934
   },
   "sessionHistory": [
@@ -5951,5 +6099,40 @@
       },
       "recordedAt": "2026-10-06T04:02:45.264219+00:00"
     }
-  ]
+  ],
+  "wave5Assembly": {
+    "sourceHead": "443bfeaf",
+    "state": "implementation_complete_verification_pending",
+    "verification": "docs/build/production/verify/W5-ASSEMBLY.md",
+    "limitations": "docs/LIMITATIONS.md",
+    "cloudAcceptance": "deferred",
+    "migrationVersions": [
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52
+    ],
+    "supabaseAggregate": "0026_platform_core.sql",
+    "remaining": [
+      "privileged managed bootstrap DUR-B/DUR-C custody",
+      "per-tenant managed build custody adapter",
+      "managed plan tier remains operator-selected, not linked to billing assignment",
+      "manifest Lambda invocation/artifact adapter",
+      "Mac engine/cluster/browser acceptance",
+      "operator protected release key and cloud budgets"
+    ],
+    "builderReceipts": "docs/build/production/verify/W5-ASSEMBLY-RESULTS.md",
+    "localContractSummary": {
+      "files": 83,
+      "passed": 1367,
+      "failed": 0,
+      "skipped": 68,
+      "scope": "Latest independent scoped file results, PGlite and controlled contracts; no native or live verification promotion."
+    }
+  }
 }

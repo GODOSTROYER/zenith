@@ -1,5 +1,5 @@
 /**
- * PROD-MIX follow-up on the real platform SQL store (migration 42): the producer output reader and the drift and
+ * PROD-MIX follow-up on the real platform SQL store (migration 44): the producer output reader and the drift and
  * migration signals of the mixed run. PGlite always, real PostgreSQL when ZENITH_TEST_PLATFORM_PG_URL is set (the same
  * lanes as the other platform suites). The product store, the child launcher, the semantics store and the human review
  * opener are fakes, labelled as such; the cloud is never reached. Producer "observations" are rows written to the real
@@ -35,7 +35,7 @@ import { MemoryMixedRunStore } from "@/lib/execution/mixed-orchestration/run-sto
 import type { SemanticsStore } from "@/lib/execution/semantics/store";
 import type { DeployWorkflowInput } from "@/lib/workflows/types";
 import { LANES, approve, openLane, seedApprovedOperation, seedAwaitingApproval, uid } from "./_support/harness";
-import { DB, PARENT_ENV, PROJECT, WEB, connection, mixedGraph, refresh } from "../execution/mixed/_fixtures";
+import { DB, PARENT_ENV, PROJECT, WEB, connection, fixtureConnectivity, mixedGraph, refresh } from "../execution/mixed/_fixtures";
 
 const ENVIRONMENTS = ["env-azure", "env-gcp", "env-aws"] as const;
 const PROVIDER_OF: Record<string, "azure" | "gcp" | "aws"> = { "env-azure": "azure", "env-gcp": "gcp", "env-aws": "aws" };
@@ -47,9 +47,9 @@ const MATERIAL = ["s3cr3t", "material", String(Date.now())].join("-");
 const dg = (c: string) => `sha256:${c.repeat(64)}`;
 
 describe("migration inventory", () => {
-  it("42 creates the append-only output record table with row level security and no anon access", () => {
+  it("44 creates the append-only output record table with row level security and no anon access", () => {
     const migration = PLATFORM_MIGRATIONS.find((item) => item.name === "mixed_output_records");
-    expect(migration?.version).toBe(42);
+    expect(migration?.version).toBe(44);
     expect(migration!.sql).toContain("platform.mixed_output_records");
     expect(migration!.sql).toContain("alter table platform.mixed_output_records enable row level security");
     expect(migration!.sql).toContain("Mixed output records are append-only");
@@ -91,11 +91,16 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
   /** A running parent with every child adopted and the run open; references optional. */
   async function scenario(options: { references: boolean; secret?: boolean }): Promise<Scenario> {
     const ws = uid("ws");
+    // Environment identifiers are globally bound to one workspace by the verifier guards.
+    const environments = ENVIRONMENTS.map(env => `${env}-${ws}`);
+    const providerOf = Object.fromEntries(ENVIRONMENTS.map((env, i) => [environments[i], PROVIDER_OF[env]]));
+    const parentEnvironment = `${PARENT_ENV}-${ws}`;
+    const parentGraph = () => { const graph = mixedGraph(); graph.environmentId = parentEnvironment; refresh(graph); return graph; };
     const conns: Record<string, ProviderConnection> = {};
-    for (const env of ENVIRONMENTS) conns[env] = connection(PROVIDER_OF[env], { workspaceId: ws });
-    const graphFor = (env: string) => { const graph = mixedGraph(); graph.nodes = graph.nodes.filter((node) => node.provider === PROVIDER_OF[env]); refresh(graph); return graph; };
+    for (const env of environments) conns[env] = connection(providerOf[env], { workspaceId: ws });
+    const graphFor = (env: string) => { const graph = parentGraph(); graph.environmentId = env; graph.nodes = graph.nodes.filter((node) => node.provider === providerOf[env]); refresh(graph); return graph; };
     const base: MixedWorld = {
-      parentGraph: async () => ({ projectId: PROJECT, graph: mixedGraph() }),
+      parentGraph: async () => ({ projectId: PROJECT, graph: parentGraph() }),
       childEnvironment: async (_ws, env) => ({ projectId: PROJECT, connection: conns[env] }),
       childGraph: async (_ws, env) => graphFor(env),
       childStartInput: async (workspaceId, op) => ({ operationId: op.id, workspaceId, projectId: op.projectId, environmentId: op.environmentId, revisionId: `rev-${op.environmentId}`, deploymentId: `dep-${op.id}`, connectionId: "product-connection", preApproved: true, build: false }),
@@ -105,9 +110,9 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
     const world: MixedWorld = { ...base, ...productionWorldHooks(db()), orderingSignals: platformOrderingSignals(db()) };
     const store = { get: async (workspaceId: string, operationId: string, planDigest: string) => ({ workspaceId, operationId, planDigest, semantics: { digest: SEMANTICS }, createdAt: new Date().toISOString() }), record: async () => { throw new Error("fake store is read-only"); } } as unknown as SemanticsStore;
     const deps: MixedDeps = { sql: db(), world, semantics: store, referencesReady: async () => typeof world.childTypedOutputs === "function" };
-    const planned = await planMixed(deps, { workspaceId: ws, parentEnvironmentId: PARENT_ENV, childEnvironmentIds: [...ENVIRONMENTS], createdBy: "user-planner", ...(options.references ? { references: [REFERENCE, ...(options.secret ? [SECRET_REFERENCE] : [])] } : {}) });
+    const planned = await planMixed(deps, { workspaceId: ws, parentEnvironmentId: parentEnvironment, childEnvironmentIds: environments, createdBy: "user-planner", connectivity: fixtureConnectivity({ workspaceId: ws, projectId: PROJECT, parentEnvironmentId: parentEnvironment, graph: parentGraph(), candidates: environments.map(env => ({ childEnvironmentId: env, connection: conns[env] })) }), ...(options.references ? { references: [REFERENCE, ...(options.secret ? [SECRET_REFERENCE] : [])] } : {}) });
     const plan = planned.stored.plan;
-    const seeded = await seedAwaitingApproval(db(), { workspaceId: ws, proposal: { capability: "deployment.deploy", scope: { workspaceId: ws, projectId: PROJECT, environmentId: PARENT_ENV }, input: parentProposalInput(plan) } });
+    const seeded = await seedAwaitingApproval(db(), { workspaceId: ws, proposal: { capability: "deployment.deploy", scope: { workspaceId: ws, projectId: PROJECT, environmentId: parentEnvironment }, input: parentProposalInput(plan) } });
     await plans.attachParentOperation(db(), { workspaceId: ws, planId: plan.parentPlanId, operationId: seeded.operation.id });
     await approve(db(), seeded);
     const childOperations: Record<string, string> = {};
@@ -139,7 +144,7 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
   /** The producing child's own post-apply observation, written the way its observe step writes it. */
   async function seedObservation(s: Scenario, over: { value?: string; simulated?: boolean; presence?: "present" | "missing"; error?: string; at?: string } = {}): Promise<void> {
     const node = mixedGraph().nodes.find((candidate) => candidate.address === DB)!;
-    const row = await repos.resources.upsertDesired(db(), { workspaceId: s.ws, projectId: PROJECT, environmentId: "env-azure", node, status: "active" });
+    const row = await repos.resources.upsertDesired(db(), { workspaceId: s.ws, projectId: PROJECT, environmentId: s.plan.children.find(child => child.partitionId === s.producer)!.childEnvironmentId, node, status: "active" });
     const at = over.at ?? (await clock());
     await repos.observations.appendObservation(db(), {
       workspaceId: s.ws, resourceId: row.id,
@@ -222,10 +227,10 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
       await seedObservation(s, { value: "first.example" });
       await seedObservation(s, { value: HOST_VALUE });
       await finishProducer(s);
-      const window = await outputRecords.readProducerObservation(db(), { workspaceId: s.ws, environmentId: "env-azure", operationId: s.childOperations[s.producer], address: DB, notAfter: (await clock()) });
+      const window = await outputRecords.readProducerObservation(db(), { workspaceId: s.ws, environmentId: s.plan.children.find(child => child.partitionId === s.producer)!.childEnvironmentId, operationId: s.childOperations[s.producer], address: DB, notAfter: (await clock()) });
       expect(window?.attributes.endpoint).toMatchObject({ state: "known", value: HOST_VALUE });
       // Another workspace's read of the same environment and operation finds nothing.
-      expect(await outputRecords.readProducerObservation(db(), { workspaceId: uid("ws"), environmentId: "env-azure", operationId: s.childOperations[s.producer], address: DB, notAfter: (await clock()) })).toBeNull();
+      expect(await outputRecords.readProducerObservation(db(), { workspaceId: uid("ws"), environmentId: s.plan.children.find(child => child.partitionId === s.producer)!.childEnvironmentId, operationId: s.childOperations[s.producer], address: DB, notAfter: (await clock()) })).toBeNull();
     });
   });
 
@@ -274,12 +279,12 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
   });
 
   describe("drift and migration signals", () => {
-    const driftReport = (computedAt: string, findings: object[] = [{ address: DB, class: "changed", severity: "high", repairable: true, autoRepairEligible: false, explanation: "differs" }]) => ({
-      environmentId: "env-azure", graphDigest: "a".repeat(64), computedAt, findings: findings as never, unobserved: [] as string[], simulated: false,
+    const driftReport = (s: Scenario, computedAt: string, findings: object[] = [{ address: DB, class: "changed", severity: "high", repairable: true, autoRepairEligible: false, explanation: "differs" }]) => ({
+      environmentId: s.plan.children.find(child => child.partitionId === s.producer)!.childEnvironmentId, graphDigest: "a".repeat(64), computedAt, findings: findings as never, unobserved: [] as string[], simulated: false,
     });
     const releaseRun = (s: Scenario, klass: "none" | "expand" | "data" | "contract" | "unclassified", over: { state?: "planned" | "refused" | "rolled_back"; partition?: string; environment?: string } = {}) =>
       createPlatformReleaseStore(db()).insertRun({
-        id: uid("rel"), workspaceId: s.ws, environmentId: over.environment ?? "env-azure", operationId: s.childOperations[over.partition ?? s.producer], requestedBy: "alice", serviceAddress: `container_service/${uid("svc")}`, kind: "deploy", state: "planned",
+        id: uid("rel"), workspaceId: s.ws, environmentId: over.environment ?? s.plan.children.find(child => child.partitionId === s.producer)!.childEnvironmentId, operationId: s.childOperations[over.partition ?? s.producer], requestedBy: "alice", serviceAddress: `container_service/${uid("svc")}`, kind: "deploy", state: "planned",
         imageUri: `registry.example.test/web@${dg("3")}`, imageDigest: dg("3"), provenance: { level: "none" }, migration: { class: klass, status: klass === "none" ? "none" : "pending_approval", findings: [] },
         rollout: { strategy: "rolling", steps: [100], bakeSec: 0, percent: 0 },
       } as never);
@@ -289,11 +294,11 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
       const children = s.plan.children.map((child) => ({ partitionId: child.partitionId, childEnvironmentId: child.childEnvironmentId, childOperationId: s.childOperations[child.partitionId] }));
       expect((await readOrderingSignals(db(), s.ws, children)).drift).toEqual([]);
       // before the child operation was created: says nothing about this child
-      await repos.drift.insert(db(), { workspaceId: s.ws, report: driftReport("2020-01-01T00:00:00.000Z") });
+      await repos.drift.insert(db(), { workspaceId: s.ws, report: driftReport(s, "2020-01-01T00:00:00.000Z") });
       expect((await readOrderingSignals(db(), s.ws, children)).drift).toEqual([]);
       // without an operation to bound it, the newest report counts
       expect((await readOrderingSignals(db(), s.ws, children.map(({ childOperationId: _op, ...rest }) => rest))).drift).toEqual([{ childId: s.producer, klass: "unauthorized_change" }]);
-      await repos.drift.insert(db(), { workspaceId: s.ws, report: driftReport(await clock()) });
+      await repos.drift.insert(db(), { workspaceId: s.ws, report: driftReport(s, await clock()) });
       expect((await readOrderingSignals(db(), s.ws, children)).drift).toEqual([{ childId: s.producer, klass: "unauthorized_change" }]);
       // another workspace sees none of it
       expect((await readOrderingSignals(db(), uid("ws"), children)).drift).toEqual([]);
@@ -303,9 +308,9 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
       const s = await scenario({ references: false });
       const children = s.plan.children.map((child) => ({ partitionId: child.partitionId, childEnvironmentId: child.childEnvironmentId, childOperationId: s.childOperations[child.partitionId] }));
       await releaseRun(s, "none");
-      await releaseRun(s, "expand", { partition: s.consumer, environment: "env-gcp" });
+      await releaseRun(s, "expand", { partition: s.consumer, environment: s.plan.children.find(child => child.partitionId === s.consumer)!.childEnvironmentId });
       expect(await readOrderingSignals(db(), s.ws, children)).toMatchObject({ migrationChildIds: [], contractMigrationChildIds: [] });
-      await releaseRun(s, "data", { partition: s.consumer, environment: "env-gcp" });
+      await releaseRun(s, "data", { partition: s.consumer, environment: s.plan.children.find(child => child.partitionId === s.consumer)!.childEnvironmentId });
       expect(await readOrderingSignals(db(), s.ws, children)).toMatchObject({ migrationChildIds: [s.consumer], contractMigrationChildIds: [] });
       const third = s.plan.children.find((child) => child.partitionId !== s.producer && child.partitionId !== s.consumer)!;
       await releaseRun(s, "contract", { partition: third.partitionId, environment: third.childEnvironmentId });
@@ -317,7 +322,7 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
 
     it("resolves a stored run's children and operations for the teardown route", async () => {
       const s = await scenario({ references: false });
-      await repos.drift.insert(db(), { workspaceId: s.ws, report: driftReport(await clock(), [{ address: DB, class: "missing", severity: "high", repairable: true, autoRepairEligible: false, explanation: "gone" }]) });
+      await repos.drift.insert(db(), { workspaceId: s.ws, report: driftReport(s, await clock(), [{ address: DB, class: "missing", severity: "high", repairable: true, autoRepairEligible: false, explanation: "gone" }]) });
       const signals = await readRunSignals(db(), s.ws, s.plan.parentPlanId, s.plan);
       expect(signals.drift).toEqual([{ childId: s.producer, klass: "unauthorized_change" }]);
     });
@@ -326,7 +331,7 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
       const s = await scenario({ references: false });
       await startProducer(s);
       await finishProducer(s);
-      await repos.drift.insert(db(), { workspaceId: s.ws, report: driftReport(await clock()) });
+      await repos.drift.insert(db(), { workspaceId: s.ws, report: driftReport(s, await clock()) });
       let failure: unknown;
       try { await recordChildStart(s.join, scope(s, s.consumer)); } catch (error) { failure = error; }
       expect(failure).toBeInstanceOf(MixedOrchestrationError);
@@ -334,7 +339,7 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
       expect((failure as MixedOrchestrationError).detail).toContain(`producer_drift_unresolved:${s.producer}`);
       expect((await readMixedRun(s.join.run, s.ws, s.parentOperationId))!.state.children[s.consumer].status).toBe("pending");
       // A clean (newer) report clears it: nothing else changed.
-      await repos.drift.insert(db(), { workspaceId: s.ws, report: driftReport(await clock(), []) });
+      await repos.drift.insert(db(), { workspaceId: s.ws, report: driftReport(s, await clock(), []) });
       await recordChildStart(s.join, scope(s, s.consumer));
       expect((await readMixedRun(s.join.run, s.ws, s.parentOperationId))!.state.children[s.consumer].status).toBe("running");
     });

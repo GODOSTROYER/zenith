@@ -238,8 +238,7 @@ describe("analysis snapshot (snapshotFromTarball)", () => {
 
   it("bounds a decompression bomb and an entry flood by its limits", () => {
     const bomb = zlib.gzipSync(Buffer.alloc(32 * 1024 * 1024));
-    const limited = snapshotFromTarball(bomb, { maxUncompressedBytes: 1024 * 1024 });
-    expect(limited.truncated).toBe(true);
+    expect(() => snapshotFromTarball(bomb, { maxUncompressedBytes: 1024 * 1024 })).toThrow(/decompression ceiling/);
     const flood: TarEntry[] = Array.from({ length: 300 }, (_, i) => ({ path: `r/f${i}.txt`, bytes: text("x") }));
     expect(snapshotFromTarball(gzip(writeTar(flood)), { maxEntries: 50 }).files.length).toBeLessThanOrEqual(50);
   });

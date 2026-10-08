@@ -59,7 +59,9 @@ import { planEvidence, toPlanSummary, type PlanCost } from "./plan-evidence";
 import type { Runtime } from "./runtime";
 import { LONG_SESSION_SEC, PLAN_CAPABILITY, withManagedSession } from "./session";
 import { assertApprovedSemantics, recordReviewedSemantics } from "./semantics/dispatch";
-import { directSemanticsArgs } from "./semantics/direct";
+import { zenithSemanticsArgs } from "./semantics/zenith";
+import { planLimits } from "@/lib/providers/zenith/plans";
+import { provisionObjectStores, refuseObjectStores, OBJECT_STORAGE_UNCONFIGURED_REASON } from "@/lib/managed-serving/storage";
 import { approvedSources } from "./source-snapshot";
 import { errorText, safeText } from "./text";
 
@@ -109,9 +111,9 @@ async function builtImagesOf(managed: ManagedSubstratePort, session: ZenithSessi
     if (!artifact || artifact.type !== "built") continue;
     const kind = PRIMARY[node.kind];
     const ref = targetFor(kind, zenithNodeView(node, session.tenant, session.substrate), session.tenant.environmentId);
-    let live: Record<string, unknown> | undefined;
-    try { live = await managed.toolkit.read(session.kubernetes, ref, signal); }
-    catch { live = undefined; } // an environment that does not exist yet has nothing running
+    // Absence is returned as undefined. Transport/authorization failures must not turn a released image
+    // into a bootstrap declaration or downgrade the plan's server validation.
+    const live = await managed.toolkit.read(session.kubernetes, ref, signal);
     out[artifact.pipeline] = liveImage(live, kind) ?? ZENITH_BOOTSTRAP_IMAGE;
   }
   return out;
@@ -121,17 +123,23 @@ async function dryRun(rt: Runtime, ec: ExecContext, graph: ResourceGraph, manage
   const builtImages = await builtImagesOf(managed, session, graph, signal);
   let rendered: ZenithRenderResult;
   try {
-    rendered = renderZenithEnvironment({ tenant: session.tenant, substrate: session.substrate, nodes: graph.nodes, toolkit: managed.toolkit, builtImages });
+    rendered = renderZenithEnvironment({ tenant: session.tenant, substrate: session.substrate, nodes: graph.nodes, toolkit: managed.toolkit, builtImages,
+      verifiedDomains: session.customDomains, autoscaling: planLimits(session.tenant.planTier).maxAutoscaleReplicas > 0 });
   } catch (err) { return refusal(err); }
 
   const databases = await ensureManagedDatabases(rendered.databases, session.databases, { dryRun: true, signal });
   const blocked = databases.find((d) => d.status === "failed");
   if (blocked) throw new StepFailedError(`The managed database ${safeText(blocked.address, 80)} cannot be planned: ${safeText(blocked.error?.message ?? "unavailable", 300)}`);
+  const storage = session.storage
+    ? await provisionObjectStores(rendered.storage, { ...session.storage, signal }, { dryRun: true })
+    : refuseObjectStores(rendered.storage, OBJECT_STORAGE_UNCONFIGURED_REASON);
+  const blockedStorage = storage.find((s) => s.status === "failed");
+  if (blockedStorage) throw new StepFailedError(`The managed object store ${safeText(blockedStorage.address, 80)} cannot be planned: ${safeText(blockedStorage.error?.message ?? "unavailable", 300)}`);
 
   const all = [...rendered.baseline, ...rendered.workloads];
   // Secret values are never resolved while planning; their objects are written at apply.
   const diffable = all.filter((o) => o.kind !== "Secret");
-  const namespace = await managed.toolkit.read(session.kubernetes, { apiVersion: "v1", kind: "Namespace", name: rendered.namespace }, signal).catch(() => undefined);
+  const namespace = await managed.toolkit.read(session.kubernetes, { apiVersion: "v1", kind: "Namespace", name: rendered.namespace }, signal);
   const validated = namespace !== undefined;
   const changes = validated ? await diff(diffable, session.kubernetes, { environmentId: session.tenant.environmentId, signal }) : [];
   const problem = changes.find((c) => ["conflict", "ownership_conflict", "error"].includes(c.action));
@@ -151,13 +159,17 @@ async function dryRun(rt: Runtime, ec: ExecContext, graph: ResourceGraph, manage
   const databaseChanges = rendered.databases.map((d) => ({
     address: `ManagedPostgres/${rendered.namespace}/${d.address}`, nodeAddress: d.address, type: "ManagedPostgres", providerName: "zenith", action: "create" as const, changes: [], destroysData: false,
   }));
-  const resourceChanges = [...databaseChanges, ...objectChanges];
+  const storageChanges = rendered.storage.map((s) => ({
+    address: `ManagedObjectStore/${rendered.namespace}/${s.address}`, nodeAddress: s.address, type: "ManagedObjectStore", providerName: "zenith", action: "create" as const, changes: [], destroysData: false,
+  }));
+  const resourceChanges = [...databaseChanges, ...storageChanges, ...objectChanges];
   const count = (a: string) => resourceChanges.filter((r) => r.action === a).length;
   const summary = { create: count("create"), update: count("update"), delete: 0, replace: 0, noop: count("no-op") };
   // The digest binds what would be sent (the rendered bytes, including platform TLS and database intents) and what it would do now.
   const planDigest = digest({
     engine: ENGINE, graphDigest: graph.graphDigest, objects: all, platformTls: rendered.platformTls,
-    databases: rendered.databases.map((d) => [d.address, d.spec]), actions: resourceChanges.map((r) => [r.address, r.action, r.changes]),
+    databases: rendered.databases.map((d) => [d.address, d.spec]), storage: rendered.storage, retiredDomains: session.retiredDomains ?? [],
+    actions: resourceChanges.map((r) => [r.address, r.action, r.changes]),
   });
   const diagnostics = [
     ...(validated ? [] : [{ severity: "warning" as const, summary: "The tenant namespace does not exist yet, so objects were not server-side validated; every object is reported as a create.", detail: "" }]),
@@ -185,7 +197,7 @@ async function stage(rt: Runtime, ec: ExecContext, lease: LeaseRef, detail: stri
   const runtime = runtimeFor(managed, ec, graph);
   const result = await withKeepAlive(rt, { lease, detail, operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
     await approvedSources(rt, ec, graph, lease, !expected, signal);
-    return withManagedSession(rt, ec, { capability: PLAN_CAPABILITY, fence: lease, durationSec: LONG_SESSION_SEC, workspaceId: ec.workspaceId, environmentId: ec.environmentId, databases: runtime.databases },
+    return withManagedSession(rt, ec, { capability: PLAN_CAPABILITY, fence: lease, durationSec: LONG_SESSION_SEC, workspaceId: ec.workspaceId, environmentId: ec.environmentId, databases: runtime.databases, storage: runtime.storage },
       (session) => dryRun(rt, ec, graph, managed, session, signal));
   });
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
@@ -198,7 +210,7 @@ export async function planDirectZenith(rt: Runtime, ec: ExecContext, lease: Leas
   const evidence = planEvidence({ plan: s.plan, facts: s.facts, cost: s.cost, graphDigest: s.graphDigest, stage: "plan", approvedSources: ec.approvedSourceSnapshots });
   // PROD-DUR-03: the executable semantics the approver is shown, recorded write-once BEFORE the plan evidence exists, and
   // recomputed at final plan, apply, build, rollout and migration dispatch.
-  const semantics = await recordReviewedSemantics(rt, ec, directSemanticsArgs(s.graph, await resolveConnection(rt, ec), s.plan.planDigest));
+  const semantics = await recordReviewedSemantics(rt, ec, await zenithSemanticsArgs(managedOf(rt), ec, s.graph, await resolveConnection(rt, ec), s.plan.planDigest));
   await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, key: evidence.key, summary: { ...evidence.summary, semantics, engine: "zenith-managed-apply", statefulDeletes: [], dnsDeletes: [], retained: [] }, simulated: false }, { critical: true });
   if (!ec.op.planDigest) await rt.d.ops.setPlanDigest({ workspaceId: ec.workspaceId, operationId: ec.op.id, planDigest: s.plan.planDigest });
   await rt.emit(ec.scope, "resource.planned", `plan:${s.plan.planDigest}`, { planDigest: s.plan.planDigest, create: s.plan.summary.create, update: s.plan.summary.update, delete: 0, replace: 0, empty: s.plan.empty });
@@ -210,7 +222,7 @@ export async function finalDirectZenith(rt: Runtime, ec: ExecContext, lease: Lea
   const evidence = planEvidence({ plan: s.plan, facts: s.facts, cost: s.cost, graphDigest: s.graphDigest, stage: "final_plan", approvedDigest: approved, approvedSources: ec.approvedSourceSnapshots });
   await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, key: evidence.key, summary: { ...evidence.summary, engine: "zenith-managed-apply", statefulDeletes: [], dnsDeletes: [] }, simulated: false }, { critical: false });
   if (s.plan.planDigest !== approved) throw new TofuPlanChangedError(approved, s.plan.planDigest);
-  await assertApprovedSemantics(rt, ec, directSemanticsArgs(s.graph, await resolveConnection(rt, ec), approved), "final plan");
+  await assertApprovedSemantics(rt, ec, await zenithSemanticsArgs(managedOf(rt), ec, s.graph, await resolveConnection(rt, ec), approved), "final plan");
   return toPlanSummary(s.plan, s.facts, s.cost);
 }
 
@@ -225,14 +237,14 @@ export async function applyDirectZenith(rt: Runtime, ec: ExecContext, lease: Lea
   try {
     const applied = await withKeepAlive(rt, { lease, detail: "zenith managed apply", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
       await approvedSources(rt, ec, graph, lease, false, signal);
-      return withManagedSession(rt, ec, { fence: lease, durationSec: LONG_SESSION_SEC, workspaceId: ec.workspaceId, environmentId: ec.environmentId, databases: runtime.databases }, async (session) => {
+      return withManagedSession(rt, ec, { fence: lease, durationSec: LONG_SESSION_SEC, workspaceId: ec.workspaceId, environmentId: ec.environmentId, databases: runtime.databases, storage: runtime.storage }, async (session) => {
         // Everything the reviewed plan depended on must be unchanged, and the plan must still be the approved one.
         const current = await loadExecContext(rt, ec.op.id);
         const currentGraph = requireExecutable(rt, current).graph;
         if (currentGraph.graphDigest !== graph.graphDigest) throw new StepFailedError("The reviewed desired state changed; a new review is required.");
         const fresh = await dryRun(rt, current, currentGraph, managed, session, signal);
         if (fresh.plan.planDigest !== planDigest) throw new TofuPlanChangedError(planDigest, fresh.plan.planDigest);
-        await assertApprovedSemantics(rt, current, directSemanticsArgs(currentGraph, await resolveConnection(rt, current), planDigest), "apply");
+        await assertApprovedSemantics(rt, current, await zenithSemanticsArgs(managedOf(rt), current, currentGraph, await resolveConnection(rt, current), planDigest), "apply");
         const authority = await rt.d.broker.approvalStatus(ec.op.id);
         if (!authority.approved || authority.rejected || (current.op.approvalRequired && !authority.approvalId)) throw new StepFailedError("Current policy or human approval changed before the reviewed plan was applied.");
         await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
@@ -240,6 +252,8 @@ export async function applyDirectZenith(rt: Runtime, ec: ExecContext, lease: Lea
         const report = await applyZenithEnvironment({
           session, expect: { workspaceId: ec.workspaceId, environmentId: ec.environmentId }, toolkit: managed.toolkit, nodes: currentGraph.nodes,
           builtImages: fresh.builtImages, resolveSecret: runtime.resolveSecret, dryRun: false, signal,
+          verifiedDomains: session.customDomains, retiredDomains: session.retiredDomains,
+          autoscaling: planLimits(session.tenant.planTier).maxAutoscaleReplicas > 0,
         });
         if (!report.ok) {
           const phase = report.blockedBy ?? "apply";

@@ -13,7 +13,7 @@
  * Not proven even when this passes: a live AWS (or other cloud) account, IAM user quotas at scale, key propagation delay.
  */
 import { randomBytes } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { createIamAdminPort, provisionObjectStores, scopedStoragePolicy, storageIntentFromNode, type StorageKeyStore } from "@/lib/managed-serving/storage";
 import { FULL_ENV, TENANT, mkNode, substrate } from "../providers/zenith/support";
 import { MemoryKeyStore, MemorySink } from "./_support/storage";
@@ -27,12 +27,16 @@ const ready = Boolean(endpoint && adminKey && adminSecret);
 describe.skipIf(!ready)("scoped object storage against an IAM + S3 emulator", () => {
   const run = randomBytes(4).toString("hex");
   const bucket = `zenith-man03-${run}`;
-  const sub = substrate({ ...FULL_ENV, ZENITH_MANAGED_OBJECT_STORAGE_BUCKET: bucket, ZENITH_MANAGED_OBJECT_STORAGE_ENDPOINT: endpoint!, ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CREDENTIAL_REF: "vault:zenith-managed/object-store-admin" });
+  let sub: ReturnType<typeof substrate>;
   const tenantA = { ...TENANT, workspaceId: `ws_${run}a`, environmentId: `env_${run}a` };
   const tenantB = { ...TENANT, workspaceId: `ws_${run}b`, environmentId: `env_${run}b` };
   const node = mkNode("object_store/media", "object_store", {});
-  const admin = createIamAdminPort({ endpoint, region: "us-east-1", credentialRef: "vault:zenith-managed/object-store-admin" }, {
-    resolveSecret: async () => JSON.stringify({ accessKeyId: adminKey, secretAccessKey: adminSecret }),
+  let admin: ReturnType<typeof createIamAdminPort>;
+  beforeAll(() => {
+    sub = substrate({ ...FULL_ENV, ZENITH_MANAGED_OBJECT_STORAGE_BUCKET: bucket, ZENITH_MANAGED_OBJECT_STORAGE_ENDPOINT: endpoint!, ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CREDENTIAL_REF: "vault:zenith-managed/object-store-admin" });
+    admin = createIamAdminPort({ endpoint, region: "us-east-1", credentialRef: "vault:zenith-managed/object-store-admin" }, {
+      resolveSecret: async () => JSON.stringify({ accessKeyId: adminKey, secretAccessKey: adminSecret }),
+    });
   });
 
   async function s3(credentials: { accessKeyId: string; secretAccessKey: string }) {

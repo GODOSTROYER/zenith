@@ -9,8 +9,8 @@
  * Idempotent: a constraint that already admits `zenith` is left alone. Existing rows all satisfy the wider
  * check; the immutability triggers fire on row writes only and are not involved.
  */
-export const migration0048ManagedSourceProvider = {
-  version: 48,
+export const migration0049ManagedSourceProvider = {
+  version: 49,
   name: "managed_source_provider",
   sql: `
 do $$

@@ -6208,6 +6208,14 @@ export const LINUX_GUEST_SERVICE_CASES = [
     "TestResultGoldens/service.configure-filesystem",
   ]),
 ];
+export const LINUX_GUEST_RUNNER_UPDATE_CASES = cases(`${GO_MODULE}/internal/runner/update`, [
+  "TestDirectiveRefusesWrongAuthorityAndBindings",
+  "TestHoldPersistsAndRevisionsCannotBeReplayed",
+  "TestCorruptionAndPersistenceFailureDoNotGrantAuthority",
+  "TestFreshnessIsRequiredAfterRestartAndExpiry",
+  "TestStageRequiresExactRequestedEnvelopeAndIndependentReleaseSignature",
+  "TestDisabledLocalUpdatesCannotBeEnabledRemotely",
+]);
 export const LINUX_GUEST_CASES = [
   ...cases(OPS, [
     "TestWriteCreateReplaceNoop", "TestWriteStrictArgsAndConstraints", "TestWriteDisabledAndInvalidProfiles",
@@ -6227,6 +6235,7 @@ export const LINUX_GUEST_CASES = [
   ...cases(MACHINE, ["TestLocalTemplateConfigDefaultAndValidation", "TestFileWriteVersionsCLIUsesMetadataOnlyAndLoadingEnforcesVersion", "TestWriteWirePreservesUncertainCustodyWithoutOutput", "TestWriteAuditCompletionFailureIsUncertain"]),
   ...LINUX_GUEST_UPLOAD_CASES,
   ...LINUX_GUEST_SERVICE_CASES,
+  ...LINUX_GUEST_RUNNER_UPDATE_CASES,
 ];
 // Mandatory root-phase routing, never an optional skip or imported receipt.
 export const LINUX_GUEST_PACKAGE_CASES = cases(MACHINE, [
@@ -6237,7 +6246,7 @@ export const LINUX_GUEST_PACKAGE_CASES = cases(MACHINE, [
 ]);
 export const LINUX_GUEST_PACKAGE_PATTERN = "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$";
 export const LINUX_GUEST_PACKAGE_COMMAND = ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"];
-export const LINUX_GUEST_PACKAGES = ["internal/agent", "internal/agent/spool", "internal/agent/update", "internal/awsauth", "internal/machine", "internal/machine/ops", "internal/miniyaml", "internal/netguard", "internal/oci", "internal/protocol", "internal/redact", "internal/release", "internal/runner", "internal/runner/kinds"].map((name) => `${GO_MODULE}/${name}`);
+export const LINUX_GUEST_PACKAGES = ["internal/agent", "internal/agent/spool", "internal/agent/update", "internal/awsauth", "internal/machine", "internal/machine/ops", "internal/miniyaml", "internal/netguard", "internal/oci", "internal/protocol", "internal/redact", "internal/release", "internal/runner", "internal/runner/kinds", "internal/runner/update"].map((name) => `${GO_MODULE}/${name}`);
 export const LINUX_GUEST_NO_TEST_PACKAGES = ["cmd/zenith-release", "cmd/zenith-runner", "cmd/zenithd", "internal/agent/fakecp", "internal/proc", "internal/protocol/protocoltest", "internal/version"].map((name) => `${GO_MODULE}/${name}`);
 export const LINUX_GUEST_ALLOWED_SKIPS = [
   { package: OPS, test: "TestRealSystemctlAndJournalctl", reason: "Separately opted-in actual systemd acceptance; this gate starts no services." },
@@ -6314,7 +6323,7 @@ export function linuxGuestManifest() {
   };
 }
 
-// Explicit tagged real-systemd evidence is separate from the unchanged152 gate.
+// Explicit tagged real-systemd evidence is separate from the native guest gate.
 export function linuxSystemdManifest() {
   const phase = (id, packageName, relativePackage, parent, leaves) => ({
     id, command: ["go", "test", "-p=1", "-tags=zenith_systemd_acceptance", "-json", "-count=1", relativePackage, "-run", `^${parent}$`],
@@ -6333,7 +6342,7 @@ export function linuxSystemdManifest() {
     helper: "scripts/ci/service-configure-systemd-fixtures.py",
     cleanupCommand: ["sudo", "--preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,RUNNER_OS", "--", "python3", "scripts/ci/service-configure-systemd-fixtures.py", "cleanup", "{uid}", "{gid}", "{runId}"],
     report: ".data-ci-guest/systemd-attempt-{attemptId}/final.json",
-    prerequisites: ["Current unchanged152 native phase passed", "Actual Linux hosted disposable runner, PID1 systemd and already-active polkit.service", "Existing nonzero UID/primary GID, zero effective/permitted/inheritable/ambient capabilities and NoNewPrivs1", "Owned inert unit plus exact restart-only polkit rule; no account or installed daemon startup", "Ops invocation first, signed invocation second, exact15 terminal events with no skips", "Settled children, positive current owned systemd cleanup, then canonical four-root cleanup and independent absence"],
+    prerequisites: ["Current158 native phase passed", "Actual Linux hosted disposable runner, PID1 systemd and already-active polkit.service", "Existing nonzero UID/primary GID, zero effective/permitted/inheritable/ambient capabilities and NoNewPrivs1", "Owned inert unit plus exact restart-only polkit rule; no account or installed daemon startup", "Ops invocation first, signed invocation second, exact15 terminal events with no skips", "Settled children, positive current owned systemd cleanup, then canonical four-root cleanup and independent absence"],
     limitations: ["CP issuer is modeled. Actual unprivileged default runner, signed executor, systemd/polkit/files/replay are exercised.", "The inert unit does not consume application config. Installed daemon, browser/default API and cloud acceptance remain separate."],
   };
 }

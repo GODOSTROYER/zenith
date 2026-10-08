@@ -1270,20 +1270,48 @@ describe("generated recovery clients", () => {
     try {
       const bin = path.join(scratch, "bin"), capture = path.join(scratch, "arguments");
       fs.mkdirSync(bin);
-      fs.writeFileSync(path.join(bin, "docker"), `#!/usr/bin/env bash\nprintf '%s\\n' "$@" > "$CAPTURE"\n`, { mode: 0o700 });
+      fs.writeFileSync(path.join(bin, "docker"), `#!/usr/bin/env bash
+set -euo pipefail
+test "$PGPASSWORD" = "$EXPECTED_PGPASSWORD"
+test "$PGSSLMODE" = "require"
+printf '%s\\n' "$@" > "$CAPTURE"
+`, { mode: 0o700 });
       const env: NodeJS.ProcessEnv = { NODE_ENV: "test", PATH: `${bin}${path.delimiter}${process.env.PATH}`, RUNNER_TEMP: scratch,
         GITHUB_WORKSPACE: process.cwd(), GITHUB_ENV: path.join(scratch, "env"), CAPTURE: capture };
       expect(spawnSync("bash", ["-c", step!.run!], { env, encoding: "utf8" }).status).toBe(0);
+      const exported = Object.fromEntries(fs.readFileSync(env.GITHUB_ENV!, "utf8").trimEnd().split("\n").map(line => {
+        const separator = line.indexOf("=");
+        return [line.slice(0, separator), line.slice(separator + 1)];
+      }));
+      expect(Object.keys(exported).sort()).toEqual(["TMPDIR", "ZENITH_TEST_PG_DUMP_BIN", "ZENITH_TEST_PG_RESTORE_BIN"]);
+      expect(path.dirname(exported.TMPDIR)).toBe(scratch);
+      expect(path.basename(exported.TMPDIR)).toMatch(/^zenith-recovery\.[A-Za-z0-9]{6}$/);
+      expect(fs.lstatSync(exported.TMPDIR).isDirectory()).toBe(true);
+      expect(fs.statSync(exported.TMPDIR).mode & 0o777).toBe(0o700);
+      expect(fs.readdirSync(exported.TMPDIR)).toEqual([]);
+      // Node creates the rehearsal files under the same path exposed by the runner-temp mount.
+      const clientEnv: NodeJS.ProcessEnv = { ...env, TMPDIR: exported.TMPDIR,
+        PGPASSWORD: "recovery-fixture-only-password", EXPECTED_PGPASSWORD: "recovery-fixture-only-password", PGSSLMODE: "require" };
+      const tempProbe = spawnSync(process.execPath, ["-e", "process.stdout.write(require('node:os').tmpdir())"], { env: clientEnv, encoding: "utf8" });
+      expect(tempProbe.status).toBe(0);
+      expect(tempProbe.stdout).toBe(exported.TMPDIR);
       for (const tool of ["pg_dump", "pg_restore"]) {
         const script = path.join(scratch, "pg-tools", tool);
+        expect(exported[tool === "pg_dump" ? "ZENITH_TEST_PG_DUMP_BIN" : "ZENITH_TEST_PG_RESTORE_BIN"]).toBe(script);
         expect(spawnSync("bash", ["-n", script], { env, encoding: "utf8" }).status).toBe(0);
-        expect(spawnSync(script, ["--version", "argument with spaces"], { env, encoding: "utf8" }).status).toBe(0);
+        const client = spawnSync(script, ["--version", "argument with spaces"], { env: clientEnv, encoding: "utf8" });
+        expect(client.status).toBe(0);
+        expect(client.stdout).toBe("");
+        expect(client.stderr).toBe("");
         expect(fs.readFileSync(capture, "utf8").trimEnd().split("\n")).toEqual([
           "run", "--rm", "--user", `${process.getuid!()}:${process.getgid!()}`, "--network", "host",
+          "--env", "PGPASSWORD", "--env", "PGSSLMODE",
           "-v", `${process.cwd()}:${process.cwd()}`, "-v", `${scratch}:${scratch}`,
           "postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
           tool, "--version", "argument with spaces",
         ]);
+        expect(fs.readFileSync(script, "utf8")).not.toContain(clientEnv.PGPASSWORD);
+        expect(fs.readFileSync(capture, "utf8")).not.toContain(clientEnv.PGPASSWORD);
       }
     } finally { fs.rmSync(scratch, { recursive: true, force: true }); }
   });

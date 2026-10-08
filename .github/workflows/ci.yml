@@ -1474,12 +1474,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          recovery_tmp="$(mktemp -d "$RUNNER_TEMP/zenith-recovery.XXXXXX")"
+          chmod 700 "$recovery_tmp"
+          echo "TMPDIR=$recovery_tmp" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/pg-tools"
           for tool in pg_dump pg_restore; do
             cat > "$RUNNER_TEMP/pg-tools/$tool" <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          exec docker run --rm --user "\$(id -u):\$(id -g)" --network host -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 "$tool" "\$@"
+          exec docker run --rm --user "\$(id -u):\$(id -g)" --network host --env PGPASSWORD --env PGSSLMODE -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 "$tool" "\$@"
           EOF
             chmod 700 "$RUNNER_TEMP/pg-tools/$tool"
           done

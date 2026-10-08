@@ -13,7 +13,7 @@ export const LOCAL_TARGETS: Readonly<Record<string, LocalTarget>> = {
 };
 export const OPERATED_LABEL = "local_operated_rehearsal";
 export const OPERATED_CHECKS: Readonly<Record<string, readonly string[]>> = {
-  "private-source": ["preconditions", "browser-source-binding", "private-source-snapshot", "browser-snapshot-approval", "source-revocation-refused", "independent-source-readback", "owned-cleanup", "source-unchanged"],
+  "private-source": ["preconditions", "source-build-preconditions", "browser-source-binding", "private-source-snapshot", "isolated-private-build", "provenance-verified-deploy", "browser-snapshot-approval", "source-revocation-refused", "post-revocation-proposal-refused", "independent-source-readback", "owned-cleanup", "source-unchanged"],
   "update-rollback": ["preconditions", "baseline-readback", "compatible-update-readback", "failed-rollout-readback", "browser-rollback-readback", "independent-release-readback", "owned-cleanup", "source-unchanged"],
 };
 export const TARGET_CHECKS: Readonly<Record<string, readonly string[]>> = {

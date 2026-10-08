@@ -71,9 +71,10 @@ and strict gated manifest lanes, `drv1-private-source` and `drv1-update-rollback
 Follow [DRV-1](DRV-1.md) for the exact sequential lean-profile Mac setup, commands,
 owned teardown and expected **1 passed / 0 failed / 0 skipped per gate**. Both
 receipts are labelled `local_operated_rehearsal`. The source lane establishes
-private admission, browser approval, immutable snapshot readback and revoked
-execution refusal with a local authenticated GitHub emulator; successful private
-builds remain a separate J6 campaign. The update lane performs real deployments,
+private admission, browser approval, a successful J6 isolated build, independently
+verified provenance and running digest, then revoked execution refusal with an
+authenticated local GitHub emulator. The lane requires the dedicated worker and
+real enforcing runtime/CNI described in DRV-1. The update lane performs real deployments,
 failed rollout, independent serving/release readbacks and exact browser-approved
 rollback. Neither closes live-cloud or complete PROD-REL-01 acceptance.
 

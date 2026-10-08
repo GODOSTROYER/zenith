@@ -5984,7 +5984,7 @@ export const GATE_LANES = {
     files: ["tests/acceptance/drv1-private-source.operated.test.ts"],
     env: { ZENITH_LOCAL_DRV1: "1", ZENITH_LOCAL_TARGETS: "1", ZENITH_DEFAULT_JOURNEY: "1", ZENITH_ACCEPTANCE_DEFAULT_STACK: "1" },
     report: ".data-ci-lane/drv1-private-source.json", tools: { node: "22.23.3" },
-    prerequisites: ["Native Mac ARM64, Node 22, actual Chromium trusting the J1 CA, owned lean J1 and J2 kind fixture", "Fresh private ZENITH_LOCAL_ROOT, ZENITH_LOCAL_RUN_ID, ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR, ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "Private ZENITH_LOCAL_SOURCE_BUILD_DECLARATION_FILE; declaration binds intended semantics only, revocation prevents build", "Run sequentially; no LocalStack/Pebble/stripe-mock profile alongside J1; no live credentials or provider APIs"],
+    prerequisites: ["Native Mac ARM64, Node 22, actual Chromium trusting the J1 CA, owned lean J1 and two-node J2 kind fixture", "Fresh private ZENITH_LOCAL_ROOT, ZENITH_LOCAL_RUN_ID, ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR, ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "Private ZENITH_LOCAL_SOURCE_BUILD_DECLARATION_FILE, ZENITH_LOCAL_SOURCE_BINARY_FILE, pinned ZENITH_LOCAL_SOURCE_REGISTRY_IMAGE; actual J6 runtime/profiles and enforcing CNI, all runtime probes must pass", "Run sequentially; no LocalStack/Pebble/stripe-mock profile alongside J1; no live credentials or provider APIs"],
   },
   "drv1-update-rollback": {
     files: ["tests/acceptance/drv1-update-rollback.operated.test.ts"],

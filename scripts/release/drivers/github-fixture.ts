@@ -6,27 +6,28 @@ import { z } from "zod";
 import { ensure, command, until, privateFile } from "../../../tests/e2e/default/support.mjs";
 import { readBuildProfiles, buildTenantKey } from "@/lib/providers/kubernetes/build/custody";
 import { ConfigSchema } from "@/lib/providers/kubernetes/build/config";
+import type { TenantBuildProfile } from "@/lib/providers/kubernetes/build/custody";
 import { sourceArchive, fixtureResponse } from "./github-emulator.mjs";
 import { hash, type Operated } from "./operated";
 
 export const BuildDeclaration = z.object({ config: ConfigSchema, registryRepositoryRoot: z.string() }).strict();
 export function declaredProfile(raw: unknown, ctx: { workspaceId: string; environmentId: string; server: string; caData: string }) {
   const declaration = BuildDeclaration.parse(raw), key = buildTenantKey(ctx);
-  // This is a declaration for the source-reviewed semantics, never evidence of running a build or node isolation.
+  // Production validation binds the actual fresh tenant and distinct custody identities.
   const profile = { workspaceId: ctx.workspaceId, environmentId: ctx.environmentId, provider: "kubernetes", server: ctx.server, caData: ctx.caData,
     credentialRef: "vault:DRV_SOURCE_WRITER", verifierCredentialRef: "vault:DRV_SOURCE_VERIFIER",
     registryRepositoryRoot: declaration.registryRepositoryRoot + "/" + key,
     config: { ...declaration.config, namespace: "zb-" + key, proxy: { ...declaration.config.proxy, namespace: "zp-" + key },
       nodeIsolation: { ...declaration.config.nodeIsolation, tenant: key } } };
-  // Use production validation. No build transport is invoked after source revocation.
+  // Runtime probes and custody checks remain owned by the actual J6 worker.
   return readBuildProfiles({ ZENITH_ISOLATED_BUILD_PROFILES: JSON.stringify([profile]) });
 }
-export async function githubFixture(ctx: Operated) {
+export async function githubFixture(ctx: Operated, built?: { profile: TenantBuildProfile; app: string; dockerfile: string }) {
   const state = ctx.stack!.state, modules = ctx.stack!.modules;
   const declarationFile = ctx.env.ZENITH_LOCAL_SOURCE_BUILD_DECLARATION_FILE;
   ensure(declarationFile && path.isAbsolute(declarationFile), "source-build-declaration-file");
   const target = (await import("../../../tests/e2e/default/support.mjs")).kubeconfig(ctx.config!.kind.kubeconfigFile, ctx.config);
-  const profiles = declaredProfile(JSON.parse(privateFile(declarationFile)), { workspaceId: ctx.workspaceId, environmentId: ctx.environmentId,
+  const profiles = built ? [built.profile] : declaredProfile(JSON.parse(privateFile(declarationFile)), { workspaceId: ctx.workspaceId, environmentId: ctx.environmentId,
     server: ctx.config!.kind.server, caData: target.caData });
   const id = randomBytes(12).toString("hex"), name = "zenith-drv1-" + id, volume = name + "-source";
   const label = "io.zenith.drv1=" + id, directory = ctx.scratch;
@@ -41,7 +42,7 @@ export async function githubFixture(ctx: Operated) {
   const fixture = { appId: "815", installationId: 816, repositoryId: 817, repository: "zenith-local/private-source", clientId: "zenith-local-drv1",
     clientSecret: random(), installationToken: random(), userToken: random(), code: random(), publicKey: keys.publicKey,
     callback: ctx.stack!.apiUrl + "/api/platform/v1/github/callback", commit: randomBytes(20).toString("hex"), movedCommit: randomBytes(20).toString("hex"),
-    dockerfile: "FROM " + ctx.config!.kind.image + "\n" };
+    dockerfile: built?.dockerfile ?? "FROM " + ctx.config!.kind.image + "\n", ...(built ? { app: built.app } : {}) };
   const keyFile = path.join(directory, "tls.key"), csr = path.join(directory, "tls.csr"), cert = path.join(directory, "tls.crt"), ext = path.join(directory, "tls.ext");
   let overlayAttempted = false;
   const overlay = path.join(directory, "source.compose.json"), base = path.join(state.directory, "installation");
@@ -126,7 +127,7 @@ export async function githubFixture(ctx: Operated) {
     await route.fulfill({ status: result.status, headers: result.headers, body: result.body });
   });
   return {
-    fixture, expectedArchive: hash(sourceArchive(fixture.dockerfile)),
+    fixture, expectedArchive: hash(sourceArchive(fixture.dockerfile, "", built?.app)),
     control: async (moved: boolean, revoked: boolean) => { await modules.docker(["exec", name, "node", "-e",
       "const fs=require('fs');const p=JSON.parse(fs.readFileSync('/fixture/control.json'));p.moved=process.argv[1]==='true';p.revoked=process.argv[2]==='true';fs.writeFileSync('/fixture/control.json',JSON.stringify(p))", String(moved), String(revoked)]); },
     stats: async () => JSON.parse(await modules.docker(["exec", name, "node", "-p", "require('fs').readFileSync('/fixture/stats.json','utf8')"])) as { minted: number; authenticated: number; archiveReads: number; movedArchiveReads: number },

@@ -9,6 +9,9 @@ import { requiredChecks, validateLocalReceipt, localTargetLane, LOCAL_TARGETS, l
 import { SCENARIOS } from "../../../scripts/release/scenarios";
 import { sourceSnapshotDigest, type ApprovedSourceSnapshot } from "@/lib/execution/source-snapshot";
 import { createSourceBundles } from "@/lib/platform/source-bundle";
+import { sourceBinary, sourceDockerfile } from "../../../scripts/release/drivers/source-build-fixture";
+import { assertBuiltRelease, assertRunningBuiltImage } from "../../../scripts/release/drivers/source-build-readback";
+import { isolatedKindConfig } from "../../e2e/default/prepare.mjs";
 import { manifestFor, requirementsFor } from "../../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "../../ci/assert-lane-report.mjs";
 
@@ -90,6 +93,37 @@ describe("DRV-1 offline boundary and receipts", () => {
   });
 });
 describe("DRV-1 immutable source and release readback", () => {
+  it("requires a bounded native source executable and a dedicated worker without host injection", () => {
+    const bytes = Buffer.alloc(64); Buffer.from([127,69,76,70,2,1]).copy(bytes); bytes.writeUInt16LE(183,18);
+    expect(sourceBinary(bytes)).toBe(bytes.toString("base64"));
+    for (const invalid of [Buffer.alloc(64), Buffer.alloc(600 * 1024 + 1), Buffer.from(bytes)]) {
+      if (invalid.equals(bytes)) invalid.writeUInt16LE(62,18);
+      expect(() => sourceBinary(invalid)).toThrow();
+    }
+    const config = { kind: "Cluster", apiVersion: "kind.x-k8s.io/v1alpha4", networking: { apiServerAddress: "127.0.0.1", disableDefaultCNI: true, podSubnet: "10.244.0.0/16" }, nodes: [{role:"control-plane"},{role:"worker"}] };
+    expect(isolatedKindConfig(JSON.stringify(config))).toBe(JSON.stringify(config));
+    for (const invalid of [{...config,nodes:config.nodes.slice(0,1)}, {...config,nodes:[config.nodes[0],{role:"worker",extraMounts:[{hostPath:"/"}]}]},
+      {...config,kubeadmConfigPatches:["untrusted"]}, {...config,networking:{apiServerAddress:"0.0.0.0"}}]) expect(() => isolatedKindConfig(JSON.stringify(invalid))).toThrow();
+  });
+  it("binds successful release readback and the running platform digest to the verified built index", () => {
+    const digest = "sha256:" + hash("index"), platform = "sha256:" + hash("platform"), image = "172.18.0.3:5000/owned/witness@" + digest;
+    const snapshot = {operationId:"success"} as ApprovedSourceSnapshot;
+    const row = {operation_id:"success",state:"readback_verified",image_uri:image,image_digest:digest,readback:{status:"verified",observedDigest:digest}};
+    expect(assertBuiltRelease(row,snapshot)).toEqual({image,digest});
+    for (const changed of [{state:"failed"},{operation_id:"foreign"},{image_uri:image.replace(digest,platform)},{readback:{status:"verified",observedDigest:platform}}])
+      expect(() => assertBuiltRelease({...row,...changed},snapshot)).toThrow();
+    const deployment = {spec:{template:{spec:{containers:[{image}]}}}};
+    const pod = {metadata:{name:"owned-pod"},spec:{containers:[{image}]},status:{phase:"Running",conditions:[{type:"Ready",status:"True"}],containerStatuses:[{ready:true,imageID:"owned@"+platform}]}};
+    expect(assertRunningBuiltImage(deployment,[pod],image,platform)).toBe("owned-pod");
+    for (const invalid of [[],[pod,pod],[{...pod,status:{...pod.status,containerStatuses:[{ready:true,imageID:"owned@sha256:"+hash("foreign")}]}}],
+      [{...pod,spec:{containers:[{image:"unreviewed:latest"}]}}]]) expect(() => assertRunningBuiltImage(deployment,invalid,image,platform)).toThrow();
+  });
+  it("requires successful build and provenance checks in addition to every original receipt assertion", () => {
+    const old = ["preconditions","browser-source-binding","private-source-snapshot","browser-snapshot-approval","source-revocation-refused","independent-source-readback","owned-cleanup","source-unchanged"];
+    expect(requiredChecks("private-source")).toEqual(expect.arrayContaining(old));
+    const receipt = receiptFor("private-source",source,runId,old.map(id=>({id,status:"passed" as const})),["Contract only."]);
+    expect(receipt.checks.filter(c=>c.status==="skipped").map(c=>c.id)).toEqual(["source-build-preconditions","isolated-private-build","provenance-verified-deploy","post-revocation-proposal-refused"]);
+  });
   it("requires distinct pinned local revisions and deliberately fails the actual empty-nonce workload", () => {
     const base = "localhost:5000/witness@sha256:" + "a".repeat(64), next = "localhost:5000/update@sha256:" + "b".repeat(64);
     const a = randomBytes(12).toString("hex"), b = randomBytes(12).toString("hex");
@@ -174,5 +208,12 @@ describe("DRV-1 authenticated local GitHub wire", () => {
     const bundles = createSourceBundles({ fetchImpl: async () => new Response(bytes, { status: 200 }), withGithubAccess: async (_scope, fn) => fn() });
     const result = await bundles.read({ repo: "zenith-local/private-source", ref: "a".repeat(40), dockerfile: "Dockerfile" });
     expect(result.sha256).toBe(hash(sourceArchive(dockerfile)));
+  });
+  it("the private executable archive agrees with the production canonicalizer without dropping source bytes", async () => {
+    const app = randomBytes(1024).toString("base64"), bytes = sourceArchive(sourceDockerfile,"fixture-/",app);
+    const bundles = createSourceBundles({fetchImpl:async()=>new Response(bytes,{status:200}),withGithubAccess:async(_scope,fn)=>fn()});
+    const result = await bundles.read({repo:"zenith-local/private-source",ref:"a".repeat(40),dockerfile:"Dockerfile"});
+    expect(result.sha256).toBe(hash(sourceArchive(sourceDockerfile,"",app)));
+    expect(result.sha256).not.toBe(hash(sourceArchive(sourceDockerfile)));
   });
 });

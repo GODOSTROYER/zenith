@@ -1,6 +1,6 @@
 # DRV-1: operated private-source and update-rollback drivers
 
-Built on `7d52b372` in `prod7-drivers-d1`, 2026-10-08. Verification status is
+Extended from orchestrator commit `5a53b2ed` in `prod7-drivers-d1`, 2026-10-08. Verification status is
 `implementation_complete_verification_pending`. These two dedicated drivers serve
 the corresponding J15 scenarios in **PROD-REL-01**. Their receipts are
 `local_operated_rehearsal`, never live or production acceptance. The Windows builder
@@ -25,15 +25,26 @@ servers, different ports/CAs, TLS bypass, proxies and exec-auth plugins refuse.
 
 | Scenario | Real operations and independent checks | Deliberate boundary |
 | --- | --- | --- |
-| private-source | Browser GitHub installation/OAuth callback, single-use PKCE exchange, connected binding, private branch source proposal, retained snapshot/plan review, branch movement, browser approval and browser revocation while the owned worker is paused, resumed worker refusal, unchanged PostgreSQL snapshot, authenticated pinned archive counters, zero provider effects/workloads | GitHub is an authenticated local wire emulator, including real runtime RSA signatures and contents:read token scope. Revocation intentionally prevents build/apply. Successful private builds, dedicated build nodes and live GitHub are not established. |
+| private-source | Browser installation/OAuth and PKCE, admitted snapshot, branch movement, human approval, actual J6 rootless build, OCI and signed provenance verification, deployed running digest and HTTP readback; second approved operation paused during browser revocation, then refused; fresh post-revocation proposal refused; unchanged successful workload and zero subsequent effects | GitHub is an authenticated local emulator with runtime RSA signatures and contents:read scope. J6 requires a real dedicated worker, runtime profiles and enforcing CNI. No live GitHub or live cloud acceptance. |
 | update-rollback | Baseline deploy, distinct compatible image deploy, independent digest/pod/application marker and stable workload UID, genuine empty-nonce process crash and failed rollout, old ready application still serving, browser-approved exact original revision rollback, independent release rows/API agreement and preserved product record | The compatible image changes its OCI configuration while retaining J2's inert witness binary. This proves the code-release path, not a database migration or restore. |
 
-The private-source scenario is the catalog's **admission by approved snapshot**
-scenario. Its reviewed build declaration is parsed with production J6 validation;
-it is not a receipt for running isolation. It has distinct writer/verifier vault
-references and tenant-derived names, but intentionally provisions no build secret,
-node or runtime. A successful private-build campaign remains with J6 and the live
-acceptance program. The closed eight-check inventory makes these limits explicit.
+The private-source lane now requires all twelve closed receipt checks, including
+successful isolated build and provenance-verified deployment. An admission-only
+receipt remains incomplete. The fixture applies the exact J6 baseline, proxy and
+custody RBAC in fresh tenant namespaces, allocates the protected worker labels and
+both tenant taints, and issues distinct writer/verifier TokenRequest credentials
+through the real workspace vault API. The actual production worker performs its
+fourteen physical isolation probes before source execution. A private small native
+ELF is admitted in the immutable snapshot, built from scratch without dependency
+downloads and pushed to an owned ephemeral registry on J1's private network.
+Independent readback verifies OCI byte hashes and BuildKit provenance links using
+J6's production verifier, and the control-plane JWS against J1's pinned public key,
+exact snapshot, operation and strict no-exception isolation policy. It checks the
+completed build/probe pods on the dedicated worker, the exact approved image index
+in the deployment and pod, the verified ARM64 platform digest in CRI imageID, and
+the actual HTTP application response. The later revocation assertions remain;
+zero new workload effects now means exactly the original deployment UID and image
+survive, with zero dispatch/provenance for the refused operations.
 
 The pause injection inspects the exact J1 worker installation label, records an
 unpause recovery before injecting, then approves/revokes through the browser. This
@@ -55,7 +66,7 @@ prune or shared-namespace deletion occurs in either driver.
 
 ## Exact lean-profile Mac commands
 
-Run sequentially on native ARM64 macOS, Node 22, Docker Desktop 4 GiB RAM/4 GiB swap,
+Run sequentially on native ARM64 macOS, Node 22, Docker Desktop with the lean J1 profile,
 Supabase CLI 2.75.0, OpenSSL, kind, kubectl and the existing installed Playwright
 Chromium. Use a disposable verifier user/VM where Chromium genuinely trusts the
 fresh J1 CA. Prepare that trust using the existing J2 verifier procedure after J1
@@ -64,18 +75,33 @@ start with `NODE_EXTRA_CA_CERTS` pointing at this same actual CA. A certificate
 error fails the lane.
 
 Preserve at least J1's 22 GiB disk floor. Lean J1 has a planned 2912 MiB running
-ceiling, J2 adds a single 640 MiB kind node, and private-source adds one 64 MiB
-provider fixture (also one temporary 64 MiB seed container). This is not measured
-capacity proof. Stop LocalStack, Pebble, stripe-mock and unrelated heavy profiles
-before starting; these two scenarios need only the J1 registry and J2 kind target.
-Run image compilation and tests serially. See [PKG-04](PKG-04.md) for pinned/native
-J1 setup and [J6](J6-ISOLATED-BUILDER.md) for the separate build-isolation campaign.
+ceiling, J2 adds two 640 MiB capped kind nodes; the source emulator adds 64 MiB
+and its temporary seed adds 64 MiB; the ephemeral registry adds 128 MiB. J6's
+production build limits remain 2 CPU / 4 GiB, requests 250m / 256 MiB, and its
+proxy remains bounded at 128 MiB. This configuration is not measured 4 GiB fit
+proof. A verifier lacking capacity must report failure/pending rather than lower
+J6 limits, bypass probes or claim success. Stop LocalStack, Pebble, stripe-mock and
+unrelated profiles; no such target is needed here. Compile and test serially.
+See [PKG-04](PKG-04.md) and [J6](J6-ISOLATED-BUILDER.md).
 
 Owner-provided inputs, already resolved and inspected locally:
 
 - `ZENITH_NODE22_BIN`: absolute directory containing native Node 22.
 - `ZENITH_DEFAULT_STACK_REGISTRY_IMAGE`: real digest-pinned ARM64 registry image.
-- `DRV1_KIND_IMAGE`: real digest-pinned ARM64 kind node image.
+- `DRV1_KIND_IMAGE`: reviewed digest-pinned ARM64 kind node image with actual J6
+  user-namespace runtime, seccomp and AppArmor profiles preinstalled. Stock kind
+  without these physical controls will refuse source execution.
+- `DRV1_CNI_MANIFEST` and `DRV1_RUNTIME_MANIFEST`: absolute private owner-reviewed
+  manifests for a native enforcing CNI (pod CIDR 10.244.0.0/16, no competing
+  kindnet) and the RuntimeClass matching the installed handler. Preload all
+  digest-pinned native CNI/runtime images locally; no cloud or registry fallback.
+  Approved kube-system DaemonSets must tolerate both tenant taints and match the
+  exact `systemDaemonSets` declaration. A RuntimeClass object alone proves nothing.
+- `ZENITH_LOCAL_SOURCE_REGISTRY_IMAGE`: actual digest-pinned native registry image,
+  already local, supporting uid 1000, readonly root and tmpfs /var/lib/registry.
+- `ZENITH_LOCAL_SOURCE_BINARY_FILE`: absolute regular private 0600 file holding
+  the real static ARM64 `fixture-app.c` executable (64 bytes to 600 KiB). Compile
+  using the exact local commands below; no placeholder ELF is accepted as evidence.
 - `DRV1_WITNESS_IMAGE`: actual local `localhost:5000/zenith-j2-witness@sha256:...`
   image with its original local tag, built by J2's `zenithd.Dockerfile` using its
   reviewed digest-pinned builder/runtime inputs. Both Docker image and local
@@ -89,8 +115,10 @@ Owner-provided inputs, already resolved and inspected locally:
   requires real pinned builder/proxy image references, runtimeClass, seccomp and
   AppArmor names, node isolation profile digest/systemDaemonSets, and a distinct
   proxy namespace/IP/port/destinations. Review this declaration as intended
-  semantics only. The driver derives the actual fresh tenant namespaces and key;
-  it deliberately never tries the declared build credentials or executes source.
+  runtime semantics, with no `pushSecret`. The driver derives fresh tenant
+  namespaces, distinct vault references and key, and replaces the registry root
+  and destination with its exact owned private IP:5000. Supply an unused valid
+  kind Service IP for the proxy, and locally loaded real builder/proxy pins.
 
 Use canonical `/private/tmp` paths: `/var` and `/tmp` aliases fail private-path
 symlink guards. The setup chooses directories that do not exist. Keep all private
@@ -127,6 +155,13 @@ try {
       ensure(owned.status === 'created' && typeof owned.containerId === 'string', 'cleanup-needs-recorded-target-identity');
       const [current] = JSON.parse(await docker(['inspect',present]));
       ensure(current.Id === owned.containerId && current.Config.Labels?.['io.x-k8s.kind.cluster'] === owned.kind, 'cleanup-kind-exact-owner');
+      const actual = (await docker(['container','ls','-aq','--filter','label=io.x-k8s.kind.cluster='+owned.kind])).split(/\s+/).filter(Boolean);
+      const recorded = [owned.containerId,owned.buildContainerId].filter(Boolean);
+      ensure(actual.length === recorded.length,'cleanup-all-node-count');
+      for (const id of actual) {
+        const [n] = JSON.parse(await docker(['inspect',id]));
+        ensure(recorded.includes(n.Id) && n.Config.Labels?.['io.x-k8s.kind.cluster'] === owned.kind,'cleanup-all-node-identities');
+      }
       await command('kind',['delete','cluster','--name',owned.kind], { timeout: 240000 });
     }
     ensure(!(await command('kind',['get','clusters'])).split(/\s+/).includes(owned.kind), 'cleanup-kind-absence');
@@ -165,9 +200,57 @@ const read = await fetch('http://127.0.0.1:5000/v2/zenith-j2-witness/manifests/'
 ensure(read.ok && read.headers.get('docker-content-digest') === expected, 'witness-independent-registry-digest');
 NODE
 export ZENITH_DEFAULT_JOURNEY=1
+cat > "$DRV1_PRIVATE/isolated-kind.yaml" <<'YAML'
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  apiServerAddress: 127.0.0.1
+  disableDefaultCNI: true
+  podSubnet: 10.244.0.0/16
+nodes:
+- role: control-plane
+- role: worker
+YAML
 node tests/e2e/default/prepare.mjs --directory "$DRV1_TARGETS_DIR" \
   --stack "$ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR" --node-image "$DRV1_KIND_IMAGE" \
-  --witness-image "$DRV1_WITNESS_IMAGE" --mailpit-url http://127.0.0.1:8025
+  --witness-image "$DRV1_WITNESS_IMAGE" --mailpit-url http://127.0.0.1:8025 \
+  --isolated-kind-config "$DRV1_PRIVATE/isolated-kind.yaml"
+kubectl --kubeconfig "$DRV1_TARGETS_DIR/observer.json" --context kind-zenith-j2 apply -f "$DRV1_CNI_MANIFEST"
+kubectl --kubeconfig "$DRV1_TARGETS_DIR/observer.json" --context kind-zenith-j2 apply -f "$DRV1_RUNTIME_MANIFEST"
+kubectl --kubeconfig "$DRV1_TARGETS_DIR/observer.json" --context kind-zenith-j2 wait --for=condition=Ready nodes --all --timeout=180s
+# Actual local native compiler image containing static musl libc and cc, already digest-pinned.
+: "${DRV1_COMPILER_IMAGE:?owner-reviewed local ARM64 digest pin required}"
+export ZENITH_LOCAL_SOURCE_BINARY_FILE="$DRV1_PRIVATE/app"
+node --input-type=module <<'NODE'
+import path from 'node:path';
+import fs from 'node:fs';
+import { docker, ensure } from './tests/e2e/default/support.mjs';
+const ref = process.env.DRV1_COMPILER_IMAGE, id = path.basename(process.env.DRV1_PRIVATE).toLowerCase();
+ensure(/^[a-z0-9][a-z0-9.:/_-]*@sha256:[a-f0-9]{64}$/.test(ref ?? ''),'compiler-pin');
+const [base] = JSON.parse(await docker(['image','inspect',ref]));
+ensure(base.Architecture === 'arm64','native-compiler');
+const tag = 'zenith-drv1-compiler:'+id, label = 'io.zenith.drv1.compiler='+id, name = 'zenith-drv1-extract-'+id;
+ensure(!(await docker(['image','ls','-q','--filter','reference='+tag])) && !(await docker(['container','ls','-aq','--filter','name=^/'+name+'$'])),'fresh-compiler-name');
+try {
+  await docker(['build','--network=none','--pull=false','--platform','linux/arm64','--label',label,
+    '--build-arg','COMPILER_IMAGE='+ref,'--target','compile','-f','deploy/zenith-managed/build/Dockerfile.fixture','-t',tag,'.'],{timeout:240000});
+  await docker(['create','--name',name,'--label',label,'--network','none',tag]);
+  await docker(['cp',name+':/app',process.env.ZENITH_LOCAL_SOURCE_BINARY_FILE]);
+  fs.chmodSync(process.env.ZENITH_LOCAL_SOURCE_BINARY_FILE,0o600);
+} finally {
+  const containers = (await docker(['container','ls','-aq','--filter','label='+label])).split(/\s+/).filter(Boolean);
+  for (const c of containers) {
+    const [live] = JSON.parse(await docker(['inspect',c]));
+    ensure(live.Name === '/'+name && live.Config.Labels?.['io.zenith.drv1.compiler'] === id,'compiler-container-owner');
+    await docker(['rm',live.Id]);
+  }
+  if (await docker(['image','ls','-q','--filter','reference='+tag])) {
+    const [live] = JSON.parse(await docker(['image','inspect',tag]));
+    ensure(live.Config.Labels?.['io.zenith.drv1.compiler'] === id && live.RepoTags?.every(t=>t===tag),'compiler-image-owner');
+    await docker(['image','rm',tag]);
+  }
+}
+NODE
 export ZENITH_LOCAL_JOURNEY_CONFIG_FILE="$DRV1_TARGETS_DIR/journey.json"
 export ZENITH_LOCAL_TARGETS=1
 export ZENITH_LOCAL_DRV1=1
@@ -190,7 +273,7 @@ node tests/ci/assert-lane-report.mjs drv1-update-rollback "$DRV1_PRIVATE/evidenc
 ```
 
 Each gate requires **1 passed / 0 failed / 0 skipped**, plus its fresh receipt with
-all eight checks passed. Update can take more than ten minutes because the failed
+all twelve private-source checks or all eight update-rollback checks passed. Update can take more than ten minutes because the failed
 rollout uses the unchanged Kubernetes progress deadline. Fresh roots are mandatory
 for every rerun. If J2 preparation stopped before recording a container identity,
 the outer cleanup refuses name-only deletion; its owner must establish ownership
@@ -242,7 +325,7 @@ require DRV-1/J1/J2 gates and `local_operated_rehearsal`; the assertion checks t
 stronger exact expectations while retaining every other scenario's old checks.
 No assertion or gate was removed or weakened.
 
-## Windows validation record
+## Historical Windows validation record for 5a53b2ed
 
 Every shell prepended `C:\Users\user\.local\sdk\node22` to PATH. Read-only program,
 git status/log, source inspection and patch commands did not execute an engine.
@@ -376,11 +459,73 @@ successive test counts overlap and must not be summed.
 The two actual operated cases are **not run
 (needs native Mac Docker/PostgreSQL/Temporal/kind/Chromium)**. Live cloud acceptance
 is deferred by the owner and was not attempted. J4 schedules, ACME, billing,
-LocalStack and full J6 private builds are outside these scenario slices.
+LocalStack are outside these scenario slices. This historical result predates the private-build extension below.
 
-Handoff deviation: no successful private-build deployment is claimed or performed;
-the dedicated driver implements the catalog's private-source snapshot-admission
-and revocation boundary. All additional shared-file edits above are necessary
+Historical handoff deviation (superseded by this extension): the first implementation covered snapshot admission and revocation only. The current lane requires a successful J6 private build and deployment before revocation. All additional shared-file edits above are necessary
 additive runner, TLS, receipt and gate joins, as authorized by the handoff.
 
 Suggested commit: `feat(release): add operated source and rollback drivers`.
+
+
+## Private-build extension validation (2026-10-08)
+
+This supersedes the historical admission-only limitation. New files:
+`source-build-fixture.ts` and `source-build-readback.ts`; modified source fixture,
+archive emulator, private driver and offline contracts. Minimal joins change only
+the private-source receipt inventory, scenario description and gated prerequisites,
+and add opt-in two-node J2 preparation. No production J6 assertion, migration,
+package or execution path was weakened. PROD-REL-01 links this actual lane.
+
+One former assertion had to account for the required successful baseline:
+`no-source-effect-after-revocation` previously required zero owned deployments.
+It now requires exactly the original deployment UID, verified built image,
+verified running platform digest and HTTP response. Zero effects/provenance for
+both refused operations remain required. Every original receipt check remains.
+
+All shell commands on this builder prepend
+`$env:PATH = 'C:\Users\user\.local\sdk\node22;' + $env:PATH;`.
+Read-only inspection (`Get-Content`, `rg`, `git status`, `git log`, `git diff`)
+and edits are not operated verification. Targeted verification commands and their
+counts for this extension:
+
+```text
+npx vitest run tests/release/drivers/drv1.test.ts tests/release/local-targets.test.ts tests/release/acceptance-scenarios.test.ts tests/acceptance/drv1-private-source.operated.test.ts --no-file-parallelism --maxWorkers=2
+61 passed / 0 failed / 1 skipped; 3 files passed / 1 skipped.
+
+npx vitest run tests/release/drivers/drv1.test.ts tests/release/local-targets.test.ts tests/release/acceptance-scenarios.test.ts tests/acceptance/drv1-private-source.operated.test.ts tests/execution/build-provenance.test.ts tests/providers/kubernetes/build/contracts.test.ts --no-file-parallelism --maxWorkers=2
+123 passed / 0 failed / 1 skipped; 5 files passed / 1 skipped.
+
+npx vitest run tests/release/drivers/drv1.test.ts tests/acceptance/drv1-private-source.operated.test.ts --no-file-parallelism --maxWorkers=2
+Two invocations, each 21 passed / 0 failed / 1 skipped; 1 file passed / 1 skipped.
+The second followed the distinct-revision fix.
+
+npx eslint scripts/release/drivers/source-build-fixture.ts scripts/release/drivers/source-build-readback.ts scripts/release/drivers/github-fixture.ts scripts/release/drivers/github-emulator.mjs scripts/release/drivers/private-source.ts scripts/release/local-targets.ts scripts/release/scenarios.ts scripts/ci/gate-manifest.mjs tests/e2e/default/prepare.mjs tests/release/drivers/drv1.test.ts
+First invocation: 8 errors / 0 warnings (untyped observer fields), fixed.
+Second invocation: passed, 0 errors / 0 warnings.
+Third, fourth and fifth invocations: passed, 0 errors / 0 warnings.
+
+bash Z:/Projects/Spawned.ai/zenith-wt/.resume/codex/tsc-serial.sh
+First invocation: failed with 6 diagnostics (observer nullability and stale test parameter types), fixed.
+Second and third invocations: passed, 0 diagnostics. The third followed the distinct-revision fix to prevent a no-op later attempt.
+
+git diff --check
+All three invocations passed, 0 whitespace errors; line-ending notices only.
+
+bash -n C:/Users/user/AppData/Local/Temp/zenith-drv1-private-build-mac.sh
+Passed, 0 syntax errors. This does not execute any Mac operation.
+
+node scripts/ci/gate-manifest.mjs drv1-private-source
+Passed, 1 lane emitted with all 4 gates and exact required operated case.
+
+git status --short
+git diff --stat
+git diff --numstat
+Read-only inventory, passed; 12 changed/added files. No git mutation.
+```
+
+Actual Mac operated build/deploy/revocation lane: **not run (needs native Mac,
+Docker, PostgreSQL, Temporal, kind with enforcing J6 runtime/CNI, and Chromium)**.
+The exact lean-profile commands above execute it and require one pass with no
+skips. Live cloud acceptance remains deferred. No successful operated result is
+claimed from offline contracts. Suggested commit:
+`feat(release): require isolated private build deployment before revocation`.

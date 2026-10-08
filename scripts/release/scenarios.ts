@@ -74,7 +74,7 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     id: "private-source", title: "Private source admitted by approved snapshot", requirements: ["PROD-REL-01"],
     lanes: [{ id: "source-authority", kind: "local_engine", files: ["tests/execution/approved-source.test.ts", "tests/controlplane/approved-source-snapshots.test.ts", "tests/sources/github-app.test.ts", "tests/sources/github-lifecycle.test.ts", "tests/release/drivers/drv1.test.ts"], optionalGates: ["ZENITH_TEST_PLATFORM_PG_URL", "ZENITH_TEST_SOURCE_GITHUB_APP"] }],
-    limits: "The dedicated local target operates source admission, browser review and revocation on J1/J2 with an authenticated GitHub emulator. It intentionally refuses execution after revocation; private builds and live GitHub acceptance remain separate.",
+    limits: "The gated local target operates snapshot admission, browser approval, J6 isolated private build, verified provenance, independent running digest readback and subsequent revoked-source refusal. Native enforcing runtime/CNI are required. GitHub is an authenticated local emulator; live acceptance remains deferred.",
   },
   {
     id: "plan-approval", title: "Plan, human approval bound to exact effects", requirements: ["PROD-REL-01"],

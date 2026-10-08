@@ -5,14 +5,18 @@ import { createHash, verify } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
-export function sourceArchive(dockerfile, prefix = '') {
-  const bytes = Buffer.from(dockerfile), header = Buffer.alloc(512);
-  header.write(prefix + 'Dockerfile');
+export function sourceArchive(dockerfile, prefix = '', app) {
+  const blocks = [];
+  for (const [name, bytes] of [['Dockerfile', Buffer.from(dockerfile)], ...(app ? [['app', Buffer.from(app, 'base64')]] : [])]) {
+  const header = Buffer.alloc(512);
+  header.write(prefix + name);
   for (const [at, width, value] of [[100, 8, 0o644], [108, 8, 0], [116, 8, 0], [124, 12, bytes.length], [136, 12, 0]])
     header.write(value.toString(8).padStart(width - 1, '0') + '\0', at, width, 'ascii');
   header.fill(32, 148, 156); header.write('0', 156); header.write('ustar\0', 257); header.write('00', 263);
   header.write(header.reduce((sum, byte) => sum + byte, 0).toString(8).padStart(6, '0') + '\0 ', 148, 8, 'ascii');
-  const result = gzipSync(Buffer.concat([header, bytes, Buffer.alloc((512 - bytes.length % 512) % 512), Buffer.alloc(1024)]), { level: 9 });
+  blocks.push(header, bytes, Buffer.alloc((512 - bytes.length % 512) % 512));
+  }
+  const result = gzipSync(Buffer.concat([...blocks, Buffer.alloc(1024)]), { level: 9 });
   result.fill(0, 4, 8); result[9] = 255; return result;
 }
 export function fixtureResponse(config, state, req) {
@@ -79,7 +83,7 @@ export function fixtureResponse(config, state, req) {
     const ref = url.pathname.slice(archive.length);
     if (ref !== config.commit && ref !== config.movedCommit) return reply(404, {});
     state.archiveReads++; if (ref === config.movedCommit) state.movedArchiveReads++;
-    return { status: 200, headers: { 'content-type': 'application/gzip' }, body: sourceArchive(config.dockerfile, 'fixture-/') };
+    return { status: 200, headers: { 'content-type': 'application/gzip' }, body: sourceArchive(config.dockerfile, 'fixture-/', config.app) };
   }
   return reply(404, {});
 }

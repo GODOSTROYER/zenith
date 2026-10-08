@@ -46,7 +46,7 @@ export interface LocalCommandLane {
   files: readonly string[];
   command: readonly string[];
   gates: readonly string[];
-  evidenceLabel: "local_rehearsal";
+  evidenceLabel: "local_rehearsal" | "local_operated_rehearsal";
 }
 export type Lane = LocalLane | LiveLane | LocalCommandLane;
 
@@ -119,9 +119,10 @@ export const SCENARIOS: readonly Scenario[] = [
     id: "drift-repair", title: "Drift detection and approved repair", requirements: ["PROD-REL-01"],
     lanes: [
       { id: "drift-repair", kind: "local_engine", files: ["tests/drift/compute.test.ts", "tests/repair/lifecycle.test.ts", "tests/reconcile/repair.test.ts", "tests/reconcile/pass.test.ts"] },
+      { id: "drift-operated-contract", kind: "contract", files: ["tests/release/drivers-d2.test.ts"] },
       AWS_LIVE("D", "live cloud acceptance is not approved"),
     ],
-    limits: "Repair is judged against fakes and the local engine unless the live demo ran.",
+    limits: "The dedicated --local-targets driver requires an owned lean J1/J2 stack and browser; it proves approved Kubernetes replica repair only when actually run. Automatic repair and live AWS remain separate lanes.",
   },
   {
     id: "revocation", title: "Credential and connection revocation", requirements: ["PROD-REL-01", "PROD-MIX-07"],
@@ -136,9 +137,10 @@ export const SCENARIOS: readonly Scenario[] = [
     lanes: [
       { id: "crash-partition", kind: "local_engine", files: ["tests/workflows/destroy-replay.test.ts", "tests/workflows/history-replay.test.ts", "tests/ops/data-plane-independence.test.ts", "tests/runners/late-effect-receipts.test.ts", "tests/controlplane/leases.test.ts", "tests/controlplane/lease-hang.test.ts"], optionalGates: ["ZENITH_TEST_PLATFORM_PG_URL"] },
       { id: "mixed-failure-simulation", kind: "contract", files: ["tests/acceptance/mixed-failure-scenarios.test.ts", "tests/execution/mixed-orchestration.test.ts", "tests/workflows/mixed-parent.test.ts"] },
+      { id: "crash-operated-contract", kind: "contract", files: ["tests/release/drivers-d2.test.ts"] },
       AWS_LIVE("E", "live cloud acceptance is not approved"),
     ],
-    limits: "Simulated failure over the real state machine is not a provider outage.",
+    limits: "The dedicated --local-targets driver requires an owned lean J1/J2 stack and browser; it exercises real worker crashes, network partitions and fenced writers when run. In-flight provider ambiguity and live mixed-provider outages are separate lanes.",
   },
   {
     id: "mixed-recovery", title: "One-provider failure recovery on the mixed app", requirements: ["PROD-MIX-07"],

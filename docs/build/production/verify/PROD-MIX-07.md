@@ -1,5 +1,7 @@
 # PROD-MIX-07: Mixed-cloud recovery and economics
 
+DRV-2 adds local operated control-plane crash/partition and competing-writer evidence. Its exact lean Mac commands and cleanup are in [DRV-2](DRV-2.md); mixed-provider failure recovery, economics and live acceptance remain their existing separate lanes.
+
 ## L1-LIVE-AWS provider slice (8 October 2026)
 
 Acceptance: Transfer/latency/residency costs included; one-provider failure recovery demonstrated; full acceptance harness exists even when live accounts unavailable.

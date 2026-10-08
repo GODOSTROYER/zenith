@@ -1285,6 +1285,18 @@
             "architecture": "native Darwin ARM64"
           },
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-mixed-state-validation.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "bb54ab166563d1392b9ac0ad430a220067fbabfd",
+          "result": "Actual PostgreSQL native dispatch/mixed/maintenance successor103 passed/0 failed/0 skipped, all six former dispatch fixtures executed with SQL semantics custody. Owned server stopped and data removed. Metadata atf38bc8a2348/0/0; scopes overlap. Full current candidate remains pending.",
+          "environment": {
+            "node": "22.23.3",
+            "npm": "10.9.9",
+            "postgres": "16.15",
+            "architecture": "native Darwin ARM64"
+          },
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-publication-successors.json"
         }
       ],
       "requiredEvidence": [
@@ -3742,7 +3754,26 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "local_engine",
+          "commit": "edff0f9fd8ea3d259a800ed18252213c2de178ff",
+          "result": "Actual Temporal recorded21/0/1 and Worker SDK replay/audit34/0/1; one opt-in placeholder per invocation, not a required scenario allowance. First current-source synthetic corpus21 histories frozen22967b64. Independent185controls/711decodedpayloads passed. Previous-release compatibility, in-flight rolling upgrades and required operational/live levels remain open; no promotion.",
+          "environment": {
+            "node": "22.23.3",
+            "temporalCLI": "1.9.1",
+            "temporalServer": "1.32",
+            "architecture": "native Darwin ARM64"
+          },
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-publication-successors.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "a1259fdcb49ff34805be5610edbec8ca16e0b36d",
+          "result": "Exact reviewed worker37862473 root metadata463/0/0, actual SDK replay/versioning34/0/0, compiler/lint exit0. Same seven-file source integrateda1259fdc; canonical105 execution and pushedCI pending. First current-source corpus, not previous-release compatibility or rolling upgrade proof.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-03/2026-10-08-mandatory-replay-activation.json"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine",

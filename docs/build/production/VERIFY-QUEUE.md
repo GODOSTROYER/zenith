@@ -1,3 +1,8 @@
+## Results: mandatory replay integration, 8 October 2026
+
+- PROD-OPS-03 Results: a1259fdc activates105 canonical workflow requirements, preserving71; root metadata463/0/0, SDK replay/audit34/0/0, compiler/lint passed. Full105 lane, previous-release/upgrade proof and fresh CI pending. No promotion.
+- PROD-CI-08 Results: bb54ab16 native dispatch successor103/0/0; f38bc8a2 metadata348/0/0. Full1146 PostgreSQL gate and fresh CI pending; earlier failures retained.
+
 ## Results: 8 October publication checkpoint
 
 PROD-CI-08: in_progress; c7332a56; native100 successor100/0/0 at5fc3cb2c, native dispatch97/6/0 and failed history recording19/2/1 retained. Full combined gate pending.

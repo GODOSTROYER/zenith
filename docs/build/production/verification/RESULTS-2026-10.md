@@ -1,3 +1,11 @@
+## Mandatory replay integration, 8 October 2026
+
+Integrated `a1259fdcb49ff34805be5610edbec8ca16e0b36d` activates the first frozen current-source corpus in the existing canonical workflows lane. All71 prior requirement IDs remain unchanged;34 literal replay/audit checks bring the total to105. Recording remains opt-in. Selected replay has no placeholder skip. Historical71/70/60/58 projections remain exact and unknown future IDs remain visible. No fixture bytes, authority controls or receipt validator changed.
+
+Independent Astra source review accepted the exact seven-file packet. Root executed on reviewed worker37862473: metadata463 passed/0 failed/0 skipped, actual SDK replay plus versioning34/0/0, complete compiler exit0 and seven-file lint exit0. Storage remained above22GiB. Full combined workflows105 and fresh exact pushed CI are still pending. This synthetic corpus does not prove previous-release compatibility or live-cloud operations. See [sanitized receipt](evidence/PROD-OPS-03/2026-10-08-mandatory-replay-activation.json).
+
+Local Next production compilation succeeded in the3GiB attempt, then type-check worker exhausted its heap. The subsequent4GiB retry stopped at storage floor:23,585,742,848B against23,622,320,128B, exit143. GitHub build on exact publisheda7f8d160 completed successfully; native Mac default-stack build remains separate and open. Storage helper removed only inventoried rebuildable failed .next/cache after process absence, freeing1,504,169,984B; outputs, source, dependencies and evidence preserved. A private receipt filename collision was corrected from separately saved attempt3 evidence; both original build logs remain intact.
+
 ## GitHub publication context, 8 October 2026
 
 Integrated source before this documentation commit: `22967b64`. Eleven repair commits follow published `65b24ccc6cbc82af9c0cb8f6dfcd261fd717755d`. This checkpoint publishes source and progress context for the building machine, without claiming a green full candidate.

@@ -1,3 +1,7 @@
+## Replay integration, 8 October 2026
+
+Integrateda1259fdc: workflows105 mandatory IDs, prior71 preserved. Root exact reviewed packet: metadata463/0/0, actual SDK replay/audit34/0/0, compiler and lint passed. Full105 and1146 gates pending. Local build resource-blocked after successful compilation; publisheda7f8 GitHub build passed. Ledger recomputed78:10 verified/49 in progress/19 planned; four release flags false. No completion percentage inferred.
+
 ## Publication checkpoint, 8 October 2026
 
 Source22967b64: native dispatch successor103/0/0, metadata348/0/0, mixed validation12/0/0; Next audit zero known findings. Current-source Temporal corpus21 recorded and34 replay/audit passes, one opt-in placeholder per run. Full build and combined gate remain open. Previous65b CI17 jobs passed/3 failed; fixes now included, fresh publication CI pending. Ledger recomputed:10 verified/49 in progress/19 planned across78; release flags false. Counts overlap. See [updated context](WIP-HANDOFF-2026-10-08.md) and [exact CI jobs](verification/CI-2026-10-08-65b24ccc.md).

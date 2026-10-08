@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
-import { AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, MIXED_RUN_STORE_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, MIXED_RUN_STORE_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 import { validateGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
@@ -248,9 +248,49 @@ const wave2WorkflowIds = new Set([
   "workflows:tests/workflows/critical-schedule.test.ts:4ee93ed6c454",
   "workflows:tests/platform/critical-jobs.test.ts:4ee93ed6c454",
 ]);
+// Exactly the reviewed replay addition leaves predecessor comparisons; unknown IDs stay visible.
+const replayAdditionIds = new Set([
+  "workflows:tests/workflows/history-replay.test.ts:11c9372298c4",
+  "workflows:tests/workflows/history-replay.test.ts:ca053d4a7ffa",
+  "workflows:tests/workflows/history-replay.test.ts:fd56cd941022",
+  "workflows:tests/workflows/history-replay.test.ts:8744128c0a9e",
+  "workflows:tests/workflows/history-replay.test.ts:1c364350141a",
+  "workflows:tests/workflows/history-replay.test.ts:eaca45b6d6b7",
+  "workflows:tests/workflows/history-replay.test.ts:87db48b6511e",
+  "workflows:tests/workflows/history-replay.test.ts:3aef3e2319a2",
+  "workflows:tests/workflows/history-replay.test.ts:2511e70410ac",
+  "workflows:tests/workflows/history-replay.test.ts:f862c0ca2f28",
+  "workflows:tests/workflows/history-replay.test.ts:217cee7bdf53",
+  "workflows:tests/workflows/history-replay.test.ts:d24898d990cb",
+  "workflows:tests/workflows/history-replay.test.ts:9bd63aa2eb20",
+  "workflows:tests/workflows/history-replay.test.ts:d9916b20ed8f",
+  "workflows:tests/workflows/history-replay.test.ts:10fbc2c302bb",
+  "workflows:tests/workflows/history-replay.test.ts:4f2aef1cd9ac",
+  "workflows:tests/workflows/history-replay.test.ts:e0a8479c4469",
+  "workflows:tests/workflows/history-replay.test.ts:599d31f58731",
+  "workflows:tests/workflows/history-replay.test.ts:c7ee74ad2f02",
+  "workflows:tests/workflows/history-replay.test.ts:be8dffb99b65",
+  "workflows:tests/workflows/history-replay.test.ts:7d76388ab023",
+  "workflows:tests/workflows/history-replay.test.ts:404108cfbc97",
+  "workflows:tests/workflows/history-replay.test.ts:dcdea3bad29a",
+  "workflows:tests/workflows/history-replay.test.ts:b614b4ac1f76",
+  "workflows:tests/workflows/history-replay.test.ts:faa76b639737",
+  "workflows:tests/workflows/history-replay.test.ts:be6df6808e1a",
+  "workflows:tests/workflows/history-replay.test.ts:7a72efa28e05",
+  "workflows:tests/workflows/history-replay.test.ts:1bb1bc14d9b8",
+  "workflows:tests/workflows/history-replay.test.ts:1ed963fe5b4e",
+  "workflows:tests/workflows/versioning-audit.test.ts:42b84e22c212",
+  "workflows:tests/workflows/versioning-audit.test.ts:7d93ce0f1ca7",
+  "workflows:tests/workflows/versioning-audit.test.ts:05156f32cdf6",
+  "workflows:tests/workflows/versioning-audit.test.ts:c336390bb162",
+  "workflows:tests/workflows/versioning-audit.test.ts:daf8e7f59be8"
+]);
+function withoutReplayAdditions(items: Requirement[]): Requirement[] {
+  return items.filter(item => !replayAdditionIds.has(item.id));
+}
 const criticalScheduleWorkflowIds = new Set(CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS.map(item => requirementId("workflows", item)));
 function priorCriticalScheduleWorkflowRequirements(sourceRoot = root) {
-  return requirementsFor("workflows", sourceRoot).filter(item => !criticalScheduleWorkflowIds.has(item.id) && !incomingWorkflowIds.has(item.id));
+  return withoutReplayAdditions(requirementsFor("workflows", sourceRoot)).filter(item => !criticalScheduleWorkflowIds.has(item.id) && !incomingWorkflowIds.has(item.id));
 }
 function priorWave2WorkflowRequirements() {
   return priorCriticalScheduleWorkflowRequirements().filter(item => !wave2WorkflowIds.has(item.id));
@@ -417,7 +457,7 @@ describe("canonical gate manifest", () => {
     expect(suites).toHaveLength(4);
     expect(suites).toContainEqual(expect.objectContaining({ suite: "live public GitHub source (opt-in network)" }));
     expect(manifest.env).toMatchObject({ ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REPO: "https://github.com/GODOSTROYER/zenith", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b" });
-    expect(manifest.excludeFiles).toEqual(["tests/workflows/mtls-live.test.ts", "tests/platform/codebuild-launch-authority.test.ts", "tests/workflows/start-intent.test.ts", "tests/workflows/history-replay.test.ts", "tests/workflows/history-record.test.ts"]);
+    expect(manifest.excludeFiles).toEqual(["tests/workflows/mtls-live.test.ts", "tests/platform/codebuild-launch-authority.test.ts", "tests/workflows/start-intent.test.ts", "tests/workflows/history-record.test.ts"]);
   });
 
   it("declares mTLS prerequisites and an unverified release blocker rather than a pass", () => {
@@ -2314,12 +2354,12 @@ function workflowNativeSetupProblems(job: WorkflowNativeJob): string[] {
 describe("workflow native PostgreSQL prerequisites [source/report models]", () => {
   it("keeps all 58 workflow identities and exact native source flags while declaring real PostgreSQL", () => {
     const manifest = manifestFor("workflows", root);
-    expect(manifest.requirements).toHaveLength(71);
+    expect(manifest.requirements).toHaveLength(105);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(manifest.requirements.filter(item => wave2WorkflowIds.has(item.id)).map(item => item.id)).toEqual([...wave2WorkflowIds]);
     expect(WORKFLOW_NATIVE_POSTGRES_FILES).toEqual(workflowNativeGroups.map(group => group.file));
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(71);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(105);
     expect(createHash("sha256").update(JSON.stringify(priorWave2WorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("d3a15adf854819fd8577c3b55b48dd55640d6522bdc57cad2c707c867ffecad3");
     expect(manifest.tools).toEqual({ node: "22.23.3", postgres: "16.15", temporal: "1.9.1" });
@@ -2574,7 +2614,7 @@ describe("mandatory saved builtin settlement cases [report models]", () => {
     expect(historical).toEqual([...previous, ...required]);
     expect(cleanupWriterNamed()).toHaveLength(46); expect(priorCleanupPlatformRequirements()).toHaveLength(1012);
     expect(manifestFor("postgres", root).requirements).toHaveLength(93);
-    expect(requirementsFor("workflows", root)).toHaveLength(71);
+    expect(requirementsFor("workflows", root)).toHaveLength(105);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
@@ -2812,8 +2852,8 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     const manifest = manifestFor("workflows", root);
     expect(named()).toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
     expect(new Set(named().map(item => item.id)).size).toBe(2);
-    expect(manifest.requirements).toHaveLength(71);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(71);
+    expect(manifest.requirements).toHaveLength(105);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(105);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(createHash("sha256").update(JSON.stringify(priorCriticalScheduleWorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b");
@@ -3029,8 +3069,8 @@ describe("incoming platform and workflow obligations", () => {
   });
   it("keeps all eight added workflow files in the complete mandatory lane", () => {
     const current = manifestFor("workflows", root);
-    expect(current.requirements).toHaveLength(71);
-    const added = current.requirements.filter(item => incomingWorkflowFiles.has(item.file));
+    expect(current.requirements).toHaveLength(105);
+    const added = withoutReplayAdditions(current.requirements).filter(item => incomingWorkflowFiles.has(item.file));
     expect(added).toHaveLength(8);
     expect(new Set(added.map(item => item.file))).toEqual(incomingWorkflowFiles);
     for (const item of added) {
@@ -3046,8 +3086,8 @@ describe("full history codec successor admission", () => {
     const current = manifestFor("workflows", root);
     const codec = current.requirements.filter(item => item.id === historyCodecWorkflowId);
     expect(codec).toHaveLength(1);
-    expect(current.requirements).toHaveLength(71);
-    expect(current.requirements.filter(item => item.id !== historyCodecWorkflowId)).toHaveLength(70);
+    expect(current.requirements).toHaveLength(105);
+    expect(withoutReplayAdditions(current.requirements).filter(item => item.id !== historyCodecWorkflowId)).toHaveLength(70);
     expect(current.excludeFiles).not.toContain(codec[0].file);
     expect(reportFailures(codec, contractReport(codec), root)).toEqual([]);
     expect(reportFailures(codec, { success: true, testResults: [] }, root)).toHaveLength(1);
@@ -3127,5 +3167,104 @@ describe("mixed run store application-boundary gate", () => {
     expect(reportFailures(before, { success: true, testResults: [] }, sourceRoot)).toHaveLength(5);
     const source = fs.readFileSync(path.join(root, file));
     expect(createHash("sha256").update(source).digest("hex")).toBe("87ea55e3784a21caf21620080c4e19b99fa79904c68b0a1efc1bbaf4d489c30d");
+  });
+});
+
+
+// Validator/source models; actual frozen-byte Worker replay is the owning workflow lane.
+describe("mandatory frozen current-code workflow replay", () => {
+  const named = (sourceRoot = root) => requirementsFor("workflows", sourceRoot).filter(item => replayAdditionIds.has(item.id));
+  it("appends exactly 34 literal checks and preserves the exact 71 predecessor identities", () => {
+    const manifest = manifestFor("workflows", root), added = named(), previous = withoutReplayAdditions(manifest.requirements);
+    expect(manifest.requirements).toHaveLength(105);
+    expect(previous).toHaveLength(71);
+    expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex"))
+      .toBe("5d59799c849b2180643bdbdbd2196c2cef6a966a9fc703d78208f27a617dd77d");
+    expect(WORKFLOW_HISTORY_REPLAY_REQUIREMENTS).toHaveLength(34);
+    expect(added).toHaveLength(34);
+    expect(new Set(added.map(item => item.id))).toEqual(replayAdditionIds);
+    expect(manifest.requirements).toEqual([...previous, ...added]);
+    expect(added.filter(item => item.suite === "committed workflow histories: inventory and integrity")).toHaveLength(6);
+    expect(added.filter(item => item.suite === "committed workflow histories replay against the current bundle")).toHaveLength(21);
+    expect(added.filter(item => item.suite === "the replay gate has teeth")).toHaveLength(2);
+    expect(added.filter(item => item.file === "tests/workflows/versioning-audit.test.ts")).toHaveLength(5);
+    expect(previous).toContainEqual({ file: "tests/workflows/versioning-audit.test.ts", id: "workflows:tests/workflows/versioning-audit.test.ts:4ee93ed6c454" });
+    expect(previous.some(item => item.file === "tests/workflows/history-replay.test.ts")).toBe(false);
+    expect(manifest.env.ZENITH_REPLAY_LANE).toBe("1");
+    expect(manifest.excludeFiles).not.toContain("tests/workflows/history-replay.test.ts");
+    expect(manifest.excludeFiles).toContain("tests/workflows/history-record.test.ts");
+    expect(manifest.command).not.toContain("--passWithNoTests");
+    expect(withoutReplayAdditions([...manifest.requirements, { ...added[0], id: "unknown-successor" }]).some(item => item.id === "unknown-successor")).toBe(true);
+  });
+
+  it("binds all named checks to frozen fixture filenames, declared scenarios and real SDK replay controls", () => {
+    const added = named(), file = "tests/workflows/history-replay.test.ts";
+    const source = fs.readFileSync(path.join(root, file), "utf8");
+    const scenarios = fs.readFileSync(path.join(root, "tests/workflows/history-scenarios.ts"), "utf8");
+    const directory = path.join(root, "tests/fixtures/workflow-histories");
+    const manifestBytes = fs.readFileSync(path.join(directory, "MANIFEST.json"));
+    expect(createHash("sha256").update(manifestBytes).digest("hex"))
+      .toBe("408b0b42800ecdb97f1e5edbd75409879a8b790f7efb0bae4aac3c447c52de02");
+    const manifest = JSON.parse(manifestBytes.toString("utf8")) as { fixtures: Record<string, string> };
+    const filenames = added.filter(item => item.suite === "committed workflow histories replay against the current bundle").map(item => item.test!.replace(/ replays deterministically$/, "")).sort();
+    expect(Object.keys(manifest.fixtures).sort()).toEqual(filenames);
+    expect(fs.readdirSync(directory).filter(file => file.endsWith(".json") && file !== "MANIFEST.json").sort()).toEqual(filenames);
+    for (const filename of filenames) {
+      expect(createHash("sha256").update(fs.readFileSync(path.join(directory, filename))).digest("hex")).toBe(manifest.fixtures[filename]);
+      expect(scenarios).toContain(`id: ${JSON.stringify(filename.replace(/\.json$/, ""))}`);
+    }
+    for (const item of added.filter(item => item.suite !== "committed workflow histories replay against the current bundle")) {
+      const text = fs.readFileSync(path.join(root, item.file), "utf8");
+      expect(text).toContain(`it(${JSON.stringify(item.test)}`);
+    }
+    expect(source).toContain("Worker.runReplayHistory(");
+    expect(source).toContain("rejects.toBeInstanceOf(DeterminismViolationError)");
+    expect(source).toContain("rejects.toThrow()");
+    expect(source).toContain('if (!lane) it.skip(');
+    expect(source).not.toContain('\nit.skip(');
+  });
+
+  it("independently refuses every missing, nonpassing or wrongly identified replay check", () => {
+    const required = named();
+    expect(reportFailures(required, contractReport(required), root)).toEqual([]);
+    for (const item of required) {
+      expect(reportFailures(required, contractReport(required.filter(other => other.id !== item.id)), root), item.id).toHaveLength(1);
+      for (const status of ["failed", "skipped", "pending", "todo", "unknown"]) {
+        const report = contractReport(required);
+        report.testResults.find(file => file.name === path.resolve(root, item.file))!.assertionResults.find(assertion => assertion.title === item.test)!.status = status;
+        expect(reportFailures(required, report, root).length, `${item.id}:${status}`).toBeGreaterThan(0);
+      }
+      for (const change of ["file", "suite", "test"]) {
+        const report = contractReport([item]);
+        if (change === "file") report.testResults[0].name = path.resolve(root, "tests/workflows/foreign-history.test.ts");
+        if (change === "suite") report.testResults[0].assertionResults[0].ancestorTitles = ["unrelated replay suite"];
+        if (change === "test") report.testResults[0].assertionResults[0].title = "one other passing replay";
+        expect(reportFailures([item], report, root), `${item.id}:${change}`).toHaveLength(1);
+      }
+    }
+  });
+
+  it("retains all literal requirements when fixtures, scenarios or tests disappear and rejects empty or malformed evidence", () => {
+    const sourceRoot = modelRoot(path.join(os.tmpdir(), "zenith-replay-gate-"));
+    try {
+      for (const directory of ["tests/workflows", "tests/platform"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
+      // Each required source/fixture is absent here; discovery cannot erase a literal identity.
+      expect(fs.existsSync(path.join(sourceRoot, "tests/fixtures/workflow-histories"))).toBe(false);
+      expect(fs.existsSync(path.join(sourceRoot, "tests/workflows/history-scenarios.ts"))).toBe(false);
+      expect(fs.existsSync(path.join(sourceRoot, "tests/workflows/history-replay.test.ts"))).toBe(false);
+      const before = named(), after = named(sourceRoot);
+      expect(after).toEqual(before);
+      expect(reportFailures(after, { success: true, testResults: [] }, sourceRoot)).toHaveLength(34);
+      for (const report of [null, {}, { success: true }, { ...contractReport(before), success: false }, { success: true, testResults: [{ name: path.resolve(root, before[0].file) }] }]) {
+        expect(reportFailures(before, report, root).length).toBeGreaterThan(0);
+      }
+      const zero = contractReport(before); zero.testResults.forEach(file => { file.assertionResults = []; });
+      expect(reportFailures(before, zero, root)).toHaveLength(34);
+      const duplicate = contractReport(before); duplicate.testResults.push(duplicate.testResults[0]);
+      expect(reportFailures(before, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
+      expect(reportFailures(before, { ...contractReport(before), numTotalTests: 0 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+      expect(reportFailures(before, { ...contractReport(before), numFailedTests: 1 }, root)).toEqual(["Inconsistent Vitest report counts"]);
+      expect(reportFailures([], contractReport(before), root)).toEqual(["No required scenarios found"]);
+    } finally { fs.rmSync(sourceRoot, { recursive: true, force: true }); }
   });
 });

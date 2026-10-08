@@ -66,9 +66,49 @@ const wave2WorkflowIds = new Set([
   "workflows:tests/workflows/critical-schedule.test.ts:4ee93ed6c454",
   "workflows:tests/platform/critical-jobs.test.ts:4ee93ed6c454",
 ]);
+// Exactly the reviewed replay addition leaves predecessor comparisons; unknown IDs stay visible.
+const replayAdditionIds = new Set([
+  "workflows:tests/workflows/history-replay.test.ts:11c9372298c4",
+  "workflows:tests/workflows/history-replay.test.ts:ca053d4a7ffa",
+  "workflows:tests/workflows/history-replay.test.ts:fd56cd941022",
+  "workflows:tests/workflows/history-replay.test.ts:8744128c0a9e",
+  "workflows:tests/workflows/history-replay.test.ts:1c364350141a",
+  "workflows:tests/workflows/history-replay.test.ts:eaca45b6d6b7",
+  "workflows:tests/workflows/history-replay.test.ts:87db48b6511e",
+  "workflows:tests/workflows/history-replay.test.ts:3aef3e2319a2",
+  "workflows:tests/workflows/history-replay.test.ts:2511e70410ac",
+  "workflows:tests/workflows/history-replay.test.ts:f862c0ca2f28",
+  "workflows:tests/workflows/history-replay.test.ts:217cee7bdf53",
+  "workflows:tests/workflows/history-replay.test.ts:d24898d990cb",
+  "workflows:tests/workflows/history-replay.test.ts:9bd63aa2eb20",
+  "workflows:tests/workflows/history-replay.test.ts:d9916b20ed8f",
+  "workflows:tests/workflows/history-replay.test.ts:10fbc2c302bb",
+  "workflows:tests/workflows/history-replay.test.ts:4f2aef1cd9ac",
+  "workflows:tests/workflows/history-replay.test.ts:e0a8479c4469",
+  "workflows:tests/workflows/history-replay.test.ts:599d31f58731",
+  "workflows:tests/workflows/history-replay.test.ts:c7ee74ad2f02",
+  "workflows:tests/workflows/history-replay.test.ts:be8dffb99b65",
+  "workflows:tests/workflows/history-replay.test.ts:7d76388ab023",
+  "workflows:tests/workflows/history-replay.test.ts:404108cfbc97",
+  "workflows:tests/workflows/history-replay.test.ts:dcdea3bad29a",
+  "workflows:tests/workflows/history-replay.test.ts:b614b4ac1f76",
+  "workflows:tests/workflows/history-replay.test.ts:faa76b639737",
+  "workflows:tests/workflows/history-replay.test.ts:be6df6808e1a",
+  "workflows:tests/workflows/history-replay.test.ts:7a72efa28e05",
+  "workflows:tests/workflows/history-replay.test.ts:1bb1bc14d9b8",
+  "workflows:tests/workflows/history-replay.test.ts:1ed963fe5b4e",
+  "workflows:tests/workflows/versioning-audit.test.ts:42b84e22c212",
+  "workflows:tests/workflows/versioning-audit.test.ts:7d93ce0f1ca7",
+  "workflows:tests/workflows/versioning-audit.test.ts:05156f32cdf6",
+  "workflows:tests/workflows/versioning-audit.test.ts:c336390bb162",
+  "workflows:tests/workflows/versioning-audit.test.ts:daf8e7f59be8"
+]);
+function withoutReplayAdditions(items: ReturnType<typeof requirementsFor>): ReturnType<typeof requirementsFor> {
+  return items.filter(item => !replayAdditionIds.has(item.id));
+}
 const criticalScheduleWorkflowIds = new Set(CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS.map(item => requirementId("workflows", item)));
 function priorCriticalScheduleWorkflowRequirements(sourceRoot = root) {
-  return requirementsFor("workflows", sourceRoot).filter(item => !criticalScheduleWorkflowIds.has(item.id) && !incomingWorkflowIds.has(item.id));
+  return withoutReplayAdditions(requirementsFor("workflows", sourceRoot)).filter(item => !criticalScheduleWorkflowIds.has(item.id) && !incomingWorkflowIds.has(item.id));
 }
 function priorWave2WorkflowRequirements() {
   return priorCriticalScheduleWorkflowRequirements().filter(item => !wave2WorkflowIds.has(item.id));
@@ -855,7 +895,7 @@ describe("saved builtin settlement mandatory CI admission", () => {
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
     expect(manifestFor("postgres", root).requirements).toHaveLength(93);
-    expect(requirementsFor("workflows", root)).toHaveLength(71);
+    expect(requirementsFor("workflows", root)).toHaveLength(105);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().requiredCases).toHaveLength(152); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
@@ -875,8 +915,13 @@ describe("critical scheduling native admission [workflow source models]", () => 
     const manifest = manifestFor("workflows", root), job = workflow.jobs.workflows;
     expect(manifest.requirements.filter(item => criticalScheduleWorkflowIds.has(item.id)))
       .toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
-    expect(manifest.requirements).toHaveLength(71);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(71);
+    expect(manifest.requirements).toHaveLength(105);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(105);
+    const previous = withoutReplayAdditions(manifest.requirements);
+    expect(previous).toHaveLength(71);
+    expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex"))
+      .toBe("5d59799c849b2180643bdbdbd2196c2cef6a966a9fc703d78208f27a617dd77d");
+    expect(withoutReplayAdditions([...manifest.requirements, { ...manifest.requirements[0], id: "unknown-successor" }]).some(item => item.id === "unknown-successor")).toBe(true);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(createHash("sha256").update(JSON.stringify(priorCriticalScheduleWorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b");

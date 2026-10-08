@@ -6,7 +6,7 @@
  *   ZENITH_RECORD_WORKFLOW_HISTORIES=1 npx vitest run tests/workflows/history-record.test.ts
  *
  * It adds a fixture only for a scenario that has none; existing fixtures are the
- * frozen released histories and are never overwritten unless ZENITH_RECORD_OVERWRITE=1.
+ * frozen current-code synthetic histories (not earlier-release evidence) and are never overwritten unless ZENITH_RECORD_OVERWRITE=1.
  * Review the diff of tests/fixtures/workflow-histories like code: a changed existing
  * fixture means somebody discarded a recorded history.
  */

@@ -5663,13 +5663,183 @@ export const AGENT_JOURNAL_POSTGRES_REQUIREMENTS = [
   }
 ];
 
-/**
- * PROD-OPS-03: the workflow-history replay lane is opt-in (ZENITH_REPLAY_LANE=1, `npm run replay:check`) until the verifier
- * has recorded and committed tests/fixtures/workflow-histories. Both files hold only deliberate skips without that, so a
- * mandatory lane that requires them to execute would be red by design. They are excluded here (never counted as passed)
- * and the verifier adds the replay lane to this manifest after recording (docs/build/production/VERIFY-QUEUE.md, wave 4).
+/** Recording remains opt-in; the frozen current-code corpus replays in the canonical workflow lane.
+ * These literal case identities survive missing/deleted test sources and fixtures. They
+ * prove current synthetic history compatibility, not histories from a prior release.
  */
-export const REPLAY_OPT_IN_FILES = ["tests/workflows/history-replay.test.ts", "tests/workflows/history-record.test.ts"];
+export const WORKFLOW_HISTORY_REPLAY_REQUIREMENTS = [
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories: inventory and integrity",
+    "test": "fixtures exist"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories: inventory and integrity",
+    "test": "every fixture is listed in MANIFEST.json with an identical hash, and nothing else is listed"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories: inventory and integrity",
+    "test": "every scenario has exactly its committed fixture, and no fixture is orphaned"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories: inventory and integrity",
+    "test": "every registered workflow type (including wave-3 codingAgentRunWorkflow, teardown review, sweep and maintenance) has a scenario and a fixture"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories: inventory and integrity",
+    "test": "each fixture's recorded history starts with the workflow type it declares"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories: inventory and integrity",
+    "test": "every active patch id has at least one committed history that carries its marker"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "the replay gate has teeth",
+    "test": "a deploy history is rejected by a workflow that schedules its activities in a different order"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "the replay gate has teeth",
+    "test": "a history with its activity events removed is rejected"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "coding-agent-run-step-failure.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "coding-agent-run-steps.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "critical-maintenance.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "day-two-drift-repair-ecs.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "day-two-restart.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "deploy-approval-signal.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "deploy-cancelled.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "deploy-happy-build.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "deploy-lease-lost.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "deploy-pinned-images-no-build.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "deploy-retried-read.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "deploy-started-by-client.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "destroy-happy.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "destroy-plan-changed.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "mixed-parent-all-children-succeed.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "mixed-parent-child-fails.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "reconcile-auto-repair.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "reconcile-observe-only.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "reconcile-sweep.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "remediation.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "teardown-review.json replays deterministically"
+  },
+  {
+    "file": "tests/workflows/versioning-audit.test.ts",
+    "suite": "patched()/deprecatePatch() audit",
+    "test": "every patch marker in definitions/ is registered with the workflow that contains it"
+  },
+  {
+    "file": "tests/workflows/versioning-audit.test.ts",
+    "suite": "patched()/deprecatePatch() audit",
+    "test": "every registry entry is still present in the code (remove it with the deprecation, not before)"
+  },
+  {
+    "file": "tests/workflows/versioning-audit.test.ts",
+    "suite": "registered workflow types",
+    "test": "definitions/index.ts exports exactly the registered workflow types"
+  },
+  {
+    "file": "tests/workflows/versioning-audit.test.ts",
+    "suite": "registered workflow types",
+    "test": "every registered type is startable by name from WORKFLOW_TYPES"
+  },
+  {
+    "file": "tests/workflows/versioning-audit.test.ts",
+    "suite": "registered workflow types",
+    "test": "every registered type is a real exported async function in definitions/"
+  }
+];
+export const REPLAY_OPT_IN_FILES = ["tests/workflows/history-record.test.ts"];
 
 export const GATE_LANES = {
   postgres: {
@@ -5692,7 +5862,7 @@ export const GATE_LANES = {
   workflows: {
     files: ["tests/workflows", "tests/platform", "tests/security/workflow-history.test.ts", ECS_REPLICA_REPAIR_FILES.execution, ECS_REPLICA_REPAIR_FILES.ownership, "tests/execution/release.test.ts"],
     excludeFiles: ["tests/workflows/mtls-live.test.ts", CODEBUILD_POSTGRES_FILE, WORKFLOW_INTENT_TEMPORAL_FILE, ...REPLAY_OPT_IN_FILES],
-    env: { ZENITH_COMPOSE_TEMPORAL_MODE: "time-skipping", ZENITH_TEST_TEMPORAL_DOWNLOAD: "1", ZENITH_SEC_TEMPORAL: "1", ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REPO: "https://github.com/GODOSTROYER/zenith", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1" },
+    env: { ZENITH_REPLAY_LANE: "1", ZENITH_COMPOSE_TEMPORAL_MODE: "time-skipping", ZENITH_TEST_TEMPORAL_DOWNLOAD: "1", ZENITH_SEC_TEMPORAL: "1", ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REPO: "https://github.com/GODOSTROYER/zenith", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1" },
     report: ".data-ci-lane/workflows-lane.json",
     prerequisites: ["Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15: fresh separate loopback databases at ZENITH_TEST_PLATFORM_PG_URL (platform) and SUPABASE_DB_URL (Supabase)", "Canonical agent schemas1/2/3 applied and verified with scripts/agent/apply-schema.ts before scripts/ci/apply-platform-migrations.sh applies and verifies the current platform registry", "Canonical Supabase migrations and schema verification through scripts/ci/apply-supabase-migrations.sh; fixed CI roles are local stand-ins, never hosted acceptance", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1, ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1, ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1, ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1 and ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED=1; native platform tests cannot skip or substitute PGlite; cloud/product protocols remain explicitly modeled", "Temporal CLI 1.9.1 at ZENITH_TEST_TEMPORAL_CLI", "Local Temporal dev and time-skipping servers; SDK test-server cache or download access", "Public GitHub codeload access for the immutable source fixture", "ZENITH_TEST_TEMPORAL=1; both literal critical schedule cases require explicit pinned CLI1.9.1 and fresh owned loopback SQLite/Worker execution; no missing prerequisite, skip or model-only sibling satisfies them; default maintenance effects and missed-interval catchup remain separate"],
     tools: { node: "22.23.3", postgres: "16.15", temporal: "1.9.1" },
@@ -6014,11 +6184,11 @@ export function requirementsFor(lane, root) {
         .filter((file) => !EXTERNAL_ACCEPTANCE.some((group) => group.wholeFile && group.file === file))
         .filter((file) => !Object.values(ECS_REPLICA_REPAIR_FILES).includes(file))
         .filter((file) => file !== CODEBUILD_POSTGRES_FILE && file !== WORKFLOW_INTENT_TEMPORAL_FILE)
-        .filter((file) => !REPLAY_OPT_IN_FILES.includes(file))
+        .filter((file) => !REPLAY_OPT_IN_FILES.includes(file) && file !== "tests/workflows/history-replay.test.ts")
         .flatMap((file) => file === "tests/platform/source-bundle.test.ts"
           ? ["source acquisition and canonical archives", "customer source bucket uploads", "GCS source upload through authorizedFetch", "live public GitHub source (opt-in network)"].map((suite) => ({ file, suite }))
           : [{ file }]);
-      requirements.push(...ECS_REPLICA_REPAIR_WORKFLOW_REQUIREMENTS, ...BUILD_WORKFLOW_REQUIREMENTS, ...CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS);
+      requirements.push(...ECS_REPLICA_REPAIR_WORKFLOW_REQUIREMENTS, ...BUILD_WORKFLOW_REQUIREMENTS, ...CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, ...WORKFLOW_HISTORY_REPLAY_REQUIREMENTS);
       break;
     case "reconciliation":
       requirements = RECONCILIATION_REQUIREMENTS;

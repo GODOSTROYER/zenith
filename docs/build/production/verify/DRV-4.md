@@ -431,3 +431,55 @@ present initially or included. The supporting runner/receipt joins are the
 minimal necessary edits beyond the new drivers and additive registrations.
 
 Suggested commit: `feat(release): add operated tenant isolation and export drivers`
+
+## CI admission for operated driver lanes
+
+The eight jobs in `.github/workflows/ci.yml` are J15 native local rehearsals:
+DRV1 private-source/update-rollback, DRV2 drift-repair/crash-partition, DRV3
+upgrade/restore, and DRV4 two-tenants/export. They are separate from the Wave-6
+lane registry. The binding test requires each job's exact canonical run,
+execution-required validation and sanitized artifact upload.
+
+Jobs default to disabled. Only trusted `push` events with the corresponding
+repository variable equal to `1` can run; pull requests never admit these jobs.
+An enabled job targets `[self-hosted, macOS, ARM64, zenith-operated]` in the
+`operated-rehearsal` environment. Configure that environment for the trusted
+verifier. All jobs share a non-cancelling concurrency group because J1 ports
+and the J2 cluster name are exclusive. Workflow-level cancellation is also
+disabled for opted-in native pushes so owned cleanup can drain.
+
+| CI job | Gate repository variable | Fixture variable prefix |
+| --- | --- | --- |
+| `drv1-private-source` | `ZENITH_LOCAL_DRV1=1` | `ZENITH_OPERATED_DRV1_PRIVATE_SOURCE` |
+| `drv1-update-rollback` | `ZENITH_LOCAL_DRV1=1` | `ZENITH_OPERATED_DRV1_UPDATE_ROLLBACK` |
+| `drv2-drift-repair` | `ZENITH_TEST_DRV2_OPERATED=1` | `ZENITH_OPERATED_DRV2_DRIFT_REPAIR` |
+| `drv2-crash-partition` | `ZENITH_TEST_DRV2_OPERATED=1` | `ZENITH_OPERATED_DRV2_CRASH_PARTITION` |
+| `j15-operated-upgrade` | `ZENITH_LOCAL_OPERATED=1` | `ZENITH_OPERATED_DRV3_UPGRADE` |
+| `j15-operated-restore` | `ZENITH_LOCAL_OPERATED=1` | `ZENITH_OPERATED_DRV3_RESTORE` |
+| `drivers-d4-two-tenants` | `ZENITH_LOCAL_DRIVER_D4=1` | `ZENITH_OPERATED_DRV4_TWO_TENANTS` |
+| `drivers-d4-export` | `ZENITH_LOCAL_DRIVER_D4=1` and `ZENITH_LOCAL_EXPORT_DATA=1` | `ZENITH_OPERATED_DRV4_EXPORT` |
+
+For each prefix configure `_ROOT`, `_STACK_DIR` and `_CONFIG_FILE` as private
+local path pointers, not credential values. A trusted verifier must provision
+one fresh current-commit lean J1 installation and the scenario's J2 fixture
+immediately before that job runs, and reclaim owned fixtures on every job exit,
+including setup/cancellation failures. The job's run ID is
+`<github.run_id>-<github.run_attempt>-<lane>`. Do not share a consumed fixture
+between jobs. Use this runbook and the DRV1/DRV2/DRV3 runbooks for preparation;
+the CI jobs consume prepared fixtures and do not claim to provision them.
+
+The private-source job additionally needs file-pointer variables
+`ZENITH_LOCAL_SOURCE_BUILD_DECLARATION_FILE` and
+`ZENITH_LOCAL_SOURCE_BINARY_FILE`, plus the native digest-pinned
+`ZENITH_LOCAL_SOURCE_REGISTRY_IMAGE`. Upgrade needs
+`ZENITH_LOCAL_UPGRADE_IMAGES_FILE`; restore needs matching pg_dump/pg_restore
+clients and the pinned Temporal CLI on the native runner. Export needs the
+three digest-pinned `ZENITH_LOCAL_EXPORT_*_IMAGE` variables described above
+and the cached pinned LocalStack image. Chromium must trust the fresh J1 CA.
+
+Each job loads the actual owned J1 host environment through the existing
+`default-stack/env.mjs` exporter without eval, shell sourcing or printing
+credentials. Only validated scalar evidence is uploaded, even on failure.
+Enabled jobs with missing/stale fixtures, missing prerequisites, skipped
+required cases or invalid execution receipts fail. A disabled job establishes
+no native acceptance proof. Live cloud acceptance remains deferred.

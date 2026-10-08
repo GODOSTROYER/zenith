@@ -31,7 +31,7 @@ export async function runUpgrade(input: DriverInput): Promise<number> {
     const temporal = new WorkflowClient({ connection, namespace: session.prepared.environment.ZENITH_TEMPORAL_NAMESPACE });
     await session.step("browser-review-in-flight", async () => {
       operationId = (await session.deployReview()).operationId;
-      workflowId = (await session.detail(operationId)).operation.workflowId;
+      workflowId = (await session.detail(operationId)).authority?.workflowId ?? "";
       ensure(typeof workflowId === "string" && workflowId.startsWith("op-"), "real-operation-workflow");
       const description = await temporal.getHandle(workflowId).describe();
       ensure(description.status.name === "RUNNING", "in-flight-history"); runId = description.runId;

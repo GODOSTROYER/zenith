@@ -48,18 +48,18 @@ export async function crashPartitionDriver(receiptFile: string, env = process.en
       const killed = await worker(session);
       ensure(!killed.State.Running && killed.State.ExitCode === 137, "actual-sigkill");
       crashWorkflow = await session.execute(crashOperation);
-      ensure((await session.detail(crashOperation)).operation.workflowId === crashWorkflow, "durable-during-crash");
+      ensure((await session.detail(crashOperation)).authority?.workflowId === crashWorkflow, "durable-during-crash");
     });
     await step("outage-traffic", async () => {
       ensure(!(await worker(session)).State.Running, "crash-outage-observed");
       session.readbacks.outage = await session.readback(1);
-      ensure((await session.detail(crashOperation)).operation.workflowId === crashWorkflow, "durable-crash-operation");
+      ensure((await session.detail(crashOperation)).authority?.workflowId === crashWorkflow, "durable-crash-operation");
     });
     await step("restart-readback", async () => {
       await mutate(session, ["update", "--restart=unless-stopped"]);
       await mutate(session, ["start"]);
       await session.terminal(crashOperation);
-      ensure((await session.detail(crashOperation)).operation.workflowId === crashWorkflow, "same-crash-workflow");
+      ensure((await session.detail(crashOperation)).authority?.workflowId === crashWorkflow, "same-crash-workflow");
       session.readbacks.restarted = await session.readback(2);
     });
     let partitionOperation = "", partitionWorkflow = "", peerId = "", peerProject = "", peerFile = "", peerWorkerId = "";
@@ -79,7 +79,7 @@ export async function crashPartitionDriver(receiptFile: string, env = process.en
       ensure((await session.deployment()).metadata.generation === partitionGeneration, "partition-provider-no-write");
       session.readbacks.partition = await session.readback(2);
       const detail = await session.detail(partitionOperation);
-      ensure(detail.operation.workflowId === partitionWorkflow && detail.operation.status === "running", "retained-partition-workflow");
+      ensure(detail.authority?.workflowId === partitionWorkflow && detail.operation.status === "running", "retained-partition-workflow");
     });
     await step("survivor-readback", async () => {
       // J1's existing cleanup owns this exact private peer directory, including partial prepare failures.
@@ -131,7 +131,7 @@ export async function crashPartitionDriver(receiptFile: string, env = process.en
       const [running] = JSON.parse(await command("docker", ["inspect", peerId])) as Container[];
       ensure(running.Config.Labels["io.zenith.worker"] === peerWorkerId && running.State.Running && running.State.Health?.Status === "healthy", "independent-survivor");
       await session.terminal(partitionOperation);
-      ensure((await session.detail(partitionOperation)).operation.workflowId === partitionWorkflow, "same-partition-workflow");
+      ensure((await session.detail(partitionOperation)).authority?.workflowId === partitionWorkflow, "same-partition-workflow");
       session.readbacks.survivor = await session.readback(1);
     });
     let lastGeneration = 0;

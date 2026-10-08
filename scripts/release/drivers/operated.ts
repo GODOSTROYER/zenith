@@ -22,14 +22,11 @@ import { hostEnvironment } from "../../acceptance/default-stack/env.mjs";
 import { seededEpoch } from "../../acceptance/maintenance/preconditions";
 import { openPlatformDb } from "@/lib/controlplane/db";
 import type { PlatformDb } from "@/lib/controlplane/types";
+import type { OperationDetail } from "@/lib/capabilities/operations";
+import type { OperationProjection } from "@/lib/controlplane/authority";
 import { defaultExec, classifyVitest } from "../acceptance-orchestrator";
 
-export interface Detail {
-  operation: { id: string; status: string; proposalDigest: string; planDigest?: string; approvalRound: number; workflowId?: string; fenceToken?: number };
-  decision?: { approval?: { separationOfDuties?: boolean } };
-  planReview?: { semantics?: { digest?: string } };
-  approvals: { approverId: string; decision: string }[];
-}
+export type Detail = OperationStatusView;
 export interface Deployment {
   metadata: { uid: string; generation: number; annotations: Record<string, string>; labels: Record<string, string> };
   spec: { replicas: number; template: { metadata: { annotations?: Record<string, string> }; spec: { containers: { image: string; env?: { name: string; value?: string }[] }[] } } };
@@ -152,12 +149,12 @@ export class OperatedSession {
     const { operationId, deploymentId } = answer.result.data as { operationId: string; deploymentId: string };
     await this.approve(operationId);
     await action(this.b, "deploy.approve", { deploymentId }, { projectId: this.project.id, environmentId: this.environmentId });
-    await until(() => this.detail(operationId), value => value.operation.status === "awaiting_approval" && value.operation.approvalRound > 0);
+    await until(() => this.detail(operationId), value => value.operation.status === "awaiting_approval" && (value.operation.approvalRound ?? 0) > 0);
     await this.approve(operationId);
     await this.terminal(operationId);
     this.readbacks.baseline = await this.readback(1);
   }
-  detail(id: string): Promise<Detail> { return browserRequest(this.a, "/api/platform/v1/operations/" + id, undefined, "GET", this.workspaceId).then(ok) as Promise<Detail>; }
+  async detail(id: string): Promise<Detail> { return ok(await browserRequest(this.a, "/api/platform/v1/operations/" + id, undefined, "GET", this.workspaceId)); }
   async approve(id: string): Promise<void> {
     const before = await this.detail(id);
     ensure(before.operation.status === "awaiting_approval" && before.decision?.approval?.separationOfDuties === true, "approval-required");
@@ -274,7 +271,9 @@ export { command, ensure, sha256 };
 // J2's JS helper accepts JSON bodies; its inferred default-argument declaration
 // omits that optional field. Preserve the actual helper contract explicitly.
 const productRequest = jsonRequest as (url: string, options?: { method?: string; body?: unknown; headers?: Record<string, string> }) => Promise<{ status: number; data: unknown }>;
-type OperationStatusView = { operation: { status: string; approvalRound: number } };
+// GET /api/platform/v1/operations/:id returns the broker's OperationDetail.
+// Keep its optional review/round metadata; missing metadata cannot admit approval.
+type OperationStatusView = OperationDetail & { authority?: OperationProjection };
 
 export type OperatedScenario = "upgrade" | "restore";
 export interface DriverInput { scenarioId: OperatedScenario | TenantExportScenario; runId: string; sourceCommit: string; receiptFile: string; env: NodeJS.ProcessEnv }
@@ -410,7 +409,7 @@ export class UpgradeRestoreSession {
       { cwd: process.cwd(), env: { ...this.environment, ...env }, timeoutMs: 1_080_000 });
     ensure(classifyVitest(run.code, JSON.parse(readFileSync(report, "utf8"))).status === "passed", "strict-gate-result");
   }
-  async detail(id: string) { return ok(await browserRequest(this.a, `/api/platform/v1/operations/${id}`, undefined, "GET", this.workspaceId)); }
+  async detail(id: string): Promise<OperationStatusView> { return ok(await browserRequest(this.a, `/api/platform/v1/operations/${id}`, undefined, "GET", this.workspaceId)); }
   async approve(id: string): Promise<void> {
     const detail = await this.detail(id);
     ensure(detail.operation.status === "awaiting_approval" && detail.decision?.approval?.separationOfDuties === true, "human-review-required");
@@ -431,7 +430,7 @@ export class UpgradeRestoreSession {
     const result = answer.result.data;
     await this.approve(result.operationId);
     await action(this.b, "deploy.approve", { deploymentId: result.deploymentId }, { projectId: this.project.id, environmentId: this.environmentId });
-    const review = await until(() => this.detail(result.operationId), (v: OperationStatusView) => v.operation.status === "awaiting_approval" && v.operation.approvalRound > 0);
+    const review = await until(() => this.detail(result.operationId), (v: OperationStatusView) => v.operation.status === "awaiting_approval" && (v.operation.approvalRound ?? 0) > 0);
     ensure(review.operation.planDigest && review.planReview?.semantics?.digest, "immutable-plan-review");
     return result;
   }
@@ -974,7 +973,7 @@ export async function connectKind(ctx: OperatedContext, tenant: Tenant): Promise
   ctx.cleanup.add(async () => { ok(await browserRequest(owner, "/api/integrations/agent/link/revoke", { credentialId: tenant.agent!.credentialId })); });
 }
 
-export const detailOf = async (tenant: Tenant, operationId: string) => ok(await browserRequest(tenant.owner, "/api/platform/v1/operations/" + operationId, undefined, "GET", tenant.workspaceId));
+export const detailOf = async (tenant: Tenant, operationId: string): Promise<OperationStatusView> => ok(await browserRequest(tenant.owner, "/api/platform/v1/operations/" + operationId, undefined, "GET", tenant.workspaceId));
 export async function approveOperation(ctx: OperatedContext, tenant: Tenant, operationId: string): Promise<void> {
   const detail = await detailOf(tenant, operationId);
   ensure(detail.operation.status === "awaiting_approval" && detail.decision?.approval?.separationOfDuties === true, "human-approval-required");
@@ -991,10 +990,10 @@ export async function deployKind(ctx: OperatedContext, tenant: Tenant): Promise<
   tenant.operationId = result.operationId; tenant.deploymentId = result.deploymentId;
   await approveOperation(ctx, tenant, result.operationId);
   await action(tenant.approver, "deploy.approve", { deploymentId: result.deploymentId }, { projectId: tenant.project.id, environmentId: tenant.environmentId });
-  const inspected = await until(() => detailOf(tenant, result.operationId), (data: { operation: { status: string; approvalRound: number } }) => data.operation.status === "awaiting_approval" && data.operation.approvalRound > 0);
+  const inspected = await until(() => detailOf(tenant, result.operationId), (data: OperationStatusView) => data.operation.status === "awaiting_approval" && (data.operation.approvalRound ?? 0) > 0);
   ensure(/^[a-f0-9]{64}$/.test(inspected.operation.planDigest ?? "") && /^[a-f0-9]{64}$/.test(inspected.planReview?.semantics?.digest ?? ""), "immutable-plan-review");
   await approveOperation(ctx, tenant, result.operationId);
-  const terminal = await until(() => detailOf(tenant, result.operationId), (value: { operation: { status: string } }) => ["succeeded", "failed", "uncertain", "denied", "expired"].includes(value.operation.status));
+  const terminal = await until(() => detailOf(tenant, result.operationId), (value: OperationStatusView) => ["succeeded", "failed", "uncertain", "denied", "expired"].includes(value.operation.status));
   ensure(terminal.operation.status === "succeeded", "deployment-terminal");
 }
 /** Read the real objects and served witness through the independent observer, never API projections. */

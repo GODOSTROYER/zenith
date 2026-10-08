@@ -12,7 +12,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Let explicitly enabled native rehearsals drain their owned cleanup on new pushes.
+  cancel-in-progress: ${{ !(github.event_name == 'push' && (vars.ZENITH_LOCAL_DRV1 == '1' || vars.ZENITH_TEST_DRV2_OPERATED == '1' || vars.ZENITH_LOCAL_OPERATED == '1' || vars.ZENITH_LOCAL_DRIVER_D4 == '1')) }}
 
 # Two pins that every job in this repository now shares, written out literally
 # in each job rather than through an expression so that `tests/ci/release-gates.test.ts`
@@ -39,6 +40,445 @@ concurrency:
 # package.json declares a `prepare`/`postinstall` of its own.
 
 jobs:
+  # Native J15 driver jobs are explicit local rehearsals, not hosted or live-cloud acceptance.
+  # A trusted operated-rehearsal runner must provision a fresh current-source J1/J2
+  # fixture per job and reclaim it on any job exit; see docs/build/production/verify/DRV-4.md.
+  # Gates default off. Pull requests cannot run privileged native fixture jobs.
+  # One job owns the fixed J1/J2 ports and kind name at a time.
+  drv1-private-source:
+    if: github.event_name == 'push' && vars.ZENITH_LOCAL_DRV1 == '1'
+    runs-on: [self-hosted, macOS, ARM64, zenith-operated]
+    environment: operated-rehearsal
+    timeout-minutes: 45
+    concurrency:
+      group: zenith-operated-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-drv1-private-source
+      ZENITH_LOCAL_DRV1: "1"
+      ZENITH_LOCAL_TARGETS: "1"
+      ZENITH_LOCAL_JOINED_DRIVERS: "1"
+      ZENITH_ACCEPTANCE_DEFAULT_STACK: "1"
+      ZENITH_DEFAULT_JOURNEY: "1"
+      ZENITH_LOCAL_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-drv1-private-source
+      ZENITH_LOCAL_ROOT: ${{ vars.ZENITH_OPERATED_DRV1_PRIVATE_SOURCE_ROOT }}
+      ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: ${{ vars.ZENITH_OPERATED_DRV1_PRIVATE_SOURCE_STACK_DIR }}
+      ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV1_PRIVATE_SOURCE_CONFIG_FILE }}
+      ZENITH_LOCAL_SOURCE_BUILD_DECLARATION_FILE: ${{ vars.ZENITH_LOCAL_SOURCE_BUILD_DECLARATION_FILE }}
+      ZENITH_LOCAL_SOURCE_BINARY_FILE: ${{ vars.ZENITH_LOCAL_SOURCE_BINARY_FILE }}
+      ZENITH_LOCAL_SOURCE_REGISTRY_IMAGE: ${{ vars.ZENITH_LOCAL_SOURCE_REGISTRY_IMAGE }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Load the owned J1 host environment without printing credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ZENITH_LOCAL_ROOT:?fresh private root required}"
+          : "${ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR:?fresh owned lean J1 required}"
+          : "${ZENITH_LOCAL_JOURNEY_CONFIG_FILE:?fresh private J2 config required}"
+          node scripts/acceptance/default-stack/env.mjs "$ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR" "$ZENITH_LOCAL_ROOT/ci-host.env"
+          trap 'rm -f -- "$ZENITH_LOCAL_ROOT/ci-host.env"' EXIT
+          while IFS='=' read -r key value; do
+            printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
+          done < "$ZENITH_LOCAL_ROOT/ci-host.env"
+      - run: node scripts/ci/run-gate.mjs drv1-private-source --run
+      - name: Require the exact operated case and current-source execution
+        if: always()
+        run: node scripts/ci/run-gate.mjs drv1-private-source --validate .data-ci-lane/drv1-private-source.json --require-execution
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-drv1-private-source-evidence-${{ github.sha }}
+          path: .data-ci-lane/drv1-private-source-evidence.json
+          if-no-files-found: error
+          retention-days: 14
+
+  drv1-update-rollback:
+    if: github.event_name == 'push' && vars.ZENITH_LOCAL_DRV1 == '1'
+    runs-on: [self-hosted, macOS, ARM64, zenith-operated]
+    environment: operated-rehearsal
+    timeout-minutes: 45
+    concurrency:
+      group: zenith-operated-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-drv1-update-rollback
+      ZENITH_LOCAL_DRV1: "1"
+      ZENITH_LOCAL_TARGETS: "1"
+      ZENITH_LOCAL_JOINED_DRIVERS: "1"
+      ZENITH_ACCEPTANCE_DEFAULT_STACK: "1"
+      ZENITH_DEFAULT_JOURNEY: "1"
+      ZENITH_LOCAL_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-drv1-update-rollback
+      ZENITH_LOCAL_ROOT: ${{ vars.ZENITH_OPERATED_DRV1_UPDATE_ROLLBACK_ROOT }}
+      ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: ${{ vars.ZENITH_OPERATED_DRV1_UPDATE_ROLLBACK_STACK_DIR }}
+      ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV1_UPDATE_ROLLBACK_CONFIG_FILE }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Load the owned J1 host environment without printing credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ZENITH_LOCAL_ROOT:?fresh private root required}"
+          : "${ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR:?fresh owned lean J1 required}"
+          : "${ZENITH_LOCAL_JOURNEY_CONFIG_FILE:?fresh private J2 config required}"
+          node scripts/acceptance/default-stack/env.mjs "$ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR" "$ZENITH_LOCAL_ROOT/ci-host.env"
+          trap 'rm -f -- "$ZENITH_LOCAL_ROOT/ci-host.env"' EXIT
+          while IFS='=' read -r key value; do
+            printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
+          done < "$ZENITH_LOCAL_ROOT/ci-host.env"
+      - run: node scripts/ci/run-gate.mjs drv1-update-rollback --run
+      - name: Require the exact operated case and current-source execution
+        if: always()
+        run: node scripts/ci/run-gate.mjs drv1-update-rollback --validate .data-ci-lane/drv1-update-rollback.json --require-execution
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-drv1-update-rollback-evidence-${{ github.sha }}
+          path: .data-ci-lane/drv1-update-rollback-evidence.json
+          if-no-files-found: error
+          retention-days: 14
+
+  drv2-drift-repair:
+    if: github.event_name == 'push' && vars.ZENITH_TEST_DRV2_OPERATED == '1'
+    runs-on: [self-hosted, macOS, ARM64, zenith-operated]
+    environment: operated-rehearsal
+    timeout-minutes: 45
+    concurrency:
+      group: zenith-operated-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-drv2-drift-repair
+      ZENITH_TEST_DRV2_OPERATED: "1"
+      ZENITH_LOCAL_TARGETS: "1"
+      ZENITH_LOCAL_JOINED_DRIVERS: "1"
+      ZENITH_ACCEPTANCE_DEFAULT_STACK: "1"
+      ZENITH_DEFAULT_JOURNEY: "1"
+      ZENITH_LOCAL_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-drv2-drift-repair
+      ZENITH_LOCAL_ROOT: ${{ vars.ZENITH_OPERATED_DRV2_DRIFT_REPAIR_ROOT }}
+      ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: ${{ vars.ZENITH_OPERATED_DRV2_DRIFT_REPAIR_STACK_DIR }}
+      ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV2_DRIFT_REPAIR_CONFIG_FILE }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Load the owned J1 host environment without printing credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ZENITH_LOCAL_ROOT:?fresh private root required}"
+          : "${ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR:?fresh owned lean J1 required}"
+          : "${ZENITH_LOCAL_JOURNEY_CONFIG_FILE:?fresh private J2 config required}"
+          node scripts/acceptance/default-stack/env.mjs "$ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR" "$ZENITH_LOCAL_ROOT/ci-host.env"
+          trap 'rm -f -- "$ZENITH_LOCAL_ROOT/ci-host.env"' EXIT
+          while IFS='=' read -r key value; do
+            printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
+          done < "$ZENITH_LOCAL_ROOT/ci-host.env"
+      - run: node scripts/ci/run-gate.mjs drv2-drift-repair --run
+      - name: Require the exact operated case and current-source execution
+        if: always()
+        run: node scripts/ci/run-gate.mjs drv2-drift-repair --validate .data-ci-lane/drv2-drift-repair.json --require-execution
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-drv2-drift-repair-evidence-${{ github.sha }}
+          path: .data-ci-lane/drv2-drift-repair-evidence.json
+          if-no-files-found: error
+          retention-days: 14
+
+  drv2-crash-partition:
+    if: github.event_name == 'push' && vars.ZENITH_TEST_DRV2_OPERATED == '1'
+    runs-on: [self-hosted, macOS, ARM64, zenith-operated]
+    environment: operated-rehearsal
+    timeout-minutes: 45
+    concurrency:
+      group: zenith-operated-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-drv2-crash-partition
+      ZENITH_TEST_DRV2_OPERATED: "1"
+      ZENITH_LOCAL_TARGETS: "1"
+      ZENITH_LOCAL_JOINED_DRIVERS: "1"
+      ZENITH_ACCEPTANCE_DEFAULT_STACK: "1"
+      ZENITH_DEFAULT_JOURNEY: "1"
+      ZENITH_LOCAL_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-drv2-crash-partition
+      ZENITH_LOCAL_ROOT: ${{ vars.ZENITH_OPERATED_DRV2_CRASH_PARTITION_ROOT }}
+      ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: ${{ vars.ZENITH_OPERATED_DRV2_CRASH_PARTITION_STACK_DIR }}
+      ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV2_CRASH_PARTITION_CONFIG_FILE }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Load the owned J1 host environment without printing credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ZENITH_LOCAL_ROOT:?fresh private root required}"
+          : "${ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR:?fresh owned lean J1 required}"
+          : "${ZENITH_LOCAL_JOURNEY_CONFIG_FILE:?fresh private J2 config required}"
+          node scripts/acceptance/default-stack/env.mjs "$ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR" "$ZENITH_LOCAL_ROOT/ci-host.env"
+          trap 'rm -f -- "$ZENITH_LOCAL_ROOT/ci-host.env"' EXIT
+          while IFS='=' read -r key value; do
+            printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
+          done < "$ZENITH_LOCAL_ROOT/ci-host.env"
+      - run: node scripts/ci/run-gate.mjs drv2-crash-partition --run
+      - name: Require the exact operated case and current-source execution
+        if: always()
+        run: node scripts/ci/run-gate.mjs drv2-crash-partition --validate .data-ci-lane/drv2-crash-partition.json --require-execution
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-drv2-crash-partition-evidence-${{ github.sha }}
+          path: .data-ci-lane/drv2-crash-partition-evidence.json
+          if-no-files-found: error
+          retention-days: 14
+
+  j15-operated-upgrade:
+    if: github.event_name == 'push' && vars.ZENITH_LOCAL_OPERATED == '1'
+    runs-on: [self-hosted, macOS, ARM64, zenith-operated]
+    environment: operated-rehearsal
+    timeout-minutes: 45
+    concurrency:
+      group: zenith-operated-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-j15-operated-upgrade
+      ZENITH_LOCAL_OPERATED: "1"
+      ZENITH_LOCAL_TARGETS: "1"
+      ZENITH_LOCAL_JOINED_DRIVERS: "1"
+      ZENITH_ACCEPTANCE_DEFAULT_STACK: "1"
+      ZENITH_DEFAULT_JOURNEY: "1"
+      ZENITH_LOCAL_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-j15-operated-upgrade
+      ZENITH_LOCAL_ROOT: ${{ vars.ZENITH_OPERATED_DRV3_UPGRADE_ROOT }}
+      ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: ${{ vars.ZENITH_OPERATED_DRV3_UPGRADE_STACK_DIR }}
+      ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV3_UPGRADE_CONFIG_FILE }}
+      ZENITH_LOCAL_UPGRADE_IMAGES_FILE: ${{ vars.ZENITH_LOCAL_UPGRADE_IMAGES_FILE }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Load the owned J1 host environment without printing credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ZENITH_LOCAL_ROOT:?fresh private root required}"
+          : "${ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR:?fresh owned lean J1 required}"
+          : "${ZENITH_LOCAL_JOURNEY_CONFIG_FILE:?fresh private J2 config required}"
+          node scripts/acceptance/default-stack/env.mjs "$ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR" "$ZENITH_LOCAL_ROOT/ci-host.env"
+          trap 'rm -f -- "$ZENITH_LOCAL_ROOT/ci-host.env"' EXIT
+          while IFS='=' read -r key value; do
+            printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
+          done < "$ZENITH_LOCAL_ROOT/ci-host.env"
+      - run: node scripts/ci/run-gate.mjs j15-operated-upgrade --run
+      - name: Require the exact operated case and current-source execution
+        if: always()
+        run: node scripts/ci/run-gate.mjs j15-operated-upgrade --validate .data-ci-lane/j15-operated-upgrade.json --require-execution
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-j15-operated-upgrade-evidence-${{ github.sha }}
+          path: .data-ci-lane/j15-operated-upgrade-evidence.json
+          if-no-files-found: error
+          retention-days: 14
+
+  j15-operated-restore:
+    if: github.event_name == 'push' && vars.ZENITH_LOCAL_OPERATED == '1'
+    runs-on: [self-hosted, macOS, ARM64, zenith-operated]
+    environment: operated-rehearsal
+    timeout-minutes: 45
+    concurrency:
+      group: zenith-operated-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-j15-operated-restore
+      ZENITH_LOCAL_OPERATED: "1"
+      ZENITH_LOCAL_TARGETS: "1"
+      ZENITH_LOCAL_JOINED_DRIVERS: "1"
+      ZENITH_ACCEPTANCE_DEFAULT_STACK: "1"
+      ZENITH_DEFAULT_JOURNEY: "1"
+      ZENITH_LOCAL_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-j15-operated-restore
+      ZENITH_LOCAL_ROOT: ${{ vars.ZENITH_OPERATED_DRV3_RESTORE_ROOT }}
+      ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: ${{ vars.ZENITH_OPERATED_DRV3_RESTORE_STACK_DIR }}
+      ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV3_RESTORE_CONFIG_FILE }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Load the owned J1 host environment without printing credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ZENITH_LOCAL_ROOT:?fresh private root required}"
+          : "${ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR:?fresh owned lean J1 required}"
+          : "${ZENITH_LOCAL_JOURNEY_CONFIG_FILE:?fresh private J2 config required}"
+          node scripts/acceptance/default-stack/env.mjs "$ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR" "$ZENITH_LOCAL_ROOT/ci-host.env"
+          trap 'rm -f -- "$ZENITH_LOCAL_ROOT/ci-host.env"' EXIT
+          while IFS='=' read -r key value; do
+            printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
+          done < "$ZENITH_LOCAL_ROOT/ci-host.env"
+      - run: node scripts/ci/run-gate.mjs j15-operated-restore --run
+      - name: Require the exact operated case and current-source execution
+        if: always()
+        run: node scripts/ci/run-gate.mjs j15-operated-restore --validate .data-ci-lane/j15-operated-restore.json --require-execution
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-j15-operated-restore-evidence-${{ github.sha }}
+          path: .data-ci-lane/j15-operated-restore-evidence.json
+          if-no-files-found: error
+          retention-days: 14
+
+  drivers-d4-two-tenants:
+    if: github.event_name == 'push' && vars.ZENITH_LOCAL_DRIVER_D4 == '1'
+    runs-on: [self-hosted, macOS, ARM64, zenith-operated]
+    environment: operated-rehearsal
+    timeout-minutes: 45
+    concurrency:
+      group: zenith-operated-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-drivers-d4-two-tenants
+      ZENITH_LOCAL_DRIVER_D4: "1"
+      ZENITH_LOCAL_TARGETS: "1"
+      ZENITH_LOCAL_JOINED_DRIVERS: "1"
+      ZENITH_ACCEPTANCE_DEFAULT_STACK: "1"
+      ZENITH_DEFAULT_JOURNEY: "1"
+      ZENITH_LOCAL_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-drivers-d4-two-tenants
+      ZENITH_LOCAL_ROOT: ${{ vars.ZENITH_OPERATED_DRV4_TWO_TENANTS_ROOT }}
+      ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: ${{ vars.ZENITH_OPERATED_DRV4_TWO_TENANTS_STACK_DIR }}
+      ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV4_TWO_TENANTS_CONFIG_FILE }}
+      ZENITH_LOCAL_TWO_TENANTS_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV4_TWO_TENANTS_CONFIG_FILE }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Load the owned J1 host environment without printing credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ZENITH_LOCAL_ROOT:?fresh private root required}"
+          : "${ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR:?fresh owned lean J1 required}"
+          : "${ZENITH_LOCAL_JOURNEY_CONFIG_FILE:?fresh private J2 config required}"
+          node scripts/acceptance/default-stack/env.mjs "$ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR" "$ZENITH_LOCAL_ROOT/ci-host.env"
+          trap 'rm -f -- "$ZENITH_LOCAL_ROOT/ci-host.env"' EXIT
+          while IFS='=' read -r key value; do
+            printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
+          done < "$ZENITH_LOCAL_ROOT/ci-host.env"
+      - run: node scripts/ci/run-gate.mjs drivers-d4-two-tenants --run
+      - name: Require the exact operated case and current-source execution
+        if: always()
+        run: node scripts/ci/run-gate.mjs drivers-d4-two-tenants --validate .data-ci-lane/drivers-d4-two-tenants.json --require-execution
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-drivers-d4-two-tenants-evidence-${{ github.sha }}
+          path: .data-ci-lane/drivers-d4-two-tenants-evidence.json
+          if-no-files-found: error
+          retention-days: 14
+
+  drivers-d4-export:
+    if: github.event_name == 'push' && vars.ZENITH_LOCAL_DRIVER_D4 == '1' && vars.ZENITH_LOCAL_EXPORT_DATA == '1'
+    runs-on: [self-hosted, macOS, ARM64, zenith-operated]
+    environment: operated-rehearsal
+    timeout-minutes: 45
+    concurrency:
+      group: zenith-operated-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-drivers-d4-export
+      ZENITH_LOCAL_DRIVER_D4: "1"
+      ZENITH_LOCAL_TARGETS: "1"
+      ZENITH_LOCAL_JOINED_DRIVERS: "1"
+      ZENITH_ACCEPTANCE_DEFAULT_STACK: "1"
+      ZENITH_DEFAULT_JOURNEY: "1"
+      ZENITH_LOCAL_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-drivers-d4-export
+      ZENITH_LOCAL_ROOT: ${{ vars.ZENITH_OPERATED_DRV4_EXPORT_ROOT }}
+      ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: ${{ vars.ZENITH_OPERATED_DRV4_EXPORT_STACK_DIR }}
+      ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV4_EXPORT_CONFIG_FILE }}
+      ZENITH_LOCAL_EXPORT_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV4_EXPORT_CONFIG_FILE }}
+      ZENITH_LOCAL_EXPORT_DATA: "1"
+      ZENITH_LOCAL_EXPORT_POSTGRES_IMAGE: ${{ vars.ZENITH_LOCAL_EXPORT_POSTGRES_IMAGE }}
+      ZENITH_LOCAL_EXPORT_MYSQL_IMAGE: ${{ vars.ZENITH_LOCAL_EXPORT_MYSQL_IMAGE }}
+      ZENITH_LOCAL_EXPORT_MINIO_IMAGE: ${{ vars.ZENITH_LOCAL_EXPORT_MINIO_IMAGE }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Load the owned J1 host environment without printing credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ZENITH_LOCAL_ROOT:?fresh private root required}"
+          : "${ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR:?fresh owned lean J1 required}"
+          : "${ZENITH_LOCAL_JOURNEY_CONFIG_FILE:?fresh private J2 config required}"
+          node scripts/acceptance/default-stack/env.mjs "$ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR" "$ZENITH_LOCAL_ROOT/ci-host.env"
+          trap 'rm -f -- "$ZENITH_LOCAL_ROOT/ci-host.env"' EXIT
+          while IFS='=' read -r key value; do
+            printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
+          done < "$ZENITH_LOCAL_ROOT/ci-host.env"
+      - run: node scripts/ci/run-gate.mjs drivers-d4-export --run
+      - name: Require the exact operated case and current-source execution
+        if: always()
+        run: node scripts/ci/run-gate.mjs drivers-d4-export --validate .data-ci-lane/drivers-d4-export.json --require-execution
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-drivers-d4-export-evidence-${{ github.sha }}
+          path: .data-ci-lane/drivers-d4-export-evidence.json
+          if-no-files-found: error
+          retention-days: 14
+
   verify:
     runs-on: ubuntu-latest
     # Serial full-suite execution takes about 16 minutes before setup, typecheck

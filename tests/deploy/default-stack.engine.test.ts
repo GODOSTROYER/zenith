@@ -12,11 +12,14 @@ describe.skipIf(!enabled)('genuine default stack, needs Docker, Supabase CLI and
   afterAll(async () => { if (state && !cleaned) await cleanup(state); }, 1_200_000);
   it('observes real API and worker health, HTTPS and verified pooler TLS', async () => {
     const receipt = await readiness(state); expect(receipt.failed).toBe(0); expect(receipt.skipped).toBe(0);
+    expect(receipt.authority.sameDatabase).toBe(true); expect(receipt.authority.sameSystemIdentifier).toBe(true);
+    expect(receipt.authority.maxMigrationVersion).toBe(receipt.authority.highestRegisteredVersion);
+    expect(receipt.authority.platformTablesRlsEnabled).toBe(true); expect(receipt.authority.privateSchemaUsageRefused).toBe(true);
     expect(receipt.apis).toBe(state.profile === 'lean' ? 1 : 2); expect(receipt.workers).toBe(receipt.apis);
   }, 180_000);
   it('applies real Supabase migrations and proves authorization, concurrent transactions and restore readback', async () => {
     const receipt = await verifyDatabase(state); expect(receipt.failed).toBe(0); expect(receipt.skipped).toBe(0);
-    expect(receipt.hostedProductionAcceptance).toBe(false); expect(receipt.productRecovery.authorizationPreserved).toBe(true);
+    expect(receipt.hostedProductionAcceptance).toBe(false); expect(receipt.authorityRecovery.authorizationPreserved).toBe(true);
   }, 600_000);
   it('leaves zero ownership-labelled Docker resources', async () => {
     const receipt = await cleanup(state); cleaned = true;

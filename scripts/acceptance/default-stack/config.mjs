@@ -24,11 +24,11 @@ export function topology(profile = 'default') {
     // Limits are a plan, not measured headroom or an HA claim.
     apiMiB: profile === 'lean' ? 512 : 768, workerMiB: profile === 'lean' ? 768 : 1024,
     supabaseMiB: { db: 512, auth: 192, rest: 96, kong: 128, pooler: 256, inbucket: 64 },
-    nativeArchOnly: true, productionReady: false };
+    poolSize: profile === 'lean' ? 5 : 15, nativeArchOnly: true, productionReady: false };
 }
 
 /** Generate only the isolated CLI project's settings; never copy secrets into source. */
-export function supabaseConfig(projectId) {
+export function supabaseConfig(projectId, profile = 'default') {
   if (!/^zenith-local-[a-f0-9]{24}$/.test(projectId)) fail('project-identity');
   return `project_id = "${projectId}"
 [api]
@@ -46,7 +46,7 @@ major_version = 17
 enabled = true
 port = ${ports.cliPooler}
 pool_mode = "transaction"
-default_pool_size = 5
+default_pool_size = ${topology(profile).poolSize}
 max_client_conn = 40
 [db.migrations]
 enabled = false
@@ -110,15 +110,13 @@ export function stackComposition(config, directory, profile, gatewayImage, peer)
     if (name === 'api' || name === 'execution-worker' || name === 'platform-migrate') continue;
     document.services[name] = { ...raw, labels };
   }
-  document.services['platform-db'].mem_limit = '384m';
   document.services.temporal.mem_limit = '256m';
   for (const [name, service] of Object.entries(base.services)) {
     document.services[name] = { ...service, labels,
       env_file: [{ path: path.join(directory, name === 'api' ? 'api.env' : name === 'execution-worker' ? 'worker.env' : 'migration.env'), format: 'raw' }],
-      depends_on: engines.services[name].depends_on,
+      ...(engines.services[name]?.depends_on ? { depends_on: engines.services[name].depends_on } : {}),
     };
   }
-  document.services['platform-db'].env_file = [{ path: path.join(directory, 'platform.env'), format: 'raw' }];
   for (const [name, limit] of [['api', sizing.apiMiB], ['execution-worker', sizing.workerMiB], ['platform-migrate', 512]]) {
     const service = document.services[name];
     service.image = digestImage(config.images[name === 'api' ? 'api' : name === 'execution-worker' ? 'worker' : 'migration']);

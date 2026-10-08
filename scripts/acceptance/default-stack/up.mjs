@@ -42,7 +42,10 @@ async function boundCliService(state, role) {
   if (state.imageLock && JSON.stringify(state.imageLock.find(value => value.role === role)) !== JSON.stringify(snapshot)) fail('cli-image-lock');
   const envFile = path.join(state.directory, `${role}.env`);
   const env = item.Config.Env.map(value => role === 'auth' && value.startsWith('API_EXTERNAL_URL=') ? `API_EXTERNAL_URL=https://supabase.localhost:${ports.supabase}` : value);
-  if (role === 'pooler') env.push('GLOBAL_DOWNSTREAM_CERT_PATH=/run/zenith/pooler.crt', 'GLOBAL_DOWNSTREAM_KEY_PATH=/run/zenith/pooler.key', 'DB_POOL_SIZE=5', 'ERL_FLAGS=+S 2:2 +SDcpu 1 +SDio 1');
+  if (role === 'pooler') {
+    for (let i = env.length - 1; i >= 0; i--) if (env[i].startsWith('DB_POOL_SIZE=')) env.splice(i, 1);
+    env.push('GLOBAL_DOWNSTREAM_CERT_PATH=/run/zenith/pooler.crt', 'GLOBAL_DOWNSTREAM_KEY_PATH=/run/zenith/pooler.key', `DB_POOL_SIZE=${topology(state.profile).poolSize}`, 'ERL_FLAGS=+S 2:2 +SDcpu 1 +SDio 1');
+  }
   if (env.some(value => /[\r\n\0]/.test(value))) fail('cli-environment');
   privateFile(envFile, env.join('\n') + '\n');
   const args = ['create', '--name', name, '--network', state.supabaseNetwork,
@@ -112,7 +115,7 @@ export async function up(directory, profile = 'default', imageLockFile) {
   try {
     await certificates(path.join(dir, 'tls'));
     const cliDir = path.join(dir, 'supabase-project'); fs.mkdirSync(path.join(cliDir, 'supabase'), { recursive: true, mode: 0o700 });
-    privateFile(path.join(cliDir, 'supabase/config.toml'), supabaseConfig(state.projectId));
+    privateFile(path.join(cliDir, 'supabase/config.toml'), supabaseConfig(state.projectId, profile));
     await docker(['network', 'create', '--label', `${installationLabel}=${installationId}`, '--opt', 'com.docker.network.bridge.host_binding_ipv4=127.0.0.1', state.supabaseNetwork]);
     await run('supabase', ['start', '--workdir', cliDir, '--network-id', state.supabaseNetwork, '--exclude', 'storage-api,imgproxy,realtime,studio,pg-meta,logflare,vector,edge-runtime'], { timeout: 600_000, id: 'supabase-start' });
     const status = JSON.parse(await run('supabase', ['status', '--workdir', cliDir, '--output', 'json']));
@@ -162,11 +165,16 @@ export async function up(directory, profile = 'default', imageLockFile) {
     state.compositionSha256 = createHash('sha256').update(fs.readFileSync(path.join(dir, 'installation/stack.compose.json'))).digest('hex');
     save(path.join(dir, 'state.json'), state);
     await compose(state, ['config', '--quiet']);
-    await compose(state, ['up', '-d', '--wait', '--wait-timeout', '180', 'platform-db', 'temporal']);
+    await compose(state, ['up', '-d', '--wait', '--wait-timeout', '180', 'temporal']);
     const network = `${config.projectName}_installation`;
     await docker(['network', 'connect', network, `supabase_kong_${state.projectId}`]);
     await docker(['network', 'connect', '--alias', 'supabase-pooler', network, `supabase_pooler_${state.projectId}`]);
-    await compose(state, ['run', '--rm', '--no-deps', 'platform-migrate']);
+    await docker(['network', 'connect', '--alias', 'supabase-db', network, dbContainer]);
+    // Committed Supabase snapshots already install platform. Refuse a stale
+    // ledger instead of silently installing missing platform migrations here.
+    await compose(state, ['run', '--rm', '--no-deps', 'platform-migrate', '--status']);
+    const migration = await compose(state, ['run', '--rm', '--no-deps', 'platform-migrate']);
+    if (!migration.endsWith('Already up to date.')) fail('platform-migration-not-noop');
     await compose(state, ['up', '-d', '--wait', '--wait-timeout', '300']);
     save(path.join(dir, 'state.json'), state);
     const receipt = await readiness(state);

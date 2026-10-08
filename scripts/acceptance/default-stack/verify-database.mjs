@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomBytes, createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { cli, requireEngineGate, docker, compose, readState, save } from './runtime.mjs';
+import { cli, requireEngineGate, docker, readState, save } from './runtime.mjs';
 import { supabaseRequest, poolerProbe, readiness } from './readiness.mjs';
 import { readPrepared } from '../../deploy/installation.mjs';
 import { root, fail } from './config.mjs';
@@ -45,8 +45,7 @@ export async function verifyDatabase(state) {
   requireEngineGate(); await readiness(state);
   const config = readPrepared(path.join(state.directory, 'installation'));
   const product = `supabase_db_${state.projectId}`;
-  const platform = await compose(state, ['ps', '-q', 'platform-db']);
-  if (!/^[a-f0-9]{64}$/.test(platform)) fail('platform-container');
+  const authority = await poolerProbe(state, 'authority');
   const publicHeaders = { apikey: config.environment.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY };
   const checks = {};
   for (const schema of ['platform', 'agent']) {
@@ -66,21 +65,22 @@ export async function verifyDatabase(state) {
     checks['postgrest-service-row-readback'] = serviceResult.status === 200 && JSON.parse(serviceResult.body).length === 1 && JSON.parse(serviceResult.body)[0].id === id;
   } finally { await psql(product, 'postgres', `delete from public.workspaces where id='${id}' and workspace_id='${id}';`); }
   // Genuine Supabase roles and native privileges. No stand-in role creation.
-  const permissions = await psql(product, 'postgres', `select not has_schema_privilege('anon','platform','usage') and not has_schema_privilege('authenticated','agent','usage');`);
+  const permissions = await psql(product, 'postgres', `select bool_and(not has_schema_privilege(role,schema,'usage')) from (values ('anon'),('authenticated')) roles(role) cross join (values ('platform'),('agent')) schemas(schema);`);
   checks['native-role-boundary'] = permissions === 't';
+  checks['single-database-authority'] = authority.sameDatabase === true && authority.sameSystemIdentifier === true;
+  checks['platform-schema-version'] = authority.maxMigrationVersion === authority.highestRegisteredVersion;
+  checks['platform-tables-rls'] = authority.platformTablesRlsEnabled === true && authority.platformTableCount > 0;
   const concurrency = await poolerProbe(state, 'concurrency');
   checks['tls-pooler-concurrency'] = concurrency.concurrentTransactions === 8 && concurrency.finalValue === 8;
   const migrations = fs.readdirSync(path.join(root, 'supabase/migrations')).filter(file => /^\d+.*\.sql$/.test(file)).sort();
   // Reapplication proves the actual immutable snapshots' idempotent path.
   for (const file of migrations) await psql(product, 'postgres', fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8'));
   checks['supabase-migration-reapply'] = true;
-  const productRecovery = await recovery(state, product, 'postgres', 'product');
-  const platformRecovery = await recovery(state, platform, 'zenith_platform', 'platform');
-  checks['product-backup-restore'] = productRecovery.restored;
-  checks['platform-backup-restore'] = platformRecovery.restored;
+  const authorityRecovery = await recovery(state, product, 'postgres', 'authority');
+  checks['single-authority-backup-restore'] = authorityRecovery.restored;
   const receipt = { schemaVersion: 1, kind: 'local_engine', source: state.source, architecture: state.architecture, profile: state.profile,
     checks, migrations: migrations.map(file => ({ file, sha256: hash(fs.readFileSync(path.join(root, 'supabase/migrations', file))) })),
-    productRecovery, platformRecovery, passed: Object.values(checks).filter(Boolean).length, failed: Object.values(checks).filter(value => !value).length, skipped: 0,
+    authority, authorityRecovery, passed: Object.values(checks).filter(Boolean).length, failed: Object.values(checks).filter(value => !value).length, skipped: 0,
     hostedProductionAcceptance: false, crossWorkerExecution: false, cleanHostRecovery: false, productionReady: false };
   save(path.join(state.directory, 'database.receipt.json'), receipt);
   if (receipt.failed) fail('database-acceptance');

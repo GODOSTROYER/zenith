@@ -1,79 +1,129 @@
-# J1 builder report
+# J1 single-database revision report
 
-Worktree: `Z:/Projects/Spawned.ai/zenith-wt/prod6-j1-default-stack`; branch `prod/j1-default-stack`; base `3a9de905`. All changes are uncommitted. No `.git` mutation, npm installation, package edit, migration edit, Docker execution or cloud call. PKG-04/06 implementation statuses are `implementation_complete_verification_pending`; acceptance states remain `in_progress`.
+Worktree: Z:/Projects/Spawned.ai/zenith-wt/prod6-j1-default-stack, branch prod/j1-default-stack.
+Revision base: orchestrator commit 08d7d4b5. Changes are uncommitted for integration.
+The owner's round-2 decision replaces the separate-server topology. No .git writes,
+package installations/edits, new migrations, published SQL edits, Docker operations,
+real credentials or cloud calls were made on the builder. Only PKG-04/06 ledger notes
+changed; both implementation statuses remain implementation_complete_verification_pending.
 
-## Files changed or added (19)
+## Changed files (21)
 
-Modified:
+- scripts/deploy/installation.mjs: exact shared runtime URL, same-project direct/session
+  migrator validation, derived local direct URL, v2 format and explicit v1 refusal,
+  no platform.env, corrected disposable resource plan; private/TLS/source guards retained.
+- deploy/self-hosted/compose.disposable.yml: remove platform-db, its volume/dependencies;
+  keep pinned Temporal. compose.yml and production.input.example.json: supported topology.
+- scripts/acceptance/default-stack/config.mjs, up.mjs: one Supabase DB, direct migration
+  network alias, no-op migration status/apply check, default pool size 15 (lean 5).
+- scripts/acceptance/default-stack/readiness.mjs, pooler-probe.mjs, verify-database.mjs:
+  actual native database/system identifier comparison, max migration equals the highest
+  registered version imported from migrations/index.ts, no private schema USAGE for
+  anon/authenticated, RLS on every platform table, real PostgREST PGRST106 refusals,
+  one backup/restore covering public/hosted/agent/platform. Peer HTTP probes preserve
+  canonical Host on the declared second transport port.
+- src/lib/controlplane/db/repos/workflow-start-deploy-authority.ts: export pure
+  mcpCompositionFromEnv. Endpoint comparison predicate, opened-handle provenance,
+  actual database/role/schema query, default REST-client check and both rechecks retained.
+  workflow-start-intents.ts and its permanent attempt CAS are unchanged.
+- tests/deploy/installation.test.ts, default-stack.test.ts, default-stack.engine.test.ts,
+  tests/controlplane/mcp-product-endpoint.test.ts: derived/mismatched URLs, migration
+  realm validation, v1 format, absent platform service/env/volume, exact API/worker URLs,
+  installer-to-MCP local/hosted contracts, canonical peer Host and real engine assertions.
+- tests/deploy/installation.native.test.ts (new): original private directory, symlink,
+  keyring, effective-env, HTTP and actual Compose assertions retained for the POSIX
+  successor, plus actual v1 private-directory refusal. Explicit gate:
+  ZENITH_ACCEPTANCE_INSTALLATION_PRIVATE=1. No assertion deleted or weakened.
+- docs/platform/INSTALLATION.md, docs/adr/0002-platform-control-store.md,
+  docs/build/production/verify/PKG-04.md, PKG-06.md, J1-REPORT.md and
+  docs/build/production/ledger.json: one-authority architecture, runtime postgres role,
+  unsupported future split without a new DUR protocol, exact lean Mac setup/pooler,
+  browser human approval, two actual API claims, native Temporal history and cleanup.
 
-- `scripts/deploy/installation.mjs`
-- `src/lib/controlplane/db/repos/workflow-start-deploy-authority.ts`
-- `tests/deploy/installation.test.ts`
-- `docs/build/production/ledger.json` (only PKG-04/06 rows)
+Cleanup code itself already enumerates only exact ownership labels and contains no
+platform service/database selector. It continues to clean owned v1 resources, including
+obsolete platform containers/volumes, before fresh v2 preparation. No global prune.
 
-Added:
+## Exact verification commands and counts
 
-- `deploy/self-hosted/supabase-gateway.mjs`
-- `scripts/acceptance/default-stack/config.mjs`
-- `scripts/acceptance/default-stack/runtime.mjs`
-- `scripts/acceptance/default-stack/up.mjs`
-- `scripts/acceptance/default-stack/readiness.mjs`
-- `scripts/acceptance/default-stack/cleanup.mjs`
-- `scripts/acceptance/default-stack/pooler-probe.mjs`
-- `scripts/acceptance/default-stack/verify-database.mjs`
-- `src/lib/controlplane/db/repos/mcp-product-endpoint.ts`
-- `tests/deploy/default-stack.test.ts`
-- `tests/deploy/default-stack.engine.test.ts`
-- `tests/controlplane/mcp-product-endpoint.test.ts`
-- `docs/build/production/verify/PKG-04.md`
-- `docs/build/production/verify/PKG-06.md`
-- `docs/build/production/verify/J1-REPORT.md`
+All PowerShell invocations prepend C:\Users\user\.local\sdk\node22 to PATH.
+Git Bash starts with export PATH="/c/Users/user/.local/sdk/node22:$PATH".
+Counts below are cases for Vitest and command invocations for compiler/lint/syntax.
+Repeated runs overlap and do not constitute additional unique coverage.
 
-## Executed verification commands
-
-Every PowerShell invocation prepended `C:\Users\user\.local\sdk\node22` to `PATH`. Node version readback: **v22.23.3**. Compiler invocations additionally set `NODE_OPTIONS=--max-old-space-size=4096`. Unit rows count test cases; compiler/lint/syntax rows count command invocations. Repeated runs overlap and must not be summed into unique coverage.
-
-| Exact command | Observed pass / fail / skip |
+| Command | Pass / fail / skip |
 | --- | --- |
-| `npx tsc --noEmit -p .` (first pass) | 1 / 0 / 0; exit 0, no diagnostics |
-| `npx tsc --noEmit -p .` (incremental successor after fixes) | 1 / 0 / 0; exit 0, no diagnostics |
-| `npx vitest run tests/deploy/default-stack.test.ts tests/controlplane/mcp-product-endpoint.test.ts tests/deploy/default-stack.engine.test.ts --no-file-parallelism --maxWorkers=2` (04:29 run) | 26 / 0 / 3; 2 passed files, 1 gated file |
-| Same exact vitest command (04:38 successor) | 26 / 0 / 3; 2 passed files, 1 gated file |
-| Same exact vitest command (04:46 successor) | 27 / 0 / 3; 2 passed files, 1 gated file |
-| Same exact vitest command (04:51 final successor) | 27 / 0 / 3; 2 passed files, 1 gated file |
-| `npx vitest run tests/controlplane/mcp-deploy-admission.test.ts --no-file-parallelism --maxWorkers=2` | 0 / 0 / 18; existing real-PostgreSQL gate, no native cases executed |
-| ESLint command below, first run | 1 / 0 / 0; exit 0; 0 errors, 1 warning (`no-unused-expressions`), subsequently fixed |
-| Same exact ESLint command, three successors | Each 1 / 0 / 0; exit 0; 0 errors, 0 warnings |
-| `node --check scripts/acceptance/default-stack/up.mjs`; `node --check scripts/acceptance/default-stack/config.mjs`; `node --check scripts/deploy/installation.mjs` (initial syntax checks) | 3 / 0 / 0 |
-| `node --check scripts/acceptance/default-stack/up.mjs`; `node --check scripts/acceptance/default-stack/runtime.mjs` (runner fix checks) | 2 / 0 / 0 |
-| Syntax loop below (three complete runs) | Each 9 / 0 / 0 |
-| `git diff --check` (repeated focused checks) | Every invocation exit 0; no whitespace errors |
-| Node inline JSON comparison of `git show HEAD:docs/build/production/ledger.json` with the working tree, excluding only `PROD-PKG-04`/`PROD-PKG-06` | 1 / 0 / 0; `unownedLedgerRowsUnchanged=true` |
+| bash /z/Projects/Spawned.ai/zenith-wt/.resume/codex/tsc-serial.sh, first run | 0 / 1 / 0; exit 2, TS2353 in installation.test.ts:117 (excess-property fixture typing) |
+| Same serialized compiler after fixes | 1 / 0 / 0; exit 0, no diagnostics |
+| npx vitest run tests/deploy/installation.test.ts tests/deploy/default-stack.test.ts tests/controlplane/mcp-product-endpoint.test.ts tests/deploy/installation.native.test.ts tests/deploy/default-stack.engine.test.ts --no-file-parallelism --maxWorkers=2 | 94 / 0 / 68; 3 passed files, 2 gated files |
+| npx vitest run tests/deploy/installation.test.ts tests/deploy/default-stack.test.ts tests/controlplane/mcp-product-endpoint.test.ts tests/deploy/installation.native.test.ts tests/deploy/default-stack.engine.test.ts tests/controlplane/mcp-deploy-admission.test.ts --no-file-parallelism --maxWorkers=2 | 95 / 0 / 86; 3 passed files, 3 gated files |
+| npx eslint scripts/deploy/installation.mjs scripts/acceptance/default-stack/*.mjs src/lib/controlplane/db/repos/workflow-start-deploy-authority.ts tests/deploy/installation.test.ts tests/deploy/installation.native.test.ts tests/deploy/default-stack.test.ts tests/controlplane/mcp-product-endpoint.test.ts | 1 / 0 / 0; 0 errors, 0 warnings |
+| npx eslint scripts/deploy/installation.mjs scripts/acceptance/default-stack/*.mjs src/lib/controlplane/db/repos/workflow-start-deploy-authority.ts tests/deploy/installation.test.ts tests/deploy/installation.native.test.ts tests/deploy/default-stack.test.ts tests/deploy/default-stack.engine.test.ts tests/controlplane/mcp-product-endpoint.test.ts | 1 / 0 / 0; 0 errors, 0 warnings |
+| npx eslint tests/deploy/installation.test.ts tests/controlplane/mcp-product-endpoint.test.ts tests/deploy/installation.native.test.ts, after typing fixes | 1 / 0 / 0; 0 errors, 0 warnings |
+| Syntax loop below, initial (without final gateway check) | 8 / 0 / 0 |
+| Full syntax loop below | 9 / 0 / 0 |
+| node --check scripts/deploy/installation.mjs, after footprint correction | 1 / 0 / 0 |
+| PKG-04 inline Node blocks piped to node --input-type=module --check, first/successor/final | 4 / 0 / 0, 5 / 0 / 0 and 5 / 0 / 0; syntax only, including nested Temporal history script, no requests executed |
+| Node JSON integrity checks using git show HEAD:docs/build/production/ledger.json and JSON.parse of production.input.example.json | 2 / 0 / 0; unowned ledger rows unchanged, example JSON valid |
+| git diff --check (five focused runs, including final report) | Each 1 / 0 / 0 |
 
-Exact ESLint command:
+Exact full syntax loop:
 
-```powershell
-npx eslint scripts/deploy/installation.mjs scripts/acceptance/default-stack/*.mjs deploy/self-hosted/supabase-gateway.mjs src/lib/controlplane/db/repos/mcp-product-endpoint.ts src/lib/controlplane/db/repos/workflow-start-deploy-authority.ts tests/deploy/default-stack.test.ts tests/deploy/default-stack.engine.test.ts tests/deploy/installation.test.ts tests/controlplane/mcp-product-endpoint.test.ts
-```
-
-Exact complete syntax loop (seven acceptance scripts plus installer and HTTPS gateway):
-
-```powershell
-Get-ChildItem -LiteralPath 'scripts/acceptance/default-stack' -Filter '*.mjs' | ForEach-Object { node --check $_.FullName; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }
+~~~powershell
+Get-ChildItem -LiteralPath scripts/acceptance/default-stack -Filter '*.mjs' | ForEach-Object { node --check $_.FullName; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }
 node --check scripts/deploy/installation.mjs
 node --check deploy/self-hosted/supabase-gateway.mjs
-```
+~~~
 
-Read-only inspection commands had no test-case counts: `git status --short`, `git status --short --untracked-files=all`, `git log --oneline -10`, `git diff --stat`, `git diff --numstat`, `git diff -- docs/build/production/ledger.json`, `git branch --show-current`, `git show HEAD:docs/build/production/ledger.json`; `rg`, `rg --files`, `Get-Content`, `Get-ChildItem`, `Get-Command` over the preamble, PLAN-100, handoff, ledger, skills, installer/compositions/Dockerfiles, MCP callers/tests, driver TLS code, existing verification records and parent AGENTS inventory. Node one-liners read/update only the two ledger rows; one later restored baseline escaping to keep other rows byte-for-byte unchanged. `Get-Process -Name node` was diagnostic only.
+The type error was fixed by storing the intentionally unknown-key input in a variable
+before runtime validation, preserving the exact unknown-field rejection assertion.
+The cross-contract fixture also has an explicit InstallationInput annotation. No
+expectation changed for typing. The final Vitest increase is the peer-origin regression.
 
-Inspection limitations: initially absent PKG-04/06 verify files were confirmed before creation; some exploratory guessed paths/PowerShell wildcard paths did not exist. `wsl --list --quiet` failed once with `WSL/E_ACCESSDENIED`; `Get-CimInstance Win32_Process -Filter "Name = 'node.exe'"` failed once with access denied. Neither was a test failure or a substitute for POSIX verification. No process belonging to another job was modified.
+Read-only inspection/edit commands are not acceptance checks (case counts N/A):
+git status --short, git log --oneline -10, git diff --stat, git diff --numstat,
+git diff --name-only, focused git diff, git show HEAD:docs/build/production/ledger.json;
+rg / rg --files / Get-Content / Get-ChildItem over PREAMBLE, PLAN-100, WIP handoff,
+ledger, serial compiler helper, installer/Compose/Dockerfile source, migration registry,
+MCP source/tests and installed Temporal SDK declarations; Get-Item on the compiler
+lock and Get-Process -Name node were diagnostics only. File edits used apply_patch
+and private, literal Node scripts reading/writing only this worktree. Some exploratory
+reads used non-existent guessed paths or unsupported PowerShell globs; the lock is a
+directory so Get-Content on it returned exit 1. Those are inspection misses, not test
+failures. No other job's process or lock was modified outside the mandated helper.
 
-## Pending, deviations and integration
+## Stale expectations changed, with justification
 
-- Three stack-engine cases: **not run, needs Docker, pinned Supabase CLI, real PostgreSQL/Temporal and POSIX private permissions**. Existing installer suite: not run here, needs POSIX plus actual Compose config checks. Exact serial Mac setup/run/cleanup commands are in PKG-04/06.
-- Native MCP admission's 18 skipped cases need the real-PostgreSQL successor. Added endpoint contracts do not substitute for it.
-- The local endpoint admission fix is complete, but the existing atomic MCP final admission requires one opened product/platform database authority while the installer requires separate server authorities. Both predicates remain intact. A DUR cross-database admission join is still required; no fake success flag or privileged fallback was added.
-- Two-worker execution, authenticated browser/customer-agent acceptance, clean-host recovery and hosted production acceptance remain their owners' joins. Lean 1+1 success cannot prove default 2+2 acceptance. Supabase vendor image identities are captured at first boot; reviewed snapshot input provides strict clean-host reproduction. The builder did not invent unobserved vendor digests.
-- No scope or permission deviation. The only changed existing expectation is `additionalWorkerPreparationSupported: false -> true`: `prepare --join` now exists, preserves the exact private keyring and produces an independent scratch volume. New POSIX tests cover actual preparation and keyring-drift refusal; pure contracts passed here. No assertions or gates were weakened, removed or conditionally bypassed.
+- Shared product/platform authority is now accepted; separate authority and differing
+  host/port/database/user/password/TLS strings refuse with platform-authority-is-product-database.
+  Old separate-server refusal and platform-only TLS error expectations contradict the decision.
+- Production fixtures use a matching 20-character Supabase project and postgres pooler
+  realm; migration fixtures use its direct/session port 5432. Disposable fixtures use
+  the exact local CLI origin/pooler and derived direct Supabase DB.
+- Disposable services/volumes/dependencies no longer contain platform-db/platform-data;
+  only the pinned Temporal engine remains in its overlay. Assertions now require absence.
+- Prepared fixtures are schemaVersion 2; v1 explicitly requires re-prepare without copying data.
+- The engine restore assertion reads authorityRecovery instead of productRecovery;
+  it still requires authorizationPreserved=true for the one dump containing all schemas.
+- Existing native admission and source-authority suites, gates and assertions are unchanged.
+  The private filesystem/Compose suite is explicitly gated to the Mac testing split;
+  its original assertions are retained, with pure URL checks also run here.
 
-Suggested commit: `feat(deploy): add owned default stack and worker keyring joins`
+## Pending and scope
+
+65 POSIX/private-installation cases, 3 Docker stack cases and 18 native PostgreSQL
+admission cases were not run here (86 gated cases in the final command). They need
+POSIX permissions, Docker/Compose, pinned Supabase CLI, real PostgreSQL/Temporal and
+the Mac successor. PKG-04/06 contain exact commands, required env vars and expected
+results. Hosted Supabase/cloud acceptance remains deferred. The real browser consent,
+linked credential, local customer target/revision and operation fixture remain J2's
+join; OAuth interoperability remains J10's join. The documented Mac commands use
+actual APIs, native approval/attempt rows and Temporal history and never fabricate
+an approval or write an attempt. No production verification is claimed.
+
+No topology deviation from the owner's decision. Necessary supporting changes:
+explicit native test file/gate for unavailable POSIX/Compose requirements; canonical
+Host routing for the peer readiness/MCP verification. Neither relaxes an admission
+predicate. No migration, package, alternate role, proof flag or callback was added.
+
+Suggested commit: fix(deploy): share Supabase authority for MCP admission

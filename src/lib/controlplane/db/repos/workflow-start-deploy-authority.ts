@@ -37,22 +37,30 @@ export function requiresMcpDeployAuthority(kind: string, op: DeployOperation): b
     || typeof input?.deploymentId === "string" && input.deploymentId.startsWith("mcp-deploy-"));
 }
 
-/** Hosted default topology only. Custom/separate stores cannot supply final native product predicates. */
+/** Pure environment predicate shared with installation contracts. Handle provenance is checked separately. */
+export function mcpCompositionFromEnv(env: Readonly<Record<string, string | undefined>>) {
+  if (env.ZENITH_STORE !== "postgres") return refused();
+  const api = new URL(env.NEXT_PUBLIC_SUPABASE_URL ?? "");
+  const config = platformDbConfigFromEnv(env), product = env.SUPABASE_DB_URL;
+  if (config.kind !== "postgres" || !config.url || !product) return refused();
+  const selected = new URL(config.url), productDb = new URL(product);
+  const endpoint = (url: URL) => JSON.stringify([url.hostname, url.port || "5432", url.pathname, decodeURIComponent(url.username), [...url.searchParams.entries()].sort()]);
+  if (![selected, productDb].every(url => ["postgres:", "postgresql:"].includes(url.protocol) && !url.hash)
+    || endpoint(selected) !== endpoint(productDb) || selected.pathname !== "/postgres") return refused();
+  const port = selected.port || "5432", username = decodeURIComponent(selected.username);
+  if (!mcpProductEndpoint(api, selected)) return refused();
+  return { api, selected, port, username };
+}
+
+/** Default native topology only. Custom/separate stores cannot supply final native product predicates. */
 async function defaultMcpProductTopology(sql: Sql, session: Sql): Promise<void> {
   const [{ SUPABASE_URL }, { isDefaultProductClientFor }] = await Promise.all([
     import("@/lib/supabase/env"), import("@/lib/db/postgres-store"),
   ]);
   const currentComposition = (): void => {
-    if (!isOpenedPlatformDbHandle(sql, "postgres") || process.env.ZENITH_STORE !== "postgres") return refused();
-    const api = new URL(SUPABASE_URL);
-    const config = platformDbConfigFromEnv(), product = process.env.SUPABASE_DB_URL;
-    if (config.kind !== "postgres" || !config.url || !product) return refused();
-    const selected = new URL(config.url), productDb = new URL(product);
-    const endpoint = (url: URL) => JSON.stringify([url.hostname, url.port || "5432", url.pathname, decodeURIComponent(url.username), [...url.searchParams.entries()].sort()]);
-    if (![selected, productDb].every(url => ["postgres:", "postgresql:"].includes(url.protocol) && !url.hash)
-      || endpoint(selected) !== endpoint(productDb) || selected.pathname !== "/postgres") return refused();
-    const port = selected.port || "5432", username = decodeURIComponent(selected.username);
-    if (!mcpProductEndpoint(api, selected) || sql.identity !== `postgres://${selected.host}/postgres`
+    if (!isOpenedPlatformDbHandle(sql, "postgres")) return refused();
+    const { api, selected, port, username } = mcpCompositionFromEnv({ ...process.env, NEXT_PUBLIC_SUPABASE_URL: SUPABASE_URL });
+    if (sql.identity !== `postgres://${selected.host}/postgres`
       || !isOpenedPlatformPostgresTarget(sql, selected.hostname, Number(port), "postgres", username)) return refused();
     if (!isDefaultProductClientFor(api.origin)) return refused();
   };

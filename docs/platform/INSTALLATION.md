@@ -1,7 +1,7 @@
 # Supported installation preparation
 
 The supported topology uses real Supabase product storage and browser authentication,
-a **separate PostgreSQL platform authority**, authenticated durable Temporal, the
+its **platform schema in the same Supabase database**, authenticated durable Temporal, the
 Zenith API and execution workers, and customer-owned agents. Preparation is available;
 a complete live production installation has not been demonstrated. Configuration
 validation does not establish authenticated sign-in, TLS connectivity, concurrent
@@ -13,31 +13,33 @@ flowchart LR
   mcp[MCP client with linked credential] --> ingress
   ingress --> api[Zenith API]
   api --> supabase[Supabase Auth + PostgREST product store]
-  api --> pooler[Supabase transaction pooler: hosted + agent authority]
-  api --> platform[Separate platform PostgreSQL]
+  api --> pooler[Supabase transaction pooler: postgres, verify-full]
+  supabase --> database
+  pooler --> database[Supabase database: public + hosted + agent + platform]
   api --> temporal[Authenticated durable Temporal]
-  worker[Execution workers] --> platform
+  worker[Execution workers] --> pooler
   worker --> supabase
-  worker --> pooler
   worker --> temporal
   worker --> agents[Customer-owned runner / zenithd agents]
 ```
 
 The committed `deploy/self-hosted/compose.yml` runs the API and execution worker.
 Its `maintenance` profile runs the existing platform migrator explicitly. Managed
-Supabase, a separate managed platform PostgreSQL server, Temporal Cloud or an
+Supabase, Temporal Cloud or an
 operator-managed highly available authenticated Temporal cluster, and HTTPS ingress
 are external prerequisites. There is no shared JSON product store or shared PGlite
 database between API and workers. API and worker scratch/cache mounts are separate;
-product, hosted/agent and platform records use their database authorities.
+product, hosted/agent and platform records share one database authority.
 
-For a disposable engine fixture, add `compose.disposable.yml`. It supplies only a
-dedicated PostgreSQL 16.15 platform database and Temporal CLI 1.9.1 development
-server with project-owned volumes. **It still requires a real isolated external
-Supabase project, including Auth and PostgREST. It is not fully local.** Temporal's
-development SQLite database is not a production HA or recovery topology ([Temporal's
-development-server reference](https://github.com/temporalio/documentation/blob/main/docs/cli/command-reference/server.mdx)). The existing
-root `docker-compose.yml` remains a separate LocalStack development fixture.
+For a disposable engine fixture, add `compose.disposable.yml`. It supplies only
+Temporal CLI 1.9.1's development server with a project-owned volume. All database
+schemas and real Auth/PostgREST use one isolated Supabase project. The default
+local harness starts this project through the Supabase CLI, adds private-CA HTTPS
+and pooler TLS, and builds native images into an owned localhost registry. Its
+lean profile runs one API and one worker; the default runs two of each. See
+[PKG-04's exact commands](../build/production/verify/PKG-04.md). Temporal's
+SQLite development server does not establish production HA or recovery. The root
+`docker-compose.yml` remains a separate LocalStack development fixture.
 
 ## Prerequisites
 
@@ -53,17 +55,20 @@ root `docker-compose.yml` remains a separate LocalStack development fixture.
 - `SUPABASE_DB_URL` is the transaction pooler URI on port 6543 with
   `sslmode=verify-full`; the existing driver disables named prepared statements.
   A direct PostgreSQL URI does not replace Supabase Auth/PostgREST.
-- Production platform application and migration URIs target the same database on
-  a server distinct from the product pooler. Both require verified TLS. Use a
-  migration-role credential separately from the runtime credential and grant the
-  runtime role only the necessary platform access, including RLS bypass where
-  required by the shipped schema. Validate privileges with the real deployment.
-  Migration 7 enables RLS on the three artifact tables and carries the existing
-  guarded `anon`/`authenticated` revocations and `service_role` table grants through
-  a canonical schema-6 upgrade. Grants for a custom runtime role remain
-  operator-owned; verify its table access and necessary RLS bypass before polling.
-  The migration credential must be authorized to create the new tables/functions,
-  reference operations, write the ledger and apply the existing guarded grants.
+- Runtime connects as PostgreSQL role `postgres` through the Supabase transaction
+  pooler. The installer generates `ZENITH_PLATFORM_DB_URL` exactly equal to
+  `SUPABASE_DB_URL`; supplying a different string refuses preparation. The native
+  MCP predicate checks opened connection provenance, the actual role and current
+  product authority before the permanent start CAS. Separate servers and alternate
+  runtime roles are unsupported. Never expose `platform` or `agent` via PostgREST;
+  anon/authenticated must have no schema USAGE and every platform table must have RLS.
+- `ZENITH_PLATFORM_MIGRATION_URL` targets the same Supabase project and database
+  `postgres`, on port 5432 with `sslmode=verify-full`: direct
+  `db.<ref>.supabase.co` as `postgres`, or a `*.pooler.supabase.com` session
+  endpoint as `postgres.<ref>`. It may use a separately supplied credential but
+  cannot select another project, database or role. Disposable preparation derives
+  `supabase-db:5432/postgres` as `postgres` from the CLI credentials; only this
+  private network's direct connection is non-TLS. Runtime still requires pooler TLS.
 - Production Temporal requires an existing explicit namespace, address and TLS
   API key. This preparation package implements the API-key form. A self-managed
   cluster requiring mTLS needs an operator-reviewed certificate mount extension;
@@ -90,10 +95,13 @@ is pinned to 22.23.3 Alpine; the worker uses its existing pinned Debian Node ima
 
 Copy `deploy/self-hosted/production.input.example.json` to a private **outside-repository**
 file, make it mode 0600, and replace every placeholder with actual inputs. For
-`mode: "disposable"`, use an exact loopback site origin such as
-`http://127.0.0.1:36400`, retain real Supabase/pooler settings and image digests, and
-remove all `ZENITH_PLATFORM_*` and `ZENITH_TEMPORAL_*` input fields. The preparer
-generates the private platform password and local engine bindings.
+`mode: "disposable"`, use the exact loopback origin `http://127.0.0.1:36400`,
+`https://supabase.localhost:54321`, the local verified-TLS transaction pooler,
+and image digests. Omit platform URLs and Temporal input fields; preparation
+binds platform to the product URL and derives the local direct migrator and Temporal.
+The supported private configuration format is schemaVersion 2. Version 1 directories
+refuse with `schema-v1-reprepare-required-no-data-copy`. Clean up their owned
+resources and prepare a fresh directory; this helper does not copy or migrate data.
 
 ```sh
 node scripts/deploy/installation.mjs prepare "$HOME/.zenith/installations/review" "$HOME/.zenith/install-input.json"
@@ -124,22 +132,22 @@ it identifies the preparation checkout, not the provenance of an arbitrary image
 ## Review the footprint before startup
 
 Production API + worker have a combined ceiling of 4 CPUs / 5 GiB; the disposable
-platform/Temporal fixture adds 2 CPUs / 2 GiB. The migration profile adds 1 CPU /
+Temporal fixture adds 1 CPU / 1 GiB. The migration profile adds 1 CPU /
 1 GiB while invoked. These are preparation limits, not measured sizing. API port
 binding is `127.0.0.1:<apiPort>`, with no engine ingress. Worker readiness is loopback
 port 9464 inside its container. All services, networks and named volumes carry the
 generated installation ownership label and project prefix; there are no fixed
 container names or external/shared volumes. Workers use `/var/lib/zenith` and `/tmp`
 as writable paths; the API uses durable `/data` plus bounded UID/GID 1001 tmpfs
-mounts for `.next/cache` and `/tmp`. This package supports one worker per project.
-Do not use Compose `--scale` with the same named scratch volume. Preparation of
-additional workers is unsupported until secure shared-secret/signing-key provisioning
-and independent scratch-volume configuration are implemented and verified. A new
-`prepare` generates unrelated encryption and signing keys and must not be used to
-attach another worker to the same authorities/task queue. Concurrent-worker
-acceptance remains pending.
+mounts for `.next/cache` and `/tmp`. The primary preparation supports one worker. Attach extra workers with
+`prepare --join <parent/keyring.json> <new-private-directory>`; the canonical
+keyring and effective env must match exactly. Each joined worker has its own
+scratch volume and identical custody/signing keys. Do not use Compose `--scale`
+with a shared scratch volume, or a fresh unrelated keyring. The default harness
+prepares its second worker through this join. Concurrent execution acceptance remains pending.
 
-No helper starts services or deletes resources. Starting the Zenith API still
+The installation preparer does not start services or delete resources. The explicitly
+gated default-stack harness starts and cleans its owned disposable installation. Starting the Zenith API still
 requires the explicit narrow user approval after review of `plan.json`, private
 preflight, image compatibility, ports and resource limits. Existing authorization
 for isolated workers/PostgreSQL/Temporal does not authorize the API or LocalStack.
@@ -183,7 +191,7 @@ purchases, customer registration, provider actions and live TLS fixtures require
 their existing external authorization.
 
 Release acceptance still requires clean image builds (including both required
-architectures), real Supabase schema/auth and pooler TLS, separate platform TLS,
+architectures), real Supabase schema/auth and pooler TLS, one shared database authority,
 authenticated Temporal polling, worker readiness, browser sign-in, linked MCP
 authorization/revocation, concurrent API/workers, a real customer agent execution,
 and backup/restore and interrupted-execution recovery. `plan.json` and readiness

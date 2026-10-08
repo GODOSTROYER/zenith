@@ -25,7 +25,16 @@ export async function poolerProbe(state, mode = 'tls') {
     '--memory', '192m', '--env-file', path.join(state.directory, 'installation/worker.env'), '-e', 'NODE_EXTRA_CA_CERTS=/run/zenith-ca.crt',
     '--mount', `type=bind,source=${path.join(state.directory, 'tls/ca.crt')},target=/run/zenith-ca.crt,readonly`,
     '--mount', `type=bind,source=${path.join(root, 'scripts/acceptance/default-stack/pooler-probe.mjs')},target=/app/pooler-probe.mjs,readonly`,
-    '--entrypoint', 'node', readPrepared(path.join(state.directory, 'installation')).images.migration, '/app/pooler-probe.mjs', mode], { id: 'pooler-probe' }));
+    '--entrypoint', 'node', readPrepared(path.join(state.directory, 'installation')).images.migration, '--import', 'tsx', '/app/pooler-probe.mjs', mode], { id: 'pooler-probe' }));
+}
+
+/** Both API processes serve the same origin on distinct declared transport ports. */
+export function apiProbeRequest(origin, port, input, init) {
+  const canonical = new URL(origin), transport = new URL(input);
+  if (transport.origin !== canonical.origin || ![ports.api, ports.peerApi].includes(port)) fail('api-probe-origin');
+  transport.hostname = '127.0.0.1'; transport.port = String(port);
+  const headers = new Headers(init?.headers); headers.set('host', canonical.host);
+  return { url: transport, options: { ...init, headers } };
 }
 
 export async function readiness(state) {
@@ -33,7 +42,7 @@ export async function readiness(state) {
   if (JSON.stringify(sourceBinding()) !== JSON.stringify(state.source)) fail('source-drift');
   const sizing = topology(state.profile), resources = await inventory(state);
   const checks = {};
-  const expected = ['api', 'execution-worker', 'platform-db', 'temporal', ...(sizing.apis === 2 ? ['api-peer', 'execution-worker-peer'] : [])];
+  const expected = ['api', 'execution-worker', 'temporal', ...(sizing.apis === 2 ? ['api-peer', 'execution-worker-peer'] : [])];
   for (const name of expected) {
     const containers = resources.filter(resource => resource.kind === 'container' && resource.item.Config.Labels?.['com.docker.compose.project'] === state.applicationProjectName && resource.item.Config.Labels?.['com.docker.compose.service'] === name);
     checks[name] = containers.length === 1 && containers[0].item.State?.Health?.Status === 'healthy';
@@ -45,19 +54,31 @@ export async function readiness(state) {
       || JSON.stringify(peer.environment) !== JSON.stringify(config.environment)) fail('worker-keyring-drift');
   }
   for (let i = 0; i < sizing.apis; i++) {
-    const result = await probeReadiness({ ...config, environment: { ...config.environment, NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${ports.api + i}` } });
+    const result = await probeReadiness(config, (input, init) => {
+      const request = apiProbeRequest(config.environment.NEXT_PUBLIC_SITE_URL, ports.api + i, input, init);
+      return fetch(request.url, request.options);
+    });
     checks[`http-api-${i + 1}`] = result.ready;
   }
   const headers = { apikey: config.environment.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY };
   checks['supabase-auth-https'] = (await supabaseRequest(state, '/auth/v1/health', headers)).status === 200;
   checks['supabase-postgrest-https'] = (await supabaseRequest(state, '/rest/v1/', headers)).status === 200;
+  for (const schema of ['platform', 'agent']) {
+    const response = await supabaseRequest(state, '/rest/v1/', { ...headers, 'accept-profile': schema });
+    checks[`postgrest-${schema}-not-exposed`] = response.status === 406 && JSON.parse(response.body).code === 'PGRST106';
+  }
   const tls = await poolerProbe(state);
   checks['pooler-verify-full'] = tls.verifiedTls === true && tls.wrongCaRefused === true && tls.wrongHostnameRefused === true;
+  const authority = await poolerProbe(state, 'authority');
+  checks['single-database-authority'] = authority.sameDatabase === true && authority.sameSystemIdentifier === true;
+  checks['native-role-boundary'] = authority.privateSchemaUsageRefused === true;
+  checks['platform-rls'] = authority.platformTablesRlsEnabled === true && authority.platformTableCount > 0;
+  checks['registered-migration-version'] = authority.maxMigrationVersion === authority.highestRegisteredVersion;
   await compose(state, ['run', '--rm', '--no-deps', 'platform-migrate', '--status']);
   checks['platform-schema-current'] = true;
   const receipt = { schemaVersion: 1, kind: 'local_engine', source: state.source, architecture: state.architecture,
     minimumObservedFreeBytes: state.minimumObservedFreeBytes,
-    profile: state.profile, apis: sizing.apis, workers: sizing.workers, checks,
+    profile: state.profile, apis: sizing.apis, workers: sizing.workers, authority, checks,
     passed: Object.values(checks).filter(Boolean).length, failed: Object.values(checks).filter(value => !value).length, skipped: 0,
     authenticatedJourney: false, crossWorkerExecution: false, hostedProductionAcceptance: false, productionReady: false };
   save(path.join(state.directory, 'readiness.receipt.json'), receipt);

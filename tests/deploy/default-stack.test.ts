@@ -4,27 +4,33 @@ import { randomBytes, generateKeyPairSync } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { load } from 'js-yaml';
 import { describe, expect, it } from 'vitest';
-import { joinedConfiguration, validateInput, planFor } from '../../scripts/deploy/installation.mjs';
+import { joinedConfiguration, validateInput, planFor, installationEnvironment, environmentsFor } from '../../scripts/deploy/installation.mjs';
+import { apiProbeRequest } from '../../scripts/acceptance/default-stack/readiness.mjs';
 import { cleanupPlan, supabaseConfig, stackComposition, topology, ports, root, installationLabel, projectLabel, digestImage, assertHeadroom, minimumFreeBytes } from '../../scripts/acceptance/default-stack/config.mjs';
 
 const secret = () => randomBytes(32).toString('hex');
 const id = () => randomBytes(12).toString('hex');
 function prepared(): Parameters<typeof joinedConfiguration>[0] {
   const installationId = id();
-  return { schemaVersion: 1, mode: 'disposable', installationId, projectName: `zenith-${installationId}`, apiPort: ports.api,
+  return { schemaVersion: 2, mode: 'disposable', installationId, projectName: `zenith-${installationId}`, apiPort: ports.api,
     source: { head: randomBytes(20).toString('hex'), contentSha256: secret(), dirty: false },
     images: { api: `localhost:5000/zenith/api@sha256:${secret()}`, worker: `localhost:5000/zenith/worker@sha256:${secret()}`, migration: `localhost:5000/zenith/migration@sha256:${secret()}` },
     environment: { NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${ports.api}`, SUPABASE_URL: `https://supabase.localhost:${ports.supabase}`, NEXT_PUBLIC_SUPABASE_URL: `https://supabase.localhost:${ports.supabase}`,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: secret(), SUPABASE_SERVICE_ROLE_KEY: secret(),
       SUPABASE_DB_URL: `postgresql://postgres.pooler-dev:${secret()}@supabase-pooler:6543/postgres?sslmode=verify-full`,
-      ZENITH_PLATFORM_DB_URL: `postgresql://postgres:${secret()}@platform-db:5432/zenith_platform`,
-      ZENITH_PLATFORM_MIGRATION_URL: '', ZENITH_TEMPORAL_ADDRESS: 'temporal:7233', ZENITH_TEMPORAL_NAMESPACE: 'zenith-disposable', ZENITH_TEMPORAL_TLS: 'false',
+      ZENITH_TEMPORAL_ADDRESS: 'temporal:7233', ZENITH_TEMPORAL_NAMESPACE: 'zenith-disposable', ZENITH_TEMPORAL_TLS: 'false',
       ZENITH_SECRET_KEY: secret(), ZENITH_PLAN_ARTIFACT_KEY: secret(),
       ZENITH_CONTROL_SIGNING_JWK: JSON.stringify(generateKeyPairSync('ed25519').privateKey.export({ format: 'jwk' })),
       ZENITH_OIDC_SIGNING_JWK: JSON.stringify(generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({ format: 'jwk' })),
     } };
 }
-function parent() { const value = prepared(); value.environment.ZENITH_PLATFORM_MIGRATION_URL = value.environment.ZENITH_PLATFORM_DB_URL; return value; }
+function parent() {
+  const value = prepared();
+  const { ZENITH_SECRET_KEY, ZENITH_PLAN_ARTIFACT_KEY, ZENITH_CONTROL_SIGNING_JWK, ZENITH_OIDC_SIGNING_JWK, ...environment } = value.environment;
+  delete environment.ZENITH_TEMPORAL_ADDRESS; delete environment.ZENITH_TEMPORAL_NAMESPACE; delete environment.ZENITH_TEMPORAL_TLS;
+  value.environment = { ...installationEnvironment({ mode: value.mode, apiPort: value.apiPort, images: value.images, environment }), ZENITH_SECRET_KEY, ZENITH_PLAN_ARTIFACT_KEY, ZENITH_CONTROL_SIGNING_JWK, ZENITH_OIDC_SIGNING_JWK };
+  return value;
+}
 const fixture = parent();
 interface Service { image:string; labels:Record<string,string>; volumes:string[]; ports?:string[]; env_file:{path:string;format:string}[]; read_only:boolean; mem_limit:string; environment?:Record<string,string>; }
 interface Stack { services:Record<string,Service>; volumes:Record<string,{labels:Record<string,string>}>; networks:Record<string,{labels:Record<string,string>}>; }
@@ -35,17 +41,19 @@ describe('default stack pure configuration contracts', () => {
     expect(() => assertHeadroom(minimumFreeBytes - 1)).toThrow('disk-headroom');
     expect(() => assertHeadroom(Number.NaN)).toThrow('disk-headroom');
   });
-  it('keeps original installer guards for the isolated TLS pooler and separate authority', () => {
+  it('keeps original installer guards for the isolated TLS pooler and single authority', () => {
     expect(validateInput(fixture, true)).toBe(fixture);
     const unsafe = structuredClone(fixture); unsafe.environment.SUPABASE_DB_URL = unsafe.environment.SUPABASE_DB_URL.replace('verify-full', 'require');
     expect(() => validateInput(unsafe, true)).toThrow('SUPABASE_DB_URL');
     unsafe.environment.SUPABASE_DB_URL = fixture.environment.SUPABASE_DB_URL;
-    unsafe.environment.ZENITH_PLATFORM_DB_URL = fixture.environment.SUPABASE_DB_URL;
+    unsafe.environment.ZENITH_PLATFORM_DB_URL = fixture.environment.SUPABASE_DB_URL.replace('supabase-pooler', 'foreign-pooler');
     unsafe.environment.ZENITH_PLATFORM_MIGRATION_URL = fixture.environment.SUPABASE_DB_URL;
-    expect(() => validateInput(unsafe, true)).toThrow('separate-platform-authority');
+    expect(() => validateInput(unsafe, true)).toThrow('platform-authority-is-product-database');
   });
   it('uses genuine Auth/PostgREST and transaction pooling, with protected schemas unexposed', () => {
     const text = supabaseConfig(`zenith-local-${id()}`);
+    expect(text).toContain('default_pool_size = 15');
+    expect(supabaseConfig(`zenith-local-${id()}`, 'lean')).toContain('default_pool_size = 5');
     expect(text).toContain('pool_mode = "transaction"'); expect(text).toContain('schemas = ["public", "graphql_public"]');
     expect(text).toContain('enabled = false\n[db.seed]'); expect(text).toContain('enable_confirmations = true');
     expect(text).not.toContain('schemas = ["platform"'); expect(text).not.toContain('password =');
@@ -56,6 +64,12 @@ describe('default stack pure configuration contracts', () => {
     const stack = stackComposition({ ...fixture, supabaseKong: `supabase_kong_zenith-local-${id()}` }, '/private/installation', profile, fixture.images.api, peer) as Stack;
     expect(Object.keys(stack.services).filter(name => name.startsWith('api'))).toHaveLength(profile === 'lean' ? 1 : 2);
     expect(Object.keys(stack.services).filter(name => name.startsWith('execution-worker'))).toHaveLength(profile === 'lean' ? 1 : 2);
+    expect(stack.services['platform-db']).toBeUndefined();
+    expect(stack.volumes['platform-data']).toBeUndefined();
+    const env = environmentsFor(fixture, '/private/installation');
+    expect(env['platform.env']).toBeUndefined();
+    for (const name of ['api.env', 'worker.env']) expect(env[name].ZENITH_PLATFORM_DB_URL).toBe(env[name].SUPABASE_DB_URL);
+    expect(env['migration.env'].ZENITH_PLATFORM_DB_URL).toBe(fixture.environment.ZENITH_PLATFORM_MIGRATION_URL);
     for (const [name, service] of Object.entries(stack.services)) {
       expect(service.labels[installationLabel]).toBe(fixture.installationId);
       expect(service.image).toMatch(/@sha256:[a-f0-9]{64}$/);
@@ -127,4 +141,16 @@ describe('ownership cleanup planning', () => {
     expect(() => cleanupPlan([], { ...state, projectId: 'foreign' })).toThrow('identity');
   });
   it('has an empty idempotent plan after complete absence readback', () => { expect(cleanupPlan([], state)).toEqual([]); });
+});
+
+describe('canonical API origin on declared peer transport', () => {
+  it('probes the peer with the exact configured Host and preserves the MCP discovery origin', () => {
+    const request = apiProbeRequest('http://127.0.0.1:36400', ports.peerApi, 'http://127.0.0.1:36400/api/agent/v3/mcp', { headers: { accept: 'application/json' }, redirect: 'error' as const });
+    expect(request.url.href).toBe('http://127.0.0.1:36401/api/agent/v3/mcp');
+    expect(request.options.headers.get('host')).toBe('127.0.0.1:36400');
+    expect(request.options.headers.get('accept')).toBe('application/json');
+    expect(request.options.redirect).toBe('error');
+    expect(() => apiProbeRequest('http://127.0.0.1:36400', 35000, 'http://127.0.0.1:36400/api/me', {})).toThrow('api-probe-origin');
+    expect(() => apiProbeRequest('http://127.0.0.1:36400', ports.peerApi, 'http://foreign.localhost/api/me', {})).toThrow('api-probe-origin');
+  });
 });

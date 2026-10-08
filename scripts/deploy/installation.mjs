@@ -5,7 +5,7 @@ import { createHash, createPrivateKey, generateKeyPairSync, randomBytes } from '
 import { spawnSync } from 'node:child_process';
 
 /** @typedef {{mode:'production'|'disposable', apiPort:number, images:{api:string,worker:string,migration:string}, environment:Record<string,string>}} InstallationInput */
-/** @typedef {InstallationInput & {schemaVersion:1,installationId:string,projectName:string,workerId?:string,source:{head:string,contentSha256:string,dirty:boolean}}} PreparedInstallation */
+/** @typedef {InstallationInput & {schemaVersion:2,installationId:string,projectName:string,workerId?:string,source:{head:string,contentSha256:string,dirty:boolean}}} PreparedInstallation */
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const compose = path.join(root, 'deploy/self-hosted/compose.yml');
 const overlay = path.join(root, 'deploy/self-hosted/compose.disposable.yml');
@@ -58,6 +58,7 @@ function databaseUrl(value, field, tls) {
 /** Structural preflight only: no assertion of network, identity or tool readiness.
  * @param {InstallationInput|PreparedInstallation} input @param {boolean} prepared @returns {InstallationInput|PreparedInstallation} */
 export function validateInput(input, prepared = false) {
+  if (prepared) assertPreparedVersion(input);
   if (!input || typeof input !== 'object' || Array.isArray(input) || !['production', 'disposable'].includes(input.mode)) refuse('mode');
   const allowed = new Set(['mode', 'apiPort', 'images', 'environment', ...(prepared ? ['schemaVersion', 'installationId', 'projectName', 'source', 'workerId'] : [])]);
   if (Object.keys(input).some(key => !allowed.has(key))) refuse('unknown-installation-field');
@@ -82,12 +83,22 @@ export function validateInput(input, prepared = false) {
     || env.SUPABASE_SERVICE_ROLE_KEY === env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) refuse('SUPABASE_SERVICE_ROLE_KEY');
   const product = databaseUrl(env.SUPABASE_DB_URL, 'SUPABASE_DB_URL', true);
   if (product.port !== '6543') refuse('SUPABASE_DB_URL-transaction-pooler');
+  if ((env.ZENITH_PLATFORM_DB_URL !== undefined || prepared) && env.ZENITH_PLATFORM_DB_URL !== env.SUPABASE_DB_URL) refuse('platform-authority-is-product-database');
+  const migrationUrl = input.mode === 'disposable' ? localMigrationUrl(product) : env.ZENITH_PLATFORM_MIGRATION_URL;
+  const migrator = databaseUrl(env.ZENITH_PLATFORM_MIGRATION_URL ?? migrationUrl, 'ZENITH_PLATFORM_MIGRATION_URL', input.mode === 'production');
+  if (input.mode === 'production') {
+    const project = /^([a-z0-9]{20})\.supabase\.co$/.exec(supabase.hostname)?.[1];
+    const sameProject = (/** @type {URL} */ target) => target.pathname === '/postgres' && (
+      target.hostname === `db.${project}.supabase.co` && decodeURIComponent(target.username) === 'postgres'
+      || /^[a-z0-9-]+\.pooler\.supabase\.com$/.test(target.hostname) && decodeURIComponent(target.username) === `postgres.${project}`);
+    if (!project || supabase.port || !sameProject(product)) refuse('SUPABASE_DB_URL-project');
+    if (migrator.port !== '5432' || !sameProject(migrator)) refuse('platform-migration-authority');
+  } else {
+    if (supabase.origin !== 'https://supabase.localhost:54321' || product.hostname !== 'supabase-pooler'
+      || decodeURIComponent(product.username) !== 'postgres.pooler-dev' || product.pathname !== '/postgres') refuse('disposable-engine-binding');
+    if (env.ZENITH_PLATFORM_MIGRATION_URL !== undefined && env.ZENITH_PLATFORM_MIGRATION_URL !== migrationUrl) refuse('platform-migration-authority');
+  }
   if (input.mode === 'production' || prepared) {
-    const platform = databaseUrl(env.ZENITH_PLATFORM_DB_URL, 'ZENITH_PLATFORM_DB_URL', input.mode === 'production');
-    const migrator = databaseUrl(env.ZENITH_PLATFORM_MIGRATION_URL, 'ZENITH_PLATFORM_MIGRATION_URL', input.mode === 'production');
-    if (migrator.host !== platform.host || migrator.pathname !== platform.pathname) refuse('platform-migration-authority');
-    // Require a separate server authority, not merely a different username or DB.
-    if (platform.hostname === product.hostname) refuse('separate-platform-authority');
     text(env.ZENITH_TEMPORAL_NAMESPACE, 'ZENITH_TEMPORAL_NAMESPACE');
     const address = url(`http://${text(env.ZENITH_TEMPORAL_ADDRESS, 'ZENITH_TEMPORAL_ADDRESS')}`, 'ZENITH_TEMPORAL_ADDRESS');
     if (!address.port || address.pathname !== '/' || address.username || address.password || address.search || address.hash) refuse('ZENITH_TEMPORAL_ADDRESS');
@@ -95,9 +106,8 @@ export function validateInput(input, prepared = false) {
       if (loopback(address.hostname) || env.ZENITH_TEMPORAL_TLS !== 'true') refuse('ZENITH_TEMPORAL_TLS');
       if (text(env.ZENITH_TEMPORAL_API_KEY, 'ZENITH_TEMPORAL_API_KEY').length < 20) refuse('ZENITH_TEMPORAL_API_KEY');
     } else if (address.host !== 'temporal:7233' || env.ZENITH_TEMPORAL_TLS !== 'false'
-      || env.ZENITH_TEMPORAL_API_KEY || platform.host !== 'platform-db:5432'
-      || platform.pathname !== '/zenith_platform' || platform.search) refuse('disposable-engine-binding');
-  } else if (['ZENITH_PLATFORM_DB_URL', 'ZENITH_PLATFORM_MIGRATION_URL', 'ZENITH_TEMPORAL_ADDRESS', 'ZENITH_TEMPORAL_NAMESPACE', 'ZENITH_TEMPORAL_TLS', 'ZENITH_TEMPORAL_API_KEY'].some(key => env[key])) {
+      || env.ZENITH_TEMPORAL_API_KEY) refuse('disposable-engine-binding');
+  } else if (['ZENITH_TEMPORAL_ADDRESS', 'ZENITH_TEMPORAL_NAMESPACE', 'ZENITH_TEMPORAL_TLS', 'ZENITH_TEMPORAL_API_KEY'].some(key => env[key])) {
     refuse('disposable-engine-overrides');
   }
   if (env.ZENITH_AGENT_OAUTH_ISSUER || env.ZENITH_AGENT_OAUTH_JWKS) {
@@ -124,6 +134,28 @@ export function validateInput(input, prepared = false) {
     }
   }
   return input;
+}
+
+/** No credential or data transfer from the obsolete separate-server topology.
+ * @param {{schemaVersion?:number}} config */
+export function assertPreparedVersion(config) {
+  if (config?.schemaVersion === 1) refuse('schema-v1-reprepare-required-no-data-copy');
+  if (config?.schemaVersion !== 2) refuse('installation-identity');
+}
+/** @param {URL} product */
+function localMigrationUrl(product) {
+  return `postgresql://postgres:${product.password}@supabase-db:5432/postgres`;
+}
+/** Shared by private preparation and pure installation/admission contracts.
+ * @param {InstallationInput} input @returns {Record<string,string>} */
+export function installationEnvironment(input) {
+  validateInput(input);
+  const environment = { ...input.environment, ZENITH_PLATFORM_DB_URL: input.environment.SUPABASE_DB_URL };
+  if (input.mode === 'disposable') Object.assign(environment, {
+    ZENITH_PLATFORM_MIGRATION_URL: localMigrationUrl(new URL(environment.SUPABASE_DB_URL)),
+    ZENITH_TEMPORAL_ADDRESS: 'temporal:7233', ZENITH_TEMPORAL_NAMESPACE: 'zenith-disposable', ZENITH_TEMPORAL_TLS: 'false',
+  });
+  return environment;
 }
 
 /** Hash current tracked AND untracked nonignored source contents; no contents emitted. */
@@ -171,7 +203,7 @@ export function writeJson(location, value) { fs.writeFileSync(location, `${JSON.
 function writeEnv(location, env) { fs.writeFileSync(location, Object.entries(env).map(([k, v]) => `${k}=${v}`).join('\n') + '\n', { mode: 0o600, flag: 'wx' }); }
 
 /** @param {PreparedInstallation} config @param {string} dir @returns {Record<string,Record<string,string>>} */
-function environmentsFor(config, dir) {
+export function environmentsFor(config, dir) {
   const { ZENITH_PLATFORM_MIGRATION_URL: migrationUrl, ZENITH_PLAN_ARTIFACT_KEY: artifactKey, ...runtime } = config.environment;
   const common = { ...runtime, NODE_ENV: 'production', ZENITH_STORE: 'postgres', ZENITH_HOSTED_STORE: 'postgres', ZENITH_PLATFORM_DB: 'postgres', ZENITH_PLATFORM_DB_MAX: '5',
     ZENITH_AGENT_CONTROL: '1', ZENITH_AGENT_ORIGIN: runtime.NEXT_PUBLIC_SITE_URL, ZENITH_OIDC_ISSUER: `${runtime.NEXT_PUBLIC_SITE_URL}/api/oidc` };
@@ -180,7 +212,6 @@ function environmentsFor(config, dir) {
     'worker.env': { ...common, ZENITH_PLAN_ARTIFACT_KEY: artifactKey, ZENITH_DATA: '/var/lib/zenith', HOME: '/var/lib/zenith', ZENITH_WORKER_PLAN_DIR: '/var/lib/zenith/plans', ZENITH_WORKER_HEALTH_PORT: '9464', ZENITH_WORKER_TASK_QUEUE: 'zenith-execution' },
     'migration.env': { NODE_ENV: 'production', ZENITH_PLATFORM_DB: 'postgres', ZENITH_PLATFORM_DB_URL: migrationUrl, ZENITH_PLATFORM_DB_MAX: '1' },
     'compose.env': { ZENITH_INSTALLATION_ID: config.installationId, ZENITH_PRIVATE_DIR: dir, ZENITH_API_PORT: String(config.apiPort), ZENITH_API_IMAGE: config.images.api, ZENITH_WORKER_IMAGE: config.images.worker, ZENITH_MIGRATION_IMAGE: config.images.migration },
-    ...(config.mode === 'disposable' ? { 'platform.env': { POSTGRES_DB: 'zenith_platform', POSTGRES_USER: 'postgres', POSTGRES_PASSWORD: decodeURIComponent(new URL(runtime.ZENITH_PLATFORM_DB_URL).password) } } : {}),
   };
 }
 
@@ -189,7 +220,7 @@ export function prepare(input, directory) {
   validateInput(input);
   const dir = privateLocation(directory);
   if (fs.existsSync(dir)) refuse('private-directory-already-exists');
-  const environment = { ...input.environment };
+  const environment = installationEnvironment(input);
   const id = randomBytes(12).toString('hex');
   environment.ZENITH_SECRET_KEY = randomBytes(32).toString('hex');
   environment.ZENITH_PLAN_ARTIFACT_KEY = randomBytes(32).toString('hex');
@@ -197,16 +228,8 @@ export function prepare(input, directory) {
   const oidc = generateKeyPairSync('rsa', { modulusLength: 2048 });
   environment.ZENITH_CONTROL_SIGNING_JWK = JSON.stringify({ ...control.privateKey.export({ format: 'jwk' }), kid: `control-${id}`, alg: 'EdDSA' });
   environment.ZENITH_OIDC_SIGNING_JWK = JSON.stringify({ ...oidc.privateKey.export({ format: 'jwk' }), kid: `oidc-${id}`, alg: 'RS256' });
-  if (input.mode === 'disposable') {
-    const password = randomBytes(32).toString('hex');
-    environment.ZENITH_PLATFORM_DB_URL = `postgresql://postgres:${password}@platform-db:5432/zenith_platform`;
-    environment.ZENITH_PLATFORM_MIGRATION_URL = environment.ZENITH_PLATFORM_DB_URL;
-    environment.ZENITH_TEMPORAL_ADDRESS = 'temporal:7233';
-    environment.ZENITH_TEMPORAL_NAMESPACE = 'zenith-disposable';
-    environment.ZENITH_TEMPORAL_TLS = 'false';
-  }
   /** @type {PreparedInstallation} */
-  const result = { ...input, environment, schemaVersion: 1, installationId: id, projectName: `zenith-${id}`, source: sourceBinding() };
+  const result = { ...input, environment, schemaVersion: 2, installationId: id, projectName: `zenith-${id}`, source: sourceBinding() };
   validateInput(result, true);
   fs.mkdirSync(dir, { mode: 0o700, recursive: true });
   assertPrivate(dir, true);
@@ -265,10 +288,10 @@ export function joinComposition(config, directory) {
 export function planFor(config) {
   return { schemaVersion: 1, installationId: config.installationId, projectName: config.projectName, mode: config.mode,
     source: { head: config.source.head, contentSha256: config.source.contentSha256, dirty: config.source.dirty }, configurationSha256: hash(JSON.stringify(config)),
-    services: config.workerId ? [`execution-worker-${config.workerId}`] : config.mode === 'production' ? ['api', 'execution-worker'] : ['api', 'execution-worker', 'platform-db', 'temporal'],
+    services: config.workerId ? [`execution-worker-${config.workerId}`] : config.mode === 'production' ? ['api', 'execution-worker'] : ['api', 'execution-worker', 'temporal'],
     maintenance: config.workerId ? [] : ['platform-migrate'], workerReplicasPerProject: 1, additionalWorkerPreparationSupported: true, workerId: config.workerId, apiBinding: `127.0.0.1:${config.apiPort}`, siteOrigin: config.environment.NEXT_PUBLIC_SITE_URL, publishedEnginePorts: [],
-    limits: { production: { cpu: 4, memoryGiB: 5 }, disposable: { cpu: 6, memoryGiB: 7 }, maintenanceAdditional: { cpu: 1, memoryGiB: 1 } },
-    volumes: config.workerId ? [`worker-${config.workerId}`] : ['api-data', 'worker-data', ...(config.mode === 'disposable' ? ['platform-data', 'temporal-data'] : [])],
+    limits: { production: { cpu: 4, memoryGiB: 5 }, disposable: { cpu: 5, memoryGiB: 6 }, maintenanceAdditional: { cpu: 1, memoryGiB: 1 } },
+    volumes: config.workerId ? [`worker-${config.workerId}`] : ['api-data', 'worker-data', ...(config.mode === 'disposable' ? ['temporal-data'] : [])],
     images: { api: config.images.api, worker: config.images.worker, migration: config.images.migration }, externalSupabaseRequired: true, fullyLocal: false, apiStartupApprovalRequired: true,
     networkValidated: false, productionReady: false,
     pendingAcceptance: ['image-build-and-baked-public-auth', 'supabase-migrations-and-sign-in', 'pooler-and-platform-tls', 'temporal-auth-and-recovery', 'api-browser-and-mcp-live', 'customer-agent-registration-and-real-execution', 'multiworker-concurrency-and-backup-restore'],
@@ -282,7 +305,8 @@ export function readPrepared(directory) {
   assertPrivate(dir, true);
   assertPrivate(path.join(dir, 'installation.json'));
   const config = JSON.parse(fs.readFileSync(path.join(dir, 'installation.json'), 'utf8'));
-  if (config.schemaVersion !== 1 || !/^[a-f0-9]{24}$/.test(config.installationId) || config.projectName !== `zenith-${config.installationId}`) refuse('installation-identity');
+  assertPreparedVersion(config);
+  if (!/^[a-f0-9]{24}$/.test(config.installationId) || config.projectName !== `zenith-${config.installationId}`) refuse('installation-identity');
   validateInput(config, true);
   for (const [name, env] of Object.entries(environmentsFor(config, dir))) {
     const file = path.join(dir, name);

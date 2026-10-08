@@ -6,13 +6,13 @@ import { MAX_INPUT_BYTES, object } from "./security";
 const booleanFlags = new Set(["json", "debug", "follow", "token-stdin", "help", "include-revoked", "revoke-runner", "promote"]);
 const valueFlags = new Set(["url", "workspace", "timeout", "status", "env", "limit", "cursor", "scope", "input", "idempotency-key", "reason", "args", "digest", "poll-interval", "confirm", "rotation"]);
 export interface Arguments { words: string[]; flags: Record<string, string | true> }
-export function parse(argv: string[]): Arguments {
+export function parse(argv: string[], extraValueFlags: readonly string[] = []): Arguments {
   const words: string[] = []; const flags: Arguments["flags"] = {};
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (!arg.startsWith("-")) { words.push(arg); continue; }
     const match = /^--([a-z-]+)(?:=(.*))?$/.exec(arg);
-    if (!match || (!booleanFlags.has(match[1]) && !valueFlags.has(match[1]))) throw new CliError(2, "invalid_arguments", "Unknown option. See --help.");
+    if (!match || (!booleanFlags.has(match[1]) && !valueFlags.has(match[1]) && !extraValueFlags.includes(match[1]))) throw new CliError(2, "invalid_arguments", "Unknown option. See --help.");
     const [, key, inline] = match;
     if (Object.hasOwn(flags, key)) throw new CliError(2, "invalid_arguments", "Duplicate option. See --help.");
     if (booleanFlags.has(key)) {

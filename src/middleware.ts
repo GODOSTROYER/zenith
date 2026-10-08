@@ -16,6 +16,10 @@ export async function middleware(request: NextRequest) {
   // Only this POST transport authenticates raw bytes with the configured App
   // webhook secret before boot, identity lookup, or platform database access.
   if (platformAccess(request.nextUrl.pathname, request.method) === "webhook-signed") return NextResponse.next({ request });
+  // Exact plugin transports own their bearer authentication. Trust review and
+  // issuance stay on the live browser-session and MFA gates.
+  if (request.method === "POST" && request.nextUrl.pathname === "/api/integrations/plugins/launch/check" ||
+      request.method === "GET" && request.nextUrl.pathname === "/api/integrations/plugins/catalog") return NextResponse.next({ request });
   // This exact endpoint enforces its own credential and scope on every request.
   // Never let the browser-cookie gate turn it into a login redirect or demo admin.
   // `/agent/link` is deliberately absent — the page must keep getting the

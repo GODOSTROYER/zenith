@@ -17,6 +17,7 @@ import { ConnectionRequest, connectionHandoff } from "@/lib/connections/handoff"
 import { createOutput } from "./output";
 import { containsCredential, object, sanitize, serialize } from "./security";
 import { boundedFetch, McpClient, pause } from "./transport";
+import type { ContainerRuntime } from "./plugins/runtime";
 
 export interface CliRuntime {
   env?: Readonly<Record<string, string | undefined>>;
@@ -26,6 +27,7 @@ export interface CliRuntime {
   stderr?: (text: string) => void;
   fetch?: typeof fetch;
   signal?: AbortSignal;
+  pluginRuntime?: ContainerRuntime;
 }
 
 export const HELP = `Zenith — operations through the platform SDK and MCP v3
@@ -56,6 +58,14 @@ zenith connections create PROVIDER --input @file.json|-       (browser handoff)
 zenith connections rotate ID --input @file.json|- [--promote]  (browser handoff)
 zenith connections promote ID --rotation ROTATION_ID           (browser handoff)
 zenith connections abort ID --rotation ROTATION_ID             (browser handoff)
+zenith plugin install --manifest FILE --digest SHA256          (browser handoff)
+zenith plugin list
+zenith plugin run --manifest FILE --digest SHA256 --registration ID
+       --workspace ID --url HTTPS_ORIGIN --image NAME@sha256:DIGEST --server NAME
+zenith plugin revoke --registration ID --digest SHA256 --token-stdin
+
+plugin run and revoke read a dedicated scoped token from stdin; saved login and
+ZENITH_TOKEN are used only by plugin list. See zenith plugin --help.
 
 connections: PROVIDER is aws, gcp, azure, oci or kubernetes. list, show, verify and revoke run
 with a linked credential. create, rotate, promote and abort change what Zenith can reach, so
@@ -105,6 +115,7 @@ function toolExit(envelope: Record<string, unknown>): number {
 }
 
 export async function runCli(argv: string[], runtime: CliRuntime = {}): Promise<number> {
+  if (argv[0] === "plugin") return (await import("./plugins/main")).runPluginCli(argv, runtime);
   const env = runtime.env ?? process.env;
   const stdout = runtime.stdout ?? ((text: string) => { process.stdout.write(text); });
   const stderr = runtime.stderr ?? ((text: string) => { process.stderr.write(text); });

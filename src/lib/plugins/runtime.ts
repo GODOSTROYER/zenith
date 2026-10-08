@@ -16,7 +16,7 @@ export const liveParentCredential: ParentLookup = async (subject, workspaceId, c
     const rows = await authority.listCredentials(subject, workspaceId);
     const now = Date.now();
     const found = rows.find((c) => c.id === credentialId && c.workspaceId === workspaceId && c.subject === subject);
-    if (!found || found.revokedAt || !(Date.parse(found.expiresAt) > now)) return null;
+    if (!found || found.revokedAt || !(Date.parse(found.issuedAt) <= now) || !(Date.parse(found.expiresAt) > now)) return null;
     return {
       id: found.id,
       subject: found.subject,
@@ -34,5 +34,25 @@ export const liveParentCredential: ParentLookup = async (subject, workspaceId, c
 };
 
 export async function defaultPluginDeps(): Promise<PluginDeps> {
-  return { sql: await platformDb(), parents: liveParentCredential };
+  return { sql: await platformDb(), parents: liveParentCredential, assertLaunchScope: async (identity) => {
+    const { requireCredentialAuthority } = await import("@/lib/agent-access/authority");
+    if ((await requireCredentialAuthority()).kind !== "postgres") throw new PluginError("plugin_unavailable", "Launcher consent requires the Postgres credential authority.");
+    const { inAgentScope, liveMember, resolveTarget } = await import("@/lib/agent-access/control/runtime");
+    // The control adapter owns mutable scope arrays; keep the MCP identity's
+    // immutable grant separate, copying every optional restriction as well.
+    const who = { subject: identity.subject, integrationId: identity.integrationId, workspaceId: identity.workspaceId,
+      projectIds: [...identity.projectIds], scopes: [...identity.scopes], expiresAt: identity.expiresAt,
+      ...(identity.environmentIds ? { environmentIds: [...identity.environmentIds] } : {}),
+      ...(identity.appIds ? { appIds: [...identity.appIds] } : {}) };
+    await inAgentScope(who, async () => {
+      if (!["admin", "editor"].includes(liveMember(who).role)) throw new PluginError("plugin_forbidden", "This role cannot give a plugin access.");
+      const { db } = await import("@/lib/db/store");
+      for (const projectId of who.projectIds) resolveTarget(who, { workspaceId: who.workspaceId, projectId });
+      for (const environmentId of identity.environmentIds ?? []) {
+        const environment = db().environments.find((e) => e.id === environmentId && identity.projectIds.includes(e.projectId));
+        if (!environment) throw new PluginError("plugin_forbidden", "The selected environment is outside the approved projects.");
+        resolveTarget(who, { workspaceId: who.workspaceId, projectId: environment.projectId, environmentId });
+      }
+    });
+  } };
 }

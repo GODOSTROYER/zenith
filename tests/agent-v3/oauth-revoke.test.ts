@@ -193,14 +193,16 @@ describe("OAuth access tokens: the Zenith grant is revoked and takes effect on t
 });
 
 describe("plugin tokens (zp_) over the real plugin store", () => {
-  const opened: PlatformDbHandle[] = [];
-  afterAll(async () => { for (const db of opened) await db.close(); });
+  let db: PlatformDbHandle;
+  afterAll(async () => { await db?.close(); });
   const PG_URL = process.env.ZENITH_TEST_PLATFORM_PG_URL?.trim() || undefined;
+  // Schema setup is infrastructure, outside the unchanged 20s behavior budget.
+  beforeAll(async () => {
+    db = await (PG_URL ? openPlatformDb({ kind: "postgres", url: PG_URL, migrate: true, max: 2 }) : openPlatformDb({ kind: "pglite" }));
+  });
   afterEach(() => vi.unstubAllEnvs());
 
   it("revokes by possession, ends authentication at once, keeps audience binding, and is not an oracle", async () => {
-    const db = await (PG_URL ? openPlatformDb({ kind: "postgres", url: PG_URL, migrate: true, max: 3 }) : openPlatformDb({ kind: "pglite" }));
-    opened.push(db);
     const suffix = Math.random().toString(36).slice(2, 10);
     const ws = `ws-${suffix}`;
     const parents = new FakeParents();

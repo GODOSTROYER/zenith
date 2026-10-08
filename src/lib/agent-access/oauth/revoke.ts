@@ -83,6 +83,9 @@ export async function revokeToken(request: Request, deps: RevokeDeps): Promise<R
 
   try {
     if (token.startsWith("za_")) {
+      // A launcher child lives in plugin_grants, not agent_credentials. Revoke
+      // that grant first; possession must never revoke its parent credential.
+      if (await deps.plugins?.revokeByToken(token)) return new Response(null, { status: 200, headers: HEADERS });
       const authority = await deps.authority();
       let credential: { id: string; subject: string; workspaceId: string } | undefined;
       try { credential = await authority.verify(`Bearer ${token}`); } catch { credential = undefined; }

@@ -47,6 +47,18 @@ beforeEach(() => {
 });
 
 describe("platform bearer cookie-gate bypass", () => {
+  it("bypasses only exact launcher check and catalog methods, preserving browser/MFA consent routes", async () => {
+    for (const [method, suffix] of [["POST", "launch/check"], ["GET", "catalog"]]) {
+      const response = await middleware(new NextRequest(`https://zenith.test/api/integrations/plugins/${suffix}`, { method }));
+      expect(response.headers.get("x-middleware-next")).toBe("1");
+      expect(gate.session).not.toHaveBeenCalled();
+    }
+    for (const [method, suffix] of [["GET", "launch/check"], ["POST", "catalog"], ["POST", "launch/check/"], ["POST", "launch/tokens"], ["POST", "review"]]) {
+      vi.clearAllMocks();
+      expect((await middleware(new NextRequest(`https://zenith.test/api/integrations/plugins/${suffix}`, { method, headers: { authorization: TOKEN } }))).status).toBe(401);
+      expect(gate.session).toHaveBeenCalledOnce();
+    }
+  });
   it("admits only the exact signed webhook POST transport, keeping browser mutations gated", async () => {
     const path = `${ROOT}/github/webhook`;
     expect(platformAccess(path, "POST")).toBe("webhook-signed");

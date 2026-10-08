@@ -4,9 +4,9 @@
  * admin in a browser session, or the live grant check on an MCP request) is
  * decided by `src/lib/plugins/service.ts`.
  *
- * Tenancy: every function except `resolveGrantByTokenHash` filters on
+ * Tenancy: id-based functions filter on
  * `workspace_id` in SQL, so a foreign id is the same as a missing one.
- * `resolveGrantByTokenHash` is the token-keyed authentication lookup (the
+ * The resolve/classify/diagnose hash lookups are token-keyed authentication (the
  * 256-bit token hash is the key; the workspace is derived from the row and then
  * bound by the caller); it is never reachable with a caller-supplied id.
  *
@@ -374,6 +374,13 @@ export async function diagnoseTokenHash(sql: Sql, tokenHash: string): Promise<"u
 /** Best-effort last-used stamp; never able to deny a request. */
 export async function touchGrant(sql: Sql, workspaceId: string, grantId: string): Promise<void> {
   await sql.query("update platform.plugin_grants set last_used_at=clock_timestamp() where workspace_id=$1 and id=$2", [workspaceId, grantId]);
+}
+
+/** Token-keyed classification, including revoked grants. A known child must
+ * never fall through to the general credential authority after revocation. */
+export async function hasGrantTokenHash(sql: Sql, tokenHash: string): Promise<boolean> {
+  const rows = await sql.query("select id from platform.plugin_grants where token_hash=$1 limit 1", [tokenHash]);
+  return rows.length === 1;
 }
 
 export async function listEvents(sql: Sql, workspaceId: string, registrationId: string, limit = 100): Promise<PluginEvent[]> {

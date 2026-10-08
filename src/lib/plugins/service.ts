@@ -20,8 +20,9 @@
  *
  * No direct credential or store access. A plugin's only interface is the MCP
  * tool catalog; the manifest cannot declare anything else, and the token is
- * worthless at every other route (they accept `za_` credentials, OAuth tokens
- * or browser sessions, never `zp_`).
+ * worthless at other resources. Launcher children use `za_` minted by the link
+ * protocol but are stored only in plugin_grants, so the general credential
+ * authority refuses them. v3 and launch/check enforce their plugin binding.
  */
 import { createHash, randomBytes } from "node:crypto";
 import type { Sql } from "@/lib/controlplane/types";
@@ -30,6 +31,8 @@ import { ControlStoreError } from "@/lib/controlplane/db/errors";
 import { INTEGRATION_SCOPES, type IntegrationScope, type ToolName } from "@/lib/agent-access/v3/contract";
 import { toolDescriptor } from "@/lib/agent-access/v3/catalog";
 import type { AgentIdentity, PluginBinding } from "@/lib/agent-access/v3/principal";
+import { mintToken } from "@/lib/agent-access/link/protocol";
+import { LAUNCH_TOKEN_PATTERN, LaunchBinding, LaunchLease, launchIds } from "./launch-contract";
 import { PluginError } from "./errors";
 import { manifestDigestOf, parseManifest, PluginManifest, trustedPublishersFromEnv, verifyProvenance, type TrustedPublishers } from "./manifest";
 
@@ -56,6 +59,9 @@ export interface PluginDeps {
   parents: ParentLookup;
   publishers?: () => TrustedPublishers;
   now?: () => number;
+  /** Re-read membership and ownership of every explicitly selected target.
+   * Required for launcher children; missing wiring is a refusal. */
+  assertLaunchScope?: (identity: AgentIdentity) => Promise<void>;
 }
 
 const nowOf = (deps: PluginDeps): number => (deps.now ?? Date.now)();
@@ -212,7 +218,7 @@ export async function revokePluginGrant(deps: PluginDeps, input: { workspaceId: 
  * Audience binding is untouched: this only ever ends a grant.
  */
 export async function revokePluginTokenByPossession(deps: PluginDeps, token: string): Promise<boolean> {
-  if (!PLUGIN_TOKEN_PATTERN.test(token)) return false;
+  if (!PLUGIN_TOKEN_PATTERN.test(token) && !LAUNCH_TOKEN_PATTERN.test(token)) return false;
   const resolved = await repos.plugins.resolveGrantByTokenHash(deps.sql, hashPluginToken(token));
   if (!resolved) return false;
   return repos.plugins.revokeGrant(deps.sql, { workspaceId: resolved.grant.workspaceId, grantId: resolved.grant.id, revokedBy: `token:${resolved.grant.id}` });
@@ -235,7 +241,7 @@ const REFUSAL = {
  * parent credential is effective on the very next request.
  */
 export async function authenticatePluginToken(deps: PluginDeps, token: string, audience: string): Promise<AgentIdentity> {
-  if (!PLUGIN_TOKEN_PATTERN.test(token)) throw new PluginError("plugin_grant_invalid", "The plugin token is not valid.");
+  if (!PLUGIN_TOKEN_PATTERN.test(token) && !LAUNCH_TOKEN_PATTERN.test(token)) throw new PluginError("plugin_grant_invalid", "The plugin token is not valid.");
   const hash = hashPluginToken(token);
   const resolved = await repos.plugins.resolveGrantByTokenHash(deps.sql, hash);
   if (!resolved) {
@@ -243,11 +249,12 @@ export async function authenticatePluginToken(deps: PluginDeps, token: string, a
     throw new PluginError(code, message);
   }
   const { grant, registration } = resolved;
+  if (registration.status !== "approved") throw new PluginError("plugin_grant_invalid", "The plugin approval is no longer live.");
   // Audience binding: a token minted for another endpoint or origin is refused here.
   if (grant.audience !== audience) throw new PluginError("plugin_grant_invalid", "This plugin token was issued for a different resource.");
   assertIntegrity(registration);
   const parent = await deps.parents(grant.subject, grant.workspaceId, grant.credentialId);
-  if (!parent || parent.workspaceId !== grant.workspaceId) {
+  if (!parent || parent.id !== grant.credentialId || parent.subject !== grant.subject || parent.workspaceId !== grant.workspaceId || parent.revokedAt || !(Date.parse(parent.expiresAt) > nowOf(deps))) {
     throw new PluginError("plugin_grant_invalid", "The connection this plugin token was issued under is no longer live.");
   }
   const scopes = intersect(intersect(grant.scopes, registration.approvedScopes), parent.scopes);
@@ -265,7 +272,7 @@ export async function authenticatePluginToken(deps: PluginDeps, token: string, a
     tools,
   };
   void repos.plugins.touchGrant(deps.sql, grant.workspaceId, grant.id).catch(() => undefined);
-  return {
+  const identity: AgentIdentity = {
     subject: grant.subject,
     integrationId: parent.id,
     workspaceId: grant.workspaceId,
@@ -275,4 +282,89 @@ export async function authenticatePluginToken(deps: PluginDeps, token: string, a
     expiresAt,
     plugin: binding,
   };
+  if (LAUNCH_TOKEN_PATTERN.test(token)) {
+    verifyProvenance(parseManifest(registration.manifest), (deps.publishers ?? trustedPublishersFromEnv)(), new Date(nowOf(deps)));
+    assertFiniteLaunchScope(identity);
+    await assertLiveLaunchScope(deps, identity);
+  }
+  return identity;
+}
+
+function assertFiniteLaunchScope(identity: AgentIdentity): void {
+  if (!launchIds.safeParse(identity.projectIds).success || !launchIds.safeParse(identity.environmentIds).success ||
+      !identity.plugin?.tools.length || !(Date.parse(identity.expiresAt) > Date.now())) {
+    throw new PluginError("plugin_grant_invalid", "A launcher requires live, finite project and environment grants.");
+  }
+}
+async function assertLiveLaunchScope(deps: PluginDeps, identity: AgentIdentity): Promise<void> {
+  if (!deps.assertLaunchScope) throw new PluginError("plugin_unavailable", "The live launcher scope authority is unavailable.");
+  await deps.assertLaunchScope(identity);
+}
+
+/** A child is hashed in platform.plugin_grants, never agent.agent_credentials.
+ * It can therefore authenticate only at the plugin-aware v3 resource and the
+ * launcher check, not REST, v1/v2, link approvals or browser management. */
+export async function issueLauncherToken(deps: PluginDeps, input: {
+  workspaceId: string; registrationId: string; manifestDigest: string; credentialId: string;
+  subject: string; audience: string; projectIds: string[]; environmentIds: string[]; minutes: number;
+}): Promise<IssuedPluginToken> {
+  if (!Number.isInteger(input.minutes) || input.minutes < 1 || input.minutes > 1440 ||
+      !launchIds.safeParse(input.projectIds).success || !launchIds.safeParse(input.environmentIds).success) {
+    throw new PluginError("plugin_manifest_invalid", "Choose finite targets and a lifetime of 1 to 1440 minutes.");
+  }
+  const resource = new URL(input.audience);
+  if (resource.protocol !== "https:" || resource.username || resource.password || resource.search || resource.hash || resource.pathname !== "/api/agent/v3/mcp") {
+    throw new PluginError("plugin_forbidden", "Launcher tokens require the trusted HTTPS MCP v3 resource.");
+  }
+  const registration = await repos.plugins.get(deps.sql, input.workspaceId, input.registrationId);
+  if (!registration) throw new PluginError("plugin_not_found", "Plugin not found.");
+  if (registration.status !== "approved") throw new PluginError("plugin_not_approved", "An admin must approve the exact signed manifest first.");
+  assertIntegrity(registration);
+  if (registration.manifestDigest !== input.manifestDigest) throw new PluginError("plugin_conflict", "Review the current manifest digest.");
+  verifyProvenance(parseManifest(registration.manifest), (deps.publishers ?? trustedPublishersFromEnv)(), new Date(nowOf(deps)));
+  const parent = await deps.parents(input.subject, input.workspaceId, input.credentialId);
+  if (!parent || parent.id !== input.credentialId || parent.subject !== input.subject || parent.workspaceId !== input.workspaceId || parent.revokedAt ||
+      input.projectIds.some((p) => !parent.projectIds.includes(p)) || input.environmentIds.some((e) => parent.environmentIds && !parent.environmentIds.includes(e))) {
+    throw new PluginError("plugin_forbidden", "Choose explicit targets within your own live linked credential.");
+  }
+  const scopes = intersect(registration.approvedScopes, parent.scopes).filter(isScope);
+  const tools = toolsForScopes(registration.approvedTools, scopes);
+  const expires = Math.min(nowOf(deps) + input.minutes * 60_000, Date.parse(parent.expiresAt));
+  if (!scopes.includes("read") || !tools.length || !Number.isFinite(expires) || expires <= nowOf(deps)) {
+    throw new PluginError("plugin_forbidden", "The parent cannot grant the approved plugin access.");
+  }
+  await assertLiveLaunchScope(deps, { subject: parent.subject, workspaceId: parent.workspaceId, integrationId: parent.id,
+    projectIds: input.projectIds, environmentIds: input.environmentIds, scopes, expiresAt: new Date(expires).toISOString() });
+  const token = mintToken();
+  try {
+    const grant = await repos.plugins.createGrant(deps.sql, { workspaceId: input.workspaceId, registrationId: registration.id,
+      credentialId: parent.id, subject: parent.subject, tokenHash: hashPluginToken(token), audience: input.audience,
+      scopes, projectIds: input.projectIds, environmentIds: input.environmentIds, createdBy: input.subject, expiresAt: new Date(expires).toISOString() });
+    // A withdrawal while issuing must not return a usable child.
+    await authenticatePluginToken(deps, token, input.audience);
+    return { token, grant, tools };
+  } catch (error) { return mapStore(error); }
+}
+
+/** null means this hash has never been a plugin grant. Known expired/revoked
+ * children throw, so authentication cannot downgrade to a broader authority. */
+export async function resolveLauncherIdentity(deps: PluginDeps, token: string, audience: string): Promise<AgentIdentity | null> {
+  if (!LAUNCH_TOKEN_PATTERN.test(token) || !(await repos.plugins.hasGrantTokenHash(deps.sql, hashPluginToken(token)))) return null;
+  return authenticatePluginToken(deps, token, audience);
+}
+
+export async function checkLauncherLease(deps: PluginDeps, token: string, raw: unknown, audience: string): Promise<LaunchLease> {
+  const input = LaunchBinding.safeParse(raw);
+  if (!input.success || !LAUNCH_TOKEN_PATTERN.test(token)) throw new PluginError("plugin_grant_invalid", "Invalid launcher binding.");
+  const binding = input.data;
+  if (binding.credentialDigest !== hashPluginToken(token) || binding.audience !== audience) throw new PluginError("plugin_grant_invalid", "Invalid launcher binding.");
+  const identity = await resolveLauncherIdentity(deps, token, audience);
+  if (!identity?.plugin || identity.workspaceId !== binding.workspaceId || identity.plugin.registrationId !== binding.registrationId || identity.plugin.manifestDigest !== binding.manifestDigest) {
+    throw new PluginError("plugin_grant_invalid", "This credential is not the reviewed launcher child.");
+  }
+  const lease = LaunchLease.safeParse({ ...binding, status: "active", credentialKind: "plugin_scoped_za",
+    projectIds: identity.projectIds, environmentIds: identity.environmentIds, scopes: identity.scopes,
+    tools: identity.plugin.tools, expiresAt: identity.expiresAt });
+  if (!lease.success || Date.parse(lease.data.expiresAt) > nowOf(deps) + 86_400_000) throw new PluginError("plugin_grant_invalid", "Invalid launcher lease.");
+  return lease.data;
 }

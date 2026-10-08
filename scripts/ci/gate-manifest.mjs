@@ -5262,6 +5262,70 @@ export const SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS = [
 ];
 
 // Named SQL authority cases survive missing files and cannot substitute PGlite.
+// Bounded final-statement ownership snapshot authority; no all-writer/preissued closure claim.
+export const OWNERSHIP_SNAPSHOT_CAS_POSTGRES_REQUIREMENTS = [
+  {
+    "file": "tests/controlplane/ownership-transfers.test.ts",
+    "suite": "ownership transfer immutable service-role custody [postgres]",
+    "test": "refuses claim after a resource autoscaling fact commits during the owning operation wait",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/ownership-transfers.test.ts",
+    "suite": "ownership transfer immutable service-role custody [postgres]",
+    "test": "refuses claim after a newly inserted autoscaler commits during the owning operation wait",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/ownership-transfers.test.ts",
+    "suite": "ownership transfer immutable service-role custody [postgres]",
+    "test": "refuses a mutation grant when a new autoscaler commits after its ownership snapshot",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/ownership-transfers.test.ts",
+    "suite": "ownership transfer immutable service-role custody [postgres]",
+    "test": "retains uncertain late evidence for a preissued write after current ownership changes",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/ownership-transfers.test.ts",
+    "suite": "ownership transfer immutable service-role custody [postgres]",
+    "test": "refuses a grant after a direct service-role autoscaler INSERT commits during its coordinator wait",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/ownership-transfers.test.ts",
+    "suite": "ownership transfer immutable service-role custody [postgres]",
+    "test": "refuses an owner INSERT committed after an intermediate fresh read but before the final grant statement",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/ownership-transfers.test.ts",
+    "suite": "ownership transfer immutable service-role custody [postgres]",
+    "test": "admits an unchanged inventory without rounding PostgreSQL JSONB numeric facts",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/ownership-transfers.test.ts",
+    "suite": "ownership transfer immutable service-role custody [postgres]",
+    "test": "keeps unrelated workspace and environment ownership inventories outside grant admission",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/ownership-transfers.test.ts",
+    "suite": "ownership transfer immutable service-role custody [postgres]",
+    "test": "refuses grant admission when its scoped resource target is missing",
+    "postgres": true
+  },
+  {
+    "file": "tests/controlplane/ownership-transfers.test.ts",
+    "suite": "ownership transfer immutable service-role custody [postgres]",
+    "test": "refuses grant admission when the complete ownership inventory exceeds 2000 nodes",
+    "postgres": true
+  }
+];
+
 export const INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS = [
   ...[
     "records and replays an exact human-approved transfer without immutable-column UPDATE privileges",
@@ -6245,7 +6309,7 @@ export function requirementsFor(lane, root) {
       requirements.push(...AGENT_EFFECT_POSTGRES_REQUIREMENTS);
       requirements.push(...BUILD_SOURCE_POSTGRES_REQUIREMENTS, GITHUB_WEBHOOK_POSTGRES_REQUIREMENT, ...GITHUB_WEBHOOK_POSTGRES_CASES);
       // Discovery above remains; these named cases survive source deletion.
-      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS,...FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS,...MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS,...AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS,...EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS,...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS,...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, ...MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, ...MIXED_RUN_STORE_POSTGRES_REQUIREMENTS, ...PLAN_RETENTION_POSTGRES_REQUIREMENTS, ...KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, ...KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, ...CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, ...SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, ...INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS);
+      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS,...FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS,...MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS,...AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS,...EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS,...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS,...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, ...MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, ...MIXED_RUN_STORE_POSTGRES_REQUIREMENTS, ...PLAN_RETENTION_POSTGRES_REQUIREMENTS, ...KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, ...KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, ...CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, ...SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, ...INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, ...OWNERSHIP_SNAPSHOT_CAS_POSTGRES_REQUIREMENTS);
       break;
     default:
       throw new Error("Unknown CI lane");

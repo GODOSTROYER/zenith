@@ -1,4 +1,4 @@
-import { incomingWorkflowIds, withoutIncomingPlatform } from "./incoming-cohort-fixture";
+import { incomingWorkflowIds, withoutIncomingPlatform as withoutIncomingPlatformCohort } from "./incoming-cohort-fixture";
 /**
  * Parsed workflow gates cover the platform that exists. Suite discovery catches
  * narrower filters; mandatory evidence reports catch skipped real-engine tests.
@@ -123,6 +123,25 @@ const currentSuccessorPlatformCohort = [
 ] as const;
 // Only these five explicitly registered names leave predecessor comparisons.
 // Current validation still requires every named case, even if its file is deleted.
+// Exact additive snapshot IDs leave only historical comparisons; unknown successors remain.
+const ownershipSnapshotCasIds = new Set([
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:7ba9c4b9e2c1",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:01845bf26fdf",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:1c2299148826",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:65045d56d958",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:a3e783c044c9",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:348894d82a33",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:b0212eb1a020",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:852f3777058a",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:7049bff8d926",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:10a59cc38f80"
+]);
+function priorOwnershipSnapshotRequirements(requirements: ReturnType<typeof requirementsFor>) {
+  return requirements.filter(item => !ownershipSnapshotCasIds.has(item.id));
+}
+function withoutIncomingPlatform(requirements: ReturnType<typeof requirementsFor>) {
+  return withoutIncomingPlatformCohort(priorOwnershipSnapshotRequirements(requirements));
+}
 const hardeningPlatformIds = INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item));
 function priorHardeningPlatformRequirements(sourceRoot = root) {
   const ids = new Set(hardeningPlatformIds);
@@ -833,12 +852,21 @@ describe("saved builtin settlement mandatory CI admission", () => {
     const manifest = manifestFor("platform-postgres", root);
     const added = currentSuccessorPlatformCohort.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
     expect(manifest.requirements.filter(item => added.some(value => value.id === item.id)).sort((a, b) => a.id.localeCompare(b.id))).toEqual(added.sort((a, b) => a.id.localeCompare(b.id)));
-    expect(manifest.requirements).toHaveLength(1146);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1146);
+    expect(manifest.requirements).toHaveLength(1156);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1156);
     const mixedStore = manifest.requirements.filter(item => item.file === "tests/execution/mixed-run-store.test.ts");
     expect(mixedStore).toHaveLength(5);
     expect(mixedStore.every(item => item.postgres && item.suite === "mixed run store validation [postgres]" && item.test)).toBe(true);
-    expect(manifest.requirements.filter(item => !mixedStore.some(addition => addition.id === item.id))).toHaveLength(1141);
+    const prior = priorOwnershipSnapshotRequirements(manifest.requirements);
+    expect(prior).toHaveLength(1146);
+    expect(createHash("sha256").update(JSON.stringify(prior.map(item => item.id).sort())).digest("hex"))
+      .toBe("ae11ed1db712427ee9f71e23e997f1c4ce2d30d9ff63c3d7a955d023db3d20fa");
+    const priorMixedStore = prior.filter(item => !mixedStore.some(addition => addition.id === item.id));
+    expect(priorMixedStore).toHaveLength(1141);
+    expect(createHash("sha256").update(JSON.stringify(priorMixedStore.map(item => item.id).sort())).digest("hex"))
+      .toBe("133320ef5a7fac2ba03281e597a3305d7cdf0957c61fe6b8c8b4704973d4cdd3");
+    const future = { ...manifest.requirements[0], id: "unknown-snapshot-platform-successor" };
+    expect(priorOwnershipSnapshotRequirements([...manifest.requirements, future])).toContainEqual(future);
     expect(withoutIncomingPlatform(manifest.requirements).map(item => item.id).sort()).toEqual([...priorCurrentSuccessorPlatformRequirements(), ...added, ...INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }))].map(item => item.id).sort());
     for (const item of added) {
       expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);

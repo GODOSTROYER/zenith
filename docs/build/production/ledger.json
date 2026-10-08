@@ -2077,6 +2077,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2105,6 +2106,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2133,6 +2135,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2161,6 +2164,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2189,7 +2193,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
-      "implementationNote": "J15 gated local rehearsal harness built; Mac Docker/kind/PostgreSQL/ACME verification pending; live cloud acceptance deferred.",
+      "implementationNote": "J15 gated local rehearsal harness built; Mac Docker/kind/PostgreSQL/ACME verification pending; live cloud acceptance deferred. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2220,7 +2224,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
-      "implementationNote": "J15 gated local rehearsal harness built; Mac Docker/kind/PostgreSQL/ACME verification pending; live cloud acceptance deferred.",
+      "implementationNote": "J15 gated local rehearsal harness built; Mac Docker/kind/PostgreSQL/ACME verification pending; live cloud acceptance deferred. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2251,7 +2255,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
-      "implementationNote": "J15 gated local rehearsal harness built; Mac Docker/kind/PostgreSQL/ACME verification pending; live cloud acceptance deferred.",
+      "implementationNote": "J15 gated local rehearsal harness built; Mac Docker/kind/PostgreSQL/ACME verification pending; live cloud acceptance deferred. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3658,6 +3662,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3688,6 +3693,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3717,6 +3723,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3747,7 +3754,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
-      "implementationNote": "J11: Cilium exact-version/archive-SHA resolver interface; compatible chart selection, kind and Wave 5/J14 two-tenant runtime acceptance pending.",
+      "implementationNote": "J11: Cilium exact-version/archive-SHA resolver interface; compatible chart selection, kind and Wave 5/J14 two-tenant runtime acceptance pending. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3774,6 +3781,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3800,6 +3808,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3827,6 +3836,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3848,6 +3858,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3872,7 +3883,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user; AWS fixture harness built; Wave 5 product join and live verification pending",
-      "implementationNote": "J11: gated local Grafana/Prometheus/OTel import and offline contracts; Docker import, fairness and outage rehearsal remain pending.",
+      "implementationNote": "J11: gated local Grafana/Prometheus/OTel import and offline contracts; Docker import, fairness and outage rehearsal remain pending. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3894,7 +3905,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user; AWS fixture harness built; Wave 5 product join and live verification pending",
-      "implementationNote": "J11: real-digest resolver and fixture-activated history replay manifest lane; registry pins, recorded histories and rollout/rollback acceptance pending on Mac. Integration: the verifier's frozen current-source histories and replay evidence below are retained; previous-release compatibility and rollout/rollback acceptance remain pending.",
+      "implementationNote": "J11: real-digest resolver and fixture-activated history replay manifest lane; registry pins, recorded histories and rollout/rollback acceptance pending on Mac. Integration: the verifier's frozen current-source histories and replay evidence below are retained; previous-release compatibility and rollout/rollback acceptance remain pending. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
           "level": "local_engine",
@@ -3948,6 +3959,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3972,6 +3984,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3993,6 +4006,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending; live_acceptance_deferred_by_user; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4014,6 +4028,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4039,6 +4054,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4071,7 +4087,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
-      "implementationNote": "J11: owned base-image inventory/resolver and reused Node pin; remaining real digests and Wave 5 supply-chain acceptance pending. Integration: committed upstream base/observability digests and the Cilium 1.20.2 chart pin are retained; API, worker and migrate release-image digests remain unresolved.",
+      "implementationNote": "J11: owned base-image inventory/resolver and reused Node pin; remaining real digests and Wave 5 supply-chain acceptance pending. Integration: committed upstream base/observability digests and the Cilium 1.20.2 chart pin are retained; API, worker and migrate release-image digests remain unresolved. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4302,7 +4318,7 @@
       "state": "in_progress",
       "dependencies": [],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
-      "implementationNote": "J15 local targets and strict receipts built; J1/J2/J4 driver joins and Mac engine/browser verification pending; live acceptance deferred.",
+      "implementationNote": "J15 local targets and strict receipts built; J1/J2/J4 driver joins and Mac engine/browser verification pending; live acceptance deferred. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4325,7 +4341,7 @@
       "state": "in_progress",
       "dependencies": [],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
-      "implementationNote": "J12: dossier validates real file/hash/source bindings and coherent evidence; historical, skipped and unperformed results remain visible. RC verification pending; see verify/REL-02.md.",
+      "implementationNote": "J12: dossier validates real file/hash/source bindings and coherent evidence; historical, skipped and unperformed results remain visible. RC verification pending; see verify/REL-02.md. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4351,7 +4367,7 @@
       "state": "in_progress",
       "dependencies": [],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
-      "implementationNote": "J12: separate candidate evidence gates and accountable Ed25519 sign-off with external identity/key pins. Live/operational evidence and human sign-off pending; see verify/REL-03.md.",
+      "implementationNote": "J12: separate candidate evidence gates and accountable Ed25519 sign-off with external identity/key pins. Live/operational evidence and human sign-off pending; see verify/REL-03.md. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4371,6 +4387,7 @@
       "state": "planned",
       "dependencies": [],
       "implementationStatus": "implementation_complete_verification_pending; AWS fixture harness built; Wave 5 product join and live verification pending",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [],
       "requiredEvidence": [
         "contract",

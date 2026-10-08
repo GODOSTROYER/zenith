@@ -336,6 +336,18 @@ async function main(): Promise<number> {
         viewport: { width: viewport.width, height: viewport.height },
         hasTouch: viewport.name === "narrow",
       });
+      let navigationDiagnosticEvents = 0;
+      context.on("requestfailed", (request) => {
+        const failedUrl = new URL(request.url());
+        if (failedUrl.origin !== origin || !["/agent/link", APPROVAL_ROUTE].includes(failedUrl.pathname)) return;
+        const errorText = request.failure()?.errorText;
+        const networkError = errorText === "net::ERR_CONNECTION_REFUSED" ? "ERR_CONNECTION_REFUSED"
+          : errorText === "net::ERR_CONNECTION_RESET" ? "ERR_CONNECTION_RESET"
+          : errorText === "net::ERR_TIMED_OUT" ? "ERR_TIMED_OUT" : "unknown";
+        if (navigationDiagnosticEvents++ < 8) {
+          process.stdout.write(`${JSON.stringify({ diagnostic: "agent-browser-request-failed", viewport: viewport.name, route: failedUrl.pathname, networkError })}\n`);
+        }
+      });
       const consoleErrors: string[] = [];
       context.on("console", (message) => {
         if (message.type() === "error") consoleErrors.push(message.text());
@@ -601,6 +613,7 @@ async function main(): Promise<number> {
           consoleErrors.length === 0 ? "clean" : consoleErrors.slice(0, 3).join(" | ")
         );
       } catch (err) {
+        process.stdout.write(`${JSON.stringify({ diagnostic: "agent-browser-journey-failed", viewport: viewport.name, server: server.diagnosticState(), fetchCauseCode: fetchCauseCode(err) })}\n`);
         record(label, "the approval journey ran to the end", false, err instanceof Error ? err.message : String(err));
       } finally {
         await context.close();
@@ -631,8 +644,23 @@ async function main(): Promise<number> {
 
 /* --------------------------------- helpers ---------------------------------- */
 
+function fetchCauseCode(error: unknown): string {
+  const cause = error instanceof Error ? error.cause : undefined;
+  const candidates = cause instanceof AggregateError ? [cause, ...cause.errors.slice(0, 4)] : [cause];
+  for (const candidate of candidates) {
+    if (candidate === null || typeof candidate !== "object" || !("code" in candidate)) continue;
+    switch (candidate.code) {
+      case "ECONNREFUSED": case "ECONNRESET": case "ETIMEDOUT":
+      case "ENETUNREACH": case "EHOSTUNREACH": case "UND_ERR_CONNECT_TIMEOUT": case "UND_ERR_SOCKET":
+        return candidate.code;
+    }
+  }
+  return "unknown";
+}
+
 interface DevServer {
   stop: () => void;
+  diagnosticState: () => { exitCode: number | null; signalCode: NodeJS.Signals | null; nodeOomObserved: boolean };
   approvalCompileTimings: () => Array<{ route: string; durationMs: number }>;
 }
 
@@ -676,6 +704,11 @@ async function startDevServer(port: number): Promise<DevServer | null> {
   process.stdout.write(`next dev is answering on http://localhost:${port}\n`);
   return {
     stop: () => child.kill("SIGKILL"),
+    diagnosticState: () => ({
+      exitCode: child.exitCode,
+      signalCode: child.signalCode,
+      nodeOomObserved: /FATAL ERROR: [^\r\n]*JavaScript heap out of memory/.test(log.join("")),
+    }),
     approvalCompileTimings: () => Array.from(
       log.join("").matchAll(/\bCompiled \/api\/integrations\/agent\/link\/approve in (\d+(?:\.\d+)?)(ms|s)(?=\s|$)/g),
       (match) => ({ route: APPROVAL_ROUTE, durationMs: Math.round(Number(match[1]) * (match[2] === "s" ? 1000 : 1)) })

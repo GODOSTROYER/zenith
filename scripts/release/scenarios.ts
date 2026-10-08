@@ -183,8 +183,8 @@ export const SCENARIOS: readonly Scenario[] = [
     limits: "Figures are list-price estimates from a dated catalog and approximate latency tables; actual spend is a separate, gated read.",
   },
   {
-    id: "release-governance", title: "Scope manifest, checkpoints and the evidence dossier", requirements: ["PROD-REL-02", "PROD-REL-04"],
-    lanes: [{ id: "release-tooling", kind: "contract", files: ["tests/release/scope.test.ts", "tests/release/checkpoint.test.ts", "tests/release/acceptance-scenarios.test.ts", "tests/release/orchestrator.test.ts", "tests/release/dossier.test.ts", "tests/release/live-scope-coverage.test.ts"] }],
+    id: "release-governance", title: "Scope manifest, checkpoints, release status and the evidence dossier", requirements: ["PROD-REL-02", "PROD-REL-03", "PROD-REL-04"],
+    lanes: [{ id: "release-tooling", kind: "contract", files: ["tests/release/scope.test.ts", "tests/release/checkpoint.test.ts", "tests/release/acceptance-scenarios.test.ts", "tests/release/orchestrator.test.ts", "tests/release/dossier.test.ts", "tests/release/status.test.ts", "tests/release/live-scope-coverage.test.ts"] }],
     limits: "These lanes prove the tooling's rules, not that any live run happened.",
   },
 ];

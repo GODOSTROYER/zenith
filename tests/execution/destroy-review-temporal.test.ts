@@ -71,6 +71,8 @@ describe.skipIf(!enabled)("Temporal read-only teardown review workflow", () => {
       const detail = await h.broker.getOperationDetail({ workspaceId: scope.workspaceId, operationId: result.operationId, principal: user("erin") });
       expect(detail.operation).toMatchObject({ capability: "infrastructure.destroy", status: "awaiting_approval", planDigest: result.planDigest });
       expect(detail.planReview?.view.resources[0]).toMatchObject({ action: "delete" });
+      const semanticsDigest = detail.planReview?.semantics?.digest;
+      expect(semanticsDigest).toMatch(/^[a-f0-9]{64}$/);
       expect(await h.store.getPlanEvidence(scope.workspaceId, result.operationId, result.planDigest)).toMatchObject({ kind: "tofu_plan", simulated: false, summary: { destroy: true } });
       expect(w.credentials.sessions).toHaveLength(1);
       expect(w.credentials.sessions[0]).toMatchObject({ purpose: "observe", capability: "infrastructure.plan", revoked: true });
@@ -79,16 +81,23 @@ describe.skipIf(!enabled)("Temporal read-only teardown review workflow", () => {
       expect(w.tofu.planCalls).toHaveLength(1);
       const op = (await h.store.getOperation(scope.workspaceId, result.operationId))!;
       const cancel = h.store.cancelOperation.bind(h.store);
+      let approved: typeof op | null = null;
       let events: Awaited<ReturnType<typeof h.store.listEvents>> = [];
-      vi.spyOn(h.store, "cancelOperation").mockImplementation(async (input) => {
-        expect(input).toMatchObject({ id: op.id, expectedStatus: "awaiting_approval" });
-        await h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: result.planDigest,
-          approver: user("erin"), session: sessionFor("erin") });
+      const cancellation = vi.spyOn(h.store, "cancelOperation").mockImplementation(async (input) => {
+        expect(input).toMatchObject({ id: op.id, expectedStatus: "awaiting_approval", requireUndecidedApprovalRound: true });
+        const decision = await h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: result.planDigest,
+          semanticsDigest, approver: user("erin"), session: sessionFor("erin") });
+        expect(decision.operation.status).toBe("approved");
+        approved = await h.store.getOperation(scope.workspaceId, op.id);
         events = await h.store.listEvents(scope.workspaceId, { operationId: op.id });
-        return cancel(input);
+        const cancelled = await cancel(input);
+        expect(cancelled).toBeNull();
+        return cancelled;
       });
       const refresh = await request("temporal-refresh-race", true);
       await expect(server!.env.client.workflow.getHandle(`teardown-review-${refresh.reviewOperationId}`).result()).rejects.toBeDefined();
+      expect(cancellation).toHaveBeenCalledOnce();
+      expect(await h.store.getOperation(scope.workspaceId, op.id)).toEqual(approved);
       expect((await h.store.getOperation(scope.workspaceId, op.id))?.status).toBe("approved");
       expect(await h.store.listEvents(scope.workspaceId, { operationId: op.id })).toEqual(events);
       expect((await h.store.listOperations(scope.workspaceId, { capability: "infrastructure.destroy" })).items).toHaveLength(1);

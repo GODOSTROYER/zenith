@@ -336,7 +336,7 @@ describe("file waitlist admission previews", () => {
     { mode: "next", count: 1001 },
     { mode: "next", count: 1.5 },
     { mode: "all", count: 1 },
-  ])("rejects invalid preview selection %j before writing an admission", async (selection) => {
+  ])("rejects invalid preview selection case %# before writing an admission", async (selection) => {
     await expect(repository.preview(selection as WaitlistAdmissionSelection, "operator")).rejects.toThrow();
     expect(await repository.history({ limit: 50 })).toEqual({ batches: [] });
   });

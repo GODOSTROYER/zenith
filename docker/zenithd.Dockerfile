@@ -10,6 +10,7 @@
 #   docker build -f docker/zenithd.Dockerfile -t zenithd:test --build-arg VERSION=1.0.0 .
 ARG GO_VERSION=1.27
 
+# TODO J11: resolve this base with scripts/deploy/pin-digests.mjs on the Mac.
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS build
 ARG TARGETOS
 ARG TARGETARCH
@@ -24,6 +25,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
       -o /out/zenithd ./cmd/zenithd \
  && mkdir -p /out/state && chmod 0700 /out/state
 
+# TODO J11: resolve this base with scripts/deploy/pin-digests.mjs on the Mac.
 FROM gcr.io/distroless/static-debian12:nonroot
 ARG VERSION=0.0.0-dev
 LABEL org.opencontainers.image.title="zenithd" \

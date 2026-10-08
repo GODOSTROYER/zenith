@@ -69,6 +69,18 @@ function imageContext(node: ts.Node): boolean {
   return false;
 }
 
+// Prometheus scrape addresses, collector listener addresses and Compose security
+// options have a defined non-image role. Explicit image fields still win.
+function endpointContext(node: ts.Node, text: string): boolean {
+  for (let parent: ts.Node | undefined = node.parent; parent; parent = parent.parent) {
+    if (!ts.isPropertyAssignment(parent)) continue;
+    const name = parent.name.getText().replaceAll('"', "").replaceAll("'", "");
+    return ((name === "endpoint" || name === "targets") && /^[a-z0-9.-]+:\d+$/.test(text))
+      || (name === "security_opt" && text === "no-new-privileges:true");
+  }
+  return false;
+}
+
 function scan(sources: Sources): ImageReference[] {
   const found: ImageReference[] = [];
   for (const [file, source] of sources) {
@@ -142,7 +154,7 @@ function scan(sources: Sources): ImageReference[] {
         if (ts.isStringLiteralLike(node) || ts.isTemplateExpression(node) || (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken)) {
           if ((ts.isPropertyAssignment(node.parent) || ts.isMethodDeclaration(node.parent)) && node.parent.name === node) return;
           const text = valueOf(node);
-          candidate(text, imageContext(node));
+          if (imageContext(node) || !endpointContext(node, text)) candidate(text, imageContext(node));
           if (/\s|["']?image["']?\s*[:=]/.test(text)) fields(text);
           return;
         }
@@ -245,6 +257,12 @@ describe("provider and deployment image pins", () => {
     const source = '// former image: alpine:latest\n/* gcr.io/cloud-builders/docker:latest */\nimport fs from "node:fs";\nconst url = "https://gcr.io/v2/tool/manifests/latest";\nconst nativeType = "aws:codebuild_project";\nconst metadata = { "pod-security.kubernetes.io/enforce-version": "latest" };';
     expect(scan(fixture(source))).toEqual([]);
     expect(scan(fixture("# image: alpine:latest\nenforce-version: latest", "deploy/new/config.yaml"))).toEqual([]);
+  });
+
+  it.each(["collector:8889", "0.0.0.0:13133", "no-new-privileges:true"])("excludes a declared endpoint/security option %s while still checking image fields", value => {
+    const property = value === "no-new-privileges:true" ? `security_opt: ["${value}"]` : `targets: ["${value}"], endpoint: "${value}"`;
+    expect(scan(fixture(`const config = { ${property} };`))).toEqual([]);
+    expect(violations(scan(fixture(`const config = { image: "${value}" };`)), [])).toHaveLength(1);
   });
 
   it("scans only the two owned scan roots and executable files", () => {

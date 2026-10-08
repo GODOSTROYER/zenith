@@ -21,6 +21,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ArtifactStore, HostedApp } from "@/lib/hosted/contracts";
 import { IDENTITIES, WORKSPACES, isolatedDataDir, removeDir, uuid } from "../_fixtures";
@@ -50,6 +51,8 @@ let origin = "";
 let cookie = "";
 let grantId = "";
 let recordId = "";
+let launchIdentity: { subject: string; email: string } = IDENTITIES.editor;
+let launchRoute: typeof import("@/app/api/hosted/apps/[appId]/launch/route");
 
 const OWNER = IDENTITIES.owner;
 const EDITOR = IDENTITIES.editor;
@@ -58,6 +61,8 @@ const SCRIPT = path.join(process.cwd(), "scripts", "hosted-browser.ts");
 beforeAll(async () => {
   m = await loadHosted();
   m.authority.openAuthority();
+  m.access.setSessionAuthorityForTests(await m.access.supabaseSessionAuthority({ createClient: () => ({ auth: { getUser: async () => ({ data: { user: { id: launchIdentity.subject, email: launchIdentity.email, email_confirmed_at: "2026-01-01T00:00:00.000Z" } }, error: null }) } }) }));
+  launchRoute = await import("@/app/api/hosted/apps/[appId]/launch/route");
   store = new m.artifacts.FsArtifactStore(m.config.hostedConfig().artifactDir);
 
   app = await m.release.createApp({
@@ -91,20 +96,43 @@ beforeAll(async () => {
 afterAll(async () => {
   await server?.close();
   process.env.ZENITH_CONTROL_ORIGIN = "http://localhost:3400";
+  m?.access.setSessionAuthorityForTests(null);
   await closeHosted(m);
   removeDir(DATA);
 });
 
+/** Follow the real app sign-in nonce and real control launch handler before callback redemption. */
+async function launch(who: typeof OWNER | typeof EDITOR) {
+  launchIdentity = who;
+  const signin = await loopbackRequest(server.port, { host, path: "/_zenith/auth/signin", headers: { accept: "text/html" } });
+  expect(signin.status).toBe(200);
+  const loginCookie = signin.setCookie.find((value) => value.startsWith("__Host-zenith_login="))?.split(";")[0];
+  expect(loginCookie).toBeTruthy();
+  const href = /href="([^"]+\/launch\?state=[^"]+)"/.exec(signin.body)?.[1];
+  expect(href).toBeTruthy();
+  const url = new URL(href!);
+  expect(url.searchParams.get("state")).toBe(loginCookie!.split("=")[1]);
+  const response = await launchRoute.GET(new NextRequest(url), { params: Promise.resolve({ appId: app.id }) });
+  expect(response.status).toBe(303);
+  const redirect = new URL(response.headers.get("location")!);
+  expect(redirect.host).toBe(host);
+  return { redirect, loginCookie: loginCookie! };
+}
+
 describe("Gate 12 — the journey over a real socket, and the browser script", () => {
   it("redeems a real exchange over HTTP and is handed a host-locked cookie", async () => {
-    const state = `state-${uuid()}`;
-    const redirect = new URL((await m.access.createExchange(app.id, EDITOR.subject, state)).redirect);
-    expect(redirect.host, "the launch URL carries the running port").toBe(host);
+    const { redirect, loginCookie } = await launch(EDITOR);
+    for (const headers of [{ accept: "text/html" }, { accept: "text/html", cookie: "__Host-zenith_login=wrong-browser-state" }]) {
+      const refused = await loopbackRequest(server.port, { host, path: `${redirect.pathname}${redirect.search}`, headers });
+      expect(refused.status).toBe(303);
+      expect(refused.headers.location).toBe("/_zenith/auth/signin?error=invalid_input");
+      expect(refused.setCookie.join("\n")).not.toContain("__Host-zenith_app=");
+    }
 
     const res = await loopbackRequest(server.port, {
       host,
       path: `${redirect.pathname}${redirect.search}`,
-      headers: { accept: "text/html" },
+      headers: { accept: "text/html", cookie: loginCookie },
     });
     expect(res.status, "the callback over a socket").toBe(303);
     expect(res.headers.location).toBe("/");
@@ -120,6 +148,10 @@ describe("Gate 12 — the journey over a real socket, and the browser script", (
     const value = /__Host-zenith_app=([^;]+)/.exec(raw)?.[1];
     expect(value).toBeTruthy();
     cookie = `__Host-zenith_app=${value}`;
+    const replay = await loopbackRequest(server.port, { host, path: `${redirect.pathname}${redirect.search}`, headers: { accept: "text/html", cookie: loginCookie } });
+    expect(replay.status).toBe(303);
+    expect(replay.headers.location).toBe("/_zenith/auth/signin?error=sign_in_required");
+    expect(replay.setCookie.join("\n")).not.toContain("__Host-zenith_app=");
   });
 
   it("serves the built app and its hashed asset over the wire", async () => {
@@ -187,13 +219,14 @@ describe("Gate 12 — the journey over a real socket, and the browser script", (
 
   it("answers a stale write with the conflict payload the app's UI renders", async () => {
     // A second identity moves the record on.
-    const ownerState = `state-${uuid()}`;
-    const ownerRedirect = new URL((await m.access.createExchange(app.id, OWNER.subject, ownerState)).redirect);
+    const { redirect: ownerRedirect, loginCookie } = await launch(OWNER);
     const callback = await loopbackRequest(server.port, {
       host,
       path: `${ownerRedirect.pathname}${ownerRedirect.search}`,
-      headers: { accept: "text/html" },
+      headers: { accept: "text/html", cookie: loginCookie },
     });
+    expect(callback.status).toBe(303);
+    expect(callback.headers.location).toBe("/");
     const ownerCookie = `__Host-zenith_app=${/__Host-zenith_app=([^;]+)/.exec(callback.setCookie.join("\n"))?.[1]}`;
 
     const patched = await loopbackRequest(server.port, {

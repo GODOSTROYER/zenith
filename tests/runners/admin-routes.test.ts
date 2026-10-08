@@ -13,11 +13,25 @@ import { tempDataDir } from "../_support/data-dir";
 tempDataDir("zenith-runners-admin-", { fast: true });
 process.env.ZENITH_STORE = "file";
 
+// Identity/policy transports are fixture adapters; the shipping MFA guard still verifies them.
+const stepUp = vi.hoisted(() => ({ aal: "aal2", policyAvailable: true }));
 const state = vi.hoisted(() => ({ user: null as SessionUser | null }));
 vi.mock("@/lib/server/boot", () => ({ ensureBoot: async () => undefined }));
-vi.mock("@/lib/supabase/env", () => ({ isSupabaseConfigured: () => true }));
+vi.mock("@/lib/supabase/env", async (original) => ({ ...await original<typeof import("@/lib/supabase/env")>(), isSupabaseConfigured: () => true }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => state.user }));
 vi.mock("@/lib/waitlist/enforcement", () => ({ requireProductRequestAccess: async () => undefined }));
+
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: {
+  getClaims: async () => ({ data: { claims: { sub: state.user?.id, aal: stepUp.aal, exp: Date.now() / 1000 + 600 } }, error: null }),
+  getUser: async () => ({ data: { user: { id: state.user?.id, email_confirmed_at: "2026-01-01T00:00:00.000Z", factors: [{ factor_type: "totp", status: "verified" }] } }, error: null }),
+} }) }));
+vi.mock("@/lib/auth/mfa-policy", async (original) => {
+  const policy = await original<typeof import("@/lib/auth/mfa-policy")>();
+  return { ...policy, workspaceMfaControl: async () => {
+    if (!stepUp.policyAvailable) { const { ApiError } = await import("@/lib/server/errors"); throw new ApiError("Workspace MFA controls could not be verified.", 503); }
+    return policy.DEFAULT_MFA_CONTROL;
+  } };
+});
 
 const { POST: createToken } = await import("@/app/api/platform/v1/runners/tokens/route");
 const { GET: listRunners } = await import("@/app/api/platform/v1/runners/route");
@@ -53,9 +67,9 @@ function seed(): void {
   });
 }
 
-const http = async (handler: unknown, method: string, path: string, opts: { body?: unknown; id?: string } = {}) => {
+const http = async (handler: unknown, method: string, path: string, opts: { body?: unknown; id?: string; headers?: Record<string, string> } = {}) => {
   const res = await (handler as Handler)(
-    new NextRequest(`https://zenith.test${path}`, { method, headers: { "content-type": "application/json" }, ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}) }),
+    new NextRequest(`https://zenith.test${path}`, { method, headers: { "content-type": "application/json", origin: "https://zenith.test", "sec-fetch-site": "same-origin", ...opts.headers }, ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}) }),
     { params: Promise.resolve({ id: opts.id ?? "unused" }) }
   );
   return { status: res.status, body: (await res.json()) as Record<string, unknown> & { error?: { message: string; fix?: string } }, headers: res.headers };
@@ -63,13 +77,25 @@ const http = async (handler: unknown, method: string, path: string, opts: { body
 
 let plane: Plane;
 beforeEach(async () => {
+  stepUp.aal = "aal2"; stepUp.policyAvailable = true;
   seed();
   state.user = user("ada");
   plane = await createPlane("fake");
 });
-afterEach(teardownPlane);
+afterEach(async () => { vi.restoreAllMocks(); await teardownPlane(); });
 
 describe("POST /runners/tokens", () => {
+  it("refuses unverified MFA before minting a runner registration credential", async () => {
+    const mint = vi.spyOn(plane.store.tokens, "create");
+    stepUp.aal = "aal1";
+    const res = await http(createToken, "POST", "/api/platform/v1/runners/tokens", { body: { kind: "runner" } });
+    expect(res.status).toBe(403);
+    expect(res.body.error?.message).toBe("Verify your authenticator before continuing with this privileged action.");
+    stepUp.aal = "aal2";
+    expect((await http(createToken, "POST", "/api/platform/v1/runners/tokens", { body: { kind: "runner" }, headers: { origin: "https://evil.test" } })).status).toBe(403);
+    expect(mint).not.toHaveBeenCalled();
+  });
+
   it("lets a workspace admin mint a runner token: zrt_…, shown once, at most an hour, bound to THEIR workspace", async () => {
     const res = await http(createToken, "POST", "/api/platform/v1/runners/tokens", { body: { kind: "runner" } });
     expect(res.status).toBe(201);

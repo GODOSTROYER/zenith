@@ -11,7 +11,7 @@
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createEffectLedger } from "@/lib/effects/ledger";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { createIsolationCustody } from "@/lib/platform/zenith-isolation-custody";
 import { vaultCipherFromEnv } from "@/lib/secrets";
 import { createPlatformSemanticsStore } from "@/lib/controlplane/db/repos/executable-semantics";
@@ -34,9 +34,9 @@ const ENV_WITH_PREFIX = { ...FULL_ENV, ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX
 const ENV_CILIUM = { ...ENV_WITH_PREFIX, ZENITH_MANAGED_FQDN_ENGINE: "cilium", ZENITH_MANAGED_EGRESS_FQDNS: "registry.npmjs.org" };
 
 /** A token shaped like the API server's TokenRequest answer, built at runtime. */
-function fakeJwt(claims: { sub: string; uid: string; aud: string[]; exp: number }): string {
+function fakeJwt(claims: { sub: string; uid: string; aud: string[]; exp: number; jti?: string }): string {
   const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
-  return `${b64({ alg: "none", typ: "JWT" })}.${b64({ sub: claims.sub, aud: claims.aud, exp: claims.exp, "kubernetes.io": { serviceaccount: { uid: claims.uid } } })}.${Buffer.from("not-a-signature-xxxx").toString("base64url")}`;
+  return `${b64({ alg: "none", typ: "JWT" })}.${b64({ sub: claims.sub, aud: claims.aud, exp: claims.exp, ...(claims.jti ? { jti: claims.jti } : {}), "kubernetes.io": { serviceaccount: { uid: claims.uid } } })}.${Buffer.from("not-a-signature-xxxx").toString("base64url")}`;
 }
 
 describe("subsetMismatches", () => {
@@ -181,7 +181,7 @@ describe.each(LANES)("provisionTenantIsolation ($name)", (lane) => {
       async requestToken(namespace, serviceAccount, uid, audiences, expirationSeconds) {
         calls.tokens++;
         const exp = Math.floor(Date.now() / 1000) + Math.min(tokenLifetimeSec, expirationSeconds);
-        return { token: fakeJwt({ sub: `system:serviceaccount:${namespace}:${serviceAccount}`, uid, aud: audiences.length ? [...audiences] : ["https://kubernetes.default.svc"], exp }), expiresAt: new Date(exp * 1000).toISOString() };
+        return { token: fakeJwt({ sub: `system:serviceaccount:${namespace}:${serviceAccount}`, uid, aud: audiences.length ? [...audiences] : ["https://kubernetes.default.svc"], exp, jti: randomUUID() }), expiresAt: new Date(exp * 1000).toISOString() };
       },
     });
     const deps: TenantIsolationDeps = {
@@ -388,7 +388,8 @@ describe.each(LANES)("provisionTenantIsolation ($name)", (lane) => {
     expect(next.ref).toBe(`vault:zenith-managed/operators/${ns()}`);
     expect(nonDryWrites().length).toBe(writes);
     expect(stored).toHaveLength(2);
-    expect(stored[0].token).not.toBe(stored[1].token === stored[0].token ? "" : stored[0].token);
+    expect(calls.tokens).toBe(2);
+    expect(stored[0].token).not.toBe(stored[1].token);
   });
 
   it("a rendered bundle objects list matches what the plan reported", async () => {

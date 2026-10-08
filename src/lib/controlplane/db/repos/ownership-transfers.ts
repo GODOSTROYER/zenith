@@ -156,30 +156,52 @@ export interface StoredOwnershipGuard {
   transfers: OwnershipTransfer[];
 }
 
+/** Must be inside the read/admission transaction; mutation triggers use this exact key. */
+async function lockEnvironment(sql: Sql, workspaceId: string, environmentId: string): Promise<void> {
+  const [isolation] = await sql.query<{ isolation: string }>("select current_setting('transaction_isolation') as isolation");
+  if (isolation?.isolation !== "read committed")
+    throw new ControlStoreError("invalid_state", "Field ownership requires a fresh READ COMMITTED snapshot after lock waits.", { reason: "field_ownership_isolation" });
+  await sql.query("select pg_advisory_xact_lock(hashtextextended('zenith:field-ownership:' || jsonb_build_array($1::text,$2::text)::text,0))", [workspaceId, environmentId]);
+}
+
 /** The facts the broker needs to judge a write to one resource: its node, the environment's autoscalers and its transfers. */
 export async function guardFor(sql: Sql, workspaceId: string, environmentId: string, resourceId: string): Promise<StoredOwnershipGuard | null> {
-  const rows = await sql.query<{ id: string; address: string; kind: string; native_type: string; spec: Record<string, unknown> }>(
-    "select id, address, kind, native_type, spec from platform.resources where workspace_id = $1 and environment_id = $2 order by address limit 2000",
-    [requireText("workspaceId", workspaceId), requireText("environmentId", environmentId)]
-  );
-  const target = rows.find((r) => r.id === resourceId);
-  if (!target) return null;
-  const nodes = rows.map((r) => ({ address: r.address, kind: r.kind as ResourceNode["kind"], nativeType: r.native_type, spec: r.spec ?? {} }));
-  const facts = factsByAddress({ nodes }).get(target.address) ?? {};
-  return {
-    node: { address: target.address, nativeType: target.native_type, spec: target.spec ?? {} },
-    facts,
-    transfers: await listActive(sql, workspaceId, environmentId, target.address),
-  };
+  workspaceId = requireText("workspaceId", workspaceId);
+  environmentId = requireText("environmentId", environmentId);
+  return sql.tx(async tx => {
+    await lockEnvironment(tx, workspaceId, environmentId);
+    const rows = await tx.query<{ id: string; address: string; kind: string; native_type: string; spec: Record<string, unknown> }>(
+      "select id, address, kind, native_type, spec from platform.resources where workspace_id = $1 and environment_id = $2 order by address limit 2001",
+      [workspaceId, environmentId]
+    );
+    assertCompleteGraph(rows);
+    const target = rows.find((r) => r.id === resourceId);
+    if (!target) return null;
+    const nodes = rows.map((r) => ({ address: r.address, kind: r.kind as ResourceNode["kind"], nativeType: r.native_type, spec: r.spec ?? {} }));
+    const facts = factsByAddress({ nodes }).get(target.address) ?? {};
+    return {
+      node: { address: target.address, nativeType: target.native_type, spec: target.spec ?? {} },
+      facts,
+      transfers: await listActive(tx, workspaceId, environmentId, target.address),
+    };
+  });
+}
+
+function assertCompleteGraph(rows: readonly unknown[]): void {
+  if (rows.length > 2000)
+    throw new ControlStoreError("conflict", "The environment ownership graph exceeds the admission limit.", { reason: "field_ownership_graph_limit" });
 }
 
 /**
  * Current stored ownership at a final claim/grant admission. The caller already
- * holds the owning operation (and any bound fence) in this transaction. Locks
- * protect existing resource facts and one-way transfer revocation; they do not
- * coordinate new resource/owner inserts or retract a previously issued grant.
- * Null retains the store's legacy absent-guard/no-owned-field behavior; it is
- * not a positive ownership proof. Returned IDs are database dependencies, not
+ * holds the owning operation (and any bound fence) in this transaction. The
+ * environment transaction lock also covers new resource/owner inserts through
+ * migration 53's triggers. Fresh reads after waiting see the winning mutation.
+ * This does not retract a previously issued grant or an in-flight cloud call.
+ * Null retains older schemas without the transfer relation. An absent target
+ * on a modern schema returns [] so callers still recheck execution validity
+ * after the coordinator wait; this is not a positive ownership proof.
+ * Returned IDs are database dependencies, not
  * a caller-mintable authorization capability, and need a final live predicate.
  */
 export async function lockForOperation(sql: Sql, workspaceId: string, operationId: string): Promise<string[] | null> {
@@ -189,19 +211,24 @@ export async function lockForOperation(sql: Sql, workspaceId: string, operationI
   );
   if (!op) throw new ControlStoreError("operation_not_found", "Operation not found.");
   if (!NATIVE_OPERATION_WRITES[op.capability] || !op.environment_id || !op.resource_id) return null;
+  await lockEnvironment(sql, workspaceId, op.environment_id);
   const nodes = await sql.query<{ id: string; address: string; kind: string; native_type: string; spec: Record<string, unknown> }>(
     `select id, address, kind, native_type, spec from platform.resources
-      where workspace_id=$1 and environment_id=$2 order by address limit 2000 for share`,
+      where workspace_id=$1 and environment_id=$2 order by address limit 2001`,
     [workspaceId, op.environment_id],
   );
+  assertCompleteGraph(nodes);
   const target = nodes.find(row => row.id === op.resource_id);
-  if (!target) return null;
+  if (!target) {
+    const [schema] = await sql.query<{ present: boolean }>("select to_regclass('platform.ownership_transfers') is not null as present");
+    return schema?.present ? [] : null;
+  }
   const rows = await sql.query<Row & { id: string; revoked_at: unknown }>(
     `select id, ${COLUMNS}, revoked_at from platform.ownership_transfers
-      where workspace_id=$1 and environment_id=$2 and address=$3 order by id for share`,
+      where workspace_id=$1 and environment_id=$2 and address=$3 order by id`,
     [workspaceId, op.environment_id, target.address],
   );
-  // A separate statement gets a fresh clock after all row-lock waits.
+  // A separate statement gets a fresh clock after the coordinator wait.
   const [clock] = await sql.query<{ now: string }>("select clock_timestamp() as now");
   const now = new Date(clock!.now);
   const transfers = rows.filter(row => row.revoked_at === null).map(row => ({ row, transfer: toTransfer(row) }));

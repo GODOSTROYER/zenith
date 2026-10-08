@@ -85,6 +85,7 @@ export interface AwsCredentials {
 }
 
 const hmac = (key: string | Buffer, data: string) => createHmac("sha256", key).update(data).digest();
+const uriEncode = (value: string) => encodeURIComponent(value).replace(/[!'()*]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 
 /** Returns a copy of `request` with `host`, `x-amz-date` and `authorization` (and the session token) added. */
 export function signAwsV4(request: ProviderHttpRequest, creds: AwsCredentials, opts: { region: string; service: string; now: Date }): ProviderHttpRequest {
@@ -92,15 +93,15 @@ export function signAwsV4(request: ProviderHttpRequest, creds: AwsCredentials, o
   const amzDate = opts.now.toISOString().replace(/[:-]|\.\d{3}/g, "");
   const day = amzDate.slice(0, 8);
   const headers: Record<string, string> = {};
-  for (const [k, v] of Object.entries(request.headers)) headers[k.toLowerCase()] = v;
+  for (const [k, v] of Object.entries(request.headers)) if (k.toLowerCase() !== "authorization") headers[k.toLowerCase()] = v;
   headers.host = url.host;
   headers["x-amz-date"] = amzDate;
   if (creds.sessionToken) headers["x-amz-security-token"] = creds.sessionToken;
   const names = Object.keys(headers).sort();
   const canonicalHeaders = names.map((n) => `${n}:${headers[n]!.trim().replace(/\s+/g, " ")}\n`).join("");
   const query = [...url.searchParams.entries()]
-    .map(([k, v]) => [encodeURIComponent(k), encodeURIComponent(v)] as const)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([k, v]) => [uriEncode(k), uriEncode(v)] as const)
+    .sort(([a, av], [b, bv]) => (a < b ? -1 : a > b ? 1 : av < bv ? -1 : av > bv ? 1 : 0))
     .map(([k, v]) => `${k}=${v}`)
     .join("&");
   const canonicalRequest = [request.method, url.pathname || "/", query, canonicalHeaders, names.join(";"), sha256Hex(request.body ?? "")].join("\n");

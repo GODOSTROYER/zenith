@@ -180,6 +180,7 @@ export const RecommendPlacementInput = z.strictObject({
       egressGb: nonnegativeUsage(), requestsMillions: nonnegativeUsage(),
       storageGb: nonnegativeUsage(), logGbPerService: nonnegativeUsage(), dbStorageGb: nonnegativeUsage(),
       interComponentFraction: z.number().finite().min(0).max(1).optional(),
+      interAzGb: nonnegativeUsage(), storageIoMillions: nonnegativeUsage(), crossRegionBackupCopyGb: nonnegativeUsage(),
     }).optional(),
   }).optional(),
 });

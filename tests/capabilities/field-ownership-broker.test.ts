@@ -44,4 +44,16 @@ describe.each(STORE_KINDS)("propose field ownership [%s]", (kind) => {
     const r = await proposeOk(h, requestFor(h, "service.restart", "sbx"), user("bob"));
     expect(r.operation.status).toBe("approved");
   });
+  it("requires the exact size transfer, even with the legacy IaC warning baseline", async () => {
+    const h = await makeHarness({ kind });
+    const sizeNode = node({ replicas: 2, size: "medium" });
+    const request = requestFor(h, "service.scale", "sbx", { input: { size: "small" } });
+    await expectBrokerError(h.broker.propose(request, user("bob"), { fieldOwnership: { node: sizeNode, lenientIacBaseline: true } }), "conflict");
+    const base = { address: sizeNode.address, resourceType: sizeNode.nativeType, path: "size", from: "iac" as const, to: "native-op" as const };
+    const receipt = { ...base, approvalId: "size-approval", approvedAt: h.clock.now().toISOString(), digest: transferDigest(base) };
+    const r = await proposeOk(h, request, user("bob"), { fieldOwnership: { node: sizeNode, transfers: [receipt] } });
+    expect(r.decision.outcome).toBe("allow");
+    // A size-only transfer grants no permission to change replicas in the same operation.
+    await expectBrokerError(h.broker.propose(requestFor(h, "service.scale", "sbx", { input: { size: "small", replicas: 1 } }), user("bob"), { fieldOwnership: { node: sizeNode, transfers: [receipt] } }), "conflict");
+  });
 });

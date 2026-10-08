@@ -49,15 +49,16 @@ const rowsFor = (db: PlatformDbHandle, workspaceId: string, operationId: string)
 /** Finite expiry has no public writer today. These original SQL receipts
  * explicitly model the reviewed approval tuple to exercise native admission,
  * while the genuine browser/default broker positive lives in capabilities. */
-async function admission(db: PlatformDbHandle, expiresMs: number | null = null, to: "native-op" | "iac" = "native-op") {
-  const receipt=transferRequest({address:transfer.address,resourceType:transfer.resourceType,path:transfer.path,from:transfer.from,to});
+async function admission(db: PlatformDbHandle, expiresMs: number | null = null, to: "native-op" | "iac" = "native-op", field: "replicas" | "size" = "replicas") {
+  const receipt=transferRequest({address:transfer.address,resourceType:transfer.resourceType,path:field,from:field === "size" ? "iac" : transfer.from,to});
   const workspaceId = newWorkspace(), environmentId = uid("env"), projectId = uid("project"), resourceId = uid("resource");
   await db.query(`insert into platform.resources
     (id,workspace_id,environment_id,address,kind,provider,native_type,ownership,spec_digest,spec)
     values($1,$2,$3,'container_service/web','container_service','aws','aws:ecs_service','managed',$4,$5::text::jsonb)`,
-    [resourceId,workspaceId,environmentId,"a".repeat(64),JSON.stringify({replicas:2,autoscaling:{min:2,max:8}})]);
+    [resourceId,workspaceId,environmentId,"a".repeat(64),JSON.stringify({replicas:2,size:"standard",autoscaling:{min:2,max:8}})]);
   const seeded = await seedAwaitingApproval(db, { workspaceId, proposal: {
     capability: "service.scale", scope: { workspaceId, projectId, environmentId, resourceId },
+    ...(field === "size" ? { input: { size: "small" } } : {}),
   } });
   const decision = await asService(db, tx => approve(tx, seeded, user()));
   const transferId = uid("own");
@@ -113,6 +114,27 @@ async function waitForExpiry(db: PlatformDbHandle, input: { workspaceId: string;
 }
 
 describe.skipIf(!PG_URL)("ownership transfer immutable service-role custody [postgres]", () => {
+  it("refuses a size grant after the exact IaC transfer expires behind the final native coordinator", async () => {
+    await withNative(async (db, independent) => {
+      const owned = await admission(db, 3_000, "native-op", "size");
+      expect(await asService(db, tx => repos.operations.claimForExecution(tx, owned.claim))).not.toBeNull();
+      const ready = signal<number>(), release = signal<void>(), started = signal<number>();
+      const blocker = asService(independent, async tx => {
+        const [backend] = await tx.query<{ pid: number }>("select pg_backend_pid() as pid");
+        await tx.query("select workspace_id from platform.cleanup_writer_scopes where workspace_id=$1 for update", [owned.workspaceId]);
+        ready.resolve(backend!.pid); await release.promise;
+      }).then(() => undefined, error => { ready.reject(error); return error; });
+      const blockerPid = await ready.promise;
+      const attempt = asService(db, async tx => {
+        const [backend] = await tx.query<{ pid: number }>("select pg_backend_pid() as pid"); started.resolve(backend!.pid);
+        return repos.grants.insert(tx, owned.grant);
+      }).then(value => ({ value }), error => ({ error }));
+      try { await waitForNativeLock(db, await started.promise, blockerPid); await waitForExpiry(independent, owned); }
+      finally { release.resolve(); expect(await blocker).toBeUndefined(); }
+      expect(await attempt).toMatchObject({ error: { code: "conflict", details: { reason: "field_ownership_conflict" } } });
+      expect(await stateOf(db, owned)).toEqual({ status: "running", grants: 0, consumed: 1 });
+    });
+  }, 60_000);
   it("records and replays an exact human-approved transfer without immutable-column UPDATE privileges", async () => {
     await withNative(async (db, independent) => {
       const acl = await db.query(`select has_table_privilege('service_role','platform.ownership_transfers','SELECT,INSERT') as read_insert,

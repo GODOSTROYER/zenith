@@ -261,9 +261,13 @@ interface OwnershipReview {
 async function reviewFieldOwnership(deps: BrokerDeps, parsed: ParsedRequest, ctx: ProposeContext, scope: Scope): Promise<OwnershipReview> {
   if (!OWNERSHIP_CAPABILITIES.has(parsed.def.name)) return {};
   const guard = ctx.fieldOwnership ?? (await deps.store.fieldOwnership?.(scope));
-  if (!guard) return {};
+  if (!guard) {
+    if (parsed.def.name === "service.scale" && Object.hasOwn(parsed.input as object, "size")) throw new BrokerError("conflict", "Current size-field ownership could not be established.");
+    return {};
+  }
   const conflicts = checkNativeOperation({
     capability: parsed.def.name,
+    input: parsed.input as Record<string, unknown>,
     node: guard.node,
     ...(guard.facts ? { facts: guard.facts } : {}),
     ...(guard.repairAttributes ? { repairAttributes: guard.repairAttributes } : {}),
@@ -273,7 +277,7 @@ async function reviewFieldOwnership(deps: BrokerDeps, parsed: ParsedRequest, ctx
   const warnings: string[] = [];
   const blockers = conflicts.filter((c) => {
     if (!blocking(c)) return false;
-    if (guard.lenientIacBaseline && c.verdict === "transfer_required" && c.resolution.owner === "iac" && c.write.writer === "native-op") {
+    if (c.write.path !== "size" && guard.lenientIacBaseline && c.verdict === "transfer_required" && c.resolution.owner === "iac" && c.write.writer === "native-op") {
       warnings.push(`${c.write.path} is set by the manifest; the next infrastructure apply may revert this change unless the manifest is updated too.`);
       return false;
     }

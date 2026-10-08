@@ -1,5 +1,7 @@
 # PROD-COST-03 Bounded economic optimization
 
+J8 base packet `2eb09bc2` and owner-authorized follow-up: [collector, consent and completed production joins](COST-03.md), [current executed checks](J8-COST-JOINS-REPORT.md), [base packet report](J8-COST-REPORT.md). The default sweep is now composed with measurements and ownership; actual default-stack evidence remains pending. Earlier evidence below remains historical.
+
 ## 1. Summary
 - `src/lib/placement/optimizer.ts`: pure optimizer `optimizeEconomics`. Right-sizing (one size step or one replica) and same-provider site relocation, priced with the COST-01 catalog and COST-02 cost/latency/residency models. Defines `FieldOwnershipCheck` (default `refuseUnknownFieldOwnership`, plus `staticFieldOwnership` for tests).
 - `src/lib/placement/optimizer-submit.ts`: `submitOptimizationProposals` hands proposals to the existing capability broker (`service.scale` for container-service steps, `infrastructure.plan` otherwise). Proposes only; never approves or executes. Returns history entries for the caller to persist.

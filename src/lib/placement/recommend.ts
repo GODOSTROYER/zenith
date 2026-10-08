@@ -6,6 +6,7 @@
  */
 import { z } from "zod";
 import { db } from "@/lib/db/store";
+import { platformDb, repos } from "@/lib/controlplane/db";
 import { contentHash, type Environment } from "@/lib/domain/types";
 import { digest } from "@/lib/controlplane/digest";
 import { BrokerError, notFound } from "@/lib/capabilities/errors";
@@ -82,7 +83,6 @@ export const placementReads: RecommendReads = {
   },
   async connections(workspaceId) {
     try {
-      const { platformDb, repos } = await import("@/lib/controlplane/db");
       const rows = await repos.connections.list(await platformDb(), workspaceId);
       return rows.map((c) => ({ workspaceId: c.workspaceId, provider: c.config.provider, verified: c.status === "verified" && !c.revokedAt }));
     } catch {

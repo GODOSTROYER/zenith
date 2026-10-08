@@ -64,6 +64,7 @@ const privileged = [
   ["/api/platform/v1/runbooks", "POST"], ["/api/platform/v1/runbooks/book/runs", "POST"], ["/api/platform/v1/runbooks/book/schedules", "POST"],
   ["/api/platform/v1/runbooks/runs/run/approve", "POST"], ["/api/platform/v1/runbooks/runs/run/cancel", "POST"], ["/api/platform/v1/runbooks/schedules/schedule/approve", "POST"], ["/api/platform/v1/runbooks/schedules/schedule/state", "POST"],
   ["/api/platform/v1/workspace/policy", "PUT"], ["/api/platform/v1/environments/env/autonomy", "PUT"], ["/api/platform/v1/environments/env/teardown-review", "POST"],
+  ["/api/platform/v1/environments/env/optimizer", "POST"],
   ["/api/platform/v1/environments/env/state-backend", "PUT"], ["/api/platform/v1/environments/env/state-backend/restores/approve", "POST"], ["/api/platform/v1/environments/env/state-backend/restores/reject", "POST"], ["/api/platform/v1/environments/env/state-backend/restores/execute", "POST"],
   ["/api/platform/v1/environments/env/spend", "POST"], ["/api/platform/v1/effects/effect/resolve", "POST"], ["/api/platform/v1/releases/release/approve-migration", "POST"],
   ["/api/platform/v1/standing-grants", "POST"], ["/api/platform/v1/standing-grants/grant/revoke", "POST"], ["/api/platform/v1/mixed-output-preauthorizations", "POST"], ["/api/platform/v1/mixed-output-preauthorizations/preauth/revoke", "POST"],
@@ -106,6 +107,7 @@ describe("privileged route inventory through the real request wrapper", () => {
     expect((await mutation(request("/api/platform/v1/operations", {}, "GET"), ctx)).status).toBe(200);
     expect((await mutation(request("/api/platform/v1/audit/exports", {}, "GET"), ctx)).status).toBe(200);
     expect((await mutation(request("/api/platform/v1/environments/env/domains", {}, "GET"), ctx)).status).toBe(200);
+    expect((await mutation(request("/api/platform/v1/environments/env/optimizer", {}, "GET"), ctx)).status).toBe(200);
     expect((await mutation(request("/api/platform/v1/capabilities/propose"), ctx)).status).toBe(200);
     expect(mocks.claims).not.toHaveBeenCalled();
   });
@@ -130,6 +132,7 @@ describe("privileged route inventory through the real request wrapper", () => {
     expect(mocks.claims).not.toHaveBeenCalled();
     changed.mockClear();
     expect((await machine(request("/api/platform/v1/operations/op/approve", {}, "POST", { authorization: "Bearer test-double" }), ctx)).status).toBe(403);
+    expect((await machine(request("/api/platform/v1/environments/env/optimizer", {}, "POST", { authorization: "Bearer test-double" }), ctx)).status).toBe(403);
     expect(changed).not.toHaveBeenCalled();
   });
   it("refuses privileged demo actions without an identity provider", async () => {

@@ -23,13 +23,15 @@ const asService = <T>(db: PlatformDbHandle, fn: (tx: Sql) => Promise<T>) => db.t
   return fn(tx);
 });
 
-async function fixture(db: PlatformDbHandle) {
+async function fixture(db: PlatformDbHandle, size?: "without-transfer" | "approved-transfer") {
   const workspaceId = newWorkspace(), environmentId = uid("env"), projectId = uid("project");
   const resource = await repos.resources.upsertDesired(db, { workspaceId, environmentId, node: {
-    address, kind: "container_service", provider: "aws", region: "us-east-1", nativeType: "aws:ecs_service", ownership: "managed", specDigest: "a".repeat(64), spec: { replicas: 2 }, dependsOn: [], labels: {}, origin: [],
+    address, kind: "container_service", provider: "aws", region: "us-east-1", nativeType: "aws:ecs_service", ownership: "managed", specDigest: "a".repeat(64), spec: { replicas: 2, ...(size ? { size: "standard" } : {}) }, dependsOn: [], labels: {}, origin: [],
   } });
   const seeded = await seedAwaitingApproval(db, { workspaceId, proposal: {
     capability: "service.scale", scope: { workspaceId, projectId, environmentId, resourceId: resource.id },
+    ...(size ? { input: { size: "small" } } : {}),
+    ...(size === "approved-transfer" ? { broker: { ownershipTransfers: [transferRequest({ address, resourceType: "aws:ecs_service", path: "size", from: "iac", to: "native-op" })] } } : {}),
   } });
   const decision = await asService(db, tx => approve(tx, seeded, user()));
   const lease = await repos.leases.acquire(db, { workspaceId, scope: `env:${environmentId}`, holder: "worker:ownership-race", ttlMs: 120_000 });
@@ -85,6 +87,28 @@ describe("environment ownership serialization [pglite, serialized engine]", () =
   });
   afterAll(async () => { await db?.close(); });
 
+  it("requires the approved size transfer at claim and rechecks revocation at the final grant", async () => {
+    const refused = await fixture(db, "without-transfer");
+    await expect(asService(db, tx => repos.operations.claimForExecution(tx, refused.claim))).rejects.toMatchObject(conflict);
+    expect(await state(db, refused)).toEqual({ status: "approved", consumed: 0, grants: 0 });
+
+    const allowed = await fixture(db, "approved-transfer");
+    const [receipt] = await repos.ownershipTransfers.listActive(db, allowed.workspaceId, allowed.environmentId, address);
+    expect(receipt).toMatchObject({ path: "size", from: "iac", to: "native-op", approvalId: allowed.approvalId });
+    expect(await asService(db, tx => repos.operations.claimForExecution(tx, allowed.claim))).not.toBeNull();
+    expect(await asService(db, tx => repos.ownershipTransfers.revoke(tx, { workspaceId: allowed.workspaceId, operationId: allowed.operationId, transferDigest: receipt.digest, revokedBy: "operator-fixture" }))).toBe(true);
+    await expect(asService(db, tx => repos.grants.insert(tx, allowed.grant))).rejects.toMatchObject(conflict);
+    expect(await state(db, allowed)).toEqual({ status: "running", consumed: 1, grants: 0 });
+  });
+
+  it.each(["deleted", "missing"])("refuses a %s target for size admission even with an approved transfer", async status => {
+    const f = await fixture(db, "approved-transfer");
+    if (status === "deleted") await db.query("update platform.resources set status='deleted' where workspace_id=$1 and id=$2", [f.workspaceId, f.resourceId]);
+    else await db.query("delete from platform.resources where workspace_id=$1 and id=$2", [f.workspaceId, f.resourceId]);
+    await expect(asService(db, tx => repos.operations.claimForExecution(tx, f.claim))).rejects.toMatchObject({ code: "conflict" });
+    expect(await state(db, f)).toEqual({ status: "approved", consumed: 0, grants: 0 });
+  });
+
   it.each(kinds)("committed %s mutation refuses claim without approval consumption", async kind => {
     const f = await fixture(db), write = await mutation(db, f, kind);
     await asService(db, write);
@@ -131,8 +155,10 @@ describe("environment ownership serialization [pglite, serialized engine]", () =
     expect(await state(db, f)).toEqual({ status: "approved", consumed: 0, grants: 0 });
   });
 
-  it("migration 53 is additive, registered after 43, and idempotent without rewriting history", async () => {
-    expect(PLATFORM_MIGRATIONS.at(-1)).toBe(migration0053FieldOwnershipSerialization);
+  it("migration 53 is additive, registered after 52, and idempotent without rewriting history", async () => {
+    const position = PLATFORM_MIGRATIONS.findIndex(migration => migration.version === 53);
+    expect(PLATFORM_MIGRATIONS[position]).toBe(migration0053FieldOwnershipSerialization);
+    expect(PLATFORM_MIGRATIONS[position - 1].version).toBe(52);
     expect(assessPlatformMigration(migration0053FieldOwnershipSerialization, 43).class).toBe("expand");
     await db.exec(migration0053FieldOwnershipSerialization.sql);
     expect(await db.query("select tgname from pg_trigger where tgname like 'field_ownership_%' order by tgname")).toEqual([

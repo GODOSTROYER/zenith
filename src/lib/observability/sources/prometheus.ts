@@ -34,6 +34,7 @@ import { getJson, normalizeBaseUrl, type HttpEndpointConfig } from "./http";
 import { DEFAULT_LABEL_MAP, selectorLabelsFor, type LabelMap } from "./labels";
 import { bindingOf, coversScope, nodesInScope, sameEnvironment, type EnvironmentBinding } from "./scope";
 import { mapPool } from "./util";
+import { COST_PROMETHEUS_METRICS } from "@/lib/cost/optimizer/measurement-collector";
 
 export const PROMETHEUS_SOURCE_ID = "prometheus";
 
@@ -61,6 +62,8 @@ export const DEFAULT_PROMETHEUS_METRICS: Readonly<Record<string, PromMetricDef>>
 };
 
 export interface PrometheusConfig extends HttpEndpointConfig {
+  /** Fixed tenant/resource boundary meters; requires workspace binding and fresh producer reports. */
+  costUsage?: boolean;
   graph: ResourceGraph;
   workspaceId?: string;
   /** graph label key → Prometheus label name; default `DEFAULT_LABEL_MAP` */
@@ -70,6 +73,7 @@ export interface PrometheusConfig extends HttpEndpointConfig {
 }
 
 const PROM_KINDS = new Set<string>(["container_service", "kubernetes_namespace"]);
+const COST_KINDS = new Set<string>([...PROM_KINDS, "postgres", "mysql", "object_store"]);
 /** Prometheus itself caps a range query at 11,000 points; the fabric re-bounds and flags anything above its own limit. */
 const MAX_POINTS = 11_000;
 
@@ -78,8 +82,13 @@ export function createPrometheusSource(config: PrometheusConfig): ObservabilityS
   const http = { ...config, baseUrl };
   const binding: EnvironmentBinding = bindingOf(config.graph, config.workspaceId);
   const labelMap = config.labelMap ?? DEFAULT_LABEL_MAP;
-  const table: Record<string, PromMetricDef> = { ...DEFAULT_PROMETHEUS_METRICS, ...config.metrics };
-  const isPromNode = (n: ResourceNode) => PROM_KINDS.has(n.kind);
+  const costUtilization = {
+    "cpu.utilization": { expr: "max(zenith_cost_cpu_percent{{{matchers}}})", unit: "Percent" },
+    "memory.utilization": { expr: "max(zenith_cost_memory_percent{{{matchers}}})", unit: "Percent" },
+    "http.requests": { expr: "sum(rate(zenith_cost_requests_total{{{matchers}}}[{{window}}]))", unit: "Requests/Second" },
+  };
+  const table: Record<string, PromMetricDef> = { ...DEFAULT_PROMETHEUS_METRICS, ...COST_PROMETHEUS_METRICS, ...(config.costUsage ? costUtilization : {}), ...config.metrics };
+  const isPromNode = (n: ResourceNode) => (config.costUsage ? COST_KINDS : PROM_KINDS).has(n.kind);
 
   return {
     id: PROMETHEUS_SOURCE_ID,
@@ -91,6 +100,7 @@ export function createPrometheusSource(config: PrometheusConfig): ObservabilityS
       const result: QueryResult<MetricSeries> = { items: [], sources: [], truncated: false, simulated: false, unavailable: [] };
       if (!sameEnvironment(binding, q.scope)) return result;
       const fail = (reason: string) => result.unavailable.push({ source: PROMETHEUS_SOURCE_ID, reason: sanitizeReason(reason) });
+      if (config.costUsage && !config.workspaceId) { fail("Cost usage requires a workspace binding."); return result; }
       const from = Date.parse(q.range.from);
       const to = q.range.to === undefined ? Date.now() : Date.parse(q.range.to);
       const step = Math.max(1, Math.floor(q.stepSec ?? Math.max(60, Math.ceil((to - from) / 1000 / 120))));
@@ -111,12 +121,18 @@ export function createPrometheusSource(config: PrometheusConfig): ObservabilityS
           continue;
         }
         for (const node of nodes) {
-          const selector = joinMatchersBare(matchersFrom(selectorLabelsFor(node, labelMap)));
+          const scopedUsage = config.costUsage || metric.startsWith("cost.");
+          if (scopedUsage && !config.workspaceId) { fail("Cost usage requires a workspace binding."); continue; }
+          const labels = scopedUsage ? { zenith_workspace_id: config.workspaceId!, zenith_environment_id: config.graph.environmentId, zenith_resource_address: node.address } : selectorLabelsFor(node, labelMap);
+          const selector = joinMatchersBare(matchersFrom(labels));
           if (selector === undefined) {
             fail(`metric "${metric}": ${node.address} has no labels usable as a Prometheus selector`);
             continue;
           }
-          planned.push({ metric, def, node, expr: def.expr.replaceAll("{{matchers}}", () => selector).replaceAll("{{window}}", () => window) });
+          const expr = def.expr.replaceAll("{{matchers}}", () => selector).replaceAll("{{window}}", () => window);
+          // Query-time heartbeat makes gaps visible even while the HTTP scrape remains healthy.
+          const freshness = ` and on() ((time() - max(zenith_cost_usage_observed_at_seconds{${selector}})) < 90) and on() (count(zenith_cost_usage_observed_at_seconds{${selector}}) == 1)`;
+          planned.push({ metric, def, node, expr: scopedUsage ? `(${expr})${freshness}` : expr });
         }
       }
       if (planned.length > SERIES_PER_QUERY_MAX) {

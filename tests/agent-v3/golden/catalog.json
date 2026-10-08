@@ -1,5 +1,5 @@
 {
-  "catalogDigest": "sha256:989b06e82ec62e37c183a5fb03da0534ecce8ddd11596153e2fea94db9ecde1a",
+  "catalogDigest": "sha256:6a74227494d3e45e9a1d547e6e428da3b744b140c986c54362e0dec920d3bce9",
   "tools": [
     {
       "name": "zenith_get_topology",
@@ -73,8 +73,8 @@
     },
     {
       "name": "zenith_recommend_placement",
-      "schemaVersion": 1,
-      "schemaDigest": "sha256:78e1049dc738e078f695692906abec01e75f83615cedc581d4f562630c4d811a"
+      "schemaVersion": 2,
+      "schemaDigest": "sha256:05139168b57e9e2c3b1d294cdd8df1df278cff54f15f64b526ef88effddf8531"
     },
     {
       "name": "zenith_get_operation",

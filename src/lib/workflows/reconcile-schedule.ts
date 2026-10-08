@@ -17,8 +17,8 @@ import { composeReconcilePorts } from "@/lib/platform/reconcile";
 import { platformScopeResolver } from "@/lib/platform/scopes";
 import { reconcilePass } from "@/lib/reconcile/pass";
 import type { ReconcilePassPorts, ReconcilePassResult } from "@/lib/reconcile/pass-types";
-import { composeOptimizerPorts } from "@/lib/platform/optimizer";
-import { runOptimizerPass, type OptimizerPassPorts } from "@/lib/platform/optimizer-pass";
+import { runSweepOptimizer } from "@/lib/cost/optimizer/sweep-step";
+import type { OptimizerPassOptions } from "@/lib/platform/optimizer-pass";
 import { recordLeasedRun } from "@/lib/platform/critical-jobs";
 import { TASK_QUEUE } from "./types";
 import type { ReconcileSweepActivities, ReconcileSweepActivityInput, ReconcileSweepInput, ReconcileSweepResult } from "./definitions/reconcileSweep";
@@ -259,7 +259,7 @@ function countsOnly(value: ReconcilePassResult): ReconcilePassResult {
 }
 export interface ReconcileSweepRuntime extends ReconcileSchedulePrerequisites { activities: ReconcileSweepActivities }
 /** Optional step run in the same lease after the reconcile pass; PROD-COST-03 scheduled optimizer. */
-type OptimizerStep = (composed: ReconcilePassPorts) => OptimizerPassPorts | undefined;
+type OptimizerStep = (composed: ReconcilePassPorts, options: OptimizerPassOptions) => Promise<unknown>;
 function runtime(db: Sql, ports: (signal: AbortSignal) => Promise<ReconcilePassPorts>, optimizer?: OptimizerStep): ReconcileSweepRuntime {
   const capability: ReconcileSweepRuntime = {
     async assertReady() { await boundedReadiness(ports(AbortSignal.timeout(RPC_MS))); },
@@ -296,9 +296,8 @@ function runtime(db: Sql, ports: (signal: AbortSignal) => Promise<ReconcilePassP
             const result = await reconcilePass({ entry: "sweep", ports: cancellablePorts(composed, heldSignal), holder: `reconcile-sweep:${passId}`, maxEnvironments: args.maxEnvironments, environmentConcurrency: args.environmentConcurrency, budgetMs: 20_000, includeSandbox: false, reconcile: { autoRepair: true, deadlineAt: Date.now() + 50_000 } });
             heldSignal.throwIfAborted();
             // Per-environment opt-in (default off) and proposal-only. Its failure never turns a completed reconcile pass into a failure.
-            const optimizerPorts = optimizer?.(composed);
-            if (optimizerPorts) {
-              try { await runOptimizerPass(optimizerPorts, { maxEnvironments: args.maxEnvironments, signal: heldSignal }); }
+            if (optimizer) {
+              try { await optimizer(composed, { maxEnvironments: args.maxEnvironments, signal: heldSignal }); }
               catch { heldSignal.throwIfAborted(); }
             }
             const completed: ReconcileSweepResult = { status: "completed", counts: countsOnly(result) };
@@ -321,9 +320,10 @@ function runtime(db: Sql, ports: (signal: AbortSignal) => Promise<ReconcilePassP
 
 /** Production only: actual PostgreSQL, canonical policy/store/signer, existing broker ports. */
 export function createReconcileSweepRuntime(db: PlatformDbHandle): ReconcileSweepRuntime {
-  return runtime(db, (signal) => canonicalPorts(db, signal), (composed) => {
+  return runtime(db, (signal) => canonicalPorts(db, signal), async (composed, options) => {
     const broker = composedBrokers.get(composed);
-    return broker ? composeOptimizerPorts(boundedStore(db), composed, broker) : undefined;
+    if (!broker) throw new ReconcileScheduleError("prerequisites_unavailable");
+    return runSweepOptimizer(boundedStore(db), composed, broker, options);
   });
 }
 /** Explicit contract fixture. Never a production fallback or a caller-supplied ready flag. */

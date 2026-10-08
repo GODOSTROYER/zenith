@@ -11,6 +11,7 @@ import type { ResourceGraph } from "@/lib/resources/types";
 import type { ReconcileEnvironment } from "@/lib/reconcile/types";
 import { closeSharedPgliteAfterAll, makeHarness, sharedDatabase, user, type Harness } from "../capabilities/support";
 import { STACK_EDGES, node, stackNodes } from "./fixtures";
+import { transferRequest } from "@/lib/ownership/registry";
 
 closeSharedPgliteAfterAll();
 const DAY = 86_400_000;
@@ -24,6 +25,17 @@ function setup(h: Harness, over: { services?: string[]; policy?: OptimizerPassPo
   const graph = { nodes, edges: STACK_EDGES } as unknown as ResourceGraph;
   const env: ReconcileEnvironment = { workspaceId: h.ids.wsA, projectId: h.ids.projA, environmentId: h.ids.envAProd, class: "production", provider: "aws", region: "us-east-1" };
   const owned = staticFieldOwnership(services.flatMap((s) => [{ address: `service/${s}`, field: "spec.size" }, { address: `service/${s}`, field: "spec.replicas" }]));
+  // This memory-store fixture already declares both fields optimizer-owned.
+  // Model that same authority at the real broker's guard, with exact approved
+  // native-op transfers. Native receipt custody/races have their separate SQL lane.
+  h.store.fieldOwnership = async scope => {
+    if (scope.workspaceId !== env.workspaceId || scope.environmentId !== env.environmentId || scope.resourceId !== h.ids.resAWebProd) return undefined;
+    const address = "service/web", nativeType = "aws:ecs_service";
+    return { node: { address, nativeType, spec: { size: "standard", replicas: 3 } }, transfers: ["size", "replicas"].map(path => ({
+      ...transferRequest({ address, resourceType: nativeType, path, from: "iac", to: "native-op" }),
+      approvalId: `fixture-${path}-approval`, approvedAt: h.clock.now().toISOString(),
+    })) };
+  };
   return {
     env,
     ports: () => ({

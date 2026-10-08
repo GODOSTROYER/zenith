@@ -37,12 +37,29 @@ export interface RefreshOutput {
 export function refreshFromSnapshots(input: RefreshFromSnapshotsInput): RefreshOutput {
   const observations: PriceObservation[] = [];
   const skipped: Skipped[] = [];
+  const groups = new Map<string, LoadedSnapshot[]>();
   for (const loaded of input.snapshots) {
     // Re-verify here too: callers may build LoadedSnapshot values without the directory loader.
     verifySnapshotBytes(loaded.entry, Buffer.from(loaded.text, "utf8"));
+    const paginated = ["gcp_billing_catalog", "azure_retail_prices"].includes(loaded.entry.format);
+    const group = `${loaded.entry.provider}|${loaded.entry.format}|${loaded.entry.service}|${loaded.entry.region ?? ""}|${loaded.entry.retrievedAt}|${paginated ? "pages" : loaded.entry.file}`;
+    groups.set(group, [...(groups.get(group) ?? []), loaded]);
+  }
+  for (const group of groups.values()) {
+    const loaded = group[0]!;
     const regions = [...new Set(input.base.entries.filter((e) => e.provider === loaded.entry.provider).map((e) => e.region))].sort();
     const ctx: NormalizeContext = { regions };
-    const out = NORMALIZERS[loaded.entry.format](loaded.text, loaded.entry, ctx);
+    // Keep exact downloaded bytes/checksums in the manifest. Assemble checked pages only
+    // for normalization so CPU/RAM and volume tiers split across pages remain one product.
+    let text = loaded.text;
+    if (group.length > 1 && ["gcp_billing_catalog", "azure_retail_prices"].includes(loaded.entry.format)) {
+      const field = loaded.entry.format === "gcp_billing_catalog" ? "skus" : "Items";
+      const pages: unknown[] = group.map(s => { try { return JSON.parse(s.text); } catch { return undefined; } });
+      if (pages.some(p => !p || typeof p !== "object" || !Array.isArray((p as Record<string, unknown>)[field]))) throw new RefreshError("format", "A checked price page has an invalid collection; refusing a partial refresh.");
+      text = JSON.stringify({ [field]: pages.flatMap(p => (p as Record<string, unknown[]>)[field]!) });
+    }
+    const out = NORMALIZERS[loaded.entry.format](text, loaded.entry, ctx);
+    if (group.length > 1) for (const observation of out.observations) observation.note += `; normalized from checked page set ${group.map(s => s.entry.sha256).sort().join(", ")}`;
     observations.push(...out.observations);
     skipped.push(...out.skipped);
   }

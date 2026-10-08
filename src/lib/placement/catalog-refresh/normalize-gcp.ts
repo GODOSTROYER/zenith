@@ -15,6 +15,7 @@
 import { buildTiered, resolveCandidates, toNumber, type Dimension, type Priced } from "@/lib/placement/catalog-refresh/common";
 import type { Normalizer, PriceObservation, Skipped } from "@/lib/placement/catalog-refresh/types";
 import type { PriceEntry } from "@/lib/placement/types";
+import { derivePrices, type DerivedPriceRule } from "./derived";
 
 interface GcpSku {
   description?: string;
@@ -44,6 +45,13 @@ interface GcpRule {
 const desc = (re: RegExp) => (s: GcpSku) => re.test(s.description ?? "");
 
 export const GCP_RULES: readonly GcpRule[] = [
+  { sku: "component.gcp.e2.cpu", unit: "hour", service: /^Compute Engine$/, match: desc(/^E2 Instance Core running in /i), usageUnit: /^h$/, pick: "first_paid", note: "E2 core-hour" },
+  { sku: "component.gcp.e2.memory", unit: "hour", service: /^Compute Engine$/, match: desc(/^E2 Instance Ram running in /i), usageUnit: /^GiBy\.h$/, pick: "first_paid", note: "E2 GiB-hour" },
+  { sku: "component.gcp.sql.cpu", unit: "hour", service: /^Cloud SQL$/, match: s => /^Cloud SQL for PostgreSQL:/i.test(s.description ?? "") && /\b(vCPU|CPU)\b/i.test(s.description ?? "") && !/Regional|HA|Enterprise Plus|N2|C4A|memory.optimized/i.test(s.description ?? ""), usageUnit: /^h$/, pick: "first_paid", note: "Cloud SQL PostgreSQL Enterprise zonal CPU-hour" },
+  { sku: "component.gcp.sql.memory", unit: "hour", service: /^Cloud SQL$/, match: s => /^Cloud SQL for PostgreSQL:/i.test(s.description ?? "") && /\b(RAM|Memory)\b/i.test(s.description ?? "") && !/Regional|HA|Enterprise Plus|N2|C4A|memory.optimized/i.test(s.description ?? ""), usageUnit: /^GiBy\.h$/, pick: "first_paid", note: "Cloud SQL PostgreSQL Enterprise zonal GiB-hour" },
+  { sku: "gcp.cloud_sql_postgres.nano_hour", unit: "hour", service: /^Cloud SQL$/, match: s => /^Cloud SQL for PostgreSQL:/i.test(s.description ?? "") && /\bg1.small\b/i.test(s.description ?? "") && !/Regional|HA/i.test(s.description ?? ""), usageUnit: /^h$/, pick: "first_paid", note: "db-g1-small shared core, no HA" },
+  { sku: "gcp.cloud_sql_postgres.storage_gb_month", unit: "gb_month", service: /^Cloud SQL$/, match: s => /^Cloud SQL for PostgreSQL:/i.test(s.description ?? "") && /SSD Storage/i.test(s.description ?? "") && !/Regional|HA/i.test(s.description ?? ""), usageUnit: /^GiBy\.mo$/, pick: "first_paid", note: "Cloud SQL zonal SSD storage" },
+  { sku: "gcp.cloud_sql_postgres.backup_gb_month", unit: "gb_month", service: /^Cloud SQL$/, match: desc(/^Cloud SQL.*Backup/i), usageUnit: /^GiBy\.mo$/, pick: "first_paid", note: "Cloud SQL backup storage" },
   {
     sku: "gcp.cloud_run.vcpu_hour",
     unit: "hour",
@@ -163,9 +171,19 @@ export const normalizeGcp: Normalizer = (text, snapshot) => {
       snapshotSha256: snapshot.sha256,
     });
   }
-  return { observations, skipped };
+  return derivePrices({ observations, skipped }, gcpDerivedRules(snapshot.service), [region]);
 };
 
+function gcpDerivedRules(service: string): DerivedPriceRule[] {
+  if (service === "Compute Engine") return [["small", 0.5, 2], ["medium", 1, 4], ["large", 2, 8]].map(([size, cpu, memory]) => ({
+    sku: `gcp.compute_engine.${size}_hour`, components: [{ sku: "component.gcp.e2.cpu", quantity: Number(cpu) }, { sku: "component.gcp.e2.memory", quantity: Number(memory) }], note: `E2 ${size} Linux on-demand shape`,
+  }));
+  if (service === "Cloud SQL") return [["small", 1, 3.75], ["standard", 2, 7.5], ["performance", 4, 15]].map(([size, cpu, memory]) => ({
+    sku: `gcp.cloud_sql_postgres.${size}_hour`, components: [{ sku: "component.gcp.sql.cpu", quantity: Number(cpu) }, { sku: "component.gcp.sql.memory", quantity: Number(memory) }], note: `Cloud SQL Enterprise zonal PostgreSQL ${size}, no HA`,
+  }));
+  return [];
+}
+
 export function gcpRefreshableSkus(): string[] {
-  return GCP_RULES.map((r) => r.sku);
+  return [...GCP_RULES.map(r => r.sku).filter(s => !s.startsWith("component.")), ...gcpDerivedRules("Compute Engine").map(r => r.sku), ...gcpDerivedRules("Cloud SQL").map(r => r.sku)];
 }

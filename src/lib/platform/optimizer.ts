@@ -6,12 +6,9 @@
  * runs with the same authority boundary: it can only PROPOSE through the
  * broker, and policy and human approval decide.
  *
- * Two inputs are deliberately conservative until their sources exist:
- * - measurements: no usage/utilization collector is wired here, so the default
- *   port reports "no measurements" and every environment is skipped and
- *   counted. Provide an `OptimizerMeasurementPort` to enable optimization.
- * - field ownership: the registry (PROD-LIFE-12) is not wired, so ownership is
- *   unknown and every change is refused. Provide a `FieldOwnershipCheck`.
+ * This base port set stays conservative for independent callers. The production
+ * sweep's cost/optimizer/sweep-step composes the measured collector and exact
+ * environment ownership adapter through runMeasuredOptimizerPass.
  */
 import { loadDefaultCatalog } from "@/lib/placement/pricebook";
 import type { Broker } from "@/lib/capabilities/platform";

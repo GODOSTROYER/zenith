@@ -252,7 +252,7 @@ const SOURCES: Record<ToolName, Source> = {
     access: "read",
     capability: "placement.solve",
     requiredScope: "plan",
-    schemaVersion: 1,
+    schemaVersion: 2,
     annotations: READ,
     schema: RecommendPlacementInput,
   },

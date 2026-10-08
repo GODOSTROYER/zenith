@@ -106,3 +106,25 @@ Step 5, operational rehearsal (needs Docker; not claimed passed): follow the che
 - Replay gate is an opt-in lane, not a default or CI test. `history-replay.test.ts` is skipped (with a stated reason) unless `ZENITH_REPLAY_LANE=1`; inside the lane missing fixtures FAIL. Verifier runs FIRST: `npm run replay:record` (sets `ZENITH_RECORD_WORKFLOW_HISTORIES=1`, `ZENITH_TEST_TEMPORAL=1`), commits `tests/fixtures/workflow-histories`, runs `npm run replay:check`, and only then adds the lane to the gate manifest. The runbook gates step sets the lane variable itself. (Ignore the earlier `ZENITH_RECORD...` command and `workflow-histories:check` in sections 3 and 5.)
 - k8s manifests added: `deploy/k8s/zenith-api.yaml`, `zenith-execution-worker.yaml` (rolling maxUnavailable 0, probes, PodDisruptionBudget, 660 s grace), `platform-migrate-job.yaml`. Images are placeholder zero digests; the runbook substitutes the migration image into the Job over stdin and sets Deployment images by `kubectl set image`. Apply the Deployments once with real digests first. Secrets (`zenith-api-env`, `zenith-worker-env`, `zenith-migration-env`) are yours to create. Never applied to a cluster here.
 - Compat baseline is no longer a constant. `migratePlatformDb` on Postgres (or `ZENITH_ENFORCE_EXPAND_ONLY=1`) enforces expand-only for every pending migration above the highest version already applied (a fresh database is exempt). Static/CI checks use `ZENITH_COMPAT_BASELINE_VERSION` (previous release highest) else the registry highest. PGlite does not enforce by default.
+
+
+## L1-LIVE-AWS provider slice (8 October 2026)
+
+Acceptance: API/worker/runner upgrades with in-flight histories and schema/protocol compatibility/rollback pass.
+
+The AWS planner includes this exact requirement; native provider fixture checks alone leave its full product acceptance pending. See [L1-LIVE-AWS](L1-LIVE-AWS.md) and [owner runbook](../LIVE-ACCEPTANCE.md) for the immutable plan, Wave 5 ProductScenarioPort join, approved permission/session FILE references, owner-only bootstrap, one-command execution and recovery. Commercial, retention, multi-cloud, managed cluster and final signoff decisions remain separate where this row requires them.
+
+Exact Mac commands (Node 22, one workload, Docker 4GiB only for the separate Wave 5 stack):
+
+```bash
+export PATH="$ZENITH_NODE22_BIN:$PATH"
+node --version
+actionlint .github/workflows/live-acceptance.yml
+tofu -chdir=deploy/live-sandbox/aws init -backend=false
+tofu -chdir=deploy/live-sandbox/aws validate
+npx vitest run tests/acceptance/aws-production.test.ts tests/acceptance/aws-production.live.test.ts --no-file-parallelism --maxWorkers=1
+# Only AFTER DEC-CLOUD and all variables in LIVE-ACCEPTANCE.md are exported, for a NEW approved run:
+ZENITH_LIVE_AWS=1 npx vitest run tests/acceptance/aws-production.live.test.ts --no-file-parallelism --maxWorkers=1
+```
+
+Expected offline: provider contracts pass; actual AWS test is skipped, never accepted as live evidence. Expected live for this source: six actual provider fixtures and native cleanup, zero failed checks, packet incomplete / exit 3 and this requirement pending until its full product journey is joined and independently verified. No actual AWS, real PostgreSQL, Temporal, kind or browser verification was run on the Windows builder. Status for the AWS harness slice: implementation_complete_verification_pending.

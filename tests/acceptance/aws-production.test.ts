@@ -1,0 +1,295 @@
+/** CONTRACT ONLY: modeled transport, never AWS evidence. */
+import { randomBytes } from "node:crypto";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { load } from "js-yaml";
+import { buildPlan, allCalls, digest, FAMILIES, teardownOrder } from "../../scripts/acceptance/live/plan";
+import { Guard, grantsFor, readPermission } from "../../scripts/acceptance/live/guard";
+import { execute, newJournal, missing, absent, owned, checkReadback, executionProvenance } from "../../scripts/acceptance/live/execute";
+import { evidencePacket } from "../../scripts/acceptance/live/evidence";
+import { runProductionCli } from "../../scripts/acceptance/live/cli";
+import { nonceZip, resolveInput, sessionCredentials } from "../../scripts/acceptance/live/sdk";
+import type { AwsPermission, Call, Family, Plan, Transport } from "../../scripts/acceptance/live/contracts";
+
+const now = () => new Date("2026-10-08T00:00:00Z");
+const settings = { accountId: "123456789012", region: "ap-south-1", runId: "zlive-202610080000-abcd", durationMinutes: 15, dbSubnetGroup: "zenith-live-sandbox", dbSecurityGroup: "sg-12345678", workloadBoundaryArn: "arn:aws:iam::123456789012:policy/ZenithLiveWorkloadBoundary" };
+const plan = () => buildPlan({ ...settings });
+const permission = (p = plan()): AwsPermission => ({ schema: 1, decision: "DEC-CLOUD", approvedBy: "Owner fixture", approvedAt: "2026-10-07T23:59:00Z", expiresAt: "2026-10-08T01:00:00Z", sourceCommit: "a".repeat(40), accountId: settings.accountId, region: settings.region, runId: settings.runId, planSha256: p.sha256, maxUsd: 10, maxMinutes: 20, grants: grantsFor(p) });
+const makeGuard = (p = plan()) => new Guard(p, permission(p), 10, now);
+const error = (name: string) => Object.assign(new Error("modeled provider failure"), { name });
+function modeled(p: Plan, fail?: (call: Call) => boolean) {
+  const present = new Set<Family>(), calls: Call[] = [], tags = new Set<Family>();
+  const transport: Transport = { async send(c, _input) {
+    calls.push(c);
+    if (fail?.(c)) throw error("AccessDeniedException");
+    const family = c.id.split("-")[0] as Family;
+    if (c.id === "identity") return { Account: settings.accountId, Arn: `arn:aws:sts::${settings.accountId}:assumed-role/ZenithLiveAcceptance/contract` };
+    if (c.id === "marker") return { Parameter: { Value: "true" } };
+    if (c.id === "run-claim") return { Version: 1 };
+    if (c.id === "run-claim-read") return { Parameter: { Value: settings.runId } };
+    if (c.id === "db-network") return { DBSubnetGroups: [{ VpcId: "vpc-modeled", Subnets: [{}, {}] }] };
+    if (c.id === "db-security") return { SecurityGroups: [{ VpcId: "vpc-modeled", IpPermissions: [], Tags: [{ Key: "zenith:bootstrap", Value: "live-sandbox" }] }] };
+    if (c.id === "prior-leaks") return { ResourceTagMappingList: [] };
+    if (c.id === "dns-discover") return { HostedZones: present.has("dns") ? [{ Name: `zenith-${settings.runId}.invalid.`, Id: "/hostedzone/ZCONTRACT" }] : [] };
+    if (c.id.endsWith("-create")) {
+      present.add(family);
+      if (!["s3", "dns"].includes(family)) tags.add(family);
+      return family === "dns" ? { HostedZone: { Id: "/hostedzone/ZCONTRACT" } } : {};
+    }
+    if (c.id.endsWith("-tag")) { tags.add(family); return {}; }
+    if (c.id.endsWith("-preexist") || c.id.endsWith("-leak")) {
+      if (!present.has(family)) {
+        if (family === "ecs") return { clusters: [], failures: [{ reason: "MISSING" }] };
+        throw error({ s3: "NoSuchBucket", iam: "NoSuchEntity", lambda: "ResourceNotFoundException", rds: "DBInstanceNotFoundFault", dns: "NoSuchHostedZone", ecs: "unused" }[family]);
+      }
+      return family === "ecs" ? { clusters: [{ status: "ACTIVE" }], failures: [] } : family === "dns" ? { HostedZone: { Name: `zenith-${settings.runId}.invalid.`, CallerReference: settings.runId } } : family === "rds" ? { DBInstances: [{ MasterUserSecret: { SecretArn: `arn:aws:secretsmanager:${settings.region}:${settings.accountId}:secret:rds!db-contract` } }] } : {};
+    }
+    if (c.id.endsWith("-ownership")) return { Tags: tags.has(family) ? p.tags : {} };
+    if (c.id.endsWith("-delete")) { present.delete(family); return {}; }
+    if (c.id === "s3-read") return { Body: p.settings.runId };
+    if (c.id === "s3-read-private") return { PublicAccessBlockConfiguration: { BlockPublicAcls: true, IgnorePublicAcls: true, BlockPublicPolicy: true, RestrictPublicBuckets: true } };
+    if (c.id === "iam-read") return { Role: { PermissionsBoundary: { PermissionsBoundaryArn: settings.workloadBoundaryArn } } };
+    if (c.id === "lambda-ready") return { State: "Active" };
+    if (c.id === "lambda-invoke") return { StatusCode: 200, Payload: JSON.stringify({ nonce: p.settings.runId }) };
+    if (c.id === "ecs-read") return { clusters: [{ status: "ACTIVE", clusterName: `zenith-${settings.runId}-ecs` }], failures: [] };
+    if (c.id === "rds-ready") return { DBInstances: [{ DBInstanceStatus: "available", PubliclyAccessible: false, StorageEncrypted: true, MultiAZ: false, MasterUserSecret: { SecretArn: `arn:aws:secretsmanager:${settings.region}:${settings.accountId}:secret:rds!db-contract` } }] };
+    if (c.id === "rds-secret-leak") throw error("ResourceNotFoundException");
+    if (c.id === "dns-read") return { ResourceRecordSets: [{ Type: "TXT", Name: `probe.zenith-${settings.runId}.invalid.`, ResourceRecords: [{ Value: `"${settings.runId}"` }] }] };
+    return {};
+  } };
+  return { transport, calls, present, tags };
+}
+async function run(fail?: (c: Call) => boolean) {
+  const p = plan(), guard = makeGuard(p), model = modeled(p, fail), journal = newJournal(p, guard, "a".repeat(40), now());
+  let saves = 0;
+  await execute(p, guard, model.transport, journal, { now, sleep: async () => undefined, save: async state => { saves++; expect(state.counts).toEqual(guard.counts); } });
+  return { p, guard, model, journal, saves };
+}
+const directories: string[] = [];
+afterEach(async () => { for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true }); });
+
+describe("AWS production planner (offline)", () => {
+  it("prints deterministic exact inputs, call ceilings, ownership and provisional costs", () => {
+    const p = plan(); expect(p).toEqual(plan()); expect(p.fixtures.map(f => f.family)).toEqual(FAMILIES);
+    expect(p.requirements).toHaveLength(27); expect(p.requirements.every(r => r.acceptance.length > 0 && r.join.includes("Wave 5"))).toBe(true);
+    const { sha256, ...body } = p; expect(digest(body)).toBe(sha256);
+    expect(p.estimate.usd).toBeGreaterThan(p.estimate.cleanupReserveUsd);
+    expect(allCalls(p).every(c => c.maximumCalls > 0 && c.input && c.action && c.resource)).toBe(true);
+  });
+  it.each(["cn-north-1", "us-gov-west-1", "", "not-a-region"])("refuses unsupported region %s", region => expect(() => buildPlan({ ...settings, region })).toThrow());
+  it.each([0, -1, NaN, 4, 21, 100, 5.5])("bounds duration %s", durationMinutes => expect(() => buildPlan({ ...settings, durationMinutes })).toThrow());
+  it("keeps RDS private/encrypted, DNS reserved, IAM bounded and ECS scope explicit", () => {
+    const p = plan(), calls = allCalls(p);
+    expect(calls.find(c => c.id === "rds-create")!.input).toMatchObject({ PubliclyAccessible: false, StorageEncrypted: true, ManageMasterUserPassword: true });
+    expect(calls.find(c => c.id === "dns-create")!.input.Name).toMatch(/\.invalid\.$/);
+    expect(calls.find(c => c.id === "iam-create")!.input.PermissionsBoundary).toBe(settings.workloadBoundaryArn);
+    expect(calls.find(c => c.id === "lambda-invoke")!.input.Payload).toEqual({ nonce: settings.runId });
+    expect(calls.some(c => /CreateAccessKey|GetSecretValue|CreateUser|RunTask/.test(c.command))).toBe(false);
+  });
+  it("orders dependents before dependencies; rejects cycles and missing parents", () => {
+    const p = plan(), order = teardownOrder(p.fixtures).map(f => f.family);
+    expect(order.indexOf("lambda")).toBeLessThan(order.indexOf("iam"));
+    p.fixtures.find(f => f.family === "iam")!.dependsOn = ["lambda"];
+    expect(() => teardownOrder(p.fixtures)).toThrow(/Cyclic/);
+    expect(() => teardownOrder(plan().fixtures.filter(f => f.family === "lambda"))).toThrow(/Missing/);
+  });
+  it("creates a deterministic valid ZIP without keys or external tools", () => {
+    const zip = Buffer.from(nonceZip()); expect(zip.readUInt32LE(0)).toBe(0x04034b50);
+    expect(zip.subarray(-22).readUInt32LE(0)).toBe(0x06054b50);
+    expect(zip.toString()).toContain("event.nonce"); expect(nonceZip()).toEqual(nonceZip());
+  });
+  it("refuses unbound or foreign resource references", () => {
+    expect(() => resolveInput({ Id: { $ref: "dns-create.HostedZone.Id" } }, {})).toThrow();
+    expect(() => resolveInput({ $ref: "dns-create.HostedZone.Id" }, { "dns-create": { HostedZone: { Id: "foreign" } } })).toThrow();
+    expect(resolveInput({ $ref: "dns-create.HostedZone.Id" }, { "dns-create": { HostedZone: { Id: "/hostedzone/ZCONTRACT" } } })).toBe("ZCONTRACT");
+  });
+});
+
+describe("budget and permission envelope (offline)", () => {
+  it.each([0, -1, NaN, Infinity, 5, 11])("refuses budget %s before transport", budget => expect(() => new Guard(plan(), permission(), budget, now)).toThrow());
+  it.each(["accountId", "region", "runId", "planSha256"] as const)("binds %s exactly", field => expect(() => new Guard(plan(), { ...permission(), [field]: "foreign" }, 10, now)).toThrow());
+  it("requires owner approval and exact bounded grants for all calls, including teardown", () => {
+    expect(() => readPermission({})).toThrow();
+    expect(() => readPermission({ awsLive: { ...permission(), approvedBy: "" } })).toThrow();
+    expect(() => readPermission({ awsLive: { ...permission(), grants: [{ action: "iam:*", resource: "*", maximumCalls: 1 }] } })).toThrow();
+    const perm = permission(); perm.grants = perm.grants.filter(g => g.action !== "rds:DeleteDBInstance");
+    expect(() => new Guard(plan(), perm, 10, now)).toThrow(/Missing bounded permission/);
+  });
+  it("refuses expired/future approvals and insufficient request counts", () => {
+    expect(() => new Guard(plan(), { ...permission(), expiresAt: now().toISOString() }, 10, now)).toThrow();
+    expect(() => new Guard(plan(), { ...permission(), approvedAt: "2026-10-09T00:00:00Z" }, 10, now)).toThrow();
+    const perm = permission(); perm.grants[0].maximumCalls = 1;
+    expect(() => new Guard(plan(), perm, 10, now)).toThrow();
+  });
+  it("refuses mutation of the plan after admission and exhausted attempts", () => {
+    const p = plan(), guard = makeGuard(p), c = p.fixtures[0].setup[0];
+    guard.consume(c); expect(() => guard.consume(c)).toThrow(/exhausted/);
+    expect(() => { c.input.Bucket = "foreign"; }).toThrow();
+    expect(() => guard.consume({ ...c, input: { Bucket: "foreign" } })).toThrow(/Unplanned/);
+  });
+  it("expired approval permits only previously authorized cleanup, never fresh creation/invocation", () => {
+    const p = plan(), perm = permission(p);
+    perm.expiresAt = "2026-10-07T23:59:30Z";
+    const guard = new Guard(p, perm, 10, now, {}, true);
+    expect(() => guard.consume(p.fixtures[0].setup[0], true)).toThrow(/Recovery/);
+    expect(() => guard.consume(p.fixtures[0].teardown[0], true)).not.toThrow();
+  });
+  it("rejects persisted counter tampering", () => {
+    expect(() => new Guard(plan(), permission(), 10, now, { foreign: 1 })).toThrow();
+    expect(() => new Guard(plan(), permission(), 10, now, { identity: -1 })).toThrow();
+  });
+  it("refuses a self-consistent approved plan that understates cost or changes the fixed topology", () => {
+    const p = plan(); p.estimate.usd = 0;
+    const { sha256: _old, ...body } = p; p.sha256 = digest(body);
+    expect(() => new Guard(p, permission(p), 10, now)).toThrow(/canonical bounded/);
+  });
+});
+
+describe("execution, cleanup and evidence (modeled contracts only)", () => {
+  it("reads actual modeled provider results, tears down all fixtures and leaves requirements pending", async () => {
+    const { journal, model, saves } = await run();
+    expect(journal.checks.filter(c => c.scope === "aws_fixture" && c.status === "passed")).toHaveLength(6);
+    expect(journal.checks.filter(c => c.scope === "cleanup" && c.status === "passed")).toHaveLength(6);
+    expect(journal.checks.filter(c => c.status === "pending")).toHaveLength(27);
+    expect(journal.closed).toBe(true); expect(model.present.size).toBe(0); expect(saves).toBeGreaterThan(model.calls.length);
+    expect(model.calls.findIndex(c => c.id === "lambda-delete")).toBeLessThan(model.calls.findIndex(c => c.id === "iam-delete"));
+    const evidence = evidencePacket(journal, now());
+    expect(evidence.verdict).toBe("incomplete"); expect(evidence.requirements.every(r => r.evidence.length === 0)).toBe(true);
+    expect(Object.values(evidence.releaseStatus).every(v => v === false)).toBe(true);
+  });
+  it.each(["s3-put", "iam-read", "lambda-invoke", "ecs-read", "rds-ready", "dns-read"])("always cleans partial failure at %s", async id => {
+    const { journal, model } = await run(c => c.id === id);
+    expect(journal.checks.some(c => c.status === "failed")).toBe(true); expect(journal.closed).toBe(true); expect(model.present.size).toBe(0);
+  });
+  it("blocks dependency deletion after dependent cleanup fails; preserves leak failure", async () => {
+    const { journal, model } = await run(c => c.id === "lambda-delete");
+    expect(journal.closed).toBe(false); expect(model.calls.some(c => c.id === "iam-delete")).toBe(false);
+    expect(evidencePacket(journal).verdict).toBe("failed");
+  });
+  it("does not delete untagged resources or invent cleanup success", async () => {
+    const { journal, model } = await run(c => c.id === "s3-tag");
+    expect(journal.closed).toBe(false); expect(model.calls.some(c => c.id === "s3-delete")).toBe(false);
+  });
+  it.each(["identity", "marker", "db-security", "run-claim"])("does not create resources after %s refusal", async id => {
+    const { model } = await run(c => c.id === id);
+    expect(model.calls.some(c => c.id.endsWith("-create"))).toBe(false);
+  });
+  it("claims a run once without overwrite before any billable creation; recovery never claims again", async () => {
+    const { p, journal, model, guard } = await run();
+    const claim = p.preflight.find(c => c.id === "run-claim")!;
+    expect(claim.input).toMatchObject({ Overwrite: false, Tier: "Standard", Value: settings.runId });
+    expect(model.calls.findIndex(c => c.id === "run-claim")).toBeLessThan(model.calls.findIndex(c => c.id === "s3-create"));
+    expect(model.calls.some(c => c.command === "DeleteParameter")).toBe(false);
+    const start = model.calls.length;
+    await execute(p, guard, model.transport, journal, { now, sleep: async () => undefined, save: async () => undefined }, { cleanupOnly: true });
+    expect(model.calls.slice(start).some(c => c.id === "run-claim")).toBe(false);
+  });
+  it("treats permission/unavailable/malformed responses as failures, never absence", () => {
+    expect(missing(error("AccessDeniedException"))).toBe(false);
+    expect(missing(error("TimeoutError"))).toBe(false);
+    expect(absent(plan().fixtures.find(f => f.family === "ecs")!.leak[0], {})).toBe(false);
+    expect(owned({ Tags: { ...plan().tags, "zenith:live-run": "foreign" } }, plan())).toBe(false);
+    expect(checkReadback("rds", { "rds-ready": { DBInstances: [{ DBInstanceStatus: "available", PubliclyAccessible: true }] } }, plan())).toBe(false);
+  });
+  it("resumes a failed cleanup journal without rerunning setup; preserves the earlier failure", async () => {
+    const first = await run(c => c.id === "lambda-delete");
+    const guard = new Guard(first.p, permission(first.p), 10, now, first.journal.counts, true);
+    first.model.calls.splice(0);
+    await execute(first.p, guard, first.model.transport, first.journal, { now, sleep: async () => undefined, save: async () => undefined }, { cleanupOnly: true });
+    // This same modeled transport keeps failing lambda-delete: recovery must
+    // remain failed, and cannot escape via fresh request counters or setup.
+    expect(first.journal.closed).toBe(false);
+    expect(first.model.calls.some(c => c.id.endsWith("-create"))).toBe(false);
+  });
+  it("sanitizes known secret formats and never persists raw provider responses", async () => {
+    const { journal } = await run();
+    const fake = ["AKIA", randomBytes(8).toString("hex").toUpperCase()].join("");
+    journal.checks.push({ id: "redaction", scope: "product_requirement", status: "pending", reason: `authorization: Bearer ${fake}` });
+    expect(JSON.stringify(evidencePacket(journal))).not.toContain(fake);
+    expect(Object.keys(journal.responses).sort()).toEqual(["dns-create", "rds-secret"]);
+  });
+  it("cannot emit live evidence from a modeled transport, even when a check claims success", async () => {
+    const { journal } = await run();
+    journal.checks = journal.checks.filter(c => c.scope !== "product_requirement");
+    for (const r of journal.plan.requirements) journal.checks.push({ id: r.id, scope: "product_requirement", status: "passed", reason: "modeled success" });
+    const packet = evidencePacket(journal);
+    expect(packet.provenance).toBe("contract");
+    expect(packet.requirements.every(r => r.evidence.length === 0)).toBe(true);
+    expect(packet.verdict).toBe("incomplete");
+    // A later native cleanup proves only provider absence, not these earlier
+    // modeled product checks. It must not elevate the journal's provenance.
+    journal.provenance = executionProvenance(journal.provenance, true, true);
+    const recovered = evidencePacket(journal);
+    expect(recovered.provenance).toBe("contract");
+    expect(recovered.requirements.every(r => r.evidence.length === 0)).toBe(true);
+    expect(recovered.verdict).toBe("incomplete");
+  });
+});
+
+describe("CLI admission and explicit credentials (offline)", () => {
+  it("refuses recovery from a different executing source before constructing credentials", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "aws-production-test-")); directories.push(dir);
+    const p = plan(), perm = permission(p);
+    perm.approvedAt = new Date(Date.now() - 60_000).toISOString();
+    perm.expiresAt = new Date(Date.now() + 60_000).toISOString();
+    const journal = newJournal(p, new Guard(p, perm, 10), perm.sourceCommit);
+    const permissionFile = path.join(dir, "permissions.json"), journalFile = path.join(dir, "journal.json");
+    await writeFile(permissionFile, JSON.stringify({ awsLive: perm }));
+    await writeFile(journalFile, JSON.stringify(journal));
+    let constructed = 0;
+    const errors: string[] = [];
+    const code = await runProductionCli(["--permissions", permissionFile, "--cleanup", journalFile], { ZENITH_LIVE_AWS: "1", ZENITH_LIVE_AWS_BUDGET_USD: "10" }, { out: () => undefined, err: s => errors.push(s) }, { source: () => "b".repeat(40), transport: async () => { constructed++; throw new Error("must not run"); } });
+    expect(code).toBe(2); expect(constructed).toBe(0); expect(errors).toEqual(["Permission source commit mismatch"]);
+  });
+  it.each(["invalid", "short", "too-long"])("refuses %s session expiry before constructing clients", async kind => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "aws-production-test-")); directories.push(dir);
+    const file = path.join(dir, "session.json");
+    const expiration = kind === "invalid" ? "invalid-date" : new Date(Date.now() + (kind === "short" ? 5 : 90) * 60_000).toISOString();
+    await writeFile(file, JSON.stringify({ accessKeyId: randomBytes(12).toString("hex"), secretAccessKey: randomBytes(30).toString("base64"), sessionToken: randomBytes(32).toString("base64"), expiration }), { mode: 0o600 });
+    await expect(sessionCredentials({ ZENITH_LIVE_AWS_SESSION_FILE: file })).rejects.toThrow(/46..60/);
+  });
+  it("reads only an explicit short-lived session FILE with enough cleanup lifetime; no SDK call", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "aws-production-test-")); directories.push(dir);
+    const file = path.join(dir, "session.json");
+    const credentials = { accessKeyId: randomBytes(12).toString("hex"), secretAccessKey: randomBytes(30).toString("base64"), sessionToken: randomBytes(32).toString("base64") };
+    await writeFile(file, JSON.stringify({ ...credentials, expiration: new Date(Date.now() + 55 * 60_000).toISOString() }), { mode: 0o600 });
+    expect(await sessionCredentials({ ZENITH_LIVE_AWS_SESSION_FILE: file })).toEqual(credentials);
+  });
+  it("--plan never constructs a credential provider/transport, even with ambient AWS variables", async () => {
+    const lines: string[] = [];
+    const code = await runProductionCli(["--plan", "--run-id", settings.runId], { AWS_PROFILE: "wrong", AWS_ACCESS_KEY_ID: "unread" }, { out: s => lines.push(s), err: s => lines.push(s) }, { transport: async () => { throw new Error("must not run"); } });
+    expect(code).toBe(0); expect(lines.join("")).toContain("PLAN ONLY"); expect(lines.join("")).not.toContain("unread");
+  });
+  it("refuses live before credential access when the env gate/budget/permission is absent", async () => {
+    let constructed = 0;
+    const dir = await mkdtemp(path.join(os.tmpdir(), "aws-production-test-")); directories.push(dir);
+    for (const env of [{}, { ZENITH_LIVE_AWS: "1" }]) {
+      expect(await runProductionCli(["--account", settings.accountId, "--db-security-group", settings.dbSecurityGroup, "--out", dir], env, { out: () => undefined, err: () => undefined }, { transport: async () => { constructed++; throw new Error("must not run"); } })).toBe(2);
+    }
+    expect(constructed).toBe(0);
+  });
+  it.each([
+    { label: "absent", env: {} }, { label: "profile", env: { AWS_PROFILE: "ambient" } },
+    { label: "endpoint override", env: { AWS_ENDPOINT_URL: "https://foreign.invalid" } },
+    { label: "access-key-only", env: { GITHUB_ACTIONS: "true", ZENITH_LIVE_AWS_ENVIRONMENT: "live-sandbox", AWS_ACCESS_KEY_ID: randomBytes(12).toString("hex"), AWS_SECRET_ACCESS_KEY: randomBytes(30).toString("base64") } },
+  ])("refuses implicit/long-lived credential source $label", async ({ env }) => { await expect(sessionCredentials(env)).rejects.toThrow(); });
+});
+
+it("keeps pre-OIDC permission admission and an unconditional hard failure gate after recovery", async () => {
+  const workflow = load(await readFile(".github/workflows/live-acceptance.yml", "utf8")) as { jobs: Record<string, { steps: { name?: string; id?: string; uses?: string; run?: string; env?: Record<string, string>; "continue-on-error"?: boolean }[] }> };
+  const steps = workflow.jobs["aws-live"].steps;
+  const preflight = steps.findIndex(s => s.name === "Validate the approved permission envelope before OIDC");
+  const assume = steps.findIndex(s => s.uses?.startsWith("aws-actions/configure-aws-credentials@"));
+  const acceptance = steps.findIndex(s => s.id === "acceptance"), recovery = steps.findIndex(s => s.id === "recovery");
+  expect(preflight).toBeGreaterThan(0); expect(preflight).toBeLessThan(assume);
+  expect(steps[preflight].run).toContain("scripts/acceptance/live/preflight.ts");
+  expect(steps[acceptance]["continue-on-error"]).toBe(true);
+  expect(recovery).toBeGreaterThan(acceptance);
+  const gate = steps.at(-1)!;
+  expect(gate["continue-on-error"] ?? false).toBe(false);
+  expect(gate.env).toEqual({ ACCEPTANCE_OUTCOME: "${{ steps.acceptance.outcome }}", RECOVERY_OUTCOME: "${{ steps.recovery.outcome }}" });
+  expect(gate.run).toContain('test "$ACCEPTANCE_OUTCOME" = success');
+  expect(gate.run).toContain('test "$RECOVERY_OUTCOME" = success');
+});

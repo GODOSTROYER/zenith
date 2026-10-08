@@ -817,6 +817,11 @@ describe("canonical execution and evidence in CI", () => {
 
   it("keeps every core command in the same manifest and invokes each mandatory step", () => {
     for (const check of CORE_CHECKS) expect(workflow.jobs.verify.steps.map(cmd)).toContain(coreRun(check.id));
+    const typecheck = workflow.jobs.verify.steps.find(step => step.name === "Typecheck");
+    expect(typecheck?.env).toEqual({ NODE_OPTIONS: "--max-old-space-size=5120" });
+    expect(workflow.jobs.verify.env?.NODE_OPTIONS).toBeUndefined();
+    for (const step of workflow.jobs.verify.steps.filter(step => step !== typecheck))
+      expect(step.env?.NODE_OPTIONS).toBeUndefined();
     expect(CORE_CHECKS.find((check: { id: string }) => check.id === "unit")?.command).toContain("--project=node");
     expect(CORE_CHECKS.find((check: { id: string }) => check.id === "unit")?.command).toContain("--project=dom");
     expect(manifestFor("fresh").steps[0].command).toEqual(["npm", "ci", "--ignore-scripts"]);

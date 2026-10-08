@@ -83,6 +83,9 @@ jobs:
       - run: npm ci --ignore-scripts
 
       - name: Typecheck
+        # The complete current source graph exceeds Node's default heap.
+        env:
+          NODE_OPTIONS: --max-old-space-size=5120
         run: node scripts/ci/run-gate.mjs core --run --step typecheck
 
       - name: Lint

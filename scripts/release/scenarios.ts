@@ -46,7 +46,7 @@ export interface LocalCommandLane {
   files: readonly string[];
   command: readonly string[];
   gates: readonly string[];
-  evidenceLabel: "local_rehearsal";
+  evidenceLabel: "local_rehearsal" | "local_operated_rehearsal";
 }
 export type Lane = LocalLane | LiveLane | LocalCommandLane;
 
@@ -169,13 +169,13 @@ export const SCENARIOS: readonly Scenario[] = [
   },
   {
     id: "two-tenants", title: "Two tenants cannot see or affect each other", requirements: ["PROD-REL-01"],
-    lanes: [{ id: "tenant-isolation", kind: "local_engine", files: ["tests/controlplane/tenancy.test.ts", "tests/security/controlplane-sql-scoping.test.ts", "tests/security/mcp-v2-tenant-isolation.test.ts", "tests/hosted/acceptance/gate-02-second-identity.test.ts"], optionalGates: ["ZENITH_TEST_PLATFORM_PG_URL"] }],
-    limits: "Isolation is proven by SQL scoping, RLS and identity tests; a live two-customer run is not claimed.",
+    lanes: [{ id: "tenant-isolation", kind: "local_engine", files: ["tests/controlplane/tenancy.test.ts", "tests/security/controlplane-sql-scoping.test.ts", "tests/security/mcp-v2-tenant-isolation.test.ts", "tests/hosted/acceptance/gate-02-second-identity.test.ts", "tests/release/drivers/d4.test.ts"], optionalGates: ["ZENITH_TEST_PLATFORM_PG_URL"] }],
+    limits: "--local-targets selects the dedicated gated browser/API/MCP driver and independent kind readback. Component lanes alone do not establish an operated run; no live customer or hostile-cluster isolation is claimed.",
   },
   {
     id: "export", title: "Export and portability", requirements: ["PROD-REL-01"],
-    lanes: [{ id: "export", kind: "local_engine", files: ["tests/hosted/export/roundtrip.test.ts", "tests/portability/store.test.ts", "tests/portability/postgres-engine.test.ts"] }],
-    limits: "Importing the export into a different provider is not exercised.",
+    lanes: [{ id: "export", kind: "local_engine", files: ["tests/hosted/export/roundtrip.test.ts", "tests/portability/store.test.ts", "tests/portability/postgres-engine.test.ts", "tests/release/drivers/d4.test.ts"] }],
+    limits: "--local-targets selects the dedicated gated infrastructure export driver, re-applied by independent OpenTofu to owned LocalStack. Database/customer-data copying and another live provider are separate acceptance.",
   },
   {
     id: "teardown", title: "Approved teardown in reverse dependency order", requirements: ["PROD-REL-01", "PROD-MIX-07"],

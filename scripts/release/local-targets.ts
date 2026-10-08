@@ -2,12 +2,15 @@
 import { z } from "zod";
 import catalog from "../../deploy/acceptance/local-targets/scenarios.json";
 import type { LocalCommandLane, Scenario } from "./scenarios";
+import { DRIVER_CHECKS, OPERATED_LABEL, validateOperatedReceipt } from "./drivers/protocol";
 
 export const LOCAL_GATE = "ZENITH_LOCAL_TARGETS";
 export const LOCAL_LABEL = "local_rehearsal";
 export type LocalTarget = { target: string; driver?: string; owner?: string };
 export const LOCAL_TARGETS: Readonly<Record<string, LocalTarget>> = catalog.scenarios;
 export const TARGET_CHECKS: Readonly<Record<string, readonly string[]>> = {
+  "operated-two-tenants": DRIVER_CHECKS["two-tenants"],
+  "operated-export": DRIVER_CHECKS.export,
   mixed: ["traffic-acknowledged", "independent-readback", "tls-peer-auth", "private-database"],
   pebble: ["dns-http01", "certificate-issued", "tls-hostname"],
   economics: ["priced", "transfer", "latency", "residency"],
@@ -18,11 +21,12 @@ export const TARGET_CHECKS: Readonly<Record<string, readonly string[]>> = {
 export function localTargetLane(scenario: Scenario): LocalCommandLane {
   const target = LOCAL_TARGETS[scenario.id];
   if (!target) throw new Error(`No local target for ${scenario.id}`);
+  const operated = scenario.id === "two-tenants" || scenario.id === "export";
   return {
-    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json"],
+    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json", ...(operated ? [target.driver!, "scripts/release/drivers/operated.ts", "scripts/release/drivers/protocol.ts"] : [])],
     command: ["node", "node_modules/tsx/dist/cli.mjs", "scripts/release/local-target-runner.ts", "run", "--scenario", scenario.id],
-    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT"],
-    evidenceLabel: LOCAL_LABEL,
+    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(operated ? ["ZENITH_LOCAL_DRIVER_D4=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE"] : [])],
+    evidenceLabel: operated ? OPERATED_LABEL : LOCAL_LABEL,
   };
 }
 
@@ -44,7 +48,8 @@ export function requiredChecks(scenarioId: string): readonly string[] {
   return scenarioId === "mixed-recovery" ? [...checks, "partition-unavailable", "partition-recovered", "outage-readback"] : checks;
 }
 
-export function validateLocalReceipt(raw: unknown, expected: { scenarioId: string; runId: string; sourceCommit: string }): LocalReceipt {
+export function validateLocalReceipt(raw: unknown, expected: { scenarioId: string; runId: string; sourceCommit: string }): LocalReceipt | ReturnType<typeof validateOperatedReceipt> {
+  if (expected.scenarioId === "two-tenants" || expected.scenarioId === "export") return validateOperatedReceipt(raw, expected);
   const receipt = Receipt.parse(raw);
   for (const key of ["scenarioId", "runId", "sourceCommit"] as const) if (receipt[key] !== expected[key]) throw new Error(`Local receipt ${key} mismatch`);
   const ids = receipt.checks.map(c => c.id);

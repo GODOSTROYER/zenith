@@ -1316,6 +1316,18 @@
             "architecture": "native Darwin ARM64"
           },
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-integrated-native-successors.json"
+        },
+        {
+          "level": "contract",
+          "commit": "125473355a55d696666cfaaada635d8cfec0280e",
+          "result": "Exact reviewed predicate move preserves every gate; root full293 gate and160 report cases passed, zero failures/skips, compiler4GiB/lint0. Tests executed on frozen worker packet before commit with exact content parity at integration.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-gate-title-performance.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "125473355a55d696666cfaaada635d8cfec0280e",
+          "result": "Current local kind provider6/0/0 release1/0/0 guest42/7/0; all56 identities matched. Guest broker cause not proven. Original failure preserved; separate custody-checked cleanup confirmed all owned resources absent, baseline untouched. No promotion.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-kind56-125473-failure.json"
         }
       ],
       "requiredEvidence": [
@@ -5033,11 +5045,11 @@
   ],
   "sessionState": {
     "status": "verification_continuing_native_transport_successors_passed_full_ci_and_default_stack_open",
-    "sourceCheckpoint": "60d78730a148f175e0d63c3be4c600545fdf43d0",
+    "sourceCheckpoint": "125473355a55d696666cfaaada635d8cfec0280e",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "5687c3bea1a5c6288199c9fef885de97c5dce5f9",
-    "lastPushedRun": 37712658835,
-    "lastPushedRunStatus": "terminal_19_success_1_verify_failure_across20_jobs",
+    "lastPushedCommit": "5f4b0516471614bb78a4cbaa526e36306abbd7c1",
+    "lastPushedRun": 37716368194,
+    "lastPushedRunStatus": "in_progress_19_success_1_verify_running_across20_jobs",
     "currentVerification": "docs/build/production/WIP-HANDOFF-2026-10-08.md",
     "remainingLocalPackets": {
       "integratedRepairs": "4467a567 MinIO evidence;69e732db actual close-event waits;60d78730 buffered TLS handoff. Awaiting normal publication.",
@@ -5048,7 +5060,7 @@
       "pending": "Live cloud calls/spend, real DNS/private GitHub App configuration, destructive retention/business/production sign-off."
     },
     "releaseVerdict": "10 verified /49 in_progress /19 planned; all four release flags false; no promotion.",
-    "next": "Publish integrated correction/evidence and terminal5687 report; independently review exact-title early refusal performance repair, retain all controls, then inspect exact successor CI. Default Mac resource and external permission blockers remain.",
+    "next": "Run reviewed source-bound guest49 diagnostic, fix only demonstrated issue, rerun all current56 kind cases. Preserve source125 predicate repair; inspect live5f4 CI and complete successor CI before green claim.",
     "completedLocalKind": {
       "sourceCommit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
       "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-07-kind55-f582e193.json",

@@ -1,3 +1,8 @@
+## Current gate and kind results, 8 October 2026
+
+- PROD-CI-08: in_progress; unchanged title predicate reordered, all293 gate/160 report controls passed, compiler/lint0. Exact successor CI remains mandatory.
+- PROD-MACH-01: in_progress; current local kind guest42 passed/7 failed/0 skipped after successful verification. Actual mint reason pending; all original guards retained. Provider6/release1 passed separately; owned cleanup confirmed in a separate receipt.
+
 ## Results, native transport successors, 8 October 2026
 
 - PROD-LIFE-11: in_progress; integrated60d78730 MySQL protocol6/0/0 and cleanup;5687 PG2/DNS3/MinIO3 selected cases passed with filtered siblings separate. Wider lifecycle remains open. [Results](verification/RESULTS-2026-10.md#native-transport-acceptance-successors-8-october-2026).

@@ -1,3 +1,7 @@
+## Integrated native checkpoint, 8 October 2026
+
+Integrated871f73d9: native platform3762/0/15, all1146 required; reviewed reconciliation38/0/0, all26. MySQL2 and Rclone1 selected real-engine cases passed with filtered siblings reported separately. MinIO2/1 and PostgreSQL cleanup custody failure remain open. Exact historicaldd8017 CI19/20 jobs succeeded; unit21819/0/1637; sole failure fixed locally, fresh pushed CI pending. Ledger recomputed:10 verified/49 in_progress/19 planned across78; all release flags false. [Current evidence and gaps](WIP-HANDOFF-2026-10-08.md).
+
 ## Current verification publication, 8 October 2026
 
 Source105b5ea4 full native workflows105:1376 passed/2 failed/0 skipped; owned cleanup confirmed. Publisheda7 CI:18 successful/1 failed/1 running across20 jobs; platform runtime3762/0/15 but seven required backend labels rejected by strict checker. Backend parser and test-only schedule fixture repairs remain local candidates. Ledger recomputed78:10 verified/49 in progress/19 planned; release flags false. [Current building-machine context](WIP-HANDOFF-2026-10-08.md). No completion claim.

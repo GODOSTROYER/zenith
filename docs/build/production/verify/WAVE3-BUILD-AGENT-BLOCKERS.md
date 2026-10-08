@@ -1,3 +1,7 @@
+## Verifier integration context, 8 October 2026
+
+Integrated871f73d9 fixes strict quoted-backend matching and isolates scheduling test executions. Full native platform3762/0/15 with all1146 required and reviewed reconciliation38/0/0 passed. Historicaldd8017 CI19/20; sole platform binding failure now locally repaired, fresh pushed CI pending. Remaining verifier investigation: genuine MinIO rebinding case lookup expected2/observed0; PostgreSQL cleanup custody refuses removal despite two passing cases; three PG DNS cases pending. Root causes not assigned to builder without proof. Default Mac journey/resources and external permissions remain separate blockers. [Current context](../WIP-HANDOFF-2026-10-08.md).
+
 ## Verification integration context, 8 October 2026
 
 Sourcea1259fdc activates current-source frozen replay in canonical workflows:105 requirements, all71 predecessor IDs preserved. Root metadata463/0/0 and real SDK replay/audit34/0/0 passed, compiler/lint passed; full combined gate/CI pending. Native SQL semantics-store fixture correction passed103/0/0. Earlier failures occurred before approval, not a demonstrated production audit-write defect. Next15.5.27 supply-chain passed with zero findings on publisheda7f8.

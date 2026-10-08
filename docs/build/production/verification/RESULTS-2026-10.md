@@ -1,3 +1,24 @@
+## Integrated native verification checkpoint, 8 October 2026
+
+Integrated source `871f73d91cbb1056f6a1830a0d5e361beb2aeacb` includes `95fd7cc5` (strict quoted-backend label normalization) and `871f73d9` (test-only scheduling execution settlement). Both packets received independent Astra source review and root verification. No assertion, required count, production lease, cadence or gate was weakened. Native100 remains exactly100.
+
+| Tested source | Executed result | Scope |
+|---|---|---|
+| `871f73d9` | 3,762 passed / 0 failed / 15 skipped; all1,146 required passed | Full actual native PostgreSQL platform lane; agent schema initialized through canonical API before platform migrations; child0, stop0, owned data removed |
+| `a8416305`, integrated as `871f73d9` | 38 passed / 0 failed / 0 skipped; all26 required passed | Full native PostgreSQL/Temporal reconciliation lane on exact reviewed scheduling packet; compiler/lint0, cleanup confirmed |
+| `871f73d9` | 2 required cases passed / 0 failed | Actual MySQL9.6.0 stock CLI and in-process hostname TLS; filtered siblings9 and20, not full-suite zero-skips evidence; cleanup confirmed |
+| `871f73d9` | 1 required case passed / 0 failed | Experimental Rclone1.75.1 literal-loopback HTTPS S3-compatible export/import;10 filtered siblings; not MinIO/DNS/cloud acceptance; cleanup confirmed |
+| `871f73d9` | 2 PostgreSQL export/import cases passed, overall attempt failed | Strict cleanup custody refused owned-tree removal; server stopped/listeners absent, retained data untouched; not green acceptance |
+| `871f73d9` | MinIO2 passed /1 failed;3 filtered PostgreSQL siblings | Genuine native MinIO; rebinding case expected lookup2 but observed0; root cause unproven, negative assertions unchanged; cleanup confirmed |
+
+Earlier full local workflows105 failure1376/2/0 remains preserved. Initial platform retry3707/6/64 failed because fixture omitted canonical agent schema; corrected full native successor above includes it. MySQL/Rclone initial certificate/setup failures are retained; corrections preserve strict TLS and hostname identity. Counts overlap and are not summed. [Sanitized receipt](evidence/PROD-CI-08/2026-10-08-integrated-native-successors.json).
+
+Exact previous publication `dd8017ad`: all20 CI jobs terminal,19 succeeded/1 failed. Unit21,819 passed/0 failed/1,637 skipped; workflows1,378/0/0 with all105 required passed. Sole failing platform job ran3,762/0/15 but strict checker rejected seven quoted backend labels; local95fd repair has full native successor evidence above. Native AMD64 and ARM64 workers each22/0/0, both native. Previous CI does not verify these new repair commits. [Per-job report](verification/CI-2026-10-08-dd8017ad.md).
+
+Remaining: diagnose MinIO rebinding fixture/transport failure without relaxing checks; identify PostgreSQL cleanup custody refusal before narrowly reviewed repair; run three native PostgreSQL DNS cases; full combined gate/new exact-push CI; default Mac application/browser acceptance and wider lifecycle requirements. Native controllers/raw logs remain private; sanitized hashes/counts retained. Root platform source was tracked-clean with user untracked files preserved; canonical evidence reports worktreeDirty=true from those untracked files, not clean-clone acceptance. Legacy platform wrapper's initializer delta was reviewed; whole wrapper was not independently accepted. Cleanup was independently checked after this owned run.
+
+Storage stayed above22GiB floor; lowest new successful platform run25,361,526,784B. Docker remains stopped; no unrelated cleanup. Local disposable default startup on this Mac remains approved. Cloud calls/spend, real DNS/private GitHub App, retention/business decisions and production sign-off remain unapproved. Ledger78:10 verified/49 in progress/19 planned. All four release flags false; no requirement promotion. This checkpoint gives building machine current progress context, not full green acceptance.
+
 ## Current verification publication, 8 October 2026
 
 Integrated source `105b5ea4a077921d9c9b84cdaf5515ca3e925fe6` includes mandatory replay activation `a1259fdc`. The full native Mac PostgreSQL/Temporal workflows105 attempt completed with **1,376 passed / 2 failed / 0 skipped**, across67 files. Both failures are in `tests/workflows/reconcile-schedule.test.ts`: held SKIP overlap timed out after90 seconds; independent concurrent sweep expected completed but observed busy. Child test exit1 is authoritative despite controller exit0. Owned PostgreSQL stopped and data removed; minimum24,919,982,080B stayed above23,622,320,128B floor. Failed attempt remains preserved. [Sanitized exact-source receipt](evidence/PROD-CI-08/2026-10-08-workflows105-failure.json).

@@ -1353,6 +1353,14 @@
           "command": "Reviewed frozen native Next controller followed by independently reviewed APFS artifact materializer",
           "environment": "Native Darwin ARM64, Node22.23.3, Next15.5.27, heap4096MiB, private cache=false/cpus1/webpackBuildWorker=true; continuous22GiB floor",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-next-resource-and-closure.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "40c53c943d81e6530303e0d03b44ff3eaa89a024",
+          "result": "Root actualTemporal1/0/0 after reviewed test-only semantics repair; failed10ec0/1/0 preserved. NativePG at10ec57/0/0 (1native/56controls), all79 inputs unchanged at40c; localTofu at10ec10/0/0 with originalparent1 and separateempty-cache cleanup resolution; SSMrealHCL at40c1selectedpass/95filtered siblings. Source scopes remain separate; no broad skip closure or default-stack claim.",
+          "command": "Owned serial native OpenTofu, Temporal and PostgreSQL controllers; exact commands/identities retained in sanitized receipt",
+          "environment": "Native Darwin ARM64 Node22.23.3,OpenTofu1.12.5,PostgreSQL16.15,real localTemporal time-skipping binary; Docker unused, no cloud calls; strict22GiBfloor",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-real-skipped-successors.json"
         }
       ],
       "requiredEvidence": [

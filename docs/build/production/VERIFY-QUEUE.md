@@ -1,3 +1,7 @@
+## Results update: real skipped cases, 8 October 2026
+
+- PROD-CI-08: five formerly excluded engine identities executed in their exact scopes; Temporal fixture fixed40c53c94/root1/0/0, Tofu10/0/0 and nativePG57/0/0 source10ec, SSM1selected/95filtered source40c. [Results](verification/RESULTS-2026-10.md#real-skipped-case-successors-8-october-2026). No project-wide zero-skip claim; full default acceptance still open.
+
 ## Results update, 8 October 2026
 
 - PROD-CI-08: complete remote gate passed on455d12e5,20/20jobs; unit21826/0/1637. Native e5c4 reduced-resource compilation and independent artifact assembly passed their scoped child/closure checks; default-stack acceptance resource-blocked. [Results](verification/RESULTS-2026-10.md#green-tested-ci-and-native-artifact-progress-8-october-2026).

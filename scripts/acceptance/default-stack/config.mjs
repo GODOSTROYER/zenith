@@ -1,0 +1,151 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { load } from 'js-yaml';
+import { fileURLToPath } from 'node:url';
+
+export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+export const cliVersion = '2.75.0';
+export const installationLabel = 'io.zenith.installation';
+export const projectLabel = 'com.supabase.cli.project';
+export const ports = Object.freeze({ api: 36400, peerApi: 36401, supabase: 54321, cliApi: 54326, db: 54322, shadow: 54320, mail: 54324, pooler: 6543, cliPooler: 54329, registry: 5000 });
+export const fail = id => { throw new Error(`default-stack:${id}`); };
+export const minimumFreeBytes = 22 * 1024 ** 3;
+export function assertHeadroom(availableBytes) {
+  if (!Number.isSafeInteger(availableBytes) || availableBytes < minimumFreeBytes) fail('disk-headroom');
+}
+export const digestImage = value => {
+  if (typeof value !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9./:_-]*@sha256:[a-f0-9]{64}$/.test(value)) fail('image-digest');
+  return value;
+};
+
+export function topology(profile = 'default') {
+  if (!['default', 'lean'].includes(profile)) fail('profile');
+  return { profile, apis: profile === 'lean' ? 1 : 2, workers: profile === 'lean' ? 1 : 2,
+    // Limits are a plan, not measured headroom or an HA claim.
+    apiMiB: profile === 'lean' ? 512 : 768, workerMiB: profile === 'lean' ? 768 : 1024,
+    supabaseMiB: { db: 512, auth: 192, rest: 96, kong: 128, pooler: 256, inbucket: 64 },
+    poolSize: profile === 'lean' ? 5 : 15, nativeArchOnly: true, productionReady: false };
+}
+
+/** Generate only the isolated CLI project's settings; never copy secrets into source. */
+export function supabaseConfig(projectId, profile = 'default') {
+  if (!/^zenith-local-[a-f0-9]{24}$/.test(projectId)) fail('project-identity');
+  return `project_id = "${projectId}"
+[api]
+enabled = true
+port = ${ports.cliApi}
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+[api.tls]
+enabled = false
+[db]
+port = ${ports.db}
+shadow_port = ${ports.shadow}
+major_version = 17
+[db.pooler]
+enabled = true
+port = ${ports.cliPooler}
+pool_mode = "transaction"
+default_pool_size = ${topology(profile).poolSize}
+max_client_conn = 40
+[db.migrations]
+enabled = false
+[db.seed]
+enabled = false
+[db.settings]
+max_connections = 60
+shared_buffers = "64MB"
+work_mem = "4MB"
+[studio]
+enabled = false
+[inbucket]
+enabled = true
+port = ${ports.mail}
+[storage]
+enabled = false
+[realtime]
+enabled = false
+[analytics]
+enabled = false
+[edge_runtime]
+enabled = false
+[auth]
+enabled = true
+jwt_issuer = "https://supabase.localhost:${ports.supabase}/auth/v1"
+site_url = "http://127.0.0.1:${ports.api}"
+additional_redirect_urls = ["http://127.0.0.1:${ports.api}/auth/callback"]
+enable_signup = true
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+max_frequency = "1s"
+`;
+}
+
+/** All CLI resources carry the project label; do not assume name prefixes prove ownership. */
+export function owns(labels, state) {
+  return [state.installationId, state.applicationInstallationId].filter(Boolean).includes(labels?.[installationLabel]) || labels?.[projectLabel] === state.projectId;
+}
+/** Pure, deterministic cleanup planning. Foreign/conflicting labels refuse selection. */
+export function cleanupPlan(resources, state) {
+  if (!/^[a-f0-9]{24}$/.test(state.installationId) || state.projectId !== `zenith-local-${state.installationId}`) fail('identity');
+  if (state.applicationInstallationId && !/^[a-f0-9]{24}$/.test(state.applicationInstallationId)) fail('identity');
+  return ['container', 'volume', 'network', 'image'].flatMap(kind => resources
+    .filter(resource => resource.kind === kind && owns(resource.labels, state))
+    .map(resource => {
+      if (!/^[A-Za-z0-9][A-Za-z0-9_.:-]*$/.test(resource.id)
+        || resource.labels?.[installationLabel] && ![state.installationId, state.applicationInstallationId].includes(resource.labels[installationLabel])
+        || resource.labels?.[projectLabel] && resource.labels[projectLabel] !== state.projectId) fail('resource-identity');
+      return { kind, id: resource.id };
+    }).sort((a, b) => a.id.localeCompare(b.id)));
+}
+
+/** Reuse the shipped composition's restrictions and engine pins. Each process has its own scratch. */
+export function stackComposition(config, directory, profile, gatewayImage, peer) {
+  const sizing = topology(profile), labels = { [installationLabel]: config.installationId };
+  const base = load(fs.readFileSync(path.join(root, 'deploy/self-hosted/compose.yml'), 'utf8'));
+  const engines = load(fs.readFileSync(path.join(root, 'deploy/self-hosted/compose.disposable.yml'), 'utf8'));
+  const document = { services: {}, networks: { installation: { labels } }, volumes: {} };
+  for (const [name, raw] of Object.entries({ ...base.services, ...engines.services })) {
+    if (name === 'api' || name === 'execution-worker' || name === 'platform-migrate') continue;
+    document.services[name] = { ...raw, labels };
+  }
+  document.services.temporal.mem_limit = '256m';
+  for (const [name, service] of Object.entries(base.services)) {
+    document.services[name] = { ...service, labels,
+      env_file: [{ path: path.join(directory, name === 'api' ? 'api.env' : name === 'execution-worker' ? 'worker.env' : 'migration.env'), format: 'raw' }],
+      ...(engines.services[name]?.depends_on ? { depends_on: engines.services[name].depends_on } : {}),
+    };
+  }
+  for (const [name, limit] of [['api', sizing.apiMiB], ['execution-worker', sizing.workerMiB], ['platform-migrate', 512]]) {
+    const service = document.services[name];
+    service.image = digestImage(config.images[name === 'api' ? 'api' : name === 'execution-worker' ? 'worker' : 'migration']);
+    service.mem_limit = `${limit}m`; service.cpus = 1;
+    service.volumes = [...(service.volumes ?? []), `${path.join(directory, '../tls/ca.crt')}:/run/zenith-ca.crt:ro`];
+    service.environment = { NODE_EXTRA_CA_CERTS: '/run/zenith-ca.crt' };
+  }
+  document.services.api.ports = [`127.0.0.1:${ports.api}:3400`];
+  document.services.api.tmpfs = ['/tmp:rw,noexec,nosuid,size=64m,uid=1001,gid=1001,mode=1770', '/app/.next/cache:rw,noexec,nosuid,size=64m,uid=1001,gid=1001,mode=1770'];
+  document.services['execution-worker'].tmpfs = ['/tmp:rw,nosuid,size=256m,uid=10001,gid=10001,mode=1770'];
+  if (sizing.apis === 2) document.services['api-peer'] = { ...structuredClone(document.services.api),
+    ports: [`127.0.0.1:${ports.peerApi}:3400`], volumes: ['api-peer-data:/data', `${path.join(directory, '../tls/ca.crt')}:/run/zenith-ca.crt:ro`] };
+  if (sizing.workers === 2) {
+    if (!peer?.workerId || peer.installationId !== config.installationId) fail('joined-worker');
+    document.services['execution-worker-peer'] = { ...structuredClone(document.services['execution-worker']),
+      env_file: [{ path: path.join(directory, '../worker-peer/worker.env'), format: 'raw' }],
+      labels: { ...labels, 'io.zenith.worker': peer.workerId }, volumes: [`worker-${peer.workerId}:/var/lib/zenith`, `${path.join(directory, '../tls/ca.crt')}:/run/zenith-ca.crt:ro`] };
+  }
+  document.services['supabase-edge'] = { image: digestImage(gatewayImage), user: '1001:1001', read_only: true,
+    cap_drop: ['ALL'], security_opt: ['no-new-privileges:true'], labels,
+    command: ['node', '/gateway.mjs'], mem_limit: '64m', cpus: 0.25, pids_limit: 64,
+    environment: { ZENITH_SUPABASE_UPSTREAM: config.supabaseKong },
+    volumes: [`${path.join(root, 'deploy/self-hosted/supabase-gateway.mjs')}:/gateway.mjs:ro`, `${path.join(directory, '../tls/edge.crt')}:/run/edge.crt:ro`, `${path.join(directory, '../tls/edge.key')}:/run/edge.key:ro`],
+    ports: [`127.0.0.1:${ports.supabase}:54321`], networks: { installation: { aliases: ['supabase.localhost'] } },
+  };
+  // The pooler joins this owned network explicitly, using its stable TLS name.
+  for (const service of Object.values(document.services)) for (const mount of service.volumes ?? []) {
+    const name = mount.split(':')[0];
+    if (!name.includes('/') && !name.includes('\\')) document.volumes[name] = { labels };
+  }
+  return document;
+}

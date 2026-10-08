@@ -1,5 +1,5 @@
-# External real Supabase/auth, a separate platform Postgres authority and
-# authenticated durable Temporal are prerequisites; see INSTALLATION.md.
+# Product, hosted, agent and platform schemas share the Supabase database.
+# Supabase, authenticated durable Temporal and ingress are prerequisites; see INSTALLATION.md.
 x-ownership: &ownership
   io.zenith.installation: ${ZENITH_INSTALLATION_ID:?prepare private configuration}
 x-restrictions: &restrictions

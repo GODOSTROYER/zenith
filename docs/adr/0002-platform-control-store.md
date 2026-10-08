@@ -28,3 +28,20 @@ A fifth named authority, the **platform control store**
 One repository implementation, real `BEGIN/COMMIT`, `FOR UPDATE SKIP LOCKED`
 and `INSERT … ON CONFLICT` everywhere, including tests, without Docker. The
 CI Postgres lane runs the same contract suite against Postgres 16.
+
+## Supported installation addendum (2026-10-08)
+
+The product Supabase database also contains the platform schema. This is the only
+supported production/self-hosted installation topology. Runtime
+`ZENITH_PLATFORM_DB_URL` equals `SUPABASE_DB_URL` and connects as `postgres`
+through the verified-TLS transaction pooler. The migrator uses that same Supabase
+project's direct/session endpoint on 5432. Committed Supabase migrations already
+install platform; this decision introduces no migration.
+
+MCP final admission performs a single SQL statement CAS from prepared to attempted,
+checking current authority across `public.*` and `platform.*` within one ACID
+transaction. Separate servers cannot satisfy that predicate and are unsupported.
+Any future split requires a new DUR protocol and reviewed guarantees, never a
+fallback, callback, proof flag or alternate runtime role. Opened-handle provenance,
+actual-role checks and the final recheck remain mandatory. Model output cannot
+supply credentials, approvals or execution authority.

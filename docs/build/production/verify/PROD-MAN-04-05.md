@@ -1,5 +1,124 @@
 # PROD-MAN-04 and PROD-MAN-05 verify notes: two untrusted tenants, resource isolation under load
 
+## J14 update, 2026-10-08 (current instructions)
+
+Worktree `prod6-j14-isolation-runtime`, base `443bfeaf`. The wave-5 record below is historical;
+this section supersedes its build-only commands, runtime-installation gap and suggested ledger statuses.
+Windows runs only targeted non-Docker contracts, eslint and the serialized typecheck. Docker/kind,
+real PostgreSQL, Temporal and browser acceptance are **not run here**. No live cloud calls, credentials,
+package edits, migrations, aggregates, commits or Git history changes.
+
+### J14 files and acceptance mapping
+
+| Acceptance | Built / test |
+|---|---|
+| Sandboxed runtime evaluated against the existing threat model | `deploy/zenith-managed/runtime/setup-kind.ts` installs a checksum-verified complete publisher bundle in explicitly owned disposable kind nodes. Supports containerd config versions 2 and 3, preserves default runc, adds runsc with systrap and systemd cgroups; publishes `runtimeclass.yaml` only after all nodes are configured. No downloads, apt installation, host runtime edits or runc fallback. `tests/isolation/gvisor-installation.test.ts` exercises the installer with an explicitly fake command port. |
+| Actual sandbox rather than only a RuntimeClass declaration | `tests/isolation/gvisor-runtime-acceptance.test.ts` reads containerd's actual runtime for both tenant containers (`io.containerd.runsc.v1`), then proves gateway controls, blocked cross-tenant traffic, restricted Pod Security and OOM containment. Entire file gated by `ZENITH_TEST_GVISOR_RUNTIME=1`; enabled with incomplete inputs fails. |
+| Route/storage/CNI/metadata/FQDN/pod security/quota/operator separation | Existing real `tests/isolation/tenant-isolation-acceptance.test.ts`, unchanged acceptance assertions plus a required-runtime preflight for this lane. Real Gateway API route attachment remains a gap in the base: its route tests cover renderer/gate/RBAC refusals. J14 does not own the serving/Gateway implementation. |
+| Bounded resource exhaustion and other-tenant latency | Existing native CPU/memory/disk/PID and latency assertions remain. CPU accounting is now mandatory instead of conditionally omitting its assertion. New sandbox OOM test adds runtime-specific memory containment. No production capacity claim; existing latency/PID/quota bounds remain provisional. |
+| DUR-B reviewed executable semantics | `src/lib/providers/zenith/onboarding.ts` exports `createIsolationSemanticsGuard`, using the existing canonical semantics format and write-once store; binds bundle, plan, cluster, runtime selection, credential references, token audiences and the minter's actual normalized lifetime. Missing store/review, moved semantics or absent/currently revoked/unbound human approval refuses. `tests/providers/zenith/onboarding-semantics.test.ts` is contract evidence only. Caller join remains outside J14 ownership; see below. |
+| Lean Mac profile | `runtime/kind-lean.yaml`, `runtime/kind-up.sh`: one pinned node, podPidsLimit 256, 640Mi system/kube reservation, Cilium one operator and no Hubble. Requires J11 Cilium pins (or explicit verifier pins) and local publisher archives; rejects a missing/checksum-mismatched artifact or unpinned Cilium rendering. |
+
+The complete runtime bundle includes `runsc`, `containerd-shim-runsc-v1` and `gvisor-bin/` sidecars.
+The installer checks the runsc ELF machine type against the node architecture before executing it;
+binfmt emulation cannot satisfy native ARM64 acceptance.
+Host bzip2 supplies plain tar streams to the minimal nodes, avoiding a package installation inside kind.
+Installer references: [publisher installation](https://gvisor.dev/docs/user_guide/install/),
+[containerd configuration](https://gvisor.dev/docs/user_guide/containerd/configuration/),
+[platform selection](https://gvisor.dev/docs/user_guide/platforms/).
+Artifact SHA-256 and exact publisher point release are verifier inputs, never guessed or derived from a local
+file as an approval substitute. Obtain them from the publisher's release checksum list before running.
+
+### Required orchestrator joins (not silently implemented)
+
+Inspection confirms `src/lib/platform/zenith-managed.ts`, `providers/zenith/managed-port.ts` and
+`execution/tenant-isolation.ts` contain **no MAN-01 isolation onboarding join**. J14 owns onboarding.ts,
+runtime/** and their tests. Per the handoff's rule to describe fixes belonging elsewhere, those files were
+not edited. A scope clarification was requested; pending an explicit expansion, this is an integration gap.
+The semantics seam is deliberately documented as a seam, not as product dispatch evidence.
+
+1. In `execution/tenant-isolation.ts`, construct `createIsolationSemanticsGuard(rt.d.semantics, rt.d.broker)`.
+   After dry-run planning, call `recordReviewed(request, made)` and put its returned `semantics` in the
+   **critical** plan evidence summary, before requesting review. Do not retain the current swallowed,
+   non-critical evidence write for reviewed onboarding plans.
+2. At apply dispatch, after quota/lease and fresh-plan comparison, call `assertReviewed` with the approved
+   plan digest and freshly rendered bundle digest/namespace. On accepted-effect retries use the original
+   approved plan digest, not the newly computed no-op digest. Keep the current broker recheck immediately
+   before dispatch, digest-exact batch vet, effect-before-call, readback and credential probe.
+3. In MAN-01's trusted composition and workflow callers, resolve the tenant from the product port, build
+   `createTenantIsolationProvisioner` with the platform bootstrap session, vault credential sink and
+   operator probe, then expose plan/approval/apply as one normal operation. Do not give a tenant a session
+   until successful verified provisioning; missing configuration must refuse. Token rotation needs its
+   existing durable-schedule join. Do not route around human approval.
+4. DUR-C currently remains a digest-exact direct-object batch vet. Onboarding has no OpenTofu saved-plan
+   file. If file custody is required for this direct engine, its owner must wire the existing artifact
+   runtime with an explicit direct-object artifact contract; J14 introduces no competing storage subsystem.
+5. Managed reconcile/drift, server-validated first-deploy plans and Gateway attachment proof are still
+   outside this worktree's owned files. Record these limitations until their respective owners join them.
+
+No migration 56 is needed: existing semantics storage suffices, and no table/store function is added.
+The assembler should add the two new pure contract files and gated runtime file to the gate manifest,
+and update LIMITATIONS for the caller/custody/Gateway gaps. No aggregate/export SQL changes.
+
+### Exact Mac commands (Node 22, native ARM64, Docker VM 4 GiB)
+
+Run one Docker lane at a time; stop the default stack first. Need kind at the repository's pinned minimum,
+matching kubectl, Helm, Docker, host bzip2, Node 22 and the existing node_modules. The lean profile is **same-node**
+evidence, not a cross-node or scaled rehearsal. Keep the original two-node profile for a larger verifier.
+
+```bash
+export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
+export ZENITH_KIND_CLUSTER_NAME=zenith-life07-j14
+export ZENITH_K8S_WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/zenith-j14.XXXXXX")"
+export KUBECONFIG="$ZENITH_K8S_WORKDIR/kubeconfig"
+export ZENITH_GVISOR_ARCHIVE=/absolute/path/to/publisher/gvisor-aarch64.tar.bz2
+export ZENITH_GVISOR_RELEASE="<publisher-point-release-YYYYMMDD.N>"
+export ZENITH_GVISOR_SHA256="<publisher-SHA256SUMS-entry-for-that-archive>"
+export ZENITH_CILIUM_CHART_ARCHIVE=/absolute/path/to/cilium-pinned-version.tgz
+# J11 supplies these pins; explicit inputs override deploy/zenith-managed/cilium.env.
+export ZENITH_CILIUM_CHART_VERSION="<J11-chart-version>"
+export ZENITH_CILIUM_CHART_SHA256="<J11-chart-sha256>"
+bash deploy/zenith-managed/runtime/kind-up.sh
+# On failure, do not continue: inspect the owned nodes and then clean up below.
+source scripts/k8s/images.env
+export ZENITH_TEST_K8S_IMAGE="$ACCEPTANCE_IMAGE"
+export ZENITH_TEST_TENANT_ISOLATION=1
+export ZENITH_TEST_ISOLATION_PROFILE=kind-cilium
+export ZENITH_TEST_ISOLATION_RUNTIME_CLASS=zenith-gvisor
+export ZENITH_TEST_ISOLATION_REQUIRE_RUNTIME=1
+export ZENITH_TEST_ISOLATION_MUTATE_COREDNS=1
+export ZENITH_TEST_ISOLATION_EVIDENCE_OUT="$ZENITH_K8S_WORKDIR/isolation-evidence.json"
+npx vitest run tests/isolation/tenant-isolation-acceptance.test.ts --no-file-parallelism --maxWorkers=2 --reporter=default --reporter=json --outputFile.json="$ZENITH_K8S_WORKDIR/isolation-vitest.json"
+export ZENITH_TEST_GVISOR_RUNTIME=1
+export ZENITH_TEST_GVISOR_EVIDENCE_OUT="$ZENITH_K8S_WORKDIR/gvisor-evidence.json"
+npx vitest run tests/isolation/gvisor-runtime-acceptance.test.ts --no-file-parallelism --maxWorkers=2 --reporter=default --reporter=json --outputFile.json="$ZENITH_K8S_WORKDIR/gvisor-vitest.json"
+# Preserve all receipts before cleanup; no receipt is generated acceptance evidence until the checks run.
+bash scripts/k8s/kind-calico-down.sh
+```
+
+Expected: full tenant suite passes all mandatory areas, including FQDN and runtime; only the deliberately
+unbounded optional control may skip. Runtime-specific suite: **4 passed, 0 failed, 0 skipped**, including
+independent readback of runsc for both containers. Any failed admission, unavailable cgroup accounting,
+OOM reason mismatch, stalled runtime or cleanup failure is a finding, never reclassified as a pass.
+`gvisor-installation.json` records artifact/version/node architecture; acceptance receipts record checks.
+No production credentials needed. Do not add credentials or secrets to receipts.
+
+### Local build verification and ledger status
+
+Current targeted results are recorded in `J14-ISOLATION-RUNTIME.md`. The first run was **135 passed,
+0 failed, 31 skipped** across 6 files; skips were real-engine gates, not acceptance passes.
+The serialized whole-repo typecheck passed with no diagnostics; its recorded source hashes match all
+six final TypeScript files. The final installer rerun passed **19 tests, 0 failed, 0 skipped** and lint
+was clean. The provisioner regression file remains blocked by the base migration-version collision,
+as detailed with exact counts and commands in the local receipt.
+Both touched ledger rows use `implementation_complete_verification_pending` as required by the job,
+with a note explicitly retaining the caller/custody/Gateway gaps and Mac acceptance. Neither is verified.
+No existing test expectation was changed; two assertions were strengthened.
+
+---
+
+## Historical wave-5 build record
+
 Built on branch `prod/man-04-05-w5` from `c02c097e`. **Nothing here was executed**: no vitest, no kind, no
 cluster, no docker. The only checks run on the building machine were `npx tsc --noEmit -p .` and `npx eslint` on
 every changed source and test file, both clean. Every test below was written to run on the verifying machine and

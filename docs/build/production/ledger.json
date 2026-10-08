@@ -3597,7 +3597,8 @@
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J14: offline gVisor kind installation, lean Mac profile and gated runtime evaluation built. DUR-B seam contract-tested; MAN-01 caller join, direct-engine custody and Gateway attachment remain orchestrator joins outside owned files. Mac/local-engine and live acceptance pending; not verified.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3620,7 +3621,8 @@
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J14: existing CPU/memory/disk/PID and latency harness retained, CPU accounting made mandatory, gated sandbox OOM containment added. Lean same-node Mac verification pending; latency/PID/quota bounds provisional; not verified.",
       "evidence": [],
       "requiredEvidence": [
         "contract",

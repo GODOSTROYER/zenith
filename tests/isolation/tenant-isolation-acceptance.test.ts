@@ -128,6 +128,7 @@ describe.skipIf(!enabled)(`PROD-MAN-04/05 two untrusted tenants on a real cluste
   };
 
   beforeAll(async () => {
+    if (process.env.ZENITH_TEST_ISOLATION_REQUIRE_RUNTIME === "1") expect(runtimeClass, "the J14 runtime lane must never silently skip sandbox evaluation").toBeTruthy();
     const context = kube.contextName();
     expect(context, "the isolation suite only runs against a kind cluster named zenith-life07*").toMatch(/^kind-zenith-life07(-[a-z0-9]{1,20})?$/);
     const version = JSON.parse(kube.must(["version", "-o", "json"])).serverVersion;
@@ -634,7 +635,8 @@ wait`,
       record("noisy_neighbour", { loaded, bound: latencyBound(baseline, factor, absMs), factor, absMs, burnerCpuCores: cpuCores, cpuLimitCores: 0.4, provisional: "latency bound is a provisional target, not a commercial commitment" });
 
       // each hog is bounded by its own mechanism
-      if (cpuCores !== undefined) expect(cpuCores, "the CPU hog is held to its limit (CFS quota)").toBeLessThanOrEqual(0.4 * 1.3);
+      expect(cpuCores, "CPU accounting must be available; absence is not a passed CPU isolation check").toBeDefined();
+      expect(cpuCores!, "the CPU hog is held to its limit (CFS quota)").toBeLessThanOrEqual(0.4 * 1.3);
       const mem = await eventually("the memory hog to be killed", () => {
         const s = kube.json<any>(["-n", nsA, "get", "pod", "memhog"])?.status?.containerStatuses?.[0]?.state?.terminated;
         return s ? (s as { reason: string; exitCode: number }) : undefined;

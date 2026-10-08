@@ -23,6 +23,10 @@
  *   5. treat ANY `TenantIsolationError` as "tenant not onboarded".
  */
 import { digest } from "@/lib/controlplane/digest";
+import { computeExecutableSemantics, type ExecutableSemantics } from "@/lib/execution/semantics/digest";
+import type { SemanticsStore } from "@/lib/execution/semantics/store";
+import type { BrokerPort } from "@/lib/execution/ports";
+import { GUEST_TOKEN_MIN_SEC, GUEST_TOKEN_MAX_SEC } from "@/lib/providers/kubernetes/guest";
 import type { ZenithSubstrate } from "./substrate";
 import type { ZenithTenant } from "./types";
 
@@ -119,4 +123,62 @@ export function isolationRequestDigest(request: Pick<TenantIsolationRequest, "te
     egressFqdns: [...new Set((request.egressFqdns ?? []).map((h) => h.trim().toLowerCase()))].sort(),
     withManagedDatabase: request.withManagedDatabase === true,
   });
+}
+
+/** Versioned contract of this direct apply engine; never presents it as an OpenTofu saved plan. */
+export const ISOLATION_APPLY_CONTRACT = "zenith-tenant-isolation/I1";
+
+/**
+ * Canonical DUR-B inputs for the isolation operation, using the existing semantics format/store.
+ * Credential REFERENCES are bound, never credential values. Token scope/lifetime are executable effects,
+ * even though the older proposal request digest did not include them. Lease renewal alone is not a change.
+ */
+export function isolationExecutableSemantics(request: TenantIsolationRequest, plan: Pick<TenantIsolationPlan, "planDigest" | "bundleDigest" | "namespace">): ExecutableSemantics {
+  if (![plan.planDigest, plan.bundleDigest].every((d) => /^[a-f0-9]{64}$/.test(d))) throw new TenantIsolationError("invalid_request", "Isolation semantics require exact plan and bundle digests.");
+  if (request.tokenTtlSec !== undefined && !Number.isFinite(request.tokenTtlSec)) throw new TenantIsolationError("invalid_request", "The operator token lifetime must be finite.");
+  return computeExecutableSemantics({
+    revision: { id: null, deployedRevisionId: null, manifestDigest: null },
+    recipe: { executableSourceDigest: null, sources: [] },
+    scripts: { release: null },
+    migrations: null,
+    targets: {
+      graphDigest: isolationRequestDigest(request), provider: "zenith", region: request.substrate.region,
+      environmentId: request.tenant.environmentId, connectionId: request.substrate.cluster.kubeconfigRef,
+      connectionConfigDigest: digest({ cluster: request.substrate.cluster, namespace: plan.namespace, operatorCredentialPrefix: request.substrate.isolation?.operatorCredentialPrefix ?? null }),
+    },
+    configuration: { configDigest: digest({ bundleDigest: plan.bundleDigest, runtimeClass: request.substrate.isolation?.runtimeClass ?? null, audiences: [...new Set(request.audiences ?? [])].sort(), tokenTtlSec: Math.max(GUEST_TOKEN_MIN_SEC, Math.min(GUEST_TOKEN_MAX_SEC, Math.floor(request.tokenTtlSec ?? GUEST_TOKEN_MIN_SEC))) }) },
+    providerLocks: { lockDigest: digest({ contract: ISOLATION_APPLY_CONTRACT }), tofuVersion: null },
+    backend: { kind: "provider-direct", configDigest: null },
+    savedPlan: { planDigest: plan.planDigest },
+    provenance: { pipelines: [] }, ownership: { transfers: [] }, runbook: null, decommission: { adoptions: [] },
+  });
+}
+
+/**
+ * Assembly seam for MAN-01. Must be supplied with the production durable semantics store and current broker.
+ * Planning callers publish the returned semantics in critical plan evidence BEFORE requesting human review.
+ * Apply callers invoke assertReviewed at the dispatch guard, BEFORE the batch vet/effect/provider call.
+ * This does not issue approval, credentials, a lease, or an effect. No missing-store/legacy bypass exists.
+ * The base's execution provisioner does not call this seam yet; see PROD-MAN-04-05.md for the owned-file join.
+ */
+export function createIsolationSemanticsGuard(store: SemanticsStore | undefined, broker: Pick<BrokerPort, "approvalStatus">) {
+  const requiredStore = (): SemanticsStore => {
+    if (!store) throw new TenantIsolationError("not_configured", "Durable reviewed isolation semantics are not configured; onboarding must not dispatch.");
+    return store;
+  };
+  return {
+    async recordReviewed(request: TenantIsolationRequest, plan: TenantIsolationPlan): Promise<ExecutableSemantics> {
+      const semantics = isolationExecutableSemantics(request, plan);
+      await requiredStore().record({ workspaceId: request.tenant.workspaceId, operationId: request.operationId, planDigest: plan.planDigest, semantics });
+      return semantics;
+    },
+    async assertReviewed(request: TenantIsolationRequest, plan: Pick<TenantIsolationPlan, "planDigest" | "bundleDigest" | "namespace">): Promise<void> {
+      const approved = await requiredStore().get(request.tenant.workspaceId, request.operationId, plan.planDigest);
+      const current = isolationExecutableSemantics(request, plan);
+      if (!approved || approved.semantics.digest !== current.digest) throw new TenantIsolationError("plan_changed", "The reviewed isolation semantics are missing or changed; a new human review is required. Nothing was dispatched.");
+      // Same existing worker broker: current policy, roles, separation and human approval still own admission.
+      const authority = await broker.approvalStatus(request.operationId);
+      if (!authority.approved || authority.rejected || !authority.approvalId || authority.dispatchApproval?.planDigest !== plan.planDigest) throw new TenantIsolationError("approval_required", "Current human approval is not bound to this isolation plan; nothing was dispatched.");
+    },
+  };
 }

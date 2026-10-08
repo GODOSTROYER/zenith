@@ -1,3 +1,9 @@
+## Current verifier integration, 8 October 2026
+
+Code5e5417b9 integrates17 reviewed repair paths: CI workflows/schema inventory/diagnostics, absent-input broker ownership check, epoch-aware lease fixtures, MFA/browser-nonce/token-rotation test composition. RootCI437/0/6Linux-only, freshnativePG162/0/0(62native), finalauthority92/0/0 and combinedcompiler/lint0. Counts overlap; completecandidate/fullsuccessorCI pending.
+
+Currentc7 shared ownership coordinator exists; four older interleaving fixtures need adaptation and native evidence, rather than automatic duplicate implementation. Newly added MCPclient2.0.0 triggers high GHSA-6qxp-vccf-f47h; narrowclient/core2.2.0 authorization pending, no exception or dependency change. CI07 reopened, ledger9/67/2/allreleaseflagsfalse. Historical/distinct-owner upgrade, underlying Go/worker build failures and actual currentdefault-stack acceptance remain open. Distinct-owner6-to43 fixture is not6-to58 acceptance. No new wave3 features or cloud calls. [Exact verifier context](../verification/VERIFIER-C7-REPAIR-PROGRESS-2026-10-08.md). Earlier entries retain their source scope.
+
 ## Current LIFE-12 builder contract, 8 October 2026
 
 Integrated40012d75/7427a7d0 security CAS closes changed ownership committed before final grant SQL; native17/0/0 and mixed124/0/0 passed. Remaining code: coordinate all ownership fact writers and admission paths before resource-row locks, with a consistent lock order and actual enforcement for SQL paths in scope. Define preissued/consumed-grant behavior, late provider receipts, uncertainty and operator-authorized continuation. Test insert after final SQL snapshot, opposite lock order, rollback, tenancy and accepted-but-unrecorded calls. Fences cannot retract a provider call. LIFE-12 remains open; verifier does not claim this broader criterion complete.

@@ -1,3 +1,7 @@
+## Current c7 verifier repairs, 8 October 2026
+
+Integrated5e5417b9; CI08 root437/0/6, realfreshPG162/0/0(62native), authority92/0/0; compiler/lint/actionlint0. Linux/full/successorCI pending. CI07 reopened for new MCP advisory, upgrade permission pending. Ledger9/67/2 across78; four release states false. No requirement closed. [Exact current context](verification/VERIFIER-C7-REPAIR-PROGRESS-2026-10-08.md).
+
 ## Final integration build, 8 October 2026
 
 Merged prod/compose migration chain closes the unused slot at 55 and is contiguous through 58. Central step-up, SMTP/TOTP, owned issuer, local harness adapters and shared live budget/inventory/teardown are joined. Generated catalogs and unpublished aggregate regenerated. Exact local counts and remaining verifier prerequisites are in [the build report](verify/FINAL-INTEGRATION.md). No Git writes, publication, cloud execution, ledger verification promotion or release sign-off.

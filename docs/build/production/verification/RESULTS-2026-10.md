@@ -1,3 +1,7 @@
+## Reviewed c7 CI repairs, 8 October 2026
+
+Integrated5e5417b9; CI08 root437/0/6, realfreshPG162/0/0(62native), authority92/0/0; compiler/lint/actionlint0. Linux/full/successorCI pending. CI07 reopened for new MCP advisory, upgrade permission pending. Ledger9/67/2 across78; four release states false. No requirement closed. [Exact current context](VERIFIER-C7-REPAIR-PROGRESS-2026-10-08.md).
+
 ## Temporal source binding correction, 8 October 2026
 
 Integrated `ebd309ac2ec8e6351554285f7674a6433b8255fb`, fix `b279aac8215ac1ed57ea6ac72bd93100ed6d5289`, Arnav author and committer. Exact reviewed Temporal fixture pin refreshed without weakening assertions. Root entire affected gate suite **295 passed /0 failed /0 skipped**, lint and diff checks passed. Executed isolated base98a3f6f5 plus exact changed-source hash; complete integrated successor remains pending.

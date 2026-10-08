@@ -1,3 +1,7 @@
+## Current verifier results, 8 October 2026
+
+Integrated5e5417b9; CI08 root437/0/6, realfreshPG162/0/0(62native), authority92/0/0; compiler/lint/actionlint0. Linux/full/successorCI pending. CI07 reopened for new MCP advisory, upgrade permission pending. Ledger9/67/2 across78; four release states false. No requirement closed. [Exact current context](verification/VERIFIER-C7-REPAIR-PROGRESS-2026-10-08.md).
+
 ## Results: Temporal source pin, 8 October 2026
 
 - PROD-CI-08: in_progress; fix b279aac8215ac1ed57ea6ac72bd93100ed6d5289, integration ebd309ac2ec8e6351554285f7674a6433b8255fb; affected295/0/0, complete native successor pending.

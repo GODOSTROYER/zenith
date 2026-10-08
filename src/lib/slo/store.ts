@@ -123,7 +123,7 @@ export async function dispatchLatencyWindows(sql: Sql, thresholdSeconds: number,
 
 /* ------------------------------- measurements ------------------------------- */
 
-export type MeasurementKind = "rpo" | "rto" | "capacity";
+export type MeasurementKind = "rpo" | "rto" | "capacity" | "database_restore" | "application_health";
 export type MeasurementSource = "restore-rehearsal" | "recovery-drill" | "capacity-test" | "manual";
 
 export interface MeasurementInput {

@@ -128,3 +128,31 @@ record.
 present): seed work in every state, back up, let the "lost timeline" consume an approval after the snapshot, restore into an
 empty database, and prove the consumed approval cannot run, the pending effect stays uncertain, and a fresh approval in the
 new epoch runs exactly once. See the verify document for the commands.
+
+## Record first healthy application readiness (W5-GAPS)
+
+Database restore completion is an independent `database_restore` SLO sample. It is not application recovery and produces no RTO sample. Resolve the fenced continuation items, point a restored Zenith application at the target database, and reopen its normal service following the existing runbook. The authenticated readiness route requires the exact restore run's current epoch, zero pending continuation items, a current schema and successful application composition.
+
+Use a private file containing this restored application's configured cron bearer secret. The CLI does not accept the token or database URL as an argument:
+
+```bash
+npm run ops:recovery -- health --report /backups/restore-report.json \
+  --readiness-url https://restored-zenith.example/api/internal/recovery/readiness \
+  --token-file /secure/restored-cron-token --target-url-env RESTORE_TARGET_URL \
+  --actor alice --timeout-seconds 900
+```
+
+The observer retains the first authenticated healthy response's timestamp in the restore report. `application_health` measures time from restore start; RTO measures time from the supplied `--incident-at` to that response. An unknown incident time keeps RTO unmeasured. Sink failure retains the timestamp for an idempotent retry; timeout records no healthy completion. Both milestones appear on `/admin/slo`. Run the observer promptly after database restore so the sample measures observed first readiness; this cannot reconstruct an earlier unobserved health check. Exact Mac commands and evidence boundaries: [W5-GAPS](../../build/production/verify/W5-GAPS.md).
+
+## Explicit legacy retention archive restore (W5-GAPS)
+
+A pre-purpose-separation retention archive used the original `enc:backup` key. Normal restore and verify use only the purpose-separated `enc:archive` key; they never guess another purpose after a mismatch. A configured platform operator may explicitly request legacy restore using the archive's recorded historical key fingerprint and a plain audit reason. The archive's digest, workspace, GCM authentication and readback checks still apply.
+
+```bash
+# In a separate trusted operator process with the ORIGINAL backup key supplied securely via env.
+# Do not change the running application's key configuration. Prefer staging for inspection.
+npx tsx scripts/retention-archive.ts restore ARCHIVE_ID --staging legacy_case_42 \
+  --legacy-purpose enc:backup --legacy-key-id RECORDED_FINGERPRINT --reason "case 42 recovery"
+```
+
+The same-origin, operator-only archive restore API accepts `legacyKey: { originalPurpose: "enc:backup", keyId: "RECORDED_FINGERPRINT", reason: "case 42 recovery" }`. Neither surface accepts key bytes. Every existing-archive attempt, including refusal, appends an audit row with purpose, fingerprint, actor, reason and verdict. Missing privilege, wrong purpose/fingerprint, absent original key or authentication failure restores zero rows. The ordinary verify API offers no legacy key fallback.

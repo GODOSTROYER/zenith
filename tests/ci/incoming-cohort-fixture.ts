@@ -36,3 +36,10 @@ export const incomingWorkflowIds = new Set([
   historyCodecWorkflowId,
   ...wave5WorkflowIds,
 ]);
+
+// J4 and J14 add these exact mandatory workflow contracts. Historical projections
+// remove only these reviewed identities; the executable lane still requires both.
+export const integrationWorkflowIds = new Set([
+  "workflows:tests/platform/billing-schedule.test.ts:4ee93ed6c454",
+  "workflows:tests/platform/zenith-isolation-custody.test.ts:4ee93ed6c454",
+]);

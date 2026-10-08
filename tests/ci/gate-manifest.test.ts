@@ -1,4 +1,4 @@
-import { integrationPlatformIds, historyCodecWorkflowId, mixedRunStorePlatformIds, wave5PlatformIds, wave5WorkflowIds, incomingPlatformIds, incomingWorkflowFiles, incomingWorkflowIds, withoutIncomingPlatform } from "./incoming-cohort-fixture";
+import { integrationWorkflowIds, integrationPlatformIds, historyCodecWorkflowId, mixedRunStorePlatformIds, wave5PlatformIds, wave5WorkflowIds, incomingPlatformIds, incomingWorkflowFiles, incomingWorkflowIds, withoutIncomingPlatform } from "./incoming-cohort-fixture";
 /** Shared gate commands preserve required local engines and precisely scoped external acceptance. */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -299,7 +299,7 @@ function withoutReplayAdditions(items: Requirement[]): Requirement[] {
 }
 const criticalScheduleWorkflowIds = new Set(CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS.map(item => requirementId("workflows", item)));
 function priorCriticalScheduleWorkflowRequirements(sourceRoot = root) {
-  return withoutReplayAdditions(requirementsFor("workflows", sourceRoot)).filter(item => !criticalScheduleWorkflowIds.has(item.id) && !incomingWorkflowIds.has(item.id));
+  return withoutReplayAdditions(requirementsFor("workflows", sourceRoot)).filter(item => !criticalScheduleWorkflowIds.has(item.id) && !incomingWorkflowIds.has(item.id) && !integrationWorkflowIds.has(item.id));
 }
 function priorWave2WorkflowRequirements() {
   return priorCriticalScheduleWorkflowRequirements().filter(item => !wave2WorkflowIds.has(item.id));
@@ -470,7 +470,8 @@ describe("canonical gate manifest", () => {
   });
 
   it("declares mTLS prerequisites and an unverified release blocker rather than a pass", () => {
-    expect(EXTERNAL_ACCEPTANCE).toHaveLength(7);
+    expect(EXTERNAL_ACCEPTANCE).toHaveLength(11);
+    expect(EXTERNAL_ACCEPTANCE.find(g => g.id === "wave5-mixed-lambda")).toMatchObject({ file: "tests/acceptance/mixed-lambda.gated.test.ts", wholeFile: true });
     expect(EXTERNAL_ACCEPTANCE[0]).toMatchObject({ file: "tests/workflows/mtls-live.test.ts", wholeFile: true });
     expect(EXTERNAL_ACCEPTANCE[0].prerequisites).toContain("ZENITH_TEMPORAL_TLS_KEY_FILE");
     expect(EXTERNAL_ACCEPTANCE[0].releaseBlocker).toContain("unverified");
@@ -2404,12 +2405,12 @@ function workflowNativeSetupProblems(job: WorkflowNativeJob): string[] {
 describe("workflow native PostgreSQL prerequisites [source/report models]", () => {
   it("keeps all 58 workflow identities and exact native source flags while declaring real PostgreSQL", () => {
     const manifest = manifestFor("workflows", root);
-    expect(manifest.requirements).toHaveLength(110);
+    expect(manifest.requirements).toHaveLength(112);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(manifest.requirements.filter(item => wave2WorkflowIds.has(item.id)).map(item => item.id)).toEqual([...wave2WorkflowIds]);
     expect(WORKFLOW_NATIVE_POSTGRES_FILES).toEqual(workflowNativeGroups.map(group => group.file));
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(110);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(112);
     expect(createHash("sha256").update(JSON.stringify(priorWave2WorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("d3a15adf854819fd8577c3b55b48dd55640d6522bdc57cad2c707c867ffecad3");
     expect(manifest.tools).toEqual({ node: "22.23.3", postgres: "16.15", temporal: "1.9.1" });
@@ -2671,7 +2672,7 @@ describe("mandatory saved builtin settlement cases [report models]", () => {
     expect(historical).toEqual([...previous, ...required]);
     expect(cleanupWriterNamed()).toHaveLength(46); expect(priorCleanupPlatformRequirements()).toHaveLength(1012);
     expect(manifestFor("postgres", root).requirements).toHaveLength(93);
-    expect(requirementsFor("workflows", root)).toHaveLength(110);
+    expect(requirementsFor("workflows", root)).toHaveLength(112);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
@@ -2909,8 +2910,8 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     const manifest = manifestFor("workflows", root);
     expect(named()).toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
     expect(new Set(named().map(item => item.id)).size).toBe(2);
-    expect(manifest.requirements).toHaveLength(110);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(110);
+    expect(manifest.requirements).toHaveLength(112);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(112);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(createHash("sha256").update(JSON.stringify(priorCriticalScheduleWorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b");
@@ -3126,7 +3127,7 @@ describe("incoming platform and workflow obligations", () => {
   });
   it("keeps all eight added workflow files in the complete mandatory lane", () => {
     const current = manifestFor("workflows", root);
-    expect(current.requirements).toHaveLength(110);
+    expect(current.requirements).toHaveLength(112);
     const added = withoutReplayAdditions(current.requirements).filter(item => incomingWorkflowFiles.has(item.file));
     expect(added).toHaveLength(8);
     expect(new Set(added.map(item => item.file))).toEqual(incomingWorkflowFiles);
@@ -3143,9 +3144,9 @@ describe("full history codec successor admission", () => {
     const current = manifestFor("workflows", root);
     const codec = current.requirements.filter(item => item.id === historyCodecWorkflowId);
     expect(codec).toHaveLength(1);
-    expect(current.requirements).toHaveLength(110);
-    expect(current.requirements.filter(item => item.id !== historyCodecWorkflowId)).toHaveLength(109);
-    const priorWithoutCodec = withoutReplayAdditions(current.requirements).filter(item => item.id !== historyCodecWorkflowId);
+    expect(current.requirements).toHaveLength(112);
+    expect(current.requirements.filter(item => item.id !== historyCodecWorkflowId)).toHaveLength(111);
+    const priorWithoutCodec = withoutReplayAdditions(current.requirements).filter(item => item.id !== historyCodecWorkflowId && !integrationWorkflowIds.has(item.id));
     expect(priorWithoutCodec).toHaveLength(75);
     expect(priorWithoutCodec.filter(item => !wave5WorkflowIds.has(item.id))).toHaveLength(70);
     expect(current.excludeFiles).not.toContain(codec[0].file);
@@ -3171,8 +3172,8 @@ describe("Wave 5 additive gate inventory", () => {
       expect(manifestFor(lane, root).command).toContain(file.startsWith("tests/adversarial/") ? "tests/adversarial" : file);
       expect(requirementsFor(lane, root).some(r => r.file === file)).toBe(true);
     }
-    expect(files).toHaveLength(74);
-    expect(WAVE5_EXTERNAL_FILES).toHaveLength(9);
+    expect(files).toHaveLength(78);
+    expect(WAVE5_EXTERNAL_FILES).toHaveLength(12);
     for (const file of WAVE5_EXTERNAL_FILES) expect([
       ...EXTERNAL_ACCEPTANCE.map(g=>g.file),
       ...requirementsFor("tofu", root).map(required => required.file),
@@ -3259,11 +3260,15 @@ describe("mandatory frozen current-code workflow replay", () => {
   const named = (sourceRoot = root) => requirementsFor("workflows", sourceRoot).filter(item => replayAdditionIds.has(item.id));
   it("appends exactly 34 literal checks and preserves the exact 71 predecessor identities", () => {
     const manifest = manifestFor("workflows", root), added = named(), previous = withoutReplayAdditions(manifest.requirements);
-    expect(manifest.requirements).toHaveLength(110);
-    expect(previous).toHaveLength(76);
-    expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex"))
+    expect(manifest.requirements).toHaveLength(112);
+    expect(previous).toHaveLength(78);
+    const historicalPrevious = previous.filter(item => !integrationWorkflowIds.has(item.id));
+    expect(historicalPrevious).toHaveLength(76);
+    expect(createHash("sha256").update(JSON.stringify(historicalPrevious.map(item => item.id).sort())).digest("hex"))
       .toBe("a44fa4e252de4b6c3236294297ede9d4c97f0b151971ebee1c7ccfe06590796b");
-    const verifierPrevious = previous.filter(item => !wave5WorkflowIds.has(item.id));
+    expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex"))
+      .toBe("c67cf195ffe79a8ecdad106be0c2bdbf2033cd5fe515cac98752a1d03de1655c");
+    const verifierPrevious = historicalPrevious.filter(item => !wave5WorkflowIds.has(item.id));
     expect(verifierPrevious).toHaveLength(71);
     expect(createHash("sha256").update(JSON.stringify(verifierPrevious.map(item => item.id).sort())).digest("hex"))
       .toBe("5d59799c849b2180643bdbdbd2196c2cef6a966a9fc703d78208f27a617dd77d");
@@ -3353,5 +3358,24 @@ describe("mandatory frozen current-code workflow replay", () => {
       expect(reportFailures(before, { ...contractReport(before), numFailedTests: 1 }, root)).toEqual(["Inconsistent Vitest report counts"]);
       expect(reportFailures([], contractReport(before), root)).toEqual(["No required scenarios found"]);
     } finally { fs.rmSync(sourceRoot, { recursive: true, force: true }); }
+  });
+});
+
+describe("assembled job workflow obligations", () => {
+  it("requires both exact J4 and J14 contracts and rejects missing or skipped evidence", () => {
+    const manifest = manifestFor("workflows", root);
+    const added = manifest.requirements.filter(item => integrationWorkflowIds.has(item.id));
+    expect(added).toHaveLength(2);
+    expect(new Set(added.map(item => item.id))).toEqual(integrationWorkflowIds);
+    for (const item of added) {
+      expect(manifest.files).toContain("tests/platform");
+      expect(manifest.command).toContain("tests/platform");
+      expect(manifest.excludeFiles).not.toContain(item.file);
+      expect(fs.existsSync(path.join(root, item.file))).toBe(true);
+      expect(reportFailures([item], { success: true, testResults: [] }, root)).toHaveLength(1);
+      const report = contractReport([item]);
+      report.testResults[0].assertionResults[0].status = "skipped";
+      expect(reportFailures([item], report, root)).toHaveLength(1);
+    }
   });
 });

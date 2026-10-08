@@ -42,7 +42,9 @@ describe("aws:lambda_function compile", () => {
       architectures: ["x86_64"],
       s3_bucket: "acme-artifacts",
       s3_key: "fn/resize.zip",
-      publish: false,
+      publish: true,
+      s3_object_version: "fixture-version-1",
+      source_code_hash: Buffer.from("a".repeat(64), "hex").toString("base64"),
       environment: [{ variables: { MODE: "fast" } }],
       logging_config: [{ log_format: "Text", log_group: "${aws_cloudwatch_log_group.function_resize_logs.name}" }],
     });
@@ -73,6 +75,12 @@ describe("aws:lambda_function compile", () => {
     expect(() => lambda.compile!(n({ architecture: "mips" }), ctx())).toThrow(/architecture/);
   });
 
+  it("refuses unversioned packages or absent source/package digests", () => {
+    for (const patch of [{ version: undefined }, { version: "null" }, { sha256: undefined }, { sourceDigest: undefined }]) {
+      expect(() => lambda.compile!({ ...fx.fn, spec: { ...fx.fn.spec, artifact: { ...(fx.fn.spec.artifact as Body), ...patch } } }, ctx())).toThrow(DriverCompileError);
+    }
+  });
+
   it("escapes template text in environment values and never reads secret values", () => {
     const evil = { ...fx.fn, spec: { ...fx.fn.spec, env: [{ key: "NOTE", value: '${file("/etc/passwd")}' }] } };
     const out = JSON.stringify(lambda.compile!(evil, ctx()));
@@ -90,7 +98,7 @@ describe("aws:lambda_function compile", () => {
 
 const FN_ARN = "arn:aws:lambda:eu-west-1:123456789012:function:zn-acme-resize";
 const fnNode = fx.fn;
-const fnCfg = (over: Body = {}) => ({ FunctionName: "zn-acme-resize", FunctionArn: FN_ARN, Runtime: "nodejs22.x" as const, Handler: "index.handler", MemorySize: 512, Timeout: 20, Architectures: ["x86_64" as const], State: "Active" as const, LastUpdateStatus: "Successful" as const, Role: "arn:aws:iam::123456789012:role/zn-acme-resize-fn", LoggingConfig: { LogGroup: "/aws/lambda/zn-acme-resize" }, ...over });
+const fnCfg = (over: Body = {}) => ({ Version: "1", CodeSha256: Buffer.from("a".repeat(64), "hex").toString("base64"), FunctionName: "zn-acme-resize", FunctionArn: FN_ARN, Runtime: "nodejs22.x" as const, Handler: "index.handler", MemorySize: 512, Timeout: 20, Architectures: ["x86_64" as const], State: "Active" as const, LastUpdateStatus: "Successful" as const, Role: "arn:aws:iam::123456789012:role/zn-acme-resize-fn", LoggingConfig: { LogGroup: "/aws/lambda/zn-acme-resize" }, ...over });
 const fnGet = (cfg: Body = {}, tags: Record<string, string> = zenithTagMap("function/resize")) => ({ Configuration: fnCfg(cfg), Tags: tags });
 
 describe("aws:lambda_function read side", () => {
@@ -98,7 +106,7 @@ describe("aws:lambda_function read side", () => {
     lambdaMock.on(GetFunctionCommand).resolves(fnGet());
     const obs = await lambda.observe!(mkDriverContext(), fnNode, FN_ARN);
     expect(obs).toMatchObject({ presence: "present", externalId: FN_ARN });
-    expect(Object.fromEntries(Object.entries(obs.attributes).map(([k, v]) => [k, (v as { value: unknown }).value]))).toEqual({ runtime: "nodejs22.x", handler: "index.handler", memoryMb: 512, timeoutSec: 20, architecture: "x86_64" });
+    expect(Object.fromEntries(Object.entries(obs.attributes).map(([k, v]) => [k, (v as { value: unknown }).value]))).toEqual({ runtime: "nodejs22.x", handler: "index.handler", memoryMb: 512, timeoutSec: 20, architecture: "x86_64", codeSha256: Buffer.from("a".repeat(64), "hex").toString("base64") });
     expect(obs.native).toMatchObject({ functionName: "zn-acme-resize", state: "Active", logGroupName: "/aws/lambda/zn-acme-resize", tags: zenithTagMap("function/resize") });
     expect(Object.keys(obs.attributes).sort()).toEqual(Object.keys(lambda.expectedAttributes!(fnNode)).sort());
     const v = await lambda.verify!(mkDriverContext(), fnNode, obs);
@@ -166,17 +174,27 @@ describe("function.invoke", () => {
 
   it("invokes synchronously with the JSON payload and returns a bounded response", async () => {
     installFn();
-    lambdaMock.on(InvokeCommand).resolves({ StatusCode: 200, ExecutedVersion: "$LATEST", Payload: payloadOf('{"ok":true,"n":3}'), $metadata: { requestId: "req-inv" } });
+    lambdaMock.on(InvokeCommand).resolves({ StatusCode: 200, ExecutedVersion: "1", Payload: payloadOf('{"ok":true,"n":3}'), $metadata: { requestId: "req-inv" } });
     const r = await invoke(ctxOp(), fnNode, { payload: { width: 100 } });
-    expect(r).toMatchObject({ ok: true, requestIds: ["req-inv"], data: { statusCode: 200, executedVersion: "$LATEST", dryRun: false, response: '{"ok":true,"n":3}', truncated: false } });
+    expect(r).toMatchObject({ ok: true, requestIds: ["req-inv"], data: { statusCode: 200, executedVersion: "1", dryRun: false, response: '{"ok":true,"n":3}', truncated: false } });
     const call = lambdaMock.commandCalls(InvokeCommand)[0].args[0].input;
-    expect(call).toMatchObject({ FunctionName: FN_ARN, InvocationType: "RequestResponse", LogType: "None" });
+    expect(call).toMatchObject({ FunctionName: FN_ARN, Qualifier: "1", InvocationType: "RequestResponse", LogType: "None" });
     expect(Buffer.from(call.Payload as Uint8Array).toString()).toBe('{"width":100}');
+  });
+
+  it("refuses mutable versions and mismatched code before invoking", async () => {
+    installFn();
+    lambdaMock.on(GetFunctionCommand).resolves(fnGet({ Version: "$LATEST" }));
+    expect(await invoke(ctxOp(), fnNode, {})).toMatchObject({ ok: false, data: { refused: true } });
+    expect(lambdaMock.commandCalls(InvokeCommand)).toHaveLength(0);
+    lambdaMock.on(GetFunctionCommand).resolves(fnGet({ CodeSha256: Buffer.from("c".repeat(64), "hex").toString("base64") }));
+    expect(await invoke(ctxOp(), fnNode, { version: "1" })).toMatchObject({ ok: false, data: { refused: true } });
+    expect(lambdaMock.commandCalls(InvokeCommand)).toHaveLength(0);
   });
 
   it("records the operation after a successful call and does not invoke twice for the same operation", async () => {
     installFn();
-    lambdaMock.on(InvokeCommand).resolves({ StatusCode: 200, Payload: payloadOf("{}") });
+    lambdaMock.on(InvokeCommand).resolves({ StatusCode: 200, ExecutedVersion: "1", Payload: payloadOf("{}") });
     await invoke(ctxOp("op_a"), fnNode, {});
     expect(lambdaMock.commandCalls(TagResourceCommand)[0].args[0].input).toEqual({ Resource: FN_ARN, Tags: { "zenith:operation": "op_a" } });
     lambdaMock.reset();
@@ -185,7 +203,7 @@ describe("function.invoke", () => {
     expect(again).toMatchObject({ ok: true, data: { alreadyInvoked: true } });
     expect(lambdaMock.commandCalls(InvokeCommand)).toHaveLength(0);
     // a different operation does invoke
-    lambdaMock.on(InvokeCommand).resolves({ StatusCode: 200, Payload: payloadOf("{}") });
+    lambdaMock.on(InvokeCommand).resolves({ StatusCode: 200, ExecutedVersion: "1", Payload: payloadOf("{}") });
     await invoke(ctxOp("op_b"), fnNode, {});
     expect(lambdaMock.commandCalls(InvokeCommand)).toHaveLength(1);
   });
@@ -201,7 +219,7 @@ describe("function.invoke", () => {
 
   it("reports a function error as ok:false with the error type but no free text from the function", async () => {
     installFn();
-    lambdaMock.on(InvokeCommand).resolves({ StatusCode: 200, FunctionError: "Unhandled", Payload: payloadOf('{"errorMessage":"boom","errorType":"Error"}') });
+    lambdaMock.on(InvokeCommand).resolves({ StatusCode: 200, ExecutedVersion: "1", FunctionError: "Unhandled", Payload: payloadOf('{"errorMessage":"boom","errorType":"Error"}') });
     const r = await invoke(ctxOp(), fnNode, {});
     expect(r).toMatchObject({ ok: false, data: { functionError: "Unhandled", statusCode: 200 } });
     expect(r.summary).toBe("function/resize returned Unhandled.");

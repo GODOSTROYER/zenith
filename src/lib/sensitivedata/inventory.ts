@@ -299,7 +299,7 @@ export const TABLES: Readonly<Record<string, TableSink>> = {
   "platform.legal_holds": { owner: "retention", classification: "personal-data", retention: ledger("legal hold history"), purpose: "operator holds and actor reasons", columns: {} },
   "platform.retention_archives": { owner: "retention", classification: "operational", retention: ledger("archive verification and prune facts"), purpose: "sealed archive destinations and digests", columns: {} },
   "platform.retention_destinations": { owner: "retention", classification: "operational", retention: ledger("tenant destination history"), purpose: "tenant-owned archive storage references", columns: { credentials_ref: plain("vault reference; no credential material") } },
-  "platform.retention_restores": { owner: "retention", classification: "personal-data", retention: ledger("append-only restore audit"), purpose: "operator archive restore attempts", columns: { detail: { ...guarded("retention.restore audit -> assertNoSecretValues(detail)"), assurance: "design" } } },
+  "platform.retention_restores": { owner: "retention", classification: "personal-data", retention: ledger("append-only restore audit"), purpose: "operator archive restore attempts", columns: { key_purpose: plain("explicit original key purpose"), restore_key_id: plain("key fingerprint only"), legacy_reason: guarded("operator plain audit reason"), detail: { ...guarded("retention.restore audit -> assertNoSecretValues(detail)"), assurance: "design" } } },
   "platform.audit_exports": { owner: "audit-export", classification: "personal-data", retention: ledger("append-only chain facts"), purpose: "signed export chain and operator provenance", columns: {} },
   "platform.managed_domains": { owner: "managed-serving", classification: "operational", retention: customer("domain and revoke lifecycle"), purpose: "tenant domain verification", columns: {} },
   "platform.managed_storage_keys": { owner: "managed-serving", classification: "credential-derived", retention: ledger("revocation history"), purpose: "object-store principals and revocation state", columns: { secret_ref: plain("vault reference only") } },
@@ -396,7 +396,8 @@ export const OTHER_SINKS: readonly OtherSink[] = [
  * A column needs an explicit inventory entry when it is `jsonb` or `bytea`, or a text column whose name suggests
  * stored content. Used by the completeness test against the migration SQL.
  */
-export const SENSITIVE_TEXT_COLUMN = /(secret|token|password|credential|ciphertext|auth_tag|envelope|result|response|payload|body|output|plan|manifest|config|native|sealed|bytes|line|error|detail)/;
+// Legacy restore key metadata and its operator reason require explicit classification too.
+export const SENSITIVE_TEXT_COLUMN = /(secret|token|password|credential|ciphertext|auth_tag|envelope|result|response|payload|body|output|plan|manifest|config|native|sealed|bytes|line|error|detail|^key_purpose$|^restore_key_id$|^legacy_reason$)/;
 
 export interface DiscoveredTable { table: string; columns: string[] }
 

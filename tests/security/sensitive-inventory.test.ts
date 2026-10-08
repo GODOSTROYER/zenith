@@ -33,6 +33,7 @@ describe("inventory completeness (a new table or sensitive-looking column fails 
     for (const table of ["platform.runner_jobs", "platform.plan_artifacts", "platform.key_rewrap_jobs", "public.secrets", "hosted.invite_deliveries", "agent.agent_uploads"]) expect(names.has(table), table).toBe(true);
     expect(discovered.find((d) => d.table === "platform.runner_jobs")?.columns).toEqual(expect.arrayContaining(["envelope", "result", "error"]));
     expect(SENSITIVE_TEXT_COLUMN.test("ciphertext")).toBe(true);
+    for (const column of ["key_purpose", "restore_key_id", "legacy_reason"]) expect(SENSITIVE_TEXT_COLUMN.test(column)).toBe(true);
   });
 
   it("every table and every sensitive-looking column is in the inventory, and nothing in it is stale", () => {

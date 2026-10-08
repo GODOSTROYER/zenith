@@ -1,27 +1,5 @@
-/**
- * Types private to the compute driver group.
- *
- * `FunctionSpec` and `ComputeInstanceSpec` are NOT in `@/lib/resources/specs`:
- * expansion never produces `function` or `compute_instance` nodes today
- * (specs.ts says so), so these describe what the two experimental drivers
- * read from a hand-built graph. If expansion starts producing those kinds,
- * promote these into specs.ts (additive) and delete them here.
- */
-import type { EnvEntry } from "@/lib/resources/specs";
-
-export interface FunctionSpec {
-  /** Lambda runtime identifier, e.g. `nodejs22.x` */
-  runtime: string;
-  /** e.g. `index.handler` */
-  handler: string;
-  memoryMb?: number;
-  timeoutSec?: number;
-  architecture?: "x86_64" | "arm64";
-  /** the deployment package, a zip object already in S3 */
-  artifact: { type: "s3"; bucket: string; key: string; version?: string };
-  /** plain values only: Lambda has no `valueFrom`, so a `secretRef` is rejected at compile time */
-  env?: EnvEntry[];
-}
+/** ComputeInstanceSpec remains experimental; FunctionSpec is shared with manifest expansion. */
+export type { FunctionSpec } from "@/lib/resources/specs";
 
 export interface ComputeInstanceSpec {
   /** EC2 instance type, default `t3.small` */

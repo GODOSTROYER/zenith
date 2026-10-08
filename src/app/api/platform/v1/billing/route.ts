@@ -5,6 +5,7 @@
  * With `ZENITH_BILLING` unset or `disabled` (BYOC and self-hosted) this answers `{ mode: "disabled" }` without reading the
  * store. Suspension never affects this route: reads are always served.
  */
+import { planTierOf } from "@/lib/platform/zenith-managed";
 import { billingConfigFromEnv } from "@/lib/billing/config";
 import { SUSPENSION_MEANING, billingView } from "@/lib/billing/service";
 import { json, requireWorkspace, route } from "@/lib/server/context";
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export const GET = route({ workspaceRole: "viewer" }, async () => {
-  if (billingConfigFromEnv().mode !== "managed") return json({ mode: "disabled", message: "Billing is not enabled on this installation; nothing is metered or charged." });
+  if (billingConfigFromEnv().mode !== "managed") return json({ mode: "disabled", managedTier: planTierOf(process.env), managedTierSource: "operator_configuration", message: "Billing is not enabled on this installation; nothing is metered or charged." });
   const { platformDb } = await import("@/lib/controlplane/db");
   return json({ ...(await billingView(await platformDb(), requireWorkspace().id, new Date())), whatSuspensionMeans: SUSPENSION_MEANING });
 });

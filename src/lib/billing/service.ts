@@ -73,6 +73,8 @@ export interface BillingView {
   account: Pick<BillingAccount, "planId" | "status" | "suspensionReason" | "pastDueSince" | "suspendedAt"> | null;
   plan: PlanView;
   assigned: boolean;
+  managedTier: import("@/lib/providers/zenith/types").PlanTier | null;
+  managedTierSource: "billing_assignment" | "unknown";
   period: string;
   usage: MeterView[];
   invoices: Pick<Invoice, "id" | "period" | "status" | "subtotalCents" | "currency" | "dueAt" | "paidAt" | "planProvisional">[];
@@ -97,6 +99,6 @@ export async function billingView(sql: Sql, workspaceId: string, now: Date): Pro
   return {
     mode: "managed", provisional: true, notice: PLAN_NOTICE,
     account: account ? { planId: account.planId, status: account.status, ...(account.suspensionReason ? { suspensionReason: account.suspensionReason } : {}), ...(account.pastDueSince ? { pastDueSince: account.pastDueSince } : {}), ...(account.suspendedAt ? { suspendedAt: account.suspendedAt } : {}) } : null,
-    plan: planView(plan), assigned: Boolean(account), period, usage, invoices, whatSuspensionMeans: SUSPENSION_MEANING,
+    plan: planView(plan), assigned: Boolean(account), managedTier: account && isPlanId(account.planId) ? plan.managedTier : null, managedTierSource: account && isPlanId(account.planId) ? "billing_assignment" : "unknown", period, usage, invoices, whatSuspensionMeans: SUSPENSION_MEANING,
   };
 }

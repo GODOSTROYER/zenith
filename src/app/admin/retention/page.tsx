@@ -127,6 +127,7 @@ export default async function RetentionPage() {
             <section className={styles.section} aria-labelledby="archives-heading">
               <h2 id="archives-heading">Recent archives</h2>
               <p>Verify an archive or restore records from it (to a staging schema, or back to the source without overwriting anything) with the archives API or <code>scripts/retention-archive.ts</code>. Every restore is read back and audited.</p>
+              <p>Archives sealed before key purpose separation require an explicit operator restore naming the original <code>enc:backup</code> purpose, the archive&apos;s recorded key fingerprint and an audit reason. The restore never guesses keys.</p>
               {overview.archives.length === 0 ? (
                 <p className={styles.empty}>Nothing has been archived. Archiving starts only when a policy sets an archive window and archive storage is configured.</p>
               ) : (

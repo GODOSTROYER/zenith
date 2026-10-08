@@ -94,7 +94,7 @@ describe("periods", () => {
 
 describe("invoice pricing", () => {
   const plan: PlanDefinition = {
-    id: "test_provisional", name: "Test (provisional)", provisional: true, decision: "DEC-BUSINESS", baseCents: 1000, maxActiveOperations: 5,
+    id: "test_provisional", managedTier: "starter", name: "Test (provisional)", provisional: true, decision: "DEC-BUSINESS", baseCents: 1000, maxActiveOperations: 5,
     meters: {
       managed_resource_hours: { included: 100, rateCents: 0.5 },
       build_minutes: { included: 10, rateCents: 2 },

@@ -201,8 +201,8 @@ describe("RPO / RTO measurement", () => {
   const times = { backupSnapshotAt: "2026-10-07T10:00:00.000Z", backupFinishedAt: "2026-10-07T10:00:09.000Z", restoreStartedAt: "2026-10-07T12:00:00.000Z", restoreFinishedAt: "2026-10-07T12:07:30.000Z" };
 
   it("measures the loss window and recovery time from recorded instants", () => {
-    const m = measureRecovery({ ...times, incidentAt: "2026-10-07T11:30:00.000Z" });
-    expect(m).toMatchObject({ rpoSeconds: 5400, rtoSeconds: 2250, restoreDurationSeconds: 450, backupAgeAtRestoreStartSeconds: 7200, verdict: "no_targets" });
+    const m = measureRecovery({ ...times, applicationHealthyAt: "2026-10-07T12:09:00.000Z", incidentAt: "2026-10-07T11:30:00.000Z" });
+    expect(m).toMatchObject({ rpoSeconds: 5400, rtoSeconds: 2340, restoreDurationSeconds: 450, backupAgeAtRestoreStartSeconds: 7200, verdict: "no_targets" });
   });
 
   it("without a loss time it gives the honest upper bound and says so", () => {
@@ -213,12 +213,18 @@ describe("RPO / RTO measurement", () => {
     expect(m.caveats.join(" ")).toMatch(/upper bound/);
   });
 
+  it("never uses database duration to claim an RTO target with an unknown incident time", () => {
+    const m = measureRecovery({ ...times, applicationHealthyAt: "2026-10-07T13:00:00.000Z", targets: targetsFromEnv({ ZENITH_RTO_TARGET_SECONDS: "900" }) });
+    expect(m.rtoSeconds).toBeNull();
+    expect(m.verdict).toBe("incomplete_measurement");
+  });
+
   it("compares against provisional targets only when they are configured", () => {
     expect(targetsFromEnv({})).toEqual({ rpoSeconds: null, rtoSeconds: null, status: "unset" });
     const targets = targetsFromEnv({ ZENITH_RPO_TARGET_SECONDS: "3600", ZENITH_RTO_TARGET_SECONDS: "900" });
     expect(targets.status).toBe("provisional");
     expect(measureRecovery({ ...times, incidentAt: "2026-10-07T11:30:00.000Z", targets }).verdict).toBe("exceeds_targets");
-    expect(measureRecovery({ ...times, incidentAt: "2026-10-07T10:20:00.000Z", restoreStartedAt: "2026-10-07T10:21:00.000Z", restoreFinishedAt: "2026-10-07T10:25:00.000Z", targets }).verdict).toBe("within_targets");
+    expect(measureRecovery({ ...times, incidentAt: "2026-10-07T10:20:00.000Z", restoreStartedAt: "2026-10-07T10:21:00.000Z", restoreFinishedAt: "2026-10-07T10:25:00.000Z", applicationHealthyAt: "2026-10-07T10:26:00.000Z", targets }).verdict).toBe("within_targets");
   });
 
   it("delivers to the file and to a registered sink, and a failing sink does not hide the report", async () => {

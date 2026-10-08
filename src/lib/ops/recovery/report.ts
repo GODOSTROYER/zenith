@@ -6,8 +6,9 @@
  *  - RPO (data-loss window) = loss time minus the backup's snapshot instant. The loss time is something only the
  *    operator knows (`--incident-at`); without it the report gives the honest UPPER BOUND, the age of the backup
  *    when the restore began, and says so.
- *  - RTO (time to recover) = the moment the restored control plane passed its integrity checks and was fenced
- *    (`restoreFinishedAt`) minus the loss time, or the restore duration alone when no loss time was supplied.
+ *  - RTO (time to recover) = the moment the restored application first answered healthy readiness
+ *    (`applicationHealthyAt`) minus the loss time. Until application readiness is observed RTO stays unmeasured.
+ *    `restoreFinishedAt` and restore duration record database completion separately.
  *  - Continuation = how long after the restore the operator took to decide every in-flight item. A restore is
  *    "operationally recovered" only when nothing is pending, and the report shows the pending count rather than
  *    hiding it inside a single RTO number.
@@ -37,15 +38,16 @@ export interface RecoveryMeasurement {
   readonly restoreStartedAt: string;
   readonly restoreFinishedAt: string;
   readonly incidentAt: string | null;
+  readonly applicationHealthyAt: string | null;
   /** exact data-loss window; null unless the loss time was supplied */
   readonly rpoSeconds: number | null;
   /** age of the backup when the restore began: an upper bound on the loss window when the loss time is unknown */
   readonly backupAgeAtRestoreStartSeconds: number;
   readonly restoreDurationSeconds: number;
-  /** loss to fenced and verified; null unless the loss time was supplied */
+  /** loss to observed application readiness; null unless both instants are known */
   readonly rtoSeconds: number | null;
   readonly targets: RecoveryTargets;
-  readonly verdict: "within_targets" | "exceeds_targets" | "no_targets";
+  readonly verdict: "within_targets" | "exceeds_targets" | "no_targets" | "awaiting_application_health" | "incomplete_measurement";
   readonly caveats: readonly string[];
 }
 
@@ -68,6 +70,7 @@ export function measureRecovery(input: {
   backupFinishedAt: string;
   restoreStartedAt: string;
   restoreFinishedAt: string;
+  applicationHealthyAt?: string;
   incidentAt?: string;
   targets?: RecoveryTargets;
 }): RecoveryMeasurement {
@@ -75,27 +78,30 @@ export function measureRecovery(input: {
   const caveats: string[] = [];
   const incidentAt = input.incidentAt ? new Date(input.incidentAt).toISOString() : null;
   const rpo = incidentAt ? secondsBetween(input.backupSnapshotAt, incidentAt) : null;
-  const rto = incidentAt ? secondsBetween(incidentAt, input.restoreFinishedAt) : null;
+  const applicationHealthyAt = input.applicationHealthyAt ? new Date(input.applicationHealthyAt).toISOString() : null;
+  if (applicationHealthyAt && Date.parse(applicationHealthyAt) < Date.parse(input.restoreFinishedAt)) throw new Error("Application health cannot precede database restore completion.");
+  const rto = incidentAt && applicationHealthyAt ? secondsBetween(incidentAt, applicationHealthyAt) : null;
+  if (!applicationHealthyAt) caveats.push("Application readiness has not been observed. Database restore duration is recorded separately; RTO is not measured.");
   if (rpo !== null && rpo < 0) caveats.push("The loss time is before the backup snapshot; the RPO is reported as 0.");
-  if (!incidentAt) caveats.push("No loss time was supplied: the RPO shown is the backup age at restore start, an upper bound; the RTO is the restore duration only.");
+  if (!incidentAt) caveats.push("No loss time was supplied: the RPO shown is the backup age at restore start, an upper bound; RTO needs both the loss time and observed application health.");
   caveats.push("Work performed after the snapshot left no record in the restored database; reconcile providers for that window (see RECOVERY.md).");
   const breaches: boolean[] = [];
   const rpoValue = rpo !== null ? Math.max(0, rpo) : secondsBetween(input.backupSnapshotAt, input.restoreStartedAt);
-  const rtoValue = rto !== null ? rto : secondsBetween(input.restoreStartedAt, input.restoreFinishedAt);
   if (targets.rpoSeconds !== null) breaches.push(rpoValue > targets.rpoSeconds);
-  if (targets.rtoSeconds !== null) breaches.push(rtoValue > targets.rtoSeconds);
+  if (targets.rtoSeconds !== null && rto !== null) breaches.push(rto > targets.rtoSeconds);
   return {
     backupSnapshotAt: input.backupSnapshotAt,
     backupFinishedAt: input.backupFinishedAt,
     restoreStartedAt: input.restoreStartedAt,
     restoreFinishedAt: input.restoreFinishedAt,
     incidentAt,
+    applicationHealthyAt,
     rpoSeconds: rpo === null ? null : Math.max(0, rpo),
     backupAgeAtRestoreStartSeconds: secondsBetween(input.backupSnapshotAt, input.restoreStartedAt),
     restoreDurationSeconds: secondsBetween(input.restoreStartedAt, input.restoreFinishedAt),
     rtoSeconds: rto,
     targets,
-    verdict: breaches.length === 0 ? "no_targets" : breaches.some(Boolean) ? "exceeds_targets" : "within_targets",
+    verdict: breaches.some(Boolean) ? "exceeds_targets" : targets.rtoSeconds !== null && !applicationHealthyAt ? "awaiting_application_health" : targets.rtoSeconds !== null && rto === null ? "incomplete_measurement" : breaches.length === 0 ? "no_targets" : "within_targets",
     caveats,
   };
 }

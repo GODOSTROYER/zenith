@@ -15,28 +15,36 @@
       "healthPath": "/health",
       "env": [
         {
+          "key": "ENRICHER_URL",
+          "value": "https://enricher.mixed.example.test:8443"
+        },
+        {
           "key": "DATABASE_URL_FILE",
           "value": "/run/secrets/database-url"
         },
         {
           "key": "WEB_PROVIDER",
           "value": "gcp"
-        },
+        }
+      ],
+      "ownership": "managed"
+    },
+    {
+      "id": "enricher",
+      "name": "enricher",
+      "kind": "web",
+      "source": {
+        "type": "image",
+        "image": "registry.example.test/zenith-mixed-enricher:1"
+      },
+      "size": "nano",
+      "replicas": 1,
+      "port": 8081,
+      "healthPath": "/health",
+      "env": [
         {
-          "key": "ENRICHER_MODE",
-          "value": "lambda"
-        },
-        {
-          "key": "ENRICHER_LAMBDA_ARN",
-          "value": "arn:aws:lambda:us-east-1:000000000000:function:REPLACE_WITH_PUBLISHED_FUNCTION:1"
-        },
-        {
-          "key": "ENRICHER_LAMBDA_CREDENTIAL_FILE",
-          "value": "/run/secrets/lambda-invoker"
-        },
-        {
-          "key": "ENRICHER_LAMBDA_SHA256",
-          "value": "REPLACE_WITH_PACKAGE_SHA256"
+          "key": "ENRICHER_PROVIDER",
+          "value": "aws"
         }
       ],
       "ownership": "managed"
@@ -75,6 +83,13 @@
       "to": "db",
       "capability": "sql",
       "note": "web writes and reads orders in PostgreSQL on Azure over a protected endpoint"
+    },
+    {
+      "id": "web-to-enricher",
+      "from": "web",
+      "to": "enricher",
+      "capability": "http",
+      "note": "web asks the enricher on AWS for price and checksum over a protected endpoint"
     }
   ],
   "placement": {
@@ -99,6 +114,10 @@
       "provider": "gcp",
       "region": "us-central1"
     },
+    "enricher": {
+      "provider": "aws",
+      "region": "us-east-1"
+    },
     "db": {
       "provider": "azure",
       "region": "eastus"
@@ -113,31 +132,5 @@
       ],
       "timeoutSec": 120
     }
-  },
-  "functions": [
-    {
-      "id": "enricher",
-      "name": "enricher",
-      "kind": "function",
-      "provider": "aws",
-      "region": "us-east-1",
-      "runtime": "nodejs22.x",
-      "handler": "enricher/handler.handler",
-      "memoryMb": 128,
-      "timeoutSec": 10,
-      "architecture": "x86_64",
-      "source": {
-        "type": "s3",
-        "bucket": "zenith-mixed-artifacts",
-        "key": "mixed/enricher.zip",
-        "version": "REPLACE_WITH_S3_VERSION",
-        "sha256": "REPLACE_WITH_PACKAGE_SHA256",
-        "sourceDigest": "REPLACE_WITH_SOURCE_DIGEST"
-      },
-      "env": [],
-      "invokedBy": [
-        "web"
-      ]
-    }
-  ]
+  }
 }

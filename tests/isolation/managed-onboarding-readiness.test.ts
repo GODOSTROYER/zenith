@@ -86,6 +86,15 @@ describe.skipIf(!enabled)("managed onboarding readiness [kind: needs ZENITH_TEST
     }
   }, 120_000);
 
+  it("billing upgrades and downgrades preserve readiness of the exact applied capacity bundle without quota writes", async () => {
+    expect(configured).toBe(true);
+    const quotaBefore = kube.must(["get", "resourcequota", "-n", namespace, "-o", "json"]);
+    for (const tier of ["free", "pro"] as const) {
+      await expect(assertManagedTenantReady({ tenant: { ...tenant, planTier: tier }, substrate }, { createKubernetesSession: sessions })).resolves.toBeDefined();
+    }
+    expect(kube.must(["get", "resourcequota", "-n", namespace, "-o", "json"])).toBe(quotaBefore);
+  });
+
   it("refuses an absent tenant namespace without creating it", async () => {
     expect(kube.run(["get", "namespace", absentNamespace]).code).not.toBe(0);
     await expect(assertManagedTenantReady({ tenant: absent, substrate }, { createKubernetesSession: sessions })).rejects.toMatchObject({ code: "session_refused" });

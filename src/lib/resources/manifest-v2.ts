@@ -253,6 +253,23 @@ export type RolloutHook = z.infer<typeof RolloutHook>;
 export const Release = z.object({ migrate: MigrateHook.optional(), rollout: RolloutHook.optional() }).strict();
 export type Release = z.infer<typeof Release>;
 
+/** Experimental runnable function. S3 version and both source/package digests are immutable review inputs. */
+export const ManifestFunction = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9-]{1,30}$/), name: z.string().regex(/^[a-z][a-z0-9-]{1,30}$/), kind: z.literal("function"),
+  provider: z.literal("aws"), region: RegionName,
+  runtime: z.string().regex(/^[a-z][a-z0-9.]{1,30}$/), handler: z.string().regex(/^[A-Za-z0-9._/:-]{1,128}$/),
+  memoryMb: z.number().int().min(128).max(10240).default(256), timeoutSec: z.number().int().min(1).max(900).default(30),
+  architecture: z.enum(["x86_64", "arm64"]).default("x86_64"),
+  source: z.object({ type: z.literal("s3"), bucket: z.string().regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/),
+    key: z.string().regex(/^[A-Za-z0-9!_.*'()/=+@:-]{1,900}$/).refine(k => !k.includes("..")),
+    version: z.string().regex(/^[A-Za-z0-9._-]{1,1024}$/).refine(v => v !== "null"),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/), sourceDigest: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),
+  env: z.array(z.object({ key: z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,254}$/), value: z.string().max(4096) }).strict()).max(50).default([]),
+  /** Service ids that invoke this function using separately scoped IAM credentials. No public URL is generated. */
+  invokedBy: z.array(z.string()).max(32).default([]),
+}).strict();
+export type ManifestFunction = z.infer<typeof ManifestFunction>;
+
 /* ------------------------------- manifest -------------------------------- */
 
 /** The strict object, before cross-field checks (`.shape` stays reachable). */
@@ -270,6 +287,7 @@ export const ManifestV2Object = z
     nodePlacement: z.record(NodePlacementEntry).optional(),
     providerConfig: ProviderConfig.optional(),
     native: z.array(NativeNode).optional(),
+    functions: z.array(ManifestFunction).max(32).optional(),
     /** release-time steps (migrations); see `Release` */
     release: Release.optional(),
   })
@@ -279,6 +297,16 @@ function crossChecks(m: z.infer<typeof ManifestV2Object>, ctx: z.RefinementCtx):
   const issue = (path: (string | number)[], message: string) =>
     ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
 
+  const allIds = new Set([...m.services, ...m.resources, ...m.routes, ...(m.native ?? [])].map(n => n.id));
+  const allNames = new Set([...m.services, ...m.resources].map(n => n.name));
+  (m.functions ?? []).forEach((f, i) => {
+    if (allIds.has(f.id) || allNames.has(f.name)) issue(["functions", i], "Function id and name must be unique across manifest nodes.");
+    allIds.add(f.id); allNames.add(f.name);
+    f.invokedBy.forEach((id, j) => { if (!m.services.some(s => s.id === id && s.ownership === "managed")) issue(["functions", i, "invokedBy", j], "Name a managed invoking service."); });
+    for (const path of findInlineSecretPaths(Object.fromEntries(f.env.map(e => [e.key, e.value])))) issue(["functions", i, "env"], `Inline credential ${path} is refused; function secrets require runtime SDK reads.`);
+    const override = m.nodePlacement?.[f.id] ?? m.nodePlacement?.[f.name];
+    if (override && (override.provider !== f.provider || (override.region && override.region !== f.region))) issue(["functions", i], "Function placement must agree with its explicit provider and region.");
+  });
   const natives = m.native ?? [];
   const nativeIds = new Set<string>();
   natives.forEach((n, i) => {
@@ -304,7 +332,7 @@ function crossChecks(m: z.infer<typeof ManifestV2Object>, ctx: z.RefinementCtx):
   });
 
   const nodeKeys = new Set<string>();
-  for (const n of [...m.services, ...m.resources]) {
+  for (const n of [...m.services, ...m.resources, ...(m.functions ?? [])]) {
     nodeKeys.add(n.id);
     nodeKeys.add(n.name);
   }

@@ -13,7 +13,8 @@ import { validateTenantObjects } from "@/lib/providers/zenith/isolation";
 import { ManagedSubstrateError } from "@/lib/providers/zenith/managed-port";
 import { assertTenant, substrateConnectionConfig, type ZenithSubstrate } from "@/lib/providers/zenith/substrate";
 import { renderTenancy, tenantNamespace } from "@/lib/providers/zenith/tenancy";
-import type { ZenithTenant } from "@/lib/providers/zenith/types";
+import { PLAN_TIERS, TENANT_ANNOTATION, TENANT_LABEL, type PlanTier, type ZenithTenant } from "@/lib/providers/zenith/types";
+import { createK8sClient, readObject } from "@/lib/providers/kubernetes/client";
 import { isVaultRef } from "@/lib/secrets/refs";
 
 /** Authentication firewall for internal first-deploy planning. No mutating request can use this credential. */
@@ -69,11 +70,6 @@ export async function assertManagedTenantReady(input: ManagedTenantReadinessInpu
   try {
     const tenant = assertTenant(input.tenant);
     const namespace = tenantNamespace(tenant.workspaceId, tenant.environmentId);
-    const baseline = renderTenancy(tenant, input.substrate, { withManagedDatabase: input.withManagedDatabase === true });
-    if (validateTenantObjects(baseline.objects, { tenant, substrate: input.substrate }).length) throw new Error("invalid baseline");
-    const bundle = renderIsolationBundle(tenant, input.substrate, { egressFqdns: input.egressFqdns });
-    validateIsolationBundle(bundle, { tenant, substrate: input.substrate });
-    const objects = platformOrder([...baseline.objects, ...bundleObjects(bundle)]);
     // Resolve the tenant credential first. A missing one must never cause a bootstrap fallback.
     const operator = await deps.createKubernetesSession(substrateConnectionConfig(input.substrate, namespace), signal);
     const bootstrap = await deps.createKubernetesSession({
@@ -84,6 +80,19 @@ export async function assertManagedTenantReady(input: ManagedTenantReadinessInpu
       credentialRef: input.substrate.cluster.kubeconfigRef,
       namespaces: [namespace, operatorSubjectOf(namespace).namespace],
     }, signal);
+    // Billing tier changes govern the NEW reviewed plan, not the already applied isolation bundle.
+    // Verify that bundle exactly against its recorded capacity tier so reads/teardown survive a downgrade.
+    // No quota is changed here and no observed tier is used for desired resource limits.
+    const namespaceObject = await readObject(createK8sClient(bootstrap, { environmentId: tenant.environmentId, signal }), { apiVersion: "v1", kind: "Namespace", name: namespace });
+    const meta = namespaceObject?.metadata as { annotations?: Record<string, string>; labels?: Record<string, string> } | undefined;
+    const appliedTier = meta?.annotations?.[TENANT_ANNOTATION.planTier];
+    if (!appliedTier || !(PLAN_TIERS as readonly string[]).includes(appliedTier) || meta?.labels?.[TENANT_LABEL.plan] !== appliedTier) throw new Error("unknown applied capacity tier");
+    const appliedTenant = { ...tenant, planTier: appliedTier as PlanTier };
+    const baseline = renderTenancy(appliedTenant, input.substrate, { withManagedDatabase: input.withManagedDatabase === true });
+    if (validateTenantObjects(baseline.objects, { tenant: appliedTenant, substrate: input.substrate }).length) throw new Error("invalid baseline");
+    const bundle = renderIsolationBundle(tenant, input.substrate, { egressFqdns: input.egressFqdns });
+    validateIsolationBundle(bundle, { tenant: appliedTenant, substrate: input.substrate });
+    const objects = platformOrder([...baseline.objects, ...bundleObjects(bundle)]);
     await readBackTenantIsolation(bootstrap, { tenant, objects, bundleDigest: digest({ kind: "zenith.tenant-isolation-bundle.v1", objects }) }, signal);
     await assertTenantOperatorAccess(createGuestClusterPort(operator, signal), namespace);
     return operator;

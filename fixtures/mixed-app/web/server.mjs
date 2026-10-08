@@ -59,7 +59,15 @@ async function readBody(req) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-export function createWebServer({ store, env = process.env }) {
+export function createWebServer({ store, env = process.env, invokeLambda = /** @type {((payload: Record<string, unknown>) => Promise<{ status: number, body: Record<string, unknown>, provider: string }>) | undefined} */ (undefined) }) {
+  const mode = env.ENRICHER_MODE ?? "container";
+  if (!["container", "lambda"].includes(mode)) throw new Error("Unknown enricher mode.");
+  let lambda;
+  const enrich = async payload => {
+    if (mode === "container") return callEnricher(env, payload);
+    if (!lambda) lambda = invokeLambda ?? (await import("./lambda.mjs")).createLambdaEnricher(env);
+    return lambda(payload);
+  };
   const webProvider = env.WEB_PROVIDER ?? spec.providers.web;
   return http.createServer(async (req, res) => {
     const send = (status, body) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(body)); };
@@ -86,7 +94,7 @@ export function createWebServer({ store, env = process.env }) {
         const existing = await store.getOrder(clientKey).catch(() => { throw Object.assign(new Error("db"), { status: 503 }); });
         if (existing) return send(200, { ...existing, replay: true });
         let enriched;
-        try { enriched = await callEnricher(env, { clientKey, sku, qty }); } catch { return send(502, { error: "enricher_unreachable" }); }
+        try { enriched = await enrich({ clientKey, sku, qty }); } catch { return send(502, { error: "enricher_unreachable" }); }
         if (enriched.status !== 200) return send(enriched.status === 422 || enriched.status === 400 ? enriched.status : 502, { error: "enricher_refused" });
         let result;
         try {

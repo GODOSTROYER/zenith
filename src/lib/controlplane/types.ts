@@ -299,6 +299,7 @@ export interface CapabilityGrantClaims {
  * secret values; `data` is a redacted, bounded summary.
  */
 export type PlatformEventType =
+  | "workspace.mfa_controls_changed"
   | "operation.proposed"
   | "operation.prepared"
   | "operation.approved"

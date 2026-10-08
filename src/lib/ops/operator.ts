@@ -16,12 +16,16 @@ import { sameOrigin } from "@/lib/waitlist/http";
 import { opsAdminIds } from "./config";
 import { platformConfigured } from "./runtime";
 import type { Sql } from "@/lib/controlplane/types";
+import { requireStepUp } from "@/lib/auth/mfa";
 
 export async function requireOpsOperator(request: NextRequest, mutating: boolean): Promise<{ id: string }> {
   const user = await sessionUserFromRequest(request);
   if (!user) throw new ApiError("Sign in to manage platform operations.", 401);
   if (!opsAdminIds().has(user.id)) throw new ApiError("Platform operator access is required.", 403, { fix: "Ask an operator to add your user id to ZENITH_OPS_ADMIN_IDS." });
-  if (mutating) sameOrigin(request);
+  if (mutating) {
+    sameOrigin(request);
+    await requireStepUp(request, { subject: user.id });
+  }
   return { id: user.id };
 }
 

@@ -293,7 +293,9 @@ export function projectLegacyDeployment(dep: LegacyDeploymentLike, linked?: Plat
   const steps: JourneyStep[] = [...dep.steps]
     .sort((a, b) => a.seq - b.seq)
     .map((s) => ({ id: s.id, title: s.title, state: stage === "uncertain" && s.status === "running" ? "uncertain" : LEGACY_STEP_STATE[s.status], ...(s.status === "failed" ? { detail: "Stopped here. See the deployment log." } : {}) }));
-  const cancellable = base ? base.cancel : { available: false, reason: dep.executor === "workflow" ? "Open the linked platform operation to cancel." : "The in-process engine does not support cancelling from this screen." };
+  const cancellable = base ? base.cancel : dep.executor === "workflow"
+    ? { available: false, reason: "Open the linked platform operation to cancel." }
+    : { available: !TERMINAL.has(stage), reason: TERMINAL.has(stage) ? "This deployment has finished." : undefined };
   return make("legacy_deployment", dep.id, stage, { steps: steps.length ? steps : base?.steps, cancel: cancellable, reviewDigest: base?.reviewDigest, ...(base && base.stage === "uncertain" ? { nextSteps: base.nextSteps } : {}) });
 }
 

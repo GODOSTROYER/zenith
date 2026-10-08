@@ -8,6 +8,7 @@ import { execFile } from "node:child_process";
 import { chmod, lstat, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
+import { Duplex } from "node:stream";
 import { join } from "node:path";
 import { createSecureContext, TLSSocket } from "node:tls";
 import { spawnMysqlCli, type CliResult } from "@/lib/portability/engines/mysql";
@@ -40,11 +41,19 @@ interface Fixture {
 
 async function fixture(key: Buffer, cert: Buffer, tls = true): Promise<Fixture> {
   const sockets = new Set<Socket>();
+  const closedSockets = new WeakMap<Socket, Promise<void>>();
+  const trackSocket = (socket: Socket): void => {
+    sockets.add(socket);
+    // Stream.closed may precede the close event; cleanup awaits that event for
+    // both the TLS wrapper and its underlying raw socket.
+    closedSockets.set(socket, new Promise<void>((resolve) => socket.once("close", () => { sockets.delete(socket); resolve(); })));
+    socket.on("error", () => undefined);
+  };
   const state = { connections: 0, encryptedAuth: 0, plaintextAuth: 0, queries: 0, versionComments: 0, syntaxProbes: 0 };
   const context = createSecureContext({ key, cert, minVersion: "TLSv1.2" });
   const server: Server = createServer((socket) => {
     state.connections++;
-    sockets.add(socket); socket.on("close", () => sockets.delete(socket)); socket.on("error", () => undefined);
+    trackSocket(socket);
     socket.setTimeout(5000, () => socket.destroy());
     socket.write(greeting(tls));
     let bytes = Buffer.alloc(0);
@@ -65,8 +74,11 @@ async function fixture(key: Buffer, cert: Buffer, tls = true): Promise<Fixture> 
       // bytes to the same socket before installing its TLS record parser.
       socket.pause();
       if (bytes.length > 36) socket.unshift(bytes.subarray(36));
-      const secure = new TLSSocket(socket, { isServer: true, secureContext: context });
-      sockets.add(secure); secure.on("close", () => sockets.delete(secure)); secure.on("error", () => undefined);
+      // A generic duplex feeds the unshifted ClientHello to TLS; wrapping the
+      // native handle directly bypasses the raw socket's buffered tail.
+      const transport = Duplex.from({ readable: socket, writable: socket });
+      const secure = new TLSSocket(transport, { isServer: true, secureContext: context });
+      trackSocket(secure);
       secure.setTimeout(5000, () => secure.destroy());
       let encrypted = Buffer.alloc(0);
       let authenticated = false;
@@ -111,10 +123,11 @@ async function fixture(key: Buffer, cert: Buffer, tls = true): Promise<Fixture> 
     try {
       await new Promise<void>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error("Owned MySQL TLS listener cleanup was unconfirmed.")), 5000);
-        const drained = [...sockets].map((s) => new Promise<void>((done) => {
-          if (s.closed) { done(); return; }
-          s.once("close", done); s.destroy();
-        }));
+        const drained = [...sockets].map((s) => {
+          const closed = closedSockets.get(s)!;
+          s.destroy();
+          return closed;
+        });
         const stopped = new Promise<void>((done, fail) => server.close((err) => {
           if (err && (err as NodeJS.ErrnoException).code !== "ERR_SERVER_NOT_RUNNING") fail(new Error("Owned MySQL TLS listener cleanup failed."));
           else done();

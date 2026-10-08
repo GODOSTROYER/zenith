@@ -1,0 +1,124 @@
+{
+  "schema": "zenith.scoped-native-verification.v1",
+  "requirement": "PROD-LIFE-11",
+  "date": "2026-10-08",
+  "scope": "Original owned MinIO TLS DNS transport cases using genuine native MinIO and the production S3 adapter; resolver answers are controlled by the unchanged tests.",
+  "testedSource": {
+    "commit": "5687c3bea1a5c6288199c9fef885de97c5dce5f9",
+    "trackedCleanBeforeAndAfter": true,
+    "sourceHashes": {
+      "tests/portability/dns-transport-native.test.ts": "f8fe3eee7499c1c26e5f6cbe40653d807b0970aed3e1a0270108ed954211c571",
+      "src/lib/portability/adoption.ts": "04b1cfc958a9ec5fd38d8bffbf0ba474a509280499a4c506aafa110bf9bf83f8",
+      "src/lib/portability/artifact.ts": "66d06ebbeed587cabfaba7e56d8ef5327f1d2586494fdd547d03c8cce8b933b0",
+      "src/lib/portability/connect.ts": "85c22d618579f228e68ceaad52aa75f64b0d06ab968b1499703995741cd209d2",
+      "src/lib/portability/decommission.ts": "7d57271445807dbff91f3a607f7ca430e970656f9515ab69f8ced54a702025eb",
+      "src/lib/portability/engines/mysql-inprocess.ts": "feadcd14dfaf6fafdfb29e5d32f3893bf52dbfae0d9e6570b1608e29ae1725bc",
+      "src/lib/portability/engines/mysql.ts": "883e1867b77d8723b6a4803673eade4e07e9f7eede0706249d72ec031a9cd6b3",
+      "src/lib/portability/engines/objectstore.ts": "d0f4e5f2f50f1700200a0d6452608d021f033c6acab64af28f1ef06055489d1f",
+      "src/lib/portability/engines/postgres.ts": "52749e8d41adc551601faeb0271e4121f6160fa72fdd7207235d315f37db7d19",
+      "src/lib/portability/engines/s3.ts": "23261688f05051bb58e0105479ca71c43428feb4deee6975be3f4d7d9078b203",
+      "src/lib/portability/inputs.ts": "c734fa0cf0f19fd61d366cfd0e54259071eac32efda1d76537f3c95989e0519c",
+      "src/lib/portability/matrix.ts": "f20aaa2661b7f6a3090000149e33c1c47793929f6b679ccc193f9f1c1a620486",
+      "src/lib/portability/net.ts": "2d8a21d40417b19fb5b0f68b140c200ec24458af3af724c8d0b749b435d7dc7e",
+      "src/lib/portability/service.ts": "8a88d23def0af0594af56246de8c0f414aaf68c0b5b4e57748d7311fafe77745",
+      "src/lib/portability/start.ts": "dc36f1238c7b84e91d4af17cfab2cc11f8b5d26a34eb951d048cb7a1dfe6e242",
+      "src/lib/portability/types.ts": "e59beb5e38afa1af393f6dc1b7eb253ccbcd7ec12ccf07933478504fdf19e0a1"
+    }
+  },
+  "controller": {
+    "sha256": "81dd637781f9e6778445b400a4cf2be8f2de273395e2273b01294e25f98c0b79",
+    "independentSourceReview": "accepted",
+    "change": "Only original hostname and matching certificate CN/DNS SAN/strict preflight changed from localhost to portability-fixture.example. Literal-loopback administration/readiness remains unchanged."
+  },
+  "engine": {
+    "name": "Genuine MinIO RELEASE.2025-09-07T16-13-09Z native Darwin ARM64",
+    "sha256": "7c3b3039b76e55a1b80935848ed83998d5e8d317374f87851f46a019ff5c0aa4",
+    "unchangedAfterRun": true,
+    "nodeVersion": "v22.23.3",
+    "actualMinIOHeaderObserved": true,
+    "verifiedTLSLiteralIPReadiness": true,
+    "strictCertificateNames": [
+      "portability-fixture.example",
+      "127.0.0.1",
+      "::1"
+    ],
+    "freshOwnedBucketsVerified": true
+  },
+  "result": {
+    "processExitCode": 0,
+    "requiredPassed": 3,
+    "requiredFailed": 0,
+    "requiredSkipped": 0,
+    "cases": [
+      {
+        "suite": "owned MinIO TLS DNS transport",
+        "title": "exports actual MinIO bytes and imports them with a fresh independent production-adapter readback",
+        "status": "passed"
+      },
+      {
+        "suite": "owned MinIO TLS DNS transport",
+        "title": "refuses rebinding after public preflight without connecting to actual MinIO",
+        "status": "passed"
+      },
+      {
+        "suite": "owned MinIO TLS DNS transport",
+        "title": "revalidates a retry after a real MinIO TLS connection closes",
+        "status": "passed"
+      }
+    ],
+    "filteredPostgresSiblingCases": {
+      "count": 3,
+      "rawAssertionStatus": "skipped",
+      "reportNumPendingTests": 3,
+      "reason": "PostgreSQL prerequisites were not supplied and only the MinIO suite was selected.",
+      "notEvidenceOfPostgresExecution": true
+    },
+    "discoveredCases": 6
+  },
+  "predecessor": {
+    "preserved": true,
+    "controllerSha256": "9f6adc8c00f9971128177b4b3ede6eda0b1dda1f1b58f946c2dc0c33cbd5226b",
+    "passed": 2,
+    "failed": 1,
+    "filteredPostgresSiblings": 3,
+    "exitCode": 1,
+    "failedCase": "refuses rebinding after public preflight without connecting to actual MinIO",
+    "failure": "Expected two controlled lookups; observed zero. localhost is refused before lookup when allowPrivate is false.",
+    "cleanupComplete": true,
+    "receiptSha256": "df2795936b9b139b5b44c3df0f40ff6b18815b5a6b15d80b940a4cb17d4488ec",
+    "reportSha256": "94e5c0e0ac627cbf3bfa60fccfe624ddf3a0349322e998bd3ef8b4b87149eb19"
+  },
+  "diagnosis": {
+    "productionGuard": "src/lib/portability/net.ts:76,94 rejects localhost before lookup at line97 when allowPrivate:false.",
+    "caller": "src/lib/portability/engines/s3.ts:125 preflights the original endpoint hostname.",
+    "unchangedAssertion": "tests/portability/dns-transport-native.test.ts:111-115 retains invalid_input, zero TLS connections and exactly two controlled lookups.",
+    "productionChanges": false,
+    "assertionChanges": false,
+    "systemDNSOrHostsChanges": false
+  },
+  "cleanup": {
+    "serverExitCode": 0,
+    "ownedChildGroupsDrained": true,
+    "listenerClosureConfirmedByController": true,
+    "inodeCustodyCheckedBeforeWipe": true,
+    "ownedPathsRemoved": true,
+    "independentCurrentOwnedPathsAbsent": true,
+    "independentRecordedServerProcessGroupAbsent": true,
+    "temporaryCredentialsAndCertificatesRemoved": true
+  },
+  "resources": {
+    "continuousFloorBytes": 23622320128,
+    "minimumFreeBytes": 25408585728,
+    "floorSatisfied": true
+  },
+  "privateArtifacts": {
+    "receiptSha256": "edcc4e0b9896277fd74d224aa7888bf308d7b8db00fe1bea0b6f88f4a72e4458",
+    "testReportSha256": "7da76671f9ebc2bf0f25e02870387c0d704559491359571e5cb0fd92ac42e950",
+    "rawLogsAndCredentialsExcluded": true
+  },
+  "limits": [
+    "This selected MinIO scope does not establish all portability cases passed.",
+    "The three PostgreSQL siblings were skipped, not executed by this invocation.",
+    "No cloud IAM, system DNS, default-product environment or previous-release compatibility acceptance is claimed."
+  ]
+}

@@ -35,7 +35,7 @@
     "dockerStorage": "Check host free bytes before and during image gates. Remove owned test images, containers, volumes and dedicated build cache after runs. Preserve unrelated services/data; one heavy process.",
     "minimumFreeGiBBeforeImageGate": 18,
     "localDefaultStackDiskFloorGiB": 22,
-    "localDefaultStackProfile": "reduced-resource local profile on this Mac only; one heavy workload; Docker6GiB/swap4GiB; no unrelated cleanup"
+    "localDefaultStackProfile": "reduced-resource local profile on this Mac only; one heavy workload; Docker4GiB/swap4GiB;22GiB floor; no unrelated cleanup"
   },
   "evidenceLevels": [
     "contract",
@@ -1316,6 +1316,51 @@
             "architecture": "native Darwin ARM64"
           },
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-integrated-native-successors.json"
+        },
+        {
+          "level": "contract",
+          "commit": "125473355a55d696666cfaaada635d8cfec0280e",
+          "result": "Exact reviewed predicate move preserves every gate; root full293 gate and160 report cases passed, zero failures/skips, compiler4GiB/lint0. Tests executed on frozen worker packet before commit with exact content parity at integration.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-gate-title-performance.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "125473355a55d696666cfaaada635d8cfec0280e",
+          "result": "Current local kind provider6/0/0 release1/0/0 guest42/7/0; all56 identities matched. Guest broker cause not proven. Original failure preserved; separate custody-checked cleanup confirmed all owned resources absent, baseline untouched. No promotion.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-kind56-125473-failure.json"
+        },
+        {
+          "level": "local_cluster",
+          "commit": "ddc27415f77c090cd9d26423c7cf9a1eaf519d92",
+          "integratedCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",
+          "result": "Provider6/release1/guest49 passed,0 failures/skips; all12 relevant inputs match integration; owned cleanup confirmed. Local kind ARM64 only; default browser/CNI and full candidate gates open.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-kind56-read-minter-successor.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "455d12e547c4cfdd42a050a0bb6a68167a6a038e",
+          "result": "20/20 terminal jobs succeeded; unit21826 passed/0 failed/1637 skipped; platform3762/0/15, all1146 required; workflows1378/0/0, all105 required; nativeAMD64 and ARM64 workers each22/0/0 with cleanup. Counts overlap. Default Mac acceptance and external scopes remain open.",
+          "command": "Inspect every exact-source job and canonical exported execution/source/environment artifacts for three terminal runs",
+          "environment": "GitHub hosted canonical Linux Node22.23.3; separate native Linux AMD64 and ARM64 workers, native Linux systemd and Windows ACL; no emulation claimed",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-ci-455d12e5.json",
+          "runId": 37720373970,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37720373970"
+        },
+        {
+          "level": "local_engine",
+          "commit": "e5c4f325c1f0a5d373617a9a62211e1b3e4eafb9",
+          "result": "Native reduced-resource Next child0 in160.27s; original assembly parent1 preserved. Separate APFS materialization parent0 in86.03s,68529 files,71 public/328 static,73 groups absent, source/dependencies unchanged, no external links/hardlinks. Not test counts/default startup/fresh install/shipped topology.",
+          "command": "Reviewed frozen native Next controller followed by independently reviewed APFS artifact materializer",
+          "environment": "Native Darwin ARM64, Node22.23.3, Next15.5.27, heap4096MiB, private cache=false/cpus1/webpackBuildWorker=true; continuous22GiB floor",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-next-resource-and-closure.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "40c53c943d81e6530303e0d03b44ff3eaa89a024",
+          "result": "Root actualTemporal1/0/0 after reviewed test-only semantics repair; failed10ec0/1/0 preserved. NativePG at10ec57/0/0 (1native/56controls), all79 inputs unchanged at40c; localTofu at10ec10/0/0 with originalparent1 and separateempty-cache cleanup resolution; SSMrealHCL at40c1selectedpass/95filtered siblings. Source scopes remain separate; no broad skip closure or default-stack claim.",
+          "command": "Owned serial native OpenTofu, Temporal and PostgreSQL controllers; exact commands/identities retained in sanitized receipt",
+          "environment": "Native Darwin ARM64 Node22.23.3,OpenTofu1.12.5,PostgreSQL16.15,real localTemporal time-skipping binary; Docker unused, no cloud calls; strict22GiBfloor",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-real-skipped-successors.json"
         }
       ],
       "requiredEvidence": [
@@ -1690,6 +1735,16 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-9b568108-ci-jobs.json",
           "runId": 37663658515,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37663658515"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "455d12e547c4cfdd42a050a0bb6a68167a6a038e",
+          "result": "20/20 terminal jobs succeeded; unit21826 passed/0 failed/1637 skipped; platform3762/0/15, all1146 required; workflows1378/0/0, all105 required; nativeAMD64 and ARM64 workers each22/0/0 with cleanup. Counts overlap. Default Mac acceptance and external scopes remain open.",
+          "command": "Inspect every exact-source job and canonical exported execution/source/environment artifacts for three terminal runs",
+          "environment": "GitHub hosted canonical Linux Node22.23.3; separate native Linux AMD64 and ARM64 workers, native Linux systemd and Windows ACL; no emulation claimed",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-ci-455d12e5.json",
+          "runId": 37720373970,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37720373970"
         }
       ],
       "requiredEvidence": [
@@ -2998,6 +3053,40 @@
             "architecture": "native Darwin ARM64"
           },
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-integrated-native-successors.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "60d78730a148f175e0d63c3be4c600545fdf43d0",
+          "result": "Fresh original MySQL TLS protocol6 passed/0 failed/0 skipped, parent0/source-bound/all owned cleanup. Preintegration worker6/0/0, compiler4GiB0/lint0 after preserved2/3GiB OOM. Native5687 PG2/DNS3/MinIO3 passed in separate artifacts; not engine/provider proof from protocolfixture or whole lifecycle promotion.",
+          "environment": {
+            "node": "22.23.3",
+            "mysql": "9.6.0",
+            "openssl": "3.6.5",
+            "architecture": "native Darwin ARM64"
+          },
+          "artifact": "docs/build/production/evidence/PROD-LIFE-11/2026-10-08-native-mysql-cli-fixture-successor.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "5687c3bea1a5c6288199c9fef885de97c5dce5f9",
+          "result": "Native PostgreSQL selected2+3 cases passed, parent0/source binding/all owned cleanup;12+3 filtered siblings separate.22 guard controls separate; failed predecessors retained.",
+          "environment": {
+            "node": "22.23.3",
+            "postgres": "16.15",
+            "architecture": "native Darwin ARM64"
+          },
+          "artifact": "docs/build/production/evidence/PROD-LIFE-11/2026-10-08-native-postgres-atomic-successors.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "5687c3bea1a5c6288199c9fef885de97c5dce5f9",
+          "result": "Genuine native MinIO selected3 passed/0 failed/0 required skipped;3 filtered PG siblings, parent0/source-bound/all owned cleanup; predecessor2/1 retained.",
+          "environment": {
+            "node": "22.23.3",
+            "postgres": "16.15",
+            "architecture": "native Darwin ARM64"
+          },
+          "artifact": "docs/build/production/evidence/PROD-LIFE-11/2026-10-08-native-minio-host-successor.json"
         }
       ],
       "requiredEvidence": [
@@ -3008,7 +3097,7 @@
       "testPaths": [],
       "followUps": [
         "Acceptance cleanup must preserve unresolved mutation blockers across original/follow-up CLI runs. No quiescence authority from terminal operation projection alone. Backup/export/import/adoption and live ownership-safe teardown remain incomplete.",
-        "MySQL DNS-hostname TLS targets explicitly refused: stock CLI cannot preserve original hostname certificate identity while connecting to validated IP. Literal-IP CA/IP-SAN acceptance executed. Hostname support and wider backup/adoption/decommission acceptance remain open; no downgrade or detached identity probe."
+        "Historical stock-CLI hostname refusal remains correct; current in-process mysql2 hostname transport passed native MySQL engine and six real-client TLS protocol controls in separate scopes. Stock CLI literal-IP identity stays enforced. Wider adoption/backup/decommission acceptance remains open."
       ]
     },
     {
@@ -3258,7 +3347,8 @@
         "local_engine"
       ],
       "owner": "root",
-      "testPaths": []
+      "testPaths": [],
+      "followUp": "Builder-owned security repair: underlying600-second-minimum Kubernetes bearer can exceed30\u2013599-second remaining signed grant/session; immutable absolute deadline and fail-closed admission required. See verify/WAVE3-BUILD-AGENT-BLOCKERS.md,8October finding."
     },
     {
       "id": "PROD-MACH-03",
@@ -5186,33 +5276,45 @@
     }
   ],
   "sessionState": {
-    "status": "verification_continuing_native_platform_repaired_transport_and_full_gate_pending",
-    "sourceCheckpoint": "871f73d91cbb1056f6a1830a0d5e361beb2aeacb",
+    "status": "kind56_passed_validator_repaired_successor_ci_and_default_stack_open",
+    "sourceCheckpoint": "455d12e547c4cfdd42a050a0bb6a68167a6a038e",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "dd8017ad8d8d7e2a08c2ad3a62346d88f3c15952",
-    "lastPushedRun": 37708661093,
-    "lastPushedRunStatus": "terminal_19_success_1_failure_across20_jobs",
+    "lastPushedCommit": "455d12e547c4cfdd42a050a0bb6a68167a6a038e",
+    "lastPushedRun": 37720373970,
+    "lastPushedRunStatus": "in_progress_exact455d",
     "currentVerification": "docs/build/production/WIP-HANDOFF-2026-10-08.md",
     "remainingLocalPackets": {
-      "integratedRepairs": "95fd7cc5 backend labels;871f73d9 schedule fixture. Awaiting normal publication.",
-      "nativeEngines": "MySQL2/Rclone1 passed;MinIO2/1 failed;PG2 cleanup failed;PGDNS3 pending."
+      "integratedRepairs": "12547335 validator performance;0f995b44 exact kind read ceiling. Normal publication pending.",
+      "nativeBuild": "Fresh455d build failed diskfloor23518019584bytes, child143; separate native-group proof and bounded runtime cleanup succeeded, recovered1011752960bytes. Raw/auth/controllers preserved; older unregistered attempt untouched.22.84GiBfree insufficient measured build/cold-stack headroom.",
+      "defaultStackPreparation": "Private source-bound preparation:25 SQL and43 migration files independently matched; five ARM64 registry manifests,753049784 compressed bytes. Expanded storage/cold admission unproved, no pulls/startup. Reduced profile deviates from shipped installer."
     },
     "permissions": {
       "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Arnav Bule.",
       "pending": "Live cloud calls/spend, real DNS/private GitHub App configuration, destructive retention/business/production sign-off."
     },
     "releaseVerdict": "10 verified /49 in_progress /19 planned; all four release flags false; no promotion.",
-    "next": "Publish integrated repairs/context, inspect fresh CI; continue MinIO and PostgreSQL custody diagnosis.",
+    "next": "Publish reviewed validator/kind fixes and inspect every new CI job. Resolve native build controller custody failure; continue authorized default Mac acceptance. Builder owns MACH02 bearer deadline repair.",
     "completedLocalKind": {
-      "sourceCommit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
-      "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-07-kind55-f582e193.json",
+      "sourceCommit": "ddc27415f77c090cd9d26423c7cf9a1eaf519d92",
+      "integratedRootCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",
+      "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-kind56-read-minter-successor.json",
       "cleanupComplete": true,
-      "scope": "Local provider6/release1/guest48 only; default CNI/PGlite tenant-ledger limits retained"
+      "scope": "Provider6/release1/guest49 all passed; local kind/PGlite/signed fixture limits retained."
     },
     "recordedAt": "2026-10-08",
     "nativeRun": 37578066955,
-    "cleanup": "Successful platform/reconciliation/MySQL/Rclone and failed MinIO cleaned. PostgreSQL TLS fixture stopped but owned data retained after custody refusal.",
-    "nativeSkippedPlatformsRun": 37578066934
+    "cleanup": "Fresh native fixtures/kind cleaned. Failed Next4968runtime removed only after independently proven group absence and frozen custody; nine outside-runtime files unchanged. Older559a/failedPGdatasets retained. Storagehelper0safeextra.",
+    "nativeSkippedPlatformsRun": 37578066934,
+    "lastPushedUnitResult": {
+      "passed": 21825,
+      "failed": 1,
+      "skipped": 1637,
+      "failure": "tests/ci/gate-manifest.test.ts:1736 exhaustive negative-control timeout20000ms",
+      "downstreamUnexecuted": [
+        "Smoke",
+        "Verify Gimbal assets"
+      ]
+    }
   },
   "sessionHistory": [
     {

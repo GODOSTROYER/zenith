@@ -6292,11 +6292,11 @@ export function canonicalSuite(value) {
 
 export function assertionMatches(required, assertion) {
   if (!assertion || typeof assertion.fullName !== "string") return false;
+  if (required.test && assertion.title !== required.test) return false;
   const ancestors = Array.isArray(assertion.ancestorTitles) ? assertion.ancestorTitles : [];
   if (required.suite && !ancestors.some((title) => typeof title === "string" && canonicalSuite(title) === canonicalSuite(required.suite))) return false;
   if (required.ancestorSuite && !ancestors.some((title) => typeof title === "string" && canonicalSuite(title) === canonicalSuite(required.ancestorSuite))) return false;
   if (required.excludeSuites?.some((suite) => ancestors.includes(suite))) return false;
-  if (required.test && assertion.title !== required.test) return false;
   if (!required.postgres) return true;
   // Prefer suite ancestry. A test title mentioning PostgreSQL cannot turn a
   // PGlite suite into real-engine evidence. Older reports omit the ancestry.

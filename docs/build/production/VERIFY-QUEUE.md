@@ -1,3 +1,29 @@
+## Results update: real skipped cases, 8 October 2026
+
+- PROD-CI-08: five formerly excluded engine identities executed in their exact scopes; Temporal fixture fixed40c53c94/root1/0/0, Tofu10/0/0 and nativePG57/0/0 source10ec, SSM1selected/95filtered source40c. [Results](verification/RESULTS-2026-10.md#real-skipped-case-successors-8-october-2026). No project-wide zero-skip claim; full default acceptance still open.
+
+## Results update, 8 October 2026
+
+- PROD-CI-08: complete remote gate passed on455d12e5,20/20jobs; unit21826/0/1637. Native e5c4 reduced-resource compilation and independent artifact assembly passed their scoped child/closure checks; default-stack acceptance resource-blocked. [Results](verification/RESULTS-2026-10.md#green-tested-ci-and-native-artifact-progress-8-october-2026).
+- PROD-CI-09: exact455d12e5 nativeAMD64/ARM64 workers22/0/0 each, all cleanup; new publication CI remains pending. [Every job](verification/CI-2026-10-08-455d12e5.md). Broader requirement states unchanged.
+
+## Results, 8 October kind successor and publication
+
+- PROD-CI-08 Results: integrated12547335 validator; 293 gate plus160 report controls, zero failures/skips. Exact5f4 CI19/20 succeeded; sole pre-repair timeout. New pushed CI pending.
+- PROD-MACH-01 Results: scoped kind provider6/release1/guest49 all passed on reviewedddc27415, relevant source parity with0f995b44 and owned cleanup confirmed. Broader evidence states unchanged.
+- PROD-MACH-02 Results: local kind49 passes do not verify underlying bearer expiry; independently confirmed builder-owned session-deadline security gap remains open.
+- Default Mac Results: fresh0f standalone controller exited1 before terminal receipt, PermissionError during process-group check; no build or cleanup pass claimed.
+
+## Current gate and kind results, 8 October 2026
+
+- PROD-CI-08: in_progress; unchanged title predicate reordered, all293 gate/160 report controls passed, compiler/lint0. Exact successor CI remains mandatory.
+- PROD-MACH-01: in_progress; current local kind guest42 passed/7 failed/0 skipped after successful verification. Actual mint reason pending; all original guards retained. Provider6/release1 passed separately; owned cleanup confirmed in a separate receipt.
+
+## Results, native transport successors, 8 October 2026
+
+- PROD-LIFE-11: in_progress; integrated60d78730 MySQL protocol6/0/0 and cleanup;5687 PG2/DNS3/MinIO3 selected cases passed with filtered siblings separate. Wider lifecycle remains open. [Results](verification/RESULTS-2026-10.md#native-transport-acceptance-successors-8-october-2026).
+- PROD-CI-08: in_progress; exact5687 native1146/workflows105 succeeded;19/20 jobs success, terminal verify failure:unit21825/1/1637, exhaustive gate-manifest timeout. Final integrated source/push CI pending.
+
 ## Results, integrated native checkpoint, 8 October 2026
 
 - PROD-CI-08: in_progress;871f73d9 native platform3762/0/15, all1146 required; new complete CI pending. [Results](verification/RESULTS-2026-10.md#integrated-native-verification-checkpoint-8-october-2026).

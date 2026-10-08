@@ -1,3 +1,21 @@
+## Compiler and release fixture successor, 8 October 2026
+
+Code `59fe02bee566b244dc458b33cc58e34281994078`. Heap guards120/0/0; compiler0 in12.62s; subsequent release fixture5/0/0. Counts overlap and evidence scopes differ. Complete gates/new CI/Linux runtime/default journeys pending. Ledger9 verified/67 in progress/2 planned; four release states false. [Evidence](evidence/PROD-CI-08/2026-10-08-heap-release-successor.json).
+
+## Reviewed verifier candidate integrated, 8 October 2026
+
+Code checkpoint `ea8f7093d01d0e1f40ee5a665d75e9a4461529eb` integrates scoped worker asset, Go inventory, historical fixture and route identity repairs. Root checks: actual native historical files107/0/0 with58 mandatory PostgreSQL cases; gate contracts671/0/0; route fixtures82/0/0; packaging models135/0/6; whole combined compiler0 in61.98s at5120MiB. Exact compiler inputs and all244 native runtime inputs match integrated bytes. Affected lint/syntax/diff checks passed; all packets independently reviewed. Counts overlap, not summed. Six packaging skips still need Linux execution; image/default Auth/live-cloud proof remains open.
+
+Latest published source0cc still has24-job10success/14failure CI. Previous105/2 native failure is preserved separately from corrected107/0/0. Current source needs complete gates and fresh pushed CI. Remaining source candidates: ownership concurrency/historical upgrade fixtures; resource/runtime work: nativeLinux supervisor6, signed runnerPID1, builds and actual default journeys. Dependency upgrade still awaits scope approval; live accounts remain unapproved.
+
+Ledger9 verified/67 in progress/2 planned across78 requirements; all criteria and four false release flags preserved. [Scoped integrated evidence](evidence/PROD-CI-08/2026-10-08-integrated-targeted-successor.json), [latest published CI](verification/CI-2026-10-08-0cc97c4a.md).
+
+## Verifier targeted fixes and complete CI inspection, 8 October 2026
+
+Integrated scope correction `a15dbd817f69976548b3e594777c205de352fa0c`: root174 passed/0 failed/0 skipped, reviewed, lint/diff0. Exact published0cc full24-job CI is terminal10 success/14 failure. Native historical4 candidate105/2/0, owned cleanup/source binding passed; two approval fixture setup mismatches remain under repair. Packaging asset candidate independently reproduced missing-asset failure1→0 and targeted135/0/6; six skips require Linux counterpart, full image/runtime acceptance remains open. Packaging and historical source candidates are not yet integrated.
+
+Ledger 9 verified/67 in progress/2 planned across78 requirements; four release flags remain false. Only test/fix work continues. [Every CI job](verification/CI-2026-10-08-0cc97c4a.md).
+
 ## Current c7 verifier repairs, 8 October 2026
 
 Integrated5e5417b9; CI08 root437/0/6, realfreshPG162/0/0(62native), authority92/0/0; compiler/lint/actionlint0. Linux/full/successorCI pending. CI07 reopened for new MCP advisory, upgrade permission pending. Ledger9/67/2 across78; four release states false. No requirement closed. [Exact current context](verification/VERIFIER-C7-REPAIR-PROGRESS-2026-10-08.md).

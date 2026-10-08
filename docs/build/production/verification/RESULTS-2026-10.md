@@ -940,3 +940,37 @@ Integrated `5072c4a0` (stable waitlist title) at `b5430146`, and `98a3f6f5` (bou
 - Exact9354CI: **19 successful jobs /one failed workflow job**, allterminal. Unit21828/0/1647; platformPG3772/0/15 with all1156mandatorygroups passed; workflow1376/0assertionfailures/2skipped, one failed suite and exit1. Native worker/platform job conclusions successful; per-case inspection remains distinct.
 
 Ledger remains **10verified /49in progress /19planned** across78rows; all four release states false. Default startup effects/browser journey, broader requirements and external blockers remain open. Fresh Next preparation for9354 becomes stale after integration and requires rebinding; older artifacts cannot verify changed source. Next step: fresh coherent fullunit/gates, exact pushed CI with diagnostics, then authorized default stack on this Mac.
+
+
+## CI workflow-data fixture repair, 8 October 2026
+
+Integrated `a15dbd817f69976548b3e594777c205de352fa0c` repairs the fresh `0cc97c4a` wave5 scope-coverage failure. The three new live-path strings in the release-gate test are parsed workflow YAML expectations, not live gate reads. Only that exact fixture is classified as release tooling; unrelated CI files and descendant paths remain scanned. Existing scope imports, known harness discovery, manifest exemptions and entrypoint authorization assertions are unchanged. Independent literal source review accepted SHA `67d9d419f3ed74fce5df30a651cec417c2b28c257d01f7bdf879f2912f6ee1b6`.
+
+Root executed both complete affected suites with supported Node 22.23.3 on native ARM64 macOS, serial files and one worker: release gates **120 passed / 0 failed / 0 skipped**; live scope **54 passed / 0 failed / 0 skipped**. Combined **174/0/0**; ESLint and diff check exited 0. The working source tested is byte-identical to the integrated change. [Sanitized scope evidence](../evidence/PROD-CI-08/2026-10-08-live-scope-fixture.json). No cloud calls, full-gate successor or requirement promotion is claimed. Fresh full CI remains incomplete and has unrelated failures.
+
+
+## Historical fixture native PostgreSQL rerun, 8 October 2026
+
+Root executed the four reviewed candidate files on exact `0cc97c4ad395aabd621167371e5fe1776a1cb956` plus the hashes in [failed-attempt evidence](../evidence/PROD-CI-08/2026-10-08-historical-fixtures-failed.json). Fresh source-bound preflight exited 0; actual PostgreSQL 16.15 applied the canonical 26 SQL files and platform schema 58. Complete affected suite: **105 passed / 2 failed / 0 skipped**, exit 1. Both schema12 tombstone tests returned zero rows from the explicitly historical approval fixture insertion. Cause remains under investigation; no assertion or authorization guard was relaxed. These four candidates remain unintegrated.
+
+Owned database/runtime/socket cleanup and final source binding passed. Root independently rechecked all 126 registered process groups absent. Minimum free disk 17,957,634,048 bytes, above the continuous 12 GB local test floor. This does not waive the separate 18 GiB packaged-worker prerequisite. Previous failed packets and logs remain private; no default-stack, live-cloud or requirement-completion claim.
+
+Subsequent source review identified the two failures: `OperationView` deliberately omits `inputDigest`, but the historical fixture used it as a SQL equality parameter. The resulting NULL matched no rows. Reviewed successor uses the actual workspace/operation-scoped SQL digests with proposal parity and 64-hex input assertions; every existing predicate remains. Successor source SHA `afea7bd31306514440566fcd6eb1aa239af6cedab8a2afb10c46032a8c25ca44` awaits execution. Failed receipt remains unchanged.
+
+
+## Integrated targeted successor, 8 October 2026
+
+Code checkpoint `ea8f7093d01d0e1f40ee5a665d75e9a4461529eb` includes scoped commits `19a2ae14` (canonical SLO asset), `7b9ae3e3` (required runner update package/six ordinary controls), `4acebfb9` (historical fixtures), and `ea8f7093` (MFA/bearer route fixtures), following scope correction `a15dbd81`. All source drafts were independently reviewed; root reran affected checks before committing.
+
+Actual historical PostgreSQL successor: **107 passed / 0 failed / 0 skipped**, including all **58 mandatory native cases** (migrations21, MCP1, read14, workflow22). Tested source is `a15dbd81` plus the four reviewed hashes; all244 runtime inputs remain byte-identical in this integrated checkpoint. Canonical26SQL/schema58, all37 child exits0, independent128groups absent, owned runtime/socket removal and listener refusal passed. Failed105/2 receipt remains unchanged; historical SQL setup is not modern human approval evidence.
+
+Root complete affected gate contracts **671/0/0**; route fixtures **82/0/0**; packaging source models **135/0/6**. Six packaging skips require Linux process execution. The actual native reduced worker COPY context failed without SLO JSON and passed after adding only the canonical asset; this is component bundling, not an image/runtime gate. Whole combined compiler passed with5120MiB heap in61.98s; all recorded compiler inputs remained unchanged through integration. Affected lint, manifest syntax and diff checks passed. Counts overlap and are not summed.
+
+[Sanitized integrated evidence](../evidence/PROD-CI-08/2026-10-08-integrated-targeted-successor.json). Complete local gates and fresh pushed CI remain open. Exact0cc24-job10/14 failures stay historical, not replaced by focused green. Remaining: ownership interleavings, nativeLinux6 and runnerPID1, build memory, agent/hosted/default journeys, approved dependency disposition and full gates. No requirement promotion or release sign-off.
+
+
+## Compiler heap and release fixture successor, 8 October 2026
+
+Integrated `59fe02bee566b244dc458b33cc58e34281994078`. Typecheck-only5120MiB heap fix preserves canonical command and all120 release-gate identities; root120/0/0, actionlint/lint/diff0. Full compiler passed in12.62s on ea8 plus exact reviewed heap change, cleanup/source binding passed. Subsequent single release fixture correction passed all5 cases and lint; compiler result does not include that later test edit. No Next/image/default journey acceptance claimed. Ownership concurrency, Linux6/PID1, full gates and fresh pushed CI remain pending. Historical0cc CI remains10 successful/14 failed jobs. Dependency disposition remains pending human scope approval.
+
+[Sanitized successor evidence](../evidence/PROD-CI-08/2026-10-08-heap-release-successor.json).

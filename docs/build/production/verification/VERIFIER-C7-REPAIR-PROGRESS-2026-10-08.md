@@ -21,3 +21,15 @@ Ledger **9 verified /67 in progress /2 planned** across78 unchanged requirements
 Remaining current verifier scope: native PostgreSQL, Linux supervisor/Go/packaged workers, historical fixture and ownership concurrency repairs, complete combined gates, exact pushed CI, authorized same-Mac default-stack/browser/scheduling acceptance. External18 still await scoped access and budgets; no live-cloud calls made.
 
 Current integrated source: `5e5417b943f08734ceeab90a003f97bccdd09d2c`. Seventeen repair paths integrated; no requirement/release promotion. [Native receipt](../evidence/PROD-CI-08/2026-10-08-c7-native-broker-leases.json). All counts retain separate overlapping scopes.
+
+
+## Integrated successor after targeted root verification
+
+`ea8f7093d01d0e1f40ee5a665d75e9a4461529eb` now integrates the reviewed asset/Go/historical/route candidates. Actual107/0/0/58native and all128 observed groups absent replace only the failed historical105/2 candidate; that failed receipt stays preserved. Rootcompiler5120MiB0/61.98s, gatecontracts671/0/0, route82/0/0 and packaging135/0/6 retain separate scopes. No full green. See integrated-targeted-successor RESULTS/evidence and exact published0cc CI10/14 report. Ownership5, nativeLinux6/runnerPID1, builds/defaultjourneys/security disposition and fullgates remain open.
+
+
+## Compiler heap and release fixture successor, 8 October 2026
+
+Integrated `59fe02bee566b244dc458b33cc58e34281994078`. Typecheck-only5120MiB heap fix preserves canonical command and all120 release-gate identities; root120/0/0, actionlint/lint/diff0. Full compiler passed in12.62s on ea8 plus exact reviewed heap change, cleanup/source binding passed. Subsequent single release fixture correction passed all5 cases and lint; compiler result does not include that later test edit. No Next/image/default journey acceptance claimed. Ownership concurrency, Linux6/PID1, full gates and fresh pushed CI remain pending. Historical0cc CI remains10 successful/14 failed jobs. Dependency disposition remains pending human scope approval.
+
+[Sanitized successor evidence](../evidence/PROD-CI-08/2026-10-08-heap-release-successor.json).

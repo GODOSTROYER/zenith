@@ -701,3 +701,9 @@ Run sequentially on the native Mac with Node 22, the owned lean profile (8 GB), 
 | PROD-REL-04 | `node scripts/ci/wave6-gates.mjs --requirement PROD-REL-04 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
 
 Live procedure: [one owner runbook](LIVE-ACCEPTANCE.md). All rows remain implementation_complete_verification_pending. Unsupported J2 scenario projections remain incomplete, never passed.
+
+Results: PROD-CI-08 remains in_progress. Published0cc full CI10 successful/14 failed jobs; a15 scope repair174/0/0; historical4 native candidate105/2/0 remains unintegrated. See verification/CI-2026-10-08-0cc97c4a.md and RESULTS-2026-10.md.
+
+Results: PROD-CI-08 remains in_progress at integratedea8f7093: native107/0/0 including58 required; contracts671/0/0; route82/0/0; packaging135/0/6; combinedcompiler0. Every broader gate/remainingLinuxcase/pushedCI still open. RESULTS integrated-targeted-successor section preserves source scope and prior failures.
+
+Results PROD-CI-08: `59fe02bee566b244dc458b33cc58e34281994078` integrates heap guard120/0/0, full compiler0 (before later release test edit), release fixture5/0/0. Complete gates/new CI/Linux/default journeys pending.

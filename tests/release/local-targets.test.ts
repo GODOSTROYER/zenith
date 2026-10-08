@@ -35,7 +35,10 @@ describe("local target boundaries", () => {
   });
   it("maps all nineteen scenarios, including joined journeys, to gated targets", () => {
     expect(Object.keys(LOCAL_TARGETS).sort()).toEqual(SCENARIOS.map(s => s.id).sort());
-    for (const scenario of SCENARIOS) expect(localTargetLane(scenario)).toMatchObject({ kind: "local_engine", gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT"], evidenceLabel: "local_rehearsal" });
+    for (const scenario of SCENARIOS) {
+      const operated = ["drift-repair", "crash-partition"].includes(scenario.id);
+      expect(localTargetLane(scenario)).toMatchObject({ kind: "local_engine", gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(operated ? ["ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "ZENITH_TEST_DRV2_OPERATED=1"] : [])], evidenceLabel: operated ? "local_operated_rehearsal" : "local_rehearsal" });
+    }
     expect(LOCAL_TARGETS["install"]).toMatchObject({ owner: "J1" });
     expect(LOCAL_TARGETS["machine-schedules"]).toMatchObject({ owner: "J4" });
   });

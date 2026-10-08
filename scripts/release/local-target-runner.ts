@@ -38,6 +38,12 @@ export async function runLocalScenario(scenarioId: string, receiptFile: string, 
   if (!target) throw new Error("Unknown local scenario");
   const sourceCommit = (await command(["git", "rev-parse", "HEAD"], env)).trim();
   if (!/^[a-f0-9]{40}$/.test(sourceCommit)) throw new Error("Source commit unavailable");
+  if (target.target === "operated-drv2") {
+    // Dedicated scenarios cannot be projected from the generic J2 journey.
+    if (scenarioId === "drift-repair") return (await import("./drivers/drift-repair")).driftRepairDriver(receiptFile, env);
+    if (scenarioId === "crash-partition") return (await import("./drivers/crash-partition")).crashPartitionDriver(receiptFile, env);
+    throw new Error("Unknown operated driver");
+  }
   if ("driver" in target && target.driver) {
     if (!existsSync(target.driver) || rawEnv.ZENITH_LOCAL_JOINED_DRIVERS !== "1") {
       process.stderr.write(`not run: needs ${target.driver} (${"owner" in target ? target.owner : "join"}), ZENITH_LOCAL_JOINED_DRIVERS=1, and the default local stack\n`);

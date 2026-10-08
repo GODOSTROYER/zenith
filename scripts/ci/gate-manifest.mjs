@@ -6043,6 +6043,18 @@ export function workflowHistoryReplayStatus(root = process.cwd(), committedInven
 }
 
 export const GATE_LANES = {
+  "drv2-drift-repair": {
+    files: ["tests/acceptance/drift-repair.operated.test.ts"],
+    env: { ZENITH_TEST_DRV2_OPERATED: "1", ZENITH_LOCAL_TARGETS: "1", ZENITH_LOCAL_JOINED_DRIVERS: "1", ZENITH_ACCEPTANCE_DEFAULT_STACK: "1", ZENITH_DEFAULT_JOURNEY: "1" },
+    report: ".data-ci-lane/drv2-drift-repair.json", tools: { node: "22.23.3" },
+    prerequisites: ["Native Mac ARM64, Node22, Docker Desktop4GiB, Chromium with the J1 CA trusted, kind and kubectl", "Fresh owned lean J1 stack and J2 prepared kind fixture; driver consumes and cleans both", "Private ZENITH_LOCAL_ROOT, ZENITH_LOCAL_RUN_ID, ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR and ZENITH_LOCAL_JOURNEY_CONFIG_FILE; see verify/DRV-2.md", "No live credentials or provider API; local_operated_rehearsal receipts only"],
+  },
+  "drv2-crash-partition": {
+    files: ["tests/acceptance/crash-partition.operated.test.ts"],
+    env: { ZENITH_TEST_DRV2_OPERATED: "1", ZENITH_LOCAL_TARGETS: "1", ZENITH_LOCAL_JOINED_DRIVERS: "1", ZENITH_ACCEPTANCE_DEFAULT_STACK: "1", ZENITH_DEFAULT_JOURNEY: "1" },
+    report: ".data-ci-lane/drv2-crash-partition.json", tools: { node: "22.23.3" },
+    prerequisites: ["Native Mac ARM64, Node22, Docker Desktop4GiB, Chromium with the J1 CA trusted, kind and kubectl", "Fresh owned lean J1 stack and J2 prepared kind fixture; driver consumes and cleans both", "Run after the drift fixture has been removed, with a new runId/root/stack/config; see verify/DRV-2.md", "No live credentials or provider API; local_operated_rehearsal receipts only"],
+  },
   "wave5-contract": {
     files: WAVE5_CONTRACT_FILES.filter(file => !file.startsWith("tests/adversarial/")), env: {}, report: ".data-ci-lane/wave5-contract.json",
     tools: { node: "22.23.3", go: "1.27.1" }, prerequisites: ["Node 22.23.3", "Go1.27.1 at ZENITH_TEST_GO, GOTOOLCHAIN=local for SBOM build-info", "Local PGlite/contract tests; provider protocols are modeled"],
@@ -6387,6 +6399,10 @@ export function requirementsFor(lane, root) {
   if (lane.startsWith("wave6-")) return wave6Manifest(lane, root).requirements;
   let requirements;
   switch (lane) {
+    case "drv2-drift-repair":
+    case "drv2-crash-partition":
+      requirements = [{ file: `tests/acceptance/${lane.slice(5)}.operated.test.ts`, suite: "DRV-2 owned operated scenarios", test: `${lane.slice(5)} produces complete local_operated_rehearsal evidence and owned cleanup` }];
+      break;
     case "wave5-contract":
       requirements = WAVE5_CONTRACT_FILES.filter(file => !file.startsWith("tests/adversarial/")).map(file => ({ file }));
       break;

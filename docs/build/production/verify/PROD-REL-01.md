@@ -1,5 +1,7 @@
 # PROD-REL-01: Required end-to-end release evidence
 
+DRV-2 now builds dedicated operated drift-repair and crash-partition drivers. Exact separate lean-profile Mac setup, gated commands, strict receipt validation and owned cleanup are in [DRV-2](DRV-2.md). Offline build proof does not promote either scenario to operated or live acceptance.
+
 ## L1-LIVE-AWS provider slice (8 October 2026)
 
 Acceptance: Clean install/private source/plan approval/DNS-TLS/stateful traffic/update-rollback/machine schedules/drift-repair/revocation/crash-partition-writers/key rotation/upgrade/restore/mixed traffic/two tenants/export/teardown independently verified.

@@ -1266,7 +1266,7 @@ describe("generated recovery clients", () => {
       const bin = path.join(scratch, "bin"), capture = path.join(scratch, "arguments");
       fs.mkdirSync(bin);
       fs.writeFileSync(path.join(bin, "docker"), `#!/usr/bin/env bash\nprintf '%s\\n' "$@" > "$CAPTURE"\n`, { mode: 0o700 });
-      const env = { PATH: `${bin}${path.delimiter}${process.env.PATH}`, RUNNER_TEMP: scratch,
+      const env = { NODE_ENV: "test", PATH: `${bin}${path.delimiter}${process.env.PATH}`, RUNNER_TEMP: scratch,
         GITHUB_WORKSPACE: process.cwd(), GITHUB_ENV: path.join(scratch, "env"), CAPTURE: capture };
       expect(spawnSync("bash", ["-c", step!.run!], { env, encoding: "utf8" }).status).toBe(0);
       for (const tool of ["pg_dump", "pg_restore"]) {

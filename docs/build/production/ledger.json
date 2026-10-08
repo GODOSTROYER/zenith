@@ -1414,14 +1414,14 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "migration42_repaired_native_verified_whole_ci_failed_9b568108",
+      "implementationStatus": "verified_b9191887_entire20_job_cohort_observed_new_diagnostic_publication_pending",
       "evidence": [
         {
           "level": "remote_ci",
@@ -1779,6 +1779,16 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-ci-455d12e5.json",
           "runId": 37720373970,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37720373970"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "b9191887378ffad6a889194c7b43efdfa943851d",
+          "result": "20/20 terminal jobs succeeded; unit21826/0/1637; all seven canonical mandatory sets passed, native AMD64+ARM64 workers each22/0/0, agentbrowser44/0. Counts overlap. New local diagnostic source is separate and awaits its pushed CI.",
+          "command": "Inspect every exact-source terminal job, raw verify log, canonical artifacts and native receipts across three runs",
+          "environment": "GitHub-hosted Linux/Windows; native AMD64 and ARM64 worker evidence separate; no emulation or live-cloud acceptance inference",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-08-ci-b9191887-final.json",
+          "runId": "37730455416",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416"
         }
       ],
       "requiredEvidence": [
@@ -1787,7 +1797,7 @@
       "owner": "root",
       "testPaths": [],
       "followUps": [
-        "Observe complete pushed correction including actual current native guest execution. Historical green commits remain distinct; all external release acceptance remains open."
+        "Observe the next integrated diagnostic publication on its exact SHA. Historical b91920/20 and native local44 scope do not verify later commits or close external release requirements."
       ]
     },
     {

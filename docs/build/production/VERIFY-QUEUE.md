@@ -1,3 +1,7 @@
+## Results: green published baseline, 8 October 2026
+
+Results: PROD-CI-09 verified for exact b9191887 after 20/20 terminal jobs; CI08 remains in_progress. Later root 74729261 native browser 44/0/0 is separately accepted, fresh diagnostic publication CI pending. Original bootstrap/default-stack and external gates stay open. [Every job](verification/CI-2026-10-08-b9191887.md), [current evidence](verification/RESULTS-2026-10.md#green-published-baseline-and-integrated-browser-diagnostics-8-october-2026).
+
 ## Publication context, 8 October 2026
 
 Results: PROD-CI-08 remains in_progress; b420d0e1 terminal19/20 jobs, browser43/1, unit21826/0/1637. Provenance fix41333416 focused24/0/0; nativeTofu17/0/0. Two partial Mac browser attempts failed and were cleaned. Isolated diagnostic packetd887c7b7 is reviewed but not integrated or executed. See [current context](WIP-HANDOFF-2026-10-08.md) and [CI jobs](verification/CI-2026-10-08-b420d0e1.md).

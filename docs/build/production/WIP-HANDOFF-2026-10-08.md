@@ -1,3 +1,9 @@
+## Green published baseline and integrated browser diagnostics, 8 October 2026
+
+Exact published `b9191887378ffad6a889194c7b43efdfa943851d` finished **20/20 jobs successfully** across all three CI runs. Unit: **21,826 passed / 0 failed / 1,637 skipped**, 2,142.21 seconds. Compiler, lint, Smoke happy/failure-rollback and Gimbal passed. All seven canonical required sets passed. Native AMD64 and ARM64 workers each passed 22/0/0 with cleanup; agent browser passed 44/0. [Every job and evidence scope](verification/CI-2026-10-08-b9191887.md). Counts overlap and are not summed; skipped identities are not erased.
+
+Closed **PROD-CI-09 for b9191887** after independent criteria and exact-source review. Ledger recomputed: **11 verified / 48 in progress / 19 planned**, 78 requirements, four release flags false. CI08 remains open for a complete coherent local gate, including the original bootstrap engine case. Root's later integrated diagnostic source 74729261 and native 44/0/0 receipt are separate; the next pushed SHA requires its own complete CI.
+
 ## Native browser accepted, 8 October 2026
 
 Integrated `74729261720aba23058dd6a4d43e042a43e978da`: reviewed browser diagnostics, actual same-Mac Chrome **44 passed/0 failed/0 skipped**,69seconds with3072MiB per-Node heap. Minimum disk24.526GB above22GiB floor; owned cleanup complete, independent review accepted. Original assertions/deadlines unchanged. Runtime source parity against executede69 differs only in productiondocs; affected lint passed, complete new compiler/CI pending.

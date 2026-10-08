@@ -1,3 +1,10 @@
+## Results, 8 October kind successor and publication
+
+- PROD-CI-08 Results: integrated12547335 validator; 293 gate plus160 report controls, zero failures/skips. Exact5f4 CI19/20 succeeded; sole pre-repair timeout. New pushed CI pending.
+- PROD-MACH-01 Results: scoped kind provider6/release1/guest49 all passed on reviewedddc27415, relevant source parity with0f995b44 and owned cleanup confirmed. Broader evidence states unchanged.
+- PROD-MACH-02 Results: local kind49 passes do not verify underlying bearer expiry; independently confirmed builder-owned session-deadline security gap remains open.
+- Default Mac Results: fresh0f standalone controller exited1 before terminal receipt, PermissionError during process-group check; no build or cleanup pass claimed.
+
 ## Current gate and kind results, 8 October 2026
 
 - PROD-CI-08: in_progress; unchanged title predicate reordered, all293 gate/160 report controls passed, compiler/lint0. Exact successor CI remains mandatory.

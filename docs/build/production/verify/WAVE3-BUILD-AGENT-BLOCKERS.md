@@ -1,3 +1,15 @@
+## PROD-MACH-02 security finding, 8 October 2026
+
+Independent Astra review confirmed a bearer-expiry gap on integrated0f995b44. Verifier left builder-owned source untouched.
+
+- `src/lib/platform/credentials.ts:409` calls mintGuestCredential without tokenTtlSec; lines477–482 admit 30–599 seconds of remaining grant time. Lines412–418 only clip wrapper expiry/in-memory session closure.
+- `src/lib/providers/kubernetes/guest.ts:80`, :248 and :259 default/clamp the actual TokenRequest lifetime to600 seconds. `src/lib/machines/sessions.ts:49`–:71 limits wrapper/result lifetime, not an issued JWT.
+- `verify/PROD-MACH-02.md:64` requires expiry no longer than session lifetime. Retained clients/copied bearer tokens can exceed that deadline. No model-visible leakage or forged approval was demonstrated. Current56 green kind cases do not test this condition.
+
+Bounded builder repair: carry immutable absolute notAfter=min(signed grant expiry, original requested session deadline) across asynchronous minting; recompute remaining lifetime immediately before TokenRequest. Refuse before provisioning when remaining lifetime cannot meet Kubernetes'600-second minimum. Reject returned JWT expiry beyond notAfter before invoking callbacks. Merely forwarding TTL is insufficient: minimum clamping and elapsed async time can extend it. Never lengthen grants or delete the shared connection/profile ServiceAccount per callback, which would revoke concurrent valid sessions. Supporting sub600-second sessions requires an explicit containment design.
+
+Required evidence:30/300/599-second refusal without issuance/callback;600+ deadlines with delayed minting and overlong server responses; actual owned native JWT numeric-expiry checks against immutable deadline; retained-client expiry, revocation and concurrent-session controls. [Kubernetes minimum validation](https://github.com/kubernetes/kubernetes/blob/v1.37.0/pkg/apis/authentication/validation/validation.go), [token invalidation behavior](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#delete-invalidate-a-short-lived-serviceaccount-token).
+
 ## Current kind guest finding, 8 October 2026
 
 Current125473 local kind provider6/release1 passed; guest42/7/0 fails seven positive callbacks at the sanitized broker boundary after verification passed. Underlying mint/audit cause remains unproven; do not assign a production fix or relax RBAC based on the wrapper. Verifier is preparing exact call-through diagnostics and a bounded fixture/source repair if proven. Original failed receipt and independently confirmed owned cleanup remain separate. Gate-validator performance repair integrated locally and passed453 distinct metadata controls plus compiler/lint; exact pushed CI pending. See [current context](../WIP-HANDOFF-2026-10-08.md).

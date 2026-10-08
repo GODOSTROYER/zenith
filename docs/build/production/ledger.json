@@ -35,7 +35,7 @@
     "dockerStorage": "Check host free bytes before and during image gates. Remove owned test images, containers, volumes and dedicated build cache after runs. Preserve unrelated services/data; one heavy process.",
     "minimumFreeGiBBeforeImageGate": 18,
     "localDefaultStackDiskFloorGiB": 22,
-    "localDefaultStackProfile": "reduced-resource local profile on this Mac only; one heavy workload; Docker6GiB/swap4GiB; no unrelated cleanup"
+    "localDefaultStackProfile": "reduced-resource local profile on this Mac only; one heavy workload; Docker4GiB/swap4GiB;22GiB floor; no unrelated cleanup"
   },
   "evidenceLevels": [
     "contract",
@@ -1328,6 +1328,13 @@
           "commit": "125473355a55d696666cfaaada635d8cfec0280e",
           "result": "Current local kind provider6/0/0 release1/0/0 guest42/7/0; all56 identities matched. Guest broker cause not proven. Original failure preserved; separate custody-checked cleanup confirmed all owned resources absent, baseline untouched. No promotion.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-kind56-125473-failure.json"
+        },
+        {
+          "level": "local_cluster",
+          "commit": "ddc27415f77c090cd9d26423c7cf9a1eaf519d92",
+          "integratedCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",
+          "result": "Provider6/release1/guest49 passed,0 failures/skips; all12 relevant inputs match integration; owned cleanup confirmed. Local kind ARM64 only; default browser/CNI and full candidate gates open.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-kind56-read-minter-successor.json"
         }
       ],
       "requiredEvidence": [
@@ -3230,7 +3237,8 @@
         "local_engine"
       ],
       "owner": "root",
-      "testPaths": []
+      "testPaths": [],
+      "followUp": "Builder-owned security repair: underlying600-second-minimum Kubernetes bearer can exceed30\u2013599-second remaining signed grant/session; immutable absolute deadline and fail-closed admission required. See verify/WAVE3-BUILD-AGENT-BLOCKERS.md,8October finding."
     },
     {
       "id": "PROD-MACH-03",
@@ -5044,28 +5052,29 @@
     }
   ],
   "sessionState": {
-    "status": "verification_continuing_native_transport_successors_passed_full_ci_and_default_stack_open",
-    "sourceCheckpoint": "125473355a55d696666cfaaada635d8cfec0280e",
+    "status": "kind56_passed_validator_repaired_successor_ci_and_default_stack_open",
+    "sourceCheckpoint": "0f995b44391bf935df262f729cde688bf8af1a2f",
     "publicationBranch": "codex/production-2026-10-02",
     "lastPushedCommit": "5f4b0516471614bb78a4cbaa526e36306abbd7c1",
     "lastPushedRun": 37716368194,
-    "lastPushedRunStatus": "in_progress_19_success_1_verify_running_across20_jobs",
+    "lastPushedRunStatus": "terminal_19_success_1_verify_failure_across20_jobs",
     "currentVerification": "docs/build/production/WIP-HANDOFF-2026-10-08.md",
     "remainingLocalPackets": {
-      "integratedRepairs": "4467a567 MinIO evidence;69e732db actual close-event waits;60d78730 buffered TLS handoff. Awaiting normal publication.",
-      "nativeEngines": "PG2/DNS3/MinIO3 selected cases nowpassed at5687;MySQLprotocol6passed60d; earlierengineMySQL2/Rclone1 retain871 scope."
+      "integratedRepairs": "12547335 validator performance;0f995b44 exact kind read ceiling. Normal publication pending.",
+      "nativeBuild": "0f native standalone attempt exited1; finalization PermissionError before terminal receipt. Custody/cleanup unresolved."
     },
     "permissions": {
       "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Arnav Bule.",
       "pending": "Live cloud calls/spend, real DNS/private GitHub App configuration, destructive retention/business/production sign-off."
     },
     "releaseVerdict": "10 verified /49 in_progress /19 planned; all four release flags false; no promotion.",
-    "next": "Run reviewed source-bound guest49 diagnostic, fix only demonstrated issue, rerun all current56 kind cases. Preserve source125 predicate repair; inspect live5f4 CI and complete successor CI before green claim.",
+    "next": "Publish reviewed validator/kind fixes and inspect every new CI job. Resolve native build controller custody failure; continue authorized default Mac acceptance. Builder owns MACH02 bearer deadline repair.",
     "completedLocalKind": {
-      "sourceCommit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
-      "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-07-kind55-f582e193.json",
+      "sourceCommit": "ddc27415f77c090cd9d26423c7cf9a1eaf519d92",
+      "integratedRootCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",
+      "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-kind56-read-minter-successor.json",
       "cleanupComplete": true,
-      "scope": "Local provider6/release1/guest48 only; default CNI/PGlite tenant-ledger limits retained"
+      "scope": "Provider6/release1/guest49 all passed; local kind/PGlite/signed fixture limits retained."
     },
     "recordedAt": "2026-10-08",
     "nativeRun": 37578066955,

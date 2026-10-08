@@ -30,6 +30,7 @@ import type { JobSource, ScheduledJobRow } from "@/lib/controlplane/db/repos/sch
 export type { JobSource } from "@/lib/controlplane/db/repos/scheduled-jobs";
 
 export const CRITICAL_JOBS = {
+  billing: { cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "billing", durableOnly: true },
   housekeeping: { cadenceMs: 60_000, leaseTtlMs: 60_000, kind: "reaping" },
   "runner-reaper": { cadenceMs: 60_000, leaseTtlMs: 60_000, kind: "reaping" },
   runbooks: { cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "runbooks" },
@@ -174,6 +175,11 @@ export const MAINTENANCE_JOBS = {
     const { runbookTickPass } = await import("./runbooks");
     const r = await runbookTickPass({ budgetMs: 15_000 });
     return { value: r, performed: r.ran, counts: countsOf(r) };
+  },
+  async billing(db: Sql): Promise<JobOutcome<import("@/lib/billing/service").BillingTickResult>> {
+    const { runBillingTick } = await import("@/lib/billing/service");
+    const r = await runBillingTick(db, { now: new Date() });
+    return { value: r, performed: true, counts: countsOf(r) };
   },
 };
 

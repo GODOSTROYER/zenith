@@ -2250,6 +2250,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J4 emits the signature-verified runbook reference into immutable step proposal input; broader operated semantics acceptance remains pending.",
       "evidence": [
         {
           "level": "local_engine",
@@ -3140,7 +3141,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "contract_verified_ec18bb9c_default_local_engine_blocked",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J4 binds each signed registered step to fresh broker authority and audit; real registered-agent HTTP delivery/cancel harness pending on Mac.",
       "evidence": [
         {
           "level": "contract",
@@ -3464,7 +3466,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "canonical_workflows62_verified_f582e193_default_scheduling_proof_open",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J4 adds natural-timer default maintenance harness and durable MAN-06 billing; Mac default-stack restart/fallback/exclusion acceptance pending.",
       "evidence": [
         {
           "level": "local_engine",

@@ -10,7 +10,7 @@ import { MemoryEvidence, T0, grantFor, okResult, requestFor, sessions } from "./
 
 const ctx = (): RunbookStepContext => ({ run: {} as RunbookStepContext["run"], targetIndex: 0, stepId: "status", signal: new AbortController().signal });
 
-function fixture(over: { ok?: boolean; throwCode?: "uncertain" } = {}) {
+function fixture(over: { ok?: boolean; throwCode?: "uncertain"; settleFailure?: boolean } = {}) {
   const seen: MachineRequest[] = [];
   const driver: MachineDriver = {
     transport: "zenithd",
@@ -30,7 +30,7 @@ function fixture(over: { ok?: boolean; throwCode?: "uncertain" } = {}) {
     sessionsFor: () => sessions(),
     now: () => new Date(T0),
     grantFor: async (req) => {
-      const grant: StepGrant = { claims: grantFor("service.status", { op: "broker-op-9" }), jws: "jws", settle: async (outcome, detail) => { settled.push({ outcome, code: detail.code }); } };
+      const grant: StepGrant = { claims: grantFor("service.status", { op: "broker-op-9" }), jws: "jws", settle: async (outcome, detail) => { settled.push({ outcome, code: detail.code }); if (over.settleFailure) throw new Error("controlled ledger outage"); } };
       grants.push(grant);
       void req;
       return grant;
@@ -49,6 +49,13 @@ describe("createMachineStepExecutor", () => {
     expect(f.seen[0].operationId).toBe("broker-op-9");
     expect(f.settled).toEqual([{ outcome: "succeeded", code: undefined }]);
     expect(f.evidence.records).toHaveLength(1);
+  });
+
+  it("a broker settlement outage cannot turn machine evidence into a successful run", async () => {
+    const f = fixture({ settleFailure: true });
+    await expect(f.exec(req(), ctx())).rejects.toMatchObject({ code: "uncertain" });
+    expect(f.evidence.records).toHaveLength(1);
+    expect(f.settled.map(s => s.outcome)).toEqual(["succeeded", "uncertain"]);
   });
 
   it("a failed machine result settles as failed", async () => {

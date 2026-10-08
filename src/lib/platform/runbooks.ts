@@ -32,10 +32,9 @@ import {
   type RunbookAction,
   type RunbookService,
   type RunbookStore,
-  type RunbookStepContext,
-  type StepGrant,
 } from "@/lib/machines/runbooks";
-import type { MachineRequest, MachineTransport } from "@/lib/machines/types";
+import type { MachineTransport } from "@/lib/machines/types";
+import { createRunbookStepGrant } from "@/lib/runbooks/delivery";
 import { platformCredentialBroker } from "./credentials";
 import { ensurePlatformApp } from "./app";
 
@@ -94,40 +93,11 @@ async function build(): Promise<PlatformRunbooks> {
     },
   });
 
-  async function grantFor(req: MachineRequest, ctx: RunbookStepContext): Promise<StepGrant> {
-    const { run } = ctx;
-    const ws = run.workspaceId;
-    const machine = await repos.machines.getMachine(db, ws, req.target.targetId);
-    if (!machine || machine.transport !== "zenithd" || machine.status !== "active" || machine.stale) throw new Error("machine_unavailable");
-    if (req.target.environmentId && machine.environmentId && machine.environmentId !== req.target.environmentId) throw new Error("machine_environment_mismatch");
-    const proposed = await broker.propose(
-      {
-        capability: req.operation,
-        scope: { workspaceId: ws, ...(req.target.environmentId ? { environmentId: req.target.environmentId } : {}), resourceId: req.target.resourceId },
-        input: req.args,
-        constraints: { maxTimeoutSec: req.timeoutSec, maxOutputBytes: req.maxOutputBytes },
-        reason: `runbook ${run.runbookId} v${run.version}, run ${run.id}`.slice(0, 500),
-        idempotencyKey: req.operationId,
-      },
-      run.requester,
-      { via: "workflow" }
-    );
-    if (proposed.decision.outcome !== "allow") throw new Error(`step_${proposed.decision.outcome}`);
-    const operationId = proposed.operation.id;
-    const begun = await broker.beginExecution({ workspaceId: ws, operationId, holder: `runbook:${run.id}`, audience: `machine:${machine.id}`, leaseMs: (req.timeoutSec + 30) * 1000 });
-    return {
-      claims: begun.claims,
-      jws: begun.grant,
-      async settle(outcome, detail) {
-        if (outcome === "uncertain") {
-          await broker.markUncertain({ workspaceId: ws, operationId, reason: "The machine request's outcome cannot be proven; reconcile must observe it." });
-          return;
-        }
-        await broker.completeExecution({ workspaceId: ws, operationId, outcome, ...(detail.code ? { error: detail.code } : {}) });
-      },
-    };
-  }
-
+  const grantFor = createRunbookStepGrant({
+    store, broker, verificationKeys,
+    machine: (ws, id) => repos.machines.getMachine(db, ws, id),
+    resource: (ws, id) => repos.resources.get(db, ws, id),
+  });
   const executeStep = createMachineStepExecutor({
     drivers: createMachineDrivers({ dispatcher: plane.dispatcher }),
     evidence: plane.evidence,

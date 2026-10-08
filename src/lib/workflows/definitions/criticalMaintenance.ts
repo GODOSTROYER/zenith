@@ -12,6 +12,8 @@ export interface CriticalMaintenanceResult {
   housekeeping: CriticalMaintenanceOutcome;
   "runner-reaper": CriticalMaintenanceOutcome;
   runbooks: CriticalMaintenanceOutcome;
+  /** Optional for replay of pre-billing histories; current activities always return it. */
+  billing?: CriticalMaintenanceOutcome;
 }
 export interface CriticalMaintenanceActivities {
   runCriticalMaintenance(input: CriticalMaintenanceActivityInput): Promise<CriticalMaintenanceResult>;
@@ -33,5 +35,7 @@ export async function criticalMaintenanceWorkflow(input: CriticalMaintenanceInpu
   const result = await maintenance.runCriticalMaintenance({ contract: input.contract, passId: workflowInfo().runId });
   if (!result || !["engine", "alerts", "outbox", "housekeeping", "runner-reaper", "runbooks"].every((k) => ["ok", "busy", "skipped", "failed"].includes((result as unknown as Record<string, string>)[k])))
     throw ApplicationFailure.nonRetryable("Critical maintenance result is invalid.", "CriticalMaintenanceContractInvalid");
+  if (result.billing !== undefined && !["ok", "busy", "skipped", "failed"].includes(result.billing))
+    throw ApplicationFailure.nonRetryable("Critical billing result is invalid.", "CriticalMaintenanceContractInvalid");
   return result;
 }

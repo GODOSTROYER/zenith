@@ -1427,6 +1427,22 @@
           "commit": "2fb5f888cf53a8473c42997fbbfa94ac4808cb17",
           "result": "Root combined compilerexit0 after reviewed waitlist identity fix and bounded Temporal diagnostic integration. No test/gate weakening; full candidate successor pending.",
           "artifact": "docs/build/production/evidence/PROD-OBS-04/2026-10-08-owned-temporal-diagnostics.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af",
+          "result": "21856 passed /1 failed /1618 skipped; exact stale Temporal fixture hash caused sole failure. All1046files/identity accounting/cleanup/source binding independently reviewed; complete successor pending.",
+          "command": "Accepted native Node/DOM complete controller with pinned Python, strict identity accounting and12GB floor",
+          "environment": "Native Darwin ARM64 Node22.23.3, Python3.14.5, Vitest4.1.11; one heavy workload",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-temporal-source-pin.json"
+        },
+        {
+          "level": "contract",
+          "commit": "b279aac8215ac1ed57ea6ac72bd93100ed6d5289",
+          "result": "295 passed /0 failed /0 skipped; affected lint and diff check exit0. Executed isolated base98a3f6f5 plus exact dirty pin source9b04e9da; full successor pending.",
+          "command": "vitest run --project=node --maxWorkers=1 --no-file-parallelism tests/ci/gate-manifest.test.ts; affected eslint; git diff --check",
+          "environment": "Native Darwin ARM64 Node22.23.3/Vitest4.1.11",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-temporal-source-pin.json"
         }
       ],
       "requiredEvidence": [
@@ -1838,6 +1854,16 @@
           "runId": 37749426058,
           "result": "All20jobs terminal:19success/1workflowsfailure. Unit21828P0F1647S. PlatformPG3772P0F15S/all1156mandatorypassed. Workflows1376P0assertF2S/one failedsuite startup+custody; exit1. Nativeworkers/platformfourjobs success conclusions, per-case latest inspection remains open. CI09 stays in_progress.",
           "artifact": "docs/build/production/verification/CI-2026-10-08-9354a3f5.md"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af",
+          "result": "19 successful /1 failed terminal jobs across three runs; verify failed stale source-hash pin, Smoke/Gimbal not executed. Native AMD64/ARM64 each22checks passed.",
+          "command": "Inspect all three exact-source run jobs and failed verify log",
+          "environment": "GitHub native Linux AMD64/ARM64 and Windows; per-lane source evidence retained",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-temporal-source-pin.json",
+          "runId": 37755641326,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37755641326"
         }
       ],
       "requiredEvidence": [
@@ -5216,17 +5242,17 @@
   ],
   "sessionState": {
     "status": "bounded_ownership_security_fix_integrated_current_combined_gates_pending",
-    "sourceCheckpoint": "2fb5f888cf53a8473c42997fbbfa94ac4808cb17",
+    "sourceCheckpoint": "ebd309ac2ec8e6351554285f7674a6433b8255fb",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "9354a3f5629f1efe91ea1a7d7e7b6291569be38f",
-    "lastPushedRun": 37749426058,
-    "lastPushedRunStatus": "terminal_19_success_1_workflows_failure_exact9354",
+    "lastPushedCommit": "ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af",
+    "lastPushedRun": 37755641326,
+    "lastPushedRunStatus": "terminal_19_success_1_verify_stale_temporal_source_pin_failure_exact_ed93",
     "currentVerification": "docs/build/production/CURRENT-VERIFIER-CONTEXT.md",
     "remainingLocalPackets": {
       "integratedRepairs": "40012d75 security CAS integrated7427a7d0; d25b1a85 ten mandatory PG identities. Rootnative17/0/0 and mixed124/0/0, compiler/lint/review accepted; broader writer/preissued policy open.",
       "nativeBuild": "Changed runtime requires fresh cache-disabled native build and APFS assembly; prepared private bindings disabled until clean final commit.",
       "defaultStackPreparation": "Independently reviewed five-service profile source, genuine25SQL/platform43/agent3, PostgreSQL STARTTLS and private credential composition; no current-source default startup acceptance. Bind fresh source/artifact before admission.",
-      "fullNativeUnit": "Prior completea4 run21848/1/1614 retained; isolated Docker environment corrected, allinstallation62/0/0. Full current-candidate runtime rerun pending."
+      "fullNativeUnit": "Exact ed93 full native21856/1/1618 retained, all1046files/identities/source/cleanup reviewed. Sole stale Temporal fixture hash corrected at b279aac8/integrated ebd309ac, affected295/0/0 and lint0; fresh complete successor pending."
     },
     "permissions": {
       "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Arnav Bule.",
@@ -5246,10 +5272,10 @@
     "cleanup": "Fresh native fixtures/kind cleaned. Failed Next4968runtime removed only after independently proven group absence and frozen custody; nine outside-runtime files unchanged. Older559a/failedPGdatasets retained. Storagehelper0safeextra.",
     "nativeSkippedPlatformsRun": 37578066934,
     "lastPushedUnitResult": {
-      "passed": 21825,
+      "passed": 21827,
       "failed": 1,
-      "skipped": 1637,
-      "failure": "tests/ci/gate-manifest.test.ts:1736 exhaustive negative-control timeout20000ms",
+      "skipped": 1647,
+      "failure": "tests/ci/gate-manifest.test.ts:2943 stale exact Temporal diagnostic fixture SHA",
       "downstreamUnexecuted": [
         "Smoke",
         "Verify Gimbal assets"

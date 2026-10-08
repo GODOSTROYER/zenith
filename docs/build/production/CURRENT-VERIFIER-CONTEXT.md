@@ -1,3 +1,11 @@
+## Temporal source binding correction, 8 October 2026
+
+Integrated `ebd309ac2ec8e6351554285f7674a6433b8255fb`, fix `b279aac8215ac1ed57ea6ac72bd93100ed6d5289`, Arnav author and committer. Exact reviewed Temporal fixture pin refreshed without weakening assertions. Root entire affected gate suite **295 passed /0 failed /0 skipped**, lint and diff checks passed. Executed isolated base98a3f6f5 plus exact changed-source hash; complete integrated successor remains pending.
+
+Published `ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af` full native run: **21,856 passed /1 failed /1,618 skipped**, all1,046 files and collected identities accounted for, six genuine Python cases passed, cleanup/source binding independently accepted. Sole failure: stale fixture source hash. Exact published CI now terminal **19 successful jobs /1 failed verify job**, same assertion; Smoke/Gimbal unexecuted. Original failed receipts remain failed. [Every exact-source CI job](verification/CI-2026-10-08-ed93a676.md). No whole-candidate green claim.
+
+Ledger **10 verified /49 in progress /19 planned**, all78 requirements and four false release states preserved. Next: complete coherent successor and fresh CI, fresh native build, authorized default-stack/browser/scheduling and remaining kind acceptance. [Sanitized evidence](evidence/PROD-CI-08/2026-10-08-temporal-source-pin.json). No wave3 feature changes or live-cloud acceptance.
+
 # Current verifier progress for the building machine, 8 October 2026
 
 Latest integration: `2fb5f888`, waitlist identity correction and bounded Temporal diagnostics. Root targeted44/0/0 plus actualTemporal10/0/0 and compiler passed. Full9354Vitest21851/0/1624 was rejected by strict identity admission; next complete successor pending. Exact9354CI finished19successful/oneworkflowfailure. Earlier paragraphs retain historical scope. See latest RESULTS section for current evidence.

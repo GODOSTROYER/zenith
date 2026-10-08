@@ -1,3 +1,8 @@
+## Results: Temporal source pin, 8 October 2026
+
+- PROD-CI-08: in_progress; fix b279aac8215ac1ed57ea6ac72bd93100ed6d5289, integration ebd309ac2ec8e6351554285f7674a6433b8255fb; affected295/0/0, complete native successor pending.
+- PROD-CI-09: in_progress; exact ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af terminal19/20jobs successful, stale-pin verify failure; fresh pushed CI required.
+
 Results PROD-LIFE-12 (8 October): integrated7427a7d0/fix40012d75; mandatory additiond25b1a85/current1156, gate295/0/0 and coverage/sanitizer174/0/0; native17/0/0 and mixed affected124/0/0, compiler/lint/independent cleanup accepted. Bounded CAS only; common writer coordination/preissued policy/default acceptance remain open. [Evidence](evidence/PROD-LIFE-12/2026-10-08-ownership-snapshot-cas.json).
 
 Results: PROD-CI-09 verified for exact e4c0c237,20/20 terminal CI jobs; PROD-CI-08 native bootstrap86/0/0 plus remote unit21826/0/1637, complete native local gate still pending. [Current milestone](verification/RESULTS-2026-10.md#green-e4-ci-and-native-bootstrap-acceptance-8-october-2026).

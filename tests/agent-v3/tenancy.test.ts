@@ -2,7 +2,7 @@
  * These tests use real broker tenancy checks plus separately scoped fake rows. */
 import { describe, expect, it, vi } from "vitest";
 import { TOOL_NAMES, type ToolName } from "@/lib/agent-access/v3/contract";
-import { argsFor, ids, makeHarness, proposeDeploy, target } from "./support";
+import { argsFor, ids, makeHarness, proposeDeploy } from "./support";
 
 describe.each(TOOL_NAMES)("%s tenant matrix", (name) => {
   it("foreign/missing workspace, project and environment; no proposal persisted", async () => {
@@ -11,10 +11,10 @@ describe.each(TOOL_NAMES)("%s tenant matrix", (name) => {
     h.propose.mockClear();
     h.ports.broker = vi.fn(async () => h.broker);
     const args = argsFor(name, p.id, p.digest);
-    const dimensions = args.target ? ["workspaceId", "projectId", "environmentId"] : ["workspaceId"];
+    const dimensions = args.target ? Object.keys(args.target) : ["workspaceId"];
     for (const dimension of dimensions) {
       const foreign = dimension === "workspaceId" ? ids.foreignWs : dimension === "projectId" ? ids.foreignProject : ids.foreignEnv;
-      const mutate = (id: string) => args.target ? { ...args, target: { ...target, [dimension]: id } } : { ...args, [dimension]: id };
+      const mutate = (id: string) => args.target ? { ...args, target: { ...(args.target as object), [dimension]: id } } : { ...args, [dimension]: id };
       const a = await h.invoke(name, mutate(foreign));
       const b = await h.invoke(name, mutate("missing"));
       expect(a.error?.code).toBe("not_found");

@@ -16,6 +16,7 @@ import { Callout, type CalloutTone } from "@/components/ui/callout";
 import { Input } from "@/components/ui/input";
 import { StatusDot, type DotStatus } from "@/components/ui/status-dot";
 import { browserMutation, mutationError } from "../_lib/browser-api";
+import { CreateAzureInput, CreateGcpInput, CreateRunnerInput, LIFECYCLE_PROVIDERS, type LifecycleProvider } from "@/lib/connections/schemas";
 
 interface Answer { ok: boolean; summary: string; error?: string; data: Record<string, unknown> | null }
 interface Notice { tone: CalloutTone; title: string; lines: string[] }
@@ -26,7 +27,20 @@ const STATUS_DOT: Record<string, DotStatus> = { pending_verification: "info", ve
 const ROTATION_LABEL: Record<string, string> = { staged: "Staged", verified: "Verified, ready to promote", failed: "Failed verification" };
 
 type Field = { key: string; label: string; placeholder: string; optional?: boolean };
-const CREATE_FIELDS: Record<"gcp" | "azure" | "oci", Field[]> = {
+const CREATE_FIELDS: Record<LifecycleProvider, Field[]> = {
+  aws: [
+    { key: "accountId", label: "AWS account id", placeholder: "123456789012" },
+    { key: "region", label: "Region", placeholder: "us-east-1" },
+    { key: "observeRoleArn", label: "Observe role ARN", placeholder: "arn:aws:iam::123456789012:role/ZenithObserve" },
+    { key: "deployRoleArn", label: "Deploy role ARN", placeholder: "arn:aws:iam::123456789012:role/ZenithDeploy" },
+    { key: "stateBucket", label: "State bucket (optional)", placeholder: "zenith-state", optional: true },
+    { key: "label", label: "Label", placeholder: "Optional", optional: true },
+  ],
+  kubernetes: [
+    { key: "server", label: "Kubernetes API origin", placeholder: "https://cluster.example.com" },
+    { key: "namespaces", label: "Namespaces (comma separated)", placeholder: "application, jobs" },
+    { key: "label", label: "Label", placeholder: "Optional", optional: true },
+  ],
   gcp: [
     { key: "projectId", label: "Project id", placeholder: "my-project-123" },
     { key: "region", label: "Region", placeholder: "us-central1" },
@@ -47,7 +61,6 @@ const CREATE_FIELDS: Record<"gcp" | "azure" | "oci", Field[]> = {
     { key: "tenancyOcid", label: "Tenancy OCID", placeholder: "ocid1.tenancy.oc1..aaaa" },
     { key: "compartmentOcid", label: "Compartment OCID", placeholder: "ocid1.compartment.oc1..aaaa" },
     { key: "region", label: "Region", placeholder: "us-ashburn-1" },
-    { key: "runnerId", label: "Registered runner id", placeholder: "The runner that serves this tenancy" },
     { key: "label", label: "Label", placeholder: "Optional", optional: true },
   ],
 };
@@ -94,8 +107,8 @@ export function ConnectionAdmin({ workspaceId, viewerRole, initial }: { workspac
   }
 
   return <div className="space-y-5">
-    <p className="text-[13px] text-ink-mute">Each connection stores identifiers only, never keys. A connection deploys nothing until it is verified, and a passing check proves the observe identity, not deploy permissions. Revoking is immediate and permanent.</p>
-    {notice && <Callout tone={notice.tone} title={notice.title}>{notice.lines.map((line, i) => <p key={i} className="break-words">{line}</p>)}</Callout>}
+    <p className="text-[13px] text-ink-mute">Each connection stores identifiers only, never keys. Runner verification checks readiness, not cloud identity, connectivity or permissions. Other checks describe their own scope. A verified connection still needs a supported execution path. Revoking is immediate and permanent.</p>
+    {notice && <div role={notice.tone === "err" ? "alert" : "status"}><Callout tone={notice.tone} title={notice.title}>{notice.lines.map((line, i) => <p key={i} className="break-words">{line}</p>)}</Callout></div>}
     {initial.length === 0
       ? <Callout tone="info" title="No cloud connections yet">Connect a cloud below. Environments without a connection use the built-in sandbox.</Callout>
       : <ul className="space-y-3">{initial.map((c) => <li key={c.id}><ConnectionCard c={c} admin={admin} editor={editor} busy={busy} call={call} /></li>)}</ul>}
@@ -140,7 +153,7 @@ function ConnectionCard({ c, admin, editor, busy, call }: { c: ConnectionView; a
     <div className="mt-3 flex flex-wrap gap-2">
       <Button size="sm" busy={busy === `verify:${c.id}`} disabled={revoked || !editor || !!busy}
         disabledReason={revoked ? "A revoked connection cannot be verified." : disabledEditor ?? "Another action is running."}
-        onClick={() => void call(`verify:${c.id}`, `${base}/verify`, {}, (a) => ({ tone: a.ok ? "ok" : "err", title: a.ok ? "Identity verified" : "Verification failed", lines: lines(a.summary, a.error, typeof a.data?.scope === "string" ? a.data.scope : undefined) }))}>
+        onClick={() => void call(`verify:${c.id}`, `${base}/verify`, {}, (a) => ({ tone: a.ok ? "ok" : "err", title: a.ok ? (c.mode === "runner" ? "Runner readiness verified" : "Connection check passed") : "Verification failed", lines: lines(a.summary, a.error, typeof a.data?.scope === "string" ? a.data.scope : undefined) }))}>
         Verify
       </Button>
       <Button size="sm" disabled={revoked || !admin || !!busy} disabledReason={revoked ? "A revoked connection cannot be rotated." : disabledAdmin ?? "Another action is running."} onClick={() => setPanel(panel === "rotate" ? "none" : "rotate")}>Rotate access</Button>
@@ -152,7 +165,7 @@ function ConnectionCard({ c, admin, editor, busy, call }: { c: ConnectionView; a
 }
 
 function RotatePanel({ c, base, busy, call, onDone }: { c: ConnectionView; base: string; busy: string | undefined; call: Call; onDone: () => void }) {
-  const fields = [...(ROTATE_FIELDS[c.provider] ?? [])];
+  const fields = c.mode === "runner" ? [{ key: "runnerId", label: "New runner id", placeholder: "Register the new runner first", optional: true }] : [...(ROTATE_FIELDS[c.provider] ?? [])];
   const [values, setValues] = useState<Record<string, string>>({});
   const [externalId, setExternalId] = useState(false);
   const [promote, setPromote] = useState(false);
@@ -207,22 +220,33 @@ function RevokePanel({ c, base, busy, call, onDone }: { c: ConnectionView; base:
 }
 
 function CreatePanel({ admin, busy, call }: { admin: boolean; busy: string | undefined; call: Call }) {
-  const [provider, setProvider] = useState<"gcp" | "azure" | "oci">("gcp");
+  const [provider, setProvider] = useState<LifecycleProvider>("gcp");
+  const [mode, setMode] = useState<"native" | "runner">("native");
+  const [custody, setCustody] = useState("local_only");
   const [values, setValues] = useState<Record<string, string>>({});
-  const fields = CREATE_FIELDS[provider];
+  const runner = mode === "runner" || provider === "oci" || provider === "aws" || provider === "kubernetes";
+  const fields: Field[] = [...CREATE_FIELDS[provider], ...(runner ? [{ key: "runnerId", label: "Registered runner id", placeholder: "Register the customer runner first" }] : [])];
   const missing = fields.some((f) => !f.optional && !(values[f.key] ?? "").trim());
-  const body = { provider, ...Object.fromEntries(fields.map((f) => [f.key, (values[f.key] ?? "").trim()]).filter(([, v]) => v !== "")) };
+  const raw = Object.fromEntries(fields.map((f) => [f.key, (values[f.key] ?? "").trim()]).filter(([, v]) => v !== ""));
+  if (provider === "kubernetes" && typeof raw.namespaces === "string") Object.assign(raw, { namespaces: raw.namespaces.split(/[\s,]+/).filter(Boolean) });
+  const parsed = runner ? CreateRunnerInput.safeParse({ provider, mode: "runner", runnerCustody: custody, ...raw }) : (provider === "gcp" ? CreateGcpInput : CreateAzureInput).safeParse(raw);
+  const invalid = !missing && !parsed.success;
+  const body = parsed.success ? (runner ? parsed.data : { provider, ...parsed.data }) : undefined;
   return <div className="rounded-ctl border border-line bg-bg1 p-4">
     <h2 className="text-[14px] font-medium">Connect a cloud</h2>
-    <p className="mt-1 text-[12.5px] text-ink-mute">Saving records identifiers only and runs no cloud call. Set up the trust shown afterwards, then verify. AWS and Kubernetes have their own guided flows: <Link href="/platform/connections/aws" className="text-signal">Connect AWS</Link>, and Settings, Connections for Kubernetes.</p>
-    <div className="mt-3 flex flex-wrap gap-2" role="tablist" aria-label="Provider">
-      {(["gcp", "azure", "oci"] as const).map((p) => <Button key={p} size="sm" variant={provider === p ? "primary" : "quiet"} onClick={() => { setProvider(p); setValues({}); }}>{PROVIDER_LABEL[p]}</Button>)}
+    <p className="mt-1 text-[12.5px] text-ink-mute">Saving records identifiers only and runs no cloud call. Register a runner before selecting it here, then verify its readiness. For hosted trust use <Link href="/platform/connections/aws" className="text-signal underline">Connect AWS</Link>, or Settings, Connections for Kubernetes.</p>
+    <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Provider">
+      {LIFECYCLE_PROVIDERS.map((p) => <Button key={p} size="sm" aria-pressed={provider === p} variant={provider === p ? "primary" : "quiet"} disabled={!!busy} onClick={() => { setProvider(p); setValues({}); }}>{PROVIDER_LABEL[p]}</Button>)}
     </div>
+    {(provider === "gcp" || provider === "azure") && <fieldset className="mt-3 space-y-2 text-[12.5px]" disabled={!!busy}><legend>Connection mode</legend>{(["native", "runner"] as const).map(m => <label key={m} className="mr-4 inline-flex items-center gap-2"><input type="radio" name="connection-mode" checked={mode === m} onChange={() => { setMode(m); setValues({}); }} />{m === "runner" ? "Customer runner" : "Workload identity federation"}</label>)}</fieldset>}
+    {runner && <p className="mt-3 text-[12.5px] text-ink-mute">Customer runner mode. No cloud credentials are uploaded. GCP, Azure and Kubernetes provider transports remain unavailable; a readiness pass does not enable them.</p>}
     <div className="mt-3 grid gap-3 sm:grid-cols-2">
-      {fields.map((f) => <label key={f.key} className="block space-y-1 text-[12.5px]">{f.label}<Input value={values[f.key] ?? ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} placeholder={f.placeholder} /></label>)}
+      {fields.map((f) => <label key={f.key} className="block space-y-1 text-[12.5px]">{f.label}<Input disabled={!admin || !!busy} aria-required={!f.optional} value={values[f.key] ?? ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} placeholder={f.placeholder} /></label>)}
+      {runner && <label className="block space-y-1 text-[12.5px]">Runner credential custody<select disabled={!admin || !!busy} value={custody} onChange={e => setCustody(e.target.value)} className="block w-full rounded-ctl border border-line bg-bg1 px-3 py-2 text-ink"><option value="local_only">Local only</option><option value="federated">Federated</option></select></label>}
     </div>
+    {invalid && !parsed.success && <p role="alert" className="mt-3 text-[12.5px] text-err">{parsed.error.issues.slice(0, 6).map(i => `${i.path.join(".")}: ${i.message}`).join(" ")}</p>}
     <div className="mt-3">
-      <Button variant="primary" busy={busy === "create"} disabled={!admin || missing || !!busy} disabledReason={!admin ? "Only a workspace admin can connect a cloud." : missing ? "Fill every required field." : "Another action is running."}
+      <Button variant="primary" busy={busy === "create"} disabled={!admin || missing || invalid || !!busy} disabledReason={!admin ? "Only a workspace admin can connect a cloud." : missing ? "Fill every required field." : invalid ? "Correct the invalid identifiers." : "Another action is running."}
         onClick={() => void call("create", ENDPOINT, body, (a) => {
           const trust = a.data?.trust as { subject?: string; steps?: unknown } | undefined;
           return { tone: a.ok ? "ok" : "err", title: a.ok ? "Connection saved, not verified yet" : "Not saved",

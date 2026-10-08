@@ -52,6 +52,7 @@ export const CAPABILITIES = {
   "firewall.inspect": def({ name: "firewall.inspect", title: "Inspect firewall rules", mutates: false, risk: "low", defaultAutonomy: 0, scopeLevel: "environment", integrationScope: "read" }),
 
   /* ------------------------------ planning ----------------------------- */
+  "connection.plan": def({ name: "connection.plan", title: "Plan a runner connection change", mutates: false, risk: "low", defaultAutonomy: 0, scopeLevel: "project", integrationScope: "plan" }),
   "infrastructure.plan": def({ name: "infrastructure.plan", title: "Plan an infrastructure change", mutates: false, risk: "low", defaultAutonomy: 1, scopeLevel: "environment", integrationScope: "plan" }),
   "placement.solve": def({ name: "placement.solve", title: "Solve placement", mutates: false, risk: "low", defaultAutonomy: 0, scopeLevel: "project", integrationScope: "plan" }),
 

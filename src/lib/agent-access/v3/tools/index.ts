@@ -28,6 +28,7 @@ import { compareRevisions, estimateCost, getCapabilities, getTopology } from "./
 import { planChange, prepareDeploy, restartService, scaleService } from "./propose";
 import { recommendPlacementTool } from "./placement";
 import { reviewTeardown } from "./teardown-review";
+import { planRunnerConnection } from "./connections";
 
 type Handler = (args: never, ctx: ToolContext) => Promise<ToolOutput>;
 
@@ -35,6 +36,7 @@ const HANDLERS: Record<ToolName, Handler> = {
   zenith_get_topology: getTopology as Handler,
   zenith_get_capabilities: getCapabilities as Handler,
   zenith_plan_change: planChange as Handler,
+  zenith_plan_runner_connection: planRunnerConnection as Handler,
   zenith_review_teardown: reviewTeardown as Handler,
   zenith_prepare_deploy: prepareDeploy as Handler,
   zenith_execute_approved_operation: executeApprovedOperation as Handler,
@@ -66,7 +68,7 @@ export async function invokeTool(name: string, rawArgs: unknown, options: Invoke
   requirePluginTool(options.principal, tool.name);
   requireScope(options.principal, tool.name, tool.requiredScope);
 
-  // All fifteen strict schemas have one of these two explicit scope shapes.
+  // Every strict schema has one of these two explicit scope shapes.
   const args = TOOL_SCHEMAS[tool.name].parse(rawArgs ?? {}) as { target: TargetLike } | { workspaceId: string };
   // Check the explicit target before even resolving the broker or entering a
   // product-store snapshot. Grant-restricted ids must never touch tenant data.

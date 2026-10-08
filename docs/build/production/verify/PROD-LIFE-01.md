@@ -1,5 +1,291 @@
 # PROD-LIFE-01 Connection administration lifecycle
 
+## J7 UI and registry follow-up, 8 October 2026
+
+Base: `9738d00b`, the orchestrator's committed J7 packet. The owner explicitly
+expanded J7 to finish the connection UI, CLI confirmation page and central
+registry joins. This section supersedes the original packet's UI/registry join
+and browser instructions below. Historical command receipts remain intact.
+
+The requested runner lifecycle build is complete. No requirement is marked
+verified. AWS, GCP, Azure, OCI and Kubernetes have identifier-only customer
+runner forms with explicit custody; GCP/Azure preserve their native WIF choice.
+All runner cards rotate their runner binding, preserve staged access until
+promotion, verify readiness and require an exact id for terminal revocation.
+Inputs are labelled, provider buttons expose selection, and results/errors
+use status/alert roles and the existing UI components.
+
+Runner CLI creation and rotate/promote/abort hand off the exact validated draft
+to `/platform/connections/confirm#...`, with a selected CLI workspace bound
+when provided. A fragment stays out of HTTP requests and access logs. Opening
+the page performs no mutation. The current browser role and workspace govern
+confirmation; missing/revoked/stale targets are refused. Review must be checked
+explicitly, revocation also requires typing the id, and a changed fragment
+clears consent and ignores an earlier request's eventual answer.
+
+`connection.createRunner` now loads centrally. The shared lifecycle plans show
+human confirmation for access changes and describe runner verification's actual
+scope. Mutation actions stay unmapped for agent execution and refuse Navigator
+and integration contexts. The generic action HTTP endpoint uses the existing
+browser guard for createRunner/rotate/promote/abort, as the REST routes do.
+
+`connection.proposeRunner` supplies an unapproved identifier-only review draft,
+including in Navigator read-only plan mode. MCP v3 exposes it through the new
+`zenith_plan_runner_connection` read tool and `connection.plan` capability.
+The real broker checks current membership, project grant, plan scope, plugin
+allowlist and policy before invoking this fixed non-mutating registry helper.
+Model-supplied target action ids are never executed. It creates no connection,
+durable operation, approval or execution grant. Normal read policy audit events
+remain. Human confirmation calls the existing lifecycle endpoints; there is no
+agent execution adapter, credential fallback or new approval subsystem.
+
+### File manifest and scope expansion
+
+33 files changed or added. The following minimal files outside the original
+runner/route/CLI paths are included under the owner's follow-up authorization:
+
+| File | Change and reason |
+|---|---|
+| `src/app/(product)/platform/connections/connection-admin.tsx` | Five runner forms, custody, runner rotation, accurate verification scope, semantic result feedback |
+| `src/app/(product)/platform/connections/confirm/page.tsx` (new) | Current-session workspace/role/connection loader for browser review |
+| `src/app/(product)/platform/connections/confirm/confirmation.tsx` (new) | Exact inert draft review, explicit consent, role/state refusal, exact lifecycle calls |
+| `tests/screens/platform/runner-connections.test.tsx` (new) | Five-provider form/lifecycle DOM contracts |
+| `tests/screens/platform/runner-confirmation.test.tsx` (new) | Confirmation, stale draft, role/workspace and refusal DOM contracts |
+| `src/lib/actions/defs/index.ts` | Central runner action registration |
+| `src/lib/actions/defs/connection-lifecycle.ts` | Runner readiness preview and access-change confirmation metadata |
+| `src/app/api/actions/[actionId]/route.ts` | Same browser-only boundary for central access-changing actions |
+| `src/lib/capabilities/catalog.ts` | Read-only `connection.plan` capability |
+| `src/lib/capabilities/action-bridge.ts` | Only the read-only proposal maps for agents |
+| `src/lib/agent-access/v3/connection-schema.ts` (new) | Strict MCP outer action/target draft input |
+| `src/lib/agent-access/v3/tools/connections.ts` (new) | Policy-scoped central draft helper and browser URL |
+| `src/lib/agent-access/v3/tools/index.ts` | Semantic tool dispatcher registration |
+| `src/lib/agent-access/v3/contract.ts` | Tool name and explicit human-confirmation instructions |
+| `src/lib/agent-access/v3/catalog.ts` | Discoverable plan-scope tool, schema and read hints |
+| `tests/agent-v3/runner-connections.test.ts` (new) | Real broker/signer draft, scope, policy, plugin, secret and authority contracts |
+| `tests/agent-v3/catalog.test.ts` | Exact additive tool inventory and plan-scope discovery |
+| `tests/agent-v3/golden/catalog.json` | Pin new tool/version/digest; existing tool digests unchanged |
+| `tests/agent-v3/support.ts` | Valid project-scoped args for the new tool |
+| `tests/agent-v3/tenancy.test.ts` | Exercise each tool's declared target dimensions, retaining all existing environment checks |
+| `tests/capabilities/action-bridge.test.ts` | Exact agent-refused mutation inventory includes createRunner |
+| `docs/platform/MCP.md` | Generated catalog and draft/human confirmation contract |
+
+Original-scope files and required acceptance documentation:
+
+| File | Change |
+|---|---|
+| `src/lib/connections/handoff.ts` (new) | Shared strict draft validation, bounded fragment roundtrip and deterministic REST mapping |
+| `src/lib/connections/runner-action.ts` | Central read-only draft definition and human-only create plan |
+| `src/cli/main.ts` | Exact local draft handoff with optional workspace binding; no submission |
+| `tests/cli/connections.test.ts` | All five provider and lifecycle URL roundtrips, exact input/workspace, exit 3, no requests |
+| `tests/connections/runner-inputs.ts` (new) | Shared public identifier fixtures and UI view factory |
+| `tests/connections/runner-action-registry.test.ts` (new) | Actual central registration, Navigator/integration refusal and inert plans |
+| `tests/connections/runner-routes.test.ts` | Direct generic action lifecycle and browser-guard contracts, both SQL lanes |
+| `tests/connections/runner-browser.test.ts` | Real gated all-five-provider CLI confirmation and ordinary form journeys |
+| `docs/platform/CLI.md` | Exact browser handoff and readiness scope |
+| `docs/build/production/ledger.json` | LIFE-01 stays implementation_complete_verification_pending; joins completed, operated evidence pending |
+| `docs/build/production/verify/PROD-LIFE-01.md` | This manifest, receipts and verifier instructions |
+
+No dependency, migration, aggregate SQL, execution-core or Wave 5 changes.
+No deviation from the expanded handoff. All changes remain uncommitted for
+the orchestrator. The J1/J2 startup integration remains a verifier prerequisite.
+
+### Follow-up Windows command receipts
+
+Every shell prepended `C:\Users\user\.local\sdk\node22` to PATH. The following
+are the exact validation commands; attempts overlap and must not be summed.
+Latest distinct cases: **295 passed, 0 failed, 42 gated** across 16 files.
+The 42 gates are 37 native PostgreSQL cases and five real browser cases.
+
+```sh
+# F1
+npx vitest run tests/screens/platform/runner-connections.test.tsx tests/screens/platform/runner-confirmation.test.tsx tests/cli/connections.test.ts --no-file-parallelism --maxWorkers=2
+# F2
+npx vitest run tests/agent-v3/runner-connections.test.ts tests/agent-v3/catalog.test.ts tests/agent-v3/read.test.ts tests/agent-v3/schemas.test.ts tests/agent-v3/tenancy.test.ts tests/agent-v3/scope-catalog.test.ts tests/capabilities/action-bridge.test.ts tests/connections/runner-action-registry.test.ts --no-file-parallelism --maxWorkers=2
+# F3
+npx vitest run tests/agent-v3/runner-connections.test.ts tests/connections/runner-routes.test.ts tests/connections/lifecycle.test.ts tests/connections/runner-browser.test.ts --no-file-parallelism --maxWorkers=2
+# F4
+npx vitest run tests/screens/platform/runner-connections.test.tsx tests/screens/platform/runner-confirmation.test.tsx tests/cli/connections.test.ts tests/agent-v3/runner-connections.test.ts --no-file-parallelism --maxWorkers=2
+# F5
+npx vitest run tests/agent-v3/runner-connections.test.ts tests/agent-v3/catalog.test.ts tests/agent-v3/read.test.ts tests/agent-v3/schemas.test.ts tests/agent-v3/tenancy.test.ts tests/agent-v3/scope-catalog.test.ts tests/capabilities/action-bridge.test.ts tests/connections/runner-action-registry.test.ts tests/agent-v3/protocol.test.ts tests/agent-v3/sdk.test.ts --no-file-parallelism --maxWorkers=2
+# F6
+npx vitest run tests/connections/runner-routes.test.ts tests/connections/lifecycle.test.ts tests/connections/runner-browser.test.ts --no-file-parallelism --maxWorkers=2
+```
+
+| Attempt | Passed | Failed | Skipped | Result |
+|---|---:|---:|---:|---|
+| F1 | 43 | 0 | 0 | Initial DOM and CLI contracts passed |
+| F2 | 131 | 7 | 0 | New MCP fixture assumptions incorrect: omitted policy audit event and wrong existing scope/plugin error names |
+| F3 | 78 | 6 | 42 | Remaining new fixture used an array instead of the harness's two workflow-start collections; SQL/route and lifecycle cases passed |
+| F4 | 59 | 0 | 0 | Corrected MCP contracts plus DOM and all-five-provider CLI passed |
+| F5 | 180 | 0 | 0 | Registry, broker, catalog, tenancy, protocol and SDK passed |
+| F6 | 70 | 0 | 42 | Final PGlite/route/lifecycle passed; native/browser gates retained |
+
+Expectation changes, each justified by the contract:
+
+- The CLI's old generic URL assertions now require an exact confirmation
+  fragment, input, selected workspace and no query. Exit 3 and zero-request
+  assertions remain. Nonrunner guided creation retains its original URL check.
+- Catalog count 16 becomes 17 and the golden/generated table adds only the new
+  semantic tool. The exact registry refusal inventory adds createRunner; no
+  execution mapping or existing gate is removed.
+- The tenancy matrix takes dimensions from each declared target. Existing
+  environment-scoped tools keep all three dimensions; the new strict
+  project-scoped tool has no environment member.
+- The older never-run browser case expected a disabled revoked card, but
+  `listConnections` and the default page exclude revoked rows. It now proves
+  terminal status by independent GET and exclusion from the operated active UI.
+  The single-provider generic handoff check becomes an exact five-provider
+  confirmation roundtrip, preserving create/verify/stage/promote/revoke checks.
+- New MCP fixture assertions require the actual `policy.evaluated` read audit
+  event, unchanged `insufficient_scope`/`plugin_capability_denied` error codes,
+  and both empty `deploy`/`dayTwo` start collections. They still prove no
+  operation proposal, approval or execution; suppressing audits would violate
+  the requirement. These repairs change fixture assumptions, not production.
+
+Lint (same 28 files on both full attempts):
+
+```sh
+npx eslint 'src/app/(product)/platform/connections/connection-admin.tsx' 'src/app/(product)/platform/connections/confirm/page.tsx' 'src/app/(product)/platform/connections/confirm/confirmation.tsx' 'src/app/api/actions/[actionId]/route.ts' src/cli/main.ts src/lib/actions/defs/index.ts src/lib/actions/defs/connection-lifecycle.ts src/lib/agent-access/v3/catalog.ts src/lib/agent-access/v3/contract.ts src/lib/agent-access/v3/connection-schema.ts src/lib/agent-access/v3/tools/index.ts src/lib/agent-access/v3/tools/connections.ts src/lib/capabilities/action-bridge.ts src/lib/capabilities/catalog.ts src/lib/connections/runner-action.ts src/lib/connections/handoff.ts tests/agent-v3/catalog.test.ts tests/agent-v3/support.ts tests/agent-v3/tenancy.test.ts tests/agent-v3/runner-connections.test.ts tests/capabilities/action-bridge.test.ts tests/cli/connections.test.ts tests/connections/runner-inputs.ts tests/connections/runner-action-registry.test.ts tests/connections/runner-browser.test.ts tests/connections/runner-routes.test.ts tests/screens/platform/runner-connections.test.tsx tests/screens/platform/runner-confirmation.test.tsx
+# Final check after the browser harness type fix
+npx eslint tests/connections/runner-browser.test.ts
+```
+
+Full lint first: 1 error, 0 warnings (unused previous target fixture import).
+Corrected full lint: 0 errors, 0 warnings. Final harness lint: 0 errors,
+0 warnings. No assertions were changed for lint.
+
+```sh
+bash Z:/Projects/Spawned.ai/zenith-wt/.resume/codex/tsc-serial.sh
+```
+
+Two serialized attempts only. First: exit 1, one TS2345 in the gated harness
+because optional custody was passed to Playwright's selectOption. Normalized
+the harness input to the existing local_only default, ensuring CLI/form exact
+payload parity as well. Second: exit 0, zero diagnostics. No compiler or lock
+bypass. Tests requiring servers or browsers did not run during typechecking.
+
+Other commands:
+
+```sh
+node C:/Users/user/.agents/skills/impeccable/scripts/context.mjs --target 'src/app/(product)/platform/connections/connection-admin.tsx'
+node C:/Users/user/.agents/skills/impeccable/scripts/detect.mjs --json 'src/app/(product)/platform/connections/connection-admin.tsx' 'src/app/(product)/platform/connections/confirm/confirmation.tsx' 'src/app/(product)/platform/connections/confirm/page.tsx'
+npx --no-install tsx --tsconfig tsconfig.json C:/Users/user/AppData/Local/Temp/zenith-j7-catalog.ts
+Remove-Item -LiteralPath 'C:\Users\user\AppData\Local\Temp\zenith-j7-catalog.ts'
+git diff --check
+```
+
+Context inspection found the incumbent design and pre-existing product/config
+schema drift, which this narrow join does not edit. Detector: exit 0, zero
+findings (`[]`). Temporary catalog renderer: exit 0, 17 digests/table entries
+generated, subsequently checked by F5; no package installation. Its first
+PowerShell multiline `npx --no-install tsx --tsconfig tsconfig.json -e
+$j7CatalogScript` attempt exited 0 but produced no artifact and is not generation
+evidence. The same renderer was then executed from a temporary file. The file
+is removed after use (cleanup exit 0). All three `git diff --check` invocations
+passed, zero whitespace errors.
+
+Read-only `git status --short`, `git log --oneline -10`, `git diff --stat`,
+`git diff --numstat`, targeted `git diff`, `rg`, `rg --files`, and `Get-Content`
+inspected requirements, skills and source. Filename probes for absent
+connections/read test files, unmerged J1/J2 verification docs and runner docs
+were corrected or recorded as unavailable; two malformed PowerShell read/rg
+arguments were corrected. These probes are not verification cases.
+
+### Exact Mac verifier commands and pending evidence
+
+Node 22, one lane at a time. F4, F5 and F6 above are the exact pure/PGlite
+commands to rerun in the merged checkout. Whole-repo typecheck on the Mac is
+`npx tsc --noEmit -p .`; the Windows builder uses only the serializer above.
+
+Native PostgreSQL: use the disposable one-container startup/role bootstrap
+in the original J7 section below, with its 384 MiB memory limit, one CPU,
+64 MiB shared_buffers and 12 connections. Keep its generated local password
+private and never use a shared production database. Then run:
+
+```sh
+export ZENITH_TEST_PLATFORM_PG_URL="postgresql://postgres:$j7Password@127.0.0.1:5547/zenith_runner"
+npx vitest run tests/connections/runner-routes.test.ts --no-file-parallelism --maxWorkers=2
+unset ZENITH_TEST_PLATFORM_PG_URL
+```
+
+Expected: **75 passed, 0 failed, 0 skipped** (38 PGlite and 37 native). The native
+lane still uses explicit product identity authority fixtures; it proves native
+SQL/handler contracts, not operated Supabase Auth or default-stack behavior.
+Windows result: **not run (needs PostgreSQL/Docker)**.
+
+Browser: start the owner J1 lean app/Auth/product/platform stack, and the J2
+genuine registered runner processes. The J1/J2 startup launcher/profile is not
+present in this base and must be integrated before operated acceptance; do not
+substitute the legacy full compose for the Mac's 4 GiB Docker budget. J7's join
+interface is a loopback app URL, a current human admin storage state and the
+following private identifier fixture. No live cloud service is needed or called.
+Runner verification remains readiness evidence only.
+
+Use two dedicated active, heartbeating registrations for each provider (two
+shared registrations are also sufficient if they genuinely advertise every
+required handler and match custody). Required advertisements: aws.http for AWS,
+tofu.run for GCP/Azure, oci.http for OCI, k8s.http for Kubernetes. Match each
+input's runnerCustody to the genuine registration. Do not seed registry rows or
+intercept browser requests. Keep J2's actual local test credentials private.
+If J2 has prepared private configurations and browser-issued one-time token
+files, the real runner registration/start commands from the operator guide are:
+
+```sh
+# Run from the repository root with a private owned fixture directory.
+# Reuse J2's built native ARM64 binary, or build locally without downloads:
+GOTOOLCHAIN=local go -C go build -o "$j7Private/zenith-runner" ./cmd/zenith-runner
+"$j7Private/zenith-runner" --config "$j7Private/first.yaml" check
+"$j7Private/zenith-runner" --config "$j7Private/second.yaml" check
+"$j7Private/zenith-runner" --config "$j7Private/first.yaml" register --token-file "$j7Private/first.token"
+"$j7Private/zenith-runner" --config "$j7Private/second.yaml" register --token-file "$j7Private/second.token"
+"$j7Private/zenith-runner" --config "$j7Private/first.yaml" run >"$j7Private/first.log" 2>&1 &
+j7FirstPid=$!
+"$j7Private/zenith-runner" --config "$j7Private/second.yaml" run >"$j7Private/second.log" 2>&1 &
+j7SecondPid=$!
+```
+
+J2 owns configuration/bootstrap, enabled local job handlers and safe local
+test credentials. Do not run these processes against a live cloud or shared
+installation. Reuse existing dedicated registered processes if already running.
+The lifecycle suite never dispatches a cloud job. Browser and these two small
+native processes run serially with the lean app; kind, observability and extra
+workers are not needed by this lifecycle/readiness harness. Stop only these
+owned PIDs after verification (`kill "$j7FirstPid" "$j7SecondPid"`).
+
+Export the actual signed-in local admin's Playwright storage state to a private
+file, with any J3-required step-up satisfied. The browser fixture format is now
+`{"cases": [{"input": {...CreateRunnerInput}, "nextRunnerId": "..."}, ...]}`,
+exactly one case for each of aws/gcp/azure/oci/kubernetes, mode runner. Each
+input holds the ordinary provider identifiers and its first registered runner
+id; nextRunnerId must be another active registration. Optional custody defaults
+to local_only. The shapes are published in `src/lib/connections/schemas.ts` and
+the CLI guide; no secret, bearer or approval field belongs in this JSON.
+
+```sh
+export ZENITH_TEST_RUNNER_BROWSER=1
+export ZENITH_TEST_BROWSER_BASE_URL=http://127.0.0.1:3000
+export ZENITH_TEST_BROWSER_STORAGE_STATE="$j7Private/local-admin-storage-state.json"
+export ZENITH_TEST_RUNNER_BROWSER_INPUT_FILE="$j7Private/j7-runner-identifiers.json"
+export ZENITH_TEST_CHROMIUM_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+npx vitest run tests/connections/runner-browser.test.ts --no-file-parallelism --maxWorkers=2
+unset ZENITH_TEST_RUNNER_BROWSER ZENITH_TEST_BROWSER_BASE_URL ZENITH_TEST_BROWSER_STORAGE_STATE ZENITH_TEST_RUNNER_BROWSER_INPUT_FILE ZENITH_TEST_CHROMIUM_PATH
+```
+
+Expected: **5 passed, 0 failed, 0 skipped**. Each real case proves CLI sends no
+request, page load is inert, a human confirms exact creation, UI readiness
+verification, staged rotation without early switching, verified promotion,
+terminal revoke with independent readback, and ordinary provider form creation
+with exact body and subsequent revocation. Explicit gate with missing inputs
+fails; there are no route mocks, injected stores or fake browser identities.
+Windows result: **not run (needs J1/J2/Auth/Chromium browser)**.
+
+Default topology/pooler/real human-agent operation acceptance stays with J2 and
+the Mac verifier. GCP/Azure/Kubernetes runner provider transports are still
+explicitly refused by their existing callers; this join adds no execution
+transport or cloud permission proof. Live cloud acceptance remains deferred by
+the owner. The LIFE-01 ledger status remains
+`implementation_complete_verification_pending` with state in_progress.
+
 ## J7 runner connections, 8 October 2026
 
 J7 adds strict, identifier-only `mode: "runner"` creation for AWS, GCP, Azure,
@@ -52,7 +338,7 @@ No migrations, SQL snapshots, dependencies or execution-core changes.
 | UI/API/CLI operated join | Gated real OCI UI journey in `runner-browser.test.ts`, using CLI handoff, visible Save/Verify/Rotate/Promote/Revoke controls and independent GET readback; other runner UI modes require owner join below |
 | Audit and replay | Exact platform event sequence/actor plus product audit; creation idempotency and platform event outage rollback |
 
-### Mac commands
+### Mac commands (original packet; follow-up above supersedes counts and browser input)
 
 Use Node 22. Run each lane serially. PGlite/pure contract lane:
 
@@ -126,7 +412,7 @@ profile above, and the J1 stack must fit the verifier's 4 GiB Docker profile.
 J1/J2 startup scripts are not in this base checkout; the orchestrator must merge
 those jobs before this command is runnable. Browser UI acceptance is pending.
 
-### Owner joins and open acceptance
+### Owner joins and open acceptance (historical; UI/registry joins completed above)
 
 - UI component ownership is outside J7. Update
   `src/app/(product)/platform/connections/connection-admin.tsx` to offer explicit

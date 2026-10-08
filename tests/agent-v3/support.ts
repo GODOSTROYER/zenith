@@ -215,6 +215,7 @@ export async function approve(h: Harness, id: string, proposalDigest: string) {
 export function argsFor(name: ToolName, operationId = "op-missing", expectedDigest = "a".repeat(64)): Record<string, unknown> {
   const base = { target: { ...target } };
   switch (name) {
+    case "zenith_plan_runner_connection": return { target: { workspaceId: ids.ws, projectId: ids.project }, action: "connection.createRunner", input: { provider: "oci", mode: "runner", runnerId: "run_registered", region: "us-ashburn-1", tenancyOcid: "ocid1.tenancy.oc1..aaaaaaaafixture", compartmentOcid: "ocid1.compartment.oc1..aaaaaaaafixture" } };
     case "zenith_review_teardown": return { ...base, idempotencyKey: "intent-review-0001" };
     case "zenith_plan_change": return { ...base, revisionId: ids.revision, description: "Propose this saved change.", idempotencyKey: "intent-plan-0001" };
     case "zenith_prepare_deploy": return { ...base, revisionId: ids.revision, idempotencyKey: "intent-deploy-0001" };

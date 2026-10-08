@@ -28,6 +28,9 @@ const { POST: revoke } = await import("@/app/api/platform/v1/connections/[id]/re
 const { POST: promote } = await import("@/app/api/platform/v1/connections/[id]/rotation/promote/route");
 const { POST: abort } = await import("@/app/api/platform/v1/connections/[id]/rotation/abort/route");
 const { POST: register } = await import("@/app/api/platform/v1/runners/register/route");
+const { POST: centralAction } = await import("@/app/api/actions/[actionId]/route");
+const { registerAllActions } = await import("@/lib/actions/defs");
+registerAllActions();
 const { openPlatformDb, repos } = await import("@/lib/controlplane/db");
 const { resetDb, q, readAudit } = await import("@/lib/db/store");
 const { setBridgeDepsForTests } = await import("@/lib/bridge/deps");
@@ -87,6 +90,40 @@ function suite(native: boolean) {
       expect(res.status).toBe(201); expect(res.body.ok, JSON.stringify(res.body)).toBe(true);
       return data(res).connectionId;
     };
+    const action = async (actionId: string, input: unknown, headers: Record<string, string> = {}, mode = "execute") => call(centralAction, new NextRequest(`${origin}/api/actions/${actionId}`, { method: "POST", headers: { origin, "content-type": "application/json", ...headers }, body: JSON.stringify({ mode, input }) }), { actionId });
+    it.each(["connection.createRunner", "connection.rotate", "connection.promoteRotation", "connection.abortRotation"])("central %s has the same browser-only boundary", async actionId => {
+      for (const headers of [...invalidBrowserHeaders, { authorization: `Bearer ${randomBytes(24).toString("base64url")}` }]) expect((await action(actionId, {}, headers)).status).toBe(403);
+      auth.unavailable = true; expect((await action(actionId, {})).status).toBe(503); auth.unavailable = false;
+      auth.user = null; expect((await action(actionId, {})).status).toBe(401);
+      expect(readAudit().filter(row => row.actionId === actionId)).toEqual([]);
+    });
+    it("central create/verify/rotate/promote/abort/revoke preserve lifecycle and human confirmation", async () => {
+      const first = await runner(), next = await runner();
+      const made = await action("connection.createRunner", body("aws", first.id));
+      expect(made.status).toBe(200);
+      const created = made.body.result as { ok: boolean; data: { connectionId: string } };
+      expect(created.ok).toBe(true); const id = created.data.connectionId;
+      const checkedPlan = await action("connection.verify", { connectionId: id }, {}, "plan");
+      expect(JSON.stringify(checkedPlan.body.plan)).toContain("readiness pass does not prove cloud identity");
+      expect((await action("connection.verify", { connectionId: id })).body.result).toMatchObject({ ok: true });
+      const rotationPlan = await action("connection.rotate", { connectionId: id, patch: { runnerId: next.id } }, {}, "plan");
+      expect(rotationPlan.body.plan).toMatchObject({ requiredRole: "admin", requiresApproval: true });
+      const staged = await action("connection.rotate", { connectionId: id, patch: { runnerId: next.id } });
+      const candidate = staged.body.result as { ok: boolean; data: { rotationId: string } };
+      expect(candidate.ok).toBe(true); expect((await repos.connections.get(sql, workspaceId, id))?.config).toMatchObject({ runnerId: first.id });
+      for (const actionId of ["connection.promoteRotation", "connection.abortRotation"]) expect((await action(actionId, { connectionId: id, rotationId: candidate.data.rotationId }, {}, "plan")).body.plan).toMatchObject({ requiresApproval: true, requiredRole: "admin" });
+      expect((await action("connection.abortRotation", { connectionId: id, rotationId: candidate.data.rotationId })).body.result).toMatchObject({ ok: true });
+      const rotated = await action("connection.rotate", { connectionId: id, patch: { runnerId: next.id } });
+      const rotationId = (rotated.body.result as { data: { rotationId: string } }).data.rotationId;
+      expect((await action("connection.promoteRotation", { connectionId: id, rotationId })).body.result).toMatchObject({ ok: true });
+      expect((await repos.connections.get(sql, workspaceId, id))?.config).toMatchObject({ runnerId: next.id });
+      auth.user = { id: "editor", name: "Editor", email: "editor@zenith.test" };
+      expect((await action("connection.revoke", { connectionId: id })).body.result).toMatchObject({ ok: false });
+      auth.user = { id: "admin", name: "Admin", email: "admin@zenith.test" };
+      expect((await action("connection.revoke", { connectionId: id })).body.result).toMatchObject({ ok: true });
+      expect((await repos.connections.get(sql, workspaceId, id))?.status).toBe("revoked");
+      expect(readAudit().filter(row => row.actionId.startsWith("connection.")).map(row => row.actionId)).toEqual(expect.arrayContaining(["connection.createRunner", "connection.verify", "connection.rotate", "connection.promoteRotation", "connection.abortRotation", "connection.revoke"]));
+    });
     it.each(Object.keys(inputs) as Provider[])("creates, verifies, rotates and revokes a %s customer runner through handlers", async provider => {
       const first = await runner(provider), next = await runner(provider);
       const id = await make(provider, first.id);

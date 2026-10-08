@@ -82,6 +82,8 @@ describe("the mapping table", () => {
         "connection.createGcp",
         "connection.createAzure",
         "connection.createOci",
+        // Registered centrally; agents use connection.proposeRunner, never this mutation.
+        "connection.createRunner",
         "connection.verify",
         "connection.revoke",
         "connection.rotate",

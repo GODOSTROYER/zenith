@@ -16,6 +16,8 @@
 import { z } from "zod";
 import { actionRegistry, runAction, IDEM_WINDOW_NOTE } from "@/lib/actions/core";
 import { ApiError, buildCtx, resolveActor, route } from "@/lib/server/context";
+import { assertBrowserSession } from "@/app/api/platform/v1/_lib/browser";
+import { BROKER_HTTP_STATUS, isBrokerError } from "@/lib/capabilities/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,14 @@ const Body = z.object({
 });
 
 export const POST = route<{ actionId: string }>(async (req, { actionId }) => {
+  // These change what Zenith can reach. Even a linked human bearer cannot confirm.
+  if (["connection.createRunner", "connection.rotate", "connection.promoteRotation", "connection.abortRotation"].includes(actionId)) {
+    try { await assertBrowserSession(req); }
+    catch (error) {
+      if (isBrokerError(error)) throw new ApiError(error.message, BROKER_HTTP_STATUS[error.code], { fix: error.fix });
+      throw error;
+    }
+  }
   if (!actionRegistry().has(actionId))
     throw new ApiError(`Unknown action "${actionId}".`, 404, {
       fix: "Use an action id from the catalog in docs/CONTRACTS.md; actions register when the server boots.",

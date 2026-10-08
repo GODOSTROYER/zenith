@@ -2415,7 +2415,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "J7 runner create/readiness verification and direct lifecycle route contracts added; native/browser/live evidence and other-provider runner UI owner join pending.",
+      "implementationNote": "J7 runner lifecycle build complete including all five provider forms, exact CLI/browser confirmation, central actions and policy-scoped MCP review drafts; native PostgreSQL, operated browser/default-stack and live evidence remain verification pending.",
       "evidence": [
         {
           "level": "contract",

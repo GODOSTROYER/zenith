@@ -10,9 +10,9 @@ import { TOOL_NAMES } from "@/lib/agent-access/v3/contract";
 import { argsFor } from "./support";
 
 describe("MCP v3 catalog", () => {
-  it("has exactly the sixteen semantic tools", () => {
+  it("has exactly the seventeen semantic tools", () => {
     expect(TOOL_CATALOG.map((t) => t.name)).toEqual(TOOL_NAMES);
-    expect(TOOL_CATALOG).toHaveLength(16);
+    expect(TOOL_CATALOG).toHaveLength(17);
   });
   it.each(TOOL_CATALOG)("$name publishes its strict input contract, digest and hints", async (tool) => {
     expect(tool.inputSchema.additionalProperties).toBe(false);
@@ -41,6 +41,8 @@ describe("MCP v3 catalog", () => {
     expect(catalogFor(["read"])).not.toContainEqual(expect.objectContaining({ name: "zenith_query_logs" }));
     expect(catalogFor(["read", "logs"])).toContainEqual(expect.objectContaining({ name: "zenith_query_logs" }));
     expect(catalogFor(["read", "plan"])).toContainEqual(expect.objectContaining({ name: "zenith_plan_change" }));
+    expect(catalogFor(["read"])).not.toContainEqual(expect.objectContaining({ name: "zenith_plan_runner_connection" }));
+    expect(catalogFor(["read", "plan"])).toContainEqual(expect.objectContaining({ name: "zenith_plan_runner_connection", access: "read", capability: "connection.plan" }));
     expect(catalogFor(["read"])).not.toContainEqual(expect.objectContaining({ name: "zenith_recommend_placement" }));
     expect(catalogFor(["read", "plan"])).toContainEqual(expect.objectContaining({ name: "zenith_recommend_placement", access: "read", capability: "placement.solve" }));
     expect(catalogFor(["read", "plan"]).some((t) => t.requiredScope === "write")).toBe(false);

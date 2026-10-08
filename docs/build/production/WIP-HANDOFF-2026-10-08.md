@@ -1,3 +1,37 @@
+## GitHub publication context, 8 October 2026
+
+Integrated source before this documentation commit: `22967b64`. Eleven repair commits follow published `65b24ccc6cbc82af9c0cb8f6dfcd261fd717755d`. This checkpoint publishes source and progress context for the building machine, without claiming a green full candidate.
+
+| Exact tested source | Result | Evidence scope |
+|---|---|---|
+| `dd1d4858` | 12 passed / 0 failed / 0 skipped | Mixed-state validation on actual PostgreSQL 16.15, PGlite and memory; owned resources cleaned |
+| `bb54ab16` | 103 / 0 / 0 | Actual PostgreSQL native apply/mixed/maintenance successor, including all six previously failing dispatch fixtures |
+| `bb54ab16` | Install, lockfile integrity, full security audit, compiler and lint passed | Next 15.5.27 and mandatory version-coupled companions; zero known dependency findings, no exception; lint retained three existing vendor warnings |
+| `f38bc8a2` | 348 / 0 / 0 | Strict gate metadata and historical/current requirement identities |
+| `edff0f9f` | Recording 21 / 0 / 1; replay/audit 34 / 0 / 1 | Actual Temporal recording and SDK replay; each run includes one opt-in placeholder skip, not a required scenario waiver |
+| `22967b64` | 21 immutable histories plus manifest committed | Independent inspection: 185 controls, 711 decoded payloads, no recognized credential patterns, home paths or ActivityNotFound failures |
+
+Counts overlap and are not summed. The frozen histories are the first current-source synthetic corpus. They do not prove compatibility with a previous released version or live provider behavior. Two earlier recording attempts remain quarantined privately, unchanged: the first had branch/registration failures; the second had absolute local paths in synthetic error stacks. The accepted correction creates portable synthetic stacks before recording and retains the same thrown error objects and authority checks.
+
+The six dispatch failures were fixture composition errors before approval: the fake world supplied MemorySemanticsStore rather than production's actual PostgreSQL semantics store. The correction preserves durable preapproval binding, explicit reviewed digest, actual audit writes and all six authority controls. No production approval-audit failure was demonstrated.
+
+### Latest complete published CI
+
+Exact `65b24ccc`: all 20 jobs inspected terminal, 17 successful and 3 failed. Main CI: 13 successful / 3 failed. Native worker and native platform runs: all four jobs successful. See [per-job report](verification/CI-2026-10-08-65b24ccc.md).
+
+Failures: supply-chain (Next advisories), platform-postgres (six native dispatch fixtures), verify (one stale source-hash assertion). Their bounded fixes are included in this checkpoint; complete successor CI is still required. Historical unit result remains 21,804 passed / 1 failed / 1,611 skipped; historical platform result remains 3,744 / 6 / 15. Those results are not relabeled green by focused successor checks. Published workflows passed 1,349 / 0 / 0 with all 71 mandatory requirements executed. Native AMD64 and ARM64 workers each passed 22 / 0 / 0. Native Linux systemd and Windows ACL each passed one selected leaf; Windows excluded 15 sibling cases.
+
+### Remaining work and blockers
+
+- Activate committed replay corpus in the existing canonical workflows gate. Independent Astra design review accepted 34 additional literal requirements while preserving all 71 existing IDs, targeting 105. Activation is not implemented in this checkpoint; the selected lane's opt-in placeholder must be removed without weakening default opt-out or negative replay controls.
+- Production Next build remains unverified: the 4 GiB heap attempt crossed the continuous 22 GiB disk floor and stopped (exit143); the 2 GiB heap attempt exhausted its heap (exit1, child SIGABRT). Same-config 3 GiB retry remains pending. Neither result demonstrates a source compilation failure or a passing build.
+- Complete current-source PostgreSQL 1,146-requirement gate, remaining combined gates and fresh pushed CI remain pending. Native100 remains exactly 100.
+- Default Mac stack, browser accessibility, kind and changed-byte packaged acceptance remain open subject to measured capacity. One heavy workload at a time; preserve 18 GiB minimum plus 4 GiB swap headroom. No unrelated Docker prune or deletion.
+- Migration41's nullable JSON CHECK remains an open database defense gap. Application validation does not close it; no migration44 or incompatible old-writer rollout is approved by this checkpoint.
+- Live clouds, paid resources, real DNS/private GitHub App, retention/business decisions and production sign-off remain unapproved. Local disposable default startup on this Mac remains authorized.
+
+All 78 requirements retained: 10 verified / 49 in progress / 19 planned. All four release flags remain false. No requirement promoted from overlapping focused evidence. Source, original failed attempts, private receipts and user files are preserved. Commit author and committer: Arnav Bule <arnav.bule05@gmail.com>. Same branch, normal pull/merge and push, no history rewrite.
+
 ## Approval fixture diagnosis correction and mixed validation, 8 October 2026
 
 The previous publication described six failures as missing approval-audit events after a successful approval. Inspection of the exact failure diffs disproved that description: both c7332a56 and diagnostic63a4192a fail the earlier approved_semantics row assertion before approval executes. Counts97/6/0 are unchanged; the reported stage was wrong. The native fixture inherited MemorySemanticsStore from its fake world while production composition supplies createPlatformSemanticsStore. The corrective fixture must wire the actual PostgreSQL semantics store, preserve preapproval durable binding, explicit human review, actual audit-write proof and all authority controls. No production audit failure has been demonstrated by these attempts.

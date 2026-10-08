@@ -1,3 +1,7 @@
+## Publication checkpoint, 8 October 2026
+
+Source22967b64: native dispatch successor103/0/0, metadata348/0/0, mixed validation12/0/0; Next audit zero known findings. Current-source Temporal corpus21 recorded and34 replay/audit passes, one opt-in placeholder per run. Full build and combined gate remain open. Previous65b CI17 jobs passed/3 failed; fixes now included, fresh publication CI pending. Ledger recomputed:10 verified/49 in progress/19 planned across78; release flags false. Counts overlap. See [updated context](WIP-HANDOFF-2026-10-08.md) and [exact CI jobs](verification/CI-2026-10-08-65b24ccc.md).
+
 ## 8 October 2026: integrated repair publication
 
 Sourcec7332a56: native100100/0/0, historical77/0/0, workflow-intents156/0/0, Temporal/codec30/0/0, metadata345/0/0, marker18/0/0. Counts overlap. Native dispatch successor97/6/0; failed recording19/2/1 quarantined, no frozen corpus acceptance. Ledger10 verified/49 in_progress/19 planned across78; release flagsfalse. Complete successor gates/CI remain open. [Publication context](WIP-HANDOFF-2026-10-08.md).
